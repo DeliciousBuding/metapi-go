@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/deliciousbuding/metapi-go/config"
 )
 
 func TestBrandList_FromRegistry(t *testing.T) {
@@ -36,8 +38,8 @@ func TestSystemProxyTest_UsesProbe(t *testing.T) {
 			"reachable": true, "ok": true, "statusCode": 204, "latencyMs": 12,
 		}
 	}
-	_, r, cfg := setupEdgeTest(t)
-	cfg.SystemProxyUrl = "http://127.0.0.1:9"
+	_, r, _ := setupEdgeTest(t)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.SystemProxyUrl = "http://127.0.0.1:9" })
 	b, _ := json.Marshal(map[string]any{"proxyUrl": "http://127.0.0.1:9"})
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/system-proxy/test", bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
@@ -64,8 +66,8 @@ func TestSystemProxyTest_EmptyProxyURL(t *testing.T) {
 		called = true
 		return map[string]any{"success": true}
 	}
-	_, r, cfg := setupEdgeTest(t)
-	cfg.SystemProxyUrl = ""
+	_, r, _ := setupEdgeTest(t)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.SystemProxyUrl = "" })
 	b, _ := json.Marshal(map[string]any{"proxyUrl": "  "})
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/system-proxy/test", bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
@@ -98,8 +100,8 @@ func TestSystemProxyTest_RejectsForbiddenTargetURL(t *testing.T) {
 		"not-a-url",
 		"ftp://example.com/",
 	}
-	_, r, cfg := setupEdgeTest(t)
-	cfg.SystemProxyUrl = "http://127.0.0.1:9"
+	_, r, _ := setupEdgeTest(t)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.SystemProxyUrl = "http://127.0.0.1:9" })
 	for _, target := range cases {
 		called = false
 		b, _ := json.Marshal(map[string]any{
@@ -133,8 +135,8 @@ func TestSystemProxyTest_CustomSafeTargetURL(t *testing.T) {
 			"reachable": true, "ok": true, "statusCode": 204, "latencyMs": 3,
 		}
 	}
-	_, r, cfg := setupEdgeTest(t)
-	cfg.SystemProxyUrl = "http://127.0.0.1:9"
+	_, r, _ := setupEdgeTest(t)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.SystemProxyUrl = "http://127.0.0.1:9" })
 	want := "https://example.com/healthz"
 	b, _ := json.Marshal(map[string]any{
 		"proxyUrl":  "http://127.0.0.1:9",
@@ -163,8 +165,8 @@ func TestSystemProxyTest_OmittedTargetUsesDefault(t *testing.T) {
 			"reachable": true, "ok": true, "statusCode": 204, "latencyMs": 1,
 		}
 	}
-	_, r, cfg := setupEdgeTest(t)
-	cfg.SystemProxyUrl = "http://127.0.0.1:9"
+	_, r, _ := setupEdgeTest(t)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.SystemProxyUrl = "http://127.0.0.1:9" })
 	// Empty targetUrl must keep the default gstatic probe target.
 	b, _ := json.Marshal(map[string]any{
 		"proxyUrl":  "http://127.0.0.1:9",

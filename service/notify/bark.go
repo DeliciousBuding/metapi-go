@@ -14,7 +14,7 @@ type BarkChannel struct{}
 
 func (c *BarkChannel) Name() string { return "bark" }
 
-func (c *BarkChannel) Send(cfg *config.Config, title, message, level, timeFootnote string) error {
+func (c *BarkChannel) Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error {
 	if !cfg.BarkEnabled || cfg.BarkUrl == "" {
 		return fmt.Errorf("bark not configured")
 	}

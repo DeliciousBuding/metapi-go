@@ -17,7 +17,7 @@ type WebhookChannel struct{}
 
 func (c *WebhookChannel) Name() string { return "webhook" }
 
-func (c *WebhookChannel) Send(cfg *config.Config, title, message, level, timeFootnote string) error {
+func (c *WebhookChannel) Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error {
 	if !cfg.WebhookEnabled || cfg.WebhookUrl == "" {
 		return fmt.Errorf("webhook not configured")
 	}

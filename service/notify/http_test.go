@@ -136,19 +136,19 @@ func TestNotifyChannelsUseBoundedHTTPClient(t *testing.T) {
 		}),
 	}
 
-	if err := (&BarkChannel{}).Send(&config.Config{
+	if err := (&BarkChannel{}).Send(&config.RuntimeSettings{
 		BarkEnabled: true,
 		BarkUrl:     "https://bark.example",
 	}, "title", "message", "info", "time"); err != nil {
 		t.Fatalf("BarkChannel.Send: %v", err)
 	}
-	if err := (&ServerChanChannel{}).Send(&config.Config{
+	if err := (&ServerChanChannel{}).Send(&config.RuntimeSettings{
 		ServerChanEnabled: true,
 		ServerChanKey:     "serverchan-key",
 	}, "title", "message", "warning", "time"); err != nil {
 		t.Fatalf("ServerChanChannel.Send: %v", err)
 	}
-	if err := (&WebhookChannel{}).Send(&config.Config{
+	if err := (&WebhookChannel{}).Send(&config.RuntimeSettings{
 		WebhookEnabled: true,
 		WebhookUrl:     "https://webhook.example/hook",
 	}, "title", "message", "error", "time"); err != nil {
@@ -181,7 +181,7 @@ func TestTelegramRejectsOversizedResponseBody(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := (&TelegramChannel{}).Send(&config.Config{
+	err := (&TelegramChannel{}).Send(&config.RuntimeSettings{
 		TelegramEnabled:    true,
 		TelegramBotToken:   "bot-token",
 		TelegramChatId:     "123",
@@ -208,7 +208,7 @@ func TestTelegramRejectsCrossOriginRedirect(t *testing.T) {
 	}))
 	t.Cleanup(source.Close)
 
-	err := (&TelegramChannel{}).Send(&config.Config{
+	err := (&TelegramChannel{}).Send(&config.RuntimeSettings{
 		TelegramEnabled:    true,
 		TelegramBotToken:   "bot-token",
 		TelegramChatId:     "123",

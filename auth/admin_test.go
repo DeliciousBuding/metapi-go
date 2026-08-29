@@ -431,18 +431,24 @@ func TestStripPort_IPv6BracketNoPort(t *testing.T) {
 // AdminAuth middleware integration tests
 // ---------------------------------------------------------------------------
 
-// newTestConfig returns a minimal config for testing.
-func newTestConfig(authToken string, allowlist []string) *config.Config {
-	return &config.Config{
+// newTestConfig publishes the admin auth runtime settings (token + IP
+// allowlist) through the global atomic RuntimeSettings snapshot that
+// AdminAuth reads at wiring/request time, and returns the snapshot.
+func newTestConfig(t *testing.T, authToken string, allowlist []string) *config.RuntimeSettings {
+	t.Helper()
+	rt := &config.RuntimeSettings{
 		AuthToken:        authToken,
 		AdminIpAllowlist: allowlist,
 	}
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	return rt
 }
 
 // adminTestHelper runs the AdminAuth middleware against a request and returns the response.
-func adminTestHelper(t *testing.T, cfg *config.Config, method, path, authHeader, remoteAddr, xff string) *httptest.ResponseRecorder {
+func adminTestHelper(t *testing.T, rt *config.RuntimeSettings, method, path, authHeader, remoteAddr, xff string) *httptest.ResponseRecorder {
 	t.Helper()
-	middleware := AdminAuth(cfg, nil)
+	middleware := AdminAuth(nil)
 
 	nextCalled := false
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -470,8 +476,8 @@ func adminTestHelper(t *testing.T, cfg *config.Config, method, path, authHeader,
 }
 
 func TestAdminAuth_ValidToken(t *testing.T) {
-	cfg := newTestConfig("my-secret-token", nil)
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer my-secret-token", "", "")
+	rt := newTestConfig(t, "my-secret-token", nil)
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer my-secret-token", "", "")
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
@@ -479,8 +485,8 @@ func TestAdminAuth_ValidToken(t *testing.T) {
 
 func TestAdminAuth_ContextSetOnSuccess(t *testing.T) {
 	// Verify that IsAdmin is set in the request context after successful auth.
-	cfg := newTestConfig("my-secret-token", nil)
-	middleware := AdminAuth(cfg, nil)
+	newTestConfig(t, "my-secret-token", nil) // publishes the admin auth runtime
+	middleware := AdminAuth(nil)
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !IsAdmin(r.Context()) {
@@ -502,8 +508,8 @@ func TestAdminAuth_ContextSetOnSuccess(t *testing.T) {
 }
 
 func TestAdminAuth_WrongToken(t *testing.T) {
-	cfg := newTestConfig("my-secret-token", nil)
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer wrong-token", "", "")
+	rt := newTestConfig(t, "my-secret-token", nil)
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer wrong-token", "", "")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("expected 403, got %d", w.Code)
 	}
@@ -513,8 +519,8 @@ func TestAdminAuth_WrongToken(t *testing.T) {
 }
 
 func TestAdminAuth_MissingAuthorizationHeader(t *testing.T) {
-	cfg := newTestConfig("my-secret-token", nil)
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "", "", "")
+	rt := newTestConfig(t, "my-secret-token", nil)
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "", "", "")
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", w.Code)
 	}
@@ -526,16 +532,16 @@ func TestAdminAuth_MissingAuthorizationHeader(t *testing.T) {
 func TestAdminAuth_EmptyAuthorizationHeader(t *testing.T) {
 	// r.Header.Get returns "" for non-existent headers; we pass "" which means "don't set"
 	// This is equivalent to missing header.
-	cfg := newTestConfig("my-secret-token", nil)
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "", "", "")
+	rt := newTestConfig(t, "my-secret-token", nil)
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "", "", "")
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", w.Code)
 	}
 }
 
 func TestAdminAuth_IPAllowlistExactMatch(t *testing.T) {
-	cfg := newTestConfig("my-secret-token", []string{"192.168.1.100"})
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer my-secret-token",
+	rt := newTestConfig(t, "my-secret-token", []string{"192.168.1.100"})
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer my-secret-token",
 		"192.168.1.100:12345", "")
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 (exact IP match), got %d: %s", w.Code, w.Body.String())
@@ -543,8 +549,8 @@ func TestAdminAuth_IPAllowlistExactMatch(t *testing.T) {
 }
 
 func TestAdminAuth_IPAllowlistExactMismatch(t *testing.T) {
-	cfg := newTestConfig("my-secret-token", []string{"192.168.1.100"})
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer my-secret-token",
+	rt := newTestConfig(t, "my-secret-token", []string{"192.168.1.100"})
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer my-secret-token",
 		"192.168.1.200:12345", "")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("expected 403 (exact IP mismatch), got %d", w.Code)
@@ -555,8 +561,8 @@ func TestAdminAuth_IPAllowlistExactMismatch(t *testing.T) {
 }
 
 func TestAdminAuth_IPAllowlistCIDRMatch(t *testing.T) {
-	cfg := newTestConfig("my-secret-token", []string{"10.0.0.0/8"})
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer my-secret-token",
+	rt := newTestConfig(t, "my-secret-token", []string{"10.0.0.0/8"})
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer my-secret-token",
 		"10.1.2.3:12345", "")
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 (CIDR match), got %d: %s", w.Code, w.Body.String())
@@ -564,8 +570,8 @@ func TestAdminAuth_IPAllowlistCIDRMatch(t *testing.T) {
 }
 
 func TestAdminAuth_IPAllowlistCIDRMismatch(t *testing.T) {
-	cfg := newTestConfig("my-secret-token", []string{"10.0.0.0/8"})
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer my-secret-token",
+	rt := newTestConfig(t, "my-secret-token", []string{"10.0.0.0/8"})
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer my-secret-token",
 		"192.168.1.1:12345", "")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("expected 403 (CIDR mismatch), got %d", w.Code)
@@ -574,8 +580,8 @@ func TestAdminAuth_IPAllowlistCIDRMismatch(t *testing.T) {
 
 func TestAdminAuth_IPAllowlistEmptyAllowsAll(t *testing.T) {
 	// Empty allowlist should skip IP check entirely
-	cfg := newTestConfig("my-secret-token", nil)
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer my-secret-token",
+	rt := newTestConfig(t, "my-secret-token", nil)
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer my-secret-token",
 		"any-ip:12345", "")
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 (empty allowlist), got %d", w.Code)
@@ -583,8 +589,8 @@ func TestAdminAuth_IPAllowlistEmptyAllowsAll(t *testing.T) {
 }
 
 func TestAdminAuth_IPAllowlistEmptySliceAllowsAll(t *testing.T) {
-	cfg := newTestConfig("my-secret-token", []string{})
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer my-secret-token",
+	rt := newTestConfig(t, "my-secret-token", []string{})
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer my-secret-token",
 		"any-ip:12345", "")
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 (empty slice allowlist), got %d", w.Code)
@@ -593,8 +599,8 @@ func TestAdminAuth_IPAllowlistEmptySliceAllowsAll(t *testing.T) {
 
 func TestAdminAuth_IgnoresSpoofedXForwardedForForAllowlist(t *testing.T) {
 	// AdminAuth only trusts RemoteAddr. router.TrustedRealIP owns forwarded-header trust.
-	cfg := newTestConfig("my-secret-token", []string{"10.0.0.1"})
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer my-secret-token",
+	rt := newTestConfig(t, "my-secret-token", []string{"10.0.0.1"})
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer my-secret-token",
 		"192.168.1.1:12345", "10.0.0.1")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("expected 403 (spoofed XFF ignored), got %d: %s", w.Code, w.Body.String())
@@ -602,9 +608,9 @@ func TestAdminAuth_IgnoresSpoofedXForwardedForForAllowlist(t *testing.T) {
 }
 
 func TestAdminAuth_PublicRouteBypass_Health(t *testing.T) {
-	cfg := newTestConfig("my-secret-token", []string{"10.0.0.0/8"})
+	rt := newTestConfig(t, "my-secret-token", []string{"10.0.0.0/8"})
 	// Even with wrong IP and no auth token, public routes should pass
-	w := adminTestHelper(t, cfg, "GET", "/api/desktop/health", "",
+	w := adminTestHelper(t, rt, "GET", "/api/desktop/health", "",
 		"1.2.3.4:12345", "")
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 (public route bypass), got %d", w.Code)
@@ -612,8 +618,8 @@ func TestAdminAuth_PublicRouteBypass_Health(t *testing.T) {
 }
 
 func TestAdminAuth_PublicRouteBypass_OAuthCallback(t *testing.T) {
-	cfg := newTestConfig("my-secret-token", []string{"10.0.0.0/8"})
-	w := adminTestHelper(t, cfg, "GET", "/api/oauth/callback/claude", "",
+	rt := newTestConfig(t, "my-secret-token", []string{"10.0.0.0/8"})
+	w := adminTestHelper(t, rt, "GET", "/api/oauth/callback/claude", "",
 		"1.2.3.4:12345", "")
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 (public route bypass), got %d", w.Code)
@@ -623,8 +629,8 @@ func TestAdminAuth_PublicRouteBypass_OAuthCallback(t *testing.T) {
 func TestAdminAuth_StartupPhase(t *testing.T) {
 	// When no AUTH_TOKEN is set (using default), the token check must still work
 	// but the default token has a fixed value. We test with an explicit token.
-	cfg := newTestConfig("test-token", nil)
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer test-token", "", "")
+	rt := newTestConfig(t, "test-token", nil)
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer test-token", "", "")
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
@@ -632,8 +638,8 @@ func TestAdminAuth_StartupPhase(t *testing.T) {
 
 func TestAdminAuth_IPv4MappedIPv6Normalization(t *testing.T) {
 	// ::ffff:10.0.0.1 should normalize to 10.0.0.1 and match CIDR 10.0.0.0/8
-	cfg := newTestConfig("my-secret-token", []string{"10.0.0.0/8"})
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer my-secret-token",
+	rt := newTestConfig(t, "my-secret-token", []string{"10.0.0.0/8"})
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer my-secret-token",
 		"[::ffff:10.0.0.1]:12345", "")
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 (IPv4-mapped IPv6 normalization), got %d: %s", w.Code, w.Body.String())
@@ -642,8 +648,8 @@ func TestAdminAuth_IPv4MappedIPv6Normalization(t *testing.T) {
 
 func TestAdminAuth_IPv6LoopbackNormalization(t *testing.T) {
 	// ::1 should normalize to 127.0.0.1
-	cfg := newTestConfig("my-secret-token", []string{"127.0.0.1"})
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer my-secret-token",
+	rt := newTestConfig(t, "my-secret-token", []string{"127.0.0.1"})
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer my-secret-token",
 		"", "::1")
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 (IPv6 loopback normalization), got %d: %s", w.Code, w.Body.String())
@@ -652,8 +658,8 @@ func TestAdminAuth_IPv6LoopbackNormalization(t *testing.T) {
 
 func TestAdminAuth_CaseSensitiveBearer(t *testing.T) {
 	// AdminAuth uses case-SENSITIVE simple replace of "Bearer " (not regex)
-	cfg := newTestConfig("my-secret-token", nil)
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "bearer my-secret-token", "", "")
+	rt := newTestConfig(t, "my-secret-token", nil)
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "bearer my-secret-token", "", "")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("expected 403 for case-sensitive Bearer mismatch, got %d", w.Code)
 	}
@@ -661,8 +667,8 @@ func TestAdminAuth_CaseSensitiveBearer(t *testing.T) {
 
 func TestAdminAuth_BearerPrefixOnly(t *testing.T) {
 	// "Bearer " without a token should not match the auth token
-	cfg := newTestConfig("my-secret-token", nil)
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer ", "", "")
+	rt := newTestConfig(t, "my-secret-token", nil)
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer ", "", "")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("expected 403 for empty token after Bearer, got %d", w.Code)
 	}
@@ -670,8 +676,8 @@ func TestAdminAuth_BearerPrefixOnly(t *testing.T) {
 
 func TestAdminAuth_NoBearerPrefix(t *testing.T) {
 	// Token without "Bearer " prefix should be compared literally
-	cfg := newTestConfig("Bearer my-secret-token", nil)
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer my-secret-token", "", "")
+	rt := newTestConfig(t, "Bearer my-secret-token", nil)
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer my-secret-token", "", "")
 	// replace("Bearer ", "") reduces it to "my-secret-token", which doesn't match "Bearer my-secret-token"
 	if w.Code != http.StatusForbidden {
 		t.Errorf("expected 403 for mismatched after replace, got %d", w.Code)
@@ -679,8 +685,8 @@ func TestAdminAuth_NoBearerPrefix(t *testing.T) {
 }
 
 func TestAdminAuth_ResponseContentType(t *testing.T) {
-	cfg := newTestConfig("my-secret-token", nil)
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "Bearer wrong", "", "")
+	rt := newTestConfig(t, "my-secret-token", nil)
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "Bearer wrong", "", "")
 	ct := w.Header().Get("Content-Type")
 	if !strings.Contains(ct, "application/json") {
 		t.Errorf("expected application/json Content-Type, got %q", ct)
@@ -690,8 +696,8 @@ func TestAdminAuth_ResponseContentType(t *testing.T) {
 func TestAdminAuth_IPCheckBeforeAuthCheck(t *testing.T) {
 	// IP check happens BEFORE Authorization check (order from spec).
 	// An IP-denied request should get 403 even with missing auth header.
-	cfg := newTestConfig("my-secret-token", []string{"10.0.0.0/8"})
-	w := adminTestHelper(t, cfg, "GET", "/api/sites", "", // no auth header
+	rt := newTestConfig(t, "my-secret-token", []string{"10.0.0.0/8"})
+	w := adminTestHelper(t, rt, "GET", "/api/sites", "", // no auth header
 		"192.168.1.1:12345", "")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("expected 403 (IP denied before auth check), got %d", w.Code)

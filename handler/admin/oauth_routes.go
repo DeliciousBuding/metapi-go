@@ -42,8 +42,10 @@ type oauthHandler struct {
 func (h *oauthHandler) listProviders(w http.ResponseWriter, r *http.Request) {
 	providers := oauth.ListOauthProviders()
 	systemProxyConfigured := false
-	if cfg := oauthSafeConfig(); cfg != nil {
-		systemProxyConfigured = strings.TrimSpace(cfg.SystemProxyUrl) != ""
+	// SystemProxyUrl is runtime-mutable; RuntimeSafe is nil only before boot
+	// publication (never reachable from a live admin request).
+	if rt := config.RuntimeSafe(); rt != nil {
+		systemProxyConfigured = strings.TrimSpace(rt.SystemProxyUrl) != ""
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"providers": providers,
@@ -398,11 +400,6 @@ func requestOrigin(r *http.Request) string {
 		return referer
 	}
 	return ""
-}
-
-func oauthSafeConfig() *config.Config {
-	defer func() { _ = recover() }()
-	return config.Get()
 }
 
 // decodeOptionalOAuthStartBody accepts missing/empty bodies as {}.

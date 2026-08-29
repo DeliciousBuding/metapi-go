@@ -26,11 +26,13 @@ func setupCheckinRoutesTest(t *testing.T) (*store.DB, chi.Router, *config.Config
 		t.Fatalf("AutoMigrate: %v", err)
 	}
 
-	cfg := &config.Config{
+	cfg := &config.Config{}
+	config.SetRuntime(&config.RuntimeSettings{
 		CheckinCron:          config.DefaultCheckinCron,
 		CheckinScheduleMode:  "cron",
 		CheckinIntervalHours: config.DefaultCheckinIntervalHours,
-	}
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := chi.NewRouter()
 	RegisterCheckinRoutes(r, db.DB, cfg)
 	return db, r, cfg
@@ -106,7 +108,7 @@ func TestCheckinTriggerOneNotFound(t *testing.T) {
 }
 
 func TestCheckinUpdateSchedulePersistsSettings(t *testing.T) {
-	db, r, cfg := setupCheckinRoutesTest(t)
+	db, r, _ := setupCheckinRoutesTest(t)
 
 	resp := doPutJSON(t, r, "/api/checkin/schedule", map[string]any{
 		"mode":          "interval",
@@ -117,14 +119,14 @@ func TestCheckinUpdateSchedulePersistsSettings(t *testing.T) {
 		t.Fatalf("update schedule: %d %s", resp.Code, resp.Body.String())
 	}
 
-	if cfg.CheckinScheduleMode != "interval" {
-		t.Fatalf("cfg mode = %q, want interval", cfg.CheckinScheduleMode)
+	if config.Runtime().CheckinScheduleMode != "interval" {
+		t.Fatalf("runtime mode = %q, want interval", config.Runtime().CheckinScheduleMode)
 	}
-	if cfg.CheckinCron != "15 9 * * *" {
-		t.Fatalf("cfg cron = %q, want updated cron", cfg.CheckinCron)
+	if config.Runtime().CheckinCron != "15 9 * * *" {
+		t.Fatalf("runtime cron = %q, want updated cron", config.Runtime().CheckinCron)
 	}
-	if cfg.CheckinIntervalHours != 6 {
-		t.Fatalf("cfg interval = %d, want 6", cfg.CheckinIntervalHours)
+	if config.Runtime().CheckinIntervalHours != 6 {
+		t.Fatalf("runtime interval = %d, want 6", config.Runtime().CheckinIntervalHours)
 	}
 
 	settings := map[string]string{}

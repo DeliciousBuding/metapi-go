@@ -1333,10 +1333,10 @@ func TestNonStreamHTTPErrorPersistsUsageTokensToFailedProxyLog(t *testing.T) {
 func TestNonStreamContentFailurePersistsParsedUsageToFailedProxyLog(t *testing.T) {
 	// Keyword-matched content failure must still persist usage extracted from the body.
 	t.Setenv("PROXY_ERROR_KEYWORDS", "content_policy_violation")
-	// DetectProxyFailure reads config.Get(); force a fresh config load if available.
-	if cfg := config.Get(); cfg != nil {
-		cfg.ProxyErrorKeywords = []string{"content_policy_violation"}
-	}
+	// DetectProxyFailure reads the runtime snapshot; publish the keyword list.
+	config.UpdateRuntime(func(r *config.RuntimeSettings) {
+		r.ProxyErrorKeywords = []string{"content_policy_violation"}
+	})
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		// HTTP 200 but body matches failure keyword + usage present.

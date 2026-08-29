@@ -16,7 +16,7 @@ import (
 // rather than the dialect-specific failure mode.
 
 func TestAuthSettingsChange_SuccessWritesEventRow(t *testing.T) {
-	db, r, _ := setupAuthSettingsTest(t)
+	db, r := setupAuthSettingsTest(t)
 
 	resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
 		"oldToken": "admin-auth-settings-token",

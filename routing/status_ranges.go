@@ -127,8 +127,8 @@ var (
 // per distinct spec.
 func ActiveRetryStatusRanges() []StatusRange {
 	raw := ""
-	if cfg := config.GetSafe(); cfg != nil {
-		raw = strings.TrimSpace(cfg.ProxyRetryStatusRanges)
+	if rt := config.RuntimeSafe(); rt != nil {
+		raw = strings.TrimSpace(rt.ProxyRetryStatusRanges)
 	}
 	activeRangesMu.Lock()
 	defer activeRangesMu.Unlock()
@@ -153,8 +153,8 @@ func ActiveRetryStatusRanges() []StatusRange {
 // the historical cooldown-only escalation. Parsed once per distinct spec.
 func ActiveDisableStatusRanges() []StatusRange {
 	raw := ""
-	if cfg := config.GetSafe(); cfg != nil {
-		raw = strings.TrimSpace(cfg.ProxyDisableStatusRanges)
+	if rt := config.RuntimeSafe(); rt != nil {
+		raw = strings.TrimSpace(rt.ProxyDisableStatusRanges)
 	}
 	activeRangesMu.Lock()
 	defer activeRangesMu.Unlock()

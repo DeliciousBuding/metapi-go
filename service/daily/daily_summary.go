@@ -292,7 +292,7 @@ func BuildDailySummaryNotification(metrics *DailySummaryMetrics) (title, message
 }
 
 // SendDailySummary collects metrics and sends the daily summary notification.
-func SendDailySummary(cfg *config.Config, db *sqlx.DB) {
+func SendDailySummary(cfg *config.RuntimeSettings, db *sqlx.DB) {
 	now := time.Now()
 	metrics, err := CollectDailySummaryMetrics(db, now)
 	if err != nil {

@@ -185,7 +185,7 @@ func HandleCallback(input CallbackInput) (*CallbackResult, error) {
 	if session.ProxyURL != "" {
 		resolvedProxyURL = &session.ProxyURL
 	} else if session.UseSystemProxy {
-		systemProxy := strings.TrimSpace(config.Get().SystemProxyUrl)
+		systemProxy := strings.TrimSpace(config.Runtime().SystemProxyUrl)
 		if systemProxy != "" {
 			resolvedProxyURL = &systemProxy
 		}
@@ -742,24 +742,24 @@ func findExistingOAuthAccount(db *store.DB, provider OAuthProviderId, exchange *
 // resolveOauthProviderProxyUrl returns the provider-specific default proxy URL.
 // Each provider may have its own proxy configuration.
 func resolveOauthProviderProxyUrl(provider string) *string {
-	cfg := config.Get()
+	rt := config.Runtime()
 	switch provider {
 	case "codex":
 		// Codex provider uses system proxy if configured.
-		if cfg.SystemProxyUrl != "" {
-			return &cfg.SystemProxyUrl
+		if rt.SystemProxyUrl != "" {
+			return &rt.SystemProxyUrl
 		}
 	case "claude":
-		if cfg.SystemProxyUrl != "" {
-			return &cfg.SystemProxyUrl
+		if rt.SystemProxyUrl != "" {
+			return &rt.SystemProxyUrl
 		}
 	case "gemini-cli":
-		if cfg.SystemProxyUrl != "" {
-			return &cfg.SystemProxyUrl
+		if rt.SystemProxyUrl != "" {
+			return &rt.SystemProxyUrl
 		}
 	case "antigravity":
-		if cfg.SystemProxyUrl != "" {
-			return &cfg.SystemProxyUrl
+		if rt.SystemProxyUrl != "" {
+			return &rt.SystemProxyUrl
 		}
 	}
 	return nil

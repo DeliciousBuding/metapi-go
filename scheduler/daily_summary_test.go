@@ -31,8 +31,8 @@ func openDailySummaryTestDB(t *testing.T) *store.DB {
 func TestDailySummaryScheduler_runJobLocked_EmptyDB(t *testing.T) {
 	ResetLeasePressureForTest()
 	db := openDailySummaryTestDB(t)
-	cfg := testConfig()
-	s := NewDailySummaryScheduler(cfg)
+	testConfig() // publishes the runtime baseline
+	s := NewDailySummaryScheduler()
 
 	// Direct call to runJobLocked — exercises metric collection + notification
 	// dispatch. On a fresh DB, metrics are all zeros and the notification
@@ -49,8 +49,8 @@ func TestDailySummaryScheduler_runJob_WithOverrideDB(t *testing.T) {
 	store.OverrideDB(db)
 	t.Cleanup(func() { store.OverrideDB(nil) })
 
-	cfg := testConfig()
-	s := NewDailySummaryScheduler(cfg)
+	testConfig() // publishes the runtime baseline
+	s := NewDailySummaryScheduler()
 
 	s.runJob()
 }
@@ -62,8 +62,8 @@ func TestDailySummaryScheduler_runJob_NilDB(t *testing.T) {
 	store.OverrideDB(nil)
 	t.Cleanup(func() { store.OverrideDB(nil) })
 
-	cfg := testConfig()
-	s := NewDailySummaryScheduler(cfg)
+	testConfig() // publishes the runtime baseline
+	s := NewDailySummaryScheduler()
 
 	s.runJob()
 }
@@ -71,8 +71,8 @@ func TestDailySummaryScheduler_runJob_NilDB(t *testing.T) {
 // TestDailySummaryScheduler_StartStop_Lifecycle verifies the cron-job
 // wrapper: Start registers a cron job and begins the runner; Stop halts it.
 func TestDailySummaryScheduler_StartStop_Lifecycle(t *testing.T) {
-	cfg := testConfig()
-	s := NewDailySummaryScheduler(cfg)
+	testConfig() // publishes the runtime baseline
+	s := NewDailySummaryScheduler()
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start failed: %v", err)

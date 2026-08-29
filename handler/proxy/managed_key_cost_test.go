@@ -16,12 +16,9 @@ import (
 func setupManagedKeyCostTestDB(t *testing.T) *store.DB {
 	t.Helper()
 	_ = store.CloseDatabase()
-	cfg := &config.Config{
-		DbType:  "sqlite",
-		DbUrl:   ":memory:",
-		DataDir: t.TempDir(),
-	}
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	cfg := &config.Config{DataDir: t.TempDir()}
+	rt := &config.RuntimeSettings{DbType: "sqlite", DbUrl: ":memory:"}
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("init test DB: %v", err)
 	}
 	t.Cleanup(func() { _ = store.CloseDatabase() })

@@ -151,11 +151,15 @@ func TestBodyLimitPathAware_NoLimitWhenDefaultZero(t *testing.T) {
 
 func TestV1ProxyRateLimitReturns429(t *testing.T) {
 	cfg := &config.Config{
+		RequestBodyLimit:  config.DefaultRequestBodyLimit,
+		ProxyRateLimitRPM: 2,
+		// very low limit for fast testing,
+	}
+	config.SetRuntime(&config.RuntimeSettings{
 		AuthToken:         "admin-token",
 		ProxyToken:        "proxy-token",
-		RequestBodyLimit:  config.DefaultRequestBodyLimit,
-		ProxyRateLimitRPM: 2, // very low limit for fast testing
-	}
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	// Two requests from the same IP without auth — both hit the per-IP limiter.
@@ -199,11 +203,15 @@ func TestV1ProxyRateLimitReturns429(t *testing.T) {
 
 func TestV1ProxyRateLimitDisabledWhenRPMZero(t *testing.T) {
 	cfg := &config.Config{
+		RequestBodyLimit:  config.DefaultRequestBodyLimit,
+		ProxyRateLimitRPM: 0,
+		// disabled,
+	}
+	config.SetRuntime(&config.RuntimeSettings{
 		AuthToken:         "admin-token",
 		ProxyToken:        "proxy-token",
-		RequestBodyLimit:  config.DefaultRequestBodyLimit,
-		ProxyRateLimitRPM: 0, // disabled
-	}
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	// Fire many requests; all should get 401 (auth) not 429 (rate limited).
@@ -220,11 +228,14 @@ func TestV1ProxyRateLimitDisabledWhenRPMZero(t *testing.T) {
 
 func TestV1ProxyRateLimitPerIPIsolation(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:         "admin-token",
-		ProxyToken:        "proxy-token",
 		RequestBodyLimit:  config.DefaultRequestBodyLimit,
 		ProxyRateLimitRPM: 1,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:         "admin-token",
+		ProxyToken:        "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	// IP A: one request, exhausts its single-request budget.
@@ -250,10 +261,14 @@ func TestV1ProxyRateLimitPerIPIsolation(t *testing.T) {
 
 func TestV1BodyLimitReturns413OnOversizedRequest(t *testing.T) {
 	cfg := &config.Config{
+		RequestBodyLimit: 1 * 1024,
+		// 1 KB — tiny limit for testing,
+	}
+	config.SetRuntime(&config.RuntimeSettings{
 		AuthToken:        "admin-token",
 		ProxyToken:       "proxy-token",
-		RequestBodyLimit: 1 * 1024, // 1 KB — tiny limit for testing
-	}
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	// Craft a body with Content-Length exceeding the limit.
@@ -272,12 +287,18 @@ func TestV1BodyLimitReturns413OnOversizedRequest(t *testing.T) {
 
 func TestV1FileUploadRouteUsesHigherBodyLimit(t *testing.T) {
 	cfg := &config.Config{
+		RequestBodyLimit:    1 * 1024,
+		// 1 KB general
+		FileUploadLimitBytes: 100 * 1024,
+		// 100 KB for uploads
+		ProxyRateLimitRPM:   0,
+		// disable rate limiting for this test,
+	}
+	config.SetRuntime(&config.RuntimeSettings{
 		AuthToken:           "admin-token",
 		ProxyToken:          "proxy-token",
-		RequestBodyLimit:    1 * 1024,          // 1 KB general
-		FileUploadLimitBytes: 100 * 1024,       // 100 KB for uploads
-		ProxyRateLimitRPM:   0,                 // disable rate limiting for this test
-	}
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	// A 2 KB request to /v1/files should NOT be rejected by the general 1 KB

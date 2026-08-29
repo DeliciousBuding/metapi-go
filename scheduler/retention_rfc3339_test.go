@@ -56,12 +56,13 @@ func TestLogCleanupDeletesOldRFC3339RowsKeepsInWindow(t *testing.T) {
 		t.Fatalf("seed events: %v", err)
 	}
 
-	cfg := &config.Config{
-		LogCleanupConfigured:         true,
+	cfg := &config.Config{LogCleanupConfigured: true}
+	config.SetRuntime(&config.RuntimeSettings{
 		LogCleanupUsageLogsEnabled:   true,
 		LogCleanupProgramLogsEnabled: true,
 		LogCleanupRetentionDays:      1,
-	}
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	s := NewLogCleanupScheduler(cfg)
 
 	// Sanity: historical space-format bug shields same-day old RFC3339 rows.
@@ -70,7 +71,7 @@ func TestLogCleanupDeletesOldRFC3339RowsKeepsInWindow(t *testing.T) {
 		t.Fatal("expected space-format bug: same-day RFC3339 row should NOT be < space cutoff")
 	}
 
-	s.runJobLocked(db)
+	s.runJobLocked(db, config.Runtime())
 
 	if got := countRows(t, db, `SELECT COUNT(*) FROM proxy_logs`); got != 1 {
 		t.Fatalf("proxy_logs count = %d, want 1 (old deleted, in-window kept)", got)

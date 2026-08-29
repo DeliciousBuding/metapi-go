@@ -8,12 +8,13 @@ import (
 )
 
 func newTestCoordinator() *ProxyChannelCoordinator {
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"PORT":                                   "8080",
 		"PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT": "2",
 	})
 	config.Set(cfg)
-	return NewProxyChannelCoordinator(cfg)
+	config.SetRuntime(rt)
+	return NewProxyChannelCoordinator()
 }
 
 func sessionScopedConfig() (*string, *string) {

@@ -12,6 +12,15 @@ import (
 
 // ---- AdminAuth dual-track middleware (#1034) ----
 
+// publishRuntimeAuthToken publishes the admin bearer token through the
+// global atomic RuntimeSettings snapshot that AdminAuth / RequireReauth
+// read, and clears it again when the test ends.
+func publishRuntimeAuthToken(t *testing.T, token string) {
+	t.Helper()
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: token})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+}
+
 // newDualTrackHarness builds AdminAuth with a real in-memory session store so
 // the cookie track runs production code paths.
 func newDualTrackHarness(t *testing.T) (http.Handler, *SessionManager) {
@@ -25,14 +34,14 @@ func newDualTrackHarness(t *testing.T) (http.Handler, *SessionManager) {
 		t.Fatalf("AutoMigrate: %v", err)
 	}
 	sm := NewSessionManager(db, time.Hour)
-	cfg := &config.Config{AuthToken: "master-token"}
+	publishRuntimeAuthToken(t, "master-token")
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !IsAdmin(r.Context()) {
 			t.Error("handler reached without admin context marker")
 		}
 		w.WriteHeader(http.StatusOK)
 	})
-	return AdminAuth(cfg, sm)(inner), sm
+	return AdminAuth(sm)(inner), sm
 }
 
 func doAuthReq(t *testing.T, h http.Handler, req *http.Request) *httptest.ResponseRecorder {
@@ -113,13 +122,13 @@ func TestAdminAuth_SessionLifecycleSurfaceIsPublic(t *testing.T) {
 		t.Fatalf("AutoMigrate: %v", err)
 	}
 	sm := NewSessionManager(db, time.Hour)
-	cfg := &config.Config{AuthToken: "master-token"}
+	publishRuntimeAuthToken(t, "master-token")
 	// Public routes bypass auth entirely, so the inner handler must not
 	// require the admin context marker here.
 	plain := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	h := AdminAuth(cfg, sm)(plain)
+	h := AdminAuth(sm)(plain)
 
 	for _, path := range []string{"/api/auth/login", "/api/auth/logout", "/api/auth/session"} {
 		req := httptest.NewRequest(http.MethodPost, path, nil)
@@ -144,7 +153,7 @@ func TestAdminAuth_SessionActorInContext(t *testing.T) {
 		t.Fatalf("AutoMigrate: %v", err)
 	}
 	sm := NewSessionManager(db, time.Hour)
-	cfg := &config.Config{AuthToken: "master-token"}
+	publishRuntimeAuthToken(t, "master-token")
 
 	raw, sess, err := sm.Create(t.Context(), "", "")
 	if err != nil {
@@ -156,7 +165,7 @@ func TestAdminAuth_SessionActorInContext(t *testing.T) {
 		actorID = GetAdminSessionID(r.Context())
 		w.WriteHeader(http.StatusOK)
 	})
-	h := AdminAuth(cfg, sm)(inner)
+	h := AdminAuth(sm)(inner)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/anything", nil)
 	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: raw})
@@ -183,12 +192,12 @@ func TestAdminAuth_SessionActorInContext(t *testing.T) {
 // router now uses (limiter BEFORE auth) and proves credential brute force
 // hits 429 instead of unlimited 401/403s.
 func TestRateLimitConstrainsFailedAuth(t *testing.T) {
-	cfg := &config.Config{AuthToken: "master-token"}
+	publishRuntimeAuthToken(t, "master-token")
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	// burst=2, rps=0-refill would never recover; use rps=1/burst=2.
-	h := AdminRateLimit(1, 2)(AdminAuth(cfg, nil)(inner))
+	h := AdminRateLimit(1, 2)(AdminAuth(nil)(inner))
 
 	sawTooMany := false
 	for i := 0; i < 10; i++ {

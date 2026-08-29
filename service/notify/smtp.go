@@ -28,7 +28,7 @@ type cachedSMTPClient struct {
 
 func (c *SMTPChannel) Name() string { return "smtp" }
 
-func (c *SMTPChannel) Send(cfg *config.Config, title, message, level, timeFootnote string) error {
+func (c *SMTPChannel) Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error {
 	if !cfg.SmtpEnabled || cfg.SmtpHost == "" || cfg.SmtpPort <= 0 || cfg.SmtpFrom == "" || cfg.SmtpTo == "" {
 		return fmt.Errorf("smtp not configured")
 	}
@@ -128,7 +128,7 @@ func (c *SMTPChannel) Send(cfg *config.Config, title, message, level, timeFootno
 	return nil
 }
 
-func getSmtpFingerprint(cfg *config.Config) string {
+func getSmtpFingerprint(cfg *config.RuntimeSettings) string {
 	return fmt.Sprintf("%s|%d|%t|%s|%s|%s|%s",
 		cfg.SmtpHost, cfg.SmtpPort, cfg.SmtpSecure,
 		cfg.SmtpUser, cfg.SmtpPass, cfg.SmtpFrom, cfg.SmtpTo,

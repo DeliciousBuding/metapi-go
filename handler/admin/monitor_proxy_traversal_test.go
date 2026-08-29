@@ -34,7 +34,7 @@ func TestLdohProxy_PathTraversalRejected(t *testing.T) {
 			// httptest.NewRequest normalizes some path forms; overwrite
 			// URL.Path directly so the exact traversal input is preserved
 			// (same technique as the resolveLdohProxyPath unit tests).
-			req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/seed", env.cfg)
+			req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/seed")
 			req.URL.Path = tc.path
 			rec := httptest.NewRecorder()
 			env.router.ServeHTTP(rec, req)
@@ -53,7 +53,7 @@ func TestLdohProxy_PathTraversalRejected(t *testing.T) {
 	// parsing so URL.Path carries the decoded form exactly as a real server
 	// would present it to the handler.
 	t.Run("percent-encoded dot-dot segments", func(t *testing.T) {
-		req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/%2e%2e/%2e%2e/etc/passwd", env.cfg)
+		req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/%2e%2e/%2e%2e/etc/passwd")
 		rec := httptest.NewRecorder()
 		env.router.ServeHTTP(rec, req)
 
@@ -80,7 +80,7 @@ func TestLdohProxy_DottedSegmentPathsStillProxied(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	})
 
-	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/seed", env.cfg)
+	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/seed")
 	req.URL.Path = "/monitor-proxy/ldoh/static/app..min.js"
 	rec := httptest.NewRecorder()
 	env.router.ServeHTTP(rec, req)

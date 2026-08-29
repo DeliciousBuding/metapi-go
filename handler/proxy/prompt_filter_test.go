@@ -19,7 +19,7 @@ func setPromptFilterConfig(t *testing.T, enabled bool, denyPatterns string) {
 	if enabled {
 		enabledStr = "true"
 	}
-	cfg := config.Load(map[string]string{
+	cfg, _ := config.Load(map[string]string{
 		"PROMPT_FILTER_ENABLED":       enabledStr,
 		"PROMPT_FILTER_DENY_PATTERNS": denyPatterns,
 	})
@@ -224,7 +224,7 @@ func TestHandleResponses_PromptFilterStream_BlockedBeforeUpstream(t *testing.T) 
 // BenchmarkCheckPromptFilter measures the handler-level filter hot path
 // (filter enabled, benign prompt). Must stay well under 1ms.
 func BenchmarkCheckPromptFilter(b *testing.B) {
-	cfg := config.Load(map[string]string{"PROMPT_FILTER_ENABLED": "true"})
+	cfg, _ := config.Load(map[string]string{"PROMPT_FILTER_ENABLED": "true"})
 	prev := config.GetSafe()
 	config.Set(cfg)
 	b.Cleanup(func() {

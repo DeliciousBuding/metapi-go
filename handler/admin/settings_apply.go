@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/app"
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/jmoiron/sqlx"
@@ -25,13 +26,15 @@ func failSettings(status int, msg string) *settingsApplyError {
 	return &settingsApplyError{status: status, msg: msg}
 }
 
-// applyStringSetting handles the common "simple string field" pattern:
-// normalize the body value, mutate the config target, and persist it.
-// Returns the upsert error so callers can surface it as HTTP 500.
-func applyStringSetting(db *sqlx.DB, body map[string]any, key string, target *string, dbKey string) error {
+// applyStringSettingDB handles the common "simple string field" pattern:
+// normalize the body value, publish it into the runtime snapshot via
+// UpdateRuntime (copy-on-write), and persist it. Returns the upsert error so
+// callers can surface it as HTTP 500.
+func applyStringSettingDB(db *sqlx.DB, body map[string]any, key string, dbKey string, set func(*config.RuntimeSettings, string)) error {
 	if v, ok := body[key]; ok {
-		*target = normalizeString(v)
-		if err := upsertSettingDB(db, dbKey, *target); err != nil {
+		val := normalizeString(v)
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { set(r, val) })
+		if err := upsertSettingDB(db, dbKey, val); err != nil {
 			return err
 		}
 	}
@@ -49,12 +52,12 @@ func (h *settingsHandler) applyProxyAccessSettings(body map[string]any) *setting
 		if len(token) < 6 {
 			return failSettings(http.StatusBadRequest, "downstream access token must be at least 6 characters (including sk-)")
 		}
-		h.cfg.ProxyToken = token
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyToken = token })
 		upsertSettingDB(h.db, "proxy_token", token)
 	}
 
 	// System proxy URL
-	if err := applyStringSetting(h.db, body, "systemProxyUrl", &h.cfg.SystemProxyUrl, "system_proxy_url"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "systemProxyUrl", "system_proxy_url", func(r *config.RuntimeSettings, v string) { r.SystemProxyUrl = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
 
@@ -71,7 +74,7 @@ func (h *settingsHandler) applyCheckinSettings(body map[string]any) *settingsApp
 		if err != nil {
 			return failSettings(http.StatusBadRequest, "checkinEnabled must be a boolean (true/false)")
 		}
-		h.cfg.CheckinDisabled = !enabled
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinDisabled = !enabled })
 		if err := upsertSettingDB(h.db, "checkin_enabled", enabled); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save checkinEnabled")
 		}
@@ -98,7 +101,7 @@ func (h *settingsHandler) applyCheckinSettings(body map[string]any) *settingsApp
 			intervalHours := int(hours)
 			patch.IntervalHours = &intervalHours
 		}
-		if _, err := applyCheckinScheduleSettings(h.db, h.cfg, patch); err != nil {
+		if _, err := applyCheckinScheduleSettings(h.db, config.Runtime(), patch); err != nil {
 			return failSettings(http.StatusBadRequest, err.Error())
 		}
 	}
@@ -133,7 +136,7 @@ func (h *settingsHandler) applyCheckinSettings(body map[string]any) *settingsApp
 			patch.WindowStart = &spec.WindowStart
 			patch.WindowEnd = &spec.WindowEnd
 		}
-		if _, err := applyCheckinScheduleSettings(h.db, h.cfg, patch); err != nil {
+		if _, err := applyCheckinScheduleSettings(h.db, config.Runtime(), patch); err != nil {
 			return failSettings(http.StatusBadRequest, err.Error())
 		}
 	}
@@ -150,7 +153,7 @@ func (h *settingsHandler) applyBalanceScheduleSettings(body map[string]any) *set
 		if err != nil {
 			return failSettings(http.StatusBadRequest, "balanceRefreshEnabled must be a boolean (true/false)")
 		}
-		h.cfg.BalanceRefreshDisabled = !enabled
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshDisabled = !enabled })
 		if err := upsertSettingDB(h.db, "balance_refresh_enabled", enabled); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save balanceRefreshEnabled")
 		}
@@ -167,7 +170,7 @@ func (h *settingsHandler) applyBalanceScheduleSettings(body map[string]any) *set
 		if err := persistDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", scheduler.CronToSchedule(cron)); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save balance refresh schedule")
 		}
-		h.cfg.BalanceRefreshCron = cron
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = cron })
 		if err := app.UpdateBalanceCron(cron); err != nil {
 			slog.Warn("settings: balance refresh cron hot update failed", "error", err)
 		}
@@ -190,7 +193,7 @@ func (h *settingsHandler) applyBalanceScheduleSettings(body map[string]any) *set
 		if err := persistDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", spec); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save balance refresh schedule")
 		}
-		h.cfg.BalanceRefreshCron = cron
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = cron })
 		if err := app.UpdateBalanceCron(cron); err != nil {
 			slog.Warn("settings: balance refresh cron hot update failed", "error", err)
 		}
@@ -211,7 +214,7 @@ func (h *settingsHandler) applyModelSyncScheduleSettings(body map[string]any) *s
 		if err := upsertSettingDB(h.db, "model_sync_cron", cron); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save model sync schedule")
 		}
-		h.cfg.ModelSyncCron = cron
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelSyncCron = cron })
 		if err := app.UpdateModelSyncCron(cron); err != nil {
 			slog.Warn("settings: model sync cron hot update failed", "error", err)
 		}
@@ -232,7 +235,7 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 		if err := persistDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", scheduler.CronToSchedule(cron)); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save log cleanup schedule")
 		}
-		h.cfg.LogCleanupCron = cron
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupCron = cron })
 		logCleanupChanged = true
 	}
 	if v, ok := body["logCleanupUsageLogsEnabled"]; ok {
@@ -240,7 +243,7 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 		if err != nil {
 			return failSettings(http.StatusBadRequest, "logCleanupUsageLogsEnabled must be a boolean (true/false)")
 		}
-		h.cfg.LogCleanupUsageLogsEnabled = enabled
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupUsageLogsEnabled = enabled })
 		upsertSettingDB(h.db, "log_cleanup_usage_logs_enabled", enabled)
 	}
 	if v, ok := body["logCleanupProgramLogsEnabled"]; ok {
@@ -248,7 +251,7 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 		if err != nil {
 			return failSettings(http.StatusBadRequest, "logCleanupProgramLogsEnabled must be a boolean (true/false)")
 		}
-		h.cfg.LogCleanupProgramLogsEnabled = enabled
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupProgramLogsEnabled = enabled })
 		upsertSettingDB(h.db, "log_cleanup_program_logs_enabled", enabled)
 	}
 	if v, ok := body["logCleanupRetentionDays"]; ok {
@@ -259,8 +262,9 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 		if days < 1 {
 			return failSettings(http.StatusBadRequest, "log cleanup retention days must be an integer >= 1")
 		}
-		h.cfg.LogCleanupRetentionDays = int(days)
-		upsertSettingDB(h.db, "log_cleanup_retention_days", int(days))
+		retentionDays := int(days)
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupRetentionDays = retentionDays })
+		upsertSettingDB(h.db, "log_cleanup_retention_days", retentionDays)
 	}
 	if v, ok := body["logCleanupSchedule"]; ok {
 		spec, err := decodeScheduleSpec(v)
@@ -280,11 +284,13 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 		if err := persistDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", spec); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save log cleanup schedule")
 		}
-		h.cfg.LogCleanupCron = cron
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupCron = cron })
 		logCleanupChanged = true
 	}
 	if logCleanupChanged {
-		if err := app.UpdateLogCleanupSettings(h.cfg.LogCleanupCron, h.cfg.LogCleanupUsageLogsEnabled, h.cfg.LogCleanupProgramLogsEnabled, h.cfg.LogCleanupRetentionDays); err != nil {
+		// One snapshot for the whole hot-reload argument set.
+		rt := config.Runtime()
+		if err := app.UpdateLogCleanupSettings(rt.LogCleanupCron, rt.LogCleanupUsageLogsEnabled, rt.LogCleanupProgramLogsEnabled, rt.LogCleanupRetentionDays); err != nil {
 			slog.Warn("settings: log cleanup hot update failed", "error", err)
 		}
 	}
@@ -299,7 +305,7 @@ func (h *settingsHandler) applyFeatureToggleSettings(body map[string]any) *setti
 		if err != nil {
 			return failSettings(http.StatusBadRequest, "modelAvailabilityProbeEnabled must be a boolean (true/false)")
 		}
-		h.cfg.ModelAvailabilityProbeEnabled = enabled
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelAvailabilityProbeEnabled = enabled })
 		upsertSettingDB(h.db, "model_availability_probe_enabled", enabled)
 		// #1027: hot-apply the toggle to the running ticker. Before this the
 		// flag was only honored at scheduler Start, so toggling it off from
@@ -317,7 +323,7 @@ func (h *settingsHandler) applyFeatureToggleSettings(body map[string]any) *setti
 		if err != nil {
 			return failSettings(http.StatusBadRequest, "codexUpstreamWebsocketEnabled must be a boolean (true/false)")
 		}
-		h.cfg.CodexUpstreamWebsocketEnabled = enabled
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CodexUpstreamWebsocketEnabled = enabled })
 		upsertSettingDB(h.db, "codex_upstream_websocket_enabled", enabled)
 	}
 
@@ -327,7 +333,7 @@ func (h *settingsHandler) applyFeatureToggleSettings(body map[string]any) *setti
 		if err != nil {
 			return failSettings(http.StatusBadRequest, "responsesCompactFallbackToResponsesEnabled must be a boolean (true/false)")
 		}
-		h.cfg.ResponsesCompactFallbackToResponsesEnabled = enabled
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ResponsesCompactFallbackToResponsesEnabled = enabled })
 		upsertSettingDB(h.db, "responses_compact_fallback_to_responses_enabled", enabled)
 	}
 
@@ -337,12 +343,12 @@ func (h *settingsHandler) applyFeatureToggleSettings(body map[string]any) *setti
 		if err != nil {
 			return failSettings(http.StatusBadRequest, "disableCrossProtocolFallback must be a boolean (true/false)")
 		}
-		h.cfg.DisableCrossProtocolFallback = enabled
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.DisableCrossProtocolFallback = enabled })
 		upsertSettingDB(h.db, "disable_cross_protocol_fallback", enabled)
 	}
 
 	// Proxy empty content fail
-	if err := applyBoolSettingDB(h.db, body, "proxyEmptyContentFailEnabled", &h.cfg.ProxyEmptyContentFailEnabled, "proxy_empty_content_fail_enabled"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "proxyEmptyContentFailEnabled", "proxy_empty_content_fail_enabled", func(r *config.RuntimeSettings, v bool) { r.ProxyEmptyContentFailEnabled = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
 
@@ -360,8 +366,9 @@ func (h *settingsHandler) applyProxySessionSettings(body map[string]any) *settin
 		if n < 0 {
 			return failSettings(http.StatusBadRequest, "session channel concurrency limit must be an integer >= 0")
 		}
-		h.cfg.ProxySessionChannelConcurrencyLimit = int(n)
-		upsertSettingDB(h.db, "proxy_session_channel_concurrency_limit", int(n))
+		limit := int(n)
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxySessionChannelConcurrencyLimit = limit })
+		upsertSettingDB(h.db, "proxy_session_channel_concurrency_limit", limit)
 	}
 	if v, ok := body["proxySessionChannelQueueWaitMs"]; ok {
 		n, err := toFloat64Strict(v)
@@ -371,8 +378,9 @@ func (h *settingsHandler) applyProxySessionSettings(body map[string]any) *settin
 		if n < 0 {
 			return failSettings(http.StatusBadRequest, "session channel queue wait time must be an integer number of milliseconds >= 0")
 		}
-		h.cfg.ProxySessionChannelQueueWaitMs = int(n)
-		upsertSettingDB(h.db, "proxy_session_channel_queue_wait_ms", int(n))
+		waitMs := int(n)
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxySessionChannelQueueWaitMs = waitMs })
+		upsertSettingDB(h.db, "proxy_session_channel_queue_wait_ms", waitMs)
 	}
 	return nil
 }
@@ -380,26 +388,26 @@ func (h *settingsHandler) applyProxySessionSettings(body map[string]any) *settin
 // applyProxyDebugSettings applies the proxy debug trace settings.
 func (h *settingsHandler) applyProxyDebugSettings(body map[string]any) *settingsApplyError {
 	// Debug settings
-	if err := applyBoolSettingDB(h.db, body, "proxyDebugTraceEnabled", &h.cfg.ProxyDebugTraceEnabled, "proxy_debug_trace_enabled"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "proxyDebugTraceEnabled", "proxy_debug_trace_enabled", func(r *config.RuntimeSettings, v bool) { r.ProxyDebugTraceEnabled = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureHeaders", &h.cfg.ProxyDebugCaptureHeaders, "proxy_debug_capture_headers"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureHeaders", "proxy_debug_capture_headers", func(r *config.RuntimeSettings, v bool) { r.ProxyDebugCaptureHeaders = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureBodies", &h.cfg.ProxyDebugCaptureBodies, "proxy_debug_capture_bodies"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureBodies", "proxy_debug_capture_bodies", func(r *config.RuntimeSettings, v bool) { r.ProxyDebugCaptureBodies = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureStreamChunks", &h.cfg.ProxyDebugCaptureStreamChunks, "proxy_debug_capture_stream_chunks"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureStreamChunks", "proxy_debug_capture_stream_chunks", func(r *config.RuntimeSettings, v bool) { r.ProxyDebugCaptureStreamChunks = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
 
-	if err := applyStringSetting(h.db, body, "proxyDebugTargetSessionId", &h.cfg.ProxyDebugTargetSessionId, "proxy_debug_target_session_id"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "proxyDebugTargetSessionId", "proxy_debug_target_session_id", func(r *config.RuntimeSettings, v string) { r.ProxyDebugTargetSessionId = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "proxyDebugTargetClientKind", &h.cfg.ProxyDebugTargetClientKind, "proxy_debug_target_client_kind"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "proxyDebugTargetClientKind", "proxy_debug_target_client_kind", func(r *config.RuntimeSettings, v string) { r.ProxyDebugTargetClientKind = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "proxyDebugTargetModel", &h.cfg.ProxyDebugTargetModel, "proxy_debug_target_model"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "proxyDebugTargetModel", "proxy_debug_target_model", func(r *config.RuntimeSettings, v string) { r.ProxyDebugTargetModel = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
 
@@ -411,8 +419,9 @@ func (h *settingsHandler) applyProxyDebugSettings(body map[string]any) *settings
 		if n < 1 {
 			return failSettings(http.StatusBadRequest, "proxy debug retention hours must be an integer >= 1")
 		}
-		h.cfg.ProxyDebugRetentionHours = int(n)
-		upsertSettingDB(h.db, "proxy_debug_retention_hours", int(n))
+		hours := int(n)
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyDebugRetentionHours = hours })
+		upsertSettingDB(h.db, "proxy_debug_retention_hours", hours)
 	}
 	if v, ok := body["proxyDebugMaxBodyBytes"]; ok {
 		n, err := toFloat64Strict(v)
@@ -422,8 +431,9 @@ func (h *settingsHandler) applyProxyDebugSettings(body map[string]any) *settings
 		if n < 1024 {
 			return failSettings(http.StatusBadRequest, "proxy debug capture size limit must be an integer >= 1024 bytes")
 		}
-		h.cfg.ProxyDebugMaxBodyBytes = int(n)
-		upsertSettingDB(h.db, "proxy_debug_max_body_bytes", int(n))
+		maxBytes := int(n)
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyDebugMaxBodyBytes = maxBytes })
+		upsertSettingDB(h.db, "proxy_debug_max_body_bytes", maxBytes)
 	}
 	return nil
 }
@@ -443,7 +453,7 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 		if n < 1e-6 {
 			n = 1e-6
 		}
-		h.cfg.RoutingFallbackUnitCost = n
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.RoutingFallbackUnitCost = n })
 		upsertSettingDB(h.db, "routing_fallback_unit_cost", n)
 	}
 	if v, ok := body["proxyFirstByteTimeoutSec"]; ok {
@@ -454,8 +464,9 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 		if n < 0 {
 			return failSettings(http.StatusBadRequest, "first byte timeout must be a number >= 0 (seconds)")
 		}
-		h.cfg.ProxyFirstByteTimeoutSec = int(n)
-		upsertSettingDB(h.db, "proxy_first_byte_timeout_sec", int(n))
+		timeoutSec := int(n)
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyFirstByteTimeoutSec = timeoutSec })
+		upsertSettingDB(h.db, "proxy_first_byte_timeout_sec", timeoutSec)
 	}
 	if v, ok := body["tokenRouterFailureCooldownMaxSec"]; ok {
 		n, err := toFloat64Strict(v)
@@ -465,8 +476,9 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 		if n <= 0 {
 			return failSettings(http.StatusBadRequest, "route failure cooldown cap must be a number > 0 (seconds)")
 		}
-		h.cfg.TokenRouterFailureCooldownMaxSec = int(n)
-		upsertSettingDB(h.db, "token_router_failure_cooldown_max_sec", int(n))
+		cooldownSec := int(n)
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.TokenRouterFailureCooldownMaxSec = cooldownSec })
+		upsertSettingDB(h.db, "token_router_failure_cooldown_max_sec", cooldownSec)
 	}
 	// P1-2: operator-tunable status-code range policy. Empty specs are
 	// allowed (they restore the routing defaults at lookup time); anything
@@ -476,7 +488,7 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 		if _, err := routing.ParseStatusRanges(spec); err != nil {
 			return failSettings(http.StatusBadRequest, "proxyRetryStatusRanges: "+err.Error())
 		}
-		h.cfg.ProxyRetryStatusRanges = spec
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyRetryStatusRanges = spec })
 		upsertSettingDB(h.db, "proxy_retry_status_ranges", spec)
 	}
 	if v, ok := body["proxyDisableStatusRanges"]; ok {
@@ -484,67 +496,88 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 		if _, err := routing.ParseStatusRanges(spec); err != nil {
 			return failSettings(http.StatusBadRequest, "proxyDisableStatusRanges: "+err.Error())
 		}
-		h.cfg.ProxyDisableStatusRanges = spec
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyDisableStatusRanges = spec })
 		upsertSettingDB(h.db, "proxy_disable_status_ranges", spec)
 	}
 
-	// Routing weights
+	// Routing weights — validate every supplied component first, then publish
+	// the merged weight set in ONE snapshot update so readers never observe a
+	// half-applied weight vector.
 	if v, ok := body["routingWeights"]; ok {
 		if rw, ok2 := v.(map[string]any); ok2 {
+			var baseWeightFactor, valueScoreFactor, costWeight, balanceWeight, usageWeight *float64
 			if bf, ok3 := rw["baseWeightFactor"]; ok3 {
 				val, err := toFloat64Strict(bf)
 				if err != nil {
 					return failSettings(http.StatusBadRequest, "routingWeights.baseWeightFactor must be a number")
 				}
-				h.cfg.RoutingWeights.BaseWeightFactor = val
+				baseWeightFactor = &val
 			}
 			if vsf, ok3 := rw["valueScoreFactor"]; ok3 {
 				val, err := toFloat64Strict(vsf)
 				if err != nil {
 					return failSettings(http.StatusBadRequest, "routingWeights.valueScoreFactor must be a number")
 				}
-				h.cfg.RoutingWeights.ValueScoreFactor = val
+				valueScoreFactor = &val
 			}
 			if cw, ok3 := rw["costWeight"]; ok3 {
 				val, err := toFloat64Strict(cw)
 				if err != nil {
 					return failSettings(http.StatusBadRequest, "routingWeights.costWeight must be a number")
 				}
-				h.cfg.RoutingWeights.CostWeight = val
+				costWeight = &val
 			}
 			if bw, ok3 := rw["balanceWeight"]; ok3 {
 				val, err := toFloat64Strict(bw)
 				if err != nil {
 					return failSettings(http.StatusBadRequest, "routingWeights.balanceWeight must be a number")
 				}
-				h.cfg.RoutingWeights.BalanceWeight = val
+				balanceWeight = &val
 			}
 			if uw, ok3 := rw["usageWeight"]; ok3 {
 				val, err := toFloat64Strict(uw)
 				if err != nil {
 					return failSettings(http.StatusBadRequest, "routingWeights.usageWeight must be a number")
 				}
-				h.cfg.RoutingWeights.UsageWeight = val
+				usageWeight = &val
 			}
-			upsertSettingDB(h.db, "routing_weights", h.cfg.RoutingWeights)
+			config.UpdateRuntime(func(r *config.RuntimeSettings) {
+				if baseWeightFactor != nil {
+					r.RoutingWeights.BaseWeightFactor = *baseWeightFactor
+				}
+				if valueScoreFactor != nil {
+					r.RoutingWeights.ValueScoreFactor = *valueScoreFactor
+				}
+				if costWeight != nil {
+					r.RoutingWeights.CostWeight = *costWeight
+				}
+				if balanceWeight != nil {
+					r.RoutingWeights.BalanceWeight = *balanceWeight
+				}
+				if usageWeight != nil {
+					r.RoutingWeights.UsageWeight = *usageWeight
+				}
+			})
+			upsertSettingDB(h.db, "routing_weights", config.Runtime().RoutingWeights)
 		}
 	}
 
 	// N7: prompt-cache ratio fallback overrides.
 	if v, ok := body["cacheRatioDefault"]; ok {
 		if val, err := toFloat64Strict(v); err == nil && val >= 0 {
-			h.cfg.CacheRatioDefault = val
+			config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CacheRatioDefault = val })
 			upsertSettingDB(h.db, "cache_ratio_default", val)
 		}
 	}
 	if v, ok := body["cacheRatioClaude"]; ok {
 		if val, err := toFloat64Strict(v); err == nil && val >= 0 {
-			h.cfg.CacheRatioClaude = val
+			config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CacheRatioClaude = val })
 			upsertSettingDB(h.db, "cache_ratio_claude", val)
 		}
 	}
 	// Apply to routing runtime immediately (0 / non-positive falls back to code default).
-	routing.SetCacheRatioDefaults(h.cfg.CacheRatioDefault, 0, h.cfg.CacheRatioClaude, 0)
+	rt := config.Runtime()
+	routing.SetCacheRatioDefaults(rt.CacheRatioDefault, 0, rt.CacheRatioClaude, 0)
 
 	return nil
 }
@@ -552,54 +585,54 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 // applyNotifySettings applies the notification channel fields.
 func (h *settingsHandler) applyNotifySettings(body map[string]any) *settingsApplyError {
 	// Notify: Webhook
-	if err := applyBoolSettingDB(h.db, body, "webhookEnabled", &h.cfg.WebhookEnabled, "webhook_enabled"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "webhookEnabled", "webhook_enabled", func(r *config.RuntimeSettings, v bool) { r.WebhookEnabled = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "webhookUrl", &h.cfg.WebhookUrl, "webhook_url"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "webhookUrl", "webhook_url", func(r *config.RuntimeSettings, v string) { r.WebhookUrl = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
 
 	// Notify: Bark
-	if err := applyBoolSettingDB(h.db, body, "barkEnabled", &h.cfg.BarkEnabled, "bark_enabled"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "barkEnabled", "bark_enabled", func(r *config.RuntimeSettings, v bool) { r.BarkEnabled = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "barkUrl", &h.cfg.BarkUrl, "bark_url"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "barkUrl", "bark_url", func(r *config.RuntimeSettings, v string) { r.BarkUrl = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
 
 	// Notify: ServerChan
-	if err := applyBoolSettingDB(h.db, body, "serverChanEnabled", &h.cfg.ServerChanEnabled, "serverchan_enabled"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "serverChanEnabled", "serverchan_enabled", func(r *config.RuntimeSettings, v bool) { r.ServerChanEnabled = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "serverChanKey", &h.cfg.ServerChanKey, "serverchan_key"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "serverChanKey", "serverchan_key", func(r *config.RuntimeSettings, v string) { r.ServerChanKey = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
 
 	// Notify: Telegram
-	if err := applyBoolSettingDB(h.db, body, "telegramEnabled", &h.cfg.TelegramEnabled, "telegram_enabled"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "telegramEnabled", "telegram_enabled", func(r *config.RuntimeSettings, v bool) { r.TelegramEnabled = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "telegramApiBaseUrl", &h.cfg.TelegramApiBaseUrl, "telegram_api_base_url"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "telegramApiBaseUrl", "telegram_api_base_url", func(r *config.RuntimeSettings, v string) { r.TelegramApiBaseUrl = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "telegramBotToken", &h.cfg.TelegramBotToken, "telegram_bot_token"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "telegramBotToken", "telegram_bot_token", func(r *config.RuntimeSettings, v string) { r.TelegramBotToken = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "telegramChatId", &h.cfg.TelegramChatId, "telegram_chat_id"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "telegramChatId", "telegram_chat_id", func(r *config.RuntimeSettings, v string) { r.TelegramChatId = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyBoolSettingDB(h.db, body, "telegramUseSystemProxy", &h.cfg.TelegramUseSystemProxy, "telegram_use_system_proxy"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "telegramUseSystemProxy", "telegram_use_system_proxy", func(r *config.RuntimeSettings, v bool) { r.TelegramUseSystemProxy = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "telegramMessageThreadId", &h.cfg.TelegramMessageThreadId, "telegram_message_thread_id"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "telegramMessageThreadId", "telegram_message_thread_id", func(r *config.RuntimeSettings, v string) { r.TelegramMessageThreadId = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
 
 	// Notify: SMTP
-	if err := applyBoolSettingDB(h.db, body, "smtpEnabled", &h.cfg.SmtpEnabled, "smtp_enabled"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "smtpEnabled", "smtp_enabled", func(r *config.RuntimeSettings, v bool) { r.SmtpEnabled = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "smtpHost", &h.cfg.SmtpHost, "smtp_host"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "smtpHost", "smtp_host", func(r *config.RuntimeSettings, v string) { r.SmtpHost = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
 	if v, ok := body["smtpPort"]; ok {
@@ -607,74 +640,74 @@ func (h *settingsHandler) applyNotifySettings(body map[string]any) *settingsAppl
 		if err != nil {
 			return failSettings(http.StatusBadRequest, "smtpPort must be a number")
 		}
-		h.cfg.SmtpPort = int(n)
-		upsertSettingDB(h.db, "smtp_port", h.cfg.SmtpPort)
+		port := int(n)
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.SmtpPort = port })
+		upsertSettingDB(h.db, "smtp_port", port)
 	}
-	if err := applyBoolSettingDB(h.db, body, "smtpSecure", &h.cfg.SmtpSecure, "smtp_secure"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "smtpSecure", "smtp_secure", func(r *config.RuntimeSettings, v bool) { r.SmtpSecure = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "smtpUser", &h.cfg.SmtpUser, "smtp_user"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "smtpUser", "smtp_user", func(r *config.RuntimeSettings, v string) { r.SmtpUser = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "smtpPass", &h.cfg.SmtpPass, "smtp_pass"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "smtpPass", "smtp_pass", func(r *config.RuntimeSettings, v string) { r.SmtpPass = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "smtpFrom", &h.cfg.SmtpFrom, "smtp_from"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "smtpFrom", "smtp_from", func(r *config.RuntimeSettings, v string) { r.SmtpFrom = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "smtpTo", &h.cfg.SmtpTo, "smtp_to"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "smtpTo", "smtp_to", func(r *config.RuntimeSettings, v string) { r.SmtpTo = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
 
 	// Notify: Feishu / DingTalk / WeCom / Ntfy
-	if err := applyBoolSettingDB(h.db, body, "feishuEnabled", &h.cfg.FeishuEnabled, "feishu_enabled"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "feishuEnabled", "feishu_enabled", func(r *config.RuntimeSettings, v bool) { r.FeishuEnabled = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "feishuWebhook", &h.cfg.FeishuWebhook, "feishu_webhook"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "feishuWebhook", "feishu_webhook", func(r *config.RuntimeSettings, v string) { r.FeishuWebhook = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "feishuSecret", &h.cfg.FeishuSecret, "feishu_secret"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "feishuSecret", "feishu_secret", func(r *config.RuntimeSettings, v string) { r.FeishuSecret = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyBoolSettingDB(h.db, body, "dingtalkEnabled", &h.cfg.DingtalkEnabled, "dingtalk_enabled"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "dingtalkEnabled", "dingtalk_enabled", func(r *config.RuntimeSettings, v bool) { r.DingtalkEnabled = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "dingtalkWebhook", &h.cfg.DingtalkWebhook, "dingtalk_webhook"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "dingtalkWebhook", "dingtalk_webhook", func(r *config.RuntimeSettings, v string) { r.DingtalkWebhook = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "dingtalkSecret", &h.cfg.DingtalkSecret, "dingtalk_secret"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "dingtalkSecret", "dingtalk_secret", func(r *config.RuntimeSettings, v string) { r.DingtalkSecret = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyBoolSettingDB(h.db, body, "wecomEnabled", &h.cfg.WecomEnabled, "wecom_enabled"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "wecomEnabled", "wecom_enabled", func(r *config.RuntimeSettings, v bool) { r.WecomEnabled = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "wecomWebhook", &h.cfg.WecomWebhook, "wecom_webhook"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "wecomWebhook", "wecom_webhook", func(r *config.RuntimeSettings, v string) { r.WecomWebhook = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyBoolSettingDB(h.db, body, "ntfyEnabled", &h.cfg.NtfyEnabled, "ntfy_enabled"); err != nil {
+	if err := applyBoolSettingDB(h.db, body, "ntfyEnabled", "ntfy_enabled", func(r *config.RuntimeSettings, v bool) { r.NtfyEnabled = v }); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "ntfyUrl", &h.cfg.NtfyUrl, "ntfy_url"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "ntfyUrl", "ntfy_url", func(r *config.RuntimeSettings, v string) { r.NtfyUrl = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "ntfyTopic", &h.cfg.NtfyTopic, "ntfy_topic"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "ntfyTopic", "ntfy_topic", func(r *config.RuntimeSettings, v string) { r.NtfyTopic = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "ntfyToken", &h.cfg.NtfyToken, "ntfy_token"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "ntfyToken", "ntfy_token", func(r *config.RuntimeSettings, v string) { r.NtfyToken = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
 
-	// Per-alert-type mute toggles (JSON object).
+	// Per-alert-type mute toggles (JSON object). The map is replaced
+	// wholesale on the draft — published snapshots share map references, so
+	// in-place mutation is forbidden by the RuntimeSettings contract.
 	if v, ok := body["notifyTaskToggles"]; ok {
-		if h.cfg.NotifyTaskToggles == nil {
-			h.cfg.NotifyTaskToggles = map[string]bool{}
-		}
 		if raw, mErr := json.Marshal(v); mErr == nil {
 			upsertSettingDB(h.db, "notify_task_toggles", v)
 			// Re-hydrate from the marshaled value so runtime matches persisted.
 			fresh := map[string]bool{}
 			if uErr := json.Unmarshal(raw, &fresh); uErr == nil {
-				h.cfg.NotifyTaskToggles = fresh
+				config.UpdateRuntime(func(r *config.RuntimeSettings) { r.NotifyTaskToggles = fresh })
 			}
 		}
 	}
@@ -688,8 +721,9 @@ func (h *settingsHandler) applyNotifySettings(body map[string]any) *settingsAppl
 		if n < 0 {
 			return failSettings(http.StatusBadRequest, "alert cooldown must be a number >= 0 (seconds)")
 		}
-		h.cfg.NotifyCooldownSec = int(n)
-		upsertSettingDB(h.db, "notify_cooldown_sec", int(n))
+		cooldownSec := int(n)
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.NotifyCooldownSec = cooldownSec })
+		upsertSettingDB(h.db, "notify_cooldown_sec", cooldownSec)
 	}
 
 	return nil
@@ -713,7 +747,7 @@ func (h *settingsHandler) applyFilterSettings(body map[string]any) *settingsAppl
 				list[i] = strings.TrimSpace(list[i])
 			}
 		}
-		h.cfg.AdminIpAllowlist = list
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.AdminIpAllowlist = list })
 		upsertSettingDB(h.db, "admin_ip_allowlist", list)
 	}
 
@@ -723,7 +757,7 @@ func (h *settingsHandler) applyFilterSettings(body map[string]any) *settingsAppl
 		if err != nil {
 			return failSettings(http.StatusBadRequest, err.Error())
 		}
-		h.cfg.GlobalBlockedBrands = brands
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.GlobalBlockedBrands = brands })
 		if err := upsertSettingDB(h.db, "global_blocked_brands", brands); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save brand blocking")
 		}
@@ -737,7 +771,7 @@ func (h *settingsHandler) applyFilterSettings(body map[string]any) *settingsAppl
 		if err != nil {
 			return failSettings(http.StatusBadRequest, err.Error())
 		}
-		h.cfg.GlobalAllowedModels = models
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.GlobalAllowedModels = models })
 		if err := upsertSettingDB(h.db, "global_allowed_models", models); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save model allowlist")
 		}
@@ -761,13 +795,14 @@ func (h *settingsHandler) applyFilterSettings(body map[string]any) *settingsAppl
 				}
 			}
 		}
-		h.cfg.ProxyErrorKeywords = keywords
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyErrorKeywords = keywords })
 		upsertSettingDB(h.db, "proxy_error_keywords", keywords)
 	}
 
 	// Payload rules
 	if v, ok := body["payloadRules"]; ok {
-		h.cfg.PayloadRules = v
+		rules := v
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.PayloadRules = rules })
 		upsertSettingDB(h.db, "payload_rules", v)
 	}
 
@@ -777,19 +812,19 @@ func (h *settingsHandler) applyFilterSettings(body map[string]any) *settingsAppl
 // applySiteBrandingSettings applies the site branding fields.
 func (h *settingsHandler) applySiteBrandingSettings(body map[string]any) *settingsApplyError {
 	// Site & Branding
-	if err := applyStringSetting(h.db, body, "systemName", &h.cfg.SystemName, "system_name"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "systemName", "system_name", func(r *config.RuntimeSettings, v string) { r.SystemName = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "logo", &h.cfg.Logo, "logo"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "logo", "logo", func(r *config.RuntimeSettings, v string) { r.Logo = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "footer", &h.cfg.Footer, "footer"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "footer", "footer", func(r *config.RuntimeSettings, v string) { r.Footer = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "about", &h.cfg.About, "about"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "about", "about", func(r *config.RuntimeSettings, v string) { r.About = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "serverAddress", &h.cfg.ServerAddress, "server_address"); err != nil {
+	if err := applyStringSettingDB(h.db, body, "serverAddress", "server_address", func(r *config.RuntimeSettings, v string) { r.ServerAddress = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
 

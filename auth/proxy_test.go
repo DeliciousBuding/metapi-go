@@ -216,9 +216,12 @@ func TestExtractProxyToken_XGoogleApiKeyPriorityOverQuery(t *testing.T) {
 // AuthorizeDownstreamToken tests — global token and error cases (no DB)
 // ---------------------------------------------------------------------------
 
-// proxyCfg returns a basic config for proxy auth tests.
-func proxyCfg(proxyToken string) *config.Config {
-	return &config.Config{
+// proxyCfg returns runtime settings carrying the global proxy token for
+// proxy auth tests. AuthorizeDownstreamToken takes the snapshot directly;
+// the ProxyAuth middleware reads it from the global atomic pointer (see the
+// publish sites below).
+func proxyCfg(proxyToken string) *config.RuntimeSettings {
+	return &config.RuntimeSettings{
 		ProxyToken: proxyToken,
 	}
 }
@@ -499,9 +502,11 @@ func TestAuthorizeDownstreamToken_GlobalTokenTakesPriorityOverManaged(t *testing
 // ProxyAuth middleware integration tests
 // ---------------------------------------------------------------------------
 
-func proxyAuthMiddlewareHelper(t *testing.T, cfg *config.Config, headers map[string]string, queryKey string) *httptest.ResponseRecorder {
+func proxyAuthMiddlewareHelper(t *testing.T, rt *config.RuntimeSettings, headers map[string]string, queryKey string) *httptest.ResponseRecorder {
 	t.Helper()
-	middleware := ProxyAuth(cfg)
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	middleware := ProxyAuth()
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify proxy auth context is stored
@@ -685,8 +690,9 @@ func TestProxyAuthMiddleware_PropagatesKeyProxyURL(t *testing.T) {
 		t.Fatalf("insert: %v", err)
 	}
 
-	cfg := proxyCfg("global-secret")
-	middleware := ProxyAuth(cfg)
+	config.SetRuntime(proxyCfg("global-secret"))
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	middleware := ProxyAuth()
 	var captured *ProxyAuthContext
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		captured = GetProxyAuth(r.Context())
@@ -748,8 +754,9 @@ func TestProxyAuthMiddleware_AdmissionDenyDoesNotBurnUsedRequests(t *testing.T) 
 	maxRequests := int64(100)
 	id := insertTestKeyWithRPM(t, "sk-adm-deny", &maxRequests, 0, &maxRPM, nil)
 
-	cfg := proxyCfg("global-secret")
-	middleware := ProxyAuth(cfg)
+	config.SetRuntime(proxyCfg("global-secret"))
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	middleware := ProxyAuth()
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))

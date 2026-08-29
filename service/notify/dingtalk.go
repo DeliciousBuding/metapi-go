@@ -27,7 +27,7 @@ type DingtalkChannel struct{}
 
 func (c *DingtalkChannel) Name() string { return "dingtalk" }
 
-func (c *DingtalkChannel) Send(cfg *config.Config, title, message, level, timeFootnote string) error {
+func (c *DingtalkChannel) Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error {
 	if !cfg.DingtalkEnabled || cfg.DingtalkWebhook == "" {
 		return fmt.Errorf("dingtalk not configured")
 	}

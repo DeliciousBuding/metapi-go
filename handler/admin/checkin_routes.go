@@ -283,7 +283,7 @@ func (h *checkinHandler) updateSchedule(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	state, err := applyCheckinScheduleSettings(h.db, h.cfg, checkinSchedulePatch{
+	state, err := applyCheckinScheduleSettings(h.db, config.Runtime(), checkinSchedulePatch{
 		Mode:          body.Mode,
 		Cron:          body.Cron,
 		IntervalHours: body.IntervalHours,

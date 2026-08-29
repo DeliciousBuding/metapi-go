@@ -37,7 +37,7 @@ const (
 // Channel is the interface for notification channels.
 type Channel interface {
 	Name() string
-	Send(cfg *config.Config, title, message, level, timeFootnote string) error
+	Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error
 }
 
 // SendNotificationOptions configures notification behavior.
@@ -64,9 +64,16 @@ type DispatchResult struct {
 
 // SendNotification dispatches a notification through all configured channels.
 // Mirrors TS sendNotification().
-func SendNotification(cfg *config.Config, title, message, level string, options *SendNotificationOptions) (*DispatchResult, error) {
+func SendNotification(cfg *config.RuntimeSettings, title, message, level string, options *SendNotificationOptions) (*DispatchResult, error) {
 	if options == nil {
 		options = &SendNotificationOptions{}
+	}
+
+	// A nil snapshot means runtime settings are not published yet (pre-boot
+	// callback paths reach this through config.RuntimeSafe()): no channel can
+	// be configured, so skip dispatch instead of dereferencing nil.
+	if cfg == nil {
+		return &DispatchResult{}, nil
 	}
 
 	// per-task mute gate. Empty TaskTag = no gate.

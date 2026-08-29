@@ -53,7 +53,9 @@ func TestModelProbeScheduler_RecentRunSummaries(t *testing.T) {
 	okChannel := seedRouteChannel(t, db, "ok", "gpt-ok", true)
 	failChannel := seedRouteChannel(t, db, "fail", "gpt-fail", true)
 
-	s := NewModelProbeScheduler(&config.Config{ModelAvailabilityProbeEnabled: true})
+	config.SetRuntime(&config.RuntimeSettings{ModelAvailabilityProbeEnabled: true})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	s := NewModelProbeScheduler(&config.Config{})
 	s.SetProbeExecutor(&fakeProbe{outcomes: map[int64]ProbeOutcome{
 		okChannel:   {Status: "success", LatencyMs: 21},
 		failChannel: {Status: "failure", HTTPStatus: 502, ErrorText: "bad gateway"},

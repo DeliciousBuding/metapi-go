@@ -92,8 +92,8 @@ const (
 	// DefaultModelSyncCron drives the periodic upstream model-list sync
 	// (MODEL_SYNC_CRON env / settings key model_sync_cron). Daily 04:00 by
 	// default; operators can widen to weekly etc. via env or the settings API.
-	DefaultModelSyncCron        = "0 4 * * *"
-	DefaultLogCleanupCron       = "0 6 * * *"
+	DefaultModelSyncCron  = "0 4 * * *"
+	DefaultLogCleanupCron = "0 6 * * *"
 
 	// Site & Branding defaults. Empty means the embedded frontend branding and
 	// login-page copy are used unchanged.

@@ -201,7 +201,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 		// ProxyEmptyContentFailEnabled is read from the startup-loaded config
 		// singleton instead of os.Getenv per stream request.
 		if !result.HasDataEvent {
-			if cfg := config.GetSafe(); cfg != nil && cfg.ProxyEmptyContentFailEnabled {
+			if rt := config.RuntimeSafe(); rt != nil && rt.ProxyEmptyContentFailEnabled {
 				slog.Warn("SSE stream contained no data events",
 					"latency_ms", latencyMs,
 					"event_count", result.EventCount,

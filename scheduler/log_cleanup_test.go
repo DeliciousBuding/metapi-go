@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -59,8 +60,8 @@ func TestLogCleanupScheduler_runJob_NoLogTargetEnabled(t *testing.T) {
 	ResetLeasePressureForTest()
 	cfg := testConfig()
 	cfg.LogCleanupConfigured = true
-	cfg.LogCleanupUsageLogsEnabled = false
-	cfg.LogCleanupProgramLogsEnabled = false
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupUsageLogsEnabled = false })
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupProgramLogsEnabled = false })
 	s := NewLogCleanupScheduler(cfg)
 
 	// Should return without touching the DB.
@@ -78,9 +79,9 @@ func TestLogCleanupScheduler_runJob_Configured(t *testing.T) {
 
 	cfg := testConfig()
 	cfg.LogCleanupConfigured = true
-	cfg.LogCleanupUsageLogsEnabled = true
-	cfg.LogCleanupProgramLogsEnabled = true
-	cfg.LogCleanupRetentionDays = 90
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupUsageLogsEnabled = true })
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupProgramLogsEnabled = true })
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupRetentionDays = 90 })
 	s := NewLogCleanupScheduler(cfg)
 
 	// runJob calls store.GetDB(), acquires a local lease, then runJobLocked
@@ -108,12 +109,12 @@ func TestLogCleanupScheduler_runJobLocked_EmptyDB(t *testing.T) {
 	db := openLogCleanupTestDB(t)
 	cfg := testConfig()
 	cfg.LogCleanupConfigured = true
-	cfg.LogCleanupUsageLogsEnabled = true
-	cfg.LogCleanupProgramLogsEnabled = true
-	cfg.LogCleanupRetentionDays = 90
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupUsageLogsEnabled = true })
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupProgramLogsEnabled = true })
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupRetentionDays = 90 })
 	s := NewLogCleanupScheduler(cfg)
 
-	s.runJobLocked(db)
+	s.runJobLocked(db, config.Runtime())
 }
 
 // Note: TestLogCleanupScheduler_UpdateSettings is already tested in

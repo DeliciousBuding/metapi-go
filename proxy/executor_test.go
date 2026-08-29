@@ -142,8 +142,11 @@ func TestDispatchRejectsOversizedBufferedResponse(t *testing.T) {
 	// at startup via config.Load), not os.Getenv per request, so load a config
 	// with the limit and install it as the global singleton for this test.
 	prev := config.GetSafe()
-	t.Cleanup(func() { config.Set(prev) })
-	config.Set(config.Load(map[string]string{"PROXY_MAX_BUFFERED_RESPONSE_BYTES": "8"}))
+	prevRt := config.RuntimeSafe()
+	t.Cleanup(func() { config.Set(prev); config.SetRuntime(prevRt) })
+	cfg, rt := config.Load(map[string]string{"PROXY_MAX_BUFFERED_RESPONSE_BYTES": "8"})
+	config.Set(cfg)
+	config.SetRuntime(rt)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "123456789")
@@ -169,8 +172,11 @@ func TestWithObservedFirstByteRejectsOversizedBufferedResponse(t *testing.T) {
 	// at startup via config.Load), not os.Getenv per request, so load a config
 	// with the limit and install it as the global singleton for this test.
 	prev := config.GetSafe()
-	t.Cleanup(func() { config.Set(prev) })
-	config.Set(config.Load(map[string]string{"PROXY_MAX_BUFFERED_RESPONSE_BYTES": "8"}))
+	prevRt := config.RuntimeSafe()
+	t.Cleanup(func() { config.Set(prev); config.SetRuntime(prevRt) })
+	cfg, rt := config.Load(map[string]string{"PROXY_MAX_BUFFERED_RESPONSE_BYTES": "8"})
+	config.Set(cfg)
+	config.SetRuntime(rt)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "123456789")

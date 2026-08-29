@@ -15,24 +15,27 @@ import (
 // newMonitorWiringRouter builds the full production router against a real
 // SQLite database so the monitor routes are registered exactly as in
 // cmd/server (they are skipped when the database is absent).
-func newMonitorWiringRouter(t *testing.T) (http.Handler, *config.Config) {
+func newMonitorWiringRouter(t *testing.T) http.Handler {
 	t.Helper()
 	dataDir := t.TempDir()
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
-		DbType:           store.DialectSQLite,
-		DbUrl:            filepath.Join(dataDir, "monitor-wiring.db"),
 		DataDir:          dataDir,
 	}
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+		DbType:           store.DialectSQLite,
+		DbUrl:            filepath.Join(dataDir, "monitor-wiring.db"),
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = store.CloseDatabase()
 	})
-	return New(cfg, web.Dist), cfg
+	return New(cfg, web.Dist)
 }
 
 // TestMonitorProxyReachableWithoutBearerHeader is the Wave 4 S-line F1
@@ -42,7 +45,7 @@ func newMonitorWiringRouter(t *testing.T) (http.Handler, *config.Config) {
 // handler (which answers with its own error shapes) instead of dying at the
 // admin middleware with "Missing Authorization header".
 func TestMonitorProxyReachableWithoutBearerHeader(t *testing.T) {
-	r, cfg := newMonitorWiringRouter(t)
+	r := newMonitorWiringRouter(t)
 
 	// No credentials at all: the monitor handler's own 401 shape must answer,
 	// not the Bearer middleware's.
@@ -64,7 +67,7 @@ func TestMonitorProxyReachableWithoutBearerHeader(t *testing.T) {
 	// resulting cookie — the real iframe flow.
 	mintRec := httptest.NewRecorder()
 	mintReq := httptest.NewRequest(http.MethodPost, "/api/monitor/session", nil)
-	mintReq.Header.Set("Authorization", "Bearer "+cfg.AuthToken)
+	mintReq.Header.Set("Authorization", "Bearer "+config.Runtime().AuthToken)
 	r.ServeHTTP(mintRec, mintReq)
 	if mintRec.Code != http.StatusOK {
 		t.Fatalf("mint monitor session status = %d body=%s, want 200", mintRec.Code, mintRec.Body.String())
@@ -98,7 +101,7 @@ func TestMonitorProxyReachableWithoutBearerHeader(t *testing.T) {
 // fix: only /monitor-proxy/* leaves the AdminAuth group; the /api/monitor
 // configuration surface stays Bearer-protected.
 func TestMonitorAPIRoutesStayBehindBearerAuth(t *testing.T) {
-	r, cfg := newMonitorWiringRouter(t)
+	r := newMonitorWiringRouter(t)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/monitor/config", nil)
@@ -111,7 +114,7 @@ func TestMonitorAPIRoutesStayBehindBearerAuth(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/api/monitor/config", nil)
-	req.Header.Set("Authorization", "Bearer "+cfg.AuthToken)
+	req.Header.Set("Authorization", "Bearer "+config.Runtime().AuthToken)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("/api/monitor/config with Bearer status = %d body=%s, want 200", rec.Code, rec.Body.String())

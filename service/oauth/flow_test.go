@@ -14,6 +14,10 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// The OAuth flow resolves provider proxy URLs from the atomic runtime
+	// snapshot (resolveOauthProviderProxyUrl); publish a baseline so tests
+	// run without full boot wiring.
+	config.SetRuntime(&config.RuntimeSettings{})
 	StopLoopbackCallbackServers()
 	code := m.Run()
 	StopLoopbackCallbackServers()
@@ -485,12 +489,9 @@ func TestActivatePersistedOAuthAccount_PostgresCreate(t *testing.T) {
 	}
 
 	store.CloseDatabase()
-	cfg := &config.Config{
-		DbType:  store.DialectPostgres,
-		DbUrl:   dsn,
-		DataDir: ".",
-	}
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	cfg := &config.Config{DataDir: "."}
+	rt := &config.RuntimeSettings{DbType: store.DialectPostgres, DbUrl: dsn}
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("failed to initialize PostgreSQL test database: %v", err)
 	}
 	db := store.GetDB()

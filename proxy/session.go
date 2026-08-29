@@ -24,15 +24,13 @@ type ChannelLoadSnapshot struct {
 // chore/rm-dead-proxy-routing and can be reintroduced from git history when
 // sticky sessions are wired up. Until then every load snapshot reports zero
 // active leases and zero waiters.
-type ProxyChannelCoordinator struct {
-	cfg *config.Config
-}
+type ProxyChannelCoordinator struct{}
 
-// NewProxyChannelCoordinator creates a new coordinator.
-func NewProxyChannelCoordinator(cfg *config.Config) *ProxyChannelCoordinator {
-	return &ProxyChannelCoordinator{
-		cfg: cfg,
-	}
+// NewProxyChannelCoordinator creates a new coordinator. The session-channel
+// concurrency limit is read from the runtime-settings snapshot on every
+// acquire so a settings change hot-applies without a restart.
+func NewProxyChannelCoordinator() *ProxyChannelCoordinator {
+	return &ProxyChannelCoordinator{}
 }
 
 // GetActiveChannelIDs returns channel IDs with active leases.
@@ -62,7 +60,7 @@ func (c *ProxyChannelCoordinator) channelConcurrencyLimit(extraConfig *string, o
 	if !isSessionScopedChannel(extraConfig, oauthProvider) {
 		return 0
 	}
-	limit := int(c.cfg.ProxySessionChannelConcurrencyLimit)
+	limit := int(config.Runtime().ProxySessionChannelConcurrencyLimit)
 	if limit < 0 {
 		return 0
 	}

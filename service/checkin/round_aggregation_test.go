@@ -23,7 +23,7 @@ func swapNotifySend(t *testing.T) *notifyRecorder {
 	t.Helper()
 	rec := &notifyRecorder{}
 	original := notifySend
-	notifySend = func(cfg *config.Config, title, message, level string, options *notifypkg.SendNotificationOptions) (*notifypkg.DispatchResult, error) {
+	notifySend = func(rt *config.RuntimeSettings, title, message, level string, options *notifypkg.SendNotificationOptions) (*notifypkg.DispatchResult, error) {
 		rec.record(title, message, level)
 		return &notifypkg.DispatchResult{}, nil
 	}

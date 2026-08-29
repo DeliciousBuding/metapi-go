@@ -28,7 +28,7 @@ func GetDB() *DB {
 // EnsureRuntimeDatabase creates the data directory, opens the database,
 // and runs auto-migration. This replaces the P0 stub.
 // Mirrors TS initDb() module-level singleton behavior.
-func EnsureRuntimeDatabase(cfg *config.Config) error {
+func EnsureRuntimeDatabase(cfg *config.Config, rt *config.RuntimeSettings) error {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -47,8 +47,8 @@ func EnsureRuntimeDatabase(cfg *config.Config) error {
 	}
 
 	// Determine DSN based on dialect.
-	dialect := cfg.DbType
-	dsn := cfg.DbUrl
+	dialect := rt.DbType
+	dsn := rt.DbUrl
 
 	if dialect == DialectSQLite {
 		sqlitePath := ResolveSQLitePath(dsn, dataDir)
@@ -71,7 +71,7 @@ func EnsureRuntimeDatabase(cfg *config.Config) error {
 
 	// Open database connection.
 	pool := postgresPoolConfigFromRuntimeConfig(cfg)
-	db, err := OpenWithPostgresSSLModeAndPool(dialect, dsn, cfg.PostgresSSLMode(), pool)
+	db, err := OpenWithPostgresSSLModeAndPool(dialect, dsn, cfg.PostgresSSLMode(rt.DbSsl), pool)
 	if err != nil {
 		return fmt.Errorf("bootstrap: failed to open database: %w", err)
 	}

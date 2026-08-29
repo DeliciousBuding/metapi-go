@@ -24,13 +24,13 @@ var bearerPrefixRe = regexp.MustCompile(`(?i)^Bearer\s+`)
 
 // After extraction, the token is passed to AuthorizeDownstreamToken which:
 // - Queries the downstream_api_keys table for a managed key match
-// - Falls back to checking against config.ProxyToken
+// - Falls back to checking against the runtime snapshot ProxyToken
 // - Returns a ProxyAuthContext on success
 
 // On successful managed key auth, the middleware runs soft RPM/TPM admission
 // first, then atomically increments used_requests via consumeManagedKeyRequest
 // so a 429 over_rpm/over_tpm never burns max_requests.
-func ProxyAuth(cfg *config.Config) func(http.Handler) http.Handler {
+func ProxyAuth() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// ---- Extract token (EXCLUSIVE priority semantics) ----
@@ -44,7 +44,7 @@ func ProxyAuth(cfg *config.Config) func(http.Handler) http.Handler {
 			}
 
 			// ---- Authorize downstream token ----
-			result := AuthorizeDownstreamToken(token, cfg)
+			result := AuthorizeDownstreamToken(token, config.Runtime())
 
 			if !result.OK {
 				writeJSON(w, result.StatusCode, jsonError(result.Error))

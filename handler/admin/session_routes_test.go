@@ -37,14 +37,16 @@ func setupSessionRoutes(t *testing.T) *sessionTestEnv {
 		t.Fatalf("AutoMigrate: %v", err)
 	}
 
-	cfg := &config.Config{AuthToken: "master-token-abc123"}
+	cfg := &config.Config{}
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: "master-token-abc123"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	sessions := auth.NewSessionManager(db, time.Hour)
 
 	r := chi.NewRouter()
-	r.Use(auth.AdminAuth(cfg, sessions))
-	r.Use(auth.RequireReauth(cfg))
+	r.Use(auth.AdminAuth(sessions))
+	r.Use(auth.RequireReauth())
 	RegisterSessionRoutes(r, cfg, sessions)
-	RegisterAuthSettingsRoutes(r, db.DB, cfg, sessions)
+	RegisterAuthSettingsRoutes(r, db.DB, sessions)
 	// Protected probe route standing in for the ordinary admin surface.
 	r.Get("/api/probe", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})

@@ -22,12 +22,14 @@ func strPtr(s string) *string { return &s }
 // given interval hours. The checkinAll hook is left at its production default
 // (checkin.CheckinAll); tests that need to inject a mock override it after
 // construction.
-func newTestCheckinScheduler(intervalHours int) *CheckinScheduler {
-	cfg := &config.Config{
+func newTestCheckinScheduler(t *testing.T, intervalHours int) *CheckinScheduler {
+	t.Helper()
+	config.SetRuntime(&config.RuntimeSettings{
 		CheckinScheduleMode:  "interval",
 		CheckinIntervalHours: intervalHours,
-	}
-	return NewCheckinScheduler(cfg)
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	return NewCheckinScheduler(&config.Config{})
 }
 
 // equalIDSets reports whether a and b contain the same IDs regardless of order.
@@ -142,7 +144,7 @@ func TestFilterDue_TableDriven(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := newTestCheckinScheduler(intervalHours)
+			s := newTestCheckinScheduler(t, intervalHours)
 			if tt.attempts != nil {
 				s.mu.Lock()
 				for k, v := range tt.attempts {
@@ -167,8 +169,10 @@ func TestFilterDue_ClampsIntervalHours(t *testing.T) {
 	// account is NOT due (1h interval, checkin 1m ago).
 	recent := now.Add(-1 * time.Minute).Format(time.RFC3339)
 
+	config.SetRuntime(&config.RuntimeSettings{CheckinIntervalHours: 0})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	s := &CheckinScheduler{
-		cfg:              &config.Config{CheckinIntervalHours: 0},
+		cfg:              &config.Config{},
 		attemptByAccount: make(map[int64]int64),
 		checkinAll:       checkin.CheckinAll,
 	}
@@ -185,7 +189,7 @@ func TestFilterDue_ClampsIntervalHours(t *testing.T) {
 // already-closed channel to detect the prior close.
 
 func TestStopLocked_IntervalModeDoubleStopDoesNotPanic(t *testing.T) {
-	s := newTestCheckinScheduler(6)
+	s := newTestCheckinScheduler(t, 6)
 	// Simulate interval-mode start: create intervalStop and a ticker.
 	s.intervalStop = make(chan struct{})
 	s.intervalTimer = time.NewTicker(time.Duration(checkinPollMs) * time.Millisecond)
@@ -204,7 +208,7 @@ func TestStopLocked_IntervalModeDoubleStopDoesNotPanic(t *testing.T) {
 }
 
 func TestStopLocked_CronModeDoubleStopDoesNotPanic(t *testing.T) {
-	s := newTestCheckinScheduler(6)
+	s := newTestCheckinScheduler(t, 6)
 	// Cron mode: cronRunner is set, intervalStop is nil.
 	s.cronRunner = newCronRunner()
 	s.cronRunner.start()
@@ -215,7 +219,7 @@ func TestStopLocked_CronModeDoubleStopDoesNotPanic(t *testing.T) {
 }
 
 func TestStopLocked_NilEverythingDoesNotPanic(t *testing.T) {
-	s := newTestCheckinScheduler(6)
+	s := newTestCheckinScheduler(t, 6)
 	// Nothing initialized — all fields nil/zero. stopLocked must handle this.
 	s.stopLocked()
 	s.stopLocked()
@@ -337,11 +341,12 @@ func TestRunIntervalPassLocked_CallsCheckinForDueAccountsOnly(t *testing.T) {
 	disabledSite := insertIntervalTestSite(t, db, "disabled-site", "disabled")
 	insertIntervalTestAccount(t, db, disabledSite, "disabled-site-acct", "active", "", true)
 
-	cfg := &config.Config{
+	config.SetRuntime(&config.RuntimeSettings{
 		CheckinScheduleMode:  "interval",
 		CheckinIntervalHours: 6,
-	}
-	s := NewCheckinScheduler(cfg)
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	s := NewCheckinScheduler(&config.Config{})
 
 	var (
 		calledIDs []int64
@@ -391,11 +396,12 @@ func TestRunIntervalPassLocked_NoDueAccountsDoesNotCallCheckin(t *testing.T) {
 	insertIntervalTestAccount(t, db, activeSite, "recent-a", "active", recentCheckin, true)
 	insertIntervalTestAccount(t, db, activeSite, "recent-b", "active", recentCheckin, true)
 
-	cfg := &config.Config{
+	config.SetRuntime(&config.RuntimeSettings{
 		CheckinScheduleMode:  "interval",
 		CheckinIntervalHours: 6,
-	}
-	s := NewCheckinScheduler(cfg)
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	s := NewCheckinScheduler(&config.Config{})
 
 	var callCount int32
 	s.checkinAll = func(_ *config.Config, _ *sqlx.DB, _ []int64, _ string) []checkin.CheckinAllResult {
@@ -422,11 +428,12 @@ func TestRunIntervalPassLocked_FailedResultsStillUpdateAttemptMap(t *testing.T) 
 	activeSite := insertIntervalTestSite(t, db, "fail-site", "active")
 	dueID := insertIntervalTestAccount(t, db, activeSite, "due-fail", "active", "", true)
 
-	cfg := &config.Config{
+	config.SetRuntime(&config.RuntimeSettings{
 		CheckinScheduleMode:  "interval",
 		CheckinIntervalHours: 6,
-	}
-	s := NewCheckinScheduler(cfg)
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	s := NewCheckinScheduler(&config.Config{})
 
 	s.checkinAll = func(_ *config.Config, _ *sqlx.DB, ids []int64, _ string) []checkin.CheckinAllResult {
 		results := make([]checkin.CheckinAllResult, 0, len(ids))
@@ -463,11 +470,12 @@ func TestRunIntervalPass_OverridesDBAndCallsCheckin(t *testing.T) {
 	activeSite := insertIntervalTestSite(t, db, "override-site", "active")
 	dueID := insertIntervalTestAccount(t, db, activeSite, "override-due", "active", "", true)
 
-	cfg := &config.Config{
+	config.SetRuntime(&config.RuntimeSettings{
 		CheckinScheduleMode:  "interval",
 		CheckinIntervalHours: 6,
-	}
-	s := NewCheckinScheduler(cfg)
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	s := NewCheckinScheduler(&config.Config{})
 
 	var calledIDs []int64
 	s.checkinAll = func(_ *config.Config, _ *sqlx.DB, ids []int64, _ string) []checkin.CheckinAllResult {

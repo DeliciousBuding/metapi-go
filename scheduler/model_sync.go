@@ -14,13 +14,13 @@ import (
 // model_sync_cron overrides the env default; UpdateCron hot-reloads the
 // running runner; the job runs under the cluster-wide scheduler lease.
 type ModelSyncScheduler struct {
-	cfg        *config.Config
 	cronRunner *cronRunner
 }
 
-// NewModelSyncScheduler creates a new model sync scheduler.
-func NewModelSyncScheduler(cfg *config.Config) *ModelSyncScheduler {
-	return &ModelSyncScheduler{cfg: cfg}
+// NewModelSyncScheduler creates a new model sync scheduler. The cron state
+// lives in the runtime-settings snapshot (hot-updated by settings apply).
+func NewModelSyncScheduler() *ModelSyncScheduler {
+	return &ModelSyncScheduler{}
 }
 
 // Name returns "model-sync".
@@ -29,8 +29,8 @@ func (s *ModelSyncScheduler) Name() string { return "model-sync" }
 // Start begins periodic model sync. Loads the cron expression from DB
 // settings or falls back to config default.
 func (s *ModelSyncScheduler) Start(ctx context.Context) error {
-	activeCron := resolveCronSetting("model_sync_cron", s.cfg.ModelSyncCron)
-	s.cfg.ModelSyncCron = activeCron
+	activeCron := resolveCronSetting("model_sync_cron", config.Runtime().ModelSyncCron)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelSyncCron = activeCron })
 
 	s.cronRunner = newCronRunner()
 	_, err := s.cronRunner.addJob(activeCron, s.runJob)
@@ -58,7 +58,7 @@ func (s *ModelSyncScheduler) UpdateCron(cronExpr string) error {
 	if !ValidateCronExpr(cronExpr) {
 		return formatErr("invalid cron expression: %s", cronExpr)
 	}
-	s.cfg.ModelSyncCron = cronExpr
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelSyncCron = cronExpr })
 	if s.cronRunner != nil {
 		s.cronRunner.stop()
 	}

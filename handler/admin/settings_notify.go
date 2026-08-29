@@ -18,10 +18,13 @@ func RegisterNotifyRoutes(r chi.Router) {
 // Dispatches a real connectivity test through all configured notification channels.
 // Returns a clear 400 failure when no channel is configured or all sends fail.
 func testNotify(w http.ResponseWriter, r *http.Request) {
-	cfg := config.Get()
+	// Notification channels live entirely in the runtime snapshot; take one
+	// atomic snapshot so a concurrent settings update cannot half-apply
+	// mid-dispatch.
+	rt := config.Runtime()
 
 	result, err := notify.SendNotification(
-		cfg,
+		rt,
 		"Test notification",
 		"This is a connectivity test notification from system settings; your notification configuration is working correctly!",
 		"info",

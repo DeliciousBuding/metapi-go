@@ -28,13 +28,13 @@ type UsageSummary struct {
 // 1. Keyword matching: if config.ProxyErrorKeywords is non-empty, checks case-insensitive
 // 2. Empty content check: if ProxyEmptyContentFailEnabled and no completion tokens + no output
 func DetectProxyFailure(rawText string, usage *UsageSummary) *FailureResult {
-	cfg := config.Get()
+	rt := config.Runtime()
 	rawText = strings.TrimSpace(rawText)
 
 	// 1. Keyword matching
-	if len(cfg.ProxyErrorKeywords) > 0 {
+	if len(rt.ProxyErrorKeywords) > 0 {
 		normalizedText := strings.ToLower(rawText)
-		for _, kw := range cfg.ProxyErrorKeywords {
+		for _, kw := range rt.ProxyErrorKeywords {
 			kw = strings.TrimSpace(strings.ToLower(kw))
 			if kw == "" {
 				continue
@@ -49,7 +49,7 @@ func DetectProxyFailure(rawText string, usage *UsageSummary) *FailureResult {
 	}
 
 	// 2. Empty content check
-	if cfg.ProxyEmptyContentFailEnabled {
+	if rt.ProxyEmptyContentFailEnabled {
 		compTokens := 0
 		if usage != nil {
 			compTokens = usage.CompletionTokens

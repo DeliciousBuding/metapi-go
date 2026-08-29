@@ -46,7 +46,7 @@ func TestConfigureProxyUpstreamWiresRealSQLiteRouter(t *testing.T) {
 		_ = store.CloseDatabase()
 	})
 	config.Set(cfg)
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
 	db := store.GetDB()
@@ -58,7 +58,7 @@ func TestConfigureProxyUpstreamWiresRealSQLiteRouter(t *testing.T) {
 
 	r := chi.NewRouter()
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth(cfg))
+		r.Use(auth.ProxyAuth())
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 
@@ -88,16 +88,12 @@ func TestConfigureProxyUpstreamWiresRealSQLiteRouter(t *testing.T) {
 func testProxyConfig(t *testing.T) *config.Config {
 	t.Helper()
 	dataDir := t.TempDir()
-	return &config.Config{
+	config.SetRuntime(&config.RuntimeSettings{
 		AuthToken:                        "admin-token",
 		ProxyToken:                       "downstream-token",
-		DataDir:                          dataDir,
 		DbType:                           store.DialectSQLite,
 		DbUrl:                            filepath.Join(dataDir, "metapi.db"),
-		RequestBodyLimit:                 1 << 20,
-		ProxyMaxChannelAttempts:          3,
 		ProxyFirstByteTimeoutSec:         90,
-		TokenRouterCacheTtlMs:            60_000,
 		RoutingFallbackUnitCost:          1,
 		TokenRouterFailureCooldownMaxSec: 3600,
 		RoutingWeights: config.RoutingWeights{
@@ -107,7 +103,16 @@ func testProxyConfig(t *testing.T) *config.Config {
 			BalanceWeight:    1,
 			UsageWeight:      1,
 		},
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	cfg := &config.Config{
+		DataDir:                 dataDir,
+		RequestBodyLimit:        1 << 20,
+		ProxyMaxChannelAttempts: 3,
+		TokenRouterCacheTtlMs:   60_000,
 	}
+	config.Set(cfg)
+	return cfg
 }
 
 func seedProxyRoute(t *testing.T, db *store.DB, upstreamURL, model, token string) int64 {
@@ -197,7 +202,7 @@ func TestConfigureProxyUpstreamWiresActiveChannelIDsProvider(t *testing.T) {
 		_ = store.CloseDatabase()
 	})
 	config.Set(cfg)
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
 	if err := ConfigureProxyUpstream(cfg); err != nil {

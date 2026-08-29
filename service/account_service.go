@@ -280,18 +280,24 @@ func BuildPlatformProxyConfig(cfg *config.Config, account *store.Account, site *
 		}
 	}
 
-	// 5. system proxy fallback (account opt-in, then site opt-in)
+	// 5. system proxy fallback (account opt-in, then site opt-in). The
+	// runtime snapshot is read once so one request can never observe two
+	// different system-proxy values mid-decision.
+	systemProxy := ""
+	if rt := config.RuntimeSafe(); rt != nil {
+		systemProxy = strings.TrimSpace(rt.SystemProxyUrl)
+	}
 	if account != nil {
-		if GetUseSystemProxyFromExtraConfig(account.ExtraConfig) && cfg != nil && strings.TrimSpace(cfg.SystemProxyUrl) != "" {
-			proxyCfg.ProxyURL = strings.TrimSpace(cfg.SystemProxyUrl)
+		if GetUseSystemProxyFromExtraConfig(account.ExtraConfig) && systemProxy != "" {
+			proxyCfg.ProxyURL = systemProxy
 			proxyCfg.UseSystemProxy = true
 			return normalizePlatformProxyConfig(proxyCfg)
 		}
 	}
 
 	if site != nil {
-		if site.UseSystemProxy && cfg != nil && strings.TrimSpace(cfg.SystemProxyUrl) != "" {
-			proxyCfg.ProxyURL = strings.TrimSpace(cfg.SystemProxyUrl)
+		if site.UseSystemProxy && systemProxy != "" {
+			proxyCfg.ProxyURL = systemProxy
 			proxyCfg.UseSystemProxy = true
 			return normalizePlatformProxyConfig(proxyCfg)
 		}

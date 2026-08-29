@@ -26,7 +26,7 @@ type FeishuChannel struct{}
 
 func (c *FeishuChannel) Name() string { return "feishu" }
 
-func (c *FeishuChannel) Send(cfg *config.Config, title, message, level, timeFootnote string) error {
+func (c *FeishuChannel) Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error {
 	if !cfg.FeishuEnabled || cfg.FeishuWebhook == "" {
 		return fmt.Errorf("feishu not configured")
 	}

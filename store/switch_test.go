@@ -25,11 +25,15 @@ func resetActiveDBForTest(t *testing.T) {
 func newSwitchTestConfig(t *testing.T, dir, fileName string) (*config.Config, string) {
 	t.Helper()
 	dbPath := filepath.Join(dir, fileName)
-	cfg := &config.Config{
-		DataDir: dir,
-		DbType:  DialectSQLite,
-		DbUrl:   dbPath,
-	}
+	cfg := &config.Config{DataDir: dir}
+	// SwitchDatabase reads and writes the connection settings through the
+	// global atomic RuntimeSettings snapshot, so each test publishes its
+	// baseline there (cleared again on cleanup).
+	config.SetRuntime(&config.RuntimeSettings{
+		DbType: DialectSQLite,
+		DbUrl:  dbPath,
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	return cfg, dbPath
 }
 
@@ -37,7 +41,7 @@ func newSwitchTestConfig(t *testing.T, dir, fileName string) (*config.Config, st
 // setup failure stops the test instead of cascading into switch assertions.
 func ensureRuntimeOrFail(t *testing.T, cfg *config.Config) {
 	t.Helper()
-	if err := EnsureRuntimeDatabase(cfg); err != nil {
+	if err := EnsureRuntimeDatabase(cfg, config.Runtime()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase failed: %v", err)
 	}
 	if GetDB() == nil {
@@ -75,11 +79,11 @@ func TestSwitchDatabase_Success_SqliteToSqlite(t *testing.T) {
 	if newDB == nil {
 		t.Fatal("GetDB() == nil after successful switch")
 	}
-	if cfg.DbType != DialectSQLite {
-		t.Fatalf("cfg.DbType = %q, want %q", cfg.DbType, DialectSQLite)
+	if config.Runtime().DbType != DialectSQLite {
+		t.Fatalf("runtime DbType = %q, want %q", config.Runtime().DbType, DialectSQLite)
 	}
-	if cfg.DbUrl != newPath {
-		t.Fatalf("cfg.DbUrl = %q, want %q", cfg.DbUrl, newPath)
+	if config.Runtime().DbUrl != newPath {
+		t.Fatalf("runtime DbUrl = %q, want %q", config.Runtime().DbUrl, newPath)
 	}
 
 	// New DB is a fresh migrate — the old marker must NOT be present.
@@ -133,11 +137,11 @@ func TestSwitchDatabase_OpenFailure_RollsBack(t *testing.T) {
 	}
 
 	// Config must be restored to the original values.
-	if cfg.DbType != DialectSQLite {
-		t.Fatalf("cfg.DbType = %q, want restored %q", cfg.DbType, DialectSQLite)
+	if config.Runtime().DbType != DialectSQLite {
+		t.Fatalf("runtime DbType = %q, want restored %q", config.Runtime().DbType, DialectSQLite)
 	}
-	if cfg.DbUrl != origPath {
-		t.Fatalf("cfg.DbUrl = %q, want restored %q", cfg.DbUrl, origPath)
+	if config.Runtime().DbUrl != origPath {
+		t.Fatalf("runtime DbUrl = %q, want restored %q", config.Runtime().DbUrl, origPath)
 	}
 
 	// Rollback must have re-opened the original DB.
@@ -197,7 +201,7 @@ func TestSwitchDatabase_RollbackAlsoFails(t *testing.T) {
 	// Config is best-effort restored to the original values by rollbackSwitch
 	// even when re-open fails, so a future EnsureRuntimeDatabase retries the
 	// original (operator-recoverable) rather than the broken new path.
-	if cfg.DbUrl != origPath {
-		t.Fatalf("cfg.DbUrl = %q, want restored %q", cfg.DbUrl, origPath)
+	if config.Runtime().DbUrl != origPath {
+		t.Fatalf("runtime DbUrl = %q, want restored %q", config.Runtime().DbUrl, origPath)
 	}
 }

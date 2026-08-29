@@ -233,14 +233,14 @@ func TestEnrichAlertMessage_QueryFailureDegrades(t *testing.T) {
 
 func TestReportLowBalance_EnrichedEventMessage(t *testing.T) {
 	db := setupAlertTestDB(t)
-	cfg := &config.Config{AuthToken: "a", ProxyToken: "p"}
+	rt := &config.RuntimeSettings{AuthToken: "a", ProxyToken: "p"}
 	_, accountID := seedEnrichSite(t, db, "acme", "alice")
 	routeID := seedEnrichRoute(t, db, "gpt-*", true)
 	seedEnrichChannel(t, db, routeID, accountID, true)
 
 	uname := "alice"
 	site := "acme"
-	ReportLowBalance(cfg, db.DB, LowBalanceParams{
+	ReportLowBalance(rt, db.DB, LowBalanceParams{
 		AccountID: accountID, Username: &uname, SiteName: &site,
 		Balance: 0.42, Threshold: 1.0,
 	})
@@ -269,14 +269,14 @@ func TestReportLowBalance_EnrichedEventMessage(t *testing.T) {
 
 func TestReportTokenExpired_EnrichedEventMessage(t *testing.T) {
 	db := setupAlertTestDB(t)
-	cfg := &config.Config{AuthToken: "a", ProxyToken: "p"}
+	rt := &config.RuntimeSettings{AuthToken: "a", ProxyToken: "p"}
 	_, accountID := seedEnrichSite(t, db, "acme", "alice")
 	routeID := seedEnrichRoute(t, db, "gpt-*", true)
 	seedEnrichChannel(t, db, routeID, accountID, true)
 
 	uname := "alice"
 	site := "acme"
-	ReportTokenExpired(cfg, db.DB, TokenExpiredParams{
+	ReportTokenExpired(rt, db.DB, TokenExpiredParams{
 		AccountID: accountID, Username: &uname, SiteName: &site,
 		Detail: "jwt expired",
 	})
@@ -299,12 +299,12 @@ func TestReportTokenExpired_EnrichedEventMessage(t *testing.T) {
 
 func TestReportProxyAllFailed_EnrichedEventMessage(t *testing.T) {
 	db := setupAlertTestDB(t)
-	cfg := &config.Config{AuthToken: "a", ProxyToken: "p"}
+	rt := &config.RuntimeSettings{AuthToken: "a", ProxyToken: "p"}
 	_, betaAccount := seedEnrichSite(t, db, "beta", "bob")
 	globRoute := seedEnrichRoute(t, db, "gpt-*", true)
 	seedEnrichChannel(t, db, globRoute, betaAccount, true)
 
-	ReportProxyAllFailed(cfg, db.DB, ProxyAllFailedParams{
+	ReportProxyAllFailed(rt, db.DB, ProxyAllFailedParams{
 		Model: "gpt-4o", Reason: "all channels exhausted",
 	})
 

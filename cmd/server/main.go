@@ -51,8 +51,10 @@ func main() {
 	env := environMap()
 
 	// ---- 1. Load config ----
-	cfg := config.Load(env)
-	config.Set(cfg)
+	// Load splits env-driven values into the static Config (frozen at boot)
+	// and the RuntimeSettings draft (published below, mutable afterwards only
+	// through config.UpdateRuntime).
+	cfg, rt := config.Load(env)
 
 	// Configure the slog threshold from LOG_LEVEL before validation so a
 	// raised threshold also quiets non-critical validation warnings. The
@@ -62,7 +64,7 @@ func main() {
 	})))
 
 	// ---- 1a. Validate config at startup ----
-	errs := cfg.Validate()
+	errs := append(cfg.Validate(), rt.Validate()...)
 	hasCritical := false
 	for _, err := range errs {
 		if config.IsCritical(err) {
@@ -79,16 +81,20 @@ func main() {
 	// Normalize DataDir (E11: trailing slash / Windows backslash)
 	cfg.DataDir = filepath.Clean(cfg.DataDir)
 
-	if err := bootstrapRuntime(cfg); err != nil {
+	if err := bootstrapRuntime(cfg, rt); err != nil {
 		slog.Error("startup bootstrap failed", "error", err)
 		os.Exit(1)
 	}
+	// Publish both singletons only after hydration: Config is frozen from
+	// here on; RuntimeSettings stays hot-updatable via config.UpdateRuntime.
+	config.Set(cfg)
+	config.SetRuntime(rt)
 	// One-time OAuth identity column backfill (bounded, marker-gated). Runs
 	// before the server accepts traffic so the admin list endpoint never
 	// pays the old per-request scan+update cost. See app.RunOauthIdentityBackfill.
 	app.RunOauthIdentityBackfill()
 	// N7: apply operator-configured cache-ratio fallback overrides to routing.
-	app.ApplyCacheRatioOverrides(cfg)
+	app.ApplyCacheRatioOverrides()
 	if err := app.ConfigureProxyUpstream(cfg); err != nil {
 		slog.Error("proxy upstream wiring failed", "error", err)
 		os.Exit(1)
@@ -130,7 +136,7 @@ func main() {
 	}
 }
 
-func bootstrapRuntime(cfg *config.Config) (err error) {
+func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("startup bootstrap panicked: %v", r)
@@ -140,10 +146,10 @@ func bootstrapRuntime(cfg *config.Config) (err error) {
 	if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {
 		return fmt.Errorf("create data directory %q: %w", cfg.DataDir, err)
 	}
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		return fmt.Errorf("ensure runtime database: %w", err)
 	}
-	if err := store.LoadRuntimeSettings(cfg); err != nil {
+	if err := store.LoadRuntimeSettings(cfg, rt); err != nil {
 		return fmt.Errorf("load runtime settings: %w", err)
 	}
 

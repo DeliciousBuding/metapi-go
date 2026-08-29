@@ -42,11 +42,14 @@ func setupEdgeTest(t *testing.T) (*store.DB, chi.Router, *config.Config) {
 
 	cfg := &config.Config{
 		AccountCredentialSecret: "test-secret-edge",
-		ProxyToken:              "edge-test-proxy-token",
-		AuthToken:               "admin-edge-test-token",
 		RequestBodyLimit:        20 * 1024 * 1024, // 20 MB
 	}
 	config.Set(cfg)
+	config.SetRuntime(&config.RuntimeSettings{
+		ProxyToken: "edge-test-proxy-token",
+		AuthToken:  "admin-edge-test-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 
 	r := chi.NewRouter()
 	RegisterSitesRoutes(r, db.DB)
@@ -127,7 +130,7 @@ func TestEdge_TrailingJSON_CreateSiteRejected(t *testing.T) {
 }
 
 func TestEdge_TrailingJSON_UpdateRuntimeRejected(t *testing.T) {
-	_, r, cfg := setupEdgeTest(t)
+	_, r, _ := setupEdgeTest(t)
 	body := `{"proxyToken":"new-proxy-token"} {}`
 	req := httptest.NewRequest("PUT", "/api/settings/runtime", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -137,13 +140,13 @@ func TestEdge_TrailingJSON_UpdateRuntimeRejected(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for trailing JSON, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if cfg.ProxyToken != "edge-test-proxy-token" {
-		t.Fatalf("proxy token mutated to %q", cfg.ProxyToken)
+	if config.Runtime().ProxyToken != "edge-test-proxy-token" {
+		t.Fatalf("proxy token mutated to %q", config.Runtime().ProxyToken)
 	}
 }
 
 func TestEdge_DuplicateJSONKey_UpdateRuntimeRejected(t *testing.T) {
-	_, r, cfg := setupEdgeTest(t)
+	_, r, _ := setupEdgeTest(t)
 	body := `{"proxyToken":"first-proxy-token","proxyToken":"second-proxy-token"}`
 	req := httptest.NewRequest("PUT", "/api/settings/runtime", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -153,8 +156,8 @@ func TestEdge_DuplicateJSONKey_UpdateRuntimeRejected(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for duplicate JSON key, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if cfg.ProxyToken != "edge-test-proxy-token" {
-		t.Fatalf("proxy token mutated to %q", cfg.ProxyToken)
+	if config.Runtime().ProxyToken != "edge-test-proxy-token" {
+		t.Fatalf("proxy token mutated to %q", config.Runtime().ProxyToken)
 	}
 }
 

@@ -58,29 +58,33 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 	dbPath := dataDir + "/shutdown_test.db"
 
 	cfg := &config.Config{
+		AccountCredentialSecret:   "test-cred-secret-shutdown",
+		DataDir:                   dataDir,
+		ProxyMaxChannelAttempts:   3,
+		ProxyStickySessionEnabled: false,
+		ProxyStickySessionTtlMs:   30000,
+		TokenRouterCacheTtlMs:     1500,
+		RequestBodyLimit:          20 * 1024 * 1024,
+		ListenHost:                "127.0.0.1",
+		Port:                      0, // OS-assigned port
+	}
+	rt := &config.RuntimeSettings{
 		AuthToken:                        adminToken,
 		ProxyToken:                       proxyToken,
-		AccountCredentialSecret:          "test-cred-secret-shutdown",
 		DbType:                           "sqlite",
 		DbUrl:                            dbPath,
-		DataDir:                          dataDir,
-		ProxyMaxChannelAttempts:          3,
-		ProxyStickySessionEnabled:        false,
-		ProxyStickySessionTtlMs:          30000,
-		TokenRouterCacheTtlMs:            1500,
 		TokenRouterFailureCooldownMaxSec: 60,
 		RoutingFallbackUnitCost:          1,
-		RequestBodyLimit:                 20 * 1024 * 1024,
-		ListenHost:                       "127.0.0.1",
-		Port:                             0, // OS-assigned port
 	}
 	config.Set(cfg)
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(makeTestRuntime()) })
 
 	// 1b. Open file-based SQLite + AutoMigrate.
 	// Using a file-backed DB instead of :memory: because the SQLite driver
 	// creates a separate :memory: database per pool connection, causing
 	// concurrent ProxyAuth middleware calls to miss the migrated tables.
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase failed: %v", err)
 	}
 
@@ -144,7 +148,7 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 	mockR.staticChannel = makeChannel(1, mockUpstream.URL, "gpt-4o")
 
 	// 1e. Proxy channel coordinator.
-	coord := proxy.NewProxyChannelCoordinator(cfg)
+	coord := proxy.NewProxyChannelCoordinator()
 
 	// 1f. Wire upstream config.
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
@@ -158,7 +162,7 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 
 	// Admin routes.
 	r.Group(func(r chi.Router) {
-		r.Use(auth.AdminAuth(cfg, nil))
+		r.Use(auth.AdminAuth(nil))
 		admin.RegisterSitesRoutes(r, db.DB)
 		admin.RegisterAccountsRoutes(r, db.DB, cfg)
 		admin.RegisterAccountTokensRoutes(r, db.DB)
@@ -166,7 +170,7 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 
 	// Proxy routes.
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth(cfg))
+		r.Use(auth.ProxyAuth())
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 
@@ -429,7 +433,7 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 	}
 
 	// Verify we can re-open the database (idempotency).
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Errorf("re-open database after close failed: %v", err)
 	}
 	reopened := store.GetDB()
@@ -450,20 +454,24 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 // is closed and no new TCP connections are accepted.
 func TestShutdownRejectsNewConnections(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:               "admin-reject-token",
-		ProxyToken:              "proxy-reject-token",
 		AccountCredentialSecret: "test-cred-reject",
-		DbType:                  "sqlite",
-		DbUrl:                   ":memory:",
 		DataDir:                 t.TempDir(),
 		ProxyMaxChannelAttempts: 3,
 		RequestBodyLimit:        20 * 1024 * 1024,
 		ListenHost:              "127.0.0.1",
 		Port:                    0,
 	}
+	rt := &config.RuntimeSettings{
+		AuthToken:  "admin-reject-token",
+		ProxyToken: "proxy-reject-token",
+		DbType:     "sqlite",
+		DbUrl:      ":memory:",
+	}
 	config.Set(cfg)
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(makeTestRuntime()) })
 
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase failed: %v", err)
 	}
 	defer store.CloseDatabase()
@@ -481,7 +489,7 @@ func TestShutdownRejectsNewConnections(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.staticChannel = makeChannel(1, mockUpstream.URL, "gpt-4o")
 
-	coord := proxy.NewProxyChannelCoordinator(cfg)
+	coord := proxy.NewProxyChannelCoordinator()
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
 		Router:         mockR,
 		RouteRefresher: &mockRouteRefresher{},
@@ -498,13 +506,13 @@ func TestShutdownRejectsNewConnections(t *testing.T) {
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(auth.AdminAuth(cfg, nil))
+		r.Use(auth.AdminAuth(nil))
 		admin.RegisterSitesRoutes(r, db.DB)
 		admin.RegisterAccountsRoutes(r, db.DB, cfg)
 		admin.RegisterAccountTokensRoutes(r, db.DB)
 	})
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth(cfg))
+		r.Use(auth.ProxyAuth())
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 

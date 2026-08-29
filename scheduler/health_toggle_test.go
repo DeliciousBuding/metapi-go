@@ -19,12 +19,13 @@ func TestCheckinScheduler_KillSwitchCronMode(t *testing.T) {
 	store.OverrideDB(nil)
 	t.Cleanup(func() { store.OverrideDB(nil) })
 
-	cfg := &config.Config{
+	config.SetRuntime(&config.RuntimeSettings{
 		CheckinCron:         "0 8 * * *",
 		CheckinScheduleMode: "cron",
 		CheckinDisabled:     true,
-	}
-	s := NewCheckinScheduler(cfg)
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	s := NewCheckinScheduler(&config.Config{})
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -38,8 +39,8 @@ func TestCheckinScheduler_KillSwitchCronMode(t *testing.T) {
 	if err := s.UpdateCheckinSchedule("cron", "0 9 * * *", 6, "00:00", "23:59"); err != nil {
 		t.Fatalf("UpdateCheckinSchedule: %v", err)
 	}
-	if cfg.CheckinCron != "0 9 * * *" {
-		t.Fatalf("cron = %q, want the updated value persisted", cfg.CheckinCron)
+	if config.Runtime().CheckinCron != "0 9 * * *" {
+		t.Fatalf("cron = %q, want the updated value persisted", config.Runtime().CheckinCron)
 	}
 	if s.cronRunner != nil {
 		t.Fatalf("schedule update must not re-arm a disabled scheduler")
@@ -47,7 +48,7 @@ func TestCheckinScheduler_KillSwitchCronMode(t *testing.T) {
 
 	// Enabling arms the cron runner with the persisted schedule.
 	s.SetEnabled(true)
-	if cfg.CheckinDisabled {
+	if config.Runtime().CheckinDisabled {
 		t.Fatalf("SetEnabled(true) must clear CheckinDisabled")
 	}
 	if s.cronRunner == nil {
@@ -56,7 +57,7 @@ func TestCheckinScheduler_KillSwitchCronMode(t *testing.T) {
 
 	// Disabling stops it again.
 	s.SetEnabled(false)
-	if !cfg.CheckinDisabled {
+	if !config.Runtime().CheckinDisabled {
 		t.Fatalf("SetEnabled(false) must set CheckinDisabled")
 	}
 	if s.cronRunner != nil {
@@ -70,12 +71,13 @@ func TestCheckinScheduler_KillSwitchIntervalMode(t *testing.T) {
 	store.OverrideDB(nil)
 	t.Cleanup(func() { store.OverrideDB(nil) })
 
-	cfg := &config.Config{
+	config.SetRuntime(&config.RuntimeSettings{
 		CheckinScheduleMode:  "interval",
 		CheckinIntervalHours: 6,
 		CheckinDisabled:      true,
-	}
-	s := NewCheckinScheduler(cfg)
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	s := NewCheckinScheduler(&config.Config{})
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -108,12 +110,13 @@ func TestCheckinScheduler_KillSwitchFromDBSetting(t *testing.T) {
 
 	insertSetting(t, db, "checkin_enabled", "false")
 
-	cfg := &config.Config{CheckinCron: "0 8 * * *", CheckinScheduleMode: "cron"}
-	s := NewCheckinScheduler(cfg)
+	config.SetRuntime(&config.RuntimeSettings{CheckinCron: "0 8 * * *", CheckinScheduleMode: "cron"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	s := NewCheckinScheduler(&config.Config{})
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	if !cfg.CheckinDisabled {
+	if !config.Runtime().CheckinDisabled {
 		t.Fatalf("DB setting checkin_enabled=false must disable the scheduler")
 	}
 	if s.cronRunner != nil {
@@ -127,8 +130,9 @@ func TestBalanceScheduler_KillSwitch(t *testing.T) {
 	store.OverrideDB(nil)
 	t.Cleanup(func() { store.OverrideDB(nil) })
 
-	cfg := &config.Config{BalanceRefreshCron: "0 * * * *", BalanceRefreshDisabled: true}
-	s := NewBalanceScheduler(cfg)
+	config.SetRuntime(&config.RuntimeSettings{BalanceRefreshCron: "0 * * * *", BalanceRefreshDisabled: true})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	s := NewBalanceScheduler(&config.Config{})
 
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -162,12 +166,13 @@ func TestBalanceScheduler_KillSwitchFromDBSetting(t *testing.T) {
 
 	insertSetting(t, db, "balance_refresh_enabled", "false")
 
-	cfg := &config.Config{BalanceRefreshCron: "0 * * * *"}
-	s := NewBalanceScheduler(cfg)
+	config.SetRuntime(&config.RuntimeSettings{BalanceRefreshCron: "0 * * * *"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	s := NewBalanceScheduler(&config.Config{})
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	if !cfg.BalanceRefreshDisabled {
+	if !config.Runtime().BalanceRefreshDisabled {
 		t.Fatalf("DB setting balance_refresh_enabled=false must disable the scheduler")
 	}
 	if s.cronRunner != nil {
@@ -183,11 +188,12 @@ func TestModelProbeScheduler_SetEnabledHotToggle(t *testing.T) {
 	t.Cleanup(func() { store.OverrideDB(nil) })
 
 	cfg := &config.Config{
-		ModelAvailabilityProbeEnabled:     false,
 		ModelAvailabilityProbeIntervalMs:  60_000,
 		ModelAvailabilityProbeTimeoutMs:   3000,
 		ModelAvailabilityProbeConcurrency: 1,
 	}
+	config.SetRuntime(&config.RuntimeSettings{ModelAvailabilityProbeEnabled: false})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	s := NewModelProbeScheduler(cfg)
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -205,7 +211,7 @@ func TestModelProbeScheduler_SetEnabledHotToggle(t *testing.T) {
 	if err := s.SetEnabled(true); err != nil {
 		t.Fatalf("SetEnabled(true): %v", err)
 	}
-	if !cfg.ModelAvailabilityProbeEnabled {
+	if !config.Runtime().ModelAvailabilityProbeEnabled {
 		t.Fatalf("SetEnabled(true) must set the enabled flag")
 	}
 	if !runnerRunning() {

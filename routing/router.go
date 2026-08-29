@@ -33,22 +33,26 @@ func NewTokenRouter(
 	cache := NewRouteCache(cacheTTLMs)
 	SetGlobalCache(cache)
 
-	configuredMaxSec := cfg.TokenRouterFailureCooldownMaxSec
+	// Tunables below are snapshotted at construction time (same semantics as
+	// pre-C1: they are baked into the router and a settings change applies on
+	// the next router rebuild / restart).
+	rt := config.Runtime()
+	configuredMaxSec := rt.TokenRouterFailureCooldownMaxSec
 	if configuredMaxSec <= 0 {
 		configuredMaxSec = TokenRouterFailureCooldownMaxSecCeiling
 	}
 
-	fallbackUnitCost := cfg.RoutingFallbackUnitCost
+	fallbackUnitCost := rt.RoutingFallbackUnitCost
 	if fallbackUnitCost <= 0 {
 		fallbackUnitCost = 1
 	}
 
 	routingWeights := RoutingWeightsConfig{
-		BaseWeightFactor: cfg.RoutingWeights.BaseWeightFactor,
-		ValueScoreFactor: cfg.RoutingWeights.ValueScoreFactor,
-		CostWeight:       cfg.RoutingWeights.CostWeight,
-		BalanceWeight:    cfg.RoutingWeights.BalanceWeight,
-		UsageWeight:      cfg.RoutingWeights.UsageWeight,
+		BaseWeightFactor: rt.RoutingWeights.BaseWeightFactor,
+		ValueScoreFactor: rt.RoutingWeights.ValueScoreFactor,
+		CostWeight:       rt.RoutingWeights.CostWeight,
+		BalanceWeight:    rt.RoutingWeights.BalanceWeight,
+		UsageWeight:      rt.RoutingWeights.UsageWeight,
 	}
 
 	selector := NewChannelSelector(db, cache, configuredMaxSec, routingWeights, pricingFn, fallbackUnitCost, channelLoadProvider)

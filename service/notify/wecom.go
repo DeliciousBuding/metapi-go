@@ -20,7 +20,7 @@ type WecomChannel struct{}
 
 func (c *WecomChannel) Name() string { return "wecom" }
 
-func (c *WecomChannel) Send(cfg *config.Config, title, message, level, timeFootnote string) error {
+func (c *WecomChannel) Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error {
 	if !cfg.WecomEnabled || cfg.WecomWebhook == "" {
 		return fmt.Errorf("wecom not configured")
 	}

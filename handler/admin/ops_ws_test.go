@@ -31,7 +31,9 @@ func setupOpsWSTest(t *testing.T) (*chi.Mux, *auth.SessionManager) {
 		t.Fatalf("AutoMigrate: %v", err)
 	}
 	sessions := auth.NewSessionManager(db, time.Minute)
-	cfg := &config.Config{AuthToken: "admin-secret-token"}
+	cfg := &config.Config{}
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: "admin-secret-token"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := chi.NewRouter()
 	RegisterOpsWSRoutes(r, cfg, sessions)
 	return r, sessions
@@ -233,9 +235,10 @@ func TestOpsWS_AllowsConfiguredCrossOrigin(t *testing.T) {
 	}
 	sessions := auth.NewSessionManager(db, time.Minute)
 	cfg := &config.Config{
-		AuthToken:               "admin-secret-token",
 		AdminCorsAllowedOrigins: []string{"evil.example"},
 	}
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: "admin-secret-token"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := chi.NewRouter()
 	RegisterOpsWSRoutes(r, cfg, sessions)
 	srv := httptest.NewServer(r)

@@ -14,17 +14,13 @@ import (
 // projection. It never hard-disables anything — the response only aggregates
 // the in-memory runtime breaker state and the DB-backed channel cooldown /
 // site+account health counters.
-func RegisterMonitorHealthRoute(r chi.Router, db *sqlx.DB, cfg *config.Config) {
-	h := &monitorHealthHandler{
-		db:               db,
-		configuredMaxSec: cfg.TokenRouterFailureCooldownMaxSec,
-	}
+func RegisterMonitorHealthRoute(r chi.Router, db *sqlx.DB) {
+	h := &monitorHealthHandler{db: db}
 	r.Get("/api/monitor/health", h.health)
 }
 
 type monitorHealthHandler struct {
-	db               *sqlx.DB
-	configuredMaxSec int
+	db *sqlx.DB
 }
 
 // health is the read-only projection endpoint backing the observability
@@ -62,6 +58,9 @@ func (h *monitorHealthHandler) health(w http.ResponseWriter, r *http.Request) {
 // recently-failed means failCount>0 with a lastFailAt inside the configured
 // Fibonacci backoff window.
 func (h *monitorHealthHandler) aggregateCooldown() (map[string]any, error) {
+	// Cooldown window cap is runtime-mutable (settings hot-update); read one
+	// snapshot for the whole aggregation so every row uses the same value.
+	configuredMaxSec := config.Runtime().TokenRouterFailureCooldownMaxSec
 	rows, err := queryRowsErr(h.db, `
 		SELECT
 			rc.id AS id,
@@ -98,7 +97,7 @@ func (h *monitorHealthHandler) aggregateCooldown() (map[string]any, error) {
 		if failCount > 0 {
 			channelsWithFailures++
 		}
-		if routing.IsChannelRecentlyFailed(&failCount, lastFailAt, nowMs, h.configuredMaxSec) {
+		if routing.IsChannelRecentlyFailed(&failCount, lastFailAt, nowMs, configuredMaxSec) {
 			channelsRecentlyFailed++
 		}
 		if routing.IsCooldownActive(cooldownUntil, nowISO) {

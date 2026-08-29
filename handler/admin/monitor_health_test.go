@@ -14,7 +14,7 @@ import (
 
 // setupMonitorHealthTest opens an in-memory SQLite database, runs AutoMigrate,
 // and registers the monitor health route on a standalone Chi router.
-func setupMonitorHealthTest(t *testing.T) (*store.DB, chi.Router, *config.Config) {
+func setupMonitorHealthTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
 	db, err := store.Open(store.DialectSQLite, ":memory:", false)
 	if err != nil {
@@ -27,13 +27,16 @@ func setupMonitorHealthTest(t *testing.T) (*store.DB, chi.Router, *config.Config
 		t.Fatalf("AutoMigrate failed: %v", err)
 	}
 
-	cfg := &config.Config{
+	// The health route reads the failure-cooldown ceiling from the runtime
+	// snapshot; publish a test baseline (30 days keeps cooldowns visible).
+	config.SetRuntime(&config.RuntimeSettings{
 		TokenRouterFailureCooldownMaxSec: 30 * 24 * 60 * 60,
-	}
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 
 	r := chi.NewRouter()
-	RegisterMonitorHealthRoute(r, db.DB, cfg)
-	return db, r, cfg
+	RegisterMonitorHealthRoute(r, db.DB)
+	return db, r
 }
 
 // insertTestSite inserts a minimal site row and returns its id.
@@ -115,7 +118,7 @@ func doHealthGet(t *testing.T, r chi.Router) *httptest.ResponseRecorder {
 }
 
 func TestMonitorHealth_EmptyDatabase(t *testing.T) {
-	_, r, _ := setupMonitorHealthTest(t)
+	_, r := setupMonitorHealthTest(t)
 
 	resp := doHealthGet(t, r)
 	if resp.Code != http.StatusOK {
@@ -163,7 +166,7 @@ func TestMonitorHealth_EmptyDatabase(t *testing.T) {
 }
 
 func TestMonitorHealth_SiteStatusCounts(t *testing.T) {
-	db, r, _ := setupMonitorHealthTest(t)
+	db, r := setupMonitorHealthTest(t)
 
 	insertTestSite(t, db, "active-site-1", "active")
 	insertTestSite(t, db, "active-site-2", "active")
@@ -199,7 +202,7 @@ func TestMonitorHealth_SiteStatusCounts(t *testing.T) {
 }
 
 func TestMonitorHealth_AccountStatusCounts(t *testing.T) {
-	db, r, _ := setupMonitorHealthTest(t)
+	db, r := setupMonitorHealthTest(t)
 
 	siteID := insertTestSite(t, db, "acct-test-site", "active")
 	insertTestAccount(t, db, siteID, "user1", "active")
@@ -236,7 +239,7 @@ func TestMonitorHealth_AccountStatusCounts(t *testing.T) {
 }
 
 func TestMonitorHealth_CooldownAggregation(t *testing.T) {
-	db, r, _ := setupMonitorHealthTest(t)
+	db, r := setupMonitorHealthTest(t)
 
 	siteID := insertTestSite(t, db, "cooldown-site", "active")
 	accountID := insertTestAccount(t, db, siteID, "cooldown-user", "active")
@@ -298,7 +301,7 @@ func TestMonitorHealth_CooldownAggregation(t *testing.T) {
 }
 
 func TestMonitorHealth_RuntimeHealthPresent(t *testing.T) {
-	_, r, _ := setupMonitorHealthTest(t)
+	_, r := setupMonitorHealthTest(t)
 
 	resp := doHealthGet(t, r)
 	if resp.Code != http.StatusOK {
@@ -330,7 +333,7 @@ func TestMonitorHealth_RuntimeHealthPresent(t *testing.T) {
 }
 
 func TestMonitorHealth_ExpiredCooldownNotInCoolingList(t *testing.T) {
-	db, r, _ := setupMonitorHealthTest(t)
+	db, r := setupMonitorHealthTest(t)
 
 	siteID := insertTestSite(t, db, "expired-cooldown-site", "active")
 	accountID := insertTestAccount(t, db, siteID, "expired-user", "active")

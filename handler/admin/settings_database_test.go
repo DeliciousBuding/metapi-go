@@ -15,11 +15,13 @@ import (
 
 func TestRuntimeDatabaseGetRuntimeReportsActivePostgres(t *testing.T) {
 	db := setupBackupTestDB(t)
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"DB_TYPE":    "postgresql",
 		"DB_URL":     "postgres://user:secret-pass@example.invalid:5432/metapi?sslmode=require",
 		"DB_SSLMODE": "verify-full",
 	})
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	handler := &databaseHandler{db: db.DB, cfg: cfg}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/database/runtime", nil)
@@ -65,9 +67,11 @@ func TestRuntimeDatabaseGetRuntimeReportsActivePostgres(t *testing.T) {
 
 func TestRuntimeDatabaseSaveRuntimeKeepsActiveDatabaseSeparateFromSavedOverride(t *testing.T) {
 	db := setupBackupTestDB(t)
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"DB_TYPE": "sqlite",
 	})
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	handler := &databaseHandler{db: db.DB, cfg: cfg}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/settings/database/runtime", strings.NewReader(`{
@@ -298,10 +302,12 @@ func TestRuntimeDatabaseMigrateQueuesBackgroundTask(t *testing.T) {
 	}
 
 	settingsDB := setupBackupTestDB(t)
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"DB_TYPE": "sqlite",
 		"DB_URL":  sourcePath,
 	})
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	handler := &databaseHandler{db: settingsDB.DB, cfg: cfg}
 
 	targetPath := filepath.Join(t.TempDir(), "target.db")
@@ -397,10 +403,12 @@ func TestRuntimeDatabaseMigrateRejectsSameTarget(t *testing.T) {
 
 	settingsDB := setupBackupTestDB(t)
 	const sourcePath = "C:/data/hub.db"
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"DB_TYPE": "sqlite",
 		"DB_URL":  sourcePath,
 	})
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	handler := &databaseHandler{db: settingsDB.DB, cfg: cfg}
 
 	// Target spells the same SQLite file with a sqlite:// prefix.
@@ -426,7 +434,9 @@ func TestRuntimeDatabaseMigrateRejectsEmptyConnectionString(t *testing.T) {
 	t.Cleanup(func() { resetBackgroundTasksForTests() })
 
 	settingsDB := setupBackupTestDB(t)
-	cfg := config.Load(map[string]string{"DB_TYPE": "sqlite", "DB_URL": "C:/data/hub.db"})
+	cfg, rt := config.Load(map[string]string{"DB_TYPE": "sqlite", "DB_URL": "C:/data/hub.db"})
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	handler := &databaseHandler{db: settingsDB.DB, cfg: cfg}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/database/migrate", strings.NewReader(`{
@@ -456,11 +466,13 @@ func TestRuntimeDatabaseGetDoesNotRequireRestartWhenSavedMatchesActive(t *testin
 			t.Fatalf("save %s: %v", key, err)
 		}
 	}
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"DB_TYPE":    "postgres",
 		"DB_URL":     dsn,
 		"DB_SSLMODE": "require",
 	})
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	handler := &databaseHandler{db: db.DB, cfg: cfg}
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/database/runtime", nil)
 	rec := httptest.NewRecorder()
@@ -492,10 +504,12 @@ func TestRuntimeDatabaseGetDoesNotRequireRestartForEquivalentSQLitePath(t *testi
 		}
 	}
 	// Active runtime spells the same SQLite file with the sqlite:// prefix.
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"DB_TYPE": "sqlite",
 		"DB_URL":  "sqlite://" + savedPath,
 	})
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	handler := &databaseHandler{db: db.DB, cfg: cfg}
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/database/runtime", nil)
 	rec := httptest.NewRecorder()
@@ -526,11 +540,13 @@ func TestRuntimeDatabaseLegacyStringSSLDoesNotForceRestart(t *testing.T) {
 			t.Fatalf("save %s: %v", key, err)
 		}
 	}
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"DB_TYPE":    "postgres",
 		"DB_URL":     dsn,
 		"DB_SSLMODE": "require",
 	})
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	handler := &databaseHandler{db: db.DB, cfg: cfg}
 	req := httptest.NewRequest(http.MethodGet, "/api/settings/database/runtime", nil)
 	rec := httptest.NewRecorder()

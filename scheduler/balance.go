@@ -28,15 +28,16 @@ func (s *BalanceScheduler) Name() string { return "balance-refresh" }
 // (env BALANCE_REFRESH_ENABLED / runtime setting balanceRefreshEnabled,
 // issue #1027): when disabled, no cron job is scheduled at all.
 func (s *BalanceScheduler) Start(ctx context.Context) error {
-	enabled := resolveBooleanSetting("balance_refresh_enabled", !s.cfg.BalanceRefreshDisabled)
-	s.cfg.BalanceRefreshDisabled = !enabled
-	if s.cfg.BalanceRefreshDisabled {
+	rt := config.Runtime()
+	enabled := resolveBooleanSetting("balance_refresh_enabled", !rt.BalanceRefreshDisabled)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshDisabled = !enabled })
+	if !enabled {
 		slog.Info("balance scheduler disabled (balanceRefreshEnabled=false)")
 		return nil
 	}
 
-	activeCron := resolveCronSetting("balance_refresh_cron", s.cfg.BalanceRefreshCron)
-	s.cfg.BalanceRefreshCron = activeCron
+	activeCron := resolveCronSetting("balance_refresh_cron", rt.BalanceRefreshCron)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = activeCron })
 
 	s.cronRunner = newCronRunner()
 	_, err := s.cronRunner.addJob(activeCron, s.runJob)
@@ -64,7 +65,7 @@ func (s *BalanceScheduler) UpdateCron(cronExpr string) error {
 	if !ValidateCronExpr(cronExpr) {
 		return formatErr("invalid cron expression: %s", cronExpr)
 	}
-	s.cfg.BalanceRefreshCron = cronExpr
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = cronExpr })
 	if s.cronRunner != nil {
 		s.cronRunner.stop()
 	}
@@ -83,7 +84,7 @@ func (s *BalanceScheduler) UpdateCron(cronExpr string) error {
 // cron from DB settings (same contract as Start) and schedules it. Callers
 // serialize this against other scheduler updates via app.updateMu.
 func (s *BalanceScheduler) SetEnabled(enabled bool) error {
-	s.cfg.BalanceRefreshDisabled = !enabled
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshDisabled = !enabled })
 	if !enabled {
 		if s.cronRunner != nil {
 			s.cronRunner.stop()
@@ -92,8 +93,8 @@ func (s *BalanceScheduler) SetEnabled(enabled bool) error {
 		slog.Info("balance scheduler disabled (balanceRefreshEnabled=false)")
 		return nil
 	}
-	activeCron := resolveCronSetting("balance_refresh_cron", s.cfg.BalanceRefreshCron)
-	s.cfg.BalanceRefreshCron = activeCron
+	activeCron := resolveCronSetting("balance_refresh_cron", config.Runtime().BalanceRefreshCron)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = activeCron })
 	if s.cronRunner != nil {
 		s.cronRunner.stop()
 	}

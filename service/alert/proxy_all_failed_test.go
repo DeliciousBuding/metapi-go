@@ -32,10 +32,10 @@ func TestReportProxyAllFailed_FiresEventOnceThenThrottles(t *testing.T) {
 	resetProxyAllFailedThrottle(t)
 	db := setupAlertTestDB(t)
 	// NotifyCooldownSec=0 → the floor cooldown still applies (storm guard).
-	cfg := &config.Config{AuthToken: "a", ProxyToken: "p"}
+	rt := &config.RuntimeSettings{AuthToken: "a", ProxyToken: "p"}
 
 	fire := func(model string) {
-		ReportProxyAllFailed(cfg, db.DB, ProxyAllFailedParams{
+		ReportProxyAllFailed(rt, db.DB, ProxyAllFailedParams{
 			Model: model, Reason: "all channels exhausted",
 		})
 	}
@@ -71,9 +71,9 @@ func TestReportProxyAllFailed_FiresEventOnceThenThrottles(t *testing.T) {
 func TestReportProxyAllFailed_EventCarriesModelAndReason(t *testing.T) {
 	resetProxyAllFailedThrottle(t)
 	db := setupAlertTestDB(t)
-	cfg := &config.Config{AuthToken: "a", ProxyToken: "p"}
+	rt := &config.RuntimeSettings{AuthToken: "a", ProxyToken: "p"}
 
-	ReportProxyAllFailed(cfg, db.DB, ProxyAllFailedParams{
+	ReportProxyAllFailed(rt, db.DB, ProxyAllFailedParams{
 		Model: "gpt-allfailed-msg", Reason: "no available channels",
 	})
 
@@ -97,11 +97,11 @@ func TestReportProxyAllFailed_EventCarriesModelAndReason(t *testing.T) {
 func TestReportProxyAllFailed_GuardsNilDBAndEmptyModel(t *testing.T) {
 	resetProxyAllFailedThrottle(t)
 	// Must not panic; guards run before the throttle so no state is consumed.
-	ReportProxyAllFailed(&config.Config{}, nil, ProxyAllFailedParams{Model: "m", Reason: "r"})
+	ReportProxyAllFailed(&config.RuntimeSettings{}, nil, ProxyAllFailedParams{Model: "m", Reason: "r"})
 	ReportProxyAllFailed(nil, nil, ProxyAllFailedParams{Model: "m", Reason: "r"})
 
 	db := setupAlertTestDB(t)
-	ReportProxyAllFailed(&config.Config{}, db.DB, ProxyAllFailedParams{Model: "", Reason: "r"})
+	ReportProxyAllFailed(&config.RuntimeSettings{}, db.DB, ProxyAllFailedParams{Model: "", Reason: "r"})
 	if n := countProxyAllFailedEvents(t, db); n != 0 {
 		t.Fatalf("expected 0 events for empty model, got %d", n)
 	}

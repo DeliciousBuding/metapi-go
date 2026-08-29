@@ -9,15 +9,12 @@ import (
 )
 
 // Helper: make a minimal config with the given credential secret.
+// The env-level AUTH_TOKEN fallback chain lives in config.Load; the
+// credential key only ever reads the static AccountCredentialSecret.
 func testCfg(secret string) *config.Config {
-	cfg := &config.Config{
+	return &config.Config{
 		AccountCredentialSecret: secret,
 	}
-	// Ensure fallback chain works as in Load()
-	if cfg.AccountCredentialSecret == "" && cfg.AuthToken != "" {
-		cfg.AccountCredentialSecret = cfg.AuthToken
-	}
-	return cfg
 }
 
 func TestEncryptDecryptRoundtrip(t *testing.T) {
@@ -181,7 +178,6 @@ func TestDecryptWrongIVLength(t *testing.T) {
 func TestBuildCredentialKeyFromAuthToken(t *testing.T) {
 	cfg := &config.Config{
 		AccountCredentialSecret: "",
-		AuthToken:               "my-auth-token",
 	}
 
 	key := buildCredentialKey(cfg)
@@ -203,7 +199,6 @@ func TestBuildCredentialKeyFromAuthToken(t *testing.T) {
 func TestBuildCredentialKeyFallback(t *testing.T) {
 	cfg := &config.Config{
 		AccountCredentialSecret: "",
-		AuthToken:               "",
 	}
 
 	key := buildCredentialKey(cfg)

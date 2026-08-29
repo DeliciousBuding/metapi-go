@@ -12,7 +12,7 @@ import (
 
 // LoadRuntimeSettings reads the settings table and applies runtime overrides
 // to the config. Mirrors TS runtimeSettingsHydration behavior.
-func LoadRuntimeSettings(cfg *config.Config) error {
+func LoadRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings) error {
 	db := GetDB()
 	if db == nil {
 		return fmt.Errorf("settings: database not initialized")
@@ -32,18 +32,18 @@ func LoadRuntimeSettings(cfg *config.Config) error {
 	settingsMap := toSettingsMap(all)
 	slog.Info("settings: loaded runtime settings", "count", len(settingsMap))
 
-	// Apply runtime overrides to config.
-	ApplyRuntimeSettings(cfg, settingsMap)
+	// Apply runtime overrides to the static + runtime drafts.
+	ApplyRuntimeSettings(cfg, rt, settingsMap)
 
 	// Track whether log cleanup was explicitly configured via DB settings.
 	cfg.LogCleanupConfigured = HasExplicitLogCleanupSettings(settingsMap)
 
 	// Auto-enable log cleanup if retention > 0 and not previously configured.
-	if !cfg.LogCleanupConfigured && cfg.LogCleanupRetentionDays > 0 {
-		cfg.LogCleanupUsageLogsEnabled = true
-		cfg.LogCleanupProgramLogsEnabled = true
+	if !cfg.LogCleanupConfigured && rt.LogCleanupRetentionDays > 0 {
+		rt.LogCleanupUsageLogsEnabled = true
+		rt.LogCleanupProgramLogsEnabled = true
 		cfg.LogCleanupConfigured = true
-		slog.Info("settings: auto-enabled log cleanup", "retention_days", cfg.LogCleanupRetentionDays)
+		slog.Info("settings: auto-enabled log cleanup", "retention_days", rt.LogCleanupRetentionDays)
 	}
 
 	return nil
@@ -79,7 +79,7 @@ func HasExplicitLogCleanupSettings(settingsMap map[string]string) bool {
 
 // Mirrors TS runtime settings application logic. Settings stored in the
 // settings table are JSON-encoded; this function parses and applies them.
-func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
+func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settingsMap map[string]string) {
 	for key, rawValue := range settingsMap {
 		value := strings.TrimSpace(rawValue)
 		if value == "" {
@@ -90,11 +90,11 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 		// Auth
 		case "auth_token":
 			if v := parseOptionalString(value); v != "" {
-				cfg.AuthToken = v
+				rt.AuthToken = v
 			}
 		case "proxy_token":
 			if v := parseOptionalString(value); v != "" {
-				cfg.ProxyToken = v
+				rt.ProxyToken = v
 			}
 		case "account_credential_secret":
 			if v := parseOptionalString(value); v != "" {
@@ -108,136 +108,136 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 		// Proxy retry/disable status-code range policy (P1-2): blank keeps
 		// the routing defaults (historical behavior).
 		case "proxy_retry_status_ranges":
-			cfg.ProxyRetryStatusRanges = parseJSONSettingString(value)
+			rt.ProxyRetryStatusRanges = parseJSONSettingString(value)
 		case "proxy_disable_status_ranges":
-			cfg.ProxyDisableStatusRanges = parseJSONSettingString(value)
+			rt.ProxyDisableStatusRanges = parseJSONSettingString(value)
 
 		// Checkin schedule
 		case "checkin_cron":
 			if v := parseJSONSettingString(value); v != "" {
-				cfg.CheckinCron = v
+				rt.CheckinCron = v
 			}
 		case "checkin_schedule_mode":
 			switch strings.ToLower(parseJSONSettingString(value)) {
 			case "cron", "interval", "window":
-				cfg.CheckinScheduleMode = strings.ToLower(parseJSONSettingString(value))
+				rt.CheckinScheduleMode = strings.ToLower(parseJSONSettingString(value))
 			}
 		case "checkin_interval_hours":
-			hours := parseInt(value, cfg.CheckinIntervalHours)
+			hours := parseInt(value, rt.CheckinIntervalHours)
 			if hours >= 1 && hours <= 24 {
-				cfg.CheckinIntervalHours = hours
+				rt.CheckinIntervalHours = hours
 			}
 		// E1: random-window mode bounds (HH:mm, 24h).
 		case "checkin_window_start":
 			if v := parseJSONSettingString(value); v != "" {
-				cfg.CheckinWindowStart = v
+				rt.CheckinWindowStart = v
 			}
 		case "checkin_window_end":
 			if v := parseJSONSettingString(value); v != "" {
-				cfg.CheckinWindowEnd = v
+				rt.CheckinWindowEnd = v
 			}
 
 		// Site & Branding (empty values keep the embedded defaults)
 		case "system_name":
 			if v := parseJSONSettingString(value); v != "" {
-				cfg.SystemName = v
+				rt.SystemName = v
 			}
 		case "logo":
 			if v := parseJSONSettingString(value); v != "" {
-				cfg.Logo = v
+				rt.Logo = v
 			}
 		case "footer":
 			if v := parseJSONSettingString(value); v != "" {
-				cfg.Footer = v
+				rt.Footer = v
 			}
 		case "about":
 			if v := parseJSONSettingString(value); v != "" {
-				cfg.About = v
+				rt.About = v
 			}
 		// home_page_content was removed (Wave 8 Lane D): the setting was stored
 		// but never rendered. Legacy rows are intentionally ignored here.
 		case "server_address":
 			if v := parseJSONSettingString(value); v != "" {
-				cfg.ServerAddress = v
+				rt.ServerAddress = v
 			}
 		// Notify
 		case "webhook_url":
-			cfg.WebhookUrl = parseJSONSettingString(value)
+			rt.WebhookUrl = parseJSONSettingString(value)
 		case "webhook_enabled":
-			cfg.WebhookEnabled = parseBoolSetting(value, cfg.WebhookEnabled)
+			rt.WebhookEnabled = parseBoolSetting(value, rt.WebhookEnabled)
 		case "bark_url":
-			cfg.BarkUrl = parseJSONSettingString(value)
+			rt.BarkUrl = parseJSONSettingString(value)
 		case "bark_enabled":
-			cfg.BarkEnabled = parseBoolSetting(value, cfg.BarkEnabled)
+			rt.BarkEnabled = parseBoolSetting(value, rt.BarkEnabled)
 		case "serverchan_key":
-			cfg.ServerChanKey = parseJSONSettingString(value)
+			rt.ServerChanKey = parseJSONSettingString(value)
 		case "serverchan_enabled":
-			cfg.ServerChanEnabled = parseBoolSetting(value, cfg.ServerChanEnabled)
+			rt.ServerChanEnabled = parseBoolSetting(value, rt.ServerChanEnabled)
 
 		// Notify: General
 		case "notify_cooldown_sec":
-			cfg.NotifyCooldownSec = parseInt(value, cfg.NotifyCooldownSec)
+			rt.NotifyCooldownSec = parseInt(value, rt.NotifyCooldownSec)
 		case "system_proxy_url":
-			cfg.SystemProxyUrl = parseJSONSettingString(value)
+			rt.SystemProxyUrl = parseJSONSettingString(value)
 
 		// Telegram
 		case "telegram_enabled":
-			cfg.TelegramEnabled = parseBoolSetting(value, cfg.TelegramEnabled)
+			rt.TelegramEnabled = parseBoolSetting(value, rt.TelegramEnabled)
 		case "telegram_bot_token":
-			cfg.TelegramBotToken = parseJSONSettingString(value)
+			rt.TelegramBotToken = parseJSONSettingString(value)
 		case "telegram_chat_id":
-			cfg.TelegramChatId = parseJSONSettingString(value)
+			rt.TelegramChatId = parseJSONSettingString(value)
 		case "telegram_api_base_url":
-			cfg.TelegramApiBaseUrl = parseJSONSettingString(value)
+			rt.TelegramApiBaseUrl = parseJSONSettingString(value)
 		case "telegram_use_system_proxy":
-			cfg.TelegramUseSystemProxy = parseBoolSetting(value, cfg.TelegramUseSystemProxy)
+			rt.TelegramUseSystemProxy = parseBoolSetting(value, rt.TelegramUseSystemProxy)
 		case "telegram_message_thread_id":
-			cfg.TelegramMessageThreadId = parseJSONSettingString(value)
+			rt.TelegramMessageThreadId = parseJSONSettingString(value)
 
 		// SMTP
 		case "smtp_enabled":
-			cfg.SmtpEnabled = parseBoolSetting(value, cfg.SmtpEnabled)
+			rt.SmtpEnabled = parseBoolSetting(value, rt.SmtpEnabled)
 		case "smtp_host":
-			cfg.SmtpHost = parseJSONSettingString(value)
+			rt.SmtpHost = parseJSONSettingString(value)
 		case "smtp_port":
-			cfg.SmtpPort = parseInt(value, cfg.SmtpPort)
+			rt.SmtpPort = parseInt(value, rt.SmtpPort)
 		case "smtp_user":
-			cfg.SmtpUser = parseJSONSettingString(value)
+			rt.SmtpUser = parseJSONSettingString(value)
 		case "smtp_pass":
-			cfg.SmtpPass = parseJSONSettingString(value)
+			rt.SmtpPass = parseJSONSettingString(value)
 		case "smtp_from":
-			cfg.SmtpFrom = parseJSONSettingString(value)
+			rt.SmtpFrom = parseJSONSettingString(value)
 		case "smtp_to":
-			cfg.SmtpTo = parseJSONSettingString(value)
+			rt.SmtpTo = parseJSONSettingString(value)
 		case "smtp_secure":
-			cfg.SmtpSecure = parseBoolSetting(value, cfg.SmtpSecure)
+			rt.SmtpSecure = parseBoolSetting(value, rt.SmtpSecure)
 
 		// Log cleanup
 		case "log_cleanup.usage_logs_enabled":
-			cfg.LogCleanupUsageLogsEnabled = parseBoolSetting(value, cfg.LogCleanupUsageLogsEnabled)
+			rt.LogCleanupUsageLogsEnabled = parseBoolSetting(value, rt.LogCleanupUsageLogsEnabled)
 		case "log_cleanup.program_logs_enabled":
-			cfg.LogCleanupProgramLogsEnabled = parseBoolSetting(value, cfg.LogCleanupProgramLogsEnabled)
+			rt.LogCleanupProgramLogsEnabled = parseBoolSetting(value, rt.LogCleanupProgramLogsEnabled)
 		case "log_cleanup.retention_days":
-			cfg.LogCleanupRetentionDays = config.MaxInt(1, parseInt(value, cfg.LogCleanupRetentionDays))
+			rt.LogCleanupRetentionDays = config.MaxInt(1, parseInt(value, rt.LogCleanupRetentionDays))
 
 		// Proxy settings
 		case "proxy_max_channel_attempts":
 			cfg.ProxyMaxChannelAttempts = config.MaxInt(1, parseInt(value, cfg.ProxyMaxChannelAttempts))
 		case "proxy_debug_trace_enabled":
-			cfg.ProxyDebugTraceEnabled = parseBoolSetting(value, cfg.ProxyDebugTraceEnabled)
+			rt.ProxyDebugTraceEnabled = parseBoolSetting(value, rt.ProxyDebugTraceEnabled)
 
 		// Model probe
 		case "model_availability_probe_enabled":
-			cfg.ModelAvailabilityProbeEnabled = parseBoolSetting(value, cfg.ModelAvailabilityProbeEnabled)
+			rt.ModelAvailabilityProbeEnabled = parseBoolSetting(value, rt.ModelAvailabilityProbeEnabled)
 
 		// Codex
 		case "codex_upstream_websocket_enabled":
-			cfg.CodexUpstreamWebsocketEnabled = parseBoolSetting(value, cfg.CodexUpstreamWebsocketEnabled)
+			rt.CodexUpstreamWebsocketEnabled = parseBoolSetting(value, rt.CodexUpstreamWebsocketEnabled)
 
 		// Generic JSON settings
 		case "global_blocked_brands":
 			if list, ok := parseStringListSetting(value); ok {
-				cfg.GlobalBlockedBrands = list
+				rt.GlobalBlockedBrands = list
 			} else {
 				slog.Warn("settings: ignoring invalid global_blocked_brands value")
 			}
@@ -245,46 +245,46 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 			// Non-destructive: invalid / unparseable values must not wipe a
 			// previously configured allowlist (upstream / ).
 			if list, ok := parseStringListSetting(value); ok {
-				cfg.GlobalAllowedModels = list
+				rt.GlobalAllowedModels = list
 			} else {
 				slog.Warn("settings: ignoring invalid global_allowed_models value")
 			}
 		case "payload_rules":
-			cfg.PayloadRules = config.ParseJsonValue(value)
+			rt.PayloadRules = config.ParseJsonValue(value)
 		case "openai_service_tier_rules":
 			cfg.OpenAiServiceTierRules = config.ParseJsonValue(value)
 
 		// N7: prompt-cache ratio fallback overrides (0 = use code default).
 		case "cache_ratio_default":
-			cfg.CacheRatioDefault = parseFloatSetting(value, 0)
+			rt.CacheRatioDefault = parseFloatSetting(value, 0)
 		case "cache_ratio_claude":
-			cfg.CacheRatioClaude = parseFloatSetting(value, 0)
+			rt.CacheRatioClaude = parseFloatSetting(value, 0)
 
 		// Feishu / DingTalk / WeCom / Ntfy dedicated channels.
 		case "feishu_enabled":
-			cfg.FeishuEnabled = parseBoolSetting(value, cfg.FeishuEnabled)
+			rt.FeishuEnabled = parseBoolSetting(value, rt.FeishuEnabled)
 		case "feishu_webhook":
-			cfg.FeishuWebhook = parseJSONSettingString(value)
+			rt.FeishuWebhook = parseJSONSettingString(value)
 		case "feishu_secret":
-			cfg.FeishuSecret = parseJSONSettingString(value)
+			rt.FeishuSecret = parseJSONSettingString(value)
 		case "dingtalk_enabled":
-			cfg.DingtalkEnabled = parseBoolSetting(value, cfg.DingtalkEnabled)
+			rt.DingtalkEnabled = parseBoolSetting(value, rt.DingtalkEnabled)
 		case "dingtalk_webhook":
-			cfg.DingtalkWebhook = parseJSONSettingString(value)
+			rt.DingtalkWebhook = parseJSONSettingString(value)
 		case "dingtalk_secret":
-			cfg.DingtalkSecret = parseJSONSettingString(value)
+			rt.DingtalkSecret = parseJSONSettingString(value)
 		case "wecom_enabled":
-			cfg.WecomEnabled = parseBoolSetting(value, cfg.WecomEnabled)
+			rt.WecomEnabled = parseBoolSetting(value, rt.WecomEnabled)
 		case "wecom_webhook":
-			cfg.WecomWebhook = parseJSONSettingString(value)
+			rt.WecomWebhook = parseJSONSettingString(value)
 		case "ntfy_enabled":
-			cfg.NtfyEnabled = parseBoolSetting(value, cfg.NtfyEnabled)
+			rt.NtfyEnabled = parseBoolSetting(value, rt.NtfyEnabled)
 		case "ntfy_url":
-			cfg.NtfyUrl = parseJSONSettingString(value)
+			rt.NtfyUrl = parseJSONSettingString(value)
 		case "ntfy_topic":
-			cfg.NtfyTopic = parseJSONSettingString(value)
+			rt.NtfyTopic = parseJSONSettingString(value)
 		case "ntfy_token":
-			cfg.NtfyToken = parseJSONSettingString(value)
+			rt.NtfyToken = parseJSONSettingString(value)
 
 		// per-alert-type mute toggles (JSON object).
 		// Stored as {"token_expired":true,"low_balance":false,...}; missing
@@ -293,11 +293,11 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 			if value != "" {
 				toggles := map[string]bool{}
 				if err := json.Unmarshal([]byte(value), &toggles); err == nil {
-					if cfg.NotifyTaskToggles == nil {
-						cfg.NotifyTaskToggles = map[string]bool{}
+					if rt.NotifyTaskToggles == nil {
+						rt.NotifyTaskToggles = map[string]bool{}
 					}
 					for k, v := range toggles {
-						cfg.NotifyTaskToggles[k] = v
+						rt.NotifyTaskToggles[k] = v
 					}
 				}
 			}

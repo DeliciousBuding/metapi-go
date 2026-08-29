@@ -77,11 +77,11 @@ func buildSchedulers(cfg *config.Config) (
 	// ---- Scheduler 2b: Model Sync (#1005) ----
 	// Periodic upstream model-list refresh; cron from MODEL_SYNC_CRON or the
 	// model_sync_cron DB setting.
-	modelSync := scheduler.NewModelSyncScheduler(cfg)
+	modelSync := scheduler.NewModelSyncScheduler()
 	newRegistry.Register(modelSync)
 
 	// ---- Scheduler 3: Daily Summary ----
-	newRegistry.Register(scheduler.NewDailySummaryScheduler(cfg))
+	newRegistry.Register(scheduler.NewDailySummaryScheduler())
 
 	// ---- Scheduler 4: Log Cleanup ----
 	logCleanup := scheduler.NewLogCleanupScheduler(cfg)
