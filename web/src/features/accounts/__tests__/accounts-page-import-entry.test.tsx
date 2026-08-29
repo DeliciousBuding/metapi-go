@@ -58,7 +58,7 @@ vi.mock('@/features/import', () => ({
 
 vi.mock('../api', () => ({
   // Non-empty library: exactly the state where the empty-state CTA disappears.
-  useAccounts: () => ({
+  useAccountsPage: () => ({
     data: {
       generatedAt: '',
       accounts: [

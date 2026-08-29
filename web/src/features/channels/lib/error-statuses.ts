@@ -10,7 +10,7 @@ import type { ChannelStatus } from '../types'
  * intent rather than a failure, so it stays out of the error count and the
  * one-click filter.
  */
-export const CHANNELS_ERROR_STATUSES: readonly ChannelStatus[] = [
+const CHANNELS_ERROR_STATUSES: readonly ChannelStatus[] = [
   'cooldown',
   'breaker_open',
 ]

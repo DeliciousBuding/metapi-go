@@ -11,6 +11,15 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Toaster as Sonner, type ToasterProps } from 'sonner'
 
+// CSP fallback (#1035 S2): sonner injects its stylesheet at import time via
+// document.createElement("style") and exposes no nonce hook for that path.
+// The Go CSP allows the exact injected string by sha256 hash (see
+// router/security.go), and bundling the same rules here as a static
+// stylesheet guarantees toast styling even if the hash ever drifts or an
+// engine does not honor hashes on DOM-inserted styles — the blocked runtime
+// injection then only costs a console violation, not the toast UI.
+import 'sonner/dist/styles.css'
+
 import { useTheme } from '@/context/theme-provider'
 
 const Toaster = (props: ToasterProps) => {

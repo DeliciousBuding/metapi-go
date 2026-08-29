@@ -7,6 +7,10 @@ All notable changes to Metapi-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Security
+
+- **SPA CSP 去 `style-src 'unsafe-inline'`（#1035 S2）**：CSP `style-src` 从 `'self' 'unsafe-inline'` 收紧为 `'self' 'nonce-<per-request>' 'sha256-<sonner-toast-css>'`，并保留其余 directive 不变；Go SPA fallback 在每个响应中生成 16 字节随机 nonce，注入 `<meta name="csp-nonce">` 并在 `Content-Security-Policy` 头中表达，前端静态 `bootstrap.js` 在 bundle 前把手动创建的 `<style>` 元素（sonner/chart/dialog scroll-lock 注入路径）统一标注该 nonce。sonner 的运行时样式表同时静态打包（`sonner/dist/styles.css`），即使 hash 漂移也不影响 toast 视觉；新增 CSP directive 级断言、nonce 随机性/meta 匹配测试、sonner hash 漂移守卫和 ChartStyle nonce 单测。残留：sonner 库仍会尝试注入样式（被 hash 允许），静态 fallback 保证功能；其他 directive 未放宽。
+
 ### Fixed
 
 - **下游密钥凭证维度（`allowedCredentialRefs`/`excludedCredentialRefs`）端到端修复（#1026 残留）**：`auth.ExcludedCredentialRef` 的 JSON 标签原为 snake_case（`site_id`/`account_id`/`token_id`），而管理端持久化形状为 camelCase（`siteId`/`accountId`/`tokenId`）——导致代理路径解析出的引用 ID 全为 0：允许列表密钥无法路由任何渠道、排除列表静默失效。标签统一为 camelCase 并新增 DB→策略解析往返回归测试。

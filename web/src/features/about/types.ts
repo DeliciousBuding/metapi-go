@@ -7,29 +7,6 @@
 // em-dash rather than a fabricated value. The public GitHub repository link is
 // the only external reference (metapi-go is a public repo).
 
-export type AboutInfo = {
-  /** Semver version: the binary version from /api/about, else the bundle version. */
-  version: string
-  /** UTC RFC3339 build timestamp. Undefined when the binary carries none. */
-  buildTime?: string
-  /** Git commit SHA. Undefined when the binary carries none. */
-  commit?: string
-  /** Go runtime version string reported by the backend. */
-  goVersion?: string
-  /** Human-readable product name. */
-  projectName: string
-  /** One-line description (from package.json). */
-  description: string
-  /** Public GitHub repository homepage URL. */
-  homepage: string
-  /** Public GitHub repository URL. */
-  repository: string
-  /** SPDX license identifier. */
-  license: string
-  /** Author handle. */
-  author: string
-}
-
 /**
  * Curated list of key runtime/framework dependencies shown on the About
  * page. Versions are kept in sync with `web/package.json` by hand; the list

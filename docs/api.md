@@ -225,15 +225,21 @@ Channels for a specific route.
 
 ### GET /api/channels
 
-Full route-channel list (5-way JOIN) with a 30s snapshot cache; `?refresh=true` bypasses it.
+Full route-channel list (5-way JOIN) with a 10s snapshot cache; `?refresh=true` bypasses it.
 
-**Query params**: `page`/`pageSize` (when present the response is paginated; without them the bare full shape is returned and `pageSize` reports the real row count), `refresh`.
+**Query params**: `page`/`pageSize` (when present the response is paginated; without them the bare full shape is returned and `pageSize` reports the real row count), `refresh`, `status` (optional comma-separated subset of the four `status` values below; filtering loads the full row set to read in-memory routing/breaker state, then pages the filtered result).
 
 **Response** (200): `{ "items": [ { "id": 12, "routeId": 1, "name": "svc-1", "site": { "id": 3, "name": "anthropic" }, "type": "account", "status": "enabled", "models": "gpt-4o", "priority": 10, "weight": 20, "responseMs": 842, "cooldownUntil": null, "cooldownReasonCode": null, "cooldownReason": null, "cooldownReasonAt": null, "enabled": true, "manualOverride": false } ], "total": 1, "page": 1, "pageSize": 1 }`
 
 `type` is `account` | `token` | `oauth_unit`; `status` is `enabled` | `cooldown` | `breaker_open` | `manually_disabled`.
 
 **Cooldown reason fields**: `cooldownReasonCode` / `cooldownReason` / `cooldownReasonAt` describe why the channel entered cooldown. All three are `null` when no reason was recorded (rows cooled before the structured-reason schema existed). Codes are a stable, append-only vocabulary: `usage_limit` | `rate_limited` | `auth_error` | `upstream_error` | `client_error` | `timeout` | `network_error` | `probe_failure` | `unknown`. `cooldownReason` is a sanitized error summary truncated to 200 runes; `cooldownReasonAt` is the ISO-8601 UTC time the triggering failure was recorded.
+
+### GET /api/channels/error-summary
+
+Fleet-wide runtime status counts that cannot be derived from a SQL aggregate because circuit-breaker state lives in the routing in-memory health maps. `?refresh=true` bypasses the 10s cache; any `route_channels` mutation invalidates both this summary and the channel-list snapshot.
+
+**Response** (200): `{ "total": 16, "errorCount": 3, "byStatus": { "enabled": 10, "cooldown": 2, "breaker_open": 1, "manually_disabled": 3 } }` — `errorCount` counts only `cooldown` and `breaker_open`; `manually_disabled` is operator intent and is excluded.
 
 ### GET /api/channels/probe-history
 
@@ -369,6 +375,16 @@ Trigger decision snapshot refresh.
 ### GET /api/models/marketplace
 
 Available models by site.
+
+**Query params**: `page`/`pageSize` — when `page` is present the endpoint
+returns `{ items, total, page, pageSize, meta }` where `total` is the full
+marketplace row count and `pageSize` clamps to 1–200 (default 50); when
+`page` is absent it keeps the legacy `{ models, meta }` shape. Filtering and
+sorting are not server-side today, so the frontend applies them over the
+returned page only.
+
+**Response (page-gated)**: `{ "items": [...], "total": 240, "page": 2,
+"pageSize": 50, "meta": { "refreshRequested": false, "includePricing": true } }`.
 
 ### GET /api/models/price-compare
 
@@ -554,7 +570,16 @@ Global tag system: per-row writes and the aggregated index driving the Accounts/
 
 ### GET /api/accounts, POST /api/accounts
 
-List all accounts. Create a new account.
+List accounts. Create a new account.
+
+**Query params** (GET): `page`/`pageSize` — when `page` is present the
+endpoint returns the shared `{ items, total, page, pageSize, generatedAt,
+ sites }` envelope (`page` is 1-based, `pageSize` clamps to 1–200; the
+snapshot cache is bypassed so each page uses a bounded query); when `page` is
+absent it keeps the legacy `{ generatedAt, accounts, sites }` snapshot shape.
+
+The `sites` array is still returned on paged responses so the page's site
+filter and create form keep working without a second full-fleet request.
 
 **Body** (create, optional): `proxyUrl` — per-account egress proxy stored in `extraConfig.proxyUrl`; accepted schemes are `http://`, `https://`, `socks5://`, `socks5h://` (SOCKS5 runs natively on Go's `net/http` transport). Invalid schemes return `400`.
 
@@ -797,9 +822,12 @@ dimension (the column stores `NULL`). A non-empty list activates the gate:
 - Site and credential dimensions are independent gates — a candidate must pass
   both.
 
-> **UI status:** the credential-ref dimensions are **API-only**. The admin UI
-> has no tree picker for them yet (issue #1026 follow-up); manage these fields
-> via the API. `allowedSiteIds` has a UI picker (#1050).
+> **UI status:** the credential-ref dimensions now have a site → account →
+> token tree picker in the admin API-key sheet (issue #1026 follow-up,
+> #1064 contract). The sheet serializes real arrays on create/update and
+> parses the stored JSON strings when editing; the key list renders resolved
+> site/account/token names, with unresolved IDs shown explicitly. The site
+> picker (#1050) remains unchanged.
 
 **Credential ref shape.** Each ref is one of two kinds:
 
@@ -1517,6 +1545,7 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/announcements/active`
 - `/api/auth/session`
 - `/api/channels`
+- `/api/channels/error-summary`
 - `/api/checkin/logs`
 - `/api/debug/vars`
 - `/api/desktop/health`

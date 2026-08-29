@@ -88,7 +88,7 @@ func TestSessionExpiryAndLazyGC(t *testing.T) {
 }
 
 func TestSessionSlidingExpiry(t *testing.T) {
-	sm := newTestSessionManager(t, 2*time.Second)
+	sm := newTestSessionManager(t, 10*time.Second)
 	ctx := context.Background()
 
 	raw, sess, err := sm.Create(ctx, "", "")

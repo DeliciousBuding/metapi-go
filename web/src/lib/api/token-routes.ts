@@ -70,7 +70,13 @@ export const tokenRoutesApi = {
   getRoutesSummary: () => request('/api/routes/summary'),
   getRouteChannels: (routeId: number) =>
     request(`/api/routes/${routeId}/channels`),
-  getChannels: () => request('/api/channels'),
+  getChannels: (options?: {
+    page?: number
+    pageSize?: number
+    status?: string
+    refresh?: boolean
+  }) => request(`/api/channels${buildQueryString(options)}`),
+  getChannelsErrorSummary: () => request('/api/channels/error-summary'),
   batchAddChannels: (
     routeId: number,
     channels: Array<{

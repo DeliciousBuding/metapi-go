@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ABOUT_INFO } from '@/features/about/api'
+import { ABOUT_INFO } from '@/lib/about-info'
 import { api } from '@/lib/api'
 import { clearAuthSession } from '@/lib/auth-session'
 import { useAuthStore } from '@/stores/auth-store'

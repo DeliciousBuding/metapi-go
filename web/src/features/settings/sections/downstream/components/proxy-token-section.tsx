@@ -78,10 +78,7 @@ export function ProxyTokenSection() {
   }
 
   function onSubmit(values: ProxyTokenFormValues) {
-    const changed = collectChangedFields(
-      values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null
-    ) as Partial<ProxyTokenFormValues>
+    const changed = collectChangedFields(values, baseline)
     if (!hasChanges(changed) || !changed.proxyTokenSuffix) {
       toast.info(t('settings.common.noChanges'))
       return

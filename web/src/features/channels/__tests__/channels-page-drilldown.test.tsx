@@ -20,6 +20,10 @@ const testState = vi.hoisted(() => ({
     channel: ChannelRow | null
     open: boolean
   } | null,
+  isLoading: false as boolean,
+  isFetching: false as boolean,
+  error: null as Error | null,
+  refetch: vi.fn(),
 }))
 
 vi.mock('@/components/common/use-probe-history', () => ({
@@ -38,6 +42,7 @@ vi.mock('@/components/data-table', () => ({
     onGlobalFilterChange: vi.fn(),
     columnFilters: [],
     onColumnFiltersChange: vi.fn(),
+    filters: { status: '' },
     pagination: { pageIndex: 0, pageSize: 20 },
     onPaginationChange: vi.fn(),
     sorting: [],
@@ -50,9 +55,39 @@ vi.mock('@/components/data-table', () => ({
 vi.mock('../api', () => ({
   useChannels: () => ({
     data: testState.channels,
+    isLoading: testState.isLoading,
+    isFetching: testState.isFetching,
+    error: testState.error,
+    refetch: testState.refetch,
+  }),
+  useChannelsPage: () => ({
+    data: {
+      items: testState.channels,
+      total: testState.channels.length,
+    },
+    isLoading: testState.isLoading,
+    isFetching: testState.isFetching,
+    error: testState.error,
+    refetch: testState.refetch,
+  }),
+  useChannelsErrorSummary: () => ({
+    data: {
+      total: testState.channels.length,
+      errorCount: testState.channels.filter(
+        (channel) =>
+          channel.status === 'cooldown' || channel.status === 'breaker_open'
+      ).length,
+      byStatus: {
+        enabled: 0,
+        cooldown: 0,
+        breaker_open: 0,
+        manually_disabled: 0,
+      },
+    },
     isLoading: false,
     isFetching: false,
     error: null,
+    refetch: vi.fn(),
   }),
 }))
 

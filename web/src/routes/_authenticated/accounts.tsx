@@ -6,18 +6,18 @@
 // through the shared URL-table hook and writes changes back through TanStack
 // Router, so direct links and back/forward restore the same table view.
 //
-// `loader` prefetches the accounts snapshot (`accountQueryKeys.snapshot()`),
-// which the backend returns as `{ accounts, sites, generatedAt }` — the
-// embedded `sites` array powers the page's site filter, so a single prefetch
-// covers both. The component is declared directly; the router plugin's
-// `autoCodeSplitting` splits it in production.
+//
+// loader prefetches the ONE server-paginated accounts page the deep link
+// points at (page/pageSize parsed from the URL, same default rules as the
+// page). The paged response also embeds sites, so the site filter is
+// covered without fetching the full account fleet. The component is
+// declared directly; the router autoCodeSplitting splits it in production.
 
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 
-import { accountQueryKeys } from '@/features/accounts'
+import { accountQueryKeys, fetchAccountsPage } from '@/features/accounts'
 import { AccountsPage } from '@/features/accounts/components/accounts-page'
-import { api } from '@/lib/api'
 import {
   encodeSortingParam,
   stringSearchParam,
@@ -63,10 +63,19 @@ export const accountsSearchSchema = z.object({
 export const Route = createFileRoute('/_authenticated/accounts')({
   validateSearch: accountsSearchSchema,
   staticData: { title: 'accounts.page.title' },
-  loader: async ({ context }) => {
+  loader: async ({ context, location }) => {
+    const params = new URLSearchParams(location.searchStr)
+    const rawPage = Number(params.get('page') ?? '1')
+    const rawPageSize = Number(params.get('pageSize') ?? '20')
+    const pageIndex =
+      Number.isFinite(rawPage) && rawPage > 0 ? Math.max(0, rawPage - 1) : 0
+    const pageSize =
+      Number.isFinite(rawPageSize) && rawPageSize > 0
+        ? Math.min(100, Math.max(1, rawPageSize))
+        : 20
     await context.queryClient.prefetchQuery({
-      queryKey: accountQueryKeys.snapshot(),
-      queryFn: () => api.getAccountsSnapshot(),
+      queryKey: accountQueryKeys.page(pageIndex, pageSize),
+      queryFn: () => fetchAccountsPage({ pageIndex, pageSize }),
     })
   },
   component: AccountsPage,

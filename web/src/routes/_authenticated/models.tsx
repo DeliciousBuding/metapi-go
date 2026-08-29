@@ -15,26 +15,36 @@
 
 import { createFileRoute } from '@tanstack/react-router'
 
-import { modelsKeys, modelsSearchSchema } from '@/features/models'
+import {
+  fetchModelsPage,
+  modelsPageQueryKey,
+  modelsSearchSchema,
+} from '@/features/models'
 import { ModelsPage } from '@/features/models/components/models-page'
-import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/models')({
   validateSearch: modelsSearchSchema,
   staticData: { title: 'models.page.title' },
-  loader: async ({ context }) => {
+  loader: async ({ context, location }) => {
+    const params = new URLSearchParams(location.searchStr)
+    const parsed = modelsSearchSchema.safeParse({
+      page: params.get('page') ?? undefined,
+      pageSize: params.get('pageSize') ?? undefined,
+    })
+    const pageIndex = parsed.success ? (parsed.data.page ?? 0) : 0
+    const pageSize = parsed.success ? (parsed.data.pageSize ?? 20) : 20
     await context.queryClient.prefetchQuery({
-      queryKey: modelsKeys.marketplace({
-        refresh: false,
+      queryKey: modelsPageQueryKey({
+        pageIndex,
+        pageSize,
         includePricing: true,
       }),
-      queryFn: async () => {
-        const result = await api.getModelsMarketplace({
-          refresh: false,
+      queryFn: () =>
+        fetchModelsPage({
+          pageIndex,
+          pageSize,
           includePricing: true,
-        })
-        return Array.isArray(result) ? result : (result?.models ?? [])
-      },
+        }),
     })
   },
   component: ModelsPage,

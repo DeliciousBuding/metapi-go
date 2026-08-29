@@ -24,10 +24,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
 
-import { useChannels } from '../api'
+import { useChannels, useChannelsErrorSummary, useChannelsPage } from '../api'
 import { channelsSearchSchema } from '../lib/channels-schema'
 import {
-  CHANNELS_ERROR_STATUSES,
   CHANNELS_ERROR_STATUS_FILTER,
   isErrorOnlyStatusFilter,
 } from '../lib/error-statuses'
@@ -128,12 +127,22 @@ export function ChannelsPage() {
   const { t } = useTranslation()
   const search = useSearch({ from: '/_authenticated/channels' })
   const navigate = useNavigate()
-  const channelsQuery = useChannels()
+  const urlState = useChannelsUrlState()
+  const channelsPageQuery = useChannelsPage({
+    pageIndex: urlState.pagination.pageIndex,
+    pageSize: urlState.pagination.pageSize,
+    status: urlState.filters.status || undefined,
+  })
+  // Legacy full-list query is enabled only for one-shot `?channelId=`
+  // drilldown; the normal page never transfers the whole fleet.
+  const channelsQuery = useChannels({
+    enabled: Boolean(search.channelId),
+  })
+  const errorSummaryQuery = useChannelsErrorSummary()
   // Row-level probe history is secondary decoration: fetched in ONE batch
   // (never per row) and rendered as health bars; a failed fetch only hides
   // the bars, never the channels table.
   const probeHistoryQuery = useProbeHistory('channels')
-  const urlState = useChannelsUrlState()
 
   // P1-4 closure (competitor-study-2026-08): the error banner doubles as
   // the filter entry. The count derives from the loaded list; the mode
@@ -168,10 +177,7 @@ export function ChannelsPage() {
     })
   }, [search, channelsQuery.isLoading, channelsQuery.data, navigate])
 
-  const allChannels = channelsQuery.data ?? []
-  const errorChannelCount = allChannels.filter((channel) =>
-    CHANNELS_ERROR_STATUSES.includes(channel.status)
-  ).length
+  const errorChannelCount = errorSummaryQuery.data?.errorCount ?? 0
   const showErrorOnly = isErrorOnlyStatusFilter(
     asStringParam(search.status) ?? ''
   )
@@ -203,7 +209,7 @@ export function ChannelsPage() {
   const columns = useChannelsColumns(columnActions, probeHistoryQuery.data)
 
   const { table } = useDataTable<ChannelRow>({
-    data: channelsQuery.data ?? [],
+    data: channelsPageQuery.data?.items ?? [],
     columns,
     enableColumnResizing: true,
     columnVisibilityStorageKey: CHANNELS_COLUMN_VISIBILITY_STORAGE_KEY,
@@ -218,6 +224,9 @@ export function ChannelsPage() {
     onColumnFiltersChange: urlState.onColumnFiltersChange,
     ensurePageInRange: urlState.ensurePageInRange,
     getRowId: (row) => String(row.id),
+    manualPagination: true,
+    manualSorting: true,
+    totalCount: channelsPageQuery.data?.total ?? 0,
   })
 
   return (
@@ -229,26 +238,38 @@ export function ChannelsPage() {
         </p>
       </div>
 
-      {channelsQuery.error ? (
+      {channelsPageQuery.error ? (
         <QueryErrorBanner
-          error={channelsQuery.error as Error | null}
+          error={channelsPageQuery.error as Error | null}
           messageKey='channels.page.loadError'
-          onRetry={() => channelsQuery.refetch()}
-          isRetrying={channelsQuery.isFetching}
+          onRetry={() => {
+            void channelsPageQuery.refetch()
+            void errorSummaryQuery.refetch()
+          }}
+          isRetrying={channelsPageQuery.isFetching}
         />
       ) : (
         <>
-          <ChannelsErrorBanner
-            errorCount={errorChannelCount}
-            showErrorOnly={showErrorOnly}
-            onFilterErrors={handleFilterErrors}
-            onExitErrorOnly={handleExitErrorOnly}
-          />
+          {errorSummaryQuery.error && !errorSummaryQuery.data ? (
+            <QueryErrorBanner
+              error={errorSummaryQuery.error as Error | null}
+              messageKey='channels.page.loadError'
+              onRetry={() => errorSummaryQuery.refetch()}
+              isRetrying={errorSummaryQuery.isFetching}
+            />
+          ) : (
+            <ChannelsErrorBanner
+              errorCount={errorChannelCount}
+              showErrorOnly={showErrorOnly}
+              onFilterErrors={handleFilterErrors}
+              onExitErrorOnly={handleExitErrorOnly}
+            />
+          )}
           <DataTablePage
             table={table}
             columns={columns}
-            isLoading={channelsQuery.isLoading}
-            isFetching={channelsQuery.isFetching}
+            isLoading={channelsPageQuery.isLoading}
+            isFetching={channelsPageQuery.isFetching}
             emptyTitle={t('channels.empty.title')}
             emptyDescription={t('channels.empty.description')}
             emptyAction={

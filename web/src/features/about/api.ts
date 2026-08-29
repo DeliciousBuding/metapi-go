@@ -3,7 +3,7 @@
 // The build provenance (`version` / `commit` / `buildTime` / `goVersion`) comes
 // from the Go binary via `GET /api/about`, so the About page shows the version
 // of the process actually serving the request rather than the frontend bundle
-// version. The repository metadata below is curated in the frontend — it
+// version. The curated repository metadata lives in src/lib/about-info.ts (S5 boundary inversion) — it
 // describes the project, not the build, and has no backend owner.
 //
 // Fields the backend leaves empty (a local `go build` injects no commit or
@@ -12,26 +12,10 @@
 
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
+import { ABOUT_INFO, type AboutInfo } from '@/lib/about-info'
 import { api } from '@/lib/api'
 
-import { aboutKeys, type AboutInfo } from './types'
-
-/**
- * Project metadata that is not build provenance: name, description, links,
- * license and author. `version` is the `METAPI_WEB_VERSION` global injected by
- * `source.define` in rsbuild.config.ts (read from web/package.json) and acts
- * as the fallback when the backend does not report a binary version.
- */
-const ABOUT_INFO: AboutInfo = {
-  version: METAPI_WEB_VERSION,
-  projectName: 'Metapi',
-  description:
-    'Meta-layer management and unified proxy for AI API aggregation platforms',
-  homepage: 'https://github.com/DeliciousBuding/metapi-go#readme',
-  repository: 'https://github.com/DeliciousBuding/metapi-go',
-  license: 'MIT',
-  author: 'DeliciousBuding',
-}
+import { aboutKeys } from './types'
 
 export { ABOUT_INFO }
 
