@@ -3086,9 +3086,9 @@
     },
     "search": {
       "trigger": "Search…",
-      "placeholder": "Search pages, settings, sites, accounts, logs…",
+      "placeholder": "Search pages, settings, actions, sites, accounts, logs…",
       "title": "Global search",
-      "description": "Search pages and settings, or find sites, accounts, tokens, models, check-in and proxy logs.",
+      "description": "Search pages and settings, run common actions, or find sites, accounts, tokens, models, check-in and proxy logs.",
       "searching": "Searching…",
       "unknown": "Unknown",
       "modelTokens": "{{count}} tokens",
@@ -3099,12 +3099,19 @@
       "groups": {
         "pages": "Pages",
         "settings": "Settings",
+        "actions": "Actions",
         "sites": "Sites",
         "accounts": "Accounts",
         "tokens": "Tokens",
         "checkinLogs": "Check-in logs",
         "proxyLogs": "Proxy logs",
         "models": "Models"
+      },
+      "actions": {
+        "addSite": "Add site",
+        "runCheckinAll": "Run all check-ins",
+        "rebuildRoutes": "Auto-rebuild routes",
+        "refreshRouteDecisions": "Refresh route decisions"
       }
     },
     "userMenu": {

@@ -1,10 +1,13 @@
 // metapi-go/layout — global search command palette (⌘K / Ctrl+K).
 //
-// A cmdk-based palette with two result layers:
+// A cmdk-based palette with three result layers:
 //   - a local navigation layer over the primary pages (root sidebar data)
 //     and the Settings workspace (5 subareas + sections from the settings
 //     registry): quick entries when the query is empty, local fuzzy
 //     matching while typing,
+//   - a local actions layer over high-frequency write operations
+//     (registry in `lib/search-actions.ts`): every action reuses an
+//     existing dialog deep link or page mutation — no new business logic,
 //   - the backend entity layer over `POST /api/search` (six categories).
 //
 // The trigger button lives in `app-header.tsx`; this component is mounted
@@ -13,13 +16,14 @@
 //   - the global ⌘K/Ctrl+K toggle (registered once, never hijacked inside
 //     editable targets),
 //   - a ~250 ms debounced search against `searchApi.search`,
-//   - grouped rendering of navigation + entity results.
+//   - grouped rendering of navigation + actions + entity results.
 //
 // cmdk's own filtering is disabled (`shouldFilter={false}`): results are
 // already filtered locally / by the backend, so empty/loading states are
 // rendered explicitly instead of relying on cmdk's Empty semantics.
 
 import { useNavigate } from '@tanstack/react-router'
+import axios from 'axios'
 import {
   Boxes,
   CalendarCheck,
@@ -30,11 +34,13 @@ import {
   Search as SearchIcon,
   Settings,
   UserRound,
+  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import {
   Command,
   CommandDialog,
@@ -44,6 +50,11 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Spinner } from '@/components/ui/spinner'
+import { useManualCheckin } from '@/features/checkin'
+import {
+  useRebuildRoutes,
+  useRefreshRouteDecisions,
+} from '@/features/token-routes'
 import { useSidebarData } from '@/hooks/use-sidebar-data'
 import {
   searchApi,
@@ -55,7 +66,13 @@ import {
   type SearchResponse,
   type SearchSite,
 } from '@/lib/api/search'
+import { toast } from '@/lib/toast'
 
+import {
+  matchActionEntries,
+  SEARCH_ACTION_ENTRIES,
+  type SearchActionId,
+} from './lib/search-actions'
 import {
   getSettingsNavEntries,
   matchNavEntries,
@@ -239,6 +256,102 @@ export function SearchModal(props: SearchModalProps) {
     },
     [closeAndNavigate, trimmedQuery]
   )
+
+  // ---- Actions layer -------------------------------------------------------
+  //
+  // High-frequency write actions (registry: lib/search-actions.ts). Every
+  // action reuses an affordance the pages already expose: the add-site /
+  // add-site navigates the one-shot `?create=1` deep link the sites page
+  // consumes (same path the dashboard onboarding CTA writes), and the
+  // operational entries fire the same mutation hooks the page buttons use.
+
+  const triggerAllCheckin = useManualCheckin()
+  const rebuildRoutes = useRebuildRoutes()
+  const refreshRouteDecisions = useRefreshRouteDecisions()
+  const [rebuildConfirmOpen, setRebuildConfirmOpen] = React.useState(false)
+
+  // Mirrors the checkin page's "Run all check-ins" handler: same mutation,
+  // same honest summary toast (partial failures reported as errors, not
+  // swallowed). The palette closes first; the mutation + toast complete in
+  // the background while the user is back on the page.
+  const runCheckinAll = React.useCallback(async () => {
+    props.onOpenChange(false)
+    try {
+      const result = await triggerAllCheckin.mutateAsync()
+      const summary = result.summary
+      if (summary) {
+        const description = t('checkin.toast.summary', {
+          total: summary.total,
+          success: summary.success,
+          failed: summary.failed,
+          skipped: summary.skipped,
+        })
+        if (summary.failed > 0) {
+          toast.error(t('checkin.toast.partialFailed'), { description })
+        } else {
+          toast.success(t('checkin.toast.complete'), { description })
+        }
+      } else {
+        toast.success(result.message || t('checkin.toast.complete'))
+      }
+    } catch (error) {
+      // Transport failures (non-2xx) are already toasted by the http-client
+      // error interceptor; envelope failures thrown by the parser are not,
+      // so they get their own honest error toast.
+      if (!axios.isAxiosError(error)) {
+        toast.error(
+          error instanceof Error && error.message
+            ? error.message
+            : t('checkin.toast.triggerFailed')
+        )
+      }
+    }
+  }, [props, t, triggerAllCheckin])
+
+  const executeAction = React.useCallback(
+    (id: SearchActionId) => {
+      switch (id) {
+        case 'add-site':
+          closeAndNavigate({ to: '/sites', search: { create: true } })
+          return
+        case 'run-checkin-all':
+          void runCheckinAll()
+          return
+        case 'rebuild-routes':
+          // The routes page gates this mutation behind a ConfirmDialog; the
+          // palette keeps the same discipline with the same wording.
+          props.onOpenChange(false)
+          setRebuildConfirmOpen(true)
+          return
+        case 'refresh-route-decisions':
+          props.onOpenChange(false)
+          refreshRouteDecisions.mutate()
+          return
+      }
+    },
+    [closeAndNavigate, props, refreshRouteDecisions, runCheckinAll]
+  )
+
+  const actionGroups = React.useMemo((): SearchGroup[] => {
+    const matched = hasQuery
+      ? matchActionEntries(SEARCH_ACTION_ENTRIES, trimmedQuery, (key) => t(key))
+      : [...SEARCH_ACTION_ENTRIES]
+    if (matched.length === 0) return []
+    return [
+      {
+        key: 'actions',
+        heading: t('search.groups.actions'),
+        icon: Zap,
+        items: matched.map((entry) => ({
+          key: `action-${entry.id}`,
+          label: t(entry.titleKey),
+          description: null,
+          icon: entry.icon,
+          onSelect: () => executeAction(entry.id),
+        })),
+      },
+    ]
+  }, [hasQuery, trimmedQuery, t, executeAction])
 
   // ---- Local navigation layer --------------------------------------------
 
@@ -460,70 +573,88 @@ export function SearchModal(props: SearchModalProps) {
     navigateToQueryPage,
   ])
 
-  const groups = [...navigationGroups, ...entityGroups]
+  const groups = [...navigationGroups, ...actionGroups, ...entityGroups]
   const showEmpty = hasQuery && !isSearching && groups.length === 0
 
   return (
-    <CommandDialog
-      modal
-      open={props.open}
-      onOpenChange={props.onOpenChange}
-      title={t('search.title')}
-      description={t('search.description')}
-      className='sm:max-w-xl'
-    >
-      <Command shouldFilter={false}>
-        <CommandInput
-          autoFocus
-          value={query}
-          onValueChange={setQuery}
-          placeholder={t('search.placeholder')}
-          aria-label={t('search.title')}
-        />
-        <CommandList className='max-h-[min(60svh,28rem)]'>
-          {isSearching && (
-            <div className='text-muted-foreground flex items-center justify-center gap-2 px-2 py-4 text-sm'>
-              <Spinner />
-              <span>{t('search.searching')}</span>
-            </div>
-          )}
-          {showEmpty && (
-            <div className='flex flex-col items-center gap-1 px-4 py-10 text-center'>
-              <SearchIcon className='text-muted-foreground/60 size-5' />
-              <p className='text-sm font-medium'>
-                {t('search.noResults.title')}
-              </p>
-              <p className='text-muted-foreground text-xs'>
-                {t('search.noResults.description', { query: trimmedQuery })}
-              </p>
-            </div>
-          )}
-          {groups.map((group) => (
-            <CommandGroup key={group.key} heading={group.heading}>
-              {group.items.map((item) => {
-                const ItemIcon = item.icon ?? group.icon
-                return (
-                  <CommandItem
-                    key={item.key}
-                    value={item.key}
-                    onSelect={item.onSelect}
-                  >
-                    <ItemIcon className='text-muted-foreground size-4 shrink-0' />
-                    <span className='flex min-w-0 flex-1 flex-col'>
-                      <span className='truncate'>{item.label}</span>
-                      {item.description ? (
-                        <span className='text-muted-foreground truncate text-xs'>
-                          {item.description}
-                        </span>
-                      ) : null}
-                    </span>
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
-          ))}
-        </CommandList>
-      </Command>
-    </CommandDialog>
+    <>
+      <CommandDialog
+        modal
+        open={props.open}
+        onOpenChange={props.onOpenChange}
+        title={t('search.title')}
+        description={t('search.description')}
+        className='sm:max-w-xl'
+      >
+        <Command shouldFilter={false}>
+          <CommandInput
+            autoFocus
+            value={query}
+            onValueChange={setQuery}
+            placeholder={t('search.placeholder')}
+            aria-label={t('search.title')}
+          />
+          <CommandList className='max-h-[min(60svh,28rem)]'>
+            {isSearching && (
+              <div className='text-muted-foreground flex items-center justify-center gap-2 px-2 py-4 text-sm'>
+                <Spinner />
+                <span>{t('search.searching')}</span>
+              </div>
+            )}
+            {showEmpty && (
+              <div className='flex flex-col items-center gap-1 px-4 py-10 text-center'>
+                <SearchIcon className='text-muted-foreground/60 size-5' />
+                <p className='text-sm font-medium'>
+                  {t('search.noResults.title')}
+                </p>
+                <p className='text-muted-foreground text-xs'>
+                  {t('search.noResults.description', { query: trimmedQuery })}
+                </p>
+              </div>
+            )}
+            {groups.map((group) => (
+              <CommandGroup key={group.key} heading={group.heading}>
+                {group.items.map((item) => {
+                  const ItemIcon = item.icon ?? group.icon
+                  return (
+                    <CommandItem
+                      key={item.key}
+                      value={item.key}
+                      onSelect={item.onSelect}
+                    >
+                      <ItemIcon className='text-muted-foreground size-4 shrink-0' />
+                      <span className='flex min-w-0 flex-1 flex-col'>
+                        <span className='truncate'>{item.label}</span>
+                        {item.description ? (
+                          <span className='text-muted-foreground truncate text-xs'>
+                            {item.description}
+                          </span>
+                        ) : null}
+                      </span>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </CommandDialog>
+      {/* Confirmation for the rebuild-routes action. Same wording as the
+          routes page's own gate; the palette is already closed at this
+          point, so the dialog takes over the screen alone. */}
+      <ConfirmDialog
+        open={rebuildConfirmOpen}
+        title={t('tokenRoutes.page.rebuildConfirmTitle')}
+        description={t('tokenRoutes.page.rebuildConfirmDescription')}
+        confirmLabel={t('tokenRoutes.page.rebuild')}
+        cancelLabel={t('common.cancel')}
+        destructive
+        onConfirm={() => {
+          setRebuildConfirmOpen(false)
+          rebuildRoutes.mutate({ refreshModels: true })
+        }}
+        onCancel={() => setRebuildConfirmOpen(false)}
+      />
+    </>
   )
 }
