@@ -23,6 +23,7 @@ import { chromium } from 'playwright'
 import { loginSession } from './session-auth.mjs'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4000'
+const THEME = process.env.THEME ?? 'light'
 const OUT_BASE =
   process.env.OUT_DIR ??
   'D:/Code/aihub/metapi-go/.dev-local/screenshots/w21-interactions'
@@ -37,7 +38,7 @@ async function newPage(browser, viewport, isMobile) {
     isMobile,
   })
   await loginSession(context, { baseUrl: BASE_URL, token: 'dev-admin-token-123' })
-  await context.addCookies([{ name: 'vite-ui-theme', value: 'light', url: BASE_URL }])
+  await context.addCookies([{ name: 'vite-ui-theme', value: THEME, url: BASE_URL }])
   await context.addInitScript(() => localStorage.setItem('i18nextLng', 'zh-CN'))
   return context
 }
