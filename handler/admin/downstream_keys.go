@@ -224,9 +224,17 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 	normalizedRouteIds := normalizeAllowedRouteIdsInput(body.AllowedRouteIds)
 	normalizedSWM := normalizeSiteWeightMultipliersInput(body.SiteWeightMultipliers)
 	normalizedExcludedSites := normalizeInt64Set(body.ExcludedSiteIds)
-	normalizedCredRefs := normalizeExcludedCredentialRefsInput(body.ExcludedCredentialRefs)
+	normalizedCredRefs, credRefsErr := normalizeExcludedCredentialRefsInput(body.ExcludedCredentialRefs)
+	if credRefsErr != "" {
+		writeError(w, http.StatusBadRequest, "excludedCredentialRefs: "+credRefsErr)
+		return
+	}
 	normalizedAllowedSites := normalizeInt64Set(body.AllowedSiteIds)
-	normalizedAllowedCredRefs := normalizeExcludedCredentialRefsInput(body.AllowedCredentialRefs)
+	normalizedAllowedCredRefs, allowedCredRefsErr := normalizeExcludedCredentialRefsInput(body.AllowedCredentialRefs)
+	if allowedCredRefsErr != "" {
+		writeError(w, http.StatusBadRequest, "allowedCredentialRefs: "+allowedCredRefsErr)
+		return
+	}
 	maxCost := normalizeQuotaFloatOrNull(body.MaxCost)
 	maxRequests := normalizeQuotaIntOrNull(body.MaxRequests)
 	maxRpm := normalizeQuotaIntOrNull(body.MaxRpm)
@@ -524,7 +532,12 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	existingExcludedCredentialRefs := parseAnyArrayFromDB(existing, "excluded_credential_refs")
 	excludedCredentialRefs := existingExcludedCredentialRefs
 	if hasField["excludedCredentialRefs"] {
-		excludedCredentialRefs = normalizeExcludedCredentialRefsInput(body.ExcludedCredentialRefs)
+		normalized, refErr := normalizeExcludedCredentialRefsInput(body.ExcludedCredentialRefs)
+		if refErr != "" {
+			writeError(w, http.StatusBadRequest, "excludedCredentialRefs: "+refErr)
+			return
+		}
+		excludedCredentialRefs = normalized
 	}
 
 	existingAllowedSiteIds := parseIntArrayFromDB(existing, "allowed_site_ids")
@@ -536,7 +549,12 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	existingAllowedCredentialRefs := parseAnyArrayFromDB(existing, "allowed_credential_refs")
 	allowedCredentialRefs := existingAllowedCredentialRefs
 	if hasField["allowedCredentialRefs"] {
-		allowedCredentialRefs = normalizeExcludedCredentialRefsInput(body.AllowedCredentialRefs)
+		normalized, refErr := normalizeExcludedCredentialRefsInput(body.AllowedCredentialRefs)
+		if refErr != "" {
+			writeError(w, http.StatusBadRequest, "allowedCredentialRefs: "+refErr)
+			return
+		}
+		allowedCredentialRefs = normalized
 	}
 
 	// proxyUrl: absent keeps existing; present empty/null clears to inherit site/system.
