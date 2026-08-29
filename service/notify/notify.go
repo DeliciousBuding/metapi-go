@@ -69,6 +69,13 @@ func SendNotification(cfg *config.RuntimeSettings, title, message, level string,
 		options = &SendNotificationOptions{}
 	}
 
+	// A nil snapshot means runtime settings are not published yet (pre-boot
+	// callback paths reach this through config.RuntimeSafe()): no channel can
+	// be configured, so skip dispatch instead of dereferencing nil.
+	if cfg == nil {
+		return &DispatchResult{}, nil
+	}
+
 	// per-task mute gate. Empty TaskTag = no gate.
 	if options.TaskTag != "" {
 		if enabled, ok := cfg.NotifyTaskToggles[options.TaskTag]; ok && !enabled {
