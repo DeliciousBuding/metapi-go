@@ -51,17 +51,24 @@ describe('retry button icon vocabulary', () => {
     expect(source).not.toMatch(/<RotateCcw/)
   })
 
-  it('the routes page load-error retry is delegated to QueryErrorBanner', () => {
-    // W19-T1 P2-o unification: the page no longer hand-rolls its own retry
-    // button; the glyph vocabulary is pinned on QueryErrorBanner itself (see
-    // the first test), so the page only needs to delegate, never regress to
-    // a reset-style icon.
+  it('the routes page load-error retry is delegated to DataTablePage → QueryErrorBanner', () => {
+    // W19-T1 P2-o unification → S7 centralization: the page no longer
+    // hand-rolls its own retry button nor renders QueryErrorBanner directly;
+    // it passes the error contract into DataTablePage, which renders the
+    // shared banner. The glyph vocabulary stays pinned on QueryErrorBanner
+    // itself (see the first test), so the page only delegates.
     const source = readSource(
       'src/features/token-routes/components/routes-page.tsx'
     )
 
-    expect(source).toMatch(/<QueryErrorBanner/)
+    expect(source).toMatch(/onErrorRetry=\{/)
+    expect(source).toMatch(/errorMessageKey=/)
     expect(source).not.toMatch(/<RotateCw/)
     expect(source).not.toMatch(/<RotateCcw/)
+
+    const tablePage = readSource(
+      'src/components/data-table/layout/data-table-page.tsx'
+    )
+    expect(tablePage).toMatch(/<QueryErrorBanner/)
   })
 })

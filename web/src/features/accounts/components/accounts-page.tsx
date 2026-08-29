@@ -29,7 +29,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { useProbeHistory } from '@/components/common/use-probe-history'
 import {
   DataTableBulkActions,
@@ -578,78 +577,73 @@ export function AccountsPage() {
         </Button>
       </div>
 
-      {error ? (
-        <QueryErrorBanner
-          error={error as Error | null}
-          messageKey='accounts.page.loadError'
-          onRetry={() => refetch()}
-          isRetrying={isFetching}
-        />
-      ) : (
-        <DataTablePage
-          table={table}
-          columns={columns}
-          isLoading={isLoading}
-          isFetching={isFetching}
-          emptyTitle={t('accounts.page.emptyTitle')}
-          emptyDescription={t('accounts.page.emptyDescription')}
-          emptyAction={
-            <Button onClick={() => setImportOpen(true)}>
+      <DataTablePage
+        table={table}
+        columns={columns}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        error={error as Error | null}
+        errorMessageKey='accounts.page.loadError'
+        onErrorRetry={() => refetch()}
+        isErrorRetrying={isFetching}
+        emptyTitle={t('accounts.page.emptyTitle')}
+        emptyDescription={t('accounts.page.emptyDescription')}
+        emptyAction={
+          <Button onClick={() => setImportOpen(true)}>
+            <UploadIcon className='size-4' />
+            {t('accounts.page.emptyImport')}
+          </Button>
+        }
+        skeletonKeyPrefix='accounts-skeleton'
+        toolbarProps={{
+          searchPlaceholder: t('accounts.page.searchPlaceholder'),
+          searchDebounceMs: 300,
+          // The wizard was only reachable from the empty-state CTA, i.e.
+          // unreachable once the first account existed. The accounts toolbar
+          // keeps a permanent Import entry (same batch site+account path the
+          // sites page exposes), reusing the already-mounted setImportOpen.
+          preActions: (
+            <Button variant='outline' onClick={() => setImportOpen(true)}>
               <UploadIcon className='size-4' />
-              {t('accounts.page.emptyImport')}
+              {t('accounts.page.toolbarImport')}
             </Button>
-          }
-          skeletonKeyPrefix='accounts-skeleton'
-          toolbarProps={{
-            searchPlaceholder: t('accounts.page.searchPlaceholder'),
-            searchDebounceMs: 300,
-            // The wizard was only reachable from the empty-state CTA, i.e.
-            // unreachable once the first account existed. The accounts toolbar
-            // keeps a permanent Import entry (same batch site+account path the
-            // sites page exposes), reusing the already-mounted setImportOpen.
-            preActions: (
-              <Button variant='outline' onClick={() => setImportOpen(true)}>
-                <UploadIcon className='size-4' />
-                {t('accounts.page.toolbarImport')}
-              </Button>
-            ),
-            filters: [
-              {
-                columnId: 'status',
-                title: t('accounts.page.filterStatusTitle'),
-                singleSelect: true,
-                options: [
+          ),
+          filters: [
+            {
+              columnId: 'status',
+              title: t('accounts.page.filterStatusTitle'),
+              singleSelect: true,
+              options: [
+                {
+                  label: t('accounts.page.filterStatusActive'),
+                  value: 'active',
+                },
+                {
+                  label: t('accounts.page.filterStatusDisabled'),
+                  value: 'disabled',
+                },
+                {
+                  label: t('accounts.page.filterStatusExpired'),
+                  value: 'expired',
+                },
+              ],
+            },
+            ...(sites.length > 0
+              ? [
                   {
-                    label: t('accounts.page.filterStatusActive'),
-                    value: 'active',
+                    columnId: 'site',
+                    title: t('accounts.page.filterSiteTitle'),
+                    options: sites.map((site) => ({
+                      label: site.name || site.url || `#${site.id}`,
+                      value: String(site.id),
+                    })),
                   },
-                  {
-                    label: t('accounts.page.filterStatusDisabled'),
-                    value: 'disabled',
-                  },
-                  {
-                    label: t('accounts.page.filterStatusExpired'),
-                    value: 'expired',
-                  },
-                ],
-              },
-              ...(sites.length > 0
-                ? [
-                    {
-                      columnId: 'site',
-                      title: t('accounts.page.filterSiteTitle'),
-                      options: sites.map((site) => ({
-                        label: site.name || site.url || `#${site.id}`,
-                        value: String(site.id),
-                      })),
-                    },
-                  ]
-                : []),
-            ],
-          }}
-          bulkActions={<AccountsBulkActions table={table} />}
-        />
-      )}
+                ]
+              : []),
+          ],
+        }}
+        bulkActions={<AccountsBulkActions table={table} />}
+      />
 
       <ImportWizardDialog open={importOpen} onOpenChange={setImportOpen} />
 

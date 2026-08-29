@@ -19,7 +19,6 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTableBulkActions,
   DataTablePage,
@@ -463,112 +462,107 @@ export function SitesPage() {
         </p>
       </div>
 
-      {sitesQuery.error ? (
-        <QueryErrorBanner
-          error={sitesQuery.error as Error | null}
-          messageKey='sites.page.loadError'
-          onRetry={() => sitesQuery.refetch()}
-          isRetrying={sitesQuery.isFetching}
-        />
-      ) : (
-        <DataTablePage
-          table={table}
-          columns={columns}
-          isLoading={sitesQuery.isLoading}
-          isFetching={sitesQuery.isFetching}
-          emptyTitle={t('sites.empty.title')}
-          emptyDescription={t('sites.empty.description')}
-          emptyAction={
+      <DataTablePage
+        table={table}
+        columns={columns}
+        isLoading={sitesQuery.isLoading}
+        isFetching={sitesQuery.isFetching}
+        error={sitesQuery.error as Error | null}
+        errorMessageKey='sites.page.loadError'
+        onErrorRetry={() => sitesQuery.refetch()}
+        isErrorRetrying={sitesQuery.isFetching}
+        emptyTitle={t('sites.empty.title')}
+        emptyDescription={t('sites.empty.description')}
+        emptyAction={
+          <>
+            <Button onClick={() => setImportOpen(true)}>
+              <UploadIcon className='size-4' />
+              {t('sites.empty.import')}
+            </Button>
+            <Button variant='outline' onClick={handleAddSite}>
+              <PlusIcon className='size-4' />
+              {t('sites.empty.addSite')}
+            </Button>
+          </>
+        }
+        skeletonKeyPrefix='site-skeleton'
+        toolbarProps={{
+          searchPlaceholder: t('sites.toolbar.searchPlaceholder'),
+          searchDebounceMs: 400,
+          filters: [
+            {
+              columnId: 'status',
+              title: t('sites.columns.status'),
+              options: statusFilters,
+              singleSelect: true,
+            },
+          ],
+          preActions: (
             <>
-              <Button onClick={() => setImportOpen(true)}>
-                <UploadIcon className='size-4' />
-                {t('sites.empty.import')}
-              </Button>
-              <Button variant='outline' onClick={handleAddSite}>
+              <Button onClick={handleAddSite}>
                 <PlusIcon className='size-4' />
-                {t('sites.empty.addSite')}
+                {t('sites.toolbar.addSite')}
               </Button>
-            </>
-          }
-          skeletonKeyPrefix='site-skeleton'
-          toolbarProps={{
-            searchPlaceholder: t('sites.toolbar.searchPlaceholder'),
-            searchDebounceMs: 400,
-            filters: [
-              {
-                columnId: 'status',
-                title: t('sites.columns.status'),
-                options: statusFilters,
-                singleSelect: true,
-              },
-            ],
-            preActions: (
-              <>
-                <Button onClick={handleAddSite}>
-                  <PlusIcon className='size-4' />
-                  {t('sites.toolbar.addSite')}
-                </Button>
-                {/* The wizard was only reachable from the empty-state CTA,
+              {/* The wizard was only reachable from the empty-state CTA,
                     i.e. unreachable once the first site existed — keep a
                     permanent toolbar entry. The wizard is the only flow that
                     creates sites together with their accounts in one batch. */}
-                <Button variant='outline' onClick={() => setImportOpen(true)}>
-                  <UploadIcon className='size-4' />
-                  {t('sites.toolbar.import')}
-                </Button>
-              </>
-            ),
-          }}
-          bulkActions={
-            <DataTableBulkActions
-              table={table}
-              entityName={t('sites.entityName')}
+              <Button variant='outline' onClick={() => setImportOpen(true)}>
+                <UploadIcon className='size-4' />
+                {t('sites.toolbar.import')}
+              </Button>
+            </>
+          ),
+        }}
+        bulkActions={
+          <DataTableBulkActions
+            table={table}
+            entityName={t('sites.entityName')}
+          >
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => handleBulkAction('enable')}
+              disabled={batchUpdateSites.isPending}
             >
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => handleBulkAction('enable')}
-                disabled={batchUpdateSites.isPending}
-              >
-                {t('sites.bulk.enable')}
-              </Button>
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => handleBulkAction('disable')}
-                disabled={batchUpdateSites.isPending}
-              >
-                {t('sites.bulk.disable')}
-              </Button>
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => handleBulkAction('enableSystemProxy')}
-                disabled={batchUpdateSites.isPending}
-              >
-                {t('sites.bulk.enableSystemProxy')}
-              </Button>
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => handleBulkAction('disableSystemProxy')}
-                disabled={batchUpdateSites.isPending}
-              >
-                {t('sites.bulk.disableSystemProxy')}
-              </Button>
-              <Button
-                variant='destructive'
-                size='sm'
-                onClick={() => handleBulkAction('delete')}
-                disabled={batchUpdateSites.isPending}
-              >
-                <Trash2Icon className='size-3.5' />
-                {t('sites.bulk.delete')}
-              </Button>
-            </DataTableBulkActions>
-          }
-        />
-      )}
+              {t('sites.bulk.enable')}
+            </Button>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => handleBulkAction('disable')}
+              disabled={batchUpdateSites.isPending}
+            >
+              {t('sites.bulk.disable')}
+            </Button>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => handleBulkAction('enableSystemProxy')}
+              disabled={batchUpdateSites.isPending}
+            >
+              {t('sites.bulk.enableSystemProxy')}
+            </Button>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => handleBulkAction('disableSystemProxy')}
+              disabled={batchUpdateSites.isPending}
+            >
+              {t('sites.bulk.disableSystemProxy')}
+            </Button>
+            <Button
+              variant='destructive'
+              size='sm'
+              onClick={() => handleBulkAction('delete')}
+              disabled={batchUpdateSites.isPending}
+            >
+              <Trash2Icon className='size-3.5' />
+              {t('sites.bulk.delete')}
+            </Button>
+          </DataTableBulkActions>
+        }
+      />
 
       <SiteFormSheet
         open={formOpen}

@@ -29,25 +29,46 @@ vi.mock('@tanstack/react-router', () => ({
   useSearch: () => testState.search,
 }))
 
-vi.mock('@/components/data-table', () => ({
-  DataTableBulkActions: () => null,
-  DataTablePage: () => <div data-testid='data-table-page' />,
-  useUrlTableState: () => ({
-    globalFilter: '',
-    onGlobalFilterChange: vi.fn(),
-    columnFilters: [],
-    onColumnFiltersChange: vi.fn(),
-    pagination: { pageIndex: 0, pageSize: 20 },
-    onPaginationChange: vi.fn(),
-    ensurePageInRange: vi.fn(),
-  }),
-  useDataTable: () => ({
-    table: {
-      getFilteredSelectedRowModel: () => ({ rows: [] }),
-      resetRowSelection: vi.fn(),
-    },
-  }),
-}))
+vi.mock('@/components/data-table', async () => {
+  const { QueryErrorBanner } =
+    await import('@/components/common/query-error-banner')
+  // The S7 error contract lives in the real DataTablePage; the stub honors it
+  // so the page-level test verifies the page wires error/refetch correctly.
+  return {
+    DataTableBulkActions: () => null,
+    DataTablePage: (props: {
+      error?: Error | null
+      errorMessageKey?: string
+      onErrorRetry?: () => void
+      isErrorRetrying?: boolean
+    }) =>
+      props.error ? (
+        <QueryErrorBanner
+          error={props.error}
+          messageKey={props.errorMessageKey ?? ''}
+          onRetry={props.onErrorRetry}
+          isRetrying={props.isErrorRetrying}
+        />
+      ) : (
+        <div data-testid='data-table-page' />
+      ),
+    useUrlTableState: () => ({
+      globalFilter: '',
+      onGlobalFilterChange: vi.fn(),
+      columnFilters: [],
+      onColumnFiltersChange: vi.fn(),
+      pagination: { pageIndex: 0, pageSize: 20 },
+      onPaginationChange: vi.fn(),
+      ensurePageInRange: vi.fn(),
+    }),
+    useDataTable: () => ({
+      table: {
+        getFilteredSelectedRowModel: () => ({ rows: [] }),
+        resetRowSelection: vi.fn(),
+      },
+    }),
+  }
+})
 
 vi.mock('@/features/import', () => ({
   ImportWizardDialog: () => null,

@@ -20,7 +20,6 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTablePage,
   encodeSorting,
@@ -300,83 +299,78 @@ export function ModelsPage() {
         </p>
       </div>
 
-      {/* Unified list-page error contract (W19-T1 P2-o): the failed load
+      {/* Unified list-page error contract (W19-T1 P2-o → S7): the failed load
           replaces the table instead of stacking over it, so a stale cache can
           never read as current data. Query object is the S9 server-side
           paged one (modelsPageQuery). */}
-      {modelsPageQuery.error ? (
-        <QueryErrorBanner
-          error={modelsPageQuery.error as Error | null}
-          messageKey='models.page.loadError'
-          onRetry={() => modelsPageQuery.refetch()}
-          isRetrying={modelsPageQuery.isFetching}
-        />
-      ) : (
-        <DataTablePage
-          table={table}
-          columns={columns}
-          isLoading={modelsPageQuery.isLoading}
-          isFetching={modelsPageQuery.isFetching}
-          emptyTitle={t('models.empty.title')}
-          emptyDescription={t('models.empty.description')}
-          emptyAction={
-            <Button
-              variant='outline'
-              onClick={() => void navigate({ to: '/accounts' })}
-            >
-              <UsersIcon className='size-4' />
-              {t('models.empty.manageAccounts')}
-            </Button>
-          }
-          skeletonKeyPrefix='model-skeleton'
-          toolbarProps={{
-            searchPlaceholder: t('models.toolbar.searchPlaceholder'),
-            searchDebounceMs: 400,
-            filters: [
-              {
-                columnId: 'brand',
-                title: t('models.columns.brand'),
-                options: brandFilterOptions,
-              },
-              {
-                columnId: 'endpointTypes',
-                title: t('models.columns.endpointTypes'),
-                options: endpointTypeFilterOptions,
-              },
-              {
-                columnId: 'capabilities',
-                title: t('models.columns.capabilities'),
-                options: capabilityFilterOptions,
-              },
-            ],
-            preActions: (
-              <>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => setVerifyOpen(true)}
-                >
-                  <FlaskConicalIcon className='size-3.5' />
-                  {t('models.toolbar.batchProbe')}
-                </Button>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => refreshMutation.mutate()}
-                  disabled={refreshMutation.isPending}
-                >
-                  {refreshMutation.isPending ? (
-                    <Spinner />
-                  ) : (
-                    <RefreshCwIcon className='size-3.5' />
-                  )}
-                  {t('models.toolbar.refresh')}
-                </Button>
-              </>
-            ),
-          }}
-        />
-      )}
+      <DataTablePage
+        table={table}
+        columns={columns}
+        isLoading={modelsPageQuery.isLoading}
+        isFetching={modelsPageQuery.isFetching}
+        error={modelsPageQuery.error as Error | null}
+        errorMessageKey='models.page.loadError'
+        onErrorRetry={() => modelsPageQuery.refetch()}
+        isErrorRetrying={modelsPageQuery.isFetching}
+        emptyTitle={t('models.empty.title')}
+        emptyDescription={t('models.empty.description')}
+        emptyAction={
+          <Button
+            variant='outline'
+            onClick={() => void navigate({ to: '/accounts' })}
+          >
+            <UsersIcon className='size-4' />
+            {t('models.empty.manageAccounts')}
+          </Button>
+        }
+        skeletonKeyPrefix='model-skeleton'
+        toolbarProps={{
+          searchPlaceholder: t('models.toolbar.searchPlaceholder'),
+          searchDebounceMs: 400,
+          filters: [
+            {
+              columnId: 'brand',
+              title: t('models.columns.brand'),
+              options: brandFilterOptions,
+            },
+            {
+              columnId: 'endpointTypes',
+              title: t('models.columns.endpointTypes'),
+              options: endpointTypeFilterOptions,
+            },
+            {
+              columnId: 'capabilities',
+              title: t('models.columns.capabilities'),
+              options: capabilityFilterOptions,
+            },
+          ],
+          preActions: (
+            <>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => setVerifyOpen(true)}
+              >
+                <FlaskConicalIcon className='size-3.5' />
+                {t('models.toolbar.batchProbe')}
+              </Button>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => refreshMutation.mutate()}
+                disabled={refreshMutation.isPending}
+              >
+                {refreshMutation.isPending ? (
+                  <Spinner />
+                ) : (
+                  <RefreshCwIcon className='size-3.5' />
+                )}
+                {t('models.toolbar.refresh')}
+              </Button>
+            </>
+          ),
+        }}
+      />
 
       <ModelDetailSheet
         model={viewingModel}

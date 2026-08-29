@@ -37,31 +37,53 @@ const testState = vi.hoisted(() => ({
   previousFormOpen: undefined as boolean | undefined,
 }))
 
-vi.mock('@/components/data-table', () => ({
-  DataTableBulkActions: () => null,
-  DataTablePage: (props: { emptyAction?: ReactNode }) => {
-    testState.dataTableRendered = true
-    testState.capturedEmptyAction = props.emptyAction ?? null
-    return null
-  },
-  useUrlTableState: () => ({
-    globalFilter: '',
-    onGlobalFilterChange: vi.fn(),
-    columnFilters: [],
-    onColumnFiltersChange: vi.fn(),
-    pagination: { pageIndex: 0, pageSize: 20 },
-    onPaginationChange: vi.fn(),
-    sorting: [],
-    onSortingChange: vi.fn(),
-    filters: { enabled: '', accountId: '', siteId: '', routeId: '' },
-  }),
-  useDataTable: () => ({
-    table: {
-      getFilteredSelectedRowModel: () => ({ rows: [] }),
-      resetRowSelection: vi.fn(),
+vi.mock('@/components/data-table', async () => {
+  const { QueryErrorBanner } =
+    await import('@/components/common/query-error-banner')
+  return {
+    DataTableBulkActions: () => null,
+    // The S7 error contract lives in the real DataTablePage; the stub honors
+    // it so the page-level test verifies the error/refetch wiring.
+    DataTablePage: (props: {
+      emptyAction?: ReactNode
+      error?: Error | null
+      errorMessageKey?: string
+      onErrorRetry?: () => void
+      isErrorRetrying?: boolean
+    }) => {
+      if (props.error) {
+        return (
+          <QueryErrorBanner
+            error={props.error}
+            messageKey={props.errorMessageKey ?? ''}
+            onRetry={props.onErrorRetry}
+            isRetrying={props.isErrorRetrying}
+          />
+        )
+      }
+      testState.dataTableRendered = true
+      testState.capturedEmptyAction = props.emptyAction ?? null
+      return null
     },
-  }),
-}))
+    useUrlTableState: () => ({
+      globalFilter: '',
+      onGlobalFilterChange: vi.fn(),
+      columnFilters: [],
+      onColumnFiltersChange: vi.fn(),
+      pagination: { pageIndex: 0, pageSize: 20 },
+      onPaginationChange: vi.fn(),
+      sorting: [],
+      onSortingChange: vi.fn(),
+      filters: { enabled: '', accountId: '', siteId: '', routeId: '' },
+    }),
+    useDataTable: () => ({
+      table: {
+        getFilteredSelectedRowModel: () => ({ rows: [] }),
+        resetRowSelection: vi.fn(),
+      },
+    }),
+  }
+})
 
 vi.mock('@tanstack/react-router', () => ({
   useSearch: () => ({}),

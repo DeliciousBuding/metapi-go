@@ -6,6 +6,7 @@ import type {
 } from '@tanstack/react-table'
 import * as React from 'react'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { TABLE_MOBILE_MEDIA_QUERY } from '@/lib/breakpoints'
 import { cn } from '@/lib/utils'
@@ -29,7 +30,44 @@ type DataTablePageToolbarProps<TData> = Omit<
   'table'
 >
 
-export type DataTablePageProps<TData> = {
+/**
+ * Unified list-page error contract (S7): pass the list query's error and the
+ * banner renders via the shared {@link QueryErrorBanner}. The union enforces
+ * that `errorMessageKey` accompanies `error` at compile time.
+ */
+type DataTablePageErrorProps =
+  | {
+      error?: null
+      errorMessageKey?: undefined
+      onErrorRetry?: undefined
+      isErrorRetrying?: undefined
+      errorPlacement?: undefined
+    }
+  | {
+      /**
+       * List-query error. Non-null renders the shared QueryErrorBanner:
+       * 'replace' (default) swaps the whole table region for the banner;
+       * 'inline' keeps stale rows visible under the banner.
+       */
+      error: Error | null
+      /**
+       * i18n key whose template interpolates `{{message}}`
+       * (e.g. `accounts.page.loadError`).
+       */
+      errorMessageKey: string
+      /** Retry handler for the banner — typically `() => query.refetch()`. */
+      onErrorRetry?: () => void
+      /** True while the retry request is in flight. */
+      isErrorRetrying?: boolean
+      /**
+       * 'replace' (default): banner replaces toolbar/table/pagination.
+       * 'inline': banner renders above the table so placeholderData rows
+       * stay visible (e.g. oauth, proxy-logs).
+       */
+      errorPlacement?: 'replace' | 'inline'
+    }
+
+export type DataTablePageProps<TData> = DataTablePageErrorProps & {
   /**
    * TanStack Table instance returned from `useReactTable`.
    */
@@ -218,6 +256,10 @@ export type DataTablePageProps<TData> = {
  *   columns={columns}
  *   isLoading={isLoading}
  *   isFetching={isFetching}
+ *   error={query.error as Error | null}
+ *   errorMessageKey='x.page.loadError'
+ *   onErrorRetry={() => query.refetch()}
+ *   isErrorRetrying={query.isFetching}
  *   emptyTitle={t('No X Found')}
  *   toolbarProps={{ searchPlaceholder: t('Filter...'), filters }}
  *   bulkActions={<MyBulkActions table={table} />}
@@ -235,6 +277,22 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
   const isMobile = useMediaQuery(TABLE_MOBILE_MEDIA_QUERY)
   const showMobile = isMobile && !props.hideMobile
 
+  const errorBanner = props.error ? (
+    <QueryErrorBanner
+      error={props.error}
+      messageKey={props.errorMessageKey}
+      onRetry={props.onErrorRetry}
+      isRetrying={props.isErrorRetrying}
+    />
+  ) : null
+
+  // Replace placement (default): the failed load swaps the whole region —
+  // toolbar, table, and pagination — so a stale cache can never read as
+  // current data. Inline placement keeps the table under the banner.
+  if (errorBanner && props.errorPlacement !== 'inline') {
+    return errorBanner
+  }
+
   const toolbarNode = renderToolbar(props)
   const mobile_node = renderMobile(props, showMobile)
   const desktopNode = renderDesktop(props, showMobile)
@@ -242,6 +300,7 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
 
   return (
     <>
+      {errorBanner}
       <div
         className={cn(
           props.fixedHeight !== false
