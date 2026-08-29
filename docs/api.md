@@ -797,9 +797,12 @@ dimension (the column stores `NULL`). A non-empty list activates the gate:
 - Site and credential dimensions are independent gates — a candidate must pass
   both.
 
-> **UI status:** the credential-ref dimensions are **API-only**. The admin UI
-> has no tree picker for them yet (issue #1026 follow-up); manage these fields
-> via the API. `allowedSiteIds` has a UI picker (#1050).
+> **UI status:** the credential-ref dimensions now have a site → account →
+> token tree picker in the admin API-key sheet (issue #1026 follow-up,
+> #1064 contract). The sheet serializes real arrays on create/update and
+> parses the stored JSON strings when editing; the key list renders resolved
+> site/account/token names, with unresolved IDs shown explicitly. The site
+> picker (#1050) remains unchanged.
 
 **Credential ref shape.** Each ref is one of two kinds:
 
