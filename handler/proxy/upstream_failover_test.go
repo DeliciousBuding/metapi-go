@@ -73,12 +73,12 @@ func TestDispatchCrossProtocolFallbackOnProtocolHintWithoutPoison(t *testing.T) 
 	}))
 	t.Cleanup(upstream.Close)
 
-	prev := config.Get()
-	cfgCopy := *prev
-	cfgCopy.DisableCrossProtocolFallback = false
-	cfgCopy.ProxyFirstByteTimeoutSec = 0
-	config.Set(&cfgCopy)
-	t.Cleanup(func() { config.Set(prev) })
+	prevRt := config.RuntimeSafe()
+	config.UpdateRuntime(func(r *config.RuntimeSettings) {
+		r.DisableCrossProtocolFallback = false
+		r.ProxyFirstByteTimeoutSec = 0
+	})
+	t.Cleanup(func() { config.SetRuntime(prevRt) })
 
 	router := &upstreamTestRouter{selected: routing.SelectedChannel{
 		Channel:     store.RouteChannel{ID: 42, Enabled: true},
@@ -126,11 +126,11 @@ func TestDispatchDisableCrossProtocolFallbackStopsAfterPrimary(t *testing.T) {
 	}))
 	t.Cleanup(upstream.Close)
 
-	prev := config.Get()
-	cfgCopy := *prev
-	cfgCopy.DisableCrossProtocolFallback = true
-	config.Set(&cfgCopy)
-	t.Cleanup(func() { config.Set(prev) })
+	prevRt := config.RuntimeSafe()
+	config.UpdateRuntime(func(r *config.RuntimeSettings) {
+		r.DisableCrossProtocolFallback = true
+	})
+	t.Cleanup(func() { config.SetRuntime(prevRt) })
 
 	router := &upstreamTestRouter{selected: routing.SelectedChannel{
 		Channel:     store.RouteChannel{ID: 42, Enabled: true},
@@ -178,13 +178,13 @@ func TestDispatchFirstByteTimeoutFallsBackToNextEndpointWithoutPoison(t *testing
 	}))
 	t.Cleanup(upstream.Close)
 
-	prev := config.Get()
-	cfgCopy := *prev
-	cfgCopy.DisableCrossProtocolFallback = false
-	// PROXY_FIRST_BYTE_TIMEOUT_SEC is seconds; convert to ms internally.
-	cfgCopy.ProxyFirstByteTimeoutSec = 1
-	config.Set(&cfgCopy)
-	t.Cleanup(func() { config.Set(prev) })
+	prevRt := config.RuntimeSafe()
+	config.UpdateRuntime(func(r *config.RuntimeSettings) {
+		r.DisableCrossProtocolFallback = false
+		// PROXY_FIRST_BYTE_TIMEOUT_SEC is seconds; convert to ms internally.
+		r.ProxyFirstByteTimeoutSec = 1
+	})
+	t.Cleanup(func() { config.SetRuntime(prevRt) })
 
 	router := &upstreamTestRouter{selected: routing.SelectedChannel{
 		Channel:     store.RouteChannel{ID: 42, Enabled: true},
