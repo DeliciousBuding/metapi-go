@@ -80,19 +80,39 @@ function SheetContent({
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close
-            data-slot='sheet-close'
-            render={
-              <Button
-                variant='ghost'
-                className='absolute top-3 right-3'
-                size='icon-sm'
-              />
-            }
-          >
-            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-            <span className='sr-only'>{t('common.close')}</span>
-          </SheetPrimitive.Close>
+          <>
+            <SheetPrimitive.Close
+              data-slot='sheet-close'
+              render={
+                <Button
+                  variant='ghost'
+                  className='absolute top-3 right-3'
+                  size='icon-sm'
+                />
+              }
+            >
+              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+              <span className='sr-only'>{t('common.close')}</span>
+            </SheetPrimitive.Close>
+            {/* Mobile escape hatch (W19-T1 N5): at ≤640px the panel is
+                full-width, so the overlay has no tappable edge and the small
+                top-right X is the only exit — poor thumb reach for a detail
+                or form sheet. The bar is a second SheetPrimitive.Close that
+                sticks to the bottom of the scroll container on small screens
+                only; desktop keeps the X-only contract. */}
+            <SheetPrimitive.Close
+              data-slot='sheet-close-bar'
+              render={
+                <Button
+                  variant='secondary'
+                  size='sm'
+                  className='sticky bottom-0 mx-4 mb-4 shrink-0 sm:hidden'
+                />
+              }
+            >
+              {t('common.close')}
+            </SheetPrimitive.Close>
+          </>
         )}
       </SheetPrimitive.Popup>
     </SheetPortal>
