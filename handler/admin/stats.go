@@ -1159,6 +1159,36 @@ func (h *statsHandler) marketplace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to build marketplace models")
 		return
 	}
+
+	// Defensive pagination (same page-gated envelope as /api/accounts,
+	// /api/channels and /api/routes). When ?page is absent the response keeps
+	// the legacy {models, meta} surface byte-compatible. When ?page is
+	// supplied the aggregator output is sliced server-side and the response
+	// becomes {items,total,page,pageSize,meta}: the browser no longer has to
+	// transfer the full pricing directory, and the pager can use the true
+	// total. Filtering/sorting remain client-side over the returned page only
+	// (the marketplace has no server-side filter/sort params today).
+	pageStr := strings.TrimSpace(r.URL.Query().Get("page"))
+	var total int
+	var respModels []map[string]any
+	page, pageSize := 1, 50
+	if pageStr != "" {
+		page = clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
+		pageSize = clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
+		offset := (page - 1) * pageSize
+		total = len(models)
+		if offset >= total {
+			respModels = []map[string]any{}
+		} else {
+			end := offset + pageSize
+			if end > total {
+				end = total
+			}
+			respModels = models[offset:end]
+		}
+	} else {
+		respModels = models
+	}
 	meta := map[string]any{
 		"refreshRequested": refreshRequested,
 		// No background pricing/catalog job in this surface — DB-derived only.
@@ -1196,8 +1226,18 @@ func (h *statsHandler) marketplace(w http.ResponseWriter, r *http.Request) {
 		meta["refreshNote"] = "refresh=true acknowledged but no remote marketplace scrape is performed; response is rebuilt from local model_availability / token_model_availability / token_routes."
 	}
 
+	if pageStr != "" {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"items":    normalizeSlice(respModels),
+			"total":    total,
+			"page":     page,
+			"pageSize": pageSize,
+			"meta":     meta,
+		})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"models": models,
+		"models": respModels,
 		"meta":   meta,
 	})
 }

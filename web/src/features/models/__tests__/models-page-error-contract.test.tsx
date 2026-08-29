@@ -14,7 +14,8 @@ import { ModelsPage } from '../components/models-page'
 
 const testState = vi.hoisted(() => ({
   modelsQuery: {
-    data: [] as unknown[],
+    // S9 server-side pagination: the page query carries { items, total }.
+    data: { items: [] as unknown[], total: 0 },
     isLoading: false,
     isFetching: false,
     error: null as Error | null,
@@ -46,7 +47,7 @@ vi.mock('@/components/data-table', () => ({
 }))
 
 vi.mock('../api', () => ({
-  useModels: () => testState.modelsQuery,
+  useModelsPage: () => testState.modelsQuery,
   useRefreshModels: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
@@ -60,7 +61,7 @@ vi.mock('../components/model-verify-dialog', () => ({
 
 beforeEach(() => {
   testState.modelsQuery = {
-    data: [],
+    data: { items: [], total: 0 },
     isLoading: false,
     isFetching: false,
     error: null,

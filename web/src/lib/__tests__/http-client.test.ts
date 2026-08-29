@@ -14,7 +14,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import i18n from '@/i18n/config'
 
-import { apiClient } from '../http-client'
+import {
+  apiClient,
+  extractApiErrorBody,
+  resolveResponseErrorCode,
+} from '../http-client'
 
 const toastErrorMock = vi.fn()
 
@@ -256,5 +260,60 @@ describe('apiClient auth interceptor', () => {
     expect(toastErrorMock).toHaveBeenCalledWith(expected, {
       id: `api-error:${expected}`,
     })
+  })
+})
+
+describe('resolveResponseErrorCode — unified error envelope (#1065)', () => {
+  it('returns the errorCode carried by a unified error body', () => {
+    expect(
+      resolveResponseErrorCode({
+        error:
+          'target database is the same as the running database; migration aborted',
+        errorCode: 'sameMigrationTarget',
+      })
+    ).toBe('sameMigrationTarget')
+  })
+
+  it('returns undefined for byte-compatible legacy bodies without errorCode', () => {
+    // Endpoints without a registered code omit the key entirely.
+    expect(
+      resolveResponseErrorCode({ error: 'some rejection reason' })
+    ).toBeUndefined()
+    // Legacy TS-era `{ message }` shape.
+    expect(
+      resolveResponseErrorCode({ message: 'legacy error shape' })
+    ).toBeUndefined()
+  })
+
+  it('returns undefined for non-string or empty errorCode values', () => {
+    expect(
+      resolveResponseErrorCode({ error: 'x', errorCode: '' })
+    ).toBeUndefined()
+    expect(
+      resolveResponseErrorCode({ error: 'x', errorCode: 42 })
+    ).toBeUndefined()
+  })
+
+  it('returns undefined for non-object bodies', () => {
+    expect(resolveResponseErrorCode(undefined)).toBeUndefined()
+    expect(resolveResponseErrorCode(null)).toBeUndefined()
+    expect(resolveResponseErrorCode('error text')).toBeUndefined()
+  })
+})
+
+describe('extractApiErrorBody — axios rejection shape', () => {
+  it('extracts the unified error body from an axios-shaped rejection', () => {
+    expect(
+      extractApiErrorBody({
+        response: { data: { error: 'invalid id', errorCode: 'invalidId' } },
+      })
+    ).toEqual({ error: 'invalid id', errorCode: 'invalidId' })
+  })
+
+  it('returns null when the failure carries no JSON body', () => {
+    expect(extractApiErrorBody(new Error('Network Error'))).toBeNull()
+    expect(extractApiErrorBody({ response: {} })).toBeNull()
+    expect(extractApiErrorBody({ response: { data: 'not json' } })).toBeNull()
+    expect(extractApiErrorBody(null)).toBeNull()
   })
 })

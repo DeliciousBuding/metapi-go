@@ -330,8 +330,31 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 		}
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(data)
+		w.Write([]byte(injectCSPNonceMeta(string(data), CSPNonceFromContext(r.Context()))))
 	})))
+}
+
+// injectCSPNonceMeta inserts <meta name="csp-nonce" content="..."> right
+// after <head> so SPA runtime <style> injectors (chart color variables,
+// dialog scroll lock via get-nonce) can read the per-request nonce minted by
+// SecurityHeaders and stamp the elements they create. The meta tag itself is
+// not CSP-controlled and carries no secret beyond what the CSP header of the
+// same response already exposes.
+//
+// When nonce is empty (handler mounted without SecurityHeaders) or the
+// template has no <head> (template drift), the HTML is served unchanged —
+// the SPA degrades to its no-nonce behavior instead of breaking.
+func injectCSPNonceMeta(html, nonce string) string {
+	if nonce == "" {
+		return html
+	}
+	const head = "<head>"
+	i := strings.Index(html, head)
+	if i < 0 {
+		return html
+	}
+	meta := `<meta name="csp-nonce" content="` + nonce + `">`
+	return html[:i+len(head)] + meta + html[i+len(head):]
 }
 
 // mountStaticSubdir serves a subtree of the embedded dist under route with an

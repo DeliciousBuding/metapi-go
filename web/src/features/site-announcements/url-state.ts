@@ -51,9 +51,7 @@ function statusFilterFromParam(
     : 'all'
 }
 
-function pageFromParam(
-  value: string | number | boolean | undefined
-): number {
+function pageFromParam(value: string | number | boolean | undefined): number {
   const raw = asParamString(value).trim()
   if (!raw) return 0
   const parsed = Number(raw)

@@ -13,13 +13,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { KpiValue } from '@/components/ui/kpi-value'
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
 } from '@/components/ui/empty'
+import { KpiValue } from '@/components/ui/kpi-value'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,

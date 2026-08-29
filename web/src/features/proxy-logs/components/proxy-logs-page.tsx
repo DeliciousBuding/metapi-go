@@ -360,7 +360,9 @@ export function ProxyLogsPage() {
           }),
         })
       } else {
-        toast.success(t('proxyLogs.page.exportCsvToast', { count: rows.length }))
+        toast.success(
+          t('proxyLogs.page.exportCsvToast', { count: rows.length })
+        )
       }
     } catch (exportError) {
       toast.error(

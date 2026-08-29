@@ -16,12 +16,12 @@
 
 import { z } from 'zod'
 
+import { isEmptyOrProxyUrl } from '@/lib/helpers/proxyUrl'
 import {
   encodeSortingParam,
   stringSearchParam,
   tableSortingItemSchema,
 } from '@/lib/helpers/searchParams'
-import { isEmptyOrProxyUrl } from '@/lib/helpers/proxyUrl'
 
 import type { SiteProbeScope } from '../types'
 import {

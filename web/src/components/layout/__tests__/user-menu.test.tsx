@@ -16,8 +16,8 @@ import {
   vi,
 } from 'vitest'
 
-import { ABOUT_INFO } from '@/features/about/api'
 import i18n from '@/i18n/config'
+import { ABOUT_INFO } from '@/lib/about-info'
 
 import { UserMenu } from '../components/user-menu'
 

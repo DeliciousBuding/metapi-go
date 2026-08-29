@@ -97,14 +97,57 @@ function isInvalidTokenMessage(message: string | undefined): boolean {
   return !!message && message.toLowerCase().includes('invalid token')
 }
 
-function resolveResponseMessage(data: unknown): string | undefined {
+/**
+ * Unified non-2xx error body sent by the Go backend (#1065; contract:
+ * docs/api.md "Error (non-2xx)"): `{ error, errorCode?, request_id? }`.
+ * A few legacy TS-era endpoints still answer `{ message }`, so both display
+ * keys are read by `resolveResponseMessage`.
+ *
+ * `errorCode` is optional and additive: only endpoints with a registered
+ * code send it (registry: docs/api.md "errorCode convention and registry";
+ * backend constants: handler/admin/error_codes.go). When a code exists for
+ * a failure class, clients must branch on it — never on `error` text.
+ */
+export type ApiErrorBody = {
+  error?: string
+  errorCode?: string
+  request_id?: string
+  /** Legacy TS-era error shape still answered by a few endpoints. */
+  message?: string
+}
+
+export function resolveResponseMessage(data: unknown): string | undefined {
   if (data && typeof data === 'object') {
-    const message = (data as { message?: unknown }).message
-    if (typeof message === 'string' && message) return message
-    const error = (data as { error?: unknown }).error
-    if (typeof error === 'string' && error) return error
+    const body = data as ApiErrorBody
+    if (typeof body.message === 'string' && body.message) return body.message
+    if (typeof body.error === 'string' && body.error) return body.error
   }
   return undefined
+}
+
+/**
+ * Machine-readable `errorCode` of a unified error body (#1065). Returns
+ * undefined when the body carries no code — the field is optional and only
+ * endpoints with a registered code send it, so callers must keep the
+ * human-readable message as their display fallback.
+ */
+export function resolveResponseErrorCode(data: unknown): string | undefined {
+  if (data && typeof data === 'object') {
+    const errorCode = (data as ApiErrorBody).errorCode
+    if (typeof errorCode === 'string' && errorCode) return errorCode
+  }
+  return undefined
+}
+
+/**
+ * Unified error body of an axios-shaped rejection (`error.response.data`),
+ * or null when the failure carries no JSON body (network error, timeout).
+ */
+export function extractApiErrorBody(error: unknown): ApiErrorBody | null {
+  const data = (error as { response?: { data?: unknown } } | null)?.response
+    ?.data
+  if (!data || typeof data !== 'object') return null
+  return data as ApiErrorBody
 }
 
 /**
@@ -162,9 +205,7 @@ class ReauthRequiredError extends Error {
  */
 export function isReauthRequired(error: unknown): boolean {
   if (error instanceof ReauthRequiredError) return true
-  const data = (error as { response?: { data?: unknown } } | null)?.response
-    ?.data
-  return isReauthRequiredBody(data)
+  return isReauthRequiredBody(extractApiErrorBody(error))
 }
 
 apiClient.interceptors.response.use(

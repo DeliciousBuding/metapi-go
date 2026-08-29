@@ -19,7 +19,9 @@
 // Usage:
 //   BASE_URL=http://127.0.0.1:4000 OUT_DIR=<dir> node scripts/shot-interactions.mjs
 import { mkdirSync } from 'node:fs'
+
 import { chromium } from 'playwright'
+
 import { loginSession } from './session-auth.mjs'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4000'
@@ -37,8 +39,13 @@ async function newPage(browser, viewport, isMobile) {
     locale: 'zh-CN',
     isMobile,
   })
-  await loginSession(context, { baseUrl: BASE_URL, token: 'dev-admin-token-123' })
-  await context.addCookies([{ name: 'vite-ui-theme', value: THEME, url: BASE_URL }])
+  await loginSession(context, {
+    baseUrl: BASE_URL,
+    token: 'dev-admin-token-123',
+  })
+  await context.addCookies([
+    { name: 'vite-ui-theme', value: THEME, url: BASE_URL },
+  ])
   await context.addInitScript(() => localStorage.setItem('i18nextLng', 'zh-CN'))
   return context
 }
@@ -70,9 +77,13 @@ const SCENARIOS = [
       await page.goto(BASE_URL + '/sites', { waitUntil: 'domcontentloaded' })
       await settle(page)
       await page.locator('tbody tr').first().hover()
-      await page.getByRole('button', { name: /操作|更多|actions|more/i }).first().click().catch(async () => {
-        await page.locator('tbody tr button').last().click()
-      })
+      await page
+        .getByRole('button', { name: /操作|更多|actions|more/i })
+        .first()
+        .click()
+        .catch(async () => {
+          await page.locator('tbody tr button').last().click()
+        })
       await page.waitForTimeout(400)
     },
   },
@@ -91,7 +102,10 @@ const SCENARIOS = [
     run: async (page) => {
       await page.goto(BASE_URL + '/accounts', { waitUntil: 'domcontentloaded' })
       await settle(page)
-      await page.getByRole('button', { name: /添加账号|新增账号/ }).first().click()
+      await page
+        .getByRole('button', { name: /添加账号|新增账号/ })
+        .first()
+        .click()
       await page.waitForTimeout(600)
     },
   },
@@ -110,7 +124,9 @@ const SCENARIOS = [
   {
     name: 'routes-add-dialog',
     run: async (page) => {
-      await page.goto(BASE_URL + '/token-routes', { waitUntil: 'domcontentloaded' })
+      await page.goto(BASE_URL + '/token-routes', {
+        waitUntil: 'domcontentloaded',
+      })
       await settle(page)
       await page.getByRole('button', { name: '添加路由' }).first().click()
       await page.waitForTimeout(600)
@@ -120,7 +136,9 @@ const SCENARIOS = [
   {
     name: 'model-tester-template-select',
     run: async (page) => {
-      await page.goto(BASE_URL + '/model-tester', { waitUntil: 'domcontentloaded' })
+      await page.goto(BASE_URL + '/model-tester', {
+        waitUntil: 'domcontentloaded',
+      })
       await settle(page, 1200)
       // Select triggers render with role=combobox (ARIA) and, inside
       // FormControl wrappers, lose their data-slot to the merge — match the
@@ -144,7 +162,9 @@ const SCENARIOS = [
   {
     name: 'chrome-cmdk',
     run: async (page) => {
-      await page.goto(BASE_URL + '/dashboard', { waitUntil: 'domcontentloaded' })
+      await page.goto(BASE_URL + '/dashboard', {
+        waitUntil: 'domcontentloaded',
+      })
       await settle(page)
       await page.keyboard.press('Control+k')
       await page.waitForTimeout(500)
@@ -153,10 +173,14 @@ const SCENARIOS = [
   {
     name: 'chrome-notifications',
     run: async (page) => {
-      await page.goto(BASE_URL + '/dashboard', { waitUntil: 'domcontentloaded' })
+      await page.goto(BASE_URL + '/dashboard', {
+        waitUntil: 'domcontentloaded',
+      })
       await settle(page)
       await page
-        .locator('header button[aria-label*="告警"], header button[aria-label*="ttention" i]')
+        .locator(
+          'header button[aria-label*="告警"], header button[aria-label*="ttention" i]'
+        )
         .first()
         .click()
       await page.waitForTimeout(500)
@@ -165,7 +189,9 @@ const SCENARIOS = [
   {
     name: 'chrome-theme-customizer',
     run: async (page) => {
-      await page.goto(BASE_URL + '/dashboard', { waitUntil: 'domcontentloaded' })
+      await page.goto(BASE_URL + '/dashboard', {
+        waitUntil: 'domcontentloaded',
+      })
       await settle(page)
       await page
         .getByRole('button', { name: /外观|Appearance/i })
@@ -177,9 +203,15 @@ const SCENARIOS = [
   {
     name: 'chrome-user-menu',
     run: async (page) => {
-      await page.goto(BASE_URL + '/dashboard', { waitUntil: 'domcontentloaded' })
+      await page.goto(BASE_URL + '/dashboard', {
+        waitUntil: 'domcontentloaded',
+      })
       await settle(page)
-      await page.locator('header button').last().click().catch(() => {})
+      await page
+        .locator('header button')
+        .last()
+        .click()
+        .catch(() => {})
       await page.waitForTimeout(400)
     },
   },
@@ -188,7 +220,9 @@ const SCENARIOS = [
     name: 'settings-danger-reset-dialog',
     viewport: 'desktop',
     run: async (page) => {
-      await page.goto(BASE_URL + '/settings/operations/danger-zone', { waitUntil: 'domcontentloaded' })
+      await page.goto(BASE_URL + '/settings/operations/danger-zone', {
+        waitUntil: 'domcontentloaded',
+      })
       await settle(page)
       const btn = page.getByRole('button', { name: /恢复出厂|重置/ }).first()
       await btn.click().catch(() => {})
@@ -200,7 +234,9 @@ const SCENARIOS = [
     name: 'mobile-sidebar-drawer',
     viewport: 'mobile',
     run: async (page) => {
-      await page.goto(BASE_URL + '/dashboard', { waitUntil: 'domcontentloaded' })
+      await page.goto(BASE_URL + '/dashboard', {
+        waitUntil: 'domcontentloaded',
+      })
       await settle(page)
       await page.locator('header button').first().click()
       await page.waitForTimeout(500)
@@ -226,14 +262,21 @@ const SCENARIOS = [
       await page.getByRole('button', { name: '添加站点' }).first().click()
       await page.waitForTimeout(600)
       // Submit empty to trigger validation errors.
-      const submit = page.locator('[data-slot=dialog-footer] button[type=submit], form button[type=submit]').last()
+      const submit = page
+        .locator(
+          '[data-slot=dialog-footer] button[type=submit], form button[type=submit]'
+        )
+        .last()
       await submit.click().catch(() => {})
       await page.waitForTimeout(500)
     },
   },
 ]
 
-const browser = await chromium.launch({ headless: true, args: ['--no-proxy-server'] })
+const browser = await chromium.launch({
+  headless: true,
+  args: ['--no-proxy-server'],
+})
 
 for (const scenario of SCENARIOS) {
   const targets =
@@ -257,7 +300,9 @@ for (const scenario of SCENARIOS) {
     } catch (error) {
       const reason = String(error?.message ?? error).split('\n')[0]
       results.push(`FAIL ${vpName}/${scenario.name}: ${reason}`)
-      await page.screenshot({ path: `${dir}/${scenario.name}-FAIL.png` }).catch(() => {})
+      await page
+        .screenshot({ path: `${dir}/${scenario.name}-FAIL.png` })
+        .catch(() => {})
     } finally {
       await context.close().catch(() => {})
     }
@@ -266,4 +311,6 @@ for (const scenario of SCENARIOS) {
 
 await browser.close()
 console.log(results.join('\n'))
-console.log(`done: ${results.filter((r) => r.startsWith('OK')).length}/${results.length}`)
+console.log(
+  `done: ${results.filter((r) => r.startsWith('OK')).length}/${results.length}`
+)

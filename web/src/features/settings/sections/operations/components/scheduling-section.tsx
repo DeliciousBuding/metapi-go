@@ -272,10 +272,7 @@ export function SchedulingSection() {
   })
 
   function onSubmit(values: SchedulingFormValues) {
-    const changed = collectChangedFields(
-      values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null
-    ) as Partial<SchedulingFormValues>
+    const changed = collectChangedFields(values, baseline)
     if (!hasChanges(changed)) {
       toast.info(t('settings.common.noChanges'))
       return

@@ -197,10 +197,7 @@ export function AllowlistSection() {
   }
 
   function onSubmit(values: AllowlistFormValues) {
-    const changed = collectChangedFields(
-      values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null
-    ) as Partial<AllowlistFormValues>
+    const changed = collectChangedFields(values, baseline)
     if (!hasChanges(changed) && changed.globalAllowedModels === undefined) {
       toast.info(t('settings.common.noChanges'))
       return

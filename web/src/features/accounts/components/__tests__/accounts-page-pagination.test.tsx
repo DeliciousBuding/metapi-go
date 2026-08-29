@@ -78,7 +78,7 @@ vi.mock('@/features/import', () => ({
 }))
 
 vi.mock('../../api', () => ({
-  useAccounts: () => ({
+  useAccountsPage: () => ({
     data: {
       accounts: testState.accounts,
       sites: [

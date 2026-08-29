@@ -6,6 +6,7 @@
 // pass as zod messages — FormMessage's `t()` returns them as-is).
 
 import i18n from '@/i18n/config'
+import { isRegexModelPattern } from '@/lib/helpers/model-pattern'
 
 import type {
   RouteMode,
@@ -43,19 +44,12 @@ export function isExplicitGroupRoute(
 
 // ---------------------------------------------------------------------------
 // Pattern grammar
-// ---------------------------------------------------------------------------
-
-export function isRegexModelPattern(modelPattern: string): boolean {
-  return (modelPattern || '').trim().startsWith('re:')
-}
-
-export function isExactModelPattern(modelPattern: string): boolean {
-  const normalized = (modelPattern || '').trim()
-  if (!normalized) return false
-  if (isRegexModelPattern(normalized)) return false
-  return !/[*[\]()?{}|^$\\]/.test(normalized)
-}
-
+// The pure grammar predicates live in @/lib/helpers/model-pattern (shared
+// with lib helpers — S5 boundary inversion); re-exported for compatibility.
+export {
+  isExactModelPattern,
+  isRegexModelPattern,
+} from '@/lib/helpers/model-pattern'
 type ParsedRegex = {
   regex: { test(value: string): boolean } | null
   error: string | null

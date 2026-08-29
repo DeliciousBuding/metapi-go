@@ -431,8 +431,12 @@ export function SiteAnnouncementsPage() {
           >
             <SelectValue>
               {(value: string) => {
-                if (value === 'true') return t('siteAnnouncements.filters.readTrue')
-                if (value === 'false') return t('siteAnnouncements.filters.readFalse')
+                if (value === 'true') {
+                  return t('siteAnnouncements.filters.readTrue')
+                }
+                if (value === 'false') {
+                  return t('siteAnnouncements.filters.readFalse')
+                }
                 return t('siteAnnouncements.filters.readAll')
               }}
             </SelectValue>

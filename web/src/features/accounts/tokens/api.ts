@@ -63,6 +63,31 @@ export function useAccountTokens(
 }
 
 // ---------------------------------------------------------------------------
+// useAllAccountTokens — GET /api/account-tokens (fleet-wide inventory)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fleet-wide token inventory (no accountId filter). Powers cross-account
+ * surfaces that need every token in one request — currently the downstream
+ * key credential-ref picker, which resolves account_token refs to names
+ * without fanning out per-account queries. Shares the list key factory
+ * (`list()` → ['account-tokens', 'list', 'all']).
+ */
+export function useAllAccountTokens(
+  options?: Omit<UseQueryOptions<AccountToken[]>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: accountTokenQueryKeys.list(),
+    queryFn: async () => {
+      const raw = await api.getAccountTokens()
+      return normalizeTokenList(raw)
+    },
+    staleTime: 10 * 1000,
+    ...options,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // useAccountTokenValue — GET /api/account-tokens/:id/value (reveal)
 // ---------------------------------------------------------------------------
 

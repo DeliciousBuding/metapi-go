@@ -14,12 +14,12 @@
 
 import { z } from 'zod'
 
+import { isEmptyOrProxyUrl } from '@/lib/helpers/proxyUrl'
 import {
   encodeSortingParam,
   stringSearchParam,
   tableSortingItemSchema,
 } from '@/lib/helpers/searchParams'
-import { isEmptyOrProxyUrl } from '@/lib/helpers/proxyUrl'
 
 const HTTP_OR_EMPTY_MESSAGE_KEY = 'oauth.form.errors.invalidProxyUrl'
 

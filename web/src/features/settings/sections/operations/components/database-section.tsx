@@ -147,10 +147,7 @@ export function DatabaseSection() {
   }
 
   function onSave(values: DatabaseFormValues) {
-    const changed = collectChangedFields(
-      values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null
-    ) as Partial<DatabaseFormValues>
+    const changed = collectChangedFields(values, baseline)
     const connection = values.connectionString.trim()
     const requiresConnection =
       !savedConfig?.hasConnectionString || changed.dialect !== undefined
@@ -273,6 +270,10 @@ export function DatabaseSection() {
                       {...field}
                       value={field.value ?? ''}
                       className='font-mono'
+                      // Infrastructure DSN, not a user credential — WCAG 1.3.5
+                      // input purposes do not apply, and 'off' keeps password
+                      // managers from capturing or autofilling connection
+                      // strings (#1029 batch A evaluation).
                       autoComplete='off'
                       spellCheck={false}
                       placeholder={connectionPlaceholder}

@@ -67,7 +67,7 @@ vi.mock('@/lib/toast', () => ({
 }))
 
 vi.mock('../api', () => ({
-  useAccounts: () => ({
+  useAccountsPage: () => ({
     data: { generatedAt: '', accounts: [], sites: [] },
     isLoading: false,
     isFetching: false,

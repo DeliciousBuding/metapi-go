@@ -34,6 +34,7 @@ import {
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
+import { extractApiErrorBody, resolveResponseMessage } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
@@ -122,25 +123,14 @@ const taskStatusBadgeVariant: Record<
 }
 
 /**
- * The migrate endpoint surfaces rejection reasons (e.g. a target that
- * resolves to the live runtime database) as a plain 400 `{error}` message;
- * there is no machine-readable detail classifier to match on.
+ * Registered errorCode for a migration whose target resolves to the live
+ * runtime database (#1065; registry: docs/api.md, backend constant:
+ * handler/admin/error_codes.go). This section used to substring-match the
+ * Chinese rejection text, which never fired against the Go backend's
+ * English body — the code is the contract now; the `error` message remains
+ * the display fallback for bodies without a code.
  */
-function extractServerErrorMessage(error: unknown): string | null {
-  const responseData = (error as { response?: { data?: unknown } } | null)
-    ?.response?.data
-  if (!responseData || typeof responseData !== 'object') return null
-  const record = responseData as Record<string, unknown>
-  if (typeof record.error === 'string' && record.error) return record.error
-  if (typeof record.message === 'string' && record.message) {
-    return record.message
-  }
-  return null
-}
-
-function isSameMigrationTargetError(message: string): boolean {
-  return message.includes('相同')
-}
+const ERROR_CODE_SAME_MIGRATION_TARGET = 'sameMigrationTarget'
 
 type MigrationResultSummaryProps = {
   result: MigrationTaskResult
@@ -312,18 +302,18 @@ export function DatabaseMigrationSection() {
     },
     onError: (error) => {
       setConfirmOpen(false)
-      const serverMessage = extractServerErrorMessage(error)
-      if (serverMessage && isSameMigrationTargetError(serverMessage)) {
+      const errorBody = extractApiErrorBody(error)
+      if (errorBody?.errorCode === ERROR_CODE_SAME_MIGRATION_TARGET) {
         toast.error(
           t('settings.operations.database.migration.toast.sameTarget')
         )
-      } else if (serverMessage) {
-        toast.error(serverMessage)
-      } else {
-        toast.error(
-          t('settings.operations.database.migration.toast.startFailed')
-        )
+        return
       }
+      const serverMessage = resolveResponseMessage(errorBody)
+      toast.error(
+        serverMessage ??
+          t('settings.operations.database.migration.toast.startFailed')
+      )
     },
   })
 
@@ -441,6 +431,10 @@ export function DatabaseMigrationSection() {
                       {...field}
                       value={field.value ?? ''}
                       className='font-mono'
+                      // Infrastructure DSN, not a user credential — WCAG 1.3.5
+                      // input purposes do not apply, and 'off' keeps password
+                      // managers from capturing or autofilling connection
+                      // strings (#1029 batch A evaluation).
                       autoComplete='off'
                       spellCheck={false}
                       disabled={busy}

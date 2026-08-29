@@ -1316,7 +1316,8 @@
             "editAria": "编辑 {{name}}",
             "usage": "用量",
             "actions": "操作",
-            "models": "模型"
+            "models": "模型",
+            "scope": "作用域"
           },
           "models": {
             "fieldLabel": "模型授权",
@@ -1362,6 +1363,34 @@
           "sites": {
             "fieldLabel": "上游站点限制",
             "hint": "留空表示不限制站点；勾选后该密钥只能访问所选上游站点的渠道。"
+          },
+          "credentials": {
+            "fieldLabelAllow": "允许的凭证",
+            "hintAllow": "留空表示不限制凭证；勾选后仅被选中的站点/账号凭证可为该密钥提供服务。",
+            "fieldLabelExclude": "排除的凭证",
+            "hintExclude": "被排除的凭证永不服务该密钥；同一凭证同时出现在允许与排除时，排除优先。",
+            "loading": "正在加载站点、账号与令牌…",
+            "loadFailed": "加载上游清单（站点/账号/令牌）失败。",
+            "noSites": "尚未配置上游站点。",
+            "noAccounts": "该站点下暂无账号。",
+            "expandSiteAria": "展开或收起 {{site}} 的账号",
+            "expandTokensAria": "展开或收起 {{account}} 的令牌",
+            "defaultApiKey": "默认 API 密钥",
+            "noDefaultKey": "无默认密钥",
+            "tokenPrefix": "令牌",
+            "selectedCount_one": "已选 {{count}} 项",
+            "selectedCount_other": "已选 {{count}} 项",
+            "unresolvedTitle": "未解析引用（上游对象已不存在）",
+            "unresolvedRemoveAria": "移除未解析引用"
+          },
+          "scope": {
+            "unrestricted": "不限制",
+            "sitesAllow": "允许站点",
+            "sitesExclude": "排除站点",
+            "credsAllow": "允许凭证",
+            "credsExclude": "排除凭证",
+            "defaultKey": "默认密钥",
+            "unknownId": "ID {{id}}（未解析）"
           }
         },
         "proxyToken": {
@@ -3079,9 +3108,9 @@
     },
     "search": {
       "trigger": "搜索…",
-      "placeholder": "搜索页面、设置、站点、账号、日志…",
+      "placeholder": "搜索页面、设置、操作、站点、账号、日志…",
       "title": "全局搜索",
-      "description": "搜索页面与设置，或查找站点、账号、令牌、模型、签到与代理日志。",
+      "description": "搜索页面与设置、执行常用操作，或查找站点、账号、令牌、模型、签到与代理日志。",
       "searching": "搜索中…",
       "unknown": "未知",
       "modelTokens": "{{count}} 个令牌",
@@ -3092,12 +3121,19 @@
       "groups": {
         "pages": "页面",
         "settings": "设置",
+        "actions": "操作",
         "sites": "站点",
         "accounts": "账号",
         "tokens": "令牌",
         "checkinLogs": "签到日志",
         "proxyLogs": "代理日志",
         "models": "模型"
+      },
+      "actions": {
+        "addSite": "添加站点",
+        "runCheckinAll": "运行所有签到",
+        "rebuildRoutes": "自动重建路由",
+        "refreshRouteDecisions": "刷新路由决策"
       }
     },
     "userMenu": {

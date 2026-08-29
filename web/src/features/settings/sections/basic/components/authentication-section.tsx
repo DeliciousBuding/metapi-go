@@ -132,10 +132,7 @@ export function AuthenticationSection() {
     })
 
   function onAllowlistSubmit(values: AllowlistFormValues) {
-    const changed = collectChangedFields(
-      values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null
-    ) as Partial<AllowlistFormValues>
+    const changed = collectChangedFields(values, baseline)
     if (!hasChanges(changed) || changed.adminIpAllowlist === undefined) {
       toast.info(t('settings.common.noChanges'))
       return

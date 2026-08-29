@@ -1,0 +1,30 @@
+package admin
+
+// Machine-readable errorCode values carried on unified admin error bodies
+// ({"error", "errorCode", ...}). Contract + registry table: docs/api.md.
+//
+// Convention: errorCode values are stable camelCase identifiers. The field
+// is OPTIONAL and additive — endpoints without a registered code omit it
+// entirely, and the human-readable "error" message stays the source of
+// truth for display. Clients must never substring-match on "error" when a
+// code exists for their case.
+//
+// New codes are added only for real call sites (no speculative taxonomy);
+// register every new constant in the docs/api.md registry table.
+const (
+	// ErrorCodeInvalidID rejects a URL path ID that is missing, non-numeric
+	// or non-positive (pathID helper; every /api route with an {id} segment).
+	ErrorCodeInvalidID = "invalidId"
+
+	// ErrorCodeInvalidDatabaseType rejects a runtime-database dialect that is
+	// neither sqlite nor postgres (/api/settings/database/* endpoints).
+	ErrorCodeInvalidDatabaseType = "invalidDatabaseType"
+
+	// ErrorCodeEmptyMigrationTarget rejects a migration request whose target
+	// connection string is blank (POST /api/settings/database/migrate).
+	ErrorCodeEmptyMigrationTarget = "emptyMigrationTarget"
+
+	// ErrorCodeSameMigrationTarget rejects a migration whose target resolves
+	// to the currently-running database (POST /api/settings/database/migrate).
+	ErrorCodeSameMigrationTarget = "sameMigrationTarget"
+)

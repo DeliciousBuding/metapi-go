@@ -23,11 +23,7 @@ export function KpiValue({
 }) {
   return (
     <span
-      className={cn(
-        'font-semibold tabular-nums',
-        sizeClass[size],
-        className
-      )}
+      className={cn('font-semibold tabular-nums', sizeClass[size], className)}
     >
       {children}
     </span>

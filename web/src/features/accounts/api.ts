@@ -29,6 +29,7 @@ import type {
   AccountStatus,
   AccountsSnapshot,
   LoginAccountPayload,
+  Site,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -38,7 +39,73 @@ import type {
 export const accountQueryKeys = {
   all: ['accounts'] as const,
   snapshot: () => [...accountQueryKeys.all, 'snapshot'] as const,
+  page: (pageIndex: number, pageSize: number) =>
+    [...accountQueryKeys.all, 'page', { pageIndex, pageSize }] as const,
   detail: (id: number) => ['accounts', 'detail', id] as const,
+}
+
+// ---------------------------------------------------------------------------
+// useAccountsPage — one server-side page of the accounts/sites projection
+// ---------------------------------------------------------------------------
+
+/** One page returned by GET /api/accounts?page=&pageSize=. */
+export type AccountsPageData = {
+  /** Legacy snapshot-shaped fixture compatibility; production pages use items. */
+  accounts?: object[]
+  items: object[]
+  total: number
+  sites: Site[]
+  generatedAt: string
+}
+
+/**
+ * Fetch + shape one server-side page. The page-gated endpoint keeps the same
+ * account/site projection as the snapshot and slices before JSON encoding,
+ * so large fleets no longer transfer every row to the browser. A missing or
+ * malformed total degrades to the returned page length (the pager then shows
+ * one page rather than an invented total).
+ */
+export async function fetchAccountsPage(params: {
+  pageIndex: number
+  pageSize: number
+}): Promise<AccountsPageData> {
+  const response = await api.getAccountsPage({
+    page: params.pageIndex + 1,
+    pageSize: params.pageSize,
+  })
+  const items = Array.isArray(response.items)
+    ? (response.items as object[])
+    : []
+  const sites = Array.isArray(response.sites) ? (response.sites as Site[]) : []
+  return {
+    items,
+    sites,
+    generatedAt:
+      typeof response.generatedAt === 'string' ? response.generatedAt : '',
+    total:
+      typeof response.total === 'number' && Number.isFinite(response.total)
+        ? response.total
+        : items.length,
+  }
+}
+
+/**
+ * Fetch one server-side accounts page by URL-owned table state. The page is
+ * keyed by pageIndex/pageSize so filters/sorting stay client-side over the
+ * returned page only (backend has no accounts filter/sort params), while the
+ * pager's page count comes from the true fleet total.
+ */
+export function useAccountsPage(
+  params: { pageIndex: number; pageSize: number },
+  options?: Omit<UseQueryOptions<AccountsPageData>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery<AccountsPageData>({
+    queryKey: accountQueryKeys.page(params.pageIndex, params.pageSize),
+    queryFn: () => fetchAccountsPage(params),
+    placeholderData: (previous) => previous,
+    staleTime: 10 * 1000,
+    ...options,
+  })
 }
 
 // ---------------------------------------------------------------------------

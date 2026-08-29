@@ -11,12 +11,15 @@ import (
 // APIError represents a structured JSON error response.
 // Message is safe for public consumption; Internal is logged but never sent.
 // JSON field names are camelCase-compatible public keys used by the admin UI:
-// - error (string message)
-// - detail (optional classifier / subtype)
+// - error (string message; human-readable, never matched by clients)
+// - errorCode (optional machine-readable identifier; stable camelCase value
+//   from the registry in docs/api.md — additive, omitted when unset)
+// - detail (optional free-form classifier / subtype; NOT a stable contract)
 // - request_id (optional ingress correlation id, snake_case for log/ops tools)
 type APIError struct {
 	Code      int    `json:"-"`
 	Message   string `json:"error"`
+	ErrorCode string `json:"errorCode,omitempty"`
 	Detail    string `json:"detail,omitempty"`
 	RequestID string `json:"request_id,omitempty"`
 	Internal  error  `json:"-"`
@@ -38,6 +41,14 @@ func (e *APIError) Error() string {
 // Callers must use a non-2xx status for failures — never HTTP 200 with an error body.
 func WriteError(w http.ResponseWriter, code int, message string) {
 	WriteAPIError(w, &APIError{Code: code, Message: message})
+}
+
+// WriteErrorCode writes a structured JSON error response carrying a
+// machine-readable errorCode in addition to the human-readable message.
+// errorCode must be a stable camelCase identifier from the registry
+// documented in docs/api.md; message stays the user-facing text.
+func WriteErrorCode(w http.ResponseWriter, code int, errorCode, message string) {
+	WriteAPIError(w, &APIError{Code: code, Message: message, ErrorCode: errorCode})
 }
 
 // WriteAPIError writes the public fields of APIError with the given status.
@@ -64,6 +75,7 @@ func WriteAPIError(w http.ResponseWriter, err *APIError) {
 	w.WriteHeader(code)
 	if encErr := json.NewEncoder(w).Encode(APIError{
 		Message:   err.Message,
+		ErrorCode: err.ErrorCode,
 		Detail:    err.Detail,
 		RequestID: err.RequestID,
 	}); encErr != nil {

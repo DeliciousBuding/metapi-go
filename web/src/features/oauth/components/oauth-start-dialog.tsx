@@ -489,6 +489,10 @@ export function OAuthStartDialog({
                       setCallbackInvalid(false)
                     }}
                     placeholder={t('oauth.session.callbackPlaceholder')}
+                    // Not a user credential: a pasted OAuth callback URL.
+                    // 'off' is conforming here (WHATWG only forbids it on
+                    // login/password fields) and keeps managers from
+                    // corrupting the pasted value (#1029 batch A evaluation).
                     autoComplete='off'
                     spellCheck={false}
                     aria-invalid={callbackInvalid || undefined}

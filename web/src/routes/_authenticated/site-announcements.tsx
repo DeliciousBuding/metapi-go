@@ -34,7 +34,7 @@ const firstPageParams = buildSiteAnnouncementsParams(
   DEFAULT_SITE_ANNOUNCEMENTS_FILTERS
 )
 
-export const siteAnnouncementsSearchSchema = z.object({
+const siteAnnouncementsSearchSchema = z.object({
   siteId: stringSearchParam,
   platform: stringSearchParam,
   read: stringSearchParam,

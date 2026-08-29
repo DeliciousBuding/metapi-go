@@ -5,6 +5,11 @@
 // the decision-snapshot projection, and the pattern helpers live here and in
 // `utils.ts` until those shared modules land.
 //
+// S5 boundary inversion: the summary-row contract shared with
+// `@/lib/helpers/zeroChannelRoutes` moved to
+// `@/lib/helpers/token-route-contract` (lib ↛ features, rule 1); this file
+// re-exports it so existing consumers keep their import paths.
+//
 // The summary row is what `GET /api/routes/summary` returns and what the
 // data-table list renders. The full `RouteRow` (with channels) is what
 // `GET /api/routes/:id/channels` returns and what the detail sheet renders.
@@ -12,54 +17,23 @@
 // in `@/lib/helpers/zeroChannelRoutes`) reuse `RouteSummaryRow` with
 // `kind: 'zero_channel'` and a stable negative id.
 
-type RouteRowKind = 'persisted' | 'zero_channel'
+import type {
+  RouteDecision,
+  RouteMode,
+  RouteRoutingStrategy,
+  RouteSummaryRow,
+} from '@/lib/helpers/token-route-contract'
 
-export type RouteMode = 'pattern' | 'explicit_group'
-
-export type RouteRoutingStrategy =
-  | 'weighted'
-  | 'round_robin'
-  | 'stable_first'
-  | 'least_busy'
-  | 'lowest_latency'
-  | 'lowest_cost'
+export type {
+  RouteDecision,
+  RouteMode,
+  RouteRoutingStrategy,
+  RouteSummaryRow,
+} from '@/lib/helpers/token-route-contract'
 
 // Channel-level strategy for OAuth route units (re-exported for the detail
 // sheet; the canonical `OAuthRouteUnitStrategy` also lives in `@/lib/api`).
 type OAuthRouteUnitStrategy = 'round_robin' | 'stick_until_unavailable'
-
-// ---------------------------------------------------------------------------
-// Decision snapshot — a defensive projection of the server's RouteDecision.
-// The backend payload is loosely typed, so only the fields the UI touches are
-// declared; everything else falls back to `unknown`. When the shared contract
-// module lands, this can be replaced by `import type { RouteDecision }`.
-// ---------------------------------------------------------------------------
-
-type RouteDecisionCandidate = {
-  channelId?: number
-  accountId?: number
-  tokenId?: number | null
-  username?: string | null
-  siteName?: string | null
-  sourceModel?: string | null
-  probability?: number
-  weight?: number
-  priority?: number
-  reasonText?: string | null
-  reasonColor?: string | null
-  disabled?: boolean
-}
-
-export type RouteDecision = {
-  model?: string
-  matchedRouteId?: number | null
-  matchedRoutePattern?: string | null
-  candidates?: RouteDecisionCandidate[]
-  selectedChannelId?: number | null
-  reasonText?: string | null
-  generatedAt?: string | null
-  [key: string]: unknown
-}
 
 // ---------------------------------------------------------------------------
 // Route channel — the per-route account+token binding (detail view + form)
@@ -138,31 +112,6 @@ export type RouteRow = {
   decisionRefreshedAt?: string | null
   enabled: boolean
   channels: RouteChannel[]
-}
-
-// ---------------------------------------------------------------------------
-// Route summary row — list row (GET /api/routes/summary)
-// ---------------------------------------------------------------------------
-
-export type RouteSummaryRow = {
-  id: number
-  modelPattern: string
-  displayName: string | null
-  displayIcon: string | null
-  routeMode?: RouteMode | null
-  sourceRouteIds?: number[]
-  modelMapping: string | null
-  routingStrategy?: RouteRoutingStrategy | null
-  contextLength?: number | null
-  enabled: boolean
-  channelCount: number
-  enabledChannelCount: number
-  siteNames: string[]
-  decisionSnapshot: RouteDecision | null
-  decisionRefreshedAt: string | null
-  kind?: RouteRowKind
-  readOnly?: boolean
-  isVirtual?: boolean
 }
 
 // ---------------------------------------------------------------------------

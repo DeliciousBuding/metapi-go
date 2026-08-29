@@ -77,9 +77,7 @@ describe('dashboard charts carry an explicit accessible name', () => {
   })
 
   it('names the latency histogram (its single series label is empty)', () => {
-    render(
-      <LatencyHistogramChart data={[{ label: '<1s', count: 12 }]} />
-    )
+    render(<LatencyHistogramChart data={[{ label: '<1s', count: 12 }]} />)
     expect(
       screen.getByRole('figure', { name: 'Requests by latency bucket' })
     ).toBeInTheDocument()
@@ -102,7 +100,12 @@ describe('dashboard charts carry an explicit accessible name', () => {
     render(
       <ModelCostChart
         data={[{ model: 'gpt-5', label: '', cost: 9, calls: 30, tokens: 500 }]}
-        labels={{ cost: 'Cost', calls: 'Calls', tokens: 'Tokens', share: 'Share' }}
+        labels={{
+          cost: 'Cost',
+          calls: 'Calls',
+          tokens: 'Tokens',
+          share: 'Share',
+        }}
       />
     )
     expect(

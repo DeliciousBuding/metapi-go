@@ -12,7 +12,7 @@ import { z } from 'zod'
 import { PriceComparePage } from '@/features/models/price-compare/components/price-compare-page'
 import { stringSearchParam } from '@/lib/helpers/searchParams'
 
-export const priceCompareSearchSchema = z.object({
+const priceCompareSearchSchema = z.object({
   model: stringSearchParam,
 })
 

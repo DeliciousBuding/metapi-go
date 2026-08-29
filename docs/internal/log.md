@@ -5,14 +5,29 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
-## 2026-08-29 — W19-W21 前端审计三波（本地 master，未 push 未 bump）
+## 2026-08-29 — W21 CSP 去 `style-src 'unsafe-inline'`（#1035 S2）
 
-> 全部交付在本地 master（头部 `41cf02f`），与 origin 分叉待融合决策。明细与裁决表：`.dev-local/progress/W19-backlog.md`（gitignored）。全量回归 1470 测试绿。
+- **安全**：SPA `style-src` 改为 `'self' 'nonce-<per-request>' 'sha256-<sonner-toast-css>'`；Go 每响应生成 16B CSP nonce 并通过 `<meta name="csp-nonce">` + 响应头传递，`bootstrap.js` 在 bundle 前给运行时创建的 `<style>` 自动标 nonce；其余 directive 不变。
+- **内联源盘点**：`web/dist/index.html` 无内联 script/style；运行时注入仅 sonner toast CSS（模块顶层 `__insertCSS`）与 ChartStyle 颜色变量；`react-remove-scroll` 路径保留兼容（当前 Base UI 栈未使用），未放宽其他 directive。
+- **验证**：Go CSP directive 级测试、nonce 随机/meta 匹配、sonner hash 漂移守卫、ChartStyle nonce 单测；真实 Chromium 页面登录+仪表盘+Ctrl+K 弹窗探针 0 CSP 违例、nonce 匹配；前端 1425+ 测试与 Go `-race` 全门禁绿。
+- **残留**：sonner 库仍会尝试模块级 DOM 注入（在 `style-src` nonce 下被允许），静态打包 `sonner/dist/styles.css` 作为视觉 fallback。
+
+## 2026-08-29 — W20 凭证维度后端加固（#1026 残留，API-only）
+
+- **修复（关键）**：`auth.ExcludedCredentialRef` JSON 标签 snake_case 与管理员端持久化 camelCase 不一致 → 代理路径解析引用 ID 全为 0：`allowedCredentialRefs` 密钥无法路由任何渠道（允许列表永不匹配）、`excludedCredentialRefs` 静默失效。标签统一 camelCase；DB→策略解析往返回归测试钉住。
+- **收紧**：畸形引用条目（非对象/未知 kind/缺 ID）由静默丢弃改为显式 400——允许列表场景静默丢弃等于 fail-open。
+- **契约测试**：路由选择器执行（两种 kind、跨 kind 隔离、空=不限制、排除优先、TS 遗留空 kind）、管理端验证拒绝矩阵、悬空引用不级联清理（失败关闭）、auth→routing 映射钉住。
+- **文档**：`docs/api.md` 下游密钥节补完整契约；明确 UI 树形选择器待定（API-only）。
+
+## 2026-08-29 — 前端审计三波（本地 W19-W21；经集成分支融合，未 bump）
+
+> 与上方后端 W20/W21 编号同名不同波：此三波为前端审计线（明细与裁决表：`.dev-local/progress/W19-backlog.md`，gitignored）。全量回归 1470 测试绿。
 
 - **W19 三路审计 + 修复波 A-M**：交互/视觉/对标 newapi 三路并行审计 → 13 波修复。主线：错误 toast 单 owner 收口（http-client，删 router 500 双弹，5xx 无 body 走 status 专用文案）；列表页错误契约统一（QueryErrorBanner 失败替换 + 内置重试）；URL 态收口（price-compare/site-announcements 过滤器进 URL）；`ui/notice.tsx` 横幅原语（四色配方单一出处，收编 10+ 手写点）；chart-1..5 全 preset 对 card AA 4.5:1（contrast-gate 新增 chart 门禁）；focus-ring ≥3:1 贯穿 19+5 处；移动端 sheet 底部粘性关闭条（W19-J）；危险区 type-to-confirm（RESET + 倒计时双闸）；批量禁用/重建确认；OAuth 弹窗拦截恢复；invalidate 漏刷 7 处；Workflow 22-agent 对抗复检修 12 处真实体验 bug（password 模式字段隐藏、status 切换 disabled/toast、掩码真占位符等）。
 - **W20 seeded 视觉审图波**：112 张 seeded 截图全审 → 9 commits。标题字重 calm-titles 对齐（settings/site-announcements/batch-results）；observability 热力图轴标签 9px→10px + DESIGN.md 补「可见轴刻度/正文最小 10px」红线；`ui/kpi-value.tsx` KPI 数字三档组件收编七处；screenshot-scan 加 auth preflight（陈旧 dist 静默全登录页陷阱 fail-fast）。**乱码虚惊教训**：截图批次乱码根因是「截图早于重 seed 生效」时序乌龙（三层码点取证证清白）——seed 后必先 curl 验证再截图。
 - **W21 交互弹层审计波**：新建交互截图管道 `shot-interactions.mjs`（26 场景 × desktop/mobile × light/dark 全绿，补静态扫描到不了的弹层/校验态/chrome 菜单盲区）。修复：site-announcements 四筛选 SelectValue 裸显 `all`（base-ui 弹层关闭时 Item 未挂载，Value 回退原始 value；函数 children 显式映射，对齐既有模式）+ 文案自解释化；路由表单 displayIcon 哨兵 `__route_icon_none__` 泄漏 → input 边界双向映射友好 token `none`；表单 Sheet 豁免移动端底部关闭条（`showMobileCloseBar` prop，消除「取消+关闭」同义重复）；`theme.toggle` aria-label i18n 化。选择器教训（通知铃动态 aria-label / Select role=combobox / mobile 无 tbody）入脚本注释 + docs/visual-regression.md。
-- **遗留**：本地/origin 融合决策（用户拍板）；D2 site-form 抽屉迁移（产品决策）；后端告警文案 i18n（P3，需 key 映射架构改动）。
+- **遗留**：D2 site-form 抽屉迁移（产品决策）；后端告警文案 i18n（P3，需 key 映射架构改动）；docs/api.md 超 1500 行预算拆分（F4）。
+
 
 ## 2026-08-29 — Wave 18 十线并行（安全/并发/网络/数据库/性能/构建/UX/CX）发布 v0.16.19
 

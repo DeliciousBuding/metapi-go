@@ -40,7 +40,7 @@ import {
 } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
-import { useModels } from '../api'
+import { useModelsPage } from '../api'
 import { modelsSearchSchema } from '../lib/models-schema'
 import { modelsKeys, type ModelRow } from '../types'
 import { ModelDetailSheet } from './model-detail-sheet'
@@ -184,7 +184,12 @@ function useModelsUrlState() {
 export function ModelsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const modelsQuery = useModels({ includePricing: true })
+  const urlState = useModelsUrlState()
+  const modelsPageQuery = useModelsPage({
+    pageIndex: urlState.pagination.pageIndex,
+    pageSize: urlState.pagination.pageSize,
+    includePricing: true,
+  })
   const navigate = useNavigate()
 
   const [viewingModel, setViewingModel] = useState<ModelRow | null>(null)
@@ -203,7 +208,7 @@ export function ModelsPage() {
     if (modelDeepLinkConsumed.current || !modelName) return
     modelDeepLinkConsumed.current = true
 
-    const targetModel = (modelsQuery.data ?? []).find(
+    const targetModel = (modelsPageQuery.data?.items ?? []).find(
       (model) => model.name === modelName
     )
     if (targetModel) {
@@ -215,9 +220,7 @@ export function ModelsPage() {
       href: queryString ? `/models?${queryString}` : '/models',
       replace: true,
     })
-  }, [modelsQuery.data, navigate])
-
-  const urlState = useModelsUrlState()
+  }, [modelsPageQuery.data, navigate])
 
   const columns = useModelsColumns({
     onView: (model) => {
@@ -230,8 +233,14 @@ export function ModelsPage() {
   })
 
   const { table } = useDataTable<ModelRow>({
-    data: modelsQuery.data ?? [],
+    data: modelsPageQuery.data?.items ?? [],
     columns,
+    // Server-side pagination: URL pagination drives a page query; filtering
+    // stays client-side over the current page, sorting is disabled (no
+    // backend sort parameter today).
+    manualPagination: true,
+    manualSorting: true,
+    totalCount: modelsPageQuery.data?.total ?? 0,
     enableColumnResizing: true,
     columnVisibilityStorageKey: MODELS_COLUMN_VISIBILITY_STORAGE_KEY,
     columnSizingStorageKey: MODELS_COLUMN_SIZING_STORAGE_KEY,
@@ -265,7 +274,10 @@ export function ModelsPage() {
       toast.success(t('models.toast.refreshSucceeded'))
     },
   })
-  const models = useMemo(() => modelsQuery.data ?? [], [modelsQuery.data])
+  const models = useMemo(
+    () => modelsPageQuery.data?.items ?? [],
+    [modelsPageQuery.data]
+  )
   const brandFilterOptions = useMemo(
     () => buildBrandFilterOptions(models),
     [models]
@@ -290,20 +302,21 @@ export function ModelsPage() {
 
       {/* Unified list-page error contract (W19-T1 P2-o): the failed load
           replaces the table instead of stacking over it, so a stale cache can
-          never read as current data. */}
-      {modelsQuery.error ? (
+          never read as current data. Query object is the S9 server-side
+          paged one (modelsPageQuery). */}
+      {modelsPageQuery.error ? (
         <QueryErrorBanner
-          error={modelsQuery.error as Error | null}
+          error={modelsPageQuery.error as Error | null}
           messageKey='models.page.loadError'
-          onRetry={() => modelsQuery.refetch()}
-          isRetrying={modelsQuery.isFetching}
+          onRetry={() => modelsPageQuery.refetch()}
+          isRetrying={modelsPageQuery.isFetching}
         />
       ) : (
         <DataTablePage
           table={table}
           columns={columns}
-          isLoading={modelsQuery.isLoading}
-          isFetching={modelsQuery.isFetching}
+          isLoading={modelsPageQuery.isLoading}
+          isFetching={modelsPageQuery.isFetching}
           emptyTitle={t('models.empty.title')}
           emptyDescription={t('models.empty.description')}
           emptyAction={

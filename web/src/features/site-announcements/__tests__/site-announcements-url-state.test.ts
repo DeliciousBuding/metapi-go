@@ -6,11 +6,11 @@
 
 import { describe, expect, it } from 'vitest'
 
+import { DEFAULT_SITE_ANNOUNCEMENTS_FILTERS } from '../types'
 import {
   buildSiteAnnouncementsHref,
   parseSiteAnnouncementsSearch,
 } from '../url-state'
-import { DEFAULT_SITE_ANNOUNCEMENTS_FILTERS } from '../types'
 
 describe('parseSiteAnnouncementsSearch', () => {
   it('returns the default filters and page 0 for an empty search', () => {
@@ -35,9 +35,9 @@ describe('parseSiteAnnouncementsSearch', () => {
   })
 
   it('keeps the platform string verbatim', () => {
-    expect(parseSiteAnnouncementsSearch({ platform: 'newapi' }).filters.platform).toBe(
-      'newapi'
-    )
+    expect(
+      parseSiteAnnouncementsSearch({ platform: 'newapi' }).filters.platform
+    ).toBe('newapi')
   })
 
   it('accepts only true/false for the read filter', () => {
@@ -58,9 +58,9 @@ describe('parseSiteAnnouncementsSearch', () => {
         status
       )
     }
-    expect(parseSiteAnnouncementsSearch({ status: 'bogus' }).filters.status).toBe(
-      'all'
-    )
+    expect(
+      parseSiteAnnouncementsSearch({ status: 'bogus' }).filters.status
+    ).toBe('all')
   })
 
   it('parses the page cursor and clamps invalid values to 0', () => {
@@ -114,7 +114,9 @@ describe('buildSiteAnnouncementsHref', () => {
     }
     const parsed = parseSiteAnnouncementsSearch(
       Object.fromEntries(
-        new URLSearchParams(buildSiteAnnouncementsHref(filters, 4).split('?')[1])
+        new URLSearchParams(
+          buildSiteAnnouncementsHref(filters, 4).split('?')[1]
+        )
       )
     )
     expect(parsed).toEqual({ filters, page: 4 })

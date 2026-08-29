@@ -17,6 +17,20 @@ export const accountsApi = {
       accounts: unknown[]
       sites: unknown[]
     }>,
+  getAccountsPage: (params: { page: number; pageSize: number }) =>
+    request(
+      `/api/accounts${buildQueryString({
+        page: params.page,
+        pageSize: params.pageSize,
+      })}`
+    ) as Promise<{
+      items?: unknown[]
+      total?: number
+      page?: number
+      pageSize?: number
+      generatedAt?: string
+      sites?: unknown[]
+    }>,
   addAccount: (data: unknown) =>
     request('/api/accounts', { method: 'POST', body: JSON.stringify(data) }),
   loginAccount: (data: {

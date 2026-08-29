@@ -47,14 +47,21 @@ func setupTokenRoutesPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, tokenID int64) {
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	siteName := "Route Site " + suffix
+	routeURL := "https://route.example.com/" + suffix
+	sessionToken := "session-token-" + suffix
+	tokenName := "route-token-" + suffix
+	tokenValue := "sk-route-token-" + suffix
 	// execInsertID keeps the helper dialect-safe: pgx does not support
 	// LastInsertId (it silently yields 0, breaking the FK chain), and the
 	// boolean literals keep PostgreSQL's strict BOOLEAN columns happy while
-	// SQLite accepts them too.
+	// SQLite accepts them too. The suffix keeps shared PG test databases
+	// isolated when a test reuses this fixture.
 	siteID, err := execInsertID(db.DB,
 		`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
-		 VALUES ('Route Site', 'https://route.example.com', 'openai', 'active', ?, ?)`,
-		now, now,
+		 VALUES (?, ?, 'openai', 'active', ?, ?)`,
+		siteName, routeURL, now, now,
 	)
 	if err != nil {
 		t.Fatalf("insert site: %v", err)
@@ -62,8 +69,8 @@ func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, token
 
 	accountID, err = execInsertID(db.DB,
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at)
-		 VALUES (?, 'session-token', 'active', true, ?, ?)`,
-		siteID, now, now,
+		 VALUES (?, ?, 'active', true, ?, ?)`,
+		siteID, sessionToken, now, now,
 	)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
@@ -71,8 +78,8 @@ func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, token
 
 	tokenID, err = execInsertID(db.DB,
 		`INSERT INTO account_tokens (account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
-		 VALUES (?, 'route-token', 'sk-route-token', 'ready', 'manual', true, false, ?, ?)`,
-		accountID, now, now,
+		 VALUES (?, ?, ?, 'ready', 'manual', true, false, ?, ?)`,
+		accountID, tokenName, tokenValue, now, now,
 	)
 	if err != nil {
 		t.Fatalf("insert token: %v", err)
@@ -86,6 +93,14 @@ func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, token
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
+	t.Cleanup(func() {
+		_, _ = db.Exec(db.Rebind(`DELETE FROM route_channels WHERE route_id = ? OR account_id = ? OR token_id = ?`), routeID, accountID, tokenID)
+		_, _ = db.Exec(db.Rebind(`DELETE FROM token_model_availability WHERE token_id = ?`), tokenID)
+		_, _ = db.Exec(db.Rebind(`DELETE FROM account_tokens WHERE account_id = ?`), accountID)
+		_, _ = db.Exec(db.Rebind(`DELETE FROM token_routes WHERE id = ?`), routeID)
+		_, _ = db.Exec(db.Rebind(`DELETE FROM accounts WHERE id = ?`), accountID)
+		_, _ = db.Exec(db.Rebind(`DELETE FROM sites WHERE id = ?`), siteID)
+	})
 	return routeID, accountID, tokenID
 }
 
@@ -1876,8 +1891,8 @@ func TestTokenRoutes_Summary_PopulatesSiteNames(t *testing.T) {
 		t.Fatalf("linked route siteNames len = %d, want 1 (deduped from 3 channels); got %v",
 			len(siteNames), siteNames)
 	}
-	if name, _ := siteNames[0].(string); name != "Route Site" {
-		t.Fatalf("linked route siteNames[0] = %q, want %q", name, "Route Site")
+	if name, _ := siteNames[0].(string); !strings.HasPrefix(name, "Route Site ") {
+		t.Fatalf("linked route siteNames[0] = %q, want prefix %q", name, "Route Site ")
 	}
 
 	// Empty route: no channels → non-nil empty array (not JSON null), so the

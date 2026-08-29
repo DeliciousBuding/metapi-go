@@ -58,7 +58,11 @@ import {
   type RouteFormValues,
 } from '../lib/routes-schema'
 import type { RouteMode, RouteRoutingStrategy, RouteSummaryRow } from '../types'
-import { getModelPatternError, isRegexModelPattern, ROUTE_ICON_NONE_VALUE } from '../utils'
+import {
+  getModelPatternError,
+  isRegexModelPattern,
+  ROUTE_ICON_NONE_VALUE,
+} from '../utils'
 import { RouteChannelEditor } from './route-channel-editor'
 import { showRouteCompletionToast } from './route-completion-toast'
 

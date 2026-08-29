@@ -234,10 +234,7 @@ export function ProxyTransportSection() {
   })
 
   function onSubmit(values: ProxyTransportFormValues) {
-    const changed = collectChangedFields(
-      values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null
-    ) as Partial<ProxyTransportFormValues>
+    const changed = collectChangedFields(values, baseline)
     if (!hasChanges(changed)) {
       toast.info(t('settings.common.noChanges'))
       return

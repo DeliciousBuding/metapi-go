@@ -1,6 +1,6 @@
 # Admin API Reference
 
-**Last updated**: 2026-08-23
+**Last updated**: 2026-08-29
 **Coverage note**: every `/api` route registered by the Go server gets a `### METHOD /path` detail section — the authoritative route list is the [Admin Route Inventory](#admin-route-inventory) at the bottom. Backward-compat aliases (e.g. `GET /api/stats/model-prices`) are documented as aliases rather than duplicating the canonical handler.
 
 Base URL: `http://localhost:4000/api`
@@ -64,16 +64,44 @@ body). The unified error body is:
 ```json
 {
   "error": "Error description",
+  "errorCode": "optional machine-readable identifier",
   "request_id": "optional correlation id"
 }
 ```
 
-`request_id` is additive and omitted when no request ID is present. A few
-legacy endpoints (some batch/500 paths under `/api/accounts`, sites import)
-still answer with the TS-era `{ "message": "Error description" }` shape; the
-frontend reads both keys, so both forms surface identically.
+- `error` is the human-readable message. It is for display only — clients
+  must never branch on its text when a registered `errorCode` exists.
+- `errorCode` is an **optional, additive** machine-readable identifier for
+  the failure class (see the registry below). It is present only on
+  endpoints that have registered a code; every other error body is
+  byte-identical to the pre-existing shape (no `errorCode` key at all).
+  Clients that ignore `errorCode` observe no change.
+- `request_id` is additive and omitted when no request ID is present.
+
+A few legacy endpoints (some batch/500 paths under `/api/accounts`, sites
+import) still answer with the TS-era `{ "message": "Error description" }`
+shape; the frontend reads both keys, so both forms surface identically.
 
 HTTP status codes: 200 (OK), 201 (Created), 202 (Accepted), 400 (Bad Request), 401 (Unauthorized), 404 (Not Found), 500 (Internal Server Error).
+
+#### errorCode convention and registry
+
+`errorCode` values are stable **camelCase** identifiers (matching the
+project-wide camelCase JSON rule). Codes are only introduced for real call
+sites; this table is the registry and grows deliberately. Constants live in
+`handler/admin/error_codes.go` and are pinned by
+`handler/admin/error_codes_test.go`.
+
+| errorCode              | Status | Where                                          | Meaning                                                        |
+| ---------------------- | ------ | ---------------------------------------------- | -------------------------------------------------------------- |
+| `invalidId`            | 400    | any `/api/.../{id}` route (pathID helper)      | path ID missing, non-numeric or non-positive                   |
+| `invalidDatabaseType`  | 400    | `/api/settings/database/*`                     | runtime-database dialect is neither `sqlite` nor `postgres`    |
+| `emptyMigrationTarget` | 400    | `POST /api/settings/database/migrate`          | target connection string is blank                              |
+| `sameMigrationTarget`  | 400    | `POST /api/settings/database/migrate`          | target resolves to the currently-running database (rejected)   |
+
+Frontend note: the admin UI historically detected the same-target migration
+rejection by substring-matching the message text; it should migrate to
+`errorCode === "sameMigrationTarget"`.
 
 ## Request Body Rules
 
@@ -197,15 +225,21 @@ Channels for a specific route.
 
 ### GET /api/channels
 
-Full route-channel list (5-way JOIN) with a 30s snapshot cache; `?refresh=true` bypasses it.
+Full route-channel list (5-way JOIN) with a 10s snapshot cache; `?refresh=true` bypasses it.
 
-**Query params**: `page`/`pageSize` (when present the response is paginated; without them the bare full shape is returned and `pageSize` reports the real row count), `refresh`.
+**Query params**: `page`/`pageSize` (when present the response is paginated; without them the bare full shape is returned and `pageSize` reports the real row count), `refresh`, `status` (optional comma-separated subset of the four `status` values below; filtering loads the full row set to read in-memory routing/breaker state, then pages the filtered result).
 
 **Response** (200): `{ "items": [ { "id": 12, "routeId": 1, "name": "svc-1", "site": { "id": 3, "name": "anthropic" }, "type": "account", "status": "enabled", "models": "gpt-4o", "priority": 10, "weight": 20, "responseMs": 842, "cooldownUntil": null, "cooldownReasonCode": null, "cooldownReason": null, "cooldownReasonAt": null, "enabled": true, "manualOverride": false } ], "total": 1, "page": 1, "pageSize": 1 }`
 
 `type` is `account` | `token` | `oauth_unit`; `status` is `enabled` | `cooldown` | `breaker_open` | `manually_disabled`.
 
 **Cooldown reason fields**: `cooldownReasonCode` / `cooldownReason` / `cooldownReasonAt` describe why the channel entered cooldown. All three are `null` when no reason was recorded (rows cooled before the structured-reason schema existed). Codes are a stable, append-only vocabulary: `usage_limit` | `rate_limited` | `auth_error` | `upstream_error` | `client_error` | `timeout` | `network_error` | `probe_failure` | `unknown`. `cooldownReason` is a sanitized error summary truncated to 200 runes; `cooldownReasonAt` is the ISO-8601 UTC time the triggering failure was recorded.
+
+### GET /api/channels/error-summary
+
+Fleet-wide runtime status counts that cannot be derived from a SQL aggregate because circuit-breaker state lives in the routing in-memory health maps. `?refresh=true` bypasses the 10s cache; any `route_channels` mutation invalidates both this summary and the channel-list snapshot.
+
+**Response** (200): `{ "total": 16, "errorCount": 3, "byStatus": { "enabled": 10, "cooldown": 2, "breaker_open": 1, "manually_disabled": 3 } }` — `errorCount` counts only `cooldown` and `breaker_open`; `manually_disabled` is operator intent and is excluded.
 
 ### GET /api/channels/probe-history
 
@@ -341,6 +375,16 @@ Trigger decision snapshot refresh.
 ### GET /api/models/marketplace
 
 Available models by site.
+
+**Query params**: `page`/`pageSize` — when `page` is present the endpoint
+returns `{ items, total, page, pageSize, meta }` where `total` is the full
+marketplace row count and `pageSize` clamps to 1–200 (default 50); when
+`page` is absent it keeps the legacy `{ models, meta }` shape. Filtering and
+sorting are not server-side today, so the frontend applies them over the
+returned page only.
+
+**Response (page-gated)**: `{ "items": [...], "total": 240, "page": 2,
+"pageSize": 50, "meta": { "refreshRequested": false, "includePricing": true } }`.
 
 ### GET /api/models/price-compare
 
@@ -526,7 +570,16 @@ Global tag system: per-row writes and the aggregated index driving the Accounts/
 
 ### GET /api/accounts, POST /api/accounts
 
-List all accounts. Create a new account.
+List accounts. Create a new account.
+
+**Query params** (GET): `page`/`pageSize` — when `page` is present the
+endpoint returns the shared `{ items, total, page, pageSize, generatedAt,
+ sites }` envelope (`page` is 1-based, `pageSize` clamps to 1–200; the
+snapshot cache is bypassed so each page uses a bounded query); when `page` is
+absent it keeps the legacy `{ generatedAt, accounts, sites }` snapshot shape.
+
+The `sites` array is still returned on paged responses so the page's site
+filter and create form keep working without a second full-fleet request.
 
 **Body** (create, optional): `proxyUrl` — per-account egress proxy stored in `extraConfig.proxyUrl`; accepted schemes are `http://`, `https://`, `socks5://`, `socks5h://` (SOCKS5 runs natively on Go's `net/http` transport). Invalid schemes return `400`.
 
@@ -729,15 +782,110 @@ Create a new downstream API key.
   "tags": "tag1,tag2",
   "supportedModels": ["gpt-4o", "claude-sonnet-4-20250514"],
   "allowedRouteIds": [1, 2],
+  "excludedSiteIds": [3],
+  "excludedCredentialRefs": [
+    { "kind": "account_token", "siteId": 1, "accountId": 2, "tokenId": 7 }
+  ],
+  "allowedSiteIds": [1],
+  "allowedCredentialRefs": [
+    { "kind": "account_token", "siteId": 1, "accountId": 2, "tokenId": 7 },
+    { "kind": "default_api_key", "siteId": 1, "accountId": 2 }
+  ],
   "maxCost": 100.0,
   "maxRequests": 10000,
   "expiresAt": "2026-12-31T23:59:59Z"
 }
 ```
 
+Routing-policy fields (`excludedSiteIds`, `excludedCredentialRefs`, `allowedSiteIds`, `allowedCredentialRefs`, `siteWeightMultipliers`, `keyWeight`) are accepted on both create and update; their full contract is documented under **Credential & site scope** below.
+
+### Credential & site scope (downstream keys)
+
+Optional per-key routing dimensions. All four fields are independent; each is
+evaluated during channel selection for every proxied request.
+
+| Field | Stored column | Type |
+| --- | --- | --- |
+| `allowedSiteIds` | `allowed_site_ids` | JSON array of site IDs |
+| `excludedSiteIds` | `excluded_site_ids` | JSON array of site IDs |
+| `allowedCredentialRefs` | `allowed_credential_refs` | JSON array of credential refs |
+| `excludedCredentialRefs` | `excluded_credential_refs` | JSON array of credential refs |
+
+**Semantics.** Omitted, `null`, or empty (`[]`) means **unrestricted** for that
+dimension (the column stores `NULL`). A non-empty list activates the gate:
+
+- `allowedSiteIds` / `allowedCredentialRefs` (allow-lists): only candidates
+  matching **at least one** entry are eligible; everything else is rejected.
+- `excludedSiteIds` / `excludedCredentialRefs` (exclude lists): candidates
+  matching any entry are rejected.
+- When the same target appears in both lists, **exclude wins** (deny).
+- Site and credential dimensions are independent gates — a candidate must pass
+  both.
+
+> **UI status:** the credential-ref dimensions now have a site → account →
+> token tree picker in the admin API-key sheet (issue #1026 follow-up,
+> #1064 contract). The sheet serializes real arrays on create/update and
+> parses the stored JSON strings when editing; the key list renders resolved
+> site/account/token names, with unresolved IDs shown explicitly. The site
+> picker (#1050) remains unchanged.
+
+**Credential ref shape.** Each ref is one of two kinds:
+
+```json
+{ "kind": "account_token",   "siteId": 1, "accountId": 2, "tokenId": 7 }
+{ "kind": "default_api_key", "siteId": 1, "accountId": 2 }
+```
+
+- `account_token` — a specific token of a specific account
+  (`siteId` + `accountId` + `tokenId`, all required and > 0). Matches only
+  channels bound to that exact token.
+- `default_api_key` — the account's own default API key (`siteId` +
+  `accountId`; no `tokenId`). Matches only channels that use the account's
+  `apiToken` (no explicit token binding).
+- The two kinds never match each other's channel class.
+- Refs persisted by the legacy TS version without a `kind` are treated with
+  `default_api_key` semantics at selection time (read-only compatibility; new
+  writes must carry an explicit kind).
+
+**Validation (create and update).** Requests with invalid refs are rejected
+with `400` and nothing is persisted:
+
+- malformed entries (non-object, unknown/missing `kind`, non-positive
+  `siteId`/`accountId`, `account_token` without positive `tokenId`) — rejected
+  rather than silently dropped, so an allow-list can never be quietly widened;
+- `account_token` refs must reference an existing token whose
+  `accountId`/`siteId` match the token's actual account/site;
+- `default_api_key` refs must reference an existing account on the given site
+  that has a non-empty default API key;
+- `allowedSiteIds`/`excludedSiteIds`/`siteWeightMultipliers` site IDs must
+  exist; `allowedRouteIds` route IDs must exist.
+
+**Selector behavior.** During channel selection (`routing.ChannelSelector`):
+
+- non-empty `allowedCredentialRefs` → candidates not matching any ref are
+  rejected (decision reason: `API Key/令牌不在下游密钥允许列表中`);
+- matching `excludedCredentialRefs` → rejected
+  (`API Key/令牌已被下游密钥排除`);
+- equivalent site-dimension reasons: `站点不在下游密钥允许列表中` /
+  `站点已被下游密钥排除`.
+
+**Dangling refs.** Refs are validated only at write time. Deleting an account
+or token afterwards does **not** cascade-clean stored refs; a dangling ref
+simply never matches a candidate — a dangling allow ref makes that credential
+slot permanently ineligible (fail-closed), a dangling exclude ref is a no-op.
+
+**Read responses.** `GET /api/downstream-keys`, `/summary`, and
+`/:id/overview` return the stored columns verbatim: each of the four fields is
+either `null` or a **JSON string** containing the array above (clients must
+`JSON.parse` the value). Create/update request bodies use real arrays.
+
 ### PUT /api/downstream-keys/:id
 
-Update a downstream API key.
+Update a downstream API key. Partial-update semantics: omitted fields keep
+their current value; a field present in the body replaces the stored value
+(`null`/empty clears it back to the unrestricted default). The same
+credential/site-scope validation rules as create apply; a rejected update
+leaves the stored policy untouched.
 
 ### DELETE /api/downstream-keys/:id
 
@@ -1397,6 +1545,7 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/announcements/active`
 - `/api/auth/session`
 - `/api/channels`
+- `/api/channels/error-summary`
 - `/api/checkin/logs`
 - `/api/debug/vars`
 - `/api/desktop/health`

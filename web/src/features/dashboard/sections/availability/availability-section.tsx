@@ -21,7 +21,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { KpiValue } from '@/components/ui/kpi-value'
 import {
   Empty,
   EmptyContent,
@@ -29,6 +28,7 @@ import {
   EmptyHeader,
   EmptyMedia,
 } from '@/components/ui/empty'
+import { KpiValue } from '@/components/ui/kpi-value'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
@@ -362,17 +362,13 @@ function RealtimeOpsPanel() {
                 <div className='text-muted-foreground text-xs'>
                   {t('dashboard.availability.realtime.metricQps')}
                 </div>
-                <KpiValue size='lg'>
-                  {sample.qps}
-                </KpiValue>
+                <KpiValue size='lg'>{sample.qps}</KpiValue>
               </div>
               <div>
                 <div className='text-muted-foreground text-xs'>
                   {t('dashboard.availability.realtime.metricSuccess')}
                 </div>
-                <KpiValue size='lg'>
-                  {formatRate(sample.successRate)}
-                </KpiValue>
+                <KpiValue size='lg'>{formatRate(sample.successRate)}</KpiValue>
               </div>
               <div>
                 <div className='text-muted-foreground text-xs'>

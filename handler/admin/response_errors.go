@@ -35,3 +35,24 @@ func writeErrorWithRequest(w http.ResponseWriter, r *http.Request, code int, mes
 		RequestID: requestID,
 	})
 }
+
+// writeErrorCode writes a unified admin API error carrying a machine-readable
+// errorCode (stable camelCase identifier; registry in docs/api.md) alongside
+// the human-readable message. The field is additive: clients that ignore it
+// see the exact pre-existing body. Use it instead of writeError at any 400-class
+// site a client may need to branch on programmatically.
+func writeErrorCode(w http.ResponseWriter, code int, errorCode, message string) {
+	shared.WriteErrorCode(w, code, errorCode, message)
+}
+
+// writeErrorCodeWithRequest is writeErrorCode plus the request-id correlation
+// behaviour of writeErrorWithRequest.
+func writeErrorCodeWithRequest(w http.ResponseWriter, r *http.Request, code int, errorCode, message string) {
+	requestID := middleware.GetReqID(r.Context())
+	shared.WriteAPIError(w, &shared.APIError{
+		Code:      code,
+		Message:   message,
+		ErrorCode: errorCode,
+		RequestID: requestID,
+	})
+}
