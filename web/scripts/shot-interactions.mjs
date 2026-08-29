@@ -19,6 +19,8 @@
 // Usage:
 //   BASE_URL=http://127.0.0.1:4000 OUT_DIR=<dir> node scripts/shot-interactions.mjs
 import { mkdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import { chromium } from 'playwright'
 
@@ -26,9 +28,10 @@ import { loginSession } from './session-auth.mjs'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4000'
 const THEME = process.env.THEME ?? 'light'
+// Portable default: OS temp dir (same convention as screenshot-scan.mjs).
+// Override OUT_DIR to keep screenshots in a stable location.
 const OUT_BASE =
-  process.env.OUT_DIR ??
-  'D:/Code/aihub/metapi-go/.dev-local/screenshots/w21-interactions'
+  process.env.OUT_DIR ?? join(tmpdir(), 'metapi-shots-interactions')
 
 const results = []
 
