@@ -914,6 +914,13 @@
           "balanceUnknown": "余额未知：{{name}}",
           "siteAnnouncement": "上游公告：{{title}}",
           "eventAllProxiesFailed": "全部代理失败",
+          "eventLowBalance": "余额不足",
+          "eventTokenExpired": "令牌已过期",
+          "eventSiteDisabled": "站点已禁用",
+          "eventCheckinFailed": "签到失败",
+          "eventCheckinFailedCloudflare": "签到失败（Cloudflare 验证）",
+          "eventCheckinSkipped": "已跳过签到",
+          "eventTokenSyncFailed": "账号令牌同步失败",
           "mergedCount": "合并 {{count}} 条事件",
           "severity": {
             "critical": "严重",

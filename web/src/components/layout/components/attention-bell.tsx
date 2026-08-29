@@ -31,6 +31,11 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
+import {
+  attentionLabel,
+  type AttentionItem,
+  type AttentionResponse,
+} from '@/lib/attention-label'
 import { formatAbsoluteDateTime, formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -43,22 +48,7 @@ const BADGE_COUNT_CEILING = 9
 /** The popover is a peek surface; "view all" leads to the full panel. */
 const POPOVER_ITEM_LIMIT = 6
 
-type AttentionSeverity = 'critical' | 'warning' | 'info'
-
-type AttentionItem = {
-  severity: AttentionSeverity
-  category: string
-  label: string
-  target: string
-  createdAt: string
-  params?: Record<string, string | number>
-}
-
-/** Attention response (GET /api/stats/attention?limit=20). */
-type AttentionResponse = {
-  items: AttentionItem[]
-  total: number
-}
+type AttentionSeverity = AttentionItem['severity']
 
 const SEVERITY_BADGE_VARIANT: Record<
   AttentionSeverity,
@@ -141,7 +131,7 @@ function AttentionList(props: AttentionListProps) {
                 {t(`attention.severity.${item.severity}`)}
               </Badge>
               <span className='min-w-0 flex-1 truncate text-sm'>
-                {item.label}
+                {attentionLabel(item, t)}
               </span>
               {relativeTime ? (
                 <time

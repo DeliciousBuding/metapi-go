@@ -914,6 +914,13 @@
           "balanceUnknown": "Balance unknown: {{name}}",
           "siteAnnouncement": "Upstream announcement: {{title}}",
           "eventAllProxiesFailed": "All proxies failed",
+          "eventLowBalance": "Low balance",
+          "eventTokenExpired": "Token expired",
+          "eventSiteDisabled": "Site disabled",
+          "eventCheckinFailed": "Check-in failed",
+          "eventCheckinFailedCloudflare": "Check-in failed (Cloudflare challenge)",
+          "eventCheckinSkipped": "Check-in skipped",
+          "eventTokenSyncFailed": "Account token sync failed",
           "mergedCount": "{{count}} merged events",
           "severity": {
             "critical": "critical",
