@@ -14,7 +14,7 @@ import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/lib/api'
-import { formatInt } from '@/lib/format'
+import { formatInt, formatLatency } from '@/lib/format'
 
 import { ChartDataTable } from '../../components/chart-data-table'
 import { ChartShell } from '../../components/chart-shell'
@@ -154,6 +154,55 @@ export function ModelsSection() {
     return rows
   }, [trendQuery.data, metricAvg, metricP95])
 
+  // S10 (#1035): sr-only summaries for the two latency charts — same contract
+  // as the cost donut above (bucket bars → bucket x count; dual-line trend →
+  // series x latest/window-average).
+  const histogramSummary = useMemo(() => {
+    if (histogramData.length === 0) return undefined
+    return (
+      <ChartDataTable
+        caption={t('dashboard.models.latencyHistogram.title')}
+        seriesLabel={t('dashboard.chartSummary.bucketColumn')}
+        columns={[t('dashboard.chartSummary.callsColumn')]}
+        rows={histogramData.map((bucket) => ({
+          name: bucket.label,
+          values: [formatInt(bucket.count)],
+        }))}
+      />
+    )
+  }, [histogramData, t])
+
+  const trendSummary = useMemo(() => {
+    if (trendData.length === 0) return undefined
+    const series = [metricAvg, metricP95]
+      .map((metric) => {
+        const values = trendData
+          .filter((row) => row.metric === metric)
+          .map((row) => row.latency)
+        if (values.length === 0) return null
+        const latest = values.at(-1)
+        if (latest === undefined) return null
+        const mean = values.reduce((sum, v) => sum + v, 0) / values.length
+        return {
+          name: metric,
+          values: [formatLatency(latest), formatLatency(mean)],
+        }
+      })
+      .filter((row): row is { name: string; values: string[] } => row !== null)
+    if (series.length === 0) return undefined
+    return (
+      <ChartDataTable
+        caption={t('dashboard.models.latencyTrend.title')}
+        seriesLabel={t('dashboard.chartSummary.seriesColumn')}
+        columns={[
+          t('dashboard.chartSummary.latestColumn'),
+          t('dashboard.chartSummary.averageColumn'),
+        ]}
+        rows={series}
+      />
+    )
+  }, [trendData, metricAvg, metricP95, t])
+
   const costTooltipLabels = useMemo(
     () => ({
       cost: t('dashboard.models.costDistribution.tooltip.cost'),
@@ -212,6 +261,7 @@ export function ModelsSection() {
         description={t('dashboard.models.latencyHistogram.description')}
         height={300}
         loading={histogramQuery.isLoading}
+        summary={summaryWhenLoaded(histogramQuery, histogramSummary)}
       >
         {renderChartBody(
           histogramQuery.isLoading,
@@ -228,6 +278,7 @@ export function ModelsSection() {
         height={300}
         className='lg:col-span-2'
         loading={trendQuery.isLoading}
+        summary={summaryWhenLoaded(trendQuery, trendSummary)}
       >
         {renderChartBody(
           trendQuery.isLoading,

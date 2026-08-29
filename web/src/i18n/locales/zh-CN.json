@@ -944,6 +944,8 @@
         "seriesColumn": "序列",
         "totalColumn": "合计",
         "latestColumn": "最近一天",
+        "bucketColumn": "延迟区间",
+        "averageColumn": "平均值",
         "netRow": "净额",
         "spendColumn": "花费",
         "callsColumn": "请求数"

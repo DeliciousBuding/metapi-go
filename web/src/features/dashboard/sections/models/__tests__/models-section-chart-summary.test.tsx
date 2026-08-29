@@ -1,6 +1,6 @@
-// S10 (#1035): the model-cost donut exposes an sr-only data summary table
-// built from the already-loaded cost rows (series x key points: cost,
-// requests, tokens, share). Latency charts keep text-only empty states.
+// S10 (#1035): the model-cost donut and both latency charts expose sr-only
+// data summary tables built from the already-loaded rows (series x key
+// points; histogram → bucket x count, trend → series x latest/window avg).
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
@@ -121,5 +121,63 @@ describe('ModelsSection cost data summary (S10)', () => {
 
     await screen.findAllByText('Failed to load model / latency data.')
     expect(screen.queryByRole('table')).toBeNull()
+  })
+})
+
+describe('ModelsSection latency chart summaries (S10)', () => {
+  it('exposes bucket × count rows for the latency histogram', async () => {
+    mockHistogram.mockResolvedValue({
+      buckets: [
+        { label: '0-100ms', count: 5 },
+        { label: '100-300ms', count: 3 },
+      ],
+    })
+    renderSection()
+
+    const table = await screen.findByRole('table', {
+      name: 'Latency histogram',
+    })
+    expect(table).toHaveClass('sr-only')
+    expect(table).toHaveTextContent('Latency bucket')
+    expect(table).toHaveTextContent('Calls')
+    expect(table).toHaveTextContent('0-100ms')
+    expect(table).toHaveTextContent('100-300ms')
+  })
+
+  it('exposes latest-day and window-average values for the latency trend', async () => {
+    mockTrend.mockResolvedValue({
+      points: [
+        { date: '2026-08-28', avgLatencyMs: 100, p95LatencyMs: 200 },
+        { date: '2026-08-29', avgLatencyMs: 300, p95LatencyMs: 500 },
+      ],
+    })
+    renderSection()
+
+    const table = await screen.findByRole('table', { name: 'Latency trend' })
+    expect(table).toHaveClass('sr-only')
+    // avg series: latest 300ms, window mean (100+300)/2 = 200ms
+    // p95 series: latest 500ms, window mean (200+500)/2 = 350ms
+    expect(table).toHaveTextContent('300ms')
+    expect(table).toHaveTextContent('200ms')
+    expect(table).toHaveTextContent('500ms')
+    expect(table).toHaveTextContent('350ms')
+    expect(table).toHaveTextContent('Latest day')
+    expect(table).toHaveTextContent('Average')
+  })
+
+  it('renders no latency summary while the latency queries fail', async () => {
+    mockHistogram.mockRejectedValue(new Error('hist boom'))
+    mockTrend.mockRejectedValue(new Error('trend boom'))
+    renderSection()
+
+    await screen.findAllByText('Failed to load model / latency data.')
+    expect(
+      screen.queryByRole('table', { name: 'Latency histogram' })
+    ).toBeNull()
+    expect(screen.queryByRole('table', { name: 'Latency trend' })).toBeNull()
+    // The cost summary is independent — its query still resolves.
+    expect(
+      screen.getByRole('table', { name: 'Cost distribution' })
+    ).toBeInTheDocument()
   })
 })
