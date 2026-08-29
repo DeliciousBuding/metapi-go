@@ -1,0 +1,6 @@
+src = open('service/balance/balance.go', encoding='utf-8').read()
+src = src.replace('cfg *config.RuntimeSettings', 'cfg *config.Config')
+src = src.replace('alert.ReportTokenExpired(cfg, db,', 'alert.ReportTokenExpired(config.RuntimeSafe(), db,', 1)
+src = src.replace('alert.ReportLowBalance(cfg, db,', 'alert.ReportLowBalance(config.RuntimeSafe(), db,', 1)
+open('service/balance/balance.go','w',encoding='utf-8').write(src)
+print("balance.go fixed")

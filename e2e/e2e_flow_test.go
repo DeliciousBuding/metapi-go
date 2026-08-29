@@ -110,7 +110,7 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4o"))
 
 	// 1e. Proxy channel coordinator.
-	coord := proxy.NewProxyChannelCoordinator(cfg)
+	coord := proxy.NewProxyChannelCoordinator()
 
 	// 1f. Wire upstream config for proxy dispatch.
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
@@ -371,7 +371,7 @@ func TestSiteCreateToProxyFlow_UnauthorizedAccess(t *testing.T) {
 		t.Fatal("store.GetDB() returned nil")
 	}
 
-	coord := proxy.NewProxyChannelCoordinator(cfg)
+	coord := proxy.NewProxyChannelCoordinator()
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
 		Router:         newMockRouter(),
 		RouteRefresher: &mockRouteRefresher{},
@@ -496,7 +496,7 @@ func TestSiteCreateToProxyFlow_Streaming(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.addChannel(makeChannel(1, mockUpstream.URL, "gpt-4o"))
 
-	coord := proxy.NewProxyChannelCoordinator(cfg)
+	coord := proxy.NewProxyChannelCoordinator()
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
 		Router:         mockR,
 		RouteRefresher: &mockRouteRefresher{},

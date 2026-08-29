@@ -25,7 +25,7 @@ type TokenExpiredParams struct {
 // this function no-ops unless classification confirms ClassExpired. Generic 401,
 // network, 429, and 5xx must never force-mark accounts.status='expired'.
 // Mirrors TS reportTokenExpired() with a hard mark guard.
-func ReportTokenExpired(cfg *config.Config, db *sqlx.DB, params TokenExpiredParams) {
+func ReportTokenExpired(cfg *config.RuntimeSettings, db *sqlx.DB, params TokenExpiredParams) {
 	if !ShouldMarkAccountExpired(params.HTTPStatus, params.Detail) {
 		slog.Info("ReportTokenExpired skipped: detail is not confirmed credential expiry",
 			"accountID", params.AccountID,
@@ -99,7 +99,7 @@ const lowBalanceEventWindow = 24 * time.Hour
 // G1: the TS original only counted lowBalanceAccounts in a daily summary
 // (balance < 1) — it never fired a real-time trigger. metapi-go does better:
 // the alert lands as soon as the refresh observes the low balance.
-func ReportLowBalance(cfg *config.Config, db *sqlx.DB, params LowBalanceParams) {
+func ReportLowBalance(cfg *config.RuntimeSettings, db *sqlx.DB, params LowBalanceParams) {
 	if db == nil || params.Balance >= params.Threshold {
 		return
 	}
@@ -154,7 +154,7 @@ const proxyAllFailedCooldownFloorMs = int64(config.DefaultNotifyCooldownSec) * 1
 // notification per cooldown window (cfg.NotifyCooldownSec, floored at
 // proxyAllFailedCooldownFloorMs) so a dead upstream cannot spam operators on
 // every request.
-func ReportProxyAllFailed(cfg *config.Config, db *sqlx.DB, params ProxyAllFailedParams) {
+func ReportProxyAllFailed(cfg *config.RuntimeSettings, db *sqlx.DB, params ProxyAllFailedParams) {
 	if db == nil || params.Model == "" {
 		return
 	}

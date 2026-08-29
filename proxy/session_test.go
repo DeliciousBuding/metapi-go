@@ -13,7 +13,7 @@ func newTestCoordinator() *ProxyChannelCoordinator {
 		"PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT": "2",
 	})
 	config.Set(cfg)
-	return NewProxyChannelCoordinator(cfg)
+	return NewProxyChannelCoordinator()
 }
 
 func sessionScopedConfig() (*string, *string) {

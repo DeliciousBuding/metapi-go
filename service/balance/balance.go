@@ -469,7 +469,7 @@ func RefreshBalance(cfg *config.Config, db *sqlx.DB, accountID int64) (*BalanceR
 			State: service.HealthUnhealthy, Reason: message, Source: service.HealthSourceBalance,
 		})
 		if alert.ShouldMarkAccountExpired(0, message) {
-			alert.ReportTokenExpired(cfg, db, alert.TokenExpiredParams{
+			alert.ReportTokenExpired(config.RuntimeSafe(), db, alert.TokenExpiredParams{
 				AccountID: account.ID, Username: account.Username,
 				SiteName: &site.Name, Detail: message,
 			})
@@ -603,7 +603,7 @@ afterRetry:
 	// Deduped per account per 24h inside ReportLowBalance so sustained-low
 	// balances don't spam. Threshold 1.0 matches TS lowBalanceAccounts.
 	if balanceInfo.Balance < lowBalanceAlertThreshold {
-		alert.ReportLowBalance(cfg, db, alert.LowBalanceParams{
+		alert.ReportLowBalance(config.RuntimeSafe(), db, alert.LowBalanceParams{
 			AccountID: account.ID,
 			Username:  account.Username,
 			SiteName:  &site.Name,

@@ -37,7 +37,7 @@ const (
 // Channel is the interface for notification channels.
 type Channel interface {
 	Name() string
-	Send(cfg *config.Config, title, message, level, timeFootnote string) error
+	Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error
 }
 
 // SendNotificationOptions configures notification behavior.
@@ -64,7 +64,7 @@ type DispatchResult struct {
 
 // SendNotification dispatches a notification through all configured channels.
 // Mirrors TS sendNotification().
-func SendNotification(cfg *config.Config, title, message, level string, options *SendNotificationOptions) (*DispatchResult, error) {
+func SendNotification(cfg *config.RuntimeSettings, title, message, level string, options *SendNotificationOptions) (*DispatchResult, error) {
 	if options == nil {
 		options = &SendNotificationOptions{}
 	}

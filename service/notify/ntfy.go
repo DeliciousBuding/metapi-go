@@ -18,7 +18,7 @@ type NtfyChannel struct{}
 
 func (c *NtfyChannel) Name() string { return "ntfy" }
 
-func (c *NtfyChannel) Send(cfg *config.Config, title, message, level, timeFootnote string) error {
+func (c *NtfyChannel) Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error {
 	if !cfg.NtfyEnabled || cfg.NtfyUrl == "" || cfg.NtfyTopic == "" {
 		return fmt.Errorf("ntfy not configured")
 	}

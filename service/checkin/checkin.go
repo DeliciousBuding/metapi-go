@@ -559,7 +559,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 		}
 
 		if alert.ShouldMarkAccountExpired(0, result.Message) {
-			alert.ReportTokenExpired(cfg, db, alert.TokenExpiredParams{
+			alert.ReportTokenExpired(config.RuntimeSafe(), db, alert.TokenExpiredParams{
 				AccountID: account.ID, Username: account.Username,
 				SiteName: &site.Name, Detail: result.Message,
 			})
@@ -570,7 +570,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 		// issue #667). Single-account manual triggers leave it on.
 		if !options.SkipNotification {
 			if isCloudflare {
-				notifypkg.SendNotification(cfg,
+				notifypkg.SendNotification(config.RuntimeSafe(),
 					"Cloudflare challenge",
 					fmt.Sprintf("%s @ %s: %s", orUsername(account.Username, accountID), site.Name, result.Message),
 					"warning", nil,
@@ -578,7 +578,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 			}
 
 			if !unsupportedCheckin && !manualVerificationRequired {
-				notifypkg.SendNotification(cfg,
+				notifypkg.SendNotification(config.RuntimeSafe(),
 					"checkin failed",
 					fmt.Sprintf("%s @ %s: %s", orUsername(account.Username, accountID), site.Name, result.Message),
 					"error", nil,
@@ -828,7 +828,7 @@ func sendCheckinRoundNotification(cfg *config.Config, results []CheckinAllResult
 	if round == nil {
 		return
 	}
-	notifySend(cfg, round.notificationTitle(), round.notificationBody(), "error", nil)
+	notifySend(config.RuntimeSafe(), round.notificationTitle(), round.notificationBody(), "error", nil)
 }
 
 // shouldRetryTransient reports whether the current checkin result should be

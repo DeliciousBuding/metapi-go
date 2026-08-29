@@ -14,7 +14,7 @@ type ServerChanChannel struct{}
 
 func (c *ServerChanChannel) Name() string { return "serverchan" }
 
-func (c *ServerChanChannel) Send(cfg *config.Config, title, message, level, timeFootnote string) error {
+func (c *ServerChanChannel) Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error {
 	if !cfg.ServerChanEnabled || cfg.ServerChanKey == "" {
 		return fmt.Errorf("serverchan not configured")
 	}

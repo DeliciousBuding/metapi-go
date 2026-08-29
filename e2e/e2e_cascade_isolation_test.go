@@ -54,7 +54,7 @@ func TestCascadeIsolation_MultiChannel5xxStorm_ChannelScopedExclude(t *testing.T
 	cfg.ProxyMaxChannelAttempts = budget
 	config.Set(cfg)
 	t.Cleanup(func() { config.Set(makeTestConfig()) })
-	coord := proxy.NewProxyChannelCoordinator(cfg)
+	coord := proxy.NewProxyChannelCoordinator()
 	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	req := httptest.NewRequest("POST", "/chat/completions",
@@ -165,7 +165,7 @@ func TestCascadeIsolation_5xxThenHealthySiblingSucceeds(t *testing.T) {
 	cfg.ProxyMaxChannelAttempts = 3
 	config.Set(cfg)
 	t.Cleanup(func() { config.Set(makeTestConfig()) })
-	coord := proxy.NewProxyChannelCoordinator(cfg)
+	coord := proxy.NewProxyChannelCoordinator()
 	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	req := httptest.NewRequest("POST", "/chat/completions",

@@ -1,0 +1,7 @@
+src = open('service/checkin/checkin.go', encoding='utf-8').read()
+src = src.replace('cfg *config.RuntimeSettings', 'cfg *config.Config')
+src = src.replace('alert.ReportTokenExpired(cfg, db,', 'alert.ReportTokenExpired(config.RuntimeSafe(), db,')
+src = src.replace('notifypkg.SendNotification(cfg,', 'notifypkg.SendNotification(config.RuntimeSafe(),')
+src = src.replace('notifySend(cfg, round.notificationTitle()', 'notifySend(config.RuntimeSafe(), round.notificationTitle()')
+open('service/checkin/checkin.go','w',encoding='utf-8').write(src)
+print("checkin fixed")

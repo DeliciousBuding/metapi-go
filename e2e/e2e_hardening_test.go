@@ -31,7 +31,7 @@ func TestProxyConcurrentRequests(t *testing.T) {
 		mockR.addChannel(makeChannel(i, mockUpstream.URL, "gpt-4"))
 	}
 
-	coord := proxypkg.NewProxyChannelCoordinator(makeTestConfig())
+	coord := proxypkg.NewProxyChannelCoordinator())
 	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	var wg sync.WaitGroup
@@ -138,7 +138,7 @@ func TestProxyRequestBodyLimitRejectsBeforeUpstream(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.staticChannel = makeChannel(1, mockUpstream.URL, "gpt-4")
 
-	coord := proxypkg.NewProxyChannelCoordinator(makeTestConfig())
+	coord := proxypkg.NewProxyChannelCoordinator())
 	proxyRoutes := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	r := chi.NewRouter()

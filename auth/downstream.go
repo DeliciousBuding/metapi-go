@@ -77,10 +77,10 @@ type managedKeyView struct {
 // 2. Query downstream_api_keys WHERE key = token:
 // a. Found → check enabled/expired/over_cost/over_requests → return managed result
 // b. Not found → continue
-// 3. Check if token == config.ProxyToken:
+// 3. Check if token == runtime snapshot ProxyToken:
 // a. Match → return global result
 // b. No match → 403, reason: "invalid"
-func AuthorizeDownstreamToken(token string, cfg *config.Config) DownstreamTokenAuthResult {
+func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) DownstreamTokenAuthResult {
 	normalized := strings.TrimSpace(token)
 	if normalized == "" {
 		return DownstreamTokenAuthResult{
@@ -158,7 +158,7 @@ func AuthorizeDownstreamToken(token string, cfg *config.Config) DownstreamTokenA
 	}
 
 	// ---- Check global proxy token ----
-	if subtle.ConstantTimeCompare([]byte(normalized), []byte(cfg.ProxyToken)) == 1 {
+	if subtle.ConstantTimeCompare([]byte(normalized), []byte(rt.ProxyToken)) == 1 {
 		return DownstreamTokenAuthResult{
 			OK:     true,
 			Source: "global",

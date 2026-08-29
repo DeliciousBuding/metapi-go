@@ -19,7 +19,7 @@ type TelegramChannel struct{}
 
 func (c *TelegramChannel) Name() string { return "telegram" }
 
-func (c *TelegramChannel) Send(cfg *config.Config, title, message, level, timeFootnote string) error {
+func (c *TelegramChannel) Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error {
 	if !cfg.TelegramEnabled || cfg.TelegramBotToken == "" || cfg.TelegramChatId == "" {
 		return fmt.Errorf("telegram not configured")
 	}

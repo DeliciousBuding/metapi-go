@@ -144,7 +144,7 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 	mockR.staticChannel = makeChannel(1, mockUpstream.URL, "gpt-4o")
 
 	// 1e. Proxy channel coordinator.
-	coord := proxy.NewProxyChannelCoordinator(cfg)
+	coord := proxy.NewProxyChannelCoordinator()
 
 	// 1f. Wire upstream config.
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
@@ -481,7 +481,7 @@ func TestShutdownRejectsNewConnections(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.staticChannel = makeChannel(1, mockUpstream.URL, "gpt-4o")
 
-	coord := proxy.NewProxyChannelCoordinator(cfg)
+	coord := proxy.NewProxyChannelCoordinator()
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
 		Router:         mockR,
 		RouteRefresher: &mockRouteRefresher{},

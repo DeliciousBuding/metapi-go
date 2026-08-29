@@ -26,27 +26,6 @@ func (c *Config) Validate() []error {
 		})
 	}
 
-	// --- Critical: CheckinScheduleMode must be "cron" or "interval" ---
-	mode := strings.TrimSpace(strings.ToLower(c.CheckinScheduleMode))
-	if mode != "cron" && mode != "interval" && mode != "window" {
-		errs = append(errs, &configError{
-			field:    "checkin_schedule_mode",
-			value:    c.CheckinScheduleMode,
-			msg:      "must be 'cron', 'interval', or 'window'",
-			critical: true,
-		})
-	}
-
-	// --- Critical: DBType must be "sqlite" or "postgres" ---
-	dbType := strings.TrimSpace(strings.ToLower(c.DbType))
-	if dbType != "sqlite" && dbType != "postgres" {
-		errs = append(errs, &configError{
-			field:    "db_type",
-			value:    c.DbType,
-			msg:      "must be 'sqlite' or 'postgres'",
-			critical: true,
-		})
-	}
 	if !validDbSslMode(c.DbSslMode) {
 		errs = append(errs, &configError{
 			field:    "db_sslmode",
@@ -88,70 +67,6 @@ func (c *Config) Validate() []error {
 		})
 	}
 
-	// --- Warning: Cron expressions must be parseable ---
-	if !ValidateCronExpr(c.CheckinCron) {
-		errs = append(errs, &configError{
-			field:    "checkin_cron",
-			value:    c.CheckinCron,
-			msg:      "invalid cron expression",
-			critical: false,
-		})
-	}
-	if !ValidateCronExpr(c.BalanceRefreshCron) {
-		errs = append(errs, &configError{
-			field:    "balance_refresh_cron",
-			value:    c.BalanceRefreshCron,
-			msg:      "invalid cron expression",
-			critical: false,
-		})
-	}
-	if !ValidateCronExpr(c.ModelSyncCron) {
-		errs = append(errs, &configError{
-			field:    "model_sync_cron",
-			value:    c.ModelSyncCron,
-			msg:      "invalid cron expression",
-			critical: false,
-		})
-	}
-	if !ValidateCronExpr(c.LogCleanupCron) {
-		errs = append(errs, &configError{
-			field:    "log_cleanup_cron",
-			value:    c.LogCleanupCron,
-			msg:      "invalid cron expression",
-			critical: false,
-		})
-	}
-
-	// --- Warning: NotifyCooldownSec >= 0 ---
-	if c.NotifyCooldownSec < 0 {
-		errs = append(errs, &configError{
-			field:    "notify_cooldown_sec",
-			value:    fmt.Sprintf("%d", c.NotifyCooldownSec),
-			msg:      "must be >= 0",
-			critical: false,
-		})
-	}
-
-	// --- Warning: ProxyFirstByteTimeoutSec >= 0 ---
-	if c.ProxyFirstByteTimeoutSec < 0 {
-		errs = append(errs, &configError{
-			field:    "proxy_first_byte_timeout_sec",
-			value:    fmt.Sprintf("%d", c.ProxyFirstByteTimeoutSec),
-			msg:      "must be >= 0",
-			critical: false,
-		})
-	}
-
-	// --- Warning: TokenRouterFailureCooldownMaxSec >= 0 ---
-	if c.TokenRouterFailureCooldownMaxSec < 0 {
-		errs = append(errs, &configError{
-			field:    "token_router_failure_cooldown_max_sec",
-			value:    fmt.Sprintf("%d", c.TokenRouterFailureCooldownMaxSec),
-			msg:      "must be >= 0",
-			critical: false,
-		})
-	}
-
 	// --- Critical: Admin CORS origins must be exact http(s) origins ---
 	for _, origin := range c.AdminCorsAllowedOrigins {
 		if !validateAdminCorsOrigin(origin) {
@@ -174,77 +89,6 @@ func (c *Config) Validate() []error {
 				critical: true,
 			})
 		}
-	}
-
-	// --- Warning: CheckinIntervalHours in [1, 24] ---
-	if c.CheckinIntervalHours < 1 || c.CheckinIntervalHours > 24 {
-		errs = append(errs, &configError{
-			field:    "checkin_interval_hours",
-			value:    fmt.Sprintf("%d", c.CheckinIntervalHours),
-			msg:      "must be in [1, 24]",
-			critical: false,
-		})
-	}
-
-	// --- Warning: RoutingWeights all >= 0 ---
-	rw := c.RoutingWeights
-	if rw.BaseWeightFactor < 0 {
-		errs = append(errs, &configError{
-			field:    "base_weight_factor",
-			value:    fmt.Sprintf("%f", rw.BaseWeightFactor),
-			msg:      "must be >= 0",
-			critical: false,
-		})
-	}
-	if rw.ValueScoreFactor < 0 {
-		errs = append(errs, &configError{
-			field:    "value_score_factor",
-			value:    fmt.Sprintf("%f", rw.ValueScoreFactor),
-			msg:      "must be >= 0",
-			critical: false,
-		})
-	}
-	if rw.CostWeight < 0 {
-		errs = append(errs, &configError{
-			field:    "cost_weight",
-			value:    fmt.Sprintf("%f", rw.CostWeight),
-			msg:      "must be >= 0",
-			critical: false,
-		})
-	}
-	if rw.BalanceWeight < 0 {
-		errs = append(errs, &configError{
-			field:    "balance_weight",
-			value:    fmt.Sprintf("%f", rw.BalanceWeight),
-			msg:      "must be >= 0",
-			critical: false,
-		})
-	}
-	if rw.UsageWeight < 0 {
-		errs = append(errs, &configError{
-			field:    "usage_weight",
-			value:    fmt.Sprintf("%f", rw.UsageWeight),
-			msg:      "must be >= 0",
-			critical: false,
-		})
-	}
-
-	// --- Critical: Default AUTH_TOKEN / PROXY_TOKEN ---
-	if c.AuthToken == DefaultAuthToken {
-		errs = append(errs, &configError{
-			field:    "auth_token",
-			value:    "(default)",
-			msg:      "UNSAFE: using default admin token — set AUTH_TOKEN",
-			critical: true,
-		})
-	}
-	if c.ProxyToken == DefaultProxyToken {
-		errs = append(errs, &configError{
-			field:    "proxy_token",
-			value:    "(default)",
-			msg:      "UNSAFE: using default proxy token — set PROXY_TOKEN",
-			critical: true,
-		})
 	}
 
 	// --- Warning: account_credential_secret fallback ---
@@ -355,14 +199,6 @@ func (c *Config) Validate() []error {
 	}
 
 	// --- Warning: range checks for proxy session / router knobs ---
-	if c.ProxySessionChannelConcurrencyLimit < 1 {
-		errs = append(errs, &configError{
-			field:    "proxy_session_channel_concurrency_limit",
-			value:    fmt.Sprintf("%d", c.ProxySessionChannelConcurrencyLimit),
-			msg:      "should be >= 1 — 0 disables per-channel concurrency control",
-			critical: false,
-		})
-	}
 	if c.ProxyStickySessionEnabled && c.ProxyStickySessionTtlMs <= 0 {
 		errs = append(errs, &configError{
 			field:    "proxy_sticky_session_ttl_ms",
@@ -379,47 +215,17 @@ func (c *Config) Validate() []error {
 			critical: false,
 		})
 	}
-	if c.ProxySessionChannelQueueWaitMs < 0 {
-		errs = append(errs, &configError{
-			field:    "proxy_session_channel_queue_wait_ms",
-			value:    fmt.Sprintf("%d", c.ProxySessionChannelQueueWaitMs),
-			msg:      "should be >= 0 — negative values are treated as 0 (no queue wait)",
-			critical: false,
-		})
-	}
-
-	// --- Warning: webhook / service URLs must be well-formed http(s) ---
-	webhookUrls := []struct{ field, val string }{
-		{"webhook_url", c.WebhookUrl},
-		{"bark_url", c.BarkUrl},
-		{"feishu_webhook", c.FeishuWebhook},
-		{"dingtalk_webhook", c.DingtalkWebhook},
-		{"wecom_webhook", c.WecomWebhook},
-		{"ntfy_url", c.NtfyUrl},
-		{"resin_url", c.ResinURL},
-		{"telegram_api_base_url", c.TelegramApiBaseUrl},
-	}
-	for _, u := range webhookUrls {
-		if err := validateUrl(u.field, u.val, true); err != nil {
-			errs = append(errs, err)
-		}
+	// --- Warning: resin URL must be well-formed http(s) ---
+	if err := validateUrl("resin_url", c.ResinURL, true); err != nil {
+		errs = append(errs, err)
 	}
 	// --- Warning: proxy / redis URLs must parse (scheme left open) ---
 	for _, u := range []struct{ field, val string }{
-		{"system_proxy_url", c.SystemProxyUrl},
 		{"redis_url", c.RedisURL},
 	} {
 		if err := validateUrl(u.field, u.val, false); err != nil {
 			errs = append(errs, err)
 		}
-	}
-
-	// --- Warning: checkin window bounds must be HH:mm ---
-	if err := validateHhMm("checkin_window_start", c.CheckinWindowStart); err != nil {
-		errs = append(errs, err)
-	}
-	if err := validateHhMm("checkin_window_end", c.CheckinWindowEnd); err != nil {
-		errs = append(errs, err)
 	}
 
 	return errs
@@ -567,4 +373,214 @@ func validateAdminCorsOrigin(origin string) bool {
 		return false
 	}
 	return parsed.Path == "" || parsed.Path == "/"
+}
+
+// Validate checks the runtime-mutable settings and returns all validation
+// errors. Boot-time call path mirrors Config.Validate: warnings for
+// non-fatal issues, exit on critical ones before binding the port.
+func (r *RuntimeSettings) Validate() []error {
+	var errs []error
+
+	// --- Critical: CheckinScheduleMode must be "cron" or "interval" ---
+	mode := strings.TrimSpace(strings.ToLower(r.CheckinScheduleMode))
+	if mode != "cron" && mode != "interval" && mode != "window" {
+		errs = append(errs, &configError{
+			field:    "checkin_schedule_mode",
+			value:    r.CheckinScheduleMode,
+			msg:      "must be 'cron', 'interval', or 'window'",
+			critical: true,
+		})
+	}
+
+	// --- Critical: DBType must be "sqlite" or "postgres" ---
+	dbType := strings.TrimSpace(strings.ToLower(r.DbType))
+	if dbType != "sqlite" && dbType != "postgres" {
+		errs = append(errs, &configError{
+			field:    "db_type",
+			value:    r.DbType,
+			msg:      "must be 'sqlite' or 'postgres'",
+			critical: true,
+		})
+	}
+	// --- Warning: Cron expressions must be parseable ---
+	if !ValidateCronExpr(r.CheckinCron) {
+		errs = append(errs, &configError{
+			field:    "checkin_cron",
+			value:    r.CheckinCron,
+			msg:      "invalid cron expression",
+			critical: false,
+		})
+	}
+	if !ValidateCronExpr(r.BalanceRefreshCron) {
+		errs = append(errs, &configError{
+			field:    "balance_refresh_cron",
+			value:    r.BalanceRefreshCron,
+			msg:      "invalid cron expression",
+			critical: false,
+		})
+	}
+	if !ValidateCronExpr(r.ModelSyncCron) {
+		errs = append(errs, &configError{
+			field:    "model_sync_cron",
+			value:    r.ModelSyncCron,
+			msg:      "invalid cron expression",
+			critical: false,
+		})
+	}
+	if !ValidateCronExpr(r.LogCleanupCron) {
+		errs = append(errs, &configError{
+			field:    "log_cleanup_cron",
+			value:    r.LogCleanupCron,
+			msg:      "invalid cron expression",
+			critical: false,
+		})
+	}
+
+	// --- Warning: NotifyCooldownSec >= 0 ---
+	if r.NotifyCooldownSec < 0 {
+		errs = append(errs, &configError{
+			field:    "notify_cooldown_sec",
+			value:    fmt.Sprintf("%d", r.NotifyCooldownSec),
+			msg:      "must be >= 0",
+			critical: false,
+		})
+	}
+
+	// --- Warning: ProxyFirstByteTimeoutSec >= 0 ---
+	if r.ProxyFirstByteTimeoutSec < 0 {
+		errs = append(errs, &configError{
+			field:    "proxy_first_byte_timeout_sec",
+			value:    fmt.Sprintf("%d", r.ProxyFirstByteTimeoutSec),
+			msg:      "must be >= 0",
+			critical: false,
+		})
+	}
+
+	// --- Warning: TokenRouterFailureCooldownMaxSec >= 0 ---
+	if r.TokenRouterFailureCooldownMaxSec < 0 {
+		errs = append(errs, &configError{
+			field:    "token_router_failure_cooldown_max_sec",
+			value:    fmt.Sprintf("%d", r.TokenRouterFailureCooldownMaxSec),
+			msg:      "must be >= 0",
+			critical: false,
+		})
+	}
+
+	// --- Warning: CheckinIntervalHours in [1, 24] ---
+	if r.CheckinIntervalHours < 1 || r.CheckinIntervalHours > 24 {
+		errs = append(errs, &configError{
+			field:    "checkin_interval_hours",
+			value:    fmt.Sprintf("%d", r.CheckinIntervalHours),
+			msg:      "must be in [1, 24]",
+			critical: false,
+		})
+	}
+
+	// --- Warning: RoutingWeights all >= 0 ---
+	rw := r.RoutingWeights
+	if rw.BaseWeightFactor < 0 {
+		errs = append(errs, &configError{
+			field:    "base_weight_factor",
+			value:    fmt.Sprintf("%f", rw.BaseWeightFactor),
+			msg:      "must be >= 0",
+			critical: false,
+		})
+	}
+	if rw.ValueScoreFactor < 0 {
+		errs = append(errs, &configError{
+			field:    "value_score_factor",
+			value:    fmt.Sprintf("%f", rw.ValueScoreFactor),
+			msg:      "must be >= 0",
+			critical: false,
+		})
+	}
+	if rw.CostWeight < 0 {
+		errs = append(errs, &configError{
+			field:    "cost_weight",
+			value:    fmt.Sprintf("%f", rw.CostWeight),
+			msg:      "must be >= 0",
+			critical: false,
+		})
+	}
+	if rw.BalanceWeight < 0 {
+		errs = append(errs, &configError{
+			field:    "balance_weight",
+			value:    fmt.Sprintf("%f", rw.BalanceWeight),
+			msg:      "must be >= 0",
+			critical: false,
+		})
+	}
+	if rw.UsageWeight < 0 {
+		errs = append(errs, &configError{
+			field:    "usage_weight",
+			value:    fmt.Sprintf("%f", rw.UsageWeight),
+			msg:      "must be >= 0",
+			critical: false,
+		})
+	}
+
+	// --- Critical: Default AUTH_TOKEN / PROXY_TOKEN ---
+	if r.AuthToken == DefaultAuthToken {
+		errs = append(errs, &configError{
+			field:    "auth_token",
+			value:    "(default)",
+			msg:      "UNSAFE: using default admin token — set AUTH_TOKEN",
+			critical: true,
+		})
+	}
+	if r.ProxyToken == DefaultProxyToken {
+		errs = append(errs, &configError{
+			field:    "proxy_token",
+			value:    "(default)",
+			msg:      "UNSAFE: using default proxy token — set PROXY_TOKEN",
+			critical: true,
+		})
+	}
+
+	if r.ProxySessionChannelConcurrencyLimit < 1 {
+		errs = append(errs, &configError{
+			field:    "proxy_session_channel_concurrency_limit",
+			value:    fmt.Sprintf("%d", r.ProxySessionChannelConcurrencyLimit),
+			msg:      "should be >= 1 — 0 disables per-channel concurrency control",
+			critical: false,
+		})
+	}
+	if r.ProxySessionChannelQueueWaitMs < 0 {
+		errs = append(errs, &configError{
+			field:    "proxy_session_channel_queue_wait_ms",
+			value:    fmt.Sprintf("%d", r.ProxySessionChannelQueueWaitMs),
+			msg:      "should be >= 0 — negative values are treated as 0 (no queue wait)",
+			critical: false,
+		})
+	}
+
+	// --- Warning: notify webhook URLs must be well-formed http(s) ---
+	webhookUrls := []struct{ field, val string }{
+		{"webhook_url", r.WebhookUrl},
+		{"bark_url", r.BarkUrl},
+		{"feishu_webhook", r.FeishuWebhook},
+		{"dingtalk_webhook", r.DingtalkWebhook},
+		{"wecom_webhook", r.WecomWebhook},
+		{"ntfy_url", r.NtfyUrl},
+		{"telegram_api_base_url", r.TelegramApiBaseUrl},
+	}
+	for _, u := range webhookUrls {
+		if err := validateUrl(u.field, u.val, true); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	// --- Warning: system proxy URL must parse (scheme left open) ---
+	if err := validateUrl("system_proxy_url", r.SystemProxyUrl, false); err != nil {
+		errs = append(errs, err)
+	}
+
+	// --- Warning: checkin window bounds must be HH:mm ---
+	if err := validateHhMm("checkin_window_start", r.CheckinWindowStart); err != nil {
+		errs = append(errs, err)
+	}
+	if err := validateHhMm("checkin_window_end", r.CheckinWindowEnd); err != nil {
+		errs = append(errs, err)
+	}
+
+	return errs
 }

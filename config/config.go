@@ -6,40 +6,34 @@ import (
 	"math"
 	"runtime"
 	"strconv"
+	"sync/atomic"
 	"strings"
-	"sync"
 )
 
-var (
-	globalCfg *Config
-	cfgMu     sync.RWMutex
-)
+var staticCfg atomic.Pointer[Config]
 
-// Set stores the global config singleton.
+// Set stores the global config singleton. The published Config is static:
+// every field is frozen at boot before this call. Fields that may change at
+// runtime live in RuntimeSettings (see SetRuntime/UpdateRuntime).
 func Set(cfg *Config) {
-	cfgMu.Lock()
-	defer cfgMu.Unlock()
-	globalCfg = cfg
+	staticCfg.Store(cfg)
 }
 
 // Get returns the global config singleton.
 // Panics if config has not been loaded.
 func Get() *Config {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	if globalCfg == nil {
+	cfg := staticCfg.Load()
+	if cfg == nil {
 		panic("config.Get() called before config.Set() — load config first")
 	}
-	return globalCfg
+	return cfg
 }
 
 // GetSafe returns the global config singleton, or nil when it has not been
 // loaded yet. Prefer Get() in the composition root; GetSafe is for optional
 // callbacks that may run before (or without) config initialization.
 func GetSafe() *Config {
-	cfgMu.RLock()
-	defer cfgMu.RUnlock()
-	return globalCfg
+	return staticCfg.Load()
 }
 
 // CodexHeaderDefaults holds Codex-specific HTTP header defaults.
@@ -61,9 +55,6 @@ type RoutingWeights struct {
 // Field names use Go exported (PascalCase) but each maps 1:1 to a TS config field
 // as documented in section 3.
 type Config struct {
-	// Auth (4 fields)
-	AuthToken               string
-	ProxyToken              string
 	AccountCredentialSecret string
 	CodexClientId           string
 
@@ -77,9 +68,6 @@ type Config struct {
 	Port       int
 	ListenHost string
 	DataDir    string
-	DbType     string
-	DbUrl      string
-	DbSsl      bool
 	DbSslMode  string
 	// PostgreSQL pool budget. Production operators must size MaxOpenConns no
 	// higher than the database role CONNECTION LIMIT.
@@ -102,93 +90,7 @@ type Config struct {
 	// production without losing Warn/Error signal.
 	LogLevel string
 
-	// Cron (5 fields)
-	CheckinCron          string
-	CheckinScheduleMode  string
-	CheckinIntervalHours int
-	// window mode — random HH:mm inside [start, end]
-	// re-rolled per start/setting change (load spreading + anti-fingerprint).
-	CheckinWindowStart string
-	CheckinWindowEnd   string
-	BalanceRefreshCron string
-	// Global kill switches for the two always-on periodic jobs that touch
-	// upstream accounts (check-in, balance refresh) — issue #1027. Defaults
-	// preserve historical behavior (both jobs on); operators turn either job
-	// off via env (CHECKIN_ENABLED / BALANCE_REFRESH_ENABLED) or the runtime
-	// settings of the same camelCase names. Stored inverted (zero value =
-	// enabled) so bare config literals keep the default-on behavior.
-	CheckinDisabled        bool
-	BalanceRefreshDisabled bool
-	ModelSyncCron          string
-	LogCleanupCron         string
-	// Site & Branding (5 fields) - empty defaults keep the embedded frontend
-	// branding and login-page copy unchanged. homePageContent was removed
-	// (Wave 8 Lane D): the value was stored but never rendered anywhere.
-	SystemName    string
-	Logo          string
-	Footer        string
-	About         string
-	ServerAddress string
-
-	// Log Cleanup (4 fields)
-	LogCleanupUsageLogsEnabled   bool
-	LogCleanupProgramLogsEnabled bool
-	LogCleanupRetentionDays      int
-	LogCleanupConfigured         bool
-
-	// Notify: Webhook (2 fields)
-	WebhookUrl     string
-	WebhookEnabled bool
-
-	// Notify: Bark (2 fields)
-	BarkUrl     string
-	BarkEnabled bool
-
-	// Notify: ServerChan (2 fields)
-	ServerChanKey     string
-	ServerChanEnabled bool
-
-	// Notify: Telegram (6 fields)
-	TelegramEnabled         bool
-	TelegramApiBaseUrl      string
-	TelegramBotToken        string
-	TelegramChatId          string
-	TelegramUseSystemProxy  bool
-	TelegramMessageThreadId string
-
-	// Notify: SMTP (8 fields)
-	SmtpEnabled bool
-	SmtpHost    string
-	SmtpPort    int
-	SmtpSecure  bool
-	SmtpUser    string
-	SmtpPass    string
-	SmtpFrom    string
-	SmtpTo      string
-
-	// Notify: Feishu (3 fields) —
-	FeishuEnabled bool
-	FeishuWebhook string
-	FeishuSecret  string
-
-	// Notify: DingTalk (3 fields) —
-	DingtalkEnabled bool
-	DingtalkWebhook string
-	DingtalkSecret  string
-
-	// Notify: WeCom (2 fields) —
-	WecomEnabled bool
-	WecomWebhook string
-
-	// Notify: Ntfy (4 fields) —
-	NtfyEnabled bool
-	NtfyUrl     string
-	NtfyTopic   string
-	NtfyToken   string
-
-	// Notify: General (2 fields)
-	NotifyCooldownSec int
-	SystemProxyUrl    string
+	LogCleanupConfigured bool
 
 	// Resin sticky proxy pool (3 fields, env-only — no DDL for Tier 1).
 	// RESIN_URL carries the base URL + token, e.g. http://resin.local:2260/my-token.
@@ -225,16 +127,6 @@ type Config struct {
 	// body phase only — non-streaming responses never see it.
 	ProxyStreamIdleTimeoutSec int
 
-	// ProxyRetryStatusRanges / ProxyDisableStatusRanges carry the
-	// operator-tunable status-code range specs (routing.StatusRange policy,
-	// competitor-study-2026-08 P1-2): retry decides which upstream statuses
-	// count as retryable channel faults; disable decides which auto-disable
-	// the failing channel. Runtime settings only (settings table +
-	// PUT /api/settings/runtime, rehydrated at startup); blank keeps the
-	// defaults, which reproduce the historical behavior exactly.
-	ProxyRetryStatusRanges   string
-	ProxyDisableStatusRanges string
-
 	// LDOHBaseURL is the upstream LDOH dashboard URL proxied through
 	// /monitor-proxy/ldoh/* (env-only — no DDL). Parsed from LDOH_BASE_URL;
 	// defaults to DefaultLDOHBaseURL so operators can redirect the monitor
@@ -256,17 +148,9 @@ type Config struct {
 	// the periodic log line while a real helper/registry client is wired.
 	UpdateCenterEnabled bool
 
-	// NotifyTaskToggles gates per-alert-type notifications.
-	// Keys are alert task slugs ("token_expired", "low_balance", "proxy_all_failed").
-	// Default nil = all enabled (backward-compatible). When a key is present and
-	// false, SendNotification skips that task type so operators can mute, e.g.,
-	// low_balance while still receiving token_expired alerts.
-	NotifyTaskToggles map[string]bool
 	// RedisURL enables optional shared admission counters.
 	RedisURL string
 
-	// Admin (3 fields)
-	AdminIpAllowlist        []string
 	AdminCorsAllowedOrigins []string
 	TrustedProxyCidrs       []string
 	// AdminRateLimitRPS / AdminRateLimitBurst control the per-IP token bucket
@@ -311,22 +195,9 @@ type Config struct {
 	// ProxyGlobalTokenRPM caps the global PROXY_TOKEN across all IPs. Parsed
 	// from PROXY_GLOBAL_TOKEN_RPM (default 0 = unlimited). Safety net: even if
 	// the token leaks, upstream spend is bounded.
-	ProxyGlobalTokenRPM     int
-	RoutingFallbackUnitCost float64
-	// CacheRatioDefault / CacheRatioClaude override the prompt-cache ratio
-	// fallbacks used when an upstream pricing row omits cache_ratio. 0/missing =
-	// use the code defaults (DefaultCacheRatio=1.0, ClaudeCacheRatio=0.1).
-	CacheRatioDefault float64
-	CacheRatioClaude  float64
-	// ProxyFirstByteTimeoutSec is the operator-facing first-byte / first-token
-	// timeout in SECONDS (env PROXY_FIRST_BYTE_TIMEOUT_SEC). Internal dispatch
-	// converts to milliseconds via proxy.FirstByteTimeoutMs (sec * 1000).
-	// 0 disables observed first-byte timeout.
-	ProxyFirstByteTimeoutSec int
+	ProxyGlobalTokenRPM int
 
-	// Proxy: Token Router (2 fields)
-	TokenRouterFailureCooldownMaxSec int
-	TokenRouterCacheTtlMs            int
+	TokenRouterCacheTtlMs int
 
 	// PricingCatalog (model data source registry) feeds the cold-start
 	// catalog cost signal for cost-aware routing and hydrates the models
@@ -344,17 +215,9 @@ type Config struct {
 	ProxyStickySessionEnabled bool
 	ProxyStickySessionTtlMs   int
 
-	// Proxy: Session (4 fields)
-	ProxySessionChannelConcurrencyLimit int
-	ProxySessionChannelQueueWaitMs      int
 	ProxySessionChannelLeaseTtlMs       int
 	ProxySessionChannelLeaseKeepaliveMs int
 
-	// Proxy: Misc (7 fields)
-	CodexUpstreamWebsocketEnabled              bool
-	ResponsesCompactFallbackToResponsesEnabled bool
-	DisableCrossProtocolFallback               bool
-	ProxyEmptyContentFailEnabled               bool
 	// ProxyMaxStreamResponseBytes caps the total bytes relayed for a single
 	// SSE stream before a controlled termination (default 1 MB). Parsed once
 	// at startup from PROXY_MAX_STREAM_RESPONSE_BYTES so the hot stream path
@@ -368,9 +231,6 @@ type Config struct {
 	// instead of re-parsing os.Getenv + strconv.ParseInt on every proxied
 	// request. 0/negative/invalid falls back to the default at Load time.
 	ProxyMaxBufferedResponseBytes int
-	ProxyErrorKeywords            []string
-	GlobalBlockedBrands           []string
-	GlobalAllowedModels           []string
 
 	// Prompt Filter (OAuth account pool protection, #681).
 	// PROMPT_FILTER_ENABLED gates a pre-upstream pattern-based safety filter
@@ -379,17 +239,6 @@ type Config struct {
 	// comma-separated list of extra substring patterns appended to the seed list.
 	PromptFilterEnabled      bool
 	PromptFilterDenyPatterns []string
-
-	// Proxy: Debug (9 fields)
-	ProxyDebugTraceEnabled        bool
-	ProxyDebugCaptureHeaders      bool
-	ProxyDebugCaptureBodies       bool
-	ProxyDebugCaptureStreamChunks bool
-	ProxyDebugTargetSessionId     string
-	ProxyDebugTargetClientKind    string
-	ProxyDebugTargetModel         string
-	ProxyDebugRetentionHours      int
-	ProxyDebugMaxBodyBytes        int
 
 	// Codex-specific (3 fields)
 	CodexResponsesWebsocketBeta string
@@ -425,11 +274,6 @@ type Config struct {
 	ProxyLogBatchSize       int
 	ProxyLogFlushIntervalMs int
 
-	// Routing Weights (5 fields)
-	RoutingWeights RoutingWeights
-
-	// Payload Rules (2 JSON fields)
-	PayloadRules           any
 	OpenAiServiceTierRules any
 }
 
@@ -544,11 +388,11 @@ func validDbSslMode(value string) bool {
 
 // PostgresSSLMode returns the explicit DB_SSLMODE setting, or the legacy
 // DB_SSL=true behavior mapped to sslmode=require.
-func (c *Config) PostgresSSLMode() string {
+func (c *Config) PostgresSSLMode(dbSsl bool) string {
 	if mode := normalizeDbSslMode(c.DbSslMode); mode != "" {
 		return mode
 	}
-	if c.DbSsl {
+	if dbSsl {
 		return "require"
 	}
 	return ""
@@ -592,7 +436,7 @@ func parseListenHostForOS(env map[string]string, goos string) string {
 // Load reads environment variables from the given map and returns a fully
 // populated Config. The caller (main.go) is responsible for loading.env files
 // via godotenv before calling Load.
-func Load(env map[string]string) *Config {
+func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// Helper to read from the env map; Go map access returns "" for missing keys.
 	get := func(key string) string {
 		return env[key]
@@ -626,10 +470,11 @@ func Load(env map[string]string) *Config {
 	}
 
 	cfg := &Config{}
+	rt := &RuntimeSettings{}
 
 	// ---- §3.1 Auth ----
-	cfg.AuthToken = firstNonEmpty(get("AUTH_TOKEN"), DefaultAuthToken)
-	cfg.ProxyToken = firstNonEmpty(get("PROXY_TOKEN"), DefaultProxyToken)
+	rt.AuthToken = firstNonEmpty(get("AUTH_TOKEN"), DefaultAuthToken)
+	rt.ProxyToken = firstNonEmpty(get("PROXY_TOKEN"), DefaultProxyToken)
 	cfg.AccountCredentialSecret = resolveAccountCredentialSecret()
 	if cfg.AccountCredentialSecret == DefaultAuthToken {
 		slog.Warn("config: AccountCredentialSecret is using the default value — this is insecure for production. Set ACCOUNT_CREDENTIAL_SECRET or AUTH_TOKEN environment variable.")
@@ -646,9 +491,9 @@ func Load(env map[string]string) *Config {
 	cfg.Port = int(math.Trunc(parseNumber(get("PORT"), DefaultPort)))
 	cfg.ListenHost = parseListenHost(env)
 	cfg.DataDir = firstNonEmpty(get("DATA_DIR"), DefaultDataDir)
-	cfg.DbUrl = strings.TrimSpace(firstNonEmpty(get("DB_URL"), get("DATABASE_URL")))
-	cfg.DbType = inferDbType(get("DB_TYPE"), cfg.DbUrl)
-	cfg.DbSsl = parseBoolean(get("DB_SSL"), false)
+	rt.DbUrl = strings.TrimSpace(firstNonEmpty(get("DB_URL"), get("DATABASE_URL")))
+	rt.DbType = inferDbType(get("DB_TYPE"), rt.DbUrl)
+	rt.DbSsl = parseBoolean(get("DB_SSL"), false)
 	cfg.DbSslMode = normalizeDbSslMode(get("DB_SSLMODE"))
 	cfg.DbProfile = normalizeDbProfile(firstNonEmpty(get("DB_PROFILE"), get("METAPI_DB_PROFILE"), DefaultDbProfile))
 	openDefault, idleDefault := dbPoolDefaultsForProfile(cfg.DbProfile)
@@ -661,77 +506,77 @@ func Load(env map[string]string) *Config {
 	cfg.LogLevel = normalizeLogLevel(firstNonEmpty(get("LOG_LEVEL"), DefaultLogLevel))
 
 	// ---- §3.4 Cron ----
-	cfg.CheckinCron = firstNonEmpty(get("CHECKIN_CRON"), DefaultCheckinCron)
+	rt.CheckinCron = firstNonEmpty(get("CHECKIN_CRON"), DefaultCheckinCron)
 	checkinMode := strings.ToLower(strings.TrimSpace(get("CHECKIN_SCHEDULE_MODE")))
 	if checkinMode == "interval" {
-		cfg.CheckinScheduleMode = "interval"
+		rt.CheckinScheduleMode = "interval"
 	} else if checkinMode == "window" {
-		cfg.CheckinScheduleMode = "window"
+		rt.CheckinScheduleMode = "window"
 	} else {
-		cfg.CheckinScheduleMode = "cron"
+		rt.CheckinScheduleMode = "cron"
 	}
 	// E1: window bounds (HH:mm, 24h). Defaults: 00:00-23:59 = any time of day.
-	cfg.CheckinWindowStart = firstNonEmpty(get("CHECKIN_WINDOW_START"), "00:00")
-	cfg.CheckinWindowEnd = firstNonEmpty(get("CHECKIN_WINDOW_END"), "23:59")
-	cfg.CheckinIntervalHours = ClampInt(
+	rt.CheckinWindowStart = firstNonEmpty(get("CHECKIN_WINDOW_START"), "00:00")
+	rt.CheckinWindowEnd = firstNonEmpty(get("CHECKIN_WINDOW_END"), "23:59")
+	rt.CheckinIntervalHours = ClampInt(
 		int(math.Trunc(parseNumber(get("CHECKIN_INTERVAL_HOURS"), DefaultCheckinIntervalHours))),
 		1, 24,
 	)
-	cfg.BalanceRefreshCron = firstNonEmpty(get("BALANCE_REFRESH_CRON"), DefaultBalanceRefreshCron)
+	rt.BalanceRefreshCron = firstNonEmpty(get("BALANCE_REFRESH_CRON"), DefaultBalanceRefreshCron)
 	// #1027: global enable switches for the upstream-touching account jobs.
 	// Absent/invalid env vars keep the historical defaults (both enabled).
 	// Stored inverted: zero value = enabled (see Config field comment).
-	cfg.CheckinDisabled = !parseBoolean(get("CHECKIN_ENABLED"), true)
-	cfg.BalanceRefreshDisabled = !parseBoolean(get("BALANCE_REFRESH_ENABLED"), true)
-	cfg.ModelSyncCron = firstNonEmpty(get("MODEL_SYNC_CRON"), DefaultModelSyncCron)
-	cfg.LogCleanupCron = firstNonEmpty(get("LOG_CLEANUP_CRON"), DefaultLogCleanupCron)
+	rt.CheckinDisabled = !parseBoolean(get("CHECKIN_ENABLED"), true)
+	rt.BalanceRefreshDisabled = !parseBoolean(get("BALANCE_REFRESH_ENABLED"), true)
+	rt.ModelSyncCron = firstNonEmpty(get("MODEL_SYNC_CRON"), DefaultModelSyncCron)
+	rt.LogCleanupCron = firstNonEmpty(get("LOG_CLEANUP_CRON"), DefaultLogCleanupCron)
 
 	// ---- 3.4b Site & Branding ----
-	cfg.SystemName = firstNonEmpty(get("SYSTEM_NAME"), DefaultSystemName)
-	cfg.Logo = firstNonEmpty(get("LOGO"), DefaultLogo)
-	cfg.Footer = firstNonEmpty(get("FOOTER"), DefaultFooter)
-	cfg.About = firstNonEmpty(get("ABOUT"), DefaultAbout)
-	cfg.ServerAddress = firstNonEmpty(get("SERVER_ADDRESS"), DefaultServerAddress)
+	rt.SystemName = firstNonEmpty(get("SYSTEM_NAME"), DefaultSystemName)
+	rt.Logo = firstNonEmpty(get("LOGO"), DefaultLogo)
+	rt.Footer = firstNonEmpty(get("FOOTER"), DefaultFooter)
+	rt.About = firstNonEmpty(get("ABOUT"), DefaultAbout)
+	rt.ServerAddress = firstNonEmpty(get("SERVER_ADDRESS"), DefaultServerAddress)
 
 	// ---- §3.5 Log Cleanup ----
-	cfg.LogCleanupUsageLogsEnabled = parseBoolean(get("LOG_CLEANUP_USAGE_LOGS_ENABLED"), false)
-	cfg.LogCleanupProgramLogsEnabled = parseBoolean(get("LOG_CLEANUP_PROGRAM_LOGS_ENABLED"), false)
-	cfg.LogCleanupRetentionDays = maxInt(1, int(math.Trunc(parseNumber(get("LOG_CLEANUP_RETENTION_DAYS"), 30))))
+	rt.LogCleanupUsageLogsEnabled = parseBoolean(get("LOG_CLEANUP_USAGE_LOGS_ENABLED"), false)
+	rt.LogCleanupProgramLogsEnabled = parseBoolean(get("LOG_CLEANUP_PROGRAM_LOGS_ENABLED"), false)
+	rt.LogCleanupRetentionDays = maxInt(1, int(math.Trunc(parseNumber(get("LOG_CLEANUP_RETENTION_DAYS"), 30))))
 	cfg.LogCleanupConfigured = false // set later during runtime settings hydration
 
 	// ---- §3.6 Notify: Webhook ----
-	cfg.WebhookUrl = firstNonEmpty(get("WEBHOOK_URL"), "")
-	cfg.WebhookEnabled = parseBoolean(get("WEBHOOK_ENABLED"), true)
+	rt.WebhookUrl = firstNonEmpty(get("WEBHOOK_URL"), "")
+	rt.WebhookEnabled = parseBoolean(get("WEBHOOK_ENABLED"), true)
 
 	// ---- §3.7 Notify: Bark ----
-	cfg.BarkUrl = firstNonEmpty(get("BARK_URL"), "")
-	cfg.BarkEnabled = parseBoolean(get("BARK_ENABLED"), true)
+	rt.BarkUrl = firstNonEmpty(get("BARK_URL"), "")
+	rt.BarkEnabled = parseBoolean(get("BARK_ENABLED"), true)
 
 	// ---- §3.8 Notify: ServerChan ----
-	cfg.ServerChanKey = firstNonEmpty(get("SERVERCHAN_KEY"), "")
-	cfg.ServerChanEnabled = parseBoolean(get("SERVERCHAN_ENABLED"), true)
+	rt.ServerChanKey = firstNonEmpty(get("SERVERCHAN_KEY"), "")
+	rt.ServerChanEnabled = parseBoolean(get("SERVERCHAN_ENABLED"), true)
 
 	// ---- §3.9 Notify: Telegram ----
-	cfg.TelegramEnabled = parseBoolean(get("TELEGRAM_ENABLED"), false)
-	cfg.TelegramApiBaseUrl = TelegramApiBaseUrl
-	cfg.TelegramBotToken = firstNonEmpty(get("TELEGRAM_BOT_TOKEN"), "")
-	cfg.TelegramChatId = firstNonEmpty(get("TELEGRAM_CHAT_ID"), "")
-	cfg.TelegramUseSystemProxy = parseBoolean(get("TELEGRAM_USE_SYSTEM_PROXY"), false)
-	cfg.TelegramMessageThreadId = strings.TrimSpace(get("TELEGRAM_MESSAGE_THREAD_ID"))
+	rt.TelegramEnabled = parseBoolean(get("TELEGRAM_ENABLED"), false)
+	rt.TelegramApiBaseUrl = TelegramApiBaseUrl
+	rt.TelegramBotToken = firstNonEmpty(get("TELEGRAM_BOT_TOKEN"), "")
+	rt.TelegramChatId = firstNonEmpty(get("TELEGRAM_CHAT_ID"), "")
+	rt.TelegramUseSystemProxy = parseBoolean(get("TELEGRAM_USE_SYSTEM_PROXY"), false)
+	rt.TelegramMessageThreadId = strings.TrimSpace(get("TELEGRAM_MESSAGE_THREAD_ID"))
 
 	// ---- §3.10 Notify: SMTP ----
-	cfg.SmtpEnabled = parseBoolean(get("SMTP_ENABLED"), false)
-	cfg.SmtpHost = firstNonEmpty(get("SMTP_HOST"), "")
-	cfg.SmtpPort = atoiOr(get("SMTP_PORT"), DefaultSmtpPort)
-	cfg.SmtpSecure = parseBoolean(get("SMTP_SECURE"), false)
-	cfg.SmtpUser = firstNonEmpty(get("SMTP_USER"), "")
-	cfg.SmtpPass = firstNonEmpty(get("SMTP_PASS"), "")
-	cfg.SmtpFrom = firstNonEmpty(get("SMTP_FROM"), "")
-	cfg.SmtpTo = firstNonEmpty(get("SMTP_TO"), "")
+	rt.SmtpEnabled = parseBoolean(get("SMTP_ENABLED"), false)
+	rt.SmtpHost = firstNonEmpty(get("SMTP_HOST"), "")
+	rt.SmtpPort = atoiOr(get("SMTP_PORT"), DefaultSmtpPort)
+	rt.SmtpSecure = parseBoolean(get("SMTP_SECURE"), false)
+	rt.SmtpUser = firstNonEmpty(get("SMTP_USER"), "")
+	rt.SmtpPass = firstNonEmpty(get("SMTP_PASS"), "")
+	rt.SmtpFrom = firstNonEmpty(get("SMTP_FROM"), "")
+	rt.SmtpTo = firstNonEmpty(get("SMTP_TO"), "")
 
 	// ---- §3.11 Notify: General ----
-	cfg.NotifyCooldownSec = maxInt(0, int(math.Trunc(parseNumber(get("NOTIFY_COOLDOWN_SEC"), DefaultNotifyCooldownSec))))
-	cfg.SystemProxyUrl = firstNonEmpty(get("SYSTEM_PROXY_URL"), "")
+	rt.NotifyCooldownSec = maxInt(0, int(math.Trunc(parseNumber(get("NOTIFY_COOLDOWN_SEC"), DefaultNotifyCooldownSec))))
+	rt.SystemProxyUrl = firstNonEmpty(get("SYSTEM_PROXY_URL"), "")
 
 	// ---- §3.11b Resin sticky proxy pool ----
 	cfg.ResinURL = firstNonEmpty(get("RESIN_URL"), "")
@@ -767,22 +612,22 @@ func Load(env map[string]string) *Config {
 	cfg.UpdateCenterEnabled = parseBoolean(get("METAPI_ENABLE_UPDATE_CENTER"), false)
 
 	// ---- §3.12 Notify: Feishu / DingTalk / WeCom / Ntfy ----
-	cfg.FeishuEnabled = parseBoolean(get("FEISHU_ENABLED"), false)
-	cfg.FeishuWebhook = firstNonEmpty(get("FEISHU_WEBHOOK"), "")
-	cfg.FeishuSecret = firstNonEmpty(get("FEISHU_SECRET"), "")
-	cfg.DingtalkEnabled = parseBoolean(get("DINGTALK_ENABLED"), false)
-	cfg.DingtalkWebhook = firstNonEmpty(get("DINGTALK_WEBHOOK"), "")
-	cfg.DingtalkSecret = firstNonEmpty(get("DINGTALK_SECRET"), "")
-	cfg.WecomEnabled = parseBoolean(get("WECOM_ENABLED"), false)
-	cfg.WecomWebhook = firstNonEmpty(get("WECOM_WEBHOOK"), "")
-	cfg.NtfyEnabled = parseBoolean(get("NTFY_ENABLED"), false)
-	cfg.NtfyUrl = firstNonEmpty(get("NTFY_URL"), "")
-	cfg.NtfyTopic = firstNonEmpty(get("NTFY_TOPIC"), "")
-	cfg.NtfyToken = firstNonEmpty(get("NTFY_TOKEN"), "")
+	rt.FeishuEnabled = parseBoolean(get("FEISHU_ENABLED"), false)
+	rt.FeishuWebhook = firstNonEmpty(get("FEISHU_WEBHOOK"), "")
+	rt.FeishuSecret = firstNonEmpty(get("FEISHU_SECRET"), "")
+	rt.DingtalkEnabled = parseBoolean(get("DINGTALK_ENABLED"), false)
+	rt.DingtalkWebhook = firstNonEmpty(get("DINGTALK_WEBHOOK"), "")
+	rt.DingtalkSecret = firstNonEmpty(get("DINGTALK_SECRET"), "")
+	rt.WecomEnabled = parseBoolean(get("WECOM_ENABLED"), false)
+	rt.WecomWebhook = firstNonEmpty(get("WECOM_WEBHOOK"), "")
+	rt.NtfyEnabled = parseBoolean(get("NTFY_ENABLED"), false)
+	rt.NtfyUrl = firstNonEmpty(get("NTFY_URL"), "")
+	rt.NtfyTopic = firstNonEmpty(get("NTFY_TOPIC"), "")
+	rt.NtfyToken = firstNonEmpty(get("NTFY_TOKEN"), "")
 	cfg.RedisURL = firstNonEmpty(get("REDIS_URL"), get("METAPI_REDIS_URL"))
 
 	// ---- §3.12 Admin ----
-	cfg.AdminIpAllowlist = parseCsvList(get("ADMIN_IP_ALLOWLIST"))
+	rt.AdminIpAllowlist = parseCsvList(get("ADMIN_IP_ALLOWLIST"))
 	cfg.AdminCorsAllowedOrigins = parseCsvList(get("ADMIN_CORS_ALLOWED_ORIGINS"))
 	cfg.TrustedProxyCidrs = parseCsvList(get("TRUSTED_PROXY_CIDRS"))
 	// Admin/OAuth per-IP token-bucket rate limits. Defaults preserve the
@@ -822,16 +667,16 @@ func Load(env map[string]string) *Config {
 	// Negative left intact for Validate to warn on; <=0 disables at the limiter.
 	cfg.ProxyGlobalTokenRPM = int(math.Trunc(parseNumber(get("PROXY_GLOBAL_TOKEN_RPM"), 0)))
 
-	cfg.RoutingFallbackUnitCost = math.Max(1e-6, parseNumber(get("ROUTING_FALLBACK_UNIT_COST"), 1))
+	rt.RoutingFallbackUnitCost = math.Max(1e-6, parseNumber(get("ROUTING_FALLBACK_UNIT_COST"), 1))
 	// Seconds; internal first-byte observation uses ms = sec * 1000.
-	cfg.ProxyFirstByteTimeoutSec = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_FIRST_BYTE_TIMEOUT_SEC"), 0))))
+	rt.ProxyFirstByteTimeoutSec = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_FIRST_BYTE_TIMEOUT_SEC"), 0))))
 
 	// ---- §3.14 Proxy: Token Router ----
 	tokenRouterParsed := parseNumber(get("TOKEN_ROUTER_FAILURE_COOLDOWN_MAX_SEC"), float64(TokenRouterFailureCooldownMaxSecCeiling))
 	if val, ok := normalizeTokenRouterFailureCooldownMaxSec(tokenRouterParsed); ok {
-		cfg.TokenRouterFailureCooldownMaxSec = val
+		rt.TokenRouterFailureCooldownMaxSec = val
 	} else {
-		cfg.TokenRouterFailureCooldownMaxSec = TokenRouterFailureCooldownMaxSecCeiling
+		rt.TokenRouterFailureCooldownMaxSec = TokenRouterFailureCooldownMaxSecCeiling
 	}
 	cfg.TokenRouterCacheTtlMs = maxInt(100, int(math.Trunc(parseNumber(get("TOKEN_ROUTER_CACHE_TTL_MS"), DefaultTokenRouterCacheTtlMs))))
 
@@ -852,16 +697,16 @@ func Load(env map[string]string) *Config {
 	cfg.ProxyStickySessionTtlMs = maxInt(30000, int(math.Trunc(parseNumber(get("PROXY_STICKY_SESSION_TTL_MS"), float64(DefaultProxyStickySessionTtlMs)))))
 
 	// ---- §3.16 Proxy: Session ----
-	cfg.ProxySessionChannelConcurrencyLimit = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT"), DefaultProxySessionChannelConcurrencyLimit))))
-	cfg.ProxySessionChannelQueueWaitMs = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS"), DefaultProxySessionChannelQueueWaitMs))))
+	rt.ProxySessionChannelConcurrencyLimit = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT"), DefaultProxySessionChannelConcurrencyLimit))))
+	rt.ProxySessionChannelQueueWaitMs = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS"), DefaultProxySessionChannelQueueWaitMs))))
 	cfg.ProxySessionChannelLeaseTtlMs = maxInt(5000, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_LEASE_TTL_MS"), DefaultProxySessionChannelLeaseTtlMs))))
 	cfg.ProxySessionChannelLeaseKeepaliveMs = maxInt(1000, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_LEASE_KEEPALIVE_MS"), DefaultProxySessionChannelLeaseKeepaliveMs))))
 
 	// ---- §3.17 Proxy: Misc ----
-	cfg.CodexUpstreamWebsocketEnabled = parseBoolean(get("CODEX_UPSTREAM_WEBSOCKET_ENABLED"), false)
-	cfg.ResponsesCompactFallbackToResponsesEnabled = parseBoolean(get("RESPONSES_COMPACT_FALLBACK_TO_RESPONSES_ENABLED"), false)
-	cfg.DisableCrossProtocolFallback = parseBoolean(get("DISABLE_CROSS_PROTOCOL_FALLBACK"), false)
-	cfg.ProxyEmptyContentFailEnabled = parseBoolean(get("PROXY_EMPTY_CONTENT_FAIL"), false)
+	rt.CodexUpstreamWebsocketEnabled = parseBoolean(get("CODEX_UPSTREAM_WEBSOCKET_ENABLED"), false)
+	rt.ResponsesCompactFallbackToResponsesEnabled = parseBoolean(get("RESPONSES_COMPACT_FALLBACK_TO_RESPONSES_ENABLED"), false)
+	rt.DisableCrossProtocolFallback = parseBoolean(get("DISABLE_CROSS_PROTOCOL_FALLBACK"), false)
+	rt.ProxyEmptyContentFailEnabled = parseBoolean(get("PROXY_EMPTY_CONTENT_FAIL"), false)
 	// PROXY_MAX_STREAM_RESPONSE_BYTES caps a single SSE stream (default 1 MB).
 	// 0/negative/invalid resolves to the default so the hot stream path never
 	// has to re-parse env or guard against a zero limit. Read once here.
@@ -880,24 +725,24 @@ func Load(env map[string]string) *Config {
 		bufferedBytesParsed = int(DefaultProxyMaxBufferedResponseBytes)
 	}
 	cfg.ProxyMaxBufferedResponseBytes = bufferedBytesParsed
-	cfg.ProxyErrorKeywords = parseCsvList(get("PROXY_ERROR_KEYWORDS"))
-	cfg.GlobalBlockedBrands = []string{}
-	cfg.GlobalAllowedModels = []string{}
+	rt.ProxyErrorKeywords = parseCsvList(get("PROXY_ERROR_KEYWORDS"))
+	rt.GlobalBlockedBrands = []string{}
+	rt.GlobalAllowedModels = []string{}
 
 	// ---- §3.17b Prompt Filter (OAuth pool protection, #681) ----
 	cfg.PromptFilterEnabled = parseBoolean(get("PROMPT_FILTER_ENABLED"), false)
 	cfg.PromptFilterDenyPatterns = parseCsvList(get("PROMPT_FILTER_DENY_PATTERNS"))
 
 	// ---- §3.18 Proxy: Debug ----
-	cfg.ProxyDebugTraceEnabled = parseBoolean(get("PROXY_DEBUG_TRACE_ENABLED"), false)
-	cfg.ProxyDebugCaptureHeaders = parseBoolean(get("PROXY_DEBUG_CAPTURE_HEADERS"), true)
-	cfg.ProxyDebugCaptureBodies = parseBoolean(get("PROXY_DEBUG_CAPTURE_BODIES"), false)
-	cfg.ProxyDebugCaptureStreamChunks = parseBoolean(get("PROXY_DEBUG_CAPTURE_STREAM_CHUNKS"), false)
-	cfg.ProxyDebugTargetSessionId = strings.TrimSpace(get("PROXY_DEBUG_TARGET_SESSION_ID"))
-	cfg.ProxyDebugTargetClientKind = strings.TrimSpace(get("PROXY_DEBUG_TARGET_CLIENT_KIND"))
-	cfg.ProxyDebugTargetModel = strings.TrimSpace(get("PROXY_DEBUG_TARGET_MODEL"))
-	cfg.ProxyDebugRetentionHours = maxInt(1, int(math.Trunc(parseNumber(get("PROXY_DEBUG_RETENTION_HOURS"), DefaultProxyDebugRetentionHours))))
-	cfg.ProxyDebugMaxBodyBytes = maxInt(1024, int(math.Trunc(parseNumber(get("PROXY_DEBUG_MAX_BODY_BYTES"), DefaultProxyDebugMaxBodyBytes))))
+	rt.ProxyDebugTraceEnabled = parseBoolean(get("PROXY_DEBUG_TRACE_ENABLED"), false)
+	rt.ProxyDebugCaptureHeaders = parseBoolean(get("PROXY_DEBUG_CAPTURE_HEADERS"), true)
+	rt.ProxyDebugCaptureBodies = parseBoolean(get("PROXY_DEBUG_CAPTURE_BODIES"), false)
+	rt.ProxyDebugCaptureStreamChunks = parseBoolean(get("PROXY_DEBUG_CAPTURE_STREAM_CHUNKS"), false)
+	rt.ProxyDebugTargetSessionId = strings.TrimSpace(get("PROXY_DEBUG_TARGET_SESSION_ID"))
+	rt.ProxyDebugTargetClientKind = strings.TrimSpace(get("PROXY_DEBUG_TARGET_CLIENT_KIND"))
+	rt.ProxyDebugTargetModel = strings.TrimSpace(get("PROXY_DEBUG_TARGET_MODEL"))
+	rt.ProxyDebugRetentionHours = maxInt(1, int(math.Trunc(parseNumber(get("PROXY_DEBUG_RETENTION_HOURS"), DefaultProxyDebugRetentionHours))))
+	rt.ProxyDebugMaxBodyBytes = maxInt(1024, int(math.Trunc(parseNumber(get("PROXY_DEBUG_MAX_BODY_BYTES"), DefaultProxyDebugMaxBodyBytes))))
 
 	// ---- §3.19 Codex-specific ----
 	cfg.CodexResponsesWebsocketBeta = firstNonEmpty(
@@ -945,7 +790,7 @@ func Load(env map[string]string) *Config {
 	)
 
 	// ---- §3.22 Routing Weights ----
-	cfg.RoutingWeights = RoutingWeights{
+	rt.RoutingWeights = RoutingWeights{
 		BaseWeightFactor: parseNumber(get("BASE_WEIGHT_FACTOR"), 0.5),
 		ValueScoreFactor: parseNumber(get("VALUE_SCORE_FACTOR"), 0.5),
 		CostWeight:       parseNumber(get("COST_WEIGHT"), 0.4),
@@ -954,10 +799,10 @@ func Load(env map[string]string) *Config {
 	}
 
 	// ---- §3.23 Payload Rules + Service Tier ----
-	cfg.PayloadRules = parseJsonValue(resolvePayloadRules())
+	rt.PayloadRules = parseJsonValue(resolvePayloadRules())
 	cfg.OpenAiServiceTierRules = parseJsonValue(resolveOpenAiServiceTierRules())
 
-	return cfg
+	return cfg, rt
 }
 
 // ---------------------------------------------------------------------------
@@ -1105,3 +950,5 @@ func atoiOr(s string, fallback int) int {
 	}
 	return v
 }
+
+

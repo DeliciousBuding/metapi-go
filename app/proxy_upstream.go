@@ -33,7 +33,7 @@ func ConfigureProxyUpstream(cfg *config.Config) error {
 		scheduler.SetActiveChannelIDsProvider(nil)
 		return fmt.Errorf("proxy upstream: database is not initialized")
 	}
-	coord := proxy.NewProxyChannelCoordinator(cfg)
+	coord := proxy.NewProxyChannelCoordinator()
 	// Overall HTTP client timeout is a safety ceiling for full request lifetime.
 	// Observed first-byte timeout is separate: PROXY_FIRST_BYTE_TIMEOUT_SEC
 	// (seconds) is converted to milliseconds via proxy.FirstByteTimeoutMs and

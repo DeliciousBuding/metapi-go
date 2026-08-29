@@ -39,12 +39,15 @@ import (
 // authentication using the given configuration. sessions may be nil (tests,
 // DB-less boot): the cookie track then simply never authenticates and the
 // Bearer track keeps working unchanged.
-func AdminAuth(cfg *config.Config, sessions *SessionManager) func(http.Handler) http.Handler {
+func AdminAuth(sessions *SessionManager) func(http.Handler) http.Handler {
 	// Pre-parse the allowlist once at factory creation time so we don't
 	// re-parse string entries on every request. Invalid entries are surfaced
 	// here (startup time) so operators notice a typo'd allowlist instead of
 	// believing the IP restriction is active when it silently dropped.
-	parsedAllowlist, invalidEntries := parseAllowlistWithDiagnostics(cfg.AdminIpAllowlist)
+	// (Allowlist entries are read from the runtime-settings snapshot at
+	// wiring time; changing adminIpAllowlist at runtime still requires a
+	// restart to take effect, matching pre-C1 behavior.)
+	parsedAllowlist, invalidEntries := parseAllowlistWithDiagnostics(config.Runtime().AdminIpAllowlist)
 	for _, entry := range invalidEntries {
 		slog.Warn("admin IP allowlist: skipping invalid entry",
 			"entry", entry,
@@ -99,7 +102,7 @@ func AdminAuth(cfg *config.Config, sessions *SessionManager) func(http.Handler) 
 			// Case-sensitive simple replace of the first "Bearer " literal.
 			// TS: token = auth.replace('Bearer ', '')
 			token := strings.Replace(auth, "Bearer ", "", 1)
-			if subtle.ConstantTimeCompare([]byte(token), []byte(cfg.AuthToken)) != 1 {
+			if subtle.ConstantTimeCompare([]byte(token), []byte(config.Runtime().AuthToken)) != 1 {
 				writeJSON(w, http.StatusForbidden, jsonError("Invalid token"))
 				return
 			}

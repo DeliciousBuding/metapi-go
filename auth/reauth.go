@@ -54,7 +54,7 @@ func sensitiveAdminPath(urlPath string) bool {
 // re-confirmation. Non-sensitive paths pass through untouched. Rejection is
 // a machine-readable 403 with reauthRequired=true so the UI can prompt for
 // the token and replay the request once.
-func RequireReauth(cfg *config.Config) func(http.Handler) http.Handler {
+func RequireReauth() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !sensitiveAdminPath(r.URL.Path) {
@@ -62,7 +62,8 @@ func RequireReauth(cfg *config.Config) func(http.Handler) http.Handler {
 				return
 			}
 			confirm := strings.TrimSpace(r.Header.Get(ReauthConfirmHeader))
-			if cfg == nil || confirm == "" || !constantTimeTokenEqual(confirm, cfg.AuthToken) {
+			rt := config.RuntimeSafe()
+			if rt == nil || confirm == "" || !constantTimeTokenEqual(confirm, rt.AuthToken) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusForbidden)
 				_, _ = w.Write([]byte(`{"error":"Sensitive operation requires master token confirmation","reauthRequired":true}`))
