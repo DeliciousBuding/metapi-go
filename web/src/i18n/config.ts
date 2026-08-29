@@ -14,9 +14,13 @@ import { initReactI18next } from 'react-i18next'
 
 import { convertDetectedLanguage, toBcp47 } from './languages'
 
+// webpackChunkName pins stable semantic chunk names (locale-en / locale-zh-CN)
+// so the two locale bundles are individually visible in size reports and their
+// content-hashed URLs never depend on anonymous chunk ids.
 const localeLoaders = {
-  en: () => import('./locales/en.json'),
-  zhCN: () => import('./locales/zh-CN.json'),
+  en: () => import(/* webpackChunkName: 'locale-en' */ './locales/en.json'),
+  zhCN: () =>
+    import(/* webpackChunkName: 'locale-zh-CN' */ './locales/zh-CN.json'),
 } as const
 
 function normalizeLanguage(language: string): keyof typeof localeLoaders {
