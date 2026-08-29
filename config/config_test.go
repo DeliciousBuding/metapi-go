@@ -7,7 +7,7 @@ import (
 )
 
 func TestLoadParsesAdminCorsAllowedOrigins(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"ADMIN_CORS_ALLOWED_ORIGINS": " https://admin.example.com,https://ops.example.com ,, ",
 	})
 
@@ -45,7 +45,7 @@ func TestParseListenHostDefaultsByOS(t *testing.T) {
 }
 
 func TestLoadParsesTrustedProxyCidrs(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"TRUSTED_PROXY_CIDRS": " 127.0.0.1/32,10.0.0.0/8 ,, ",
 	})
 
@@ -61,20 +61,20 @@ func TestLoadParsesTrustedProxyCidrs(t *testing.T) {
 }
 
 func TestLoadInfersPostgresFromDatabaseURLAlias(t *testing.T) {
-	cfg := Load(map[string]string{
+	_, rt := Load(map[string]string{
 		"DATABASE_URL": "postgres://user:pass@example.com:5432/metapi?sslmode=require",
 	})
 
-	if cfg.DbType != "postgres" {
-		t.Fatalf("DbType = %q, want postgres", cfg.DbType)
+	if rt.DbType != "postgres" {
+		t.Fatalf("DbType = %q, want postgres", rt.DbType)
 	}
-	if cfg.DbUrl != "postgres://user:pass@example.com:5432/metapi?sslmode=require" {
-		t.Fatalf("DbUrl = %q, want DATABASE_URL value", cfg.DbUrl)
+	if rt.DbUrl != "postgres://user:pass@example.com:5432/metapi?sslmode=require" {
+		t.Fatalf("DbUrl = %q, want DATABASE_URL value", rt.DbUrl)
 	}
 }
 
 func TestLoadParsesResinConfig(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"RESIN_URL":           "http://resin.local:2260/my-token",
 		"RESIN_PLATFORM_NAME": "metapi",
 		"RESIN_ENABLED":       "true",
@@ -92,7 +92,7 @@ func TestLoadParsesResinConfig(t *testing.T) {
 }
 
 func TestLoadResinDefaultsOff(t *testing.T) {
-	cfg := Load(map[string]string{})
+	cfg, _ := Load(map[string]string{})
 
 	if cfg.ResinURL != "" {
 		t.Fatalf("ResinURL = %q, want empty default", cfg.ResinURL)
@@ -106,7 +106,7 @@ func TestLoadResinDefaultsOff(t *testing.T) {
 }
 
 func TestLoadPromptFilterDefaultsOff(t *testing.T) {
-	cfg := Load(map[string]string{})
+	cfg, _ := Load(map[string]string{})
 	if cfg.PromptFilterEnabled {
 		t.Fatal("PromptFilterEnabled = true, want false default")
 	}
@@ -116,7 +116,7 @@ func TestLoadPromptFilterDefaultsOff(t *testing.T) {
 }
 
 func TestLoadPromptFilterParsesEnabledAndPatterns(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"PROMPT_FILTER_ENABLED":       "true",
 		"PROMPT_FILTER_DENY_PATTERNS": " forbidden phrase , another-bad ,",
 	})
@@ -135,7 +135,7 @@ func TestLoadPromptFilterParsesEnabledAndPatterns(t *testing.T) {
 }
 
 func TestLoadParsesUTLSEnabled(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"UTLS_ENABLED": "true",
 	})
 	if !cfg.UTLSEnabled {
@@ -144,21 +144,21 @@ func TestLoadParsesUTLSEnabled(t *testing.T) {
 }
 
 func TestLoadUTLSDefaultsOff(t *testing.T) {
-	cfg := Load(map[string]string{})
+	cfg, _ := Load(map[string]string{})
 	if cfg.UTLSEnabled {
 		t.Fatal("UTLSEnabled = true, want false default")
 	}
 }
 
 func TestLoadUpdateCenterDefaultsOff(t *testing.T) {
-	cfg := Load(map[string]string{})
+	cfg, _ := Load(map[string]string{})
 	if cfg.UpdateCenterEnabled {
 		t.Fatal("UpdateCenterEnabled = true, want false default")
 	}
 }
 
 func TestLoadParsesUpdateCenterEnabled(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"METAPI_ENABLE_UPDATE_CENTER": "true",
 	})
 	if !cfg.UpdateCenterEnabled {
@@ -167,21 +167,21 @@ func TestLoadParsesUpdateCenterEnabled(t *testing.T) {
 }
 
 func TestLoadPrefersDBURLOverDatabaseURLAlias(t *testing.T) {
-	cfg := Load(map[string]string{
+	_, rt := Load(map[string]string{
 		"DB_URL":       "sqlite://local.db",
 		"DATABASE_URL": "postgres://user:pass@example.com:5432/metapi",
 	})
 
-	if cfg.DbType != "sqlite" {
-		t.Fatalf("DbType = %q, want sqlite", cfg.DbType)
+	if rt.DbType != "sqlite" {
+		t.Fatalf("DbType = %q, want sqlite", rt.DbType)
 	}
-	if cfg.DbUrl != "sqlite://local.db" {
-		t.Fatalf("DbUrl = %q, want DB_URL value", cfg.DbUrl)
+	if rt.DbUrl != "sqlite://local.db" {
+		t.Fatalf("DbUrl = %q, want DB_URL value", rt.DbUrl)
 	}
 }
 
 func TestLoadParsesPostgresSSLMode(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, rt := Load(map[string]string{
 		"DB_SSL":     "true",
 		"DB_SSLMODE": "verify-full",
 	})
@@ -189,23 +189,23 @@ func TestLoadParsesPostgresSSLMode(t *testing.T) {
 	if cfg.DbSslMode != "verify-full" {
 		t.Fatalf("DbSslMode = %q, want verify-full", cfg.DbSslMode)
 	}
-	if got := cfg.PostgresSSLMode(); got != "verify-full" {
+	if got := cfg.PostgresSSLMode(rt.DbSsl); got != "verify-full" {
 		t.Fatalf("PostgresSSLMode() = %q, want verify-full", got)
 	}
 }
 
 func TestPostgresSSLModePreservesLegacyDBSSL(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, rt := Load(map[string]string{
 		"DB_SSL": "true",
 	})
 
-	if got := cfg.PostgresSSLMode(); got != "require" {
+	if got := cfg.PostgresSSLMode(rt.DbSsl); got != "require" {
 		t.Fatalf("PostgresSSLMode() = %q, want require", got)
 	}
 }
 
 func TestLoadParsesPostgresPoolBudget(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"DB_MAX_OPEN_CONNS":         "2",
 		"DB_MAX_IDLE_CONNS":         "1",
 		"DB_CONN_MAX_LIFETIME_SEC":  "1800",
@@ -225,7 +225,7 @@ func TestLoadParsesPostgresPoolBudget(t *testing.T) {
 }
 
 func TestValidateRejectsPostgresPoolAboveOpenBudget(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"AUTH_TOKEN":                "admin-token",
 		"PROXY_TOKEN":               "proxy-token",
 		"ACCOUNT_CREDENTIAL_SECRET": "credential-secret",
@@ -245,7 +245,7 @@ func TestValidateRejectsPostgresPoolAboveOpenBudget(t *testing.T) {
 }
 
 func TestValidateRejectsInvalidPostgresSSLMode(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"AUTH_TOKEN":                "admin-token",
 		"PROXY_TOKEN":               "proxy-token",
 		"ACCOUNT_CREDENTIAL_SECRET": "credential-secret",
@@ -268,7 +268,7 @@ func TestValidateRejectsInvalidPostgresSSLMode(t *testing.T) {
 }
 
 func TestValidateRejectsDefaultTokensAsCritical(t *testing.T) {
-	cfg := Load(map[string]string{
+	_, rt := Load(map[string]string{
 		"ACCOUNT_CREDENTIAL_SECRET": "credential-secret",
 		"CLAUDE_CLIENT_ID":          "claude-client",
 		"CODEX_CLIENT_ID":           "codex-client",
@@ -278,7 +278,7 @@ func TestValidateRejectsDefaultTokensAsCritical(t *testing.T) {
 	for _, field := range []string{"auth_token", "proxy_token"} {
 		t.Run(field, func(t *testing.T) {
 			var found bool
-			for _, err := range cfg.Validate() {
+			for _, err := range rt.Validate() {
 				if strings.Contains(err.Error(), field) && IsCritical(err) {
 					found = true
 					break
@@ -292,7 +292,7 @@ func TestValidateRejectsDefaultTokensAsCritical(t *testing.T) {
 }
 
 func TestValidateAcceptsExplicitNonDefaultTokens(t *testing.T) {
-	cfg := Load(map[string]string{
+	_, rt := Load(map[string]string{
 		"AUTH_TOKEN":                "admin-token",
 		"PROXY_TOKEN":               "proxy-token",
 		"ACCOUNT_CREDENTIAL_SECRET": "credential-secret",
@@ -301,7 +301,7 @@ func TestValidateAcceptsExplicitNonDefaultTokens(t *testing.T) {
 		"GEMINI_CLI_CLIENT_ID":      "gemini-client",
 	})
 
-	for _, err := range cfg.Validate() {
+	for _, err := range rt.Validate() {
 		if strings.Contains(err.Error(), "auth_token") || strings.Contains(err.Error(), "proxy_token") {
 			t.Fatalf("Validate returned token error for explicit non-default tokens: %v", err)
 		}
@@ -311,7 +311,7 @@ func TestValidateAcceptsExplicitNonDefaultTokens(t *testing.T) {
 func TestValidateRejectsUnsafeAdminCorsOrigins(t *testing.T) {
 	for _, origin := range []string{"*", "https://*.example.com", "https://admin.example.com/path", "javascript:alert(1)"} {
 		t.Run(origin, func(t *testing.T) {
-			cfg := Load(map[string]string{
+			cfg, _ := Load(map[string]string{
 				"AUTH_TOKEN":                 "admin-token",
 				"PROXY_TOKEN":                "proxy-token",
 				"ACCOUNT_CREDENTIAL_SECRET":  "credential-secret",
@@ -336,7 +336,7 @@ func TestValidateRejectsUnsafeAdminCorsOrigins(t *testing.T) {
 }
 
 func TestValidateAcceptsExactAdminCorsOrigins(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"AUTH_TOKEN":                 "admin-token",
 		"PROXY_TOKEN":                "proxy-token",
 		"ACCOUNT_CREDENTIAL_SECRET":  "credential-secret",
@@ -354,7 +354,7 @@ func TestValidateAcceptsExactAdminCorsOrigins(t *testing.T) {
 }
 
 func TestValidateRejectsInvalidTrustedProxyCidrs(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"AUTH_TOKEN":                "admin-token",
 		"PROXY_TOKEN":               "proxy-token",
 		"ACCOUNT_CREDENTIAL_SECRET": "credential-secret",
@@ -403,7 +403,7 @@ func TestValidateCronExprRejectsInvalid(t *testing.T) {
 
 func TestLoadDbProfileDefaults(t *testing.T) {
 	// Default profile is normal (10/3).
-	cfg := Load(map[string]string{})
+	cfg, _ := Load(map[string]string{})
 	if cfg.DbProfile != "normal" {
 		t.Fatalf("DbProfile = %q, want normal", cfg.DbProfile)
 	}
@@ -411,7 +411,7 @@ func TestLoadDbProfileDefaults(t *testing.T) {
 		t.Fatalf("normal defaults = %d/%d, want %d/%d", cfg.DbMaxOpenConns, cfg.DbMaxIdleConns, DefaultDbMaxOpenConnsNormal, DefaultDbMaxIdleConnsNormal)
 	}
 
-	tiny := Load(map[string]string{"DB_PROFILE": "shared-tiny"})
+	tiny, _ := Load(map[string]string{"DB_PROFILE": "shared-tiny"})
 	if tiny.DbProfile != "shared-tiny" {
 		t.Fatalf("DbProfile = %q, want shared-tiny", tiny.DbProfile)
 	}
@@ -419,7 +419,7 @@ func TestLoadDbProfileDefaults(t *testing.T) {
 		t.Fatalf("shared-tiny defaults = %d/%d, want %d/%d", tiny.DbMaxOpenConns, tiny.DbMaxIdleConns, DefaultDbMaxOpenConnsSharedTiny, DefaultDbMaxIdleConnsSharedTiny)
 	}
 
-	dedicated := Load(map[string]string{"METAPI_DB_PROFILE": "dedicated"})
+	dedicated, _ := Load(map[string]string{"METAPI_DB_PROFILE": "dedicated"})
 	if dedicated.DbProfile != "dedicated" {
 		t.Fatalf("DbProfile = %q, want dedicated", dedicated.DbProfile)
 	}
@@ -429,7 +429,7 @@ func TestLoadDbProfileDefaults(t *testing.T) {
 }
 
 func TestLoadExplicitPoolOverridesProfile(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"DB_PROFILE":        "shared-tiny",
 		"DB_MAX_OPEN_CONNS": "50",
 		"DB_MAX_IDLE_CONNS": "10",
@@ -440,7 +440,7 @@ func TestLoadExplicitPoolOverridesProfile(t *testing.T) {
 }
 
 func TestLoadParsesBrandingEnv(t *testing.T) {
-	cfg := Load(map[string]string{
+	_, rt := Load(map[string]string{
 		"SYSTEM_NAME":       "My Gateway",
 		"LOGO":              "https://example.com/logo.png",
 		"FOOTER":            "Powered by Metapi",
@@ -448,41 +448,40 @@ func TestLoadParsesBrandingEnv(t *testing.T) {
 		"HOME_PAGE_CONTENT": "Welcome",
 		"SERVER_ADDRESS":    "https://gw.example.com",
 	})
-	if cfg.SystemName != "My Gateway" {
-		t.Fatalf("SystemName = %q", cfg.SystemName)
+	if rt.SystemName != "My Gateway" {
+		t.Fatalf("SystemName = %q", rt.SystemName)
 	}
-	if cfg.Logo != "https://example.com/logo.png" {
-		t.Fatalf("Logo = %q", cfg.Logo)
+	if rt.Logo != "https://example.com/logo.png" {
+		t.Fatalf("Logo = %q", rt.Logo)
 	}
-	if cfg.Footer != "Powered by Metapi" {
-		t.Fatalf("Footer = %q", cfg.Footer)
+	if rt.Footer != "Powered by Metapi" {
+		t.Fatalf("Footer = %q", rt.Footer)
 	}
-	if cfg.About != "About page copy" {
-		t.Fatalf("About = %q", cfg.About)
+	if rt.About != "About page copy" {
+		t.Fatalf("About = %q", rt.About)
 	}
-	if cfg.ServerAddress != "https://gw.example.com" {
-		t.Fatalf("ServerAddress = %q", cfg.ServerAddress)
+	if rt.ServerAddress != "https://gw.example.com" {
+		t.Fatalf("ServerAddress = %q", rt.ServerAddress)
 	}
 }
 
 func TestLoadBrandingDefaultsEmpty(t *testing.T) {
-	cfg := Load(map[string]string{})
-	if cfg.SystemName != "" || cfg.Logo != "" || cfg.Footer != "" || cfg.About != "" || cfg.ServerAddress != "" {
-		t.Fatalf("branding defaults not empty: %+v", cfg)
+	_, rt := Load(map[string]string{})
+	if rt.SystemName != "" || rt.Logo != "" || rt.Footer != "" || rt.About != "" || rt.ServerAddress != "" {
+		t.Fatalf("branding defaults not empty: %+v", rt)
 	}
 }
 
 func TestValidateAcceptsWindowScheduleMode(t *testing.T) {
-	cfg := &Config{
-		Port:                4000,
+	// Checkin schedule mode lives on the runtime snapshot now; static pool
+	// fields are irrelevant to this assertion.
+	rt := &RuntimeSettings{
 		DbType:              "sqlite",
-		DbMaxOpenConns:      10,
-		DbMaxIdleConns:      3,
 		CheckinScheduleMode: "window",
 		AuthToken:           "not-default-admin",
 		ProxyToken:          "sk-not-default-proxy",
 	}
-	for _, err := range cfg.Validate() {
+	for _, err := range rt.Validate() {
 		if configErrorField(err) == "checkin_schedule_mode" && configErrorCritical(err) {
 			t.Fatalf("window mode rejected as critical: %v", err)
 		}
@@ -490,17 +489,14 @@ func TestValidateAcceptsWindowScheduleMode(t *testing.T) {
 }
 
 func TestValidateRejectsBogusScheduleMode(t *testing.T) {
-	cfg := &Config{
-		Port:                4000,
+	rt := &RuntimeSettings{
 		DbType:              "sqlite",
-		DbMaxOpenConns:      10,
-		DbMaxIdleConns:      3,
 		CheckinScheduleMode: "bogus",
 		AuthToken:           "not-default-admin",
 		ProxyToken:          "sk-not-default-proxy",
 	}
 	found := false
-	for _, err := range cfg.Validate() {
+	for _, err := range rt.Validate() {
 		if configErrorField(err) == "checkin_schedule_mode" {
 			found = true
 			if !configErrorCritical(err) {
@@ -530,7 +526,7 @@ func configErrorCritical(err error) bool {
 func TestValidateCriticalOnShortCredentialSecret(t *testing.T) {
 	// 7-byte secret (< 8) must be a critical error. Short keys were silently
 	// accepted before the length floor was added.
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"AUTH_TOKEN":                "admin-token-not-default",
 		"PROXY_TOKEN":               "proxy-token-not-default",
 		"ACCOUNT_CREDENTIAL_SECRET": "tiny123", // 7 bytes
@@ -553,7 +549,7 @@ func TestValidateCriticalOnShortCredentialSecret(t *testing.T) {
 
 func TestValidateWarnsOnWeakCredentialSecret(t *testing.T) {
 	// 14-byte secret (>= 8, < 16) must be a non-critical warning.
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"AUTH_TOKEN":                "admin-token-not-default",
 		"PROXY_TOKEN":               "proxy-token-not-default",
 		"ACCOUNT_CREDENTIAL_SECRET": "mediumsecret12", // 14 bytes
@@ -579,7 +575,7 @@ func TestValidateWarnsOnWeakCredentialSecret(t *testing.T) {
 
 func TestValidateAcceptsStrongCredentialSecret(t *testing.T) {
 	// 17-byte secret (>= 16) must produce no credential_secret length error.
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"AUTH_TOKEN":                "admin-token-not-default",
 		"PROXY_TOKEN":               "proxy-token-not-default",
 		"ACCOUNT_CREDENTIAL_SECRET": "credential-secret", // 17 bytes
@@ -596,7 +592,7 @@ func TestValidateAcceptsStrongCredentialSecret(t *testing.T) {
 }
 
 func TestLoadLogLevelDefaultsToInfo(t *testing.T) {
-	cfg := Load(map[string]string{})
+	cfg, _ := Load(map[string]string{})
 	if cfg.LogLevel != DefaultLogLevel {
 		t.Fatalf("LogLevel = %q, want %q", cfg.LogLevel, DefaultLogLevel)
 	}
@@ -618,7 +614,7 @@ func TestLoadLogLevelParsesKnownLevels(t *testing.T) {
 	}
 	for input, want := range cases {
 		t.Run(input, func(t *testing.T) {
-			cfg := Load(map[string]string{"LOG_LEVEL": input})
+			cfg, _ := Load(map[string]string{"LOG_LEVEL": input})
 			if cfg.LogLevel != want {
 				t.Fatalf("LOG_LEVEL=%q → LogLevel = %q, want %q", input, cfg.LogLevel, want)
 			}
@@ -629,7 +625,7 @@ func TestLoadLogLevelParsesKnownLevels(t *testing.T) {
 func TestLoadLogLevelFallsBackOnInvalid(t *testing.T) {
 	for _, input := range []string{"verbose", "trace", "123", "off"} {
 		t.Run(input, func(t *testing.T) {
-			cfg := Load(map[string]string{"LOG_LEVEL": input})
+			cfg, _ := Load(map[string]string{"LOG_LEVEL": input})
 			if cfg.LogLevel != "info" {
 				t.Fatalf("LOG_LEVEL=%q → LogLevel = %q, want info (fallback)", input, cfg.LogLevel)
 			}
@@ -661,7 +657,7 @@ func TestSlogLevelFallsBackToInfo(t *testing.T) {
 }
 
 func TestLoadAdminOAuthRateLimitDefaults(t *testing.T) {
-	cfg := Load(map[string]string{})
+	cfg, _ := Load(map[string]string{})
 
 	if cfg.AdminRateLimitRPS != DefaultAdminRateLimitRPS {
 		t.Fatalf("AdminRateLimitRPS = %d, want %d", cfg.AdminRateLimitRPS, DefaultAdminRateLimitRPS)
@@ -678,7 +674,7 @@ func TestLoadAdminOAuthRateLimitDefaults(t *testing.T) {
 }
 
 func TestLoadAdminOAuthRateLimitFromEnv(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"ADMIN_RATE_LIMIT_RPS":   "200",
 		"ADMIN_RATE_LIMIT_BURST": "400",
 		"OAUTH_RATE_LIMIT_RPS":   "25",
@@ -700,7 +696,7 @@ func TestLoadAdminOAuthRateLimitFromEnv(t *testing.T) {
 }
 
 func TestLoadAdminOAuthRateLimitClampsNegativeToZero(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"ADMIN_RATE_LIMIT_RPS":   "-5",
 		"ADMIN_RATE_LIMIT_BURST": "-10",
 		"OAUTH_RATE_LIMIT_RPS":   "-1",
@@ -722,7 +718,7 @@ func TestLoadAdminOAuthRateLimitClampsNegativeToZero(t *testing.T) {
 }
 
 func TestLoadAdminOAuthRateLimitFallsBackOnInvalid(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"ADMIN_RATE_LIMIT_RPS":   "not-a-number",
 		"ADMIN_RATE_LIMIT_BURST": "still-not-a-number",
 		"OAUTH_RATE_LIMIT_RPS":   "garbage",
@@ -744,7 +740,7 @@ func TestLoadAdminOAuthRateLimitFallsBackOnInvalid(t *testing.T) {
 }
 
 func TestLoadProxyTimeoutsDefaults(t *testing.T) {
-	cfg := Load(map[string]string{})
+	cfg, _ := Load(map[string]string{})
 	// Pin the defaults: they must equal the timeouts that were hardcoded in
 	// platform/site_proxy.go before #1009 so unset deployments behave
 	// identically.
@@ -767,7 +763,7 @@ func TestLoadProxyTimeoutsDefaults(t *testing.T) {
 }
 
 func TestLoadParsesProxyTimeouts(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"PROXY_CONNECT_TIMEOUT_SEC":         "7",
 		"PROXY_TLS_HANDSHAKE_TIMEOUT_SEC":   "11",
 		"PROXY_RESPONSE_HEADER_TIMEOUT_SEC": "45.9", // truncated to 45, same as LDOH
@@ -792,7 +788,7 @@ func TestLoadParsesProxyTimeouts(t *testing.T) {
 }
 
 func TestLoadProxyTimeoutsFallBackOnInvalid(t *testing.T) {
-	cfg := Load(map[string]string{
+	cfg, _ := Load(map[string]string{
 		"PROXY_CONNECT_TIMEOUT_SEC":         "0",
 		"PROXY_TLS_HANDSHAKE_TIMEOUT_SEC":   "-5",
 		"PROXY_RESPONSE_HEADER_TIMEOUT_SEC": "soon",
@@ -817,17 +813,17 @@ func TestLoadProxyTimeoutsFallBackOnInvalid(t *testing.T) {
 }
 
 func TestLoadModelSyncCronDefault(t *testing.T) {
-	cfg := Load(map[string]string{})
-	if cfg.ModelSyncCron != DefaultModelSyncCron {
-		t.Fatalf("ModelSyncCron = %q, want default %q", cfg.ModelSyncCron, DefaultModelSyncCron)
+	_, rt := Load(map[string]string{})
+	if rt.ModelSyncCron != DefaultModelSyncCron {
+		t.Fatalf("ModelSyncCron = %q, want default %q", rt.ModelSyncCron, DefaultModelSyncCron)
 	}
 }
 
 func TestLoadParsesModelSyncCron(t *testing.T) {
-	cfg := Load(map[string]string{
+	_, rt := Load(map[string]string{
 		"MODEL_SYNC_CRON": "0 5 * * 1",
 	})
-	if cfg.ModelSyncCron != "0 5 * * 1" {
-		t.Fatalf("ModelSyncCron = %q", cfg.ModelSyncCron)
+	if rt.ModelSyncCron != "0 5 * * 1" {
+		t.Fatalf("ModelSyncCron = %q", rt.ModelSyncCron)
 	}
 }
