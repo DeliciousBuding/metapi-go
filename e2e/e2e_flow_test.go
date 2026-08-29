@@ -34,26 +34,31 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 	adminToken := "admin-integration-test-token"
 	proxyToken := "proxy-integration-test-sk-token"
 
-	// 1a. Build config first - EnsureRuntimeDatabase reads DbType and DbUrl.
+	// 1a. Build config first - EnsureRuntimeDatabase reads DbType and DbUrl
+	// from the runtime snapshot.
 	cfg := &config.Config{
+		AccountCredentialSecret:   "test-cred-secret",
+		DataDir:                   t.TempDir(),
+		ProxyMaxChannelAttempts:   3,
+		ProxyStickySessionEnabled: false,
+		ProxyStickySessionTtlMs:   30000,
+		TokenRouterCacheTtlMs:     1500,
+		RequestBodyLimit:          20 * 1024 * 1024,
+	}
+	rt := &config.RuntimeSettings{
 		AuthToken:                        adminToken,
 		ProxyToken:                       proxyToken,
-		AccountCredentialSecret:          "test-cred-secret",
 		DbType:                           "sqlite",
 		DbUrl:                            ":memory:",
-		DataDir:                          t.TempDir(),
-		ProxyMaxChannelAttempts:          3,
-		ProxyStickySessionEnabled:        false,
-		ProxyStickySessionTtlMs:          30000,
-		TokenRouterCacheTtlMs:            1500,
 		TokenRouterFailureCooldownMaxSec: 60,
 		RoutingFallbackUnitCost:          1,
-		RequestBodyLimit:                 20 * 1024 * 1024,
 	}
 	config.Set(cfg)
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(makeTestRuntime()) })
 
 	// 1b. Open in-memory SQLite + AutoMigrate + set singleton via EnsureRuntimeDatabase.
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase failed: %v", err)
 	}
 	defer store.CloseDatabase()
@@ -126,7 +131,7 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 	// Using r.Group (not r.Route) because Register*Routes use full paths
 	// like /api/sites, /api/accounts, etc.
 	r.Group(func(r chi.Router) {
-		r.Use(auth.AdminAuth(cfg, nil))
+		r.Use(auth.AdminAuth(nil))
 		admin.RegisterSitesRoutes(r, db.DB)
 		admin.RegisterAccountsRoutes(r, db.DB, cfg)
 		admin.RegisterAccountTokensRoutes(r, db.DB)
@@ -136,7 +141,7 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 	// Using r.Route("/v1") which strips the prefix, so the internal
 	// /chat/completions and /models become /v1/chat/completions and /v1/models.
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth(cfg))
+		r.Use(auth.ProxyAuth())
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 
@@ -350,18 +355,22 @@ func TestSiteCreateToProxyFlow_UnauthorizedAccess(t *testing.T) {
 	proxyToken := "proxy-test-token-ua"
 
 	cfg := &config.Config{
-		AuthToken:               adminToken,
-		ProxyToken:              proxyToken,
 		AccountCredentialSecret: "test-cred-secret",
-		DbType:                  "sqlite",
-		DbUrl:                   ":memory:",
 		DataDir:                 t.TempDir(),
 		ProxyMaxChannelAttempts: 3,
 		RequestBodyLimit:        20 * 1024 * 1024,
 	}
+	rt := &config.RuntimeSettings{
+		AuthToken:  adminToken,
+		ProxyToken: proxyToken,
+		DbType:     "sqlite",
+		DbUrl:      ":memory:",
+	}
 	config.Set(cfg)
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(makeTestRuntime()) })
 
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase failed: %v", err)
 	}
 	defer store.CloseDatabase()
@@ -380,11 +389,11 @@ func TestSiteCreateToProxyFlow_UnauthorizedAccess(t *testing.T) {
 
 	r := chi.NewRouter()
 	r.Group(func(r chi.Router) {
-		r.Use(auth.AdminAuth(cfg, nil))
+		r.Use(auth.AdminAuth(nil))
 		admin.RegisterSitesRoutes(r, db.DB)
 	})
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth(cfg))
+		r.Use(auth.ProxyAuth())
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 
@@ -447,18 +456,22 @@ func TestSiteCreateToProxyFlow_Streaming(t *testing.T) {
 	proxyToken := "proxy-streaming-test-token"
 
 	cfg := &config.Config{
-		AuthToken:               adminToken,
-		ProxyToken:              proxyToken,
 		AccountCredentialSecret: "test-cred-secret",
-		DbType:                  "sqlite",
-		DbUrl:                   ":memory:",
 		DataDir:                 t.TempDir(),
 		ProxyMaxChannelAttempts: 3,
 		RequestBodyLimit:        20 * 1024 * 1024,
 	}
+	rt := &config.RuntimeSettings{
+		AuthToken:  adminToken,
+		ProxyToken: proxyToken,
+		DbType:     "sqlite",
+		DbUrl:      ":memory:",
+	}
 	config.Set(cfg)
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(makeTestRuntime()) })
 
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase failed: %v", err)
 	}
 	defer store.CloseDatabase()
@@ -505,13 +518,13 @@ func TestSiteCreateToProxyFlow_Streaming(t *testing.T) {
 
 	r := chi.NewRouter()
 	r.Group(func(r chi.Router) {
-		r.Use(auth.AdminAuth(cfg, nil))
+		r.Use(auth.AdminAuth(nil))
 		admin.RegisterSitesRoutes(r, db.DB)
 		admin.RegisterAccountsRoutes(r, db.DB, cfg)
 		admin.RegisterAccountTokensRoutes(r, db.DB)
 	})
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(auth.ProxyAuth(cfg))
+		r.Use(auth.ProxyAuth())
 		proxyhandler.RegisterProxyRoutes(r)
 	})
 

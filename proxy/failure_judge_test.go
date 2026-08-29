@@ -7,15 +7,16 @@ import (
 )
 
 func setupFailureCfg(keywords []string, emptyContentFail bool) {
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"PORT":                    "8080",
 		"PROXY_EMPTY_CONTENT_FAIL": boolToString(emptyContentFail),
 	})
 	if len(keywords) > 0 {
-		cfg.ProxyErrorKeywords = keywords
+		rt.ProxyErrorKeywords = keywords
 	}
-	cfg.ProxyEmptyContentFailEnabled = emptyContentFail
+	rt.ProxyEmptyContentFailEnabled = emptyContentFail
 	config.Set(cfg)
+	config.SetRuntime(rt)
 }
 
 func boolToString(b bool) string {

@@ -73,10 +73,11 @@ func makeChannel(channelID, routeID, accountID int64) routing.SelectedChannel {
 }
 
 func setupCfg() {
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"PORT": "8080",
 	})
 	config.Set(cfg)
+	config.SetRuntime(rt)
 }
 
 // ---- Tests ----
@@ -259,7 +260,7 @@ func TestSelectProxyChannelForAttempt(t *testing.T) {
 	ctx := context.Background()
 	defaultPolicy := routing.EmptyDownstreamRoutingPolicy
 
-	coord := NewProxyChannelCoordinator())
+	coord := NewProxyChannelCoordinator()
 
 	t.Run("tester forced channel - first attempt", func(t *testing.T) {
 		forcedID := int64(42)
@@ -370,7 +371,7 @@ func TestSelectProxyChannelForAttempt(t *testing.T) {
 func TestSelectProxyChannelForAttempt_RetrySelectionOnEmpty(t *testing.T) {
 	setupCfg()
 	ctx := context.Background()
-	coord := NewProxyChannelCoordinator())
+	coord := NewProxyChannelCoordinator()
 
 	t.Run("first attempt retries selection once when empty", func(t *testing.T) {
 		count := 0
@@ -459,7 +460,7 @@ func TestSelectProxyChannelForAttempt_ErrorPropagation(t *testing.T) {
 	setupCfg()
 	ctx := context.Background()
 	defaultPolicy := routing.EmptyDownstreamRoutingPolicy
-	coord := NewProxyChannelCoordinator())
+	coord := NewProxyChannelCoordinator()
 
 	t.Run("nil selection with no available channels", func(t *testing.T) {
 		router := &mockRouter{

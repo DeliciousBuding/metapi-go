@@ -31,7 +31,7 @@ func TestProxyConcurrentRequests(t *testing.T) {
 		mockR.addChannel(makeChannel(i, mockUpstream.URL, "gpt-4"))
 	}
 
-	coord := proxypkg.NewProxyChannelCoordinator())
+	coord := proxypkg.NewProxyChannelCoordinator()
 	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	var wg sync.WaitGroup
@@ -61,10 +61,10 @@ func TestProxyConcurrentRequests(t *testing.T) {
 
 // TestAuthTokenConstantTime validates token auth with subtle.ConstantTimeCompare.
 func TestAuthTokenConstantTime(t *testing.T) {
-	cfg := &config.Config{AuthToken: "real-secret-token", ProxyToken: "real-proxy-token"}
-	config.Set(cfg)
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: "real-secret-token", ProxyToken: "real-proxy-token"})
+	t.Cleanup(func() { config.SetRuntime(makeTestRuntime()) })
 
-	handler := auth.AdminAuth(cfg, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := auth.AdminAuth(nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 	}))
 
@@ -98,8 +98,9 @@ func TestAuthTokenConstantTime(t *testing.T) {
 
 // TestRateLimitRejection validates rate limiting middleware blocks excess.
 func TestRateLimitRejection(t *testing.T) {
-	cfg := &config.Config{AuthToken: "test-token"}
-	handler := auth.AdminAuth(cfg, nil)(
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: "test-token"})
+	t.Cleanup(func() { config.SetRuntime(makeTestRuntime()) })
+	handler := auth.AdminAuth(nil)(
 		auth.AdminRateLimit(1, 1)(
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(200)
@@ -138,7 +139,7 @@ func TestProxyRequestBodyLimitRejectsBeforeUpstream(t *testing.T) {
 	mockR := newMockRouter()
 	mockR.staticChannel = makeChannel(1, mockUpstream.URL, "gpt-4")
 
-	coord := proxypkg.NewProxyChannelCoordinator())
+	coord := proxypkg.NewProxyChannelCoordinator()
 	proxyRoutes := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
 
 	r := chi.NewRouter()
