@@ -1,5 +1,7 @@
-// metapi-go/features/accounts — server-pagination fetcher contract tests.
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
+// metapi-go/features/accounts — server-pagination fetcher contract tests.
+import { fetchAccountsPage } from '../api'
 
 const { getAccountsPageMock } = vi.hoisted(() => ({
   getAccountsPageMock: vi.fn(),
@@ -8,8 +10,6 @@ const { getAccountsPageMock } = vi.hoisted(() => ({
 vi.mock('@/lib/api', () => ({
   api: { getAccountsPage: getAccountsPageMock },
 }))
-
-import { fetchAccountsPage } from '../api'
 
 afterEach(() => {
   getAccountsPageMock.mockReset()

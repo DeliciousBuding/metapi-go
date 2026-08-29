@@ -401,7 +401,7 @@ export function AccountsPage() {
       search: { ...search, accountId: undefined },
       replace: true,
     })
-  }, [search, isLoading, data, navigate])
+  }, [search, isLoading, accounts, navigate])
 
   const openEdit = useCallback((account: Account) => {
     setFormMode('edit')

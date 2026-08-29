@@ -32,7 +32,9 @@ export const systemApi = {
     if (options?.refresh) params.set('refresh', '1')
     if (options?.includePricing) params.set('includePricing', '1')
     if (options?.page != null) params.set('page', String(options.page))
-    if (options?.pageSize != null) params.set('pageSize', String(options.pageSize))
+    if (options?.pageSize != null) {
+      params.set('pageSize', String(options.pageSize))
+    }
     const query = params.toString()
     return request<
       | { models?: unknown[]; meta?: unknown }
@@ -44,12 +46,9 @@ export const systemApi = {
           meta?: unknown
         }
       | unknown[]
-    >(
-      `/api/models/marketplace${query ? `?${query}` : ''}`,
-      {
-        timeoutMs: options?.refresh ? 45_000 : 15_000,
-      }
-    )
+    >(`/api/models/marketplace${query ? `?${query}` : ''}`, {
+      timeoutMs: options?.refresh ? 45_000 : 15_000,
+    })
   },
   /** Cross-site effective model price comparison. */
   getModelPriceCompare: (options?: {

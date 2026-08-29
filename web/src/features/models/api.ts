@@ -68,7 +68,9 @@ export async function fetchModelsPage(params: {
     : null
   const items = envelope?.items ?? []
   const total =
-    envelope && typeof envelope.total === "number" && Number.isFinite(envelope.total)
+    envelope &&
+    typeof envelope.total === 'number' &&
+    Number.isFinite(envelope.total)
       ? envelope.total
       : items.length
   return { items: items as ModelRow[], total }

@@ -73,7 +73,9 @@ export async function fetchAccountsPage(params: {
     page: params.pageIndex + 1,
     pageSize: params.pageSize,
   })
-  const items = Array.isArray(response.items) ? (response.items as object[]) : []
+  const items = Array.isArray(response.items)
+    ? (response.items as object[])
+    : []
   const sites = Array.isArray(response.sites) ? (response.sites as Site[]) : []
   return {
     items,

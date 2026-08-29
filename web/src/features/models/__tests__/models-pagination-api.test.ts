@@ -1,5 +1,7 @@
-// metapi-go/features/models — server-pagination fetcher contract tests.
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
+// metapi-go/features/models — server-pagination fetcher contract tests.
+import { fetchModelsPage } from '../api'
 
 const { getModelsMarketplaceMock } = vi.hoisted(() => ({
   getModelsMarketplaceMock: vi.fn(),
@@ -8,8 +10,6 @@ const { getModelsMarketplaceMock } = vi.hoisted(() => ({
 vi.mock('@/lib/api', () => ({
   api: { getModelsMarketplace: getModelsMarketplaceMock },
 }))
-
-import { fetchModelsPage } from '../api'
 
 afterEach(() => {
   getModelsMarketplaceMock.mockReset()
@@ -41,7 +41,9 @@ describe('fetchModelsPage', () => {
   })
 
   it('degrades a missing total to the returned page length', async () => {
-    getModelsMarketplaceMock.mockResolvedValue({ items: [{ name: 'gemini-pro' }] })
+    getModelsMarketplaceMock.mockResolvedValue({
+      items: [{ name: 'gemini-pro' }],
+    })
 
     const page = await fetchModelsPage({
       pageIndex: 0,
