@@ -14,6 +14,8 @@ All notable changes to Metapi-Go will be documented in this file.
 
 ### Fixed
 
+- **移动端账号页头动作挤压修复（#1086）**：375px 窄视口下「添加账号」按钮与描述同 flex 行挤压、截断描述首行；页头对齐 checkin/路由页的 flex-wrap 模式，按钮窄屏独立成行。
+- **今日快照 delta 不可用态去重（#1088）**：余额 7 天对比无数据时 Minus 图标与「—」占位符同形连读作「— —」；不可用态只留 em-dash 占位（零 delta 仍用 Minus 图标）。
 - **下游密钥凭证维度（`allowedCredentialRefs`/`excludedCredentialRefs`）端到端修复（#1026 残留）**：`auth.ExcludedCredentialRef` 的 JSON 标签原为 snake_case（`site_id`/`account_id`/`token_id`），而管理端持久化形状为 camelCase（`siteId`/`accountId`/`tokenId`）——导致代理路径解析出的引用 ID 全为 0：允许列表密钥无法路由任何渠道、排除列表静默失效。标签统一为 camelCase 并新增 DB→策略解析往返回归测试。
 - **运行时设置的并发撕裂读修复（#1079）**：`RuntimeSettings` 迁移为不可变快照交换——此前约 25 个运行时写字段与热路径无锁读并存，并发下可能读到半更新状态（如代理 token 校验瞬时 401 抖动）；快照迁移后读侧无锁且始终自洽。
 - **W19–W21 前端审计修复批（#1080）**：错误提示去重单 owner 化（修复 HTTP 500 无 body 时双弹 toast，且 502–504 不再泄漏 axios 原始英文报错，改为状态感知的本地化文案）；列表页加载失败改为整块替换 + 内置重试（不再叠加在陈旧数据上）；站点公告四个筛选下拉关闭态不再裸显内部值 `all`；路由表单图标字段不再泄漏内部哨兵值 `__route_icon_none__`（以友好 token `none` 双向映射）；账号状态切换增加进行中禁用与成功反馈；OAuth 授权弹窗被浏览器拦截时提供常驻恢复入口；站点批量禁用与路由重建增加前置确认；多处操作后缓存失效遗漏补齐（签到后账号快照、目录源同步后模型清单、路由重建后渠道列表等）。
@@ -21,6 +23,7 @@ All notable changes to Metapi-Go will be documented in this file.
 
 ### Changed
 
+- **列表页错误三态收敛进 DataTablePage（#1084，#1035 S7）**：加载失败的横幅+重试从 8 个列表页各自手写的条件分支收敛为底座内置契约（`error`/`errorMessageKey`/`onErrorRetry` 属性，替换/内联两种放置）；行为不变，挂载点单一化。
 - **`docs/api.md` 按域拆分**：超 1500 行预算的 API 参考按域拆为 `docs/api/*.md`（17 个文件，按域自含「返回索引」标题）；`docs/api.md` 保留为索引，全部原有 H2/H3/H4 标题以 stub 承接并一一指向新家，旧 `api.md#<anchor>` 深链继续解析（F4）。
 - **凭证引用畸形条目改为显式 400 拒绝（#1026 残留）**：创建/更新下游密钥时，`excludedCredentialRefs`/`allowedCredentialRefs` 中的畸形条目（非对象、未知/缺失 `kind`、非正 `siteId`/`accountId`、`account_token` 缺 `tokenId`）原被静默丢弃——对允许列表而言等于静默放宽访问（fail-open）；现以 400 显式拒绝并提示具体条目。合法引用行为不变。
 - **统一 400 错误体携带机器可读 `errorCode`（#1065，#1035 S4）**：需要客户端分支处理的失败类别逐步登记错误码，客户端应基于 `errorCode` 而非错误文本判断（详见 `docs/api.md`）。
@@ -30,6 +33,7 @@ All notable changes to Metapi-Go will be documented in this file.
 
 ### Added
 
+- **延迟图表无障碍数据摘要（#1087，#1035 S10）**：仪表盘延迟直方图与延迟趋势补 sr-only 数据表（直方图：区间×调用数；趋势：平均/p95 × 最新日/窗口均值）——至此仪表盘全部六个主图均有屏幕阅读器替代层。
 - **凭证维度契约测试与文档（#1026 残留）**：路由选择器执行测试（两种 kind、跨 kind 不互匹配、空列表不限制、排除优先于允许、TS 遗留空 kind 语义）、管理端验证拒绝用例、悬空引用行为钉住（删号/删令牌不级联清理，悬空允许引用失败关闭）、auth→routing 映射测试；`docs/api.md` 下游密钥节新增完整契约（字段形状、空=不限制、验证规则、选择器行为、只读响应为 JSON 字符串、UI 待定说明）。
 - **下游密钥凭证树形选择器（#1026，#1072）**：`allowedCredentialRefs`/`excludedCredentialRefs` 配置 UI——按站点 → 账号 → 密钥三级树勾选，与 API 契约一致。
 - **命令面板动作层（#1073，#1035 S6）**：Ctrl/⌘+K 面板在页面/实体导航之外支持直接执行动作。
