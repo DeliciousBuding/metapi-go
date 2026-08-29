@@ -1,23 +1,28 @@
 # Roadmap
 
-**Last verified**: 2026-08-28
+**Last verified**: 2026-08-29
 
-**Release**: [v0.16.17](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.17) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.19](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.19) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — 无执行中 wave（Wave 17 候选待挑选）
+## Current active work — 无执行中 wave（Wave 19 候选待挑选）
 
-Wave 16 已收口并发布 v0.16.17（见下方已收口节）。下一波候选来自竞品研究（[`../analysis/competitor-study-2026-08.md`](../analysis/competitor-study-2026-08.md)）的四项 P1，按建议顺序：
+Wave 18 已收口并发布 v0.16.19（见下方已收口节）。下一波候选（后端优先）：
 
 | # | 内容 | 建议验收 |
 |---|---|---|
-| P1-1 | SSE 流 chunk 间隔超时（流卡死检测，每收到一块重置；立项前先确认热路径无既有机制） | `PROXY_STREAM_IDLE_TIMEOUT_SEC` env + 执行器测试；卡死流限时中断 |
-| P1-2 | 重试/禁用判定运营者可调（状态码区间运行时设置），吸收「默认禁用仅 401、504/524 永不重试」语义 | 设置项 + 解析测试；默认行为与现状一致 |
-| P1-3 | 批量测试闭环：失败清单 + 一键禁用（人工确认 + 审计记录） | 批量测试后对失败渠道提供禁用动作 |
-| P1-4 | 错误计数横幅→一键过滤视图（错误态与操作态合一） | channels/accounts 页横幅组件 + 过滤参数 URL 化 |
+| C1 | **config 单例运行时竞态里程碑**（#1052 审计升级项 D2）：约 25 个运行时写字段（含数据面 `ProxyToken`/`ProxyRetryStatusRanges`）× 热路径无锁读，撕裂读可致 401 抖动；快照交换或守卫访问器重设计 | -race 全绿 + 并发读改写测试；热更新语义不变 |
+| C2 | **#1026 凭证维度**：`allowedCredentialRefs`（site+account+token 三元组）UI 树形选择器 + API 契约文档 | 选择器往返 + 路由选择器生效测试 |
+| C3 | **race 门禁预算**：`handler/admin` -race 实测 250-360s 临界于默认 300s（本波 6 lane 撞线，均用 `METAPI_RACE_TIMEOUT_SECONDS` 官方旋钮）；上调默认或拆包 | 门禁默认预算下全绿 |
+| C4 | **#1035 剩余专题**：S2 CSP（独立 sub-issue）、S4 API 契约层（后端 400 加 errorCode）、S5-S8、S9 后半（六张大表服务端分页）、S10 双语 CI | 按各专题验收 |
 
-挑选条件：需求驱动或维护者确认；选定后按 Wave 16 模式拆分支、定验收门槛（本地全门禁 → 12-check CI → squash merge → 发布 → 私有面 testbed 综合验收）。
+挑选条件：需求驱动或维护者确认；选定后按 Wave 18 模式拆 worktree 分支、定验收门槛（本地全门禁 → 12-check CI → squash merge → 发布）。**并行推送教训**：本波 8+ lane 并发 pre-push 门禁时 `handler/admin` -race 频繁超 300s 包超时（环境性），建议错峰推送或 ≤4 并发。
+
+### 已收口（Wave 18/17，勿再当 active）
+
+- **Wave 18 → v0.16.19**：十线并行（10 worktree + 10 subagent）——#1057 会话模型重构（#1034：服务端会话/HttpOnly cookie/WS ticket/限速前置/敏感操作重确认 + 六个浏览器门禁 harness 迁移会话登录）、#1052 路由懒加载竞态修复（+config 单例竞态升级项）、#1058 出站 HTTP 基线 + AST 门禁、#1054 管理读路径索引 `sc2_027` + N+1 修复、#1061 调度器健壮性（panic recover/in-flight 竞态/错误显性化）、#1060 PG 方言陷阱清扫（零迁移）、#1053 构建收敛 + vendor 块拆分（S1+S9 前半）、#1055 UX 残留（focus-ring/autoComplete/图表 sr-only）、#1056 健康监测全局开关（#1027）、#1059 SOCKS5 代理 + 清空即清除（#1009）。#1009/#1027/#1034 关闭；#1026 站点维度已交付、凭证维度留 open。
+- **Wave 17 → v0.16.18**：竞品研究 P1×4 全部落地——#1046 SSE 空闲超时、#1049 重试/禁用状态码策略、#1047 批量测试闭环、#1048 错误横幅一键过滤；前端审计快赢 #1040-#1045、#1050 下游密钥站点限制（#1026 站点维度）。
 
 ### 已收口（Wave 16/15/14，勿再当 active）
 

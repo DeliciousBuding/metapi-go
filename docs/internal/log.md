@@ -1,9 +1,31 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-28
+**Last updated**: 2026-08-29
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-08-29 — Wave 18 十线并行（安全/并发/网络/数据库/性能/构建/UX/CX）发布 v0.16.19
+
+- **组织**：10 worktree + 10 subagent（qwen3.8-max）并行；本地推送门禁在 8 并发 race 套件下出现 `handler/admin` 300s 预算临界（环境性，各 lane 用 `METAPI_RACE_TIMEOUT_SECONDS` 官方旋钮），建议后续波次错峰推送或上调默认值。
+- **安全（#1057，closes #1034）**：会话模型重构——`POST /api/auth/login` 服务端会话（`admin_sessions`，`sc2_026`）+ HttpOnly/SameSite=Strict cookie + 滑动 TTL + 登出/轮换吊销；WS 一次性 60s ticket；限速前置 + `/api/auth/*` 严格桶；备份/导出/轮换 `X-Admin-Confirm-Token` 重确认；前端去 localStorage 主 token。附带将六个浏览器门禁 harness 迁移到会话登录（原 localStorage token 注入已失效）。
+- **并发（#1052）**：`routing/runtime_health_persist.go` 懒加载快速路径无锁读修复（-race 复现测试先行）。审计升级项：`*config.Config` 单例运行时写入簇为系统性竞态（约 25 字段写者 × 热路径无锁读者，撕裂读可致 401 抖动），需独立里程碑（快照交换/守卫访问器）。
+- **网络（#1058）**：15 处出站调用点统一 `internal/httpclient` 基线（dial 30s/TLS 10s/idle 90s/池 100/20）+ AST 静态门禁拦截裸客户端。
+- **数据库/性能（#1054）**：`sc2_027` 三个管理读路径索引（300k 行实测 channelId 过滤 17.9ms→0.5ms、siteId COUNT ~10x）+ proxy-logs LEFT→INNER、marketplace N+1 批量化；4 个候选索引实测无收益不加。
+- **并发/健壮性（#1061）**：调度器审计——job panic 统一 recover 边界；in-flight 标志锁外读竞态修复；吞没 DB 错误显性化；重叠/关停/方言审计为无缺陷留痕。
+- **方言（#1060）**：约 260 处测试种子 + 3 处生产位点 BOOLEAN 整数字面量重写；管理搜索 LIKE 大小写统一；静态方言门禁扩至全包；零迁移。
+- **构建（#1053，S1+S9）**：rsbuild 唯一 SSOT（删 vite.config.ts），`web/config/build-shared.ts` 收口 devProxy/版本 define，route-tree 前置校验；匿名 6432 块拆 `vendor-i18n`/`vendor-icons`/`vendor-core`（总 JS −8.5KB gz）。
+- **UX（#1055）**：focus-ring 全库 `--focus-ring` ≥3:1；登录 autoComplete 评估定论；图表 sr-only 摘要 + axe 组件门禁（#1029/#1035 残留）。
+- **CX（#1056，closes #1027）**：健康监测全局开关（`checkinEnabled`/`balanceRefreshEnabled` 运行时设置 + 同名环境变量，热生效持久化），模型探测热停；双语入口 + 部署文档。
+- **CX（#1059，closes #1009）**：账号代理支持 `socks5://`/`socks5h://`（后端原生支持验证 + RFC 1928 进程内 E2E）；清空代理保存即清除（前端载荷省略 + 后端 typed-nil 删除缺陷双修）。
+- **发布收口**：10 PR（#1052–#1061）全部 required CI 绿后 squash 合入；release PR 随附 STATE/MASTER/log 更新。
+
+## 2026-08-28 — Wave 17 竞品研究 P1×4 + 前端审计快赢 发布 v0.16.18
+
+- **P1×4 落地**：#1046 SSE 流 chunk 间隔空闲超时（`PROXY_STREAM_IDLE_TIMEOUT_SEC`）；#1049 重试/禁用状态码策略运营者可调（运行时设置 + 严格区间校验，默认行为不变）；#1047 批量测试闭环（失败清单 + 一键禁用，`PUT /api/channels/batch` 部分更新语义与逐项真值）；#1048 渠道失败横幅一键过滤（`?status=` 可分享过滤）。
+- **前端审计快赢批**：#1040 构建 / #1041 CSP 去 unsafe-inline / #1042、#1043 a11y / #1044 卫生 / #1045 UX 五批；#1036 zh-CN locale 崩溃修复；#1024 路由重建真值；#1039 搜索面板实体深链。
+- **#1026 站点维度**：#1050 下游密钥「上游站点限制」UI（选择器既有 `allowedSiteIds` 暴露到管理界面）；凭证维度留 open 另行立项。
+- **发布收口**：tag v0.16.18 pipeline 全绿（23 项检查 + 多架构镜像 + 5 平台二进制），GitHub Release 已正式发布（12 资产）。
 
 ## 2026-08-28 — Wave 16 竞品研究 P0×3 发布 v0.16.17
 
