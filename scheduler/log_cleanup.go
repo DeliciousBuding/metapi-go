@@ -24,19 +24,24 @@ func NewLogCleanupScheduler(cfg *config.Config) *LogCleanupScheduler {
 func (s *LogCleanupScheduler) Name() string { return "log-cleanup" }
 
 func (s *LogCleanupScheduler) Start(ctx context.Context) error {
-	fallback := s.cfg.LogCleanupCron
+	rt := config.Runtime()
+	fallback := rt.LogCleanupCron
 	if fallback == "" {
 		fallback = logCleanupDefaultCron
 	}
 	activeCron := resolveCronSetting("log_cleanup_cron", fallback)
-	s.cfg.LogCleanupCron = activeCron
-
-	s.cfg.LogCleanupUsageLogsEnabled = resolveBooleanSetting("log_cleanup_usage_logs_enabled", s.cfg.LogCleanupUsageLogsEnabled)
-	s.cfg.LogCleanupProgramLogsEnabled = resolveBooleanSetting("log_cleanup_program_logs_enabled", s.cfg.LogCleanupProgramLogsEnabled)
-	s.cfg.LogCleanupRetentionDays = config.ClampInt(
-		resolvePositiveIntegerSetting("log_cleanup_retention_days", s.cfg.LogCleanupRetentionDays),
+	usageEnabled := resolveBooleanSetting("log_cleanup_usage_logs_enabled", rt.LogCleanupUsageLogsEnabled)
+	programEnabled := resolveBooleanSetting("log_cleanup_program_logs_enabled", rt.LogCleanupProgramLogsEnabled)
+	retentionDays := config.ClampInt(
+		resolvePositiveIntegerSetting("log_cleanup_retention_days", rt.LogCleanupRetentionDays),
 		1, 3650,
 	)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) {
+		r.LogCleanupCron = activeCron
+		r.LogCleanupUsageLogsEnabled = usageEnabled
+		r.LogCleanupProgramLogsEnabled = programEnabled
+		r.LogCleanupRetentionDays = retentionDays
+	})
 
 	s.cronRunner = newCronRunner()
 	_, err := s.cronRunner.addJob(activeCron, s.runJob)
@@ -49,9 +54,9 @@ func (s *LogCleanupScheduler) Start(ctx context.Context) error {
 	slog.Info("log-cleanup scheduler started",
 		"cron", activeCron,
 		"configured", s.cfg.LogCleanupConfigured,
-		"usage_enabled", s.cfg.LogCleanupUsageLogsEnabled,
-		"program_enabled", s.cfg.LogCleanupProgramLogsEnabled,
-		"retention_days", s.cfg.LogCleanupRetentionDays,
+		"usage_enabled", usageEnabled,
+		"program_enabled", programEnabled,
+		"retention_days", retentionDays,
 	)
 	return nil
 }
@@ -69,10 +74,13 @@ func (s *LogCleanupScheduler) UpdateSettings(cronExpr string, usageEnabled, prog
 		return formatErr("invalid cron expression: %s", cronExpr)
 	}
 
-	s.cfg.LogCleanupCron = cronExpr
-	s.cfg.LogCleanupUsageLogsEnabled = usageEnabled
-	s.cfg.LogCleanupProgramLogsEnabled = programEnabled
-	s.cfg.LogCleanupRetentionDays = config.ClampInt(retentionDays, 1, 3650)
+	clamped := config.ClampInt(retentionDays, 1, 3650)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) {
+		r.LogCleanupCron = cronExpr
+		r.LogCleanupUsageLogsEnabled = usageEnabled
+		r.LogCleanupProgramLogsEnabled = programEnabled
+		r.LogCleanupRetentionDays = clamped
+	})
 
 	if s.cronRunner != nil {
 		s.cronRunner.stop()
@@ -91,7 +99,10 @@ func (s *LogCleanupScheduler) runJob() {
 		slog.Info("log-cleanup: skipped, legacy fallback mode active")
 		return
 	}
-	if !s.cfg.LogCleanupUsageLogsEnabled && !s.cfg.LogCleanupProgramLogsEnabled {
+	// One snapshot for the whole job so a concurrent settings change cannot
+	// split the decision from the retention window it runs with.
+	rt := config.Runtime()
+	if !rt.LogCleanupUsageLogsEnabled && !rt.LogCleanupProgramLogsEnabled {
 		slog.Info("log-cleanup: skipped, no log target enabled")
 		return
 	}
@@ -105,18 +116,18 @@ func (s *LogCleanupScheduler) runJob() {
 	jobCtx, cancel := context.WithTimeout(context.Background(), logCleanupJobTimeout)
 	defer cancel()
 	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
-		s.runJobLocked(dbw)
+		s.runJobLocked(dbw, rt)
 	})
 }
 
-func (s *LogCleanupScheduler) runJobLocked(dbw *store.DB) {
+func (s *LogCleanupScheduler) runJobLocked(dbw *store.DB, rt *config.RuntimeSettings) {
 	now := time.Now()
-	cutoff := now.Add(-time.Duration(s.cfg.LogCleanupRetentionDays) * 24 * time.Hour)
+	cutoff := now.Add(-time.Duration(rt.LogCleanupRetentionDays) * 24 * time.Hour)
 	cutoffStr := formatTimeToSQL(cutoff)
 
 	var usageDeleted, programDeleted int64
 
-	if s.cfg.LogCleanupUsageLogsEnabled {
+	if rt.LogCleanupUsageLogsEnabled {
 		result, err := dbw.Exec("DELETE FROM proxy_logs WHERE created_at < ?", cutoffStr)
 		if err != nil {
 			slog.Error("log-cleanup: failed to cleanup proxy_logs", "error", err)
@@ -125,7 +136,7 @@ func (s *LogCleanupScheduler) runJobLocked(dbw *store.DB) {
 		}
 	}
 
-	if s.cfg.LogCleanupProgramLogsEnabled {
+	if rt.LogCleanupProgramLogsEnabled {
 		result, err := dbw.Exec("DELETE FROM events WHERE created_at < ?", cutoffStr)
 		if err != nil {
 			slog.Error("log-cleanup: failed to cleanup events", "error", err)

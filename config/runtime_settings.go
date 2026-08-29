@@ -158,6 +158,10 @@ type RuntimeSettings struct {
 	ProxyDebugRetentionHours      int
 	ProxyDebugMaxBodyBytes        int
 	// Routing Weights (5 fields)
+	// Model availability probe kill switch (settings toggle hot-applies the
+	// running ticker, scheduler/model_probe.go SetEnabled).
+	ModelAvailabilityProbeEnabled bool
+
 	RoutingWeights RoutingWeights
 	// Payload Rules (2 JSON fields)
 	PayloadRules any

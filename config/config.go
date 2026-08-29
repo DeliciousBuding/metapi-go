@@ -244,8 +244,8 @@ type Config struct {
 	CodexResponsesWebsocketBeta string
 	CodexHeaderDefaults         CodexHeaderDefaults
 
-	// Model Probe (4 fields)
-	ModelAvailabilityProbeEnabled     bool
+	// Model Probe (3 fields; ModelAvailabilityProbeEnabled is runtime-mutable
+	// and lives in RuntimeSettings)
 	ModelAvailabilityProbeIntervalMs  int
 	ModelAvailabilityProbeTimeoutMs   int
 	ModelAvailabilityProbeConcurrency int
@@ -755,7 +755,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	}
 
 	// ---- §3.20 Model Probe ----
-	cfg.ModelAvailabilityProbeEnabled = parseBoolean(get("MODEL_AVAILABILITY_PROBE_ENABLED"), false)
+	rt.ModelAvailabilityProbeEnabled = parseBoolean(get("MODEL_AVAILABILITY_PROBE_ENABLED"), false)
 	cfg.ModelAvailabilityProbeIntervalMs = maxInt(60000, int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_INTERVAL_MS"), float64(DefaultModelAvailabilityProbeIntervalMs)))))
 	cfg.ModelAvailabilityProbeTimeoutMs = maxInt(3000, int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_TIMEOUT_MS"), DefaultModelAvailabilityProbeTimeoutMs))))
 	cfg.ModelAvailabilityProbeConcurrency = ClampInt(

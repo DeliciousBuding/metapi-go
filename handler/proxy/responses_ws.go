@@ -15,6 +15,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/deliciousbuding/metapi-go/auth"
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 )
@@ -772,7 +773,7 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 	if cfg == nil || cfg.Router == nil {
 		return nil, false, nil
 	}
-	runtimeCfg := safeConfigGet()
+	runtimeCfg := config.RuntimeSafe()
 	if runtimeCfg == nil || !runtimeCfg.CodexUpstreamWebsocketEnabled {
 		return nil, false, nil
 	}

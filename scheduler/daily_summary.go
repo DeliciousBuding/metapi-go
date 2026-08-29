@@ -15,13 +15,12 @@ const dailySummaryDefaultCron = "58 23 * * *"
 
 // DailySummaryScheduler sends a daily summary notification at 23:58 daily.
 type DailySummaryScheduler struct {
-	cfg        *config.Config
 	cronRunner *cronRunner
 }
 
 // NewDailySummaryScheduler creates a new daily summary scheduler.
-func NewDailySummaryScheduler(cfg *config.Config) *DailySummaryScheduler {
-	return &DailySummaryScheduler{cfg: cfg}
+func NewDailySummaryScheduler() *DailySummaryScheduler {
+	return &DailySummaryScheduler{}
 }
 
 func (s *DailySummaryScheduler) Name() string { return "daily-summary" }
@@ -71,7 +70,7 @@ func (s *DailySummaryScheduler) runJobLocked(dbw *store.DB) {
 
 	title, message := daily.BuildDailySummaryNotification(metrics)
 
-	_, err = notifypkg.SendNotification(s.cfg, title, message, string(notifypkg.LevelInfo),
+	_, err = notifypkg.SendNotification(config.RuntimeSafe(), title, message, string(notifypkg.LevelInfo),
 		&notifypkg.SendNotificationOptions{
 			BypassThrottle: true,
 			RequireChannel: true,

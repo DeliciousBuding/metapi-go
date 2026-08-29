@@ -51,7 +51,7 @@ type CheckinScheduler struct {
 func NewCheckinScheduler(cfg *config.Config) *CheckinScheduler {
 	return &CheckinScheduler{
 		cfg:              cfg,
-		mode:             cfg.CheckinScheduleMode,
+		mode:             config.Runtime().CheckinScheduleMode,
 		attemptByAccount: make(map[int64]int64),
 		checkinAll:       checkin.CheckinAll,
 		ctx:              context.Background(),
@@ -73,28 +73,33 @@ func (s *CheckinScheduler) Start(ctx context.Context) error {
 	// (runCronJob / runStaleAccountCatchUp) observe the captured ctx.
 	s.ctx, s.cancel = context.WithCancel(ctx)
 
-	activeCron := resolveCronSetting("checkin_cron", s.cfg.CheckinCron)
-	activeMode := resolveCheckinScheduleMode(s.cfg)
+	rt := config.Runtime()
+	activeCron := resolveCronSetting("checkin_cron", rt.CheckinCron)
+	activeMode := resolveCheckinScheduleMode(rt)
 	activeIntervalHours := config.ClampInt(
-		resolvePositiveIntegerSetting("checkin_interval_hours", s.cfg.CheckinIntervalHours),
+		resolvePositiveIntegerSetting("checkin_interval_hours", rt.CheckinIntervalHours),
 		1, 24,
 	)
 
 	// E1: window bounds (HH:mm) hydrate from settings with env defaults.
-	s.cfg.CheckinWindowStart = resolveStringSetting("checkin_window_start", s.cfg.CheckinWindowStart)
-	s.cfg.CheckinWindowEnd = resolveStringSetting("checkin_window_end", s.cfg.CheckinWindowEnd)
+	windowStart := resolveStringSetting("checkin_window_start", rt.CheckinWindowStart)
+	windowEnd := resolveStringSetting("checkin_window_end", rt.CheckinWindowEnd)
 
-	s.cfg.CheckinCron = activeCron
-	s.cfg.CheckinScheduleMode = activeMode
-	s.cfg.CheckinIntervalHours = activeIntervalHours
+	config.UpdateRuntime(func(r *config.RuntimeSettings) {
+		r.CheckinCron = activeCron
+		r.CheckinScheduleMode = activeMode
+		r.CheckinIntervalHours = activeIntervalHours
+		r.CheckinWindowStart = windowStart
+		r.CheckinWindowEnd = windowEnd
+	})
 	s.mode = activeMode
 
 	// #1027: global check-in kill switch (env CHECKIN_ENABLED or the
 	// checkin_enabled runtime setting). Default true keeps historical
 	// behavior; when disabled no schedule is armed at all.
-	enabled := resolveBooleanSetting("checkin_enabled", !s.cfg.CheckinDisabled)
-	s.cfg.CheckinDisabled = !enabled
-	if s.cfg.CheckinDisabled {
+	enabled := resolveBooleanSetting("checkin_enabled", !rt.CheckinDisabled)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinDisabled = !enabled })
+	if !enabled {
 		slog.Info("checkin scheduler disabled (checkinEnabled=false)")
 		return nil
 	}
@@ -150,13 +155,14 @@ func (s *CheckinScheduler) startLocked() {
 	// configured window and schedule as a daily cron. The roll is re-done per
 	// start/setting change, giving load spreading + anti-fingerprint without
 	// a separate re-roll job. Bounds are HH:mm in 24h format.
+	wrt := config.Runtime()
 	if s.mode == "window" {
-		expr, err := RandomCronInWindow(s.cfg.CheckinWindowStart, s.cfg.CheckinWindowEnd)
+		expr, err := RandomCronInWindow(wrt.CheckinWindowStart, wrt.CheckinWindowEnd)
 		if err != nil {
-			slog.Error("checkin: invalid window bounds, falling back to cron", "error", err, "start", s.cfg.CheckinWindowStart, "end", s.cfg.CheckinWindowEnd)
+			slog.Error("checkin: invalid window bounds, falling back to cron", "error", err, "start", wrt.CheckinWindowStart, "end", wrt.CheckinWindowEnd)
 			s.mode = "cron"
 		} else {
-			s.cfg.CheckinCron = expr
+			config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinCron = expr })
 			s.cronRunner = newCronRunner()
 			_, err := s.cronRunner.addJob(expr, s.runCronJob)
 			if err != nil {
@@ -164,7 +170,7 @@ func (s *CheckinScheduler) startLocked() {
 				return
 			}
 			s.cronRunner.start()
-			slog.Info("checkin: window mode armed", "cron", expr, "windowStart", s.cfg.CheckinWindowStart, "windowEnd", s.cfg.CheckinWindowEnd)
+			slog.Info("checkin: window mode armed", "cron", expr, "windowStart", wrt.CheckinWindowStart, "windowEnd", wrt.CheckinWindowEnd)
 			s.maybeCatchUpCheckin()
 			return
 		}
@@ -172,7 +178,7 @@ func (s *CheckinScheduler) startLocked() {
 
 	// Cron mode
 	s.cronRunner = newCronRunner()
-	_, err := s.cronRunner.addJob(s.cfg.CheckinCron, s.runCronJob)
+	_, err := s.cronRunner.addJob(config.Runtime().CheckinCron, s.runCronJob)
 	if err != nil {
 		slog.Error("checkin: failed to add cron job", "error", err)
 		return
@@ -213,8 +219,8 @@ func (s *CheckinScheduler) maybeCatchUpCheckin() {
 		return
 	}
 
-	if shouldCatchUpCheckin(now, s.cfg.CheckinCron, ranToday > 0, enabled) {
-		slog.Info("checkin: missed today's scheduled time, compensating with immediate run", "spec", s.cfg.CheckinCron)
+	if shouldCatchUpCheckin(now, config.Runtime().CheckinCron, ranToday > 0, enabled) {
+		slog.Info("checkin: missed today's scheduled time, compensating with immediate run", "spec", config.Runtime().CheckinCron)
 		// Bare goroutine: cronRunner's recover only covers cron-fired
 		// runs, so the boundary wrapper must protect this one too.
 		go safeJob("checkin-catchup", s.runCronJob)
@@ -334,18 +340,21 @@ func (s *CheckinScheduler) UpdateCheckinSchedule(mode, cronExpr string, interval
 	defer s.mu.Unlock()
 
 	s.mode = mode
-	if mode == "cron" {
-		s.cfg.CheckinCron = cronExpr
-	}
-	if mode == "window" {
-		s.cfg.CheckinWindowStart = windowStart
-		s.cfg.CheckinWindowEnd = windowEnd
-	}
-	s.cfg.CheckinScheduleMode = mode
-	s.cfg.CheckinIntervalHours = config.ClampInt(intervalHours, 1, 24)
+	clampedHours := config.ClampInt(intervalHours, 1, 24)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) {
+		if mode == "cron" {
+			r.CheckinCron = cronExpr
+		}
+		if mode == "window" {
+			r.CheckinWindowStart = windowStart
+			r.CheckinWindowEnd = windowEnd
+		}
+		r.CheckinScheduleMode = mode
+		r.CheckinIntervalHours = clampedHours
+	})
 	// #1027: a schedule update while check-in is globally disabled must
 	// persist the new schedule without silently re-arming the runner.
-	if s.cfg.CheckinDisabled {
+	if config.Runtime().CheckinDisabled {
 		return nil
 	}
 	s.startLocked()
@@ -359,7 +368,7 @@ func (s *CheckinScheduler) UpdateCheckinSchedule(mode, cronExpr string, interval
 func (s *CheckinScheduler) SetEnabled(enabled bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.cfg.CheckinDisabled = !enabled
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinDisabled = !enabled })
 	if !enabled {
 		s.stopLocked()
 		slog.Info("checkin scheduler disabled (checkinEnabled=false)")
@@ -471,7 +480,7 @@ func (s *CheckinScheduler) runIntervalPassLocked(dbw *store.DB) {
 // filterDue mirrors TS selectDueIntervalCheckinAccountIds().
 func (s *CheckinScheduler) filterDue(rows []intervalCandidate, now time.Time) []int64 {
 	nowMs := now.UnixMilli()
-	intervalHours := config.ClampInt(s.cfg.CheckinIntervalHours, 1, 24)
+	intervalHours := config.ClampInt(config.Runtime().CheckinIntervalHours, 1, 24)
 	intervalMs := int64(intervalHours) * 3600 * 1000
 
 	s.mu.Lock()

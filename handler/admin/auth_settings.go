@@ -15,8 +15,8 @@ import (
 
 // RegisterAuthSettingsRoutes registers all /api/settings/auth routes.
 // sessions may be nil (tests): rotation then skips session revocation.
-func RegisterAuthSettingsRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config, sessions *auth.SessionManager) {
-	handler := &authSettingsHandler{db: db, cfg: cfg, sessions: sessions}
+func RegisterAuthSettingsRoutes(r chi.Router, db *sqlx.DB, sessions *auth.SessionManager) {
+	handler := &authSettingsHandler{db: db, sessions: sessions}
 
 	r.Get("/api/settings/auth/info", handler.getInfo)
 	r.Post("/api/settings/auth/change", handler.changeToken)
@@ -24,13 +24,12 @@ func RegisterAuthSettingsRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config, s
 
 type authSettingsHandler struct {
 	db       *sqlx.DB
-	cfg      *config.Config
 	sessions *auth.SessionManager
 }
 
 // GET /api/settings/auth/info
 func (h *authSettingsHandler) getInfo(w http.ResponseWriter, r *http.Request) {
-	token := h.cfg.AuthToken
+	token := config.Runtime().AuthToken
 	var masked string
 	if len(token) > 8 {
 		masked = token[:4] + "****" + token[len(token)-4:]
@@ -67,7 +66,7 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	// Constant-time compare (matches AdminAuth middleware). Reject unequal
 	// lengths after a dummy compare so length mismatches do not short-circuit
 	// before crypto/subtle.ConstantTimeCompare.
-	if !constantTimeTokenEqual(body.OldToken, h.cfg.AuthToken) {
+	if !constantTimeTokenEqual(body.OldToken, config.Runtime().AuthToken) {
 		writeError(w, http.StatusForbidden, "Old token verification failed")
 		return
 	}
@@ -82,8 +81,9 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 		h.db.Exec(h.db.Rebind("INSERT INTO settings (key, value) VALUES (?, ?)"), "auth_token", jsonQuote(body.NewToken))
 	}
 
-	// Update runtime config
-	h.cfg.AuthToken = body.NewToken
+	// Publish the rotated token atomically; every subsequent admin/proxy
+	// auth check sees the new value without a restart.
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.AuthToken = body.NewToken })
 
 	// #1034: every session was minted against the OLD master token. Revoke
 	// them all — rotation must end every live admin session, full stop.

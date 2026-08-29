@@ -30,8 +30,8 @@ type checkinScheduleState struct {
 	WindowEnd   string
 }
 
-func applyCheckinScheduleSettings(db *sqlx.DB, cfg *config.Config, patch checkinSchedulePatch) (checkinScheduleState, error) {
-	state := resolveCheckinScheduleState(cfg, patch)
+func applyCheckinScheduleSettings(db *sqlx.DB, rt *config.RuntimeSettings, patch checkinSchedulePatch) (checkinScheduleState, error) {
+	state := resolveCheckinScheduleState(rt, patch)
 	if state.Mode == "" {
 		return checkinScheduleState{}, fmt.Errorf("mode must be cron, interval or window")
 	}
@@ -102,24 +102,26 @@ func applyCheckinScheduleSettings(db *sqlx.DB, cfg *config.Config, patch checkin
 		return checkinScheduleState{}, fmt.Errorf("settings: commit checkin schedule update: %w", err)
 	}
 
-	cfg.CheckinScheduleMode = state.Mode
-	cfg.CheckinCron = state.Cron
-	cfg.CheckinIntervalHours = state.IntervalHours
-	cfg.CheckinWindowStart = state.WindowStart
-	cfg.CheckinWindowEnd = state.WindowEnd
+	config.UpdateRuntime(func(r *config.RuntimeSettings) {
+		r.CheckinScheduleMode = state.Mode
+		r.CheckinCron = state.Cron
+		r.CheckinIntervalHours = state.IntervalHours
+		r.CheckinWindowStart = state.WindowStart
+		r.CheckinWindowEnd = state.WindowEnd
+	})
 	if err := app.UpdateCheckinSchedule(state.Mode, state.Cron, state.IntervalHours, state.WindowStart, state.WindowEnd); err != nil {
 		return checkinScheduleState{}, fmt.Errorf("settings: apply checkin schedule runtime update: %w", err)
 	}
 	return state, nil
 }
 
-func resolveCheckinScheduleState(cfg *config.Config, patch checkinSchedulePatch) checkinScheduleState {
-	mode := normalizeCheckinScheduleMode(cfg.CheckinScheduleMode)
+func resolveCheckinScheduleState(rt *config.RuntimeSettings, patch checkinSchedulePatch) checkinScheduleState {
+	mode := normalizeCheckinScheduleMode(rt.CheckinScheduleMode)
 	if patch.Mode != nil {
 		mode = normalizeCheckinScheduleMode(*patch.Mode)
 	}
 
-	cron := strings.TrimSpace(cfg.CheckinCron)
+	cron := strings.TrimSpace(rt.CheckinCron)
 	if cron == "" {
 		cron = config.DefaultCheckinCron
 	}
@@ -127,7 +129,7 @@ func resolveCheckinScheduleState(cfg *config.Config, patch checkinSchedulePatch)
 		cron = strings.TrimSpace(*patch.Cron)
 	}
 
-	intervalHours := cfg.CheckinIntervalHours
+	intervalHours := rt.CheckinIntervalHours
 	if intervalHours < 1 || intervalHours > 24 {
 		intervalHours = config.DefaultCheckinIntervalHours
 	}
@@ -136,14 +138,14 @@ func resolveCheckinScheduleState(cfg *config.Config, patch checkinSchedulePatch)
 	}
 
 	// E1: window bounds (HH:mm), env defaults when unset.
-	windowStart := strings.TrimSpace(cfg.CheckinWindowStart)
+	windowStart := strings.TrimSpace(rt.CheckinWindowStart)
 	if windowStart == "" {
 		windowStart = "00:00"
 	}
 	if patch.WindowStart != nil {
 		windowStart = strings.TrimSpace(*patch.WindowStart)
 	}
-	windowEnd := strings.TrimSpace(cfg.CheckinWindowEnd)
+	windowEnd := strings.TrimSpace(rt.CheckinWindowEnd)
 	if windowEnd == "" {
 		windowEnd = "23:59"
 	}
@@ -188,13 +190,13 @@ func upsertSettingTx(db *sqlx.DB, tx *sqlx.Tx, key string, value any) error {
 
 // scheduleSpecForCheckin derives the semantic ScheduleSpec shown by GET
 // /api/settings/runtime for the checkin task, honouring its mode.
-func scheduleSpecForCheckin(cfg *config.Config) scheduler.ScheduleSpec {
-	switch cfg.CheckinScheduleMode {
+func scheduleSpecForCheckin(rt *config.RuntimeSettings) scheduler.ScheduleSpec {
+	switch rt.CheckinScheduleMode {
 	case "window":
-		return scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "window", WindowStart: cfg.CheckinWindowStart, WindowEnd: cfg.CheckinWindowEnd, Cron: cfg.CheckinCron}
+		return scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "window", WindowStart: rt.CheckinWindowStart, WindowEnd: rt.CheckinWindowEnd, Cron: rt.CheckinCron}
 	case "interval":
-		return scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "interval", EveryHours: cfg.CheckinIntervalHours, Cron: cfg.CheckinCron}
+		return scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "interval", EveryHours: rt.CheckinIntervalHours, Cron: rt.CheckinCron}
 	default:
-		return scheduler.CronToSchedule(cfg.CheckinCron)
+		return scheduler.CronToSchedule(rt.CheckinCron)
 	}
 }

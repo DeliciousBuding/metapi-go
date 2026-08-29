@@ -41,7 +41,7 @@ func ConfigureProxyUpstream(cfg *config.Config) error {
 	// Keep client timeout at least as large as the first-byte window so the
 	// client does not pre-empt first-byte observation.
 	requestTimeout := 90 * time.Second
-	if firstByteMs := proxy.FirstByteTimeoutMs(cfg.ProxyFirstByteTimeoutSec); firstByteMs > 0 {
+	if firstByteMs := proxy.FirstByteTimeoutMs(config.Runtime().ProxyFirstByteTimeoutSec); firstByteMs > 0 {
 		fb := time.Duration(firstByteMs) * time.Millisecond
 		// Ceiling: max(90s, first-byte*2) so multi-endpoint fallback can still complete.
 		if doubled := fb * 2; doubled > requestTimeout {

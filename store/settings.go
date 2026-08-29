@@ -228,7 +228,7 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 
 		// Model probe
 		case "model_availability_probe_enabled":
-			cfg.ModelAvailabilityProbeEnabled = parseBoolSetting(value, cfg.ModelAvailabilityProbeEnabled)
+			rt.ModelAvailabilityProbeEnabled = parseBoolSetting(value, rt.ModelAvailabilityProbeEnabled)
 
 		// Codex
 		case "codex_upstream_websocket_enabled":

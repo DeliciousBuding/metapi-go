@@ -521,8 +521,7 @@ func SelectedChannelSupportsCodexWebsocketTransport(platform string, accountExtr
 	if strings.ToLower(strings.TrimSpace(platform)) != "codex" {
 		return false
 	}
-	cfg := safeConfigGet()
-	if cfg == nil || !cfg.CodexUpstreamWebsocketEnabled {
+	if rt := config.RuntimeSafe(); rt == nil || !rt.CodexUpstreamWebsocketEnabled {
 		return false
 	}
 	if accountExtraConfig == nil || strings.TrimSpace(*accountExtraConfig) == "" {

@@ -116,7 +116,7 @@ func (s *ModelProbeScheduler) Start(ctx context.Context) error {
 	// even when the background ticker is disabled.
 	SetGlobalModelProbeScheduler(s)
 
-	if !s.cfg.ModelAvailabilityProbeEnabled {
+	if !config.Runtime().ModelAvailabilityProbeEnabled {
 		slog.Info("model-probe: disabled (probe not enabled)")
 		return nil
 	}
@@ -148,7 +148,7 @@ func (s *ModelProbeScheduler) Stop() error {
 func (s *ModelProbeScheduler) SetEnabled(enabled bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.cfg.ModelAvailabilityProbeEnabled = enabled
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelAvailabilityProbeEnabled = enabled })
 	if !enabled {
 		slog.Info("model-probe: disabled at runtime (probe not enabled)")
 		return s.runner.stop()

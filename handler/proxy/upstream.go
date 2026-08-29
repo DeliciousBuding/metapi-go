@@ -221,7 +221,7 @@ func reportProxyAllFailed(model, reason string) {
 	if db == nil {
 		return
 	}
-	alert.ReportProxyAllFailed(config.GetSafe(), db.DB, alert.ProxyAllFailedParams{Model: model, Reason: reason})
+	alert.ReportProxyAllFailed(config.RuntimeSafe(), db.DB, alert.ProxyAllFailedParams{Model: model, Reason: reason})
 }
 
 // observeProxyTerminal records labeled counters, latency histogram, and optional export hook.
@@ -281,18 +281,20 @@ func dispatchSelectedUpstream(
 	if upstreamModel == "" {
 		upstreamModel = ctx.RequestedModel
 	}
-	runtimeCfg := config.Get()
+	staticCfg := config.Get()
 	// Proxy selection: key proxy > account > site > system > direct
 	// See proxy.KeyProxyPrecedence.
-	proxyConfig := service.BuildPlatformProxyConfig(runtimeCfg, &selected.Account, &selected.Site)
+	proxyConfig := service.BuildPlatformProxyConfig(staticCfg, &selected.Account, &selected.Site)
 	if ctx != nil && ctx.Auth != nil {
 		proxyConfig = proxy.ApplyKeyProxyOverride(proxyConfig, ctx.Auth.ProxyURL)
 	}
+	// Runtime-mutable knobs come from the atomic settings snapshot so a
+	// live settings change applies on the very next request.
 	firstByteTimeoutMs := int64(0)
 	disableCrossProtocolFallback := false
-	if runtimeCfg != nil {
-		firstByteTimeoutMs = proxy.FirstByteTimeoutMs(runtimeCfg.ProxyFirstByteTimeoutSec)
-		disableCrossProtocolFallback = runtimeCfg.DisableCrossProtocolFallback
+	if rt := config.RuntimeSafe(); rt != nil {
+		firstByteTimeoutMs = proxy.FirstByteTimeoutMs(rt.ProxyFirstByteTimeoutSec)
+		disableCrossProtocolFallback = rt.DisableCrossProtocolFallback
 	}
 
 	contentType := "application/json"

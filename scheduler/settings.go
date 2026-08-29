@@ -119,21 +119,21 @@ func toISOTime(t time.Time) string {
 
 // resolveCheckinScheduleMode reads the checkin schedule mode from config and DB.
 // Returns "cron", "interval", or "window" (E1).
-func resolveCheckinScheduleMode(cfg *config.Config) string {
+func resolveCheckinScheduleMode(rt *config.RuntimeSettings) string {
 	db := store.GetDB()
 	if db == nil {
-		return cfg.CheckinScheduleMode
+		return rt.CheckinScheduleMode
 	}
 
 	settingsStore := store.NewSettingsStore(db)
 	raw, err := settingsStore.Get("checkin_schedule_mode")
 	if err != nil || raw == "" {
-		return cfg.CheckinScheduleMode
+		return rt.CheckinScheduleMode
 	}
 
 	var value string
 	if err := json.Unmarshal([]byte(raw), &value); err != nil {
-		return cfg.CheckinScheduleMode
+		return rt.CheckinScheduleMode
 	}
 
 	value = strings.TrimSpace(strings.ToLower(value))
