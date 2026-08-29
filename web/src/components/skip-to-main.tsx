@@ -14,7 +14,7 @@ export function SkipToMain() {
       href='#content'
       className={cn(
         'bg-background text-foreground',
-        'focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2',
+        'focus-visible:ring-focus-ring focus-visible:ring-2 focus-visible:ring-offset-2',
         'pointer-events-none absolute left-4 top-4 z-[100]',
         '-translate-y-20 rounded-md border px-4 py-2 text-sm font-medium shadow-md',
         'transition-transform duration-150',
