@@ -5,6 +5,12 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-30 — S7 undo 档收官，#1035 S1–S10 全部关闭
+
+- **删除+undo 档（#1097）**：新增共享 `web/src/lib/undoable-delete.ts`——Gmail 式延迟删除（乐观移除 + 6s 撤销 toast + 快照恢复；真实 DELETE 仅在窗口关闭后触发；失败恢复快照 + 错误 toast；`alsoInvalidate` 覆盖父列表）。接入五处叶子删除：模型重定向、目录源、令牌路由、下游 API 密钥、账号令牌（各删确认弹窗）。保留原档：批量（计数确认）、factory reset（typed-confirm）、站点/账号级联删除（确认）、OAuth 连接（确认 + 既有跨页乐观回滚，注释例外）。四档规约入 DESIGN.md §4.1。lib 契约测试 ×7 + 各流改写为 undo 契约钉；seeded 实例端到端验证（行 4→3→4）。
+- **#1035 关闭**：S1–S10 全部交付（S7 三态 #1084 + undo #1097；S8 #1090+#1095；S10 #1087+#1092）。
+- **工程教训**：① sonnet mock 的 toast 捕获跨测试必须 mockClear（否则拿到上一个测试的回调写死 client）；② i18n-keys 静态扫描会抓 JSDoc 里的 `t('...')` 示例——文档注释避免 t() 调用形态；③ oxlint `no-non-null-assertion` 为 error 级（CI），测试里用 `as T` 替代 `!`。
+
 ## 2026-08-30 — S8 section-registry 三合一
 
 - **三克隆合一（#1095）**：settings/dashboard/observability 三份近乎相同的 `createSectionRegistry`（86/83/60 行，差异仅类型名 + URL 约定）收敛为 `web/src/lib/section-registry.ts` 单工厂——`urlStyle: 'path'|'query'` 承载两种 URL 形态，settings 的 readonly 导航 badge 并入共享 SectionDefinition；7 个调用点改引 `@/lib`，净 -101 行；settings 本地测试迁至 lib 并补 query-style + readonly 透传覆盖。seeded 实例三形态导航 smoke 通过。至此 #1035 S8 全销（巨型文件拆解 #1090 + registry 合一），S 系列仅剩 S7 四档分级 + undo。

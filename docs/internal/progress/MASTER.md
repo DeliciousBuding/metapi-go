@@ -14,7 +14,7 @@
 
 | # | 内容 | 建议验收 |
 |---|---|---|
-| C4 | **#1035 剩余专题**：仅剩 **S7 四档分级 + undo**（三态集中化已交付 #1084；S8 巨型文件拆解 #1090 + section-registry 三合一 #1095、S10 图表摘要 #1087 + 双语 parity 门禁 #1092、S2/S4/S5/S6/S9 均已交付） | 四档行为分级落地 + undo 端到端 |
+| C4 | ~~#1035 结构性专题 S1–S10~~ **全部交付，issue 已关闭**（S7 收官 #1097：undo 档 helper + 五处叶子删除接入 + DESIGN.md §4.1 四档规约） | — |
 
 F3（后端告警文案 i18n）已交付（#1091，2026-08-30）：新增共享模块 `web/src/lib/attention-label.ts`（AttentionItem/AttentionResponse 类型 + 8 事件标题键映射 + attentionLabel），attention-bell 与 availability-section 共用、删两份本地副本；en/zh-CN 补 7 事件标题键；params 缺失/未知类别回退裸 label（诚实残留）。双语端到端截图验证通过（铃铛弹层 + availability 面板 zh-CN/en）。F2（site-form 抽屉迁移）已交付（#1082）：居中 Dialog → 右侧 Sheet。F4（docs/api.md 超预算拆分）已交付（2026-08-30）：`docs/api.md` 保留为索引，按域拆为 `docs/api/*.md` 17 个文件，全部原有 H2/H3 标题以 stub 承接、旧 anchor 落位。
 
