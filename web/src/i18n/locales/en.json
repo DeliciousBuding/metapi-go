@@ -71,7 +71,6 @@
     },
     "common": {
       "skipToMain": "Skip to main content",
-      "confirm": "Confirm",
       "cancel": "Cancel",
       "save": "Save",
       "delete": "Delete",
@@ -91,7 +90,6 @@
         "en": "English",
         "zhCN": "简体中文"
       },
-      "morePages": "More pages",
       "hideSecret": "Hide secret",
       "revealSecret": "Reveal secret",
       "copySecret": "Copy secret",
@@ -240,8 +238,6 @@
         "channelsLoadError": "Failed to load channels: {{message}}",
         "modelPlaceholder": "Select a model",
         "channel": "Channel",
-        "channelNone": "No channel (default routing)",
-        "channelHint": "Run the test against a specific channel. Leave empty to use default routing.",
         "compareChannels": "Compare channels",
         "compareChannelsHint": "Run the same prompt across several channels and compare latency.",
         "compareChannelsLabel": "Channels to compare",
@@ -789,7 +785,6 @@
           "checkinSucceeded": "succeeded",
           "checkinSkipped": "skipped",
           "proxy24h": "Proxy 24h",
-          "proxy24hHint": "{{success}} ok · {{rpm}}/min",
           "proxy24hHintRpm": "{{success}} ok · {{rpm}} req/min (last 60s)"
         },
         "error": {
@@ -801,7 +796,6 @@
           "totalBalance": "Total balance",
           "vs7d": "vs 7d ago",
           "vs7dUnavailable": "Balance history spans less than 7 days; comparison unavailable",
-          "checkinSuccess": "Successful check-ins today",
           "attention": "Needs attention",
           "attentionOpen": "Open availability",
           "availability": "Availability"
@@ -1046,9 +1040,6 @@
             "footer": "Footer text",
             "footerPlaceholder": "© 2026 Your Company",
             "about": "About",
-            "homePageContent": "Home page content",
-            "homePageContentHint": "Markdown supported; rendered on the landing page.",
-            "homePageContentPlaceholder": "Write your landing page content…",
             "serverAddress": "Server address",
             "serverAddressHint": "Public gateway address shown to downstream users (used in onboarding guides and generated docs)."
           },
@@ -1151,7 +1142,6 @@
         "allowlist": {
           "title": "Allowlist & Brand Blocking",
           "description": "Global allowed models and globally blocked brands.",
-          "allowAll": "(empty = allow all)",
           "addPlaceholder": "Add a model name and press Enter",
           "loadingBrands": "Loading brand list…",
           "noBrands": "No brands available.",
@@ -1193,7 +1183,6 @@
           "neverSynced": "Never synced",
           "modelCount": "{{count}} models",
           "syncNow": "Sync now",
-          "syncing": "Syncing…",
           "edit": "Edit",
           "delete": "Delete",
           "editTitle": "Edit source",
@@ -1217,15 +1206,12 @@
           "toast": {
             "syncSucceeded": "Sync completed: {{count}} models.",
             "syncFailed": "Sync failed: {{message}}",
-            "syncBusy": "A sync is already in progress. Please try again later.",
-            "created": "Source added.",
             "updated": "Source updated.",
             "deleted": "Source deleted.",
             "autoSyncOn": "Auto-sync turned on.",
             "autoSyncOff": "Auto-sync turned off.",
             "saveFailed": "Failed to save source: {{message}}",
             "deleteFailed": "Failed to delete source: {{message}}",
-            "loadFailed": "Failed to load sources: {{message}}",
             "disabled": "The pricing catalog is not enabled (PRICING_CATALOG_ENABLED=false)."
           },
           "dragToReorder": "Drag to reorder",
@@ -2652,12 +2638,10 @@
     "Filter...": "Filter…",
     "Reset": "Reset",
     "Search": "Search",
-    "View": "View",
     "columnSettings": "Columns",
     "Toggle columns": "Toggle columns",
     "selected": "selected",
     "No results found.": "No results found.",
-    "Press Enter to use \"{{value}}\"": "Press Enter to use \"{{value}}\"",
     "Clear filters": "Clear filters",
     "Clear search": "Clear search",
     "Clear selection": "Clear selection",
@@ -3036,7 +3020,6 @@
         "avgLatency": "Average latency",
         "cooldownUntil": "Cooldown until",
         "manualOverride": "Manual override",
-        "manualOverrideActive": "Active",
         "manualOverrideNone": "None",
         "notAvailable": "—",
         "clearRouteCooldown": "Clear route cooldown",
