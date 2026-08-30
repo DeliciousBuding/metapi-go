@@ -71,7 +71,6 @@
     },
     "common": {
       "skipToMain": "跳转到主要内容",
-      "confirm": "确定",
       "cancel": "取消",
       "save": "保存",
       "delete": "删除",
@@ -91,7 +90,6 @@
         "en": "English",
         "zhCN": "简体中文"
       },
-      "morePages": "更多页",
       "hideSecret": "隐藏密钥",
       "revealSecret": "显示密钥",
       "copySecret": "复制密钥",
@@ -240,8 +238,6 @@
         "channelsLoadError": "加载渠道失败：{{message}}",
         "modelPlaceholder": "选择模型",
         "channel": "渠道",
-        "channelNone": "不指定渠道（默认路由）",
-        "channelHint": "针对指定渠道发起测试。留空则使用默认路由。",
         "compareChannels": "对比渠道",
         "compareChannelsHint": "用同一提示词在多个渠道上运行并对比延迟。",
         "compareChannelsLabel": "待对比渠道",
@@ -789,7 +785,6 @@
           "checkinSucceeded": "成功",
           "checkinSkipped": "跳过",
           "proxy24h": "代理 24h",
-          "proxy24hHint": "{{success}} 成功 · {{rpm}}/分",
           "proxy24hHintRpm": "{{success}} 成功 · {{rpm}} 请求/分（近 60 秒）"
         },
         "error": {
@@ -801,7 +796,6 @@
           "totalBalance": "总余额",
           "vs7d": "较 7 天前",
           "vs7dUnavailable": "余额历史不足 7 天，暂无法计算环比",
-          "checkinSuccess": "今日签到成功",
           "attention": "待处理",
           "attentionOpen": "打开可用性",
           "availability": "可用性"
@@ -1046,9 +1040,6 @@
             "footer": "页脚文本",
             "footerPlaceholder": "© 2026 公司名称",
             "about": "关于",
-            "homePageContent": "首页内容",
-            "homePageContentHint": "支持 Markdown；渲染在落地页。",
-            "homePageContentPlaceholder": "编写你的落地页内容…",
             "serverAddress": "服务器地址",
             "serverAddressHint": "展示给下游用户的网关公开地址（用于接入指引与文档生成）。"
           },
@@ -1151,7 +1142,6 @@
         "allowlist": {
           "title": "白名单与品牌屏蔽",
           "description": "全局允许的模型与全局屏蔽的品牌。",
-          "allowAll": "（留空 = 允许全部）",
           "addPlaceholder": "输入模型名并回车添加",
           "loadingBrands": "加载品牌列表…",
           "noBrands": "无可用品牌。",
@@ -1192,7 +1182,6 @@
           "neverSynced": "从未同步",
           "modelCount": "{{count}} 条模型",
           "syncNow": "立即同步",
-          "syncing": "同步中…",
           "edit": "编辑",
           "delete": "删除",
           "editTitle": "编辑数据源",
@@ -1216,15 +1205,12 @@
           "toast": {
             "syncSucceeded": "同步完成：{{count}} 条模型。",
             "syncFailed": "同步失败：{{message}}",
-            "syncBusy": "同步正在进行中，请稍后再试。",
-            "created": "数据源已添加。",
             "updated": "数据源已更新。",
             "deleted": "数据源已删除。",
             "autoSyncOn": "自动同步已开启。",
             "autoSyncOff": "自动同步已关闭。",
             "saveFailed": "保存失败：{{message}}",
             "deleteFailed": "删除失败：{{message}}",
-            "loadFailed": "加载数据源失败：{{message}}",
             "disabled": "价格目录未启用（PRICING_CATALOG_ENABLED=false）。"
           },
           "dragToReorder": "拖拽调整顺序",
@@ -2651,12 +2637,10 @@
     "Filter...": "筛选…",
     "Reset": "重置",
     "Search": "搜索",
-    "View": "查看",
     "columnSettings": "列设置",
     "Toggle columns": "切换列",
     "selected": "已选",
     "No results found.": "未找到结果。",
-    "Press Enter to use \"{{value}}\"": "按回车使用「{{value}}」",
     "Clear filters": "清除筛选",
     "Clear search": "清除搜索",
     "Clear selection": "清除选择",
@@ -3035,7 +3019,6 @@
         "avgLatency": "平均延迟",
         "cooldownUntil": "冷却至",
         "manualOverride": "手动覆盖",
-        "manualOverrideActive": "已启用",
         "manualOverrideNone": "无",
         "notAvailable": "—",
         "clearRouteCooldown": "清除路由冷却",

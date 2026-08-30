@@ -234,10 +234,10 @@ export function ChannelDetailSheet({
                 </DetailField>
                 <DetailField label={t('channels.detail.manualOverride')} full>
                   {channel.manualOverride
-                    ? // "Set by the operator", not "enabled" — the old
-                      // manualOverrideActive value read "已启用", which
-                      // contradicts the "已手动停用" status badge of a
-                      // manually disabled channel in the same grid.
+                    ? // "Set by the operator", not "enabled" — the previous
+                      // label read "已启用", which contradicts the
+                      // "已手动停用" status badge of a manually disabled
+                      // channel in the same grid.
                       t('channels.detail.manualOverrideSetActive')
                     : t('channels.detail.manualOverrideNone')}
                 </DetailField>
