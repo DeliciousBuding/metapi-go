@@ -24,6 +24,14 @@ type SettingsSectionCardProps = {
 /**
  * Card shell with a translated title + description. Header actions (test /
  * save) render right-aligned so long sections stay scannable.
+ *
+ * The header is omitted entirely when `actions` is absent: every section's
+ * title + description already render in the SettingsPage page header (the
+ * single h1, fed from the same i18n keys), so a headerless card avoids the
+ * duplicated "title / same description twice" stack that single-card
+ * sections used to show. Cards with actions keep their header — the buttons
+ * need a host and the h2 keeps the card identifiable when it shares the
+ * page with other content.
  */
 export function SettingsSectionCard({
   title,
@@ -33,19 +41,21 @@ export function SettingsSectionCard({
 }: SettingsSectionCardProps) {
   return (
     <Card>
-      <CardHeader className='flex flex-row items-start justify-between gap-4'>
-        <div className='space-y-1'>
-          {/* h2: the unique page-level h1 lives in the SettingsPage header
-              (single-h1 discipline, wave 8 lane C); card titles are L2. */}
-          <h2 className='text-base leading-snug font-medium group-data-[size=sm]/card:text-sm'>
-            {title}
-          </h2>
-          {description ? (
-            <CardDescription>{description}</CardDescription>
-          ) : null}
-        </div>
-        {actions ? <div className='flex shrink-0 gap-2'>{actions}</div> : null}
-      </CardHeader>
+      {actions ? (
+        <CardHeader className='flex flex-row items-start justify-between gap-4'>
+          <div className='space-y-1'>
+            {/* h2: the unique page-level h1 lives in the SettingsPage header
+                (single-h1 discipline, wave 8 lane C); card titles are L2. */}
+            <h2 className='text-base leading-snug font-medium group-data-[size=sm]/card:text-sm'>
+              {title}
+            </h2>
+            {description ? (
+              <CardDescription>{description}</CardDescription>
+            ) : null}
+          </div>
+          <div className='flex shrink-0 gap-2'>{actions}</div>
+        </CardHeader>
+      ) : null}
       <CardContent>{children}</CardContent>
     </Card>
   )

@@ -194,7 +194,12 @@ describe('DatabaseMigrationSection — form and confirm flow', () => {
   it('renders with a postgres default target when the live runtime is sqlite', async () => {
     renderMigrationSection()
 
-    expect(await screen.findByText('Data migration')).toBeInTheDocument()
+    // The card header is omitted for action-less sections (title/description
+    // live in the page header), so the inline wipe warning is the stable
+    // first-render anchor here.
+    expect(
+      await screen.findByText(/Existing data in the target database/)
+    ).toBeInTheDocument()
     expect(
       screen.getByText('Migration source (live runtime database)')
     ).toBeInTheDocument()

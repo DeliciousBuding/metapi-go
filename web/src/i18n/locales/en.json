@@ -1748,6 +1748,7 @@
           "migration": {
             "title": "Data migration",
             "description": "Copy all data from the live runtime database to a target database; the migration runs as a background task. Existing target data will be wiped. Do not restart the server during migration.",
+            "warning": "Existing data in the target database will be wiped. Do not restart the server during migration.",
             "sourceLabel": "Migration source (live runtime database)",
             "fields": {
               "dialect": "Target dialect",
