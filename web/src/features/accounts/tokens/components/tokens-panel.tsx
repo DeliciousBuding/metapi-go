@@ -14,14 +14,6 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
   Form,
   FormControl,
   FormDescription,
@@ -35,14 +27,18 @@ import { SecretField } from '@/components/ui/secret-field'
 import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
+import { api } from '@/lib/api'
+import { assertBusinessOk } from '@/lib/assert-business-ok'
 import { toast } from '@/lib/toast'
+import { useUndoableDelete } from '@/lib/undoable-delete'
 import { cn } from '@/lib/utils'
 
+import { accountQueryKeys } from '../../api'
 import type { AccountToken } from '../../types'
 import {
+  accountTokenQueryKeys,
   useAccountTokens,
   useCreateAccountToken,
-  useDeleteAccountToken,
   useSetDefaultAccountToken,
   useSyncAccountTokens,
   useToggleAccountTokenEnabled,
@@ -71,13 +67,30 @@ export function TokensPanel({
   const { t } = useTranslation()
   const { data: tokens = [], isLoading } = useAccountTokens(accountId)
   const syncMutation = useSyncAccountTokens()
-  const deleteMutation = useDeleteAccountToken()
   const setDefaultMutation = useSetDefaultAccountToken()
   const toggleEnabledMutation = useToggleAccountTokenEnabled()
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingToken, setEditingToken] = useState<AccountToken | null>(null)
-  const [deletingToken, setDeletingToken] = useState<AccountToken | null>(null)
+
+  // S7 删除+undo 档: token delete is leaf — no confirm dialog; the row
+  // leaves immediately and a 6s undo toast gates the real DELETE.
+  const undoableDelete = useUndoableDelete()
+  const deleteToken = (token: AccountToken) =>
+    undoableDelete<AccountToken[], AccountToken>({
+      item: token,
+      queryKey: accountTokenQueryKeys.list(accountId),
+      removeFromCache: (data, target) =>
+        data.filter((entry) => entry.id !== target.id),
+      deleteFn: async (target) => {
+        const result = await api.deleteAccountToken(target.id)
+        assertBusinessOk(result, 'accounts.tokens.toast.deleteFailed')
+      },
+      title: t('accounts.tokens.toast.deleted'),
+      undoLabel: t('common.undo'),
+      errorTitle: t('accounts.tokens.toast.deleteFailed'),
+      alsoInvalidate: [accountTokenQueryKeys.all, accountQueryKeys.all],
+    })
 
   const openCreateForm = () => {
     setEditingToken(null)
@@ -154,64 +167,16 @@ export function TokensPanel({
               key={token.id}
               token={token}
               onEdit={() => openEditForm(token)}
-              onDelete={() => setDeletingToken(token)}
+              onDelete={() => deleteToken(token)}
               onSetDefault={() => setDefaultMutation.mutate(token.id)}
               onToggleEnabled={(enabled) =>
                 toggleEnabledMutation.mutate({ id: token.id, enabled })
               }
-              isDeleting={deleteMutation.isPending}
               isToggling={toggleEnabledMutation.isPending}
             />
           ))}
         </ul>
       )}
-
-      <Dialog
-        open={deletingToken !== null}
-        onOpenChange={(open) => {
-          // Keep the dialog open until the delete settles: closing early
-          // hides the pending state and the failure toast would arrive with
-          // no visible context.
-          if (!open && !deleteMutation.isPending) {
-            setDeletingToken(null)
-          }
-        }}
-      >
-        <DialogContent className='sm:max-w-md'>
-          <DialogHeader>
-            <DialogTitle>
-              {t('accounts.tokens.deleteConfirm.title')}
-            </DialogTitle>
-            <DialogDescription>
-              {t('accounts.tokens.deleteConfirm.description', {
-                name: deletingToken?.name || t('accounts.tokens.unnamed'),
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant='outline'
-              onClick={() => setDeletingToken(null)}
-              disabled={deleteMutation.isPending}
-            >
-              {t('accounts.tokens.deleteConfirm.cancel')}
-            </Button>
-            <Button
-              variant='destructive'
-              disabled={deleteMutation.isPending}
-              onClick={() => {
-                if (!deletingToken) return
-                deleteMutation.mutate(deletingToken.id, {
-                  onSuccess: () => setDeletingToken(null),
-                })
-              }}
-            >
-              {deleteMutation.isPending && <Spinner />}
-              {t('accounts.tokens.deleteConfirm.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
@@ -226,7 +191,6 @@ interface TokenRowProps {
   onDelete: () => void
   onSetDefault: () => void
   onToggleEnabled: (enabled: boolean) => void
-  isDeleting: boolean
   isToggling: boolean
 }
 
@@ -236,7 +200,6 @@ function TokenRow({
   onDelete,
   onSetDefault,
   onToggleEnabled,
-  isDeleting,
   isToggling,
 }: TokenRowProps) {
   const { t } = useTranslation()
@@ -293,7 +256,6 @@ function TokenRow({
           variant='ghost'
           size='icon-sm'
           onClick={onDelete}
-          disabled={isDeleting}
           className={cn('text-muted-foreground hover:text-destructive')}
           title={t('accounts.tokens.delete')}
           aria-label={t('accounts.tokens.delete')}

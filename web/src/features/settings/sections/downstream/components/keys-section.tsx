@@ -11,7 +11,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -22,21 +22,13 @@ import { DataTablePage, useDataTable } from '@/components/data-table'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { useAccounts, useAllAccountTokens } from '@/features/accounts'
 import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
+import { useUndoableDelete } from '@/lib/undoable-delete'
 
 import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
@@ -59,9 +51,6 @@ export function KeysSection() {
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
   const [formDirty, setFormDirty] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<DownstreamApiKeyItem | null>(
-    null
-  )
   const [exportTarget, setExportTarget] =
     useState<CredentialExportTarget | null>(null)
 
@@ -159,18 +148,25 @@ export function KeysSection() {
       toast.error(t('settings.downstream.keys.toast.updateFailed')),
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => api.deleteDownstreamApiKey(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: downstreamKeysQueryKeys.all,
-      })
-      toast.success(t('settings.downstream.keys.toast.deleted'))
-      setDeleteTarget(null)
-    },
-    onError: () =>
-      toast.error(t('settings.downstream.keys.toast.deleteFailed')),
-  })
+  // S7 删除+undo 档: key revoke is leaf (no cascade) — no confirm dialog;
+  // the row leaves immediately and a 6s undo toast gates the real DELETE.
+  const undoableDelete = useUndoableDelete()
+  const deleteKey = useCallback(
+    (item: DownstreamApiKeyItem) =>
+      undoableDelete<DownstreamKeysResponse, DownstreamApiKeyItem>({
+        item,
+        queryKey: downstreamKeysQueryKeys.list(),
+        removeFromCache: (data, target) => ({
+          ...data,
+          items: data.items.filter((entry) => entry.id !== target.id),
+        }),
+        deleteFn: (target) => api.deleteDownstreamApiKey(target.id),
+        title: t('settings.downstream.keys.toast.deleted'),
+        undoLabel: t('common.undo'),
+        errorTitle: t('settings.downstream.keys.toast.deleteFailed'),
+      }),
+    [undoableDelete, t]
+  )
 
   const items = keysQuery.data?.items ?? []
   const isLoading = keysQuery.isLoading
@@ -289,7 +285,7 @@ export function KeysSection() {
               type='button'
               variant='ghost'
               size='sm'
-              onClick={() => setDeleteTarget(row.original)}
+              onClick={() => deleteKey(row.original)}
             >
               {t('settings.common.delete')}
             </Button>
@@ -297,7 +293,7 @@ export function KeysSection() {
         ),
       },
     ],
-    [t, toggleKeyPending, toggleKeyMutate, scopeNames]
+    [t, toggleKeyPending, toggleKeyMutate, scopeNames, deleteKey]
   )
 
   const { table } = useDataTable<DownstreamApiKeyItem>({
@@ -358,49 +354,6 @@ export function KeysSection() {
           {sheetDirtyGuard}
         </SheetContent>
       </Sheet>
-
-      <Dialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null)
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {t('settings.downstream.keys.deleteTitle')}
-            </DialogTitle>
-            <DialogDescription>
-              {t('settings.downstream.keys.deleteDescription', {
-                name: deleteTarget?.name ?? '',
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant='outline'
-              onClick={() => setDeleteTarget(null)}
-              disabled={deleteMutation.isPending}
-            >
-              {t('settings.common.cancel')}
-            </Button>
-            <Button
-              variant='destructive'
-              disabled={deleteMutation.isPending}
-              onClick={() => {
-                if (deleteTarget) {
-                  deleteMutation.mutate(deleteTarget.id)
-                }
-              }}
-            >
-              {deleteMutation.isPending && <Spinner />}
-              {t('settings.common.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <CredentialExportDialog
         target={exportTarget}

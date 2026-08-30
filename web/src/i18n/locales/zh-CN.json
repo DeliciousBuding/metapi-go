@@ -56,6 +56,7 @@
       "cancel": "取消",
       "save": "保存",
       "delete": "删除",
+      "undo": "撤销",
       "loading": "加载中…",
       "noResults": "无匹配结果",
       "noResultsDescription": "没有符合当前筛选条件的记录。",
@@ -1085,8 +1086,6 @@
           "apply": "应用",
           "applyTitle": "应用重定向？",
           "applyDescription": "应用后将从路由中移除失效的重定向。此操作无法撤销。",
-          "deleteTitle": "删除重定向",
-          "deleteDescription": "将删除重定向 {{canonical}} → {{actual}}。此操作无法撤销。",
           "promote": "转手动",
           "empty": "暂无模型重定向。点击「生成」扫描账号。",
           "columns": {
@@ -1196,8 +1195,6 @@
           "enabledLabel": "启用",
           "save": "保存",
           "cancel": "取消",
-          "deleteTitle": "删除数据源？",
-          "deleteDescription": "删除后该源不再参与目录合并。此操作不可撤销。",
           "snapshot": {
             "title": "当前合并快照",
             "source": "来源",
@@ -1315,8 +1312,6 @@
           "requests": "请求：{{used}} / {{max}}",
           "cost": "成本：{{used}} / {{max}}",
           "usage24h": "24h：{{requests}} 次 · {{tokens}} tokens · ${{cost}}",
-          "deleteTitle": "删除 API 密钥",
-          "deleteDescription": "删除密钥「{{name}}」？此操作不可撤销。",
           "columns": {
             "name": "名称",
             "group": "分组",
@@ -2034,12 +2029,6 @@
         "toggleEnabled": "启用/禁用令牌",
         "edit": "编辑",
         "delete": "删除",
-        "deleteConfirm": {
-          "title": "删除令牌？",
-          "description": "将删除令牌「{{name}}」，此操作不可撤销。",
-          "confirm": "删除",
-          "cancel": "取消"
-        },
         "form": {
           "invalid": "请检查令牌表单",
           "name": "令牌名称",
@@ -2123,8 +2112,6 @@
         "filterStatusEnabled": "启用",
         "filterStatusDisabled": "停用",
         "showZeroChannel": "显示零通道模型（账号有模型但未生成路由）",
-        "deleteTitle": "删除路由",
-        "deleteDescription": "确定删除路由「{{name}}」？该操作不可撤销，相关通道将一并清除。",
         "rebuildConfirmTitle": "重建路由？",
         "rebuildConfirmDescription": "将根据当前模型可用性重组现有路由的通道，实时路由可能发生变化。",
         "bulkEntityName": "路由",

@@ -18,26 +18,21 @@ import {
   useUrlTableState,
 } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { useAccounts } from '@/features/accounts/api'
 import { useChannels } from '@/features/channels/api'
 import { useSites } from '@/features/sites/api'
+import { api } from '@/lib/api'
+import { assertBusinessOk } from '@/lib/assert-business-ok'
 import { asStringParam } from '@/lib/helpers/searchParams'
+import { useUndoableDelete } from '@/lib/undoable-delete'
 
 import {
+  routeQueryKeys,
   type BatchRouteAction,
   useBatchUpdateRoutes,
   useClearRouteCooldown,
-  useDeleteRoute,
   useModelTokenCandidates,
   useRebuildRoutes,
   useRefreshRouteDecisions,
@@ -48,11 +43,7 @@ import {
 import { routesSearchSchema } from '../lib/routes-schema'
 import { useShowZeroChannelPreference } from '../lib/use-show-zero-channel'
 import type { RouteRowActions, RouteSummaryRow } from '../types'
-import {
-  isExplicitGroupRoute,
-  isExactModelPattern,
-  resolveRouteTitle,
-} from '../utils'
+import { isExplicitGroupRoute, isExactModelPattern } from '../utils'
 import { RouteDetailSheet } from './route-detail-sheet'
 import { RouteFormDialog, type RouteAccountOption } from './route-form-dialog'
 import { useRoutesColumns } from './routes-columns'
@@ -201,7 +192,6 @@ export function RoutesPage() {
   } = useRoutes()
   const candidatesQuery = useModelTokenCandidates()
 
-  const deleteMutation = useDeleteRoute()
   const updateMutation = useUpdateRoute()
   const clearCooldownMutation = useClearRouteCooldown()
   const rebuildMutation = useRebuildRoutes()
@@ -243,10 +233,6 @@ export function RoutesPage() {
   const [editRoute, setEditRoute] = useState<RouteSummaryRow | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailRoute, setDetailRoute] = useState<RouteSummaryRow | null>(null)
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteRouteState, setDeleteRoute] = useState<RouteSummaryRow | null>(
-    null
-  )
   const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false)
 
   // One-shot route drilldown (proxy-log detail -> `?routeId=N`): wait for
@@ -309,14 +295,32 @@ export function RoutesPage() {
     })
   }, [routerSearch, isLoading, routes, navigate, openEdit])
 
+  // S7 删除+undo 档: single route delete — no dialog; the row leaves
+  // immediately and a 6s undo toast gates the real DELETE.
+  const undoableDelete = useUndoableDelete()
+  const deleteRouteUndoable = useCallback(
+    (route: RouteSummaryRow) =>
+      undoableDelete<RouteSummaryRow[], RouteSummaryRow>({
+        item: route,
+        queryKey: routeQueryKeys.summary(),
+        removeFromCache: (data, item) =>
+          data.filter((entry) => entry.id !== item.id),
+        deleteFn: async (item) => {
+          const result = await api.deleteRoute(item.id)
+          assertBusinessOk(result, 'tokenRoutes.toast.deleteFailed')
+        },
+        title: t('tokenRoutes.toast.deleted'),
+        undoLabel: t('common.undo'),
+        errorTitle: t('tokenRoutes.toast.deleteFailed'),
+      }),
+    [undoableDelete, t]
+  )
+
   // Memoized so the column defs keep a stable identity across renders.
   const rowActions = useMemo<RouteRowActions>(
     () => ({
       onEdit: openEdit,
-      onDelete: (route) => {
-        setDeleteRoute(route)
-        setDeleteOpen(true)
-      },
+      onDelete: deleteRouteUndoable,
       onToggleEnabled: (route) =>
         updateMutation.mutate({
           id: route.id,
@@ -333,7 +337,13 @@ export function RoutesPage() {
         refreshDecisionsMutation.mutate()
       },
     }),
-    [openEdit, updateMutation, clearCooldownMutation, refreshDecisionsMutation]
+    [
+      openEdit,
+      deleteRouteUndoable,
+      updateMutation,
+      clearCooldownMutation,
+      refreshDecisionsMutation,
+    ]
   )
 
   const columns = useRoutesColumns(
@@ -401,17 +411,6 @@ export function RoutesPage() {
     const match = sitesList?.find((s) => s.id === siteId)
     return match?.name ?? `#${siteId}`
   }, [siteId, sitesList])
-
-  const confirmDelete = async () => {
-    if (!deleteRouteState) return
-    try {
-      await deleteMutation.mutateAsync(deleteRouteState.id)
-      setDeleteOpen(false)
-      setDeleteRoute(null)
-    } catch {
-      // http-client toasted
-    }
-  }
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
@@ -533,38 +532,6 @@ export function RoutesPage() {
           openEdit(route)
         }}
       />
-
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('tokenRoutes.page.deleteTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('tokenRoutes.page.deleteDescription', {
-                name: deleteRouteState
-                  ? resolveRouteTitle(deleteRouteState)
-                  : '',
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant='outline'
-              onClick={() => setDeleteOpen(false)}
-              disabled={deleteMutation.isPending}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              variant='destructive'
-              onClick={confirmDelete}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending && <Spinner />}
-              {t('common.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDialog
         open={rebuildConfirmOpen}
