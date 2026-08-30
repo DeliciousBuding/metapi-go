@@ -36,7 +36,7 @@ import {
 } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 import {
-  eventTitleKey,
+  eventTitleSlug,
   formatTimestamp,
   normalizeEvent,
   parseEventMessage,
@@ -66,10 +66,8 @@ function levelVariant(level?: string): 'default' | 'secondary' | 'destructive' {
 /** Localized event title: known backend titles map to i18n keys, the rest render as-is. */
 function EventTitle({ event }: { event: ProgramEvent }) {
   const { t } = useTranslation()
-  const key = eventTitleKey(event.title)
-  return key
-    ? t(`settings.operations.programLogs.eventTitles.${key}`)
-    : event.title
+  const slug = eventTitleSlug(event.title)
+  return slug ? t(`events.titles.${slug}`) : event.title
 }
 
 /**
