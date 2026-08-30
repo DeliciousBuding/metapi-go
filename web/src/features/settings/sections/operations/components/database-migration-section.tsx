@@ -5,6 +5,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -364,6 +365,15 @@ export function DatabaseMigrationSection() {
       description={t('settings.operations.database.migration.description')}
     >
       <div className='space-y-5'>
+        {/* Wipe/restart warning surfaced inline (it used to ride in the card
+            description, which is now page-header-only for headerless cards). */}
+        <div className='border-warning/40 bg-warning/5 flex items-start gap-2 rounded-lg border p-3'>
+          <TriangleAlert className='text-warning mt-0.5 size-4 shrink-0' />
+          <p className='text-muted-foreground text-xs'>
+            {t('settings.operations.database.migration.warning')}
+          </p>
+        </div>
+
         {activeConfig ? (
           <div className='bg-muted/25 rounded-lg border p-3'>
             <p className='text-muted-foreground text-xs font-medium'>
