@@ -5,6 +5,12 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-30 — 事件标题 i18n 统一（一份 map 一个 namespace）
+
+- **#1099**：两个界面（程序日志页 eventTitleKey、attention 管线 attention-label）各带一份事件标题映射 + 各自 locale 节——漂移源被 F3 scout 清点实证：7 个生产者标题（checkin success / Site enabled / token sync completed / runtime settings / admin token / model repaired / backup import）两边都没映射，中文 UI 裸渲染英文。收敛为 `web/src/lib/event-titles.ts` 单一 title→slug 映射（15 生产者；动态上游标题刻意不映射）+ 单一 locale 节 `events.titles.*`（删 programLogs.eventTitles.* 与 monitors.event* 两处重复翻译）。seeded 程序日志页双语截图验证。
+- **F3 scout 调研报告归档**（alert-i18n-scout-v2）：events 表存成品英文 title+message 的完整清单（17 写入点）、locale 来源查证（后端无 locale 上下文）、方案对比（推荐 A：产生时存 key+params、渲染时按 viewer locale；title 列保留为历史 fallback 零迁移）→ 登记 MASTER 开放项 **F5**（3-4 天评估，不阻塞）。
+- **backend-string-scout 清点报告归档**：attention 6 类 params 全部齐全（前端结构健康）；无 errorCode 硬编码英文错误 top 采样（admin toast 面 ~10 条 vs proxy 协议层明确不 i18n）；推送类文案（daily summary/checkin round/test notification）维持英文为设计边界。
+
 ## 2026-08-30 — S7 undo 档收官，#1035 S1–S10 全部关闭
 
 - **删除+undo 档（#1097）**：新增共享 `web/src/lib/undoable-delete.ts`——Gmail 式延迟删除（乐观移除 + 6s 撤销 toast + 快照恢复；真实 DELETE 仅在窗口关闭后触发；失败恢复快照 + 错误 toast；`alsoInvalidate` 覆盖父列表）。接入五处叶子删除：模型重定向、目录源、令牌路由、下游 API 密钥、账号令牌（各删确认弹窗）。保留原档：批量（计数确认）、factory reset（typed-confirm）、站点/账号级联删除（确认）、OAuth 连接（确认 + 既有跨页乐观回滚，注释例外）。四档规约入 DESIGN.md §4.1。lib 契约测试 ×7 + 各流改写为 undo 契约钉；seeded 实例端到端验证（行 4→3→4）。

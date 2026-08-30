@@ -25,6 +25,9 @@ All notable changes to Metapi-Go will be documented in this file.
 
 ### Changed
 
+- **事件标题 i18n 统一为单一映射 + 单一词条节（#1099）**：程序日志页与 attention 管线此前各带一份事件标题映射表和 locale 节（漂移源），7 个高频生产者标题（签到成功、站点启用、令牌同步完成、运行时设置更新、管理员令牌更新、模型修复、备份导入）两边均未映射而在中文界面裸显英文。现收敛为共享 `lib/event-titles.ts`（15 个已知生产者标题 → slug）+ 单一 locale 节 `events.titles.*`；未知/动态标题仍原文渲染（诚实残留）。
+
+
 - **section-registry 三克隆合一（#1095，#1035 S8）**：settings/dashboard/observability 各自的 `createSectionRegistry` 收敛为共享 `web/src/lib/section-registry.ts`（`urlStyle` 承载 path/query 两种 URL 形态）；行为不变，净 -101 行。
 
 
