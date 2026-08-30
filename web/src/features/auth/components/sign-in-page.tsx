@@ -57,7 +57,7 @@ export function SignInPage({ redirectTo, noticeReason }: SignInPageProps) {
         <CardHeader className='gap-2 text-center'>
           <img
             src={metapiIdentity.logoPath}
-            alt={metapiIdentity.name}
+            alt=''
             className='mx-auto size-12'
           />
           <h1 className='text-2xl font-normal tracking-tight'>

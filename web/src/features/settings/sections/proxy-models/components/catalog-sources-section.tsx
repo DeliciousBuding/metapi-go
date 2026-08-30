@@ -514,8 +514,16 @@ export function CatalogSourcesSection() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {/* Drag-handle column (reorder, Wave 9 Lane B). */}
-                    <TableHead className='w-7' />
+                    {/* Drag-handle column (reorder, Wave 9 Lane B). The
+                        header cell carries an sr-only label so table scans do
+                        not read an empty th (axe empty-table-header). */}
+                    <TableHead className='w-7'>
+                      <span className='sr-only'>
+                        {t(
+                          'settings.proxyModels.catalogSources.columns.reorderColumn'
+                        )}
+                      </span>
+                    </TableHead>
                     <TableHead>
                       {t('settings.proxyModels.catalogSources.columns.source')}
                     </TableHead>

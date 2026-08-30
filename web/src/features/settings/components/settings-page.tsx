@@ -45,7 +45,7 @@ export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
           </p>
         ) : null}
       </header>
-      <main className='min-w-0 flex-1'>
+      <div className='min-w-0 flex-1'>
         {/* Single Suspense boundary catches the React.lazy sections emitted
             by each subarea registry's build(). On the first visit to a
             section its chunk suspends and the settings-shaped skeleton
@@ -54,7 +54,7 @@ export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
         <Suspense fallback={<SettingsSectionSkeleton />}>
           {subarea.getSectionContent(activeSection)}
         </Suspense>
-      </main>
+      </div>
     </div>
   )
 }

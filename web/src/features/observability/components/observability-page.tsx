@@ -76,9 +76,9 @@ export function ObservabilityPage({
           </TabsList>
         </Tabs>
 
-        <main className='min-w-0 flex-1'>
+        <div className='min-w-0 flex-1'>
           {getObservabilitySectionContent(sectionId)}
-        </main>
+        </div>
       </div>
     </ObservabilityAutoRefreshProvider>
   )
