@@ -85,7 +85,7 @@ export function DashboardPage({
         </TabsList>
       </Tabs>
 
-      <main className='min-w-0 flex-1'>{content}</main>
+      <div className='min-w-0 flex-1'>{content}</div>
     </div>
   )
 }

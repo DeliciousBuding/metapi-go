@@ -1180,6 +1180,7 @@
           "syncAllPending": "同步中…",
           "add": "添加数据源",
           "columns": {
+            "reorderColumn": "排序",
             "source": "数据源",
             "type": "类型",
             "url": "URL",

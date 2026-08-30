@@ -76,7 +76,7 @@ export function AppHeader({
         >
           <img
             src={metapiIdentity.logoPath}
-            alt={metapiIdentity.name}
+            alt=''
             className='size-6 shrink-0 rounded-sm'
           />
           <span className='truncate text-sm font-semibold tracking-tight'>

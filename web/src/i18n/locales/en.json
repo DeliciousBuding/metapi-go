@@ -1180,6 +1180,7 @@
           "syncAllPending": "Syncing…",
           "add": "Add source",
           "columns": {
+            "reorderColumn": "Reorder",
             "source": "Source",
             "type": "Type",
             "url": "URL",
