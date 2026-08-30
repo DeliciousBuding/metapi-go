@@ -20,8 +20,7 @@ import {
 import { toBcp47 } from '@/i18n/languages'
 import {
   formatDateTime,
-  formatRelativeTime,
-  formatShortDate,
+  formatLogDateDetail,
   formatTimeOfDay,
 } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -73,8 +72,7 @@ export function useProxyLogsColumns(
               {formatTimeOfDay(createdAt, locale)}
             </span>
             <span className='text-muted-foreground text-[10px]'>
-              {formatShortDate(createdAt, locale)} ·{' '}
-              {formatRelativeTime(createdAt, locale)}
+              {formatLogDateDetail(createdAt, locale)}
             </span>
           </div>
         )

@@ -343,6 +343,26 @@ export function formatRelativeTime(
 }
 
 /**
+ * Detail line for log-table timestamps (the muted second line under the time
+ * of day). Within the relative window: "8月23日 · 3 天前" (short date +
+ * relative). Past the window, formatRelativeTime already renders an absolute
+ * date, so the short date is dropped — otherwise the line duplicates the day
+ * ("8月23日 · 2026年8月23日"). Empty string for null/invalid input.
+ */
+export function formatLogDateDetail(
+  value: string | number | Date | null | undefined,
+  locale: string
+): string {
+  const timestamp = toTimestamp(value)
+  if (timestamp === null) return ''
+  const ageSeconds = Math.abs(Math.round((timestamp - Date.now()) / 1000))
+  if (ageSeconds >= ABSOLUTE_THRESHOLD_SECONDS) {
+    return formatRelativeTime(value, locale)
+  }
+  return `${formatShortDate(value, locale)} · ${formatRelativeTime(value, locale)}`
+}
+
+/**
  * Format a timestamp as a localized absolute date+time for a `title`
  * tooltip (e.g. "Jan 15, 2026, 10:00 AM"). Returns an empty string for
  * null / empty / invalid input so the caller can omit the attribute. Uses
