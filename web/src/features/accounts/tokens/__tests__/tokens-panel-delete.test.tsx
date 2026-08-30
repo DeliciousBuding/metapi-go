@@ -1,7 +1,8 @@
-// Behavior test for the tokens-panel delete flow (#889): the confirmation
-// used to close immediately after firing the mutation ("先关后删"), hiding
-// the pending state. The dialog must now stay open — Cancel disabled, confirm
-// spinner — until the mutation settles, and close on success.
+// Behavior test for the tokens-panel delete flow — S7 删除+undo 档:
+// the row action no longer opens a dialog; it triggers the shared
+// undoable-delete helper with the account's token-list query key. The
+// helper's own contract (optimistic removal / undo restore / deferred
+// commit) is pinned in lib/__tests__/undoable-delete.test.tsx.
 
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -22,8 +23,8 @@ import type { AccountToken } from '../../types'
 import { TokensPanel } from '../components/tokens-panel'
 
 const mockState = vi.hoisted(() => ({
-  deleteCalls: [] as Array<{ id: number; onSuccess?: () => void }>,
-  deletePending: { value: false },
+  undoableDelete: vi.fn(),
+  deleteAccountToken: vi.fn(),
   sampleToken: {
     id: 9,
     accountId: 1,
@@ -41,22 +42,34 @@ const mockState = vi.hoisted(() => ({
 }))
 
 vi.mock('../api', () => ({
+  accountTokenQueryKeys: {
+    all: ['account-tokens'] as const,
+    list: (accountId?: number) =>
+      ['account-tokens', 'list', accountId ?? 'all'] as const,
+  },
   useAccountTokens: () => ({
     data: [mockState.sampleToken],
     isLoading: false,
   }),
   useCreateAccountToken: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateAccountToken: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useDeleteAccountToken: () => ({
-    mutate: (id: number, options?: { onSuccess?: () => void }) => {
-      mockState.deletePending.value = true
-      mockState.deleteCalls.push({ id, onSuccess: options?.onSuccess })
-    },
-    isPending: mockState.deletePending.value,
-  }),
   useSetDefaultAccountToken: () => ({ mutate: vi.fn(), isPending: false }),
   useSyncAccountTokens: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useToggleAccountTokenEnabled: () => ({ mutate: vi.fn(), isPending: false }),
+}))
+
+vi.mock('../../api', () => ({
+  accountQueryKeys: { all: ['accounts'] as const },
+}))
+
+vi.mock('@/lib/api', () => ({
+  api: {
+    deleteAccountToken: mockState.deleteAccountToken,
+  },
+}))
+
+vi.mock('@/lib/undoable-delete', () => ({
+  useUndoableDelete: () => mockState.undoableDelete,
 }))
 
 vi.mock('@/lib/toast', () => ({
@@ -85,8 +98,9 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
-  mockState.deleteCalls = []
-  mockState.deletePending.value = false
+  mockState.undoableDelete.mockClear()
+  mockState.deleteAccountToken.mockReset()
+  mockState.deleteAccountToken.mockResolvedValue({ success: true })
 })
 
 afterEach(() => cleanup())
@@ -95,34 +109,47 @@ afterAll(() => {
   vi.restoreAllMocks()
 })
 
-describe('TokensPanel delete dialog', () => {
-  it('stays open while the delete is pending and closes on success', () => {
-    const { rerender } = render(<TokensPanel accountId={1} />)
+describe('TokensPanel delete (undo tier)', () => {
+  it('triggers the undoable delete with the token and its list query key — no dialog', async () => {
+    render(<TokensPanel accountId={1} />)
 
-    // Open the delete confirmation from the row action.
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
-    expect(screen.getByText('Delete token?')).toBeInTheDocument()
 
-    // Confirm — the mutation fires but the dialog must stay open.
-    const deleteButtons = screen.getAllByRole('button', { name: 'Delete' })
-    const confirmButton = deleteButtons.at(-1)
-    if (!confirmButton) throw new Error('confirm button not rendered')
-    fireEvent.click(confirmButton)
+    // No confirmation dialog at all.
+    expect(screen.queryByText('Delete token?')).not.toBeInTheDocument()
 
-    expect(mockState.deleteCalls).toHaveLength(1)
-    expect(mockState.deleteCalls[0]?.id).toBe(9)
+    expect(mockState.undoableDelete).toHaveBeenCalledTimes(1)
+    const params = mockState.undoableDelete.mock.calls[0]?.[0] as {
+      item: AccountToken
+      queryKey: readonly unknown[]
+      removeFromCache: (
+        data: AccountToken[],
+        item: AccountToken
+      ) => AccountToken[]
+      deleteFn: (item: AccountToken) => Promise<unknown>
+      title: string
+      undoLabel: string
+      errorTitle: string
+      alsoInvalidate: Array<readonly unknown[]>
+    }
+    expect(params.item.id).toBe(9)
+    expect(params.queryKey).toEqual(['account-tokens', 'list', 1])
+    expect(params.title).toBe('Token deleted')
+    expect(params.undoLabel).toBe('Undo')
+    expect(params.alsoInvalidate).toEqual([['account-tokens'], ['accounts']])
 
-    // Re-render so the hook picks up the pending flag (TanStack Query would
-    // trigger this re-render in production).
-    rerender(<TokensPanel accountId={1} />)
-    expect(screen.getByText('Delete token?')).toBeInTheDocument()
-    // While pending, Cancel is disabled so the dialog can't be dismissed.
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    // The pure cache reducer drops exactly this token.
+    expect(
+      params
+        .removeFromCache(
+          [mockState.sampleToken, { ...mockState.sampleToken, id: 10 }],
+          mockState.sampleToken
+        )
+        .map((row) => row.id)
+    ).toEqual([10])
 
-    // Settle the mutation — the dialog closes.
-    mockState.deletePending.value = false
-    mockState.deleteCalls[0]?.onSuccess?.()
-    rerender(<TokensPanel accountId={1} />)
-    expect(screen.queryByText('Delete token?')).toBeNull()
+    // The deferred DELETE goes to the real api with the token id.
+    await params.deleteFn(mockState.sampleToken)
+    expect(mockState.deleteAccountToken).toHaveBeenCalledWith(9)
   })
 })

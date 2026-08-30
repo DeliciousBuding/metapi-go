@@ -189,24 +189,6 @@ export function useUpdateRoute() {
 }
 
 // ---------------------------------------------------------------------------
-// useDeleteRoute
-// ---------------------------------------------------------------------------
-
-export function useDeleteRoute() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: number) => {
-      const result = await api.deleteRoute(id)
-      return assertBusinessOk(result, 'tokenRoutes.toast.deleteFailed')
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
-      toast.success(i18n.t('tokenRoutes.toast.deleted'))
-    },
-  })
-}
-
-// ---------------------------------------------------------------------------
 // useBatchUpdateRoutes
 // ---------------------------------------------------------------------------
 

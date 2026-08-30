@@ -1,6 +1,7 @@
-// Behavior tests for the redirects section dangerous-op confirmations (#889):
-// row delete and Apply both require an explicit ConfirmDialog step before the
-// mutation fires, while Generate / Preview stay one-click.
+// Behavior tests for the redirects section dangerous-op tiers (#889, S7):
+// row delete is the 删除+undo tier — no dialog; the row leaves immediately
+// and the real DELETE fires only when the undo toast closes without 撤销.
+// Apply keeps an explicit ConfirmDialog; Generate / Preview stay one-click.
 
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -48,11 +49,19 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 
+const { mockToastMessage } = vi.hoisted(() => ({
+  mockToastMessage: vi.fn(
+    (_title: unknown, _options?: unknown) => 'undo-toast-id'
+  ),
+}))
+
 vi.mock('@/lib/toast', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
+    message: mockToastMessage,
+    dismiss: vi.fn(),
   },
 }))
 
@@ -73,6 +82,7 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
+  mockToastMessage.mockClear()
   mockGetRedirects.mockReset()
   mockDeleteRedirect.mockReset()
   mockApplyRedirects.mockReset()
@@ -119,37 +129,51 @@ function renderSection() {
 }
 
 describe('RedirectsSection dangerous-op confirmations', () => {
-  it('row delete opens a confirmation and only deletes after confirm', async () => {
+  it('row delete removes the row immediately and commits when the undo window closes', async () => {
     renderSection()
 
-    const deleteButton = await screen.findByRole('button', { name: 'Delete' })
-    fireEvent.click(deleteButton)
+    await screen.findByText('gpt-5.5')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
-    // No delete before confirmation.
-    expect(mockDeleteRedirect).not.toHaveBeenCalled()
-
-    // The dialog confirm button is the last "Delete" on screen (row action
-    // first, dialog action last).
-    const deleteButtons = await screen.findAllByRole('button', {
-      name: 'Delete',
+    // 删除+undo 档: no dialog, no immediate DELETE — the row is optimistically
+    // gone and the undo toast carries the commit callbacks.
+    await waitFor(() => {
+      expect(screen.queryByText('gpt-5.5')).not.toBeInTheDocument()
     })
-    const confirmDeleteButton = deleteButtons.at(-1)
-    if (!confirmDeleteButton) throw new Error('confirm button not rendered')
-    fireEvent.click(confirmDeleteButton)
+    expect(mockDeleteRedirect).not.toHaveBeenCalled()
+    expect(mockToastMessage).toHaveBeenCalledTimes(1)
+    const options = mockToastMessage.mock.calls[0]?.[1] as {
+      action: { label: string; onClick: () => void }
+      onAutoClose: () => void
+    }
+    expect(options.action.label).toBe('Undo')
+
+    options.onAutoClose()
 
     await waitFor(() => {
       expect(mockDeleteRedirect).toHaveBeenCalledWith(7)
     })
   })
 
-  it('row delete cancel does not call the delete api', async () => {
+  it('undo restores the row and the delete never fires', async () => {
     renderSection()
 
-    const deleteButton = await screen.findByRole('button', { name: 'Delete' })
-    fireEvent.click(deleteButton)
+    await screen.findByText('gpt-5.5')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => {
+      expect(screen.queryByText('gpt-5.5')).not.toBeInTheDocument()
+    })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    const options = mockToastMessage.mock.calls[0]?.[1] as {
+      action: { label: string; onClick: () => void }
+      onAutoClose: () => void
+    }
+    options.action.onClick()
 
+    // Snapshot restored…
+    await screen.findByText('gpt-5.5')
+    // …and the window closing afterwards must not fire the delete.
+    options.onAutoClose()
     expect(mockDeleteRedirect).not.toHaveBeenCalled()
   })
 

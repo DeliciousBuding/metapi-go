@@ -92,6 +92,11 @@ vi.mock('../api', () => ({
   useBatchUpdateRoutes: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useZeroChannelRoutes: (routes: RouteSummaryRow[]) => routes,
 }))
+// The page's row-delete path uses the shared undo helper; tests stub it so
+// no QueryClientProvider is required.
+vi.mock('@/lib/undoable-delete', () => ({
+  useUndoableDelete: () => vi.fn(),
+}))
 
 vi.mock('../components/route-detail-sheet', () => ({
   RouteDetailSheet: (props: {

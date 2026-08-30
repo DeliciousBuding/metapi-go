@@ -142,6 +142,19 @@ State-management rules for URL-synced tables and filters (single URL owner, stab
 
 New UI must start from shadcn Base UI primitives when possible. Import via `@/components/ui/*`.
 
+### 4.1 Destructive-action tiers（破坏性操作四档）
+
+Every destructive action maps to exactly one tier; never hand-roll a variant:
+
+| 档 | 形态 | 适用 | 实现 |
+|---|---|---|---|
+| 直达 | 无确认 | 可逆切换（启用/停用、置顶、刷新） | 直接 mutation |
+| 删除+undo | 无弹窗；行即消失 + 6s 可撤销 toast | 叶子实体单行删除（redirects、catalog sources、routes、downstream keys、account tokens） | `useUndoableDelete`（`@/lib/undoable-delete`） |
+| 批量确认 | 计数确认弹窗 | 批量操作、清空、跨页应用 | `ConfirmDialog`（含 count 文案） |
+| typed-confirm | 倒计时 + 输入确认词 | 不可逆/级联重操作（factory reset、站点/账号级联删除） | danger-zone 模式（倒计时 + 确认词） |
+
+例外必须注释标注（例：OAuth 连接删除用 ConfirmDialog + 既有跨页乐观回滚 hook，不移交 undo helper）。
+
 ---
 
 ## 5. Visual acceptance

@@ -24,6 +24,7 @@ import {
   type RedirectApplyResponse,
 } from '@/lib/api'
 import { toast } from '@/lib/toast'
+import { useUndoableDelete } from '@/lib/undoable-delete'
 
 import {
   SettingsSectionCard,
@@ -41,7 +42,7 @@ type RedirectPreview = RedirectApplyResponse
 export function RedirectsSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [deleteTarget, setDeleteTarget] = useState<ModelRedirect | null>(null)
+  const undoableDelete = useUndoableDelete()
   const [applyConfirmOpen, setApplyConfirmOpen] = useState(false)
 
   const redirectsQuery = useQuery<ModelRedirectsResponse>({
@@ -110,17 +111,21 @@ export function RedirectsSection() {
       toast.error(t('settings.proxyModels.redirects.toast.promoteFailed')),
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => api.deleteModelRedirect(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: modelRedirectsQueryKeys.all,
-      })
-      toast.success(t('settings.proxyModels.redirects.toast.deleted'))
-    },
-    onError: () =>
-      toast.error(t('settings.proxyModels.redirects.toast.deleteFailed')),
-  })
+  // S7 删除+undo 档: leaf single-row delete — no confirm dialog; the row
+  // leaves immediately and a 6s undo toast gates the real DELETE.
+  const deleteRedirect = (redirect: ModelRedirect) =>
+    undoableDelete<ModelRedirectsResponse, ModelRedirect>({
+      item: redirect,
+      queryKey: modelRedirectsQueryKeys.list(),
+      removeFromCache: (data, item) => ({
+        ...data,
+        items: data.items.filter((entry) => entry.id !== item.id),
+      }),
+      deleteFn: (item) => api.deleteModelRedirect(item.id),
+      title: t('settings.proxyModels.redirects.toast.deleted'),
+      undoLabel: t('common.undo'),
+      errorTitle: t('settings.proxyModels.redirects.toast.deleteFailed'),
+    })
 
   const items = redirectsQuery.data?.items ?? []
   const isLoading = redirectsQuery.isLoading
@@ -249,8 +254,7 @@ export function RedirectsSection() {
                       type='button'
                       variant='ghost'
                       size='sm'
-                      disabled={deleteMutation.isPending}
-                      onClick={() => setDeleteTarget(redirect)}
+                      onClick={() => deleteRedirect(redirect)}
                     >
                       {t('settings.common.delete')}
                     </Button>
@@ -261,25 +265,6 @@ export function RedirectsSection() {
           </TableBody>
         </Table>
       )}
-
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title={t('settings.proxyModels.redirects.deleteTitle')}
-        description={t('settings.proxyModels.redirects.deleteDescription', {
-          canonical: deleteTarget?.canonical ?? '',
-          actual: deleteTarget?.actual ?? '',
-        })}
-        confirmLabel={t('settings.common.delete')}
-        cancelLabel={t('settings.common.cancel')}
-        destructive
-        onConfirm={() => {
-          if (deleteTarget) {
-            deleteMutation.mutate(deleteTarget.id)
-          }
-          setDeleteTarget(null)
-        }}
-        onCancel={() => setDeleteTarget(null)}
-      />
 
       <ConfirmDialog
         open={applyConfirmOpen}

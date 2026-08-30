@@ -27,7 +27,6 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -61,6 +60,7 @@ import { toBcp47 } from '@/i18n/languages'
 import { api, type CatalogSource, type CatalogSyncStatus } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { toast } from '@/lib/toast'
+import { useUndoableDelete } from '@/lib/undoable-delete'
 import { cn } from '@/lib/utils'
 
 import {
@@ -117,7 +117,7 @@ export function CatalogSourcesSection() {
   const locale = toBcp47(i18n.language || 'en')
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<SourceDialogState | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<CatalogSource | null>(null)
+  const undoableDelete = useUndoableDelete()
   const [syncingId, setSyncingId] = useState<number | 'all' | null>(null)
 
   // --- reorder state (pointer drag Wave 9 Lane B + keyboard grab) ---
@@ -266,25 +266,24 @@ export function CatalogSourcesSection() {
     },
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => api.deleteCatalogSource(id),
-    onSuccess: (_result, id) => {
-      const status = statusQuery.data
-      if (status) {
-        refreshStatus({
-          ...status,
-          sources: status.sources.filter((row) => row.id !== id),
-        })
-      }
-      toast.success(t('settings.proxyModels.catalogSources.toast.deleted'))
-    },
-    onError: (error: Error) =>
-      toast.error(
+  // S7 删除+undo 档: leaf single-row delete — no confirm dialog; the row
+  // leaves immediately and a 6s undo toast gates the real DELETE.
+  const deleteSource = (source: CatalogSource) =>
+    undoableDelete<CatalogSyncStatus, CatalogSource>({
+      item: source,
+      queryKey: catalogSyncKeys.status(),
+      removeFromCache: (data, item) => ({
+        ...data,
+        sources: data.sources.filter((row) => row.id !== item.id),
+      }),
+      deleteFn: (item) => api.deleteCatalogSource(item.id),
+      title: t('settings.proxyModels.catalogSources.toast.deleted'),
+      undoLabel: t('common.undo'),
+      errorTitle: (error) =>
         t('settings.proxyModels.catalogSources.toast.deleteFailed', {
-          message: error.message,
-        })
-      ),
-  })
+          message: error instanceof Error ? error.message : String(error),
+        }),
+    })
 
   if (statusQuery.isLoading) {
     return <SettingsSectionSkeleton />
@@ -663,7 +662,7 @@ export function CatalogSourcesSection() {
                           <Button
                             variant='ghost'
                             size='icon-sm'
-                            onClick={() => setDeleteTarget(source)}
+                            onClick={() => deleteSource(source)}
                             aria-label={t(
                               'settings.proxyModels.catalogSources.delete'
                             )}
@@ -695,22 +694,6 @@ export function CatalogSourcesSection() {
           }}
         />
       ) : null}
-
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title={t('settings.proxyModels.catalogSources.deleteTitle')}
-        description={t('settings.proxyModels.catalogSources.deleteDescription')}
-        confirmLabel={t('settings.proxyModels.catalogSources.delete')}
-        cancelLabel={t('settings.proxyModels.catalogSources.cancel')}
-        destructive
-        onConfirm={() => {
-          if (deleteTarget) {
-            deleteMutation.mutate(deleteTarget.id)
-          }
-          setDeleteTarget(null)
-        }}
-        onCancel={() => setDeleteTarget(null)}
-      />
     </div>
   )
 }

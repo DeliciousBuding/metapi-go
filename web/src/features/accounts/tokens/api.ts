@@ -23,7 +23,7 @@ import { accountQueryKeys } from '../api'
 import { type AccountToken, accountTokenSchema } from '../types'
 import type { AccountTokenPayload } from './lib/tokens-schema'
 
-const accountTokenQueryKeys = {
+export const accountTokenQueryKeys = {
   all: ['account-tokens'] as const,
   list: (accountId?: number) =>
     ['account-tokens', 'list', accountId ?? 'all'] as const,
@@ -135,27 +135,6 @@ export function useUpdateAccountToken() {
       })
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
       toast.success(i18n.t('accounts.tokens.toast.updated'))
-    },
-  })
-}
-
-// ---------------------------------------------------------------------------
-// useDeleteAccountToken — DELETE /api/account-tokens/:id
-// ---------------------------------------------------------------------------
-
-export function useDeleteAccountToken() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: number) => {
-      const result = await api.deleteAccountToken(id)
-      return assertBusinessOk(result, 'accounts.tokens.toast.deleteFailed')
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: accountTokenQueryKeys.all,
-      })
-      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
-      toast.success(i18n.t('accounts.tokens.toast.deleted'))
     },
   })
 }
