@@ -203,4 +203,31 @@ describe('i18n key coverage', () => {
     expect([...zhKeys].filter((k) => !enKeys.has(k))).toEqual([])
     expect([...enKeys].filter((k) => !zhKeys.has(k))).toEqual([])
   })
+
+  // S10 bilingual CI: key-set parity alone cannot catch a translation that
+  // drops an interpolation variable (e.g. zh rendering "余额不足：relay ()"
+  // because {{amount}} was lost). Every leaf present in both locales must
+  // declare the same placeholder set, so a dropped variable fails CI.
+  it('keeps interpolation placeholders identical between en and zh-CN', () => {
+    const PLACEHOLDER_RE = /\{\{\s*([^}]+?)\s*\}\}/g
+    const placeholders = (value: string): string[] =>
+      [...value.matchAll(PLACEHOLDER_RE)].map((m) => (m[1] ?? '').trim()).sort()
+    const leafValue = (root: TranslationNode, key: string): string | null => {
+      const value = resolveSegments(root, key)
+      return typeof value === 'string' ? value : null
+    }
+
+    const mismatched: string[] = []
+    for (const key of enKeys) {
+      const enValue = leafValue(enRoot, key)
+      const zhValue = leafValue(zhRoot, key)
+      if (enValue === null || zhValue === null) continue
+      const enVars = placeholders(enValue)
+      const zhVars = placeholders(zhValue)
+      if (enVars.join('') !== zhVars.join('')) {
+        mismatched.push(`${key}  (en: ${enVars} | zh-CN: ${zhVars})`)
+      }
+    }
+    expect(mismatched).toEqual([])
+  })
 })
