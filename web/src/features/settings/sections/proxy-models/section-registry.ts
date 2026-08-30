@@ -9,8 +9,9 @@
 import { Boxes } from 'lucide-react'
 import { createElement, lazy } from 'react'
 
+import { createSectionRegistry } from '@/lib/section-registry'
+
 import type { SettingsSubarea } from '../../types'
-import { createSectionRegistry } from '../../utils/section-registry'
 
 const LazyProxyTransportSection = lazy(() =>
   import('./components/proxy-transport-section').then((module) => ({

@@ -1,13 +1,24 @@
+// metapi-go/lib — section-registry tests (S8 三合一).
+//
+// Pins the shared factory that replaced the three per-feature clones
+// (settings / dashboard / observability): id order, nav URL styles (path vs
+// query), readonly badge passthrough, and the sections[0] fallback for
+// unknown ids.
+
 import { describe, expect, it } from 'vitest'
 
 import {
-  type SectionRegistry,
   createSectionRegistry,
-} from '../utils/section-registry'
+  type SectionRegistry,
+} from '../section-registry'
 
 type TestSectionId = 'general' | 'appearance'
 
-function buildRegistry(): SectionRegistry<TestSectionId> {
+function buildRegistry(
+  overrides: Partial<
+    Parameters<typeof createSectionRegistry<TestSectionId>>[0]
+  > = {}
+): SectionRegistry<TestSectionId> {
   return createSectionRegistry<TestSectionId>({
     sections: [
       {
@@ -19,17 +30,15 @@ function buildRegistry(): SectionRegistry<TestSectionId> {
       {
         id: 'appearance',
         title: 'Appearance',
+        readonly: true,
         build: () => 'appearance-content',
       },
     ],
     defaultSection: 'general',
     basePath: '/settings/general',
+    ...overrides,
   })
 }
-
-// ---------------------------------------------------------------------------
-// sectionIds + defaultSection
-// ---------------------------------------------------------------------------
 
 describe('createSectionRegistry — ids + default', () => {
   it('exposes section ids in declaration order', () => {
@@ -41,22 +50,29 @@ describe('createSectionRegistry — ids + default', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// getSectionNavItems
-// ---------------------------------------------------------------------------
-
 describe('createSectionRegistry — getSectionNavItems', () => {
-  it('builds one nav item per section with url = basePath/id', () => {
+  it('builds path-style urls by default (basePath/id)', () => {
     expect(buildRegistry().getSectionNavItems()).toEqual([
       { title: 'General', url: '/settings/general/general' },
-      { title: 'Appearance', url: '/settings/general/appearance' },
+      {
+        title: 'Appearance',
+        url: '/settings/general/appearance',
+        readonly: true,
+      },
+    ])
+  })
+
+  it('builds query-style urls when urlStyle is query', () => {
+    expect(buildRegistry({ urlStyle: 'query' }).getSectionNavItems()).toEqual([
+      { title: 'General', url: '/settings/general?section=general' },
+      {
+        title: 'Appearance',
+        url: '/settings/general?section=appearance',
+        readonly: true,
+      },
     ])
   })
 })
-
-// ---------------------------------------------------------------------------
-// getSectionMeta
-// ---------------------------------------------------------------------------
 
 describe('createSectionRegistry — getSectionMeta', () => {
   it('returns the matching section for a known id', () => {
@@ -70,10 +86,6 @@ describe('createSectionRegistry — getSectionMeta', () => {
     expect(meta.id).toBe('general')
   })
 })
-
-// ---------------------------------------------------------------------------
-// getSectionContent
-// ---------------------------------------------------------------------------
 
 describe('createSectionRegistry — getSectionContent', () => {
   it('renders the matched section via its build()', () => {

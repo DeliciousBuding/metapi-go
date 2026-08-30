@@ -13,9 +13,9 @@ import {
 } from 'react'
 
 import { SectionSkeleton } from '@/components/ui/section-skeleton'
+import { createSectionRegistry } from '@/lib/section-registry'
 
 import type { ObservabilitySection, ObservabilitySectionId } from '../types'
-import { createObservabilitySectionRegistry } from '../utils/section-registry'
 
 const LazyOverviewSection = lazy(() =>
   import('../sections/overview').then((module) => ({
@@ -52,12 +52,12 @@ const OBSERVABILITY_SECTIONS: readonly ObservabilitySection[] = [
   },
 ]
 
-const observabilityRegistry =
-  createObservabilitySectionRegistry<ObservabilitySectionId>({
-    sections: OBSERVABILITY_SECTIONS,
-    defaultSection: 'overview',
-    basePath: '/observability',
-  })
+const observabilityRegistry = createSectionRegistry<ObservabilitySectionId>({
+  sections: OBSERVABILITY_SECTIONS,
+  defaultSection: 'overview',
+  basePath: '/observability',
+  urlStyle: 'query',
+})
 
 export const OBSERVABILITY_DEFAULT_SECTION =
   observabilityRegistry.defaultSection
