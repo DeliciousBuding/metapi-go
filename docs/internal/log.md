@@ -5,6 +5,10 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-30 — S8 section-registry 三合一
+
+- **三克隆合一（#1095）**：settings/dashboard/observability 三份近乎相同的 `createSectionRegistry`（86/83/60 行，差异仅类型名 + URL 约定）收敛为 `web/src/lib/section-registry.ts` 单工厂——`urlStyle: 'path'|'query'` 承载两种 URL 形态，settings 的 readonly 导航 badge 并入共享 SectionDefinition；7 个调用点改引 `@/lib`，净 -101 行；settings 本地测试迁至 lib 并补 query-style + readonly 透传覆盖。seeded 实例三形态导航 smoke 通过。至此 #1035 S8 全销（巨型文件拆解 #1090 + registry 合一），S 系列仅剩 S7 四档分级 + undo。
+
 ## 2026-08-30 — F3 告警 i18n 端到端 + i18n 占位符 parity 门禁 + channels 列宽
 
 - **F3 告警文案 i18n（#1091）**：新增共享模块 `web/src/lib/attention-label.ts`（AttentionItem/AttentionResponse 类型 + 8 个持久化事件标题 → i18n 键映射 + attentionLabel）；attention-bell 弹层与 availability 面板共用并删除两份本地副本（bell 此前裸渲染英文 label——中文 UI 里「Balance unknown: svc-onea…」裸奔的截图证据销项）；en/zh-CN 补 7 个事件标题键；params 缺失/未知类别一律回退裸 label（诚实残留）。lib 级 6 测试 + bell 中文渲染钉；seeded 实例双语截图端到端验证。

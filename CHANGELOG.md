@@ -25,6 +25,9 @@ All notable changes to Metapi-Go will be documented in this file.
 
 ### Changed
 
+- **section-registry 三克隆合一（#1095，#1035 S8）**：settings/dashboard/observability 各自的 `createSectionRegistry` 收敛为共享 `web/src/lib/section-registry.ts`（`urlStyle` 承载 path/query 两种 URL 形态）；行为不变，净 -101 行。
+
+
 - **列表页错误三态收敛进 DataTablePage（#1084，#1035 S7）**：加载失败的横幅+重试从 8 个列表页各自手写的条件分支收敛为底座内置契约（`error`/`errorMessageKey`/`onErrorRetry` 属性，替换/内联两种放置）；行为不变，挂载点单一化。
 - **`docs/api.md` 按域拆分**：超 1500 行预算的 API 参考按域拆为 `docs/api/*.md`（17 个文件，按域自含「返回索引」标题）；`docs/api.md` 保留为索引，全部原有 H2/H3/H4 标题以 stub 承接并一一指向新家，旧 `api.md#<anchor>` 深链继续解析（F4）。
 - **凭证引用畸形条目改为显式 400 拒绝（#1026 残留）**：创建/更新下游密钥时，`excludedCredentialRefs`/`allowedCredentialRefs` 中的畸形条目（非对象、未知/缺失 `kind`、非正 `siteId`/`accountId`、`account_token` 缺 `tokenId`）原被静默丢弃——对允许列表而言等于静默放宽访问（fail-open）；现以 400 显式拒绝并提示具体条目。合法引用行为不变。
