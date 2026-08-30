@@ -22,9 +22,9 @@ import {
 } from 'react'
 
 import { SectionSkeleton } from '@/components/ui/section-skeleton'
+import { createSectionRegistry } from '@/lib/section-registry'
 
 import type { DashboardSection, DashboardSectionId } from '../types'
-import { createSectionRegistry } from '../utils/section-registry'
 
 const LazyOverviewSection = lazy(() =>
   import('../sections/overview').then((module) => ({

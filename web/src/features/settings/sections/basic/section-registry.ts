@@ -11,8 +11,9 @@
 import { Settings } from 'lucide-react'
 import { createElement, lazy } from 'react'
 
+import { createSectionRegistry } from '@/lib/section-registry'
+
 import type { SettingsSubarea } from '../../types'
-import { createSectionRegistry } from '../../utils/section-registry'
 
 const LazySiteSection = lazy(() =>
   import('./components/site-section').then((module) => ({

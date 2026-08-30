@@ -13,11 +13,6 @@ export type ObservabilitySection = {
   build: () => ReactNode
 }
 
-export type ObservabilitySectionNavItem = {
-  title: string
-  url: string
-}
-
 // ---- /api/stats/usage-heatmap ------------------------------------------
 
 export type UsageHeatmapCell = {

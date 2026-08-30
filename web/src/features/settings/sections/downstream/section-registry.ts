@@ -8,8 +8,9 @@
 import { KeyRound } from 'lucide-react'
 import { createElement, lazy } from 'react'
 
+import { createSectionRegistry } from '@/lib/section-registry'
+
 import type { SettingsSubarea } from '../../types'
-import { createSectionRegistry } from '../../utils/section-registry'
 
 const LazyProxyTokenSection = lazy(() =>
   import('./components/proxy-token-section').then((module) => ({

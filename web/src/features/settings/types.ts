@@ -14,7 +14,7 @@ import type { ElementType, ReactNode } from 'react'
  * Phase 2 stubs return a `StubSection`; phase 3 will swap in real forms wired
  * to the runtime-settings API (`GET/PUT /api/settings/runtime`).
  */
-export type SettingsSection = {
+type SettingsSection = {
   /** Stable id used in the URL (`/settings/<subarea>/<id>`). */
   id: string
   /** Human label shown in the settings sidebar + page header. */
@@ -36,7 +36,7 @@ export type SettingsSection = {
  * dynamic strings (the `(string & {})` escape hatch mirrors the layout
  * NavItem convention in components/layout/types.ts).
  */
-export type SettingsSectionNavItem = {
+type SettingsSectionNavItem = {
   title: string
   url: LinkProps['to'] | (string & {})
   /** Read-only / external surface - shown as a badge. */

@@ -10,8 +10,9 @@
 import { ServerCog } from 'lucide-react'
 import { createElement, lazy } from 'react'
 
+import { createSectionRegistry } from '@/lib/section-registry'
+
 import type { SettingsSubarea } from '../../types'
-import { createSectionRegistry } from '../../utils/section-registry'
 
 const LazySchedulingSection = lazy(() =>
   import('./components/scheduling-section').then((module) => ({

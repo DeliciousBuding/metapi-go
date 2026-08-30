@@ -34,14 +34,6 @@ export type DashboardSection = {
   build: () => ReactNode
 }
 
-/**
- * Nav item produced by the section registry for the dashboard tabs.
- */
-export type DashboardSectionNavItem = {
-  title: string
-  url: string
-}
-
 // ---------------------------------------------------------------------------
 // Chart data shapes — contracts for the dashboard chart components. Aligned
 // with the response types of the corresponding api.ts methods
