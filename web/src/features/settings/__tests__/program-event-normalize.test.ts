@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  eventTitleKey,
+  eventTitleSlug,
   formatTimestamp,
   normalizeEvent,
   parseEventMessage,
@@ -68,19 +68,27 @@ describe('formatTimestamp', () => {
   })
 })
 
-describe('eventTitleKey', () => {
-  it('maps known backend titles to localized i18n keys', () => {
-    expect(eventTitleKey('All proxies failed')).toBe('allProxiesFailed')
-    expect(eventTitleKey('Token expired')).toBe('tokenExpired')
-    expect(eventTitleKey('Low balance')).toBe('lowBalance')
-    expect(eventTitleKey('checkin failed (cloudflare challenge)')).toBe(
+describe('eventTitleSlug (shared lib/event-titles map)', () => {
+  it('maps known backend titles to stable slugs', () => {
+    expect(eventTitleSlug('All proxies failed')).toBe('allProxiesFailed')
+    expect(eventTitleSlug('Token expired')).toBe('tokenExpired')
+    expect(eventTitleSlug('Low balance')).toBe('lowBalance')
+    expect(eventTitleSlug('checkin failed (cloudflare challenge)')).toBe(
       'checkinFailedCloudflare'
+    )
+    // Daily-frequency producers pinned by the F3 scout inventory.
+    expect(eventTitleSlug('checkin success')).toBe('checkinSuccess')
+    expect(eventTitleSlug('Site enabled')).toBe('siteEnabled')
+    expect(eventTitleSlug('Account token sync completed')).toBe(
+      'tokenSyncCompleted'
     )
   })
 
   it('returns undefined for unknown titles so they render as-is', () => {
-    expect(eventTitleKey('Some new event')).toBeUndefined()
-    expect(eventTitleKey('')).toBeUndefined()
+    expect(eventTitleSlug('Some new event')).toBeUndefined()
+    expect(eventTitleSlug('')).toBeUndefined()
+    // Dynamic upstream-pushed titles are intentionally unmapped.
+    expect(eventTitleSlug('Site announcement: OneAPI')).toBeUndefined()
   })
 })
 

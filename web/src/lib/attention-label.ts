@@ -24,29 +24,12 @@ export type AttentionItem = {
   params?: Record<string, string | number>
 }
 
+import { eventTitleSlug } from './event-titles'
+
 /** Attention response envelope. */
 export type AttentionResponse = {
   items: AttentionItem[]
   total: number
-}
-
-/**
- * Event titles are persisted English strings (events.title) — the event row
- * is written once at emission time and never re-localized server-side, so
- * the known producer titles map to i18n keys at render time. Unknown titles
- * fall through to the raw label (honest residual, never a half-translation).
- */
-const EVENT_TITLE_KEYS: Record<string, string> = {
-  'All proxies failed': 'dashboard.availability.monitors.eventAllProxiesFailed',
-  'Low balance': 'dashboard.availability.monitors.eventLowBalance',
-  'Token expired': 'dashboard.availability.monitors.eventTokenExpired',
-  'Site disabled': 'dashboard.availability.monitors.eventSiteDisabled',
-  'checkin failed': 'dashboard.availability.monitors.eventCheckinFailed',
-  'checkin failed (cloudflare challenge)':
-    'dashboard.availability.monitors.eventCheckinFailedCloudflare',
-  'checkin skipped': 'dashboard.availability.monitors.eventCheckinSkipped',
-  'account token sync failed':
-    'dashboard.availability.monitors.eventTokenSyncFailed',
 }
 
 type TranslateFn = (key: string, options?: Record<string, unknown>) => string
@@ -93,8 +76,11 @@ export function attentionLabel(item: AttentionItem, t: TranslateFn): string {
         : item.label
     }
     case 'event': {
-      const key = EVENT_TITLE_KEYS[item.label]
-      return key ? t(key) : item.label
+      // Persisted event titles map through the shared slug → `events.titles.*`
+      // namespace (same source as the program-logs page). Unknown/dynamic
+      // titles fall through to the raw label.
+      const slug = eventTitleSlug(item.label)
+      return slug ? t(`events.titles.${slug}`) : item.label
     }
     default:
       return item.label

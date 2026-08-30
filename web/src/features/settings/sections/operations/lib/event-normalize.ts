@@ -5,6 +5,10 @@
 import i18n from 'i18next'
 
 import { toBcp47 } from '@/i18n/languages'
+// Single source of truth for backend event title → i18n slug lives in
+// lib/event-titles (shared with the attention pipeline); re-exported here so
+// existing imports keep working.
+export { eventTitleSlug } from '@/lib/event-titles'
 import { formatDateTime } from '@/lib/format'
 
 /**
@@ -61,24 +65,6 @@ export function normalizeEvent(raw: Record<string, unknown>): ProgramEvent {
 export function formatTimestamp(value?: string): string {
   if (!value) return '—'
   return formatDateTime(value, toBcp47(i18n.language || 'en'))
-}
-
-/**
- * Map backend event titles (written in English by the alert/checkin services)
- * to localized i18n keys. Unknown titles render as-is.
- */
-const EVENT_TITLE_KEYS: Record<string, string> = {
-  'Token expired': 'tokenExpired',
-  'Low balance': 'lowBalance',
-  'All proxies failed': 'allProxiesFailed',
-  'checkin success': 'checkinSuccess',
-  'checkin skipped': 'checkinSkipped',
-  'checkin failed': 'checkinFailed',
-  'checkin failed (cloudflare challenge)': 'checkinFailedCloudflare',
-}
-
-export function eventTitleKey(title: string): string | undefined {
-  return EVENT_TITLE_KEYS[title]
 }
 
 /** Structured parts of an enriched event message. */

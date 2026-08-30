@@ -50,6 +50,25 @@
       "searchParamDescription": "链接中包含过期或格式错误的参数。重置链接后将使用默认设置打开页面。",
       "searchParamReset": "重置链接"
     },
+    "events": {
+      "titles": {
+        "allProxiesFailed": "全部代理失败",
+        "lowBalance": "余额不足",
+        "tokenExpired": "令牌已过期",
+        "siteDisabled": "站点已禁用",
+        "siteEnabled": "站点已启用",
+        "checkinSuccess": "签到成功",
+        "checkinFailed": "签到失败",
+        "checkinFailedCloudflare": "签到失败（Cloudflare 验证）",
+        "checkinSkipped": "签到已跳过",
+        "tokenSyncFailed": "账号令牌同步失败",
+        "tokenSyncCompleted": "账号令牌同步完成",
+        "adminTokenUpdated": "管理员登录令牌已更新",
+        "runtimeSettingsUpdated": "运行时设置已更新",
+        "disabledModelRepaired": "已修复禁用模型（映射已自动恢复）",
+        "backupImportAddedKeys": "备份导入已添加下游 API 密钥"
+      }
+    },
     "common": {
       "skipToMain": "跳转到主要内容",
       "confirm": "确定",
@@ -914,14 +933,6 @@
           "disabledSite": "站点已停用：{{name}}",
           "balanceUnknown": "余额未知：{{name}}",
           "siteAnnouncement": "上游公告：{{title}}",
-          "eventAllProxiesFailed": "全部代理失败",
-          "eventLowBalance": "余额不足",
-          "eventTokenExpired": "令牌已过期",
-          "eventSiteDisabled": "站点已禁用",
-          "eventCheckinFailed": "签到失败",
-          "eventCheckinFailedCloudflare": "签到失败（Cloudflare 验证）",
-          "eventCheckinSkipped": "已跳过签到",
-          "eventTokenSyncFailed": "账号令牌同步失败",
           "mergedCount": "合并 {{count}} 条事件",
           "severity": {
             "critical": "严重",
@@ -1639,15 +1650,6 @@
           "clearTitle": "清空运行事件？",
           "clearDescription": "所有运行事件将被永久删除。此操作无法撤销。",
           "empty": "暂无运行事件。",
-          "eventTitles": {
-            "tokenExpired": "令牌失效",
-            "lowBalance": "余额不足",
-            "allProxiesFailed": "代理全部失败",
-            "checkinSuccess": "签到成功",
-            "checkinSkipped": "签到已跳过",
-            "checkinFailed": "签到失败",
-            "checkinFailedCloudflare": "签到失败（Cloudflare 验证）"
-          },
           "messageParts": {
             "affectedRoutes": "受影响路由",
             "alternativeSites": "替代站点",

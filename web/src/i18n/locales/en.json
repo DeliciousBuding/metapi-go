@@ -50,6 +50,25 @@
       "searchParamDescription": "This link contains outdated or malformed parameters. Reset it to open the page with default settings.",
       "searchParamReset": "Reset URL"
     },
+    "events": {
+      "titles": {
+        "allProxiesFailed": "All proxies failed",
+        "lowBalance": "Low balance",
+        "tokenExpired": "Token expired",
+        "siteDisabled": "Site disabled",
+        "siteEnabled": "Site enabled",
+        "checkinSuccess": "Check-in succeeded",
+        "checkinFailed": "Check-in failed",
+        "checkinFailedCloudflare": "Check-in failed (Cloudflare challenge)",
+        "checkinSkipped": "Check-in skipped",
+        "tokenSyncFailed": "Account token sync failed",
+        "tokenSyncCompleted": "Account token sync completed",
+        "adminTokenUpdated": "Admin login token updated",
+        "runtimeSettingsUpdated": "Runtime settings updated",
+        "disabledModelRepaired": "Disabled model repaired (mapping auto-restored)",
+        "backupImportAddedKeys": "Backup import added downstream API keys"
+      }
+    },
     "common": {
       "skipToMain": "Skip to main content",
       "confirm": "Confirm",
@@ -914,14 +933,6 @@
           "disabledSite": "Site disabled: {{name}}",
           "balanceUnknown": "Balance unknown: {{name}}",
           "siteAnnouncement": "Upstream announcement: {{title}}",
-          "eventAllProxiesFailed": "All proxies failed",
-          "eventLowBalance": "Low balance",
-          "eventTokenExpired": "Token expired",
-          "eventSiteDisabled": "Site disabled",
-          "eventCheckinFailed": "Check-in failed",
-          "eventCheckinFailedCloudflare": "Check-in failed (Cloudflare challenge)",
-          "eventCheckinSkipped": "Check-in skipped",
-          "eventTokenSyncFailed": "Account token sync failed",
           "mergedCount": "{{count}} merged events",
           "severity": {
             "critical": "critical",
@@ -1639,15 +1650,6 @@
           "clearTitle": "Clear operational events?",
           "clearDescription": "All operational events will be permanently deleted. This cannot be undone.",
           "empty": "No operational events.",
-          "eventTitles": {
-            "tokenExpired": "Token expired",
-            "lowBalance": "Low balance",
-            "allProxiesFailed": "All proxies failed",
-            "checkinSuccess": "Check-in succeeded",
-            "checkinSkipped": "Check-in skipped",
-            "checkinFailed": "Check-in failed",
-            "checkinFailedCloudflare": "Check-in failed (Cloudflare challenge)"
-          },
           "messageParts": {
             "affectedRoutes": "Affected routes",
             "alternativeSites": "Alternative sites",
