@@ -12,6 +12,7 @@ import {
   formatInt,
   formatLatency,
   formatPrice,
+  formatLogDateDetail,
   formatRelativeTime,
   formatShortDate,
   formatSuccessRate,
@@ -213,5 +214,27 @@ describe('formatRelativeTime', () => {
   it('returns an empty string for missing input', () => {
     expect(formatRelativeTime(null, 'en-US')).toBe('')
     expect(formatRelativeTime('', 'en-US')).toBe('')
+  })
+})
+
+describe('formatLogDateDetail', () => {
+  it('combines short date + relative time inside the relative window', () => {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000)
+    const detail = formatLogDateDetail(twoHoursAgo, 'en-US')
+    expect(detail).toContain('·')
+    expect(detail).toContain('2 hours ago')
+  })
+
+  it('collapses to the absolute date past the relative window (no duplicate day)', () => {
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000)
+    const detail = formatLogDateDetail(eightDaysAgo, 'zh-CN')
+    // "2026年8月23日" — must NOT be prefixed with the short date again.
+    expect(detail).not.toContain('·')
+    expect(detail).toBe(formatRelativeTime(eightDaysAgo, 'zh-CN'))
+  })
+
+  it('returns an empty string for missing input', () => {
+    expect(formatLogDateDetail(null, 'en-US')).toBe('')
+    expect(formatLogDateDetail('', 'en-US')).toBe('')
   })
 })
