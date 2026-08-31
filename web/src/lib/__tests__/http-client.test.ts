@@ -339,13 +339,15 @@ describe('apiClient auth interceptor', () => {
       'authIpBlocked',
       'authReauthRequired',
       'accountNotFound',
+      'tokenNotFound',
+      'routeNotFound',
+      'channelNotFound',
       'siteNotFound',
     ]
     for (const code of codes) {
-      const expectedKey =
-        code === 'accountNotFound' || code === 'siteNotFound'
-          ? `errors.api.${code}`
-          : `errors.auth.${code.replace(/^auth/, '').replace(/^./, (c) => c.toLowerCase())}`
+      const expectedKey = code.startsWith('auth')
+        ? `errors.auth.${code.replace(/^auth/, '').replace(/^./, (c) => c.toLowerCase())}`
+        : `errors.api.${code}`
       expect(i18n.exists(expectedKey), `${code} -> ${expectedKey}`).toBe(true)
     }
   })

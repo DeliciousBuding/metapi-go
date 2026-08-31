@@ -504,7 +504,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 
 	existing := queryRow(h.db, "SELECT * FROM token_routes WHERE id = ?", id)
 	if existing == nil {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "route not found")
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeRouteNotFound, "route not found")
 		return
 	}
 
