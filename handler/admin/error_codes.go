@@ -48,8 +48,19 @@ const (
 	// ErrorCodeChannelNotFound rejects a route-channels operation whose
 	// referenced channel does not exist (routes/{id}/channels family).
 	ErrorCodeChannelNotFound = "channelNotFound"
+
 	// ErrorCodeSiteNotFound rejects a request whose `{id}` path segment or
 	// body references a site that does not exist (sites / accounts / site
 	// announcements route families).
 	ErrorCodeSiteNotFound = "siteNotFound"
+
+	// ErrorCodeOperationNotSupported rejects an operation that the account
+	// connection type does not support (e.g. API-key connections managing
+	// account tokens).
+	ErrorCodeOperationNotSupported = "operationNotSupported"
+
+	// ErrorCodeResourceDisabled marks a failure caused by a capability being
+	// currently unavailable — engine not configured, probe scheduler not
+	// running, or the like.
+	ErrorCodeResourceDisabled = "resourceDisabled"
 )

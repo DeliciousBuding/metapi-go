@@ -107,7 +107,7 @@ func (h *accountTokensHandler) getGroups(w http.ResponseWriter, r *http.Request)
 	}
 
 	if service.IsAPIKeyConnection(&row.Account) {
-		writeError(w, http.StatusBadRequest, "API key connections do not support fetching account token groups")
+		writeErrorCode(w, http.StatusBadRequest, ErrorCodeOperationNotSupported, "API key connections do not support fetching account token groups")
 		return
 	}
 

@@ -18,7 +18,7 @@ func (h *tokenRoutesHandler) routeDecision(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if h.router == nil {
-		writeError(w, http.StatusServiceUnavailable, routeDecisionRouterUnavailable)
+		writeErrorCode(w, http.StatusServiceUnavailable, ErrorCodeResourceDisabled, routeDecisionRouterUnavailable)
 		return
 	}
 
@@ -55,7 +55,7 @@ func (h *tokenRoutesHandler) routeDecisionBatch(w http.ResponseWriter, r *http.R
 		return
 	}
 	if h.router == nil {
-		writeError(w, http.StatusServiceUnavailable, routeDecisionRouterUnavailable)
+		writeErrorCode(w, http.StatusServiceUnavailable, ErrorCodeResourceDisabled, routeDecisionRouterUnavailable)
 		return
 	}
 
@@ -100,7 +100,7 @@ func (h *tokenRoutesHandler) routeDecisionByRouteBatch(w http.ResponseWriter, r 
 		return
 	}
 	if h.router == nil {
-		writeError(w, http.StatusServiceUnavailable, routeDecisionRouterUnavailable)
+		writeErrorCode(w, http.StatusServiceUnavailable, ErrorCodeResourceDisabled, routeDecisionRouterUnavailable)
 		return
 	}
 
@@ -152,7 +152,7 @@ func (h *tokenRoutesHandler) routeDecisionRouteWideBatch(w http.ResponseWriter, 
 		return
 	}
 	if h.router == nil {
-		writeError(w, http.StatusServiceUnavailable, routeDecisionRouterUnavailable)
+		writeErrorCode(w, http.StatusServiceUnavailable, ErrorCodeResourceDisabled, routeDecisionRouterUnavailable)
 		return
 	}
 

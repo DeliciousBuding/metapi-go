@@ -2041,3 +2041,30 @@ func TestErrorCodeResourceNotFound(t *testing.T) {
 		})
 	}
 }
+
+// errorCode contract: the disabled/not-supported rejections carry the
+// additive machine-readable code the frontend maps to localized copy
+// (batch 5 — operationNotSupported / resourceDisabled). The
+// route-decision engine-unconfigured path is the stable, dependency-free
+// representative; other sites of the family share the same helper shape
+// and are covered by their existing status/message assertions.
+func TestErrorCodeResourceDisabledDecisionEngine(t *testing.T) {
+	_, r := setupTokenRoutesTest(t)
+	resp := doGet(t, r, "/api/routes/decision?model=gpt-4")
+	if resp.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503 (body=%s)", resp.Code, resp.Body.String())
+	}
+	var body struct {
+		Error     string `json:"error"`
+		ErrorCode string `json:"errorCode"`
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v (body=%s)", err, resp.Body.String())
+	}
+	if body.Error == "" {
+		t.Fatalf("expected human-readable error text, got %q", resp.Body.String())
+	}
+	if body.ErrorCode != "resourceDisabled" {
+		t.Fatalf("errorCode = %q, want %q (body=%s)", body.ErrorCode, "resourceDisabled", resp.Body.String())
+	}
+}

@@ -92,7 +92,7 @@ func (h *accountTokensHandler) createToken(w http.ResponseWriter, r *http.Reques
 	}
 
 	if service.IsAPIKeyConnection(&row.Account) {
-		writeError(w, http.StatusBadRequest, "API key connections do not support creating account tokens")
+		writeErrorCode(w, http.StatusBadRequest, ErrorCodeOperationNotSupported, "API key connections do not support creating account tokens")
 		return
 	}
 
@@ -404,7 +404,7 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {
-		writeError(w, http.StatusBadRequest, "API key connections do not support managing account tokens")
+		writeErrorCode(w, http.StatusBadRequest, ErrorCodeOperationNotSupported, "API key connections do not support managing account tokens")
 		return
 	}
 
@@ -527,7 +527,7 @@ func (h *accountTokensHandler) setDefault(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {
-		writeError(w, http.StatusBadRequest, "API key connections do not support managing account tokens")
+		writeErrorCode(w, http.StatusBadRequest, ErrorCodeOperationNotSupported, "API key connections do not support managing account tokens")
 		return
 	}
 	if service.IsMaskedPendingAccountToken(token) {
@@ -571,7 +571,7 @@ func (h *accountTokensHandler) getTokenValue(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {
-		writeError(w, http.StatusBadRequest, "API key connections do not support managing account tokens")
+		writeErrorCode(w, http.StatusBadRequest, ErrorCodeOperationNotSupported, "API key connections do not support managing account tokens")
 		return
 	}
 
@@ -626,7 +626,7 @@ func (h *accountTokensHandler) deleteToken(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {
-		writeError(w, http.StatusBadRequest, "API key connections do not support managing account tokens")
+		writeErrorCode(w, http.StatusBadRequest, ErrorCodeOperationNotSupported, "API key connections do not support managing account tokens")
 		return
 	}
 

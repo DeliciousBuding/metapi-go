@@ -49,7 +49,9 @@
         "tokenNotFound": "Token not found",
         "routeNotFound": "Route not found",
         "channelNotFound": "Channel not found",
-        "siteNotFound": "Site not found"
+        "siteNotFound": "Site not found",
+        "operationNotSupported": "This operation is not supported for this connection type",
+        "resourceDisabled": "This capability is currently unavailable"
       },
       "internalServerError": "Internal Server Error!",
       "serverError": "Server error ({{status}}). Please try again later.",

@@ -38,7 +38,7 @@ func nullableFloat64(v float64) any {
 func (h *statsHandler) verifyBatch(w http.ResponseWriter, r *http.Request) {
 	sched := scheduler.GetGlobalModelProbeScheduler()
 	if sched == nil {
-		writeError(w, http.StatusServiceUnavailable, "model probe scheduler is not running (start schedulers)")
+		writeErrorCode(w, http.StatusServiceUnavailable, ErrorCodeResourceDisabled, "model probe scheduler is not running (start schedulers)")
 		return
 	}
 
