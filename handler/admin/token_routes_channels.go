@@ -28,7 +28,7 @@ func (h *tokenRoutesHandler) getRouteChannels(w http.ResponseWriter, r *http.Req
 		 LEFT JOIN sites s ON a.site_id = s.id
 		 WHERE rc.route_id = ?`, id)
 	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load route channels")
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load route channels")
 		return
 	}
 	var enrichedChans []map[string]any

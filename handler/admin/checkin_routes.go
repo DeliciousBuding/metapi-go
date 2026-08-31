@@ -180,7 +180,7 @@ func (h *checkinHandler) getLogs(w http.ResponseWriter, r *http.Request) {
 	qArgs = append(qArgs, limit, offset)
 	rows, err := queryRowsErr(h.db, query, qArgs...)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load checkin logs")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load checkin logs")
 		return
 	}
 

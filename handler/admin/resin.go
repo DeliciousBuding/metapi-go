@@ -56,7 +56,7 @@ func (h *resinHandler) status(w http.ResponseWriter, r *http.Request) {
 	activeLeases := service.ActiveLeases()
 	perSiteOverrides, err := h.perSiteOverrides()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load resin per-site overrides")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load resin per-site overrides")
 		return
 	}
 

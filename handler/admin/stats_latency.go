@@ -37,7 +37,7 @@ func (h *statsHandler) slowRequests(w http.ResponseWriter, r *http.Request) {
 		LIMIT ?
 	`, since, minLatencyMs, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load slow requests")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load slow requests")
 		return
 	}
 
@@ -92,7 +92,7 @@ func (h *statsHandler) modelCostDistribution(w http.ResponseWriter, r *http.Requ
 		ORDER BY cost DESC, model ASC
 	`, since)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load model cost distribution")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load model cost distribution")
 		return
 	}
 
@@ -164,7 +164,7 @@ func (h *statsHandler) latencyHistogram(w http.ResponseWriter, r *http.Request) 
 		ORDER BY bucket_start ASC
 	`, bucketMs, bucketMs, since)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load latency histogram")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load latency histogram")
 		return
 	}
 
@@ -224,7 +224,7 @@ func (h *statsHandler) latencyTrend(w http.ResponseWriter, r *http.Request) {
 		ORDER BY day ASC
 	`, fromDay)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load latency trend")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load latency trend")
 		return
 	}
 
@@ -267,7 +267,7 @@ func (h *statsHandler) latencyTrend(w http.ResponseWriter, r *http.Request) {
 			LIMIT ?
 		`, dayStart, dayEnd, p95SampleCap)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to load latency trend samples")
+			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load latency trend samples")
 			return
 		}
 		n := len(samples)

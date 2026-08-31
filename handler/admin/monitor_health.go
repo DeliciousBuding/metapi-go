@@ -35,12 +35,12 @@ func (h *monitorHealthHandler) health(w http.ResponseWriter, r *http.Request) {
 	}
 	sites, err := h.statusCounts("sites")
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load status counts")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load status counts")
 		return
 	}
 	accounts, err := h.statusCounts("accounts")
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load status counts")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load status counts")
 		return
 	}
 

@@ -153,7 +153,7 @@ func (h *accountsHandler) listAccounts(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Error("Failed to load accounts", "err", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load accounts"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load accounts", "errorCode": "resourceLoadFailed"})
 		return
 	}
 
@@ -227,7 +227,7 @@ func (h *accountsHandler) listAccountsPaginated(w http.ResponseWriter, r *http.R
 	accounts, total, err := service.ListAccountsWithSitesPaginated(h.db, pageSize, offset)
 	if err != nil {
 		slog.Error("Failed to load paginated accounts", "err", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load accounts"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load accounts", "errorCode": "resourceLoadFailed"})
 		return
 	}
 
@@ -813,7 +813,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	var loginAcct store.Account
 	if err := h.db.Get(&loginAcct, h.db.Rebind("SELECT * FROM accounts WHERE site_id = ? AND username = ?"), body.SiteID, body.Username); err != nil {
 		slog.Error("Failed to load login account", "err", err, "site_id", body.SiteID)
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "Failed to load account.")
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "Failed to load account.")
 		return
 	}
 	loginAcctMap := map[string]any{
@@ -1372,7 +1372,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 	updatedRow, err := service.GetAccountWithSiteByID(h.db, id)
 	if err != nil {
 		slog.Error("Failed to load updated account", "err", err, "account_id", id)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to load updated account"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to load updated account", "errorCode": "resourceLoadFailed"})
 		return
 	}
 	updated := updatedRow.Account

@@ -38,7 +38,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 			LIMIT ?
 		`, since, usageHeatmapCellLimit)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to load usage heatmap")
+			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load usage heatmap")
 			return
 		}
 		if len(rows) > 0 {
@@ -64,7 +64,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 				LIMIT ?
 			`, since, usageHeatmapCellLimit)
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "failed to load usage heatmap")
+				writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load usage heatmap")
 				return
 			}
 			cells = makeUsageHeatmapCells(rows)
@@ -88,7 +88,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 			LIMIT ?
 		`, since, usageHeatmapCellLimit)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to load usage heatmap")
+			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load usage heatmap")
 			return
 		}
 		cells = makeUsageHeatmapCells(rows)

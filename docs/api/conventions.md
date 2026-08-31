@@ -116,6 +116,7 @@ sites; this table is the registry and grows deliberately. Constants live in
 | `routeNotFound`         | 404    | `/api/routes*`                               | referenced token route does not exist |
 | `channelNotFound`       | 404    | `/api/channels/{channelId}`                  | referenced route channel id is missing/non-positive |
 | `siteNotFound`          | 404    | `/api/sites*`, `/api/accounts*`, `/api/site-announcements/sync` | referenced site does not exist |
+| `resourceLoadFailed`    | 500    | `/api/accounts*`, `/api/sites*`, `/api/channels*`, `/api/stats*`, `/api/token-routes*`, `/api/checkin/*`, `/api/downstream-keys*`, `/api/announcements*`, `/api/events*`, `/api/oauth*`, `/api/models/*`, `/api/tags*`, `/api/probe-history*`, `/api/resin*` | read-path query failed; entity data could not be loaded |
 
 Frontend note: the admin UI historically detected the same-target migration
 rejection by substring-matching the message text; it should migrate to

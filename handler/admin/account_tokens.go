@@ -60,7 +60,7 @@ func (h *accountTokensHandler) listTokens(w http.ResponseWriter, r *http.Request
 	tokens, err := service.ListTokensWithRelations(h.db, accountID)
 	if err != nil {
 		slog.Error("Failed to load tokens", "err", err)
-		writeError(w, http.StatusInternalServerError, "Failed to load tokens")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "Failed to load tokens")
 		return
 	}
 
