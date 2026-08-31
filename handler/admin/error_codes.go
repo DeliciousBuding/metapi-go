@@ -63,4 +63,9 @@ const (
 	// currently unavailable — engine not configured, probe scheduler not
 	// running, or the like.
 	ErrorCodeResourceDisabled = "resourceDisabled"
+
+	// ErrorCodeInvalidSettingsValue rejects a runtime-settings apply whose body
+	// carries an invalid field value (the settings_apply validation funnel);
+	// 5xx apply failures intentionally carry no code.
+	ErrorCodeInvalidSettingsValue = "invalidSettingsValue"
 )

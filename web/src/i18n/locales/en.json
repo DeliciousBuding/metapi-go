@@ -51,7 +51,8 @@
         "channelNotFound": "Channel not found",
         "siteNotFound": "Site not found",
         "operationNotSupported": "This operation is not supported for this connection type",
-        "resourceDisabled": "This capability is currently unavailable"
+        "resourceDisabled": "This capability is currently unavailable",
+        "invalidSettingsValue": "Invalid value in the settings form; please check and save again"
       },
       "internalServerError": "Internal Server Error!",
       "serverError": "Server error ({{status}}). Please try again later.",

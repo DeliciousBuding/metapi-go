@@ -159,6 +159,7 @@ const ERROR_CODE_I18N_KEYS: Record<string, string> = {
   siteNotFound: 'errors.api.siteNotFound',
   operationNotSupported: 'errors.api.operationNotSupported',
   resourceDisabled: 'errors.api.resourceDisabled',
+  invalidSettingsValue: 'errors.api.invalidSettingsValue',
   operationNotImplemented: 'errors.api.operationNotImplemented',
 }
 

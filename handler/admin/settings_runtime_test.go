@@ -511,3 +511,31 @@ func TestSettingsRuntimeNotifyTogglesPersistAsJSONObject(t *testing.T) {
 		t.Fatalf("stored toggles = %#v", toggles)
 	}
 }
+
+// errorCode contract: the settings-apply validation funnel emits the
+// additive machine-readable invalidSettingsValue code on 400-class apply
+// failures (the largest single validation family — scout §settings_apply);
+// 5xx apply failures intentionally carry no code. The message text stays
+// the display fallback.
+func TestSettingsRuntimeApplyValidationCarriesCode(t *testing.T) {
+	_, r, _ := setupEdgeTest(t)
+	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
+		"checkinCron": "bad cron",
+	})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s, want 400", resp.Code, resp.Body.String())
+	}
+	var body struct {
+		Error     string `json:"error"`
+		ErrorCode string `json:"errorCode"`
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v (body=%s)", err, resp.Body.String())
+	}
+	if body.Error == "" {
+		t.Fatalf("expected human-readable error text, got %q", resp.Body.String())
+	}
+	if body.ErrorCode != "invalidSettingsValue" {
+		t.Fatalf("errorCode = %q, want %q (body=%s)", body.ErrorCode, "invalidSettingsValue", resp.Body.String())
+	}
+}
