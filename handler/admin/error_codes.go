@@ -27,4 +27,9 @@ const (
 	// ErrorCodeSameMigrationTarget rejects a migration whose target resolves
 	// to the currently-running database (POST /api/settings/database/migrate).
 	ErrorCodeSameMigrationTarget = "sameMigrationTarget"
+
+	// ErrorCodeAccountNotFound rejects a request whose `{id}` path segment or
+	// body references an account that does not exist (accounts / account
+	// tokens / accounts-health route families).
+	ErrorCodeAccountNotFound = "accountNotFound"
 )

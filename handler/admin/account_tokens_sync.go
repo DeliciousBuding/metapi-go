@@ -29,7 +29,7 @@ func (h *accountTokensHandler) syncAccount(w http.ResponseWriter, r *http.Reques
 
 	row, err := service.GetAccountWithSiteByID(h.db, accountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "account not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
 	}
 
@@ -102,7 +102,7 @@ func (h *accountTokensHandler) getGroups(w http.ResponseWriter, r *http.Request)
 
 	row, err := service.GetAccountWithSiteByID(h.db, accountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "account not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
 	}
 
