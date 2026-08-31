@@ -66,7 +66,9 @@ func RequireReauth() func(http.Handler) http.Handler {
 			if rt == nil || confirm == "" || !constantTimeTokenEqual(confirm, rt.AuthToken) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusForbidden)
-				_, _ = w.Write([]byte(`{"error":"Sensitive operation requires master token confirmation","reauthRequired":true}`))
+				// errorCode is additive: the frontend branches on
+				// reauthRequired; the code only feeds the i18n toast map.
+				_, _ = w.Write([]byte(`{"error":"Sensitive operation requires master token confirmation","reauthRequired":true,"errorCode":"authReauthRequired"}`))
 				return
 			}
 			next.ServeHTTP(w, r)

@@ -36,6 +36,13 @@
         "serverUnreachable": "Unable to connect to the server.",
         "failed": "Login failed, please check the service status."
       },
+      "auth": {
+        "sessionExpired": "Session expired",
+        "missingCredential": "Missing credentials",
+        "invalidToken": "Invalid token",
+        "ipBlocked": "IP not allowed",
+        "reauthRequired": "Sensitive operation requires master token confirmation"
+      },
       "internalServerError": "Internal Server Error!",
       "serverError": "Server error ({{status}}). Please try again later.",
       "notFoundTitle": "Page not found",

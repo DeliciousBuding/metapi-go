@@ -92,19 +92,30 @@ HTTP status codes: 200 (OK), 201 (Created), 202 (Accepted), 400 (Bad Request), 4
 `errorCode` values are stable **camelCase** identifiers (matching the
 project-wide camelCase JSON rule). Codes are only introduced for real call
 sites; this table is the registry and grows deliberately. Constants live in
-`handler/admin/error_codes.go` and are pinned by
-`handler/admin/error_codes_test.go`.
+`handler/admin/error_codes.go` (admin handlers) and `auth/admin.go` +
+`auth/reauth.go` (auth middleware) and are pinned by the respective
+`*_test.go`.
 
-| errorCode              | Status | Where                                          | Meaning                                                        |
-| ---------------------- | ------ | ---------------------------------------------- | -------------------------------------------------------------- |
-| `invalidId`            | 400    | any `/api/.../{id}` route (pathID helper)      | path ID missing, non-numeric or non-positive                   |
-| `invalidDatabaseType`  | 400    | `/api/settings/database/*`                     | runtime-database dialect is neither `sqlite` nor `postgres`    |
-| `emptyMigrationTarget` | 400    | `POST /api/settings/database/migrate`          | target connection string is blank                              |
-| `sameMigrationTarget`  | 400    | `POST /api/settings/database/migrate`          | target resolves to the currently-running database (rejected)   |
+| errorCode               | Status | Where                                          | Meaning                                                        |
+| ----------------------- | ------ | ---------------------------------------------- | -------------------------------------------------------------- |
+| `invalidId`             | 400    | any `/api/.../{id}` route (pathID helper)      | path ID missing, non-numeric or non-positive                   |
+| `invalidDatabaseType`   | 400    | `/api/settings/database/*`                     | runtime-database dialect is neither `sqlite` nor `postgres`    |
+| `emptyMigrationTarget`  | 400    | `POST /api/settings/database/migrate`          | target connection string is blank                              |
+| `sameMigrationTarget`   | 400    | `POST /api/settings/database/migrate`          | target resolves to the currently-running database (rejected)   |
+| `authSessionExpired`    | 401    | all admin routes (auth middleware)             | session cookie presented but unknown/expired                   |
+| `authMissingCredential` | 401    | all admin routes (auth middleware)             | no Authorization header and no session cookie                  |
+| `authInvalidToken`      | 403    | all admin routes (auth middleware)             | Bearer master-token mismatch                                   |
+| `authIpBlocked`         | 403    | all admin routes (auth middleware)             | client IP not on the admin allowlist                           |
+| `authReauthRequired`    | 403    | sensitive admin routes (reauth gate)           | sensitive op needs master-token confirmation (`reauthRequired`) |
 
 Frontend note: the admin UI historically detected the same-target migration
 rejection by substring-matching the message text; it should migrate to
 `errorCode === "sameMigrationTarget"`.
+
+Frontend note (auth): the interceptor keeps its load-bearing substring match
+on `"invalid token"` (clears session) and the `reauthRequired:true` flag
+(prompts for master token); the auth `errorCode` values above only feed the
+localized toast copy via the `errors.auth.*` i18n keys.
 
 ## Request Body Rules
 

@@ -3,6 +3,7 @@ package auth
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,6 +71,8 @@ func TestAdminAuth_SessionCookieTrack(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "forged-cookie-value"})
 	if rec := doAuthReq(t, h, req); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("forged cookie status = %d, want 401", rec.Code)
+	} else if !strings.Contains(rec.Body.String(), ErrorCodeAuthSessionExpired) {
+		t.Fatalf("forged cookie body missing errorCode %q: %s", ErrorCodeAuthSessionExpired, rec.Body.String())
 	}
 
 	// Expired cookie → 401 and the row is gone.

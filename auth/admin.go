@@ -70,7 +70,7 @@ func AdminAuth(sessions *SessionManager) func(http.Handler) http.Handler {
 			// ---- 1. Extract client IP ----
 			clientIP := extractClientIP(r)
 			if !isIPAllowed(clientIP, parsedAllowlist) {
-				writeJSON(w, http.StatusForbidden, jsonError("IP not allowed"))
+				writeJSON(w, http.StatusForbidden, jsonErrorWithCode("IP not allowed", ErrorCodeAuthIPBlocked))
 				return
 			}
 
@@ -92,10 +92,10 @@ func AdminAuth(sessions *SessionManager) func(http.Handler) http.Handler {
 				if cookieToken != "" {
 					// A cookie was presented but is unknown/expired: the
 					// session ended, say so (the frontend redirects to sign-in).
-					writeJSON(w, http.StatusUnauthorized, jsonError("Session expired"))
+					writeJSON(w, http.StatusUnauthorized, jsonErrorWithCode("Session expired", ErrorCodeAuthSessionExpired))
 					return
 				}
-				writeJSON(w, http.StatusUnauthorized, jsonError("Missing Authorization header"))
+				writeJSON(w, http.StatusUnauthorized, jsonErrorWithCode("Missing Authorization header", ErrorCodeAuthMissingCredential))
 				return
 			}
 
@@ -103,7 +103,7 @@ func AdminAuth(sessions *SessionManager) func(http.Handler) http.Handler {
 			// TS: token = auth.replace('Bearer ', '')
 			token := strings.Replace(auth, "Bearer ", "", 1)
 			if subtle.ConstantTimeCompare([]byte(token), []byte(config.Runtime().AuthToken)) != 1 {
-				writeJSON(w, http.StatusForbidden, jsonError("Invalid token"))
+				writeJSON(w, http.StatusForbidden, jsonErrorWithCode("Invalid token", ErrorCodeAuthInvalidToken))
 				return
 			}
 
@@ -337,12 +337,37 @@ func isIPAllowed(clientIP string, allowlist []parsedAllowlistEntry) bool {
 // JSON response helpers.
 // ---------------------------------------------------------------------------
 
+// Machine-readable errorCode values on auth-middleware rejections. Same
+// convention as handler/admin/error_codes.go: stable camelCase, optional and
+// additive — the human-readable "error" stays the display fallback, and the
+// frontend keeps its load-bearing substring match ("invalid token") working.
+// Registered in docs/api.md "errorCode convention and registry".
+const (
+	// ErrorCodeAuthSessionExpired: a cookie session was presented but is
+	// unknown/expired (401; the frontend redirects to sign-in).
+	ErrorCodeAuthSessionExpired = "authSessionExpired"
+	// ErrorCodeAuthMissingCredential: no Authorization header and no session
+	// cookie (401).
+	ErrorCodeAuthMissingCredential = "authMissingCredential"
+	// ErrorCodeAuthInvalidToken: Bearer master-token mismatch (403).
+	ErrorCodeAuthInvalidToken = "authInvalidToken"
+	// ErrorCodeAuthIPBlocked: client IP not on the admin allowlist (403).
+	ErrorCodeAuthIPBlocked = "authIpBlocked"
+)
+
 type jsonErrorBody struct {
 	Error string `json:"error"`
+	// ErrorCode is additive; empty means "no registered code" and the field
+	// is omitted from the wire body.
+	ErrorCode string `json:"errorCode,omitempty"`
 }
 
 func jsonError(msg string) jsonErrorBody {
 	return jsonErrorBody{Error: msg}
+}
+
+func jsonErrorWithCode(msg, code string) jsonErrorBody {
+	return jsonErrorBody{Error: msg, ErrorCode: code}
 }
 
 func writeJSON(w http.ResponseWriter, statusCode int, body any) {
