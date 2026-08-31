@@ -12,6 +12,7 @@
 - **#1103**：清理 17 个零引用文案键（en/zh-CN 各删 17），保留经模板/配置映射引用的动态键；双语键集合保持一致。
 - **#1104**：设置页单卡片节标题与描述从逐字重复收敛为单处——`SettingsSectionCard` 无头部动作时不渲染卡头；数据迁移节的警告信息移至卡内顶部警示条。骨架规约记入 DESIGN.md §4.2。
 - **auth 文案国际化启动**：admin 认证中间件拒绝信息（会话过期/缺凭据/令牌无效/IP 白名单）及 reauth 确认改用机器可读 `errorCode` 承载，前端据 `errorCode` 渲染本地化文案（`errors.auth.*`），未注册码回退后端原文——后端英文文案本地化的首块。
+- **errorCode 家族铺满（#1109–#1118）**：机器可读错误码从认证 8 码扩展到业务面——资源不存在 5 码（account/site/token/route/channelNotFound）、能力未实现/禁用 3 码（operationNotImplemented/operationNotSupported/resourceDisabled）、设置校验 1 码（invalidSettingsValue）与读取路径加载失败族 1 码（resourceLoadFailed，覆盖 72 个调用点：writeError×62 + writeJSON×10）。响应形态三合一（writeError / writeErrorWithRequest / 遗留 `{message}`），message 原文不动（零破坏），registry 见 conventions.md；closed-DB 契约测试钉全三种形态。
 
 ## 2026-08-30 — 事件标题 i18n 统一 + S7 收官 + S8 注册表合一 + F4 文档拆分
 
