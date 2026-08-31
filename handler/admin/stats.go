@@ -1334,7 +1334,7 @@ func (h *statsHandler) modelCheck(w http.ResponseWriter, r *http.Request) {
 func (h *statsHandler) modelProbe(w http.ResponseWriter, r *http.Request) {
 	sched := scheduler.GetGlobalModelProbeScheduler()
 	if sched == nil {
-		writeError(w, http.StatusServiceUnavailable, "model probe scheduler is not running (enable MODEL_AVAILABILITY_PROBE_ENABLED or start schedulers)")
+		writeErrorCode(w, http.StatusServiceUnavailable, ErrorCodeResourceDisabled, "model probe scheduler is not running (enable MODEL_AVAILABILITY_PROBE_ENABLED or start schedulers)")
 		return
 	}
 	jobID := fmt.Sprintf("probe-%d", time.Now().UTC().UnixNano())

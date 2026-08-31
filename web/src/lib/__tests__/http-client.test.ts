@@ -344,6 +344,8 @@ describe('apiClient auth interceptor', () => {
       'routeNotFound',
       'channelNotFound',
       'siteNotFound',
+      'operationNotSupported',
+      'resourceDisabled',
     ]
     for (const code of codes) {
       const expectedKey = code.startsWith('auth')

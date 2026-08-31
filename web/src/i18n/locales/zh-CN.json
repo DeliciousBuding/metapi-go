@@ -49,7 +49,9 @@
         "tokenNotFound": "令牌不存在",
         "routeNotFound": "路由不存在",
         "channelNotFound": "渠道不存在",
-        "siteNotFound": "站点不存在"
+        "siteNotFound": "站点不存在",
+        "operationNotSupported": "该连接类型不支持此操作",
+        "resourceDisabled": "该能力当前不可用"
       },
       "internalServerError": "服务器内部错误！",
       "serverError": "服务器错误（{{status}}），请稍后重试。",
