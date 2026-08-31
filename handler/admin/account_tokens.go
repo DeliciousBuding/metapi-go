@@ -87,7 +87,7 @@ func (h *accountTokensHandler) createToken(w http.ResponseWriter, r *http.Reques
 	// Get account with site
 	row, err := service.GetAccountWithSiteByID(h.db, int64(body.AccountID))
 	if err != nil {
-		writeError(w, http.StatusNotFound, "account not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
 	}
 
@@ -396,11 +396,11 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 
 	owner, err := service.GetAccountByID(h.db, existing.AccountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "account not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
 	}
 	if owner == nil {
-		writeError(w, http.StatusNotFound, "account not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {
@@ -519,11 +519,11 @@ func (h *accountTokensHandler) setDefault(w http.ResponseWriter, r *http.Request
 
 	owner, err := service.GetAccountByID(h.db, token.AccountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "account not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
 	}
 	if owner == nil {
-		writeError(w, http.StatusNotFound, "account not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {

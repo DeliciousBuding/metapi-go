@@ -2916,6 +2916,60 @@ func TestAccounts_ErrorResponsesUseStandardShape(t *testing.T) {
 	})
 }
 
+// errorCode contract: the account-not-found rejection carries the additive
+// machine-readable code the frontend maps to localized toast copy. The
+// endpoints span the files wired in #batch1 (accounts / account-tokens /
+// accounts-health); the message text stays the display fallback.
+func TestErrorCodeAccountNotFound(t *testing.T) {
+	db, r, cfg := setupAccountsTest(t)
+	RegisterAccountTokensRoutesWithConfig(r, db.DB, cfg)
+
+	cases := []struct {
+		name   string
+		method string
+		path   string
+		body   map[string]any
+	}{
+		{name: "account update", method: http.MethodPut, path: "/api/accounts/999999", body: map[string]any{"status": "active"}},
+		{name: "account token create", method: http.MethodPost, path: "/api/account-tokens", body: map[string]any{"accountId": 999999}},
+		{name: "account health refresh", method: http.MethodPost, path: "/api/accounts/health/refresh", body: map[string]any{"accountId": 999999}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var resp *httptest.ResponseRecorder
+			switch tc.method {
+			case http.MethodPut:
+				resp = doPutJSON(t, r, tc.path, tc.body)
+			case http.MethodPost:
+				if tc.body != nil {
+					resp = doPostJSON(t, r, tc.path, tc.body)
+				} else {
+					resp = doPostJSON(t, r, tc.path, map[string]any{})
+				}
+			default:
+				resp = doGet(t, r, tc.path)
+			}
+			wantStatus := http.StatusNotFound
+			if resp.Code != wantStatus {
+				t.Fatalf("status = %d, want %d (body=%s)", resp.Code, wantStatus, resp.Body.String())
+			}
+			var body struct {
+				Error     string `json:"error"`
+				ErrorCode string `json:"errorCode"`
+			}
+			if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+				t.Fatalf("unmarshal: %v (body=%s)", err, resp.Body.String())
+			}
+			if body.Error == "" {
+				t.Fatalf("expected human-readable error text, got %q", resp.Body.String())
+			}
+			if body.ErrorCode != "accountNotFound" {
+				t.Fatalf("errorCode = %q, want %q (body=%s)", body.ErrorCode, "accountNotFound", resp.Body.String())
+			}
+		})
+	}
+}
+
 // assertStandardErrorShape verifies a response uses the unified admin error
 // shape: non-2xx status, JSON body with an "error" key and no legacy
 // "success" or "message" keys (the markers of the pre-migration shapes).

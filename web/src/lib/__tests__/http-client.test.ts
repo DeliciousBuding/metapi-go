@@ -292,6 +292,28 @@ describe('apiClient auth interceptor', () => {
     }
   })
 
+  it('renders the localized resource-not-found copy for accountNotFound', async () => {
+    const prevLng = i18n.language
+    await i18n.changeLanguage('zhCN')
+    try {
+      const expected = i18n.t('errors.api.accountNotFound')
+      expect(expected).toBe('账号不存在')
+
+      const adapterCalls: unknown[] = []
+      installStatusAdapter(adapterCalls, 404, {
+        error: 'account not found',
+        errorCode: 'accountNotFound',
+      })
+
+      await expect(apiClient.get('/api/protected')).rejects.toThrow()
+      expect(toastErrorMock).toHaveBeenCalledWith(expected, {
+        id: `api-error:${expected}`,
+      })
+    } finally {
+      await i18n.changeLanguage(prevLng)
+    }
+  })
+
   it('falls back to the raw body message for an unregistered errorCode', async () => {
     const adapterCalls: unknown[] = []
     installStatusAdapter(adapterCalls, 403, {
@@ -316,11 +338,14 @@ describe('apiClient auth interceptor', () => {
       'authInvalidToken',
       'authIpBlocked',
       'authReauthRequired',
+      'accountNotFound',
     ]
     for (const code of codes) {
-      const rest = code.replace(/^auth/, '')
-      const key = `errors.auth.${rest.charAt(0).toLowerCase()}${rest.slice(1)}`
-      expect(i18n.exists(key), `${code} -> ${key}`).toBe(true)
+      const expectedKey =
+        code === 'accountNotFound'
+          ? 'errors.api.accountNotFound'
+          : `errors.auth.${code.replace(/^auth/, '').replace(/^./, (c) => c.toLowerCase())}`
+      expect(i18n.exists(expectedKey), `${code} -> ${expectedKey}`).toBe(true)
     }
   })
 })

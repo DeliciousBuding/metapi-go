@@ -1068,7 +1068,7 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 
 	row, err := service.GetAccountWithSiteByID(h.db, accountID)
 	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "account not found")
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
 	}
 
@@ -1156,7 +1156,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 
 	row, err := service.GetAccountWithSiteByIDForUpdate(tx, id)
 	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "account not found")
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
 	}
 

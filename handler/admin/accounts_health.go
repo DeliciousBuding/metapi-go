@@ -28,7 +28,7 @@ func (h *accountsHandler) healthRefresh(w http.ResponseWriter, r *http.Request) 
 		}
 		accountID := int64(*body.AccountID)
 		if _, err := service.GetAccountWithSiteByID(h.db, accountID); err != nil {
-			writeError(w, http.StatusNotFound, "account not found")
+			writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 			return
 		}
 		accountIDs = []int64{accountID}
