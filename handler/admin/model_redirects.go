@@ -172,7 +172,7 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 			// Deterministic order: insertion order ≈ upstream return order.
 			rows, err := queryRowsErr(h.db, "SELECT model_name FROM model_availability WHERE account_id = ? AND available = true ORDER BY id ASC", body.AccountID)
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "failed to load account models")
+				writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load account models")
 				return
 			}
 			for _, row := range rows {

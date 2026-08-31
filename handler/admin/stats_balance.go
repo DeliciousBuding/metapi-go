@@ -25,7 +25,7 @@ func (h *statsHandler) balanceHistory(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := queryRowsErr(h.db, q, args...)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load balance history")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load balance history")
 		return
 	}
 	byAccount := make(map[int64][]map[string]any)
@@ -80,7 +80,7 @@ func (h *statsHandler) balanceIncomeOutcome(w http.ResponseWriter, r *http.Reque
 
 	rows, err := queryRowsErr(h.db, q, args...)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load balance income/outcome")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load balance income/outcome")
 		return
 	}
 
@@ -193,7 +193,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	expired, err := queryRowsErr(h.db, `SELECT id, username, site_id, updated_at
 		FROM accounts WHERE status = 'expired' ORDER BY updated_at DESC LIMIT ?`, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load attention items")
 		return
 	}
 	for _, row := range expired {
@@ -220,7 +220,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 		FROM accounts WHERE status = 'active' AND balance IS NOT NULL AND balance < 1.0
 		ORDER BY balance ASC LIMIT ?`, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load attention items")
 		return
 	}
 	for _, row := range low {
@@ -248,7 +248,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 		FROM accounts WHERE status = 'active' AND balance IS NULL
 		ORDER BY updated_at DESC LIMIT ?`, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load attention items")
 		return
 	}
 	for _, row := range unknown {
@@ -271,7 +271,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	disabledSites, err := queryRowsErr(h.db, `SELECT id, name, updated_at
 		FROM sites WHERE status = 'disabled' ORDER BY updated_at DESC LIMIT ?`, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load attention items")
 		return
 	}
 	for _, row := range disabledSites {
@@ -305,7 +305,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 		  AND (ends_at IS NULL OR ends_at = '' OR ends_at >= ?)
 		ORDER BY first_seen_at DESC LIMIT ?`, nowStr, nowStr, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load attention items")
 		return
 	}
 	for _, row := range announcementRows {
@@ -341,7 +341,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 		  AND (related_type IS NULL OR related_type <> 'site_announcement')
 		ORDER BY created_at DESC LIMIT ?`, false, since24h, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load attention items")
 		return
 	}
 	for _, row := range evRows {

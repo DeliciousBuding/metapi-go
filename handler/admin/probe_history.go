@@ -90,7 +90,7 @@ func toProbeHistoryResult(row probeHistoryRow) probeHistoryResult {
 func writeProbeHistoryResponse(w http.ResponseWriter, db *sqlx.DB, entityColumn string, groupKey string, limit int) {
 	rows, err := queryProbeHistory(db, entityColumn, limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to load probe history")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "Failed to load probe history")
 		return
 	}
 

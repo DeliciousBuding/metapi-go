@@ -212,7 +212,7 @@ func (h *oauthHandler) listConnections(w http.ResponseWriter, r *http.Request) {
 		 ORDER BY a.id ASC LIMIT ? OFFSET ?`,
 		limit, offset)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load oauth connections")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load oauth connections")
 		return
 	}
 

@@ -52,7 +52,8 @@
         "siteNotFound": "Site not found",
         "operationNotSupported": "This operation is not supported for this connection type",
         "resourceDisabled": "This capability is currently unavailable",
-        "invalidSettingsValue": "Invalid value in the settings form; please check and save again"
+        "invalidSettingsValue": "Invalid value in the settings form; please check and save again",
+        "resourceLoadFailed": "Failed to load data. Please try again later."
       },
       "internalServerError": "Internal Server Error!",
       "serverError": "Server error ({{status}}). Please try again later.",

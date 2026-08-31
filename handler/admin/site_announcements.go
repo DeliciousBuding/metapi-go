@@ -112,7 +112,7 @@ func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *h
 	rows, err := h.db.Queryx(h.db.Rebind(query), args...)
 	if err != nil {
 		slog.Error("Failed to load announcements", "err", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load announcements"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load announcements", "errorCode": "resourceLoadFailed"})
 		return
 	}
 	defer rows.Close()

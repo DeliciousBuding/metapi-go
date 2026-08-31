@@ -93,7 +93,7 @@ func (h *announcementsHandler) loadAnnouncements(enabledOnly bool) ([]map[string
 func (h *announcementsHandler) listAll(w http.ResponseWriter, r *http.Request) {
 	items, err := h.loadAnnouncements(false)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to load announcements"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to load announcements", "errorCode": "resourceLoadFailed"})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
@@ -103,7 +103,7 @@ func (h *announcementsHandler) listAll(w http.ResponseWriter, r *http.Request) {
 func (h *announcementsHandler) listActive(w http.ResponseWriter, r *http.Request) {
 	items, err := h.loadAnnouncements(true)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to load announcements"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to load announcements", "errorCode": "resourceLoadFailed"})
 		return
 	}
 	visible := make([]map[string]any, 0, len(items))
@@ -173,7 +173,7 @@ func (h *announcementsHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := h.loadAnnouncements(false)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "created but failed to reload"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "created but failed to reload", "errorCode": "resourceLoadFailed"})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "items": items})

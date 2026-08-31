@@ -118,7 +118,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 		ORDER BY COALESCE(a.unit_cost, 0) DESC, a.id ASC
 	`)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load rate overview")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load rate overview")
 		return
 	}
 	accounts := make([]map[string]any, 0, len(accRows))
@@ -146,7 +146,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 		ORDER BY rc.weight DESC, rc.id ASC
 	`)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load rate overview")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load rate overview")
 		return
 	}
 	channels := make([]map[string]any, 0, len(chRows))
@@ -169,7 +169,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 		FROM sites ORDER BY global_weight DESC, id ASC
 	`)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load rate overview")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load rate overview")
 		return
 	}
 	sites := make([]map[string]any, 0, len(siteRows))
@@ -188,7 +188,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 		ORDER BY COALESCE(key_weight, 1.0) DESC, id ASC
 	`)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load rate overview")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load rate overview")
 		return
 	}
 	keys := make([]map[string]any, 0, len(keyRows))
@@ -212,7 +212,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 		ORDER BY spend DESC, model ASC
 	`, time.Now().UTC().AddDate(0, 0, -29).Format("2006-01-02"))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load rate overview")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load rate overview")
 		return
 	}
 	models := make([]map[string]any, 0, len(modelRows))

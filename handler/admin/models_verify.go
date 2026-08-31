@@ -99,7 +99,7 @@ func (h *statsHandler) verifyBatch(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := queryRowsErr(h.db, q, args...)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load verification targets")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load verification targets")
 		return
 	}
 	targets := make([]scheduler.ProbeTarget, 0, len(rows))
@@ -200,7 +200,7 @@ func (h *statsHandler) verifyHistory(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := queryRowsErr(h.db, q, args...)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load verification history")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load verification history")
 		return
 	}
 	items := make([]map[string]any, 0, len(rows))

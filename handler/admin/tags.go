@@ -92,11 +92,11 @@ func (h *tagsHandler) listTags(w http.ResponseWriter, r *http.Request) {
 		return nil
 	}
 	if err := addRows("accounts"); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load tags")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load tags")
 		return
 	}
 	if err := addRows("sites"); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load tags")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load tags")
 		return
 	}
 

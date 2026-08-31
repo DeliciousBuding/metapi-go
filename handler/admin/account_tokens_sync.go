@@ -131,7 +131,7 @@ func (h *accountTokensHandler) getGroups(w http.ResponseWriter, r *http.Request)
 	)
 	if err != nil {
 		slog.Error("Failed to load token groups", "err", err, "account_id", accountID)
-		writeError(w, http.StatusInternalServerError, "Failed to load token groups")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "Failed to load token groups")
 		return
 	}
 

@@ -36,7 +36,7 @@ func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request)
 		var err error
 		models, err = h.topModelsForPriceCompare(topModels, since)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to load top models")
+			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load top models")
 			return
 		}
 	}
@@ -45,7 +45,7 @@ func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request)
 	for _, modelName := range models {
 		inputs, err := h.loadPriceCompareInputs(modelName, since, exactModel)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to load price compare inputs")
+			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load price compare inputs")
 			return
 		}
 		for _, in := range inputs {

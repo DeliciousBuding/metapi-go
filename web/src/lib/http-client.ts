@@ -161,6 +161,7 @@ const ERROR_CODE_I18N_KEYS: Record<string, string> = {
   resourceDisabled: 'errors.api.resourceDisabled',
   invalidSettingsValue: 'errors.api.invalidSettingsValue',
   operationNotImplemented: 'errors.api.operationNotImplemented',
+  resourceLoadFailed: 'errors.api.resourceLoadFailed',
 }
 
 /** Localized copy for a known errorCode; undefined when unmapped. */

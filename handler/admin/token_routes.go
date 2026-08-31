@@ -95,7 +95,7 @@ type tokenRoutesHandler struct {
 func (h *tokenRoutesHandler) listLite(w http.ResponseWriter, r *http.Request) {
 	rows, err := queryRowsErr(h.db, "SELECT id, model_pattern, display_name, display_icon, route_mode, routing_strategy, enabled, context_length FROM token_routes ORDER BY sort_order ASC, id ASC")
 	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load routes")
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load routes")
 		return
 	}
 	type srcRow struct {
@@ -124,7 +124,7 @@ func (h *tokenRoutesHandler) listLite(w http.ResponseWriter, r *http.Request) {
 func (h *tokenRoutesHandler) listSummary(w http.ResponseWriter, r *http.Request) {
 	rows, err := queryRowsErr(h.db, "SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC")
 	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load routes")
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load routes")
 		return
 	}
 
@@ -239,7 +239,7 @@ func (h *tokenRoutesHandler) listRoutes(w http.ResponseWriter, r *http.Request) 
 			"SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC LIMIT ? OFFSET ?",
 			pageSize, offset)
 		if queryErr != nil {
-			writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load routes")
+			writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load routes")
 			return
 		}
 		// Separate COUNT keeps the row maps free of a window-function column
@@ -252,14 +252,14 @@ func (h *tokenRoutesHandler) listRoutes(w http.ResponseWriter, r *http.Request) 
 	} else {
 		rows, queryErr = queryRowsErr(h.db, "SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC")
 		if queryErr != nil {
-			writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load routes")
+			writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load routes")
 			return
 		}
 	}
 
 	result, err := h.enrichRoutesWithChannels(rows, paginate)
 	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load route channels")
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load route channels")
 		return
 	}
 

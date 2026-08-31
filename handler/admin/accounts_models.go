@@ -38,7 +38,7 @@ func (h *accountsHandler) getAccountModels(w http.ResponseWriter, r *http.Reques
 	var modelRows []modelRow
 	if err := h.db.Select(&modelRows, h.db.Rebind("SELECT model_name, available, latency_ms, is_manual, checked_at FROM model_availability WHERE account_id = ? ORDER BY model_name ASC"), id); err != nil {
 		slog.Error("failed to load account model availability", "account_id", id, "err", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to load model availability"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to load model availability", "errorCode": "resourceLoadFailed"})
 		return
 	}
 

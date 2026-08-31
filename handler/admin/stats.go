@@ -636,7 +636,7 @@ func parseDashboardForceRefresh(raw string) bool {
 
 func (h *statsHandler) dashboardError(w http.ResponseWriter, operation string, err error) {
 	slog.Error("dashboard stats query failed", "operation", operation, "error", err)
-	writeError(w, http.StatusInternalServerError, "Failed to load dashboard statistics")
+	writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "Failed to load dashboard statistics")
 }
 
 // ---- Proxy Logs ----
@@ -799,7 +799,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		qArgs = append(qArgs, limit, offset)
 		items, err := queryRowsErr(h.db, query, qArgs...)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to load proxy logs")
+			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load proxy logs")
 			return
 		}
 		queryPayload["items"] = normalizeSlice(items)
@@ -851,7 +851,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 
 		sites, err := queryRowsErr(h.db, "SELECT id, name, status FROM sites")
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to load sites")
+			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load sites")
 			return
 		}
 		metaPayload["sites"] = normalizeSlice(sites)
@@ -957,7 +957,7 @@ func (h *statsHandler) debugTraces(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := queryRowsErr(h.db, "SELECT * FROM proxy_debug_traces ORDER BY created_at DESC LIMIT ?", limit)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load debug traces")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load debug traces")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": normalizeSlice(rows)})
@@ -980,7 +980,7 @@ func (h *statsHandler) debugTraceDetail(w http.ResponseWriter, r *http.Request) 
 	// Load related attempts
 	attempts, err := queryRowsErr(h.db, "SELECT * FROM proxy_debug_attempts WHERE trace_id = ? ORDER BY attempt_index ASC", id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load debug trace attempts")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load debug trace attempts")
 		return
 	}
 	row["attempts"] = normalizeSlice(attempts)
@@ -1022,7 +1022,7 @@ func (h *statsHandler) siteDistribution(w http.ResponseWriter, r *http.Request) 
 		ORDER BY total_spend DESC, s.name ASC
 	`, fromDay)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load site distribution")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load site distribution")
 		return
 	}
 
@@ -1068,7 +1068,7 @@ func (h *statsHandler) siteTrend(w http.ResponseWriter, r *http.Request) {
 		ORDER BY u.local_day ASC, s.name ASC
 	`, fromDay)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load site trend")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load site trend")
 		return
 	}
 
@@ -1125,7 +1125,7 @@ func (h *statsHandler) modelBySite(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := queryRowsErr(h.db, query, args...)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load model-by-site")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load model-by-site")
 		return
 	}
 	models := make([]map[string]any, 0, len(rows))
@@ -1279,25 +1279,25 @@ func (h *statsHandler) tokenCandidates(w http.ResponseWriter, r *http.Request) {
 	models, err := h.buildTokenCandidateModels(allowed)
 	if err != nil {
 		slog.Error("token-candidates: buildTokenCandidateModels failed", "error", err)
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load token candidates")
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load token candidates")
 		return
 	}
 	withoutToken, err := h.buildModelsWithoutToken(allowed)
 	if err != nil {
 		slog.Error("token-candidates: buildModelsWithoutToken failed", "error", err)
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load models without token")
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load models without token")
 		return
 	}
 	missingGroups, err := h.buildModelsMissingTokenGroups(allowed)
 	if err != nil {
 		slog.Error("token-candidates: buildModelsMissingTokenGroups failed", "error", err)
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load missing token groups")
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load missing token groups")
 		return
 	}
 	endpointTypes, err := h.buildEndpointTypesByModel(allowed)
 	if err != nil {
 		slog.Error("token-candidates: buildEndpointTypesByModel failed", "error", err)
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load endpoint types")
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load endpoint types")
 		return
 	}
 

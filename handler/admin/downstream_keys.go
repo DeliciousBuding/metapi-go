@@ -67,7 +67,7 @@ func (h *downstreamKeysHandler) summary(w http.ResponseWriter, r *http.Request) 
 
 	rows, err := queryRowsErr(h.db, query, args...)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load downstream keys")
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load downstream keys")
 		return
 	}
 
@@ -124,7 +124,7 @@ func (h *downstreamKeysHandler) listKeys(w http.ResponseWriter, r *http.Request)
 			"SELECT * FROM downstream_api_keys ORDER BY id DESC LIMIT ? OFFSET ?",
 			pageSize, offset)
 		if queryErr != nil {
-			writeError(w, http.StatusInternalServerError, "failed to load downstream keys")
+			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load downstream keys")
 			return
 		}
 		if err := h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM downstream_api_keys")); err != nil {
@@ -134,7 +134,7 @@ func (h *downstreamKeysHandler) listKeys(w http.ResponseWriter, r *http.Request)
 	} else {
 		rows, queryErr = queryRowsErr(h.db, "SELECT * FROM downstream_api_keys ORDER BY id DESC")
 		if queryErr != nil {
-			writeError(w, http.StatusInternalServerError, "failed to load downstream keys")
+			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load downstream keys")
 			return
 		}
 	}

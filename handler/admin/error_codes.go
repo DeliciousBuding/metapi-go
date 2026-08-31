@@ -68,4 +68,11 @@ const (
 	// carries an invalid field value (the settings_apply validation funnel);
 	// 5xx apply failures intentionally carry no code.
 	ErrorCodeInvalidSettingsValue = "invalidSettingsValue"
+
+	// ErrorCodeResourceLoadFailed marks a 5xx read-path failure where entity
+	// data could not be loaded (accounts / announcements / events / channels /
+	// site announcements / stats / token routes). One code for the whole
+	// load-failure family; the per-entity English message stays the display
+	// fallback.
+	ErrorCodeResourceLoadFailed = "resourceLoadFailed"
 )

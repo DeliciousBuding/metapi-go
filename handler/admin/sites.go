@@ -52,7 +52,7 @@ func (h *sitesHandler) listSites(w http.ResponseWriter, r *http.Request) {
 	sites, err := service.ListSites(h.db)
 	if err != nil {
 		slog.Error("Failed to load sites", "err", err)
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "Failed to load sites")
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "Failed to load sites")
 		return
 	}
 	writeJSON(w, http.StatusOK, sites)
@@ -303,7 +303,7 @@ func (h *sitesHandler) updateSite(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if err != nil {
 		slog.Error("Failed to load site for update", "err", err, "site_id", id)
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "Failed to load site")
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "Failed to load site")
 		return
 	}
 

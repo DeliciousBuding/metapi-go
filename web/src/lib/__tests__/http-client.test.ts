@@ -314,6 +314,28 @@ describe('apiClient auth interceptor', () => {
     }
   })
 
+  it('renders the localized load-failure copy for resourceLoadFailed', async () => {
+    const prevLng = i18n.language
+    await i18n.changeLanguage('zhCN')
+    try {
+      const expected = i18n.t('errors.api.resourceLoadFailed')
+      expect(expected).not.toBe('Failed to load accounts')
+
+      const adapterCalls: unknown[] = []
+      installStatusAdapter(adapterCalls, 500, {
+        error: 'Failed to load accounts',
+        errorCode: 'resourceLoadFailed',
+      })
+
+      await expect(apiClient.get('/api/protected')).rejects.toThrow()
+      expect(toastErrorMock).toHaveBeenCalledWith(expected, {
+        id: `api-error:${expected}`,
+      })
+    } finally {
+      await i18n.changeLanguage(prevLng)
+    }
+  })
+
   it('falls back to the raw body message for an unregistered errorCode', async () => {
     const adapterCalls: unknown[] = []
     installStatusAdapter(adapterCalls, 403, {
@@ -347,6 +369,7 @@ describe('apiClient auth interceptor', () => {
       'operationNotSupported',
       'resourceDisabled',
       'invalidSettingsValue',
+      'resourceLoadFailed',
     ]
     for (const code of codes) {
       const expectedKey = code.startsWith('auth')
