@@ -63,6 +63,8 @@ function resolveChannelSummary(
   label: string
   variant: 'success' | 'warning' | 'secondary'
   hint?: string
+  /** Native tooltip clarifying the M/N channel ratio. */
+  enabledSummary?: string
 } {
   if (isReadOnlyRoute(route)) {
     return {
@@ -96,6 +98,10 @@ function resolveChannelSummary(
             count: total - enabled,
           })
         : undefined,
+    enabledSummary: t('tokenRoutes.columns.channelEnabledSummary', {
+      enabled,
+      total,
+    }),
   }
 }
 
@@ -278,7 +284,10 @@ export function useRoutesColumns(
         const summary = resolveChannelSummary(route, t)
         return (
           <div className='flex flex-col'>
-            <Badge variant={summary.variant}>
+            <Badge
+              variant={summary.variant}
+              title={summary.enabledSummary ?? undefined}
+            >
               <span className='tabular-nums'>{summary.label}</span>
             </Badge>
             {summary.hint && (

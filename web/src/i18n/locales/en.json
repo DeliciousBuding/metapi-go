@@ -2180,6 +2180,7 @@
         "channelZeroNeedChannelsHint": "Channels needed",
         "channelAllDisabled": "All disabled",
         "channelDisabledCount": "{{count}} disabled",
+        "channelEnabledSummary": "{{enabled}}/{{total}} channels enabled",
         "rowActions": "Route actions",
         "selectAll": "Select all",
         "selectRow": "Select row",
