@@ -222,6 +222,7 @@ export function AnnouncementsSection() {
     <SettingsSectionCard
       title={t('settings.content.announcements.title')}
       description={t('settings.content.announcements.description')}
+      hideHeaderCopy
       actions={
         <Button size='sm' onClick={() => setEditMode({ kind: 'create' })}>
           {t('settings.content.announcements.create')}

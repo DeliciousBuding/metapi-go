@@ -306,6 +306,7 @@ export function KeysSection() {
     <SettingsSectionCard
       title={t('settings.downstream.keys.title')}
       description={t('settings.downstream.keys.description')}
+      hideHeaderCopy
       actions={
         <Button size='sm' onClick={() => openCreate()}>
           {t('settings.downstream.keys.create')}

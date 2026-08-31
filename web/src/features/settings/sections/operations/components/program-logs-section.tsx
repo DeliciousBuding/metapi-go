@@ -265,6 +265,7 @@ export function ProgramLogsSection() {
     <SettingsSectionCard
       title={t('settings.operations.programLogs.title')}
       description={t('settings.operations.programLogs.description')}
+      hideHeaderCopy
       actions={
         <div className='flex flex-wrap gap-2'>
           <Button
