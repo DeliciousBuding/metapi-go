@@ -1,9 +1,17 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-30
+**Last updated**: 2026-08-31
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-08-31 — 前端视觉 QA 波 + auth 文案国际化启动
+
+- **#1101**：代理日志时间列详情行同日重复（窗口内短日期与相对时间连读），新增 `formatLogDateDetail` 收敛为「短日期 · 相对时间」，超窗仅绝对日期。
+- **#1102**：清理页面级无障碍残留——三层页级 `<main>` 与布局壳唯一 `<main>` 叠加成双 landmark（页级降为 `<div>`）；三处品牌 logo `alt` 与相邻同名文本重复（改 `alt=""`）；catalog-sources 拖拽列空表头补屏幕阅读器标签。
+- **#1103**：清理 17 个零引用文案键（en/zh-CN 各删 17），保留经模板/配置映射引用的动态键；双语键集合保持一致。
+- **#1104**：设置页单卡片节标题与描述从逐字重复收敛为单处——`SettingsSectionCard` 无头部动作时不渲染卡头；数据迁移节的警告信息移至卡内顶部警示条。骨架规约记入 DESIGN.md §4.2。
+- **auth 文案国际化启动**：admin 认证中间件拒绝信息（会话过期/缺凭据/令牌无效/IP 白名单）及 reauth 确认改用机器可读 `errorCode` 承载，前端据 `errorCode` 渲染本地化文案（`errors.auth.*`），未注册码回退后端原文——后端英文文案本地化的首块。
 
 ## 2026-08-30 — 事件标题 i18n 统一（一份 map 一个 namespace）
 
