@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
@@ -1995,5 +1996,48 @@ func TestTokenRoutes_Rebuild_ZeroRoutesTruthfulEnvelope(t *testing.T) {
 	}
 	if result["changed"] != false {
 		t.Fatalf("changed = %v, want false: %v", result["changed"], result)
+	}
+}
+
+// errorCode contract: the resource-not-found rejections across account
+// tokens / routes / channels carry the additive machine-readable code the
+// frontend maps to localized toast copy (batch 3). Message text stays the
+// display fallback.
+func TestErrorCodeResourceNotFound(t *testing.T) {
+	db, r := setupTokenRoutesTest(t)
+	cfg := &config.Config{AccountCredentialSecret: "test-secret-for-accounts"}
+	RegisterAccountTokensRoutesWithConfig(r, db.DB, cfg)
+
+	cases := []struct {
+		name     string
+		method   string
+		path     string
+		body     map[string]any
+		wantCode string
+	}{
+		{name: "account token update", method: http.MethodPut, path: "/api/account-tokens/999999", body: map[string]any{"enabled": true}, wantCode: "tokenNotFound"},
+		{name: "route update", method: http.MethodPut, path: "/api/routes/999999", body: map[string]any{"name": "n"}, wantCode: "routeNotFound"},
+		{name: "channel update invalid id", method: http.MethodPut, path: "/api/channels/0", body: map[string]any{"priority": 1}, wantCode: "channelNotFound"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := doPutJSON(t, r, tc.path, tc.body)
+			if resp.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want 404 (body=%s)", resp.Code, resp.Body.String())
+			}
+			var body struct {
+				Error     string `json:"error"`
+				ErrorCode string `json:"errorCode"`
+			}
+			if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+				t.Fatalf("unmarshal: %v (body=%s)", err, resp.Body.String())
+			}
+			if body.Error == "" {
+				t.Fatalf("expected human-readable error text, got %q", resp.Body.String())
+			}
+			if body.ErrorCode != tc.wantCode {
+				t.Fatalf("errorCode = %q, want %q (body=%s)", body.ErrorCode, tc.wantCode, resp.Body.String())
+			}
+		})
 	}
 }

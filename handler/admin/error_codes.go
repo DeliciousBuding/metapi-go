@@ -32,4 +32,16 @@ const (
 	// body references an account that does not exist (accounts / account
 	// tokens / accounts-health route families).
 	ErrorCodeAccountNotFound = "accountNotFound"
+
+	// ErrorCodeTokenNotFound rejects an account-token operation whose
+	// referenced token does not exist (account-tokens route family).
+	ErrorCodeTokenNotFound = "tokenNotFound"
+
+	// ErrorCodeRouteNotFound rejects a token-route operation whose
+	// referenced route does not exist (routes family).
+	ErrorCodeRouteNotFound = "routeNotFound"
+
+	// ErrorCodeChannelNotFound rejects a route-channels operation whose
+	// referenced channel does not exist (routes/{id}/channels family).
+	ErrorCodeChannelNotFound = "channelNotFound"
 )

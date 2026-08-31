@@ -44,7 +44,10 @@
         "reauthRequired": "敏感操作需要主令牌确认"
       },
       "api": {
-        "accountNotFound": "账号不存在"
+        "accountNotFound": "账号不存在",
+        "tokenNotFound": "令牌不存在",
+        "routeNotFound": "路由不存在",
+        "channelNotFound": "渠道不存在"
       },
       "internalServerError": "服务器内部错误！",
       "serverError": "服务器错误（{{status}}），请稍后重试。",

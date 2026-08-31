@@ -390,7 +390,7 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 
 	existing, err := service.GetTokenByID(h.db, tokenID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "token not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeTokenNotFound, "token not found")
 		return
 	}
 
@@ -513,7 +513,7 @@ func (h *accountTokensHandler) setDefault(w http.ResponseWriter, r *http.Request
 
 	token, err := service.GetTokenByID(h.db, tokenID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "token not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeTokenNotFound, "token not found")
 		return
 	}
 
@@ -541,7 +541,7 @@ func (h *accountTokensHandler) setDefault(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if !defaultSet {
-		writeError(w, http.StatusNotFound, "token not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeTokenNotFound, "token not found")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -557,17 +557,17 @@ func (h *accountTokensHandler) getTokenValue(w http.ResponseWriter, r *http.Requ
 
 	token, err := service.GetTokenByID(h.db, tokenID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "token not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeTokenNotFound, "token not found")
 		return
 	}
 
 	owner, err := service.GetAccountByID(h.db, token.AccountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "token not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeTokenNotFound, "token not found")
 		return
 	}
 	if owner == nil {
-		writeError(w, http.StatusNotFound, "token not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeTokenNotFound, "token not found")
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {
@@ -612,17 +612,17 @@ func (h *accountTokensHandler) deleteToken(w http.ResponseWriter, r *http.Reques
 
 	token, err := service.GetTokenByID(h.db, tokenID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "token not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeTokenNotFound, "token not found")
 		return
 	}
 
 	owner, err := service.GetAccountByID(h.db, token.AccountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "token not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeTokenNotFound, "token not found")
 		return
 	}
 	if owner == nil {
-		writeError(w, http.StatusNotFound, "token not found")
+		writeErrorCode(w, http.StatusNotFound, ErrorCodeTokenNotFound, "token not found")
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {

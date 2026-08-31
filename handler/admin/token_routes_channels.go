@@ -376,7 +376,7 @@ func (h *tokenRoutesHandler) updateChannel(w http.ResponseWriter, r *http.Reques
 	idStr := chi.URLParam(r, "channelId")
 	channelID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || channelID <= 0 {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "channel not found")
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeChannelNotFound, "channel not found")
 		return
 	}
 
