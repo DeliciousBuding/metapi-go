@@ -158,7 +158,7 @@ Every destructive action maps to exactly one tier; never hand-roll a variant:
 ### 4.2 Settings page skeleton（设置页骨架）
 
 - 单 h1 在 `SettingsPage` 页头，文案来自 section meta 的 i18n 键；侧栏树是唯一导航面（wave 8 lane C 之后无页内面包屑/侧栏）。
-- `SettingsSectionCard` **无 `actions` 时不渲染 CardHeader**——同一组 title/description i18n 键已在页头渲染，卡头再渲染就是逐字重复。带 header actions（测试/保存/批量按钮）的卡保留卡头：按钮需要宿主，h2 让多内容页内卡片可辨识。
+- `SettingsSectionCard` **无 `actions` 时不渲染 CardHeader**——同一组 title/description i18n 键已在页头渲染，卡头再渲染就是逐字重复。带 header actions（测试/保存/批量按钮）的卡保留卡头（按钮需要宿主），但**单卡 section 传 `hideHeaderCopy`**：页头同题文案已在页面顶层，h2 重复无辨识价值；h2 只保留给多内容页内需区分的卡片。
 - 危险/前置警告信息放卡内正文顶部 banner（`border-warning/40 bg-warning/5` + `TriangleAlert`），不藏在 description 里（参考：数据迁移节的 wipe/重启警告）。
 
 ---
