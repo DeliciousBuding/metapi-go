@@ -19,6 +19,14 @@ type SettingsSectionCardProps = {
   children: ReactNode
   /** Optional right-aligned actions in the header (test/save buttons). */
   actions?: ReactNode
+  /**
+   * Single-card sections: the page header (SettingsPage) already renders the
+   * section's unique h1 + description, so a card header that repeats the
+   * same title/description is verbatim duplication. When true, the actions
+   * row still renders (buttons need a host) but the title/description copy
+   * is dropped. Multi-card sections that need a per-card h2 omit this.
+   */
+  hideHeaderCopy?: boolean
 }
 
 /**
@@ -30,29 +38,32 @@ type SettingsSectionCardProps = {
  * single h1, fed from the same i18n keys), so a headerless card avoids the
  * duplicated "title / same description twice" stack that single-card
  * sections used to show. Cards with actions keep their header — the buttons
- * need a host and the h2 keeps the card identifiable when it shares the
- * page with other content.
+ * need a host — but single-card sections pass `hideHeaderCopy` so the h2
+ * does not re-state copy the page header already rendered (see DESIGN.md 4.2).
  */
 export function SettingsSectionCard({
   title,
   description,
   children,
   actions,
+  hideHeaderCopy = false,
 }: SettingsSectionCardProps) {
   return (
     <Card>
       {actions ? (
         <CardHeader className='flex flex-row items-start justify-between gap-4'>
-          <div className='space-y-1'>
-            {/* h2: the unique page-level h1 lives in the SettingsPage header
-                (single-h1 discipline, wave 8 lane C); card titles are L2. */}
-            <h2 className='text-base leading-snug font-medium group-data-[size=sm]/card:text-sm'>
-              {title}
-            </h2>
-            {description ? (
-              <CardDescription>{description}</CardDescription>
-            ) : null}
-          </div>
+          {hideHeaderCopy ? null : (
+            <div className='space-y-1'>
+              {/* h2: the unique page-level h1 lives in the SettingsPage header
+                  (single-h1 discipline, wave 8 lane C); card titles are L2. */}
+              <h2 className='text-base leading-snug font-medium group-data-[size=sm]/card:text-sm'>
+                {title}
+              </h2>
+              {description ? (
+                <CardDescription>{description}</CardDescription>
+              ) : null}
+            </div>
+          )}
           <div className='flex shrink-0 gap-2'>{actions}</div>
         </CardHeader>
       ) : null}

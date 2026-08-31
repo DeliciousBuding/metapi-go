@@ -313,6 +313,7 @@ export function SchedulingSection() {
     <SettingsSectionCard
       title={t('settings.operations.scheduling.title')}
       description={t('settings.operations.scheduling.description')}
+      hideHeaderCopy
       actions={
         <Button
           type='button'

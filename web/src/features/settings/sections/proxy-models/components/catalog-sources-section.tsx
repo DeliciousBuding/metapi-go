@@ -423,6 +423,7 @@ export function CatalogSourcesSection() {
       <SettingsSectionCard
         title={t('settings.proxyModels.catalogSources.title')}
         description={t('settings.proxyModels.catalogSources.description')}
+        hideHeaderCopy
         actions={
           <>
             <Button

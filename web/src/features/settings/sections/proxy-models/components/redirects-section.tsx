@@ -147,6 +147,7 @@ export function RedirectsSection() {
     <SettingsSectionCard
       title={t('settings.proxyModels.redirects.title')}
       description={t('settings.proxyModels.redirects.description')}
+      hideHeaderCopy
       actions={
         <div className='flex gap-2'>
           <Button

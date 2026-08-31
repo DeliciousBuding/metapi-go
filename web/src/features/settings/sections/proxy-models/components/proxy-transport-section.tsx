@@ -276,6 +276,7 @@ export function ProxyTransportSection() {
     <SettingsSectionCard
       title={t('settings.proxyModels.proxyTransport.title')}
       description={t('settings.proxyModels.proxyTransport.description')}
+      hideHeaderCopy
       actions={
         <Button
           type='button'

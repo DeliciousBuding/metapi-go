@@ -285,6 +285,7 @@ export function NotificationsSection() {
     <SettingsSectionCard
       title={t('settings.content.notifications.title')}
       description={t('settings.content.notifications.description')}
+      hideHeaderCopy
       actions={
         <Button
           type='button'
