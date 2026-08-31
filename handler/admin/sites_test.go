@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -1196,5 +1197,52 @@ func TestSites_MaxConcurrencyRoundTrip(t *testing.T) {
 	})
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("negative maxConcurrency: expected 400, got %d: %s", resp.Code, resp.Body.String())
+	}
+}
+
+// errorCode contract: the site-not-found rejection carries the additive
+// machine-readable code the frontend maps to localized toast copy. The
+// endpoints span the three files wired in batch 2 (sites / accounts /
+// site-announcements); the message text stays the display fallback.
+func TestErrorCodeSiteNotFound(t *testing.T) {
+	db, r := setupSitesTest(t)
+	RegisterSiteAnnouncementsRoutes(r, db.DB)
+	RegisterAccountsRoutes(r, db.DB, &config.Config{AccountCredentialSecret: "test-secret-for-accounts"})
+
+	cases := []struct {
+		name   string
+		method string
+		path   string
+		body   map[string]any
+	}{
+		{name: "site update", method: http.MethodPut, path: "/api/sites/999999", body: map[string]any{"name": "n"}},
+		{name: "account login", method: http.MethodPost, path: "/api/accounts/login", body: map[string]any{"siteId": 999999, "username": "u", "password": "p"}},
+		{name: "announcement sync", method: http.MethodPost, path: "/api/site-announcements/sync", body: map[string]any{"siteId": 999999}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var resp *httptest.ResponseRecorder
+			if tc.method == http.MethodPut {
+				resp = doPutJSON(t, r, tc.path, tc.body)
+			} else {
+				resp = doPostJSON(t, r, tc.path, tc.body)
+			}
+			if resp.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want 404 (body=%s)", resp.Code, resp.Body.String())
+			}
+			var body struct {
+				Error     string `json:"error"`
+				ErrorCode string `json:"errorCode"`
+			}
+			if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+				t.Fatalf("unmarshal: %v (body=%s)", err, resp.Body.String())
+			}
+			if body.Error == "" {
+				t.Fatalf("expected human-readable error text, got %q", resp.Body.String())
+			}
+			if body.ErrorCode != "siteNotFound" {
+				t.Fatalf("errorCode = %q, want %q (body=%s)", body.ErrorCode, "siteNotFound", resp.Body.String())
+			}
+		})
 	}
 }

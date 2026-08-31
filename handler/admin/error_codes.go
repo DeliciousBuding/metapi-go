@@ -32,4 +32,9 @@ const (
 	// body references an account that does not exist (accounts / account
 	// tokens / accounts-health route families).
 	ErrorCodeAccountNotFound = "accountNotFound"
+
+	// ErrorCodeSiteNotFound rejects a request whose `{id}` path segment or
+	// body references a site that does not exist (sites / accounts / site
+	// announcements route families).
+	ErrorCodeSiteNotFound = "siteNotFound"
 )

@@ -108,6 +108,7 @@ sites; this table is the registry and grows deliberately. Constants live in
 | `authIpBlocked`         | 403    | all admin routes (auth middleware)             | client IP not on the admin allowlist                           |
 | `authReauthRequired`    | 403    | sensitive admin routes (reauth gate)           | sensitive op needs master-token confirmation (`reauthRequired`) |
 | `accountNotFound`       | 404    | `/api/accounts*`, `/api/account-tokens*`, `/api/accounts/health/refresh` | referenced account does not exist |
+| `siteNotFound`          | 404    | `/api/sites*`, `/api/accounts*`, `/api/site-announcements/sync` | referenced site does not exist |
 
 Frontend note: the admin UI historically detected the same-target migration
 rejection by substring-matching the message text; it should migrate to

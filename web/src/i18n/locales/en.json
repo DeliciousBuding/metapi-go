@@ -44,7 +44,8 @@
         "reauthRequired": "Sensitive operation requires master token confirmation"
       },
       "api": {
-        "accountNotFound": "Account not found"
+        "accountNotFound": "Account not found",
+        "siteNotFound": "Site not found"
       },
       "internalServerError": "Internal Server Error!",
       "serverError": "Server error ({{status}}). Please try again later.",

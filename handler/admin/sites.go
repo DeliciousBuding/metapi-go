@@ -299,7 +299,7 @@ func (h *sitesHandler) updateSite(w http.ResponseWriter, r *http.Request) {
 	var existing store.Site
 	err := h.db.Get(&existing, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), id)
 	if err == sql.ErrNoRows {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "Site not found")
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeSiteNotFound, "Site not found")
 		return
 	} else if err != nil {
 		slog.Error("Failed to load site for update", "err", err, "site_id", id)
@@ -675,7 +675,7 @@ func (h *sitesHandler) getDisabledModels(w http.ResponseWriter, r *http.Request)
 
 	var existing store.Site
 	if err := h.db.Get(&existing, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), id); err != nil {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "Site not found")
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeSiteNotFound, "Site not found")
 		return
 	}
 
@@ -702,7 +702,7 @@ func (h *sitesHandler) updateDisabledModels(w http.ResponseWriter, r *http.Reque
 
 	var existing store.Site
 	if err := h.db.Get(&existing, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), id); err != nil {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "Site not found")
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeSiteNotFound, "Site not found")
 		return
 	}
 
@@ -742,7 +742,7 @@ func (h *sitesHandler) getAvailableModels(w http.ResponseWriter, r *http.Request
 
 	var existing store.Site
 	if err := h.db.Get(&existing, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), id); err != nil {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "Site not found")
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeSiteNotFound, "Site not found")
 		return
 	}
 

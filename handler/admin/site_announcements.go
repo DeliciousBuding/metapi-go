@@ -230,7 +230,7 @@ func (h *siteAnnouncementsHandler) syncAnnouncements(w http.ResponseWriter, r *h
 		err := h.db.Get(&exists, h.db.Rebind(`SELECT 1 FROM sites WHERE id = ?`), *siteID)
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
-			writeErrorWithRequest(w, r, http.StatusNotFound, "Site not found.")
+			writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeSiteNotFound, "Site not found.")
 			return
 		case err != nil:
 			slog.Error("site-announcement sync: failed to validate site", "siteId", *siteID, "error", err)
