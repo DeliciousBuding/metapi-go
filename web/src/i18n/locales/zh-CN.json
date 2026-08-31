@@ -36,6 +36,13 @@
         "serverUnreachable": "无法连接到服务器。",
         "failed": "登录失败，请检查服务状态。"
       },
+      "auth": {
+        "sessionExpired": "会话已过期",
+        "missingCredential": "缺少访问凭据",
+        "invalidToken": "令牌无效",
+        "ipBlocked": "当前 IP 不在白名单内",
+        "reauthRequired": "敏感操作需要主令牌确认"
+      },
       "internalServerError": "服务器内部错误！",
       "serverError": "服务器错误（{{status}}），请稍后重试。",
       "notFoundTitle": "页面不存在",

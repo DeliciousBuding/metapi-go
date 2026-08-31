@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -515,6 +516,43 @@ func TestAdminAuth_WrongToken(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "Invalid token") {
 		t.Errorf("expected 'Invalid token' in body, got %q", w.Body.String())
+	}
+}
+
+// errorCode contract: auth rejections carry the additive machine-readable
+// code the frontend maps to localized toast copy (the "error" text stays the
+// display fallback, so both fields are asserted here). The session-expired
+// case lives in admin_session_test.go (it needs the session harness).
+func TestAdminAuth_ErrorCodes(t *testing.T) {
+	cases := []struct {
+		name       string
+		bearer     string
+		remoteAddr string
+		allow      []string
+		wantCode   string
+	}{
+		{name: "wrong bearer token", bearer: "Bearer nope", wantCode: ErrorCodeAuthInvalidToken},
+		{name: "missing credentials", wantCode: ErrorCodeAuthMissingCredential},
+		{name: "ip not allowlisted", bearer: "Bearer my-secret-token", remoteAddr: "10.0.0.9:12345", allow: []string{"192.168.1.100"}, wantCode: ErrorCodeAuthIPBlocked},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rt := newTestConfig(t, "my-secret-token", tc.allow)
+			w := adminTestHelper(t, rt, "GET", "/api/sites", tc.bearer, tc.remoteAddr, "")
+			var body struct {
+				Error     string `json:"error"`
+				ErrorCode string `json:"errorCode"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+				t.Fatalf("response is not JSON: %v", err)
+			}
+			if body.Error == "" {
+				t.Errorf("expected human-readable error text, got %q", w.Body.String())
+			}
+			if body.ErrorCode != tc.wantCode {
+				t.Errorf("expected errorCode %q, got %q", tc.wantCode, body.ErrorCode)
+			}
+		})
 	}
 }
 

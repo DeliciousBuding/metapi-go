@@ -261,6 +261,68 @@ describe('apiClient auth interceptor', () => {
       id: `api-error:${expected}`,
     })
   })
+
+  it('renders the localized copy for a known errorCode instead of the English body', async () => {
+    // In the default (en) locale the auth ipBlocked translation is literally
+    // "IP not allowed", identical to the backend body — so switch to zh-CN to
+    // prove the map (not the raw body) is what renders.
+    const prevLng = i18n.language
+    await i18n.changeLanguage('zhCN')
+    try {
+      const expected = i18n.t('errors.auth.ipBlocked')
+      const enBody = 'IP not allowed'
+      // The zh-CN translation must differ from the English body.
+      expect(expected).not.toBe(enBody)
+
+      const adapterCalls: unknown[] = []
+      installStatusAdapter(adapterCalls, 403, {
+        error: enBody,
+        errorCode: 'authIpBlocked',
+      })
+
+      await expect(apiClient.get('/api/protected')).rejects.toThrow()
+
+      // errorCode wins over the raw English body message (auth rejections
+      // fire before any backend locale context exists).
+      expect(toastErrorMock).toHaveBeenCalledWith(expected, {
+        id: `api-error:${expected}`,
+      })
+    } finally {
+      await i18n.changeLanguage(prevLng)
+    }
+  })
+
+  it('falls back to the raw body message for an unregistered errorCode', async () => {
+    const adapterCalls: unknown[] = []
+    installStatusAdapter(adapterCalls, 403, {
+      error: 'IP not allowed',
+      errorCode: 'somethingNotMapped',
+    })
+
+    await expect(apiClient.get('/api/protected')).rejects.toThrow()
+
+    expect(toastErrorMock).toHaveBeenCalledWith('IP not allowed', {
+      id: 'api-error:IP not allowed',
+    })
+  })
+
+  it('maps every registered errorCode to an i18n key that actually exists', () => {
+    // The map's values are dynamic t(variable) keys — invisible to the
+    // static i18n-keys gate — so pin their existence here instead.
+    // Convention: authSessionExpired -> errors.auth.sessionExpired.
+    const codes = [
+      'authSessionExpired',
+      'authMissingCredential',
+      'authInvalidToken',
+      'authIpBlocked',
+      'authReauthRequired',
+    ]
+    for (const code of codes) {
+      const rest = code.replace(/^auth/, '')
+      const key = `errors.auth.${rest.charAt(0).toLowerCase()}${rest.slice(1)}`
+      expect(i18n.exists(key), `${code} -> ${key}`).toBe(true)
+    }
+  })
 })
 
 describe('resolveResponseErrorCode — unified error envelope (#1065)', () => {
