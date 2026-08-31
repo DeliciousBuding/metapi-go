@@ -32,4 +32,9 @@ const (
 	// body references an account that does not exist (accounts / account
 	// tokens / accounts-health route families).
 	ErrorCodeAccountNotFound = "accountNotFound"
+
+	// ErrorCodeOperationNotImplemented marks an honest 501 residual surface
+	// (a known unimplemented feature — never a fake stub success). Emitted on
+	// the residual 501 bodies via writeNotImplementedResidual.
+	ErrorCodeOperationNotImplemented = "operationNotImplemented"
 )

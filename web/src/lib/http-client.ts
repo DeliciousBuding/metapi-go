@@ -153,6 +153,7 @@ const ERROR_CODE_I18N_KEYS: Record<string, string> = {
   authIpBlocked: 'errors.auth.ipBlocked',
   authReauthRequired: 'errors.auth.reauthRequired',
   accountNotFound: 'errors.api.accountNotFound',
+  operationNotImplemented: 'errors.api.operationNotImplemented',
 }
 
 /** Localized copy for a known errorCode; undefined when unmapped. */

@@ -107,6 +107,7 @@ sites; this table is the registry and grows deliberately. Constants live in
 | `authInvalidToken`      | 403    | all admin routes (auth middleware)             | Bearer master-token mismatch                                   |
 | `authIpBlocked`         | 403    | all admin routes (auth middleware)             | client IP not on the admin allowlist                           |
 | `authReauthRequired`    | 403    | sensitive admin routes (reauth gate)           | sensitive op needs master-token confirmation (`reauthRequired`) |
+| `operationNotImplemented` | 501    | `/api/test/*` (stream/jobs), `/api/update-center/*` (deploy/rollback/SSE) | honest residual — feature not implemented in this build (no fake stubs) |
 | `accountNotFound`       | 404    | `/api/accounts*`, `/api/account-tokens*`, `/api/accounts/health/refresh` | referenced account does not exist |
 
 Frontend note: the admin UI historically detected the same-target migration

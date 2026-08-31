@@ -266,9 +266,10 @@ func contentToPrompt(raw json.RawMessage) string {
 // Never use this helper to invent fake success, stream chunks, or job ids.
 func writeNotImplementedResidual(w http.ResponseWriter, message, residual string) {
 	writeJSON(w, http.StatusNotImplemented, map[string]any{
-		"success":  false,
-		"message":  message,
-		"residual": residual,
+		"success":    false,
+		"message":    message,
+		"errorCode":  ErrorCodeOperationNotImplemented,
+		"residual":   residual,
 	})
 }
 

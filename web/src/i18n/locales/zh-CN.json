@@ -44,7 +44,8 @@
         "reauthRequired": "敏感操作需要主令牌确认"
       },
       "api": {
-        "accountNotFound": "账号不存在"
+        "accountNotFound": "账号不存在",
+        "operationNotImplemented": "该功能尚未实现"
       },
       "internalServerError": "服务器内部错误！",
       "serverError": "服务器错误（{{status}}），请稍后重试。",

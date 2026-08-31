@@ -339,6 +339,7 @@ describe('apiClient auth interceptor', () => {
       'authIpBlocked',
       'authReauthRequired',
       'accountNotFound',
+      'operationNotImplemented',
     ]
     for (const code of codes) {
       const expectedKey =
