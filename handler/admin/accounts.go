@@ -726,7 +726,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	// Get site
 	var site store.Site
 	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), body.SiteID); err != nil {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "site not found")
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeSiteNotFound, "site not found")
 		return
 	}
 
@@ -883,7 +883,7 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 	// Get site
 	var site store.Site
 	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), body.SiteID); err != nil {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "site not found")
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeSiteNotFound, "site not found")
 		return
 	}
 
