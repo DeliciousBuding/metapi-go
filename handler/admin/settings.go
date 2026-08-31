@@ -186,7 +186,15 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		h.applySiteBrandingSettings,
 	} {
 		if err := apply(body); err != nil {
-			writeError(w, err.status, err.msg)
+			// Single funnel (scout §settings_apply): 400-class apply failures
+			// are user-side validation errors, so they carry the machine-
+			// readable invalidSettingsValue code; 5xx internals keep the raw
+			// message with no code (backend text stays the display fallback).
+			code := ""
+			if err.status == http.StatusBadRequest {
+				code = ErrorCodeInvalidSettingsValue
+			}
+			writeErrorCode(w, err.status, code, err.msg)
 			return
 		}
 	}

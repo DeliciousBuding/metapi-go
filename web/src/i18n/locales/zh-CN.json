@@ -51,7 +51,8 @@
         "channelNotFound": "渠道不存在",
         "siteNotFound": "站点不存在",
         "operationNotSupported": "该连接类型不支持此操作",
-        "resourceDisabled": "该能力当前不可用"
+        "resourceDisabled": "该能力当前不可用",
+        "invalidSettingsValue": "设置项包含无效值，请检查后重新保存"
       },
       "internalServerError": "服务器内部错误！",
       "serverError": "服务器错误（{{status}}），请稍后重试。",
