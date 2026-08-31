@@ -47,7 +47,8 @@
         "accountNotFound": "Account not found",
         "tokenNotFound": "Token not found",
         "routeNotFound": "Route not found",
-        "channelNotFound": "Channel not found"
+        "channelNotFound": "Channel not found",
+        "siteNotFound": "Site not found"
       },
       "internalServerError": "Internal Server Error!",
       "serverError": "Server error ({{status}}). Please try again later.",
