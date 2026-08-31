@@ -23,13 +23,13 @@ F3（后端告警文案 i18n）已交付（#1091，2026-08-30）：新增共享�
 
 ### 已收口（Wave 18/17，勿再当 active）
 
-- **Wave 18 → v0.16.19**：十线并行（10 worktree + 10 subagent）——#1057 会话模型重构（#1034：服务端会话/HttpOnly cookie/WS ticket/限速前置/敏感操作重确认 + 六个浏览器门禁 harness 迁移会话登录）、#1052 路由懒加载竞态修复（+config 单例竞态升级项）、#1058 出站 HTTP 基线 + AST 门禁、#1054 管理读路径索引 `sc2_027` + N+1 修复、#1061 调度器健壮性（panic recover/in-flight 竞态/错误显性化）、#1060 PG 方言陷阱清扫（零迁移）、#1053 构建收敛 + vendor 块拆分（S1+S9 前半）、#1055 UX 残留（focus-ring/autoComplete/图表 sr-only）、#1056 健康监测全局开关（#1027）、#1059 SOCKS5 代理 + 清空即清除（#1009）。#1009/#1027/#1034 关闭；#1026 站点维度已交付、凭证维度留 open。
+- **Wave 18 → v0.16.19**：#1057 会话模型重构（#1034：服务端会话/HttpOnly cookie/WS ticket/限速前置/敏感操作重确认）、#1052 路由懒加载竞态修复（+config 单例竞态升级项）、#1058 出站 HTTP 基线 + AST 门禁、#1054 管理读路径索引 `sc2_027` + N+1 修复、#1061 调度器健壮性（panic recover/in-flight 竞态/错误显性化）、#1060 PG 方言陷阱清扫（零迁移）、#1053 构建收敛 + vendor 块拆分、#1055 UX 残留（focus-ring/autoComplete/图表 sr-only）、#1056 健康监测全局开关（#1027）、#1059 SOCKS5 代理 + 清空即清除（#1009）。#1009/#1027/#1034 关闭；#1026 站点维度已交付、凭证维度留 open。
 - **Wave 17 → v0.16.18**：竞品研究 P1×4 全部落地——#1046 SSE 空闲超时、#1049 重试/禁用状态码策略、#1047 批量测试闭环、#1048 错误横幅一键过滤；前端审计快赢 #1040-#1045、#1050 下游密钥站点限制（#1026 站点维度）。
 
 ### 已收口（Wave 16/15/14，勿再当 active）
 
-- **Wave 16 → v0.16.17**：竞品研究 P0×3 三线并行（3 worktree + 3 subagent）全部落地——PR #1018（transform golden 快照 46 份，零生产改动）、#1020（行级探测健康条 + `/api/{channels,accounts}/probe-history` 只读端点）、#1019（结构化冷却原因三列 + 根因弹窗）+ #1021（发布节）+ #1022（加权选择测试去 flake：单次抽签断言改 200 抽统计）squash 合入 master；私有面 testbed 验收见 log；原始证据留私有面。
-- **Wave 15 → v0.16.16**：PR #1013（#1009 出站代理超时五变量）/ #1014（竞品研究）/ #1015（#1005 定时模型同步）+ #1016（发布节）squash 合入 master；#1005 关闭，#1009 配置已交付、保持 open 等待报告者补充 reset 证据；私有面运维 testbed 综合验收通过（版本注入、调度器启动与热更新、设置往返与 400 校验、真实上游 e2e smoke 13 PASS / 0 FAIL、SPA 资产）；原始证据留私有面。
+- **Wave 16 → v0.16.17**：竞品研究 P0×3 全部落地——PR #1018（transform golden 快照 46 份，零生产改动）、#1020（行级探测健康条 + `/api/{channels,accounts}/probe-history` 只读端点）、#1019（结构化冷却原因三列 + 根因弹窗）+ #1021（发布节）+ #1022（加权选择测试去 flake：单次抽签断言改 200 抽统计）squash 合入 master。
+- **Wave 15 → v0.16.16**：PR #1013（#1009 出站代理超时五变量）/ #1014（竞品研究）/ #1015（#1005 定时模型同步）+ #1016（发布节）squash 合入 master；#1005 关闭，#1009 配置已交付、保持 open 等待报告者补充 reset 证据；验收（版本注入、调度器热更新、设置往返与 400 校验、真实上游 e2e smoke、SPA 资产）通过。
 - **Wave 14 → v0.16.15**：PR #1010 squash 合入 `master`（`840d930`），#1007/#1008 关闭；发布前 required CI、Docker、a11y、视觉回归、SQLite/PG、E2E 与本地 pre-push 门禁均通过。
 - Wave 12A/12B/13/14 均已合入并发布 v0.16.12 / v0.16.13 / v0.16.14 / v0.16.15。
 
@@ -38,7 +38,6 @@ F3（后端告警文案 i18n）已交付（#1091，2026-08-30）：新增共享�
 ### Wave 11 已收口说明
 
 - 四 lane 全部落地（batch 分支 `batch/w11-ux-truth`）：A 路由页视图持久 + 横幅语义测试补齐（#862 行为核验已在基线），B accounts 行级 pending + 对比行 re-run，C OAuth start 流闭环（有界轮询 + 手动回调），D vitest ignore flag 移除 + a11y 41 路由单一来源 + golden 10 页。
-- a11y residual（moderate/minor，不强修）：region / landmark 双 main 布局 / image-redundant-alt / catalog-sources empty-table-header。
 
 ### 已收口（v0.16.9 及以前，勿再当 active）
 
