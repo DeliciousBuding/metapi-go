@@ -45,6 +45,7 @@
       },
       "api": {
         "accountNotFound": "Account not found",
+        "operationNotImplemented": "This feature is not implemented yet",
         "tokenNotFound": "Token not found",
         "routeNotFound": "Route not found",
         "channelNotFound": "Channel not found",

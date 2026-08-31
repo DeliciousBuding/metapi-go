@@ -33,6 +33,10 @@ const (
 	// tokens / accounts-health route families).
 	ErrorCodeAccountNotFound = "accountNotFound"
 
+	// ErrorCodeOperationNotImplemented marks an honest 501 residual surface
+	// (a known unimplemented feature — never a fake stub success). Emitted on
+	// the residual 501 bodies via writeNotImplementedResidual.
+	ErrorCodeOperationNotImplemented = "operationNotImplemented"
 	// ErrorCodeTokenNotFound rejects an account-token operation whose
 	// referenced token does not exist (account-tokens route family).
 	ErrorCodeTokenNotFound = "tokenNotFound"

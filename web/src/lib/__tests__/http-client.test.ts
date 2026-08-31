@@ -339,6 +339,7 @@ describe('apiClient auth interceptor', () => {
       'authIpBlocked',
       'authReauthRequired',
       'accountNotFound',
+      'operationNotImplemented',
       'tokenNotFound',
       'routeNotFound',
       'channelNotFound',

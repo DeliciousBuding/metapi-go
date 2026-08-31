@@ -157,6 +157,7 @@ const ERROR_CODE_I18N_KEYS: Record<string, string> = {
   routeNotFound: 'errors.api.routeNotFound',
   channelNotFound: 'errors.api.channelNotFound',
   siteNotFound: 'errors.api.siteNotFound',
+  operationNotImplemented: 'errors.api.operationNotImplemented',
 }
 
 /** Localized copy for a known errorCode; undefined when unmapped. */
