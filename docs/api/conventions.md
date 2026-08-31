@@ -109,6 +109,10 @@ sites; this table is the registry and grows deliberately. Constants live in
 | `authReauthRequired`    | 403    | sensitive admin routes (reauth gate)           | sensitive op needs master-token confirmation (`reauthRequired`) |
 | `operationNotImplemented` | 501    | `/api/test/*` (stream/jobs), `/api/update-center/*` (deploy/rollback/SSE) | honest residual — feature not implemented in this build (no fake stubs) |
 | `accountNotFound`       | 404    | `/api/accounts*`, `/api/account-tokens*`, `/api/accounts/health/refresh` | referenced account does not exist |
+| `tokenNotFound`         | 404    | `/api/account-tokens*`                        | referenced account token does not exist |
+| `routeNotFound`         | 404    | `/api/routes*`                               | referenced token route does not exist |
+| `channelNotFound`       | 404    | `/api/channels/{channelId}`                  | referenced route channel id is missing/non-positive |
+| `siteNotFound`          | 404    | `/api/sites*`, `/api/accounts*`, `/api/site-announcements/sync` | referenced site does not exist |
 
 Frontend note: the admin UI historically detected the same-target migration
 rejection by substring-matching the message text; it should migrate to

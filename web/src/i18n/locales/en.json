@@ -45,7 +45,11 @@
       },
       "api": {
         "accountNotFound": "Account not found",
-        "operationNotImplemented": "This feature is not implemented yet"
+        "operationNotImplemented": "This feature is not implemented yet",
+        "tokenNotFound": "Token not found",
+        "routeNotFound": "Route not found",
+        "channelNotFound": "Channel not found",
+        "siteNotFound": "Site not found"
       },
       "internalServerError": "Internal Server Error!",
       "serverError": "Server error ({{status}}). Please try again later.",

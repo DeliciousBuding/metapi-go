@@ -45,7 +45,11 @@
       },
       "api": {
         "accountNotFound": "账号不存在",
-        "operationNotImplemented": "该功能尚未实现"
+        "operationNotImplemented": "该功能尚未实现",
+        "tokenNotFound": "令牌不存在",
+        "routeNotFound": "路由不存在",
+        "channelNotFound": "渠道不存在",
+        "siteNotFound": "站点不存在"
       },
       "internalServerError": "服务器内部错误！",
       "serverError": "服务器错误（{{status}}），请稍后重试。",
