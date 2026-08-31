@@ -15,6 +15,9 @@ All notable changes to Metapi-Go will be documented in this file.
 ### Fixed
 
 - **通知铃铛弹层告警文案未本地化（F3，#1091）**：后端 attention API 为兼容保留英文 `label` 并下发结构化 `params`，dashboard 可用性面板已做再本地化，但顶栏铃铛弹层裸渲染英文——中文界面下出现「Balance unknown: svc-onea…」等英文告警。两处现共用新共享模块 `web/src/lib/attention-label.ts`（含 8 个持久化事件标题的 i18n 映射）；en/zh-CN 补齐 7 个事件标题键；参数缺失或未知类别回退原文，绝不半翻译。
+- **代理日志时间列详情行同日重复（#1101）**：7 天窗口内详情行渲染「8月23日 · 2026年8月23日」——同日绝对日期与相对时间连读重复；新增 `formatLogDateDetail`（窗口内短日期 · 相对时间，超窗仅绝对日期），恢复紧凑。
+- **页面双 `<main>` landmark + 品牌 logo 冗余 alt + 空表头（#1102）**：dashboard / observability / settings 三层页级 `<main>` 与布局壳唯一 `<main id="content">` 叠加成每路由双 landmark（页级降为 `<div>`）；三处品牌 logo `alt` 与相邻同名文本重复（改 `alt=""`）；catalog-sources 拖拽列空 `<TableHead>` 补 sr-only「排序/Reorder」（axe empty-table-header）。
+- **设置页单卡片节标题与描述双重叠（#1104）**：settings 单卡片节（redirects / danger-zone / keys 等约 15 页）页头 h1+description 与 `SettingsSectionCard` 卡头逐字重复；共享壳改为无头部动作时不渲染 CardHeader，带动作的卡保留（按钮需宿主）。数据迁移节的 wipe/重启警告从卡 description 移到卡内顶部警告条（更易读）。
 - **channels 页「响应延迟」列默认掉出首屏**：表格默认总宽 1430px 超出 1440px 视口下约 1166px 的滚动口，该列表头在滚动口右缘被裁成「响应延…」；列宽修正（响应延迟 110→130，名称 200→170，冷却至 180→160）后该列回到首屏，残余轻微横滚由已固定的操作列与列设置承接（用户已持久化的列宽不受影响）。
 - **移动端账号页头动作挤压修复（#1086）**：375px 窄视口下「添加账号」按钮与描述同 flex 行挤压、截断描述首行；页头对齐 checkin/路由页的 flex-wrap 模式，按钮窄屏独立成行。
 - **今日快照 delta 不可用态去重（#1088）**：余额 7 天对比无数据时 Minus 图标与「—」占位符同形连读作「— —」；不可用态只留 em-dash 占位（零 delta 仍用 Minus 图标）。
@@ -26,6 +29,7 @@ All notable changes to Metapi-Go will be documented in this file.
 ### Changed
 
 - **事件标题 i18n 统一为单一映射 + 单一词条节（#1099）**：程序日志页与 attention 管线此前各带一份事件标题映射表和 locale 节（漂移源），7 个高频生产者标题（签到成功、站点启用、令牌同步完成、运行时设置更新、管理员令牌更新、模型修复、备份导入）两边均未映射而在中文界面裸显英文。现收敛为共享 `lib/event-titles.ts`（15 个已知生产者标题 → slug）+ 单一 locale 节 `events.titles.*`；未知/动态标题仍原文渲染（诚实残留）。
+- **清理 17 个不再引用的界面文案键（#1103）**：en/zh-CN 各移除 17 个从未被代码引用的键（含已下线的 `homePageContent` 字段系列、被替代的 `proxy24hHint`/`modelTester.form.channelHint` 等）；经模板/配置映射引用的动态键全部保留，双语键集合仍一致。
 
 
 - **section-registry 三克隆合一（#1095，#1035 S8）**：settings/dashboard/observability 各自的 `createSectionRegistry` 收敛为共享 `web/src/lib/section-registry.ts`（`urlStyle` 承载 path/query 两种 URL 形态）；行为不变，净 -101 行。
