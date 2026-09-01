@@ -39,8 +39,24 @@ import type {
 export const accountQueryKeys = {
   all: ['accounts'] as const,
   snapshot: () => [...accountQueryKeys.all, 'snapshot'] as const,
-  page: (pageIndex: number, pageSize: number) =>
-    [...accountQueryKeys.all, 'page', { pageIndex, pageSize }] as const,
+  page: (
+    pageIndex: number,
+    pageSize: number,
+    q?: string,
+    status?: string,
+    site?: string
+  ) =>
+    [
+      ...accountQueryKeys.all,
+      'page',
+      {
+        pageIndex,
+        pageSize,
+        q: q || undefined,
+        status: status || undefined,
+        site: site || undefined,
+      },
+    ] as const,
   detail: (id: number) => ['accounts', 'detail', id] as const,
 }
 
@@ -61,17 +77,25 @@ export type AccountsPageData = {
 /**
  * Fetch + shape one server-side page. The page-gated endpoint keeps the same
  * account/site projection as the snapshot and slices before JSON encoding,
- * so large fleets no longer transfer every row to the browser. A missing or
- * malformed total degrades to the returned page length (the pager then shows
- * one page rather than an invented total).
+ * so large fleets no longer transfer every row to the browser. `q` / `status`
+ * / `site` are pushed server-side (#1108): the filters match the whole fleet,
+ * not just the loaded page. A missing or malformed total degrades to the
+ * returned page length (the pager then shows one page rather than an
+ * invented total).
  */
 export async function fetchAccountsPage(params: {
   pageIndex: number
   pageSize: number
+  q: string
+  status: string
+  site: string
 }): Promise<AccountsPageData> {
   const response = await api.getAccountsPage({
     page: params.pageIndex + 1,
     pageSize: params.pageSize,
+    q: params.q,
+    status: params.status,
+    site: params.site,
   })
   const items = Array.isArray(response.items)
     ? (response.items as object[])
@@ -90,17 +114,28 @@ export async function fetchAccountsPage(params: {
 }
 
 /**
- * Fetch one server-side accounts page by URL-owned table state. The page is
- * keyed by pageIndex/pageSize so filters/sorting stay client-side over the
- * returned page only (backend has no accounts filter/sort params), while the
- * pager's page count comes from the true fleet total.
+ * Fetch one server-side accounts page by URL-owned table state. The query is
+ * keyed by pageIndex/pageSize AND the server-side filters (q/status/site), so
+ * a filter change refetches a freshly-filtered page from the backend (#1108).
  */
 export function useAccountsPage(
-  params: { pageIndex: number; pageSize: number },
+  params: {
+    pageIndex: number
+    pageSize: number
+    q: string
+    status: string
+    site: string
+  },
   options?: Omit<UseQueryOptions<AccountsPageData>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<AccountsPageData>({
-    queryKey: accountQueryKeys.page(params.pageIndex, params.pageSize),
+    queryKey: accountQueryKeys.page(
+      params.pageIndex,
+      params.pageSize,
+      params.q,
+      params.status,
+      params.site
+    ),
     queryFn: () => fetchAccountsPage(params),
     placeholderData: (previous) => previous,
     staleTime: 10 * 1000,

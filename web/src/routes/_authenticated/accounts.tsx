@@ -73,9 +73,15 @@ export const Route = createFileRoute('/_authenticated/accounts')({
       Number.isFinite(rawPageSize) && rawPageSize > 0
         ? Math.min(100, Math.max(1, rawPageSize))
         : 20
+    // Server-side filters prefetched with the same keys the page query uses
+    // (#1108): q/status/site straight from the deep-linked URL.
+    const q = params.get('q') ?? ''
+    const status = params.get('status') ?? ''
+    const site = params.get('site') ?? ''
     await context.queryClient.prefetchQuery({
-      queryKey: accountQueryKeys.page(pageIndex, pageSize),
-      queryFn: () => fetchAccountsPage({ pageIndex, pageSize }),
+      queryKey: accountQueryKeys.page(pageIndex, pageSize, q, status, site),
+      queryFn: () =>
+        fetchAccountsPage({ pageIndex, pageSize, q, status, site }),
     })
   },
   component: AccountsPage,

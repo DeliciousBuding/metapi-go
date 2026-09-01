@@ -64,8 +64,16 @@ export type UrlTableStateOptions<TFilters> = {
   basePath: string
   /** Parse the validated URL state from a raw search string. */
   read: (searchString: string) => UrlTableState<TFilters>
-  /** Serialize a partial state update back to a full href (path + query). */
-  buildHref: (next: UrlTableStateUpdate<TFilters>) => string
+  /**
+   * Serialize a state update back to an href. The optional second parameter
+   * carries the latest known search string so back-to-back updates chain off
+   * each other instead of re-reading the (possibly stale) window.location
+   * snapshot — see latestHrefRef in useUrlTableState (#1108 Reset race).
+   */
+  buildHref: (
+    next: UrlTableStateUpdate<TFilters>,
+    currentSearch?: string
+  ) => string
   /** Map page filter values to table column filters. */
   toColumnFilters: (filters: TFilters) => ColumnFiltersState
   /** Map table column filters back to page filter values. */
@@ -165,10 +173,29 @@ export function useUrlTableState<TFilters>(
   // built on this page's own path, so a match is exactly "still on this
   // page", and a sibling that merely shares a prefix (e.g. `/channels` vs
   // `/channels-foo`) can never sneak a write-back through.
+  // Serialized href tracking (#1108): two table callbacks firing back-to-back
+  // (e.g. Reset clearing column filters AND the global filter) each built
+  // their href from the same stale `window.location.search` snapshot, and
+  // @tanstack/history coalesces same-tick replaces down to the LAST href —
+  // so the first update (column filters) was silently dropped and Reset only
+  // cleared the search input. Each updateUrlState now chains off the
+  // previous href (ref), and the ref re-syncs to the router-committed URL
+  // whenever the location actually changes.
+  const latestHrefRef = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    latestHrefRef.current = `${pathname}${searchStr}`
+  }, [pathname, searchStr])
+
   const updateUrlState = React.useCallback(
     (next: UrlTableStateUpdate<TFilters>) => {
-      const href = buildHrefRef.current(next)
+      const prevHref = latestHrefRef.current
+      const prevSearch =
+        prevHref && pathnameOf(prevHref) === pathname
+          ? prevHref.slice(pathnameOf(prevHref).length)
+          : undefined
+      const href = buildHrefRef.current(next, prevSearch)
       if (pathnameOf(href) !== pathname) return
+      latestHrefRef.current = href
       navigate({ href, replace: true })
     },
     [navigate, pathname]

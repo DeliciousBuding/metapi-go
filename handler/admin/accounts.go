@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -213,18 +214,29 @@ func sitesOrEmpty(sites []store.Site) []store.Site {
 	return sites
 }
 
-// listAccountsPaginated serves GET /api/accounts?page=&pageSize= with a bounded
-// LIMIT/OFFSET query. The snapshot cache is intentionally bypassed: a paged
-// request is an explicit opt-out of the snapshot, and caching every page combo
-// would multiply the cache surface. Today metrics are still enriched for the
-// accounts on the current page. Response shape mirrors /api/channels:
-// {items, total, page, pageSize, generatedAt, sites}.
+// listAccountsPaginated serves GET /api/accounts?page=&pageSize=&status=&site=
+// with a bounded LIMIT/OFFSET query. The snapshot cache is intentionally
+// bypassed: a paged request is an explicit opt-out of the snapshot, and
+// caching every page combo would multiply the cache surface. `status` and
+// `site` are optional comma-separated server-side filters (issue #1108):
+// they filter the whole fleet, so rows on other pages are matched — unlike
+// the previous client-side filters over the returned page only. Today
+// metrics are still enriched for the accounts on the current page. Response
+// shape mirrors /api/channels: {items, total, page, pageSize, generatedAt, sites}.
 func (h *accountsHandler) listAccountsPaginated(w http.ResponseWriter, r *http.Request) {
 	page := clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
 	pageSize := clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
 	offset := (page - 1) * pageSize
 
-	accounts, total, err := service.ListAccountsWithSitesPaginated(h.db, pageSize, offset)
+	filter, err := parseAccountListFilter(r)
+	if err != nil {
+		// Invalid filter params only come from hand-edited URLs — no client
+		// branches on this rejection, so it stays a plain (unregistered) 400.
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	accounts, total, err := service.ListAccountsWithSitesPaginated(h.db, pageSize, offset, filter)
 	if err != nil {
 		slog.Error("Failed to load paginated accounts", "err", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load accounts", "errorCode": "resourceLoadFailed"})
@@ -1603,3 +1615,61 @@ func (h *accountsHandler) refreshBalance(w http.ResponseWriter, r *http.Request)
 }
 
 // ---- Account Models ----
+
+// validAccountStatuses whitelists the `status` filter values accepted by the
+// paginated accounts list (the same domain the UI filter exposes: active /
+// disabled / expired).
+var validAccountStatuses = map[string]struct{}{
+	"active":   {},
+	"disabled": {},
+	"expired":  {},
+}
+
+// parseAccountListFilter reads the optional comma-separated `status` and
+// `site` query params into a service.AccountListFilter. Invalid values are
+// rejected explicitly (mirroring parseChannelStatusFilter) instead of being
+// silently dropped.
+func parseAccountListFilter(r *http.Request) (service.AccountListFilter, error) {
+	var filter service.AccountListFilter
+
+	rawStatus := strings.TrimSpace(r.URL.Query().Get("status"))
+	if rawStatus != "" {
+		seen := make(map[string]struct{}, 4)
+		for _, part := range strings.Split(rawStatus, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				return filter, fmt.Errorf("invalid account status filter")
+			}
+			if _, ok := validAccountStatuses[part]; !ok {
+				return filter, fmt.Errorf("invalid account status filter: %q", part)
+			}
+			if _, ok := seen[part]; ok {
+				continue
+			}
+			seen[part] = struct{}{}
+			filter.Statuses = append(filter.Statuses, part)
+		}
+	}
+
+	rawSite := strings.TrimSpace(r.URL.Query().Get("site"))
+	if rawSite != "" {
+		seen := make(map[int64]struct{}, 4)
+		for _, part := range strings.Split(rawSite, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				return filter, fmt.Errorf("invalid account site filter")
+			}
+			id, err := strconv.ParseInt(part, 10, 64)
+			if err != nil || id <= 0 {
+				return filter, fmt.Errorf("invalid account site filter: %q", part)
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			filter.SiteIDs = append(filter.SiteIDs, id)
+		}
+	}
+
+	return filter, nil
+}

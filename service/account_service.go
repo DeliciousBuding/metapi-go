@@ -704,19 +704,34 @@ func ListAccountsWithSites(db *sqlx.DB) ([]map[string]any, error) {
 	return result, scanErr
 }
 
+// AccountListFilter narrows the paginated accounts list server-side so the
+// admin UI filters the whole fleet, not just the loaded page (issue #1108:
+// client-side filters over a server-paginated table could never match rows
+// on other pages).
+type AccountListFilter struct {
+	// Statuses is a whitelisted subset of the account status domain
+	// (active / disabled / expired). Empty means "no status filter".
+	Statuses []string
+	// SiteIDs narrows to the given sites. Empty means "all sites".
+	SiteIDs []int64
+}
+
 // ListAccountsWithSitesPaginated returns a single page of accounts joined with
-// their sites, plus the total row count matching the same join. Enrichment is
+// their sites, plus the total row count matching the same join (and the same
+// optional filter, so `total` is the true filtered count). Enrichment is
 // identical to ListAccountsWithSites so a paginated page is byte-compatible
 // with a slice of the unpaginated snapshot. Used by GET /api/accounts?page=...
 // to bound the admin list response when the fleet grows (defensive pagination,
 // same envelope as /api/channels and /api/checkin/logs).
-func ListAccountsWithSitesPaginated(db *sqlx.DB, limit, offset int) ([]map[string]any, int64, error) {
+func ListAccountsWithSitesPaginated(db *sqlx.DB, limit, offset int, filter AccountListFilter) ([]map[string]any, int64, error) {
+	where, args := buildAccountListFilter(filter)
+
 	rows, err := db.Queryx(db.Rebind(
 		`SELECT a.*, s.id as site_id_val, s.name as site_name, s.url as site_url,
 		        s.platform as site_platform, s.status as site_status
-		 FROM accounts a INNER JOIN sites s ON a.site_id = s.id
+		 FROM accounts a INNER JOIN sites s ON a.site_id = s.id`+where+`
 		 ORDER BY a.sort_order, a.id
-		 LIMIT ? OFFSET ?`), limit, offset)
+		 LIMIT ? OFFSET ?`), append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -739,10 +754,36 @@ func ListAccountsWithSitesPaginated(db *sqlx.DB, limit, offset int) ([]map[strin
 
 	var total int64
 	if err := db.Get(&total, db.Rebind(
-		`SELECT COUNT(*) FROM accounts a INNER JOIN sites s ON a.site_id = s.id`)); err != nil {
+		`SELECT COUNT(*) FROM accounts a INNER JOIN sites s ON a.site_id = s.id`+where), args...); err != nil {
 		return result, 0, err
 	}
 	return result, total, scanErr
+}
+
+// buildAccountListFilter assembles the WHERE clause + args for the account
+// list filter. All values are parameterized (never interpolated), and the
+// status/site conditions are mutually ANDed.
+func buildAccountListFilter(filter AccountListFilter) (string, []any) {
+	var clauses []string
+	var args []any
+	if len(filter.Statuses) > 0 {
+		query, inArgs, err := sqlx.In(`a.status IN (?)`, filter.Statuses)
+		if err == nil && len(inArgs) > 0 {
+			clauses = append(clauses, query)
+			args = append(args, inArgs...)
+		}
+	}
+	if len(filter.SiteIDs) > 0 {
+		query, inArgs, err := sqlx.In(`a.site_id IN (?)`, filter.SiteIDs)
+		if err == nil && len(inArgs) > 0 {
+			clauses = append(clauses, query)
+			args = append(args, inArgs...)
+		}
+	}
+	if len(clauses) == 0 {
+		return "", nil
+	}
+	return " WHERE " + strings.Join(clauses, " AND "), args
 }
 
 // enrichAccountOverviewRow attaches admin-list overview fields used by the UI.

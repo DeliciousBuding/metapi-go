@@ -17,11 +17,23 @@ export const accountsApi = {
       accounts: unknown[]
       sites: unknown[]
     }>,
-  getAccountsPage: (params: { page: number; pageSize: number }) =>
+  getAccountsPage: (params: {
+    page: number
+    pageSize: number
+    /** Server-side global search (matches username/site name/platform/url). */
+    q?: string
+    /** Comma-separated status whitelist (active/disabled/expired). */
+    status?: string
+    /** Comma-separated site ids. */
+    site?: string
+  }) =>
     request(
       `/api/accounts${buildQueryString({
         page: params.page,
         pageSize: params.pageSize,
+        q: params.q || undefined,
+        status: params.status || undefined,
+        site: params.site || undefined,
       })}`
     ) as Promise<{
       items?: unknown[]

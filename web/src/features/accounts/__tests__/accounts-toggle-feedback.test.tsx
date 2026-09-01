@@ -39,6 +39,7 @@ vi.mock('@/components/data-table', () => ({
     onGlobalFilterChange: vi.fn(),
     columnFilters: [],
     onColumnFiltersChange: vi.fn(),
+    filters: { status: '', site: '' },
     pagination: { pageIndex: 0, pageSize: 20 },
     onPaginationChange: vi.fn(),
     sorting: [],

@@ -246,6 +246,12 @@ export function AccountsPage() {
   const accountsPageQuery = useAccountsPage({
     pageIndex: urlState.pagination.pageIndex,
     pageSize: urlState.pagination.pageSize,
+    // Server-side filters (#1108): q/status/site narrow the whole fleet in
+    // SQL, so rows on other pages match — unlike the old client-side
+    // filters over the loaded page only.
+    q: urlState.globalFilter,
+    status: urlState.filters.status,
+    site: urlState.filters.site,
   })
   const { data, isLoading, isFetching, error, refetch } = accountsPageQuery
   const probeHistoryQuery = useProbeHistory('accounts')
@@ -521,11 +527,13 @@ export function AccountsPage() {
     data: accounts,
     columns,
     enableRowSelection: true,
-    // Server-side pagination: URL pagination drives a page query and the
-    // true fleet total drives the pager. Sorting and filtering remain
-    // client-side over the current page (documented backend gap).
+    // Server-side pagination + filtering (#1108): URL pagination drives a
+    // page query and the true fleet total drives the pager; q/status/site
+    // are SQL filters so a page only ever holds already-matching rows.
+    // Sorting stays client-side over the current page.
     manualPagination: true,
     manualSorting: true,
+    manualFiltering: true,
     totalCount: data?.total ?? data?.accounts?.length ?? 0,
     globalFilter: urlState.globalFilter,
     onGlobalFilterChange: urlState.onGlobalFilterChange,
