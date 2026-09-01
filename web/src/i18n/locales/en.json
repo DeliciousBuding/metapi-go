@@ -1689,7 +1689,7 @@
           }
         },
         "auditLogs": {
-          "title": "Admin Audit Logs",
+          "title": "Audit Logs",
           "description": "Read-only audit of admin write operations.",
           "allMethods": "All methods",
           "pathPlaceholder": "Search path…",
