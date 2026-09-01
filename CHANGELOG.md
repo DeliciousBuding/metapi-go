@@ -7,6 +7,12 @@ All notable changes to Metapi-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **账号页筛选服务端化（#1122，issue #1108）**：`GET /api/accounts` 新增 `q`/`status`/`site` 筛选参数——此前分页是服务端、筛选却是客户端（只过滤已加载页），站点不在当前页时永远筛不出来；现在筛选全舰队（SQL 参数化 + LIKE 字面转义），`total` 为筛选后计数，非法值显式 400。筛选重置此前只清搜索框——Reset 连发两次状态更新产生两次导航，TanStack 同 tick 合并只留最后一个导致第一次更新被静默丢弃；`useUrlTableState` 改为串行化（每次更新基于上一次 href），所有 URL 同步的列表页重置都恢复完整。账号页站点单元格支持快捷跳转（安全外链，同站点页 #985 阶梯，共享 `SafeExternalLink` 组件）。
+- **运行事件标题列折叠（#1124）**：受影响路由/替代站点/面板深链此前与 model/reason 一起堆在标题列（每行约 5 行高）；现在折叠进每行「详情」开关（`aria-expanded` + 焦点环），默认行高回到可扫读的 3 行。
+- **文案校对（#1123）**：路由策略「基础权重加数」→「基础权重基数」；「管理员审计日志」→「审计日志」（7 字标题在窄侧边栏截断）。
+
 ### Security
 
 - **SPA CSP 去 `style-src 'unsafe-inline'`（#1035 S2）**：CSP `style-src` 从 `'self' 'unsafe-inline'` 收紧为 `'self' 'nonce-<per-request>' 'sha256-<sonner-toast-css>'`，并保留其余 directive 不变；Go SPA fallback 在每个响应中生成 16 字节随机 nonce，注入 `<meta name="csp-nonce">` 并在 `Content-Security-Policy` 头中表达，前端静态 `bootstrap.js` 在 bundle 前把手动创建的 `<style>` 元素（sonner/chart/dialog scroll-lock 注入路径）统一标注该 nonce。sonner 的运行时样式表同时静态打包（`sonner/dist/styles.css`），即使 hash 漂移也不影响 toast 视觉；新增 CSP directive 级断言、nonce 随机性/meta 匹配测试、sonner hash 漂移守卫和 ChartStyle nonce 单测。残留：sonner 库仍会尝试注入样式（被 hash 允许），静态 fallback 保证功能；其他 directive 未放宽。
