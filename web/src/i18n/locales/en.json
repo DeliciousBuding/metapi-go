@@ -1659,7 +1659,9 @@
           "messageParts": {
             "affectedRoutes": "Affected routes",
             "alternativeSites": "Alternative sites",
-            "openPanel": "Open panel"
+            "openPanel": "Open panel",
+            "details": "Details",
+            "collapse": "Collapse"
           },
           "type": {
             "checkin": "Checkin",
