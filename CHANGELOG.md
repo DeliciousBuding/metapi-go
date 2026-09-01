@@ -5,34 +5,24 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
-## [Unreleased]
+## [v0.16.20] — 2026-09-01
 
-### Fixed
+### Added
 
-- **账号页筛选服务端化（#1122，issue #1108）**：`GET /api/accounts` 新增 `q`/`status`/`site` 筛选参数——此前分页是服务端、筛选却是客户端（只过滤已加载页），站点不在当前页时永远筛不出来；现在筛选全舰队（SQL 参数化 + LIKE 字面转义），`total` 为筛选后计数，非法值显式 400。筛选重置此前只清搜索框——Reset 连发两次状态更新产生两次导航，TanStack 同 tick 合并只留最后一个导致第一次更新被静默丢弃；`useUrlTableState` 改为串行化（每次更新基于上一次 href），所有 URL 同步的列表页重置都恢复完整。账号页站点单元格支持快捷跳转（安全外链，同站点页 #985 阶梯，共享 `SafeExternalLink` 组件）。
-- **运行事件标题列折叠（#1124）**：受影响路由/替代站点/面板深链此前与 model/reason 一起堆在标题列（每行约 5 行高）；现在折叠进每行「详情」开关（`aria-expanded` + 焦点环），默认行高回到可扫读的 3 行。
-- **文案校对（#1123）**：路由策略「基础权重加数」→「基础权重基数」；「管理员审计日志」→「审计日志」（7 字标题在窄侧边栏截断）。
+- **运行事件结构化（F5 批次 1：checkin 事件族）**：`service/events` 类型化注册表（register 防重复、参数严格校验），`WriteEvent` 在持久化历史英文 title/message（非 UI 消费者字节级零破坏：notify/CSV/历史行）之外新增 `title_key` + `params` JSON；`sc2_028` 增量迁移（TEXT NULL，双方言 tableExists 守卫）+ 新装 DDL + cmd/migrate 列同步。程序日志页结构化渲染：标题经 `events.titles.*` 本地化、消息经 `events.messages.*` 模板 i18next 插值（`{{account}}`/`{{site}}`/`{{reason}}`），历史行保持原文/历史映射 fallback；en/zh-CN 各补 4 键，双语 `{{var}}` 一致性门禁（Go + FE 双侧钉死键集）。
+- **删除+undo 档（#1097，#1035 S7 收官）**：叶子实体单行删除（模型重定向、目录源、令牌路由、下游 API 密钥、账号令牌）不再弹确认框——行即消失并给出 6 秒「撤销」窗口，真实删除仅在窗口关闭后发生；撤销精确恢复，服务端从未写入。批量操作、级联删除、factory reset 各自保留计数确认 / typed-confirm 档位（规约见 DESIGN.md §4.1）。
 
-### Security
 
-- **SPA CSP 去 `style-src 'unsafe-inline'`（#1035 S2）**：CSP `style-src` 从 `'self' 'unsafe-inline'` 收紧为 `'self' 'nonce-<per-request>' 'sha256-<sonner-toast-css>'`，并保留其余 directive 不变；Go SPA fallback 在每个响应中生成 16 字节随机 nonce，注入 `<meta name="csp-nonce">` 并在 `Content-Security-Policy` 头中表达，前端静态 `bootstrap.js` 在 bundle 前把手动创建的 `<style>` 元素（sonner/chart/dialog scroll-lock 注入路径）统一标注该 nonce。sonner 的运行时样式表同时静态打包（`sonner/dist/styles.css`），即使 hash 漂移也不影响 toast 视觉；新增 CSP directive 级断言、nonce 随机性/meta 匹配测试、sonner hash 漂移守卫和 ChartStyle nonce 单测。残留：sonner 库仍会尝试注入样式（被 hash 允许），静态 fallback 保证功能；其他 directive 未放宽。
-- **凭证导出遮罩改真占位符（#1080）**：遮罩态密钥不再以「CSS blur 伪掩码」渲染（明文此前仍留在 DOM 与无障碍树中，读屏可读出），改为渲染 `••••••••` 占位符 + `aria-hidden`，与顶层真掩码语义一致。
-
-### Fixed
-
-- **通知铃铛弹层告警文案未本地化（F3，#1091）**：后端 attention API 为兼容保留英文 `label` 并下发结构化 `params`，dashboard 可用性面板已做再本地化，但顶栏铃铛弹层裸渲染英文——中文界面下出现「Balance unknown: svc-onea…」等英文告警。两处现共用新共享模块 `web/src/lib/attention-label.ts`（含 8 个持久化事件标题的 i18n 映射）；en/zh-CN 补齐 7 个事件标题键；参数缺失或未知类别回退原文，绝不半翻译。
-- **代理日志时间列详情行同日重复（#1101）**：7 天窗口内详情行渲染「8月23日 · 2026年8月23日」——同日绝对日期与相对时间连读重复；新增 `formatLogDateDetail`（窗口内短日期 · 相对时间，超窗仅绝对日期），恢复紧凑。
-- **页面双 `<main>` landmark + 品牌 logo 冗余 alt + 空表头（#1102）**：dashboard / observability / settings 三层页级 `<main>` 与布局壳唯一 `<main id="content">` 叠加成每路由双 landmark（页级降为 `<div>`）；三处品牌 logo `alt` 与相邻同名文本重复（改 `alt=""`）；catalog-sources 拖拽列空 `<TableHead>` 补 sr-only「排序/Reorder」（axe empty-table-header）。
-- **设置页单卡片节标题与描述双重叠（#1104）**：settings 单卡片节（redirects / danger-zone / keys 等约 15 页）页头 h1+description 与 `SettingsSectionCard` 卡头逐字重复；共享壳改为无头部动作时不渲染 CardHeader，带动作的卡保留（按钮需宿主）。数据迁移节的 wipe/重启警告从卡 description 移到卡内顶部警告条（更易读）。
-- **channels 页「响应延迟」列默认掉出首屏**：表格默认总宽 1430px 超出 1440px 视口下约 1166px 的滚动口，该列表头在滚动口右缘被裁成「响应延…」；列宽修正（响应延迟 110→130，名称 200→170，冷却至 180→160）后该列回到首屏，残余轻微横滚由已固定的操作列与列设置承接（用户已持久化的列宽不受影响）。
-- **移动端账号页头动作挤压修复（#1086）**：375px 窄视口下「添加账号」按钮与描述同 flex 行挤压、截断描述首行；页头对齐 checkin/路由页的 flex-wrap 模式，按钮窄屏独立成行。
-- **今日快照 delta 不可用态去重（#1088）**：余额 7 天对比无数据时 Minus 图标与「—」占位符同形连读作「— —」；不可用态只留 em-dash 占位（零 delta 仍用 Minus 图标）。
-- **下游密钥凭证维度（`allowedCredentialRefs`/`excludedCredentialRefs`）端到端修复（#1026 残留）**：`auth.ExcludedCredentialRef` 的 JSON 标签原为 snake_case（`site_id`/`account_id`/`token_id`），而管理端持久化形状为 camelCase（`siteId`/`accountId`/`tokenId`）——导致代理路径解析出的引用 ID 全为 0：允许列表密钥无法路由任何渠道、排除列表静默失效。标签统一为 camelCase 并新增 DB→策略解析往返回归测试。
-- **运行时设置的并发撕裂读修复（#1079）**：`RuntimeSettings` 迁移为不可变快照交换——此前约 25 个运行时写字段与热路径无锁读并存，并发下可能读到半更新状态（如代理 token 校验瞬时 401 抖动）；快照迁移后读侧无锁且始终自洽。
-- **W19–W21 前端审计修复批（#1080）**：错误提示去重单 owner 化（修复 HTTP 500 无 body 时双弹 toast，且 502–504 不再泄漏 axios 原始英文报错，改为状态感知的本地化文案）；列表页加载失败改为整块替换 + 内置重试（不再叠加在陈旧数据上）；站点公告四个筛选下拉关闭态不再裸显内部值 `all`；路由表单图标字段不再泄漏内部哨兵值 `__route_icon_none__`（以友好 token `none` 双向映射）；账号状态切换增加进行中禁用与成功反馈；OAuth 授权弹窗被浏览器拦截时提供常驻恢复入口；站点批量禁用与路由重建增加前置确认；多处操作后缓存失效遗漏补齐（签到后账号快照、目录源同步后模型清单、路由重建后渠道列表等）。
-- **浅色主题图表与焦点环对比度（#1080）**：chart-1..5 全部预设在浅色卡片底上达 WCAG AA 4.5:1（对比度门禁固化）；焦点环统一为 ≥3:1 对比度 token。
+- **i18n 插值占位符 parity 门禁（#1035 S10）**：i18n-keys 测试新增断言——每个双语键在 en 与 zh-CN 中的 `{{变量}}` 集合必须一致（此前键集合 parity 抓不到译文丢失插值变量导致的「半翻译」渲染）；现状 2493 键 0 失配，随 frontend CI 锁定。
+- **延迟图表无障碍数据摘要（#1087，#1035 S10）**：仪表盘延迟直方图与延迟趋势补 sr-only 数据表（直方图：区间×调用数；趋势：平均/p95 × 最新日/窗口均值）——至此仪表盘全部六个主图均有屏幕阅读器替代层。
+- **凭证维度契约测试与文档（#1026 残留）**：路由选择器执行测试（两种 kind、跨 kind 不互匹配、空列表不限制、排除优先于允许、TS 遗留空 kind 语义）、管理端验证拒绝用例、悬空引用行为钉住（删号/删令牌不级联清理，悬空允许引用失败关闭）、auth→routing 映射测试；`docs/api.md` 下游密钥节新增完整契约（字段形状、空=不限制、验证规则、选择器行为、只读响应为 JSON 字符串、UI 待定说明）。
+- **下游密钥凭证树形选择器（#1026，#1072）**：`allowedCredentialRefs`/`excludedCredentialRefs` 配置 UI——按站点 → 账号 → 密钥三级树勾选，与 API 契约一致。
+- **命令面板动作层（#1073，#1035 S6）**：Ctrl/⌘+K 面板在页面/实体导航之外支持直接执行动作。
+- **移动端表单与详情抽屉底部关闭条（#1080）**：≤640px 全宽抽屉新增拇指可达的底部关闭条（自带取消/提交的表单抽屉除外，避免同义双出口）。
+- **恢复出厂设置 type-to-confirm（#1080）**：需输入 `RESET` 且倒计时结束后才可执行，防止误触清空全部数据。
 
 ### Changed
+
 
 - **事件标题 i18n 统一为单一映射 + 单一词条节（#1099）**：程序日志页与 attention 管线此前各带一份事件标题映射表和 locale 节（漂移源），7 个高频生产者标题（签到成功、站点启用、令牌同步完成、运行时设置更新、管理员令牌更新、模型修复、备份导入）两边均未映射而在中文界面裸显英文。现收敛为共享 `lib/event-titles.ts`（15 个已知生产者标题 → slug）+ 单一 locale 节 `events.titles.*`；未知/动态标题仍原文渲染（诚实残留）。
 - **清理 17 个不再引用的界面文案键（#1103）**：en/zh-CN 各移除 17 个从未被代码引用的键（含已下线的 `homePageContent` 字段系列、被替代的 `proxy24hHint`/`modelTester.form.channelHint` 等）；经模板/配置映射引用的动态键全部保留，双语键集合仍一致。
@@ -49,19 +39,32 @@ All notable changes to Metapi-Go will be documented in this file.
 - **站点表单迁移为右侧抽屉（#1082）**：添加/编辑站点从居中弹窗改为右侧滑出抽屉，与账号表单形态统一；长表单滚动时底部「取消/创建」常驻可达，未保存修改的关闭确认行为不变。
 - **列表筛选状态入 URL（#1080）**：价格对比的模型过滤、站点公告的站点/平台/阅读/状态筛选与页码写入 URL——刷新、后退/前进、分享链接均保持视图。
 
-### Added
-
-- **删除+undo 档（#1097，#1035 S7 收官）**：叶子实体单行删除（模型重定向、目录源、令牌路由、下游 API 密钥、账号令牌）不再弹确认框——行即消失并给出 6 秒「撤销」窗口，真实删除仅在窗口关闭后发生；撤销精确恢复，服务端从未写入。批量操作、级联删除、factory reset 各自保留计数确认 / typed-confirm 档位（规约见 DESIGN.md §4.1）。
+### Fixed
 
 
-- **i18n 插值占位符 parity 门禁（#1035 S10）**：i18n-keys 测试新增断言——每个双语键在 en 与 zh-CN 中的 `{{变量}}` 集合必须一致（此前键集合 parity 抓不到译文丢失插值变量导致的「半翻译」渲染）；现状 2493 键 0 失配，随 frontend CI 锁定。
-- **延迟图表无障碍数据摘要（#1087，#1035 S10）**：仪表盘延迟直方图与延迟趋势补 sr-only 数据表（直方图：区间×调用数；趋势：平均/p95 × 最新日/窗口均值）——至此仪表盘全部六个主图均有屏幕阅读器替代层。
-- **凭证维度契约测试与文档（#1026 残留）**：路由选择器执行测试（两种 kind、跨 kind 不互匹配、空列表不限制、排除优先于允许、TS 遗留空 kind 语义）、管理端验证拒绝用例、悬空引用行为钉住（删号/删令牌不级联清理，悬空允许引用失败关闭）、auth→routing 映射测试；`docs/api.md` 下游密钥节新增完整契约（字段形状、空=不限制、验证规则、选择器行为、只读响应为 JSON 字符串、UI 待定说明）。
-- **下游密钥凭证树形选择器（#1026，#1072）**：`allowedCredentialRefs`/`excludedCredentialRefs` 配置 UI——按站点 → 账号 → 密钥三级树勾选，与 API 契约一致。
-- **命令面板动作层（#1073，#1035 S6）**：Ctrl/⌘+K 面板在页面/实体导航之外支持直接执行动作。
-- **移动端表单与详情抽屉底部关闭条（#1080）**：≤640px 全宽抽屉新增拇指可达的底部关闭条（自带取消/提交的表单抽屉除外，避免同义双出口）。
-- **恢复出厂设置 type-to-confirm（#1080）**：需输入 `RESET` 且倒计时结束后才可执行，防止误触清空全部数据。
+- **账号页筛选服务端化（#1122，issue #1108）**：`GET /api/accounts` 新增 `q`/`status`/`site` 筛选参数——此前分页是服务端、筛选却是客户端（只过滤已加载页），站点不在当前页时永远筛不出来；现在筛选全舰队（SQL 参数化 + LIKE 字面转义），`total` 为筛选后计数，非法值显式 400。筛选重置此前只清搜索框——Reset 连发两次状态更新产生两次导航，TanStack 同 tick 合并只留最后一个导致第一次更新被静默丢弃；`useUrlTableState` 改为串行化（每次更新基于上一次 href），所有 URL 同步的列表页重置都恢复完整。账号页站点单元格支持快捷跳转（安全外链，同站点页 #985 阶梯，共享 `SafeExternalLink` 组件）。
+- **运行事件标题列折叠（#1124）**：受影响路由/替代站点/面板深链此前与 model/reason 一起堆在标题列（每行约 5 行高）；现在折叠进每行「详情」开关（`aria-expanded` + 焦点环），默认行高回到可扫读的 3 行。
+- **文案校对（#1123）**：路由策略「基础权重加数」→「基础权重基数」；「管理员审计日志」→「审计日志」（7 字标题在窄侧边栏截断）。
 
+
+
+- **通知铃铛弹层告警文案未本地化（F3，#1091）**：后端 attention API 为兼容保留英文 `label` 并下发结构化 `params`，dashboard 可用性面板已做再本地化，但顶栏铃铛弹层裸渲染英文——中文界面下出现「Balance unknown: svc-onea…」等英文告警。两处现共用新共享模块 `web/src/lib/attention-label.ts`（含 8 个持久化事件标题的 i18n 映射）；en/zh-CN 补齐 7 个事件标题键；参数缺失或未知类别回退原文，绝不半翻译。
+- **代理日志时间列详情行同日重复（#1101）**：7 天窗口内详情行渲染「8月23日 · 2026年8月23日」——同日绝对日期与相对时间连读重复；新增 `formatLogDateDetail`（窗口内短日期 · 相对时间，超窗仅绝对日期），恢复紧凑。
+- **页面双 `<main>` landmark + 品牌 logo 冗余 alt + 空表头（#1102）**：dashboard / observability / settings 三层页级 `<main>` 与布局壳唯一 `<main id="content">` 叠加成每路由双 landmark（页级降为 `<div>`）；三处品牌 logo `alt` 与相邻同名文本重复（改 `alt=""`）；catalog-sources 拖拽列空 `<TableHead>` 补 sr-only「排序/Reorder」（axe empty-table-header）。
+- **设置页单卡片节标题与描述双重叠（#1104）**：settings 单卡片节（redirects / danger-zone / keys 等约 15 页）页头 h1+description 与 `SettingsSectionCard` 卡头逐字重复；共享壳改为无头部动作时不渲染 CardHeader，带动作的卡保留（按钮需宿主）。数据迁移节的 wipe/重启警告从卡 description 移到卡内顶部警告条（更易读）。
+- **channels 页「响应延迟」列默认掉出首屏**：表格默认总宽 1430px 超出 1440px 视口下约 1166px 的滚动口，该列表头在滚动口右缘被裁成「响应延…」；列宽修正（响应延迟 110→130，名称 200→170，冷却至 180→160）后该列回到首屏，残余轻微横滚由已固定的操作列与列设置承接（用户已持久化的列宽不受影响）。
+- **移动端账号页头动作挤压修复（#1086）**：375px 窄视口下「添加账号」按钮与描述同 flex 行挤压、截断描述首行；页头对齐 checkin/路由页的 flex-wrap 模式，按钮窄屏独立成行。
+- **今日快照 delta 不可用态去重（#1088）**：余额 7 天对比无数据时 Minus 图标与「—」占位符同形连读作「— —」；不可用态只留 em-dash 占位（零 delta 仍用 Minus 图标）。
+- **下游密钥凭证维度（`allowedCredentialRefs`/`excludedCredentialRefs`）端到端修复（#1026 残留）**：`auth.ExcludedCredentialRef` 的 JSON 标签原为 snake_case（`site_id`/`account_id`/`token_id`），而管理端持久化形状为 camelCase（`siteId`/`accountId`/`tokenId`）——导致代理路径解析出的引用 ID 全为 0：允许列表密钥无法路由任何渠道、排除列表静默失效。标签统一为 camelCase 并新增 DB→策略解析往返回归测试。
+- **运行时设置的并发撕裂读修复（#1079）**：`RuntimeSettings` 迁移为不可变快照交换——此前约 25 个运行时写字段与热路径无锁读并存，并发下可能读到半更新状态（如代理 token 校验瞬时 401 抖动）；快照迁移后读侧无锁且始终自洽。
+- **W19–W21 前端审计修复批（#1080）**：错误提示去重单 owner 化（修复 HTTP 500 无 body 时双弹 toast，且 502–504 不再泄漏 axios 原始英文报错，改为状态感知的本地化文案）；列表页加载失败改为整块替换 + 内置重试（不再叠加在陈旧数据上）；站点公告四个筛选下拉关闭态不再裸显内部值 `all`；路由表单图标字段不再泄漏内部哨兵值 `__route_icon_none__`（以友好 token `none` 双向映射）；账号状态切换增加进行中禁用与成功反馈；OAuth 授权弹窗被浏览器拦截时提供常驻恢复入口；站点批量禁用与路由重建增加前置确认；多处操作后缓存失效遗漏补齐（签到后账号快照、目录源同步后模型清单、路由重建后渠道列表等）。
+- **浅色主题图表与焦点环对比度（#1080）**：chart-1..5 全部预设在浅色卡片底上达 WCAG AA 4.5:1（对比度门禁固化）；焦点环统一为 ≥3:1 对比度 token。
+
+### Security
+
+
+- **SPA CSP 去 `style-src 'unsafe-inline'`（#1035 S2）**：CSP `style-src` 从 `'self' 'unsafe-inline'` 收紧为 `'self' 'nonce-<per-request>' 'sha256-<sonner-toast-css>'`，并保留其余 directive 不变；Go SPA fallback 在每个响应中生成 16 字节随机 nonce，注入 `<meta name="csp-nonce">` 并在 `Content-Security-Policy` 头中表达，前端静态 `bootstrap.js` 在 bundle 前把手动创建的 `<style>` 元素（sonner/chart/dialog scroll-lock 注入路径）统一标注该 nonce。sonner 的运行时样式表同时静态打包（`sonner/dist/styles.css`），即使 hash 漂移也不影响 toast 视觉；新增 CSP directive 级断言、nonce 随机性/meta 匹配测试、sonner hash 漂移守卫和 ChartStyle nonce 单测。残留：sonner 库仍会尝试注入样式（被 hash 允许），静态 fallback 保证功能；其他 directive 未放宽。
+- **凭证导出遮罩改真占位符（#1080）**：遮罩态密钥不再以「CSS blur 伪掩码」渲染（明文此前仍留在 DOM 与无障碍树中，读屏可读出），改为渲染 `••••••••` 占位符 + `aria-hidden`，与顶层真掩码语义一致。
 
 ## [v0.16.19] — 2026-08-29
 
