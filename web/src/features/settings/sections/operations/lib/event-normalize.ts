@@ -25,6 +25,13 @@ export type ProgramEvent = {
   level?: 'info' | 'warning' | 'error'
   read?: boolean
   createdAt?: string
+  /**
+   * Structured-event fields (F5): rows emitted through the events registry
+   * carry a stable titleKey plus typed params; legacy rows have neither and
+   * render through the historical title-match path.
+   */
+  titleKey?: string
+  params?: Record<string, string | number>
 }
 
 export type EventsResponse = {
@@ -40,6 +47,22 @@ export type EventsResponse = {
  * detection relies on integer truthiness.
  */
 export function normalizeEvent(raw: Record<string, unknown>): ProgramEvent {
+  const titleKey =
+    raw.title_key != null && raw.title_key !== ''
+      ? String(raw.title_key)
+      : undefined
+  let params: Record<string, string | number> | undefined
+  if (raw.params != null && raw.params !== '') {
+    try {
+      const parsed = JSON.parse(String(raw.params)) as unknown
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        params = parsed as Record<string, string | number>
+      }
+    } catch {
+      // Malformed params degrade to the legacy title-match path.
+      params = undefined
+    }
+  }
   return {
     id: Number(raw.id ?? 0),
     type: String(raw.type ?? ''),
@@ -54,6 +77,8 @@ export function normalizeEvent(raw: Record<string, unknown>): ProgramEvent {
           raw.read === '1' ||
           raw.read === 'true',
     createdAt: raw.created_at != null ? String(raw.created_at) : undefined,
+    titleKey,
+    params,
   }
 }
 

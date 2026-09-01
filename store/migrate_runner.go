@@ -1094,7 +1094,7 @@ func buildDownstreamAPIKeys(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildEvents(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "type", "title", "message", "level", "read", "related_id", "related_type", "created_at"}
+	cols := []string{"id", "type", "title", "message", "level", "read", "related_id", "related_type", "created_at", "title_key", "params"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -1109,6 +1109,8 @@ func buildEvents(rows []map[string]interface{}) []insertStmt {
 				asNumber(v(row, "related_id"), nil),
 				asNullableString(v(row, "related_type")),
 				asNullableString(v(row, "created_at")),
+				asNullableString(v(row, "title_key")),
+				asNullableString(v(row, "params")),
 			},
 		})
 	}
