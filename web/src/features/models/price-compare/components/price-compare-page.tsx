@@ -151,22 +151,12 @@ export function PriceComparePage() {
 
 function ModelGroupCard({ group }: { group: ModelGroup }) {
   const { t } = useTranslation()
-  const hasRecommended = group.rows.some((row) => row.recommended)
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className='flex items-center gap-2 text-base font-normal'>
           <span className='font-mono'>{group.model}</span>
-          {hasRecommended && (
-            <Badge
-              variant='secondary'
-              title={t('priceCompare.recommendedHint')}
-            >
-              <Star aria-hidden='true' className='size-3!' />
-              {t('priceCompare.recommended')}
-            </Badge>
-          )}
         </CardTitle>
         <CardDescription>{t('priceCompare.group.description')}</CardDescription>
       </CardHeader>
