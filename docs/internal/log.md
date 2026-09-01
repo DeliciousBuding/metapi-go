@@ -1,9 +1,16 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-31
+**Last updated**: 2026-09-01
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-09-01 — v0.16.20 发版（F5 结构化事件 + 08-30→09-01 三波）
+
+- **F5 批次 1（checkin 事件族）**：events 表 `title_key`+`params` 结构化（`sc2_028` 增量迁移），程序日志页标题本地化 + 消息模板 i18next 插值，历史行原文 fallback；真实 new-api/sub2api 测试床端到端视觉验证 zh/en 13/13。
+- **同版包含 #1084–#1127 三波**：S7 删除+undo 档、S10 插值 parity 门禁、事件标题 i18n 统一、errorCode 家族、auth 会话模型加固残留、账号筛选服务端化（#1108）与视觉 QA 修复波、CSP S2 nonce 化。
+
+
 
 ## 2026-09-01 — 账号筛选服务端化 + 视觉 QA 修复波（#1122–#1126）
 
