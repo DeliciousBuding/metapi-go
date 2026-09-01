@@ -1625,12 +1625,14 @@ var validAccountStatuses = map[string]struct{}{
 	"expired":  {},
 }
 
-// parseAccountListFilter reads the optional comma-separated `status` and
-// `site` query params into a service.AccountListFilter. Invalid values are
-// rejected explicitly (mirroring parseChannelStatusFilter) instead of being
-// silently dropped.
+// parseAccountListFilter reads the optional `q`, comma-separated `status` and
+// comma-separated `site` query params into a service.AccountListFilter.
+// Invalid status/site values are rejected explicitly (mirroring
+// parseChannelStatusFilter) instead of being silently dropped.
 func parseAccountListFilter(r *http.Request) (service.AccountListFilter, error) {
 	var filter service.AccountListFilter
+
+	filter.Query = strings.TrimSpace(r.URL.Query().Get("q"))
 
 	rawStatus := strings.TrimSpace(r.URL.Query().Get("status"))
 	if rawStatus != "" {

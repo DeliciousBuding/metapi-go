@@ -714,6 +714,10 @@ type AccountListFilter struct {
 	Statuses []string
 	// SiteIDs narrows to the given sites. Empty means "all sites".
 	SiteIDs []int64
+	// Query is a case-insensitive substring match over username and site
+	// name/url/platform (mirrors the frontend's old client-side haystack).
+	// Empty means "no search filter".
+	Query string
 }
 
 // ListAccountsWithSitesPaginated returns a single page of accounts joined with
@@ -762,10 +766,21 @@ func ListAccountsWithSitesPaginated(db *sqlx.DB, limit, offset int, filter Accou
 
 // buildAccountListFilter assembles the WHERE clause + args for the account
 // list filter. All values are parameterized (never interpolated), and the
-// status/site conditions are mutually ANDed.
+// query/status/site conditions are mutually ANDed.
 func buildAccountListFilter(filter AccountListFilter) (string, []any) {
 	var clauses []string
 	var args []any
+	if q := strings.TrimSpace(filter.Query); q != "" {
+		pattern := "%" + escapeLikePattern(q) + "%"
+		// Same haystack the frontend's client-side search used to match:
+		// username + site name/platform/url. Keep the LIKE ESCAPE so a user
+		// search containing % or _ matches literally.
+		clauses = append(clauses, `(LOWER(a.username) LIKE LOWER(?) ESCAPE '\' OR
+		 LOWER(s.name) LIKE LOWER(?) ESCAPE '\' OR
+		 LOWER(s.platform) LIKE LOWER(?) ESCAPE '\' OR
+		 LOWER(s.url) LIKE LOWER(?) ESCAPE '\')`)
+		args = append(args, pattern, pattern, pattern, pattern)
+	}
 	if len(filter.Statuses) > 0 {
 		query, inArgs, err := sqlx.In(`a.status IN (?)`, filter.Statuses)
 		if err == nil && len(inArgs) > 0 {
@@ -784,6 +799,15 @@ func buildAccountListFilter(filter AccountListFilter) (string, []any) {
 		return "", nil
 	}
 	return " WHERE " + strings.Join(clauses, " AND "), args
+}
+
+// escapeLikePattern escapes LIKE wildcards (% and _) so operator search
+// terms match literally.
+func escapeLikePattern(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
 }
 
 // enrichAccountOverviewRow attaches admin-list overview fields used by the UI.

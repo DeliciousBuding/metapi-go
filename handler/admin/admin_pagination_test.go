@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
@@ -316,10 +317,10 @@ func TestListKeys_PaginationReturnsSubsetAndTotal(t *testing.T) {
 		t.Fatalf("status = %d; body=%s", resp.Code, resp.Body.String())
 	}
 	var page struct {
-		Items []map[string]any `json:"items"`
-		Total int              `json:"total"`
-		Page  int              `json:"page"`
-		PageSize int           `json:"pageSize"`
+		Items    []map[string]any `json:"items"`
+		Total    int              `json:"total"`
+		Page     int              `json:"page"`
+		PageSize int              `json:"pageSize"`
 	}
 	if err := json.Unmarshal(resp.Body.Bytes(), &page); err != nil {
 		t.Fatalf("decode paginated envelope: %v; body=%s", err, resp.Body.String())
@@ -478,6 +479,23 @@ func TestListAccounts_ServerSideFilters(t *testing.T) {
 	_, items, total = fetch("&site=" + strconv.FormatInt(siteAID, 10) + "&status=active")
 	if total != 1 || len(items) != 1 {
 		t.Fatalf("site=A&status=active: total=%d items=%d, want 1/1", total, len(items))
+	}
+
+	// q: substring match over username + site name/platform/url.
+	_, items, total = fetch("&q=filter-b-1")
+	if total != 1 || len(items) != 1 {
+		t.Fatalf("q=filter-b-1: total=%d items=%d, want 1/1", total, len(items))
+	}
+	_, items, total = fetch("&q=filter-a")
+	if total != 2 {
+		t.Fatalf("q=filter-a: total=%d, want 2 (both site A usernames match)", total)
+	}
+	// LIKE wildcards match literally (escaped), never as patterns: with the
+	// escape in place the literal % matches no seeded username (a wildcard
+	// interpretation would match all three filter-*-1 accounts).
+	_, items, total = fetch("&q=" + url.QueryEscape("filter-%-1"))
+	if total != 0 {
+		t.Fatalf("q=filter-%%-1 literal: total=%d, want 0 (escaped literal %%)", total)
 	}
 	_ = items
 }
