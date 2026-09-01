@@ -1659,7 +1659,9 @@
           "messageParts": {
             "affectedRoutes": "受影响路由",
             "alternativeSites": "替代站点",
-            "openPanel": "打开面板"
+            "openPanel": "打开面板",
+            "details": "详情",
+            "collapse": "收起"
           },
           "type": {
             "checkin": "签到",

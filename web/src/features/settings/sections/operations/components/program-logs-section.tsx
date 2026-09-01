@@ -4,6 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -29,6 +30,7 @@ import {
 import { api } from '@/lib/api'
 import { neutralizeCsvFormulaCell } from '@/lib/helpers/csv-injection'
 import { toast } from '@/lib/toast'
+import { cn } from '@/lib/utils'
 
 import {
   SettingsSectionCard,
@@ -74,15 +76,23 @@ function EventTitle({ event }: { event: ProgramEvent }) {
  * Structured rendering of an event message. Enriched alert messages carry
  * "Affected routes / Alternative sites / Panel" lines appended by the backend;
  * those render as labeled rows with real SPA links instead of raw text.
+ *
+ * The enrichment lines are collapsed behind a per-row Details toggle (#26
+ * from the visual QA wave): stacking model/reason/affected-routes/
+ * alternative-sites into the title column blew row heights up to ~5 lines
+ * per event. The base message keeps its 2-line clamp; the operator expands
+ * only the rows they need.
  */
 function EventMessage({ event }: { event: ProgramEvent }) {
   const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
   if (!event.message) return null
   const parts = parseEventMessage(event.message)
   const routes = parts.routes ? splitEnrichmentNames(parts.routes) : []
   const sites = parts.sites ? splitEnrichmentNames(parts.sites) : []
   const panel =
     parts.panelPath !== null ? parsePanelPath(parts.panelPath) : null
+  const hasEnrichment = routes.length > 0 || sites.length > 0 || panel !== null
   return (
     <span className='text-muted-foreground flex max-w-[360px] flex-col gap-0.5 text-xs'>
       {parts.base ? (
@@ -90,7 +100,7 @@ function EventMessage({ event }: { event: ProgramEvent }) {
           {parts.base}
         </span>
       ) : null}
-      {routes.length > 0 ? (
+      {expanded && routes.length > 0 ? (
         <span className='flex flex-wrap items-baseline gap-x-1'>
           <span className='shrink-0'>
             {t('settings.operations.programLogs.messageParts.affectedRoutes')}:
@@ -109,7 +119,7 @@ function EventMessage({ event }: { event: ProgramEvent }) {
           ))}
         </span>
       ) : null}
-      {sites.length > 0 ? (
+      {expanded && sites.length > 0 ? (
         <span className='flex flex-wrap items-baseline gap-x-1'>
           <span className='shrink-0'>
             {t('settings.operations.programLogs.messageParts.alternativeSites')}
@@ -129,7 +139,26 @@ function EventMessage({ event }: { event: ProgramEvent }) {
           ))}
         </span>
       ) : null}
-      {panel ? <PanelLink panel={panel} /> : null}
+      {expanded && panel ? <PanelLink panel={panel} /> : null}
+      {hasEnrichment ? (
+        <button
+          type='button'
+          onClick={() => setExpanded((value) => !value)}
+          className='text-muted-foreground hover:text-foreground focus-visible:ring-focus-ring inline-flex w-fit items-center gap-0.5 text-[11px] underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset'
+          aria-expanded={expanded}
+        >
+          <ChevronDown
+            aria-hidden='true'
+            className={cn(
+              'size-3.5 transition-transform',
+              expanded && 'rotate-180'
+            )}
+          />
+          {expanded
+            ? t('settings.operations.programLogs.messageParts.collapse')
+            : t('settings.operations.programLogs.messageParts.details')}
+        </button>
+      ) : null}
     </span>
   )
 }
