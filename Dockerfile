@@ -29,7 +29,7 @@ COPY web ./
 RUN bun run build:web
 
 # Stage 2: Go build
-FROM golang:1.26.6-alpine AS build
+FROM golang:1.27.0-alpine AS build
 ARG VERSION
 ARG COMMIT
 ARG BUILD_TIME
