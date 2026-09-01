@@ -422,6 +422,32 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return nil
 		},
 	},
+	{
+		// F5: structured events. New events carry a stable titleKey + JSON
+		// params so the UI renders them in the viewer's locale; legacy rows
+		// keep NULL and fall back to the stored English title/message.
+		// Design: docs/internal/design/events-structured.md.
+		Version:     "sc2_028_events_structured",
+		Description: "events.title_key TEXT NULL + events.params TEXT NULL — structured event rendering (F5); NULL = legacy row rendered as-is",
+		Apply: func(db *DB) error {
+			// Production schemas always carry events (TS-era table); the
+			// legacy-schema upgrade test fixture deliberately omits it, so
+			// guard for a missing table the same way EnsureColumn guards a
+			// missing column — an install without events cannot use F5.
+			exists, err := tableExists(db, "events")
+			if err != nil {
+				return fmt.Errorf("store: probe events table: %w", err)
+			}
+			if !exists {
+				slog.Info("store: skipping events_structured — no events table on this schema", "dialect", db.Dialect)
+				return nil
+			}
+			if err := EnsureColumn(db, "events", "title_key", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "events", "params", "TEXT", "TEXT", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.
@@ -541,6 +567,35 @@ func applyAdditiveMigrationsCounted(db *DB, steps []AdditiveStep) (int, error) {
 	}
 
 	return appliedCount, nil
+}
+
+// tableExists reports whether the given table exists in the current
+// database. SQLite: sqlite_master; PostgreSQL: information_schema.tables
+// (current schema). Returns false (no error) when the table is absent.
+func tableExists(db *DB, table string) (bool, error) {
+	table = strings.TrimSpace(table)
+	if table == "" {
+		return false, fmt.Errorf("store: tableExists: empty table")
+	}
+	if db.Dialect == DialectPostgres {
+		var n int
+		err := db.QueryRow(`
+			SELECT COUNT(*) FROM information_schema.tables
+			WHERE table_schema = current_schema()
+			  AND table_name = ?`, table).Scan(&n)
+		if err != nil {
+			return false, fmt.Errorf("store: tableExists(%s) pg: %w", table, err)
+		}
+		return n > 0, nil
+	}
+	var n int
+	err := db.QueryRow(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`,
+		table).Scan(&n)
+	if err != nil {
+		return false, fmt.Errorf("store: tableExists(%s) sqlite: %w", table, err)
+	}
+	return n > 0, nil
 }
 
 // columnExists reports whether table.column is present.

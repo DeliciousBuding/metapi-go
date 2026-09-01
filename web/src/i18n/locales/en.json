@@ -86,6 +86,12 @@
         "runtimeSettingsUpdated": "Runtime settings updated",
         "disabledModelRepaired": "Disabled model repaired (mapping auto-restored)",
         "backupImportAddedKeys": "Backup import added downstream API keys"
+      },
+      "messages": {
+        "checkinSuccess": "{{account}} @ {{site}}: {{reward}}",
+        "checkinFailed": "{{account}} @ {{site}}: {{reason}}",
+        "checkinFailedCloudflare": "{{account}} @ {{site}}: {{reason}}",
+        "checkinSkipped": "{{account}} @ {{site}}: {{reason}}"
       }
     },
     "common": {

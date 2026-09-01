@@ -16,6 +16,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/alert"
 	"github.com/deliciousbuding/metapi-go/service/balance"
+	"github.com/deliciousbuding/metapi-go/service/events"
 	notifypkg "github.com/deliciousbuding/metapi-go/service/notify"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
@@ -289,8 +290,11 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 		}
 
 		if !options.SkipEvent {
-			msg := fmt.Sprintf("%s @ %s: account disabled", orUsername(account.Username, accountID), site.Name)
-			if err := service.CreateEvent(db, "checkin", "checkin skipped", msg, "info", accountID, "account"); err != nil {
+			if err := events.WriteEvent(db, events.Ref{Key: "checkinSkipped", Params: map[string]any{
+				"account": orUsername(account.Username, accountID),
+				"site":    site.Name,
+				"reason":  "account disabled",
+			}}, events.Options{Level: "info", RelatedID: accountID, RelatedType: "account"}); err != nil {
 				slog.Warn("CheckinAccount: failed to persist disabled-account skipped event", "accountID", accountID, "error", err)
 			}
 		}
@@ -315,8 +319,11 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 		}
 
 		if !options.SkipEvent {
-			msg := fmt.Sprintf("%s @ %s: site disabled", orUsername(account.Username, accountID), site.Name)
-			if err := service.CreateEvent(db, "checkin", "checkin skipped", msg, "info", accountID, "account"); err != nil {
+			if err := events.WriteEvent(db, events.Ref{Key: "checkinSkipped", Params: map[string]any{
+				"account": orUsername(account.Username, accountID),
+				"site":    site.Name,
+				"reason":  "site disabled",
+			}}, events.Options{Level: "info", RelatedID: accountID, RelatedType: "account"}); err != nil {
 				slog.Warn("CheckinAccount: failed to persist skipped event", "accountID", accountID, "error", err)
 			}
 		}
@@ -335,8 +342,11 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 			return CheckinResult{Success: false, Status: CheckinFailed, Message: "failed to persist checkin log: " + err.Error()}
 		}
 		if !options.SkipEvent {
-			msg := fmt.Sprintf("%s @ %s: %s", orUsername(account.Username, accountID), site.Name, message)
-			if err := service.CreateEvent(db, "checkin", "checkin skipped", msg, "info", accountID, "account"); err != nil {
+			if err := events.WriteEvent(db, events.Ref{Key: "checkinSkipped", Params: map[string]any{
+				"account": orUsername(account.Username, accountID),
+				"site":    site.Name,
+				"reason":  message,
+			}}, events.Options{Level: "info", RelatedID: accountID, RelatedType: "account"}); err != nil {
 				slog.Warn("CheckinAccount: failed to persist proxy-only skipped event", "accountID", accountID, "error", err)
 			}
 		}
@@ -529,22 +539,28 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 		return CheckinResult{Success: false, Status: CheckinFailed, Message: "failed to persist checkin log: " + err.Error()}
 	}
 
-	// 10. Write events
+	// 10. Write events (structured, F5): the registry definition renders the
+	// legacy English title/message for non-UI consumers while the UI gets
+	// titleKey + params to render in the viewer's locale.
 	if !options.SkipEvent {
-		eventTitle := "checkin success"
+		eventRef := events.Ref{Key: "checkinSuccess"}
 		eventLevel := "info"
 		if !effectiveSuccess {
 			if isCloudflare {
-				eventTitle = "checkin failed (cloudflare challenge)"
+				eventRef.Key = "checkinFailedCloudflare"
 			} else {
-				eventTitle = "checkin failed"
+				eventRef.Key = "checkinFailed"
 			}
 			eventLevel = "error"
 		} else if normalizedStatus == CheckinSkipped {
-			eventTitle = "checkin skipped"
+			eventRef.Key = "checkinSkipped"
 		}
-		eventMsg := fmt.Sprintf("%s @ %s: %s", orUsername(account.Username, accountID), site.Name, logMessage)
-		if err := service.CreateEvent(db, "checkin", eventTitle, eventMsg, eventLevel, accountID, "account"); err != nil {
+		eventRef.Params = map[string]any{
+			"account": orUsername(account.Username, accountID),
+			"site":    site.Name,
+			"reason":  logMessage,
+		}
+		if err := events.WriteEvent(db, eventRef, events.Options{Level: eventLevel, RelatedID: accountID, RelatedType: "account"}); err != nil {
 			slog.Warn("CheckinAccount: failed to persist event", "accountID", accountID, "error", err)
 		}
 	}

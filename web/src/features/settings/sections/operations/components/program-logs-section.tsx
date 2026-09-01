@@ -65,9 +65,18 @@ function levelVariant(level?: string): 'default' | 'secondary' | 'destructive' {
   return 'secondary'
 }
 
-/** Localized event title: known backend titles map to i18n keys, the rest render as-is. */
+/**
+ * Localized event title. Structured rows (F5) render straight from their
+ * registry titleKey; legacy rows match the persisted English title against
+ * the historical slug map, and unknown titles render as-is (honest residual).
+ */
 function EventTitle({ event }: { event: ProgramEvent }) {
   const { t } = useTranslation()
+  if (event.titleKey) {
+    return t(`events.titles.${event.titleKey}`, {
+      defaultValue: event.title,
+    })
+  }
   const slug = eventTitleSlug(event.title)
   return slug ? t(`events.titles.${slug}`) : event.title
 }
@@ -93,9 +102,23 @@ function EventMessage({ event }: { event: ProgramEvent }) {
   const panel =
     parts.panelPath !== null ? parsePanelPath(parts.panelPath) : null
   const hasEnrichment = routes.length > 0 || sites.length > 0 || panel !== null
+  // Structured rows (F5): the message renders from the `events.messages.*`
+  // locale template with the event's typed params interpolated by i18next;
+  // legacy rows keep the parsed-text path below.
+  const structuredMessage =
+    event.titleKey && event.params
+      ? t(`events.messages.${event.titleKey}`, {
+          defaultValue: event.message,
+          ...event.params,
+        })
+      : null
   return (
     <span className='text-muted-foreground flex max-w-[360px] flex-col gap-0.5 text-xs'>
-      {parts.base ? (
+      {structuredMessage !== null ? (
+        <span className='line-clamp-2 break-all' title={event.message}>
+          {structuredMessage}
+        </span>
+      ) : parts.base ? (
         <span className='line-clamp-2 break-all' title={parts.base}>
           {parts.base}
         </span>

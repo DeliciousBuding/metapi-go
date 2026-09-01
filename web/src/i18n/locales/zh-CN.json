@@ -86,6 +86,12 @@
         "runtimeSettingsUpdated": "运行时设置已更新",
         "disabledModelRepaired": "已修复禁用模型（映射已自动恢复）",
         "backupImportAddedKeys": "备份导入已添加下游 API 密钥"
+      },
+      "messages": {
+        "checkinSuccess": "{{account}} @ {{site}}：{{reward}}",
+        "checkinFailed": "{{account}} @ {{site}}：{{reason}}",
+        "checkinFailedCloudflare": "{{account}} @ {{site}}：{{reason}}",
+        "checkinSkipped": "{{account}} @ {{site}}：{{reason}}"
       }
     },
     "common": {

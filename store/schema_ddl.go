@@ -1304,7 +1304,9 @@ func buildEventsDDL(d string) string {
 			read BOOLEAN DEFAULT FALSE,
 			related_id INTEGER,
 			related_type TEXT,
-			created_at TEXT
+			created_at TEXT,
+			title_key TEXT,
+			params TEXT
 		)`
 	}
 	return `CREATE TABLE IF NOT EXISTS events (
@@ -1316,7 +1318,9 @@ func buildEventsDDL(d string) string {
 		read INTEGER DEFAULT 0,
 		related_id INTEGER,
 		related_type TEXT,
-		created_at TEXT
+		created_at TEXT,
+		title_key TEXT,
+		params TEXT
 	)`
 }
 
