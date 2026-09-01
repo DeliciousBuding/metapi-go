@@ -1291,7 +1291,7 @@
             "disableCrossProtocolFallback": "禁用跨协议回退",
             "disableCrossProtocolFallbackHint": "失败时不重试其他协议。",
             "baseWeightFactor": "基础权重因子",
-            "baseWeightFactorHint": "每个候选通道的基础权重加数；调高可缩小通道间权重差距、分配更均衡。",
+            "baseWeightFactorHint": "每个候选通道的基础权重基数；调高可缩小通道间权重差距、分配更均衡。",
             "valueScoreFactor": "价值评分因子",
             "valueScoreFactorHint": "价值评分（成本/余额/用量综合）在路由贡献中的放大系数。",
             "costWeight": "成本权重",
@@ -1689,7 +1689,7 @@
           }
         },
         "auditLogs": {
-          "title": "管理员审计日志",
+          "title": "审计日志",
           "description": "管理端写操作的只读审计。",
           "allMethods": "全部方法",
           "pathPlaceholder": "搜索路径…",
