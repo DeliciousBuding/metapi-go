@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { ChevronDown } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -112,17 +112,25 @@ function EventMessage({ event }: { event: ProgramEvent }) {
           ...event.params,
         })
       : null
+  // Single-level ternary discipline (oxlint no-nested-ternary): compute the
+  // base message element before the JSX return.
+  let messageBody: ReactNode = null
+  if (structuredMessage !== null) {
+    messageBody = (
+      <span className='line-clamp-2 break-all' title={event.message}>
+        {structuredMessage}
+      </span>
+    )
+  } else if (parts.base) {
+    messageBody = (
+      <span className='line-clamp-2 break-all' title={parts.base}>
+        {parts.base}
+      </span>
+    )
+  }
   return (
     <span className='text-muted-foreground flex max-w-[360px] flex-col gap-0.5 text-xs'>
-      {structuredMessage !== null ? (
-        <span className='line-clamp-2 break-all' title={event.message}>
-          {structuredMessage}
-        </span>
-      ) : parts.base ? (
-        <span className='line-clamp-2 break-all' title={parts.base}>
-          {parts.base}
-        </span>
-      ) : null}
+      {messageBody}
       {expanded && routes.length > 0 ? (
         <span className='flex flex-wrap items-baseline gap-x-1'>
           <span className='shrink-0'>
