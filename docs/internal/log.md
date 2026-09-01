@@ -5,6 +5,14 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-09-01 — 账号筛选服务端化 + 视觉 QA 修复波（#1122–#1126）
+
+- **#1122 账号页筛选服务端化（issue #1108）**：`GET /api/accounts` 新增 `q`/`status`/`site` 参数——筛选全舰队而非已加载页（此前站点不在当前页永远筛不出）；`total` 为筛选后计数，非法值显式 400，LIKE 通配符字面转义。Reset 竞态根因修复：`useUrlTableState` 改为串行化（同 tick 双更新链式合并，此前 TanStack coalesce 吞掉第一次更新），所有 URL 同步列表页的重置恢复完整。站点单元格快捷跳转（安全外链，共享 `SafeExternalLink`，同 #985 阶梯）。
+- **#1123 文案校对**：路由策略「加数」→「基数」；侧边栏「管理员审计日志」→「审计日志」（7 字截断）。
+- **#1124 运行事件标题折叠**：受影响路由/替代站点/面板深链折叠进每行「详情」开关，默认行高 5 行 → 3 行。
+- **#1126 price-compare**：删组头重复「推荐」徽章（每组必有推荐行，组头重复稀释信号），行内徽章 + tooltip 保留语义。
+- **视觉 QA 波**：全站 112 张截图审图（light/dark/desktop/mobile），评分 7/10——真问题 4 处全修，其余报告项逐一源码核实为识图噪声。
+
 ## 2026-08-31 — 前端视觉 QA 波 + auth 文案国际化启动
 
 - **#1101**：代理日志时间列详情行同日重复（窗口内短日期与相对时间连读），新增 `formatLogDateDetail` 收敛为「短日期 · 相对时间」，超窗仅绝对日期。
