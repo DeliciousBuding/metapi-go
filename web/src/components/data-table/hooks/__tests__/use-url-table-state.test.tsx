@@ -144,3 +144,63 @@ describe('useUrlTableState URL-sync guard', () => {
     })
   })
 })
+
+describe('useUrlTableState back-to-back updates (#1108 Reset race)', () => {
+  // Two table callbacks firing in the same tick (Reset clearing column
+  // filters AND the global filter) used to build both hrefs from the same
+  // stale window.location snapshot — @tanstack/history coalesces same-tick
+  // replaces to the LAST href, so the first update was silently dropped.
+  // The hook now chains each update off the previous href.
+  it('chains two same-tick updates so both land in the final href', async () => {
+    locationState.current = {
+      searchStr: '?q=x&status=active',
+      pathname: '/channels',
+    }
+    locationState.navigate.mockClear()
+
+    const buildHrefSpy = vi.fn(
+      (next: UrlTableStateUpdate<Filters>, currentSearch?: string) => {
+        const base = new URLSearchParams(
+          currentSearch ?? locationState.current.searchStr
+        )
+        if (next.q !== undefined) {
+          if (next.q) base.set('q', next.q)
+          else base.delete('q')
+        }
+        if (next.filters?.status !== undefined) {
+          if (next.filters.status) base.set('status', next.filters.status)
+          else base.delete('status')
+        }
+        const query = base.toString()
+        return query ? `/channels?${query}` : '/channels'
+      }
+    )
+
+    const { result } = renderHook(() =>
+      useUrlTableState<Filters>({
+        basePath: '/channels',
+        read: readSearch,
+        buildHref: buildHrefSpy,
+        toColumnFilters: () => [],
+        fromColumnFilters: () => ({ filters: {} }),
+      })
+    )
+
+    // Reset sequence: column filters first, then the global filter.
+    act(() => {
+      result.current.updateUrlState({ filters: { status: '' } })
+      result.current.updateUrlState({ q: '' })
+    })
+
+    // The second navigate must carry BOTH updates — the chained href has no
+    // q and no status (a full reset), not a half-reset.
+    const lastNavigate = locationState.navigate.mock.calls.at(-1) as
+      | [{ href: string }]
+      | undefined
+    expect(lastNavigate?.[0]?.href).toBe('/channels')
+    // And the second buildHref received the first update's href as its
+    // currentSearch (so it merged over the fresh state, not the stale URL).
+    const secondBuildCall = buildHrefSpy.mock.calls[1]
+    expect(secondBuildCall?.[1]).toBe('?q=x')
+  })
+})

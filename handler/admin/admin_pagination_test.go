@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
@@ -316,10 +317,10 @@ func TestListKeys_PaginationReturnsSubsetAndTotal(t *testing.T) {
 		t.Fatalf("status = %d; body=%s", resp.Code, resp.Body.String())
 	}
 	var page struct {
-		Items []map[string]any `json:"items"`
-		Total int              `json:"total"`
-		Page  int              `json:"page"`
-		PageSize int           `json:"pageSize"`
+		Items    []map[string]any `json:"items"`
+		Total    int              `json:"total"`
+		Page     int              `json:"page"`
+		PageSize int              `json:"pageSize"`
 	}
 	if err := json.Unmarshal(resp.Body.Bytes(), &page); err != nil {
 		t.Fatalf("decode paginated envelope: %v; body=%s", err, resp.Body.String())
@@ -366,5 +367,154 @@ func TestListKeys_PaginationReturnsSubsetAndTotal(t *testing.T) {
 	// Confirm the plaintext key is still redacted on the paginated path.
 	if rawKey, present := page.Items[0]["key"]; present && rawKey != "" {
 		t.Fatalf("paginated response leaked plaintext key: %#v", rawKey)
+	}
+}
+
+// setupAccountsFilterTest seeds a fleet where status/site filters can be
+// proven to match rows across pages: two sites (site A with two accounts,
+// site B with one), one account disabled.
+func setupAccountsFilterTest(t *testing.T) (*store.DB, chi.Router) {
+	t.Helper()
+	db, r, _ := setupAccountsTest(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	var siteA, siteB int64
+	for i, name := range []string{"Filter Site A", "Filter Site B"} {
+		res, err := db.Exec(
+			`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+			 VALUES (?, ?, 'openai', 'active', ?, ?)`,
+			name, "https://filter-"+strconv.Itoa(i)+".example.com", now, now,
+		)
+		if err != nil {
+			t.Fatalf("insert site %d: %v", i, err)
+		}
+		id, _ := res.LastInsertId()
+		if i == 0 {
+			siteA = id
+		} else {
+			siteB = id
+		}
+	}
+
+	seeds := []struct {
+		site   int64
+		user   string
+		status string
+	}{
+		{siteA, "filter-a-1", "active"},
+		{siteA, "filter-a-2", "disabled"},
+		{siteB, "filter-b-1", "active"},
+	}
+	for _, s := range seeds {
+		if _, err := db.Exec(
+			`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, TRUE, ?, ?)`,
+			s.site, s.user, "token-"+s.user, s.status, now, now,
+		); err != nil {
+			t.Fatalf("seed account %s: %v", s.user, err)
+		}
+	}
+	return db, r
+}
+
+// TestListAccounts_ServerSideFilters covers issue #1108: `status` and `site`
+// filter the whole fleet server-side (not just the loaded page), and `total`
+// is the filtered count.
+func TestListAccounts_ServerSideFilters(t *testing.T) {
+	db, r := setupAccountsFilterTest(t)
+
+	fetch := func(query string) (int, []map[string]any, int) {
+		t.Helper()
+		resp := doGet(t, r, "/api/accounts?page=1&pageSize=10"+query)
+		if resp.Code != http.StatusOK {
+			t.Fatalf("query %s: status = %d; body=%s", query, resp.Code, resp.Body.String())
+		}
+		var page struct {
+			Items []map[string]any `json:"items"`
+			Total int              `json:"total"`
+		}
+		if err := json.Unmarshal(resp.Body.Bytes(), &page); err != nil {
+			t.Fatalf("decode %s: %v; body=%s", query, err, resp.Body.String())
+		}
+		return resp.Code, page.Items, page.Total
+	}
+
+	// status filter: disabled matches exactly the one disabled account.
+	_, items, total := fetch("&status=disabled")
+	if total != 1 || len(items) != 1 {
+		t.Fatalf("status=disabled: total=%d items=%d, want 1/1", total, len(items))
+	}
+
+	// multi-status: active+disabled = all three.
+	_, items, total = fetch("&status=active,disabled")
+	if total != 3 || len(items) != 3 {
+		t.Fatalf("status=active,disabled: total=%d items=%d, want 3/3", total, len(items))
+	}
+
+	// Site filter: site B holds exactly one active account. site B is the
+	// second seeded site — its id is not 1 (setupAccountsTest's own seed site),
+	// proving the filter reads the fleet, not the seed's page-one rows.
+	var siteBID int64
+	if err := db.Get(&siteBID,
+		`SELECT id FROM sites WHERE name = 'Filter Site B'`); err != nil {
+		t.Fatalf("resolve site B id: %v", err)
+	}
+	_, items, total = fetch("&site=" + strconv.FormatInt(siteBID, 10))
+	if total != 1 || len(items) != 1 {
+		t.Fatalf("site=B: total=%d items=%d, want 1/1", total, len(items))
+	}
+
+	// Combination: site B + disabled → zero rows (its only account is active).
+	_, _, total = fetch("&site=" + strconv.FormatInt(siteBID, 10) + "&status=disabled")
+	if total != 0 {
+		t.Fatalf("site=B&status=disabled: total=%d, want 0", total)
+	}
+
+	// Combination: site A + active → exactly one row (the other is disabled).
+	var siteAID int64
+	if err := db.Get(&siteAID,
+		`SELECT id FROM sites WHERE name = 'Filter Site A'`); err != nil {
+		t.Fatalf("resolve site A id: %v", err)
+	}
+	_, items, total = fetch("&site=" + strconv.FormatInt(siteAID, 10) + "&status=active")
+	if total != 1 || len(items) != 1 {
+		t.Fatalf("site=A&status=active: total=%d items=%d, want 1/1", total, len(items))
+	}
+
+	// q: substring match over username + site name/platform/url.
+	_, items, total = fetch("&q=filter-b-1")
+	if total != 1 || len(items) != 1 {
+		t.Fatalf("q=filter-b-1: total=%d items=%d, want 1/1", total, len(items))
+	}
+	_, items, total = fetch("&q=filter-a")
+	if total != 2 {
+		t.Fatalf("q=filter-a: total=%d, want 2 (both site A usernames match)", total)
+	}
+	// LIKE wildcards match literally (escaped), never as patterns: with the
+	// escape in place the literal % matches no seeded username (a wildcard
+	// interpretation would match all three filter-*-1 accounts).
+	_, items, total = fetch("&q=" + url.QueryEscape("filter-%-1"))
+	if total != 0 {
+		t.Fatalf("q=filter-%%-1 literal: total=%d, want 0 (escaped literal %%)", total)
+	}
+	_ = items
+}
+
+// TestListAccounts_ServerSideFiltersInvalidParams rejects malformed filter
+// values with an explicit 400 (never silently drops them).
+func TestListAccounts_ServerSideFiltersInvalidParams(t *testing.T) {
+	_, r := setupAccountsFilterTest(t)
+
+	for _, query := range []string{
+		"&status=bogus",
+		"&status=active,,disabled",
+		"&site=abc",
+		"&site=0",
+		"&site=1,,2",
+	} {
+		resp := doGet(t, r, "/api/accounts?page=1&pageSize=10"+query)
+		if resp.Code != http.StatusBadRequest {
+			t.Fatalf("query %q: status = %d, want 400 (body=%s)", query, resp.Code, resp.Body.String())
+		}
 	}
 }

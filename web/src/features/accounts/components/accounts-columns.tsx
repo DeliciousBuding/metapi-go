@@ -30,6 +30,7 @@ import {
   ProbeHealthBar,
   type ProbeHistoryMap,
 } from '@/components/common/probe-health-bar'
+import { SafeExternalLink } from '@/components/common/safe-external-link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -380,9 +381,17 @@ export function useAccountsColumns(
           if (!site) return <span className='text-muted-foreground'>—</span>
           return (
             <div className='flex flex-col'>
-              <span className='max-w-[160px] truncate'>
+              {/* Quick jump to the upstream site (#1108): the site name is a
+                  safe external link when the stored URL is a valid http(s)
+                  endpoint, plain text otherwise (same ladder as the sites
+                  page columns, #985). */}
+              <SafeExternalLink
+                url={site.url ?? ''}
+                className='max-w-[160px] text-sm'
+                title={site.url ?? undefined}
+              >
                 {site.name || site.url || `#${site.id}`}
-              </span>
+              </SafeExternalLink>
               {site.platform && (
                 <span className='text-muted-foreground text-[11px]'>
                   {site.platform}
