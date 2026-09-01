@@ -2181,6 +2181,7 @@
         "channelAllDisabled": "全部禁用",
         "channelDisabledCount": "{{count}} 个禁用",
         "channelEnabledSummary": "{{enabled}}/{{total}} 个通道已启用",
+        "channelPartialSummary": "已启用 {{enabled}}/{{total}} 个通道（{{count}} 个禁用）",
         "rowActions": "路由操作",
         "selectAll": "全选",
         "selectRow": "选择此行",

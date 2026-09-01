@@ -26,6 +26,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -63,7 +69,7 @@ function resolveChannelSummary(
   label: string
   variant: 'success' | 'warning' | 'secondary'
   hint?: string
-  /** Native tooltip clarifying the M/N channel ratio. */
+  /** Tooltip clarifying the M/N channel ratio (repo Tooltip convention). */
   enabledSummary?: string
 } {
   if (isReadOnlyRoute(route)) {
@@ -89,19 +95,21 @@ function resolveChannelSummary(
       hint: t('tokenRoutes.columns.channelAllDisabled'),
     }
   }
+  const partial = enabled < total
   return {
     label: `${enabled}/${total}`,
-    variant: enabled === total ? 'success' : 'warning',
-    hint:
-      enabled < total
-        ? t('tokenRoutes.columns.channelDisabledCount', {
-            count: total - enabled,
-          })
-        : undefined,
-    enabledSummary: t('tokenRoutes.columns.channelEnabledSummary', {
-      enabled,
-      total,
-    }),
+    variant: partial ? 'warning' : 'success',
+    hint: partial
+      ? t('tokenRoutes.columns.channelDisabledCount', {
+          count: total - enabled,
+        })
+      : undefined,
+    enabledSummary: t(
+      partial
+        ? 'tokenRoutes.columns.channelPartialSummary'
+        : 'tokenRoutes.columns.channelEnabledSummary',
+      partial ? { enabled, total, count: total - enabled } : { enabled, total }
+    ),
   }
 }
 
@@ -284,12 +292,30 @@ export function useRoutesColumns(
         const summary = resolveChannelSummary(route, t)
         return (
           <div className='flex flex-col'>
-            <Badge
-              variant={summary.variant}
-              title={summary.enabledSummary ?? undefined}
-            >
-              <span className='tabular-nums'>{summary.label}</span>
-            </Badge>
+            {summary.enabledSummary ? (
+              <TooltipProvider delay={200}>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={(props) => (
+                      <Badge
+                        {...props}
+                        data-slot='badge'
+                        variant={summary.variant}
+                      >
+                        <span className='tabular-nums'>{summary.label}</span>
+                      </Badge>
+                    )}
+                  />
+                  <TooltipContent side='top'>
+                    {summary.enabledSummary}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <Badge variant={summary.variant}>
+                <span className='tabular-nums'>{summary.label}</span>
+              </Badge>
+            )}
             {summary.hint && (
               <span className='text-muted-foreground text-[11px]'>
                 {summary.hint}

@@ -2181,6 +2181,7 @@
         "channelAllDisabled": "All disabled",
         "channelDisabledCount": "{{count}} disabled",
         "channelEnabledSummary": "{{enabled}}/{{total}} channels enabled",
+        "channelPartialSummary": "{{enabled}}/{{total}} channels enabled ({{count}} disabled)",
         "rowActions": "Route actions",
         "selectAll": "Select all",
         "selectRow": "Select row",
