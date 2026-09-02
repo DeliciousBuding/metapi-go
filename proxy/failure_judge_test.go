@@ -8,7 +8,7 @@ import (
 
 func setupFailureCfg(keywords []string, emptyContentFail bool) {
 	cfg, rt := config.Load(map[string]string{
-		"PORT":                    "8080",
+		"PORT":                     "8080",
 		"PROXY_EMPTY_CONTENT_FAIL": boolToString(emptyContentFail),
 	})
 	if len(keywords) > 0 {
@@ -26,12 +26,21 @@ func boolToString(b bool) string {
 	return "false"
 }
 
-func TestDetectProxyFailure_KeywordMatching(t *testing.T) {
+// judgeBuffered is the buffered-shaped call of the single content judge: these
+// keyword / empty-content cases only have a raw body and a parsed usage
+// summary, which is exactly the fact set the buffered dispatch path hands over.
+// The verdict is a struct (not a pointer), so "no failure" reads as
+// !result.Failed — there is no second nil-shaped vocabulary for the same idea.
+func judgeBuffered(rawText string, usage *UsageSummary) UpstreamVerdict {
+	return JudgeUpstreamContent(UpstreamContentFacts{RawText: rawText, Usage: usage})
+}
+
+func TestJudgeUpstreamContent_KeywordMatching(t *testing.T) {
 	t.Run("matches error keyword", func(t *testing.T) {
 		setupFailureCfg([]string{"overloaded", "blocked"}, false)
 
-		result := DetectProxyFailure("The server is overloaded, please try later", nil)
-		if result == nil {
+		result := judgeBuffered("The server is overloaded, please try later", nil)
+		if !result.Failed {
 			t.Fatal("expected failure detected via keyword")
 		}
 		if result.Status != 502 {
@@ -45,8 +54,8 @@ func TestDetectProxyFailure_KeywordMatching(t *testing.T) {
 	t.Run("case-insensitive matching", func(t *testing.T) {
 		setupFailureCfg([]string{"OVERLOADED"}, false)
 
-		result := DetectProxyFailure("Server is overloaded", nil)
-		if result == nil {
+		result := judgeBuffered("Server is overloaded", nil)
+		if !result.Failed {
 			t.Fatal("expected case-insensitive match")
 		}
 	})
@@ -54,8 +63,8 @@ func TestDetectProxyFailure_KeywordMatching(t *testing.T) {
 	t.Run("multiple keywords, matches first", func(t *testing.T) {
 		setupFailureCfg([]string{"error", "blocked", "unavailable"}, false)
 
-		result := DetectProxyFailure("This API is blocked", nil)
-		if result == nil {
+		result := judgeBuffered("This API is blocked", nil)
+		if !result.Failed {
 			t.Fatal("expected keyword match")
 		}
 	})
@@ -63,8 +72,8 @@ func TestDetectProxyFailure_KeywordMatching(t *testing.T) {
 	t.Run("no keyword match", func(t *testing.T) {
 		setupFailureCfg([]string{"overloaded"}, false)
 
-		result := DetectProxyFailure("Everything is fine", nil)
-		if result != nil {
+		result := judgeBuffered("Everything is fine", nil)
+		if result.Failed {
 			t.Errorf("expected no failure, got reason: %s", result.Reason)
 		}
 	})
@@ -72,8 +81,8 @@ func TestDetectProxyFailure_KeywordMatching(t *testing.T) {
 	t.Run("empty keyword list", func(t *testing.T) {
 		setupFailureCfg([]string{}, false)
 
-		result := DetectProxyFailure("Some error occurred", nil)
-		if result != nil {
+		result := judgeBuffered("Some error occurred", nil)
+		if result.Failed {
 			t.Errorf("expected no failure with empty keywords, got reason: %s", result.Reason)
 		}
 	})
@@ -81,8 +90,8 @@ func TestDetectProxyFailure_KeywordMatching(t *testing.T) {
 	t.Run("empty keyword (whitespace only) skips", func(t *testing.T) {
 		setupFailureCfg([]string{"  ", "blocked"}, false)
 
-		result := DetectProxyFailure("The user is blocked", nil)
-		if result == nil {
+		result := judgeBuffered("The user is blocked", nil)
+		if !result.Failed {
 			t.Fatal("expected match for non-empty keyword")
 		}
 	})
@@ -90,8 +99,8 @@ func TestDetectProxyFailure_KeywordMatching(t *testing.T) {
 	t.Run("empty text input", func(t *testing.T) {
 		setupFailureCfg([]string{"error"}, false)
 
-		result := DetectProxyFailure("", nil)
-		if result != nil {
+		result := judgeBuffered("", nil)
+		if result.Failed {
 			t.Errorf("expected no failure for empty text, got: %s", result.Reason)
 		}
 	})
@@ -99,23 +108,23 @@ func TestDetectProxyFailure_KeywordMatching(t *testing.T) {
 	t.Run("whitespace-only text input", func(t *testing.T) {
 		setupFailureCfg([]string{"error"}, false)
 
-		result := DetectProxyFailure("   \n  ", nil)
-		if result != nil {
+		result := judgeBuffered("   \n  ", nil)
+		if result.Failed {
 			t.Errorf("expected no failure for whitespace text, got: %s", result.Reason)
 		}
 	})
 }
 
-func TestDetectProxyFailure_EmptyContent(t *testing.T) {
+func TestJudgeUpstreamContent_EmptyContent(t *testing.T) {
 	t.Run("empty content fail enabled, no tokens, no output", func(t *testing.T) {
 		setupFailureCfg([]string{}, true)
 
-		result := DetectProxyFailure(`{"id":"test"}`, &UsageSummary{
+		result := judgeBuffered(`{"id":"test"}`, &UsageSummary{
 			PromptTokens:     100,
 			CompletionTokens: 0,
 			TotalTokens:      100,
 		})
-		if result == nil {
+		if !result.Failed {
 			t.Fatal("expected failure for empty content")
 		}
 		if result.Status != 502 {
@@ -126,11 +135,11 @@ func TestDetectProxyFailure_EmptyContent(t *testing.T) {
 	t.Run("empty content fail enabled, has completion tokens", func(t *testing.T) {
 		setupFailureCfg([]string{}, true)
 
-		result := DetectProxyFailure("{}", &UsageSummary{
+		result := judgeBuffered("{}", &UsageSummary{
 			CompletionTokens: 50,
 			TotalTokens:      150,
 		})
-		if result != nil {
+		if result.Failed {
 			t.Errorf("expected no failure (has completion tokens)")
 		}
 	})
@@ -138,8 +147,8 @@ func TestDetectProxyFailure_EmptyContent(t *testing.T) {
 	t.Run("empty content fail enabled, nil usage", func(t *testing.T) {
 		setupFailureCfg([]string{}, true)
 
-		result := DetectProxyFailure(`{}`, nil)
-		if result == nil {
+		result := judgeBuffered(`{}`, nil)
+		if !result.Failed {
 			t.Fatal("expected failure (nil usage, no output)")
 		}
 	})
@@ -147,10 +156,10 @@ func TestDetectProxyFailure_EmptyContent(t *testing.T) {
 	t.Run("empty content fail disabled", func(t *testing.T) {
 		setupFailureCfg([]string{}, false)
 
-		result := DetectProxyFailure(`{}`, &UsageSummary{
+		result := judgeBuffered(`{}`, &UsageSummary{
 			CompletionTokens: 0,
 		})
-		if result != nil {
+		if result.Failed {
 			t.Errorf("expected no failure when empty content fail disabled")
 		}
 	})
@@ -247,14 +256,14 @@ func TestDetectHasUpstreamOutput(t *testing.T) {
 	})
 }
 
-func TestDetectProxyFailure_Combined(t *testing.T) {
+func TestJudgeUpstreamContent_Combined(t *testing.T) {
 	t.Run("keyword takes priority over empty content", func(t *testing.T) {
 		setupFailureCfg([]string{"quota"}, true)
 
-		result := DetectProxyFailure("quota exceeded", &UsageSummary{
+		result := judgeBuffered("quota exceeded", &UsageSummary{
 			CompletionTokens: 0,
 		})
-		if result == nil {
+		if !result.Failed {
 			t.Fatal("expected failure from keyword")
 		}
 		if result.Status != 502 {
@@ -265,8 +274,8 @@ func TestDetectProxyFailure_Combined(t *testing.T) {
 	t.Run("no keyword, has content, empty content check skipped", func(t *testing.T) {
 		setupFailureCfg([]string{}, true)
 
-		result := DetectProxyFailure("This is fine", nil)
-		if result != nil {
+		result := judgeBuffered("This is fine", nil)
+		if result.Failed {
 			t.Errorf("expected no failure (plain text detected as output)")
 		}
 	})

@@ -822,11 +822,11 @@ func TestStreamSuccessExtractsFinalUsageAndPersistsProxyLog(t *testing.T) {
 	}
 }
 
-func TestDetectProxyFailureReceivesParsedUsageFromBody(t *testing.T) {
+func TestContentJudgeReceivesParsedUsageFromBody(t *testing.T) {
 	// When empty-content-fail is enabled and completion tokens are present,
-	// DetectProxyFailure must not treat the response as empty even without text.
+	// the content judge must not treat the response as empty even without text.
 	t.Setenv("PROXY_EMPTY_CONTENT_FAIL", "1")
-	// config.Get() may already be loaded; DetectProxyFailure reads config singleton.
+	// config.Get() may already be loaded; the judge reads the config singleton.
 	// Prefer direct unit path: ParseUsageFromBody -> ToUsageSummary.
 	body := []byte(`{"choices":[{"message":{"content":""}}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`)
 	usage := ParseUsageFromBody(body)
@@ -1081,7 +1081,17 @@ func TestHandleStreamUpstreamClientDisconnectPreservesUsage(t *testing.T) {
 
 	rec := &disconnectAfterNWriter{ResponseRecorder: httptest.NewRecorder(), n: 2}
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-	usage, _ := handleStreamUpstream(rec, req, resp, 12)
+	usage, end, verdict := handleStreamUpstream(rec, req, resp, 12)
+	// A downstream disconnect is its own ending class: it must never be
+	// reported as an upstream fault, or user cancels would poison channel
+	// health. No content verdict is produced for an answer the client never
+	// let the upstream finish.
+	if end != streamEndedClientDisconnect {
+		t.Fatalf("outcome = %v, want streamEndedClientDisconnect", end)
+	}
+	if verdict != nil {
+		t.Fatalf("client disconnect must not carry a content verdict, got %+v", verdict)
+	}
 	if !usage.Found {
 		t.Fatal("expected usage retained after client disconnect on usage chunk")
 	}
@@ -1121,7 +1131,12 @@ func TestHandleStreamUpstreamContextCancelPreservesPartialUsage(t *testing.T) {
 	resp.Header.Set("Content-Type", "text/event-stream")
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil).WithContext(ctx)
-	usage, _ := handleStreamUpstream(rec, req, resp, 1)
+	usage, end, _ := handleStreamUpstream(rec, req, resp, 1)
+	// Whichever side of the race wins, a canceled downstream context can never
+	// be classified as an upstream fault.
+	if end != streamEndedClientDisconnect && end != streamEndedNormally {
+		t.Fatalf("outcome = %v, want clientDisconnect or normally", end)
+	}
 	// Pre-canceled before any read: must not invent usage.
 	if usage.Found {
 		// If runtime read wins the race and extracts, that is also correct — accept either.
@@ -1333,7 +1348,7 @@ func TestNonStreamHTTPErrorPersistsUsageTokensToFailedProxyLog(t *testing.T) {
 func TestNonStreamContentFailurePersistsParsedUsageToFailedProxyLog(t *testing.T) {
 	// Keyword-matched content failure must still persist usage extracted from the body.
 	t.Setenv("PROXY_ERROR_KEYWORDS", "content_policy_violation")
-	// DetectProxyFailure reads the runtime snapshot; publish the keyword list.
+	// The content judge reads the runtime snapshot; publish the keyword list.
 	config.UpdateRuntime(func(r *config.RuntimeSettings) {
 		r.ProxyErrorKeywords = []string{"content_policy_violation"}
 	})

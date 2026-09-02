@@ -102,7 +102,7 @@ func TestHandleStreamUpstreamIdleTimeoutAbortsStalledStream(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 
 	start := time.Now()
-	usage, outcome := handleStreamUpstream(rec, req, resp, 5)
+	usage, outcome, _ := handleStreamUpstream(rec, req, resp, 5)
 	elapsed := time.Since(start)
 
 	if outcome != streamEndedIdleTimeout {
@@ -146,7 +146,7 @@ func TestHandleStreamUpstreamFlowingStreamCompletesNormally(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 
-	_, outcome := handleStreamUpstream(rec, req, resp, 5)
+	_, outcome, _ := handleStreamUpstream(rec, req, resp, 5)
 	if outcome != streamEndedNormally {
 		t.Fatalf("outcome = %v, want streamEndedNormally", outcome)
 	}

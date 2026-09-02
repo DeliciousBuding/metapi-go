@@ -17,26 +17,59 @@ import (
 
 // streamOutcome classifies how an SSE relay ended so the dispatcher can
 // record upstream faults distinctly from clean or client-driven endings.
+// Every value except streamEndedNormally and streamEndedClientDisconnect is an
+// upstream-side fault and MUST be recorded through the failure path.
 type streamOutcome int
 
 const (
-	// streamEndedNormally covers clean EOF, byte-limit termination, mid-stream
-	// read errors, downstream disconnects and writes — the historical paths.
+	// streamEndedNormally covers the clean EOF case: the upstream finished the
+	// stream and the whole body was relayed.
 	streamEndedNormally streamOutcome = iota
 	// streamEndedIdleTimeout means the upstream stopped sending chunks for
 	// longer than PROXY_STREAM_IDLE_TIMEOUT_SEC and the idle guard aborted
 	// the stream. The dispatcher records this via the failure path.
 	streamEndedIdleTimeout
+	// streamEndedUpstreamFault means the upstream body failed mid-stream
+	// (network reset, upstream crash, truncated transfer) after the relay had
+	// already begun. The client got a partial answer plus an SSE error event.
+	streamEndedUpstreamFault
+	// streamEndedTruncated means the relay hit PROXY_MAX_STREAM_RESPONSE_BYTES
+	// and stopped early, so the client received an incomplete answer.
+	streamEndedTruncated
+	// streamEndedClientDisconnect means the downstream client cancelled or its
+	// write side went away. Deliberately NOT an upstream fault: the channel
+	// answered correctly, so recording it as a failure would poison channel
+	// health with user cancel behaviour. Usage already extracted is still
+	// returned for accounting.
+	streamEndedClientDisconnect
 )
 
-func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64) (ParsedUsage, streamOutcome) {
+// String keeps log lines and test failure messages readable now that the
+// classification has more than two members.
+func (o streamOutcome) String() string {
+	switch o {
+	case streamEndedNormally:
+		return "normally"
+	case streamEndedIdleTimeout:
+		return "idleTimeout"
+	case streamEndedUpstreamFault:
+		return "upstreamFault"
+	case streamEndedTruncated:
+		return "truncated"
+	case streamEndedClientDisconnect:
+		return "clientDisconnect"
+	}
+	return "unknown"
+}
+
+func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
 	empty := ParsedUsage{Source: usageSourceUnknown}
 	if resp == nil || resp.Body == nil {
-		return empty, streamEndedNormally
+		return empty, streamEndedNormally, nil
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		relayUpstreamErrorResponse(w, resp, latencyMs)
-		return empty, streamEndedNormally
+		return empty, streamEndedNormally, nil
 	}
 
 	// Active SSE stream gauge: Inc when a real stream starts, Dec on every
@@ -77,8 +110,50 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 	sawStreamBytes := false
 	maxStreamBytes := streamResponseByteLimit()
 	var streamedBytes int64
-	idleTimedOut := false
+	outcome := streamEndedNormally
 	buf := make([]byte, 4096)
+
+	// endStream is the single exit for every relay ending: it runs the same
+	// pure content judge the buffered path calls over what the bounded analyzer
+	// kept, so no exit path can skip content judgement and the streaming path
+	// can no longer reach a different verdict than buffered for the same
+	// upstream content. logDetail keeps the historical post-stream warnings on
+	// the paths that always had them.
+	endStream := func(end streamOutcome, logDetail bool) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
+		// Post-stream SSE analysis uses bounded incremental state instead of
+		// retaining the complete upstream body.
+		result := analyzer.Result()
+		if logDetail {
+			if result.DroppedOversizedEvent {
+				slog.Warn("SSE stream event exceeded analysis buffer",
+					"latency_ms", latencyMs,
+					"pending_limit_bytes", maxIncrementalSsePendingBytes,
+				)
+			}
+
+			// Log SSE error events at WARN level
+			if result.HasErrorEvent {
+				LogSseErrorEvents(result.ErrorEvents)
+			}
+		}
+		if end == streamEndedClientDisconnect {
+			// The client left before the upstream finished: there is no complete
+			// upstream answer to judge, and a content verdict here would be
+			// recorded against a channel that never got to finish. Still return
+			// any usage already extracted from earlier SSE events (best-effort
+			// partial) — never invent tokens.
+			if result.Usage.Found {
+				return result.Usage, end, nil
+			}
+			return empty, end, nil
+		}
+		verdict := judgeStreamContent(resp.StatusCode, result, latencyMs)
+		if result.Usage.Found {
+			return result.Usage, end, &verdict
+		}
+		return empty, end, &verdict
+	}
+
 	for {
 		select {
 		case <-r.Context().Done():
@@ -90,10 +165,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 				"latency_ms", latencyMs,
 				"streamed_bytes", streamedBytes,
 			)
-			if result := analyzer.Result(); result.Usage.Found {
-				return result.Usage, streamEndedNormally
-			}
-			return empty, streamEndedNormally
+			return endStream(streamEndedClientDisconnect, false)
 		default:
 		}
 
@@ -108,6 +180,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 					"streamed_bytes", streamedBytes,
 					"limit_bytes", maxStreamBytes,
 				)
+				outcome = streamEndedTruncated
 				break
 			}
 			exceededLimit := int64(len(chunk)) > remaining
@@ -128,10 +201,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 					)
 					// Downstream gone: keep any usage already extracted (including
 					// the chunk that failed to write). Never invent tokens.
-					if result := analyzer.Result(); result.Usage.Found {
-						return result.Usage, streamEndedNormally
-					}
-					return empty, streamEndedNormally
+					return endStream(streamEndedClientDisconnect, false)
 				}
 				streamedBytes += int64(len(chunk))
 			}
@@ -145,75 +215,98 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 					"streamed_bytes", streamedBytes,
 					"limit_bytes", maxStreamBytes,
 				)
+				outcome = streamEndedTruncated
 				break
 			}
 		}
 		if err != nil {
 			if err != io.EOF {
-				if idleBody.guard.fired.Load() && r.Context().Err() == nil {
+				switch {
+				case idleBody.guard.fired.Load() && r.Context().Err() == nil:
 					// Upstream stalled: the idle guard closed the body to
 					// unblock this read. Emit a distinct final SSE error event
 					// and report the idle outcome so the dispatcher records
-					// the failure. A concurrent downstream disconnect keeps
-					// its historical (non-idle) classification.
+					// the failure.
 					writeSSEStreamError(w, flusher, "upstream stream idle timeout", "upstream_error")
 					slog.Warn("SSE stream idle timeout: upstream sent no chunk within window",
 						"idle_timeout_sec", int(idleTimeout.Seconds()),
 						"latency_ms", latencyMs,
 						"streamed_bytes", streamedBytes,
 					)
-					idleTimedOut = true
-				} else {
+					outcome = streamEndedIdleTimeout
+				case r.Context().Err() != nil:
+					// Downstream went away while a read was in flight: this read
+					// error is a consequence of the client cancel, not an
+					// upstream fault. Classified separately so user cancels can
+					// never be recorded as channel failures.
+					slog.Debug("SSE stream read aborted by downstream disconnect",
+						"err", err,
+						"latency_ms", latencyMs,
+						"streamed_bytes", streamedBytes,
+					)
+					outcome = streamEndedClientDisconnect
+				default:
 					// Mid-stream upstream failure (network reset, upstream crash,
 					// truncated body): emit a final SSE error event so the client
 					// can surface the failure explicitly instead of inferring it
 					// from a missing [DONE] marker. Mirrors the byte-limit path.
 					writeSSEStreamError(w, flusher, "upstream stream interrupted", "upstream_error")
 					slog.Warn("SSE stream read error", "err", err, "latency_ms", latencyMs)
+					outcome = streamEndedUpstreamFault
 				}
 			}
 			break
 		}
 	}
 
-	outcome := streamEndedNormally
-	if idleTimedOut {
-		outcome = streamEndedIdleTimeout
+	return endStream(outcome, sawStreamBytes)
+}
+
+// judgeStreamContent feeds the streaming path parsed facts into the same pure
+// content judge the buffered path calls (proxy.JudgeUpstreamContent). It
+// replaces the historical log-only parallel implementation that merely warned
+// about missing data events while the dispatcher still recorded a success.
+func judgeStreamContent(statusCode int, result incrementalSseAnalysisResult, latencyMs int64) proxy.UpstreamVerdict {
+	verdict := proxy.JudgeUpstreamContent(proxy.UpstreamContentFacts{
+		StatusCode: statusCode,
+		Streaming:  true,
+		RawText:    sseErrorEventText(result.ErrorEvents),
+		HasOutput:  result.HasDataEvent,
+		Usage:      result.Usage.ToUsageSummary(),
+	})
+	if verdict.Failed {
+		slog.Warn("stream content-based failure detected",
+			"code", string(verdict.Code),
+			"reason", verdict.Reason,
+			"status", verdict.Status,
+			"latency_ms", latencyMs,
+			"event_count", result.EventCount,
+			"has_done_marker", result.HasDoneMarker,
+		)
+	} else if !result.HasDataEvent {
+		slog.Debug("SSE stream contained no data events",
+			"latency_ms", latencyMs,
+			"event_count", result.EventCount,
+			"has_done_marker", result.HasDoneMarker,
+		)
 	}
+	return verdict
+}
 
-	// Post-stream SSE analysis uses bounded incremental state instead of
-	// retaining the complete upstream body.
-	result := analyzer.Result()
-	if sawStreamBytes {
-		if result.DroppedOversizedEvent {
-			slog.Warn("SSE stream event exceeded analysis buffer",
-				"latency_ms", latencyMs,
-				"pending_limit_bytes", maxIncrementalSsePendingBytes,
-			)
-		}
-
-		// Log SSE error events at WARN level
-		if result.HasErrorEvent {
-			LogSseErrorEvents(result.ErrorEvents)
-		}
-
-		// Check for empty content (stream ended with no data events).
-		// ProxyEmptyContentFailEnabled is read from the startup-loaded config
-		// singleton instead of os.Getenv per stream request.
-		if !result.HasDataEvent {
-			if rt := config.RuntimeSafe(); rt != nil && rt.ProxyEmptyContentFailEnabled {
-				slog.Warn("SSE stream contained no data events",
-					"latency_ms", latencyMs,
-					"event_count", result.EventCount,
-					"has_done_marker", result.HasDoneMarker,
-				)
-			}
-		}
-		if result.Usage.Found {
-			return result.Usage, outcome
+// sseErrorEventText joins the SSE error-event payloads the analyzer kept. The
+// bounded analyzer never retains the raw stream body, so error events are the
+// only content signal the streaming path can hand to the shared judge.
+func sseErrorEventText(events []SseEvent) string {
+	if len(events) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(events))
+	for _, ev := range events {
+		if data := strings.TrimSpace(ev.Data); data != "" {
+			parts = append(parts, data)
 		}
 	}
-	return empty, outcome
+	return strings.Join(parts, "\n")
 }
 
 // streamResponseByteLimit returns the configured max SSE stream response size
