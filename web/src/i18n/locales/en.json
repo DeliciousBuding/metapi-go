@@ -312,7 +312,8 @@
       "error": {
         "stopped": "Request was stopped.",
         "unknown": "An unknown error occurred.",
-        "notAvailable": "Model testing isn't available yet: select a channel to run a test through the forced-channel harness."
+        "notAvailable": "Model testing isn't available yet: select a channel to run a test through the forced-channel harness.",
+        "sessionExpired": "Session expired, please sign in again."
       },
       "viewer": {
         "title": "Response",
@@ -2125,7 +2126,9 @@
         "unavailableBadge": "Unavailable",
         "disabledBadge": "Disabled",
         "removeAria": "Remove {{name}}",
+        "refreshFailed": "the server returned no failure reason",
         "refreshFailedInline": "Refresh failed: {{message}}",
+        "manualFailed": "the server returned no failure reason",
         "manualFailedInline": "Manual models update failed: {{message}}",
         "placeholder": "Model name, e.g. gpt-4o",
         "inputAria": "New manual model name",
