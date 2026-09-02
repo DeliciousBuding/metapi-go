@@ -373,8 +373,8 @@ func TestMaskSecretFromFragments_ParityWithMaskSecret(t *testing.T) {
 		"",
 		"a",
 		"ab",
-		"abcd1234",     // exactly 8 -> "****"
-		"abcd12345",    // 9 -> first4+****+last4
+		"abcd1234",  // exactly 8 -> "****"
+		"abcd12345", // 9 -> first4+****+last4
 		"FAKE-access-secret-ABCDEF",
 		"FAKE-api-secret-XYZ12345",
 	}
@@ -405,5 +405,109 @@ func TestMaskSecretFromFragments_ParityWithMaskSecret(t *testing.T) {
 		if secret != "" && len(secret) > 8 && strings.Contains(got, secret) {
 			t.Errorf("secret=%q: masked form leaked plaintext: %q", secret, got)
 		}
+	}
+}
+
+// TestUpdateAccount_ResponseOmitsPlaintextCredentials guards PUT /api/accounts/{id}.
+// The list surface masks accessToken/apiToken and strips autoRelogin.passwordCipher,
+// so a no-op update must not become a credential-harvest primitive that answers
+// with the plaintext the list surface deliberately withholds. Revealing a secret
+// stays an explicit act (GET /api/account-tokens/{id}/value).
+func TestUpdateAccount_ResponseOmitsPlaintextCredentials(t *testing.T) {
+	db, r, _ := setupAccountsTest(t)
+	accessSecret, apiSecret, _, _, accountID, _ := seedCredentialedAccount(t, db)
+	cipher := "enc:v1:FAKE-CIPHERTEXT-DO-NOT-LEAK"
+	if _, err := db.Exec(
+		`UPDATE accounts SET extra_config = ? WHERE id = ?`,
+		`{"credentialMode":"session","autoRelogin":{"username":"cred-user","passwordCipher":"`+cipher+`"}}`,
+		accountID); err != nil {
+		t.Fatalf("seed extra_config: %v", err)
+	}
+
+	resp := doPutJSON(t, r, "/api/accounts/"+itoa(accountID), map[string]any{"sortOrder": 7})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", resp.Code, resp.Body.String())
+	}
+	body := resp.Body.String()
+	for _, secret := range []string{accessSecret, apiSecret, cipher} {
+		if strings.Contains(body, secret) {
+			t.Fatalf("update account leaked plaintext secret %q: %s", secret, body)
+		}
+	}
+
+	var updated map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if _, ok := updated["accessToken"]; ok {
+		t.Fatalf("accessToken key present: %#v", updated["accessToken"])
+	}
+	if _, ok := updated["apiToken"]; ok {
+		t.Fatalf("apiToken key present: %#v", updated["apiToken"])
+	}
+	if updated["accessTokenMasked"] != maskSecret(accessSecret) {
+		t.Fatalf("accessTokenMasked=%#v want %q", updated["accessTokenMasked"], maskSecret(accessSecret))
+	}
+	if updated["apiTokenMasked"] != maskSecret(apiSecret) {
+		t.Fatalf("apiTokenMasked=%#v want %q", updated["apiTokenMasked"], maskSecret(apiSecret))
+	}
+
+	// Redaction is response-only: the write itself must still land.
+	var sortOrder int64
+	if err := db.QueryRow(`SELECT sort_order FROM accounts WHERE id = ?`, accountID).Scan(&sortOrder); err != nil {
+		t.Fatalf("read sort_order: %v", err)
+	}
+	if sortOrder != 7 {
+		t.Fatalf("sort_order = %d, want 7", sortOrder)
+	}
+}
+
+// TestRebindSession_ResponseOmitsPlaintextCredentials guards
+// POST /api/accounts/{id}/rebind-session: the response carries the stored
+// apiToken (which the caller never supplied) plus the freshly bound session
+// token, so it answers with the same masked contract as the list surface.
+func TestRebindSession_ResponseOmitsPlaintextCredentials(t *testing.T) {
+	db, r, _ := setupAccountsTest(t)
+	_, apiSecret, _, _, accountID, _ := seedCredentialedAccount(t, db)
+	newSecret := "FAKE-rebound-PLAINTEXT-DDDD4444"
+
+	resp := doPostJSON(t, r, "/api/accounts/"+itoa(accountID)+"/rebind-session", map[string]any{"accessToken": newSecret})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", resp.Code, resp.Body.String())
+	}
+	body := resp.Body.String()
+	for _, secret := range []string{newSecret, apiSecret} {
+		if strings.Contains(body, secret) {
+			t.Fatalf("rebind session leaked plaintext secret %q: %s", secret, body)
+		}
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	account, ok := result["account"].(map[string]any)
+	if !ok {
+		t.Fatalf("account object missing: %s", body)
+	}
+	if _, ok := account["accessToken"]; ok {
+		t.Fatalf("accessToken key present: %#v", account["accessToken"])
+	}
+	if _, ok := account["apiToken"]; ok {
+		t.Fatalf("apiToken key present: %#v", account["apiToken"])
+	}
+	if account["accessTokenMasked"] != maskSecret(newSecret) {
+		t.Fatalf("accessTokenMasked=%#v want %q", account["accessTokenMasked"], maskSecret(newSecret))
+	}
+	if account["apiTokenMasked"] != maskSecret(apiSecret) {
+		t.Fatalf("apiTokenMasked=%#v want %q", account["apiTokenMasked"], maskSecret(apiSecret))
+	}
+
+	var stored string
+	if err := db.QueryRow(`SELECT access_token FROM accounts WHERE id = ?`, accountID).Scan(&stored); err != nil {
+		t.Fatalf("read access_token: %v", err)
+	}
+	if stored != newSecret {
+		t.Fatalf("access_token = %q, want the rebound token persisted", stored)
 	}
 }

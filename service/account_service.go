@@ -854,39 +854,73 @@ func enrichAccountOverviewRow(account map[string]any) map[string]any {
 	delete(account, "siteUrl")
 	delete(account, "sitePlatform")
 	delete(account, "siteStatus")
-	// List/overview must not return plaintext secrets. Create/update/rebind
-	// responses may still echo once; those paths build maps outside this helper.
-	redactAccountSecrets(account)
+	// One credential policy for every admin surface (see RedactAccountSecrets):
+	// plaintext secrets never leave the process on a read or a write response.
+	RedactAccountSecrets(account)
 	return account
 }
 
-// redactAccountSecrets removes plaintext credentials from admin list/overview rows.
-// Sets accessTokenMasked / apiTokenMasked when a value was present.
-func redactAccountSecrets(account map[string]any) {
+// RedactAccountSecrets removes plaintext credentials from an admin account
+// response map, setting accessTokenMasked / apiTokenMasked when a value was
+// present, and strips autoRelogin.passwordCipher out of extraConfig.
+//
+// This is the single credential-policy SSOT for account surfaces. Both the
+// list/overview rows (buildAccountMap) and the write responses
+// (PUT /api/accounts/{id}, POST /api/accounts/{id}/rebind-session) answer
+// through it, so a no-op write can never harvest what the list surface
+// deliberately withholds. Revealing a secret stays an explicit, separately
+// routed act (GET /api/account-tokens/{id}/value, downstream-key export), and
+// the credential-provisioning responses that hand back a secret the caller did
+// not supply (password login, verify-token discovery) build their own maps.
+//
+// Values arrive either scanned from the DB (string / []byte / nil) or built by
+// a handler from a typed struct row (*string), so secretValue() normalizes both
+// instead of letting fmt.Sprint render a pointer address as the "secret".
+func RedactAccountSecrets(account map[string]any) {
 	if account == nil {
 		return
 	}
-	if v := asString(account["accessToken"]); strings.TrimSpace(v) != "" {
+	if v := secretValue(account["accessToken"]); v != "" {
 		account["accessTokenMasked"] = maskSecretTail(v)
 	}
 	delete(account, "accessToken")
-	if v := asString(account["apiToken"]); strings.TrimSpace(v) != "" {
+	if v := secretValue(account["apiToken"]); v != "" {
 		account["apiTokenMasked"] = maskSecretTail(v)
 	}
 	delete(account, "apiToken")
-	// Never leak passwordCipher from extraConfig on list surfaces.
-	if ec := asStringPtr(account["extraConfig"]); ec != nil && strings.Contains(*ec, "passwordCipher") {
+	// Never leak passwordCipher from extraConfig on an admin response.
+	if ec := secretValue(account["extraConfig"]); strings.Contains(ec, "passwordCipher") {
 		var m map[string]any
-		if err := json.Unmarshal([]byte(*ec), &m); err == nil {
+		if err := json.Unmarshal([]byte(ec), &m); err == nil {
 			if auto, ok := m["autoRelogin"].(map[string]any); ok {
 				delete(auto, "passwordCipher")
 				m["autoRelogin"] = auto
 				if b, err := json.Marshal(m); err == nil {
-					s := string(b)
-					account["extraConfig"] = s
+					account["extraConfig"] = string(b)
 				}
 			}
 		}
+	}
+}
+
+// secretValue reads a credential-bearing response value that may be a string,
+// a []byte from a DB scan, a *string from a typed struct row, or nil. Empty
+// (including a nil pointer) normalizes to "" so callers mask nothing.
+func secretValue(v any) string {
+	switch typed := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(typed)
+	case *string:
+		if typed == nil {
+			return ""
+		}
+		return strings.TrimSpace(*typed)
+	case []byte:
+		return strings.TrimSpace(string(typed))
+	default:
+		return strings.TrimSpace(asString(v))
 	}
 }
 

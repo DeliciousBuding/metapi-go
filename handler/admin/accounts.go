@@ -1127,6 +1127,10 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 		"createdAt":      rebindAcct.CreatedAt,
 		"updatedAt":      rebindAcct.UpdatedAt,
 	}
+	// Masked like every other account surface: the caller supplied the new
+	// session token itself, and the stored apiToken is not this endpoint's to
+	// disclose (service.RedactAccountSecrets is the policy SSOT).
+	service.RedactAccountSecrets(rebindAcctMap)
 	routing.InvalidateCache()
 	globalAccountsCache.clear()
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -1442,6 +1446,11 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 			resp["message"] = "credential updated, but model refresh failed; account remains expired: " + modelRefreshErrorMessage(modelRefresh)
 		}
 	}
+	// Same credential policy as the list surface: without this, a no-op update
+	// ({"sortOrder": n}) answers with the plaintext accessToken/apiToken and the
+	// autoRelogin passwordCipher that GET /api/accounts masks — i.e. the write
+	// endpoint would be a harvest primitive around the read-side redaction.
+	service.RedactAccountSecrets(resp)
 	routing.InvalidateCache()
 	globalAccountsCache.clear()
 	writeJSON(w, http.StatusOK, resp)
