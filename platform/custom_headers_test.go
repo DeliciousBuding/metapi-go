@@ -15,6 +15,12 @@ func TestIsDeniedCustomHeader(t *testing.T) {
 		"Host",
 		"Content-Length",
 		"Transfer-Encoding",
+		// Accept-Encoding decides whether the answer stays readable for usage
+		// accounting, content judgement and health checks; it is not
+		// site-configurable. See TestReservedPlatformCustomHeadersStayInStep-
+		// WithPlatformDenyList in package service for the cross-guard drift test.
+		"Accept-Encoding",
+		" accept-encoding ",
 		"Connection",
 		"Cookie",
 		"Proxy-Authorization",
@@ -45,15 +51,15 @@ func TestApplyCustomHeaders_DeniesSensitiveAllowsCustom(t *testing.T) {
 	req.Host = "example.test"
 
 	ApplyCustomHeaders(req, map[string]string{
-		"Authorization":         "Bearer attacker",
-		"Host":                  "evil.example",
-		"Content-Length":        "999",
-		"Transfer-Encoding":     "chunked",
-		"Connection":            "close",
-		"Cookie":                "session=stolen",
-		"Proxy-Authorization":   "Basic evil",
+		"Authorization":           "Bearer attacker",
+		"Host":                    "evil.example",
+		"Content-Length":          "999",
+		"Transfer-Encoding":       "chunked",
+		"Connection":              "close",
+		"Cookie":                  "session=stolen",
+		"Proxy-Authorization":     "Basic evil",
 		"X-Metapi-Responses-Only": "1",
-		"X-Custom":              "ok",
+		"X-Custom":                "ok",
 	})
 
 	if got := req.Header.Get("Authorization"); got != "Bearer original-token" {
@@ -140,9 +146,9 @@ func TestApplyCustomHeaders_RequestWinsDefault(t *testing.T) {
 
 	// Default ApplyCustomHeaders = request-wins.
 	ApplyCustomHeaders(req, map[string]string{
-		"User-Agent":     "site-forced-ua",
-		"X-Site-Only":    "site",
-		"X-Only-Client":  "site-should-not-win",
+		"User-Agent":    "site-forced-ua",
+		"X-Site-Only":   "site",
+		"X-Only-Client": "site-should-not-win",
 	})
 
 	if got := req.Header.Get("User-Agent"); got != "client-sdk/1.0" {

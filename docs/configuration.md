@@ -132,6 +132,31 @@ All six `*_SEC` timeouts share one clamp (`config.parseTimeoutSec`): unset,
 blank, invalid, zero or negative values fall back to the listed default, so a
 typo can never disable a timeout entirely.
 
+### Upstream content encoding
+
+`gzip` and `deflate` answers are decoded with the standard library before Metapi
+parses them, so usage accounting, `PROXY_ERROR_KEYWORDS` and
+`PROXY_EMPTY_CONTENT_FAIL` read the same text the client reads; the response is
+then re-framed without `Content-Encoding`.
+
+An encoding Metapi does not decode (`br`, `zstd`, a stacked encoding list), or a
+decode that fails on a corrupt or oversized body, leaves the answer unreadable on
+purpose: it is relayed to the client verbatim under its own `Content-Encoding`,
+it is never parsed, its usage is recorded as `unknown` instead of invented, and
+neither the keyword rule nor the empty-content rule can fire on bytes nobody
+read. Each such response logs one WARN with a stable message:
+`upstream response uses a content encoding metapi does not decode; usage
+accounting and content-failure judgement were skipped`.
+
+`Accept-Encoding` is not site-configurable. An entry in a site's
+`custom_headers` is dropped when the proxy config is assembled
+(`service.filterPlatformCustomHeaders`, `platform.IsDeniedCustomHeader`) and
+stripped again from the outbound request, because that single header decides
+whether net/http transparently decodes the answer — i.e. whether Metapi can read
+the body it is about to bill for, judge and health-check. The strip logs one WARN
+per site/channel/value (`site custom_headers set Accept-Encoding on a data-plane
+upstream request; …`), since it describes a static misconfiguration.
+
 ### Proxy log writer & retention
 
 | Variable | Default | Description |

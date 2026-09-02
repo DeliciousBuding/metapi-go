@@ -401,9 +401,18 @@ func filterPlatformCustomHeaders(headers map[string]string) map[string]string {
 	return filtered
 }
 
+// isReservedPlatformCustomHeader is the assembly-side filter for site
+// custom_headers: what a site may not inject into the platform proxy config.
+// It is deliberately narrower than platform.IsDeniedCustomHeader (it also
+// reserves content-type and new-api-user, which the data plane owns) but the
+// security-critical set must stay in step with it — see
+// TestReservedPlatformCustomHeadersStayInStepWithPlatformDenyList.
 func isReservedPlatformCustomHeader(name string) bool {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "authorization", "cookie", "new-api-user", "content-type", "content-length", "host":
+	// accept-encoding decides whether the response body stays readable for
+	// usage accounting, content-failure judgement and health checks, so it is
+	// not site-configurable (same rule as platform.IsDeniedCustomHeader).
+	case "authorization", "cookie", "new-api-user", "content-type", "content-length", "host", "accept-encoding":
 		return true
 	default:
 		return false
