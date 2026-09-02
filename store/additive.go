@@ -216,7 +216,7 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			if err := EnsureColumn(db, "sites", "proxy_url", "TEXT", "TEXT", ""); err != nil {
 				return err
 			}
-			if err := EnsureColumn(db, "sites", "use_system_proxy", "INTEGER", "BOOLEAN", "DEFAULT 0"); err != nil {
+			if err := EnsureColumn(db, "sites", "use_system_proxy", "INTEGER", "BOOLEAN", "DEFAULT FALSE"); err != nil {
 				return err
 			}
 			if err := EnsureColumn(db, "sites", "custom_headers", "TEXT", "TEXT", ""); err != nil {
@@ -232,7 +232,7 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		Version:     "sc2_018_site_post_refresh_probe",
 		Description: "sites post-refresh probe columns (TS 0025/0026) — post_refresh_probe_enabled / _model / _scope / _latency_threshold_ms",
 		Apply: func(db *DB) error {
-			if err := EnsureColumn(db, "sites", "post_refresh_probe_enabled", "INTEGER", "BOOLEAN", "DEFAULT 0"); err != nil {
+			if err := EnsureColumn(db, "sites", "post_refresh_probe_enabled", "INTEGER", "BOOLEAN", "DEFAULT FALSE"); err != nil {
 				return err
 			}
 			if err := EnsureColumn(db, "sites", "post_refresh_probe_model", "TEXT", "TEXT", "DEFAULT ''"); err != nil {
@@ -340,7 +340,7 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		Version:     "sc2_024_model_availability_is_manual",
 		Description: "model_availability.is_manual (TS 0009) — manual availability override flag",
 		Apply: func(db *DB) error {
-			return EnsureColumn(db, "model_availability", "is_manual", "INTEGER", "BOOLEAN", "DEFAULT 0")
+			return EnsureColumn(db, "model_availability", "is_manual", "INTEGER", "BOOLEAN", "DEFAULT FALSE")
 		},
 	},
 	{
@@ -676,6 +676,47 @@ func quoteIdentSQLite(name string) string {
 	return `"` + name + `"`
 }
 
+// normalizeBooleanDefault rewrites numeric boolean literals (DEFAULT 0 / DEFAULT 1)
+// into the SQL-standard DEFAULT FALSE / DEFAULT TRUE when the column type is
+// BOOLEAN. SQLite stores booleans as INTEGER and accepts either spelling, but
+// PostgreSQL type-checks the default expression against the column and rejects
+// `ADD COLUMN flag BOOLEAN DEFAULT 0` with "column is of type boolean but
+// default expression is of type integer" (SQLSTATE 42804) — which aborts
+// AutoMigrate and stops a legacy database from starting at all. Registry entries
+// are written once for both dialects, so the numeric spelling is normalized here
+// instead of relying on every call site remembering the difference.
+//
+// Any trailing modifiers (e.g. NOT NULL) are preserved. Non-boolean column types
+// and defaults that are not a bare 0/1 literal are returned untouched.
+func normalizeBooleanDefault(colType, defaultClause string) string {
+	if defaultClause == "" || !strings.EqualFold(strings.TrimSpace(colType), "BOOLEAN") {
+		return defaultClause
+	}
+	fields := strings.Fields(defaultClause)
+	if len(fields) < 2 || !strings.EqualFold(fields[0], "DEFAULT") {
+		return defaultClause
+	}
+	switch fields[1] {
+	case "0":
+		fields[1] = "FALSE"
+	case "1":
+		fields[1] = "TRUE"
+	default:
+		return defaultClause
+	}
+	return strings.Join(fields, " ")
+}
+
+// buildAddColumnDDL renders the ALTER TABLE statement EnsureColumn executes.
+// Split out from the execution path so the exact DDL for a dialect can be
+// asserted without a live database.
+func buildAddColumnDDL(table, column, colType, defaultClause string) string {
+	if defaultClause == "" {
+		return fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s`, table, column, colType)
+	}
+	return fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s %s`, table, column, colType, defaultClause)
+}
+
 // EnsureColumn adds table.column if missing. Types are dialect-specific
 // fragments (e.g. sqliteType="TEXT", pgType="TEXT", or INTEGER vs BOOLEAN).
 // defaultClause is optional SQL after the type (e.g. "DEFAULT 0" or "DEFAULT FALSE");
@@ -705,13 +746,8 @@ func EnsureColumn(db *DB, table, column, sqliteType, pgType, defaultClause strin
 		return fmt.Errorf("store: EnsureColumn: invalid identifier %q.%q", table, column)
 	}
 
-	def := strings.TrimSpace(defaultClause)
-	var ddl string
-	if def == "" {
-		ddl = fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s`, table, column, colType)
-	} else {
-		ddl = fmt.Sprintf(`ALTER TABLE %s ADD COLUMN %s %s %s`, table, column, colType, def)
-	}
+	def := normalizeBooleanDefault(colType, strings.TrimSpace(defaultClause))
+	ddl := buildAddColumnDDL(table, column, colType, def)
 
 	if _, err := db.Exec(ddl); err != nil {
 		// Race / concurrent startup: column may already exist.
