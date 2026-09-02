@@ -67,6 +67,7 @@ knob a deployment is likely to touch. Docker Compose users pass these via
 | `LOG_CLEANUP_CRON` | `0 6 * * *` | Retention pruning cron. |
 | `LOG_CLEANUP_USAGE_LOGS_ENABLED` / `LOG_CLEANUP_PROGRAM_LOGS_ENABLED` | auto | Which log families the cleanup prunes. |
 | `LOG_CLEANUP_RETENTION_DAYS` | `30` | Proxy/program log retention. |
+| `USAGE_PROJECTION_INTERVAL_MS` | `5000` | Usage-aggregation projection cadence (`proxy_logs` → site/model rollups). Clamped to 1000–3600000 ms; raise it on small single-node deployments to trade dashboard freshness for fewer passes. |
 
 ## Notifications
 

@@ -20,7 +20,7 @@ import (
 // fakeRedis is a minimal in-memory RESP server for exercising RedisCounter
 // over a real TCP loopback connection (so NewRedisCounter + net.DialTimeout
 // are covered end-to-end). It supports AUTH, SELECT, INCR, DECR, INCRBY, GET
-// and PEXPIRE with real TTL expiry.
+// PEXPIRE and DEL with real TTL expiry.
 type fakeRedis struct {
 	mu       sync.Mutex
 	data     map[string]int64
@@ -261,6 +261,23 @@ func (f *fakeRedis) handleCommand(conn net.Conn, cmd string, parts []string) boo
 		f.ttl[key] = time.Now().Add(time.Duration(ms) * time.Millisecond)
 		f.mu.Unlock()
 		writeInt(conn, 1)
+	case "DEL":
+		if len(parts) < 2 {
+			writeError(conn, "ERR wrong number of arguments")
+			return true
+		}
+		key := parts[1]
+		f.mu.Lock()
+		f.expireLocked(key)
+		_, existed := f.data[key]
+		delete(f.data, key)
+		delete(f.ttl, key)
+		f.mu.Unlock()
+		if existed {
+			writeInt(conn, 1)
+		} else {
+			writeInt(conn, 0)
+		}
 	case "QUIT":
 		writeOK(conn)
 		return false
@@ -782,5 +799,123 @@ func TestNewRedisCounter_BuildsFields(t *testing.T) {
 	}
 	if c.dial == nil {
 		t.Fatal("dial should default to net.DialTimeout")
+	}
+}
+
+// snapshotKeys returns the live (non-expired) keys the fake server holds.
+func (f *fakeRedis) snapshotKeys() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, 0, len(f.data))
+	for k := range f.data {
+		f.expireLocked(k)
+		if _, ok := f.data[k]; ok {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// hasTTL reports whether key currently carries an expiry.
+func (f *fakeRedis) hasTTL(key string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	_, ok := f.ttl[key]
+	return ok
+}
+
+// TestRedisCounter_RollbackAfterExpiryLeavesNoImmortalKey pins the self-heal: a
+// compensating DECR that lands after the window expired re-creates the key with
+// no TTL and a negative value. INCR only arms PEXPIRE when its result is exactly
+// 1, so such a key would linger and undercount the next window; the rollback
+// drops it instead and the following INCR starts a fresh, mortal window.
+func TestRedisCounter_RollbackAfterExpiryLeavesNoImmortalKey(t *testing.T) {
+	t.Parallel()
+	f := newFakeRedis(t)
+	defer f.close()
+	c := newCounterAt(t, f.addr())
+	ctx := context.Background()
+
+	n, err := c.Decr(ctx, "rpm:gone", time.Minute)
+	if err != nil {
+		t.Fatalf("Decr on missing key: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("Decr on missing key = %d, want 0 (key dropped)", n)
+	}
+	if keys := f.snapshotKeys(); len(keys) != 0 {
+		t.Fatalf("keys after rollback self-heal = %v, want none", keys)
+	}
+
+	if n, err = c.Incr(ctx, "rpm:gone", time.Minute); err != nil || n != 1 {
+		t.Fatalf("Incr after self-heal = %d, %v, want 1", n, err)
+	}
+	if !f.hasTTL("rpm:gone") {
+		t.Fatal("key re-created after self-heal carries no TTL")
+	}
+}
+
+// TestRedisCounter_RollbackKeepsPositiveWindow guards the other side: while the
+// window total stays positive the rollback must leave the key (and its TTL)
+// alone, so concurrent instances keep counting against the same window.
+func TestRedisCounter_RollbackKeepsPositiveWindow(t *testing.T) {
+	t.Parallel()
+	f := newFakeRedis(t)
+	defer f.close()
+	c := newCounterAt(t, f.addr())
+	ctx := context.Background()
+
+	for i := 0; i < 2; i++ {
+		if _, err := c.Incr(ctx, "rpm:live", time.Minute); err != nil {
+			t.Fatalf("Incr %d: %v", i, err)
+		}
+	}
+	n, err := c.Decr(ctx, "rpm:live", time.Minute)
+	if err != nil || n != 1 {
+		t.Fatalf("Decr = %d, %v, want 1", n, err)
+	}
+	if keys := f.snapshotKeys(); len(keys) != 1 || keys[0] != "rpm:live" {
+		t.Fatalf("keys after positive rollback = %v, want [rpm:live]", keys)
+	}
+	if !f.hasTTL("rpm:live") {
+		t.Fatal("positive window lost its TTL")
+	}
+	if got, err := c.Get(ctx, "rpm:live"); err != nil || got != 1 {
+		t.Fatalf("Get = %d, %v, want 1", got, err)
+	}
+}
+
+// TestRedisCounter_NegativeIncrByRollbackDropsNonPositiveKey covers the TPM
+// path: a negative IncrBy (token reservation rollback) that takes the total to
+// zero or below gets the same treatment as Decr.
+func TestRedisCounter_NegativeIncrByRollbackDropsNonPositiveKey(t *testing.T) {
+	t.Parallel()
+	f := newFakeRedis(t)
+	defer f.close()
+	c := newCounterAt(t, f.addr())
+	ctx := context.Background()
+
+	if n, err := c.IncrBy(ctx, "tpm:full", 600, time.Minute); err != nil || n != 600 {
+		t.Fatalf("IncrBy(+600) = %d, %v, want 600", n, err)
+	}
+	if n, err := c.IncrBy(ctx, "tpm:full", -600, time.Minute); err != nil || n != 0 {
+		t.Fatalf("IncrBy(-600) = %d, %v, want 0", n, err)
+	}
+	if n, err := c.IncrBy(ctx, "tpm:missing", -50, time.Minute); err != nil || n != 0 {
+		t.Fatalf("IncrBy(-50) on missing key = %d, %v, want 0", n, err)
+	}
+	if keys := f.snapshotKeys(); len(keys) != 0 {
+		t.Fatalf("keys after negative rollbacks = %v, want none", keys)
+	}
+
+	// A partial rollback keeps the remaining reservation alive.
+	if _, err := c.IncrBy(ctx, "tpm:part", 500, time.Minute); err != nil {
+		t.Fatalf("IncrBy(+500): %v", err)
+	}
+	if n, err := c.IncrBy(ctx, "tpm:part", -200, time.Minute); err != nil || n != 300 {
+		t.Fatalf("IncrBy(-200) = %d, %v, want 300", n, err)
+	}
+	if !f.hasTTL("tpm:part") {
+		t.Fatal("partial rollback dropped the window TTL")
 	}
 }

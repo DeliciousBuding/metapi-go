@@ -15,11 +15,13 @@ import (
 )
 
 const (
-	usageProjectionIntervalMs = 5_000   // 5s
-	usageProjectionLeaseMs    = 600_000 // 10min lease
-	usageProjectionBatchSize  = 1_000   // rows per batch
-	usageProjectionMaxBatches = 120     // max batches per pass
-	usageProjectorKey         = "usage-aggregates-v1"
+	// fallback for callers that build config.Config by hand (tests, embedders)
+	// and leave UsageProjectionIntervalMs zero; config.Load always fills it in.
+	defaultUsageProjectionIntervalMs = 5_000
+	usageProjectionLeaseMs           = 600_000 // 10min lease
+	usageProjectionBatchSize         = 1_000   // rows per batch
+	usageProjectionMaxBatches        = 120     // max batches per pass
+	usageProjectorKey                = "usage-aggregates-v1"
 )
 
 // UsageAggregationScheduler incrementally projects proxy_logs into
@@ -40,13 +42,23 @@ func NewUsageAggregationScheduler(cfg *config.Config) *UsageAggregationScheduler
 func (s *UsageAggregationScheduler) Name() string { return "usage-aggregation" }
 
 func (s *UsageAggregationScheduler) Start(ctx context.Context) error {
+	intervalMs := s.projectionIntervalMs()
 	slog.Info("usage-aggregation scheduler started",
-		"interval_ms", usageProjectionIntervalMs,
+		"interval_ms", intervalMs,
 		"lease_ms", usageProjectionLeaseMs,
 	)
-	return s.runner.start(ctx, time.Duration(usageProjectionIntervalMs)*time.Millisecond, true, func() {
+	return s.runner.start(ctx, time.Duration(intervalMs)*time.Millisecond, true, func() {
 		s.runPass(ctx)
 	})
+}
+
+// projectionIntervalMs resolves the pass cadence from USAGE_PROJECTION_INTERVAL_MS,
+// falling back to the package default when the field is unset.
+func (s *UsageAggregationScheduler) projectionIntervalMs() int {
+	if s.cfg != nil && s.cfg.UsageProjectionIntervalMs > 0 {
+		return s.cfg.UsageProjectionIntervalMs
+	}
+	return defaultUsageProjectionIntervalMs
 }
 
 func (s *UsageAggregationScheduler) Stop() error {

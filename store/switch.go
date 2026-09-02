@@ -76,8 +76,7 @@ func SwitchDatabase(cfg *config.Config, nextDialect, nextDsn string, nextSsl boo
 
 	// Set active DB.
 	mu.Lock()
-	activeDB = newDB
-	initialized = true
+	activeDB.Store(newDB)
 	mu.Unlock()
 
 	slog.Info("switch: database switch complete", "dialect", nextDialect)
@@ -116,8 +115,7 @@ func rollbackSwitch(cfg *config.Config, dialect, dsn string, ssl bool, originalE
 	}
 
 	mu.Lock()
-	activeDB = rollbackDB
-	initialized = true
+	activeDB.Store(rollbackDB)
 	mu.Unlock()
 
 	return fmt.Errorf("database switch failed: %w", originalErr)

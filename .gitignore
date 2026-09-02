@@ -51,6 +51,11 @@ Thumbs.db
 # Golden TS fixture for the migration-compat tests — intentionally tracked
 # (dummy data, built by scripts/regen-ts-fixture.sh).
 !store/testdata/ts-source/hub.db
+# SQLite WAL sidecars materialise next to the golden fixture whenever something
+# opens it in place (sqlite3 CLI, an ad-hoc query). The fixture bytes never
+# change; keep the sidecars out of `git status`.
+store/testdata/ts-source/hub.db-shm
+store/testdata/ts-source/hub.db-wal
 
 # Build
 /tmp/

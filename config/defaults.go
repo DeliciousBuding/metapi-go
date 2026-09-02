@@ -136,6 +136,11 @@ const (
 	DefaultProxyLogBatchSize       = 50
 	DefaultProxyLogFlushIntervalMs = 1000
 
+	// Usage aggregation projects proxy_logs into the site/model rollups. 5s
+	// keeps admin dashboards near-real-time; small single-node deployments
+	// (2 vCPU class) can relax it to trade freshness for fewer passes.
+	DefaultUsageProjectionIntervalMs = 5000
+
 	DefaultProxyDebugRetentionHours = 24
 	DefaultProxyDebugMaxBodyBytes   = 262144
 

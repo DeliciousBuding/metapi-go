@@ -10,7 +10,7 @@ import (
 )
 
 // resetActiveDBForTest closes any active DB singleton so each SwitchDatabase
-// test starts from a clean global state. The activeDB/initialized globals are
+// test starts from a clean global state. The activeDB singleton is
 // package-private, so tests cannot run in parallel with each other.
 func resetActiveDBForTest(t *testing.T) {
 	t.Helper()
@@ -193,9 +193,6 @@ func TestSwitchDatabase_RollbackAlsoFails(t *testing.T) {
 	// activeDB must be nil — the singleton must not hold a stale/broken handle.
 	if GetDB() != nil {
 		t.Fatalf("GetDB() != nil after rollback failure; expected nil activeDB")
-	}
-	if initialized {
-		t.Fatal("initialized flag still true after rollback failure; expected false")
 	}
 
 	// Config is best-effort restored to the original values by rollbackSwitch
