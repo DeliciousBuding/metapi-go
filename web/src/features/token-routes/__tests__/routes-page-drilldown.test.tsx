@@ -97,6 +97,13 @@ vi.mock('../api', () => ({
 vi.mock('@/lib/undoable-delete', () => ({
   useUndoableDelete: () => vi.fn(),
 }))
+// The step 3 → 4 handoff strip mounts whenever routes exist, which the
+// drilldown cases arrange. It owns its own downstream-keys query and has its
+// own suite (routes-key-next-step.test.tsx) — stubbed here so this file stays
+// about the routeId/edit deep links.
+vi.mock('../components/routes-key-next-step', () => ({
+  RoutesKeyNextStep: () => null,
+}))
 
 vi.mock('../components/route-detail-sheet', () => ({
   RouteDetailSheet: (props: {

@@ -867,8 +867,31 @@
       },
       "onboarding": {
         "title": "Welcome to Metapi",
-        "description": "Create your first site to start aggregating AI APIs.",
-        "createSite": "Create site"
+        "description": "Four steps to a working call path: sites → accounts → routes → keys.",
+        "createSite": "Create site",
+        "createAccount": "Add account",
+        "createRoute": "Add route",
+        "createKey": "Issue key",
+        "stepDone": "Done",
+        "stepPending": "To do",
+        "steps": {
+          "sites": {
+            "title": "Sites",
+            "hint": "Connect the upstream AI platforms your accounts and credentials come from."
+          },
+          "accounts": {
+            "title": "Accounts",
+            "hint": "Add accounts under a site to supply callable upstream credentials."
+          },
+          "routes": {
+            "title": "Routes",
+            "hint": "Configure model routes to distribute requests across account channels."
+          },
+          "keys": {
+            "title": "Keys",
+            "hint": "Issue a downstream API key — clients call /v1 with it."
+          }
+        }
       },
       "traffic": {
         "loadError": "Failed to load income/spend data.",
@@ -1369,8 +1392,11 @@
             "keyHint": "sk-prefixed. Click Generate for a random high-entropy key.",
             "groupName": "Group name",
             "maxRequests": "Max requests",
+            "maxRequestsHint": "Lifetime total of requests this key may serve (not a per-minute window). Leave empty or 0 for unlimited; once reached, calls return 429 — clear or raise the cap to resume.",
             "maxCost": "Max cost",
+            "maxCostHint": "Lifetime spend cap in USD (token cost estimated from model pricing; only successful requests are billed). Leave empty or 0 for unlimited; once reached, calls return 429 — clear or raise the cap to resume.",
             "expiresAt": "Expires at",
+            "expiresAtHint": "Entered in your browser's local time, stored and compared as UTC. The key stops working the moment it passes — calls return 403. Leave empty for no expiry.",
             "enabled": "Enabled",
             "description": "Description"
           },
@@ -1380,6 +1406,8 @@
           },
           "toast": {
             "created": "API key created.",
+            "createdConnectHint": "Connect a client right away: copy the key or use a one-click import.",
+            "connectAction": "Connect now",
             "createFailed": "Failed to create API key.",
             "updated": "API key updated.",
             "updateFailed": "Failed to update API key.",
@@ -2123,7 +2151,9 @@
         "chainContextSuffix": "— add a route to complete the configuration flow.",
         "loadError": "Failed to load routes: {{message}}",
         "emptyTitle": "No routes",
-        "emptyDescription": "Add a route to start configuring, or click \"Auto-rebuild\" to let the system generate routes from account models.",
+        "emptyDescription": "Add a route to start configuring, or click \"Auto-rebuild\" to let the system generate routes from account models. Once routes exist, issue a downstream key so clients can call /v1.",
+        "nextStepBody": "Routes are ready but there is no downstream key yet — issue one and clients can call /v1 with it.",
+        "nextStepAction": "Issue a downstream key",
         "searchPlaceholder": "Search model / name…",
         "filterStatusTitle": "Status",
         "filterStatusEnabled": "Enabled",
@@ -2256,12 +2286,12 @@
         "fallbackToken": "Token #{{id}}"
       },
       "completion": {
-        "title": "Configuration flow complete",
-        "chainComplete": "Site → account → route configuration flow complete.",
-        "flowComplete": "Configuration flow complete.",
+        "title": "Route ready",
+        "chainComplete": "Site → account → route is wired up — last step: issue a downstream key so clients can call /v1.",
+        "flowComplete": "Next step: issue a downstream key so clients can call /v1.",
         "withRouteId": "Route #{{id}} created. {{suffix}}",
         "withoutRouteId": "Route created. {{suffix}}",
-        "connectAction": "Connect a client"
+        "connectAction": "Issue a downstream key"
       },
       "toast": {
         "updated": "Route updated",

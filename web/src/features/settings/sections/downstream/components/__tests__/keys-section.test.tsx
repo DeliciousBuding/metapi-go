@@ -299,6 +299,85 @@ describe('KeySheetForm — create mode', () => {
     expect(mockToastSuccess).toHaveBeenCalledTimes(1)
   })
 
+  it('offers a "connect now" toast action that reopens the export dialog', async () => {
+    // Journey step 4: the Connect dialog auto-opens, but it is dismissible and
+    // (#1034) locked behind a master-token re-confirm — the toast action is
+    // the way back in, and it must hand the SAME created row back.
+    mockCreateKey.mockResolvedValue({
+      success: true,
+      item: { id: 99, name: 'New key', keyMasked: 'sk-n****y' },
+    })
+    const { onCreated } = renderKeySheetForm({ editingKey: null })
+
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'New key' },
+    })
+    fireEvent.change(screen.getByLabelText('Key'), {
+      target: { value: 'sk-12345678' },
+    })
+    const form = document.querySelector('form')
+    if (!form) throw new Error('KeySheetForm did not render its <form>')
+    fireEvent.submit(form)
+
+    await waitFor(() => {
+      expect(mockCreateKey).toHaveBeenCalledTimes(1)
+    })
+    await waitFor(() => {
+      expect(mockToastSuccess).toHaveBeenCalledTimes(1)
+    })
+
+    const createdTarget = { id: 99, name: 'New key', keyMasked: 'sk-n****y' }
+    expect(onCreated).toHaveBeenCalledTimes(1)
+    expect(onCreated).toHaveBeenCalledWith(createdTarget)
+
+    const options = mockToastSuccess.mock.calls[0][1] as {
+      description?: string
+      duration?: number
+      action?: { label?: string; onClick?: () => void }
+    }
+    expect(options.action?.label).toBe('Connect now')
+    expect(options.duration).toBe(8000)
+
+    options.action?.onClick?.()
+    expect(onCreated).toHaveBeenCalledTimes(2)
+    expect(onCreated).toHaveBeenLastCalledWith(createdTarget)
+  })
+
+  it('sends expiresAt as RFC3339 UTC so the server actually enforces it', async () => {
+    // The backend skips the expiry check entirely when it cannot parse
+    // expires_at (auth/downstream.go parseISO8601 → parseErr → skip), and a
+    // bare datetime-local value parses nowhere in that chain. Lock the wire
+    // format end to end, not just in the mapper unit test.
+    renderKeySheetForm({ editingKey: null })
+
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Expiring key' },
+    })
+    fireEvent.change(screen.getByLabelText('Key'), {
+      target: { value: 'sk-expiring-key' },
+    })
+    fireEvent.change(screen.getByLabelText('Expires at'), {
+      target: { value: '2030-01-02T03:04' },
+    })
+
+    const form = document.querySelector('form')
+    if (!form) throw new Error('KeySheetForm did not render its <form>')
+    fireEvent.submit(form)
+
+    await waitFor(() => {
+      expect(mockCreateKey).toHaveBeenCalledTimes(1)
+    })
+    expect(mockCreateKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expiresAt: new Date('2030-01-02T03:04').toISOString(),
+      })
+    )
+    // Seconds + explicit offset = parseable by both Go parsers.
+    const sent = (mockCreateKey.mock.calls[0][0] as { expiresAt: string })
+      .expiresAt
+    expect(sent).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+  })
+
   it('persists exact, glob, and regex rules selected from inventory or entered manually', async () => {
     renderKeySheetForm({
       editingKey: null,
