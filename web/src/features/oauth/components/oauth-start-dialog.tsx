@@ -57,6 +57,7 @@ import {
 } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
+import { copyText } from '@/lib/clipboard'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -225,14 +226,13 @@ export function OAuthStartDialog({
   }
 
   async function handleCopy(field: string, text: string) {
-    try {
-      await navigator.clipboard.writeText(text)
+    if (await copyText(text)) {
       setCopiedField(field)
       setTimeout(
         () => setCopiedField((current) => (current === field ? null : current)),
         1500
       )
-    } catch {
+    } else {
       // Clipboard may be unavailable (non-secure context / permissions).
       toast.error(t('common.copyFailed'))
     }

@@ -14,6 +14,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { copyText } from '@/lib/clipboard'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -45,11 +46,10 @@ export function SecretField({
   const handleCopy = async () => {
     const text = hasRevealable ? full : mask
     if (!text || text === fallback) return
-    try {
-      await navigator.clipboard.writeText(text)
+    if (await copyText(text)) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch {
+    } else {
       // Clipboard may be unavailable (non-secure context / permissions).
       toast.error(t('common.copyFailed'))
     }
