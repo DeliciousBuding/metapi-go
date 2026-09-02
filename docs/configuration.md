@@ -96,7 +96,7 @@ default when `WEBHOOK_URL` is non-empty). Alert cooldown:
 | `PROXY_GLOBAL_TOKEN_RPM` | `0` | Global cap across all IPs for `PROXY_TOKEN`; safety net if a token leaks. |
 | `PROXY_MAX_CHANNEL_ATTEMPTS` | `3` | Max retry/failover channel attempts per request. |
 | `PROXY_MAX_BUFFERED_RESPONSE_BYTES` | `20971520` | Non-streaming upstream response buffer cap (20 MiB); over → 502. |
-| `PROXY_MAX_STREAM_RESPONSE_BYTES` | `1048576` | Bytes relayed per SSE stream before controlled termination. |
+| `PROXY_MAX_STREAM_RESPONSE_BYTES` | `67108864` | Bytes relayed per SSE stream before controlled termination. |
 | `PROXY_FIRST_BYTE_TIMEOUT_SEC` | unset | First upstream response byte timeout. |
 | `PROXY_EMPTY_CONTENT_FAIL` | empty | Treat empty upstream content as failure. |
 | `PROXY_ERROR_KEYWORDS` | empty | Extra keywords marking upstream responses as errors. |

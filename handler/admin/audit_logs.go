@@ -152,8 +152,10 @@ func (h *auditLogsHandler) list(w http.ResponseWriter, r *http.Request) {
 		args = append(args, method)
 	}
 	if pathFilter != "" {
-		where = append(where, "path LIKE ?")
-		args = append(args, "%"+pathFilter+"%")
+		// LOWER() on both sides: SQLite LIKE is ASCII case-insensitive but
+		// Postgres LIKE is not — keep the filter parity across dialects.
+		where = append(where, "LOWER(path) LIKE ?")
+		args = append(args, "%"+strings.ToLower(pathFilter)+"%")
 	}
 
 	var total int

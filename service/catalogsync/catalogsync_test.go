@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -265,4 +267,44 @@ func TestManager_SyncAllAndSingleSourceMerge(t *testing.T) {
 	if status2.AutoSync {
 		t.Error("autoSync toggle not restored after rebuild")
 	}
+}
+
+// TestStore_CreateSource_PostgresInsertID pins the PG branch of CreateSource:
+// pgx's stdlib driver does not implement LastInsertId, so the id must come
+// from a RETURNING clause. Without PG_TEST_DSN this skips (CI integration job
+// supplies the DSN).
+func TestStore_CreateSource_PostgresInsertID(t *testing.T) {
+	dsn := strings.TrimSpace(os.Getenv("PG_TEST_DSN"))
+	if dsn == "" {
+		t.Skip("PG_TEST_DSN not set; skipping PostgreSQL integration test")
+	}
+	db, err := store.Open(store.DialectPostgres, dsn, false)
+	if err != nil {
+		t.Fatalf("open pg: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := store.AutoMigrate(db); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	s := NewStore(db.DB)
+	ctx := context.Background()
+	enabled := true
+	src, err := s.CreateSource(ctx, SourceInput{
+		Name:    "pg-returning-id-test",
+		URL:     "https://example.com/models.json",
+		Enabled: &enabled,
+		Type:    SourceTypeCustom,
+	})
+	if err != nil {
+		t.Fatalf("CreateSource on PG: %v", err)
+	}
+	if src.ID <= 0 {
+		t.Fatalf("CreateSource returned id = %d, want > 0", src.ID)
+	}
+	t.Cleanup(func() {
+		if _, err := db.Exec(db.Rebind("DELETE FROM catalog_sources WHERE id = ?"), src.ID); err != nil {
+			t.Logf("cleanup source %d: %v", src.ID, err)
+		}
+	})
 }
