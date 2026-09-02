@@ -118,7 +118,7 @@ default when `WEBHOOK_URL` is non-empty). Alert cooldown:
 | `PROXY_LOG_FLUSH_INTERVAL_MS` | `1000` | Flush period (1–60000 ms). |
 | `PROXY_LOG_RETENTION_DAYS` | `30` | Proxy log retention; `PROXY_LOG_RETENTION_PRUNE_INTERVAL_MINUTES` (30). |
 | `PROXY_FILE_RETENTION_DAYS` | `30` | Uploaded file retention; prune interval 60 min. |
-| `PROXY_VIDEO_TASK_RETENTION_DAYS` | `0` | Video task retention (0 = keep forever). |
+| `PROXY_VIDEO_TASK_RETENTION_DAYS` | `7` | Video task mapping retention: prunes `proxy_video_tasks` rows and bounds the in-process rewrite cache TTL; `0` = keep forever (explicit opt-out); prune interval 60 min. |
 
 ## Routing
 
