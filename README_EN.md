@@ -255,7 +255,9 @@ database); the Docker image ships `metapi healthcheck`, which probes `/ready`.
 | [docs/api.md](docs/api.md)                                   | HTTP API endpoint inventory                          |
 | [docs/migration.md](docs/migration.md)                       | TS → Go migration (SQLite / PG / MySQL)              |
 | [docs/faq.md](docs/faq.md)                                   | Frequently asked questions                           |
-| [docs/architecture.md](docs/architecture.md)                 | Package map & request paths (developers)             |
+| [docs/api/routes-inventory.md](docs/api/routes-inventory.md) | Full registered `/api` route list (kept in sync with the code by `docs/api_inventory_parity_test.go`) |
+| [docs/configuration.md](docs/configuration.md)               | Real default and clamp for every environment variable (kept in sync with `.env.example` and `config/config.go` by `docs/env_parity_test.go`) |
+| [docs/architecture.md](docs/architecture.md)                 | Layering, ownership boundaries, and the stages a `/v1` request passes through (read before moving code or deciding who owns a bug) |
 | [CHANGELOG.md](CHANGELOG.md)                                 | Release notes                                        |
 
 ## Migrating from the TypeScript version
