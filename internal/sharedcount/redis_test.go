@@ -28,18 +28,31 @@ type fakeRedis struct {
 	authPass string
 	ln       net.Listener
 	wg       sync.WaitGroup
+
+	// conns tracks live connections: a pooling client parks idle connections, so
+	// the handler goroutines must be unblocked explicitly on shutdown.
+	connsMu sync.Mutex
+	conns   map[net.Conn]struct{}
+	peak    int
+
+	// auths/selects count handshake commands (asserted once per connection).
+	auths   atomic.Int64
+	selects atomic.Int64
+
+	// delayMs is an artificial per-command latency (0 = none).
+	delayMs atomic.Int64
 }
 
-func newFakeRedis(t *testing.T) *fakeRedis {
-	t.Helper()
-	return newFakeRedisWithAuth(t, "")
+func newFakeRedis(tb testing.TB) *fakeRedis {
+	tb.Helper()
+	return newFakeRedisWithAuth(tb, "")
 }
 
-func newFakeRedisWithAuth(t *testing.T, password string) *fakeRedis {
-	t.Helper()
+func newFakeRedisWithAuth(tb testing.TB, password string) *fakeRedis {
+	tb.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		t.Fatalf("fake redis listen: %v", err)
+		tb.Fatalf("fake redis listen: %v", err)
 	}
 	f := &fakeRedis{
 		data:     make(map[string]int64),
@@ -56,7 +69,53 @@ func (f *fakeRedis) addr() string { return f.ln.Addr().String() }
 
 func (f *fakeRedis) close() {
 	_ = f.ln.Close()
+	f.closeConns()
 	f.wg.Wait()
+}
+
+// setDelay makes every command sleep d before it is handled.
+func (f *fakeRedis) setDelay(d time.Duration) {
+	f.delayMs.Store(d.Milliseconds())
+}
+
+// closeConns closes every live connection but keeps the listener accepting, i.e.
+// it simulates a server (or an idle-timeout/firewall) dropping connections that
+// a pooling client still believes are usable.
+func (f *fakeRedis) closeConns() {
+	f.connsMu.Lock()
+	conns := make([]net.Conn, 0, len(f.conns))
+	for c := range f.conns {
+		conns = append(conns, c)
+	}
+	f.connsMu.Unlock()
+	for _, c := range conns {
+		_ = c.Close()
+	}
+}
+
+// peakConns returns the highest number of simultaneously live connections.
+func (f *fakeRedis) peakConns() int {
+	f.connsMu.Lock()
+	defer f.connsMu.Unlock()
+	return f.peak
+}
+
+func (f *fakeRedis) track(c net.Conn) {
+	f.connsMu.Lock()
+	defer f.connsMu.Unlock()
+	if f.conns == nil {
+		f.conns = make(map[net.Conn]struct{})
+	}
+	f.conns[c] = struct{}{}
+	if len(f.conns) > f.peak {
+		f.peak = len(f.conns)
+	}
+}
+
+func (f *fakeRedis) untrack(c net.Conn) {
+	f.connsMu.Lock()
+	defer f.connsMu.Unlock()
+	delete(f.conns, c)
 }
 
 func (f *fakeRedis) serve() {
@@ -64,11 +123,15 @@ func (f *fakeRedis) serve() {
 	for {
 		conn, err := f.ln.Accept()
 		if err != nil {
+			// Listener gone: unblock handlers parked on idle pooled connections.
+			f.closeConns()
 			return
 		}
+		f.track(conn)
 		f.wg.Add(1)
 		go func(c net.Conn) {
 			defer f.wg.Done()
+			defer f.untrack(c)
 			f.handle(c)
 		}(conn)
 	}
@@ -94,9 +157,13 @@ func (f *fakeRedis) handle(conn net.Conn) {
 		if len(parts) == 0 {
 			continue
 		}
+		if d := f.delayMs.Load(); d > 0 {
+			time.Sleep(time.Duration(d) * time.Millisecond)
+		}
 		cmd := strings.ToUpper(parts[0])
 		switch cmd {
 		case "AUTH":
+			f.auths.Add(1)
 			if f.authPass != "" && (len(parts) < 2 || parts[1] != f.authPass) {
 				writeError(conn, "ERR invalid password")
 				return
@@ -104,6 +171,7 @@ func (f *fakeRedis) handle(conn net.Conn) {
 			authed = true
 			writeOK(conn)
 		case "SELECT":
+			f.selects.Add(1)
 			writeOK(conn)
 		case "PING":
 			writeOK(conn)
