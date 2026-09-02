@@ -65,6 +65,7 @@ Supported upstreams:
 | **Admin UI**               | Sites / accounts / routes / models / logs / alerts in one SPA, pre-built and embedded into the binary — no separate frontend service needed  |
 | **Operations automation**  | Scheduled check-ins, scheduled balance refresh, nine alert channels, batch model verification, audit log, realtime QPS panel                 |
 | **Lightweight deployment** | A single binary is enough; SQLite by default, PostgreSQL optional; idempotent schema upgrades run automatically at startup                    |
+| **Desktop shell** | Thin Electron shell (tray + native notifications, see `electron/README.md`); built manually, not part of release artifacts |
 | **Drop-in TS takeover**    | Same database schema, same environment variable names, same API contract — stop the old server and start this one with the same variables     |
 
 ## Screenshots
