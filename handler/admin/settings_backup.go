@@ -62,17 +62,10 @@ type webdavBackupConfig struct {
 	AutoSyncCron    string `json:"autoSyncCron"`
 }
 
+// allTables is the backup export/import table list (service/backup.AllTables).
+// It is NOT the factory-reset set: that one is derived from the store schema
+// registry so a new table is covered without editing a second list here.
 var allTables = backupsvc.AllTables
-
-// reverseAllTables is allTables reversed, for DELETE in FK-safe order.
-var reverseAllTables []string
-
-func init() {
-	reverseAllTables = make([]string, len(allTables))
-	for i, t := range allTables {
-		reverseAllTables[len(allTables)-1-i] = t
-	}
-}
 
 // GET /api/settings/backup/export?type=
 func (h *backupHandler) exportBackup(w http.ResponseWriter, r *http.Request) {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -170,58 +171,18 @@ func (h *maintenanceHandler) factoryReset(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	tx, err := h.db.Beginx()
+	// One transaction over the schema registry's table set. This endpoint used
+	// to walk a hand-copied 28-name list that had drifted from the schema, so a
+	// "factory reset" silently left 9 tables standing — admin_sessions among
+	// them, which meant every cookie issued before the reset stayed valid
+	// against an otherwise empty database (session validation reads the table
+	// per request, so emptying it is what actually revokes them). Wiping
+	// admin_audit_logs, model_probe_results and the rest is the intended
+	// semantics of restoring a clean install; store.FactoryReset owns the
+	// FK-safe order, the sequence restart and the per-table counts.
+	deleted, err := store.FactoryReset(h.db)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start transaction: %v", err))
-		return
-	}
-	defer tx.Rollback()
-
-	deleted := map[string]int64{}
-
-	// Delete all 27 tables in reverse FK order (children before parents).
-	for _, table := range reverseAllTables {
-		// Count before deletion
-		var count int64
-		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", table)
-		if err := tx.Get(&count, countQuery); err != nil {
-			writeError(w, http.StatusInternalServerError, fmt.Sprintf("factory reset failed: unable to read table %s: %v", table, err))
-			return
-		}
-
-		deleteQuery := fmt.Sprintf("DELETE FROM %s", table)
-		if _, err := tx.Exec(deleteQuery); err != nil {
-			writeError(w, http.StatusInternalServerError, fmt.Sprintf("factory reset failed: unable to truncate table %s: %v", table, err))
-			return
-		}
-
-		deleted[table] = count
-	}
-
-	// Reset auto-increment sequences.
-	// SQLite: DELETE FROM sqlite_sequence removes all autoincrement tracking.
-	// PostgreSQL: ALTER SEQUENCE... RESTART for each table with a serial column.
-	// Try SQLite first (silently fails on non-SQLite); then try PG.
-	driverName := h.db.DriverName()
-	switch driverName {
-	case "sqlite", "sqlite3":
-		if _, err := tx.Exec("DELETE FROM sqlite_sequence"); err != nil {
-			writeError(w, http.StatusInternalServerError, fmt.Sprintf("factory reset failed: unable to reset autoincrement sequences: %v", err))
-			return
-		}
-	case "pgx", "postgres":
-		for _, table := range allTables {
-			seqName := table + "_id_seq"
-			if _, err := tx.Exec(fmt.Sprintf("ALTER SEQUENCE IF EXISTS %s RESTART WITH 1", seqName)); err != nil {
-				writeError(w, http.StatusInternalServerError, fmt.Sprintf("factory reset failed: unable to reset sequence %s: %v", seqName, err))
-				return
-			}
-		}
-	}
-	// For other drivers, skip sequence reset (no-op).
-
-	if err := tx.Commit(); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to commit transaction: %v", err))
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("factory reset failed: %v", err))
 		return
 	}
 

@@ -151,3 +151,84 @@ func TestMaintenanceClearCache_NoFakeStubJobID(t *testing.T) {
 		t.Fatalf("unexpected failure: %s", raw)
 	}
 }
+
+// TestMaintenanceFactoryResetWipesTheRegistryNotAHandCopiedList seeds rows into
+// tables the endpoint's previous 28-name list did not contain — admin_sessions
+// above all, because a reset that left it standing kept every pre-reset admin
+// cookie valid against an otherwise empty database — and asserts the endpoint
+// empties them and reports the registry's whole table set. The coverage
+// assertion is derived from store.FactoryResetTableNames(), so a table added to
+// the schema later is automatically required here instead of silently escaping
+// the reset the way those 9 did.
+func TestMaintenanceFactoryResetWipesTheRegistryNotAHandCopiedList(t *testing.T) {
+	db, r, _ := setupMaintenanceTest(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	if _, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		VALUES ('Reset Site', 'https://reset.example.com', 'openai', 'active', ?, ?)`, now, now); err != nil {
+		t.Fatalf("seed sites: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
+		VALUES (1, 'reset-user', 'sk-reset-fixture', 'active', FALSE, ?, ?)`, now, now); err != nil {
+		t.Fatalf("seed accounts: %v", err)
+	}
+	// Two of the nine tables the hand-copied list missed: the security-bearing
+	// one and the highest-volume one.
+	if _, err := db.Exec(`INSERT INTO admin_sessions (token_hash, created_at, last_seen_at, expires_at, client_ip, user_agent)
+		VALUES ('hash-issued-before-reset', ?, ?, ?, '203.0.113.9', 'test-agent')`, now, now, now); err != nil {
+		t.Fatalf("seed admin_sessions: %v", err)
+	}
+	if _, err := db.Exec(db.Rebind(`INSERT INTO model_probe_results (account_id, site_id, model_name, status, created_at)
+		VALUES (1, 1, 'gpt-4o', 'success', ?)`), now); err != nil {
+		t.Fatalf("seed model_probe_results: %v", err)
+	}
+
+	resp := doPostJSON(t, r, "/api/settings/maintenance/factory-reset", map[string]any{"confirm": true})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body["success"] != true {
+		t.Fatalf("success=%v, want true", body["success"])
+	}
+	deleted, ok := body["deleted"].(map[string]any)
+	if !ok {
+		t.Fatalf("deleted map missing: %s", resp.Body.String())
+	}
+	registry := store.FactoryResetTableNames()
+	if len(deleted) != len(registry) {
+		t.Fatalf("deleted reports %d tables, want the registry's %d", len(deleted), len(registry))
+	}
+	for _, table := range registry {
+		if _, reported := deleted[table]; !reported {
+			t.Fatalf("table %q missing from the deleted report", table)
+		}
+	}
+
+	for _, table := range []string{"sites", "accounts", "admin_sessions", "model_probe_results"} {
+		var rows int64
+		if err := db.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&rows); err != nil {
+			t.Fatalf("count %s: %v", table, err)
+		}
+		if rows != 0 {
+			t.Fatalf("%s holds %d row(s) after factory reset", table, rows)
+		}
+	}
+}
+
+// TestMaintenanceFactoryResetRequiresConfirmation keeps the guard that stops an
+// empty or unconfirmed request from wiping the database.
+func TestMaintenanceFactoryResetRequiresConfirmation(t *testing.T) {
+	_, r, _ := setupMaintenanceTest(t)
+
+	resp := doPostJSON(t, r, "/api/settings/maintenance/factory-reset", map[string]any{})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("unconfirmed reset status=%d, want 400", resp.Code)
+	}
+	if !strings.Contains(resp.Body.String(), "confirm") {
+		t.Fatalf("unconfirmed reset body should name the confirm flag: %s", resp.Body.String())
+	}
+}
