@@ -15,7 +15,7 @@
 | # | 内容 | 建议验收 |
 |---|---|---|
 | C4 | ~~#1035 结构性专题 S1–S10~~ **全部交付，issue 已关闭**（S7 收官 #1097：undo 档 helper + 五处叶子删除接入 + DESIGN.md §4.1 四档规约） | — |
-| F5 | **events 表 key+params 结构化**（P3，后端架构改动）：事件当前存成品英文 title+message，message 内嵌参数无法重建；方案 = 产生时存 titleKey+params(JSON)、渲染时前端按 viewer locale 翻译（title 列保留为历史 fallback，零迁移）。调研报告已产出（17 写入点清单 + 方案对比 + 3-4 天评估），见 log.md 2026-08-30 条 | 新事件双语端到端 + 历史行原文 fallback |
+| F5 | **events 表 key+params 结构化**（P3）：**批次 1 checkin 族已交付**（#1128，v0.16.20：`service/events` 注册表 + `sc2_028` + 前端结构化渲染 + Go/FE 双侧键集门禁，真实测试床双语视觉 e2e 13/13）；**批次 2 open**：alert 族（token expired / low balance / all proxies failed 等）迁 `WriteEvent` | 批次 1 已满足；批次 2 同批次 1 验收（双侧键集门禁 + 双语视觉 e2e + 历史行原文 fallback） |
 
 F3（后端告警文案 i18n）已交付（#1091，2026-08-30）：新增共享模块 `web/src/lib/attention-label.ts`（AttentionItem/AttentionResponse 类型 + 8 事件标题键映射 + attentionLabel），attention-bell 与 availability-section 共用、删两份本地副本；en/zh-CN 补 7 事件标题键；params 缺失/未知类别回退裸 label（诚实残留）。双语端到端截图验证通过（铃铛弹层 + availability 面板 zh-CN/en）。F2（site-form 抽屉迁移）已交付（#1082）：居中 Dialog → 右侧 Sheet。F4（docs/api.md 超预算拆分）已交付（2026-08-30）：`docs/api.md` 保留为索引，按域拆为 `docs/api/*.md` 17 个文件，全部原有 H2/H3 标题以 stub 承接、旧 anchor 落位。
 
