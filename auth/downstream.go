@@ -127,9 +127,11 @@ func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) Downstre
 
 		// Check max cost
 		if managed.MaxCost != nil && managed.UsedCost >= *managed.MaxCost {
+			// 429 insufficient_quota (OpenAI convention for exhausted
+			// per-key budget), not 403.
 			return DownstreamTokenAuthResult{
 				OK:         false,
-				StatusCode: 403,
+				StatusCode: 429,
 				Error:      "API key has exceeded max cost",
 				Reason:     "over_cost",
 			}
@@ -137,9 +139,11 @@ func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) Downstre
 
 		// Check max requests
 		if managed.MaxRequests != nil && managed.UsedRequests >= *managed.MaxRequests {
+			// 429 insufficient_quota (OpenAI convention for exhausted
+			// per-key budget), not 403.
 			return DownstreamTokenAuthResult{
 				OK:         false,
-				StatusCode: 403,
+				StatusCode: 429,
 				Error:      "API key has exceeded max requests",
 				Reason:     "over_requests",
 			}
@@ -169,9 +173,11 @@ func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) Downstre
 	}
 
 	// ---- No match ----
+	// 401 (not 403): OpenAI/SDK convention treats an unknown key as an
+	// authentication failure; 403 signals a non-retryable permission problem.
 	return DownstreamTokenAuthResult{
 		OK:         false,
-		StatusCode: 403,
+		StatusCode: 401,
 		Error:      "Invalid API key",
 		Reason:     "invalid",
 	}
@@ -265,11 +271,14 @@ func ConsumeManagedKeyRequest(keyID int64) bool {
 
 // SQL:
 
-//	UPDATE downstream_api_keys
-//	SET used_requests = COALESCE(used_requests, 0) + 1,
-//	 last_used_at = ?, updated_at = ?
-//	WHERE id = ?
-//	 AND (max_requests IS NULL OR COALESCE(used_requests, 0) < max_requests)
+// UPDATE downstream_api_keys
+// SET used_requests = COALESCE(used_requests, 0) + 1,
+//
+//	last_used_at = ?, updated_at = ?
+//
+// WHERE id = ?
+//
+//	AND (max_requests IS NULL OR COALESCE(used_requests, 0) < max_requests)
 func consumeManagedKeyRequest(keyID int64) bool {
 	db := store.GetDB()
 	if db == nil {

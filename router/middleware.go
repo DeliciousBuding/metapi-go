@@ -237,11 +237,18 @@ func isFileUploadPath(path string) bool {
 
 // writeBodyLimitError emits a 413 Request Entity Too Large response with a
 // JSON error body, so clients receive a clean rejection instead of a silently
-// truncated body.
-func writeBodyLimitError(w http.ResponseWriter) {
+// truncated body. The body limit is mounted globally, so the shape follows
+// the surface: /api and /auth keep the flat {"error": "..."} admin contract,
+// everything else (the /v1 proxy surface and its aliases) gets the
+// OpenAI-shaped envelope the proxy auth middleware and handlers emit.
+func writeBodyLimitError(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusRequestEntityTooLarge)
-	_, _ = w.Write([]byte(`{"error":"Request body too large"}`))
+	if strings.HasPrefix(r.URL.Path, "/api") || strings.HasPrefix(r.URL.Path, "/auth") {
+		_, _ = w.Write([]byte(`{"error":"Request body too large"}`))
+		return
+	}
+	_, _ = w.Write([]byte(`{"error":{"message":"Request body too large","type":"invalid_request_error"}}`))
 }
 
 // BodyLimitPathAware enforces a maximum request body size, selecting between a
@@ -262,7 +269,7 @@ func BodyLimitPathAware(defaultLimitBytes, fileUploadLimitBytes int) func(http.H
 			}
 			if limit > 0 {
 				if r.ContentLength > int64(limit) {
-					writeBodyLimitError(w)
+					writeBodyLimitError(w, r)
 					return
 				}
 				r.Body = http.MaxBytesReader(w, r.Body, int64(limit))
