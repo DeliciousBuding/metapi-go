@@ -70,11 +70,8 @@ func RefreshWithRetry[T any](ctx context.Context, fn func() (T, error)) (T, erro
 	var lastErr error
 	for attempt := 0; attempt <= MaxRefreshRetries; attempt++ {
 		if attempt > 0 {
-			backoff := retryBackoffFn(attempt - 1)
-			select {
-			case <-ctx.Done():
-				return zero, ctx.Err()
-			case <-time.After(backoff):
+			if err := sleepCtx(ctx, retryBackoffFn(attempt-1)); err != nil {
+				return zero, err
 			}
 		}
 
@@ -91,4 +88,27 @@ func RefreshWithRetry[T any](ctx context.Context, fn func() (T, error)) (T, erro
 		lastErr = fmt.Errorf("refresh failed after %d attempts", MaxRefreshRetries+1)
 	}
 	return zero, lastErr
+}
+
+// sleepCtx waits for d and returns nil, or returns ctx.Err() as soon as ctx ends
+// (an already-finished ctx returns immediately instead of racing the timer).
+// Every wait between two upstream calls in this package goes through it, so a
+// cancelled exchange or refresh stops at the wait instead of paying the full
+// interval plus the next round trip. The duration semantics are unchanged: only
+// the wait became interruptible.
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if d <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

@@ -22,7 +22,6 @@ const (
 	geminiCliLoopbackPort              = 8085
 	geminiCliLoopbackPath              = "/oauth2callback"
 	geminiCliLoopbackRedirectURI       = "http://localhost:8085/oauth2callback"
-	geminiCliUpstreamBaseURL           = "https://cloudcode-pa.googleapis.com"
 	geminiCliGoogleAPIClient           = "google-genai-sdk/1.41.0 gl-node/v22.19.0"
 	geminiCliUserAgent                 = "GeminiCLI/0.31.0/unknown (win32; x64)"
 	geminiCliRequiredService           = "cloudaicompanion.googleapis.com"
@@ -32,6 +31,11 @@ const (
 	geminiCliOnboardPollIntervalMs     = 5000
 	geminiCliOnboardMaxAttempts        = 6
 )
+
+// geminiCliUpstreamBaseURL is a package var (not a const) so tests can point the
+// cloudcode internal API at a local httptest server, mirroring the
+// antigravityUpstreamBaseURL / grok endpoint seams.
+var geminiCliUpstreamBaseURL = "https://cloudcode-pa.googleapis.com"
 
 var geminiCliScopes = []string{
 	"https://www.googleapis.com/auth/cloud-platform",
@@ -198,7 +202,7 @@ func exchangeGeminiCliAuthorizationCode(ctx context.Context, input ExchangeCodeI
 		return nil, err
 	}
 
-	resolvedProjectID, err := ensureGeminiProjectAndOnboard(token.AccessToken, input.ProjectID, input.ProxyURL)
+	resolvedProjectID, err := ensureGeminiProjectAndOnboard(ctx, token.AccessToken, input.ProjectID, input.ProxyURL)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +248,7 @@ func refreshGeminiCliAccessToken(ctx context.Context, input RefreshTokenInput) (
 		nextProjectID = input.OAuth.ProjectID
 	} else {
 		var err error
-		nextProjectID, err = ensureGeminiProjectAndOnboard(token.AccessToken, "", input.ProxyURL)
+		nextProjectID, err = ensureGeminiProjectAndOnboard(ctx, token.AccessToken, "", input.ProxyURL)
 		if err != nil {
 			return nil, err
 		}
@@ -344,9 +348,9 @@ func isSameGeminiProjectID(a, b string) bool {
 	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
 }
 
-func callGeminiCliInternalAPI(accessToken, method string, body map[string]interface{}, proxyURL *string) (map[string]interface{}, error) {
+func callGeminiCliInternalAPI(ctx context.Context, accessToken, method string, body map[string]interface{}, proxyURL *string) (map[string]interface{}, error) {
 	bodyBytes, _ := json.Marshal(body)
-	req, err := http.NewRequest("POST",
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		fmt.Sprintf("%s/%s:%s", geminiCliUpstreamBaseURL, geminiCliInternalAPIVersion, method),
 		bytes.NewReader(bodyBytes))
 	if err != nil {
@@ -513,7 +517,7 @@ func checkCloudAIAPIEnabled(accessToken, projectID string, proxyURL *string) err
 	return fmt.Errorf("project activation required: HTTP %d", enableResp.StatusCode)
 }
 
-func performGeminiCliSetup(accessToken, requestedProjectID string, proxyURL *string) (string, error) {
+func performGeminiCliSetup(ctx context.Context, accessToken, requestedProjectID string, proxyURL *string) (string, error) {
 	trimmedRequest := strings.TrimSpace(requestedProjectID)
 	explicitProject := trimmedRequest != ""
 	metadata := buildGeminiCliMetadata()
@@ -523,7 +527,7 @@ func performGeminiCliSetup(accessToken, requestedProjectID string, proxyURL *str
 		loadBody["cloudaicompanionProject"] = trimmedRequest
 	}
 
-	loadResp, err := callGeminiCliInternalAPI(accessToken, "loadCodeAssist", loadBody, proxyURL)
+	loadResp, err := callGeminiCliInternalAPI(ctx, accessToken, "loadCodeAssist", loadBody, proxyURL)
 	if err != nil {
 		return "", err
 	}
@@ -544,7 +548,7 @@ func performGeminiCliSetup(accessToken, requestedProjectID string, proxyURL *str
 
 	if projectID == "" {
 		for attempt := 0; attempt < geminiCliAutoOnboardMaxAttempts; attempt++ {
-			onboardResp, err := callGeminiCliInternalAPI(accessToken, "onboardUser", map[string]interface{}{
+			onboardResp, err := callGeminiCliInternalAPI(ctx, accessToken, "onboardUser", map[string]interface{}{
 				"tierId":   tierID,
 				"metadata": metadata,
 			}, proxyURL)
@@ -558,7 +562,9 @@ func performGeminiCliSetup(accessToken, requestedProjectID string, proxyURL *str
 				break
 			}
 			if attempt+1 < geminiCliAutoOnboardMaxAttempts {
-				time.Sleep(time.Duration(geminiCliAutoOnboardPollIntervalMs) * time.Millisecond)
+				if err := sleepCtx(ctx, time.Duration(geminiCliAutoOnboardPollIntervalMs)*time.Millisecond); err != nil {
+					return "", err
+				}
 			}
 		}
 	}
@@ -569,7 +575,7 @@ func performGeminiCliSetup(accessToken, requestedProjectID string, proxyURL *str
 
 	finalProjectID := projectID
 	for attempt := 0; attempt < geminiCliOnboardMaxAttempts; attempt++ {
-		onboardResp, err := callGeminiCliInternalAPI(accessToken, "onboardUser", map[string]interface{}{
+		onboardResp, err := callGeminiCliInternalAPI(ctx, accessToken, "onboardUser", map[string]interface{}{
 			"tierId":                  tierID,
 			"metadata":                metadata,
 			"cloudaicompanionProject": projectID,
@@ -599,7 +605,9 @@ func performGeminiCliSetup(accessToken, requestedProjectID string, proxyURL *str
 			return finalProjectID, nil
 		}
 		if attempt+1 < geminiCliOnboardMaxAttempts {
-			time.Sleep(time.Duration(geminiCliOnboardPollIntervalMs) * time.Millisecond)
+			if err := sleepCtx(ctx, time.Duration(geminiCliOnboardPollIntervalMs)*time.Millisecond); err != nil {
+				return "", err
+			}
 		}
 	}
 
@@ -609,10 +617,10 @@ func performGeminiCliSetup(accessToken, requestedProjectID string, proxyURL *str
 	return "", fmt.Errorf("gemini cli: onboarding timed out")
 }
 
-func ensureGeminiProjectAndOnboard(accessToken, requestedProjectID string, proxyURL *string) (string, error) {
+func ensureGeminiProjectAndOnboard(ctx context.Context, accessToken, requestedProjectID string, proxyURL *string) (string, error) {
 	explicitProject := strings.TrimSpace(requestedProjectID)
 	if explicitProject != "" {
-		return performGeminiCliSetup(accessToken, explicitProject, proxyURL)
+		return performGeminiCliSetup(ctx, accessToken, explicitProject, proxyURL)
 	}
 
 	projects, err := fetchGcpProjects(accessToken, proxyURL)
@@ -622,7 +630,7 @@ func ensureGeminiProjectAndOnboard(accessToken, requestedProjectID string, proxy
 	if len(projects) == 0 {
 		return "", fmt.Errorf("no Google Cloud projects available for this account")
 	}
-	return performGeminiCliSetup(accessToken, projects[0], proxyURL)
+	return performGeminiCliSetup(ctx, accessToken, projects[0], proxyURL)
 }
 
 func parseInt64Safe(s string) (int64, error) {
