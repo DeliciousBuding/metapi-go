@@ -37,9 +37,8 @@ func ProxyAuth() func(http.Handler) http.Handler {
 			token := extractProxyToken(r)
 
 			if token == "" {
-				writeJSON(w, http.StatusUnauthorized, jsonError(
-					"Missing Authorization, x-api-key, x-goog-api-key, or key query parameter",
-				))
+				writeProxyError(w, http.StatusUnauthorized, "authentication_error", "missing_api_key",
+					"Missing Authorization, x-api-key, x-goog-api-key, or key query parameter")
 				return
 			}
 
@@ -47,7 +46,8 @@ func ProxyAuth() func(http.Handler) http.Handler {
 			result := AuthorizeDownstreamToken(token, config.Runtime())
 
 			if !result.OK {
-				writeJSON(w, result.StatusCode, jsonError(result.Error))
+				errType, code := proxyAuthErrorClass(result.Reason)
+				writeProxyError(w, result.StatusCode, errType, code, result.Error)
 				return
 			}
 
@@ -60,7 +60,7 @@ func ProxyAuth() func(http.Handler) http.Handler {
 					if denyReason == "ip_blocked" {
 						msg = "IP address is blocked for this API key"
 					}
-					writeJSON(w, http.StatusForbidden, jsonError(msg))
+					writeProxyError(w, http.StatusForbidden, "permission_error", denyReason, msg)
 					return
 				}
 			}
@@ -93,12 +93,16 @@ func ProxyAuth() func(http.Handler) http.Handler {
 						sec = 1
 					}
 					w.Header().Set("Retry-After", strconv.Itoa(sec))
-					writeJSON(w, http.StatusTooManyRequests, jsonError(msg))
+					errType, code := proxyAuthErrorClass(adm.Reason)
+					writeProxyError(w, http.StatusTooManyRequests, errType, code, msg)
 					return
 				}
 				// Atomic max_requests gate - only after admission allows.
 				if !consumeManagedKeyRequest(result.Key.ID) {
-					writeJSON(w, http.StatusForbidden, jsonError("API key has exceeded max requests"))
+					// 429 insufficient_quota, matching AuthorizeDownstreamToken's
+					// over_requests verdict for the same exhausted budget.
+					writeProxyError(w, http.StatusTooManyRequests, "insufficient_quota", "insufficient_quota",
+						"API key has exceeded max requests")
 					return
 				}
 			}
@@ -164,7 +168,6 @@ func extractProxyToken(r *http.Request) string {
 
 	return ""
 }
-
 
 // isWebsocketUpgradeRequest mirrors proxyhandler.IsWebsocketUpgradeRequest
 // without importing that package (auth must stay free of handler deps).

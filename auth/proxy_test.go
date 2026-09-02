@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -276,8 +277,8 @@ func TestAuthorizeDownstreamToken_UnknownToken(t *testing.T) {
 	if result.OK {
 		t.Error("expected OK=false for unknown token")
 	}
-	if result.StatusCode != 403 {
-		t.Errorf("expected 403, got %d", result.StatusCode)
+	if result.StatusCode != 401 {
+		t.Errorf("expected 401, got %d", result.StatusCode)
 	}
 	if result.Reason != "invalid" {
 		t.Errorf("expected reason=invalid, got %q", result.Reason)
@@ -402,8 +403,8 @@ func TestAuthorizeDownstreamToken_ManagedKeyOverCost(t *testing.T) {
 	if result.OK {
 		t.Error("expected OK=false for over-cost key")
 	}
-	if result.StatusCode != 403 {
-		t.Errorf("expected 403, got %d", result.StatusCode)
+	if result.StatusCode != 429 {
+		t.Errorf("expected 429, got %d", result.StatusCode)
 	}
 	if result.Reason != "over_cost" {
 		t.Errorf("expected reason=over_cost, got %q", result.Reason)
@@ -438,8 +439,8 @@ func TestAuthorizeDownstreamToken_ManagedKeyOverRequests(t *testing.T) {
 	if result.OK {
 		t.Error("expected OK=false for over-requests key")
 	}
-	if result.StatusCode != 403 {
-		t.Errorf("expected 403, got %d", result.StatusCode)
+	if result.StatusCode != 429 {
+		t.Errorf("expected 429, got %d", result.StatusCode)
 	}
 	if result.Reason != "over_requests" {
 		t.Errorf("expected reason=over_requests, got %q", result.Reason)
@@ -543,8 +544,23 @@ func TestProxyAuthMiddleware_UnknownToken(t *testing.T) {
 	w := proxyAuthMiddlewareHelper(t, cfg, map[string]string{
 		"Authorization": "Bearer unknown-token",
 	}, "")
-	if w.Code != http.StatusForbidden {
-		t.Errorf("expected 403 for unknown token, got %d", w.Code)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for unknown token (OpenAI convention), got %d", w.Code)
+	}
+	// The /v1 auth surface must answer with the OpenAI error envelope, not a
+	// bare string: SDKs and upstream-relay integrations parse error.message.
+	var body struct {
+		Error struct {
+			Message string `json:"message"`
+			Type    string `json:"type"`
+			Code    string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal error body: %v (body=%q)", err, w.Body.String())
+	}
+	if body.Error.Message == "" || body.Error.Type != "authentication_error" || body.Error.Code != "invalid_api_key" {
+		t.Errorf("error envelope = %+v, want authentication_error/invalid_api_key", body.Error)
 	}
 }
 

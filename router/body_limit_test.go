@@ -33,12 +33,13 @@ func TestBodyLimitPathAware_Returns413OnOversizedContentLength(t *testing.T) {
 	if !strings.Contains(ct, "application/json") {
 		t.Fatalf("Content-Type = %q, want application/json", ct)
 	}
-	var body map[string]string
+	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("unmarshal 413 body: %v (body=%q)", err, rec.Body.String())
 	}
-	if body["error"] == "" {
-		t.Fatalf("413 body missing error field: %s", rec.Body.String())
+	errObj, ok := body["error"].(map[string]any)
+	if !ok || errObj["message"] == nil || errObj["type"] != "invalid_request_error" {
+		t.Fatalf("413 body is not the OpenAI error envelope: %s", rec.Body.String())
 	}
 }
 
@@ -156,8 +157,8 @@ func TestV1ProxyRateLimitReturns429(t *testing.T) {
 		// very low limit for fast testing,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
-		AuthToken:         "admin-token",
-		ProxyToken:        "proxy-token",
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
@@ -192,12 +193,13 @@ func TestV1ProxyRateLimitReturns429(t *testing.T) {
 	if got := rec.Header().Get("Retry-After"); got == "" {
 		t.Fatal("Retry-After header missing on 429")
 	}
-	var body map[string]string
+	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("unmarshal 429 body: %v (body=%q)", err, rec.Body.String())
 	}
-	if body["error"] == "" {
-		t.Fatalf("429 body missing error field: %s", rec.Body.String())
+	errObj, ok := body["error"].(map[string]any)
+	if !ok || errObj["message"] == nil || errObj["type"] != "rate_limit_error" {
+		t.Fatalf("429 body is not the OpenAI error envelope: %s", rec.Body.String())
 	}
 }
 
@@ -208,8 +210,8 @@ func TestV1ProxyRateLimitDisabledWhenRPMZero(t *testing.T) {
 		// disabled,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
-		AuthToken:         "admin-token",
-		ProxyToken:        "proxy-token",
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
@@ -232,8 +234,8 @@ func TestV1ProxyRateLimitPerIPIsolation(t *testing.T) {
 		ProxyRateLimitRPM: 1,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
-		AuthToken:         "admin-token",
-		ProxyToken:        "proxy-token",
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
@@ -265,8 +267,8 @@ func TestV1BodyLimitReturns413OnOversizedRequest(t *testing.T) {
 		// 1 KB — tiny limit for testing,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
@@ -287,16 +289,16 @@ func TestV1BodyLimitReturns413OnOversizedRequest(t *testing.T) {
 
 func TestV1FileUploadRouteUsesHigherBodyLimit(t *testing.T) {
 	cfg := &config.Config{
-		RequestBodyLimit:    1 * 1024,
+		RequestBodyLimit: 1 * 1024,
 		// 1 KB general
 		FileUploadLimitBytes: 100 * 1024,
 		// 100 KB for uploads
-		ProxyRateLimitRPM:   0,
+		ProxyRateLimitRPM: 0,
 		// disable rate limiting for this test,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
-		AuthToken:           "admin-token",
-		ProxyToken:          "proxy-token",
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)

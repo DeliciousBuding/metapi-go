@@ -164,12 +164,13 @@ func TestProxyRateLimit_429HasJSONErrorBody(t *testing.T) {
 	if !strings.Contains(ct, "application/json") {
 		t.Fatalf("Content-Type = %q, want application/json", ct)
 	}
-	var body map[string]string
+	var body map[string]any
 	if err := json.Unmarshal(rec2.Body.Bytes(), &body); err != nil {
 		t.Fatalf("unmarshal 429 body: %v (body=%q)", err, rec2.Body.String())
 	}
-	if body["error"] == "" {
-		t.Fatalf("429 body missing error field: %s", rec2.Body.String())
+	errObj, ok := body["error"].(map[string]any)
+	if !ok || errObj["message"] == nil || errObj["type"] != "rate_limit_error" {
+		t.Fatalf("429 body is not the OpenAI error envelope: %s", rec2.Body.String())
 	}
 }
 
@@ -372,12 +373,13 @@ func TestProxyGlobalTokenRateLimit_429HasJSONBody(t *testing.T) {
 	if rec2.Code != http.StatusTooManyRequests {
 		t.Fatalf("status = %d, want %d", rec2.Code, http.StatusTooManyRequests)
 	}
-	var body map[string]string
+	var body map[string]any
 	if err := json.Unmarshal(rec2.Body.Bytes(), &body); err != nil {
 		t.Fatalf("unmarshal body: %v (body=%q)", err, rec2.Body.String())
 	}
-	if body["error"] == "" {
-		t.Fatalf("429 body missing error field: %s", rec2.Body.String())
+	errObj, ok := body["error"].(map[string]any)
+	if !ok || errObj["message"] == nil || errObj["type"] != "rate_limit_error" {
+		t.Fatalf("429 body is not the OpenAI error envelope: %s", rec2.Body.String())
 	}
 }
 

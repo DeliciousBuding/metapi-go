@@ -431,8 +431,8 @@ func TestSiteCreateToProxyFlow_UnauthorizedAccess(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer wrong-proxy-token")
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, req)
-		if rec.Code != 403 {
-			t.Errorf("expected 403 with wrong proxy token, got %d: %s", rec.Code, rec.Body.String())
+		if rec.Code != 401 {
+			t.Errorf("expected 401 with wrong proxy token, got %d: %s", rec.Code, rec.Body.String())
 		}
 	})
 
@@ -441,8 +441,8 @@ func TestSiteCreateToProxyFlow_UnauthorizedAccess(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer "+adminToken)
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, req)
-		if rec.Code != 403 {
-			t.Errorf("expected 403 with admin token on proxy endpoint, got %d: %s", rec.Code, rec.Body.String())
+		if rec.Code != 401 {
+			t.Errorf("expected 401 with admin token on proxy endpoint, got %d: %s", rec.Code, rec.Body.String())
 		}
 	})
 }

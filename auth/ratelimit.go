@@ -272,7 +272,8 @@ func ProxyRateLimit(rpm int) func(http.Handler) http.Handler {
 					sec = 1
 				}
 				w.Header().Set("Retry-After", strconv.Itoa(sec))
-				writeJSON(w, http.StatusTooManyRequests, jsonError("Too many requests"))
+				writeProxyError(w, http.StatusTooManyRequests, "rate_limit_error", "rate_limit_exceeded",
+					"Too many requests")
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -362,7 +363,8 @@ func ProxyGlobalTokenRateLimit(rpm int) func(http.Handler) http.Handler {
 					sec = 1
 				}
 				w.Header().Set("Retry-After", strconv.Itoa(sec))
-				writeJSON(w, http.StatusTooManyRequests, jsonError("Global proxy token rate limit exceeded"))
+				writeProxyError(w, http.StatusTooManyRequests, "rate_limit_error", "global_token_rate_exceeded",
+					"Global proxy token rate limit exceeded")
 				return
 			}
 			next.ServeHTTP(w, r)

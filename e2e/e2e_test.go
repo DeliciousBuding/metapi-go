@@ -19,13 +19,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/proxy"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // TestMain sets up the global config + runtime singletons before any tests run.
@@ -226,9 +226,9 @@ func injectAuthManaged(token string, supportedModels []string) func(http.Handler
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			pac := &auth.ProxyAuthContext{
-				Token:  token,
-				Source: "managed",
-				KeyID:  &id,
+				Token:   token,
+				Source:  "managed",
+				KeyID:   &id,
 				KeyName: "test-managed-key",
 				Policy: auth.DownstreamRoutingPolicy{
 					SupportedModels:        supportedModels,
@@ -258,9 +258,9 @@ func makeChannel(id int64, upstreamURL string, actualModel string) *routing.Sele
 		},
 		Site: store.Site{
 			ID:       id,
-			Name:    fmt.Sprintf("site-%d", id),
-			URL:     upstreamURL,
-			Status:  "active",
+			Name:     fmt.Sprintf("site-%d", id),
+			URL:      upstreamURL,
+			Status:   "active",
 			Platform: "openai",
 		},
 		TokenValue:  "test-upstream-token",
@@ -531,9 +531,9 @@ func TestDownstreamAuth(t *testing.T) {
 	// Use real ProxyAuth middleware with the seeded DB.
 	mockUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeJSONHelper(w, 200, map[string]any{
-			"id":      "chatcmpl-auth",
-			"object":  "chat.completion",
-			"model":   "gpt-4",
+			"id":     "chatcmpl-auth",
+			"object": "chat.completion",
+			"model":  "gpt-4",
 			"choices": []map[string]any{
 				{
 					"index":   0,
@@ -595,8 +595,9 @@ func TestDownstreamAuth(t *testing.T) {
 		}
 	})
 
-	// Test 3: Unknown key should get 403.
-	t.Run("unknown key gets 403", func(t *testing.T) {
+	// Test 3: Unknown key gets 401 with the OpenAI error envelope (SDK
+	// convention: unknown key = authentication failure, not permission).
+	t.Run("unknown key gets 401", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/chat/completions",
 			strings.NewReader(`{"model":"gpt-4","messages":[{"role":"user","content":"hi"}]}`))
 		req.Header.Set("Content-Type", "application/json")
@@ -604,8 +605,12 @@ func TestDownstreamAuth(t *testing.T) {
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, req)
 
-		if rec.Code != 403 {
-			t.Errorf("expected 403 for unknown key, got %d: %s", rec.Code, rec.Body.String())
+		if rec.Code != 401 {
+			t.Errorf("expected 401 for unknown key, got %d: %s", rec.Code, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), `"type":"authentication_error"`) ||
+			!strings.Contains(rec.Body.String(), `"code":"invalid_api_key"`) {
+			t.Errorf("expected OpenAI error envelope, got %s", rec.Body.String())
 		}
 	})
 
@@ -652,9 +657,9 @@ func TestModelMatching(t *testing.T) {
 		json.Unmarshal(body, &reqBody)
 
 		writeJSONHelper(w, 200, map[string]any{
-			"id":      "chatcmpl-model",
-			"object":  "chat.completion",
-			"model":   reqBody["model"],
+			"id":     "chatcmpl-model",
+			"object": "chat.completion",
+			"model":  reqBody["model"],
 			"choices": []map[string]any{
 				{
 					"index":   0,
@@ -887,9 +892,9 @@ func TestRateLimit(t *testing.T) {
 		// Simulate processing time.
 		time.Sleep(50 * time.Millisecond)
 		writeJSONHelper(w, 200, map[string]any{
-			"id":      fmt.Sprintf("chatcmpl-%d", requestCount.Load()),
-			"object":  "chat.completion",
-			"model":   "gpt-4",
+			"id":     fmt.Sprintf("chatcmpl-%d", requestCount.Load()),
+			"object": "chat.completion",
+			"model":  "gpt-4",
 			"choices": []map[string]any{
 				{
 					"index":   0,
@@ -988,9 +993,9 @@ func TestNonStreamingWithStreamFalse(t *testing.T) {
 			t.Log("stream field present in upstream body")
 		}
 		writeJSONHelper(w, 200, map[string]any{
-			"id":      "chatcmpl-ns",
-			"object":  "chat.completion",
-			"model":   "gpt-4",
+			"id":     "chatcmpl-ns",
+			"object": "chat.completion",
+			"model":  "gpt-4",
 			"choices": []map[string]any{
 				{
 					"index":   0,

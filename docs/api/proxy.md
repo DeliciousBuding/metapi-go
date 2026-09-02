@@ -2,6 +2,41 @@
 
 > **Index**: back to [API Reference](../api.md). This file is the /v1/files & /v1/pricing domain split out of the pre-`docs/api/` `docs/api.md`.
 
+## Error shape (/v1 surface)
+
+All `/v1` surface failures — auth middleware, rate limits, body limit, and
+handler errors — use one OpenAI-compatible envelope so SDKs and upstream-relay
+integrations (e.g. new-api consuming Metapi as a channel) parse them uniformly:
+
+```json
+{
+  "error": {
+    "message": "Invalid API key",
+    "type": "authentication_error",
+    "code": "invalid_api_key",
+    "request_id": "present when the ingress middleware set one"
+  }
+}
+```
+
+Status conventions (OpenAI-aligned):
+
+| Case | Status | `type` | `code` |
+|------|--------|--------|--------|
+| Missing credential | 401 | `authentication_error` | `missing_api_key` |
+| Unknown/invalid key | 401 | `authentication_error` | `invalid_api_key` |
+| Key disabled / expired | 403 | `permission_error` | `key_disabled` / `key_expired` |
+| Key IP policy denied | 403 | `permission_error` | `ip_blocked` / `ip_not_allowed` |
+| RPM/TPM rate limit | 429 + `Retry-After` | `rate_limit_error` | `over_rpm` / `over_tpm` / `rate_limit_exceeded` / `global_token_rate_exceeded` |
+| Budget exhausted (`maxCost` / `maxRequests`) | 429 | `insufficient_quota` | `insufficient_quota` |
+| Body too large | 413 | `invalid_request_error` | — |
+
+The admin surface (`/api/*`) keeps the flat `{"error", "errorCode"}` body
+documented in [conventions.md](conventions.md); the two contracts never mix
+(the global body-limit middleware picks the shape by path prefix).
+
+---
+
 ## Proxy files (`/v1/files`)
 
 OpenAI-compatible Files surface (proxy auth required). Forwards to the selected upstream channel; does not persist customer file bytes on Metapi disk.
