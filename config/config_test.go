@@ -441,12 +441,11 @@ func TestLoadExplicitPoolOverridesProfile(t *testing.T) {
 
 func TestLoadParsesBrandingEnv(t *testing.T) {
 	_, rt := Load(map[string]string{
-		"SYSTEM_NAME":       "My Gateway",
-		"LOGO":              "https://example.com/logo.png",
-		"FOOTER":            "Powered by Metapi",
-		"ABOUT":             "About page copy",
-		"HOME_PAGE_CONTENT": "Welcome",
-		"SERVER_ADDRESS":    "https://gw.example.com",
+		"SYSTEM_NAME":    "My Gateway",
+		"LOGO":           "https://example.com/logo.png",
+		"FOOTER":         "Powered by Metapi",
+		"ABOUT":          "About page copy",
+		"SERVER_ADDRESS": "https://gw.example.com",
 	})
 	if rt.SystemName != "My Gateway" {
 		t.Fatalf("SystemName = %q", rt.SystemName)

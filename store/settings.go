@@ -252,10 +252,14 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 				rt.CheckinScheduleMode = strings.ToLower(parseJSONSettingString(value))
 			}
 		case "checkin_interval_hours":
-			hours := parseInt(value, rt.CheckinIntervalHours)
-			if hours >= 1 && hours <= 24 {
-				rt.CheckinIntervalHours = hours
-			}
+			// config.Load resolves CHECKIN_INTERVAL_HOURS as
+			// ClampInt(trunc(parseNumber(n)), 1, 24), so this clamps with the
+			// same two-sided shape instead of guarding on the range. The guard
+			// dropped an out-of-range row: a persisted 30 left the process on
+			// the env-resolved 6, GET /api/settings/runtime echoed 6, and
+			// nothing was logged, because the key counted as handled.
+			rt.CheckinIntervalHours = config.ClampInt(
+				parseIntSetting(value, float64(rt.CheckinIntervalHours), 1), 1, 24)
 		// E1: random-window mode bounds (HH:mm, 24h).
 		case "checkin_window_start":
 			if v := parseJSONSettingString(value); v != "" {

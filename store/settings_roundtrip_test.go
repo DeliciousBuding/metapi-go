@@ -269,6 +269,28 @@ func TestApplyRuntimeSettingsClampsMatchConfigLoad(t *testing.T) {
 		get      func(*config.Config, *config.RuntimeSettings) any
 	}{
 		{
+			// config.Load resolves CHECKIN_INTERVAL_HOURS as
+			// ClampInt(trunc(n), 1, 24), so 30 becomes 24. The settings path
+			// used to drop an out-of-range row instead of clamping it, leaving
+			// the env-resolved value in the snapshot with nothing in the log.
+			name:     "checkin interval ceiling",
+			env:      map[string]string{"CHECKIN_INTERVAL_HOURS": "30"},
+			settings: map[string]string{"checkin_interval_hours": `30`},
+			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.CheckinIntervalHours },
+		},
+		{
+			name:     "checkin interval floor",
+			env:      map[string]string{"CHECKIN_INTERVAL_HOURS": "0"},
+			settings: map[string]string{"checkin_interval_hours": `0`},
+			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.CheckinIntervalHours },
+		},
+		{
+			name:     "checkin interval truncates",
+			env:      map[string]string{"CHECKIN_INTERVAL_HOURS": "12.9"},
+			settings: map[string]string{"checkin_interval_hours": `12.9`},
+			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.CheckinIntervalHours },
+		},
+		{
 			name:     "first byte timeout floor",
 			env:      map[string]string{"PROXY_FIRST_BYTE_TIMEOUT_SEC": "-5"},
 			settings: map[string]string{"proxy_first_byte_timeout_sec": `-5`},
@@ -402,6 +424,47 @@ func TestApplyRuntimeSettingsClampsMatchConfigLoad(t *testing.T) {
 			want, got := tc.get(envCfg, envRt), tc.get(setCfg, setRt)
 			if !reflect.DeepEqual(want, got) {
 				t.Fatalf("env path resolved %#v but the settings path resolved %#v", want, got)
+			}
+		})
+	}
+}
+
+// TestApplyRuntimeSettingsClampsCheckinIntervalHours pins the absolute
+// post-hydration value rather than only its parity with config.Load, so the
+// clamp cannot be replaced by a range check that silently keeps the previous
+// value. A persisted 30 used to leave the process on the env-resolved 6:
+// GET /api/settings/runtime echoed 6, the settings row still said 30, and no
+// log line explained the gap. Reachable through a backup import
+// (checkin_interval_hours is not in backup.RuntimeLocalSettingKeys, and the
+// import validates cell types only), a hand-edited row, or a row left behind
+// by an older version — the admin write path itself rejects out-of-range
+// values before persisting.
+func TestApplyRuntimeSettingsClampsCheckinIntervalHours(t *testing.T) {
+	cases := []struct {
+		name  string
+		value string
+		want  int
+	}{
+		{"above the ceiling clamps to 24", `30`, 24},
+		{"far above the ceiling clamps to 24", `1000`, 24},
+		{"zero clamps to 1", `0`, 1},
+		{"negative clamps to 1", `-5`, 1},
+		{"fraction truncates like the env path", `24.9`, 24},
+		{"lower bound passes through", `1`, 1},
+		{"in-range value passes through", `12`, 12},
+		{"upper bound passes through", `24`, 24},
+		{"unparsable keeps the resolved value", `"nonsense"`, config.DefaultCheckinIntervalHours},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rt := &config.RuntimeSettings{CheckinIntervalHours: config.DefaultCheckinIntervalHours}
+			ApplyRuntimeSettings(&config.Config{}, rt, map[string]string{
+				"checkin_interval_hours": tc.value,
+			})
+			if rt.CheckinIntervalHours != tc.want {
+				t.Fatalf("persisted checkin_interval_hours = %s rehydrated to %d, want %d",
+					tc.value, rt.CheckinIntervalHours, tc.want)
 			}
 		})
 	}
