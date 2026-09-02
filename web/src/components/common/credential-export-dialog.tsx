@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
+import { copyText } from '@/lib/clipboard'
 import { isReauthRequired } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -73,15 +74,15 @@ type ExportResponse = {
 const CC_SWITCH_APPS = ['codex', 'claude', 'gemini', 'cursor'] as const
 
 /** Clipboard write with a unified success toast. */
-async function copyText(
+async function copyTextWithToast(
   text: string,
   successKey: string,
   t: (key: string) => string
 ) {
-  try {
-    await navigator.clipboard.writeText(text)
+  if (await copyText(text)) {
     toast.success(t(successKey))
-  } catch {
+  } else {
+    // Clipboard may be unavailable (non-secure context / permissions).
     toast.error(t('connect.copyFailed'))
   }
 }
@@ -216,7 +217,7 @@ export function CredentialExportDialog({
   }
 
   async function handleCopyKey() {
-    await copyText(apiKey, 'connect.toast.keyCopied', t)
+    await copyTextWithToast(apiKey, 'connect.toast.keyCopied', t)
     setCopiedKey(true)
     setTimeout(() => setCopiedKey(false), 1500)
   }
@@ -233,7 +234,7 @@ export function CredentialExportDialog({
     // Deep links are a no-op when the protocol handler is missing; the
     // delayed copy doubles as the manual fallback path.
     setTimeout(() => {
-      void copyText(fallback, 'connect.toast.jsonCopied', t)
+      void copyTextWithToast(fallback, 'connect.toast.jsonCopied', t)
     }, 400)
   }
 
@@ -318,7 +319,11 @@ export function CredentialExportDialog({
               size='icon-sm'
               aria-label={t('connect.copyEndpoint')}
               onClick={() =>
-                void copyText(apiBase, 'connect.toast.endpointCopied', t)
+                void copyTextWithToast(
+                  apiBase,
+                  'connect.toast.endpointCopied',
+                  t
+                )
               }
             >
               <Copy className='size-3.5' />
@@ -460,7 +465,7 @@ export function CredentialExportDialog({
                 content={String(envProfile.content)}
                 masked={!showKey}
                 onCopy={(text) =>
-                  void copyText(text, 'connect.toast.jsonCopied', t)
+                  void copyTextWithToast(text, 'connect.toast.jsonCopied', t)
                 }
               />
             ) : null}
@@ -471,7 +476,7 @@ export function CredentialExportDialog({
                 content={genericJson}
                 masked={!showKey}
                 onCopy={(text) =>
-                  void copyText(text, 'connect.toast.jsonCopied', t)
+                  void copyTextWithToast(text, 'connect.toast.jsonCopied', t)
                 }
               />
             ) : null}
@@ -482,7 +487,7 @@ export function CredentialExportDialog({
                 content={stringifyProfileContent(claudeCodeProfile)}
                 masked={!showKey}
                 onCopy={(text) =>
-                  void copyText(text, 'connect.toast.jsonCopied', t)
+                  void copyTextWithToast(text, 'connect.toast.jsonCopied', t)
                 }
               />
             ) : null}
@@ -493,7 +498,7 @@ export function CredentialExportDialog({
                 content={stringifyProfileContent(codexProfile)}
                 masked={!showKey}
                 onCopy={(text) =>
-                  void copyText(text, 'connect.toast.jsonCopied', t)
+                  void copyTextWithToast(text, 'connect.toast.jsonCopied', t)
                 }
               />
             ) : null}
@@ -504,7 +509,7 @@ export function CredentialExportDialog({
                 content={stringifyProfileContent(openWebUiProfile)}
                 masked={!showKey}
                 onCopy={(text) =>
-                  void copyText(text, 'connect.toast.jsonCopied', t)
+                  void copyTextWithToast(text, 'connect.toast.jsonCopied', t)
                 }
               />
             ) : null}

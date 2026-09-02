@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { toBcp47 } from '@/i18n/languages'
+import { copyText } from '@/lib/clipboard'
 import { EM_DASH, formatCurrency, formatDateTime } from '@/lib/format'
 import { parseProxyLogPathMeta } from '@/lib/helpers/proxyLogPathMeta'
 import { toast } from '@/lib/toast'
@@ -357,14 +358,10 @@ function JsonBlock({ value }: { value: unknown }) {
   const [copied, setCopied] = useState(false)
   const text = useMemo(() => prettyPrintJson(value), [value])
   async function handleCopy() {
-    try {
-      if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-        throw new Error('clipboard unavailable')
-      }
-      await navigator.clipboard.writeText(text)
+    if (await copyText(text)) {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
-    } catch {
+    } else {
       // Clipboard may be unavailable (non-secure context / permissions).
       toast.error(t('common.copyFailed'))
     }

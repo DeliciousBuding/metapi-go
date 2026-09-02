@@ -8,6 +8,7 @@ import { Check as CheckIcon, type LucideIcon } from 'lucide-react'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { copyText } from '@/lib/clipboard'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -95,21 +96,15 @@ function useCopyToClipboard() {
 
   const copyToClipboard = React.useCallback(
     (value: string) => {
-      if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-        toast.error(t('common.copyFailed'))
-        return
-      }
-
-      navigator.clipboard
-        .writeText(value)
-        .then(() => {
-          setCopied(true)
-          window.setTimeout(() => setCopied(false), 1500)
-        })
-        .catch(() => {
-          // Clipboard write rejected (permissions / non-secure context).
+      void copyText(value).then((ok) => {
+        if (!ok) {
+          // Clipboard unavailable or write rejected (non-secure context / permissions).
           toast.error(t('common.copyFailed'))
-        })
+          return
+        }
+        setCopied(true)
+        window.setTimeout(() => setCopied(false), 1500)
+      })
     },
     [t]
   )

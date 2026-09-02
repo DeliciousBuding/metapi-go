@@ -37,7 +37,7 @@ The PR pipeline already runs the first regime (`test-e2e` job boots **real** new
 
 ### Active `web/scripts/` × trigger (live inventory, 2026-08-23)
 
-One-off probes are archived under [`web/scripts/oneoff/`](../../../web/scripts/oneoff/) — kept for reference but stripped of package.json entries and excluded from every pipeline. Everything still in `web/scripts/` has at least one live trigger:
+One-off probes (formerly archived under `web/scripts/oneoff/`, already stripped of package.json entries and excluded from every pipeline at inventory time) were deleted outright on 2026-09-02 after a full-reference audit found zero live consumers. Everything still in `web/scripts/` has at least one live trigger:
 
 | Script | Invocation | Trigger |
 |:---|:---|:---|

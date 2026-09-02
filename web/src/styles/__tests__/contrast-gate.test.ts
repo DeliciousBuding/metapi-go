@@ -3,8 +3,8 @@
 // Statically parses the OKLCH tokens from theme.css / theme-presets.css,
 // resolves the cascade (base -> preset block -> semantic surface bridge),
 // converts OKLCH -> OKLab -> linear sRGB -> gamma sRGB, and computes WCAG
-// 2.x contrast ratios (same pipeline as the 2026-08-23 theme audit and
-// scripts/dark-contrast-probe.mjs luminance math). Every tracked
+// 2.x contrast ratios (same luminance pipeline as the 2026-08-23 theme
+// audit). Every tracked
 // foreground/background pair must clear AA 4.5:1 across all 10 presets x
 // {light, dark}, except a small documented exemption list of known
 // residuals (a11y-checklist.md §7).
