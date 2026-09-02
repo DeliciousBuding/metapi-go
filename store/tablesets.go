@@ -90,6 +90,45 @@ var factoryResetExcludedTables = map[string]string{
 	"schema_migrations": "additive-migration journal: bookkeeping, not business data; wiping it replays every step",
 }
 
+// backupExcludedTables names schema tables a backup export must NOT carry,
+// with the operator-facing reason. Everything else in the registry ships in a
+// type=all backup and is replayed by the import endpoints, so a table is left
+// out of backups by an entry here — never by being absent from a hand-written
+// list, which is how service/backup.AllTables drifted to 28 of 37 tables and
+// silently dropped product_announcements, model_name_redirects and friends.
+//
+// The reasons are emitted verbatim into the export payload
+// (metadata.excluded_tables) so a backup file states its own gaps; keep each
+// one to a single sentence and put the long form in docs/api/settings.md.
+var backupExcludedTables = map[string]string{
+	// Session credential material. A backup is semi-trusted input (see
+	// backupsvc.RuntimeLocalSettingKeys for the same threat model applied to
+	// settings rows): importing token hashes would let a cookie issued on the
+	// source deployment authenticate against this one. A restored deployment
+	// must require a fresh login instead.
+	"admin_sessions": "session credential material: an import must never plant admin session token hashes, so a restored deployment requires a fresh login",
+	// One row per authenticated admin write, appended forever (no retention job
+	// prunes it). Beyond volume, the rows describe operations performed against
+	// the source deployment; replaying them into another database makes that
+	// database's audit trail assert events that never happened there, which
+	// destroys the only property an audit log has.
+	"admin_audit_logs": "append-only audit trail of the source deployment's admin writes; replaying it into another database forges that database's audit record (and no retention job bounds its size)",
+	// Appended by the background prober on every pass, and read back by
+	// service/route_rebuild.go (latest row per account_id+model_name) to steer
+	// routing. Imported probe rows from another deployment would therefore
+	// drive this deployment's route rebuild on stale evidence; the prober
+	// re-populates the table within one interval after a restore.
+	"model_probe_results": "high-frequency background probe telemetry that route rebuild reads as its latest-per-model signal; stale rows from another deployment would steer routing, and the prober regenerates them after a restore",
+	// Every row's url is fetched server-side by the catalog sync
+	// (service/pricingcatalog provider on httpclient.SharedTransport, which
+	// carries no dial-level SSRF guard), while the import URL guard
+	// (service/import_url_guard.go importURLColumns) covers only sites and
+	// site_api_endpoints today. Admitting these rows through a semi-trusted
+	// backup would let a crafted payload plant a cloud-metadata / link-local
+	// fetch target. Extend that guard, then delete this entry.
+	"catalog_sources": "each row's url is fetched server-side by the catalog sync and the import URL guard does not cover this table yet, so a crafted backup could plant an SSRF fetch target",
+}
+
 // Column kinds reported by schemaColumns. They drive value coercion in the
 // generic copy builder and the boolean-default parity assertions.
 const (
@@ -408,6 +447,33 @@ func FactoryResetTableNames() []string {
 			continue
 		}
 		out = append(out, t)
+	}
+	return out
+}
+
+// BackupTableNames returns the tables a backup export carries, ordered
+// parents-before-children so an import can replay the payload in one pass
+// without violating a foreign key. It is the schema registry minus
+// backupExcludedTables; service/backup must not keep its own copy of the list.
+func BackupTableNames() []string {
+	out := make([]string, 0, len(schemaTables))
+	for _, t := range AllTableNames() {
+		if _, skip := backupExcludedTables[t]; skip {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+// BackupExcludedTables returns a copy of the backup exclusion set: table name
+// to the reason it is not carried. Callers surface it to operators
+// (metadata.excluded_tables in the export payload) and the drift guard checks
+// it against the registry, so an exclusion can never be silent or orphaned.
+func BackupExcludedTables() map[string]string {
+	out := make(map[string]string, len(backupExcludedTables))
+	for t, reason := range backupExcludedTables {
+		out[t] = reason
 	}
 	return out
 }

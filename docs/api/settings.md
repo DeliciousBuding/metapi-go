@@ -75,9 +75,33 @@ database currently in use is refused).
 
 Export all settings and data as JSON.
 
+**Response**: `{ metadata: { exported_at, version, excluded_tables }, type, tables: { "<table>": [rows] } }`.
+
+`type=all` carries every table the schema registry creates except the ones excluded by name in
+`store.BackupExcludedTables()`; the set is derived (`store.BackupTableNames()`), not hand-copied, so a table added to
+the schema ships in every full backup until somebody excludes it with a recorded reason. Rows are ordered
+parents-before-children so an import can replay them in one pass. `metadata.excluded_tables` maps every registry table
+this payload does **not** carry to the reason, so a backup file states its own gaps:
+
+| Table | Why a backup does not carry it |
+| --- | --- |
+| `admin_sessions` | Session credential material. An import must never plant admin session token hashes, so a restored deployment requires a fresh login instead of reviving the source deployment's cookies. |
+| `admin_audit_logs` | Append-only audit trail of the source deployment's admin writes. Replaying it into another database makes that database's audit record assert operations that never happened there, and no retention job bounds its size. |
+| `model_probe_results` | High-frequency background probe telemetry that route rebuild reads as its latest-per-model signal; stale rows from another deployment would steer routing. The prober regenerates them after a restore. |
+| `catalog_sources` | Each row's `url` is fetched server-side by the catalog sync, and the import URL guard (`sites` / `site_api_endpoints` only) does not cover this table yet, so a crafted backup could plant an SSRF fetch target. |
+
+`type=accounts` and `type=preferences` are scoped exports; `metadata.excluded_tables` additionally lists the tables
+outside that scope. Limits: 50,000 rows per table, 4 MiB per cell, 64 MiB per payload — exceeding one fails the export
+with `413` instead of truncating silently.
+
 ### POST /api/settings/backup/import
 
-Import settings and data from JSON. Runtime-local settings such as `auth_token`, database connection settings, and WebDAV sync state are skipped.
+Import settings and data from JSON. Runtime-local settings such as `auth_token`, database connection settings, and WebDAV
+sync state are skipped.
+
+Tables absent from the payload are skipped, so a backup written by an older build (which carried fewer tables) still
+imports. A payload naming a table the backup set excludes — or any table outside the schema registry — is rejected with
+`400 unknown table <name>`; the exclusion is enforced on import, not just omitted on export.
 
 ### GET /api/settings/backup/webdav
 
@@ -133,7 +157,7 @@ Restore the clean-install state: wipe every business table and restart the auto-
 
 The table set is derived from the schema registry (`store.FactoryResetTableNames()`), not a hand-copied list, so a table added to the schema is wiped by a factory reset until it is explicitly excluded with a recorded reason. The single exclusion is the additive-migration journal (`schema_migrations`): wiping it would replay every migration step against an already-converged schema. Deletion runs in one transaction in FK-safe order (children before parents), so a failure leaves the database untouched rather than half wiped.
 
-`admin_sessions` is part of the set on purpose — session validation reads that table on every authenticated request, so emptying it revokes every cookie issued before the reset. **Sign in again after a successful factory reset.** Audit history (`admin_audit_logs`) and probe history (`model_probe_results`) are wiped as well; that is what "restore factory settings" means here. Export a backup first (`GET /api/settings/backup/export`) if you need them.
+`admin_sessions` is part of the set on purpose — session validation reads that table on every authenticated request, so emptying it revokes every cookie issued before the reset. **Sign in again after a successful factory reset.** Audit history (`admin_audit_logs`) and probe history (`model_probe_results`) are wiped as well; that is what "restore factory settings" means here. A backup export does **not** preserve them — both are excluded by name with a recorded reason (see [Settings - Backup](#settings---backup)), so dump them with your own database tooling before resetting if you need to keep them.
 
 ---
 

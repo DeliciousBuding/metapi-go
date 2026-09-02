@@ -62,9 +62,12 @@ type webdavBackupConfig struct {
 	AutoSyncCron    string `json:"autoSyncCron"`
 }
 
-// allTables is the backup export/import table list (service/backup.AllTables).
-// It is NOT the factory-reset set: that one is derived from the store schema
-// registry so a new table is covered without editing a second list here.
+// allTables is the backup export/import table list (service/backup.AllTables),
+// derived from the store schema registry minus store.BackupExcludedTables() —
+// the same single source of truth the factory-reset set comes from, so a table
+// added to the schema is exported and re-imported without editing a list here.
+// An excluded table is refused as unknown on import, which is what makes the
+// exclusion enforceable rather than advisory.
 var allTables = backupsvc.AllTables
 
 // GET /api/settings/backup/export?type=
