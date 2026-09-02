@@ -79,6 +79,19 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 	shared.IncActiveStreams()
 	defer shared.DecActiveStreams()
 
+	// The same single encoding decision the buffered path applies (see
+	// normalizeBufferedUpstreamBody): a codec the stdlib implements is decoded
+	// inline so every chunk we re-frame is real SSE text, and a body we cannot
+	// read is relayed verbatim under its own Content-Encoding with judgement
+	// abandoned. writeSSEHeaders deliberately never copies Content-Encoding — a
+	// stream is re-framed chunk by chunk, so relaying the upstream's encoding
+	// would be a lie. The verbatim branch above is the single exception, and it
+	// sets the header itself precisely because there we rewrote nothing.
+	bodyReadable := prepareStreamUpstreamBody(resp, w, upstreamBodyIdent{
+		requestID: proxy.RequestIDFromContext(r.Context()),
+		stream:    true,
+	})
+
 	writeSSEHeaders(w)
 	w.WriteHeader(200)
 
@@ -147,7 +160,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 			}
 			return empty, end, nil
 		}
-		verdict := judgeStreamContent(resp.StatusCode, result, latencyMs)
+		verdict := judgeStreamContent(resp.StatusCode, result, latencyMs, !bodyReadable)
 		if result.Usage.Found {
 			return result.Usage, end, &verdict
 		}
@@ -192,7 +205,12 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 			if len(chunk) > 0 {
 				// Extract usage before downstream write so client disconnect
 				// on the final usage-bearing chunk still counts tokens.
-				analyzer.Push(chunk)
+				// Undecodable bytes are never fed to the analyzer: it would
+				// "analyze" noise, find no data events and hand the judge an
+				// empty-content fact for a perfectly healthy answer.
+				if bodyReadable {
+					analyzer.Push(chunk)
+				}
 				if _, writeErr := w.Write(chunk); writeErr != nil {
 					slog.Warn("SSE downstream write failed",
 						"err", writeErr,
@@ -266,13 +284,20 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 // content judge the buffered path calls (proxy.JudgeUpstreamContent). It
 // replaces the historical log-only parallel implementation that merely warned
 // about missing data events while the dispatcher still recorded a success.
-func judgeStreamContent(statusCode int, result incrementalSseAnalysisResult, latencyMs int64) proxy.UpstreamVerdict {
+//
+// bodyUnreadable is the streaming half of the encoding-honesty contract: when
+// the upstream used a Content-Encoding we do not decode, the analyzer saw bytes
+// nobody could parse, so HasOutput=false here means "no evidence" and not "empty
+// answer". It is passed to the judge as an explicit Unreadable fact rather than
+// being special-cased here, keeping one owner of the verdict.
+func judgeStreamContent(statusCode int, result incrementalSseAnalysisResult, latencyMs int64, bodyUnreadable bool) proxy.UpstreamVerdict {
 	verdict := proxy.JudgeUpstreamContent(proxy.UpstreamContentFacts{
 		StatusCode: statusCode,
 		Streaming:  true,
 		RawText:    sseErrorEventText(result.ErrorEvents),
 		HasOutput:  result.HasDataEvent,
 		Usage:      result.Usage.ToUsageSummary(),
+		Unreadable: bodyUnreadable,
 	})
 	if verdict.Failed {
 		slog.Warn("stream content-based failure detected",

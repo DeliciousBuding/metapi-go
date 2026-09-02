@@ -96,6 +96,12 @@ func copyHeaderIfAbsent(dst http.Header, src http.Header, name string) {
 // client sees is Metapi's own, and framing/hop-by-hop headers stay out because
 // the buffered body is re-framed by net/http. The SSE relay keeps its own
 // policy (writeSSEHeaders): a stream is always re-framed by us.
+//
+// Content-Encoding stays on the list, but it can only ever describe the bytes we
+// actually relay: net/http removes it when it transparently decoded a negotiated
+// gzip answer, and normalizeBufferedUpstreamBody removes it when we decoded the
+// body ourselves. The single case where it survives is a body we could not
+// decode, which is relayed verbatim — see upstream_encoding.go.
 var upstreamResponseHeaders = []string{
 	"Accept-Ranges",
 	"Cache-Control",

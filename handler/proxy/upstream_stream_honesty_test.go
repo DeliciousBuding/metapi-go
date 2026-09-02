@@ -360,7 +360,7 @@ func TestContentJudgeAgreesAcrossBufferedAndStreamPaths(t *testing.T) {
 			}
 			result := analyzer.Result()
 			result.Usage.CompletionTokens = int64(tc.completionTokens)
-			streamed := judgeStreamContent(http.StatusOK, result, 1)
+			streamed := judgeStreamContent(http.StatusOK, result, 1, false)
 
 			if buffered != streamed {
 				t.Fatalf("verdicts diverge for the same upstream content:\n buffered = %+v\n stream   = %+v", buffered, streamed)
