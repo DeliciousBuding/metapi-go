@@ -146,8 +146,10 @@ func (s *statusRecorder) SetWriteDeadline(t time.Time) error {
 }
 
 // TrustedRealIP reads X-Forwarded-For / X-Real-IP only from explicitly
-// configured proxy CIDRs. Direct clients cannot spoof rate-limit or admin
-// allowlist identity by sending forwarded headers themselves.
+// configured proxy CIDRs, and resolves the client by walking the forwarded
+// chain from the right, skipping the hops that belong to those CIDRs. Direct
+// clients cannot spoof rate-limit or admin allowlist identity by sending
+// forwarded headers themselves.
 func TrustedRealIP(cfg *config.Config) func(http.Handler) http.Handler {
 	var prefixes []netip.Prefix
 	if cfg != nil {
@@ -156,7 +158,7 @@ func TrustedRealIP(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if len(prefixes) > 0 && isTrustedProxyPeer(r.RemoteAddr, prefixes) {
-				if ip := forwardedClientIP(r); ip != "" {
+				if ip := forwardedClientIP(r, prefixes); ip != "" {
 					r.RemoteAddr = ip
 				}
 			}
@@ -177,6 +179,16 @@ func parseTrustedProxyPrefixes(raw []string) []netip.Prefix {
 }
 
 func isTrustedProxyPeer(remoteAddr string, prefixes []netip.Prefix) bool {
+	addr, ok := remoteAddrIP(remoteAddr)
+	if !ok {
+		return false
+	}
+	return addrInPrefixes(addr, prefixes)
+}
+
+// remoteAddrIP extracts the peer address from http.Request.RemoteAddr, which
+// carries "host:port" for IPv4 and "[host]:port" for IPv6.
+func remoteAddrIP(remoteAddr string) (netip.Addr, bool) {
 	host := remoteAddr
 	if h, _, err := net.SplitHostPort(remoteAddr); err == nil {
 		host = h
@@ -184,9 +196,12 @@ func isTrustedProxyPeer(remoteAddr string, prefixes []netip.Prefix) bool {
 	host = strings.Trim(host, "[]")
 	addr, err := netip.ParseAddr(host)
 	if err != nil {
-		return false
+		return netip.Addr{}, false
 	}
-	addr = addr.Unmap()
+	return addr.Unmap(), true
+}
+
+func addrInPrefixes(addr netip.Addr, prefixes []netip.Prefix) bool {
 	for _, prefix := range prefixes {
 		if prefix.Contains(addr) {
 			return true
@@ -195,26 +210,75 @@ func isTrustedProxyPeer(remoteAddr string, prefixes []netip.Prefix) bool {
 	return false
 }
 
-func forwardedClientIP(r *http.Request) string {
-	for _, xff := range r.Header.Values("X-Forwarded-For") {
-		part, _, _ := strings.Cut(xff, ",")
-		if ip := normalizeForwardedIP(part); ip != "" {
-			return ip
+// forwardedClientIP resolves the client address out of the forwarded headers of
+// a request that already passed the trusted-peer gate.
+//
+// Reverse proxies append to X-Forwarded-For (nginx: proxy_set_header
+// X-Forwarded-For $proxy_add_x_forwarded_for), so the chain reads
+// [values the client injected..., real client, proxy hops...] and its left-most
+// entry is attacker controlled input. It is therefore walked from the right the
+// way nginx real_ip_recursive and RFC 7239 consumers do: entries inside
+// TRUSTED_PROXY_CIDRS are hops and get skipped, and the first entry outside them
+// is the client.
+func forwardedClientIP(r *http.Request, prefixes []netip.Prefix) string {
+	chain := forwardedAddrChain(r.Header.Values("X-Forwarded-For"))
+	if len(chain) == 0 {
+		// X-Forwarded-For carried no address at all: keep the single-value
+		// fallback, still behind the trusted-peer gate.
+		return normalizeForwardedIP(r.Header.Get("X-Real-IP"))
+	}
+	// The direct peer terminates the chain; the caller already proved it is a
+	// trusted proxy, so it is one more hop to skip rather than the client.
+	if peer, ok := remoteAddrIP(r.RemoteAddr); ok {
+		chain = append(chain, peer)
+	}
+	for i := len(chain) - 1; i >= 0; i-- {
+		if !addrInPrefixes(chain[i], prefixes) {
+			return chain[i].String()
 		}
 	}
-	return normalizeForwardedIP(r.Header.Get("X-Real-IP"))
+	// Every hop is trusted, e.g. internal proxies in front of an internal client.
+	// Return the left-most entry instead of nothing so per-IP rate limits keep a
+	// stable key rather than collapsing every such caller into one bucket.
+	return chain[0].String()
+}
+
+// forwardedAddrChain expands every X-Forwarded-For header into the hop list it
+// describes, keeping wire order: proxies append, so header order followed by
+// in-header order runs from the original client to the closest proxy. Entries
+// that are not addresses are dropped.
+func forwardedAddrChain(values []string) []netip.Addr {
+	chain := make([]netip.Addr, 0, len(values)+1)
+	for _, value := range values {
+		for _, part := range strings.Split(value, ",") {
+			if addr := parseForwardedAddr(part); addr.IsValid() {
+				chain = append(chain, addr)
+			}
+		}
+	}
+	return chain
 }
 
 func normalizeForwardedIP(raw string) string {
-	raw = strings.TrimSpace(raw)
+	if addr := parseForwardedAddr(raw); addr.IsValid() {
+		return addr.String()
+	}
+	return ""
+}
+
+// parseForwardedAddr parses one forwarded-header entry, tolerating the bracketed
+// IPv6 form some proxies emit, and unmaps IPv4-mapped addresses so chain entries
+// match TRUSTED_PROXY_CIDRS exactly the way the peer does.
+func parseForwardedAddr(raw string) netip.Addr {
+	raw = strings.Trim(strings.TrimSpace(raw), "[]")
 	if raw == "" {
-		return ""
+		return netip.Addr{}
 	}
 	addr, err := netip.ParseAddr(raw)
 	if err != nil {
-		return ""
+		return netip.Addr{}
 	}
-	return addr.Unmap().String()
+	return addr.Unmap()
 }
 
 // Recoverer catches panics, logs the panic + stack via slog (with request_id

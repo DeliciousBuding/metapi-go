@@ -195,7 +195,7 @@ Capture surfaces for reproducing an upstream failure. All of it is off unless
 | `ADMIN_SESSION_TTL_MINUTES` | `720` | Sliding TTL of the server-side admin UI session minted by `POST /api/auth/login`; floored at 1 minute. |
 | `ADMIN_SESSION_COOKIE_SECURE` | `auto` | `Secure` flag of the `metapi_session` cookie. Accepted values: `true`/`1`/`yes` → always secure, `false`/`0`/`no` → never secure, anything else (including `auto`) → `auto`, which follows the request protocol. |
 | `OAUTH_RATE_LIMIT_RPS` / `OAUTH_RATE_LIMIT_BURST` | `10` / `20` | OAuth per-IP token bucket. |
-| `TRUSTED_PROXY_CIDRS` | empty | Reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; empty ignores forwarded headers. |
+| `TRUSTED_PROXY_CIDRS` | empty | Reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; empty ignores forwarded headers. When the peer is trusted the chain is walked right-to-left and trusted hops are skipped, so a client-supplied left-most value cannot forge identity. List every proxy layer; a layer missing here becomes the resolved client for the traffic behind it. |
 | `ADMIN_CORS_ALLOWED_ORIGINS` | empty | Exact `http(s)` origins allowed for `/api/*`; empty = same-origin admin UI only (`*` rejected). |
 | `PROMPT_FILTER_ENABLED` | empty | Opt-in pattern filter blocking jailbreak/exfiltration prompts before shared OAuth upstreams; `PROMPT_FILTER_DENY_PATTERNS` extends the seed list. |
 
