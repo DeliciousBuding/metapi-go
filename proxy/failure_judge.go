@@ -7,12 +7,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 )
 
-// FailureResult is a content-based failure detection result.
-type FailureResult struct {
-	Status int
-	Reason string
-}
-
 // UsageSummary is a lightweight usage summary for failure detection.
 type UsageSummary struct {
 	PromptTokens     int
@@ -129,20 +123,6 @@ func JudgeUpstreamContent(facts UpstreamContentFacts) UpstreamVerdict {
 	}
 
 	return pass
-}
-
-// DetectProxyFailure detects proxy failures from response content.
-// This is PURELY content-based — it does NOT look at HTTP status codes.
-//
-// Kept as the buffered-path shaped wrapper over JudgeUpstreamContent so there
-// is still exactly one implementation of the judgement; callers that already
-// have parsed content should prefer JudgeUpstreamContent directly.
-func DetectProxyFailure(rawText string, usage *UsageSummary) *FailureResult {
-	verdict := JudgeUpstreamContent(UpstreamContentFacts{RawText: rawText, Usage: usage})
-	if !verdict.Failed {
-		return nil
-	}
-	return &FailureResult{Status: verdict.Status, Reason: verdict.Reason}
 }
 
 // detectHasUpstreamOutput checks if raw text contains actual upstream output.

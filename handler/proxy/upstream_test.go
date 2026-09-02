@@ -822,11 +822,11 @@ func TestStreamSuccessExtractsFinalUsageAndPersistsProxyLog(t *testing.T) {
 	}
 }
 
-func TestDetectProxyFailureReceivesParsedUsageFromBody(t *testing.T) {
+func TestContentJudgeReceivesParsedUsageFromBody(t *testing.T) {
 	// When empty-content-fail is enabled and completion tokens are present,
-	// DetectProxyFailure must not treat the response as empty even without text.
+	// the content judge must not treat the response as empty even without text.
 	t.Setenv("PROXY_EMPTY_CONTENT_FAIL", "1")
-	// config.Get() may already be loaded; DetectProxyFailure reads config singleton.
+	// config.Get() may already be loaded; the judge reads the config singleton.
 	// Prefer direct unit path: ParseUsageFromBody -> ToUsageSummary.
 	body := []byte(`{"choices":[{"message":{"content":""}}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`)
 	usage := ParseUsageFromBody(body)
@@ -1348,7 +1348,7 @@ func TestNonStreamHTTPErrorPersistsUsageTokensToFailedProxyLog(t *testing.T) {
 func TestNonStreamContentFailurePersistsParsedUsageToFailedProxyLog(t *testing.T) {
 	// Keyword-matched content failure must still persist usage extracted from the body.
 	t.Setenv("PROXY_ERROR_KEYWORDS", "content_policy_violation")
-	// DetectProxyFailure reads the runtime snapshot; publish the keyword list.
+	// The content judge reads the runtime snapshot; publish the keyword list.
 	config.UpdateRuntime(func(r *config.RuntimeSettings) {
 		r.ProxyErrorKeywords = []string{"content_policy_violation"}
 	})

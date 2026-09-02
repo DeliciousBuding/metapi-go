@@ -702,29 +702,28 @@ func dispatchEndpointAttemptWithContinue(
 		RawText:    string(respBody),
 		Usage:      usage.ToUsageSummary(),
 	})
-	failure := &proxy.FailureResult{Status: verdict.Status, Reason: verdict.Reason}
 	if verdict.Failed {
 		slog.Warn("content-based failure detected",
-			"reason", failure.Reason,
-			"status", failure.Status,
+			"reason", verdict.Reason,
+			"status", verdict.Status,
 			"model", upstreamModel,
 			"channel_id", selected.Channel.ID,
 			"latency_ms", latencyMs,
 			"request_id", requestID,
 			"retry", retry,
 		)
-		if shouldContinueEndpointFallback(failure.Status, failure.Reason, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
+		if shouldContinueEndpointFallback(verdict.Status, verdict.Reason, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
 			return false, nil, true
 		}
 		// Content failures often still carry real usage (keyword match / empty-
 		// content edge cases with non-zero tokens). Persist failed row + tokens.
-		recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, failure.Status, failure.Reason)
-		writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, failure.Status, false, usage, retry, requestID, failure.Reason)
-		if retry < maxRetries && proxy.ShouldRetryProxyRequest(failure.Status, failure.Reason) {
-			return false, jsonPendingUpstreamFailure(failure.Status, "Upstream returned an error response", "upstream_error"), false
+		recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, verdict.Status, verdict.Reason)
+		writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, verdict.Status, false, usage, retry, requestID, verdict.Reason)
+		if retry < maxRetries && proxy.ShouldRetryProxyRequest(verdict.Status, verdict.Reason) {
+			return false, jsonPendingUpstreamFailure(verdict.Status, "Upstream returned an error response", "upstream_error"), false
 		}
-		writeJSONErrorWithRequest(w, failure.Status, "Upstream returned an error response", "upstream_error", requestID)
-		observeProxyTerminal(ctx, shared.StatusFromHTTP(failure.Status), false, time.Duration(latencyMs)*time.Millisecond)
+		writeJSONErrorWithRequest(w, verdict.Status, "Upstream returned an error response", "upstream_error", requestID)
+		observeProxyTerminal(ctx, shared.StatusFromHTTP(verdict.Status), false, time.Duration(latencyMs)*time.Millisecond)
 		return true, nil, false
 	}
 	recordUpstreamSuccess(r.Context(), cfg, selected, ctx.RequestedModel, upstreamModel, latencyMs, usage)
