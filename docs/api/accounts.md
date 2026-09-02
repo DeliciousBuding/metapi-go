@@ -25,6 +25,8 @@ Get, update, delete an account.
 
 **`proxyUrl` update semantics**: field omitted → keep the stored proxy; present with a value → replace (same scheme validation as create); present empty (`""`) → delete `extraConfig.proxyUrl`.
 
+**Credential redaction**: the update response carries `accessTokenMasked` / `apiTokenMasked` instead of plaintext `accessToken` / `apiToken`, and `autoRelogin.passwordCipher` is stripped out of `extraConfig` — the same contract `GET /api/accounts` answers with, so a no-op update cannot be used to harvest what the list surface withholds. Revealing a stored secret stays an explicit act (`GET /api/account-tokens/{id}/value`). The credential-provisioning responses keep returning what they obtained — `POST /api/accounts/login` hands back the session token it just logged in with, `POST /api/accounts/verify-token` the API token it discovered — because in those two the caller never had it.
+
 ### GET /api/accounts/probe-history
 
 Recent background model-probe history per account — the data behind the row-level probe health bars on the accounts page. One bounded query covers every account that has history (windowed to the newest `limit` results each); accounts without probes are omitted from `items`. Rows recorded without a channel (account-level probes) are included here.
@@ -75,7 +77,7 @@ The account's proven model list (with site-disabled and operator-pinned flags) a
 Replace a session account's access token (session-credential rebind; Sub2API auth merges `refreshToken`/`tokenExpiresAt` into `extraConfig.sub2apiAuth`).
 
 **Body**: `{ "accessToken": "sk-...", "refreshToken": "...", "tokenExpiresAt": 1710000000 }` — `accessToken` is required (400 otherwise).
-**Response**: `{ success, account, tokenType: "session", credentialMode: "session", capabilities, apiTokenFound: false }`.
+**Response**: `{ success, account, tokenType: "session", credentialMode: "session", capabilities, apiTokenFound: false }` — `account` is redacted like the update response (`accessTokenMasked` / `apiTokenMasked`, no plaintext credentials): the caller supplied the new session token itself, and the stored `apiToken` is not this endpoint's to disclose.
 
 ---
 
