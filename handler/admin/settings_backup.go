@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/service"
 	backupsvc "github.com/deliciousbuding/metapi-go/service/backup"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
@@ -159,6 +160,9 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	if result.skippedSettings > 0 {
 		response["skippedSettings"] = result.skippedSettings
+	}
+	if result.droppedForbiddenURLs > 0 {
+		response["droppedForbiddenSiteRows"] = result.droppedForbiddenURLs
 	}
 	if len(result.newDownstreamApiKeys) > 0 {
 		response["newDownstreamApiKeys"] = result.newDownstreamApiKeys
@@ -318,6 +322,12 @@ func previewBackupImportTables(db *sqlx.DB, tables map[string]json.RawMessage) (
 			}
 		}
 
+		// SECURITY: mirror the import path's SSRF target guard so the plan
+		// preview matches what the import will actually admit.
+		if kept, dropped := service.SanitizeImportedSiteRows(table, rows); dropped > 0 {
+			rows = kept
+		}
+
 		preview := backupImportPreview{Rows: int64(len(rows))}
 		pkCol := "id"
 		if table == "settings" {
@@ -413,6 +423,9 @@ type backupImportResult struct {
 	// skippedSettings counts settings rows excluded by policy (runtime-local
 	// keys from backupsvc.RuntimeLocalSettingKeys).
 	skippedSettings int64
+	// droppedForbiddenURLs counts site/endpoint rows rejected by the
+	// SSRF target guard (cloud metadata / link-local URLs).
+	droppedForbiddenURLs int64
 	// newDownstreamApiKeys lists the names (never the key values) of
 	// downstream_api_keys entries actually inserted by this import. Importing
 	// an untrusted backup is equivalent to accepting the keys it carries; the
@@ -481,6 +494,13 @@ func importBackupTablesWithConn(conn backupImportConn, tables map[string]json.Ra
 			return nil, backupImportClientError{
 				message: fmt.Sprintf("import failed: table %s exceeds the max rows of %d", table, backupImportMaxRowsPerTable),
 			}
+		}
+		// SECURITY: site/endpoint rows carry server-outbound target URLs.
+		// Enforce the same metadata/link-local guard the single-row create
+		// paths apply, so a crafted backup cannot plant SSRF targets.
+		if kept, dropped := service.SanitizeImportedSiteRows(table, rows); dropped > 0 {
+			rows = kept
+			result.droppedForbiddenURLs += int64(dropped)
 		}
 		if len(rows) == 0 {
 			continue

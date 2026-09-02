@@ -1423,3 +1423,34 @@ func TestPreviewTSV21Endpoint(t *testing.T) {
 		t.Fatalf("preview wrote %d site rows, want 0", siteCount)
 	}
 }
+
+func TestImportBackupTablesDropsForbiddenSiteURLs(t *testing.T) {
+	db := setupBackupTestDB(t)
+
+	tables := map[string]json.RawMessage{
+		"sites": json.RawMessage(`[
+			{"id": 1, "name": "Clean", "url": "https://clean.example.com", "platform": "new-api", "status": "active"},
+			{"id": 2, "name": "Metadata", "url": "http://169.254.169.254/latest/meta-data/", "platform": "new-api", "status": "active"},
+			{"id": 3, "name": "LinkLocalEndpoint", "url": "https://ok.example.com", "external_checkin_url": "http://169.254.169.254/checkin", "platform": "new-api", "status": "active"}
+		]`),
+	}
+
+	result, err := importBackupTables(db.DB, tables)
+	if err != nil {
+		t.Fatalf("importBackupTables: %v", err)
+	}
+	if got := result.imported["sites"]; got != 1 {
+		t.Fatalf("imported[sites] = %d, want 1 (only the clean site)", got)
+	}
+	if result.droppedForbiddenURLs != 2 {
+		t.Fatalf("droppedForbiddenURLs = %d, want 2", result.droppedForbiddenURLs)
+	}
+
+	var count int
+	if err := db.Get(&count, "SELECT COUNT(*) FROM sites"); err != nil {
+		t.Fatalf("count sites: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("sites rows = %d, want 1", count)
+	}
+}

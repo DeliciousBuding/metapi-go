@@ -98,3 +98,27 @@ func TestImportSites_FailsOnUnknownPlatform(t *testing.T) {
 		t.Fatalf("failed=%d want 1 (results=%+v)", res.Failed, res.Results)
 	}
 }
+
+func TestImportSites_RejectsForbiddenTargetURLs(t *testing.T) {
+	db := openImportTestDB(t)
+
+	items := []ImportSiteInput{
+		{Name: "Metadata", URL: "http://169.254.169.254/latest/meta-data/", Platform: "openai"},
+		{Name: "Clean", URL: "https://api.openai.com/v1", Platform: "openai"},
+	}
+
+	res, err := ImportSites(db.DB, items, ImportDuplicateSkip)
+	if err != nil {
+		t.Fatalf("ImportSites: %v", err)
+	}
+	if res.Imported != 1 || res.Failed != 1 {
+		t.Fatalf("imported=%d failed=%d, want 1/1", res.Imported, res.Failed)
+	}
+	for _, r := range res.Results {
+		if r.Name == "Metadata" {
+			if r.Status != "failed" || r.Reason == "" {
+				t.Fatalf("metadata item status=%q reason=%q, want failed with reason", r.Status, r.Reason)
+			}
+		}
+	}
+}
