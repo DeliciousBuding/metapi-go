@@ -832,3 +832,52 @@ func TestImportTSV21ReportsNewDownstreamApiKeys(t *testing.T) {
 		t.Fatalf("second NewDownstreamApiKeys = %v, want none (duplicate keys are not new)", second.NewDownstreamApiKeys)
 	}
 }
+
+const tsV21SSRFBackup = `{
+  "version": "2.1",
+  "timestamp": 1755678900000,
+  "type": "all",
+  "accounts": {
+    "sites": [
+      {"id": 1, "name": "Clean", "url": "https://clean.example.com", "platform": "new-api", "status": "active"},
+      {"id": 2, "name": "Metadata", "url": "http://169.254.169.254/latest/meta-data/", "platform": "new-api", "status": "active"},
+      {"id": 3, "name": "MetadataProxy", "url": "https://proxy.example.com", "proxyUrl": "http://169.254.169.254:8080", "platform": "new-api", "status": "active"}
+    ],
+    "siteApiEndpoints": [
+      {"id": 1, "siteId": 1, "url": "https://ep-clean.example.com", "enabled": true},
+      {"id": 2, "siteId": 1, "url": "http://169.254.169.254/ep", "enabled": true}
+    ]
+  }
+}`
+
+func TestImportTSV21DropsForbiddenSiteURLs(t *testing.T) {
+	db := setupBackupServiceTestDB(t)
+
+	result, err := backupsvc.ImportTSV21(db, []byte(tsV21SSRFBackup))
+	if err != nil {
+		t.Fatalf("ImportTSV21: %v", err)
+	}
+	if got := result.Imported["sites"]; got != 1 {
+		t.Fatalf("imported[sites] = %d, want 1 (only the clean site)", got)
+	}
+	if got := result.Imported["site_api_endpoints"]; got != 1 {
+		t.Fatalf("imported[site_api_endpoints] = %d, want 1", got)
+	}
+	warned := 0
+	for _, w := range result.Warnings {
+		if strings.Contains(w, "forbidden target URL") {
+			warned++
+		}
+	}
+	if warned == 0 {
+		t.Fatalf("expected forbidden-URL warnings, got %v", result.Warnings)
+	}
+
+	var count int
+	if err := db.Get(&count, "SELECT COUNT(*) FROM sites"); err != nil {
+		t.Fatalf("count sites: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("sites rows = %d, want 1", count)
+	}
+}

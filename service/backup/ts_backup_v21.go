@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
 )
@@ -856,7 +857,17 @@ func importTSV21Parsed(conn tsV21Conn, parsed *TSV21Parsed) (*TSV21ImportResult,
 			downstreamBefore = tsV21QueryExistingPKs(conn, table, "key", downstreamCandidates)
 		}
 
-		count, err := importTSV21TableRows(conn, table, parsed.Tables[table])
+		// SECURITY: site/endpoint rows carry server-outbound target URLs.
+		// Enforce the same metadata/link-local guard the single-row create
+		// paths apply, so a crafted backup cannot plant SSRF targets.
+		tableRows := parsed.Tables[table]
+		if kept, dropped := service.SanitizeImportedSiteRows(table, tableRows); dropped > 0 {
+			tableRows = kept
+			result.Warnings = append(result.Warnings, fmt.Sprintf(
+				"ignored %d %s row(s): forbidden target URL (cloud metadata / link-local)", dropped, table))
+		}
+
+		count, err := importTSV21TableRows(conn, table, tableRows)
 		if err != nil {
 			return nil, fmt.Errorf("import failed: table %s: %w", table, err)
 		}

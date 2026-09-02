@@ -110,6 +110,11 @@ func importOneSite(db *sqlx.DB, item ImportSiteInput, strategy ImportDuplicateSt
 		base.Status = "failed"
 		return base
 	}
+	if IsForbiddenSiteTargetURL(rawURL) {
+		base.Reason = "Invalid url. Cloud metadata / link-local targets are not allowed."
+		base.Status = "failed"
+		return base
+	}
 
 	platform := strings.TrimSpace(strings.ToLower(item.Platform))
 	if platform == "" {
