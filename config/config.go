@@ -90,7 +90,23 @@ type Config struct {
 	// production without losing Warn/Error signal.
 	LogLevel string
 
+	// LogCleanupConfigured reports whether the log_cleanup regime owns the log
+	// tables (true) or the legacy PROXY_LOG_RETENTION_DAYS pruner does (false).
+	// Resolved during startup settings hydration, not by Load.
 	LogCleanupConfigured bool
+
+	// LogCleanupEnvEnabled records that an env toggle explicitly asked for the
+	// log_cleanup regime: LOG_CLEANUP_USAGE_LOGS_ENABLED=true or
+	// LOG_CLEANUP_PROGRAM_LOGS_ENABLED=true. Startup hydration ORs it into
+	// LogCleanupConfigured so an env-driven deployment keeps its intent even
+	// with an empty settings table.
+	//
+	// Deliberately one-directional: neither LOG_CLEANUP_RETENTION_DAYS nor
+	// LOG_CLEANUP_CRON counts, and an explicit false does not count either.
+	// Claiming the regime while both toggles are off would run the new scheduler
+	// (which then skips for want of a target) and disable the legacy pruner, so
+	// nothing would ever be pruned.
+	LogCleanupEnvEnabled bool
 
 	// Resin sticky proxy pool (3 fields, env-only — no DDL for Tier 1).
 	// RESIN_URL carries the base URL + token, e.g. http://resin.local:2260/my-token.
@@ -550,7 +566,10 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	rt.LogCleanupUsageLogsEnabled = parseBoolean(get("LOG_CLEANUP_USAGE_LOGS_ENABLED"), false)
 	rt.LogCleanupProgramLogsEnabled = parseBoolean(get("LOG_CLEANUP_PROGRAM_LOGS_ENABLED"), false)
 	rt.LogCleanupRetentionDays = max(1, int(math.Trunc(parseNumber(get("LOG_CLEANUP_RETENTION_DAYS"), 30))))
-	cfg.LogCleanupConfigured = false // set later during runtime settings hydration
+	// An env toggle set to true is an explicit ask for the log_cleanup regime;
+	// retention and cron alone are not (see Config.LogCleanupEnvEnabled).
+	cfg.LogCleanupEnvEnabled = rt.LogCleanupUsageLogsEnabled || rt.LogCleanupProgramLogsEnabled
+	cfg.LogCleanupConfigured = false // resolved at hydration: explicit DB keys OR the env toggle above
 
 	// ---- §3.6 Notify: Webhook ----
 	rt.WebhookUrl = firstNonEmpty(get("WEBHOOK_URL"), "")

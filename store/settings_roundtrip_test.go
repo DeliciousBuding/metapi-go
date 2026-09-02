@@ -409,11 +409,35 @@ func TestApplyRuntimeSettingsClampsMatchConfigLoad(t *testing.T) {
 
 // ---- Unknown keys are reported, not silently skipped ----
 
-func TestApplyRuntimeSettingsWarnsAboutKeysNothingReadsBack(t *testing.T) {
+// captureSettingsLogs routes slog output into a buffer for the duration of the
+// test so a startup log line can be asserted on instead of eyeballed.
+func captureSettingsLogs(t *testing.T, level slog.Level) *bytes.Buffer {
+	t.Helper()
 	var buf bytes.Buffer
 	previous := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: level})))
 	t.Cleanup(func() { slog.SetDefault(previous) })
+	return &buf
+}
+
+// settingsLogLine returns the single line carrying msg, failing when the count
+// is not exactly one (a duplicated or missing startup line is the defect).
+func settingsLogLine(t *testing.T, output, msg string) string {
+	t.Helper()
+	var matches []string
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, msg) {
+			matches = append(matches, line)
+		}
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected exactly one %q line, got %d in:\n%s", msg, len(matches), output)
+	}
+	return matches[0]
+}
+
+func TestApplyRuntimeSettingsWarnsAboutKeysNothingReadsBack(t *testing.T) {
+	buf := captureSettingsLogs(t, slog.LevelWarn)
 
 	ApplyRuntimeSettings(&config.Config{}, &config.RuntimeSettings{}, map[string]string{
 		"zeta_unknown":      `1`,
@@ -423,10 +447,8 @@ func TestApplyRuntimeSettingsWarnsAboutKeysNothingReadsBack(t *testing.T) {
 	})
 
 	out := buf.String()
-	if got := strings.Count(out, "persisted keys not applied at startup hydration"); got != 1 {
-		t.Fatalf("expected exactly one aggregated warning, got %d in:\n%s", got, out)
-	}
-	if !strings.Contains(out, "count=2") {
+	line := settingsLogLine(t, out, "persisted keys not applied at startup hydration")
+	if !strings.Contains(line, "count=2") {
 		t.Errorf("warning does not report the key count:\n%s", out)
 	}
 	if !strings.Contains(out, "keys=alpha_unknown,zeta_unknown") {
@@ -491,34 +513,233 @@ func TestHasExplicitLogCleanupSettingsIgnoresUnrelatedKeys(t *testing.T) {
 // The reported defect end to end: LOG_CLEANUP_*_ENABLED=false in env used to be
 // flipped to true at boot as soon as the settings table held any row at all,
 // because "configured" was inferred from retention > 0 and config.Load floors
-// retention at 1 day.
+// retention at 1 day. An explicit false and an unset variable are the same
+// case: neither asks for the regime, so the legacy pruner keeps proxy_logs.
 func TestLoadRuntimeSettingsKeepsEnvDisabledLogCleanup(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+	}{
+		{
+			name: "explicit false",
+			env: map[string]string{
+				"LOG_CLEANUP_USAGE_LOGS_ENABLED":   "false",
+				"LOG_CLEANUP_PROGRAM_LOGS_ENABLED": "false",
+			},
+		},
+		{name: "unset", env: nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			settings := hydrateTestDB(t)
+			if err := settings.Set("system_name", `"Ops Gateway"`); err != nil {
+				t.Fatalf("persist unrelated setting: %v", err)
+			}
+
+			env := map[string]string{"SYSTEM_NAME": "Metapi"}
+			for key, value := range tc.env {
+				env[key] = value
+			}
+			cfg, rt := config.Load(quietSecretEnv(env))
+			if rt.LogCleanupUsageLogsEnabled || rt.LogCleanupProgramLogsEnabled {
+				t.Fatal("precondition failed: env already enabled log cleanup")
+			}
+			if err := LoadRuntimeSettings(cfg, rt); err != nil {
+				t.Fatalf("LoadRuntimeSettings: %v", err)
+			}
+
+			if rt.LogCleanupUsageLogsEnabled || rt.LogCleanupProgramLogsEnabled {
+				t.Fatalf("boot flipped a disabled toggle to true (usage=%v program=%v)",
+					rt.LogCleanupUsageLogsEnabled, rt.LogCleanupProgramLogsEnabled)
+			}
+			if cfg.LogCleanupConfigured {
+				t.Fatal("an unrelated setting switched the log retention regime (LogCleanupConfigured = true)")
+			}
+			if rt.SystemName != "Ops Gateway" {
+				t.Fatalf("SystemName = %q, want the persisted value", rt.SystemName)
+			}
+		})
+	}
+}
+
+// The mirror case: an env-driven deployment has no admin-saved log-cleanup
+// rows, and its explicit true must still claim the regime — otherwise the
+// cleanup job skips every run ("legacy fallback mode active") and the legacy
+// pruner is disabled by nothing, so the documented env toggle does nothing.
+func TestLoadRuntimeSettingsEnvToggleClaimsRegimeWithoutAdminRows(t *testing.T) {
+	cases := []struct {
+		name       string
+		env        map[string]string
+		wantUsage  bool
+		wantProg   bool
+		wantSource string
+	}{
+		{
+			name:       "usage toggle",
+			env:        map[string]string{"LOG_CLEANUP_USAGE_LOGS_ENABLED": "true"},
+			wantUsage:  true,
+			wantProg:   false,
+			wantSource: "env_toggle",
+		},
+		{
+			name:       "program toggle",
+			env:        map[string]string{"LOG_CLEANUP_PROGRAM_LOGS_ENABLED": "true"},
+			wantUsage:  false,
+			wantProg:   true,
+			wantSource: "env_toggle",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			logs := captureSettingsLogs(t, slog.LevelInfo)
+			settings := hydrateTestDB(t)
+			// Only unrelated rows: nothing in the table mentions log cleanup.
+			if err := settings.Set("system_name", `"Ops Gateway"`); err != nil {
+				t.Fatalf("persist unrelated setting: %v", err)
+			}
+
+			cfg, rt := config.Load(quietSecretEnv(tc.env))
+			if err := LoadRuntimeSettings(cfg, rt); err != nil {
+				t.Fatalf("LoadRuntimeSettings: %v", err)
+			}
+
+			if !cfg.LogCleanupConfigured {
+				t.Fatal("LogCleanupConfigured = false, want the env toggle to claim the regime")
+			}
+			if !cfg.LogCleanupEnvEnabled {
+				t.Fatal("LogCleanupEnvEnabled = false, want the explicit env true recorded")
+			}
+			if rt.LogCleanupUsageLogsEnabled != tc.wantUsage || rt.LogCleanupProgramLogsEnabled != tc.wantProg {
+				t.Fatalf("toggles = (%v, %v), want (%v, %v) — hydration must not drop the env intent",
+					rt.LogCleanupUsageLogsEnabled, rt.LogCleanupProgramLogsEnabled, tc.wantUsage, tc.wantProg)
+			}
+			line := settingsLogLine(t, logs.String(), "settings: log retention regime")
+			if !strings.Contains(line, "source="+tc.wantSource) {
+				t.Errorf("regime line does not report source=%s:\n%s", tc.wantSource, line)
+			}
+		})
+	}
+}
+
+// Admin-saved settings keep precedence for the values: env can claim the
+// regime, but a persisted false is what the operator last said, so the cleanup
+// job runs and skips for want of a target instead of pruning against env.
+func TestLoadRuntimeSettingsDbExplicitWinsOverEnvToggle(t *testing.T) {
+	settings := hydrateTestDB(t)
+	if err := settings.Set("log_cleanup_usage_logs_enabled", "false"); err != nil {
+		t.Fatalf("persist log cleanup toggle: %v", err)
+	}
+	if err := settings.Set("log_cleanup_retention_days", "9"); err != nil {
+		t.Fatalf("persist log cleanup retention: %v", err)
+	}
+
+	cfg, rt := config.Load(quietSecretEnv(map[string]string{
+		"LOG_CLEANUP_USAGE_LOGS_ENABLED": "true",
+		"LOG_CLEANUP_RETENTION_DAYS":     "30",
+	}))
+	if err := LoadRuntimeSettings(cfg, rt); err != nil {
+		t.Fatalf("LoadRuntimeSettings: %v", err)
+	}
+
+	if !cfg.LogCleanupConfigured {
+		t.Error("LogCleanupConfigured = false, want true (both env and DB claim the regime)")
+	}
+	if rt.LogCleanupUsageLogsEnabled {
+		t.Error("LogCleanupUsageLogsEnabled = true, want the persisted false to win over env")
+	}
+	if rt.LogCleanupRetentionDays != 9 {
+		t.Errorf("LogCleanupRetentionDays = %d, want the persisted 9", rt.LogCleanupRetentionDays)
+	}
+}
+
+// Retention and cron alone are not intent: the toggles default to false, so
+// "configured" would mean the new scheduler runs, skips for want of a target,
+// and the legacy PROXY_LOG_RETENTION_DAYS pruner is disabled — nothing would
+// ever be pruned.
+func TestLoadRuntimeSettingsEnvRetentionAloneDoesNotClaimRegime(t *testing.T) {
 	settings := hydrateTestDB(t)
 	if err := settings.Set("system_name", `"Ops Gateway"`); err != nil {
 		t.Fatalf("persist unrelated setting: %v", err)
 	}
 
 	cfg, rt := config.Load(quietSecretEnv(map[string]string{
-		"SYSTEM_NAME":                      "Metapi",
-		"LOG_CLEANUP_USAGE_LOGS_ENABLED":   "false",
-		"LOG_CLEANUP_PROGRAM_LOGS_ENABLED": "false",
+		"LOG_CLEANUP_RETENTION_DAYS": "7",
+		"LOG_CLEANUP_CRON":           "30 4 * * *",
 	}))
-	if rt.LogCleanupUsageLogsEnabled || rt.LogCleanupProgramLogsEnabled {
-		t.Fatal("precondition failed: env already enabled log cleanup")
+	if cfg.LogCleanupEnvEnabled {
+		t.Fatal("LogCleanupEnvEnabled = true for retention/cron only")
 	}
 	if err := LoadRuntimeSettings(cfg, rt); err != nil {
 		t.Fatalf("LoadRuntimeSettings: %v", err)
 	}
-
-	if rt.LogCleanupUsageLogsEnabled || rt.LogCleanupProgramLogsEnabled {
-		t.Fatalf("boot flipped an explicit env false to true (usage=%v program=%v)",
-			rt.LogCleanupUsageLogsEnabled, rt.LogCleanupProgramLogsEnabled)
-	}
 	if cfg.LogCleanupConfigured {
-		t.Fatal("an unrelated setting switched the log retention regime (LogCleanupConfigured = true)")
+		t.Fatal("LogCleanupConfigured = true, want retention/cron alone to leave the legacy pruner in charge")
 	}
-	if rt.SystemName != "Ops Gateway" {
-		t.Fatalf("SystemName = %q, want the persisted value", rt.SystemName)
+	if rt.LogCleanupRetentionDays != 7 || rt.LogCleanupCron != "30 4 * * *" {
+		t.Fatalf("retention/cron = (%d, %q), want the env values carried through",
+			rt.LogCleanupRetentionDays, rt.LogCleanupCron)
+	}
+}
+
+// Exactly one startup line names the winning regime, so an operator upgrading
+// past the removed auto-enable inference can see what now owns the log tables.
+func TestLoadRuntimeSettingsLogsTheWinningLogRetentionRegime(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+		rows map[string]string
+		want []string
+	}{
+		{
+			name: "admin-saved settings",
+			rows: map[string]string{
+				"log_cleanup_usage_logs_enabled": "true",
+				"log_cleanup_retention_days":     "9",
+				"log_cleanup_cron":               `"30 4 * * *"`,
+			},
+			want: []string{
+				"regime=log_cleanup", "configured=true", "source=db_settings",
+				"usage_logs_enabled=true", "program_logs_enabled=false", "retention_days=9",
+			},
+		},
+		{
+			name: "env toggle",
+			env:  map[string]string{"LOG_CLEANUP_PROGRAM_LOGS_ENABLED": "true"},
+			rows: map[string]string{"system_name": `"Ops Gateway"`},
+			want: []string{
+				"regime=log_cleanup", "configured=true", "source=env_toggle",
+				"usage_logs_enabled=false", "program_logs_enabled=true",
+			},
+		},
+		{
+			name: "no intent anywhere",
+			rows: map[string]string{"system_name": `"Ops Gateway"`},
+			want: []string{
+				"regime=legacy_fallback", "configured=false", "source=none",
+				"usage_logs_enabled=false", "program_logs_enabled=false", "retention_days=30",
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			logs := captureSettingsLogs(t, slog.LevelInfo)
+			settings := hydrateTestDB(t)
+			for key, value := range tc.rows {
+				if err := settings.Set(key, value); err != nil {
+					t.Fatalf("persist %s: %v", key, err)
+				}
+			}
+			cfg, rt := config.Load(quietSecretEnv(tc.env))
+			if err := LoadRuntimeSettings(cfg, rt); err != nil {
+				t.Fatalf("LoadRuntimeSettings: %v", err)
+			}
+			line := settingsLogLine(t, logs.String(), "settings: log retention regime")
+			for _, want := range tc.want {
+				if !strings.Contains(line, want) {
+					t.Errorf("regime line is missing %q:\n%s", want, line)
+				}
+			}
+		})
 	}
 }
 

@@ -35,16 +35,58 @@ func LoadRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings) error {
 		ApplyRuntimeSettings(cfg, rt, settingsMap)
 	}
 
-	// Which log-retention regime owns the log tables is decided solely by
-	// explicit operator-written keys. It used to be inferred from
-	// "retention > 0", but config.Load floors retention at 1 day, so the
-	// inference fired as soon as the settings table held any row at all: it
-	// silently flipped an explicit LOG_CLEANUP_*_ENABLED=false to true and
-	// disabled the legacy proxy-log retention scheduler. Saving an unrelated
-	// setting (the site name, say) must not switch the retention regime.
-	cfg.LogCleanupConfigured = HasExplicitLogCleanupSettings(settingsMap)
+	// Which log-retention regime owns the log tables is decided by explicit
+	// operator intent only: an admin-saved log-cleanup setting, or an env
+	// toggle explicitly set to true (config.LogCleanupEnvEnabled). It used to
+	// be inferred from "retention > 0", but config.Load floors retention at 1
+	// day, so the inference fired as soon as the settings table held any row at
+	// all: it silently flipped an explicit LOG_CLEANUP_*_ENABLED=false to true
+	// and disabled the legacy proxy-log retention scheduler. Saving an
+	// unrelated setting (the site name, say) must not switch the regime, and
+	// an env-only deployment must not lose the regime it asked for either.
+	//
+	// The two sources are asymmetric on purpose: env can turn the regime ON but
+	// cannot "claim" it while off, because claiming it disables the legacy
+	// PROXY_LOG_RETENTION_DAYS pruner and would leave proxy_logs unpruned.
+	// Values still come from the settings table when it has them (hydration ran
+	// above); env only contributes the regime bit.
+	dbExplicit := HasExplicitLogCleanupSettings(settingsMap)
+	cfg.LogCleanupConfigured = dbExplicit || cfg.LogCleanupEnvEnabled
+
+	slog.Info("settings: log retention regime",
+		"regime", logRetentionRegime(cfg.LogCleanupConfigured),
+		"configured", cfg.LogCleanupConfigured,
+		"source", logRetentionRegimeSource(dbExplicit, cfg.LogCleanupEnvEnabled),
+		"usage_logs_enabled", rt.LogCleanupUsageLogsEnabled,
+		"program_logs_enabled", rt.LogCleanupProgramLogsEnabled,
+		"retention_days", rt.LogCleanupRetentionDays)
 
 	return nil
+}
+
+// logRetentionRegime names the scheduler that owns the log tables, for the
+// single startup line above: "log_cleanup" prunes usage/program logs on
+// LOG_CLEANUP_CRON, "legacy_fallback" leaves proxy_logs to the
+// PROXY_LOG_RETENTION_DAYS pruner.
+func logRetentionRegime(configured bool) string {
+	if configured {
+		return "log_cleanup"
+	}
+	return "legacy_fallback"
+}
+
+// logRetentionRegimeSource reports which kind of operator intent claimed the
+// regime. Admin-saved settings win over the env toggle because they are also
+// the source of the values, so the two never disagree about what is running.
+func logRetentionRegimeSource(dbExplicit, envEnabled bool) string {
+	switch {
+	case dbExplicit:
+		return "db_settings"
+	case envEnabled:
+		return "env_toggle"
+	default:
+		return "none"
+	}
 }
 
 // toSettingsMap converts flat settings rows into a nested map structure.
