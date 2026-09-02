@@ -122,8 +122,11 @@ const (
 	DefaultProxyLogRetentionPruneIntervalMinutes  = 30
 	DefaultProxyFileRetentionDays                 = 30
 	DefaultProxyFileRetentionPruneIntervalMinutes = 60
-	// Video task mappings: default 0 = retention disabled (no silent mass delete).
-	DefaultProxyVideoTaskRetentionDays                 = 0
+	// Video task mappings are short-lived id rewrites, so they retire faster
+	// than proxy logs/files: 7 days. The same knob bounds the process-local
+	// rewrite cache in handler/proxy. <=0 remains an explicit operator opt-out
+	// (retention disabled), it is just no longer the default.
+	DefaultProxyVideoTaskRetentionDays                 = 7
 	DefaultProxyVideoTaskRetentionPruneIntervalMinutes = 60
 
 	// Proxy log batch writer (async INSERT batching). Default async=true so

@@ -5,7 +5,10 @@ import (
 )
 
 // ProxyVideoTaskRetentionScheduler periodically prunes aged proxy_video_tasks rows.
-// Disabled when ProxyVideoTaskRetentionDays <= 0 (default).
+// Runs by default (ProxyVideoTaskRetentionDays = 7); disabled only by an
+// explicit operator opt-out (<= 0). The same knob bounds the TTL of the
+// process-local rewrite cache in handler/proxy, so durable rows and cached
+// mappings retire together.
 // Implemented by the shared RetentionScheduler.
 type ProxyVideoTaskRetentionScheduler = RetentionScheduler
 
@@ -20,7 +23,7 @@ func NewProxyVideoTaskRetentionScheduler(cfg *config.Config) *RetentionScheduler
 		IntervalMinFn:      func(c *config.Config) int { return c.ProxyVideoTaskRetentionPruneIntervalMinutes },
 		DisabledFn: func(c *config.Config) (bool, string) {
 			if c.ProxyVideoTaskRetentionDays <= 0 {
-				return true, "retention_days=0"
+				return true, "retention_days<=0"
 			}
 			return false, ""
 		},
