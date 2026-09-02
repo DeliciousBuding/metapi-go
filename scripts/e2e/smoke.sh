@@ -8,9 +8,10 @@
 #
 # Every step prints [PASS]/[FAIL]/[WARN] and accumulates a summary; the script
 # exits 1 when any step FAILs. FAILs print the truncated response body as
-# evidence. The script is re-runnable: sites/accounts/routes are looked up by
-# name before creation, and the downstream key has a fixed value so a 409
-# conflict is treated as "already exists".
+# evidence. The script is re-runnable: sites are resolved by name and then by
+# the backend's own uniqueness key (platform, canonical url), accounts/routes
+# are looked up by name before creation, and the downstream key has a fixed
+# value so a 409 conflict is treated as "already exists".
 #
 # Configuration (environment variables):
 #   METAPI_URL         admin base URL         (default http://127.0.0.1:4000)
@@ -151,6 +152,50 @@ sys.exit(4)
 ' "$1" "$2" "$3" "$4" < "$RESP_BODY"
 }
 
+# site_find_index NAME PLATFORM URL — index of the site row a create would
+# collide with: same name first, then the backend's real uniqueness key
+# (platform, canonical url). POST /api/sites dedupes on (platform, url), NOT on
+# name, so name-only resolution strands a re-run whenever the stored name
+# differs (SITE_NAME changed, or another suite seeded the same upstream).
+# Canonicalization mirrors service.CanonicalizeSiteURL: trim, drop query and
+# fragment, strip trailing slashes (scheme/host compared case-insensitively so
+# the fallback is a superset of the server's key, never a subset).
+site_find_index() {
+  python3 -c '
+import json, sys
+from urllib.parse import urlsplit, urlunsplit
+name, platform, url = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(3)
+if isinstance(data, dict) and isinstance(data.get("sites"), list):
+    data = data["sites"]
+if not isinstance(data, list):
+    sys.exit(4)
+
+def canon(raw):
+    s = str(raw or "").strip()
+    try:
+        p = urlsplit(s)
+        s = urlunsplit((p.scheme.lower(), p.netloc.lower(), p.path, "", ""))
+    except Exception:
+        pass
+    return s.rstrip("/")
+
+want = canon(url)
+for i, item in enumerate(data):
+    if isinstance(item, dict) and str(item.get("name")) == name:
+        print(i)
+        sys.exit(0)
+for i, item in enumerate(data):
+    if isinstance(item, dict) and str(item.get("platform")) == platform and canon(item.get("url")) == want:
+        print(i)
+        sys.exit(0)
+sys.exit(4)
+' "$1" "$2" "$3" < "$RESP_BODY"
+}
+
 # json_has_error_key — 0 when $RESP_BODY is valid JSON containing an "error" key.
 json_has_error_key() {
   python3 -c '
@@ -225,23 +270,32 @@ else
 fi
 
 # 4. site idempotent-create
+#
+# resolve_site_id re-reads the site list and resolves the row this run owns.
+# Both the pre-create lookup and the 409 fallback go through it so the two can
+# never disagree on the key: a 409 means "a site with this (platform, url)
+# already exists", and answering that with a name lookup is how a single name
+# mismatch used to cascade into every downstream step (login, verify, token,
+# route, proxy, logs) reporting FAIL.
 SITE_ID=""
-status="$(request GET "$METAPI_URL/api/sites" "" "$METAPI_AUTH_TOKEN")"
-if [ "$status" = "200" ]; then
-  if idx="$(json_find_index name "$SITE_NAME" 2>/dev/null)"; then
-    SITE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
-  fi
-fi
+resolve_site_id() {
+  local st idx
+  st="$(request GET "$METAPI_URL/api/sites" "" "$METAPI_AUTH_TOKEN")"
+  [ "$st" = "200" ] || return 1
+  idx="$(site_find_index "$SITE_NAME" "$PLATFORM" "$UPSTREAM_URL" 2>/dev/null)" || return 1
+  SITE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
+  [ -n "$SITE_ID" ]
+}
+resolve_site_id
 if [ -z "$SITE_ID" ]; then
   status="$(request POST "$METAPI_URL/api/sites" "{\"name\":\"$SITE_NAME\",\"url\":\"$UPSTREAM_URL\",\"platform\":\"$PLATFORM\"}" "$METAPI_AUTH_TOKEN")"
   if [ "$status" = "200" ] || [ "$status" = "201" ]; then
     SITE_ID="$(json_value id 2>/dev/null || true)"
   elif [ "$status" = "409" ]; then
-    # duplicate site exists (race between reads): re-read by name
-    request GET "$METAPI_URL/api/sites" "" "$METAPI_AUTH_TOKEN" >/dev/null
-    if idx="$(json_find_index name "$SITE_NAME" 2>/dev/null)"; then
-      SITE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
-    fi
+    # Duplicate (platform, url): another run created it between our read and our
+    # write, or it exists under a different name. Re-resolve on the same key the
+    # backend dedupes by.
+    resolve_site_id
   fi
 fi
 if [ -n "$SITE_ID" ]; then
