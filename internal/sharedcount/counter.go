@@ -541,59 +541,96 @@ func (r *RedisCounter) Incr(ctx context.Context, key string, window time.Duratio
 
 func (r *RedisCounter) Decr(ctx context.Context, key string, window time.Duration) (int64, error) {
 	_ = window // compensating rollback must not refresh TTL
+	return r.rollback(ctx, key, -1)
+}
+
+// rollbackScript applies a compensating decrement and drops the key when the
+// window total is no longer positive, as one atomic server-side operation.
+//
+// The rollback used to be a DECR round trip followed by a conditional DEL. The
+// server executed them separately, so an INCR that another instance landed in
+// between was deleted together with the stale key: the shared window silently
+// undercounted and the key was admitted more traffic than its configured limit.
+// A script runs as a single command, which is the only way to express
+// "decrement, then remove if the total is not positive" without a race.
+//
+// Dropping a non-positive key is still the right self-heal: a rollback that
+// lands after the window expired re-creates the key with no TTL and a negative
+// value, and INCR only arms PEXPIRE when its result is exactly 1, so such a key
+// would otherwise linger and undercount the next window. A non-positive total
+// means no instance holds a live reservation, so nothing is lost.
+const rollbackScript = `local total = redis.call('INCRBY', KEYS[1], ARGV[1])
+if total <= 0 then
+  redis.call('DEL', KEYS[1])
+  return 0
+end
+return total`
+
+// rollback runs rollbackScript for a negative delta and returns the window total
+// afterwards, or 0 when the key was dropped.
+func (r *RedisCounter) rollback(ctx context.Context, key string, delta int64) (int64, error) {
+	if delta >= 0 {
+		return 0, fmt.Errorf("sharedcount: rollback delta must be negative, got %d", delta)
+	}
+	deltaArg := strconv.FormatInt(delta, 10)
 	var count int64
 	err := r.withConn(ctx, func(conn net.Conn) error {
-		n, err := redisDoInt(conn, "DECR", key)
+		n, err := redisDoInt(conn, "EVAL", rollbackScript, "1", key, deltaArg)
 		if err != nil {
-			return err
-		}
-		count = n
-		if n <= 0 {
-			// Self-heal: a rollback that lands after the window expired
-			// re-created the key with no TTL and a non-positive value. Such a
-			// key lingers (INCR only arms PEXPIRE when its result is exactly 1,
-			// so a stale -1 needs two increments to become mortal again) and
-			// undercounts the next window. Dropping it loses nothing: a
-			// non-positive total means no instance holds a live reservation.
-			// Best-effort — the rollback itself already landed.
-			if derr := redisDo(conn, "DEL", key); derr == nil {
-				count = 0
+			if !isScriptUnsupportedError(err) {
+				return err
+			}
+			// The server has no EVAL. Apply the decrement on its own and skip
+			// the self-heal: an immortal non-positive key undercounts one
+			// window, whereas a non-atomic DEL discards live reservations.
+			n, err = redisDoInt(conn, "INCRBY", key, deltaArg)
+			if err != nil {
+				return err
 			}
 		}
+		count = n
 		return nil
 	})
 	return count, err
+}
+
+// isScriptUnsupportedError reports a server that does not implement EVAL, as
+// opposed to a script that ran and failed.
+func isScriptUnsupportedError(err error) bool {
+	var re *replyError
+	if !errors.As(err, &re) {
+		return false
+	}
+	msg := strings.ToLower(re.msg)
+	return strings.Contains(msg, "unknown command") || strings.Contains(msg, "unsupported command")
 }
 
 func (r *RedisCounter) IncrBy(ctx context.Context, key string, delta int64, window time.Duration) (int64, error) {
 	if window <= 0 {
 		window = time.Minute
 	}
-	if delta == 0 {
+	switch {
+	case delta == 0:
 		// No reservation — read current total without changing TTL.
 		return r.Get(ctx, key)
+	case delta < 0:
+		// Compensating rollback: same atomic self-heal as Decr. It never arms
+		// PEXPIRE, so a rollback cannot extend the window it is compensating.
+		return r.rollback(ctx, key, delta)
 	}
 	var count int64
 	err := r.withConn(ctx, func(conn net.Conn) error {
-		// Fixed-window approximation: INCRBY + PEXPIRE when this is the first positive write
-		// in the window (post-increment equals delta ⇒ key was absent/0).
-		// Negative delta is a compensating rollback and must not refresh TTL.
 		n, err := redisDoInt(conn, "INCRBY", key, strconv.FormatInt(delta, 10))
 		if err != nil {
 			return err
 		}
 		count = n
-		switch {
-		case delta > 0 && n == delta:
+		if n == delta {
+			// First positive write in the window (post-increment equals delta
+			// ⇒ the key was absent/0): arm the expiry.
 			ms := strconv.FormatInt(window.Milliseconds(), 10)
 			if err := redisDo(conn, "PEXPIRE", key, ms); err != nil {
 				return err
-			}
-		case delta < 0 && n <= 0:
-			// Same self-heal as Decr: never leave an immortal non-positive key
-			// behind when a compensating rollback lands after expiry.
-			if derr := redisDo(conn, "DEL", key); derr == nil {
-				count = 0
 			}
 		}
 		return nil

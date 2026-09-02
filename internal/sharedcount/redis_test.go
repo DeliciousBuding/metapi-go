@@ -20,7 +20,8 @@ import (
 // fakeRedis is a minimal in-memory RESP server for exercising RedisCounter
 // over a real TCP loopback connection (so NewRedisCounter + net.DialTimeout
 // are covered end-to-end). It supports AUTH, SELECT, INCR, DECR, INCRBY, GET
-// PEXPIRE and DEL with real TTL expiry.
+// PEXPIRE, DEL and the single EVAL script the counter uses, with real TTL
+// expiry.
 type fakeRedis struct {
 	mu       sync.Mutex
 	data     map[string]int64
@@ -41,6 +42,15 @@ type fakeRedis struct {
 
 	// delayMs is an artificial per-command latency (0 = none).
 	delayMs atomic.Int64
+
+	// hookMu guards beforeCommand and evalDisabled.
+	hookMu sync.Mutex
+	// beforeCommand, when set, runs after a command has been parsed but before it
+	// is handled — the client is still waiting for the reply, so this is the gap
+	// in which a test can land another connection's command.
+	beforeCommand func(cmd, key string)
+	// evalDisabled makes EVAL answer the way a server without scripting does.
+	evalDisabled bool
 }
 
 func newFakeRedis(tb testing.TB) *fakeRedis {
@@ -76,6 +86,50 @@ func (f *fakeRedis) close() {
 // setDelay makes every command sleep d before it is handled.
 func (f *fakeRedis) setDelay(d time.Duration) {
 	f.delayMs.Store(d.Milliseconds())
+}
+
+// setBeforeCommand installs a callback fired before a command is handled, while
+// the issuing client is still blocked on the reply. A second counter writing
+// from inside the callback therefore lands in the middle of the first one's
+// operation, which is where a non-atomic multi-command sequence can be caught.
+func (f *fakeRedis) setBeforeCommand(fn func(cmd, key string)) {
+	f.hookMu.Lock()
+	defer f.hookMu.Unlock()
+	f.beforeCommand = fn
+}
+
+// disableEval makes the double answer EVAL with the error a server without
+// scripting support returns.
+func (f *fakeRedis) disableEval() {
+	f.hookMu.Lock()
+	defer f.hookMu.Unlock()
+	f.evalDisabled = true
+}
+
+// fireBeforeCommand runs the installed callback, if any, outside the datastore
+// lock so the callback may issue commands on another connection.
+func (f *fakeRedis) fireBeforeCommand(cmd, key string) {
+	f.hookMu.Lock()
+	fn := f.beforeCommand
+	f.hookMu.Unlock()
+	if fn != nil {
+		fn(cmd, key)
+	}
+}
+
+// commandKey extracts the key a command operates on, so the interleave hook can
+// be filtered per key. EVAL carries it after the script and the numkeys count.
+func commandKey(cmd string, parts []string) string {
+	if cmd == "EVAL" {
+		if len(parts) >= 4 {
+			return parts[3]
+		}
+		return ""
+	}
+	if len(parts) >= 2 {
+		return parts[1]
+	}
+	return ""
 }
 
 // closeConns closes every live connection but keeps the listener accepting, i.e.
@@ -180,6 +234,7 @@ func (f *fakeRedis) handle(conn net.Conn) {
 				writeError(conn, "NOAUTH Authentication required")
 				return
 			}
+			f.fireBeforeCommand(cmd, commandKey(cmd, parts))
 			if !f.handleCommand(conn, cmd, parts) {
 				return
 			}
@@ -261,6 +316,49 @@ func (f *fakeRedis) handleCommand(conn net.Conn, cmd string, parts []string) boo
 		f.ttl[key] = time.Now().Add(time.Duration(ms) * time.Millisecond)
 		f.mu.Unlock()
 		writeInt(conn, 1)
+	case "EVAL":
+		// The counter sends exactly one script: the atomic rollback
+		// (INCRBY plus a conditional DEL). Redis executes a script as a single
+		// command, so the double applies the whole thing under one lock hold —
+		// that atomicity is the property under test, and it is why no other
+		// connection can observe (or lose) a write in the middle.
+		f.hookMu.Lock()
+		disabled := f.evalDisabled
+		f.hookMu.Unlock()
+		if disabled {
+			writeError(conn, "ERR unknown command 'EVAL'")
+			return true
+		}
+		if len(parts) < 5 {
+			writeError(conn, "ERR wrong number of arguments for 'eval' command")
+			return true
+		}
+		if !strings.Contains(parts[1], "INCRBY") || !strings.Contains(parts[1], "DEL") {
+			writeError(conn, "ERR test double implements only the atomic rollback script")
+			return true
+		}
+		if numKeys, err := strconv.Atoi(parts[2]); err != nil || numKeys != 1 {
+			writeError(conn, "ERR test double implements exactly one KEYS entry")
+			return true
+		}
+		key := parts[3]
+		delta, err := strconv.ParseInt(parts[4], 10, 64)
+		if err != nil {
+			writeError(conn, "ERR value is not an integer or out of range")
+			return true
+		}
+		f.mu.Lock()
+		f.expireLocked(key)
+		v := f.data[key] + delta
+		if v <= 0 {
+			delete(f.data, key)
+			delete(f.ttl, key)
+			v = 0
+		} else {
+			f.data[key] = v
+		}
+		f.mu.Unlock()
+		writeInt(conn, v)
 	case "DEL":
 		if len(parts) < 2 {
 			writeError(conn, "ERR wrong number of arguments")
