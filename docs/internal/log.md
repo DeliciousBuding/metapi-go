@@ -1,9 +1,18 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-09-02
+**Last updated**: 2026-09-02 (v0.16.22)
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-09-02 — v0.16.22 发版（`/v1` 数据面契约与硬化 + 并发去串行化 + 旅程闭环）
+
+- **API 契约（#1145）**：写超时倒挂收口（`WriteTimeout` 60s 覆盖上游等待，61~90s 返回的缓冲响应被掐写端）——`proxy.RequestCeiling`/`WriteBudget` 成为执行器与写预算的单一来源，`router.ProxyWriteDeadline` 在两个代理组重新武装写截止；客户端协议头填充式白名单透传（`anthropic-version`/`anthropic-beta`/`openai-beta`/`user-agent`/`x-stainless-*`，站点 `custom_headers` 与 token 优先级不变，凭据头永不透传，Anthropic 原生派发补协议默认版本）；上游响应头由全量拷贝改内容语义白名单（厂商指纹头/`Set-Cookie`/上游 `X-Request-Id` 不再泄漏，metapi request id 与限流头保持权威）。
+- **安全纵深（#1145）**：数据面 transport（执行器、SSE 流、兜底派发客户端、渠道健康探针）挂 `internal/ssrf` DNS 钉扎 dial 守卫（新 `httpclient.Options.SiteDialGuard`），关掉校验后重解析窗口；metadata/link-local/multicast 拒绝，loopback/RFC1918/ULA 保留给自托管上游。
+- **性能并发（#1147）**：Redis 共享准入去全局串行化——64 条 cache-line 分片锁（不跨 I/O）+ 每密钥 `sharedMu` 保 `Incr`/补偿 `Decr` 有序 + 连接池（上限 8、`AUTH`/`SELECT` 每连接一次、重连、尊重 ctx）。语义零漂移（fail-open/拒绝原因/`Retry-After`/决策形状/key 命名空间/env 名全不变）。2ms 共享往返 32 并发多密钥：117 → 3137 次/秒（26.8×），p50 259ms → 10ms；单次 `INCR` 465µs → 54µs，`AUTH` 3530 → 1。
+- **无界增长（#1146）**：视频任务重写缓存加 TTL + 摊销 sweep + 20000 行硬护栏（缓存永不删持久行）；`PROXY_VIDEO_TASK_RETENTION_DAYS` 默认 0 → 7（`<=0` 仍为显式关闭）。
+- **卫生**：死字段 `SurfConfig.ExtraHeaders` 删除；`anthropic-version` 默认值三副本归一 `platform.ClaudeDefaultAnthropicVersion`；`docs/api/proxy.md` 补 /v1 头策略与超时相态表、`docs/api/conventions.md` 补数据面 SSRF 硬化节。
+- **发布事实**：v0.16.21 于本日 publish（repo Latest，12 资产）；被完全取代且从未发布的 v0.16.20 draft 删除（tag 与 CHANGELOG 节保留）。
 
 ## 2026-09-02 — v0.16.21 发版（审计驱动修复波：安全/API 契约/TS 接管/死码清理）
 
@@ -11,7 +20,7 @@
 - **API 契约（#1140、#1141）**：`/v1` 鉴权/限流错误对齐 OpenAI 信封（invalid key 403→401、配额 403→429）；`/v1/pricing` 双前缀路由 bug、catalogsync PG `LastInsertId` bug、SSE 默认 1MB→64MB、`X-Accel-Buffering: no`、审计 LIKE 大小写 parity。
 - **TS 接管（#1142）**：`sc2_029` 时间戳归一化——drizzle 空格格式自动重写 RFC3339，消除接管库排序/范围失真与首启重签风暴（introspection 驱动、双方言、幂等）。
 - **卫生（#1137、#1138）**：Go 死码 -1814 行（14 项零引用验证）+ clamp 三副本归一；web oneoff -1900 行 + `copyText()` 收敛。
-- **来源**：五路并行域审计（安全/性能并发/数据库/产品 UIUX/API 网络）+ Go/web 屎山侦察；当日合并 8 PR（#1135–#1142）。剩余 backlog（Redis 准入锁、超时倒挂、头透传、术语统一批、旅程闭环、计费视图等）见内部审计汇总（`.dev-local/audits/2026-09-02-multidomain-audit.md`，私有层）。
+- **来源**：五路并行域侦察（安全 / 性能并发 / 数据库迁移 / 产品 UIUX / API 网络）+ Go/web 死码清查；当日合并 8 PR（#1135–#1142）。该轮记录的剩余 backlog（Redis 准入锁、写超时倒挂、头透传/剥离、术语统一批、旅程闭环、计费视图、告警中心等）由 v0.16.22 起逐波消化，进度见 [`STATE.md`](STATE.md) 的 Current focus。
 
 ## 2026-09-01 — v0.16.20 发版（F5 结构化事件 + 08-30→09-01 三波）
 

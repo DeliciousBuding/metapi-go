@@ -5,6 +5,34 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.22] — 2026-09-02
+
+### Added
+
+- **仪表盘四步旅程清单（#1148）**：站点 → 账号 → 路由 → 密钥的四步 checklist 取代「建好第一个站点就退役」的单步横幅，CTA 只挂在第一个缺口上（一次只引导一件事），四步全部建成后自我退役。判态复用既有接口（仪表盘快照、路由汇总、下游密钥列表）与各功能自己的 query key/queryFn，访问过对应页面的部署不产生额外请求、不污染缓存；任一数据源未回答或出错时判态返回 null，既不首屏闪现四步待办，也不凭空编造缺口。
+- **路由页 → 下游密钥交接条（#1148）**：已有路由但下游密钥数为 0 时，路由页就地提示「签发下游密钥，客户端即可用它调用 `/v1`」；加载中、请求失败、已有密钥三种情况一律沉默，签发第一把密钥后永久消失（不是又一条常驻横幅）。路由创建成功 toast 的 CTA 目的地改为一级页 `/downstream-keys`（此前指向提升前的 `/settings/downstream`），空态描述点名第 4 步，完成态文案不再一边自称「已完成」一边留着最后一步。
+- **密钥创建后「立即接入」动作（#1148）**：导出对话框虽然会自动打开，但它可被关闭且受主令牌二次确认保护，关掉后此前只能回表格行里翻入口；创建成功的 toast 现带一键重开动作，并把同一把新密钥回传给对话框。
+- **三个配额字段的语义说明（#1148）**：`maxRequests` / `maxCost` / `expiresAt` 补齐单位与行为——累计总量而非每分钟窗口（每分钟限速是另一组 `max_rpm` / `max_tpm` 列）、金额单位为 USD 且仅成功请求计费、超限返回 429（`over_requests` / `over_cost`）、过期返回 403（`key_expired`）、留空或填 0 表示不限制、过期时间按浏览器本地时间填写但以 UTC 存储与比较。文案逐条转录自鉴权与计费实现（含 `aria-describedby` 可访问性断言），不是凭印象写的。
+
+### Changed
+
+- **`/v1` 写超时不再掐断慢响应（#1145）**：`Server.WriteTimeout`（60s）在请求头读完时即武装，因此也覆盖了 handler 等待上游的时间，而缓冲派发的整体上限是 `max(90s, 首字节窗口 ×2)`——在 61~90s 之间返回的非流式响应会在回写客户端时被掐断（表现为长请求「拿到结果却连接被重置」）。现由 `router.ProxyWriteDeadline` 中间件用与执行器**同源**的预算（`proxy.WriteBudget` = 请求上限 + 2 分钟）重新武装写截止，写侧结构上不可能再短于请求侧；admin 面保持严格 60s；SSE 流仍完全清除写截止，由逐块空闲守卫（`PROXY_STREAM_IDLE_TIMEOUT_SEC`）掌管存活性，长推理流不受总时长约束。
+- **客户端协议头透传（#1145）**：数据面重建上游请求时此前只带 `Content-Type` + 站点 `custom_headers` + 选中账号 token，客户端的协议开关全部静默丢失——`anthropic-version`、`anthropic-beta`、`openai-beta`、`user-agent` 与 `x-stainless-*` SDK 遥测命名空间，Claude Code 的特性开关（prompt caching、fine-grained tool streaming）因此永远到不了上游。现按白名单**填充式**透传：站点 `custom_headers` 与每站点反爬身份仍然优先，账号 token 最后设置、客户端永不可覆盖；多值头（多个 `anthropic-beta` 标志）全量保留。凭据与代理类头一律不透传（`authorization`、`x-api-key`、`cookie`、`x-forwarded-*`、hop-by-hop），下游密钥永不外泄给上游。Anthropic 原生派发（`/v1/messages`，含 `/anthropic/v1/messages` 网关形状）在客户端未带 `anthropic-version` 时补协议默认值，OpenAI 面请求转换成 Anthropic 形状后不再被上游校验拒绝。
+- **上游响应头改内容语义白名单（#1145）**：缓冲响应此前全量拷贝上游响应头，把上游的身份与状态泄漏给下游——厂商指纹头（实测可见 `X-New-Api-Version`）、上游 `Set-Cookie`、以及覆盖 metapi 自己 `X-Request-Id` 的上游同名头（跨层日志无法关联，客户端报障时 id 对不上）。现只转发内容语义头（`Content-Type`、`Content-Disposition`、`Content-Encoding`、`Content-Language`、`Content-Range`、`Accept-Ranges`、`Cache-Control`、`ETag`、`Last-Modified`、`Location`、`Retry-After`）；metapi 的 request id 与 `X-Ratelimit-*` 保持唯一权威（客户端看到的限流头只描述自己的 metapi 配额）；分帧/逐跳头不外传，缓冲体由 net/http 重新分帧。流式路径的错误中继同策略，SSE 正常流仍全部由 metapi 重新构框。
+- **Redis 共享限流不再全局串行（#1147）**：配置 `REDIS_URL` 后，密钥准入此前是「全局一把锁 + 每命令一次 TCP 握手」：`Allow()` 持全局互斥做共享 RPM/TPM 往返，`RedisCounter` 每条命令新建连接（dial + `AUTH` + `SELECT` + close）且完全忽略 `ctx`——所有密钥互相排队，每请求还要在锁内付一次握手。现改为：64 条 cache-line 对齐分片锁（`keyID % 64`，只保护内存窗口，**绝不跨 I/O 持有**）+ 每密钥 `sharedMu` 串行化本 key 的 `Incr` 与补偿 `Decr`（锁序恒为 `sharedMu → shard`，无环、不可能死锁）+ 连接池（并发上限 8、LIFO 复用、`AUTH`/`SELECT` 每连接一次、传输错误丢弃并重连、Redis 错误回复不重试以免造成连接风暴、完整尊重 `ctx` 取消与 deadline）。**语义零漂移**：Redis 出错仍 fail-open 回落本地窗口、`over_rpm`/`over_tpm` 原因与 `Retry-After`、`UsedRPM`/`UsedTPM`、`AdmissionDecision` 形状、`metapi:rpm:{id}`/`metapi:tpm:{id}` 命名空间、全部 env 名与函数签名均不变，零新依赖。实测（每轮 2ms 共享往返、32 并发、多密钥）：准入吞吐 117 → 3137 次/秒（26.8×），p50 259ms → 10ms、p99 360ms → 40ms；单次 `INCR` 465µs → 54µs（8.5×），`AUTH` 命令 3530 → 1 次，峰值连接 15 → 8（现有上界）；不配 Redis 的纯内存路径也因分片获得 1.7×。同一热点密钥的多请求仍按设计串行（1.0×，`Incr`/`Decr` 必须有序）。fail-open 原子性有测试钉住：Redis 全挂 + 100 并发 + 限额 50 → 恰好放行 50。
+- **视频任务映射保留期默认 7 天（#1146）**：`PROXY_VIDEO_TASK_RETENTION_DAYS` 默认值由 `0`（= 保留期调度器整条禁用，`proxy_video_tasks` 无界增长）改为 `7`——视频任务映射是短寿的 id 重写记录，比代理日志/文件（30 天）退休更快。`<=0` 仍是运维显式关闭（只是不再是默认），调度器禁用原因串同步修正为 `retention_days<=0`。`.env.example` 与 `docs/configuration.md` 同步说明该旋钮同时约束持久行与进程内缓存。
+
+### Fixed
+
+- **数据面 SSRF dial 级纵深（#1145）**：站点批量导入与两条备份导入路径的目标校验收口之后，真正发起转发的 transport 仍是裸 `net.Dialer`——校验通过后重新解析（DNS rebinding）仍可落到不同地址。现执行器、SSE 流 transport、两个兜底派发客户端与渠道健康探针 transport 统一挂 `internal/ssrf` 的 DNS 钉扎守卫（新 `httpclient.Options.SiteDialGuard`）：主机名只解析一次、每个应答都校验、连接钉到已验证的 IP。云 metadata（`169.254.169.254`、`100.100.100.200`、`fd00:ec2::254`、`metadata` / `metadata.google.internal` 别名）、link-local、multicast、unspecified/reserved 段一律拒绝；**loopback、RFC1918、IPv6 ULA 刻意保留**——自托管上游（本地 new-api / one-api / sub2api / LiteLLM 网关）是一等部署形态，守卫只挡 metadata 外泄不挡运维内网。
+- **视频任务进程内缓存无界增长（#1146）**：`publicId → 上游视频 id`（含 sticky 渠道/账号 pin）的重写缓存是包级 map 且无任何驱逐，长跑进程随累计视频流量线性泄漏内存。现按同一个 `PROXY_VIDEO_TASK_RETENTION_DAYS` 旋钮做 TTL，驱逐在插入路径摊销触发（每 256 次插入或每 5 分钟至多一次 sweep：突发护栏 + 闲置护栏，无后台 goroutine、无每请求全表扫），并加 20000 行（约 4MB）硬容量护栏——即使运维显式关闭保留期也生效，超限时按最旧优先批量 trim 到 `cap - cap/16` 以摊薄排序成本；读路径把过期行当 miss（O(1)，只需读锁）并从持久表回温。持久行的剪枝仍只由保留期调度器在其租约下负责，缓存永不删 DB 行。
+- **下游密钥的过期时间此前完全不生效（#1148）**：表单出站的是裸 `datetime-local` 串（形如 `2030-01-02T03:04`，无秒、无时区），写入归一与鉴权两处解析器都不认，而不可解析的过期时间按 TS parity 会**跳过整个过期检查**——实测一把 2020 年就该过期的密钥仍能以 200 调用 `/v1/models`，而同一时刻的 RFC3339 形式正确返回 403。现出站统一为 RFC3339 UTC，同一服务端复验：已过期 403、未过期 200（含 `toISOString()` 的毫秒形式）。留空仍表示永不过期且仍进 body（更新路径需要该字段存在才能把已有过期时间清空）；不可解析的输入原样透传，绝不被静默改写成「永不过期」。**行为变更**：编辑并保存一把存量脏格式的密钥后，它的过期时间会开始真正生效（该值在表单里可见、可改）；存量行的批量归一需要后端先定死时区语义（裸本地时间串不带时区），已作为独立后续项处理而非在此猜测。
+
+### Docs
+
+- `docs/api/proxy.md` 新增「Header policy (/v1 surface)」（双向头策略、优先级次序、凭据头永不透传）与「Timeouts (/v1 surface)」（各相态超时与归属表）；`docs/api/conventions.md` 新增「Site upstream SSRF hardening (proxy data plane)」（URL 层 + dial 层两道守卫、拒绝段与刻意放行段）。
+- 内部卫生：死字段 `SurfConfig.ExtraHeaders` 删除；`anthropic-version` 协议默认值从三处副本归一为 `platform.ClaudeDefaultAnthropicVersion`；出站 HTTP 客户端门禁说明补上 `Options.SiteDialGuard` 现已建模 dial 级守卫。
+
 ## [v0.16.21] — 2026-09-02
 
 ### Added
