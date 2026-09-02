@@ -30,7 +30,9 @@ import (
 //   - SSRF-hardened clients whose DialContext enforces dial-level target
 //     guards internal/httpclient does not model: notifyHTTPClient
 //     (service/notify, all webhook-style channels) and the WebDAV backup
-//     clients in handler/admin and scheduler;
+//     clients in handler/admin and scheduler. Transports built here opt into
+//     the shared site dial guard (internal/ssrf) with Options.SiteDialGuard —
+//     used by the proxy data plane and channel health probes;
 //   - proxy.NewStreamTransport — SSE data-plane stream relay; header phase
 //     bounded, whole-request timeout owned by the relay's idle guard.
 //

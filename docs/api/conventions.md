@@ -155,6 +155,34 @@ The `/monitor-proxy/ldoh/*` admin surface proxies an upstream LDOH dashboard. Th
 
 **Error leakage**: Upstream request failures return a generic `"LDOH upstream request failed"` message to the browser. The full error (DNS/TLS/network details) is logged server-side via `slog` only, preventing upstream topology leakage to end users.
 
+### Site upstream SSRF hardening (proxy data plane)
+
+Site URLs are operator input, so they are guarded at two layers:
+
+1. **URL validation** on every write path — single-site create/update, bulk site
+   import, and both backup import formats (`IsForbiddenSiteTargetURL` /
+   `SanitizeImportedSiteRows`, applied to `url`, `externalCheckinUrl`,
+   `proxyUrl`, and every `site_api_endpoints.url`). Import preview uses the same
+   rule as the import itself, and rejected rows are reported explicitly instead
+   of being dropped silently.
+2. **Dial-time guard** on the data plane (`internal/ssrf.NewSiteDialContext`,
+   enabled through `httpclient.Options.SiteDialGuard` on the proxy executor,
+   the SSE stream transport, the fallback dispatch clients, and the channel
+   health probe transport). The hostname is resolved exactly once, every answer
+   is checked, and the connection is pinned to an already-validated IP — so a
+   hostname that passes validation and then re-resolves (DNS rebinding) cannot
+   reach a different address. Cross-origin and HTTPS→HTTP redirects are refused
+   separately by the shared redirect policy.
+
+Blocked: cloud metadata endpoints (`169.254.169.254`, `100.100.100.200`,
+`fd00:ec2::254`, and the `metadata` / `metadata.google.internal` aliases),
+link-local, multicast, and unspecified/reserved ranges.
+
+Deliberately allowed: loopback, RFC 1918, and IPv6 ULA. Self-hosted upstreams
+(a local new-api, one-api, sub2api, or LiteLLM gateway) are a first-class
+Metapi deployment shape, so the guard blocks metadata exfiltration without
+blocking operator infrastructure.
+
 ### WebDAV backup SSRF hardening
 
 WebDAV import/export URLs (`fileUrl`) are validated against SSRF at two layers:

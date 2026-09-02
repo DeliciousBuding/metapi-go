@@ -251,12 +251,7 @@ func relayUpstreamErrorResponse(w http.ResponseWriter, resp *http.Response, late
 		return
 	}
 
-	for k, v := range resp.Header {
-		if k == "Content-Length" || k == "Transfer-Encoding" {
-			continue
-		}
-		w.Header()[k] = v
-	}
+	relayUpstreamResponseHeaders(w, resp.Header)
 	w.WriteHeader(resp.StatusCode)
 	_, _ = w.Write(bodyBytes)
 }

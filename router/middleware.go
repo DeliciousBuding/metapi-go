@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 )
@@ -44,6 +45,39 @@ func corsOptions(allowedOrigins []string) cors.Options {
 		AllowCredentials: false,
 		MaxAge:           300,
 	}
+}
+
+// ProxyWriteDeadline re-arms the connection write deadline for the proxy
+// surface (/v1 plus the non-/v1 proxy aliases).
+//
+// net/http arms that deadline from Server.WriteTimeout (60s, see
+// app.newHTTPServer) immediately after the request header is read, so it also
+// covers the time the handler spends waiting for the upstream. That inverted
+// against the executor's whole-request ceiling (90s, or 2x the configured
+// first-byte window): a buffered response arriving between 61s and 90s was
+// killed while being written back to the client. proxy.WriteBudget is derived
+// from the same SSOT as the executor ceiling, so the write side can no longer
+// be shorter than the request side, while admin routes keep the strict 60s.
+//
+// SSE relays still clear the deadline outright (handler/proxy
+// relayUpstreamStream): a healthy stream is bounded per chunk by
+// PROXY_STREAM_IDLE_TIMEOUT_SEC rather than by total elapsed time.
+func ProxyWriteDeadline(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(proxyWriteBudget()))
+		next.ServeHTTP(w, r)
+	})
+}
+
+// proxyWriteBudget reads the first-byte window from the published runtime
+// settings. RuntimeSafe (not Runtime) because the middleware can be exercised
+// by tests that never publish config.
+func proxyWriteBudget() time.Duration {
+	firstByteSec := 0
+	if rt := config.RuntimeSafe(); rt != nil {
+		firstByteSec = rt.ProxyFirstByteTimeoutSec
+	}
+	return proxy.WriteBudget(firstByteSec)
 }
 
 // RequestLogger logs every incoming request using slog after it completes,

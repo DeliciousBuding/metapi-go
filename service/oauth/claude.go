@@ -11,15 +11,15 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/platform"
 )
 
 const (
-	claudeAuthURL                 = "https://claude.ai/oauth/authorize"
-	claudeLoopbackPort            = 54545
-	claudeLoopbackPath            = "/callback"
-	claudeLoopbackRedirectURI     = "http://localhost:54545/callback"
-	claudeUpstreamBaseURL         = "https://api.anthropic.com"
-	claudeDefaultAnthropicVersion = "2023-06-01"
+	claudeAuthURL             = "https://claude.ai/oauth/authorize"
+	claudeLoopbackPort        = 54545
+	claudeLoopbackPath        = "/callback"
+	claudeLoopbackRedirectURI = "http://localhost:54545/callback"
+	claudeUpstreamBaseURL     = "https://api.anthropic.com"
 )
 
 // claudeTokenURL is a package var (not a const) so tests can swap in a local
@@ -246,7 +246,7 @@ func refreshClaudeAccessToken(ctx context.Context, input RefreshTokenInput) (*To
 
 func buildClaudeProxyHeaders(ctx context.Context, input ProxyHeaderInput) map[string]string {
 	return map[string]string{
-		"anthropic-version": claudeDefaultAnthropicVersion,
+		"anthropic-version": platform.ClaudeDefaultAnthropicVersion,
 	}
 }
 

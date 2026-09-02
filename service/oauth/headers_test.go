@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"github.com/deliciousbuding/metapi-go/platform"
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/store"
@@ -57,7 +58,7 @@ func TestBuildOauthProviderHeaders_ClaudeFromExtraConfig(t *testing.T) {
 	if len(headers) == 0 {
 		t.Fatal("expected non-empty headers for claude account")
 	}
-	if headers["anthropic-version"] != claudeDefaultAnthropicVersion {
+	if headers["anthropic-version"] != platform.ClaudeDefaultAnthropicVersion {
 		t.Errorf("anthropic-version = %q", headers["anthropic-version"])
 	}
 }

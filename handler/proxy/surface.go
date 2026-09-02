@@ -23,7 +23,6 @@ type SurfConfig struct {
 	// /v1internal::streamGenerateContent where streaming is path-implied.
 	ForceStream   bool
 	Method        string
-	ExtraHeaders  map[string]string
 	MaxRetries    int
 	SurfaceFormat string // "openai", "claude", or empty
 }

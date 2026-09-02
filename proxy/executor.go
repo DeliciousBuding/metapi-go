@@ -57,6 +57,11 @@ const defaultStreamResponseHeaderTimeout = 30 * time.Second
 func NewStreamTransport() *http.Transport {
 	return httpclient.NewTransport(httpclient.Options{
 		ResponseHeaderTimeout: defaultStreamResponseHeaderTimeout,
+		// Data-plane dial guard: site URLs are operator input, and a hostname
+		// that resolves to a cloud metadata / link-local address must not be
+		// dialled even if it passed URL-level validation earlier (DNS
+		// rebinding). Private ranges stay allowed for self-hosted upstreams.
+		SiteDialGuard: true,
 	})
 }
 
@@ -83,7 +88,10 @@ func NewRuntimeExecutor(requestTimeout time.Duration) *RuntimeExecutor {
 			// (max(90s, first-byte*2) in app wiring, operator-influenced via
 			// PROXY_FIRST_BYTE_TIMEOUT_SEC) so it never pre-empts a request
 			// that would finish within its own deadline.
-			Transport:     httpclient.NewTransport(httpclient.Options{ResponseHeaderTimeout: requestTimeout}),
+			Transport: httpclient.NewTransport(httpclient.Options{
+				ResponseHeaderTimeout: requestTimeout,
+				SiteDialGuard:         true, // see NewStreamTransport
+			}),
 			CheckRedirect: rejectCrossOriginRedirect,
 		},
 		streamClient: &http.Client{
