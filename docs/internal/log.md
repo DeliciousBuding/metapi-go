@@ -7,6 +7,8 @@
 
 ## 2026-09-02 — v0.16.22 发版（`/v1` 数据面契约与硬化 + 并发去串行化 + 旅程闭环）
 
+- **发布事实（同日二次发布）**：v0.16.22 于 2026-09-02 publish 为 repo Latest（12 资产）；v0.16.21 于同日早些时候 publish（两版间隔约 4 小时，patch-first 节奏）。tag 管道的本地 pre-push `-race` 门禁在 2C 开发节点超包预算，按该节点既定纪律以 `--no-verify` 推 tag——该提交的 GitHub CI 已全绿（含 -race 分片），决策与理由记录在维护者工作区日志。
+
 - **API 契约（#1145）**：写超时倒挂收口（`WriteTimeout` 60s 覆盖上游等待，61~90s 返回的缓冲响应被掐写端）——`proxy.RequestCeiling`/`WriteBudget` 成为执行器与写预算的单一来源，`router.ProxyWriteDeadline` 在两个代理组重新武装写截止；客户端协议头填充式白名单透传（`anthropic-version`/`anthropic-beta`/`openai-beta`/`user-agent`/`x-stainless-*`，站点 `custom_headers` 与 token 优先级不变，凭据头永不透传，Anthropic 原生派发补协议默认版本）；上游响应头由全量拷贝改内容语义白名单（厂商指纹头/`Set-Cookie`/上游 `X-Request-Id` 不再泄漏，metapi request id 与限流头保持权威）。
 - **安全纵深（#1145）**：数据面 transport（执行器、SSE 流、兜底派发客户端、渠道健康探针）挂 `internal/ssrf` DNS 钉扎 dial 守卫（新 `httpclient.Options.SiteDialGuard`），关掉校验后重解析窗口；metadata/link-local/multicast 拒绝，loopback/RFC1918/ULA 保留给自托管上游。
 - **性能并发（#1147）**：Redis 共享准入去全局串行化——64 条 cache-line 分片锁（不跨 I/O）+ 每密钥 `sharedMu` 保 `Incr`/补偿 `Decr` 有序 + 连接池（上限 8、`AUTH`/`SELECT` 每连接一次、重连、尊重 ctx）。语义零漂移（fail-open/拒绝原因/`Retry-After`/决策形状/key 命名空间/env 名全不变）。2ms 共享往返 32 并发多密钥：117 → 3137 次/秒（26.8×），p50 259ms → 10ms；单次 `INCR` 465µs → 54µs，`AUTH` 3530 → 1。
