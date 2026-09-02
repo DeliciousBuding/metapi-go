@@ -497,7 +497,7 @@ func dispatchEndpointAttemptWithContinue(
 		slog.Warn("upstream request construction failed",
 			"err", err, "url", upstreamURL, "model", upstreamModel,
 			"request_id", requestID, "retry", retry)
-		if !isLastEndpoint && !disableCrossProtocolFallback {
+		if shouldContinueEndpointFallback(http.StatusBadGateway, err.Error(), isLastEndpoint, disableCrossProtocolFallback, endpointFailureTransport) {
 			return false, nil, true
 		}
 		if retry < maxRetries {
@@ -533,7 +533,7 @@ func dispatchEndpointAttemptWithContinue(
 				"request_id", requestID,
 				"retry", retry,
 			)
-			if !isLastEndpoint && !disableCrossProtocolFallback {
+			if shouldContinueEndpointFallback(http.StatusRequestTimeout, err.Error(), isLastEndpoint, disableCrossProtocolFallback, endpointFailureFirstByteTimeout) {
 				return false, nil, true
 			}
 			// Terminal for this channel attempt.
@@ -550,11 +550,14 @@ func dispatchEndpointAttemptWithContinue(
 		slog.Warn("upstream request failed",
 			"err", err, "url", upstreamURL, "model", upstreamModel,
 			"channel_id", selected.Channel.ID, "request_id", requestID, "retry", retry)
-		if !isLastEndpoint && !disableCrossProtocolFallback {
+		errText := err.Error()
+		// Transport-level failures go through the same single decision function
+		// (and therefore the same same-site abort policy) as HTTP/content
+		// failures; the historical bare check let them bypass the abort policy.
+		if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureTransport) {
 			// Network error may still be protocol-local; allow next endpoint without poison.
 			return false, nil, true
 		}
-		errText := err.Error()
 		recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, 0, errText)
 		writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, http.StatusBadGateway, effectiveStream, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, errText)
 		if retry < maxRetries {
@@ -574,10 +577,10 @@ func dispatchEndpointAttemptWithContinue(
 				slog.Warn("failed to read upstream stream error response",
 					"err", readErr, "latency_ms", latencyMs, "status", resp.StatusCode,
 					"request_id", requestID, "retry", retry)
-				if !isLastEndpoint && !disableCrossProtocolFallback {
+				errText := readErr.Error()
+				if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureTransport) {
 					return false, nil, true
 				}
-				errText := readErr.Error()
 				recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, errText)
 				writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, http.StatusBadGateway, true, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, errText)
 				if retry < maxRetries {
@@ -588,7 +591,7 @@ func dispatchEndpointAttemptWithContinue(
 				return true, nil, false
 			}
 			rawErrText := string(respBody)
-			if shouldContinueEndpointFallback(resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback) {
+			if shouldContinueEndpointFallback(resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
 				return false, nil, true
 			}
 			// Best-effort usage from error JSON bodies (some gateways still include usage).
@@ -605,22 +608,43 @@ func dispatchEndpointAttemptWithContinue(
 		// Always close the upstream body, including early client disconnects.
 		var streamUsage ParsedUsage
 		var streamEnd streamOutcome
+		var streamVerdict *proxy.UpstreamVerdict
 		func() {
 			defer resp.Body.Close()
-			streamUsage, streamEnd = handleStreamUpstream(w, r, resp, latencyMs)
+			streamUsage, streamEnd, streamVerdict = handleStreamUpstream(w, r, resp, latencyMs)
 		}()
-		if streamEnd == streamEndedIdleTimeout {
-			// Upstream stopped sending chunks mid-stream. The client already
-			// received the relayed prefix plus a final SSE idle-timeout error
-			// event, so the response is terminal (no retry once streaming has
-			// begun). Record via the failure path — channel health, failure
-			// proxy_log and the timeout terminal outcome — with the full
-			// attempt duration, not just the header latency.
+		if status, errText, terminal, failed := streamFailureVerdict(streamEnd, int(streamIdleTimeout().Seconds())); failed {
+			// Any non-normal, non-client-driven ending is an upstream-side
+			// fault: idle timeout, mid-stream interruption or byte-limit
+			// truncation. The client already received the relayed prefix plus a
+			// final SSE error event, so the response is terminal (no retry once
+			// streaming has begun). Record via the failure path — channel
+			// health, failure proxy_log and the terminal outcome — with the
+			// full attempt duration, not just the header latency. Partial usage
+			// already extracted from the stream is still accounted.
 			totalLatencyMs := time.Since(startedAt).Milliseconds()
-			errText := fmt.Sprintf("SSE stream idle timeout: no upstream chunk within %ds", int(streamIdleTimeout().Seconds()))
-			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusRequestTimeout, errText)
-			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, totalLatencyMs, http.StatusRequestTimeout, true, streamUsage, retry, requestID, truncateErrText(errText))
-			observeProxyTerminal(ctx, shared.OutcomeTimeout, true, time.Since(startedAt))
+			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, status, errText)
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, totalLatencyMs, status, true, streamUsage, retry, requestID, truncateErrText(errText))
+			observeProxyTerminal(ctx, terminal, true, time.Since(startedAt))
+			return true, nil, false
+		}
+		if streamVerdict != nil && streamVerdict.Failed {
+			// Content-level failure on a stream that ended cleanly at the
+			// transport level: judged by the same pure judge the buffered path
+			// uses, so the two paths cannot disagree. Streaming already began,
+			// so this is terminal; partial usage is still accounted.
+			totalLatencyMs := time.Since(startedAt).Milliseconds()
+			slog.Warn("stream content-based failure recorded",
+				"code", string(streamVerdict.Code),
+				"reason", streamVerdict.Reason,
+				"model", upstreamModel,
+				"channel_id", selected.Channel.ID,
+				"request_id", requestID,
+				"latency_ms", totalLatencyMs,
+			)
+			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, streamVerdict.Status, streamVerdict.Reason)
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, totalLatencyMs, streamVerdict.Status, true, streamUsage, retry, requestID, truncateErrText(streamVerdict.Reason))
+			observeProxyTerminal(ctx, shared.StatusFromHTTP(streamVerdict.Status), true, time.Since(startedAt))
 			return true, nil, false
 		}
 		// Observability only: include_usage was on the outbound body but SSE had no usable tokens.
@@ -640,10 +664,10 @@ func dispatchEndpointAttemptWithContinue(
 		slog.Warn("failed to read upstream response",
 			"err", readErr, "latency_ms", latencyMs, "channel_id", selected.Channel.ID,
 			"request_id", requestID, "retry", retry)
-		if !isLastEndpoint && !disableCrossProtocolFallback {
+		errText := readErr.Error()
+		if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureTransport) {
 			return false, nil, true
 		}
-		errText := readErr.Error()
 		recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, errText)
 		writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, http.StatusBadGateway, false, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, errText)
 		if retry < maxRetries {
@@ -655,7 +679,7 @@ func dispatchEndpointAttemptWithContinue(
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		rawErrText := string(respBody)
-		if shouldContinueEndpointFallback(resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback) {
+		if shouldContinueEndpointFallback(resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
 			return false, nil, true
 		}
 		// Non-stream HTTP errors: retain any usage object in the error body
@@ -671,8 +695,15 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 	usage := ParseUsageFromBody(respBody)
-	failure := proxy.DetectProxyFailure(string(respBody), usage.ToUsageSummary())
-	if failure != nil {
+	// Same single judge the streaming path calls (see judgeStreamContent), fed
+	// with the buffered facts this path already has.
+	verdict := proxy.JudgeUpstreamContent(proxy.UpstreamContentFacts{
+		StatusCode: resp.StatusCode,
+		RawText:    string(respBody),
+		Usage:      usage.ToUsageSummary(),
+	})
+	failure := &proxy.FailureResult{Status: verdict.Status, Reason: verdict.Reason}
+	if verdict.Failed {
 		slog.Warn("content-based failure detected",
 			"reason", failure.Reason,
 			"status", failure.Status,
@@ -682,7 +713,7 @@ func dispatchEndpointAttemptWithContinue(
 			"request_id", requestID,
 			"retry", retry,
 		)
-		if shouldContinueEndpointFallback(failure.Status, failure.Reason, isLastEndpoint, disableCrossProtocolFallback) {
+		if shouldContinueEndpointFallback(failure.Status, failure.Reason, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
 			return false, nil, true
 		}
 		// Content failures often still carry real usage (keyword match / empty-
@@ -705,15 +736,77 @@ func dispatchEndpointAttemptWithContinue(
 	return true, nil, false
 }
 
-func shouldContinueEndpointFallback(status int, rawErrText string, isLastEndpoint bool, disableCrossProtocolFallback bool) bool {
+// streamFailureVerdict is the single owner of "how a non-normal stream ending
+// is reported". It maps a streamOutcome to the HTTP status recorded on the
+// channel failure and the proxy_log row, the reason text, and the terminal
+// metric outcome, so channel health, logs and metrics can never disagree about
+// the same stream again.
+//
+// ok=false means the ending is not an upstream fault — clean EOF, or the
+// downstream client went away — and must be recorded through the success path.
+func streamFailureVerdict(end streamOutcome, idleTimeoutSec int) (status int, reason string, terminal string, ok bool) {
+	switch end {
+	case streamEndedIdleTimeout:
+		return http.StatusRequestTimeout,
+			fmt.Sprintf("SSE stream idle timeout: no upstream chunk within %ds", idleTimeoutSec),
+			shared.OutcomeTimeout, true
+	case streamEndedUpstreamFault:
+		return http.StatusBadGateway,
+			"SSE stream interrupted: upstream closed the connection before completing the response",
+			shared.OutcomeUpstreamError, true
+	case streamEndedTruncated:
+		return http.StatusBadGateway,
+			fmt.Sprintf("SSE stream truncated: response exceeded the configured byte limit (%d bytes)", streamResponseByteLimit()),
+			shared.OutcomeUpstreamError, true
+	case streamEndedNormally, streamEndedClientDisconnect:
+		return 0, "", "", false
+	}
+	return 0, "", "", false
+}
+
+// endpointFailureClass tells the single fallback decision function how the
+// failure was observed, so intentional policy differences are explicit
+// parameters instead of a second copy of the decision at the call site.
+type endpointFailureClass int
+
+const (
+	// endpointFailureResponse: the upstream answered with an HTTP status and a
+	// body, so both the same-site abort policy and the protocol-hint downgrade
+	// list apply.
+	endpointFailureResponse endpointFailureClass = iota
+	// endpointFailureTransport: no HTTP response at all (request construction,
+	// dial, or body read failure). The status passed in is the one the failure
+	// is reported with, so the same-site abort policy applies to transport
+	// errors exactly as it does to responses.
+	endpointFailureTransport
+	// endpointFailureFirstByteTimeout: the per-attempt budget expired before
+	// headers arrived. Intentionally exempt from the same-site abort policy —
+	// a first-byte timeout is a budget verdict about one attempt, not evidence
+	// the site is systemically down, so the next protocol candidate is still
+	// tried and the channel is not poisoned.
+	endpointFailureFirstByteTimeout
+)
+
+// shouldContinueEndpointFallback is the ONE owner of "try the next protocol
+// candidate?". Every fallback decision in the dispatch path — HTTP status,
+// content failure and transport-level errors alike — goes through it.
+func shouldContinueEndpointFallback(status int, rawErrText string, isLastEndpoint bool, disableCrossProtocolFallback bool, class endpointFailureClass) bool {
 	if isLastEndpoint || disableCrossProtocolFallback {
 		return false
 	}
-	if proxy.ShouldAbortSameSiteEndpointFallback(status, rawErrText) {
+	if class != endpointFailureFirstByteTimeout && proxy.ShouldAbortSameSiteEndpointFallback(status, rawErrText) {
 		return false
 	}
 	if proxy.ShouldDowngradeToNextEndpoint(status, rawErrText) {
 		return true
+	}
+	switch class {
+	case endpointFailureTransport, endpointFailureFirstByteTimeout:
+		// No HTTP answer means no protocol hint to match: the failure is not
+		// attributable to this endpoint shape, so the next candidate is still
+		// worth trying (unless the abort policy above said otherwise).
+		return true
+	case endpointFailureResponse:
 	}
 	// First-byte style status=0 should already be handled by error path; treat as continue.
 	if status == 0 {

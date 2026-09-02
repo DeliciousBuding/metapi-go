@@ -1081,7 +1081,17 @@ func TestHandleStreamUpstreamClientDisconnectPreservesUsage(t *testing.T) {
 
 	rec := &disconnectAfterNWriter{ResponseRecorder: httptest.NewRecorder(), n: 2}
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-	usage, _ := handleStreamUpstream(rec, req, resp, 12)
+	usage, end, verdict := handleStreamUpstream(rec, req, resp, 12)
+	// A downstream disconnect is its own ending class: it must never be
+	// reported as an upstream fault, or user cancels would poison channel
+	// health. No content verdict is produced for an answer the client never
+	// let the upstream finish.
+	if end != streamEndedClientDisconnect {
+		t.Fatalf("outcome = %v, want streamEndedClientDisconnect", end)
+	}
+	if verdict != nil {
+		t.Fatalf("client disconnect must not carry a content verdict, got %+v", verdict)
+	}
 	if !usage.Found {
 		t.Fatal("expected usage retained after client disconnect on usage chunk")
 	}
@@ -1121,7 +1131,12 @@ func TestHandleStreamUpstreamContextCancelPreservesPartialUsage(t *testing.T) {
 	resp.Header.Set("Content-Type", "text/event-stream")
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil).WithContext(ctx)
-	usage, _ := handleStreamUpstream(rec, req, resp, 1)
+	usage, end, _ := handleStreamUpstream(rec, req, resp, 1)
+	// Whichever side of the race wins, a canceled downstream context can never
+	// be classified as an upstream fault.
+	if end != streamEndedClientDisconnect && end != streamEndedNormally {
+		t.Fatalf("outcome = %v, want clientDisconnect or normally", end)
+	}
 	// Pre-canceled before any read: must not invent usage.
 	if usage.Found {
 		// If runtime read wins the race and extracts, that is also correct — accept either.
