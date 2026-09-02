@@ -203,11 +203,14 @@ func isStreamFromBody(body map[string]any) bool {
 	return false
 }
 
-// writeSSEHeaders sets SSE response headers.
+// writeSSEHeaders sets SSE response headers. X-Accel-Buffering disables
+// response buffering in nginx-style reverse proxies so first tokens are not
+// held in proxy buffers (new-api and sub2api set the same header).
 func writeSSEHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
 }
 
 // sseEvent formats an SSE data event.

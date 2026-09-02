@@ -71,8 +71,10 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 // Mounted under /v1/* so it inherits ProxyAuth + CORS from the /v1 route group.
 func RegisterDownstreamPricingRoutes(r chi.Router, db *sqlx.DB) {
 	handler := &statsHandler{db: db}
-	r.Get("/v1/pricing", handler.modelPriceCompare)
-	r.Get("/v1/models/price-compare", handler.modelPriceCompare)
+	// Paths are relative: this router is mounted inside r.Route("/v1", ...),
+	// so absolute "/v1/..." here would double the prefix.
+	r.Get("/pricing", handler.modelPriceCompare)
+	r.Get("/models/price-compare", handler.modelPriceCompare)
 }
 
 type statsHandler struct {

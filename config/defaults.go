@@ -137,11 +137,11 @@ const (
 	DefaultProxyDebugMaxBodyBytes   = 262144
 
 	// DefaultProxyMaxStreamResponseBytes caps the total bytes relayed for a
-	// single SSE stream before a controlled termination (1 MB). Parsed from
+	// single SSE stream before a controlled termination (64 MB). Parsed from
 	// PROXY_MAX_STREAM_RESPONSE_BYTES; 0/negative/invalid falls back to this
 	// default. Read once at startup via config.Load — the stream handler reads
 	// the resolved value from the config singleton, not os.Getenv per request.
-	DefaultProxyMaxStreamResponseBytes = 1 << 20 // 1 MB
+	DefaultProxyMaxStreamResponseBytes = 64 << 20 // 64 MB
 
 	// DefaultProxyMaxBufferedResponseBytes caps the total bytes read for a
 	// single non-streaming upstream response before a controlled termination

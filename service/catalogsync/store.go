@@ -203,16 +203,28 @@ func (s *Store) CreateSource(ctx context.Context, in SourceInput) (Source, error
 	}
 	order := maxOrder + 1
 
-	result, err := s.db.ExecContext(ctx, s.db.Rebind(
+	query := s.db.Rebind(
 		`INSERT INTO catalog_sources (name, url, enabled, type, sort_order, last_count, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, 0, ?, ?)`),
-		strings.TrimSpace(in.Name), strings.TrimSpace(in.URL), enabled, in.Type, order, now, now)
-	if err != nil {
-		return Source{}, fmt.Errorf("catalogsync: create source: %w", err)
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return Source{}, fmt.Errorf("catalogsync: create source id: %w", err)
+		 VALUES (?, ?, ?, ?, ?, 0, ?, ?)`)
+	args := []any{strings.TrimSpace(in.Name), strings.TrimSpace(in.URL), enabled, in.Type, order, now, now}
+
+	// pgx's stdlib driver does not implement LastInsertId; use RETURNING on
+	// Postgres (same split as handler/admin/token_routes.go execInsertID).
+	var id int64
+	if s.db.DriverName() == "pgx" {
+		if err := s.db.QueryRowxContext(ctx, query+" RETURNING id", args...).Scan(&id); err != nil {
+			return Source{}, fmt.Errorf("catalogsync: create source id: %w", err)
+		}
+	} else {
+		result, err := s.db.ExecContext(ctx, query, args...)
+		if err != nil {
+			return Source{}, fmt.Errorf("catalogsync: create source: %w", err)
+		}
+		insertedID, err := result.LastInsertId()
+		if err != nil {
+			return Source{}, fmt.Errorf("catalogsync: create source id: %w", err)
+		}
+		id = insertedID
 	}
 	return s.getSource(ctx, id)
 }
