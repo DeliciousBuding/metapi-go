@@ -117,7 +117,7 @@ AI 生态里基于 New API / One API 系列的聚合中转站越来越多，多�
 发布页提供 Linux / macOS / Windows 预编译二进制，单文件即跑：
 
 ```bash
-curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/download/v0.16.20/install.sh | bash
+curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download/install.sh | bash
 
 export AUTH_TOKEN=$(openssl rand -hex 16)      # 管理后台登录令牌
 export PROXY_TOKEN=sk-$(openssl rand -hex 24)  # 下游客户端调用 /v1/* 的 Key

@@ -1,25 +1,36 @@
 # Roadmap
 
-**Last verified**: 2026-08-30
+**Last verified**: 2026-09-03
 
-**Release**: [v0.16.19](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.19) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.17.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.17.0) · cut on master 2026-09-03 (tag pipeline + human review of the notes decide publish); the published Latest until then is [v0.16.23](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.23)
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — 无执行中 wave（2026-08-29 双线融合收官）
+## Current active work — 波次 5 在飞（2026-09-03）
 
-后端波次（#1063–#1079：S5 边界反转、凭证树选择器、cmdk actions、CSP nonce、S9 分页、渠道错误汇总、settings 泛型、C1 config 快照）与前端 W19–W21 审计三波（#1080 squash 融合）已全部合入 master。**未 bump 版本——攒批发布**。时间线：[`../log.md`](../log.md)。
+v0.17.0 收口了波次 4 的全部十条（#1159–#1170）：转发链客户端 IP 从右往左解析（`TRUSTED_PROXY_CIDRS` 下 admin IP 白名单 / 每 IP 限流 / 审计 IP 三处可伪造）· 账号写路径不再回显明文凭据（策略收口到 `service.RedactAccountSecrets`）· 流式中断/截断/空内容不再记成功、内容级失败判定与协议回落各只有一个所有者 · 三份手抄表清单（20/28/28 项 vs 37 张表）收敛为单一 schema 注册表，`cmd/migrate` 不再静默丢 17 张表、恢复出厂不再漏 9 张（含 `admin_sessions`，此前重置后旧 cookie 仍有效）· 上游压缩编码诚实性（`gzip`/`deflate` 解码后判定与计费，解不了的原样转发 + 用量记 `unknown` + 稳定文案 WARN，`Accept-Encoding` 不再是站点可配头）· 夹在两次上游调用之间的等待可取消（三个 OAuth onboard 轮询 28.3s → 0.16s）· Redis 补偿回滚按摘要协商（`EVALSHA` 优先，`NOPERM` 降级而非失败）· 对外文档成为可对账参考（env parity + 路由清单两个门禁）· smoke 站点解析按后端去重键 · PG 门禁在复用库上可重复。时间线：[`../log.md`](../log.md)。
 
-**开放项**（均不阻塞，按优先级择机）：
+**在飞两条**（写集互斥）：备份表清单收敛（`service/backup.AllTables` 是第三份手抄清单，导出静默缺口 = 恢复后状态不一致）· `ApplyRuntimeSettings` 的破坏性静默丢弃（一条坏行清空已配置的 `payload_rules` / `openai_service_tier_rules`）与两处无告警丢弃。
+
+**开放项**（均不阻塞发布，按优先级择机；每项都要有「摘掉修复必红」的门禁）：
 
 | # | 内容 | 建议验收 |
 |---|---|---|
-| C4 | ~~#1035 结构性专题 S1–S10~~ **全部交付，issue 已关闭**（S7 收官 #1097：undo 档 helper + 五处叶子删除接入 + DESIGN.md §4.1 四档规约） | — |
-| F5 | **events 表 key+params 结构化**（P3）：**批次 1 checkin 族已交付**（#1128，v0.16.20：`service/events` 注册表 + `sc2_028` + 前端结构化渲染 + Go/FE 双侧键集门禁，真实测试床双语视觉 e2e 13/13）；**批次 2 open**：alert 族（token expired / low balance / all proxies failed 等）迁 `WriteEvent` | 批次 1 已满足；批次 2 同批次 1 验收（双侧键集门禁 + 双语视觉 e2e + 历史行原文 fallback） |
+| D1 | 5 张高频写入表无保留期（`model_probe_results` ≈2.9 万行/天）；usage 聚合无纠偏路径 | 每表一个 `*_RETENTION_DAYS`（默认 7–14）+ pruner + 启动日志报体制归属，照 `PROXY_LOG_RETENTION_DAYS` 的形状；纠偏路径要有「重算一次并对账」的入口 |
+| D2 | `POST /api/accounts/verify-token` 在适配器返回空/`unknown` tokenType 时只回 400 `token verification failed`，**服务端零日志**；`channel selection failed err=<nil>` 同类（说了但没说原因） | 失败路径一条 WARN 带 site/platform/tokenType/上游状态（不含凭据本身）；e2e 断言「失败可从日志定位根因」 |
+| D3 | env parity 门禁缺「过期白名单」检查（`detectDrift` 只在遍历 `.env.example` 时查 allowlist，孤儿条目永不可达） | 孤儿条目 → 门禁红，照 `docProseTokens` 的 shadow 检查形状 + 自证伪用例 |
+| D4 | `sleepCtx` 在 `service/checkin` 与 `service/oauth` 各一份（12 行×2）；签到 per-account ctx 传播（`CheckinAccountContext` + 单账号触发接线）；OAuth 同链 6 个无 ctx helper（`postGeminiToken` / `fetchGcpProjects` / `fetchGeminiUserEmail` / `checkCloudAIAPIEnabled` / `postAntigravityToken` / `fetchAntigravityUserEmail`） | 单一实现落 `internal/**`；每条贯通都要有「已取消 ctx 不得产生上游往返」的用例 |
+| D5 | 41 个 TS 默认时间戳列（接管库省略 `created_at` 的 INSERT 写出空格形状，新装库写 NULL）· SQLite TEXT PK 可空 + `textPK()` 死码 · 可空带默认 bool 的拷贝覆盖显式 NULL | 先定「重建表 vs 写入侧强制显式赋值」再动；每步都要有老库/接管库跑一遍不死的测试 |
+| D6 | 配置面 fail-loud + 生效值回显（未知键硬错误、`GET /api/settings` 回 `{values,overrides,read_only}`）；最贵路径是 `DB_TYPE` typo 静默起空 SQLite | 未知键启动即失败并列出候选；生效值回显三段式（值 / 来源 / 是否只读） |
+| D7 | 计费回执（Receipt）+ 票据后结算（503 不退账）· 前端幂等写 + 结果分类 | 参考项目已有样板（拆解报告在维护者工作区，含反模式清单：不要抄的部分同样明确） |
+| D8 | 不可解码 error body 写进 `proxy_logs.error_message` 的二进制未清洗；`br` / `zstd` 不解码（需新依赖） | 不可读时用占位文案（例如 `upstream body undecodable (content-encoding: br)`）；解码支持要先定依赖策略 |
+| F5 | **events 结构化批次 2**：alert 族（token expired / low balance / all proxies failed 等）迁 `WriteEvent`（批次 1 checkin 族已交付 #1128） | 同批次 1 验收：双侧键集门禁 + 双语视觉 e2e + 历史行原文 fallback |
+| W1 | web 侦察 F5–F12：同端点两套 key/两种 shape、channels 两套 key、`downstreamKeysQueryKeys` 三抄且 staleTime 矛盾、英文复数三套机制、52 处内联 `defaultValue`、knip 跑默认 `include: []`、手写字面量 key、`?page=` 0/1-based 分裂 | 每项一次收敛或一条门禁，附前后对账数字 |
+| W2 | 视觉 P2×3（`overview-section.tsx:292` soft-red、`column-header.tsx` 缺 `aria-sort`、`observability-error-banner.tsx:41-42` 对比度）· 术语统一批 · downstream-keys count 视图 · reset-usage UI 入口 · 视觉基线龄期治理 | 视觉基线只能从 CI `visual-regression-diffs` 产物的 actuals 重建 ⇒ 任何视觉改动都要一次 CI 往返，别在没有基线通道时开视觉 lane |
+| W3 | axonhub / gpt-load 平台适配器（两个参考平台已在测试床长驻，`detect` 因无适配器失败） | 适配器 + fixture 测试 + 测试床实测链（照 sub2api 的 verify-token-import 姿势） |
+| C4 | ~~#1035 结构性专题 S1–S10~~ **全部交付，issue 已关闭**（S7 收官 #1097） | — |
 
-F3（后端告警文案 i18n）已交付（#1091，2026-08-30）：新增共享模块 `web/src/lib/attention-label.ts`（AttentionItem/AttentionResponse 类型 + 8 事件标题键映射 + attentionLabel），attention-bell 与 availability-section 共用、删两份本地副本；en/zh-CN 补 7 事件标题键；params 缺失/未知类别回退裸 label（诚实残留）。双语端到端截图验证通过（铃铛弹层 + availability 面板 zh-CN/en）。F2（site-form 抽屉迁移）已交付（#1082）：居中 Dialog → 右侧 Sheet。F4（docs/api.md 超预算拆分）已交付（2026-08-30）：`docs/api.md` 保留为索引，按域拆为 `docs/api/*.md` 17 个文件，全部原有 H2/H3 标题以 stub 承接、旧 anchor 落位。
-
-挑选条件：需求驱动或维护者确认；选定后按既有模式开短命分支、定验收门槛（本地全门禁 → 12-check CI → squash merge）。**并行推送教训**：8+ lane 并发 pre-push 时 `handler/admin` -race 曾撞 300s 默认预算（已升至 900s，#1063），建议错峰推送或 ≤4 并发。
+挑选条件：需求驱动或维护者确认；选定后按既有模式开短命分支、定验收门槛（本地全门禁 → 12-check CI → squash merge）。**并行推送教训**：8+ lane 并发 pre-push 时 `handler/admin` -race 曾撞 300s 默认预算（已升至 900s，#1063），建议错峰推送或 ≤4 并发；写集必须互斥，且以 `git merge-base` 而非 `master` 核验（master 会在 lane 脚下前进）。
 
 ### 已收口（Wave 18/17，勿再当 active）
 

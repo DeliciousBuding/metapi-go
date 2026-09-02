@@ -5,6 +5,47 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.17.0] — 2026-09-03
+
+### 安全
+
+- **转发链客户端 IP 改为从右往左解析（#1161）**：配置 `TRUSTED_PROXY_CIDRS` 时，客户端身份不再取 `X-Forwarded-For` 的最左值（那一段是调用方自己塞的、攻击者可控），而是把所有转发头按出现顺序拼成一条链、补上直接 peer，再从最右往左跳过属于可信 CIDR 的地址，返回第一个不可信地址。修掉三个后果：admin IP 白名单可被一个伪造头直接绕过；每 IP 限流可通过每请求换一个假 IP 无限换桶，登录暴破上限（`AUTH_RATE_LIMIT_*`）失效且限流器自身看不出异常；`admin_audit_logs.remote_ip` 与 admin 会话的 IP 绑定记录的是伪造地址，事后取证不可信。未配置 `TRUSTED_PROXY_CIDRS` 的部署行为完全不变（转发头整体被忽略）；链上地址全部可信时返回最左地址而不是空，避免内网代理 + 内网客户端塌缩进同一个限流桶。`X-Real-IP` 回落仍受「直接 peer 必须可信」这道门约束，`RemoteAddr` 仍是裸 IP，下游消费者零改动。
+- **账号写路径不再回显明文凭据（#1163）**：`PUT /api/accounts/{id}` 与 `POST /api/accounts/{id}/rebind-session` 此前原样返回 `accessToken`、`apiToken` 与 `extraConfig.autoRelogin.passwordCipher`，使读路径（`GET /api/accounts` 只给 `accessTokenMasked`/`apiTokenMasked`）的脱敏形同虚设——任何能调 PUT 的会话发一次 `{"sortOrder": 7}` 空操作更新就能读出整库凭据。两个写响应现在与列表共用同一份策略函数 `service.RedactAccountSecrets`（账号面凭据策略的唯一所有者）。**凭据发放面刻意保留回显**：`POST /api/accounts/login` 返回它刚用密码换来的会话令牌，`POST /api/accounts/verify-token` 返回它在上游发现的 API token——这两种情况调用方本来没有那个密钥；取回**已存**密钥仍然是显式动作（`GET /api/account-tokens/{id}/value`、下游密钥导出）。规则已写进 `docs/api/accounts.md`。
+
+### 修复
+
+- **流式请求的中断、截断与空内容不再记成功（#1159）**：此前流式路径只区分「idle 超时」与「其它一律正常结束」，内容级判定只写日志不参与记账，于是上游中途断连、被 `PROXY_MAX_STREAM_RESPONSE_BYTES` 截断、或返回命中 `PROXY_ERROR_KEYWORDS` 的错误体时，渠道健康度、`proxy_logs` 与终端指标全部按成功记账。现在流结束原因分五类（正常 / idle 超时 / 上游故障 / 被截断 / 客户端断开），状态、原因与指标 outcome 由同一个所有者产出；内容级失败判定收口成一个纯函数，缓冲与流式两条路径喂同一份事实，同一份上游内容不可能得出两个结论。**客户端主动断开仍按成功记账**（不拿用户取消行为毒化渠道健康度），但不再与干净 EOF 混为一类，已提取到的 usage 照常返回用于计费，绝不凭空造 token。跨协议回落同时收口成单一决策函数，此前 5 处裸判断绕过了 same-site abort 策略。
+- **恢复出厂设置真的恢复到出厂（#1165）**：`POST /api/settings/maintenance/factory-reset` 此前遍历一份手抄的表清单，它已经比 schema 少 9 张表——其中包含 `admin_sessions`。会话校验每个请求都读这张表，所以它没被清空意味着**重置前签发的每一个 admin cookie 仍然对一个空库有写权限**；`admin_audit_logs`、`model_probe_results` 等同样幸存。现在表清单从 schema 注册表派生（唯一排除项是 additive 迁移日志 `schema_migrations`，清掉它会对已收敛 schema 重放每一步），单事务、FK-safe 顺序（子表先于父表），失败则数据库保持原样而不是半清空；响应仍是 `{success, message, deleted: {表名: 行数}}`，只是覆盖全部业务表。**调用方在重置成功后必须重新登录**；需要保留审计/探测历史请先 `GET /api/settings/backup/export`。
+- **`cmd/migrate` 不再静默丢表（#1165）**：方言迁移（SQLite ↔ PostgreSQL）此前按另一份手抄清单拷贝，37 张表里只拷了 20 张——命令正常退出、checksum 全部匹配，但 17 张表的数据根本没被搬运。现在拷贝集、清空序、逐表列规格与建表序全部从同一个注册表派生，加一张表只需要在注册表里加一行。另外两处：源库里存在、Go schema 未声明的列现在会在拷贝前逐表打 Warning（丢弃不可避免，但不再静默）；迁移结束前归一 TS 时代的时间戳格式，迁移库在命令退出那一刻就是正确的，不必等服务器下次启动。
+- **`checkin_interval_hours` 的越界值不再被静默丢弃（#1166）**：库内该键此前走「范围检查不通过就不赋值、不告警、还算已处理」，而环境变量路径 `CHECKIN_INTERVAL_HOURS` 走的是双侧钳制。两条路径形状不同 ⇒ 库里存一个 `30`，进程留在环境变量的值，`GET /api/settings/runtime` 回显的也是那个值，运维看不到任何线索（备份导入不校验该键语义，手工改行与跨版本残留行同理）。现在两条路径同形：钳制到 1..24，小数按同一规则截断。合法值行为不变。
+- **`GET /api/channels` 的快照缓存此前几乎从不命中（#1167）**：缓存只有一个槽位，而它的键空间是多键的（仪表盘无界视图 + 每个分页/状态筛选视图各一键），于是 `page=1` 与 `page=2` 互相逐出，10s TTL 从来没吸收掉它存在是为了吸收的轮询，那条 fleet-wide 5-way JOIN 照跑。现在是有界多键缓存（至多 16 个键，FIFO 淘汰），TTL、`?refresh=true` 绕过、`x-channels-snapshot-cache` 响应头、并发去重与「数据变了就整体失效」的语义一字未改；内存上界按实测 payload 算清并写进代码注释（最坏几 MB，不存在无界增长）。
+
+### 变更
+
+- **`GET /api/channels` 与账号面的缓存契约不变**，但响应头 `x-channels-snapshot-cache` 现在真的会出现 `hit`（见上）。
+- **文档成为可对账的参考（#1160）**：环境变量清单与代码读取点逐条对账、路由清单与 router 注册逐条对账，两者都由门禁测试守着（漂移即 CI 红）；新增所有权架构说明。`.env.example`、`docs/configuration.md`、`docs/api/**` 与实现不一致的地方按实现纠正。
+
+### 移除
+
+- **`HOME_PAGE_CONTENT`（#1166）**：`.env.example` 与 `docs/configuration.md` 不再列这个键。它在 Go 实现里从来没有读取点，数据库侧的孪生键 `home_page_content` 与前端字段早已因「存了但渲染不出来」下线；留着它等于文档在承诺一个不存在的能力。`SYSTEM_NAME`/`LOGO`/`FOOTER`/`ABOUT` 不受影响。设置了该变量的部署不会报错，但它本来就什么都没做。
+
+### 开发者可见
+
+- **PostgreSQL 门禁套件在复用同一个库时可重复运行（#1164）**：新增 `internal/pgtest.Reset`，此前「第二次跑就假失败」的用例现在幂等；全套 PG 门禁必须以 `-count=1 -tags=integration -p 1` 运行（共享库），这一点已写进文档与 CI。
+- **端到端冒烟脚本的站点解析与后端去重键一致（#1162）**：`scripts/e2e/smoke.sh` 遇到 `POST /api/sites` 返回 409 时，按后端实际去重的 `(platform, url)` 找回已有站点，而不是按脚本自己的 `SITE_NAME`——此前站点名不同就会让后续 login/account/models/balance/checkin 全线跳过并报失败。
+
+### 上游压缩编码（数据面）
+
+- **一个站点自定义请求头就能让 Metapi 读不懂上游答案，这个头不再可配（#1168）**：站点 `custom_headers` 里的 `Accept-Encoding` 会关掉 net/http 的透明解压，于是答案以压缩字节进入解析：用量提取找不到 token（**一次真实调用计零费**）、`PROXY_ERROR_KEYWORDS` 扫的是压缩噪声（**该失败的没失败**）、流式路径的分析器读不到任何 `data:` 事件（开了 `PROXY_EMPTY_CONTENT_FAIL` 时一个健康的 200 流被记成 502「空内容」失败，**毒化渠道健康度**）。现在该头在装配侧就被过滤（`platform.IsDeniedCustomHeader` 与 `service.isReservedPlatformCustomHeader` 都拒绝它，并有跨包门禁把两份清单的安全关键交集钉在一起），数据面出站再剥一次；两处各打一次 WARN，因为它描述的是静态配置错误。
+- **`gzip` / `deflate` 先解码再判定与计费**：解析、关键字扫描、空内容判定读到的是与客户端相同的文本；响应由 Metapi 重构后**不再带** `Content-Encoding`。零新依赖（标准库 `compress/gzip`、`compress/zlib`、`compress/flate`）。
+- **解不了的编码诚实上报，不猜**：`br`、`zstd`、多层编码栈、或在损坏/超大 body 上解码失败时，响应体连同它自己的 `Content-Encoding` **原样转发**（客户端仍能解），绝不解析、用量记为显式的 `unknown`（不凭空造 token），关键字规则与空内容规则都不在没人读过的字节上开火；每次这样处理都打一条稳定文案的 WARN，便于告警匹配：`upstream response uses a content encoding metapi does not decode; usage accounting and content-failure judgement were skipped`。
+- 文档：`docs/configuration.md` 新增「Upstream content encoding」节，`docs/api/proxy.md` 的头策略在两个方向都写明该头的处置。
+
+### 并发与关机
+
+- **夹在两次上游调用之间的等待现在可以被取消（#1169）**：签到的 transient 重试退避（2–3s）、同站点节奏等待（~1s），以及 OAuth gemini-cli 自动 onboard（15×2s）、onboard（6×5s）与 antigravity onboard（5×2s）三个轮询此前都不看 context——关机或每账号预算耗尽之后，worker 仍把整段等待睡完，**并且把睡完之后的那次上游调用照发**。等待时长语义未动，只加可取消性；ctx 同时贯通到这些轮询的上游请求本身（`http.NewRequestWithContext`）。实测：三个轮询 `28.3s → 0.16s`、`25.2s → 0.16s`、`8.1s → 0.16s`，签到退避 `2.21s → 0.47s`，轮次节奏等待 `1.17s → 0.21s`。调度器的 catch-up / cron / interval 三条路径与 `POST /api/checkin/trigger` 都已接上（手动触发跑在请求 context 上：调用方走了就停下剩余账号，已处理的每个账号保留自己的 `checkin_logs` 行）。
+- **Redis 共享计数器的补偿回滚不再每次上行脚本体（#1170）**：回滚挂在限流拒绝与失败补偿两条热路径上，此前每次都把整段 Lua 发给服务器并让它重新解析。现在按摘要协商——先 `EVALSHA`，仅在服务器答 `NOSCRIPT`（重启、`SCRIPT FLUSH`、切到副本）时回退一次 `EVAL`（这一次同时把脚本放回服务端缓存）；不保存「服务器已有脚本」这种需要额外失效处理的状态。原子语义（减量 + 非正数即删键自愈）完全不变。另外 ACL 禁掉 scripting 的 Redis（`NOPERM`）现在降级为 `INCRBY`（只减量、不自愈）并按 counter 打一次 WARN 点明是权限问题，此前它直接把错误当成回滚失败抛给调用方；脚本运行期错误与连接失败仍然必须报错，不许静默降级。
+
 ## [v0.16.23] — 2026-09-03
 
 ### Added

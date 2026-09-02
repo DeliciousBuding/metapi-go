@@ -1,10 +1,22 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-09-03 (v0.16.23)
+**Last updated**: 2026-09-03 (v0.17.0)
 
 > Product milestone timeline: the current month is kept per release, closed months are one-line summaries
 > (date · title · versions/PRs) so the file stays scannable. Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-09-03 — v0.17.0 切版（数据面与存储诚实性波：转发链身份 · 凭据回显 · 表清单注册表 · 上游编码 · 可取消等待）
+
+- **版本判断**：按 patch-first 节奏本可以是 v0.16.24，但这一波改了三个运维可见契约（恢复出厂的清库范围、账号写响应的凭据字段、流式失败的记账口径）外加一处身份解析语义（转发链），够 `docs/internal/git-workflow.md` §6.1 的「成体系的交付波」，故 bump 中间位并把最后一位归零。收口 #1159–#1170 共 12 个 PR。
+- **转发链身份（#1161）**：`TRUSTED_PROXY_CIDRS` 生效时客户端 IP 取的是 `X-Forwarded-For` 最左值，而主流反代是追加语义 ⇒ 最左那段是调用方自己塞的。三个消费者全部读改写后的 `RemoteAddr`：admin IP 白名单一个伪造头即过（#1034 的纵深防御归零）、每 IP 限流可每请求换一个假 IP 无限换桶（登录暴破上限失效且限流器自身看不出异常）、`admin_audit_logs.remote_ip` 与会话 IP 绑定记下的是编造的地址。改为「所有转发头按序拼链 + 补直接 peer + 从右往左跳过可信 CIDR + 返回第一个不可信地址」，全链可信时返回最左（否则内网调用方塌缩进同一个限流桶）；外层「peer 必须可信」这道门与 `RemoteAddr` 形状未动，默认空配置行为不变——这正是它长期没被发现的原因。
+- **表清单注册表（#1165）**：仓库同时存在三份手抄表清单（`AutoMigrate` 建表序 20 项、`cmd/migrate` 拷贝集 28 项、恢复出厂删除序 28 项），而 schema 有 37 张表。后果是实测的：方言迁移**静默丢 17 张表**（命令正常退出、checksum 全对）；恢复出厂**漏 9 张**，其中 `admin_sessions` 意味着重置前签发的每个 admin cookie 仍对一个空库有写权限（会话校验每请求读该表，清空它才是真的吊销）。收敛为单一注册表 `store/tablesets.go`，五个用途（建表序 / 拷贝集 / FK-safe 清空序 / 恢复出厂集 / 逐表列规格）全部派生；顺带修掉序列同步的硬编码排除、未拷源列的静默丢弃（现在逐表 Warning）、CLI 迁移缺的 `normalize` 腿、boolean 默认值文本在 fresh 与 converged schema 之间的不一致。`sc2_029` 从注册表步骤改为每启动无条件幂等清扫——journal 门控在「数据后到」的场景下必然错。
+- **凭据回显（#1163）**：读路径早就把 `accessToken`/`apiToken` 换成掩码并从 `extraConfig` 剥掉 `autoRelogin.passwordCipher`，而 `PUT /api/accounts/{id}` 与 `POST /api/accounts/{id}/rebind-session` 原样返回明文 ⇒ 一次 `{"sortOrder":7}` 空操作更新就能读出整库凭据，那层脱敏只值一次空操作。两个写响应改走与列表同一份策略（导出为 `service.RedactAccountSecrets`，账号面凭据策略的唯一所有者）。发放面刻意保留回显（login 返回刚换来的会话令牌、verify-token 返回在上游发现的 API token——调用方本来没有那个密钥），规则写进 `docs/api/accounts.md`。
+- **数据面诚实性（#1159、#1168）**：流式路径此前只区分「idle 超时」与「其它一律正常结束」，内容级判定只写日志不参与记账 ⇒ 上游中途断连、被 `PROXY_MAX_STREAM_RESPONSE_BYTES` 截断、或返回命中 `PROXY_ERROR_KEYWORDS` 的错误体时，渠道健康度 / `proxy_logs` / 终端指标全部按成功记账；现在结束原因分五类、状态与 reason 与指标 outcome 同源，内容级判定收口成一个纯函数（buffered 与 streaming 喂同一份事实），客户端主动断开仍按成功记账但不与干净 EOF 混为一类。#1168 补上编码这一层：站点 `custom_headers` 里的一个 `Accept-Encoding` 就能关掉 net/http 的透明解压，于是用量记 0（漏账）、关键字扫压缩噪声（假成功）、SSE 分析器读不到 `data:` 事件 ⇒ 开了 `PROXY_EMPTY_CONTENT_FAIL` 时健康的 200 流被记成 502 空内容失败（假失败，毒化渠道健康度）。现在 `gzip`/`deflate` 解码后再判定与计费（零新依赖），解不了的（`br`/`zstd`/多层栈/解码失败）原样转发 + 用量记 `unknown` + 判官直接 pass + 稳定文案 WARN；该头在装配侧与出站各剥一次，两份过滤清单的安全关键交集由跨包门禁钉住。
+- **并发与关机（#1169、#1170）**：四处夹在两次上游调用之间的等待不看 ctx（关机或预算耗尽后仍睡完并照发下一次调用），实测三个 OAuth onboard 轮询 28.3s / 25.2s / 8.1s → 0.16s，签到退避 2.21s → 0.47s；调度器三条路径与手动触发端点都已接上（手动触发跑在请求 ctx 上，已处理账号各自留 `checkin_logs` 行）。共享计数器的补偿回滚挂在限流拒绝与失败补偿两条热路径上，此前每次上行整段 Lua；改为 `EVALSHA` 优先、仅 `NOSCRIPT` 回退一次 `EVAL`（不保存需要失效处理的「服务器已有脚本」状态），ACL 禁 scripting 的 `NOPERM` 从「回滚失败」改为既有 `INCRBY` 降级 + 一次点明权限的 WARN。
+- **工程面（#1160、#1162、#1164、#1166、#1167）**：对外文档成为可对账参考（env parity + 路由清单两个自证伪门禁）；smoke 的 409 兜底改按后端实际去重键 `(platform, url)` 回查（此前按脚本自己的 `SITE_NAME`，站点名不同就七步连锁失败）；`internal/pgtest.Reset` 让复用同一个 PG 库的门禁可重复（长期噪音「`handler/admin` 5 个用例第二轮假失败」消除，`-p 1` 要求写进文档）；`checkin_interval_hours` 从「范围检查即静默丢弃」改成与 env 同形的双侧钳制，并删掉从未有读取点的 `HOME_PAGE_CONTENT`（撤回一条文档承诺）；`GET /api/channels` 的快照缓存从单槽改成有界多键（此前分页与仪表盘视图互相逐出，10s TTL 形同不存在，命中率≈0）。
+- **测试床复验（合并后 master 重建二进制，commit `cebb374c`）**：new-api 链 13 PASS / 1 WARN / 0 FAIL（**故意不传 `SITE_NAME`**，让 #1162 的 `(platform,url)` 兜底在活体上被走到）· sub2api 链 11 PASS / 2 WARN / 0 FAIL · axonhub 10/10 · gpt-load 13/13 · F5 双语视觉 e2e 13/13 · 五服务全 RUNNING。复验顺带抓出两条运维可见缺陷（进波次 5）：verify-token 失败时服务端零日志、`channel selection failed err=<nil>`。
+- **负结果（别再查）**：`handler/admin/accounts.go` 的 `globalAccountsCache` 虽然也是单槽形状，但 `get()` 不带 key、分页路径直接绕过快照缓存 ⇒ 键空间真的是 1，不存在 channels 那种互相逐出缺陷。
 
 ## 2026-09-03 — v0.16.23 发版（持久化正确性波：迁移方言 · 共享准入原子性 · 设置往返 · 前端缓存与文案）
 
