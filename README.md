@@ -58,6 +58,7 @@ AI 生态里基于 New API / One API 系列的聚合中转站越来越多，多�
 | **管理 UI**         | 站点 / 账号 / 路由 / 模型 / 日志 / 告警一站管理，React SPA 预构建后嵌入二进制，无需额外前端服务 |
 | **运营自动化**      | 定时签到、定时余额刷新、九种告警渠道、模型批量验证、审计日志、实时 QPS 面板 |
 | **轻量部署**        | 单二进制即跑；SQLite 默认、PostgreSQL 可选；启动自动执行幂等 schema 升级 |
+| **桌面外壳**        | Electron 薄壳（托盘 + 原生通知，`electron/README.md`）；手动构建，不含在 Release 产物中 |
 | **TS 版无缝接管**   | 同数据库 Schema、同环境变量名、同 API 契约；停旧服务、用同样环境变量启动即完成接管 |
 
 ## 界面预览
@@ -116,7 +117,7 @@ AI 生态里基于 New API / One API 系列的聚合中转站越来越多，多�
 发布页提供 Linux / macOS / Windows 预编译二进制，单文件即跑：
 
 ```bash
-curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/download/v0.16.6/install.sh | bash
+curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/download/v0.16.20/install.sh | bash
 
 export AUTH_TOKEN=$(openssl rand -hex 16)      # 管理后台登录令牌
 export PROXY_TOKEN=sk-$(openssl rand -hex 24)  # 下游客户端调用 /v1/* 的 Key
@@ -275,7 +276,7 @@ bun run build       # rsbuild 构建（产物经 go:embed 打包进 Go 二进制
 
 | 路径                                  | 核实口径                                             |
 | ------------------------------------- | ---------------------------------------------------- |
-| Release 二进制：安装 → 启动 → 健康检查 | 端到端实测（v0.16.6）                                |
+| Release 二进制：安装 → 启动 → 健康检查 | 端到端实测（v0.16.20）                                |
 | 源码构建：前端构建 → go build → 启动   | 端到端实测                                           |
 | Docker / Compose 命令                  | 与仓库 `Dockerfile` / `docker-compose.prod.yml` 逐项核对 |
 | 未配置路由返回 503、健康检查退出码     | 实测                                                 |
