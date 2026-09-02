@@ -125,7 +125,7 @@ Three equivalent ways — pick any one. Starting the server needs only two token
 Pre-built binaries for Linux / macOS / Windows — one file, no runtime:
 
 ```bash
-curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/download/v0.16.20/install.sh | bash
+curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download/install.sh | bash
 
 export AUTH_TOKEN=$(openssl rand -hex 16)      # admin UI login token
 export PROXY_TOKEN=sk-$(openssl rand -hex 24)  # downstream key for /v1/* calls
