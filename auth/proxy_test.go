@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -840,7 +841,7 @@ func TestProxyAuthMiddleware_AdmissionDenyFromZeroDoesNotIncrement(t *testing.T)
 	id := insertTestKeyWithRPM(t, "sk-adm-prefill", &maxRequests, 0, &maxRPM, nil)
 
 	// Saturate admission window for this key id without consuming DB quota.
-	if d := GlobalKeyAdmission.Allow(id, &maxRPM, nil, 0); !d.Allowed {
+	if d := GlobalKeyAdmission.Allow(context.Background(), id, &maxRPM, nil, 0); !d.Allowed {
 		t.Fatalf("prefill should allow once: %#v", d)
 	}
 

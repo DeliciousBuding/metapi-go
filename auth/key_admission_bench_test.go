@@ -103,7 +103,7 @@ func runAllowBench(b *testing.B, setup func(l *KeyAdmissionLimiter), keyFor func
 		durs := make([]time.Duration, 0, 4096)
 		for pb.Next() {
 			t0 := time.Now()
-			l.Allow(keyID, &limit, nil, 0)
+			l.Allow(context.Background(), keyID, &limit, nil, 0)
 			durs = append(durs, time.Since(t0))
 		}
 		mu.Lock()

@@ -82,7 +82,7 @@ func ProxyAuth() func(http.Handler) http.Handler {
 				if result.Key.MaxTPM != nil && *result.Key.MaxTPM > 0 {
 					estimatedTokens = estimateAdmissionTokens(r)
 				}
-				adm := GlobalKeyAdmission.Allow(result.Key.ID, result.Key.MaxRPM, result.Key.MaxTPM, estimatedTokens)
+				adm := GlobalKeyAdmission.Allow(r.Context(), result.Key.ID, result.Key.MaxRPM, result.Key.MaxTPM, estimatedTokens)
 				if !adm.Allowed {
 					msg := "API key rate limit exceeded"
 					if adm.Reason == "over_tpm" {

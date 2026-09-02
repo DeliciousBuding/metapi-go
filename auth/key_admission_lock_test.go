@@ -151,7 +151,7 @@ func TestKeyAdmission_SharedCounterRunsOutsideShardLock(t *testing.T) {
 		}
 		hookRan.Add(1)
 		// Nested admission for another key in the SAME shard stripe.
-		if d := l.Allow(keyB, &limit, nil, 0); !d.Allowed {
+		if d := l.Allow(context.Background(), keyB, &limit, nil, 0); !d.Allowed {
 			fail("nested Allow denied: %#v", d)
 		}
 		// Snapshot takes the shard lock but must never take the per-key shared
@@ -167,7 +167,7 @@ func TestKeyAdmission_SharedCounterRunsOutsideShardLock(t *testing.T) {
 
 	var d AdmissionDecision
 	withinTimeout(t, 10*time.Second, "Allow with a slow shared counter", func() {
-		d = l.Allow(keyA, &limit, nil, 0)
+		d = l.Allow(context.Background(), keyA, &limit, nil, 0)
 	})
 	if hookRan.Load() == 0 {
 		t.Fatal("shared counter hook never ran — test did not exercise the shared path")
@@ -200,7 +200,7 @@ func TestKeyAdmission_DistinctKeysNotSerializedBySharedCounter(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			if d := l.Allow(int64(i+1), &limit, nil, 0); !d.Allowed {
+			if d := l.Allow(context.Background(), int64(i+1), &limit, nil, 0); !d.Allowed {
 				t.Errorf("key %d denied: %#v", i+1, d)
 			}
 		}(i)
@@ -235,7 +235,7 @@ func TestKeyAdmission_DenyCompensationStaysOrderedPerKey(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			decisions[i] = l.Allow(101, &limit, nil, 0)
+			decisions[i] = l.Allow(context.Background(), 101, &limit, nil, 0)
 		}(i)
 	}
 	close(start)
@@ -300,7 +300,7 @@ func TestKeyAdmission_SharedFailOpenKeepsLocalLimitExact(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			if d := l.Allow(202, &limit, nil, 0); d.Allowed {
+			if d := l.Allow(context.Background(), 202, &limit, nil, 0); d.Allowed {
 				allowed.Add(1)
 			} else if d.Reason != "over_rpm" {
 				t.Errorf("fail-open deny reason = %q, want over_rpm", d.Reason)

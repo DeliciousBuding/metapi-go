@@ -218,13 +218,22 @@ type AdmissionDecision struct {
 // estimatedTokens is reserved against TPM when maxTPM is set; pass 0 to skip TPM accounting.
 // When allowed, the request is recorded immediately (admission reservation).
 //
+// ctx bounds the shared-counter round trips: a client that goes away cancels its
+// own Redis wait instead of holding the per-key serialization mutex for the full
+// counter timeout. Pass the request context (nil is treated as Background). A
+// cancelled round trip is an error, so it takes the existing fail-open path —
+// the request is already gone, and the window self-heals on expiry.
+//
 // Shared-counter round trips never run under a shard lock, so a slow or
 // unreachable Redis costs latency only for its own key. Decisions keep the exact
 // order they had under the previous single lock: shared RPM -> local RPM fallback
 // -> shared TPM -> local TPM fallback -> reservation.
-func (l *KeyAdmissionLimiter) Allow(keyID int64, maxRPM, maxTPM *int64, estimatedTokens int64) AdmissionDecision {
+func (l *KeyAdmissionLimiter) Allow(ctx context.Context, keyID int64, maxRPM, maxTPM *int64, estimatedTokens int64) AdmissionDecision {
 	if l == nil || keyID <= 0 {
 		return AdmissionDecision{Allowed: true}
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	rpmLimit := int64(0)
 	tpmLimit := int64(0)
@@ -297,7 +306,6 @@ func (l *KeyAdmissionLimiter) Allow(keyID int64, maxRPM, maxTPM *int64, estimate
 	w.sharedMu.Lock()
 	defer w.sharedMu.Unlock()
 
-	ctx := context.Background()
 	rpmKey := rpmSharedKey(keyID)
 	tpmKey := tpmSharedKey(keyID)
 	var rpm, tpm sharedVerdict

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -156,7 +157,7 @@ func TestKeyAdmissionLimiter_TPM_WithEstimateHelper(t *testing.T) {
 	if est1 != 600 {
 		t.Fatalf("est1 = %d, want 600", est1)
 	}
-	if d := l.Allow(42, nil, &tpm, est1); !d.Allowed {
+	if d := l.Allow(context.Background(), 42, nil, &tpm, est1); !d.Allowed {
 		t.Fatalf("first allow: %#v", d)
 	}
 
@@ -167,7 +168,7 @@ func TestKeyAdmissionLimiter_TPM_WithEstimateHelper(t *testing.T) {
 	if est2 != 500 {
 		t.Fatalf("est2 = %d, want 500", est2)
 	}
-	if d := l.Allow(42, nil, &tpm, est2); d.Allowed || d.Reason != "over_tpm" {
+	if d := l.Allow(context.Background(), 42, nil, &tpm, est2); d.Allowed || d.Reason != "over_tpm" {
 		t.Fatalf("expected over_tpm: %#v (est2=%d)", d, est2)
 	}
 }
@@ -176,7 +177,7 @@ func TestKeyAdmissionLimiter_MaxTPMNil_Unchanged(t *testing.T) {
 	// maxTPM nil: estimatedTokens ignored — unlimited TPM path.
 	l := NewKeyAdmissionLimiter()
 	for i := 0; i < 5; i++ {
-		if d := l.Allow(99, nil, nil, 100_000); !d.Allowed {
+		if d := l.Allow(context.Background(), 99, nil, nil, 100_000); !d.Allowed {
 			t.Fatalf("nil maxTPM should allow: %#v", d)
 		}
 	}
