@@ -125,7 +125,15 @@ Clear all proxy usage data (proxy_logs, route_channel stats, account balanceUsed
 
 ### POST /api/settings/maintenance/factory-reset
 
-Reset all data to factory defaults.
+Restore the clean-install state: wipe every business table and restart the auto-increment sequences.
+
+**Request**: `{ "confirm": true }` — required; any other body is rejected with `400`.
+
+**Response**: `{ success, message, deleted: { "<table>": <rows deleted> } }`.
+
+The table set is derived from the schema registry (`store.FactoryResetTableNames()`), not a hand-copied list, so a table added to the schema is wiped by a factory reset until it is explicitly excluded with a recorded reason. The single exclusion is the additive-migration journal (`schema_migrations`): wiping it would replay every migration step against an already-converged schema. Deletion runs in one transaction in FK-safe order (children before parents), so a failure leaves the database untouched rather than half wiped.
+
+`admin_sessions` is part of the set on purpose — session validation reads that table on every authenticated request, so emptying it revokes every cookie issued before the reset. **Sign in again after a successful factory reset.** Audit history (`admin_audit_logs`) and probe history (`model_probe_results`) are wiped as well; that is what "restore factory settings" means here. Export a backup first (`GET /api/settings/backup/export`) if you need them.
 
 ---
 

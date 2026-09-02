@@ -448,27 +448,18 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "events", "params", "TEXT", "TEXT", "")
 		},
 	},
-	{
-		// TS takeover hygiene: drizzle datetime('now') wrote
-		// 'YYYY-MM-DD HH:MM:SS' while Go writes RFC3339 UTC. Mixed shapes in
-		// the same TEXT column break every lexicographic comparison (space
-		// sorts before 'T'), so TS-era rows read as older than they are —
-		// ORDER BY listings skew and the checkin sweep re-checkins every
-		// TS-era account on first Go boot. One-shot in-place rewrite to
-		// RFC3339; idempotent (see ts_timestamp_normalize.go).
-		Version:     "sc2_029_ts_timestamp_normalization",
-		Description: "rewrite TS-era 'YYYY-MM-DD HH:MM:SS' values in TEXT *_at/*_until columns to RFC3339 UTC ('...T...Z') so lexicographic ordering and range comparisons agree across takeover rows",
-		Apply: func(db *DB) error {
-			n, err := normalizeLegacyTimestamps(db)
-			if err != nil {
-				return err
-			}
-			if n > 0 {
-				slog.Info("store: normalized legacy TS timestamps", "rows", n, "dialect", db.Dialect)
-			}
-			return nil
-		},
-	},
+	// sc2_029_ts_timestamp_normalization is deliberately NOT a registry step
+	// any more. A journal gate decides "already applied" from the state of the
+	// database at the moment it runs, and the TS-shaped timestamps this rewrite
+	// targets arrive later: cmd/migrate runs AutoMigrate on an empty target
+	// (booking the step) and only then copies the TS rows in, so a migrated
+	// database kept 'YYYY-MM-DD HH:MM:SS' values forever and every
+	// lexicographic comparison stayed skewed. The sweep now runs on every boot
+	// at the end of AutoMigrate (store/migrate.go) and once more after a copy
+	// migration finishes verifying (store/migrate_runner.go). The version
+	// string stays reserved: databases that already recorded it keep the row,
+	// and it must never be reused for a different step.
+
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

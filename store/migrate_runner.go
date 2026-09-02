@@ -190,13 +190,14 @@ var runtimeDBSettingKeys = map[string]bool{
 // store.ClearTableNames) so a future store DDL change can never silently
 // drift cmd/migrate again.
 
-// sequenceTableNames returns every migrated table with a serial id column.
-// Text-PK tables are excluded (settings: TS parity; admin_sessions: session
-// tokens are hashed text keys, #1034).
+// sequenceTableNames returns every migrated table with an "id" column, so
+// PostgreSQL sequence syncing skips the text-PK tables (settings: TS parity;
+// admin_sessions: hashed token keys, #1034; analytics_projection_checkpoints)
+// without a hardcoded list that a new table could drift out of.
 func sequenceTableNames() []string {
 	var out []string
 	for _, table := range AllTableNames() {
-		if table == "settings" || table == "admin_sessions" {
+		if !tableHasSerialID(table) {
 			continue
 		}
 		out = append(out, table)
@@ -247,6 +248,12 @@ func RunMigration(opts RunMigrationOptions) (*MigrationSummary, error) {
 	if logw == nil {
 		logw = io.Discard
 	}
+	// The table set, the copy order and every generic column list are parsed
+	// from the schema registry; a malformed registry must fail before any
+	// source data is read.
+	if err := schemaRegistryErr(); err != nil {
+		return nil, err
+	}
 	fromPath := opts.FromPath
 	toURL := opts.ToURL
 	overwrite := opts.Overwrite
@@ -285,6 +292,8 @@ func RunMigration(opts RunMigrationOptions) (*MigrationSummary, error) {
 	for _, t := range AllTableNames() {
 		fmt.Fprintf(logw, "  %-28s %d rows\n", t+":", len(snapshot[t]))
 	}
+
+	reportUncopiedSourceColumns(logw, snapshot)
 
 	// 3. Build insert statements with full type coercion (matching TS buildStatements)
 	inserts := buildStatements(snapshot)
@@ -405,7 +414,50 @@ func RunMigration(opts RunMigrationOptions) (*MigrationSummary, error) {
 		fmt.Fprintf(logw, "  All checksums match.\n")
 	}
 
+	// 13. Normalize TS-era timestamps — the "normalize" leg of
+	// copy -> verify -> normalize. It must come after verification: checksums
+	// compare the target against the source's own values, so rewriting
+	// 'YYYY-MM-DD HH:MM:SS' first would fail the very check that proves the
+	// copy is faithful. AutoMigrate also sweeps on every server boot, but a
+	// migrated database has to be correct the moment the CLI exits.
+	if n, err := normalizeLegacyTimestamps(tgtDB); err != nil {
+		return nil, fmt.Errorf("normalize legacy timestamps: %w", err)
+	} else if n > 0 {
+		fmt.Fprintf(logw, "\nNormalized %d legacy TS timestamp value(s) to RFC3339 UTC.\n", n)
+	}
+
 	return summary, nil
+}
+
+// reportUncopiedSourceColumns logs every source column the copy will drop
+// because the Go schema does not declare it. The target has nowhere to put
+// such a value, so dropping is unavoidable — but it must never be silent.
+func reportUncopiedSourceColumns(logw io.Writer, snapshot map[string][]map[string]interface{}) {
+	for _, table := range AllTableNames() {
+		spec, err := schemaColumns(table)
+		if err != nil {
+			continue
+		}
+		declared := make(map[string]bool, len(spec))
+		for _, c := range spec {
+			declared[c.name] = true
+		}
+		seen := make(map[string]bool)
+		var dropped []string
+		for _, row := range snapshot[table] {
+			for col := range row {
+				if declared[col] || seen[col] {
+					continue
+				}
+				seen[col] = true
+				dropped = append(dropped, col)
+			}
+		}
+		if len(dropped) > 0 {
+			sort.Strings(dropped)
+			fmt.Fprintf(logw, "  Warning: %s: source column(s) %v are not in the target schema and are NOT copied\n", table, dropped)
+		}
+	}
 }
 
 // ---- Dialect helpers (reverse-migration support, 2026-08-01) ----
@@ -569,31 +621,142 @@ type insertStmt struct {
 	values  []interface{}
 }
 
+// handwrittenBuilders are the tables whose copy needs per-column coercion the
+// generic spec-driven builder cannot express: NOT NULL fallbacks inherited
+// from the TypeScript migrator, nullable booleans where NULL means "inherit
+// the global setting", and per-column JSON serialization. Every other table in
+// the schema registry is copied by buildGenericTable straight from its parsed
+// column spec, so a newly added table is transferred, verified and cleared
+// without anyone having to remember to write a builder for it — the omission
+// that silently dropped 17 of 37 tables.
+var handwrittenBuilders = map[string]func([]map[string]interface{}) []insertStmt{
+	"sites":                    buildSites,
+	"site_api_endpoints":       buildSiteAPIEndpoints,
+	"site_disabled_models":     buildSiteDisabledModels,
+	"site_announcements":       buildSiteAnnouncements,
+	"accounts":                 buildAccounts,
+	"account_tokens":           buildAccountTokens,
+	"checkin_logs":             buildCheckinLogs,
+	"model_availability":       buildModelAvailability,
+	"token_model_availability": buildTokenModelAvailability,
+	"token_routes":             buildTokenRoutes,
+	"route_channels":           buildRouteChannels,
+	"route_group_sources":      buildRouteGroupSources,
+	"proxy_logs":               buildProxyLogs,
+	"proxy_video_tasks":        buildProxyVideoTasks,
+	"proxy_files":              buildProxyFiles,
+	"downstream_api_keys":      buildDownstreamAPIKeys,
+	"events":                   buildEvents,
+	"settings":                 buildSettings,
+	"catalog_sources":          buildCatalogSources,
+	"admin_sessions":           buildAdminSessions,
+}
+
 func buildStatements(snapshot map[string][]map[string]interface{}) []insertStmt {
 	var stmts []insertStmt
-
-	stmts = append(stmts, buildSites(snapshot["sites"])...)
-	stmts = append(stmts, buildSiteAPIEndpoints(snapshot["site_api_endpoints"])...)
-	stmts = append(stmts, buildSiteDisabledModels(snapshot["site_disabled_models"])...)
-	stmts = append(stmts, buildSiteAnnouncements(snapshot["site_announcements"])...)
-	stmts = append(stmts, buildAccounts(snapshot["accounts"])...)
-	stmts = append(stmts, buildAccountTokens(snapshot["account_tokens"])...)
-	stmts = append(stmts, buildCheckinLogs(snapshot["checkin_logs"])...)
-	stmts = append(stmts, buildModelAvailability(snapshot["model_availability"])...)
-	stmts = append(stmts, buildTokenModelAvailability(snapshot["token_model_availability"])...)
-	stmts = append(stmts, buildTokenRoutes(snapshot["token_routes"])...)
-	stmts = append(stmts, buildRouteChannels(snapshot["route_channels"])...)
-	stmts = append(stmts, buildRouteGroupSources(snapshot["route_group_sources"])...)
-	stmts = append(stmts, buildProxyLogs(snapshot["proxy_logs"])...)
-	stmts = append(stmts, buildProxyVideoTasks(snapshot["proxy_video_tasks"])...)
-	stmts = append(stmts, buildProxyFiles(snapshot["proxy_files"])...)
-	stmts = append(stmts, buildDownstreamAPIKeys(snapshot["downstream_api_keys"])...)
-	stmts = append(stmts, buildEvents(snapshot["events"])...)
-	stmts = append(stmts, buildSettings(snapshot["settings"])...)
-	stmts = append(stmts, buildCatalogSources(snapshot["catalog_sources"])...)
-	stmts = append(stmts, buildAdminSessions(snapshot["admin_sessions"])...)
-
+	// AllTableNames is topologically parents-before-children, so the insert
+	// order satisfies every foreign key on the target.
+	for _, table := range AllTableNames() {
+		rows := snapshot[table]
+		if build, ok := handwrittenBuilders[table]; ok {
+			stmts = append(stmts, build(rows)...)
+			continue
+		}
+		stmts = append(stmts, buildGenericTable(table, rows)...)
+	}
 	return stmts
+}
+
+// buildGenericTable copies rows of any registry table using the column spec
+// parsed from its DDL. Only columns the source actually provides are listed,
+// so a TypeScript source that predates a Go-added column still inserts (the
+// target applies its own default) instead of writing an explicit NULL into a
+// NOT NULL column.
+func buildGenericTable(table string, rows []map[string]interface{}) []insertStmt {
+	if len(rows) == 0 {
+		return nil
+	}
+	cols := genericColumns(table, rows)
+	if len(cols) == 0 {
+		return nil
+	}
+	names := make([]string, len(cols))
+	for i, c := range cols {
+		names[i] = c.name
+	}
+	stmts := make([]insertStmt, 0, len(rows))
+	for _, row := range rows {
+		values := make([]interface{}, len(cols))
+		for i, c := range cols {
+			values[i] = coerceSpecValue(table, c.name, c.kind, row[c.name])
+		}
+		stmts = append(stmts, insertStmt{table: table, columns: names, values: values})
+	}
+	return stmts
+}
+
+// genericColumns intersects the registry column spec with the columns the
+// source rows actually carry, keeping spec order.
+func genericColumns(table string, rows []map[string]interface{}) []schemaColumn {
+	present := make(map[string]bool)
+	for _, row := range rows {
+		for col := range row {
+			present[col] = true
+		}
+	}
+	if spec, err := schemaColumns(table); err == nil {
+		out := make([]schemaColumn, 0, len(spec))
+		for _, c := range spec {
+			if present[c.name] {
+				out = append(out, c)
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	// Fallback, unreachable in production: RunMigration and AutoMigrate both
+	// reject a malformed registry via schemaRegistryErr before this runs.
+	names := make([]string, 0, len(present))
+	for col := range present {
+		names = append(names, col)
+	}
+	sort.Strings(names)
+	out := make([]schemaColumn, 0, len(names))
+	for _, n := range names {
+		out = append(out, schemaColumn{name: n, kind: kindText})
+	}
+	return out
+}
+
+// coerceSpecValue converts one source value for a column of the given logical
+// kind. NULL stays NULL (the target applies its own default or keeps the
+// "unset" meaning); booleans arrive as Go bool so a PostgreSQL BOOLEAN column
+// never sees an integer literal; JSON columns keep the TS serialization path.
+func coerceSpecValue(table, column, kind string, raw interface{}) interface{} {
+	if b, ok := raw.([]byte); ok {
+		raw = string(b)
+	}
+	if raw == nil {
+		return nil
+	}
+	var out interface{}
+	switch kind {
+	case kindBool:
+		out = asNullableBool(raw)
+	case kindInt, kindFloat:
+		out = asNumber(raw, raw)
+	default:
+		out = asNullableString(raw)
+	}
+	// Only JSON columns go through the serializer; every other value keeps
+	// the Go type the target driver binds natively (int64/float64/bool), so
+	// an INTEGER column never receives the text "1" and a BOOLEAN column
+	// never receives the text "true".
+	if isJSONColumn(table, column) {
+		return serializeColumnValue(table, column, out)
+	}
+	return out
 }
 
 func v(row map[string]interface{}, key string) interface{} {
@@ -852,7 +1015,11 @@ func buildModelAvailability(rows []map[string]interface{}) []insertStmt {
 				asNumber(v(row, "id"), float64(0)),
 				asNumber(v(row, "account_id"), float64(0)),
 				asNullableString(v(row, "model_name")),
-				asBoolean(v(row, "available"), false),
+				// available is nullable in both dialects and NULL means
+				// "not probed yet", which is not the same statement as
+				// false ("probed, unavailable"). Coercing NULL to false here
+				// silently rewrote probe state during every copy migration.
+				asNullableBool(v(row, "available")),
 				asBoolean(v(row, "is_manual"), false),
 				asNumber(v(row, "latency_ms"), nil),
 				asNullableString(v(row, "checked_at")),
@@ -872,7 +1039,10 @@ func buildTokenModelAvailability(rows []map[string]interface{}) []insertStmt {
 				asNumber(v(row, "id"), float64(0)),
 				asNumber(v(row, "token_id"), float64(0)),
 				asNullableString(v(row, "model_name")),
-				asBoolean(v(row, "available"), false),
+				// Nullable with no default: NULL means "no availability
+				// recorded yet", which must not become false on the way
+				// across a dialect boundary.
+				asNullableBool(v(row, "available")),
 				asNumber(v(row, "latency_ms"), nil),
 				asNullableString(v(row, "checked_at")),
 			},
@@ -976,7 +1146,10 @@ func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
 				asNullableString(v(row, "model_actual")),
 				asNullableString(v(row, "status")),
 				asNumber(v(row, "http_status"), nil),
-				asBoolean(v(row, "is_stream"), false),
+				// Nullable with no default (additive sc2_022): rows logged
+				// before the column existed carry NULL, and NULL is not the
+				// same claim as false.
+				asNullableBool(v(row, "is_stream")),
 				asNumber(v(row, "first_byte_latency_ms"), nil),
 				asNumber(v(row, "latency_ms"), nil),
 				asNumber(v(row, "prompt_tokens"), nil),
@@ -1195,6 +1368,31 @@ func buildInsertPG(s insertStmt) (string, []interface{}) {
 // openTargetDB now calls store.Open + store.AutoMigrate so the canonical
 // dual-dialect DDL is the single source of truth.
 
+// sqliteArg renders one bound value the way SQLite stores it. Booleans need
+// the conversion: the driver binds a Go bool as the TEXT 'true'/'false', and
+// an INTEGER-affinity column only converts numeric-looking text, so the value
+// lands as text and stays text. A copy-migrated database then fails every
+// `WHERE enabled = 1` comparison and hashes differently from the source it was
+// copied from — while looking perfectly populated in a SELECT *.
+func sqliteArg(value interface{}) interface{} {
+	if b, ok := value.(bool); ok {
+		if b {
+			return int64(1)
+		}
+		return int64(0)
+	}
+	return value
+}
+
+// sqliteArgs converts every bound value of a statement for a SQLite target.
+func sqliteArgs(values []interface{}) []interface{} {
+	out := make([]interface{}, len(values))
+	for i, value := range values {
+		out[i] = sqliteArg(value)
+	}
+	return out
+}
+
 func buildInsertSQLite(s insertStmt) (string, []interface{}) {
 	quotedCols := make([]string, len(s.columns))
 	for i, c := range s.columns {
@@ -1209,7 +1407,7 @@ func buildInsertSQLite(s insertStmt) (string, []interface{}) {
 		strings.Join(quotedCols, ", "),
 		strings.Join(placeholders, ", "),
 	)
-	return sqlText, s.values
+	return sqlText, sqliteArgs(s.values)
 }
 
 // groupInsertStatements splits the flat row list into executable groups.
@@ -1268,7 +1466,7 @@ func buildInsertBatchSQLite(stmts []insertStmt) (string, []interface{}) {
 	args := make([]interface{}, 0, len(stmts)*len(first.columns))
 	for i, s := range stmts {
 		tuples[i] = rowPlaceholders
-		args = append(args, s.values...)
+		args = append(args, sqliteArgs(s.values)...)
 	}
 	sqlText := fmt.Sprintf("INSERT INTO \"%s\" (%s) VALUES %s",
 		first.table,
@@ -1334,6 +1532,22 @@ func verifyChecksums(srcDB *sql.DB, tgtDB *DB, snapshot map[string][]map[string]
 		for _, row := range srcRows {
 			for col := range row {
 				sourceCols[col] = struct{}{}
+			}
+		}
+
+		// Restrict the hashed set to columns present on both sides: a source
+		// column the Go schema never declared was not copied (and was reported
+		// by reportUncopiedSourceColumns), so hashing it here would fail the
+		// query instead of verifying the copy.
+		if tgtCols, err := targetColumns(tgtDB, table); err == nil {
+			present := make(map[string]struct{}, len(tgtCols))
+			for _, c := range tgtCols {
+				present[c] = struct{}{}
+			}
+			for col := range sourceCols {
+				if _, ok := present[col]; !ok {
+					delete(sourceCols, col)
+				}
 			}
 		}
 
@@ -1501,7 +1715,18 @@ func verifyBuilderColumnsMatchTarget(db *DB) error {
 func builderColumnSets() map[string][]string {
 	snapshot := make(map[string][]map[string]interface{}, len(AllTableNames()))
 	for _, table := range AllTableNames() {
-		snapshot[table] = []map[string]interface{}{{}}
+		// A synthetic row carrying every column the registry declares: the
+		// hand-written builders pick their columns by name, the generic
+		// builder intersects the row's keys with the spec, so either way the
+		// emitted list is the full spec — exactly what the guard compares
+		// against the target schema.
+		row := make(map[string]interface{})
+		if cols, err := schemaColumns(table); err == nil {
+			for _, c := range cols {
+				row[c.name] = nil
+			}
+		}
+		snapshot[table] = []map[string]interface{}{row}
 	}
 	out := make(map[string][]string)
 	for _, stmt := range buildStatements(snapshot) {

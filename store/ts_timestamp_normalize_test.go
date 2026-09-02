@@ -114,9 +114,14 @@ func TestNormalizeLegacyTimestamps_SQLite(t *testing.T) {
 	}
 }
 
-// TestNormalizeLegacyTimestamps_StepRegistered pins the step into the
-// production registry so a fresh AutoMigrate applies and books it.
-func TestNormalizeLegacyTimestamps_StepRegistered(t *testing.T) {
+// TestNormalizeLegacyTimestamps_SweepIsNotJournalGated pins the sweep into
+// AutoMigrate itself. A journal gate decides "already applied" from the state
+// of the database at the moment it runs, which is exactly wrong here: a copy
+// migration books the step on an empty target and only then inserts the
+// TS-shaped rows, so the gate used to guarantee the rewrite never touched
+// them. The sweep must therefore run on every boot, and must pick up values
+// that appear after the previous boot.
+func TestNormalizeLegacyTimestamps_SweepIsNotJournalGated(t *testing.T) {
 	db, err := Open(DialectSQLite, ":memory:", false)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -125,13 +130,28 @@ func TestNormalizeLegacyTimestamps_StepRegistered(t *testing.T) {
 	if err := AutoMigrate(db); err != nil {
 		t.Fatalf("AutoMigrate: %v", err)
 	}
-	var n int
-	if err := db.QueryRow(
-		`SELECT COUNT(*) FROM schema_migrations WHERE version = 'sc2_029_ts_timestamp_normalization'`).Scan(&n); err != nil {
-		t.Fatalf("count: %v", err)
+
+	for _, step := range enterpriseAdditiveSteps {
+		if step.Version == "sc2_029_ts_timestamp_normalization" {
+			t.Fatalf("sc2_029 is journal-gated again: the sweep must run on every boot, not once per database")
+		}
 	}
-	if n != 1 {
-		t.Fatalf("sc2_029 bookkeeping rows = %d, want 1", n)
+
+	// A TS-shaped value written after the first boot (what a copy migration
+	// does into an already-migrated target) is normalized by the next boot.
+	if _, err := db.Exec(db.Rebind(`INSERT INTO sites (id, name, url, platform, status, created_at, updated_at)
+		VALUES (990002, 'late-ts', 'https://late-ts.example.com', 'openai', 'active', '2026-08-20 12:31:20', '2026-08-20 12:31:20')`)); err != nil {
+		t.Fatalf("seed late TS row: %v", err)
+	}
+	if err := AutoMigrate(db); err != nil {
+		t.Fatalf("second AutoMigrate: %v", err)
+	}
+	var got string
+	if err := db.QueryRow(db.Rebind(`SELECT created_at FROM sites WHERE id = 990002`)).Scan(&got); err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if got != "2026-08-20T12:31:20Z" {
+		t.Errorf("created_at after restart = %q, want RFC3339 '2026-08-20T12:31:20Z'", got)
 	}
 }
 
