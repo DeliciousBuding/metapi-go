@@ -3,6 +3,8 @@ package sharedcount
 import (
 	"bufio"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -20,8 +22,8 @@ import (
 // fakeRedis is a minimal in-memory RESP server for exercising RedisCounter
 // over a real TCP loopback connection (so NewRedisCounter + net.DialTimeout
 // are covered end-to-end). It supports AUTH, SELECT, INCR, DECR, INCRBY, GET
-// PEXPIRE, DEL and the single EVAL script the counter uses, with real TTL
-// expiry.
+// PEXPIRE, DEL and the single script the counter uses (EVAL plus the EVALSHA /
+// NOSCRIPT negotiation around it), with real TTL expiry.
 type fakeRedis struct {
 	mu       sync.Mutex
 	data     map[string]int64
@@ -43,14 +45,31 @@ type fakeRedis struct {
 	// delayMs is an artificial per-command latency (0 = none).
 	delayMs atomic.Int64
 
-	// hookMu guards beforeCommand and evalDisabled.
+	// hookMu guards beforeCommand and the script-support switches.
 	hookMu sync.Mutex
 	// beforeCommand, when set, runs after a command has been parsed but before it
 	// is handled — the client is still waiting for the reply, so this is the gap
 	// in which a test can land another connection's command.
 	beforeCommand func(cmd, key string)
-	// evalDisabled makes EVAL answer the way a server without scripting does.
+	// evalDisabled makes EVAL/EVALSHA answer the way a server without scripting
+	// does ("ERR unknown command").
 	evalDisabled bool
+	// scriptsDenied makes EVAL/EVALSHA answer the way an ACL user without
+	// scripting permission does ("NOPERM ...").
+	scriptsDenied bool
+	// scriptFailure, when set, is the error reply EVAL/EVALSHA answer with — a
+	// stand-in for a script that the server accepted and then failed to run.
+	scriptFailure string
+	// scripts is the server-side script cache (sha1 hex -> body): EVAL populates
+	// it, EVALSHA reads it and answers NOSCRIPT for a digest it does not hold,
+	// exactly like a real server after a restart or SCRIPT FLUSH.
+	scripts map[string]string
+
+	// cmdLog is the wire log: every command the double was asked to run, in
+	// order, so a test can pin the negotiation sequence (EVALSHA before EVAL, no
+	// script body on the hot path).
+	cmdLogMu sync.Mutex
+	cmdLog   [][]string
 }
 
 func newFakeRedis(tb testing.TB) *fakeRedis {
@@ -98,12 +117,112 @@ func (f *fakeRedis) setBeforeCommand(fn func(cmd, key string)) {
 	f.beforeCommand = fn
 }
 
-// disableEval makes the double answer EVAL with the error a server without
-// scripting support returns.
+// disableEval makes the double answer EVAL and EVALSHA with the error a server
+// without scripting support returns.
 func (f *fakeRedis) disableEval() {
 	f.hookMu.Lock()
 	defer f.hookMu.Unlock()
 	f.evalDisabled = true
+}
+
+// denyScripts makes the double answer EVAL and EVALSHA the way an ACL user
+// without scripting permission is answered: the server can run scripts, this
+// connection may not.
+func (f *fakeRedis) denyScripts() {
+	f.hookMu.Lock()
+	defer f.hookMu.Unlock()
+	f.scriptsDenied = true
+}
+
+// failScripts makes the double answer EVAL and EVALSHA with the given error
+// reply, standing in for a script the server accepted and then failed to run.
+func (f *fakeRedis) failScripts(msg string) {
+	f.hookMu.Lock()
+	defer f.hookMu.Unlock()
+	f.scriptFailure = msg
+}
+
+// scriptSwitches snapshots the scripting switches for one command.
+func (f *fakeRedis) scriptSwitches() (disabled, denied bool, failure string) {
+	f.hookMu.Lock()
+	defer f.hookMu.Unlock()
+	return f.evalDisabled, f.scriptsDenied, f.scriptFailure
+}
+
+// preloadScript puts a script body in the server-side cache without running it —
+// the double's stand-in for SCRIPT LOAD, or for a server that has already seen
+// the script. A test that asserts the hot path (one EVALSHA, no body upload)
+// needs this, because a cold server legitimately costs one NOSCRIPT round trip.
+func (f *fakeRedis) preloadScript(body string) {
+	f.hookMu.Lock()
+	defer f.hookMu.Unlock()
+	if f.scripts == nil {
+		f.scripts = make(map[string]string)
+	}
+	f.scripts[fakeScriptSHA(body)] = body
+}
+
+// cacheScript records a script the way EVAL does on a real server, so a later
+// EVALSHA can run it without the body travelling again.
+func (f *fakeRedis) cacheScript(body string) {
+	f.hookMu.Lock()
+	defer f.hookMu.Unlock()
+	if f.scripts == nil {
+		f.scripts = make(map[string]string)
+	}
+	f.scripts[fakeScriptSHA(body)] = body
+}
+
+// lookupScript resolves a digest against the server-side cache.
+func (f *fakeRedis) lookupScript(sha string) (string, bool) {
+	f.hookMu.Lock()
+	defer f.hookMu.Unlock()
+	body, ok := f.scripts[sha]
+	return body, ok
+}
+
+// fakeScriptSHA is the digest the RESP scripting protocol defines for a script
+// body: SHA1 of the exact bytes an EVAL would upload.
+func fakeScriptSHA(body string) string {
+	sum := sha1.Sum([]byte(body))
+	return hex.EncodeToString(sum[:])
+}
+
+// recordCommand appends a copy of a parsed command to the wire log.
+func (f *fakeRedis) recordCommand(parts []string) {
+	f.cmdLogMu.Lock()
+	defer f.cmdLogMu.Unlock()
+	f.cmdLog = append(f.cmdLog, append([]string(nil), parts...))
+}
+
+// recordedCommands returns a copy of the wire log (post-AUTH/SELECT commands, in
+// order).
+func (f *fakeRedis) recordedCommands() [][]string {
+	f.cmdLogMu.Lock()
+	defer f.cmdLogMu.Unlock()
+	out := make([][]string, len(f.cmdLog))
+	for i, parts := range f.cmdLog {
+		out[i] = append([]string(nil), parts...)
+	}
+	return out
+}
+
+// countCommands counts how many times a command name was sent.
+func (f *fakeRedis) countCommands(cmd string) int {
+	n := 0
+	for _, parts := range f.recordedCommands() {
+		if len(parts) > 0 && strings.EqualFold(parts[0], cmd) {
+			n++
+		}
+	}
+	return n
+}
+
+// resetCommandLog clears the wire log so a test can measure one operation.
+func (f *fakeRedis) resetCommandLog() {
+	f.cmdLogMu.Lock()
+	defer f.cmdLogMu.Unlock()
+	f.cmdLog = nil
 }
 
 // fireBeforeCommand runs the installed callback, if any, outside the datastore
@@ -118,9 +237,10 @@ func (f *fakeRedis) fireBeforeCommand(cmd, key string) {
 }
 
 // commandKey extracts the key a command operates on, so the interleave hook can
-// be filtered per key. EVAL carries it after the script and the numkeys count.
+// be filtered per key. EVAL and EVALSHA carry it after the script (or its
+// digest) and the numkeys count.
 func commandKey(cmd string, parts []string) string {
-	if cmd == "EVAL" {
+	if cmd == "EVAL" || cmd == "EVALSHA" {
 		if len(parts) >= 4 {
 			return parts[3]
 		}
@@ -234,6 +354,7 @@ func (f *fakeRedis) handle(conn net.Conn) {
 				writeError(conn, "NOAUTH Authentication required")
 				return
 			}
+			f.recordCommand(parts)
 			f.fireBeforeCommand(cmd, commandKey(cmd, parts))
 			if !f.handleCommand(conn, cmd, parts) {
 				return
@@ -316,37 +437,67 @@ func (f *fakeRedis) handleCommand(conn net.Conn, cmd string, parts []string) boo
 		f.ttl[key] = time.Now().Add(time.Duration(ms) * time.Millisecond)
 		f.mu.Unlock()
 		writeInt(conn, 1)
-	case "EVAL":
+	case "EVAL", "EVALSHA":
 		// The counter sends exactly one script: the atomic rollback
 		// (INCRBY plus a conditional DEL). Redis executes a script as a single
 		// command, so the double applies the whole thing under one lock hold —
 		// that atomicity is the property under test, and it is why no other
 		// connection can observe (or lose) a write in the middle.
-		f.hookMu.Lock()
-		disabled := f.evalDisabled
-		f.hookMu.Unlock()
+		//
+		// EVALSHA resolves the digest against the server-side cache and answers
+		// NOSCRIPT for one it does not hold; EVAL runs the body and caches it, so
+		// the next EVALSHA resolves.
+		disabled, denied, failure := f.scriptSwitches()
+		lowerCmd := strings.ToLower(cmd)
 		if disabled {
-			writeError(conn, "ERR unknown command 'EVAL'")
+			// A build without scripting knows neither command.
+			writeError(conn, "ERR unknown command '"+cmd+"'")
 			return true
 		}
-		if len(parts) < 5 {
-			writeError(conn, "ERR wrong number of arguments for 'eval' command")
+		if denied {
+			// Scripting exists, this connection may not use it.
+			writeError(conn, "NOPERM this user has no permissions to run the '"+lowerCmd+"' command")
 			return true
 		}
-		if !strings.Contains(parts[1], "INCRBY") || !strings.Contains(parts[1], "DEL") {
+		if failure != "" {
+			writeError(conn, failure)
+			return true
+		}
+		if len(parts) < 2 {
+			writeError(conn, "ERR wrong number of arguments for '"+lowerCmd+"' command")
+			return true
+		}
+		var body string
+		if cmd == "EVAL" {
+			body = parts[1]
+		} else {
+			cached, known := f.lookupScript(parts[1])
+			if !known {
+				writeError(conn, "NOSCRIPT No matching script")
+				return true
+			}
+			body = cached
+		}
+		tail := parts[2:] // numkeys, key..., argv...
+		if !strings.Contains(body, "INCRBY") || !strings.Contains(body, "DEL") {
 			writeError(conn, "ERR test double implements only the atomic rollback script")
 			return true
 		}
-		if numKeys, err := strconv.Atoi(parts[2]); err != nil || numKeys != 1 {
+		if len(tail) < 3 {
+			writeError(conn, "ERR wrong number of arguments for '"+lowerCmd+"' command")
+			return true
+		}
+		if numKeys, err := strconv.Atoi(tail[0]); err != nil || numKeys != 1 {
 			writeError(conn, "ERR test double implements exactly one KEYS entry")
 			return true
 		}
-		key := parts[3]
-		delta, err := strconv.ParseInt(parts[4], 10, 64)
+		key := tail[1]
+		delta, err := strconv.ParseInt(tail[2], 10, 64)
 		if err != nil {
 			writeError(conn, "ERR value is not an integer or out of range")
 			return true
 		}
+		f.cacheScript(body)
 		f.mu.Lock()
 		f.expireLocked(key)
 		v := f.data[key] + delta

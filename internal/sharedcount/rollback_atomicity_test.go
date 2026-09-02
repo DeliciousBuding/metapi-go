@@ -24,6 +24,11 @@ func rollbackDuringReservation(t *testing.T, rollback func(ctx context.Context, 
 
 	f := newFakeRedis(t)
 	defer f.close()
+	// Warm the server-side script cache: the interleave below has to land on the
+	// command that actually executes the rollback, not on a NOSCRIPT rejection of
+	// a cold-start EVALSHA (that negotiation is covered by
+	// TestRedisCounter_RollbackFallsBackToEvalOnceOnNoScript).
+	f.preloadScript(rollbackScript)
 	c := newCounterAt(t, f.addr())
 	other := newCounterAt(t, f.addr())
 	ctx := context.Background()
@@ -37,8 +42,9 @@ func rollbackDuringReservation(t *testing.T, rollback func(ctx context.Context, 
 	var fired, reserved atomic.Int64
 	f.setBeforeCommand(func(cmd, gotKey string) {
 		// The interesting command is the one that may drop the key: the atomic
-		// rollback script, or — for a two-command rollback — its separate DEL.
-		if gotKey != key || (cmd != "EVAL" && cmd != "DEL") || fired.Swap(1) == 1 {
+		// rollback script (by body or by digest), or — for a two-command
+		// rollback — its separate DEL.
+		if gotKey != key || (cmd != "EVAL" && cmd != "EVALSHA" && cmd != "DEL") || fired.Swap(1) == 1 {
 			return
 		}
 		// Another instance reserves the same window at that exact moment. A
@@ -98,6 +104,10 @@ func TestRedisCounter_RollbackIsASingleServerOperation(t *testing.T) {
 	t.Parallel()
 	f := newFakeRedis(t)
 	defer f.close()
+	// A server that already holds the script: this pins the hot path. A cold
+	// server legitimately costs one extra NOSCRIPT round trip, which
+	// TestRedisCounter_RollbackFallsBackToEvalOnceOnNoScript covers.
+	f.preloadScript(rollbackScript)
 	c := newCounterAt(t, f.addr())
 	ctx := context.Background()
 
