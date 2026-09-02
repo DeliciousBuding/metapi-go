@@ -193,6 +193,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	// auth since it needs the resolved auth source to know whether the request
 	// used the global PROXY_TOKEN (managed keys have their own RPM admission).
 	r.Route("/v1", func(r chi.Router) {
+		r.Use(ProxyWriteDeadline)
 		r.Use(CORS())
 		r.Use(auth.ProxyRateLimit(cfg.ProxyRateLimitRPM))
 		r.Use(auth.ProxyAuth())
@@ -211,6 +212,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	// the exact registered proxy paths and does not shadow the SPA fallback.
 	// Same rate-limiting stack as /v1: per-IP before auth, global-token after.
 	r.Group(func(r chi.Router) {
+		r.Use(ProxyWriteDeadline)
 		r.Use(CORS())
 		r.Use(auth.ProxyRateLimit(cfg.ProxyRateLimitRPM))
 		r.Use(auth.ProxyAuth())

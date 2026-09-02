@@ -73,7 +73,7 @@ func TestClaudeAdapter_InheritsStandardDefaults(t *testing.T) {
 }
 
 func TestClaudeDefaultAnthropicVersion(t *testing.T) {
-	if claudeDefaultAnthropicVersion != "2023-06-01" {
-		t.Errorf("expected anthropic version '2023-06-01', got %q", claudeDefaultAnthropicVersion)
+	if ClaudeDefaultAnthropicVersion != "2023-06-01" {
+		t.Errorf("expected anthropic version '2023-06-01', got %q", ClaudeDefaultAnthropicVersion)
 	}
 }

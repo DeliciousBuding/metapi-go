@@ -319,7 +319,9 @@ func (p *ChannelHealthProbeExecutor) executeChatProbe(ctx context.Context, targe
 // that run without an injected transport or site proxy config. The deadline
 // is owned by the caller context (probe timeout is operator-tunable with no
 // fixed ceiling), so the response-header phase stays unbounded here.
-var probeFallbackTransport = httpclient.NewTransport(httpclient.Options{})
+// probeFallbackTransport dials operator-configured site URLs, so it carries the
+// same data-plane SSRF dial guard as the proxy executor transports.
+var probeFallbackTransport = httpclient.NewTransport(httpclient.Options{SiteDialGuard: true})
 
 func (p *ChannelHealthProbeExecutor) doRequest(ctx context.Context, req *http.Request, proxyCfg *platform.ProxyConfig) (*http.Response, error) {
 	if p.transport != nil {

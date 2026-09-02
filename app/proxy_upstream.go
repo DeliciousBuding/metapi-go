@@ -40,14 +40,11 @@ func ConfigureProxyUpstream(cfg *config.Config) error {
 	// applied per attempt in handler/proxy sendUpstreamRequest.
 	// Keep client timeout at least as large as the first-byte window so the
 	// client does not pre-empt first-byte observation.
-	requestTimeout := 90 * time.Second
-	if firstByteMs := proxy.FirstByteTimeoutMs(config.Runtime().ProxyFirstByteTimeoutSec); firstByteMs > 0 {
-		fb := time.Duration(firstByteMs) * time.Millisecond
-		// Ceiling: max(90s, first-byte*2) so multi-endpoint fallback can still complete.
-		if doubled := fb * 2; doubled > requestTimeout {
-			requestTimeout = doubled
-		}
-	}
+	// Ceiling: max(90s, first-byte*2) so multi-endpoint fallback can still
+	// complete. proxy.RequestCeiling is the SSOT — router.ProxyWriteDeadline
+	// derives the server-side write budget from it so the write side can never
+	// invert the request side again.
+	requestTimeout := proxy.RequestCeiling(config.Runtime().ProxyFirstByteTimeoutSec)
 	auth.ConfigureSharedAdmissionFromRedisURL(cfg.RedisURL)
 
 	routingStore := service.NewProxyRoutingStore(db)
@@ -142,8 +139,8 @@ func ShutdownProxyLogBatchWriter(ctx context.Context) error {
 }
 
 var (
-	pricingCatalogMu       sync.Mutex
-	pricingCatalogManager  *catalogsync.Manager
+	pricingCatalogMu      sync.Mutex
+	pricingCatalogManager *catalogsync.Manager
 )
 
 // pricingCatalogResolver returns the process-global model-catalog manager

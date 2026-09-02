@@ -6,7 +6,11 @@ import (
 	"strings"
 )
 
-const claudeDefaultAnthropicVersion = "2023-06-01"
+// ClaudeDefaultAnthropicVersion is the anthropic-version header value used when
+// a caller does not supply one. Single source of truth for every path that
+// speaks the Anthropic-native protocol (platform adapters, OAuth flows, and the
+// /v1 proxy data plane).
+const ClaudeDefaultAnthropicVersion = "2023-06-01"
 
 // ClaudeAdapter handles api.anthropic.com platforms (native + OpenAI-compat gateways).
 type ClaudeAdapter struct {
@@ -35,7 +39,7 @@ func (c *ClaudeAdapter) GetModels(ctx context.Context, baseURL string, token str
 	// Try native Anthropic endpoint
 	claudeHeaders := map[string]string{
 		"x-api-key":         token,
-		"anthropic-version": claudeDefaultAnthropicVersion,
+		"anthropic-version": ClaudeDefaultAnthropicVersion,
 	}
 	models, err := c.fetchModelsFromStandardEndpoint(ctx, baseURL, claudeHeaders, proxy)
 	if err == nil && len(models) > 0 {

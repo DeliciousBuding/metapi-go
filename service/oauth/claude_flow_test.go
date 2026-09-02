@@ -3,6 +3,7 @@ package oauth
 import (
 	"context"
 	"encoding/json"
+	"github.com/deliciousbuding/metapi-go/platform"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -104,9 +105,9 @@ func TestParseClaudeExpiresAt_NilValue(t *testing.T) {
 
 func TestBuildClaudeProxyHeaders_SetsAnthropicVersion(t *testing.T) {
 	headers := buildClaudeProxyHeaders(context.Background(), ProxyHeaderInput{})
-	if headers["anthropic-version"] != claudeDefaultAnthropicVersion {
+	if headers["anthropic-version"] != platform.ClaudeDefaultAnthropicVersion {
 		t.Errorf("anthropic-version = %q, want %q",
-			headers["anthropic-version"], claudeDefaultAnthropicVersion)
+			headers["anthropic-version"], platform.ClaudeDefaultAnthropicVersion)
 	}
 	if len(headers) != 1 {
 		t.Errorf("claude proxy headers should set exactly one header, got %d", len(headers))
@@ -123,7 +124,7 @@ func TestBuildClaudeProxyHeaders_IgnoresOAuthContext(t *testing.T) {
 			Provider:   "claude",
 		},
 	})
-	if headers["anthropic-version"] != claudeDefaultAnthropicVersion {
+	if headers["anthropic-version"] != platform.ClaudeDefaultAnthropicVersion {
 		t.Errorf("anthropic-version = %q", headers["anthropic-version"])
 	}
 }

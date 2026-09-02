@@ -51,8 +51,11 @@ var unconfiguredUpstreamLogOnce sync.Once
 // nil. Production deployments should always wire the Executor field via
 // SetUpstreamConfig.
 var defaultUpstreamClient = &http.Client{
-	Timeout:       90 * time.Second,
-	Transport:     httpclient.NewTransport(httpclient.Options{ResponseHeaderTimeout: 90 * time.Second}),
+	Timeout: proxy.DefaultRequestCeiling,
+	Transport: httpclient.NewTransport(httpclient.Options{
+		ResponseHeaderTimeout: proxy.DefaultRequestCeiling,
+		SiteDialGuard:         true, // data-plane dial guard, see proxy.NewStreamTransport
+	}),
 	CheckRedirect: platform.RejectCrossOriginRedirect,
 }
 
@@ -505,9 +508,12 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 	req.Header.Set("Content-Type", contentType)
-	// Custom headers first (deny-list skips Authorization/Host/hop-by-hop), then
-	// Bearer so site custom_headers can never override the selected token.
+	// Precedence, lowest to highest: client protocol headers (fill-only) →
+	// site custom_headers / anti-bot identity → the selected account token.
+	// The deny-list skips Authorization/Host/hop-by-hop so site custom_headers
+	// can never override the selected token.
 	applyProxyCustomHeaders(req, proxyConfig)
+	applyClientProtocolHeaders(req, r.Header, upstreamPath)
 	if selected.TokenValue != "" {
 		req.Header.Set("Authorization", "Bearer "+selected.TokenValue)
 	}
@@ -1000,12 +1006,7 @@ func writeStubResponse(w http.ResponseWriter, ctx *Ctx) {
 
 // Returns best-effort ParsedUsage from SSE events (may be zero/unknown).
 func relayBufferedUpstreamResponse(w http.ResponseWriter, resp *http.Response, bodyBytes []byte) {
-	for k, v := range resp.Header {
-		if k == "Content-Length" || k == "Transfer-Encoding" {
-			continue
-		}
-		w.Header()[k] = v
-	}
+	relayUpstreamResponseHeaders(w, resp.Header)
 	w.WriteHeader(resp.StatusCode)
 	_, _ = w.Write(bodyBytes)
 }

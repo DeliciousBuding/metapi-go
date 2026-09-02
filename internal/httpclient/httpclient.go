@@ -25,6 +25,8 @@ import (
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 )
 
 // Baseline defaults shared by every outbound transport built in this package.
@@ -61,6 +63,19 @@ type Options struct {
 	// never ride an operator-configured HTTP_PROXY (e.g. OAuth token
 	// exchange).
 	Proxy func(*http.Request) (*url.URL, error)
+	// SiteDialGuard wraps DialContext with the shared SSRF site dial guard
+	// (internal/ssrf): the hostname is resolved exactly once, every answer is
+	// checked against the metadata / link-local / multicast / reserved deny
+	// set, and the connection is pinned to an already-validated IP — closing
+	// the DNS-rebinding window between validation and dial. Loopback, RFC1918
+	// and IPv6 ULA stay reachable because Metapi upstreams are commonly
+	// operator-hosted on private networks.
+	//
+	// Set it on transports whose target comes from operator-configured site
+	// URLs (proxy data plane, channel health probes). Note that when a proxy
+	// is resolved for the request, DialContext dials the proxy address, so the
+	// guard then validates the proxy rather than the final origin.
+	SiteDialGuard bool
 }
 
 // NoProxy is an Options.Proxy value that disables proxy resolution
@@ -97,12 +112,17 @@ func NewTransport(opts Options) *http.Transport {
 	if proxy == nil {
 		proxy = http.ProxyFromEnvironment
 	}
+	dialer := &net.Dialer{
+		Timeout:   dialTimeout,
+		KeepAlive: DefaultKeepAlive,
+	}
+	dialContext := dialer.DialContext
+	if opts.SiteDialGuard {
+		dialContext = ssrf.NewSiteDialContext(net.DefaultResolver, dialContext)
+	}
 	return &http.Transport{
-		Proxy: proxy,
-		DialContext: (&net.Dialer{
-			Timeout:   dialTimeout,
-			KeepAlive: DefaultKeepAlive,
-		}).DialContext,
+		Proxy:                 proxy,
+		DialContext:           dialContext,
 		ForceAttemptHTTP2:     true,
 		TLSHandshakeTimeout:   tlsHandshakeTimeout,
 		ResponseHeaderTimeout: opts.ResponseHeaderTimeout,

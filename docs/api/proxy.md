@@ -37,6 +37,72 @@ documented in [conventions.md](conventions.md); the two contracts never mix
 
 ---
 
+## Header policy (/v1 surface)
+
+The data plane rebuilds the upstream request instead of tunnelling the client
+request, so headers cross the proxy in both directions only by explicit policy.
+
+**Client → upstream (allow-list, fill-only).** Applied in this precedence order,
+lowest to highest:
+
+1. Allow-listed client protocol headers — `anthropic-version`, `anthropic-beta`,
+   `openai-beta`, `user-agent`, and the `x-stainless-*` SDK telemetry namespace.
+   Multi-value headers (e.g. several `anthropic-beta` flags) keep every value.
+2. Site `custom_headers` and the per-site anti-bot identity (`cf_clearance`,
+   browser UA override). Because step 1 is fill-only, a site-level value always
+   wins over the client's.
+3. The selected account token as `Authorization: Bearer …`. A client can never
+   override it.
+
+Credential-bearing client headers are never forwarded: `authorization`,
+`x-api-key`, `cookie`, `proxy-*`, hop-by-hop headers, and `x-forwarded-*`. The
+downstream key stays a Metapi secret and never reaches the upstream.
+
+Anthropic-native dispatch (`/v1/messages`, including the `/anthropic/v1/messages`
+gateway shape) requires `anthropic-version`; when the client does not send one
+the API default is used, so an OpenAI-surface request transformed into the
+Anthropic shape does not fail upstream validation.
+
+**Upstream → client (allow-list).** Buffered (non-SSE) responses relay only
+content-semantic headers: `Content-Type`, `Content-Disposition`,
+`Content-Encoding`, `Content-Language`, `Content-Range`, `Accept-Ranges`,
+`Cache-Control`, `ETag`, `Last-Modified`, `Location`, `Retry-After`.
+
+Everything else is dropped, which keeps the upstream's identity and state from
+leaking through Metapi: vendor fingerprint headers (`X-New-Api-Version` and
+similar), `Server` / `Via` / `X-Powered-By` / `Cf-Ray`, upstream `Set-Cookie`,
+framing headers (net/http re-frames the buffered body), and upstream
+`X-Request-Id` — Metapi's own request id stays authoritative so a client-side
+report can be correlated with the proxy log. Upstream rate-limit headers are
+dropped for the same reason: the only `X-Ratelimit-*` a client sees describes
+its Metapi key/IP budget.
+
+SSE responses are always re-framed by Metapi (`text/event-stream`,
+`Cache-Control: no-cache`, `X-Accel-Buffering: no`) and carry no upstream
+headers at all.
+
+## Timeouts (/v1 surface)
+
+| Phase | Control | Default |
+|---|---|---|
+| Request header read | `Server.ReadHeaderTimeout` | 10s |
+| Whole request (admin surface) | `Server.ReadTimeout` / `WriteTimeout` | 30s / 60s |
+| Upstream connect / TLS | transport dial + handshake | 30s / 10s |
+| Upstream first byte (observed) | `PROXY_FIRST_BYTE_TIMEOUT_SEC` | 0 = off |
+| Whole upstream request (buffered) | executor ceiling `max(90s, first-byte × 2)` | 90s |
+| Response write (proxy surface) | write budget = executor ceiling + 2m | 210s |
+| Stream chunk gap | `PROXY_STREAM_IDLE_TIMEOUT_SEC` | see `.env.example` |
+
+The proxy surface re-arms its own write deadline (`router.ProxyWriteDeadline`)
+from the same source of truth as the executor ceiling, so the write side can
+never be shorter than the request side: a buffered response that takes 61–90s
+upstream is delivered instead of being cut mid-write. Admin routes keep the
+strict 60s `WriteTimeout`.
+
+Streaming responses are not bounded by total elapsed time at all — the relay
+clears the write deadline and enforces liveness per chunk with the idle guard,
+so a long reasoning-model stream stays alive as long as chunks keep arriving.
+
 ## Proxy files (`/v1/files`)
 
 OpenAI-compatible Files surface (proxy auth required). Forwards to the selected upstream channel; does not persist customer file bytes on Metapi disk.
