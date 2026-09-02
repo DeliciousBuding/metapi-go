@@ -221,7 +221,7 @@ func TestFactoryResetWipesEveryRegistryTableSQLite(t *testing.T) {
 	}
 	journalBefore := countRows(t, db, "schema_migrations")
 
-	deleted, err := FactoryReset(db)
+	deleted, err := FactoryReset(db.DB)
 	if err != nil {
 		t.Fatalf("FactoryReset: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestFactoryResetWipesEveryRegistryTableSQLite(t *testing.T) {
 	}
 
 	// A second reset on an already-empty database must not fail.
-	if _, err := FactoryReset(db); err != nil {
+	if _, err := FactoryReset(db.DB); err != nil {
 		t.Fatalf("second FactoryReset on an empty database: %v", err)
 	}
 }
@@ -280,7 +280,7 @@ func TestFactoryResetWipesEveryRegistryTablePG(t *testing.T) {
 		}
 	}
 
-	if _, err := FactoryReset(db); err != nil {
+	if _, err := FactoryReset(db.DB); err != nil {
 		t.Fatalf("FactoryReset pg: %v", err)
 	}
 	var nonEmpty []string
@@ -295,7 +295,7 @@ func TestFactoryResetWipesEveryRegistryTablePG(t *testing.T) {
 	if got := countRows(t, db, "admin_sessions"); got != 0 {
 		t.Errorf("admin_sessions holds %d row(s) after pg factory reset", got)
 	}
-	if _, err := FactoryReset(db); err != nil {
+	if _, err := FactoryReset(db.DB); err != nil {
 		t.Fatalf("second FactoryReset on an empty pg database: %v", err)
 	}
 }
@@ -316,7 +316,7 @@ func TestFactoryResetOnTakeoverDatabase(t *testing.T) {
 	if got := countRows(t, db, "sites"); got == 0 {
 		t.Fatal("fixture has no sites; the takeover database is not the golden fixture")
 	}
-	if _, err := FactoryReset(db); err != nil {
+	if _, err := FactoryReset(db.DB); err != nil {
 		t.Fatalf("FactoryReset on TS takeover database: %v", err)
 	}
 	for _, table := range FactoryResetTableNames() {
@@ -324,7 +324,7 @@ func TestFactoryResetOnTakeoverDatabase(t *testing.T) {
 			t.Errorf("%s holds %d row(s) after resetting a takeover database", table, got)
 		}
 	}
-	if _, err := FactoryReset(db); err != nil {
+	if _, err := FactoryReset(db.DB); err != nil {
 		t.Fatalf("second FactoryReset on takeover database: %v", err)
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+
+	"github.com/jmoiron/sqlx"
 )
 
 // FactoryReset wipes every business table and restarts the auto-increment
@@ -21,7 +23,11 @@ import (
 // It returns the per-table row count deleted, for the API response and audit
 // log. Deletion happens in one transaction in FK-safe order (children before
 // parents) so a failure leaves the database untouched rather than half wiped.
-func FactoryReset(db *DB) (map[string]int64, error) {
+// The handle is the plain *sqlx.DB rather than *store.DB because the admin
+// endpoint that calls it is registered with the same handle the router already
+// carries; nothing else in the operation needs the dialect field (see
+// isPostgresConn).
+func FactoryReset(db *sqlx.DB) (map[string]int64, error) {
 	if db == nil {
 		return nil, fmt.Errorf("store: FactoryReset: nil database")
 	}
@@ -48,14 +54,14 @@ func FactoryReset(db *DB) (map[string]int64, error) {
 		deleted[table] = count
 	}
 
-	if err := resetSequences(db, tx); err != nil {
+	if err := resetSequences(db, tx, isPostgresConn(db)); err != nil {
 		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("store: factory reset commit: %w", err)
 	}
-	slog.Info("store: factory reset complete", "tables", len(deleted), "dialect", db.Dialect)
+	slog.Info("store: factory reset complete", "tables", len(deleted), "driver", db.DriverName())
 	return deleted, nil
 }
 
@@ -65,13 +71,20 @@ func FactoryReset(db *DB) (map[string]int64, error) {
 // while a transaction is open would wait for a connection the transaction
 // itself owns.
 //
+// isPostgresConn reports whether the handle talks to PostgreSQL. A *store.DB
+// carries Dialect, but a bare *sqlx.DB only carries the driver name store.Open
+// registered ("pgx" for PostgreSQL, "sqlite" for the pure-Go driver).
+func isPostgresConn(db *sqlx.DB) bool {
+	return db != nil && db.DriverName() == "pgx"
+}
+
 // SQLite keeps the counters in sqlite_sequence, which only exists once an
 // AUTOINCREMENT table has taken a row — hence the existence probe (a factory
 // reset on a never-used database must not fail). PostgreSQL counters are
 // per-table and ALTER SEQUENCE IF EXISTS is a no-op for the text-PK tables
 // that have none.
-func resetSequences(db *DB, tx *sql.Tx) error {
-	if db.Dialect == DialectPostgres {
+func resetSequences(db *sqlx.DB, tx *sql.Tx, postgres bool) error {
+	if postgres {
 		for _, table := range FactoryResetTableNames() {
 			if !tableHasSerialID(table) {
 				continue
