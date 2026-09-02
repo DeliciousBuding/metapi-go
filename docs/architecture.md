@@ -171,27 +171,42 @@ A request then moves through stages that each have exactly one owner:
 
 | Stage | Owner | Decision made here |
 |:------|:------|:-------------------|
-| HTTP surface | `handler/proxy` | Decode the inbound protocol shape, resolve the downstream key context, encode the response or the protocol-shaped error envelope. |
-| Orchestration | `proxy` (with `proxy/profiles`, `proxy/types`) | Which client profile this is, how many channel attempts are allowed, when a response counts as a failure, whether to retry the same channel, refresh its auth, or fail over. |
+| HTTP surface | `handler/proxy` | Decode the inbound protocol shape, resolve the downstream key context, relay the upstream body (buffered or SSE), encode the response or the protocol-shaped error envelope. |
+| Attempt loop | `handler/proxy` | Which endpoint candidate is tried next, how a stream relay ended, and how that ending is reported (recorded status, reason text, terminal metric outcome). |
+| Failure and fallback policy | `proxy` (with `proxy/profiles`, `proxy/types`) | Which client profile this is, how many channel attempts are allowed, and every reusable verdict: content-level failure judgement, same-site abort, downgrade to the next endpoint, retry the same channel, refresh its auth. |
 | Channel selection | `routing` | Which channel/account is eligible right now: weighting, cooldown, runtime breaker state. |
 | Protocol conversion | `transform` (`openai`, `gemini`, `shared`) | Rewriting between wire formats. Native conversion — there is no canonical intermediate representation. |
 | Upstream I/O | `platform` + `service` | Speaking to the actual provider, including outbound proxy and TLS behaviour. |
 | Persistence | `store` | Request/usage logging and every read the stages above need, with dialect differences hidden here. |
 
-Streaming and non-streaming responses take different paths through
-orchestration: non-streaming upstream bodies are buffered up to
-`PROXY_MAX_BUFFERED_RESPONSE_BYTES`, while a stream is relayed with a
-chunk-gap guard (`PROXY_STREAM_IDLE_TIMEOUT_SEC`) and a total byte bound
-(`PROXY_MAX_STREAM_RESPONSE_BYTES`). Failure classification for a stream —
-what counts as a failed attempt versus a successful-but-truncated one — and
-cross-protocol fallback are owned by the orchestration stage, not by the HTTP
-surface or by `transform`.
+Streaming and non-streaming responses take different paths through the attempt
+loop. A non-streaming body is buffered up to `PROXY_MAX_BUFFERED_RESPONSE_BYTES`
+and judged once; a stream is relayed under a chunk-gap guard
+(`PROXY_STREAM_IDLE_TIMEOUT_SEC`) and a total byte bound
+(`PROXY_MAX_STREAM_RESPONSE_BYTES`), then classified by how the relay ended:
+clean end of stream, idle timeout, upstream fault mid-stream, byte-limit
+truncation, or downstream disconnect.
 
-> **Note**: the data-plane stage table above is deliberately written at the
-> level of "which package owns which semantic". It is scheduled for one
-> re-read after the in-flight streaming-failure / protocol-fallback ownership
-> work lands; the package names and the environment-variable names quoted here
-> are the stable part.
+Two rules keep that classification honest:
+
+- **One judge for content.** Whether an upstream answer counts as a failure on
+  its content — a configured `PROXY_ERROR_KEYWORDS` hit, or an empty completion
+  when `PROXY_EMPTY_CONTENT_FAIL` is on — is decided by a single pure function
+  in `proxy`, fed by both paths: the buffered body directly, the stream through
+  the bounded SSE analyser. The two paths cannot reach different verdicts for
+  the same upstream content.
+- **A downstream disconnect is not an upstream fault.** The channel answered
+  correctly, so recording the cancel against it would poison channel health
+  with user behaviour. Usage already extracted from earlier SSE events is still
+  accounted; tokens are never invented for content that did not arrive.
+
+Every other ending — an idle upstream, a mid-stream reset, a truncated relay —
+goes through the failure path, whose status, reason text and terminal metric
+outcome come from one owner so channel health, request logs and metrics cannot
+disagree about the same request. Which candidate is tried next is likewise a
+single decision function in the attempt loop: HTTP statuses, content failures
+and transport errors all ask it, instead of each call site re-deriving the
+policy. `transform` owns none of this.
 
 ### Non-`/v1` proxy aliases
 

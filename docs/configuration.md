@@ -125,12 +125,12 @@ silent until their URL/key is set. Every other provider needs its
 | `PROXY_IDLE_CONN_TIMEOUT_SEC` | `90` | Idle keep-alive connection TTL in the pooled outbound transports. |
 | `PROXY_REQUEST_TIMEOUT_SEC` | `30` | Whole-request client timeout. |
 | `PROXY_STREAM_IDLE_TIMEOUT_SEC` | `300` | Chunk-gap guard for a flowing SSE stream: every relayed chunk resets the window, and a gap longer than this aborts the stream and records it as an upstream timeout fault. It does **not** cap total stream duration. |
+| `METAPI_ENABLE_PROXY_STUB` | empty | Test/demo-only local stub; leave empty in production (unconfigured forwarding returns an honest 503). |
+| `SYSTEM_PROXY_URL` | empty | Outbound HTTP proxy for upstream calls. |
 
 All six `*_SEC` timeouts share one clamp (`config.parseTimeoutSec`): unset,
 blank, invalid, zero or negative values fall back to the listed default, so a
 typo can never disable a timeout entirely.
-| `METAPI_ENABLE_PROXY_STUB` | empty | Test/demo-only local stub; leave empty in production (unconfigured forwarding returns an honest 503). |
-| `SYSTEM_PROXY_URL` | empty | Outbound HTTP proxy for upstream calls. |
 
 ### Proxy log writer & retention
 

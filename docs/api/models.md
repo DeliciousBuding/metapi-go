@@ -74,8 +74,6 @@ Generate sync mappings idempotently (per account or all accounts), or apply redi
 
 ---
 
----
-
 ## Model catalog data sources & sync
 
 The merged model catalog is built from a DB-persisted registry
@@ -165,7 +163,7 @@ request per row. The query is written to run on both SQLite and PostgreSQL.
       "results": [
         {
           "id": 1041,
-          "status": "ok",
+          "status": "success",
           "latencyMs": 812.5,
           "httpStatus": 200,
           "errorText": null,
@@ -180,7 +178,8 @@ request per row. The query is written to run on both SQLite and PostgreSQL.
 
 The grouping key is `channelId` on the channels endpoint and `accountId` on the
 accounts endpoint. Within one entity, results are newest-first, so
-`results[0]` is the latest probe. `latencyMs`, `httpStatus` and `errorText` are
+`results[0]` is the latest probe. `status` shares the probe vocabulary used
+everywhere else: `success` | `failure` | `inconclusive` | `skipped`. `latencyMs`, `httpStatus` and `errorText` are
 nullable — a probe that never got a response has no latency or HTTP status.
 Entities with no probe results at all are simply absent from `items`.
 **Errors**: `500` `Failed to load probe history` on a query failure.
