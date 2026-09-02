@@ -18,11 +18,14 @@ type WindowCounter interface {
 	// Implementations may approximate sliding windows with fixed TTL buckets.
 	Incr(ctx context.Context, key string, window time.Duration) (count int64, err error)
 	// Decr decrements key by 1 (compensating rollback for a prior Incr,).
-	// Does not extend/refresh TTL. Count is floored at 0 for memory; Redis DECR may go negative.
+	// Does not extend/refresh TTL. Count is floored at 0 for memory; Redis DECR
+	// may go negative, and a rollback that lands after the window expired drops
+	// the re-created non-positive key instead of leaving it behind without a TTL.
 	Decr(ctx context.Context, key string, window time.Duration) (count int64, err error)
 	// IncrBy increments key by delta within window and returns the new total.
 	// Used for TPM token reservations. delta==0 returns the current total.
-	// Negative delta is a compensating rollback and does not refresh TTL.
+	// Negative delta is a compensating rollback and does not refresh TTL; like
+	// Decr it removes the key when the rollback takes the total to <= 0.
 	IncrBy(ctx context.Context, key string, delta int64, window time.Duration) (count int64, err error)
 	// Get returns the current count without incrementing.
 	Get(ctx context.Context, key string) (count int64, err error)
@@ -545,6 +548,18 @@ func (r *RedisCounter) Decr(ctx context.Context, key string, window time.Duratio
 			return err
 		}
 		count = n
+		if n <= 0 {
+			// Self-heal: a rollback that lands after the window expired
+			// re-created the key with no TTL and a non-positive value. Such a
+			// key lingers (INCR only arms PEXPIRE when its result is exactly 1,
+			// so a stale -1 needs two increments to become mortal again) and
+			// undercounts the next window. Dropping it loses nothing: a
+			// non-positive total means no instance holds a live reservation.
+			// Best-effort — the rollback itself already landed.
+			if derr := redisDo(conn, "DEL", key); derr == nil {
+				count = 0
+			}
+		}
 		return nil
 	})
 	return count, err
@@ -568,10 +583,17 @@ func (r *RedisCounter) IncrBy(ctx context.Context, key string, delta int64, wind
 			return err
 		}
 		count = n
-		if delta > 0 && n == delta {
+		switch {
+		case delta > 0 && n == delta:
 			ms := strconv.FormatInt(window.Milliseconds(), 10)
 			if err := redisDo(conn, "PEXPIRE", key, ms); err != nil {
 				return err
+			}
+		case delta < 0 && n <= 0:
+			// Same self-heal as Decr: never leave an immortal non-positive key
+			// behind when a compensating rollback lands after expiry.
+			if derr := redisDo(conn, "DEL", key); derr == nil {
+				count = 0
 			}
 		}
 		return nil

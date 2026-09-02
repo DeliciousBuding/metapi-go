@@ -274,6 +274,11 @@ type Config struct {
 	ProxyLogBatchSize       int
 	ProxyLogFlushIntervalMs int
 
+	// Usage aggregation (1 field). USAGE_PROJECTION_INTERVAL_MS is the cadence
+	// of the proxy_logs -> site_day_usage / site_hour_usage / model_day_usage
+	// projection pass. Clamped to [1000, 3600000] ms.
+	UsageProjectionIntervalMs int
+
 	OpenAiServiceTierRules any
 }
 
@@ -787,6 +792,12 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	cfg.ProxyLogFlushIntervalMs = ClampInt(
 		int(math.Trunc(parseNumber(get("PROXY_LOG_FLUSH_INTERVAL_MS"), float64(DefaultProxyLogFlushIntervalMs)))),
 		1, 60000,
+	)
+
+	// ---- §3.21c Usage Aggregation Projection ----
+	cfg.UsageProjectionIntervalMs = ClampInt(
+		int(math.Trunc(parseNumber(get("USAGE_PROJECTION_INTERVAL_MS"), float64(DefaultUsageProjectionIntervalMs)))),
+		1000, 3600000,
 	)
 
 	// ---- §3.22 Routing Weights ----

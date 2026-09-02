@@ -6,23 +6,25 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
 )
 
 var (
-	activeDB    *DB
-	initialized bool
-	mu          sync.Mutex
+	// activeDB is the process-wide database singleton. Readers go through an
+	// atomic pointer because GetDB sits on every request path and must not
+	// contend on a global mutex; writers still serialise on mu, which guards the
+	// multi-step open / migrate / switch sequences (not the pointer itself).
+	activeDB atomic.Pointer[DB]
+	mu       sync.Mutex
 )
 
 // GetDB returns the current active database connection.
 // Returns nil if the database has not been initialized.
 func GetDB() *DB {
-	mu.Lock()
-	defer mu.Unlock()
-	return activeDB
+	return activeDB.Load()
 }
 
 // EnsureRuntimeDatabase creates the data directory, opens the database,
@@ -32,7 +34,7 @@ func EnsureRuntimeDatabase(cfg *config.Config, rt *config.RuntimeSettings) error
 	mu.Lock()
 	defer mu.Unlock()
 
-	if initialized && activeDB != nil {
+	if activeDB.Load() != nil {
 		// Already initialized — idempotent (mirrors TS module-level singleton).
 		return nil
 	}
@@ -90,8 +92,7 @@ func EnsureRuntimeDatabase(cfg *config.Config, rt *config.RuntimeSettings) error
 		warnTSSchemaDrift(db)
 	}
 
-	activeDB = db
-	initialized = true
+	activeDB.Store(db)
 
 	logAttrs := []any{"dialect", dialect}
 	if dialect == DialectPostgres {
@@ -161,11 +162,8 @@ func resolvePostgresApplicationName(cfg *config.Config) string {
 func CloseDatabase() error {
 	mu.Lock()
 	defer mu.Unlock()
-	if activeDB != nil {
-		err := activeDB.Close()
-		activeDB = nil
-		initialized = false
-		return err
+	if db := activeDB.Swap(nil); db != nil {
+		return db.Close()
 	}
 	return nil
 }
@@ -175,8 +173,7 @@ func CloseDatabase() error {
 func OverrideDB(db *DB) {
 	mu.Lock()
 	defer mu.Unlock()
-	activeDB = db
-	initialized = db != nil
+	activeDB.Store(db)
 }
 
 // maskDSN redacts the password portion of a PostgreSQL connection string for logging.
