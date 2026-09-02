@@ -73,3 +73,114 @@ Generate sync mappings idempotently (per account or all accounts), or apply redi
 **Body** (apply): `{ "dryRun": false }` (default `true` = report only). Dry run: `{ success, dryRun: true, candidates, count }`; applied: `{ success, dryRun: false, removed, count }` — each removal writes a `model_redirect_applied` event.
 
 ---
+
+---
+
+## Model catalog data sources & sync
+
+The merged model catalog is built from a DB-persisted registry
+(`catalog_sources`), not from a single hardcoded feed. Sources are fetched in
+list order and **earlier sources override later ones**; per-source sync status
+(last success, last error, entry count) is recorded as it goes. Registered by
+`RegisterCatalogSourceRoutes`; the runtime side lives in `service/catalogsync`
+(`Manager`, `Store`).
+
+All routes below sit on the admin surface: same auth, error envelope and
+pagination conventions as everything else in [`conventions.md`](conventions.md).
+When `PRICING_CATALOG_ENABLED=false` there is no runtime manager, and the
+`catalog-sync` routes answer `409` with
+`{"message": "pricing catalog is disabled (PRICING_CATALOG_ENABLED=false)"}`;
+the `catalog-sources` CRUD routes keep working, because they talk to the store
+directly.
+
+### GET /api/models/catalog-sources
+
+**Response**: `{"sources": [...]}` in the order the merge is applied.
+**Errors**: `500` `failed to list catalog sources`.
+
+### POST /api/models/catalog-sources
+
+**Body**: `{ "name": "...", "url": "...", "type": "...", "enabled": true }`
+(`type` and `enabled` optional).
+**Response**: `{"source": {...}}`. When a runtime manager exists the registry is
+reloaded immediately, so the next merge sees the new source.
+**Errors**: `400` `{"message": "invalid JSON body"}` on malformed JSON; `400`
+with the store's validation message on a rejected source; `500`
+`failed to reload catalog sources` when the reload after a successful write
+fails.
+
+### PUT /api/models/catalog-sources/{id}, DELETE /api/models/catalog-sources/{id}
+
+Update (same body as create, partial) or remove one source; both reload the
+registry afterwards.
+**Errors**: `400` `{"message": "invalid source id"}` when `{id}` is not a
+positive integer; `404` `{"message": "source not found"}` when the row is gone;
+`500` on a store or reload failure.
+
+### POST /api/models/catalog-sync
+
+Triggers a sync now — all sources, or one when a body is given.
+**Body** (optional): `{"sourceId": 123}`; an absent or empty body syncs every
+source.
+**Errors**: `409` when the catalog is disabled (see above); `400`
+`{"message": "invalid JSON body"}` when a body is present but malformed.
+
+### GET /api/models/catalog-sync
+
+**Response**: the manager's status — the auto-sync flag plus per-source last
+success / last error / entry count.
+**Errors**: `409` with `{"message": ..., "autoSync": false}` when the catalog is
+disabled.
+
+### PUT /api/models/catalog-sync/config
+
+**Body**: `{"autoSync": true}` — the field is **required**.
+**Errors**: `400` `{"message": "invalid JSON body: autoSync required"}` when the
+body is malformed or `autoSync` is absent; `409` when the catalog is disabled.
+
+---
+
+## Probe history
+
+Read-only exposure of `model_probe_results` for the row-level health bars on
+the channels and accounts pages. The probe scheduler is the **only** writer, so
+these endpoints are empty unless `MODEL_AVAILABILITY_PROBE_ENABLED=true` has
+been running long enough to record something.
+
+Both endpoints answer one bounded window-function query per page render (the
+most recent N results *per entity*), which is why the tables do not issue a
+request per row. The query is written to run on both SQLite and PostgreSQL.
+
+### GET /api/channels/probe-history, GET /api/accounts/probe-history
+
+**Query params**: `limit` — results per entity, default `20`, capped at `50`.
+**Response**:
+
+```json
+{
+  "limit": 20,
+  "items": [
+    {
+      "channelId": 7,
+      "results": [
+        {
+          "id": 1041,
+          "status": "ok",
+          "latencyMs": 812.5,
+          "httpStatus": 200,
+          "errorText": null,
+          "modelName": "gpt-4o",
+          "createdAt": "2026-09-03T08:15:00Z"
+        }
+      ]
+    }
+  ]
+}
+```
+
+The grouping key is `channelId` on the channels endpoint and `accountId` on the
+accounts endpoint. Within one entity, results are newest-first, so
+`results[0]` is the latest probe. `latencyMs`, `httpStatus` and `errorText` are
+nullable — a probe that never got a response has no latency or HTTP status.
+Entities with no probe results at all are simply absent from `items`.
+**Errors**: `500` `Failed to load probe history` on a query failure.

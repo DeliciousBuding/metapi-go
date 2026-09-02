@@ -3,7 +3,9 @@
 > **Index**: back to [API Reference](../api.md). This file is the Full registered /api route inventory domain split out of the pre-`docs/api/` `docs/api.md`.
 
 ## Admin Route Inventory
-Complete list of registered `/api` admin routes (generated from the router registration). Path parameters use `:param` syntax.
+Complete list of registered `/api` admin routes. Path parameters use `:param` notation here; the code registers the chi `{param}` form, and the two are the same route.
+
+This list is checked against the routes reachable from `router.New` by `docs/api_inventory_parity_test.go`: a route registered in code but missing here, or listed here but not registered, fails CI. Request and response shapes live in the per-domain pages under [`docs/api/`](../api/); the shared error envelope, auth surfaces and pagination conventions are in [`conventions.md`](conventions.md).
 
 ### GET
 - `/api/about`
@@ -13,6 +15,7 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/account-tokens/groups/:accountId`
 - `/api/accounts`
 - `/api/accounts/:id/models`
+- `/api/accounts/probe-history`
 - `/api/admin/audit-logs`
 - `/api/admin/ops/ws`
 - `/api/admin/resin/status`
@@ -21,6 +24,7 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/auth/session`
 - `/api/channels`
 - `/api/channels/error-summary`
+- `/api/channels/probe-history`
 - `/api/checkin/logs`
 - `/api/debug/vars`
 - `/api/desktop/health`
@@ -32,6 +36,8 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/events`
 - `/api/events/count`
 - `/api/model-redirects`
+- `/api/models/catalog-sources`
+- `/api/models/catalog-sync`
 - `/api/models/marketplace`
 - `/api/models/price-compare`
 - `/api/models/rates`
@@ -85,11 +91,7 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/test/proxy/jobs/:jobId`
 - `/api/update-center/status`
 - `/api/update-center/tasks/:id/stream`
-
 ### POST
-- `/api/auth/login`
-- `/api/auth/logout`
-- `/api/auth/ws-ticket`
 - `/api/account-tokens`
 - `/api/account-tokens/:id/default`
 - `/api/account-tokens/batch`
@@ -106,6 +108,9 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/admin/test-channel`
 - `/api/announcements`
 - `/api/announcements/:id/dismiss`
+- `/api/auth/login`
+- `/api/auth/logout`
+- `/api/auth/ws-ticket`
 - `/api/checkin/trigger`
 - `/api/checkin/trigger/:id`
 - `/api/debug/channel-probe`
@@ -116,6 +121,8 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/events/read-all`
 - `/api/model-redirects/apply`
 - `/api/model-redirects/generate`
+- `/api/models/catalog-sources`
+- `/api/models/catalog-sync`
 - `/api/models/check/:accountId`
 - `/api/models/probe`
 - `/api/models/verify-batch`
@@ -168,7 +175,6 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/update-center/check`
 - `/api/update-center/deploy`
 - `/api/update-center/rollback`
-
 ### PUT
 - `/api/account-tokens/:id`
 - `/api/accounts/:id`
@@ -179,6 +185,8 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/checkin/schedule`
 - `/api/downstream-keys/:id`
 - `/api/model-redirects/:id`
+- `/api/models/catalog-sources/:id`
+- `/api/models/catalog-sync/config`
 - `/api/models/rates`
 - `/api/monitor/config`
 - `/api/routes/:id`
@@ -190,7 +198,6 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/sites/:id/disabled-models`
 - `/api/sites/:id/tags`
 - `/api/update-center/config`
-
 ### PATCH
 - `/api/oauth/connections/:accountId/proxy`
 - `/api/oauth/route-units/:routeUnitId`
@@ -203,6 +210,7 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/downstream-keys/:id`
 - `/api/events`
 - `/api/model-redirects/:id`
+- `/api/models/catalog-sources/:id`
 - `/api/monitor/session`
 - `/api/oauth/connections/:accountId`
 - `/api/oauth/route-units/:routeUnitId`
