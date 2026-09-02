@@ -82,7 +82,14 @@ func TestEventsReadBooleanSafeFormsBothDialects(t *testing.T) {
 	run := func(t *testing.T, db *DB) {
 		t.Helper()
 		// CI test-pg shares one database across packages (-p 1), so assert
-		// deltas on our probe title, not absolute counts.
+		// deltas on our probe title, not absolute counts. A reused database
+		// also still holds probe rows from earlier runs — inserted, then
+		// marked read — which inflate the baseline without contributing any
+		// unread row, so the second run of the same database fails. Clear the
+		// probe slate first; the delta assertions below are unchanged.
+		if _, err := db.Exec(db.Rebind("DELETE FROM events WHERE title = ?"), "bool-bind-probe"); err != nil {
+			t.Fatalf("clear probe rows: %v", err)
+		}
 		baseline := 0
 		if err := db.Get(&baseline, db.Rebind("SELECT COUNT(*) FROM events WHERE title = ?"), "bool-bind-probe"); err != nil {
 			t.Fatalf("baseline count: %v", err)
