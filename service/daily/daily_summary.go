@@ -2,15 +2,13 @@ package daily
 
 import (
 	"fmt"
-	"log/slog"
 	"math"
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/deliciousbuding/metapi-go/config"
+
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/checkin"
-	notifypkg "github.com/deliciousbuding/metapi-go/service/notify"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -289,18 +287,6 @@ func BuildDailySummaryNotification(metrics *DailySummaryMetrics) (title, message
 		rewardTruthSuffix,
 	)
 	return
-}
-
-// SendDailySummary collects metrics and sends the daily summary notification.
-func SendDailySummary(cfg *config.RuntimeSettings, db *sqlx.DB) {
-	now := time.Now()
-	metrics, err := CollectDailySummaryMetrics(db, now)
-	if err != nil {
-		slog.Error("daily-summary: failed to collect metrics", "error", err)
-		return
-	}
-	title, message := BuildDailySummaryNotification(metrics)
-	notifypkg.SendNotification(cfg, title, message, "info", nil)
 }
 
 // Round6 rounds a value to 6 decimal places.

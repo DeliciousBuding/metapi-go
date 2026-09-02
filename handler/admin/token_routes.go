@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
@@ -232,8 +233,8 @@ func (h *tokenRoutesHandler) listRoutes(w http.ResponseWriter, r *http.Request) 
 	var queryErr error
 	page, pageSize := 1, 50
 	if paginate {
-		page = clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
-		pageSize = clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
+		page = config.ClampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
+		pageSize = config.ClampInt(getQueryInt(r, "pageSize", 50), 1, 200)
 		offset := (page - 1) * pageSize
 		rows, queryErr = queryRowsErr(h.db,
 			"SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC LIMIT ? OFFSET ?",

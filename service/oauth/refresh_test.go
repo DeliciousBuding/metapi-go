@@ -265,23 +265,6 @@ func TestStringsTrimSpace_OnlyWhitespace(t *testing.T) {
 	}
 }
 
-// ---- ptrToString Tests ----
-
-func TestPtrToString_Nil(t *testing.T) {
-	result := ptrToString(nil)
-	if result != "" {
-		t.Errorf("expected empty for nil, got %q", result)
-	}
-}
-
-func TestPtrToString_NonNil(t *testing.T) {
-	s := "hello"
-	result := ptrToString(&s)
-	if result != "hello" {
-		t.Errorf("expected 'hello', got %q", result)
-	}
-}
-
 // ---- resolveAccountProxyURL Tests ----
 
 func TestResolveAccountProxyURL_NoProxy(t *testing.T) {

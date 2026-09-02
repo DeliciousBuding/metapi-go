@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 )
 
@@ -24,8 +25,8 @@ func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request)
 	modelQ := strings.TrimSpace(r.URL.Query().Get("model"))
 	exactModel := modelQ != "" && r.URL.Query().Get("exactModel") == "true"
 	limit, _ := parseLimitOffset(r, 50, 200)
-	days := clampInt(getQueryInt(r, "days", 30), 1, 365)
-	topModels := clampInt(getQueryInt(r, "topModels", 12), 1, 50)
+	days := config.ClampInt(getQueryInt(r, "days", 30), 1, 365)
+	topModels := config.ClampInt(getQueryInt(r, "topModels", 12), 1, 50)
 
 	since := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format(time.RFC3339)
 

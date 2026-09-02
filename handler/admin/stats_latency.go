@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
 )
 
 func (h *statsHandler) slowRequests(w http.ResponseWriter, r *http.Request) {
 	limit, _ := parseLimitOffset(r, 50, 200)
-	minLatencyMs := clampInt(getQueryInt(r, "minLatencyMs", 1000), 0, 3_600_000)
-	hours := clampInt(getQueryInt(r, "hours", 24), 1, 168)
+	minLatencyMs := config.ClampInt(getQueryInt(r, "minLatencyMs", 1000), 0, 3_600_000)
+	hours := config.ClampInt(getQueryInt(r, "hours", 24), 1, 168)
 	since := time.Now().UTC().Add(-time.Duration(hours) * time.Hour).Format(time.RFC3339)
 
 	rows, err := queryRowsErr(h.db, `
@@ -76,8 +77,8 @@ func (h *statsHandler) slowRequests(w http.ResponseWriter, r *http.Request) {
 // name preference: model_actual > model_requested > unknown (matches the
 // usage heatmap expression). Data source: proxy_logs.
 func (h *statsHandler) modelCostDistribution(w http.ResponseWriter, r *http.Request) {
-	days := clampInt(getQueryInt(r, "days", 30), 1, 90)
-	topN := clampInt(getQueryInt(r, "topN", 8), 1, 20)
+	days := config.ClampInt(getQueryInt(r, "days", 30), 1, 90)
+	topN := config.ClampInt(getQueryInt(r, "topN", 8), 1, 20)
 	since := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02T00:00:00Z")
 
 	modelExpr := `COALESCE(NULLIF(pl.model_actual, ''), NULLIF(pl.model_requested, ''), 'unknown')`
@@ -151,8 +152,8 @@ func (h *statsHandler) modelCostDistribution(w http.ResponseWriter, r *http.Requ
 // identical on SQLite and PostgreSQL, so the same expression drives both
 // dialects. Buckets with zero requests are omitted; client renders the gaps.
 func (h *statsHandler) latencyHistogram(w http.ResponseWriter, r *http.Request) {
-	days := clampInt(getQueryInt(r, "days", 7), 1, 90)
-	bucketMs := clampInt(getQueryInt(r, "bucketMs", 500), 100, 60000)
+	days := config.ClampInt(getQueryInt(r, "days", 7), 1, 90)
+	bucketMs := config.ClampInt(getQueryInt(r, "bucketMs", 500), 100, 60000)
 	since := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02T00:00:00Z")
 
 	rows, err := queryRowsErr(h.db, `
@@ -207,7 +208,7 @@ func (h *statsHandler) latencyHistogram(w http.ResponseWriter, r *http.Request) 
 // days exceeding the sample cap are flagged honestly via truncatedDays
 // instead of silently under-reporting.
 func (h *statsHandler) latencyTrend(w http.ResponseWriter, r *http.Request) {
-	days := clampInt(getQueryInt(r, "days", 7), 1, 90)
+	days := config.ClampInt(getQueryInt(r, "days", 7), 1, 90)
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 
 	dayExpr := dayBucketSQLExpr(h.db, "pl.created_at")

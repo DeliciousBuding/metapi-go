@@ -42,14 +42,6 @@ func NewChannelHealthProbeExecutor(cfg *config.Config) *ChannelHealthProbeExecut
 	return &ChannelHealthProbeExecutor{cfg: cfg}
 }
 
-// SetTransport injects a RoundTripper (tests).
-func (p *ChannelHealthProbeExecutor) SetTransport(rt http.RoundTripper) {
-	if p == nil {
-		return
-	}
-	p.transport = rt
-}
-
 // SetDB injects a database handle (tests). Production leaves this nil.
 func (p *ChannelHealthProbeExecutor) SetDB(db *store.DB) {
 	if p == nil {

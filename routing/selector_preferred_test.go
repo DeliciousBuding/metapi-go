@@ -114,9 +114,6 @@ func (db *preferredDB) LoadRuntimeHealthChannelRows(ctx context.Context, channel
 }, error) {
 	return nil, nil
 }
-func (db *preferredDB) ClearChannelFailureStates(ctx context.Context, channelIDs []int64) error {
-	return nil
-}
 
 func preferredEligibleJoined(channelID, siteID, accountID int64, model string) struct {
 	Channel store.RouteChannel

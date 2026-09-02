@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"golang.org/x/sync/singleflight"
@@ -156,8 +157,8 @@ func (h *tokenRoutesHandler) listChannels(w http.ResponseWriter, r *http.Request
 	_, hasPageSize := queryParams["pageSize"]
 	unbounded := !hasPage && !hasPageSize
 
-	page := clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
-	pageSize := clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
+	page := config.ClampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
+	pageSize := config.ClampInt(getQueryInt(r, "pageSize", 50), 1, 200)
 	forceRefresh := parseTruthyQuery(queryParams.Get("refresh"))
 	statusFilter, err := parseChannelStatusFilter(queryParams.Get("status"))
 	if err != nil {

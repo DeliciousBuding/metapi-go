@@ -6,10 +6,12 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/config"
 )
 
 func (h *statsHandler) balanceHistory(w http.ResponseWriter, r *http.Request) {
-	days := clampInt(getQueryInt(r, "days", 30), 1, 365)
+	days := config.ClampInt(getQueryInt(r, "days", 30), 1, 365)
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 	accountID := getQueryInt(r, "accountId", 0)
 
@@ -64,7 +66,7 @@ func (h *statsHandler) balanceHistory(w http.ResponseWriter, r *http.Request) {
 
 // Only days with actual snapshots are emitted (missing day ≠ zero activity).
 func (h *statsHandler) balanceIncomeOutcome(w http.ResponseWriter, r *http.Request) {
-	days := clampInt(getQueryInt(r, "days", 30), 1, 365)
+	days := config.ClampInt(getQueryInt(r, "days", 30), 1, 365)
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 	accountID := getQueryInt(r, "accountId", 0)
 

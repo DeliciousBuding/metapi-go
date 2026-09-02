@@ -44,18 +44,18 @@ func TestResolveFailureBackoffSec(t *testing.T) {
 		failCount *int64
 		expected  int64 // in seconds
 	}{
-		{nil, 15},                          // nil → 1 → fib(1)*15 = 15
-		{ptrInt(0), 15},                    // 0 → max(1,0)=1 → 15
-		{ptrInt(1), 15},                    // fib(1)*15 = 15
-		{ptrInt(2), 15},                    // fib(2)*15 = 15
-		{ptrInt(3), 30},                    // fib(3)*15 = 30
-		{ptrInt(4), 45},                    // fib(4)*15 = 45
-		{ptrInt(5), 75},                    // fib(5)*15 = 75
-		{ptrInt(6), 120},                   // fib(6)*15 = 120
-		{ptrInt(7), 195},                   // fib(7)*15 = 195
-		{ptrInt(8), 315},                   // fib(8)*15 = 315
-		{ptrInt(9), 510},                   // fib(9)*15 = 510
-		{ptrInt(10), 825},                  // fib(10)*15 = 825
+		{nil, 15},         // nil → 1 → fib(1)*15 = 15
+		{ptrInt(0), 15},   // 0 → max(1,0)=1 → 15
+		{ptrInt(1), 15},   // fib(1)*15 = 15
+		{ptrInt(2), 15},   // fib(2)*15 = 15
+		{ptrInt(3), 30},   // fib(3)*15 = 30
+		{ptrInt(4), 45},   // fib(4)*15 = 45
+		{ptrInt(5), 75},   // fib(5)*15 = 75
+		{ptrInt(6), 120},  // fib(6)*15 = 120
+		{ptrInt(7), 195},  // fib(7)*15 = 195
+		{ptrInt(8), 315},  // fib(8)*15 = 315
+		{ptrInt(9), 510},  // fib(9)*15 = 510
+		{ptrInt(10), 825}, // fib(10)*15 = 825
 	}
 
 	for _, tt := range tests {
@@ -360,7 +360,7 @@ func TestIsCooldownActive(t *testing.T) {
 // Lexical compare of "…T15:04:05.500Z" vs "…T15:04:05Z" treats still-cooling channels as eligible.
 func TestIsCooldownActive_MillisVsSecondPrecision(t *testing.T) {
 	now := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
-	nowISO := now.UTC().Format(time.RFC3339) // no fractional seconds
+	nowISO := now.UTC().Format(time.RFC3339)                    // no fractional seconds
 	cooldownUntil := formatUnixMillisISO(now.UnixMilli() + 500) // always-present millis
 
 	// Document the lexical trap the parse path must avoid.
@@ -455,18 +455,6 @@ func TestClampNumber(t *testing.T) {
 	}
 	if v := ClampNumber(1.5, 0, 1.5); math.Abs(v-1.5) > 0.001 {
 		t.Errorf("expected 1.5 at exact max, got %f", v)
-	}
-}
-
-func TestClampInt(t *testing.T) {
-	if v := ClampInt(5, 0, 10); v != 5 {
-		t.Errorf("expected 5, got %d", v)
-	}
-	if v := ClampInt(-1, 0, 10); v != 0 {
-		t.Errorf("expected 0 for -1 clamped, got %d", v)
-	}
-	if v := ClampInt(20, 0, 10); v != 10 {
-		t.Errorf("expected 10 for 20 clamped, got %d", v)
 	}
 }
 

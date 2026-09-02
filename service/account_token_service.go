@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -43,7 +43,7 @@ func MaskToken(token, platform string) string {
 		if len(value) <= 7 {
 			return "sk-***"
 		}
-		visibleMiddle := value[3:minInt(6, len(value))]
+		visibleMiddle := value[3:min(6, len(value))]
 		if len(value) <= 12 {
 			return fmt.Sprintf("sk-%s***%s", visibleMiddle, value[len(value)-2:])
 		}
@@ -53,13 +53,6 @@ func MaskToken(token, platform string) string {
 		return fmt.Sprintf("%s***%s", value[:2], value[len(value)-2:])
 	}
 	return fmt.Sprintf("%s***%s", value[:4], value[len(value)-4:])
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // IsMaskedTokenValue checks if a token value contains masking characters.
@@ -849,23 +842,5 @@ func UpdateTokenFields(db *sqlx.DB, tokenID int64, updates map[string]any) error
 
 	query := fmt.Sprintf("UPDATE account_tokens SET %s WHERE id = ?", strings.Join(setClauses, ", "))
 	_, err := db.Exec(db.Rebind(query), args...)
-	return err
-}
-
-// BatchUpdateTokenStatus batch-updates enabled status for tokens.
-func BatchUpdateTokenStatus(db *sqlx.DB, tokenIDs []int64, enabled bool) error {
-	if len(tokenIDs) == 0 {
-		return nil
-	}
-	now := time.Now().UTC().Format(time.RFC3339)
-	query, args, err := sqlx.In(
-		"UPDATE account_tokens SET enabled = ?, updated_at = ? WHERE id IN (?)",
-		enabled, now, tokenIDs,
-	)
-	if err != nil {
-		return err
-	}
-	query = db.Rebind(query)
-	_, err = db.Exec(query, args...)
 	return err
 }

@@ -14,12 +14,6 @@ import (
 // tiered pricing.
 const DefaultLLMMetadataRatioURL = "https://basellm.github.io/llm-metadata/api/newapi/ratio_config-v1-base.json"
 
-// DefaultLLMMetadataModelURL is the llm-metadata NewAPI per-model endpoint
-// (same origin as the ratio config). Each row carries the vendor-attributed
-// model name, USD per-1M prices and the same ratio multipliers. The parser
-// accepts this shape as well, so a registry source may point at either file.
-const DefaultLLMMetadataModelURL = "https://basellm.github.io/llm-metadata/api/newapi/models.json"
-
 // NewAPIRatioBasePerMillion is the canonical NewAPI currency anchor:
 // 1 ratio = $2 per 1M input tokens. Mirrors the llm-metadata newapi-builder
 // constant (maxInput / 2, 基准: $2 per 1M tokens).

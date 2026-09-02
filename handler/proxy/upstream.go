@@ -282,8 +282,7 @@ func dispatchSelectedUpstream(
 		upstreamModel = ctx.RequestedModel
 	}
 	staticCfg := config.Get()
-	// Proxy selection: key proxy > account > site > system > direct
-	// See proxy.KeyProxyPrecedence.
+	// Proxy selection precedence: key proxy > account > site > system > direct.
 	proxyConfig := service.BuildPlatformProxyConfig(staticCfg, &selected.Account, &selected.Site)
 	if ctx != nil && ctx.Auth != nil {
 		proxyConfig = proxy.ApplyKeyProxyOverride(proxyConfig, ctx.Auth.ProxyURL)

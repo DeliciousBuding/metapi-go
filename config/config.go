@@ -6,8 +6,8 @@ import (
 	"math"
 	"runtime"
 	"strconv"
-	"sync/atomic"
 	"strings"
+	"sync/atomic"
 )
 
 var staticCfg atomic.Pointer[Config]
@@ -541,7 +541,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// ---- §3.5 Log Cleanup ----
 	rt.LogCleanupUsageLogsEnabled = parseBoolean(get("LOG_CLEANUP_USAGE_LOGS_ENABLED"), false)
 	rt.LogCleanupProgramLogsEnabled = parseBoolean(get("LOG_CLEANUP_PROGRAM_LOGS_ENABLED"), false)
-	rt.LogCleanupRetentionDays = maxInt(1, int(math.Trunc(parseNumber(get("LOG_CLEANUP_RETENTION_DAYS"), 30))))
+	rt.LogCleanupRetentionDays = max(1, int(math.Trunc(parseNumber(get("LOG_CLEANUP_RETENTION_DAYS"), 30))))
 	cfg.LogCleanupConfigured = false // set later during runtime settings hydration
 
 	// ---- §3.6 Notify: Webhook ----
@@ -575,7 +575,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	rt.SmtpTo = firstNonEmpty(get("SMTP_TO"), "")
 
 	// ---- §3.11 Notify: General ----
-	rt.NotifyCooldownSec = maxInt(0, int(math.Trunc(parseNumber(get("NOTIFY_COOLDOWN_SEC"), DefaultNotifyCooldownSec))))
+	rt.NotifyCooldownSec = max(0, int(math.Trunc(parseNumber(get("NOTIFY_COOLDOWN_SEC"), DefaultNotifyCooldownSec))))
 	rt.SystemProxyUrl = firstNonEmpty(get("SYSTEM_PROXY_URL"), "")
 
 	// ---- §3.11b Resin sticky proxy pool ----
@@ -633,19 +633,19 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// Admin/OAuth per-IP token-bucket rate limits. Defaults preserve the
 	// original hardcoded values (Admin 100/200, OAuth 10/20) so existing
 	// deployments are byte-for-byte compatible without env changes.
-	cfg.AdminRateLimitRPS = maxInt(0, int(math.Trunc(parseNumber(get("ADMIN_RATE_LIMIT_RPS"), float64(DefaultAdminRateLimitRPS)))))
-	cfg.AdminRateLimitBurst = maxInt(0, int(math.Trunc(parseNumber(get("ADMIN_RATE_LIMIT_BURST"), float64(DefaultAdminRateLimitBurst)))))
-	cfg.OAuthRateLimitRPS = maxInt(0, int(math.Trunc(parseNumber(get("OAUTH_RATE_LIMIT_RPS"), float64(DefaultOAuthRateLimitRPS)))))
-	cfg.OAuthRateLimitBurst = maxInt(0, int(math.Trunc(parseNumber(get("OAUTH_RATE_LIMIT_BURST"), float64(DefaultOAuthRateLimitBurst)))))
+	cfg.AdminRateLimitRPS = max(0, int(math.Trunc(parseNumber(get("ADMIN_RATE_LIMIT_RPS"), float64(DefaultAdminRateLimitRPS)))))
+	cfg.AdminRateLimitBurst = max(0, int(math.Trunc(parseNumber(get("ADMIN_RATE_LIMIT_BURST"), float64(DefaultAdminRateLimitBurst)))))
+	cfg.OAuthRateLimitRPS = max(0, int(math.Trunc(parseNumber(get("OAUTH_RATE_LIMIT_RPS"), float64(DefaultOAuthRateLimitRPS)))))
+	cfg.OAuthRateLimitBurst = max(0, int(math.Trunc(parseNumber(get("OAUTH_RATE_LIMIT_BURST"), float64(DefaultOAuthRateLimitBurst)))))
 	// /api/auth/* brute-force cap (#1034): login is the only surface that
 	// accepts the master token, so it gets the strict bucket regardless of
 	// the general admin bucket size.
-	cfg.AuthRateLimitRPS = maxInt(0, int(math.Trunc(parseNumber(get("AUTH_RATE_LIMIT_RPS"), float64(DefaultAuthRateLimitRPS)))))
-	cfg.AuthRateLimitBurst = maxInt(0, int(math.Trunc(parseNumber(get("AUTH_RATE_LIMIT_BURST"), float64(DefaultAuthRateLimitBurst)))))
+	cfg.AuthRateLimitRPS = max(0, int(math.Trunc(parseNumber(get("AUTH_RATE_LIMIT_RPS"), float64(DefaultAuthRateLimitRPS)))))
+	cfg.AuthRateLimitBurst = max(0, int(math.Trunc(parseNumber(get("AUTH_RATE_LIMIT_BURST"), float64(DefaultAuthRateLimitBurst)))))
 	// Server-side admin session (#1034): sliding TTL + cookie Secure policy.
 	// Zero-config defaults must stay safe (12h sliding session, Secure
 	// auto-adapting to the request protocol).
-	cfg.AdminSessionTTLMinutes = maxInt(1, int(math.Trunc(parseNumber(get("ADMIN_SESSION_TTL_MINUTES"), float64(DefaultAdminSessionTTLMinutes)))))
+	cfg.AdminSessionTTLMinutes = max(1, int(math.Trunc(parseNumber(get("ADMIN_SESSION_TTL_MINUTES"), float64(DefaultAdminSessionTTLMinutes)))))
 	cfg.AdminSessionCookieSecure = normalizeSessionCookieSecure(get("ADMIN_SESSION_COOKIE_SECURE"))
 
 	// ---- §3.13 Proxy: Core ----
@@ -669,7 +669,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 
 	rt.RoutingFallbackUnitCost = math.Max(1e-6, parseNumber(get("ROUTING_FALLBACK_UNIT_COST"), 1))
 	// Seconds; internal first-byte observation uses ms = sec * 1000.
-	rt.ProxyFirstByteTimeoutSec = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_FIRST_BYTE_TIMEOUT_SEC"), 0))))
+	rt.ProxyFirstByteTimeoutSec = max(0, int(math.Trunc(parseNumber(get("PROXY_FIRST_BYTE_TIMEOUT_SEC"), 0))))
 
 	// ---- §3.14 Proxy: Token Router ----
 	tokenRouterParsed := parseNumber(get("TOKEN_ROUTER_FAILURE_COOLDOWN_MAX_SEC"), float64(TokenRouterFailureCooldownMaxSecCeiling))
@@ -678,11 +678,11 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	} else {
 		rt.TokenRouterFailureCooldownMaxSec = TokenRouterFailureCooldownMaxSecCeiling
 	}
-	cfg.TokenRouterCacheTtlMs = maxInt(100, int(math.Trunc(parseNumber(get("TOKEN_ROUTER_CACHE_TTL_MS"), DefaultTokenRouterCacheTtlMs))))
+	cfg.TokenRouterCacheTtlMs = max(100, int(math.Trunc(parseNumber(get("TOKEN_ROUTER_CACHE_TTL_MS"), DefaultTokenRouterCacheTtlMs))))
 
 	// ---- §3.14b Pricing Catalog (models.dev official list prices) ----
 	cfg.PricingCatalogEnabled = parseBoolean(get("PRICING_CATALOG_ENABLED"), DefaultPricingCatalogEnabled)
-	cfg.PricingCatalogRefreshMin = maxInt(0, int(math.Trunc(parseNumber(get("PRICING_CATALOG_REFRESH_MIN"), float64(DefaultPricingCatalogRefreshMin)))))
+	cfg.PricingCatalogRefreshMin = max(0, int(math.Trunc(parseNumber(get("PRICING_CATALOG_REFRESH_MIN"), float64(DefaultPricingCatalogRefreshMin)))))
 	cfg.PricingCatalogURL = strings.TrimSpace(get("PRICING_CATALOG_URL"))
 	if cfg.PricingCatalogURL == "" {
 		cfg.PricingCatalogURL = DefaultPricingCatalogURL
@@ -694,13 +694,13 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// only observable effect of a negative is the startup warning.
 	cfg.ProxyMaxChannelAttempts = int(math.Trunc(parseNumber(get("PROXY_MAX_CHANNEL_ATTEMPTS"), DefaultProxyMaxChannelAttempts)))
 	cfg.ProxyStickySessionEnabled = parseBoolean(get("PROXY_STICKY_SESSION_ENABLED"), true)
-	cfg.ProxyStickySessionTtlMs = maxInt(30000, int(math.Trunc(parseNumber(get("PROXY_STICKY_SESSION_TTL_MS"), float64(DefaultProxyStickySessionTtlMs)))))
+	cfg.ProxyStickySessionTtlMs = max(30000, int(math.Trunc(parseNumber(get("PROXY_STICKY_SESSION_TTL_MS"), float64(DefaultProxyStickySessionTtlMs)))))
 
 	// ---- §3.16 Proxy: Session ----
-	rt.ProxySessionChannelConcurrencyLimit = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT"), DefaultProxySessionChannelConcurrencyLimit))))
-	rt.ProxySessionChannelQueueWaitMs = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS"), DefaultProxySessionChannelQueueWaitMs))))
-	cfg.ProxySessionChannelLeaseTtlMs = maxInt(5000, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_LEASE_TTL_MS"), DefaultProxySessionChannelLeaseTtlMs))))
-	cfg.ProxySessionChannelLeaseKeepaliveMs = maxInt(1000, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_LEASE_KEEPALIVE_MS"), DefaultProxySessionChannelLeaseKeepaliveMs))))
+	rt.ProxySessionChannelConcurrencyLimit = max(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT"), DefaultProxySessionChannelConcurrencyLimit))))
+	rt.ProxySessionChannelQueueWaitMs = max(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS"), DefaultProxySessionChannelQueueWaitMs))))
+	cfg.ProxySessionChannelLeaseTtlMs = max(5000, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_LEASE_TTL_MS"), DefaultProxySessionChannelLeaseTtlMs))))
+	cfg.ProxySessionChannelLeaseKeepaliveMs = max(1000, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_LEASE_KEEPALIVE_MS"), DefaultProxySessionChannelLeaseKeepaliveMs))))
 
 	// ---- §3.17 Proxy: Misc ----
 	rt.CodexUpstreamWebsocketEnabled = parseBoolean(get("CODEX_UPSTREAM_WEBSOCKET_ENABLED"), false)
@@ -741,8 +741,8 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	rt.ProxyDebugTargetSessionId = strings.TrimSpace(get("PROXY_DEBUG_TARGET_SESSION_ID"))
 	rt.ProxyDebugTargetClientKind = strings.TrimSpace(get("PROXY_DEBUG_TARGET_CLIENT_KIND"))
 	rt.ProxyDebugTargetModel = strings.TrimSpace(get("PROXY_DEBUG_TARGET_MODEL"))
-	rt.ProxyDebugRetentionHours = maxInt(1, int(math.Trunc(parseNumber(get("PROXY_DEBUG_RETENTION_HOURS"), DefaultProxyDebugRetentionHours))))
-	rt.ProxyDebugMaxBodyBytes = maxInt(1024, int(math.Trunc(parseNumber(get("PROXY_DEBUG_MAX_BODY_BYTES"), DefaultProxyDebugMaxBodyBytes))))
+	rt.ProxyDebugRetentionHours = max(1, int(math.Trunc(parseNumber(get("PROXY_DEBUG_RETENTION_HOURS"), DefaultProxyDebugRetentionHours))))
+	rt.ProxyDebugMaxBodyBytes = max(1024, int(math.Trunc(parseNumber(get("PROXY_DEBUG_MAX_BODY_BYTES"), DefaultProxyDebugMaxBodyBytes))))
 
 	// ---- §3.19 Codex-specific ----
 	cfg.CodexResponsesWebsocketBeta = firstNonEmpty(
@@ -756,8 +756,8 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 
 	// ---- §3.20 Model Probe ----
 	rt.ModelAvailabilityProbeEnabled = parseBoolean(get("MODEL_AVAILABILITY_PROBE_ENABLED"), false)
-	cfg.ModelAvailabilityProbeIntervalMs = maxInt(60000, int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_INTERVAL_MS"), float64(DefaultModelAvailabilityProbeIntervalMs)))))
-	cfg.ModelAvailabilityProbeTimeoutMs = maxInt(3000, int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_TIMEOUT_MS"), DefaultModelAvailabilityProbeTimeoutMs))))
+	cfg.ModelAvailabilityProbeIntervalMs = max(60000, int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_INTERVAL_MS"), float64(DefaultModelAvailabilityProbeIntervalMs)))))
+	cfg.ModelAvailabilityProbeTimeoutMs = max(3000, int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_TIMEOUT_MS"), DefaultModelAvailabilityProbeTimeoutMs))))
 	cfg.ModelAvailabilityProbeConcurrency = ClampInt(
 		int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_CONCURRENCY"), DefaultModelAvailabilityProbeConcurrency))),
 		1, 16,
@@ -768,12 +768,12 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	cfg.RouteRebuildProbeFilterExcludeModels = parseCsvList(get("ROUTE_REBUILD_PROBE_FILTER_EXCLUDE_MODELS"))
 
 	// ---- §3.21 Retention ----
-	cfg.ProxyLogRetentionDays = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_LOG_RETENTION_DAYS"), DefaultProxyLogRetentionDays))))
-	cfg.ProxyLogRetentionPruneIntervalMinutes = maxInt(1, int(math.Trunc(parseNumber(get("PROXY_LOG_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyLogRetentionPruneIntervalMinutes)))))
-	cfg.ProxyFileRetentionDays = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_FILE_RETENTION_DAYS"), DefaultProxyFileRetentionDays))))
-	cfg.ProxyFileRetentionPruneIntervalMinutes = maxInt(1, int(math.Trunc(parseNumber(get("PROXY_FILE_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyFileRetentionPruneIntervalMinutes)))))
-	cfg.ProxyVideoTaskRetentionDays = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_DAYS"), float64(DefaultProxyVideoTaskRetentionDays)))))
-	cfg.ProxyVideoTaskRetentionPruneIntervalMinutes = maxInt(1, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyVideoTaskRetentionPruneIntervalMinutes)))))
+	cfg.ProxyLogRetentionDays = max(0, int(math.Trunc(parseNumber(get("PROXY_LOG_RETENTION_DAYS"), DefaultProxyLogRetentionDays))))
+	cfg.ProxyLogRetentionPruneIntervalMinutes = max(1, int(math.Trunc(parseNumber(get("PROXY_LOG_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyLogRetentionPruneIntervalMinutes)))))
+	cfg.ProxyFileRetentionDays = max(0, int(math.Trunc(parseNumber(get("PROXY_FILE_RETENTION_DAYS"), DefaultProxyFileRetentionDays))))
+	cfg.ProxyFileRetentionPruneIntervalMinutes = max(1, int(math.Trunc(parseNumber(get("PROXY_FILE_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyFileRetentionPruneIntervalMinutes)))))
+	cfg.ProxyVideoTaskRetentionDays = max(0, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_DAYS"), float64(DefaultProxyVideoTaskRetentionDays)))))
+	cfg.ProxyVideoTaskRetentionPruneIntervalMinutes = max(1, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyVideoTaskRetentionPruneIntervalMinutes)))))
 
 	// ---- §3.21b Proxy Log Batch Writer ----
 	// Default async=true so production gets the latency win automatically; the
@@ -891,7 +891,6 @@ func ClampInt(v, lo, hi int) int {
 	return v
 }
 
-// maxInt returns the larger of a and b.
 // normalizeSessionCookieSecure maps ADMIN_SESSION_COOKIE_SECURE to one of
 // "auto", "true" or "false". Unset/unrecognized values fall back to the
 // zero-config safe default "auto" (Secure follows the request protocol).
@@ -906,16 +905,9 @@ func normalizeSessionCookieSecure(value string) string {
 	}
 }
 
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // MaxInt returns the larger of a and b. Exported for use by other packages.
 func MaxInt(a, b int) int {
-	return maxInt(a, b)
+	return max(a, b)
 }
 
 // MaxInt64 returns the larger of a and b. Exported for use by other packages.
@@ -950,5 +942,3 @@ func atoiOr(s string, fallback int) int {
 	}
 	return v
 }
-
-

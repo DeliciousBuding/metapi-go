@@ -43,7 +43,7 @@ func TestCooldownReasonColumnsRoundTripSQLite(t *testing.T) {
 	}
 
 	// Round-trip: write a reason, read it back, then clear it the same way
-	// ClearChannelFailureStates does.
+	// a channel failure reset does.
 	if _, err := db.Exec(`INSERT INTO sites (id, name, url, platform, status) VALUES (1, 's', 'https://example.com', 'openai', 'active')`); err != nil {
 		t.Fatalf("seed site: %v", err)
 	}
