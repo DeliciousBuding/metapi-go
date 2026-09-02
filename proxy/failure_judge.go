@@ -20,16 +20,74 @@ type UsageSummary struct {
 	TotalTokens      int
 }
 
-// DetectProxyFailure detects proxy failures from response content.
-// This is PURELY content-based — it does NOT look at HTTP status codes.
-// Called AFTER a non-stream response body is received.
+// FailureCode names why the single content judge declared a failure. Buffered
+// and streaming paths surface exactly this set, so one code means the same
+// thing wherever it is logged, stored or alerted on.
+type FailureCode string
+
+const (
+	// FailureCodeNone means the content judgement found no failure.
+	FailureCodeNone FailureCode = ""
+	// FailureCodeErrorKeyword means the upstream content matched an operator
+	// configured PROXY_ERROR_KEYWORDS entry.
+	FailureCodeErrorKeyword FailureCode = "upstream_error_keyword"
+	// FailureCodeEmptyContent means PROXY_EMPTY_CONTENT_FAIL is enabled and the
+	// upstream produced neither completion output nor completion tokens.
+	FailureCodeEmptyContent FailureCode = "upstream_empty_content"
+)
+
+// UpstreamContentFacts is the protocol-agnostic description of what an upstream
+// actually returned. Each call path fills it from data it already has: the
+// buffered path from the raw response body, the streaming path from the bounded
+// incremental SSE analyzer (which never retains the raw body).
+type UpstreamContentFacts struct {
+	// StatusCode is the HTTP status the upstream answered with. The judgement
+	// itself stays status-agnostic (callers only judge 2xx answers); it is
+	// carried so a verdict can be traced back to its attempt.
+	StatusCode int
+	// Streaming marks the SSE path, which has no raw body to inspect.
+	Streaming bool
+	// RawText is the content to keyword-scan. Buffered: the full response body.
+	// Streaming: the concatenated SSE error-event payloads, the only content
+	// signal the bounded analyzer keeps.
+	RawText string
+	// HasOutput reports whether the upstream produced completion content.
+	// Streaming callers set it from the analyzer data-event flag; the buffered
+	// path leaves it false and the judge derives it from RawText.
+	HasOutput bool
+	// Usage is the parsed usage summary (nil when the upstream sent none).
+	Usage *UsageSummary
+}
+
+// UpstreamVerdict is the single content judgement result.
+type UpstreamVerdict struct {
+	Failed bool
+	Code   FailureCode
+	Status int
+	Reason string
+}
+
+// JudgeUpstreamContent is the ONE owner of content-level failure judgement.
+// Both the buffered and the streaming dispatch path call it, so the two can no
+// longer drift apart in judgement strength — the historical split (buffered
+// judged, stream only logged) is what let a failed upstream answer be recorded
+// as a success.
+//
+// Pure: no I/O, no *http.Response, no protocol plumbing. Same facts in, same
+// verdict out.
 //
 // Detection:
-// 1. Keyword matching: if config.ProxyErrorKeywords is non-empty, checks case-insensitive
+// 1. Keyword matching: if config.ProxyErrorKeywords is non-empty, case-insensitive
 // 2. Empty content check: if ProxyEmptyContentFailEnabled and no completion tokens + no output
-func DetectProxyFailure(rawText string, usage *UsageSummary) *FailureResult {
-	rt := config.Runtime()
-	rawText = strings.TrimSpace(rawText)
+func JudgeUpstreamContent(facts UpstreamContentFacts) UpstreamVerdict {
+	pass := UpstreamVerdict{Code: FailureCodeNone}
+	rt := config.RuntimeSafe()
+	if rt == nil {
+		// No published runtime snapshot: nothing is configured, so nothing can
+		// be judged. Never invent a failure (and never panic on a request path).
+		return pass
+	}
+	rawText := strings.TrimSpace(facts.RawText)
 
 	// 1. Keyword matching
 	if len(rt.ProxyErrorKeywords) > 0 {
@@ -40,7 +98,9 @@ func DetectProxyFailure(rawText string, usage *UsageSummary) *FailureResult {
 				continue
 			}
 			if strings.Contains(normalizedText, kw) {
-				return &FailureResult{
+				return UpstreamVerdict{
+					Failed: true,
+					Code:   FailureCodeErrorKeyword,
 					Status: 502,
 					Reason: "Upstream response matched failure keyword: " + kw,
 				}
@@ -51,19 +111,38 @@ func DetectProxyFailure(rawText string, usage *UsageSummary) *FailureResult {
 	// 2. Empty content check
 	if rt.ProxyEmptyContentFailEnabled {
 		compTokens := 0
-		if usage != nil {
-			compTokens = usage.CompletionTokens
+		if facts.Usage != nil {
+			compTokens = facts.Usage.CompletionTokens
 		}
-		hasOutput := detectHasUpstreamOutput(rawText)
+		hasOutput := facts.HasOutput
+		if !facts.Streaming {
+			hasOutput = detectHasUpstreamOutput(rawText)
+		}
 		if !hasOutput && compTokens <= 0 {
-			return &FailureResult{
+			return UpstreamVerdict{
+				Failed: true,
+				Code:   FailureCodeEmptyContent,
 				Status: 502,
 				Reason: "Upstream returned empty content",
 			}
 		}
 	}
 
-	return nil
+	return pass
+}
+
+// DetectProxyFailure detects proxy failures from response content.
+// This is PURELY content-based — it does NOT look at HTTP status codes.
+//
+// Kept as the buffered-path shaped wrapper over JudgeUpstreamContent so there
+// is still exactly one implementation of the judgement; callers that already
+// have parsed content should prefer JudgeUpstreamContent directly.
+func DetectProxyFailure(rawText string, usage *UsageSummary) *FailureResult {
+	verdict := JudgeUpstreamContent(UpstreamContentFacts{RawText: rawText, Usage: usage})
+	if !verdict.Failed {
+		return nil
+	}
+	return &FailureResult{Status: verdict.Status, Reason: verdict.Reason}
 }
 
 // detectHasUpstreamOutput checks if raw text contains actual upstream output.
