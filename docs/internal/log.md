@@ -1,9 +1,17 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-09-01
+**Last updated**: 2026-09-02
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-09-02 — v0.16.21 发版（审计驱动修复波：安全/API 契约/TS 接管/死码清理）
+
+- **安全（#1139）**：三条导入路径（站点批量、原生备份、TS v2.1 备份）SSRF 目标校验缺口收口——`SanitizeImportedSiteRows` 统一守卫 + preview 一致性 + 丢弃行显式上报。
+- **API 契约（#1140、#1141）**：`/v1` 鉴权/限流错误对齐 OpenAI 信封（invalid key 403→401、配额 403→429）；`/v1/pricing` 双前缀路由 bug、catalogsync PG `LastInsertId` bug、SSE 默认 1MB→64MB、`X-Accel-Buffering: no`、审计 LIKE 大小写 parity。
+- **TS 接管（#1142）**：`sc2_029` 时间戳归一化——drizzle 空格格式自动重写 RFC3339，消除接管库排序/范围失真与首启重签风暴（introspection 驱动、双方言、幂等）。
+- **卫生（#1137、#1138）**：Go 死码 -1814 行（14 项零引用验证）+ clamp 三副本归一；web oneoff -1900 行 + `copyText()` 收敛。
+- **来源**：五路并行域审计（安全/性能并发/数据库/产品 UIUX/API 网络）+ Go/web 屎山侦察；当日合并 8 PR（#1135–#1142）。剩余 backlog（Redis 准入锁、超时倒挂、头透传、术语统一批、旅程闭环、计费视图等）见内部审计汇总（`.dev-local/audits/2026-09-02-multidomain-audit.md`，私有层）。
 
 ## 2026-09-01 — v0.16.20 发版（F5 结构化事件 + 08-30→09-01 三波）
 

@@ -5,6 +5,28 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.21] — 2026-09-02
+
+### Added
+
+- **sc2_029 TS 接管库时间戳归一化（#1142）**：启动迁移自动把 TS 时代（drizzle `datetime('now')`）写在 TEXT `*_at`/`*_until` 列里的 `'YYYY-MM-DD HH:MM:SS'` 值重写为 RFC3339 UTC（`'...T...Z'`，保留小数秒）。接管库两种格式混排时，所有字典序比较失真（空格 0x20 排在 'T' 0x54 前）：`ORDER BY created_at` 列表错排、范围过滤边界失真、checkin 清扫把全部 TS 账号判过期引发首启重签风暴——归一化后消除。候选列由 schema introspection 发现（接管库中 Go DDL 未声明的列同样覆盖）；PG 原生 timestamp 列跳过（本就按时间比较）；幂等、新装零成本。
+- **`/v1` 错误契约文档（#1140）**：`docs/api/proxy.md` 新增「Error shape (/v1 surface)」节——OpenAI 信封 + 完整 status/type/code 对照表；admin 面（`/api/*`）平铺契约不变，两者不混用。
+
+### Changed
+
+- **`/v1` 鉴权与限流错误对齐 OpenAI 信封（#1140）**：中间件裸 `{"error":"..."}` 字符串统一为 `{"error":{message,type,code,request_id}}`（与 handler 层同形）；invalid key `403`→`401 authentication_error/invalid_api_key`（SDK 对 403 视为不可重试权限错误、跳过换 key 路径），配额耗尽 `403`→`429 insufficient_quota`（OpenAI 约定）；全局限体 413 按路径前缀分流（`/api`、`/auth` 保持平铺 admin 契约，代理面走信封）。new-api 反接 metapi 作上游渠道时错误解析不再退化。
+- **Go 死码清扫 -1814 行（#1137）**：oauth import 族（`/api/oauth/import` 保持文档化 UI-parity 桩）、quota `Record*` 族及其私有链、routing `PricingReference`/四端口接口、`ClearChannelFailureState` 级联（接口方法+实现+4 测试 fake）、`SendDailySummary`、`BatchUpdateTokenStatus`、`ApplyStreamPreference` 等 14 项——每项经全仓生产+测试双零引用验证。三份同实现 clamp（handler/admin、config、routing）收敛为 `config.ClampInt`；`maxInt`/`minInt` 改 Go 内建 `max`/`min`。
+- **web 一次性探针清理 -1900 行（#1138）**：`web/scripts/oneoff/` 12 个零引用脚本整目录删除（probe-ab-* 系列、dom-audit、dark-contrast-probe——其亮度管线已由 contrast-gate 测试完整复刻）；5 处手写 `navigator.clipboard.writeText`（其中 3 处无 SSR/能力兜底）收敛为共享 `src/lib/clipboard.ts` `copyText()`（单测覆盖成功/拒绝/API 缺失三态）。
+- **SSE 默认流上限 1MB→64MB（#1141）**：`PROXY_MAX_STREAM_RESPONSE_BYTES` 默认值上调——推理模型长输出/大型代码生成常态超 1MB，此前被中途截断且自定义错误事件多被 SDK 静默吞掉（表现为「回答戛然而止」）；上限保留为失控护栏，`.env.example` 与 `docs/configuration.md` 同步。
+- **SSE 响应补 `X-Accel-Buffering: no`（#1141）**：nginx 系反代不再缓冲首 token（new-api/sub2api 同款行为）。
+
+### Fixed
+
+- **SSRF 目标校验缺口（安全，#1139）**：站点批量导入（`POST /api/sites/import`）、原生备份导入、TS v2.1 备份导入三条路径此前完全绕过 `IsForbiddenSiteTargetURL`——构造备份即可植入 `url=http://169.254.169.254/...` 的站点，配合下游 key 一次 `/v1` 请求穿透数据面回流云 metadata/IAM 内容。现三路径统一走 `SanitizeImportedSiteRows`（sites 的 url/external_checkin_url/proxy_url + site_api_endpoints 的 url；RFC1918/loopback/ULA 保留给自托管上游，与单行创建语义一致），导入预览同规则（所见即所导入），丢弃行显式上报（TSV21 warnings / `droppedForbiddenSiteRows`）。
+- **`/v1/pricing` 双前缀路由 bug（#1141）**：`RegisterDownstreamPricingRoutes` 在 `/v1` 组内注册绝对路径，文档承诺的 `GET /v1/pricing` 一直 404、真实可达路径是 `/v1/v1/pricing`（未鉴权探测看不到——组中间件先答 401 掩盖了它）。改相对路径 + 挂载形状回归测试钉死。
+- **`catalogsync.CreateSource` 在 PG 必失败（#1141）**：pgx stdlib 驱动不实现 `LastInsertId`，PG 部署下新增模型目录源恒报错（SQLite-only 测试漏网）。补 `RETURNING id` 方言分支 + `PG_TEST_DSN` 门控集成测试（CI PG job 覆盖）。
+- **审计日志路径过滤 PG 大小写失配（#1141）**：`path LIKE ?` 在 SQLite 为 ASCII 大小写不敏感、PG 敏感——双侧 `LOWER()` 对齐（全仓 LIKE 过滤同款模式）。
+
 ## [v0.16.20] — 2026-09-01
 
 ### Added
