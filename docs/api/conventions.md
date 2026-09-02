@@ -198,4 +198,4 @@ Admin routes under `/api/*` are same-origin by default. Set `ADMIN_CORS_ALLOWED_
 
 ## Trusted Client IPs
 
-Forwarded client IP headers are ignored by default. Set `TRUSTED_PROXY_CIDRS` only for reverse-proxy source ranges you control; admin IP allowlists and rate limits otherwise use the direct peer IP.
+Forwarded client IP headers are ignored by default. Set `TRUSTED_PROXY_CIDRS` only for reverse-proxy source ranges you control; admin IP allowlists and rate limits otherwise use the direct peer IP. When the peer is trusted, `X-Forwarded-For` is resolved from the right: trusted proxy hops are skipped and the first address outside `TRUSTED_PROXY_CIDRS` is used, so a client cannot forge its own identity by prepending a value. `X-Real-IP` is only consulted when `X-Forwarded-For` carries no parsable address.
