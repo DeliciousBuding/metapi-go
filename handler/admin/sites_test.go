@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
-	"github.com/go-chi/chi/v5"
+	"github.com/deliciousbuding/metapi-go/internal/pgtest"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // setupSitesTest creates an in-memory SQLite DB with chi router for sites.
@@ -47,6 +48,12 @@ func setupSitesPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 		t.Fatalf("failed to open PostgreSQL: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
+
+	// Empty the database before migrating so this test starts from the same
+	// state CI gives it: a local loop reuses one PG database, and the
+	// previous run's rows turn fixed-identity fixtures into duplicate-key
+	// failures and whole-table counts into "want 3, got 4".
+	pgtest.Reset(t, db.DB)
 
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatalf("AutoMigrate failed: %v", err)
