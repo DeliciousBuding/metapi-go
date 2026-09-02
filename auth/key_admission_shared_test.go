@@ -88,13 +88,13 @@ func TestKeyAdmission_SharedRPM(t *testing.T) {
 	fw := &fakeWindow{}
 	l.SetSharedRPMCounter(fw)
 	limit := int64(2)
-	if d := l.Allow(1, &limit, nil, 0); !d.Allowed {
+	if d := l.Allow(context.Background(), 1, &limit, nil, 0); !d.Allowed {
 		t.Fatalf("1: %#v", d)
 	}
-	if d := l.Allow(1, &limit, nil, 0); !d.Allowed {
+	if d := l.Allow(context.Background(), 1, &limit, nil, 0); !d.Allowed {
 		t.Fatalf("2: %#v", d)
 	}
-	if d := l.Allow(1, &limit, nil, 0); d.Allowed || d.Reason != "over_rpm" {
+	if d := l.Allow(context.Background(), 1, &limit, nil, 0); d.Allowed || d.Reason != "over_rpm" {
 		t.Fatalf("3 should deny: %#v", d)
 	}
 	// #513: over_rpm rolls back the denied Incr so the window stays at the limit.
@@ -107,7 +107,7 @@ func TestKeyAdmission_SharedRPM(t *testing.T) {
 	if _, err := fw.Decr(context.Background(), "metapi:rpm:1", time.Minute); err != nil {
 		t.Fatal(err)
 	}
-	if d := l.Allow(1, &limit, nil, 0); !d.Allowed {
+	if d := l.Allow(context.Background(), 1, &limit, nil, 0); !d.Allowed {
 		t.Fatalf("after free slot should allow: %#v", d)
 	}
 	if fw.n != 2 {
@@ -121,7 +121,7 @@ func TestKeyAdmission_SharedRPM_FailOpen(t *testing.T) {
 	l.SetSharedRPMCounter(fw)
 	limit := int64(100)
 	// Should not hard-fail; local path allows.
-	if d := l.Allow(2, &limit, nil, 0); !d.Allowed {
+	if d := l.Allow(context.Background(), 2, &limit, nil, 0); !d.Allowed {
 		t.Fatalf("fail-open expected allow: %#v", d)
 	}
 }
@@ -131,7 +131,7 @@ func TestKeyAdmission_SharedTPM(t *testing.T) {
 	fw := &fakeWindow{}
 	l.SetSharedTPMCounter(fw)
 	tpm := int64(1000)
-	d := l.Allow(11, nil, &tpm, 600)
+	d := l.Allow(context.Background(), 11, nil, &tpm, 600)
 	if !d.Allowed {
 		t.Fatalf("1: %#v", d)
 	}
@@ -139,10 +139,10 @@ func TestKeyAdmission_SharedTPM(t *testing.T) {
 		t.Fatalf("used tpm want 600 got %d", d.UsedTPM)
 	}
 	// 400 fits (600+400=1000); shared IncrBy-before-check semantics (same as RPM).
-	if d := l.Allow(11, nil, &tpm, 400); !d.Allowed {
+	if d := l.Allow(context.Background(), 11, nil, &tpm, 400); !d.Allowed {
 		t.Fatalf("2 should allow 400 after 600: %#v", d)
 	}
-	if d := l.Allow(11, nil, &tpm, 1); d.Allowed || d.Reason != "over_tpm" {
+	if d := l.Allow(context.Background(), 11, nil, &tpm, 1); d.Allowed || d.Reason != "over_tpm" {
 		t.Fatalf("3 should deny over_tpm: %#v", d)
 	}
 	// #513: over_tpm rolls back the denied IncrBy.
@@ -160,11 +160,11 @@ func TestKeyAdmission_SharedTPM_FailOpen(t *testing.T) {
 	l.SetSharedTPMCounter(fw)
 	tpm := int64(1000)
 	// Fail-open to local tokenEvents — first 600 should allow.
-	if d := l.Allow(12, nil, &tpm, 600); !d.Allowed {
+	if d := l.Allow(context.Background(), 12, nil, &tpm, 600); !d.Allowed {
 		t.Fatalf("fail-open expected allow: %#v", d)
 	}
 	// Local path still enforces after fail-open.
-	if d := l.Allow(12, nil, &tpm, 500); d.Allowed || d.Reason != "over_tpm" {
+	if d := l.Allow(context.Background(), 12, nil, &tpm, 500); d.Allowed || d.Reason != "over_tpm" {
 		t.Fatalf("local over_tpm after fail-open: %#v", d)
 	}
 }
@@ -178,14 +178,14 @@ func TestKeyAdmission_SharedRPM_ThenTPM_CompoundRollback(t *testing.T) {
 	rpm := int64(10)
 	tpm := int64(100)
 	// Fill TPM almost full.
-	if d := l.Allow(21, &rpm, &tpm, 90); !d.Allowed {
+	if d := l.Allow(context.Background(), 21, &rpm, &tpm, 90); !d.Allowed {
 		t.Fatalf("seed allow: %#v", d)
 	}
 	if fw.n != 1 || fw.tokens != 90 {
 		t.Fatalf("seed state n=%d tokens=%d", fw.n, fw.tokens)
 	}
 	// Next: RPM would succeed (2<=10) but TPM 90+20=110 > 100 → deny both.
-	if d := l.Allow(21, &rpm, &tpm, 20); d.Allowed || d.Reason != "over_tpm" {
+	if d := l.Allow(context.Background(), 21, &rpm, &tpm, 20); d.Allowed || d.Reason != "over_tpm" {
 		t.Fatalf("compound deny expected over_tpm: %#v", d)
 	}
 	if fw.n != 1 {
@@ -195,7 +195,7 @@ func TestKeyAdmission_SharedRPM_ThenTPM_CompoundRollback(t *testing.T) {
 		t.Fatalf("TPM reservation must roll back: tokens=%d want 90", fw.tokens)
 	}
 	// Capacity remains usable for a fitting request.
-	if d := l.Allow(21, &rpm, &tpm, 10); !d.Allowed {
+	if d := l.Allow(context.Background(), 21, &rpm, &tpm, 10); !d.Allowed {
 		t.Fatalf("fitting request after compound deny: %#v", d)
 	}
 	if fw.n != 2 || fw.tokens != 100 {
@@ -216,14 +216,14 @@ func TestKeyAdmission_SharedMemoryCounter_Parity(t *testing.T) {
 	rpm := int64(2)
 	tpm := int64(100)
 
-	if d := l.Allow(31, &rpm, &tpm, 40); !d.Allowed {
+	if d := l.Allow(context.Background(), 31, &rpm, &tpm, 40); !d.Allowed {
 		t.Fatalf("1: %#v", d)
 	}
-	if d := l.Allow(31, &rpm, &tpm, 40); !d.Allowed {
+	if d := l.Allow(context.Background(), 31, &rpm, &tpm, 40); !d.Allowed {
 		t.Fatalf("2: %#v", d)
 	}
 	// RPM deny: should roll back so used RPM stays 2.
-	if d := l.Allow(31, &rpm, &tpm, 1); d.Allowed || d.Reason != "over_rpm" {
+	if d := l.Allow(context.Background(), 31, &rpm, &tpm, 1); d.Allowed || d.Reason != "over_rpm" {
 		t.Fatalf("over_rpm: %#v", d)
 	}
 	// Free one RPM via Decr directly on the counter, then hit TPM deny compound.
@@ -231,7 +231,7 @@ func TestKeyAdmission_SharedMemoryCounter_Parity(t *testing.T) {
 		t.Fatal(err)
 	}
 	// tokens currently 80; request 30 → 110 > 100, both roll back.
-	if d := l.Allow(31, &rpm, &tpm, 30); d.Allowed || d.Reason != "over_tpm" {
+	if d := l.Allow(context.Background(), 31, &rpm, &tpm, 30); d.Allowed || d.Reason != "over_tpm" {
 		t.Fatalf("over_tpm compound: %#v", d)
 	}
 	// After compound rollback, RPM should still be 1 (post-decr) and TPM 80.
