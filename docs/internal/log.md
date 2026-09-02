@@ -1,9 +1,20 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-09-02 (v0.16.22)
+**Last updated**: 2026-09-03 (v0.16.23)
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-09-03 — v0.16.23 发版（持久化正确性波：迁移方言 · 共享准入原子性 · 设置往返 · 前端缓存与文案）
+
+- **发布事实**：v0.16.23 于 2026-09-03 切出（patch-first，距 v0.16.22 约一天），收口 #1151–#1156 六个 PR。来源是同日晚些时候的第二轮四路只读侦察（配置与运行时、代理数据面、store 与迁移、web 状态与 i18n，各 12 findings）加主线修复；本轮消化其中的 P1 簇。
+- **迁移方言（#1153）**：注册表里三个 BOOLEAN 列的数字默认值让**既有 PostgreSQL 库启动即失败**（`ADD COLUMN … BOOLEAN DEFAULT 0` → SQLSTATE 42804，`AutoMigrate` 首错即中止），而全新安装永远走不到该路径（`CREATE TABLE` 已带列 → `EnsureColumn` no-op），所以 CI 的全新库看不见它。修法两端收口：`EnsureColumn` 内归一（BOOLEAN 列的 `DEFAULT 0/1` → `FALSE/TRUE`，保留尾随修饰符）+ 注册表三处改写；配注册表源码门禁与两个 PG-gated 探针（按老库形状建表后重放真实注册表步骤）。同类 42804 在 v0.8.49+ 修过一批，这次把口子收在 primitive 上。
+- **共享准入原子性（#1154）**：补偿回滚是 `DECR` + 独立 `DEL` 两个往返，**另一个实例在两者之间落地的 `INCR` 会连同旧键一起被删掉** → 共享窗口静默少算 → 该下游密钥被放行超过配置的 RPM/TPM 上限，且无任何日志。合并为单条 `EVAL`（Redis 按单命令执行脚本）；服务器若缺少脚本能力则降级为「只减量、不自愈」。由 CI `test-pg` 的并发压力测试偶然暴露（`mixed total = 478, want 480`）——它不是 flake；补两条确定性交织测试与一条「必须恰好一条服务器命令」的机制测试，三者对旧实现全部为红。
+- **设置往返（#1156）**：写侧持久化 33 个键、读侧只有部分有水合分支，实测 27 个键缺失（最贵的一条：`admin_ip_allowlist` 重启后**控制面 IP 限制静默消失**）；三个凭据键写侧 JSON 编码、读侧只 `TrimSpace` → **通过管理 API 轮换过的令牌重启即失效**；`log_cleanup` 点号/下划线命名空间分裂使整块水合成为死码；日志清理体制判定不再由「`retention > 0`」推断（`config.Load` 把下限钉在 1 天，于是 settings 表有任意一行就触发，静默把显式 `false` 翻成 `true` 并禁用 legacy pruner），改为只认显式意图且两来源单向不对称（DB 显式键 OR env toggle 为 true），启动输出一条 `settings: log retention regime` 说明胜者；branding 显式空串生效、cron 键校验后接受、两处被丢弃的持久化错误改 500。门禁：AST 驱动的「写侧键集 − 水合键集 − 白名单 = ∅」（含匹配器反例自证与负向对照）、`config.Load` 与水合的钳制逐字段相等（20 子用例）、真 `PUT /api/settings/runtime` → 模拟重启 → `reflect.DeepEqual`。
+- **前端缓存与文案（#1155）**：导入站点后 `/accounts` 不刷新（失效打在快照、页面读分页缓存，同一个向导在 `/sites` 却会刷新）；三个行内 toggle 的乐观更新打在页面不读的键上（点击后不即时翻转，并把只用于取名字的快照改成猜测值、污染四页）；两个**间接引用**的 i18n 键双语缺失使界面渲染裸 key（模型测试 401/403、账号模型面板的业务失败兜底），门禁扫描面因此从「同行 `t('字面量')`」扩到 `assertBusinessOk` 的 fallback 实参与全仓键形状字面量。
+- **运行时卫生（#1151、#1152）**：回滚自愈非正数 Redis 键（该自愈随后由 #1154 原子化）、`store.GetDB()` 改原子指针（每条请求路径不再争全局互斥锁）、`USAGE_PROJECTION_INTERVAL_MS` 可调（钳制 1000–3600000，默认不变）；密钥准入贯穿请求上下文（客户端已断开的请求不再耗完计数器超时并阻塞同密钥的其它请求，取消走既有 fail-open 路径，单实例语义零漂移）。
+- **参考项目拆解**：本地测试床在 new-api / sub2api / axonhub 之外新增 **gpt-load v2.0.0-rc.4**（官方 release 二进制、sha256 与官方清单一致、13 步验证脚本全绿），产出后端与前端两份拆解：可借鉴项含流式终止语义分级、失败判定单一所有者、配置面 fail-loud 与生效值回显、计费回执与票据后结算、提示前缀软亲和、前端幂等写与结果分类；明确不抄的含无条件回显内部分组头、控制面全局写锁 + 双次全量重编译、遍布全栈的单实例假设。
+- **本轮新实证缺陷（进波次 4）**：`scripts/e2e/smoke.sh` 的 409 兜底按名字回查、与后端 (platform, url) 去重不一致（裸跑七步连锁失败）；`handler/admin` 5 个 PG 用例在复用库上第二轮假失败（状态累积，CI 的一次性库看不出）；`PUT /api/accounts/{id}` 响应回显明文 `accessToken`，与列表接口的脱敏策略不一致。
 
 ## 2026-09-02 — v0.16.22 发版（`/v1` 数据面契约与硬化 + 并发去串行化 + 旅程闭环）
 
