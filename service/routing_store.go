@@ -393,22 +393,6 @@ func (s *ProxyRoutingStore) LoadRuntimeHealthChannelRows(ctx context.Context, ch
 	return result, rows.Err()
 }
 
-func (s *ProxyRoutingStore) ClearChannelFailureStates(ctx context.Context, channelIDs []int64) error {
-	if len(channelIDs) == 0 {
-		return nil
-	}
-	query, args, err := sqlx.In(`
-		UPDATE route_channels
-		SET last_fail_at = NULL, consecutive_fail_count = 0, cooldown_level = 0, cooldown_until = NULL,
-		    cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL
-		WHERE id IN (?)`, channelIDs)
-	if err != nil {
-		return err
-	}
-	_, err = s.execContext(ctx, query, args...)
-	return err
-}
-
 // UpdateRouteDecisionSnapshot persists a route decision explanation snapshot.
 func (s *ProxyRoutingStore) UpdateRouteDecisionSnapshot(ctx context.Context, routeID int64, snapshot string, refreshedAt string) error {
 	if strings.TrimSpace(refreshedAt) == "" {

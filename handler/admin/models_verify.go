@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 )
 
@@ -55,7 +56,7 @@ func (h *statsHandler) verifyBatch(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 {
 		limit = 50
 	}
-	limit = clampInt(limit, 1, 200)
+	limit = config.ClampInt(limit, 1, 200)
 
 	models := make([]string, 0, len(body.Models))
 	seen := make(map[string]struct{}, len(body.Models))

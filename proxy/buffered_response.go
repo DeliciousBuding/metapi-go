@@ -8,13 +8,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 )
 
-// DefaultMaxBufferedResponseBodyBytes is retained as the local fallback used
-// only when the global config singleton has not been loaded yet (e.g. tests
-// that bypass TestMain). Production callers go through Load(), which resolves
-// PROXY_MAX_BUFFERED_RESPONSE_BYTES once at startup and stores the value on
-// config.Config.ProxyMaxBufferedResponseBytes.
-const DefaultMaxBufferedResponseBodyBytes int64 = 20 << 20
-
 var ErrBufferedResponseBodyTooLarge = errors.New("upstream response body exceeded buffered limit")
 
 // MaxBufferedResponseBodyBytes returns the configured max non-streaming

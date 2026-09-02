@@ -130,9 +130,6 @@ func (db *sourceModelFallbackDB) LoadRuntimeHealthChannelRows(ctx context.Contex
 }, error) {
 	return nil, nil
 }
-func (db *sourceModelFallbackDB) ClearChannelFailureStates(ctx context.Context, channelIDs []int64) error {
-	return nil
-}
 
 func TestLoadRouteMatch_GroupRouteNilSourceModelGetsSourceRoutePattern(t *testing.T) {
 	displayName := "group-claude"

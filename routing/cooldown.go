@@ -204,17 +204,6 @@ func ClampNumber(value, lo, hi float64) float64 {
 	return math.Max(lo, math.Min(hi, value))
 }
 
-// ClampInt clamps an int to [lo, hi].
-func ClampInt(value, lo, hi int) int {
-	if value < lo {
-		return lo
-	}
-	if value > hi {
-		return hi
-	}
-	return value
-}
-
 // IsContributionCloseToBest checks if a value is within ratio of best.
 func IsContributionCloseToBest(value, bestValue, ratio float64) bool {
 	if bestValue <= 0 {

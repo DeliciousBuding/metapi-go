@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/app"
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
 	dailyservice "github.com/deliciousbuding/metapi-go/service/daily"
@@ -991,7 +992,7 @@ func (h *statsHandler) debugTraceDetail(w http.ResponseWriter, r *http.Request) 
 // ---- Site Distribution ----
 // GET /api/stats/site-distribution?days=&refresh=
 func (h *statsHandler) siteDistribution(w http.ResponseWriter, r *http.Request) {
-	days := clampInt(getQueryInt(r, "days", 7), 1, 365)
+	days := config.ClampInt(getQueryInt(r, "days", 7), 1, 365)
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 
 	// Prefer projected site_day_usage spend; include live account balances.
@@ -1052,7 +1053,7 @@ func (h *statsHandler) siteDistribution(w http.ResponseWriter, r *http.Request) 
 // ---- Site Trend ----
 // GET /api/stats/site-trend?days=&refresh=
 func (h *statsHandler) siteTrend(w http.ResponseWriter, r *http.Request) {
-	days := clampInt(getQueryInt(r, "days", 7), 1, 365)
+	days := config.ClampInt(getQueryInt(r, "days", 7), 1, 365)
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 
 	rows, err := queryRowsErr(h.db, `
@@ -1106,7 +1107,7 @@ func (h *statsHandler) siteTrend(w http.ResponseWriter, r *http.Request) {
 // Returns per-day balance snapshots for one account (latest-known of each day).
 // If accountId is omitted, returns all accounts' series keyed by accountId.
 func (h *statsHandler) modelBySite(w http.ResponseWriter, r *http.Request) {
-	days := clampInt(getQueryInt(r, "days", 7), 1, 365)
+	days := config.ClampInt(getQueryInt(r, "days", 7), 1, 365)
 	siteID := getQueryInt(r, "siteId", 0)
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 
@@ -1173,8 +1174,8 @@ func (h *statsHandler) marketplace(w http.ResponseWriter, r *http.Request) {
 	var respModels []map[string]any
 	page, pageSize := 1, 50
 	if pageStr != "" {
-		page = clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
-		pageSize = clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
+		page = config.ClampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
+		pageSize = config.ClampInt(getQueryInt(r, "pageSize", 50), 1, 200)
 		offset := (page - 1) * pageSize
 		total = len(models)
 		if offset >= total {

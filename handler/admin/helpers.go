@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -210,16 +211,6 @@ func getQueryInt(r *http.Request, key string, fallback int) int {
 	return n
 }
 
-func clampInt(v, lo, hi int) int {
-	if v < lo {
-		return lo
-	}
-	if v > hi {
-		return hi
-	}
-	return v
-}
-
 // ---- URL path helpers ----
 
 // pathID parses the chi "id" URL param as a positive int64 and writes a
@@ -239,7 +230,7 @@ func pathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 // parseLimitOffset parses ?limit= and ?offset= query params, clamping limit to
 // [1, maxLimit] and offset to >= 0.
 func parseLimitOffset(r *http.Request, defaultLimit, maxLimit int) (limit, offset int) {
-	limit = clampInt(getQueryInt(r, "limit", defaultLimit), 1, maxLimit)
+	limit = config.ClampInt(getQueryInt(r, "limit", defaultLimit), 1, maxLimit)
 	offset = max(0, getQueryInt(r, "offset", 0))
 	return limit, offset
 }

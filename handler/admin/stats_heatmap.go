@@ -6,12 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/jmoiron/sqlx"
 )
 
 func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
-	days := clampInt(getQueryInt(r, "days", 7), 1, 31)
+	days := config.ClampInt(getQueryInt(r, "days", 7), 1, 31)
 	dimension := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("dimension")))
 	if dimension != "model" {
 		dimension = "site"

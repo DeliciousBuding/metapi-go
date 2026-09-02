@@ -476,48 +476,9 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 	return nil
 }
 
-// ClearChannelFailureState clears failure/cooldown for channels.
-func (tr *TokenRouter) ClearChannelFailureState(ctx context.Context, channelIDs []int64) (int64, error) {
-	if len(channelIDs) == 0 {
-		return 0, nil
-	}
-
-	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
-		return 0, err
-	}
-
-	// Clear runtime health states for affected channels
-	runtimeHealthRows, _ := tr.db.LoadRuntimeHealthChannelRows(ctx, channelIDs)
-	if len(runtimeHealthRows) > 0 {
-		healthRows := make([]ChannelRuntimeHealthRow, len(runtimeHealthRows))
-		for i, r := range runtimeHealthRows {
-			healthRows[i] = ChannelRuntimeHealthRow{
-				SiteID:            r.SiteID,
-				SourceModel:       r.SourceModel,
-				RouteModelPattern: r.RouteModelPattern,
-			}
-		}
-		if ClearRuntimeHealthStatesForChannels(healthRows) {
-			persistSiteRuntimeHealthState()
-		}
-	}
-
-	if err := tr.db.ClearChannelFailureStates(ctx, channelIDs); err != nil {
-		return 0, err
-	}
-
-	tr.cache.InvalidateAll()
-	return int64(len(channelIDs)), nil
-}
-
 // InvalidateRouteScopedCache clears cache for a specific route.
 func (tr *TokenRouter) InvalidateRouteScopedCache(routeID int64) {
 	tr.cache.InvalidateRouteScopedCache(routeID)
-}
-
-// InvalidateAllCaches clears all caches.
-func (tr *TokenRouter) InvalidateAllCaches() {
-	tr.cache.InvalidateAll()
 }
 
 // resolveCooldownUpdate computes the next consecutiveFailCount/cooldownLevel/

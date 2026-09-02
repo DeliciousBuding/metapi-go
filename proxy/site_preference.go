@@ -137,37 +137,6 @@ func ShouldForceUpstreamStream(pref SiteProtocolPreference, upstreamPath string,
 	return ep == EndpointResponses
 }
 
-// ApplyStreamPreference mutates a shallow copy of body to set stream=true when
-// ShouldForceUpstreamStream is true. Returns the (possibly same) body map and
-// whether stream was forced.
-func ApplyStreamPreference(body map[string]any, pref SiteProtocolPreference, upstreamPath string, isCompact bool) (map[string]any, bool) {
-	if !ShouldForceUpstreamStream(pref, upstreamPath, isCompact) {
-		return body, false
-	}
-	if body == nil {
-		body = map[string]any{}
-	}
-	// Already streaming?
-	if v, ok := body["stream"]; ok {
-		switch t := v.(type) {
-		case bool:
-			if t {
-				return body, false
-			}
-		case string:
-			if t == "true" || t == "1" {
-				return body, false
-			}
-		}
-	}
-	next := make(map[string]any, len(body)+1)
-	for k, v := range body {
-		next[k] = v
-	}
-	next["stream"] = true
-	return next, true
-}
-
 // ResponsesOnlyChatUnsupportedMessage is the clear client error when a chat/completions
 // (or messages) client hits a responses-only site and transform is not available.
 // Used when DISABLE_CROSS_PROTOCOL_FALLBACK is true and body cannot be rewritten.

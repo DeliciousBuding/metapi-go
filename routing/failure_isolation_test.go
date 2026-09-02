@@ -308,9 +308,6 @@ func (db *isolationDB) LoadRuntimeHealthChannelRows(ctx context.Context, channel
 }, error) {
 	return nil, nil
 }
-func (db *isolationDB) ClearChannelFailureStates(ctx context.Context, channelIDs []int64) error {
-	return nil
-}
 
 func newIsolationRouter(db *isolationDB) *TokenRouter {
 	cache := NewRouteCache(60_000)

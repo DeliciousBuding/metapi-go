@@ -92,28 +92,6 @@ func register(def Definition) {
 	registry[def.Key] = def
 }
 
-// CleanKeys returns every registered Key — intended for cross-layer
-// consistency checks (frontend locale existence, docs registry), NOT for
-// writing events. Unlike Keys it is a plain builtin sort with no deps.
-func CleanKeys() []string {
-	out := make([]string, 0, len(registry))
-	for key := range registry {
-		out = append(out, key)
-	}
-	sortBuiltins(out)
-	return out
-}
-
-// sortBuiltins is a dependency-light insertion sort (keeps the package
-// stdlib-only; swap in sort.Strings if the stdlib import is preferred).
-func sortBuiltins(s []string) {
-	for i := 1; i < len(s); i++ {
-		for j := i; j > 0 && s[j] < s[j-1]; j-- {
-			s[j], s[j-1] = s[j-1], s[j]
-		}
-	}
-}
-
 // Keys returns every registered Key (sorted for stable test output).
 func Keys() []string {
 	out := make([]string, 0, len(registry))

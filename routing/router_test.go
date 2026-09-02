@@ -120,9 +120,6 @@ func (db *routerTestDB) LoadRuntimeHealthChannelRows(ctx context.Context, channe
 }, error) {
 	return nil, nil
 }
-func (db *routerTestDB) ClearChannelFailureStates(ctx context.Context, channelIDs []int64) error {
-	return nil
-}
 
 func newTestTokenRouter(db *routerTestDB) *TokenRouter {
 	cfg := &config.Config{}

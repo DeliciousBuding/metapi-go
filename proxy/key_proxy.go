@@ -6,20 +6,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/platform"
 )
 
-// KeyProxyPrecedence documents the egress proxy selection order for
-// 
-//	1. downstream_api_keys.proxy_url (per-key override; this package)
-//	2. account extraConfig.proxyUrl / useSystemProxy
-//	3. sites.proxy_url / sites.use_system_proxy
-//	4. config.SystemProxyUrl when site/account opt into system proxy
-//	5. direct (no proxy)
-
-// Product intent: multi-tenant downstream keys may need distinct egress even
-// when they share the same upstream site/account channel. A non-empty key
-// proxy therefore wins over site and account proxies. NULL / empty key proxy
-// preserves pre-SC2 behavior (inherit site/account/system).
-const KeyProxyPrecedence = "key > account > site > system > direct"
-
 // ApplyKeyProxyOverride returns a ProxyConfig with ProxyURL replaced by the
 // per-key egress proxy when keyProxyURL is non-empty after trim.
 

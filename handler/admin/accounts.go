@@ -224,8 +224,8 @@ func sitesOrEmpty(sites []store.Site) []store.Site {
 // metrics are still enriched for the accounts on the current page. Response
 // shape mirrors /api/channels: {items, total, page, pageSize, generatedAt, sites}.
 func (h *accountsHandler) listAccountsPaginated(w http.ResponseWriter, r *http.Request) {
-	page := clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
-	pageSize := clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
+	page := config.ClampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
+	pageSize := config.ClampInt(getQueryInt(r, "pageSize", 50), 1, 200)
 	offset := (page - 1) * pageSize
 
 	filter, err := parseAccountListFilter(r)

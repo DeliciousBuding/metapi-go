@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
@@ -117,8 +118,8 @@ func (h *downstreamKeysHandler) listKeys(w http.ResponseWriter, r *http.Request)
 	var queryErr error
 	page, pageSize := 1, 50
 	if paginate {
-		page = clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
-		pageSize = clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
+		page = config.ClampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
+		pageSize = config.ClampInt(getQueryInt(r, "pageSize", 50), 1, 200)
 		offset := (page - 1) * pageSize
 		rows, queryErr = queryRowsErr(h.db,
 			"SELECT * FROM downstream_api_keys ORDER BY id DESC LIMIT ? OFFSET ?",

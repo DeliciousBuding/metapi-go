@@ -9,31 +9,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-// ModelProvider supplies model availability data.
-type ModelProvider interface {
-	GetAvailableModels(ctx context.Context, accountID int64) ([]ModelInfo, error)
-	RefreshModelsForAccount(ctx context.Context, accountID int64) error
-}
-
-// ModelInfo is a lightweight model availability record.
-type ModelInfo struct {
-	ModelName string
-	Available bool
-	LatencyMs *int64
-}
-
-// TokenProvider supplies token data.
-type TokenProvider interface {
-	GetTokens(ctx context.Context, accountID int64) ([]store.AccountToken, error)
-	GetDefaultToken(ctx context.Context, accountID int64) (*store.AccountToken, error)
-}
-
-// PricingProvider supplies model pricing reference costs.
-type PricingProvider interface {
-	GetReferenceCost(ctx context.Context, model string, siteID int64, accountID int64) (float64, error)
-	RefreshModelPricingCatalog(ctx context.Context, site store.Site, account store.Account, modelName string) error
-}
-
 // Catalog pricing provenance labels for cold-start cost routing.
 const (
 	// CatalogSourceOfficial labels an official vendor list price from the
@@ -239,13 +214,6 @@ type CostSignal struct {
 	Source   string // "observed", "configured", "catalog", "catalog_estimate", "fallback"
 }
 
-// PricingReferenceRefreshOptions configures pricing refresh behavior.
-type PricingReferenceRefreshOptions struct {
-	UseChannelSourceModelForCost bool
-	DownstreamPolicy             DownstreamRoutingPolicy
-	RefreshedKeys                *map[string]struct{}
-}
-
 // ChannelSelectorDB defines the DB operations needed by the selector.
 type ChannelSelectorDB interface {
 	// Route operations
@@ -314,9 +282,4 @@ type ChannelSelectorDB interface {
 		SourceModel       *string
 		RouteModelPattern string
 	}, error)
-
-	// Clear channel failure states
-	ClearChannelFailureStates(ctx context.Context, channelIDs []int64) error
 }
-
-
