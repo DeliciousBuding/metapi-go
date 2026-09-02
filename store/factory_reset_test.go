@@ -238,8 +238,10 @@ func TestFactoryResetWipesEveryRegistryTableSQLite(t *testing.T) {
 	if len(nonEmpty) > 0 {
 		t.Errorf("tables still holding rows after factory reset: %v", nonEmpty)
 	}
-	if got := countRows(t, db, "admin_sessions"); got != 0 {
-		t.Errorf("admin_sessions holds %d row(s) after factory reset — pre-reset admin cookies stay valid", got)
+	adminSessions := countRows(t, db, "admin_sessions")
+	t.Logf("rows after factory reset: admin_sessions=%d, tables wiped=%d", adminSessions, len(deleted))
+	if adminSessions != 0 {
+		t.Errorf("admin_sessions holds %d row(s) after factory reset — pre-reset admin cookies stay valid", adminSessions)
 	}
 	if got := countRows(t, db, "schema_migrations"); got != journalBefore {
 		t.Errorf("schema_migrations rows = %d after reset, want %d (the journal is bookkeeping, not business data)", got, journalBefore)

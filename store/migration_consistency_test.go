@@ -72,6 +72,7 @@ func TestCopyMigrationNormalizesTSTimestampsSQLite(t *testing.T) {
 	}
 	defer db.Close()
 	got, detail := countLegacyTimestampValues(t, db)
+	t.Logf("TS-shaped timestamp values: source=%d, migrated target=%d %v", srcTotal, got, detail)
 	if got != 0 {
 		t.Errorf("migrated target still carries %d TS-shaped timestamp value(s): %v (source had %d)\nlog:\n%s",
 			got, detail, srcTotal, logLines.String())
