@@ -247,9 +247,26 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 			// = enabled), mirroring config.Load's CHECKIN_ENABLED handling.
 			rt.CheckinDisabled = !parseBoolSetting(value, !rt.CheckinDisabled)
 		case "checkin_schedule_mode":
-			switch strings.ToLower(parseJSONSettingString(value)) {
+			// config.Load resolves CHECKIN_SCHEDULE_MODE through the same
+			// three-value enum, and RuntimeSettings.Validate reports anything
+			// else as a critical boot error, so an unreadable row must keep the
+			// resolved mode instead of poisoning the snapshot. Keeping it
+			// silently left the row and GET /api/settings/runtime disagreeing
+			// forever: scheduler/settings.go re-reads the row and falls back the
+			// same way, so nothing ever surfaced the stale value. Reachable
+			// through a backup import (the tables path validates only the cell
+			// type), a hand edit, or a legacy row service/settingsmigration
+			// leaves behind without validating the mode.
+			mode := strings.ToLower(parseJSONSettingString(value))
+			switch mode {
 			case "cron", "interval", "window":
-				rt.CheckinScheduleMode = strings.ToLower(parseJSONSettingString(value))
+				rt.CheckinScheduleMode = mode
+			default:
+				reason := fmt.Sprintf("%q is not cron, interval or window", mode)
+				if mode == "" {
+					reason = "value carries no mode"
+				}
+				warnUnreadableSettingRow("checkin_schedule_mode", reason, rt.CheckinScheduleMode)
 			}
 		case "checkin_interval_hours":
 			// config.Load resolves CHECKIN_INTERVAL_HOURS as
@@ -481,10 +498,28 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 			} else {
 				slog.Warn("settings: ignoring invalid global_allowed_models value")
 			}
+		// Non-destructive: a row hydration cannot read means the persisted
+		// intent is unrecoverable, not that the operator asked for no rules.
+		// Both branches used to assign the parse result directly, and
+		// config.ParseJsonValue encodes failure as nil, so one bad row emptied
+		// a configured rule set on the next restart with nothing in the log.
+		// An explicit clear still works: the admin write path persists JSON
+		// null or `[]` (upsertSettingDB normalizes a nil body value to an empty
+		// slice), both of which parse.
 		case "payload_rules":
-			rt.PayloadRules = config.ParseJsonValue(value)
+			if rules, err := parseJSONValueSetting(value); err == nil {
+				rt.PayloadRules = rules
+			} else {
+				warnUnreadableSettingRow("payload_rules", err.Error(),
+					describeJSONSettingValue(rt.PayloadRules))
+			}
 		case "openai_service_tier_rules":
-			cfg.OpenAiServiceTierRules = config.ParseJsonValue(value)
+			if rules, err := parseJSONValueSetting(value); err == nil {
+				cfg.OpenAiServiceTierRules = rules
+			} else {
+				warnUnreadableSettingRow("openai_service_tier_rules", err.Error(),
+					describeJSONSettingValue(cfg.OpenAiServiceTierRules))
+			}
 
 		// N7: prompt-cache ratio fallback overrides (0 = use code default).
 		case "cache_ratio_default":
@@ -522,16 +557,24 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 		// Stored as {"token_expired":true,"low_balance":false,...}; missing
 		// keys default to enabled (backward-compatible). nil/empty = all enabled.
 		case "notify_task_toggles":
-			if value != "" {
-				toggles := map[string]bool{}
-				if err := json.Unmarshal([]byte(value), &toggles); err == nil {
-					if rt.NotifyTaskToggles == nil {
-						rt.NotifyTaskToggles = map[string]bool{}
-					}
-					for k, v := range toggles {
-						rt.NotifyTaskToggles[k] = v
-					}
+			// service/notify gates each alert type on this map and treats a
+			// missing key as enabled, so a row hydration cannot read must not
+			// become "every alert type is unmuted": keep the resolved toggles
+			// and say so. The admin write path marshals whatever the request
+			// carried without checking that it is an object of booleans
+			// (handler/admin/settings_apply.go), so a wrong-shaped row is
+			// reachable without hand-editing the table. The loop above already
+			// skipped empty cells, which carry no intent.
+			if toggles, err := parseNotifyTaskTogglesSetting(value); err == nil {
+				if rt.NotifyTaskToggles == nil {
+					rt.NotifyTaskToggles = map[string]bool{}
 				}
+				for k, v := range toggles {
+					rt.NotifyTaskToggles[k] = v
+				}
+			} else {
+				warnUnreadableSettingRow("notify_task_toggles", err.Error(),
+					fmt.Sprintf("%d toggles", len(rt.NotifyTaskToggles)))
 			}
 
 		default:
@@ -721,4 +764,85 @@ func parseJSONSettingString(value string) string {
 		return strings.TrimSpace(decoded)
 	}
 	return strings.TrimSpace(value)
+}
+
+// parseJSONValueSetting decodes a settings row that holds arbitrary JSON. An
+// empty cell, or one encoding/json cannot read, means the persisted intent is
+// unrecoverable: the caller must keep the value it already resolved instead of
+// assigning the failure result, because config.ParseJsonValue encodes that
+// failure as nil and a direct assignment turned one unreadable row into an
+// empty rule set. A readable JSON null IS intent ("no rules") and comes back as
+// (nil, nil).
+func parseJSONValueSetting(raw string) (any, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, fmt.Errorf("value is empty")
+	}
+	var decoded any
+	if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+		return nil, fmt.Errorf("not valid JSON: %v", err)
+	}
+	return decoded, nil
+}
+
+// parseNotifyTaskTogglesSetting decodes the per-alert-type mute map. Only a
+// JSON object of booleans — or null, meaning "no per-type overrides" — carries
+// a readable intent; an array, a bare scalar or a non-boolean flag is a row the
+// caller must refuse to apply.
+func parseNotifyTaskTogglesSetting(raw string) (map[string]bool, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, fmt.Errorf("value is empty")
+	}
+	var decoded any
+	if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+		return nil, fmt.Errorf("not valid JSON: %v", err)
+	}
+	switch v := decoded.(type) {
+	case nil:
+		return map[string]bool{}, nil
+	case map[string]any:
+		toggles := make(map[string]bool, len(v))
+		for name, flag := range v {
+			enabled, ok := flag.(bool)
+			if !ok {
+				return nil, fmt.Errorf("toggle %q is %s, want a boolean",
+					name, describeJSONSettingValue(flag))
+			}
+			toggles[name] = enabled
+		}
+		return toggles, nil
+	default:
+		return nil, fmt.Errorf("JSON %s, want an object of booleans", describeJSONSettingValue(decoded))
+	}
+}
+
+// warnUnreadableSettingRow logs the one line an operator needs when hydration
+// refuses a persisted row: which key, why, and which value the process keeps.
+// A refusal the log does not mention leaves the settings table and
+// GET /api/settings/runtime disagreeing with nothing to explain the gap.
+func warnUnreadableSettingRow(key, reason string, kept any) {
+	slog.Warn("settings: persisted value not applied, keeping the resolved value",
+		"key", key, "reason", reason, "kept", kept)
+}
+
+// describeJSONSettingValue names the shape of a resolved JSON setting so a
+// warning can say what the process keeps without echoing the whole blob.
+func describeJSONSettingValue(v any) string {
+	switch value := v.(type) {
+	case nil:
+		return "null"
+	case map[string]any:
+		return fmt.Sprintf("object with %d keys", len(value))
+	case []any:
+		return fmt.Sprintf("array with %d items", len(value))
+	case string:
+		return "string"
+	case bool:
+		return fmt.Sprintf("bool %t", value)
+	case float64:
+		return "number"
+	default:
+		return fmt.Sprintf("%T", v)
+	}
 }

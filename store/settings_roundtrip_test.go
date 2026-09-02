@@ -263,10 +263,14 @@ func TestApplyRuntimeSettingsRejectsInvalidCrons(t *testing.T) {
 // different products depending on where a number was typed.
 func TestApplyRuntimeSettingsClampsMatchConfigLoad(t *testing.T) {
 	cases := []struct {
-		name     string
-		env      map[string]string
-		settings map[string]string
-		get      func(*config.Config, *config.RuntimeSettings) any
+		name string
+		env  map[string]string
+		// settingsEnv seeds the settings-path config.Load. Rows that must be
+		// read on top of an env-resolved value set it to the same env; every
+		// other row leaves it nil and compares against the built-in defaults.
+		settingsEnv map[string]string
+		settings    map[string]string
+		get         func(*config.Config, *config.RuntimeSettings) any
 	}{
 		{
 			// config.Load resolves CHECKIN_INTERVAL_HOURS as
@@ -413,12 +417,76 @@ func TestApplyRuntimeSettingsClampsMatchConfigLoad(t *testing.T) {
 			settings: map[string]string{"proxy_debug_target_model": `"  gpt-5  "`},
 			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.ProxyDebugTargetModel },
 		},
+		{
+			// Both paths decode the same cell text. An unreadable value must
+			// leave the settings path on what env resolved (nil here) instead
+			// of inventing a value of its own, and a readable one must produce
+			// an identical structure.
+			name:     "payload rules unparsable",
+			env:      map[string]string{"PAYLOAD_RULES": "[{not json"},
+			settings: map[string]string{"payload_rules": "[{not json"},
+			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.PayloadRules },
+		},
+		{
+			name:     "payload rules object",
+			env:      map[string]string{"PAYLOAD_RULES": `{"gpt-4o":{"stream":false}}`},
+			settings: map[string]string{"payload_rules": `{"gpt-4o":{"stream":false}}`},
+			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.PayloadRules },
+		},
+		{
+			name:     "service tier rules unparsable",
+			env:      map[string]string{"OPENAI_SERVICE_TIER_RULES": "[{not json"},
+			settings: map[string]string{"openai_service_tier_rules": "[{not json"},
+			get:      func(cfg *config.Config, _ *config.RuntimeSettings) any { return cfg.OpenAiServiceTierRules },
+		},
+		{
+			name:     "service tier rules object",
+			env:      map[string]string{"OPENAI_SERVICE_TIER_RULES": `{"gpt-5":"priority"}`},
+			settings: map[string]string{"openai_service_tier_rules": `{"gpt-5":"priority"}`},
+			get:      func(cfg *config.Config, _ *config.RuntimeSettings) any { return cfg.OpenAiServiceTierRules },
+		},
+		{
+			// CHECKIN_SCHEDULE_MODE is a raw word in env and a JSON string in
+			// the settings table; both resolve through the same three-value
+			// enum, and an unknown mode keeps the "cron" fallback on both paths
+			// instead of reaching the snapshot, where RuntimeSettings.Validate
+			// would turn it into a critical boot error.
+			name:     "checkin schedule mode unknown",
+			env:      map[string]string{"CHECKIN_SCHEDULE_MODE": "every-5-minutes"},
+			settings: map[string]string{"checkin_schedule_mode": `"every-5-minutes"`},
+			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.CheckinScheduleMode },
+		},
+		{
+			name:     "checkin schedule mode window",
+			env:      map[string]string{"CHECKIN_SCHEDULE_MODE": "window"},
+			settings: map[string]string{"checkin_schedule_mode": `"window"`},
+			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.CheckinScheduleMode },
+		},
+		{
+			// The destructive half of the contract, and the only parity shape
+			// that catches it: the settings path is seeded with the same env,
+			// so this compares "garbage row on top of a configured value" with
+			// "the configured value alone". Assigning the parse result directly
+			// used to make the row win with nil.
+			name:        "payload rules garbage row keeps the env value",
+			env:         map[string]string{"PAYLOAD_RULES": `{"gpt-4o":{"stream":false}}`},
+			settingsEnv: map[string]string{"PAYLOAD_RULES": `{"gpt-4o":{"stream":false}}`},
+			settings:    map[string]string{"payload_rules": "[{not json"},
+			get:         func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.PayloadRules },
+		},
+		{
+			name:        "service tier rules garbage row keeps the env value",
+			env:         map[string]string{"OPENAI_SERVICE_TIER_RULES": `{"gpt-5":"priority"}`},
+			settingsEnv: map[string]string{"OPENAI_SERVICE_TIER_RULES": `{"gpt-5":"priority"}`},
+			settings:    map[string]string{"openai_service_tier_rules": "[{not json"},
+			get:         func(cfg *config.Config, _ *config.RuntimeSettings) any { return cfg.OpenAiServiceTierRules },
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			envCfg, envRt := config.Load(quietSecretEnv(tc.env))
-			setCfg, setRt := config.Load(quietSecretEnv(nil))
+			setCfg, setRt := config.Load(quietSecretEnv(tc.settingsEnv))
 			ApplyRuntimeSettings(setCfg, setRt, tc.settings)
 
 			want, got := tc.get(envCfg, envRt), tc.get(setCfg, setRt)
