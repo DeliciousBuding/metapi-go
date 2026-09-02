@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/internal/pgtest"
 	backupsvc "github.com/deliciousbuding/metapi-go/service/backup"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -1112,6 +1113,12 @@ func setupBackupPostgresTestDB(t *testing.T) *store.DB {
 		t.Fatalf("open postgres: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
+
+	// Empty the database before migrating so this test starts from the same
+	// state CI gives it: a local loop reuses one PG database, and the
+	// previous run's rows turn fixed-identity fixtures into duplicate-key
+	// failures and whole-table counts into "want 3, got 4".
+	pgtest.Reset(t, db.DB)
 
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatalf("migrate postgres: %v", err)

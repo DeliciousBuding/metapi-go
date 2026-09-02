@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/internal/pgtest"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -30,6 +31,12 @@ func setupStatsPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 		t.Fatalf("failed to open PostgreSQL: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
+
+	// Empty the database before migrating so this test starts from the same
+	// state CI gives it: a local loop reuses one PG database, and the
+	// previous run's rows turn fixed-identity fixtures into duplicate-key
+	// failures and whole-table counts into "want 3, got 4".
+	pgtest.Reset(t, db.DB)
 
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatalf("AutoMigrate failed: %v", err)
@@ -1251,6 +1258,7 @@ func TestStats_SQLiteMarketplaceFromAvailability(t *testing.T) {
 		t.Fatalf("bare account %d missing from claude accounts: %#v", accountWithoutToken, claude["accounts"])
 	}
 }
+
 // TestStats_SQLiteMarketplaceTokensBatchedAcrossModels is the Wave 18 N+1
 // regression: enabled tokens must attach to every model entry of an account
 // from ONE batched account_tokens load (the pre-fix shape fired one token
