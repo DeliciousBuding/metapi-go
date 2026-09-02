@@ -58,6 +58,13 @@ Credential-bearing client headers are never forwarded: `authorization`,
 `x-api-key`, `cookie`, `proxy-*`, hop-by-hop headers, and `x-forwarded-*`. The
 downstream key stays a Metapi secret and never reaches the upstream.
 
+`Accept-Encoding` is never forwarded either — not from the client and not from a
+site's `custom_headers`. The outbound request reaches the transport without it,
+so net/http negotiates `gzip` itself and transparently decodes the answer, which
+is what keeps the body readable for usage accounting, `PROXY_ERROR_KEYWORDS` and
+the empty-content rule (see
+[configuration.md](../configuration.md#upstream-content-encoding)).
+
 Anthropic-native dispatch (`/v1/messages`, including the `/anthropic/v1/messages`
 gateway shape) requires `anthropic-version`; when the client does not send one
 the API default is used, so an OpenAI-surface request transformed into the
@@ -67,6 +74,10 @@ Anthropic shape does not fail upstream validation.
 content-semantic headers: `Content-Type`, `Content-Disposition`,
 `Content-Encoding`, `Content-Language`, `Content-Range`, `Accept-Ranges`,
 `Cache-Control`, `ETag`, `Last-Modified`, `Location`, `Retry-After`.
+`Content-Encoding` only ever describes bytes Metapi actually forwarded: an
+encoding Metapi decodes (`gzip`, `deflate`) is re-framed and the header is
+dropped, so it survives only when the answer was relayed verbatim because Metapi
+does not decode that codec.
 
 Everything else is dropped, which keeps the upstream's identity and state from
 leaking through Metapi: vendor fingerprint headers (`X-New-Api-Version` and

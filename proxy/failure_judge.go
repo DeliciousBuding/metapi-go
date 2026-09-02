@@ -51,6 +51,14 @@ type UpstreamContentFacts struct {
 	HasOutput bool
 	// Usage is the parsed usage summary (nil when the upstream sent none).
 	Usage *UsageSummary
+	// Unreadable reports that the bytes behind these facts could not be read at
+	// all — an upstream Content-Encoding we do not decode (br/zstd/a stacked
+	// list), or a codec we do implement that failed on this body. It is the
+	// caller's honest admission that it has NO content evidence, and it short-
+	// circuits the whole judgement: a body we cannot parse must never be turned
+	// into a failure, because that records a 502 against a channel whose answer
+	// may have been perfectly good (see proxy/upstream_encoding.go).
+	Unreadable bool
 }
 
 // UpstreamVerdict is the single content judgement result.
@@ -71,10 +79,20 @@ type UpstreamVerdict struct {
 // verdict out.
 //
 // Detection:
+// 0. Unreadable body: no judgement at all (see UpstreamContentFacts.Unreadable)
 // 1. Keyword matching: if config.ProxyErrorKeywords is non-empty, case-insensitive
 // 2. Empty content check: if ProxyEmptyContentFailEnabled and no completion tokens + no output
 func JudgeUpstreamContent(facts UpstreamContentFacts) UpstreamVerdict {
 	pass := UpstreamVerdict{Code: FailureCodeNone}
+	if facts.Unreadable {
+		// No readable content evidence: neither the keyword scan nor the
+		// empty-content rule may run. Both would be guessing at bytes nobody
+		// parsed, and the empty-content rule in particular would report a
+		// healthy-but-encoded answer as a 502 — a false failure that poisons
+		// channel health. The caller surfaces the gap through
+		// UpstreamEncodingSkippedMessage instead.
+		return pass
+	}
 	rt := config.RuntimeSafe()
 	if rt == nil {
 		// No published runtime snapshot: nothing is configured, so nothing can

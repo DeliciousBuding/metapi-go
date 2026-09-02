@@ -8,8 +8,8 @@ import (
 )
 
 // IsDeniedCustomHeader reports whether a site custom_headers entry must not be
-// forwarded upstream. Blocks identity, framing, hop-by-hop, cookies, Proxy-*,
-// and Metapi control preference headers.
+// forwarded upstream. Blocks identity, framing, content-coding, hop-by-hop,
+// cookies, Proxy-*, and Metapi control preference headers.
 //
 // Security: custom Authorization must never override the Bearer set from the
 // selected account token; Host/Connection/etc. must not be attacker-controlled.
@@ -30,6 +30,13 @@ func IsDeniedCustomHeader(name string) bool {
 		"host",
 		"content-length",
 		"transfer-encoding",
+		// Accept-Encoding decides whether net/http transparently decodes the
+		// answer, i.e. whether the caller can read the body it is about to
+		// parse, bill for and health-check. It is not site-configurable
+		// identity or protocol semantics, so it never comes from
+		// custom_headers; the data plane strips it as well
+		// (handler/proxy.stripUpstreamAcceptEncoding) and warns.
+		"accept-encoding",
 		"connection",
 		"cookie",
 		// RFC 7230 hop-by-hop (beyond Connection / Transfer-Encoding).

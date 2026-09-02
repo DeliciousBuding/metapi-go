@@ -514,6 +514,11 @@ func dispatchEndpointAttemptWithContinue(
 	// can never override the selected token.
 	applyProxyCustomHeaders(req, proxyConfig)
 	applyClientProtocolHeaders(req, r.Header, upstreamPath)
+	// The value of this header decides whether net/http transparently decodes
+	// the answer, i.e. whether we can read the body we are about to bill for and
+	// health-check — so it is never site/adapter configurable. Must run after
+	// both header builders above (see stripUpstreamAcceptEncoding).
+	stripUpstreamAcceptEncoding(req, proxyConfig, selected.Site.ID, selected.Channel.ID)
 	if selected.TokenValue != "" {
 		req.Header.Set("Authorization", "Bearer "+selected.TokenValue)
 	}
@@ -590,12 +595,21 @@ func dispatchEndpointAttemptWithContinue(
 				observeProxyTerminal(ctx, shared.OutcomeUpstreamError, true, time.Duration(latencyMs)*time.Millisecond)
 				return true, nil, false
 			}
+			errBody := normalizeBufferedUpstreamBody(resp, respBody, upstreamBodyIdent{
+				siteID:    selected.Site.ID,
+				channelID: selected.Channel.ID,
+				requestID: requestID,
+				stream:    true,
+			})
+			respBody = errBody.bytes
 			rawErrText := string(respBody)
 			if shouldContinueEndpointFallback(resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
 				return false, nil, true
 			}
-			// Best-effort usage from error JSON bodies (some gateways still include usage).
-			failUsage := ParseUsageFromBody(respBody)
+			// Best-effort usage from error JSON bodies (some gateways still
+			// include usage). Only from bytes we could actually read: an
+			// undecodable body yields the explicit unknown source.
+			failUsage := errBody.parseUsage()
 			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, resp.StatusCode, rawErrText)
 			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, resp.StatusCode, true, failUsage, retry, requestID, truncateErrText(rawErrText))
 			if retry < maxRetries && proxy.ShouldRetryProxyRequest(resp.StatusCode, rawErrText) {
@@ -677,6 +691,16 @@ func dispatchEndpointAttemptWithContinue(
 		observeProxyTerminal(ctx, shared.OutcomeUpstreamError, false, time.Duration(latencyMs)*time.Millisecond)
 		return true, nil, false
 	}
+	// Single encoding decision for this body: it fixes resp.Header (a decoded
+	// body loses its Content-Encoding) and tells us whether the bytes may be
+	// parsed at all. Everything below — usage, the content judge and the relay —
+	// consumes that one answer.
+	body := normalizeBufferedUpstreamBody(resp, respBody, upstreamBodyIdent{
+		siteID:    selected.Site.ID,
+		channelID: selected.Channel.ID,
+		requestID: requestID,
+	})
+	respBody = body.bytes
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		rawErrText := string(respBody)
 		if shouldContinueEndpointFallback(resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
@@ -684,7 +708,7 @@ func dispatchEndpointAttemptWithContinue(
 		}
 		// Non-stream HTTP errors: retain any usage object in the error body
 		// (measurable under-count after disconnect partial).
-		failUsage := ParseUsageFromBody(respBody)
+		failUsage := body.parseUsage()
 		recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, resp.StatusCode, rawErrText)
 		writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, resp.StatusCode, false, failUsage, retry, requestID, truncateErrText(rawErrText))
 		if retry < maxRetries && proxy.ShouldRetryProxyRequest(resp.StatusCode, rawErrText) {
@@ -694,14 +718,11 @@ func dispatchEndpointAttemptWithContinue(
 		observeProxyTerminal(ctx, shared.StatusFromHTTP(resp.StatusCode), false, time.Duration(latencyMs)*time.Millisecond)
 		return true, nil, false
 	}
-	usage := ParseUsageFromBody(respBody)
+	usage := body.parseUsage()
 	// Same single judge the streaming path calls (see judgeStreamContent), fed
-	// with the buffered facts this path already has.
-	verdict := proxy.JudgeUpstreamContent(proxy.UpstreamContentFacts{
-		StatusCode: resp.StatusCode,
-		RawText:    string(respBody),
-		Usage:      usage.ToUsageSummary(),
-	})
+	// with the buffered facts this path already has. When the body could not be
+	// decoded the facts say so explicitly and the judge declines to rule.
+	verdict := proxy.JudgeUpstreamContent(body.judgeFacts(resp.StatusCode, usage))
 	if verdict.Failed {
 		slog.Warn("content-based failure detected",
 			"reason", verdict.Reason,
