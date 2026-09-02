@@ -72,14 +72,7 @@ var readerREs = []*regexp.Regexp{
 // unreadEnvKeyAllowlist lists .env.example keys that have no reader in
 // non-test Go code. Each entry MUST carry a reason; an entry without a
 // real justification is a bug being hidden, not a bug being managed.
-var unreadEnvKeyAllowlist = map[string]string{
-	// Branding text is loaded into RuntimeSettings through the settings
-	// table, not through config.Load: the key is documented for operators
-	// migrating from the TypeScript release, but the Go binary does not
-	// read it. Reported to maintainers rather than silently deleted, since
-	// removing a key from .env.example is outside a docs change.
-	"HOME_PAGE_CONTENT": "documented for TS-parity; no reader in non-test Go code (tracked as a dead key, see .dev-local w4 R3-BLOCKED.md)",
-}
+var unreadEnvKeyAllowlist = map[string]string{}
 
 func TestEnvVarDocParity(t *testing.T) {
 	root := repoRoot(t)

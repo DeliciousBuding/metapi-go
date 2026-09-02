@@ -43,7 +43,7 @@ out in full (no `SOME_PREFIX_*` shorthand) so they stay greppable.
 | `DATA_DIR` | `./data` | SQLite database and upload storage directory. |
 | `LOG_LEVEL` | `info` | slog threshold: `debug` / `info` / `warn` / `error`. |
 | `METAPI_HEALTHCHECK_URL` / `METAPI_HEALTHCHECK_PATH` | — / `/ready` | Override the container healthcheck target. |
-| `SYSTEM_NAME`, `LOGO`, `FOOTER`, `ABOUT`, `HOME_PAGE_CONTENT` | brand defaults | Optional site branding; runtime settings in the admin UI override these. |
+| `SYSTEM_NAME`, `LOGO`, `FOOTER`, `ABOUT` | brand defaults | Optional site branding; runtime settings in the admin UI override these. |
 | `SERVER_ADDRESS` | empty | Public base URL used when the server has to build an absolute link back to itself (OAuth callbacks, exported key/backup URLs). Empty = derived from the request's `X-Forwarded-Proto` / `X-Forwarded-Host` headers, falling back to the request host. |
 
 ## Database
