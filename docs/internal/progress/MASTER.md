@@ -2,15 +2,17 @@
 
 **Last verified**: 2026-09-03
 
-**Release**: [v0.17.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.17.0) · cut on master 2026-09-03 (tag pipeline + human review of the notes decide publish); the published Latest until then is [v0.16.23](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.23)
+**Release**: [v0.17.1](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.17.1) · cut on master 2026-09-03 (tag pipeline + human review of the notes decide publish); the **published** Latest until then is [v0.17.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.17.0) (published 2026-09-03, artifacts sampled and sha256-verified)
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — 波次 5 在飞（2026-09-03）
+## Current active work — 波次 6 待编排（2026-09-03）
 
 v0.17.0 收口了波次 4 的全部十条（#1159–#1170）：转发链客户端 IP 从右往左解析（`TRUSTED_PROXY_CIDRS` 下 admin IP 白名单 / 每 IP 限流 / 审计 IP 三处可伪造）· 账号写路径不再回显明文凭据（策略收口到 `service.RedactAccountSecrets`）· 流式中断/截断/空内容不再记成功、内容级失败判定与协议回落各只有一个所有者 · 三份手抄表清单（20/28/28 项 vs 37 张表）收敛为单一 schema 注册表，`cmd/migrate` 不再静默丢 17 张表、恢复出厂不再漏 9 张（含 `admin_sessions`，此前重置后旧 cookie 仍有效）· 上游压缩编码诚实性（`gzip`/`deflate` 解码后判定与计费，解不了的原样转发 + 用量记 `unknown` + 稳定文案 WARN，`Accept-Encoding` 不再是站点可配头）· 夹在两次上游调用之间的等待可取消（三个 OAuth onboard 轮询 28.3s → 0.16s）· Redis 补偿回滚按摘要协商（`EVALSHA` 优先，`NOPERM` 降级而非失败）· 对外文档成为可对账参考（env parity + 路由清单两个门禁）· smoke 站点解析按后端去重键 · PG 门禁在复用库上可重复。时间线：[`../log.md`](../log.md)。
 
-**在飞两条**（写集互斥）：备份表清单收敛（`service/backup.AllTables` 是第三份手抄清单，导出静默缺口 = 恢复后状态不一致）· `ApplyRuntimeSettings` 的破坏性静默丢弃（一条坏行清空已配置的 `payload_rules` / `openai_service_tier_rules`）与两处无告警丢弃。
+**波次 5 已全部收口（#1172 / #1173 / #1175，无 lane 在飞）**：备份表集从 schema 注册表派生（第三份手抄清单消灭；`type=all` 导出此前静默丢 9 张表，其中 5 张用户可见状态，而导入端回 200；4 张改为**显式**排除，理由随 `metadata.excluded_tables` 与文档一起交付并被门禁钉住）· `ApplyRuntimeSettings` 的破坏性静默丢弃清零（坏行不再清空已配置值，改为保留 + WARN 描述形状；显式 `null` / `[]` 仍按清空生效；两条机械门禁 R4/R5 让这一族回不来）· **CI 竞态门复活**（`test-sqlite-shard` 的分片算术缺 `${{ }}`，四个分片与聚合出的必选检查 `test-sqlite` 从 v0.14.0 到 v0.17.0 共 30 个 tag 全绿而执行 0 个测试；该窗口唯一真跑 Go 套件的 `test-pg` 不带 `-race`，所以竞态检测三周内从 CI 完全消失。修复后实测四片 13/12/12/12、并集 == 全量 49 包、四守卫逐一挑发全部非零退出、复活后全量 `-race` 0 失败 0 竞态）。顺带抓出仓库里**第四份**手抄表清单（`e2e` 备份用例的字面量 28）并改为向注册表取。
+
+**下一波候选**（写集互斥，均不阻塞发布；来自 #1172 / #1173 / #1175 的已知遗留）：`catalog_sources` 的导入 URL 闸扩展（`importURLColumns` 加 `catalog_sources.url`，之后删掉那条备份排除即自动纳入）· PostgreSQL 导入不重置序列（`importBackupTablesWithConn` 缺 `setval` / `sqlite_sequence`）· `PayloadRules` 无 Go 运行时消费者、`OpenAiServiceTierRules` 零读者但 `docs/configuration.md` 写成 "Per-model payload rewrite rules"（**裁决项**：改文档说实情，还是落地规则引擎）· `notify_task_toggles` admin 写路径应返 400 · 约 20 个不可解析**数值**分支「静默保留 fallback」建议在解析器失败路径做一次聚合 WARN · 4 条数值键 floor 偏差 · `proxy_retry_status_ranges` / `proxy_disable_status_ranges` 透传不可解析原文 · CI 给 `bun install` 加重试（本轮 `visual-regression` 与 `docker-push` 各挂一次 registry 完整性抖动）+ 增 `actionlint` 作为 #1175 这一整类故障的持久守卫。
 
 **开放项**（均不阻塞发布，按优先级择机；每项都要有「摘掉修复必红」的门禁）：
 
@@ -140,6 +142,7 @@ Every wave inherits root [`AGENTS.md`](../../../AGENTS.md) and backend simplicit
 - No new dependency unless the existing stack cannot express the slice directly.
 - Release cadence is **patch-first** ([`../git-workflow.md` §6.1](../git-workflow.md)): each merged wave with user-visible changes bumps the patch digit; minor only for themed milestones; major stays `0` until the 1.0 readiness criteria.
 - Update `STATE.md` and this plan in the same PR that closes an outcome; do not leave completed checklists here.
+- **CI is the race gate of record on hosts that push with `--no-verify`** (small nodes cannot finish the pre-push suite inside their budget). `test-sqlite-shard` therefore asserts its own shard selection instead of trusting it — matrix values bound through `env`, the round-robin slot computed in a standalone `$(( ))` so a malformed selector aborts under `set -e` rather than hiding in an `if` condition, and the per-shard package count checked against `ceil((N - S) / T)`, with an empty shard treated as an error. See [`../../testing.md`](../../testing.md). Do not "simplify" those guards: a required check that runs nothing still reports green, and that is precisely what happened for 30 tags.
 
 ## Deferred or out of scope
 

@@ -1,6 +1,6 @@
 {
   "name": "metapi",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "private": true,
   "description": "Meta-layer management and unified proxy for AI API aggregation platforms",
   "keywords": [

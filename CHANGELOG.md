@@ -5,6 +5,30 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.17.1] — 2026-09-03
+
+### 修复
+
+- **备份导出不再静默丢 5 张用户可见状态表（#1172）**：`service/backup.AllTables` 是仓库里第三份手抄表清单，它漂移到了 37 张表里的 28 张，于是每次 `GET /api/settings/backup/export?type=all` 都静默丢弃 5 张用户可见状态表，而导入端回 200 报成功：`product_announcements`（运营撰写的产品横幅全部消失）· `announcement_dismissals`（用户的「已忽略」状态丢失 ⇒ 已读公告重新弹出）· `model_name_redirects`（`source=manual` 的行是运营手写、目录同步永不重生成 ⇒ 手工改名规则全丢，上游模型名解析回退）· `balance_history`（余额趋势从恢复日起空白，过去某天的上游余额**永远无法回看**）· `model_verify_history`（运营发起的批量校验历史消失，不会自动重生成）。现在备份集从 schema 注册表派生（`store.BackupTableNames()` = 注册表 − 显式排除集），`AccountsTables` 从「第二份排序清单」改成「scope 集合 ∩ 注册表拓扑序」——**排序只剩一个主人**。备份文件因此变大（两张历史表的量随运行时长增长）。
+- **备份文件自己陈述自己的缺口（#1172）**：导出 payload 的 `metadata` 新增 `excluded_tables`（`map[表名]理由`）。**只加字段**：`exported_at` / `version` / `type` / `tables` 形状一字未改，两条导入路径都完全忽略 `metadata`，所以 WebDAV 往返与 TS v2.1 兼容层不受影响。导入请求若点名要一张被排除的表 → **400**（此前静默忽略）；旧备份（不含新纳入的表）导入照常成功，缺表 = 跳过而不是错误。
+- **4 张表显式排除，每项都带理由、进 metadata、进文档，并被门禁钉住（#1172）**：`admin_sessions`（会话凭据材料：备份是半可信输入，导入 token hash 会让源站签发的 cookie 在本站生效，恢复后要求重新登录才是正确语义）· `admin_audit_logs`（源站 admin 写操作的 append-only 轨迹且无保留期限界，灌进另一个库等于让该库断言从未发生过的操作，毁掉审计日志唯一的属性）· `model_probe_results`（后台探针每 tick 重建，且路由重建取每 (account, model) **最新一行**决定路由 ⇒ 他库陈旧探测会直接操纵本库路由；恢复后一个周期内自动重填）· `catalog_sources`（每行的 `url` 由目录同步**服务端抓取**，而导入 URL 闸今天只覆盖 `sites` / `site_api_endpoints`；让半可信备份写入这张表等于可以被植入 cloud-metadata / link-local 抓取目标——**扩展那道闸之后删掉这一条即自动纳入**）。同批门禁：注册表里出现一张既不在备份集也不在排除表里的表 → 红，且错误信息直接说该做什么；孤儿排除项 → 红；理由必须非空；备份集与排除集不得重叠；FK 序与注册表序一致。
+- **一处对上一版文档的更正（#1172）**：`docs/api/settings.md` 给恢复出厂写的退路是「需要就先导出备份」——**这句话在写下的时候就是假的**，备份从来不含 `admin_audit_logs` 与 `model_probe_results`，等于引导运维走一条不存在的退路。现改为明确说明备份不保留它们、理由见备份段、需要就自己用数据库工具 dump。
+- **库里一条读不出来的设置行不再清空已配置的值（#1173）**：`payload_rules` / `openai_service_tier_rules` / `checkin_schedule_mode` / `notify_task_toggles` 的水合分支此前把解析结果**直接赋值**，而解析器用 `nil` 编码失败 ⇒ 一条坏行会在下次重启时把**已经配置好的规则集清空**，日志里一个字都没有；另有两条分支丢弃坏行时不告警，库里的行与 `GET /api/settings/runtime` 从此长期互相矛盾。`notify_task_toggles` 的后果最直接——`service/notify` 是「缺键=放行」，静默丢弃等于重启后所有静音失效。现在读得懂才赋值，读不懂**保留既有值** + 一条 WARN（键名 / 原因 / 保留值的**形状**，不回显整块 blob）。`checkin_schedule_mode` 的保留是必须而非偷懒：未知 mode 被启动校验判为 critical（启动即退出），把坏行灌进快照等于把一条坏数据升级成启动失败。
+- **显式清空仍然可用，并被测试锁住（#1173）**：JSON `null` 与 `[]` 是**可读的意图**（"no rules"），照常赋值——UI 清空 textarea 走的正是这条路径。坏行也不是纯理论：备份导入只校验单元格标量类型与字节上限、不校验语义，这 4 个键都不在跳过集里且插入是 `ON CONFLICT DO NOTHING` ⇒ 导入可以**新种**坏行；`notify_task_toggles` 的 admin 写路径只 marshal 不校验形状，直连 API 发 `{"notifyTaskToggles":"all"}` 得 200 并落库，而随后的再水合因解析失败不更新 runtime ⇒ 落库值与快照长期不一致、全程无日志，不需要手改表就能复现。
+- **启动/水合日志因此可能新增 WARN 行（#1173）**：那是此前静默的不一致第一次变得可见。
+
+### 开发者可见
+
+- **竞态门在 CI 里真的跑起来了（#1175）**：`test-sqlite-shard` 的分片算术把 `matrix.total` / `matrix.shard` 当裸字面量写进了 bash（缺 `${{ }}`）。bash 对每个包报一次语法错误，但那个 `(( ))` 位于 `if` 条件中、而 **`set -e` 对条件命令不生效**，于是错误被吞掉、分片选到 0 个包、走进 `no packages in shard; nothing to run` 分支 `exit 0`。四个分片与聚合出的必选检查 `test-sqlite` 全绿，**执行的测试数量是 0**——从引入分片矩阵的那个提交（首次发布于 v0.14.0）一直到 v0.17.0，共 **30 个 tag**。该窗口里唯一真在执行 Go 套件的是不分片的 `test-pg`，而它不带 `-race`，所以竞态检测在这三周里从 CI 完全消失；仓库自带的本地 race 门（`scripts/go-race.sh`，全量不分片）本身是好的，但它只挂在 pre-push hook 上，逃生一次就等于这道门没跑。
+- **修复分三层，每层都让「静默变绿」在结构上不可能再发生**：两个 matrix 值改经 `env` 绑定（配合 `set -u`，将来谁再弄丢 `${{ }}`，报的是 `unbound variable` 而不是安静地少选包）· 轮转槽位改成独立的 `$(( ))` 赋值而**不再是 `if (( ... ))` 条件**（畸形选择器直接中止 step，而不是藏在条件里被吞掉）· 断言本片应得的包数 `ceil((N - S) / T)`，**选少了和选不到一样红**，空分片从「一次免费通过」改成错误。真实 49 个包上实测四片分别选到 13 / 12 / 12 / 12，并集等于全量、无重复无遗漏；四条守卫逐一挑发全部非零退出。复活后四分片的实测时长 57s / 82s / 90s / 440s（修复前整个 job 21 秒、测试步不到 1 秒），并在合并前另做一次全量 `go test ./... -count=1 -race` 复跑：43 个含测试的包全绿、**0 失败 0 竞态**。
+- **`docs/testing.md` 写下这条不变量**与受影响的发布区间，免得守卫被后人当成仪式删掉。`e2e` 的备份用例同时把「导出应有多少张表」从字面量 `28` 改成向注册表取——那曾是仓库里**第四份**手抄清单，注册表化之后它立刻变红，也正是这次 CI 抓出它的。
+
+### 已知遗留（本版未做）
+
+- `PayloadRules` 在 Go 侧没有任何运行时消费者、`OpenAiServiceTierRules` 零读者（连回显都没有），但 `docs/configuration.md` 把它们写成 "Per-model payload rewrite rules" —— **文档超前于实现**（与上一版删掉的 `HOME_PAGE_CONTENT` 同一类，只是这次有个 UI 在读写它）。待裁决：改文档说实情，还是落地规则引擎。
+- `notify_task_toggles` 的 admin 写路径应当对错误形状返 400（本版只让它不再毁掉 runtime）。
+- `catalog_sources` 的导入 URL 闸扩展（扩展后即可解除排除）· PostgreSQL 导入不重置序列（`setval` / `sqlite_sequence` 在导入路径缺位）· 不可解析**数值**行约 20 个分支「静默保留 fallback」，建议在解析器失败路径做一次聚合 WARN · `POST /api/accounts/verify-token` 失败时只回 400、服务端零日志。
+
 ## [v0.17.0] — 2026-09-03
 
 ### 安全
