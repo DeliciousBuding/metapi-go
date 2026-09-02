@@ -448,6 +448,27 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "events", "params", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		// TS takeover hygiene: drizzle datetime('now') wrote
+		// 'YYYY-MM-DD HH:MM:SS' while Go writes RFC3339 UTC. Mixed shapes in
+		// the same TEXT column break every lexicographic comparison (space
+		// sorts before 'T'), so TS-era rows read as older than they are —
+		// ORDER BY listings skew and the checkin sweep re-checkins every
+		// TS-era account on first Go boot. One-shot in-place rewrite to
+		// RFC3339; idempotent (see ts_timestamp_normalize.go).
+		Version:     "sc2_029_ts_timestamp_normalization",
+		Description: "rewrite TS-era 'YYYY-MM-DD HH:MM:SS' values in TEXT *_at/*_until columns to RFC3339 UTC ('...T...Z') so lexicographic ordering and range comparisons agree across takeover rows",
+		Apply: func(db *DB) error {
+			n, err := normalizeLegacyTimestamps(db)
+			if err != nil {
+				return err
+			}
+			if n > 0 {
+				slog.Info("store: normalized legacy TS timestamps", "rows", n, "dialect", db.Dialect)
+			}
+			return nil
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.
