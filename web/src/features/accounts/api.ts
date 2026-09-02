@@ -1,7 +1,13 @@
 // metapi-go features/accounts/api — TanStack Query hooks for the accounts
 // domain. Establishes the query-key conventions for the rewrite:
-//   ['accounts']               — snapshot list (GET /api/accounts)
+//   ['accounts']                — factory root; the invalidation prefix
+//   ['accounts','snapshot']     — snapshot list (GET /api/accounts)
+//   ['accounts','page',{…}]     — one server-paged table page: what the
+//                                 /accounts table actually renders
+//   ['accounts','detail',id]    — a single account
 //   ['account-tokens', id]      — tokens for an account (see tokens/api.ts)
+// `page` and `snapshot` are siblings, so cache writes that must reach the
+// table go through `accountQueryKeys.pages()` (or `.all`), never `.snapshot()`.
 //
 // Mutations wrap the flat `api` object from @/lib/api. The shared axios layer
 // in @/lib/http-client already toasts business errors ({success:false}) and
@@ -39,6 +45,15 @@ import type {
 export const accountQueryKeys = {
   all: ['accounts'] as const,
   snapshot: () => [...accountQueryKeys.all, 'snapshot'] as const,
+  /**
+   * Prefix of every server-paged table cache produced by `page(…)`.
+   *
+   * `page` and `snapshot` are SIBLINGS under `all`, so neither is a prefix of
+   * the other: anything that has to reach the /accounts table (invalidation,
+   * optimistic patching) targets `all` or `pages()` — never `snapshot()`
+   * alone, which the table does not read.
+   */
+  pages: () => [...accountQueryKeys.all, 'page'] as const,
   page: (
     pageIndex: number,
     pageSize: number,
@@ -397,15 +412,67 @@ export function useBatchUpdateAccounts() {
 // ---------------------------------------------------------------------------
 // Field-level toggle mutations
 //
-// All three toggles run the sites-feature optimistic pattern: onMutate
-// patches the snapshot row in place (instant flip), onError rolls the cache
-// back to the pre-mutation snapshot, and onSettled invalidates so the server
-// truth wins either way. The row stays interactive — the optimistic flip IS
-// the feedback; the accounts page keeps its mutation-derived per-row pending
-// spinner for the status toggle.
+// All three toggles run the oauth-connections optimistic pattern: onMutate
+// snapshots every cache it is about to touch, patches the row in all of them
+// (instant flip), onError restores each patched key from that snapshot, and
+// onSettled invalidates so the server truth wins either way. The row stays
+// interactive — the optimistic flip IS the feedback; the accounts page keeps
+// its mutation-derived per-row pending spinner for the status toggle.
+//
+// The /accounts table reads `accountQueryKeys.page(…)`, so the PAGED caches are
+// the ones that must flip; the snapshot is patched as well because it has its
+// own mounted consumers (sites / check-in / routes / downstream-keys pages)
+// rendering the same three fields.
 // ---------------------------------------------------------------------------
 
-type AccountToggleContext = { previous: AccountsSnapshot | undefined }
+type AccountToggleContext = {
+  previousPages: Array<[readonly unknown[], AccountsPageData | undefined]>
+  previousSnapshot: AccountsSnapshot | undefined
+}
+
+function isAccountRow(row: unknown, accountId: number): boolean {
+  return (
+    typeof row === 'object' &&
+    row !== null &&
+    Number((row as { id?: unknown }).id) === accountId
+  )
+}
+
+/**
+ * Flip one account row inside every cached page payload. Page rows are the raw
+ * server objects the table parses per render (`parseAccountRow`), so the patch
+ * builds a NEW row object — the WeakMap parse cache keys off object identity
+ * and re-parses the patched copy instead of returning the stale parse.
+ */
+function patchAccountInPages(
+  queryClient: QueryClient,
+  accountId: number,
+  patch: Partial<Account>
+) {
+  queryClient.setQueriesData<AccountsPageData>(
+    { queryKey: accountQueryKeys.pages() },
+    (current) => {
+      if (!current) return current
+      const patchRows = (rows: object[]): object[] =>
+        rows.map((row) =>
+          isAccountRow(row, accountId)
+            ? { ...(row as Record<string, unknown>), ...patch }
+            : row
+        )
+      return {
+        ...current,
+        // Legacy snapshot-shaped fixtures carry `accounts` instead of `items`
+        // (the page reads `items ?? accounts`), so patch whichever exists.
+        ...(Array.isArray(current.items)
+          ? { items: patchRows(current.items) }
+          : {}),
+        ...(Array.isArray(current.accounts)
+          ? { accounts: patchRows(current.accounts) }
+          : {}),
+      }
+    }
+  )
+}
 
 function patchAccountInSnapshot(
   queryClient: QueryClient,
@@ -426,12 +493,41 @@ function patchAccountInSnapshot(
   )
 }
 
-function rollbackSnapshot(
+/**
+ * Cancel in-flight fetches for both caches, remember their current payloads
+ * (per page key — there is one cache per filter/pagination combination) and
+ * apply the optimistic patch. Returns the rollback context.
+ */
+async function beginAccountToggle(
+  queryClient: QueryClient,
+  accountId: number,
+  patch: Partial<Account>
+): Promise<AccountToggleContext> {
+  await queryClient.cancelQueries({ queryKey: accountQueryKeys.pages() })
+  await queryClient.cancelQueries({ queryKey: accountQueryKeys.snapshot() })
+  const previousPages = queryClient.getQueriesData<AccountsPageData>({
+    queryKey: accountQueryKeys.pages(),
+  })
+  const previousSnapshot = queryClient.getQueryData<AccountsSnapshot>(
+    accountQueryKeys.snapshot()
+  )
+  patchAccountInPages(queryClient, accountId, patch)
+  patchAccountInSnapshot(queryClient, accountId, patch)
+  return { previousPages, previousSnapshot }
+}
+
+function rollbackAccountToggle(
   queryClient: QueryClient,
   context: AccountToggleContext | undefined
 ) {
-  if (context?.previous) {
-    queryClient.setQueryData(accountQueryKeys.snapshot(), context.previous)
+  for (const [queryKey, previous] of context?.previousPages ?? []) {
+    queryClient.setQueryData(queryKey, previous)
+  }
+  if (context?.previousSnapshot) {
+    queryClient.setQueryData(
+      accountQueryKeys.snapshot(),
+      context.previousSnapshot
+    )
   }
 }
 
@@ -442,16 +538,10 @@ export function useToggleAccountPin() {
       const result = await api.updateAccount(id, { isPinned })
       return assertBusinessOk(result, 'accounts.toast.pinFailed')
     },
-    onMutate: async ({ id, isPinned }) => {
-      await queryClient.cancelQueries({ queryKey: accountQueryKeys.snapshot() })
-      const previous = queryClient.getQueryData<AccountsSnapshot>(
-        accountQueryKeys.snapshot()
-      )
-      patchAccountInSnapshot(queryClient, id, { isPinned })
-      return { previous }
-    },
+    onMutate: ({ id, isPinned }) =>
+      beginAccountToggle(queryClient, id, { isPinned }),
     onError: (_error, _variables, context) => {
-      rollbackSnapshot(queryClient, context)
+      rollbackAccountToggle(queryClient, context)
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
@@ -472,16 +562,10 @@ export function useToggleAccountStatus() {
       const result = await api.updateAccount(id, { status })
       return assertBusinessOk(result, 'accounts.toast.statusFailed')
     },
-    onMutate: async ({ id, status }) => {
-      await queryClient.cancelQueries({ queryKey: accountQueryKeys.snapshot() })
-      const previous = queryClient.getQueryData<AccountsSnapshot>(
-        accountQueryKeys.snapshot()
-      )
-      patchAccountInSnapshot(queryClient, id, { status })
-      return { previous }
-    },
+    onMutate: ({ id, status }) =>
+      beginAccountToggle(queryClient, id, { status }),
     onError: (_error, _variables, context) => {
-      rollbackSnapshot(queryClient, context)
+      rollbackAccountToggle(queryClient, context)
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
@@ -502,16 +586,10 @@ export function useToggleAccountCheckin() {
       const result = await api.updateAccount(id, { checkinEnabled })
       return assertBusinessOk(result, 'accounts.toast.checkinFailed')
     },
-    onMutate: async ({ id, checkinEnabled }) => {
-      await queryClient.cancelQueries({ queryKey: accountQueryKeys.snapshot() })
-      const previous = queryClient.getQueryData<AccountsSnapshot>(
-        accountQueryKeys.snapshot()
-      )
-      patchAccountInSnapshot(queryClient, id, { checkinEnabled })
-      return { previous }
-    },
+    onMutate: ({ id, checkinEnabled }) =>
+      beginAccountToggle(queryClient, id, { checkinEnabled }),
     onError: (_error, _variables, context) => {
-      rollbackSnapshot(queryClient, context)
+      rollbackAccountToggle(queryClient, context)
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })

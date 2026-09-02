@@ -8,6 +8,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import i18n from '@/i18n/config'
+
 import {
   buildChatPayload,
   resolveTestResponseError,
@@ -133,6 +135,38 @@ describe('resolveTestResponseError', () => {
   it('falls back to HTTP status when the body is not JSON', async () => {
     const response = new Response('plain text body', { status: 500 })
     expect(await resolveTestResponseError(response)).toBe('plain text body')
+  })
+
+  it('only returns keys that BOTH locales translate (no raw key in the UI)', async () => {
+    // model-tester-page.tsx hands these strings to `t(rawMessage)`, so a key
+    // missing from a locale renders literally in the error panel: the 401/403
+    // branch shipped `modelTester.error.sessionExpired` with no locale entry
+    // at all, and the 501 branch working hid it. `getResource` reads the
+    // bundle directly because `t()` would mask a missing zh-CN entry behind
+    // the en fallback.
+    const keys = [
+      await resolveTestResponseError(new Response('{}', { status: 401 })),
+      await resolveTestResponseError(new Response('{}', { status: 403 })),
+      await resolveTestResponseError(new Response('{}', { status: 501 })),
+    ]
+
+    // Locale bundles are lazy-loaded per language — load both before reading.
+    await i18n.changeLanguage('zhCN')
+    await i18n.changeLanguage('en')
+
+    for (const key of keys) {
+      expect(key.startsWith('modelTester.')).toBe(true)
+      expect(
+        i18n.getResource('en', 'translation', key),
+        `en.json missing ${key}`
+      ).toBeTruthy()
+      expect(
+        i18n.getResource('zhCN', 'translation', key),
+        `zh-CN.json missing ${key}`
+      ).toBeTruthy()
+      // And the active language really renders copy, not the key echoed back.
+      expect(i18n.t(key)).not.toBe(key)
+    }
   })
 })
 

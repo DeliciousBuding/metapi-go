@@ -312,7 +312,8 @@
       "error": {
         "stopped": "请求已停止。",
         "unknown": "发生未知错误。",
-        "notAvailable": "模型测试暂不可用：请选择渠道，通过强制渠道测试通道发起测试。"
+        "notAvailable": "模型测试暂不可用：请选择渠道，通过强制渠道测试通道发起测试。",
+        "sessionExpired": "会话已过期，请重新登录。"
       },
       "viewer": {
         "title": "响应",
@@ -2125,7 +2126,9 @@
         "unavailableBadge": "不可用",
         "disabledBadge": "已停用",
         "removeAria": "移除 {{name}}",
+        "refreshFailed": "服务端未返回失败原因",
         "refreshFailedInline": "刷新失败：{{message}}",
+        "manualFailed": "服务端未返回失败原因",
         "manualFailedInline": "手动模型更新失败：{{message}}",
         "placeholder": "模型名称，如 gpt-4o",
         "inputAria": "新手动模型名称",
