@@ -748,7 +748,12 @@ func (h *settingsHandler) applyFilterSettings(body map[string]any) *settingsAppl
 			}
 		}
 		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.AdminIpAllowlist = list })
-		upsertSettingDB(h.db, "admin_ip_allowlist", list)
+		// A failed persist must not look like success: the allowlist would be
+		// live until the next restart and then silently revert to the env
+		// value, re-opening the admin API to every IP.
+		if err := upsertSettingDB(h.db, "admin_ip_allowlist", list); err != nil {
+			return failSettings(http.StatusInternalServerError, "failed to save admin IP allowlist")
+		}
 	}
 
 	// Global blocked brands
@@ -796,7 +801,11 @@ func (h *settingsHandler) applyFilterSettings(body map[string]any) *settingsAppl
 			}
 		}
 		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyErrorKeywords = keywords })
-		upsertSettingDB(h.db, "proxy_error_keywords", keywords)
+		// Same reasoning as the allowlist above: the two neighbouring filters
+		// in this function already report persist failures.
+		if err := upsertSettingDB(h.db, "proxy_error_keywords", keywords); err != nil {
+			return failSettings(http.StatusInternalServerError, "failed to save proxy error keywords")
+		}
 	}
 
 	// Payload rules

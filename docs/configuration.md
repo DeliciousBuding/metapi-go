@@ -65,7 +65,7 @@ knob a deployment is likely to touch. Docker Compose users pass these via
 | `CHECKIN_WINDOW_START` / `CHECKIN_WINDOW_END` | `00:00` / `23:59` | Random-window mode bounds. |
 | `BALANCE_REFRESH_CRON` | `0 * * * *` | Balance refresh cron (hourly). |
 | `LOG_CLEANUP_CRON` | `0 6 * * *` | Retention pruning cron. |
-| `LOG_CLEANUP_USAGE_LOGS_ENABLED` / `LOG_CLEANUP_PROGRAM_LOGS_ENABLED` | auto | Which log families the cleanup prunes. |
+| `LOG_CLEANUP_USAGE_LOGS_ENABLED` / `LOG_CLEANUP_PROGRAM_LOGS_ENABLED` | `false` | Which log families the cleanup prunes. Off by default: the cleanup regime owns the log tables only when a toggle is `true` here or an admin-saved log-cleanup setting exists; otherwise the legacy `PROXY_LOG_RETENTION_DAYS` pruner handles proxy logs. `LOG_CLEANUP_RETENTION_DAYS` / `LOG_CLEANUP_CRON` alone do not switch the regime, and an explicit `false` never does. Startup logs the winner as `settings: log retention regime`. |
 | `LOG_CLEANUP_RETENTION_DAYS` | `30` | Proxy/program log retention. |
 | `USAGE_PROJECTION_INTERVAL_MS` | `5000` | Usage-aggregation projection cadence (`proxy_logs` → site/model rollups). Clamped to 1000–3600000 ms; raise it on small single-node deployments to trade dashboard freshness for fewer passes. |
 
