@@ -6,62 +6,58 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
 )
 
 // AllTables is the full backup/export order, with parent tables before
-// children so imports can replay it safely.
-var AllTables = []string{
-	"sites",
-	"site_api_endpoints",
-	"site_disabled_models",
-	"accounts",
-	"account_tokens",
-	"checkin_logs",
-	"model_availability",
-	"token_model_availability",
-	"token_routes",
-	"route_group_sources",
-	"oauth_route_units",
-	"oauth_route_unit_members",
-	"route_channels",
-	"proxy_logs",
-	"proxy_debug_traces",
-	"proxy_debug_attempts",
-	"proxy_video_tasks",
-	"admin_background_tasks",
-	"proxy_files",
-	"settings",
-	"admin_snapshots",
-	"analytics_projection_checkpoints",
-	"site_day_usage",
-	"site_hour_usage",
-	"model_day_usage",
-	"downstream_api_keys",
-	"site_announcements",
-	"events",
+// children so imports can replay it safely. It is derived from the store
+// schema registry minus store.BackupExcludedTables() — the same single source
+// of truth that drives AutoMigrate, cmd/migrate and the factory reset — so a
+// table added to the schema ships in every type=all backup until somebody
+// excludes it by name with a recorded reason. This used to be a hand-copied
+// list that had drifted to 28 of 37 tables: product_announcements,
+// announcement_dismissals, model_name_redirects, balance_history and
+// model_verify_history were silently dropped from every export.
+var AllTables = store.BackupTableNames()
+
+// accountsExportScope names the tables an export of type=accounts carries. It
+// is a scope declaration, not an ordering: AccountsTables below intersects it
+// with the registry-derived backup order, so there is one FK-safe order owner.
+var accountsExportScope = map[string]bool{
+	"sites":                    true,
+	"site_api_endpoints":       true,
+	"site_disabled_models":     true,
+	"accounts":                 true,
+	"account_tokens":           true,
+	"checkin_logs":             true,
+	"model_availability":       true,
+	"token_model_availability": true,
+	"token_routes":             true,
+	"route_group_sources":      true,
+	"oauth_route_units":        true,
+	"oauth_route_unit_members": true,
+	"route_channels":           true,
+	"proxy_video_tasks":        true,
+	"admin_background_tasks":   true,
+	"proxy_files":              true,
+	"downstream_api_keys":      true,
+	"site_announcements":       true,
 }
 
-// AccountsTables is the subset exported when type=accounts.
-var AccountsTables = []string{
-	"sites",
-	"site_api_endpoints",
-	"site_disabled_models",
-	"accounts",
-	"account_tokens",
-	"checkin_logs",
-	"model_availability",
-	"token_model_availability",
-	"token_routes",
-	"route_group_sources",
-	"oauth_route_units",
-	"oauth_route_unit_members",
-	"route_channels",
-	"proxy_video_tasks",
-	"admin_background_tasks",
-	"proxy_files",
-	"downstream_api_keys",
-	"site_announcements",
+// AccountsTables is the subset exported when type=accounts, in the same
+// FK-safe order as AllTables.
+var AccountsTables = filterTables(AllTables, accountsExportScope)
+
+// filterTables keeps the members of scope in the order given by tables.
+func filterTables(tables []string, scope map[string]bool) []string {
+	out := make([]string, 0, len(scope))
+	for _, t := range tables {
+		if scope[t] {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 var ErrInvalidExportType = errors.New("invalid export type; only all/accounts/preferences are supported")
@@ -101,12 +97,43 @@ func BuildPayload(db *sqlx.DB, exportType string) (map[string]any, error) {
 
 	return map[string]any{
 		"metadata": map[string]any{
-			"exported_at": time.Now().UTC().Format(time.RFC3339Nano),
-			"version":     "1.0",
+			"exported_at":     time.Now().UTC().Format(time.RFC3339Nano),
+			"version":         "1.0",
+			"excluded_tables": excludedTablesFor(exportType, tables),
 		},
 		"type":   exportType,
 		"tables": result,
 	}, nil
+}
+
+// excludedTablesFor reports every schema-registry table this payload does NOT
+// carry, keyed by table name with the reason. Two kinds of gap are surfaced:
+// the deliberate backup exclusions (store.BackupExcludedTables) and, for a
+// scoped export type, the tables outside that scope.
+//
+// It lands in metadata.excluded_tables so a backup file states its own gaps
+// instead of leaving an operator to discover them after a restore. The field
+// is purely additive: exported_at and version keep their shape, and both
+// importers (the tables path and the TS v2.1 path) ignore metadata entirely,
+// so existing payloads and existing consumers are unaffected.
+func excludedTablesFor(exportType string, exported []string) map[string]string {
+	inPayload := make(map[string]bool, len(exported))
+	for _, t := range exported {
+		inPayload[t] = true
+	}
+	reasons := store.BackupExcludedTables()
+	out := map[string]string{}
+	for _, t := range store.SchemaTableNames() {
+		if inPayload[t] {
+			continue
+		}
+		if reason, ok := reasons[t]; ok {
+			out[t] = reason
+			continue
+		}
+		out[t] = fmt.Sprintf("not part of the %q export scope", exportType)
+	}
+	return out
 }
 
 func TablesForExportType(exportType string) (string, []string, error) {

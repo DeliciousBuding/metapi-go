@@ -15,10 +15,14 @@ import (
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Test: Backup Export-Import Roundtrip (all 28 tables)
+// Test: Backup Export-Import Roundtrip (seeded tables)
 // ──────────────────────────────────────────────────────────────────────────────
-// Full roundtrip: seed all 28 tables -> export JSON -> factory-reset ->
+// Full roundtrip: seed tables -> export JSON -> factory-reset ->
 // import JSON -> verify all data intact (re-export and compare).
+// The export carries every registry-derived backup table
+// (store.BackupTableNames()); this test seeds the subset in expectedCounts and
+// asserts the rest come back empty. No table count is spelled out here on
+// purpose: the seeded set and the carried set are both owned elsewhere.
 // Uses SQLite :memory: for the DB.
 
 func TestBackupExportImportRoundtrip(t *testing.T) {
@@ -44,7 +48,7 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 	future := time.Now().UTC().Add(30 * 24 * time.Hour).Format("2006-01-02T15:04:05.000Z")
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// Phase 2: Seed all 28 tables with test data (FK-safe order)
+	// Phase 2: Seed the asserted tables with test data (FK-safe order)
 	// ══════════════════════════════════════════════════════════════════════════
 
 	// Table 1: sites (2 rows)
@@ -206,7 +210,7 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 		VALUES (2, 'warn', 'High latency', 'Proxy latency above threshold', 'warn', FALSE, ?)`, now)
 
 	// ──────────────────────────────────────────────────────────────────────────
-	// Verify seed: check row counts for all 28 tables
+	// Verify seed: check row counts for every seeded table
 	// ──────────────────────────────────────────────────────────────────────────
 	expectedCounts := map[string]int{
 		"sites":                            2,
@@ -260,7 +264,7 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 		t.Fatalf("export: expected 'tables' key in payload, got %T", exportPayload["tables"])
 	}
 
-	// Check all 28 tables are present in export.
+	// Check every seeded table is present in the export with its row count.
 	for table, expectedCount := range expectedCounts {
 		rows, ok := tablesRaw[table].([]any)
 		if !ok {
@@ -290,7 +294,8 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 		t.Errorf("export: expected type 'all', got %q", exportType)
 	}
 
-	t.Logf("export: all 28 tables exported successfully")
+	t.Logf("export: %d registry-derived backup tables carried, all %d seeded tables present",
+		len(tablesRaw), len(expectedCounts))
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// Phase 4: Factory reset via /api/settings/maintenance/factory-reset
@@ -330,7 +335,7 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 		t.Errorf("after reset: expected max(sites.id)=0, got %d", nextSiteID)
 	}
 
-	t.Log("factory-reset: all 28 tables truncated, auto-increment reset")
+	t.Logf("factory-reset: all %d seeded tables truncated, auto-increment reset", len(expectedCounts))
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// Phase 5: Import JSON via /api/settings/backup/import
@@ -369,7 +374,7 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 		}
 	}
 
-	t.Log("import: all 28 tables imported successfully")
+	t.Logf("import: all %d seeded tables imported successfully", len(expectedCounts))
 
 	// Admitting new downstream API keys is security-relevant, so an import
 	// that admits one or more keys appends exactly one warning audit event
@@ -470,7 +475,8 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 	// 6d. Verify foreign key integrity: route_channels -> accounts, sites, etc.
 	verifyForeignKeyIntegrity(t, db)
 
-	t.Log("roundtrip: all 28 tables verified — data fully preserved through export->reset->import cycle")
+	t.Logf("roundtrip: all %d seeded tables verified — data fully preserved through export->reset->import cycle",
+		len(expectedCounts))
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -643,9 +649,26 @@ func TestBackupEmptyDatabaseRoundtrip(t *testing.T) {
 	json.Unmarshal(exportRec.Body.Bytes(), &exportPayload)
 	tables, _ := exportPayload["tables"].(map[string]any)
 
-	// All 28 tables present but with empty arrays.
-	if len(tables) != 28 {
-		t.Errorf("empty export: expected 28 tables, got %d", len(tables))
+	// Every registry-derived backup table is present with an empty array. The
+	// expectation comes from store.BackupTableNames() instead of a literal: a
+	// hardcoded count here was the fourth hand-copied table list in the repo,
+	// and it pinned this assertion to the pre-registry export set. Deriving it
+	// means a newly registered table changes the export and the expectation
+	// together.
+	wantTables := store.BackupTableNames()
+	if len(tables) != len(wantTables) {
+		t.Errorf("empty export: expected %d registry-derived backup tables, got %d",
+			len(wantTables), len(tables))
+	}
+	for _, name := range wantTables {
+		rows, ok := tables[name].([]any)
+		if !ok {
+			t.Errorf("empty export: registry backup table %q missing from payload", name)
+			continue
+		}
+		if len(rows) != 0 {
+			t.Errorf("empty export: table %q expected 0 rows, got %d", name, len(rows))
+		}
 	}
 
 	// Factory reset (should succeed even on empty DB).
