@@ -403,9 +403,12 @@ func (c *Config) PostgresSSLMode(dbSsl bool) string {
 	return ""
 }
 
-// §1.7 normalizeTokenRouterFailureCooldownMaxSec:
+// §1.7 NormalizeTokenRouterFailureCooldownMaxSec:
 // !finite || <= 0 → (0, false); trunc → clamp[1, ceiling] → (int, true).
-func normalizeTokenRouterFailureCooldownMaxSec(value float64) (int, bool) {
+// Exported so the settings-table hydration path (store.ApplyRuntimeSettings)
+// clamps a persisted cap exactly like the env path instead of growing a second
+// copy of the rule.
+func NormalizeTokenRouterFailureCooldownMaxSec(value float64) (int, bool) {
 	if math.IsInf(value, 0) || math.IsNaN(value) || value <= 0 {
 		return 0, false
 	}
@@ -678,7 +681,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 
 	// ---- §3.14 Proxy: Token Router ----
 	tokenRouterParsed := parseNumber(get("TOKEN_ROUTER_FAILURE_COOLDOWN_MAX_SEC"), float64(TokenRouterFailureCooldownMaxSecCeiling))
-	if val, ok := normalizeTokenRouterFailureCooldownMaxSec(tokenRouterParsed); ok {
+	if val, ok := NormalizeTokenRouterFailureCooldownMaxSec(tokenRouterParsed); ok {
 		rt.TokenRouterFailureCooldownMaxSec = val
 	} else {
 		rt.TokenRouterFailureCooldownMaxSec = TokenRouterFailureCooldownMaxSecCeiling

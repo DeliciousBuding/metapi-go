@@ -138,13 +138,29 @@ func TestApplyRuntimeSettingsAppliesBranding(t *testing.T) {
 	}
 }
 
-func TestApplyRuntimeSettingsIgnoresEmptyBranding(t *testing.T) {
+// An explicitly persisted blank is an operator decision (the admin write path
+// stores whatever was typed, including ""), not an absent value: dropping it
+// here made a cleared site name reappear as the env value after a restart.
+// Credentials are the deliberate exception and keep their non-empty guard —
+// see TestApplyRuntimeSettingsBlankCredentialsDoNotOverrideConfigured.
+func TestApplyRuntimeSettingsBrandingExplicitEmptyClears(t *testing.T) {
 	rt := &config.RuntimeSettings{SystemName: "keep"}
 	ApplyRuntimeSettings(&config.Config{}, rt, map[string]string{
 		"system_name": `""`,
 	})
+	if rt.SystemName != "" {
+		t.Fatalf("SystemName = %q, want the explicit clear honored", rt.SystemName)
+	}
+}
+
+// A NULL/absent row still means "no opinion" and must not clear anything.
+func TestApplyRuntimeSettingsNullRowKeepsBranding(t *testing.T) {
+	rt := &config.RuntimeSettings{SystemName: "keep"}
+	ApplyRuntimeSettings(&config.Config{}, rt, map[string]string{
+		"system_name": "",
+	})
 	if rt.SystemName != "keep" {
-		t.Fatalf("SystemName = %q, want preserved", rt.SystemName)
+		t.Fatalf("SystemName = %q, want preserved for an empty row", rt.SystemName)
 	}
 }
 
