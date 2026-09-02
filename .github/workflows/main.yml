@@ -210,20 +210,45 @@ jobs:
           name: web-dist
           path: web/dist
       - name: Run tests (shard ${{ matrix.shard }}/${{ matrix.total }})
+        env:
+          # The matrix values are bound to the environment rather than inlined
+          # into the script body. Inlined as bare `matrix.total`, the arithmetic
+          # below became a bash syntax error; because it sat in an `if`
+          # condition it was exempt from `set -e`, so every package was skipped,
+          # the "no packages in shard" branch exited 0, and all four shards
+          # reported success while running zero tests. `set -u` plus the guards
+          # below make any recurrence loud instead of green.
+          SHARD: ${{ matrix.shard }}
+          SHARD_TOTAL: ${{ matrix.total }}
         run: |
           set -euo pipefail
           mapfile -t pkgs < <(go list ./...)
+          if [ "${#pkgs[@]}" -lt "$SHARD_TOTAL" ]; then
+            echo "ERROR: go list returned ${#pkgs[@]} package(s), fewer than the $SHARD_TOTAL shards"
+            exit 1
+          fi
           shard_pkgs=()
           for i in "${!pkgs[@]}"; do
-            if (( i % matrix.total == matrix.shard )); then
+            # Standalone assignment, not an `if (( ... ))` condition: a broken
+            # selector aborts the step under set -e instead of being swallowed.
+            slot=$(( i % SHARD_TOTAL ))
+            if [ "$slot" -eq "$SHARD" ]; then
               shard_pkgs+=("${pkgs[i]}")
             fi
           done
-          if [ "${#shard_pkgs[@]}" -eq 0 ]; then
-            echo "no packages in shard; nothing to run"
-            exit 0
+          # Round-robin over N packages into T shards owes shard S exactly
+          # ceil((N - S) / T) of them. Asserting the number catches a selector
+          # that quietly picks too few, not only one that picks none.
+          want=$(( ( ${#pkgs[@]} - SHARD + SHARD_TOTAL - 1 ) / SHARD_TOTAL ))
+          if [ "${#shard_pkgs[@]}" -ne "$want" ]; then
+            echo "ERROR: shard $SHARD/$SHARD_TOTAL selected ${#shard_pkgs[@]} package(s); round-robin over ${#pkgs[@]} requires $want"
+            exit 1
           fi
-          echo "shard ${{ matrix.shard }} running ${#shard_pkgs[@]} packages:"
+          if [ "${#shard_pkgs[@]}" -eq 0 ]; then
+            echo "ERROR: shard $SHARD/$SHARD_TOTAL selected no packages; refusing to report green"
+            exit 1
+          fi
+          echo "shard $SHARD/$SHARD_TOTAL running ${#shard_pkgs[@]} of ${#pkgs[@]} packages:"
           printf '  %s\n' "${shard_pkgs[@]}"
           go test "${shard_pkgs[@]}" -count=1 -race
 

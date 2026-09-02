@@ -47,6 +47,25 @@ CI is unaffected by this default: `.github/workflows/main.yml` never calls
 -race` with Go's default 10-minute per-package timeout, so raising the local
 gate default cannot weaken CI.
 
+Shard selection is guarded rather than trusted, because a required check that
+runs nothing still reports green. Each `test-sqlite-shard` job binds
+`matrix.shard` / `matrix.total` through the environment, computes its
+round-robin slot in a standalone `$(( ))` assignment, and then asserts the
+number of packages it owes — `ceil((N - S) / T)` over `N = go list ./...`. A
+shard that selects fewer than it owes, or none at all, fails loudly. The
+slot computation is deliberately *not* an `if (( ... ))` condition: a command
+in an `if` condition is exempt from `set -e`, so a malformed selector there is
+swallowed instead of aborting the step.
+
+That guard is load-bearing, not decorative. The revision that introduced the
+shard matrix inlined the matrix values into the arithmetic without `${{ }}`,
+so bash saw `i % matrix.total`, errored once per package, selected nothing,
+and took the `no packages in shard; nothing to run` branch to `exit 0`. All
+four shards and the aggregated `test-sqlite` required check reported success
+while executing zero tests, from v0.14.0 through v0.17.0. `test-pg` (which
+runs `go test ./...` unsharded) was the only job actually executing the Go
+suite in that window, and it does not pass `-race`.
+
 ## Golden snapshot suites (protocol conversion)
 
 Multi-protocol conversion is the most regression-prone surface of the proxy, so
