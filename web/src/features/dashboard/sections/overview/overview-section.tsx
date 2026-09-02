@@ -18,7 +18,6 @@ import {
   ClipboardList,
   Globe,
   Play,
-  Plus,
   RefreshCw,
   Users,
 } from 'lucide-react'
@@ -60,6 +59,7 @@ import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
 import { AnnouncementBanner } from '../../components/announcement-banner'
+import { OnboardingChecklist } from '../../components/onboarding-checklist'
 import { StatCard } from '../../components/stat-card'
 import { TodaySnapshotStrip } from '../../components/today-snapshot'
 
@@ -461,27 +461,11 @@ export function OverviewSection() {
 
       <TodaySnapshotStrip />
 
-      {siteCount === 0 && (
-        <Card className='ring-primary/40 bg-primary/5'>
-          <CardContent className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
-            <div className='space-y-1'>
-              <h2 className='text-base font-semibold'>
-                {t('dashboard.onboarding.title')}
-              </h2>
-              <p className='text-muted-foreground text-sm'>
-                {t('dashboard.onboarding.description')}
-              </p>
-            </div>
-            <Button
-              className='self-start sm:self-auto'
-              render={<Link to='/sites' search={{ create: true }} />}
-            >
-              <Plus className='size-4' />
-              {t('dashboard.onboarding.createSite')}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Four-step journey checklist (site → account → route → key). Owns its
+          own visibility: renders only while a count is known AND a step is
+          still empty, so it neither flashes on first paint nor outstays the
+          finished setup. */}
+      <OnboardingChecklist siteCount={siteCount} accountCount={totalAccounts} />
 
       {/* Snapshot / balance failures used to render silent "—" cards
           (W19-T1 A4#11): surface them with a retry instead. */}

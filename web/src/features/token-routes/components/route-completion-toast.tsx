@@ -1,6 +1,7 @@
-// metapi-go features/token-routes/components — the guided "configuration
-// complete" toast shown after a route is created. This is the **final step**
-// of the site → account → route guided configuration chain.
+// metapi-go features/token-routes/components — the guided "route ready, issue
+// a key" toast shown after a route is created. Step 3 → step 4 handoff of the
+// site → account → route → key guided configuration chain: routes alone do not
+// make /v1 callable, a downstream key does.
 //
 // Navigation goes through the shared router instance (lib/router) because
 // the toast action outlives the route form component that created it — a
@@ -14,9 +15,15 @@ import { toast } from '@/lib/toast'
 
 /**
  * Fire the post-create guided toast. Call from the create-route form's
- * success handler. The primary CTA takes the operator to Settings →
- * Downstream, where each API key now exposes the one-click client connect
- * surface (endpoint + key + Cherry Studio / CC Switch import).
+ * success handler. The primary CTA takes the operator to the first-class
+ * Downstream Keys page, where keys are issued and each row exposes the
+ * one-click client connect surface (endpoint + key + Cherry Studio /
+ * CC Switch import).
+ *
+ * Destination note: this used to point at `/settings/downstream`, the pre-
+ * promotion home of the same section. The left nav now links
+ * `/downstream-keys`, so the guided chain lands where the operator will look
+ * for it afterwards.
  */
 export function showRouteCompletionToast(
   routeId?: number,
@@ -40,10 +47,7 @@ export function showRouteCompletionToast(
       label: i18n.t('tokenRoutes.completion.connectAction'),
       onClick: async () => {
         const { router } = await import('@/lib/router')
-        await router.navigate({
-          to: '/settings/$subarea',
-          params: { subarea: 'downstream' },
-        })
+        await router.navigate({ to: '/downstream-keys' })
       },
     },
   })

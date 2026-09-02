@@ -867,8 +867,31 @@
       },
       "onboarding": {
         "title": "欢迎使用 Metapi",
-        "description": "创建你的第一个站点，开始聚合 AI API。",
-        "createSite": "创建站点"
+        "description": "四步打通调用链路：站点 → 账号 → 路由 → 密钥。",
+        "createSite": "创建站点",
+        "createAccount": "添加账号",
+        "createRoute": "添加路由",
+        "createKey": "签发密钥",
+        "stepDone": "已完成",
+        "stepPending": "待完成",
+        "steps": {
+          "sites": {
+            "title": "站点",
+            "hint": "接入上游 AI 平台，作为账号与凭证的来源。"
+          },
+          "accounts": {
+            "title": "账号",
+            "hint": "在站点下添加账号，提供可调用的上游凭证。"
+          },
+          "routes": {
+            "title": "路由",
+            "hint": "配置模型路由，把请求分发到账号通道。"
+          },
+          "keys": {
+            "title": "密钥",
+            "hint": "签发下游 API 密钥，客户端用它调用 /v1。"
+          }
+        }
       },
       "traffic": {
         "loadError": "加载收支数据失败。",
@@ -1369,8 +1392,11 @@
             "keyHint": "sk- 前缀。点击「生成」获取随机高熵密钥。",
             "groupName": "分组名",
             "maxRequests": "最大请求数",
+            "maxRequestsHint": "该密钥累计可受理的请求总数（不是每分钟窗口）。留空或填 0 表示不限制；达到上限后调用返回 429，清空或调高上限即可恢复。",
             "maxCost": "最大成本",
+            "maxCostHint": "该密钥累计花费上限，单位 USD（按模型定价估算的 token 成本，仅成功请求计入）。留空或填 0 表示不限制；达到上限后调用返回 429，清空或调高上限即可恢复。",
             "expiresAt": "过期时间",
+            "expiresAtHint": "按浏览器本地时间填写，保存后以 UTC 存储与比较。过期后密钥立即失效，调用返回 403；留空表示永不过期。",
             "enabled": "启用",
             "description": "备注"
           },
@@ -1380,6 +1406,8 @@
           },
           "toast": {
             "created": "API 密钥已创建。",
+            "createdConnectHint": "现在就能接入客户端：复制密钥或使用一键导入。",
+            "connectAction": "立即接入",
             "createFailed": "创建 API 密钥失败。",
             "updated": "API 密钥已更新。",
             "updateFailed": "更新 API 密钥失败。",
@@ -2123,7 +2151,9 @@
         "chainContextSuffix": "配置路由。添加一条路由即可完成配置动线。",
         "loadError": "加载路由失败：{{message}}",
         "emptyTitle": "暂无路由",
-        "emptyDescription": "添加一条路由开始配置，或点击「自动重建」让系统按账号模型生成路由。",
+        "emptyDescription": "添加一条路由开始配置，或点击「自动重建」让系统按账号模型生成路由。路由建好后签发下游密钥，客户端即可通过 /v1 调用。",
+        "nextStepBody": "路由已就绪，但还没有下游密钥 —— 签发一个，客户端即可用它调用 /v1。",
+        "nextStepAction": "签发下游密钥",
         "searchPlaceholder": "搜索模型 / 名称…",
         "filterStatusTitle": "状态",
         "filterStatusEnabled": "启用",
@@ -2256,12 +2286,12 @@
         "fallbackToken": "令牌 #{{id}}"
       },
       "completion": {
-        "title": "配置动线完成",
-        "chainComplete": "站点 → 账号 → 路由配置动线已完成。",
-        "flowComplete": "配置动线已完成。",
+        "title": "路由已就绪",
+        "chainComplete": "站点 → 账号 → 路由已打通 —— 最后一步：签发下游密钥，客户端即可通过 /v1 调用。",
+        "flowComplete": "下一步：签发下游密钥，客户端即可通过 /v1 调用。",
         "withRouteId": "路由 #{{id}} 已创建。{{suffix}}",
         "withoutRouteId": "路由已创建。{{suffix}}",
-        "connectAction": "接入客户端"
+        "connectAction": "签发下游密钥"
       },
       "toast": {
         "updated": "路由已更新",

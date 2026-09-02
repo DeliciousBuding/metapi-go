@@ -35,6 +35,7 @@ import { toast } from '@/lib/toast'
 
 import { parseIdArray, serializeCredentialRefs } from '../lib/credential-refs'
 import { CredentialRefPicker } from './credential-ref-picker'
+import { showKeyCreatedToast } from './key-created-toast'
 import {
   CREATE_FORM_ID,
   blankKeyFormValues,
@@ -43,6 +44,7 @@ import {
   editKeySchema,
   generateDownstreamSkSuffix,
   keyFormValuesFromItem,
+  localDatetimeInputToIso,
   normalizeModelRules,
   resolveApiErrorMessage,
   type CreateDownstreamKeyResponse,
@@ -322,8 +324,11 @@ export function KeySheetForm({
           values.excludedCredentialRefs
         ),
       }
+      // expiresAt goes out as RFC3339 UTC: the server only enforces an
+      // expiry it can parse (see localDatetimeInputToIso).
+      const expiresAt = localDatetimeInputToIso(values.expiresAt ?? '')
       if (!editingKey) {
-        return api.createDownstreamApiKey({ ...values, ...policy })
+        return api.createDownstreamApiKey({ ...values, ...policy, expiresAt })
       }
       return api.updateDownstreamApiKey(editingKey.id, {
         name: values.name,
@@ -331,7 +336,7 @@ export function KeySheetForm({
         maxRequests: values.maxRequests,
         maxCost: values.maxCost,
         enabled: values.enabled,
-        expiresAt: values.expiresAt,
+        expiresAt,
         supportedModels: values.supportedModels,
         allowedSiteIds: values.allowedSiteIds,
         ...policy,
@@ -341,27 +346,31 @@ export function KeySheetForm({
       void queryClient.invalidateQueries({
         queryKey: downstreamKeysQueryKeys.all,
       })
-      toast.success(
-        isEdit
-          ? t('settings.downstream.keys.toast.updated')
-          : t('settings.downstream.keys.toast.created')
-      )
-      if (!isEdit) {
-        // Auto-open the Connect dialog for the freshly created key. The
-        // dialog target only needs id/name/keyMasked, which the create
-        // response carries under `item`; the plaintext key itself is pulled
-        // by the dialog's own export query. When the response lacks the row
-        // (older/unexpected payloads) nothing is fabricated — the success
-        // toast above stays the only feedback.
-        const createdItem = (result as CreateDownstreamKeyResponse | undefined)
-          ?.item
-        if (createdItem && createdItem.id > 0) {
-          onCreated?.({
-            id: createdItem.id,
-            name: createdItem.name || values.name,
-            keyMasked: createdItem.keyMasked,
-          })
+      if (isEdit) {
+        toast.success(t('settings.downstream.keys.toast.updated'))
+        onDone()
+        return
+      }
+      // Auto-open the Connect dialog for the freshly created key. The
+      // dialog target only needs id/name/keyMasked, which the create
+      // response carries under `item`; the plaintext key itself is pulled
+      // by the dialog's own export query. When the response lacks the row
+      // (older/unexpected payloads) nothing is fabricated — a plain success
+      // toast stays the only feedback.
+      const createdItem = (result as CreateDownstreamKeyResponse | undefined)
+        ?.item
+      if (createdItem && createdItem.id > 0) {
+        const target: CredentialExportTarget = {
+          id: createdItem.id,
+          name: createdItem.name || values.name,
+          keyMasked: createdItem.keyMasked,
         }
+        onCreated?.(target)
+        // Journey step 4 closes here: the toast carries a "connect now"
+        // action that reopens the dialog, so dismissing it is not a dead end.
+        showKeyCreatedToast(target, (reopen) => onCreated?.(reopen))
+      } else {
+        toast.success(t('settings.downstream.keys.toast.created'))
       }
       onDone()
     },
@@ -582,6 +591,9 @@ export function KeySheetForm({
                   <FormLabel>
                     {t('settings.downstream.keys.fields.maxRequests')}
                   </FormLabel>
+                  <FormDescription>
+                    {t('settings.downstream.keys.fields.maxRequestsHint')}
+                  </FormDescription>
                   <FormControl>
                     <Input
                       {...field}
@@ -603,6 +615,9 @@ export function KeySheetForm({
                   <FormLabel>
                     {t('settings.downstream.keys.fields.maxCost')}
                   </FormLabel>
+                  <FormDescription>
+                    {t('settings.downstream.keys.fields.maxCostHint')}
+                  </FormDescription>
                   <FormControl>
                     <Input
                       {...field}
@@ -626,6 +641,9 @@ export function KeySheetForm({
                 <FormLabel>
                   {t('settings.downstream.keys.fields.expiresAt')}
                 </FormLabel>
+                <FormDescription>
+                  {t('settings.downstream.keys.fields.expiresAtHint')}
+                </FormDescription>
                 <FormControl>
                   <Input
                     {...field}

@@ -115,6 +115,33 @@ function isoToLocalDatetimeInput(iso?: string | null): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+/**
+ * datetime-local input value ("YYYY-MM-DDTHH:MM", browser local time) to the
+ * wire format the backend actually enforces.
+ *
+ * Why this exists: `expires_at` is only enforced when the server can parse it.
+ * handler/admin/downstream_keys_normalize.go `normalizeExpiresAt` stores an
+ * unparseable value verbatim, and auth/downstream.go `parseISO8601` skips the
+ * expiry check entirely on a parse error (TS parity, locked by
+ * auth/downstream_test.go TestExpiration_InvalidDateFormat). A bare
+ * minute-precision local value parses nowhere in that chain — verified against
+ * a live server: a key expiring in 2020 still served /v1/models with HTTP 200.
+ * Both parsers accept RFC3339, which needs seconds + an offset, so that is
+ * what we send.
+ *
+ * Empty stays empty on purpose: create stores ""/NULL and update normalizes
+ * "" to NULL, both meaning "never expires" — and the update path relies on the
+ * key being present in the body to clear an existing expiry.
+ */
+export function localDatetimeInputToIso(value: string): string {
+  if (!value) return ''
+  const date = new Date(value)
+  // Unparseable input is passed through unchanged rather than dropped, so a
+  // value this helper does not understand never silently becomes "no expiry".
+  if (Number.isNaN(date.getTime())) return value
+  return date.toISOString()
+}
+
 export function normalizeModelRules(value: unknown): string[] {
   let rawRules: unknown[] = []
   if (Array.isArray(value)) {

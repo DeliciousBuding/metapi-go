@@ -48,6 +48,7 @@ import { RouteDetailSheet } from './route-detail-sheet'
 import { RouteFormDialog, type RouteAccountOption } from './route-form-dialog'
 import { useRoutesColumns } from './routes-columns'
 import { RoutesHeaderActions } from './routes-header-actions'
+import { RoutesKeyNextStep } from './routes-key-next-step'
 
 const DEFAULT_PAGE_SIZE = 20
 
@@ -442,6 +443,12 @@ export function RoutesPage() {
           {t('tokenRoutes.page.chainContextSuffix')}
         </div>
       )}
+
+      {/* Journey step 3 → 4: mounted only when there is something to hand
+          off. The component owns its own "no key issued yet" check and stays
+          silent while that count is unknown, so this never adds a banner to
+          the empty state or to a deployment that already has keys. */}
+      {routes.length > 0 && <RoutesKeyNextStep />}
 
       <DataTablePage
         table={table}

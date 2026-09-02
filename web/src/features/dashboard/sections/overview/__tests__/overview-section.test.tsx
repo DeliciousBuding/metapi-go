@@ -1,21 +1,27 @@
-// Behavior test for the dashboard overview onboarding banner.
+// Behavior test for the dashboard overview onboarding checklist.
 //
 // Closes the first-time-landing dead-end (user-perspective #1): a first-time
-// user with zero sites sees a "Create site" CTA that deep-links to /sites.
-// Asserts:
-//   (a) the banner + CTA render when the dashboard snapshot reports zero
-//       sites, and the CTA points at /sites;
-//   (b) the banner is absent once the user has at least one site;
-//   (c) the banner does not flash while the snapshot is still loading
+// user sees the journey and the one next action. The panel grew from a
+// single-step "zero sites → Create site" banner into the four-step
+// site → account → route → key checklist, because the old banner retired at
+// the first site and left the remaining three steps unguided. Asserts:
+//   (a) the checklist + CTA render on a fresh deployment, and the CTA
+//       deep-links to /sites;
+//   (b) the CTA ADVANCES (rather than the panel disappearing) once a step is
+//       built, and the panel retires only when all four are;
+//   (c) the panel does not flash while the snapshot is still loading
 //       (siteCount undefined) — no false "empty state" before the first byte.
 //
-// The dashboard snapshot query (api.getDashboardSnapshot) is the SOLE signal
-// for the empty state — no extra query is added. Sibling overview widgets
-// (AnnouncementBanner, TodaySnapshotStrip, StatCard) are stubbed so the test
-// exercises the OverviewSection banner wiring in isolation; each sibling has
-// its own coverage. TodaySnapshotStrip pulls a live WebSocket (useRealtimeOps)
-// and StatCard uses requestAnimationFrame (CountUp) + recharts — both are
-// browser/animation boundaries outside the banner behavior under test.
+// Counts come from existing admin endpoints only: sites/accounts from the
+// dashboard snapshot this section already fetches, routes from the
+// token-routes summary query, keys from the downstream-keys list query (both
+// stubbed here — onboarding-checklist.test.tsx covers their state matrix).
+// Sibling overview widgets (AnnouncementBanner, TodaySnapshotStrip, StatCard)
+// are stubbed so the test exercises the OverviewSection wiring in isolation;
+// each sibling has its own coverage. TodaySnapshotStrip pulls a live WebSocket
+// (useRealtimeOps) and StatCard uses requestAnimationFrame (CountUp) +
+// recharts — both are browser/animation boundaries outside the behavior under
+// test.
 
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -40,7 +46,17 @@ vi.mock('@/lib/api', () => ({
     getBalanceHistory: vi.fn(),
     getSchedulerStatus: vi.fn(),
     probeModelsNow: vi.fn(),
+    getDownstreamApiKeys: vi.fn(),
   },
+}))
+
+// The onboarding checklist reads its route count off the token-routes summary
+// query; the key count comes from the api mock above.
+const onboardingState = vi.hoisted(() => ({
+  routes: [] as unknown[],
+}))
+vi.mock('@/features/token-routes', () => ({
+  useRoutes: () => ({ data: onboardingState.routes }),
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -77,6 +93,7 @@ const mockGetDashboardSnapshot = vi.mocked(api.getDashboardSnapshot)
 const mockGetBalanceHistory = vi.mocked(api.getBalanceHistory)
 const mockGetSchedulerStatus = vi.mocked(api.getSchedulerStatus)
 const mockProbeModelsNow = vi.mocked(api.probeModelsNow)
+const mockGetDownstreamApiKeys = vi.mocked(api.getDownstreamApiKeys)
 
 function createQueryClient() {
   return new QueryClient({
@@ -98,57 +115,93 @@ beforeEach(() => {
   mockGetBalanceHistory.mockReset()
   mockGetSchedulerStatus.mockReset()
   mockProbeModelsNow.mockReset()
-  // Non-banner queries resolve to empty-but-valid shapes so the section
+  mockGetDownstreamApiKeys.mockReset()
+  // Non-checklist queries resolve to empty-but-valid shapes so the section
   // renders without throwing; the snapshot is overridden per test.
   mockGetBalanceHistory.mockResolvedValue({ series: [], days: 8 })
   mockGetSchedulerStatus.mockResolvedValue({ items: [], generatedAt: '' })
+  // Routes + keys default to "none built", so the onboarding checklist can
+  // reach a verdict instead of staying hidden behind an unanswered count.
+  onboardingState.routes = []
+  mockGetDownstreamApiKeys.mockResolvedValue({ items: [] })
 })
 
 afterEach(() => cleanup())
 
-describe('OverviewSection onboarding banner', () => {
-  it('renders the banner + "Create site" CTA when there are zero sites', async () => {
-    mockGetDashboardSnapshot.mockResolvedValue({ siteCount: 0 })
+describe('OverviewSection onboarding checklist', () => {
+  it('renders the four journey steps + "Create site" CTA on a fresh deployment', async () => {
+    mockGetDashboardSnapshot.mockResolvedValue({
+      siteCount: 0,
+      totalAccounts: 0,
+    })
 
     renderWithClient(<OverviewSection />)
 
-    // Wait for the snapshot query to resolve and the banner heading to mount.
+    // Wait for the snapshot query to resolve and the panel heading to mount.
     const heading = await screen.findByRole('heading', {
       name: 'Welcome to Metapi',
       level: 2,
     })
     expect(heading).toBeInTheDocument()
     expect(
-      screen.getByText('Create your first site to start aggregating AI APIs.')
+      screen.getByText(
+        'Four steps to a working call path: sites → accounts → routes → keys.'
+      )
     ).toBeInTheDocument()
 
-    // StatCard links are stubbed, so the only link on the page is the CTA.
+    // The whole journey is listed, not just the first gap — the operator can
+    // see that a key is where this ends (/v1 is not callable without one).
+    const steps = screen.getAllByRole('listitem')
+    expect(steps).toHaveLength(4)
+
     const cta = screen.getByRole('link', { name: /Create site/i })
     expect(cta).toHaveAttribute('href', '/sites')
   })
 
-  it('hides the banner once the user has at least one site', async () => {
-    mockGetDashboardSnapshot.mockResolvedValue({ siteCount: 3 })
+  it('advances the CTA to the next gap instead of retiring at the first site', async () => {
+    // The pre-checklist banner disappeared here (siteCount > 0), which is
+    // exactly the dead end the four-step panel exists to close.
+    mockGetDashboardSnapshot.mockResolvedValue({
+      siteCount: 3,
+      totalAccounts: 0,
+    })
+
+    renderWithClient(<OverviewSection />)
+
+    const cta = await screen.findByRole('link', { name: /Add account/i })
+    expect(cta).toHaveAttribute('href', '/accounts')
+    expect(
+      screen.queryByRole('link', { name: /Create site/i })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Welcome to Metapi' })
+    ).toBeInTheDocument()
+  })
+
+  it('retires the checklist once sites, accounts, routes and keys all exist', async () => {
+    onboardingState.routes = [{ id: 1 }]
+    mockGetDownstreamApiKeys.mockResolvedValue({ items: [{ id: 2 }] })
+    mockGetDashboardSnapshot.mockResolvedValue({
+      siteCount: 3,
+      totalAccounts: 4,
+    })
 
     renderWithClient(<OverviewSection />)
 
     await waitFor(() => {
       expect(mockGetDashboardSnapshot).toHaveBeenCalledTimes(1)
     })
-
     await waitFor(() => {
       expect(
         screen.queryByRole('heading', { name: 'Welcome to Metapi' })
       ).not.toBeInTheDocument()
     })
-    expect(
-      screen.queryByRole('link', { name: /Create site/i })
-    ).not.toBeInTheDocument()
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
   })
 
-  it('does not flash the banner while the snapshot is still loading', async () => {
+  it('does not flash the checklist while the snapshot is still loading', async () => {
     // Never resolves — simulates the loading window before the first byte
-    // lands. siteCount stays undefined, so the banner must not render.
+    // lands. siteCount stays undefined, so the panel must not render.
     mockGetDashboardSnapshot.mockImplementation(
       () => new Promise<{ siteCount: number }>(() => {})
     )
