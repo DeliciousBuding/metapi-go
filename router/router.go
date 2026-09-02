@@ -255,18 +255,28 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 		distFS = rootedFS
 	}
 
-	// /assets/* → legacy Vite asset layout, kept for compatibility with older
-	// builds that still emit dist/assets.
-	mountStaticSubdir(r, distFS, "assets", "/assets/*", "/assets/")
-
 	// /static/* → Rsbuild output: /static/js/*.js (incl. async chunks),
 	// /static/css/*.css and /static/font/*.woff2. index.html references these
 	// paths; without this mount the SPA fallback answered 200 text/html and
 	// nosniff browsers refused the assets (blank embedded UI).
+	//
+	// This is the only asset subtree mounted, and the only one the embedded
+	// build emits. A second mount for /assets/* used to sit here, documented as
+	// "legacy Vite asset layout, kept for compatibility with older builds that
+	// still emit dist/assets" — but the frontend is baked in with //go:embed at
+	// compile time, so a binary carries exactly one dist, built from this
+	// commit. There is no older build to stay compatible with, the embedded
+	// tree has had no assets/ directory since the Rsbuild migration, and the
+	// guard on that mount therefore fired on every startup of every
+	// deployment: a WARN reading "serving disabled" when nothing had been
+	// disabled, sitting on the same line a genuine /static failure would use.
+	// spa_layout_test.go pins the real contract instead — every asset path the
+	// built index.html references must be served as that asset and never as the
+	// fallback HTML — which catches the next layout rename in either direction.
 	mountStaticSubdir(r, distFS, "static", "/static/*", "/static/")
 
 	// Root public files (logo, favicons) copied from web/public into the dist
-	// root. They are NOT under /assets/ or /static/, so serve them explicitly
+	// root. They are NOT under /static/, so serve them explicitly
 	// here — otherwise the SPA fallback answers 200 text/html and <img>
 	// renders blank.
 	rootFiles := map[string]string{
