@@ -230,7 +230,9 @@ Claude 原生格式（`/v1/messages`）、Responses、Embeddings、Images、`/v1
 | [docs/api.md](docs/api.md)                               | HTTP API 端点清单                                     |
 | [docs/migration.md](docs/migration.md)                   | TS → Go 迁移（SQLite / PG / MySQL）                   |
 | [docs/faq.md](docs/faq.md)                               | 常见问题                                              |
-| [docs/architecture.md](docs/architecture.md)             | 包结构与请求路径（开发者）                            |
+| [docs/api/routes-inventory.md](docs/api/routes-inventory.md) | 已注册 `/api` 路由全量清单（由 `docs/api_inventory_parity_test.go` 与代码对账） |
+| [docs/configuration.md](docs/configuration.md)         | 每个环境变量的真实默认值与钳制规则（由 `docs/env_parity_test.go` 与 `.env.example`、`config/config.go` 对账） |
+| [docs/architecture.md](docs/architecture.md)             | 分层与所有权边界、一次 `/v1` 请求经过哪些阶段（改代码或排查归属前读） |
 | [CHANGELOG.md](CHANGELOG.md)                             | 版本变更                                              |
 
 ## 从 TypeScript 版迁移

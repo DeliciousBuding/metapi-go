@@ -1,10 +1,17 @@
 # Architecture Overview
 
-**Last updated**: 2026-08-16
+**Last updated**: 2026-09-03
 
-> **Navigation**: full docs map in [`docs/README.md`](README.md) · open items in [`progress/MASTER.md`](internal/progress/MASTER.md).
+> **Navigation**: full docs map in [`docs/README.md`](README.md) · route list in [`api/routes-inventory.md`](api/routes-inventory.md) · environment variables in [`configuration.md`](configuration.md).
+>
+> Every structural claim below names the package or exported symbol that owns
+> it, so it can be checked with a search instead of trusted. The dependency
+> rules in [Ownership and boundary map](#ownership-and-boundary-map) are
+> enforced by `docs/package_boundary_test.go`; the route claims are enforced
+> by `docs/api_inventory_parity_test.go`; the environment-variable claims are
+> enforced by `docs/env_parity_test.go`.
 
-Metapi Go is a ground-up rewrite of the TypeScript Metapi proxy gateway in Go. This document describes the **as-built** package layout, request paths, and key design decisions. Design philosophy and package dependency rules live in [`docs/internal/design/BACKEND.md`](internal/design/BACKEND.md).
+Metapi Go is a ground-up rewrite of the TypeScript Metapi proxy gateway in Go. This document describes the **as-built** package layout, request paths, and key design decisions. Package dependency rules are stated in full below and machine-enforced by [`docs/package_boundary_test.go`](package_boundary_test.go).
 
 > **Naming truth:** There is **no** `proxycore/` or `protocol/` package in this repository. The proxy engine is `proxy/` (with `proxy/profiles` and `proxy/types`). Protocol conversion is `transform/` (with `openai` [completions/embeddings/images/responses], `gemini`, and `shared`). There is **no** `transform/canonical` intermediate layer — cross-protocol conversion is native (e.g. OpenAI→Gemini) and bypasses any canonical representation. Older docs or TS-era names that say “ProxyCore package” or “protocol package” refer to these real packages.
 
@@ -56,6 +63,178 @@ Metapi Go is a ground-up rewrite of the TypeScript Metapi proxy gateway in Go. T
          │    SQLite (dev) / PG (prod)   │
          └──────────────────────────────┘
 ```
+
+## Ownership and boundary map
+
+The layering is a **denylist of import edges**, not a file inventory: each
+package owns one decision, and the test named below fails the build if a
+package reaches outside its decision. `docs/package_boundary_test.go` is the
+authoritative, executable form of this table — when the two disagree, the test
+is right and this page is stale.
+
+| Package | Decision it owns | Must NOT import |
+|:--------|:-----------------|:----------------|
+| `config` | Env parsing, defaults, clamping, validation. Nothing else reads `os.Getenv` for a documented knob. | (leaf) |
+| `store` | Persistence and dialect differences (SQLite / PostgreSQL), placeholder rebinding. | `handler`, `proxy`, `routing`, `service`, `scheduler`, `router`, `auth` |
+| `platform` | One adapter per upstream provider family; the leaf that actually talks to upstreams. | `store`, `handler`, `proxy`, `router`, `scheduler` (`config` and `proxy/profiles` are allowed) |
+| `transform` | Wire-format conversion between protocols (native OpenAI ⇄ Gemini, no intermediate canonical form). | `handler`, `store`, `proxy`, `routing`, `service`, `auth` |
+| `routing` | Which channel/account serves a request: selection, cooldown, runtime breaker. | `proxy`, `handler` |
+| `service` | Domain logic that spans stores and platforms. | `handler`, `router`, `proxy` |
+| `scheduler` | When background work runs (cron, interval, window). | `handler`, `router`, `proxy` |
+| `handler/*` | HTTP surface only: decode, authorize, call a service/proxy entrypoint, encode. | `router` (the router mounts handlers, never the reverse) |
+| `router` | Mount points, middleware order, SPA fallback, static asset serving. | — |
+| `cmd/server` | Composition root; may import anything. | — |
+
+Approved exceptions are enumerated in the header comment of
+`docs/package_boundary_test.go` (for example `handler/admin → scheduler` for
+cron validation, `app → handler/proxy` for the upstream composition helper,
+`platform → proxy/profiles` for client detection, `handler/proxy →
+transform/*` for one-way protocol wiring). The rule for adding one is: move
+the import to an allowed edge first; only if that is impossible, add the
+exception to the test with a written justification.
+
+`proxycore/` and `protocol/` do not exist and must not be reintroduced — the
+test rejects those TypeScript-era names.
+
+## Request paths: stages and single owners
+
+Two independent auth surfaces share one chi router built by `router.New`, the
+only composition root. Registrars take a `chi.Router` and register absolute
+`/api/...` paths, so each can also be exercised on a standalone router in
+tests.
+
+### Middleware applied to every request (`router.New`, in order)
+
+`WithRequestID` → `SecurityHeaders` → `TrustedRealIP(cfg)` → `RequestLogger`
+→ `Recoverer` → `BodyLimitPathAware(cfg.RequestBodyLimit, cfg.FileUploadLimitBytes)`.
+
+`TrustedRealIP` runs before the logger so the logged client IP is already the
+policy-approved one, and it only honours `X-Forwarded-For` / `X-Real-IP` from
+peers inside `TRUSTED_PROXY_CIDRS`. `BodyLimitPathAware` takes two limits
+because the multipart upload surfaces (`/v1/files`, `/v1/images/*`) need a
+larger cap than the JSON surfaces.
+
+### `/health`, `/ready`, `/metrics`
+
+Registered with `r.With(CORS())` **before** the admin group, so they never
+pass through admin auth — a container orchestrator or a load balancer cannot
+present a token. Handlers live in `app` (`app.Health`, `app.Ready`,
+`app.PrometheusHandler`).
+
+### Admin surface (`/api/*`)
+
+One `r.Group` owns the whole admin surface, and the order inside it is
+load-bearing:
+
+1. `AdminCORS(cfg)`
+2. `auth.AdminRateLimit` — per-IP bucket for all `/api/*`
+3. `auth.AuthRateLimit` — stricter bucket, `/api/auth/*` only, because login is
+   the only surface that accepts the master token
+4. `auth.OAuthRateLimit` — stricter bucket, `/api/oauth/*` only
+5. `auth.AdminAuth(sessions)` — dual track: server-side session cookie (UI) or
+   bearer master token (scripts)
+6. `auth.RequireReauth()` — sensitive operations must re-present the master
+   token in `X-Admin-Confirm-Token`
+7. `admin.AuditMiddleware(db.DB)` — audit trail for admin writes
+
+Rate limiting deliberately runs **before** authentication: a rejected login
+consumes the per-IP bucket instead of bypassing it, so credential brute force
+is capped like any other admin traffic.
+
+Registrars that need a database are mounted inside
+`if db := store.GetDB(); db != nil`. When the database is unavailable those
+routes are simply not registered and the router logs
+`router: database not initialized, P3 routes skipped`; the session manager is
+`nil` and the session handlers fail closed rather than allowing traffic.
+`/api/about` and the session lifecycle routes are mounted outside that guard
+because every field they serve comes from the linker, the Go runtime, or a
+fail-closed handler.
+
+### Data plane (`/v1/*`)
+
+`r.Route("/v1", ...)` owns the proxy surface, in this order:
+
+1. `ProxyWriteDeadline`
+2. `CORS()`
+3. `auth.ProxyRateLimit(cfg.ProxyRateLimitRPM)` — per-IP, **before** auth so an
+   unauthenticated flood is dropped without a database lookup
+4. `auth.ProxyAuth()` — resolves the caller (global `PROXY_TOKEN` or a managed
+   downstream key) and puts the result in the request context
+5. `auth.ProxyGlobalTokenRateLimit(cfg.ProxyGlobalTokenRPM)` — **after** auth,
+   because the global cap only applies once the resolved auth source is known
+   to be the shared token; managed keys have their own admission
+6. `proxyhandler.RegisterProxyRoutes(r)` — the surface itself
+7. `admin.RegisterDownstreamPricingRoutes(r, db.DB)` — the downstream-key-visible
+   price catalog, mounted here so it inherits proxy auth instead of admin auth
+
+A request then moves through stages that each have exactly one owner:
+
+| Stage | Owner | Decision made here |
+|:------|:------|:-------------------|
+| HTTP surface | `handler/proxy` | Decode the inbound protocol shape, resolve the downstream key context, relay the upstream body (buffered or SSE), encode the response or the protocol-shaped error envelope. |
+| Attempt loop | `handler/proxy` | Which endpoint candidate is tried next, how a stream relay ended, and how that ending is reported (recorded status, reason text, terminal metric outcome). |
+| Failure and fallback policy | `proxy` (with `proxy/profiles`, `proxy/types`) | Which client profile this is, how many channel attempts are allowed, and every reusable verdict: content-level failure judgement, same-site abort, downgrade to the next endpoint, retry the same channel, refresh its auth. |
+| Channel selection | `routing` | Which channel/account is eligible right now: weighting, cooldown, runtime breaker state. |
+| Protocol conversion | `transform` (`openai`, `gemini`, `shared`) | Rewriting between wire formats. Native conversion — there is no canonical intermediate representation. |
+| Upstream I/O | `platform` + `service` | Speaking to the actual provider, including outbound proxy and TLS behaviour. |
+| Persistence | `store` | Request/usage logging and every read the stages above need, with dialect differences hidden here. |
+
+Streaming and non-streaming responses take different paths through the attempt
+loop. A non-streaming body is buffered up to `PROXY_MAX_BUFFERED_RESPONSE_BYTES`
+and judged once; a stream is relayed under a chunk-gap guard
+(`PROXY_STREAM_IDLE_TIMEOUT_SEC`) and a total byte bound
+(`PROXY_MAX_STREAM_RESPONSE_BYTES`), then classified by how the relay ended:
+clean end of stream, idle timeout, upstream fault mid-stream, byte-limit
+truncation, or downstream disconnect.
+
+Two rules keep that classification honest:
+
+- **One judge for content.** Whether an upstream answer counts as a failure on
+  its content — a configured `PROXY_ERROR_KEYWORDS` hit, or an empty completion
+  when `PROXY_EMPTY_CONTENT_FAIL` is on — is decided by a single pure function
+  in `proxy`, fed by both paths: the buffered body directly, the stream through
+  the bounded SSE analyser. The two paths cannot reach different verdicts for
+  the same upstream content.
+- **A downstream disconnect is not an upstream fault.** The channel answered
+  correctly, so recording the cancel against it would poison channel health
+  with user behaviour. Usage already extracted from earlier SSE events is still
+  accounted; tokens are never invented for content that did not arrive.
+
+Every other ending — an idle upstream, a mid-stream reset, a truncated relay —
+goes through the failure path, whose status, reason text and terminal metric
+outcome come from one owner so channel health, request logs and metrics cannot
+disagree about the same request. Which candidate is tried next is likewise a
+single decision function in the attempt loop: HTTP statuses, content failures
+and transport errors all ask it, instead of each call site re-deriving the
+policy. `transform` owns none of this.
+
+### Non-`/v1` proxy aliases
+
+Codex native paths (`/chat/completions`, `/responses`, `/responses/*`) and the
+Gemini surface (`/v1beta/models`, `/gemini/{geminiApiVersion}/models`,
+`/v1internal::*`) are mounted in an `r.Group` carrying the same middleware
+stack as `/v1`. A group is used instead of `Route("/")` so proxy auth applies
+only to the exact registered paths and never shadows the SPA fallback.
+
+### Two surfaces that are intentionally outside the admin group
+
+- **`/monitor-proxy/ldoh*`** — registered via `r.HandleFunc` outside the bearer
+  group, because an iframe's sub-resource requests cannot carry an
+  `Authorization` header. The handler enforces its own HttpOnly cookie auth
+  scoped to `/monitor-proxy/` and rejects `..` traversal.
+- **`/api/admin/ops/ws`** (`admin.RegisterOpsWSRoutes`) — mounted after the
+  admin group for the same browser limitation: a WebSocket handshake cannot
+  set headers, so it redeems a one-time ticket minted by
+  `POST /api/auth/ws-ticket` instead of ever seeing the master token.
+
+### Static assets and SPA fallback
+
+`router.setupSPAFallback` serves the embedded `web/dist` tree: content-hashed
+subtrees under `/assets/` and `/static/` get an immutable cache header, while
+root files whose names are not hashed (`bootstrap.js`, `theme-init.js`, logos
+and favicons) get `no-cache` so deploys propagate without a hard refresh. The
+fallback answers `index.html` for non-API paths and a JSON 404 body for
+`/api/*` and `/v1/*`.
 
 ## Package Layout (as-built)
 
@@ -213,7 +392,9 @@ Routing isolates bad channels instead of cascading:
 
 ## Package dependency overview
 
-High-level allowed direction (see [`docs/internal/design/BACKEND.md`](internal/design/BACKEND.md) for forbidden edges):
+Allowed direction (forbidden edges are the denylist in
+[Ownership and boundary map](#ownership-and-boundary-map), enforced by
+[`docs/package_boundary_test.go`](package_boundary_test.go)):
 
 ```
 cmd → app, router, config, store, …
@@ -229,7 +410,10 @@ store → config
 config, web, handler/shared → leaves
 ```
 
-**Package ownership inventory:** as-built public entrypoints, import edges, approved exceptions, and recommended cleanups live in [`docs/internal/analysis/package-boundaries.md`](internal/analysis/package-boundaries.md). Prefer that file when deciding where new code belongs or whether an import edge is intentional.
+**Where new code belongs:** decide from the ownership table above, then prove
+it by running `go test ./docs -run TestPackageBoundaries`. That test is the
+specification; a new edge either passes it or needs a written exception in its
+header comment.
 
 ## S.U.P.E.R. Compliance
 
@@ -241,8 +425,10 @@ config, web, handler/shared → leaves
 
 ## Related docs
 
-- [`docs/internal/design/BACKEND.md`](internal/design/BACKEND.md) — backend design philosophy, dependency rules, forbidden imports
-- [`docs/internal/analysis/package-boundaries.md`](internal/analysis/package-boundaries.md) — package ownership inventory, public entrypoints, import exceptions
-- [`docs/api.md`](api.md) — admin API reference
+- [`docs/package_boundary_test.go`](package_boundary_test.go) — the executable dependency denylist and its approved exceptions; read this before moving an import
+- [`docs/api.md`](api.md) — admin API reference index; [`docs/api/routes-inventory.md`](api/routes-inventory.md) is the complete registered `/api` route list, checked against the code by [`docs/api_inventory_parity_test.go`](api_inventory_parity_test.go)
+- [`docs/api/conventions.md`](api/conventions.md) — auth surfaces, error envelope, pagination: read before calling any `/api` route
+- [`docs/api/proxy.md`](api/proxy.md) — the `/v1` data-plane contract
+- [`docs/configuration.md`](configuration.md) — every environment variable with its real default and clamp, checked against `.env.example` and `config/config.go` by [`docs/env_parity_test.go`](env_parity_test.go)
 - [`docs/deployment.md`](deployment.md) — deploy guide
 - [`docs/migration.md`](migration.md) — TS → Go migration notes

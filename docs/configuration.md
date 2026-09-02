@@ -1,11 +1,16 @@
 # Configuration Reference
 
-**Last updated**: 2026-08-22
+**Last updated**: 2026-09-03
 
 Complete environment-variable reference. The single machine-readable source
 is [`.env.example`](../.env.example); this page groups and explains every
 knob a deployment is likely to touch. Docker Compose users pass these via
 `environment:` (see [`deployment.md`](deployment.md)).
+
+Every variable listed here is checked against `.env.example` and against the
+keys `config.Load` actually reads, by `docs/env_parity_test.go`. If you add a
+knob, add it in all three places or that test fails — names must be written
+out in full (no `SOME_PREFIX_*` shorthand) so they stay greppable.
 
 > **How to read this page**: first-time deployment only needs the two
 > [Required](#required) variables (plus the
@@ -39,6 +44,7 @@ knob a deployment is likely to touch. Docker Compose users pass these via
 | `LOG_LEVEL` | `info` | slog threshold: `debug` / `info` / `warn` / `error`. |
 | `METAPI_HEALTHCHECK_URL` / `METAPI_HEALTHCHECK_PATH` | — / `/ready` | Override the container healthcheck target. |
 | `SYSTEM_NAME`, `LOGO`, `FOOTER`, `ABOUT`, `HOME_PAGE_CONTENT` | brand defaults | Optional site branding; runtime settings in the admin UI override these. |
+| `SERVER_ADDRESS` | empty | Public base URL used when the server has to build an absolute link back to itself (OAuth callbacks, exported key/backup URLs). Empty = derived from the request's `X-Forwarded-Proto` / `X-Forwarded-Host` headers, falling back to the request host. |
 
 ## Database
 
@@ -48,11 +54,11 @@ knob a deployment is likely to touch. Docker Compose users pass these via
 | `DATABASE_URL` / `DB_URL` | empty | PostgreSQL connection string (or SQLite file path). `DB_URL` wins; `DATABASE_URL` exists for platform compatibility. Empty = single-node SQLite at `DATA_DIR/hub.db`. |
 | `DB_SSLMODE` | empty | PostgreSQL TLS mode: `disable` / `allow` / `prefer` / `require` / `verify-ca` / `verify-full`; overrides the DSN `sslmode` when set. |
 | `DB_SSL` | empty | Coarse PG TLS toggle; prefer `DB_SSLMODE`. |
-| `DB_PROFILE` | `normal` | Pool preset: `shared-tiny` (2/1) / `normal` (10/3) / `dedicated` (20/5). |
+| `DB_PROFILE` / `METAPI_DB_PROFILE` | `normal` | Pool preset: `shared-tiny` (2/1) / `normal` (10/3) / `dedicated` (20/5). `DB_PROFILE` wins when both are set; unknown values fall back to `normal`. |
 | `DB_MAX_OPEN_CONNS` / `DB_MAX_IDLE_CONNS` | per profile | Explicit PostgreSQL pool budget; overrides the profile. Must respect your database role connection limit. |
 | `DB_CONN_MAX_LIFETIME_SEC` | `1800` | PostgreSQL connection max lifetime (seconds). |
 | `DB_CONN_MAX_IDLE_TIME_SEC` | `300` | PostgreSQL idle connection reaper (seconds). |
-| `DB_APPLICATION_NAME` | `metapi-<hostname>` | `application_name` shown in `pg_stat_activity`. |
+| `DB_APPLICATION_NAME` / `METAPI_DB_APPLICATION_NAME` | `metapi-<hostname>` | `application_name` shown in `pg_stat_activity`. `DB_APPLICATION_NAME` wins when both are set. |
 | `REDIS_URL` / `METAPI_REDIS_URL` | empty | Optional Redis for **multi-instance shared RPM/TPM admission** of downstream keys. Empty = process-local counters only. Unreachable Redis fails open back to process-local windows. Sticky sessions remain process-local regardless of Redis. |
 
 ## Scheduling
@@ -60,10 +66,13 @@ knob a deployment is likely to touch. Docker Compose users pass these via
 | Variable | Default | Description |
 |:---------|:--------|:------------|
 | `CHECKIN_CRON` | `0 8 * * *` | Daily check-in cron. |
+| `CHECKIN_ENABLED` | `true` | Global kill switch for the automatic check-in scheduler. `false` stops every automatic check-in request to upstream sites; the admin UI (Settings → Operations → Scheduling) can override it at runtime. |
 | `CHECKIN_SCHEDULE_MODE` | `cron` | `cron`, `interval`, or `window` scheduling modes (other values are rejected at startup). |
 | `CHECKIN_INTERVAL_HOURS` | `6` | Interval-mode period. |
 | `CHECKIN_WINDOW_START` / `CHECKIN_WINDOW_END` | `00:00` / `23:59` | Random-window mode bounds. |
 | `BALANCE_REFRESH_CRON` | `0 * * * *` | Balance refresh cron (hourly). |
+| `BALANCE_REFRESH_ENABLED` | `true` | Global kill switch for the periodic balance-refresh scheduler. `false` stops scheduled upstream balance queries; runtime-overridable in the admin UI. |
+| `MODEL_SYNC_CRON` | `0 4 * * *` | Periodic upstream model-list sync. The stored `model_sync_cron` setting overrides this value once an admin has saved one. |
 | `LOG_CLEANUP_CRON` | `0 6 * * *` | Retention pruning cron. |
 | `LOG_CLEANUP_USAGE_LOGS_ENABLED` / `LOG_CLEANUP_PROGRAM_LOGS_ENABLED` | `false` | Which log families the cleanup prunes. Off by default: the cleanup regime owns the log tables only when a toggle is `true` here or an admin-saved log-cleanup setting exists; otherwise the legacy `PROXY_LOG_RETENTION_DAYS` pruner handles proxy logs. `LOG_CLEANUP_RETENTION_DAYS` / `LOG_CLEANUP_CRON` alone do not switch the regime, and an explicit `false` never does. Startup logs the winner as `settings: log retention regime`. |
 | `LOG_CLEANUP_RETENTION_DAYS` | `30` | Proxy/program log retention. |
@@ -71,15 +80,17 @@ knob a deployment is likely to touch. Docker Compose users pass these via
 
 ## Notifications
 
-All providers are disabled unless their toggle/URL is set (webhook enabled by
-default when `WEBHOOK_URL` is non-empty). Alert cooldown:
+`WEBHOOK_ENABLED`, `BARK_ENABLED` and `SERVERCHAN_ENABLED` all default to
+`true`, so those three providers have no separate opt-in flag: they stay
+silent until their URL/key is set. Every other provider needs its
+`*_ENABLED` toggle *and* its URL/key. Alert cooldown:
 `NOTIFY_COOLDOWN_SEC` (default `300`).
 
 | Provider | Variables |
 |:---------|:----------|
-| Webhook | `WEBHOOK_URL` |
-| Bark | `BARK_URL` |
-| ServerChan | `SERVERCHAN_KEY` |
+| Webhook | `WEBHOOK_ENABLED`, `WEBHOOK_URL` |
+| Bark | `BARK_ENABLED`, `BARK_URL` |
+| ServerChan | `SERVERCHAN_ENABLED`, `SERVERCHAN_KEY` |
 | Telegram | `TELEGRAM_ENABLED`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_MESSAGE_THREAD_ID`, `TELEGRAM_USE_SYSTEM_PROXY` |
 | Feishu | `FEISHU_ENABLED`, `FEISHU_WEBHOOK`, `FEISHU_SECRET` (HMAC signing) |
 | DingTalk | `DINGTALK_ENABLED`, `DINGTALK_WEBHOOK`, `DINGTALK_SECRET` (HMAC signing) |
@@ -106,9 +117,20 @@ default when `WEBHOOK_URL` is non-empty). Alert cooldown:
 | `PROXY_STICKY_SESSION_TTL_MS` | `1800000` | Sticky binding TTL. |
 | `PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT` | `2` | Concurrent streams per session-channel lease. |
 | `PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS` | `1500` | Queue wait for a busy session channel. |
-| `PROXY_SESSION_CHANNEL_LEASE_TTL_MS` / `..._KEEPALIVE_MS` | `90000` / `15000` | Session channel lease lifetime / keepalive. |
+| `PROXY_SESSION_CHANNEL_LEASE_TTL_MS` | `90000` | Session-channel lease lifetime in ms. |
+| `PROXY_SESSION_CHANNEL_LEASE_KEEPALIVE_MS` | `15000` | Keepalive interval that renews an in-use session-channel lease; floored at 1000 ms. |
+| `PROXY_CONNECT_TIMEOUT_SEC` | `2` | TCP dial (connect) timeout for outbound upstream requests. |
+| `PROXY_TLS_HANDSHAKE_TIMEOUT_SEC` | `10` | TLS handshake timeout. |
+| `PROXY_RESPONSE_HEADER_TIMEOUT_SEC` | `30` | How long to wait for upstream response headers. |
+| `PROXY_IDLE_CONN_TIMEOUT_SEC` | `90` | Idle keep-alive connection TTL in the pooled outbound transports. |
+| `PROXY_REQUEST_TIMEOUT_SEC` | `30` | Whole-request client timeout. |
+| `PROXY_STREAM_IDLE_TIMEOUT_SEC` | `300` | Chunk-gap guard for a flowing SSE stream: every relayed chunk resets the window, and a gap longer than this aborts the stream and records it as an upstream timeout fault. It does **not** cap total stream duration. |
 | `METAPI_ENABLE_PROXY_STUB` | empty | Test/demo-only local stub; leave empty in production (unconfigured forwarding returns an honest 503). |
 | `SYSTEM_PROXY_URL` | empty | Outbound HTTP proxy for upstream calls. |
+
+All six `*_SEC` timeouts share one clamp (`config.parseTimeoutSec`): unset,
+blank, invalid, zero or negative values fall back to the listed default, so a
+typo can never disable a timeout entirely.
 
 ### Proxy log writer & retention
 
@@ -117,9 +139,29 @@ default when `WEBHOOK_URL` is non-empty). Alert cooldown:
 | `PROXY_LOG_ASYNC` | `true` | Batched async INSERTs (production latency win); set `false` for tests needing write-through. |
 | `PROXY_LOG_BATCH_SIZE` | `50` | Flush threshold rows (1–1000). |
 | `PROXY_LOG_FLUSH_INTERVAL_MS` | `1000` | Flush period (1–60000 ms). |
-| `PROXY_LOG_RETENTION_DAYS` | `30` | Proxy log retention; `PROXY_LOG_RETENTION_PRUNE_INTERVAL_MINUTES` (30). |
-| `PROXY_FILE_RETENTION_DAYS` | `30` | Uploaded file retention; prune interval 60 min. |
-| `PROXY_VIDEO_TASK_RETENTION_DAYS` | `7` | Video task mapping retention: prunes `proxy_video_tasks` rows and bounds the in-process rewrite cache TTL; `0` = keep forever (explicit opt-out); prune interval 60 min. |
+| `PROXY_LOG_RETENTION_DAYS` | `30` | Proxy log retention in days (`0` = keep forever). |
+| `PROXY_LOG_RETENTION_PRUNE_INTERVAL_MINUTES` | `30` | How often the proxy-log pruner runs; floored at 1 minute. |
+| `PROXY_FILE_RETENTION_DAYS` | `30` | Uploaded file retention in days (`0` = keep forever). |
+| `PROXY_FILE_RETENTION_PRUNE_INTERVAL_MINUTES` | `60` | How often the uploaded-file pruner runs; floored at 1 minute. |
+| `PROXY_VIDEO_TASK_RETENTION_DAYS` | `7` | Video task mapping retention: prunes `proxy_video_tasks` rows and bounds the in-process rewrite cache TTL; `0` = keep forever (explicit opt-out). |
+| `PROXY_VIDEO_TASK_RETENTION_PRUNE_INTERVAL_MINUTES` | `60` | How often the video-task pruner runs; floored at 1 minute. |
+
+### Proxy debug tracing
+
+Capture surfaces for reproducing an upstream failure. All of it is off unless
+`PROXY_DEBUG_TRACE_ENABLED` is set, and captured rows are pruned on a timer.
+
+| Variable | Default | Description |
+|:---------|:--------|:------------|
+| `PROXY_DEBUG_TRACE_ENABLED` | `false` | Master switch for debug trace capture. |
+| `PROXY_DEBUG_CAPTURE_HEADERS` | `true` | Store request/response headers on a captured trace (only meaningful while capture is on). |
+| `PROXY_DEBUG_CAPTURE_BODIES` | `false` | Store request/response bodies. |
+| `PROXY_DEBUG_CAPTURE_STREAM_CHUNKS` | `false` | Store individual SSE chunks of a streamed response. |
+| `PROXY_DEBUG_TARGET_SESSION_ID` | empty | Capture only this session id; empty = no session filter. |
+| `PROXY_DEBUG_TARGET_CLIENT_KIND` | empty | Capture only this detected client kind; empty = no client filter. |
+| `PROXY_DEBUG_TARGET_MODEL` | empty | Capture only this model; empty = no model filter. |
+| `PROXY_DEBUG_MAX_BODY_BYTES` | `262144` | Per-body capture cap in bytes; floored at 1024. |
+| `PROXY_DEBUG_RETENTION_HOURS` | `24` | How long captured traces are kept; floored at 1 hour. |
 
 ## Routing
 
@@ -132,10 +174,16 @@ default when `WEBHOOK_URL` is non-empty). Alert cooldown:
 | `TOKEN_ROUTER_FAILURE_COOLDOWN_MAX_SEC` | — | Upper bound for failure cooldown. |
 | `PRICING_CATALOG_ENABLED` | on | models.dev catalog as cold-start price signal; third-party relays are always labeled `catalog_estimate`. |
 | `PRICING_CATALOG_REFRESH_MIN` / `PRICING_CATALOG_URL` | — | Catalog refresh period / mirror. |
-| `MODEL_AVAILABILITY_PROBE_ENABLED` | `false` | Background channel health probing; interval/timeout/concurrency via `MODEL_AVAILABILITY_PROBE_*` (floor 60 s / 3 s, concurrency 1–16). |
-| `ROUTE_REBUILD_PROBE_FILTER_ENABLED` | empty | Rebuild only routes whose probe status changed; include/exclude model lists available. |
+| `MODEL_AVAILABILITY_PROBE_ENABLED` | `false` | Background channel health probing (off by default). |
+| `MODEL_AVAILABILITY_PROBE_INTERVAL_MS` | `1800000` | Probe period; floored at 60000 ms (60 s). |
+| `MODEL_AVAILABILITY_PROBE_TIMEOUT_MS` | `15000` | Per-probe timeout; floored at 3000 ms (3 s). |
+| `MODEL_AVAILABILITY_PROBE_CONCURRENCY` | `1` | Parallel probes; clamped to 1–16. |
+| `ROUTE_REBUILD_PROBE_FILTER_ENABLED` | empty | Rebuild only routes whose probe status changed. |
+| `ROUTE_REBUILD_PROBE_FILTER_INCLUDE_MODELS` | empty | CSV allowlist restricting the probe-filter rebuild to these models; empty = no restriction. |
+| `ROUTE_REBUILD_PROBE_FILTER_EXCLUDE_MODELS` | empty | CSV denylist removing these models from the probe-filter rebuild. |
 | `PAYLOAD_RULES` / `PAYLOAD_RULES_JSON` | empty | Per-model payload rewrite rules. |
-| `OPENAI_SERVICE_TIER_RULES(_JSON)` | empty | service_tier injection rules. |
+| `OPENAI_SERVICE_TIER_RULES` | empty | Per-model `service_tier` injection rules (JSON document). |
+| `OPENAI_SERVICE_TIER_RULES_JSON` | empty | Legacy alias for `OPENAI_SERVICE_TIER_RULES`; wins when both are set. |
 
 ## Security & network
 
@@ -143,6 +191,9 @@ default when `WEBHOOK_URL` is non-empty). Alert cooldown:
 |:---------|:--------|:------------|
 | `ADMIN_IP_ALLOWLIST` | empty | CSV of allowed admin IPs/CIDRs. |
 | `ADMIN_RATE_LIMIT_RPS` / `ADMIN_RATE_LIMIT_BURST` | `100` / `200` | Admin per-IP token bucket. |
+| `AUTH_RATE_LIMIT_RPS` / `AUTH_RATE_LIMIT_BURST` | `10` / `20` | Stricter per-IP token bucket applied only to `/api/auth/*`, which is the only surface accepting the master token. Values ≤ 0 fall back to the defaults at mount time. |
+| `ADMIN_SESSION_TTL_MINUTES` | `720` | Sliding TTL of the server-side admin UI session minted by `POST /api/auth/login`; floored at 1 minute. |
+| `ADMIN_SESSION_COOKIE_SECURE` | `auto` | `Secure` flag of the `metapi_session` cookie. Accepted values: `true`/`1`/`yes` → always secure, `false`/`0`/`no` → never secure, anything else (including `auto`) → `auto`, which follows the request protocol. |
 | `OAUTH_RATE_LIMIT_RPS` / `OAUTH_RATE_LIMIT_BURST` | `10` / `20` | OAuth per-IP token bucket. |
 | `TRUSTED_PROXY_CIDRS` | empty | Reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; empty ignores forwarded headers. |
 | `ADMIN_CORS_ALLOWED_ORIGINS` | empty | Exact `http(s)` origins allowed for `/api/*`; empty = same-origin admin UI only (`*` rejected). |
@@ -170,7 +221,8 @@ default when `WEBHOOK_URL` is non-empty). Alert cooldown:
 | `CODEX_UPSTREAM_WEBSOCKET_ENABLED` | empty | Codex upstream WebSocket transport (C3); non-upgrade GETs get an honest 426. |
 | `CODEX_RESPONSES_WEBSOCKET_BETA` | empty | Responses-over-WS beta header. |
 | `RESPONSES_COMPACT_FALLBACK_TO_RESPONSES_ENABLED` | empty | Compact → Responses fallback. |
-| `CODEX_HEADER_DEFAULTS_USER_AGENT` / `..._BETA_FEATURES` | — | Header defaults for Codex upstreams. |
+| `CODEX_HEADER_DEFAULTS_USER_AGENT` | empty | `User-Agent` sent to Codex upstreams; empty keeps the built-in default. |
+| `CODEX_HEADER_DEFAULTS_BETA_FEATURES` | empty | Anthropic `anthropic-beta`-style feature header value sent to Codex upstreams; empty keeps the built-in default. |
 
 ## Misc
 
