@@ -124,7 +124,7 @@ Three equivalent ways — pick any one. Starting the server needs only two token
 Pre-built binaries for Linux / macOS / Windows — one file, no runtime:
 
 ```bash
-curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/download/v0.16.6/install.sh | bash
+curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/download/v0.16.20/install.sh | bash
 
 export AUTH_TOKEN=$(openssl rand -hex 16)      # admin UI login token
 export PROXY_TOKEN=sk-$(openssl rand -hex 24)  # downstream key for /v1/* calls
@@ -311,7 +311,7 @@ once here instead of scattered through the text:
 
 | Path                                            | How it was verified                                            |
 | ----------------------------------------------- | -------------------------------------------------------------- |
-| Release binary: install → start → health checks | Tested end to end (v0.16.6)                                    |
+| Release binary: install → start → health checks | Tested end to end (v0.16.20)                                    |
 | From source: frontend build → go build → start  | Tested end to end                                              |
 | Docker / Compose commands                       | Cross-checked line by line against the repo `Dockerfile` / `docker-compose.prod.yml` |
 | 503 without routes, healthcheck exit codes      | Tested                                                         |

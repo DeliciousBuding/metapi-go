@@ -39,7 +39,7 @@ curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download
 The script downloads the matching platform binary from GitHub Releases,
 verifies its SHA-256 against `checksums.txt`, and installs to
 `/usr/local/bin/metapi` (override with `METAPI_INSTALL_PREFIX`; pin a version
-with `METAPI_VERSION=v0.16.6`). Windows: download `metapi-windows-amd64.exe`
+with `METAPI_VERSION=v0.16.20`). Windows: download `metapi-windows-amd64.exe`
 from the release page instead. Then start with the two required tokens:
 
 ```bash
@@ -201,7 +201,7 @@ data directory is the most common Docker deployment pitfall:
   ```
 
 - **Image tags**: `latest` is convenient for trying things out; for production,
-  pin a version tag (e.g. `ghcr.io/deliciousbuding/metapi-go:v0.16.6`) so
+  pin a version tag (e.g. `ghcr.io/deliciousbuding/metapi-go:v0.16.20`) so
   deployments stay reproducible.
 
 ## Nginx Reverse Proxy
