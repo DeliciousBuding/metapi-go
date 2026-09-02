@@ -2,8 +2,9 @@
 //
 // Detection is per-URL (matching the backend /api/sites/detect contract), and
 // the final commit is a single idempotent POST /api/sites/import. Import
-// invalidates the sites list + accounts snapshot so list pages refresh after
-// the wizard closes.
+// invalidates the sites + accounts query ROOTS so every cached variant of both
+// resources (the server-paged accounts table, the snapshot consumers, the
+// sites list and detail sheets) refreshes after the wizard closes.
 
 import {
   useMutation,
@@ -73,8 +74,14 @@ export function useImportSites(
       return result
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: sitesKeys.list() })
-      queryClient.invalidateQueries({ queryKey: accountQueryKeys.snapshot() })
+      // Invalidate the factory roots, never a single variant: /accounts reads
+      // `accountQueryKeys.page(…)` (the snapshot has no observer there) and
+      // /sites reads `sitesKeys.list()` while detail sheets read
+      // `sitesKeys.detail(id)`. A variant-scoped invalidation misses whichever
+      // reader is mounted, so freshly imported rows would only appear after a
+      // filter change or a navigate-away-and-back.
+      queryClient.invalidateQueries({ queryKey: sitesKeys.all })
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
     },
     ...options,
   })
