@@ -208,7 +208,7 @@ func TestCallAntigravityInternalAPI_Non200ReturnsNilNoError(t *testing.T) {
 	defer server.Close()
 	withAntigravityEndpointSwap(t, "", "", server.URL)
 
-	result, err := callAntigravityInternalAPI("ag-access", "loadCodeAssist", map[string]interface{}{}, nil)
+	result, err := callAntigravityInternalAPI(context.Background(), "ag-access", "loadCodeAssist", map[string]interface{}{}, nil)
 	if err != nil {
 		t.Fatalf("non-200 should not return transport error, got %v", err)
 	}
@@ -235,7 +235,7 @@ func TestCallAntigravityInternalAPI_Success(t *testing.T) {
 	defer server.Close()
 	withAntigravityEndpointSwap(t, "", "", server.URL)
 
-	result, err := callAntigravityInternalAPI("ag-access", "loadCodeAssist", map[string]interface{}{}, nil)
+	result, err := callAntigravityInternalAPI(context.Background(), "ag-access", "loadCodeAssist", map[string]interface{}{}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestFetchAntigravityProjectID_LoadReturnsProject(t *testing.T) {
 	defer server.Close()
 	withAntigravityEndpointSwap(t, "", "", server.URL)
 
-	projectID, _ := fetchAntigravityProjectID("ag-access", nil)
+	projectID, _ := fetchAntigravityProjectID(context.Background(), "ag-access", nil)
 	if projectID != "load-project-123" {
 		t.Errorf("projectID = %q, want load-project-123", projectID)
 	}
@@ -279,7 +279,7 @@ func TestFetchAntigravityProjectID_OnboardCompletes(t *testing.T) {
 	defer server.Close()
 	withAntigravityEndpointSwap(t, "", "", server.URL)
 
-	projectID, _ := fetchAntigravityProjectID("ag-access", nil)
+	projectID, _ := fetchAntigravityProjectID(context.Background(), "ag-access", nil)
 	if projectID != "onboarded-project" {
 		t.Errorf("projectID = %q, want onboarded-project", projectID)
 	}
@@ -295,7 +295,7 @@ func TestFetchAntigravityProjectID_OnboardNeverCompletes(t *testing.T) {
 	defer server.Close()
 	withAntigravityEndpointSwap(t, "", "", server.URL)
 
-	projectID, _ := fetchAntigravityProjectID("ag-access", nil)
+	projectID, _ := fetchAntigravityProjectID(context.Background(), "ag-access", nil)
 	if projectID != "" {
 		t.Errorf("projectID = %q, want empty when onboarding never completes", projectID)
 	}

@@ -42,9 +42,12 @@ type CheckinScheduler struct {
 	cancel context.CancelFunc
 
 	// checkinAll is the checkin execution function. Defaults to
-	// checkin.CheckinAll; overridable in tests to inject a mock that records
-	// calls without touching real upstreams.
-	checkinAll func(cfg *config.Config, db *sqlx.DB, accountIDs []int64, scheduleMode string) []checkin.CheckinAllResult
+	// checkin.CheckinAllContext, so the round carries the job ctx (derived from
+	// the lifecycle ctx) and its same-site pacing wait ends when Stop() is
+	// called instead of sleeping out the remaining accounts; overridable in
+	// tests to inject a mock that records calls without touching real
+	// upstreams.
+	checkinAll func(ctx context.Context, cfg *config.Config, db *sqlx.DB, accountIDs []int64, scheduleMode string) []checkin.CheckinAllResult
 }
 
 // NewCheckinScheduler creates a new checkin scheduler.
@@ -53,7 +56,7 @@ func NewCheckinScheduler(cfg *config.Config) *CheckinScheduler {
 		cfg:              cfg,
 		mode:             config.Runtime().CheckinScheduleMode,
 		attemptByAccount: make(map[int64]int64),
-		checkinAll:       checkin.CheckinAll,
+		checkinAll:       checkin.CheckinAllContext,
 		ctx:              context.Background(),
 	}
 }
@@ -253,7 +256,7 @@ func (s *CheckinScheduler) runStaleAccountCatchUp(dbw *store.DB) {
 	jobCtx, cancel := context.WithTimeout(s.ctx, checkinJobTimeout)
 	defer cancel()
 	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
-		results := checkin.CheckinAll(s.cfg, dbw.DB, staleIDs, "catchup")
+		results := checkin.CheckinAllContext(jobCtx, s.cfg, dbw.DB, staleIDs, "catchup")
 		ok, bad := countResults(results)
 		slog.Info("checkin: stale account catch-up done", "enqueued", len(staleIDs), "success", ok, "failed", bad)
 	})
@@ -400,7 +403,7 @@ func (s *CheckinScheduler) runCronJob() {
 	jobCtx, cancel := context.WithTimeout(s.ctx, checkinJobTimeout)
 	defer cancel()
 	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
-		results := checkin.CheckinAll(s.cfg, dbw.DB, nil, "cron")
+		results := checkin.CheckinAllContext(jobCtx, s.cfg, dbw.DB, nil, "cron")
 		ok, bad := countResults(results)
 		slog.Info("checkin: cron job done", "success", ok, "failed", bad)
 	})
@@ -417,11 +420,15 @@ func (s *CheckinScheduler) runIntervalPass() {
 	jobCtx, cancel := context.WithTimeout(s.ctx, checkinJobTimeout)
 	defer cancel()
 	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
-		s.runIntervalPassLocked(dbw)
+		s.runIntervalPassLocked(jobCtx, dbw)
 	})
 }
 
-func (s *CheckinScheduler) runIntervalPassLocked(dbw *store.DB) {
+// runIntervalPassLocked runs one interval pass. ctx is the job ctx (derived
+// from the lifecycle ctx): it is what the checkin round's pacing wait is
+// cancellable by, so Stop() ends a pass instead of leaving it sleeping between
+// accounts of the same site.
+func (s *CheckinScheduler) runIntervalPassLocked(ctx context.Context, dbw *store.DB) {
 	now := time.Now()
 
 	// Query all account+site pairs
@@ -463,7 +470,7 @@ func (s *CheckinScheduler) runIntervalPassLocked(dbw *store.DB) {
 		return
 	}
 
-	results := s.checkinAll(s.cfg, dbw.DB, dueIDs, "interval")
+	results := s.checkinAll(ctx, s.cfg, dbw.DB, dueIDs, "interval")
 
 	nowMs := now.UnixMilli()
 	s.mu.Lock()

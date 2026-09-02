@@ -31,8 +31,14 @@ type checkinHandler struct {
 }
 
 // POST /api/checkin/trigger
+//
+// The round carries the request context: if the caller goes away the same-site
+// pacing wait ends and the remaining accounts are skipped instead of being
+// checked in for a response nobody will read. Every account already processed
+// keeps its own checkin_logs row, so a cancelled round leaves an honest partial
+// result rather than a half-written one.
 func (h *checkinHandler) triggerAll(w http.ResponseWriter, r *http.Request) {
-	results := checkinservice.CheckinAll(h.cfg, h.db, nil, "manual")
+	results := checkinservice.CheckinAllContext(r.Context(), h.cfg, h.db, nil, "manual")
 	summary := summarizeCheckinResults(results)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": summary.Failed == 0,

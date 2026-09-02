@@ -98,6 +98,30 @@ func checkinContext(parent context.Context) (context.Context, context.CancelFunc
 	return context.WithTimeout(parent, checkinTimeout)
 }
 
+// sleepCtx waits for d and returns nil, or returns ctx.Err() as soon as ctx
+// ends. It is the cancellable form of time.Sleep for the waits that sit between
+// upstream calls in this package (the transient-retry backoff and the same-site
+// pacing): a bare sleep keeps the worker asleep — and keeps the upstream call
+// after it alive — once a shutdown or an exhausted budget has already decided
+// the work is over. The duration semantics are unchanged, only the wait became
+// interruptible; service/oauth/retry.go guards its backoff the same way.
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if d <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
 // IsSiteDisabled checks if a site status represents "disabled".
 func IsSiteDisabled(status string) bool {
 	normalized := strings.TrimSpace(status)
@@ -412,10 +436,20 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	// from a single transient blip. Auth/billing/model/validation failures
 	// are NOT retried — they require operator intervention. Max 1 retry.
 	if shouldRetryTransient(result) {
-		time.Sleep(transientRetryBackoff())
-		result, err = adp.Checkin(ctx, site.URL, activeAccessToken, platformUserIDPtr(platformUserID), proxyConfig)
-		if err != nil {
-			result = &platform.CheckinResult{Success: false, Message: err.Error()}
+		// The backoff is cancellable: the ctx already bounds the retry below, so
+		// sleeping it out after the budget expired only delayed the verdict and
+		// then paid for one more upstream call on top of it.
+		if waitErr := sleepCtx(ctx, transientRetryBackoff()); waitErr != nil {
+			slog.Warn("[checkin] transient-retry backoff interrupted; skipping the retry",
+				"accountID", account.ID, "error", waitErr)
+			// Keep the upstream message (the failure classifier and checkin_logs
+			// read it) and record why the retry never happened.
+			result.Message = fmt.Sprintf("%s; transient retry skipped: %v", result.Message, waitErr)
+		} else {
+			result, err = adp.Checkin(ctx, site.URL, activeAccessToken, platformUserIDPtr(platformUserID), proxyConfig)
+			if err != nil {
+				result = &platform.CheckinResult{Success: false, Message: err.Error()}
+			}
 		}
 	}
 
@@ -618,6 +652,21 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 // the end (issue #667): a 50-account failure burst now yields a single
 // "Checkin round <id>: N ok, M failed" alert instead of 50 separate ones.
 func CheckinAll(cfg *config.Config, db *sqlx.DB, accountIDs []int64, scheduleMode string) []CheckinAllResult {
+	return CheckinAllContext(context.Background(), cfg, db, accountIDs, scheduleMode)
+}
+
+// CheckinAllContext is CheckinAll with a caller-supplied context. The same-site
+// pacing wait between two accounts of one site is the only place a round blocks
+// without an upstream in flight, so it is where a cancellation has to land: a
+// finished ctx stops the round there instead of paying the pacing delay plus the
+// next upstream call for every remaining account. CheckinAll keeps its signature
+// (and its context.Background() behaviour) for the callers that have no ctx to
+// hand yet.
+//
+// A per-account checkin still derives its own budget inside CheckinAccount,
+// which has no ctx-taking variant: cancelling the round therefore stops the next
+// account, while the in-flight one finishes inside its own checkinTimeout.
+func CheckinAllContext(ctx context.Context, cfg *config.Config, db *sqlx.DB, accountIDs []int64, scheduleMode string) []CheckinAllResult {
 	query := `SELECT a.id AS "accounts.id", a.site_id AS "accounts.site_id", a.username AS "accounts.username",
 		a.access_token AS "accounts.access_token", a.balance AS "accounts.balance",
 		a.balance_used AS "accounts.balance_used", a.quota AS "accounts.quota",
@@ -679,16 +728,23 @@ func CheckinAll(cfg *config.Config, db *sqlx.DB, accountIDs []int64, scheduleMod
 
 	// Different sites: parallel. Same site: serial.
 	var wg sync.WaitGroup
-	for _, indices := range grouped {
+	for siteID, indices := range grouped {
 		wg.Add(1)
-		go func(indices []int) {
+		go func(siteID int64, indices []int) {
 			defer wg.Done()
 			for i, idx := range indices {
 				if i > 0 {
 					// Same-site pacing: space consecutive checkins on the same site
 					// to avoid tripping upstream rate limits (429). Cross-site
 					// parallelism is preserved by the per-site goroutine above.
-					time.Sleep(sameSitePacingDelay())
+					// The wait is cancellable so a finished round ctx stops the
+					// site here instead of paying the delay plus the next
+					// account's upstream call.
+					if err := sleepCtx(ctx, sameSitePacingDelay()); err != nil {
+						slog.Warn("CheckinAll: round context ended during same-site pacing; stopping this site",
+							"siteID", siteID, "accountsLeft", len(indices)-i, "error", err)
+						return
+					}
 				}
 				row := rows[idx]
 				result := CheckinAccount(cfg, db, row.Accounts.ID, &CheckinOptions{
@@ -711,7 +767,7 @@ func CheckinAll(cfg *config.Config, db *sqlx.DB, accountIDs []int64, scheduleMod
 				})
 				mu.Unlock()
 			}
-		}(indices)
+		}(siteID, indices)
 	}
 	wg.Wait()
 

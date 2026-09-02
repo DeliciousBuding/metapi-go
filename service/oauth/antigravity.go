@@ -189,7 +189,7 @@ func exchangeAntigravityAuthorizationCode(ctx context.Context, input ExchangeCod
 	}
 
 	email, _ := fetchAntigravityUserEmail(token.AccessToken, input.ProxyURL)
-	projectID, _ := fetchAntigravityProjectID(token.AccessToken, input.ProxyURL)
+	projectID, _ := fetchAntigravityProjectID(ctx, token.AccessToken, input.ProxyURL)
 
 	return &TokenSet{
 		AccessToken:    token.AccessToken,
@@ -223,7 +223,7 @@ func refreshAntigravityAccessToken(ctx context.Context, input RefreshTokenInput)
 	if input.OAuth != nil && input.OAuth.ProjectID != "" {
 		projectID = input.OAuth.ProjectID
 	} else {
-		projectID, _ = fetchAntigravityProjectID(token.AccessToken, input.ProxyURL)
+		projectID, _ = fetchAntigravityProjectID(ctx, token.AccessToken, input.ProxyURL)
 	}
 
 	return &TokenSet{
@@ -284,9 +284,9 @@ func extractAntigravityDefaultTierID(payload *antigravityLoadCodeAssistPayload) 
 	return "legacy-tier"
 }
 
-func callAntigravityInternalAPI(accessToken, method string, body map[string]interface{}, proxyURL *string) (map[string]interface{}, error) {
+func callAntigravityInternalAPI(ctx context.Context, accessToken, method string, body map[string]interface{}, proxyURL *string) (map[string]interface{}, error) {
 	bodyBytes, _ := json.Marshal(body)
-	req, err := http.NewRequest("POST",
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		fmt.Sprintf("%s/%s:%s", antigravityUpstreamBaseURL, antigravityInternalAPIVersion, method),
 		bytes.NewReader(bodyBytes))
 	if err != nil {
@@ -347,9 +347,14 @@ func fetchAntigravityUserEmail(accessToken string, proxyURL *string) (string, er
 	return strings.TrimSpace(payload.Email), nil
 }
 
-func fetchAntigravityProjectID(accessToken string, proxyURL *string) (string, error) {
+// fetchAntigravityProjectID resolves the project for an antigravity token,
+// onboarding the user while the upstream has not picked one yet. Upstream
+// failures stay swallowed — an unresolved project must not fail an otherwise
+// good token exchange — but a finished ctx is not an upstream condition, so the
+// cancellation is returned instead of hiding behind an empty project.
+func fetchAntigravityProjectID(ctx context.Context, accessToken string, proxyURL *string) (string, error) {
 	metadata := buildAntigravityMetadata()
-	resp, err := callAntigravityInternalAPI(accessToken, "loadCodeAssist", map[string]interface{}{
+	resp, err := callAntigravityInternalAPI(ctx, accessToken, "loadCodeAssist", map[string]interface{}{
 		"metadata": metadata,
 	}, proxyURL)
 	if err != nil || resp == nil {
@@ -371,7 +376,7 @@ func fetchAntigravityProjectID(accessToken string, proxyURL *string) (string, er
 
 	tierID := extractAntigravityDefaultTierID(payload)
 	for attempt := 0; attempt < antigravityOnboardMaxAttempts; attempt++ {
-		onboardResp, err := callAntigravityInternalAPI(accessToken, "onboardUser", map[string]interface{}{
+		onboardResp, err := callAntigravityInternalAPI(ctx, accessToken, "onboardUser", map[string]interface{}{
 			"tierId":   tierID,
 			"metadata": metadata,
 		}, proxyURL)
@@ -385,7 +390,9 @@ func fetchAntigravityProjectID(accessToken string, proxyURL *string) (string, er
 			return "", nil
 		}
 		if attempt+1 < antigravityOnboardMaxAttempts {
-			time.Sleep(time.Duration(antigravityOnboardPollIntervalMs) * time.Millisecond)
+			if err := sleepCtx(ctx, time.Duration(antigravityOnboardPollIntervalMs)*time.Millisecond); err != nil {
+				return "", err
+			}
 		}
 	}
 

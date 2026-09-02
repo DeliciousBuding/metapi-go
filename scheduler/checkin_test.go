@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"context"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -20,8 +21,8 @@ func strPtr(s string) *string { return &s }
 
 // newTestCheckinScheduler builds a CheckinScheduler in interval mode with the
 // given interval hours. The checkinAll hook is left at its production default
-// (checkin.CheckinAll); tests that need to inject a mock override it after
-// construction.
+// (checkin.CheckinAllContext); tests that need to inject a mock override it
+// after construction.
 func newTestCheckinScheduler(t *testing.T, intervalHours int) *CheckinScheduler {
 	t.Helper()
 	config.SetRuntime(&config.RuntimeSettings{
@@ -174,7 +175,7 @@ func TestFilterDue_ClampsIntervalHours(t *testing.T) {
 	s := &CheckinScheduler{
 		cfg:              &config.Config{},
 		attemptByAccount: make(map[int64]int64),
-		checkinAll:       checkin.CheckinAll,
+		checkinAll:       checkin.CheckinAllContext,
 	}
 	got := s.filterDue([]intervalCandidate{{id: 1, lastCheckinAt: strPtr(recent)}}, now)
 	if len(got) != 0 {
@@ -352,7 +353,7 @@ func TestRunIntervalPassLocked_CallsCheckinForDueAccountsOnly(t *testing.T) {
 		calledIDs []int64
 		callCount int32
 	)
-	s.checkinAll = func(_ *config.Config, _ *sqlx.DB, ids []int64, mode string) []checkin.CheckinAllResult {
+	s.checkinAll = func(_ context.Context, _ *config.Config, _ *sqlx.DB, ids []int64, mode string) []checkin.CheckinAllResult {
 		atomic.AddInt32(&callCount, 1)
 		calledIDs = make([]int64, len(ids))
 		copy(calledIDs, ids)
@@ -369,7 +370,7 @@ func TestRunIntervalPassLocked_CallsCheckinForDueAccountsOnly(t *testing.T) {
 		return results
 	}
 
-	s.runIntervalPassLocked(db)
+	s.runIntervalPassLocked(context.Background(), db)
 
 	if callCount != 1 {
 		t.Fatalf("checkinAll called %d times, want 1", callCount)
@@ -404,12 +405,12 @@ func TestRunIntervalPassLocked_NoDueAccountsDoesNotCallCheckin(t *testing.T) {
 	s := NewCheckinScheduler(&config.Config{})
 
 	var callCount int32
-	s.checkinAll = func(_ *config.Config, _ *sqlx.DB, _ []int64, _ string) []checkin.CheckinAllResult {
+	s.checkinAll = func(_ context.Context, _ *config.Config, _ *sqlx.DB, _ []int64, _ string) []checkin.CheckinAllResult {
 		atomic.AddInt32(&callCount, 1)
 		return nil
 	}
 
-	s.runIntervalPassLocked(db)
+	s.runIntervalPassLocked(context.Background(), db)
 
 	if callCount != 0 {
 		t.Fatalf("checkinAll called %d times, want 0 (no due accounts)", callCount)
@@ -435,7 +436,7 @@ func TestRunIntervalPassLocked_FailedResultsStillUpdateAttemptMap(t *testing.T) 
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	s := NewCheckinScheduler(&config.Config{})
 
-	s.checkinAll = func(_ *config.Config, _ *sqlx.DB, ids []int64, _ string) []checkin.CheckinAllResult {
+	s.checkinAll = func(_ context.Context, _ *config.Config, _ *sqlx.DB, ids []int64, _ string) []checkin.CheckinAllResult {
 		results := make([]checkin.CheckinAllResult, 0, len(ids))
 		for _, id := range ids {
 			results = append(results, checkin.CheckinAllResult{
@@ -446,7 +447,7 @@ func TestRunIntervalPassLocked_FailedResultsStillUpdateAttemptMap(t *testing.T) 
 		return results
 	}
 
-	s.runIntervalPassLocked(db)
+	s.runIntervalPassLocked(context.Background(), db)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -478,7 +479,7 @@ func TestRunIntervalPass_OverridesDBAndCallsCheckin(t *testing.T) {
 	s := NewCheckinScheduler(&config.Config{})
 
 	var calledIDs []int64
-	s.checkinAll = func(_ *config.Config, _ *sqlx.DB, ids []int64, _ string) []checkin.CheckinAllResult {
+	s.checkinAll = func(_ context.Context, _ *config.Config, _ *sqlx.DB, ids []int64, _ string) []checkin.CheckinAllResult {
 		calledIDs = append(calledIDs, ids...)
 		return nil
 	}
@@ -487,5 +488,66 @@ func TestRunIntervalPass_OverridesDBAndCallsCheckin(t *testing.T) {
 
 	if len(calledIDs) != 1 || calledIDs[0] != dueID {
 		t.Fatalf("calledIDs = %v, want [%d]", calledIDs, dueID)
+	}
+}
+
+// ---- the round ctx is the lifecycle ctx, not a bare Background ----
+//
+// checkin.CheckinAllContext exists so a round's same-site pacing wait can end
+// when the scheduler stops. That is only true if the callers actually hand it a
+// ctx derived from the lifecycle: runIntervalPass builds jobCtx from s.ctx, and
+// the mock below asserts the derivation from inside the round (after
+// runIntervalPass returns, its deferred cancel has already fired, so an
+// assertion on the outside would pass for the wrong reason).
+func TestRunIntervalPass_RoundContextDiesWithTheSchedulerLifecycle(t *testing.T) {
+	db := setupIntervalTestDB(t)
+	store.OverrideDB(db)
+	t.Cleanup(func() { store.OverrideDB(nil) })
+
+	activeSite := insertIntervalTestSite(t, db, "lifecycle-site", "active")
+	insertIntervalTestAccount(t, db, activeSite, "lifecycle-due", "active", "", true)
+
+	config.SetRuntime(&config.RuntimeSettings{
+		CheckinScheduleMode:  "interval",
+		CheckinIntervalHours: 6,
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+
+	s := NewCheckinScheduler(&config.Config{})
+	lifeCtx, lifeCancel := context.WithCancel(context.Background())
+	defer lifeCancel()
+	s.ctx = lifeCtx
+	s.cancel = lifeCancel
+
+	problems := make(chan string, 4)
+	called := make(chan struct{}, 1)
+	s.checkinAll = func(ctx context.Context, _ *config.Config, _ *sqlx.DB, _ []int64, _ string) []checkin.CheckinAllResult {
+		called <- struct{}{}
+		if ctx == nil || ctx == context.Background() {
+			problems <- "the round ran on a bare context.Background(): Stop() cannot end its pacing wait"
+			return nil
+		}
+		if _, hasJobTimeout := ctx.Deadline(); !hasJobTimeout {
+			problems <- "the round ctx carries no job timeout (want it derived from context.WithTimeout(s.ctx, checkinJobTimeout))"
+		}
+		lifeCancel() // exactly what Stop() does to an in-flight pass
+		select {
+		case <-ctx.Done():
+		case <-time.After(2 * time.Second):
+			problems <- "cancelling the lifecycle ctx did not reach the round ctx"
+		}
+		return nil
+	}
+
+	s.runIntervalPass()
+
+	select {
+	case <-called:
+	default:
+		t.Fatal("checkinAll was never called; the pass did not reach the round")
+	}
+	close(problems)
+	for problem := range problems {
+		t.Error(problem)
 	}
 }
