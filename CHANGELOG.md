@@ -5,6 +5,33 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.23] — 2026-09-03
+
+### Added
+
+- **`USAGE_PROJECTION_INTERVAL_MS`（#1151）**：用量聚合的投影节奏（`proxy_logs` → 站点/模型汇总）此前硬编码 5s，现可调（钳制 1000–3600000 ms，默认不变）；小型单节点部署可调高，用仪表盘新鲜度换更少的扫描趟数。手工构造的配置与 nil 配置回落到包默认而不是以 0 空转。`docs/configuration.md` 与 `.env.example` 同步。
+- **启动日志说明日志清理体制归属（#1156）**：一条 `settings: log retention regime` 给出 `regime`（`log_cleanup` / `legacy_fallback`）、`configured`、`source`（`db_settings` / `env_toggle` / `none`）、两个 toggle 与 retention 天数。这个决定此前由一条静默推断做出，升级后运维无从知道现在谁在清日志。
+
+### Changed
+
+- **密钥准入贯穿请求上下文（#1152）**：`KeyAdmissionLimiter.Allow()` 此前自造 `context.Background()` 去跑共享计数器（Redis）往返，因此**客户端已经断开**的请求仍会把整个计数器超时耗完，而这段时间它正持有该密钥的串行化互斥锁——同一密钥的其它请求全排在一次没人在等的往返后面。现接收调用方 ctx（`nil` 视作 `Background`，方便 CLI/调度器类调用者），`/v1` 中间件传 `r.Context()`。取消的往返以计数器错误形式浮出，走的正是既有 fail-open 路径：本地窗口照常记账，单实例语义零漂移，共享窗口靠过期自愈。
+- **`store.GetDB()` 改原子指针（#1151）**：活动库单例现在是 `atomic.Pointer`，每条请求路径上的 `GetDB()` 不再争一把全局互斥锁；打开/迁移/切换序列仍在 `mu` 上串行，冗余的 `initialized` 标志删除（nil 指针本身就是那个状态）。
+- **`.gitignore`**：TS 迁移夹具旁的 SQLite WAL 边车文件（任何就地打开都会产生）不再弄脏工作树；夹具字节本身仍被跟踪且未改动。
+
+### Fixed
+
+- **老 PostgreSQL 库启动即失败（#1153）**：增量迁移注册表里三个 BOOLEAN 列写的是数字默认值（`sites.use_system_proxy`、`sites.post_refresh_probe_enabled`、`model_availability.is_manual`）。SQLite 把布尔存成 INTEGER、两种拼写都接受；PostgreSQL 会对默认值表达式做类型检查，`ALTER TABLE … ADD COLUMN … BOOLEAN DEFAULT 0` 直接报 `column … is of type boolean but default expression is of type integer`（SQLSTATE 42804），而 `AutoMigrate` 遇首个错误即中止 → **表早于这些列的既有 PG 库在启动阶段直接失败**。全新安装看起来完全健康（`CREATE TABLE` 已带上这些列，`EnsureColumn` 走 exists 分支 no-op，坏 DDL 从不被发出），所以故障只出现在升级路径上，而升级路径恰恰是运维跳不过去的那条。现两端收口：`EnsureColumn` 内归一（解析后列类型为 BOOLEAN 时 `DEFAULT 0/1` → `DEFAULT FALSE/TRUE`，保留 `NOT NULL` 等尾随修饰符；这是所有注册表条目唯一的收口点，将来按 SQLite 习惯写数字默认值也不会再把 PG 升级卡死）+ 注册表三处改为 `DEFAULT FALSE`（与同文件既有先例一致）。附注册表源码门禁（BOOLEAN 列不得声明数字默认值）与两个 PG-gated 探针（按老库形状建表后重放真实注册表步骤，断言列落为 `boolean DEFAULT false`、老行存活且读回 false、重跑幂等）。同类 42804 在 v0.8.49+ 修过一批，这次把口子收在 primitive 上。
+- **共享准入的补偿回滚会丢弃并发预占（#1154）**：Redis 回滚（`Decr` 与 `IncrBy` 的负 delta）此前是两个往返——先减，若结果非正再 `DEL`（自愈由 #1151 引入：回滚落在窗口过期之后会把键以「无 TTL + 负值」重新造出来，而 `INCR` 只在结果恰为 1 时才 arm `PEXPIRE`，这种键要等计数爬回 1 才重新变可过期，期间每个窗口都少算）。服务器把两条命令分开执行，所以**另一个实例在两者之间落地的 `INCR` 会连同旧键一起被删掉**：共享窗口在剩余生命周期里静默少算，该下游密钥被放行的流量超过配置的 RPM/TPM 上限——恰好发生在共享计数器存在的意义所在（多实例并发准入）的场景里，且没有任何日志。现合并为单条 `EVAL` 脚本（Redis 按单条命令执行脚本，条件删除再也无法观察到并发写入）；`Decr` 与负 `IncrBy` 共用该路径，两者都不 arm 过期，所以回滚仍不会延长它正在补偿的窗口，返回语义不变（减后总量，键被丢弃时为 0）。服务器若缺少脚本能力（`EVAL`）有明确降级：单独执行减量、跳过自愈——留下一个不死的非正键只少算一个窗口，而非原子的删除会丢弃活着的预占。无 Redis 部署走进程内 `MemoryCounter`，未改动。
+- **管理界面保存的运行时设置重启后静默失效（#1156）**：写侧把键持久化进 settings 表，读侧却没有对应分支——实测 33 个键没有水合，补齐 27 个（另 6 个进带理由的白名单：`db_type`/`db_url`/`db_ssl` 在水合之前就被 bootstrap 消费，三个 `*_schedule_v2` 由迁移服务与排班端点自己读）。最贵的一条是 `admin_ip_allowlist`：**重启后控制面 IP 限制静默消失、对全网重新开放**。数值键一律复用 `config.Load` 同款钳制（`max(lo, trunc(n))`、`math.Max(1e-6,·)`、token-router 冷却上限归一），不再长出第二份规则；未知键从「每键一行 warn」改为**一条聚合 warn**（排序 + 截断 20 个）。新增 AST 门禁：写侧键集 − 水合键集 − 白名单必须为空集，失败信息直接指出该键在哪个文件哪一行被持久化。
+- **通过管理 API 轮换过的令牌重启后失效（#1156）**：三个凭据键（`auth_token` / `proxy_token` / `account_credential_secret`）写侧 JSON 编码入库、读侧却只 `TrimSpace` → 重启后令牌带着引号进快照，常量时间比较必然失配。改为与其它字符串设置同样解码（只解一层，历史非 JSON 行仍按原样接受，避免把合法含引号的凭据弄坏）。
+- **持久化的日志清理设置从来到不了运行时（#1156）**：水合侧读点号拼写（`log_cleanup.enabled`），而写侧从来只写下划线拼写（`log_cleanup_enabled`）→ 整块是死码。统一到写侧拼写，点号保留为只读兼容别名（手改/外部导入的行仍可读）。
+- **日志清理会被无关设置静默开启（#1156）**：体制判定（`LogCleanupConfigured` 决定「新 cleanup 调度器」还是「legacy `PROXY_LOG_RETENTION_DAYS` pruner」拥有日志表）原来是「`retention > 0` 且未曾配置就自动开启」，而 `config.Load` 把 retention 下限钉在 1 天 → **settings 表里有任意一行**（存过站点名也算）就会触发：静默把显式 `LOG_CLEANUP_*_ENABLED=false` 翻成 true，并顺手禁用 legacy pruner。现只认**显式意图**，且两个来源故意不对称：`存在 admin 保存的 log-cleanup 设置 || env 任一 toggle 显式为 true`。env 可以把体制打开，但不能在关着的时候「认领」它——认领会禁用 legacy pruner，`proxy_logs` 就无人清理了；`LOG_CLEANUP_RETENTION_DAYS` / `LOG_CLEANUP_CRON` 单独不构成意图（两个 toggle 默认 false，"已配置"将意味着新调度器跑起来、因无目标而跳过、同时 legacy 已被禁用 = 什么都不清），显式 `false` 也不构成意图（这正是当初阻止重启把已禁用部署翻回开启的那条）。值仍由 settings 表优先，env 只贡献体制位。`docs/configuration.md`（默认值原写作含糊的 `auto`）与 `.env.example` 已同步真实规则。
+- **清空的站点品牌信息重启后复活（#1156）**：`system_name` / `logo` / `footer` / `about` / `server_address` 五个键此前丢弃空值，于是「清空的站点名」重启后变回 env 值，而同一个表单里清空的 webhook URL 却能存住；现显式空串生效（三个凭据键的空值守卫保留：空值不得覆盖已配置凭据）。cron 类键从「非空即接受」改为 `ValidateCronExpr` 校验后接受，非法值不再成为调度器的 fallback。
+- **两处设置持久化失败被当成成功（#1156）**：`admin_ip_allowlist` 与 `proxy_error_keywords` 的写库错误此前被丢弃并返回 200——持久化失败的 allowlist 就是「重启后限制消失」的另一条路径；现与同函数内相邻的两个过滤器一致返回 500。
+- **导入站点后账号列表不刷新（#1155）**：导入 mutation 失效的是站点列表 + 账号快照，而 `/accounts` 表格读的是分页缓存（快照在该页没有观察者）→ 导入成功后表格纹丝不动，直到改分页/筛选或离开再回来；同一个向导在 `/sites` 里却会刷新，两个宿主页对同一个动作给出两套答案。改为失效查询工厂根，覆盖分页/快照/列表/详情全部变体。
+- **账号行内开关点了不即时翻转（#1155）**：置顶/启停/签到的乐观更新打在账号快照上，而表格行数据来自分页缓存 → 点击后要等失效触发的网络往返才更新；同时把「只被用来取名字」的快照改成客户端猜测值，污染站点/签到/路由/下游密钥四页，还会取消这四页可能在飞的请求。改为按分页前缀批量 patch + 逐页回滚（沿用仓内既有正确范式），快照仍单独 patch，因为它自己有 6 个挂载消费者渲染同样三个字段。分页行是表格按渲染解析的原始服务端对象，patch 生成新对象以绕过按对象身份命中的解析缓存。
+- **两处界面文案渲染出裸 i18n 键（#1155）**：模型测试遇到 401/403（管理令牌过期是最常见情形）显示字面量 `modelTester.error.sessionExpired`；账号模型面板在后端返回不带 message 的业务失败时显示 `accounts.models.refreshFailed` / `manualFailed`——三个键在两个语言包里都不存在，而缺键时 i18next 返回键本身。补齐双语文案，并把门禁扫描面从「同行 `t('字面量')`」扩到两类**间接引用**（`assertBusinessOk` 的 fallback 实参、以及全仓以已知语言包根开头的键形状字符串字面量），带注释上下文排除、防空跑断言与显式 allowlist——否则这一类缺陷结构上永远看不见。
+
 ## [v0.16.22] — 2026-09-02
 
 ### Added
