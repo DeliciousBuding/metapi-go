@@ -3,6 +3,7 @@ package store
 import (
 	"fmt"
 	"log/slog"
+	"time"
 )
 
 // AutoMigrate creates every table in the schema registry (store/tablesets.go)
@@ -60,10 +61,21 @@ func AutoMigrate(db *DB) error {
 	// them on a takeover database. The rewrite is LIKE-guarded and idempotent,
 	// so a steady-state boot matches zero rows and costs one scan per TEXT
 	// *_at/*_until column.
+	// Unconditional (not journal-gated): the journal can only record the state
+	// of the database at the moment the step ran, so a gated sweep silently
+	// leaves behind every TS-shaped value written later — by a takeover copy, a
+	// backup import or a hand edit. The cost is one scan per TEXT *_at column
+	// on every boot, which is why the elapsed time is reported when it is slow
+	// even though it rewrote nothing: a slow start should be attributable.
+	sweepStartedAt := time.Now()
 	if n, err := normalizeLegacyTimestamps(db); err != nil {
 		return fmt.Errorf("store: normalize legacy timestamps: %w", err)
 	} else if n > 0 {
-		slog.Info("store: normalized legacy TS timestamps", "rows", n, "dialect", dialect)
+		slog.Info("store: normalized legacy TS timestamps",
+			"rows", n, "dialect", dialect, "elapsed_ms", time.Since(sweepStartedAt).Milliseconds())
+	} else if elapsed := time.Since(sweepStartedAt); elapsed > time.Second {
+		slog.Warn("store: legacy TS timestamp sweep rewrote nothing but scanned for a while",
+			"dialect", dialect, "elapsed_ms", elapsed.Milliseconds())
 	}
 
 	slog.Info("store: auto-migration complete", "dialect", dialect)
