@@ -30,7 +30,12 @@ func TestApplyRuntimeSettingsAppliesCheckinSchedule(t *testing.T) {
 	}
 }
 
-func TestApplyRuntimeSettingsIgnoresInvalidCheckinInterval(t *testing.T) {
+// An out-of-range interval is clamped to the nearest bound, the same two-sided
+// clamp config.Load applies to CHECKIN_INTERVAL_HOURS — it is not dropped.
+// This test used to assert the drop (48 kept the env-resolved fallback), which
+// pinned the defect as a contract: the row said 48, the snapshot said 6, and
+// GET /api/settings/runtime echoed the stale number with nothing in the log.
+func TestApplyRuntimeSettingsClampsOutOfRangeCheckinInterval(t *testing.T) {
 	rt := &config.RuntimeSettings{
 		CheckinCron:          config.DefaultCheckinCron,
 		CheckinScheduleMode:  "cron",
@@ -41,8 +46,8 @@ func TestApplyRuntimeSettingsIgnoresInvalidCheckinInterval(t *testing.T) {
 		"checkin_interval_hours": `48`,
 	})
 
-	if rt.CheckinIntervalHours != config.DefaultCheckinIntervalHours {
-		t.Fatalf("CheckinIntervalHours = %d, want fallback %d", rt.CheckinIntervalHours, config.DefaultCheckinIntervalHours)
+	if rt.CheckinIntervalHours != 24 {
+		t.Fatalf("CheckinIntervalHours = %d, want the clamped ceiling 24", rt.CheckinIntervalHours)
 	}
 }
 
