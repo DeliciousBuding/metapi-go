@@ -11,9 +11,21 @@
 #
 # Every step prints [PASS]/[FAIL]/[WARN] and accumulates a summary; the script
 # exits 1 when any step FAILs. FAILs print the truncated response body as
-# evidence. The script is re-runnable: sites/accounts/routes are looked up by
-# name before creation, and the downstream key has a fixed value so a 409
-# conflict is treated as "already exists".
+# evidence.
+#
+# Re-runnable means CONVERGE, not skip (#1209). Every resource is looked up
+# before it is created, and when it already exists this script re-asserts the
+# state the current run needs instead of trusting whatever the previous run left
+# stored:
+#   site            reuse by name, then by URL (identity IS the name/URL)
+#   account         re-bind the credential this run holds and just verified
+#   downstream key  re-assert supportedModels ["*"] and enabled
+#   route           reuse by modelPattern
+# Each step prints which of the three it did -- created, reused or refreshed --
+# so a green run cannot hide a resource that was merely left alone. A short-lived
+# upstream credential is the case that made this necessary: skipping left the
+# expired value stored and the failure surfaced two steps later on balance,
+# looking like a product regression while a release candidate was being proved.
 #
 # Configuration (environment variables):
 #   METAPI_URL         admin base URL         (default http://127.0.0.1:4000)
@@ -245,10 +257,12 @@ fi
 
 # 4. site idempotent-create (platform explicit so a flaky detect cannot block)
 SITE_ID=""
+SITE_STATE="created"
 status="$(request GET "$METAPI_URL/api/sites" "" "$METAPI_AUTH_TOKEN")"
 if [ "$status" = "200" ]; then
   if idx="$(json_find_index name "$SITE_NAME" 2>/dev/null)"; then
     SITE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
+    SITE_STATE="reused"
   fi
 fi
 if [ -z "$SITE_ID" ]; then
@@ -267,13 +281,14 @@ if [ -z "$SITE_ID" ]; then
     if [ -z "$SITE_ID" ]; then
       if idx="$(json_find_index url "$UPSTREAM_URL" 2>/dev/null)"; then
         SITE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
+        SITE_STATE="reused-by-url"
         warn_step "site idempotent-create (reused siteId=$SITE_ID by URL match)"
       fi
     fi
   fi
 fi
 if [ -n "$SITE_ID" ]; then
-  pass_step "site idempotent-create (siteId=$SITE_ID)"
+  pass_step "site idempotent-create (siteId=$SITE_ID, $SITE_STATE)"
 else
   fail_step "site idempotent-create (no site id obtained)"
   evidence
@@ -294,8 +309,9 @@ else
   fail_step "verify-token skipped (no site id)"
 fi
 
-# 6. account idempotent-create
+# 6. account idempotent-create -- converge the credential, do not skip (#1209)
 ACCOUNT_ID=""
+ACCOUNT_STATE="created"
 if [ -n "$SITE_ID" ] && [ -n "$VERIFIED_TYPE" ]; then
   status="$(request GET "$METAPI_URL/api/accounts" "" "$METAPI_AUTH_TOKEN")"
   if [ "$status" = "200" ]; then
@@ -320,9 +336,29 @@ if [ -n "$SITE_ID" ] && [ -n "$VERIFIED_TYPE" ]; then
       fail_step "account create (HTTP $status)"
       evidence
     fi
+  else
+    # The account already exists, so it still carries whatever credential the
+    # previous run stored. On a platform whose credential is short-lived -- a
+    # sub2api session JWT -- that value is expired by now: verify-token passes
+    # because it uses the fresh token from the environment, while balance fails
+    # because it refreshes the STORED one, and the run dies two steps away from
+    # the thing it is actually testing (#1209). Re-bind the credential this run
+    # already holds and verified in step 5.
+    #
+    # Deliberately the same token and never a second issuance: sub2api bumps
+    # token_version per issuance, so signing another one would invalidate the
+    # token the rest of this run still needs. The refresh is printed rather than
+    # silent, so it cannot mask a real "account lost its credential" regression.
+    status="$(request PUT "$METAPI_URL/api/accounts/$ACCOUNT_ID" "{\"accessToken\":\"$UPSTREAM_TOKEN\",\"credentialMode\":\"$CREDENTIAL_MODE\"}" "$METAPI_AUTH_TOKEN")"
+    if [ "$status" = "200" ]; then
+      ACCOUNT_STATE="refreshed"
+    else
+      fail_step "account credential refresh (HTTP $status)"
+      evidence
+    fi
   fi
   if [ -n "$ACCOUNT_ID" ]; then
-    pass_step "account idempotent-create (accountId=$ACCOUNT_ID, tokenType=$VERIFIED_TYPE)"
+    pass_step "account idempotent-create (accountId=$ACCOUNT_ID, tokenType=$VERIFIED_TYPE, $ACCOUNT_STATE)"
   fi
 else
   fail_step "account idempotent-create skipped (no site id / token not verified)"
@@ -397,9 +433,33 @@ if [ "$status" = "200" ] || [ "$status" = "201" ]; then
   PROXY_TOKEN="$TOKEN_IMPORT_KEY"
   pass_step "token create ($TOKEN_NAME)"
 elif [ "$status" = "409" ]; then
-  # duplicate key: same fixed value from a previous run — reuse it
-  PROXY_TOKEN="$TOKEN_IMPORT_KEY"
-  pass_step "token create (HTTP 409 duplicate, reusing fixed key)"
+  # The key exists from a previous run. Reassert the relay policy instead of
+  # merely reusing it: an empty supportedModels list is intentionally deny-all,
+  # so a leftover key would silently block every model this run is about to
+  # relay. smoke.sh step 11 already converges this way (#1209).
+  status="$(request GET "$METAPI_URL/api/downstream-keys" "" "$METAPI_AUTH_TOKEN")"
+  key_id="$(python3 -c 'import json,sys; p=json.load(sys.stdin); name=sys.argv[1]; print(next(str(item.get("id", "")) for item in p.get("items", []) if isinstance(item, dict) and item.get("name") == name))' "$TOKEN_NAME" < "$RESP_BODY" 2>/dev/null || true)"
+  if [ "$status" = "200" ] && [ -n "$key_id" ]; then
+    status="$(request PUT "$METAPI_URL/api/downstream-keys/$key_id" '{"supportedModels":["*"],"enabled":true}' "$METAPI_AUTH_TOKEN")"
+    if [ "$status" = "200" ]; then
+      PROXY_TOKEN="$TOKEN_IMPORT_KEY"
+      pass_step "token reuse ($TOKEN_NAME, relay policy reasserted)"
+    else
+      fail_step "token reuse/update (HTTP $status, keyId=$key_id)"
+      evidence
+    fi
+  else
+    # A 409 with no record under this name means the fixed key VALUE belongs to a
+    # differently named record, so this script does not own it and cannot
+    # reassert its policy. That is a real topology here: two chains share
+    # TOKEN_IMPORT_KEY under different TOKEN_NAMEs, so whichever runs second
+    # always lands in this branch. Reusing the value is still correct -- the
+    # relay steps below prove it works -- but claiming the policy was checked
+    # would be a green that means nothing, and failing would red a run whose
+    # relay is fine. So: reuse, and say out loud what was not verified.
+    PROXY_TOKEN="$TOKEN_IMPORT_KEY"
+    warn_step "token reuse (HTTP 409: the fixed key is owned by a differently named record, relay policy NOT reasserted)"
+  fi
 else
   fail_step "token create (HTTP $status)"
   evidence
@@ -408,10 +468,12 @@ fi
 # 11. route create (idempotent by modelPattern lookup)
 if [ -n "$PROXY_TOKEN" ]; then
   ROUTE_ID=""
+  ROUTE_STATE="created"
   status="$(request GET "$METAPI_URL/api/routes/lite" "" "$METAPI_AUTH_TOKEN")"
   if [ "$status" = "200" ]; then
     if idx="$(json_find_index modelPattern "$ROUTE_MODEL" 2>/dev/null)"; then
       ROUTE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
+      ROUTE_STATE="reused"
     fi
   fi
   if [ -z "$ROUTE_ID" ]; then
@@ -422,9 +484,9 @@ if [ -n "$PROXY_TOKEN" ]; then
   fi
   if [ -n "$ROUTE_ID" ]; then
     if [ "$ROUTE_MODEL" = "$PROXY_MODEL" ] && [ -z "$first_model" ]; then
-      warn_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL) — upstream model list empty, used PROXY_MODEL"
+      warn_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL, $ROUTE_STATE) — upstream model list empty, used PROXY_MODEL"
     else
-      pass_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL)"
+      pass_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL, $ROUTE_STATE)"
     fi
   else
     fail_step "route create (no route id obtained)"
