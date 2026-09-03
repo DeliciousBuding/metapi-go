@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // --- Token CRUD ---
@@ -11,7 +12,7 @@ import (
 func (n *NewApiAdapter) GetAPIToken(ctx context.Context, baseURL, accessToken string, platformUserId *int, proxy *ProxyConfig) (*string, error) {
 	tokens, err := n.GetAPITokens(ctx, baseURL, accessToken, platformUserId, proxy)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	return findFirstEnabledToken(tokens), nil
 }
@@ -22,7 +23,10 @@ func (n *NewApiAdapter) GetAPITokens(ctx context.Context, baseURL, accessToken s
 
 func (n *NewApiAdapter) getAPITokenWithUser(ctx context.Context, baseURL, accessToken string, userID *int, proxy *ProxyConfig) (*string, error) {
 	tokens, err := n.getAPITokensWithUser(ctx, baseURL, accessToken, userID, proxy)
-	if err != nil || len(tokens) == 0 {
+	if err != nil {
+		return nil, err
+	}
+	if len(tokens) == 0 {
 		return nil, nil
 	}
 	return findFirstEnabledToken(tokens), nil
@@ -30,17 +34,24 @@ func (n *NewApiAdapter) getAPITokenWithUser(ctx context.Context, baseURL, access
 
 func (n *NewApiAdapter) getAPITokensWithUser(ctx context.Context, baseURL, accessToken string, userID *int, proxy *ProxyConfig) ([]ApiTokenInfo, error) {
 	// Try Bearer auth
-	resp, err := fetchJSON(ctx, baseURL+"/api/token/?p=0&size=100", "GET", nil, n.authHeaders(accessToken, userID), proxy)
+	headers := n.authHeaders(accessToken, userID)
+	resp, err := fetchJSON(ctx, baseURL+"/api/token/?p=0&size=100", "GET", nil, headers, proxy)
 	if err == nil {
 		items := parseTokenItemsFromMap(resp)
-		normalized := normalizeTokenItems(items)
+		normalized, normalizeErr := n.normalizeListedTokens(ctx, baseURL, items, headers, proxy)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
 		if len(normalized) > 0 {
 			return normalized, nil
 		}
 	}
 
 	// Cookie fallback
-	cookieTokens := n.getAPITokensByCookie(ctx, baseURL, accessToken, userID, proxy)
+	cookieTokens, cookieErr := n.getAPITokensByCookie(ctx, baseURL, accessToken, userID, proxy)
+	if cookieErr != nil {
+		return nil, cookieErr
+	}
 	if len(cookieTokens) > 0 {
 		return cookieTokens, nil
 	}
@@ -48,7 +59,10 @@ func (n *NewApiAdapter) getAPITokensWithUser(ctx context.Context, baseURL, acces
 	// Alternate userID cookie fallback
 	altID := n.probeAlternateUserIDByCookie(ctx, baseURL, accessToken, userID, proxy)
 	if altID != nil {
-		fallbackTokens := n.getAPITokensByCookie(ctx, baseURL, accessToken, altID, proxy)
+		fallbackTokens, fallbackErr := n.getAPITokensByCookie(ctx, baseURL, accessToken, altID, proxy)
+		if fallbackErr != nil {
+			return nil, fallbackErr
+		}
 		if len(fallbackTokens) > 0 {
 			return fallbackTokens, nil
 		}
@@ -57,7 +71,7 @@ func (n *NewApiAdapter) getAPITokensWithUser(ctx context.Context, baseURL, acces
 	return []ApiTokenInfo{}, nil
 }
 
-func (n *NewApiAdapter) getAPITokensByCookie(ctx context.Context, baseURL, token string, userID *int, proxy *ProxyConfig) []ApiTokenInfo {
+func (n *NewApiAdapter) getAPITokensByCookie(ctx context.Context, baseURL, token string, userID *int, proxy *ProxyConfig) ([]ApiTokenInfo, error) {
 	for _, cookie := range buildCookieCandidates(token) {
 		headers := map[string]string{"Cookie": cookie}
 		for k, v := range n.userIDHeaders(userID) {
@@ -70,12 +84,76 @@ func (n *NewApiAdapter) getAPITokensByCookie(ctx context.Context, baseURL, token
 		}
 
 		items := parseTokenItemsFromMap(resp)
-		normalized := normalizeTokenItems(items)
+		normalized, normalizeErr := n.normalizeListedTokens(ctx, baseURL, items, headers, proxy)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
 		if len(normalized) > 0 {
-			return normalized
+			return normalized, nil
 		}
 	}
-	return nil
+	return nil, nil
+}
+
+// normalizeListedTokens resolves New API v1's masked list keys through its
+// ownership-checked batch key endpoint before returning them to account-token
+// sync. A masked display value is never a usable routing credential.
+func (n *NewApiAdapter) normalizeListedTokens(
+	ctx context.Context,
+	baseURL string,
+	items []map[string]interface{},
+	headers map[string]string,
+	proxy *ProxyConfig,
+) ([]ApiTokenInfo, error) {
+	maskedIDs := make([]int, 0)
+	for _, item := range items {
+		key, _ := getString(item, "key")
+		if !strings.Contains(key, "*") {
+			continue
+		}
+		id, ok := getFloat(item, "id")
+		if !ok || id <= 0 {
+			return nil, fmt.Errorf("New API returned a masked token key without a usable token id")
+		}
+		maskedIDs = append(maskedIDs, int(id))
+	}
+	if len(maskedIDs) == 0 {
+		return normalizeTokenItems(items), nil
+	}
+
+	resp, err := fetchJSON(
+		ctx,
+		strings.TrimRight(baseURL, "/")+"/api/token/batch/keys",
+		"POST",
+		map[string]interface{}{"ids": maskedIDs},
+		headers,
+		proxy,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("fetch full New API token keys: %w", err)
+	}
+	data, ok := getMap(resp, "data")
+	if !ok {
+		return nil, fmt.Errorf("fetch full New API token keys: response has no data")
+	}
+	keys, ok := getMap(data, "keys")
+	if !ok {
+		return nil, fmt.Errorf("fetch full New API token keys: response has no keys")
+	}
+	for _, item := range items {
+		key, _ := getString(item, "key")
+		if !strings.Contains(key, "*") {
+			continue
+		}
+		id, _ := getFloat(item, "id")
+		fullKey, _ := getString(keys, fmt.Sprintf("%d", int(id)))
+		fullKey = strings.TrimSpace(fullKey)
+		if fullKey == "" || strings.Contains(fullKey, "*") {
+			return nil, fmt.Errorf("fetch full New API token keys: token %d is missing", int(id))
+		}
+		item["key"] = fullKey
+	}
+	return normalizeTokenItems(items), nil
 }
 
 func (n *NewApiAdapter) CreateAPIToken(ctx context.Context, baseURL, accessToken string, platformUserId *int, options *CreateAPITokenOptions, proxy *ProxyConfig) (bool, error) {
