@@ -300,52 +300,6 @@ func TestSites_Postgres_CreateUpdateAndDisabledModels(t *testing.T) {
 	}
 }
 
-func TestSites_Create_Duplicate(t *testing.T) {
-	_, r := setupSitesTest(t)
-	newSiteFixture(t, r, "Site1", "https://api.openai.com")
-
-	body := map[string]any{
-		"name": "Site2",
-		"url":  "https://api.openai.com",
-	}
-	resp := doPostJSON(t, r, "/api/sites", body)
-	if resp.Code != http.StatusConflict {
-		t.Fatalf("expected 409 conflict, got %d: %s", resp.Code, resp.Body.String())
-	}
-	var err map[string]string
-	json.Unmarshal(resp.Body.Bytes(), &err)
-	if !strings.Contains(err["error"], "already exists") {
-		t.Errorf("expected 'already exists' in error, got %q", err["error"])
-	}
-}
-
-func TestSites_Create_EmptyName(t *testing.T) {
-	_, r := setupSitesTest(t)
-	body := map[string]any{"name": "  ", "url": "https://api.openai.com"}
-	resp := doPostJSON(t, r, "/api/sites", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
-func TestSites_Create_EmptyURL(t *testing.T) {
-	_, r := setupSitesTest(t)
-	body := map[string]any{"name": "Test", "url": ""}
-	resp := doPostJSON(t, r, "/api/sites", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
-func TestSites_CannotDetectPlatform(t *testing.T) {
-	_, r := setupSitesTest(t)
-	body := map[string]any{"name": "Unknown", "url": "https://completely-unknown-llm.example.com"}
-	resp := doPostJSON(t, r, "/api/sites", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 for undetectable platform, got %d: %s", resp.Code, resp.Body.String())
-	}
-}
-
 func TestSites_CreateDetectsAnyRouter(t *testing.T) {
 	_, r := setupSitesTest(t)
 	body := map[string]any{
@@ -430,15 +384,6 @@ func TestSites_Update(t *testing.T) {
 	}
 }
 
-func TestSites_Update_NotFound(t *testing.T) {
-	_, r := setupSitesTest(t)
-	body := map[string]any{"name": "Ghost"}
-	resp := doPutJSON(t, r, "/api/sites/99999", body)
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", resp.Code)
-	}
-}
-
 func TestSites_Update_APIEndpointsFullReplace(t *testing.T) {
 	_, r := setupSitesTest(t)
 	site := newSiteFixture(t, r, "EPSite", "https://api.openai.com")
@@ -471,18 +416,6 @@ func TestSites_Update_APIEndpointsFullReplace(t *testing.T) {
 	eps, _ := updated["apiEndpoints"].([]any)
 	if len(eps) != 1 {
 		t.Errorf("expected 1 endpoint after full replace, got %d", len(eps))
-	}
-}
-
-func TestSites_Update_InvalidStatus(t *testing.T) {
-	_, r := setupSitesTest(t)
-	site := newSiteFixture(t, r, "StatusTest", "https://api.openai.com")
-	siteID := int64(site["id"].(float64))
-
-	body := map[string]any{"status": "invalid-status"}
-	resp := doPutJSON(t, r, "/api/sites/"+itoa(siteID), body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d: %s", resp.Code, resp.Body.String())
 	}
 }
 
@@ -573,15 +506,6 @@ func TestSites_Detect_Unknown(t *testing.T) {
 	}
 }
 
-func TestSites_Detect_EmptyURL(t *testing.T) {
-	_, r := setupSitesTest(t)
-	body := map[string]string{"url": ""}
-	resp := doPostJSON(t, r, "/api/sites/detect", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
 // ---- Disabled Models Tests ----
 
 func TestSites_DisabledModels_CRUD(t *testing.T) {
@@ -653,14 +577,6 @@ func TestSites_DisabledModels_Deduplication(t *testing.T) {
 	}
 }
 
-func TestSites_DisabledModels_NotFound(t *testing.T) {
-	_, r := setupSitesTest(t)
-	resp := doGet(t, r, "/api/sites/99999/disabled-models")
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", resp.Code)
-	}
-}
-
 // ---- Available Models Tests ----
 
 func TestSites_AvailableModels_Empty(t *testing.T) {
@@ -724,14 +640,6 @@ func TestSites_ProbeNow(t *testing.T) {
 	json.Unmarshal(resp.Body.Bytes(), &result)
 	if result["success"] != true {
 		t.Errorf("expected success=true, got %v", result["success"])
-	}
-}
-
-func TestSites_ProbeNow_InvalidID(t *testing.T) {
-	_, r := setupSitesTest(t)
-	resp := doPostJSON(t, r, "/api/sites/not-a-number/probe-now", map[string]any{})
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
 	}
 }
 
@@ -1146,6 +1054,64 @@ func itoa(i int64) string {
 		return "0"
 	}
 	return s
+}
+
+// ---- Error status codes ----
+
+func TestSites_ErrorStatusCodes(t *testing.T) {
+	tests := []struct {
+		name       string
+		seed       string
+		method     string
+		path       string
+		body       any
+		wantStatus int
+		wantErr    string
+	}{
+		{name: "Create_Duplicate", seed: "duplicate-site", method: http.MethodPost, path: "/api/sites", body: map[string]any{"name": "Site2", "url": "https://api.openai.com"}, wantStatus: http.StatusConflict, wantErr: "already exists"},
+		{name: "Create_EmptyName", method: http.MethodPost, path: "/api/sites", body: map[string]any{"name": "  ", "url": "https://api.openai.com"}, wantStatus: http.StatusBadRequest},
+		{name: "Create_EmptyURL", method: http.MethodPost, path: "/api/sites", body: map[string]any{"name": "Test", "url": ""}, wantStatus: http.StatusBadRequest},
+		{name: "CannotDetectPlatform", method: http.MethodPost, path: "/api/sites", body: map[string]any{"name": "Unknown", "url": "https://completely-unknown-llm.example.com"}, wantStatus: http.StatusBadRequest},
+		{name: "Update_NotFound", method: http.MethodPut, path: "/api/sites/99999", body: map[string]any{"name": "Ghost"}, wantStatus: http.StatusNotFound},
+		{name: "Update_InvalidStatus", seed: "existing-site", method: http.MethodPut, path: "/api/sites/{id}", body: map[string]any{"status": "invalid-status"}, wantStatus: http.StatusBadRequest},
+		{name: "DisabledModels_NotFound", method: http.MethodGet, path: "/api/sites/99999/disabled-models", wantStatus: http.StatusNotFound},
+		{name: "ProbeNow_InvalidID", method: http.MethodPost, path: "/api/sites/not-a-number/probe-now", body: map[string]any{}, wantStatus: http.StatusBadRequest},
+		{name: "Detect_EmptyURL", method: http.MethodPost, path: "/api/sites/detect", body: map[string]string{"url": ""}, wantStatus: http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, r := setupSitesTest(t)
+			path := tt.path
+			switch tt.seed {
+			case "duplicate-site":
+				newSiteFixture(t, r, "Site1", "https://api.openai.com")
+			case "existing-site":
+				site := newSiteFixture(t, r, "StatusTest", "https://api.openai.com")
+				path = strings.ReplaceAll(path, "{id}", itoa(int64(site["id"].(float64))))
+			}
+			var resp *httptest.ResponseRecorder
+			switch tt.method {
+			case http.MethodGet:
+				resp = doGet(t, r, path)
+			case http.MethodDelete:
+				resp = doDelete(t, r, path)
+			case http.MethodPost:
+				resp = doPostJSON(t, r, path, tt.body)
+			case http.MethodPut:
+				resp = doPutJSON(t, r, path, tt.body)
+			}
+			if resp.Code != tt.wantStatus {
+				t.Fatalf("expected %d, got %d: %s", tt.wantStatus, resp.Code, resp.Body.String())
+			}
+			if tt.wantErr != "" {
+				var err map[string]string
+				json.Unmarshal(resp.Body.Bytes(), &err)
+				if !strings.Contains(err["error"], tt.wantErr) {
+					t.Errorf("expected %q in error, got %q", tt.wantErr, err["error"])
+				}
+			}
+		})
+	}
 }
 
 func TestSites_MaxConcurrencyRoundTrip(t *testing.T) {
