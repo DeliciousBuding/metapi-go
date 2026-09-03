@@ -1,4 +1,4 @@
-.PHONY: build test race race-integration vet lint vuln mod-verify docs-hygiene bench-routing coverage verify verify-race docker-verify run docker-build clean web-build migrate-build electron-build
+.PHONY: build test race race-integration vet lint vuln mod-verify docs-hygiene bench-routing coverage verify verify-race docker-verify run docker-build clean web-build migrate-build
 
 # Version injected into the binary at build time; "dev" when not on a tag.
 VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || echo dev)
@@ -78,15 +78,6 @@ web-build:
 # Build the standalone migration tool
 migrate-build:
 	go build -trimpath -ldflags="-s -w" -o metapi-migrate ./cmd/migrate
-
-# Build the Electron desktop shell (Go binary + electron-packager output).
-# Requires Node.js >= 18 and npm. Runs scripts/build-electron.sh / .ps1.
-electron-build:
-ifeq ($(OS),Windows_NT)
-	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-electron.ps1
-else
-	bash ./scripts/build-electron.sh
-endif
 
 # Clean build artifacts
 clean:

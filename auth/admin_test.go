@@ -276,12 +276,6 @@ func TestIsIPAllowed_EmptyClientIP(t *testing.T) {
 // isPublicAPIRoute tests
 // ---------------------------------------------------------------------------
 
-func TestIsPublicAPIRoute_HealthEndpoint(t *testing.T) {
-	if !isPublicAPIRoute("/api/desktop/health") {
-		t.Error("expected /api/desktop/health to be public")
-	}
-}
-
 func TestIsPublicAPIRoute_OAuthCallback(t *testing.T) {
 	if !isPublicAPIRoute("/api/oauth/callback/claude") {
 		t.Error("expected /api/oauth/callback/claude to be public")
@@ -307,10 +301,6 @@ func TestIsPublicAPIRoute_ProxyRoute(t *testing.T) {
 }
 
 func TestIsPublicAPIRoute_SimilarButNotMatch(t *testing.T) {
-	// /api/desktop/healthz should not match /api/desktop/health
-	if isPublicAPIRoute("/api/desktop/healthz") {
-		t.Error("expected /api/desktop/healthz to NOT be public")
-	}
 	// /api/oauth/callbacks should not match /api/oauth/callback/
 	if isPublicAPIRoute("/api/oauth/callbacks") {
 		t.Error("expected /api/oauth/callbacks to NOT be public")
@@ -642,16 +632,6 @@ func TestAdminAuth_IgnoresSpoofedXForwardedForForAllowlist(t *testing.T) {
 		"192.168.1.1:12345", "10.0.0.1")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("expected 403 (spoofed XFF ignored), got %d: %s", w.Code, w.Body.String())
-	}
-}
-
-func TestAdminAuth_PublicRouteBypass_Health(t *testing.T) {
-	rt := newTestConfig(t, "my-secret-token", []string{"10.0.0.0/8"})
-	// Even with wrong IP and no auth token, public routes should pass
-	w := adminTestHelper(t, rt, "GET", "/api/desktop/health", "",
-		"1.2.3.4:12345", "")
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200 (public route bypass), got %d", w.Code)
 	}
 }
 

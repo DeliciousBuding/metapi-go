@@ -133,11 +133,10 @@ bun run lint:fix       # oxlint --fix
 bun run test           # 路由树校验 + vitest run（全量）
 bun run test:watch     # vitest watch
 bun run knip           # 未使用代码检测
-bun run build          # = build:web = desktop:icons && rsbuild build
+bun run build          # = build:web = rsbuild build
 bun run build:check    # tsgo -b && build（发布前完整检查）
 bun run format         # oxfmt（含保护头）
 bun run format:check   # 格式检查
-bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 ```
 
 **静态门禁（发布前必须全绿）**：tsgo 0 error + oxlint 0 error + knip exit 0 + `bun run build` pass + vitest 全绿。测试数量不写入规则文件，以 `bun run test` 的最新输出为准。Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 覆盖。
@@ -264,7 +263,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 ### 5.16 构建与部署
 
 - 用 Rsbuild，配置见 `rsbuild.config.ts`；脚本以 `package.json` 为准。构建期共享常量（dev proxy、`METAPI_WEB_VERSION` define、`@` alias）唯一收口在 `config/build-shared.ts`，由 `rsbuild.config.ts` 与 `vitest.config.ts` 共同消费；路由生成唯一入口是 rsbuild 配置里的 `@tanstack/router-plugin`，产物 `src/routeTree.gen.ts` 随仓库提交。
-- **单二进制嵌入**：构建产物落入 `web/dist/`，经 `web/embed.go` 的 `go:embed dist` 打包进 Go 二进制；生产镜像不含 node/bun。`desktop:icons` 用 `node`（sharp native addon 需独立 node），`build:web = desktop:icons && rsbuild build`，`build = build:web`。
+- **单二进制嵌入**：构建产物落入 `web/dist/`，经 `web/embed.go` 的 `go:embed dist` 打包进 Go 二进制；生产镜像不含 node/bun。`build:web = rsbuild build`，`build = build:web`。
 - 代码分割与懒加载见 [5.4](#54-性能)；环境变量用 `.env` 且以 `VITE_` 前缀，不在代码中硬编码。
 - **发布前**：执行 `bun run build:check`（tsgo + 完整构建）、`bun run lint`、`bun run format:check`，检查产物体积与环境变量配置。
 

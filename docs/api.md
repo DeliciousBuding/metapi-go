@@ -23,6 +23,6 @@ Base URL: `http://localhost:4000/api`. Authentication model, response formats, r
 | Resin/scheduler/rates/audit-logs/ops-ws, search, tasks & test surfaces | [`diagnostics.md`](api/diagnostics.md) |
 | Admin session model (login/logout/session/ws-ticket) | [`auth.md`](api/auth.md) |
 | OAuth providers, sessions, connections & route units | [`oauth.md`](api/oauth.md) |
-| /health /ready /desktop/health & /about | [`health.md`](api/health.md) |
+| /health /ready & /about | [`health.md`](api/health.md) |
 | Full registered /api route inventory | [`routes-inventory.md`](api/routes-inventory.md) |
 | /v1/files & /v1/pricing | [`proxy.md`](api/proxy.md) |

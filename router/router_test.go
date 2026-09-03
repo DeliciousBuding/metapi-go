@@ -258,7 +258,7 @@ func TestAdminCORSDefaultDoesNotAllowCrossOrigin(t *testing.T) {
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/desktop/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/about", nil)
 	req.Header.Set("Origin", "https://evil.example.com")
 	r.ServeHTTP(rec, req)
 
@@ -280,7 +280,7 @@ func TestAdminCORSAllowsConfiguredOriginsOnly(t *testing.T) {
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/desktop/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/about", nil)
 	req.Header.Set("Origin", "https://admin.example.com")
 	r.ServeHTTP(rec, req)
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://admin.example.com" {
@@ -288,7 +288,7 @@ func TestAdminCORSAllowsConfiguredOriginsOnly(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/api/desktop/health", nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/about", nil)
 	req.Header.Set("Origin", "https://evil.example.com")
 	r.ServeHTTP(rec, req)
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
