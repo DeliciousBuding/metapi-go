@@ -140,25 +140,23 @@ const siteCell = (status: string) => {
   } as Site)
 }
 
+// The enabled/total channel summary ladder, spelled as data: all enabled ->
+// success, partially enabled -> warning, none enabled -> secondary.
+const routeChannelLadder: Record<
+  string,
+  { channelCount: number; enabledChannelCount: number }
+> = {
+  'all enabled': { channelCount: 3, enabledChannelCount: 3 },
+  'partially enabled': { channelCount: 3, enabledChannelCount: 1 },
+  'all disabled': { channelCount: 2, enabledChannelCount: 0 },
+}
+
 const routeCell = (columnId: string, status: string) => {
   const { result } = renderHook(() => useRoutesColumns(noopRouteActions))
   const row =
     columnId === 'enabled'
       ? { enabled: status === 'enabled' }
-      : {
-          channelCount:
-            status === 'all enabled'
-              ? 3
-              : status === 'partially enabled'
-                ? 3
-                : 2,
-          enabledChannelCount:
-            status === 'all enabled'
-              ? 3
-              : status === 'partially enabled'
-                ? 1
-                : 0,
-        }
+      : routeChannelLadder[status]
   return cellFrom(result.current, columnId, row as unknown as RouteSummaryRow)
 }
 
