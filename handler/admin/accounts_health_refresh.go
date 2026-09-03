@@ -10,6 +10,16 @@ import (
 
 // ---- Health Refresh ----
 
+// balanceRefreshFailedMessage is the stable prefix of the on-demand balance
+// refresh failure body. Scripts and the UI match on it, so a classified reason is
+// appended after it rather than replacing it (#1210).
+const balanceRefreshFailedMessage = "balance refresh failed"
+
+// batchBalanceRefreshFailedMessage is the same contract on the batch surface. Its
+// capitalisation predates #1210 and is kept so existing UI strings still match;
+// both prefixes stay stable and only the appended reason changes.
+const batchBalanceRefreshFailedMessage = "Balance refresh failed"
+
 // healthRefreshResultItem is one account outcome from POST /api/accounts/health/refresh.
 type healthRefreshResultItem struct {
 	AccountID int64  `json:"accountId"`
@@ -49,8 +59,21 @@ func (h *accountsHandler) refreshBalance(w http.ResponseWriter, r *http.Request)
 			writeErrorWithRequest(w, r, http.StatusNotFound, "account not found or platform not supported")
 			return
 		}
-		slog.Warn("Balance refresh failed", "err", err, "account_id", id)
-		writeJSON(w, http.StatusBadGateway, map[string]string{"message": "balance refresh failed"})
+		// #1210: the server already knew why this failed (the WARN line carried
+		// `HTTP 401: Token has expired`) while the operator and any script
+		// asserting on the body saw only a generic failure and had to go log
+		// diving. Keep the stable prefix so existing assertions and the UI keep
+		// matching, keep the raw upstream text server-side because it can carry a
+		// URL, a token fragment or a request id, and append one classified reason.
+		// When nothing safe can be named the bare prefix stays rather than an
+		// invented cause.
+		reason := balanceService.ExplainRefreshFailure(err)
+		slog.Warn("Balance refresh failed", "err", err, "account_id", id, "reason", reason)
+		message := balanceRefreshFailedMessage
+		if reason != "" {
+			message += ": " + reason
+		}
+		writeJSON(w, http.StatusBadGateway, map[string]string{"message": message})
 		return
 	}
 

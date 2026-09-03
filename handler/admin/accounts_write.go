@@ -420,8 +420,16 @@ func (h *accountsHandler) batchAccounts(w http.ResponseWriter, r *http.Request) 
 				continue
 			}
 			if err != nil {
-				slog.Warn("Batch balance refresh failed", "err", err, "account_id", id)
-				failedItems = append(failedItems, map[string]any{"id": id, "message": "Balance refresh failed"})
+				// #1210: the batch surface answers the same question as the
+				// single-account one, so it gets the same classified reason rather
+				// than a bare failure. The raw upstream text stays in the WARN line.
+				reason := balanceService.ExplainRefreshFailure(err)
+				slog.Warn("Batch balance refresh failed", "err", err, "account_id", id, "reason", reason)
+				message := batchBalanceRefreshFailedMessage
+				if reason != "" {
+					message += ": " + reason
+				}
+				failedItems = append(failedItems, map[string]any{"id": id, "message": message})
 				continue
 			}
 			if result.Skipped {

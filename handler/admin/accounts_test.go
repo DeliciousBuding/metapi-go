@@ -2332,6 +2332,101 @@ func TestAccounts_RefreshBalanceAPIKeySkippedWithoutUpstream(t *testing.T) {
 
 // ---- Account Models ----
 
+// TestAccounts_RefreshBalanceFailureExplainsItself is #1210 at the HTTP edge, on
+// both surfaces that answer it: the per-account POST and the batch action. The
+// upstream rejects the stored credential, so each body must keep its stable prefix
+// (scripts and the UI match on those) and name a classified reason, and neither
+// may echo the upstream's own wording. The planted credential fragment and request
+// id in the 401 body are what make the leak half of this test able to fail.
+func TestAccounts_RefreshBalanceFailureExplainsItself(t *testing.T) {
+	const plantedSecret = "sk-LEAKME-9f3a2b"
+	const plantedRequestID = "req_778899"
+
+	newRejectingUpstream := func(t *testing.T) *httptest.Server {
+		t.Helper()
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"success":false,"message":"Token has expired for ` + plantedSecret + ` (request id ` + plantedRequestID + `)"}`))
+		}))
+		t.Cleanup(server.Close)
+		return server
+	}
+
+	cases := []struct {
+		name       string
+		path       func(accountID int64) string
+		body       func(accountID int64) any
+		wantStatus int
+		prefix     string
+		message    func(t *testing.T, resp *httptest.ResponseRecorder) string
+	}{
+		{
+			name:       "per-account refresh",
+			path:       func(accountID int64) string { return "/api/accounts/" + itoa(accountID) + "/balance" },
+			body:       func(int64) any { return nil },
+			wantStatus: http.StatusBadGateway,
+			prefix:     balanceRefreshFailedMessage,
+			message: func(t *testing.T, resp *httptest.ResponseRecorder) string {
+				var body map[string]any
+				if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+					t.Fatalf("decode failure body: %v (%s)", err, resp.Body.String())
+				}
+				message, _ := body["message"].(string)
+				return message
+			},
+		},
+		{
+			name: "batch refresh",
+			path: func(int64) string { return "/api/accounts/batch" },
+			body: func(accountID int64) any {
+				return map[string]any{"ids": []int{int(accountID)}, "action": "refreshBalance"}
+			},
+			wantStatus: http.StatusOK,
+			prefix:     batchBalanceRefreshFailedMessage,
+			message: func(t *testing.T, resp *httptest.ResponseRecorder) string {
+				var body struct {
+					FailedItems []struct {
+						Message string `json:"message"`
+					} `json:"failedItems"`
+				}
+				if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+					t.Fatalf("decode batch body: %v (%s)", err, resp.Body.String())
+				}
+				if len(body.FailedItems) != 1 {
+					t.Fatalf("failedItems = %#v, want exactly one failed account", body.FailedItems)
+				}
+				return body.FailedItems[0].Message
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, r, _ := setupAccountsTest(t)
+			server := newRejectingUpstream(t)
+			_, accountID := setupAnyRouterBalanceAccount(t, db, server.URL)
+
+			resp := doPostJSON(t, r, tc.path(accountID), tc.body(accountID))
+			if resp.Code != tc.wantStatus {
+				t.Fatalf("status = %d %s, want %d", resp.Code, resp.Body.String(), tc.wantStatus)
+			}
+			message := tc.message(t, resp)
+			if !strings.HasPrefix(message, tc.prefix) {
+				t.Fatalf("message = %q, want it to keep the stable prefix %q", message, tc.prefix)
+			}
+			if message == tc.prefix {
+				t.Fatalf("message = %q: the server knew the upstream rejected the credential but told the operator nothing", message)
+			}
+			for _, detail := range []string{plantedSecret, plantedRequestID, "Token has expired", server.URL} {
+				if strings.Contains(message, detail) {
+					t.Fatalf("message %q echoes upstream detail %q; classify, do not echo", message, detail)
+				}
+			}
+		})
+	}
+}
+
 func TestAccounts_GetModels(t *testing.T) {
 	db, r, _ := setupAccountsTest(t)
 	_, accountID := setupAccountFixtureWithSite(t, db, r, "ModelSite", "https://api.openai.com")
