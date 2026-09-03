@@ -496,74 +496,71 @@ fi
 
 # 11. downstream token create (POST /api/downstream-keys; fixed key => idempotent)
 PROXY_TOKEN=""
-status="$(request POST "$METAPI_URL/api/downstream-keys" "{\"name\":\"$TOKEN_NAME\",\"key\":\"$SMOKE_KEY\",\"supportedModels\":[\"*\"]}" "$METAPI_AUTH_TOKEN")"
-if [ "$status" = "200" ] || [ "$status" = "201" ]; then
-  PROXY_TOKEN="$SMOKE_KEY"
-  pass_step "token create ($TOKEN_NAME)"
-elif [ "$status" = "409" ]; then
-  # The key exists from a previous run. Reassert the relay policy instead of
-  # merely reusing it: older smoke runs created the same key with an empty
-  # supportedModels list, which is intentionally deny-all.
-  status="$(request GET "$METAPI_URL/api/downstream-keys" "" "$METAPI_AUTH_TOKEN")"
-  key_id="$(python3 -c '
-import json, sys
-name = sys.argv[1]
-try:
-    payload = json.load(sys.stdin)
-except Exception:
-    sys.exit(1)
-for item in payload.get("items", []):
-    if isinstance(item, dict) and item.get("name") == name:
-        print(item.get("id", ""))
-        sys.exit(0)
-sys.exit(1)
-' "$TOKEN_NAME" < "$RESP_BODY" 2>/dev/null || true)"
-  if [ "$status" = "200" ] && [ -n "$key_id" ]; then
-    status="$(request PUT "$METAPI_URL/api/downstream-keys/$key_id" '{"supportedModels":["*"],"enabled":true}' "$METAPI_AUTH_TOKEN")"
-  else
-    # HTTP 409 can also mean the fixed key belongs to a differently named
-    # record. That is not an idempotent reuse of this smoke resource.
-    status="404"
-  fi
-  if [ "$status" = "200" ]; then
+if [ "$EXPECT_RELAY" = "0" ]; then
+  skip_step "downstream token relay setup disabled explicitly"
+else
+  status="$(request POST "$METAPI_URL/api/downstream-keys" "{\"name\":\"$TOKEN_NAME\",\"key\":\"$SMOKE_KEY\",\"supportedModels\":[\"*\"]}" "$METAPI_AUTH_TOKEN")"
+  if [ "$status" = "200" ] || [ "$status" = "201" ]; then
     PROXY_TOKEN="$SMOKE_KEY"
-    pass_step "token reuse ($TOKEN_NAME, relay policy reasserted)"
+    pass_step "token create ($TOKEN_NAME)"
+  elif [ "$status" = "409" ]; then
+    # The key exists from a previous run. Reassert the relay policy instead of
+    # merely reusing it: older smoke runs created the same key with an empty
+    # supportedModels list, which is intentionally deny-all.
+    status="$(request GET "$METAPI_URL/api/downstream-keys" "" "$METAPI_AUTH_TOKEN")"
+    key_id="$(python3 -c 'import json,sys; p=json.load(sys.stdin); name=sys.argv[1]; print(next(str(item.get("id", "")) for item in p.get("items", []) if isinstance(item, dict) and item.get("name") == name))' "$TOKEN_NAME" < "$RESP_BODY" 2>/dev/null || true)"
+    if [ "$status" = "200" ] && [ -n "$key_id" ]; then
+      status="$(request PUT "$METAPI_URL/api/downstream-keys/$key_id" '{"supportedModels":["*"],"enabled":true}' "$METAPI_AUTH_TOKEN")"
+    else
+      # HTTP 409 can also mean the fixed key belongs to a differently named
+      # record. That is not an idempotent reuse of this smoke resource.
+      status="404"
+    fi
+    if [ "$status" = "200" ]; then
+      PROXY_TOKEN="$SMOKE_KEY"
+      pass_step "token reuse ($TOKEN_NAME, relay policy reasserted)"
+    else
+      fail_step "token reuse/update (HTTP $status, keyId=${key_id:-missing})"
+      evidence
+    fi
   else
-    fail_step "token reuse/update (HTTP $status, keyId=${key_id:-missing})"
+    fail_step "token create (HTTP $status)"
     evidence
   fi
-else
-  fail_step "token create (HTTP $status)"
-  evidence
 fi
 
 # 12. route create (idempotent by modelPattern lookup)
-if [ -n "$PROXY_TOKEN" ]; then
-  ROUTE_ID=""
-  status="$(request GET "$METAPI_URL/api/routes/lite" "" "$METAPI_AUTH_TOKEN")"
-  if [ "$status" = "200" ]; then
-    if idx="$(json_find_index modelPattern "$ROUTE_MODEL" 2>/dev/null)"; then
-      ROUTE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
+if [ "$EXPECT_RELAY" = "0" ]; then
+  skip_step "route relay setup disabled explicitly"
+else
+  if [ -n "$PROXY_TOKEN" ]; then
+    ROUTE_ID=""
+    status="$(request GET "$METAPI_URL/api/routes/lite" "" "$METAPI_AUTH_TOKEN")"
+    if [ "$status" = "200" ]; then
+      if idx="$(json_find_index modelPattern "$ROUTE_MODEL" 2>/dev/null)"; then
+        ROUTE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
+      fi
     fi
-  fi
-  if [ -z "$ROUTE_ID" ]; then
-    status="$(request POST "$METAPI_URL/api/routes" "{\"modelPattern\":\"$ROUTE_MODEL\",\"displayName\":\"e2e-smoke-route\",\"routeMode\":\"pattern\",\"enabled\":true}" "$METAPI_AUTH_TOKEN")"
-    if [ "$status" = "200" ] || [ "$status" = "201" ]; then
-      ROUTE_ID="$(json_value id 2>/dev/null || true)"
+    if [ -z "$ROUTE_ID" ]; then
+      status="$(request POST "$METAPI_URL/api/routes" "{\"modelPattern\":\"$ROUTE_MODEL\",\"displayName\":\"e2e-smoke-route\",\"routeMode\":\"pattern\",\"enabled\":true}" "$METAPI_AUTH_TOKEN")"
+      if [ "$status" = "200" ] || [ "$status" = "201" ]; then
+        ROUTE_ID="$(json_value id 2>/dev/null || true)"
+      fi
     fi
-  fi
-  if [ -n "$ROUTE_ID" ]; then
-    if [ "$ROUTE_MODEL" = "$PROXY_MODEL" ] && [ -z "${first_model:-}" ]; then
-      warn_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL) — upstream model list empty, used PROXY_MODEL"
+    if [ -n "$ROUTE_ID" ]; then
+      if [ "$ROUTE_MODEL" = "$PROXY_MODEL" ] && [ -z "${first_model:-}" ]; then
+        warn_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL) — upstream model list empty, used PROXY_MODEL"
+      else
+        pass_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL)"
+      fi
     else
-      pass_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL)"
+      fail_step "route create (no route id obtained)"
+      evidence
     fi
   else
-    fail_step "route create (no route id obtained)"
-    evidence
+    fail_step "route create skipped (no downstream token)"
   fi
-else
-  fail_step "route create skipped (no downstream token)"
+
 fi
 
 # 13. proxy relay. A structured error proves only that JSON was returned; it is

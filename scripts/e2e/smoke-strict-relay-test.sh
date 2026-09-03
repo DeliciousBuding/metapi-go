@@ -146,15 +146,17 @@ echo "missing-content mutation: rejected"
 relaxed="$TEST_DIR/relaxed.log"
 run_smoke models_empty "$relaxed" EXPECT_RELAY=0
 assert_contains "$relaxed" '[SKIP] models relay assertion disabled explicitly (HTTP 200, totalCount=0)'
+assert_contains "$relaxed" '[SKIP] downstream token relay setup disabled explicitly'
+assert_contains "$relaxed" '[SKIP] route relay setup disabled explicitly'
 assert_contains "$relaxed" '[SKIP] proxy /v1/models relay assertion disabled explicitly'
 assert_contains "$relaxed" '[SKIP] proxy /v1/chat/completions relay assertion disabled explicitly'
-assert_contains "$relaxed" '== summary: 10 passed, 1 warned, 3 skipped, 0 failed =='
+assert_contains "$relaxed" '== summary: 9 passed, 0 warned, 5 skipped, 0 failed =='
 if grep -Fq '[PASS] models (' "$relaxed" || grep -Fq '[PASS] proxy /v1/' "$relaxed"; then
   echo "non-strict relay assertion was mislabeled PASS" >&2
   cat "$relaxed" >&2
   exit 1
 fi
-echo "explicit non-strict mode: 3 SKIP, 0 relay PASS"
+echo "explicit non-strict mode: 5 SKIP, 0 relay PASS"
 
 assert_contains "$good" '[PASS] token reuse (e2e-smoke-token, relay policy reasserted)'
 assert_contains "$good" '[PASS] proxy /v1/models (HTTP 200, non-empty data)'
