@@ -501,9 +501,37 @@ if [ "$status" = "200" ] || [ "$status" = "201" ]; then
   PROXY_TOKEN="$SMOKE_KEY"
   pass_step "token create ($TOKEN_NAME)"
 elif [ "$status" = "409" ]; then
-  # duplicate key: same fixed value from a previous run — reuse it
-  PROXY_TOKEN="$SMOKE_KEY"
-  pass_step "token create (HTTP 409 duplicate, reusing fixed key)"
+  # The key exists from a previous run. Reassert the relay policy instead of
+  # merely reusing it: older smoke runs created the same key with an empty
+  # supportedModels list, which is intentionally deny-all.
+  status="$(request GET "$METAPI_URL/api/downstream-keys" "" "$METAPI_AUTH_TOKEN")"
+  key_id="$(python3 -c '
+import json, sys
+name = sys.argv[1]
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+for item in payload.get("items", []):
+    if isinstance(item, dict) and item.get("name") == name:
+        print(item.get("id", ""))
+        sys.exit(0)
+sys.exit(1)
+' "$TOKEN_NAME" < "$RESP_BODY" 2>/dev/null || true)"
+  if [ "$status" = "200" ] && [ -n "$key_id" ]; then
+    status="$(request PUT "$METAPI_URL/api/downstream-keys/$key_id" '{"supportedModels":["*"],"enabled":true}' "$METAPI_AUTH_TOKEN")"
+  else
+    # HTTP 409 can also mean the fixed key belongs to a differently named
+    # record. That is not an idempotent reuse of this smoke resource.
+    status="404"
+  fi
+  if [ "$status" = "200" ]; then
+    PROXY_TOKEN="$SMOKE_KEY"
+    pass_step "token reuse ($TOKEN_NAME, relay policy reasserted)"
+  else
+    fail_step "token reuse/update (HTTP $status, keyId=${key_id:-missing})"
+    evidence
+  fi
 else
   fail_step "token create (HTTP $status)"
   evidence

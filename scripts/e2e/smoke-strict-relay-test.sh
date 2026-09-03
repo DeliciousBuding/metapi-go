@@ -58,6 +58,8 @@ case "$method $path" in
   "POST /api/accounts/1/balance") body='{"balance":10}' ;;
   "POST /api/checkin/trigger/1") body='{"success":true}' ;;
   "POST /api/downstream-keys") status=409; body='{"error":"duplicate"}' ;;
+  "GET /api/downstream-keys") body='{"items":[{"id":9,"name":"e2e-smoke-token"}]}' ;;
+  "PUT /api/downstream-keys/9") body='{"success":true}' ;;
   "GET /api/routes/lite") body='[{"id":1,"modelPattern":"gpt-4o-mini"},{"id":2,"modelPattern":"gpt-3.5-turbo"}]' ;;
   "GET /v1/models")
     if [ "${STRICT_CASE:-good}" = "models_empty" ]; then
@@ -154,6 +156,7 @@ if grep -Fq '[PASS] models (' "$relaxed" || grep -Fq '[PASS] proxy /v1/' "$relax
 fi
 echo "explicit non-strict mode: 3 SKIP, 0 relay PASS"
 
+assert_contains "$good" '[PASS] token reuse (e2e-smoke-token, relay policy reasserted)'
 assert_contains "$good" '[PASS] proxy /v1/models (HTTP 200, non-empty data)'
 assert_contains "$good" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present)'
 assert_contains "$good" '== summary: 14 passed, 0 warned, 0 skipped, 0 failed =='
