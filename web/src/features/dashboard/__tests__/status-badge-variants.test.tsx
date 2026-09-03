@@ -1,8 +1,7 @@
 // Badge recipe convergence regression (audit P1 #1): the dashboard panels
 // render their status pills through the design-system Badge variants instead
-// of hand-rolled spans that duplicate the soft recipes. The scheduler table
-// (overview) and the severity pills (availability) must therefore expose the
-// semantic `data-variant` contract.
+// of hand-rolled spans. The scheduler table (overview) and the severity pills
+// (availability) must expose the semantic `data-variant` contract.
 
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -60,8 +59,35 @@ function renderSection(element: ReactNode) {
   return render(element, { wrapper: createWrapper() })
 }
 
+function schedulerItem(overrides: Record<string, unknown>) {
+  return {
+    job: 'probe-job',
+    enabled: true,
+    lastStatus: 'failed',
+    runs24h: 3,
+    success24h: 2,
+    ...overrides,
+  }
+}
+
+function attentionItem(severity: string, label: string) {
+  return {
+    severity,
+    category: 'account',
+    label,
+    target: '',
+    createdAt: '2026-08-18T00:00:00Z',
+  }
+}
+
 function readTableBadgeVariants(container: HTMLElement): string[] {
   return [...container.querySelectorAll('table [data-slot="badge"]')].map(
+    (badge) => badge.getAttribute('data-variant') ?? ''
+  )
+}
+
+function readBadgeVariants(container: HTMLElement): string[] {
+  return [...container.querySelectorAll('[data-slot="badge"]')].map(
     (badge) => badge.getAttribute('data-variant') ?? ''
   )
 }
@@ -76,18 +102,26 @@ beforeEach(() => {
 
 afterEach(() => cleanup())
 
-describe('overview scheduler status pills', () => {
-  it('renders an enabled job with a failed run as success + destructive badges', async () => {
+describe('dashboard status badge variants', () => {
+  it.each([
+    {
+      name: 'an enabled job with a failed run',
+      item: schedulerItem({}),
+      expected: ['success', 'destructive'],
+    },
+    {
+      name: 'a disabled job with a running status',
+      item: schedulerItem({
+        enabled: false,
+        lastStatus: 'running',
+        runs24h: 0,
+        success24h: 0,
+      }),
+      expected: ['secondary', 'info'],
+    },
+  ] as const)('renders $name as $expected', async ({ item, expected }) => {
     mockSchedulerStatus.mockResolvedValue({
-      items: [
-        {
-          job: 'probe-job',
-          enabled: true,
-          lastStatus: 'failed',
-          runs24h: 3,
-          success24h: 2,
-        },
-      ],
+      items: [item],
       generatedAt: '2026-08-18T00:00:00Z',
     })
 
@@ -96,60 +130,15 @@ describe('overview scheduler status pills', () => {
     await waitFor(() => {
       expect(screen.getByText('probe-job')).toBeInTheDocument()
     })
-    expect(readTableBadgeVariants(container)).toEqual([
-      'success',
-      'destructive',
-    ])
+    expect(readTableBadgeVariants(container)).toEqual(expected)
   })
 
-  it('renders a disabled job with a running status as secondary + info badges', async () => {
-    mockSchedulerStatus.mockResolvedValue({
-      items: [
-        {
-          job: 'probe-job',
-          enabled: false,
-          lastStatus: 'running',
-          runs24h: 0,
-          success24h: 0,
-        },
-      ],
-      generatedAt: '2026-08-18T00:00:00Z',
-    })
-
-    const { container } = renderSection(<OverviewSection />)
-
-    await waitFor(() => {
-      expect(screen.getByText('probe-job')).toBeInTheDocument()
-    })
-    expect(readTableBadgeVariants(container)).toEqual(['secondary', 'info'])
-  })
-})
-
-describe('availability severity pills', () => {
-  it('renders attention items through the destructive/warning/info badge variants', async () => {
+  it('renders attention severity pills through destructive/warning/info badge variants', async () => {
     mockAttention.mockResolvedValue({
       items: [
-        {
-          severity: 'critical',
-          category: 'account',
-          label: 'Expired account',
-          target: '',
-          createdAt: '2026-08-18T00:00:00Z',
-        },
-        {
-          severity: 'warning',
-          category: 'balance',
-          label: 'Low balance',
-          target: '',
-          createdAt: '2026-08-18T00:00:00Z',
-        },
-        {
-          severity: 'info',
-          category: 'event',
-          label: 'Site event',
-          target: '',
-          createdAt: '2026-08-18T00:00:00Z',
-        },
+        attentionItem('critical', 'Expired account'),
+        attentionItem('warning', 'Low balance'),
+        attentionItem('info', 'Site event'),
       ],
       total: 3,
     })
@@ -159,9 +148,10 @@ describe('availability severity pills', () => {
     await waitFor(() => {
       expect(screen.getByText('Expired account')).toBeInTheDocument()
     })
-    const variants = [...container.querySelectorAll('[data-slot="badge"]')].map(
-      (badge) => badge.getAttribute('data-variant') ?? ''
-    )
-    expect(variants).toEqual(['destructive', 'warning', 'info'])
+    expect(readBadgeVariants(container)).toEqual([
+      'destructive',
+      'warning',
+      'info',
+    ])
   })
 })
