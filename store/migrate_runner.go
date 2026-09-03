@@ -383,15 +383,16 @@ func RunMigration(opts RunMigrationOptions) (*MigrationSummary, error) {
 		fmt.Fprintf(logw, "  Done: %d rows in %s\n", inserted, elapsed.Round(time.Millisecond))
 	}
 
-	// 10. Sync sequences (PostgreSQL only; SQLite AUTOINCREMENT handles itself)
+	// 10. Sync sequences (PostgreSQL only; SQLite AUTOINCREMENT handles itself).
+	// Shared with the backup import, which has the same problem: rows arrive with
+	// explicit ids and the sequences stay where they were.
 	if !toSQLite {
 		fmt.Fprintf(logw, "\nSyncing PostgreSQL sequences...\n")
-		for _, table := range sequenceTableNames() {
-			q := fmt.Sprintf(`SELECT setval(pg_get_serial_sequence('%s', 'id'), COALESCE((SELECT MAX("id") FROM "%s"), 1), TRUE)`, table, table)
-			if _, err := tx.Exec(q); err != nil {
-				// Table might not exist if migrations haven't run; warn but continue
-				fmt.Fprintf(logw, "  Warning: sync sequence for %s: %v\n", table, err)
-			}
+		if err := ResyncPGIDSequences(tx); err != nil {
+			// A target whose migrations have not all run can legitimately be missing
+			// a table; warn and continue, and the joined error names every table
+			// that could not be resynced.
+			fmt.Fprintf(logw, "  Warning: sync sequences: %v\n", err)
 		}
 	}
 
