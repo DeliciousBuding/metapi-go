@@ -560,11 +560,21 @@ jobs:
           python3 scripts/e2e/mock-openai.py >"$mock_stdout" 2>&1 &
           mock_pid=$!
 
+          # Built once and started directly so $server_pid IS the server. A `go run`
+          # wrapper is a different process from the child it spawns, and the restart
+          # gate at the end of this step kills $server_pid and then requires the port
+          # to be free; through a wrapper that premise would be ambiguous, and an
+          # ambiguous restart proves nothing while still going green.
+          metapi_bin="$RUNNER_TEMP/metapi-e2e-server"
+          go build -o "$metapi_bin" ./cmd/server
+          # Hoisted out of the env prefix so the restart below reuses the SAME
+          # persisted data dir instead of a fresh one.
+          data_dir="$(mktemp -d)/data"
           AUTH_TOKEN=e2e-admin-token \
           PROXY_TOKEN=e2e-proxy-token \
-          DATA_DIR="$(mktemp -d)/data" \
+          DATA_DIR="$data_dir" \
           PORT=4010 \
-          go run ./cmd/server >"$RUNNER_TEMP/metapi-e2e.log" 2>&1 &
+          "$metapi_bin" >"$RUNNER_TEMP/metapi-e2e.log" 2>&1 &
           server_pid=$!
           cleanup() {
             exit_code=$?
@@ -691,6 +701,107 @@ jobs:
           SKIP_MODEL_FETCH=true \
           SITE_NAME=e2e-smoke-cliproxyapi TOKEN_NAME=e2e-smoke-cliproxyapi-token \
           bash scripts/e2e/verify-token-import.sh
+
+          echo "===== restart metapi against the SAME data dir and re-prove the core chain ====="
+          # Restart is one of the four states a release has to survive, and a fresh
+          # install says nothing about it: whether persisted state actually hydrates
+          # only exists as a question across a process boundary. That is not
+          # hypothetical here -- settings that saved successfully and were gone after
+          # a restart is a bug this project has already shipped. No unit test can
+          # reproduce it, so the gate lives where a real process is killed.
+          #
+          # Nothing below re-logs in, re-binds an account, rebuilds a route or
+          # re-creates a key. If the chain only works after re-configuration, that is
+          # the defect this gate exists to catch.
+          restart_probe="restart-hydration-probe-$(date +%s)"
+          curl -fsS -X PUT -H "Authorization: Bearer e2e-admin-token" \
+            -H "Content-Type: application/json" \
+            -d "{\"about\":\"$restart_probe\"}" \
+            http://127.0.0.1:4010/api/settings/runtime >/dev/null
+          echo "wrote a distinctive persisted setting: $restart_probe"
+          mock_events_before=$(wc -l < "$mock_log")
+
+          kill "$server_pid"
+          wait "$server_pid" || true
+          # Premise check: the port must actually be free before claiming a restart.
+          released=
+          for i in $(seq 1 30); do
+            if ! curl -sS -m 2 -o /dev/null http://127.0.0.1:4010/health 2>/dev/null; then
+              released=1; echo "port 4010 free ${i}s after SIGTERM"; break
+            fi
+            sleep 1
+          done
+          if [ -z "$released" ]; then
+            echo "metapi still answered 30s after SIGTERM: nothing restarted, so everything below would prove nothing"
+            exit 1
+          fi
+
+          AUTH_TOKEN=e2e-admin-token \
+          PROXY_TOKEN=e2e-proxy-token \
+          DATA_DIR="$data_dir" \
+          PORT=4010 \
+          "$metapi_bin" >"$RUNNER_TEMP/metapi-e2e-restarted.log" 2>&1 &
+          server_pid=$!
+          restarted_ready=
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4010/ready 2>/dev/null | grep -q '"status":"ok"'; then
+              restarted_ready=1; echo "restarted metapi ready after ${i}s"; break
+            fi
+            sleep 1
+          done
+          if [ -z "$restarted_ready" ]; then
+            echo "restarted metapi never became ready; log:"
+            cat "$RUNNER_TEMP/metapi-e2e-restarted.log"
+            exit 1
+          fi
+
+          about_after_restart="$(curl -fsS -H "Authorization: Bearer e2e-admin-token" \
+            http://127.0.0.1:4010/api/settings/runtime \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin).get("about",""))')"
+          if [ "$about_after_restart" != "$restart_probe" ]; then
+            echo "persisted setting did NOT hydrate after restart: got '$about_after_restart', want '$restart_probe'"
+            exit 1
+          fi
+          echo "persisted setting hydrated from the same data dir"
+
+          curl -fsS -H "Authorization: Bearer sk-e2e-smoke-key" http://127.0.0.1:4010/v1/models \
+            | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin).get("data") or []
+          if not data:
+              raise SystemExit("/v1/models is empty after restart: routing state did not survive the process boundary")
+          print("models after restart:", [m.get("id") for m in data])
+          '
+
+          curl -fsS -X POST -H "Authorization: Bearer sk-e2e-smoke-key" \
+            -H "Content-Type: application/json" \
+            -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"restart-state"}]}' \
+            http://127.0.0.1:4010/v1/chat/completions \
+            | python3 -c '
+          import json, sys
+          payload = json.load(sys.stdin)
+          choice = (payload.get("choices") or [{}])[0]
+          content = (choice.get("message") or {}).get("content") or ""
+          if content != "metapi-e2e-marker":
+              raise SystemExit(f"completion after restart returned {content!r}, want the exact upstream marker; payload={payload!r}")
+          print("completion after restart carried the exact upstream marker")
+          '
+
+          # Upstream proof, not just a good-looking body: the mock must have received
+          # a NEW request after the restart. Without the count comparison, a served
+          # from-cache or replayed answer would be indistinguishable from a relay.
+          python3 - "$mock_log" "$mock_events_before" <<'PY'
+          import json, sys
+          path, before = sys.argv[1], int(sys.argv[2])
+          with open(path, encoding="utf-8") as handle:
+              events = [json.loads(line) for line in handle if line.strip()]
+          expected = {"path": "/v1/chat/completions", "model": "gpt-4o-mini"}
+          if len(events) <= before:
+              raise SystemExit(f"mock upstream saw no new request after the restart ({before} -> {len(events)})")
+          if expected not in events[before:]:
+              raise SystemExit(f"post-restart upstream requests did not include {expected!r}: {events[before:]!r}")
+          print(f"mock upstream received a new exact relay event after restart ({before} -> {len(events)})")
+          PY
 
   # Cross-platform runtime smoke: release binaries are cross-compiled for 5
   # targets but only linux/amd64 ever gets executed (release smoke step). This
