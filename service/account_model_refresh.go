@@ -24,6 +24,11 @@ import (
 // modelRefreshFetchTimeout bounds a single upstream GetModels call.
 const modelRefreshFetchTimeout = 30 * time.Second
 
+// routeRebuildLocalBudget bounds the closing rebuild of a pass. It is local
+// database work over the availability the pass just wrote, so minutes are
+// generosity, not need.
+const routeRebuildLocalBudget = 5 * time.Minute
+
 // Side-effect seams for the model refresh path (moved from handler/admin).
 // Production delegates to the real service/routing owners; focused tests swap
 // in counting fakes to assert the "exactly one route rebuild + one
@@ -214,7 +219,8 @@ func RefreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	return result
 }
 
-// ModelSyncSummary reports one periodic model-sync pass.
+// ModelSyncSummary reports one periodic model-sync pass. Every pass ends with
+// exactly one rebuild, so there is no "did it run" flag to report.
 type ModelSyncSummary struct {
 	Total   int
 	Success int
@@ -222,15 +228,20 @@ type ModelSyncSummary struct {
 
 	Rebuild    RouteRebuildStats
 	RebuildErr error
-	RebuildRan bool
 }
 
 // SyncAllAccountModels refreshes upstream model lists for all candidate
 // accounts sequentially (polite to upstreams, no concurrency races). Each
-// account refresh skips its own route rebuild; after the pass, when at least
-// one account succeeded, exactly one route rebuild + one routing-cache
-// invalidation runs for the whole batch. Per-account failures are logged and
-// counted without aborting the pass.
+// account refresh skips its own route rebuild; after the pass exactly one route
+// rebuild + one routing-cache invalidation runs for the whole batch.
+// Per-account failures are logged and counted without aborting the pass.
+//
+// The closing rebuild always runs, on a context that survives this one (#1174).
+// It only reads and writes the local database — the upstream work is already
+// over — so abandoning it because the pass hit a deadline or its caller went
+// away left routes composed from an older view of availability, which is worse
+// than finishing the cheap local step. When nothing changed it short-circuits
+// without a single write, so "always" costs a read pass, not churn.
 func SyncAllAccountModels(ctx context.Context, db *sqlx.DB) ModelSyncSummary {
 	var summary ModelSyncSummary
 	if db == nil {
@@ -258,12 +269,15 @@ func SyncAllAccountModels(ctx context.Context, db *sqlx.DB) ModelSyncSummary {
 			"account_id", accountID, "error_code", res.ErrorCode, "error", res.ErrorMessage)
 	}
 
-	if summary.Success > 0 {
-		rebuildStats, rebuildErr := modelRefreshRebuildRoutes(ctx, db)
-		summary.Rebuild = rebuildStats
-		summary.RebuildErr = rebuildErr
-		summary.RebuildRan = true
-		modelRefreshInvalidateCache()
+	rebuildCtx, cancelRebuild := context.WithTimeout(
+		context.WithoutCancel(ctx), routeRebuildLocalBudget)
+	defer cancelRebuild()
+	rebuildStats, rebuildErr := modelRefreshRebuildRoutes(rebuildCtx, db)
+	summary.Rebuild = rebuildStats
+	summary.RebuildErr = rebuildErr
+	modelRefreshInvalidateCache()
+	if rebuildErr != nil {
+		slog.Warn("model-sync: route rebuild failed", "error", rebuildErr)
 	}
 
 	slog.Info("model-sync complete", "total", summary.Total, "success", summary.Success, "failed", summary.Failed)

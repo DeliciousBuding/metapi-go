@@ -759,7 +759,8 @@ func (h *tokenRoutesHandler) batchRoutes(w http.ResponseWriter, r *http.Request)
 // POST /api/routes/rebuild
 // Synchronously recomposes pattern-route channels from model availability and
 // invalidates the in-process route cache. Response must stay truthful: do not
-// claim a background job was queued.
+// claim a background job was queued. The work runs on a context detached from
+// the request, so a client that disconnects mid-pass does not cancel it.
 //
 // Request body (both fields optional; the frontend always sends it, curl users
 // may omit it): {"refreshModels": true, "wait": true}. refreshModels defaults
@@ -770,6 +771,12 @@ func (h *tokenRoutesHandler) batchRoutes(w http.ResponseWriter, r *http.Request)
 // (#1024: previously the field was silently ignored, so rebuilds ran against
 // stale/empty model lists). wait is accepted for TS contract compatibility;
 // this handler has always been synchronous, so queued is always false.
+// routesRebuildWorkBudget bounds one detached rebuild pass: worst case every
+// active account is refreshed at modelRefreshFetchTimeout each, then the local
+// recomposition runs. Generous on purpose — the alternative (a tight budget) is
+// what made the pass abort mid-fleet before.
+const routesRebuildWorkBudget = 30 * time.Minute
+
 func (h *tokenRoutesHandler) rebuildRoutes(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		RefreshModels *bool `json:"refreshModels"`
@@ -788,28 +795,30 @@ func (h *tokenRoutesHandler) rebuildRoutes(w http.ResponseWriter, r *http.Reques
 		refreshModels = *req.RefreshModels
 	}
 
+	// The pass outlives the request that asked for it (#1174). Refreshing every
+	// active account is one upstream round-trip each, bounded by
+	// modelRefreshFetchTimeout, so a fleet of dozens takes minutes — longer than
+	// a browser or a reverse proxy waits. Bound to r.Context() the work died
+	// with the connection: the model-sync loop broke mid-pass and the rebuild
+	// after it failed with "context canceled", so the operator's rebuild never
+	// happened at all. Detach, then apply our own budget; a client that hangs up
+	// no longer cancels the routing state it asked us to recompose.
+	workCtx, cancelWork := context.WithTimeout(
+		context.WithoutCancel(r.Context()), routesRebuildWorkBudget)
+	defer cancelWork()
+
 	var stats service.RouteRebuildStats
 	if refreshModels {
-		summary := service.SyncAllAccountModels(r.Context(), h.db)
-		if summary.RebuildRan {
-			stats = summary.Rebuild
-			if summary.RebuildErr != nil {
-				writeRebuildFailure(w, summary.RebuildErr)
-				return
-			}
-		} else {
-			// No account was refreshed (no candidates, or every refresh
-			// failed): still rebuild from whatever availability rows already
-			// exist (manual models, previous syncs) — the pass stays useful.
-			rebuildStats, err := service.RebuildTokenRoutesFromAvailability(r.Context(), h.db)
-			if err != nil {
-				writeRebuildFailure(w, err)
-				return
-			}
-			stats = rebuildStats
+		// SyncAllAccountModels always ends with exactly one rebuild, so there is
+		// no "nothing was refreshed" branch left to cover here.
+		summary := service.SyncAllAccountModels(workCtx, h.db)
+		stats = summary.Rebuild
+		if summary.RebuildErr != nil {
+			writeRebuildFailure(w, summary.RebuildErr)
+			return
 		}
 	} else {
-		rebuildStats, err := service.RebuildTokenRoutesFromAvailability(r.Context(), h.db)
+		rebuildStats, err := service.RebuildTokenRoutesFromAvailability(workCtx, h.db)
 		if err != nil {
 			writeRebuildFailure(w, err)
 			return

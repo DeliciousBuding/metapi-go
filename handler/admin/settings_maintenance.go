@@ -32,42 +32,23 @@ const (
 
 // POST /api/settings/maintenance/clear-cache
 // Real local ops:
-// 1. Delete model_availability / route_channels / token_routes rows
-// 2. Invalidate in-process caches (routing + accounts snapshot)
-// 3. Queue a real background rebuild task (no fake stub job ids)
+// 1. Invalidate in-process caches (routing + accounts snapshot)
+// 2. Queue a real background rebuild task (no fake stub job ids)
+//
+// It deletes no rows, and that is deliberate (#1174). This button used to wipe
+// token_routes, model_availability and route_channels first, then queue a
+// rebuild that recomposes route_channels *from* those tables — so the rebuild
+// it promised had nothing to rebuild from, the operator lost every route
+// definition, every discovered model (an upstream round-trip per account to
+// re-fetch, and it can fail outright on an expired credential) and every manual
+// channel attachment that the rebuild itself is careful never to delete. Route
+// definitions and discovered models are operator/upstream state, not cache; the
+// rebuild is idempotent and prunes stale automatic channels on its own.
+// Wiping business rows is what factory-reset below is for.
 //
 // Multi-instance known limitation: only this process's in-memory caches are cleared;
 // peer instances retain their own caches until TTL/local invalidation.
 func (h *maintenanceHandler) clearCache(w http.ResponseWriter, r *http.Request) {
-	// Count before deletion
-	var modelAvail, routeCh, tokenRoutes int64
-	if err := h.db.Get(&modelAvail, h.db.Rebind("SELECT COUNT(*) FROM model_availability")); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to read model_availability: %v", err))
-		return
-	}
-	if err := h.db.Get(&routeCh, h.db.Rebind("SELECT COUNT(*) FROM route_channels")); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to read route_channels: %v", err))
-		return
-	}
-	if err := h.db.Get(&tokenRoutes, h.db.Rebind("SELECT COUNT(*) FROM token_routes")); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to read token_routes: %v", err))
-		return
-	}
-
-	// Delete all (shared DB — multi-instance safe for durable state)
-	if _, err := h.db.Exec(h.db.Rebind("DELETE FROM model_availability")); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear model_availability: %v", err))
-		return
-	}
-	if _, err := h.db.Exec(h.db.Rebind("DELETE FROM route_channels")); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear route_channels: %v", err))
-		return
-	}
-	if _, err := h.db.Exec(h.db.Rebind("DELETE FROM token_routes")); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear token_routes: %v", err))
-		return
-	}
-
 	// Local in-process invalidation (this instance only).
 	invalidateLocalProcessCaches()
 
@@ -79,30 +60,24 @@ func (h *maintenanceHandler) clearCache(w http.ResponseWriter, r *http.Request) 
 		Title:     clearCacheTaskTitle,
 		DedupeKey: clearCacheDedupeKey,
 	}, func() (any, error) {
-		// Rebuild is best-effort: after wiping availability tables there may be
-		// little to rebuild until models are re-probed; still honest work.
+		// Recompose automatic channels from the route definitions and model
+		// availability that are still on the row — real work, and idempotent.
 		service.RebuildRoutesBestEffort()
 		// Re-invalidate after rebuild so stale route matches cannot linger.
 		invalidateLocalProcessCaches()
 		return map[string]any{
-			"deletedModelAvailability": modelAvail,
-			"deletedRouteChannels":     routeCh,
-			"deletedTokenRoutes":       tokenRoutes,
-			"scope":                    "local-process-cache + shared-db-rows",
+			"scope": "local-process-cache",
 		}, nil
 	})
 
 	writeJSON(w, http.StatusAccepted, map[string]any{
-		"success":                  true,
-		"queued":                   true,
-		"reused":                   reused,
-		"jobId":                    task.ID,
-		"taskId":                   task.ID,
-		"status":                   string(task.Status),
-		"message":                  "cache cleared; route rebuild started (this process in-memory cache is stale; multi-instance deployments must invalidate each instance)",
-		"deletedModelAvailability": modelAvail,
-		"deletedRouteChannels":     routeCh,
-		"deletedTokenRoutes":       tokenRoutes,
+		"success": true,
+		"queued":  true,
+		"reused":  reused,
+		"jobId":   task.ID,
+		"taskId":  task.ID,
+		"status":  string(task.Status),
+		"message": "cache cleared; route rebuild started (this process in-memory cache is stale; multi-instance deployments must invalidate each instance)",
 	})
 }
 

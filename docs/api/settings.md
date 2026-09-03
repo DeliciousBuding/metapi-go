@@ -141,7 +141,11 @@ Send a test notification.
 
 ### POST /api/settings/maintenance/clear-cache
 
-Clear model availability cache and rebuild routes. Returns deleted counts.
+Invalidate this process's in-memory caches (routing + accounts snapshot) and queue a real background route rebuild. Returns `202` with `{ success, queued, reused, jobId, taskId, status, message }`; poll `GET /api/tasks/:jobId` for the rebuild outcome.
+
+**It deletes no rows.** Route definitions (`token_routes`), discovered models (`model_availability`) and channel attachments (`route_channels`, including the manual ones a rebuild never removes) are operator and upstream state, not cache — an earlier version of this endpoint wiped all three and then queued a rebuild that recomposes channels *from* them, so the promised rebuild had nothing to work with and every account's model list had to be re-fetched from upstream first. Use [factory reset](#post-apisettingsmaintenancefactory-reset) when you actually mean to wipe business rows.
+
+Multi-instance note: only the process that served the request drops its in-memory caches; peers keep theirs until TTL expiry.
 
 ### POST /api/settings/maintenance/clear-usage
 
