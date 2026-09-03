@@ -793,15 +793,6 @@ func TestAccounts_Postgres_CreateAnyRouterAPIKeyWithoutUsernameReturnsID(t *test
 	}
 }
 
-func TestAccounts_Create_InvalidSiteID(t *testing.T) {
-	_, r, _ := setupAccountsTest(t)
-	body := map[string]any{"siteId": 0, "accessToken": "sk-test"}
-	resp := doPostJSON(t, r, "/api/accounts", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
 func TestAccounts_Create_NoToken(t *testing.T) {
 	_, r, _ := setupAccountsTest(t)
 	site := newSiteFixture(t, r, "NoTokenSite", "https://api.openai.com")
@@ -965,15 +956,6 @@ func TestAccounts_Create_APIKeyCannotEnableCheckin(t *testing.T) {
 	}
 }
 
-func TestAccounts_Create_SiteNotFound(t *testing.T) {
-	_, r, _ := setupAccountsTest(t)
-	body := map[string]any{"siteId": 99999, "accessToken": "missing-site-token"}
-	resp := doPostJSON(t, r, "/api/accounts", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
 // ---- Login ----
 
 func TestAccounts_Login(t *testing.T) {
@@ -1110,30 +1092,27 @@ func TestAccounts_Login_InvalidCredentialsDoNotCreateAccount(t *testing.T) {
 	}
 }
 
-func TestAccounts_Login_InvalidSiteID(t *testing.T) {
+func TestAccounts_BadRequestValidation(t *testing.T) {
 	_, r, _ := setupAccountsTest(t)
-	body := map[string]any{"siteId": 0, "username": "u", "password": "p"}
-	resp := doPostJSON(t, r, "/api/accounts/login", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
-func TestAccounts_Login_EmptyUsername(t *testing.T) {
-	_, r, _ := setupAccountsTest(t)
-	body := map[string]any{"siteId": 1, "username": "  ", "password": "p"}
-	resp := doPostJSON(t, r, "/api/accounts/login", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
-func TestAccounts_Login_EmptyPassword(t *testing.T) {
-	_, r, _ := setupAccountsTest(t)
-	body := map[string]any{"siteId": 1, "username": "u", "password": ""}
-	resp := doPostJSON(t, r, "/api/accounts/login", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
+	for _, tc := range []struct {
+		name string
+		path string
+		body map[string]any
+	}{
+		{"Create_InvalidSiteID", "/api/accounts", map[string]any{"siteId": 0, "accessToken": "sk-test"}},
+		{"Create_SiteNotFound", "/api/accounts", map[string]any{"siteId": 99999, "accessToken": "missing-site-token"}},
+		{"Login_InvalidSiteID", "/api/accounts/login", map[string]any{"siteId": 0, "username": "u", "password": "p"}},
+		{"Login_EmptyUsername", "/api/accounts/login", map[string]any{"siteId": 1, "username": "  ", "password": "p"}},
+		{"Login_EmptyPassword", "/api/accounts/login", map[string]any{"siteId": 1, "username": "u", "password": ""}},
+		{"Batch_EmptyIDs", "/api/accounts/batch", map[string]any{"ids": []int{}, "action": "enable"}},
+		{"Batch_InvalidAction", "/api/accounts/batch", map[string]any{"ids": []int{1}, "action": "reload"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := doPostJSON(t, r, tc.path, tc.body)
+			if resp.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d", resp.Code)
+			}
+		})
 	}
 }
 
@@ -1340,23 +1319,37 @@ func TestAccounts_RebindSession(t *testing.T) {
 	_ = siteID
 }
 
-func TestAccounts_RebindSession_NotFound(t *testing.T) {
+func TestAccounts_ErrorResponseCodes(t *testing.T) {
 	_, r, _ := setupAccountsTest(t)
-	body := map[string]any{"accessToken": "sk-new"}
-	resp := doPostJSON(t, r, "/api/accounts/99999/rebind-session", body)
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", resp.Code)
-	}
-}
-
-func TestAccounts_RebindSession_EmptyToken(t *testing.T) {
-	db, r, _ := setupAccountsTest(t)
-	_, accountID := setupAccountFixtureWithSite(t, db, r, "EmptyRebind", "https://api.openai.com")
-
-	body := map[string]any{"accessToken": ""}
-	resp := doPostJSON(t, r, "/api/accounts/"+itoa(accountID)+"/rebind-session", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
+	for _, tc := range []struct {
+		name   string
+		method string
+		path   string
+		body   any
+		want   int
+	}{
+		{"RebindSession_NotFound", "POST", "/api/accounts/99999/rebind-session", map[string]any{"accessToken": "sk-new"}, http.StatusNotFound},
+		{"RebindSession_EmptyToken", "POST", "/api/accounts/99999/rebind-session", map[string]any{"accessToken": ""}, http.StatusBadRequest},
+		{"GetModels_NotFound", "GET", "/api/accounts/99999/models", nil, http.StatusNotFound},
+		{"GetModels_InvalidID", "GET", "/api/accounts/not-a-number/models", nil, http.StatusBadRequest},
+		{"Update_NotFound", "PUT", "/api/accounts/99999", map[string]any{"username": "ghost"}, http.StatusNotFound},
+		{"HealthRefresh_SingleAccountNotFound", "POST", "/api/accounts/health/refresh", map[string]any{"wait": true, "accountId": 99999}, http.StatusNotFound},
+		{"RefreshBalance_NotFound", "POST", "/api/accounts/99999/balance", nil, http.StatusNotFound},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var resp *httptest.ResponseRecorder
+			switch tc.method {
+			case "POST":
+				resp = doPostJSON(t, r, tc.path, tc.body)
+			case "GET":
+				resp = doGet(t, r, tc.path)
+			case "PUT":
+				resp = doPutJSON(t, r, tc.path, tc.body)
+			}
+			if resp.Code != tc.want {
+				t.Fatalf("expected %d, got %d", tc.want, resp.Code)
+			}
+		})
 	}
 }
 
@@ -1794,15 +1787,6 @@ func TestAccounts_UpdateSessionToAPIKeyWithoutCheckinFieldDisablesExistingChecki
 	}
 }
 
-func TestAccounts_Update_NotFound(t *testing.T) {
-	_, r, _ := setupAccountsTest(t)
-	body := map[string]any{"username": "ghost"}
-	resp := doPutJSON(t, r, "/api/accounts/99999", body)
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", resp.Code)
-	}
-}
-
 func TestAccounts_Update_SortOrderNormalized(t *testing.T) {
 	db, r, _ := setupAccountsTest(t)
 	_, accountID := setupAccountFixtureWithSite(t, db, r, "SortSite", "https://api.openai.com")
@@ -1974,24 +1958,6 @@ func TestAccounts_BatchRefreshBalanceMissingIDFails(t *testing.T) {
 	}
 	if len(result["failedItems"].([]any)) != 1 {
 		t.Fatalf("failedItems = %#v, want one missing account", result["failedItems"])
-	}
-}
-
-func TestAccounts_Batch_EmptyIDs(t *testing.T) {
-	_, r, _ := setupAccountsTest(t)
-	body := map[string]any{"ids": []int{}, "action": "enable"}
-	resp := doPostJSON(t, r, "/api/accounts/batch", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
-func TestAccounts_Batch_InvalidAction(t *testing.T) {
-	_, r, _ := setupAccountsTest(t)
-	body := map[string]any{"ids": []int{1}, "action": "reload"}
-	resp := doPostJSON(t, r, "/api/accounts/batch", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
 	}
 }
 
@@ -2179,17 +2145,6 @@ func TestAccounts_HealthRefresh_SingleAccountID(t *testing.T) {
 	}
 }
 
-func TestAccounts_HealthRefresh_SingleAccountNotFound(t *testing.T) {
-	_, r, _ := setupAccountsTest(t)
-	resp := doPostJSON(t, r, "/api/accounts/health/refresh", map[string]any{
-		"wait":      true,
-		"accountId": 99999,
-	})
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d body=%s", resp.Code, resp.Body.String())
-	}
-}
-
 func TestAccounts_HealthRefresh_Background(t *testing.T) {
 	resetBackgroundTasksForTests()
 	t.Cleanup(resetBackgroundTasksForTests)
@@ -2346,14 +2301,6 @@ func TestAccounts_RefreshBalance(t *testing.T) {
 	}
 }
 
-func TestAccounts_RefreshBalance_NotFound(t *testing.T) {
-	_, r, _ := setupAccountsTest(t)
-	resp := doPostJSON(t, r, "/api/accounts/99999/balance", nil)
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", resp.Code)
-	}
-}
-
 func TestAccounts_RefreshBalanceAPIKeySkippedWithoutUpstream(t *testing.T) {
 	db, r, _ := setupAccountsTest(t)
 	upstreamCalls := 0
@@ -2403,22 +2350,6 @@ func TestAccounts_GetModels(t *testing.T) {
 	}
 	if n := result["totalCount"].(float64); n != 2 {
 		t.Errorf("expected totalCount=2, got %v", n)
-	}
-}
-
-func TestAccounts_GetModels_NotFound(t *testing.T) {
-	_, r, _ := setupAccountsTest(t)
-	resp := doGet(t, r, "/api/accounts/99999/models")
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", resp.Code)
-	}
-}
-
-func TestAccounts_GetModels_InvalidID(t *testing.T) {
-	_, r, _ := setupAccountsTest(t)
-	resp := doGet(t, r, "/api/accounts/not-a-number/models")
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
 	}
 }
 
