@@ -58,6 +58,12 @@ type RouteChannelAccount = {
   accessToken?: string | null
   extraConfig?: string | null
   credentialMode?: string | null
+  // The wire (handler/admin routeChannelAccountPublic) includes each masked
+  // value only when the account actually stores that credential. Their presence
+  // is what makes an account-scoped channel relayable: the selector falls back
+  // to the access token for OAuth accounts and to the API key otherwise.
+  accessTokenMasked?: string | null
+  apiTokenMasked?: string | null
 }
 
 type RouteChannelSite = {

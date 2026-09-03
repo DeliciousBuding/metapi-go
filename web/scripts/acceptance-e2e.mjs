@@ -59,6 +59,12 @@
 //   UPSTREAM_REQUEST_LOG  jsonl request log of a deterministic upstream; when
 //                     set, journey 7 proves the expected model actually reached
 //                     the upstream instead of trusting the response body
+//   EXPECT_SERVER_COMMIT  git commit the answering build must report via
+//                     /api/about. Set it whenever the instance under test is
+//                     built locally: a gate that runs against a stale process
+//                     holding the same port verifies nothing while still going
+//                     green, which is exactly how a live run of this script once
+//                     exercised an older embedded SPA.
 //
 // Requires a Chromium install (`bunx playwright install chromium`).
 
@@ -84,6 +90,7 @@ const EXPECTED_COMPLETION_CONTENT =
   process.env.EXPECTED_COMPLETION_CONTENT ?? ''
 const UPSTREAM_REQUEST_LOG = process.env.UPSTREAM_REQUEST_LOG ?? ''
 const EXPECTED_UPSTREAM_MODEL = process.env.EXPECTED_UPSTREAM_MODEL ?? ''
+const EXPECT_SERVER_COMMIT = process.env.EXPECT_SERVER_COMMIT ?? ''
 const skips = []
 
 const failures = []
@@ -112,6 +119,10 @@ async function act(name, fn) {
 // The tail is ONE chain, not four independent guesses: the model whose route
 // journey 5 verifies is the model journey 6 authorizes and journey 7 requests.
 const journeyState = {}
+
+/** A form control by its visible label (the label text is locale-pinned to en). */
+const sheetLabel = (scope, name) =>
+  scope.getByLabel(name, { exact: true }).first()
 
 /** Show a key without printing the whole secret into a log that gets archived. */
 const maskKey = (value) =>
@@ -559,6 +570,7 @@ async function journeyAccountModels(context) {
         .waitFor({ state: 'visible', timeout: 10_000 })
     )
 
+    journeyState.accountModels = apiModels
     pass(
       `${label}: account ${accountId} shows ${uiCount} models in its detail sheet, API agrees`
     )
@@ -569,43 +581,58 @@ async function journeyAccountModels(context) {
   }
 }
 
-// Journey 5 — models alone are not a callable product. "Auto-rebuild" is the
-// product path from account models to routes and channels, so it is driven from
-// the UI; then one route must have a channel whose relay credential is BOUND.
-// A channel with no token cannot serve anything, which is the invisible half of
-// "No available channels".
+// Journey 5 — models alone are not a callable product: a route with a BOUND
+// relay credential is. "Add route" is what gets a fresh install there (channels
+// bind automatically from account model availability). "Auto-rebuild" is NOT:
+// it only recomposes the channels of routes that already exist, which a live
+// run against a fresh instance proved by completing with 0 routes considered
+// while the empty-state copy promised it would generate them.
 async function journeyRouteChannel(context) {
   const label = 'journey: route with a usable channel'
   const headers = { Authorization: `Bearer ${AUTH_TOKEN}` }
   const page = await context.newPage()
   collectPageFailures(page, label)
   try {
+    const accountModels = journeyState.accountModels ?? []
+    if (accountModels.length === 0) {
+      throw new Error('the account serves no models (journey 4 did not pass)')
+    }
+    const model = ACCEPT_RELAY_MODEL || accountModels[0]
+    if (!accountModels.includes(model)) {
+      throw new Error(
+        `model "${model}" is not served by the account (it serves: ${accountModels.join(', ')})`
+      )
+    }
+
     await act('goto /token-routes', () =>
       page.goto(`${BASE_URL}/token-routes`, {
         waitUntil: 'networkidle',
         timeout: 30_000,
       })
     )
-    await act('click Auto-rebuild', () =>
+    await act('click Add route', () =>
       page
-        .getByRole('button', { name: 'Auto-rebuild' })
+        .getByRole('button', { name: 'Add route' })
         .first()
         .click({ timeout: 10_000 })
     )
-    await act('confirm the rebuild', () =>
-      page
-        .locator('[data-slot="alert-dialog-content"]')
-        .getByRole('button', { name: 'Auto-rebuild' })
-        .first()
-        .click({ timeout: 10_000 })
+    const form = page.locator('[data-slot="sheet-content"]').first()
+    await act('route form open', () =>
+      form.waitFor({ state: 'visible', timeout: 15_000 })
+    )
+    await act('fill the model match rule', () =>
+      sheetLabel(form, 'Model match rule').fill(model)
+    )
+    await act('submit the route', () =>
+      form.locator('button[type="submit"]').first().click({ timeout: 10_000 })
     )
 
-    // The rebuild mutation does not wait for the server to finish, so poll the
-    // wire. A route list where every route is zero-channel is a FAIL here: that
-    // is the state that reaches the user as "No available channels".
+    // Channel population runs inside the create handler, so a route that stays
+    // at zero channels is a defect rather than a race. The LIST refetch is
+    // asynchronous, so poll the wire and only then look at the row.
     let target = null
-    await act('a route gains a channel', async () => {
-      const deadline = Date.now() + 120_000
+    await act('the new route gains a channel', async () => {
+      const deadline = Date.now() + 60_000
       let routes = []
       for (;;) {
         const resp = await context.request.get(
@@ -617,25 +644,29 @@ async function journeyRouteChannel(context) {
         }
         routes = (await resp.json().catch(() => [])) ?? []
         target =
-          routes.find((route) => Number(route?.channelCount ?? 0) > 0) ?? null
-        if (target) return
+          routes.find((route) => String(route?.modelPattern ?? '') === model) ??
+          null
+        if (target && Number(target.channelCount ?? 0) > 0) return
         if (Date.now() > deadline) {
           throw new Error(
-            `no route has a channel after rebuild (${routes.length} routes, all zero-channel)`
+            target
+              ? `route "${model}" was created but has ${target.channelCount} channel(s): nothing can serve it`
+              : `route "${model}" never appeared in /api/routes/summary (${routes.length} routes)`
           )
         }
         await page.waitForTimeout(1_000)
       }
     })
     journeyState.routeId = target.id
-    journeyState.routeModel = String(target.modelPattern ?? '')
+    journeyState.routeModel = model
+    await page.waitForTimeout(1_500) // let the post-create toast settle
 
-    // Now the same fact has to be true WHERE THE OPERATOR LOOKS.
-    await act('search the verified route', async () => {
+    // The same fact now has to be true WHERE THE OPERATOR LOOKS.
+    await act('search the new route', async () => {
       await page
         .getByRole('textbox', { name: /Search model/i })
         .first()
-        .fill(journeyState.routeModel)
+        .fill(model)
       await page.waitForTimeout(600) // the toolbar search debounces 300ms
     })
     const row = page.locator('table tbody tr').first()
@@ -695,16 +726,42 @@ async function journeyRouteChannel(context) {
         .first()
         .waitFor({ state: 'visible', timeout: 15_000 })
     )
-    await act('no channel is left unbound', async () => {
-      if ((await sheet.getByText('Unbound', { exact: false }).count()) > 0) {
-        throw new Error(
-          'route detail still shows an unbound channel credential'
-        )
+    // UI-vs-wire truth, per channel. Rebuild creates two flavours for the same
+    // account and model: one bound to an account token, one account-scoped that
+    // relays with the account's own credential. The sheet has to name each one
+    // as the credential it actually is -- and the account-scoped one must never
+    // be called "Unbound", which is the label that made a working channel look
+    // broken and sent operators hunting for a binding step that does not exist.
+    await act(
+      'sheet names every channel credential as the wire reports it',
+      async () => {
+        const text = (await sheet.innerText()).replace(/\s+/g, ' ')
+        for (const channel of channels) {
+          const hasAccountCredential = Boolean(
+            channel?.account?.accessTokenMasked ||
+            channel?.account?.apiTokenMasked
+          )
+          const expected = channel?.tokenId
+            ? `Token #${channel.tokenId}`
+            : hasAccountCredential
+              ? 'Account credential'
+              : 'No credential'
+          if (!text.includes(expected)) {
+            throw new Error(
+              `channel ${channel?.id} should read "${expected}" in the sheet`
+            )
+          }
+        }
+        if (/Unbound/i.test(text)) {
+          throw new Error(
+            'route detail still calls an account-scoped channel "Unbound"'
+          )
+        }
       }
-    })
+    )
 
     pass(
-      `${label}: route "${journeyState.routeModel}" has ${channels.length} channel(s), credential bound, sheet agrees`
+      `${label}: route "${model}" created via UI with ${channels.length} channel(s); the sheet names each credential as the wire reports it`
     )
   } catch (error) {
     fail(`${label}: ${String(error?.message ?? error).split('\n')[0]}`)
@@ -745,10 +802,10 @@ async function journeyDownstreamKey(context) {
       sheet.waitFor({ state: 'visible', timeout: 15_000 })
     )
     await act('fill key name', () =>
-      sheet.getByLabel('Name', { exact: true }).first().fill(ACCEPT_KEY_NAME)
+      sheetLabel(sheet, 'Name').fill(ACCEPT_KEY_NAME)
     )
     await act('fill key value', () =>
-      sheet.getByLabel('Key', { exact: true }).first().fill(ACCEPT_KEY_VALUE)
+      sheetLabel(sheet, 'Key').fill(ACCEPT_KEY_VALUE)
     )
     await act('authorize the verified model', async () => {
       await sheet
@@ -933,6 +990,56 @@ async function journeyRelay() {
   }
 }
 
+// Preflight — prove WHICH build is answering before spending a run on it. Every
+// journey below is evidence about a specific binary; an orphaned process from an
+// earlier build holding the same port turns all of it into evidence about
+// nothing. On mismatch the run aborts instead of reporting journeys that
+// exercised the wrong SPA.
+async function preflightServerIdentity() {
+  const label = 'preflight: server identity'
+  const client = await request.newContext({ baseURL: BASE_URL })
+  try {
+    const resp = await client.get('/api/about', {
+      headers: { Authorization: `Bearer ${AUTH_TOKEN}` },
+    })
+    if (resp.status() !== 200) {
+      throw new Error(`GET /api/about HTTP ${resp.status()}`)
+    }
+    const about = await resp.json().catch(() => null)
+    const commit = String(about?.commit ?? '')
+    const version = String(about?.version ?? '')
+    if (EXPECT_SERVER_COMMIT && commit !== EXPECT_SERVER_COMMIT) {
+      throw new Error(
+        `server reports commit "${commit || '(empty)'}" but EXPECT_SERVER_COMMIT=${EXPECT_SERVER_COMMIT}: a stale or foreign build is answering on ${BASE_URL}`
+      )
+    }
+    pass(
+      `${label}: ${BASE_URL} serves version="${version}" commit="${commit || '(empty)'}"`
+    )
+    return true
+  } catch (error) {
+    fail(`${label}: ${String(error?.message ?? error).split('\n')[0]}`)
+    return false
+  } finally {
+    await client.dispose().catch(() => {})
+  }
+}
+
+function summarise() {
+  console.log(
+    `== acceptance:e2e summary — ${passes.length} passed, ${failures.length} failed, ${skips.length} skipped ==`
+  )
+  if (failures.length > 0) {
+    for (const failure of [...new Set(failures)])
+      console.error(`  [FAIL] ${failure}`)
+  }
+}
+
+if (!(await preflightServerIdentity())) {
+  summarise()
+  process.exit(1)
+}
+
 const browser = await chromium.launch({ headless: true })
 try {
   const onboardingContext = await browser.newContext({
@@ -992,11 +1099,7 @@ if (process.env.ACCEPT_LOGIN === '1') {
   await journeyRelay()
 }
 
-console.log(
-  `== acceptance:e2e summary — ${passes.length} passed, ${failures.length} failed, ${skips.length} skipped ==`
-)
+summarise()
 if (failures.length > 0) {
-  for (const failure of [...new Set(failures)])
-    console.error(`  [FAIL] ${failure}`)
   process.exit(1)
 }
