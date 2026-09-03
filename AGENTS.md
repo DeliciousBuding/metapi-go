@@ -72,8 +72,11 @@ golangci-lint run --timeout=3m        # Lint check
 
 - **Do not push if local CI fails**: all pushes must pass `go vet ./... && go test ./... -count=1 -race` first
 - The global hook-kit chains `.githooks/pre-push-project` and automatically blocks pushes that fail local CI; `.githooks/pre-push` is only the standalone compatibility entrypoint
-- Emergency skip: `git push --no-verify`
+- Emergency skip: `git push --no-verify`. Know what it costs: on a host that uses it, **CI is the only gate that ran**, so CI's own integrity is load-bearing rather than somebody else's problem.
 - GitHub Actions is the final verification gate, not a debug environment
+- **A gate must be proven to gate.** Before trusting a check — new or long-standing — delete the fix it is supposed to protect (or feed it a known-bad input), confirm it goes red, then restore byte-identically and confirm with `sha256sum -c`. A check that cannot fail is worse than no check, because it spends trust while looking like coverage. This repo has shipped two: `test-sqlite-shard` selected zero packages and reported success for **30 tags** while `-race` never ran (#1175), and a verification script's "which build is running" line was printing `{"error":"Missing Authorization header"}` and being read as an answer.
+- **"Reruns green" proves a fault is transient, not that it needs no fix.** Four npm-CDN tarball-integrity failures across three jobs in one day were first filed as environmental noise and shelved; the missing retry was the actual defect (#1181).
+- Same rule for prose: a comment that describes what a mechanism does is a claim. Check it. `--mount=type=cache,target=/root/.bun/install-cache` claimed to persist bun's install cache while bun uses `install/cache`, so every image build re-downloaded everything (#1181).
 
 ## Specs & Docs
 
