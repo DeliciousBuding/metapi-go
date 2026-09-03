@@ -517,6 +517,9 @@ func TestAccounts_Create_RejectsUnknownToken(t *testing.T) {
 	if !strings.Contains(msg, "verification failed") {
 		t.Fatalf("message = %q, want verify failure", msg)
 	}
+	if !strings.Contains(msg, "AnyRouter does not support Access Token/API key binding") {
+		t.Fatalf("message = %q, want AnyRouter cookie/session guidance", msg)
+	}
 	var count int
 	if err := db.QueryRow("SELECT COUNT(*) FROM accounts WHERE site_id = ?", siteID).Scan(&count); err != nil {
 		t.Fatalf("count accounts: %v", err)

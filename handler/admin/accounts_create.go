@@ -216,6 +216,18 @@ func (e *accountCreateError) Error() string {
 	return e.Message
 }
 
+// credentialVerificationFailureMessage explains what a session-credential bind
+// needs when VerifyToken returns nil / empty / unknown. The copy is platform
+// specific where the upstream contract differs (AnyRouter is cookie/session-only
+// and rejects standard access tokens); otherwise it keeps the pre-existing
+// generic guidance plus a minimal shape hint.
+func credentialVerificationFailureMessage(platformName string) string {
+	if strings.EqualFold(platformName, "anyrouter") {
+		return "token verification failed: AnyRouter does not support Access Token/API key binding. Use session mode and paste session=<value> or the full Cookie: header into Access Token / Cookie. Platform User ID is required only if the site enforces New-Api-User/User-id headers. Click \"Verify Token\" first, then bind the account only after verification returns tokenType=session."
+	}
+	return "token verification failed; click \"Verify Token\" first, then bind the account after verification succeeds. For session platforms paste session=<value> or the full Cookie: header; for API-key platforms use API Key mode."
+}
+
 // createAccountOutcome holds metadata from a successful createSingleAccount call.
 type createAccountOutcome struct {
 	ID               int64
@@ -307,7 +319,7 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 		}
 		if result == nil || result.TokenType == "" || result.TokenType == "unknown" {
 			return nil, &accountCreateError{
-				Message:              "token verification failed; click \"Verify Token\" first, then bind the account after verification succeeds",
+				Message:              credentialVerificationFailureMessage(site.Platform),
 				RequiresVerification: true,
 			}
 		}
