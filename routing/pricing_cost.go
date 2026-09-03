@@ -109,15 +109,6 @@ type UsageForCost struct {
 	PromptTokensIncludeCache *bool
 }
 
-// ProxyBillingPricingOverride supplies ratios from self-log metadata.
-type ProxyBillingPricingOverride struct {
-	ModelRatio         float64
-	CompletionRatio    float64
-	CacheRatio         *float64
-	CacheCreationRatio *float64
-	GroupRatio         *float64
-}
-
 // ProxyBillingDetails mirrors the TS ProxyBillingDetails shape (camelCase JSON).
 type ProxyBillingDetails struct {
 	QuotaType int                    `json:"quotaType"`
@@ -201,26 +192,6 @@ func ResolveCacheCreationRatio(modelName string, cacheCreationRatio *float64) fl
 		return *cacheCreationRatio
 	}
 	return DefaultCacheCreationRatioForModel(modelName)
-}
-
-// NormalizePricingRatio normalizes a raw ratio from an upstream pricing JSON
-// field. Missing/NaN/negative values fall back using the model-family default
-// selected by kind ("cache" | "cache_creation" | other→fallback).
-func NormalizePricingRatio(value any, modelName, kind string, fallback float64) float64 {
-	if n, ok := asFiniteNumber(value); ok && n >= 0 {
-		return n
-	}
-	switch kind {
-	case "cache":
-		return DefaultCacheRatioForModel(modelName)
-	case "cache_creation":
-		return DefaultCacheCreationRatioForModel(modelName)
-	default:
-		if isFiniteNonNeg(fallback) {
-			return fallback
-		}
-		return 1
-	}
 }
 
 // CalculateModelUsageBreakdown computes token-based billing details.
@@ -374,46 +345,6 @@ func CalculateModelUsageCost(
 	return detail.Breakdown.TotalCost
 }
 
-// EstimateProxyCostFromModel is a pure cost estimate given an already-resolved
-// pricing model (catalog row or self-log override). Prefer this over inventing
-// prices when the catalog is unavailable — callers should use FallbackTokenCost.
-func EstimateProxyCostFromModel(model PricingModel, usage UsageForCost, groupRatio map[string]float64) float64 {
-	return CalculateModelUsageCost(model, usage, groupRatio)
-}
-
-// BuildPricingOverrideModel builds a token-quota PricingModel from self-log
-// billing metadata. Missing Claude cache ratios receive Anthropic defaults.
-func BuildPricingOverrideModel(modelName string, override ProxyBillingPricingOverride) (PricingModel, map[string]float64) {
-	group := 1.0
-	if override.GroupRatio != nil && isFiniteNonNeg(*override.GroupRatio) && *override.GroupRatio > 0 {
-		group = *override.GroupRatio
-	}
-
-	modelRatio := override.ModelRatio
-	if modelRatio <= 0 || !isFiniteFloat(modelRatio) {
-		modelRatio = 1
-	}
-	completionRatio := override.CompletionRatio
-	if completionRatio <= 0 || !isFiniteFloat(completionRatio) {
-		completionRatio = 1
-	}
-
-	// Materialize resolved ratios so billing_details always shows the applied
-	// values (including Claude-aware fallbacks when the override omitted them).
-	cacheRatio := ResolveCacheRatio(modelName, override.CacheRatio)
-	cacheCreationRatio := ResolveCacheCreationRatio(modelName, override.CacheCreationRatio)
-
-	return PricingModel{
-		ModelName:          modelName,
-		QuotaType:          0,
-		ModelRatio:         modelRatio,
-		CompletionRatio:    completionRatio,
-		CacheRatio:         &cacheRatio,
-		CacheCreationRatio: &cacheCreationRatio,
-		EnableGroups:       []string{"default"},
-	}, map[string]float64{"default": group}
-}
-
 // FallbackTokenCost is the last-resort estimate when no pricing catalog is
 // available. Mirrors TS fallbackTokenCost (veloera uses 1e6 divisor, others 5e5).
 func FallbackTokenCost(totalTokens int64, platform string) float64 {
@@ -551,38 +482,6 @@ func toPositiveInt64(v int64) int64 {
 
 func isFiniteNonNeg(v float64) bool {
 	return isFiniteFloat(v) && v >= 0
-}
-
-func asFiniteNumber(value any) (float64, bool) {
-	switch n := value.(type) {
-	case float64:
-		if isFiniteFloat(n) {
-			return n, true
-		}
-	case float32:
-		f := float64(n)
-		if isFiniteFloat(f) {
-			return f, true
-		}
-	case int:
-		return float64(n), true
-	case int64:
-		return float64(n), true
-	case int32:
-		return float64(n), true
-	case jsonNumber:
-		f, err := n.Float64()
-		if err == nil && isFiniteFloat(f) {
-			return f, true
-		}
-	}
-	return 0, false
-}
-
-// jsonNumber is satisfied by encoding/json.Number without importing encoding/json
-// into every call site of asFiniteNumber.
-type jsonNumber interface {
-	Float64() (float64, error)
 }
 
 func containsString(items []string, target string) bool {

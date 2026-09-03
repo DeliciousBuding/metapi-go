@@ -319,16 +319,6 @@ func TestStringsTrimLower(t *testing.T) {
 	}
 }
 
-func TestFormatErr(t *testing.T) {
-	err := formatErr("invalid value: %d", 42)
-	if err == nil {
-		t.Fatal("expected non-nil error")
-	}
-	if err.Error() != "invalid value: 42" {
-		t.Errorf("unexpected error message: %s", err.Error())
-	}
-}
-
 func TestMaxInt(t *testing.T) {
 	tests := []struct {
 		a, b, expected int

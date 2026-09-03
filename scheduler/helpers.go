@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -12,9 +11,4 @@ func stringsTrimLower(s string) string {
 		return "active"
 	}
 	return strings.ToLower(t)
-}
-
-// formatErr is a shorthand for fmt.Errorf.
-func formatErr(f string, args ...any) error {
-	return fmt.Errorf(f, args...)
 }

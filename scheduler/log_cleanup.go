@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -71,7 +72,7 @@ func (s *LogCleanupScheduler) Stop() error {
 
 func (s *LogCleanupScheduler) UpdateSettings(cronExpr string, usageEnabled, programEnabled bool, retentionDays int) error {
 	if !ValidateCronExpr(cronExpr) {
-		return formatErr("invalid cron expression: %s", cronExpr)
+		return fmt.Errorf("invalid cron expression: %s", cronExpr)
 	}
 
 	clamped := config.ClampInt(retentionDays, 1, 3650)
