@@ -144,9 +144,17 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 			},
 		)
 		if err != nil || selected == nil {
+			// Ask why. Selection reports "nothing selectable" as (nil, nil), so
+			// without this the log line reads err=<nil> and the client gets a
+			// bare "No available channels" — no way to tell an unmatched route
+			// from unbound tokens, cooldown or a downstream key policy, which
+			// have three different fixes (#1179).
+			noChannelReason := proxy.ExplainNoChannel(
+				r.Context(), cfg.Router, ctx.RequestedModel, excludeChannelIDs, downstreamPolicy)
 			slog.Warn("channel selection failed",
 				"err", err,
 				"model", ctx.RequestedModel,
+				"reason", noChannelReason,
 				"retry", retry,
 				"request_id", requestID,
 			)
@@ -156,8 +164,14 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 				observeProxyTerminal(ctx, pendingFailure.outcomeStatus(), ctx != nil && ctx.IsStream, time.Since(startedAt))
 				return
 			}
-			reportProxyAllFailedTerminal(ctx, "no available channels")
-			writeJSONErrorWithRequest(w, 503, "No available channels", "server_error", requestID)
+			eventReason := "no available channels"
+			message := "No available channels"
+			if noChannelReason != "" {
+				eventReason += ": " + noChannelReason
+				message += ": " + noChannelReason
+			}
+			reportProxyAllFailedTerminal(ctx, eventReason)
+			writeJSONErrorWithRequest(w, 503, message, "server_error", requestID)
 			observeProxyTerminal(ctx, shared.OutcomeUnavailable, ctx != nil && ctx.IsStream, time.Since(startedAt))
 			return
 		}
