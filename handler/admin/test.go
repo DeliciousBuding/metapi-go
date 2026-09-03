@@ -5,35 +5,23 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
-	"github.com/deliciousbuding/metapi-go/config"
 )
 
 // RegisterTestRoutes registers all /api/test routes.
 //
-// Known limitation :
-// - sync proxy/chat probes alias the forced-channel harness when a channel/site is forced
-// - stream + async job create surfaces return honest 501 known limitations (no fake SSE/job success)
-// - job status/cancel return 404 (no in-process /api/test job registry; never invent stub-job ids)
+// Known limitation:
+// - sync chat probes alias the forced-channel harness when a channel/site is forced
+// - full path/multipart routing matrix without a forced channel returns an honest 501 residual
 func RegisterTestRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 	handler := &testHandler{
 		channel: &channelTestHandler{db: db, cfg: cfg},
 	}
 
-	// Proxy test endpoints
-	r.Post("/api/test/proxy", handler.proxyTest)
-	r.Post("/api/test/proxy/stream", handler.proxyTestStream)
-	r.Post("/api/test/proxy/jobs", handler.proxyTestJob)
-	r.Get("/api/test/proxy/jobs/{jobId}", handler.proxyTestJobStatus)
-	r.Delete("/api/test/proxy/jobs/{jobId}", handler.proxyTestJobCancel)
-
-	// Chat test endpoints
+	// Chat test endpoint: sync forced-channel harness probe.
 	r.Post("/api/test/chat", handler.chatTest)
-	r.Post("/api/test/chat/stream", handler.chatTestStream)
-	r.Post("/api/test/chat/jobs", handler.chatTestJob)
-	r.Get("/api/test/chat/jobs/{jobId}", handler.chatTestJobStatus)
-	r.Delete("/api/test/chat/jobs/{jobId}", handler.chatTestJobCancel)
 }
 
 type testHandler struct {
@@ -41,7 +29,7 @@ type testHandler struct {
 }
 
 // flexibleTestBody accepts both harness-shaped fields and the richer frontend
-// proxy/chat envelopes (forcedChannelId, jsonBody, messages).
+// chat envelope (forcedChannelId, jsonBody, messages).
 type flexibleTestBody struct {
 	ChannelID       *int64          `json:"channelId"`
 	ForcedChannelID *int64          `json:"forcedChannelId"`
@@ -60,77 +48,10 @@ type testMessage struct {
 	Content json.RawMessage `json:"content"`
 }
 
-// POST /api/test/proxy
-// Accepts channelId/siteId/forcedChannelId + model and delegates to the
-// forced-channel harness. Full path/multipart matrix testing remains a known limitation.
-func (h *testHandler) proxyTest(w http.ResponseWriter, r *http.Request) {
-	h.handleSyncProbe(w, r, "proxy")
-}
-
-// POST /api/test/proxy/stream
-// SSE proxy stream matrix is known limitation — honest 501 (never invents fake stream chunks).
-func (h *testHandler) proxyTestStream(w http.ResponseWriter, r *http.Request) {
-	writeNotImplementedResidual(w,
-		"Proxy stream test is not implemented in Go",
-		"SSE /api/test/proxy/stream matrix is residual; no fake stream success theater; use non-stream POST /api/test/proxy with channelId/siteId/forcedChannelId or POST /api/admin/test-channel",
-	)
-}
-
-// POST /api/test/proxy/jobs
-// Async proxy job queue is known limitation — honest 501 (never invents stub-job ids).
-func (h *testHandler) proxyTestJob(w http.ResponseWriter, r *http.Request) {
-	writeNotImplementedResidual(w,
-		"Proxy test job queue is not implemented in Go",
-		"async /api/test/proxy/jobs queue is residual; no job registry or stub-job ids; use sync POST /api/test/proxy or POST /api/admin/test-channel",
-	)
-}
-
-// GET /api/test/proxy/jobs/:jobId
-// No in-process proxy test job registry — honest 404 (not a fake completed job).
-func (h *testHandler) proxyTestJobStatus(w http.ResponseWriter, r *http.Request) {
-	writeJobNotFound(w, "proxy")
-}
-
-// DELETE /api/test/proxy/jobs/:jobId
-// No in-process proxy test job registry — honest 404 (not a fake cancel success).
-func (h *testHandler) proxyTestJobCancel(w http.ResponseWriter, r *http.Request) {
-	writeJobNotFound(w, "proxy")
-}
-
 // POST /api/test/chat
 // Alias of the forced-channel harness when channelId/siteId/forcedChannelId is set.
 func (h *testHandler) chatTest(w http.ResponseWriter, r *http.Request) {
 	h.handleSyncProbe(w, r, "chat")
-}
-
-// POST /api/test/chat/stream
-// SSE chat stream is known limitation — honest 501 (never invents fake stream chunks).
-func (h *testHandler) chatTestStream(w http.ResponseWriter, r *http.Request) {
-	writeNotImplementedResidual(w,
-		"Chat stream test is not implemented in Go",
-		"SSE /api/test/chat/stream is residual; no fake stream success theater; use non-stream POST /api/test/chat with channelId/siteId/forcedChannelId or POST /api/admin/test-channel",
-	)
-}
-
-// POST /api/test/chat/jobs
-// Async chat job queue is known limitation — honest 501 (never invents stub-job ids).
-func (h *testHandler) chatTestJob(w http.ResponseWriter, r *http.Request) {
-	writeNotImplementedResidual(w,
-		"Chat test job queue is not implemented in Go",
-		"async /api/test/chat/jobs queue is residual; no job registry or stub-job ids; use sync POST /api/test/chat or POST /api/admin/test-channel",
-	)
-}
-
-// GET /api/test/chat/jobs/:jobId
-// No in-process chat test job registry — honest 404 (not a fake completed job).
-func (h *testHandler) chatTestJobStatus(w http.ResponseWriter, r *http.Request) {
-	writeJobNotFound(w, "chat")
-}
-
-// DELETE /api/test/chat/jobs/:jobId
-// No in-process chat test job registry — honest 404 (not a fake cancel success).
-func (h *testHandler) chatTestJobCancel(w http.ResponseWriter, r *http.Request) {
-	writeJobNotFound(w, "chat")
 }
 
 func (h *testHandler) handleSyncProbe(w http.ResponseWriter, r *http.Request, surface string) {
@@ -266,22 +187,9 @@ func contentToPrompt(raw json.RawMessage) string {
 // Never use this helper to invent fake success, stream chunks, or job ids.
 func writeNotImplementedResidual(w http.ResponseWriter, message, residual string) {
 	writeJSON(w, http.StatusNotImplemented, map[string]any{
-		"success":    false,
-		"message":    message,
-		"errorCode":  ErrorCodeOperationNotImplemented,
-		"residual":   residual,
-	})
-}
-
-// writeJobNotFound is the honest empty job surface for /api/test/*/jobs/:jobId.
-// There is no in-process job registry for these routes; never invent stub-job success.
-func writeJobNotFound(w http.ResponseWriter, surface string) {
-	writeJSON(w, http.StatusNotFound, map[string]any{
-		"success": false,
-		"error": map[string]any{
-			"message": "job not found",
-			"type":    "not_found",
-		},
-		"residual": "no in-process /api/test/" + surface + " job queue or job registry; POST jobs returns 501; use sync POST /api/test/" + surface + " or POST /api/admin/test-channel",
+		"success":   false,
+		"message":   message,
+		"errorCode": ErrorCodeOperationNotImplemented,
+		"residual":  residual,
 	})
 }

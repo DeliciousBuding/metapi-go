@@ -110,7 +110,7 @@ sites; this table is the registry and grows deliberately. Constants live in
 | `invalidSettingsValue` | 400    | `PUT /api/settings/runtime` (apply validation funnel) | settings body carries an invalid field value |
 | `operationNotSupported` | 400    | `/api/account-tokens*` (API-key connections)   | operation not supported for this connection type |
 | `resourceDisabled`     | 503    | `/api/routes/decision*`, `/api/models/verify-batch` (engine/scheduler not configured) | capability currently unavailable |
-| `operationNotImplemented` | 501    | `/api/test/*` (stream/jobs), `/api/update-center/*` (deploy/rollback/SSE) | honest residual — feature not implemented in this build (no fake stubs) |
+| `operationNotImplemented` | 501    | `POST /api/test/chat` without `channelId`/`siteId`/`forcedChannelId` | honest residual — full path/multipart matrix not implemented (no fake success) |
 | `accountNotFound`       | 404    | `/api/accounts*`, `/api/account-tokens*`, `/api/accounts/health/refresh` | referenced account does not exist |
 | `tokenNotFound`         | 404    | `/api/account-tokens*`                        | referenced account token does not exist |
 | `routeNotFound`         | 404    | `/api/routes*`                               | referenced token route does not exist |

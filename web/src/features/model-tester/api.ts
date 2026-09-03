@@ -11,11 +11,10 @@
 // source of truth. The caller passes an `AbortSignal` so the Stop button
 // cancels an in-flight test.
 //
-// The tester is sync-only by design: the Go backend returns an honest 501 for
-// `/api/test/chat/stream` (SSE is not implemented), so the UI no longer offers
-// a stream toggle or a synthetic chunk path. `resolveTestResponseError` maps
-// that 501 residual (and the "requires channelId" residual) to a friendly
-// localized key.
+// The tester is sync-only by design: the Go backend no longer registers a
+// `/api/test/chat/stream` route (SSE was never implemented), so the UI does
+// not offer a stream toggle or a synthetic chunk path. `resolveTestResponseError`
+// maps the "requires channelId" residual to a friendly localized key.
 //
 // `buildChatPayload` renders the conversation history into the request
 // `messages` array (system → prior user/assistant turns → current prompt)

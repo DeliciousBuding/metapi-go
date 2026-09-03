@@ -171,16 +171,12 @@ Get task status.
 
 Developer/QA test harness surfaces. The legacy TS-era `/api/test/read|write|update|patch|delete|boom` endpoints are **not registered** by the Go server; the inventory below only lists what the router actually mounts.
 
-### POST /api/test/proxy, POST /api/test/chat
+### POST /api/test/chat
 
 Sync forced-channel probe: delegates to the same forced-channel harness as `POST /api/admin/test-channel` when `channelId`/`siteId`/`forcedChannelId` is given; without a forced channel the full path/multipart matrix is a known limitation and the endpoint answers an honest `501` residual rather than inventing a successful probe.
 
 **Body**: `{ "channelId": 12, "siteId": 3, "forcedChannelId": 12, "model": "gpt-4o-mini", "prompt": "ping", "mode": "chat", "timeoutMs": 15000, "path": "...", "jsonBody": {...}, "messages": [{ "role": "user", "content": "..." }] }` — `jsonBody`/`messages` are read for model/prompt extraction when the flat fields are absent. `mode` defaults to `chat` (or `models` when `path` contains `/models` and not `/chat`).
 **Response**: same shape as `POST /api/admin/test-channel` (see above).
-
-### POST /api/test/chat/stream, POST /api/test/proxy/stream, POST /api/test/chat/jobs, POST /api/test/proxy/jobs, GET /api/test/chat/jobs/{jobId}, GET /api/test/proxy/jobs/{jobId}, DELETE /api/test/chat/jobs/{jobId}, DELETE /api/test/proxy/jobs/{jobId}
-
-Stream and async-job test surfaces — honest residuals (see `handler/admin/test.go`): stream and job-create answer `501` with a `residual` note (no fake SSE chunks, no stub job ids); job status/cancel answer `404` (no in-process `/api/test` job registry). Use the sync endpoints above or `POST /api/admin/test-channel` instead.
 
 ### POST /api/debug/channel-probe
 

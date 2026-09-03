@@ -1800,37 +1800,6 @@ func TestSub2ApiRefreshResult(t *testing.T) {
 }
 
 // =============================================================================
-// §17 UpdateCenterScheduler Tests
-// =============================================================================
-
-func TestNewUpdateCenterScheduler(t *testing.T) {
-	cfg := testConfig()
-	s := NewUpdateCenterScheduler(cfg)
-	if s == nil {
-		t.Fatal("NewUpdateCenterScheduler returned nil")
-	}
-	if s.Name() != "update-center" {
-		t.Errorf("Name() = %q, want update-center", s.Name())
-	}
-}
-
-func TestUpdateCenterScheduler_Stop(t *testing.T) {
-	cfg := testConfig()
-	s := NewUpdateCenterScheduler(cfg)
-	_ = s.Start(context.Background())
-	time.Sleep(50 * time.Millisecond)
-
-	err := s.Stop()
-	if err != nil {
-		t.Errorf("Stop returned error: %v", err)
-	}
-	err = s.Stop()
-	if err != nil {
-		t.Errorf("second Stop returned error: %v", err)
-	}
-}
-
-// =============================================================================
 // §18 SiteAnnouncementScheduler Tests
 // =============================================================================
 
@@ -1882,7 +1851,6 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 		NewProxyFileRetentionScheduler(cfg),
 		NewProxyLogRetentionScheduler(cfg),
 		NewSub2APIRefreshScheduler(cfg),
-		NewUpdateCenterScheduler(cfg),
 		NewSiteAnnouncementScheduler(cfg),
 		NewAdminBackgroundTaskRetentionScheduler(cfg),
 	}
@@ -1903,7 +1871,7 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 		"checkin", "balance-refresh", "channel-recovery", "model-probe",
 		"log-cleanup", "daily-summary", "usage-aggregation", "admin-snapshot",
 		"backup-webdav", "proxy-file-retention",
-		"proxy-log-retention", "sub2api-refresh", "update-center", "site-announcement",
+		"proxy-log-retention", "sub2api-refresh", "site-announcement",
 		"admin-background-task-retention",
 	}
 

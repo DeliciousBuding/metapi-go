@@ -3,7 +3,7 @@ import {
   extractResponseErrorMessage,
 } from '@/lib/http-client'
 
-import { request, buildQueryString, streamSse } from './transport'
+import { request, buildQueryString } from './transport'
 import type {
   BackupWebdavExportType,
   BackupWebdavResponse,
@@ -36,42 +36,6 @@ export const settingsApi = {
       skipErrorHandler: true,
     }),
   getUpdateCenterStatus: () => request('/api/update-center/status'),
-  saveUpdateCenterConfig: (data: unknown) =>
-    request('/api/update-center/config', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  checkUpdateCenter: () =>
-    request('/api/update-center/check', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    }),
-  deployUpdateCenter: (data: {
-    source: 'github-release' | 'docker-hub-tag'
-    targetTag: string
-    targetDigest?: string | null
-  }) =>
-    request('/api/update-center/deploy', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  rollbackUpdateCenter: (data: { targetRevision: string }) =>
-    request('/api/update-center/rollback', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  streamUpdateCenterTaskLogs: (
-    taskId: string,
-    handlers: {
-      onLog?: (entry: unknown) => void
-      onDone?: (payload: unknown) => void
-      signal?: AbortSignal
-    }
-  ) =>
-    streamSse(
-      `/api/update-center/tasks/${encodeURIComponent(taskId)}/stream`,
-      handlers
-    ),
   testSystemProxy: (data: SystemProxyTestRequest) =>
     request('/api/settings/system-proxy/test', {
       method: 'POST',

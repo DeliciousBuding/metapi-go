@@ -107,16 +107,6 @@ func buildSchedulers(cfg *config.Config) (
 	// ---- Scheduler 9: Sub2API Refresh ----
 	newRegistry.Register(scheduler.NewSub2APIRefreshScheduler(cfg))
 
-	// ---- Scheduler 10: Update Center ----
-	// Gated behind METAPI_ENABLE_UPDATE_CENTER (default false). The scheduler
-	// is a log-only no-op today (no remote registry / version discovery), so it
-	// is registered only when an operator explicitly opts in.
-	if cfg.UpdateCenterEnabled {
-		newRegistry.Register(scheduler.NewUpdateCenterScheduler(cfg))
-	} else {
-		slog.Info("update center scheduler disabled (METAPI_ENABLE_UPDATE_CENTER not set)")
-	}
-
 	// ---- Scheduler 12: Admin Snapshot ----
 	newRegistry.Register(scheduler.NewAdminSnapshotScheduler(cfg, usageAgg))
 

@@ -125,7 +125,6 @@ func TestSideEffectSchedulersUseClusterLease(t *testing.T) {
 		"oauth_refresh.go",
 		"site_announcement.go",
 		"sub2api_refresh.go",
-		"update_center.go",
 	}
 
 	for _, file := range files {
@@ -295,4 +294,3 @@ func TestReleaseWithCancelledContextDoesNotPanic(t *testing.T) {
 	}
 	again.Release(context.Background())
 }
-

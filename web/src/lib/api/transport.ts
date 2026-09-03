@@ -90,45 +90,6 @@ export function buildQueryString(
   return serialized ? `?${serialized}` : ''
 }
 
-export function parseContentDispositionFilename(
-  headerValue: string | null
-): string | null {
-  if (!headerValue) return null
-  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(headerValue)
-  if (utf8Match?.[1]) {
-    try {
-      return decodeURIComponent(utf8Match[1])
-    } catch {
-      return utf8Match[1]
-    }
-  }
-  const quotedMatch = /filename="([^"]+)"/i.exec(headerValue)
-  if (quotedMatch?.[1]) return quotedMatch[1]
-  const bareMatch = /filename=([^;]+)/i.exec(headerValue)
-  return bareMatch?.[1]?.trim() || null
-}
-
-type BufferLike = {
-  from(data: ArrayBuffer): { toString(encoding: 'base64'): string }
-}
-
-const nodeBuffer = (globalThis as typeof globalThis & { Buffer?: BufferLike })
-  .Buffer
-
-export function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  if (nodeBuffer) {
-    return nodeBuffer.from(buffer).toString('base64')
-  }
-
-  let binary = ''
-  const bytes = new Uint8Array(buffer)
-  const chunkSize = 0x8000
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize))
-  }
-  return btoa(binary)
-}
-
 export async function streamSse(
   url: string,
   handlers: {

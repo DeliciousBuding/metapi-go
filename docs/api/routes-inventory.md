@@ -86,10 +86,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/tags`
 - `/api/tasks`
 - `/api/tasks/:id`
-- `/api/test/chat/jobs/:jobId`
-- `/api/test/proxy/jobs/:jobId`
 - `/api/update-center/status`
-- `/api/update-center/tasks/:id/stream`
 ### POST
 - `/api/account-tokens`
 - `/api/account-tokens/:id/default`
@@ -166,14 +163,6 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/sites/detect`
 - `/api/sites/import`
 - `/api/test/chat`
-- `/api/test/chat/jobs`
-- `/api/test/chat/stream`
-- `/api/test/proxy`
-- `/api/test/proxy/jobs`
-- `/api/test/proxy/stream`
-- `/api/update-center/check`
-- `/api/update-center/deploy`
-- `/api/update-center/rollback`
 ### PUT
 - `/api/account-tokens/:id`
 - `/api/accounts/:id`
@@ -196,7 +185,6 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/sites/:id`
 - `/api/sites/:id/disabled-models`
 - `/api/sites/:id/tags`
-- `/api/update-center/config`
 ### PATCH
 - `/api/oauth/connections/:accountId/proxy`
 - `/api/oauth/route-units/:routeUnitId`
@@ -216,5 +204,3 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/routes/:id`
 - `/api/site-announcements`
 - `/api/sites/:id`
-- `/api/test/chat/jobs/:jobId`
-- `/api/test/proxy/jobs/:jobId`

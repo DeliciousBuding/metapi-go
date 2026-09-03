@@ -156,14 +156,6 @@ type Config struct {
 	// to fail fast. 0/negative/invalid falls back to the default at Load time.
 	LDOHProxyTimeoutSec int
 
-	// UpdateCenterEnabled gates the residual update-center scheduler
-	// (scheduler.UpdateCenterScheduler). The scheduler is a log-only no-op
-	// today (no remote registry / version discovery), so it is disabled by
-	// default to avoid a 15-min lease heartbeat with no product value.
-	// METAPI_ENABLE_UPDATE_CENTER=true re-enables it for operators who want
-	// the periodic log line while a real helper/registry client is wired.
-	UpdateCenterEnabled bool
-
 	// RedisURL enables optional shared admission counters.
 	RedisURL string
 
@@ -634,9 +626,6 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	cfg.ProxyIdleConnTimeoutSec = parseTimeoutSec(get("PROXY_IDLE_CONN_TIMEOUT_SEC"), DefaultProxyIdleConnTimeoutSec)
 	cfg.ProxyRequestTimeoutSec = parseTimeoutSec(get("PROXY_REQUEST_TIMEOUT_SEC"), DefaultProxyRequestTimeoutSec)
 	cfg.ProxyStreamIdleTimeoutSec = parseTimeoutSec(get("PROXY_STREAM_IDLE_TIMEOUT_SEC"), DefaultProxyStreamIdleTimeoutSec)
-
-	// ---- §3.11d Update Center scheduler gate ----
-	cfg.UpdateCenterEnabled = parseBoolean(get("METAPI_ENABLE_UPDATE_CENTER"), false)
 
 	// ---- §3.12 Notify: Feishu / DingTalk / WeCom / Ntfy ----
 	rt.FeishuEnabled = parseBoolean(get("FEISHU_ENABLED"), false)
