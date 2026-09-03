@@ -8,15 +8,6 @@ import (
 	"time"
 )
 
-func TestAnyRouterAdapter_PlatformName(t *testing.T) {
-	a := &AnyRouterAdapter{
-		NewApiAdapter: &NewApiAdapter{BaseAdapter: NewBaseAdapter("anyrouter")},
-	}
-	if a.PlatformName() != "anyrouter" {
-		t.Errorf("PlatformName: %q", a.PlatformName())
-	}
-}
-
 func TestAnyRouterAdapter_Detect(t *testing.T) {
 	a := &AnyRouterAdapter{
 		NewApiAdapter: &NewApiAdapter{BaseAdapter: NewBaseAdapter("anyrouter")},

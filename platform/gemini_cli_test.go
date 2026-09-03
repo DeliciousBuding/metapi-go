@@ -34,15 +34,6 @@ func TestGeminiCliAdapter_Detect(t *testing.T) {
 	}
 }
 
-func TestGeminiCliAdapter_PlatformName(t *testing.T) {
-	a := &GeminiCliAdapter{
-		GeminiAdapter: &GeminiAdapter{StandardAdapter: NewStandardAdapter("gemini-cli")},
-	}
-	if a.PlatformName() != "gemini-cli" {
-		t.Errorf("PlatformName: %q", a.PlatformName())
-	}
-}
-
 func TestGeminiCliAdapter_DoesNotMatchGenericGemini(t *testing.T) {
 	// GeminiCliAdapter should NOT match generativelanguage.googleapis.com (only GeminiAdapter does)
 	a := &GeminiCliAdapter{

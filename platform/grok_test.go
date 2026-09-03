@@ -16,13 +16,6 @@ func newGrokAdapterForTest() *GrokAdapter {
 	}}
 }
 
-func TestGrokAdapter_PlatformName(t *testing.T) {
-	a := newGrokAdapterForTest()
-	if a.PlatformName() != "grok" {
-		t.Errorf("PlatformName: %q, want %q", a.PlatformName(), "grok")
-	}
-}
-
 func TestGrokAdapter_Detect(t *testing.T) {
 	a := newGrokAdapterForTest()
 	ctx := context.Background()

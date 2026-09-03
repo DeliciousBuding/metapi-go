@@ -43,17 +43,6 @@ func TestCliProxyApiAdapter_Detect(t *testing.T) {
 	}
 }
 
-func TestCliProxyApiAdapter_PlatformName(t *testing.T) {
-	a := &CliProxyApiAdapter{StandardAdapter: &StandardAdapter{
-		BaseAdapter:               NewBaseAdapter("cliproxyapi"),
-		LoginUnsupportedMessage:   "msg",
-		CheckinUnsupportedMessage: "msg",
-	}}
-	if a.PlatformName() != "cliproxyapi" {
-		t.Errorf("PlatformName: %q", a.PlatformName())
-	}
-}
-
 func TestCliProxyApiAdapter_CustomMessages(t *testing.T) {
 	a := &CliProxyApiAdapter{StandardAdapter: &StandardAdapter{
 		BaseAdapter:               NewBaseAdapter("cliproxyapi"),

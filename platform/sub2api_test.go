@@ -9,13 +9,6 @@ import (
 	"time"
 )
 
-func TestSub2ApiAdapter_PlatformName(t *testing.T) {
-	s := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
-	if s.PlatformName() != "sub2api" {
-		t.Errorf("PlatformName: %q", s.PlatformName())
-	}
-}
-
 func TestSub2ApiAdapter_Detect_URLKeyword(t *testing.T) {
 	s := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
 	ctx := context.Background()

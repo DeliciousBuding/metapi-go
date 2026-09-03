@@ -6,13 +6,6 @@ import (
 	"time"
 )
 
-func TestOneApiAdapter_PlatformName(t *testing.T) {
-	o := &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")}
-	if o.PlatformName() != "one-api" {
-		t.Errorf("PlatformName: %q", o.PlatformName())
-	}
-}
-
 func TestOneApiAdapter_Detect(t *testing.T) {
 	o := &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

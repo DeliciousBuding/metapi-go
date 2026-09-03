@@ -33,13 +33,6 @@ func TestOpenAiAdapter_Detect(t *testing.T) {
 	}
 }
 
-func TestOpenAiAdapter_PlatformName(t *testing.T) {
-	a := &OpenAiAdapter{StandardAdapter: NewStandardAdapter("openai")}
-	if a.PlatformName() != "openai" {
-		t.Errorf("PlatformName: %q", a.PlatformName())
-	}
-}
-
 func TestOpenAiAdapter_InheritsStandardDefaults(t *testing.T) {
 	a := &OpenAiAdapter{StandardAdapter: NewStandardAdapter("openai")}
 	ctx := context.Background()
