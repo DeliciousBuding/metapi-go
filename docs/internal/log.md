@@ -6,6 +6,15 @@
 > (date · title · versions/PRs) so the file stays scannable. Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-09-03 — CI/构建可靠性（#1181）：bun install 瞬时故障重试 + Dockerfile 缓存挂载路径纠错
+
+- **两个缺陷都在绿色构建里看不见，且都在实际吃掉合并**。① `bun install --frozen-lockfile` 在 5 个 job（`frontend` / `a11y` / `release` / `ui-screenshots` / `visual-regression`）里全是裸调、零重试；bun 经 npm CDN 拉 tarball，一次损坏下载即 `Integrity check failed for tarball: <pkg>`。**仅 2026-09-03 一天命中 4 个不同包、跨 3 个 job**：`recharts`（`a11y`，master 变红）· `@base-ui/react` + `@oxlint/binding-linux-x64-gnu`（`visual-regression`，挡住 #1172 合并）· `lightningcss-linux-arm64-musl`（`docker-push`，打挂 `cebb374c` 的 push 管道）。② Dockerfile 的 cache mount 挂在 `/root/.bun/install-cache`，而 bun 实际读写 `/root/.bun/install/cache`（`bun pm cache` 实测确认）——**一个连字符 vs 一个斜杠**，那句「keeps the Bun install cache across builds so repeat installs skip already-fetched tarballs」的注释因此是假的，**每次镜像构建都从零重下全部 tarball**，这也正是它对 CDN 抖动暴露最重的原因。与 #1175 同类：**一段机制不做它注释声称的事，而没有任何东西检查它**。
+- **修法**：CI 5 处与 Dockerfile 共用 `scripts/bun-install.sh` **一份**策略（放 `scripts/` 而非 composite action，因为 `.dockerignore` 把 `.github` 排除在构建上下文外，action 无法与镜像构建共享；两份重试策略必然漂移）。**重试刻意做得很窄**：只对瞬时故障重试（tarball 完整性/解压失败、连接重置与超时、DNS 与 fetch 错误）；`--frozen-lockfile` 不匹配、manifest 缺失、404、postinstall 失败**一律第一次就红**——把真缺陷重试三遍只是推迟真相、白烧 runner 分钟数。每次重试前 `bun pm cache rm`，否则 bun 已缓存的坏 tarball 会被原样重读，那就不叫重试。Dockerfile 的挂载目标改为真实路径。
+- **门禁** `scripts/bun_install_wiring_test.go`：任何 workflow `run:` 行不得裸调 `bun install` · **恰好 5 处**必须走该脚本 · Dockerfile 必须调它且必须挂 bun 真实缓存路径 · 脚本必须保留「有界尝试 / 清缓存 / 非瞬时不重试」三个分支（任一被删即红）。
+- **验证**：桩驱动四场景（首次成功 = 1 装 0 清 · 瞬时后成功 = 3 装 2 清并报 `succeeded on attempt 3 of 3` · 恒瞬时 = 3 装后 `still failing after 3 attempts` · **lockfile 不匹配 = 1 装 0 清即失败**）· 分类器对当天 4 条真实报错串（8 种形态）**全命中**、对 7 条真实缺陷**全不命中**（含最微妙的 `Incorrect integrity: expected sha512-… for a package you pinned`——pin 住的完整性不匹配是真问题，正则里没有裸 `integrity` 正是为此）· 真实 bun 快路径 **613 包 / 1.88s / rc=0**、`bun.lock` 与 `package.json` 零改动 · **变异探针 4 发 4 中**（裸调回退 / 缓存路径回退 / 删掉清缓存让重试变装饰 / Dockerfile 直接调 bun install；每发都红、`sha256sum -c` 逐字节还原、门禁复绿）· `actionlint` 对改后 workflow 零 findings · **合并后 master 的 push 管道全绿，4 个 web-deps job 与 `docker-build`/`docker-push` 都真的走了新路径**。
+- **一处诚实的预期管理**：修好挂载路径**不会让这一次构建变快**——新的缓存命名空间是空的，收益从**下一次**镜像构建开始（届时 tarball 才真的被复用）。
+- **行为变化**：`release` job 原来的 `Build frontend for release binaries` 一步（`bun install --frozen-lockfile && bun run build:web`）拆成「安装」与「构建」两步，让两类失败在日志里可分别定位。**job 名与必选检查名未变**。
+
 ## 2026-09-03 — v0.17.1 发版（备份表集注册表化 · 设置水合不再毁值 · **CI 竞态门复活** · 启动日志诚实性与前端布局门禁）
 
 - **版本判断**：patch-first。v0.17.0 打 tag 之后又合入三个运维可见修复（#1172 备份导出缺 5 张表、#1173 一条坏设置行清空已配置值、#1178 每次启动一条假 WARN）与一个 CI 完整性修复（#1175），按 `git-workflow.md` §6.1「每波合入 master 且含用户可见变更 → 立即 bump 最后一位」走 v0.17.1；不构成新里程碑，故不动中间位。
@@ -37,7 +46,7 @@
 - **负结果（别再查）**：`handler/admin/accounts.go` 的 `globalAccountsCache` 虽然也是单槽形状，但 `get()` 不带 key、分页路径直接绕过快照缓存 ⇒ 键空间真的是 1，不存在 channels 那种互相逐出缺陷。
 
 - **发布事实（2026-09-03，已 publish = repo Latest）**：tag 管道全绿（22 job：12 检查 + `docker-build` + `docker-push` + `release`）→ draft notes 人工审阅（12 资产 = 5 平台 server + 6 migrate 二进制 + `checksums.txt` + `install.sh`；body 与 `CHANGELOG.md` 的 `## [v0.17.0]` 节**逐字节相同**，5744 字符；私有路径 / 内部工具名 / 主机事实扫描零命中）→ `gh release edit --draft=false`。**产物抽样校验**：下载 `metapi-linux-amd64`，sha256 与 `checksums.txt` 一致，`--version` 报 `v0.17.0`；`install.sh` 的下载基址确认已切到 `releases/latest/download`（不再钉死某个 tag）。
-- **发布当轮的两处环境噪音（非代码）**：master push 的 `docker-push` 与 #1172 的 `visual-regression` 各挂一次 `bun install --frozen-lockfile` 的 registry 完整性错误（`lightningcss-linux-arm64-musl` / `@base-ui/react` / `@oxlint/binding-linux-x64-gnu`），重跑即绿；tag 管道的 `docker-push` 二次尝试成功。给 `bun install` 加重试已进 backlog。
+- **发布当轮的 `bun install` 抖动——当时记作「环境噪音（非代码）」，这个判断是错的**：master push 的 `docker-push` 与 #1172 的 `visual-regression` 各挂一次 registry 完整性错误（`lightningcss-linux-arm64-musl` / `@base-ui/react` / `@oxlint/binding-linux-x64-gnu`），重跑即绿，tag 管道的 `docker-push` 二次尝试成功，于是被归为上游 CDN 噪音并进 backlog。**同一天它第三次出现**（`recharts` 挂掉 `a11y`，让 v0.17.1 发布后 master 的纯 docs 提交 `1ce7a928` 变红），四类包三个 job ⇒ 不是噪音，是 5 个 job 里的 `bun install` 全都裸调零重试。已在 **#1181** 修完，见下条。教训：**「重跑即绿」只能证明故障是瞬时的，不能证明它不需要修**——瞬时故障重复出现时，缺的是重试，而缺重试是代码问题。
 
 ## 2026-09-03 — v0.16.23 发版（持久化正确性波：迁移方言 · 共享准入原子性 · 设置往返 · 前端缓存与文案）
 
