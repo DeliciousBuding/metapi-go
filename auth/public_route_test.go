@@ -7,14 +7,14 @@ import (
 
 )
 
-// TestIsPublicAPIRoute_LegitimatePaths pins the two intended public surfaces:
-// the desktop health probe and single-segment OAuth callbacks.
+// TestIsPublicAPIRoute_LegitimatePaths pins the intended public surfaces:
+// single-segment OAuth callbacks and the session lifecycle.
+// (The desktop health probe was removed with the Electron shell.)
 func TestIsPublicAPIRoute_LegitimatePaths(t *testing.T) {
 	cases := []struct {
 		path string
 		want bool
 	}{
-		{"/api/desktop/health", true},
 		{"/api/oauth/callback/claude", true},
 		{"/api/oauth/callback/codex", true},
 		{"/api/oauth/callback/gemini-cli", true},
@@ -23,8 +23,6 @@ func TestIsPublicAPIRoute_LegitimatePaths(t *testing.T) {
 		// single-segment route, so deeper tails 404 before auth runs.
 		{"/api/oauth/callback/gemini/code", true},
 		{"/api/sites", false},
-		{"/api/desktop/health/detail", false},
-		{"/api/desktop", false},
 		{"/api/oauth/callback", false},
 		{"", false},
 	}
@@ -43,8 +41,6 @@ func TestIsPublicAPIRoute_LegitimatePaths(t *testing.T) {
 // chi routing, a loose prefix match would become a full admin auth bypass.
 func TestIsPublicAPIRoute_TraversalVariantsRejected(t *testing.T) {
 	cases := []string{
-		"/api/desktop/health/../secrets",
-		"/api/desktop/health/../../api/sites",
 		"/api/oauth/callback/../sites",
 		"/api/oauth/callback/../../api/settings/backup/export",
 		"/api/oauth/callback/claude/../codex",
@@ -69,7 +65,7 @@ func TestAdminAuth_PublicBypassDoesNotLeakAdminContext(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/desktop/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/oauth/callback/claude", nil)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 

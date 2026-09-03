@@ -97,7 +97,7 @@ SERVER_PID=$!
 log "waiting for server readiness ..."
 ready=0
 for _ in $(seq 1 120); do
-  if curl -sS --noproxy '*' "http://$TS_HOST:$TS_PORT/api/desktop/health" 2>/dev/null | grep -q '"ok"'; then
+  if curl -sS --noproxy '*' "http://$TS_HOST:$TS_PORT/ready" 2>/dev/null | grep -q '"ok"'; then
     ready=1
     break
   fi

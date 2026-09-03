@@ -28,7 +28,6 @@ import (
 //    wrong Bearer → 403 Invalid token.
 //
 // Public routes that bypass this middleware:
-// - GET /api/desktop/health
 // - GET /api/oauth/callback/*
 // - POST /api/auth/login, POST /api/auth/logout, GET /api/auth/session
 //   (the session lifecycle surface; login is master-token + rate limited,
@@ -115,7 +114,7 @@ func AdminAuth(sessions *SessionManager) func(http.Handler) http.Handler {
 }
 
 // isPublicAPIRoute returns true for routes that do not require admin auth.
-// Whitelist: /api/desktop/health, /api/oauth/callback/*, and the session
+// Whitelist: /api/oauth/callback/* and the session
 // lifecycle surface /api/auth/{login,logout,session} (#1034). ws-ticket is
 // NOT public: minting a WS ticket requires a live session.
 //
@@ -128,9 +127,6 @@ func AdminAuth(sessions *SessionManager) func(http.Handler) http.Handler {
 func isPublicAPIRoute(urlPath string) bool {
 	if containsDotDotSegment(urlPath) {
 		return false
-	}
-	if urlPath == "/api/desktop/health" {
-		return true
 	}
 	if strings.HasPrefix(urlPath, "/api/oauth/callback/") {
 		return true

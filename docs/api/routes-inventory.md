@@ -27,7 +27,6 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/channels/probe-history`
 - `/api/checkin/logs`
 - `/api/debug/vars`
-- `/api/desktop/health`
 - `/api/downstream-keys`
 - `/api/downstream-keys/:id/export`
 - `/api/downstream-keys/:id/overview`

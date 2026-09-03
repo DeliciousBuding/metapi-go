@@ -169,12 +169,6 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		if db := store.GetDB(); db != nil {
 			admin.RegisterMonitorRoutes(r, db.DB, cfg)
 		}
-
-		r.Get("/api/desktop/health", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status":"ok"}`))
-		})
 	})
 
 	// Wave 4 security handoff F1: the LDOH iframe proxy authenticates via the
@@ -280,13 +274,11 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 	// here — otherwise the SPA fallback answers 200 text/html and <img>
 	// renders blank.
 	rootFiles := map[string]string{
-		"logo.png":                  "image/png",
-		"favicon.png":               "image/png",
-		"favicon-64.png":            "image/png",
-		"desktop-icon.png":          "image/png",
-		"desktop-tray-template.png": "image/png",
-		"logo.svg":                  "image/svg+xml",
-		"favicon.svg":               "image/svg+xml",
+		"logo.png":       "image/png",
+		"favicon.png":    "image/png",
+		"favicon-64.png": "image/png",
+		"logo.svg":       "image/svg+xml",
+		"favicon.svg":    "image/svg+xml",
 	}
 	for name, contentType := range rootFiles {
 		fileName := name
