@@ -51,9 +51,30 @@ import (
 
 const modulePath = "github.com/deliciousbuding/metapi-go"
 
+// boundaryGroups are the twelve top-level domain packages the denylist below is
+// keyed on. TestPackageBoundaries asserts each one was really scanned, so a
+// future layout move that forgets this file fails loudly instead of passing
+// vacuously. A gate that scans nothing and reports no violations is not a
+// lenient gate, it is an absent one: that is the exact shape that let roughly
+// thirty release tags go green while their required shards ran zero tests.
+var boundaryGroups = []string{
+	"app", "auth", "config", "handler", "platform", "proxy", "router",
+	"routing", "scheduler", "service", "store", "transform",
+}
+
 func TestPackageBoundaries(t *testing.T) {
 	root := repoRoot(t)
-	violations := scanBoundaryViolations(t, root)
+	violations, scanned := scanBoundaryViolations(t, root)
+	var missing []string
+	for _, group := range boundaryGroups {
+		if scanned[group] == 0 {
+			missing = append(missing, group)
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("gate would pass vacuously: no production Go files scanned for %v. "+
+			"The layout moved without updating ownerPackage/boundaryGroups in this file.", missing)
+	}
 	if len(violations) > 0 {
 		sort.Slice(violations, func(i, j int) bool {
 			if violations[i].pkg != violations[j].pkg {
@@ -195,17 +216,26 @@ func forbiddenImport(pkg, imp string) string {
 	return ""
 }
 
-func scanBoundaryViolations(t *testing.T, root string) []violation {
+func scanBoundaryViolations(t *testing.T, root string) ([]violation, map[string]int) {
 	t.Helper()
 	var out []violation
+	scanned := map[string]int{}
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			name := d.Name()
+			// .worktrees holds full checkouts of this same repository, so scanning
+			// it means parsing a second copy of every backend package and reporting
+			// a work-in-progress branch's violations under a confusing path: with
+			// two worktrees checked out the walk covered 732 production files
+			// against 366 in the repository proper. .dev-local is the private
+			// QA/runbook area, where a stray .go file is not production
+			// architecture and must not be treated as one.
 			if name == ".git" || name == "node_modules" || name == "dist" ||
-				name == ".claude" || name == "worktrees" || name == "vendor" {
+				name == ".claude" || name == "worktrees" || name == ".worktrees" ||
+				name == ".dev-local" || name == "vendor" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -218,6 +248,11 @@ func scanBoundaryViolations(t *testing.T, root string) []violation {
 		pkg, ok := ownerPackage(relDir)
 		if !ok {
 			return nil
+		}
+		if i := strings.IndexByte(pkg, '/'); i >= 0 {
+			scanned[pkg[:i]]++
+		} else {
+			scanned[pkg]++
 		}
 		fset := token.NewFileSet()
 		f, perr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
@@ -242,5 +277,5 @@ func scanBoundaryViolations(t *testing.T, root string) []violation {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return out
+	return out, scanned
 }
