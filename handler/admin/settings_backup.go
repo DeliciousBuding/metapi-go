@@ -599,6 +599,21 @@ func importBackupTablesWithConn(conn backupImportConn, tables map[string]json.Ra
 			result.newDownstreamApiKeys = downstreamNamesForNewKeys(rows, downstreamCandidates, downstreamBefore, downstreamAfter)
 		}
 	}
+
+	// Rows were inserted with the ids they were exported with, which leaves
+	// PostgreSQL's serial sequences pointing below them: the next ordinary INSERT
+	// asks for an id the restore just occupied and fails on a unique constraint,
+	// naming a key rather than a sequence so nothing points back here. A restored
+	// deployment that cannot perform its first write is not a working restore, so
+	// this is fatal rather than a warning -- the schema was just migrated, which
+	// is the one case where a missing table cannot explain the failure. The
+	// migrator resyncs through the same helper for the same reason; SQLite needs
+	// nothing (see store.ResyncPGIDSequences).
+	if conn.DriverName() == "pgx" {
+		if err := store.ResyncPGIDSequences(conn); err != nil {
+			return nil, fmt.Errorf("import failed: resync id sequences: %w", err)
+		}
+	}
 	return result, nil
 }
 
