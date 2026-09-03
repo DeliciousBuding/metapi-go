@@ -21,10 +21,19 @@ ARG BUN_VERSION=1.3.14
 FROM oven/bun:${BUN_VERSION}-alpine AS web
 WORKDIR /app/web
 COPY web/package.json web/bun.lock ./
-# --mount=type=cache keeps the Bun install cache across builds so repeat
-# installs skip already-fetched tarballs.
-RUN --mount=type=cache,target=/root/.bun/install-cache \
-    bun install --frozen-lockfile
+# The install retry policy is shared with CI so the two cannot drift. It lives in
+# scripts/ rather than in a composite action because .dockerignore excludes
+# .github from the build context.
+COPY scripts/bun-install.sh /tmp/bun-install.sh
+# The cache mount target is bun's real install cache. It used to point at
+# /root/.bun/install-cache (hyphen) while bun reads and writes
+# /root/.bun/install/cache (slash) -- confirmed with `bun pm cache` -- so the
+# mount cached nothing at all and the comment above it was false: every image
+# build re-downloaded every tarball from scratch. That is also what made this
+# step the one most exposed to the registry/CDN integrity faults the shared
+# retry script exists to absorb.
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    sh /tmp/bun-install.sh
 COPY web ./
 RUN bun run build:web
 
