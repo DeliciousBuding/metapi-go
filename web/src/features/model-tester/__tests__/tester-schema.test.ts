@@ -47,10 +47,16 @@ describe('testerSchema — happy path', () => {
 // ---------------------------------------------------------------------------
 
 describe('testerSchema — required fields', () => {
-  const requiredCases: Array<[string, Partial<TesterFormValues>, string | undefined]> = [
+  const requiredCases: Array<
+    [string, Partial<TesterFormValues>, string | undefined]
+  > = [
     ['an empty model', { model: '' }, 'modelTester.form.errors.modelRequired'],
     ['a whitespace-only model', { model: '   ' }, undefined],
-    ['an empty prompt', { prompt: '' }, 'modelTester.form.errors.promptRequired'],
+    [
+      'an empty prompt',
+      { prompt: '' },
+      'modelTester.form.errors.promptRequired',
+    ],
   ]
 
   it.each(requiredCases)(
@@ -70,8 +76,16 @@ describe('testerSchema — required fields', () => {
 
 describe('testerSchema — length bounds', () => {
   const tooLongCases: Array<[string, Partial<TesterFormValues>, string]> = [
-    ['a systemPrompt over 4000 chars', { systemPrompt: 'x'.repeat(4001) }, 'modelTester.form.errors.systemTooLong'],
-    ['a prompt over 16000 chars', { prompt: 'x'.repeat(16001) }, 'modelTester.form.errors.promptTooLong'],
+    [
+      'a systemPrompt over 4000 chars',
+      { systemPrompt: 'x'.repeat(4001) },
+      'modelTester.form.errors.systemTooLong',
+    ],
+    [
+      'a prompt over 16000 chars',
+      { prompt: 'x'.repeat(16001) },
+      'modelTester.form.errors.promptTooLong',
+    ],
   ]
 
   it.each(tooLongCases)('rejects %s', (_label, overrides, message) => {
@@ -100,14 +114,35 @@ describe('testerSchema — length bounds', () => {
 // ---------------------------------------------------------------------------
 
 describe('testerSchema — numeric bounds', () => {
-  const numericBoundCases: Array<[string, Partial<TesterFormValues>, string]> = [
-    ['temperature above 2', { temperature: 2.5 }, 'modelTester.form.errors.temperatureMax'],
-    ['temperature below 0', { temperature: -0.1 }, 'modelTester.form.errors.temperatureMin'],
-    ['topP above 1', { topP: 1.1 }, 'modelTester.form.errors.topPMax'],
-    ['maxTokens above 128000', { maxTokens: 128001 }, 'modelTester.form.errors.maxTokensMax'],
-    ['a non-integer maxTokens', { maxTokens: 1.5 }, 'modelTester.form.errors.maxTokensInteger'],
-    ['a negative maxTokens', { maxTokens: -1 }, 'modelTester.form.errors.maxTokensMin'],
-  ]
+  const numericBoundCases: Array<[string, Partial<TesterFormValues>, string]> =
+    [
+      [
+        'temperature above 2',
+        { temperature: 2.5 },
+        'modelTester.form.errors.temperatureMax',
+      ],
+      [
+        'temperature below 0',
+        { temperature: -0.1 },
+        'modelTester.form.errors.temperatureMin',
+      ],
+      ['topP above 1', { topP: 1.1 }, 'modelTester.form.errors.topPMax'],
+      [
+        'maxTokens above 128000',
+        { maxTokens: 128001 },
+        'modelTester.form.errors.maxTokensMax',
+      ],
+      [
+        'a non-integer maxTokens',
+        { maxTokens: 1.5 },
+        'modelTester.form.errors.maxTokensInteger',
+      ],
+      [
+        'a negative maxTokens',
+        { maxTokens: -1 },
+        'modelTester.form.errors.maxTokensMin',
+      ],
+    ]
 
   it.each(numericBoundCases)('rejects %s', (_label, overrides, message) => {
     const result = testerSchema.safeParse({ ...validInput(), ...overrides })
@@ -123,8 +158,14 @@ describe('testerSchema — numeric bounds', () => {
 
 describe('testerSchema — no coercion + enum', () => {
   const noCoerceCases: Array<[string, Partial<TesterFormValues>]> = [
-    ['a string temperature (no coerce)', { temperature: '0.7' as unknown as number }],
-    ['a non-integer channelId (no coerce)', { channelId: '42' as unknown as number }],
+    [
+      'a string temperature (no coerce)',
+      { temperature: '0.7' as unknown as number },
+    ],
+    [
+      'a non-integer channelId (no coerce)',
+      { channelId: '42' as unknown as number },
+    ],
   ]
 
   it.each(noCoerceCases)('rejects %s', (_label, overrides) => {

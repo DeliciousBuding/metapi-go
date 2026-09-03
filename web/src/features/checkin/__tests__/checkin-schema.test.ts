@@ -14,10 +14,34 @@ import {
 
 describe('checkinSearchSchema', () => {
   const parseShapeCases: Array<
-    [string, Record<string, unknown>, { page: number; pageSize: number; accountId?: number | undefined; status?: string | undefined; q?: string | number | undefined }]
+    [
+      string,
+      Record<string, unknown>,
+      {
+        page: number
+        pageSize: number
+        accountId?: number | undefined
+        status?: string | undefined
+        q?: string | number | undefined
+      },
+    ]
   > = [
-    ['applies page / pageSize defaults to an empty input', {}, { page: 1, pageSize: 20, accountId: undefined, status: undefined, q: undefined }],
-    ['coerces string numerics from a URL query string shape', { page: '2', pageSize: '50', accountId: '7' }, { page: 2, pageSize: 50, accountId: 7 }],
+    [
+      'applies page / pageSize defaults to an empty input',
+      {},
+      {
+        page: 1,
+        pageSize: 20,
+        accountId: undefined,
+        status: undefined,
+        q: undefined,
+      },
+    ],
+    [
+      'coerces string numerics from a URL query string shape',
+      { page: '2', pageSize: '50', accountId: '7' },
+      { page: 2, pageSize: 50, accountId: 7 },
+    ],
   ]
 
   it.each(parseShapeCases)('%s', (_label, input, expected) => {
@@ -109,8 +133,16 @@ describe('parseFilterValues', () => {
 
 describe('parseCheckinSearch', () => {
   it.each([
-    ['a query string with a leading question mark', '?page=3&status=ok,fail', { page: 3, status: 'ok,fail' }],
-    ['a query string without a leading question mark', 'page=2&pageSize=50&accountId=7', { page: 2, pageSize: 50, accountId: 7 }],
+    [
+      'a query string with a leading question mark',
+      '?page=3&status=ok,fail',
+      { page: 3, status: 'ok,fail' },
+    ],
+    [
+      'a query string without a leading question mark',
+      'page=2&pageSize=50&accountId=7',
+      { page: 2, pageSize: 50, accountId: 7 },
+    ],
     ['malformed input', 'page=abc&pageSize=999', { page: 1, pageSize: 20 }],
   ])('parses %s', (_label, input, expected) => {
     const result = parseCheckinSearch(input)

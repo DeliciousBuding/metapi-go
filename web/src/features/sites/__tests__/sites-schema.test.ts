@@ -63,15 +63,22 @@ describe('siteFormSchema — url', () => {
     ['empty', '', 'sites.form.errors.urlRequired'],
     ['ftp scheme', 'ftp://example.com', 'sites.form.errors.invalidUrl'],
     ['plain string', 'not a url', 'sites.form.errors.invalidUrl'],
-    ['javascript scheme', 'javascript:alert(1)', 'sites.form.errors.invalidUrl'],
+    [
+      'javascript scheme',
+      'javascript:alert(1)',
+      'sites.form.errors.invalidUrl',
+    ],
   ]
 
-  it.each(badUrlCases)('rejects an invalid url (%s)', (_label, url, message) => {
-    const result = siteFormSchema.safeParse({ ...validSiteForm(), url })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(message)
-  })
+  it.each(badUrlCases)(
+    'rejects an invalid url (%s)',
+    (_label, url, message) => {
+      const result = siteFormSchema.safeParse({ ...validSiteForm(), url })
+      expect(result.success).toBe(false)
+      if (result.success) return
+      expect(result.error.issues[0]?.message).toBe(message)
+    }
+  )
 
   it('accepts http and https', () => {
     expect(
@@ -150,9 +157,21 @@ describe('siteFormSchema — customHeaders', () => {
 
 describe('siteFormSchema — numerics + enum', () => {
   const numericBoundCases: Array<[string, Partial<SiteFormValues>, string]> = [
-    ['a negative globalWeight', { globalWeight: -1 }, 'sites.form.errors.globalWeightMin'],
-    ['a non-integer maxConcurrency', { maxConcurrency: 1.5 }, 'sites.form.errors.maxConcurrencyInteger'],
-    ['a non-integer latency threshold', { postRefreshProbeLatencyThresholdMs: 1.5 }, 'sites.form.errors.latencyInteger'],
+    [
+      'a negative globalWeight',
+      { globalWeight: -1 },
+      'sites.form.errors.globalWeightMin',
+    ],
+    [
+      'a non-integer maxConcurrency',
+      { maxConcurrency: 1.5 },
+      'sites.form.errors.maxConcurrencyInteger',
+    ],
+    [
+      'a non-integer latency threshold',
+      { postRefreshProbeLatencyThresholdMs: 1.5 },
+      'sites.form.errors.latencyInteger',
+    ],
   ]
 
   it.each(numericBoundCases)('rejects %s', (_label, overrides, message) => {

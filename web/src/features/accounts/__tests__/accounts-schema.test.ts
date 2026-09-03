@@ -57,7 +57,7 @@ function validPasswordForm(): AccountFormValues {
 function expectInvalid(
   values: AccountFormValues,
   path?: Array<string | number>,
-  message?: string,
+  message?: string
 ): void {
   const result = getAccountFormSchema().safeParse(values)
   expect(result.success).toBe(false)
@@ -72,13 +72,43 @@ function expectInvalid(
 
 describe('getAccountFormSchema — superRefine', () => {
   const blankCredentialCases: Array<
-    [string, () => AccountFormValues, Partial<AccountFormValues>, (Array<string | number> | undefined)?, (string | undefined)?]
+    [
+      string,
+      () => AccountFormValues,
+      Partial<AccountFormValues>,
+      (Array<string | number> | undefined)?,
+      (string | undefined)?,
+    ]
   > = [
-    ['accessToken empty', validSessionForm, { accessToken: '' }, ['accessToken'], '请填写 Access Token / Cookie'],
+    [
+      'accessToken empty',
+      validSessionForm,
+      { accessToken: '' },
+      ['accessToken'],
+      '请填写 Access Token / Cookie',
+    ],
     ['accessToken whitespace', validSessionForm, { accessToken: '   ' }],
-    ['apiToken empty', validApikeyForm, { apiToken: '' }, ['apiToken'], '请填写 API Key'],
-    ['username empty', validPasswordForm, { username: '' }, ['username'], '请填写站点用户名'],
-    ['password empty', validPasswordForm, { password: '' }, ['password'], '请填写站点密码'],
+    [
+      'apiToken empty',
+      validApikeyForm,
+      { apiToken: '' },
+      ['apiToken'],
+      '请填写 API Key',
+    ],
+    [
+      'username empty',
+      validPasswordForm,
+      { username: '' },
+      ['username'],
+      '请填写站点用户名',
+    ],
+    [
+      'password empty',
+      validPasswordForm,
+      { password: '' },
+      ['password'],
+      '请填写站点密码',
+    ],
   ]
 
   it.each(blankCredentialCases)(
@@ -397,18 +427,56 @@ describe('getAccountFormDefaultValues', () => {
 
 describe('buildAccountVerifyPayload', () => {
   it.each([
-    ['a session payload with the trimmed access token', () => ({ ...validSessionForm(), accessToken: '  sk-1  ' }), { siteId: 1, accessToken: 'sk-1', credentialMode: 'session' }],
-    ['an apikey payload from apiToken', validApikeyForm, { siteId: 1, accessToken: 'k', credentialMode: 'apikey' }],
-    ['unsaved platform user id and proxy values through verification', () => ({ ...validSessionForm(), platformUserId: 106, proxyUrl: '  socks5://proxy.example:1080  ' }), { siteId: 1, accessToken: 'sk-1', platformUserId: 106, proxyUrl: 'socks5://proxy.example:1080', credentialMode: 'session' }],
+    [
+      'a session payload with the trimmed access token',
+      () => ({ ...validSessionForm(), accessToken: '  sk-1  ' }),
+      { siteId: 1, accessToken: 'sk-1', credentialMode: 'session' },
+    ],
+    [
+      'an apikey payload from apiToken',
+      validApikeyForm,
+      { siteId: 1, accessToken: 'k', credentialMode: 'apikey' },
+    ],
+    [
+      'unsaved platform user id and proxy values through verification',
+      () => ({
+        ...validSessionForm(),
+        platformUserId: 106,
+        proxyUrl: '  socks5://proxy.example:1080  ',
+      }),
+      {
+        siteId: 1,
+        accessToken: 'sk-1',
+        platformUserId: 106,
+        proxyUrl: 'socks5://proxy.example:1080',
+        credentialMode: 'session',
+      },
+    ],
   ])('builds %s', (_label, build, payload) => {
     expect(buildAccountVerifyPayload(build())).toEqual({ ok: true, payload })
   })
 
   it.each([
-    ['a site error when siteId is missing or non-positive', { ...validSessionForm(), siteId: 0 }, { ok: false, error: 'site' }],
-    ['a token error when a session credential is blank', { ...validSessionForm(), accessToken: '  ' }, { ok: false, error: 'token' }],
-    ['a token error when an apiToken is empty', { ...validApikeyForm(), apiToken: '' }, { ok: false, error: 'token' }],
-    ['no inline payload for password mode', validPasswordForm(), { ok: false, error: 'token' }],
+    [
+      'a site error when siteId is missing or non-positive',
+      { ...validSessionForm(), siteId: 0 },
+      { ok: false, error: 'site' },
+    ],
+    [
+      'a token error when a session credential is blank',
+      { ...validSessionForm(), accessToken: '  ' },
+      { ok: false, error: 'token' },
+    ],
+    [
+      'a token error when an apiToken is empty',
+      { ...validApikeyForm(), apiToken: '' },
+      { ok: false, error: 'token' },
+    ],
+    [
+      'no inline payload for password mode',
+      validPasswordForm(),
+      { ok: false, error: 'token' },
+    ],
   ])('returns %s', (_label, values, expected) => {
     expect(buildAccountVerifyPayload(values)).toEqual(expected)
   })
