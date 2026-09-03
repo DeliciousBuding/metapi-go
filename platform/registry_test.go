@@ -145,19 +145,3 @@ func TestNormalizePlatformAlias_NewApiForks(t *testing.T) {
 		}
 	}
 }
-
-// --- ListAdapters ---
-
-func TestListAdapters_Copy(t *testing.T) {
-	original := ListAdapters()
-	// Modify the returned slice
-	if len(original) > 0 {
-		original[0] = nil
-	}
-	// Original registry should be unaffected
-	again := ListAdapters()
-	if len(again) != len(original) || again[0] == nil {
-		// Actually ListAdapters creates a copy, so modification won't persist
-		// This just ensures it doesn't panic
-	}
-}

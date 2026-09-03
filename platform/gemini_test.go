@@ -80,23 +80,6 @@ func TestResolveGeminiNativeModelsURL(t *testing.T) {
 	}
 }
 
-func TestStripModelPrefix(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"models/gemini-pro", "gemini-pro"},
-		{"gemini-pro", "gemini-pro"},
-		{"  models/gpt-4  ", "gpt-4"},
-		{"", ""},
-	}
-	for _, tt := range tests {
-		if got := stripModelPrefix(tt.input); got != tt.expected {
-			t.Errorf("stripModelPrefix(%q) = %q, want %q", tt.input, got, tt.expected)
-		}
-	}
-}
-
 func TestNormalizeModelList(t *testing.T) {
 	models := []string{"models/gemini-pro", "gemini-pro", "models/gpt-4"}
 	result := normalizeModelList(models)

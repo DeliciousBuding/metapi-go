@@ -87,11 +87,6 @@ func resolveGeminiNativeModelsURL(baseURL, apiToken string) string {
 	return listBase + sep + "key=" + url.QueryEscape(apiToken)
 }
 
-func stripModelPrefix(name string) string {
-	t := strings.TrimSpace(name)
-	return strings.TrimPrefix(t, "models/")
-}
-
 func normalizeModelList(models []string) []string {
 	return normalizeModelIDs(models)
 }

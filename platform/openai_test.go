@@ -40,19 +40,6 @@ func TestOpenAiAdapter_PlatformName(t *testing.T) {
 	}
 }
 
-// TestOpenAiAdapter_GetModels calls fetchModelsFromStandardEndpoint which does HTTP -
-// will fail on non-existent URLs but should return empty slice without error
-func TestOpenAiAdapter_GetModels(t *testing.T) {
-	a := &OpenAiAdapter{StandardAdapter: NewStandardAdapter("openai")}
-	ctx := context.Background()
-
-	// Should fail gracefully on non-existent URL
-	models, err := a.GetModels(ctx, unreachableBaseURL(t), "sk-test", nil, nil)
-	// Either way, we get an error or empty models - both acceptable for this adapter
-	_ = models
-	_ = err
-}
-
 func TestOpenAiAdapter_InheritsStandardDefaults(t *testing.T) {
 	a := &OpenAiAdapter{StandardAdapter: NewStandardAdapter("openai")}
 	ctx := context.Background()

@@ -26,10 +26,10 @@ func TestReadyReportsDrainingWhenShutdownStarts(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		_ = store.CloseDatabase()
-		setReadinessDrainingForTest(false)
+		markReadinessDraining(false)
 	})
 
-	setReadinessDrainingForTest(true)
+	markReadinessDraining(true)
 	rec := httptest.NewRecorder()
 	Ready(rec, httptest.NewRequest(http.MethodGet, "/ready", nil))
 
