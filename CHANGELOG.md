@@ -5,6 +5,44 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.19.0] — 2026-09-04
+
+> 本波只做一件事：把「添加上游 → 登录账号 → 拿到模型 → 建路由 → 发下游 key → 真调一次」这条链做成**可重复、可解释、可恢复、不可假绿**的产品契约，并修掉四处会让它「看起来可用」的地方。**没有新增产品面**：无新 adapter、无新协议面、无新 dashboard、无新计费子系统，#1132（请求头模板）继续排队。四态旅程 **Fresh / Restart / Aged / Restore 现在全部是 CI 里能红的门**（公开承诺表 #1215），且每个门都先用变异探针证明过「坏掉时我真的会红」。
+
+### 修复
+
+- **balance 刷新失败现在说清为什么（#1210，经 #1211 闭合）**：按需刷新失败此前只回 `502 {"message":"balance refresh failed"}`，而同一刻服务端日志里写着 `sub2api /api/v1/auth/me: HTTP 401: Token has expired`——「凭据过期」「上游拒绝」「上游不可达」「上游没返回余额」是修法完全不同的四个问题，却共用一句文案，运营只能翻日志。现在两个 balance 出口（单个与批量）都保留稳定前缀 `balance refresh failed` 并追加一行**分类后的**原因，例如 `balance refresh failed: upstream rejected the credential (HTTP 401)`。分类而非回显：`platform.ExplainUpstreamFailure` 只在既有 `UpstreamErrorClass` 枚举上渲染，**不外泄**上游 URL、token、query 或原文，WARN 日志另存上游原文与 `reason=`；落不到已知类时回落到「状态本身能证明的部分」，绝不渲染空原因（issue 里那条真实报文恰好落在 `ClassUnknown`，照抄枚举等于什么都没修）。顺带修掉 `service/balance` 一处 `return nil, nil`：DB 读失败曾被当成「账号不存在」回 404——与 #1186 治的「无可用通道」同一族的 `[] + nil` 假语义。
+- **e2e 脚本的「可重跑」承诺兑现：存量资源收敛，不再跳过（#1209，经 #1212 闭合）**：`verify-token-import.sh` 自称可重跑，对 site/route/key 确实先查后建，唯独**账号只在不存在的时创建**；上游凭据短命的平台（sub2api 会话 JWT）因此每过一条寿命就必红一次——`verify-token` 用的是环境里那枚新 token 所以照样 PASS，链在两步之外的 `balance` 上死掉，报的还是那句没有原因的 502。现在账号存在时就用**本轮已持有且刚验证过的同一枚** token 执行 `PUT /api/accounts/{id}` 收敛（绝不二次签发：sub2api 每签发一次就顶掉上一枚），下游 key 在「本脚本拥有该记录」时重申其通配策略、不拥有时**响亮 WARN** 而不是假装重申过（CI 两条 token-import 链共用同一枚固定 key 值、`TOKEN_NAME` 不同，而列表接口不回显 key 值，照搬 `smoke.sh` 的严格分支会让第二条链必红）；site/account/key/route 四者都打印 `created`/`reused`/`refreshed`，让「只是没动它」无法冒充「验过了」。`smoke.sh` **行为不变**，只补注释说明 `POST /api/accounts/login` 本身即 upsert（issue 的 grep 只看脚本里的 PUT，漏了服务端），免得后人按对称性「修」出一次多余写入。CI `test-e2e` 新增 **aging 门**：先老化**存量**凭据、再用同一枚 token 复跑同一条链并要求绿；老化 PUT 先自检 HTTP 200，以免「什么都没老化」的探针静默通过。
+- **PostgreSQL 备份导入后重置 id 序列（#1217，经 #1218 闭合）**：备份导出带的是行当年写入时的显式 id，导入 PostgreSQL 后所有 serial 序列仍停在原位，于是**恢复完成后的第一次普通写入**就撞 `duplicate key value violates unique constraint "sites_pkey"`——错误只提约束、不提序列，看不出与导入有任何关系；恢复出来的部署看着健康，却在第一次写入时倒下。migrator 早就为此有自己的 setval 循环，导入路径从来没做。现在两者共用唯一 owner `store.ResyncPGIDSequences`（下次加表也不会漂），并且失败语义分开：migrator **警告续跑**（目标可能没跑完全部迁移），导入**判致命**（schema 刚迁移完，缺表解释不了失败）。SQLite 不需要也什么都没加：`AUTOINCREMENT` 自己在显式插入时维护 `sqlite_sequence`。证明用的是真 PostgreSQL 16 而非 mock：导入三条带 id 1–3 的站点后用普通路径（不带 id）插入，没有 resync 时该插入与恢复行相撞，有 resync 时新行拿到 id 4 且序列 `last_value ≥ MAX(id)`；删掉 resync 调用的变异探针复现出运营真会看到的那条 23505 后逐字节还原。
+- **UI 不再把能用的通道说成坏的，也不再指向一个不存在的按钮（#1219，经 #1220 闭合）**：两处都是「每一步都报成功、产品却不能用」的同族故障，都由活体验收跑出来而不是读代码读出来。①路由详情里 `token_id` 为空的通道被标成 `Unbound`（中文「未绑定」），运营于是去找一个**并不存在的绑定表单**：`routing.resolveChannelTokenValue` 对这类通道用**账号自身凭据**中继（OAuth 账号用 access token，其余用 API key），而 `collectDesiredChannels` 的两个来源（`token_model_availability` 与 `model_availability`）**故意**为同一账号同一模型各造一条通道——活体就是一条路由下 `tokenId=3` 与 `tokenId=null` 两条通道并存、都启用、中继真的走通。现在按 wire 真相显示 `Account credential`／「账号凭据」，只有账号两种凭据都不存在（真的无法服务）才显示 `No credential`／「无可用凭据」并指向账号侧修法；账号令牌面板的 `masked_pending` 徽章同样从只写「待补全」改成说明「拿到的只是上游掩码显示值，执行『同步站点令牌』取回真实值」。②空路由状态曾承诺「点『自动重建』让系统按账号模型生成路由」，而 fresh 实例上点它只留 `routes rebuild completed routesConsidered=0`：`RebuildTokenRoutesFromAvailability` 只重组**已存在**路由的通道，全仓唯一 `INSERT INTO token_routes` 在建路由处理器里。文案改为分别说清两个动作真正做什么（`Add route` 建第一条路由、通道按账号模型可用性自动绑定；`Auto-rebuild` 刷新模型并重组已有路由的通道）。
+
+### 变更
+
+- **`model_probe_results` 有了保留期：7 天，且路由要读的那一行永不删（#1221，经 #1222 闭合）**：这张表是全仓写入量最大的一张（探针开启时每个被探测的 `(channel, model)` 每轮一行，繁忙实例一天数万行），此前**没有任何 DELETE 路径**，而且它被排除在备份之外——唯一那份副本就是不断变大的那份。两个读者都只要最新行：`service.loadLatestProbeFailures`（#625 的重建探针过滤）只读 `MAX(id) GROUP BY account_id, model_name`，`handler/admin.queryProbeHistory` 只取每 channel/account 的最新 N 行且**不带时间过滤**（整表窗口扫描），所以多留的日子永远不会出现在界面上，却要按每次历史请求和三个索引的每次维护付费。现在登记进既有的 `RetentionScheduler`（与 `proxy_logs`/`proxy_video_tasks`/`admin_background_tasks` 同一 owner，**不造新框架、不加新配置项**），7 天窗口、每小时一次，并带一条让整个窗口安全成立的豁免：
+
+  ```sql
+  DELETE FROM model_probe_results WHERE created_at < ?
+    AND id NOT IN (SELECT MAX(id) FROM model_probe_results GROUP BY account_id, model_name)
+  ```
+
+  每个 `(account_id, model_name)` 的**最新一行无论多旧都保留**，因为那正是路由重建要读的行集；纯按年龄删会在「探针暂停 / 通道停用 / 账号闲置」超过窗口后把过滤器的输入删掉，等于让一个清理任务悄悄改变路由行为。双方言真跑（SQLite 内存 + `PG_TEST_DSN` 下的真 PostgreSQL 16），断言用的是**消费者自己那条查询**而不是它的转述；活体在真实进程、出厂配置下证明（`scheduler started interval_min=60 retention_days=7` → `cleanup complete deleted=1`，豁免行与窗口内行都还在）。
+
+### 开发者可见
+
+- **四态旅程补齐最后两态，都落成 CI 里能红的门**：
+  - **Restart（#1213）**：`test-e2e` 此前只启动一次 metapi，所有链都跑在一个从未重启过的进程上，而「设置保存成功、重启后消失」是本项目**已经发过**的缺陷（由运行中的部署发现，不是被任何测试发现）。现在链跑完后 kill 掉服务、对**同一个 data dir** 重启，中间不重新登录、不重新绑定、不重建路由、不重发 key，再重新证明核心链：kill 前写入的辨识性设置重启后仍读得回、`/v1/models` 非空、completion 带精确 marker 且**确定性 mock 上游的事件计数递增**（防缓存或重放冒充中继）、存量短命凭据仍可刷新、同一枚 admin token 仍有效。实现上改为 `go build` 后直接跑二进制，使 `$server_pid` 就是服务本体（`go run` 包装会让「kill 后重启」这个前提含糊，而含糊的重启照样绿），并且 kill 后**必须先证明端口不再应答**否则 `exit 1`。
+  - **Restore（#1216）**：「导入回了 200」与「恢复出来的部署能服务一次请求」是两个断言，此前只证了第一个——`e2e_backup_test.go` 全是数据往返，全仓没有一处对恢复后的库发起过中继。这个缺口不是假设：删掉四张死表曾让**删表之前写出的每一份备份**都无法恢复，而两个删表分支都靠**修改历史 fixture**（改掉「旧版本当年写了什么」的记录）把门弄绿，于是回归随版本发布。现在 `test-e2e` 从刚建好链的实例导出备份、在**全新 data dir** 上起第二个实例、导入，然后**不重建任何东西**直接断言 `/v1/models` 非空 + completion 精确 marker + mock 收到新事件；并含两条前提自检（导出必须带中继所需的 6 张表；导入前该实例必须 0 模型），以免门「出生即假」。导出属 #1034 敏感操作、额外需要 `X-Admin-Confirm-Token`——漏了会先 403、再在导入侧报出误导性的 `expected a JSON object with a tables field`。
+- **架构边界门不再可能空转（#1214）**：`scanBoundaryViolations` 遍历仓库报告禁止的 import，一旦遍历覆盖不到任何生产 Go 文件（域目录被移动/改名，或该文件不再匹配布局）就返回空违规列表并**判通过**——扫不到东西的门不是宽松的门，是不存在的门，而这正是让约三十个 release tag 在必选分片跑 0 个测试的情况下持续全绿的那个形状（#1175）。现在 `TestPackageBoundaries` 统计每个域实际扫到的生产文件数，十二个域中任何一个为 0 就 `t.Fatalf`；denylist 规则一字未改。同时修 skip 列表少了两项（agent worktree 目录与 gitignored 的私有开发目录，两者都已写在 `.gitignore` 里）：两个 checkout 在场时旧门禁会解析 **732** 个生产 .go（仓库本体 **366**），等于把后端多读两份副本，WIP 分支的违规还会以无人能映射回契约的 worktree 相对路径报出。三个变异探针全红——清单名写错、走不进某个域目录（真实失效模式）、**skip 列表吞掉真域**（专门防「加个跳过项」这种把门悄悄关掉的手法）。
+- **前端验收门补上旅程尾段，并先证明「回答我的是刚起的那个 build」（#1220）**：`web/scripts/acceptance-e2e.mjs` 此前停在签到——它证明的是运营**能配置**，而这恰好就是「部署完基本用不了」那类报障的形状：每步都绿、链是死的。新增四步：④绑定后的账号在详情抽屉里必须显示**非空**模型列表且与 `GET /api/accounts/{id}/models` 条数一致；⑤`Add route` 建出第一条路由、通道自动挂上，且抽屉必须**按 wire 逐个报出**每条通道的凭据来源；⑥在 UI 里签发下游 key 并授权 ⑤ 验过的那个模型（空 model policy 是设计上的 deny-all，不授权＝发一把看着健康、什么都调不动的 key）；⑦用**独立 HTTP 客户端**（无页面、无会话、无 admin token）调 `/v1/models` 与 `/v1/chat/completions`，要求真 2xx + content 非空，结构化 error 体判失败，配了确定性上游日志时还要核对预期 model 真的到达上游；无中继能力的链只报 SKIP 不报 PASS。另加 `/api/about` **身份 preflight**（`EXPECT_SERVER_COMMIT` 不符即拒跑）：这条不是装饰——本轮有三次「绿跑」验的其实是**旧内嵌 SPA**，因为上一轮 build 起的孤儿实例一直占着端口、每轮新起的服务绑定失败即退出，而旅程照旧跟旧进程说话。`cleanupState` 一并清 routes 与下游 key（残留路由会以「零通道行」回来、残留 key 值会把 ⑥ 变成 409，两笔都会算到本轮头上），脚本头部改为就地陈述契约与两条运营危害（它会删掉 `BASE_URL` 上的一切；登录旅程会顶掉该上游用户的 dashboard 凭据），两处指向 #1194 已删文档的悬空注释清掉。活体 8 passed / 0 failed / 0 skipped，7 个变异探针（3 单测级 + 4 活体级）全红且报对原因。
+
+### 已知遗留（本版未做）
+
+- **#1132 请求头模板**：属新产品面，冻结期排队；不因未做而计入欠债。
+- **`admin_audit_logs`（参考测试床上最大的表，382 行）与 `checkin_logs`（68 行）仍无保留期**：删审计历史是需要运营明确点头的产品决定，不顺手塞在一次遥测清理旁边。已记录、本版未动。
+- **`handler/admin` 仍有 4 个千行单文件**（`stats.go` 1315 · `downstream_keys.go` 1040 · `token_routes.go` 1034 · `sites.go` 1028）：重构阶梯（删除 → 折叠重复 → 同包拆文件 → 明确单一 owner → 移动 package → 新增抽象）上「同包拆文件」这一档在 `accounts_*`(7 文件)/`settings_*`(7)/`stats_*`(6) 上已经落地（#1192 起）。再往下要么把单一资源的 CRUD 按动词再切、要么搬包，而**没有任何已观察到的用户故障可归因于此**，按本波 Law 1 默认不做。
+- **第二轮测试消融未做**：上一轮派出的只读审计没有返回结论，重做审计的成本高于本波剩余预算。KPI 是「故障场景守恒 + 认知成本下降」而不是 LOC，因此宁可不做，也不做没有变异探针支撑的折叠。
+- **12 个顶层 Go 包整体搬进 `internal/` 判 NO-GO 并已丢弃**：取证显示 805/805 个 .go 文件在只归一化搬迁根后与 master **逐字节相同**、844=844 文件守恒、8224 个 func 签名**只差 1 个**（即为了让架构门在搬迁后存活而被迫改写的 `scanBoundaryViolations`），而 `pkg.go.dev` 上该 module **404 未索引**、只出一个二进制 ⇒ `internal/` 的语言层收益对本仓为 0，代价却是数百文件路径 churn 与 4 道发布门被语义改动。全量 diff 已存档可 100% 复原；这次消融唯一的收获转成了上面那条边界门空转防护（#1214）。
+
 ## [v0.18.0] — 2026-09-03
 
 ### 修复
