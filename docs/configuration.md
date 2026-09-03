@@ -166,8 +166,6 @@ upstream request; …`), since it describes a static misconfiguration.
 | `PROXY_LOG_FLUSH_INTERVAL_MS` | `1000` | Flush period (1–60000 ms). |
 | `PROXY_LOG_RETENTION_DAYS` | `30` | Proxy log retention in days (`0` = keep forever). |
 | `PROXY_LOG_RETENTION_PRUNE_INTERVAL_MINUTES` | `30` | How often the proxy-log pruner runs; floored at 1 minute. |
-| `PROXY_FILE_RETENTION_DAYS` | `30` | Uploaded file retention in days (`0` = keep forever). |
-| `PROXY_FILE_RETENTION_PRUNE_INTERVAL_MINUTES` | `60` | How often the uploaded-file pruner runs; floored at 1 minute. |
 | `PROXY_VIDEO_TASK_RETENTION_DAYS` | `7` | Video task mapping retention: prunes `proxy_video_tasks` rows and bounds the in-process rewrite cache TTL; `0` = keep forever (explicit opt-out). |
 | `PROXY_VIDEO_TASK_RETENTION_PRUNE_INTERVAL_MINUTES` | `60` | How often the video-task pruner runs; floored at 1 minute. |
 

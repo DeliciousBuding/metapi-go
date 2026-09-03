@@ -110,34 +110,6 @@ func TestProxyLogRetentionDeletesOldRFC3339RowsKeepsInWindow(t *testing.T) {
 	}
 }
 
-func TestProxyFileRetentionDeletesOldRFC3339RowsKeepsInWindow(t *testing.T) {
-	db := openRetentionTestDB(t)
-	oldAt := time.Now().UTC().Add(-72 * time.Hour).Format(time.RFC3339)
-	keepAt := time.Now().UTC().Add(-2 * time.Hour).Format(time.RFC3339)
-
-	if _, err := db.Exec(
-		`INSERT INTO proxy_files (
-			public_id, owner_type, owner_id, filename, mime_type, byte_size, sha256, content_base64, created_at, updated_at
-		) VALUES
-			(?, 'user', '1', 'old.bin', 'application/octet-stream', 1, 'a', 'YQ==', ?, ?),
-			(?, 'user', '1', 'new.bin', 'application/octet-stream', 1, 'b', 'Yg==', ?, ?)`,
-		"file-old", oldAt, oldAt,
-		"file-new", keepAt, keepAt,
-	); err != nil {
-		t.Fatalf("seed proxy_files: %v", err)
-	}
-
-	s := NewProxyFileRetentionScheduler(&config.Config{ProxyFileRetentionDays: 1})
-	s.runCleanupLocked(db, 1)
-
-	if got := countRows(t, db, `SELECT COUNT(*) FROM proxy_files`); got != 1 {
-		t.Fatalf("proxy_files count = %d, want 1", got)
-	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM proxy_files WHERE public_id = ?`, "file-new"); got != 1 {
-		t.Fatalf("in-window proxy_files deleted")
-	}
-}
-
 func TestProxyVideoTaskRetentionDeletesOldRFC3339RowsKeepsInWindow(t *testing.T) {
 	db := openRetentionTestDB(t)
 	oldAt := time.Now().UTC().Add(-72 * time.Hour).Format(time.RFC3339)

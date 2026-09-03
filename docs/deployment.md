@@ -291,7 +291,7 @@ For certificate validation, set `DB_SSLMODE=verify-full` and configure the Postg
 
 Schema migrations run automatically at startup. Use `metapi-migrate` to transfer data from an existing SQLite database.
 
-Use PostgreSQL for multi-instance deployments. Side-effecting schedulers use PostgreSQL advisory locks, so only one replica runs each job batch at a time. `admin-snapshot` remains process-local cache warming; `usage-aggregation` uses its own checkpoint lease.
+Use PostgreSQL for multi-instance deployments. Side-effecting schedulers use PostgreSQL advisory locks, so only one replica runs each job batch at a time. `usage-aggregation` uses its own checkpoint lease.
 
 Optional Redis (`REDIS_URL` / `METAPI_REDIS_URL`) is used only for multi-instance shared downstream-key **RPM/TPM admission** via `auth.ConfigureSharedAdmissionFromRedisURL` and `internal/sharedcount`. Admission is fail-open: if Redis is unreachable, counters fall back to process-local windows. Leave empty for single-node deployments — no Redis process is required. Sticky session bindings remain process-local; Redis does **not** share sticky maps across instances (sticky sessions are process-local, not cluster-wide).
 

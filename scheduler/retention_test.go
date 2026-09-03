@@ -163,7 +163,7 @@ func TestAdminBackgroundTaskRetention_runCleanupLocked_EmptyDB(t *testing.T) {
 // proxy-video-task retention scheduler lifecycle.
 func TestProxyVideoTaskRetention_StartStop_Lifecycle(t *testing.T) {
 	cfg := &config.Config{
-		ProxyVideoTaskRetentionDays:                90,
+		ProxyVideoTaskRetentionDays:                 90,
 		ProxyVideoTaskRetentionPruneIntervalMinutes: 60,
 	}
 	s := NewProxyVideoTaskRetentionScheduler(cfg)
@@ -173,49 +173,6 @@ func TestProxyVideoTaskRetention_StartStop_Lifecycle(t *testing.T) {
 	}
 	time.Sleep(50 * time.Millisecond)
 
-	if err := s.Stop(); err != nil {
-		t.Errorf("Stop failed: %v", err)
-	}
-}
-
-// TestProxyFileRetention_StartStop_Lifecycle verifies the proxy-file
-// retention scheduler Start/Stop lifecycle.
-func TestProxyFileRetention_StartStop_Lifecycle(t *testing.T) {
-	cfg := testConfig()
-	s := NewProxyFileRetentionScheduler(cfg)
-
-	if err := s.Start(context.Background()); err != nil {
-		t.Fatalf("Start failed: %v", err)
-	}
-	time.Sleep(50 * time.Millisecond)
-
-	if err := s.Stop(); err != nil {
-		t.Errorf("Stop failed: %v", err)
-	}
-}
-
-// TestProxyFileRetention_runCleanupLocked_EmptyDB exercises the DELETE query
-// with the ExtraWhere clause (" AND deleted_at IS NULL") on a fresh DB.
-func TestProxyFileRetention_runCleanupLocked_EmptyDB(t *testing.T) {
-	db := openRetentionSchedTestDB(t)
-	cfg := testConfig()
-	s := NewProxyFileRetentionScheduler(cfg)
-
-	// The DELETE includes " AND deleted_at IS NULL" — verify it executes
-	// without error on an empty proxy_files table.
-	s.runCleanupLocked(db, 90)
-}
-
-// TestProxyFileRetention_StartDisabled verifies that Start returns nil
-// when retention days is 0.
-func TestProxyFileRetention_StartDisabled(t *testing.T) {
-	cfg := testConfig()
-	cfg.ProxyFileRetentionDays = 0
-	s := NewProxyFileRetentionScheduler(cfg)
-
-	if err := s.Start(context.Background()); err != nil {
-		t.Fatalf("Start should not error when disabled: %v", err)
-	}
 	if err := s.Stop(); err != nil {
 		t.Errorf("Stop failed: %v", err)
 	}
@@ -246,21 +203,6 @@ func TestProxyVideoTaskRetention_runCleanupLocked_EmptyDB(t *testing.T) {
 	s := NewProxyVideoTaskRetentionScheduler(cfg)
 
 	s.runCleanupLocked(db, 90)
-}
-
-// TestProxyFileRetention_runCleanup_WithDB exercises the full runCleanup flow
-// for the proxy-file retention scheduler (includes ExtraWhere clause).
-func TestProxyFileRetention_runCleanup_WithDB(t *testing.T) {
-	ResetLeasePressureForTest()
-	db := openRetentionSchedTestDB(t)
-	store.OverrideDB(db)
-	t.Cleanup(func() { store.OverrideDB(nil) })
-
-	cfg := testConfig()
-	s := NewProxyFileRetentionScheduler(cfg)
-	s.ctx, s.cancel = context.WithCancel(context.Background())
-
-	s.runCleanup()
 }
 
 // TestProxyVideoTaskRetention_StartDisabled verifies that Start returns nil

@@ -476,40 +476,10 @@ type ProxyVideoTask struct {
 	UpdatedAt            string  `db:"updated_at" json:"updatedAt"`
 }
 
-// ---- Table 18: proxy_files ----
-type ProxyFile struct {
-	ID            int64   `db:"id" json:"id"`
-	PublicID      string  `db:"public_id" json:"publicId"`
-	OwnerType     string  `db:"owner_type" json:"ownerType"`
-	OwnerID       string  `db:"owner_id" json:"ownerId"`
-	Filename      string  `db:"filename" json:"filename"`
-	MimeType      string  `db:"mime_type" json:"mimeType"`
-	Purpose       *string `db:"purpose" json:"purpose"`
-	ByteSize      int64   `db:"byte_size" json:"byteSize"`
-	SHA256        string  `db:"sha256" json:"sha256"`
-	ContentBase64 string  `db:"content_base64" json:"contentBase64"`
-	CreatedAt     string  `db:"created_at" json:"createdAt"`
-	UpdatedAt     string  `db:"updated_at" json:"updatedAt"`
-	DeletedAt     *string `db:"deleted_at" json:"deletedAt"`
-}
-
 // ---- Table 19: settings (text PK) ----
 type Setting struct {
 	Key   string  `db:"key" json:"key"`
 	Value *string `db:"value" json:"value"`
-}
-
-// ---- Table 20: admin_snapshots ----
-type AdminSnapshot struct {
-	ID          int64  `db:"id" json:"id"`
-	Namespace   string `db:"namespace" json:"namespace"`
-	SnapshotKey string `db:"snapshot_key" json:"snapshotKey"`
-	Payload     string `db:"payload" json:"payload"`
-	GeneratedAt string `db:"generated_at" json:"generatedAt"`
-	ExpiresAt   string `db:"expires_at" json:"expiresAt"`
-	StaleUntil  string `db:"stale_until" json:"staleUntil"`
-	CreatedAt   string `db:"created_at" json:"createdAt"`
-	UpdatedAt   string `db:"updated_at" json:"updatedAt"`
 }
 
 // ---- Table 21: analytics_projection_checkpoints (text PK) ----

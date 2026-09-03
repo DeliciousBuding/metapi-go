@@ -38,7 +38,7 @@ type ProxyAuthContext struct {
 
 // ---------------------------------------------------------------------------
 // ProxyResourceOwner — derived from ProxyAuthContext for downstream usage
-// attribution (proxy_logs, proxy_files owner fields).
+// attribution (proxy_logs owner fields).
 // ---------------------------------------------------------------------------
 
 // ProxyResourceOwner identifies the downstream principal that owns a proxy

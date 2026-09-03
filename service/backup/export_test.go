@@ -65,25 +65,6 @@ func TestBuildPayloadExportsSettingsRows(t *testing.T) {
 	}
 }
 
-func TestBuildPayloadRejectsOversizedProxyFileContent(t *testing.T) {
-	setExportLimitsForTest(t, 50_000, 8, 64<<20)
-	db := setupBackupServiceTestDB(t)
-	_, err := db.Exec(`INSERT INTO proxy_files
-		(public_id, owner_type, owner_id, filename, mime_type, byte_size, sha256, content_base64)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"file-1", "response", "resp-1", "payload.txt", "text/plain", 12, "sha", "123456789",
-	)
-	if err != nil {
-		t.Fatalf("insert proxy file: %v", err)
-	}
-
-	_, err = backupsvc.BuildPayload(db.DB, "accounts")
-	var limitErr backupsvc.ExportLimitError
-	if !errors.As(err, &limitErr) {
-		t.Fatalf("error = %v, want ExportLimitError", err)
-	}
-}
-
 func TestBuildPayloadRejectsTooManyRows(t *testing.T) {
 	setExportLimitsForTest(t, 1, 4<<20, 64<<20)
 	db := setupBackupServiceTestDB(t)
@@ -140,24 +121,6 @@ func BenchmarkBuildPayloadPreferences(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if _, err := backupsvc.BuildPayload(db.DB, "preferences"); err != nil {
-			b.Fatalf("BuildPayload: %v", err)
-		}
-	}
-}
-
-func BenchmarkBuildPayloadAccountsWithProxyFile(b *testing.B) {
-	db := setupBackupServiceTestDB(b)
-	if _, err := db.Exec(`INSERT INTO proxy_files
-		(public_id, owner_type, owner_id, filename, mime_type, byte_size, sha256, content_base64)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"file-1", "response", "resp-1", "payload.txt", "text/plain", 12, "sha", "cGF5bG9hZA==",
-	); err != nil {
-		b.Fatalf("insert proxy file: %v", err)
-	}
-
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if _, err := backupsvc.BuildPayload(db.DB, "accounts"); err != nil {
 			b.Fatalf("BuildPayload: %v", err)
 		}
 	}

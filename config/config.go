@@ -264,11 +264,9 @@ type Config struct {
 	RouteRebuildProbeFilterIncludeModels []string
 	RouteRebuildProbeFilterExcludeModels []string
 
-	// Retention (6 fields)
+	// Retention (4 fields)
 	ProxyLogRetentionDays                       int
 	ProxyLogRetentionPruneIntervalMinutes       int
-	ProxyFileRetentionDays                      int
-	ProxyFileRetentionPruneIntervalMinutes      int
 	ProxyVideoTaskRetentionDays                 int
 	ProxyVideoTaskRetentionPruneIntervalMinutes int
 
@@ -774,8 +772,6 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// ---- §3.21 Retention ----
 	cfg.ProxyLogRetentionDays = max(0, int(math.Trunc(parseNumber(get("PROXY_LOG_RETENTION_DAYS"), DefaultProxyLogRetentionDays))))
 	cfg.ProxyLogRetentionPruneIntervalMinutes = max(1, int(math.Trunc(parseNumber(get("PROXY_LOG_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyLogRetentionPruneIntervalMinutes)))))
-	cfg.ProxyFileRetentionDays = max(0, int(math.Trunc(parseNumber(get("PROXY_FILE_RETENTION_DAYS"), DefaultProxyFileRetentionDays))))
-	cfg.ProxyFileRetentionPruneIntervalMinutes = max(1, int(math.Trunc(parseNumber(get("PROXY_FILE_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyFileRetentionPruneIntervalMinutes)))))
 	cfg.ProxyVideoTaskRetentionDays = max(0, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_DAYS"), float64(DefaultProxyVideoTaskRetentionDays)))))
 	cfg.ProxyVideoTaskRetentionPruneIntervalMinutes = max(1, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyVideoTaskRetentionPruneIntervalMinutes)))))
 

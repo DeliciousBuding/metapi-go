@@ -99,47 +99,13 @@ func TestSQLitePragmasOnFileDB(t *testing.T) {
 	assertPragmaInt("cache_size", 10000)
 }
 
-// TestSQLiteAutoMigrateAllTables verifies all 33 tables are created.
+// TestSQLiteAutoMigrateAllTables verifies every table the schema registry
+// declares is created on the SQLite dialect. Derived from AllTableNames() for
+// the same reason as its PostgreSQL twin: one registry, no hand-copied list.
 func TestSQLiteAutoMigrateAllTables(t *testing.T) {
 	db := openTestSQLite(t)
 
-	expectedTables := []string{
-		"sites",
-		"site_api_endpoints",
-		"site_disabled_models",
-		"accounts",
-		"account_tokens",
-		"checkin_logs",
-		"model_availability",
-		"token_model_availability",
-		"token_routes",
-		"route_group_sources",
-		"oauth_route_units",
-		"oauth_route_unit_members",
-		"route_channels",
-		"proxy_logs",
-		"proxy_video_tasks",
-		"admin_background_tasks",
-		"proxy_files",
-		"settings",
-		"admin_snapshots",
-		"analytics_projection_checkpoints",
-		"site_day_usage",
-		"site_hour_usage",
-		"model_day_usage",
-		"downstream_api_keys",
-		"site_announcements",
-		"events",
-		"balance_history",
-		"model_verify_history",
-		"product_announcements",
-		"announcement_dismissals",
-		"model_name_redirects",
-		"admin_audit_logs",
-		"model_probe_results",
-	}
-
-	for _, table := range expectedTables {
+	for _, table := range AllTableNames() {
 		var count int
 		err := db.QueryRow(
 			"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",

@@ -143,21 +143,9 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 	db.Exec(`INSERT INTO proxy_video_tasks (id, public_id, upstream_video_id, site_url, token_value, created_at, updated_at)
 		VALUES (2, 'vid-pub-002', 'upstream-vid-002', 'https://api.anthropic.com', 'sk-token-2', ?, ?)`, now, now)
 
-	// Table 18: proxy_files (2 rows)
-	db.Exec(`INSERT INTO proxy_files (id, public_id, owner_type, owner_id, filename, mime_type, byte_size, sha256, content_base64, created_at, updated_at)
-		VALUES (1, 'file-pub-001', 'session', 'sess-1', 'test.txt', 'text/plain', 4, 'abc123', 'dGVzdA==', ?, ?)`, now, now)
-	db.Exec(`INSERT INTO proxy_files (id, public_id, owner_type, owner_id, filename, mime_type, byte_size, sha256, content_base64, created_at, updated_at)
-		VALUES (2, 'file-pub-002', 'session', 'sess-2', 'image.png', 'image/png', 8, 'def456', 'aW1hZ2Vwbmc=', ?, ?)`, now, now)
-
 	// Table 19: settings (text PK, 2 rows)
 	db.Exec(`INSERT INTO settings (key, value) VALUES (?, ?)`, "app.theme", "dark")
 	db.Exec(`INSERT INTO settings (key, value) VALUES (?, ?)`, "app.lang", "zh-CN")
-
-	// Table 20: admin_snapshots (2 rows)
-	db.Exec(`INSERT INTO admin_snapshots (id, namespace, snapshot_key, payload, generated_at, expires_at, stale_until, created_at, updated_at)
-		VALUES (1, 'routes', 'snapshot-v1', '{"routes":[]}', ?, ?, ?, ?, ?)`, now, future, future, now, now)
-	db.Exec(`INSERT INTO admin_snapshots (id, namespace, snapshot_key, payload, generated_at, expires_at, stale_until, created_at, updated_at)
-		VALUES (2, 'models', 'snapshot-v2', '{"models":[]}', ?, ?, ?, ?, ?)`, now, future, future, now, now)
 
 	// Table 21: analytics_projection_checkpoints (text PK, 1 row)
 	db.Exec(`INSERT INTO analytics_projection_checkpoints (projector_key, time_zone, last_proxy_log_id, created_at, updated_at)
@@ -216,9 +204,7 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 		"route_channels":                   2,
 		"proxy_logs":                       2,
 		"proxy_video_tasks":                2,
-		"proxy_files":                      2,
 		"settings":                         2,
-		"admin_snapshots":                  2,
 		"analytics_projection_checkpoints": 1,
 		"site_day_usage":                   2,
 		"site_hour_usage":                  1,
@@ -887,17 +873,6 @@ func verifySpotChecks(t *testing.T, db *store.DB) {
 	}
 	if reward == nil || *reward != "100 credits" {
 		t.Errorf("spot check: checkin_log 1 reward = %v", reward)
-	}
-
-	// proxy_files: check public_id and content_base64.
-	var publicID, contentB64 string
-	db.Get(&publicID, `SELECT public_id FROM proxy_files WHERE id = 1`)
-	db.Get(&contentB64, `SELECT content_base64 FROM proxy_files WHERE id = 1`)
-	if publicID != "file-pub-001" {
-		t.Errorf("spot check: proxy_file 1 public_id = %q", publicID)
-	}
-	if contentB64 != "dGVzdA==" {
-		t.Errorf("spot check: proxy_file 1 content_base64 = %q, expected 'dGVzdA=='", contentB64)
 	}
 
 	// settings: check text PK key.

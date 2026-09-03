@@ -10,10 +10,10 @@ import (
 // Panic-recovery boundary tests.
 //
 // Observed defect: cronRunner.addJob wraps every cron-triggered run in a
-// recover, but intervalRunner (9 schedulers) launched each run in a bare
+// recover, but intervalRunner (8 schedulers) launched each run in a bare
 // goroutine with no recover, and several schedulers spawn additional bare
 // goroutines (checkin interval loop + catch-ups, model-probe TriggerNow,
-// per-target probe workers, admin-snapshot warm workers, sub2api-refresh
+// per-target probe workers, sub2api-refresh
 // per-account workers). An unrecovered panic in any of them crashes the
 // entire server process, not just the job. usage_aggregation carries its own
 // in-pass recover with a comment acknowledging exactly this hazard

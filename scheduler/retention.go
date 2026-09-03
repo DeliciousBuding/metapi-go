@@ -10,7 +10,7 @@ import (
 )
 
 // RetentionSchedulerOptions configures a single retention job. The three
-// production instances (proxy logs / proxy files / proxy video tasks) were
+// production instances (proxy logs / proxy video tasks / admin background tasks) were
 // ~95% identical and are collapsed onto one implementation.
 type RetentionSchedulerOptions struct {
 	// Name is the scheduler/lease/log-prefix name.

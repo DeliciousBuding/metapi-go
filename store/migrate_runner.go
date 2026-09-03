@@ -644,7 +644,6 @@ var handwrittenBuilders = map[string]func([]map[string]interface{}) []insertStmt
 	"route_group_sources":      buildRouteGroupSources,
 	"proxy_logs":               buildProxyLogs,
 	"proxy_video_tasks":        buildProxyVideoTasks,
-	"proxy_files":              buildProxyFiles,
 	"downstream_api_keys":      buildDownstreamAPIKeys,
 	"events":                   buildEvents,
 	"settings":                 buildSettings,
@@ -1193,32 +1192,6 @@ func buildProxyVideoTasks(rows []map[string]interface{}) []insertStmt {
 				asNullableString(v(row, "last_polled_at")),
 				asNullableString(v(row, "created_at")),
 				asNullableString(v(row, "updated_at")),
-			},
-		})
-	}
-	return stmts
-}
-
-func buildProxyFiles(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "public_id", "owner_type", "owner_id", "filename", "mime_type", "purpose", "byte_size", "sha256", "content_base64", "created_at", "updated_at", "deleted_at"}
-	var stmts []insertStmt
-	for _, row := range rows {
-		stmts = append(stmts, insertStmt{
-			table: "proxy_files", columns: cols,
-			values: []interface{}{
-				asNumber(v(row, "id"), float64(0)),
-				asNullableString(v(row, "public_id")),
-				asNullableString(v(row, "owner_type")),
-				asNullableString(v(row, "owner_id")),
-				asNullableString(v(row, "filename")),
-				asNullableString(v(row, "mime_type")),
-				asNullableString(v(row, "purpose")),
-				asNumber(v(row, "byte_size"), float64(0)),
-				asNullableString(v(row, "sha256")),
-				asNullableString(v(row, "content_base64")),
-				asNullableString(v(row, "created_at")),
-				asNullableString(v(row, "updated_at")),
-				asNullableString(v(row, "deleted_at")),
 			},
 		})
 	}

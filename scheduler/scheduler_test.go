@@ -1240,41 +1240,6 @@ func TestProjectionPassResult(t *testing.T) {
 }
 
 // =============================================================================
-// §11 AdminSnapshotScheduler Tests
-// =============================================================================
-
-func TestNewAdminSnapshotScheduler(t *testing.T) {
-	cfg := testConfig()
-	usage := NewUsageAggregationScheduler(cfg)
-	s := NewAdminSnapshotScheduler(cfg, usage)
-	if s == nil {
-		t.Fatal("NewAdminSnapshotScheduler returned nil")
-	}
-	if s.Name() != "admin-snapshot" {
-		t.Errorf("Name() = %q, want admin-snapshot", s.Name())
-	}
-	if s.aggregation != usage {
-		t.Error("aggregation reference not set")
-	}
-}
-
-func TestAdminSnapshotScheduler_Stop(t *testing.T) {
-	cfg := testConfig()
-	s := NewAdminSnapshotScheduler(cfg, nil)
-	_ = s.Start(context.Background())
-	time.Sleep(50 * time.Millisecond)
-
-	err := s.Stop()
-	if err != nil {
-		t.Errorf("Stop returned error: %v", err)
-	}
-	err = s.Stop()
-	if err != nil {
-		t.Errorf("second Stop returned error: %v", err)
-	}
-}
-
-// =============================================================================
 // §12 BackupWebdavConfig Tests
 // =============================================================================
 
@@ -1651,39 +1616,6 @@ func TestNewBackupWebdavScheduler(t *testing.T) {
 }
 
 // =============================================================================
-// §13 ProxyFileRetentionScheduler Tests
-// =============================================================================
-
-func TestNewProxyFileRetentionScheduler(t *testing.T) {
-	cfg := testConfig()
-	s := NewProxyFileRetentionScheduler(cfg)
-	if s == nil {
-		t.Fatal("NewProxyFileRetentionScheduler returned nil")
-	}
-	if s.Name() != "proxy-file-retention" {
-		t.Errorf("Name() = %q, want proxy-file-retention", s.Name())
-	}
-}
-
-func TestProxyFileRetentionScheduler_Stop(t *testing.T) {
-	cfg := testConfig()
-	cfg.ProxyFileRetentionDays = 30
-	cfg.ProxyFileRetentionPruneIntervalMinutes = 60
-	s := NewProxyFileRetentionScheduler(cfg)
-	_ = s.Start(context.Background())
-	time.Sleep(50 * time.Millisecond)
-
-	err := s.Stop()
-	if err != nil {
-		t.Errorf("Stop returned error: %v", err)
-	}
-	err = s.Stop()
-	if err != nil {
-		t.Errorf("second Stop returned error: %v", err)
-	}
-}
-
-// =============================================================================
 // §15 ProxyLogRetentionScheduler Tests
 // =============================================================================
 
@@ -1836,7 +1768,6 @@ func TestSiteAnnouncementScheduler_Stop(t *testing.T) {
 
 func TestAllSchedulersImplementInterface(t *testing.T) {
 	cfg := testConfig()
-	usage := NewUsageAggregationScheduler(cfg)
 
 	schedulers := []Scheduler{
 		NewCheckinScheduler(cfg),
@@ -1846,9 +1777,7 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 		NewLogCleanupScheduler(cfg),
 		NewDailySummaryScheduler(),
 		NewUsageAggregationScheduler(cfg),
-		NewAdminSnapshotScheduler(cfg, usage),
 		NewBackupWebdavScheduler(cfg),
-		NewProxyFileRetentionScheduler(cfg),
 		NewProxyLogRetentionScheduler(cfg),
 		NewSub2APIRefreshScheduler(cfg),
 		NewSiteAnnouncementScheduler(cfg),
@@ -1869,8 +1798,8 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 
 	expectedNames := []string{
 		"checkin", "balance-refresh", "channel-recovery", "model-probe",
-		"log-cleanup", "daily-summary", "usage-aggregation", "admin-snapshot",
-		"backup-webdav", "proxy-file-retention",
+		"log-cleanup", "daily-summary", "usage-aggregation",
+		"backup-webdav",
 		"proxy-log-retention", "sub2api-refresh", "site-announcement",
 		"admin-background-task-retention",
 	}
@@ -1905,13 +1834,11 @@ func testConfig() *config.Config {
 		ProxyFirstByteTimeoutSec:      30,
 	})
 	return &config.Config{
-		LogCleanupConfigured:                   false,
-		ModelAvailabilityProbeIntervalMs:       120_000,
-		ModelAvailabilityProbeConcurrency:      4,
-		ProxyLogRetentionDays:                  90,
-		ProxyLogRetentionPruneIntervalMinutes:  30,
-		ProxyFileRetentionDays:                 90,
-		ProxyFileRetentionPruneIntervalMinutes: 60,
+		LogCleanupConfigured:                  false,
+		ModelAvailabilityProbeIntervalMs:      120_000,
+		ModelAvailabilityProbeConcurrency:     4,
+		ProxyLogRetentionDays:                 90,
+		ProxyLogRetentionPruneIntervalMinutes: 30,
 	}
 }
 

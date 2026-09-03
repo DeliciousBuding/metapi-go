@@ -80,11 +80,6 @@ func buildIndexes() []struct {
 		// proxy_video_tasks
 		{"proxy_video_tasks_upstream_video_id_idx", `CREATE INDEX IF NOT EXISTS proxy_video_tasks_upstream_video_id_idx ON proxy_video_tasks (upstream_video_id)`},
 		{"proxy_video_tasks_created_at_idx", `CREATE INDEX IF NOT EXISTS proxy_video_tasks_created_at_idx ON proxy_video_tasks (created_at)`},
-		// proxy_files
-		{"proxy_files_owner_lookup_idx", `CREATE INDEX IF NOT EXISTS proxy_files_owner_lookup_idx ON proxy_files (owner_type, owner_id, deleted_at)`},
-		// admin_snapshots
-		{"admin_snapshots_expires_at_idx", `CREATE INDEX IF NOT EXISTS admin_snapshots_expires_at_idx ON admin_snapshots (expires_at)`},
-		{"admin_snapshots_stale_until_idx", `CREATE INDEX IF NOT EXISTS admin_snapshots_stale_until_idx ON admin_snapshots (stale_until)`},
 		// analytics_projection_checkpoints
 		{"analytics_projection_checkpoints_recompute_from_id_idx", `CREATE INDEX IF NOT EXISTS analytics_projection_checkpoints_recompute_from_id_idx ON analytics_projection_checkpoints (recompute_from_id)`},
 		{"analytics_projection_checkpoints_lease_expires_at_idx", `CREATE INDEX IF NOT EXISTS analytics_projection_checkpoints_lease_expires_at_idx ON analytics_projection_checkpoints (lease_expires_at)`},

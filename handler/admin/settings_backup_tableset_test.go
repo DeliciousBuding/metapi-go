@@ -296,7 +296,7 @@ var legacyBackupTables = []string{
 	"sites", "site_api_endpoints", "site_disabled_models", "accounts", "account_tokens",
 	"checkin_logs", "model_availability", "token_model_availability", "token_routes",
 	"route_group_sources", "oauth_route_units", "oauth_route_unit_members", "route_channels",
-	"proxy_logs", "proxy_video_tasks",
+	"proxy_logs", "proxy_debug_traces", "proxy_debug_attempts", "proxy_video_tasks",
 	"admin_background_tasks", "proxy_files", "settings", "admin_snapshots",
 	"analytics_projection_checkpoints", "site_day_usage", "site_hour_usage", "model_day_usage",
 	"downstream_api_keys", "site_announcements", "events",

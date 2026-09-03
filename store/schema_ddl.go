@@ -572,76 +572,10 @@ func buildProxyVideoTasksDDL(d string) string {
 	)`
 }
 
-func buildProxyFilesDDL(d string) string {
-	if isPG(d) {
-		return `CREATE TABLE IF NOT EXISTS proxy_files (
-			id SERIAL PRIMARY KEY,
-			public_id TEXT NOT NULL,
-			owner_type TEXT NOT NULL,
-			owner_id TEXT NOT NULL,
-			filename TEXT NOT NULL,
-			mime_type TEXT NOT NULL,
-			purpose TEXT,
-			byte_size INTEGER NOT NULL,
-			sha256 TEXT NOT NULL,
-			content_base64 TEXT NOT NULL,
-			created_at TEXT,
-			updated_at TEXT,
-			deleted_at TEXT,
-			CONSTRAINT proxy_files_public_id_unique UNIQUE (public_id)
-		)`
-	}
-	return `CREATE TABLE IF NOT EXISTS proxy_files (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		public_id TEXT NOT NULL,
-		owner_type TEXT NOT NULL,
-		owner_id TEXT NOT NULL,
-		filename TEXT NOT NULL,
-		mime_type TEXT NOT NULL,
-		purpose TEXT,
-		byte_size INTEGER NOT NULL,
-		sha256 TEXT NOT NULL,
-		content_base64 TEXT NOT NULL,
-		created_at TEXT,
-		updated_at TEXT,
-		deleted_at TEXT,
-		CONSTRAINT proxy_files_public_id_unique UNIQUE (public_id)
-	)`
-}
-
 func buildSettingsDDL(d string) string {
 	return `CREATE TABLE IF NOT EXISTS settings (
 		key TEXT PRIMARY KEY,
 		value TEXT
-	)`
-}
-
-func buildAdminSnapshotsDDL(d string) string {
-	if isPG(d) {
-		return `CREATE TABLE IF NOT EXISTS admin_snapshots (
-			id SERIAL PRIMARY KEY,
-			namespace TEXT NOT NULL,
-			snapshot_key TEXT NOT NULL,
-			payload TEXT NOT NULL,
-			generated_at TEXT NOT NULL,
-			expires_at TEXT NOT NULL,
-			stale_until TEXT NOT NULL,
-			created_at TEXT,
-			updated_at TEXT,
-			CONSTRAINT admin_snapshots_namespace_key_unique UNIQUE (namespace, snapshot_key)
-		)`
-	}
-	return `CREATE TABLE IF NOT EXISTS admin_snapshots (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		namespace TEXT NOT NULL,
-		snapshot_key TEXT NOT NULL,
-		payload TEXT NOT NULL,
-		generated_at TEXT NOT NULL,
-		expires_at TEXT NOT NULL,
-		stale_until TEXT NOT NULL,
-		created_at TEXT,
-		updated_at TEXT,
-		CONSTRAINT admin_snapshots_namespace_key_unique UNIQUE (namespace, snapshot_key)
 	)`
 }
 
