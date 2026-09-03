@@ -1176,6 +1176,21 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// #1176: credentialMode is an explicit operator choice on the edit form.
+	// Resolve it before the credential fields are touched so the api_token
+	// mirror (an apikey-mode convenience) cannot stamp a session credential as
+	// an API key, and so the mode that gets persisted is the one requested.
+	var requestedMode service.AccountCredentialMode
+	hasRequestedMode := false
+	if body.CredentialMode != nil {
+		mode := service.NormalizeCredentialMode(*body.CredentialMode)
+		if mode != service.CredentialModeSession && mode != service.CredentialModeAPIKey {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid credentialMode. Expected session or apikey."})
+			return
+		}
+		requestedMode, hasRequestedMode = mode, true
+	}
+
 	updates := map[string]any{}
 	pendingExtraConfig := row.Account.ExtraConfig
 	mergeExtraConfigUpdate := func(patch map[string]any) {
@@ -1189,10 +1204,13 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 		updates["username"] = *body.Username
 	}
 	mirrorAPIKeyToken := false
+	explicitSessionSwitch := hasRequestedMode && requestedMode == service.CredentialModeSession
 	if body.AccessToken != nil {
 		nextAccessToken := strings.TrimSpace(*body.AccessToken)
 		updates["accessToken"] = nextAccessToken
-		mirrorAPIKeyToken = shouldMirrorAPIKeyToken(row.Account, body.APIToken)
+		// A session JWT is not an API key: skip the apikey mirror when the
+		// operator explicitly moved this account to session mode (#1176).
+		mirrorAPIKeyToken = !explicitSessionSwitch && shouldMirrorAPIKeyToken(row.Account, body.APIToken)
 		if mirrorAPIKeyToken {
 			updates["apiToken"] = nextAccessToken
 		}
@@ -1284,6 +1302,12 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 		}
 		mergeExtraConfigUpdate(map[string]any{"proxyUrl": proxyPatch})
 	}
+	// credentialMode lives in extraConfig (same storage as the create path).
+	// Merged after body.ExtraConfig so the explicit top-level field wins over a
+	// nested copy in the same request, mirroring how proxyUrl is handled.
+	if hasRequestedMode {
+		mergeExtraConfigUpdate(map[string]any{"credentialMode": string(requestedMode)})
+	}
 	// PlatformUserID and skipModelFetch live in extraConfig (same storage as
 	// the create path); merge instead of dropping the form fields.
 	if body.PlatformUserID != nil {
@@ -1333,6 +1357,22 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 			mergeExtraConfigUpdate(map[string]any{"sub2apiAuth": mergedAuth})
 		}
 	}
+	// Fail loud instead of persisting a mode the stored credential cannot back:
+	// such an account can never authenticate, and the edit dialog would keep
+	// showing a mode that lies about what is on the row (#1176).
+	if hasRequestedMode {
+		hasSession := strings.TrimSpace(nextAccount.AccessToken) != ""
+		hasAPIKey := nextAccount.APIToken != nil && strings.TrimSpace(*nextAccount.APIToken) != ""
+		if requestedMode == service.CredentialModeSession && !hasSession {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "credentialMode session requires a session credential: send accessToken in the same request."})
+			return
+		}
+		if requestedMode == service.CredentialModeAPIKey && !hasAPIKey {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "credentialMode apikey requires an API key: send apiToken in the same request."})
+			return
+		}
+	}
+
 	// Expired API-key recovery (p3-sites-accounts.md 594-602 / TS accounts.ts):
 	// when credentials change on an expired apikey account and status is not forced
 	// disabled, refresh models with allowInactive and reactivate only on success.
