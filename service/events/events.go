@@ -4,8 +4,6 @@
 // renders the English fallback title/message for legacy consumers (notify /
 // CSV export / history) while storing the structured titleKey + params the
 // UI needs to render the event in the viewer's locale.
-//
-// Design: docs/internal/design/events-structured.md.
 package events
 
 import (

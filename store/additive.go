@@ -426,7 +426,6 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		// F5: structured events. New events carry a stable titleKey + JSON
 		// params so the UI renders them in the viewer's locale; legacy rows
 		// keep NULL and fall back to the stored English title/message.
-		// Design: docs/internal/design/events-structured.md.
 		Version:     "sc2_028_events_structured",
 		Description: "events.title_key TEXT NULL + events.params TEXT NULL — structured event rendering (F5); NULL = legacy row rendered as-is",
 		Apply: func(db *DB) error {

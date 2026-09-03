@@ -155,7 +155,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lockb') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
           restore-keys: playwright-${{ runner.os }}-
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
@@ -954,7 +954,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lockb') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
           restore-keys: playwright-${{ runner.os }}-
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
@@ -1027,7 +1027,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lockb') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
           restore-keys: playwright-${{ runner.os }}-
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
