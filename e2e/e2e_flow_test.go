@@ -119,9 +119,8 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 
 	// 1f. Wire upstream config for proxy dispatch.
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
-		Router:         mockR,
-		RouteRefresher: &mockRouteRefresher{},
-		Coordinator:    coord,
+		Router:      mockR,
+		Coordinator: coord,
 	})
 
 	// 1g. Build chi router with admin and proxy route groups.
@@ -382,9 +381,8 @@ func TestSiteCreateToProxyFlow_UnauthorizedAccess(t *testing.T) {
 
 	coord := proxy.NewProxyChannelCoordinator()
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
-		Router:         newMockRouter(),
-		RouteRefresher: &mockRouteRefresher{},
-		Coordinator:    coord,
+		Router:      newMockRouter(),
+		Coordinator: coord,
 	})
 
 	r := chi.NewRouter()
@@ -511,9 +509,8 @@ func TestSiteCreateToProxyFlow_Streaming(t *testing.T) {
 
 	coord := proxy.NewProxyChannelCoordinator()
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
-		Router:         mockR,
-		RouteRefresher: &mockRouteRefresher{},
-		Coordinator:    coord,
+		Router:      mockR,
+		Coordinator: coord,
 	})
 
 	r := chi.NewRouter()
