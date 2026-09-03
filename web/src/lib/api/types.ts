@@ -265,30 +265,6 @@ export type TestChatRequestPayload = {
   seed?: number
 }
 
-type ProxyTestMethod = 'POST' | 'GET' | 'DELETE'
-type ProxyTestRequestKind = 'json' | 'multipart' | 'empty'
-
-type ProxyTestMultipartFile = {
-  field: string
-  name: string
-  mimeType: string
-  dataUrl: string
-}
-
-export type ProxyTestRequestEnvelope = {
-  method: ProxyTestMethod
-  path: string
-  requestKind: ProxyTestRequestKind
-  stream?: boolean
-  jobMode?: boolean
-  rawMode?: boolean
-  forcedChannelId?: number | null
-  jsonBody?: unknown
-  rawJsonText?: string
-  multipartFields?: Record<string, string>
-  multipartFiles?: ProxyTestMultipartFile[]
-}
-
 export type SystemProxyTestRequest = {
   proxyUrl?: string
 }

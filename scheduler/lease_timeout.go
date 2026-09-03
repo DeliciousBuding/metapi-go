@@ -13,7 +13,7 @@ import "time"
 const (
 	// Heavy fan-out passes over many accounts/sites.
 	balanceJobTimeout      = 15 * time.Minute
-	checkinJobTimeout       = 15 * time.Minute
+	checkinJobTimeout      = 15 * time.Minute
 	dailySummaryJobTimeout = 15 * time.Minute
 	retentionJobTimeout    = 15 * time.Minute
 	logCleanupJobTimeout   = 15 * time.Minute
@@ -23,10 +23,9 @@ const (
 	modelSyncJobTimeout = 30 * time.Minute
 
 	// Lightweight probe/refresh sweeps.
-	channelRecoveryJobTimeout = 5 * time.Minute
-	modelProbeJobTimeout      = 5 * time.Minute
-	oauthRefreshJobTimeout    = 5 * time.Minute
+	channelRecoveryJobTimeout  = 5 * time.Minute
+	modelProbeJobTimeout       = 5 * time.Minute
+	oauthRefreshJobTimeout     = 5 * time.Minute
 	siteAnnouncementJobTimeout = 5 * time.Minute
-	sub2apiRefreshJobTimeout  = 5 * time.Minute
-	updateCenterJobTimeout    = 5 * time.Minute
+	sub2apiRefreshJobTimeout   = 5 * time.Minute
 )

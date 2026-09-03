@@ -187,7 +187,7 @@ func (cr *cronRunner) stop() {
 }
 
 // intervalRunner owns the ticker/stopCh/running boilerplate shared by the
-// fixed-interval schedulers (update-center, model-probe, site-announcement,
+// fixed-interval schedulers (model-probe, site-announcement,
 // channel-recovery, usage-aggregation, admin-snapshot, oauth-refresh,
 // sub2api-refresh and the retention trio). Semantics:
 //   - Start creates a ticker, marks running, optionally fires the first run
