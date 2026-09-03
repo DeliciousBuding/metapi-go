@@ -116,6 +116,15 @@ func buildSchedulers(cfg *config.Config) (
 	// list) cannot grow unboundedly.
 	newRegistry.Register(scheduler.NewAdminBackgroundTaskRetentionScheduler(cfg))
 
+	// ---- Scheduler 13d: Model Probe Result Retention ----
+	// model_probe_results is the highest-volume table once probing is on (one
+	// row per probed channel+model per pass) and had no DELETE path at all. Both
+	// of its readers want only the newest rows — route rebuild's probe filter
+	// reads the latest per (account_id, model_name), the history endpoint the
+	// latest N per channel/account — so the job prunes on age and exempts the
+	// latest-per-pair row outright.
+	newRegistry.Register(scheduler.NewModelProbeResultRetentionScheduler(cfg))
+
 	// ---- Scheduler 14: Proxy Log Retention (legacy fallback) ----
 	newRegistry.Register(scheduler.NewProxyLogRetentionScheduler(cfg))
 

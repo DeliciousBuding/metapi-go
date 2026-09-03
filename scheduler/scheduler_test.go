@@ -1772,6 +1772,7 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 		NewSub2APIRefreshScheduler(cfg),
 		NewSiteAnnouncementScheduler(cfg),
 		NewAdminBackgroundTaskRetentionScheduler(cfg),
+		NewModelProbeResultRetentionScheduler(cfg),
 	}
 
 	names := make(map[string]bool)
@@ -1791,7 +1792,7 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 		"log-cleanup", "daily-summary", "usage-aggregation",
 		"backup-webdav",
 		"proxy-log-retention", "sub2api-refresh", "site-announcement",
-		"admin-background-task-retention",
+		"admin-background-task-retention", "model-probe-result-retention",
 	}
 
 	for _, exp := range expectedNames {
