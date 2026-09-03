@@ -847,6 +847,15 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	// report the real persisted count instead of a fixed tokenCount.
 	syncReport := syncTokensAfterAccountCreate(r.Context(), h.db, h.cfg, loginAcct.ID)
 
+	// A successful login is the only moment we know the control credential is
+	// fresh. Discover and persist models now instead of leaving a brand-new
+	// account at totalCount=0 until the periodic scheduler happens to run. That
+	// empty interval made manual route creation produce channels with no usable
+	// model and was the user-visible #1179 failure. The refresh is reported
+	// honestly but remains partial initialization: the verified account and its
+	// synced relay keys stay saved when a particular upstream cannot list models.
+	modelRefresh := accountModelRefresher(r.Context(), h.db, loginAcct.ID, false)
+
 	routing.InvalidateCache()
 	globalAccountsCache.clear()
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -856,6 +865,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 		"tokenCount":       syncReport.TokenCount,
 		"tokenSyncStatus":  syncReport.Status,
 		"tokenSyncMessage": syncReport.Message,
+		"modelRefresh":     modelRefresh,
 		"reusedAccount":    reused,
 	})
 }
