@@ -5,6 +5,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import i18n from 'i18next'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
@@ -135,6 +136,42 @@ describe('RouteDetailSheet channel hit counters', () => {
 
     expect(
       screen.getByText('0', { selector: '.text-success' })
+    ).toBeInTheDocument()
+  })
+})
+
+// A channel with no token cannot serve anything, and the label used to be a bare
+// "Unbound" -- which is how an operator ends up looking for a binding form that
+// does not exist. Tokens are synced from the account; there is no manual step.
+describe('RouteDetailSheet channel credential guidance', () => {
+  it('names the mechanism and the action when a channel has no token', () => {
+    testState.channels = [makeChannel({ id: 12, tokenId: null, token: null })]
+
+    render(<RouteDetailSheet route={makeRoute()} open onOpenChange={vi.fn()} />)
+
+    const hint = String(i18n.t('tokenRoutes.detail.channelTokenUnboundHint'))
+    const line = screen.getByTitle(hint)
+    expect(line).toBeInTheDocument()
+    expect(line).toHaveTextContent(
+      String(i18n.t('tokenRoutes.detail.channelTokenUnbound'))
+    )
+  })
+
+  it('does not warn about a channel that does have a token', () => {
+    testState.channels = [makeChannel({ id: 13, tokenId: 7, token: null })]
+
+    render(<RouteDetailSheet route={makeRoute()} open onOpenChange={vi.fn()} />)
+
+    expect(
+      screen.queryByTitle(
+        String(i18n.t('tokenRoutes.detail.channelTokenUnboundHint'))
+      )
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText(
+        String(i18n.t('tokenRoutes.detail.fallbackToken', { id: 7 })),
+        { exact: false }
+      )
     ).toBeInTheDocument()
   })
 })

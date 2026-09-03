@@ -378,6 +378,7 @@ function ChannelRow({
     channel.account?.username ||
     t('tokenRoutes.detail.fallbackAccount', { id: channel.accountId })
   const siteLabel = channel.site?.name || channel.site?.platform || ''
+  const tokenBound = Boolean(channel.token?.name || channel.tokenId)
   const tokenLabel =
     channel.token?.name ||
     (channel.tokenId
@@ -400,7 +401,17 @@ function ChannelRow({
             )}
           </div>
           <div className='text-muted-foreground mt-0.5 flex flex-wrap items-center gap-1.5'>
-            <span>
+            <span
+              // A channel with no token cannot serve anything, and "Unbound"
+              // on its own sent operators hunting for a binding form that does
+              // not exist: tokens are synced from the account, never bound by
+              // hand. The label now says so and the title says what to do.
+              title={
+                tokenBound
+                  ? undefined
+                  : t('tokenRoutes.detail.channelTokenUnboundHint')
+              }
+            >
               {t('tokenRoutes.detail.channelToken')}: {tokenLabel}
             </span>
             <span>
