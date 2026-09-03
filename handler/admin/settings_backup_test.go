@@ -767,7 +767,7 @@ func TestImportBackupTablesRollsBackWhenLaterTableFails(t *testing.T) {
 		),
 	}
 
-	if _, err := importBackupTables(db.DB, tables); err == nil {
+	if _, err := importBackupTables(db.DB, tables, false); err == nil {
 		t.Fatalf("importBackupTables succeeded, want failure on invalid downstream_api_keys column")
 	}
 
@@ -787,7 +787,7 @@ func TestImportBackupTablesRejectsUnknownTableKey(t *testing.T) {
 		"settings_typo": json.RawMessage(`[{"key":"theme","value":"\"dark\""}]`),
 	}
 
-	if _, err := importBackupTables(db.DB, tables); err == nil {
+	if _, err := importBackupTables(db.DB, tables, false); err == nil {
 		t.Fatal("importBackupTables succeeded, want unknown table error")
 	} else if !strings.Contains(err.Error(), "unknown table settings_typo") {
 		t.Fatalf("error = %v, want unknown table", err)
@@ -813,7 +813,7 @@ func TestImportBackupTablesRejectsTooManyRowsBeforeInsert(t *testing.T) {
 		]`),
 	}
 
-	if _, err := importBackupTables(db.DB, tables); err == nil {
+	if _, err := importBackupTables(db.DB, tables, false); err == nil {
 		t.Fatal("importBackupTables succeeded, want row limit error")
 	} else if !strings.Contains(err.Error(), "exceeds the max rows of 1") {
 		t.Fatalf("error = %v, want row limit", err)
@@ -836,7 +836,7 @@ func TestImportBackupTablesRejectsTooManyColumnsBeforeInsert(t *testing.T) {
 		"settings": json.RawMessage(`[{"key":"theme","value":"\"dark\""}]`),
 	}
 
-	if _, err := importBackupTables(db.DB, tables); err == nil {
+	if _, err := importBackupTables(db.DB, tables, false); err == nil {
 		t.Fatal("importBackupTables succeeded, want column limit error")
 	} else if !strings.Contains(err.Error(), "exceeds limit 1") {
 		t.Fatalf("error = %v, want column limit", err)
@@ -859,7 +859,7 @@ func TestImportBackupTablesRejectsOversizedCellBeforeInsert(t *testing.T) {
 		"settings": json.RawMessage(`[{"key":"theme","value":"12345"}]`),
 	}
 
-	if _, err := importBackupTables(db.DB, tables); err == nil {
+	if _, err := importBackupTables(db.DB, tables, false); err == nil {
 		t.Fatal("importBackupTables succeeded, want cell size error")
 	} else if !strings.Contains(err.Error(), "exceeds limit 4 bytes") {
 		t.Fatalf("error = %v, want cell size limit", err)
@@ -889,7 +889,7 @@ func TestImportBackupTablesSkipsRuntimeLocalSettings(t *testing.T) {
 		]`),
 	}
 
-	result, err := importBackupTables(db.DB, tables)
+	result, err := importBackupTables(db.DB, tables, false)
 	if err != nil {
 		t.Fatalf("importBackupTables: %v", err)
 	}
@@ -1442,7 +1442,7 @@ func TestImportBackupTablesDropsForbiddenSiteURLs(t *testing.T) {
 		]`),
 	}
 
-	result, err := importBackupTables(db.DB, tables)
+	result, err := importBackupTables(db.DB, tables, false)
 	if err != nil {
 		t.Fatalf("importBackupTables: %v", err)
 	}

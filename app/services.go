@@ -107,7 +107,6 @@ func buildSchedulers(cfg *config.Config) (
 	// ---- Scheduler 9: Sub2API Refresh ----
 	newRegistry.Register(scheduler.NewSub2APIRefreshScheduler(cfg))
 
-
 	// ---- Scheduler 13b: Proxy Video Task Retention ----
 	newRegistry.Register(scheduler.NewProxyVideoTaskRetentionScheduler(cfg))
 
