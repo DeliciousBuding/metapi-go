@@ -2,6 +2,8 @@ package balance
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -1196,4 +1198,70 @@ func TestPlatformUserIDPtr(t *testing.T) {
 
 func TestRecordBalanceSnapshot_NilDBDoesNotPanic(t *testing.T) {
 	recordBalanceSnapshot(nil, 1, 10.0, 2.0, 8.0)
+}
+
+// TestExplainRefreshFailure locks the operator-facing wording of a balance
+// refresh failure (#1210) and the order it is decided in: the shapes the balance
+// path owns are named here, everything upstream is delegated to
+// platform.ExplainUpstreamFailure, and a failure that cannot be named safely
+// yields "" so the caller keeps its bare stable prefix instead of inventing one.
+func TestExplainRefreshFailure(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"nil says nothing", nil, ""},
+		{"observed sub2api expiry", errors.New("sub2api /api/v1/auth/me: HTTP 401: Token has expired"), "upstream rejected the credential (HTTP 401)"},
+		{"adapter got no balance", errors.New("failed to fetch balance"), "upstream returned no usable balance"},
+		{"unsupported platform belongs to the 404", errors.New("unsupported platform: nosuch"), ""},
+		{"local read failure outranks the transport wording", fmt.Errorf("%s%w", errReadAccountPrefix, errors.New("connection refused")), "the account could not be read from the database"},
+		{"local save failure", fmt.Errorf("%s%w", errSaveBalancePrefix, errors.New("disk full")), "the refreshed balance could not be saved"},
+		{"upstream unreachable", errors.New("request: dial tcp 127.0.0.1:1: connect: connection refused"), "upstream refused the connection"},
+		{"unnameable keeps the bare prefix", errors.New("something odd"), ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ExplainRefreshFailure(tc.err); got != tc.want {
+				t.Fatalf("ExplainRefreshFailure(%v) = %q, want %q", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestRefreshBalanceReadFailureIsNotReportedAsMissing is the Law-3 half: a
+// missing row is a legitimate "not found" (nil, nil, and the caller answers 404),
+// while any other read failure must surface as an error. Collapsing the two is
+// what made a dead chain look configured (#1179).
+func TestRefreshBalanceReadFailureIsNotReportedAsMissing(t *testing.T) {
+	db, err := store.Open(store.DialectSQLite, ":memory:", false)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := store.AutoMigrate(db); err != nil {
+		t.Fatalf("automigrate: %v", err)
+	}
+
+	// A row that is genuinely absent is a legitimate "not found": (nil, nil), and
+	// the handler answers 404 for it.
+	result, err := RefreshBalance(&config.Config{}, db.DB, 999999)
+	if result != nil || err != nil {
+		t.Fatalf("missing account = (%v, %v), want (nil, nil)", result, err)
+	}
+
+	// A read that fails is a different statement. With the database closed the
+	// lookup cannot succeed, and answering "account not found" for it is the
+	// [] + nil disease: a failure made indistinguishable from a valid empty
+	// answer, which is exactly what #1179 turned into a product rule.
+	if err := db.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+	result, err = RefreshBalance(&config.Config{}, db.DB, 1)
+	if err == nil {
+		t.Fatalf("read failure = (%v, nil), want an error", result)
+	}
+	if got := ExplainRefreshFailure(err); got != "the account could not be read from the database" {
+		t.Fatalf("ExplainRefreshFailure(%v) = %q, want the local read reason", err, got)
+	}
 }

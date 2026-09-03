@@ -2,7 +2,9 @@ package balance
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -382,12 +384,60 @@ type BalanceResult struct {
 	BalanceInfo *platform.BalanceInfo
 }
 
+// Balance-refresh failure wording (#1210). These prefixes are how RefreshBalance
+// marks the two failures that are local to Metapi rather than upstream, so
+// ExplainRefreshFailure can name them without pattern-matching driver text.
+const (
+	errReadAccountPrefix = "read account for balance refresh: "
+	errSaveBalancePrefix = "save refreshed balance: "
+)
+
+// ExplainRefreshFailure names why a RefreshBalance error happened, in one compact
+// credential-safe line, for the 502 body and the operator-facing account health
+// reason. The raw error still reaches the server log in full; this is the part an
+// operator is allowed to see.
+//
+// It owns only the shapes the balance path itself produces and delegates every
+// upstream signal to platform.ExplainUpstreamFailure, so the vocabulary keeps a
+// single owner. "" means nothing safe could be named, and the caller then keeps
+// its bare stable prefix instead of inventing a cause.
+func ExplainRefreshFailure(err error) string {
+	if err == nil {
+		return ""
+	}
+	message := strings.TrimSpace(err.Error())
+	switch {
+	case message == "":
+		return ""
+	case strings.HasPrefix(message, "unsupported platform"):
+		// The caller answers 404 "account not found or platform not supported"
+		// for this one; it is not a refresh failure to explain.
+		return ""
+	case strings.HasPrefix(message, errReadAccountPrefix):
+		return "the account could not be read from the database"
+	case strings.HasPrefix(message, errSaveBalancePrefix):
+		return "the refreshed balance could not be saved"
+	case message == "failed to fetch balance":
+		// The adapter got an answer it could not turn into a balance.
+		return "upstream returned no usable balance"
+	}
+	return platform.ExplainUpstreamFailure(0, message)
+}
+
 // RefreshBalance refreshes the balance for a single account.
 // Mirrors TS refreshBalance().
 func RefreshBalance(cfg *config.Config, db *sqlx.DB, accountID int64) (*BalanceResult, error) {
 	aws, err := service.GetAccountWithSiteByID(db, accountID)
 	if err != nil {
-		return nil, nil
+		// A missing row is a legitimate "not found" and the caller answers 404.
+		// Every other failure is a read failure and must not be reported as
+		// "account not found": `nil, nil` here dressed a fetch failure up as a
+		// valid empty answer, which is the shape #1179 made a product rule out of
+		// (a failure that cannot be told apart from success).
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("%s%w", errReadAccountPrefix, err)
 	}
 	account := &aws.Account
 	site := &aws.Site
@@ -570,7 +620,7 @@ afterRetry:
 	// Update DB
 	err = service.UpdateAccountFields(db, accountID, updates)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s%w", errSaveBalancePrefix, err)
 	}
 
 	// A1: snapshot balance to balance_history so operators

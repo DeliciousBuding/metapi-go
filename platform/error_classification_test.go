@@ -1,6 +1,9 @@
 package platform
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestClassifyUpstreamError_Matrix(t *testing.T) {
 	cases := []struct {
@@ -287,5 +290,66 @@ func TestIsTokenExpiredError_PositiveAuthSignals(t *testing.T) {
 				t.Fatalf("ShouldMarkAccountExpired(%d, %q) = false, want true", tc.httpStatus, tc.message)
 			}
 		})
+	}
+}
+
+// TestExplainUpstreamFailure locks the operator-facing wording for an upstream
+// failure: one classified, credential-safe line plus the status it was derived
+// from. The first row is the message that filed #1210 — the server logged
+// `HTTP 401: Token has expired` while the body said only "balance refresh
+// failed". Note that ClassifyUpstreamError reads that message as ClassUnknown
+// (it is too weak to auto-mark an account expired, which is correct); explaining
+// it must still not fall silent, so the renderer falls back to the status.
+func TestExplainUpstreamFailure(t *testing.T) {
+	cases := []struct {
+		name       string
+		httpStatus int
+		message    string
+		want       string
+	}{
+		{"issue 1210 observed sub2api expiry", 0, "sub2api /api/v1/auth/me: HTTP 401: Token has expired", "upstream rejected the credential (HTTP 401)"},
+		{"explicit invalid access token", 0, "HTTP 400: \u65e0\u6743\u8fdb\u884c\u6b64\u64cd\u4f5c\uff0caccess token \u65e0\u6548", "upstream credential expired (HTTP 400)"},
+		{"jwt expired without a status", 0, "jwt expired", "upstream credential expired"},
+		{"unauthorized wording", 401, "unauthorized", "upstream rejected the credential (HTTP 401)"},
+		{"forbidden", 403, "forbidden", "upstream rejected the credential (HTTP 403)"},
+		{"billing", 0, "insufficient_quota: exceeded your current quota", "upstream reported a billing or quota problem"},
+		{"model capability", 0, "model gpt-x is not supported", "upstream does not serve the requested model"},
+		{"request validation", 0, "invalid_request_error: max_tokens too large", "upstream rejected the request"},
+		{"rate limited by status", 429, "slow down", "upstream rate-limited the request (HTTP 429)"},
+		{"rate limited by wording", 0, "rate limit exceeded", "upstream rate-limited the request"},
+		{"server error", 503, "service unavailable", "upstream errored (HTTP 503)"},
+		{"timeout with no status", 0, "request: context deadline exceeded", "upstream timed out"},
+		{"connection refused", 0, "request: dial tcp 127.0.0.1:1: connect: connection refused", "upstream refused the connection"},
+		{"dns failure", 0, "dial tcp: lookup up.example.invalid: no such host", "upstream host could not be resolved"},
+		{"tls failure", 0, "remote error: tls: bad certificate", "upstream TLS handshake failed"},
+		{"missing endpoint", 404, "no such endpoint", "upstream has no such endpoint or account (HTTP 404)"},
+		{"duration is not a status but the timeout is named", 0, "request timed out after 500ms", "upstream timed out"},
+		{"a port is not a status", 0, "request: dial tcp 127.0.0.1:5001: connect: connection refused", "upstream refused the connection"},
+		{"unnameable keeps the caller prefix", 0, "something odd happened", ""},
+		{"empty message", 0, "", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ExplainUpstreamFailure(tc.httpStatus, tc.message); got != tc.want {
+				t.Fatalf("ExplainUpstreamFailure(%d, %q) = %q, want %q", tc.httpStatus, tc.message, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestExplainUpstreamFailureNeverEchoesTheUpstreamBody is the leak half of #1210.
+// Classifying is the point, echoing is not: the reason ends up in an HTTP body
+// and in the UI, so a credential fragment, a request id and a host that arrived
+// from upstream must not travel with it.
+func TestExplainUpstreamFailureNeverEchoesTheUpstreamBody(t *testing.T) {
+	message := "HTTP 401: token rejected for sk-LEAKME-9f3a2b (request id req_778899) at https://up.example.invalid/api/v1/auth/me"
+	reason := ExplainUpstreamFailure(0, message)
+	if reason == "" {
+		t.Fatalf("ExplainUpstreamFailure(%q) = \"\", want a classified reason", message)
+	}
+	for _, detail := range []string{"sk-LEAKME-9f3a2b", "req_778899", "up.example.invalid", "/api/v1/auth/me", "token rejected"} {
+		if strings.Contains(reason, detail) {
+			t.Fatalf("reason %q echoes upstream detail %q; classify, do not echo", reason, detail)
+		}
 	}
 }
