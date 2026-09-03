@@ -6,7 +6,13 @@
 // backend that is itself pointed at a REAL upstream platform (new-api/one-api).
 // It is an operator-gated acceptance gate, NOT part of the blocking PR CI: it
 // needs live credentials and a running upstream, so it runs on demand via
-// `bun run acceptance:e2e` (see docs/internal/analysis/e2e-acceptance-platform.md).
+// `bun run acceptance:e2e`.
+//
+// Point it at a THROWAWAY instance. cleanupState deletes every site, account,
+// route and downstream key on whatever BASE_URL answers, and the login journey
+// performs a real upstream login (which rotates that upstream user's dashboard
+// credential). Set EXPECT_SERVER_COMMIT to the commit you built so the run
+// cannot silently verify a stale binary holding the same port.
 //
 // Journey 1 — Site onboarding: open the sites page, add a site by URL, pick the
 //   platform, submit, and assert it lands in the table (fires the real detect

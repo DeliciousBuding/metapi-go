@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-// metapi-go — probe for the transient accounts-page header overlap documented
-// in docs/internal/analysis/e2e-acceptance-platform.md §6 ("fresh site → enter
-// accounts page immediately → page header transiently covers the toolbar and
-// intercepts the Add account click").
+// metapi-go — probe for a transient accounts-page header overlap: create a
+// fresh site, enter the accounts page immediately, and the page header covers
+// the toolbar for a moment, intercepting the "Add account" click.
 //
 // The main acceptance journey (acceptance-e2e.mjs) works around the quirk by
 // polling the accounts snapshot until the site appears BEFORE navigating. This
@@ -15,7 +14,7 @@
 // Verdicts per trial:
 //   clicked        — real click landed and the create dialog opened
 //   disabled       — button present but disabled (snapshot race, distinct bug)
-//   intercepted    — click hit-tested onto another element (the §6 overlap)
+//   intercepted    — click hit-tested onto another element (the header overlap)
 //   missing        — button never appeared in the sampling window
 //
 // Configuration:
