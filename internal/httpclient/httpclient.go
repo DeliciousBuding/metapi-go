@@ -14,8 +14,7 @@
 //     explicit dial / TLS-handshake / idle bounds and a sized connection
 //     pool instead of riding http.DefaultTransport.
 //
-// Baseline values mirror the axonhub HTTP client baseline
-// (docs/internal/analysis/competitor-study-2026-08.md): dial 30s,
+// Baseline values mirror the axonhub HTTP client baseline: dial 30s,
 // TLS handshake 10s, MaxIdleConns 100, IdleConnTimeout 90s.
 package httpclient
 

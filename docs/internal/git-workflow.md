@@ -76,7 +76,7 @@ master (唯一长期分支，受保护，随时可发布)
 
 ## 6.1 版本号策略（SemVer · patch-first 节奏）
 
-> **本节是版本号决策的唯一权威来源**。AGENTS.md / CONTRIBUTING.md / MASTER.md 只做引用，不重复定义。
+> **本节是版本号决策的唯一权威来源**。AGENTS.md / CONTRIBUTING.md 只做引用，不重复定义。
 
 格式 `0.MAJOR.MINOR.PATCH`（SemVer 2.0）。1.0 之前主版本号恒为 `0`；下文「中间位」指 `0.X.Y` 的 `X`，「最后一位」指 `Y`。
 
@@ -92,7 +92,7 @@ master (唯一长期分支，受保护，随时可发布)
 
 **1.0 就绪标准**（到齐才把第一位从 0 提走）：
 
-- 生产多通道级联证据落地（见 [`progress/MASTER.md`](progress/MASTER.md) Evidence closeout · A）
+- 生产多通道级联证据落地（Evidence closeout · A）
 - API / wire 契约冻结（无计划内的破坏性演进）
 - 备份 / 迁移双向路径文档化且有实测覆盖
 
@@ -131,4 +131,4 @@ Dependabot 每周一自动开升级 PR（Go / npm / GitHub Actions / Docker）�
 | CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量 12 项检查；master push 推送镜像（latest+sha）；SemVer tag：镜像（amd64+arm64）→ 多平台二进制 + GitHub Release |
 | 本地门禁 | `.githooks/pre-push-project` | 全局 hook-kit 在 push 前链式运行（build + vet + 完整前端 + WSL-backed race）；`.githooks/pre-push` 是 standalone 兼容入口 |
 
-相关文档：[`deployment.md`](../deployment.md)（部署）· [`STATE.md`](STATE.md)（当前状态）· `AGENTS.md`（工程规则）
+相关文档：[`deployment.md`](../deployment.md)（部署）· [`CHANGELOG.md`](../../CHANGELOG.md)（版本叙事）· `AGENTS.md`（工程规则）；当前状态以 GitHub issues/releases 为准。

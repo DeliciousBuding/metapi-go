@@ -4,8 +4,10 @@
 **Purpose**: one-screen orientation for users and contributors.
 
 This directory is split into **public docs** (written for users and
-contributors) and **[`internal/`](internal/)** (maintainer process docs:
-product state, roadmap, progress log, audits, design notes). User-facing
+contributors) and **[`internal/`](internal/)** (contributor design notes and
+residual caveats). Maintainer process/history/research — product state,
+roadmap, progress log, audits, benchmarks — live outside this public repo
+(open work in GitHub issues; version narrative in `CHANGELOG.md`). User-facing
 documents never deep-link into `internal/` — they state the fact directly.
 `docs/doc_hygiene_test.go` enforces both rules in CI.
 
@@ -26,17 +28,12 @@ documents never deep-link into `internal/` — they state the fact directly.
 | Version history                     | root [`CHANGELOG.md`](../CHANGELOG.md)                                                   |
 | Contribute / report                 | root [`CONTRIBUTING.md`](../CONTRIBUTING.md) · [`SECURITY.md`](../SECURITY.md)           |
 
-## Internal docs (maintainer process)
+## Internal docs (contributor design & residual notes)
 
 | Path                                             | Role                                                        |
 | :----------------------------------------------- | :---------------------------------------------------------- |
-| [`internal/STATE.md`](internal/STATE.md)         | **现状** — verified product facts (keep slim)               |
-| [`internal/progress/MASTER.md`](internal/progress/MASTER.md) | **3 条交付主线 + 唯一执行计划**（不是 changelog） |
-| [`internal/log.md`](internal/log.md)             | **进度日志** (append-only，不覆盖 STATE)                    |
-| [`internal/benchmark.md`](internal/benchmark.md) | 产品对标（New API × All API Hub）+ direction                |
 | [`internal/git-workflow.md`](internal/git-workflow.md) | 分支模型 / PR / 保护规则                              |
 | [`internal/design/`](internal/design/)           | 设计系统 SSOT（BACKEND / DESIGN / a11y / components）       |
-| [`internal/analysis/`](internal/analysis/)       | 证据型分析（pool budget / package boundaries / audit 证据） |
 | [`internal/responses-websocket-residual.md`](internal/responses-websocket-residual.md) | Responses WS 501 residual 说明 |
 
 ## Layout
@@ -56,15 +53,10 @@ docs/
   testing.md                ← test layers + public real-platform testbed SOP
   visual-regression.md      ← screenshot evidence + golden visual regression SOP
   assets/                   ← public images (hero, screenshots)
-  internal/                 ← maintainer process docs (never linked from README)
-    STATE.md                  现状 source of truth (keep slim)
-    log.md                    progress log (append-only)
-    benchmark.md              product benchmark + direction
+  internal/                 ← contributor design notes & residual caveats (never linked from README)
+    design/                   living design source of truth
     git-workflow.md           branch model / PR / protection rules
     responses-websocket-residual.md
-    progress/                 MASTER only (mainlines + executable open plan)
-    design/                   living design source of truth
-    analysis/                 evidence-based analysis docs
 ```
 
 ## Hygiene rules

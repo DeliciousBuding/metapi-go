@@ -19,9 +19,8 @@ import (
 // timeouts) inherit no response-header bound and no explicit dial/TLS/idle
 // bounds, so a silently-accepting upstream can hold connections and
 // goroutines indefinitely. The baseline adopted for this repo mirrors the
-// axonhub HTTP client baseline (docs/internal/analysis/competitor-study-2026-08.md
-// section 3.2): dial 30s, TLS handshake 10s, MaxIdleConns 100,
-// IdleConnTimeout 90s. Control-plane transports are constructed in
+// axonhub HTTP client baseline: dial 30s, TLS handshake 10s, MaxIdleConns
+// 100, IdleConnTimeout 90s. Control-plane transports are constructed in
 // internal/httpclient, with named exceptions that keep their own literals
 // by design (all still satisfy R3/R4):
 //

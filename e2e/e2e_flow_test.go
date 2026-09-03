@@ -230,7 +230,6 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 	}
 
 	// Verify OpenAI models format (id/object/created/owned_by; optional context_length).
-	// See docs/internal/analysis/models-response-shape.md (#53 / upstream).
 	if obj, _ := modelsResp["object"].(string); obj != "list" {
 		t.Errorf("GET /v1/models: expected object='list', got %q", obj)
 	}

@@ -150,7 +150,7 @@ Arrows mean **“may import”**. Edges not shown are forbidden unless listed un
 
 Only `cmd/server` (and tests/e2e helpers) should construct the full graph: load config → open store → build services/router/schedulers → `app.Start`. Libraries under packages should accept dependencies via constructors/parameters, not hidden global grabs—except the existing `config.Get()` singleton pattern used for parity.
 
-**As-built inventory:** package ownership, public entrypoints, and documented exception edges (e.g. admin checkin schedule → `app`/`scheduler`, `app.ConfigureProxyUpstream` → `handler/proxy`) are recorded in [`docs/analysis/package-boundaries.md`](../analysis/package-boundaries.md). New exceptions must be listed there (and justified against §2.3) rather than introduced silently.
+**As-built inventory:** package ownership, public entrypoints, and documented exception edges (e.g. admin checkin schedule → `app`/`scheduler`, `app.ConfigureProxyUpstream` → `handler/proxy`) are recorded in the as-built package map [`docs/architecture.md`](../../architecture.md). New exceptions must be listed there (and justified against §2.3) rather than introduced silently.
 
 ---
 
@@ -198,8 +198,8 @@ Only `cmd/server` (and tests/e2e helpers) should construct the full graph: load 
 
 ## 5. Change routing
 
-- Open outcomes and priorities live in [`docs/progress/MASTER.md`](../progress/MASTER.md).
-- Package ownership and approved exception edges live in [`docs/analysis/package-boundaries.md`](../analysis/package-boundaries.md).
+- Open outcomes and priorities are tracked as GitHub issues.
+- Package ownership and approved exception edges live in [`docs/architecture.md`](../../architecture.md).
 - When principles change, revise this file. When only layout or request-flow facts change, update [`docs/architecture.md`](../../architecture.md).
 
 ---

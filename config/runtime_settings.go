@@ -107,8 +107,8 @@ type RuntimeSettings struct {
 	NotifyCooldownSec int
 	SystemProxyUrl    string
 	// ProxyRetryStatusRanges / ProxyDisableStatusRanges carry the
-	// operator-tunable status-code range specs (routing.StatusRange policy,
-	// competitor-study-2026-08 P1-2): retry decides which upstream statuses
+	// operator-tunable status-code range specs (routing.StatusRange policy):
+	// retry decides which upstream statuses
 	// count as retryable channel faults; disable decides which auto-disable
 	// the failing channel. Runtime settings only (settings table +
 	// PUT /api/settings/runtime, rehydrated at startup); blank keeps the
