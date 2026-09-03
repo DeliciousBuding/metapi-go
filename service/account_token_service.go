@@ -610,32 +610,45 @@ func SyncTokensFromUpstream(db *sqlx.DB, accountID int64, upstreamTokens []Upstr
 			nextValueStatus = TokenValueStatusMaskedPending
 		}
 
-		// Match existing ready token by exact key value.
+		// Match an existing token by exact key value. Prefer a ready row so a
+		// hydrated upstream key keeps reconciling into the same usable row.
+		// Fall back to a masked-pending row when the upstream still returns
+		// the masked display key (platforms with no full-key endpoint): those
+		// rows were previously never matched, so every sync re-inserted them.
 		var byToken *store.AccountToken
 		for i := range existing {
-			if existing[i].Token == tokenValue && ResolveAccountTokenValueStatus(&existing[i]) == TokenValueStatusReady {
+			if existing[i].Token != tokenValue {
+				continue
+			}
+			if ResolveAccountTokenValueStatus(&existing[i]) == TokenValueStatusReady {
 				byToken = &existing[i]
 				break
 			}
+			if byToken == nil {
+				byToken = &existing[i]
+			}
 		}
 		if byToken != nil {
-			// Preserve local enable state; keep operator-set name when present.
+			// Preserve local enable state and the row's resolved value status
+			// (ready stays ready; masked stays masked_pending). Keep
+			// operator-set name when present.
 			preservedName := byToken.Name
 			if strings.TrimSpace(preservedName) == "" {
 				preservedName = tokenName
 			}
 			preservedEnabled := byToken.Enabled
+			preservedValueStatus := ResolveAccountTokenValueStatus(byToken)
 			if _, err := db.Exec(
 				db.Rebind(`UPDATE account_tokens SET name = ?, token_group = ?, value_status = ?, source = ?, enabled = ?, updated_at = ?
 				 WHERE id = ?`),
-				preservedName, tokenGroup, TokenValueStatusReady, "sync", preservedEnabled, now, byToken.ID,
+				preservedName, tokenGroup, preservedValueStatus, "sync", preservedEnabled, now, byToken.ID,
 			); err != nil {
 				return nil, err
 			}
 			byToken.Name = preservedName
 			groupCopy := tokenGroup
 			byToken.TokenGroup = &groupCopy
-			byToken.ValueStatus = TokenValueStatusReady
+			byToken.ValueStatus = preservedValueStatus
 			byToken.Enabled = preservedEnabled
 			byToken.Source = "sync"
 			byToken.UpdatedAt = now
