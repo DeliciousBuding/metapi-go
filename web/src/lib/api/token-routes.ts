@@ -8,6 +8,10 @@ export type BatchUpdateChannelsResult = {
   channels: Array<Record<string, unknown>>
 }
 
+// One fleet-wide rebuild can take minutes (an upstream round-trip per active
+// account). 30s — the shared default — canceled it mid-pass (#1174).
+const REBUILD_ROUTES_TIMEOUT_MS = 300_000
+
 export const tokenRoutesApi = {
   // Account tokens
   getAccountTokens: (accountId?: number) =>
@@ -142,7 +146,13 @@ export const tokenRoutesApi = {
         refreshModels,
         ...(wait ? { wait: true } : {}),
       }),
-      timeoutMs: wait ? 150_000 : 30_000,
+      // With refreshModels the server walks every active account upstream
+      // before recomposing channels, so the shared 30s default was never a
+      // plausible budget: the client hung up, the request context died, and the
+      // rebuild died with it (#1174). The server now detaches the pass from the
+      // request and finishes regardless; this only keeps the toast truthful for
+      // fleets that take a while.
+      timeoutMs: REBUILD_ROUTES_TIMEOUT_MS,
     }),
   refreshRouteDecisionSnapshots: () =>
     request('/api/routes/decision/refresh', {

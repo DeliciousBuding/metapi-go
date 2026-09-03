@@ -315,9 +315,6 @@ func TestSyncAllAccountModels_BatchSemantics(t *testing.T) {
 	if *invalidates != 1 {
 		t.Errorf("invalidate calls = %d, want exactly 1 for the batch", *invalidates)
 	}
-	if !summary.RebuildRan {
-		t.Error("summary.RebuildRan = false, want true when >=1 account succeeded")
-	}
 
 	// Availability for the successful accounts really landed in the store.
 	var availCount int
@@ -332,10 +329,13 @@ func TestSyncAllAccountModels_BatchSemantics(t *testing.T) {
 	}
 }
 
-// TestSyncAllAccountModels_ZeroSuccessSkipsRebuild proves a fully failed pass
-// does not rebuild routes or invalidate the routing cache: with no new
-// availability written, both side effects would be churn.
-func TestSyncAllAccountModels_ZeroSuccessSkipsRebuild(t *testing.T) {
+// TestSyncAllAccountModels_ZeroSuccessStillRebuilds pins the #1174 invariant: a
+// pass whose every upstream refresh failed still ends with exactly one rebuild.
+// Routes are composed from the availability already in the store, so skipping
+// the local step because the *upstream* step failed left operators with routes
+// that no pass would ever recompose — and the rebuild short-circuits without a
+// write when nothing changed, so this costs a read pass, not churn.
+func TestSyncAllAccountModels_ZeroSuccessStillRebuilds(t *testing.T) {
 	db := openModelRefreshTestDB(t)
 	rebuilds, invalidates := withModelRefreshCounters(t)
 
@@ -349,11 +349,37 @@ func TestSyncAllAccountModels_ZeroSuccessSkipsRebuild(t *testing.T) {
 	if summary.Total != 2 || summary.Success != 0 || summary.Failed != 2 {
 		t.Fatalf("summary = %+v, want total=2 success=0 failed=2", summary)
 	}
-	if *rebuilds != 0 || *invalidates != 0 {
-		t.Errorf("side effects with zero success: rebuilds=%d invalidates=%d, want 0/0", *rebuilds, *invalidates)
+	if *rebuilds != 1 || *invalidates != 1 {
+		t.Errorf("side effects with zero success: rebuilds=%d invalidates=%d, want 1/1", *rebuilds, *invalidates)
 	}
-	if summary.RebuildRan {
-		t.Error("summary.RebuildRan = true, want false when nothing succeeded")
+}
+
+// TestSyncAllAccountModels_RebuildSurvivesACanceledPassContext is the other half
+// of #1174: the pass ran on its caller's context, so a caller that went away —
+// a browser that timed out on POST /api/routes/rebuild, a proxy read timeout —
+// canceled the model-sync loop *and* the local rebuild behind it, and the
+// handler answered "route rebuild failed: context canceled". The rebuild reads
+// and writes only the local database, so it must not inherit that cancellation.
+func TestSyncAllAccountModels_RebuildSurvivesACanceledPassContext(t *testing.T) {
+	db := openModelRefreshTestDB(t)
+	rebuilds, _ := withModelRefreshCounters(t)
+
+	upstream := startModelsUpstream(t, http.StatusOK, "gpt-4o")
+	siteID := seedOpenAISite(t, db, "canceled-pass", upstream.URL)
+	seedAccountOnSite(t, db, siteID, "canceled-user", "sk-canceled", "active")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	summary := SyncAllAccountModels(ctx, db)
+
+	if summary.Total != 1 || summary.Success != 0 {
+		t.Fatalf("summary = %+v, want total=1 success=0 (the pass must stop at once)", summary)
+	}
+	if *rebuilds != 1 {
+		t.Fatalf("rebuild calls = %d, want 1: the local recomposition must survive the canceled pass context", *rebuilds)
+	}
+	if summary.RebuildErr != nil {
+		t.Fatalf("rebuild error = %v, want nil", summary.RebuildErr)
 	}
 }
 

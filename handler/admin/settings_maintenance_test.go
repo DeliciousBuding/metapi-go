@@ -74,11 +74,6 @@ func TestMaintenanceClearCache_RealInvalidationAndRealJob(t *testing.T) {
 		t.Fatalf("queued=%v, want true", body["queued"])
 	}
 
-	deletedRoutes, _ := body["deletedTokenRoutes"].(float64)
-	if deletedRoutes < 1 {
-		t.Fatalf("deletedTokenRoutes=%v, want >= 1", body["deletedTokenRoutes"])
-	}
-
 	jobID, _ := body["jobId"].(string)
 	if jobID == "" || jobID == "stub-clear-cache" {
 		t.Fatalf("jobId still stub/empty: %v", body["jobId"])
@@ -95,13 +90,14 @@ func TestMaintenanceClearCache_RealInvalidationAndRealJob(t *testing.T) {
 		t.Fatalf("route cache should be invalidated, got %d routes", len(routes))
 	}
 
-	// Durable rows wiped.
+	// Durable rows survive: a cache clear clears caches (#1174). The route
+	// definition seeded above is operator state, and the queued rebuild needs it.
 	var routeCount int64
 	if err := db.Get(&routeCount, "SELECT COUNT(*) FROM token_routes"); err != nil {
 		t.Fatalf("count token_routes: %v", err)
 	}
-	if routeCount != 0 {
-		t.Fatalf("token_routes count=%d, want 0", routeCount)
+	if routeCount != 1 {
+		t.Fatalf("token_routes count=%d, want 1 (clear-cache must not delete route definitions)", routeCount)
 	}
 
 	// Real background task completes.
