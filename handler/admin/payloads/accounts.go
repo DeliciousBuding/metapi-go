@@ -36,6 +36,10 @@ type AccountUpdatePayload struct {
 	PlatformUserID *int `json:"platformUserId,omitempty"`
 	// SkipModelFetch is merged into extraConfig (same storage as create).
 	SkipModelFetch *bool `json:"skipModelFetch,omitempty"`
+	// CredentialMode is the mode the edit form saves (session | apikey). It was
+	// absent from this payload, so the handler never saw it and a saved switch
+	// silently kept the old mode (#1176).
+	CredentialMode *string `json:"credentialMode,omitempty"`
 	// Tags is stored in accounts.tags as a JSON array text (see tags.go).
 	Tags *[]string `json:"tags,omitempty"`
 }
