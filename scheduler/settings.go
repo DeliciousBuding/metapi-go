@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"math"
 	"strings"
-	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -111,11 +110,6 @@ func resolvePositiveIntegerSetting(settingKey string, fallback int) int {
 }
 
 // ---- Common helpers ----
-
-// toISOTime returns the current time as an ISO 8601 string.
-func toISOTime(t time.Time) string {
-	return t.UTC().Format(time.RFC3339)
-}
 
 // resolveCheckinScheduleMode reads the checkin schedule mode from config and DB.
 // Returns "cron", "interval", or "window" (E1).

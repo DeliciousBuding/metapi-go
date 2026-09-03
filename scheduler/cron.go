@@ -167,11 +167,6 @@ func (cr *cronRunner) addJob(spec string, fn func()) (cron.EntryID, error) {
 	})
 }
 
-// removeJob removes a cron job by entry ID.
-func (cr *cronRunner) removeJob(id cron.EntryID) {
-	cr.cron.Remove(id)
-}
-
 // start begins executing scheduled jobs.
 func (cr *cronRunner) start() {
 	cr.cron.Start()

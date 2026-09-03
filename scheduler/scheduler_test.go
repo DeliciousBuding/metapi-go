@@ -248,26 +248,6 @@ func TestCronRunner_AddJob(t *testing.T) {
 	}
 }
 
-func TestCronRunner_RemoveJob(t *testing.T) {
-	cr := newCronRunner()
-	var count atomic.Int32
-
-	id, err := cr.addJob("* * * * * *", func() {
-		count.Add(1)
-	})
-	if err != nil || id == 0 {
-		t.Skip("cannot add cron job for removal test")
-	}
-	cr.removeJob(id)
-	cr.start()
-	time.Sleep(1500 * time.Millisecond)
-	cr.stop()
-
-	if count.Load() > 0 {
-		t.Errorf("expected 0 runs after remove, got %d", count.Load())
-	}
-}
-
 func TestCronRunner_StartStop(t *testing.T) {
 	cr := newCronRunner()
 	var count atomic.Int32
@@ -349,31 +329,6 @@ func TestFormatErr(t *testing.T) {
 	}
 }
 
-func TestClampInt(t *testing.T) {
-	tests := []struct {
-		v, lo, hi, expected int
-	}{
-		{5, 1, 10, 5},
-		{0, 1, 10, 1},
-		{15, 1, 10, 10},
-		{-5, 1, 10, 1},
-		{1, 1, 10, 1},
-		{10, 1, 10, 10},
-		{5, -100, 100, 5},
-		{0, 0, 0, 0},
-		{100, 1, 24, 24},
-		{0, 1, 3650, 1},
-	}
-
-	for _, tc := range tests {
-		got := config.ClampInt(tc.v, tc.lo, tc.hi)
-		if got != tc.expected {
-			t.Errorf("ClampInt(%d, %d, %d) = %d, want %d",
-				tc.v, tc.lo, tc.hi, got, tc.expected)
-		}
-	}
-}
-
 func TestMaxInt(t *testing.T) {
 	tests := []struct {
 		a, b, expected int
@@ -413,41 +368,23 @@ func TestMaxInt64(t *testing.T) {
 	}
 }
 
-func TestToISOTime(t *testing.T) {
-	now := time.Date(2026, 7, 4, 12, 30, 45, 0, time.UTC)
-	got := toISOTime(now)
-	expected := "2026-07-04T12:30:45Z"
-	if got != expected {
-		t.Errorf("toISOTime = %q, want %q", got, expected)
-	}
-}
-
 func TestFormatTimeToSQL(t *testing.T) {
-	t.Run("normal", func(t *testing.T) {
-		now := time.Date(2026, 7, 4, 12, 30, 45, 0, time.UTC)
-		got := formatTimeToSQL(now)
-		expected := "2026-07-04T12:30:45Z"
-		if got != expected {
-			t.Errorf("formatTimeToSQL = %q, want %q", got, expected)
-		}
-	})
-
-	t.Run("converts non-UTC to UTC RFC3339", func(t *testing.T) {
-		loc := time.FixedZone("UTC+8", 8*3600)
-		now := time.Date(2026, 7, 4, 20, 30, 45, 0, loc) // 12:30:45Z
-		got := formatTimeToSQL(now)
-		expected := "2026-07-04T12:30:45Z"
-		if got != expected {
-			t.Errorf("formatTimeToSQL = %q, want %q", got, expected)
-		}
-	})
-
-	t.Run("zero", func(t *testing.T) {
-		got := formatTimeToSQL(time.Time{})
-		if got != "" {
-			t.Errorf("expected empty for zero time, got %q", got)
-		}
-	})
+	tests := []struct {
+		name string
+		in   time.Time
+		want string
+	}{
+		{name: "normal", in: time.Date(2026, 7, 4, 12, 30, 45, 0, time.UTC), want: "2026-07-04T12:30:45Z"},
+		{name: "converts non-UTC to UTC RFC3339", in: time.Date(2026, 7, 4, 20, 30, 45, 0, time.FixedZone("UTC+8", 8*3600)), want: "2026-07-04T12:30:45Z"},
+		{name: "zero", in: time.Time{}, want: ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formatTimeToSQL(tc.in); got != tc.want {
+				t.Errorf("formatTimeToSQL(%v) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
 
 	t.Run("lexicographic same-day compare vs RFC3339 rows", func(t *testing.T) {
 		// Space-format cutoffs shield same-day old rows because 'T' > ' '.
@@ -696,46 +633,47 @@ func TestCheckinScheduler_Stop(t *testing.T) {
 }
 
 func TestCountResults(t *testing.T) {
-	t.Run("all success", func(t *testing.T) {
-		results := []checkin.CheckinAllResult{
-			{AccountID: 1, Result: checkin.CheckinResult{Success: true}},
-			{AccountID: 2, Result: checkin.CheckinResult{Success: true}},
-		}
-		ok, bad := countResults(results)
-		if ok != 2 || bad != 0 {
-			t.Errorf("countResults = (%d, %d), want (2, 0)", ok, bad)
-		}
-	})
-
-	t.Run("all failures", func(t *testing.T) {
-		results := []checkin.CheckinAllResult{
-			{AccountID: 1, Result: checkin.CheckinResult{Success: false}},
-			{AccountID: 2, Result: checkin.CheckinResult{Success: false}},
-		}
-		ok, bad := countResults(results)
-		if ok != 0 || bad != 2 {
-			t.Errorf("countResults = (%d, %d), want (0, 2)", ok, bad)
-		}
-	})
-
-	t.Run("mixed", func(t *testing.T) {
-		results := []checkin.CheckinAllResult{
-			{AccountID: 1, Result: checkin.CheckinResult{Success: true}},
-			{AccountID: 2, Result: checkin.CheckinResult{Success: false}},
-			{AccountID: 3, Result: checkin.CheckinResult{Success: true}},
-		}
-		ok, bad := countResults(results)
-		if ok != 2 || bad != 1 {
-			t.Errorf("countResults = (%d, %d), want (2, 1)", ok, bad)
-		}
-	})
-
-	t.Run("empty", func(t *testing.T) {
-		ok, bad := countResults(nil)
-		if ok != 0 || bad != 0 {
-			t.Errorf("countResults(nil) = (%d, %d), want (0, 0)", ok, bad)
-		}
-	})
+	tests := []struct {
+		name        string
+		results     []checkin.CheckinAllResult
+		wantSuccess int
+		wantFailed  int
+	}{
+		{
+			name: "all success",
+			results: []checkin.CheckinAllResult{
+				{AccountID: 1, Result: checkin.CheckinResult{Success: true}},
+				{AccountID: 2, Result: checkin.CheckinResult{Success: true}},
+			},
+			wantSuccess: 2, wantFailed: 0,
+		},
+		{
+			name: "all failures",
+			results: []checkin.CheckinAllResult{
+				{AccountID: 1, Result: checkin.CheckinResult{Success: false}},
+				{AccountID: 2, Result: checkin.CheckinResult{Success: false}},
+			},
+			wantSuccess: 0, wantFailed: 2,
+		},
+		{
+			name: "mixed",
+			results: []checkin.CheckinAllResult{
+				{AccountID: 1, Result: checkin.CheckinResult{Success: true}},
+				{AccountID: 2, Result: checkin.CheckinResult{Success: false}},
+				{AccountID: 3, Result: checkin.CheckinResult{Success: true}},
+			},
+			wantSuccess: 2, wantFailed: 1,
+		},
+		{name: "empty", results: nil, wantSuccess: 0, wantFailed: 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ok, bad := countResults(tc.results)
+			if ok != tc.wantSuccess || bad != tc.wantFailed {
+				t.Errorf("countResults(%v) = (%d, %d), want (%d, %d)", tc.results, ok, bad, tc.wantSuccess, tc.wantFailed)
+			}
+		})
+	}
 }
 
 // =============================================================================
