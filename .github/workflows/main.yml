@@ -108,7 +108,10 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - run: bun install --frozen-lockfile
+      # Never call `bun install` directly: scripts/bun-install.sh carries the
+      # transient-fault retry policy, and scripts/bun_install_wiring_test.go
+      # fails if a bare call reappears.
+      - run: sh ../scripts/bun-install.sh
       - run: bun run typecheck
       - run: bun run lint
       - run: bun run format:check
@@ -146,7 +149,7 @@ jobs:
           name: web-dist
           path: web/dist
       - name: Install web deps (playwright + axe-core)
-        run: bun install --frozen-lockfile
+        run: sh ../scripts/bun-install.sh
         working-directory: web
       - name: Cache Playwright browsers
         uses: actions/cache@v6
@@ -739,9 +742,12 @@ jobs:
             exit 1
           fi
           echo "release consistent: $GITHUB_REF_NAME / $pkg_ver"
+      - name: Install web deps for release binaries
+        run: sh ../scripts/bun-install.sh
+        working-directory: web
       - name: Build frontend for release binaries
         working-directory: web
-        run: bun install --frozen-lockfile && bun run build:web
+        run: bun run build:web
       - name: Build multi-platform release binaries
         run: |
           set -euo pipefail
@@ -836,7 +842,7 @@ jobs:
           name: web-dist
           path: web/dist
       - name: Install web deps (playwright + sharp + axe-core)
-        run: bun install --frozen-lockfile
+        run: sh ../scripts/bun-install.sh
         working-directory: web
       - name: Install CJK fonts (screenshots must render zh-CN glyphs)
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
@@ -909,7 +915,7 @@ jobs:
           name: web-dist
           path: web/dist
       - name: Install web deps (playwright)
-        run: bun install --frozen-lockfile
+        run: sh ../scripts/bun-install.sh
         working-directory: web
       - name: Install CJK fonts (baselines render zh-CN glyphs)
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
