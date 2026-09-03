@@ -11,11 +11,6 @@ const config: KnipConfig = {
     // files even though the HTML references them directly.
     'public/bootstrap.js',
     'public/theme-init.js',
-    // One-off probes archived under web/scripts/oneoff/ — kept for reference
-    // with no package.json entry and no importer, so knip would (correctly)
-    // flag them as unused. The live inventory lives in
-    // docs/internal/analysis/e2e-acceptance-platform.md.
-    'scripts/oneoff/**',
   ],
 }
 

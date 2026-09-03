@@ -42,11 +42,22 @@ Thumbs.db
 .env
 .env.local
 *.env
+.env.*
+!.env.example
 
 # Data
 /data/
 *.db
 *.sqlite
+
+# Logs (only electron/*.log was covered before)
+*.log
+
+# Release staging (scripts/release.sh + the release workflow build here)
+/dist-bin/
+
+# Bun binary lockfile (the repo tracks the text web/bun.lock)
+*.lockb
 
 # Golden TS fixture for the migration-compat tests — intentionally tracked
 # (dummy data, built by scripts/regen-ts-fixture.sh).

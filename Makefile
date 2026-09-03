@@ -1,4 +1,4 @@
-.PHONY: p0585-probe p0585-e2e build test race race-integration vet lint vuln mod-verify docs-hygiene bench-routing coverage verify verify-race docker-verify run docker-build clean web-build migrate-build electron-build
+.PHONY: build test race race-integration vet lint vuln mod-verify docs-hygiene bench-routing coverage verify verify-race docker-verify run docker-build clean web-build migrate-build electron-build
 
 # Version injected into the binary at build time; "dev" when not on a tag.
 VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || echo dev)

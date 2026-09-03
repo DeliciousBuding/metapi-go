@@ -211,7 +211,6 @@ This section lists open residuals only. Closure history lives in root [`../../CH
 1. **Charts keyboard series access** — recharts renders series as non-focusable SVG; assistive tech relies on the text axes, legends, and rich text tooltips (balance/cost, accounts, calls, tokens, share) that already carry the data. Non-color status encoding (text labels on availability buckets, attention badges) is in place; no color-only status.
 2. **Global focus-ring utility** — chrome controls share the `--ring` recipe; a single shared rule for every page-level action grid is not yet in place (`.modal-close-button:focus-visible` uses a primary outline).
 3. **Hex hygiene** — no new brand hex is allowed in pages (see [`DESIGN.md`](./DESIGN.md) §1 Principles). Existing brand assets and other justified exceptions are reviewed when their owning surface changes; this is not a standalone sweep.
-4. **Preset contrast** — resolved in Wave 9 (v0.16.9, 2026-08-24): all preset contrast residuals cleared to **0 exemptions** (10 presets × light/dark all pass WCAG AA 4.5:1) and the dormant `--sidebar-primary` pairs deleted. Fixed pairs are pinned by `web/src/styles/__tests__/contrast-gate.test.ts` (empty exemption list). Historical fix detail lives in `../../CHANGELOG.md`.
 
 ---
 
