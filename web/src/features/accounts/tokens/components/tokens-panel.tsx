@@ -217,7 +217,15 @@ function TokenRow({
             </Badge>
           )}
           {isMaskedPending && (
-            <Badge variant='warning' className='text-[10px]'>
+            // "Pending" alone reads as "wait", which is what an operator did
+            // while the token stayed unusable: Metapi only ever received the
+            // upstream's masked display value, and the fix is the sync action
+            // that already sits on this account, not time.
+            <Badge
+              variant='warning'
+              className='text-[10px]'
+              title={t('accounts.tokens.pendingCompleteHint')}
+            >
               {t('accounts.tokens.pendingComplete')}
             </Badge>
           )}

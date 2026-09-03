@@ -378,11 +378,25 @@ function ChannelRow({
     channel.account?.username ||
     t('tokenRoutes.detail.fallbackAccount', { id: channel.accountId })
   const siteLabel = channel.site?.name || channel.site?.platform || ''
+  const tokenBound = Boolean(channel.token?.name || channel.tokenId)
+  // An account-scoped channel (no token_id) is NOT unbound: the selector relays
+  // it with the account's own credential — the access token for an OAuth
+  // account, the API key otherwise (routing.resolveChannelTokenValue). Route
+  // rebuild deliberately creates both flavours for the same account and model,
+  // so calling the account-scoped one "Unbound" labelled a working channel as
+  // broken and sent operators hunting for a binding step that does not exist.
+  // Only when the wire reports neither masked credential is the channel really
+  // unable to serve, and that is the one case worth shouting about.
+  const accountCredential = Boolean(
+    channel.account?.accessTokenMasked || channel.account?.apiTokenMasked
+  )
   const tokenLabel =
     channel.token?.name ||
     (channel.tokenId
       ? t('tokenRoutes.detail.fallbackToken', { id: channel.tokenId })
-      : t('tokenRoutes.detail.channelTokenUnbound'))
+      : accountCredential
+        ? t('tokenRoutes.detail.channelTokenAccount')
+        : t('tokenRoutes.detail.channelTokenMissing'))
   const sourceModel = priceTruth.concreteModel || '—'
   const cooldownActive =
     Boolean(channel.cooldownUntil) &&
@@ -400,7 +414,18 @@ function ChannelRow({
             )}
           </div>
           <div className='text-muted-foreground mt-0.5 flex flex-wrap items-center gap-1.5'>
-            <span>
+            <span
+              // The label names the credential this channel relays with; the
+              // title carries the mechanism and, for the credential-less case,
+              // the action that fixes it (on the account, not the channel).
+              title={
+                tokenBound
+                  ? undefined
+                  : accountCredential
+                    ? t('tokenRoutes.detail.channelTokenAccountHint')
+                    : t('tokenRoutes.detail.channelTokenMissingHint')
+              }
+            >
               {t('tokenRoutes.detail.channelToken')}: {tokenLabel}
             </span>
             <span>

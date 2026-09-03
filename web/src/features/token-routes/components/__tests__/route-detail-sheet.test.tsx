@@ -5,6 +5,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import i18n from 'i18next'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
@@ -135,6 +136,71 @@ describe('RouteDetailSheet channel hit counters', () => {
 
     expect(
       screen.getByText('0', { selector: '.text-success' })
+    ).toBeInTheDocument()
+  })
+})
+
+// Route rebuild deliberately creates two channel flavours for the same account
+// and model: one bound to an account token, and one account-scoped channel
+// (token_id NULL) that relays with the account's own credential. The
+// account-scoped one used to read "Unbound", which labelled a WORKING channel
+// as broken and sent operators looking for a binding form that does not exist.
+// These cases pin the three states the sheet can truthfully report.
+describe('RouteDetailSheet channel credential guidance', () => {
+  const accountHint = () =>
+    String(i18n.t('tokenRoutes.detail.channelTokenAccountHint'))
+  const missingHint = () =>
+    String(i18n.t('tokenRoutes.detail.channelTokenMissingHint'))
+
+  it('names the account credential for an account-scoped channel', () => {
+    testState.channels = [
+      makeChannel({
+        id: 12,
+        tokenId: null,
+        token: null,
+        account: { username: 'alice', apiTokenMasked: 'ibI7****GQhh' },
+      }),
+    ]
+
+    render(<RouteDetailSheet route={makeRoute()} open onOpenChange={vi.fn()} />)
+
+    const line = screen.getByTitle(accountHint())
+    expect(line).toHaveTextContent(
+      String(i18n.t('tokenRoutes.detail.channelTokenAccount'))
+    )
+    // Not the credential-less state, and not the word that started the
+    // confusion: the English copy is pinned on purpose so restoring
+    // "Unbound" in any locale-independent way still fails here.
+    expect(screen.queryByTitle(missingHint())).not.toBeInTheDocument()
+    expect(line).not.toHaveTextContent('Unbound')
+  })
+
+  it('says loudly when the account holds no credential at all', () => {
+    // makeChannel's account fixture carries no masked credential, which is
+    // exactly the wire shape handler/admin produces when neither value exists.
+    testState.channels = [makeChannel({ id: 14, tokenId: null, token: null })]
+
+    render(<RouteDetailSheet route={makeRoute()} open onOpenChange={vi.fn()} />)
+
+    const line = screen.getByTitle(missingHint())
+    expect(line).toHaveTextContent(
+      String(i18n.t('tokenRoutes.detail.channelTokenMissing'))
+    )
+    expect(screen.queryByTitle(accountHint())).not.toBeInTheDocument()
+  })
+
+  it('does not warn about a channel that does have a token', () => {
+    testState.channels = [makeChannel({ id: 13, tokenId: 7, token: null })]
+
+    render(<RouteDetailSheet route={makeRoute()} open onOpenChange={vi.fn()} />)
+
+    expect(screen.queryByTitle(accountHint())).not.toBeInTheDocument()
+    expect(screen.queryByTitle(missingHint())).not.toBeInTheDocument()
+    expect(
+      screen.getByText(
+        String(i18n.t('tokenRoutes.detail.fallbackToken', { id: 7 })),
+        { exact: false }
+      )
     ).toBeInTheDocument()
   })
 })
