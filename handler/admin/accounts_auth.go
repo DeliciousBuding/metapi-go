@@ -226,7 +226,7 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if result == nil || result.TokenType == "" || result.TokenType == "unknown" {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "token verification failed")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, credentialVerificationFailureMessage(site.Platform))
 		return
 	}
 
