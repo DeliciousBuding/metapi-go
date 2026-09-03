@@ -228,3 +228,41 @@ func containsAllStrings(haystack []string, needles ...string) bool {
 	}
 	return true
 }
+
+func TestSyncTokensFromUpstream_MaskedKeySyncIsIdempotent(t *testing.T) {
+	db := openTestDB(t)
+	siteID := createTestSite(t, db, "MaskedIdempotentSite", "https://masked-idem.example.com", "one-api")
+	accountID := createTestAccount(t, db, siteID, strPtr("masked-user"), "session-token")
+
+	adapter := &stubTokenAdapter{tokens: []platform.ApiTokenInfo{
+		{Name: "masked-relay", Key: "sk-abc***xyz", Enabled: true, TokenGroup: "default"},
+	}}
+	tokens, err := FetchUpstreamAPITokens(context.Background(), adapter, "https://masked-idem.example.com", "session-token", nil, nil)
+	if err != nil {
+		t.Fatalf("FetchUpstreamAPITokens: %v", err)
+	}
+
+	first, err := SyncTokensFromUpstream(db.DB, accountID, tokens)
+	if err != nil {
+		t.Fatalf("first SyncTokensFromUpstream: %v", err)
+	}
+	if first.Created != 1 {
+		t.Fatalf("first sync created = %d, want 1", first.Created)
+	}
+
+	second, err := SyncTokensFromUpstream(db.DB, accountID, tokens)
+	if err != nil {
+		t.Fatalf("second SyncTokensFromUpstream: %v", err)
+	}
+	if second.Created != 0 {
+		t.Fatalf("second sync created = %d, want 0 (masked keys must be deduped, not re-added)", second.Created)
+	}
+
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM account_tokens WHERE account_id = ?", accountID).Scan(&count); err != nil {
+		t.Fatalf("count account_tokens: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("account_tokens row count = %d, want 1 (sync must be idempotent)", count)
+	}
+}
