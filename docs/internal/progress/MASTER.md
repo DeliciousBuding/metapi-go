@@ -2,7 +2,7 @@
 
 **Last verified**: 2026-09-03
 
-**Release**: [v0.17.1](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.17.1) · cut on master 2026-09-03 (tag pipeline + human review of the notes decide publish); the **published** Latest until then is [v0.17.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.17.0) (published 2026-09-03, artifacts sampled and sha256-verified)
+**Release**: [v0.17.1](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.17.1) · **published = repo Latest**, 2026-09-03 (tag `v0.17.1` → master `292208fd`; artifacts sampled, sha256-verified against `checksums.txt`, and re-verified end-to-end on the real-upstream testbed). Previous Latest [v0.17.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.17.0), published the same day
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
