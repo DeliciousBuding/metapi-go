@@ -84,18 +84,14 @@ golangci-lint run --timeout=3m        # Lint check
 
 | Path                                                       | Role                                                                           |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `docs/internal/STATE.md`                                            | **Current state** (verified product facts; keep slim)                          |
-| `docs/internal/progress/MASTER.md`                                  | **Three delivery mainlines + the only executable open plan** (not a changelog) |
-| `docs/internal/log.md`                                              | **Progress log** append-only (never overrides STATE)                           |
 | `docs/architecture.md`                                     | As-built package map (proxy/transform/routing; not proxycore/protocol)         |
-| `docs/internal/design/BACKEND.md`                                   | Backend philosophy, dependency rules, forbidden imports                        |
-| `docs/internal/design/DESIGN.md`                                    | UI design system source of truth                                               |
-| `docs/internal/benchmark.md`                                        | 产品对标（New API × All API Hub）+ direction                                   |
+| `docs/internal/design/BACKEND.md`                          | Backend philosophy, dependency rules, forbidden imports                        |
+| `docs/internal/design/DESIGN.md`                           | UI design system source of truth                                               |
 | `docs/testing.md`                                          | Test layers + sanitized real-platform testbed SOP                              |
 | `docs/api.md` / `docs/deployment.md` / `docs/migration.md` | API · deploy · migration                                                       |
 | `CHANGELOG.md`                                             | Version narrative                                                              |
 
-**Progress roles:** STATE = current state · MASTER = open items · LOG = timeline. Temporary session summaries are **not** source of truth — archive or delete after use.
+**Task/state SSOT:** Open work is tracked in **GitHub issues**; product state and the version narrative live in **GitHub releases** and `CHANGELOG.md`. Maintainer process/history/research moved out of this public repo. Temporary session summaries are **not** source of truth — archive or delete after use.
 **Ops host/image pin** lives outside this repository (private deployment surface). Public deployment notes: `docs/deployment.md`.
 **Honesty:** Prefer 501 / documented residual over stub theater. Do not claim cluster-wide sticky or WS product without the matching milestone.
 

@@ -82,10 +82,10 @@ single source of truth is
 - **Frontend i18n**: all user-facing text goes through `t()` keys in
   `web/src/i18n/locales/{en,zh-CN}.json` — both languages must stay in sync
   (checked by `web/src/i18n/__tests__/i18n-keys.test.ts`).
-- **Docs**: user-facing behavior changes update `docs/internal/STATE.md` /
-  `docs/internal/progress/MASTER.md` / `CHANGELOG.md`. Public docs must never contain
-  local paths, private hostnames, or credentials (`make docs-hygiene` enforces
-  this).
+- **Docs**: user-facing behavior changes update public product docs and the
+  `CHANGELOG.md`; open work is tracked in GitHub issues. Public docs must never
+  contain local paths, private hostnames, or credentials (`make docs-hygiene`
+  enforces this).
 - **Single binary**: the production image ships no Node/Bun runtime. Don't
   add npm scripts to the runtime path.
 

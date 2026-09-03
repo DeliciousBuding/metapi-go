@@ -1,5 +1,4 @@
-// metapi-go/routing — operator-tunable status-code range policy
-// (competitor-study-2026-08 P1-2).
+// metapi-go/routing — operator-tunable status-code range policy.
 //
 // Two runtime settings (settings table, live-applied via PUT
 // /api/settings/runtime and rehydrated at startup) replace the status

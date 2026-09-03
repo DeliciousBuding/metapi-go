@@ -11,16 +11,15 @@ import (
 	"testing"
 )
 
-// TestPackageBoundaries encodes the forbidden-import hard rules from
-// docs/internal/design/BACKEND.md §2.3 as a machine assertion, so the package
-// dependency discipline documented in docs/internal/analysis/package-boundaries.md
-// cannot silently drift.
+// TestPackageBoundaries encodes the forbidden-import hard rules from the
+// as-built package map in docs/architecture.md as a machine assertion, so the
+// package dependency discipline cannot silently drift.
 
 // This is the Go analogue of a grep-based architecture boundary check
 // (test.yml:134-148 "web handlers must route through commands/*_core"):
 // every architecture-level boundary decision is frozen into a CI test.
 
-// Rules enforced (denylist — matches BACKEND.md §2.3 hard rules):
+// Rules enforced (denylist from the architecture contract):
 //  1. store        ↛ handler, proxy, routing, service, scheduler, router, auth
 //  2. platform     ↛ store, handler, proxy, router, scheduler   (config + proxy/profiles allowed)
 //  3. transform    ↛ handler, store, proxy, routing, service, auth
@@ -30,7 +29,7 @@ import (
 //  7. handler      ↛ router                                   (router mounts handlers, not reverse)
 //  8. no revived TS-era top-level names proxycore/protocol
 
-// Documented exceptions (BACKEND.md §2.2 / package-boundaries.md §5) are
+// Documented architecture exceptions are
 // allowed and excluded from the denylist:
 //   - handler/admin → scheduler (admin-ops cron validation only, §5.1)
 //   - handler/admin → app (checkin schedule lifecycle, §5.2)
@@ -47,8 +46,8 @@ import (
 // cmd/migrate, e2e, internal, docs, web are out of scope.
 
 // When this test fails: do NOT relax it. Either move the import to an
-// allowed edge, or document a new exception in BACKEND.md §2 + this file
-// with justification (mirrors package-boundaries.md §5 process).
+// allowed edge, or document a new exception in docs/architecture.md + this
+// file with justification.
 
 const modulePath = "github.com/deliciousbuding/metapi-go"
 
@@ -63,7 +62,7 @@ func TestPackageBoundaries(t *testing.T) {
 			return violations[i].file < violations[j].file
 		})
 		var b strings.Builder
-		b.WriteString("package boundary violations (docs/internal/design/BACKEND.md §2.3):\n")
+		b.WriteString("package boundary violations (docs/architecture.md contract):\n")
 		for _, v := range violations {
 			b.WriteString("  ")
 			b.WriteString(v.file)
@@ -75,7 +74,7 @@ func TestPackageBoundaries(t *testing.T) {
 			b.WriteString(v.rule)
 			b.WriteString(")\n")
 		}
-		b.WriteString("\nDo not relax this test. Move the import to an allowed edge or document a new exception in BACKEND.md §2 + package-boundaries.md §5.")
+		b.WriteString("\nDo not relax this test. Move the import to an allowed edge or document a new exception in docs/architecture.md + this file.")
 		t.Fatal(b.String())
 	}
 }

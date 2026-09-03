@@ -6,7 +6,7 @@
 **Last updated**: 2026-08-23
 **Status**: living acceptance checklist; known limitations are documented, not an implicit backlog
 
-This document records keyboard, name, contrast, and responsive expectations. Known limitations are evidence only unless promoted to [`../progress/MASTER.md`](../progress/MASTER.md) or a scoped GitHub issue.
+This document records keyboard, name, contrast, and responsive expectations. Known limitations are evidence only unless promoted to a scoped GitHub issue.
 
 ---
 
@@ -206,12 +206,12 @@ Breakpoints used by product:
 
 ## 7. Known limitations
 
-This section lists open residuals only. Closure history lives in [`../log.md`](../log.md) and root [`../../CHANGELOG.md`](../../../CHANGELOG.md). Open work is committed through [`../progress/MASTER.md`](../progress/MASTER.md) or a scoped issue.
+This section lists open residuals only. Closure history lives in root [`../../CHANGELOG.md`](../../../CHANGELOG.md). Open work is committed through a scoped GitHub issue.
 
 1. **Charts keyboard series access** — recharts renders series as non-focusable SVG; assistive tech relies on the text axes, legends, and rich text tooltips (balance/cost, accounts, calls, tokens, share) that already carry the data. Non-color status encoding (text labels on availability buckets, attention badges) is in place; no color-only status.
 2. **Global focus-ring utility** — chrome controls share the `--ring` recipe; a single shared rule for every page-level action grid is not yet in place (`.modal-close-button:focus-visible` uses a primary outline).
 3. **Hex hygiene** — no new brand hex is allowed in pages (see [`DESIGN.md`](./DESIGN.md) §1 Principles). Existing brand assets and other justified exceptions are reviewed when their owning surface changes; this is not a standalone sweep.
-4. **Preset contrast** — resolved in Wave 9 (v0.16.9, 2026-08-24): all preset contrast residuals cleared to **0 exemptions** (10 presets × light/dark all pass WCAG AA 4.5:1) and the dormant `--sidebar-primary` pairs deleted. Fixed pairs are pinned by `web/src/styles/__tests__/contrast-gate.test.ts` (empty exemption list). Historical fix detail lives in `../log.md` and `../../CHANGELOG.md`.
+4. **Preset contrast** — resolved in Wave 9 (v0.16.9, 2026-08-24): all preset contrast residuals cleared to **0 exemptions** (10 presets × light/dark all pass WCAG AA 4.5:1) and the dormant `--sidebar-primary` pairs deleted. Fixed pairs are pinned by `web/src/styles/__tests__/contrast-gate.test.ts` (empty exemption list). Historical fix detail lives in `../../CHANGELOG.md`.
 
 ---
 
@@ -252,4 +252,4 @@ Run against both light and dark themes.
 - Shared accessibility behavior belongs in `web/src/components/ui/**` or the shell owner, with focused component coverage.
 - Feature-specific names, labels, error announcements, and responsive fallbacks stay with the feature.
 - Re-run the relevant keyboard/manual checks plus `bun run a11y:scan` when a shared interaction primitive changes.
-- Do not create a permanent “sweep” project. Promote a verified defect to `MASTER.md` or an issue with a concrete owner and acceptance criterion.
+- Do not create a permanent “sweep” project. Promote a verified defect to a GitHub issue with a concrete owner and acceptance criterion.

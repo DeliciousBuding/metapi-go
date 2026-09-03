@@ -194,4 +194,4 @@ Checklist: [`a11y-checklist.md`](./a11y-checklist.md).
 
 ## 7. History
 
-Visual change history lives in root [`CHANGELOG.md`](../../../CHANGELOG.md) and [`../log.md`](../log.md); this document states only current truth.
+Visual change history lives in root [`CHANGELOG.md`](../../../CHANGELOG.md); this document states only current truth.
