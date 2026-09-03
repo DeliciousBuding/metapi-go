@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -325,13 +326,13 @@ func (s *CheckinScheduler) stopLocked() {
 func (s *CheckinScheduler) UpdateCheckinSchedule(mode, cronExpr string, intervalHours int, windowStart, windowEnd string) error {
 	mode = stringsTrimLower(mode)
 	if mode != "cron" && mode != "interval" && mode != "window" {
-		return formatErr("invalid checkin schedule mode: %s", mode)
+		return fmt.Errorf("invalid checkin schedule mode: %s", mode)
 	}
 	if mode == "cron" && !ValidateCronExpr(cronExpr) {
-		return formatErr("invalid cron expression: %s", cronExpr)
+		return fmt.Errorf("invalid cron expression: %s", cronExpr)
 	}
 	if mode == "interval" && (intervalHours < 1 || intervalHours > 24) {
-		return formatErr("invalid interval hours: %d (must be 1-24)", intervalHours)
+		return fmt.Errorf("invalid interval hours: %d (must be 1-24)", intervalHours)
 	}
 	if mode == "window" {
 		if _, err := RandomCronInWindow(windowStart, windowEnd); err != nil {

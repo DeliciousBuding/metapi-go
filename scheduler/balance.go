@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/deliciousbuding/metapi-go/config"
@@ -63,7 +64,7 @@ func (s *BalanceScheduler) Stop() error {
 // UpdateCron updates the cron expression at runtime.
 func (s *BalanceScheduler) UpdateCron(cronExpr string) error {
 	if !ValidateCronExpr(cronExpr) {
-		return formatErr("invalid cron expression: %s", cronExpr)
+		return fmt.Errorf("invalid cron expression: %s", cronExpr)
 	}
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = cronExpr })
 	if s.cronRunner != nil {

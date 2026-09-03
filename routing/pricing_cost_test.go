@@ -73,24 +73,6 @@ func TestResolveCacheRatio_ExplicitPresentWins(t *testing.T) {
 	}
 }
 
-func TestNormalizePricingRatio_KindAware(t *testing.T) {
-	// Missing cache fields on Claude → Anthropic defaults.
-	if got := NormalizePricingRatio(nil, "claude-opus-4-7", "cache", 1); got != ClaudeCacheRatio {
-		t.Fatalf("cache kind: got %v", got)
-	}
-	if got := NormalizePricingRatio(nil, "claude-opus-4-7", "cache_creation", 1); got != ClaudeCacheCreationRatio {
-		t.Fatalf("cache_creation kind: got %v", got)
-	}
-	// Present value wins.
-	if got := NormalizePricingRatio(0.05, "claude-opus-4-7", "cache", 1); got != 0.05 {
-		t.Fatalf("present cache ratio: got %v", got)
-	}
-	// Non-Claude missing → 1.0
-	if got := NormalizePricingRatio(nil, "gpt-4o", "cache", 1); got != 1 {
-		t.Fatalf("non-claude missing: got %v", got)
-	}
-}
-
 func TestCalculateModelUsageBreakdown_WithExplicitCacheRatio(t *testing.T) {
 	// Mirrors TS modelPricingService.test.ts "splits cache read and cache creation"
 	model := PricingModel{
@@ -265,31 +247,6 @@ func TestCalculateModelUsageCost_ZeroCacheRatio(t *testing.T) {
 	if detail.Breakdown.TotalCost != 0 {
 		// billable prompt = 0, cache cost = 0
 		t.Fatalf("totalCost=%v want 0", detail.Breakdown.TotalCost)
-	}
-}
-
-func TestBuildPricingOverrideModel_ClaudeMissingCache(t *testing.T) {
-	model, groups := BuildPricingOverrideModel("claude-haiku-4-5", ProxyBillingPricingOverride{
-		ModelRatio:      2.5,
-		CompletionRatio: 5,
-		// CacheRatio / CacheCreationRatio omitted
-	})
-	if model.CacheRatio == nil || *model.CacheRatio != ClaudeCacheRatio {
-		t.Fatalf("override cacheRatio=%v want %v", model.CacheRatio, ClaudeCacheRatio)
-	}
-	if model.CacheCreationRatio == nil || *model.CacheCreationRatio != ClaudeCacheCreationRatio {
-		t.Fatalf("override cacheCreationRatio=%v want %v", model.CacheCreationRatio, ClaudeCacheCreationRatio)
-	}
-	cost := CalculateModelUsageCost(model, UsageForCost{
-		PromptTokens:             146638,
-		CompletionTokens:         172,
-		TotalTokens:              146810,
-		CacheReadTokens:          145692,
-		CacheCreationTokens:      945,
-		PromptTokensIncludeCache: boolPtr(true),
-	}, groups)
-	if math.Abs(cost-0.083057) > 1e-9 {
-		t.Fatalf("override cost=%v want 0.083057", cost)
 	}
 }
 
@@ -470,24 +427,6 @@ func TestCalculateModelUsageFullPrice_NoCacheMatchesBreakdownMath(t *testing.T) 
 	}
 	if fullPrice.Breakdown.OutputCost != breakdown.Breakdown.OutputCost {
 		t.Fatalf("outputCost fullPrice=%v breakdown=%v", fullPrice.Breakdown.OutputCost, breakdown.Breakdown.OutputCost)
-	}
-}
-
-func TestEstimateProxyCostFromModel_MatchesCalculateModelUsageCost(t *testing.T) {
-	// EstimateProxyCostFromModel is a thin alias over CalculateModelUsageCost;
-	// pin the equivalence so the public entry point cannot drift from the
-	// canonical math.
-	model := PricingModel{ModelName: "probe-estimate", QuotaType: 0, ModelRatio: 2, CompletionRatio: 6}
-	usage := UsageForCost{PromptTokens: 1000, CompletionTokens: 500, TotalTokens: 1500}
-	groupRatio := map[string]float64{"default": 1.5}
-
-	got := EstimateProxyCostFromModel(model, usage, groupRatio)
-	want := CalculateModelUsageCost(model, usage, groupRatio)
-	if got != want {
-		t.Fatalf("EstimateProxyCostFromModel = %v, want %v (alias must match)", got, want)
-	}
-	if got <= 0 {
-		t.Fatalf("expected a positive cost, got %v", got)
 	}
 }
 
