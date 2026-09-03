@@ -32,13 +32,6 @@ func TestAntigravityAdapter_Detect(t *testing.T) {
 	}
 }
 
-func TestAntigravityAdapter_PlatformName(t *testing.T) {
-	a := &AntigravityAdapter{StandardAdapter: NewStandardAdapter("antigravity")}
-	if a.PlatformName() != "antigravity" {
-		t.Errorf("PlatformName: %q", a.PlatformName())
-	}
-}
-
 func TestAntigravityAdapter_LoginUnspported(t *testing.T) {
 	a := &AntigravityAdapter{StandardAdapter: NewStandardAdapter("antigravity")}
 	ctx := context.Background()

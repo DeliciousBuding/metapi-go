@@ -9,17 +9,6 @@ import (
 	"time"
 )
 
-func TestDoneHubAdapter_PlatformName(t *testing.T) {
-	d := &DoneHubAdapter{
-		OneHubAdapter: &OneHubAdapter{
-			OneApiAdapter: &OneApiAdapter{BaseAdapter: NewBaseAdapter("done-hub")},
-		},
-	}
-	if d.PlatformName() != "done-hub" {
-		t.Errorf("PlatformName: %q", d.PlatformName())
-	}
-}
-
 func TestDoneHubAdapter_Detect(t *testing.T) {
 	d := &DoneHubAdapter{
 		OneHubAdapter: &OneHubAdapter{

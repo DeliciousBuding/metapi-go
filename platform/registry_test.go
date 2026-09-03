@@ -145,3 +145,62 @@ func TestNormalizePlatformAlias_NewApiForks(t *testing.T) {
 		}
 	}
 }
+
+// TestAdapterPlatformNames asserts every registered adapter reports its
+// canonical platform name. Each expectation (wantName) is an explicit literal
+// — never derived from the adapter or the registry — so a production wiring
+// regression fails this test. After the table runs, an anti-shrink cross-check
+// asserts the table's adapter set exactly equals the set the registry exposes
+// (ListAdapters), so adding an adapter without a row (or deleting a row)
+// makes the gate go red.
+func TestAdapterPlatformNames(t *testing.T) {
+	tests := []struct {
+		adapter  PlatformAdapter
+		wantName string
+	}{
+		{adapter: buildAdapter("openai"), wantName: "openai"},
+		{adapter: buildAdapter("codex"), wantName: "codex"},
+		{adapter: buildAdapter("claude"), wantName: "claude"},
+		{adapter: buildAdapter("gemini"), wantName: "gemini"},
+		{adapter: buildAdapter("gemini-cli"), wantName: "gemini-cli"},
+		{adapter: buildAdapter("antigravity"), wantName: "antigravity"},
+		{adapter: buildAdapter("grok"), wantName: "grok"},
+		{adapter: buildAdapter("cliproxyapi"), wantName: "cliproxyapi"},
+		{adapter: buildAdapter("sensetime"), wantName: "sensetime"},
+		{adapter: buildAdapter("anyrouter"), wantName: "anyrouter"},
+		{adapter: buildAdapter("done-hub"), wantName: "done-hub"},
+		{adapter: buildAdapter("one-hub"), wantName: "one-hub"},
+		{adapter: buildAdapter("veloera"), wantName: "veloera"},
+		{adapter: buildAdapter("new-api"), wantName: "new-api"},
+		{adapter: buildAdapter("sub2api"), wantName: "sub2api"},
+		{adapter: buildAdapter("one-api"), wantName: "one-api"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.wantName, func(t *testing.T) {
+			if got := tt.adapter.PlatformName(); got != tt.wantName {
+				t.Errorf("PlatformName() = %q, want %q", got, tt.wantName)
+			}
+		})
+	}
+
+	// Anti-shrink gate: the table must cover exactly the registry's adapters.
+	tableNames := make(map[string]bool, len(tests))
+	for _, tt := range tests {
+		tableNames[tt.wantName] = true
+	}
+	registryNames := make(map[string]bool)
+	for _, a := range ListAdapters() {
+		registryNames[a.PlatformName()] = true
+	}
+	for name := range tableNames {
+		if !registryNames[name] {
+			t.Errorf("table row %q is not exposed by the registry", name)
+		}
+	}
+	for name := range registryNames {
+		if !tableNames[name] {
+			t.Errorf("registry adapter %q is missing from the table", name)
+		}
+	}
+}

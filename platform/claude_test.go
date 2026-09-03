@@ -32,13 +32,6 @@ func TestClaudeAdapter_Detect(t *testing.T) {
 	}
 }
 
-func TestClaudeAdapter_PlatformName(t *testing.T) {
-	a := &ClaudeAdapter{StandardAdapter: NewStandardAdapter("claude")}
-	if a.PlatformName() != "claude" {
-		t.Errorf("PlatformName: %q", a.PlatformName())
-	}
-}
-
 func TestResolveOpenAICompatibleBaseURL(t *testing.T) {
 	tests := []struct {
 		input    string

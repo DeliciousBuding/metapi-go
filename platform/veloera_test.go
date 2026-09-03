@@ -6,13 +6,6 @@ import (
 	"time"
 )
 
-func TestVeloeraAdapter_PlatformName(t *testing.T) {
-	v := &VeloeraAdapter{BaseAdapter: NewBaseAdapter("veloera")}
-	if v.PlatformName() != "veloera" {
-		t.Errorf("PlatformName: %q", v.PlatformName())
-	}
-}
-
 func TestVeloeraAdapter_Detect(t *testing.T) {
 	v := &VeloeraAdapter{BaseAdapter: NewBaseAdapter("veloera")}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

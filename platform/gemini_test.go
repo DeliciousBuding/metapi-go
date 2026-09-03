@@ -32,13 +32,6 @@ func TestGeminiAdapter_Detect(t *testing.T) {
 	}
 }
 
-func TestGeminiAdapter_PlatformName(t *testing.T) {
-	a := &GeminiAdapter{StandardAdapter: NewStandardAdapter("gemini")}
-	if a.PlatformName() != "gemini" {
-		t.Errorf("PlatformName: %q", a.PlatformName())
-	}
-}
-
 func TestIsOpenAICompatGeminiBase(t *testing.T) {
 	tests := []struct {
 		input    string

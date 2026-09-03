@@ -5,15 +5,6 @@ import (
 	"testing"
 )
 
-func TestOneHubAdapter_PlatformName(t *testing.T) {
-	o := &OneHubAdapter{
-		OneApiAdapter: &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-hub")},
-	}
-	if o.PlatformName() != "one-hub" {
-		t.Errorf("PlatformName: %q", o.PlatformName())
-	}
-}
-
 func TestOneHubAdapter_Detect(t *testing.T) {
 	o := &OneHubAdapter{
 		OneApiAdapter: &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-hub")},

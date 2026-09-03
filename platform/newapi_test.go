@@ -29,13 +29,6 @@ func TestNewApiAdapter_Detect(t *testing.T) {
 	}
 }
 
-func TestNewApiAdapter_PlatformName(t *testing.T) {
-	n := &NewApiAdapter{BaseAdapter: NewBaseAdapter("new-api")}
-	if n.PlatformName() != "new-api" {
-		t.Errorf("PlatformName: %q", n.PlatformName())
-	}
-}
-
 func TestNewApiAdapter_ExtractLikelyUserIDs_RE2Boundaries(t *testing.T) {
 	n := &NewApiAdapter{BaseAdapter: NewBaseAdapter("new-api")}
 	tests := []struct {

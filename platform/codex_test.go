@@ -32,13 +32,6 @@ func TestCodexAdapter_Detect(t *testing.T) {
 	}
 }
 
-func TestCodexAdapter_PlatformName(t *testing.T) {
-	a := &CodexAdapter{StandardAdapter: &StandardAdapter{BaseAdapter: NewBaseAdapter("codex"), LoginUnsupportedMessage: "codex oauth login is managed via OAuth flow", CheckinUnsupportedMessage: "codex oauth connections do not support checkin"}}
-	if a.PlatformName() != "codex" {
-		t.Errorf("PlatformName: %q", a.PlatformName())
-	}
-}
-
 func TestCodexAdapter_LoginUnspported(t *testing.T) {
 	a := &CodexAdapter{StandardAdapter: &StandardAdapter{BaseAdapter: NewBaseAdapter("codex"), LoginUnsupportedMessage: "codex oauth login is managed via OAuth flow", CheckinUnsupportedMessage: "codex oauth connections do not support checkin"}}
 	ctx := context.Background()
