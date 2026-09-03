@@ -6,8 +6,8 @@
 #   -> account -> models -> balance -> checkin -> downstream token -> route
 #   -> /v1 proxy relay.
 #
-# Every step prints [PASS]/[FAIL]/[WARN] and accumulates a summary; the script
-# exits 1 when any step FAILs. FAILs print the truncated response body as
+# Every step prints [PASS]/[FAIL]/[WARN]/[SKIP] and accumulates a summary;
+# the script exits 1 when any step FAILs. FAILs print the truncated response body as
 # evidence. The script is re-runnable: sites are resolved by name and then by
 # the backend's own uniqueness key (platform, canonical url), accounts/routes
 # are looked up by name before creation, and the downstream key has a fixed
@@ -23,6 +23,8 @@
 #   PROXY_MODEL        fallback route model   (default gpt-3.5-turbo)
 #   SITE_NAME          site name to reuse     (default e2e-smoke)
 #   TOKEN_NAME         downstream key name    (default e2e-smoke-token)
+#   EXPECT_RELAY       require a real relay   (default 1; set 0 only for explicit SKIP)
+#   EXPECTED_COMPLETION_CONTENT  exact content marker to require (optional)
 #
 # Requires curl and python3 (fails fast when missing).
 
@@ -39,10 +41,13 @@ PROXY_MODEL="${PROXY_MODEL:-gpt-3.5-turbo}"
 SITE_NAME="${SITE_NAME:-e2e-smoke}"
 TOKEN_NAME="${TOKEN_NAME:-e2e-smoke-token}"
 SMOKE_KEY="${SMOKE_KEY:-sk-e2e-smoke-key}"
+EXPECT_RELAY="${EXPECT_RELAY:-1}"
+EXPECTED_COMPLETION_CONTENT="${EXPECTED_COMPLETION_CONTENT:-}"
 
 PASS_COUNT=0
 FAIL_COUNT=0
 WARN_COUNT=0
+SKIP_COUNT=0
 FAILED_NAMES=""
 
 # --- fatal setup checks ---
@@ -51,6 +56,10 @@ command -v curl >/dev/null 2>&1 || { echo "FATAL: curl is required but not found
 command -v python3 >/dev/null 2>&1 || { echo "FATAL: python3 is required for JSON parsing but not found on PATH" >&2; exit 2; }
 if [ -z "$METAPI_AUTH_TOKEN" ]; then
   echo "FATAL: METAPI_AUTH_TOKEN is required (admin Bearer token)" >&2
+  exit 2
+fi
+if [ "$EXPECT_RELAY" != "0" ] && [ "$EXPECT_RELAY" != "1" ]; then
+  echo "FATAL: EXPECT_RELAY must be 0 or 1 (got: $EXPECT_RELAY)" >&2
   exit 2
 fi
 
@@ -196,23 +205,66 @@ sys.exit(4)
 ' "$1" "$2" "$3" < "$RESP_BODY"
 }
 
-# json_has_error_key — 0 when $RESP_BODY is valid JSON containing an "error" key.
-json_has_error_key() {
+# json_models_data_nonempty — 0 only for an OpenAI models response with at
+# least one concrete item in data. HTTP 200 with data:[] is not a relay proof.
+json_models_data_nonempty() {
   python3 -c '
 import json, sys
 try:
-    data = json.load(sys.stdin)
+    payload = json.load(sys.stdin)
 except Exception:
     sys.exit(1)
-if isinstance(data, dict) and "error" in data:
-    sys.exit(0)
+if not isinstance(payload, dict) or "error" in payload:
+    sys.exit(1)
+data = payload.get("data")
+if not isinstance(data, list) or not data:
+    sys.exit(1)
+for item in data:
+    if isinstance(item, str) and item.strip():
+        sys.exit(0)
+    if isinstance(item, dict) and str(item.get("id", "")).strip():
+        sys.exit(0)
 sys.exit(1)
 ' < "$RESP_BODY"
+}
+
+# json_completion_has_content EXPECTED — rejects structured errors and requires
+# choices[0].message.content. When EXPECTED is non-empty, it must match exactly.
+json_completion_has_content() {
+  python3 -c '
+import json, sys
+expected = sys.argv[1]
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+if not isinstance(payload, dict) or "error" in payload:
+    sys.exit(1)
+choices = payload.get("choices")
+if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+    sys.exit(1)
+message = choices[0].get("message")
+if not isinstance(message, dict):
+    sys.exit(1)
+content = message.get("content")
+if isinstance(content, str):
+    if not content.strip() or (expected and content != expected):
+        sys.exit(1)
+    sys.exit(0)
+if isinstance(content, list) and not expected:
+    for part in content:
+        if isinstance(part, str) and part.strip():
+            sys.exit(0)
+        if isinstance(part, dict) and isinstance(part.get("text"), str) and part["text"].strip():
+            sys.exit(0)
+sys.exit(1)
+' "$1" < "$RESP_BODY"
 }
 
 pass_step() { PASS_COUNT=$((PASS_COUNT + 1)); echo "[PASS] $1"; }
 fail_step() { FAIL_COUNT=$((FAIL_COUNT + 1)); FAILED_NAMES="$FAILED_NAMES $1"; echo "[FAIL] $1"; }
 warn_step() { WARN_COUNT=$((WARN_COUNT + 1)); echo "[WARN] $1"; }
+skip_step() { SKIP_COUNT=$((SKIP_COUNT + 1)); echo "[SKIP] $1"; }
 
 evidence() {
   local b curl_err
@@ -374,23 +426,36 @@ else
   fail_step "account idempotent-create skipped (no site id)"
 fi
 
-# 8. models (frontend uses GET /api/accounts/{id}/models)
+# 8. models (frontend uses GET /api/accounts/{id}/models). This is a relay-
+# dependent assertion: strict mode requires a positive count and a concrete
+# first model; non-strict mode may inspect the response for route setup but can
+# only report SKIP, never PASS.
 ROUTE_MODEL="$PROXY_MODEL"
+first_model=""
 if [ -n "$ACCOUNT_ID" ]; then
   status="$(request GET "$METAPI_URL/api/accounts/$ACCOUNT_ID/models" "" "$METAPI_AUTH_TOKEN")"
-  if [ "$status" = "200" ]; then
-    model_count="$(json_value totalCount 2>/dev/null || true)"
-    first_model="$(json_value "models[0].name" 2>/dev/null || true)"
-    if [ -n "$first_model" ]; then
-      ROUTE_MODEL="$first_model"
-    fi
-    pass_step "models (HTTP 200, totalCount=$model_count)"
-  else
+  model_count="$(json_value totalCount 2>/dev/null || true)"
+  first_model="$(json_value "models.[0].name" 2>/dev/null || true)"
+  if [ -n "$first_model" ]; then
+    ROUTE_MODEL="$first_model"
+  fi
+  if [ "$EXPECT_RELAY" = "0" ]; then
+    skip_step "models relay assertion disabled explicitly (HTTP $status, totalCount=${model_count:-unknown})"
+  elif [ "$status" != "200" ]; then
     fail_step "models (HTTP $status)"
     evidence
+  elif ! [[ "$model_count" =~ ^[0-9]+$ ]] || [ "$model_count" -le 0 ] || [ -z "$first_model" ]; then
+    fail_step "models (HTTP 200, totalCount=${model_count:-invalid}, first model missing)"
+    evidence
+  else
+    pass_step "models (HTTP 200, totalCount=$model_count, first=$first_model)"
   fi
 else
-  fail_step "models skipped (no account id)"
+  if [ "$EXPECT_RELAY" = "0" ]; then
+    skip_step "models relay assertion disabled explicitly (no account id)"
+  else
+    fail_step "models unavailable (no account id)"
+  fi
 fi
 
 # 9. balance (POST /api/accounts/{id}/balance)
@@ -431,75 +496,100 @@ fi
 
 # 11. downstream token create (POST /api/downstream-keys; fixed key => idempotent)
 PROXY_TOKEN=""
-status="$(request POST "$METAPI_URL/api/downstream-keys" "{\"name\":\"$TOKEN_NAME\",\"key\":\"$SMOKE_KEY\"}" "$METAPI_AUTH_TOKEN")"
-if [ "$status" = "200" ] || [ "$status" = "201" ]; then
-  PROXY_TOKEN="$SMOKE_KEY"
-  pass_step "token create ($TOKEN_NAME)"
-elif [ "$status" = "409" ]; then
-  # duplicate key: same fixed value from a previous run — reuse it
-  PROXY_TOKEN="$SMOKE_KEY"
-  pass_step "token create (HTTP 409 duplicate, reusing fixed key)"
+if [ "$EXPECT_RELAY" = "0" ]; then
+  skip_step "downstream token relay setup disabled explicitly"
 else
-  fail_step "token create (HTTP $status)"
-  evidence
+  status="$(request POST "$METAPI_URL/api/downstream-keys" "{\"name\":\"$TOKEN_NAME\",\"key\":\"$SMOKE_KEY\",\"supportedModels\":[\"*\"]}" "$METAPI_AUTH_TOKEN")"
+  if [ "$status" = "200" ] || [ "$status" = "201" ]; then
+    PROXY_TOKEN="$SMOKE_KEY"
+    pass_step "token create ($TOKEN_NAME)"
+  elif [ "$status" = "409" ]; then
+    # The key exists from a previous run. Reassert the relay policy instead of
+    # merely reusing it: older smoke runs created the same key with an empty
+    # supportedModels list, which is intentionally deny-all.
+    status="$(request GET "$METAPI_URL/api/downstream-keys" "" "$METAPI_AUTH_TOKEN")"
+    key_id="$(python3 -c 'import json,sys; p=json.load(sys.stdin); name=sys.argv[1]; print(next(str(item.get("id", "")) for item in p.get("items", []) if isinstance(item, dict) and item.get("name") == name))' "$TOKEN_NAME" < "$RESP_BODY" 2>/dev/null || true)"
+    if [ "$status" = "200" ] && [ -n "$key_id" ]; then
+      status="$(request PUT "$METAPI_URL/api/downstream-keys/$key_id" '{"supportedModels":["*"],"enabled":true}' "$METAPI_AUTH_TOKEN")"
+    else
+      # HTTP 409 can also mean the fixed key belongs to a differently named
+      # record. That is not an idempotent reuse of this smoke resource.
+      status="404"
+    fi
+    if [ "$status" = "200" ]; then
+      PROXY_TOKEN="$SMOKE_KEY"
+      pass_step "token reuse ($TOKEN_NAME, relay policy reasserted)"
+    else
+      fail_step "token reuse/update (HTTP $status, keyId=${key_id:-missing})"
+      evidence
+    fi
+  else
+    fail_step "token create (HTTP $status)"
+    evidence
+  fi
 fi
 
 # 12. route create (idempotent by modelPattern lookup)
-if [ -n "$PROXY_TOKEN" ]; then
-  ROUTE_ID=""
-  status="$(request GET "$METAPI_URL/api/routes/lite" "" "$METAPI_AUTH_TOKEN")"
-  if [ "$status" = "200" ]; then
-    if idx="$(json_find_index modelPattern "$ROUTE_MODEL" 2>/dev/null)"; then
-      ROUTE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
+if [ "$EXPECT_RELAY" = "0" ]; then
+  skip_step "route relay setup disabled explicitly"
+else
+  if [ -n "$PROXY_TOKEN" ]; then
+    ROUTE_ID=""
+    status="$(request GET "$METAPI_URL/api/routes/lite" "" "$METAPI_AUTH_TOKEN")"
+    if [ "$status" = "200" ]; then
+      if idx="$(json_find_index modelPattern "$ROUTE_MODEL" 2>/dev/null)"; then
+        ROUTE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
+      fi
     fi
-  fi
-  if [ -z "$ROUTE_ID" ]; then
-    status="$(request POST "$METAPI_URL/api/routes" "{\"modelPattern\":\"$ROUTE_MODEL\",\"displayName\":\"e2e-smoke-route\",\"routeMode\":\"pattern\",\"enabled\":true}" "$METAPI_AUTH_TOKEN")"
-    if [ "$status" = "200" ] || [ "$status" = "201" ]; then
-      ROUTE_ID="$(json_value id 2>/dev/null || true)"
+    if [ -z "$ROUTE_ID" ]; then
+      status="$(request POST "$METAPI_URL/api/routes" "{\"modelPattern\":\"$ROUTE_MODEL\",\"displayName\":\"e2e-smoke-route\",\"routeMode\":\"pattern\",\"enabled\":true}" "$METAPI_AUTH_TOKEN")"
+      if [ "$status" = "200" ] || [ "$status" = "201" ]; then
+        ROUTE_ID="$(json_value id 2>/dev/null || true)"
+      fi
     fi
-  fi
-  if [ -n "$ROUTE_ID" ]; then
-    if [ "$ROUTE_MODEL" = "$PROXY_MODEL" ] && [ -z "${first_model:-}" ]; then
-      warn_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL) — upstream model list empty, used PROXY_MODEL"
+    if [ -n "$ROUTE_ID" ]; then
+      if [ "$ROUTE_MODEL" = "$PROXY_MODEL" ] && [ -z "${first_model:-}" ]; then
+        warn_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL) — upstream model list empty, used PROXY_MODEL"
+      else
+        pass_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL)"
+      fi
     else
-      pass_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL)"
+      fail_step "route create (no route id obtained)"
+      evidence
     fi
   else
-    fail_step "route create (no route id obtained)"
-    evidence
+    fail_step "route create skipped (no downstream token)"
   fi
-else
-  fail_step "route create skipped (no downstream token)"
+
 fi
 
-# 13. proxy relay
-if [ -n "$PROXY_TOKEN" ]; then
+# 13. proxy relay. A structured error proves only that JSON was returned; it is
+# never accepted as successful relay evidence.
+if [ "$EXPECT_RELAY" = "0" ]; then
+  skip_step "proxy /v1/models relay assertion disabled explicitly"
+  skip_step "proxy /v1/chat/completions relay assertion disabled explicitly"
+elif [ -n "$PROXY_TOKEN" ]; then
   status="$(request GET "$METAPI_URL/v1/models" "" "$PROXY_TOKEN")"
-  if [ "$status" = "200" ]; then
-    pass_step "proxy /v1/models (HTTP 200)"
+  if [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_models_data_nonempty; then
+    pass_step "proxy /v1/models (HTTP $status, non-empty data)"
   else
-    fail_step "proxy /v1/models (HTTP $status)"
+    fail_step "proxy /v1/models (HTTP $status, expected non-empty data without error)"
     evidence
   fi
 
   status="$(request POST "$METAPI_URL/v1/chat/completions" "{\"model\":\"$ROUTE_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" "$PROXY_TOKEN")"
-  if [ "$status" = "200" ]; then
-    pass_step "proxy /v1/chat/completions (HTTP 200, relayed)"
-  elif json_has_error_key; then
-    # Structured JSON error: metapi relayed and answered with a documented
-    # error (e.g. upstream has no channels). Internal 5xx + non-JSON would fail.
-    pass_step "proxy /v1/chat/completions (HTTP $status, structured error relayed)"
+  if [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_completion_has_content "$EXPECTED_COMPLETION_CONTENT"; then
+    pass_step "proxy /v1/chat/completions (HTTP $status, completion content present)"
   else
-    fail_step "proxy /v1/chat/completions (HTTP $status, unstructured response)"
+    fail_step "proxy /v1/chat/completions (HTTP $status, expected completion content without error)"
     evidence
   fi
 else
-  fail_step "proxy skipped (no downstream token)"
+  fail_step "proxy unavailable (no downstream token)"
 fi
 
 # --- summary ---
-echo "== summary: $PASS_COUNT passed, $WARN_COUNT warned, $FAIL_COUNT failed =="
+echo "== summary: $PASS_COUNT passed, $WARN_COUNT warned, $SKIP_COUNT skipped, $FAIL_COUNT failed =="
 if [ "$FAIL_COUNT" -gt 0 ]; then
   echo "   failed steps:$FAILED_NAMES"
   exit 1

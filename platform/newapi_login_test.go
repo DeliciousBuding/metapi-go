@@ -40,34 +40,6 @@ func loginContext(t *testing.T) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), 10*time.Second)
 }
 
-// new-api v1 login: data.access_token (JWT) with no top-level success field.
-func TestNewApiAdapter_Login_V1SuccessNoTopLevelSuccess(t *testing.T) {
-	srv := loginFixtureServer(t, `{
-		"data": {
-			"access_token": "v1-jwt-token",
-			"access_expires_at": 1893456000,
-			"session": {"sid": "sess-123"}
-		}
-	}`, 0, "")
-	n := newApiAdapterUnderTest()
-	ctx, cancel := loginContext(t)
-	defer cancel()
-
-	result, err := n.Login(ctx, srv.URL, "root", "metapi123", nil, nil)
-	if err != nil {
-		t.Fatalf("Login: %v", err)
-	}
-	if !result.Success {
-		t.Fatalf("Login.Success = false, want true (message: %q)", result.Message)
-	}
-	if result.AccessToken != "v1-jwt-token" {
-		t.Errorf("AccessToken = %q, want v1-jwt-token", result.AccessToken)
-	}
-	if result.Username != "root" {
-		t.Errorf("Username = %q, want root", result.Username)
-	}
-}
-
 // new-api v0 login: top-level success with data.access_token (sk- key).
 func TestNewApiAdapter_Login_V0Success(t *testing.T) {
 	srv := loginFixtureServer(t, `{"success":true,"message":"","data":{"access_token":"sk-v0-token"}}`, 0, "")

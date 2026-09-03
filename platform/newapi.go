@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 )
@@ -76,9 +77,23 @@ func (n *NewApiAdapter) Login(ctx context.Context, baseURL, username, password s
 	accessToken := extractLoginToken(parsed, data)
 	success, hasSuccess := getBool(parsed, "success")
 
-	// v1 omits top-level success; presence of a usable credential implies success.
-	// Explicit success:false is always a failure.
+	// v1 omits top-level success and returns a dashboard session JWT that expires
+	// after minutes. Persisting it makes account binding look successful, then
+	// model discovery/balance refresh die later; periodically logging in again
+	// also leaks active upstream sessions until AUTH_SESSION_LIMIT. When this is
+	// the v1 session shape, exchange the fresh JWT for New API's durable dashboard
+	// personal access token and immediately revoke the transient login session.
+	// Legacy New API responses have no session metadata and keep their original
+	// token unchanged.
 	if accessToken != "" && (!hasSuccess || success) {
+		if isSession, sessionID := newAPIV1LoginSession(data); isSession {
+			durableToken, promoteErr := n.promoteV1LoginCredential(
+				ctx, baseURL, accessToken, cookieHeader, sessionID, platformUserId, proxy)
+			if promoteErr != nil {
+				return &LoginResult{Success: false, Message: promoteErr.Error()}, nil
+			}
+			accessToken = durableToken
+		}
 		return &LoginResult{Success: true, AccessToken: accessToken, Username: username}, nil
 	}
 
@@ -91,6 +106,92 @@ func (n *NewApiAdapter) Login(ctx context.Context, baseURL, username, password s
 		msg = "login failed: no usable session credential, try Cookie/Token import"
 	}
 	return &LoginResult{Success: false, Message: msg}, nil
+}
+
+// newAPIV1LoginSession distinguishes New API v1's short-lived dashboard login
+// JWT from legacy durable dashboard tokens. v1 includes session metadata and an
+// access expiry; either marker is enough to require promotion. The session ID is
+// only needed for best-effort logout.
+func newAPIV1LoginSession(data map[string]interface{}) (bool, string) {
+	if data == nil {
+		return false, ""
+	}
+	_, hasExpiry := data["access_expires_at"]
+	session, hasSession := getMap(data, "session")
+	if !hasExpiry && !hasSession {
+		return false, ""
+	}
+	sessionID, _ := getString(session, "sid")
+	return true, strings.TrimSpace(sessionID)
+}
+
+// promoteV1LoginCredential turns a short-lived New API v1 session JWT into the
+// durable dashboard PAT that Metapi can safely persist. There is deliberately
+// no refresh-token subsystem here: New API already owns the durable credential,
+// and using it removes a lifecycle rather than adding one.
+//
+// New API's GET /api/user/token rotates the user's one dashboard PAT. This path
+// therefore runs only when Login itself is requested. In steady state the PAT
+// does not expire, so check-in/balance auto-relogin never reaches this method;
+// an explicit re-login or recovery after a revoked PAT intentionally rotates it.
+func (n *NewApiAdapter) promoteV1LoginCredential(
+	ctx context.Context,
+	baseURL, sessionJWT, cookieHeader, sessionID string,
+	platformUserID *int,
+	proxy *ProxyConfig,
+) (string, error) {
+	resp, err := fetchJSON(
+		ctx,
+		strings.TrimRight(baseURL, "/")+"/api/user/token",
+		http.MethodGet,
+		nil,
+		n.authHeaders(sessionJWT, platformUserID),
+		proxy,
+	)
+	if err != nil {
+		return "", fmt.Errorf("login succeeded, but New API could not issue a durable dashboard token: %w", err)
+	}
+	durableToken, _ := getString(resp, "data")
+	durableToken = strings.TrimSpace(durableToken)
+	if durableToken == "" {
+		return "", fmt.Errorf("login succeeded, but New API returned no durable dashboard token")
+	}
+
+	// Minting the PAT required a browser login session. Revoke that transient
+	// session immediately so automated relogin cannot consume New API's active
+	// session quota. PAT issuance already succeeded, so logout is best-effort:
+	// failing the whole bind here would discard a usable durable credential while
+	// still leaving the upstream session behind.
+	if strings.TrimSpace(sessionID) != "" {
+		headers := map[string]string{
+			"Authorization":  "Bearer " + sessionJWT,
+			"X-Auth-Session": sessionID,
+		}
+		if strings.TrimSpace(cookieHeader) != "" {
+			headers["Cookie"] = cookieHeader
+		}
+		logoutResp, logoutErr := fetchJSON(
+			ctx,
+			strings.TrimRight(baseURL, "/")+"/api/user/auth/logout",
+			http.MethodPost,
+			nil,
+			headers,
+			proxy,
+		)
+		logoutOK := false
+		if logoutErr == nil {
+			logoutOK, _ = getBool(logoutResp, "success")
+		}
+		if logoutErr != nil || !logoutOK {
+			slog.Warn("new-api login: durable token issued but transient session logout failed",
+				"session_id", sessionID,
+				"error", logoutErr)
+		}
+	} else {
+		slog.Warn("new-api login: durable token issued but upstream returned no session id; transient session could not be revoked")
+	}
+
+	return durableToken, nil
 }
 
 // --- GetUserInfo ---
@@ -162,7 +263,10 @@ func (n *NewApiAdapter) VerifyToken(ctx context.Context, baseURL, token string, 
 				userInfo := parseUserInfo(data)
 				balance := parseOneApiStyleBalance(data, 500000, true)
 				userID := getIntPtr(data, "id")
-				apiToken, _ := n.getAPITokenWithUser(ctx, baseURL, token, userID, proxy)
+				apiToken, apiTokenErr := n.getAPITokenWithUser(ctx, baseURL, token, userID, proxy)
+				if apiTokenErr != nil {
+					return nil, apiTokenErr
+				}
 				apiTokenStr := ""
 				if apiToken != nil {
 					apiTokenStr = *apiToken
@@ -181,13 +285,21 @@ func (n *NewApiAdapter) VerifyToken(ctx context.Context, baseURL, token string, 
 		// provided"). Others return HTTP 401 with the same body; fetchJSON
 		// surfaces that as an error whose text contains "New-Api-User".
 		if msg, _ := getString(resp, "message"); strings.Contains(msg, "New-Api-User") {
-			if result := n.verifyWithUserIDHeader(ctx, baseURL, token, platformUserId, proxy); result != nil {
+			result, verifyErr := n.verifyWithUserIDHeader(ctx, baseURL, token, platformUserId, proxy)
+			if verifyErr != nil {
+				return nil, verifyErr
+			}
+			if result != nil {
 				return result, nil
 			}
 		}
 	} else if strings.Contains(err.Error(), "New-Api-User") {
 		// 401 + "New-Api-User header not provided": retry with the header.
-		if result := n.verifyWithUserIDHeader(ctx, baseURL, token, platformUserId, proxy); result != nil {
+		result, verifyErr := n.verifyWithUserIDHeader(ctx, baseURL, token, platformUserId, proxy)
+		if verifyErr != nil {
+			return nil, verifyErr
+		}
+		if result != nil {
 			return result, nil
 		}
 	}
@@ -199,7 +311,10 @@ func (n *NewApiAdapter) VerifyToken(ctx context.Context, baseURL, token string, 
 			userInfo := parseUserInfo(data)
 			balance := parseOneApiStyleBalance(data, 500000, true)
 			userID := getIntPtr(data, "id")
-			apiToken, _ := n.getAPITokenWithUser(ctx, baseURL, token, userID, proxy)
+			apiToken, apiTokenErr := n.getAPITokenWithUser(ctx, baseURL, token, userID, proxy)
+			if apiTokenErr != nil {
+				return nil, apiTokenErr
+			}
 			apiTokenStr := ""
 			if apiToken != nil {
 				apiTokenStr = *apiToken
@@ -221,7 +336,10 @@ func (n *NewApiAdapter) VerifyToken(ctx context.Context, baseURL, token string, 
 			if data, ok := getMap(cookieResp2, "data"); ok {
 				userInfo := parseUserInfo(data)
 				balance := parseOneApiStyleBalance(data, 500000, true)
-				apiToken, _ := n.getAPITokenWithUser(ctx, baseURL, token, altID, proxy)
+				apiToken, apiTokenErr := n.getAPITokenWithUser(ctx, baseURL, token, altID, proxy)
+				if apiTokenErr != nil {
+					return nil, apiTokenErr
+				}
 				apiTokenStr := ""
 				if apiToken != nil {
 					apiTokenStr = *apiToken
@@ -243,7 +361,7 @@ func (n *NewApiAdapter) VerifyToken(ctx context.Context, baseURL, token string, 
 // Used when a site reports "New-Api-User header not provided" (as HTTP 200 with
 // a message or as HTTP 401). Returns nil when the retry does not yield a
 // verified session.
-func (n *NewApiAdapter) verifyWithUserIDHeader(ctx context.Context, baseURL, token string, platformUserId *int, proxy *ProxyConfig) *TokenVerifyResult {
+func (n *NewApiAdapter) verifyWithUserIDHeader(ctx context.Context, baseURL, token string, platformUserId *int, proxy *ProxyConfig) (*TokenVerifyResult, error) {
 	var userID *int
 	if platformUserId != nil {
 		userID = platformUserId
@@ -251,23 +369,26 @@ func (n *NewApiAdapter) verifyWithUserIDHeader(ctx context.Context, baseURL, tok
 		userID = n.probeUserID(ctx, baseURL, token, proxy)
 	}
 	if userID == nil {
-		return nil
+		return nil, nil
 	}
 	resp, err := fetchJSON(ctx, baseURL+"/api/user/self", "GET", nil, n.authHeaders(token, userID), proxy)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	success, _ := getBool(resp, "success")
 	if !success {
-		return nil
+		return nil, nil
 	}
 	data, ok := getMap(resp, "data")
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	userInfo := parseUserInfo(data)
 	balance := parseOneApiStyleBalance(data, 500000, true)
-	apiToken, _ := n.getAPITokenWithUser(ctx, baseURL, token, userID, proxy)
+	apiToken, apiTokenErr := n.getAPITokenWithUser(ctx, baseURL, token, userID, proxy)
+	if apiTokenErr != nil {
+		return nil, apiTokenErr
+	}
 	apiTokenStr := ""
 	if apiToken != nil {
 		apiTokenStr = *apiToken
@@ -277,7 +398,7 @@ func (n *NewApiAdapter) verifyWithUserIDHeader(ctx context.Context, baseURL, tok
 		UserInfo:  userInfo,
 		Balance:   &balance,
 		APIToken:  apiTokenStr,
-	}
+	}, nil
 }
 
 func (n *NewApiAdapter) probeUserID(ctx context.Context, baseURL, accessToken string, proxy *ProxyConfig) *int {

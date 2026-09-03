@@ -19,11 +19,6 @@ type TokenRouterInterface interface {
 	RecordFailure(ctx context.Context, channelID int64, failureCtx routing.SiteRuntimeFailureContext, actualAccountID *int64) error
 }
 
-// RouteRefreshWorkflow is the interface for route refresh.
-type RouteRefreshWorkflow interface {
-	RefreshModelsAndRebuildRoutes(ctx context.Context) error
-}
-
 // ChannelSelectionInput is the input for SelectProxyChannelForAttempt.
 type ChannelSelectionInput struct {
 	RequestedModel   string
@@ -129,15 +124,10 @@ func CanRetryChannelSelection(retryCount int, maxRetries int, forcedChannelID *i
 // SelectProxyChannelForAttempt selects a channel for the current attempt.
 // Paths: tester forced -> normal selection (first attempt may retry selection
 // once when the store returned no channels).
-//
-// routeRefresher is retained in the signature for handler wiring, but is never
-// populated in production (RouteRefreshWorkflow has no wired implementer), so
-// no refresh step runs here.
 func SelectProxyChannelForAttempt(
 	ctx context.Context,
 	router TokenRouterInterface,
 	coord *ProxyChannelCoordinator,
-	routeRefresher RouteRefreshWorkflow,
 	input ChannelSelectionInput,
 ) (*routing.SelectedChannel, error) {
 	// Tester forced channel

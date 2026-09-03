@@ -152,9 +152,8 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 
 	// 1f. Wire upstream config.
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
-		Router:         mockR,
-		RouteRefresher: &mockRouteRefresher{},
-		Coordinator:    coord,
+		Router:      mockR,
+		Coordinator: coord,
 	})
 
 	// 1g. Build chi router — mirrors production router.New structure.
@@ -491,9 +490,8 @@ func TestShutdownRejectsNewConnections(t *testing.T) {
 
 	coord := proxy.NewProxyChannelCoordinator()
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
-		Router:         mockR,
-		RouteRefresher: &mockRouteRefresher{},
-		Coordinator:    coord,
+		Router:      mockR,
+		Coordinator: coord,
 	})
 
 	r := chi.NewRouter()

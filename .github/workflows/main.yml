@@ -406,6 +406,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/go-toolchain
+      - name: Prove strict relay smoke semantics
+        run: |
+          set -euo pipefail
+          bash -n scripts/e2e/smoke.sh
+          bash -n scripts/e2e/smoke-strict-relay-test.sh
+          python3 -c 'import ast; ast.parse(open("scripts/e2e/mock-openai.py", encoding="utf-8").read())'
+          bash scripts/e2e/smoke-strict-relay-test.sh
       - name: Initialize upstreams
         run: |
           set -euo pipefail
@@ -419,6 +426,61 @@ jobs:
             fi
             sleep 2
           done
+          # Wire the fresh New API instance to a deterministic OpenAI mock that
+          # runs on the Actions host in the next step. Service containers reach
+          # the host through their Docker network gateway.
+          curl -fsS -X POST http://127.0.0.1:3000/api/user/login \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"root","password":"metapi123"}' \
+            -o new-api-login.json
+          new_api_access_token="$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p.get("success") is True; print(p["data"]["access_token"])' new-api-login.json)"
+          new_api_user_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["data"]["user"]["id"])' new-api-login.json)"
+          new_api_container="$(docker ps --filter publish=3000 --format '{{.ID}}' | head -n 1)"
+          test -n "$new_api_container"
+          new_api_network="$(docker inspect "$new_api_container" --format '{{range $name, $network := .NetworkSettings.Networks}}{{$name}}{{end}}')"
+          runner_gateway="$(docker network inspect "$new_api_network" --format '{{(index .IPAM.Config 0).Gateway}}')"
+          test -n "$runner_gateway"
+
+          python3 - "$runner_gateway" > new-api-channel.json <<'PY'
+          import json, sys
+          print(json.dumps({
+              "mode": "single",
+              "channel": {
+                  "type": 1,
+                  "name": "metapi-e2e-mock",
+                  "key": "e2e-mock-upstream-key",
+                  "status": 1,
+                  "base_url": f"http://{sys.argv[1]}:3002",
+                  "models": "gpt-4o-mini",
+                  "test_model": "gpt-4o-mini",
+                  "group": "default",
+              },
+          }))
+          PY
+          curl -fsS -X POST http://127.0.0.1:3000/api/channel/ \
+            -H "Authorization: Bearer $new_api_access_token" \
+            -H "New-Api-User: $new_api_user_id" \
+            -H 'Content-Type: application/json' \
+            --data-binary @new-api-channel.json \
+            -o new-api-channel-response.json
+          python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p.get("success") is True, p' new-api-channel-response.json
+
+          cat > new-api-token.json <<'JSON'
+          {"name":"metapi-e2e-relay","expired_time":-1,"remain_quota":0,"unlimited_quota":true,"model_limits_enabled":false,"model_limits":"","group":"default"}
+          JSON
+          curl -fsS -X POST http://127.0.0.1:3000/api/token/ \
+            -H "Authorization: Bearer $new_api_access_token" \
+            -H "New-Api-User: $new_api_user_id" \
+            -H 'Content-Type: application/json' \
+            --data-binary @new-api-token.json \
+            -o new-api-token-response.json
+          python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); assert p.get("success") is True, p' new-api-token-response.json
+          # Do not fetch/bind the full key here. The Metapi login path must
+          # discover this masked token through New API and hydrate it through
+          # /api/token/batch/keys; bypassing that path would recreate #1179's
+          # false-green E2E.
+
+
           # one-api auto-seeds root/123456; just wait for readiness.
           for i in $(seq 1 30); do
             curl -fsS http://127.0.0.1:3001/api/status >/dev/null 2>&1 && { echo "one-api ready"; break; }
@@ -488,13 +550,44 @@ jobs:
       - name: Run live server + smoke chains
         run: |
           set -euo pipefail
+          mock_log="$RUNNER_TEMP/mock-openai-requests.jsonl"
+          mock_stdout="$RUNNER_TEMP/mock-openai.log"
+          MOCK_OPENAI_HOST=0.0.0.0 \
+          MOCK_OPENAI_PORT=3002 \
+          MOCK_OPENAI_LOG="$mock_log" \
+          MOCK_OPENAI_MODELS=gpt-4o-mini \
+          MOCK_OPENAI_MARKER=metapi-e2e-marker \
+          python3 scripts/e2e/mock-openai.py >"$mock_stdout" 2>&1 &
+          mock_pid=$!
+
           AUTH_TOKEN=e2e-admin-token \
           PROXY_TOKEN=e2e-proxy-token \
           DATA_DIR="$(mktemp -d)/data" \
           PORT=4010 \
-          go run ./cmd/server >/tmp/metapi-e2e.log 2>&1 &
+          go run ./cmd/server >"$RUNNER_TEMP/metapi-e2e.log" 2>&1 &
           server_pid=$!
-          trap 'kill "$server_pid" >/dev/null 2>&1 || true' EXIT
+          cleanup() {
+            exit_code=$?
+            set +e
+            kill "$server_pid" "$mock_pid" >/dev/null 2>&1
+            wait "$server_pid" "$mock_pid" >/dev/null 2>&1
+            exit "$exit_code"
+          }
+          trap cleanup EXIT
+
+          mock_ready=
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3002/health 2>/dev/null | python3 -c 'import json,sys; assert json.load(sys.stdin) == {"status":"ok"}' 2>/dev/null; then
+              mock_ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$mock_ready" ]; then
+            echo "mock OpenAI failed to become ready; log:"
+            cat "$mock_stdout"
+            exit 1
+          fi
           ready=
           for _ in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:4010/ready 2>/dev/null | grep -q '"status":"ok"'; then
@@ -505,7 +598,7 @@ jobs:
           done
           if [ -z "$ready" ]; then
             echo "metapi server failed to become ready; log:"
-            cat /tmp/metapi-e2e.log
+            cat "$RUNNER_TEMP/metapi-e2e.log"
             exit 1
           fi
 
@@ -514,15 +607,26 @@ jobs:
           METAPI_AUTH_TOKEN=e2e-admin-token \
           UPSTREAM_URL=http://127.0.0.1:3000 \
           UPSTREAM_USERNAME=root UPSTREAM_PASSWORD=metapi123 \
-          PLATFORM=new-api \
+          PLATFORM=new-api PROXY_MODEL=gpt-4o-mini EXPECT_RELAY=1 \
+          EXPECTED_COMPLETION_CONTENT=metapi-e2e-marker \
           bash scripts/e2e/smoke.sh
+          python3 - "$mock_log" <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              events = [json.loads(line) for line in handle if line.strip()]
+          expected = {"path": "/v1/chat/completions", "model": "gpt-4o-mini"}
+          if expected not in events:
+              raise SystemExit(f"mock did not receive exact relay event {expected!r}: {events!r}")
+          print("mock received exact relay model: gpt-4o-mini")
+          PY
 
-          echo "===== one-api full chain ====="
+          echo "===== one-api admin chain (relay explicitly unavailable) ====="
           METAPI_URL=http://127.0.0.1:4010 \
           METAPI_AUTH_TOKEN=e2e-admin-token \
           UPSTREAM_URL=http://127.0.0.1:3001 \
           UPSTREAM_USERNAME=root UPSTREAM_PASSWORD=123456 \
-          PLATFORM=one-api SITE_NAME=e2e-smoke-oneapi TOKEN_NAME=e2e-smoke-oneapi-token \
+          PLATFORM=one-api EXPECT_RELAY=0 \
+          SITE_NAME=e2e-smoke-oneapi TOKEN_NAME=e2e-smoke-oneapi-token \
           bash scripts/e2e/smoke.sh
 
           echo "===== sub2api token-import chain ====="

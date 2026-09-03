@@ -191,13 +191,6 @@ func (m *mockRouter) addPreferredChannel(id int64, sc *routing.SelectedChannel) 
 	m.preferredChannels[id] = sc
 }
 
-// mockRouteRefresher implements proxy.RouteRefreshWorkflow.
-type mockRouteRefresher struct{}
-
-func (m *mockRouteRefresher) RefreshModelsAndRebuildRoutes(ctx context.Context) error {
-	return nil
-}
-
 // injectAuthMiddleware creates a chi middleware that injects a ProxyAuthContext
 // into the request context, simulating successful auth.
 func injectAuthMiddleware(source string, keyID *int64, token string) func(http.Handler) http.Handler {
@@ -303,10 +296,9 @@ func setupE2ERouter(mockR *mockRouter, coordinator *proxy.ProxyChannelCoordinato
 
 	// Set upstream config
 	wired := &proxyhandler.UpstreamConfig{
-		Router:         mockR,
-		RouteRefresher: &mockRouteRefresher{},
-		Coordinator:    coordinator,
-		Executor:       proxy.NewRuntimeExecutor(30 * time.Second),
+		Router:      mockR,
+		Coordinator: coordinator,
+		Executor:    proxy.NewRuntimeExecutor(30 * time.Second),
 	}
 	proxyhandler.SetUpstreamConfig(wired)
 
@@ -549,9 +541,8 @@ func TestDownstreamAuth(t *testing.T) {
 
 	coord := proxy.NewProxyChannelCoordinator()
 	wired := &proxyhandler.UpstreamConfig{
-		Router:         mockR,
-		RouteRefresher: &mockRouteRefresher{},
-		Coordinator:    coord,
+		Router:      mockR,
+		Coordinator: coord,
 	}
 	proxyhandler.SetUpstreamConfig(wired)
 
