@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -513,24 +514,6 @@ func TestTokens_Create_Local_WithGroup(t *testing.T) {
 	}
 }
 
-func TestTokens_Create_InvalidAccountID(t *testing.T) {
-	_, r := setupTokensTest(t)
-	body := map[string]any{"accountId": 0, "token": "sk-test"}
-	resp := doPostJSON(t, r, "/api/account-tokens", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
-func TestTokens_Create_AccountNotFound(t *testing.T) {
-	_, r := setupTokensTest(t)
-	body := map[string]any{"accountId": 99999, "token": "sk-test"}
-	resp := doPostJSON(t, r, "/api/account-tokens", body)
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", resp.Code)
-	}
-}
-
 func TestTokens_Create_Upstream_APIKeyConnection(t *testing.T) {
 	db, r := setupTokensTest(t)
 	site := newSiteFixture(t, r, "AKCSite", "https://api.openai.com")
@@ -658,24 +641,6 @@ func TestTokens_Batch_MaskedPending_Enable(t *testing.T) {
 	}
 }
 
-func TestTokens_Batch_EmptyIDs(t *testing.T) {
-	_, r := setupTokensTest(t)
-	body := map[string]any{"ids": []int{}, "action": "enable"}
-	resp := doPostJSON(t, r, "/api/account-tokens/batch", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
-func TestTokens_Batch_InvalidAction(t *testing.T) {
-	_, r := setupTokensTest(t)
-	body := map[string]any{"ids": []int{1}, "action": "reload"}
-	resp := doPostJSON(t, r, "/api/account-tokens/batch", body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
 func TestTokens_Batch_NestedAPIKeyConnection(t *testing.T) {
 	db, r := setupTokensTest(t)
 	site := newSiteFixture(t, r, "BatchAPIConn", "https://api.openai.com")
@@ -760,27 +725,6 @@ func TestTokens_Update_MaskedToken(t *testing.T) {
 	}
 }
 
-func TestTokens_Update_NotFound(t *testing.T) {
-	_, r := setupTokensTest(t)
-	body := map[string]any{"name": "ghost"}
-	resp := doPutJSON(t, r, "/api/account-tokens/99999", body)
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", resp.Code)
-	}
-}
-
-func TestTokens_Update_EmptyToken(t *testing.T) {
-	db, r := setupTokensTest(t)
-	_, accountID := tokenFixture(t, db, r)
-	tokID := createTokenFixture(t, db, accountID, "t1", "sk-old", "", true, false)
-
-	body := map[string]any{"token": ""}
-	resp := doPutJSON(t, r, "/api/account-tokens/"+itoa(tokID), body)
-	if resp.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.Code)
-	}
-}
-
 // ---- Set Default ----
 
 func TestTokens_SetDefault(t *testing.T) {
@@ -808,14 +752,6 @@ func TestTokens_SetDefault_MaskedPending(t *testing.T) {
 	resp := doPostJSON(t, r, "/api/account-tokens/"+itoa(tokID)+"/default", nil)
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for masked default, got %d", resp.Code)
-	}
-}
-
-func TestTokens_SetDefault_NotFound(t *testing.T) {
-	_, r := setupTokensTest(t)
-	resp := doPostJSON(t, r, "/api/account-tokens/99999/default", nil)
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", resp.Code)
 	}
 }
 
@@ -918,14 +854,6 @@ func TestTokens_Delete_DefaultRepair(t *testing.T) {
 	}
 }
 
-func TestTokens_Delete_NotFound(t *testing.T) {
-	_, r := setupTokensTest(t)
-	resp := doDelete(t, r, "/api/account-tokens/99999")
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", resp.Code)
-	}
-}
-
 // ---- Sync Account ----
 
 func TestTokens_SyncAccount(t *testing.T) {
@@ -948,14 +876,6 @@ func TestTokens_SyncAccount(t *testing.T) {
 	}
 	if result["reason"] != "no_upstream_tokens" && result["reason"] != "unsupported_platform" {
 		t.Errorf("expected skip reason no_upstream_tokens/unsupported_platform, got %v", result["reason"])
-	}
-}
-
-func TestTokens_SyncAccount_NotFound(t *testing.T) {
-	_, r := setupTokensTest(t)
-	resp := doPostJSON(t, r, "/api/account-tokens/sync/99999", nil)
-	if resp.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", resp.Code)
 	}
 }
 
@@ -1122,6 +1042,53 @@ func TestTokens_GetAccountDefault_NotFound(t *testing.T) {
 	json.Unmarshal(resp.Body.Bytes(), &result)
 	if result["token"] != nil {
 		t.Error("expected token=nil for non-existent account")
+	}
+}
+
+// ---- Error status codes ----
+
+func TestTokens_ErrorStatusCodes(t *testing.T) {
+	tests := []struct {
+		name       string
+		seed       string
+		method     string
+		path       string
+		body       any
+		wantStatus int
+	}{
+		{name: "Create_InvalidAccountID", method: http.MethodPost, path: "/api/account-tokens", body: map[string]any{"accountId": 0, "token": "sk-test"}, wantStatus: http.StatusBadRequest},
+		{name: "Create_AccountNotFound", method: http.MethodPost, path: "/api/account-tokens", body: map[string]any{"accountId": 99999, "token": "sk-test"}, wantStatus: http.StatusNotFound},
+		{name: "Update_NotFound", method: http.MethodPut, path: "/api/account-tokens/99999", body: map[string]any{"name": "ghost"}, wantStatus: http.StatusNotFound},
+		{name: "Update_EmptyToken", seed: "existing-token", method: http.MethodPut, path: "/api/account-tokens/{id}", body: map[string]any{"token": ""}, wantStatus: http.StatusBadRequest},
+		{name: "SetDefault_NotFound", method: http.MethodPost, path: "/api/account-tokens/99999/default", wantStatus: http.StatusNotFound},
+		{name: "Delete_NotFound", method: http.MethodDelete, path: "/api/account-tokens/99999", wantStatus: http.StatusNotFound},
+		{name: "SyncAccount_NotFound", method: http.MethodPost, path: "/api/account-tokens/sync/99999", wantStatus: http.StatusNotFound},
+		{name: "Batch_EmptyIDs", method: http.MethodPost, path: "/api/account-tokens/batch", body: map[string]any{"ids": []int{}, "action": "enable"}, wantStatus: http.StatusBadRequest},
+		{name: "Batch_InvalidAction", method: http.MethodPost, path: "/api/account-tokens/batch", body: map[string]any{"ids": []int{1}, "action": "reload"}, wantStatus: http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, r := setupTokensTest(t)
+			path := tt.path
+			switch tt.seed {
+			case "existing-token":
+				_, accountID := tokenFixture(t, db, r)
+				tokID := createTokenFixture(t, db, accountID, "t1", "sk-old", "", true, false)
+				path = strings.ReplaceAll(path, "{id}", itoa(tokID))
+			}
+			var resp *httptest.ResponseRecorder
+			switch tt.method {
+			case http.MethodDelete:
+				resp = doDelete(t, r, path)
+			case http.MethodPost:
+				resp = doPostJSON(t, r, path, tt.body)
+			case http.MethodPut:
+				resp = doPutJSON(t, r, path, tt.body)
+			}
+			if resp.Code != tt.wantStatus {
+				t.Fatalf("expected %d, got %d", tt.wantStatus, resp.Code)
+			}
+		})
 	}
 }
 
