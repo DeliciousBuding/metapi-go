@@ -166,96 +166,35 @@ func TestJudgeUpstreamContent_EmptyContent(t *testing.T) {
 }
 
 func TestDetectHasUpstreamOutput(t *testing.T) {
-	t.Run("empty text", func(t *testing.T) {
-		if detectHasUpstreamOutput("") {
-			t.Error("expected false for empty text")
-		}
-	})
+	tests := []struct {
+		name string
+		text string
+		want bool
+	}{
+		{name: "empty text", text: "", want: false},
+		{name: "whitespace only", text: "   \n  ", want: false},
+		{name: "JSON with text content", text: `{"choices":[{"message":{"content":"hello"}}]}`, want: true},
+		{name: "JSON with no content", text: `{"id":"chat-123","created":123}`, want: false},
+		{name: "JSON with output_text", text: `{"output_text":"generated text"}`, want: true},
+		{name: "JSON with tool_calls", text: `{"choices":[{"delta":{"tool_calls":[{"function":{"name":"test"}}]}}]}`, want: true},
+		{name: "JSON with delta text", text: `{"choices":[{"delta":{"content":"partial"}}]}`, want: true},
+		{name: "SSE with [DONE] only", text: "data: [DONE]\n", want: false},
+		{name: "SSE with content events", text: "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\ndata: [DONE]\n", want: true},
+		{name: "SSE with non-JSON payload", text: "data: some raw text\n", want: true},
+		{name: "plain text (no JSON, no SSE)", text: "This is a plain text response", want: true},
+		{name: "JSON with output array containing text", text: `{"output":[{"type":"message","content":[{"type":"output_text","text":"result"}]}]}`, want: true},
+		{name: "JSON with content parts", text: `{"content":[{"type":"text","text":"Hello world"}]}`, want: true},
+		{name: "JSON with message refusal", text: `{"choices":[{"message":{"refusal":"I cannot do that"}}]}`, want: true},
+	}
 
-	t.Run("whitespace only", func(t *testing.T) {
-		if detectHasUpstreamOutput("   \n  ") {
-			t.Error("expected false for whitespace")
-		}
-	})
-
-	t.Run("JSON with text content", func(t *testing.T) {
-		if !detectHasUpstreamOutput(`{"choices":[{"message":{"content":"hello"}}]}`) {
-			t.Error("expected true for JSON with choices content")
-		}
-	})
-
-	t.Run("JSON with no content", func(t *testing.T) {
-		if detectHasUpstreamOutput(`{"id":"chat-123","created":123}`) {
-			t.Error("expected false for JSON with no content")
-		}
-	})
-
-	t.Run("JSON with output_text", func(t *testing.T) {
-		if !detectHasUpstreamOutput(`{"output_text":"generated text"}`) {
-			t.Error("expected true for JSON with output_text")
-		}
-	})
-
-	t.Run("JSON with tool_calls", func(t *testing.T) {
-		if !detectHasUpstreamOutput(`{"choices":[{"delta":{"tool_calls":[{"function":{"name":"test"}}]}}]}`) {
-			t.Error("expected true for JSON with tool_calls")
-		}
-	})
-
-	t.Run("JSON with delta text", func(t *testing.T) {
-		if !detectHasUpstreamOutput(`{"choices":[{"delta":{"content":"partial"}}]}`) {
-			t.Error("expected true for JSON with delta content")
-		}
-	})
-
-	t.Run("SSE with [DONE] only", func(t *testing.T) {
-		if detectHasUpstreamOutput("data: [DONE]\n") {
-			t.Error("expected false for [DONE]-only SSE")
-		}
-	})
-
-	t.Run("SSE with content events", func(t *testing.T) {
-		text := "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\ndata: [DONE]\n"
-		if !detectHasUpstreamOutput(text) {
-			t.Error("expected true for SSE with content")
-		}
-	})
-
-	t.Run("SSE with non-JSON payload", func(t *testing.T) {
-		text := "data: some raw text\n"
-		if !detectHasUpstreamOutput(text) {
-			t.Error("expected true for SSE with raw text")
-		}
-	})
-
-	t.Run("plain text (no JSON, no SSE)", func(t *testing.T) {
-		if !detectHasUpstreamOutput("This is a plain text response") {
-			t.Error("expected true for plain text")
-		}
-	})
-
-	t.Run("JSON with output array containing text", func(t *testing.T) {
-		json := `{"output":[{"type":"message","content":[{"type":"output_text","text":"result"}]}]}`
-		if !detectHasUpstreamOutput(json) {
-			t.Error("expected true for output array with text content")
-		}
-	})
-
-	t.Run("JSON with content parts", func(t *testing.T) {
-		json := `{"content":[{"type":"text","text":"Hello world"}]}`
-		if !detectHasUpstreamOutput(json) {
-			t.Error("expected true for content parts with text")
-		}
-	})
-
-	t.Run("JSON with message refusal", func(t *testing.T) {
-		json := `{"choices":[{"message":{"refusal":"I cannot do that"}}]}`
-		if !detectHasUpstreamOutput(json) {
-			t.Error("expected true for refusal (considered output)")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := detectHasUpstreamOutput(tt.text); got != tt.want {
+				t.Errorf("detectHasUpstreamOutput(%q) = %v, want %v", tt.text, got, tt.want)
+			}
+		})
+	}
 }
-
 func TestJudgeUpstreamContent_Combined(t *testing.T) {
 	t.Run("keyword takes priority over empty content", func(t *testing.T) {
 		setupFailureCfg([]string{"quota"}, true)
@@ -280,59 +219,28 @@ func TestJudgeUpstreamContent_Combined(t *testing.T) {
 		}
 	})
 }
-
 func TestHasCompletionContentFromPayload(t *testing.T) {
-	t.Run("nil payload", func(t *testing.T) {
-		if hasCompletionContentFromPayload(nil) {
-			t.Error("expected false for nil")
-		}
-	})
+	tests := []struct {
+		name    string
+		payload any
+		want    bool
+	}{
+		{name: "nil payload", payload: nil, want: false},
+		{name: "non-map payload", payload: []string{"test"}, want: false},
+		{name: "empty map", payload: map[string]any{}, want: false},
+		{name: "direct text field", payload: map[string]any{"text": "hello"}, want: true},
+		{name: "empty text field", payload: map[string]any{"text": ""}, want: false},
+		{name: "delta text", payload: map[string]any{"delta": "content"}, want: true},
+		{name: "function_call key", payload: map[string]any{"function_call": map[string]any{"name": "test"}}, want: true},
+		{name: "tool_calls array", payload: map[string]any{"tool_calls": []any{map[string]any{"name": "test"}}}, want: true},
+		{name: "outputText field", payload: map[string]any{"outputText": "result"}, want: true},
+	}
 
-	t.Run("non-map payload", func(t *testing.T) {
-		if hasCompletionContentFromPayload([]string{"test"}) {
-			t.Error("expected false for non-map")
-		}
-	})
-
-	t.Run("empty map", func(t *testing.T) {
-		if hasCompletionContentFromPayload(map[string]any{}) {
-			t.Error("expected false for empty map")
-		}
-	})
-
-	t.Run("direct text field", func(t *testing.T) {
-		if !hasCompletionContentFromPayload(map[string]any{"text": "hello"}) {
-			t.Error("expected true for direct text")
-		}
-	})
-
-	t.Run("empty text field", func(t *testing.T) {
-		if hasCompletionContentFromPayload(map[string]any{"text": ""}) {
-			t.Error("expected false for empty text")
-		}
-	})
-
-	t.Run("delta text", func(t *testing.T) {
-		if !hasCompletionContentFromPayload(map[string]any{"delta": "content"}) {
-			t.Error("expected true for delta string")
-		}
-	})
-
-	t.Run("function_call key", func(t *testing.T) {
-		if !hasCompletionContentFromPayload(map[string]any{"function_call": map[string]any{"name": "test"}}) {
-			t.Error("expected true for function_call")
-		}
-	})
-
-	t.Run("tool_calls array", func(t *testing.T) {
-		if !hasCompletionContentFromPayload(map[string]any{"tool_calls": []any{map[string]any{"name": "test"}}}) {
-			t.Error("expected true for tool_calls")
-		}
-	})
-
-	t.Run("outputText field", func(t *testing.T) {
-		if !hasCompletionContentFromPayload(map[string]any{"outputText": "result"}) {
-			t.Error("expected true for outputText")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasCompletionContentFromPayload(tt.payload); got != tt.want {
+				t.Errorf("hasCompletionContentFromPayload(%v) = %v, want %v", tt.payload, got, tt.want)
+			}
+		})
+	}
 }
