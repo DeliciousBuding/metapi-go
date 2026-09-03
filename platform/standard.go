@@ -109,34 +109,3 @@ func normalizeBaseURL(raw string) string {
 	result := parsed.Scheme + "://" + parsed.Host
 	return result
 }
-
-func normalizeURLForDetection(raw string) string {
-	u := strings.TrimSpace(raw)
-	if u == "" {
-		return u
-	}
-	if !strings.Contains(u, "://") {
-		u = "https://" + u
-	}
-	parsed, err := url.Parse(u)
-	if err != nil {
-		return strings.TrimSuffix(strings.TrimSuffix(u, "/"), "\\")
-	}
-	path := strings.TrimSuffix(parsed.Path, "/")
-	return parsed.Scheme + "://" + parsed.Host + path
-}
-
-func normalizeURLProtocol(raw string) string {
-	u := strings.TrimSpace(raw)
-	if u == "" {
-		return u
-	}
-	if !strings.Contains(u, "://") {
-		u = "https://" + u
-	}
-	parsed, err := url.Parse(u)
-	if err != nil {
-		return strings.TrimSuffix(strings.TrimSuffix(raw, "/"), "\\")
-	}
-	return parsed.Scheme + "://" + parsed.Host
-}

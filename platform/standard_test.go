@@ -130,38 +130,6 @@ func TestNormalizeBaseURL(t *testing.T) {
 	}
 }
 
-func TestNormalizeURLForDetection(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"example.com/path/", "https://example.com/path"},
-		{"http://example.com/path/", "http://example.com/path"},
-		{"https://example.com", "https://example.com"},
-	}
-	for _, tt := range tests {
-		if got := normalizeURLForDetection(tt.input); got != tt.expected {
-			t.Errorf("normalizeURLForDetection(%q) = %q, want %q", tt.input, got, tt.expected)
-		}
-	}
-}
-
-func TestNormalizeURLProtocol(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"example.com", "https://example.com"},
-		{"http://example.com/path", "http://example.com"},
-		{"https://example.com/path/", "https://example.com"},
-	}
-	for _, tt := range tests {
-		if got := normalizeURLProtocol(tt.input); got != tt.expected {
-			t.Errorf("normalizeURLProtocol(%q) = %q, want %q", tt.input, got, tt.expected)
-		}
-	}
-}
-
 func TestVersionedPathRE(t *testing.T) {
 	tests := []struct {
 		input string

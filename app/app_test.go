@@ -73,7 +73,7 @@ func TestShutdownDrainsBeforeCleanupAndRunsCleanupOnce(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		_ = store.CloseDatabase()
-		setReadinessDrainingForTest(false)
+		markReadinessDraining(false)
 	})
 
 	started := make(chan struct{})

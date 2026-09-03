@@ -28,40 +28,6 @@ func TestOneApiAdapter_Detect(t *testing.T) {
 	}
 }
 
-func TestOneApiAdapter_BalanceQuotaMinusUsed(t *testing.T) {
-	o := &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	// OneApi model B: quota=total, balance=quota-used
-	// Impossible to test balance without HTTP, but verify the struct has correct inheritance
-	_ = o
-	_ = ctx
-}
-
-func TestOneApiAdapter_BalanceParseLogic(t *testing.T) {
-	// Verify OneApi balance formula via the code pattern
-	// OneApi: balance = (quota - used) / 500000, quotaUSD = quota/500000, usedUSD = used/500000
-	// So with quota=1000000, used=500000: balance=1.0, quota=2.0, used=1.0
-
-	// This is a unit test of the balance formula
-	quota := 1000000.0
-	used := 500000.0
-	balance := (quota - used) / 500000
-	quotaUSD := quota / 500000
-	usedUSD := used / 500000
-
-	if balance != 1.0 {
-		t.Errorf("OneApi balance formula: %f, want 1.0", balance)
-	}
-	if quotaUSD != 2.0 {
-		t.Errorf("OneApi quotaUSD: %f, want 2.0", quotaUSD)
-	}
-	if usedUSD != 1.0 {
-		t.Errorf("OneApi usedUSD: %f, want 1.0", usedUSD)
-	}
-}
-
 func TestOneApiAdapter_DoubleDeleteStrategy(t *testing.T) {
 	o := &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

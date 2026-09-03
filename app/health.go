@@ -53,10 +53,6 @@ func markReadinessDraining(draining bool) {
 	readinessDraining.Store(draining)
 }
 
-func setReadinessDrainingForTest(draining bool) {
-	markReadinessDraining(draining)
-}
-
 func writeHealthJSON(w http.ResponseWriter, statusCode int, status HealthStatus) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
