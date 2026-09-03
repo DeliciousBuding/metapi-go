@@ -13,24 +13,20 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('checkinSearchSchema', () => {
-  it('applies page / pageSize defaults to an empty input', () => {
-    const result = checkinSearchSchema.parse({})
-    expect(result.page).toBe(1)
-    expect(result.pageSize).toBe(20)
-    expect(result.accountId).toBeUndefined()
-    expect(result.status).toBeUndefined()
-    expect(result.q).toBeUndefined()
-  })
+  const parseShapeCases: Array<
+    [string, Record<string, unknown>, { page: number; pageSize: number; accountId?: number | undefined; status?: string | undefined; q?: string | number | undefined }]
+  > = [
+    ['applies page / pageSize defaults to an empty input', {}, { page: 1, pageSize: 20, accountId: undefined, status: undefined, q: undefined }],
+    ['coerces string numerics from a URL query string shape', { page: '2', pageSize: '50', accountId: '7' }, { page: 2, pageSize: 50, accountId: 7 }],
+  ]
 
-  it('coerces string numerics from a URL query string shape', () => {
-    const result = checkinSearchSchema.parse({
-      page: '2',
-      pageSize: '50',
-      accountId: '7',
-    })
-    expect(result.page).toBe(2)
-    expect(result.pageSize).toBe(50)
-    expect(result.accountId).toBe(7)
+  it.each(parseShapeCases)('%s', (_label, input, expected) => {
+    const result = checkinSearchSchema.parse(input as Record<string, unknown>)
+    expect(result.page).toBe(expected.page)
+    expect(result.pageSize).toBe(expected.pageSize)
+    expect(result.accountId).toBe(expected.accountId)
+    expect(result.status).toBe(expected.status)
+    expect(result.q).toBe(expected.q)
   })
 
   it.each([
@@ -112,23 +108,13 @@ describe('parseFilterValues', () => {
 // ---------------------------------------------------------------------------
 
 describe('parseCheckinSearch', () => {
-  it('parses a query string with a leading question mark', () => {
-    const result = parseCheckinSearch('?page=3&status=ok,fail')
-    expect(result.page).toBe(3)
-    expect(result.status).toBe('ok,fail')
-  })
-
-  it('parses a query string without a leading question mark', () => {
-    const result = parseCheckinSearch('page=2&pageSize=50&accountId=7')
-    expect(result.page).toBe(2)
-    expect(result.pageSize).toBe(50)
-    expect(result.accountId).toBe(7)
-  })
-
-  it('falls back to defaults on malformed input', () => {
-    const result = parseCheckinSearch('page=abc&pageSize=999')
-    expect(result.page).toBe(1)
-    expect(result.pageSize).toBe(20)
+  it.each([
+    ['a query string with a leading question mark', '?page=3&status=ok,fail', { page: 3, status: 'ok,fail' }],
+    ['a query string without a leading question mark', 'page=2&pageSize=50&accountId=7', { page: 2, pageSize: 50, accountId: 7 }],
+    ['malformed input', 'page=abc&pageSize=999', { page: 1, pageSize: 20 }],
+  ])('parses %s', (_label, input, expected) => {
+    const result = parseCheckinSearch(input)
+    expect(result).toMatchObject(expected)
   })
 
   it('falls back to defaults on an empty string', () => {

@@ -47,28 +47,21 @@ describe('testerSchema — happy path', () => {
 // ---------------------------------------------------------------------------
 
 describe('testerSchema — required fields', () => {
-  it('rejects an empty model with the modelRequired key', () => {
-    const result = testerSchema.safeParse({ ...validInput(), model: '' })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'modelTester.form.errors.modelRequired'
-    )
-  })
+  const requiredCases: Array<[string, Partial<TesterFormValues>, string | undefined]> = [
+    ['an empty model', { model: '' }, 'modelTester.form.errors.modelRequired'],
+    ['a whitespace-only model', { model: '   ' }, undefined],
+    ['an empty prompt', { prompt: '' }, 'modelTester.form.errors.promptRequired'],
+  ]
 
-  it('rejects a whitespace-only model after trimming', () => {
-    const result = testerSchema.safeParse({ ...validInput(), model: '   ' })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects an empty prompt with the promptRequired key', () => {
-    const result = testerSchema.safeParse({ ...validInput(), prompt: '' })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'modelTester.form.errors.promptRequired'
-    )
-  })
+  it.each(requiredCases)(
+    'rejects %s with a required-field error',
+    (_label, overrides, message) => {
+      const result = testerSchema.safeParse({ ...validInput(), ...overrides })
+      expect(result.success).toBe(false)
+      if (result.success) return
+      if (message) expect(result.error.issues[0]?.message).toBe(message)
+    }
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -76,28 +69,16 @@ describe('testerSchema — required fields', () => {
 // ---------------------------------------------------------------------------
 
 describe('testerSchema — length bounds', () => {
-  it('rejects a systemPrompt over 4000 chars', () => {
-    const result = testerSchema.safeParse({
-      ...validInput(),
-      systemPrompt: 'x'.repeat(4001),
-    })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'modelTester.form.errors.systemTooLong'
-    )
-  })
+  const tooLongCases: Array<[string, Partial<TesterFormValues>, string]> = [
+    ['a systemPrompt over 4000 chars', { systemPrompt: 'x'.repeat(4001) }, 'modelTester.form.errors.systemTooLong'],
+    ['a prompt over 16000 chars', { prompt: 'x'.repeat(16001) }, 'modelTester.form.errors.promptTooLong'],
+  ]
 
-  it('rejects a prompt over 16000 chars', () => {
-    const result = testerSchema.safeParse({
-      ...validInput(),
-      prompt: 'x'.repeat(16001),
-    })
+  it.each(tooLongCases)('rejects %s', (_label, overrides, message) => {
+    const result = testerSchema.safeParse({ ...validInput(), ...overrides })
     expect(result.success).toBe(false)
     if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'modelTester.form.errors.promptTooLong'
-    )
+    expect(result.error.issues[0]?.message).toBe(message)
   })
 
   it('accepts exactly 4000-char systemPrompt and 16000-char prompt', () => {
@@ -119,64 +100,20 @@ describe('testerSchema — length bounds', () => {
 // ---------------------------------------------------------------------------
 
 describe('testerSchema — numeric bounds', () => {
-  it('rejects temperature above 2 with the temperatureMax key', () => {
-    const result = testerSchema.safeParse({ ...validInput(), temperature: 2.5 })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'modelTester.form.errors.temperatureMax'
-    )
-  })
+  const numericBoundCases: Array<[string, Partial<TesterFormValues>, string]> = [
+    ['temperature above 2', { temperature: 2.5 }, 'modelTester.form.errors.temperatureMax'],
+    ['temperature below 0', { temperature: -0.1 }, 'modelTester.form.errors.temperatureMin'],
+    ['topP above 1', { topP: 1.1 }, 'modelTester.form.errors.topPMax'],
+    ['maxTokens above 128000', { maxTokens: 128001 }, 'modelTester.form.errors.maxTokensMax'],
+    ['a non-integer maxTokens', { maxTokens: 1.5 }, 'modelTester.form.errors.maxTokensInteger'],
+    ['a negative maxTokens', { maxTokens: -1 }, 'modelTester.form.errors.maxTokensMin'],
+  ]
 
-  it('rejects temperature below 0 with the temperatureMin key', () => {
-    const result = testerSchema.safeParse({
-      ...validInput(),
-      temperature: -0.1,
-    })
+  it.each(numericBoundCases)('rejects %s', (_label, overrides, message) => {
+    const result = testerSchema.safeParse({ ...validInput(), ...overrides })
     expect(result.success).toBe(false)
     if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'modelTester.form.errors.temperatureMin'
-    )
-  })
-
-  it('rejects topP above 1 with the topPMax key', () => {
-    const result = testerSchema.safeParse({ ...validInput(), topP: 1.1 })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'modelTester.form.errors.topPMax'
-    )
-  })
-
-  it('rejects maxTokens above 128000 with the maxTokensMax key', () => {
-    const result = testerSchema.safeParse({
-      ...validInput(),
-      maxTokens: 128001,
-    })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'modelTester.form.errors.maxTokensMax'
-    )
-  })
-
-  it('rejects a non-integer maxTokens with the maxTokensInteger key', () => {
-    const result = testerSchema.safeParse({ ...validInput(), maxTokens: 1.5 })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'modelTester.form.errors.maxTokensInteger'
-    )
-  })
-
-  it('rejects a negative maxTokens with the maxTokensMin key', () => {
-    const result = testerSchema.safeParse({ ...validInput(), maxTokens: -1 })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'modelTester.form.errors.maxTokensMin'
-    )
+    expect(result.error.issues[0]?.message).toBe(message)
   })
 })
 
@@ -185,11 +122,13 @@ describe('testerSchema — numeric bounds', () => {
 // ---------------------------------------------------------------------------
 
 describe('testerSchema — no coercion + enum', () => {
-  it('rejects a string temperature (no coerce)', () => {
-    const result = testerSchema.safeParse({
-      ...validInput(),
-      temperature: '0.7' as unknown as number,
-    })
+  const noCoerceCases: Array<[string, Partial<TesterFormValues>]> = [
+    ['a string temperature (no coerce)', { temperature: '0.7' as unknown as number }],
+    ['a non-integer channelId (no coerce)', { channelId: '42' as unknown as number }],
+  ]
+
+  it.each(noCoerceCases)('rejects %s', (_label, overrides) => {
+    const result = testerSchema.safeParse({ ...validInput(), ...overrides })
     expect(result.success).toBe(false)
   })
 
@@ -201,14 +140,6 @@ describe('testerSchema — no coercion + enum', () => {
     expect(result.success).toBe(false)
     if (result.success) return
     expect(result.error.issues[0]?.message).toContain('Invalid option')
-  })
-
-  it('rejects a non-integer channelId (no coerce)', () => {
-    const result = testerSchema.safeParse({
-      ...validInput(),
-      channelId: '42' as unknown as number,
-    })
-    expect(result.success).toBe(false)
   })
 
   it('accepts an omitted channelId (optional channel targeting)', () => {

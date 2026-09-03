@@ -44,53 +44,33 @@ describe('siteFormSchema — happy path', () => {
 // ---------------------------------------------------------------------------
 
 describe('siteFormSchema — name', () => {
-  it('rejects an empty name with nameRequired', () => {
-    const result = siteFormSchema.safeParse({ ...validSiteForm(), name: '' })
+  const nameCases: Array<[string, string, string | undefined]> = [
+    ['empty', '', 'sites.form.errors.nameRequired'],
+    ['whitespace-only after trimming', '   ', undefined],
+    ['over 120 chars', 'x'.repeat(121), 'sites.form.errors.nameTooLong'],
+  ]
+
+  it.each(nameCases)('rejects a %s name', (_label, name, message) => {
+    const result = siteFormSchema.safeParse({ ...validSiteForm(), name })
     expect(result.success).toBe(false)
     if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'sites.form.errors.nameRequired'
-    )
-  })
-
-  it('rejects a whitespace-only name after trimming', () => {
-    expect(
-      siteFormSchema.safeParse({ ...validSiteForm(), name: '   ' }).success
-    ).toBe(false)
-  })
-
-  it('rejects a name over 120 chars', () => {
-    const result = siteFormSchema.safeParse({
-      ...validSiteForm(),
-      name: 'x'.repeat(121),
-    })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'sites.form.errors.nameTooLong'
-    )
+    if (message) expect(result.error.issues[0]?.message).toBe(message)
   })
 })
 
 describe('siteFormSchema — url', () => {
-  it('rejects an empty url with urlRequired', () => {
-    const result = siteFormSchema.safeParse({ ...validSiteForm(), url: '' })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'sites.form.errors.urlRequired'
-    )
-  })
+  const badUrlCases: Array<[string, string, string]> = [
+    ['empty', '', 'sites.form.errors.urlRequired'],
+    ['ftp scheme', 'ftp://example.com', 'sites.form.errors.invalidUrl'],
+    ['plain string', 'not a url', 'sites.form.errors.invalidUrl'],
+    ['javascript scheme', 'javascript:alert(1)', 'sites.form.errors.invalidUrl'],
+  ]
 
-  it.each([
-    ['ftp scheme', 'ftp://example.com'],
-    ['plain string', 'not a url'],
-    ['javascript scheme', 'javascript:alert(1)'],
-  ])('rejects %s with invalidUrl', (_label, url) => {
+  it.each(badUrlCases)('rejects an invalid url (%s)', (_label, url, message) => {
     const result = siteFormSchema.safeParse({ ...validSiteForm(), url })
     expect(result.success).toBe(false)
     if (result.success) return
-    expect(result.error.issues[0]?.message).toBe('sites.form.errors.invalidUrl')
+    expect(result.error.issues[0]?.message).toBe(message)
   })
 
   it('accepts http and https', () => {
@@ -136,19 +116,12 @@ describe('siteFormSchema — optional URLs', () => {
 // ---------------------------------------------------------------------------
 
 describe('siteFormSchema — customHeaders', () => {
-  it('accepts an empty string', () => {
+  it.each([
+    ['an empty string', ''],
+    ['a plain JSON object', '{"a":1}'],
+  ])('accepts %s', (_label, customHeaders) => {
     expect(
-      siteFormSchema.safeParse({ ...validSiteForm(), customHeaders: '' })
-        .success
-    ).toBe(true)
-  })
-
-  it('accepts a plain JSON object', () => {
-    expect(
-      siteFormSchema.safeParse({
-        ...validSiteForm(),
-        customHeaders: '{"a":1}',
-      }).success
+      siteFormSchema.safeParse({ ...validSiteForm(), customHeaders }).success
     ).toBe(true)
   })
 
@@ -176,28 +149,20 @@ describe('siteFormSchema — customHeaders', () => {
 // ---------------------------------------------------------------------------
 
 describe('siteFormSchema — numerics + enum', () => {
-  it('rejects a negative globalWeight', () => {
-    const result = siteFormSchema.safeParse({
-      ...validSiteForm(),
-      globalWeight: -1,
-    })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'sites.form.errors.globalWeightMin'
-    )
-  })
+  const numericBoundCases: Array<[string, Partial<SiteFormValues>, string]> = [
+    ['a negative globalWeight', { globalWeight: -1 }, 'sites.form.errors.globalWeightMin'],
+    ['a non-integer maxConcurrency', { maxConcurrency: 1.5 }, 'sites.form.errors.maxConcurrencyInteger'],
+    ['a non-integer latency threshold', { postRefreshProbeLatencyThresholdMs: 1.5 }, 'sites.form.errors.latencyInteger'],
+  ]
 
-  it('rejects a non-integer maxConcurrency', () => {
+  it.each(numericBoundCases)('rejects %s', (_label, overrides, message) => {
     const result = siteFormSchema.safeParse({
       ...validSiteForm(),
-      maxConcurrency: 1.5,
+      ...overrides,
     })
     expect(result.success).toBe(false)
     if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'sites.form.errors.maxConcurrencyInteger'
-    )
+    expect(result.error.issues[0]?.message).toBe(message)
   })
 
   it('accepts postRefreshProbeScope "all" and rejects unknown values', () => {
@@ -215,18 +180,6 @@ describe('siteFormSchema — numerics + enum', () => {
     expect(result.success).toBe(false)
     if (result.success) return
     expect(result.error.issues[0]?.message).toContain('Invalid option')
-  })
-
-  it('rejects a non-integer latency threshold', () => {
-    const result = siteFormSchema.safeParse({
-      ...validSiteForm(),
-      postRefreshProbeLatencyThresholdMs: 1.5,
-    })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toBe(
-      'sites.form.errors.latencyInteger'
-    )
   })
 })
 
@@ -263,20 +216,13 @@ describe('sitesSearchSchema', () => {
 // ---------------------------------------------------------------------------
 
 describe('sitesSearchSchema — create deep-link', () => {
-  it('coerces the router-parsed `?create=1` (number) to true', () => {
-    expect(sitesSearchSchema.parse({ create: 1 }).create).toBe(true)
-  })
-
-  it('coerces a literal boolean true to true', () => {
-    expect(sitesSearchSchema.parse({ create: true }).create).toBe(true)
-  })
-
-  it('omits create (undefined) when the param is absent', () => {
-    expect(sitesSearchSchema.parse({}).create).toBeUndefined()
-  })
-
-  it('coerces 0 to false so a `?create=0` deep link never opens the dialog', () => {
-    expect(sitesSearchSchema.parse({ create: 0 }).create).toBe(false)
+  it.each([
+    ['?create=1 (number) to true', { create: 1 }, true],
+    ['a literal boolean true to true', { create: true }, true],
+    ['an absent param to undefined', {}, undefined],
+    ['?create=0 (number) to false', { create: 0 }, false],
+  ])('coerces %s', (_label, input, expected) => {
+    expect(sitesSearchSchema.parse(input).create).toBe(expected)
   })
 
   it('does not throw on a malformed create value (graceful fallback)', () => {
