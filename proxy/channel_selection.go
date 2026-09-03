@@ -40,7 +40,7 @@ type ChannelSelectionInput struct {
 
 // Tester header constants.
 const (
-	TesterRequestHeader     = "x-metapi-tester-request"
+	TesterRequestHeader       = "x-metapi-tester-request"
 	TesterForcedChannelHeader = "x-metapi-tester-forced-channel-id"
 )
 
@@ -175,4 +175,76 @@ func SelectProxyChannelForAttempt(
 	}
 
 	return selected, err
+}
+
+// SelectionExplainer is the optional capability routing.TokenRouter brings to a
+// failed selection: why nothing was selectable. Unit stubs may omit it, and then
+// the failure is reported without a reason instead of failing harder — the same
+// optional-interface idiom AvailableModelsSource uses for model listing.
+type SelectionExplainer interface {
+	ExplainSelection(ctx context.Context, requestedModel string, excludeChannelIDs []int64, policy routing.DownstreamRoutingPolicy) (routing.RouteDecisionExplanation, error)
+}
+
+// ExplainNoChannel renders one compact line describing why no channel could
+// serve requestedModel, for the 503 body, the server log and the operator-facing
+// all-failed event. It returns "" when the router cannot explain or the
+// explanation itself fails: a missing reason must never become a harder failure.
+//
+// The route decision panel already reads ExplainSelection; this is the same
+// source, asked at the moment an operator actually needs it (#1179 — a bare "No
+// available channels" plus `channel selection failed err=<nil>` gave no way to
+// tell an unmatched route from unbound tokens, cooldown or a downstream policy).
+func ExplainNoChannel(
+	ctx context.Context,
+	router TokenRouterInterface,
+	requestedModel string,
+	excludeChannelIDs []int64,
+	policy routing.DownstreamRoutingPolicy,
+) string {
+	explainer, ok := router.(SelectionExplainer)
+	if !ok || explainer == nil {
+		return ""
+	}
+	explanation, err := explainer.ExplainSelection(ctx, requestedModel, excludeChannelIDs, policy)
+	if err != nil {
+		return ""
+	}
+
+	reason := ""
+	if n := len(explanation.Summary); n > 0 {
+		reason = strings.TrimSpace(explanation.Summary[n-1])
+	}
+
+	// A matched route whose every candidate was rejected reports a generic
+	// verdict; the per-candidate reason is the actionable part, so surface the
+	// most common one (ties keep first-seen order).
+	counts := map[string]int{}
+	order := make([]string, 0, len(explanation.Candidates))
+	for _, candidate := range explanation.Candidates {
+		if candidate.Eligible {
+			continue
+		}
+		candidateReason := strings.TrimSpace(candidate.Reason)
+		if candidateReason == "" {
+			continue
+		}
+		if _, seen := counts[candidateReason]; !seen {
+			order = append(order, candidateReason)
+		}
+		counts[candidateReason]++
+	}
+	dominant := ""
+	for _, candidateReason := range order {
+		if dominant == "" || counts[candidateReason] > counts[dominant] {
+			dominant = candidateReason
+		}
+	}
+	if dominant != "" {
+		if reason == "" {
+			reason = dominant
+		} else {
+			reason += "：" + dominant
+		}
+	}
+	return strings.TrimSpace(reason)
 }
