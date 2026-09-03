@@ -77,21 +77,9 @@ func buildIndexes() []struct {
 		{"proxy_logs_summary_covering_idx", `CREATE INDEX IF NOT EXISTS proxy_logs_summary_covering_idx ON proxy_logs (status, estimated_cost, total_tokens, prompt_tokens, completion_tokens)`},
 		// proxy_logs_request_id_created_at_idx is created by additive step
 		// sc2_004_proxy_logs_request_id (after the request_id column exists).
-		// proxy_debug_traces
-		{"proxy_debug_traces_created_at_idx", `CREATE INDEX IF NOT EXISTS proxy_debug_traces_created_at_idx ON proxy_debug_traces (created_at)`},
-		{"proxy_debug_traces_session_created_at_idx", `CREATE INDEX IF NOT EXISTS proxy_debug_traces_session_created_at_idx ON proxy_debug_traces (session_id, created_at)`},
-		{"proxy_debug_traces_model_created_at_idx", `CREATE INDEX IF NOT EXISTS proxy_debug_traces_model_created_at_idx ON proxy_debug_traces (requested_model, created_at)`},
-		{"proxy_debug_traces_final_status_created_at_idx", `CREATE INDEX IF NOT EXISTS proxy_debug_traces_final_status_created_at_idx ON proxy_debug_traces (final_status, created_at)`},
-		// proxy_debug_attempts
-		{"proxy_debug_attempts_trace_created_at_idx", `CREATE INDEX IF NOT EXISTS proxy_debug_attempts_trace_created_at_idx ON proxy_debug_attempts (trace_id, created_at)`},
 		// proxy_video_tasks
 		{"proxy_video_tasks_upstream_video_id_idx", `CREATE INDEX IF NOT EXISTS proxy_video_tasks_upstream_video_id_idx ON proxy_video_tasks (upstream_video_id)`},
 		{"proxy_video_tasks_created_at_idx", `CREATE INDEX IF NOT EXISTS proxy_video_tasks_created_at_idx ON proxy_video_tasks (created_at)`},
-		// proxy_files
-		{"proxy_files_owner_lookup_idx", `CREATE INDEX IF NOT EXISTS proxy_files_owner_lookup_idx ON proxy_files (owner_type, owner_id, deleted_at)`},
-		// admin_snapshots
-		{"admin_snapshots_expires_at_idx", `CREATE INDEX IF NOT EXISTS admin_snapshots_expires_at_idx ON admin_snapshots (expires_at)`},
-		{"admin_snapshots_stale_until_idx", `CREATE INDEX IF NOT EXISTS admin_snapshots_stale_until_idx ON admin_snapshots (stale_until)`},
 		// analytics_projection_checkpoints
 		{"analytics_projection_checkpoints_recompute_from_id_idx", `CREATE INDEX IF NOT EXISTS analytics_projection_checkpoints_recompute_from_id_idx ON analytics_projection_checkpoints (recompute_from_id)`},
 		{"analytics_projection_checkpoints_lease_expires_at_idx", `CREATE INDEX IF NOT EXISTS analytics_projection_checkpoints_lease_expires_at_idx ON analytics_projection_checkpoints (lease_expires_at)`},
@@ -137,4 +125,3 @@ func buildIndexes() []struct {
 		{"announcement_dismissals_announcement_id_idx", `CREATE INDEX IF NOT EXISTS announcement_dismissals_announcement_id_idx ON announcement_dismissals (announcement_id)`},
 	}
 }
-

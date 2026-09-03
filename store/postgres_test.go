@@ -86,29 +86,18 @@ func TestPostgresSSLModeOverrideCanDisableTLS(t *testing.T) {
 	defer db.Close()
 }
 
-// TestPostgresAutoMigrateAllTables verifies all 35 tables exist after AutoMigrate.
+// TestPostgresAutoMigrateAllTables verifies every table the schema registry
+// declares exists after AutoMigrate on the PostgreSQL dialect.
+//
+// The expectation is derived from AllTableNames() instead of being hand-listed
+// here: this gate's job is "the PG dialect creates what the registry declares".
+// A hand-copied third list is exactly what drifted before the registry existed
+// (see the note in tablesets.go). The absolute inventory is pinned in one
+// place only — TestTableCount.
 func TestPostgresAutoMigrateAllTables(t *testing.T) {
 	db := openTestPG(t)
 
-	expectedTables := []string{
-		"sites", "site_api_endpoints", "site_disabled_models",
-		"accounts", "account_tokens", "checkin_logs",
-		"model_availability", "token_model_availability",
-		"token_routes", "route_group_sources",
-		"oauth_route_units", "oauth_route_unit_members",
-		"route_channels", "proxy_logs", "proxy_debug_traces",
-		"proxy_debug_attempts", "proxy_video_tasks",
-		"admin_background_tasks", "proxy_files",
-		"settings", "admin_snapshots",
-		"analytics_projection_checkpoints",
-		"site_day_usage", "site_hour_usage", "model_day_usage",
-		"downstream_api_keys", "site_announcements", "events",
-		"balance_history", "model_verify_history",
-		"product_announcements", "announcement_dismissals",
-		"model_name_redirects", "admin_audit_logs", "model_probe_results",
-	}
-
-	for _, table := range expectedTables {
+	for _, table := range AllTableNames() {
 		var exists bool
 		err := db.QueryRow(
 			`SELECT EXISTS (

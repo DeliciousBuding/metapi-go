@@ -72,23 +72,11 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		"modelAvailabilityProbeEnabled": rt.ModelAvailabilityProbeEnabled,
 		// Codex
 		"codexUpstreamWebsocketEnabled": rt.CodexUpstreamWebsocketEnabled,
-		// Responses
-		"responsesCompactFallbackToResponsesEnabled": rt.ResponsesCompactFallbackToResponsesEnabled,
 		// Cross-protocol
 		"disableCrossProtocolFallback": rt.DisableCrossProtocolFallback,
 		// Proxy session
 		"proxySessionChannelConcurrencyLimit": rt.ProxySessionChannelConcurrencyLimit,
 		"proxySessionChannelQueueWaitMs":      rt.ProxySessionChannelQueueWaitMs,
-		// Debug trace
-		"proxyDebugTraceEnabled":        rt.ProxyDebugTraceEnabled,
-		"proxyDebugCaptureHeaders":      rt.ProxyDebugCaptureHeaders,
-		"proxyDebugCaptureBodies":       rt.ProxyDebugCaptureBodies,
-		"proxyDebugCaptureStreamChunks": rt.ProxyDebugCaptureStreamChunks,
-		"proxyDebugTargetSessionId":     rt.ProxyDebugTargetSessionId,
-		"proxyDebugTargetClientKind":    rt.ProxyDebugTargetClientKind,
-		"proxyDebugTargetModel":         rt.ProxyDebugTargetModel,
-		"proxyDebugRetentionHours":      rt.ProxyDebugRetentionHours,
-		"proxyDebugMaxBodyBytes":        rt.ProxyDebugMaxBodyBytes,
 		// Routing
 		"routingFallbackUnitCost":          rt.RoutingFallbackUnitCost,
 		"proxyFirstByteTimeoutSec":         rt.ProxyFirstByteTimeoutSec,
@@ -179,7 +167,6 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		h.applyLogCleanupSettings,
 		h.applyFeatureToggleSettings,
 		h.applyProxySessionSettings,
-		h.applyProxyDebugSettings,
 		h.applyRoutingSettings,
 		h.applyNotifySettings,
 		h.applyFilterSettings,

@@ -57,40 +57,6 @@ func EnsureCompactResponsesJSONAcceptHeader(headers map[string]string, sitePlatf
 	return next
 }
 
-// ShouldFallbackCompactResponsesToResponses checks error conditions for compact fallback.
-func ShouldFallbackCompactResponsesToResponses(status int, rawErrText, requestPath string) bool {
-	compact := strings.ToLower(strings.TrimSpace(rawErrText))
-	rp := strings.ToLower(strings.TrimSpace(requestPath))
-
-	hasRawCompactHint := strings.Contains(compact, "/responses/compact") ||
-		strings.Contains(compact, "responses/compact") ||
-		strings.Contains(compact, "compact endpoint") ||
-		strings.Contains(compact, " compact ") ||
-		strings.HasPrefix(compact, "compact ") ||
-		strings.HasSuffix(compact, " compact")
-
-	hasCompactPathHint := strings.HasSuffix(rp, "/responses/compact") ||
-		strings.HasSuffix(rp, "/v1/responses/compact")
-
-	if status == 404 || status == 405 || status == 501 {
-		return true
-	}
-
-	if strings.Contains(compact, "unknown parameter: 'stream'") && (hasRawCompactHint || hasCompactPathHint) {
-		return true
-	}
-
-	if strings.Contains(compact, "invalid url") && hasRawCompactHint {
-		return true
-	}
-
-	if hasRawCompactHint && (strings.Contains(compact, "not supported") || strings.Contains(compact, "unsupported")) {
-		return true
-	}
-
-	return false
-}
-
 // Inbound parses a responses request body.
 func Inbound(body any) (map[string]any, error) {
 	m, ok := body.(map[string]any)

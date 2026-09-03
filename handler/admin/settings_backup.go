@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -143,7 +144,7 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := importBackupTables(h.db, body)
+	result, err := importBackupTables(h.db, body, backupPayloadHasProvenance(raw))
 	if err != nil {
 		writeError(w, backupImportErrorStatus(err), err.Error())
 		return
@@ -156,6 +157,9 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	if result.skippedSettings > 0 {
 		response["skippedSettings"] = result.skippedSettings
+	}
+	if len(result.ignoredTables) > 0 {
+		response["ignoredTables"] = result.ignoredTables
 	}
 	if result.droppedForbiddenURLs > 0 {
 		response["droppedForbiddenSiteRows"] = result.droppedForbiddenURLs
@@ -236,7 +240,8 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusBadRequest, "invalid import data: expected a JSON object with a tables field")
 		return
 	}
-	if err := validateBackupImportTableKeys(body); err != nil {
+	ignoredTables, err := validateBackupImportTableKeys(body, backupPayloadHasProvenance(raw))
+	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -247,10 +252,14 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	response := map[string]any{
 		"success": true,
 		"plan":    plan,
-	})
+	}
+	if len(ignoredTables) > 0 {
+		response["ignoredTables"] = ignoredTables
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 // decodeBackupImportBodyFrom decodes a backup import request body and returns
@@ -419,6 +428,11 @@ type backupImportResult struct {
 	// skippedSettings counts settings rows excluded by policy (runtime-local
 	// keys from backupsvc.RuntimeLocalSettingKeys).
 	skippedSettings int64
+	// ignoredTables names payload tables this build no longer has, i.e. tables
+	// a backup written by an older build carried that have since been deleted.
+	// Their rows are dropped; surfacing the names tells the operator the
+	// restore was partial instead of silently losing data.
+	ignoredTables []string
 	// droppedForbiddenURLs counts site/endpoint rows rejected by the
 	// SSRF target guard (cloud metadata / link-local URLs).
 	droppedForbiddenURLs int64
@@ -429,11 +443,12 @@ type backupImportResult struct {
 	newDownstreamApiKeys []string
 }
 
-func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage) (*backupImportResult, error) {
+func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage, fromExport bool) (*backupImportResult, error) {
 	if tables == nil {
 		return nil, fmt.Errorf("invalid import data: expected a JSON object with a tables field")
 	}
-	if err := validateBackupImportTableKeys(tables); err != nil {
+	ignoredTables, err := validateBackupImportTableKeys(tables, fromExport)
+	if err != nil {
 		return nil, err
 	}
 
@@ -452,6 +467,7 @@ func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage) (*backup
 	if err != nil {
 		return nil, err
 	}
+	result.ignoredTables = ignoredTables
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit import tx: %w", err)
 	}
@@ -459,13 +475,71 @@ func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage) (*backup
 	return result, nil
 }
 
-func validateBackupImportTableKeys(tables map[string]json.RawMessage) error {
-	for table := range tables {
-		if !isKnownTable(table) {
-			return backupImportClientError{message: fmt.Sprintf("import failed: unknown table %s", table)}
-		}
+// backupProvenance is the metadata block every real export writes
+// (service/backup.BuildPayload, itself gated by
+// TestBuildPayloadMetadataListsExcludedTables).
+type backupProvenance struct {
+	ExportedAt string `json:"exported_at"`
+	Version    string `json:"version"`
+}
+
+func (p backupProvenance) present() bool { return p.ExportedAt != "" || p.Version != "" }
+
+// backupPayloadHasProvenance reports whether a payload came from an actual
+// export rather than being written by hand. Both accepted request shapes are
+// probed: {"tables":...} and the legacy frontend wrapper {"data":{"tables":...}}.
+func backupPayloadHasProvenance(raw []byte) bool {
+	var probe struct {
+		Metadata backupProvenance `json:"metadata"`
+		Data     struct {
+			Metadata backupProvenance `json:"metadata"`
+		} `json:"data"`
 	}
-	return nil
+	if json.Unmarshal(raw, &probe) != nil {
+		return false
+	}
+	return probe.Metadata.present() || probe.Data.Metadata.present()
+}
+
+// validateBackupImportTableKeys decides which payload keys this build refuses,
+// and returns the ones it skips.
+//
+// An unrecognized key has two very different causes, told apart by where the
+// payload came from:
+//
+//   - The table exists but is deliberately excluded from backups
+//     (store.BackupExcludedTables: admin_sessions, admin_audit_logs, ...).
+//     Refusing it loudly is what stops a hand-written payload from smuggling
+//     session credentials or another deployment's audit trail past the
+//     exclusion, so that rejection is a 400 whatever the provenance.
+//   - The payload is JSON somebody typed or pasted (no export metadata). An
+//     unknown key is then most likely a typo -- "settings_typo" instead of
+//     "settings" -- and answering 200 with nothing imported would hide it, so
+//     that stays a 400 as well.
+//   - The payload is a genuine export from an older build, so an unrecognized
+//     key names a table that has since been deleted. Refusing those would make
+//     every backup taken before a table deletion unrestorable after the
+//     upgrade, so they are skipped and reported instead.
+//
+// Skipping is safe because both the import and the preview loop iterate the
+// registry and look payload keys up in it -- an unrecognized key is never read,
+// let alone written. The returned names are sorted so the response and the
+// tests are deterministic.
+func validateBackupImportTableKeys(tables map[string]json.RawMessage, fromExport bool) ([]string, error) {
+	excluded := store.BackupExcludedTables()
+	var ignored []string
+	for table := range tables {
+		if isKnownTable(table) {
+			continue
+		}
+		_, isExcluded := excluded[table]
+		if isExcluded || !fromExport {
+			return nil, backupImportClientError{message: fmt.Sprintf("import failed: unknown table %s", table)}
+		}
+		ignored = append(ignored, table)
+	}
+	sort.Strings(ignored)
+	return ignored, nil
 }
 
 type backupImportConn interface {

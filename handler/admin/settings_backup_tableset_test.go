@@ -182,7 +182,7 @@ func runBackupTableSetRoundTrip(t *testing.T, db *store.DB) {
 		t.Fatalf("product_announcements still has %d rows after the wipe", n)
 	}
 
-	result, err := importBackupTables(db.DB, importBody)
+	result, err := importBackupTables(db.DB, importBody, false)
 	if err != nil {
 		t.Fatalf("importBackupTables: %v", err)
 	}
@@ -243,8 +243,17 @@ func TestBackupTableSetRoundTripPostgres(t *testing.T) {
 }
 
 // TestImportAcceptsBackupWithoutTheNewTables is the backward-compatibility
-// gate: a payload written before the table set was derived carries none of the
-// newly included tables, and a missing table must be skipped, not an error.
+// gate, in both directions:
+//
+//   - a payload written before the table set was derived carries none of the
+//     newly included tables, and a missing table must be skipped, not an error;
+//   - a payload written by a build that still had tables this build deleted
+//     must still import, with the dead keys reported as ignored rather than
+//     rejected. Without that, upgrading would make every existing backup
+//     unrestorable.
+//
+// Both directions are exercised by one payload because legacyBackupTables is
+// the historical 28-key set.
 func TestImportAcceptsBackupWithoutTheNewTables(t *testing.T) {
 	db := setupBackupTestDB(t)
 	handler := &backupHandler{db: db.DB}
@@ -287,11 +296,46 @@ func TestImportAcceptsBackupWithoutTheNewTables(t *testing.T) {
 			t.Fatalf("imported reports %s from a legacy payload that does not carry it", table)
 		}
 	}
+
+	// The upgrade half of this gate: four of the keys a legacy backup carries
+	// name tables this build has deleted. They must be reported as ignored —
+	// not imported, and above all not a reason to reject the whole restore,
+	// which is what a strict unknown-table check did before.
+	wantIgnored := []string{
+		"admin_snapshots", "proxy_debug_attempts", "proxy_debug_traces", "proxy_files",
+	}
+	rawIgnored, present := body["ignoredTables"]
+	if !present {
+		t.Fatalf("ignoredTables missing from the response; body = %s", rec.Body.String())
+	}
+	gotIgnored, ok := rawIgnored.([]any)
+	if !ok {
+		t.Fatalf("ignoredTables = %#v, want an array; body = %s", rawIgnored, rec.Body.String())
+	}
+	if len(gotIgnored) != len(wantIgnored) {
+		t.Fatalf("ignoredTables = %v, want %v; body = %s", gotIgnored, wantIgnored, rec.Body.String())
+	}
+	for i, want := range wantIgnored {
+		if gotIgnored[i] != want {
+			t.Fatalf("ignoredTables = %v, want %v; body = %s", gotIgnored, wantIgnored, rec.Body.String())
+		}
+		if _, importedIt := imported[want]; importedIt {
+			t.Fatalf("imported reports deleted table %s; body = %s", want, rec.Body.String())
+		}
+	}
 }
 
 // legacyBackupTables is the 28-table set the hand-copied list carried before it
 // was derived from the registry; a backup written by that build has exactly
 // these keys.
+//
+// This is a historical fixture, not a description of the current schema, so it
+// deliberately still names proxy_debug_traces, proxy_debug_attempts,
+// proxy_files and admin_snapshots after those tables were deleted. Those keys
+// exist in real backups written by older builds, and keeping them here is what
+// makes TestImportAcceptsBackupWithoutTheNewTables double as the upgrade gate:
+// an older backup must still import on this build instead of being rejected
+// for carrying tables it no longer has.
 var legacyBackupTables = []string{
 	"sites", "site_api_endpoints", "site_disabled_models", "accounts", "account_tokens",
 	"checkin_logs", "model_availability", "token_model_availability", "token_routes",
@@ -300,6 +344,63 @@ var legacyBackupTables = []string{
 	"admin_background_tasks", "proxy_files", "settings", "admin_snapshots",
 	"analytics_projection_checkpoints", "site_day_usage", "site_hour_usage", "model_day_usage",
 	"downstream_api_keys", "site_announcements", "events",
+}
+
+// TestImportUnknownTableKeyDependsOnProvenance pins both halves of the rule
+// that lets an older backup restore after a table deletion: the same unknown
+// key is a 400 in a hand-written payload (where it is most likely a typo whose
+// rows would silently never land) and a skipped-and-reported key in a payload
+// carrying the metadata every real export writes (where it names a table this
+// build deleted). Neither half can be relaxed without the other failing.
+func TestImportUnknownTableKeyDependsOnProvenance(t *testing.T) {
+	const typoKey = "settings_typo"
+	rows := `[{"key":"theme","value":"\"dark\""}]`
+
+	handWritten := fmt.Sprintf(`{"tables":{%s:%s}}`, strconv.Quote(typoKey), rows)
+	fromExport := fmt.Sprintf(
+		`{"metadata":{"exported_at":"2026-01-01T00:00:00Z","version":"1.0"},"tables":{%s:%s}}`,
+		strconv.Quote(typoKey), rows)
+
+	t.Run("hand written payload is rejected", func(t *testing.T) {
+		db := setupBackupTestDB(t)
+		handler := &backupHandler{db: db.DB}
+
+		req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(handWritten))
+		rec := httptest.NewRecorder()
+		handler.importBackup(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), "unknown table "+typoKey) {
+			t.Fatalf("body = %s, want an unknown-table rejection naming %s", rec.Body.String(), typoKey)
+		}
+		if n := countBackupFixtureRows(t, db, `SELECT COUNT(*) FROM settings`); n != 0 {
+			t.Fatalf("settings rows = %d, want 0: the typo'd key must not land anywhere", n)
+		}
+	})
+
+	t.Run("exported backup is accepted and reports the key", func(t *testing.T) {
+		db := setupBackupTestDB(t)
+		handler := &backupHandler{db: db.DB}
+
+		req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(fromExport))
+		rec := httptest.NewRecorder()
+		handler.importBackup(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+		}
+		var body map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("unmarshal response: %v", err)
+		}
+		ignored, ok := body["ignoredTables"].([]any)
+		if !ok || len(ignored) != 1 || ignored[0] != typoKey {
+			t.Fatalf("ignoredTables = %#v, want [%s]; body = %s", body["ignoredTables"], typoKey, rec.Body.String())
+		}
+		if n := countBackupFixtureRows(t, db, `SELECT COUNT(*) FROM settings`); n != 0 {
+			t.Fatalf("settings rows = %d, want 0: an ignored key is never read", n)
+		}
+	})
 }
 
 // TestImportRefusesBackupExcludedTables pins the exclusion on the import side:

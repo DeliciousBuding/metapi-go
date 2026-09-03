@@ -1,6 +1,6 @@
 # Dashboard, Usage & Latency
 
-> **Index**: back to [API Reference](../api.md). This file is the Stats & dashboard + proxy debug traces domain split out of the pre-`docs/api/` `docs/api.md`.
+> **Index**: back to [API Reference](../api.md). This file is the Stats & dashboard domain split out of the pre-`docs/api/` `docs/api.md`.
 
 ## Stats & Dashboard
 
@@ -83,17 +83,3 @@ Top-N model cost concentration aggregated from `proxy_logs`; everything below to
 ### GET /api/stats/model-prices
 
 Alias of `GET /api/models/price-compare` (same handler) — kept for frontend/back-compat.
-
----
-
-## Proxy Debug
-
-### GET /api/stats/proxy-debug/traces
-
-List proxy debug traces.
-
-### GET /api/stats/proxy-debug/traces/:id
-
-Get a specific debug trace with related attempts.
-
----

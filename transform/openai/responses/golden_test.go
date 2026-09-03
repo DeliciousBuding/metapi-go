@@ -140,23 +140,6 @@ func TestGoldenNormalizeUpstreamProtocolMatrix(t *testing.T) {
 	golden.Check(t, "decision", "normalize_upstream_protocol_matrix", out)
 }
 
-func TestGoldenFallbackCompactMatrix(t *testing.T) {
-	var input struct {
-		Cases []struct {
-			Status      int    `json:"status"`
-			RawErrText  string `json:"rawErrText"`
-			RequestPath string `json:"requestPath"`
-		} `json:"cases"`
-	}
-	golden.ReadInput(t, "decision", "fallback_compact_matrix", &input)
-
-	out := make([]bool, 0, len(input.Cases))
-	for _, c := range input.Cases {
-		out = append(out, ShouldFallbackCompactResponsesToResponses(c.Status, c.RawErrText, c.RequestPath))
-	}
-	golden.Check(t, "decision", "fallback_compact_matrix", out)
-}
-
 func TestGoldenPlatformCapabilityMatrix(t *testing.T) {
 	var input struct {
 		Platforms []string `json:"platforms"`

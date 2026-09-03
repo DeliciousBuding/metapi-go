@@ -29,8 +29,6 @@ func TestBuildSchedulersRegistration(t *testing.T) {
 		"model-probe",
 		"channel-recovery",
 		"sub2api-refresh",
-		"admin-snapshot",
-		"proxy-file-retention",
 		"proxy-video-task-retention",
 		"proxy-log-retention",
 		"admin-background-task-retention",

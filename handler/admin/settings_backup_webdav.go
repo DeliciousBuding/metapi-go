@@ -453,7 +453,10 @@ func (h *backupHandler) importFromWebdav(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	result, err := importBackupTables(h.db, backup.Tables)
+	// A WebDAV restore reads a backup file, so it gets the same provenance
+	// rule as a pasted payload: tables this build no longer has are skipped
+	// and reported rather than failing the whole restore.
+	result, err := importBackupTables(h.db, backup.Tables, backupPayloadHasProvenance(body))
 	if err != nil {
 		status := backupImportErrorStatus(err)
 		state := updateWebdavBackupState(h.db, errors.New(sanitizeWebdavError(err.Error(), cfg)))

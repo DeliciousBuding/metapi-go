@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/handler/admin"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -137,39 +137,15 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 	db.Exec(`INSERT INTO proxy_logs (id, route_id, channel_id, account_id, model_requested, model_actual, status, created_at)
 		VALUES (2, 2, 2, 2, 'claude-3-opus', 'claude-3-opus', 'success', ?)`, now)
 
-	// Table 15: proxy_debug_traces (2 rows)
-	db.Exec(`INSERT INTO proxy_debug_traces (id, downstream_path, requested_model, created_at, updated_at)
-		VALUES (1, '/v1/chat/completions', 'gpt-4', ?, ?)`, now, now)
-	db.Exec(`INSERT INTO proxy_debug_traces (id, downstream_path, requested_model, created_at, updated_at)
-		VALUES (2, '/v1/chat/completions', 'claude-3-opus', ?, ?)`, now, now)
-
-	// Table 16: proxy_debug_attempts (2 rows, FK proxy_debug_traces)
-	db.Exec(`INSERT INTO proxy_debug_attempts (id, trace_id, attempt_index, endpoint, request_path, target_url, created_at)
-		VALUES (1, 1, 0, 'api.openai.com', '/v1/chat/completions', 'https://api.openai.com/v1/chat/completions', ?)`, now)
-	db.Exec(`INSERT INTO proxy_debug_attempts (id, trace_id, attempt_index, endpoint, request_path, target_url, created_at)
-		VALUES (2, 2, 0, 'api.anthropic.com', '/v1/chat/completions', 'https://api.anthropic.com/v1/chat/completions', ?)`, now)
-
 	// Table 17: proxy_video_tasks (2 rows)
 	db.Exec(`INSERT INTO proxy_video_tasks (id, public_id, upstream_video_id, site_url, token_value, created_at, updated_at)
 		VALUES (1, 'vid-pub-001', 'upstream-vid-001', 'https://api.openai.com', 'sk-token-1', ?, ?)`, now, now)
 	db.Exec(`INSERT INTO proxy_video_tasks (id, public_id, upstream_video_id, site_url, token_value, created_at, updated_at)
 		VALUES (2, 'vid-pub-002', 'upstream-vid-002', 'https://api.anthropic.com', 'sk-token-2', ?, ?)`, now, now)
 
-	// Table 18: proxy_files (2 rows)
-	db.Exec(`INSERT INTO proxy_files (id, public_id, owner_type, owner_id, filename, mime_type, byte_size, sha256, content_base64, created_at, updated_at)
-		VALUES (1, 'file-pub-001', 'session', 'sess-1', 'test.txt', 'text/plain', 4, 'abc123', 'dGVzdA==', ?, ?)`, now, now)
-	db.Exec(`INSERT INTO proxy_files (id, public_id, owner_type, owner_id, filename, mime_type, byte_size, sha256, content_base64, created_at, updated_at)
-		VALUES (2, 'file-pub-002', 'session', 'sess-2', 'image.png', 'image/png', 8, 'def456', 'aW1hZ2Vwbmc=', ?, ?)`, now, now)
-
 	// Table 19: settings (text PK, 2 rows)
 	db.Exec(`INSERT INTO settings (key, value) VALUES (?, ?)`, "app.theme", "dark")
 	db.Exec(`INSERT INTO settings (key, value) VALUES (?, ?)`, "app.lang", "zh-CN")
-
-	// Table 20: admin_snapshots (2 rows)
-	db.Exec(`INSERT INTO admin_snapshots (id, namespace, snapshot_key, payload, generated_at, expires_at, stale_until, created_at, updated_at)
-		VALUES (1, 'routes', 'snapshot-v1', '{"routes":[]}', ?, ?, ?, ?, ?)`, now, future, future, now, now)
-	db.Exec(`INSERT INTO admin_snapshots (id, namespace, snapshot_key, payload, generated_at, expires_at, stale_until, created_at, updated_at)
-		VALUES (2, 'models', 'snapshot-v2', '{"models":[]}', ?, ?, ?, ?, ?)`, now, future, future, now, now)
 
 	// Table 21: analytics_projection_checkpoints (text PK, 1 row)
 	db.Exec(`INSERT INTO analytics_projection_checkpoints (projector_key, time_zone, last_proxy_log_id, created_at, updated_at)
@@ -227,12 +203,8 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 		"oauth_route_unit_members":         2,
 		"route_channels":                   2,
 		"proxy_logs":                       2,
-		"proxy_debug_traces":               2,
-		"proxy_debug_attempts":             2,
 		"proxy_video_tasks":                2,
-		"proxy_files":                      2,
 		"settings":                         2,
-		"admin_snapshots":                  2,
 		"analytics_projection_checkpoints": 1,
 		"site_day_usage":                   2,
 		"site_hour_usage":                  1,
@@ -903,17 +875,6 @@ func verifySpotChecks(t *testing.T, db *store.DB) {
 		t.Errorf("spot check: checkin_log 1 reward = %v", reward)
 	}
 
-	// proxy_files: check public_id and content_base64.
-	var publicID, contentB64 string
-	db.Get(&publicID, `SELECT public_id FROM proxy_files WHERE id = 1`)
-	db.Get(&contentB64, `SELECT content_base64 FROM proxy_files WHERE id = 1`)
-	if publicID != "file-pub-001" {
-		t.Errorf("spot check: proxy_file 1 public_id = %q", publicID)
-	}
-	if contentB64 != "dGVzdA==" {
-		t.Errorf("spot check: proxy_file 1 content_base64 = %q, expected 'dGVzdA=='", contentB64)
-	}
-
 	// settings: check text PK key.
 	var themeVal *string
 	db.Get(&themeVal, `SELECT value FROM settings WHERE key = 'app.theme'`)
@@ -982,12 +943,6 @@ func verifyForeignKeyIntegrity(t *testing.T, db *store.DB) {
 	db.Get(&count, `SELECT COUNT(*) FROM oauth_route_unit_members WHERE unit_id NOT IN (SELECT id FROM oauth_route_units)`)
 	if count != 0 {
 		t.Errorf("FK integrity: %d oauth_route_unit_members have invalid unit_id", count)
-	}
-
-	// proxy_debug_attempts -> proxy_debug_traces
-	db.Get(&count, `SELECT COUNT(*) FROM proxy_debug_attempts WHERE trace_id NOT IN (SELECT id FROM proxy_debug_traces)`)
-	if count != 0 {
-		t.Errorf("FK integrity: %d proxy_debug_attempts have invalid trace_id", count)
 	}
 
 	// site_day_usage -> sites

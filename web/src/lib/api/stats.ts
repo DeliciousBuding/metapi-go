@@ -17,8 +17,6 @@ import type {
   ProxyLogDetail,
   ProxyLogsQuery,
   ProxyLogsResponse,
-  ProxyDebugTraceDetail,
-  ProxyDebugTracesResponse,
 } from './types'
 
 export const statsApi = {
@@ -85,14 +83,6 @@ export const statsApi = {
     minLatencyMs?: number
     hours?: number
   }) => request(`/api/stats/slow-requests${buildQueryString(params)}`),
-  getProxyDebugTraces: (params?: { limit?: number }) =>
-    request(
-      `/api/stats/proxy-debug/traces${buildQueryString(params)}`
-    ) as Promise<ProxyDebugTracesResponse>,
-  getProxyDebugTraceDetail: (id: number) =>
-    request(
-      `/api/stats/proxy-debug/traces/${id}`
-    ) as Promise<ProxyDebugTraceDetail>,
   checkModels: (accountId: number) =>
     request(`/api/models/check/${accountId}`, { method: 'POST' }),
   getSiteDistribution: () => request('/api/stats/site-distribution'),

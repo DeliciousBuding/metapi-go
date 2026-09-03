@@ -185,7 +185,7 @@ func TestSettingsRuntimePartialUpdateDoesNotClobberWhitelist(t *testing.T) {
 	}
 
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
-		"proxyDebugTraceEnabled": true,
+		"proxyEmptyContentFailEnabled": true,
 	})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("partial update: %d %s", resp.Code, resp.Body.String())

@@ -28,8 +28,6 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 	r.Get("/api/stats/dashboard", handler.dashboard)
 	r.Get("/api/stats/proxy-logs", handler.proxyLogs)
 	r.Get("/api/stats/proxy-logs/{id}", handler.proxyLogDetail)
-	r.Get("/api/stats/proxy-debug/traces", handler.debugTraces)
-	r.Get("/api/stats/proxy-debug/traces/{id}", handler.debugTraceDetail)
 	r.Get("/api/stats/site-distribution", handler.siteDistribution)
 	r.Get("/api/stats/site-trend", handler.siteTrend)
 	r.Get("/api/stats/model-by-site", handler.modelBySite)
@@ -949,44 +947,6 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
-	writeJSON(w, http.StatusOK, row)
-}
-
-// ---- Debug Traces ----
-// GET /api/stats/proxy-debug/traces?limit=
-func (h *statsHandler) debugTraces(w http.ResponseWriter, r *http.Request) {
-	limit, _ := parseLimitOffset(r, 50, 100)
-
-	rows, err := queryRowsErr(h.db, "SELECT * FROM proxy_debug_traces ORDER BY created_at DESC LIMIT ?", limit)
-	if err != nil {
-		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load debug traces")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": normalizeSlice(rows)})
-}
-
-// ---- Debug Trace Detail ----
-// GET /api/stats/proxy-debug/traces/:id
-func (h *statsHandler) debugTraceDetail(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r)
-	if !ok {
-		return
-	}
-
-	row := queryRow(h.db, "SELECT * FROM proxy_debug_traces WHERE id = ?", id)
-	if row == nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"message": "proxy debug trace not found"})
-		return
-	}
-
-	// Load related attempts
-	attempts, err := queryRowsErr(h.db, "SELECT * FROM proxy_debug_attempts WHERE trace_id = ? ORDER BY attempt_index ASC", id)
-	if err != nil {
-		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load debug trace attempts")
-		return
-	}
-	row["attempts"] = normalizeSlice(attempts)
 
 	writeJSON(w, http.StatusOK, row)
 }

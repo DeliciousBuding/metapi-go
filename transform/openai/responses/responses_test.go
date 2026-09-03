@@ -176,40 +176,6 @@ func TestEnsureCompactResponsesJSONAcceptHeader(t *testing.T) {
 	}
 }
 
-func TestShouldFallbackCompactResponsesToResponses(t *testing.T) {
-	tests := []struct {
-		name        string
-		status      int
-		rawErrText  string
-		requestPath string
-		want        bool
-	}{
-		{"404 with compact path", 404, "not found", "/v1/responses/compact", true},
-		{"405 not allowed", 405, "method not allowed", "/v1/responses/compact", true},
-		{"501 not implemented", 501, "not implemented", "/v1/responses/compact", true},
-		{"200 no fallback", 200, "ok", "/v1/responses/compact", false},
-		{"400 with unknown stream param and compact hint", 400, "unknown parameter: 'stream'", "/v1/responses/compact", true},
-		{"400 with unknown stream param in error text", 400, "error: unknown parameter: 'stream' in /responses/compact", "/v1/chat/completions", true},
-		{"400 invalid url with compact hint", 400, "invalid url for responses/compact", "/v1/chat/completions", true},
-		{"400 not supported with compact hint", 400, "compact endpoint not supported", "/v1/chat/completions", true},
-		{"400 unsupported with compact prefix", 400, "compact unsupported", "/v1/chat/completions", true},
-		{"400 compact suffix", 400, "endpoint is compact", "/v1/chat/completions", false},
-		{"400 compact surrounded by spaces", 400, "the  compact  endpoint", "/v1/chat/completions", false},
-		{"400 no compact hint", 400, "bad request", "/v1/chat/completions", false},
-		{"404 on non-compact path no fallback", 404, "not found", "/v1/chat/completions", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ShouldFallbackCompactResponsesToResponses(tt.status, tt.rawErrText, tt.requestPath)
-			if got != tt.want {
-				t.Errorf("ShouldFallbackCompactResponsesToResponses(%d, %q, %q) = %v, want %v",
-					tt.status, tt.rawErrText, tt.requestPath, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestInbound(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -264,11 +264,9 @@ type Config struct {
 	RouteRebuildProbeFilterIncludeModels []string
 	RouteRebuildProbeFilterExcludeModels []string
 
-	// Retention (6 fields)
+	// Retention (4 fields)
 	ProxyLogRetentionDays                       int
 	ProxyLogRetentionPruneIntervalMinutes       int
-	ProxyFileRetentionDays                      int
-	ProxyFileRetentionPruneIntervalMinutes      int
 	ProxyVideoTaskRetentionDays                 int
 	ProxyVideoTaskRetentionPruneIntervalMinutes int
 
@@ -720,7 +718,6 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 
 	// ---- §3.17 Proxy: Misc ----
 	rt.CodexUpstreamWebsocketEnabled = parseBoolean(get("CODEX_UPSTREAM_WEBSOCKET_ENABLED"), false)
-	rt.ResponsesCompactFallbackToResponsesEnabled = parseBoolean(get("RESPONSES_COMPACT_FALLBACK_TO_RESPONSES_ENABLED"), false)
 	rt.DisableCrossProtocolFallback = parseBoolean(get("DISABLE_CROSS_PROTOCOL_FALLBACK"), false)
 	rt.ProxyEmptyContentFailEnabled = parseBoolean(get("PROXY_EMPTY_CONTENT_FAIL"), false)
 	// PROXY_MAX_STREAM_RESPONSE_BYTES caps a single SSE stream (default 1 MB).
@@ -749,17 +746,6 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	cfg.PromptFilterEnabled = parseBoolean(get("PROMPT_FILTER_ENABLED"), false)
 	cfg.PromptFilterDenyPatterns = parseCsvList(get("PROMPT_FILTER_DENY_PATTERNS"))
 
-	// ---- §3.18 Proxy: Debug ----
-	rt.ProxyDebugTraceEnabled = parseBoolean(get("PROXY_DEBUG_TRACE_ENABLED"), false)
-	rt.ProxyDebugCaptureHeaders = parseBoolean(get("PROXY_DEBUG_CAPTURE_HEADERS"), true)
-	rt.ProxyDebugCaptureBodies = parseBoolean(get("PROXY_DEBUG_CAPTURE_BODIES"), false)
-	rt.ProxyDebugCaptureStreamChunks = parseBoolean(get("PROXY_DEBUG_CAPTURE_STREAM_CHUNKS"), false)
-	rt.ProxyDebugTargetSessionId = strings.TrimSpace(get("PROXY_DEBUG_TARGET_SESSION_ID"))
-	rt.ProxyDebugTargetClientKind = strings.TrimSpace(get("PROXY_DEBUG_TARGET_CLIENT_KIND"))
-	rt.ProxyDebugTargetModel = strings.TrimSpace(get("PROXY_DEBUG_TARGET_MODEL"))
-	rt.ProxyDebugRetentionHours = max(1, int(math.Trunc(parseNumber(get("PROXY_DEBUG_RETENTION_HOURS"), DefaultProxyDebugRetentionHours))))
-	rt.ProxyDebugMaxBodyBytes = max(1024, int(math.Trunc(parseNumber(get("PROXY_DEBUG_MAX_BODY_BYTES"), DefaultProxyDebugMaxBodyBytes))))
-
 	// ---- §3.19 Codex-specific ----
 	cfg.CodexResponsesWebsocketBeta = firstNonEmpty(
 		parseOptionalSecret(get("CODEX_RESPONSES_WEBSOCKET_BETA")),
@@ -786,8 +772,6 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// ---- §3.21 Retention ----
 	cfg.ProxyLogRetentionDays = max(0, int(math.Trunc(parseNumber(get("PROXY_LOG_RETENTION_DAYS"), DefaultProxyLogRetentionDays))))
 	cfg.ProxyLogRetentionPruneIntervalMinutes = max(1, int(math.Trunc(parseNumber(get("PROXY_LOG_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyLogRetentionPruneIntervalMinutes)))))
-	cfg.ProxyFileRetentionDays = max(0, int(math.Trunc(parseNumber(get("PROXY_FILE_RETENTION_DAYS"), DefaultProxyFileRetentionDays))))
-	cfg.ProxyFileRetentionPruneIntervalMinutes = max(1, int(math.Trunc(parseNumber(get("PROXY_FILE_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyFileRetentionPruneIntervalMinutes)))))
 	cfg.ProxyVideoTaskRetentionDays = max(0, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_DAYS"), float64(DefaultProxyVideoTaskRetentionDays)))))
 	cfg.ProxyVideoTaskRetentionPruneIntervalMinutes = max(1, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyVideoTaskRetentionPruneIntervalMinutes)))))
 

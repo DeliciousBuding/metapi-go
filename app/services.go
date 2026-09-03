@@ -62,7 +62,7 @@ func buildSchedulers(cfg *config.Config) (
 ) {
 	newRegistry := scheduler.NewRegistry()
 
-	// ---- Usage Aggregation (needed by admin-snapshot) ----
+	// ---- Usage Aggregation ----
 	usageAgg := scheduler.NewUsageAggregationScheduler(cfg)
 	newRegistry.Register(usageAgg)
 
@@ -106,12 +106,6 @@ func buildSchedulers(cfg *config.Config) (
 
 	// ---- Scheduler 9: Sub2API Refresh ----
 	newRegistry.Register(scheduler.NewSub2APIRefreshScheduler(cfg))
-
-	// ---- Scheduler 12: Admin Snapshot ----
-	newRegistry.Register(scheduler.NewAdminSnapshotScheduler(cfg, usageAgg))
-
-	// ---- Scheduler 13: Proxy File Retention ----
-	newRegistry.Register(scheduler.NewProxyFileRetentionScheduler(cfg))
 
 	// ---- Scheduler 13b: Proxy Video Task Retention ----
 	newRegistry.Register(scheduler.NewProxyVideoTaskRetentionScheduler(cfg))

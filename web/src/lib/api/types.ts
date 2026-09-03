@@ -288,19 +288,9 @@ export type RuntimeSettingsPayload = {
   payloadRules?: Record<string, unknown> | null
   modelAvailabilityProbeEnabled?: boolean
   codexUpstreamWebsocketEnabled?: boolean
-  responsesCompactFallbackToResponsesEnabled?: boolean
   disableCrossProtocolFallback?: boolean
   proxySessionChannelConcurrencyLimit?: number
   proxySessionChannelQueueWaitMs?: number
-  proxyDebugTraceEnabled?: boolean
-  proxyDebugCaptureHeaders?: boolean
-  proxyDebugCaptureBodies?: boolean
-  proxyDebugCaptureStreamChunks?: boolean
-  proxyDebugTargetSessionId?: string
-  proxyDebugTargetClientKind?: string
-  proxyDebugTargetModel?: string
-  proxyDebugRetentionHours?: number
-  proxyDebugMaxBodyBytes?: number
   checkinEnabled?: boolean
   checkinCron?: string
   checkinScheduleMode?: 'cron' | 'interval' | 'window'
@@ -515,72 +505,6 @@ export type ProxyLogsResponse = {
   pageSize: number
   clientOptions: ProxyLogClientOption[]
   summary: ProxyLogsSummary
-}
-
-type ProxyDebugTraceListItem = {
-  id: number
-  createdAt: string
-  downstreamPath: string
-  clientKind?: string | null
-  sessionId?: string | null
-  requestedModel?: string | null
-  selectedChannelId?: number | null
-  finalStatus?: string | null
-  finalHttpStatus?: number | null
-  finalUpstreamPath?: string | null
-}
-
-export type ProxyDebugTraceDetail = {
-  trace: {
-    id: number
-    createdAt?: string | null
-    updatedAt?: string | null
-    downstreamPath?: string | null
-    clientKind?: string | null
-    sessionId?: string | null
-    traceHint?: string | null
-    requestedModel?: string | null
-    stickySessionKey?: string | null
-    stickyHitChannelId?: number | null
-    selectedChannelId?: number | null
-    selectedRouteId?: number | null
-    selectedAccountId?: number | null
-    selectedSiteId?: number | null
-    selectedSitePlatform?: string | null
-    endpointCandidatesJson?: string | null
-    endpointRuntimeStateJson?: string | null
-    decisionSummaryJson?: string | null
-    requestHeadersJson?: string | null
-    requestBodyJson?: string | null
-    finalStatus?: string | null
-    finalHttpStatus?: number | null
-    finalUpstreamPath?: string | null
-    finalResponseHeadersJson?: string | null
-    finalResponseBodyJson?: string | null
-  }
-  attempts: Array<{
-    id: number
-    attemptIndex: number
-    endpoint: string
-    requestPath: string
-    targetUrl: string
-    runtimeExecutor?: string | null
-    requestHeadersJson?: string | null
-    requestBodyJson?: string | null
-    responseStatus?: number | null
-    responseHeadersJson?: string | null
-    responseBodyJson?: string | null
-    rawErrorText?: string | null
-    recoverApplied?: boolean | null
-    downgradeDecision?: boolean | null
-    downgradeReason?: string | null
-    memoryWriteJson?: string | null
-    createdAt?: string | null
-  }>
-}
-
-export type ProxyDebugTracesResponse = {
-  items: ProxyDebugTraceListItem[]
 }
 
 export type OAuthProviderInfo = {

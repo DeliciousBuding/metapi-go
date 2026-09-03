@@ -457,58 +457,6 @@ type ProxyLog struct {
 	CreatedAt string  `db:"created_at" json:"createdAt"`
 }
 
-// ---- Table 15: proxy_debug_traces ----
-type ProxyDebugTrace struct {
-	ID                       int64   `db:"id" json:"id"`
-	DownstreamPath           string  `db:"downstream_path" json:"downstreamPath"`
-	ClientKind               *string `db:"client_kind" json:"clientKind"`
-	SessionID                *string `db:"session_id" json:"sessionId"`
-	TraceHint                *string `db:"trace_hint" json:"traceHint"`
-	RequestedModel           *string `db:"requested_model" json:"requestedModel"`
-	DownstreamAPIKeyID       *int64  `db:"downstream_api_key_id" json:"downstreamApiKeyId"`
-	RequestHeadersJSON       *string `db:"request_headers_json" json:"requestHeadersJson"`
-	RequestBodyJSON          *string `db:"request_body_json" json:"requestBodyJson"`
-	StickySessionKey         *string `db:"sticky_session_key" json:"stickySessionKey"`
-	StickyHitChannelID       *int64  `db:"sticky_hit_channel_id" json:"stickyHitChannelId"`
-	SelectedChannelID        *int64  `db:"selected_channel_id" json:"selectedChannelId"`
-	SelectedRouteID          *int64  `db:"selected_route_id" json:"selectedRouteId"`
-	SelectedAccountID        *int64  `db:"selected_account_id" json:"selectedAccountId"`
-	SelectedSiteID           *int64  `db:"selected_site_id" json:"selectedSiteId"`
-	SelectedSitePlatform     *string `db:"selected_site_platform" json:"selectedSitePlatform"`
-	EndpointCandidatesJSON   *string `db:"endpoint_candidates_json" json:"endpointCandidatesJson"`
-	EndpointRuntimeStateJSON *string `db:"endpoint_runtime_state_json" json:"endpointRuntimeStateJson"`
-	DecisionSummaryJSON      *string `db:"decision_summary_json" json:"decisionSummaryJson"`
-	FinalStatus              *string `db:"final_status" json:"finalStatus"`
-	FinalHTTPStatus          *int64  `db:"final_http_status" json:"finalHttpStatus"`
-	FinalUpstreamPath        *string `db:"final_upstream_path" json:"finalUpstreamPath"`
-	FinalResponseHeadersJSON *string `db:"final_response_headers_json" json:"finalResponseHeadersJson"`
-	FinalResponseBodyJSON    *string `db:"final_response_body_json" json:"finalResponseBodyJson"`
-	CreatedAt                string  `db:"created_at" json:"createdAt"`
-	UpdatedAt                string  `db:"updated_at" json:"updatedAt"`
-}
-
-// ---- Table 16: proxy_debug_attempts ----
-type ProxyDebugAttempt struct {
-	ID                  int64   `db:"id" json:"id"`
-	TraceID             int64   `db:"trace_id" json:"traceId"`
-	AttemptIndex        int64   `db:"attempt_index" json:"attemptIndex"`
-	Endpoint            string  `db:"endpoint" json:"endpoint"`
-	RequestPath         string  `db:"request_path" json:"requestPath"`
-	TargetURL           string  `db:"target_url" json:"targetUrl"`
-	RuntimeExecutor     *string `db:"runtime_executor" json:"runtimeExecutor"`
-	RequestHeadersJSON  *string `db:"request_headers_json" json:"requestHeadersJson"`
-	RequestBodyJSON     *string `db:"request_body_json" json:"requestBodyJson"`
-	ResponseStatus      *int64  `db:"response_status" json:"responseStatus"`
-	ResponseHeadersJSON *string `db:"response_headers_json" json:"responseHeadersJson"`
-	ResponseBodyJSON    *string `db:"response_body_json" json:"responseBodyJson"`
-	RawErrorText        *string `db:"raw_error_text" json:"rawErrorText"`
-	RecoverApplied      bool    `db:"recover_applied" json:"recoverApplied"`
-	DowngradeDecision   bool    `db:"downgrade_decision" json:"downgradeDecision"`
-	DowngradeReason     *string `db:"downgrade_reason" json:"downgradeReason"`
-	MemoryWriteJSON     *string `db:"memory_write_json" json:"memoryWriteJson"`
-	CreatedAt           string  `db:"created_at" json:"createdAt"`
-}
-
 // ---- Table 17: proxy_video_tasks ----
 type ProxyVideoTask struct {
 	ID                   int64   `db:"id" json:"id"`
@@ -528,40 +476,10 @@ type ProxyVideoTask struct {
 	UpdatedAt            string  `db:"updated_at" json:"updatedAt"`
 }
 
-// ---- Table 18: proxy_files ----
-type ProxyFile struct {
-	ID            int64   `db:"id" json:"id"`
-	PublicID      string  `db:"public_id" json:"publicId"`
-	OwnerType     string  `db:"owner_type" json:"ownerType"`
-	OwnerID       string  `db:"owner_id" json:"ownerId"`
-	Filename      string  `db:"filename" json:"filename"`
-	MimeType      string  `db:"mime_type" json:"mimeType"`
-	Purpose       *string `db:"purpose" json:"purpose"`
-	ByteSize      int64   `db:"byte_size" json:"byteSize"`
-	SHA256        string  `db:"sha256" json:"sha256"`
-	ContentBase64 string  `db:"content_base64" json:"contentBase64"`
-	CreatedAt     string  `db:"created_at" json:"createdAt"`
-	UpdatedAt     string  `db:"updated_at" json:"updatedAt"`
-	DeletedAt     *string `db:"deleted_at" json:"deletedAt"`
-}
-
 // ---- Table 19: settings (text PK) ----
 type Setting struct {
 	Key   string  `db:"key" json:"key"`
 	Value *string `db:"value" json:"value"`
-}
-
-// ---- Table 20: admin_snapshots ----
-type AdminSnapshot struct {
-	ID          int64  `db:"id" json:"id"`
-	Namespace   string `db:"namespace" json:"namespace"`
-	SnapshotKey string `db:"snapshot_key" json:"snapshotKey"`
-	Payload     string `db:"payload" json:"payload"`
-	GeneratedAt string `db:"generated_at" json:"generatedAt"`
-	ExpiresAt   string `db:"expires_at" json:"expiresAt"`
-	StaleUntil  string `db:"stale_until" json:"staleUntil"`
-	CreatedAt   string `db:"created_at" json:"createdAt"`
-	UpdatedAt   string `db:"updated_at" json:"updatedAt"`
 }
 
 // ---- Table 21: analytics_projection_checkpoints (text PK) ----

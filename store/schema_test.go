@@ -23,13 +23,9 @@ var tableColumnCount = map[string]int{
 	"OAuthRouteUnitMember":          19,
 	"RouteChannel":                  23,
 	"ProxyLog":                      25,
-	"ProxyDebugTrace":               26,
-	"ProxyDebugAttempt":             18,
 	"ProxyVideoTask":                15,
 	"AdminBackgroundTask":           14,
-	"ProxyFile":                     13,
 	"Setting":                       2,
-	"AdminSnapshot":                 9,
 	"AnalyticsProjectionCheckpoint": 17,
 	"SiteDayUsage":                  13,
 	"SiteHourUsage":                 13,
@@ -46,7 +42,7 @@ var tableColumnCount = map[string]int{
 	"AdminAuditLog":                 8,
 }
 
-// allStructs returns a list of all 35 table structs for reflection-based testing.
+// allStructs returns every schema struct for reflection-based testing.
 func allStructs() []any {
 	return []any{
 		Site{},
@@ -63,12 +59,8 @@ func allStructs() []any {
 		OAuthRouteUnitMember{},
 		RouteChannel{},
 		ProxyLog{},
-		ProxyDebugTrace{},
-		ProxyDebugAttempt{},
 		ProxyVideoTask{},
-		ProxyFile{},
 		Setting{},
-		AdminSnapshot{},
 		AnalyticsProjectionCheckpoint{},
 		SiteDayUsage{},
 		SiteHourUsage{},
@@ -87,11 +79,17 @@ func allStructs() []any {
 	}
 }
 
-// TestTableCount verifies that there are exactly 35 table structs.
+// TestTableCount is the single place that pins the absolute table inventory,
+// so adding or removing a table has to be a deliberate, reviewed act. It also
+// cross-checks the struct list against the column-count map, which is the
+// other hand-maintained inventory in this file.
 func TestTableCount(t *testing.T) {
 	structs := allStructs()
-	if len(structs) != 35 {
-		t.Errorf("expected 35 table structs, got %d", len(structs))
+	if len(structs) != 31 {
+		t.Errorf("expected 31 table structs, got %d", len(structs))
+	}
+	if len(structs) != len(tableColumnCount) {
+		t.Errorf("struct list (%d) and column-count map (%d) disagree", len(structs), len(tableColumnCount))
 	}
 }
 

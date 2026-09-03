@@ -139,24 +139,13 @@ type RuntimeSettings struct {
 	// Proxy: Session (4 fields)
 	ProxySessionChannelConcurrencyLimit int
 	ProxySessionChannelQueueWaitMs      int
-	// Proxy: Misc (7 fields)
-	CodexUpstreamWebsocketEnabled              bool
-	ResponsesCompactFallbackToResponsesEnabled bool
-	DisableCrossProtocolFallback               bool
-	ProxyEmptyContentFailEnabled               bool
-	ProxyErrorKeywords                         []string
-	GlobalBlockedBrands                        []string
-	GlobalAllowedModels                        []string
-	// Proxy: Debug (9 fields)
-	ProxyDebugTraceEnabled        bool
-	ProxyDebugCaptureHeaders      bool
-	ProxyDebugCaptureBodies       bool
-	ProxyDebugCaptureStreamChunks bool
-	ProxyDebugTargetSessionId     string
-	ProxyDebugTargetClientKind    string
-	ProxyDebugTargetModel         string
-	ProxyDebugRetentionHours      int
-	ProxyDebugMaxBodyBytes        int
+	// Proxy: Misc (6 fields)
+	CodexUpstreamWebsocketEnabled bool
+	DisableCrossProtocolFallback  bool
+	ProxyEmptyContentFailEnabled  bool
+	ProxyErrorKeywords            []string
+	GlobalBlockedBrands           []string
+	GlobalAllowedModels           []string
 	// Routing Weights (5 fields)
 	// Model availability probe kill switch (settings toggle hot-applies the
 	// running ticker, scheduler/model_probe.go SetEnabled).

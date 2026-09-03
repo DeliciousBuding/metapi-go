@@ -10,7 +10,7 @@ Base URL: `http://localhost:4000/api`. Authentication model, response formats, r
 | Domain | File |
 | :--- | :--- |
 | Conventions, auth model, response formats, billing, security, CORS & trusted IPs | [`conventions.md`](api/conventions.md) |
-| Stats & dashboard + proxy debug traces | [`stats.md`](api/stats.md) |
+| Stats & dashboard | [`stats.md`](api/stats.md) |
 | Routes, channels & route decision | [`routes.md`](api/routes.md) |
 | Marketplace, price compare, probes & model redirects | [`models.md`](api/models.md) |
 | Sites CRUD, detect/import/batch, probe & tags | [`sites.md`](api/sites.md) |

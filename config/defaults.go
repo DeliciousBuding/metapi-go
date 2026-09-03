@@ -118,12 +118,10 @@ const (
 	DefaultModelAvailabilityProbeTimeoutMs   = 15000
 	DefaultModelAvailabilityProbeConcurrency = 1
 
-	DefaultProxyLogRetentionDays                  = 30
-	DefaultProxyLogRetentionPruneIntervalMinutes  = 30
-	DefaultProxyFileRetentionDays                 = 30
-	DefaultProxyFileRetentionPruneIntervalMinutes = 60
+	DefaultProxyLogRetentionDays                 = 30
+	DefaultProxyLogRetentionPruneIntervalMinutes = 30
 	// Video task mappings are short-lived id rewrites, so they retire faster
-	// than proxy logs/files: 7 days. The same knob bounds the process-local
+	// than proxy logs: 7 days. The same knob bounds the process-local
 	// rewrite cache in handler/proxy. <=0 remains an explicit operator opt-out
 	// (retention disabled), it is just no longer the default.
 	DefaultProxyVideoTaskRetentionDays                 = 7
@@ -140,9 +138,6 @@ const (
 	// keeps admin dashboards near-real-time; small single-node deployments
 	// (2 vCPU class) can relax it to trade freshness for fewer passes.
 	DefaultUsageProjectionIntervalMs = 5000
-
-	DefaultProxyDebugRetentionHours = 24
-	DefaultProxyDebugMaxBodyBytes   = 262144
 
 	// DefaultProxyMaxStreamResponseBytes caps the total bytes relayed for a
 	// single SSE stream before a controlled termination (64 MB). Parsed from

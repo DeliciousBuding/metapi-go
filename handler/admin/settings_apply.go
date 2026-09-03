@@ -327,16 +327,6 @@ func (h *settingsHandler) applyFeatureToggleSettings(body map[string]any) *setti
 		upsertSettingDB(h.db, "codex_upstream_websocket_enabled", enabled)
 	}
 
-	// Responses compact fallback
-	if v, ok := body["responsesCompactFallbackToResponsesEnabled"]; ok {
-		enabled, err := toBoolStrict(v)
-		if err != nil {
-			return failSettings(http.StatusBadRequest, "responsesCompactFallbackToResponsesEnabled must be a boolean (true/false)")
-		}
-		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ResponsesCompactFallbackToResponsesEnabled = enabled })
-		upsertSettingDB(h.db, "responses_compact_fallback_to_responses_enabled", enabled)
-	}
-
 	// Cross protocol fallback
 	if v, ok := body["disableCrossProtocolFallback"]; ok {
 		enabled, err := toBoolStrict(v)
@@ -381,59 +371,6 @@ func (h *settingsHandler) applyProxySessionSettings(body map[string]any) *settin
 		waitMs := int(n)
 		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxySessionChannelQueueWaitMs = waitMs })
 		upsertSettingDB(h.db, "proxy_session_channel_queue_wait_ms", waitMs)
-	}
-	return nil
-}
-
-// applyProxyDebugSettings applies the proxy debug trace settings.
-func (h *settingsHandler) applyProxyDebugSettings(body map[string]any) *settingsApplyError {
-	// Debug settings
-	if err := applyBoolSettingDB(h.db, body, "proxyDebugTraceEnabled", "proxy_debug_trace_enabled", func(r *config.RuntimeSettings, v bool) { r.ProxyDebugTraceEnabled = v }); err != nil {
-		return failSettings(http.StatusBadRequest, err.Error())
-	}
-	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureHeaders", "proxy_debug_capture_headers", func(r *config.RuntimeSettings, v bool) { r.ProxyDebugCaptureHeaders = v }); err != nil {
-		return failSettings(http.StatusBadRequest, err.Error())
-	}
-	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureBodies", "proxy_debug_capture_bodies", func(r *config.RuntimeSettings, v bool) { r.ProxyDebugCaptureBodies = v }); err != nil {
-		return failSettings(http.StatusBadRequest, err.Error())
-	}
-	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureStreamChunks", "proxy_debug_capture_stream_chunks", func(r *config.RuntimeSettings, v bool) { r.ProxyDebugCaptureStreamChunks = v }); err != nil {
-		return failSettings(http.StatusBadRequest, err.Error())
-	}
-
-	if err := applyStringSettingDB(h.db, body, "proxyDebugTargetSessionId", "proxy_debug_target_session_id", func(r *config.RuntimeSettings, v string) { r.ProxyDebugTargetSessionId = v }); err != nil {
-		return failSettings(http.StatusInternalServerError, err.Error())
-	}
-	if err := applyStringSettingDB(h.db, body, "proxyDebugTargetClientKind", "proxy_debug_target_client_kind", func(r *config.RuntimeSettings, v string) { r.ProxyDebugTargetClientKind = v }); err != nil {
-		return failSettings(http.StatusInternalServerError, err.Error())
-	}
-	if err := applyStringSettingDB(h.db, body, "proxyDebugTargetModel", "proxy_debug_target_model", func(r *config.RuntimeSettings, v string) { r.ProxyDebugTargetModel = v }); err != nil {
-		return failSettings(http.StatusInternalServerError, err.Error())
-	}
-
-	if v, ok := body["proxyDebugRetentionHours"]; ok {
-		n, err := toFloat64Strict(v)
-		if err != nil {
-			return failSettings(http.StatusBadRequest, "proxyDebugRetentionHours must be a number")
-		}
-		if n < 1 {
-			return failSettings(http.StatusBadRequest, "proxy debug retention hours must be an integer >= 1")
-		}
-		hours := int(n)
-		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyDebugRetentionHours = hours })
-		upsertSettingDB(h.db, "proxy_debug_retention_hours", hours)
-	}
-	if v, ok := body["proxyDebugMaxBodyBytes"]; ok {
-		n, err := toFloat64Strict(v)
-		if err != nil {
-			return failSettings(http.StatusBadRequest, "proxyDebugMaxBodyBytes must be a number")
-		}
-		if n < 1024 {
-			return failSettings(http.StatusBadRequest, "proxy debug capture size limit must be an integer >= 1024 bytes")
-		}
-		maxBytes := int(n)
-		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyDebugMaxBodyBytes = maxBytes })
-		upsertSettingDB(h.db, "proxy_debug_max_body_bytes", maxBytes)
 	}
 	return nil
 }
