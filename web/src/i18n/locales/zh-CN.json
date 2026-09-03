@@ -1283,7 +1283,6 @@
             "payloadRules": "负载规则（JSON）",
             "payloadRulesHint": "按模型重写请求负载的 JSON 对象（键为模型名，值为要覆盖的字段）。",
             "codexUpstreamWebsocketEnabled": "对 Codex 上游使用 WebSocket",
-            "responsesCompactFallbackEnabled": "Compact 回退到 Responses",
             "proxySessionChannelConcurrencyLimit": "会话通道并发",
             "proxySessionChannelQueueWaitMs": "队列等待（毫秒）",
             "modelAvailabilityProbeEnabled": "启用模型可用性探测",

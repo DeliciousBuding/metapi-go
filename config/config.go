@@ -720,7 +720,6 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 
 	// ---- §3.17 Proxy: Misc ----
 	rt.CodexUpstreamWebsocketEnabled = parseBoolean(get("CODEX_UPSTREAM_WEBSOCKET_ENABLED"), false)
-	rt.ResponsesCompactFallbackToResponsesEnabled = parseBoolean(get("RESPONSES_COMPACT_FALLBACK_TO_RESPONSES_ENABLED"), false)
 	rt.DisableCrossProtocolFallback = parseBoolean(get("DISABLE_CROSS_PROTOCOL_FALLBACK"), false)
 	rt.ProxyEmptyContentFailEnabled = parseBoolean(get("PROXY_EMPTY_CONTENT_FAIL"), false)
 	// PROXY_MAX_STREAM_RESPONSE_BYTES caps a single SSE stream (default 1 MB).
@@ -748,17 +747,6 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// ---- §3.17b Prompt Filter (OAuth pool protection, #681) ----
 	cfg.PromptFilterEnabled = parseBoolean(get("PROMPT_FILTER_ENABLED"), false)
 	cfg.PromptFilterDenyPatterns = parseCsvList(get("PROMPT_FILTER_DENY_PATTERNS"))
-
-	// ---- §3.18 Proxy: Debug ----
-	rt.ProxyDebugTraceEnabled = parseBoolean(get("PROXY_DEBUG_TRACE_ENABLED"), false)
-	rt.ProxyDebugCaptureHeaders = parseBoolean(get("PROXY_DEBUG_CAPTURE_HEADERS"), true)
-	rt.ProxyDebugCaptureBodies = parseBoolean(get("PROXY_DEBUG_CAPTURE_BODIES"), false)
-	rt.ProxyDebugCaptureStreamChunks = parseBoolean(get("PROXY_DEBUG_CAPTURE_STREAM_CHUNKS"), false)
-	rt.ProxyDebugTargetSessionId = strings.TrimSpace(get("PROXY_DEBUG_TARGET_SESSION_ID"))
-	rt.ProxyDebugTargetClientKind = strings.TrimSpace(get("PROXY_DEBUG_TARGET_CLIENT_KIND"))
-	rt.ProxyDebugTargetModel = strings.TrimSpace(get("PROXY_DEBUG_TARGET_MODEL"))
-	rt.ProxyDebugRetentionHours = max(1, int(math.Trunc(parseNumber(get("PROXY_DEBUG_RETENTION_HOURS"), DefaultProxyDebugRetentionHours))))
-	rt.ProxyDebugMaxBodyBytes = max(1024, int(math.Trunc(parseNumber(get("PROXY_DEBUG_MAX_BODY_BYTES"), DefaultProxyDebugMaxBodyBytes))))
 
 	// ---- §3.19 Codex-specific ----
 	cfg.CodexResponsesWebsocketBeta = firstNonEmpty(

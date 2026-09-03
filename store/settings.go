@@ -425,8 +425,6 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 		// Proxy: fallback policy toggles.
 		case "disable_cross_protocol_fallback":
 			rt.DisableCrossProtocolFallback = parseBoolSetting(value, rt.DisableCrossProtocolFallback)
-		case "responses_compact_fallback_to_responses_enabled":
-			rt.ResponsesCompactFallbackToResponsesEnabled = parseBoolSetting(value, rt.ResponsesCompactFallbackToResponsesEnabled)
 
 		// Routing cost model. config.Load floors the fallback unit cost at
 		// 1e-6 so an unpriced model can never route as free.
@@ -458,30 +456,6 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 		// Codex
 		case "codex_upstream_websocket_enabled":
 			rt.CodexUpstreamWebsocketEnabled = parseBoolSetting(value, rt.CodexUpstreamWebsocketEnabled)
-
-		// Proxy: debug tracing. The master toggle was already hydrated but the
-		// capture/target/retention knobs it depends on were not, so a restart
-		// left tracing enabled with env-default capture rules.
-		case "proxy_debug_trace_enabled":
-			rt.ProxyDebugTraceEnabled = parseBoolSetting(value, rt.ProxyDebugTraceEnabled)
-		case "proxy_debug_capture_headers":
-			rt.ProxyDebugCaptureHeaders = parseBoolSetting(value, rt.ProxyDebugCaptureHeaders)
-		case "proxy_debug_capture_bodies":
-			rt.ProxyDebugCaptureBodies = parseBoolSetting(value, rt.ProxyDebugCaptureBodies)
-		case "proxy_debug_capture_stream_chunks":
-			rt.ProxyDebugCaptureStreamChunks = parseBoolSetting(value, rt.ProxyDebugCaptureStreamChunks)
-		case "proxy_debug_target_session_id":
-			rt.ProxyDebugTargetSessionId = parseJSONSettingString(value)
-		case "proxy_debug_target_client_kind":
-			rt.ProxyDebugTargetClientKind = parseJSONSettingString(value)
-		case "proxy_debug_target_model":
-			rt.ProxyDebugTargetModel = parseJSONSettingString(value)
-		case "proxy_debug_retention_hours":
-			// config.Load: max(1, trunc(n)).
-			rt.ProxyDebugRetentionHours = parseIntSetting(value, float64(rt.ProxyDebugRetentionHours), 1)
-		case "proxy_debug_max_body_bytes":
-			// config.Load: max(1024, trunc(n)).
-			rt.ProxyDebugMaxBodyBytes = parseIntSetting(value, float64(rt.ProxyDebugMaxBodyBytes), 1024)
 
 		// Generic JSON settings
 		case "global_blocked_brands":

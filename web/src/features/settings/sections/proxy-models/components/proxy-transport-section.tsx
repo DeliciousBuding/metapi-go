@@ -75,7 +75,6 @@ const proxyTransportSchema = z.object({
   proxyEmptyContentFailEnabled: z.boolean(),
   payloadRules: payloadRulesSchema,
   codexUpstreamWebsocketEnabled: z.boolean(),
-  responsesCompactFallbackToResponsesEnabled: z.boolean(),
   proxySessionChannelConcurrencyLimit: z.coerce.number().int().min(0),
   proxySessionChannelQueueWaitMs: z.coerce.number().int().min(0),
   modelAvailabilityProbeEnabled: z.boolean(),
@@ -89,7 +88,6 @@ const DEFAULT_VALUES: ProxyTransportFormValues = {
   proxyEmptyContentFailEnabled: false,
   payloadRules: '',
   codexUpstreamWebsocketEnabled: false,
-  responsesCompactFallbackToResponsesEnabled: false,
   proxySessionChannelConcurrencyLimit: 2,
   proxySessionChannelQueueWaitMs: 1500,
   modelAvailabilityProbeEnabled: false,
@@ -117,9 +115,6 @@ function deriveServerValues(
     payloadRules: payloadRulesJson,
     codexUpstreamWebsocketEnabled: asBoolean(
       data.codexUpstreamWebsocketEnabled
-    ),
-    responsesCompactFallbackToResponsesEnabled: asBoolean(
-      data.responsesCompactFallbackToResponsesEnabled
     ),
     proxySessionChannelConcurrencyLimit:
       asNumber(data.proxySessionChannelConcurrencyLimit) ?? 2,
@@ -150,10 +145,6 @@ function proxyTransportToPayload(changed: Partial<ProxyTransportFormValues>) {
   if (changed.codexUpstreamWebsocketEnabled !== undefined) {
     payload.codexUpstreamWebsocketEnabled =
       changed.codexUpstreamWebsocketEnabled
-  }
-  if (changed.responsesCompactFallbackToResponsesEnabled !== undefined) {
-    payload.responsesCompactFallbackToResponsesEnabled =
-      changed.responsesCompactFallbackToResponsesEnabled
   }
   if (changed.proxySessionChannelConcurrencyLimit !== undefined) {
     payload.proxySessionChannelConcurrencyLimit =
@@ -433,25 +424,6 @@ export function ProxyTransportSection() {
                   <FormLabel className='cursor-pointer'>
                     {t(
                       'settings.proxyModels.proxyTransport.fields.codexUpstreamWebsocketEnabled'
-                    )}
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='responsesCompactFallbackToResponsesEnabled'
-              render={({ field }) => (
-                <FormItem className='flex flex-row items-center gap-3'>
-                  <FormControl>
-                    <Checkbox
-                      checked={Boolean(field.value)}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormLabel className='cursor-pointer'>
-                    {t(
-                      'settings.proxyModels.proxyTransport.fields.responsesCompactFallbackEnabled'
                     )}
                   </FormLabel>
                 </FormItem>

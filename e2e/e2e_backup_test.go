@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/handler/admin"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -137,18 +137,6 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 	db.Exec(`INSERT INTO proxy_logs (id, route_id, channel_id, account_id, model_requested, model_actual, status, created_at)
 		VALUES (2, 2, 2, 2, 'claude-3-opus', 'claude-3-opus', 'success', ?)`, now)
 
-	// Table 15: proxy_debug_traces (2 rows)
-	db.Exec(`INSERT INTO proxy_debug_traces (id, downstream_path, requested_model, created_at, updated_at)
-		VALUES (1, '/v1/chat/completions', 'gpt-4', ?, ?)`, now, now)
-	db.Exec(`INSERT INTO proxy_debug_traces (id, downstream_path, requested_model, created_at, updated_at)
-		VALUES (2, '/v1/chat/completions', 'claude-3-opus', ?, ?)`, now, now)
-
-	// Table 16: proxy_debug_attempts (2 rows, FK proxy_debug_traces)
-	db.Exec(`INSERT INTO proxy_debug_attempts (id, trace_id, attempt_index, endpoint, request_path, target_url, created_at)
-		VALUES (1, 1, 0, 'api.openai.com', '/v1/chat/completions', 'https://api.openai.com/v1/chat/completions', ?)`, now)
-	db.Exec(`INSERT INTO proxy_debug_attempts (id, trace_id, attempt_index, endpoint, request_path, target_url, created_at)
-		VALUES (2, 2, 0, 'api.anthropic.com', '/v1/chat/completions', 'https://api.anthropic.com/v1/chat/completions', ?)`, now)
-
 	// Table 17: proxy_video_tasks (2 rows)
 	db.Exec(`INSERT INTO proxy_video_tasks (id, public_id, upstream_video_id, site_url, token_value, created_at, updated_at)
 		VALUES (1, 'vid-pub-001', 'upstream-vid-001', 'https://api.openai.com', 'sk-token-1', ?, ?)`, now, now)
@@ -227,8 +215,6 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 		"oauth_route_unit_members":         2,
 		"route_channels":                   2,
 		"proxy_logs":                       2,
-		"proxy_debug_traces":               2,
-		"proxy_debug_attempts":             2,
 		"proxy_video_tasks":                2,
 		"proxy_files":                      2,
 		"settings":                         2,
@@ -982,12 +968,6 @@ func verifyForeignKeyIntegrity(t *testing.T, db *store.DB) {
 	db.Get(&count, `SELECT COUNT(*) FROM oauth_route_unit_members WHERE unit_id NOT IN (SELECT id FROM oauth_route_units)`)
 	if count != 0 {
 		t.Errorf("FK integrity: %d oauth_route_unit_members have invalid unit_id", count)
-	}
-
-	// proxy_debug_attempts -> proxy_debug_traces
-	db.Get(&count, `SELECT COUNT(*) FROM proxy_debug_attempts WHERE trace_id NOT IN (SELECT id FROM proxy_debug_traces)`)
-	if count != 0 {
-		t.Errorf("FK integrity: %d proxy_debug_attempts have invalid trace_id", count)
 	}
 
 	// site_day_usage -> sites

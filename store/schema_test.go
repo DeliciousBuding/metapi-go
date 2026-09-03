@@ -23,8 +23,6 @@ var tableColumnCount = map[string]int{
 	"OAuthRouteUnitMember":          19,
 	"RouteChannel":                  23,
 	"ProxyLog":                      25,
-	"ProxyDebugTrace":               26,
-	"ProxyDebugAttempt":             18,
 	"ProxyVideoTask":                15,
 	"AdminBackgroundTask":           14,
 	"ProxyFile":                     13,
@@ -46,7 +44,7 @@ var tableColumnCount = map[string]int{
 	"AdminAuditLog":                 8,
 }
 
-// allStructs returns a list of all 35 table structs for reflection-based testing.
+// allStructs returns a list of all 33 table structs for reflection-based testing.
 func allStructs() []any {
 	return []any{
 		Site{},
@@ -63,8 +61,6 @@ func allStructs() []any {
 		OAuthRouteUnitMember{},
 		RouteChannel{},
 		ProxyLog{},
-		ProxyDebugTrace{},
-		ProxyDebugAttempt{},
 		ProxyVideoTask{},
 		ProxyFile{},
 		Setting{},
@@ -87,11 +83,11 @@ func allStructs() []any {
 	}
 }
 
-// TestTableCount verifies that there are exactly 35 table structs.
+// TestTableCount verifies that there are exactly 33 table structs.
 func TestTableCount(t *testing.T) {
 	structs := allStructs()
-	if len(structs) != 35 {
-		t.Errorf("expected 35 table structs, got %d", len(structs))
+	if len(structs) != 33 {
+		t.Errorf("expected 33 table structs, got %d", len(structs))
 	}
 }
 

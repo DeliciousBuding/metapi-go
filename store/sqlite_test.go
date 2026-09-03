@@ -99,7 +99,7 @@ func TestSQLitePragmasOnFileDB(t *testing.T) {
 	assertPragmaInt("cache_size", 10000)
 }
 
-// TestSQLiteAutoMigrateAllTables verifies all 35 tables are created.
+// TestSQLiteAutoMigrateAllTables verifies all 33 tables are created.
 func TestSQLiteAutoMigrateAllTables(t *testing.T) {
 	db := openTestSQLite(t)
 
@@ -118,8 +118,6 @@ func TestSQLiteAutoMigrateAllTables(t *testing.T) {
 		"oauth_route_unit_members",
 		"route_channels",
 		"proxy_logs",
-		"proxy_debug_traces",
-		"proxy_debug_attempts",
 		"proxy_video_tasks",
 		"admin_background_tasks",
 		"proxy_files",

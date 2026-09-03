@@ -142,17 +142,13 @@ func TestApplyRuntimeSettingsRejectsInvalidCooldownCap(t *testing.T) {
 func TestApplyRuntimeSettingsHydratesProxyPolicyToggles(t *testing.T) {
 	rt := &config.RuntimeSettings{}
 	ApplyRuntimeSettings(&config.Config{}, rt, map[string]string{
-		"disable_cross_protocol_fallback":                 `true`,
-		"responses_compact_fallback_to_responses_enabled": `true`,
-		"proxy_empty_content_fail_enabled":                `true`,
-		"proxy_session_channel_concurrency_limit":         `4`,
-		"proxy_session_channel_queue_wait_ms":             `2500`,
+		"disable_cross_protocol_fallback":         `true`,
+		"proxy_empty_content_fail_enabled":        `true`,
+		"proxy_session_channel_concurrency_limit": `4`,
+		"proxy_session_channel_queue_wait_ms":     `2500`,
 	})
 	if !rt.DisableCrossProtocolFallback {
 		t.Error("DisableCrossProtocolFallback = false, want true")
-	}
-	if !rt.ResponsesCompactFallbackToResponsesEnabled {
-		t.Error("ResponsesCompactFallbackToResponsesEnabled = false, want true")
 	}
 	if !rt.ProxyEmptyContentFailEnabled {
 		t.Error("ProxyEmptyContentFailEnabled = false, want true")
@@ -162,37 +158,6 @@ func TestApplyRuntimeSettingsHydratesProxyPolicyToggles(t *testing.T) {
 	}
 	if rt.ProxySessionChannelQueueWaitMs != 2500 {
 		t.Errorf("ProxySessionChannelQueueWaitMs = %d, want 2500", rt.ProxySessionChannelQueueWaitMs)
-	}
-}
-
-func TestApplyRuntimeSettingsHydratesProxyDebugKnobs(t *testing.T) {
-	rt := &config.RuntimeSettings{ProxyDebugCaptureHeaders: true}
-	ApplyRuntimeSettings(&config.Config{}, rt, map[string]string{
-		"proxy_debug_capture_headers":       `false`,
-		"proxy_debug_capture_bodies":        `true`,
-		"proxy_debug_capture_stream_chunks": `true`,
-		"proxy_debug_target_session_id":     `"sess-1"`,
-		"proxy_debug_target_client_kind":    `"codex"`,
-		"proxy_debug_target_model":          `"gpt-5"`,
-		"proxy_debug_retention_hours":       `12`,
-		"proxy_debug_max_body_bytes":        `4096`,
-	})
-	if rt.ProxyDebugCaptureHeaders {
-		t.Error("ProxyDebugCaptureHeaders = true, want false")
-	}
-	if !rt.ProxyDebugCaptureBodies || !rt.ProxyDebugCaptureStreamChunks {
-		t.Errorf("capture bodies/chunks = %v/%v, want true/true",
-			rt.ProxyDebugCaptureBodies, rt.ProxyDebugCaptureStreamChunks)
-	}
-	if rt.ProxyDebugTargetSessionId != "sess-1" || rt.ProxyDebugTargetClientKind != "codex" || rt.ProxyDebugTargetModel != "gpt-5" {
-		t.Errorf("debug targets = (%q, %q, %q), want (sess-1, codex, gpt-5)",
-			rt.ProxyDebugTargetSessionId, rt.ProxyDebugTargetClientKind, rt.ProxyDebugTargetModel)
-	}
-	if rt.ProxyDebugRetentionHours != 12 {
-		t.Errorf("ProxyDebugRetentionHours = %d, want 12", rt.ProxyDebugRetentionHours)
-	}
-	if rt.ProxyDebugMaxBodyBytes != 4096 {
-		t.Errorf("ProxyDebugMaxBodyBytes = %d, want 4096", rt.ProxyDebugMaxBodyBytes)
 	}
 }
 
@@ -325,18 +290,6 @@ func TestApplyRuntimeSettingsClampsMatchConfigLoad(t *testing.T) {
 			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.LogCleanupRetentionDays },
 		},
 		{
-			name:     "proxy debug retention floor",
-			env:      map[string]string{"PROXY_DEBUG_RETENTION_HOURS": "-3"},
-			settings: map[string]string{"proxy_debug_retention_hours": `-3`},
-			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.ProxyDebugRetentionHours },
-		},
-		{
-			name:     "proxy debug capture size floor",
-			env:      map[string]string{"PROXY_DEBUG_MAX_BODY_BYTES": "10"},
-			settings: map[string]string{"proxy_debug_max_body_bytes": `10`},
-			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.ProxyDebugMaxBodyBytes },
-		},
-		{
 			name:     "session concurrency floor",
 			env:      map[string]string{"PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT": "-3"},
 			settings: map[string]string{"proxy_session_channel_concurrency_limit": `-3`},
@@ -404,18 +357,6 @@ func TestApplyRuntimeSettingsClampsMatchConfigLoad(t *testing.T) {
 			env:      map[string]string{"PROXY_EMPTY_CONTENT_FAIL": "true"},
 			settings: map[string]string{"proxy_empty_content_fail_enabled": `true`},
 			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.ProxyEmptyContentFailEnabled },
-		},
-		{
-			name:     "debug capture headers toggle",
-			env:      map[string]string{"PROXY_DEBUG_CAPTURE_HEADERS": "false"},
-			settings: map[string]string{"proxy_debug_capture_headers": `false`},
-			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.ProxyDebugCaptureHeaders },
-		},
-		{
-			name:     "debug target model trims",
-			env:      map[string]string{"PROXY_DEBUG_TARGET_MODEL": "  gpt-5  "},
-			settings: map[string]string{"proxy_debug_target_model": `"  gpt-5  "`},
-			get:      func(_ *config.Config, rt *config.RuntimeSettings) any { return rt.ProxyDebugTargetModel },
 		},
 		{
 			// Both paths decode the same cell text. An unreadable value must

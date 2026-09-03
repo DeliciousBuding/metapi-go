@@ -49,8 +49,6 @@ var schemaTables = []schemaTable{
 	{"oauth_route_unit_members", buildOAuthRouteUnitMembersDDL},
 	{"route_channels", buildRouteChannelsDDL},
 	{"proxy_logs", buildProxyLogsDDL},
-	{"proxy_debug_traces", buildProxyDebugTracesDDL},
-	{"proxy_debug_attempts", buildProxyDebugAttemptsDDL},
 	{"proxy_video_tasks", buildProxyVideoTasksDDL},
 	{"proxy_files", buildProxyFilesDDL},
 	{"settings", buildSettingsDDL},

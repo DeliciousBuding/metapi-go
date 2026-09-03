@@ -1283,7 +1283,6 @@
             "payloadRules": "Payload rules (JSON)",
             "payloadRulesHint": "Per-model payload rewrite rules as a JSON object (model name as key, override fields as value).",
             "codexUpstreamWebsocketEnabled": "Use WebSocket with Codex upstream",
-            "responsesCompactFallbackEnabled": "Fallback Compact to Responses",
             "proxySessionChannelConcurrencyLimit": "Session channel concurrency",
             "proxySessionChannelQueueWaitMs": "Queue wait (ms)",
             "modelAvailabilityProbeEnabled": "Enable model availability probe",

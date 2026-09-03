@@ -171,23 +171,6 @@ upstream request; …`), since it describes a static misconfiguration.
 | `PROXY_VIDEO_TASK_RETENTION_DAYS` | `7` | Video task mapping retention: prunes `proxy_video_tasks` rows and bounds the in-process rewrite cache TTL; `0` = keep forever (explicit opt-out). |
 | `PROXY_VIDEO_TASK_RETENTION_PRUNE_INTERVAL_MINUTES` | `60` | How often the video-task pruner runs; floored at 1 minute. |
 
-### Proxy debug tracing
-
-Capture surfaces for reproducing an upstream failure. All of it is off unless
-`PROXY_DEBUG_TRACE_ENABLED` is set, and captured rows are pruned on a timer.
-
-| Variable | Default | Description |
-|:---------|:--------|:------------|
-| `PROXY_DEBUG_TRACE_ENABLED` | `false` | Master switch for debug trace capture. |
-| `PROXY_DEBUG_CAPTURE_HEADERS` | `true` | Store request/response headers on a captured trace (only meaningful while capture is on). |
-| `PROXY_DEBUG_CAPTURE_BODIES` | `false` | Store request/response bodies. |
-| `PROXY_DEBUG_CAPTURE_STREAM_CHUNKS` | `false` | Store individual SSE chunks of a streamed response. |
-| `PROXY_DEBUG_TARGET_SESSION_ID` | empty | Capture only this session id; empty = no session filter. |
-| `PROXY_DEBUG_TARGET_CLIENT_KIND` | empty | Capture only this detected client kind; empty = no client filter. |
-| `PROXY_DEBUG_TARGET_MODEL` | empty | Capture only this model; empty = no model filter. |
-| `PROXY_DEBUG_MAX_BODY_BYTES` | `262144` | Per-body capture cap in bytes; floored at 1024. |
-| `PROXY_DEBUG_RETENTION_HOURS` | `24` | How long captured traces are kept; floored at 1 hour. |
-
 ## Routing
 
 | Variable | Default | Description |
@@ -245,7 +228,6 @@ Capture surfaces for reproducing an upstream failure. All of it is off unless
 |:---------|:--------|:------------|
 | `CODEX_UPSTREAM_WEBSOCKET_ENABLED` | empty | Codex upstream WebSocket transport (C3); non-upgrade GETs get an honest 426. |
 | `CODEX_RESPONSES_WEBSOCKET_BETA` | empty | Responses-over-WS beta header. |
-| `RESPONSES_COMPACT_FALLBACK_TO_RESPONSES_ENABLED` | empty | Compact → Responses fallback. |
 | `CODEX_HEADER_DEFAULTS_USER_AGENT` | empty | `User-Agent` sent to Codex upstreams; empty keeps the built-in default. |
 | `CODEX_HEADER_DEFAULTS_BETA_FEATURES` | empty | Anthropic `anthropic-beta`-style feature header value sent to Codex upstreams; empty keeps the built-in default. |
 

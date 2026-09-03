@@ -141,9 +141,6 @@ const (
 	// (2 vCPU class) can relax it to trade freshness for fewer passes.
 	DefaultUsageProjectionIntervalMs = 5000
 
-	DefaultProxyDebugRetentionHours = 24
-	DefaultProxyDebugMaxBodyBytes   = 262144
-
 	// DefaultProxyMaxStreamResponseBytes caps the total bytes relayed for a
 	// single SSE stream before a controlled termination (64 MB). Parsed from
 	// PROXY_MAX_STREAM_RESPONSE_BYTES; 0/negative/invalid falls back to this

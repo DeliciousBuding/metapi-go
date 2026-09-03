@@ -56,7 +56,6 @@ export type RuntimeSettings = {
   proxyEmptyContentFailEnabled?: boolean
   payloadRules?: Record<string, unknown>
   codexUpstreamWebsocketEnabled?: boolean
-  responsesCompactFallbackToResponsesEnabled?: boolean
   proxySessionChannelConcurrencyLimit?: number
   proxySessionChannelQueueWaitMs?: number
   modelAvailabilityProbeEnabled?: boolean
