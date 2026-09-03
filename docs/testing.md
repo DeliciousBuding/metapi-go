@@ -112,8 +112,8 @@ Regeneration discipline:
 ## Public testbed assets
 
 - [`../testbed/compose.template.yml`](../testbed/compose.template.yml): sanitized loopback-only service template for Metapi, New API, One API, and optional adapter targets.
-- [`../scripts/e2e/smoke.sh`](../scripts/e2e/smoke.sh): idempotent password-login chain from health and site detection through `/v1` proxying.
-- [`../scripts/e2e/verify-token-import.sh`](../scripts/e2e/verify-token-import.sh): equivalent chain for session JWTs, API keys, and management keys.
+- [`../scripts/e2e/smoke.sh`](../scripts/e2e/smoke.sh): idempotent password-login chain from health and site detection through `/v1` proxying. Re-runs converge: `POST /api/accounts/login` upserts, so the login step refreshes the stored credential on every run.
+- [`../scripts/e2e/verify-token-import.sh`](../scripts/e2e/verify-token-import.sh): equivalent chain for session JWTs, API keys, and management keys. Re-runs converge as well (#1209): an account that already exists is re-bound to the credential this run holds instead of being skipped, and a reused downstream key has its relay policy re-asserted when this script owns the record. A short-lived upstream credential left stored by the previous run used to pass `verify-token` and then fail the chain two steps later on `balance`.
 - Operator-gated multi-channel cascade evidence procedure (see `scripts/verify-cascade-prod.sh` and the P0-585 verification test).
 
 ## Run a real-platform chain

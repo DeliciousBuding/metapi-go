@@ -639,6 +639,49 @@ jobs:
           SITE_NAME=e2e-smoke-sub2api TOKEN_NAME=e2e-smoke-sub2api-token \
           bash scripts/e2e/verify-token-import.sh
 
+          echo "===== sub2api re-run against an aged STORED credential (#1209) ====="
+          # The scripts promise to be re-runnable, so prove it the way the defect
+          # actually appeared: age the credential that is STORED -- not the one in
+          # the environment -- then re-run the same chain with the same token. A
+          # script that merely skips an existing account leaves the stale value in
+          # place; verify-token still passes because it uses the fresh token from
+          # the environment, and the run dies on balance, two steps away from what
+          # it is testing. Reverting the account step to create-or-skip turns this
+          # block red, which is the only reason it is worth its runtime.
+          aged_account_id="$(curl -sS -H "Authorization: Bearer e2e-admin-token" \
+            http://127.0.0.1:4010/api/accounts | python3 -c '
+          import json, sys
+          payload = json.load(sys.stdin)
+          for account in payload.get("accounts") or []:
+              if account.get("username") == "e2e-token-import":
+                  print(account["id"])
+                  break
+          ')"
+          if [ -z "$aged_account_id" ]; then
+            echo "FATAL: no e2e-token-import account to age; the chain above did not create one"
+            exit 1
+          fi
+          # Check the probe's own premise: an aging PUT that silently failed would
+          # leave a valid credential stored and the re-run below would prove
+          # nothing while still going green.
+          aging_status="$(curl -sS -o /dev/null -w '%{http_code}' -X PUT \
+            -H "Authorization: Bearer e2e-admin-token" -H "Content-Type: application/json" \
+            -d '{"accessToken":"aged-by-ci-not-a-real-credential","credentialMode":"session"}' \
+            "http://127.0.0.1:4010/api/accounts/$aged_account_id")"
+          if [ "$aging_status" != "200" ]; then
+            echo "FATAL: aging the stored credential returned HTTP $aging_status"
+            exit 1
+          fi
+          echo "aged the stored credential of account $aged_account_id"
+          METAPI_URL=http://127.0.0.1:4010 \
+          METAPI_AUTH_TOKEN=e2e-admin-token \
+          UPSTREAM_URL=http://127.0.0.1:3004 \
+          UPSTREAM_TOKEN="$SUB2API_ACCESS_TOKEN" \
+          PLATFORM=sub2api CREDENTIAL_MODE=session \
+          SKIP_MODEL_FETCH=true \
+          SITE_NAME=e2e-smoke-sub2api TOKEN_NAME=e2e-smoke-sub2api-token \
+          bash scripts/e2e/verify-token-import.sh
+
           echo "===== cliproxyapi token-import chain ====="
           METAPI_URL=http://127.0.0.1:4010 \
           METAPI_AUTH_TOKEN=e2e-admin-token \

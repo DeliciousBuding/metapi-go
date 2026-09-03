@@ -393,6 +393,17 @@ else
 fi
 
 # 7. account idempotent-create
+#
+# Unlike verify-token-import.sh this step may safely create-or-skip (#1209): the
+# login in step 5 is itself the converge. POST /api/accounts/login upserts -- for
+# an account that already exists it runs
+#   UPDATE accounts SET access_token = <fresh credential>, status = 'active', ...
+# (handler/admin/accounts_auth.go, the reused-account branch), and on New API the
+# adapter has already promoted the short-lived v1 login JWT to the durable
+# dashboard PAT before it is stored. So the stored credential is refreshed on
+# every run by the step that owns it, and a PUT here would only rewrite the same
+# value. The token-paste chain has no login step, which is why it has to converge
+# explicitly.
 ACCOUNT_ID=""
 if [ -n "$SITE_ID" ]; then
   status="$(request GET "$METAPI_URL/api/accounts" "" "$METAPI_AUTH_TOKEN")"
