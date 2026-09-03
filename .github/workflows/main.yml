@@ -803,6 +803,123 @@ jobs:
           print(f"mock upstream received a new exact relay event after restart ({before} -> {len(events)})")
           PY
 
+          echo "===== restore the exported backup into a FRESH data dir and re-prove the chain ====="
+          # Restore is the fourth state, and "the import answered 200" is not it: a
+          # backup that imports cleanly but cannot serve a request afterwards is a
+          # restore that only looks successful. Deleting tables has already broken
+          # old backups once in this project, so the proof is a real relay on the
+          # restored instance -- nothing re-created, re-bound or rebuilt by hand.
+          #
+          # Export carries every credential in the database, so it is a sensitive
+          # operation and additionally requires the master token in
+          # X-Admin-Confirm-Token; without it the answer is a 403 reauthRequired
+          # body, which then makes the import fail with a misleading "expected a
+          # JSON object with a tables field". Import itself is not gated.
+          backup_file="$RUNNER_TEMP/metapi-e2e-backup.json"
+          curl -fsS -H "Authorization: Bearer e2e-admin-token" \
+            -H "X-Admin-Confirm-Token: e2e-admin-token" \
+            http://127.0.0.1:4010/api/settings/backup/export -o "$backup_file"
+          python3 - "$backup_file" <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              payload = json.load(handle)
+          tables = payload.get("tables") or {}
+          if not tables:
+              raise SystemExit(f"export carried no tables; top-level keys were {sorted(payload)!r}")
+          required = ["sites", "accounts", "account_tokens", "token_routes", "route_channels", "downstream_api_keys"]
+          missing = [name for name in required if name not in tables]
+          if missing:
+              raise SystemExit(f"export is missing tables the relay needs: {missing}")
+          print(f"export carries {len(tables)} tables including {required}")
+          PY
+
+          restore_dir="$(mktemp -d)/data"
+          AUTH_TOKEN=e2e-admin-token \
+          PROXY_TOKEN=e2e-proxy-token \
+          DATA_DIR="$restore_dir" \
+          PORT=4011 \
+          "$metapi_bin" >"$RUNNER_TEMP/metapi-e2e-restore.log" 2>&1 &
+          restore_pid=$!
+          restore_ready=
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4011/ready 2>/dev/null | grep -q '"status":"ok"'; then
+              restore_ready=1; echo "restore instance ready after ${i}s"; break
+            fi
+            sleep 1
+          done
+          if [ -z "$restore_ready" ]; then
+            echo "restore instance never became ready; log:"
+            cat "$RUNNER_TEMP/metapi-e2e-restore.log"
+            exit 1
+          fi
+
+          # Premise: before the import this instance must not be able to serve the
+          # chain, otherwise a green result below could come from an instance that
+          # was never empty.
+          pre_models="$(curl -sS -H "Authorization: Bearer sk-e2e-smoke-key" http://127.0.0.1:4011/v1/models \
+            | python3 -c '
+          import json, sys
+          try:
+              payload = json.loads(sys.stdin.read())
+          except Exception:
+              print(0); raise SystemExit
+          print(len(payload.get("data") or []))
+          ')"
+          if [ "$pre_models" != "0" ]; then
+            echo "the fresh instance already served $pre_models models before the import; the restore would prove nothing"
+            exit 1
+          fi
+          echo "fresh instance serves no models before the import, as required"
+
+          curl -fsS -X POST -H "Authorization: Bearer e2e-admin-token" -H "Content-Type: application/json" \
+            --data-binary @"$backup_file" http://127.0.0.1:4011/api/settings/backup/import \
+            | python3 -c '
+          import json, sys
+          payload = json.load(sys.stdin)
+          if not payload.get("success", False):
+              raise SystemExit(f"backup import did not report success: {payload!r}")
+          print("import ok; new downstream keys:", len(payload.get("newDownstreamApiKeys") or []),
+                "ignored tables:", payload.get("ignoredTables") or [])
+          '
+
+          mock_events_before_restore=$(wc -l < "$mock_log")
+          curl -fsS -H "Authorization: Bearer sk-e2e-smoke-key" http://127.0.0.1:4011/v1/models \
+            | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin).get("data") or []
+          if not data:
+              raise SystemExit("/v1/models is empty after restore: the routing state did not come back with the backup")
+          print("models after restore:", [m.get("id") for m in data])
+          '
+          curl -fsS -X POST -H "Authorization: Bearer sk-e2e-smoke-key" \
+            -H "Content-Type: application/json" \
+            -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"restore-state"}]}' \
+            http://127.0.0.1:4011/v1/chat/completions \
+            | python3 -c '
+          import json, sys
+          payload = json.load(sys.stdin)
+          choice = (payload.get("choices") or [{}])[0]
+          content = (choice.get("message") or {}).get("content") or ""
+          if content != "metapi-e2e-marker":
+              raise SystemExit(f"completion after restore returned {content!r}, want the exact upstream marker; payload={payload!r}")
+          print("completion after restore carried the exact upstream marker")
+          '
+          python3 - "$mock_log" "$mock_events_before_restore" <<'PY'
+          import json, sys
+          path, before = sys.argv[1], int(sys.argv[2])
+          with open(path, encoding="utf-8") as handle:
+              events = [json.loads(line) for line in handle if line.strip()]
+          expected = {"path": "/v1/chat/completions", "model": "gpt-4o-mini"}
+          if len(events) <= before:
+              raise SystemExit(f"mock upstream saw no new request after the restore ({before} -> {len(events)})")
+          if expected not in events[before:]:
+              raise SystemExit(f"post-restore upstream requests did not include {expected!r}: {events[before:]!r}")
+          print(f"mock upstream received a new exact relay event after restore ({before} -> {len(events)})")
+          PY
+          kill "$restore_pid"
+          wait "$restore_pid" || true
+          echo "restore instance stopped; the exported backup stays in runner temp only"
+
   # Cross-platform runtime smoke: release binaries are cross-compiled for 5
   # targets but only linux/amd64 ever gets executed (release smoke step). This
   # job builds + boots the real binary on each shipped OS (macOS x64, Windows
