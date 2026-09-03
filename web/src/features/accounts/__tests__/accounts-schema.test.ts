@@ -51,65 +51,72 @@ function validPasswordForm(): AccountFormValues {
   }
 }
 
+// Asserts that `values` fails schema validation, optionally checking the first
+// issue's path and its localized message. Both are optional so a row that only
+// needs the success-false contract (e.g. whitespace trimming) stays explicit.
+function expectInvalid(
+  values: AccountFormValues,
+  path?: Array<string | number>,
+  message?: string
+): void {
+  const result = getAccountFormSchema().safeParse(values)
+  expect(result.success).toBe(false)
+  if (result.success) return
+  if (path) expect(result.error.issues[0]?.path).toEqual(path)
+  if (message) expectLocalized(result.error.issues[0]?.message, message)
+}
+
 // ---------------------------------------------------------------------------
 // superRefine cross-field rules
 // ---------------------------------------------------------------------------
 
 describe('getAccountFormSchema — superRefine', () => {
-  it('requires an accessToken in session mode', () => {
-    const result = getAccountFormSchema().safeParse({
-      ...validSessionForm(),
-      accessToken: '',
-    })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.path).toEqual(['accessToken'])
-    expectLocalized(
-      result.error.issues[0]?.message,
-      '请填写 Access Token / Cookie'
-    )
-  })
+  const blankCredentialCases: Array<
+    [
+      string,
+      () => AccountFormValues,
+      Partial<AccountFormValues>,
+      (Array<string | number> | undefined)?,
+      (string | undefined)?,
+    ]
+  > = [
+    [
+      'accessToken empty',
+      validSessionForm,
+      { accessToken: '' },
+      ['accessToken'],
+      '请填写 Access Token / Cookie',
+    ],
+    ['accessToken whitespace', validSessionForm, { accessToken: '   ' }],
+    [
+      'apiToken empty',
+      validApikeyForm,
+      { apiToken: '' },
+      ['apiToken'],
+      '请填写 API Key',
+    ],
+    [
+      'username empty',
+      validPasswordForm,
+      { username: '' },
+      ['username'],
+      '请填写站点用户名',
+    ],
+    [
+      'password empty',
+      validPasswordForm,
+      { password: '' },
+      ['password'],
+      '请填写站点密码',
+    ],
+  ]
 
-  it('treats a whitespace-only accessToken as empty after trimming', () => {
-    const result = getAccountFormSchema().safeParse({
-      ...validSessionForm(),
-      accessToken: '   ',
-    })
-    expect(result.success).toBe(false)
-  })
-
-  it('requires an apiToken in apikey mode', () => {
-    const result = getAccountFormSchema().safeParse({
-      ...validApikeyForm(),
-      apiToken: '',
-    })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.path).toEqual(['apiToken'])
-    expectLocalized(result.error.issues[0]?.message, '请填写 API Key')
-  })
-
-  it('requires a username in password mode', () => {
-    const result = getAccountFormSchema().safeParse({
-      ...validPasswordForm(),
-      username: '',
-    })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.path).toEqual(['username'])
-    expectLocalized(result.error.issues[0]?.message, '请填写站点用户名')
-  })
-
-  it('requires a password in password mode', () => {
-    const result = getAccountFormSchema().safeParse({
-      ...validPasswordForm(),
-      password: '',
-    })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.path).toEqual(['password'])
-    expectLocalized(result.error.issues[0]?.message, '请填写站点密码')
-  })
+  it.each(blankCredentialCases)(
+    'rejects a blank secret-field credential (%s)',
+    (_label, base, overrides, path, message) => {
+      expectInvalid({ ...base(), ...overrides }, path, message)
+    }
+  )
 
   it('flags both username and password when both are blank', () => {
     const result = getAccountFormSchema().safeParse({
@@ -141,22 +148,12 @@ describe('getAccountFormSchema — superRefine', () => {
     expect(result.success).toBe(true)
   })
 
-  it('accepts a fully valid password form', () => {
-    expect(getAccountFormSchema().safeParse(validPasswordForm()).success).toBe(
-      true
-    )
-  })
-
-  it('accepts a fully valid session form', () => {
-    expect(getAccountFormSchema().safeParse(validSessionForm()).success).toBe(
-      true
-    )
-  })
-
-  it('accepts a fully valid apikey form', () => {
-    expect(getAccountFormSchema().safeParse(validApikeyForm()).success).toBe(
-      true
-    )
+  it.each([
+    ['password', validPasswordForm()],
+    ['session', validSessionForm()],
+    ['apikey', validApikeyForm()],
+  ])('accepts a fully valid %s form', (_mode, values) => {
+    expect(getAccountFormSchema().safeParse(values).success).toBe(true)
   })
 
   it('allows redacted credentials when validating an existing account', () => {
@@ -180,30 +177,14 @@ describe('getAccountFormSchema — superRefine', () => {
 // ---------------------------------------------------------------------------
 
 describe('getAccountFormSchema — siteId', () => {
-  it('rejects siteId 0 with the dedicated message', () => {
+  it.each([
+    ['zero', 0],
+    ['string', 'abc' as unknown as number],
+    ['fractional', 1.5],
+  ])('rejects an invalid siteId (%s)', (_label, siteId) => {
     const result = getAccountFormSchema().safeParse({
       ...validSessionForm(),
-      siteId: 0,
-    })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expectLocalized(result.error.issues[0]?.message, '请选择站点')
-  })
-
-  it('rejects a string siteId (no coerce)', () => {
-    const result = getAccountFormSchema().safeParse({
-      ...validSessionForm(),
-      siteId: 'abc' as unknown as number,
-    })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expectLocalized(result.error.issues[0]?.message, '请选择站点')
-  })
-
-  it('rejects a fractional siteId', () => {
-    const result = getAccountFormSchema().safeParse({
-      ...validSessionForm(),
-      siteId: 1.5,
+      siteId,
     })
     expect(result.success).toBe(false)
     if (result.success) return
@@ -445,61 +426,58 @@ describe('getAccountFormDefaultValues', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildAccountVerifyPayload', () => {
-  it('builds a session payload with the trimmed access token', () => {
-    const result = buildAccountVerifyPayload({
-      ...validSessionForm(),
-      accessToken: '  sk-1  ',
-    })
-    expect(result).toEqual({
-      ok: true,
-      payload: { siteId: 1, accessToken: 'sk-1', credentialMode: 'session' },
-    })
-  })
-
-  it('builds an apikey payload from apiToken', () => {
-    const result = buildAccountVerifyPayload(validApikeyForm())
-    expect(result).toEqual({
-      ok: true,
-      payload: { siteId: 1, accessToken: 'k', credentialMode: 'apikey' },
-    })
-  })
-
-  it('passes unsaved platform user id and proxy values through verification', () => {
-    const result = buildAccountVerifyPayload({
-      ...validSessionForm(),
-      platformUserId: 106,
-      proxyUrl: '  socks5://proxy.example:1080  ',
-    })
-    expect(result).toEqual({
-      ok: true,
-      payload: {
+  it.each([
+    [
+      'a session payload with the trimmed access token',
+      () => ({ ...validSessionForm(), accessToken: '  sk-1  ' }),
+      { siteId: 1, accessToken: 'sk-1', credentialMode: 'session' },
+    ],
+    [
+      'an apikey payload from apiToken',
+      validApikeyForm,
+      { siteId: 1, accessToken: 'k', credentialMode: 'apikey' },
+    ],
+    [
+      'unsaved platform user id and proxy values through verification',
+      () => ({
+        ...validSessionForm(),
+        platformUserId: 106,
+        proxyUrl: '  socks5://proxy.example:1080  ',
+      }),
+      {
         siteId: 1,
         accessToken: 'sk-1',
         platformUserId: 106,
         proxyUrl: 'socks5://proxy.example:1080',
         credentialMode: 'session',
       },
-    })
+    ],
+  ])('builds %s', (_label, build, payload) => {
+    expect(buildAccountVerifyPayload(build())).toEqual({ ok: true, payload })
   })
 
-  it('returns a site error when siteId is missing or non-positive', () => {
-    expect(
-      buildAccountVerifyPayload({ ...validSessionForm(), siteId: 0 })
-    ).toEqual({ ok: false, error: 'site' })
-  })
-
-  it('returns a token error when the credential is blank', () => {
-    expect(
-      buildAccountVerifyPayload({ ...validSessionForm(), accessToken: '  ' })
-    ).toEqual({ ok: false, error: 'token' })
-    expect(
-      buildAccountVerifyPayload({ ...validApikeyForm(), apiToken: '' })
-    ).toEqual({ ok: false, error: 'token' })
-  })
-
-  it('never builds a payload for password mode (no inline verification)', () => {
-    const result = buildAccountVerifyPayload(validPasswordForm())
-    expect(result.ok).toBe(false)
-    expect(result).toEqual({ ok: false, error: 'token' })
+  it.each([
+    [
+      'a site error when siteId is missing or non-positive',
+      { ...validSessionForm(), siteId: 0 },
+      { ok: false, error: 'site' },
+    ],
+    [
+      'a token error when a session credential is blank',
+      { ...validSessionForm(), accessToken: '  ' },
+      { ok: false, error: 'token' },
+    ],
+    [
+      'a token error when an apiToken is empty',
+      { ...validApikeyForm(), apiToken: '' },
+      { ok: false, error: 'token' },
+    ],
+    [
+      'no inline payload for password mode',
+      validPasswordForm(),
+      { ok: false, error: 'token' },
+    ],
+  ])('returns %s', (_label, values, expected) => {
+    expect(buildAccountVerifyPayload(values)).toEqual(expected)
   })
 })
