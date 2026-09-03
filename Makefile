@@ -83,7 +83,6 @@ migrate-build:
 clean:
 	rm -f metapi metapi.exe metapi-migrate metapi-migrate.exe
 	rm -rf web/dist
-	rm -rf electron/metapi electron/metapi.exe electron/dist electron/node_modules
 
 cascade-e2e:
 	go test ./e2e -count=1 -run 'CascadeIsolation' -timeout 60s

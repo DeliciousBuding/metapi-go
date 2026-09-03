@@ -25,14 +25,14 @@ Go rewrite of [Metapi](https://github.com/cita-777/metapi). Feature parity with 
 cmd/server/main.go      Entry point
 cmd/migrate/main.go     SQLite→PG migration tool
 config/                 env map → Config（完整变量清单见 docs/deployment.md + .env.example）
-store/                  DB layer (35 tables, sqlx; schema DDL in store/schema_ddl.go)
+store/                  DB layer (sqlx; table registry = store/tablesets.go, DDL = store/schema_ddl.go)
 auth/                   Admin + proxy auth + rate limiting
 routing/                TokenRouter (weighted random + Fibonacci cooldown + runtime breaker)
 proxy/                  转发编排（coordinator / executor / channel selection / retry policy）
-platform/               16 upstream adapters
+platform/               upstream adapters (registry = platform/registry.go)
 transform/              协议转换（openai completions/embeddings/images/responses + gemini + shared）
 service/                Domain workflows (sites/accounts/checkin/balance/notify/oauth/backup/pricing)
-scheduler/              16 background jobs
+scheduler/              background jobs (registered in app/services.go)
 handler/admin/          admin REST registrars（端点清单见 docs/api.md）
 handler/proxy/          proxy routes (OpenAI, Gemini, Claude, Codex, Files)
 web/dist/               Pre-built React SPA (embedded)
