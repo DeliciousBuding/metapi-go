@@ -32,6 +32,7 @@ func TestBuildSchedulersRegistration(t *testing.T) {
 		"proxy-video-task-retention",
 		"proxy-log-retention",
 		"admin-background-task-retention",
+		"model-probe-result-retention",
 		"oauth-refresh",
 	}
 
