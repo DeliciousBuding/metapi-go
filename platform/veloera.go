@@ -69,7 +69,11 @@ func (v *VeloeraAdapter) GetBalance(ctx context.Context, baseURL, accessToken st
 	headers := veloeraHeaders(accessToken, platformUserId)
 	resp, err := fetchJSON(ctx, baseURL+"/api/user/self", "GET", nil, headers, proxy)
 	if err != nil {
-		return &BalanceInfo{}, nil
+		// Propagate. A zero BalanceInfo with a nil error is stored as the
+		// account's balance, and service/balance drives runtime health, the
+		// token-expired alert and the auto-relogin retry from err != nil — so
+		// swallowing here wrote balance=0 and skipped all three.
+		return nil, fmt.Errorf("fetch balance: %w", err)
 	}
 
 	balance := parseOneApiStyleBalance(resp, 1000000, false)

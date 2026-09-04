@@ -361,16 +361,32 @@ func TestSub2ApiAdapter_GetSiteAnnouncements(t *testing.T) {
 	}
 }
 
+// Both directions, because sub2api lists keys from two version-dependent endpoints:
+// one of them failing is expected, both failing is a fetch failure, and both
+// answering with zero keys is a legitimate empty result.
 func TestSub2ApiAdapter_GetAPIToken(t *testing.T) {
 	s := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
 	ctx := context.Background()
 
 	tok, err := s.GetAPIToken(ctx, unreachableBaseURL(t), "token", nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err == nil {
+		t.Error("GetAPIToken must report an unreachable upstream, not a missing token")
 	}
 	if tok != nil {
-		t.Error("GetAPIToken on unreachable should return nil")
+		t.Error("GetAPIToken should return no token when the listing failed")
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":[]}`))
+	}))
+	defer srv.Close()
+	tok, err = s.GetAPIToken(ctx, srv.URL, "token", nil, nil)
+	if err != nil {
+		t.Errorf("both endpoints answered with no keys; that is not an error: %v", err)
+	}
+	if tok != nil {
+		t.Errorf("expected no token, got %q", *tok)
 	}
 }
 

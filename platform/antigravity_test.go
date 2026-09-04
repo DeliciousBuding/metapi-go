@@ -2,6 +2,8 @@ package platform
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -68,6 +70,51 @@ func TestAntigravityAdapter_GetBalanceZero(t *testing.T) {
 	}
 	if bi.Balance != 0 || bi.Used != 0 || bi.Quota != 0 {
 		t.Error("Antigravity balance should be all zeros")
+	}
+}
+
+// TestAntigravityAdapter_GetModels pins both directions of the model-discovery
+// contract. A failed fetch must come back as an error so
+// service.classifyModelRefreshError can name the reason; returning an empty list
+// instead made an unreachable or unauthorized upstream indistinguishable from "no
+// models", which reaches the operator as the single word empty_models (#1232
+// family). An upstream that answers with no models is still a legitimate empty.
+func TestAntigravityAdapter_GetModels(t *testing.T) {
+	a := &AntigravityAdapter{StandardAdapter: NewStandardAdapter("antigravity")}
+	ctx := context.Background()
+
+	models, err := a.GetModels(ctx, unreachableBaseURL(t), "token", nil, nil)
+	if err == nil {
+		t.Error("GetModels must report an unreachable upstream, not an empty model list")
+	}
+	if len(models) != 0 {
+		t.Errorf("expected no models when the fetch failed, got %v", models)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"models":{"gemini-2.5-pro":{},"claude-sonnet-4":{}}}`))
+	}))
+	defer srv.Close()
+	models, err = a.GetModels(ctx, srv.URL, "token", nil, nil)
+	if err != nil {
+		t.Fatalf("GetModels against an answering upstream: %v", err)
+	}
+	if len(models) != 2 {
+		t.Errorf("expected 2 models, got %v", models)
+	}
+
+	empty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"models":{}}`))
+	}))
+	defer empty.Close()
+	models, err = a.GetModels(ctx, empty.URL, "token", nil, nil)
+	if err != nil {
+		t.Errorf("an answered listing with no models is not an error: %v", err)
+	}
+	if len(models) != 0 {
+		t.Errorf("expected zero models, got %v", models)
 	}
 }
 

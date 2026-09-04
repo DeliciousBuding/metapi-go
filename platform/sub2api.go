@@ -233,7 +233,7 @@ func (s *Sub2ApiAdapter) GetModels(ctx context.Context, baseURL, apiToken string
 func (s *Sub2ApiAdapter) GetAPITokens(ctx context.Context, baseURL, accessToken string, platformUserId *int, proxy *ProxyConfig) ([]ApiTokenInfo, error) {
 	items, err := s.listAPIKeys(ctx, normalizeBaseURL(baseURL), accessToken, proxy)
 	if err != nil {
-		return []ApiTokenInfo{}, nil
+		return nil, err
 	}
 
 	result := make([]ApiTokenInfo, 0, len(items))
@@ -255,7 +255,10 @@ func (s *Sub2ApiAdapter) GetAPITokens(ctx context.Context, baseURL, accessToken 
 func (s *Sub2ApiAdapter) GetAPIToken(ctx context.Context, baseURL, accessToken string, platformUserId *int, proxy *ProxyConfig) (*string, error) {
 	tokens, err := s.GetAPITokens(ctx, baseURL, accessToken, platformUserId, proxy)
 	if err != nil {
-		return nil, nil
+		// Propagate: GetAPITokens now distinguishes "the upstream answered with no
+		// tokens" (nil, nil below) from "we could not ask". Returning nil, nil here
+		// re-hid the failure one level up, which is why the empty answer survived.
+		return nil, err
 	}
 	for _, t := range tokens {
 		if t.Enabled {
@@ -277,7 +280,7 @@ func (s *Sub2ApiAdapter) GetAPIToken(ctx context.Context, baseURL, accessToken s
 func (s *Sub2ApiAdapter) getAPITokenForGroup(ctx context.Context, baseURL, accessToken, group string, platformUserId *int, proxy *ProxyConfig) (*string, error) {
 	tokens, err := s.GetAPITokens(ctx, baseURL, accessToken, platformUserId, proxy)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	return pickKeyForGroup(tokens, group), nil
 }
@@ -665,19 +668,31 @@ func (s *Sub2ApiAdapter) listAPIKeys(ctx context.Context, baseURL, accessToken s
 	}
 
 	headers := authBearerHeaders(accessToken)
+	// terminalError mirrors GetUserGroups: the two endpoints exist because sub2api
+	// versions expose different paths, so one failing is expected. Both failing is
+	// a fetch failure, and returning an empty list for it made "cannot reach the
+	// upstream" indistinguishable from "this account has no keys".
+	terminalError := ""
+	answered := false
 	for _, endpoint := range endpoints {
 		resp, err := fetchJSON(ctx, baseURL+endpoint, "GET", nil, headers, proxy)
 		if err != nil {
+			terminalError = err.Error()
 			continue
 		}
 		rawData, err := s.parseSub2ApiEnvelopeRaw(resp, endpoint)
 		if err != nil {
+			terminalError = err.Error()
 			continue
 		}
+		answered = true
 		items := s.parseTokenItems(rawData)
 		if len(items) > 0 {
 			return items, nil
 		}
+	}
+	if !answered && terminalError != "" {
+		return nil, fmt.Errorf("list upstream keys: %s", terminalError)
 	}
 
 	return nil, nil
