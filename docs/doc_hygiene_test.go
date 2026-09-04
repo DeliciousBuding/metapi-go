@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -361,4 +362,163 @@ func resolveLinkTarget(root, linkingFileRel, target string) string {
 	dir := filepath.Dir(filepath.FromSlash(linkingFileRel))
 	resolved := filepath.ToSlash(filepath.Clean(filepath.Join(dir, filepath.FromSlash(target))))
 	return resolved
+}
+
+// --- CHANGELOG writing contract -------------------------------------------
+//
+// CHANGELOG.md states a writing contract at its top and then, twice, did not
+// keep it: entries grew back into incident reports carrying the forensic
+// mechanism, internal Go symbol names and duplicate copies of identifier
+// lists whose owner is docs/ (#1236 asserted untrue things about itself,
+// #1245 had grown back into the forensic record its own contract forbids).
+// Both were caught by a human reading the file, not by anything mechanical.
+// A prose-only contract that regressed twice is an absent gate, so the parts
+// of it that are decidable without judgement are decided here.
+//
+// Deliberately NOT enforced: whether a given entry is worth writing at all.
+// That is the judgement half of the contract and it stays with the reviewer.
+
+// changelogBulletBudget is the per-entry ceiling the contract states, in
+// runes (the file is mostly Chinese, where bytes would triple every count).
+// Two ways out when an entry does not fit: split it, or point at the doc that
+// owns the identifier list instead of copying it a second time.
+const changelogBulletBudget = 220
+
+// changelogContractFloor is the oldest version section the contract governs.
+// v0.16.12 and earlier predate it, are already terse, and the contract
+// promises to preserve them verbatim — so the length rule must not reach them
+// (two of those entries are 231 and 259 runes and are allowed to stay).
+var changelogContractFloor = [3]int{0, 16, 13}
+
+var (
+	changelogVersionRE = regexp.MustCompile(`^## \[v(\d+)\.(\d+)\.(\d+)\]`)
+	changelogSectionRE = regexp.MustCompile(`^### (.+)$`)
+	// The forensic-mechanism arrow: "the code did X ⇒ therefore the user saw
+	// Y" is the shape every over-long entry grew from. The reader needs the
+	// second half only; the first half is the commit body's job.
+	changelogForensicArrowRE = regexp.MustCompile(`⇒`)
+	// Internal Go symbols (`service.RedactAccountSecrets`). Table and column
+	// names stay legal: they are lowercase on both sides of the dot.
+	changelogInternalSymbolRE = regexp.MustCompile("`[a-z][a-z0-9_]*\\.[A-Z][A-Za-z0-9]*")
+	changelogGoFileRE         = regexp.MustCompile(`[a-z0-9_]+\.go\b`)
+	changelogTestNameRE       = regexp.MustCompile(`\bTest[A-Z][A-Za-z0-9]+`)
+)
+
+var changelogAllowedSections = map[string]bool{
+	"安全": true, "修复": true, "变更": true, "移除": true,
+	"开发者可见": true, "文档": true, "已知遗留": true,
+	"Added": true, "Changed": true, "Fixed": true, "Security": true,
+	"Docs": true, "Performance": true, "Accessibility": true,
+	"Deprecated": true, "Removed": true,
+}
+
+func TestChangelogStaysANarrativeNotAForensicRecord(t *testing.T) {
+	root := repoRoot(t)
+	data, err := os.ReadFile(filepath.Join(root, "CHANGELOG.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(data), "\n")
+
+	var findings []string
+	sectionsGoverned, bulletsChecked, devVisibleSections := 0, 0, 0
+	version := [3]int{}
+	governed := false
+	// The contract preamble at the top of the file names the tokens it bans
+	// (`⇒` among them), so the entry rules only apply below the first version
+	// heading. Without this the gate reports the rule as a violation of itself.
+	inVersionSections := false
+
+	for i, line := range lines {
+		lineNo := i + 1
+		if m := changelogVersionRE.FindStringSubmatch(line); m != nil {
+			inVersionSections = true
+			version = [3]int{atoiOrZero(m[1]), atoiOrZero(m[2]), atoiOrZero(m[3])}
+			governed = versionCompare(version, changelogContractFloor) >= 0
+			if governed {
+				sectionsGoverned++
+			}
+			devVisibleSections = 0
+			continue
+		}
+		if m := changelogSectionRE.FindStringSubmatch(line); m != nil {
+			if !changelogAllowedSections[m[1]] {
+				findings = append(findings, formatFinding("CHANGELOG.md", lineNo, "unknown section heading "+m[1], line))
+			}
+			if m[1] == "开发者可见" {
+				devVisibleSections++
+				if devVisibleSections > 1 {
+					findings = append(findings, formatFinding("CHANGELOG.md", lineNo, "more than one 开发者可见 section in one version", line))
+				}
+			}
+			continue
+		}
+		if !strings.HasPrefix(line, "- ") || !inVersionSections {
+			continue
+		}
+		entry := strings.TrimPrefix(line, "- ")
+		bulletsChecked++
+		// The forensic markers are banned in every section, including the
+		// verbatim-preserved tail: it already contains none of them, so
+		// applying the rule file-wide costs nothing and stops the tail from
+		// becoming a place to hide them.
+		for _, check := range []struct {
+			re   *regexp.Regexp
+			what string
+		}{
+			{changelogForensicArrowRE, "forensic mechanism arrow (belongs in the commit body)"},
+			{changelogInternalSymbolRE, "internal Go symbol (belongs in the commit body)"},
+			{changelogGoFileRE, "Go file name (belongs in the commit body)"},
+			{changelogTestNameRE, "Go test name (belongs in the commit body)"},
+		} {
+			if m := check.re.FindString(entry); m != "" {
+				findings = append(findings, formatFinding("CHANGELOG.md", lineNo, check.what+" -> "+m, line))
+			}
+		}
+		if governed && utf8RuneLen(entry) > changelogBulletBudget {
+			findings = append(findings, formatFinding("CHANGELOG.md", lineNo,
+				"entry is "+strconv.Itoa(utf8RuneLen(entry))+" runes, budget is "+strconv.Itoa(changelogBulletBudget)+
+					": split it, or point at the doc that owns the identifier list", line))
+		}
+	}
+
+	// Same invariant as the two gates above: a budget nobody is measured
+	// against is not a lenient gate, it is no gate. Both counters can be
+	// zeroed independently — the version regex drifting means sectionsGoverned
+	// collapses to 0 while bulletsChecked stays high, and a file whose entries
+	// all lost their "- " prefix collapses the other one.
+	if sectionsGoverned == 0 {
+		t.Fatal("gate would pass vacuously: no CHANGELOG version section matched changelogVersionRE or the contract floor")
+	}
+	if bulletsChecked == 0 {
+		t.Fatal("gate would pass vacuously: no CHANGELOG entries were examined")
+	}
+	if len(findings) > 0 {
+		t.Fatalf("CHANGELOG.md violates its own writing contract (%d version sections governed, %d entries examined):\n%s",
+			sectionsGoverned, bulletsChecked, strings.Join(findings, "\n"))
+	}
+}
+
+func atoiOrZero(s string) int {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+func versionCompare(a, b [3]int) int {
+	for i := range a {
+		if a[i] != b[i] {
+			if a[i] < b[i] {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
+}
+
+func utf8RuneLen(s string) int {
+	return len([]rune(s))
 }
