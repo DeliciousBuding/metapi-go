@@ -1,14 +1,10 @@
 import { request, buildQueryString } from './transport'
 import type {
   OAuthProvidersResponse,
-  OAuthRouteUnitStrategy,
   OAuthStartResponse,
   OAuthSessionInfo,
   OAuthQuotaInfo,
   OAuthConnectionsResponse,
-  OAuthQuotaBatchRefreshResponse,
-  OAuthImportResponse,
-  OAuthRouteUnitMutationResponse,
 } from './types'
 
 export const oauthApi = {
@@ -55,19 +51,6 @@ export const oauthApi = {
       // The row action surfaces a per-account refreshFailed toast.
       skipErrorHandler: true,
     }) as Promise<{ success: true; quota: OAuthQuotaInfo }>,
-  refreshOAuthConnectionQuotaBatch: (accountIds: number[]) =>
-    request('/api/oauth/connections/quota/refresh-batch', {
-      method: 'POST',
-      body: JSON.stringify({ accountIds }),
-    }) as Promise<OAuthQuotaBatchRefreshResponse>,
-  updateOAuthConnectionProxy: (
-    accountId: number,
-    data: { proxyUrl?: string | null; useSystemProxy?: boolean }
-  ) =>
-    request(`/api/oauth/connections/${accountId}/proxy`, {
-      method: 'PATCH',
-      body: JSON.stringify(data || {}),
-    }) as Promise<{ success: true }>,
   rebindOAuthConnection: (
     accountId: number,
     data?: { proxyUrl?: string | null; useSystemProxy?: boolean }
@@ -80,24 +63,6 @@ export const oauthApi = {
     }) as Promise<OAuthStartResponse>,
   deleteOAuthConnection: (accountId: number) =>
     request(`/api/oauth/connections/${accountId}`, {
-      method: 'DELETE',
-    }) as Promise<{ success: true }>,
-  importOAuthConnections: (data: Record<string, unknown>) =>
-    request('/api/oauth/import', {
-      method: 'POST',
-      body: JSON.stringify(Array.isArray(data.items) ? data : { data }),
-    }) as Promise<OAuthImportResponse>,
-  createOAuthRouteUnit: (data: {
-    accountIds: number[]
-    name: string
-    strategy: OAuthRouteUnitStrategy
-  }) =>
-    request('/api/oauth/route-units', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }) as Promise<OAuthRouteUnitMutationResponse>,
-  deleteOAuthRouteUnit: (routeUnitId: number) =>
-    request(`/api/oauth/route-units/${routeUnitId}`, {
       method: 'DELETE',
     }) as Promise<{ success: true }>,
 }

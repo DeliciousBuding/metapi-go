@@ -16,11 +16,6 @@ export interface LoginResponse {
   ttlMinutes: number
 }
 
-export interface WsTicketResponse {
-  ticket: string
-  expiresInSeconds: number
-}
-
 export const sessionApi = {
   /** Exchange the master token for a server-side session cookie. */
   login: (token: string) =>
@@ -46,11 +41,4 @@ export const sessionApi = {
       '/api/auth/session',
       { skipErrorHandler: true, disableDuplicate: true }
     ),
-
-  /** Mint a one-time 60s ticket for the realtime ops WebSocket. */
-  requestWsTicket: () =>
-    request<WsTicketResponse>('/api/auth/ws-ticket', {
-      method: 'POST',
-      skipErrorHandler: true,
-    }),
 }

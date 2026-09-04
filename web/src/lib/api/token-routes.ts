@@ -28,27 +28,12 @@ export const tokenRoutesApi = {
     }),
   deleteAccountToken: (id: number) =>
     request(`/api/account-tokens/${id}`, { method: 'DELETE' }),
-  batchUpdateAccountTokens: (data: unknown) =>
-    request('/api/account-tokens/batch', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  getAccountTokenGroups: (accountId: number) =>
-    request(`/api/account-tokens/groups/${accountId}`),
   setDefaultAccountToken: (id: number) =>
     request(`/api/account-tokens/${id}/default`, { method: 'POST' }),
-  getAccountTokenValue: (id: number) =>
-    request(`/api/account-tokens/${id}/value`),
   syncAccountTokens: (accountId: number) =>
     request(`/api/account-tokens/sync/${accountId}`, {
       method: 'POST',
       timeoutMs: 45_000,
-    }),
-  syncAllAccountTokens: (wait = false) =>
-    request('/api/account-tokens/sync-all', {
-      method: 'POST',
-      body: JSON.stringify(wait ? { wait: true } : {}),
-      timeoutMs: wait ? 150_000 : 30_000,
     }),
 
   // Check-in
@@ -69,8 +54,6 @@ export const tokenRoutesApi = {
   ) => request(`/api/checkin/logs${buildQueryString(params)}`),
 
   // Routes
-  getRoutes: () => request('/api/routes'),
-  getRoutesLite: () => request('/api/routes/lite'),
   getRoutesSummary: () => request('/api/routes/summary'),
   getRouteChannels: (routeId: number) =>
     request(`/api/routes/${routeId}/channels`),
@@ -106,11 +89,6 @@ export const tokenRoutesApi = {
     request(`/api/routes/${id}/cooldown/clear`, { method: 'POST' }),
   batchUpdateRoutes: (data: { ids: number[]; action: 'enable' | 'disable' }) =>
     request('/api/routes/batch', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  addChannel: (routeId: number, data: unknown) =>
-    request(`/api/routes/${routeId}/channels`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -158,49 +136,5 @@ export const tokenRoutesApi = {
     request('/api/routes/decision/refresh', {
       method: 'POST',
       body: JSON.stringify({}),
-    }),
-  getRouteDecision: (model: string) =>
-    request(`/api/routes/decision?model=${encodeURIComponent(model)}`),
-  getRouteDecisionsBatch: (
-    models: string[],
-    options?: { refreshPricingCatalog?: boolean; persistSnapshots?: boolean }
-  ) =>
-    request('/api/routes/decision/batch', {
-      method: 'POST',
-      body: JSON.stringify({
-        models,
-        ...(options?.refreshPricingCatalog
-          ? { refreshPricingCatalog: true }
-          : {}),
-        ...(options?.persistSnapshots ? { persistSnapshots: true } : {}),
-      }),
-    }),
-  getRouteDecisionsByRouteBatch: (
-    items: Array<{ routeId: number; model: string }>,
-    options?: { refreshPricingCatalog?: boolean; persistSnapshots?: boolean }
-  ) =>
-    request('/api/routes/decision/by-route/batch', {
-      method: 'POST',
-      body: JSON.stringify({
-        items,
-        ...(options?.refreshPricingCatalog
-          ? { refreshPricingCatalog: true }
-          : {}),
-        ...(options?.persistSnapshots ? { persistSnapshots: true } : {}),
-      }),
-    }),
-  getRouteWideDecisionsBatch: (
-    routeIds: number[],
-    options?: { refreshPricingCatalog?: boolean; persistSnapshots?: boolean }
-  ) =>
-    request('/api/routes/decision/route-wide/batch', {
-      method: 'POST',
-      body: JSON.stringify({
-        routeIds,
-        ...(options?.refreshPricingCatalog
-          ? { refreshPricingCatalog: true }
-          : {}),
-        ...(options?.persistSnapshots ? { persistSnapshots: true } : {}),
-      }),
     }),
 }

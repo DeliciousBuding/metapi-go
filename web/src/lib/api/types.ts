@@ -151,16 +151,6 @@ export type VerifyBatchResponse = {
 
 export type VerifyHistoryResponse = { items: ModelVerifyItem[] }
 
-// I1: accounts/sites global tag system.
-type TagIndexItem = {
-  name: string
-  accounts: number
-  sites: number
-  total: number
-}
-
-export type TagIndexResponse = { items: TagIndexItem[] }
-
 // H1: product risk banners.
 export type Announcement = {
   id: number
@@ -620,59 +610,6 @@ export type OAuthConnectionsResponse = {
   total: number
   limit: number
   offset: number
-}
-
-export type OAuthQuotaBatchRefreshResponse = {
-  success: boolean
-  refreshed: number
-  failed: number
-  items: Array<{
-    accountId: number
-    success: boolean
-    quota?: OAuthQuotaInfo
-    error?: string
-  }>
-}
-
-export type OAuthImportResponse = {
-  success: boolean
-  imported: number
-  skipped: number
-  failed: number
-  items: Array<{
-    name: string
-    status: 'imported' | 'skipped' | 'failed'
-    accountId?: number
-    provider?: string
-    message?: string
-  }>
-}
-
-export type OAuthRouteUnitMutationResponse = {
-  success: boolean
-  routeUnit?: OAuthRouteUnitSummary
-}
-
-type DownstreamApiKeyTrendBucket = {
-  startUtc: string | null
-  totalRequests: number
-  successRequests: number
-  failedRequests: number
-  successRate: number | null
-  totalTokens: number
-  totalCost: number
-}
-
-export type DownstreamApiKeyTrendResponse = {
-  success: boolean
-  range: '24h' | '7d' | 'all'
-  item: {
-    id: number
-    name: string
-  }
-  bucketSeconds: number
-  timeZone?: string | null
-  buckets: DownstreamApiKeyTrendBucket[]
 }
 
 /**

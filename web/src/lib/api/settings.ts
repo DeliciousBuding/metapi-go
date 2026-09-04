@@ -3,7 +3,7 @@ import {
   extractResponseErrorMessage,
 } from '@/lib/http-client'
 
-import { request, buildQueryString } from './transport'
+import { request } from './transport'
 import type {
   BackupWebdavExportType,
   BackupWebdavResponse,
@@ -11,7 +11,6 @@ import type {
   RuntimeSettingsPayload,
   SettingsMigrationPreviewResponse,
   SettingsMigrationApplyResponse,
-  DownstreamApiKeyTrendResponse,
 } from './types'
 
 export const settingsApi = {
@@ -106,20 +105,6 @@ export const settingsApi = {
       // The keys section surfaces its own deleteFailed toast.
       skipErrorHandler: true,
     }),
-  batchDownstreamApiKeys: (data: {
-    ids: number[]
-    action: 'enable' | 'disable' | 'delete' | 'resetUsage' | 'updateMetadata'
-    groupOperation?: 'keep' | 'set' | 'clear'
-    groupName?: string
-    tagOperation?: 'keep' | 'append'
-    tags?: string[]
-  }) =>
-    request('/api/downstream-keys/batch', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  resetDownstreamApiKeyUsage: (id: number) =>
-    request(`/api/downstream-keys/${id}/reset-usage`, { method: 'POST' }),
   // #1034: key export is a sensitive op; confirmToken carries the master
   // token for X-Admin-Confirm-Token re-confirmation.
   getDownstreamKeyExport: (
@@ -128,32 +113,6 @@ export const settingsApi = {
     confirmToken?: string
   ) =>
     request(`/api/downstream-keys/${id}/export?profile=${profile}`, {
-      headers: confirmToken
-        ? { 'X-Admin-Confirm-Token': confirmToken }
-        : undefined,
-      skipErrorHandler: true,
-    }),
-  getDownstreamApiKeysSummary: (params?: {
-    range?: '24h' | '7d' | 'all'
-    status?: 'all' | 'enabled' | 'disabled'
-    search?: string
-  }) => request(`/api/downstream-keys/summary${buildQueryString(params)}`),
-  getDownstreamApiKeyOverview: (id: number) =>
-    request(`/api/downstream-keys/${id}/overview`),
-  getDownstreamApiKeyTrend: (
-    id: number,
-    params?: { range?: '24h' | '7d' | 'all'; timeZone?: string }
-  ) =>
-    request<DownstreamApiKeyTrendResponse>(
-      `/api/downstream-keys/${id}/trend${buildQueryString(params)}`
-    ),
-  // #1034: backup export is a sensitive op; confirmToken carries the
-  // master token for X-Admin-Confirm-Token re-confirmation.
-  exportBackup: (
-    type: 'all' | 'accounts' | 'preferences' = 'all',
-    confirmToken?: string
-  ) =>
-    request(`/api/settings/backup/export?type=${encodeURIComponent(type)}`, {
       headers: confirmToken
         ? { 'X-Admin-Confirm-Token': confirmToken }
         : undefined,

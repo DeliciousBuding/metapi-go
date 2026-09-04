@@ -9,13 +9,7 @@ export const systemApi = {
   getAbout: () => request<AboutBuildInfoResponse>('/api/about'),
 
   // Monitor embed
-  getMonitorConfig: () => request('/api/monitor/config'),
   getMonitorHealth: () => request('/api/monitor/health'),
-  updateMonitorConfig: (data: { ldohCookie?: string | null }) =>
-    request('/api/monitor/config', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
   // Clears the HttpOnly `meta_monitor_auth` cookie (Path=/monitor-proxy/);
   // must be called while Bearer auth is still valid.
   clearMonitorSession: () =>
