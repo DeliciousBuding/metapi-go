@@ -133,10 +133,14 @@ func HasExplicitLogCleanupSettings(settingsMap map[string]string) bool {
 // whose consumer reads the settings table itself at use time (and re-validates
 // what it reads), and keys whose value is consumed before hydration runs.
 //
-// Everything else the admin API can persist must have a case in
+// Everything else that production code can persist must have a case in
 // ApplyRuntimeSettings. settings_rehydration_gate_test.go fails when it does
 // not, because a persisted key that nothing reads back means the operator's
-// change evaporates on the next restart.
+// change evaporates on the next restart. That gate reads every writer in the
+// repo (R1 for the admin write side, R6 for the service/scheduler/store side),
+// so a key written from outside handler/admin cannot slip past it: an
+// unallowlisted key there is what made every boot log a hydration warning for
+// oauth.identity_backfill_complete, a marker its own writer reads back.
 var nonHydratedSettingKeys = map[string]string{
 	// Resolved by store.EnsureRuntimeDatabase from the env-derived snapshot:
 	// the database is already open (and is the very thing being read) by the
@@ -157,6 +161,13 @@ var nonHydratedSettingKeys = map[string]string{
 	"backup_webdav_state_v1":  "read at use time by scheduler/backup_webdav.go",
 	// Read at use time by the daily-summary scheduler.
 	"daily_summary_cron": "read at use time by scheduler/daily_summary.go",
+	// Startup-migration completion marker written by service/oauth and read
+	// back at use time by the very function that writes it. It carries no
+	// operator intent, so there is nothing for the snapshot to hold.
+	"oauth.identity_backfill_complete": "read at use time by service/oauth.RunOauthIdentityBackfillOnce",
+	// Catalog auto-sync toggle, read at use time by its own store on every
+	// sync pass; a snapshot copy would only be a stale second owner.
+	"catalog_auto_sync_enabled": "read at use time by service/catalogsync.Store.AutoSyncEnabled",
 	// Removed setting (Wave 8 Lane D): it was stored but never rendered.
 	// Legacy rows are intentionally ignored, and listed here so they do not
 	// trip the unknown-key warning on every boot.

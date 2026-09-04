@@ -533,6 +533,35 @@ func TestApplyRuntimeSettingsWarnsAboutKeysNothingReadsBack(t *testing.T) {
 	}
 }
 
+// TestApplyRuntimeSettingsStaysSilentForEveryAllowlistedKey is the behavioural
+// half of the repo-wide write gate: a key whose own consumer reads the settings
+// table back must not make boot emit the warning that reports genuinely lost
+// settings. oauth.identity_backfill_complete did exactly that on every startup
+// of every deployment carrying the marker — 18 boots in the testbed log — which
+// trains an operator to skim past the one line that says a setting evaporated.
+func TestApplyRuntimeSettingsStaysSilentForEveryAllowlistedKey(t *testing.T) {
+	buf := captureSettingsLogs(t, slog.LevelWarn)
+
+	settingsMap := make(map[string]string, len(nonHydratedSettingKeys)+1)
+	for key := range nonHydratedSettingKeys {
+		settingsMap[key] = `"1"`
+	}
+	settingsMap["zeta_unknown"] = `"1"` // a real stranger must still be reported
+
+	ApplyRuntimeSettings(&config.Config{}, &config.RuntimeSettings{}, settingsMap)
+
+	out := buf.String()
+	line := settingsLogLine(t, out, "persisted keys not applied at startup hydration")
+	if !strings.Contains(line, "count=1") || !strings.Contains(line, "keys=zeta_unknown") {
+		t.Errorf("warning must name only the unallowlisted key, got:\n%s", out)
+	}
+	for key := range nonHydratedSettingKeys {
+		if strings.Contains(line, key) {
+			t.Errorf("allowlisted key %q was reported as unapplied; it warns on every boot:\n%s", key, out)
+		}
+	}
+}
+
 func TestTruncateKeyListCapsLongLists(t *testing.T) {
 	keys := make([]string, 0, unknownKeyLogLimit+5)
 	for i := 0; i < unknownKeyLogLimit+5; i++ {
