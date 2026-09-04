@@ -5,13 +5,13 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
-**写作契约**（CI 把 `## [vX.Y.Z]` 段直接抽成 GitHub release body：这里写的就是发布说明）：
+**写作契约**（打 tag 时 CI 把 `## [vX.Y.Z]` 段逐字抽成该版本的 GitHub release body。**那是快照，不是引用**：tag 之后再改这里的段落，已发布版本的发布页不会跟着变，两处从此分叉）：
 
 - 读者是**部署和调用 Metapi 的人**。写「行为怎么变了、我要不要动手」，不写「我们怎么查出来的」。
 - 一条 = 一行结论 + 至多两句因果 + `(#PR)`。取证过程、测试与门禁的形状、行数增减、内部文件清单留在 commit body 与 PR 里（`git log --grep '#1210'` 一步到达）。
 - **需要运维动手的必须显式写出来**：升级后要重新登录、环境变量默认值变了、备份不再含某张表、某个端点删了。这是本文件唯一不可省略的部分。
 - 编号写成 `#问题 → #PR`：前者是报障/立项的 issue，后者是落地它的 PR（commit subject 带的是 PR 号，`git log --grep '#1211'` 直达）。只有一个编号时它就是 PR。
-- 分节固定为 `安全` `修复` `变更` `移除` `开发者可见` `文档` `已知遗留`，空节不写。v0.16.23 及更早沿用当年的 `Added/Changed/Fixed/…` 与措辞，不回填重写。
+- 分节固定为 `安全` `修复` `变更` `移除` `开发者可见` `文档` `已知遗留`，空节不写。**v0.16.17 及更早逐字保留**；v0.16.18–v0.16.23 只保留当年的 `Added/Changed/Fixed/…` 分节名，措辞已按本契约压缩。
 
 ## [v0.19.0] — 2026-09-04
 
@@ -110,7 +110,7 @@ All notable changes to Metapi-Go will be documented in this file.
 ### 修复
 
 - **流式请求的中断、截断与空内容不再记成功（#1159）**：此前流式路径只区分「idle 超时」与「其它一律正常结束」，内容级判定只写日志不参与记账，于是上游中途断连、被 `PROXY_MAX_STREAM_RESPONSE_BYTES` 截断、或返回命中 `PROXY_ERROR_KEYWORDS` 的错误体时，渠道健康度、`proxy_logs` 与终端指标全部按成功记账。现在流结束原因分五类（正常 / idle 超时 / 上游故障 / 被截断 / 客户端断开），状态、原因与指标 outcome 由同一个所有者决定。
-- **恢复出厂设置真的恢复到出厂（#1165）**：`POST /api/settings/maintenance/factory-reset` 此前遍历一份手抄表清单，它已经比 schema 少 9 张表——其中包含 `admin_sessions`。会话校验每个请求都读这张表，所以它没被清空意味着**重置前签发的每一个 admin cookie 仍然对一个空库有写权限**；`admin_audit_logs`、`model_probe_results` 等同样幸存。现在表清单从 schema 注册表派生，唯一排除项是 additive 迁移日志 `schema_migrations`。
+- **恢复出厂设置真的恢复到出厂（#1165）**：`POST /api/settings/maintenance/factory-reset` 此前遍历一份手抄表清单，它已经比 schema 少 9 张表——其中包含 `admin_sessions`。会话校验每个请求都读这张表，所以它没被清空意味着**重置前签发的每一个 admin cookie 仍然对一个空库有写权限**；`admin_audit_logs`、`model_probe_results` 等同样幸存。现在表清单从 schema 注册表派生，唯一排除项是 additive 迁移日志 `schema_migrations`。**重置成功后必须重新登录**（`admin_sessions` 也在清理集里，重置前签发的 cookie 一律失效）。
 - **`cmd/migrate` 不再静默丢表（#1165）**：方言迁移（SQLite ↔ PostgreSQL）此前按另一份手抄清单拷贝，37 张表里只拷了 20 张——命令正常退出、checksum 全部匹配，但 17 张表的数据根本没被搬运。现在拷贝集、清空序、逐表列规格与建表序全部从同一个注册表派生，加一张表只需在注册表加一行。源库里存在而 Go schema 未声明的列现在会在拷贝前逐表打 Warning（丢弃不可避免，但不再静默）。
 - **`checkin_interval_hours` 的越界值不再被静默丢弃（#1166）**：库内该键此前走「范围检查不通过就不赋值、不告警、还算已处理」，而环境变量 `CHECKIN_INTERVAL_HOURS` 走双侧钳制 ⇒ 库里存一个 `30`，进程留在环境变量的值，`GET /api/settings/runtime` 回显的也是那个值，三者互不相同。
 - **`GET /api/channels` 的快照缓存此前几乎从不命中（#1167）**：缓存只有一个槽位，而键空间是多键的（仪表盘无界视图 + 每个分页/状态筛选视图各一键），于是 `page=1` 与 `page=2` 互相逐出，10s TTL 从来没吸收掉它存在是为了吸收的轮询，那条 fleet-wide 5-way JOIN 照跑。现在是有界多键缓存（至多 16 个键，FIFO 淘汰）；TTL、`?refresh=true` 绕过、`x-channels-snapshot-cache` 响应头、并发去重与「数据变了就整体失效」的语义一字未改。
