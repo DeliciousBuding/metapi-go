@@ -66,6 +66,41 @@ while executing zero tests, from v0.14.0 through v0.17.0. `test-pg` (which
 runs `go test ./...` unsharded) was the only job actually executing the Go
 suite in that window, and it does not pass `-race`.
 
+## Gate anti-vacuity
+
+A gate that reconciles two artifacts — docs against registered routes,
+`.env.example` against `docs/configuration.md`, one package's imports against
+the allowed edges, a schema registry against the DDL — reports "no violations"
+in two very different situations: the artifacts agree, **or it looked at
+nothing**. The second is not a lenient gate, it is an absent one, and it is the
+shape that let roughly thirty release tags go green while their required test
+shards ran zero tests (#1175), and that let 33 of 42 route-ownership entries
+name a file which never mentioned the route (#1233).
+
+So every reconciliation gate asserts its own input was non-empty before its
+result is trusted, and the assertion is paired with a mutation probe: break the
+thing the gate claims to catch, watch it go red, restore, watch it go green. A
+gate added without both is incomplete work, not a smaller diff.
+
+Two shapes are in use; copy whichever fits.
+
+- **Count the input.** Assert a non-zero scanned-file count per domain, as
+  `TestPackageBoundaries` does for each of its boundary groups, rather than a
+  single total — a total hides one domain going silent.
+- **Feed it a known violation.** Assert the comparator detects deliberately
+  broken samples, as `TestEnvParityGateIsNotAVacuousPass` and the `*RegexpSanity`
+  / `*MatcherSanity` tests do. This is the stronger of the two: it also catches
+  a parser or predicate that changed shape and now matches nothing.
+
+The census is deliberately not written down here, because a hand-copied list of
+gates drifts the same way a hand-copied table list does (#1165, #1172). Run
+`grep -rlni vacuous --include="*_test.go" .` for the gates that currently
+implement it (case-insensitive: half of them carry it in a test name spelled
+`...IsNotAVacuousPass`, which a case-sensitive grep silently drops — 9 files
+instead of 10). A gate that reads two or three *named* files needs no counter —
+failing to read them is already fatal, as in
+`TestStorefrontDoesNotLinkInternalDocs`.
+
 ## Golden snapshot suites (protocol conversion)
 
 Multi-protocol conversion is the most regression-prone surface of the proxy, so

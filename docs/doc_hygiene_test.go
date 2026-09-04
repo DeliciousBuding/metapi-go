@@ -33,6 +33,7 @@ var storefrontMarkdown = map[string]bool{
 func TestPublicMarkdownHygiene(t *testing.T) {
 	root := repoRoot(t)
 	var findings []string
+	scanned := 0
 
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -52,6 +53,7 @@ func TestPublicMarkdownHygiene(t *testing.T) {
 		if filepath.Ext(path) != ".md" {
 			return nil
 		}
+		scanned++
 
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -80,6 +82,13 @@ func TestPublicMarkdownHygiene(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	// A hygiene gate that scans nothing and reports no violations is not a
+	// lenient gate, it is an absent one: the skip list above or the .md
+	// extension check could each narrow it to silence. Same invariant as
+	// TestPackageBoundaries — see docs/testing.md.
+	if scanned == 0 {
+		t.Fatal("gate would pass vacuously: no markdown files were scanned")
 	}
 	if len(findings) > 0 {
 		t.Fatalf("public Markdown hygiene violations:\n%s", strings.Join(findings, "\n"))
@@ -252,6 +261,7 @@ func TestStorefrontDoesNotLinkInternalDocs(t *testing.T) {
 func TestRelativeMarkdownLinksResolve(t *testing.T) {
 	root := repoRoot(t)
 	var findings []string
+	scanned, linksChecked := 0, 0
 
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -268,6 +278,7 @@ func TestRelativeMarkdownLinksResolve(t *testing.T) {
 		if filepath.Ext(path) != ".md" {
 			return nil
 		}
+		scanned++
 
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -289,6 +300,7 @@ func TestRelativeMarkdownLinksResolve(t *testing.T) {
 				if isExternalLinkTarget(target) {
 					continue
 				}
+				linksChecked++
 				resolved := filepath.Join(root, filepath.FromSlash(resolveLinkTarget(root, rel, target)))
 				if _, err := os.Stat(resolved); err != nil {
 					findings = append(findings, formatFinding(rel, i+1, "dead relative link -> "+target, line))
@@ -299,6 +311,16 @@ func TestRelativeMarkdownLinksResolve(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Two counters, not one: scanning files but examining no links is the
+	// failure mode of a regex or an exclusion predicate that quietly changed
+	// shape, which is how an ownership entry ends up naming a file that never
+	// mentions the thing it owns (#1233). See docs/testing.md.
+	if scanned == 0 {
+		t.Fatal("gate would pass vacuously: no markdown files were scanned")
+	}
+	if linksChecked == 0 {
+		t.Fatal("gate would pass vacuously: no relative markdown links were examined — markdownLinkRE or isExternalLinkTarget changed shape")
 	}
 	if len(findings) > 0 {
 		t.Fatalf("dead markdown links:\n%s", strings.Join(findings, "\n"))
