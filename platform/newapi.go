@@ -64,13 +64,14 @@ func (n *NewApiAdapter) Login(ctx context.Context, baseURL, username, password s
 		"User-Agent":       DefaultBrowserUserAgent,
 	}
 
-	parsed, cookieHeader, err := fetchLoginResponse(ctx, baseURL+"/api/user/login", body, headers, proxy)
+	answer, err := fetchLoginResponse(ctx, baseURL+"/api/user/login", body, headers, proxy)
 	if err != nil {
 		return &LoginResult{Success: false, Message: err.Error()}, nil
 	}
+	parsed, cookieHeader := answer.Parsed, answer.Cookie
 
 	if parsed == nil {
-		return &LoginResult{Success: false, Message: "shield challenge blocked login"}, nil
+		return &LoginResult{Success: false, Message: loginBlockedMessage(answer.Status, answer.ContentType)}, nil
 	}
 
 	data, _ := getMap(parsed, "data")
@@ -875,20 +876,31 @@ func (n *NewApiAdapter) GetSiteAnnouncements(ctx context.Context, baseURL, acces
 
 // --- Login fetch ---
 
-// fetchLoginResponse performs a single login POST and returns the parsed JSON
-// body (nil for non-JSON responses) plus the accumulated Set-Cookie header.
+// loginResponse is what an upstream login endpoint actually answered. The status
+// and content type travel with the parsed body because "could not parse it" is
+// not a diagnosis: a rate limit, a WAF challenge, an error page and a proxy in
+// front of the site all arrive here looking the same, and only the status line
+// tells them apart.
+type loginResponse struct {
+	Parsed      map[string]interface{} // nil when the body was not a JSON object
+	Cookie      string                 // accumulated Set-Cookie header
+	Status      int
+	ContentType string
+}
+
+// fetchLoginResponse performs a single login POST and returns what arrived.
 // Shield-protected sites return an HTML challenge here; parsing fails and the
-// caller reports "shield challenge blocked login" without retrying (the
-// acw_sc__v2 challenge requires JS execution, which Go cannot provide).
-func fetchLoginResponse(ctx context.Context, url string, body map[string]string, headers map[string]string, proxy *ProxyConfig) (map[string]interface{}, string, error) {
+// caller reports the observed status instead of retrying (the acw_sc__v2
+// challenge requires JS execution, which Go cannot provide).
+func fetchLoginResponse(ctx context.Context, url string, body map[string]string, headers map[string]string, proxy *ProxyConfig) (loginResponse, error) {
 	reqBody, err := json.Marshal(body)
 	if err != nil {
-		return nil, "", fmt.Errorf("marshal body: %w", err)
+		return loginResponse{}, fmt.Errorf("marshal body: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(reqBody)))
 	if err != nil {
-		return nil, "", fmt.Errorf("create request: %w", err)
+		return loginResponse{}, fmt.Errorf("create request: %w", err)
 	}
 	if _, ok := headers["Content-Type"]; !ok {
 		headers["Content-Type"] = "application/json"
@@ -899,19 +911,47 @@ func fetchLoginResponse(ctx context.Context, url string, body map[string]string,
 
 	resp, err := DoWithProxy(ctx, req, proxy)
 	if err != nil {
-		return nil, "", fmt.Errorf("request: %w", err)
+		return loginResponse{}, fmt.Errorf("request: %w", err)
 	}
-	cookieHeader := mergeSetCookie("", resp.Header["Set-Cookie"])
+	out := loginResponse{
+		Cookie:      mergeSetCookie("", resp.Header["Set-Cookie"]),
+		Status:      resp.StatusCode,
+		ContentType: resp.Header.Get("Content-Type"),
+	}
 
 	respBody, err := readPlatformResponseBody(resp.Body, platformTextResponseBodyLimit)
 	resp.Body.Close()
 	if err != nil {
-		return nil, cookieHeader, fmt.Errorf("read body: %w", err)
+		return out, fmt.Errorf("read body: %w", err)
 	}
 
-	var parsed map[string]interface{}
-	if json.Unmarshal(respBody, &parsed) != nil {
-		return nil, cookieHeader, nil
+	if json.Unmarshal(respBody, &out.Parsed) != nil {
+		out.Parsed = nil
 	}
-	return parsed, cookieHeader, nil
+	return out, nil
+}
+
+// loginBlockedMessage renders the failure an operator actually has to act on when
+// a login answer was not a JSON object. This used to be one sentence for every
+// case — "shield challenge blocked login" — so a site answering HTTP 429 was
+// reported as a WAF challenge, sending the operator hunting for anti-bot
+// protection that did not exist. Observed live against a real new-api: its access
+// log shows 429 on /api/user/login at exactly the moments Metapi reported a
+// shield challenge, and the same request replayed two minutes later returned
+// JSON 200. Re-binding an account a few times in a row is enough to trip a
+// site's own login limiter, and re-binding is the recovery path the docs tell
+// users to take when a credential ages out.
+//
+// Only the status and the content type are reported. The body is deliberately
+// not echoed: a challenge or error page can carry markup, tokens or internal
+// URLs, and none of that belongs in a message a downstream client can read.
+func loginBlockedMessage(status int, contentType string) string {
+	if status == http.StatusTooManyRequests {
+		return "upstream rate-limited the login (HTTP 429): wait a minute and retry — repeated re-binds trip the site's own login limiter"
+	}
+	kind := strings.TrimSpace(contentType)
+	if kind == "" {
+		kind = "no content type"
+	}
+	return fmt.Sprintf("login blocked: upstream answered HTTP %d with %s instead of JSON — a WAF/shield challenge (which needs a real browser), an error or rate-limit page, or a proxy in front of the site", status, kind)
 }
