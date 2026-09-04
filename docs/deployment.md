@@ -404,7 +404,22 @@ Upgrade checklist:
 1. Back up the database first (cp data/hub.db ... or pg_dump -Fc ...).
 2. Prefer pinning the release selected for your deployment (for example `ghcr.io/deliciousbuding/metapi-go:vX.Y.Z`) over `latest` so rollback is reproducible.
 3. After upgrade, verify GET /ready returns 200 and run bash web/scripts/verify-live-assets.sh http://127.0.0.1:4000.
-4. Rollback = restore the pre-upgrade backup and re-run the previous pinned image tag. Schema changes are forward-only; do not downgrade the schema by deleting rows from schema_migrations.
+4. **Upgrading from v0.17.x or older? Re-bind each upstream account once.**
+   Those versions stored the upstream *dashboard session* as the account
+   credential — on New API-family sites that is a JWT which expires in about
+   fifteen minutes — and no schema migration can turn it into the durable
+   credential v0.18.0+ uses. The upgrade keeps the account row, so everything
+   looks bound; then model refresh and relay start failing once that session is
+   gone (`503 No available channels`, an empty model list, `balance refresh
+   failed: upstream credential expired`). Re-bind from **添加账号 (Add account)**
+   with the *same site and the same username*: the backend upserts that account,
+   exchanges the login for the site's durable credential, revokes the transient
+   session, and re-syncs its models immediately. There is no separate
+   "re-login" button for password/session accounts. This was verified on a real
+   v0.16.23 → v0.19.0 in-place upgrade of a live SQLite database: 28 additive
+   migrations, site / account / downstream key / route all preserved, and the
+   chain only served a real completion again after this step.
+5. Rollback = restore the pre-upgrade backup and re-run the previous pinned image tag. Schema changes are forward-only; do not downgrade the schema by deleting rows from schema_migrations.
 
 ## Post-deploy asset smoke (mandatory)
 
