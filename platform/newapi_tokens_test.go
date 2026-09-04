@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -226,6 +227,43 @@ func TestNewApiAdapter_CreateAPIToken_ValidationError(t *testing.T) {
 	}
 	if created {
 		t.Fatal("CreateAPIToken: got created=true, want false")
+	}
+}
+
+// TestNewApiAdapter_CreateAPIToken_Unreachable pins the other half of the create
+// contract: no attempt reached the upstream, so `false, nil` ("the upstream
+// refused") would be a statement about a call that never happened.
+func TestNewApiAdapter_CreateAPIToken_Unreachable(t *testing.T) {
+	n := newApiTokenAdapter()
+	uid := 1
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	created, err := n.CreateAPIToken(ctx, unreachableBaseURL(t), "bearer-token", &uid, &CreateAPITokenOptions{Name: "x"}, nil)
+	if err == nil {
+		t.Fatal("CreateAPIToken must report an unreachable upstream instead of a silent false")
+	}
+	if created {
+		t.Fatal("created = true for an upstream nobody reached")
+	}
+}
+
+// TestNewApiAdapter_DeleteAPIToken_Unreachable pins that "we could not read the
+// listing" is not the same answer as "the listing answered without this key". The
+// caller deletes the local row when this returns nil, so conflating them removed
+// the row while the upstream key stayed live.
+func TestNewApiAdapter_DeleteAPIToken_Unreachable(t *testing.T) {
+	n := newApiTokenAdapter()
+	uid := 1
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := n.DeleteAPIToken(ctx, unreachableBaseURL(t), "bearer-token", "sk-delete-me", &uid, nil)
+	if err == nil {
+		t.Fatal("DeleteAPIToken reported a completed delete for a call that never reached the upstream")
+	}
+	if !strings.Contains(err.Error(), "list upstream tokens") {
+		t.Fatalf("error should say which step failed: %v", err)
 	}
 }
 

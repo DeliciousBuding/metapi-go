@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -319,33 +320,180 @@ func TestSub2ApiAdapter_GetUserGroups(t *testing.T) {
 	}
 }
 
-func TestSub2ApiAdapter_CreateAPIToken(t *testing.T) {
-	s := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
-	ctx := context.Background()
+// sub2apiKeyUpstream stands in for a sub2api version: `allow` decides which of the
+// two version-dependent endpoint families exists, and every other path 404s the way
+// a version without it would.
+type sub2apiKeyUpstream struct {
+	mu       sync.Mutex
+	allow    func(method, path string) bool
+	listBody string
+	writeOK  bool
+	calls    []string
+}
 
-	created, err := s.CreateAPIToken(ctx, unreachableBaseURL(t), "token", nil, nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+func (f *sub2apiKeyUpstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	f.calls = append(f.calls, r.Method+" "+r.URL.Path)
+	f.mu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	if f.allow == nil || !f.allow(r.Method, r.URL.Path) {
+		http.NotFound(w, r)
+		return
 	}
-	if created {
-		t.Error("CreateAPIToken on unreachable should return false")
+	switch r.Method {
+	case http.MethodGet:
+		_, _ = w.Write([]byte(f.listBody))
+	case http.MethodPost:
+		if f.writeOK {
+			_, _ = w.Write([]byte(`{"code":0,"data":{"id":7,"key":"sk-new"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"code":1,"message":"upstream refused the create"}`))
+	case http.MethodDelete:
+		if f.writeOK {
+			_, _ = w.Write([]byte(`{"code":0,"data":null}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"code":1,"message":"upstream refused the delete"}`))
+	default:
+		http.NotFound(w, r)
 	}
 }
 
+func (f *sub2apiKeyUpstream) callLog() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.calls...)
+}
+
+// onlyAPIKeys accepts the newer endpoint family and 404s the older one, which is
+// the version skew the two-endpoint ladder exists for.
+func onlyAPIKeys(method, path string) bool { return strings.HasPrefix(path, "/api/v1/api-keys") }
+
+func bothKeyFamilies(method, path string) bool {
+	return strings.HasPrefix(path, "/api/v1/keys") || strings.HasPrefix(path, "/api/v1/api-keys")
+}
+
+// A failed create must not come back as the same `false, nil` the caller reports as
+// "the upstream refused": an unreachable site never refused anything, and the
+// operator is left with a 502 that has no reason attached.
+func TestSub2ApiAdapter_CreateAPIToken(t *testing.T) {
+	s := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	created, err := s.CreateAPIToken(ctx, unreachableBaseURL(t), "token", nil, nil, nil)
+	if err == nil {
+		t.Error("CreateAPIToken must report an unreachable upstream instead of a silent false")
+	}
+	if created {
+		t.Error("nothing was created")
+	}
+
+	t.Run("the second endpoint family still creates", func(t *testing.T) {
+		f := &sub2apiKeyUpstream{allow: onlyAPIKeys, writeOK: true}
+		srv := httptest.NewServer(f)
+		defer srv.Close()
+		created, err := s.CreateAPIToken(ctx, srv.URL, "token", nil, nil, nil)
+		if err != nil || !created {
+			t.Fatalf("create = (%v, %v), want (true, nil)", created, err)
+		}
+		got := f.callLog()
+		want := []string{"POST /api/v1/keys", "POST /api/v1/api-keys"}
+		if strings.Join(got, "|") != strings.Join(want, "|") {
+			t.Fatalf("calls = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("an answered refusal carries the upstream reason", func(t *testing.T) {
+		f := &sub2apiKeyUpstream{allow: bothKeyFamilies, writeOK: false}
+		srv := httptest.NewServer(f)
+		defer srv.Close()
+		created, err := s.CreateAPIToken(ctx, srv.URL, "token", nil, nil, nil)
+		if created {
+			t.Fatal("created = true for a refused create")
+		}
+		if err == nil || !strings.Contains(err.Error(), "upstream refused the create") {
+			t.Fatalf("error should carry the upstream reason, got %v", err)
+		}
+	})
+}
+
+// Both directions on purpose, because the caller deletes the local row only when
+// this returns nil. "Already absent upstream" is idempotence; "no request reached
+// the upstream" is a failure that used to be reported as the same nil.
 func TestSub2ApiAdapter_DeleteAPIToken(t *testing.T) {
 	s := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	err := s.DeleteAPIToken(ctx, unreachableBaseURL(t), "token", "sk-test", nil, nil)
-	if err != nil {
-		t.Errorf("DeleteAPIToken should be idempotent: %v", err)
+	if err := s.DeleteAPIToken(ctx, unreachableBaseURL(t), "token", "sk-test", nil, nil); err == nil {
+		t.Fatal("DeleteAPIToken reported a completed delete for a call that never reached the upstream")
 	}
 
-	// Empty key
-	err = s.DeleteAPIToken(ctx, unreachableBaseURL(t), "token", "", nil, nil)
-	if err != nil {
-		t.Errorf("DeleteAPIToken with empty key: %v", err)
-	}
+	t.Run("empty key needs no upstream call", func(t *testing.T) {
+		f := &sub2apiKeyUpstream{allow: bothKeyFamilies, listBody: `{"code":0,"data":[]}`}
+		srv := httptest.NewServer(f)
+		defer srv.Close()
+		if err := s.DeleteAPIToken(ctx, srv.URL, "token", "", nil, nil); err != nil {
+			t.Fatalf("empty key: %v", err)
+		}
+		if got := f.callLog(); len(got) != 0 {
+			t.Fatalf("empty key made upstream calls: %v", got)
+		}
+	})
+
+	t.Run("key already absent upstream is idempotent", func(t *testing.T) {
+		f := &sub2apiKeyUpstream{
+			allow:    onlyAPIKeys,
+			listBody: `{"code":0,"data":[{"id":1,"key":"sk-someone-else"}]}`,
+		}
+		srv := httptest.NewServer(f)
+		defer srv.Close()
+		if err := s.DeleteAPIToken(ctx, srv.URL, "token", "sk-test", nil, nil); err != nil {
+			t.Fatalf("an answered listing without this key is not an error: %v", err)
+		}
+	})
+
+	t.Run("the second endpoint family still deletes", func(t *testing.T) {
+		f := &sub2apiKeyUpstream{
+			allow:    onlyAPIKeys,
+			listBody: `{"code":0,"data":[{"id":7,"key":"sk-test"}]}`,
+			writeOK:  true,
+		}
+		srv := httptest.NewServer(f)
+		defer srv.Close()
+		if err := s.DeleteAPIToken(ctx, srv.URL, "token", "sk-test", nil, nil); err != nil {
+			t.Fatalf("delete across the version skew: %v", err)
+		}
+		got := f.callLog()
+		want := []string{
+			"GET /api/v1/keys", "GET /api/v1/api-keys",
+			"DELETE /api/v1/keys/7", "DELETE /api/v1/api-keys/7",
+		}
+		if strings.Join(got, "|") != strings.Join(want, "|") {
+			t.Fatalf("calls = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("both delete variants refusing is a failure", func(t *testing.T) {
+		f := &sub2apiKeyUpstream{
+			allow:    bothKeyFamilies,
+			listBody: `{"code":0,"data":[{"id":7,"key":"sk-test"}]}`,
+			writeOK:  false,
+		}
+		srv := httptest.NewServer(f)
+		defer srv.Close()
+		err := s.DeleteAPIToken(ctx, srv.URL, "token", "sk-test", nil, nil)
+		if err == nil {
+			t.Fatal("neither DELETE landed, so the upstream key may still be live")
+		}
+		if !strings.Contains(err.Error(), "delete upstream key 7") ||
+			!strings.Contains(err.Error(), "upstream refused the delete") {
+			t.Fatalf("error should name the key and carry the upstream reason: %v", err)
+		}
+	})
 }
 
 func TestSub2ApiAdapter_GetSiteAnnouncements(t *testing.T) {
