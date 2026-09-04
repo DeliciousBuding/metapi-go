@@ -35,7 +35,7 @@ import (
 //   - handler/admin → app (checkin schedule lifecycle, §5.2)
 //   - app → handler/proxy (ConfigureProxyUpstream composition helper, §5.3)
 //   - platform → proxy/profiles (profile detection, §3.2)
-//   - handler/* → platform (thin admin/verify actions, §2.2 table)
+//   - handler/* → platform (thin admin/verify actions; docs/architecture.md boundary map)
 //   - handler/proxy → transform/* (one-way protocol wiring, §5.4)
 //   - auth → internal/sharedcount
 //   - (scheduler → handler/shared §5.11 exception RESOLVED 2026-07-31:
