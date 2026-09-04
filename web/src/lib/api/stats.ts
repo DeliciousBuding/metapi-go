@@ -8,7 +8,6 @@ import type {
   LatencyTrendResponse,
   VerifyBatchResponse,
   VerifyHistoryResponse,
-  TagIndexResponse,
   Announcement,
   AnnouncementsResponse,
   ModelRedirectsResponse,
@@ -20,8 +19,6 @@ import type {
 } from './types'
 
 export const statsApi = {
-  // Stats
-  getDashboard: () => request('/api/stats/dashboard'),
   getDashboardSnapshot: (options?: { refresh?: boolean }) =>
     request(
       `/api/stats/dashboard${buildQueryString({
@@ -29,17 +26,6 @@ export const statsApi = {
         ...(options?.refresh ? { refresh: 1 } : {}),
       })}`
     ),
-  getDashboardInsights: (options?: { refresh?: boolean }) =>
-    request(
-      `/api/stats/dashboard${buildQueryString({
-        view: 'insights',
-        ...(options?.refresh ? { refresh: 1 } : {}),
-      })}`
-    ),
-  getProxyLogs: (params?: ProxyLogsQuery) =>
-    request(
-      `/api/stats/proxy-logs${buildQueryString(params)}`
-    ) as Promise<ProxyLogsResponse>,
   getProxyLogsQuery: (params?: ProxyLogsQuery) =>
     request(
       `/api/stats/proxy-logs${buildQueryString({ ...params, view: 'query' })}`
@@ -83,8 +69,6 @@ export const statsApi = {
     minLatencyMs?: number
     hours?: number
   }) => request(`/api/stats/slow-requests${buildQueryString(params)}`),
-  checkModels: (accountId: number) =>
-    request(`/api/models/check/${accountId}`, { method: 'POST' }),
   getSiteDistribution: () => request('/api/stats/site-distribution'),
   getSiteTrend: (days = 7) => request(`/api/stats/site-trend?days=${days}`),
   getBalanceHistory: (accountId: number, days = 30) =>
@@ -134,18 +118,6 @@ export const statsApi = {
     request(
       `/api/models/verify-history?limit=${limit}${model ? `&model=${encodeURIComponent(model)}` : ''}`
     ) as Promise<VerifyHistoryResponse>,
-  // I1: accounts/sites global tag system.
-  getTags: () => request('/api/tags') as Promise<TagIndexResponse>,
-  updateAccountTags: (accountId: number, tags: string[]) =>
-    request(`/api/accounts/${accountId}/tags`, {
-      method: 'PUT',
-      body: JSON.stringify({ tags }),
-    }) as Promise<{ success: boolean; tags: string[] }>,
-  updateSiteTags: (siteId: number, tags: string[]) =>
-    request(`/api/sites/${siteId}/tags`, {
-      method: 'PUT',
-      body: JSON.stringify({ tags }),
-    }) as Promise<{ success: boolean; tags: string[] }>,
   // H1: product risk banners.
   getActiveAnnouncements: () =>
     request('/api/announcements/active') as Promise<AnnouncementsResponse>,
@@ -249,30 +221,5 @@ export const statsApi = {
   getSchedulerStatus: () =>
     request<{ items: SchedulerRunStatus[]; generatedAt: string }>(
       '/api/scheduler/status'
-    ),
-  getSiteSnapshot: async (days = 7, options?: { refresh?: boolean }) => {
-    const query = buildQueryString({
-      days,
-      ...(options?.refresh ? { refresh: 1 } : {}),
-    })
-    const [distribution, trend, sites] = await Promise.all([
-      request<{ distribution: unknown[] }>(
-        `/api/stats/site-distribution${query}`
-      ),
-      request<{ trend: unknown[] }>(`/api/stats/site-trend${query}`),
-      request<unknown[]>('/api/sites'),
-    ])
-    return {
-      generatedAt: new Date().toISOString(),
-      distribution: Array.isArray(distribution?.distribution)
-        ? distribution.distribution
-        : [],
-      trend: Array.isArray(trend?.trend) ? trend.trend : [],
-      sites: Array.isArray(sites) ? sites : [],
-    }
-  },
-  getModelBySite: (siteId?: number, days = 7) =>
-    request(
-      `/api/stats/model-by-site?${siteId ? `siteId=${siteId}&` : ''}days=${days}`
     ),
 }

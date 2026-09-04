@@ -17,6 +17,9 @@
 // in `@/lib/helpers/zeroChannelRoutes`) reuse `RouteSummaryRow` with
 // `kind: 'zero_channel'` and a stable negative id.
 
+// Channel-level strategy for OAuth route units: declared once, in the wire
+// contract. This file used to carry a second copy of the same union.
+import type { OAuthRouteUnitStrategy } from '@/lib/api/types'
 import type {
   RouteDecision,
   RouteMode,
@@ -30,10 +33,6 @@ export type {
   RouteRoutingStrategy,
   RouteSummaryRow,
 } from '@/lib/helpers/token-route-contract'
-
-// Channel-level strategy for OAuth route units (re-exported for the detail
-// sheet; the canonical `OAuthRouteUnitStrategy` also lives in `@/lib/api`).
-type OAuthRouteUnitStrategy = 'round_robin' | 'stick_until_unavailable'
 
 // ---------------------------------------------------------------------------
 // Route channel — the per-route account+token binding (detail view + form)
