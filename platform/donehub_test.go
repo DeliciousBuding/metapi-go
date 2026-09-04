@@ -61,6 +61,13 @@ func TestDoneHubAdapter_CheckinUnspported(t *testing.T) {
 	}
 }
 
+// TestDoneHubAdapter_BalanceQuotaIsRemaining reads a real one-api-style payload
+// and checks the semantics its name claims: for DoneHub `quota` is the REMAINING
+// allowance and the total is quota+used, at a 500,000 divisor.
+//
+// It used to point GetBalance at an unreachable URL and assert Balance == 0, which
+// passes for any divisor and any formula — it never tested quota-is-remaining, and
+// it pinned the adapter reporting a failed fetch as a legitimate zero balance.
 func TestDoneHubAdapter_BalanceQuotaIsRemaining(t *testing.T) {
 	d := &DoneHubAdapter{
 		OneHubAdapter: &OneHubAdapter{
@@ -70,13 +77,24 @@ func TestDoneHubAdapter_BalanceQuotaIsRemaining(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	// DoneHub balance on unreachable URL returns empty BalanceInfo
-	bi, err := d.GetBalance(ctx, unreachableBaseURL(t), "token", nil, nil)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":{"quota":1000000,"used_quota":250000}}`))
+	}))
+	defer srv.Close()
+
+	bi, err := d.GetBalance(ctx, srv.URL, "token", nil, nil)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("GetBalance against a answering upstream: %v", err)
 	}
-	if bi.Balance != 0 {
-		t.Errorf("Balance on unreachable should be 0, got %f", bi.Balance)
+	if bi == nil {
+		t.Fatal("GetBalance returned nil BalanceInfo with no error")
+	}
+	// quota is remaining: Balance = 1_000_000/500_000 = 2.0
+	// Used = 250_000/500_000 = 0.5 ; Quota(total) = 2.0 + 0.5 = 2.5
+	if bi.Balance != 2.0 || bi.Used != 0.5 || bi.Quota != 2.5 {
+		t.Errorf("balance = (%g, %g, %g), want (2, 0.5, 2.5) for quota-is-remaining at 500k",
+			bi.Balance, bi.Used, bi.Quota)
 	}
 }
 

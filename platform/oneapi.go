@@ -276,12 +276,16 @@ func (o *OneApiAdapter) GetAPITokens(ctx context.Context, baseURL, accessToken s
 	headers := authBearerHeaders(accessToken)
 	resp, err := fetchJSON(ctx, baseURL+"/api/token/?p=0&size=100", "GET", nil, headers, proxy)
 	if err != nil {
-		return []ApiTokenInfo{}, nil
+		// Propagate: an unreachable or unauthorized token listing is not the same
+		// fact as "this account has no tokens". Returning an empty list here made
+		// a failed sync report zero tokens and no error, so the operator saw a
+		// successful sync of nothing.
+		return nil, fmt.Errorf("list upstream tokens: %w", err)
 	}
 
 	items := parseTokenItemsFromMap(resp)
 	if len(items) == 0 {
-		return []ApiTokenInfo{}, nil
+		return []ApiTokenInfo{}, nil // the upstream answered: genuinely no tokens
 	}
 	return normalizeTokenItems(items), nil
 }
@@ -290,7 +294,10 @@ func (o *OneApiAdapter) GetAPITokens(ctx context.Context, baseURL, accessToken s
 func (o *OneApiAdapter) GetAPIToken(ctx context.Context, baseURL, accessToken string, platformUserId *int, proxy *ProxyConfig) (*string, error) {
 	tokens, err := o.GetAPITokens(ctx, baseURL, accessToken, platformUserId, proxy)
 	if err != nil {
-		return nil, nil
+		// Propagate: GetAPITokens now distinguishes "the upstream answered with no
+		// tokens" (nil, nil below) from "we could not ask". Returning nil, nil here
+		// re-hid the failure one level up, which is why the empty answer survived.
+		return nil, err
 	}
 	return findFirstEnabledToken(tokens), nil
 }

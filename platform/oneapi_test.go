@@ -2,6 +2,8 @@ package platform
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -39,31 +41,67 @@ func TestOneApiAdapter_DoubleDeleteStrategy(t *testing.T) {
 	}
 }
 
+// answeringTokenServer serves a well-formed one-api token listing with no rows.
+func answeringTokenServer(body string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+}
+
+// Both directions are pinned on purpose: "the upstream answered and there are no
+// tokens" is a legitimate empty result, while "we could not ask the upstream" is a
+// failure the caller has to hear about. Asserting only the second is how the first
+// gets reported as a successful sync of nothing.
 func TestOneApiAdapter_GetAPIToken(t *testing.T) {
 	o := &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	tok, err := o.GetAPIToken(ctx, unreachableBaseURL(t), "token", nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err == nil {
+		t.Error("GetAPIToken must report an unreachable upstream, not a missing token")
 	}
 	if tok != nil {
-		t.Error("GetAPIToken should return nil for unreachable URL")
+		t.Error("GetAPIToken should return no token when the listing failed")
+	}
+
+	srv := answeringTokenServer(`{"success":true,"data":[]}`)
+	defer srv.Close()
+	tok, err = o.GetAPIToken(ctx, srv.URL, "token", nil, nil)
+	if err != nil {
+		t.Errorf("the upstream answered with no tokens; that is not an error: %v", err)
+	}
+	if tok != nil {
+		t.Errorf("expected no token, got %q", *tok)
 	}
 }
 
+// Both directions are pinned on purpose: "the upstream answered and there are no
+// tokens" is a legitimate empty result, while "we could not ask the upstream" is a
+// failure the caller has to hear about. Asserting only the second is how the first
+// gets reported as a successful sync of nothing.
 func TestOneApiAdapter_GetAPITokens(t *testing.T) {
 	o := &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	tokens, err := o.GetAPITokens(ctx, unreachableBaseURL(t), "token", nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err == nil {
+		t.Error("GetAPITokens must report an unreachable upstream, not an empty token list")
 	}
 	if len(tokens) != 0 {
-		t.Error("GetAPITokens should return empty for unreachable URL")
+		t.Error("GetAPITokens should return no tokens when the listing failed")
+	}
+
+	srv := answeringTokenServer(`{"success":true,"data":[]}`)
+	defer srv.Close()
+	tokens, err = o.GetAPITokens(ctx, srv.URL, "token", nil, nil)
+	if err != nil {
+		t.Errorf("the upstream answered with an empty list; that is not an error: %v", err)
+	}
+	if len(tokens) != 0 {
+		t.Errorf("expected zero tokens, got %d", len(tokens))
 	}
 }
 
@@ -109,13 +147,13 @@ func TestBuildDefaultTokenPayload(t *testing.T) {
 
 	// Custom options
 	opts := &CreateAPITokenOptions{
-		Name:            "custom-key",
-		UnlimitedQuota:  false,
-		RemainQuota:     100.5,
-		ExpiredTime:     1735689600,
-		AllowIPs:        "1.2.3.4",
-		ModelLimits:     "gpt-4:100",
-		Group:           "vip",
+		Name:               "custom-key",
+		UnlimitedQuota:     false,
+		RemainQuota:        100.5,
+		ExpiredTime:        1735689600,
+		AllowIPs:           "1.2.3.4",
+		ModelLimits:        "gpt-4:100",
+		Group:              "vip",
 		ModelLimitsEnabled: true,
 	}
 	p2 := buildDefaultTokenPayload(opts)

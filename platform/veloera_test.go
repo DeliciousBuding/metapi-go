@@ -2,6 +2,8 @@ package platform
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -82,18 +84,37 @@ func TestVeloeraAdapter_CheckinWithUserID(t *testing.T) {
 	}
 }
 
+// TestVeloeraAdapter_GetBalance_1MDivisor reads a real payload and checks the
+// divisor its name claims: Veloera divides by 1,000,000 (NOT one-api's 500,000)
+// and its `quota` is the TOTAL, so Balance = quota - used.
+//
+// It used to point GetBalance at an unreachable URL and assert Balance == 0, which
+// is what any divisor returns for a failed fetch — the 1M divisor was never
+// exercised here (TestVeloeraAdapter_DivisorIs1M does the arithmetic on literals),
+// and it pinned the adapter reporting a failed fetch as a legitimate zero balance.
 func TestVeloeraAdapter_GetBalance_1MDivisor(t *testing.T) {
 	v := &VeloeraAdapter{BaseAdapter: NewBaseAdapter("veloera")}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	bi, err := v.GetBalance(ctx, unreachableBaseURL(t), "token", nil, nil)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":{"quota":2000000,"used_quota":500000}}`))
+	}))
+	defer srv.Close()
+
+	bi, err := v.GetBalance(ctx, srv.URL, "token", nil, nil)
 	if err != nil {
-		t.Errorf("GetBalance should not error: %v", err)
+		t.Fatalf("GetBalance against an answering upstream: %v", err)
 	}
-	// Returns empty BalanceInfo on failure
-	if bi.Balance != 0 {
-		t.Errorf("Balance on unreachable should be 0, got %f", bi.Balance)
+	if bi == nil {
+		t.Fatal("GetBalance returned nil BalanceInfo with no error")
+	}
+	// 1M divisor, quota is total: Quota = 2.0, Used = 0.5, Balance = 1.5.
+	// At one-api's 500k these would be 4.0 / 1.0 / 3.0.
+	if bi.Quota != 2.0 || bi.Used != 0.5 || bi.Balance != 1.5 {
+		t.Errorf("balance = (%g, %g, %g), want (1.5, 0.5, 2.0) for a 1M divisor",
+			bi.Balance, bi.Used, bi.Quota)
 	}
 }
 

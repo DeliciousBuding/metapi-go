@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
 )
@@ -38,7 +39,11 @@ func (a *AntigravityAdapter) GetModels(ctx context.Context, baseURL string, acce
 
 	resp, err := fetchJSON(ctx, normalized+"/v1internal:fetchAvailableModels", "POST", map[string]interface{}{}, headers, proxy)
 	if err != nil {
-		return []string{}, nil
+		// Propagate: service.classifyModelRefreshError turns this into an
+		// actionable reason. Returning an empty list here made an unreachable or
+		// unauthorized upstream indistinguishable from "no models", which is
+		// reported to the operator as empty_models (#1232 family).
+		return nil, fmt.Errorf("fetch available models: %w", err)
 	}
 
 	return extractAntigravityModelNames(resp), nil
