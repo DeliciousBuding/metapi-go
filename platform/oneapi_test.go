@@ -310,17 +310,24 @@ func TestOneApiAdapter_GetAPITokens(t *testing.T) {
 	}
 }
 
-func TestOneApiAdapter_GetUserGroupsDefault(t *testing.T) {
+// Renamed from TestOneApiAdapter_GetUserGroupsDefault, which accepted "error or
+// [\"default\"]" and so could not fail: one-api has carried the terminalError
+// guard since before this test was written, so an unreachable upstream has only
+// ever produced an error. Accepting both is what let the same shape go
+// unguarded in sub2api unnoticed — the family contract was written down here as
+// "either is fine".
+func TestOneApiAdapter_GetUserGroups_UnreachableIsAFailureNotADefaultGroup(t *testing.T) {
 	o := &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	// On unreachable URL, terminalError from failed HTTP propagates as error
-	_, err := o.GetUserGroups(ctx, unreachableBaseURL(t), "token", nil, nil)
-	if err != nil {
-		t.Logf("GetUserGroups error on unreachable (expected): %v", err)
+	groups, err := o.GetUserGroups(ctx, unreachableBaseURL(t), "token", nil, nil)
+	if err == nil {
+		t.Fatalf("want an error, got groups=%#v — a failure to ask was reported as an answer", groups)
 	}
-	// Either way: error or ["default"] is acceptable
+	if groups != nil {
+		t.Fatalf("want nil groups alongside the error, got %#v", groups)
+	}
 }
 
 // `false, nil` means "the upstream answered and refused", which is why a failed

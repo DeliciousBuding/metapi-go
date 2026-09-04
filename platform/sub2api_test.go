@@ -307,18 +307,12 @@ func TestSub2ApiAdapter_ResolveModelEndpoints(t *testing.T) {
 	}
 }
 
-func TestSub2ApiAdapter_GetUserGroups(t *testing.T) {
-	s := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
-	ctx := context.Background()
-
-	groups, err := s.GetUserGroups(ctx, unreachableBaseURL(t), "token", nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if len(groups) != 1 || groups[0] != "default" {
-		t.Errorf("GetUserGroups on unreachable should return ['default'], got %v", groups)
-	}
-}
+// TestSub2ApiAdapter_GetUserGroups used to live here and asserted that an
+// unreachable upstream returns ["default"] with no error — it pinned the defect
+// as the contract, which is why the fabrication survived. Its one scenario is
+// now the "unreachable" arm of
+// TestSub2ApiAdapter_GetUserGroups_FailureIsNotADefaultGroup in
+// sub2api_group_test.go, with the expectation inverted.
 
 // sub2apiKeyUpstream stands in for a sub2api version: `allow` decides which of the
 // two version-dependent endpoint families exists, and every other path 404s the way

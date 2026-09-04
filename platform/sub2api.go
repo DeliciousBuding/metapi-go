@@ -315,17 +315,48 @@ func pickKeyForGroup(tokens []ApiTokenInfo, group string) *string {
 }
 
 // GetUserGroups: 5 endpoint fallback + key-based inference.
+// GetUserGroups asks the upstream which groups exist.
+//
+// ["default"] is this family's last resort, not an answer: newapi and oneapi
+// both reach it only after every rung answered and none of them refused. This
+// adapter used to reach it unconditionally, so an unreachable site, an expired
+// credential or an upstream refusal all reported a group the upstream never
+// advertised. That is worse here than elsewhere, because the caller prefers any
+// non-blank upstream answer over the fallback it already has — so the fabricated
+// "default" beat GetLocalTokenGroups' truthful DISTINCT token_group, and the
+// operator saw one invented group instead of the real ones.
+//
+// The refusal message this now surfaces was already written and already
+// unreachable for sub2api accounts: resolveGroupFetchErrorMessage renders an
+// expired session as "账号会话可能已过期，请重新登录后再拉取分组".
 func (s *Sub2ApiAdapter) GetUserGroups(ctx context.Context, baseURL, accessToken string, platformUserId *int, proxy *ProxyConfig) ([]string, error) {
 	normalized := normalizeBaseURL(baseURL)
 
-	directGroups := s.listGroups(ctx, normalized, accessToken, proxy)
+	// The two rungs are a preference order — ask the group endpoint, else derive
+	// from existing keys — so the FIRST reason is kept, the decision
+	// modelFetchLadder documents. The opposite of the version-skew ladders inside
+	// each rung, which keep the last. Both differences are deliberate; do not
+	// "unify" them.
+	var terminalError string
+
+	directGroups, err := s.listGroups(ctx, normalized, accessToken, proxy)
+	if err != nil {
+		terminalError = err.Error()
+	}
 	if len(directGroups) > 0 {
 		return directGroups, nil
 	}
 
-	inferredFromKeys := s.inferGroupsFromKeys(ctx, normalized, accessToken, proxy)
+	inferredFromKeys, err := s.inferGroupsFromKeys(ctx, normalized, accessToken, proxy)
+	if err != nil && terminalError == "" {
+		terminalError = err.Error()
+	}
 	if len(inferredFromKeys) > 0 {
 		return inferredFromKeys, nil
+	}
+
+	if terminalError != "" {
+		return nil, fmt.Errorf("%s", terminalError)
 	}
 
 	return []string{"default"}, nil

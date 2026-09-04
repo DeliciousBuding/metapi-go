@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -182,5 +183,234 @@ func TestFetchModelsByToken_CtxCancelledMidLoop(t *testing.T) {
 	// ctx.Err() check should break before hitting the server again.
 	if got := atomic.LoadInt32(&hitCount); got > 1 {
 		t.Fatalf("expected at most 1 endpoint hit after mid-loop cancel, got %d", got)
+	}
+}
+
+// --- GetUserGroups: a failure to ask is not an answer ----------------------
+//
+// The discovery path had no coverage at all (this file pinned pickKeyForGroup
+// and parseSub2ApiUserGroup only), which is how an unconditional ["default"]
+// survived: the caller, GetTokenGroups, prefers any non-blank upstream answer
+// over the local fallback it already has, and the service-level test for that
+// fallback (TestGetTokenGroups_FallbackOnErrorEmptyNilAdapter) can only run when
+// an adapter returns an error. This one never did.
+
+// sub2GroupsStub serves every path the two ladders try. Paths absent from the
+// map answer 404, which is what a version-skewed upstream does to the paths it
+// does not have.
+func sub2GroupsStub(t testing.TB, byPath map[string]string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, ok := byPath[r.URL.Path]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"code":404,"message":"not found"}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func sub2GroupPaths() []string {
+	return []string{
+		"/api/v1/groups/available",
+		"/api/v1/groups",
+		"/api/v1/group",
+		"/api/v1/keys",
+		"/api/v1/api-keys",
+	}
+}
+
+func sub2AllPaths(body string) map[string]string {
+	out := make(map[string]string)
+	for _, p := range sub2GroupPaths() {
+		out[p] = body
+	}
+	return out
+}
+
+func TestSub2ApiAdapter_GetUserGroups_FailureIsNotADefaultGroup(t *testing.T) {
+	const sessionRewrite = "账号会话可能已过期，请重新登录后再拉取分组"
+	cases := []struct {
+		name       string
+		baseURL    func(t testing.TB) string
+		wantSubstr string
+	}{
+		{
+			// The reported defect: nothing was reachable, and the operator got a
+			// group the upstream never advertised.
+			name:       "unreachable",
+			baseURL:    unreachableBaseURL,
+			wantSubstr: "fetch groups",
+		},
+		{
+			name: "refused with a reason",
+			baseURL: func(t testing.TB) string {
+				return sub2GroupsStub(t, sub2AllPaths(`{"code":1,"message":"groups endpoint refused"}`)).URL
+			},
+			wantSubstr: "groups endpoint refused",
+		},
+		{
+			// sub2api's own fixtures use a string code, which the numeric
+			// code==0 check never treated as success — so this shape used to
+			// parse to nothing and fall through to ["default"].
+			name: "string code UNAUTHORIZED",
+			baseURL: func(t testing.TB) string {
+				return sub2GroupsStub(t, sub2AllPaths(`{"code":"UNAUTHORIZED","message":"authorization header is required"}`)).URL
+			},
+			wantSubstr: "authorization header is required",
+		},
+		{
+			// The message the family already wrote for an expired session, and
+			// that a sub2api account could never reach.
+			name: "expired session reaches the family message",
+			baseURL: func(t testing.TB) string {
+				return sub2GroupsStub(t, sub2AllPaths(`{"code":1,"message":"未登录"}`)).URL
+			},
+			wantSubstr: sessionRewrite,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			groups, err := a.GetUserGroups(ctx, tc.baseURL(t), "token", nil, nil)
+			if err == nil {
+				t.Fatalf("want an error, got groups=%#v — a failure to ask was reported as an answer", groups)
+			}
+			if groups != nil {
+				t.Fatalf("want nil groups alongside the error, got %#v", groups)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Fatalf("error %q does not carry %q", err.Error(), tc.wantSubstr)
+			}
+			for _, invented := range []string{"default"} {
+				for _, g := range groups {
+					if g == invented {
+						t.Fatalf("fabricated %q group survived", invented)
+					}
+				}
+			}
+		})
+	}
+}
+
+// The other face of the same defect: an upstream that really has no groups must
+// still be told the truth, so ["default"] stays reachable when — and only when —
+// something answered.
+func TestSub2ApiAdapter_GetUserGroups_AnsweredEmptyIsStillTrue(t *testing.T) {
+	srv := sub2GroupsStub(t, sub2AllPaths(`{"code":0,"data":[]}`))
+	a := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	groups, err := a.GetUserGroups(ctx, srv.URL, "token", nil, nil)
+	if err != nil {
+		t.Fatalf("an answered empty is a true statement, want nil error, got %v", err)
+	}
+	if len(groups) != 1 || groups[0] != "default" {
+		t.Fatalf("want the family's last resort [\"default\"], got %#v", groups)
+	}
+}
+
+// A 404 on an older path is version skew, not a failure: the predicate is
+// "did anything answer", not "did anything error".
+func TestSub2ApiAdapter_GetUserGroups_VersionSkewIsNotAFailure(t *testing.T) {
+	srv := sub2GroupsStub(t, map[string]string{
+		"/api/v1/groups": `{"code":0,"data":[{"id":7,"name":"vip"}]}`,
+	})
+	a := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	groups, err := a.GetUserGroups(ctx, srv.URL, "token", nil, nil)
+	if err != nil {
+		t.Fatalf("version skew must not become a failure: %v", err)
+	}
+	if len(groups) == 0 {
+		t.Fatalf("want the groups the upstream advertised, got %#v", groups)
+	}
+}
+
+// The predicate is "did anything answer", not "did anything error", and the case
+// that separates them is a deployment where one alternative 404s and another
+// answers with an empty list. Without this the two predicates are
+// indistinguishable: when some rung does return groups the ladder returns early
+// and never reaches the check at all (which is what VersionSkewIsNotAFailure
+// covers), so a mutation of `!answered && lastReason != ""` to
+// `lastReason != ""` went unnoticed until the probe tried it.
+func TestSub2ApiAdapter_GetUserGroups_AnsweredEmptyAlongsideAFailedAlternativeIsNotAFailure(t *testing.T) {
+	srv := sub2GroupsStub(t, map[string]string{
+		// /api/v1/groups/available and /api/v1/group are absent -> 404, the way a
+		// version without those paths answers.
+		"/api/v1/groups":   `{"code":0,"data":[]}`,
+		"/api/v1/api-keys": `{"code":0,"data":[]}`,
+	})
+	a := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	groups, err := a.GetUserGroups(ctx, srv.URL, "token", nil, nil)
+	if err != nil {
+		t.Fatalf("one alternative 404ing must not become a failure when another answered: %v", err)
+	}
+	if len(groups) != 1 || groups[0] != "default" {
+		t.Fatalf("want the family's last resort [\"default\"], got %#v", groups)
+	}
+}
+
+// Preference order is preserved: ask the group endpoint first, derive from
+// existing keys second.
+func TestSub2ApiAdapter_GetUserGroups_FallsBackToInferringFromKeys(t *testing.T) {
+	srv := sub2GroupsStub(t, map[string]string{
+		"/api/v1/groups":   `{"code":0,"data":[]}`,
+		"/api/v1/group":    `{"code":0,"data":[]}`,
+		"/api/v1/keys":     `{"code":0,"data":[{"id":1,"group_id":3}]}`,
+		"/api/v1/api-keys": `{"code":0,"data":[]}`,
+	})
+	a := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	groups, err := a.GetUserGroups(ctx, srv.URL, "token", nil, nil)
+	if err != nil {
+		t.Fatalf("GetUserGroups: %v", err)
+	}
+	if len(groups) != 1 || groups[0] != "3" {
+		t.Fatalf("want the group id inferred from keys, got %#v", groups)
+	}
+}
+
+// The two rungs are a preference order, so the FIRST reason is the one reported
+// — the group endpoint is the question the operator actually asked. The ladders
+// inside each rung keep the last, because those endpoints are equivalent
+// version-skew alternatives. Both are deliberate.
+func TestSub2ApiAdapter_GetUserGroups_KeepsTheFirstReason(t *testing.T) {
+	srv := sub2GroupsStub(t, map[string]string{
+		"/api/v1/groups/available": `{"code":1,"message":"groups rung refused"}`,
+		"/api/v1/groups":           `{"code":1,"message":"groups rung refused"}`,
+		"/api/v1/group":            `{"code":1,"message":"groups rung refused"}`,
+		"/api/v1/keys":             `{"code":1,"message":"keys rung refused"}`,
+		"/api/v1/api-keys":         `{"code":1,"message":"keys rung refused"}`,
+	})
+	a := &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := a.GetUserGroups(ctx, srv.URL, "token", nil, nil)
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	if !strings.Contains(err.Error(), "groups rung refused") {
+		t.Fatalf("want the first rung's reason, got %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "keys rung refused") {
+		t.Fatalf("the second rung's reason displaced the first: %q", err.Error())
 	}
 }
