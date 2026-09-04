@@ -233,15 +233,47 @@ func TestNonAPIRoutesAreAccountedFor(t *testing.T) {
 }
 
 // routeKeyDocumentedIn reports whether a document states a route. Matching is on
-// the whole "METHOD /path" key, not on the path alone: a file that only mentions
-// `/v1/models/price-compare` must not be credited with documenting
-// `GET /v1/models`. A wildcard route may be written either way.
+// the whole "METHOD /path" key, and the match has to END there: a substring test
+// lets a sibling route stand in for the real one, which is how the first version
+// of this helper passed two mutation probes it should have failed -- deleting the
+// `GET /v1/models` row still matched `GET /v1/models/price-compare`, and deleting
+// `ANY /monitor-proxy/ldoh/` still matched `ANY /monitor-proxy/ldoh/{wildcard}`.
+// A wildcard route may be written either as {wildcard} or as *.
 func routeKeyDocumentedIn(body, routeKey string) bool {
-	if strings.Contains(body, routeKey) {
+	if containsRouteKey(body, routeKey) {
 		return true
 	}
 	if strings.Contains(routeKey, "{wildcard}") {
-		return strings.Contains(body, strings.ReplaceAll(routeKey, "{wildcard}", "*"))
+		return containsRouteKey(body, strings.ReplaceAll(routeKey, "{wildcard}", "*"))
+	}
+	return false
+}
+
+// containsRouteKey finds key in body followed by something that cannot continue a
+// route path, so a prefix of a longer route does not count as documenting it.
+func containsRouteKey(body, key string) bool {
+	for from := 0; ; {
+		j := strings.Index(body[from:], key)
+		if j < 0 {
+			return false
+		}
+		end := from + j + len(key)
+		if end == len(body) || !routePathContinues(body[end]) {
+			return true
+		}
+		from = from + j + 1
+	}
+}
+
+// routePathContinues reports whether c could be the next character of a longer
+// route path (or of its {param} / * wildcard spelling).
+func routePathContinues(c byte) bool {
+	if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' {
+		return true
+	}
+	switch c {
+	case '_', '/', '{', '}', ':', '.', '-', '~', '*':
+		return true
 	}
 	return false
 }
@@ -254,7 +286,7 @@ func TestNonAPIRouteOwnershipIsNotAPaperClaim(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, "docs", "api"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	body := "# Proxy\n\n| `POST /v1/chat/completions` | chat relay |\n| `POST /v1/models/price-compare` | prices |\n"
+	body := "# Proxy\n\n| `POST /v1/chat/completions` | chat relay |\n| `GET /v1/models/price-compare` | prices |\n"
 	if err := os.WriteFile(filepath.Join(root, doc), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -264,10 +296,19 @@ func TestNonAPIRouteOwnershipIsNotAPaperClaim(t *testing.T) {
 	if routeKeyDocumentedIn(body, "GET /v1beta/models") {
 		t.Error("a route the document never states passed -- the gate is paper")
 	}
-	// Path-only matching would credit the price-compare row with documenting
-	// GET /v1/models; the whole-key match must not.
+	// A sibling route must not stand in for the real one, even with the same
+	// verb: the body above states GET /v1/models only inside the longer
+	// price-compare path, and the trailing-slash / wildcard pair below is the
+	// same shape on the monitor surface. Both passed a plain substring match.
 	if routeKeyDocumentedIn(body, "GET /v1/models") {
-		t.Error("a sibling path satisfied the check -- matching must be on the whole route key")
+		t.Error("a sibling path satisfied the check -- matching must end at the route key")
+	}
+	slashes := "`ANY /monitor-proxy/ldoh/{wildcard}` only\n"
+	if routeKeyDocumentedIn(slashes, "ANY /monitor-proxy/ldoh/") {
+		t.Error("the wildcard route satisfied the trailing-slash route -- matching must end at the route key")
+	}
+	if !routeKeyDocumentedIn(slashes+"`ANY /monitor-proxy/ldoh/`\n", "ANY /monitor-proxy/ldoh/") {
+		t.Error("the trailing-slash route was not found when the document states it exactly")
 	}
 	if routeKeyDocumentedIn(body, "POST /responses/{wildcard}") {
 		t.Error("wildcard route matched a document that does not mention it in either spelling")
