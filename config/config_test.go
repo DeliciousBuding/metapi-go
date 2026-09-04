@@ -574,6 +574,48 @@ func TestValidateAcceptsStrongCredentialSecret(t *testing.T) {
 	}
 }
 
+func TestValidateWarnsOnShippedPlaceholderCredentialSecret(t *testing.T) {
+	// The literal .env.example ships for ACCOUNT_CREDENTIAL_SECRET must be
+	// reported. It is 33 bytes, so it clears both length floors (< 8 critical,
+	// < 16 warning) and, before this guard existed, a deployment that copied
+	// .env.example and filled in only the two variables docker-compose forces
+	// started cleanly while encrypting every stored upstream credential under
+	// a string that is public in this repository.
+	cfg, _ := Load(map[string]string{
+		"AUTH_TOKEN":                "admin-token-not-default",
+		"PROXY_TOKEN":               "proxy-token-not-default",
+		"ACCOUNT_CREDENTIAL_SECRET": EnvExampleAccountCredentialSecret,
+		"CLAUDE_CLIENT_ID":          "claude-client",
+		"CODEX_CLIENT_ID":           "codex-client",
+		"GEMINI_CLI_CLIENT_ID":      "gemini-client",
+	})
+
+	if len(EnvExampleAccountCredentialSecret) < 16 {
+		t.Fatalf("precondition: the shipped placeholder is %d bytes and would already trip a length floor, so this test would no longer prove the placeholder guard fires",
+			len(EnvExampleAccountCredentialSecret))
+	}
+
+	var found, critical bool
+	for _, err := range cfg.Validate() {
+		if configErrorField(err) != "account_credential_secret" {
+			continue
+		}
+		found = true
+		critical = configErrorCritical(err)
+	}
+	if !found {
+		t.Fatal("Validate did not report the .env.example placeholder credential secret — it clears both length floors, so only the placeholder guard can catch it")
+	}
+	// Deliberately non-critical, and pinned so it cannot be escalated by
+	// reflex: hasCritical makes cmd/server exit(1), which would refuse to boot
+	// any deployment already running on the placeholder, and rotating the
+	// secret does not re-encrypt existing rows (DecryptAccountPassword returns
+	// "" for them), so those accounts would have to be re-bound.
+	if critical {
+		t.Fatal("placeholder credential secret flagged critical, want warning: refusing to boot strands deployments already running on it, and rotating orphans existing ciphertext")
+	}
+}
+
 func TestLoadLogLevelDefaultsToInfo(t *testing.T) {
 	cfg, _ := Load(map[string]string{})
 	if cfg.LogLevel != DefaultLogLevel {

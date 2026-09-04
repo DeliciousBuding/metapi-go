@@ -11,6 +11,19 @@ const (
 	DefaultGeminiCliClientId     = "GEMINI_CLI_CLIENT_ID_PLACEHOLDER"
 	DefaultGeminiCliClientSecret = "GEMINI_CLI_CLIENT_SECRET_PLACEHOLDER"
 
+	// EnvExampleAccountCredentialSecret is the literal shipped on the
+	// ACCOUNT_CREDENTIAL_SECRET line of .env.example. It is deliberately NOT
+	// named Default*: every other constant in this block is a value Load()
+	// falls back to, whereas nothing in the code ever falls back to this one.
+	// It matters because Load() takes any non-empty env value verbatim, so a
+	// deployment that copies .env.example and fills in only the two variables
+	// docker-compose forces (${AUTH_TOKEN:?}, ${PROXY_TOKEN:?}) runs with this
+	// public string as its real credential-encryption key. config.Validate
+	// reports it; TestShippedCredentialSecretPlaceholderIsTheGuardedOne pins
+	// the two files to each other so retyping the placeholder in only one of
+	// them cannot silently disarm that check.
+	EnvExampleAccountCredentialSecret = "REPLACE_WITH_STRONG_RANDOM_SECRET"
+
 	DefaultPort    = 4000
 	DefaultDataDir = "./data"
 	DefaultDbType  = "sqlite"
