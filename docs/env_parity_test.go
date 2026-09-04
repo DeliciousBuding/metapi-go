@@ -31,9 +31,9 @@ package docs_test
 //     code (get("X"), os.Getenv, os.LookupEnv or a direct env-map index)
 //
 // Direction 4 is the one that catches dead keys — a variable shipped in
-// .env.example that no code path ever reads. Keys with no reader must be
-// listed in unreadEnvKeyAllowlist with a reason; the list is deliberately
-// tiny and every entry is a known wart, not a convenience.
+// .env.example that no code path ever reads. There is no allowlist: the fix is
+// to drop the key or add the reader, which is what happened to the only key this
+// direction ever caught (HOME_PAGE_CONTENT, #1160 → #1166).
 //
 // Parsing note: the doc side extracts every backticked ALL-CAPS token, not
 // just table first-columns, because docs/configuration.md legitimately packs
@@ -101,13 +101,6 @@ var envKeyRE = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=`)
 // underscores (`TZ`, `LOGO`, `FOOTER`, `ABOUT`).
 var docVarRE = regexp.MustCompile("`([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*)`")
 
-// docProseTokens are backticked ALL-CAPS tokens in docs/configuration.md that
-// are prose (formats, protocols, units), not environment variables. Each
-// entry carries a reason, and TestEnvVarDocParity fails if any entry is also
-// a real key in .env.example — so this list cannot be used to hide an
-// undocumented variable.
-var docProseTokens = map[string]string{}
-
 // configGetRE matches the get("KEY") helper calls inside config.Load.
 var configGetRE = regexp.MustCompile(`get\("([A-Z0-9_]+)"\)`)
 
@@ -119,11 +112,6 @@ var readerREs = []*regexp.Regexp{
 	regexp.MustCompile(`os\.LookupEnv\("([A-Z0-9_]+)"\)`),
 	regexp.MustCompile(`env\["([A-Z0-9_]+)"\]`),
 }
-
-// unreadEnvKeyAllowlist lists .env.example keys that have no reader in
-// non-test Go code. Each entry MUST carry a reason; an entry without a
-// real justification is a bug being hidden, not a bug being managed.
-var unreadEnvKeyAllowlist = map[string]string{}
 
 func TestEnvVarDocParity(t *testing.T) {
 	root := repoRoot(t)
@@ -149,42 +137,10 @@ func TestEnvVarDocParity(t *testing.T) {
 		t.Fatal("parser sanity: no environment readers found in Go sources — the scan is broken")
 	}
 
-	// The prose allowlist must never shadow a real variable.
-	var shadowed []string
-	for tok := range docProseTokens {
-		for _, k := range envKeys {
-			if k == tok {
-				shadowed = append(shadowed, tok)
-			}
-		}
-	}
-	if len(shadowed) > 0 {
-		sort.Strings(shadowed)
-		t.Fatalf("docProseTokens shadows real .env.example keys %s — remove them from the prose allowlist; they must be documented as variables", strings.Join(shadowed, ", "))
-	}
-
-	undocumented := diffKeys(envKeys, docVars)
-	invented := diffKeys(docVars, envKeys)
-	missingFromExample := diffKeys(cfgKeys, envKeys)
-
-	var dead []string
-	for _, k := range envKeys {
-		if readers[k] {
-			continue
-		}
-		if _, ok := unreadEnvKeyAllowlist[k]; ok {
-			continue
-		}
-		dead = append(dead, k)
-	}
-
-	var b strings.Builder
-	reportDiff(&b, "in .env.example but NOT documented in docs/configuration.md", undocumented)
-	reportDiff(&b, "in docs/configuration.md but NOT present in .env.example", invented)
-	reportDiff(&b, "read by config.Load but NOT present in .env.example", missingFromExample)
-	reportDiff(&b, "in .env.example with no reader in non-test Go code (dead key; allowlist with reason required)", dead)
-	if b.Len() > 0 {
-		t.Fatalf("environment-variable documentation drift:\n%s\nFix the docs (or .env.example) — do not relax this test.", b.String())
+	// Same comparator the self-proof below feeds violating samples through, so
+	// that proof covers the code that actually runs on the real files.
+	if drift := detectDrift(envKeys, docVars, cfgKeys, readers); drift != "" {
+		t.Fatalf("environment-variable documentation drift:\n%s\nFix the docs (or .env.example) — do not relax this test.", drift)
 	}
 }
 
@@ -199,7 +155,7 @@ func TestEnvParityGateIsNotAVacuousPass(t *testing.T) {
 	const goodCfg = "func Load(env map[string]string) {\n\tcfg.Port = get(\"PORT\")\n\trt.AuthToken = get(\"AUTH_TOKEN\")\n}\n"
 
 	base := detectDrift(parseEnvExampleKeys(goodEnv), parseDocVars(goodDoc), parseConfigGetKeys(goodCfg),
-		map[string]bool{"PORT": true, "AUTH_TOKEN": true}, nil)
+		map[string]bool{"PORT": true, "AUTH_TOKEN": true})
 	if base != "" {
 		t.Fatalf("control sample must be clean, got:\n%s", base)
 	}
@@ -210,7 +166,6 @@ func TestEnvParityGateIsNotAVacuousPass(t *testing.T) {
 		doc        string
 		cfg        string
 		readers    map[string]bool
-		allowlist  map[string]string
 		wantSubstr string
 	}{
 		{
@@ -243,26 +198,13 @@ func TestEnvParityGateIsNotAVacuousPass(t *testing.T) {
 			doc:        goodDoc + "| `ZZZ_DOC_PARITY_PROBE` | empty | Probe. |\n",
 			cfg:        goodCfg,
 			readers:    map[string]bool{"PORT": true, "AUTH_TOKEN": true},
-			allowlist:  map[string]string{},
 			wantSubstr: "ZZZ_DOC_PARITY_PROBE",
-		},
-		{
-			name:      "same dead key is tolerated once it carries a reasoned allowlist entry",
-			env:       goodEnv + "ZZZ_DOC_PARITY_PROBE=\n",
-			doc:       goodDoc + "| `ZZZ_DOC_PARITY_PROBE` | empty | Probe. |\n",
-			cfg:       goodCfg,
-			readers:   map[string]bool{"PORT": true, "AUTH_TOKEN": true},
-			allowlist: map[string]string{"ZZZ_DOC_PARITY_PROBE": "probe"},
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			allow := tc.allowlist
-			if allow == nil {
-				allow = map[string]string{}
-			}
-			got := detectDrift(parseEnvExampleKeys(tc.env), parseDocVars(tc.doc), parseConfigGetKeys(tc.cfg), tc.readers, allow)
+			got := detectDrift(parseEnvExampleKeys(tc.env), parseDocVars(tc.doc), parseConfigGetKeys(tc.cfg), tc.readers)
 			if tc.wantSubstr == "" {
 				if got != "" {
 					t.Fatalf("expected clean, got:\n%s", got)
@@ -281,7 +223,7 @@ func TestEnvParityGateIsNotAVacuousPass(t *testing.T) {
 
 // detectDrift is the pure comparison core shared by the real-file test and
 // the self-proof test, so the self-proof exercises exactly the same logic.
-func detectDrift(envKeys, docVars, cfgKeys []string, readers map[string]bool, allowlist map[string]string) string {
+func detectDrift(envKeys, docVars, cfgKeys []string, readers map[string]bool) string {
 	var b strings.Builder
 	reportDiff(&b, "in .env.example but NOT documented in docs/configuration.md", diffKeys(envKeys, docVars))
 	reportDiff(&b, "in docs/configuration.md but NOT present in .env.example", diffKeys(docVars, envKeys))
@@ -292,12 +234,9 @@ func detectDrift(envKeys, docVars, cfgKeys []string, readers map[string]bool, al
 		if readers[k] {
 			continue
 		}
-		if _, ok := allowlist[k]; ok {
-			continue
-		}
 		dead = append(dead, k)
 	}
-	reportDiff(&b, "in .env.example with no reader in non-test Go code (dead key; allowlist with reason required)", dead)
+	reportDiff(&b, "in .env.example with no reader in non-test Go code (dead key; drop it or add the reader)", dead)
 	return b.String()
 }
 
@@ -318,9 +257,6 @@ func parseEnvExampleKeys(content string) []string {
 func parseDocVars(content string) []string {
 	var keys []string
 	for _, m := range docVarRE.FindAllStringSubmatch(content, -1) {
-		if _, prose := docProseTokens[m[1]]; prose {
-			continue
-		}
 		keys = append(keys, m[1])
 	}
 	return dedupeSorted(keys)
