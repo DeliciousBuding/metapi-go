@@ -60,13 +60,14 @@ func (o *OneApiAdapter) Login(ctx context.Context, baseURL, username, password s
 		"User-Agent":       DefaultBrowserUserAgent,
 	}
 
-	parsed, cookieHeader, err := fetchLoginResponse(ctx, baseURL+"/api/user/login", body, headers, proxy)
+	answer, err := fetchLoginResponse(ctx, baseURL+"/api/user/login", body, headers, proxy)
 	if err != nil {
 		return &LoginResult{Success: false, Message: err.Error()}, nil
 	}
+	parsed, cookieHeader := answer.Parsed, answer.Cookie
 
 	if parsed == nil {
-		return &LoginResult{Success: false, Message: "shield challenge blocked login"}, nil
+		return &LoginResult{Success: false, Message: loginBlockedMessage(answer.Status, answer.ContentType)}, nil
 	}
 
 	data, _ := getMap(parsed, "data")
