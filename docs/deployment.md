@@ -323,6 +323,7 @@ pg_dump -Fc 'postgres://<user>:<password>@<host>:5432/metapi?sslmode=require' > 
 
 - Liveness check: `GET /health` returns `{"status":"ok"}` when the HTTP process is alive
 - Readiness check: `GET /ready` returns `{"status":"ok","database":"ok"}` or HTTP 503 when the database is unavailable or the process is draining for shutdown
+- Metrics: `GET /metrics` serves the Prometheus text exposition format directly (no external dependency), and it is registered before the auth middleware — so, like `GET /health` and `GET /ready`, it answers without a token. Series exposed: `metapi_uptime_seconds`, `metapi_active_channels`, `metapi_proxy_requests_total`, `metapi_proxy_errors_total`, `metapi_proxy_outcomes_total`, the `metapi_proxy_request_duration_seconds` histogram, `metapi_proxy_streams_active`, `metapi_stream_missing_usage_total`, `metapi_route_rebuild_total`, `metapi_db_connections_open`, `metapi_db_connections_in_use`, `metapi_db_conn_errors_total`. Scrape it from a network you control, or allowlist the path in your reverse proxy.
 - Docker healthcheck runs `metapi healthcheck`, which polls `/ready` every 30 seconds by default
 - Override the healthcheck target with `METAPI_HEALTHCHECK_URL` or `METAPI_HEALTHCHECK_PATH`
 - Startup exits before binding the HTTP port when database bootstrap, runtime settings load, or runtime schema migration fails.

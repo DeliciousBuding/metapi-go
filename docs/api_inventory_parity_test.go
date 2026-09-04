@@ -48,9 +48,10 @@ package docs_test
 //
 // Scope: the inventory documents the /api admin surface, so parity is
 // asserted on /api routes. Every non-/api route still has to be owned by a
-// named document via nonAPIRouteAllowlist (TestNonAPIRoutesAreAccountedFor),
-// and both allowlists are checked for stale entries, so an allowlist cannot
-// accumulate routes that no longer exist.
+// named document via nonAPIRouteAllowlist, and that document has to actually
+// state the route (TestNonAPIRoutesAreAccountedFor) -- naming a file is not
+// documentation. Both allowlists are also checked for stale entries, so neither
+// can accumulate routes that no longer exist.
 
 import (
 	"go/ast"
@@ -182,17 +183,138 @@ func TestAPIRouteInventoryParity(t *testing.T) {
 func TestNonAPIRoutesAreAccountedFor(t *testing.T) {
 	root := repoRoot(t)
 	_, nonAPI := splitByScope(extractRegisteredRoutes(t, root))
-	var unowned []string
+
+	// Naming a document is not the same as the document containing the route.
+	// Until this half existed the allowlist was a paper claim: 33 of its 42
+	// entries pointed at files that never mentioned the route, including the
+	// whole Gemini surface (`/v1beta/models*`, `/gemini/{version}/models*`,
+	// `/v1internal::*`) and the monitor iframe proxy -- reachable, tested, and
+	// undiscoverable from the docs. Same shape as the boundary gate that could
+	// scan nothing and report zero violations (#1214).
+	bodies := map[string]string{}
+	readDoc := func(doc string) (string, bool) {
+		if b, ok := bodies[doc]; ok {
+			return b, true
+		}
+		raw, err := os.ReadFile(filepath.Join(root, doc))
+		if err != nil {
+			return "", false
+		}
+		bodies[doc] = string(raw)
+		return string(raw), true
+	}
+
+	var unowned, paper []string
 	for key, where := range nonAPI {
-		if _, ok := nonAPIRouteAllowlist[key]; ok {
+		doc, ok := nonAPIRouteAllowlist[key]
+		if !ok {
+			unowned = append(unowned, key+"  (registered in "+where+")")
 			continue
 		}
-		unowned = append(unowned, key+"  (registered in "+where+")")
+		body, readable := readDoc(doc)
+		if !readable {
+			paper = append(paper, key+" -> "+doc+"  (owning document cannot be read)")
+			continue
+		}
+		if !routeKeyDocumentedIn(body, key) {
+			paper = append(paper, key+" -> "+doc+"  (that file never states this route)")
+		}
 	}
 	if len(unowned) > 0 {
 		sort.Strings(unowned)
-		t.Fatalf("non-/api routes with no owning document:\n  %s\nDocument them (docs/api/proxy.md for data-plane routes) and record the owner in nonAPIRouteAllowlist with a reason.",
+		t.Errorf("non-/api routes with no owning document:\n  %s\nDocument them (docs/api/proxy.md for data-plane routes) and record the owner in nonAPIRouteAllowlist with a reason.",
 			strings.Join(unowned, "\n  "))
+	}
+	if len(paper) > 0 {
+		sort.Strings(paper)
+		t.Fatalf("non-/api routes whose owning document does not actually document them:\n  %s\nWrite the route into that file (method + exact path), or point the entry at the file that does.",
+			strings.Join(paper, "\n  "))
+	}
+}
+
+// routeKeyDocumentedIn reports whether a document states a route. Matching is on
+// the whole "METHOD /path" key, and the match has to END there: a substring test
+// lets a sibling route stand in for the real one, which is how the first version
+// of this helper passed two mutation probes it should have failed -- deleting the
+// `GET /v1/models` row still matched `GET /v1/models/price-compare`, and deleting
+// `ANY /monitor-proxy/ldoh/` still matched `ANY /monitor-proxy/ldoh/{wildcard}`.
+// A wildcard route may be written either as {wildcard} or as *.
+func routeKeyDocumentedIn(body, routeKey string) bool {
+	if containsRouteKey(body, routeKey) {
+		return true
+	}
+	if strings.Contains(routeKey, "{wildcard}") {
+		return containsRouteKey(body, strings.ReplaceAll(routeKey, "{wildcard}", "*"))
+	}
+	return false
+}
+
+// containsRouteKey finds key in body followed by something that cannot continue a
+// route path, so a prefix of a longer route does not count as documenting it.
+func containsRouteKey(body, key string) bool {
+	for from := 0; ; {
+		j := strings.Index(body[from:], key)
+		if j < 0 {
+			return false
+		}
+		end := from + j + len(key)
+		if end == len(body) || !routePathContinues(body[end]) {
+			return true
+		}
+		from = from + j + 1
+	}
+}
+
+// routePathContinues reports whether c could be the next character of a longer
+// route path (or of its {param} / * wildcard spelling).
+func routePathContinues(c byte) bool {
+	if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' {
+		return true
+	}
+	switch c {
+	case '_', '/', '{', '}', ':', '.', '-', '~', '*':
+		return true
+	}
+	return false
+}
+
+// TestNonAPIRouteOwnershipIsNotAPaperClaim proves the ownership check can fail,
+// in both directions, using the same helper the real gate uses.
+func TestNonAPIRouteOwnershipIsNotAPaperClaim(t *testing.T) {
+	root := t.TempDir()
+	const doc = "docs/api/proxy.md"
+	if err := os.MkdirAll(filepath.Join(root, "docs", "api"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := "# Proxy\n\n| `POST /v1/chat/completions` | chat relay |\n| `GET /v1/models/price-compare` | prices |\n"
+	if err := os.WriteFile(filepath.Join(root, doc), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !routeKeyDocumentedIn(body, "POST /v1/chat/completions") {
+		t.Error("a route the document states was reported missing -- the gate would fail on correct docs")
+	}
+	if routeKeyDocumentedIn(body, "GET /v1beta/models") {
+		t.Error("a route the document never states passed -- the gate is paper")
+	}
+	// A sibling route must not stand in for the real one, even with the same
+	// verb: the body above states GET /v1/models only inside the longer
+	// price-compare path, and the trailing-slash / wildcard pair below is the
+	// same shape on the monitor surface. Both passed a plain substring match.
+	if routeKeyDocumentedIn(body, "GET /v1/models") {
+		t.Error("a sibling path satisfied the check -- matching must end at the route key")
+	}
+	slashes := "`ANY /monitor-proxy/ldoh/{wildcard}` only\n"
+	if routeKeyDocumentedIn(slashes, "ANY /monitor-proxy/ldoh/") {
+		t.Error("the wildcard route satisfied the trailing-slash route -- matching must end at the route key")
+	}
+	if !routeKeyDocumentedIn(slashes+"`ANY /monitor-proxy/ldoh/`\n", "ANY /monitor-proxy/ldoh/") {
+		t.Error("the trailing-slash route was not found when the document states it exactly")
+	}
+	if routeKeyDocumentedIn(body, "POST /responses/{wildcard}") {
+		t.Error("wildcard route matched a document that does not mention it in either spelling")
+	}
+	if !routeKeyDocumentedIn(body+"\n`POST /responses/*`\n", "POST /responses/{wildcard}") {
+		t.Error("the * spelling of a wildcard route was not accepted")
 	}
 }
 

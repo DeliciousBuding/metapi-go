@@ -1,6 +1,66 @@
 # Proxy-Facing Endpoints
 
-> **Index**: back to [API Reference](../api.md). This file is the /v1/files & /v1/pricing domain split out of the pre-`docs/api/` `docs/api.md`.
+> **Index**: back to [API Reference](../api.md). This file owns the whole proxy data plane: which routes a downstream key can call, and the error shape, header policy and timeouts that apply to all of them.
+
+## Endpoint surface
+
+Two mounts, one contract. Everything below sits behind the same downstream-key
+proxy auth (`Authorization: Bearer <downstream key>`, or the global
+`PROXY_TOKEN`), the same per-IP and per-key rate limits, and the error shape,
+header policy and timeouts documented in the next three sections. None of it is
+admin surface: these routes never accept an admin token, and `/api/*` never
+accepts a downstream key.
+
+`/v1` — the OpenAI-compatible surface:
+
+| Route | What it relays |
+| :--- | :--- |
+| `POST /v1/chat/completions` | Chat Completions — the main surface |
+| `POST /v1/completions` | legacy Completions |
+| `POST /v1/messages` | Claude Messages |
+| `POST /v1/messages/count_tokens` | Claude token counting |
+| `POST /v1/responses` | Responses |
+| `POST /v1/responses/compact` | Responses, compact mode |
+| `GET /v1/responses` | answers `426`: the upstream GET contract is not proxied |
+| `GET /v1/models` | models reachable through your enabled routes |
+| `POST /v1/embeddings` | embeddings |
+| `POST /v1/rerank` | rerank (OpenAI-compatible and Cohere-style) |
+| `POST /v1/search` | web search |
+| `POST /v1/images/generations` | image generation |
+| `POST /v1/images/edits` | image edit |
+| `POST /v1/images/variations` | image variations |
+| `POST /v1/videos` | video task creation |
+| `GET /v1/videos/{id}` | video task status |
+| `DELETE /v1/videos/{id}` | video task cancel |
+| `POST /v1/files` | file upload |
+| `GET /v1/files` | file list |
+| `GET /v1/files/{fileId}` | file metadata |
+| `GET /v1/files/{fileId}/content` | file download |
+| `DELETE /v1/files/{fileId}` | file delete |
+| `GET /v1/models/price-compare` | cross-site price catalog visible to downstream keys |
+| `GET /v1/pricing` | price catalog for the models a key can call |
+
+Native client paths — the same relay on the paths a vendor CLI already speaks,
+so a client can be pointed at Metapi without rewriting its base path. Registered
+at the root, not under `/v1`, with the same proxy auth:
+
+| Route | Client it exists for |
+| :--- | :--- |
+| `POST /chat/completions` | clients that post Chat Completions to the root |
+| `POST /responses` | Codex native Responses |
+| `POST /responses/{wildcard}` | Codex native Responses sub-paths |
+| `GET /responses` | answers `426`, like its `/v1` twin |
+| `GET /responses/{wildcard}` | answers `426`, like its `/v1` twin |
+| `GET /v1beta/models` | Gemini clients talking to `generativelanguage.googleapis.com/v1beta` |
+| `POST /v1beta/models/{wildcard}` | Gemini `models/{model}:{action}` — the model comes from the path, and `:streamGenerateContent` implies streaming |
+| `GET /gemini/{geminiApiVersion}/models` | the same list with an explicit API version segment |
+| `POST /gemini/{geminiApiVersion}/models/{wildcard}` | the same relay; the version segment is accepted for path compatibility and does not change behaviour |
+| `POST /v1internal::generateContent` | Gemini CLI internal protocol |
+| `POST /v1internal::streamGenerateContent` | Gemini CLI internal protocol, streaming |
+| `POST /v1internal::countTokens` | Gemini CLI internal protocol, token counting |
+
+Gemini-native bodies are converted in `transform/gemini/generate_content`; the
+`/v1` surfaces relay OpenAI-shaped bodies and convert per upstream platform.
 
 ## Error shape (/v1 surface)
 
