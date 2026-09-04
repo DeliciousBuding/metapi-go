@@ -1,6 +1,6 @@
 # Deployment Guide
 
-**Last updated**: 2026-08-22
+**Last updated**: 2026-09-04
 
 > **How to read this page**: just getting started? The README Quick Start covers
 > the 3-minute paths — this page is the full reference behind them. Start with
@@ -415,7 +415,11 @@ Upgrade checklist:
    with the *same site and the same username*: the backend upserts that account,
    exchanges the login for the site's durable credential, revokes the transient
    session, and re-syncs its models immediately. There is no separate
-   "re-login" button for password/session accounts. This was verified on a real
+   "re-login" button for password/session accounts. Accounts bound with a
+   *durable API key* instead need nothing here: that credential does not expire
+   on a fifteen-minute clock, so it survives the upgrade as-is — and if the site
+   later rotates it, replace it in place (row menu → **编辑 (Edit)** → new key →
+   **保存修改 (Save changes)**). This was verified on a real
    v0.16.23 → v0.19.0 in-place upgrade of a live SQLite database: 28 additive
    migrations, site / account / downstream key / route all preserved, and the
    chain only served a real completion again after this step.

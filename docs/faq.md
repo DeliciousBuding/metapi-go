@@ -1,6 +1,6 @@
 # FAQ
 
-**Last updated**: 2026-08-20
+**Last updated**: 2026-09-04
 
 Frequently asked questions. Anything not covered here lives in
 [`configuration.md`](configuration.md) (env vars), [`deployment.md`](deployment.md)
@@ -92,9 +92,16 @@ Encrypted at rest (AES-GCM keyed by `ACCOUNT_CREDENTIAL_SECRET`, which falls
 back to `AUTH_TOKEN` if unset — set a dedicated secret in production).
 
 **What happens when a session token expires?**
-Platforms with login support re-authenticate automatically; OAuth-connected
-accounts refresh via their refresh token. Accounts that cannot renew are
-marked unhealthy and alerted, not silently used.
+The account is marked unhealthy and alerted, not silently used, and the health
+reason names the credential mode: `Access token expired` (session),
+`Connection expired; update the API key` (API key), or `Credentials expired;
+update the credentials` (OAuth). Renewing it is an operator action, because
+automatic re-login runs only in the check-in scheduler and never renews a
+credential the relay path needs: re-bind a session/password account with
+**添加账号 (Add account)** using the *same site and username*, replace a rotated
+API key via **编辑 (Edit)** → **保存修改 (Save changes)**, and let an OAuth
+account refresh from its refresh token (or **重新绑定 (Rebind)** it). See
+[`getting-started.md`](getting-started.md) §3 for the full table.
 
 ## Contributing & support
 

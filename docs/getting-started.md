@@ -93,10 +93,21 @@ Navigate to **账号 (Accounts)** → **添加账号**.
 > `503 No available channels`. For every other platform, use the credential the
 > site itself issues for API access (usually an `sk-` key).
 >
-> **Credentials age out.** Re-bind by choosing **添加账号 (Add account)** again
-> with the *same site and the same username*: the backend upserts that account
-> with the fresh credential and re-syncs its models. There is no separate
-> "re-login" button for password/session accounts.
+> **Credentials age out — and which fix applies depends on how the account was
+> bound.** The health reason on the account row tells you in about thirty
+> seconds, so you do not have to know how Metapi stores credentials:
+>
+> | The row says | What died | What to do |
+> | :--- | :--- | :--- |
+> | `Access token expired` | A **session / password** credential. On a New API-family panel that is the dashboard JWT, which lives about fifteen minutes | Re-bind: choose **添加账号 (Add account)** again with the *same site and the same username*. The backend upserts that account with the fresh credential and re-syncs its models. There is no separate "re-login" button for password/session accounts |
+> | `Connection expired; update the API key` | An **API key** credential — the `sk-…` key the site itself issued — was rotated or revoked upstream | Replace it in place: row menu → **编辑 (Edit)** → paste the new key → **保存修改 (Save changes)** |
+> | `Credentials expired; update the credentials` | An **OAuth** connection | Row menu → **重新绑定 (Rebind)** on the OAuth connections page. OAuth accounts otherwise renew themselves from their refresh token |
+> | Nothing: models still list, and balance refresh does not report `upstream credential expired` | Nothing | Nothing to do. A durable `sk-` API key does not expire on a fifteen-minute clock, so an account bound with one survives an upgrade untouched |
+>
+> Automatic re-login does exist, but only inside the check-in scheduler: it
+> never renews a credential the relay path needs. A dead session credential is
+> therefore always an operator action, and what it leaves behind is an empty
+> model list plus `503 No available channels`.
 
 The account row shows balance and health once the first refresh lands
 (balance refresh runs hourly by default; use the row action to refresh now).
@@ -168,7 +179,7 @@ config export) live in [`client-integration.md`](client-integration.md).
 | `401` on `/v1`                   | `Authorization: Bearer` uses a downstream key or `PROXY_TOKEN` |
 | `503` from the proxy             | No route/channel configured for the model, or upstream unconfigured |
 | `503 No available channels: 未匹配到启用的路由` | No **enabled route** matches that model: add one (§4). Auto-rebuild does not create routes |
-| Models were listed, then went empty / relay started failing | The stored credential aged out: re-bind with **Add account**, same site + username (§3) |
+| Models were listed, then went empty / relay started failing | The stored credential aged out. Session/password account: re-bind with **Add account**, same site + username. API-key account: **Edit** the account and paste the new key (§3) |
 | Account shows unhealthy          | Row action → refresh; verify credential mode matches the platform |
 | Page not loading behind nginx    | WebSocket upgrade headers in the reverse proxy ([deployment.md](deployment.md)) |
 
