@@ -85,7 +85,7 @@ golangci-lint run --timeout=3m        # Lint check
 | Path                                                       | Role                                                                           |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `docs/architecture.md`                                     | As-built package map (proxy/transform/routing; not proxycore/protocol)         |
-| `docs/internal/design/BACKEND.md`                          | Backend philosophy, dependency rules, forbidden imports                        |
+| `docs/internal/design/BACKEND.md`                          | Backend principles + cross-cutting contracts (import edges: `docs/architecture.md` + `docs/package_boundary_test.go`) |
 | `docs/internal/design/DESIGN.md`                           | UI design system source of truth                                               |
 | `docs/testing.md`                                          | Test layers + sanitized real-platform testbed SOP                              |
 | `docs/api.md` / `docs/deployment.md` / `docs/migration.md` | API · deploy · migration                                                       |

@@ -1,10 +1,12 @@
 # Backend Design Philosophy
 
-**Last updated**: 2026-08-16
+**Last updated**: 2026-09-04
 
-**Status**: architecture baseline — backend architecture truth
-**Authority**: package layout and import edges as they exist in this repo
-**Companion**: [`docs/architecture.md`](../../architecture.md) (as-built map)
+**Status**: contributor principles — how backend code should be written
+**Not the authority on import edges**: the boundary contract is
+[`docs/architecture.md`](../../architecture.md) §"Ownership and boundary map", and its
+executable form is [`docs/package_boundary_test.go`](../../package_boundary_test.go). When this
+file and those two disagree, those two are right and this file is stale.
 
 This document states the **non-negotiable backend principles** for metapi-go. Implementation work under backend architecture (package boundaries, concurrency, unified errors) must not violate these rules without an explicit design revision.
 
@@ -114,43 +116,37 @@ Rules of thumb:
 
 Arrows mean **“may import”**. Edges not shown are forbidden unless listed under exceptions.
 
-### 2.2 Dependency table (summary)
+### 2.2 The forbidden-import rules have one owner, and it is not this file
 
-| Package                         | May import (internal)                                                                                | Must not import                                                       |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `config`                        | —                                                                                                    | everything else                                                       |
-| `web`                           | —                                                                                                    | everything else                                                       |
-| `handler/shared`                | —                                                                                                    | domain packages                                                       |
-| `store`                         | `config`                                                                                             | `handler`, `proxy`, `router`, `scheduler`, `service`, `auth`          |
-| `platform`                      | — (leaf adapters)                                                                                    | `store`, `handler`, `proxy`, `router`, `scheduler`                    |
-| `transform/*`                   | `transform/shared`                                                                                   | `handler`, `store`, `proxy`, `routing`, `service`                     |
-| `proxy/types`, `proxy/profiles` | `proxy/types` only (profiles)                                                                        | upper layers                                                          |
-| `routing`                       | `config`, `store`                                                                                    | `handler`, `proxy`, `router`, `scheduler`, `service`                  |
-| `auth`                          | `config`, `store`                                                                                    | `handler`, `proxy`, `router`                                          |
-| `service` (+ subpackages)       | `config`, `store`, `platform`, other `service/*`                                                     | `handler`, `router`, `proxy` (keep domain free of HTTP/orchestration) |
-| `proxy`                         | `config`, `store`, `routing`, `service`, `proxy/*`                                                   | `handler`, `router`, `scheduler`                                      |
-| `handler/*`                     | `auth`, `config`, `store`, `service`, `proxy`, `routing`, `platform`, `app` (sparingly), `handler/*` | `router` (router mounts handlers, not reverse)                        |
-| `scheduler`                     | `config`, `store`, `service/*`                                                                       | `handler`, `router`, `proxy`                                          |
-| `app`                           | `config`, `store`, and wiring deps as needed                                                         | becoming a junk drawer for business logic                             |
-| `router`                        | `app`, `auth`, `config`, `handler/*`, `store`, `web`                                                 | `platform` internals, `transform` internals (handlers own surfaces)   |
-| `cmd/*`                         | composition root — may wire all layers                                                               | business logic bodies (keep `main` thin)                              |
+The diagram above is the *intent* — which direction is down. The contract is
+[`docs/architecture.md`](../../architecture.md) §"Ownership and boundary map": one row per
+package, the decision it owns, and what it must not import. Its executable form is
+[`docs/package_boundary_test.go`](../../package_boundary_test.go) — rules 1–8, every approved
+exception with the architecture section that justifies it, and an assertion that all twelve
+domains were really scanned, because a boundary gate that scans nothing and reports no
+violations is not a lenient gate but an absent one. That is not a hypothetical: it is the shape
+that let roughly thirty release tags stay green while their required shards ran zero tests.
 
-### 2.3 Forbidden imports (hard rules)
+This section used to carry a dependency table and the next one a list of hard rules. Both were
+copies and both had drifted, in opposite directions: the table forbade `routing → router` and
+`auth → handler/proxy/router`, which nothing enforces, while omitting `store ↛ routing` and
+`transform ↛ auth`, which are enforced; the rule list omitted `service ↛ proxy` and
+`scheduler ↛ handler/router/proxy` altogether. Two copies of one rule in a single file — three
+counting the gate — is how a contributor gets a stale answer to "may I import this?". Read the
+gate; its failure message names the rule number.
 
-1. **`store` must not import** `handler`, `proxy`, `routing`, `service`, `scheduler`, `router`, `auth`.
-2. **`platform` must not import** `store`, `handler`, `proxy`, `router`, `scheduler` (adapters stay I/O-shaped; persistence is caller-side).
-3. **`transform` must not import** `handler`, `store`, `proxy`, `routing`, `service`, `auth`.
-4. **`routing` must not import** `proxy` or `handler` (selection stays pure relative to HTTP orchestration).
-5. **`service` must not import** `handler` or `router` (no HTTP types in domain services).
-6. **`handler` must not import** `scheduler` for request-path business logic except explicit admin ops that trigger jobs (prefer service facades).
-7. **No new top-level package names** that revive TS layout (`proxycore`, `protocol`) — extend `proxy` / `transform` instead.
-8. **No import cycles.** If a cycle appears, extract a small types/ports package rather than merging layers.
+Two items from the old list are not the gate's business and stay here as principles:
 
-### 2.4 Composition root
+- **No import cycles.** The compiler already refuses them; if one appears, extract a small
+  types package rather than merging two layers.
+- **Prefer a service facade over `handler → scheduler`** for anything on a request path. The one
+  approved exception is admin-ops cron validation, and it is listed in the gate's header comment.
+
+### 2.3 Composition root
 
 Only `cmd/server` (and tests/e2e helpers) should construct the full graph: load config → open store → build services/router/schedulers → `app.Start`. Libraries under packages should accept dependencies via constructors/parameters, not hidden global grabs—except the existing `config.Get()` singleton pattern used for parity.
 
-**As-built inventory:** package ownership, public entrypoints, and documented exception edges (e.g. admin checkin schedule → `app`/`scheduler`, `app.ConfigureProxyUpstream` → `handler/proxy`) are recorded in the as-built package map [`docs/architecture.md`](../../architecture.md). New exceptions must be listed there (and justified against §2.3) rather than introduced silently.
+**As-built inventory:** package ownership, public entrypoints, and documented exception edges (e.g. admin checkin schedule → `app`/`scheduler`, `app.ConfigureProxyUpstream` → `handler/proxy`) are recorded in the as-built package map [`docs/architecture.md`](../../architecture.md). New exceptions must be listed there and in the gate's header comment, with a reason, rather than introduced silently.
 
 ---
 
