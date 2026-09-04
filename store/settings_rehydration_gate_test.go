@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -784,4 +785,590 @@ func sortedWantLabels(m map[string]bool) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// ---- R6: every production settings writer repo-wide is covered ----
+//
+// R6  every key production code outside handler/admin can persist must have a
+//     case in ApplyRuntimeSettings or an entry in nonHydratedSettingKeys, and
+//     every writer whose key cannot be resolved statically must be registered
+//     in settingsGateDynamicWriteSites with the reason it is still covered.
+//
+// R1 reads the admin write side, which is where operators change settings — but
+// it is not the only code that writes the table. service/oauth records a
+// startup-migration completion marker there, and service/catalogsync persists
+// an auto-sync toggle. Neither was visible to R1, so the marker row made every
+// single boot log
+//
+//	settings: persisted keys not applied at startup hydration keys=oauth.identity_backfill_complete
+//
+// eighteen times in the testbed log alone. That is a false alarm on the one
+// line an operator has to trust when a real setting is being lost, and it is
+// what a directory-scoped gate cannot prevent: the write side it never reads is
+// the write side that drifts.
+
+// settingsGateDynamicWriteSites registers the writers whose key arrives as a
+// parameter and therefore cannot be resolved at the write site, each with the
+// reason the site is still covered. A new unregistered dynamic writer fails R6:
+// "the key is computed" is exactly how a writer hides from a gate that reads
+// source.
+var settingsGateDynamicWriteSites = map[string]string{
+	"store/setting_store.go:(*SettingsStore).Set":   "the KV primitive itself; the key is each caller's, and every caller's own site is resolved here",
+	"service/settingsmigration/service.go:upsertTx": "the key arrives from the migration item builders: the three *_schedule_v2 keys, each allowlisted in nonHydratedSettingKeys",
+}
+
+// settingsGateWriteSQL matches the statement shapes that persist a settings
+// row. Deliberately narrow: CREATE TABLE and SELECT touch the same table
+// without writing a key.
+var settingsGateWriteSQL = regexp.MustCompile(`(?i)^\s*(?:insert\s+(?:or\s+\w+\s+)?into\s+settings\b|update\s+settings\s+set\b)`)
+
+// settingsGateSQLValuesKey finds a key spelled into the statement text itself,
+// e.g. `INSERT INTO settings (key, value) VALUES ('theme', ?)`. The
+// `WHERE key = 'x'` spelling is settingsGateSQLEq's job.
+var settingsGateSQLValuesKey = regexp.MustCompile(`(?i)VALUES\s*\(\s*'([a-zA-Z0-9_.]+)'`)
+
+// settingsGateKeyCandidate is the shape a settings key can have. It keeps an
+// adjacent value argument (`"true"`, `"1"`) or an error-format string from
+// being mistaken for the key of a raw write.
+var settingsGateKeyCandidate = regexp.MustCompile(`^[a-z][a-z0-9_.]{1,63}$`)
+
+// settingsGateKeyNonCandidates are literal-shaped strings that are values, not
+// keys, so a raw write whose key is dynamic cannot report one of these.
+var settingsGateKeyNonCandidates = map[string]bool{
+	"true": true, "false": true, "null": true, "settings": true, "value": true, "key": true,
+}
+
+// settingsGateWriteSite is one statically located settings-table write. An
+// empty key means the writer takes the key dynamically and owes an entry in
+// settingsGateDynamicWriteSites.
+type settingsGateWriteSite struct {
+	site string // "relpath:Func" / "relpath:(*Type).Method" / "relpath:<package scope>"
+	key  string
+	pos  token.Position
+}
+
+// settingsGateWriteSiteLabel names a function the way an operator would grep
+// for it, receiver included.
+func settingsGateWriteSiteLabel(fn *ast.FuncDecl, fileLabel string) string {
+	name := fn.Name.Name
+	if fn.Recv != nil && len(fn.Recv.List) == 1 {
+		switch typ := fn.Recv.List[0].Type.(type) {
+		case *ast.StarExpr:
+			if id, ok := typ.X.(*ast.Ident); ok {
+				name = "(*" + id.Name + ")." + name
+			}
+		case *ast.Ident:
+			name = typ.Name + "." + name
+		}
+	}
+	return fileLabel + ":" + name
+}
+
+// settingsGateIsSettingsStoreCtor reports whether an expression constructs a
+// store.SettingsStore, i.e. whether the variable it is assigned to has a Set
+// method that writes the settings table.
+func settingsGateIsSettingsStoreCtor(expr ast.Expr) bool {
+	call, ok := expr.(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+	switch fun := call.Fun.(type) {
+	case *ast.Ident:
+		return fun.Name == "NewSettingsStore"
+	case *ast.SelectorExpr:
+		return fun.Sel.Name == "NewSettingsStore"
+	}
+	return false
+}
+
+// settingsGateKeyFromSQL extracts a key spelled into a statement literal.
+func settingsGateKeyFromSQL(lit *ast.BasicLit) string {
+	text, err := strconv.Unquote(lit.Value)
+	if err != nil {
+		return ""
+	}
+	for _, re := range []*regexp.Regexp{settingsGateSQLEq, settingsGateSQLValuesKey, settingsGateSQLLit} {
+		if m := re.FindStringSubmatch(text); len(m) == 2 && settingsGateKeyCandidate.MatchString(m[1]) {
+			return m[1]
+		}
+	}
+	return ""
+}
+
+// settingsGateRawKeyArg resolves the key argument of a raw settings write: the
+// first direct argument that is not the statement itself and resolves to
+// something shaped like a key.
+func settingsGateRawKeyArg(call *ast.CallExpr, skip int, resolve func(ast.Expr) string) (string, token.Pos) {
+	for i, arg := range call.Args {
+		if i == skip {
+			continue
+		}
+		key := resolve(arg)
+		if key == "" || !settingsGateKeyCandidate.MatchString(key) || settingsGateKeyNonCandidates[key] {
+			continue
+		}
+		return key, arg.Pos()
+	}
+	return "", token.NoPos
+}
+
+// settingsGatePackageWriteSites collects the settings-table writes of one
+// parsed package. Files must be the package's non-test files together, so a key
+// passed as a package-level const resolves the way the compiler would.
+func settingsGatePackageWriteSites(fset *token.FileSet, files []*ast.File, fileLabel func(string) string) []settingsGateWriteSite {
+	consts := settingsGateStringConsts(files)
+	resolve := func(expr ast.Expr) string {
+		switch node := expr.(type) {
+		case *ast.BasicLit:
+			if node.Kind != token.STRING {
+				return ""
+			}
+			v, err := strconv.Unquote(node.Value)
+			if err != nil {
+				return ""
+			}
+			return v
+		case *ast.Ident:
+			return consts[node.Name]
+		}
+		return ""
+	}
+
+	var sites []settingsGateWriteSite
+	add := func(site, key string, pos token.Pos) {
+		for _, existing := range sites {
+			if existing.site == site && existing.key == key {
+				return
+			}
+		}
+		sites = append(sites, settingsGateWriteSite{site: site, key: key, pos: fset.Position(pos)})
+	}
+
+	for _, file := range files {
+		label := fileLabel(fset.Position(file.Pos()).Filename)
+
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok {
+				// A package-level const/var holding the statement is a write
+				// site too: it cannot hide behind the function that uses it.
+				gen, isGen := decl.(*ast.GenDecl)
+				if !isGen {
+					continue
+				}
+				ast.Inspect(gen, func(n ast.Node) bool {
+					lit, isLit := n.(*ast.BasicLit)
+					if !isLit || lit.Kind != token.STRING {
+						return true
+					}
+					if v, err := strconv.Unquote(lit.Value); err != nil || !settingsGateWriteSQL.MatchString(v) {
+						return true
+					}
+					add(label+":<package scope>", settingsGateKeyFromSQL(lit), lit.Pos())
+					return true
+				})
+				continue
+			}
+			if fn.Body == nil {
+				continue
+			}
+			fnLabel := settingsGateWriteSiteLabel(fn, label)
+			storeVars := map[string]bool{}
+			var calls []*ast.CallExpr
+			sqlLits := map[token.Pos]*ast.BasicLit{}
+			consumed := map[token.Pos]bool{}
+			pending := map[*ast.CallExpr]bool{}
+
+			ast.Inspect(fn.Body, func(n ast.Node) bool {
+				if lit, isLit := n.(*ast.BasicLit); isLit && lit.Kind == token.STRING {
+					if v, err := strconv.Unquote(lit.Value); err == nil && settingsGateWriteSQL.MatchString(v) {
+						sqlLits[lit.Pos()] = lit
+					}
+				}
+				switch node := n.(type) {
+				case *ast.AssignStmt:
+					if len(node.Lhs) == 1 && len(node.Rhs) == 1 {
+						if id, isIdent := node.Lhs[0].(*ast.Ident); isIdent && settingsGateIsSettingsStoreCtor(node.Rhs[0]) {
+							storeVars[id.Name] = true
+						}
+					}
+				case *ast.DeclStmt:
+					gen, isGen := node.Decl.(*ast.GenDecl)
+					if !isGen {
+						break
+					}
+					for _, spec := range gen.Specs {
+						vs, isValue := spec.(*ast.ValueSpec)
+						if !isValue || len(vs.Names) != 1 || len(vs.Values) != 1 {
+							continue
+						}
+						if settingsGateIsSettingsStoreCtor(vs.Values[0]) {
+							storeVars[vs.Names[0].Name] = true
+						}
+					}
+				case *ast.CallExpr:
+					calls = append(calls, node)
+				}
+				return true
+			})
+
+			// Classification runs over the calls in reverse pre-order, i.e.
+			// children first: `db.Exec(ctx, db.Rebind(stmt), key, value)` nests
+			// the statement one level below the argument that carries the key,
+			// so the inner call must already be pending when the outer one is
+			// asked to resolve it.
+			for i := len(calls) - 1; i >= 0; i-- {
+				call := calls[i]
+				if sel, isSel := call.Fun.(*ast.SelectorExpr); isSel && sel.Sel.Name == "Set" && len(call.Args) > 0 {
+					if id, isIdent := sel.X.(*ast.Ident); isIdent && storeVars[id.Name] {
+						add(fnLabel, resolve(call.Args[0]), call.Args[0].Pos())
+						continue
+					}
+				}
+				sqlIdx := -1
+				for j, arg := range call.Args {
+					lit, isLit := arg.(*ast.BasicLit)
+					if !isLit || lit.Kind != token.STRING {
+						continue
+					}
+					if _, isSQL := sqlLits[lit.Pos()]; !isSQL {
+						continue
+					}
+					sqlIdx = j
+					consumed[lit.Pos()] = true
+					break
+				}
+				if sqlIdx >= 0 {
+					lit := call.Args[sqlIdx].(*ast.BasicLit)
+					if key := settingsGateKeyFromSQL(lit); key != "" {
+						add(fnLabel, key, lit.Pos())
+						continue
+					}
+					if key, pos := settingsGateRawKeyArg(call, sqlIdx, resolve); key != "" {
+						add(fnLabel, key, pos)
+						continue
+					}
+					pending[call] = true
+					continue
+				}
+				// The statement is one level down; this call supplies the key.
+				for _, arg := range call.Args {
+					inner, isCall := arg.(*ast.CallExpr)
+					if !isCall || !pending[inner] {
+						continue
+					}
+					if key, pos := settingsGateRawKeyArg(call, -1, resolve); key != "" {
+						add(fnLabel, key, pos)
+						delete(pending, inner)
+					}
+					break
+				}
+			}
+
+			for call := range pending {
+				add(fnLabel, "", call.Pos())
+			}
+			// A statement no call consumed is built here and executed through a
+			// variable, so the key is whatever the caller passes.
+			for pos, lit := range sqlLits {
+				if !consumed[pos] {
+					add(fnLabel, settingsGateKeyFromSQL(lit), pos)
+				}
+			}
+		}
+	}
+
+	sort.Slice(sites, func(i, j int) bool {
+		if sites[i].site != sites[j].site {
+			return sites[i].site < sites[j].site
+		}
+		return sites[i].key < sites[j].key
+	})
+	return sites
+}
+
+// settingsGateRepoWriteSites walks the repository and collects the settings
+// writes of every production package except handler/admin, which R1 already
+// owns through settingsGatePersistHelpers: its helpers take the key as a
+// parameter by design and R1 resolves it at their call sites.
+func settingsGateRepoWriteSites(t *testing.T, root string) (sites []settingsGateWriteSite, parsedFiles, parsedPkgs int, saw map[string]bool) {
+	t.Helper()
+	skip := map[string]bool{"web": true, "node_modules": true, "vendor": true, "dist": true}
+	repoRel := func(path string) string {
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return filepath.Base(path)
+		}
+		return filepath.ToSlash(rel)
+	}
+
+	byDir := map[string][]string{}
+	var dirs []string
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		name := entry.Name()
+		if entry.IsDir() {
+			if path == root {
+				return nil
+			}
+			if strings.HasPrefix(name, ".") || skip[name] || repoRel(path) == "handler/admin" {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			return nil
+		}
+		dir := filepath.Dir(path)
+		if _, seen := byDir[dir]; !seen {
+			dirs = append(dirs, dir)
+		}
+		byDir[dir] = append(byDir[dir], path)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk %s: %v", root, err)
+	}
+	sort.Strings(dirs)
+
+	fset := token.NewFileSet()
+	saw = map[string]bool{}
+	for _, dir := range dirs {
+		var files []*ast.File
+		for _, path := range byDir[dir] {
+			file, parseErr := parser.ParseFile(fset, path, nil, 0)
+			if parseErr != nil {
+				t.Fatalf("parse %s: %v", repoRel(path), parseErr)
+			}
+			files = append(files, file)
+			parsedFiles++
+			saw[repoRel(path)] = true
+		}
+		parsedPkgs++
+		sites = append(sites, settingsGatePackageWriteSites(fset, files, repoRel)...)
+	}
+	return sites, parsedFiles, parsedPkgs, saw
+}
+
+func TestSettingsRehydrationGateCoversEveryRepoWriteKey(t *testing.T) {
+	dir := settingsGateDir(t)
+	root := filepath.Join(dir, "..")
+	sites, parsedFiles, parsedPkgs, saw := settingsGateRepoWriteSites(t, root)
+
+	// The walk is the part most likely to break quietly — a renamed directory,
+	// a new ignore rule — so it is asserted before anything reads its output.
+	if parsedFiles < 100 || parsedPkgs < 10 {
+		t.Fatalf("repo walk parsed %d files in %d packages; the walk is broken", parsedFiles, parsedPkgs)
+	}
+	for _, probe := range []string{"service/oauth/connection.go", "service/catalogsync/store.go", "store/setting_store.go"} {
+		if !saw[probe] {
+			t.Fatalf("repo walk never parsed %s; the walk is broken", probe)
+		}
+	}
+	if len(sites) == 0 {
+		t.Fatal("R6 extractor found no settings writers outside handler/admin; the matcher is broken")
+	}
+
+	byKey := map[string]string{}
+	dynamic := map[string]bool{}
+	for _, site := range sites {
+		if site.key == "" {
+			dynamic[site.site] = true
+			continue
+		}
+		if _, seen := byKey[site.key]; !seen {
+			byKey[site.key] = fmt.Sprintf("%s:%d", site.site, site.pos.Line)
+		}
+	}
+	// The two keys R1 could never see, named explicitly: the marker is what
+	// logged a hydration warning on every boot of every deployment.
+	for _, probe := range []string{"oauth.identity_backfill_complete", "catalog_auto_sync_enabled"} {
+		if _, ok := byKey[probe]; !ok {
+			t.Fatalf("R6 extractor missed %q (found %v); the matcher is broken", probe, sortedKeySites(byKey))
+		}
+	}
+
+	hydrated := settingsGateHydratedKeys(t, filepath.Join(dir, "settings.go"))
+	var missing []string
+	for key, where := range byKey {
+		if hydrated[key] {
+			continue
+		}
+		if _, allowlisted := nonHydratedSettingKeys[key]; !allowlisted {
+			missing = append(missing, fmt.Sprintf("%s (written at %s)", key, where))
+		}
+	}
+
+	var unregistered, noReason []string
+	for site := range dynamic {
+		reason, ok := settingsGateDynamicWriteSites[site]
+		if !ok {
+			unregistered = append(unregistered, site)
+			continue
+		}
+		if strings.TrimSpace(reason) == "" {
+			noReason = append(noReason, site)
+		}
+	}
+	var stale []string
+	for site := range settingsGateDynamicWriteSites {
+		if !dynamic[site] {
+			stale = append(stale, site)
+		}
+	}
+	sort.Strings(missing)
+	sort.Strings(unregistered)
+	sort.Strings(noReason)
+	sort.Strings(stale)
+
+	if len(missing) > 0 {
+		t.Errorf("R6: settings keys written outside handler/admin that startup hydration never reads back "+
+			"(every boot logs them as an unapplied setting, drowning the warnings that are real):\n  %s\n"+
+			"Fix: add a case to ApplyRuntimeSettings, or — only when the consumer really reads the settings "+
+			"table itself — list the key in nonHydratedSettingKeys with a reason.",
+			strings.Join(missing, "\n  "))
+	}
+	if len(unregistered) > 0 || len(noReason) > 0 {
+		t.Errorf("R6: settings writers whose key is not statically resolvable must be registered in "+
+			"settingsGateDynamicWriteSites with the reason they are still covered:\n  unregistered: %s\n  without a reason: %s",
+			strings.Join(unregistered, ", "), strings.Join(noReason, ", "))
+	}
+	if len(stale) > 0 {
+		t.Errorf("R6: stale settingsGateDynamicWriteSites entries no longer written anywhere in the repo: %s",
+			strings.Join(stale, ", "))
+	}
+}
+
+func sortedKeySites(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for key, where := range m {
+		out = append(out, key+"@"+where)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// TestSettingsRepoWriteSiteMatcherSanity locks the R6 extractor with one
+// counter-example per write shape, so a refactor cannot quietly empty the site
+// set and turn the rule into a no-op. The read-only query and the value/error
+// literals sitting next to a key are the false positives it must not produce.
+func TestSettingsRepoWriteSiteMatcherSanity(t *testing.T) {
+	// @BT@ stands in for a backtick: the fixture is itself a raw string.
+	fixture := strings.ReplaceAll(`package svc
+
+const markerKey = "svc.marker_done"
+
+var ToggleKey = "svc_toggle"
+
+func (s *Store) SetToggle(ctx context.Context, on bool) error {
+	value := "true"
+	if !on {
+		value = "false"
+	}
+	_, err := s.db.ExecContext(ctx, s.db.Rebind(@BT@INSERT INTO settings (key, value) VALUES (?, ?)
+		 ON CONFLICT (key) DO UPDATE SET value = excluded.value@BT@),
+		ToggleKey, value)
+	if err != nil {
+		return fmt.Errorf("svc: write toggle: %w", err)
+	}
+	return nil
+}
+
+func MarkDone(db *store.DB) {
+	settings := store.NewSettingsStore(db)
+	if done, _ := settings.Get(markerKey); done == "1" {
+		return
+	}
+	if err := settings.Set(markerKey, "1"); err != nil {
+		fmt.Println("svc: marker not set")
+	}
+}
+
+func rewriteLegacy(db *sql.DB) {
+	db.Exec("UPDATE settings SET value = ? WHERE key = 'legacy_key'", "x")
+}
+
+func upsert(db *sql.DB, tx *sql.Tx, key string, value any) error {
+	query := db.Rebind(@BT@INSERT INTO settings (key, value) VALUES (?, ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value@BT@)
+	_, err := tx.Exec(query, key, value)
+	return err
+}
+
+func primitive(db *sql.DB, key, value string) error {
+	query := ""
+	query = @BT@INSERT INTO settings (key, value) VALUES (?, ?)@BT@
+	_, err := db.Exec(query, key, value)
+	return err
+}
+
+const bulkUpsert = "INSERT INTO settings (key, value) VALUES ('pkg_scope_key', ?)"
+
+func readOnly(db *sql.DB) (string, error) {
+	var v string
+	err := db.QueryRow(@BT@SELECT value FROM settings WHERE key = 'not_a_write'@BT@).Scan(&v)
+	return v, err
+}
+
+func chatty(db *sql.DB) error {
+	_, err := db.Exec("DELETE FROM accounts")
+	if err != nil {
+		return fmt.Errorf("failed to update settings: %w", err)
+	}
+	return nil
+}
+`, "@BT@", "`")
+
+	path := filepath.Join(t.TempDir(), "svc.go")
+	if err := os.WriteFile(path, []byte(fixture), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, fixture, 0)
+	if err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+	sites := settingsGatePackageWriteSites(fset, []*ast.File{file}, func(string) string { return "svc.go" })
+
+	got := map[string]string{} // site -> key ("" = dynamic writer)
+	for _, site := range sites {
+		if existing, ok := got[site.site]; ok && existing != site.key {
+			t.Fatalf("%s reported two keys (%q and %q); one writer must resolve to one key", site.site, existing, site.key)
+		}
+		got[site.site] = site.key
+	}
+	want := map[string]string{
+		"svc.go:(*Store).SetToggle": "svc_toggle",
+		"svc.go:MarkDone":           "svc.marker_done",
+		"svc.go:rewriteLegacy":      "legacy_key",
+		"svc.go:upsert":             "",
+		"svc.go:primitive":          "",
+		"svc.go:<package scope>":    "pkg_scope_key",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("extractor returned %d sites (%v), want %d (%v)", len(got), got, len(want), want)
+	}
+	for site, key := range want {
+		gotKey, ok := got[site]
+		if !ok {
+			t.Fatalf("extractor missed %q (got %v)", site, got)
+		}
+		if gotKey != key {
+			t.Fatalf("%q resolved to %q, want %q", site, gotKey, key)
+		}
+	}
+	for _, notASite := range []string{"svc.go:readOnly", "svc.go:chatty", "svc.go:SetToggle"} {
+		if _, ok := got[notASite]; ok {
+			t.Fatalf("extractor collected %q, which persists no settings key", notASite)
+		}
+	}
+	for _, notAKey := range []string{"true", "false", "svc: write toggle: %w", "not_a_write", "svc: marker not set", "failed to update settings: %w", "x"} {
+		for _, site := range sites {
+			if site.key == notAKey {
+				t.Fatalf("extractor reported %q as a settings key at %s", notAKey, site.site)
+			}
+		}
+	}
 }
