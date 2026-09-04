@@ -37,10 +37,19 @@ export type DashboardSection = {
 // ---------------------------------------------------------------------------
 // Chart data shapes — contracts for the dashboard chart components. Aligned
 // with the response types of the corresponding api.ts methods
-// (getBalanceIncomeOutcome, getSiteTrend, getSiteDistribution,
-// getModelCostDistribution). Kept minimal so the recharts chart components
+// (getBalanceIncomeOutcome, getBalanceHistory, getSiteTrend,
+// getSiteDistribution, getModelCostDistribution). Kept minimal so the recharts chart components
 // can be wired now and fed real data without reshaping.
 // ---------------------------------------------------------------------------
+
+/** Aggregate balance history (GET /api/stats/balance-history?accountId=0). */
+export type BalanceHistoryResponse = {
+  series: Array<{
+    accountId: number
+    points: Array<{ day: string; balance: number }>
+  }>
+  days: number
+}
 
 /** Long-format row for the income vs outcome grouped bar chart. */
 export type IncomeOutcomePoint = {

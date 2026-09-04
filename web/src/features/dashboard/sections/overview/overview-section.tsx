@@ -62,6 +62,7 @@ import { AnnouncementBanner } from '../../components/announcement-banner'
 import { OnboardingChecklist } from '../../components/onboarding-checklist'
 import { StatCard } from '../../components/stat-card'
 import { TodaySnapshotStrip } from '../../components/today-snapshot'
+import type { BalanceHistoryResponse } from '../../types'
 
 /** Icon-badge tone for the today-checkin card — derived from the data, so a
  * 0% success day no longer reads as success-green. */
@@ -93,15 +94,6 @@ type DashboardSnapshot = {
     totalCost: number
   }
   performance?: { requestsPerMinute: number; tokensPerMinute: number }
-}
-
-/** Aggregate balance history (GET /api/stats/balance-history?accountId=0). */
-type BalanceHistoryResponse = {
-  series: Array<{
-    accountId: number
-    points: Array<{ day: string; balance: number }>
-  }>
-  days: number
 }
 
 /** Tone + label for a scheduler job last-status value. */
