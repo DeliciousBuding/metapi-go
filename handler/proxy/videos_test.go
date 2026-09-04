@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -388,7 +389,7 @@ func TestProxyVideoTask_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			id := "video_concurrent_" + itoa(int64(n))
+			id := "video_concurrent_" + strconv.FormatInt(int64(n), 10)
 			SaveProxyVideoTask(&ProxyVideoTask{PublicID: id})
 			_ = GetProxyVideoTaskByPublicID(id)
 			DeleteProxyVideoTaskByPublicID(id)

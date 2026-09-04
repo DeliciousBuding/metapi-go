@@ -103,15 +103,6 @@ func TestTablesForExportTypeRejectsInvalidType(t *testing.T) {
 	}
 }
 
-func TestQueryTableAsJSONRejectsUnknownTable(t *testing.T) {
-	db := setupBackupServiceTestDB(t)
-
-	_, err := backupsvc.QueryTableAsJSON(db.DB, "settings; DROP TABLE settings")
-	if err == nil {
-		t.Fatal("expected unknown table error")
-	}
-}
-
 func BenchmarkBuildPayloadPreferences(b *testing.B) {
 	db := setupBackupServiceTestDB(b)
 	if _, err := db.Exec("INSERT INTO settings (key, value) VALUES (?, ?)", "theme", `"dark"`); err != nil {

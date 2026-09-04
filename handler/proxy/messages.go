@@ -40,29 +40,6 @@ func HandleClaudeCountTokens(w http.ResponseWriter, r *http.Request) {
 
 // Helper functions
 
-func itoa(n int64) string {
-	if n == 0 {
-		return "0"
-	}
-	neg := false
-	if n < 0 {
-		neg = true
-		n = -n
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	if neg {
-		i--
-		buf[i] = '-'
-	}
-	return string(buf[i:])
-}
-
 // writeJSON writes a JSON response via the shared encoder.
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	shared.WriteJSON(w, status, body)

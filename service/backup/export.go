@@ -153,10 +153,6 @@ func TablesForExportType(exportType string) (string, []string, error) {
 	}
 }
 
-func QueryTableAsJSON(db *sqlx.DB, table string) ([]map[string]any, error) {
-	return queryTableAsJSON(db, table, nil)
-}
-
 func queryTableAsJSON(db *sqlx.DB, table string, estimatedPayloadBytes *int64) ([]map[string]any, error) {
 	if !IsKnownTable(table) {
 		return nil, fmt.Errorf("unknown table: %s", table)

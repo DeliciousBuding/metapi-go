@@ -1,6 +1,7 @@
 package proxyhandler
 
 import (
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -180,7 +181,7 @@ func TestVideoTaskCache_SweepIsThrottledBetweenThresholds(t *testing.T) {
 	// 10 inserts inside the throttle window (1 s apart, counter below 256).
 	for i := 0; i < 10; i++ {
 		advance(time.Second)
-		SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_throttle_" + itoa(int64(i))})
+		SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_throttle_" + strconv.FormatInt(int64(i), 10)})
 	}
 
 	storedAt, inserts, lastSweep := videoTaskCacheSnapshotForTest()
@@ -217,7 +218,7 @@ func TestVideoTaskCache_CapacityGuardrailEvictsOldestFirst(t *testing.T) {
 
 	for i := 1; i <= 6; i++ {
 		advance(time.Second)
-		SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_cap_" + itoa(int64(i))})
+		SaveProxyVideoTask(&ProxyVideoTask{PublicID: "v_cap_" + strconv.FormatInt(int64(i), 10)})
 	}
 	// Throttled inserts may overshoot the guardrail; the bound is cap+256.
 	if storedAt, _, _ := videoTaskCacheSnapshotForTest(); len(storedAt) != 6 {
@@ -324,7 +325,7 @@ func TestVideoTaskCache_ConcurrentInsertTrimAndSweep(t *testing.T) {
 		go func(w int) {
 			defer wg.Done()
 			for i := 0; i < iterations; i++ {
-				id := "v_race_" + itoa(int64(w)) + "_" + itoa(int64(i))
+				id := "v_race_" + strconv.FormatInt(int64(w), 10) + "_" + strconv.FormatInt(int64(i), 10)
 				SaveProxyVideoTask(&ProxyVideoTask{PublicID: id, UpstreamVideoID: "up_" + id})
 				_ = GetProxyVideoTaskByPublicID(id)
 				if i%4 == 0 {

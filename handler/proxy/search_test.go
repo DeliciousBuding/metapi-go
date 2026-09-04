@@ -3,6 +3,7 @@ package proxyhandler
 import (
 	"fmt"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 )
 
@@ -24,7 +25,6 @@ func TestHandleSearch_Success(t *testing.T) {
 		t.Errorf("model = %v, want %s", m["model"], defaultSearchModel)
 	}
 }
-
 
 func TestHandleSearch_DefaultMaxResults(t *testing.T) {
 	req := makeProxyReq("POST", "/v1/search", `{"query":"test"}`)
@@ -120,10 +120,10 @@ func TestHandleSearch_Unauthorized(t *testing.T) {
 func toJSON(v any) string {
 	switch val := v.(type) {
 	case int:
-		return itoa(int64(val))
+		return strconv.FormatInt(int64(val), 10)
 	case float64:
 		if float64(int64(val)) == val {
-			return itoa(int64(val))
+			return strconv.FormatInt(int64(val), 10)
 		}
 		return fmt.Sprintf("%v", val)
 	case string:
