@@ -26,6 +26,7 @@ import { formatCurrency, formatInt, formatTimeOfDay } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { useRealtimeOps } from '../hooks/use-realtime-ops'
+import type { BalanceHistoryResponse } from '../types'
 
 /** Summary-view dashboard snapshot (GET /api/stats/dashboard?view=summary). */
 type DashboardSnapshot = {
@@ -36,15 +37,6 @@ type DashboardSnapshot = {
     skipped: number
     failed: number
   }
-}
-
-/** Aggregate balance history (GET /api/stats/balance-history?accountId=0). */
-type BalanceHistoryResponse = {
-  series: Array<{
-    accountId: number
-    points: Array<{ day: string; balance: number }>
-  }>
-  days: number
 }
 
 /** Attention response (GET /api/stats/attention?limit=20). */
