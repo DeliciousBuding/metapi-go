@@ -194,16 +194,29 @@ func (o *OneApiAdapter) Checkin(ctx context.Context, baseURL, accessToken string
 
 // GetBalance: quota=total, balance=quota-used, divisor=500000. Bearer auth
 // first; session-cookie credentials fall back to a Cookie header.
+//
+// A failed fetch is an error, mirroring NewApiAdapter.GetBalance below in this
+// package: service/balance stores whatever struct comes back as the account's
+// balance and drives runtime health, the token-expired alert and the auto-relogin
+// retry from err != nil. Returning a zero BalanceInfo with a nil error therefore
+// wrote balance=0 over the real one and skipped all three. #1244 fixed the same
+// shape in veloera and done-hub; one-api and the one-hub adapter that embeds it
+// were the last two holding it.
 func (o *OneApiAdapter) GetBalance(ctx context.Context, baseURL, accessToken string, platformUserId *int, proxy *ProxyConfig) (*BalanceInfo, error) {
 	headers := authBearerHeaders(accessToken)
+	var failureMessage string
+
 	resp, err := fetchJSON(ctx, baseURL+"/api/user/self", "GET", nil, headers, proxy)
-	if err == nil {
+	if err != nil {
+		failureMessage = err.Error()
+	} else {
 		if success, _ := getBool(resp, "success"); success {
 			if data, ok := getMap(resp, "data"); ok {
 				balance := parseOneApiStyleBalance(data, 500000, false)
 				return &balance, nil
 			}
 		}
+		failureMessage = extractResponseMessage(resp)
 	}
 
 	if isCookieCredential(accessToken) {
@@ -214,9 +227,15 @@ func (o *OneApiAdapter) GetBalance(ctx context.Context, baseURL, accessToken str
 				return &balance, nil
 			}
 		}
+		if cookieErr != nil && failureMessage == "" {
+			failureMessage = cookieErr.Error()
+		}
 	}
 
-	return &BalanceInfo{}, nil
+	if failureMessage == "" {
+		failureMessage = "failed to fetch balance"
+	}
+	return nil, fmt.Errorf("%s", failureMessage)
 }
 
 // fetchSelfByCookie fetches /api/user/self with the credential sent as a
