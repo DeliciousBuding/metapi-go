@@ -60,7 +60,7 @@ Supported upstreams:
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | **16 upstream adapters**   | New API / One API / OneHub / DoneHub / Veloera / AnyRouter / Sub2API / OpenAI / Claude / Gemini / Gemini CLI / Codex / Antigravity / Grok / CLIProxyAPI / SenseTime |
 | **Unified proxy**          | OpenAI and Claude protocols side by side: Chat / Responses / Messages / Embeddings / Images / Models / Files, full SSE streaming, automatic conversion |
-| **Routing & fault tolerance** | Automatic model discovery builds route tables with zero config; multi-channel allocation weighted by cost / balance / usage; failed channels cool down while the request retries on the next; runtime circuit breaker with half-open probing |
+| **Routing & fault tolerance** | Automatic model discovery; create a route and its channels bind themselves from account model availability ("Auto-rebuild" recomposes the channels of routes you already have — it does not create routes); multi-channel allocation weighted by cost / balance / usage; failed channels cool down while the request retries on the next; runtime circuit breaker with half-open probing |
 | **Cost ground truth**      | Four-level cost signal (measured → account-configured → models.dev catalog → fallback); every request logged with tokens and cost            |
 | **Admin UI**               | Sites / accounts / routes / models / logs / alerts in one SPA, pre-built and embedded into the binary — no separate frontend service needed  |
 | **Operations automation**  | Scheduled check-ins, scheduled balance refresh, nine alert channels, batch model verification, audit log, realtime QPS panel                 |
@@ -188,9 +188,11 @@ Open `http://localhost:4000` and sign in with `AUTH_TOKEN`. Data lives in
 
 ## Your first proxied request
 
-After adding at least one upstream site with an account in the UI and running
-"Auto-rebuild routes" (full walkthrough: [getting started](docs/getting-started.md)),
-call Metapi exactly like OpenAI:
+After adding at least one upstream site with an account in the UI and creating a
+route for the model you want to expose — channels bind themselves from account
+model availability, while "Auto-rebuild routes" only recomposes the channels of
+routes you already have (full walkthrough:
+[getting started](docs/getting-started.md)) — call Metapi exactly like OpenAI:
 
 ```bash
 curl http://localhost:4000/v1/chat/completions \
@@ -313,7 +315,7 @@ once here instead of scattered through the text:
 
 | Path                                            | How it was verified                                            |
 | ----------------------------------------------- | -------------------------------------------------------------- |
-| Release binary: install → start → health checks | Tested end to end (v0.16.20)                                    |
+| Release binary: installer → empty data dir → health checks → documented site/account/route path → real relay | Tested end to end (v0.19.0)                    |
 | From source: frontend build → go build → start  | Tested end to end                                              |
 | Docker / Compose commands                       | Cross-checked line by line against the repo `Dockerfile` / `docker-compose.prod.yml` |
 | 503 without routes, healthcheck exit codes      | Tested                                                         |
