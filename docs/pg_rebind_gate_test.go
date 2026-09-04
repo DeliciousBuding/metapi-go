@@ -51,6 +51,9 @@ func TestPgRebindGateNoBareQuestionMarks(t *testing.T) {
 	repoRoot := filepath.Dir(filepath.Dir(thisFile)) // docs/ → repo root
 	dirs := []string{"app", "auth", "cmd", "config", "e2e", "handler", "platform", "proxy", "routing", "scheduler", "service", "store", "transform"}
 	var violations []string
+	var scannedFiles, sqlxFiles int
+	dirsReached := map[string]bool{}
+	saw := map[string]bool{}
 
 	for _, dir := range dirs {
 		root := filepath.Join(repoRoot, dir)
@@ -65,10 +68,18 @@ func TestPgRebindGateNoBareQuestionMarks(t *testing.T) {
 			if err != nil {
 				return nil
 			}
+			rel, relErr := filepath.Rel(repoRoot, path)
+			if relErr != nil {
+				return nil
+			}
+			scannedFiles++
+			dirsReached[dir] = true
 			// Only files that handle a bare *sqlx.DB can hit the wrapper bypass.
 			if !bareSqlxDBRe.Match(src) {
 				return nil
 			}
+			sqlxFiles++
+			saw[rel] = true
 			content := string(src)
 			for _, line := range strings.Split(content, "\n") {
 				for _, re := range []*regexp.Regexp{dbCallRe, ctxDBCallRe} {
@@ -91,6 +102,32 @@ func TestPgRebindGateNoBareQuestionMarks(t *testing.T) {
 		}
 	}
 
+	// Three surfaces can narrow this gate to silence while it stays green: a
+	// renamed directory (WalkDir on a missing root hands the callback an error,
+	// which the callback swallows), a broadened `_test.go` filter, and
+	// bareSqlxDBRe itself, which decides the scan surface. Assert all three
+	// before trusting a clean result — docs/testing.md, "count the input".
+	if len(dirsReached) != len(dirs) {
+		var missing []string
+		for _, d := range dirs {
+			if !dirsReached[d] {
+				missing = append(missing, d)
+			}
+		}
+		t.Fatalf("walk never reached %s — a renamed or missing directory silently empties this gate", strings.Join(missing, ", "))
+	}
+	if scannedFiles < 100 {
+		t.Fatalf("walk examined %d production .go files; the scan surface is broken, not clean", scannedFiles)
+	}
+	if sqlxFiles < 20 {
+		t.Fatalf("%d files matched bareSqlxDBRe; the scan surface is broken, not clean", sqlxFiles)
+	}
+	for _, probe := range []string{"service/model_redirects.go", "store/open.go", "store/factory_reset.go"} {
+		if !saw[probe] {
+			t.Fatalf("scan surface never admitted %s, which handles a bare *sqlx.DB", probe)
+		}
+	}
+
 	if len(violations) > 0 {
 		t.Fatalf(
 			"bare `?` placeholder through *sqlx.DB (PostgreSQL would 42601). "+
@@ -102,7 +139,20 @@ func TestPgRebindGateNoBareQuestionMarks(t *testing.T) {
 
 // TestPgRebindGateRegexpSanity locks the matcher behaviour: a bare call must be
 // flagged, a Rebind-wrapped call must not, and URL query strings must not.
+//
+// It also locks bareSqlxDBRe, which the gate above uses to decide *which files it
+// looks at*. The two violation regexps were already locked; the scan-surface
+// filter was not, so narrowing it emptied the gate while both this test and the
+// gate stayed green — the same split that let two doc gates pass having scanned
+// nothing (#1238).
 func TestPgRebindGateRegexpSanity(t *testing.T) {
+	if !bareSqlxDBRe.MatchString("func (s *Store) expire(db *sqlx.DB, id int64) error {") {
+		t.Fatal("bareSqlxDBRe must match a *sqlx.DB parameter: it decides which files the gate scans")
+	}
+	if bareSqlxDBRe.MatchString("package store\n\nfunc now() time.Time { return time.Now() }\n") {
+		t.Fatal("bareSqlxDBRe matches a file with no database handle; the scan surface is not what the gate claims")
+	}
+
 	bare := `db.Exec("UPDATE accounts SET status = 'expired' WHERE id = ?", 1)`
 	if !dbCallRe.MatchString(bare) {
 		t.Fatalf("regexp must match bare call: %s", bare)

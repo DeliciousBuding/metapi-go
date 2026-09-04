@@ -91,6 +91,9 @@ func TestPgBooleanLiteralGateNoIntComparison(t *testing.T) {
 	repoRoot := filepath.Dir(filepath.Dir(thisFile)) // docs/ → repo root
 	dirs := []string{"app", "auth", "cmd", "config", "e2e", "handler", "platform", "proxy", "routing", "scheduler", "service", "store", "transform"}
 	var violations []string
+	var scannedFiles, examinedLines int
+	dirsReached := map[string]bool{}
+	saw := map[string]bool{}
 
 	for _, dir := range dirs {
 		root := filepath.Join(repoRoot, dir)
@@ -105,6 +108,14 @@ func TestPgBooleanLiteralGateNoIntComparison(t *testing.T) {
 			if err != nil {
 				return nil
 			}
+			rel, relErr := filepath.Rel(repoRoot, path)
+			if relErr != nil {
+				return nil
+			}
+			scannedFiles++
+			dirsReached[dir] = true
+			saw[rel] = true
+
 			content := string(src)
 			for _, line := range strings.Split(content, "\n") {
 				// Skip comment lines — doc comments may legitimately mention
@@ -113,6 +124,10 @@ func TestPgBooleanLiteralGateNoIntComparison(t *testing.T) {
 				if strings.HasPrefix(trimmed, "//") {
 					continue
 				}
+				if trimmed == "" {
+					continue
+				}
+				examinedLines++
 				for _, m := range coalesceBoolIntRe.FindAllString(line, -1) {
 					violations = append(violations, path+": "+m+
 						" — use COALESCE(<col>, false) = true instead (PG 42804)")
@@ -126,6 +141,31 @@ func TestPgBooleanLiteralGateNoIntComparison(t *testing.T) {
 		})
 		if err != nil {
 			t.Fatalf("walk %s: %v", dir, err)
+		}
+	}
+
+	// A renamed directory (WalkDir on a missing root hands the callback an error,
+	// which the callback swallows), a broadened `_test.go` filter, or a comment
+	// predicate that swallows real code all narrow this gate to silence while it
+	// stays green. Count the input before trusting the verdict — docs/testing.md.
+	if len(dirsReached) != len(dirs) {
+		var missing []string
+		for _, d := range dirs {
+			if !dirsReached[d] {
+				missing = append(missing, d)
+			}
+		}
+		t.Fatalf("walk never reached %s — a renamed or missing directory silently empties this gate", strings.Join(missing, ", "))
+	}
+	if scannedFiles < 100 {
+		t.Fatalf("walk examined %d production .go files; the scan surface is broken, not clean", scannedFiles)
+	}
+	if examinedLines < 10000 {
+		t.Fatalf("examined %d non-comment lines; the comment predicate is swallowing real code, not skipping prose", examinedLines)
+	}
+	for _, probe := range []string{"service/model_redirects.go", "store/setting_store.go"} {
+		if !saw[probe] {
+			t.Fatalf("walk never examined %s; the scan surface is broken", probe)
 		}
 	}
 

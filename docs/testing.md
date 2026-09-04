@@ -93,13 +93,31 @@ Two shapes are in use; copy whichever fits.
   a parser or predicate that changed shape and now matches nothing.
 
 The census is deliberately not written down here, because a hand-copied list of
-gates drifts the same way a hand-copied table list does (#1165, #1172). Run
-`grep -rlni vacuous --include="*_test.go" .` for the gates that currently
-implement it (case-insensitive: half of them carry it in a test name spelled
-`...IsNotAVacuousPass`, which a case-sensitive grep silently drops — 9 files
-instead of 10). A gate that reads two or three *named* files needs no counter —
-failing to read them is already fatal, as in
-`TestStorefrontDoesNotLinkInternalDocs`.
+gates drifts the same way a hand-copied table list does (#1165, #1172). Run this
+instead:
+
+```sh
+grep -rlniE 'vacuous|^func Test\w*Sanity' --include='*_test.go' .
+```
+
+Three things about that command, each paid for once already:
+
+- **Both halves are load-bearing.** The convention shows up under two shapes: an
+  inline assertion whose failure message says the gate "would pass vacuously",
+  and a named self-proof test. The version published here first was
+  `grep -rlni vacuous`, which found only the first shape and silently dropped
+  four files — including the two PostgreSQL literal gates in this very directory,
+  whose self-proofs are named `...RegexpSanity`, two paragraphs above being named
+  as implementations of the rule. Dropping the `-i` loses three more, because
+  half the named ones are spelled `...IsNotAVacuousPass`. A section about claims
+  matching reality should not publish a command whose output contradicts it.
+- **What it prints is still a floor.** The `Sanity` half is anchored on a
+  function declaration, so a future `...PredicateSanity` is caught, but an inline
+  counter whose author never wrote the word "vacuous" is invisible to any grep —
+  there is no keyword to find. If you need the real set rather than a floor, read
+  what this prints plus the reconciliation gates in `docs/`.
+- **A gate that reads two or three *named* files needs no counter** — failing to
+  read them is already fatal, as in `TestStorefrontDoesNotLinkInternalDocs`.
 
 ## Golden snapshot suites (protocol conversion)
 
