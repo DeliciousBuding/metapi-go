@@ -698,6 +698,15 @@ func (h *tokenRoutesHandler) deleteRoute(w http.ResponseWriter, r *http.Request)
 		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
 		return
 	}
+	// Downstream keys may authorize this route by id. Leaving the reference
+	// behind made the key unsavable afterwards (its allowlist is validated on
+	// every update and the UI cannot edit it), so the delete owns removing it.
+	onlyDeletedGrants, err := pruneDeletedRouteIDsFromDownstreamKeys(tx, id)
+	if err != nil {
+		slog.Warn("route delete could not prune downstream key route grants", "routeId", id, "error", err)
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
+		return
+	}
 	if _, err := tx.Exec(tx.Rebind("DELETE FROM token_routes WHERE id = ?"), id); err != nil {
 		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
 		return
@@ -710,7 +719,13 @@ func (h *tokenRoutesHandler) deleteRoute(w http.ResponseWriter, r *http.Request)
 
 	routing.InvalidateCache()
 	invalidateChannelsSnapshotCache()
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	response := map[string]any{"success": true}
+	if len(onlyDeletedGrants) > 0 {
+		// Truthful at the moment the operator can still act on it: these keys now
+		// authorize nothing that exists, and were deliberately not widened.
+		response["downstreamKeysWithOnlyDeletedRoutes"] = onlyDeletedGrants
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 // ---- Batch Routes ----

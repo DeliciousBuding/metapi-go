@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -512,6 +513,22 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	if hasField["allowedRouteIds"] {
 		allowedRouteIds = normalizeAllowedRouteIdsInput(body.AllowedRouteIds)
 	}
+	// Heal an allowlist this request did not choose. A route deleted before
+	// pruneDeletedRouteIDsFromDownstreamKeys existed left its id behind here, and
+	// the validation below then rejected EVERY save of this key — including a
+	// rename, because an omitted allowedRouteIds carries the stored list forward.
+	// The UI has no control for this field, so there was no way to drop the dead
+	// id: the key became permanently uneditable. Ids the request inherits are
+	// pruned and reported; ids it introduces stay in the list so validation still
+	// rejects a mistyped route id loudly.
+	grants, healErr := h.healInheritedRouteGrants(allowedRouteIds, existingAllowedRouteIds)
+	if healErr != nil {
+		slog.Warn("downstream key update could not check inherited route grants",
+			"downstreamKeyId", id, "error", healErr)
+		writeError(w, http.StatusInternalServerError, "failed to validate policy references")
+		return
+	}
+	allowedRouteIds = grants.Persist
 
 	existingSiteWeightMultipliers := parseMapFromDB(existing, "site_weight_multipliers")
 	siteWeightMultipliers := existingSiteWeightMultipliers
@@ -604,7 +621,11 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	}
 
 	// Policy reference validation.
-	refErr, refDbErr := h.validateDownstreamPolicyReferences(allowedRouteIds, siteWeightMultipliers, excludedSiteIds, excludedCredentialRefs, allowedSiteIds, allowedCredentialRefs)
+	// Validation vouches for what this save is responsible for: live grants and
+	// ids the request introduced. Grants left behind by a route deletion that
+	// cannot be pruned without widening the key are reported instead of rejected,
+	// which is what made such a key uneditable before.
+	refErr, refDbErr := h.validateDownstreamPolicyReferences(grants.Validate, siteWeightMultipliers, excludedSiteIds, excludedCredentialRefs, allowedSiteIds, allowedCredentialRefs)
 	if refDbErr != nil {
 		writeError(w, http.StatusInternalServerError, "failed to validate policy references")
 		return
@@ -651,10 +672,217 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	// Update must not return full key; only keyMasked.
 	redactDownstreamKeySecret(updated)
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	response := map[string]any{
 		"success": true,
 		"item":    updated,
-	})
+	}
+	if len(grants.Healed) > 0 {
+		// The save succeeded and the allowlist got smaller; say so rather than
+		// let the caller believe it wrote the list it sent.
+		response["prunedRouteIds"] = grants.Healed
+		slog.Warn("downstream key update dropped route grants that no longer exist",
+			"downstreamKeyId", id, "prunedRouteIds", grants.Healed)
+	}
+	if len(grants.Stale) > 0 {
+		response["staleRouteIds"] = grants.Stale
+		response["staleRouteGrantNotice"] = "this key authorizes only routes that no longer exist, so it serves nothing; the grants were kept because dropping them would widen the key to every route — replace them with live routes, or clear the list to allow all routes"
+		slog.Warn("downstream key still authorizes only deleted routes",
+			"downstreamKeyId", id, "staleRouteIds", grants.Stale)
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+// routeGrantHeal is the outcome of reconciling a key's route allowlist with the
+// routes that still exist.
+//
+// The rule, stated once because both the save path and the route-delete path
+// depend on it: a dead grant is removed only when removing it cannot widen the
+// key. An empty allowlist means "no route restriction", so pruning the LAST
+// grant of a restricted key would silently promote it from "serves nothing" to
+// "serves every route" — the same fail-open shape as an allowlist that falls
+// back to empty. When every grant is dead the ids stay (the key keeps denying),
+// the save still succeeds, and the ids are reported so an operator can decide:
+// widening a credential has to be an explicit act.
+type routeGrantHeal struct {
+	Persist  []int64 // what goes to the database
+	Validate []int64 // what reference validation must still vouch for
+	Healed   []int64 // dead grants removed
+	Stale    []int64 // dead grants kept, because removing them would widen the key
+}
+
+// healInheritedRouteGrants applies that rule to one key. Inherited ids are the
+// ones already stored: a dead id this request did not introduce is a leftover of
+// a route deletion, not a mistake to reject. Ids the request introduces stay in
+// Validate, so a mistyped route id is still rejected loudly instead of being
+// quietly dropped — dropping what an operator just typed would also widen the
+// policy they asked for.
+func (h *downstreamKeysHandler) healInheritedRouteGrants(requested, inherited []int64) (routeGrantHeal, error) {
+	out := routeGrantHeal{Persist: requested, Validate: requested}
+	if len(requested) == 0 {
+		return out, nil
+	}
+	existing := make(map[int64]bool, len(requested))
+	query, args, err := sqlx.In("SELECT id FROM token_routes WHERE id IN (?)", requested)
+	if err != nil {
+		return out, err
+	}
+	rows, err := queryRowsErr(h.db, query, args...)
+	if err != nil {
+		return out, err
+	}
+	for _, row := range rows {
+		if routeID, ok := rowInt64(row["id"]); ok {
+			existing[routeID] = true
+		}
+	}
+	inheritedSet := make(map[int64]bool, len(inherited))
+	for _, routeID := range inherited {
+		inheritedSet[routeID] = true
+	}
+
+	persist := make([]int64, 0, len(requested))
+	validate := make([]int64, 0, len(requested))
+	for _, routeID := range requested {
+		switch {
+		case existing[routeID]:
+			persist = append(persist, routeID)
+			validate = append(validate, routeID)
+		case !inheritedSet[routeID]:
+			// Chosen by this request and unknown: keep it in both lists so
+			// validation rejects it with the reason.
+			persist = append(persist, routeID)
+			validate = append(validate, routeID)
+		default:
+			// Inherited and dead. Dropped only when something live survives.
+			out.Healed = append(out.Healed, routeID)
+		}
+	}
+	if len(persist) == 0 {
+		// Every grant is dead: keep them all so the key still denies every
+		// route, and exempt them from validation so the key stays editable.
+		out.Stale = out.Healed
+		out.Healed = nil
+		out.Persist = requested
+		out.Validate = nil
+		return out, nil
+	}
+	out.Persist, out.Validate = persist, validate
+	return out, nil
+}
+
+// pruneDeletedRouteIDsFromDownstreamKeys drops deleted routes from downstream
+// key allowlists inside the transaction that deletes them, and reports the keys
+// it could not prune without widening.
+//
+// Route deletion cleaned route_group_sources, route_channels and token_routes
+// and stopped there, so downstream_api_keys.allowed_route_ids kept the dead id
+// forever. That is not a cosmetic leak: the key update path validates the list,
+// carries the stored list forward when a request omits it, and the admin UI has
+// no control for the field — so one deleted route made every later edit of that
+// key fail with "allowedRouteIds contains unknown routes: <id>", with no way to
+// remove the id. Reported by an operator running 100+ sites, where route churn
+// is normal rather than exceptional.
+//
+// Route ids are never reused (SQLite AUTOINCREMENT, PostgreSQL SERIAL), so a
+// stale grant can never come back to life pointing at a different route.
+func pruneDeletedRouteIDsFromDownstreamKeys(tx *sqlx.Tx, routeIDs ...int64) (onlyDeleted []int64, err error) {
+	if len(routeIDs) == 0 {
+		return nil, nil
+	}
+	gone := make(map[int64]bool, len(routeIDs))
+	for _, routeID := range routeIDs {
+		gone[routeID] = true
+	}
+
+	rows, err := tx.Queryx(tx.Rebind(
+		"SELECT id, name, allowed_route_ids FROM downstream_api_keys WHERE allowed_route_ids IS NOT NULL AND allowed_route_ids <> ''"))
+	if err != nil {
+		return nil, fmt.Errorf("read downstream key route grants: %w", err)
+	}
+	type heal struct {
+		keyID   int64
+		kept    []int64
+		removed []int64
+		allDead bool
+	}
+	var heals []heal
+	for rows.Next() {
+		row := map[string]any{}
+		if scanErr := rows.MapScan(row); scanErr != nil {
+			rows.Close()
+			return nil, fmt.Errorf("scan downstream key: %w", scanErr)
+		}
+		ids := parseIntArrayFromDB(row, "allowed_route_ids")
+		if len(ids) == 0 {
+			continue
+		}
+		kept := make([]int64, 0, len(ids))
+		var removed []int64
+		for _, routeID := range ids {
+			if gone[routeID] {
+				removed = append(removed, routeID)
+				continue
+			}
+			kept = append(kept, routeID)
+		}
+		if len(removed) == 0 {
+			continue
+		}
+		keyID, ok := rowInt64(row["id"])
+		if !ok {
+			rows.Close()
+			return nil, fmt.Errorf("downstream key row has no usable id")
+		}
+		heals = append(heals, heal{keyID: keyID, kept: kept, removed: removed, allDead: len(kept) == 0})
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("iterate downstream keys: %w", err)
+	}
+	rows.Close()
+
+	for _, h := range heals {
+		if h.allDead {
+			// Pruning would empty the allowlist, and empty means "every route".
+			// Leave the dead grant in place so the key keeps serving nothing; the
+			// save path tolerates and reports it, so the key stays editable.
+			onlyDeleted = append(onlyDeleted, h.keyID)
+			slog.Warn("route delete left a downstream key authorizing only deleted routes",
+				"downstreamKeyId", h.keyID, "deletedRouteIds", h.removed,
+				"reason", "pruning the last grant would widen the key to every route; re-authorize it explicitly")
+			continue
+		}
+		if _, execErr := tx.Exec(tx.Rebind("UPDATE downstream_api_keys SET allowed_route_ids = ? WHERE id = ?"),
+			toPersistenceJSON(h.kept), h.keyID); execErr != nil {
+			return nil, fmt.Errorf("prune downstream key %d route grants: %w", h.keyID, execErr)
+		}
+		slog.Info("route delete pruned downstream key route grants",
+			"downstreamKeyId", h.keyID, "removedRouteIds", h.removed, "remainingRouteIds", len(h.kept))
+	}
+	return onlyDeleted, nil
+}
+
+// rowInt64 reads an integer column across both dialects: SQLite scans into
+// int64, PostgreSQL into int64 as well but a driver change or a NUMERIC column
+// must not silently read as "no id".
+func rowInt64(value any) (int64, bool) {
+	switch v := value.(type) {
+	case int64:
+		return v, true
+	case int:
+		return int64(v), true
+	case int32:
+		return int64(v), true
+	case float64:
+		return int64(v), true
+	case []byte:
+		parsed, err := strconv.ParseInt(strings.TrimSpace(string(v)), 10, 64)
+		return parsed, err == nil
+	case string:
+		parsed, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+		return parsed, err == nil
+	}
+	return 0, false
 }
 
 // POST /api/downstream-keys/:id/reset-usage
