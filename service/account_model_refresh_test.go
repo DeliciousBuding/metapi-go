@@ -129,6 +129,61 @@ func withModelRefreshCounters(t *testing.T) (rebuilds, invalidates *int) {
 	return &rebuildCount, &invalidateCount
 }
 
+// seedSiteOnPlatform inserts an active site on an arbitrary registered platform.
+func seedSiteOnPlatform(t *testing.T, db *sqlx.DB, name, url, platformName string) int64 {
+	t.Helper()
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	res, err := db.Exec(
+		`INSERT INTO sites (name, url, platform, status, use_system_proxy, sort_order, global_weight, post_refresh_probe_enabled, created_at, updated_at)
+		 VALUES (?, ?, ?, 'active', FALSE, 0, 0, FALSE, ?, ?)`,
+		name, url, platformName, now, now,
+	)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	id, _ := res.LastInsertId()
+	return id
+}
+
+// TestRefreshAccountModels_UpstreamFailureIsNotReportedAsEmptyModels owns the
+// operator-visible consequence of the discovery ladders, which the adapter-level
+// contract cannot show: this function classifies a failure only when the adapter
+// returns one, so a ladder ending in `[]string{}, nil` collapsed "the site is
+// unreachable", "the credential was rejected", "the upstream turned /v1/models off"
+// and "this account really has no models" into the single code `empty_models` /
+// "no models available". The account then has no models, the route rebuild finds no
+// channel, and the operator is told the account has nothing to serve — which is the
+// shape #1179 was reported as and #1232 is still open about.
+func TestRefreshAccountModels_UpstreamFailureIsNotReportedAsEmptyModels(t *testing.T) {
+	for _, platformName := range []string{"new-api", "one-hub", "gemini", "claude"} {
+		t.Run(platformName, func(t *testing.T) {
+			db := openModelRefreshTestDB(t)
+			siteID := seedSiteOnPlatform(t, db, platformName+" unreachable", "http://127.0.0.1:1", platformName)
+			accountID, _ := seedAccountOnSite(t, db, siteID, "models-owner", "sk-live-token", "active")
+
+			res := RefreshAccountModels(context.Background(), db, accountID, true, true)
+			if res.Success {
+				t.Fatalf("refresh reported success against an unreachable upstream: %+v", res)
+			}
+			if res.ErrorCode == "empty_models" {
+				t.Fatalf("a fetch that never reached the upstream was reported as %q / %q, the code that means \"this account has no models\"",
+					res.ErrorCode, res.ErrorMessage)
+			}
+			if res.ErrorCode == "" || res.ErrorMessage == "" {
+				t.Fatalf("no classified reason at all: %+v", res)
+			}
+
+			var rows int
+			if err := db.QueryRow("SELECT COUNT(*) FROM model_availability WHERE account_id = ?", accountID).Scan(&rows); err != nil {
+				t.Fatalf("count model_availability: %v", err)
+			}
+			if rows != 0 {
+				t.Fatalf("a failed refresh wrote %d model_availability rows", rows)
+			}
+		})
+	}
+}
+
 func TestPersistTokenModelAvailability_UpsertsAndMarksUnavailable(t *testing.T) {
 	db := openModelRefreshTestDB(t)
 	_, tokenID := seedAccountAndToken(t, db, "sk-backfill")
