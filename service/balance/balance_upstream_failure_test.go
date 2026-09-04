@@ -20,10 +20,11 @@ import (
 //     the token-expired alert, the auto-relogin retry) is driven by err != nil, so
 //     a swallowed fetch error skipped all three and left the account marked healthy.
 //
-// veloera and done-hub are the two adapters that returned the zero value; both are
-// registered platforms reachable from platform.GetAdapter.
+// veloera and done-hub returned the zero value until #1244; one-api was the last
+// adapter still holding the same shape and one-hub embeds it, so both are pinned
+// here too. All four are registered platforms reachable from platform.GetAdapter.
 func TestRefreshBalance_UpstreamFailureIsNotStoredAsZeroBalance(t *testing.T) {
-	for _, platformName := range []string{"veloera", "done-hub"} {
+	for _, platformName := range []string{"veloera", "done-hub", "one-api", "one-hub"} {
 		t.Run(platformName, func(t *testing.T) {
 			db, err := store.Open(store.DialectSQLite, ":memory:", false)
 			if err != nil {

@@ -25,6 +25,92 @@ func TestOneApiAdapter_Detect(t *testing.T) {
 	}
 }
 
+// Both directions, because a zero BalanceInfo with a nil error is not a neutral
+// answer: service/balance stores it as the account's balance and every recovery
+// path there hangs off err != nil. Asserting only the happy path is how one-api
+// (and the one-hub adapter that embeds it) kept writing balance=0 for an upstream
+// nobody reached.
+func TestOneApiAdapter_GetBalance(t *testing.T) {
+	o := &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	t.Run("unreachable upstream is an error, not a zero balance", func(t *testing.T) {
+		bi, err := o.GetBalance(ctx, unreachableBaseURL(t), "token", nil, nil)
+		if err == nil {
+			t.Fatal("GetBalance reported a balance for a call that never reached the upstream")
+		}
+		if bi != nil {
+			t.Errorf("a failed fetch must not hand back a storable zero balance, got %+v", bi)
+		}
+	})
+
+	t.Run("an answered balance keeps the one-api divisor and quota-is-total semantics", func(t *testing.T) {
+		srv := answeringTokenServer(`{"success":true,"data":{"quota":1000000,"used_quota":250000}}`)
+		defer srv.Close()
+		bi, err := o.GetBalance(ctx, srv.URL, "token", nil, nil)
+		if err != nil {
+			t.Fatalf("GetBalance against an answering upstream: %v", err)
+		}
+		if bi == nil {
+			t.Fatal("GetBalance returned no BalanceInfo and no error")
+		}
+		// quota is the total here: Quota = 1_000_000/500_000 = 2.0,
+		// Used = 250_000/500_000 = 0.5, Balance = 2.0 - 0.5 = 1.5
+		if bi.Balance != 1.5 || bi.Used != 0.5 || bi.Quota != 2.0 {
+			t.Errorf("balance = (%g, %g, %g), want (1.5, 0.5, 2) for quota-is-total at 500k",
+				bi.Balance, bi.Used, bi.Quota)
+		}
+	})
+
+	t.Run("an answered zero balance is a real answer, not a failure", func(t *testing.T) {
+		srv := answeringTokenServer(`{"success":true,"data":{"quota":0,"used_quota":0}}`)
+		defer srv.Close()
+		bi, err := o.GetBalance(ctx, srv.URL, "token", nil, nil)
+		if err != nil {
+			t.Fatalf("an account that genuinely has no funds must not be reported as a fetch failure: %v", err)
+		}
+		if bi == nil {
+			t.Fatal("GetBalance returned no BalanceInfo and no error")
+		}
+		if bi.Balance != 0 || bi.Used != 0 || bi.Quota != 0 {
+			t.Errorf("balance = (%g, %g, %g), want (0, 0, 0)", bi.Balance, bi.Used, bi.Quota)
+		}
+	})
+
+	t.Run("an answered refusal carries the upstream reason", func(t *testing.T) {
+		srv := answeringTokenServer(`{"success":false,"message":"session expired"}`)
+		defer srv.Close()
+		bi, err := o.GetBalance(ctx, srv.URL, "token", nil, nil)
+		if err == nil {
+			t.Fatal("an upstream that refused the read must not come back as a balance")
+		}
+		if bi != nil {
+			t.Errorf("refused read returned %+v, want nil", bi)
+		}
+		if !strings.Contains(err.Error(), "session expired") {
+			t.Errorf("error should carry the upstream reason, got %v", err)
+		}
+	})
+}
+
+// one-hub embeds the one-api adapter, so it inherits whichever contract that one
+// has. Pinned separately because "inherits" is exactly the assumption that let the
+// swallow survive a fix to its siblings.
+func TestOneHubAdapter_GetBalancePropagatesUpstreamFailure(t *testing.T) {
+	o := &OneHubAdapter{OneApiAdapter: &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-hub")}}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	bi, err := o.GetBalance(ctx, unreachableBaseURL(t), "token", nil, nil)
+	if err == nil {
+		t.Fatal("one-hub reported a balance for an unreachable upstream")
+	}
+	if bi != nil {
+		t.Errorf("a failed fetch must not hand back a storable zero balance, got %+v", bi)
+	}
+}
+
 // oneApiTokenUpstream serves the /api/token/ listing plus the per-id DELETE route
 // with and without the trailing slash, and records every call it received.
 type oneApiTokenUpstream struct {
