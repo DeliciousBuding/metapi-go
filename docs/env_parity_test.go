@@ -8,9 +8,20 @@ package docs_test
 //	config/config.go       — what config.Load actually reads, plus clamps
 //
 // Why a test and not a checklist: the three files drift independently, and a
-// drifted default is worse than a missing one because an operator who reads
-// the doc and trusts it configures the wrong thing. This gate turns that
-// drift into a red CI run instead of a support ticket.
+// drifted key is a support ticket waiting to happen.
+//
+// What this gate does NOT do, stated plainly because an earlier revision
+// claimed otherwise: it compares key *sets* in the four directions below and
+// never compares default *values*. Auditing all 83 documented keys against
+// .env.example found no value drift, and a naive value comparison would be
+// wrong rather than merely strict, because the two columns are not the same
+// kind of thing — docs/configuration.md's default column is prose
+// ("platform-dependent", "system local time", "on", "falls back to
+// `AUTH_TOKEN`"), while .env.example deliberately ships empties and
+// placeholders that are not defaults. An empty line is usually consistent with
+// a documented non-empty default, because parseBoolean("") and friends return
+// the code fallback. The one shipped literal that IS load-bearing is pinned by
+// TestShippedCredentialSecretPlaceholderIsTheGuardedOne below.
 //
 // Directions asserted (all must be empty):
 //  1. every key in .env.example is documented in docs/configuration.md
@@ -40,6 +51,46 @@ import (
 	"strings"
 	"testing"
 )
+
+// TestShippedCredentialSecretPlaceholderIsTheGuardedOne pins two files to each
+// other. config.Validate reports ACCOUNT_CREDENTIAL_SECRET when it still equals
+// the literal shipped in .env.example, and matches it against
+// config.EnvExampleAccountCredentialSecret. If either side is retyped alone the
+// guard stops matching while every test still passes — the same shape as a
+// route-ownership entry naming a file that never mentions the route (#1233) and
+// a boundary scan reporting zero violations because it scanned nothing (#1214).
+// So the pairing itself is asserted, from the files, not from a copied literal.
+func TestShippedCredentialSecretPlaceholderIsTheGuardedOne(t *testing.T) {
+	root := repoRoot(t)
+
+	const key = "ACCOUNT_CREDENTIAL_SECRET="
+	var shipped string
+	for _, line := range strings.Split(readRepoFile(t, root, ".env.example"), "\n") {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), key); ok {
+			shipped = strings.TrimSpace(v)
+			break
+		}
+	}
+	if shipped == "" {
+		t.Fatalf("parser sanity: no non-empty %s line in .env.example — if the placeholder was removed, delete this test and the config.Validate branch together, do not leave one of them behind", key)
+	}
+
+	const decl = "EnvExampleAccountCredentialSecret = "
+	var guarded string
+	for _, line := range strings.Split(readRepoFile(t, root, "config/defaults.go"), "\n") {
+		if i := strings.Index(line, decl); i >= 0 {
+			guarded = strings.Trim(strings.TrimSpace(line[i+len(decl):]), `"`)
+			break
+		}
+	}
+	if guarded == "" {
+		t.Fatal("config.EnvExampleAccountCredentialSecret not found in config/defaults.go — config.Validate's placeholder branch has nothing to match against")
+	}
+
+	if shipped != guarded {
+		t.Fatalf("the credential-secret placeholder .env.example ships (%q) is not the one config.Validate guards (%q); a deployment copying .env.example would run on a public encryption key with no warning. Change both, or neither.", shipped, guarded)
+	}
+}
 
 // envKeyRE matches a KEY=... assignment line in .env.example (comments and
 // blank lines are skipped by the caller).

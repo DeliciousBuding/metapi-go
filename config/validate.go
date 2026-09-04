@@ -106,15 +106,40 @@ func (c *Config) Validate() []error {
 		// silently passes the empty check above, so enforce explicit floors:
 		//   < 8 bytes  → critical (trivially brute-forceable)
 		//   < 16 bytes → warning  (weak; .env.example recommends 32+ bytes)
+		//
+		// Length is not the whole story. The literal .env.example ships is 33
+		// bytes, so it clears both floors and reads as a strong secret while
+		// being public in this repository: buildCredentialKey derives the AES
+		// key from SHA-256 of exactly this string, so anyone holding the
+		// database can decrypt every stored upstream credential without
+		// touching the server. Guarded separately, and matched against the
+		// shared constant rather than a retyped literal.
 		secretLen := len(c.AccountCredentialSecret)
-		if secretLen < 8 {
+		switch {
+		case c.AccountCredentialSecret == EnvExampleAccountCredentialSecret:
+			// A warning, not a critical error, on purpose — both escalations
+			// were tried against the real code and each is its own trap:
+			//   critical → hasCritical makes cmd/server exit(1), so a
+			//     deployment already running on the placeholder refuses to
+			//     boot after an upgrade;
+			//   rotate   → nothing re-encrypts existing rows, so
+			//     DecryptAccountPassword returns "" for every stored password
+			//     and those accounts must be re-bound.
+			// So the operator gets the fact plus the consequence, and chooses.
+			errs = append(errs, &configError{
+				field:    "account_credential_secret",
+				value:    "(placeholder)",
+				msg:      "UNSAFE: ACCOUNT_CREDENTIAL_SECRET is still the literal shipped in .env.example, which is public in this repository — anyone holding the database can derive the key and decrypt every stored upstream credential. Not a boot-stopping error on purpose: rotating the secret does not re-encrypt existing rows, so stored passwords stop decrypting and those accounts must be re-bound. Set a 32+ byte random secret before storing credentials; on an existing deployment, rotate and then re-bind the affected accounts.",
+				critical: false,
+			})
+		case secretLen < 8:
 			errs = append(errs, &configError{
 				field:    "account_credential_secret",
 				value:    fmt.Sprintf("%d bytes", secretLen),
 				msg:      "UNSAFE: secret is shorter than 8 bytes — trivially brute-forceable; set ACCOUNT_CREDENTIAL_SECRET to a 32+ byte random secret (an unset secret falls back to AUTH_TOKEN)",
 				critical: true,
 			})
-		} else if secretLen < 16 {
+		case secretLen < 16:
 			errs = append(errs, &configError{
 				field:    "account_credential_secret",
 				value:    fmt.Sprintf("%d bytes", secretLen),
