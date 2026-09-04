@@ -8,28 +8,6 @@ import (
 	"testing"
 )
 
-// ---- itoa ----
-
-func TestItoa(t *testing.T) {
-	tests := []struct {
-		input int64
-		want  string
-	}{
-		{0, "0"},
-		{1, "1"},
-		{-1, "-1"},
-		{42, "42"},
-		{-100, "-100"},
-		{9223372036854775807, "9223372036854775807"},
-	}
-	for _, tt := range tests {
-		got := itoa(tt.input)
-		if got != tt.want {
-			t.Errorf("itoa(%d) = %q, want %q", tt.input, got, tt.want)
-		}
-	}
-}
-
 // ---- writeJSONError ----
 
 func TestWriteJSONError(t *testing.T) {
