@@ -116,8 +116,14 @@ Three things about that command, each paid for once already:
   counter whose author never wrote the word "vacuous" is invisible to any grep —
   there is no keyword to find. If you need the real set rather than a floor, read
   what this prints plus the reconciliation gates in `docs/`.
-- **A gate that reads two or three *named* files needs no counter** — failing to
-  read them is already fatal, as in `TestStorefrontDoesNotLinkInternalDocs`.
+- **A gate that reads two or three *named* files is defended against a missing
+  input** — failing to read them is already fatal. That defence covers the input
+  surface only. If the gate then filters what it read through a predicate, it
+  still needs the examined-count: `TestStorefrontDoesNotLinkInternalDocs` reads
+  two named READMEs *and* shares `markdownLinkRE` / `isExternalLinkTarget` with
+  its sibling, so narrowing either predicate emptied it while both files kept
+  reading fine. This bullet used to say such a gate "needs no counter", which is
+  how the gap survived the pass that wrote the rule.
 
 ## Golden snapshot suites (protocol conversion)
 

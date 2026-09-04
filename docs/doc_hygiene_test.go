@@ -227,6 +227,7 @@ func itoa(n int) string {
 func TestStorefrontDoesNotLinkInternalDocs(t *testing.T) {
 	root := repoRoot(t)
 	var findings []string
+	linksChecked := 0
 
 	for name := range storefrontMarkdown {
 		path := filepath.Join(root, name)
@@ -241,6 +242,7 @@ func TestStorefrontDoesNotLinkInternalDocs(t *testing.T) {
 				if isExternalLinkTarget(target) {
 					continue
 				}
+				linksChecked++
 				resolved := resolveLinkTarget(root, name, target)
 				if strings.HasPrefix(resolved, "docs/internal/") {
 					findings = append(findings, formatFinding(name, i+1, "storefront link into docs/internal/", line))
@@ -249,6 +251,16 @@ func TestStorefrontDoesNotLinkInternalDocs(t *testing.T) {
 		}
 	}
 
+	// Reading two named files defends the *input* surface — a missing README is
+	// already fatal above. It says nothing about the *predicate* surface: this
+	// gate shares markdownLinkRE and isExternalLinkTarget with
+	// TestRelativeMarkdownLinksResolve, and narrowing either one empties this
+	// gate while both files still read fine. Probed both ways before adding the
+	// counter; measured 23 + 24 links examined across the two READMEs. Same
+	// reason the sibling counts links rather than files (#1233, #1238).
+	if linksChecked == 0 {
+		t.Fatal("gate would pass vacuously: no storefront links were examined — markdownLinkRE or isExternalLinkTarget changed shape")
+	}
 	if len(findings) > 0 {
 		t.Fatalf("storefront docs must not link maintainer-internal docs:\n%s", strings.Join(findings, "\n"))
 	}
