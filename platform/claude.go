@@ -41,14 +41,23 @@ func (c *ClaudeAdapter) GetModels(ctx context.Context, baseURL string, token str
 		"x-api-key":         token,
 		"anthropic-version": ClaudeDefaultAnthropicVersion,
 	}
+	lad := &modelFetchLadder{}
+
 	models, err := c.fetchModelsFromStandardEndpoint(ctx, baseURL, claudeHeaders, proxy)
-	if err == nil && len(models) > 0 {
-		return models, nil
+	if err != nil {
+		lad.fail(err.Error())
+	} else {
+		lad.answer()
+		if len(models) > 0 {
+			return models, nil
+		}
 	}
 
-	// Fallback: strip /anthropic suffix and try OpenAI-compat
+	// Fallback: strip /anthropic suffix and try OpenAI-compat. Without one, the
+	// anthropic-shaped read above is the whole ladder, so its failure has to be
+	// reported rather than flattened into an empty model list.
 	if openAICompatBaseURL == "" {
-		return []string{}, nil
+		return lad.result()
 	}
 
 	return c.fetchModelsFromStandardEndpoint(ctx, openAICompatBaseURL, authBearerHeaders(token), proxy)

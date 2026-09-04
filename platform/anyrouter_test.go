@@ -68,22 +68,26 @@ func TestAnyRouterAdapter_InheritsNewApiMethods(t *testing.T) {
 		t.Error("Checkin on unreachable URL should fail")
 	}
 
-	// GetBalance
+	// GetBalance: AnyRouter inherits New API's ladder, which reports the failure.
+	// The old shape accepted either answer, which is how a swallowed failure keeps
+	// a test green.
 	bi, err := a.GetBalance(ctx, unreachableBaseURL(t), "token", nil, nil)
 	if err == nil {
-		// GetBalance returns error on total failure (different from other adapters)
-		if bi != nil && bi.Balance > 0 {
-			t.Error("Balance should be 0 on unreachable URL")
-		}
+		t.Errorf("GetBalance must report an unreachable upstream, got %+v", bi)
+	}
+	if bi != nil {
+		t.Errorf("a failed balance fetch must not hand back a storable zero value, got %+v", bi)
 	}
 
-	// GetModels
+	// GetModels: same inheritance, and an empty list here is not a neutral answer —
+	// the refresh path turns it into `empty_models`, one phrase covering "the site
+	// turned /v1/models off", "the credential is dead" and "no models".
 	models, err := a.GetModels(ctx, unreachableBaseURL(t), "token", nil, nil)
-	if err != nil {
-		t.Errorf("GetModels error: %v", err)
+	if err == nil {
+		t.Error("GetModels must report an unreachable upstream, not an empty model list")
 	}
 	if len(models) != 0 {
-		t.Error("GetModels on unreachable should return empty")
+		t.Error("GetModels on unreachable should return no models")
 	}
 
 	// GetUserGroups - may return error or default on unreachable URL

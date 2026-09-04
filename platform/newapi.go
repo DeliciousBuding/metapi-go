@@ -250,8 +250,9 @@ func parseUserInfo(data map[string]interface{}) *UserInfo {
 // --- VerifyToken ---
 
 func (n *NewApiAdapter) VerifyToken(ctx context.Context, baseURL, token string, platformUserId *int, proxy *ProxyConfig) (*TokenVerifyResult, error) {
-	// Try API key path first (/v1/models)
-	openAIModels := n.getOpenAIModels(ctx, baseURL, token, proxy)
+	// Try API key path first (/v1/models). nil ladder: here a rung that produces
+	// nothing is a signal to try the next credential shape, not a failure to report.
+	openAIModels := n.getOpenAIModels(ctx, baseURL, token, proxy, nil)
 	if len(openAIModels) > 0 {
 		return &TokenVerifyResult{TokenType: "apikey", Models: openAIModels}, nil
 	}
@@ -645,7 +646,14 @@ func (n *NewApiAdapter) GetBalance(ctx context.Context, baseURL, accessToken str
 // --- GetModels ---
 
 func (n *NewApiAdapter) GetModels(ctx context.Context, baseURL, token string, platformUserId *int, proxy *ProxyConfig) ([]string, error) {
-	openAIModels := n.getOpenAIModels(ctx, baseURL, token, proxy)
+	// Four rungs, and every one of them used to swallow its failure into the next,
+	// ending in `[]string{}, nil`. That made "the site turned /v1/models off",
+	// "the credential is dead", "this credential has no dashboard" and "this
+	// account really has no models" the same answer, and the caller can only
+	// classify the last one (#1232 is a report about exactly that ambiguity).
+	lad := &modelFetchLadder{}
+
+	openAIModels := n.getOpenAIModels(ctx, baseURL, token, proxy, lad)
 	if len(openAIModels) > 0 {
 		return openAIModels, nil
 	}
@@ -659,7 +667,10 @@ func (n *NewApiAdapter) GetModels(ctx context.Context, baseURL, token string, pl
 		idCopy := *userID
 		headers := n.authHeaders(token, &idCopy)
 		resp, err := fetchJSON(ctx, baseURL+"/api/user/models", "GET", nil, headers, proxy)
-		if err == nil {
+		if err != nil {
+			lad.fail(err.Error())
+		} else {
+			lad.answer()
 			if data, ok := resp["data"].([]interface{}); ok {
 				models := make([]string, 0, len(data))
 				for _, item := range data {
@@ -686,7 +697,7 @@ func (n *NewApiAdapter) GetModels(ctx context.Context, baseURL, token string, pl
 	}
 
 	// Cookie model fallback
-	cookieModels := n.getSessionModelsByCookie(ctx, baseURL, token, userID, proxy)
+	cookieModels := n.getSessionModelsByCookie(ctx, baseURL, token, userID, proxy, lad)
 	if len(cookieModels) > 0 {
 		return cookieModels, nil
 	}
@@ -694,26 +705,28 @@ func (n *NewApiAdapter) GetModels(ctx context.Context, baseURL, token string, pl
 	// Alternate userID cookie fallback
 	altID := n.probeAlternateUserIDByCookie(ctx, baseURL, token, userID, proxy)
 	if altID != nil {
-		fallbackModels := n.getSessionModelsByCookie(ctx, baseURL, token, altID, proxy)
+		fallbackModels := n.getSessionModelsByCookie(ctx, baseURL, token, altID, proxy, lad)
 		if len(fallbackModels) > 0 {
 			return fallbackModels, nil
 		}
 	}
 
-	return []string{}, nil
+	return lad.result()
 }
 
-func (n *NewApiAdapter) getOpenAIModels(ctx context.Context, baseURL, token string, proxy *ProxyConfig) []string {
+func (n *NewApiAdapter) getOpenAIModels(ctx context.Context, baseURL, token string, proxy *ProxyConfig, lad *modelFetchLadder) []string {
 	// Try /v1/models
 	resp, err := fetchJSON(ctx, baseURL+"/v1/models", "GET", nil, authBearerHeaders(token), proxy)
 	if err != nil {
+		lad.fail(err.Error())
 		return nil
 	}
+	lad.answer()
 
 	return extractModelIDsFromData(resp)
 }
 
-func (n *NewApiAdapter) getSessionModelsByCookie(ctx context.Context, baseURL, token string, userID *int, proxy *ProxyConfig) []string {
+func (n *NewApiAdapter) getSessionModelsByCookie(ctx context.Context, baseURL, token string, userID *int, proxy *ProxyConfig, lad *modelFetchLadder) []string {
 	for _, cookie := range buildCookieCandidates(token) {
 		headers := map[string]string{"Cookie": cookie}
 		for k, v := range n.userIDHeaders(userID) {
@@ -722,8 +735,10 @@ func (n *NewApiAdapter) getSessionModelsByCookie(ctx context.Context, baseURL, t
 
 		resp, err := fetchJSON(ctx, baseURL+"/api/user/models", "GET", nil, headers, proxy)
 		if err != nil {
+			lad.fail(err.Error())
 			continue
 		}
+		lad.answer()
 
 		if data, ok := resp["data"].([]interface{}); ok && len(data) > 0 {
 			models := make([]string, 0, len(data))

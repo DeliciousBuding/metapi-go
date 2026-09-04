@@ -17,18 +17,31 @@ func (o *OneHubAdapter) Detect(ctx context.Context, url string) (bool, error) {
 }
 
 // GetModels: try /v1/models (OneApi), fall back to /api/available_model.
+//
+// The embedded one-api ladder already reports its failures; this wrapper used to
+// drop that error and then swallow its own fallback's failure too, so one-hub
+// answered "no models" for a site nobody reached.
 func (o *OneHubAdapter) GetModels(ctx context.Context, baseURL string, apiToken string, platformUserId *int, proxy *ProxyConfig) ([]string, error) {
+	lad := &modelFetchLadder{}
+
 	models, err := o.OneApiAdapter.GetModels(ctx, baseURL, apiToken, platformUserId, proxy)
-	if err == nil && len(models) > 0 {
-		return models, nil
+	if err != nil {
+		lad.fail(err.Error())
+	} else {
+		lad.answer()
+		if len(models) > 0 {
+			return models, nil
+		}
 	}
 
 	// Fallback: /api/available_model
 	headers := authBearerHeaders(apiToken)
 	resp, fetchErr := fetchJSON(ctx, baseURL+"/api/available_model", "GET", nil, headers, proxy)
 	if fetchErr != nil {
-		return []string{}, nil
+		lad.fail(fetchErr.Error())
+		return lad.result()
 	}
+	lad.answer()
 
 	payload := resp
 	if data, ok := getMap(resp, "data"); ok {
@@ -47,7 +60,7 @@ func (o *OneHubAdapter) GetModels(ctx context.Context, baseURL string, apiToken 
 		}
 	}
 
-	return []string{}, nil
+	return lad.result()
 }
 
 // GetUserGroups: /api/user_group_map with data-object keys, fallback to OneApi's implementation.

@@ -21,21 +21,34 @@ func (g *GeminiAdapter) Detect(ctx context.Context, urlStr string) (bool, error)
 }
 
 // GetModels uses 3-path discovery: OpenAI-compat (if on /openai/ path) -> native Gemini -> OpenAI-compat fallback.
+//
+// All three paths used to end in `[]string{}, nil`, so an unreachable site, a
+// rejected key and a site that exposes none of the three shapes were the same
+// answer, and the caller can only classify a failure it is told about.
 func (g *GeminiAdapter) GetModels(ctx context.Context, baseURL string, apiToken string, platformUserId *int, proxy *ProxyConfig) ([]string, error) {
 	normalizedBase := normalizePlatformBaseURL(baseURL)
+	lad := &modelFetchLadder{}
 
 	// Path 1: OpenAI-compat if URL contains /openai/
 	if isOpenAICompatGeminiBase(normalizedBase) {
 		models, err := g.fetchModelsFromStandardEndpoint(ctx, normalizedBase, authBearerHeaders(apiToken), proxy)
-		if err == nil && len(models) > 0 {
-			return normalizeModelList(models), nil
+		if err != nil {
+			lad.fail(err.Error())
+		} else {
+			lad.answer()
+			if len(models) > 0 {
+				return normalizeModelList(models), nil
+			}
 		}
 	}
 
 	// Path 2: Native Gemini endpoint
 	nativeURL := resolveGeminiNativeModelsURL(normalizedBase, apiToken)
 	resp, err := fetchJSON(ctx, nativeURL, "GET", nil, nil, proxy)
-	if err == nil {
+	if err != nil {
+		lad.fail(err.Error())
+	} else {
+		lad.answer()
 		if modelsList, ok := resp["models"].([]interface{}); ok {
 			models := make([]string, 0, len(modelsList))
 			for _, m := range modelsList {
@@ -55,12 +68,17 @@ func (g *GeminiAdapter) GetModels(ctx context.Context, baseURL string, apiToken 
 	if !isOpenAICompatGeminiBase(normalizedBase) {
 		openAIURL := normalizedBase + "/v1beta/openai"
 		models, err := g.fetchModelsFromStandardEndpoint(ctx, openAIURL, authBearerHeaders(apiToken), proxy)
-		if err == nil && len(models) > 0 {
-			return normalizeModelList(models), nil
+		if err != nil {
+			lad.fail(err.Error())
+		} else {
+			lad.answer()
+			if len(models) > 0 {
+				return normalizeModelList(models), nil
+			}
 		}
 	}
 
-	return []string{}, nil
+	return lad.result()
 }
 
 func isOpenAICompatGeminiBase(baseURL string) bool {
