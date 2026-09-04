@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -23,22 +25,139 @@ func TestOneApiAdapter_Detect(t *testing.T) {
 	}
 }
 
-func TestOneApiAdapter_DoubleDeleteStrategy(t *testing.T) {
+// oneApiTokenUpstream serves the /api/token/ listing plus the per-id DELETE route
+// with and without the trailing slash, and records every call it received.
+type oneApiTokenUpstream struct {
+	mu         sync.Mutex
+	listBody   string
+	listStatus int
+	deleteOK   func(id string, trailingSlash bool) bool
+	calls      []string
+}
+
+func (f *oneApiTokenUpstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	f.calls = append(f.calls, r.Method+" "+r.URL.Path)
+	f.mu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	switch {
+	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/token"):
+		w.WriteHeader(f.listStatus)
+		_, _ = w.Write([]byte(f.listBody))
+	case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/token/"):
+		trimmed := strings.TrimPrefix(r.URL.Path, "/api/token/")
+		trailingSlash := strings.HasSuffix(trimmed, "/")
+		id := strings.TrimSuffix(trimmed, "/")
+		if f.deleteOK != nil && f.deleteOK(id, trailingSlash) {
+			_, _ = w.Write([]byte(`{"success":true}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"success":false,"message":"upstream refused the delete"}`))
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func (f *oneApiTokenUpstream) callLog() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.calls...)
+}
+
+// Both directions on purpose, because the caller deletes the local row only when
+// this returns nil. "The key is already gone upstream" is idempotence; "no request
+// reached the upstream" is a failure that used to be reported as the same nil, so
+// the row disappeared while the upstream key stayed live.
+func TestOneApiAdapter_DeleteAPIToken(t *testing.T) {
 	o := &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// DeleteAPIToken should not error even with unreachable URL (returns nil)
-	err := o.DeleteAPIToken(ctx, unreachableBaseURL(t), "token", "sk-test", nil, nil)
-	if err != nil {
-		t.Errorf("DeleteAPIToken should be idempotent: %v", err)
-	}
+	t.Run("unreachable upstream is a failure, not an idempotent success", func(t *testing.T) {
+		if err := o.DeleteAPIToken(ctx, unreachableBaseURL(t), "token", "sk-test", nil, nil); err == nil {
+			t.Fatal("DeleteAPIToken reported a completed delete for a call that never reached the upstream")
+		}
+	})
 
-	// Empty tokenKey should return nil immediately
-	err = o.DeleteAPIToken(ctx, unreachableBaseURL(t), "token", "", nil, nil)
-	if err != nil {
-		t.Errorf("DeleteAPIToken with empty key: %v", err)
-	}
+	t.Run("empty key needs no upstream call", func(t *testing.T) {
+		f := &oneApiTokenUpstream{listBody: `{"success":true,"data":[]}`, listStatus: http.StatusOK}
+		srv := httptest.NewServer(f)
+		defer srv.Close()
+		if err := o.DeleteAPIToken(ctx, srv.URL, "token", "", nil, nil); err != nil {
+			t.Fatalf("empty key: %v", err)
+		}
+		if got := f.callLog(); len(got) != 0 {
+			t.Fatalf("empty key made upstream calls: %v", got)
+		}
+	})
+
+	t.Run("key already absent upstream is idempotent", func(t *testing.T) {
+		f := &oneApiTokenUpstream{
+			listBody:   `{"success":true,"data":[{"id":1,"key":"sk-someone-else"}]}`,
+			listStatus: http.StatusOK,
+		}
+		srv := httptest.NewServer(f)
+		defer srv.Close()
+		if err := o.DeleteAPIToken(ctx, srv.URL, "token", "sk-test", nil, nil); err != nil {
+			t.Fatalf("an answered listing without this key is not an error: %v", err)
+		}
+		if got := f.callLog(); len(got) != 1 {
+			t.Fatalf("expected only the listing call, got %v", got)
+		}
+	})
+
+	t.Run("a listing we could not read is a failure", func(t *testing.T) {
+		f := &oneApiTokenUpstream{
+			listBody:   `{"success":false,"message":"session expired"}`,
+			listStatus: http.StatusInternalServerError,
+		}
+		srv := httptest.NewServer(f)
+		defer srv.Close()
+		err := o.DeleteAPIToken(ctx, srv.URL, "token", "sk-test", nil, nil)
+		if err == nil {
+			t.Fatal("without a readable listing we cannot know the key is gone")
+		}
+		if !strings.Contains(err.Error(), "list upstream tokens") {
+			t.Fatalf("error should say which step failed: %v", err)
+		}
+	})
+
+	t.Run("trailing-slash variant still completes the delete", func(t *testing.T) {
+		f := &oneApiTokenUpstream{
+			listBody:   `{"success":true,"data":[{"id":9,"key":"sk-test"}]}`,
+			listStatus: http.StatusOK,
+			deleteOK:   func(id string, trailingSlash bool) bool { return id == "9" && trailingSlash },
+		}
+		srv := httptest.NewServer(f)
+		defer srv.Close()
+		if err := o.DeleteAPIToken(ctx, srv.URL, "token", "sk-test", nil, nil); err != nil {
+			t.Fatalf("double-delete strategy: %v", err)
+		}
+		got := f.callLog()
+		want := []string{"GET /api/token/", "DELETE /api/token/9", "DELETE /api/token/9/"}
+		if strings.Join(got, "|") != strings.Join(want, "|") {
+			t.Fatalf("calls = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("both delete variants refusing is a failure", func(t *testing.T) {
+		f := &oneApiTokenUpstream{
+			listBody:   `{"success":true,"data":[{"id":9,"key":"sk-test"}]}`,
+			listStatus: http.StatusOK,
+			deleteOK:   func(string, bool) bool { return false },
+		}
+		srv := httptest.NewServer(f)
+		defer srv.Close()
+		err := o.DeleteAPIToken(ctx, srv.URL, "token", "sk-test", nil, nil)
+		if err == nil {
+			t.Fatal("neither DELETE landed, so the upstream key may still be live")
+		}
+		if !strings.Contains(err.Error(), "delete upstream token 9") ||
+			!strings.Contains(err.Error(), "upstream refused the delete") {
+			t.Fatalf("error should name the token and carry the upstream reason: %v", err)
+		}
+	})
 }
 
 // answeringTokenServer serves a well-formed one-api token listing with no rows.
@@ -118,17 +237,37 @@ func TestOneApiAdapter_GetUserGroupsDefault(t *testing.T) {
 	// Either way: error or ["default"] is acceptable
 }
 
+// `false, nil` means "the upstream answered and refused", which is why a failed
+// fetch may not use it: the caller answers 502 either way, but only the error path
+// carries the reason and writes the WARN log.
 func TestOneApiAdapter_CreateAPIToken(t *testing.T) {
 	o := &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	created, err := o.CreateAPIToken(ctx, unreachableBaseURL(t), "token", nil, nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err == nil {
+		t.Error("CreateAPIToken must report an unreachable upstream instead of a silent false")
 	}
 	if created {
-		t.Error("CreateAPIToken should return false for unreachable URL")
+		t.Error("nothing was created")
+	}
+
+	srv := answeringTokenServer(`{"success":true,"data":{"id":1,"key":"sk-new"}}`)
+	defer srv.Close()
+	created, err = o.CreateAPIToken(ctx, srv.URL, "token", nil, nil, nil)
+	if err != nil || !created {
+		t.Fatalf("answered success = (%v, %v), want (true, nil)", created, err)
+	}
+
+	refusal := answeringTokenServer(`{"success":false,"message":"quota exceeded"}`)
+	defer refusal.Close()
+	created, err = o.CreateAPIToken(ctx, refusal.URL, "token", nil, nil, nil)
+	if err != nil {
+		t.Fatalf("the upstream's own refusal is an answer, not a fetch failure: %v", err)
+	}
+	if created {
+		t.Fatal("created = true for a refused create")
 	}
 }
 

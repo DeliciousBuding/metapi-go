@@ -356,17 +356,25 @@ func (s *Sub2ApiAdapter) CreateAPIToken(ctx context.Context, baseURL, accessToke
 
 	headers := authBearerHeaders(accessToken)
 	endpoints := []string{"/api/v1/keys", "/api/v1/api-keys"}
+	// Two endpoints because sub2api versions expose different paths, so one of them
+	// failing is expected — the same ladder listAPIKeys uses. When neither produced
+	// a key the caller has to hear why: `false, nil` reads as "the upstream refused",
+	// which is a different fact from "no request reached the upstream".
+	lastReason := ""
 	for _, endpoint := range endpoints {
 		resp, err := fetchJSON(ctx, normalized+endpoint, "POST", payload, headers, proxy)
 		if err != nil {
+			lastReason = err.Error()
 			continue
 		}
-		if err := s.parseSub2ApiEnvelope(resp, endpoint); err == nil {
-			return true, nil
+		if err := s.parseSub2ApiEnvelope(resp, endpoint); err != nil {
+			lastReason = err.Error()
+			continue
 		}
+		return true, nil
 	}
 
-	return false, nil
+	return false, fmt.Errorf("create upstream key: %s", lastReason)
 }
 
 // DeleteAPIToken: list -> find key -> DELETE /api/v1/keys/{id} + /api/v1/api-keys/{id}.
@@ -379,7 +387,9 @@ func (s *Sub2ApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToke
 	normalized := normalizeBaseURL(baseURL)
 	items, err := s.listAPIKeys(ctx, normalized, accessToken, proxy)
 	if err != nil {
-		return nil
+		// Cannot know whether the key exists upstream, so cannot claim it is gone.
+		// listAPIKeys already names the operation; wrapping it again stutters.
+		return err
 	}
 
 	var tokenID *int
@@ -392,7 +402,7 @@ func (s *Sub2ApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToke
 	}
 
 	if tokenID == nil {
-		return nil // Already absent, safe
+		return nil // already absent upstream: nothing to delete
 	}
 
 	headers := authBearerHeaders(accessToken)
@@ -400,17 +410,24 @@ func (s *Sub2ApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToke
 		fmt.Sprintf("/api/v1/keys/%d", *tokenID),
 		fmt.Sprintf("/api/v1/api-keys/%d", *tokenID),
 	}
+	// The caller deletes the local row only when this returns nil, so "neither
+	// variant worked" has to be an error: otherwise the row disappears while the
+	// upstream key stays live.
+	lastReason := ""
 	for _, endpoint := range endpoints {
 		resp, err := fetchJSON(ctx, normalized+endpoint, "DELETE", nil, headers, proxy)
 		if err != nil {
+			lastReason = err.Error()
 			continue
 		}
-		if err := s.parseSub2ApiEnvelope(resp, endpoint); err == nil {
-			return nil
+		if err := s.parseSub2ApiEnvelope(resp, endpoint); err != nil {
+			lastReason = err.Error()
+			continue
 		}
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("delete upstream key %d: %s", *tokenID, lastReason)
 }
 
 // GetSiteAnnouncements: GET /api/v1/announcements?page=1&page_size=100.

@@ -165,12 +165,23 @@ func (n *NewApiAdapter) CreateAPIToken(ctx context.Context, baseURL, accessToken
 		resolvedUserID = n.discoverUserID(ctx, baseURL, accessToken, proxy)
 	}
 
+	// `answered` separates "the upstream refused" from "no attempt reached the
+	// upstream". Both end as a 502 in the caller, but only the second one is a
+	// failure to ask, and reporting it as a refusal left the operator with no
+	// reason and no WARN log.
+	answered := false
+	reason := ""
+
 	// Try Bearer auth
 	resp, err := fetchJSON(ctx, baseURL+"/api/token/", "POST", json.RawMessage(bodyBytes), n.authHeaders(accessToken, resolvedUserID), proxy)
-	if err == nil {
+	if err != nil {
+		reason = err.Error()
+	} else {
 		if success, _ := getBool(resp, "success"); success {
 			return true, nil
 		}
+		answered = true
+		reason = newApiRefusalReason(resp)
 	}
 
 	// Cookie fallback
@@ -185,14 +196,30 @@ func (n *NewApiAdapter) CreateAPIToken(ctx context.Context, baseURL, accessToken
 		}
 
 		resp, err := fetchJSON(ctx, baseURL+"/api/token/", "POST", json.RawMessage(bodyBytes), headers, proxy)
-		if err == nil {
-			if success, _ := getBool(resp, "success"); success {
-				return true, nil
-			}
+		if err != nil {
+			reason = err.Error()
+			continue
 		}
+		if success, _ := getBool(resp, "success"); success {
+			return true, nil
+		}
+		answered = true
+		reason = newApiRefusalReason(resp)
 	}
 
-	return false, nil
+	if answered {
+		return false, nil
+	}
+	return false, fmt.Errorf("create upstream token: %s", reason)
+}
+
+// newApiRefusalReason is the upstream's own verdict on a write it answered.
+func newApiRefusalReason(resp map[string]interface{}) string {
+	msg, _ := getString(resp, "message")
+	if strings.TrimSpace(msg) == "" {
+		return "upstream reported failure"
+	}
+	return msg
 }
 
 func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken, tokenKey string, platformUserId *int, proxy *ProxyConfig) error {
@@ -207,10 +234,18 @@ func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 	}
 
 	var tokenID *int
+	// listed separates "we read the listing and this key is not in it" (nothing to
+	// delete) from "we never read a listing" (cannot know). Both used to arrive at
+	// the same `tokenID == nil`, and the caller deletes the local row on nil.
+	listed := false
+	reason := ""
 
 	// Try Bearer auth list
 	resp, err := fetchJSON(ctx, baseURL+"/api/token/?p=0&size=100", "GET", nil, n.authHeaders(accessToken, resolvedUserID), proxy)
-	if err == nil {
+	if err != nil {
+		reason = err.Error()
+	} else {
+		listed = true
 		items := parseTokenItemsFromMap(resp)
 		tokenID = pickTokenID(items, targetKey)
 	}
@@ -218,10 +253,12 @@ func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 	if tokenID != nil {
 		// Try Bearer DELETE
 		delResp, err := fetchJSON(ctx, fmt.Sprintf("%s/api/token/%d", baseURL, *tokenID), "DELETE", nil, n.authHeaders(accessToken, resolvedUserID), proxy)
-		if err == nil {
-			if success, _ := getBool(delResp, "success"); success {
-				return nil
-			}
+		if err != nil {
+			reason = err.Error()
+		} else if success, _ := getBool(delResp, "success"); success {
+			return nil
+		} else {
+			reason = newApiRefusalReason(delResp)
 		}
 	}
 
@@ -240,7 +277,10 @@ func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 		// List if not already found
 		if tokenID == nil {
 			resp, err := fetchJSON(ctx, baseURL+"/api/token/?p=0&size=100", "GET", nil, headers, proxy)
-			if err == nil {
+			if err != nil {
+				reason = err.Error()
+			} else {
+				listed = true
 				items := parseTokenItemsFromMap(resp)
 				tokenID = pickTokenID(items, targetKey)
 			}
@@ -251,16 +291,22 @@ func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 		}
 
 		delResp, err := fetchJSON(ctx, fmt.Sprintf("%s/api/token/%d", baseURL, *tokenID), "DELETE", nil, headers, proxy)
-		if err == nil {
-			if success, _ := getBool(delResp, "success"); success {
-				return nil
-			}
+		if err != nil {
+			reason = err.Error()
+			continue
 		}
+		if success, _ := getBool(delResp, "success"); success {
+			return nil
+		}
+		reason = newApiRefusalReason(delResp)
 	}
 
-	// Already absent = safe
-	if tokenID == nil {
+	// Already absent upstream, and we know it because a listing answered.
+	if tokenID == nil && listed {
 		return nil
 	}
-	return fmt.Errorf("failed to delete token")
+	if tokenID == nil {
+		return fmt.Errorf("list upstream tokens: %s", reason)
+	}
+	return fmt.Errorf("delete upstream token %d: %s", *tokenID, reason)
 }

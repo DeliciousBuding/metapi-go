@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +12,19 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/store"
 )
+
+// unreachableUpstreamURL returns a base URL whose port was just closed, so the dial
+// fails immediately instead of blackholing until the handler's 20s budget runs out.
+func unreachableUpstreamURL(t *testing.T) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen for an unreachable upstream: %v", err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close()
+	return "http://" + addr
+}
 
 // fakeNewAPIUpstream simulates NewAPI token endpoints used by platform.NewApiAdapter.
 type fakeNewAPIUpstream struct {
@@ -257,6 +271,38 @@ func TestTokens_Delete_UpstreamFirst(t *testing.T) {
 	fake.mu.Unlock()
 	if stillThere {
 		t.Fatal("expected upstream token deleted")
+	}
+}
+
+// The user-visible consequence of an adapter reporting a failed upstream write as a
+// completed one: DELETE /api/account-tokens/{id} answered 200 and removed the local
+// row while the upstream key stayed live, so from then on nothing tracked that
+// credential. one-api and sub2api both returned nil for a failed fetch, which is why
+// deleteTokenWithUpstream's guard never fired on those two platforms; new-api already
+// returned an error and is pinned here so the family cannot drift apart again.
+func TestTokens_Delete_UpstreamFailureKeepsLocalRow(t *testing.T) {
+	for _, platformName := range []string{"one-api", "sub2api", "new-api"} {
+		t.Run(platformName, func(t *testing.T) {
+			db, r := setupTokensTest(t)
+			_, accountID := tokenFixtureWithPlatform(t, db, "Unreachable "+platformName, unreachableUpstreamURL(t), platformName)
+			tokID := createTokenFixture(t, db, accountID, "live-key", "sk-live-upstream-key", "default", true, true)
+
+			resp := doDelete(t, r, "/api/account-tokens/"+itoa(tokID))
+			if resp.Code == http.StatusOK {
+				t.Fatalf("delete against an unreachable upstream returned 200: %s", resp.Body.String())
+			}
+			if !strings.Contains(resp.Body.String(), "failed to delete the upstream token") {
+				t.Fatalf("the response should say the upstream delete failed, got %s", resp.Body.String())
+			}
+
+			var count int
+			if err := db.QueryRow("SELECT COUNT(*) FROM account_tokens WHERE id = ?", tokID).Scan(&count); err != nil {
+				t.Fatalf("count token rows: %v", err)
+			}
+			if count != 1 {
+				t.Fatalf("local rows = %d, want 1: the row may only go once the upstream key did", count)
+			}
+		})
 	}
 }
 
