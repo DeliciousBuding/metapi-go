@@ -144,7 +144,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### Added
 
-- **三个配额字段的语义（#1148）**：`maxRequests` / `maxCost` / `expiresAt` 是累计总量而非每分钟窗口（每分钟限速是另一组 `max_rpm` / `max_tpm`）、金额单位 USD 且仅成功请求计费、超限 429（`over_requests` / `over_cost`）、过期 403（`key_expired`）、留空或 0 ＝不限制。
+- **三个配额字段的语义（#1148）**：`maxRequests` / `maxCost` / `expiresAt` 是累计总量而非每分钟窗口（每分钟限速是另一组 `max_rpm` / `max_tpm`）、金额单位 USD 且仅成功请求计费、超限 429（`insufficient_quota`）、过期 403（`key_expired`）、留空或 0 ＝不限制。
 - **界面批（#1148）**：仪表盘四步旅程清单（站点 → 账号 → 路由 → 密钥，CTA 只挂在第一个缺口、四步建成后自我退役）；已有路由但下游密钥数为 0 时就地提示怎么签发第一把密钥并用它调用 `/v1`，签发后永久消失。
 
 ### Changed
