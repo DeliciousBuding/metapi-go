@@ -205,16 +205,16 @@ func (h *accountTokensHandler) createLocalToken(body payloads.AccountTokenCreate
 		return nil, fmt.Errorf("failed to load existing tokens: %w", err)
 	}
 
-	valueStatus := TokenValueStatusReady
+	valueStatus := service.TokenValueStatusReady
 	if IsMaskedTokenValue(tokenValue) {
-		valueStatus = TokenValueStatusMaskedPending
+		valueStatus = service.TokenValueStatusMaskedPending
 	}
-	enabled := valueStatus == TokenValueStatusReady
+	enabled := valueStatus == service.TokenValueStatusReady
 	if body.Enabled != nil {
 		enabled = *body.Enabled
 	}
 	isDefault := false
-	if valueStatus == TokenValueStatusReady && body.IsDefault != nil {
+	if valueStatus == service.TokenValueStatusReady && body.IsDefault != nil {
 		isDefault = *body.IsDefault
 	}
 
@@ -261,7 +261,7 @@ func (h *accountTokensHandler) createLocalToken(body payloads.AccountTokenCreate
 	}
 
 	// Set as default if appropriate
-	if valueStatus == TokenValueStatusReady && (isDefault || (len(existingTokens) == 0 && enabled)) {
+	if valueStatus == service.TokenValueStatusReady && (isDefault || (len(existingTokens) == 0 && enabled)) {
 		if ok, err := service.SetDefaultToken(h.db, tokenID); err != nil {
 			cleanupInsertedToken()
 			return nil, fmt.Errorf("failed to set default token: %w", err)
@@ -269,7 +269,7 @@ func (h *accountTokensHandler) createLocalToken(body payloads.AccountTokenCreate
 			cleanupInsertedToken()
 			return nil, fmt.Errorf("failed to set default token")
 		}
-	} else if valueStatus == TokenValueStatusReady && !hasDefaultToken(existingTokens) && enabled {
+	} else if valueStatus == service.TokenValueStatusReady && !hasDefaultToken(existingTokens) && enabled {
 		if ok, err := service.SetDefaultToken(h.db, tokenID); err != nil {
 			cleanupInsertedToken()
 			return nil, fmt.Errorf("failed to set default token: %w", err)
@@ -423,9 +423,9 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 		}
 		updates["token"] = tv
 		if IsMaskedTokenValue(tv) {
-			nextValueStatus = TokenValueStatusMaskedPending
+			nextValueStatus = service.TokenValueStatusMaskedPending
 		} else {
-			nextValueStatus = TokenValueStatusReady
+			nextValueStatus = service.TokenValueStatusReady
 		}
 		updates["valueStatus"] = nextValueStatus
 	}
@@ -436,7 +436,7 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 		updates["source"] = strings.TrimSpace(*body.Source)
 	}
 
-	if nextValueStatus == TokenValueStatusMaskedPending {
+	if nextValueStatus == service.TokenValueStatusMaskedPending {
 		updates["enabled"] = false
 		updates["isDefault"] = false
 	} else {

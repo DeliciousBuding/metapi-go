@@ -129,8 +129,8 @@ func newTestTokenRouter(db *routerTestDB) *TokenRouter {
 func TestNewTokenRouter_AppliesDefaults(t *testing.T) {
 	db := &routerTestDB{}
 	tr := NewTokenRouter(db, &config.Config{}, nil, nil)
-	if tr.configuredMaxSec != TokenRouterFailureCooldownMaxSecCeiling {
-		t.Fatalf("configuredMaxSec = %d, want ceiling %d when config is 0", tr.configuredMaxSec, TokenRouterFailureCooldownMaxSecCeiling)
+	if tr.configuredMaxSec != config.TokenRouterFailureCooldownMaxSecCeiling {
+		t.Fatalf("configuredMaxSec = %d, want ceiling %d when config is 0", tr.configuredMaxSec, config.TokenRouterFailureCooldownMaxSecCeiling)
 	}
 	if tr.fallbackUnitCost != 1 {
 		t.Fatalf("fallbackUnitCost = %v, want 1 when config is 0", tr.fallbackUnitCost)

@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func setupTokensTest(t *testing.T) (*store.DB, chi.Router) {
@@ -710,7 +711,7 @@ func TestTokens_Update_MaskedToken(t *testing.T) {
 	json.Unmarshal(resp.Body.Bytes(), &result)
 	tok, _ := result["token"].(map[string]any)
 	vs, _ := tok["value_status"].(string)
-	if vs != TokenValueStatusMaskedPending {
+	if vs != service.TokenValueStatusMaskedPending {
 		t.Logf("value_status after masked update: %q", vs)
 	}
 	// After masked update, token should be disabled and not default

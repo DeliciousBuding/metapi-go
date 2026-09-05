@@ -39,7 +39,7 @@ func NewTokenRouter(
 	rt := config.Runtime()
 	configuredMaxSec := rt.TokenRouterFailureCooldownMaxSec
 	if configuredMaxSec <= 0 {
-		configuredMaxSec = TokenRouterFailureCooldownMaxSecCeiling
+		configuredMaxSec = config.TokenRouterFailureCooldownMaxSecCeiling
 	}
 
 	fallbackUnitCost := rt.RoutingFallbackUnitCost

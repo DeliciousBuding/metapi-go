@@ -509,11 +509,3 @@ func countPersistedAccountTokens(db *sqlx.DB, accountID int64) int {
 	}
 	return count
 }
-
-// ---- Helper functions ----
-
-// TokenValueStatusReady and MaskedPending
-const (
-	TokenValueStatusReady         = "ready"
-	TokenValueStatusMaskedPending = "masked_pending"
-)
