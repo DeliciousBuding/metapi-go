@@ -28,6 +28,7 @@ import (
 //  6. scheduler    ↛ handler, router, proxy
 //  7. handler      ↛ router                                   (router mounts handlers, not reverse)
 //  8. no revived TS-era top-level names proxycore/protocol
+//  9. no production file imports "testing" (a test helper belongs in a _test.go file)
 
 // Documented architecture exceptions are
 // allowed and excluded from the denylist:
@@ -130,6 +131,23 @@ func ownerPackage(relDir string) (string, bool) {
 // forbiddenImport returns the rule a package violates by importing `imp`,
 // or "" if the import is allowed (or not an internal module import).
 func forbiddenImport(pkg, imp string) string {
+	// Rule 9 is checked before the module-path guard below because "testing" is
+	// stdlib, and that guard returns "" for every stdlib import.
+	//
+	// A test helper living in a production file puts `testing` into the
+	// production dependency graph of every package that imports it, and the
+	// linker then carries it into the shipped binary. Measured when this rule was
+	// added: one such file in platform/ put `testing` into six production
+	// dependency graphs (platform, app, proxy, router, scheduler, service) and
+	// three `testing.` symbols into cmd/server. Renaming it to _test.go removed
+	// all six, all three symbols, and 11,724 bytes.
+	//
+	// internal/pgtest and internal/golden are deliberately not caught: they are
+	// test-only packages that only _test.go files import, so they never enter a
+	// production build, and ownerPackage already puts internal/ out of scope.
+	if imp == "testing" {
+		return "rule 9: a production file must not import testing — rename it to _test.go"
+	}
 	if !strings.HasPrefix(imp, modulePath+"/") {
 		return "" // external or stdlib
 	}
