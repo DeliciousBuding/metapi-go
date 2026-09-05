@@ -418,12 +418,18 @@ var (
 	changelogBoldHeadlineRE = regexp.MustCompile(`^\*\*`)
 )
 
+// changelogAllowedSections is exactly the two vocabularies the contract names:
+// the current Chinese one, and the English one that v0.16.23-v0.16.13 were
+// written in before the switch. It used to also allow Performance,
+// Accessibility, Deprecated and Removed — four names the contract never
+// mentioned and nothing in the file used, i.e. four section headings that
+// could be invented without tripping anything. Adding a section name means
+// adding it to the contract in the file first, then here.
 var changelogAllowedSections = map[string]bool{
 	"安全": true, "修复": true, "变更": true, "移除": true,
 	"开发者可见": true, "文档": true, "已知遗留": true,
 	"Added": true, "Changed": true, "Fixed": true, "Security": true,
-	"Docs": true, "Performance": true, "Accessibility": true,
-	"Deprecated": true, "Removed": true,
+	"Docs": true,
 }
 
 func TestChangelogStaysANarrativeNotAForensicRecord(t *testing.T) {
