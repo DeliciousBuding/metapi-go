@@ -543,11 +543,21 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 		} else if normalizedStatus == CheckinSkipped {
 			eventRef.Key = "checkinSkipped"
 		}
-		eventRef.Params = map[string]any{
+		params := map[string]any{
 			"account": orUsername(account.Username, accountID),
 			"site":    site.Name,
-			"reason":  logMessage,
 		}
+		if eventRef.Key == "checkinSuccess" {
+			// The registry's success definition carries the reward, not a reason:
+			// its MessageEn is the historical "{{account}} @ {{site}}: {{reward}}",
+			// and WriteEvent rejects params a definition does not declare. Sending
+			// reason for every key made each successful check-in lose its event and
+			// leave a WARN behind, so the feed only ever showed failures and skips.
+			params["reward"] = logReward
+		} else {
+			params["reason"] = logMessage
+		}
+		eventRef.Params = params
 		if err := events.WriteEvent(db, eventRef, events.Options{Level: eventLevel, RelatedID: accountID, RelatedType: "account"}); err != nil {
 			slog.Warn("CheckinAccount: failed to persist event", "accountID", accountID, "error", err)
 		}
