@@ -22,8 +22,6 @@ function isRouteIconNoneValue(raw: string | null | undefined): boolean {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-export const ROUTE_BRAND_ICON_PREFIX = 'brand:'
 export const ROUTE_ICON_NONE_VALUE = '__route_icon_none__'
 
 // ---------------------------------------------------------------------------
@@ -73,18 +71,6 @@ export function parseRegexModelPattern(modelPattern: string): ParsedRegex {
   }
 }
 
-export function matchesModelPattern(model: string, pattern: string): boolean {
-  const normalizedPattern = (pattern || '').trim()
-  if (!normalizedPattern) return false
-  const modelName = (model || '').trim()
-  if (!modelName) return false
-  if (isRegexModelPattern(normalizedPattern)) {
-    const parsed = parseRegexModelPattern(normalizedPattern)
-    return parsed.regex ? parsed.regex.test(modelName) : false
-  }
-  return modelName === normalizedPattern
-}
-
 export function getModelPatternError(modelPattern: string): string | null {
   const normalized = (modelPattern || '').trim()
   if (!normalized) return null
@@ -111,25 +97,6 @@ export function normalizeRouteDisplayIconValue(
   const normalized = (raw || '').trim()
   if (isRouteIconNoneValue(normalized)) return ROUTE_ICON_NONE_VALUE
   return normalized
-}
-
-export type ResolvedRouteIcon =
-  | { kind: 'auto' }
-  | { kind: 'none' }
-  | { kind: 'brand'; value: string }
-  | { kind: 'text'; value: string }
-
-export function resolveRouteIcon(
-  displayIcon: string | null | undefined
-): ResolvedRouteIcon {
-  const normalized = (displayIcon || '').trim()
-  if (!normalized) return { kind: 'auto' }
-  if (isRouteIconNoneValue(normalized)) return { kind: 'none' }
-  if (normalized.startsWith(ROUTE_BRAND_ICON_PREFIX)) {
-    const brandKey = normalized.slice(ROUTE_BRAND_ICON_PREFIX.length).trim()
-    if (brandKey) return { kind: 'brand', value: brandKey }
-  }
-  return { kind: 'text', value: normalized }
 }
 
 export function formatContextLength(
@@ -177,34 +144,4 @@ export function normalizeRoutingStrategy(
 
 export function routingStrategyLabel(value: string | null | undefined): string {
   return ROUTING_STRATEGY_LABEL_KEYS[normalizeRoutingStrategy(value)]
-}
-
-// ---------------------------------------------------------------------------
-// Channel draft helpers
-// ---------------------------------------------------------------------------
-
-export function dedupeChannelDrafts(
-  drafts: Array<{
-    accountId: number
-    tokenId?: number
-    sourceModel?: string
-  }>
-): Array<{ accountId: number; tokenId?: number; sourceModel?: string }> {
-  const seen = new Set<string>()
-  const result: Array<{
-    accountId: number
-    tokenId?: number
-    sourceModel?: string
-  }> = []
-  for (const draft of drafts) {
-    const key = `${draft.accountId}::${draft.tokenId ?? 0}::${draft.sourceModel ?? ''}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    result.push({
-      accountId: draft.accountId,
-      tokenId: draft.tokenId || undefined,
-      sourceModel: draft.sourceModel || undefined,
-    })
-  }
-  return result
 }

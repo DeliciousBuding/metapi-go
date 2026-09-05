@@ -1,19 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  ROUTE_BRAND_ICON_PREFIX,
   ROUTE_ICON_NONE_VALUE,
-  dedupeChannelDrafts,
   formatContextLength,
   getModelPatternError,
   isExactModelPattern,
   isRegexModelPattern,
-  matchesModelPattern,
   normalizeRouteDisplayIconValue,
   normalizeRouteMode,
   normalizeRoutingStrategy,
   parseRegexModelPattern,
-  resolveRouteIcon,
   resolveRouteTitle,
   routingStrategyLabel,
 } from '../utils'
@@ -119,33 +115,6 @@ describe('parseRegexModelPattern', () => {
     expect(parsed.error).not.toBeNull()
     expect(typeof parsed.error).toBe('string')
     expect((parsed.error ?? '').length).toBeGreaterThan(0)
-  })
-})
-
-describe('matchesModelPattern', () => {
-  it('matches exact names case-sensitively', () => {
-    expect(matchesModelPattern('gpt-5.5', 'gpt-5.5')).toBe(true)
-    expect(matchesModelPattern('gpt-5.5', 'gpt-5-mini')).toBe(false)
-    expect(matchesModelPattern('GPT-4O', 'gpt-5.5')).toBe(false)
-  })
-
-  it('trims both arguments before matching', () => {
-    expect(matchesModelPattern('  gpt-5.5 ', ' gpt-5.5')).toBe(true)
-  })
-
-  it('uses regex test() for re: patterns', () => {
-    expect(matchesModelPattern('gpt-5.5', 're:^gpt-5')).toBe(true)
-    expect(matchesModelPattern('claude-3', 're:^gpt-5')).toBe(false)
-  })
-
-  it('returns false when the regex body is invalid', () => {
-    expect(matchesModelPattern('gpt-5.5', 're:(')).toBe(false)
-  })
-
-  it('returns false when either argument is empty', () => {
-    expect(matchesModelPattern('', 'gpt-5.5')).toBe(false)
-    expect(matchesModelPattern('gpt-5.5', '')).toBe(false)
-    expect(matchesModelPattern('gpt-5.5', '   ')).toBe(false)
   })
 })
 
@@ -278,47 +247,6 @@ describe('resolveRouteTitle', () => {
   })
 })
 
-describe('resolveRouteIcon', () => {
-  it('returns kind auto for empty / nullish input', () => {
-    expect(resolveRouteIcon('')).toEqual({ kind: 'auto' })
-    expect(resolveRouteIcon('   ')).toEqual({ kind: 'auto' })
-    expect(resolveRouteIcon(null)).toEqual({ kind: 'auto' })
-    expect(resolveRouteIcon(undefined)).toEqual({ kind: 'auto' })
-  })
-
-  it('returns kind none for the none sentinel', () => {
-    expect(resolveRouteIcon(ROUTE_ICON_NONE_VALUE)).toEqual({ kind: 'none' })
-    expect(resolveRouteIcon(`  ${ROUTE_ICON_NONE_VALUE} `)).toEqual({
-      kind: 'none',
-    })
-  })
-
-  it('extracts a brand icon when brand:<key> has a non-empty key', () => {
-    expect(resolveRouteIcon(`${ROUTE_BRAND_ICON_PREFIX}openai`)).toEqual({
-      kind: 'brand',
-      value: 'openai',
-    })
-    expect(resolveRouteIcon(`${ROUTE_BRAND_ICON_PREFIX} anthropic `)).toEqual({
-      kind: 'brand',
-      value: 'anthropic',
-    })
-  })
-
-  it('falls back to text for a brand: prefix with an empty key', () => {
-    expect(resolveRouteIcon(ROUTE_BRAND_ICON_PREFIX)).toEqual({
-      kind: 'text',
-      value: ROUTE_BRAND_ICON_PREFIX,
-    })
-  })
-
-  it('returns kind text for any other literal value', () => {
-    expect(resolveRouteIcon('gpt-5.5')).toEqual({
-      kind: 'text',
-      value: 'gpt-5.5',
-    })
-  })
-})
-
 describe('normalizeRouteDisplayIconValue', () => {
   it('preserves the none sentinel and trims it', () => {
     expect(normalizeRouteDisplayIconValue(ROUTE_ICON_NONE_VALUE)).toBe(
@@ -336,54 +264,5 @@ describe('normalizeRouteDisplayIconValue', () => {
   it('returns an empty string for nullish input', () => {
     expect(normalizeRouteDisplayIconValue(null)).toBe('')
     expect(normalizeRouteDisplayIconValue(undefined)).toBe('')
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Channel draft dedupe
-// ---------------------------------------------------------------------------
-
-describe('dedupeChannelDrafts', () => {
-  it('collapses drafts sharing accountId + tokenId + sourceModel', () => {
-    const drafts = [
-      { accountId: 1, tokenId: 10, sourceModel: 'gpt-5.5' },
-      { accountId: 1, tokenId: 10, sourceModel: 'gpt-5.5' },
-      { accountId: 1, tokenId: 11, sourceModel: 'gpt-5.5' },
-    ]
-    expect(dedupeChannelDrafts(drafts)).toEqual([
-      { accountId: 1, tokenId: 10, sourceModel: 'gpt-5.5' },
-      { accountId: 1, tokenId: 11, sourceModel: 'gpt-5.5' },
-    ])
-  })
-
-  it('keeps drafts that differ only by sourceModel', () => {
-    const drafts = [
-      { accountId: 2, tokenId: 1, sourceModel: 'gpt-5.5' },
-      { accountId: 2, tokenId: 1, sourceModel: 'claude-3' },
-    ]
-    expect(dedupeChannelDrafts(drafts)).toHaveLength(2)
-  })
-
-  it('treats missing tokenId / sourceModel as 0 / empty for the dedupe key', () => {
-    const drafts = [
-      { accountId: 3 },
-      { accountId: 3, tokenId: 0, sourceModel: '' },
-    ]
-    expect(dedupeChannelDrafts(drafts)).toEqual([
-      { accountId: 3, tokenId: undefined, sourceModel: undefined },
-    ])
-  })
-
-  it('normalises tokenId 0 and sourceModel "" to undefined in the output', () => {
-    const result = dedupeChannelDrafts([
-      { accountId: 4, tokenId: 0, sourceModel: '' },
-    ])
-    expect(result).toEqual([
-      { accountId: 4, tokenId: undefined, sourceModel: undefined },
-    ])
-  })
-
-  it('returns an empty array for empty input', () => {
-    expect(dedupeChannelDrafts([])).toEqual([])
   })
 })

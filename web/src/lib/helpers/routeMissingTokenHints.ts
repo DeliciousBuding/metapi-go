@@ -14,16 +14,6 @@ export type MissingTokenModelsByName = Record<
   MissingTokenModelAccount[]
 >
 
-export type RouteMissingTokenHint = {
-  modelName: string
-  accounts: MissingTokenModelAccount[]
-}
-
-type RoutePatternLike = {
-  id: number
-  modelPattern: string
-}
-
 export function normalizeMissingTokenModels(
   withoutTokenByModel: MissingTokenModelsByName
 ): MissingTokenModelsByName {
@@ -74,50 +64,4 @@ export function normalizeMissingTokenModels(
     }
   }
   return normalized
-}
-
-export function buildRouteMissingTokenIndex(
-  routes: RoutePatternLike[],
-  missingByModel: MissingTokenModelsByName,
-  matchesModelPattern: (model: string, pattern: string) => boolean
-): Record<number, RouteMissingTokenHint[]> {
-  const index: Record<number, RouteMissingTokenHint[]> = {}
-
-  for (const route of routes || []) {
-    const modelPattern = (route.modelPattern || '').trim()
-    if (!modelPattern) {
-      index[route.id] = []
-      continue
-    }
-
-    const matchedHints: RouteMissingTokenHint[] = []
-    for (const [modelName, accounts] of Object.entries(missingByModel || {})) {
-      if (!matchesModelPattern(modelName, modelPattern)) continue
-      const dedupedAccounts = new Map<number, MissingTokenModelAccount>()
-      for (const account of accounts || []) {
-        if (!account || !Number.isFinite(account.accountId)) continue
-        dedupedAccounts.set(account.accountId, account)
-      }
-
-      matchedHints.push({
-        modelName,
-        accounts: [...dedupedAccounts.values()].sort((a, b) => {
-          const siteCompare = String(a.siteName || '').localeCompare(
-            String(b.siteName || ''),
-            undefined,
-            { sensitivity: 'base' }
-          )
-          if (siteCompare !== 0) return siteCompare
-          return a.accountId - b.accountId
-        }),
-      })
-    }
-
-    matchedHints.sort((a, b) =>
-      a.modelName.localeCompare(b.modelName, undefined, { sensitivity: 'base' })
-    )
-    index[route.id] = matchedHints
-  }
-
-  return index
 }

@@ -3,58 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   formatCheckinLogTime,
   localDatetimeInputToEpochMs,
-  parseServerUtcDateTime,
-  toLocalDatetimeInputValue,
 } from '../lib/checkin-time'
-
-// ---------------------------------------------------------------------------
-// parseServerUtcDateTime
-// ---------------------------------------------------------------------------
-
-describe('parseServerUtcDateTime', () => {
-  it('returns null for empty / nullish input', () => {
-    expect(parseServerUtcDateTime(null)).toBeNull()
-    expect(parseServerUtcDateTime(undefined)).toBeNull()
-    expect(parseServerUtcDateTime('')).toBeNull()
-    expect(parseServerUtcDateTime('   ')).toBeNull()
-  })
-
-  it('parses a naive UTC string by appending the Z suffix', () => {
-    const date = parseServerUtcDateTime('2026-02-25 03:51:58')
-    expect(date).not.toBeNull()
-    expect(date?.toISOString()).toBe('2026-02-25T03:51:58.000Z')
-  })
-
-  it('parses an ISO string that already carries a Z', () => {
-    const date = parseServerUtcDateTime('2026-02-25T03:51:58Z')
-    expect(date?.toISOString()).toBe('2026-02-25T03:51:58.000Z')
-  })
-
-  it('normalises a bare +0800 offset to +08:00', () => {
-    const date = parseServerUtcDateTime('2026-03-05T20:14:39+0800')
-    expect(date?.toISOString()).toBe('2026-03-05T12:14:39.000Z')
-  })
-
-  it('normalises a bare +08 offset to +08:00 and a space separator to T', () => {
-    const date = parseServerUtcDateTime('2026-03-05 20:14:39+08')
-    expect(date?.toISOString()).toBe('2026-03-05T12:14:39.000Z')
-  })
-
-  it('parses 10-digit epoch seconds', () => {
-    const date = parseServerUtcDateTime('1709640000')
-    expect(date?.toISOString()).toBe('2024-03-05T12:00:00.000Z')
-  })
-
-  it('parses 13-digit epoch milliseconds', () => {
-    const date = parseServerUtcDateTime('1709640000000')
-    expect(date?.toISOString()).toBe('2024-03-05T12:00:00.000Z')
-  })
-
-  it('returns null for unparseable strings', () => {
-    expect(parseServerUtcDateTime('not-a-date')).toBeNull()
-    expect(parseServerUtcDateTime('2026-13-45')).toBeNull()
-  })
-})
 
 // ---------------------------------------------------------------------------
 // formatCheckinLogTime
@@ -114,19 +63,6 @@ describe('formatCheckinLogTime', () => {
 // ---------------------------------------------------------------------------
 // datetime-local input helpers
 // ---------------------------------------------------------------------------
-
-describe('toLocalDatetimeInputValue', () => {
-  it('formats a local Date as YYYY-MM-DDTHH:mm', () => {
-    // new Date(2026, 6, 30, 9, 5) is 30 July 2026, 09:05 local.
-    const value = toLocalDatetimeInputValue(new Date(2026, 6, 30, 9, 5))
-    expect(value).toBe('2026-07-30T09:05')
-  })
-
-  it('zero-pads month / day / hour / minute', () => {
-    const value = toLocalDatetimeInputValue(new Date(2026, 0, 5, 3, 7))
-    expect(value).toBe('2026-01-05T03:07')
-  })
-})
 
 describe('localDatetimeInputToEpochMs', () => {
   it('returns a positive epoch ms for a valid datetime-local value', () => {
