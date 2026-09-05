@@ -325,12 +325,32 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 	}
 	base["message"] = fmt.Sprintf("sync completed: %d created, %d updated, %d total", syncResult.Created, syncResult.Updated, syncResult.Total)
 
+	eventTitle := "Account token sync completed"
+	eventLevel := "info"
+	if switched := syncResult.DefaultSwitch; switched != nil {
+		base["defaultSwitched"] = true
+		base["defaultSwitchedFrom"] = map[string]any{"id": switched.FromTokenID, "name": switched.FromTokenName}
+		base["defaultSwitchedTo"] = map[string]any{"id": switched.ToTokenID, "name": switched.ToTokenName}
+		base["message"] = base["message"].(string) + fmt.Sprintf(
+			"; default relay token switched: %q is no longer listed upstream, now using %q",
+			switched.FromTokenName, switched.ToTokenName,
+		)
+		// The account's relay credential moved without the operator clicking
+		// anything. That is the fact they need after an upstream key rotation, so
+		// it gets its own event at warning instead of folding into a routine
+		// success line.
+		eventTitle = "Account token sync switched the default relay token"
+		eventLevel = "warning"
+	} else if reason := syncResult.DefaultSwitchSkipped; reason != "" {
+		base["defaultSwitchSkipped"] = reason
+	}
+
 	_ = service.CreateEvent(
 		db,
 		"token_sync",
-		"Account token sync completed",
+		eventTitle,
 		base["message"].(string),
-		"info",
+		eventLevel,
 		accountID,
 		"account",
 	)

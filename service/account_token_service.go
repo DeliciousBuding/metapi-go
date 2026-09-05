@@ -485,6 +485,16 @@ type UpstreamAPIToken struct {
 	TokenGroup string
 }
 
+// TokenDefaultSwitch records one convergence SyncTokensFromUpstream had to
+// perform: the stored default relay credential is no longer listed upstream, so
+// the default moved to a key the upstream still lists.
+type TokenDefaultSwitch struct {
+	FromTokenID   int64
+	FromTokenName string
+	ToTokenID     int64
+	ToTokenName   string
+}
+
 // TokenSyncResult summarizes SyncTokensFromUpstream outcomes.
 type TokenSyncResult struct {
 	Created         int
@@ -493,6 +503,13 @@ type TokenSyncResult struct {
 	PendingTokenIDs []int64
 	Total           int
 	DefaultTokenID  *int64
+	// DefaultSwitch is non-nil when the default relay credential moved because
+	// the key it pointed at is gone upstream.
+	DefaultSwitch *TokenDefaultSwitch
+	// DefaultSwitchSkipped names why an absent default was deliberately NOT
+	// re-elected, so a caller can tell "nothing to converge" from "could not
+	// prove the listing was complete". Empty when no skip decision was made.
+	DefaultSwitchSkipped string
 }
 
 // PlatformAPITokensToUpstream converts platform.ApiTokenInfo values to the
@@ -698,6 +715,16 @@ func SyncTokensFromUpstream(db *sqlx.DB, accountID int64, upstreamTokens []Upstr
 		}
 	}
 
+	// Converge the default relay credential before repairing it: an operator who
+	// rotated their upstream key must get a working default from the sync itself,
+	// not from a second manual "set default" click (see the function comment).
+	switched, skipReason, err := convergeDefaultTokenOnUpstreamAbsence(db, accountID, existing, upstreamTokens)
+	if err != nil {
+		return nil, err
+	}
+	result.DefaultSwitch = switched
+	result.DefaultSwitchSkipped = skipReason
+
 	repaired, err := RepairDefaultToken(db, accountID)
 	if err != nil {
 		return nil, err
@@ -708,6 +735,102 @@ func SyncTokensFromUpstream(db *sqlx.DB, accountID int64, upstreamTokens []Upstr
 	}
 	result.Total = len(existing)
 	return result, nil
+}
+
+// convergeDefaultTokenOnUpstreamAbsence re-elects the account's default relay
+// credential when the key it points at is provably gone upstream.
+//
+// Observed failure (v0.19 stability window, Aged run on master 693e4050): an
+// operator deleted one New API key and created another. Re-logging the account
+// in — the one recovery step the docs teach — synced the new key into
+// account_tokens but left the revoked one as is_default, so accounts.api_token
+// kept the dead value, the model refresh failed with "API key is invalid", the
+// route rebuild was skipped with it, and relay stayed 401 then 503 "no available
+// channels" until someone set the default by hand and rebuilt routes. The sync
+// answered success:true the whole time.
+//
+// "Not in the listing" only proves revocation when the listing is the whole
+// truth, so three guards gate the switch:
+//   - the listing is shorter than the adapters' page limit (a full listing may
+//     be truncated, and sub2api answers from two endpoints);
+//   - no listed key is a masked display value (a hydrated real key never equals
+//     its own mask, so absence there would be a hydration artifact, #1179);
+//   - the stored default is a ready row, i.e. its value is comparable at all.
+//
+// Operator intent is never overridden: the replacement must already be enabled,
+// and an absent default with no enabled replacement is left exactly as it was —
+// the relay failure stays loud instead of being traded for a silent guess.
+func convergeDefaultTokenOnUpstreamAbsence(
+	db *sqlx.DB,
+	accountID int64,
+	tokens []store.AccountToken,
+	upstream []UpstreamAPIToken,
+) (*TokenDefaultSwitch, string, error) {
+	var current *store.AccountToken
+	for i := range tokens {
+		if tokens[i].IsDefault {
+			current = &tokens[i]
+			break
+		}
+	}
+	if current == nil || ResolveAccountTokenValueStatus(current) != TokenValueStatusReady {
+		return nil, "", nil
+	}
+	if len(upstream) >= platform.UpstreamTokenListPageLimit {
+		return nil, "upstream_listing_may_be_truncated", nil
+	}
+
+	listed := make(map[string]struct{}, len(upstream))
+	for _, item := range upstream {
+		key := strings.TrimSpace(item.Key)
+		if key == "" {
+			continue
+		}
+		if IsMaskedTokenValue(key) {
+			return nil, "upstream_listing_is_masked", nil
+		}
+		listed[key] = struct{}{}
+	}
+	if _, ok := listed[strings.TrimSpace(current.Token)]; ok {
+		return nil, "", nil
+	}
+
+	var candidate *store.AccountToken
+	for i := range tokens {
+		row := &tokens[i]
+		if row.ID == current.ID || !row.Enabled {
+			continue
+		}
+		if ResolveAccountTokenValueStatus(row) != TokenValueStatusReady {
+			continue
+		}
+		if _, ok := listed[strings.TrimSpace(row.Token)]; !ok {
+			continue
+		}
+		if candidate == nil || row.ID < candidate.ID {
+			candidate = row
+		}
+	}
+	if candidate == nil {
+		return nil, "no_enabled_token_listed_upstream", nil
+	}
+
+	// SetDefaultToken is the existing owner of "which credential does this
+	// account relay with": it clears the other defaults, enables the chosen row
+	// and rewrites accounts.api_token in one transaction.
+	switched, err := SetDefaultToken(db, candidate.ID)
+	if err != nil {
+		return nil, "", err
+	}
+	if !switched {
+		return nil, "replacement_not_usable", nil
+	}
+	return &TokenDefaultSwitch{
+		FromTokenID:   current.ID,
+		FromTokenName: current.Name,
+		ToTokenID:     candidate.ID,
+		ToTokenName:   candidate.Name,
+	}, "", nil
 }
 
 // GetDefaultTokenForAccount returns the default token for an account.

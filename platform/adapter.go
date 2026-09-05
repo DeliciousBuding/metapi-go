@@ -120,6 +120,15 @@ type TokenVerifyResult struct {
 	Models    []string
 }
 
+// UpstreamTokenListPageLimit is the per-endpoint page size every adapter uses
+// when it lists a site's upstream API tokens (new-api/one-api pass it as
+// `size=`, sub2api as `page_size=`). It is exported because a caller that
+// reasons about "this key is not in the upstream list" has to know whether the
+// list could have been truncated: sub2api lists two endpoints, so its combined
+// answer can reach twice this size, and an absent key only proves revocation
+// when the listing was complete.
+const UpstreamTokenListPageLimit = 100
+
 // ApiTokenInfo describes a single API key/token.
 type ApiTokenInfo struct {
 	Name       string `json:"name"`
