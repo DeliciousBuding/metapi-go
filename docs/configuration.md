@@ -113,12 +113,9 @@ silent until their URL/key is set. Every other provider needs its
 | `PROXY_EMPTY_CONTENT_FAIL` | empty | Treat empty upstream content as failure. |
 | `PROXY_ERROR_KEYWORDS` | empty | Extra keywords marking upstream responses as errors. |
 | `DISABLE_CROSS_PROTOCOL_FALLBACK` | empty | Disable OpenAI ⇄ Claude cross-protocol fallback. |
-| `PROXY_STICKY_SESSION_ENABLED` | empty | Pin a session to one channel (process-local). |
 | `PROXY_STICKY_SESSION_TTL_MS` | `1800000` | Sticky binding TTL. |
 | `PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT` | `2` | Concurrent streams per session-channel lease. |
 | `PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS` | `1500` | Queue wait for a busy session channel. |
-| `PROXY_SESSION_CHANNEL_LEASE_TTL_MS` | `90000` | Session-channel lease lifetime in ms. |
-| `PROXY_SESSION_CHANNEL_LEASE_KEEPALIVE_MS` | `15000` | Keepalive interval that renews an in-use session-channel lease; floored at 1000 ms. |
 | `PROXY_CONNECT_TIMEOUT_SEC` | `2` | TCP dial (connect) timeout for outbound upstream requests. |
 | `PROXY_TLS_HANDSHAKE_TIMEOUT_SEC` | `10` | TLS handshake timeout. |
 | `PROXY_RESPONSE_HEADER_TIMEOUT_SEC` | `30` | How long to wait for upstream response headers. |
@@ -216,7 +213,7 @@ upstream request; …`), since it describes a static misconfiguration.
 
 | Variable | Description |
 |:---------|:------------|
-| `CLAUDE_CLIENT_ID` / `CLAUDE_CLIENT_SECRET` | Override bundled Claude OAuth app (secret has no fallback). |
+| `CLAUDE_CLIENT_ID` | Override bundled Claude OAuth app (PKCE public client; no secret). |
 | `CODEX_CLIENT_ID` | Override bundled Codex OAuth app. |
 | `GEMINI_CLI_CLIENT_ID` / `GEMINI_CLI_CLIENT_SECRET` | Gemini CLI override (set both). |
 
@@ -226,8 +223,6 @@ upstream request; …`), since it describes a static misconfiguration.
 |:---------|:--------|:------------|
 | `CODEX_UPSTREAM_WEBSOCKET_ENABLED` | empty | Codex upstream WebSocket transport (C3); non-upgrade GETs get an honest 426. |
 | `CODEX_RESPONSES_WEBSOCKET_BETA` | empty | Responses-over-WS beta header. |
-| `CODEX_HEADER_DEFAULTS_USER_AGENT` | empty | `User-Agent` sent to Codex upstreams; empty keeps the built-in default. |
-| `CODEX_HEADER_DEFAULTS_BETA_FEATURES` | empty | Anthropic `anthropic-beta`-style feature header value sent to Codex upstreams; empty keeps the built-in default. |
 
 ## Misc
 

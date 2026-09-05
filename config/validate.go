@@ -175,26 +175,6 @@ func (c *Config) Validate() []error {
 		})
 	}
 
-	// --- Critical/Warning: Lease keepalive vs TTL sanity ---
-	// keepalive > TTL is a genuine correctness bug: the lease expires before
-	// the renewal heartbeat can land, so sessions silently drop. keepalive ==
-	// TTL is borderline (no renewal headroom) and only warrants a warning.
-	if c.ProxySessionChannelLeaseKeepaliveMs > c.ProxySessionChannelLeaseTtlMs {
-		errs = append(errs, &configError{
-			field:    "proxy_session_channel_lease_keepalive_ms",
-			value:    fmt.Sprintf("%d > %d (ttl)", c.ProxySessionChannelLeaseKeepaliveMs, c.ProxySessionChannelLeaseTtlMs),
-			msg:      "keepalive interval must be < lease TTL — leases expire before renewal",
-			critical: true,
-		})
-	} else if c.ProxySessionChannelLeaseKeepaliveMs == c.ProxySessionChannelLeaseTtlMs && c.ProxySessionChannelLeaseTtlMs > 0 {
-		errs = append(errs, &configError{
-			field:    "proxy_session_channel_lease_keepalive_ms",
-			value:    fmt.Sprintf("%d == %d (ttl)", c.ProxySessionChannelLeaseKeepaliveMs, c.ProxySessionChannelLeaseTtlMs),
-			msg:      "keepalive equals TTL — set keepalive strictly less than TTL for renewal headroom",
-			critical: false,
-		})
-	}
-
 	// --- Warning: negative values silently disable limits ---
 	// Consumers treat <=0 as disabled, so a negative configures "disabled"
 	// without the operator realizing it. Recommend 0 for explicit disable.
@@ -224,11 +204,14 @@ func (c *Config) Validate() []error {
 	}
 
 	// --- Warning: range checks for proxy session / router knobs ---
-	if c.ProxyStickySessionEnabled && c.ProxyStickySessionTtlMs <= 0 {
+	// Unconditional now that PROXY_STICKY_SESSION_ENABLED is gone: the Codex WS
+	// runtime always applies ProxyStickySessionTtlMs, so a non-positive TTL was
+	// never "disabled", it was just clamped away by Load.
+	if c.ProxyStickySessionTtlMs <= 0 {
 		errs = append(errs, &configError{
 			field:    "proxy_sticky_session_ttl_ms",
 			value:    fmt.Sprintf("%d", c.ProxyStickySessionTtlMs),
-			msg:      "should be > 0 when sticky sessions are enabled",
+			msg:      "should be > 0",
 			critical: false,
 		})
 	}

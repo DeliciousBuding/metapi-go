@@ -61,7 +61,6 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 		AccountCredentialSecret:   "test-cred-secret-shutdown",
 		DataDir:                   dataDir,
 		ProxyMaxChannelAttempts:   3,
-		ProxyStickySessionEnabled: false,
 		ProxyStickySessionTtlMs:   30000,
 		TokenRouterCacheTtlMs:     1500,
 		RequestBodyLimit:          20 * 1024 * 1024,

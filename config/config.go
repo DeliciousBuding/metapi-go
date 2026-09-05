@@ -36,12 +36,6 @@ func GetSafe() *Config {
 	return staticCfg.Load()
 }
 
-// CodexHeaderDefaults holds Codex-specific HTTP header defaults.
-type CodexHeaderDefaults struct {
-	UserAgent    string
-	BetaFeatures string
-}
-
 // RoutingWeights holds the weight factors for the routing algorithm.
 type RoutingWeights struct {
 	BaseWeightFactor float64
@@ -58,9 +52,8 @@ type Config struct {
 	AccountCredentialSecret string
 	CodexClientId           string
 
-	// OAuth Clients (4 fields)
+	// OAuth Clients (3 fields)
 	ClaudeClientId        string
-	ClaudeClientSecret    string
 	GeminiCliClientId     string
 	GeminiCliClientSecret string
 
@@ -218,13 +211,9 @@ type Config struct {
 	PricingCatalogRefreshMin int
 	PricingCatalogURL        string
 
-	// Proxy: Channel (3 fields)
-	ProxyMaxChannelAttempts   int
-	ProxyStickySessionEnabled bool
-	ProxyStickySessionTtlMs   int
-
-	ProxySessionChannelLeaseTtlMs       int
-	ProxySessionChannelLeaseKeepaliveMs int
+	// Proxy: Channel (2 fields)
+	ProxyMaxChannelAttempts int
+	ProxyStickySessionTtlMs int
 
 	// ProxyMaxStreamResponseBytes caps the total bytes relayed for a single
 	// SSE stream before a controlled termination (default 1 MB). Parsed once
@@ -248,9 +237,8 @@ type Config struct {
 	PromptFilterEnabled      bool
 	PromptFilterDenyPatterns []string
 
-	// Codex-specific (3 fields)
+	// Codex-specific (2 fields)
 	CodexResponsesWebsocketBeta string
-	CodexHeaderDefaults         CodexHeaderDefaults
 
 	// Model Probe (3 fields; ModelAvailabilityProbeEnabled is runtime-mutable
 	// and lives in RuntimeSettings)
@@ -497,7 +485,6 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 
 	// ---- §3.2 OAuth Clients ----
 	cfg.ClaudeClientId = firstNonEmpty(parseOptionalSecret(get("CLAUDE_CLIENT_ID")), DefaultClaudeClientId)
-	cfg.ClaudeClientSecret = parseOptionalSecret(get("CLAUDE_CLIENT_SECRET"))
 	cfg.GeminiCliClientId = firstNonEmpty(parseOptionalSecret(get("GEMINI_CLI_CLIENT_ID")), DefaultGeminiCliClientId)
 	cfg.GeminiCliClientSecret = firstNonEmpty(parseOptionalSecret(get("GEMINI_CLI_CLIENT_SECRET")), DefaultGeminiCliClientSecret)
 
@@ -707,14 +694,11 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// consumer (GetProxyMaxChannelAttempts) already clamps <=0 to 1, so the
 	// only observable effect of a negative is the startup warning.
 	cfg.ProxyMaxChannelAttempts = int(math.Trunc(parseNumber(get("PROXY_MAX_CHANNEL_ATTEMPTS"), DefaultProxyMaxChannelAttempts)))
-	cfg.ProxyStickySessionEnabled = parseBoolean(get("PROXY_STICKY_SESSION_ENABLED"), true)
 	cfg.ProxyStickySessionTtlMs = max(30000, int(math.Trunc(parseNumber(get("PROXY_STICKY_SESSION_TTL_MS"), float64(DefaultProxyStickySessionTtlMs)))))
 
 	// ---- §3.16 Proxy: Session ----
 	rt.ProxySessionChannelConcurrencyLimit = max(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT"), DefaultProxySessionChannelConcurrencyLimit))))
 	rt.ProxySessionChannelQueueWaitMs = max(0, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS"), DefaultProxySessionChannelQueueWaitMs))))
-	cfg.ProxySessionChannelLeaseTtlMs = max(5000, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_LEASE_TTL_MS"), DefaultProxySessionChannelLeaseTtlMs))))
-	cfg.ProxySessionChannelLeaseKeepaliveMs = max(1000, int(math.Trunc(parseNumber(get("PROXY_SESSION_CHANNEL_LEASE_KEEPALIVE_MS"), DefaultProxySessionChannelLeaseKeepaliveMs))))
 
 	// ---- §3.17 Proxy: Misc ----
 	rt.CodexUpstreamWebsocketEnabled = parseBoolean(get("CODEX_UPSTREAM_WEBSOCKET_ENABLED"), false)
@@ -751,10 +735,6 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 		parseOptionalSecret(get("CODEX_RESPONSES_WEBSOCKET_BETA")),
 		"responses_websockets=2026-02-06",
 	)
-	cfg.CodexHeaderDefaults = CodexHeaderDefaults{
-		UserAgent:    parseOptionalSecret(get("CODEX_HEADER_DEFAULTS_USER_AGENT")),
-		BetaFeatures: parseOptionalSecret(get("CODEX_HEADER_DEFAULTS_BETA_FEATURES")),
-	}
 
 	// ---- §3.20 Model Probe ----
 	rt.ModelAvailabilityProbeEnabled = parseBoolean(get("MODEL_AVAILABILITY_PROBE_ENABLED"), false)

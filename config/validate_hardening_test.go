@@ -11,24 +11,21 @@ import (
 // appears. Runtime-mutable fields live on validBaseRuntime.
 func validBaseConfig() *Config {
 	return &Config{
-		AccountCredentialSecret:             "credential-secret-1234567890",
-		ClaudeClientId:                      "claude-client-id",
-		CodexClientId:                       "codex-client-id",
-		GeminiCliClientId:                   "gemini-cli-client-id",
-		Port:                                4000,
-		ListenHost:                          "0.0.0.0",
-		DbMaxOpenConns:                      10,
-		DbMaxIdleConns:                      3,
-		DbConnMaxLifetimeSec:                1800,
-		DbConnMaxIdleTimeSec:                300,
-		ProxyRateLimitRPM:                   60,
-		ProxyGlobalTokenRPM:                 0,
-		ProxyMaxChannelAttempts:             3,
-		ProxyStickySessionEnabled:           false,
-		ProxyStickySessionTtlMs:             30 * 60 * 1000,
-		TokenRouterCacheTtlMs:               1500,
-		ProxySessionChannelLeaseTtlMs:       90000,
-		ProxySessionChannelLeaseKeepaliveMs: 15000,
+		AccountCredentialSecret: "credential-secret-1234567890",
+		ClaudeClientId:          "claude-client-id",
+		CodexClientId:           "codex-client-id",
+		GeminiCliClientId:       "gemini-cli-client-id",
+		Port:                    4000,
+		ListenHost:              "0.0.0.0",
+		DbMaxOpenConns:          10,
+		DbMaxIdleConns:          3,
+		DbConnMaxLifetimeSec:    1800,
+		DbConnMaxIdleTimeSec:    300,
+		ProxyRateLimitRPM:       60,
+		ProxyGlobalTokenRPM:     0,
+		ProxyMaxChannelAttempts: 3,
+		ProxyStickySessionTtlMs: 30 * 60 * 1000,
+		TokenRouterCacheTtlMs:   1500,
 	}
 }
 
@@ -106,26 +103,6 @@ func assertNoErrorIn(t *testing.T, errs []error, substr string) {
 	}
 }
 
-func TestValidateLeaseKeepaliveExceedsTtlIsCritical(t *testing.T) {
-	cfg := validBaseConfig()
-	cfg.ProxySessionChannelLeaseKeepaliveMs = 30000
-	cfg.ProxySessionChannelLeaseTtlMs = 10000
-	assertHasError(t, cfg, "proxy_session_channel_lease_keepalive_ms", true)
-}
-
-func TestValidateLeaseKeepaliveEqualsTtlIsWarning(t *testing.T) {
-	cfg := validBaseConfig()
-	cfg.ProxySessionChannelLeaseKeepaliveMs = 30000
-	cfg.ProxySessionChannelLeaseTtlMs = 30000
-	assertHasError(t, cfg, "proxy_session_channel_lease_keepalive_ms", false)
-}
-
-func TestValidateLeaseKeepaliveBelowTtlIsClean(t *testing.T) {
-	cfg := validBaseConfig()
-	// keepalive (15000) < ttl (90000): the healthy default path must not warn.
-	assertNoErrorFor(t, cfg, "proxy_session_channel_lease_keepalive_ms")
-}
-
 func TestValidateNegativeProxyRateLimitRPMIsWarning(t *testing.T) {
 	cfg := validBaseConfig()
 	cfg.ProxyRateLimitRPM = -5
@@ -173,16 +150,8 @@ func TestValidateConcurrencyLimitBelowOneIsWarning(t *testing.T) {
 
 func TestValidateStickySessionTtlNonPositiveIsWarning(t *testing.T) {
 	cfg := validBaseConfig()
-	cfg.ProxyStickySessionEnabled = true
 	cfg.ProxyStickySessionTtlMs = 0
 	assertHasError(t, cfg, "proxy_sticky_session_ttl_ms", false)
-}
-
-func TestValidateStickySessionDisabledSkipsTtlCheck(t *testing.T) {
-	cfg := validBaseConfig()
-	cfg.ProxyStickySessionEnabled = false
-	cfg.ProxyStickySessionTtlMs = 0 // disabled, so ttl is irrelevant
-	assertNoErrorFor(t, cfg, "proxy_sticky_session_ttl_ms")
 }
 
 func TestValidateTokenRouterCacheTtlNonPositiveIsWarning(t *testing.T) {

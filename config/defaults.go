@@ -131,8 +131,6 @@ const (
 	DefaultProxyStickySessionTtlMs             = 30 * 60 * 1000 // 30 minutes
 	DefaultProxySessionChannelConcurrencyLimit = 2
 	DefaultProxySessionChannelQueueWaitMs      = 1500
-	DefaultProxySessionChannelLeaseTtlMs       = 90000
-	DefaultProxySessionChannelLeaseKeepaliveMs = 15000
 
 	DefaultModelAvailabilityProbeIntervalMs  = 30 * 60 * 1000 // 30 minutes
 	DefaultModelAvailabilityProbeTimeoutMs   = 15000
