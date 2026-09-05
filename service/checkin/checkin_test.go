@@ -64,42 +64,6 @@ func TestIsAlreadyCheckedInMessage_Negative(t *testing.T) {
 	}
 }
 
-// ---- isUnsupportedCheckinMessage Tests (7 patterns) ----
-
-func TestIsUnsupportedCheckinMessage_Positive(t *testing.T) {
-	positiveCases := []string{
-		"invalid url (POST /api/user/checkin)",
-		"HTTP 404 /api/user/checkin not found",
-		"checkin endpoint not found",
-		"check-in is not supported",
-		"checkin is not supported",
-		"this site does not support checkin",
-		"does not support checkin feature",
-	}
-	for _, msg := range positiveCases {
-		t.Run(msg, func(t *testing.T) {
-			if !isUnsupportedCheckinMessage(msg) {
-				t.Errorf("expected true for: %q", msg)
-			}
-		})
-	}
-}
-
-func TestIsUnsupportedCheckinMessage_Negative(t *testing.T) {
-	negativeCases := []string{
-		"",
-		"checkin success",
-		"normal error message",
-	}
-	for _, msg := range negativeCases {
-		t.Run(msg, func(t *testing.T) {
-			if isUnsupportedCheckinMessage(msg) {
-				t.Errorf("expected false for: %q", msg)
-			}
-		})
-	}
-}
-
 // ---- isManualVerificationRequiredMessage Tests ----
 
 func TestIsManualVerificationRequiredMessage_Positive(t *testing.T) {

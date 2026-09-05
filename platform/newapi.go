@@ -553,6 +553,14 @@ func shouldFallbackToCookieCheckin(msg string) bool {
 		strings.Contains(lower, "未提供")
 }
 
+// isMissingCheckinEndpointMessage gates one decision only: whether the cookie
+// retry ladder is worth climbing after the Bearer attempt already said the
+// endpoint is not there. It is deliberately NOT the product-level "this site has
+// no check-in" classifier — that owner is service.IsUnsupportedCheckinMessage,
+// which also carries the localized upstream wordings (New API answers
+// 签到功能未启用) and decides status, failure_reason, runtime health and the
+// event level. platform cannot import service, so the two lists stay separate;
+// they answer different questions and only the second one is user-visible.
 func isMissingCheckinEndpointMessage(msg string) bool {
 	lower := strings.ToLower(msg)
 	return strings.Contains(lower, "invalid url (post /api/user/checkin)") ||
