@@ -20,7 +20,6 @@ const (
 	antigravityLoopbackRedirectURI   = "http://localhost:51121/oauth-callback"
 	antigravityGoogleAPIClient       = "google-cloud-sdk vscode_cloudshelleditor/0.1"
 	antigravityUserAgent             = "google-api-nodejs-client/9.15.1"
-	antigravityModelsUserAgent       = "antigravity/1.19.6 darwin/arm64"
 	antigravityClientMetadata        = `{"ideType":"IDE_UNSPECIFIED","platform":"PLATFORM_UNSPECIFIED","pluginType":"GEMINI"}`
 	antigravityInternalAPIVersion    = "v1internal"
 	antigravityOnboardPollIntervalMs = 2000

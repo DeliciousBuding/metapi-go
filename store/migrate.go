@@ -82,36 +82,5 @@ func AutoMigrate(db *DB) error {
 	return nil
 }
 
-// ---- DDL helper functions ----
-
-// btype returns the boolean column type for a given dialect.
-func btype(d string) string {
-	if d == DialectPostgres {
-		return "BOOLEAN"
-	}
-	return "INTEGER" // SQLite stores 0/1
-}
-
-// rtype returns the real/float column type for a given dialect.
-func rtype(d string) string {
-	if d == DialectPostgres {
-		return "DOUBLE PRECISION"
-	}
-	return "REAL"
-}
-
-// serialPK returns the auto-increment PK column definition.
-func serialPK(d string) string {
-	if d == DialectPostgres {
-		return "SERIAL PRIMARY KEY"
-	}
-	return "INTEGER PRIMARY KEY AUTOINCREMENT"
-}
-
-// textPK returns the text PK column definition (for settings, checkpoints).
-func textPK(d string) string {
-	return "TEXT PRIMARY KEY"
-}
-
-// isPostgres is a short helper.
+// isPG reports whether the dialect is PostgreSQL.
 func isPG(d string) bool { return d == DialectPostgres }
