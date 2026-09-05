@@ -93,7 +93,9 @@ git add visual-baselines/*.png && git commit
 注意事项：
 
 - 基线必须在装满 `fonts-noto-cjk` 的 Linux 上生成（CI 已装；Windows 上
-  生成的基线字型渲染与 CI 不一致，勿用）。
+  生成的基线字型渲染与 CI 不一致，勿用）。#1260 之后正文中文走内置
+  Noto Sans SC Variable（与平台无关），但这条前提仍然成立：mono 上下文里的
+  CJK 仍走系统字体，删掉 `fonts-noto-cjk` 会让基线出豆腐块。
 - 服务器须跑 fresh sqlite DATA_DIR（空库 → 页面无时间敏感内容，基线跨天稳定）。
 - `maxDiffPixelRatio: 0.01` 只容忍抗锯齿亚像素抖动；布局漂移会超量级。
 
