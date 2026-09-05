@@ -4,87 +4,103 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 打 tag 时 CI 把 `## [vX.Y.Z]` 段逐字抽成该版本的 GitHub release body。**那是快照，不是引用**：tag 之后再改这里，已发布版本的发布页不跟着变。
 
-写作契约（由 `docs/doc_hygiene_test.go` 机械守着，不靠自觉）：
+**写作契约**（由 `docs/doc_hygiene_test.go` 机械守着，不靠自觉）
 
-- **读者是部署和调用 Metapi 的人**。一条只回答两件事：行为怎么变了、我要不要动手。
-- **一条 ≤ 220 字符**（约终端两行）。超了只有两条出路：拆条，或者**指向该事实的 owner 文档**——环境变量清单、错误码表、端点清单都各有 SSOT 与门禁，本文件指路，不抄第二份。
-- **必须写进来**：端点路径、环境变量名与默认值变化、表名与列名、HTTP 状态码变化、新增日志级别、升级后要做的动作（重新登录、多带一个头、备份不再含某张表）。这是本文件唯一不可省略的部分。
-- **不许写进来**：为什么以前是错的（取证链、`⇒`）、内部 Go 符号名与文件名、测试与门禁的形状、行数与计数。它们在 commit body 与 PR 里，`git log --grep '#1210'` 一步到达。
-- **同族合并**：同一根因或同一批次的多条并成一条「××批（#a、#b、#c）」；`开发者可见` 每版至多**一节**（门数的是节，不是条——v0.19.0 / v0.18.0 / v0.17.0 各有两条）。
-- 编号写 `#问题 → #PR`；只有一个编号时它就是 PR。
-- 分节固定 `安全` `修复` `变更` `移除` `开发者可见` `文档` `已知遗留`，空节不写；`已知遗留` 只收**运维可见的残留**（配了不生效、旧数据留一行、会无界增长），有 issue 的开放项看 GitHub issues。v0.16.23 及更早沿用当年的 `Added` / `Changed` / `Fixed`。
-- **v0.16.12 及更早逐字保留**（本身已经够短）。v0.16.13–v0.19.0 于 2026-09-05 按本契约做过第三次压缩：编号、运维动作与事实未减，取证细节与标识符副本退出；这几版的发布页仍是压缩前长文。
+- 读者是部署和调用 Metapi 的人。一条只回答两件事：行为怎么变了、我要不要动手。
+- 条目形状 `- <主体>：<事实>（#问题 → #PR）`。主体是标识符（端点、环境变量、表名、脚本）或最短名词短语，**不是修辞标题**；粗体只留给运维必须看见的动作，不当语气强调用。
+- **必须写进来**：端点路径、环境变量名与默认值变化、表名与列名、HTTP 状态码变化、新增日志级别、升级后要做的动作。这是本文件唯一不可省略的部分。
+- **不许写进来**：为什么以前是错的、内部 Go 符号与文件名、测试与门禁的形状、行数与计数。它们在 commit body 与 PR 里，`git log --grep '#1210'` 一步到达。
+- 一条 ≤ 170 字符，**这是上限不是配额**。超了只有两条出路：拆条，或指向该事实的 owner 文档——环境变量清单、错误码表、端点清单各有 SSOT 与门禁，本文件指路，不抄第二份。
+- 同族合并：同一根因或同一 PR 的多条并成一条。`开发者可见` 每版至多**一节**（门数的是节，不是条）。
+- 分节固定 `安全` `修复` `变更` `移除` `开发者可见` `文档` `已知遗留`，空节不写；v0.16.23 及更早沿用当年的 `Added` / `Changed` / `Fixed` / `Security` / `Docs`。`已知遗留` 只收**运维可见的残留**（配了不生效、旧数据留一行、会无界增长），有 issue 的开放项看 GitHub issues。
+
+**两个分区**
+
+- **治理区**（v0.16.13 起）：全条目受上述契约与门禁约束。
+- **归档区**（v0.16.12 及更早）：每版只留安全修复、破坏性变更与运维动作。这些版本的全文逐字保存在各自的 [release 页](https://github.com/DeliciousBuding/metapi-go/releases)——已逐版核对，发布页与归档前的本文件段落字节一致——UI 与交互级修复因此不在这里抄第二份。
 
 ## [v0.19.0] — 2026-09-04
 
-> 核心链（站点 → 账号 → 长期凭据 → 模型 → 路由 → 可用通道 → 下游密钥 → `/v1/models` → `/v1/chat/completions`）做成可重复、可解释、可恢复的契约（#1215）。**无新增产品面。**
+> 核心链（站点 → 账号 → 长期凭据 → 模型 → 路由 → 可用通道 → 下游密钥 → `/v1/models` → `/v1/chat/completions`）做成可重复、可解释、可恢复的契约（#1215）。无新增产品面。
 
 ### 修复
 
-- **balance 刷新失败带分类原因（#1210 → #1211）**：稳定前缀 + 分类后缀，如 `balance refresh failed: upstream rejected the credential (HTTP 401)`；上游 URL、token 与原文不进响应（原文进 WARN）。同批：余额读库失败不再回 404。
-- **PostgreSQL 备份导入后重置 id 序列（#1217 → #1218）**：此前恢复后的第一次写入撞 `duplicate key value violates unique constraint "sites_pkey"`。SQLite 不受影响。
-- **`model_probe_results` 有了保留期（#1221 → #1222）**：此前没有任何 DELETE 路径。现按 7 天窗口每小时清理，豁免每个 `(account_id, model_name)` 的最新一行（路由重建读的就是它）。无新配置项。
-- **账号详情抽屉逐条报出通道真正使用的凭据来源（#1219 → #1220）**：不再用一个笼统状态掩盖；下游密钥的空 model policy 明确显示为 deny-all。
+- balance 刷新失败返回分类原因，如 `balance refresh failed: upstream rejected the credential (HTTP 401)`；上游 URL、token 与原文不进 body（原文进 WARN）；余额读库失败不再回 404（#1210 → #1211）。
+- PostgreSQL 备份导入后重置 id 序列，恢复后的首次写入不再撞 `sites_pkey` 唯一约束；SQLite 不受影响（#1217 → #1218）。
+- `model_probe_results` 有了保留期：7 天窗口、每小时清理，豁免每个 `(account_id, model_name)` 的最新一行（路由重建读它）。无新配置项（#1221 → #1222）。
+- 账号详情抽屉逐条报出每个通道实际使用的凭据来源，不再合并成一个笼统状态；下游密钥的空 model policy 显示为 deny-all（#1219 → #1220）。
 
 ### 变更
 
-- **`scripts/e2e/verify-token-import.sh` 兑现「可重跑」（#1209 → #1212）**：账号已存在时用本轮已验证的同一枚凭据 `PUT /api/accounts/{id}` 收敛（不二次签发），site / account / key / route 各自打印 `created` / `reused` / `refreshed`。
+- `scripts/e2e/verify-token-import.sh` 可重跑：账号已存在时用本轮同一枚已验证凭据走 `PUT /api/accounts/{id}` 收敛，不二次签发（#1209 → #1212）。
+- 同脚本对 site / account / key / route 逐个打印 `created` / `reused` / `refreshed`（#1212）。
 
 ### 开发者可见
 
-- **核心链四态门进 CI（#1213、#1216、#1212）**：Fresh 之外新增 Restart（同一 data dir 重启）、Aged（老化存量凭据）、Restore（备份导入全新 data dir），三态都要求真实 completion 成功。
-- **前端验收补上尾段（#1220）**：UI 签发密钥后由独立 HTTP 客户端（无页面、无 admin token）真调 `/v1/chat/completions`，并按 `EXPECT_SERVER_COMMIT` 对 `/api/about` 做身份 preflight。架构边界门扫不到文件时不再判通过（#1214）。
+- 核心链 CI 门由 Fresh 一态扩为四态：Restart（同一 data dir 重启）、Aged（老化存量凭据）、Restore（备份导入全新 data dir），三态都要求真实 completion 成功（#1213、#1216、#1212）。
+- 前端验收补上尾段：UI 签发密钥后由独立 HTTP 客户端（无页面、无 admin token）真调 `/v1/chat/completions`，并按 `EXPECT_SERVER_COMMIT` 对 `/api/about` 做身份 preflight（#1220）。
+- 架构边界门扫不到文件时判失败，不再判通过（#1214）。
 
 ### 已知遗留
 
-- `admin_audit_logs` 与 `checkin_logs` 仍无保留期，随运行无界增长（清审计历史是需要运营点头的产品决定）。
+- `admin_audit_logs` 与 `checkin_logs` 无保留期，随运行无界增长；清审计历史是需要运营点头的产品决定，本版未做。
 
 ## [v0.18.0] — 2026-09-03
 
-> 减法版本：删掉从未发布或从未接线的面，同时根修 New API 主链上三个各自足以致死的缺陷——凭据 15 分钟就过期、令牌存的是掩码显示值、模型要等凌晨 4 点才同步，三个都表现为「无可用渠道」。**升级后需要重新登录一次账号；令牌不需要手工绑定。**
+> 减法版本：删掉从未发布或从未接线的面，同时根修 New API 主链。**升级后重新登录一次账号；令牌由账号同步，不需要手工绑定。**
 
 ### 修复
 
-- **New API 中继链从「看起来绑上」变成持久（#1179 → #1187）**：① 约 15 分钟的登录 JWT 提升为长期 PAT，**发不出持久凭据就拒绝绑定**，并撤销临时上游会话；② 掩码显示值不再当 relay key 落库，改经 `POST /api/token/batch/keys` hydrate，hydrate 不出来即报错（UI 保持 `masked_pending`）；③ 登录后立即同步模型，不再等后台调度。
-- **`503 No available channels` 说清为什么（#1179 → #1186）**：一行结论加主候选拒绝原因（无启用路由匹配该模型／通道令牌未绑定或停用／全部冷却或下游密钥策略排除站点），同时进 503 body。
-- **重建路由不再随发出它的 HTTP 请求一起死（#1174 → #1185）**：`POST /api/routes/rebuild` 此前跑在请求 context 上，客户端 30s 挂断后日志只剩 `context canceled`；现改 30 分钟独立预算。`POST /api/settings/maintenance/clear-cache` 也不再删掉重建要用的输入（清业务行是 `factory-reset` 的职责）。
-- **账号编辑保存的 `credentialMode` 不再蒸发（#1176 → #1184）**：更新 payload 缺该字段、handler 静默丢弃，改成 session、拿到成功 toast、重开又是 API key；现进 payload 并在碰任何凭据字段之前解析（此前切 session 也会把 session 凭据抄进 `api_token`），撑不起的模式回 400。
-- **AnyRouter 校验失败说明它要什么凭据（#1133 → #1195）**：`token verification failed` 改为明确指引——必须用 session 模式，字段接受 `session=<value>` 或完整 `Cookie:` 头。
-- **删表不再让删除之前写的备份恢复不了（#1201）**：有效旧备份此前变 `400 unknown table proxy_debug_traces`。现按来源区分：真导出文件里的未知 key ＝本 build 已删的表，跳过并在 import 与 preview 响应里报 `ignoredTables`；策略排除表与手写 JSON 的未知 key 仍 400。
-- **「同步站点令牌」幂等（#1193 → #1196）**：上游掩码 relay key 时行永远匹配不上 ready 行，每次同步都 INSERT 一份副本；现按精确 key 值匹配，UPDATE 保留 `value_status`。
+- New API 登录凭据持久化：约 15 分钟的登录 JWT 提升为长期 PAT，**发不出持久凭据就拒绝绑定**，并撤销临时上游会话（#1179 → #1187）。
+- 掩码显示值不再当 relay key 落库，改经 `POST /api/token/batch/keys` hydrate，hydrate 不出即报错（UI 状态 `masked_pending`）；登录后立即同步模型，不等后台调度（#1179 → #1187）。
+- `503 No available channels` 带主候选拒绝原因（无启用路由匹配该模型／通道令牌未绑定或停用／全部冷却或下游密钥策略排除站点），同时进 503 body（#1179 → #1186）。
+- `POST /api/routes/rebuild` 脱离请求 context、改 30 分钟独立预算，客户端挂断不再连带取消重建（#1174 → #1185）。
+- `POST /api/settings/maintenance/clear-cache` 不再删掉路由重建所需的输入；清业务行是 `factory-reset` 的职责（#1185）。
+- 账号编辑的 `credentialMode` 进更新 payload 且在碰任何凭据字段之前解析：切 session 不再把 session 凭据抄进 `api_token`，撑不起的模式回 400（#1176 → #1184）。
+- AnyRouter 校验失败改报所需凭据形状：必须 session 模式，字段接受 `session=<value>` 或完整 `Cookie:` 头（原文案只有 `token verification failed`）（#1133 → #1195）。
+- 删表后旧备份仍可导入：真导出文件里属于本 build 已删表的未知 key 跳过，import 与 preview 响应报 `ignoredTables`；策略排除表与手写 JSON 的未知 key 仍 400（#1201）。
+- 「同步站点令牌」幂等：按精确 key 值匹配已有行并 UPDATE（保留 `value_status`），上游只给掩码 relay key 时不再每次 INSERT 一份副本（#1193 → #1196）。
 
 ### 移除
 
-- **未发布的 Electron 桌面外壳（#1197）**：连同公开、未认证、只为托盘而设的 `GET /api/desktop/health`。
-- **proxy debug-trace 子系统（#1199、#1201）**：两张表、两个读路由、九个 `PROXY_DEBUG_*` 开关及其设置 UI；同批移除 `proxy_files`、`admin_snapshots` 两张表及其调度器与 `PROXY_FILE_RETENTION_*`。
-- **update-center 的五个操作臂（#1201）**：`POST /api/update-center/check`、`PUT /config`、`POST /deploy`、`POST /rollback`、`GET /tasks/{id}/stream` 与 `METAPI_ENABLE_UPDATE_CENTER`；只读状态卡保留。
-- **model-tester 的流式与任务臂（#1201）**：`/api/test/proxy`、`/api/test/chat/stream` 及各自 jobs 端点；同步探针 `POST /api/test/chat` 保留。
-- **无实现者与无调用者的代码（#1187、#1190、#1198、#1201、#1204）**：一个只被测试 mock 养活的路由刷新接口家族、`RESPONSES_COMPACT_FALLBACK_TO_RESPONSES_ENABLED`、死 pricing override 链、六个零引用 helper、四个不可能失败的测试。
-- **16 份维护者过程史移出公开仓（#1191、#1194）**：角色改由 GitHub issues 与 releases、本文件、`docs/architecture.md` 承接。
+- 未发布的 Electron 桌面外壳，连同公开、未认证、只为托盘而设的 `GET /api/desktop/health`（#1197）。
+- proxy debug-trace 子系统：`proxy_debug_traces` / `proxy_debug_attempts` 两表、其读路由、`PROXY_DEBUG_*` 开关族与设置 UI（#1199、#1201）。
+- 同批移除 `proxy_files`、`admin_snapshots` 两表及其调度器与 `PROXY_FILE_RETENTION_*`（#1201）。
+- update-center 只留只读状态卡：移除 `POST /api/update-center/check`、`PUT /config`、`POST /deploy`、`POST /rollback`、`GET /tasks/{id}/stream`（#1201）。
+- 同批移除 `METAPI_ENABLE_UPDATE_CENTER`（#1201）。
+- model-tester 的流式与任务臂：`/api/test/proxy`、`/api/test/chat/stream` 及各自 jobs 端点；同步探针 `POST /api/test/chat` 保留（#1201）。
+- 无实现者与无调用者的代码：只被测试 mock 养活的路由刷新接口家族、`RESPONSES_COMPACT_FALLBACK_TO_RESPONSES_ENABLED`、死 pricing override 链与一批零引用 helper（#1187、#1190、#1198、#1201、#1204）。
+- 16 份维护者过程史移出公开仓；角色由 GitHub issues 与 releases、本文件、`docs/architecture.md` 承接（#1191、#1194）。
 
 ### 开发者可见
 
-- **账号 handler 按关注点拆成 6 个同包文件（#1192）**；同形测试折成表格（#1188、#1189、#1200、#1202、#1203、#1206），用例集合机械比对、差集为空、子测试名保留。
-- **CI 与仓库卫生（#1181、#1194）**：前端依赖安装对瞬时故障有界重试（损坏 tarball 报 `Integrity check failed`、重跑就装得上，却能挂掉必选检查）；`.gitignore` 补 `.env.*`（保留 `!.env.example`）、`*.log`、`/dist-bin/`。
+- 账号 handler 按关注点拆为同包文件族（#1192）；同形测试折成表驱动（#1188、#1189、#1200、#1202、#1203、#1206），用例集合机械比对、差集为空、子测试名保留。
+- 前端依赖安装对瞬时故障有界重试：损坏 tarball 报 `Integrity check failed`、重跑即好，却能挂掉必选检查（#1181）。
+- `.gitignore` 补 `.env.*`（保留 `!.env.example`）、`*.log`、`/dist-bin/`（#1194）。
 
 ### 已知遗留
 
-- `PayloadRules` 无运行时消费者、`OpenAiServiceTierRules` 无读者，而 `docs/configuration.md` 仍把两者写成可用：**配了不生效**。
+- 设置键 `payload_rules` 与 `openai_service_tier_rules` 无运行时消费者：**配了不生效**（设置页可写、重启后水合，但没有代码读它做决策）。
+- 本版移除的四张表不发 DROP TABLE：老库保留 `proxy_debug_traces` / `proxy_debug_attempts` / `proxy_files` / `admin_snapshots` 孤儿表，无读无写，运营可自行 drop（#1201）。
 - 本版之前绑定的账号可能留一条 `masked_pending` 旧令牌行：一次性、不可路由，运营可删。
 
 ## [v0.17.1] — 2026-09-03
 
 ### 修复
 
-- **备份导出不再静默丢 5 张用户可见状态表（#1172）**：`/api/settings/backup/export?type=all` 曾静默丢弃 `product_announcements`、`announcement_dismissals`、`balance_history`、`model_name_redirects`、`model_verify_history`，导入端还回 200。
-- **备份文件自己陈述自己的缺口（#1172）**：导出 `metadata` 新增 `excluded_tables`（表名 → 理由）；既有 payload 形状与两条导入路径不变，WebDAV 往返与 TS v2.1 兼容层不受影响。**导入点名要一张被排除的表现在回 400**（此前静默忽略）；旧备份缺表＝跳过。显式排除 4 张，其中 `admin_sessions` 意味着**恢复后要求重新登录**。
-- **库里一条读不出来的设置行不再清空已配置的值（#1173）**：`payload_rules` / `openai_service_tier_rules` / `checkin_schedule_mode` / `notify_task_toggles` 的坏行此前在下次重启时清空已配好的规则集且日志无字。**启动日志因此可能新增 WARN 行。**
-- **每次启动都打的那条假 WARN 没有了（#1178）**：SPA fallback 还挂着一个内嵌 dist 里根本不存在的目录挂载点，守卫因此长期报警。
-- **更正上一版文档给的一条不存在的退路（#1172）**：`docs/api/settings.md` 曾写「需要就先导出备份」以保留审计与探测历史，而备份从来不含这两张表。
+- `/api/settings/backup/export?type=all` 补回五张状态表：`product_announcements`、`announcement_dismissals`、`balance_history`、`model_name_redirects`、`model_verify_history`（#1172）。
+- 备份导出 `metadata` 新增 `excluded_tables`（表名 → 理由）；payload 形状、两条导入路径、WebDAV 往返与 TS v2.1 兼容层不变（#1172）。
+- 备份导入点名要一张被排除的表：**现在回 400**（此前静默忽略）；旧备份缺表＝跳过。被排除的表逐张列在 `metadata.excluded_tables`，其中 `admin_sessions` 意味着**恢复后需重新登录**（#1172）。
+- 设置表里读不出来的行不再清空已配置的值：`payload_rules` / `openai_service_tier_rules` / `checkin_schedule_mode` / `notify_task_toggles` 改为保留旧值。**启动日志可能新增 WARN 行**（#1173）。
+- 启动时那条固定出现的假 WARN 消失：SPA fallback 挂着一个内嵌 dist 里不存在的目录挂载点（#1178）。
 
 ### 开发者可见
 
-- **CI 必选分片 `test-sqlite-shard` 此前跑 0 个测试仍全绿（#1175）**：分片算术写错而错误落在 `set -e` 管不到的条件里，约三十个 tag 的 SQLite 测试与 `-race` 实际未执行；现在断言本片应得的包数——选少了和选不到一样红。
+- CI 必选分片 `test-sqlite-shard` 曾跑 0 个测试仍全绿：分片算术错误落在 `set -e` 管不到的条件里，约三十个 tag 的 SQLite 测试与 `-race` 实际未执行；现断言本片应得的包数，选少了和选不到一样红（#1175）。
+
+### 文档
+
+- `docs/api/settings.md` 更正一条不存在的退路：曾写「需要就先导出备份」以保留审计与探测历史，而备份从来不含这两张表（#1172）。
 
 ### 已知遗留
 
@@ -95,69 +111,73 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 安全
 
-- **转发链客户端 IP 改为从右往左解析（#1161）**：配置 `TRUSTED_PROXY_CIDRS` 时不再取 `X-Forwarded-For` 最左值（那一段由调用方自己塞）。修掉三个后果：admin IP 白名单可被一个伪造头绕过、每 IP 限流可无限换桶、审计日志记的是攻击者自选 IP。
-- **账号写路径不再回显明文凭据（#1163）**：`PUT /api/accounts/{id}` 与 `POST /api/accounts/{id}/rebind-session` 此前原样返回 `accessToken`、`apiToken` 与自动重登密码密文，一次空操作更新就能读出整库凭据。
-- **刻意保留的回显面（#1163）**：凭据**发放**（`POST /api/accounts/login`、`POST /api/accounts/verify-token`）仍回显；取回**已存**密钥仍是显式动作（`GET /api/account-tokens/{id}/value`）。规则写进 `docs/api/accounts.md`。
+- 配置 `TRUSTED_PROXY_CIDRS` 时，转发链客户端 IP 改为从右往左解析 `X-Forwarded-For`（最左段由调用方自填）。修掉三个后果：admin IP 白名单可被一个伪造头绕过、每 IP 限流可无限换桶、审计日志记攻击者自选 IP（#1161）。
+- `PUT /api/accounts/{id}` 与 `POST /api/accounts/{id}/rebind-session` 不再回显 `accessToken`、`apiToken` 与自动重登密码密文：此前一次空操作更新就能读出整库凭据（#1163）。
+- 凭据发放端点（`POST /api/accounts/login`、`POST /api/accounts/verify-token`）仍回显明文；取回已存密钥仍是显式动作（`GET /api/account-tokens/{id}/value`）。规则见 `docs/api/accounts.md`（#1163）。
 
 ### 修复
 
-- **恢复出厂设置真的恢复到出厂（#1165）**：`POST /api/settings/maintenance/factory-reset` 此前遍历一份比 schema 少 9 张表的手抄清单，其中包含 `admin_sessions`，**重置前签发的每个 admin cookie 仍对一个空库有写权限**。现从注册表派生，唯一排除项是 `schema_migrations`。**重置成功后必须重新登录。**
-- **`cmd/migrate` 不再静默丢表（#1165）**：方言迁移（SQLite ↔ PostgreSQL）此前只拷了 37 张表里的 20 张——命令正常退出、checksum 全匹配；现拷贝集与建表序从 schema 注册表派生。
-- **流式请求的中断、截断与空内容不再记成功（#1159）**：上游中途断连、被 `PROXY_MAX_STREAM_RESPONSE_BYTES` 截断、或返回命中 `PROXY_ERROR_KEYWORDS` 的错误体时，渠道健康度、`proxy_logs` 与终端指标此前全按成功记账。
-- **`checkin_interval_hours` 的越界库值不再被静默丢弃（#1166）**：此前库存 30、进程用 `CHECKIN_INTERVAL_HOURS` 的值、`GET /api/settings/runtime` 回显第三个值。
-- **`GET /api/channels` 的快照缓存此前几乎从不命中（#1167）**：单槽位对多键空间，`page=1` 与 `page=2` 互相逐出；现有界多键，TTL、`?refresh=true` 与 `x-channels-snapshot-cache` 语义未变。
+- `POST /api/settings/maintenance/factory-reset` 的清空表集改为从 schema 注册表派生，仅排除 `schema_migrations`；旧手抄清单少 9 张表且含 `admin_sessions`，**重置后必须重新登录**（#1165）。
+- `cmd/migrate` 的方言迁移（SQLite ↔ PostgreSQL）拷贝集与建表序改为从 schema 注册表派生：此前只拷 37 张表里的 20 张，而命令正常退出、checksum 全匹配（#1165）。
+- 流式请求的中断、截断与空内容不再记成功：上游中途断连、被 `PROXY_MAX_STREAM_RESPONSE_BYTES` 截断、或返回命中 `PROXY_ERROR_KEYWORDS` 的错误体时，渠道健康度、`proxy_logs` 与终端指标此前全按成功记账（#1159）。
+- `checkin_interval_hours` 的越界库值不再被静默丢弃：此前库存 30、进程用 `CHECKIN_INTERVAL_HOURS` 的值、`GET /api/settings/runtime` 回显第三个值（#1166）。
+- `GET /api/channels` 的快照缓存改为有界多键（单槽位下 `page=1` 与 `page=2` 互相逐出、几乎从不命中）；TTL、`?refresh=true` 与 `x-channels-snapshot-cache` 语义未变（#1167）。
 
 ### 变更
 
-- **站点 `custom_headers` 里的 `Accept-Encoding` 不再可配（#1168）**：它关掉透明解压、答案以压缩字节进入解析——用量提取找不到 token（真实调用计零费）、`PROXY_ERROR_KEYWORDS` 扫压缩噪声、流式分析器读不到 `data:` 事件。现该头在装配侧被过滤，`gzip` / `deflate` 先解码再判定与计费。
-- **解不了的编码诚实上报，不猜（#1168）**：`br`、`zstd`、多层编码栈或解码失败时原样转发（客户端仍能解），不解析、用量记为显式 `unknown`，`PROXY_ERROR_KEYWORDS` 与 `PROXY_EMPTY_CONTENT_FAIL` 不在没人读过的字节上开火；每次这样处理打一条稳定文案的 WARN。
-- **夹在两次上游调用之间的等待现在可以被取消（#1169）**：签到重试退避、同站点节奏等待与三个 OAuth onboard 轮询此前不看 context，关机后 worker 仍睡完并照发下一次上游调用。`POST /api/checkin/trigger` 是刻意例外。
-- **Redis 共享计数器的补偿回滚不再每次上行脚本体（#1170）**：现先 `EVALSHA`、仅在服务器答 `NOSCRIPT` 时回退一次 `EVAL`；ACL 禁 scripting 的 Redis 降级为 `INCRBY`。
+- 站点 `custom_headers` 里的 `Accept-Encoding` 不再可配，装配侧过滤该头，`gzip` / `deflate` 先解码再判定与计费。配了它的部署此前用量提取找不到 token，真实调用计零费（#1168）。
+- 解不了的编码不猜：`br`、`zstd`、多层编码栈或解码失败时原样转发（客户端仍能解），用量记为显式 `unknown`，`PROXY_ERROR_KEYWORDS` 与 `PROXY_EMPTY_CONTENT_FAIL` 不在未读过的字节上开火，并打一条稳定文案 WARN（#1168）。
+- 两次上游调用之间的等待可被 context 取消：签到重试退避、同站点节奏等待与三个 OAuth onboard 轮询此前不看 context，关机后 worker 仍睡完并发出下一次上游调用。`POST /api/checkin/trigger` 是刻意例外（#1169）。
+- Redis 共享计数器的补偿回滚先 `EVALSHA`，仅在服务器答 `NOSCRIPT` 时回退一次 `EVAL`；ACL 禁 scripting 的 Redis 降级为 `INCRBY`（#1170）。
 
 ### 移除
 
-- **`HOME_PAGE_CONTENT`（#1166）**：不再有文档条目——它在 Go 实现里从来没有读取点。设置了该变量的部署不会报错，但它本来就什么都没做（`SYSTEM_NAME` / `LOGO` / `FOOTER` / `ABOUT` 不受影响）。
+- `HOME_PAGE_CONTENT`：Go 实现里从来没有读取点，配了不报错也不做任何事；文档条目一并移除。`SYSTEM_NAME` / `LOGO` / `FOOTER` / `ABOUT` 不受影响（#1166）。
 
 ### 开发者可见
 
-- **文档成为可对账的参考（#1160）**：环境变量清单 ↔ 代码读取点、路由清单 ↔ router 注册逐条对账，漂移即 CI 红。
-- **PostgreSQL 门禁可在复用同一个库时重复运行（#1164）**：须 `-count=1 -tags=integration -p 1`。同批 `scripts/e2e/smoke.sh` 遇 `POST /api/sites` 409 时按后端真实去重键 `(platform, url)` 找回站点（#1162）。
+- 文档成为可对账的参考：环境变量清单 ↔ 代码读取点、路由清单 ↔ router 注册逐条对账，漂移即 CI 红（#1160）。
+- PostgreSQL 门禁可在复用同一个库时重复运行，须 `-count=1 -tags=integration -p 1`（#1164）。
+- `scripts/e2e/smoke.sh` 遇 `POST /api/sites` 409 时按后端真实去重键 `(platform, url)` 找回站点（#1162）。
 
 ## [v0.16.23] — 2026-09-03
 
 ### Added
 
-- **`USAGE_PROJECTION_INTERVAL_MS`（#1151）**：用量聚合的投影节奏（`proxy_logs` → 站点/模型汇总）可调，钳制 1000–3600000 ms，默认仍 5s。
-- **启动日志报出日志清理体制归属（#1156）**：一条 `settings: log retention regime` 给出 `regime`（`log_cleanup` / `legacy_fallback`）、`configured`、`source`（`db_settings` / `env_toggle` / `none`）、两个 toggle 与保留天数。
+- `USAGE_PROJECTION_INTERVAL_MS`（默认 5s，钳制 1000–3600000 ms）：用量聚合的投影节奏（`proxy_logs` → 站点/模型汇总）可调（#1151）。
+- 启动日志新增一行 `settings: log retention regime`，给出 `regime`（`log_cleanup` / `legacy_fallback`）、`configured`、`source`（`db_settings` / `env_toggle` / `none`）与保留天数（#1156）。
 
 ### Fixed
 
-- **老 PostgreSQL 库启动即失败（#1153）**：三个 BOOLEAN 列写了数字默认值（`sites.use_system_proxy`、`sites.post_refresh_probe_enabled`、`model_availability.is_manual`），增量迁移报 42804。**全新库永远复现不了**，只有升上来的库会走到那一步。
-- **管理界面保存的运行时设置重启后静默失效（#1156）**：写侧入库、读侧没有水合分支——33 个键里 27 个重启后不生效，本版补齐；6 个进带理由的白名单（`db_type` / `db_url` / `db_ssl` 在水合前就被消费，三个 `*_schedule_v2` 由迁移服务与排班端点自己读）。
-- **其中最贵的一条（#1156）**：`admin_ip_allowlist` 重启后**控制面板的 IP 限制静默消失**。同批三个凭据键（`auth_token` / `proxy_token` / `account_credential_secret`）写侧 JSON 编码、读侧只去空格，轮换过的令牌重启后必然比较失配。
-- **日志清理设置此前是整块死码（#1156）**：水合侧读的键名与写侧写的不一致，`LOG_CLEANUP_CRON` / `LOG_CLEANUP_RETENTION_DAYS` 配了不生效；清理体制（新调度器还是 legacy `PROXY_LOG_RETENTION_DAYS` pruner 拥有日志表）还曾被 settings 表里任意一行静默开启，顶掉显式配置。
-- **品牌与写失败语义（#1156）**：`system_name` / `logo` / `footer` / `about` / `server_address` 此前丢弃空值，清空的品牌信息重启后复活；`admin_ip_allowlist` 与 `proxy_error_keywords` 写库失败此前返回 200，**现返回 500**。
-- **并发批（#1154、#1152、#1151）**：Redis 补偿回滚改单脚本原子完成，窗口期内别人预占的计数不再被一起删掉；已断开的请求不再耗完准入计数器超时、也不再占着该密钥的串行锁；请求路径不再争一把全局库互斥锁。
-- **界面批（#1155）**：导入站点后账号列表不刷新、行内开关不即时翻转（同一动作在 `/sites` 与 `/accounts` 有两套答案）；三个 i18n 键在两个语言包里都不存在，界面渲染出裸键。
+- 老 PostgreSQL 库启动即失败已修：`sites.use_system_proxy`、`sites.post_refresh_probe_enabled`、`model_availability.is_manual` 三列写了数字默认值，增量迁移报 42804。**只影响升上来的库，全新库不复现**（#1153）。
+- 管理界面保存的运行时设置重启后生效：33 个键里 27 个此前没有水合分支，本版补齐；6 个进带理由的白名单（`db_type` / `db_url` / `db_ssl` 在水合前就被消费，三个 `*_schedule_v2` 由迁移服务与排班端点自己读）（#1156）。
+- `admin_ip_allowlist` 重启后**控制面板的 IP 限制静默消失**已修；同批三个凭据键 `auth_token` / `proxy_token` / `account_credential_secret` 写侧 JSON 编码、读侧只去空格，轮换过的令牌重启后必然比较失配（#1156）。
+- `LOG_CLEANUP_CRON` / `LOG_CLEANUP_RETENTION_DAYS` 生效：水合侧读的键名与写侧写的不一致，此前配了不起作用（#1156）。
+- 日志表的清理体制（新调度器还是 legacy `PROXY_LOG_RETENTION_DAYS` pruner）不再被 settings 表里任意一行静默开启、顶掉显式配置（#1156）。
+- `system_name` / `logo` / `footer` / `about` / `server_address` 接受空值，清空的品牌信息重启后不再复活；`admin_ip_allowlist` 与 `proxy_error_keywords` **写库失败改回 500**（此前 200）（#1156）。
+- 并发批：Redis 补偿回滚改单脚本原子完成，窗口期内别人预占的计数不再被一起删掉；已断开的请求不再耗完准入计数器超时、也不再占着该密钥的串行锁；请求路径不再争一把全局库互斥锁（#1154、#1152、#1151）。
+- 界面批：导入站点后账号列表不刷新、行内开关不即时翻转（同一动作在 `/sites` 与 `/accounts` 有两套答案）；三个 i18n 键在两个语言包里都不存在，界面渲染出裸键（#1155）。
 
 ## [v0.16.22] — 2026-09-02
 
 ### Added
 
-- **三个配额字段的语义（#1148）**：`maxRequests` / `maxCost` / `expiresAt` 是累计总量而非每分钟窗口（每分钟限速是另一组 `max_rpm` / `max_tpm`）、金额单位 USD 且仅成功请求计费、超限 429（`insufficient_quota`）、过期 403（`key_expired`）、留空或 0 ＝不限制。
-- **界面批（#1148）**：仪表盘四步旅程清单（站点 → 账号 → 路由 → 密钥，CTA 只挂在第一个缺口、四步建成后自我退役）；已有路由但下游密钥数为 0 时就地提示怎么签发第一把密钥并用它调用 `/v1`，签发后永久消失。
+- 下游密钥配额字段 `maxRequests` / `maxCost` / `expiresAt` 是累计总量而非每分钟窗口（每分钟限速是另一组 `max_rpm` / `max_tpm`）；金额单位 USD、仅成功请求计费；留空或 0 ＝不限制（#1148）。
+- 配额超限回 429 `insufficient_quota`、过期回 403 `key_expired`（#1148）。
+- 界面批：仪表盘四步旅程清单（站点 → 账号 → 路由 → 密钥，CTA 只挂在第一个缺口、四步建成后自我退役）；已有路由但下游密钥数为 0 时就地提示如何签发第一把密钥并用它调 `/v1`，签发后永久消失（#1148）。
 
 ### Changed
 
-- **`/v1` 与上游之间的头策略（#1145）**：上行透传 `anthropic-version`、`anthropic-beta`、`openai-beta`、`user-agent`、`x-stainless-*`（此前 Claude Code 的缓存到不了上游）；下行改内容语义白名单，厂商指纹头与上游 `Set-Cookie` 不再泄漏，也不再覆盖 metapi 自己的 `X-Request-Id`。
-- **`/v1` 写超时不再掐断慢响应（#1145）**：61~90s 之间返回的非流式响应此前在回写时被 60s 服务器写超时掐断（「拿到结果却连接被重置」）；现由专用中间件持有代理写期限。
-- **Redis 共享限流不再全局串行（#1147）**：配置 `REDIS_URL` 后此前是「全局一把锁 + 每命令一次 TCP 握手」。**语义零漂移**：出错仍 fail-open 回落本地窗口，错误码、`Retry-After` 与全部 env 名不变。
-- **`PROXY_VIDEO_TASK_RETENTION_DAYS` 默认 0 → 7（#1146）**：`0` 等于保留期调度器整条禁用、`proxy_video_tasks` 无界增长；`<=0` 仍是运维显式关闭，只是不再是默认。
+- `/v1` 上行透传 `anthropic-version`、`anthropic-beta`、`openai-beta`、`user-agent`、`x-stainless-*`：此前 Claude Code 的缓存到不了上游（#1145）。
+- `/v1` 下行改内容语义白名单：厂商指纹头与上游 `Set-Cookie` 不再泄漏，也不再覆盖 metapi 自己的 `X-Request-Id`（#1145）。
+- `/v1` 写超时不再掐断慢响应：61~90s 之间返回的非流式响应此前被 60s 服务器写超时掐断（表现为「拿到结果却连接被重置」），现由专用中间件持有代理写期限（#1145）。
+- Redis 共享限流不再全局串行：配置 `REDIS_URL` 后此前是全局一把锁 + 每命令一次 TCP 握手。**语义零漂移**——出错仍 fail-open 回落本地窗口，错误码、`Retry-After` 与全部 env 名不变（#1147）。
+- `PROXY_VIDEO_TASK_RETENTION_DAYS` 默认 0 → 7：`0` 等于保留期调度器整条禁用、`proxy_video_tasks` 无界增长；`<=0` 仍是运维显式关闭，只是不再是默认（#1146）。
 
 ### Fixed
 
-- **下游密钥的过期时间此前完全不生效（#1148）**：表单出站是裸 `datetime-local` 串（形如 `2030-01-02T03:04`），两处解析器都不认，而不可解析的过期时间会**跳过整个过期检查**——一把 2020 年就该过期的密钥仍能以 200 调 `/v1/models`。
-- **内部正确性批（#1145、#1146）**：数据面补 dial 级 SSRF 纵深（DNS rebinding：校验通过后重新解析仍可落到不同地址）；视频任务的进程内重写缓存此前是无驱逐的包级 map，现按保留期做 TTL。
+- 下游密钥的过期时间生效：表单出站是裸 `datetime-local` 串（形如 `2030-01-02T03:04`），两处解析器都不认，而不可解析的过期时间会**跳过整个过期检查**——一把 2020 年就该过期的密钥仍能以 200 调 `/v1/models`（#1148）。
+- 内部正确性批：数据面补 dial 级 SSRF 纵深（DNS rebinding，校验通过后重新解析仍可落到不同地址）；视频任务的进程内重写缓存改按保留期做 TTL（此前是无驱逐的包级 map）（#1145、#1146）。
 
 ### Docs
 
@@ -165,593 +185,263 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [v0.16.21] — 2026-09-02
 
+### Security
+
+- 站点批量导入（`POST /api/sites/import`）、原生备份导入、TS v2.1 备份导入三条路径绕过内网地址闸：构造备份即可植入指向云 metadata 的站点，配合下游密钥一次 `/v1` 请求回流 IAM 内容。现三路径统一走同一个净化器（#1139）。
+
 ### Added
 
-- **接管库时间戳归一化（#1142）**：启动迁移把 TS 时代写在 TEXT `*_at` / `*_until` 列里的 `'YYYY-MM-DD HH:MM:SS'` 重写为 RFC3339 UTC——混排时字典序比较失真，`ORDER BY created_at` 错排、范围过滤边界失真、checkin 清扫把全部行当成同一时刻。
+- 接管库时间戳归一化：启动迁移把 TS 时代写在 TEXT `*_at` / `*_until` 列里的 `'YYYY-MM-DD HH:MM:SS'` 重写为 RFC3339 UTC——混排时字典序比较失真，`ORDER BY created_at` 错排、范围过滤边界失真、checkin 清扫把全部行当成同一时刻（#1142）。
 
 ### Changed
 
-- **`/v1` 鉴权与限流错误对齐 OpenAI 信封（#1140）**：裸 `{"error":"..."}` 统一为 `{"error":{message,type,code,request_id}}`；invalid key `403` → `401 authentication_error/invalid_api_key`，配额耗尽 `403` → `429 insufficient_quota`。
-- **`/v1` 错误契约文档（#1140）**：`docs/api/proxy.md` 新增「Error shape (/v1 surface)」（OpenAI 信封 + 完整 status/type/code 对照表）；admin 面（`/api/*`）平铺契约不变。
-- **`PROXY_MAX_STREAM_RESPONSE_BYTES` 默认 1MB → 64MB（#1141）**：推理模型长输出常态超 1MB，此前被中途截断且错误事件多被 SDK 静默吞掉（表现为「回答戛然而止」）。同批 SSE 响应补 `X-Accel-Buffering: no`，nginx 系反代不再缓冲首 token。
-- **死码清扫（#1137、#1138）**：Go 侧 14 项零引用生产码删除（`/api/oauth/import` 保持文档化 UI-parity 桩）；web 侧一次性脚本目录整体删除，5 处手写 clipboard 收敛为共享实现。
+- `/v1` 鉴权与限流错误对齐 OpenAI 信封：裸 `{"error":"..."}` 统一为 `{"error":{message,type,code,request_id}}`（#1140）。
+- 同批状态码变更：invalid key `403` → `401 authentication_error/invalid_api_key`，配额耗尽 `403` → `429 insufficient_quota`（#1140）。
+- `PROXY_MAX_STREAM_RESPONSE_BYTES` 默认 1MB → 64MB：推理模型长输出常态超 1MB，此前被中途截断且错误事件多被 SDK 静默吞掉（表现为「回答戛然而止」）。同批 SSE 响应补 `X-Accel-Buffering: no`，nginx 系反代不再缓冲首 token（#1141）。
+- 死码清扫：零引用生产码删除（`/api/oauth/import` 保持文档化 UI-parity 桩）；web 侧一次性脚本目录整体删除，手写 clipboard 收敛为共享实现（#1137、#1138）。
 
 ### Fixed
 
-- **SSRF 目标校验缺口（安全，#1139）**：站点批量导入（`POST /api/sites/import`）、原生备份导入、TS v2.1 备份导入三条路径绕过内网地址闸，构造备份即可植入指向云 metadata 的站点，配合下游密钥一次 `/v1` 请求回流 IAM 内容。现三路径统一走同一个净化器。
-- **PostgreSQL 与路由注册批（#1141）**：`GET /v1/pricing` 此前一直 404（真实可达的是 `/v1/v1/pricing`）；`catalog_sources` 写入在 PG 必失败；审计日志路径搜索在 PG 大小写敏感。
+- `GET /v1/pricing` 此前一直 404（真实可达的是 `/v1/v1/pricing`）；`catalog_sources` 写入在 PostgreSQL 必失败；审计日志路径搜索在 PostgreSQL 大小写敏感（#1141）。
+
+### Docs
+
+- `docs/api/proxy.md` 新增「Error shape (/v1 surface)」（OpenAI 信封 + 完整 status/type/code 对照表）；admin 面（`/api/*`）平铺契约不变（#1140）。
 
 ## [v0.16.20] — 2026-09-01
 
+### Security
+
+- SPA CSP 去掉 `style-src 'unsafe-inline'`：收紧为 `'self'` + 每响应随机 nonce + 一处 toast CSS 哈希，其余 directive 不变。
+- 凭证导出遮罩改真占位符 `••••••••` + `aria-hidden`：此前用 CSS blur 伪掩码，明文仍留在 DOM 与无障碍树里、读屏可读出（#1080）。
+
 ### Added
 
-- **运行事件结构化（checkin 事件族先行）**：事件写路径在历史英文 title/message 之外新增 `title_key` + `params` JSON，notify / CSV / 历史行等非 UI 消费者字节级不变。
-- **界面与无障碍批（#1097、#1026、#1072、#1073、#1080、#1087）**：单行删除改 6 秒「撤销」窗口（真实删除延后到窗口关闭）；下游密钥凭证树形选择器（站点 → 账号 → 密钥三级勾选）；Ctrl/⌘+K 可直接执行动作；恢复出厂设置改 type-to-confirm（输入 `RESET` + 倒计时）；六个主图全部有 sr-only 数据表。
+- 运行事件结构化（checkin 事件族先行）：事件写路径在历史英文 title/message 之外新增 `title_key` + `params` JSON，notify / CSV / 历史行等非 UI 消费者字节级不变。
+- 界面批：单行删除改 6 秒「撤销」窗口（真实删除延后到窗口关闭）；下游密钥凭证树形选择器（站点 → 账号 → 密钥三级勾选）；Ctrl/⌘+K 可直接执行动作（#1097、#1026、#1072、#1073、#1080、#1087）。
+- 同批无障碍：恢复出厂设置改 type-to-confirm（输入 `RESET` + 倒计时）；主图补 sr-only 数据表。
 
 ### Changed
 
-- **管理端大表服务端分页与筛选（#1075、#1077、#1122，issue #1108）**：账号、模型市场、渠道列表改服务端分页；`GET /api/channels` 新增 `status` 过滤与 `GET /api/channels/error-summary`；`GET /api/accounts` 新增 `q` / `status` / `site`（此前站点不在当前页就永远筛不出来），`total` 是筛选后计数。
-- **统一 400 错误体携带机器可读 `errorCode`（#1065）**：18 码覆盖 72 个调用点，清单见 `docs/api/conventions.md`。
-- **畸形凭证引用改显式 400（#1026）**：`allowed/excludedCredentialRefs` 里的非对象、未知或缺失 `kind`、非正 `siteId` / `accountId`、`account_token` 缺 `tokenId` 不再被静默丢弃（对允许列表而言等于静默放宽策略）。
-- **`docs/api.md` 按域拆分为 `docs/api/*.md`（17 个文件）**：原文件保留为索引并以 stub 承接原标题，旧深链继续解析。
+- 账号、模型市场、渠道列表改服务端分页；`GET /api/channels` 新增 `status` 过滤与 `GET /api/channels/error-summary`（#1075、#1077、#1122，issue #1108）。
+- `GET /api/accounts` 新增 `q` / `status` / `site` 过滤（此前站点不在当前页就永远筛不出来），`total` 是筛选后计数（#1122）。
+- 400 错误体统一携带机器可读 `errorCode`，码表见 `docs/api/conventions.md`（#1065）。
+- 畸形凭证引用改显式 400：`allowed/excludedCredentialRefs` 里的非对象、未知或缺失 `kind`、非正 `siteId` / `accountId`、`account_token` 缺 `tokenId` 不再被静默丢弃（对允许列表而言等于静默放宽策略）（#1026）。
 
 ### Fixed
 
-- **下游密钥凭证维度端到端修复（#1026）**：排除项的 JSON 标签是 snake_case 而管理端持久化形状是 camelCase，代理路径解析不出运营刚配好的排除项。
-- **运行时设置的并发撕裂读（#1079）**：约 25 个运行时写字段与热路径无锁读并存，并发下可能读到半更新状态（如代理 token 校验瞬时 401 抖动）；现改为不可变快照交换。
-- **前端错误与本地化批（#1082、#1084、#1086、#1088、#1091、#1095、#1099、#1101、#1102、#1104、#1123、#1124）**：错误 toast 去重与状态感知本地化（502–504 不再泄漏 axios 英文原文）；列表加载失败改整块替换 + 内置重试；浅色主题对比度达 WCAG AA；channels 页「响应延迟」列回到首屏；站点表单改右侧抽屉、筛选与页码写入 URL。
+- 下游密钥的凭证排除项生效：其 JSON 标签是 snake_case 而管理端持久化形状是 camelCase，代理路径解析不出运营刚配好的排除项（#1026）。
+- 运行时设置不再并发撕裂读：运行时写字段与热路径无锁读并存，并发下可能读到半更新状态（如代理 token 校验瞬时 401 抖动），现改为不可变快照交换（#1079）。
+- 错误 toast 去重与状态感知本地化（502–504 不再泄漏 axios 英文原文）、列表加载失败改整块替换 + 内置重试（#1082、#1084、#1086、#1088、#1091、#1095、#1099、#1101、#1102、#1104、#1123、#1124）。
+- 同批界面：浅色主题对比度达 WCAG AA；站点表单改右侧抽屉，筛选与页码写入 URL。
 
-### Security
+### Docs
 
-- **SPA CSP 去 `style-src 'unsafe-inline'`**：收紧为 `'self'` + 每响应随机 nonce + 一处 toast CSS 哈希，其余 directive 不变。
-- **凭证导出遮罩改真占位符（#1080）**：不再以 CSS blur 伪掩码渲染（明文此前仍留在 DOM 与无障碍树中，读屏可读出），改为 `••••••••` 占位符 + `aria-hidden`。
+- `docs/api.md` 按域拆分为 `docs/api/*.md`：原文件保留为索引并以 stub 承接原标题，旧深链继续解析。
 
 ## [v0.16.19] — 2026-08-29
 
 ### Security
 
-- **主 token 不再明文存于浏览器 localStorage（#1034、#1057）**：登录改为 `POST /api/auth/login` 换取服务端会话（`admin_sessions` 表），凭证经 HttpOnly + SameSite=Strict 的 `metapi_session` cookie 携带、库里只存 SHA-256 哈希、会话滑动续期。
-- **实时运维 WS 不再接受 `?token=<主 token>`（#1034、#1057）**：改由 `POST /api/auth/ws-ticket` 签发 60s 单次 ticket，主 token 从此不进 URL。
-- **失败认证纳入限速 + 敏感操作主 token 重确认（#1034、#1057）**：per-IP 限速中间件移至认证之前（401/403 不再绕过桶约束），`/api/auth/*` 另加严格桶。备份导出（下载与 WebDAV）、下游密钥导出、主 token 轮换要求 `X-Admin-Confirm-Token` 头，否则 403 `reauthRequired`。**这些操作从此需要多带一个头，自动化脚本要跟着改。**
+- 主 token 不再明文存于浏览器 localStorage：登录改为 `POST /api/auth/login` 换取服务端会话（`admin_sessions` 表），凭证经 HttpOnly + SameSite=Strict 的 `metapi_session` cookie 携带（#1034、#1057）。
+- 会话在库里只存 SHA-256 哈希，滑动续期（#1034、#1057）。
+- 实时运维 WS 不再接受 `?token=<主 token>`：改由 `POST /api/auth/ws-ticket` 签发 60s 单次 ticket，主 token 从此不进 URL（#1034、#1057）。
+- per-IP 限速中间件移至认证之前，401/403 不再绕过桶约束；`/api/auth/*` 另加严格桶（#1034、#1057）。
+- 备份导出（下载与 WebDAV）、下游密钥导出、主 token 轮换要求 `X-Admin-Confirm-Token` 头，否则 403 `reauthRequired`。**这些操作从此要多带一个头，自动化脚本需跟着改**（#1034、#1057）。
 
 ### Added
 
-- **会话配置项（#1034、#1057）**：`ADMIN_SESSION_TTL_MINUTES`（默认 720）、`ADMIN_SESSION_COOKIE_SECURE`（默认 auto）、`AUTH_RATE_LIMIT_RPS` / `AUTH_RATE_LIMIT_BURST`（默认 10/20）；`cmd/migrate` 携带 `admin_sessions`，会话跨 SQLite ↔ PostgreSQL 切换存活。
-- **上游账号健康监测全局开关（#1027、#1056）· 账号代理支持 SOCKS5（#1009、#1059）**：运行时设置 `checkinEnabled` / `balanceRefreshEnabled`（热生效、持久化）+ 环境变量 `CHECKIN_ENABLED` / `BALANCE_REFRESH_ENABLED`；`proxyUrl` 接受 `socks5://` 与 `socks5h://`。
+- `ADMIN_SESSION_TTL_MINUTES`（默认 720）、`ADMIN_SESSION_COOKIE_SECURE`（默认 auto）、`AUTH_RATE_LIMIT_RPS` / `AUTH_RATE_LIMIT_BURST`（默认 10/20）（#1034、#1057）。
+- `cmd/migrate` 携带 `admin_sessions`，会话跨 SQLite ↔ PostgreSQL 切换存活（#1034、#1057）。
+- 上游账号健康监测全局开关：运行时设置 `checkinEnabled` / `balanceRefreshEnabled`（热生效、持久化）与环境变量 `CHECKIN_ENABLED` / `BALANCE_REFRESH_ENABLED`（#1027、#1056）。
+- 账号 `proxyUrl` 接受 `socks5://` 与 `socks5h://`（#1009、#1059）。
 
 ### Fixed
 
-- **清空账号代理字段保存即清除（#1009、#1059）**：此前前端清空后载荷省略该字段、后端合并又把旧值留下。
-- **内部正确性批（#1061、#1052、#1060）**：job panic 统一 recover、in-flight 标志锁外读竞态修复、`channel_recovery` / `backup_webdav` / `model_probe` 吞没的 DB 错误显性化；PostgreSQL 方言陷阱清扫（BOOLEAN 整数字面量绑定、管理搜索 LIKE 大小写）。
+- 清空账号代理字段保存即清除：此前前端清空后载荷省略该字段、后端合并又把旧值留下（#1009、#1059）。
+- 内部正确性批：job panic 统一 recover、in-flight 标志锁外读竞态修复、`channel_recovery` / `backup_webdav` / `model_probe` 吞没的 DB 错误显性化（#1061、#1052、#1060）。
+- 同批 PostgreSQL 方言陷阱清扫：BOOLEAN 整数字面量绑定、管理搜索 LIKE 大小写。
 
 ### Changed
 
-- **性能与基线批（#1054、#1058、#1053、#1055）**：三个高频管理读路径加索引（300k 行实测最贵一条 17.9ms → 0.5ms）；15 处出站调用点统一超时与连接池；`rsbuild.config.ts` 成为唯一构建配置（删 `vite.config.ts`）；focus-ring 统一 token、流量与成本图补 sr-only 摘要表。
+- 高频管理读路径加索引（300k 行实测最贵一条 17.9ms → 0.5ms）；出站调用点统一超时与连接池；focus-ring 统一 token，流量与成本图补 sr-only 摘要表（#1054、#1058、#1053、#1055）。
+- `rsbuild.config.ts` 成为唯一前端构建配置，`vite.config.ts` 删除（#1053）。
 
 ## [v0.16.18] — 2026-08-29
 
 ### Added
 
-- **`PROXY_STREAM_IDLE_TIMEOUT_SEC`（默认 300，#1046）**：每转发一个 chunk 重置计时窗，窗口内无新 chunk 即中断卡死的流并按上游超时故障记录（渠道健康、失败日志、终态一致）。只约束 chunk 间隔、不约束流总时长；`0`、负数、非法值回退默认。
-- **`proxyRetryStatusRanges` / `proxyDisableStatusRanges`（#1049）**：运行时设置（设置页可编辑，`PUT /api/settings/runtime` 同契约）——retry 决定哪些上游状态码计为可重试的渠道故障，disable 决定哪些状态码在冷却升级之外直接禁用故障渠道。
-- **`PUT /api/channels/batch` 部分更新（#1047）**：只写字段出现的、载荷校验（空批 / 超 1000 / 重复 id / 无可更新字段）、逐项真值返回；模型测试台出现失败行时提供「禁用失败渠道」动作。
-- **界面批（#1048、#1026、#1039、#1036）**：渠道页失败横幅 +「只看失败」经可分享的 `?status=` 进入仅失败视图；密钥表单新增「上游站点限制」多选（留空 = 不限制，完整往返既有 `allowedSiteIds`）；CmdK 面板命中一键深链到实体本身；zh-CN 语言下站点表崩溃修复。
+- `PROXY_STREAM_IDLE_TIMEOUT_SEC`（默认 300）：每转发一个 chunk 重置计时窗，窗口内无新 chunk 即中断卡死的流并按上游超时故障记录（渠道健康、失败日志、终态一致）。只约束 chunk 间隔、不约束流总时长；`0`、负数、非法值回退默认（#1046）。
+- `proxyRetryStatusRanges` / `proxyDisableStatusRanges`：运行时设置（设置页可编辑，`PUT /api/settings/runtime` 同契约）——retry 决定哪些上游状态码计为可重试的渠道故障，disable 决定哪些状态码在冷却升级之外直接禁用故障渠道（#1049）。
+- `PUT /api/channels/batch` 部分更新：只写字段出现的、载荷校验（空批 / 超 1000 / 重复 id / 无可更新字段）、逐项真值返回；模型测试台出现失败行时提供「禁用失败渠道」动作（#1047）。
+- 界面批：渠道页失败横幅 +「只看失败」经可分享的 `?status=` 进入仅失败视图；密钥表单新增「上游站点限制」多选（留空 = 不限制，完整往返既有 `allowedSiteIds`）；CmdK 面板命中直接深链到实体本身；zh-CN 语言下站点表崩溃修复（#1048、#1026、#1039、#1036）。
 
 ### Fixed
 
-- **路由自动重建真值（#1024）**：`POST /api/routes/rebuild` 现在消费 `refreshModels`（默认 true：先批量刷新全部活跃账号的上游模型、单账号失败不中断整批，再重建通道）；完成提示读取真实统计并区分三态——成功、无路由可重建、通道无变化。
+- `POST /api/routes/rebuild` 消费 `refreshModels`（默认 true：先批量刷新全部活跃账号的上游模型、单账号失败不中断整批，再重建通道）；完成提示读取真实统计并区分三态——成功、无路由可重建、通道无变化（#1024）。
 
 ### Security
 
-- **CSP 收紧（#1041）**：内联 bootstrap 脚本外部化，移除 `unsafe-inline`。同批前端安全、构建、可访问性、卫生与 UX 小修（#1037、#1040、#1042、#1043、#1044、#1045），无对外行为契约变化。
+- CSP 收紧：内联 bootstrap 脚本外部化，移除 `unsafe-inline`（#1041）。同批前端安全、构建、可访问性、卫生与 UX 小修，无对外行为契约变化（#1037、#1040、#1042、#1043、#1044、#1045）。
 
 ## [v0.16.17] — 2026-08-28
 
 ### Added
 
-- **行级探测健康条（#1020）**：渠道/账号表格新增探测历史健康条，配只读端点 `GET /api/channels/probe-history` 与 `GET /api/accounts/probe-history`（`limit` 1–50 默认 20）；竖条按时间着色，tooltip 汇总窗口成功率与平均延迟，键盘可达。
-- **结构化冷却原因（#1019）**：`route_channels` 与 `oauth_route_unit_members` 新增 `cooldown_reason_code` / `cooldown_reason` / `cooldown_reason_at` 三可空列（additive step `sc2_025`，双方言携带）；渠道页冷却/熔断徽章可点开根因弹窗，旧数据如实显示「原因未记录」。
-- **协议转换层加了 46 份夹具的快照回归套件（#1018）**：零生产代码改动。
+- 渠道与账号表格新增探测历史健康条，配只读端点 `GET /api/channels/probe-history` 与 `GET /api/accounts/probe-history`（`limit` 1–50，默认 20）；竖条按时间着色，tooltip 汇总窗口成功率与平均延迟，键盘可达（#1020）。
+- `route_channels` 与 `oauth_route_unit_members` 新增可空列 `cooldown_reason_code` / `cooldown_reason` / `cooldown_reason_at`（additive step `sc2_025`，双方言）（#1019）。
+- 渠道页冷却/熔断徽章可点开根因弹窗，旧数据如实显示「原因未记录」（#1019）。
+
+### 开发者可见
+
+- 协议转换层补快照回归套件，零生产代码改动（#1018）。
 
 ## [v0.16.16] — 2026-08-28
 
 ### Added
 
-- **定时上游模型同步（#1005）**：新增 `MODEL_SYNC_CRON`（默认 `0 4 * * *`，每日 04:00）定期批量刷新全部活跃账号的上游模型列表；设置页 `modelSyncCron` 支持运行时热更新；单账号失败不中断整批。手工单账号刷新端点行为与响应载荷不变。
-- **上游代理超时可配置（#1009）**：新增五个 `PROXY_*_TIMEOUT_SEC`（connect 2 / TLS handshake 10 / response header 30 / idle conn 90 / request 30 秒），非法值回退默认，未配置时零行为变化；完整变量名见 `docs/configuration.md`。
-
-### Changed
-
-- **竞品研究文档（new-api / axonhub / sub2api 对标）**：已于 v0.18.0 随其余维护者过程史移出公开仓（#1194）。
+- `MODEL_SYNC_CRON`（默认 `0 4 * * *`，每日 04:00）：定期批量刷新全部活跃账号的上游模型列表；设置页 `modelSyncCron` 支持运行时热更新；单账号失败不中断整批。手工单账号刷新端点行为与响应载荷不变（#1005）。
+- `PROXY_*_TIMEOUT_SEC`（connect 2 / TLS handshake 10 / response header 30 / idle conn 90 / request 30 秒）：非法值回退默认，未配置时零行为变化；完整变量名见 `docs/configuration.md`（#1009）。
 
 ## [v0.16.15] — 2026-08-27
 
 ### Fixed
 
-- **账号表单验证真值（#1007）**：inline token verification 与账号创建现在使用表单中尚未保存的 `platformUserId` / `proxyUrl`；显式表单代理覆盖站点、Resin 与系统代理，创建后持久化 `extraConfig.proxyUrl`，非法值 fail-closed。
-- **Accounts 分页（#1008）**：URL 控制的页码选择不再被表格库自动重置；第 2 页稳定渲染第 11–20 行。
+- 账号表单验证真值：inline token verification 与账号创建改用表单中尚未保存的 `platformUserId` / `proxyUrl`；显式表单代理覆盖站点、Resin 与系统代理，创建后持久化 `extraConfig.proxyUrl`，非法值 fail-closed（#1007）。
+- Accounts 分页：URL 控制的页码选择不再被表格库自动重置，第 2 页稳定渲染第 11–20 行（#1008）。
 
 ## [v0.16.14] — 2026-08-27
 
 ### Changed
 
-- **账号 token 同步 UI 真值（#1002 后续）**：账号创建/登录后的 toast 如实报告后端 `tokenSyncStatus` / `tokenCount` / `tokenSyncMessage` 四态——synced 显示真实持久化计数、empty 提示暂无上游令牌、failed 降级为部分初始化警告、skipped 与旧响应保持原引导文案。
-- **failed 不是失败即回滚（#1002 后续）**：账号保留、可在令牌面板重试同步，`/token-routes` CTA 在所有状态保留。
+- 账号创建/登录后的 toast 如实报告后端 `tokenSyncStatus` / `tokenCount` / `tokenSyncMessage` 四态：synced 显示真实持久化计数、empty 提示暂无上游令牌、failed 降级为部分初始化警告、skipped 与旧响应保持原引导文案（#1002 后续）。
+- 同步 failed 不回滚：账号保留、可在令牌面板重试同步，`/token-routes` CTA 在所有状态保留（#1002 后续）。
 
 ## [v0.16.13] — 2026-08-25
 
 ### Added
 
-- **Session 账号 token 自动同步（#1002）**：账号创建/登录后自动同步上游 token，响应报告真实持久化的 `tokenCount` 与 `tokenSyncStatus` / `tokenSyncMessage`；同步失败仅发出部分初始化警告并保留已验证账号，绝不回滚；API-key 连接显式跳过。
-- **账号 Models 面板（#998）**：账号详情新增 Models 面板——手工上游刷新、手工添加与显式移除模型、来源/可用性状态诚实呈现；路由重建与缓存失效每次刷新动作恰好发生一次；上游失败诚实报告且无副作用。
+- Session 账号 token 自动同步：账号创建/登录后自动同步上游 token，响应报告真实持久化的 `tokenCount` 与 `tokenSyncStatus` / `tokenSyncMessage`；同步失败仅发出部分初始化警告并保留已验证账号，绝不回滚；API-key 连接显式跳过（#1002）。
+- 账号详情新增 Models 面板：手工上游刷新、手工添加与显式移除模型、来源/可用性状态诚实呈现；路由重建与缓存失效每次刷新动作恰好发生一次；上游失败诚实报告且无副作用（#998）。
 
 ## [v0.16.12] — 2026-08-25
 
-### Added
-
-- **下游 key 模型授权 UI（#999）**：密钥表单新增模型授权编辑器——精确模型名、glob 通配（`*`）、`re:` 正则；空即拒绝所有、`*` 为显式全允许，后端既有 fail-closed 过滤保持唯一执行点。
-- **账号表单可搜索站点选择器（#1001）**：账号创建/编辑对话框的站点选择支持名称/URL/平台搜索与键盘选择，写入数字 `siteId`，保留深链预选。
-- **上游公告进入 attention（#1000）**：未读站点公告作为条件派生条目进入 attention bell 与仪表盘待办面板；读状态唯一来源为 `site_announcements.read_at`，审计事件行不再产生重复条目。
-- **截图数据 profile 门禁**：截图扫描必须先声明 `empty` 或 `seeded`；profile 与实际数据不符时在截图前即失败，配套静态测试。
-
-### Fixed
-
-- **Sites 分页 URL 状态保持（#996）**：表格内部页码重置后，页码仍由 URL 参数控制，第 2 页稳定渲染 11-20 行。
-- **公告来源链接安全（#1000）**：公告页外链只接受基于受信本地站点 URL 解析出的 HTTP(S) 地址；不安全或未知的来源地址回退为站点首页且永不渲染为外链。
-- **attention 条目语义显式化（#997）**：attention bell 明确为“未解决条件条目”，条件解除即消失，不提供伪造的客户端清除按钮；事件条目按未读过滤并携带 program-logs 深链参数。
+- 下游密钥模型授权语义：精确模型名、glob（`*`）、`re:` 正则；**留空＝拒绝所有**，`*` 是显式全允许（#999）。
+- 公告外链只接受基于受信站点 URL 解析出的 http(s) 地址，不安全来源回退站点首页且不渲染为外链（#1000）。
 
 ## [v0.16.11] — 2026-08-25
 
-### Added
-
-- **OAuth start 流闭环**：Start-OAuth 成功后呈现 state / redirect URI / SSH 隧道命令（均可复制），经 `getOAuthSession` 有界轮询（30 次 × 2s，卸载/取消即清理）；超限显示等待态而非假成功，支持手动粘贴回调 URL（`submitOAuthManualCallback`，输入校验 + 成功/失败明确反馈）。
-- **对比行重跑**：model-tester 批量对比结果支持行级 re-run（含失败/中止行），复用原 payload 与既有探测机制，行级 pending + Stop 可中止。
-- **Golden 回归扩容**：visual-regression 基线由 4 页扩至 10 页（全部空库、布局稳定、日期无关），契约同步入文档。
-
-### Fixed
-
-- **Accounts 行级 pending**：pin / check-in 切换补行级 pending 反馈（Spinner + disabled），与 status 切换互不串台。
-- **路由页视图持久**：`showZeroChannel` 开关持久化到 localStorage，视图选择跨导航与刷新保留。
-- **前端测试真值**：移除前端单元测试中对 unhandled 错误的全局豁免开关（移除后全套零 unhandled 错误）；a11y-scan 路由对齐 route-smoke 单一来源（15 → 41 路由），41 路由 0 serious/critical。
-
-### Accessibility
-
-- model-tester 双 slider thumb 补 aria-label；observability 热力图 bucket 补 img role 语义；audit-logs method 筛选补 aria-label。
+- 无运维可见变更：均为前端与测试层修复（OAuth start 流、model-tester 行级重跑、视觉回归基线）。
 
 ## [v0.16.10] — 2026-08-25
 
-### Added
-
-- **站点快捷跳转（#985）**：站点列表名称/URL 列提供快捷跳转链接；仅合法 http(s) 地址渲染为链接，非法 scheme 保持纯文本，含键盘/焦点/新标签语义。
-- **站点公告页（#986）**：新增独立 `/site-announcements` SPA，聚合上游站点公告，读/同步/空/错误状态齐备；公告正文按不可信文本渲染，不渲染来源外链。
-
-### Fixed
-
-- **站点公告 API 契约（#986）**：admin API 统一 camelCase；同步按站点诚实报错、计数器只统计成功写入；`siteId` 严格校验（未知站点 404，拒绝重复键/浮点/未知字段）；失败后台任务保留结构化结果供 UI 呈现部分真值。
-- **上游公告信封校验**：newapi/donehub 适配器校验 success 信封与 data 类型，呈现上游失败消息而不是制造内容。
-- **产品公告真值（#992）**：设置/仪表盘公告链接只接受绝对 http(s)；加载失败显示错误横幅与重试；dismiss 失败有本地化 toast 且横幅保留。
-- **门禁稳定**：修复高负载下抖动的代理首字节计时测试；文档卫生门禁不再扫描 gitignored 的本地工作区（.dev-local）。
-
-### Security
-
-- **SSRF 加固**：新增 `internal/ssrf` 主机名策略与 DialContext 守卫，在所有站点代理传输（普通/池化/uTLS）拨号前拒绝云元数据/链路本地目标；RFC1918/localhost 保留给实验环境。站点 URL 校验收紧（拒绝 opaque、内嵌凭据与非法端口）。
-- **工程门禁（#991）**：项目 pre-push CI 门禁重新挂回全局 hook 链；release.sh 在打 tag 前校验 master 与远端同步。
+- 安全：站点代理的全部传输（普通 / 池化 / uTLS）在拨号前拒绝云元数据与链路本地目标；站点 URL 校验收紧（拒绝 opaque、内嵌凭据与非法端口）。RFC1918 与 localhost 保留给实验环境。
+- 新增 `/site-announcements` SPA 与站点公告 admin API（统一 camelCase、`siteId` 严格校验、未知站点 404）（#986）。
 
 ## [v0.16.9] — 2026-08-24
 
-### Added
-
-- **模型数据源多源注册表（#971）**：llm-metadata 与 models.dev 双源合并为统一模型目录，支持自动/手动同步；models 页水合真实目录数据。
-- **设置中心语义重组（#971/#972）**：设置拆分为基础、代理与模型、下游、通知与数据、系统与运维五组，旧 URL 自动重定向；目录源改为指针拖拽排序。
-- **目录倍率计价（#972）**：消费 llm-metadata 的 newapi ratio 倍率用于转发成本估算，并由目录数据推导支持的端点类型。
-
-### Fixed
-
-- **前端体验整修（#970）**：覆盖 12 个域的 55 项交互/视觉/移动端/无障碍修复，含侧边栏「路由」导航静默失败等。
-- **14 条产品语义修复（#971）**：模型、路由、设置等用户可见文案与行为修正。
-- **模型目录方言修复（#972）**：部分 Claude 模型被误标为 openai 协议，优先使用原生 dialect 恢复为 anthropic。
-- **移动端交互审计（#972）**：修复两处小于 24px 的触控目标（签到「查看原始信息」、倍率行内编辑），并逐项核验其余遮挡/命中区信号为误报。
-- **data-table 自动重置渲染环（#972）**：修复 keys 页跨 root flushSync 乒乓导致的冻结。
-
-### Performance
-
-- **首屏 bundle 拆分（#972）**：双语言 locale 改为按需懒加载，入口 chunk 减少约 59%（303.6 → 123.5 KB）。
-
-### Accessibility
-
-- **主题对比度归零（#972）**：清除全部 8 项 sub-AA 对比度豁免（删除 2 个闲置 token + 修复 6 个 preset residual），10 个主题 × 明暗模式全部通过 WCAG AA 4.5:1。
+- 模型目录改双源合并（llm-metadata + models.dev），支持自动与手动同步；`newapi` ratio 倍率用于转发成本估算（#971、#972）。
+- 设置中心拆为五组，旧 URL 自动重定向（#971）。
 
 ## [v0.16.8] — 2026-08-23
 
-### Security
-
-- **修复备份导入安全问题（#941）**：恶意备份文件可能被利用来外传凭据，建议旧版本及时升级。
-
-### Added
-
-- **站点 API 端点编辑器（#935）**：站点表单新增多行端点编辑，带规范化、去重与安全地址校验；未编辑的端点保持原语义。
-- **站点探针产品化（#939）**：新增探针实时报告视图、手动触发与最近运行历史；模型批量探针对话框如实呈现失败与未知状态。
-- **代理全失败告警（#942）**：代理全部不可用时触发告警通知，同一模型 5 分钟内不重复告警。
-- **API 文档补齐（#940）**：补全 API 文档中缺失接口的参数与响应说明。
-
-### Fixed
-
-- **可空字段处理修复（#943）**：路由、站点、OAuth 相关数据的可空数值字段正确处理，单条空值不再导致路由装载失败。
-- **告警条目页深链接（#936）**：告警条目改为站内深链，刷新后仍停留在对应条目，不丢失上下文。
-- **主题对比度修复（#949）**：修复 6 处主题对比度不足（含 rose-garden 暗色主题与 lake-view 侧栏），均达到 4.5:1 以上。
-- **导入与交互修复（#948）**：恢复导入向导工具栏入口、完成步骤直接跳转创建账号、下游密钥列表移动端卡片适配、签到按钮加载状态可用。
-- **服务停机与启动体验（#946）**：停机时等待在途调度任务执行完成（上限 5 秒）；启动时请求错峰，避免启动峰值。
-- **后端消息统一（#938）**：后端用户可见消息统一为英文，与上游错误消息保持兼容。
-
-### Performance
-
-- **代理转发（#944）**：无映射请求走零拷贝短路径，流式响应单遍处理，显著降低代理热路径延迟与内存占用。
-- **路由匹配（#947）**：路由匹配引入缓存与惰性扫描，刷新开销大幅下降；顺带修复一处数据竞争。
-- **代理日志统计（#945）**：代理日志与统计查询优化，大数据量下查询与翻页显著提速。
+- 安全：恶意备份文件可被用来外传凭据，**旧版本应升级**（#941）。
+- 后端用户可见消息统一为英文（#938）；停机等待在途调度任务，上限 5 秒（#946）。
 
 ## [v0.16.7] — 2026-08-22
 
-### Security
-
-- **修复路径穿越安全问题（#922）**：修复代理转发中因危险路径段引发的越权访问风险，建议旧版本升级。
-- **修复导出文件安全问题（#925）**：修复导出文件可能的公式注入风险，建议旧版本升级。
-- **安全加固（#917）**：公共路由拒绝危险路径段，联网请求拦截补齐全部私网网段，建议旧版本升级。
-
-### Added
-
-- **迁移工具强化（#919）**：迁移前校验备份文件完整性，被篡改的备份会被识别并拒绝。
-
-### Fixed
-
-- **监控接口认证修复（#922）**：修复监控接口 cookie 认证失效问题。
-- **空余额账号 500 修复（#931）**：账号余额为空时，站点列表正常展示，余额刷新任务不再意外中断。
-- **空库快照修复（#928）**：账号/站点数据为空时返回空数组，消除前端静默反复重试。
-- **假成功修复（#930）**：签到触发、批量触发与代理测试不再忽略失败结果，如实展示真实状态。
-- **界面交互修复（#924）**：新建站点后账号添加按钮立即可点、侧边栏点击区域加大、登录页焦点顺序修正。
-- **无障碍修复（#920）**：表单错误提示对屏幕阅读器可见，导航竞态问题修正。
-
-### Changed
-
-- **部署体验（#921）**：新增一键安装脚本，新用户三步完成部署；默认使用命名卷持久化数据；README 中英文一致。
-- **README 重构（#929）**：定位、功能总览与三步快速开始，中英文版本同步。
-- **文档校准（#916）**：API 文档与实际行为对齐。
+- 安全：代理转发路径穿越（#922）、导出文件公式注入（#925）、公共路由危险路径段与私网网段拦截补齐（#917），**旧版本应升级**。
+- 迁移前校验备份文件完整性，被篡改的备份会被拒绝（#919）。
+- 新增 `install.sh` 安装脚本；Docker 默认改用命名卷持久化数据（#921）。
 
 ## [v0.16.6] — 2026-08-21
 
-### Added
-
-- **静态资源 gzip 压缩（#910）**：内置前端资源启用 gzip 压缩传输，页面加载更快。
-
-### Fixed
-
-- **API 字段命名修复（#911）**：账号令牌接口字段统一为 camelCase，布尔字段类型修复，客户端解析不再丢失字段。
-- **更新丢失字段修复（#911）**：站点、账号、路由更新时会话启用与协议限制等字段此前被静默丢弃，现已正确保存。
-- **频道列表不再截断（#911）**：未传分页参数的频道列表返回全量数据，不再固定截断为 50 条。
-- **路由频道状态补齐（#911）**：路由详情补充各频道的成功、失败计数与冷却状态。
-- **账号大列表卡顿修复（#910）**：账号列表渲染优化，百行级数据不再冻结页面主线程。
-- **仪表盘提速（#910）**：图表库改为按需加载，不再阻塞首页渲染。
+- 账号令牌接口字段统一 camelCase、布尔字段类型修正，**调用方需跟着改**（#911）。
+- 站点 / 账号 / 路由更新不再静默丢弃会话启用与协议限制字段；未传分页参数的频道列表返回全量，不再截断为 50 条（#911）。
 
 ## [v0.16.5] — 2026-08-21
 
-### Added
-
-- **全局告警红点（#902）**：顶栏新增告警铃铛入口，告警信息全局可及。
-- **OAuth 连接详情（#903）**：OAuth 连接列表支持下钻查看详情。
-- **关于页构建信息（#904）**：新增版本信息接口，关于页展示真实版本与构建信息。
-- **代理日志与频道筛选（#905）**：代理日志列表支持按频道过滤；频道列表新增状态筛选。
+- 新增版本信息接口，关于页展示真实版本与构建信息（#904）。
 
 ## [v0.16.4] — 2026-08-21
 
-### Fixed
-
-- 修复未主动刷新的账号金额字段常显「0」、制造「余额归零」假象的问题：未刷新的金额统一显示为 em dash 占位，不再伪造数据（#889）。
-- 危险操作补充确认：WebDAV 导入与 usage-log 清空前增加确认对话框；路由表单 Cancel 与脏表单关闭统一走路由守卫（#889）。
-- 修复写操作 toast 重复或缺失反馈的问题：调用方已提示的写操作不再全局重复弹 toast；批量路由启用/停用补充结果 toast；复制操作补充反馈；checkin trigger 与站点开关增加行级 pending 状态（#889）。
-- 移动端适配：页头动作簇响应式收纳（换行 + More 菜单）；小屏下 sheet 全宽面板 + 可滚动主体；图标按钮触控目标加大到 40px；表格/侧栏断点常量共享（#889）。
-- 信息架构断链修复：所有 workspace 页面补充 `document.title`；observability proxy-logs 增加直达入口与跨页链接；侧栏打磨（#889）。
-- 统一数据展示层：locale 感知的日期时间、货币、图表/延迟、千分位与 em dash 全站统一，并修复货币双前缀问题（#889）。
-- 性能与稳定：realtime WebSocket 自动重连并标记数据新鲜度；账号行开关乐观更新；账号深链 pageSize 收敛 UI 上限；OAuth 连接列表服务端分页；公告 banner 走查询缓存；工具栏搜索 300ms 防抖（#889）。
-- 主题与会话：补全主题系统（内容布局轴、系统色彩方案、预设整理）；登录页补 token 指引与 token 轮换后自动登出；会话过期保留返回路径、无效 token 主动登出；Electron 等待屏增加服务器退出失败态；认证设置错误消息语言中立（#889）。
-
-### Added
-
-- ⌘K 命令面板：全局导航层 + 过滤日志深链（#889）。
-- 页头用户菜单：登出 / 版本 / About / 文档入口（#889）。
-- 共享 DetailField 原语：七个详情 sheet 收敛为同一堆叠字段布局；非表格空态统一 Empty 原语（#889）。
-
-### Changed
-
-- 视觉一致性打磨：错误重试图标统一（RefreshCw + 静态守卫）；清理 gap 控件双重图标间距；settings 分区垂直节奏统一；批量栏尺寸与 RoutePending 壳同构；dark inset 边缘等细节修正（#889）。
+- 未刷新的账号金额显示为占位符，不再伪造「余额归零」（#889）。
+- WebDAV 导入与 usage-log 清空前增加确认对话框；路由表单脏值关闭走路由守卫（#889）。
+- 登录页补 token 指引，token 轮换后自动登出；会话过期保留返回路径、无效 token 主动登出（#889）。
 
 ## [v0.16.3] — 2026-08-21
 
-### Fixed
-
-- 修复 Dashboard 告警（attention）深链全线失效的问题：后端发出 SPA 未消费的跳转目标，点击 100% 落空。现改为正确的深链（站点编辑、设置页入口）；账号页新增 `accountId` 一次性深链消费，打开账号详情 sheet，过期 id 静默清除（#890）。
-- 修复首次接入流程死胡同：导入向导完成步骤只有统计 + 关闭，且导入后不触发路由重建，用户不知道模型还不可路由。新增主 CTA「重建路由」+ 次 CTA「添加账号」+ 说明文案；下游密钥创建成功后自动打开「接入」对话框；接入与路由完成引导改为 SPA 导航，不再整页刷新丢失状态（#892）。
-- 修复下钻死胡同：channel 详情「编辑路由」此前实际打开只读详情——routes 页新增一次性 `edit` 参数改为打开真编辑对话框；observability 熔断/冷却表补出口链接；model-tester 对比结果每行通道可点击跳转；models / checkin 空态补 CTA（#893）。
-- 修复站点创建后账号页缓存滞后：此前创建站点只失效路由缓存、未失效账号快照缓存，新建首个站点后「添加账号」按钮最长 30 秒被陈旧快照禁用；现与更新/删除操作对齐补缓存失效（#895）。
-
-### Added
-
-- 站点页新增「余额」列（余额 → 订阅剩余阶梯兜底）+ 详情余额/订阅区块（Plans / 月用量 / Remaining / 下次到期）+ 端点冷却与失败原因状态；账号详情补 quota / unitCost / lastCheckinAt / 健康原因；路由详情通道指标新增 success/fail 命中计数；OAuth 新增 quota（5h/7d 窗口）、planType、参与路由数、最近同步错误列。空值一律显示占位或整块隐藏，不伪造数据（#894）。
-- `prefers-reduced-transparency` 无障碍支持：topbar、批量操作浮动条与 dialog/sheet/alert-dialog 共 5 个玻璃表面，在系统「降低透明度」偏好下降级为实心底并移除 blur；默认外观零变化（#896）。
-
-### Changed
-
-- 设计系统对齐：accounts/checkin/token-routes 行操作按钮换用 ui/button 原语，恢复键盘焦点环；sign-in 页标题回到规定字阶；sites 页迁移共享 QueryErrorBanner；about 页版本号改为构建期从 package.json 注入，修复此前硬编码与实际版本脱节的问题（#891）。
-- model-detail 定价文案改走 i18n（#896）。
+- 关于页版本号改为构建期注入，不再与实际版本脱节（#891）。
+- 新建站点后账号页缓存同步失效，「添加账号」不再被陈旧快照禁用最长 30 秒（#895）。
 
 ## [v0.16.2] — 2026-08-20
 
-### Fixed
-
-- 修复从旧版后端（TS）迁移的数据库在启动后查询站点时崩溃的问题（#849，hb0730 报告）：旧库缺少历史迁移新增的列，查询报 `no such column` 错误。现在启动时自动补齐全部缺失列，老库无需手动操作（#878）。
-- 修复 Docker 数据目录权限导致启动失败的问题（#849）：Go 镜像以非 root 用户（uid 1001）运行，旧版以 root 写入的 bind mount 数据目录会触发只读数据库错误。现在启动前探测数据目录与既有库文件的可写性，失败时给出可操作的 `chown`/`chmod` 提示；README、docker-compose.prod 与迁移、部署文档补充命名卷零配置 vs bind mount + chown 指引与 `ACCOUNT_CREDENTIAL_SECRET` 使用说明（#875）。
-- 修复 `metapi-migrate --verify` 校验和误报（共 4 处）：目标侧哈希限定源列集合（列序无关）、settings 源侧过滤运行时键（db_type/db_url/db_ssl）、行哈希按规范化串排序（行序无关）、跨方言布尔规范化（SQLite 0/1 vs PG true/false）（#875）。
+- Docker 镜像以非 root（uid 1001）运行：**bind mount 数据目录若由 root 写入会触发只读数据库错误**。启动前探测数据目录与库文件可写性并给出 `chown` / `chmod` 提示；命名卷零配置（#875）。
+- 从 TS 旧后端迁移的库启动时自动补齐缺失列，老库无需手动操作（#878）。
+- `metapi-migrate --verify` 校验和语义修正：列序与行序无关、settings 过滤运行时键、跨方言布尔归一（#875）。
 
 ## [v0.16.1] — 2026-08-19
 
-### Fixed
-
-- 修复 OAuth Start-OAuth 流程断链：提交时后端返回的 `state`/`instructions` 被丢弃，用户无法轮询会话或手动提交回调。现保留 pending 状态并渲染 pending 面板（OAuth session 轮询 + SSH 隧道命令复制 + 手动回调输入框），成功后自动关闭、失败保留重试（#862）。
-- 修复 Token-routes 链上下文 banner 显示原始 `#ID` 的问题：现在读取已加载的账户/站点数据解析为用户名/站点名，`#ID` 仅作兜底（#862）。
-- 修复 site-form 的 3 个 Select 缺失 label 关联的问题：补 `FormControl` 包裹，恢复标签与控件的关联（#862）。
-- 8 个页面（accounts/channels/oauth/models/proxy-logs/fix-candidates/price-compare/checkin）此前错误态只显示 banner、无重试：新增共享 QueryErrorBanner（alert 语义 + 可选 Retry + spinner），8 页统一接入获得重试（#862）。
-- 修复 Routes 行级操作（toggle/clear-cooldown）无 pending 反馈的问题：下拉项在操作期间显示加载图标并禁用（#862）。
-- 修复 showZeroChannel toggle 位于表格下方的问题：移入 toolbar 视图切换槽（#862）。
-- 修复 Sites 页面无法通过 `?edit=<id>` 深链直达编辑的问题：新增一次性消费的深链支持（#862）。
-- Channel-detail footer 此前仅在冷却时渲染、无编辑入口：改为常驻，并新增「Edit route」按钮跳转到路由详细页复用下钻（#862）。
+- 无运维可见变更：OAuth start 流断链修复与一批前端错误态、深链、无障碍修复（#862）。
 
 ## [v0.16.0] — 2026-08-18
 
-### Fixed
-
-- 修复编辑站点表单时自定义请求头覆盖设置被静默重置的问题，并新增可见开关控件（#851）。
-- 修复令牌路由列表中「站点」列与详情恒为空、全局筛选无法按站点名检索的问题（#854）。
-- 修复令牌路由数据刷新竞态下可能引发的整页崩溃（#855）。
-- 修复实时连接多次重连失败后静默放弃、面板像无流量一样的问题：新增连接丢失提示与手动重连按钮（#850）。
-- 账号列表启用/禁用改为行内按钮操作，并显示行级加载状态（#824）。
-- 统一页头高度取值来源，修复不同页面页头高度不一致的问题（#824）。
-- 修复代理日志的客户端、来源、目标过滤此前不生效的问题，过滤统一改为服务端执行（#832）。
-- 设置页各分区在数据加载失败时显示错误状态，空态提供内联创建入口（#832）。
-- 站点表单校验文案对齐、错误态增加重试按钮（#851）。
-- 令牌路由列表与详情页修正误导性文案，补充空态引导与错误重试（#855）。
-- 状态徽章统一为语义化组件样式（#825/#827）。
-- 渠道空态增加「管理账号」入口（#839）。
-- 渠道详情增加路由冷却清除操作（#834）。
-- 密钥列表操作增加成功提示（#841）。
-- 路由表单在草稿段为空时补充重新构建指引（#837）。
-- 设置页移动端导航改为横向滚动分段样式（#831）。
-- 代理日志详情中的渠道、账号、路由、令牌 ID 可点击跳转到对应过滤视图（#843）。
-- OAuth 绑定/刷新操作增加行级加载状态与逐账号错误提示（#845）。
-- 修复菜单的键盘 Esc 关闭行为（#833）。
-- 骨架屏加载动画改进，按列宽渲染（#824）。
-
-### Added
-
-- 站点表单新增探测延迟阈值配置项（#853）。
-- 无站点时仪表盘展示引导横幅，可一键跳转创建站点（#838/#842）。
-- 仪表盘统计卡片可点击跳转到对应详情页（#828）。
-- 凭证导出弹窗增加「发送测试请求」入口（#828）。
+- 代理日志的客户端 / 来源 / 目标过滤改为服务端执行（#832）。
 - 下游密钥支持编辑（密钥值不可修改），保存时仅更新变更字段（#835）。
-- 价格对比页新增跳转到对应模型令牌路由的入口（#835）。
-- 模型测试器展示本轮令牌用量（提示/完成/总量）（#840）。
-- 可用性趋势图按健康状态分档着色（#846）。
-- 「关注」列表时间显示改为相对时间（#847）。
 
 ## [v0.15.3] — 2026-08-17
 
-### Fixed
-
-- 修复弹窗底部操作栏半透明背景导致滚动内容透出的问题（#822）。
-- 修复警告弹窗内容无高度约束、长内容溢出视界的问题（#822）。
-- 修复长表单滚动时弹窗标题与描述滚出视界的问题（#822）。
-- 修复弹出气泡长内容溢出视界的问题（#822）。
-- 修复站点表单校验失败时无任何反馈的问题，新增错误提示（#822）。
+- 无运维可见变更：弹窗滚动与溢出、站点表单校验反馈修复（#822）。
 
 ## [v0.15.2] — 2026-08-17
 
-### Fixed
-
-- 修复弹窗长内容溢出视界、提交按钮不可达的问题（#815）。
+- 无运维可见变更：弹窗长内容溢出修复（#815）。
 
 ## [v0.15.1] — 2026-08-17
 
-### Fixed
-
-- 修复 PostgreSQL 环境下 `/api/models/token-candidates` 接口因布尔列比较写法不兼容而返回 500 的问题（#805）。
-- 修复接口内部出错时服务端无错误日志的问题：现在会记录错误并附带请求 ID（#805）。
-
-### Changed
-
-- 产品品牌文案统一为「Metapi」，界面文案与文档同步更新；接口行为不变。
-- 品牌 Logo 更新为透明底 π 字形蓝青渐变图标（亮/暗主题通用），同步更新 favicon 与桌面图标。
-- 登录页标题加大字号并精简冗余文案；README 增加品牌横幅。
-
-### Added
-
-- 部署文档的 Nginx 反向代理模板补充 WebSocket 升级头，避免 WSS 握手在代理层被中断（#805）。
+- PostgreSQL 下 `/api/models/token-candidates` 因布尔列比较写法不兼容返回 500，已修（#805）。
+- 接口内部出错时服务端记录错误并附请求 ID（#805）。
+- 品牌文案统一为「Metapi」，接口行为不变；Nginx 反代模板补 WebSocket 升级头，避免 WSS 握手在代理层被中断（#805）。
 
 ## [v0.15.0] — 2026-08-17
 
-### Added
-
-- 站点表单支持按站点覆盖粘性代理与 TLS 指纹设置，可继承全局或强制开启、关闭（#807/#809）。
-
-### Fixed
-
-- 修复粘性代理与 TLS 指纹设置无法通过 REST API 保存的问题（#807）。
-- 修复通知设置重启后静默回退的问题（#807）。
-- 导入流程改进：显示每条记录的失败原因、修复无法识别 URL 时提示刷屏、补充无障碍区域与标签关联（#808）。
+- 站点表单支持按站点覆盖粘性代理与 TLS 指纹（继承全局或强制开启、关闭）（#807、#809）。
+- 通知设置重启后不再静默回退（#807）。
 
 ## [v0.14.0] — 2026-08-17
 
-### Added
-
-- 账号表单新增密码凭证登录模式，支持直接使用账号密码接入上游站点（#770/#772/#774/#775）。
-- 路由策略新增最低成本、最少忙、最低延迟选项，并接入官方价格目录估算成本（#783/#790）。
-- 站点/模型熔断器支持半开探测，已恢复的通道可重新进入候选（#791）。
-- 接入向导增强：环节间自动传递站点/账号预选、内置凭证校验、创建路由时预填通道草稿（#796）。
-- 路由详情页展示每个通道的配置权重、启用占比（停用通道不计入）与规范化输入/输出单价，并标注价格来源（#799）。
-- 引导流程改进：创建结果按后端真实响应解析、编辑时保留脱敏凭证、批量通道部分失败时明确提示（#800）。
-- 模型测试台改进：保留上游状态/延迟/错误信息、停用通道不参与比较、停止请求独立计数（#801）。
-- 列表页以 URL 为分页、筛选、搜索、排序的唯一状态来源，刷新或分享链接可复现页面状态（#802）。
-
-### Fixed
-
-- 修复前端对旧版 URL/搜索参数的兼容问题，并补齐参数校验与本地存储边界（#767/#780）。
-- 修复与 new-api v1 登录响应、one-api 识别、session 登录及 CLIProxyAPI/Sub2API 凭证导入的兼容问题（#768/#769/#773/#776/#777）。
-- 修复批量写入器关闭时的稳定性问题，以及第一个模型为空值的处理（#771/#778）。
-- 修复用量统计缺少缓存明细时错误套用缓存折扣的问题（#788）。
-- 修复用量聚合刷新失败时统计静默丢失的问题（#789）。
-
-### Changed
-
-- SQLite 默认启用更快的同步级别与连接级缓存；成功请求会逐步衰减历史失败计数，已恢复的通道不再长期受罚（#784/#785）。
+- 账号表单新增密码凭证登录模式（#770、#772、#774、#775）。
+- 路由策略新增最低成本 / 最少忙 / 最低延迟，成本取自官方价格目录（#783、#790）。
+- 站点与模型熔断器支持半开探测，已恢复的通道可重新进入候选（#791）。
+- SQLite 默认 `PRAGMA synchronous = NORMAL`（WAL 下仍 crash-safe）与 `cache_size = 10000`；成功请求逐步衰减历史失败计数（#784、#785）。
 
 ## [v0.13.0] — 2026-08-15
 
-### Security
-
-- /v1 接口支持按 IP 限流，并可配置令牌频率限额与请求体大小上限（#709）。
-- 修复 WebDAV 的 SSRF 安全问题（#741/#761/#763），建议旧版本升级。
-- 管理端列表接口不再返回明文凭证，改为脱敏展示（#719）。
-- 修复 OAuth 出站与 WebSocket 来源校验相关的安全问题（#702/#726）。
-
-### Added
-
-- 平台自动识别：修复 one-hub、done-hub、veloera、sub2api、cliproxyapi 无法自动识别及 one-api 被误标为 new-api 的问题，新增商汤 SenseTime 平台检测（#684/#689/#706）。
-- 出站请求使用统一浏览器 UA，支持按站点注入 cf_clearance、可选 TLS 指纹伪装与连接复用（#687/#688/#694/#701）。
-- 模型列表拉取：修复异常响应时静默返回空列表的问题，并统一规范化、去重、排序；Sub2API 按分组返回可用模型（#683/#690/#695）。
-- 自动签到增强：已签到幂等识别、同站限速、临时失败重试、登录态自愈、重启后补签、失败通知聚合（#691/#692/#699/#700）。
-- 新增粘性代理池（#693/#698）、Grok/xAI OAuth 适配器（设备授权，#696）、图片生成接口透传（#697）、Electron 桌面客户端（#704）。
-- 新增可选的 Prompt 过滤，降低 OAuth 账号池被封风险（#702）。
-- 前端功能：客户端配置一键导出（Cherry Studio / CC Switch 深链）、⌘K 全局搜索命令面板、首页今日快照、告警消息富化、模型测试台会话与模板库、可观测性面板自动刷新、代理日志 CSV 导出、通道详情面板、订阅汇总、数据库迁移管理端点（#657/#658/#659/#660/#662/#711/#713/#708/#722）。
-
-### Fixed
-
-- 修复仪表盘单查询失败导致整页报错的问题（#714）。
-- 修复管理端与处理器数据库错误传播问题（#746/#748/#759/#763/#716）。
-- 修复列表端点分页边界与配置校验问题（#725/#728）。
-- 修复 SSE 错误事件、路由错误边界与调度器关闭时任务未取消的问题（#726）。
-
-### Changed
-
-- 日志级别现在可通过配置调整（#730）。
-
-### Performance
-
-- 仪表盘聚合加入缓存，代理日志改为异步批量写入（#710）。
-- 修复路由汇总接口的 N+1 查询问题，模型写入改用 upsert（#724）。
-- 移除体积较大的前端图表依赖，设置页代码按需加载，包体明显减小（#712/#718）。
-- 管理端探测改为并发流式处理，耗时显著缩短（#727）。
-- Docker 镜像构建使用构建缓存挂载，构建速度提升（#729）。
+- 安全：WebDAV SSRF（#741、#761、#763）、OAuth 出站与 WebSocket 来源校验（#702、#726）、管理端列表不再返回明文凭证（#719），**旧版本应升级**。
+- `/v1` 支持按 IP 限流，可配令牌频率限额与请求体大小上限（#709）。
+- 新增粘性代理池（#693、#698）、Grok/xAI OAuth 设备授权适配器（#696）、图片生成接口透传（#697）、Electron 桌面客户端（#704，已于 v0.18.0 移除）。
+- 平台自动识别修复（one-hub / done-hub / veloera / sub2api / cliproxyapi，one-api 不再被误标为 new-api），新增 SenseTime 检测（#684、#689、#706）。
 
 ## [v0.12.0] — 2026-08-14
 
-### Fixed
-
-- 修复离线迁移工具静默丢失数据的问题：迁移流程改为复用正式建表逻辑，并增加结构一致性守卫（#651）。
-- 修复运行时切换数据库时丢失 SSL 模式与连接池配置的问题（#651）。
-- 修复管理端路由解释遗漏令牌与 OAuth 检查项的问题（#653）。
+- 离线迁移工具不再静默丢数据：迁移复用正式建表逻辑并加结构一致性守卫（#651）。
+- 运行时切换数据库不再丢失 SSL 模式与连接池配置（#651）。
 
 ## [v0.11.0] — 2026-08-14
 
-### Security
-- 管理控制台 token 列默认脱敏显示（#601–#602）。
-- 生产部署配置安全加固：健康检查、禁止特权提升（no-new-privileges / 丢弃 capabilities）、只读根文件系统、临时目录隔离与资源限制（#639）。
-
-### Added
-- 管理控制台 UI/UX 与功能全量交付（#633/#634）：
-  - UX 基础：共享格式化器、状态/空态组件、toast 提示、数字动画、响应式表格与移动端降级、无障碍支持、页面标题缩放（#594–#600）
-  - 可观测性工作台：Overview / Health / 代理日志页面、访问日志指标、进程崩溃恢复日志携带请求标识（#603–#610）
-  - 导入：站点探测 + 统一导入向导 + 幂等批量导入（#611–#616）
-  - 模型：定价层、价格对比、修复候选与推荐（#617–#621）
-  - 通道：只读列表 + 重建过滤（#622–#626）
-- 路由重建接口返回新增 changed 统计；无实际变化时跳过不必要的重建。
-- 访问日志新增 status / bytes / duration_ms 字段；SSE 与 WebSocket 长连接的访问日志不再丢失；/metrics 新增 Go 运行时指标（goroutine / 内存 / GC）（#593）。
-- .env.example 补全约 80 个可选配置项（#640）。
-- API 文档补全 `/api` 端点清单（#643）。
-
-### Fixed
-- 修复周期任务从未执行：余额刷新 / 日志清理 / WebDAV 备份此前未被调度器注册（#635）。
-- 旧版本数据库平滑升级：增量迁移兼容已有结构，迁移文档明确只进不退（#636）。
-- 前端无障碍标签全部改为国际化文本，移除硬编码（#642）。
-
-### Changed
-- 发布流程：SemVer tag 触发多平台二进制构建（含校验和）与 GitHub Release；master 变更仅更新镜像（latest + sha）；CI/CD 合并为单一主流程。
-- 新增发布脚本：校验 tag / 前端版本 / 变更日志节一致性后打 tag 并推送。
-- 依赖与维护更新：GitHub Actions 组件与前端依赖升级（#584 / #588 / #592）；Dependabot 分组与升级流程文档（#591）。
-- 发布资产新增 install.sh 安装脚本，附带 sha256 校验（#637）。
+- 安全：生产部署加固（健康检查、no-new-privileges、丢弃 capabilities、只读根文件系统、临时目录隔离、资源限制）（#639）；管理控制台 token 列默认脱敏（#601、#602）。
+- 周期任务此前从未执行：余额刷新 / 日志清理 / WebDAV 备份未被调度器注册（#635）。
+- 访问日志新增 `status` / `bytes` / `duration_ms`；`/metrics` 新增 Go 运行时指标（goroutine / 内存 / GC）（#593）。
+- `.env.example` 补全可选配置项（#640）；发布改为 SemVer tag 触发多平台二进制 + 校验和 + GitHub Release，新增 install.sh（#637）。
 
 ## [v0.10.0] — 2026-08-12
 
-### Added
-- 定时计划配置增强：新增 v1 版计划格式（每日 / 间隔 / 随机窗口 / 自定义 Cron），提供预览与应用迁移接口，完整保留旧字段兼容。
-- 设置页统一表单：保存流程、加载错误状态、未保存变更离开确认、计划语义化控件、响应式导航。
-- 审计日志服务端分页（limit/offset）+ 前端分页表格（页码、上一页/下一页、筛选后重置回第一页）。
-- 数据库设置页改用统一脏值保护表单；应用内迁移按钮移除，改为提示通过 CLI 执行迁移。
-- 中文字体回退完善：CJK 无衬线字体栈（Noto Sans SC/TC/JP/KR、PingFang SC、Microsoft YaHei），zh-CN 界面字体不再随机。
-- 小屏设备顶栏新增侧栏开关。
-- 品牌名统一 **MetAPI**；透明 SVG 徽标与 favicon 替换旧版 PNG。
-- 顶栏语言切换（en / zh-CN），自动跟随浏览器语言，页面 lang/dir 同步。
-- 主题定制面板：配色 / 字体 / 圆角 / 缩放 4 轴，可单独重置；全部预设默认使用无衬线字体。
-- 侧栏导航完整本地化。
-- 社区文档：贡献指南、安全说明、行为准则、issue 模板；dependabot 覆盖 Go / npm / Actions / Docker 依赖。
-- 发布产物增强：多平台二进制与校验和、Docker 镜像 amd64 + arm64 双架构、`--version` 版本输出。
-
-### Fixed
-- 旧 cron 值与会话 v1 计划保持同步（含混合新旧格式的配置）。
-- 通知文本与任务静音配置持久化改为重启安全格式；PostgreSQL 设置审计写库问题修复。
-- 修复部分保存会清空未触碰项（通知开关、WebDAV 字段、白名单、掩码令牌输入）。
-- 设置保存错误只提示一次，不再多处重复弹窗。
-- 修复等价配置仍被要求重启：变更检测基于实际差异；SQLite 连接串路径规范化；兼容旧编码的 db_ssl 值。
-- 更新中心版本列表不再显示开发占位版本号；程序日志区适配不同响应格式并展示加载错误态。
-- 修复表格排序/分页与 URL 不同步：同路径 search 导航后表格滞后，现已立即生效。
-- 修复长页面内容被裁切（内容区无法滚动）。
-- 修复侧栏导航点击崩溃（循环引用 JSON 报错）。
-- 修复 URL 参数序列化噪声：`?sort=%5B%5D` 一类无意义参数不再写入地址栏。
-
-### Changed
-- 文案术语统一（启用/停用、额度、签到、通道）；内部计划编号移出用户可见文案；移除公开设置页的私有品牌信息；9 处硬编码改为国际化。
-- 视觉润色：登录页、Dashboard 统计卡、设置页移动端响应式与固定侧栏；全站渐变移除改为纯色。
-- 开发工具默认隐藏（显式开启）；首屏渲染前恢复持久化外观设置。
-- 移除更新中心前端入口（对应接口未实现）。
-- 仓库治理：GitHub Flow 工作流（master 受保护、短命分支 PR squash 合并）、PR 模板与工作流文档；README（中/英）修正过时信息并移除私有仓链接。
-- 发布流程整合：镜像推送成功后再创建 GitHub Release。
+- 定时计划新增 v1 格式（每日 / 间隔 / 随机窗口 / 自定义 Cron），旧字段完整兼容。
+- 审计日志改服务端分页（`limit` / `offset`）。
+- 数据库设置页移除应用内迁移按钮，改为提示通过 CLI 执行迁移。
 
 ## [v0.9.0] — 2026-08-11
 
-### Added
-- 前端管理界面整体重写：全新单页应用（Bun + Rsbuild 2 + TanStack Router/Query + Tailwind 4 + Zustand + shadcn/Base UI），替换旧版前端。
-- 新 Dashboard：概览 / 流量 / 模型 / 可用性 4 区块，图表展示与 WebSocket 实时状态。
-- 通用数据表格：URL 状态同步（排序、分页可恢复）、移动端卡片降级、批量操作。
-- 站点 / 账号 / Token 路由管理：引导式配置流程（站点 → 账号 → 路由）+ 表单校验。
-- 设置页重做：5 个子区导航（常规 / 下游 / 模型 / 内容 / 系统信息），移动端响应式分级下钻。
-- 签到页：失败原因分类着色徽章 + 手动签到。
-- 代理日志页：数据表格（服务端分页）+ 详情抽屉（会话路径、计费信息）。
-- 模型页 + 模型测试器：品牌图标、SSE 流式响应（OpenAI / Claude / Responses / Gemini 协议）。
-- 关于 / OAuth / 站点公告：完整管理功能。
-- 国际化：key-based 双语（en / zh-CN）。
-- 品牌名统一 **MetAPI**；透明 SVG 徽标与 favicon 替换旧版 PNG。
-- 顶栏语言切换（en / zh-CN），自动跟随浏览器语言，页面 lang/dir 同步。
-- 主题定制面板：配色预设 / 字体 / 圆角 / 缩放 4 轴，可单独重置；全部预设默认使用无衬线字体。
-- 侧栏导航完整本地化。
-
-### Fixed
-- 修复签到失败原因分类不生效：后端新增失败原因字段（SQLite / PostgreSQL 兼容），API 嵌套返回，前端分类着色恢复正常。
-- 修复嵌入式前端白屏：SPA 回退曾把 `/static/*` 静态资源当作 HTML 返回；现已正确挂载静态资源并设置缓存头。
-- 修复表格排序/分页与 URL 不同步：同路径 search 导航后表格滞后，现已立即生效。
-- 修复长页面内容被裁切（内容区无法滚动）。
-- 修复侧栏导航点击崩溃（循环引用 JSON 报错）。
-- 修复 URL 参数序列化噪声：`?sort=%5B%5D` 一类无意义参数不再写入地址栏。
-
-### Changed
-- 前端构建迁移：npm → Bun（本地开发与 Docker 构建一致）。
-- 文案术语统一（启用/停用、额度、签到、通道）；内部计划编号移出用户可见文案；9 处硬编码文本改为国际化（含移除公开设置页的私有品牌信息）。
-- 视觉润色：登录页、Dashboard 统计卡（骨架屏、状态图标、连接指示）、设置页移动端体验；全站渐变改为纯色。
-- 开发工具默认隐藏，需显式开启。
-- 移除旧版前端页面与组件代码。
-- 移除更新中心前端入口（对应接口未实现）。
-- 仓库治理与社区文档：GitHub Flow 工作流（master 受保护、PR squash 合并）、PR 模板、贡献指南 / 安全说明 / 行为准则 / issue 模板；README（中/英）修正过时信息并移除私有仓链接。
+- 前端整体重写为单页应用（Bun + Rsbuild 2 + TanStack Router/Query + Tailwind 4 + Zustand），构建由 npm 改为 Bun；旧版前端页面与组件移除。
+- 嵌入式前端白屏修复：SPA 回退曾把 `/static/*` 静态资源当作 HTML 返回。
+- 品牌名统一 MetAPI，透明 SVG 徽标与 favicon 替换旧版 PNG；顶栏语言切换（en / zh-CN）。

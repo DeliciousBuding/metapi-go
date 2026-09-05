@@ -382,16 +382,22 @@ func resolveLinkTarget(root, linkingFileRel, target string) string {
 // runes (the file is mostly Chinese, where bytes would triple every count).
 // Two ways out when an entry does not fit: split it, or point at the doc that
 // owns the identifier list instead of copying it a second time.
-const changelogBulletBudget = 220
-
-// changelogContractFloor is the oldest version section the contract governs.
-// v0.16.12 and earlier predate it, are already terse, and the contract
-// promises to preserve them verbatim — so the length rule must not reach them
-// (two of those entries are 231 and 259 runes and are allowed to stay).
-var changelogContractFloor = [3]int{0, 16, 13}
+//
+// Calibrated, not picked: after the fourth rewrite the longest entry in the
+// file is 168 runes, and the three entries near the ceiling are all
+// identifier lists with no owner doc to point at (removed endpoints, restored
+// table names). 220 was the ceiling under which the file regrew three times;
+// 170 is the smallest round number the rewritten file satisfies.
+//
+// It applies to every version section. The old floor that exempted v0.16.12
+// and earlier is gone: that tail is now an archive whose entries carry only
+// security fixes, breaking changes and operator actions (the full text of
+// each archived version lives verbatim on its GitHub release page), and its
+// longest entry is 123 runes, so the exemption had nothing left to protect.
+const changelogBulletBudget = 170
 
 var (
-	changelogVersionRE = regexp.MustCompile(`^## \[v(\d+)\.(\d+)\.(\d+)\]`)
+	changelogVersionRE = regexp.MustCompile(`^## \[v\d+\.\d+\.\d+\]`)
 	changelogSectionRE = regexp.MustCompile(`^### (.+)$`)
 	// The forensic-mechanism arrow: "the code did X ⇒ therefore the user saw
 	// Y" is the shape every over-long entry grew from. The reader needs the
@@ -402,6 +408,14 @@ var (
 	changelogInternalSymbolRE = regexp.MustCompile("`[a-z][a-z0-9_]*\\.[A-Z][A-Za-z0-9]*")
 	changelogGoFileRE         = regexp.MustCompile(`[a-z0-9_]+\.go\b`)
 	changelogTestNameRE       = regexp.MustCompile(`\bTest[A-Z][A-Za-z0-9]+`)
+	// A bullet that opens with bold is opening with a headline, and the
+	// headline is where the storytelling lives ("恢复出厂设置真的恢复到出厂",
+	// "备份文件自己陈述自己的缺口"). 104 of the 110 entries in the pre-rewrite
+	// file had this shape, which is what made it read as a running account
+	// rather than a reference. The subject of an entry is an identifier or the
+	// shortest noun phrase that names the behaviour; bold is reserved for the
+	// action an operator must take, which appears mid-entry.
+	changelogBoldHeadlineRE = regexp.MustCompile(`^\*\*`)
 )
 
 var changelogAllowedSections = map[string]bool{
@@ -421,9 +435,7 @@ func TestChangelogStaysANarrativeNotAForensicRecord(t *testing.T) {
 	lines := strings.Split(string(data), "\n")
 
 	var findings []string
-	sectionsGoverned, bulletsChecked, devVisibleSections := 0, 0, 0
-	version := [3]int{}
-	governed := false
+	versionSections, bulletsChecked, devVisibleSections := 0, 0, 0
 	// The contract preamble at the top of the file names the tokens it bans
 	// (`⇒` among them), so the entry rules only apply below the first version
 	// heading. Without this the gate reports the rule as a violation of itself.
@@ -431,13 +443,9 @@ func TestChangelogStaysANarrativeNotAForensicRecord(t *testing.T) {
 
 	for i, line := range lines {
 		lineNo := i + 1
-		if m := changelogVersionRE.FindStringSubmatch(line); m != nil {
+		if changelogVersionRE.MatchString(line) {
 			inVersionSections = true
-			version = [3]int{atoiOrZero(m[1]), atoiOrZero(m[2]), atoiOrZero(m[3])}
-			governed = versionCompare(version, changelogContractFloor) >= 0
-			if governed {
-				sectionsGoverned++
-			}
+			versionSections++
 			devVisibleSections = 0
 			continue
 		}
@@ -453,15 +461,18 @@ func TestChangelogStaysANarrativeNotAForensicRecord(t *testing.T) {
 			}
 			continue
 		}
-		if !strings.HasPrefix(line, "- ") || !inVersionSections {
+		// Indented sub-bullets are measured too. Before the archive was
+		// collapsed, one version listed five sub-bullets that no rule here
+		// ever looked at — an indent was a way to put content past the gate.
+		trimmed := strings.TrimLeft(line, " \t")
+		if !strings.HasPrefix(trimmed, "- ") || !inVersionSections {
 			continue
 		}
-		entry := strings.TrimPrefix(line, "- ")
+		entry := strings.TrimPrefix(trimmed, "- ")
 		bulletsChecked++
 		// The forensic markers are banned in every section, including the
-		// verbatim-preserved tail: it already contains none of them, so
-		// applying the rule file-wide costs nothing and stops the tail from
-		// becoming a place to hide them.
+		// archive tail: applying the rule file-wide costs nothing and stops
+		// the tail from becoming a place to hide them.
 		for _, check := range []struct {
 			re   *regexp.Regexp
 			what string
@@ -475,48 +486,33 @@ func TestChangelogStaysANarrativeNotAForensicRecord(t *testing.T) {
 				findings = append(findings, formatFinding("CHANGELOG.md", lineNo, check.what+" -> "+m, line))
 			}
 		}
-		if governed && utf8RuneLen(entry) > changelogBulletBudget {
+		if utf8RuneLen(entry) > changelogBulletBudget {
 			findings = append(findings, formatFinding("CHANGELOG.md", lineNo,
 				"entry is "+strconv.Itoa(utf8RuneLen(entry))+" runes, budget is "+strconv.Itoa(changelogBulletBudget)+
 					": split it, or point at the doc that owns the identifier list", line))
 		}
+		if changelogBoldHeadlineRE.MatchString(entry) {
+			findings = append(findings, formatFinding("CHANGELOG.md", lineNo,
+				"entry opens with a bold headline: lead with the identifier or the behaviour, "+
+					"and keep bold for the action an operator must take", line))
+		}
 	}
 
 	// Same invariant as the two gates above: a budget nobody is measured
-	// against is not a lenient gate, it is no gate. Both counters can be
-	// zeroed independently — the version regex drifting means sectionsGoverned
-	// collapses to 0 while bulletsChecked stays high, and a file whose entries
-	// all lost their "- " prefix collapses the other one.
-	if sectionsGoverned == 0 {
-		t.Fatal("gate would pass vacuously: no CHANGELOG version section matched changelogVersionRE or the contract floor")
+	// against is not a lenient gate, it is no gate. The two counters fail on
+	// different drifts — versionSections goes to 0 if changelogVersionRE stops
+	// matching (every version, including ones with no bullets at all), and
+	// bulletsChecked goes to 0 if the entries lose their "- " prefix.
+	if versionSections == 0 {
+		t.Fatal("gate would pass vacuously: no CHANGELOG version section matched changelogVersionRE")
 	}
 	if bulletsChecked == 0 {
 		t.Fatal("gate would pass vacuously: no CHANGELOG entries were examined")
 	}
 	if len(findings) > 0 {
-		t.Fatalf("CHANGELOG.md violates its own writing contract (%d version sections governed, %d entries examined):\n%s",
-			sectionsGoverned, bulletsChecked, strings.Join(findings, "\n"))
+		t.Fatalf("CHANGELOG.md violates its own writing contract (%d version sections, %d entries examined):\n%s",
+			versionSections, bulletsChecked, strings.Join(findings, "\n"))
 	}
-}
-
-func atoiOrZero(s string) int {
-	n, err := strconv.Atoi(s)
-	if err != nil {
-		return 0
-	}
-	return n
-}
-
-func versionCompare(a, b [3]int) int {
-	for i := range a {
-		if a[i] != b[i] {
-			if a[i] < b[i] {
-				return -1
-			}
-			return 1
-		}
-	}
-	return 0
 }
 
 func utf8RuneLen(s string) int {
