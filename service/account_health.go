@@ -133,11 +133,11 @@ func IsUnsupportedCheckinRuntimeHealth(health *RuntimeHealthEntry) bool {
 	if strings.ToLower(string(health.Source)) == "checkin" {
 		return true
 	}
-	reason := strings.ToLower(health.Reason)
-	return strings.Contains(reason, "checkin endpoint not found") ||
-		strings.Contains(reason, "invalid url (post /api/user/checkin)") ||
-		(strings.Contains(reason, "http 404") && strings.Contains(reason, "/api/user/checkin")) ||
-		strings.Contains(reason, "unsupported checkin endpoint")
+	// Reason-only fallback for entries written before the source was recorded.
+	// The vocabulary lives in IsUnsupportedCheckinMessage so this cannot drift
+	// from what the check-in runner classifies.
+	return IsUnsupportedCheckinMessage(health.Reason) ||
+		strings.Contains(strings.ToLower(health.Reason), "unsupported checkin endpoint")
 }
 
 // BuildRuntimeHealthForAccount returns the effective runtime health for admin list/detail.

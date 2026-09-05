@@ -3,6 +3,7 @@ package checkin
 import (
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/alert"
 )
 
@@ -68,11 +69,9 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	}
 
 	// Priority 2: Checkin not supported
-	if includesAny(text, []string{
-		"checkin endpoint not found", "签到端点不存在", "站点不支持签到",
-		"not support checkin", "check-in is not supported",
-		"checkin is not supported", "does not support checkin",
-	}) {
+	// Same vocabulary the check-in runner and the health reader use, so the
+	// three cannot disagree about what "this site has no check-in" means.
+	if service.IsUnsupportedCheckinMessage(rawMessage) {
 		return FailureReason{
 			Code: CodeCheckinNotSupported, Category: CategorySite,
 			Title: "Check-in not supported", ActionHint: "No retry needed (not a failure)",

@@ -160,21 +160,6 @@ func isAlreadyCheckedInMessage(message string) bool {
 		strings.Contains(text, "签到达")
 }
 
-// isUnsupportedCheckinMessage detects unsupported checkin endpoints.
-func isUnsupportedCheckinMessage(message string) bool {
-	if message == "" {
-		return false
-	}
-	text := strings.ToLower(message)
-	return strings.Contains(text, "invalid url (post /api/user/checkin)") ||
-		(strings.Contains(text, "http 404") && strings.Contains(text, "/api/user/checkin")) ||
-		strings.Contains(text, "checkin endpoint not found") ||
-		strings.Contains(text, "check-in is not supported") ||
-		strings.Contains(text, "checkin is not supported") ||
-		strings.Contains(text, "does not support checkin") ||
-		strings.Contains(text, "not support checkin")
-}
-
 // isManualVerificationRequiredMessage detects Turnstile verification messages.
 func isManualVerificationRequiredMessage(message string) bool {
 	if message == "" {
@@ -456,7 +441,9 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	// 7. Classify result
 	isCloudflare := alert.IsCloudflareChallenge(result.Message)
 	alreadyCheckedIn := isAlreadyCheckedInMessage(result.Message)
-	unsupportedCheckin := isUnsupportedCheckinMessage(result.Message)
+	// The vocabulary is shared with the failure classifier and the health
+	// reader: service.IsUnsupportedCheckinMessage.
+	unsupportedCheckin := service.IsUnsupportedCheckinMessage(result.Message)
 	manualVerificationRequired := isManualVerificationRequiredMessage(result.Message)
 	manualVerificationMessage := "the site requires Turnstile verification; manual check-in is needed"
 	logMessage := result.Message
