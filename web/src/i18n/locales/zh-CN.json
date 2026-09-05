@@ -2729,7 +2729,6 @@
     "Sidebar": "侧边栏",
     "Displays the mobile sidebar.": "显示移动端侧边栏。",
     "Toggle Sidebar": "切换侧边栏",
-    "Toggle theme": "切换主题",
     "theme": {
       "title": "外观",
       "reset": "重置",
