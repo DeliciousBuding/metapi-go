@@ -293,7 +293,7 @@ func (o *OneApiAdapter) GetModels(ctx context.Context, baseURL string, apiToken 
 // GetAPITokens: GET /api/token/?p=0&size=100 (Bearer auth).
 func (o *OneApiAdapter) GetAPITokens(ctx context.Context, baseURL, accessToken string, platformUserId *int, proxy *ProxyConfig) ([]ApiTokenInfo, error) {
 	headers := authBearerHeaders(accessToken)
-	resp, err := fetchJSON(ctx, baseURL+"/api/token/?p=0&size=100", "GET", nil, headers, proxy)
+	resp, err := fetchJSON(ctx, baseURL+apiTokenListPath(), "GET", nil, headers, proxy)
 	if err != nil {
 		// Propagate: an unreachable or unauthorized token listing is not the same
 		// fact as "this account has no tokens". Returning an empty list here made
@@ -401,7 +401,7 @@ func (o *OneApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 	headers := authBearerHeaders(accessToken)
 
 	// List tokens
-	resp, err := fetchJSON(ctx, baseURL+"/api/token/?p=0&size=100", "GET", nil, headers, proxy)
+	resp, err := fetchJSON(ctx, baseURL+apiTokenListPath(), "GET", nil, headers, proxy)
 	if err != nil {
 		return fmt.Errorf("list upstream tokens: %w", err)
 	}

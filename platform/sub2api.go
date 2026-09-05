@@ -711,8 +711,8 @@ func (s *Sub2ApiAdapter) resolveManagementBaseURL(baseURL string) string {
 
 func (s *Sub2ApiAdapter) listAPIKeys(ctx context.Context, baseURL, accessToken string, proxy *ProxyConfig) ([]sub2apiKeyItem, error) {
 	endpoints := []string{
-		"/api/v1/keys?page=1&page_size=100",
-		"/api/v1/api-keys?page=1&page_size=100",
+		fmt.Sprintf("/api/v1/keys?page=1&page_size=%d", UpstreamTokenListPageLimit),
+		fmt.Sprintf("/api/v1/api-keys?page=1&page_size=%d", UpstreamTokenListPageLimit),
 	}
 
 	headers := authBearerHeaders(accessToken)

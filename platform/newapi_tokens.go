@@ -9,6 +9,14 @@ import (
 
 // --- Token CRUD ---
 
+// apiTokenListPath is the new-api/one-api token listing path with the shared
+// page limit applied, so the six call sites across the two adapters cannot
+// drift from UpstreamTokenListPageLimit (the service-layer convergence guard
+// reads the same constant to decide whether a listing could be truncated).
+func apiTokenListPath() string {
+	return fmt.Sprintf("/api/token/?p=0&size=%d", UpstreamTokenListPageLimit)
+}
+
 func (n *NewApiAdapter) GetAPIToken(ctx context.Context, baseURL, accessToken string, platformUserId *int, proxy *ProxyConfig) (*string, error) {
 	tokens, err := n.GetAPITokens(ctx, baseURL, accessToken, platformUserId, proxy)
 	if err != nil {
@@ -35,7 +43,7 @@ func (n *NewApiAdapter) getAPITokenWithUser(ctx context.Context, baseURL, access
 func (n *NewApiAdapter) getAPITokensWithUser(ctx context.Context, baseURL, accessToken string, userID *int, proxy *ProxyConfig) ([]ApiTokenInfo, error) {
 	// Try Bearer auth
 	headers := n.authHeaders(accessToken, userID)
-	resp, err := fetchJSON(ctx, baseURL+"/api/token/?p=0&size=100", "GET", nil, headers, proxy)
+	resp, err := fetchJSON(ctx, baseURL+apiTokenListPath(), "GET", nil, headers, proxy)
 	if err == nil {
 		items := parseTokenItemsFromMap(resp)
 		normalized, normalizeErr := n.normalizeListedTokens(ctx, baseURL, items, headers, proxy)
@@ -78,7 +86,7 @@ func (n *NewApiAdapter) getAPITokensByCookie(ctx context.Context, baseURL, token
 			headers[k] = v
 		}
 
-		resp, err := fetchJSON(ctx, baseURL+"/api/token/?p=0&size=100", "GET", nil, headers, proxy)
+		resp, err := fetchJSON(ctx, baseURL+apiTokenListPath(), "GET", nil, headers, proxy)
 		if err != nil {
 			continue
 		}
@@ -241,7 +249,7 @@ func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 	reason := ""
 
 	// Try Bearer auth list
-	resp, err := fetchJSON(ctx, baseURL+"/api/token/?p=0&size=100", "GET", nil, n.authHeaders(accessToken, resolvedUserID), proxy)
+	resp, err := fetchJSON(ctx, baseURL+apiTokenListPath(), "GET", nil, n.authHeaders(accessToken, resolvedUserID), proxy)
 	if err != nil {
 		reason = err.Error()
 	} else {
@@ -276,7 +284,7 @@ func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 
 		// List if not already found
 		if tokenID == nil {
-			resp, err := fetchJSON(ctx, baseURL+"/api/token/?p=0&size=100", "GET", nil, headers, proxy)
+			resp, err := fetchJSON(ctx, baseURL+apiTokenListPath(), "GET", nil, headers, proxy)
 			if err != nil {
 				reason = err.Error()
 			} else {
