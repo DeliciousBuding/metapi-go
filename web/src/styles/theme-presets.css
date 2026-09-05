@@ -608,12 +608,12 @@
   letter-spacing: var(--tracking-editorial-heading);
 }
 
-/* Larger displays earn tighter tracking, matching Copernicus/Tiempos
- * editorial display setting (~ -0.02em at 30px+). */
-[data-theme-font='serif'] h1,
-[data-theme-font='serif'] .text-3xl,
-[data-theme-font='serif'] .text-4xl,
-[data-theme-font='serif'] .text-5xl {
+/* The page-level display size earns tighter tracking, matching the
+ * Copernicus/Tiempos editorial display setting (~ -0.02em at 30px+). The
+ * `.text-3xl/4xl/5xl` selectors this rule carried until 2026-09-05 had zero
+ * occurrences in the markup (style-layer census over web/src ts and tsx)
+ * and went with the dead component CSS they were copied from. */
+[data-theme-font='serif'] h1 {
   letter-spacing: var(--tracking-editorial-display);
 }
 

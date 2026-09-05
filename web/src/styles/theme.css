@@ -93,8 +93,6 @@
 :root {
   --radius: 1rem;
   --app-header-height: 3.5rem;
-  /* Static build-channel fallback consumed when JS hasn't booted yet. */
-  --app-rev: '2k6e8r7p';
   /* Currently active body font. The font axis swaps this between
    * `--font-sans` and `--font-serif` via `[data-theme-font='...']` blocks
    * in theme-presets.css. Default mirrors `--font-sans` so behavior is
@@ -177,23 +175,6 @@
   --table-header-hover: color-mix(
     in oklch,
     var(--foreground) 3%,
-    var(--background)
-  );
-  /* Disabled rows: kept subtle so they read as "quiet", not as a colored
-     alert state. */
-  --table-disabled: color-mix(
-    in oklch,
-    var(--foreground) 3%,
-    var(--background)
-  );
-  --table-disabled-hover: color-mix(
-    in oklch,
-    var(--foreground) 4.5%,
-    var(--background)
-  );
-  --table-disabled-border: color-mix(
-    in oklch,
-    var(--foreground) 16%,
     var(--background)
   );
 }
@@ -284,21 +265,6 @@
   --table-header-hover: color-mix(
     in oklch,
     var(--foreground) 9%,
-    var(--background)
-  );
-  --table-disabled: color-mix(
-    in oklch,
-    var(--foreground) 7%,
-    var(--background)
-  );
-  --table-disabled-hover: color-mix(
-    in oklch,
-    var(--foreground) 9.5%,
-    var(--background)
-  );
-  --table-disabled-border: color-mix(
-    in oklch,
-    var(--foreground) 24%,
     var(--background)
   );
 }
