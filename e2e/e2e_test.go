@@ -264,15 +264,12 @@ func makeChannel(id int64, upstreamURL string, actualModel string) *routing.Sele
 // makeTestConfig creates a minimal static Config for testing.
 func makeTestConfig() *config.Config {
 	return &config.Config{
-		Port:                                4000,
-		ListenHost:                          "127.0.0.1",
-		DataDir:                             "./data",
-		ProxyMaxChannelAttempts:             3,
-		ProxyStickySessionEnabled:           false,
-		ProxyStickySessionTtlMs:             30000,
-		ProxySessionChannelLeaseTtlMs:       5000,
-		ProxySessionChannelLeaseKeepaliveMs: 1000,
-		TokenRouterCacheTtlMs:               1500,
+		Port:                    4000,
+		ListenHost:              "127.0.0.1",
+		DataDir:                 "./data",
+		ProxyMaxChannelAttempts: 3,
+		ProxyStickySessionTtlMs: 30000,
+		TokenRouterCacheTtlMs:   1500,
 	}
 }
 
