@@ -107,13 +107,21 @@ func TestSessionSlidingExpiry(t *testing.T) {
 }
 
 func TestSessionCreatePurgesExpiredRows(t *testing.T) {
-	sm := newTestSessionManager(t, time.Second)
+	// TTL 2s, not 1s: expires_at is stored at SECOND precision (RFC3339 without
+	// fractional part), so a row's real lifetime can be up to 1s shorter than
+	// the TTL depending on where inside the second it was created. With a 1s
+	// TTL the window between Create #2 and Count could cross a whole-second
+	// boundary and count the brand-new row as already expired (observed as a
+	// CI red on a docs-only PR: "Count = 0, want 1"). A 2s TTL leaves a full
+	// second of margin, which no scheduler stall between two local SQL
+	// statements can eat.
+	sm := newTestSessionManager(t, 2*time.Second)
 	ctx := context.Background()
 
 	if _, _, err := sm.Create(ctx, "", ""); err != nil {
 		t.Fatalf("Create #1: %v", err)
 	}
-	time.Sleep(1100 * time.Millisecond)
+	time.Sleep(2100 * time.Millisecond)
 	if _, _, err := sm.Create(ctx, "", ""); err != nil {
 		t.Fatalf("Create #2: %v", err)
 	}
