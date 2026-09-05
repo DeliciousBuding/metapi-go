@@ -27,7 +27,7 @@ func testNotify(w http.ResponseWriter, r *http.Request) {
 		rt,
 		"Test notification",
 		"This is a connectivity test notification from system settings; your notification configuration is working correctly!",
-		"info",
+		string(notify.LevelInfo),
 		&notify.SendNotificationOptions{
 			BypassThrottle: true,
 			RequireChannel: true,
