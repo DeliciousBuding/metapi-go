@@ -146,7 +146,7 @@ func (b *BaseAdapter) VerifyToken(ctx context.Context, url, token string, platfo
 
 // Checkin returns unsupported by default.
 func (b *BaseAdapter) Checkin(ctx context.Context, url, accessToken string, platformUserId *int, proxy *ProxyConfig) (*CheckinResult, error) {
-	return &CheckinResult{Success: false, Message: "checkin not implemented for " + b.name}, nil
+	return &CheckinResult{Success: false, Message: fmt.Sprintf("%s for %s", DefaultCheckinUnsupportedMessage, b.name)}, nil
 }
 
 // GetBalance returns zero balance by default.

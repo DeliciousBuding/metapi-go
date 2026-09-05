@@ -5,8 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 // RuntimeHealthState is the health state of an account at runtime.
@@ -134,10 +135,9 @@ func IsUnsupportedCheckinRuntimeHealth(health *RuntimeHealthEntry) bool {
 		return true
 	}
 	// Reason-only fallback for entries written before the source was recorded.
-	// The vocabulary lives in IsUnsupportedCheckinMessage so this cannot drift
-	// from what the check-in runner classifies.
-	return IsUnsupportedCheckinMessage(health.Reason) ||
-		strings.Contains(strings.ToLower(health.Reason), "unsupported checkin endpoint")
+	// The vocabulary lives in platform so this cannot drift from what the
+	// check-in runner and the failure classifier decide.
+	return platform.IsUnsupportedCheckinMessage(health.Reason)
 }
 
 // BuildRuntimeHealthForAccount returns the effective runtime health for admin list/detail.

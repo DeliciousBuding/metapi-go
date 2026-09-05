@@ -380,24 +380,87 @@ func TestShouldFallbackToCookieCheckin(t *testing.T) {
 	}
 }
 
-// --- IsMissingCheckinEndpointMessage ---
+// --- the retired isMissingCheckinEndpointMessage copy ---
 
-func TestIsMissingCheckinEndpointMessage(t *testing.T) {
-	tests := []struct {
-		msg       string
-		isMissing bool
-	}{
-		{"invalid url (POST /api/user/checkin)", true},
-		{"HTTP 404: /api/user/checkin not found", true},
-		{"checkin endpoint not found", true},
-		{"check-in is not supported", true},
-		{"does not support checkin", true},
-		{"not support checkin", true},
-		{"normal error", false},
+// The gate at the end of NewApiAdapter.Checkin used to consult a private
+// seven-pattern copy of the check-in vocabulary. Five of those seven patterns
+// could not reach it: the caller returns early unless shouldFallbackToCookieCheckin
+// accepted the message, and only "invalid url (POST /api/user/checkin)" and the
+// "HTTP 404 + /api/user/checkin" pair appear in both lists. This pins that
+// equivalence, so replacing the copy with the shared narrow predicate
+// (IsCheckinEndpointAbsent) is provably not a behavior change on any input the
+// gate can see — and pins the unreachability itself, because if a future edit
+// lets one of the five through, the retirement has to be re-examined.
+func TestCheckinEndpointAbsentGateEqualsRetiredCopyOnReachableMessages(t *testing.T) {
+	retiredCopy := func(msg string) bool {
+		lower := strings.ToLower(msg)
+		return strings.Contains(lower, "invalid url (post /api/user/checkin)") ||
+			(strings.Contains(lower, "http 404") && strings.Contains(lower, "/api/user/checkin")) ||
+			strings.Contains(lower, "checkin endpoint not found") ||
+			strings.Contains(lower, "check-in is not supported") ||
+			strings.Contains(lower, "checkin is not supported") ||
+			strings.Contains(lower, "does not support checkin") ||
+			strings.Contains(lower, "not support checkin")
 	}
-	for _, tt := range tests {
-		if got := isMissingCheckinEndpointMessage(tt.msg); got != tt.isMissing {
-			t.Errorf("isMissingCheckinEndpointMessage(%q) = %v, want %v", tt.msg, got, tt.isMissing)
+
+	// Every wording either list can produce, plus the wordings that decide
+	// whether the gate is reached at all.
+	cases := []string{
+		"",
+		"unexpected token < in JSON",
+		"not valid json",
+		"<html>challenge</html>",
+		"missing new-api-user header",
+		"invalid access token",
+		"401 unauthorized",
+		"403 forbidden",
+		"not login",
+		"not logged in",
+		"未登录",
+		"参数未提供",
+		"invalid url (POST /api/user/checkin)",
+		"HTTP 404: /api/user/checkin not found",
+		"checkin endpoint not found",
+		"check-in is not supported",
+		"checkin is not supported",
+		"does not support checkin",
+		"not support checkin",
+		"签到功能未启用",
+		"normal error",
+	}
+	compared := 0
+	for _, msg := range cases {
+		reachable := msg == "" || shouldFallbackToCookieCheckin(msg)
+		got, want := IsCheckinEndpointAbsent(msg), retiredCopy(msg)
+		if reachable {
+			compared++
+			if got != want {
+				t.Errorf("reachable message %q: gate = %v, retired copy = %v (behavior change)", msg, got, want)
+			}
+			continue
+		}
+		if got != want {
+			t.Logf("unreachable divergence, retired with the copy: %q (gate=%v copy=%v)", msg, got, want)
+		}
+	}
+	if compared < 2 {
+		t.Fatalf("only %d reachable cases were compared; the equivalence claim would be vacuous", compared)
+	}
+
+	// The five patterns the retired copy carried but the gate never saw. If any
+	// of them ever becomes reachable, the shared predicate has to cover it.
+	for _, msg := range []string{
+		"checkin endpoint not found",
+		"check-in is not supported",
+		"checkin is not supported",
+		"does not support checkin",
+		"not support checkin",
+	} {
+		if shouldFallbackToCookieCheckin(msg) {
+			t.Errorf("%q now reaches the cookie-ladder gate; re-examine the retirement of its pattern", msg)
+		}
+		if !IsUnsupportedCheckinMessage(msg) {
+			t.Errorf("%q is no longer recognized as unsupported anywhere; coverage was lost, not folded", msg)
 		}
 	}
 }

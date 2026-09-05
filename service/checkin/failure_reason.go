@@ -3,7 +3,7 @@ package checkin
 import (
 	"strings"
 
-	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/service/alert"
 )
 
@@ -71,7 +71,7 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	// Priority 2: Checkin not supported
 	// Same vocabulary the check-in runner and the health reader use, so the
 	// three cannot disagree about what "this site has no check-in" means.
-	if service.IsUnsupportedCheckinMessage(rawMessage) {
+	if platform.IsUnsupportedCheckinMessage(rawMessage) {
 		return FailureReason{
 			Code: CodeCheckinNotSupported, Category: CategorySite,
 			Title: "Check-in not supported", ActionHint: "No retry needed (not a failure)",
@@ -80,8 +80,7 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	}
 
 	// Priority 3: Manual Turnstile required
-	if includesAny(text, []string{"turnstile token 为空", "turnstile"}) &&
-		includesAny(text, []string{"校验", "token", "验证", "manual"}) {
+	if platform.IsManualVerificationRequiredMessage(rawMessage) {
 		return FailureReason{
 			Code: CodeManualTurnstileRequired, Category: CategoryVerification,
 			Title: "Manual verification required", ActionHint: "Sign in manually in a browser once",
@@ -120,8 +119,15 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 		}
 	}
 
-	// Priority 7: Already checked in
-	if includesAny(text, []string{"already checked in", "already signed", "今天已经签到", "今日已签到", "已经签到"}) {
+	// Priority 7: Already checked in.
+	// Reachability, recorded so the next reader does not have to re-derive it:
+	// the only production caller writes failure_reason for non-success statuses
+	// alone, and the runner normalizes "already checked in" to status=success —
+	// so this branch does not fire from that caller today. It stays because the
+	// code it produces is a rendered value (web/src/i18n/locales/{en,zh-CN}.json
+	// carry an already_checked_in entry) and historical rows may carry it;
+	// retiring the producer would orphan a read-side vocabulary.
+	if platform.IsAlreadyCheckedInMessage(rawMessage) {
 		return FailureReason{
 			Code: CodeAlreadyCheckedIn, Category: CategoryState,
 			Title: "Already checked in today", ActionHint: "Nothing to do",
