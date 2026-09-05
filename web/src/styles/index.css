@@ -3,6 +3,22 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/public-sans';
+/* CJK counterpart of the Latin face above, and the reason `--font-sans` in
+ * theme.css can put a bundled family ahead of the platform CJK fonts. 101
+ * unicode-range slices, 4.31 MiB, embedded with the rest of dist (+4.4 MiB on
+ * the release binary, ~+18%); a page downloads only the slices whose
+ * codepoints it renders — measured on the built SPA: zh-CN /sign-in 9 slices
+ * / 513 KiB, zh-CN dashboard 11 / 629 KiB, five zh-CN admin pages 16 /
+ * 880 KiB, en /sign-in 0 (en dashboard pulls one 59 KiB slice for → … — ·,
+ * which Public Sans does not carry). `font-display: swap`, weight axis
+ * 100-900, so 500/600 are real cuts: on the platform CJK face (Microsoft
+ * YaHei on Windows, Noto Sans CJK on this node) 400 and 500 rendered
+ * pixel-identical, i.e. the weight hierarchy simply did not exist in Chinese.
+ * The serif axis deliberately gets no second bundled CJK family: it is an
+ * opt-in, and another 4.3 MiB for a non-default axis did not survive the size
+ * argument — Windows serif users keep SimSun, the conventional Chinese
+ * editorial face anyway. */
+@import '@fontsource-variable/noto-sans-sc';
 /* Editorial serif (Lora) backing the `serif` font axis — an explicit user
  * choice; every preset defaults to sans. See `--font-serif` in theme.css
  * for the full Latin + CJK fallback stack and `theme-presets.css` for the
