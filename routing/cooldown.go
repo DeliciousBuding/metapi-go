@@ -3,16 +3,17 @@ package routing
 import (
 	"math"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/config"
 )
 
 // ---- Cooldown constants ----
 
 const (
-	FailureBackoffBaseSec                   = 15
-	ShortWindowLimitCooldownMs              = 5 * 60 * 1000
-	MaxFailureBackoffSec                    = 30 * 24 * 60 * 60 // 30 days
-	RoundRobinFailureThreshold              = 3
-	TokenRouterFailureCooldownMaxSecCeiling = MaxFailureBackoffSec
+	FailureBackoffBaseSec      = 15
+	ShortWindowLimitCooldownMs = 5 * 60 * 1000
+	MaxFailureBackoffSec       = 30 * 24 * 60 * 60 // 30 days
+	RoundRobinFailureThreshold = 3
 )
 
 // RoundRobinCooldownLevelsSec defines tiered cooldown for round-robin: [0s, 10min, 1h, 24h].
@@ -46,7 +47,7 @@ func ResolveFailureBackoffSec(failCount *int64) int64 {
 // ResolveConfiguredFailureCooldownMaxMs returns the configured max cooldown in ms.
 func ResolveConfiguredFailureCooldownMaxMs(configuredMaxSec int) int64 {
 	if configuredMaxSec <= 0 {
-		configuredMaxSec = TokenRouterFailureCooldownMaxSecCeiling
+		configuredMaxSec = config.TokenRouterFailureCooldownMaxSecCeiling
 	}
 	normalized := int64(configuredMaxSec) * 1000
 	if normalized < 1000 {
