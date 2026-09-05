@@ -559,7 +559,7 @@ func buildAnnouncementMessage(row platform.SiteAnnouncement) string {
 func defaultLevel(level string) string {
 	level = strings.TrimSpace(level)
 	if level == "" {
-		return "info"
+		return string(notify.LevelInfo)
 	}
 	return level
 }

@@ -360,7 +360,7 @@ func parseJsonValue(value string) any {
 // §1.6 parseDbType: "" → "sqlite"; trim+lower → "mysql"/"postgres"/"postgresql" → "postgres"; else "sqlite".
 func parseDbType(value string) string {
 	if value == "" {
-		return "sqlite"
+		return DefaultDbType
 	}
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	switch normalized {
@@ -369,7 +369,7 @@ func parseDbType(value string) string {
 	case "postgres", "postgresql":
 		return "postgres"
 	default:
-		return "sqlite"
+		return DefaultDbType
 	}
 }
 
@@ -381,7 +381,7 @@ func inferDbType(value string, dbURL string) string {
 	if strings.HasPrefix(normalizedURL, "postgres://") || strings.HasPrefix(normalizedURL, "postgresql://") {
 		return "postgres"
 	}
-	return "sqlite"
+	return DefaultDbType
 }
 
 func normalizeDbSslMode(value string) string {

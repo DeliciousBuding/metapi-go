@@ -146,11 +146,6 @@ func TestTypeDefinitions(t *testing.T) {
 	if pc.ProxyURL != "socks5://proxy:1080" {
 		t.Error("ProxyConfig.ProxyURL mismatch")
 	}
-
-	// CredentialMode
-	if CredentialAuto != 0 || CredentialSession != 1 || CredentialAPIKey != 2 {
-		t.Error("CredentialMode values mismatch")
-	}
 }
 
 func intPtr(i int) *int { return &i }

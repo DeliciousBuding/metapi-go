@@ -623,7 +623,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 				notifypkg.SendNotification(config.RuntimeSafe(),
 					"Cloudflare challenge",
 					fmt.Sprintf("%s @ %s: %s", orUsername(account.Username, accountID), site.Name, result.Message),
-					"warning", nil,
+					string(notifypkg.LevelWarning), nil,
 				)
 			}
 
@@ -631,7 +631,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 				notifypkg.SendNotification(config.RuntimeSafe(),
 					"checkin failed",
 					fmt.Sprintf("%s @ %s: %s", orUsername(account.Username, accountID), site.Name, result.Message),
-					"error", nil,
+					string(notifypkg.LevelError), nil,
 				)
 			}
 		}

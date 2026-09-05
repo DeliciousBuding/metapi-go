@@ -26,7 +26,14 @@ const (
 
 	DefaultPort    = 4000
 	DefaultDataDir = "./data"
-	DefaultDbType  = "sqlite"
+	// DefaultDbType is the dialect used when DB_TYPE is unset/unrecognized and
+	// DB_URL is not a PostgreSQL URL. It is the single in-repo owner of that
+	// fallback: docs/configuration.md documents the same default, and the env
+	// parity gate compares key sets rather than default values (#1237), so this
+	// constant is the only handle on it. The mapped spellings "postgres"/"mysql"
+	// in parseDbType stay literals — the cross-package owner is store.Dialect*,
+	// which config cannot import without a cycle.
+	DefaultDbType = "sqlite"
 
 	// DefaultLogLevel is the slog threshold applied at startup when LOG_LEVEL
 	// is unset or invalid. "info" preserves the pre-config behavior so the

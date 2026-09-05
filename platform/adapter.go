@@ -25,15 +25,6 @@ import (
 	"encoding/json"
 )
 
-// CredentialMode indicates the credential type preference.
-type CredentialMode int
-
-const (
-	CredentialAuto    CredentialMode = iota // auto-detect (session first, then apikey)
-	CredentialSession                       // only session token
-	CredentialAPIKey                        // only API key
-)
-
 // ProxyConfig carries optional proxy settings for a single request.
 type ProxyConfig struct {
 	ProxyURL      string
