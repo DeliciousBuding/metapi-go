@@ -11,13 +11,7 @@ const sessionTokenRebindHint = "please regenerate the system access token on the
 // IsCloudflareChallenge detects Cloudflare challenge messages.
 // Mirrors TS isCloudflareChallenge().
 func IsCloudflareChallenge(message string) bool {
-	text := strings.ToLower(strings.TrimSpace(message))
-	if text == "" {
-		return false
-	}
-	return strings.Contains(text, "cloudflare") ||
-		strings.Contains(text, "cf challenge") ||
-		strings.Contains(text, "challenge required")
+	return platform.IsCloudflareChallengeMessage(message)
 }
 
 // IsTokenExpiredError reports confirmed credential expiry/invalidity.

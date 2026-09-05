@@ -78,7 +78,7 @@ func ClassifyUpstreamError(httpStatus int, message string) UpstreamErrorClass {
 	if isTransientFailure(httpStatus, text) {
 		return ClassTransient
 	}
-	if isCloudflareChallengeMessage(text) {
+	if IsCloudflareChallengeMessage(text) {
 		return ClassTransient
 	}
 
@@ -219,7 +219,14 @@ func isTransientFailure(httpStatus int, text string) bool {
 		strings.Contains(text, "econnrefused")
 }
 
-func isCloudflareChallengeMessage(text string) bool {
+// IsCloudflareChallengeMessage reports whether the upstream is serving a
+// Cloudflare challenge instead of the answer. One owner: service/alert and the
+// check-in failure classifier both used to keep a byte-identical copy, and an
+// ablation (putting the copy back) kept the whole suite green — neither had an
+// owner. It normalizes its own input so a caller cannot lose matches by passing
+// the message un-lowercased.
+func IsCloudflareChallengeMessage(message string) bool {
+	text := strings.ToLower(strings.TrimSpace(message))
 	if text == "" {
 		return false
 	}

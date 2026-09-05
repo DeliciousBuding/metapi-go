@@ -507,7 +507,7 @@ func (n *NewApiAdapter) Checkin(ctx context.Context, baseURL, accessToken string
 		}
 	}
 
-	if isMissingCheckinEndpointMessage(firstFailureMessage) {
+	if IsCheckinEndpointAbsent(firstFailureMessage) {
 		cookieSessionMsg := n.detectCookieSessionFailure(ctx, baseURL, accessToken, []*int{resolvedUserID, altCookieUserID}, proxy)
 		if cookieSessionMsg != "" {
 			return &CheckinResult{Success: false, Message: cookieSessionMsg}, nil
@@ -551,25 +551,6 @@ func shouldFallbackToCookieCheckin(msg string) bool {
 		(strings.Contains(lower, "http 404") && strings.Contains(lower, "/api/user/checkin")) ||
 		strings.Contains(lower, "未登录") ||
 		strings.Contains(lower, "未提供")
-}
-
-// isMissingCheckinEndpointMessage gates one decision only: whether the cookie
-// retry ladder is worth climbing after the Bearer attempt already said the
-// endpoint is not there. It is deliberately NOT the product-level "this site has
-// no check-in" classifier — that owner is service.IsUnsupportedCheckinMessage,
-// which also carries the localized upstream wordings (New API answers
-// 签到功能未启用) and decides status, failure_reason, runtime health and the
-// event level. platform cannot import service, so the two lists stay separate;
-// they answer different questions and only the second one is user-visible.
-func isMissingCheckinEndpointMessage(msg string) bool {
-	lower := strings.ToLower(msg)
-	return strings.Contains(lower, "invalid url (post /api/user/checkin)") ||
-		(strings.Contains(lower, "http 404") && strings.Contains(lower, "/api/user/checkin")) ||
-		strings.Contains(lower, "checkin endpoint not found") ||
-		strings.Contains(lower, "check-in is not supported") ||
-		strings.Contains(lower, "checkin is not supported") ||
-		strings.Contains(lower, "does not support checkin") ||
-		strings.Contains(lower, "not support checkin")
 }
 
 func isCookieSessionFailureMessage(msg string) bool {

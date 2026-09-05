@@ -21,7 +21,7 @@ func NewStandardAdapter(name string) *StandardAdapter {
 	return &StandardAdapter{
 		BaseAdapter:               NewBaseAdapter(name),
 		LoginUnsupportedMessage:   "login endpoint not supported",
-		CheckinUnsupportedMessage: "checkin endpoint not supported",
+		CheckinUnsupportedMessage: DefaultCheckinUnsupportedMessage,
 	}
 }
 

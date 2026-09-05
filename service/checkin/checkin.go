@@ -135,40 +135,7 @@ func isAccountDisabled(status string) bool {
 	return strings.EqualFold(strings.TrimSpace(status), "disabled")
 }
 
-// isAlreadyCheckedInMessage detects "already checked in" patterns in 12 languages/forms.
-func isAlreadyCheckedInMessage(message string) bool {
-	text := strings.TrimSpace(message)
-	if text == "" {
-		return false
-	}
-	normalized := strings.ToLower(text)
-	return strings.Contains(normalized, "already checked in") ||
-		strings.Contains(normalized, "already signed") ||
-		strings.Contains(normalized, "already sign in") ||
-		strings.Contains(normalized, "already claim") ||
-		strings.Contains(normalized, "claimed today") ||
-		strings.Contains(text, "今日已签到") ||
-		strings.Contains(text, "今天已签到") ||
-		strings.Contains(text, "今天已经签到") ||
-		strings.Contains(text, "今日已经签到") ||
-		strings.Contains(text, "已经签到") ||
-		strings.Contains(text, "已签到") ||
-		strings.Contains(text, "重复签到") ||
-		strings.Contains(text, "已经领取") ||
-		strings.Contains(text, "已领取") ||
-		strings.Contains(text, "领取过") ||
-		strings.Contains(text, "签到达")
-}
 
-// isManualVerificationRequiredMessage detects Turnstile verification messages.
-func isManualVerificationRequiredMessage(message string) bool {
-	if message == "" {
-		return false
-	}
-	text := strings.ToLower(message)
-	return strings.Contains(text, "turnstile token 为空") ||
-		(strings.Contains(text, "turnstile") && (strings.Contains(text, "token") || strings.Contains(text, "校验") || strings.Contains(text, "验证")))
-}
 
 // classifyAndMarshalFailureReason runs the structured failure classifier
 // (ClassifyFailureReason) and serializes the result to JSON for the
@@ -440,11 +407,11 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 
 	// 7. Classify result
 	isCloudflare := alert.IsCloudflareChallenge(result.Message)
-	alreadyCheckedIn := isAlreadyCheckedInMessage(result.Message)
-	// The vocabulary is shared with the failure classifier and the health
-	// reader: service.IsUnsupportedCheckinMessage.
-	unsupportedCheckin := service.IsUnsupportedCheckinMessage(result.Message)
-	manualVerificationRequired := isManualVerificationRequiredMessage(result.Message)
+	alreadyCheckedIn := platform.IsAlreadyCheckedInMessage(result.Message)
+	// One vocabulary, four readers (runner, failure classifier, health reader,
+	// New API cookie ladder): platform owns it.
+	unsupportedCheckin := platform.IsUnsupportedCheckinMessage(result.Message)
+	manualVerificationRequired := platform.IsManualVerificationRequiredMessage(result.Message)
 	manualVerificationMessage := "the site requires Turnstile verification; manual check-in is needed"
 	logMessage := result.Message
 	if manualVerificationRequired {
