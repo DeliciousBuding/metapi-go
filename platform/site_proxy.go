@@ -20,7 +20,6 @@ const (
 	// Keep short: multi-candidate user-id probes must fail fast on dead hosts.
 	defaultProxyConnectTimeout   = 2 * time.Second
 	defaultProxyKeepAliveInitial = 60 * time.Second
-	siteProxyCacheTTL            = 3 * time.Second
 
 	// Historical outbound timeout defaults. #1009 made them configurable via
 	// the PROXY_*_TIMEOUT_SEC env vars; effectiveProxyTimeouts resolves the
