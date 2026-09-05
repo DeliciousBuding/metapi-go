@@ -219,16 +219,3 @@ export function wasAuthSessionExpiredOnLastBoot(): boolean {
     bootOutcome.expired
   )
 }
-
-/**
- * Called by the HTTP layer after a 401: the server-side session is gone, so
- * every client-side trace is cleared and the caller redirects to sign-in.
- * Kept as a named export for the http-client contract.
- */
-export function resolveAuthenticationAfterUnauthorized(): AuthenticationOutcome {
-  const expired =
-    isAuthSessionExpired() || bootOutcome?.kind === 'authenticated'
-  clearAuthSession()
-  bootOutcome = { kind: 'anonymous', expired: Boolean(expired) }
-  return bootOutcome
-}

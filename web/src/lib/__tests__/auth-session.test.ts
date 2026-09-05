@@ -162,18 +162,3 @@ describe('bootstrapAuthentication', () => {
     expect(mod.hasValidAuthSession(localStorage)).toBe(false)
   })
 })
-
-describe('post-401 resolution', () => {
-  it('clears everything and marks the boot anonymous', async () => {
-    const expiresAt = new Date(FIXED_NOW + 7_200_000).toISOString()
-    mockFetchOnce({ authenticated: true, source: 'session', expiresAt })
-    await mod.bootstrapAuthentication()
-    expect(mod.hasValidAuthSession(localStorage)).toBe(true)
-
-    const outcome = mod.resolveAuthenticationAfterUnauthorized()
-
-    expect(outcome.kind).toBe('anonymous')
-    expect(mod.readSessionMeta(localStorage)).toBeNull()
-    expect(mod.hasValidAuthSession(localStorage)).toBe(false)
-  })
-})
