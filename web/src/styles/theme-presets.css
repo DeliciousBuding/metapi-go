@@ -603,7 +603,9 @@
 [data-theme-font='serif'] [data-slot='drawer-title'],
 [data-theme-font='serif'] [data-slot='card-title'] {
   font-weight: 500;
-  letter-spacing: -0.012em;
+  /* Token, not a literal: `:root[lang|='zh']` in theme.css zeroes it, because
+   * negative tracking squeezes ideographs (see the comment there). */
+  letter-spacing: var(--tracking-editorial-heading);
 }
 
 /* Larger displays earn tighter tracking, matching Copernicus/Tiempos
@@ -612,7 +614,7 @@
 [data-theme-font='serif'] .text-3xl,
 [data-theme-font='serif'] .text-4xl,
 [data-theme-font='serif'] .text-5xl {
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-editorial-display);
 }
 
 /* ── Border radius ────────────────────────────────────────────────────── */

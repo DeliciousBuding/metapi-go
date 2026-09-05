@@ -2,10 +2,23 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Body face, two bundled variable families: Public Sans carries Latin,
+   * Noto Sans SC carries CJK (imported in index.css). Both ship as
+   * unicode-range slices, so an `en` page never downloads a CJK byte and a
+   * `zh-CN` page fetches only the slices it renders (the locale's 774
+   * characters map to 21 slices / 1.18 MiB; a single page pulls 9-11). Before the CJK face was bundled the
+   * stack jumped straight from Public Sans to platform fonts, so every
+   * Chinese string rendered in whatever the OS shipped: Microsoft YaHei on
+   * Windows, which has no medium or semibold cut — `font-medium` (500) and
+   * `font-semibold` (600) both resolved to Regular, flattening the weight
+   * hierarchy the Latin side already had. The platform faces stay behind the
+   * bundled one as insurance for a failed webfont fetch. zh-CN is the only
+   * CJK locale shipped (`supportedLngs` in i18n/config.ts), hence SC first. */
   --font-sans:
-    'Public Sans Variable', 'Public Sans', 'Noto Sans SC', 'Noto Sans TC',
-    'Noto Sans JP', 'Noto Sans KR', 'Source Han Sans SC', 'PingFang SC',
-    'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;
+    'Public Sans Variable', 'Public Sans', 'Noto Sans SC Variable',
+    'Noto Sans SC', 'Noto Sans TC', 'Noto Sans JP', 'Noto Sans KR',
+    'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', '微软雅黑',
+    'Segoe UI', Arial, sans-serif;
   /* Editorial serif token — the body face used by the `serif` font axis
    * (an explicit user choice; every preset defaults to sans). Lora carries
    * only Latin glyphs, so the stack walks through CJK serifs (Noto / Source
@@ -87,6 +100,11 @@
    * in theme-presets.css. Default mirrors `--font-sans` so behavior is
    * identical when no font preference is set. */
   --font-body: var(--font-sans);
+  /* Editorial (serif-axis) tracking, as tokens rather than the literals they
+   * replaced in theme-presets.css, so the `:root[lang|='zh']` block below can
+   * neutralise them for a Chinese UI. */
+  --tracking-editorial-heading: -0.012em;
+  --tracking-editorial-display: -0.02em;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -178,6 +196,24 @@
     var(--foreground) 16%,
     var(--background)
   );
+}
+
+/* CJK tracking correction. `<html lang>` tracks the active language
+ * (i18n/config.ts), so this is the user's own choice, never a guess from
+ * content. Tailwind's `tracking-tight` compiles to
+ * `letter-spacing: var(--tracking-tight)`, so retuning the token retunes all
+ * 12 call sites (page titles, sidebar/header brand, empty-state titles, stat
+ * numbers) without touching a component — and an unlayered `:root[...]`
+ * (0,2,0) outranks Tailwind's `@layer theme` default. Negative tracking is a
+ * Latin display convention: an ideograph's side bearing is its only spacing,
+ * so -0.025em at `text-2xl` removes ~0.6px of it and neighbouring glyphs
+ * start to touch. 0 is the correct Chinese setting; the two editorial tokens
+ * are zeroed for the same reason (they drive the serif axis in
+ * theme-presets.css). */
+:root[lang|='zh'] {
+  --tracking-tight: 0em;
+  --tracking-editorial-heading: 0em;
+  --tracking-editorial-display: 0em;
 }
 
 .dark {

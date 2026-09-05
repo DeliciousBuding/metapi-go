@@ -19,6 +19,34 @@ describe('typography design contract', () => {
     expect(theme).not.toContain('--font-manrope:')
   })
 
+  it('ships a bundled CJK face ahead of the platform CJK fallbacks', () => {
+    const theme = read('src/styles/theme.css')
+    const sans = theme.slice(theme.indexOf('--font-sans:'))
+    // Per-glyph fallback walks the stack in order: the bundled variable face
+    // must sit in front of the platform CJK fonts, which are insurance for a
+    // failed fetch only. Before the face was bundled the stack jumped from
+    // Public Sans straight to them, so every Chinese string rendered in
+    // whatever the OS shipped.
+    const bundled = sans.indexOf("'Noto Sans SC Variable'")
+    expect(bundled).toBeGreaterThan(-1)
+    expect(bundled).toBeLessThan(sans.indexOf("'Microsoft YaHei'"))
+    // Naming a family in a stack ships nothing — the @font-face lives in the
+    // fontsource package, so the import is the other half of the contract.
+    expect(read('src/styles/index.css')).toContain(
+      "@import '@fontsource-variable/noto-sans-sc'"
+    )
+  })
+
+  it('neutralises Latin display tracking for a Chinese UI', () => {
+    // Negative tracking is a Latin display convention; an ideograph's side
+    // bearing is its only spacing, so `tracking-tight` made Chinese headings
+    // touch. The token override is keyed on `<html lang>`, which i18n keeps
+    // in sync with the active language.
+    const theme = read('src/styles/theme.css')
+    const zh = theme.slice(theme.indexOf(":root[lang|='zh']"))
+    expect(zh).toContain('--tracking-tight: 0em')
+  })
+
   it('keeps component typography on semantic font tokens', () => {
     expect(read('src/styles/index.css')).not.toContain(
       '@apply overflow-x-hidden font-sans'
