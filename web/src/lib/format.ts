@@ -170,10 +170,11 @@ const ABSOLUTE_THRESHOLD_SECONDS = 7 * SECONDS_PER_DAY
  * times never shift by the viewer's offset. Bare offsets (+0800 / +08) are
  * normalized, and 10/13-digit epoch strings are supported.
  *
- * Exported so feature modules (e.g. features/checkin) reuse this exact
- * parsing stack instead of re-implementing it.
+ * Module-internal since 2026-09-05: the one feature-module consumer
+ * (features/checkin) was retired, and knip gates unused exports, so the
+ * `export` keyword and the claim above went with it.
  */
-export function toTimestamp(
+function toTimestamp(
   value: string | number | Date | null | undefined
 ): number | null {
   if (value === null || value === undefined || value === '') return null

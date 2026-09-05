@@ -1,7 +1,7 @@
 // metapi-go features/checkin/lib — check-in log time helpers.
 //
 // Parsing and formatting are delegated to the shared stack in `@/lib/format`
-// (`toTimestamp` + `formatDateTime`) so the naive
+// (`formatDateTime`, whose parser is module-internal) so the naive
 // UTC `created_at` values ("2026-08-11 12:30:00", no timezone suffix) are
 // interpreted exactly like every other timestamp in the admin console. This
 // module previously carried its own duplicate parse/format stack; it now only
