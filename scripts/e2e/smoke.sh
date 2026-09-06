@@ -78,7 +78,8 @@ RESP_BODY="$WORKDIR/resp_body.txt"
 # response body is saved to $RESP_BODY.
 request() {
   local method="$1" url="$2" body="${3:-}" token="${4:-}"
-  local args=(-sS -m 120 -X "$method" "$url" -o "$RESP_BODY" -w "%{http_code}" -H "Content-Type: application/json")
+  : > "$RESP_BODY" || return 1
+  local args=(-q --noproxy "*" -sS -m 120 -X "$method" "$url" -o "$RESP_BODY" -w "%{http_code}" -H "Content-Type: application/json")
   if [ -n "$token" ]; then
     args+=(-H "Authorization: Bearer $token")
   fi
