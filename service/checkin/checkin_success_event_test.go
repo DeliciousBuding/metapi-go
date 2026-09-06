@@ -27,8 +27,8 @@ func TestCheckinAccount_SuccessPersistsItsEvent(t *testing.T) {
 		case "/api/user/self":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"success": true,
-				// quota rises by 5000 (=0.01 in the 500k-per-unit convention) so the
-				// reward is inferred the same way production infers it.
+				// The balance provides context; the check-in response below is the
+				// authority for its 5000-quota ($0.01) award.
 				"data": map[string]any{"id": 11, "username": "success-user", "quota": 505000, "used_quota": 0},
 			})
 		case "/api/user/checkin":

@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -538,7 +540,7 @@ func (n *NewApiAdapter) Checkin(ctx context.Context, baseURL, accessToken string
 	resp, err := fetchJSON(ctx, baseURL+"/api/user/checkin", "POST", nil, headers, proxy)
 	if err == nil {
 		if success, _ := getBool(resp, "success"); success {
-			return checkinResultFromResponse(resp, "checkin success", "checkin failed"), nil
+			return newAPICheckinResultFromResponse(resp, "checkin success", "checkin failed"), nil
 		}
 		firstFailureMessage = extractResponseMessage(resp)
 	} else {
@@ -560,7 +562,7 @@ func (n *NewApiAdapter) Checkin(ctx context.Context, baseURL, accessToken string
 			signInResp, _ := fetchJSON(ctx, baseURL+"/api/user/sign_in", "POST", map[string]interface{}{}, signInHeaders, proxy)
 			if signInResp != nil {
 				if success, _ := getBool(signInResp, "success"); success {
-					return checkinResultFromResponse(signInResp, "checked in", "checked in failed")
+					return newAPICheckinResultFromResponse(signInResp, "checked in", "checked in failed")
 				}
 			}
 
@@ -572,7 +574,7 @@ func (n *NewApiAdapter) Checkin(ctx context.Context, baseURL, accessToken string
 			checkinResp, err := fetchJSON(ctx, baseURL+"/api/user/checkin", "POST", nil, checkinHeaders, proxy)
 			if err == nil {
 				if success, _ := getBool(checkinResp, "success"); success {
-					return checkinResultFromResponse(checkinResp, "checkin success", "checkin failed")
+					return newAPICheckinResultFromResponse(checkinResp, "checkin success", "checkin failed")
 				}
 				fm := extractResponseMessage(checkinResp)
 				if fm != "" && firstFailureMessage == "" {
@@ -605,6 +607,24 @@ func (n *NewApiAdapter) Checkin(ctx context.Context, baseURL, accessToken string
 		firstFailureMessage = "checkin failed"
 	}
 	return &CheckinResult{Success: false, Message: firstFailureMessage}, nil
+}
+
+// newAPICheckinResultFromResponse normalizes the native New API award into
+// the same monetary units as GetBalance. quota_awarded is the integer quota
+// actually credited by this check-in, not the account's remaining quota.
+func newAPICheckinResultFromResponse(resp map[string]interface{}, successMsg, failureMsg string) *CheckinResult {
+	result := checkinResultFromResponse(resp, successMsg, failureMsg)
+	if result.Success {
+		if data, ok := getMap(resp, "data"); ok {
+			if quota, ok := getFloat(data, "quota_awarded"); ok && quota >= 0 && !math.IsInf(quota, 0) && math.Trunc(quota) == quota {
+				// Keep explicit zero distinct from an absent reward. Decimal
+				// formatting also prevents 1 quota from becoming "2e-06",
+				// which a decorated-reward text parser could read as 2.
+				result.Reward = strconv.FormatFloat(quota/500000, 'f', -1, 64)
+			}
+		}
+	}
+	return result
 }
 
 func (n *NewApiAdapter) detectCookieSessionFailure(ctx context.Context, baseURL, accessToken string, candidateUserIDs []*int, proxy *ProxyConfig) string {
