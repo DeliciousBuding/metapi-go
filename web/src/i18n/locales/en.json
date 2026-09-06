@@ -1357,7 +1357,7 @@
           "empty": "No API keys yet. Create one to start issuing.",
           "requests": "Requests: {{used}} / {{max}}",
           "cost": "Cost: {{used}} / {{max}}",
-          "usage24h": "24h: {{requests}} req · {{tokens}} tok · ${{cost}}",
+          "usage24h": "24h: {{requests}} req · {{tokens}} tok · {{cost}}",
           "columns": {
             "name": "Name",
             "group": "Group",

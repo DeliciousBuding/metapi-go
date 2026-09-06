@@ -1357,7 +1357,7 @@
           "empty": "暂无 API 密钥。创建一个以开始签发。",
           "requests": "请求：{{used}} / {{max}}",
           "cost": "成本：{{used}} / {{max}}",
-          "usage24h": "24h：{{requests}} 次 · {{tokens}} tokens · ${{cost}}",
+          "usage24h": "24h：{{requests}} 次 · {{tokens}} tokens · {{cost}}",
           "columns": {
             "name": "名称",
             "group": "分组",
