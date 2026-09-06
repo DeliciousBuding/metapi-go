@@ -1,6 +1,8 @@
 package proxyhandler
 
 import (
+	"encoding/json"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -128,5 +130,25 @@ func relayUpstreamResponseHeaders(w http.ResponseWriter, upstream http.Header) {
 		if values := upstream.Values(name); len(values) > 0 {
 			dst[name] = append([]string(nil), values...)
 		}
+	}
+}
+
+// normalizeUpstreamJSONContentType repairs the missing/default text media type
+// seen on real chat-family JSON answers. Only a readable, valid JSON body on a
+// known JSON API is eligible: downloads, opaque encodings, explicit non-text
+// media types, and malformed bodies retain their upstream semantics.
+func normalizeUpstreamJSONContentType(header http.Header, body []byte, path string) {
+	if _, known := proxy.EndpointFromPath(path); !known || header.Get("Content-Disposition") != "" || header.Get("Content-Encoding") != "" {
+		return
+	}
+	contentType := header.Get("Content-Type")
+	if contentType != "" {
+		mediaType, _, err := mime.ParseMediaType(contentType)
+		if err != nil || mediaType != "text/plain" {
+			return
+		}
+	}
+	if json.Valid(body) {
+		header.Set("Content-Type", "application/json")
 	}
 }

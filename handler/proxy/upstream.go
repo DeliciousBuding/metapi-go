@@ -713,6 +713,9 @@ func dispatchEndpointAttemptWithContinue(
 		requestID: requestID,
 	})
 	respBody = body.bytes
+	if body.readable {
+		normalizeUpstreamJSONContentType(resp.Header, respBody, r.URL.Path)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		rawErrText := string(respBody)
 		if shouldContinueEndpointFallback(resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
