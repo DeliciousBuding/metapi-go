@@ -3,6 +3,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { toBcp47 } from '@/i18n/languages'
 import { formatCurrency } from '@/lib/format'
 
 import { parseIdArray } from '../lib/credential-refs'
@@ -63,7 +64,7 @@ export function KeyModelPolicyCell({
 // KeySheetForm). Renders quota usage plus the per-key 24h proxy_logs summary.
 export function KeyUsageCell({ item }: { item: DownstreamApiKeyItem }) {
   const { t, i18n } = useTranslation()
-  const moneyOptions = { fractionDigits: 6, locale: i18n.language }
+  const moneyOptions = { fractionDigits: 6, locale: toBcp47(i18n.language) }
   return (
     <div>
       <div>

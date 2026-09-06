@@ -34,8 +34,8 @@ import {
   vi,
 } from 'vitest'
 
-import '@/i18n/config'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import i18n from '@/i18n/config'
 
 import { KeyModelPolicyCell, KeySheetForm, KeyUsageCell } from '../keys-section'
 
@@ -577,6 +577,28 @@ describe('KeyUsageCell — 24h usage line', () => {
     expect(
       screen.getByText('24h: 1 req · 42 tok · $0.044216')
     ).toBeInTheDocument()
+  })
+
+  it('renders costs for the Chinese interface language code', async () => {
+    const previousLanguage = i18n.language
+    try {
+      await i18n.changeLanguage('zhCN')
+      render(
+        <KeyUsageCell
+          item={{
+            ...baseItem,
+            usedCost: 0.044216000000000005,
+            maxCost: 0.30000000000000004,
+          }}
+        />
+      )
+      expect(
+        screen.getByText('成本：$0.044216 / $0.300000')
+      ).toBeInTheDocument()
+    } finally {
+      cleanup()
+      await i18n.changeLanguage(previousLanguage)
+    }
   })
 
   it('keeps a zero cost limit distinct from an unlimited limit', () => {
