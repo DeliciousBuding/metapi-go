@@ -40,7 +40,9 @@
 #   SKIP_MODEL_FETCH   "true" skips the upstream model verify on account
 #                      create (needed when the upstream exposes no models,
 #                      e.g. a fresh CLIProxyAPI instance with no auth files)
-#   PROXY_MODEL        fallback route model   (default gpt-3.5-turbo)
+#   PROXY_MODEL        model to require       (optional; otherwise first discovered)
+#   E2E_SKIP_RELAY     1 skips relay coverage  (default 0; management steps still run)
+#   EXPECTED_COMPLETION_CONTENT  exact content marker to require (optional)
 #   SITE_NAME          site name to reuse     (default e2e-token-import)
 #   TOKEN_NAME         downstream key name    (default e2e-token-import-token)
 #
@@ -57,7 +59,9 @@ PLATFORM="${PLATFORM:-sub2api}"
 CREDENTIAL_MODE="${CREDENTIAL_MODE:-session}"
 ACCOUNT_USERNAME="${ACCOUNT_USERNAME:-e2e-token-import}"
 SKIP_MODEL_FETCH="${SKIP_MODEL_FETCH:-false}"
-PROXY_MODEL="${PROXY_MODEL:-gpt-3.5-turbo}"
+PROXY_MODEL="${PROXY_MODEL:-}"
+E2E_SKIP_RELAY="${E2E_SKIP_RELAY:-0}"
+EXPECTED_COMPLETION_CONTENT="${EXPECTED_COMPLETION_CONTENT:-}"
 SITE_NAME="${SITE_NAME:-e2e-token-import}"
 TOKEN_NAME="${TOKEN_NAME:-e2e-token-import-token}"
 TOKEN_IMPORT_KEY="${TOKEN_IMPORT_KEY:-sk-e2e-token}"
@@ -69,6 +73,11 @@ SKIP_COUNT=0
 FAILED_NAMES=""
 
 # --- fatal setup checks ---
+
+if [ "$E2E_SKIP_RELAY" != "0" ] && [ "$E2E_SKIP_RELAY" != "1" ]; then
+  echo "FATAL: E2E_SKIP_RELAY must be 0 or 1" >&2
+  exit 2
+fi
 
 command -v curl >/dev/null 2>&1 || { echo "FATAL: curl is required but not found on PATH" >&2; exit 2; }
 command -v python3 >/dev/null 2>&1 || { echo "FATAL: python3 is required for JSON parsing but not found on PATH" >&2; exit 2; }
@@ -100,7 +109,8 @@ RESP_BODY="$WORKDIR/resp_body.txt"
 # response body is saved to $RESP_BODY.
 request() {
   local method="$1" url="$2" body="${3:-}" token="${4:-}"
-  local args=(-sS -m 120 -X "$method" "$url" -o "$RESP_BODY" -w "%{http_code}" -H "Content-Type: application/json")
+  : > "$RESP_BODY" || return 1
+  local args=(-q --noproxy "*" -sS -m 120 -X "$method" "$url" -o "$RESP_BODY" -w "%{http_code}" -H "Content-Type: application/json")
   if [ -n "$token" ]; then
     args+=(-H "Authorization: Bearer $token")
   fi
@@ -183,18 +193,84 @@ sys.exit(4)
 ' "$1" "$2" "$3" "$4" < "$RESP_BODY"
 }
 
-# json_has_error_key — 0 when $RESP_BODY is valid JSON containing an "error" key.
-json_has_error_key() {
+# json_select_model — require real account discovery; never invent a fallback.
+json_select_model() {
   python3 -c '
 import json, sys
 try:
-    data = json.load(sys.stdin)
+    payload = json.load(sys.stdin)
 except Exception:
     sys.exit(1)
-if isinstance(data, dict) and "error" in data:
-    sys.exit(0)
+if not isinstance(payload, dict) or "error" in payload:
+    sys.exit(1)
+models, count = payload.get("models"), payload.get("totalCount")
+if not isinstance(models, list) or not models or type(count) is not int or count <= 0:
+    sys.exit(1)
+names = []
+for item in models:
+    name = item.get("name") if isinstance(item, dict) else None
+    if not isinstance(name, str) or not name.strip():
+        sys.exit(1)
+    names.append(name)
+selected = sys.argv[1] or names[0]
+if selected not in names:
+    sys.exit(1)
+print(selected)
+' "$PROXY_MODEL" < "$RESP_BODY"
+}
+
+# The proxy must expose the same selected model, not merely some other model.
+json_models_data_contains() {
+  python3 -c '
+import json, sys
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+if not isinstance(payload, dict) or "error" in payload:
+    sys.exit(1)
+data = payload.get("data")
+if not isinstance(data, list) or not data:
+    sys.exit(1)
+for item in data:
+    name = item.get("id") if isinstance(item, dict) else item
+    if isinstance(name, str) and name.strip() and name == sys.argv[1]:
+        sys.exit(0)
 sys.exit(1)
-' < "$RESP_BODY"
+' "$1" < "$RESP_BODY"
+}
+
+# json_completion_has_content EXPECTED — rejects structured errors and requires
+# choices[0].message.content. When EXPECTED is non-empty, it must match exactly.
+json_completion_has_content() {
+  python3 -c '
+import json, sys
+expected = sys.argv[1]
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+if not isinstance(payload, dict) or "error" in payload:
+    sys.exit(1)
+choices = payload.get("choices")
+if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+    sys.exit(1)
+message = choices[0].get("message")
+if not isinstance(message, dict):
+    sys.exit(1)
+content = message.get("content")
+if isinstance(content, str):
+    if not content.strip() or (expected and content != expected):
+        sys.exit(1)
+    sys.exit(0)
+if isinstance(content, list) and not expected:
+    for part in content:
+        if isinstance(part, str) and part.strip():
+            sys.exit(0)
+        if isinstance(part, dict) and isinstance(part.get("text"), str) and part["text"].strip():
+            sys.exit(0)
+sys.exit(1)
+' "$1" < "$RESP_BODY"
 }
 
 pass_step() { PASS_COUNT=$((PASS_COUNT + 1)); echo "[PASS] $1"; }
@@ -221,7 +297,7 @@ evidence() {
 # --- main chain ---
 
 echo "== metapi token-import e2e =="
-echo "   metapi=$METAPI_URL upstream=$UPSTREAM_URL platform=$PLATFORM mode=$CREDENTIAL_MODE skipModelFetch=$SKIP_MODEL_FETCH"
+echo "   metapi=$METAPI_URL upstream=$UPSTREAM_URL platform=$PLATFORM mode=$CREDENTIAL_MODE skipModelFetch=$SKIP_MODEL_FETCH skipRelay=$E2E_SKIP_RELAY"
 
 # 1. health
 status="$(request GET "$METAPI_URL/health")"
@@ -366,28 +442,22 @@ else
   fail_step "account idempotent-create skipped (no site id / token not verified)"
 fi
 
-# 7. models (frontend uses GET /api/accounts/{id}/models)
-ROUTE_MODEL="$PROXY_MODEL"
-first_model=""
-if [ -n "$ACCOUNT_ID" ]; then
-  status="$(request GET "$METAPI_URL/api/accounts/$ACCOUNT_ID/models" "" "$METAPI_AUTH_TOKEN")"
-  if [ "$status" = "200" ]; then
-    model_count="$(json_value totalCount 2>/dev/null || true)"
-    first_model="$(json_value "models[0].name" 2>/dev/null || true)"
-    if [ -n "$first_model" ]; then
-      ROUTE_MODEL="$first_model"
-    fi
-    if [ "$model_count" = "0" ] || [ -z "$model_count" ]; then
-      warn_step "models (HTTP 200, totalCount=$model_count — upstream model list empty, route falls back to PROXY_MODEL)"
-    else
-      pass_step "models (HTTP 200, totalCount=$model_count)"
-    fi
+# 7. Account model discovery is required before configuring or exercising relay.
+# SKIP_MODEL_FETCH affects account creation only; it does not waive this gate.
+ROUTE_MODEL=""
+if [ "$E2E_SKIP_RELAY" = "1" ]; then
+  skip_step "models relay assertion disabled explicitly"
+elif [ -n "$ACCOUNT_ID" ]; then
+  if status="$(request GET "$METAPI_URL/api/accounts/$ACCOUNT_ID/models" "" "$METAPI_AUTH_TOKEN")" &&
+     [[ "$status" =~ ^2[0-9][0-9]$ ]] && ROUTE_MODEL="$(json_select_model 2>/dev/null)"; then
+    pass_step "models (HTTP $status, selected=$ROUTE_MODEL)"
   else
-    fail_step "models (HTTP $status)"
+    ROUTE_MODEL=""
+    fail_step "models (HTTP $status, expected non-empty discovery containing PROXY_MODEL when set)"
     evidence
   fi
 else
-  fail_step "models skipped (no account id)"
+  fail_step "models unavailable (no account id)"
 fi
 
 # 8. balance (POST /api/accounts/{id}/balance)
@@ -436,46 +506,54 @@ fi
 #     Managed keys default to deny-all-when-empty, so supportedModels:["*"]
 #     explicitly lets the test model through to the router/upstream.
 PROXY_TOKEN=""
-status="$(request POST "$METAPI_URL/api/downstream-keys" "{\"name\":\"$TOKEN_NAME\",\"key\":\"$TOKEN_IMPORT_KEY\",\"supportedModels\":[\"*\"]}" "$METAPI_AUTH_TOKEN")"
-if [ "$status" = "200" ] || [ "$status" = "201" ]; then
-  PROXY_TOKEN="$TOKEN_IMPORT_KEY"
-  pass_step "token create ($TOKEN_NAME)"
-elif [ "$status" = "409" ]; then
-  # The key exists from a previous run. Reassert the relay policy instead of
-  # merely reusing it: an empty supportedModels list is intentionally deny-all,
-  # so a leftover key would silently block every model this run is about to
-  # relay. smoke.sh step 11 already converges this way (#1209).
-  status="$(request GET "$METAPI_URL/api/downstream-keys" "" "$METAPI_AUTH_TOKEN")"
-  key_id="$(python3 -c 'import json,sys; p=json.load(sys.stdin); name=sys.argv[1]; print(next(str(item.get("id", "")) for item in p.get("items", []) if isinstance(item, dict) and item.get("name") == name))' "$TOKEN_NAME" < "$RESP_BODY" 2>/dev/null || true)"
-  if [ "$status" = "200" ] && [ -n "$key_id" ]; then
-    status="$(request PUT "$METAPI_URL/api/downstream-keys/$key_id" '{"supportedModels":["*"],"enabled":true}' "$METAPI_AUTH_TOKEN")"
-    if [ "$status" = "200" ]; then
-      PROXY_TOKEN="$TOKEN_IMPORT_KEY"
-      pass_step "token reuse ($TOKEN_NAME, relay policy reasserted)"
+if [ "$E2E_SKIP_RELAY" = "1" ]; then
+  skip_step "downstream token relay setup disabled explicitly"
+elif [ -z "$ROUTE_MODEL" ]; then
+  fail_step "downstream token relay setup blocked (model discovery failed)"
+else
+  status="$(request POST "$METAPI_URL/api/downstream-keys" "{\"name\":\"$TOKEN_NAME\",\"key\":\"$TOKEN_IMPORT_KEY\",\"supportedModels\":[\"*\"]}" "$METAPI_AUTH_TOKEN")"
+  if [ "$status" = "200" ] || [ "$status" = "201" ]; then
+    PROXY_TOKEN="$TOKEN_IMPORT_KEY"
+    pass_step "token create ($TOKEN_NAME)"
+  elif [ "$status" = "409" ]; then
+    # The key exists from a previous run. Reassert the relay policy instead of
+    # merely reusing it: an empty supportedModels list is intentionally deny-all,
+    # so a leftover key would silently block every model this run is about to
+    # relay. smoke.sh step 11 already converges this way (#1209).
+    status="$(request GET "$METAPI_URL/api/downstream-keys" "" "$METAPI_AUTH_TOKEN")"
+    key_id="$(python3 -c 'import json,sys; p=json.load(sys.stdin); name=sys.argv[1]; print(next(str(item.get("id", "")) for item in p.get("items", []) if isinstance(item, dict) and item.get("name") == name))' "$TOKEN_NAME" < "$RESP_BODY" 2>/dev/null || true)"
+    if [ "$status" = "200" ] && [ -n "$key_id" ]; then
+      status="$(request PUT "$METAPI_URL/api/downstream-keys/$key_id" '{"supportedModels":["*"],"enabled":true}' "$METAPI_AUTH_TOKEN")"
+      if [ "$status" = "200" ]; then
+        PROXY_TOKEN="$TOKEN_IMPORT_KEY"
+        pass_step "token reuse ($TOKEN_NAME, relay policy reasserted)"
+      else
+        fail_step "token reuse/update (HTTP $status, keyId=$key_id)"
+        evidence
+      fi
     else
-      fail_step "token reuse/update (HTTP $status, keyId=$key_id)"
-      evidence
+      # A 409 with no record under this name means the fixed key VALUE belongs to a
+      # differently named record, so this script does not own it and cannot
+      # reassert its policy. That is a real topology here: two chains share
+      # TOKEN_IMPORT_KEY under different TOKEN_NAMEs, so whichever runs second
+      # always lands in this branch. Reusing the value is still correct -- the
+      # relay steps below prove it works -- but claiming the policy was checked
+      # would be a green that means nothing, and failing would red a run whose
+      # relay is fine. So: reuse, and say out loud what was not verified.
+      PROXY_TOKEN="$TOKEN_IMPORT_KEY"
+      warn_step "token reuse (HTTP 409: the fixed key is owned by a differently named record, relay policy NOT reasserted)"
     fi
   else
-    # A 409 with no record under this name means the fixed key VALUE belongs to a
-    # differently named record, so this script does not own it and cannot
-    # reassert its policy. That is a real topology here: two chains share
-    # TOKEN_IMPORT_KEY under different TOKEN_NAMEs, so whichever runs second
-    # always lands in this branch. Reusing the value is still correct -- the
-    # relay steps below prove it works -- but claiming the policy was checked
-    # would be a green that means nothing, and failing would red a run whose
-    # relay is fine. So: reuse, and say out loud what was not verified.
-    PROXY_TOKEN="$TOKEN_IMPORT_KEY"
-    warn_step "token reuse (HTTP 409: the fixed key is owned by a differently named record, relay policy NOT reasserted)"
+    fail_step "token create (HTTP $status)"
+    evidence
   fi
-else
-  fail_step "token create (HTTP $status)"
-  evidence
 fi
 
 # 11. route create (idempotent by modelPattern lookup)
-if [ -n "$PROXY_TOKEN" ]; then
-  ROUTE_ID=""
+ROUTE_ID=""
+if [ "$E2E_SKIP_RELAY" = "1" ]; then
+  skip_step "route relay setup disabled explicitly"
+elif [ -n "$PROXY_TOKEN" ] && [ -n "$ROUTE_MODEL" ]; then
   ROUTE_STATE="created"
   status="$(request GET "$METAPI_URL/api/routes/lite" "" "$METAPI_AUTH_TOKEN")"
   if [ "$status" = "200" ]; then
@@ -491,43 +569,39 @@ if [ -n "$PROXY_TOKEN" ]; then
     fi
   fi
   if [ -n "$ROUTE_ID" ]; then
-    if [ "$ROUTE_MODEL" = "$PROXY_MODEL" ] && [ -z "$first_model" ]; then
-      warn_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL, $ROUTE_STATE) — upstream model list empty, used PROXY_MODEL"
-    else
-      pass_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL, $ROUTE_STATE)"
-    fi
+    pass_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL, $ROUTE_STATE)"
   else
     fail_step "route create (no route id obtained)"
     evidence
   fi
 else
-  fail_step "route create skipped (no downstream token)"
+  fail_step "route create blocked (no downstream token or discovered model)"
 fi
 
-# 12. proxy relay
-if [ -n "$PROXY_TOKEN" ]; then
-  status="$(request GET "$METAPI_URL/v1/models" "" "$PROXY_TOKEN")"
-  if [ "$status" = "200" ]; then
-    pass_step "proxy /v1/models (HTTP 200)"
+# 12. A structured error is not successful relay. Gate the model POST on the
+# selected model being exposed; do not issue it after discovery/setup failure.
+if [ "$E2E_SKIP_RELAY" = "1" ]; then
+  skip_step "proxy /v1/models relay assertion disabled explicitly"
+  skip_step "proxy /v1/chat/completions relay assertion disabled explicitly"
+elif [ -n "$PROXY_TOKEN" ] && [ -n "$ROUTE_ID" ]; then
+  if status="$(request GET "$METAPI_URL/v1/models" "" "$PROXY_TOKEN")" &&
+     [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_models_data_contains "$ROUTE_MODEL"; then
+    pass_step "proxy /v1/models (HTTP $status, selected model present: $ROUTE_MODEL)"
+    if status="$(request POST "$METAPI_URL/v1/chat/completions" "{\"model\":\"$ROUTE_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" "$PROXY_TOKEN")" &&
+       [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_completion_has_content "$EXPECTED_COMPLETION_CONTENT"; then
+      pass_step "proxy /v1/chat/completions (HTTP $status, completion content present)"
+    else
+      fail_step "proxy /v1/chat/completions (HTTP $status, expected completion content without error)"
+      evidence
+    fi
   else
-    fail_step "proxy /v1/models (HTTP $status)"
+    fail_step "proxy /v1/models (HTTP $status, expected non-empty data containing selected model without error)"
     evidence
-  fi
-
-  status="$(request POST "$METAPI_URL/v1/chat/completions" "{\"model\":\"$ROUTE_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" "$PROXY_TOKEN")"
-  if [ "$status" = "200" ]; then
-    pass_step "proxy /v1/chat/completions (HTTP 200, relayed)"
-  elif json_has_error_key; then
-    # Structured JSON error: metapi relayed and answered with a documented
-    # error (e.g. upstream has no models/channels). Internal 5xx + non-JSON
-    # would fail.
-    pass_step "proxy /v1/chat/completions (HTTP $status, structured error relayed)"
-  else
-    fail_step "proxy /v1/chat/completions (HTTP $status, unstructured response)"
-    evidence
+    fail_step "proxy /v1/chat/completions not attempted (selected model unavailable)"
   fi
 else
-  fail_step "proxy skipped (no downstream token)"
+  fail_step "proxy /v1/models blocked (relay setup failed)"
+  fail_step "proxy /v1/chat/completions not attempted (relay setup failed)"
 fi
 
 # --- summary ---

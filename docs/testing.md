@@ -247,3 +247,14 @@ reward, an explicit unsupported/skipped result is reported as SKIP. Fresh
 accounts also create their upstream relay token through the account detail form
 before route binding and the downstream relay are accepted. Never point the
 cleanup-enabled browser runner at an existing user or production database.
+
+The token-import smoke chain is strict by default too: an empty model inventory,
+a missing selected model, or a structured 503 is failure, not successful relay.
+`E2E_SKIP_RELAY=1` is the explicit management-only mode for a fixture with no
+provider; it skips relay key/route setup and model calls and counts those steps
+as SKIP. `SKIP_MODEL_FETCH=true` by itself does not relax relay acceptance.
+Repeated full login journeys can hit the upstream's real sensitive-operation
+rate limit. Honor its cooldown or reuse a valid management credential; do not
+disable the guard or automatically retry PAT creation to make a test green.
+Run live model acceptance when the test host is idle: the upstream may correctly
+reject requests with `system_cpu_overloaded` while full local CI saturates it.
