@@ -201,7 +201,7 @@ PLATFORM=sub2api \
   bash scripts/e2e/verify-token-import.sh
 ```
 
-Both scripts print PASS/FAIL/WARN summaries, preserve truncated failure evidence, and exit non-zero on a failed required step.
+Both scripts print PASS/FAIL/WARN/SKIP summaries, preserve truncated failure evidence, and exit non-zero on a failed required step. Check-in verdicts follow the API's normalized `status` and `skipped` fields: a failed or malformed HTTP 200 response fails the chain, while an explicit skipped outcome is counted as SKIP, not successful check-in coverage. A run with a skipped check-in does not prove that a supported platform can complete a check-in.
 
 ## Privacy and evidence boundary
 
@@ -209,3 +209,62 @@ Both scripts print PASS/FAIL/WARN summaries, preserve truncated failure evidence
 - Hostnames, host filesystem layouts, SSH commands, real credentials, and private upstream addresses stay in the operator-controlled environment.
 - Attach sanitized request/response shapes and commit/PR references to public issues; never attach raw environment files or full tokens.
 - A healthy run is evidence for the exercised platform and version only. Do not generalize it into a cluster-wide or all-adapter claim.
+
+## Opt-in live model acceptance
+
+`scripts/e2e/verify-real-relay.py` exercises Chat Completions, Responses, and
+Anthropic Messages through the service under test. It requires Python 3, curl
+8.4 or newer, and operator-provided `RELAY_BASE_URL`, `RELAY_API_KEY`, and
+`RELAY_MODEL` environment variables. Inject the key from a secret store rather
+than putting it in a command line, shell history, or committed file.
+
+```bash
+python3 scripts/e2e/verify-real-relay.py --protocol all --timeout 120 --max-tokens 256
+```
+
+Each protocol checks JSON, SSE completion, and a complete echo-tool/result
+roundtrip. The tool result contains a fresh receipt that must appear in the final
+answer; merely announcing a tool call is not sufficient. The command makes at
+most 12 model POSTs, performs no automatic retries, and can incur upstream usage.
+It prints metadata only and exits nonzero for any failed scenario. Tool streaming
+is not covered by this runner; exercise a real downstream CLI separately when
+that client contract is part of the release scope.
+
+A passing client report does not identify the physical upstream provider. Pair it
+with verified test configuration, model request IDs, and gateway/Metapi logs for
+cross-service provenance. Model aliases may legitimately differ from the
+requested model. Deterministic validator tests in CI are instrument checks, not
+substitutes for these live calls.
+
+For the browser journey, use `bun run acceptance:e2e` (which executes Node, not
+Bun's JavaScript runtime) against a dedicated disposable Metapi instance. Set
+`ACCEPT_LOGIN=1` and `ACCEPT_EXPECT_CHECKIN=1` when the real upstream is configured
+to support successful check-in. When a test upstream grants a fixed known amount,
+set `ACCEPT_EXPECT_REWARD` as well to check that exact value in the API log and UI;
+an already-complete check-in is success but does not mean a new reward. The journey verifies a fresh account-specific log
+and its UI result; a pre-existing or failed log cannot pass. Without a required
+reward, an explicit unsupported/skipped result is reported as SKIP. Fresh
+accounts also create their upstream relay token through the account detail form
+before route binding and the downstream relay are accepted. Never point the
+cleanup-enabled browser runner at an existing user or production database.
+
+The token-import smoke chain is strict by default too: an empty model inventory,
+a missing selected model, or a structured 503 is failure, not successful relay.
+`E2E_SKIP_RELAY=1` is the explicit management-only mode for a fixture with no
+provider; it skips relay key/route setup and model calls and counts those steps
+as SKIP. `SKIP_MODEL_FETCH=true` by itself does not relax relay acceptance.
+Repeated full login journeys can hit the upstream's real sensitive-operation
+rate limit. Honor its cooldown or reuse a valid management credential; do not
+disable the guard or automatically retry PAT creation to make a test green.
+Run live model acceptance when the test host is idle: the upstream may correctly
+reject requests with `system_cpu_overloaded` while full local CI saturates it.
+
+A route `displayName` is its downstream model alias, not just an internal label.
+The smoke chains leave it unset on fresh routes and honor an existing alias
+when relaying; the account model and the public model ID need not be identical.
+The instrument fixtures cover both route creation and alias reuse.
+
+The protocol report records the configured token cap and allowlisted terminal
+signals on failure. `length` remains FAIL; use an explicit, bounded larger cap
+when a reasoning model needs it, rather than relaxing completion validation.
+Repeated terminal signals and `end_turn` with tool calls remain visible failures.

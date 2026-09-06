@@ -5,9 +5,14 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"math"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // NewApiAdapter handles NewAPI platforms with full cookie fallback, shield challenge,
@@ -57,6 +62,9 @@ func (n *NewApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 
 // --- Login ---
 
+const newAPIPATVerificationScope = "access_token.generate"
+const newAPIManualPATImport = "complete verification in New API and import a durable dashboard PAT manually"
+
 func (n *NewApiAdapter) Login(ctx context.Context, baseURL, username, password string, platformUserId *int, proxy *ProxyConfig) (*LoginResult, error) {
 	body := map[string]string{"username": username, "password": password}
 	headers := map[string]string{
@@ -75,6 +83,9 @@ func (n *NewApiAdapter) Login(ctx context.Context, baseURL, username, password s
 	}
 
 	data, _ := getMap(parsed, "data")
+	if required, _ := getBool(data, "require_verification"); required {
+		return &LoginResult{Success: false, Message: "New API login requires MFA/interactive verification; " + newAPIManualPATImport}, nil
+	}
 	accessToken := extractLoginToken(parsed, data)
 	success, hasSuccess := getBool(parsed, "success")
 
@@ -89,7 +100,7 @@ func (n *NewApiAdapter) Login(ctx context.Context, baseURL, username, password s
 	if accessToken != "" && (!hasSuccess || success) {
 		if isSession, sessionID := newAPIV1LoginSession(data); isSession {
 			durableToken, promoteErr := n.promoteV1LoginCredential(
-				ctx, baseURL, accessToken, cookieHeader, sessionID, platformUserId, proxy)
+				ctx, baseURL, accessToken, password, cookieHeader, sessionID, platformUserId, proxy)
 			if promoteErr != nil {
 				return &LoginResult{Success: false, Message: promoteErr.Error()}, nil
 			}
@@ -137,62 +148,140 @@ func newAPIV1LoginSession(data map[string]interface{}) (bool, string) {
 // an explicit re-login or recovery after a revoked PAT intentionally rotates it.
 func (n *NewApiAdapter) promoteV1LoginCredential(
 	ctx context.Context,
-	baseURL, sessionJWT, cookieHeader, sessionID string,
+	baseURL, sessionJWT, password, cookieHeader, sessionID string,
 	platformUserID *int,
 	proxy *ProxyConfig,
 ) (string, error) {
-	resp, err := fetchJSON(
-		ctx,
-		strings.TrimRight(baseURL, "/")+"/api/user/token",
-		http.MethodGet,
-		nil,
-		n.authHeaders(sessionJWT, platformUserID),
-		proxy,
-	)
-	if err != nil {
-		return "", fmt.Errorf("login succeeded, but New API could not issue a durable dashboard token: %w", err)
-	}
-	durableToken, _ := getString(resp, "data")
-	durableToken = strings.TrimSpace(durableToken)
-	if durableToken == "" {
-		return "", fmt.Errorf("login succeeded, but New API returned no durable dashboard token")
-	}
-
-	// Minting the PAT required a browser login session. Revoke that transient
-	// session immediately so automated relogin cannot consume New API's active
-	// session quota. PAT issuance already succeeded, so logout is best-effort:
-	// failing the whole bind here would discard a usable durable credential while
-	// still leaving the upstream session behind.
-	if strings.TrimSpace(sessionID) != "" {
-		headers := map[string]string{
-			"Authorization":  "Bearer " + sessionJWT,
-			"X-Auth-Session": sessionID,
-		}
+	baseURL = strings.TrimRight(baseURL, "/")
+	sessionID = strings.TrimSpace(sessionID)
+	headers := n.authHeaders(sessionJWT, platformUserID)
+	if sessionID != "" {
+		headers["X-Auth-Session"] = sessionID
+		// Refresh cookies are scoped to /api/user/auth, not /api/verify or
+		// /api/user/token. Keep them for logout; the JWT authenticates the
+		// proof ceremony. Revoke failed promotions as well, so rejected
+		// step-up attempts do not exhaust the upstream login-session quota.
+		logoutHeaders := n.authHeaders(sessionJWT, platformUserID)
+		logoutHeaders["X-Auth-Session"] = sessionID
 		if strings.TrimSpace(cookieHeader) != "" {
-			headers["Cookie"] = cookieHeader
+			logoutHeaders["Cookie"] = cookieHeader
 		}
-		logoutResp, logoutErr := fetchJSON(
-			ctx,
-			strings.TrimRight(baseURL, "/")+"/api/user/auth/logout",
-			http.MethodPost,
-			nil,
-			headers,
-			proxy,
-		)
-		logoutOK := false
-		if logoutErr == nil {
-			logoutOK, _ = getBool(logoutResp, "success")
+		if origin, err := url.Parse(baseURL); err == nil {
+			logoutHeaders["Origin"] = origin.Scheme + "://" + origin.Host
 		}
-		if logoutErr != nil || !logoutOK {
-			slog.Warn("new-api login: durable token issued but transient session logout failed",
-				"session_id", sessionID,
-				"error", logoutErr)
-		}
+		defer func() {
+			_, err := fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/user/auth/logout", http.MethodPost, nil, logoutHeaders, proxy)
+			if err != nil {
+				// Only the fixed diagnostic/status is safe to log. An
+				// upstream error body can echo passwords, proofs or tokens.
+				slog.Warn("new-api login: transient session logout failed", "error", err)
+			}
+		}()
 	} else {
-		slog.Warn("new-api login: durable token issued but upstream returned no session id; transient session could not be revoked")
+		slog.Warn("new-api login: upstream returned no session id; transient session could not be revoked")
 	}
 
+	answer, err := fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/user/token", http.MethodGet, nil, headers, proxy)
+	var proof string
+	if err != nil {
+		code, _ := getString(answer.Parsed, "code")
+		success, hasSuccess := getBool(answer.Parsed, "success")
+		// A translated message or an arbitrary 403 is not a step-up demand.
+		// Only the upstream's explicit machine contract permits re-auth.
+		if answer.Status != http.StatusForbidden || code != "SECURITY_PROOF_REQUIRED" || !hasSuccess || success {
+			return "", fmt.Errorf("login succeeded, but New API could not issue a durable dashboard token: %w; %s", err, newAPIManualPATImport)
+		}
+		proof, err = newAPIV1PasswordProof(ctx, baseURL, password, headers, proxy)
+		if err != nil {
+			return "", fmt.Errorf("login succeeded, but New API security verification failed: %w; %s", err, newAPIManualPATImport)
+		}
+		// The proof is single-use and bound to this session and operation.
+		// Retry PAT issuance exactly once, never verify/replay in a loop.
+		headers["X-Security-Proof"] = proof
+		answer, err = fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/user/token", http.MethodGet, nil, headers, proxy)
+		delete(headers, "X-Security-Proof")
+		if err != nil {
+			return "", fmt.Errorf("login succeeded, but New API could not issue a durable dashboard token after security verification: %w; %s", err, newAPIManualPATImport)
+		}
+	}
+	durableToken, _ := getString(answer.Parsed, "data")
+	durableToken = strings.TrimSpace(durableToken)
+	if durableToken == "" || durableToken == sessionJWT || durableToken == proof {
+		return "", fmt.Errorf("login succeeded, but New API returned no durable dashboard PAT; %s", newAPIManualPATImport)
+	}
+	// Logout remains best-effort: never discard a PAT already issued because
+	// session revocation failed. The deferred cleanup uses the session JWT,
+	// never the PAT or the consumed security proof.
 	return durableToken, nil
+}
+
+// newAPIV1PasswordProof implements New API's advertised password ceremony for
+// access_token.generate. MFA and encrypted-password flows are not implemented
+// here; require manual PAT import rather than downgrading to plaintext.
+func newAPIV1PasswordProof(ctx context.Context, baseURL, password string, headers map[string]string, proxy *ProxyConfig) (string, error) {
+	answer, err := fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/verify/methods?scope="+newAPIPATVerificationScope, http.MethodGet, nil, headers, proxy)
+	if err != nil {
+		return "", fmt.Errorf("could not obtain password verification methods: %w", err)
+	}
+	data, _ := getMap(answer.Parsed, "data")
+	scope, _ := getString(data, "scope")
+	if scope != newAPIPATVerificationScope {
+		return "", fmt.Errorf("upstream returned unsupported verification requirements")
+	}
+	methods, _ := data["methods"].([]interface{})
+	passwordAllowed := false
+	for _, raw := range methods {
+		option, _ := raw.(map[string]interface{})
+		method, _ := getString(option, "method")
+		available, _ := getBool(option, "available")
+		if method == "password" && available {
+			passwordAllowed = true
+		}
+	}
+	if !passwordAllowed {
+		return "", fmt.Errorf("upstream requires MFA/interactive verification or password verification is unavailable")
+	}
+	encrypted, hasEncryptionPolicy := getBool(data, "password_encryption_enabled")
+	if !hasEncryptionPolicy || encrypted {
+		return "", fmt.Errorf("upstream password encryption requirements are not supported by this login flow")
+	}
+	if password == "" {
+		return "", fmt.Errorf("no password was supplied for verification")
+	}
+	body := map[string]string{"method": "password", "scope": newAPIPATVerificationScope, "password": password}
+	answer, err = fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/verify", http.MethodPost, body, headers, proxy)
+	if err != nil {
+		return "", fmt.Errorf("password verification was rejected: %w", err)
+	}
+	data, _ = getMap(answer.Parsed, "data")
+	proof, _ := getString(data, "proof_token")
+	method, _ := getString(data, "method")
+	scope, _ = getString(data, "scope")
+	expires, _ := getFloat(data, "expires_at")
+	if strings.TrimSpace(proof) == "" || method != "password" || scope != newAPIPATVerificationScope || expires <= float64(time.Now().Unix()) {
+		return "", fmt.Errorf("upstream returned no valid password verification proof")
+	}
+	return proof, nil
+}
+
+// fetchNewAPIV1SessionJSON retains the status and structured error code for
+// step-up detection, but never exposes upstream bodies or transport errors
+// (which may contain credentials/URLs) to a login result or a log entry.
+func fetchNewAPIV1SessionJSON(ctx context.Context, url, method string, body map[string]string, headers map[string]string, proxy *ProxyConfig) (loginResponse, error) {
+	answer, err := fetchLoginSessionResponse(ctx, url, method, body, headers, proxy)
+	if err != nil {
+		return answer, fmt.Errorf("request failed")
+	}
+	if answer.Status < 200 || answer.Status >= 300 {
+		return answer, fmt.Errorf("HTTP %d", answer.Status)
+	}
+	if answer.Parsed == nil {
+		return answer, fmt.Errorf("invalid JSON response (HTTP %d)", answer.Status)
+	}
+	if success, _ := getBool(answer.Parsed, "success"); !success {
+		return answer, fmt.Errorf("unsuccessful response (HTTP %d)", answer.Status)
+	}
+	return answer, nil
 }
 
 // --- GetUserInfo ---
@@ -451,7 +540,7 @@ func (n *NewApiAdapter) Checkin(ctx context.Context, baseURL, accessToken string
 	resp, err := fetchJSON(ctx, baseURL+"/api/user/checkin", "POST", nil, headers, proxy)
 	if err == nil {
 		if success, _ := getBool(resp, "success"); success {
-			return checkinResultFromResponse(resp, "checkin success", "checkin failed"), nil
+			return newAPICheckinResultFromResponse(resp, "checkin success", "checkin failed"), nil
 		}
 		firstFailureMessage = extractResponseMessage(resp)
 	} else {
@@ -473,7 +562,7 @@ func (n *NewApiAdapter) Checkin(ctx context.Context, baseURL, accessToken string
 			signInResp, _ := fetchJSON(ctx, baseURL+"/api/user/sign_in", "POST", map[string]interface{}{}, signInHeaders, proxy)
 			if signInResp != nil {
 				if success, _ := getBool(signInResp, "success"); success {
-					return checkinResultFromResponse(signInResp, "checked in", "checked in failed")
+					return newAPICheckinResultFromResponse(signInResp, "checked in", "checked in failed")
 				}
 			}
 
@@ -485,7 +574,7 @@ func (n *NewApiAdapter) Checkin(ctx context.Context, baseURL, accessToken string
 			checkinResp, err := fetchJSON(ctx, baseURL+"/api/user/checkin", "POST", nil, checkinHeaders, proxy)
 			if err == nil {
 				if success, _ := getBool(checkinResp, "success"); success {
-					return checkinResultFromResponse(checkinResp, "checkin success", "checkin failed")
+					return newAPICheckinResultFromResponse(checkinResp, "checkin success", "checkin failed")
 				}
 				fm := extractResponseMessage(checkinResp)
 				if fm != "" && firstFailureMessage == "" {
@@ -518,6 +607,24 @@ func (n *NewApiAdapter) Checkin(ctx context.Context, baseURL, accessToken string
 		firstFailureMessage = "checkin failed"
 	}
 	return &CheckinResult{Success: false, Message: firstFailureMessage}, nil
+}
+
+// newAPICheckinResultFromResponse normalizes the native New API award into
+// the same monetary units as GetBalance. quota_awarded is the integer quota
+// actually credited by this check-in, not the account's remaining quota.
+func newAPICheckinResultFromResponse(resp map[string]interface{}, successMsg, failureMsg string) *CheckinResult {
+	result := checkinResultFromResponse(resp, successMsg, failureMsg)
+	if result.Success {
+		if data, ok := getMap(resp, "data"); ok {
+			if quota, ok := getFloat(data, "quota_awarded"); ok && quota >= 0 && !math.IsInf(quota, 0) && math.Trunc(quota) == quota {
+				// Keep explicit zero distinct from an absent reward. Decimal
+				// formatting also prevents 1 quota from becoming "2e-06",
+				// which a decorated-reward text parser could read as 2.
+				result.Reward = strconv.FormatFloat(quota/500000, 'f', -1, 64)
+			}
+		}
+	}
+	return result
 }
 
 func (n *NewApiAdapter) detectCookieSessionFailure(ctx context.Context, baseURL, accessToken string, candidateUserIDs []*int, proxy *ProxyConfig) string {
@@ -897,21 +1004,38 @@ type loginResponse struct {
 // caller reports the observed status instead of retrying (the acw_sc__v2
 // challenge requires JS execution, which Go cannot provide).
 func fetchLoginResponse(ctx context.Context, url string, body map[string]string, headers map[string]string, proxy *ProxyConfig) (loginResponse, error) {
-	reqBody, err := json.Marshal(body)
-	if err != nil {
-		return loginResponse{}, fmt.Errorf("marshal body: %w", err)
+	return fetchLoginSessionResponse(ctx, url, http.MethodPost, body, headers, proxy)
+}
+
+// fetchLoginSessionResponse shares the login transport with its authenticated
+// verification/PAT/logout requests without discarding non-2xx JSON envelopes.
+func fetchLoginSessionResponse(ctx context.Context, url, method string, body map[string]string, headers map[string]string, proxy *ProxyConfig) (loginResponse, error) {
+	var bodyReader io.Reader
+	if body != nil {
+		reqBody, err := json.Marshal(body)
+		if err != nil {
+			return loginResponse{}, fmt.Errorf("marshal body: %w", err)
+		}
+		bodyReader = strings.NewReader(string(reqBody))
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(reqBody)))
+	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
 	if err != nil {
 		return loginResponse{}, fmt.Errorf("create request: %w", err)
+	}
+	if headers == nil {
+		headers = make(map[string]string)
 	}
 	if _, ok := headers["Content-Type"]; !ok {
 		headers["Content-Type"] = "application/json"
 	}
+	if _, ok := headers["User-Agent"]; !ok {
+		headers["User-Agent"] = DefaultBrowserUserAgent
+	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+	ApplySiteIdentity(req, proxy)
 
 	resp, err := DoWithProxy(ctx, req, proxy)
 	if err != nil {

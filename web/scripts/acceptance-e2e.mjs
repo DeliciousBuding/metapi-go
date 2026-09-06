@@ -22,21 +22,25 @@
 //   backend performs a REAL login against the live upstream and the account must
 //   appear in the table.
 // Journey 3 — Check-in (opt-in, needs journey 2's account): enable check-in on
-//   the account, run all check-ins from the check-in page, and assert a check-in
-//   log row is recorded.
+//   the account, run all check-ins from the check-in page, and assert that a
+//   fresh log for that exact account/site succeeds AND the UI shows its ID
+//   and outcome. An explicit skipped outcome is SKIP, not PASS.
 //
 // Journeys 4-7 are the tail of the core chain, and the reason this gate exists.
-// Journeys 1-3 only prove configuration succeeded, which is precisely the shape
+// Journeys 1-3 do not prove that relay works, which is precisely the shape
 // of the "I deployed it and it basically does not work" complaint: every step
 // green, chain dead. So the tail is asserted where the operator stands (the UI)
 // and then from outside the browser with the key the UI just issued.
 // Journey 4 — Models (opt-in): the bound account shows a NON-EMPTY model list in
 //   its detail sheet, cross-checked against the API so a UI rendering "0 models"
 //   over a populated backend (or the reverse) fails.
-// Journey 5 — Route + usable channel (opt-in): "Auto-rebuild" turns those models
+// Journey 4b — Upstream token (opt-in): reuse a ready/enabled token, or create
+//   one through the account detail UI with a blank token value. Verify fresh
+//   ready/default metadata and UI presence before attempting a route.
+// Journey 5 — Route + usable channel (opt-in): "Add route" turns those models
 //   into routes, and one route must have a channel whose relay credential is
-//   BOUND. The unbound state is asserted absent in the wire payload (tokenId)
-//   AND in the sheet, because a channel with no token cannot serve anything.
+//   usable through a token binding or the verified account default. A null
+//   tokenId alone is not an unbound channel; the selector supports both paths.
 // Journey 6 — Downstream key (opt-in): issue a key through the UI, authorize the
 //   model journey 5 verified (an empty model policy is deny-all by design), and
 //   capture the key value.
@@ -56,6 +60,9 @@
 //   ACCEPT_LOGIN      set to "1" to also run journeys 2-7
 //   ACCEPT_KEY_NAME   downstream key name to issue  (default acceptance-e2e-key)
 //   ACCEPT_KEY_VALUE  downstream key value to issue (default sk-acceptance-e2e-key)
+//   ACCEPT_EXPECT_CHECKIN  require a successful check-in in journey 3 (1).
+//                     Default 0 allows only an explicit API skipped outcome as
+//                     SKIP; failed/malformed/missing fresh logs always FAIL.
 //   ACCEPT_EXPECT_RELAY  require a real relay in journey 7 (default 1; set 0
 //                     only for an upstream with no relay capability, which then
 //                     reports an honest SKIP instead of a fake PASS)
@@ -76,6 +83,17 @@
 
 import { chromium, request } from 'playwright'
 
+import {
+  checkinRunStatus,
+  checkinVerdict,
+  freshCheckinLog,
+  freshUpstreamToken,
+  readAccountTokens,
+  readCheckinPage,
+  readyAccountToken,
+  requireTokenChannel,
+  resolveAcceptanceAccount,
+} from './acceptance-evidence.mjs'
 import { loginSession } from './session-auth.mjs'
 
 const BASE_URL = (process.env.BASE_URL ?? 'http://127.0.0.1:4000').replace(
@@ -90,6 +108,8 @@ const PLATFORM = process.env.PLATFORM ?? 'new-api'
 const ACCEPT_SITE_NAME = process.env.ACCEPT_SITE_NAME ?? 'acceptance-real-site'
 const ACCEPT_KEY_NAME = process.env.ACCEPT_KEY_NAME ?? 'acceptance-e2e-key'
 const ACCEPT_KEY_VALUE = process.env.ACCEPT_KEY_VALUE ?? 'sk-acceptance-e2e-key'
+const ACCEPT_EXPECT_CHECKIN = process.env.ACCEPT_EXPECT_CHECKIN ?? '0'
+const ACCEPT_EXPECT_REWARD = process.env.ACCEPT_EXPECT_REWARD ?? ''
 const ACCEPT_EXPECT_RELAY = process.env.ACCEPT_EXPECT_RELAY ?? '1'
 const ACCEPT_RELAY_MODEL = process.env.ACCEPT_RELAY_MODEL ?? ''
 const EXPECTED_COMPLETION_CONTENT =
@@ -114,7 +134,7 @@ const skip = (message) => {
 // Wrap a step so a failure names the step instead of dumping a Playwright stack.
 async function act(name, fn) {
   try {
-    await fn()
+    return await fn()
   } catch (error) {
     throw new Error(
       `step "${name}": ${String(error?.message ?? error).split('\n')[0]}`
@@ -364,7 +384,39 @@ async function journeyAccountLogin(context) {
     await act('submit visible', () =>
       submit.waitFor({ state: 'visible', timeout: 10_000 })
     )
-    await act('click submit', () => submit.click({ timeout: 10_000 }))
+    await act('submit real upstream login', async () => {
+      if (
+        (await page.getByLabel('Username').first().inputValue()) !==
+          UPSTREAM_USERNAME ||
+        (await page
+          .getByLabel('Password', { exact: true })
+          .first()
+          .inputValue()) !== UPSTREAM_PASSWORD
+      ) {
+        throw new Error(
+          'account form reset the supplied login fields before submission'
+        )
+      }
+      const [response] = await Promise.all([
+        page.waitForResponse(
+          (reply) =>
+            reply.request().method() === 'POST' &&
+            new URL(reply.url()).pathname === '/api/accounts/login',
+          { timeout: 30_000 }
+        ),
+        submit.click({ timeout: 10_000 }),
+      ])
+      const result = await response.json().catch(() => null)
+      if (
+        response.status() !== 200 ||
+        result?.success !== true ||
+        !result.account?.id
+      ) {
+        throw new Error(
+          `upstream login did not create an account (HTTP ${response.status()})`
+        )
+      }
+    })
 
     // The real upstream login happens on submit; the account row must appear.
     await act('account row appears', () =>
@@ -384,11 +436,8 @@ async function journeyAccountLogin(context) {
   }
 }
 
-// Journey 3 — Check-in via UI: enable check-in on the account from journey 2,
-//   open the check-in page, run all check-ins, and assert a check-in log row
-//   appears. Against a real upstream that does not enable check-in the result is
-//   an honest skipped/failed log — the point is the full UI + backend round-trip
-//   runs and records something, not that the upstream grants reward.
+// Journey 3: the trigger, fresh persisted log, table and detail sheet must all
+// agree on the SAME account/site and outcome. Historical rows prove nothing.
 async function journeyCheckin(context) {
   const label = 'journey: check-in via UI'
   const headers = {
@@ -398,54 +447,183 @@ async function journeyCheckin(context) {
   const page = await context.newPage()
   collectPageFailures(page, label)
   try {
-    // Find the account created in journey 2 and make sure check-in is enabled
-    // so "run all" actually targets it.
-    let accountId = null
-    await act('locate account', async () => {
+    if (!['0', '1'].includes(ACCEPT_EXPECT_CHECKIN)) {
+      throw new Error('ACCEPT_EXPECT_CHECKIN must be 0 or 1')
+    }
+    let target
+    await act('locate exact account and site', async () => {
       const resp = await context.request.get(`${BASE_URL}/api/accounts`, {
         headers,
       })
-      const data = await resp.json().catch(() => null)
-      const accounts = data?.accounts ?? []
-      const match = accounts.find((a) => a?.username === UPSTREAM_USERNAME)
-      if (!match) throw new Error(`account "${UPSTREAM_USERNAME}" not found`)
-      accountId = match.id
+      if (resp.status() !== 200) {
+        throw new Error(`accounts HTTP ${resp.status()}`)
+      }
+      target = resolveAcceptanceAccount(await resp.json().catch(() => null), {
+        username: UPSTREAM_USERNAME,
+        siteName: ACCEPT_SITE_NAME,
+        siteUrl: UPSTREAM_URL,
+      })
     })
     await act('enable check-in', async () => {
       const resp = await context.request.put(
-        `${BASE_URL}/api/accounts/${accountId}`,
+        `${BASE_URL}/api/accounts/${target.accountId}`,
         { headers, data: { checkinEnabled: true } }
       )
       if (resp.status() !== 200) {
         throw new Error(`enable check-in HTTP ${resp.status()}`)
       }
     })
-
-    await act('goto /checkin', () =>
-      page.goto(`${BASE_URL}/checkin`, {
-        waitUntil: 'networkidle',
-        timeout: 30_000,
+    await act('goto account-filtered /checkin', () =>
+      page.goto(
+        `${BASE_URL}/checkin?accountId=${target.accountId}&pageSize=200`,
+        {
+          waitUntil: 'networkidle',
+          timeout: 30_000,
+        }
+      )
+    )
+    const readLogs = async (offset = 0) => {
+      const resp = await context.request.get(`${BASE_URL}/api/checkin/logs`, {
+        headers,
+        params: { accountId: target.accountId, limit: 200, offset },
+        timeout: 10_000,
       })
+      if (resp.status() !== 200) {
+        throw new Error(`check-in logs HTTP ${resp.status()}`)
+      }
+      return readCheckinPage(await resp.json().catch(() => null), target)
+    }
+    let cursor = 0
+    await act('capture pre-trigger log IDs', async () => {
+      // The API sorts by createdAt, NOT id. Scan the target's paginated history
+      // rather than treating the first row/page as a trustworthy high-water mark.
+      for (let offset = 0; ;) {
+        const before = await readLogs(offset)
+        for (const row of before.items) {
+          cursor = Math.max(cursor, row.checkin_logs.id)
+        }
+        offset += before.items.length
+        if (offset >= before.total) break
+        if (before.items.length === 0) {
+          throw new Error('incomplete pre-trigger logs page')
+        }
+      }
+    })
+    let runStatus
+    await act(
+      'click Run all check-ins and verify its target result',
+      async () => {
+        const [resp] = await Promise.all([
+          page.waitForResponse(
+            (response) =>
+              response.url() === `${BASE_URL}/api/checkin/trigger` &&
+              response.request().method() === 'POST',
+            { timeout: 60_000 }
+          ),
+          page
+            .getByRole('button', { name: 'Run all check-ins', exact: true })
+            .click({ timeout: 10_000 }),
+        ])
+        if (resp.status() !== 200) {
+          throw new Error(`check-in trigger HTTP ${resp.status()}`)
+        }
+        runStatus = checkinRunStatus(
+          await resp.json().catch(() => null),
+          target
+        )
+      }
     )
-    await page.waitForTimeout(800)
-
-    await act('click Run all check-ins', () =>
-      page
-        .getByRole('button', { name: /Run all check-ins|运行所有签到|签到/i })
-        .first()
-        .click({ timeout: 10_000 })
+    let entry
+    let rowIndex
+    await act('wait for this account new check-in log', async () => {
+      const deadline = Date.now() + 25_000
+      for (;;) {
+        const after = await readLogs()
+        entry = freshCheckinLog(after, cursor)
+        if (entry) {
+          rowIndex = after.items.indexOf(entry)
+          return
+        }
+        if (Date.now() >= deadline) {
+          throw new Error('no fresh check-in log for the target account')
+        }
+        await page.waitForTimeout(500)
+      }
+    })
+    let ui
+    await act('UI shows the fresh log ID and actual result', async () => {
+      const deadline = Date.now() + 25_000
+      // Both pages use the same account filter, page size and server ordering.
+      // Opening details exposes the ID; matching only time/message is unsafe
+      // because two runs can have identical text and second-resolution times.
+      for (;;) {
+        const row = page.locator('table tbody tr').nth(rowIndex)
+        await row
+          .getByRole('cell', { name: target.username, exact: true })
+          .waitFor({ timeout: 15_000 })
+        await row
+          .getByRole('cell', { name: target.siteName, exact: true })
+          .waitFor({ timeout: 10_000 })
+        // The modal makes the background table aria-hidden. Read the row
+        // while it is still accessible, then bind it to the detail's log ID.
+        const tableStatus = (
+          await row.getByRole('cell').nth(3).innerText()
+        ).trim()
+        await row
+          .getByRole('button', { name: 'Check-in record actions', exact: true })
+          .click()
+        await page
+          .getByRole('menuitem', { name: 'View details', exact: true })
+          .click()
+        const sheet = page.locator('[data-slot="sheet-content"]')
+        await sheet.waitFor({ state: 'visible', timeout: 10_000 })
+        const field = (name) =>
+          sheet
+            .locator('dt', { hasText: new RegExp(`^${name}$`) })
+            .locator('..')
+            .locator('dd')
+        const readField = (name) =>
+          act(`check-in detail ${name}`, () =>
+            field(name).innerText({ timeout: 5_000 })
+          )
+        const idText = (await readField('Log ID')).trim()
+        if (idText === `#${entry.checkin_logs.id}`) {
+          ui = {
+            id: entry.checkin_logs.id,
+            account: (await readField('Account')).trim(),
+            site: (await readField('Site')).trim(),
+            siteUrl: (await readField('Site URL')).trim(),
+            reward: (await readField('Reward')).trim(),
+            tableStatus,
+            detailStatus: (
+              await sheet
+                .getByRole('heading')
+                .locator('[data-slot="badge"]')
+                .innerText()
+            ).trim(),
+          }
+          return
+        }
+        await page.keyboard.press('Escape')
+        await sheet.waitFor({ state: 'hidden', timeout: 5_000 })
+        if (Date.now() >= deadline) {
+          throw new Error(
+            `UI never displayed fresh check-in log #${entry.checkin_logs.id}`
+          )
+        }
+        await page.waitForTimeout(250)
+      }
+    })
+    const verdict = checkinVerdict(
+      entry,
+      ui,
+      runStatus,
+      ACCEPT_EXPECT_CHECKIN,
+      ACCEPT_EXPECT_REWARD
     )
-
-    // The run records a check-in log row (success / skipped / failed). Wait for
-    // any row to appear in the check-in records table.
-    await act('check-in log appears', () =>
-      page
-        .locator('table tbody tr')
-        .first()
-        .waitFor({ state: 'visible', timeout: 25_000 })
-    )
-
-    pass(`${label}: ran all check-ins and a check-in log row was recorded`)
+    const evidence = `${label}: account ${target.accountId}, fresh log #${entry.checkin_logs.id} > ${cursor}, status=${entry.checkin_logs.status}; table and detail agree`
+    if (verdict === 'SKIP') skip(evidence)
+    else pass(evidence)
   } catch (error) {
     fail(`${label}: ${String(error?.message ?? error).split('\n')[0]}`)
   } finally {
@@ -464,17 +642,22 @@ async function journeyAccountModels(context) {
   collectPageFailures(page, label)
   try {
     let accountId = null
+    let targetAccount
     let apiModels = []
     await act('locate account', async () => {
       const resp = await context.request.get(`${BASE_URL}/api/accounts`, {
         headers,
       })
       const data = await resp.json().catch(() => null)
-      const match = (data?.accounts ?? []).find(
-        (account) => account?.username === UPSTREAM_USERNAME
-      )
-      if (!match) throw new Error(`account "${UPSTREAM_USERNAME}" not found`)
-      accountId = match.id
+      if (resp.status() !== 200) {
+        throw new Error(`accounts HTTP ${resp.status()}`)
+      }
+      targetAccount = resolveAcceptanceAccount(data, {
+        username: UPSTREAM_USERNAME,
+        siteName: ACCEPT_SITE_NAME,
+        siteUrl: UPSTREAM_URL,
+      })
+      accountId = targetAccount.accountId
     })
 
     // The post-login sync is triggered by the login itself but lands
@@ -514,8 +697,9 @@ async function journeyAccountModels(context) {
       })
     )
     const row = page
-      .locator('table tbody tr', { hasText: UPSTREAM_USERNAME })
-      .first()
+      .locator('table tbody tr')
+      .filter({ has: page.getByText(targetAccount.username, { exact: true }) })
+      .filter({ has: page.getByText(targetAccount.siteName, { exact: true }) })
     await act('account row visible', () =>
       row.waitFor({ state: 'visible', timeout: 20_000 })
     )
@@ -576,9 +760,158 @@ async function journeyAccountModels(context) {
         .waitFor({ state: 'visible', timeout: 10_000 })
     )
 
+    journeyState.account = targetAccount
     journeyState.accountModels = apiModels
     pass(
       `${label}: account ${accountId} shows ${uiCount} models in its detail sheet, API agrees`
+    )
+  } catch (error) {
+    fail(`${label}: ${String(error?.message ?? error).split('\n')[0]}`)
+  } finally {
+    await page.close().catch(() => {})
+  }
+}
+
+// Journey 4b: model discovery needs only a login/session; relay needs a usable
+// upstream API token. Provision through the real UI, never an API seed/reveal.
+async function journeyUpstreamToken(context) {
+  const label = 'journey: upstream token via UI'
+  const headers = { Authorization: `Bearer ${AUTH_TOKEN}` }
+  const page = await context.newPage()
+  collectPageFailures(page, label)
+  try {
+    const target = journeyState.account
+    if (!target) {
+      throw new Error('the exact account/models journey did not pass')
+    }
+    const readTokens = async () => {
+      const resp = await context.request.get(`${BASE_URL}/api/account-tokens`, {
+        headers,
+        params: { accountId: target.accountId },
+        timeout: 10_000,
+      })
+      if (resp.status() !== 200) {
+        throw new Error(`account tokens HTTP ${resp.status()}`)
+      }
+      return readAccountTokens(
+        await resp.json().catch(() => null),
+        target.accountId
+      )
+    }
+    const before = await readTokens()
+    let token = readyAccountToken(before)
+    const reused = Boolean(token)
+    await act('open the exact account detail', async () => {
+      await page.goto(`${BASE_URL}/accounts`, {
+        waitUntil: 'networkidle',
+        timeout: 30_000,
+      })
+      const row = page
+        .locator('table tbody tr')
+        .filter({ has: page.getByText(target.username, { exact: true }) })
+        .filter({ has: page.getByText(target.siteName, { exact: true }) })
+      await row
+        .getByRole('button', { name: 'Account actions', exact: true })
+        .click({ timeout: 15_000 })
+      await page
+        .getByRole('menuitem', { name: 'View details', exact: true })
+        .click()
+    })
+    const sheet = page.locator('[data-slot="sheet-content"]')
+    const panel = sheet
+      .getByRole('heading', { name: 'Access tokens', exact: true })
+      .locator('../..')
+    await panel.waitFor({ state: 'visible', timeout: 15_000 })
+    if (!token) {
+      await act(
+        'create an upstream token with an empty Token value via UI',
+        async () => {
+          // The header says Add in the baseline, Add token in the onboarding fix.
+          await panel.getByRole('button', { name: /^(Add|Add token)$/ }).click()
+          const form = panel.locator('form')
+          await form
+            .getByLabel('Token name', { exact: true })
+            .fill('acceptance-upstream-token')
+          await form.getByLabel('Token value', { exact: true }).fill('')
+          await form.getByLabel('Group', { exact: true }).fill('default')
+          const [resp] = await Promise.all([
+            page.waitForResponse(
+              (response) =>
+                response.url() === `${BASE_URL}/api/account-tokens` &&
+                response.request().method() === 'POST',
+              { timeout: 45_000 }
+            ),
+            form
+              .getByRole('button', { name: 'Add token', exact: true })
+              .click({ timeout: 10_000 }),
+          ])
+          const submitted = resp.request().postDataJSON()
+          if (
+            submitted?.accountId !== target.accountId ||
+            submitted.name !== 'acceptance-upstream-token' ||
+            (submitted.token !== undefined && submitted.token !== '')
+          ) {
+            throw new Error(
+              'token form did not submit an upstream-create request for the exact account'
+            )
+          }
+          if (resp.status() !== 200) {
+            throw new Error(`upstream token creation HTTP ${resp.status()}`)
+          }
+          token = freshUpstreamToken(
+            await resp.json().catch(() => null),
+            before,
+            target.accountId,
+            'acceptance-upstream-token'
+          )
+          await form.waitFor({ state: 'hidden', timeout: 15_000 })
+        }
+      )
+    }
+    await act('ready token is persisted and visible in the UI', async () => {
+      const persisted = (await readTokens()).find(
+        (entry) => entry.id === token.id
+      )
+      if (
+        !persisted ||
+        !readyAccountToken([persisted]) ||
+        persisted.name !== token.name ||
+        persisted.isDefault !== token.isDefault
+      ) {
+        throw new Error(
+          'verified upstream token is not persisted ready/enabled with the same default state'
+        )
+      }
+      let row = panel.locator('li').filter({
+        has: page.getByText(token.name || 'Unnamed token', { exact: true }),
+      })
+      if (token.isDefault) {
+        row = row.filter({
+          has: page.locator('[data-slot="badge"]', { hasText: /^Default$/ }),
+        })
+      }
+      await row.waitFor({ state: 'visible', timeout: 15_000 })
+      await row
+        .getByRole('switch', { name: 'Enable/disable token', checked: true })
+        .waitFor({ timeout: 10_000 })
+      if (
+        await row
+          .locator('[data-slot="badge"]', { hasText: /^Pending$/ })
+          .count()
+      ) {
+        throw new Error('UI still labels the ready upstream token as Pending')
+      }
+      const uiDefault =
+        (await row
+          .locator('[data-slot="badge"]', { hasText: /^Default$/ })
+          .count()) > 0
+      if (uiDefault !== token.isDefault) {
+        throw new Error('UI token default badge disagrees with the API')
+      }
+    })
+    journeyState.upstreamToken = token
+    pass(
+      `${label}: ${reused ? 'reuse' : 'fresh-token'} #${token.id}, account ${target.accountId}, ready/enabled, default=${token.isDefault}; visible in account detail`
     )
   } catch (error) {
     fail(`${label}: ${String(error?.message ?? error).split('\n')[0]}`)
@@ -602,6 +935,10 @@ async function journeyRouteChannel(context) {
     const accountModels = journeyState.accountModels ?? []
     if (accountModels.length === 0) {
       throw new Error('the account serves no models (journey 4 did not pass)')
+    }
+    const upstreamToken = journeyState.upstreamToken
+    if (!upstreamToken) {
+      throw new Error('upstream token provisioning/reuse did not pass')
     }
     const model = ACCEPT_RELAY_MODEL || accountModels[0]
     if (!accountModels.includes(model)) {
@@ -717,14 +1054,26 @@ async function journeyRouteChannel(context) {
         )
       }
       channels = (await resp.json().catch(() => [])) ?? []
-      const bound = channels.filter(
-        (channel) => channel?.tokenId !== null && channel?.tokenId !== undefined
+      const defaultResp = await context.request.get(
+        `${BASE_URL}/api/account-tokens/account/${journeyState.account.accountId}/default`,
+        { headers }
       )
-      if (bound.length === 0) {
-        throw new Error(
-          `route ${target.id} has ${channels.length} channel(s) but none carries a relay credential`
-        )
+      const defaultData = await defaultResp.json().catch(() => null)
+      if (defaultResp.status() !== 200 || defaultData?.success !== true) {
+        throw new Error('could not verify the account default relay credential')
       }
+      const defaultToken = defaultData.token
+        ? readAccountTokens(
+            [defaultData.token],
+            journeyState.account.accountId
+          )[0]
+        : null
+      requireTokenChannel(
+        channels,
+        journeyState.account.accountId,
+        upstreamToken.id,
+        defaultToken
+      )
     })
     await act('channel rows rendered', () =>
       sheet
@@ -767,7 +1116,7 @@ async function journeyRouteChannel(context) {
     )
 
     pass(
-      `${label}: route "${model}" created via UI with ${channels.length} channel(s); the sheet names each credential as the wire reports it`
+      `${label}: route "${model}" created via UI with ${channels.length} channel(s), using verified upstream token #${upstreamToken.id} directly or through account ${journeyState.account.accountId} default; the sheet names each credential as the wire reports it`
     )
   } catch (error) {
     fail(`${label}: ${String(error?.message ?? error).split('\n')[0]}`)
@@ -1093,6 +1442,7 @@ if (process.env.ACCEPT_LOGIN === '1') {
     })
     await seedAuth(tailContext)
     await journeyAccountModels(tailContext)
+    await journeyUpstreamToken(tailContext)
     await journeyRouteChannel(tailContext)
     await journeyDownstreamKey(tailContext)
     await tailContext.close()

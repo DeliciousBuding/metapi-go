@@ -1357,7 +1357,7 @@
           "empty": "No API keys yet. Create one to start issuing.",
           "requests": "Requests: {{used}} / {{max}}",
           "cost": "Cost: {{used}} / {{max}}",
-          "usage24h": "24h: {{requests}} req · {{tokens}} tok · ${{cost}}",
+          "usage24h": "24h: {{requests}} req · {{tokens}} tok · {{cost}}",
           "columns": {
             "name": "Name",
             "group": "Group",
@@ -2082,6 +2082,8 @@
           "value": "Token value",
           "valuePlaceholder": "Leave empty to keep unchanged",
           "valueHint": "Leave empty on edit to keep the token value unchanged",
+          "createValuePlaceholder": "Leave empty to create on the upstream site",
+          "createValueHint": "Leave empty to create an upstream token with the limits below. Paste an existing token to store it locally; its upstream limits stay unchanged.",
           "group": "Group",
           "groupPlaceholder": "default",
           "quota": "Quota",
@@ -2111,7 +2113,7 @@
           "accountRequired": "Please select an account",
           "nameRequired": "Please enter a token name",
           "nameTooLong": "Token name is too long",
-          "valueRequired": "Please enter a token value",
+          "quotaRequired": "Enter a quota when unlimited quota is off",
           "quotaNonNegative": "Quota must be a non-negative number"
         }
       },

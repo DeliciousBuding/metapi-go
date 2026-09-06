@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -134,8 +135,6 @@ func IsSiteDisabled(status string) bool {
 func isAccountDisabled(status string) bool {
 	return strings.EqualFold(strings.TrimSpace(status), "disabled")
 }
-
-
 
 // classifyAndMarshalFailureReason runs the structured failure classifier
 // (ClassifyFailureReason) and serializes the result to JSON for the
@@ -499,23 +498,17 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 			}
 		}
 
-		// Parse reward
-		parsedReward := ParseCheckinRewardAmount(logReward)
-		if parsedReward <= 0 {
-			parsedReward = ParseCheckinRewardAmount(result.Message)
-			if parsedReward > 0 {
-				logReward = fmt.Sprintf("%v", parsedReward)
-			}
-		}
-		if directCheckinSuccess && parsedReward <= 0 {
-			// Only infer a reward delta when the pre-checkin balance is known;
-			// a NULL (never-refreshed) balance gives no baseline to diff against.
-			if refreshedBalanceInfo != nil && account.Balance != nil {
-				inferredReward := InferRewardFromBalanceDelta(*account.Balance, refreshedBalanceInfo.Balance)
-				if inferredReward > 0 {
-					parsedReward = inferredReward
-					logReward = fmt.Sprintf("%v", parsedReward)
-				}
+		// The adapter owns native award fields and their units. A non-empty
+		// reward (including explicit "0") is authoritative; free-form message
+		// numbers may be dates or total balances, not money awarded here.
+		// The account snapshot predates the refresh above. DEFAULT 0 is not a
+		// known baseline: require evidence of a prior successful balance read.
+		if directCheckinSuccess && strings.TrimSpace(logReward) == "" &&
+			refreshedBalanceInfo != nil && account.Balance != nil &&
+			account.LastBalanceRefresh != nil && strings.TrimSpace(*account.LastBalanceRefresh) != "" {
+			inferredReward := InferRewardFromBalanceDelta(*account.Balance, refreshedBalanceInfo.Balance)
+			if inferredReward > 0 {
+				logReward = strconv.FormatFloat(inferredReward, 'f', -1, 64)
 			}
 		}
 	}

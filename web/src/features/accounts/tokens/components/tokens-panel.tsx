@@ -305,6 +305,7 @@ function AccountTokenForm({
   })
 
   const unlimited = form.watch('unlimited')
+  const createsUpstream = !isEdit && form.watch('token').trim() === ''
 
   useEffect(() => {
     if (token) {
@@ -350,12 +351,7 @@ function AccountTokenForm({
           id: token.id,
           payload: {
             name: payload.name,
-            tokenGroup: payload.tokenGroup,
-            quota: payload.quota,
-            remainQuota: payload.remainQuota,
-            unlimitedQuota: payload.unlimitedQuota,
-            expiredTime: payload.expiredTime,
-            allowedIps: payload.allowedIps,
+            group: payload.group,
             ...(values.token ? { token: values.token } : {}),
           },
         })
@@ -413,14 +409,16 @@ function AccountTokenForm({
                     placeholder={
                       isEdit
                         ? t('accounts.tokens.form.valuePlaceholder')
-                        : 'sk-...'
+                        : t('accounts.tokens.form.createValuePlaceholder')
                     }
                     {...field}
                     value={field.value ?? ''}
                   />
                 </FormControl>
                 <FormDescription>
-                  {isEdit ? t('accounts.tokens.form.valueHint') : undefined}
+                  {isEdit
+                    ? t('accounts.tokens.form.valueHint')
+                    : t('accounts.tokens.form.createValueHint')}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -446,94 +444,106 @@ function AccountTokenForm({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name='quota'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('accounts.tokens.form.quota')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type='number'
-                      placeholder={t('accounts.tokens.form.quotaPlaceholder')}
-                      disabled={unlimited}
-                      value={field.value ?? ''}
-                      onChange={(event) =>
-                        field.onChange(
-                          event.target.value === ''
-                            ? undefined
-                            : Number(event.target.value)
-                        )
-                      }
-                      onBlur={field.onBlur}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name='unlimited'
-            render={({ field }) => (
-              <FormItem className='flex flex-row items-center justify-between rounded-lg border p-2.5'>
-                <div className='space-y-0.5'>
-                  <FormLabel>{t('accounts.tokens.form.unlimited')}</FormLabel>
-                  <FormDescription>
-                    {t('accounts.tokens.form.unlimitedHint')}
-                  </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </FormItem>
+            {createsUpstream && (
+              <FormField
+                control={form.control}
+                name='quota'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('accounts.tokens.form.quota')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        placeholder={t('accounts.tokens.form.quotaPlaceholder')}
+                        disabled={unlimited}
+                        value={field.value ?? ''}
+                        onChange={(event) =>
+                          field.onChange(
+                            event.target.value === ''
+                              ? undefined
+                              : Number(event.target.value)
+                          )
+                        }
+                        onBlur={field.onBlur}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
-          />
-
-          <div className='grid grid-cols-2 gap-3'>
-            <FormField
-              control={form.control}
-              name='expiresAt'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('accounts.tokens.form.expiresAt')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type='datetime-local'
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name='allowedIps'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('accounts.tokens.form.allowedIps')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder={t(
-                        'accounts.tokens.form.allowedIpsPlaceholder'
-                      )}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </div>
+
+          {createsUpstream && (
+            <>
+              <FormField
+                control={form.control}
+                name='unlimited'
+                render={({ field }) => (
+                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-2.5'>
+                    <div className='space-y-0.5'>
+                      <FormLabel>
+                        {t('accounts.tokens.form.unlimited')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t('accounts.tokens.form.unlimitedHint')}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <div className='grid grid-cols-2 gap-3'>
+                <FormField
+                  control={form.control}
+                  name='expiresAt'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('accounts.tokens.form.expiresAt')}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type='datetime-local'
+                          {...field}
+                          value={field.value ?? ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='allowedIps'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('accounts.tokens.form.allowedIps')}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t(
+                            'accounts.tokens.form.allowedIpsPlaceholder'
+                          )}
+                          {...field}
+                          value={field.value ?? ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </>
+          )}
 
           <div className='flex justify-end gap-2'>
             <Button

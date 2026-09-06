@@ -413,6 +413,8 @@ jobs:
           bash -n scripts/e2e/smoke-strict-relay-test.sh
           python3 -c 'import ast; ast.parse(open("scripts/e2e/mock-openai.py", encoding="utf-8").read())'
           bash scripts/e2e/smoke-strict-relay-test.sh
+          python3 -m unittest discover -s scripts/e2e -p 'test_verify_real_relay.py'
+          node --test web/scripts/__tests__/acceptance-evidence.test.mjs
       - name: Initialize upstreams
         run: |
           set -euo pipefail
@@ -639,13 +641,15 @@ jobs:
           SITE_NAME=e2e-smoke-oneapi TOKEN_NAME=e2e-smoke-oneapi-token \
           bash scripts/e2e/smoke.sh
 
+          # These fixtures have no real provider configured: exercise management
+          # without presenting a structured relay error as successful inference.
           echo "===== sub2api token-import chain ====="
           METAPI_URL=http://127.0.0.1:4010 \
           METAPI_AUTH_TOKEN=e2e-admin-token \
           UPSTREAM_URL=http://127.0.0.1:3004 \
           UPSTREAM_TOKEN="$SUB2API_ACCESS_TOKEN" \
           PLATFORM=sub2api CREDENTIAL_MODE=session \
-          SKIP_MODEL_FETCH=true \
+          SKIP_MODEL_FETCH=true E2E_SKIP_RELAY=1 \
           SITE_NAME=e2e-smoke-sub2api TOKEN_NAME=e2e-smoke-sub2api-token \
           bash scripts/e2e/verify-token-import.sh
 
@@ -688,7 +692,7 @@ jobs:
           UPSTREAM_URL=http://127.0.0.1:3004 \
           UPSTREAM_TOKEN="$SUB2API_ACCESS_TOKEN" \
           PLATFORM=sub2api CREDENTIAL_MODE=session \
-          SKIP_MODEL_FETCH=true \
+          SKIP_MODEL_FETCH=true E2E_SKIP_RELAY=1 \
           SITE_NAME=e2e-smoke-sub2api TOKEN_NAME=e2e-smoke-sub2api-token \
           bash scripts/e2e/verify-token-import.sh
 
@@ -698,7 +702,7 @@ jobs:
           UPSTREAM_URL=http://127.0.0.1:3005 \
           UPSTREAM_TOKEN=e2e-cliproxyapi-mgmt-key \
           PLATFORM=cliproxyapi CREDENTIAL_MODE=apikey \
-          SKIP_MODEL_FETCH=true \
+          SKIP_MODEL_FETCH=true E2E_SKIP_RELAY=1 \
           SITE_NAME=e2e-smoke-cliproxyapi TOKEN_NAME=e2e-smoke-cliproxyapi-token \
           bash scripts/e2e/verify-token-import.sh
 

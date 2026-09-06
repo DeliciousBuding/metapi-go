@@ -78,7 +78,8 @@ RESP_BODY="$WORKDIR/resp_body.txt"
 # response body is saved to $RESP_BODY.
 request() {
   local method="$1" url="$2" body="${3:-}" token="${4:-}"
-  local args=(-sS -m 120 -X "$method" "$url" -o "$RESP_BODY" -w "%{http_code}" -H "Content-Type: application/json")
+  : > "$RESP_BODY" || return 1
+  local args=(-q --noproxy "*" -sS -m 120 -X "$method" "$url" -o "$RESP_BODY" -w "%{http_code}" -H "Content-Type: application/json")
   if [ -n "$token" ]; then
     args+=(-H "Authorization: Bearer $token")
   fi
@@ -482,18 +483,24 @@ else
   fail_step "balance skipped (no account id)"
 fi
 
-# 10. checkin (POST /api/checkin/trigger/{id}); v1 may not support checkin —
-#     a 2xx with success=false is a documented unsupported result (PASS),
-#     5xx/crash is a FAIL.
+# 10. checkin: success is PASS, an explicit skipped outcome is SKIP, and
+#     failed/malformed outcomes are FAIL even when the endpoint answers 200.
 if [ -n "$ACCOUNT_ID" ]; then
   status="$(request POST "$METAPI_URL/api/checkin/trigger/$ACCOUNT_ID" "" "$METAPI_AUTH_TOKEN")"
   if [ "$status" = "200" ]; then
     checkin_ok="$(json_value success 2>/dev/null || true)"
-    if [ "$checkin_ok" = "True" ]; then
-      pass_step "checkin (success)"
-    else
-      pass_step "checkin (documented unsupported/negative result: success=$checkin_ok)"
-    fi
+    checkin_status="$(json_value status 2>/dev/null || true)"
+    checkin_skipped="$(json_value skipped 2>/dev/null || true)"
+    # The API owns outcome normalization. Do not infer unsupported from HTTP
+    # 200 or success=false, and do not grow another message-text classifier.
+    case "$checkin_ok:$checkin_status:$checkin_skipped" in
+      True:success:False) pass_step "checkin (success)" ;;
+      True:skipped:True|False:skipped:True) skip_step "checkin (status=skipped; no successful check-in verified)" ;;
+      *)
+        fail_step "checkin (HTTP 200, expected a consistent success or skipped outcome)"
+        evidence
+        ;;
+    esac
   elif [ "$status" = "404" ]; then
     fail_step "checkin (HTTP 404 account not found)"
     evidence
@@ -541,6 +548,8 @@ else
 fi
 
 # 12. route create (idempotent by modelPattern lookup)
+# displayName is the public model alias, not an internal fixture label.
+RELAY_MODEL="$ROUTE_MODEL"
 if [ "$EXPECT_RELAY" = "0" ]; then
   skip_step "route relay setup disabled explicitly"
 else
@@ -550,10 +559,13 @@ else
     if [ "$status" = "200" ]; then
       if idx="$(json_find_index modelPattern "$ROUTE_MODEL" 2>/dev/null)"; then
         ROUTE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
+        route_alias="$(json_value "[$idx].displayName" 2>/dev/null || true)"
+        route_alias="$(printf '%s' "$route_alias" | python3 -c 'import sys; print(sys.stdin.read().strip())')"
+        if [ -n "$route_alias" ]; then RELAY_MODEL="$route_alias"; fi
       fi
     fi
     if [ -z "$ROUTE_ID" ]; then
-      status="$(request POST "$METAPI_URL/api/routes" "{\"modelPattern\":\"$ROUTE_MODEL\",\"displayName\":\"e2e-smoke-route\",\"routeMode\":\"pattern\",\"enabled\":true}" "$METAPI_AUTH_TOKEN")"
+      status="$(request POST "$METAPI_URL/api/routes" "{\"modelPattern\":\"$ROUTE_MODEL\",\"routeMode\":\"pattern\",\"enabled\":true}" "$METAPI_AUTH_TOKEN")"
       if [ "$status" = "200" ] || [ "$status" = "201" ]; then
         ROUTE_ID="$(json_value id 2>/dev/null || true)"
       fi
@@ -588,7 +600,7 @@ elif [ -n "$PROXY_TOKEN" ]; then
     evidence
   fi
 
-  status="$(request POST "$METAPI_URL/v1/chat/completions" "{\"model\":\"$ROUTE_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" "$PROXY_TOKEN")"
+  status="$(request POST "$METAPI_URL/v1/chat/completions" "{\"model\":\"$RELAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" "$PROXY_TOKEN")"
   if [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_completion_has_content "$EXPECTED_COMPLETION_CONTENT"; then
     pass_step "proxy /v1/chat/completions (HTTP $status, completion content present)"
   else

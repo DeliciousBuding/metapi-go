@@ -34,8 +34,8 @@ import {
   vi,
 } from 'vitest'
 
-import '@/i18n/config'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import i18n from '@/i18n/config'
 
 import { KeyModelPolicyCell, KeySheetForm, KeyUsageCell } from '../keys-section'
 
@@ -532,7 +532,7 @@ describe('KeySheetForm — dirty reporting', () => {
 })
 
 // KeyUsageCell locks the 24h usage line rendering: when the backend returns
-// usage24h the requests/tokens/cost surface verbatim; when the field is
+// usage24h the requests/tokens and formatted USD costs surface; when the field is
 // absent (older server or failed aggregate) the line degrades to zeros
 // instead of rendering "undefined".
 describe('KeyUsageCell — 24h usage line', () => {
@@ -557,14 +557,66 @@ describe('KeyUsageCell — 24h usage line', () => {
     )
 
     expect(
-      screen.getByText('24h: 7 req · 1234 tok · $0.42')
+      screen.getByText('24h: 7 req · 1234 tok · $0.420000')
     ).toBeInTheDocument()
+  })
+
+  it('formats fractional costs without exposing floating-point tails', () => {
+    render(
+      <KeyUsageCell
+        item={{
+          ...baseItem,
+          usedCost: 0.044216000000000005,
+          maxCost: 0.30000000000000004,
+          usage24h: { requests: 1, tokens: 42, cost: 0.044216000000000005 },
+        }}
+      />
+    )
+
+    expect(screen.getByText('Cost: $0.044216 / $0.300000')).toBeInTheDocument()
+    expect(
+      screen.getByText('24h: 1 req · 42 tok · $0.044216')
+    ).toBeInTheDocument()
+  })
+
+  it('renders costs for the Chinese interface language code', async () => {
+    const previousLanguage = i18n.language
+    try {
+      await i18n.changeLanguage('zhCN')
+      render(
+        <KeyUsageCell
+          item={{
+            ...baseItem,
+            usedCost: 0.044216000000000005,
+            maxCost: 0.30000000000000004,
+          }}
+        />
+      )
+      expect(
+        screen.getByText('成本：$0.044216 / $0.300000')
+      ).toBeInTheDocument()
+    } finally {
+      cleanup()
+      await i18n.changeLanguage(previousLanguage)
+    }
+  })
+
+  it('keeps a zero cost limit distinct from an unlimited limit', () => {
+    const { rerender } = render(
+      <KeyUsageCell item={{ ...baseItem, maxCost: 0 }} />
+    )
+    expect(screen.getByText('Cost: $2.000000 / $0.000000')).toBeInTheDocument()
+
+    rerender(<KeyUsageCell item={{ ...baseItem, maxCost: null }} />)
+    expect(screen.getByText('Cost: $2.000000 / unlimited')).toBeInTheDocument()
   })
 
   it('falls back to zeros when usage24h is absent', () => {
     render(<KeyUsageCell item={baseItem} />)
 
-    expect(screen.getByText('24h: 0 req · 0 tok · $0')).toBeInTheDocument()
+    expect(
+      screen.getByText('24h: 0 req · 0 tok · $0.000000')
+    ).toBeInTheDocument()
   })
 })
 
