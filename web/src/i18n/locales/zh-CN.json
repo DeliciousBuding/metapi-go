@@ -2082,6 +2082,8 @@
           "value": "令牌值",
           "valuePlaceholder": "留空保持不变",
           "valueHint": "编辑时留空表示不修改令牌值",
+          "createValuePlaceholder": "留空将在上游站点创建令牌",
+          "createValueHint": "留空会按下方限额在上游创建令牌。粘贴已有令牌仅在本地保存，不会修改它在上游的限额。",
           "group": "分组",
           "groupPlaceholder": "默认",
           "quota": "额度",
@@ -2111,7 +2113,7 @@
           "accountRequired": "请选择所属账号",
           "nameRequired": "请填写令牌名称",
           "nameTooLong": "令牌名称过长",
-          "valueRequired": "请填写令牌值",
+          "quotaRequired": "关闭无限额度时请填写额度",
           "quotaNonNegative": "额度需为非负数"
         }
       },
