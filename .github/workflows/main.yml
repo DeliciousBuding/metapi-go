@@ -413,6 +413,8 @@ jobs:
           bash -n scripts/e2e/smoke-strict-relay-test.sh
           python3 -c 'import ast; ast.parse(open("scripts/e2e/mock-openai.py", encoding="utf-8").read())'
           bash scripts/e2e/smoke-strict-relay-test.sh
+          python3 -m unittest discover -s scripts/e2e -p 'test_verify_real_relay.py'
+          node --test web/scripts/__tests__/acceptance-evidence.test.mjs
       - name: Initialize upstreams
         run: |
           set -euo pipefail
