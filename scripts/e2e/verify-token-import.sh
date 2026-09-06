@@ -550,6 +550,8 @@ else
 fi
 
 # 11. route create (idempotent by modelPattern lookup)
+# displayName is the public model alias, not an internal fixture label.
+RELAY_MODEL="$ROUTE_MODEL"
 ROUTE_ID=""
 if [ "$E2E_SKIP_RELAY" = "1" ]; then
   skip_step "route relay setup disabled explicitly"
@@ -559,11 +561,14 @@ elif [ -n "$PROXY_TOKEN" ] && [ -n "$ROUTE_MODEL" ]; then
   if [ "$status" = "200" ]; then
     if idx="$(json_find_index modelPattern "$ROUTE_MODEL" 2>/dev/null)"; then
       ROUTE_ID="$(json_value "[$idx].id" 2>/dev/null || true)"
+      route_alias="$(json_value "[$idx].displayName" 2>/dev/null || true)"
+      route_alias="$(printf '%s' "$route_alias" | python3 -c 'import sys; print(sys.stdin.read().strip())')"
+      if [ -n "$route_alias" ]; then RELAY_MODEL="$route_alias"; fi
       ROUTE_STATE="reused"
     fi
   fi
   if [ -z "$ROUTE_ID" ]; then
-    status="$(request POST "$METAPI_URL/api/routes" "{\"modelPattern\":\"$ROUTE_MODEL\",\"displayName\":\"e2e-token-import-route\",\"routeMode\":\"pattern\",\"enabled\":true}" "$METAPI_AUTH_TOKEN")"
+    status="$(request POST "$METAPI_URL/api/routes" "{\"modelPattern\":\"$ROUTE_MODEL\",\"routeMode\":\"pattern\",\"enabled\":true}" "$METAPI_AUTH_TOKEN")"
     if [ "$status" = "200" ] || [ "$status" = "201" ]; then
       ROUTE_ID="$(json_value id 2>/dev/null || true)"
     fi
@@ -585,9 +590,9 @@ if [ "$E2E_SKIP_RELAY" = "1" ]; then
   skip_step "proxy /v1/chat/completions relay assertion disabled explicitly"
 elif [ -n "$PROXY_TOKEN" ] && [ -n "$ROUTE_ID" ]; then
   if status="$(request GET "$METAPI_URL/v1/models" "" "$PROXY_TOKEN")" &&
-     [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_models_data_contains "$ROUTE_MODEL"; then
-    pass_step "proxy /v1/models (HTTP $status, selected model present: $ROUTE_MODEL)"
-    if status="$(request POST "$METAPI_URL/v1/chat/completions" "{\"model\":\"$ROUTE_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" "$PROXY_TOKEN")" &&
+     [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_models_data_contains "$RELAY_MODEL"; then
+    pass_step "proxy /v1/models (HTTP $status, selected model present: $RELAY_MODEL)"
+    if status="$(request POST "$METAPI_URL/v1/chat/completions" "{\"model\":\"$RELAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" "$PROXY_TOKEN")" &&
        [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_completion_has_content "$EXPECTED_COMPLETION_CONTENT"; then
       pass_step "proxy /v1/chat/completions (HTTP $status, completion content present)"
     else

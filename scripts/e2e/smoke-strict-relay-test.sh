@@ -40,6 +40,12 @@ path="/${url#*://*/}"
 printf "%s %s\n" "$method" "$path" >> "$RELAY_CALL_LOG"
 status=200
 body='{}'
+exposed_model=gpt-4o-mini
+if [ "${STRICT_CASE:-good}" = "aliased_route" ]; then
+  exposed_model=customer-alias
+elif [ -f "$RELAY_CALL_LOG.public-model" ]; then
+  exposed_model="$(cat "$RELAY_CALL_LOG.public-model")"
+fi
 case "$method $path" in
   "GET /health") body='{"status":"ok"}' ;;
   "GET /api/sites")
@@ -78,7 +84,23 @@ case "$method $path" in
   "POST /api/downstream-keys") status=409; body='{"error":"duplicate"}' ;;
   "GET /api/downstream-keys") body='{"items":[{"id":9,"name":"e2e-smoke-token"}]}' ;;
   "PUT /api/downstream-keys/9") body='{"success":true}' ;;
-  "GET /api/routes/lite") body='[{"id":1,"modelPattern":"gpt-4o-mini"},{"id":2,"modelPattern":"gpt-3.5-turbo"}]' ;;
+  "GET /api/routes/lite")
+    case "${STRICT_CASE:-good}" in
+      fresh_route) body='[]' ;;
+      aliased_route) body='[{"id":1,"modelPattern":"gpt-4o-mini","displayName":"customer-alias"}]' ;;
+      *) body='[{"id":1,"modelPattern":"gpt-4o-mini"},{"id":2,"modelPattern":"gpt-3.5-turbo"}]' ;;
+    esac
+    ;;
+  "POST /api/routes")
+    body="$(python3 -c '
+import json,sys
+from pathlib import Path
+route=json.loads(sys.argv[1])
+public=(route.get("displayName") or route["modelPattern"]).strip()
+Path(sys.argv[2]).write_text(public)
+print(json.dumps(dict(route, id=1)))
+' "$request_body" "$RELAY_CALL_LOG.public-model")"
+    ;;
   "GET /v1/models")
     case "${STRICT_CASE:-good}" in
       models_empty|proxy_models_empty) body='{"object":"list","data":[]}' ;;
@@ -86,14 +108,14 @@ case "$method $path" in
       proxy_models_200_error) body='{"error":{},"data":[{"id":"gpt-4o-mini"}]}' ;;
       proxy_models_malformed) body='{not-json' ;;
       proxy_models_http_error) status=503; body='{"error":"no models available"}' ;;
-      *) body='{"object":"list","data":[{"id":"gpt-4o-mini","object":"model"}]}' ;;
+      *) body="$(printf '{"object":"list","data":[{"id":"%s","object":"model"}]}' "$exposed_model")" ;;
     esac
     if [ "${STRICT_CASE:-good}" = "proxy_models_transport_error" ]; then exit_code=28; fi
     ;;
   "POST /v1/chat/completions")
     requested_model="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("model", ""))' "$request_body")"
-    if [ "$requested_model" != "gpt-4o-mini" ]; then
-      echo "fake curl: completion did not use the discovered model" >&2
+    if [ "$requested_model" != "$exposed_model" ]; then
+      echo "fake curl: completion did not use the advertised route model" >&2
       exit 2
     fi
     case "${STRICT_CASE:-good}" in
@@ -375,5 +397,26 @@ if run_chain "$TOKEN_IMPORT_SCRIPT" good "$output" E2E_SKIP_RELAY=true; then
 fi
 assert_contains "$output" 'FATAL: E2E_SKIP_RELAY must be 0 or 1'
 test ! -s "$output.requests"
+
+# A fresh route exposes displayName as its model ID. The fixture must derive
+# that value from the actual create payload instead of assuming the raw model.
+for script in "$SMOKE_SCRIPT" "$TOKEN_IMPORT_SCRIPT"; do
+  for case_name in fresh_route aliased_route; do
+    output="$TEST_DIR/$(basename "$script")-$case_name.log"
+    if ! run_chain "$script" "$case_name" "$output"; then
+      echo "$(basename "$script"): $case_name did not relay the exposed model" >&2
+      cat "$output" >&2
+      exit 1
+    fi
+    if [ "$case_name" = fresh_route ]; then
+      test "$(grep -Fxc 'POST /api/routes' "$output.requests")" = "1"
+    elif grep -Fqx 'POST /api/routes' "$output.requests"; then
+      echo "existing alias was overwritten instead of reused" >&2
+      exit 1
+    fi
+    test "$(grep -Fxc 'POST /v1/chat/completions' "$output.requests")" = "1"
+    echo "$(basename "$script"): $case_name relays the advertised model"
+  done
+done
 
 echo "smoke/token-import strict relay and check-in verdict contracts: PASS"

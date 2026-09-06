@@ -258,3 +258,8 @@ rate limit. Honor its cooldown or reuse a valid management credential; do not
 disable the guard or automatically retry PAT creation to make a test green.
 Run live model acceptance when the test host is idle: the upstream may correctly
 reject requests with `system_cpu_overloaded` while full local CI saturates it.
+
+A route `displayName` is its downstream model alias, not just an internal label.
+The smoke chains leave it unset on fresh routes and honor an existing alias
+when relaying; the account model and the public model ID need not be identical.
+The instrument fixtures cover both route creation and alias reuse.
