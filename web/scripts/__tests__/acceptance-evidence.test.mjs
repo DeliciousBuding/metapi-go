@@ -420,3 +420,66 @@ test('route must bind the verified token on the verified account, not any non-nu
     )
   }
 })
+
+test('account-scoped channels use a verified ready account default, not a mandatory tokenId', () => {
+  const channel = {
+    accountId: 7,
+    tokenId: null,
+    enabled: 1,
+    account: { apiTokenMasked: 'masked-relay-value' },
+  }
+  const defaultToken = {
+    id: 3,
+    accountId: 7,
+    valueStatus: 'ready',
+    enabled: true,
+    isDefault: true,
+  }
+  assert.doesNotThrow(() => requireTokenChannel([channel], 7, 3, defaultToken))
+  for (const invalid of [
+    null,
+    { ...defaultToken, id: 4 },
+    { ...defaultToken, accountId: 8 },
+    { ...defaultToken, enabled: false },
+    { ...defaultToken, isDefault: false },
+    { ...defaultToken, valueStatus: 'masked_pending' },
+  ]) {
+    assert.throws(() => requireTokenChannel([channel], 7, 3, invalid))
+  }
+  assert.throws(() =>
+    requireTokenChannel([{ ...channel, enabled: 0 }], 7, 3, defaultToken)
+  )
+  assert.throws(() =>
+    requireTokenChannel(
+      [{ ...channel, account: { accessTokenMasked: 'management-only' } }],
+      7,
+      3,
+      defaultToken
+    )
+  )
+  assert.throws(() =>
+    requireTokenChannel([{ ...channel, tokenId: 99 }], 7, 3, defaultToken)
+  )
+})
+
+test('a successful check-in cannot claim the total balance as its expected reward', () => {
+  const row = record(11, 'success')
+  row.checkin_logs.reward = '0.002'
+  const ui = {
+    id: 11,
+    account: target.username,
+    site: target.siteName,
+    siteUrl: target.siteUrl,
+    tableStatus: 'Success',
+    detailStatus: 'Success',
+    reward: '0.002',
+  }
+  assert.equal(checkinVerdict(row, ui, 'success', '1', '0.002'), 'PASS')
+  assert.throws(() =>
+    checkinVerdict(row, { ...ui, reward: '20.002' }, 'success', '1', '0.002')
+  )
+  row.checkin_logs.reward = '20.002'
+  assert.throws(() =>
+    checkinVerdict(row, { ...ui, reward: '20.002' }, 'success', '1', '0.002')
+  )
+})

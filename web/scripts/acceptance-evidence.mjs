@@ -126,7 +126,13 @@ export function checkinRunStatus(payload, target) {
   return results[0].Result.Status
 }
 
-export function checkinVerdict(row, ui, runStatus, expected = '0') {
+export function checkinVerdict(
+  row,
+  ui,
+  runStatus,
+  expected = '0',
+  expectedReward = ''
+) {
   if (expected !== '0' && expected !== '1') {
     throw new Error('ACCEPT_EXPECT_CHECKIN must be 0 or 1')
   }
@@ -147,6 +153,14 @@ export function checkinVerdict(row, ui, runStatus, expected = '0') {
   ) {
     throw new Error(
       `UI does not show check-in log #${log.id} with its real result`
+    )
+  }
+  if (
+    expectedReward &&
+    (log.reward !== expectedReward || ui.reward !== expectedReward)
+  ) {
+    throw new Error(
+      'check-in reward does not match the independently configured upstream reward'
     )
   }
   if (log.status === 'success') return 'PASS'
@@ -216,7 +230,17 @@ export function freshUpstreamToken(payload, before, accountId, name) {
 }
 
 // The channel endpoint exposes DB booleans: true on PG, 1 on SQLite.
-export function requireTokenChannel(channels, accountId, tokenId) {
+export function requireTokenChannel(
+  channels,
+  accountId,
+  tokenId,
+  defaultToken = null
+) {
+  const isVerifiedDefault =
+    defaultToken?.id === tokenId &&
+    defaultToken.accountId === accountId &&
+    defaultToken.isDefault === true &&
+    readyAccountToken([defaultToken]) !== null
   if (
     !positiveId(accountId) ||
     !positiveId(tokenId) ||
@@ -224,12 +248,16 @@ export function requireTokenChannel(channels, accountId, tokenId) {
     !channels.some(
       (channel) =>
         channel?.accountId === accountId &&
-        channel.tokenId === tokenId &&
-        (channel.enabled === true || channel.enabled === 1)
+        (channel.enabled === true || channel.enabled === 1) &&
+        (channel.tokenId === tokenId ||
+          (channel.tokenId === null &&
+            isVerifiedDefault &&
+            typeof channel.account?.apiTokenMasked === 'string' &&
+            channel.account.apiTokenMasked.trim() !== ''))
     )
   ) {
     throw new Error(
-      'route has no enabled channel bound to the verified account token'
+      'route has no enabled channel using the verified account token or its account default'
     )
   }
 }

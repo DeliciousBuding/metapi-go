@@ -239,7 +239,9 @@ substitutes for these live calls.
 For the browser journey, use `bun run acceptance:e2e` (which executes Node, not
 Bun's JavaScript runtime) against a dedicated disposable Metapi instance. Set
 `ACCEPT_LOGIN=1` and `ACCEPT_EXPECT_CHECKIN=1` when the real upstream is configured
-to grant a check-in reward. The journey verifies a fresh account-specific log
+to support successful check-in. When a test upstream grants a fixed known amount,
+set `ACCEPT_EXPECT_REWARD` as well to check that exact value in the API log and UI;
+an already-complete check-in is success but does not mean a new reward. The journey verifies a fresh account-specific log
 and its UI result; a pre-existing or failed log cannot pass. Without a required
 reward, an explicit unsupported/skipped result is reported as SKIP. Fresh
 accounts also create their upstream relay token through the account detail form

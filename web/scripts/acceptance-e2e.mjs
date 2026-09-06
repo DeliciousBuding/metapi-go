@@ -39,8 +39,8 @@
 //   ready/default metadata and UI presence before attempting a route.
 // Journey 5 — Route + usable channel (opt-in): "Add route" turns those models
 //   into routes, and one route must have a channel whose relay credential is
-//   BOUND. The unbound state is asserted absent in the wire payload (tokenId)
-//   AND in the sheet, because a channel with no token cannot serve anything.
+//   usable through a token binding or the verified account default. A null
+//   tokenId alone is not an unbound channel; the selector supports both paths.
 // Journey 6 — Downstream key (opt-in): issue a key through the UI, authorize the
 //   model journey 5 verified (an empty model policy is deny-all by design), and
 //   capture the key value.
@@ -109,6 +109,7 @@ const ACCEPT_SITE_NAME = process.env.ACCEPT_SITE_NAME ?? 'acceptance-real-site'
 const ACCEPT_KEY_NAME = process.env.ACCEPT_KEY_NAME ?? 'acceptance-e2e-key'
 const ACCEPT_KEY_VALUE = process.env.ACCEPT_KEY_VALUE ?? 'sk-acceptance-e2e-key'
 const ACCEPT_EXPECT_CHECKIN = process.env.ACCEPT_EXPECT_CHECKIN ?? '0'
+const ACCEPT_EXPECT_REWARD = process.env.ACCEPT_EXPECT_REWARD ?? ''
 const ACCEPT_EXPECT_RELAY = process.env.ACCEPT_EXPECT_RELAY ?? '1'
 const ACCEPT_RELAY_MODEL = process.env.ACCEPT_RELAY_MODEL ?? ''
 const EXPECTED_COMPLETION_CONTENT =
@@ -133,7 +134,7 @@ const skip = (message) => {
 // Wrap a step so a failure names the step instead of dumping a Playwright stack.
 async function act(name, fn) {
   try {
-    await fn()
+    return await fn()
   } catch (error) {
     throw new Error(
       `step "${name}": ${String(error?.message ?? error).split('\n')[0]}`
@@ -383,7 +384,39 @@ async function journeyAccountLogin(context) {
     await act('submit visible', () =>
       submit.waitFor({ state: 'visible', timeout: 10_000 })
     )
-    await act('click submit', () => submit.click({ timeout: 10_000 }))
+    await act('submit real upstream login', async () => {
+      if (
+        (await page.getByLabel('Username').first().inputValue()) !==
+          UPSTREAM_USERNAME ||
+        (await page
+          .getByLabel('Password', { exact: true })
+          .first()
+          .inputValue()) !== UPSTREAM_PASSWORD
+      ) {
+        throw new Error(
+          'account form reset the supplied login fields before submission'
+        )
+      }
+      const [response] = await Promise.all([
+        page.waitForResponse(
+          (reply) =>
+            reply.request().method() === 'POST' &&
+            new URL(reply.url()).pathname === '/api/accounts/login',
+          { timeout: 30_000 }
+        ),
+        submit.click({ timeout: 10_000 }),
+      ])
+      const result = await response.json().catch(() => null)
+      if (
+        response.status() !== 200 ||
+        result?.success !== true ||
+        !result.account?.id
+      ) {
+        throw new Error(
+          `upstream login did not create an account (HTTP ${response.status()})`
+        )
+      }
+    })
 
     // The real upstream login happens on submit; the account row must appear.
     await act('account row appears', () =>
@@ -531,6 +564,11 @@ async function journeyCheckin(context) {
         await row
           .getByRole('cell', { name: target.siteName, exact: true })
           .waitFor({ timeout: 10_000 })
+        // The modal makes the background table aria-hidden. Read the row
+        // while it is still accessible, then bind it to the detail's log ID.
+        const tableStatus = (
+          await row.getByRole('cell').nth(3).innerText()
+        ).trim()
         await row
           .getByRole('button', { name: 'Check-in record actions', exact: true })
           .click()
@@ -538,21 +576,25 @@ async function journeyCheckin(context) {
           .getByRole('menuitem', { name: 'View details', exact: true })
           .click()
         const sheet = page.locator('[data-slot="sheet-content"]')
+        await sheet.waitFor({ state: 'visible', timeout: 10_000 })
         const field = (name) =>
           sheet
             .locator('dt', { hasText: new RegExp(`^${name}$`) })
             .locator('..')
             .locator('dd')
-        const idText = (await field('Log ID').innerText()).trim()
+        const readField = (name) =>
+          act(`check-in detail ${name}`, () =>
+            field(name).innerText({ timeout: 5_000 })
+          )
+        const idText = (await readField('Log ID')).trim()
         if (idText === `#${entry.checkin_logs.id}`) {
           ui = {
             id: entry.checkin_logs.id,
-            account: (await field('Account').innerText()).trim(),
-            site: (await field('Site').innerText()).trim(),
-            siteUrl: (await field('Site URL').innerText()).trim(),
-            tableStatus: (
-              await row.getByRole('cell').nth(3).innerText()
-            ).trim(),
+            account: (await readField('Account')).trim(),
+            site: (await readField('Site')).trim(),
+            siteUrl: (await readField('Site URL')).trim(),
+            reward: (await readField('Reward')).trim(),
+            tableStatus,
             detailStatus: (
               await sheet
                 .getByRole('heading')
@@ -572,7 +614,13 @@ async function journeyCheckin(context) {
         await page.waitForTimeout(250)
       }
     })
-    const verdict = checkinVerdict(entry, ui, runStatus, ACCEPT_EXPECT_CHECKIN)
+    const verdict = checkinVerdict(
+      entry,
+      ui,
+      runStatus,
+      ACCEPT_EXPECT_CHECKIN,
+      ACCEPT_EXPECT_REWARD
+    )
     const evidence = `${label}: account ${target.accountId}, fresh log #${entry.checkin_logs.id} > ${cursor}, status=${entry.checkin_logs.status}; table and detail agree`
     if (verdict === 'SKIP') skip(evidence)
     else pass(evidence)
@@ -1006,10 +1054,25 @@ async function journeyRouteChannel(context) {
         )
       }
       channels = (await resp.json().catch(() => [])) ?? []
+      const defaultResp = await context.request.get(
+        `${BASE_URL}/api/account-tokens/account/${journeyState.account.accountId}/default`,
+        { headers }
+      )
+      const defaultData = await defaultResp.json().catch(() => null)
+      if (defaultResp.status() !== 200 || defaultData?.success !== true) {
+        throw new Error('could not verify the account default relay credential')
+      }
+      const defaultToken = defaultData.token
+        ? readAccountTokens(
+            [defaultData.token],
+            journeyState.account.accountId
+          )[0]
+        : null
       requireTokenChannel(
         channels,
         journeyState.account.accountId,
-        upstreamToken.id
+        upstreamToken.id,
+        defaultToken
       )
     })
     await act('channel rows rendered', () =>
@@ -1053,7 +1116,7 @@ async function journeyRouteChannel(context) {
     )
 
     pass(
-      `${label}: route "${model}" created via UI with ${channels.length} channel(s), bound to verified upstream token #${upstreamToken.id} for account ${journeyState.account.accountId}; the sheet names each credential as the wire reports it`
+      `${label}: route "${model}" created via UI with ${channels.length} channel(s), using verified upstream token #${upstreamToken.id} directly or through account ${journeyState.account.accountId} default; the sheet names each credential as the wire reports it`
     )
   } catch (error) {
     fail(`${label}: ${String(error?.message ?? error).split('\n')[0]}`)
