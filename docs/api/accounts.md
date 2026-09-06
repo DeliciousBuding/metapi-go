@@ -37,6 +37,15 @@ Recent background model-probe history per account — the data behind the row-le
 
 `status` shares the probe vocabulary: `success` | `failure` | `inconclusive` | `skipped`. Results are ordered newest-first within each account.
 
+Account creation (single Session/API-key import and batch API-key import) now
+initializes the persisted model inventory immediately. Session relay-token sync
+runs before discovery, so a successful token paste does not leave routing empty
+until the periodic scheduler. `modelCount` reports the initialized inventory;
+`modelRefresh` carries the same detailed result as password login. A discovery
+failure is partial initialization: the verified account remains saved and the
+failure is explicit. `skipModelFetch: true` performs no model probe and returns
+`modelRefresh.skipped: true` rather than claiming model readiness.
+
 ### POST /api/accounts/login
 
 Log in against the site with username/password and create the account — or update the existing one for `(siteId, username)` — with the session token and an encrypted `autoRelogin` credential (`extraConfig.credentialMode = session`).

@@ -109,15 +109,17 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 				}
 				items = append(items, item)
 			} else {
+				modelCount, modelRefresh := h.refreshModelsAfterAccountCreate(r.Context(), body, created.ID)
 				createdCount++
 				items = append(items, map[string]any{
-					"index":      i,
-					"status":     "created",
-					"id":         created.ID,
-					"username":   coalescePtr(created.Username, ""),
-					"queued":     false,
-					"message":    nil,
-					"modelCount": created.ModelCount,
+					"index":        i,
+					"status":       "created",
+					"id":           created.ID,
+					"username":     coalescePtr(created.Username, ""),
+					"queued":       false,
+					"message":      nil,
+					"modelCount":   modelCount,
+					"modelRefresh": modelRefresh,
 				})
 			}
 		}
@@ -173,14 +175,18 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Fetch created account
-	var account store.Account
-	h.db.Get(&account, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), created.ID)
-
-	// Auto-sync upstream tokens via the existing sync path (#1002). The report
-	// is truth-only: a sync failure never rolls back the persisted account.
+	// Discover models only after the session's relay keys have been synced.
+	// Verification alone did not persist availability, so fresh imports stayed
+	// empty and their first route could not relay until a scheduled refresh.
 	syncReport := syncTokensAfterAccountCreate(r.Context(), h.db, h.cfg, created.ID)
+	modelCount, modelRefresh := h.refreshModelsAfterAccountCreate(r.Context(), body, created.ID)
 
+	// Return the initialized credential state, not the pre-sync snapshot.
+	var account store.Account
+	if err := h.db.Get(&account, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), created.ID); err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "Account saved, but its initialized state could not be loaded.")
+		return
+	}
 	caps := service.BuildCapabilitiesForAccount(&account)
 	routing.InvalidateCache()
 	globalAccountsCache.clear()
@@ -193,14 +199,32 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 		"tokenType":        created.TokenType,
 		"credentialMode":   string(service.ResolveStoredCredentialMode(&account)),
 		"capabilities":     caps,
-		"modelCount":       created.ModelCount,
-		"apiTokenFound":    created.APITokenFound,
+		"modelCount":       modelCount,
+		"modelRefresh":     modelRefresh,
+		"apiTokenFound":    account.APIToken != nil && strings.TrimSpace(*account.APIToken) != "",
 		"usernameDetected": created.UsernameDetected,
 		"queued":           false,
 		"tokenCount":       syncReport.TokenCount,
 		"tokenSyncStatus":  syncReport.Status,
 		"tokenSyncMessage": syncReport.Message,
 	})
+}
+
+// refreshModelsAfterAccountCreate uses the same discovery/persistence owner as
+// password login. A discovery failure is partial initialization, never grounds
+// to erase an already verified account. Explicit no-probe imports remain so.
+func (h *accountsHandler) refreshModelsAfterAccountCreate(ctx context.Context, body payloads.AccountCreatePayload, accountID int64) (int, map[string]any) {
+	if body.SkipModelFetch != nil && *body.SkipModelFetch {
+		return 0, map[string]any{"success": true, "skipped": true, "reason": "skipModelFetch"}
+	}
+	result := accountModelRefresher(ctx, h.db, accountID, false)
+	count := 0
+	if success, _ := result["success"].(bool); success {
+		if refresh, ok := result["refresh"].(map[string]any); ok {
+			count, _ = refresh["modelCount"].(int)
+		}
+	}
+	return count, result
 }
 
 // accountCreateError is returned when create fails closed on token verification.
@@ -233,8 +257,6 @@ type createAccountOutcome struct {
 	ID               int64
 	Username         *string
 	TokenType        string
-	ModelCount       int
-	APITokenFound    bool
 	UsernameDetected bool
 }
 
@@ -432,8 +454,6 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 		ID:               id,
 		Username:         usernameVal,
 		TokenType:        tokenType,
-		ModelCount:       len(verifiedModels),
-		APITokenFound:    apiTokenPtr != nil,
 		UsernameDetected: !usernameProvided && usernameVal != nil,
 	}, nil
 }
