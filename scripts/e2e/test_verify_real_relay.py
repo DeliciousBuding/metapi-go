@@ -531,6 +531,34 @@ class TransportAndCliValidatorTests(unittest.TestCase):
         for private in (KEY, TEXT, VALUE, RECEIPT, "Preserve this reasoning"):
             self.assertNotIn(private, raw)
 
+    def test_failed_responses_report_bounded_terminal_signals_not_payloads(self):
+        def limited(client, protocol, body):
+            client.request_count += 1
+            doc = document(protocol, tool="tools" in body)
+            doc["choices"][0]["finish_reason"] = "length"
+            return 200, "application/json", encode(doc)
+        code, report, raw = self.run_cli(["--protocol", "chat"], limited)
+        self.assertEqual(code, 1)
+        self.assertEqual(report["maxTokensPerRequest"], 256)
+        self.assertEqual(report["results"][0]["observed"]["finishReasons"], ["length"])
+        self.assertTrue(report["results"][2]["observed"]["toolCallsPresent"])
+        for private in (KEY, TEXT, VALUE, "Preserve this reasoning"):
+            self.assertNotIn(private, raw)
+
+    def test_terminal_diagnostics_preserve_duplicates_and_redact_unknown_reasons(self):
+        frame = encode({"choices": [{"finish_reason": "stop"}]}).decode()
+        raw = ("data: " + frame + "\n\n") * 25 + "data: [DONE]\n\n"
+        signals = relay.observed_response_signals((200, "text/event-stream", raw.encode()))
+        self.assertEqual(signals["finishReasonCount"], 25)
+        self.assertEqual(signals["finishReasons"], ["stop"] * 20)
+        signals = relay.observed_response_signals((200, "application/json", encode({"stop_reason": KEY, "content": [{"type": "tool_use", "input": {"value": TEXT}}]})))
+        self.assertEqual(signals["finishReasons"], ["other"])
+        self.assertTrue(signals["toolCallsPresent"])
+        self.assertNotIn(KEY, json.dumps(signals))
+        self.assertNotIn(TEXT, json.dumps(signals))
+        empty = relay.observed_response_signals((200, "application/json", encode({"choices": [{"finish_reason": ""}]})))
+        self.assertEqual(empty["finishReasons"], ["empty_string"])
+
     def test_protocol_selection_uses_exactly_four_posts(self):
         for protocol in relay.PROTOCOLS:
             with self.subTest(protocol=protocol):

@@ -263,3 +263,8 @@ A route `displayName` is its downstream model alias, not just an internal label.
 The smoke chains leave it unset on fresh routes and honor an existing alias
 when relaying; the account model and the public model ID need not be identical.
 The instrument fixtures cover both route creation and alias reuse.
+
+The protocol report records the configured token cap and allowlisted terminal
+signals on failure. `length` remains FAIL; use an explicit, bounded larger cap
+when a reasoning model needs it, rather than relaxing completion validation.
+Repeated terminal signals and `end_turn` with tool calls remain visible failures.

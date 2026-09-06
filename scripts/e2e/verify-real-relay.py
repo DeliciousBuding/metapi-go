@@ -526,6 +526,54 @@ def error_code(error):
     return str(error) if isinstance(error, CheckFailed) else "unexpected_read_or_validation_error"
 
 
+def observed_response_signals(reply):
+    """Bounded, allowlisted diagnostics, never response text or tool arguments."""
+    if not isinstance(reply, (tuple, list)) or len(reply) != 3:
+        return {}
+    try:
+        documents = [json_value(reply[2])]
+    except CheckFailed:
+        try:
+            documents = [json_value(data) for _, data in sse_events(reply[2]) if data != "[DONE]"]
+        except CheckFailed:
+            return {}
+    allowed = {"stop", "length", "tool_calls", "function_call", "content_filter",
+               "end_turn", "tool_use", "max_tokens", "max_output_tokens", "stop_sequence",
+               "pause_turn", "refusal", "model_context_window_exceeded"}
+    reasons, tools = [], False
+
+    def note(value):
+        if value is not None:
+            reasons.append("empty_string" if value == "" else value if isinstance(value, str) and value in allowed else "other")
+
+    for doc in documents:
+        if not isinstance(doc, dict):
+            continue
+        note(doc.get("stop_reason"))
+        delta = doc.get("delta")
+        if isinstance(delta, dict):
+            note(delta.get("stop_reason"))
+        choices = doc.get("choices")
+        for choice in choices if isinstance(choices, list) else []:
+            if not isinstance(choice, dict):
+                continue
+            note(choice.get("finish_reason"))
+            for message in (choice.get("message"), choice.get("delta")):
+                if isinstance(message, dict) and isinstance(message.get("tool_calls"), list):
+                    tools = tools or bool(message["tool_calls"])
+        response = doc.get("response", doc)
+        if not isinstance(response, dict):
+            continue
+        details = response.get("incomplete_details")
+        if isinstance(details, dict):
+            note(details.get("reason"))
+        for name in ("content", "output"):
+            parts = response.get(name)
+            if isinstance(parts, list):
+                tools = tools or any(isinstance(part, dict) and part.get("type") in ("tool_use", "function_call") for part in parts)
+    return {"finishReasons": reasons[:20], "finishReasonCount": len(reasons), "toolCallsPresent": tools}
+
+
 def run_protocol(client, protocol, model, max_tokens):
     results = []
     for scenario in ("nonstream", "stream", "tool_roundtrip"):
@@ -535,6 +583,7 @@ def run_protocol(client, protocol, model, max_tokens):
         tool_value = "echo-" + secrets.token_hex(8) if scenario == "tool_roundtrip" else None
         if tool_value is not None:
             row["followup"] = {"status": "not_run"}
+        reply = None
         try:
             body = request_body(protocol, model, max_tokens, stream=scenario == "stream", tool_value=tool_value)
             reply = client.post(protocol, body)
@@ -551,20 +600,23 @@ def run_protocol(client, protocol, model, max_tokens):
                 row["followup"] = followup
                 # This receipt exists only in the tool result, not in the first prompt.
                 receipt = "receipt-" + secrets.token_hex(12)
+                followup_reply = None
                 try:
-                    reply = client.post(protocol, followup_body(protocol, body, validated, receipt))
-                    followup["httpStatus"] = reply[0]
-                    final = validate_http(protocol, reply)
+                    followup_reply = client.post(protocol, followup_body(protocol, body, validated, receipt))
+                    followup["httpStatus"] = followup_reply[0]
+                    final = validate_http(protocol, followup_reply)
                     followup.update({key: final[key] for key in SUMMARY_FIELDS})
                     followup["responseModel"] = final["model"]
                     require(receipt in final["_text"], "followup_did_not_use_tool_result")
                     followup["status"] = "pass"
                 except Exception as error:
                     followup["error"] = error_code(error)
+                    followup["observed"] = observed_response_signals(followup_reply)
                     raise CheckFailed("tool_followup_failed") from None
             row["status"] = "pass"
         except Exception as error:
             row["error"] = error_code(error)
+            row["observed"] = observed_response_signals(reply)
     return results
 
 
@@ -586,6 +638,8 @@ def main(argv=None, environment=None):
         parser.add_argument("--max-tokens", type=int, default=256, metavar="TOKENS", help="per POST, 64..4096 (default: 256)")
         args = parser.parse_args(argv)
         require(5 <= args.timeout <= 300 and 64 <= args.max_tokens <= 4096, "invalid_limits")
+        report["maxTokensPerRequest"] = args.max_tokens
+        report["perRequestTimeoutSeconds"] = args.timeout
         base, model = environment.get("RELAY_BASE_URL", ""), environment.get("RELAY_MODEL", "")
         require(bool(base and key and model), "missing_relay_environment")
         require(len(key) <= 4096 and all(33 <= ord(c) <= 126 for c in key), "invalid_api_key_format")
