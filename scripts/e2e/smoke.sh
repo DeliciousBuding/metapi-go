@@ -482,18 +482,24 @@ else
   fail_step "balance skipped (no account id)"
 fi
 
-# 10. checkin (POST /api/checkin/trigger/{id}); v1 may not support checkin —
-#     a 2xx with success=false is a documented unsupported result (PASS),
-#     5xx/crash is a FAIL.
+# 10. checkin: success is PASS, an explicit skipped outcome is SKIP, and
+#     failed/malformed outcomes are FAIL even when the endpoint answers 200.
 if [ -n "$ACCOUNT_ID" ]; then
   status="$(request POST "$METAPI_URL/api/checkin/trigger/$ACCOUNT_ID" "" "$METAPI_AUTH_TOKEN")"
   if [ "$status" = "200" ]; then
     checkin_ok="$(json_value success 2>/dev/null || true)"
-    if [ "$checkin_ok" = "True" ]; then
-      pass_step "checkin (success)"
-    else
-      pass_step "checkin (documented unsupported/negative result: success=$checkin_ok)"
-    fi
+    checkin_status="$(json_value status 2>/dev/null || true)"
+    checkin_skipped="$(json_value skipped 2>/dev/null || true)"
+    # The API owns outcome normalization. Do not infer unsupported from HTTP
+    # 200 or success=false, and do not grow another message-text classifier.
+    case "$checkin_ok:$checkin_status:$checkin_skipped" in
+      True:success:False) pass_step "checkin (success)" ;;
+      True:skipped:True|False:skipped:True) skip_step "checkin (status=skipped; no successful check-in verified)" ;;
+      *)
+        fail_step "checkin (HTTP 200, expected a consistent success or skipped outcome)"
+        evidence
+        ;;
+    esac
   elif [ "$status" = "404" ]; then
     fail_step "checkin (HTTP 404 account not found)"
     evidence

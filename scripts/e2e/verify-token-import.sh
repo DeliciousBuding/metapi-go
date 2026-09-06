@@ -9,7 +9,7 @@
 #   -> account -> models -> balance -> checkin -> downstream token -> route
 #   -> /v1 proxy relay.
 #
-# Every step prints [PASS]/[FAIL]/[WARN] and accumulates a summary; the script
+# Every step prints [PASS]/[FAIL]/[WARN]/[SKIP] and accumulates a summary; the script
 # exits 1 when any step FAILs. FAILs print the truncated response body as
 # evidence.
 #
@@ -65,6 +65,7 @@ TOKEN_IMPORT_KEY="${TOKEN_IMPORT_KEY:-sk-e2e-token}"
 PASS_COUNT=0
 FAIL_COUNT=0
 WARN_COUNT=0
+SKIP_COUNT=0
 FAILED_NAMES=""
 
 # --- fatal setup checks ---
@@ -199,6 +200,7 @@ sys.exit(1)
 pass_step() { PASS_COUNT=$((PASS_COUNT + 1)); echo "[PASS] $1"; }
 fail_step() { FAIL_COUNT=$((FAIL_COUNT + 1)); FAILED_NAMES="$FAILED_NAMES $1"; echo "[FAIL] $1"; }
 warn_step() { WARN_COUNT=$((WARN_COUNT + 1)); echo "[WARN] $1"; }
+skip_step() { SKIP_COUNT=$((SKIP_COUNT + 1)); echo "[SKIP] $1"; }
 
 evidence() {
   local b curl_err
@@ -401,18 +403,24 @@ else
   fail_step "balance skipped (no account id)"
 fi
 
-# 9. checkin (POST /api/checkin/trigger/{id}); token-import platforms may not
-#    support checkin — a 2xx with success=false is a documented unsupported
-#    result (PASS), 5xx/crash is a FAIL.
+# 9. checkin: a token-import platform may explicitly skip this operation.
+#    A skip is not successful coverage; failed/malformed outcomes must fail.
 if [ -n "$ACCOUNT_ID" ]; then
   status="$(request POST "$METAPI_URL/api/checkin/trigger/$ACCOUNT_ID" "" "$METAPI_AUTH_TOKEN")"
   if [ "$status" = "200" ]; then
     checkin_ok="$(json_value success 2>/dev/null || true)"
-    if [ "$checkin_ok" = "True" ]; then
-      pass_step "checkin (success)"
-    else
-      pass_step "checkin (documented unsupported/negative result: success=$checkin_ok)"
-    fi
+    checkin_status="$(json_value status 2>/dev/null || true)"
+    checkin_skipped="$(json_value skipped 2>/dev/null || true)"
+    # The API owns outcome normalization. Do not infer unsupported from HTTP
+    # 200 or success=false, and do not grow another message-text classifier.
+    case "$checkin_ok:$checkin_status:$checkin_skipped" in
+      True:success:False) pass_step "checkin (success)" ;;
+      True:skipped:True|False:skipped:True) skip_step "checkin (status=skipped; no successful check-in verified)" ;;
+      *)
+        fail_step "checkin (HTTP 200, expected a consistent success or skipped outcome)"
+        evidence
+        ;;
+    esac
   elif [ "$status" = "404" ]; then
     fail_step "checkin (HTTP 404 account not found)"
     evidence
@@ -523,7 +531,7 @@ else
 fi
 
 # --- summary ---
-echo "== summary: $PASS_COUNT passed, $WARN_COUNT warned, $FAIL_COUNT failed =="
+echo "== summary: $PASS_COUNT passed, $WARN_COUNT warned, $SKIP_COUNT skipped, $FAIL_COUNT failed =="
 if [ "$FAIL_COUNT" -gt 0 ]; then
   echo "   failed steps:$FAILED_NAMES"
   exit 1

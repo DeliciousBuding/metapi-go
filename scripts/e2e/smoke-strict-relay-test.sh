@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Deterministic contract test for smoke.sh strict/skip relay semantics.
+# Deterministic contract tests for relay strictness and check-in verdicts.
+# These fixtures test the instruments; real-platform chains remain separate.
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SMOKE_SCRIPT="${SMOKE_UNDER_TEST:-$ROOT_DIR/scripts/e2e/smoke.sh}"
+TOKEN_IMPORT_SCRIPT="${TOKEN_IMPORT_UNDER_TEST:-$ROOT_DIR/scripts/e2e/verify-token-import.sh}"
 TEST_DIR="$(mktemp -d)"
 trap 'rm -rf "$TEST_DIR"' EXIT
 
@@ -48,6 +50,7 @@ case "$method $path" in
   "POST /api/accounts/login") body='{"success":true,"account":{"accessToken":"session-token"}}' ;;
   "POST /api/accounts/verify-token") body='{"tokenType":"session"}' ;;
   "GET /api/accounts") body='{"accounts":[{"id":1,"siteId":1,"username":"root"}]}' ;;
+  "PUT /api/accounts/1") body='{"id":1}' ;;
   "GET /api/accounts/1/models")
     if [ "${STRICT_CASE:-good}" = "models_empty" ]; then
       body='{"models":[],"totalCount":0}'
@@ -56,7 +59,15 @@ case "$method $path" in
     fi
     ;;
   "POST /api/accounts/1/balance") body='{"balance":10}' ;;
-  "POST /api/checkin/trigger/1") body='{"success":true}' ;;
+  "POST /api/checkin/trigger/1")
+    case "${STRICT_CASE:-good}" in
+      checkin_failed) body='{"success":false,"status":"failed","skipped":false,"message":"test upstream authentication failed"}' ;;
+      checkin_malformed) body='{"message":"missing outcome fields"}' ;;
+      checkin_contradictory) body='{"success":true,"status":"success","skipped":true}' ;;
+      checkin_skipped) body='{"success":true,"status":"skipped","skipped":true}' ;;
+      *) body='{"success":true,"status":"success","skipped":false}' ;;
+    esac
+    ;;
   "POST /api/downstream-keys") status=409; body='{"error":"duplicate"}' ;;
   "GET /api/downstream-keys") body='{"items":[{"id":9,"name":"e2e-smoke-token"}]}' ;;
   "PUT /api/downstream-keys/9") body='{"success":true}' ;;
@@ -82,19 +93,23 @@ printf '%s' "$status"
 FAKE_CURL
 chmod +x "$TEST_DIR/curl"
 
-run_smoke() {
-  local case_name="$1" output="$2"
-  shift 2
+run_chain() {
+  local script="$1" case_name="$2" output="$3"
+  shift 3
   env PATH="$TEST_DIR:$PATH" STRICT_CASE="$case_name" \
     METAPI_URL=http://127.0.0.1:4000 \
     METAPI_AUTH_TOKEN=test-admin \
     UPSTREAM_URL=http://127.0.0.1:3001 \
     UPSTREAM_USERNAME=root \
     UPSTREAM_PASSWORD=test-password \
-    PLATFORM=new-api \
+    UPSTREAM_TOKEN=test-upstream-token \
+    ACCOUNT_USERNAME=root SITE_NAME=e2e-smoke TOKEN_NAME=e2e-smoke-token \
+    PROXY_MODEL=gpt-4o-mini PLATFORM=new-api \
     EXPECTED_COMPLETION_CONTENT=metapi-e2e-marker \
-    "$@" bash "$SMOKE_SCRIPT" >"$output" 2>&1
+    "$@" bash "$script" >"$output" 2>&1
 }
+
+run_smoke() { run_chain "$SMOKE_SCRIPT" "$@"; }
 
 assert_contains() {
   local file="$1" exact="$2"
@@ -162,4 +177,42 @@ assert_contains "$good" '[PASS] token reuse (e2e-smoke-token, relay policy reass
 assert_contains "$good" '[PASS] proxy /v1/models (HTTP 200, non-empty data)'
 assert_contains "$good" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present)'
 assert_contains "$good" '== summary: 14 passed, 0 warned, 0 skipped, 0 failed =='
-echo "smoke strict relay contract: PASS"
+# Both entrypoints consume the same normalized API outcome, including the
+# token-import path that used to have no SKIP counter at all.
+for script in "$SMOKE_SCRIPT" "$TOKEN_IMPORT_SCRIPT"; do
+  chain="$(basename "$script")"
+  output="$TEST_DIR/$chain-checkin-good.log"
+  if ! run_chain "$script" good "$output"; then
+    echo "$chain: happy path failed" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  assert_contains "$output" '[PASS] checkin (success)'
+
+  for case_name in checkin_failed checkin_malformed checkin_contradictory; do
+    output="$TEST_DIR/$chain-$case_name.log"
+    if run_chain "$script" "$case_name" "$output"; then
+      echo "$chain: accepted $case_name" >&2
+      cat "$output" >&2
+      exit 1
+    fi
+    assert_contains "$output" '[FAIL] checkin (HTTP 200, expected a consistent success or skipped outcome)'
+    echo "$chain: $case_name rejected"
+  done
+
+  output="$TEST_DIR/$chain-checkin-skipped.log"
+  if ! run_chain "$script" checkin_skipped "$output"; then
+    echo "$chain: an explicit skipped outcome incorrectly failed the chain" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  assert_contains "$output" '[SKIP] checkin (status=skipped; no successful check-in verified)'
+  if grep -Fq '[PASS] checkin (' "$output" || ! grep -Eq '^== summary: .* 1 skipped, 0 failed ==$' "$output"; then
+    echo "$chain: skipped check-in was mislabeled or not counted" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+  echo "$chain: explicit check-in skip counted, not PASS"
+done
+
+echo "smoke relay and check-in verdict contracts: PASS"

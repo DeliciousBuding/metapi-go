@@ -201,7 +201,7 @@ PLATFORM=sub2api \
   bash scripts/e2e/verify-token-import.sh
 ```
 
-Both scripts print PASS/FAIL/WARN summaries, preserve truncated failure evidence, and exit non-zero on a failed required step.
+Both scripts print PASS/FAIL/WARN/SKIP summaries, preserve truncated failure evidence, and exit non-zero on a failed required step. Check-in verdicts follow the API's normalized `status` and `skipped` fields: a failed or malformed HTTP 200 response fails the chain, while an explicit skipped outcome is counted as SKIP, not successful check-in coverage. A run with a skipped check-in does not prove that a supported platform can complete a check-in.
 
 ## Privacy and evidence boundary
 
