@@ -398,6 +398,8 @@ func TestShouldContinueEndpointFallbackSingleOwnerFourQuadrants(t *testing.T) {
 		{"transport error, candidates remain, abort policy fires", http.StatusBadGateway, "dial tcp 10.0.0.1:443: connect: connection refused", false, false, endpointFailureTransport, false},
 		{"transport error, no candidates remain", http.StatusBadGateway, "dial tcp 10.0.0.1:443: no route to host", true, false, endpointFailureTransport, false},
 		{"transport error, cross-protocol fallback disabled", http.StatusBadGateway, "dial tcp 10.0.0.1:443: no route to host", false, true, endpointFailureTransport, false},
+		{"typed dial failure ignores localized text", http.StatusBadGateway, "opaque socket error", false, false, endpointFailureDial, false},
+		{"typed dial failure is not a protocol hint", http.StatusBadGateway, "please use /v1/responses", false, false, endpointFailureDial, false},
 		// Body read failures share the transport class.
 		{"read error, connection reset, abort policy fires", http.StatusBadGateway, "read tcp: connection reset by peer", false, false, endpointFailureTransport, false},
 		{"read error, generic, candidates remain", http.StatusBadGateway, "unexpected EOF", false, false, endpointFailureTransport, true},
@@ -470,8 +472,11 @@ func TestTransportErrorFallbackGoesThroughTheSingleDecisionFunction(t *testing.T
 	if len(router.failures) != 1 {
 		t.Fatalf("recordUpstreamFailure calls = %d (%#v), want exactly 1", len(router.failures), router.failures)
 	}
-	if router.failures[0].errorText == nil || !strings.Contains(*router.failures[0].errorText, "connection refused") {
-		t.Fatalf("failure errorText = %v, want a connection-refused transport error", router.failures[0].errorText)
+	if router.failures[0].errorText == nil {
+		t.Fatal("closed upstream did not produce a transport error")
+	}
+	if !strings.Contains(*router.failures[0].errorText, deadURL) {
+		t.Fatalf("transport error = %q, want the closed upstream address", *router.failures[0].errorText)
 	}
 	if len(*logs) != 1 {
 		t.Fatalf("proxy_logs rows = %d, want exactly 1", len(*logs))
@@ -481,5 +486,25 @@ func TestTransportErrorFallbackGoesThroughTheSingleDecisionFunction(t *testing.T
 	}
 	if rec.Code == http.StatusOK {
 		t.Fatalf("downstream status = 200, want a failure for a refused upstream")
+	}
+}
+
+func TestEndpointTransportFailureClassIsIndependentOfOSMessage(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want endpointFailureClass
+	}{
+		{"dial", &net.OpError{Op: "dial", Err: fmt.Errorf("opaque platform message")}, endpointFailureDial},
+		{"wrapped DNS", fmt.Errorf("resolver: %w", &net.DNSError{Name: "upstream.invalid", Err: "opaque DNS message"}), endpointFailureDial},
+		{"body read", &net.OpError{Op: "read", Err: fmt.Errorf("opaque read error")}, endpointFailureTransport},
+		{"unclassified", fmt.Errorf("unexpected EOF"), endpointFailureTransport},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := classifyEndpointTransportFailure(tc.err); got != tc.want {
+				t.Fatalf("failure class=%v, want %v", got, tc.want)
+			}
+		})
 	}
 }
