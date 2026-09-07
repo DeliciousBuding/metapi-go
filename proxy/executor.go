@@ -57,10 +57,9 @@ const defaultStreamResponseHeaderTimeout = 30 * time.Second
 func NewStreamTransport() *http.Transport {
 	return httpclient.NewTransport(httpclient.Options{
 		ResponseHeaderTimeout: defaultStreamResponseHeaderTimeout,
-		// Data-plane dial guard: site URLs are operator input, and a hostname
-		// that resolves to a cloud metadata / link-local address must not be
-		// dialled even if it passed URL-level validation earlier (DNS
-		// rebinding). Private ranges stay allowed for self-hosted upstreams.
+		// Keep explicitly forbidden site URLs out of proxies; direct dials
+		// also validate and pin DNS answers through the shared site guard.
+		// Private ranges stay allowed for self-hosted upstreams.
 		SiteDialGuard: true,
 	})
 }
