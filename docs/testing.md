@@ -231,13 +231,24 @@ merely announcing a tool call is not sufficient. Without the flag the default
 scenarios and 12-POST budget are unchanged. The streamed result followup must
 preserve the same native replay context as the non-stream contract: Chat
 `reasoning_content`, Messages thinking (including signature), and Responses
-reasoning items. Unsupported stream events and unsupported reasoning deltas
+reasoning items (including raw `reasoning_text`, which never counts as visible
+answer text or a receipt). Empty Chat tool identity continuation fields are no-update
+fragments; the assembled call still requires a valid ID and name. Unsupported stream
+events and unsupported reasoning deltas
 fail explicitly. The command makes at most 12 model POSTs by default (18 with
 `--tool-stream`), performs no automatic retries, and can incur upstream usage.
 It prints metadata only and exits nonzero for any failed scenario. Offline
 validator fixtures are instrument checks, not a substitute for a live `--tool-stream` run when claiming real streaming-tool
 coverage; a real downstream CLI contract still needs a separate exercise when it
 is part of the release scope.
+
+Tool scenarios default to `--tool-choice forced`. Use explicit `--tool-choice auto`
+when the upstream supports tools in automatic selection mode only (for example,
+a thinking model that rejects forced selection). Auto applies to both tool legs,
+is recorded as `toolChoice` in the report, and does not change the request budget
+or acceptance criteria: a missing/wrong tool, wrong arguments, or a missing visible
+receipt still fails. There is no automatic fallback from forced to auto, and this
+option does not change how Metapi forwards another client's `tool_choice`.
 
 A passing client report does not identify the physical upstream provider. Pair it
 with verified test configuration, model request IDs, and gateway/Metapi logs for

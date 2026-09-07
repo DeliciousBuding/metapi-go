@@ -315,7 +315,10 @@ def validate_sse(protocol, raw, *, tool=False, expected_value=None):
                             tool_calls[index] = entry
                         if item.get("type") not in (None, "function"):
                             require(False, "unexpected_tool_type")
-                        if "id" in item:
+                        # Native relays may retain empty/null identity fields
+                        # on argument-only chunks. They are no update, not a new
+                        # identity; checked_call still requires the assembled ID.
+                        if item.get("id") not in (None, ""):
                             value = identifier(item["id"])
                             require(entry["id"] is None or entry["id"] == value, "stream_tool_identity_changed")
                             entry["id"] = value
@@ -323,9 +326,9 @@ def validate_sse(protocol, raw, *, tool=False, expected_value=None):
                         if function is not None:
                             no_error(function)
                             require(isinstance(function, dict), "invalid_tool_function")
-                            if "name" in function:
+                            if function.get("name") is not None:
                                 value = function["name"]
-                                require(isinstance(value, str) and value, "invalid_tool_name")
+                                require(isinstance(value, str), "invalid_tool_name")
                                 entry["name"] += value
                             if "arguments" in function:
                                 value = function["arguments"]
@@ -448,11 +451,17 @@ def validate_sse(protocol, raw, *, tool=False, expected_value=None):
             elif kind in ("response.content_part.added", "response.content_part.done"):
                 part = obj.get("part")
                 no_error(part)
-                require(part.get("type") == "output_text", "unexpected_content_type")
+                require(part.get("type") in ("output_text", "reasoning_text"), "unexpected_content_type")
+                if part["type"] == "reasoning_text":
+                    require(isinstance(part.get("text"), str), "invalid_reasoning_text")
+            elif kind in ("response.reasoning_text.delta", "response.reasoning_text.done"):
+                # Reasoning is replayed from the completed response document,
+                # never counted as visible answer text or a tool-result receipt.
+                field = "delta" if kind.endswith(".delta") else "text"
+                require(isinstance(obj.get(field), str), "invalid_reasoning_text")
             else:
                 require(kind in ("response.reasoning_summary_part.added", "response.reasoning_summary_part.done",
-                                 "response.reasoning_summary_text.delta", "response.reasoning_summary_text.done",
-                                 "response.reasoning_text.delta", "response.reasoning_text.done"),
+                                 "response.reasoning_summary_text.delta", "response.reasoning_summary_text.done"),
                         "unexpected_sse_event")
         elif protocol == "messages":
             require(not finished, "event_after_completion")
@@ -594,7 +603,7 @@ def validate_http(protocol, reply, *, stream=False, tool=False, expected_value=N
             "expected_json_content_type")
     return validate_json(protocol, body, tool=tool, expected_value=expected_value)
 
-def request_body(protocol, model, max_tokens, *, stream=False, tool_value=None):
+def request_body(protocol, model, max_tokens, *, stream=False, tool_value=None, tool_choice="forced"):
     prompt = "Reply with one short sentence confirming the relay works."
     schema = {"type": "object", "properties": {"value": {"type": "string"}},
               "required": ["value"], "additionalProperties": False}
@@ -609,7 +618,8 @@ def request_body(protocol, model, max_tokens, *, stream=False, tool_value=None):
         body.update(input=[message], max_output_tokens=max_tokens, store=False)
         if tool_value is not None:
             body.update(tools=[dict(type="function", **function)],
-                        tool_choice={"type": "function", "name": TOOL_NAME}, parallel_tool_calls=False)
+                        tool_choice="auto" if tool_choice == "auto" else {"type": "function", "name": TOOL_NAME},
+                        parallel_tool_calls=False)
     else:
         body.update(messages=[message], max_tokens=max_tokens)
         if protocol == "chat":
@@ -618,12 +628,13 @@ def request_body(protocol, model, max_tokens, *, stream=False, tool_value=None):
                 body["stream_options"] = {"include_usage": True}
             if tool_value is not None:
                 body.update(tools=[{"type": "function", "function": function}],
-                            tool_choice={"type": "function", "function": {"name": TOOL_NAME}},
+                            tool_choice="auto" if tool_choice == "auto" else {"type": "function", "function": {"name": TOOL_NAME}},
                             parallel_tool_calls=False)
         elif protocol == "messages":
             if tool_value is not None:
                 body.update(tools=[{"name": TOOL_NAME, "description": function["description"], "input_schema": schema}],
-                            tool_choice={"type": "tool", "name": TOOL_NAME, "disable_parallel_tool_use": True})
+                            tool_choice=({"type": "auto", "disable_parallel_tool_use": True} if tool_choice == "auto" else
+                                         {"type": "tool", "name": TOOL_NAME, "disable_parallel_tool_use": True}))
         else:
             raise CheckFailed("invalid_protocol")
     return body
@@ -633,21 +644,24 @@ def followup_body(protocol, original, validated, receipt):
     call, doc = validated["_call"], validated["_document"]
     output = json.dumps({"value": call["arguments"]["value"], "receipt": receipt})
     body = dict(original)
+    choice = original.get("tool_choice")
+    automatic = choice == "auto" or isinstance(choice, dict) and choice.get("type") == "auto"
     if protocol == "chat":
         # Keep reasoning_content when supplied; thinking-capable models need it on replay.
         body["messages"] = original["messages"] + [doc["choices"][0]["message"],
                                                     {"role": "tool", "tool_call_id": call["id"], "content": output}]
-        body["tool_choice"] = "none"
     elif protocol == "responses":
         # Stateless replay, including reasoning items, avoids previous_response_id storage dependencies.
         body["input"] = original["input"] + doc["output"] + [
             {"type": "function_call_output", "call_id": call["id"], "output": output}]
-        body["tool_choice"] = "none"
     else:
         body["messages"] = original["messages"] + [
             {"role": "assistant", "content": doc["content"]},
             {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call["id"], "content": output}]}]
-        body["tool_choice"] = {"type": "none"}
+    # Do not force "none" for thinking models tested with the explicit auto policy.
+    # The validator still rejects a followup that calls a tool instead of using the receipt.
+    if not automatic:
+        body["tool_choice"] = {"type": "none"} if protocol == "messages" else "none"
     return body
 
 
@@ -760,7 +774,7 @@ def observed_response_signals(reply):
     return {"finishReasons": reasons[:20], "finishReasonCount": len(reasons), "toolCallsPresent": tools}
 
 
-def run_protocol(client, protocol, model, max_tokens, tool_stream):
+def run_protocol(client, protocol, model, max_tokens, tool_stream, tool_choice="forced"):
     results = []
     scenarios = ("nonstream", "stream", "tool_roundtrip") + (("tool_stream",) if tool_stream else ())
     for scenario in scenarios:
@@ -773,7 +787,7 @@ def run_protocol(client, protocol, model, max_tokens, tool_stream):
             row["followup"] = {"status": "not_run"}
         reply = None
         try:
-            body = request_body(protocol, model, max_tokens, stream=stream, tool_value=tool_value)
+            body = request_body(protocol, model, max_tokens, stream=stream, tool_value=tool_value, tool_choice=tool_choice)
             reply = client.post(protocol, body)
             row["httpStatus"] = reply[0]
             validated = validate_http(protocol, reply, stream=stream, tool=tool_value is not None,
@@ -824,11 +838,14 @@ def main(argv=None, environment=None):
         parser.add_argument("--max-tokens", type=int, default=256, metavar="TOKENS", help="per POST, 64..4096 (default: 256)")
         parser.add_argument("--tool-stream", action="store_true",
                             help="also verify streaming echo-tool calls and result followups (2 extra POSTs per protocol)")
+        parser.add_argument("--tool-choice", choices=("forced", "auto"), default="forced",
+                            help="tool selection policy; auto still requires the exact tool/result roundtrip (default: forced)")
         args = parser.parse_args(argv)
         require(5 <= args.timeout <= 300 and 64 <= args.max_tokens <= 4096, "invalid_limits")
         report["maxTokensPerRequest"] = args.max_tokens
         report["perRequestTimeoutSeconds"] = args.timeout
         report["toolStream"] = args.tool_stream
+        report["toolChoice"] = args.tool_choice
         base, model = environment.get("RELAY_BASE_URL", ""), environment.get("RELAY_MODEL", "")
         require(bool(base and key and model), "missing_relay_environment")
         require(len(key) <= 4096 and all(33 <= ord(c) <= 126 for c in key), "invalid_api_key_format")
@@ -845,7 +862,7 @@ def main(argv=None, environment=None):
         report["requestLimit"] = len(selected) * (6 if args.tool_stream else 4)
         client = CurlClient(base, key, args.timeout, environment)
         for protocol in selected:
-            report["results"].extend(run_protocol(client, protocol, model, args.max_tokens, args.tool_stream))
+            report["results"].extend(run_protocol(client, protocol, model, args.max_tokens, args.tool_stream, args.tool_choice))
         report["requestCount"] = client.request_count
         passed = bool(report["results"]) and all(row["status"] == "pass" for row in report["results"])
         report["status"] = "pass" if passed else "fail"

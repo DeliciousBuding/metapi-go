@@ -177,6 +177,16 @@ def pack(events):
                    for event, data in events).encode("utf-8")
 
 
+def has_tool_result(protocol, body):
+    if protocol == "responses":
+        return any(item.get("type") == "function_call_output" for item in body["input"])
+    if protocol == "chat":
+        return any(item.get("role") == "tool" for item in body["messages"])
+    return any(isinstance(message.get("content"), list) and
+               any(part.get("type") == "tool_result" for part in message["content"])
+               for message in body["messages"])
+
+
 class ValidatorTests(unittest.TestCase):
     def test_all_normal_json_fixtures(self):
         for protocol in relay.PROTOCOLS:
@@ -735,6 +745,78 @@ class ValidatorTests(unittest.TestCase):
                         relay.validate_sse(protocol, pack(stream_events(protocol)))
 
 
+    def test_chat_tool_stream_empty_continuation_fields_preserve_identity(self):
+        expected_id = document("chat", tool=True)["choices"][0]["message"]["tool_calls"][0]["id"]
+        for placeholder in ("", None):
+            with self.subTest(placeholder=placeholder):
+                events = tool_stream_events("chat")
+                for _, obj in events[3:5]:
+                    call = obj["choices"][0]["delta"]["tool_calls"][0]
+                    call["id"] = placeholder
+                    call["function"]["name"] = placeholder
+                result = relay.validate_sse("chat", pack(events), tool=True, expected_value=VALUE)
+                self.assertEqual(result["_call"]["id"], expected_id)
+                self.assertEqual(result["_call"]["name"], TOOL_NAME)
+                self.assertEqual(result["_call"]["arguments"], {"value": VALUE})
+                changed = copy.deepcopy(events)
+                changed[3][1]["choices"][0]["delta"]["tool_calls"][0]["id"] = "another-call"
+                with self.assertRaises(relay.CheckFailed):
+                    relay.validate_sse("chat", pack(changed), tool=True, expected_value=VALUE)
+                missing = copy.deepcopy(events)
+                first = missing[2][1]["choices"][0]["delta"]["tool_calls"][0]
+                first["id"] = placeholder
+                first["function"]["name"] = placeholder
+                with self.assertRaises(relay.CheckFailed):
+                    relay.validate_sse("chat", pack(missing), tool=True, expected_value=VALUE)
+
+    def test_responses_raw_reasoning_parts_replay_without_becoming_output(self):
+        hidden = "Reasoning is not the answer: " + RECEIPT
+        reasoning = {"id": "rs_fixture", "type": "reasoning", "summary": [],
+                     "content": [{"type": "reasoning_text", "text": hidden}], "status": "completed"}
+        base = {"output_index": 0, "content_index": 0, "item_id": "rs_fixture"}
+        reasoning_events = [
+            ("response.output_item.added", {"type": "response.output_item.added", "output_index": 0,
+                 "item": dict(reasoning, content=[], status="in_progress")}),
+            ("response.content_part.added", dict(base, type="response.content_part.added",
+                 part={"type": "reasoning_text", "text": ""})),
+            ("response.reasoning_text.delta", dict(base, type="response.reasoning_text.delta", delta=hidden)),
+            ("response.reasoning_text.done", dict(base, type="response.reasoning_text.done", text=hidden)),
+            ("response.content_part.done", dict(base, type="response.content_part.done",
+                 part={"type": "reasoning_text", "text": hidden})),
+            ("response.output_item.done", {"type": "response.output_item.done", "output_index": 0, "item": reasoning}),
+        ]
+        for tool in (False, True):
+            with self.subTest(tool=tool):
+                events = tool_stream_events("responses") if tool else stream_events("responses")
+                for _, obj in events:
+                    if "output_index" in obj:
+                        obj["output_index"] += 1
+                output = events[-1][1]["response"]["output"]
+                if tool:
+                    output[0] = copy.deepcopy(reasoning)
+                else:
+                    output.insert(0, copy.deepcopy(reasoning))
+                events[1:1] = copy.deepcopy(reasoning_events)
+                result = relay.validate_sse("responses", pack(events), tool=tool, expected_value=VALUE)
+                self.assertNotIn(RECEIPT, result["_text"])
+                if tool:
+                    original = relay.request_body("responses", MODEL, 256, stream=True, tool_value=VALUE)
+                    replay = relay.followup_body("responses", original, result, "visible-receipt")
+                    self.assertIn(reasoning, replay["input"])
+                else:
+                    self.assertEqual(result["_text"], TEXT)
+                malformed = copy.deepcopy(events)
+                malformed[2][1]["part"]["type"] = "unsupported_private_part"
+                with self.assertRaises(relay.CheckFailed):
+                    relay.validate_sse("responses", pack(malformed), tool=tool, expected_value=VALUE)
+        only_reasoning = stream_events("responses")[:1] + copy.deepcopy(reasoning_events)
+        final = document("responses")
+        final["output"] = [reasoning]
+        only_reasoning.append(("response.completed", {"type": "response.completed", "response": final}))
+        with self.assertRaises(relay.CheckFailed):
+            relay.validate_sse("responses", pack(only_reasoning))
+
+
 class TransportAndCliValidatorTests(unittest.TestCase):
     def client(self):
         return relay.CurlClient("http://127.0.0.1:12345/v1", KEY, 10, dict(ENV))
@@ -799,12 +881,12 @@ class TransportAndCliValidatorTests(unittest.TestCase):
     def good_post(client, protocol, body):
         client.request_count += 1
         if body["stream"]:
-            if body.get("tool_choice") in ("none", {"type": "none"}):
+            if has_tool_result(protocol, body):
                 return 200, "text/event-stream", pack(stream_events(protocol, text=RECEIPT))
             if "tools" in body:
                 return 200, "text/event-stream", pack(tool_stream_events(protocol))
             return 200, "text/event-stream", pack(stream_events(protocol))
-        if body.get("tool_choice") in ("none", {"type": "none"}):
+        if has_tool_result(protocol, body):
             doc = document(protocol, text=RECEIPT)
         else:
             doc = document(protocol, tool="tools" in body)
@@ -827,6 +909,85 @@ class TransportAndCliValidatorTests(unittest.TestCase):
                 self.assertEqual(row["followup"]["status"], "pass")
         for private in (KEY, TEXT, VALUE, RECEIPT, "Preserve this reasoning"):
             self.assertNotIn(private, raw)
+
+    def test_default_and_explicit_forced_tool_policy_are_identical(self):
+        requests = []
+        def post(client, protocol, body):
+            requests.append((protocol, copy.deepcopy(body)))
+            return self.good_post(client, protocol, body)
+        default_code, default_report, _ = self.run_cli([], post)
+        default_requests = requests[:]
+        requests.clear()
+        forced_code, forced_report, _ = self.run_cli(["--tool-choice", "forced"], post)
+        self.assertEqual((default_code, forced_code), (0, 0))
+        self.assertEqual(default_report["toolChoice"], "forced")
+        self.assertEqual(forced_report, default_report)
+        self.assertEqual(requests, default_requests)
+        for protocol, body in requests:
+            if has_tool_result(protocol, body):
+                self.assertEqual(body["tool_choice"], {"type": "none"} if protocol == "messages" else "none")
+            elif "tools" in body:
+                expected = {"chat": {"type": "function", "function": {"name": TOOL_NAME}},
+                            "responses": {"type": "function", "name": TOOL_NAME},
+                            "messages": {"type": "tool", "name": TOOL_NAME, "disable_parallel_tool_use": True}}
+                self.assertEqual(body["tool_choice"], expected[protocol])
+            else:
+                self.assertNotIn("tool_choice", body)
+
+    def test_auto_policy_keeps_bounded_requests_and_auto_on_both_tool_legs(self):
+        for tool_stream in (False, True):
+            with self.subTest(tool_stream=tool_stream):
+                requests = []
+                def post(client, protocol, body):
+                    requests.append((protocol, copy.deepcopy(body)))
+                    return self.good_post(client, protocol, body)
+                argv = ["--tool-choice", "auto"] + (["--tool-stream"] if tool_stream else [])
+                code, report, raw = self.run_cli(argv, post)
+                self.assertEqual(code, 0)
+                self.assertEqual(report["toolChoice"], "auto")
+                self.assertEqual(report["requestCount"], 18 if tool_stream else 12)
+                self.assertEqual(report["requestLimit"], report["requestCount"])
+                self.assertEqual(len(report["results"]), 12 if tool_stream else 9)
+                for protocol, body in requests:
+                    if "tools" in body:
+                        expected = {"type": "auto", "disable_parallel_tool_use": True} if protocol == "messages" else "auto"
+                        self.assertEqual(body["tool_choice"], expected)
+                        self.assertEqual(len(body["tools"]), 1)
+                    else:
+                        self.assertNotIn("tool_choice", body)
+                self.assertEqual(sum(has_tool_result(protocol, body) for protocol, body in requests),
+                                 6 if tool_stream else 3)
+                for private in (KEY, TEXT, VALUE, RECEIPT, "Preserve this reasoning"):
+                    self.assertNotIn(private, raw)
+
+    def test_auto_still_requires_exact_tool_arguments_and_visible_result_receipt(self):
+        for protocol in relay.PROTOCOLS:
+            for failure in ("missing_call", "wrong_arguments", "missing_receipt"):
+                with self.subTest(protocol=protocol, failure=failure):
+                    def post(client, kind, body):
+                        if "tools" in body:
+                            result = has_tool_result(kind, body)
+                            if (not result and failure == "missing_call") or (result and failure == "missing_receipt"):
+                                client.request_count += 1
+                                if body["stream"]:
+                                    return 200, "text/event-stream", pack(stream_events(kind))
+                                return 200, "application/json", encode(document(kind))
+                            if not result and failure == "wrong_arguments":
+                                status, mime, raw = self.good_post(client, kind, body)
+                                wrong = "x" * len(VALUE)
+                                if body["stream"]:
+                                    raw = pack(tool_stream_events(kind, value=wrong))
+                                return status, mime, raw.replace(VALUE.encode(), wrong.encode())
+                        return self.good_post(client, kind, body)
+                    code, report, _ = self.run_cli(["--protocol", protocol, "--tool-stream", "--tool-choice", "auto"], post)
+                    self.assertEqual(code, 1)
+                    rows = [row for row in report["results"] if row["scenario"] in ("tool_roundtrip", "tool_stream")]
+                    self.assertEqual(len(rows), 2)
+                    self.assertTrue(all(row["status"] == "fail" for row in rows))
+                    if failure == "missing_receipt":
+                        self.assertTrue(all(row["followup"]["error"] == "followup_did_not_use_tool_result" for row in rows))
+                    else:
+                        self.assertTrue(all(row["followup"]["status"] == "not_run" for row in rows))
 
     def test_failed_responses_report_bounded_terminal_signals_not_payloads(self):
         def limited(client, protocol, body):
@@ -893,7 +1054,7 @@ class TransportAndCliValidatorTests(unittest.TestCase):
         def post(client, protocol, body):
             if body["stream"]:
                 client.request_count += 1
-                if body.get("tool_choice") in ("none", {"type": "none"}):
+                if has_tool_result(protocol, body):
                     return 200, "text/event-stream", pack(stream_events(protocol))
                 if "tools" in body:
                     return 200, "text/event-stream", pack(tool_stream_events(protocol))
@@ -922,7 +1083,7 @@ class TransportAndCliValidatorTests(unittest.TestCase):
 
     def test_followup_requires_receipt_not_just_any_text(self):
         def post(client, protocol, body):
-            if body.get("tool_choice") in ("none", {"type": "none"}):
+            if has_tool_result(protocol, body):
                 client.request_count += 1
                 return 200, "application/json", encode(document(protocol))
             return self.good_post(client, protocol, body)
@@ -955,7 +1116,9 @@ class TransportAndCliValidatorTests(unittest.TestCase):
 
     def test_invalid_environment_or_limits_make_no_requests(self):
         cases = [([], {}), (["--timeout", "0"], ENV), (["--max-tokens", "999999"], ENV),
-                 (["--protocol", "wrong"], ENV), ([], dict(ENV, RELAY_BASE_URL="http://user:password@example.invalid")),
+                 (["--protocol", "wrong"], ENV), (["--tool-choice", "required"], ENV),
+                 # Deliberately invalid credentials at a reserved example host, not a live secret.
+                 ([], dict(ENV, RELAY_BASE_URL="http://user:password@example.invalid")),  # leak-guard-allow:LG-F4C6A155
                  ([], dict(ENV, RELAY_API_KEY="bad\nheader")), ([], dict(ENV, RELAY_BASE_URL="http://host:bad"))]
         for argv, env in cases:
             with self.subTest(argv=argv, keys=list(env)):
