@@ -1,4 +1,4 @@
-// Real form/checkbox interactions for manual channel binding: empty discovery,
+// Real form/checkbox interactions for manual channel binding: empty eligibility,
 // guided seeds, bulk selection, submission and preservation of operator edits.
 // Only the route API and toast boundaries are mocked.
 
@@ -28,7 +28,6 @@ import { RouteFormDialog } from '../components/route-form-dialog'
 import type { RouteChannel, RouteSummaryRow } from '../types'
 
 const {
-  mockRebuildMutate,
   mockCreateMutate,
   mockUpdateMutate,
   mockBatchMutate,
@@ -36,7 +35,6 @@ const {
   mockDeleteChannel,
   channels,
 } = vi.hoisted(() => ({
-  mockRebuildMutate: vi.fn(),
   mockCreateMutate: vi.fn(),
   mockUpdateMutate: vi.fn(),
   mockBatchMutate: vi.fn(),
@@ -57,10 +55,6 @@ vi.mock('../api', async (importOriginal) => ({
   }),
   useBatchAddChannels: () => ({
     mutateAsync: mockBatchMutate,
-    isPending: false,
-  }),
-  useRebuildRoutes: () => ({
-    mutate: mockRebuildMutate,
     isPending: false,
   }),
   useRouteChannels: () => ({
@@ -115,7 +109,6 @@ beforeAll(() => {
 
 beforeEach(async () => {
   await i18n.changeLanguage('en')
-  mockRebuildMutate.mockReset()
   mockCreateMutate.mockReset().mockResolvedValue({ id: 1 })
   mockUpdateMutate.mockReset().mockResolvedValue({ success: true })
   mockBatchMutate.mockReset().mockResolvedValue({ created: 2, errors: [] })
@@ -142,26 +135,30 @@ function renderDialog(
 }
 
 describe('RouteFormDialog channel drafts', () => {
-  it('shows the empty-state hint and rebuild action before model discovery', async () => {
+  it('explains account eligibility without requiring model discovery', async () => {
     renderDialog()
 
-    const hint = await screen.findByText(
-      /accounts are discovered during the model scan/
-    )
-    expect(hint).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Auto-rebuild' })
+      await screen.findByText(/No eligible accounts are loaded/)
     ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Auto-rebuild' })
+    ).not.toBeInTheDocument()
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
   })
 
-  it('triggers a model-refresh rebuild from the empty state', async () => {
-    renderDialog()
+  it('keeps edit-mode guidance separate from the existing channel editor', async () => {
+    renderDialog({ mode: 'edit', route: editableRoute })
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Auto-rebuild' }))
-
-    expect(mockRebuildMutate).toHaveBeenCalledTimes(1)
-    expect(mockRebuildMutate).toHaveBeenCalledWith({ refreshModels: true })
+    expect(
+      await screen.findByText(
+        /No eligible accounts are loaded for manual binding/
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByText('Route channels')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Auto-rebuild' })
+    ).not.toBeInTheDocument()
   })
 
   it('keeps the checkbox list when account options exist', async () => {

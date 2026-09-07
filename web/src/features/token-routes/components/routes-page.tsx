@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { useAccounts } from '@/features/accounts/api'
+import type { Account, AccountsSnapshot } from '@/features/accounts/types'
 import { useChannels } from '@/features/channels/api'
 import { useSites } from '@/features/sites/api'
 import { api } from '@/lib/api'
@@ -388,11 +389,6 @@ export function RoutesPage() {
     [routes, editRoute]
   )
 
-  const accountOptions = useMemo<RouteAccountOption[]>(
-    () => buildAccountOptions(candidates),
-    [candidates]
-  )
-
   const chainContext = useMemo(
     () => ({
       accountId,
@@ -406,6 +402,10 @@ export function RoutesPage() {
   // Resolve chain-context IDs to human-readable names with `#ID` fallback.
   const { data: accountsSnapshot } = useAccounts()
   const { data: sitesList } = useSites()
+  const accountOptions = useMemo(
+    () => buildAccountOptions(accountsSnapshot),
+    [accountsSnapshot]
+  )
   const chainAccountName = useMemo(() => {
     if (!accountId) return undefined
     const match = accountsSnapshot?.accounts.find((a) => a.id === accountId)
@@ -640,42 +640,38 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
   )
 }
 
-type CandidateAccountLike = {
-  accountId?: number
-  username?: string | null
-  siteName?: string | null
-}
+// The account snapshot, not model discovery, owns manual account bindings.
+// OAuth metadata is also present on the public account snapshot; inspect only
+// masked credential presence, matching account-scoped relay credential choice.
+type ManualRouteAccount = Account & { oauthProvider?: string | null }
 
 function buildAccountOptions(
-  candidates:
-    | {
-        models?: Record<string, unknown[]>
-      }
-    | undefined
+  snapshot: AccountsSnapshot | undefined
 ): RouteAccountOption[] {
-  const models = candidates?.models
-  if (!models || typeof models !== 'object') return []
+  const siteMap = new Map(
+    (snapshot?.sites ?? []).map((site) => [site.id, site])
+  )
+  const accounts: ManualRouteAccount[] = snapshot?.accounts ?? []
+  return accounts
+    .flatMap<RouteAccountOption>((account) => {
+      const site = siteMap.get(account.siteId) ?? account.site
+      if (account.status !== 'active' || site?.status === 'disabled') {
+        return []
+      }
+      const relayCredential = account.oauthProvider
+        ? account.accessTokenMasked
+        : account.apiTokenMasked
+      if (!relayCredential?.trim()) return []
 
-  const accountMap = new Map<number, string>()
-  for (const candidatesList of Object.values(models)) {
-    if (!Array.isArray(candidatesList)) continue
-    for (const raw of candidatesList) {
-      const candidate = raw as CandidateAccountLike
-      if (!candidate || typeof candidate.accountId !== 'number') continue
-      if (accountMap.has(candidate.accountId)) continue
-      const username = (candidate.username || '').trim()
-      const siteName = (candidate.siteName || '').trim()
-      const label = username
-        ? siteName
-          ? `${username} @ ${siteName}`
-          : username
-        : `account-${candidate.accountId}`
-      accountMap.set(candidate.accountId, label)
-    }
-  }
-
-  return [...accountMap.entries()]
-    .map(([id, label]) => ({ id, label }))
+      const username = account.username?.trim() || `account-${account.id}`
+      const siteName = site?.name?.trim() || ''
+      return [
+        {
+          id: account.id,
+          label: siteName ? `${username} @ ${siteName}` : username,
+        },
+      ]
+    })
     .sort((left, right) =>
       left.label.localeCompare(right.label, undefined, { sensitivity: 'base' })
     )

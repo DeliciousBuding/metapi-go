@@ -4,7 +4,6 @@
 // `getModelPatternError()` returns pre-translated strings via i18n.t().
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Zap } from 'lucide-react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -46,7 +45,6 @@ import {
   resolveCreatedRouteId,
   useBatchAddChannels,
   useCreateRoute,
-  useRebuildRoutes,
   useUpdateRoute,
 } from '../api'
 import {
@@ -425,7 +423,6 @@ function PatternModeFields({
   isEdit: boolean
 }) {
   const { t } = useTranslation()
-  const rebuildMutation = useRebuildRoutes()
   const bulkLabelId = useId()
   const modelPattern = form.watch('modelPattern') ?? ''
   const isRegex = isRegexModelPattern(modelPattern)
@@ -533,16 +530,6 @@ function PatternModeFields({
                   </div>
                 </div>
               ) : (
-                // Journey break fix (2026-08-18 review): the section used to
-                // vanish entirely before the first model discovery, so the
-                // guided chain's preselected account was invisible. Show the
-                // reason plus an inline rebuild that repopulates the list in
-                // place (rebuild invalidates the candidates query prefix).
-                //
-                // Edit-mode copy differentiates: the route's own channels are
-                // listed in the editor above, so here the hint says "no
-                // further candidates" instead of implying the route has no
-                // channels at all.
                 <div className='flex flex-col gap-2 rounded-lg border border-dashed p-3'>
                   <p className='text-muted-foreground text-sm'>
                     {t(
@@ -551,23 +538,6 @@ function PatternModeFields({
                         : 'tokenRoutes.formPattern.channelsEmptyHint'
                     )}
                   </p>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='sm'
-                    className='w-fit'
-                    onClick={() =>
-                      rebuildMutation.mutate({ refreshModels: true })
-                    }
-                    disabled={rebuildMutation.isPending}
-                  >
-                    {rebuildMutation.isPending ? (
-                      <Spinner className='size-3.5' />
-                    ) : (
-                      <Zap />
-                    )}
-                    {t('tokenRoutes.page.rebuild')}
-                  </Button>
                 </div>
               )}
               <FormMessage />

@@ -2239,9 +2239,9 @@
         "channelsSelectAll": "全选账号",
         "channelsDeselectAll": "取消全选账号",
         "channelsSelectedCount": "已选 {{selected}} / {{total}}",
-        "channelsHint": "勾选账号作为该路由的通道，创建后将自动绑定。",
-        "channelsEmptyHint": "暂无可选通道——账号在模型扫描时被发现。运行自动重建即可填充此列表。",
-        "channelsEmptyHintEdit": "暂无其他候选账号——账号在模型扫描时被发现。运行自动重建即可填充此列表。"
+        "channelsHint": "可选择启用且具有账号中继凭据的账号。无需先发现模型，可手工输入模型名；具体模型能否调用仍由上游决定。",
+        "channelsEmptyHint": "尚未加载到可手工绑定的账号。请在「账号」页检查账号与站点状态，以及账号中继凭据；手工绑定无需先发现模型。",
+        "channelsEmptyHintEdit": "尚未加载到可手工绑定的账号。请在「账号」页检查账号状态与中继凭据；已有路由通道仍在上方编辑器中。"
       },
       "formGroup": {
         "displayName": "对外模型名",

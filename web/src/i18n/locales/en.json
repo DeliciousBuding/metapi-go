@@ -2239,9 +2239,9 @@
         "channelsSelectAll": "Select all accounts",
         "channelsDeselectAll": "Deselect all accounts",
         "channelsSelectedCount": "{{selected}} / {{total}} selected",
-        "channelsHint": "Select accounts as channels for this route; they will be auto-bound on creation.",
-        "channelsEmptyHint": "No channel candidates yet — accounts are discovered during the model scan. Run auto-rebuild to populate this list.",
-        "channelsEmptyHintEdit": "No further candidate accounts — accounts are discovered during the model scan. Run auto-rebuild to populate this list."
+        "channelsHint": "Select active accounts with account relay credentials. Model discovery is not required: enter the model name manually; the upstream still determines whether that model can be served.",
+        "channelsEmptyHint": "No eligible accounts are loaded. Check the account and site status and account relay credentials on Accounts. Model discovery is not required for manual binding.",
+        "channelsEmptyHintEdit": "No eligible accounts are loaded for manual binding. Check account status and relay credentials on Accounts; existing route channels remain in the editor above."
       },
       "formGroup": {
         "displayName": "External model name",
