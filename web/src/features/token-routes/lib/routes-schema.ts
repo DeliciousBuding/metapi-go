@@ -206,6 +206,29 @@ export function buildChannelDraftSeed(
     : []
 }
 
+/**
+ * Change only the requested accounts. Retain existing drafts (including token
+ * and source-model choices) and append each newly selected account once.
+ */
+export function setChannelDraftSelection(
+  drafts: NonNullable<RouteFormValues['channelDrafts']>,
+  accountIds: number[],
+  checked: boolean
+): NonNullable<RouteFormValues['channelDrafts']> {
+  const requestedIds = new Set(accountIds)
+  if (!checked) {
+    return drafts.filter((draft) => !requestedIds.has(draft.accountId))
+  }
+
+  const selectedIds = new Set(drafts.map((draft) => draft.accountId))
+  return [
+    ...drafts,
+    ...[...requestedIds]
+      .filter((accountId) => !selectedIds.has(accountId))
+      .map((accountId) => ({ accountId })),
+  ]
+}
+
 // ---------------------------------------------------------------------------
 // URL state schema
 // ---------------------------------------------------------------------------
