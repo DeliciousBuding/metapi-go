@@ -2,6 +2,7 @@ package routing
 
 import (
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/store"
@@ -58,24 +59,22 @@ func TestRouteCache_RoutesGetSet(t *testing.T) {
 }
 
 func TestRouteCache_RoutesExpiry(t *testing.T) {
-	cache := NewRouteCache(1) // 1ms TTL, clamped to 100ms minimum
+	synctest.Test(t, func(t *testing.T) {
+		cache := NewRouteCache(1) // Clamped to the 100ms minimum.
+		cache.SetRoutes([]store.TokenRoute{{ID: 1, ModelPattern: "gpt-4", Enabled: true}})
+		if !cache.IsRoutesFresh() {
+			t.Fatal("expected fresh immediately")
+		}
 
-	routes := []store.TokenRoute{{ID: 1, ModelPattern: "gpt-4", Enabled: true}}
-	cache.SetRoutes(routes)
-
-	// Immediately fresh
-	if !cache.IsRoutesFresh() {
-		t.Error("expected fresh immediately")
-	}
-
-	// Wait for TTL to expire
-	time.Sleep(150 * time.Millisecond)
-	if cache.IsRoutesFresh() {
-		t.Error("expected routes NOT fresh after TTL")
-	}
-	if routes := cache.GetRoutes(); routes != nil {
-		t.Error("expected nil routes after expiry")
-	}
+		time.Sleep(99 * time.Millisecond)
+		if !cache.IsRoutesFresh() || cache.GetRoutes() == nil {
+			t.Fatal("expected routes fresh before the TTL boundary")
+		}
+		time.Sleep(time.Millisecond)
+		if cache.IsRoutesFresh() || cache.GetRoutes() != nil {
+			t.Fatal("expected routes expired exactly at the TTL boundary")
+		}
+	})
 }
 
 // =============================================================================
@@ -107,20 +106,43 @@ func TestRouteCache_MatchGetSet(t *testing.T) {
 }
 
 func TestRouteCache_MatchExpiry(t *testing.T) {
-	cache := NewRouteCache(1) // 1ms TTL, clamped to 100ms
+	synctest.Test(t, func(t *testing.T) {
+		cache := NewRouteCache(1) // Clamped to the 100ms minimum.
+		cache.SetMatch(1, &RouteMatch{Route: store.TokenRoute{ID: 1}})
+		if cache.GetMatch(1) == nil {
+			t.Fatal("expected non-nil immediately")
+		}
 
-	match := &RouteMatch{Route: store.TokenRoute{ID: 1}}
-	cache.SetMatch(1, match)
+		time.Sleep(99 * time.Millisecond)
+		if cache.GetMatch(1) == nil {
+			t.Fatal("expected match fresh before the TTL boundary")
+		}
+		time.Sleep(time.Millisecond)
+		if cache.GetMatch(1) != nil {
+			t.Fatal("expected match expired exactly at the TTL boundary")
+		}
+	})
+}
 
-	// Immediately fresh
-	if got := cache.GetMatch(1); got == nil {
-		t.Error("expected non-nil immediately")
-	}
-
-	time.Sleep(150 * time.Millisecond)
-	if got := cache.GetMatch(1); got != nil {
-		t.Error("expected nil after TTL expiry")
-	}
+func TestRouteCache_PatchDoesNotExtendTTL(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		cache := NewRouteCache(100)
+		cache.SetMatch(1, &RouteMatch{
+			Route:    store.TokenRoute{ID: 1},
+			Channels: []RouteChannelCandidate{{Channel: store.RouteChannel{ID: 42}}},
+		})
+		time.Sleep(75 * time.Millisecond)
+		cache.PatchCachedChannel(42, func(channel *store.RouteChannel) {
+			channel.Priority = int64Ptr(3)
+		})
+		if match := cache.GetMatch(1); match == nil || match.Channels[0].Channel.PriorityOrZero() != 3 {
+			t.Fatal("expected the patched channel before expiry")
+		}
+		time.Sleep(25 * time.Millisecond)
+		if cache.GetMatch(1) != nil {
+			t.Fatal("patching must retain the original cache deadline")
+		}
+	})
 }
 
 // =============================================================================
