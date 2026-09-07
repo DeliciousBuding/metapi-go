@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last updated**: 2026-09-03
+**Last updated**: 2026-09-07
 
 > **Navigation**: full docs map in [`docs/README.md`](README.md) · route list in [`api/routes-inventory.md`](api/routes-inventory.md) · environment variables in [`configuration.md`](configuration.md).
 >
@@ -189,16 +189,15 @@ truncation, or downstream disconnect.
 
 Two rules keep that classification honest:
 
-- **One judge for content.** Whether an upstream answer counts as a failure on
-  its content — a configured `PROXY_ERROR_KEYWORDS` hit, or an empty completion
-  when `PROXY_EMPTY_CONTENT_FAIL` is on — is decided by a single pure function
-  in `proxy`, fed by both paths: the buffered body directly, the stream through
-  the bounded SSE analyser. The two paths cannot reach different verdicts for
-  the same upstream content.
-- **A downstream disconnect is not an upstream fault.** The channel answered
-  correctly, so recording the cancel against it would poison channel health
-  with user behaviour. Usage already extracted from earlier SSE events is still
-  accounted; tokens are never invented for content that did not arrive.
+- **One judge for content.** A single pure function in `proxy` applies the
+  optional `PROXY_ERROR_KEYWORDS` and `PROXY_EMPTY_CONTENT_FAIL` heuristics to
+  facts supplied by the buffered body or bounded SSE analyser. Explicit SSE
+  error events also fail without either heuristic being enabled; prior output,
+  usage, or a later `[DONE]` cannot turn an observed error into success.
+- **A downstream disconnect alone is not an upstream fault.** A client cancel
+  does not penalize a healthy channel, but cannot erase an upstream error
+  already parsed before the disconnect. Usage extracted from earlier SSE
+  events is still accounted; tokens are never invented for missing content.
 
 Every other ending — an idle upstream, a mid-stream reset, a truncated relay —
 goes through the failure path, whose status, reason text and terminal metric

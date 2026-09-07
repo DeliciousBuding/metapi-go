@@ -655,9 +655,9 @@ func dispatchEndpointAttemptWithContinue(
 			return true, nil, false
 		}
 		if streamVerdict != nil && streamVerdict.Failed {
-			// Content-level failure on a stream that ended cleanly at the
-			// transport level: judged by the same pure judge the buffered path
-			// uses, so the two paths cannot disagree. Streaming already began,
+			// A content-level failure remains authoritative even if the client
+			// disconnected after an explicit upstream error was observed. The
+			// shared content judge owns this verdict. Streaming already began,
 			// so this is terminal; partial usage is still accounted.
 			totalLatencyMs := time.Since(startedAt).Milliseconds()
 			slog.Warn("stream content-based failure recorded",

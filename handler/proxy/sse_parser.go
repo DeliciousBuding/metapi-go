@@ -287,7 +287,7 @@ func trimLeadingSpace(s string) string {
 }
 
 // IsSseErrorEvent checks if an SSE event's data payload represents an error.
-// Detects JSON objects containing "error" keys at the top level, or error
+// Detects JSON objects containing non-null "error" keys at the top level, or error
 // event types like "response.failed", "error".
 func IsSseErrorEvent(ev SseEvent) bool {
 	if ev.Event == "error" || ev.Event == "response.failed" {
@@ -307,7 +307,7 @@ func IsSseErrorEvent(ev SseEvent) bool {
 		return false
 	}
 
-	if _, hasError := parsed["error"]; hasError {
+	if parsed["error"] != nil {
 		return true
 	}
 
