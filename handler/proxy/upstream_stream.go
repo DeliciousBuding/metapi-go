@@ -118,6 +118,9 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 	idleBody := &streamIdleBody{ReadCloser: resp.Body}
 	idleBody.guard = newStreamIdleGuard(idleTimeout, idleBody.closeUnderlying)
 	resp.Body = idleBody
+	if bodyReadable && !strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Disposition")), "attachment") {
+		resp.Body = withNativeTerminalBody(resp.Body, r.URL.Path)
+	}
 
 	analyzer := newIncrementalSseAnalyzer()
 	sawStreamBytes := false
