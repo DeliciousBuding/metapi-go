@@ -64,8 +64,8 @@ Gemini-native bodies are converted in `transform/gemini/generate_content`; the
 
 ## Error shape (/v1 surface)
 
-All `/v1` surface failures — auth middleware, rate limits, body limit, and
-handler errors — use one OpenAI-compatible envelope so SDKs and upstream-relay
+Before streaming begins, Metapi-generated `/v1` failures — auth middleware,
+rate limits, body limit, and handler errors — use one OpenAI-compatible envelope so SDKs and upstream-relay
 integrations (e.g. new-api consuming Metapi as a channel) parse them uniformly:
 
 ```json
@@ -94,6 +94,22 @@ Status conventions (OpenAI-aligned):
 The admin surface (`/api/*`) keeps the flat `{"error", "errorCode"}` body
 documented in [conventions.md](conventions.md); the two contracts never mix
 (the global body-limit middleware picks the shape by path prefix).
+
+### Errors inside an upstream SSE response
+
+An explicit error in a readable HTTP 200 SSE response (such as `event: error`,
+`response.failed`, or a non-null top-level `error` payload) records a failed
+request with HTTP 502 in the proxy log and does not count as channel success.
+This does not require `PROXY_ERROR_KEYWORDS` or `PROXY_EMPTY_CONTENT_FAIL`.
+The default log classification is `upstream_error_event`; an explicitly
+configured keyword match retains its existing classification.
+
+Once SSE headers have been sent, the downstream HTTP 200 and relayed event
+bytes remain intact: no channel retry, protocol fallback, or appended JSON
+response is attempted. Only usage actually parsed from the stream is recorded.
+Ordinary output containing the word "error", `error: null`, and a healthy
+client disconnect are not upstream errors; a disconnect cannot erase an
+explicit upstream error already observed.
 
 ---
 

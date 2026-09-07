@@ -14,14 +14,17 @@ type UsageSummary struct {
 	TotalTokens      int
 }
 
-// FailureCode names why the single content judge declared a failure. Buffered
-// and streaming paths surface exactly this set, so one code means the same
-// thing wherever it is logged, stored or alerted on.
+// FailureCode names why the single content judge declared a failure. A code
+// keeps the same meaning wherever it is logged, stored or alerted on; explicit
+// protocol-error evidence is currently supplied by the streaming path.
 type FailureCode string
 
 const (
 	// FailureCodeNone means the content judgement found no failure.
 	FailureCodeNone FailureCode = ""
+	// FailureCodeErrorEvent means the upstream explicitly reported a protocol
+	// error, independent of optional keyword and empty-content heuristics.
+	FailureCodeErrorEvent FailureCode = "upstream_error_event"
 	// FailureCodeErrorKeyword means the upstream content matched an operator
 	// configured PROXY_ERROR_KEYWORDS entry.
 	FailureCodeErrorKeyword FailureCode = "upstream_error_keyword"
@@ -49,6 +52,9 @@ type UpstreamContentFacts struct {
 	// Streaming callers set it from the analyzer data-event flag; the buffered
 	// path leaves it false and the judge derives it from RawText.
 	HasOutput bool
+	// HasErrorEvent reports a parsed protocol error, not output mentioning an
+	// error. Streaming callers set it from the SSE analyzer.
+	HasErrorEvent bool
 	// Usage is the parsed usage summary (nil when the upstream sent none).
 	Usage *UsageSummary
 	// Unreadable reports that the bytes behind these facts could not be read at
@@ -81,7 +87,8 @@ type UpstreamVerdict struct {
 // Detection:
 // 0. Unreadable body: no judgement at all (see UpstreamContentFacts.Unreadable)
 // 1. Keyword matching: if config.ProxyErrorKeywords is non-empty, case-insensitive
-// 2. Empty content check: if ProxyEmptyContentFailEnabled and no completion tokens + no output
+// 2. Explicit protocol error events: always fail, even with output or usage
+// 3. Empty content check: if ProxyEmptyContentFailEnabled and no completion tokens + no output
 func JudgeUpstreamContent(facts UpstreamContentFacts) UpstreamVerdict {
 	pass := UpstreamVerdict{Code: FailureCodeNone}
 	if facts.Unreadable {
@@ -94,15 +101,10 @@ func JudgeUpstreamContent(facts UpstreamContentFacts) UpstreamVerdict {
 		return pass
 	}
 	rt := config.RuntimeSafe()
-	if rt == nil {
-		// No published runtime snapshot: nothing is configured, so nothing can
-		// be judged. Never invent a failure (and never panic on a request path).
-		return pass
-	}
 	rawText := strings.TrimSpace(facts.RawText)
 
 	// 1. Keyword matching
-	if len(rt.ProxyErrorKeywords) > 0 {
+	if rt != nil && len(rt.ProxyErrorKeywords) > 0 {
 		normalizedText := strings.ToLower(rawText)
 		for _, kw := range rt.ProxyErrorKeywords {
 			kw = strings.TrimSpace(strings.ToLower(kw))
@@ -120,8 +122,18 @@ func JudgeUpstreamContent(facts UpstreamContentFacts) UpstreamVerdict {
 		}
 	}
 
-	// 2. Empty content check
-	if rt.ProxyEmptyContentFailEnabled {
+	// 2. Explicit errors are evidence, not an opt-in content heuristic.
+	if facts.HasErrorEvent {
+		return UpstreamVerdict{
+			Failed: true,
+			Code:   FailureCodeErrorEvent,
+			Status: 502,
+			Reason: "Upstream returned an error event",
+		}
+	}
+
+	// 3. Empty content check
+	if rt != nil && rt.ProxyEmptyContentFailEnabled {
 		compTokens := 0
 		if facts.Usage != nil {
 			compTokens = facts.Usage.CompletionTokens

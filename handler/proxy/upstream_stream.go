@@ -37,10 +37,10 @@ const (
 	// and stopped early, so the client received an incomplete answer.
 	streamEndedTruncated
 	// streamEndedClientDisconnect means the downstream client cancelled or its
-	// write side went away. Deliberately NOT an upstream fault: the channel
-	// answered correctly, so recording it as a failure would poison channel
-	// health with user cancel behaviour. Usage already extracted is still
-	// returned for accounting.
+	// write side went away. This ending alone is NOT an upstream fault:
+	// without an explicit upstream error, recording it as a failure would
+	// poison channel health with user cancel behaviour. Usage already
+	// extracted is still returned for accounting.
 	streamEndedClientDisconnect
 )
 
@@ -152,10 +152,10 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 				LogSseErrorEvents(result.ErrorEvents)
 			}
 		}
-		if end == streamEndedClientDisconnect {
-			// The client left before the upstream finished: there is no complete
-			// upstream answer to judge, and a content verdict here would be
-			// recorded against a channel that never got to finish. Still return
+		if end == streamEndedClientDisconnect && !result.HasErrorEvent {
+			// Without an explicit upstream error already observed, a client
+			// disconnect leaves no complete answer to judge. Do not penalize a
+			// channel that never got to finish. Still return
 			// any usage already extracted from earlier SSE events (best-effort
 			// partial) — never invent tokens.
 			if result.Usage.Found {
@@ -295,12 +295,13 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 // being special-cased here, keeping one owner of the verdict.
 func judgeStreamContent(statusCode int, result incrementalSseAnalysisResult, latencyMs int64, bodyUnreadable bool) proxy.UpstreamVerdict {
 	verdict := proxy.JudgeUpstreamContent(proxy.UpstreamContentFacts{
-		StatusCode: statusCode,
-		Streaming:  true,
-		RawText:    sseErrorEventText(result.ErrorEvents),
-		HasOutput:  result.HasDataEvent,
-		Usage:      result.Usage.ToUsageSummary(),
-		Unreadable: bodyUnreadable,
+		StatusCode:    statusCode,
+		Streaming:     true,
+		RawText:       sseErrorEventText(result.ErrorEvents),
+		HasOutput:     result.HasDataEvent,
+		HasErrorEvent: result.HasErrorEvent,
+		Usage:         result.Usage.ToUsageSummary(),
+		Unreadable:    bodyUnreadable,
 	})
 	if verdict.Failed {
 		slog.Warn("stream content-based failure detected",
