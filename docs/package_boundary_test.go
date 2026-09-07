@@ -253,7 +253,7 @@ func scanBoundaryViolations(t *testing.T, root string) ([]violation, map[string]
 			// architecture and must not be treated as one.
 			if name == ".git" || name == "node_modules" || name == "dist" ||
 				name == ".claude" || name == "worktrees" || name == ".worktrees" ||
-				name == ".dev-local" || name == "vendor" {
+				name == ".dev-local" || name == ".local" || name == "vendor" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -296,4 +296,29 @@ func scanBoundaryViolations(t *testing.T, root string) ([]violation, map[string]
 		t.Fatal(err)
 	}
 	return out, scanned
+}
+
+func TestPackageBoundaryScanIgnoresLocalDrafts(t *testing.T) {
+	for _, dir := range []string{".local", "store", "local"} {
+		t.Run(dir, func(t *testing.T) {
+			root := t.TempDir()
+			path := filepath.Join(root, dir, "draft.go")
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("package draft\nimport _ \"testing\"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			violations, scanned := scanBoundaryViolations(t, root)
+			if dir == ".local" {
+				if len(violations) != 0 || len(scanned) != 0 {
+					t.Fatalf("private draft entered the production scan: violations=%v scanned=%v", violations, scanned)
+				}
+				return
+			}
+			if len(violations) != 1 || violations[0].imp != "testing" || scanned[dir] != 1 {
+				t.Fatalf("public copy must trigger the production-import gate: violations=%v scanned=%v", violations, scanned)
+			}
+		})
+	}
 }

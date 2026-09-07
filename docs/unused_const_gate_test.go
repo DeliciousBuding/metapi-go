@@ -70,7 +70,7 @@ func TestUnreferencedConstGroupMemberGate(t *testing.T) {
 		}
 		if info.IsDir() {
 			switch info.Name() {
-			case ".git", "node_modules", "dist", "vendor", ".dev-local", ".worktrees", "web":
+			case ".git", "node_modules", "dist", "vendor", ".dev-local", ".worktrees", ".local", "web":
 				return filepath.SkipDir
 			}
 			return nil

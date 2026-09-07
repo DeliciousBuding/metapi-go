@@ -46,7 +46,7 @@ func TestPublicMarkdownHygiene(t *testing.T) {
 			// covers published tree paths. CI clones are clean, while ignored
 			// .dev-local evidence may contain absolute capture paths by design.
 			if name == ".git" || name == "node_modules" || name == "dist" ||
-				name == ".claude" || name == ".dev-local" || name == ".worktrees" {
+				name == ".claude" || name == ".dev-local" || name == ".worktrees" || name == ".local" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -283,7 +283,7 @@ func TestRelativeMarkdownLinksResolve(t *testing.T) {
 		if entry.IsDir() {
 			name := entry.Name()
 			if name == ".git" || name == "node_modules" || name == "dist" ||
-				name == ".claude" || name == ".worktrees" || name == ".dev-local" {
+				name == ".claude" || name == ".worktrees" || name == ".dev-local" || name == ".local" {
 				return filepath.SkipDir
 			}
 			return nil
