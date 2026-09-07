@@ -58,6 +58,14 @@ go vet ./...                          # Static analysis
 golangci-lint run --timeout=3m        # Lint check
 ```
 
+- **Development loop**: Edit, debug, and run focused checks in a local checkout or isolated worktree; SSH-only development is not required.
+  Full CI/E2E may run on an isolated test server. This does not replace the pre-push build/vet/full-race gate or required SQLite/PostgreSQL checks.
+- **Evidence identity**: Record the tested commit and any uncommitted diff, build/artifact digest, commands, and relevant environment.
+  A server run must trace back to those exact source inputs and artifacts. Reuse successful checks only for byte-identical tested inputs within their verified scope;
+  rerun affected checks when inputs or environments change, and never label an unrun check as passed. Evidence reuse does not bypass mandatory gates.
+- **Coverage claims**: Keep deterministic-fixture, real-model relay, and downstream-client E2E results distinct; none alone proves the others.
+  See `docs/testing.md` for test layers and the testbed SOP.
+
 ## Release Workflow
 
 0. 所有改动经 `fix/*` / `feature/*` 等短命分支 → PR → Squash merge 回 master（详见 [`docs/internal/git-workflow.md`](docs/internal/git-workflow.md)；master 受保护，禁止直接 push）
@@ -92,7 +100,10 @@ golangci-lint run --timeout=3m        # Lint check
 | `CHANGELOG.md`                                             | Version narrative                                                              |
 
 **Task/state SSOT:** Open work is tracked in **GitHub issues**; product state and the version narrative live in **GitHub releases** and `CHANGELOG.md`. Maintainer process/history/research moved out of this public repo. Temporary session summaries are **not** source of truth — archive or delete after use.
-**Ops host/image pin** lives outside this repository (private deployment surface). Public deployment notes: `docs/deployment.md`.
+**Public/private boundary:** Keep product code, public contracts, reusable tests, and sanitized fixtures in this repository.
+Private deployment/runbooks, host/image pins, and raw runtime/acceptance evidence belong in private documentation, not the published tree.
+Credentials belong in an external secret store, never in Git (including private repos) or `.local/`.
+Local-only drafts/handoffs must be ignored and do not replace task or runtime SSOT. Public deployment notes: `docs/deployment.md`.
 **Honesty:** Prefer 501 / documented residual over stub theater. Do not claim cluster-wide sticky or WS product without the matching milestone.
 
 ## Related References

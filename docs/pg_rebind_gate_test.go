@@ -79,7 +79,7 @@ func TestPgRebindGateNoBareQuestionMarks(t *testing.T) {
 				return nil
 			}
 			sqlxFiles++
-			saw[rel] = true
+			saw[filepath.ToSlash(rel)] = true
 			content := string(src)
 			for _, line := range strings.Split(content, "\n") {
 				for _, re := range []*regexp.Regexp{dbCallRe, ctxDBCallRe} {

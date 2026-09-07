@@ -286,7 +286,7 @@ func collectEnvReaders(t *testing.T, root string) map[string]bool {
 		}
 		if entry.IsDir() {
 			switch entry.Name() {
-			case ".git", "node_modules", "dist", ".dev-local", ".worktrees", "web":
+			case ".git", "node_modules", "dist", ".dev-local", ".worktrees", ".local", "web":
 				return filepath.SkipDir
 			}
 			return nil
@@ -357,4 +357,33 @@ func readRepoFile(t *testing.T, root, rel string) string {
 		t.Fatalf("read %s: %v", rel, err)
 	}
 	return string(data)
+}
+
+func TestEnvReaderScanIgnoresLocalDrafts(t *testing.T) {
+	const probe = "ENV_PARITY_BOUNDARY_PROBE"
+	for _, dir := range []string{".local", "service", "local"} {
+		t.Run(dir, func(t *testing.T) {
+			root := t.TempDir()
+			path := filepath.Join(root, dir, "draft.go")
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			source := []byte("package draft\nimport \"os\"\nvar _ = os.Getenv(\"" + probe + "\")\n")
+			if err := os.WriteFile(path, source, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			readers := collectEnvReaders(t, root)
+			keys := []string{probe}
+			drift := detectDrift(keys, keys, keys, readers)
+			if dir == ".local" {
+				if len(readers) != 0 || !strings.Contains(drift, probe) {
+					t.Fatalf("private draft must not hide a shipped key with no production reader: readers=%v drift=%q", readers, drift)
+				}
+				return
+			}
+			if !readers[probe] || drift != "" {
+				t.Fatalf("public copy must count as a production reader: readers=%v drift=%q", readers, drift)
+			}
+		})
+	}
 }

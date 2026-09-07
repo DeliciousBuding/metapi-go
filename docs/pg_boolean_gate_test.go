@@ -114,7 +114,7 @@ func TestPgBooleanLiteralGateNoIntComparison(t *testing.T) {
 			}
 			scannedFiles++
 			dirsReached[dir] = true
-			saw[rel] = true
+			saw[filepath.ToSlash(rel)] = true
 
 			content := string(src)
 			for _, line := range strings.Split(content, "\n") {

@@ -695,6 +695,55 @@ func TestTokens_Update(t *testing.T) {
 	}
 }
 
+func TestTokens_UpdateResponseNeverRevealsCredential(t *testing.T) {
+	const original = "test-original-credential-value"
+	const replacement = "test-replacement-credential-value"
+	for _, tc := range []struct {
+		name string
+		body map[string]any
+		want string
+	}{
+		{"metadata", map[string]any{"name": "renamed"}, original},
+		{"enabled", map[string]any{"enabled": false}, original},
+		{"default", map[string]any{"isDefault": true}, original},
+		{"replace", map[string]any{"token": replacement}, replacement},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, r := setupTokensTest(t)
+			_, accountID := tokenFixture(t, db, r)
+			id := createTokenFixture(t, db, accountID, "credential", original, "", true, false)
+			resp := doPutJSON(t, r, "/api/account-tokens/"+itoa(id), tc.body)
+			if resp.Code != http.StatusOK {
+				t.Fatalf("update status = %d", resp.Code)
+			}
+			var result struct {
+				Success bool           `json:"success"`
+				Token   map[string]any `json:"token"`
+			}
+			if err := json.Unmarshal(resp.Body.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+			if !result.Success {
+				t.Fatal("update was not successful")
+			}
+			if _, exists := result.Token["token"]; exists || strings.Contains(resp.Body.String(), tc.want) {
+				t.Fatal("ordinary token update exposed the stored credential")
+			}
+			if got := result.Token["tokenMasked"]; got != service.MaskToken(tc.want, "new-api") {
+				t.Fatalf("tokenMasked = %v, want the normal masked projection", got)
+			}
+			stored, err := service.GetTokenByID(db.DB, id)
+			if err != nil || stored.Token != tc.want {
+				t.Fatalf("credential persistence changed: %v", err)
+			}
+			revealed := doGet(t, r, "/api/account-tokens/"+itoa(id)+"/value")
+			if revealed.Code != http.StatusOK || !strings.Contains(revealed.Body.String(), tc.want) {
+				t.Fatal("explicit credential reveal stopped returning the stored value")
+			}
+		})
+	}
+}
+
 func TestTokens_Update_MaskedToken(t *testing.T) {
 	db, r := setupTokensTest(t)
 	_, accountID := tokenFixture(t, db, r)
@@ -710,9 +759,9 @@ func TestTokens_Update_MaskedToken(t *testing.T) {
 	var result map[string]any
 	json.Unmarshal(resp.Body.Bytes(), &result)
 	tok, _ := result["token"].(map[string]any)
-	vs, _ := tok["value_status"].(string)
+	vs, _ := tok["valueStatus"].(string)
 	if vs != service.TokenValueStatusMaskedPending {
-		t.Logf("value_status after masked update: %q", vs)
+		t.Errorf("valueStatus after masked update: %q, want masked_pending", vs)
 	}
 	// After masked update, token should be disabled and not default
 	var enabled, isDefault bool

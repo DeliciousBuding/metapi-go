@@ -108,13 +108,22 @@ that token's limits at the upstream. The account detail form supports both paths
 leave the value empty to create upstream, or paste an existing value to import.
 An API-key-only connection cannot create/manage separate upstream tokens.
 
-### GET /api/account-tokens/:id, PUT /api/account-tokens/:id, DELETE /api/account-tokens/:id
+### PUT /api/account-tokens/:id, DELETE /api/account-tokens/:id
 
-Get, update, delete an account token. Updates accept `name`, `token`, `group`,
+Update or delete an account token. Updates accept `name`, `token`, `group`,
 `enabled`, `isDefault`, and `source`; omitted values are preserved. A metadata-only
 edit leaves `token` out of the request, keeping the stored secret unchanged.
 Quota, expiry, and IP restrictions are upstream-creation options, not token-update
-fields; manage an existing token's restrictions at the upstream site.
+fields; manage an existing token's restrictions at the upstream site. Updates
+return the masked token projection (`tokenMasked`, never the stored `token`); use
+the explicit `/value` endpoint when the caller needs to reveal a credential.
+
+For an enabled New API account with a usable credential, deletion resolves masked
+list keys through the ownership-checked key endpoint before deleting the matching
+upstream token. A refused/incomplete key lookup or a possibly truncated listing
+cannot prove absence: the operation fails and retains the local row. Existing
+local-only cleanup rules still apply to disabled/unmanaged sites and masked-pending
+records; those paths do not claim to remove a remote credential.
 
 ### GET /api/account-tokens/{id}/value
 
