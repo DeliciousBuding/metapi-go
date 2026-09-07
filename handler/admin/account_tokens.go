@@ -394,7 +394,7 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	owner, err := service.GetAccountByID(h.db, existing.AccountID)
+	owner, err := service.GetAccountWithSiteByID(h.db, existing.AccountID)
 	if err != nil {
 		writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
@@ -403,7 +403,7 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 		writeErrorCode(w, http.StatusNotFound, ErrorCodeAccountNotFound, "account not found")
 		return
 	}
-	if service.IsAPIKeyConnection(owner) {
+	if service.IsAPIKeyConnection(&owner.Account) {
 		writeErrorCode(w, http.StatusBadRequest, ErrorCodeOperationNotSupported, "API key connections do not support managing account tokens")
 		return
 	}
@@ -499,7 +499,7 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": true,
-		"token":   latest,
+		"token":   tokenToMap(*latest, owner.Site.Platform),
 	})
 }
 
