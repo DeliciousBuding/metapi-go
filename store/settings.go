@@ -311,6 +311,8 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 			}
 		case "balance_refresh_enabled":
 			rt.BalanceRefreshDisabled = !parseBoolSetting(value, !rt.BalanceRefreshDisabled)
+		case "auto_create_model_routes":
+			rt.AutoCreateModelRoutes = parseBoolSetting(value, rt.AutoCreateModelRoutes)
 		case "model_sync_cron":
 			if v := parseJSONSettingString(value); config.ValidateCronExpr(v) {
 				rt.ModelSyncCron = v

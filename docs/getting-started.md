@@ -104,10 +104,10 @@ Navigate to **账号 (Accounts)** → **添加账号**.
 > | `Credentials expired; update the credentials` | An **OAuth** connection | Row menu → **重新绑定 (Rebind)** on the OAuth connections page. OAuth accounts otherwise renew themselves from their refresh token |
 > | Nothing: models still list, and balance refresh does not report `upstream credential expired` | Nothing | Nothing to do. A durable `sk-` API key does not expire on a fifteen-minute clock, so an account bound with one survives an upgrade untouched |
 >
-> Automatic re-login does exist, but only inside the check-in scheduler: it
-> never renews a credential the relay path needs. A dead session credential is
-> therefore always an operator action, and what it leaves behind is an empty
-> model list plus `503 No available channels`.
+> Password re-login recovery belongs to the check-in workflow, not to a failed
+> proxy request. Repair or rebind a failed management credential explicitly.
+> A failed model refresh retains the last observed availability; it is not an
+> empty-model answer and does not necessarily invalidate a separate relay key.
 
 The account row shows balance and health once the first refresh lands
 (balance refresh runs hourly by default; use the row action to refresh now).
@@ -127,13 +127,29 @@ covers a whole family in one row. Open a route's detail to inspect:
 - configured weight + enabled share per channel,
 - normalized input/output price per concrete model, with the price source.
 
-> **What 自动重建 (Auto-rebuild) does, and does not, do.** It re-scans your
-> accounts' models and recomposes the channels of the routes you *already have*.
-> **It does not create routes.** On a fresh install with no routes it completes
-> with `routesConsidered: 0` and changes nothing, and the UI says exactly that.
-> Run it after binding or re-binding an account, or when an upstream's model
-> list changes — not as the step that makes your first request work. The step
-> that does that is **Add route** above.
+**For a fleet of accounts**, you can instead enable **自动创建模型路由
+(Automatically create model routes)** in **设置 → 运维 → 任务调度
+(Settings → Operations → Scheduling)**, then run **自动重建 (Rebuild)**. The
+setting is off by default. It creates one exact route for each usable model not
+covered by an existing route; the display name is the model name. Existing
+wildcards, groups, disabled routes and manual bindings are kept.
+
+Rebuild runs as an observable background task: you can leave the page and come
+back to its status and counts. Check partial model-refresh failures rather than
+treating a completed local rebuild as proof every upstream works. Subsequent
+model syncs add missing routes while the setting is on and detach automatic
+channels for delisted models. Turning the setting off stops new route creation,
+not synchronization of existing automatic channels; retained route IDs keep
+downstream route grants stable.
+
+**If the upstream blocks model discovery:** in the API-key account form,
+explicitly enable **跳过模型获取 (Skip model fetch)** to save a key without
+verifying its model list. Then add an exact route using a model name you know
+the upstream supports and select the account in **manual channel bindings**
+(the list is independent of discovery, and supports Select all). No model
+availability is invented by skipping the fetch: verify the first real relay
+request before treating the connection as usable. API-key-only connections do
+not gain balance/check-in management from this option.
 
 ## 5. Make your first proxied request
 
@@ -178,7 +194,7 @@ config export) live in [`client-integration.md`](client-integration.md).
 | :------------------------------- | :----------------------------------------------------- |
 | `401` on `/v1`                   | `Authorization: Bearer` uses a downstream key or `PROXY_TOKEN` |
 | `503` from the proxy             | No route/channel configured for the model, or upstream unconfigured |
-| `503 No available channels: 未匹配到启用的路由` | No **enabled route** matches that model: add one (§4). Auto-rebuild does not create routes |
+| `503 No available channels: 未匹配到启用的路由` | No **enabled route** matches that model: add one or enable optional automatic creation and rebuild (§4). Existing disabled routes are not re-enabled |
 | Models were listed, then went empty / relay started failing | The stored credential aged out. Session/password account: re-bind with **Add account**, same site + username. API-key account: **Edit** the account and paste the new key (§3) |
 | Account shows unhealthy          | Row action → refresh; verify credential mode matches the platform |
 | Page not loading behind nginx    | WebSocket upgrade headers in the reverse proxy ([deployment.md](deployment.md)) |

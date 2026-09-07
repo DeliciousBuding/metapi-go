@@ -6,30 +6,33 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 // RouteRebuildStats summarizes a synchronous rebuild pass.
 // explicit_group routes do not materialize their own channels; they expand
 // source routes at selection time via route_group_sources.
 type RouteRebuildStats struct {
-	RoutesConsidered int `json:"routesConsidered"`
-	PatternRoutes    int `json:"patternRoutes"`
-	GroupRoutes      int `json:"groupRoutes"`
-	ChannelsInserted int `json:"channelsInserted"`
-	ChannelsRemoved  int `json:"channelsRemoved"`
-	ChannelsKept     int `json:"channelsKept"`
-	// Changed is true when at least one automatic channel was inserted or removed.
+	RoutesCreated       int `json:"routesCreated"`
+	UnsafeModelsSkipped int `json:"unsafeModelsSkipped"`
+	RoutesConsidered    int `json:"routesConsidered"`
+	PatternRoutes       int `json:"patternRoutes"`
+	GroupRoutes         int `json:"groupRoutes"`
+	ChannelsInserted    int `json:"channelsInserted"`
+	ChannelsRemoved     int `json:"channelsRemoved"`
+	ChannelsKept        int `json:"channelsKept"`
+	// Changed covers newly created routes and automatic channel changes.
 	Changed bool `json:"changed"`
 }
 
 // RebuildOptions configures optional rebuild behavior. The zero value keeps the
 // legacy non-probe path byte-for-byte identical.
 type RebuildOptions struct {
-	ProbeFilter ProbeFilterConfig
+	CreateModelRoutes bool
+	ProbeFilter       ProbeFilterConfig
 }
 
 // ProbeFilterConfig gates the route-rebuild probe filter (#625).
@@ -80,16 +83,20 @@ func RebuildRoutesBestEffort() {
 	)
 }
 
-// RebuildTokenRoutesFromAvailability is the legacy (non-probe) rebuild entrypoint.
-// It keeps byte-for-byte identical semantics: the probe filter is off and the
+// RebuildTokenRoutesFromAvailability is the non-probe rebuild entrypoint.
+// Model route creation follows the opt-in runtime setting (default off); the
 // in-process cache is always invalidated after the pass.
 func RebuildTokenRoutesFromAvailability(ctx context.Context, db *sqlx.DB) (RouteRebuildStats, error) {
-	return RebuildTokenRoutesFromAvailabilityWithOptions(ctx, db, RebuildOptions{})
+	opts := RebuildOptions{}
+	if rt := config.RuntimeSafe(); rt != nil {
+		opts.CreateModelRoutes = rt.AutoCreateModelRoutes
+	}
+	return RebuildTokenRoutesFromAvailabilityWithOptions(ctx, db, opts)
 }
 
 // RebuildTokenRoutesFromAvailabilityWithOptions repopulates automatic
 // (non-manual) channels for every pattern/exact route from dual sources:
-// 1. channels on exact-model routes whose model_pattern matches the target pattern
+// 1. manual channels on exact-model routes whose model_pattern matches the target pattern
 // 2. token_model_availability + model_availability rows whose model_name matches
 //
 // explicit_group routes are counted but not rewritten: their membership is
@@ -113,6 +120,14 @@ func RebuildTokenRoutesFromAvailabilityWithOptions(ctx context.Context, db *sqlx
 
 	routeRebuildMu.Lock()
 	defer routeRebuildMu.Unlock()
+
+	if opts.CreateModelRoutes {
+		created, skipped, err := createUncoveredModelRoutes(ctx, db)
+		if err != nil {
+			return stats, err
+		}
+		stats.RoutesCreated, stats.UnsafeModelsSkipped = created, skipped
+	}
 
 	type routeRow struct {
 		ID           int64  `db:"id"`
@@ -142,7 +157,7 @@ func RebuildTokenRoutesFromAvailabilityWithOptions(ctx context.Context, db *sqlx
 		stats.ChannelsKept += kept
 	}
 
-	changed := stats.ChannelsInserted + stats.ChannelsRemoved
+	changed := stats.RoutesCreated + stats.ChannelsInserted + stats.ChannelsRemoved
 	stats.Changed = changed > 0
 	if opts.ProbeFilter.Enabled {
 		if changed > 0 {
@@ -289,7 +304,9 @@ func collectDesiredChannels(ctx context.Context, db *sqlx.DB, routeID int64, mod
 	desired := make(map[channelIdentity]desiredChannel)
 	pattern := modelPattern
 
-	// Source 1: channels from exact-model routes whose pattern matches the target.
+	// Source 1: manual attachments on matching exact routes. Automatic channels
+	// are outputs of availability, not another source: copying them between
+	// routes would keep delisted models alive indefinitely.
 	type exactRoute struct {
 		ID           int64  `db:"id"`
 		ModelPattern string `db:"model_pattern"`
@@ -321,7 +338,7 @@ func collectDesiredChannels(ctx context.Context, db *sqlx.DB, routeID int64, mod
 		var channels []chRow
 		if err := db.SelectContext(ctx, &channels,
 			db.Rebind(`SELECT account_id, token_id, source_model, priority, weight, enabled
-			 FROM route_channels WHERE route_id = ? AND enabled = ?`), er.ID, true); err != nil {
+			 FROM route_channels WHERE route_id = ? AND enabled = ? AND manual_override = ?`), er.ID, true, true); err != nil {
 			return nil, fmt.Errorf("load channels for exact route %d: %w", er.ID, err)
 		}
 		for _, ch := range channels {
@@ -565,15 +582,18 @@ func loadLatestProbeFailures(ctx context.Context, db *sqlx.DB) (map[probeFailure
 // rebuildOptionsFromConfig resolves the probe-filter configuration from the
 // global config singleton. A nil config yields the zero-value (legacy) options.
 func rebuildOptionsFromConfig() RebuildOptions {
+	opts := RebuildOptions{}
+	if rt := config.RuntimeSafe(); rt != nil {
+		opts.CreateModelRoutes = rt.AutoCreateModelRoutes
+	}
 	cfg := config.GetSafe()
 	if cfg == nil {
-		return RebuildOptions{}
+		return opts
 	}
-	return RebuildOptions{
-		ProbeFilter: ProbeFilterConfig{
-			Enabled:       cfg.RouteRebuildProbeFilterEnabled,
-			IncludeModels: cfg.RouteRebuildProbeFilterIncludeModels,
-			ExcludeModels: cfg.RouteRebuildProbeFilterExcludeModels,
-		},
+	opts.ProbeFilter = ProbeFilterConfig{
+		Enabled:       cfg.RouteRebuildProbeFilterEnabled,
+		IncludeModels: cfg.RouteRebuildProbeFilterIncludeModels,
+		ExcludeModels: cfg.RouteRebuildProbeFilterExcludeModels,
 	}
+	return opts
 }

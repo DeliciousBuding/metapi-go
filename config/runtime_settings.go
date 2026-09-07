@@ -48,8 +48,11 @@ type RuntimeSettings struct {
 	// enabled) so bare config literals keep the default-on behavior.
 	CheckinDisabled        bool
 	BalanceRefreshDisabled bool
-	ModelSyncCron          string
-	LogCleanupCron         string
+	// AutoCreateModelRoutes is opt-in and persisted in runtime settings.
+	// Existing routes, manual channels and downstream grants remain operator-owned.
+	AutoCreateModelRoutes bool
+	ModelSyncCron         string
+	LogCleanupCron        string
 	// Site & Branding (5 fields) - empty defaults keep the embedded frontend
 	// branding and login-page copy unchanged. homePageContent was removed
 	// (Wave 8 Lane D): the value was stored but never rendered anywhere.

@@ -61,9 +61,9 @@ The nginx/Caddy templates in [deployment.md](deployment.md) include them.
 **Why does a proxy request return 503 instead of a fake answer?**
 Unconfigured forwarding is reported honestly: no route/channel for the
 model, or no upstream configured. Configure a site → account → route and the
-request flows. Auto-rebuild is not a substitute for that last step: it
-recomposes the channels of routes you already have and never creates one, so on
-a fresh install it finishes with `routesConsidered: 0` and the 503 stays. Test/demo stubbing exists behind
+request flows. Automatic creation is off by default: either create a route or
+enable **Automatically create model routes** under **Settings → Operations → Scheduling**,
+then rebuild. A completed task with zero routes/channels is not proof of forwarding. Test/demo stubbing exists behind
 `METAPI_ENABLE_PROXY_STUB` and is never on by default.
 
 ## Routing & models
@@ -77,8 +77,11 @@ fallback). Failed channels cool down and re-enter via half-open probing.
 Discovery does: model lists refresh per site (on login, on demand, and on the
 scheduled sync), and every refresh closes with a route rebuild, so a newly
 discovered model gains a channel on any route whose pattern already covers it.
-A model no existing pattern matches still needs a route of its own — the rebuild
-recomposes channels, it does not create routes.
+A model no existing pattern matches needs its own route. Enable the optional
+`autoCreateModelRoutes` setting to create missing exact-model routes during sync
+or rebuild; otherwise add routes manually. Existing routes and manual overrides
+are preserved. An authoritative empty model list detaches obsolete automatic
+channels; a failed discovery request does not erase its last observed snapshot.
 
 **What does the price column mean for relay sites?**
 Prices joined from a concrete model + account are labeled with their source.

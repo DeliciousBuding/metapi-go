@@ -88,6 +88,7 @@ const schedulingSchema = z.object({
   balanceRefreshEnabled: z.boolean(),
   balanceRefreshSchedule: scheduleSpecSchema,
   modelSyncCron: z.string().min(1),
+  autoCreateModelRoutes: z.boolean(),
   logCleanupSchedule: scheduleSpecSchema,
   logCleanupRetentionDays: z.coerce.number().int().min(1),
   logCleanupUsageLogsEnabled: z.boolean(),
@@ -102,6 +103,7 @@ const DEFAULT_VALUES: SchedulingFormValues = {
   balanceRefreshEnabled: true,
   balanceRefreshSchedule: { version: 1, kind: 'interval', everyHours: 1 },
   modelSyncCron: '0 4 * * *',
+  autoCreateModelRoutes: false,
   logCleanupSchedule: { version: 1, kind: 'daily', time: '06:00' },
   logCleanupRetentionDays: 30,
   logCleanupUsageLogsEnabled: false,
@@ -134,6 +136,7 @@ function deriveServerValues(
     balanceRefreshEnabled: data.balanceRefreshEnabled ?? true,
     balanceRefreshSchedule: balanceSchedule,
     modelSyncCron: data.modelSyncCron ?? '0 4 * * *',
+    autoCreateModelRoutes: data.autoCreateModelRoutes ?? false,
     logCleanupSchedule,
     logCleanupRetentionDays: data.logCleanupRetentionDays ?? 30,
     logCleanupUsageLogsEnabled: Boolean(data.logCleanupUsageLogsEnabled),
@@ -190,6 +193,9 @@ function schedulingToPayload(
   }
   if (changed.logCleanupSchedule) {
     projectSchedule(payload, 'log', changed.logCleanupSchedule)
+  }
+  if (changed.autoCreateModelRoutes !== undefined) {
+    payload.autoCreateModelRoutes = changed.autoCreateModelRoutes
   }
   if (changed.modelSyncCron !== undefined) {
     payload.modelSyncCron = changed.modelSyncCron
@@ -468,6 +474,32 @@ export function SchedulingSection() {
             <h3 className='text-sm font-medium'>
               {t('settings.operations.scheduling.fields.modelSyncGroup')}
             </h3>
+            <FormField
+              control={form.control}
+              name='autoCreateModelRoutes'
+              render={({ field }) => (
+                <FormItem className='flex flex-row items-center gap-3'>
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className='space-y-1'>
+                    <FormLabel className='cursor-pointer'>
+                      {t(
+                        'settings.operations.scheduling.fields.autoCreateModelRoutes'
+                      )}
+                    </FormLabel>
+                    <FormDescription>
+                      {t(
+                        'settings.operations.scheduling.fields.autoCreateModelRoutesHint'
+                      )}
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name='modelSyncCron'

@@ -94,8 +94,8 @@ Open `http://localhost:4000` and sign in with `AUTH_TOKEN`.
 
 > **First proxied request**: `/v1/*` needs at least one upstream site with a
 > verified account and one route covering the model (channels bind themselves
-> from account model availability; Auto-rebuild only recomposes the channels of
-> routes that already exist) — without them the proxy answers
+> from account model availability). Create the route manually or enable the
+> opt-in automatic model-route setting, then rebuild — without usable routes the proxy answers
 > an honest `503 {"error":{"message":"No available channels","type":"server_error"}}`
 > (tested). The full walkthrough lives in
 > [getting-started.md](getting-started.md) (§2–§5).

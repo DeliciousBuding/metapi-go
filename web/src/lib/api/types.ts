@@ -292,6 +292,7 @@ export type RuntimeSettingsPayload = {
   balanceRefreshCron?: string
   balanceRefreshSchedule?: ScheduleSpecV1
   modelSyncCron?: string
+  autoCreateModelRoutes?: boolean
   logCleanupCron?: string
   logCleanupSchedule?: ScheduleSpecV1
   logCleanupUsageLogsEnabled?: boolean
