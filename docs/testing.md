@@ -145,7 +145,7 @@ fixtures, plus `decision` (policy truth tables) and `unit` (leaf helpers).
 | `transform/gemini/generate_content` | OpenAI→Gemini request conversion (tool calls + thought signatures, multimodal placeholders, thinking config) + Gemini request normalization |
 | `transform/openai/completions`, `transform/openai/embeddings`, `transform/openai/images` | Pass-through identity contract (request/response/stream bytes unchanged) |
 | `transform/shared` | Leaf helper edge cases |
-| `handler/proxy` | Response-body usage extraction and incremental SSE stream parsing (usage/finish/error/done state, chunk-boundary independence). In this codebase the response/stream half of protocol handling lives here: SSE streams are relayed byte-for-byte and only parsed for accounting. |
+| `handler/proxy` | Response-body usage extraction and incremental SSE stream parsing (usage/finish/error/done state, chunk-boundary independence). In this codebase the response/stream half of protocol handling lives here: SSE bytes are generally preserved, except the documented native Chat/Messages complete-tool termination and empty Chat finish normalization ([`client-integration.md#native-tool-response-compatibility`](client-integration.md#native-tool-response-compatibility)); attachment responses and frames after `[DONE]` are left untouched. |
 
 Run the suite like any other test (it is part of `go test ./...` and therefore
 part of CI):
@@ -220,15 +220,24 @@ than putting it in a command line, shell history, or committed file.
 
 ```bash
 python3 scripts/e2e/verify-real-relay.py --protocol all --timeout 120 --max-tokens 256
+python3 scripts/e2e/verify-real-relay.py --tool-stream --protocol all --timeout 120 --max-tokens 256
 ```
 
 Each protocol checks JSON, SSE completion, and a complete echo-tool/result
-roundtrip. The tool result contains a fresh receipt that must appear in the final
-answer; merely announcing a tool call is not sufficient. The command makes at
-most 12 model POSTs, performs no automatic retries, and can incur upstream usage.
-It prints metadata only and exits nonzero for any failed scenario. Tool streaming
-is not covered by this runner; exercise a real downstream CLI separately when
-that client contract is part of the release scope.
+roundtrip. With `--tool-stream`, it additionally exercises a streamed echo-tool
+call with reassembly of fragmented arguments, then a streamed result followup; the
+tool result contains a fresh receipt that must appear in the final answer, and
+merely announcing a tool call is not sufficient. Without the flag the default
+scenarios and 12-POST budget are unchanged. The streamed result followup must
+preserve the same native replay context as the non-stream contract: Chat
+`reasoning_content`, Messages thinking (including signature), and Responses
+reasoning items. Unsupported stream events and unsupported reasoning deltas
+fail explicitly. The command makes at most 12 model POSTs by default (18 with
+`--tool-stream`), performs no automatic retries, and can incur upstream usage.
+It prints metadata only and exits nonzero for any failed scenario. Offline
+validator fixtures are instrument checks, not a substitute for a live `--tool-stream` run when claiming real streaming-tool
+coverage; a real downstream CLI contract still needs a separate exercise when it
+is part of the release scope.
 
 A passing client report does not identify the physical upstream provider. Pair it
 with verified test configuration, model request IDs, and gateway/Metapi logs for

@@ -81,3 +81,16 @@ request** shortcut into the model tester.
 
 See [`api.md`](api.md) for the full endpoint inventory and
 [`getting-started.md`](getting-started.md) for the first-request walkthrough.
+
+## Native tool response compatibility
+
+For OpenAI Chat Completions and Anthropic Messages, complete native tool calls
+are returned with their protocol-specific tool termination reason. A provider's
+ordinary `stop` or `end_turn` is corrected only when all observed tool arguments
+form complete JSON objects; streamed tool blocks must also be closed. Empty
+Chat streaming finish reasons become `null` on non-terminal chunks.
+
+This does not turn errors, token-limit endings, refusals, malformed arguments,
+or interrupted streams into success. Reasoning/signatures, tool identifiers,
+arguments, usage and provider extension fields remain intact. Non-chat APIs,
+attachments and undecodable representations are not rewritten.

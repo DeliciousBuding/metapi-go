@@ -23,6 +23,10 @@ SPEC.loader.exec_module(relay)
 MODEL = "fixture-response-model"
 VALUE = "echo-fixture"
 RECEIPT = "receipt-fixture"
+TOOL_NAME = relay.TOOL_NAME
+CHAT_REASONING = "private reasoning fixture"
+MESSAGE_THINKING = "private thinking fixture"
+MESSAGE_SIGNATURE = "private-signature-fixture"
 TEXT = "Private fixture text, not report output."
 KEY = "fixture-key-never-log"
 ENV = {"RELAY_BASE_URL": "http://127.0.0.1:12345", "RELAY_API_KEY": KEY,
@@ -67,34 +71,104 @@ def call_item(protocol, doc):
     return doc["output"][-1] if protocol == "responses" else doc["content"][0]
 
 
-def stream_events(protocol):
-    doc = document(protocol)
+def stream_events(protocol, text=TEXT):
+    doc = document(protocol, text=text)
     if protocol == "chat":
         def chunk(delta, finish=None):
             return {"id": doc["id"], "model": MODEL, "object": "chat.completion.chunk",
                     "choices": [{"index": 0, "delta": delta, "finish_reason": finish}]}
         return [("", chunk({"role": "assistant", "content": ""})),
-                ("", chunk({"content": TEXT})), ("", chunk({}, "stop")),
+                ("", chunk({"content": text})), ("", chunk({}, "stop")),
                 ("", {"id": doc["id"], "model": MODEL, "object": "chat.completion.chunk",
                       "choices": [], "usage": doc["usage"]}), ("", "[DONE]")]
     if protocol == "responses":
         return [("response.created", {"type": "response.created", "response": {
                     "id": doc["id"], "model": MODEL, "status": "in_progress"}}),
                 ("response.output_text.delta", {"type": "response.output_text.delta", "item_id": "msg_fixture",
-                    "output_index": 0, "content_index": 0, "delta": TEXT}),
+                    "output_index": 0, "content_index": 0, "delta": text}),
                 ("response.output_text.done", {"type": "response.output_text.done", "item_id": "msg_fixture",
-                    "output_index": 0, "content_index": 0, "text": TEXT}),
+                    "output_index": 0, "content_index": 0, "text": text}),
                 ("response.completed", {"type": "response.completed", "response": doc})]
     start = dict(doc, content=[], stop_reason=None, usage={"input_tokens": 12})
     return [("message_start", {"type": "message_start", "message": start}),
             ("content_block_start", {"type": "content_block_start", "index": 0,
                                      "content_block": {"type": "text", "text": ""}}),
             ("content_block_delta", {"type": "content_block_delta", "index": 0,
-                                     "delta": {"type": "text_delta", "text": TEXT}}),
+                                     "delta": {"type": "text_delta", "text": text}}),
             ("content_block_stop", {"type": "content_block_stop", "index": 0}),
             ("message_delta", {"type": "message_delta", "delta": {"stop_reason": "end_turn"},
                                "usage": {"output_tokens": 5}}),
             ("message_stop", {"type": "message_stop"})]
+
+
+def tool_stream_events(protocol, value=VALUE):
+    doc = document(protocol, tool=True)
+    raw = json.dumps({"value": value}, separators=(",", ":"))
+    width = max(1, len(raw) // 3)
+    fragments = [raw[pos:pos + width] for pos in range(0, len(raw), width)]
+    if protocol == "chat":
+        item = doc["choices"][0]["message"]["tool_calls"][0]
+        def chunk(delta, finish=None):
+            return {"id": doc["id"], "model": MODEL, "object": "chat.completion.chunk",
+                    "choices": [{"index": 0, "delta": delta, "finish_reason": finish}]}
+        return [("", chunk({"role": "assistant", "content": ""})),
+                ("", chunk({"reasoning_content": CHAT_REASONING})),
+                ("", chunk({"tool_calls": [{"index": 0, "id": item["id"], "type": "function",
+                                            "function": {"name": TOOL_NAME, "arguments": fragments[0]}}]})),
+                ("", chunk({"tool_calls": [{"index": 0, "function": {"arguments": fragments[1]}}]})),
+                ("", chunk({"tool_calls": [{"index": 0, "function": {"arguments": fragments[2]}}]})),
+                ("", chunk({}, "tool_calls")),
+                ("", {"id": doc["id"], "model": MODEL, "object": "chat.completion.chunk",
+                      "choices": [], "usage": doc["usage"]}), ("", "[DONE]")]
+    if protocol == "responses":
+        item = doc["output"][-1]
+        item_id, call_id = item["id"], item["call_id"]
+        base_item = {"type": "function_call", "id": item_id, "call_id": call_id,
+                     "name": TOOL_NAME, "arguments": "", "status": "in_progress"}
+        return [("response.created", {"type": "response.created", "response": {
+                    "id": doc["id"], "model": MODEL, "status": "in_progress"}}),
+                ("response.output_item.added", {"type": "response.output_item.added", "output_index": 0,
+                                                "item": base_item}),
+                ("response.function_call_arguments.delta", {"type": "response.function_call_arguments.delta",
+                    "output_index": 0, "item_id": item_id,
+                    "delta": fragments[0]}),
+                ("response.function_call_arguments.delta", {"type": "response.function_call_arguments.delta",
+                    "output_index": 0, "item_id": item_id,
+                    "delta": fragments[1]}),
+                ("response.function_call_arguments.delta", {"type": "response.function_call_arguments.delta",
+                    "output_index": 0, "item_id": item_id,
+                    "delta": fragments[2]}),
+                ("response.function_call_arguments.done", {"type": "response.function_call_arguments.done",
+                    "output_index": 0, "item_id": item_id,
+                    "arguments": raw}),
+                ("response.output_item.done", {"type": "response.output_item.done", "output_index": 0,
+                    "item": dict(base_item, arguments=raw, status="completed")}),
+                ("response.completed", {"type": "response.completed", "response": doc})]
+    start = {"id": doc["id"], "model": MODEL, "type": "message", "role": "assistant",
+             "content": [], "stop_reason": None, "stop_sequence": None, "usage": {"input_tokens": 12}}
+    thinking_block = {"type": "thinking", "thinking": "", "signature": ""}
+    tool_block = {"type": "tool_use", "id": "toolu_fixture", "name": TOOL_NAME, "input": {}}
+    return [("message_start", {"type": "message_start", "message": start}),
+            ("content_block_start", {"type": "content_block_start", "index": 0,
+                                     "content_block": thinking_block}),
+            ("content_block_delta", {"type": "content_block_delta", "index": 0,
+                                     "delta": {"type": "thinking_delta", "thinking": MESSAGE_THINKING}}),
+            ("content_block_delta", {"type": "content_block_delta", "index": 0,
+                                     "delta": {"type": "signature_delta", "signature": MESSAGE_SIGNATURE}}),
+            ("content_block_stop", {"type": "content_block_stop", "index": 0}),
+            ("content_block_start", {"type": "content_block_start", "index": 1,
+                                     "content_block": tool_block}),
+            ("content_block_delta", {"type": "content_block_delta", "index": 1,
+                                     "delta": {"type": "input_json_delta", "partial_json": fragments[0]}}),
+            ("content_block_delta", {"type": "content_block_delta", "index": 1,
+                                     "delta": {"type": "input_json_delta", "partial_json": fragments[1]}}),
+            ("content_block_delta", {"type": "content_block_delta", "index": 1,
+                                     "delta": {"type": "input_json_delta", "partial_json": fragments[2]}}),
+            ("content_block_stop", {"type": "content_block_stop", "index": 1}),
+            ("message_delta", {"type": "message_delta", "delta": {"stop_reason": "tool_use"},
+                               "usage": {"output_tokens": 5}}),
+            ("message_stop", {"type": "message_stop"})]
+
 
 
 def pack(events):
@@ -129,6 +203,225 @@ class ValidatorTests(unittest.TestCase):
                 value = relay.validate_json(protocol, encode(document(protocol, tool=True)), tool=True, expected_value=VALUE)
                 self.assertEqual(value["_call"]["name"], "metapi_echo")
                 self.assertEqual(value["_call"]["arguments"], {"value": VALUE})
+
+    def test_all_normal_streaming_tool_fixtures(self):
+        for protocol in relay.PROTOCOLS:
+            with self.subTest(protocol=protocol):
+                value = relay.validate_http(protocol, (200, "text/event-stream", pack(tool_stream_events(protocol))),
+                                            stream=True, tool=True, expected_value=VALUE)
+                self.assertEqual(value["_call"]["name"], "metapi_echo")
+                self.assertEqual(value["_call"]["arguments"], {"value": VALUE})
+                self.assertEqual(value["_document"]["id"], document(protocol, tool=True)["id"])
+
+    def test_responses_function_call_delta_binds_item_id_and_optional_call_identity(self):
+        events = tool_stream_events("responses")
+        relay.validate_sse("responses", pack(events), tool=True, expected_value=VALUE)
+        for field in ("item_id", "call_id", "name"):
+            damaged = copy.deepcopy(events)
+            found = False
+            for event, obj in damaged:
+                if isinstance(obj, dict) and obj.get("type") in (
+                        "response.function_call_arguments.delta",
+                        "response.function_call_arguments.done"):
+                    if field == "item_id":
+                        obj["item_id"] = "wrong_item"
+                    elif field == "call_id":
+                        obj["call_id"] = "wrong_call"
+                    else:
+                        obj["name"] = "wrong_name"
+                    found = True
+                    break
+            self.assertTrue(found)
+            with self.subTest(field=field):
+                with self.assertRaises(relay.CheckFailed):
+                    relay.validate_sse("responses", pack(damaged), tool=True, expected_value=VALUE)
+
+    def test_chat_streaming_tool_name_fragments_accumulate_and_id_consistency(self):
+        events = tool_stream_events("chat")
+        doc = document("chat", tool=True)
+        first = events[2][1]["choices"][0]
+        split = len(TOOL_NAME) // 2
+        first["delta"]["tool_calls"][0]["function"]["name"] = TOOL_NAME[:split]
+        events.insert(3, ("", {"id": doc["id"], "model": MODEL, "object": "chat.completion.chunk",
+                               "choices": [{"index": 0, "delta": {"tool_calls": [{
+                                   "index": 0, "function": {"name": TOOL_NAME[split:]}}]},
+                                   "finish_reason": None}]}))
+        validated = relay.validate_sse("chat", pack(events), tool=True, expected_value=VALUE)
+        self.assertEqual(validated["_call"]["name"], TOOL_NAME)
+        invalid = copy.deepcopy(events)
+        invalid.insert(4, ("", {"id": doc["id"], "model": MODEL, "object": "chat.completion.chunk",
+                                "choices": [{"index": 0, "delta": {"tool_calls": [{"index": 0, "id": "wrong_call"}]},
+                                             "finish_reason": None}]}))
+        with self.assertRaises(relay.CheckFailed):
+            relay.validate_sse("chat", pack(invalid), tool=True, expected_value=VALUE)
+
+    def test_messages_tool_use_input_placeholder_is_required(self):
+        events = tool_stream_events("messages")
+        for bad in (None, "", "not a dict", [0], {"value": VALUE}):
+            damaged = copy.deepcopy(events)
+            found = False
+            for event, obj in damaged:
+                if isinstance(obj, dict) and obj.get("type") == "content_block_start":
+                    block = obj.get("content_block")
+                    if isinstance(block, dict) and block.get("type") == "tool_use":
+                        block["input"] = bad
+                        found = True
+                        break
+            self.assertTrue(found)
+            with self.subTest(bad=bad):
+                with self.assertRaises(relay.CheckFailed):
+                    relay.validate_sse("messages", pack(damaged), tool=True, expected_value=VALUE)
+
+    def test_streaming_tool_followup_receipt_uses_streamed_document(self):
+        for protocol in relay.PROTOCOLS:
+            original = relay.request_body(protocol, "requested", 256, stream=True, tool_value=VALUE)
+            validated = relay.validate_sse(protocol, pack(tool_stream_events(protocol)), tool=True, expected_value=VALUE)
+            followup = relay.followup_body(protocol, original, validated, RECEIPT)
+            with self.subTest(protocol=protocol):
+                if protocol == "chat":
+                    result = followup["messages"][-1]
+                    self.assertEqual(result["tool_call_id"], "call_fixture")
+                    self.assertEqual(followup["messages"][-2], validated["_document"]["choices"][0]["message"])
+                    raw = result["content"]
+                elif protocol == "responses":
+                    self.assertEqual(followup["input"][-1]["call_id"], "call_fixture")
+                    raw = followup["input"][-1]["output"]
+                else:
+                    result = followup["messages"][-1]["content"][0]
+                    self.assertEqual(result["tool_use_id"], "toolu_fixture")
+                    raw = result["content"]
+                self.assertEqual(json.loads(raw), {"value": VALUE, "receipt": RECEIPT})
+                self.assertTrue(followup["stream"])
+
+    def test_streaming_tool_replay_preserves_native_reasoning_context(self):
+        for protocol in relay.PROTOCOLS:
+            original = relay.request_body(protocol, "requested", 256, stream=True, tool_value=VALUE)
+            validated = relay.validate_sse(protocol, pack(tool_stream_events(protocol)), tool=True, expected_value=VALUE)
+            followup = relay.followup_body(protocol, original, validated, RECEIPT)
+            with self.subTest(protocol=protocol):
+                if protocol == "chat":
+                    stream_message = validated["_document"]["choices"][0]["message"]
+                    followup_message = followup["messages"][-2]
+                    self.assertEqual(stream_message["reasoning_content"], CHAT_REASONING)
+                    self.assertEqual(followup_message["reasoning_content"], CHAT_REASONING)
+                elif protocol == "responses":
+                    reasoning = [item for item in validated["_document"]["output"] if item.get("type") == "reasoning"]
+                    self.assertTrue(reasoning)
+                    self.assertEqual(followup["input"][1:-1], validated["_document"]["output"])
+                else:
+                    assistant = followup["messages"][-2]
+                    thinking = [part for part in assistant["content"] if part.get("type") == "thinking"]
+                    self.assertEqual(len(thinking), 1)
+                    self.assertEqual(thinking[0]["thinking"], MESSAGE_THINKING)
+                    self.assertEqual(thinking[0]["signature"], MESSAGE_SIGNATURE)
+
+    def test_unpreserved_stream_context_fails_explicitly(self):
+        events = tool_stream_events("chat")
+        events.insert(2, ("", {"id": document("chat", tool=True)["id"], "model": MODEL,
+                               "object": "chat.completion.chunk",
+                               "choices": [{"index": 0, "delta": {"reasoning": "not preserved"},
+                                            "finish_reason": None}]}))
+        with self.assertRaises(relay.CheckFailed):
+            relay.validate_sse("chat", pack(events), tool=True, expected_value=VALUE)
+        events = tool_stream_events("responses")
+        events[1][1]["item"]["type"] = "unknown_output_item"
+        with self.assertRaises(relay.CheckFailed):
+            relay.validate_sse("responses", pack(events), tool=True, expected_value=VALUE)
+        events = tool_stream_events("messages")
+        events[2][1]["delta"]["type"] = "unknown_delta"
+        with self.assertRaises(relay.CheckFailed):
+            relay.validate_sse("messages", pack(events), tool=True, expected_value=VALUE)
+
+    def test_streaming_tool_truncation_fails(self):
+        for protocol in relay.PROTOCOLS:
+            events = tool_stream_events(protocol)
+            for damaged in (events[:-1], events[:-2]):
+                with self.subTest(protocol=protocol, tail=damaged[-1][0]):
+                    with self.assertRaises(relay.CheckFailed):
+                        relay.validate_sse(protocol, pack(damaged), tool=True, expected_value=VALUE)
+
+    def test_streaming_tool_error_fails(self):
+        for protocol in relay.PROTOCOLS:
+            events = tool_stream_events(protocol)
+            error = ("error", {"type": "error", "error": {"message": "private failure detail"}})
+            for damaged in ([error] + events, events + [error], events[:-1] + [error]):
+                with self.subTest(protocol=protocol, placement=len(damaged)):
+                    with self.assertRaises(relay.CheckFailed):
+                        relay.validate_sse(protocol, pack(damaged), tool=True, expected_value=VALUE)
+
+    def test_streaming_tool_wrong_termination_fails(self):
+        for protocol in relay.PROTOCOLS:
+            events = tool_stream_events(protocol)
+            if protocol == "chat":
+                for event, obj in events:
+                    if isinstance(obj, dict):
+                        for choice in obj.get("choices", []):
+                            choice["finish_reason"] = "stop"
+            elif protocol == "responses":
+                events[-1][1]["response"]["status"] = "incomplete"
+            else:
+                for event, obj in events:
+                    if event == "message_delta":
+                        obj["delta"]["stop_reason"] = "end_turn"
+            with self.subTest(protocol=protocol):
+                with self.assertRaises(relay.CheckFailed):
+                    relay.validate_sse(protocol, pack(events), tool=True, expected_value=VALUE)
+
+    def test_streaming_tool_duplicate_terminal_fails(self):
+        for protocol in relay.PROTOCOLS:
+            events = tool_stream_events(protocol)
+            if protocol == "chat":
+                events = events + [("", "[DONE]")]
+            elif protocol == "responses":
+                events = events + [("response.completed", copy.deepcopy(events[-1][1]))]
+            else:
+                events = events + [("message_stop", {"type": "message_stop"})]
+            with self.subTest(protocol=protocol):
+                with self.assertRaises(relay.CheckFailed):
+                    relay.validate_sse(protocol, pack(events), tool=True, expected_value=VALUE)
+
+    def test_streaming_tool_identity_and_arguments_are_strict(self):
+        def mutate(protocol, field, value):
+            events = tool_stream_events(protocol)
+            if protocol == "chat":
+                for event, obj in events:
+                    if isinstance(obj, dict):
+                        for choice in obj.get("choices", []):
+                            for item in choice.get("delta", {}).get("tool_calls", []):
+                                if field == "name":
+                                    item["function"]["name"] = value
+                                elif field == "id":
+                                    item["id"] = ""
+                                elif field == "args":
+                                    item["function"]["arguments"] = "wrong"
+            elif protocol == "responses":
+                for event, obj in events:
+                    if isinstance(obj, dict) and obj.get("type") == "response.function_call_arguments.delta":
+                        if field == "name":
+                            obj["name"] = value
+                        elif field == "id":
+                            obj["call_id"] = value
+                        elif field == "args":
+                            obj["delta"] = "wrong"
+            else:
+                for event, obj in events:
+                    if isinstance(obj, dict) and obj.get("type") == "content_block_start":
+                        if field == "name":
+                            obj["content_block"]["name"] = value
+                        elif field == "id":
+                            obj["content_block"]["id"] = None
+                        elif field == "args":
+                            pass
+                    if isinstance(obj, dict) and obj.get("type") == "content_block_delta" and field == "args":
+                        obj["delta"]["partial_json"] = "wrong"
+            return events
+
+        for protocol in relay.PROTOCOLS:
+            for field in ("name", "id", "args"):
+                with self.subTest(protocol=protocol, field=field):
+                    with self.assertRaises(relay.CheckFailed):
+                        relay.validate_sse(protocol, pack(mutate(protocol, field, "wrong")), tool=True,
+                                           expected_value=VALUE)
 
     def test_damaged_json_and_non_objects(self):
         for protocol in relay.PROTOCOLS:
@@ -506,6 +799,10 @@ class TransportAndCliValidatorTests(unittest.TestCase):
     def good_post(client, protocol, body):
         client.request_count += 1
         if body["stream"]:
+            if body.get("tool_choice") in ("none", {"type": "none"}):
+                return 200, "text/event-stream", pack(stream_events(protocol, text=RECEIPT))
+            if "tools" in body:
+                return 200, "text/event-stream", pack(tool_stream_events(protocol))
             return 200, "text/event-stream", pack(stream_events(protocol))
         if body.get("tool_choice") in ("none", {"type": "none"}):
             doc = document(protocol, text=RECEIPT)
@@ -566,6 +863,48 @@ class TransportAndCliValidatorTests(unittest.TestCase):
                 self.assertEqual(code, 0)
                 self.assertEqual(report["requestCount"], 4)
                 self.assertEqual({r["protocol"] for r in report["results"]}, {protocol})
+
+    def test_tool_stream_uses_eighteen_posts_and_streamed_receipt_followup(self):
+        code, report, raw = self.run_cli(["--tool-stream"], self.good_post)
+        self.assertEqual(code, 0)
+        self.assertEqual(report["status"], "pass")
+        self.assertEqual(report["requestCount"], 18)
+        self.assertEqual(report["requestLimit"], 18)
+        self.assertEqual(report["toolStream"], True)
+        self.assertEqual(len(report["results"]), 12)
+        self.assertEqual(sum(row["scenario"] == "tool_stream" for row in report["results"]), 3)
+        for row in report["results"]:
+            if row["scenario"] == "tool_stream":
+                self.assertEqual(row["status"], "pass")
+                self.assertEqual(row["followup"]["status"], "pass")
+        for private in (KEY, TEXT, VALUE, RECEIPT, "Preserve this reasoning"):
+            self.assertNotIn(private, raw)
+
+    def test_tool_stream_protocol_selection_uses_six_posts(self):
+        for protocol in relay.PROTOCOLS:
+            with self.subTest(protocol=protocol):
+                code, report, _ = self.run_cli(["--protocol", protocol, "--tool-stream"], self.good_post)
+                self.assertEqual(code, 0)
+                self.assertEqual(report["requestCount"], 6)
+                self.assertEqual(report["requestLimit"], 6)
+                self.assertEqual({r["protocol"] for r in report["results"]}, {protocol})
+
+    def test_streaming_followup_requires_receipt_not_just_any_text(self):
+        def post(client, protocol, body):
+            if body["stream"]:
+                client.request_count += 1
+                if body.get("tool_choice") in ("none", {"type": "none"}):
+                    return 200, "text/event-stream", pack(stream_events(protocol))
+                if "tools" in body:
+                    return 200, "text/event-stream", pack(tool_stream_events(protocol))
+                return 200, "text/event-stream", pack(stream_events(protocol))
+            return self.good_post(client, protocol, body)
+        code, report, _ = self.run_cli(["--tool-stream"], post)
+        self.assertEqual(code, 1)
+        self.assertEqual(report["requestCount"], 18)
+        for row in report["results"]:
+            if row["scenario"] == "tool_stream":
+                self.assertEqual(row["followup"]["error"], "followup_did_not_use_tool_result")
 
     def test_missing_tool_skips_followup_and_is_nonzero(self):
         def post(client, protocol, body):

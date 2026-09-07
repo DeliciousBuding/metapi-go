@@ -4,7 +4,8 @@
 Required environment: RELAY_BASE_URL (origin or /v1 base), RELAY_API_KEY,
 RELAY_MODEL. No service discovery, provisioning, retries, or built-in tools.
 Requires system curl >= 8.4 for unknown-length transfer-size enforcement.
-Each protocol uses at most four POSTs: JSON, SSE, echo call, echo followup.
+Each protocol uses at most four POSTs by default (six with --tool-stream):
+JSON, SSE, echo call, echo followup, streaming echo call, streaming followup.
 Only metadata is printed. Bodies, prompts, tool payloads and auth stay in memory.
 A pass proves client-visible relay semantics, NOT upstream/provider provenance.
 The companion unittest file contains validator tests, never live relay proof.
@@ -230,12 +231,29 @@ def sse_events(raw):
     return events
 
 
-def validate_sse(protocol, raw):
+def chat_tool_document(model, response_id, text, usage, call, reasoning_content=None):
+    """Build the only streamed replay document that needs synthesis: OpenAI Chat."""
+    arguments = json.dumps(call["arguments"], ensure_ascii=True, separators=(",", ":"))
+    message = {"role": "assistant", "content": text or None,
+               "tool_calls": [{"id": call["id"], "type": "function",
+                               "function": {"name": call["name"], "arguments": arguments}}]}
+    if reasoning_content:
+        message["reasoning_content"] = reasoning_content
+    return {"id": response_id, "model": model, "object": "chat.completion",
+            "choices": [{"index": 0, "message": message, "finish_reason": "tool_calls"}],
+            "usage": usage}
+
+
+def validate_sse(protocol, raw, *, tool=False, expected_value=None):
     events = sse_events(raw)
     text, model, response_id, usage = "", None, None, {}
+    chat_reasoning = ""
     finished, done, started, stop_reason = False, False, False, None
     blocks, closed = {}, set()
     response_parts, part_ids, ended_parts = {}, {}, set()
+    response_calls = {}
+    tool_calls = {}
+    stream_call, stream_document = None, None
 
     def metadata(doc):
         nonlocal model, response_id, usage
@@ -275,14 +293,56 @@ def validate_sse(protocol, raw):
             delta = choice.get("delta")
             no_error(delta)
             require(delta.get("role", "assistant") == "assistant", "invalid_role")
-            require(not delta.get("tool_calls") and not delta.get("function_call") and not delta.get("refusal"),
-                    "unexpected_tool_or_refusal")
+            require(not delta.get("function_call") and not delta.get("refusal"), "unexpected_tool_or_refusal")
+            require(delta.get("reasoning") is None, "unpreserved_chat_reasoning_delta")
+            reasoning_delta = delta.get("reasoning_content")
+            require(reasoning_delta is None or isinstance(reasoning_delta, str), "invalid_reasoning_content")
+            chat_reasoning += reasoning_delta or ""
+            raw_tool_calls = delta.get("tool_calls")
+            if raw_tool_calls is not None:
+                if tool:
+                    require(isinstance(raw_tool_calls, list), "invalid_tool_calls")
+                    seen = set()
+                    for item in raw_tool_calls:
+                        no_error(item)
+                        require(isinstance(item, dict), "invalid_tool_call")
+                        index = item.get("index")
+                        require(integer(index) and index not in seen, "invalid_or_duplicate_tool_index")
+                        seen.add(index)
+                        entry = tool_calls.get(index)
+                        if entry is None:
+                            entry = {"id": None, "name": "", "arguments": ""}
+                            tool_calls[index] = entry
+                        if item.get("type") not in (None, "function"):
+                            require(False, "unexpected_tool_type")
+                        if "id" in item:
+                            value = identifier(item["id"])
+                            require(entry["id"] is None or entry["id"] == value, "stream_tool_identity_changed")
+                            entry["id"] = value
+                        function = item.get("function")
+                        if function is not None:
+                            no_error(function)
+                            require(isinstance(function, dict), "invalid_tool_function")
+                            if "name" in function:
+                                value = function["name"]
+                                require(isinstance(value, str) and value, "invalid_tool_name")
+                                entry["name"] += value
+                            if "arguments" in function:
+                                value = function["arguments"]
+                                require(isinstance(value, str), "invalid_tool_arguments")
+                                entry["arguments"] += value
+                else:
+                    require(not raw_tool_calls, "unexpected_tool_or_refusal")
             content = delta.get("content")
             require(content is None or isinstance(content, str), "invalid_content")
             text += content or ""
             reason = choice.get("finish_reason")
-            require(reason in (None, "stop"), "abnormal_finish")
-            finished = reason == "stop"
+            if tool:
+                require(reason in (None, "tool_calls"), "abnormal_finish")
+                finished = reason == "tool_calls"
+            else:
+                require(reason in (None, "stop"), "abnormal_finish")
+                finished = reason == "stop"
         elif protocol == "responses":
             require(not finished, "event_after_completion")
             kind = obj.get("type")
@@ -303,11 +363,50 @@ def validate_sse(protocol, raw):
                             and obj["text"] == response_parts[index], "stream_text_mismatch")
                     ended_parts.add(index)
                 text = "".join(response_parts[i] for i in sorted(response_parts))
+            elif kind in ("response.function_call_arguments.delta", "response.function_call_arguments.done"):
+                require(tool, "unexpected_tool_or_refusal")
+                index = obj.get("output_index")
+                require(integer(index), "invalid_output_index")
+                entry = response_calls.get(index)
+                require(entry is not None, "missing_function_call_item")
+                item_id = identifier(obj.get("item_id"))
+                require(item_id == entry["item_id"], "stream_tool_identity_changed")
+                if "call_id" in obj:
+                    optional_call_id = identifier(obj["call_id"])
+                    require(optional_call_id == entry["call_id"], "stream_tool_identity_changed")
+                if "name" in obj:
+                    optional_name = identifier(obj["name"])
+                    require(optional_name == entry["name"], "stream_tool_identity_changed")
+                if kind.endswith(".delta"):
+                    require(not entry["args_done"], "arguments_after_done")
+                    delta = obj.get("delta")
+                    require(isinstance(delta, str), "invalid_tool_arguments")
+                    entry["arguments"] += delta
+                else:
+                    require(not entry["args_done"], "duplicate_function_args_done")
+                    arguments = obj.get("arguments")
+                    require(isinstance(arguments, str), "invalid_tool_arguments")
+                    require(entry["arguments"] == arguments, "stream_tool_arguments_mismatch")
+                    entry["args_done"] = True
             elif kind == "response.completed":
-                final = validate_json("responses", json.dumps(obj.get("response")))
+                final = validate_json("responses", json.dumps(obj.get("response")), tool=tool,
+                                      expected_value=expected_value)
                 metadata(final["_document"])
-                require(has_text(text) and text == final["_text"], "stream_text_mismatch")
+                require(text == final["_text"], "stream_text_mismatch")
                 output = final["_document"]["output"]
+                if tool:
+                    require(len(response_calls) == 1, "expected_one_tool_call")
+                    entry = next(iter(response_calls.values()))
+                    require(entry["args_done"] and entry["output_done"], "missing_function_call_completion")
+                    function_items = [item for item in output if item.get("type") == "function_call"]
+                    require(len(function_items) == 1, "expected_one_tool_call")
+                    item = function_items[0]
+                    require(item.get("id") == entry["item_id"] and item.get("call_id") == entry["call_id"]
+                            and item.get("name") == entry["name"]
+                            and json_value(item.get("arguments")) == json_value(entry["arguments"]),
+                            "stream_tool_identity_or_arguments_mismatch")
+                    stream_call = final["_call"]
+                    stream_document = final["_document"]
                 for (item_index, content_index), item_id in part_ids.items():
                     require(item_index < len(output), "invalid_output_index")
                     item = output[item_index]
@@ -319,9 +418,33 @@ def validate_sse(protocol, raw):
             elif kind in ("response.output_item.added", "response.output_item.done"):
                 item = obj.get("item")
                 no_error(item)
-                require(item.get("type") in ("message", "reasoning"), "unexpected_output_type")
-                if kind.endswith(".done"):
-                    require(item.get("status", "completed") == "completed", "incomplete_output_item")
+                item_kind = item.get("type")
+                if item_kind == "function_call":
+                    require(tool, "unexpected_tool_or_refusal")
+                    index = obj.get("output_index")
+                    require(integer(index), "invalid_output_index")
+                    item_id = identifier(item.get("id"))
+                    call_id = identifier(item.get("call_id"))
+                    name = identifier(item.get("name"))
+                    arguments = item.get("arguments", "")
+                    require(isinstance(arguments, str), "invalid_tool_arguments")
+                    entry = response_calls.get(index)
+                    if kind.endswith(".added"):
+                        require(entry is None, "duplicate_function_call")
+                        response_calls[index] = {"item_id": item_id, "call_id": call_id, "name": name,
+                                                 "arguments": arguments, "args_done": False, "output_done": False}
+                    else:
+                        require(entry is not None, "missing_function_call_item")
+                        require(item_id == entry["item_id"] and call_id == entry["call_id"]
+                                and name == entry["name"], "stream_tool_identity_changed")
+                        require(entry["args_done"], "missing_function_call_args_done")
+                        require(not entry["output_done"], "duplicate_function_call_done")
+                        require(arguments == entry["arguments"], "stream_tool_arguments_mismatch")
+                        entry["output_done"] = True
+                else:
+                    require(item_kind in ("message", "reasoning"), "unexpected_output_type")
+                    if kind.endswith(".done"):
+                        require(item.get("status", "completed") == "completed", "incomplete_output_item")
             elif kind in ("response.content_part.added", "response.content_part.done"):
                 part = obj.get("part")
                 no_error(part)
@@ -354,11 +477,31 @@ def validate_sse(protocol, raw):
                         require(index not in blocks, "duplicate_content_block")
                         block = obj.get("content_block")
                         no_error(block)
-                        require(block.get("type") in ("text", "thinking", "redacted_thinking"),
-                                "unexpected_content_type")
-                        initial = block.get("text", "")
-                        require(isinstance(initial, str), "invalid_content")
-                        blocks[index] = {"type": block["type"], "text": initial if block["type"] == "text" else ""}
+                        block_kind = block.get("type")
+                        if block_kind == "tool_use":
+                            require(tool, "unexpected_tool_or_refusal")
+                            require(block.get("input") == {}, "invalid_tool_input_placeholder")
+                            blocks[index] = {"type": "tool_use", "id": identifier(block.get("id")),
+                                             "name": identifier(block.get("name")), "arguments": ""}
+                        elif block_kind in ("text", "thinking", "redacted_thinking"):
+                            if block_kind == "text":
+                                initial = block.get("text", "")
+                                require(isinstance(initial, str), "invalid_content")
+                                blocks[index] = {"type": block_kind, "text": initial}
+                            elif block_kind == "thinking":
+                                initial = block.get("thinking", "")
+                                require(isinstance(initial, str), "invalid_thinking")
+                                blocks[index] = {"type": block_kind, "thinking": initial, "signature": ""}
+                                signature = block.get("signature")
+                                if signature is not None:
+                                    require(isinstance(signature, str), "invalid_thinking_signature")
+                                    blocks[index]["signature"] = signature
+                            else:
+                                data = block.get("data", "")
+                                require(isinstance(data, str), "invalid_redacted_thinking")
+                                blocks[index] = {"type": block_kind, "data": data}
+                        else:
+                            raise CheckFailed("unexpected_content_type")
                     else:
                         require(index in blocks and index not in closed, "unopened_or_closed_block")
                         if kind == "content_block_stop":
@@ -366,32 +509,76 @@ def validate_sse(protocol, raw):
                         else:
                             delta = obj.get("delta")
                             no_error(delta)
-                            if blocks[index]["type"] == "text":
+                            block_kind = blocks[index]["type"]
+                            if block_kind == "text":
                                 require(delta.get("type") == "text_delta" and isinstance(delta.get("text"), str),
                                         "invalid_text_delta")
                                 blocks[index]["text"] += delta["text"]
-                            else:
+                            elif block_kind == "tool_use":
+                                require(delta.get("type") == "input_json_delta"
+                                        and isinstance(delta.get("partial_json"), str), "invalid_tool_arguments_delta")
+                                blocks[index]["arguments"] += delta["partial_json"]
+                            elif block_kind == "thinking":
                                 field = {"thinking_delta": "thinking", "signature_delta": "signature"}.get(delta.get("type"))
                                 require(field is not None and isinstance(delta.get(field), str), "invalid_thinking_delta")
+                                blocks[index][field] += delta[field]
+                            else:
+                                require(False, "unpreserved_redacted_thinking_delta")
                 elif kind == "message_delta":
                     delta = obj.get("delta")
                     no_error(delta)
-                    require(stop_reason is None and set(blocks) == closed and delta.get("stop_reason") == "end_turn",
+                    require(stop_reason is None and set(blocks) == closed, "abnormal_finish_or_unclosed_block")
+                    require(delta.get("stop_reason") == ("tool_use" if tool else "end_turn"),
                             "abnormal_finish_or_unclosed_block")
-                    stop_reason = "end_turn"
+                    stop_reason = delta.get("stop_reason")
                     usage.update(usage_summary(obj.get("usage")))
                 elif kind == "message_stop":
-                    require(stop_reason == "end_turn" and set(blocks) == closed, "missing_stop_reason_or_unclosed_block")
-                    text = "".join(blocks[i]["text"] for i in sorted(blocks))
+                    require(stop_reason == ("tool_use" if tool else "end_turn") and set(blocks) == closed,
+                            "missing_stop_reason_or_unclosed_block")
+                    text = "".join(blocks[i]["text"] for i in sorted(blocks) if blocks[i]["type"] == "text")
                     finished = True
                 else:
                     raise CheckFailed("unexpected_sse_event")
         else:
             raise CheckFailed("invalid_protocol")
     require(finished and (protocol != "chat" or done), "missing_stream_termination")
-    require(has_text(text), "missing_stream_text")
+    if tool:
+        if protocol == "chat":
+            require(len(tool_calls) == 1, "expected_one_tool_call")
+            entry = next(iter(tool_calls.values()))
+            stream_call = checked_call(entry["name"], entry["id"], json_value(entry["arguments"]), expected_value)
+            stream_document = chat_tool_document(model, response_id, text, usage, stream_call,
+                                                 reasoning_content=chat_reasoning)
+        elif protocol == "messages":
+            tool_entries = [entry for entry in blocks.values() if entry["type"] == "tool_use"]
+            require(len(tool_entries) == 1, "expected_one_tool_call")
+            entry = tool_entries[0]
+            stream_call = checked_call(entry["name"], entry["id"], json_value(entry["arguments"]), expected_value)
+            content = []
+            for index in sorted(blocks):
+                block = blocks[index]
+                if block["type"] == "text":
+                    content.append({"type": "text", "text": block["text"]})
+                elif block["type"] == "tool_use":
+                    content.append({"type": "tool_use", "id": block["id"], "name": block["name"],
+                                    "input": stream_call["arguments"]})
+                elif block["type"] == "thinking":
+                    item = {"type": "thinking", "thinking": block["thinking"]}
+                    if block["signature"]:
+                        item["signature"] = block["signature"]
+                    content.append(item)
+                elif block["type"] == "redacted_thinking":
+                    content.append({"type": "redacted_thinking", "data": block["data"]})
+            stream_document = {"id": response_id, "model": model, "type": "message", "role": "assistant",
+                               "content": content, "stop_reason": "tool_use", "stop_sequence": None,
+                               "usage": usage}
+        else:
+            require(stream_call is not None, "expected_one_tool_call")
+    else:
+        require(has_text(text), "missing_stream_text")
     return {"model": identifier(model), "responseId": identifier(response_id), "usage": usage,
-            "eventCount": len(events), "contentLength": len(text), "_text": text}
+            "eventCount": len(events), "contentLength": len(text), "_text": text,
+            "_call": stream_call, "_document": stream_document}
 
 
 def validate_http(protocol, reply, *, stream=False, tool=False, expected_value=None):
@@ -402,11 +589,10 @@ def validate_http(protocol, reply, *, stream=False, tool=False, expected_value=N
     mime = content_type.split(";", 1)[0].strip().lower()
     if stream:
         require(mime == "text/event-stream", "expected_sse_content_type")
-        return validate_sse(protocol, body)
+        return validate_sse(protocol, body, tool=tool, expected_value=expected_value)
     require(mime == "application/json" or (mime.startswith("application/") and mime.endswith("+json")),
             "expected_json_content_type")
     return validate_json(protocol, body, tool=tool, expected_value=expected_value)
-
 
 def request_body(protocol, model, max_tokens, *, stream=False, tool_value=None):
     prompt = "Reply with one short sentence confirming the relay works."
@@ -574,21 +760,23 @@ def observed_response_signals(reply):
     return {"finishReasons": reasons[:20], "finishReasonCount": len(reasons), "toolCallsPresent": tools}
 
 
-def run_protocol(client, protocol, model, max_tokens):
+def run_protocol(client, protocol, model, max_tokens, tool_stream):
     results = []
-    for scenario in ("nonstream", "stream", "tool_roundtrip"):
+    scenarios = ("nonstream", "stream", "tool_roundtrip") + (("tool_stream",) if tool_stream else ())
+    for scenario in scenarios:
         row = empty_result(protocol, scenario)
         row["requestedModel"] = model
         results.append(row)
-        tool_value = "echo-" + secrets.token_hex(8) if scenario == "tool_roundtrip" else None
+        stream = scenario in ("stream", "tool_stream")
+        tool_value = "echo-" + secrets.token_hex(8) if scenario in ("tool_roundtrip", "tool_stream") else None
         if tool_value is not None:
             row["followup"] = {"status": "not_run"}
         reply = None
         try:
-            body = request_body(protocol, model, max_tokens, stream=scenario == "stream", tool_value=tool_value)
+            body = request_body(protocol, model, max_tokens, stream=stream, tool_value=tool_value)
             reply = client.post(protocol, body)
             row["httpStatus"] = reply[0]
-            validated = validate_http(protocol, reply, stream=scenario == "stream", tool=tool_value is not None,
+            validated = validate_http(protocol, reply, stream=stream, tool=tool_value is not None,
                                       expected_value=tool_value)
             row.update({key: validated[key] for key in SUMMARY_FIELDS})
             row["responseModel"] = validated["model"]
@@ -598,13 +786,12 @@ def run_protocol(client, protocol, model, max_tokens):
                 followup["requestedModel"] = model
                 followup.pop("followup")
                 row["followup"] = followup
-                # This receipt exists only in the tool result, not in the first prompt.
                 receipt = "receipt-" + secrets.token_hex(12)
                 followup_reply = None
                 try:
                     followup_reply = client.post(protocol, followup_body(protocol, body, validated, receipt))
                     followup["httpStatus"] = followup_reply[0]
-                    final = validate_http(protocol, followup_reply)
+                    final = validate_http(protocol, followup_reply, stream=stream)
                     followup.update({key: final[key] for key in SUMMARY_FIELDS})
                     followup["responseModel"] = final["model"]
                     require(receipt in final["_text"], "followup_did_not_use_tool_result")
@@ -618,7 +805,6 @@ def run_protocol(client, protocol, model, max_tokens):
             row["error"] = error_code(error)
             row["observed"] = observed_response_signals(reply)
     return results
-
 
 class Parser(argparse.ArgumentParser):
     def error(self, message):
@@ -636,10 +822,13 @@ def main(argv=None, environment=None):
         parser.add_argument("--protocol", choices=("all",) + PROTOCOLS, default="all")
         parser.add_argument("--timeout", type=int, default=120, metavar="SECONDS", help="per POST, 5..300 (default: 120)")
         parser.add_argument("--max-tokens", type=int, default=256, metavar="TOKENS", help="per POST, 64..4096 (default: 256)")
+        parser.add_argument("--tool-stream", action="store_true",
+                            help="also verify streaming echo-tool calls and result followups (2 extra POSTs per protocol)")
         args = parser.parse_args(argv)
         require(5 <= args.timeout <= 300 and 64 <= args.max_tokens <= 4096, "invalid_limits")
         report["maxTokensPerRequest"] = args.max_tokens
         report["perRequestTimeoutSeconds"] = args.timeout
+        report["toolStream"] = args.tool_stream
         base, model = environment.get("RELAY_BASE_URL", ""), environment.get("RELAY_MODEL", "")
         require(bool(base and key and model), "missing_relay_environment")
         require(len(key) <= 4096 and all(33 <= ord(c) <= 126 for c in key), "invalid_api_key_format")
@@ -653,10 +842,10 @@ def main(argv=None, environment=None):
         if not base.endswith("/v1"):
             base += "/v1"
         selected = PROTOCOLS if args.protocol == "all" else (args.protocol,)
-        report["requestLimit"] = len(selected) * 4
+        report["requestLimit"] = len(selected) * (6 if args.tool_stream else 4)
         client = CurlClient(base, key, args.timeout, environment)
         for protocol in selected:
-            report["results"].extend(run_protocol(client, protocol, model, args.max_tokens))
+            report["results"].extend(run_protocol(client, protocol, model, args.max_tokens, args.tool_stream))
         report["requestCount"] = client.request_count
         passed = bool(report["results"]) and all(row["status"] == "pass" for row in report["results"])
         report["status"] = "pass" if passed else "fail"
