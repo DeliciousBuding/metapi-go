@@ -1,4 +1,4 @@
-import { request } from './transport'
+import { request, type RequestOptions } from './transport'
 
 export const eventsApi = {
   // Events
@@ -22,5 +22,8 @@ export const eventsApi = {
       // The program-logs section surfaces its own clearFailed toast.
       skipErrorHandler: true,
     }),
-  getTask: (id: string) => request(`/api/tasks/${encodeURIComponent(id)}`),
+  getTask: (
+    id: string,
+    options?: Pick<RequestOptions, 'signal' | 'skipErrorHandler'>
+  ) => request(`/api/tasks/${encodeURIComponent(id)}`, options),
 }

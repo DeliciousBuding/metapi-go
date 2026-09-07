@@ -29,6 +29,16 @@ const testState = vi.hoisted(() => ({
   batchMutateAsync: vi.fn(),
 }))
 
+// Background progress is covered by the real-page task suite; unrelated page
+// tests keep this network observer idle.
+vi.mock('../../lib/use-route-rebuild-task', () => ({
+  useRouteRebuildTask: () => ({
+    reference: null,
+    task: undefined,
+    isBusy: false,
+  }),
+}))
+
 vi.mock('@/components/data-table', () => ({
   // Render the bulk action children so the Disable button is clickable.
   DataTableBulkActions: (props: { children?: ReactNode }) => (
@@ -60,6 +70,9 @@ vi.mock('@/components/data-table', () => ({
 }))
 
 vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children }: { children?: ReactNode }) => (
+    <a href='/settings/operations/scheduling'>{children}</a>
+  ),
   useSearch: () => ({}),
   useNavigate: () => vi.fn(),
 }))
@@ -170,6 +183,7 @@ describe('RoutesPage rebuild confirmation', () => {
     })
     expect(testState.rebuildMutate).toHaveBeenCalledWith({
       refreshModels: true,
+      wait: false,
     })
   })
 

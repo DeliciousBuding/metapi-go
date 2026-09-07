@@ -35,6 +35,16 @@ const testState = vi.hoisted(() => ({
   } | null,
 }))
 
+// Background progress is covered by the real-page task suite; unrelated page
+// tests keep this network observer idle.
+vi.mock('../lib/use-route-rebuild-task', () => ({
+  useRouteRebuildTask: () => ({
+    reference: null,
+    task: undefined,
+    isBusy: false,
+  }),
+}))
+
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => testState.navigate,
   useSearch: () => testState.routerSearch,

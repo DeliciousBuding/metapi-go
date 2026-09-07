@@ -8,6 +8,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
@@ -22,6 +23,16 @@ const testState = vi.hoisted(() => ({
   siteId: '',
   accountsSnapshot: undefined as { accounts: AccountEntry[] } | undefined,
   sitesList: undefined as SiteEntry[] | undefined,
+}))
+
+// Background progress is covered by the real-page task suite; unrelated page
+// tests keep this network observer idle.
+vi.mock('../../lib/use-route-rebuild-task', () => ({
+  useRouteRebuildTask: () => ({
+    reference: null,
+    task: undefined,
+    isBusy: false,
+  }),
 }))
 
 vi.mock('@/components/data-table', () => ({
@@ -50,6 +61,9 @@ vi.mock('@/components/data-table', () => ({
 }))
 
 vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children }: { children?: ReactNode }) => (
+    <a href='/settings/operations/scheduling'>{children}</a>
+  ),
   useSearch: () => ({}),
   useNavigate: () => vi.fn(),
 }))

@@ -2,9 +2,9 @@
 // metapi-go features/token-routes/components — the routes list page.
 // i18n: all user-visible strings migrated to t() calls.
 
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState, Table } from '@tanstack/react-table'
-import { Plus, Power, Zap } from 'lucide-react'
+import { Plus, Power, Settings2, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -41,11 +41,13 @@ import {
   useZeroChannelRoutes,
 } from '../api'
 import { routesSearchSchema } from '../lib/routes-schema'
+import { useRouteRebuildTask } from '../lib/use-route-rebuild-task'
 import { useShowZeroChannelPreference } from '../lib/use-show-zero-channel'
 import type { RouteRowActions, RouteSummaryRow } from '../types'
 import { isExplicitGroupRoute, isExactModelPattern } from '../utils'
 import { RouteDetailSheet } from './route-detail-sheet'
 import { RouteFormDialog, type RouteAccountOption } from './route-form-dialog'
+import { RouteRebuildStatus } from './route-rebuild-status'
 import { useRoutesColumns } from './routes-columns'
 import { RoutesHeaderActions } from './routes-header-actions'
 import { RoutesKeyNextStep } from './routes-key-next-step'
@@ -196,6 +198,8 @@ export function RoutesPage() {
   const updateMutation = useUpdateRoute()
   const clearCooldownMutation = useClearRouteCooldown()
   const rebuildMutation = useRebuildRoutes()
+  const rebuildTask = useRouteRebuildTask()
+  const isRebuildPending = rebuildMutation.isPending || rebuildTask.isBusy
   const refreshDecisionsMutation = useRefreshRouteDecisions()
 
   const routes = useMemo(() => routesData ?? [], [routesData])
@@ -421,15 +425,25 @@ export function RoutesPage() {
           <p className='text-muted-foreground text-sm'>
             {t('tokenRoutes.page.description')}
           </p>
+          <Link
+            to='/settings/$subarea/$section'
+            params={{ subarea: 'operations', section: 'scheduling' }}
+            className='text-primary focus-visible:ring-focus-ring mt-1 inline-flex min-h-8 items-center gap-1 rounded-sm text-sm underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:outline-none'
+          >
+            <Settings2 className='size-3.5 shrink-0' aria-hidden='true' />
+            {t('tokenRoutes.page.automaticCreationSettings')}
+          </Link>
         </div>
         <RoutesHeaderActions
           onRebuild={() => setRebuildConfirmOpen(true)}
-          isRebuildPending={rebuildMutation.isPending}
+          isRebuildPending={isRebuildPending}
           onRefreshDecisions={() => refreshDecisionsMutation.mutate()}
           isRefreshDecisionsPending={refreshDecisionsMutation.isPending}
           onAddRoute={openCreate}
         />
       </div>
+
+      <RouteRebuildStatus rebuild={rebuildMutation} observation={rebuildTask} />
 
       {(accountId || siteId) && (
         <div className='bg-muted/40 text-muted-foreground rounded-lg border p-2 text-sm'>
@@ -470,9 +484,9 @@ export function RoutesPage() {
             <Button
               variant='outline'
               onClick={() => setRebuildConfirmOpen(true)}
-              disabled={rebuildMutation.isPending}
+              disabled={isRebuildPending}
             >
-              {rebuildMutation.isPending ? <Spinner /> : <Zap />}
+              {isRebuildPending ? <Spinner aria-hidden='true' /> : <Zap />}
               {t('tokenRoutes.page.rebuild')}
             </Button>
           </div>
@@ -549,7 +563,9 @@ export function RoutesPage() {
         destructive
         onConfirm={() => {
           setRebuildConfirmOpen(false)
-          rebuildMutation.mutate({ refreshModels: true })
+          if (!isRebuildPending) {
+            rebuildMutation.mutate({ refreshModels: true, wait: false })
+          }
         }}
         onCancel={() => setRebuildConfirmOpen(false)}
       />

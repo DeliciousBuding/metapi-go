@@ -37,6 +37,16 @@ const testState = vi.hoisted(() => ({
   previousFormOpen: undefined as boolean | undefined,
 }))
 
+// Background progress is covered by the real-page task suite; unrelated page
+// tests keep this network observer idle.
+vi.mock('../../lib/use-route-rebuild-task', () => ({
+  useRouteRebuildTask: () => ({
+    reference: null,
+    task: undefined,
+    isBusy: false,
+  }),
+}))
+
 vi.mock('@/components/data-table', async () => {
   const { QueryErrorBanner } =
     await import('@/components/common/query-error-banner')
@@ -86,6 +96,9 @@ vi.mock('@/components/data-table', async () => {
 })
 
 vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children }: { children?: ReactNode }) => (
+    <a href='/settings/operations/scheduling'>{children}</a>
+  ),
   useSearch: () => ({}),
   useNavigate: () => vi.fn(),
 }))
