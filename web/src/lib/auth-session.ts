@@ -118,6 +118,20 @@ export function clearAuthSession(storage?: StorageLike | null): void {
   }
 }
 
+/**
+ * Record a server-confirmed session before protected-route navigation. Login
+ * must replace an anonymous or expired bootstrap result, not only its storage
+ * mirror; the synchronous guard reads this in-memory outcome first.
+ */
+export function establishAuthentication(
+  expiresAtMs: number,
+  storage?: StorageLike | null
+): AuthenticationOutcome {
+  persistSessionMeta(expiresAtMs, storage)
+  bootOutcome = { kind: 'authenticated', expiresAtMs }
+  return bootOutcome
+}
+
 export function clearAuthentication(): void {
   clearAuthSession()
   bootOutcome = { kind: 'anonymous', expired: false }
@@ -146,9 +160,7 @@ export async function bootstrapAuthentication(): Promise<AuthenticationOutcome> 
       if (status.authenticated && status.expiresAt) {
         const expiresAtMs = Date.parse(status.expiresAt)
         if (Number.isFinite(expiresAtMs)) {
-          persistSessionMeta(expiresAtMs)
-          bootOutcome = { kind: 'authenticated', expiresAtMs }
-          return bootOutcome
+          return establishAuthentication(expiresAtMs)
         }
       }
     }
@@ -173,7 +185,11 @@ export function hasValidAuthSession(
   storage?: StorageLike | null,
   nowMs: number = Date.now()
 ): boolean {
-  if (bootOutcome) return bootOutcome.kind === 'authenticated'
+  if (bootOutcome) {
+    return (
+      bootOutcome.kind === 'authenticated' && bootOutcome.expiresAtMs > nowMs
+    )
+  }
   const meta = readSessionMeta(storage)
   return meta !== null && meta.expiresAtMs > nowMs
 }
