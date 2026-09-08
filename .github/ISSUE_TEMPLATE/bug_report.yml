@@ -4,13 +4,13 @@ labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: 感谢报告问题。请尽量完整填写，帮助快速定位。
+      value: 感谢报告问题。知道多少填多少。提交前请涂抹 API key、Token、Cookie、账号/用户数据及私有域名、IP、路径；不要上传原始配置或完整请求头。
   - type: input
     id: version
     attributes:
       label: 版本
-      description: 运行版本（镜像 tag、`metapi --version` 输出；源码运行请贴 commit）
-      placeholder: v0.9.0
+      description: 请填实际运行进程/容器的 `--version` 输出；能取得时附镜像 digest 或二进制 SHA-256。源码构建附 commit 和是否有本地修改。仅 `latest` 或仓库 HEAD 不能识别运行产物；未知可注明。
+      placeholder: 版本输出；镜像 tag + digest（如可取得）
     validations:
       required: true
   - type: dropdown
@@ -19,6 +19,7 @@ body:
       label: 部署方式
       options:
         - Docker 镜像（ghcr.io/deliciousbuding/metapi-go）
+        - Release 二进制
         - docker-compose
         - 源码构建（go build）
         - 其他
@@ -31,13 +32,19 @@ body:
       options:
         - SQLite
         - PostgreSQL
+        - 不确定
     validations:
       required: true
+  - type: input
+    id: upstream
+    attributes:
+      label: 上游类型（可选）
+      description: 如 New API、Sub2API、CLIProxyAPI 或直连厂商；可附版本、协议/模型名。不涉及上游可留空，不要填私有地址或凭据。
   - type: textarea
     id: steps
     attributes:
       label: 复现步骤
-      description: 触发问题的完整步骤。日志请附在下方并涂抹密钥/Token。
+      description: 简述你要完成的用户任务，再写触发问题的最少步骤；涉及客户端时附名称与版本。
       placeholder: |
         1. 打开「站点」页面
         2. 点击「添加站点」
