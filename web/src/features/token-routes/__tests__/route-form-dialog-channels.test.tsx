@@ -448,3 +448,126 @@ describe('RouteFormDialog bulk channel selection', () => {
     expect(mockBatchMutate).not.toHaveBeenCalled()
   })
 })
+
+describe('RouteFormDialog progressive disclosure', () => {
+  const searchable = [
+    { id: 7, label: 'account-seven @ Alpha' },
+    { id: 8, label: 'account-eight @ Beta' },
+    { id: 9, label: 'account-nine @ Alpha' },
+  ]
+
+  it('selects only matching accounts without clearing hidden selections', async () => {
+    renderDialog({ accountOptions: searchable, chainContext: { accountId: 8 } })
+    const search = await screen.findByRole('searchbox', {
+      name: 'Search accounts or sites…',
+    })
+    fireEvent.change(search, { target: { value: 'alpha' } })
+    expect(
+      screen.queryByRole('checkbox', { name: 'account-eight @ Beta' })
+    ).not.toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Select matching accounts' })
+    )
+    expect(screen.getByText('3 / 3 selected')).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Deselect matching accounts' })
+    )
+    expect(screen.getByText('1 / 3 selected')).toBeInTheDocument()
+    fireEvent.change(search, { target: { value: '' } })
+    expect(
+      screen.getByRole('checkbox', { name: 'account-eight @ Beta' })
+    ).toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'account-seven @ Alpha' })
+    ).not.toBeChecked()
+    fireEvent.change(screen.getByLabelText('Model match rule'), {
+      target: { value: 'gpt-5.5' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add route' }))
+    await waitFor(() =>
+      expect(mockBatchMutate).toHaveBeenCalledWith({
+        routeId: 1,
+        channels: [{ accountId: 8 }],
+      })
+    )
+  })
+
+  it('makes an empty search actionable without discarding the draft', async () => {
+    renderDialog({ accountOptions: searchable, chainContext: { accountId: 7 } })
+    const search = await screen.findByRole('searchbox', {
+      name: 'Search accounts or sites…',
+    })
+    fireEvent.change(search, { target: { value: 'no-such-account' } })
+    expect(screen.getByText('No accounts match your search.')).toBeVisible()
+    expect(
+      screen.getByRole('checkbox', { name: 'Select matching accounts' })
+    ).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText('1 / 3 selected')).toBeVisible()
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Select matching accounts' })
+    )
+    expect(screen.getByText('1 / 3 selected')).toBeVisible()
+    fireEvent.change(search, { target: { value: '' } })
+    expect(
+      screen.getByRole('checkbox', { name: 'account-seven @ Alpha' })
+    ).toBeChecked()
+  })
+
+  it('keeps optional fields collapsed initially and preserves edits through collapsing', async () => {
+    renderDialog()
+    const advanced = await screen.findByRole('button', {
+      name: /Advanced settings/,
+    })
+    expect(advanced).toHaveAttribute('aria-expanded', 'false')
+    const mapping = screen.getByLabelText('Model mapping (optional)')
+    expect(mapping).not.toBeVisible()
+    fireEvent.click(advanced)
+    expect(mapping).toBeVisible()
+    fireEvent.change(mapping, {
+      target: { value: '{"gpt-5.5":"upstream-model"}' },
+    })
+    fireEvent.click(advanced)
+    expect(mapping).not.toBeVisible()
+    fireEvent.change(screen.getByLabelText('Model match rule'), {
+      target: { value: 'gpt-5.5' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add route' }))
+    await waitFor(() =>
+      expect(mockCreateMutate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          modelMapping: '{"gpt-5.5":"upstream-model"}',
+        })
+      )
+    )
+  })
+
+  it('reveals and focuses an invalid optional field instead of failing invisibly', async () => {
+    renderDialog()
+    const advanced = await screen.findByRole('button', {
+      name: /Advanced settings/,
+    })
+    fireEvent.click(advanced)
+    const invalidField = screen.getByLabelText('Context length (optional)')
+    // jsdom has no layout/scrolling API; keep this stub on the rendered
+    // item and wait for the scheduled validation scroll before teardown.
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(
+      invalidField.closest('[data-slot="form-item"]'),
+      'scrollIntoView',
+      { value: scrollIntoView }
+    )
+    fireEvent.change(invalidField, { target: { value: '-1' } })
+    fireEvent.change(screen.getByLabelText('Model match rule'), {
+      target: { value: 'gpt-5.5' },
+    })
+    fireEvent.click(advanced)
+    fireEvent.click(screen.getByRole('button', { name: 'Add route' }))
+    await waitFor(() =>
+      expect(advanced).toHaveAttribute('aria-expanded', 'true')
+    )
+    expect(invalidField).toBeVisible()
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
+    await waitFor(() => expect(invalidField).toHaveFocus())
+    expect(mockCreateMutate).not.toHaveBeenCalled()
+  })
+})

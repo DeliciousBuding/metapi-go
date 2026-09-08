@@ -295,7 +295,7 @@ export function OAuthPage() {
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
       <div>
-        <h1 className='text-lg font-normal'>{t('oauth.page.title')}</h1>
+        <h1 className='page-title'>{t('oauth.page.title')}</h1>
         <p className='text-muted-foreground text-sm'>
           {t('oauth.page.description')}
         </p>

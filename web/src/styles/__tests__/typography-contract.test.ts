@@ -57,6 +57,37 @@ describe('typography design contract', () => {
     expect(secretField).not.toContain('font-sans')
   })
 
+  it('keeps the two page-title roles readable as density changes', () => {
+    const styles = read('src/styles/index.css')
+    for (const [role, size] of [
+      ['page-title', 'text-xl'],
+      ['page-title-overview', 'text-2xl'],
+    ]) {
+      const body = styles.match(
+        new RegExp(`@utility ${role}\\s*\\{([^}]+)\\}`)
+      )?.[1]
+      expect(body).toBeDefined()
+      for (const token of [
+        size,
+        'font-semibold',
+        'leading-snug',
+        'text-balance',
+      ]) {
+        expect(body).toContain(token)
+      }
+    }
+  })
+
+  it('lets table cell components own their secondary typography', () => {
+    for (const file of [
+      'src/components/ui/table.tsx',
+      'src/components/data-table/core/data-table-view.tsx',
+    ]) {
+      const source = read(file)
+      expect(source).not.toMatch(/\[&_t[dh](?:_\*)?\]:text-/)
+    }
+  })
+
   it('keeps density scaling out of color presets', () => {
     const presets = read('src/styles/theme-presets.css')
     const simpleLarge = presets.match(

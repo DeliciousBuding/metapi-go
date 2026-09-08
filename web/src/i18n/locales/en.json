@@ -2149,7 +2149,7 @@
       "page": {
         "title": "Route management",
         "automaticCreationSettings": "Automatic route creation settings",
-        "description": "Configure model routes: match rules / groups / channel strategies to distribute requests to account channels.",
+        "description": "Match model requests to upstream accounts and control how traffic is distributed.",
         "rebuild": "Auto-rebuild",
         "refreshDecisions": "Refresh decisions",
         "addButton": "Add route",
@@ -2179,13 +2179,13 @@
         "invalid": "Please check the highlighted form fields",
         "editTitle": "Edit route",
         "addTitle": "Add route",
-        "editDescription": "Update route match rules and configuration. Empty optional fields will remain unchanged.",
-        "addDescription": "Match mode selects routes by model name or regex; group mode aggregates multiple exact routes.",
+        "editDescription": "Update matching and channel selection. Existing bindings are kept.",
+        "addDescription": "Choose a model rule and the accounts that can serve it.",
         "routeType": "Route type",
         "modeGroup": "Group",
         "modePattern": "Match",
-        "modeGroupHint": "Group: expose one model name externally, aggregating multiple exact routes as sources.",
-        "modePatternHint": "Match: match upstream requests by model name or re: regex.",
+        "modeGroupHint": "Expose one model name backed by several existing routes.",
+        "modePatternHint": "One model name, or a re: expression for multiple models.",
         "displayIcon": "Display icon (optional)",
         "displayIconHint": "Supports brand:<key> brand icons; enter none to hide the icon.",
         "displayIconPlaceholder": "Empty=auto brand; brand:openai; none=no icon",
@@ -2197,11 +2197,13 @@
         "modelMappingHint": "Map the matched model name to an upstream model name (JSON object).",
         "modelMappingPlaceholder": "{\"gpt-5\":\"gpt-5-codex\"} or leave empty",
         "save": "Save changes",
-        "create": "Add route"
+        "create": "Add route",
+        "advancedTitle": "Advanced settings",
+        "advancedHint": "Routing strategy, model mapping and presentation"
       },
       "rebuild": {
         "checking": "Checking rebuild task",
-        "backgroundHint": "Work continues on the server. You can leave this page; returning or reloading checks the task again.",
+        "backgroundHint": "Runs on the server. You can leave this page and check back later.",
         "submitting": "Requesting a background rebuild",
         "launchUnknown": "Rebuild request could not be confirmed",
         "launchUnknownHint": "The request may already have started a task. Retry with the same parameters to recover an in-flight task rather than duplicate it.",
@@ -2228,20 +2230,26 @@
         "recover": "Recover or restart rebuild",
         "dismiss": "Dismiss result",
         "resumed": "Reconnected to an existing rebuild task.",
-        "invalidResponse": "The server did not return a valid rebuild task or result."
+        "invalidResponse": "The server did not return a valid rebuild task or result.",
+        "compactSummary": "{{routes}} routes created · {{added}} channels added · {{removed}} removed",
+        "details": "View details"
       },
       "formPattern": {
         "modelRule": "Model match rule",
         "modelRulePlaceholder": "gpt-5-codex or re:^claude-opus-.*$",
         "regexHint": "Currently using regex match (re: prefix).",
-        "exactHint": "Currently using exact model match. Use re: prefix for regex.",
+        "exactHint": "Enter the upstream model name. Use re: for a regular expression.",
         "channels": "Channels (optional)",
         "channelsSelectAll": "Select all accounts",
         "channelsDeselectAll": "Deselect all accounts",
         "channelsSelectedCount": "{{selected}} / {{total}} selected",
-        "channelsHint": "Select active accounts with account relay credentials. Model discovery is not required: enter the model name manually; the upstream still determines whether that model can be served.",
+        "channelsHint": "Select accounts to bind manually. Model discovery is not required.",
         "channelsEmptyHint": "No eligible accounts are loaded. Check the account and site status and account relay credentials on Accounts. Model discovery is not required for manual binding.",
-        "channelsEmptyHintEdit": "No eligible accounts are loaded for manual binding. Check account status and relay credentials on Accounts; existing route channels remain in the editor above."
+        "channelsEmptyHintEdit": "No eligible accounts are loaded for manual binding. Check account status and relay credentials on Accounts; existing route channels remain in the editor above.",
+        "searchAccounts": "Search accounts or sites…",
+        "noMatchingAccounts": "No accounts match your search.",
+        "channelsSelectFiltered": "Select matching accounts",
+        "channelsDeselectFiltered": "Deselect matching accounts"
       },
       "formGroup": {
         "displayName": "External model name",

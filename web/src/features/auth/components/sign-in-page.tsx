@@ -60,9 +60,7 @@ export function SignInPage({ redirectTo, noticeReason }: SignInPageProps) {
             alt=''
             className='mx-auto size-12'
           />
-          <h1 className='text-2xl font-normal tracking-tight'>
-            {t('auth.login.brandName')}
-          </h1>
+          <h1 className='page-title-overview'>{t('auth.login.brandName')}</h1>
           <CardDescription>{t('auth.login.brandTagline')}</CardDescription>
         </CardHeader>
         <CardContent className='grid gap-4'>

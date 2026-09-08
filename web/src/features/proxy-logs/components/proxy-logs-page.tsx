@@ -383,7 +383,7 @@ export function ProxyLogsPage() {
     <div className='flex h-full flex-col gap-3 p-4'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
-          <h1 className='text-lg font-normal'>{t('proxyLogs.page.title')}</h1>
+          <h1 className='page-title'>{t('proxyLogs.page.title')}</h1>
           <p className='text-muted-foreground text-sm'>
             {t('proxyLogs.page.description')}
           </p>
