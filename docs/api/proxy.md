@@ -164,9 +164,11 @@ report can be correlated with the proxy log. Upstream rate-limit headers are
 dropped for the same reason: the only `X-Ratelimit-*` a client sees describes
 its Metapi key/IP budget.
 
-SSE responses are always re-framed by Metapi (`text/event-stream`,
-`Cache-Control: no-cache`, `X-Accel-Buffering: no`) and carry no upstream
-headers at all.
+Readable SSE responses are re-framed by Metapi (`text/event-stream`,
+`Cache-Control: no-cache`, `X-Accel-Buffering: no`). An unsupported upstream
+content encoding stays verbatim with its matching `Content-Encoding` on native
+paths; protocol conversion requires a decodable body and fails rather than
+leaking an incompatible wire format. Other upstream headers are not relayed.
 
 ## Timeouts (/v1 surface)
 
@@ -175,7 +177,7 @@ headers at all.
 | Request header read | `Server.ReadHeaderTimeout` | 10s |
 | Whole request (admin surface) | `Server.ReadTimeout` / `WriteTimeout` | 30s / 60s |
 | Upstream connect / TLS | transport dial + handshake | 30s / 10s |
-| Upstream first byte (observed) | `PROXY_FIRST_BYTE_TIMEOUT_SEC` | 0 = off |
+| Upstream response headers | `PROXY_FIRST_BYTE_TIMEOUT_SEC` | SSE: 0 selects 90s; positive values replace it. Buffered calls keep their existing transport/total bounds when 0. |
 | Whole upstream request (buffered) | executor ceiling `max(90s, first-byte × 2)` | 90s |
 | Response write (proxy surface) | write budget = executor ceiling + 2m | 210s |
 | Stream chunk gap | `PROXY_STREAM_IDLE_TIMEOUT_SEC` | see `.env.example` |

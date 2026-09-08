@@ -148,6 +148,17 @@ Batch enable/disable/delete tokens, or mark one token as the account default (cl
 
 Sync one account's tokens from upstream (session credential token list), or all active accounts.
 
+New API listings use 100-token pages and require a stable total, unique token
+identities and complete owned-key hydration. Each listing is bounded to 1,000
+tokens, 10 listing pages and 8 MiB of decoded token metadata; exceeding a bound
+or failing a page/key lookup returns an error, not a partial successful snapshot.
+Masked keys are resolved in batches of at most 100 using the same credential.
+A legacy flat response is retried with the legacy first-page query. Without a
+proven total, those returned tokens can still be synchronized, but absence
+cannot revoke or replace the existing default. Deletion may remove a positively
+identified owned token; an absent target in an unproven listing is an error,
+not proof that the remote credential is gone.
+
 **Response** (one): `{ "success": true, "accountId": 12, "status": "synced", "synced": true, "created": 1, "updated": 0, "total": 3, "maskedPending": 0, "defaultTokenId": 7, "message": "..." }` — `status: "skipped"` with `reason` `site_disabled` | `apikey_connection` | `no_access_token` | `no_upstream_tokens` | `unsupported_platform` keeps `synced: false`; sync failures write a `token_sync` error event and answer 502.
 **Body** (sync-all): `{ "wait": true }` (default `false` = background task). Wait mode returns `{ success, summary: { total, synced, skipped, failed, created, updated }, results: [...] }`; queued mode returns `202 { success, queued, reused, jobId, taskId, status, message }`.
 
