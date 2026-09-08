@@ -127,6 +127,8 @@ metapi
 
 ### 方式二：Docker（命名卷，零配置）
 
+稳定使用请选择维护者已公开发布的非预发布 Release，并固定对应的完整版本镜像标签（如 `0.19.0`）或 digest。`latest` 会随 master 构建移动，也会被版本 tag 构建更新，不代表稳定发布；合入开发分支也不等于已通过发布验收。
+
 ```bash
 docker run -d --name metapi \
   -p 4000:4000 \

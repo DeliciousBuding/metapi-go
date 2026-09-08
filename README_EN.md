@@ -138,6 +138,8 @@ change the install location with `METAPI_INSTALL_PREFIX`). On Windows, download
 
 ### Option 2: Docker (named volume, zero config)
 
+For stable use, choose a published non-prerelease GitHub Release and pin the matching full-version image tag (for example, `0.19.0`) or digest. The `latest` tag moves with master builds and is also updated by version-tag builds; it is not a stable-release channel. A merged development change does not imply release acceptance.
+
 ```bash
 docker run -d --name metapi \
   -p 4000:4000 \

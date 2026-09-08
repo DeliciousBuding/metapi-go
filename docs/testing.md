@@ -15,6 +15,17 @@
 | Frontend acceptance       | [`../web/scripts/acceptance-e2e.mjs`](../web/scripts/acceptance-e2e.mjs) (+ [`acceptance-probe-header-quirk.mjs`](../web/scripts/acceptance-probe-header-quirk.mjs) for the fresh-site accounts-page race) | Real-browser user journeys (Playwright) against a live metapi + real upstream; operator-gated, not a PR check |
 | Operator runtime evidence | `scripts/e2e/*.sh` and focused staging procedures                                    | Compatibility that requires real credentials, topology, or upstream behavior |
 
+## From historical bugs to user-task regressions
+
+Keep the maintenance trail in the existing GitHub issue / PR, not a second task ledger:
+
+1. Link the historical report to the user task that failed (for example, add an upstream account, select a route, then complete a request from a downstream client). Record the minimal reproduction, expected result, root cause and related paths or upstream types checked. A closed issue or merged fix is not regression evidence.
+2. Link the smallest relevant regression check and show that it detects the original defect (known-bad input or the fix removed in an isolated checkout). Restore the tested source byte-identically before recording success; never mutate a running deployment for this check.
+3. For a release candidate, revisit relevant historical failures and key user tasks on the final candidate source, artifact and environment. Record commit plus uncommitted diff, binary SHA-256 or image digest, commands, environment and results. Track deterministic fixtures, real-model relay and downstream-client E2E separately; use explicit “not verified” or “not applicable” with reasons rather than inferring coverage across layers.
+4. If source, artifact or environment changes, repeat affected checks and update the issue / PR evidence. Summarize residual risks for the maintainer's release decision; do not turn a successful rerun into a claim that the original failure needs no fix.
+
+Publish only sanitized reproduction and result summaries. Keep credentials, private hosts and raw runtime evidence out of issues, PRs and this repository; follow the privacy boundary below.
+
 ## Race-detector budget (local push gate)
 
 The pre-push gate (`scripts/go-race.sh`, chained from

@@ -72,9 +72,9 @@ golangci-lint run --timeout=3m        # Lint check
 1. 确保本地 CI 全部通过（pre-push hook 自动检查）
 2. 更新 `CHANGELOG.md`（按 Keep a Changelog 格式；**必须包含 `## [vX.Y.Z]` 节**，Release 说明从该节提取）；同步 `web/package.json` 的 version 字段
 3. 发布助手：`bash scripts/release.sh X.Y.Z`（校验 CHANGELOG 节、`web/package.json` 版本、master 与远端同步后打 annotated tag 并推送）；或手动 `git tag -a vX.Y.Z` → `git push origin vX.Y.Z`（仅 SemVer tag 触发发布）
-4. Tag push 触发单一管道 `.github/workflows/main.yml`：全量 12 项检查通过 → 推送 `ghcr.io/deliciousbuding/metapi-go:vX.Y.Z`（amd64+arm64，provenance+SBOM）→ 5 平台二进制附件 + checksums + 二进制冒烟 → 自动创建 GitHub Release（body 取自 CHANGELOG 对应节）
+4. Tag push 触发单一管道 `.github/workflows/main.yml`：全量 12 项检查通过 → 推送 `ghcr.io/deliciousbuding/metapi-go:X.Y.Z`（amd64+arm64，provenance+SBOM）→ 5 平台二进制附件 + checksums + 二进制冒烟 → 创建 draft GitHub Release（body 取自 CHANGELOG 对应节；维护者复核后发布）
 
-**版本号**：`vMAJOR.MINOR.PATCH`（SemVer 2.0）。**节奏为 patch-first —— 1.0 前最后一位持续迭代**（每波合入即 bump 最后一位并发布；中间位留给成体系的里程碑；第一位留到 1.0）。决策权威与 1.0 就绪标准见 [`docs/internal/git-workflow.md` §6.1](docs/internal/git-workflow.md)。拿不准下一版用 `bash scripts/next-version.sh`。
+**版本号**：`vMAJOR.MINOR.PATCH`（SemVer 2.0）；合入不等于稳定发布，默认积累修复后做候选验收，由维护者明确决定发版时机和版本号（不自动推断、不按周/月强制发布）；安全问题或严重回归可明确走 hotfix，决策与 1.0 就绪标准见 [`docs/internal/git-workflow.md` §6.1](docs/internal/git-workflow.md)。
 
 ## CI Discipline
 
