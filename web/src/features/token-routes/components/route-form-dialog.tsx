@@ -4,6 +4,7 @@
 // `getModelPatternError()` returns pre-translated strings via i18n.t().
 
 import { zodResolver } from '@hookform/resolvers/zod'
+import { ChevronDown, Search } from 'lucide-react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -11,6 +12,11 @@ import { useTranslation } from 'react-i18next'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   Form,
   FormControl,
@@ -22,13 +28,6 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -38,7 +37,6 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/lib/toast'
 
 import {
@@ -56,12 +54,9 @@ import {
   transformRouteToFormValues,
   type RouteFormValues,
 } from '../lib/routes-schema'
-import type { RouteMode, RouteRoutingStrategy, RouteSummaryRow } from '../types'
-import {
-  getModelPatternError,
-  isRegexModelPattern,
-  ROUTE_ICON_NONE_VALUE,
-} from '../utils'
+import type { RouteMode, RouteSummaryRow } from '../types'
+import { getModelPatternError, isRegexModelPattern } from '../utils'
+import { RouteAdvancedFields } from './route-advanced-fields'
 import { RouteChannelEditor } from './route-channel-editor'
 import { showRouteCompletionToast } from './route-completion-toast'
 
@@ -105,6 +100,7 @@ export function RouteFormDialog({
   const routeMode = form.watch('routeMode') as RouteMode
   const modelPattern = form.watch('modelPattern') ?? ''
   const [initializedFor, setInitializedFor] = useState<string | null>(null)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const isInitialized = initializedFor !== null
 
   useEffect(() => {
@@ -115,6 +111,16 @@ export function RouteFormDialog({
     const targetKey = isEdit && route ? `edit:${route.id}` : 'create'
     if (initializedFor === targetKey) return
     setInitializedFor(targetKey)
+    setAdvancedOpen(
+      Boolean(
+        isEdit &&
+        route &&
+        (route.displayIcon ||
+          route.contextLength ||
+          route.modelMapping ||
+          (route.routingStrategy && route.routingStrategy !== 'weighted'))
+      )
+    )
     const baseDefaults = getRouteFormDefaultValues(
       route?.routeMode === 'explicit_group' ? 'explicit_group' : 'pattern'
     )
@@ -181,7 +187,15 @@ export function RouteFormDialog({
     }
   }
 
-  const onInvalid: SubmitErrorHandler<RouteFormValues> = () => {
+  const onInvalid: SubmitErrorHandler<RouteFormValues> = (errors) => {
+    if (
+      errors.displayIcon ||
+      errors.contextLength ||
+      errors.routingStrategy ||
+      errors.modelMapping
+    ) {
+      setAdvancedOpen(true)
+    }
     toast.error(t('tokenRoutes.form.invalid'))
   }
   const isSubmitting =
@@ -193,10 +207,10 @@ export function RouteFormDialog({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side='right'
-        className='flex w-full flex-col gap-0 sm:max-w-lg'
+        className='flex w-full flex-col gap-0 sm:max-w-xl'
         showMobileCloseBar={false}
       >
-        <SheetHeader>
+        <SheetHeader className='shrink-0 border-b px-5 py-5 sm:px-6'>
           <SheetTitle>
             {isEdit
               ? t('tokenRoutes.form.editTitle')
@@ -214,7 +228,7 @@ export function RouteFormDialog({
             onSubmit={form.handleSubmit(onSubmit, onInvalid)}
             inert={!isInitialized ? true : undefined}
             aria-busy={!isInitialized}
-            className='flex-1 space-y-5 overflow-y-auto p-4'
+            className='min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5 sm:px-6'
           >
             <FormItem>
               <FormLabel>{t('tokenRoutes.form.routeType')}</FormLabel>
@@ -254,143 +268,35 @@ export function RouteFormDialog({
             ) : (
               <GroupModeFields form={form} availableRoutes={availableRoutes} />
             )}
-            <FormField
-              control={form.control}
-              name='displayIcon'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('tokenRoutes.form.displayIcon')}</FormLabel>
-                  <FormControl>
-                    {/* The storage protocol sentinel ROUTE_ICON_NONE_VALUE is
-                        mapped to a friendly "none" token at the input
-                        boundary so users never see the internal value. */}
-                    <Input
-                      placeholder={t('tokenRoutes.form.displayIconPlaceholder')}
-                      name={field.name}
-                      ref={field.ref}
-                      onBlur={field.onBlur}
-                      value={
-                        field.value === ROUTE_ICON_NONE_VALUE
-                          ? 'none'
-                          : (field.value ?? '')
-                      }
-                      onChange={(event) => {
-                        const raw = event.target.value
-                        field.onChange(
-                          raw.trim().toLowerCase() === 'none'
-                            ? ROUTE_ICON_NONE_VALUE
-                            : raw
-                        )
-                      }}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    {t('tokenRoutes.form.displayIconHint')}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='contextLength'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('tokenRoutes.form.contextLength')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type='number'
-                      placeholder='128000'
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    {t('tokenRoutes.form.contextLengthHint')}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='routingStrategy'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('tokenRoutes.form.routingStrategy')}</FormLabel>
-                  <Select
-                    value={field.value ?? 'weighted'}
-                    onValueChange={(value) =>
-                      field.onChange(value as RouteRoutingStrategy)
-                    }
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue>
-                          {(selected) =>
-                            t(
-                              `tokenRoutes.strategies.${String(selected ?? 'weighted')}`
-                            )
-                          }
-                        </SelectValue>
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value='weighted'>
-                        {t('tokenRoutes.strategies.weighted')}
-                      </SelectItem>
-                      <SelectItem value='round_robin'>
-                        {t('tokenRoutes.strategies.round_robin')}
-                      </SelectItem>
-                      <SelectItem value='stable_first'>
-                        {t('tokenRoutes.strategies.stable_first')}
-                      </SelectItem>
-                      <SelectItem value='least_busy'>
-                        {t('tokenRoutes.strategies.least_busy')}
-                      </SelectItem>
-                      <SelectItem value='lowest_latency'>
-                        {t('tokenRoutes.strategies.lowest_latency')}
-                      </SelectItem>
-                      <SelectItem value='lowest_cost'>
-                        {t('tokenRoutes.strategies.lowest_cost')}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    {t('tokenRoutes.form.routingStrategyHint')}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='modelMapping'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('tokenRoutes.form.modelMapping')}</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder={t(
-                        'tokenRoutes.form.modelMappingPlaceholder'
-                      )}
-                      rows={2}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    {t('tokenRoutes.form.modelMappingHint')}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <Collapsible
+              open={advancedOpen}
+              onOpenChange={setAdvancedOpen}
+              className='border-t pt-4'
+            >
+              <CollapsibleTrigger className='group focus-visible:ring-ring flex w-full items-center justify-between gap-3 rounded-md py-1 text-left outline-none focus-visible:ring-2'>
+                <span className='min-w-0 space-y-1'>
+                  <span className='block text-sm font-semibold'>
+                    {t('tokenRoutes.form.advancedTitle')}
+                  </span>
+                  <span className='text-muted-foreground block text-xs leading-5'>
+                    {t('tokenRoutes.form.advancedHint')}
+                  </span>
+                </span>
+                <ChevronDown
+                  className='text-muted-foreground size-4 shrink-0 transition-transform group-aria-expanded:rotate-180 motion-reduce:transition-none'
+                  aria-hidden='true'
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent keepMounted>
+                <RouteAdvancedFields form={form} />
+              </CollapsibleContent>
+            </Collapsible>
           </form>
         </Form>
-        <SheetFooter>
+        <SheetFooter className='bg-background shrink-0 flex-row justify-end border-t px-5 py-4 sm:px-6'>
           <Button
             variant='outline'
+            className='flex-1 sm:flex-none'
             onClick={() => handleOpenChange(false)}
             disabled={isSubmitting}
           >
@@ -399,6 +305,7 @@ export function RouteFormDialog({
           <Button
             type='submit'
             form='route-form'
+            className='flex-1 sm:flex-none'
             disabled={isSubmitting || !isInitialized}
           >
             {isSubmitting && <Spinner />}
@@ -424,6 +331,15 @@ function PatternModeFields({
 }) {
   const { t } = useTranslation()
   const bulkLabelId = useId()
+  const [accountSearch, setAccountSearch] = useState('')
+  const visibleAccounts = useMemo(() => {
+    const query = accountSearch.trim().toLocaleLowerCase()
+    return query
+      ? accountOptions.filter((account) =>
+          account.label.toLocaleLowerCase().includes(query)
+        )
+      : accountOptions
+  }, [accountOptions, accountSearch])
   const modelPattern = form.watch('modelPattern') ?? ''
   const isRegex = isRegexModelPattern(modelPattern)
   return (
@@ -461,7 +377,7 @@ function PatternModeFields({
         render={({ field }) => {
           const selected = field.value ?? []
           const selectedIds = new Set(selected.map((draft) => draft.accountId))
-          const accountIds = accountOptions.map((account) => account.id)
+          const accountIds = visibleAccounts.map((account) => account.id)
           const selectedCount = accountIds.filter((id) =>
             selectedIds.has(id)
           ).length
@@ -471,11 +387,18 @@ function PatternModeFields({
           const toggleAccounts = (ids: number[], checked: boolean) => {
             field.onChange(setChannelDraftSelection(selected, ids, checked))
           }
-          const bulkLabel = t(
-            allSelected
-              ? 'tokenRoutes.formPattern.channelsDeselectAll'
-              : 'tokenRoutes.formPattern.channelsSelectAll'
-          )
+          let selectKey = allSelected
+            ? 'tokenRoutes.formPattern.channelsDeselectAll'
+            : 'tokenRoutes.formPattern.channelsSelectAll'
+          if (accountSearch.trim()) {
+            selectKey = allSelected
+              ? 'tokenRoutes.formPattern.channelsDeselectFiltered'
+              : 'tokenRoutes.formPattern.channelsSelectFiltered'
+          }
+          const bulkLabel = t(selectKey)
+          const totalSelected = accountOptions.filter((account) =>
+            selectedIds.has(account.id)
+          ).length
           return (
             <FormItem>
               <FormLabel>{t('tokenRoutes.formPattern.channels')}</FormLabel>
@@ -484,12 +407,27 @@ function PatternModeFields({
               </FormDescription>
               {accountOptions.length > 0 ? (
                 <div className='overflow-hidden rounded-lg border'>
+                  <div className='relative border-b p-2'>
+                    <Search
+                      className='text-muted-foreground pointer-events-none absolute top-1/2 left-5 size-4 -translate-y-1/2'
+                      aria-hidden='true'
+                    />
+                    <Input
+                      type='search'
+                      aria-label={t('tokenRoutes.formPattern.searchAccounts')}
+                      placeholder={t('tokenRoutes.formPattern.searchAccounts')}
+                      value={accountSearch}
+                      onChange={(event) => setAccountSearch(event.target.value)}
+                      className='border-0 bg-transparent pl-9 shadow-none'
+                    />
+                  </div>
                   <div className='bg-muted/40 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2'>
                     <label className='flex items-center gap-2 text-sm'>
                       <FormControl>
                         <Checkbox
                           ref={field.ref}
                           checked={allSelected}
+                          disabled={accountIds.length === 0}
                           indeterminate={someSelected}
                           onCheckedChange={(checked) =>
                             toggleAccounts(accountIds, checked)
@@ -505,16 +443,24 @@ function PatternModeFields({
                       className='text-muted-foreground text-xs tabular-nums'
                     >
                       {t('tokenRoutes.formPattern.channelsSelectedCount', {
-                        selected: selectedCount,
-                        total: accountIds.length,
+                        selected: totalSelected,
+                        total: accountOptions.length,
                       })}
                     </span>
                   </div>
-                  <div className='max-h-48 space-y-1 overflow-y-auto p-2'>
-                    {accountOptions.map((account) => (
+                  <div className='max-h-56 space-y-1 overflow-y-auto p-2'>
+                    {visibleAccounts.length === 0 && (
+                      <p
+                        className='text-muted-foreground px-3 py-5 text-center text-sm'
+                        role='status'
+                      >
+                        {t('tokenRoutes.formPattern.noMatchingAccounts')}
+                      </p>
+                    )}
+                    {visibleAccounts.map((account) => (
                       <label
                         key={account.id}
-                        className='hover:bg-muted flex items-center gap-2 rounded px-2 py-1'
+                        className='hover:bg-muted flex min-h-9 items-center gap-3 rounded-md px-2.5 py-2'
                       >
                         <Checkbox
                           checked={selectedIds.has(account.id)}

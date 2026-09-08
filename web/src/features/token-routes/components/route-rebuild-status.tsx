@@ -1,8 +1,19 @@
-import { CheckCircle2, Info, RefreshCw, TriangleAlert } from 'lucide-react'
-import { useId } from 'react'
+import {
+  CheckCircle2,
+  ChevronDown,
+  Info,
+  RefreshCw,
+  TriangleAlert,
+} from 'lucide-react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { Notice, type NoticeTone } from '@/components/ui/notice'
 import { Spinner } from '@/components/ui/spinner'
 
@@ -18,7 +29,13 @@ type Props = {
   observation: ReturnType<typeof useRouteRebuildTask>
 }
 
-function RebuildResult({ result }: { result: RebuildRoutesResult }) {
+function RebuildResult({
+  result,
+  showRefresh,
+}: {
+  result: RebuildRoutesResult
+  showRefresh: boolean
+}) {
   const { t } = useTranslation()
   const refresh = result.modelRefresh
   const metrics = [
@@ -42,7 +59,7 @@ function RebuildResult({ result }: { result: RebuildRoutesResult }) {
           </div>
         ))}
       </dl>
-      {refresh && (
+      {refresh && showRefresh && (
         <p className='text-muted-foreground text-sm'>
           {t('tokenRoutes.rebuild.modelRefresh', refresh)}
         </p>
@@ -55,6 +72,8 @@ export function RouteRebuildStatus(props: Props) {
   const { t } = useTranslation()
   const titleId = useId()
   const { reference, task, queryError, isChecking } = props.observation
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  useEffect(() => setDetailsOpen(false), [reference?.taskId])
   const submitting = props.rebuild.isPending
   const submissionError = props.rebuild.isError
   if (!reference && !submitting && !submissionError) return null
@@ -121,66 +140,103 @@ export function RouteRebuildStatus(props: Props) {
 
   const retrying = submitting || isChecking
   return (
-    <section
-      aria-labelledby={titleId}
-      className='min-w-0 space-y-2 rounded-lg border p-3'
-    >
+    <section aria-labelledby={titleId} className='min-w-0 rounded-lg border'>
       <Notice
         tone={tone}
+        className='rounded-none border-0 px-4 py-3'
         role={tone === 'warning' || tone === 'destructive' ? 'alert' : 'status'}
       >
         {icon}
         <div className='min-w-0 space-y-1'>
-          <h2 id={titleId} className='font-medium'>
+          <h2 id={titleId} className='font-semibold'>
             {t(title)}
           </h2>
-          <p>{t(hint)}</p>
+          {result && tone === 'success' ? (
+            <p className='tabular-nums'>
+              {t('tokenRoutes.rebuild.compactSummary', {
+                routes: result.routesCreated ?? 0,
+                added: result.channelsInserted ?? 0,
+                removed: result.channelsRemoved ?? 0,
+              })}
+            </p>
+          ) : (
+            <p>{t(hint)}</p>
+          )}
+          {result?.modelRefresh && tone === 'warning' && (
+            <p className='tabular-nums'>
+              {t('tokenRoutes.rebuild.modelRefresh', result.modelRefresh)}
+            </p>
+          )}
           {terminal && task?.status === 'failed' && task.error && (
             <p className='wrap-anywhere'>{task.error}</p>
           )}
         </div>
       </Notice>
       {reference && (
-        <p className='text-muted-foreground flex min-w-0 items-start gap-1 text-xs'>
+        <p className='text-muted-foreground flex min-w-0 items-start gap-1.5 px-4 pt-2 text-xs'>
           <Info className='mt-0.5 size-3 shrink-0' aria-hidden='true' />
           <span className='min-w-0 wrap-anywhere'>
             {t('tokenRoutes.rebuild.taskId', { id: reference.taskId })}
           </span>
         </p>
       )}
-      {result && <RebuildResult result={result} />}
-      <div className='flex flex-wrap gap-2'>
-        {queryError && !submissionError && (
-          <Button
-            variant='secondary'
-            size='sm'
-            disabled={retrying}
-            onClick={() => void props.observation.retryQuery()}
-          >
-            <RefreshCw aria-hidden='true' />
-            {t('tokenRoutes.rebuild.retryQuery')}
-          </Button>
+      <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <div className='flex flex-wrap items-center gap-2 px-3 py-2'>
+          {result && (
+            <CollapsibleTrigger
+              render={<Button variant='ghost' size='sm' />}
+              className='group'
+            >
+              {t('tokenRoutes.rebuild.details')}
+              <ChevronDown
+                className='size-3.5 transition-transform group-aria-expanded:rotate-180 motion-reduce:transition-none'
+                aria-hidden='true'
+              />
+            </CollapsibleTrigger>
+          )}
+          {queryError && !submissionError && (
+            <Button
+              variant='secondary'
+              size='sm'
+              disabled={retrying}
+              onClick={() => void props.observation.retryQuery()}
+            >
+              <RefreshCw aria-hidden='true' />
+              {t('tokenRoutes.rebuild.retryQuery')}
+            </Button>
+          )}
+          {(submissionError || queryError || task?.status === 'failed') && (
+            <Button
+              variant='outline'
+              size='sm'
+              disabled={retrying}
+              onClick={retryRebuild}
+            >
+              {t(
+                submissionError
+                  ? 'tokenRoutes.rebuild.retryLaunch'
+                  : 'tokenRoutes.rebuild.recover'
+              )}
+            </Button>
+          )}
+          {terminal && (
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={props.observation.dismiss}
+            >
+              {t('tokenRoutes.rebuild.dismiss')}
+            </Button>
+          )}
+        </div>
+        {result && (
+          <CollapsibleContent keepMounted>
+            <div className='border-t px-4 py-3'>
+              <RebuildResult result={result} showRefresh={tone !== 'warning'} />
+            </div>
+          </CollapsibleContent>
         )}
-        {(submissionError || queryError || task?.status === 'failed') && (
-          <Button
-            variant='outline'
-            size='sm'
-            disabled={retrying}
-            onClick={retryRebuild}
-          >
-            {t(
-              submissionError
-                ? 'tokenRoutes.rebuild.retryLaunch'
-                : 'tokenRoutes.rebuild.recover'
-            )}
-          </Button>
-        )}
-        {terminal && (
-          <Button variant='ghost' size='sm' onClick={props.observation.dismiss}>
-            {t('tokenRoutes.rebuild.dismiss')}
-          </Button>
-        )}
-      </div>
+      </Collapsible>
     </section>
   )
 }

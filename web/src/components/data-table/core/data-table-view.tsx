@@ -151,7 +151,7 @@ function SplitHeaderTableView<TData>({
           data-slot='table'
           data-table-stagger='true'
           className={cn(
-            'w-full caption-bottom text-sm tabular-nums [&_td]:text-sm [&_td_*]:text-sm [&_th]:text-sm [&_th_*]:text-sm',
+            'w-full caption-bottom text-sm tabular-nums',
             props.tableClassName
           )}
           style={tableSizing.style}

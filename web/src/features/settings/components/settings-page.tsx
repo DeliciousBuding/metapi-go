@@ -36,9 +36,7 @@ export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
   return (
     <div className='flex flex-col gap-6 p-6'>
       <header className='flex flex-col gap-1'>
-        <h1 className='text-lg font-normal tracking-tight'>
-          {t(activeSectionMeta.title)}
-        </h1>
+        <h1 className='page-title'>{t(activeSectionMeta.title)}</h1>
         {activeSectionMeta.description ? (
           <p className='text-muted-foreground text-sm'>
             {t(activeSectionMeta.description)}

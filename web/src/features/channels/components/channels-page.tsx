@@ -232,7 +232,7 @@ export function ChannelsPage() {
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
       <div>
-        <h1 className='text-lg font-normal'>{t('channels.page.title')}</h1>
+        <h1 className='page-title'>{t('channels.page.title')}</h1>
         <p className='text-muted-foreground text-sm'>
           {t('channels.page.description')}
         </p>

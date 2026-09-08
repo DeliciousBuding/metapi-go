@@ -242,6 +242,14 @@ describe('RoutesPage background rebuild', () => {
 
     await screen.findByRole('heading', { name: 'Rebuild completed' })
     expect(
+      screen.getByText('2 routes created · 7 channels added · 1 removed')
+    ).toBeVisible()
+    const details = screen.getByRole('button', { name: 'View details' })
+    expect(details).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByText('Routes created')).not.toBeVisible()
+    fireEvent.click(details)
+    expect(screen.getByText('Routes created')).toBeVisible()
+    expect(
       screen.getByText('Routes created').nextElementSibling
     ).toHaveTextContent('2')
     expect(

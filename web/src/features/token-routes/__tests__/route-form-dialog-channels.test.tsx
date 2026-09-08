@@ -10,6 +10,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import {
@@ -229,30 +230,34 @@ describe('RouteFormDialog bulk channel selection', () => {
     const selectAll = await screen.findByRole('checkbox', {
       name: 'Select all accounts',
     })
+    // Keep real controls and all 120 assertions, without repeating jsdom's
+    // visibility/name walk across the entire list after every state change.
+    const status = screen.getByRole('status')
+    const checkboxes = screen.getAllByRole('checkbox')
+    const accountLabel = screen.getByText('account-2').closest('label')
+    if (!accountLabel) throw new Error('Missing account checkbox label')
+    const accountTwo = within(accountLabel).getByRole('checkbox')
+    expect(checkboxes).toHaveLength(121)
+    expect(accountTwo).toHaveAccessibleName('account-2')
     expect(selectAll).toBePartiallyChecked()
-    expect(screen.getByRole('status')).toHaveTextContent('1 / 120 selected')
+    expect(status).toHaveTextContent('1 / 120 selected')
 
     fireEvent.click(selectAll)
 
-    expect(
-      screen.getByRole('checkbox', { name: 'Deselect all accounts' })
-    ).toBeChecked()
-    expect(screen.getByRole('status')).toHaveTextContent('120 / 120 selected')
-    const checkboxes = screen.getAllByRole('checkbox')
-    expect(checkboxes).toHaveLength(121)
+    expect(selectAll).toHaveAccessibleName('Deselect all accounts')
+    expect(selectAll).toBeChecked()
+    expect(status).toHaveTextContent('120 / 120 selected')
     for (const checkbox of checkboxes) {
       expect(checkbox).toBeChecked()
     }
     expect(mockCreateMutate).not.toHaveBeenCalled()
     expect(mockBatchMutate).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'account-2' }))
-    const partialSelection = screen.getByRole('checkbox', {
-      name: 'Select all accounts',
-    })
-    expect(partialSelection).toBePartiallyChecked()
-    expect(screen.getByRole('status')).toHaveTextContent('119 / 120 selected')
-    fireEvent.click(partialSelection)
+    fireEvent.click(accountTwo)
+    expect(selectAll).toHaveAccessibleName('Select all accounts')
+    expect(selectAll).toBePartiallyChecked()
+    expect(status).toHaveTextContent('119 / 120 selected')
+    fireEvent.click(selectAll)
     fireEvent.change(screen.getByLabelText('Model match rule'), {
       target: { value: 'gpt-5.5' },
     })
@@ -266,6 +271,7 @@ describe('RouteFormDialog bulk channel selection', () => {
         ),
       })
     })
+    expect(mockBatchMutate).toHaveBeenCalledTimes(1)
     expect(mockBatchMutate.mock.calls[0][0].channels).toHaveLength(120)
   })
 
@@ -446,5 +452,128 @@ describe('RouteFormDialog bulk channel selection', () => {
     ).toBeInTheDocument()
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
     expect(mockBatchMutate).not.toHaveBeenCalled()
+  })
+})
+
+describe('RouteFormDialog progressive disclosure', () => {
+  const searchable = [
+    { id: 7, label: 'account-seven @ Alpha' },
+    { id: 8, label: 'account-eight @ Beta' },
+    { id: 9, label: 'account-nine @ Alpha' },
+  ]
+
+  it('selects only matching accounts without clearing hidden selections', async () => {
+    renderDialog({ accountOptions: searchable, chainContext: { accountId: 8 } })
+    const search = await screen.findByRole('searchbox', {
+      name: 'Search accounts or sites…',
+    })
+    fireEvent.change(search, { target: { value: 'alpha' } })
+    expect(
+      screen.queryByRole('checkbox', { name: 'account-eight @ Beta' })
+    ).not.toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Select matching accounts' })
+    )
+    expect(screen.getByText('3 / 3 selected')).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Deselect matching accounts' })
+    )
+    expect(screen.getByText('1 / 3 selected')).toBeInTheDocument()
+    fireEvent.change(search, { target: { value: '' } })
+    expect(
+      screen.getByRole('checkbox', { name: 'account-eight @ Beta' })
+    ).toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'account-seven @ Alpha' })
+    ).not.toBeChecked()
+    fireEvent.change(screen.getByLabelText('Model match rule'), {
+      target: { value: 'gpt-5.5' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add route' }))
+    await waitFor(() =>
+      expect(mockBatchMutate).toHaveBeenCalledWith({
+        routeId: 1,
+        channels: [{ accountId: 8 }],
+      })
+    )
+  })
+
+  it('makes an empty search actionable without discarding the draft', async () => {
+    renderDialog({ accountOptions: searchable, chainContext: { accountId: 7 } })
+    const search = await screen.findByRole('searchbox', {
+      name: 'Search accounts or sites…',
+    })
+    fireEvent.change(search, { target: { value: 'no-such-account' } })
+    expect(screen.getByText('No accounts match your search.')).toBeVisible()
+    expect(
+      screen.getByRole('checkbox', { name: 'Select matching accounts' })
+    ).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText('1 / 3 selected')).toBeVisible()
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Select matching accounts' })
+    )
+    expect(screen.getByText('1 / 3 selected')).toBeVisible()
+    fireEvent.change(search, { target: { value: '' } })
+    expect(
+      screen.getByRole('checkbox', { name: 'account-seven @ Alpha' })
+    ).toBeChecked()
+  })
+
+  it('keeps optional fields collapsed initially and preserves edits through collapsing', async () => {
+    renderDialog()
+    const advanced = await screen.findByRole('button', {
+      name: /Advanced settings/,
+    })
+    expect(advanced).toHaveAttribute('aria-expanded', 'false')
+    const mapping = screen.getByLabelText('Model mapping (optional)')
+    expect(mapping).not.toBeVisible()
+    fireEvent.click(advanced)
+    expect(mapping).toBeVisible()
+    fireEvent.change(mapping, {
+      target: { value: '{"gpt-5.5":"upstream-model"}' },
+    })
+    fireEvent.click(advanced)
+    expect(mapping).not.toBeVisible()
+    fireEvent.change(screen.getByLabelText('Model match rule'), {
+      target: { value: 'gpt-5.5' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add route' }))
+    await waitFor(() =>
+      expect(mockCreateMutate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          modelMapping: '{"gpt-5.5":"upstream-model"}',
+        })
+      )
+    )
+  })
+
+  it('reveals and focuses an invalid optional field instead of failing invisibly', async () => {
+    renderDialog()
+    const advanced = await screen.findByRole('button', {
+      name: /Advanced settings/,
+    })
+    fireEvent.click(advanced)
+    const invalidField = screen.getByLabelText('Context length (optional)')
+    // jsdom has no layout/scrolling API; keep this stub on the rendered
+    // item and wait for the scheduled validation scroll before teardown.
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(
+      invalidField.closest('[data-slot="form-item"]'),
+      'scrollIntoView',
+      { value: scrollIntoView }
+    )
+    fireEvent.change(invalidField, { target: { value: '-1' } })
+    fireEvent.change(screen.getByLabelText('Model match rule'), {
+      target: { value: 'gpt-5.5' },
+    })
+    fireEvent.click(advanced)
+    fireEvent.click(screen.getByRole('button', { name: 'Add route' }))
+    await waitFor(() =>
+      expect(advanced).toHaveAttribute('aria-expanded', 'true')
+    )
+    expect(invalidField).toBeVisible()
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
+    await waitFor(() => expect(invalidField).toHaveFocus())
+    expect(mockCreateMutate).not.toHaveBeenCalled()
   })
 })

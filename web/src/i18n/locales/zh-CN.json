@@ -2149,7 +2149,7 @@
       "page": {
         "title": "路由管理",
         "automaticCreationSettings": "模型路由自动创建设置",
-        "description": "配置模型路由：匹配规则 / 分组 / 通道策略，让请求按规则分发到账号通道。",
+        "description": "将模型请求分配至上游账号，并配置流量分配策略。",
         "rebuild": "自动重建",
         "refreshDecisions": "刷新决策",
         "addButton": "添加路由",
@@ -2179,13 +2179,13 @@
         "invalid": "请检查表单标红字段",
         "editTitle": "编辑路由",
         "addTitle": "添加路由",
-        "editDescription": "更新路由匹配规则与配置。留空的可选字段将保持不变。",
-        "addDescription": "配置一条路由：匹配模式按模型名/正则匹配，分组模式聚合多个精确路由。",
+        "editDescription": "调整匹配规则和通道，保留已有绑定。",
+        "addDescription": "设置模型匹配规则，并选择提供服务的账号。",
         "routeType": "路由类型",
         "modeGroup": "分组",
         "modePattern": "匹配",
-        "modeGroupHint": "分组：对外暴露一个模型名，聚合多个精确路由作为来源。",
-        "modePatternHint": "匹配：按模型名或 re: 正则匹配上游请求。",
+        "modeGroupHint": "将多条已有路由聚合为一个对外模型名。",
+        "modePatternHint": "输入单个模型名，或使用 re: 正则匹配多个模型。",
         "displayIcon": "显示图标（可选）",
         "displayIconHint": "支持 brand:<key> 品牌图标；填 none 关闭图标。",
         "displayIconPlaceholder": "留空=自动品牌；brand:openai；none=无图标",
@@ -2197,11 +2197,13 @@
         "modelMappingHint": "将匹配的模型名映射为上游模型名（JSON 对象）。",
         "modelMappingPlaceholder": "{\"gpt-5\":\"gpt-5-codex\"} 或留空",
         "save": "保存修改",
-        "create": "添加路由"
+        "create": "添加路由",
+        "advancedTitle": "高级设置",
+        "advancedHint": "路由策略、模型映射与展示选项"
       },
       "rebuild": {
         "checking": "正在核实重建任务",
-        "backgroundHint": "任务会在服务端继续运行。可以离开此页；返回或刷新后会重新核实任务状态。",
+        "backgroundHint": "任务在服务端继续执行，可离开页面后返回查看。",
         "submitting": "正在请求后台重建",
         "launchUnknown": "尚未确认重建请求已接收",
         "launchUnknownHint": "请求可能已经启动任务。使用相同参数重试可找回正在运行的任务，避免重复执行。",
@@ -2228,20 +2230,26 @@
         "recover": "找回或重新启动重建",
         "dismiss": "收起结果",
         "resumed": "已重新连接到现有重建任务。",
-        "invalidResponse": "服务端未返回有效的重建任务或结果。"
+        "invalidResponse": "服务端未返回有效的重建任务或结果。",
+        "compactSummary": "新建 {{routes}} 条路由 · 新增 {{added}} 个通道 · 移除 {{removed}} 个",
+        "details": "查看详情"
       },
       "formPattern": {
         "modelRule": "模型匹配规则",
         "modelRulePlaceholder": "gpt-5-codex 或 re:^claude-opus-.*$",
         "regexHint": "当前为正则匹配（re: 前缀）。",
-        "exactHint": "当前为精确模型匹配。正则请使用 re: 前缀。",
+        "exactHint": "填写上游模型名；使用正则时以 re: 开头。",
         "channels": "通道（可选）",
         "channelsSelectAll": "全选账号",
         "channelsDeselectAll": "取消全选账号",
         "channelsSelectedCount": "已选 {{selected}} / {{total}}",
-        "channelsHint": "可选择启用且具有账号中继凭据的账号。无需先发现模型，可手工输入模型名；具体模型能否调用仍由上游决定。",
+        "channelsHint": "选择账号即可手工绑定，无需先发现模型。",
         "channelsEmptyHint": "尚未加载到可手工绑定的账号。请在「账号」页检查账号与站点状态，以及账号中继凭据；手工绑定无需先发现模型。",
-        "channelsEmptyHintEdit": "尚未加载到可手工绑定的账号。请在「账号」页检查账号状态与中继凭据；已有路由通道仍在上方编辑器中。"
+        "channelsEmptyHintEdit": "尚未加载到可手工绑定的账号。请在「账号」页检查账号状态与中继凭据；已有路由通道仍在上方编辑器中。",
+        "searchAccounts": "搜索账号或站点…",
+        "noMatchingAccounts": "没有匹配的账号。",
+        "channelsSelectFiltered": "全选匹配账号",
+        "channelsDeselectFiltered": "取消选择匹配账号"
       },
       "formGroup": {
         "displayName": "对外模型名",

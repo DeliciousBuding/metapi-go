@@ -2,18 +2,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Body face, two bundled variable families: Public Sans carries Latin,
-   * Noto Sans SC carries CJK (imported in index.css). Both ship as
-   * unicode-range slices, so an `en` page never downloads a CJK byte and a
-   * `zh-CN` page fetches only the slices it renders (the locale's 774
-   * characters map to 21 slices / 1.18 MiB; a single page pulls 9-11). Before the CJK face was bundled the
-   * stack jumped straight from Public Sans to platform fonts, so every
-   * Chinese string rendered in whatever the OS shipped: Microsoft YaHei on
-   * Windows, which has no medium or semibold cut — `font-medium` (500) and
-   * `font-semibold` (600) both resolved to Regular, flattening the weight
-   * hierarchy the Latin side already had. The platform faces stay behind the
-   * bundled one as insurance for a failed webfont fetch. zh-CN is the only
-   * CJK locale shipped (`supportedLngs` in i18n/config.ts), hence SC first. */
+  /* Self-hosted variable faces: Public Sans for Latin, Noto Sans SC for
+   * Chinese. Platform fallbacks stay behind them for consistent weights.
+   * unicode-range controls per-glyph downloads. Rationale and measurements:
+   * docs/internal/design/DESIGN.md, "Bundled CJK font trade-off". */
   --font-sans:
     'Public Sans Variable', 'Public Sans', 'Noto Sans SC Variable',
     'Noto Sans SC', 'Noto Sans TC', 'Noto Sans JP', 'Noto Sans KR',
@@ -91,7 +83,7 @@
 }
 
 :root {
-  --radius: 1rem;
+  --radius: 0.625rem;
   --app-header-height: 3.5rem;
   /* Currently active body font. The font axis swaps this between
    * `--font-sans` and `--font-serif` via `[data-theme-font='...']` blocks

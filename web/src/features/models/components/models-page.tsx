@@ -293,7 +293,7 @@ export function ModelsPage() {
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
       <div>
-        <h1 className='text-lg font-normal'>{t('models.page.title')}</h1>
+        <h1 className='page-title'>{t('models.page.title')}</h1>
         <p className='text-muted-foreground text-sm'>
           {t('models.page.description')}
         </p>

@@ -568,7 +568,7 @@ export function AccountsPage() {
           (aligns with the checkin/routes page-header pattern). */}
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
-          <h1 className='text-lg font-normal'>{t('accounts.page.title')}</h1>
+          <h1 className='page-title'>{t('accounts.page.title')}</h1>
           <p className='text-muted-foreground text-sm'>
             {t('accounts.page.description')}
           </p>

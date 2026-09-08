@@ -166,9 +166,7 @@ export function AboutPage() {
   return (
     <div className='mx-auto w-full max-w-4xl space-y-6 p-6'>
       <div className='space-y-1'>
-        <h1 className='text-2xl font-normal tracking-tight'>
-          {t('about.title')}
-        </h1>
+        <h1 className='page-title-overview'>{t('about.title')}</h1>
         <p className='text-muted-foreground text-sm'>
           {t('about.description')}
         </p>
