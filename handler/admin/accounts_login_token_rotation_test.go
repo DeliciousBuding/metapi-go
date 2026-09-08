@@ -33,10 +33,10 @@ func TestAccounts_LoginConvergesDefaultRelayTokenAfterUpstreamRotation(t *testin
 			fmt.Fprint(w, `{"success":true,"data":{"access_token":"dashboard-pat"}}`)
 		case req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/api/token/"):
 			if rotated.Load() {
-				fmt.Fprint(w, `{"success":true,"data":{"items":[{"id":2,"name":"metapi-aged-2","key":"sk-live-key","status":1}]}}`)
+				fmt.Fprint(w, `{"success":true,"data":{"items":[{"id":2,"name":"metapi-aged-2","key":"sk-live-key","status":1}],"total":1}}`)
 				return
 			}
-			fmt.Fprint(w, `{"success":true,"data":{"items":[{"id":1,"name":"metapi-aged","key":"sk-revoked-key","status":1}]}}`)
+			fmt.Fprint(w, `{"success":true,"data":{"items":[{"id":1,"name":"metapi-aged","key":"sk-revoked-key","status":1}],"total":1}}`)
 		case req.Method == http.MethodGet && req.URL.Path == "/v1/models":
 			// The relay key is the only credential that can list models here, so a
 			// stale default is visible as a failed refresh — exactly what the real

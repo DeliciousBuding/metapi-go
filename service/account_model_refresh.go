@@ -143,7 +143,14 @@ func RefreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	callCtx, cancel := context.WithTimeout(ctx, modelRefreshFetchTimeout)
 	defer cancel()
 
+	modelToken := token
 	models, getErr := adapter.GetModels(callCtx, site.URL, token, platformUserID, proxyCfg)
+	if getErr != nil {
+		if fallbackToken, ok := newAPIAccessTokenFallback(site.Platform, &account, token, getErr); ok {
+			modelToken = fallbackToken
+			models, getErr = adapter.GetModels(callCtx, site.URL, fallbackToken, platformUserID, proxyCfg)
+		}
+	}
 	if getErr != nil {
 		code, msg := classifyModelRefreshError(getErr, callCtx)
 		return AccountModelRefreshResult{
@@ -173,13 +180,18 @@ func RefreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	// the freshly refreshed model set (#675). Best-effort: if the token does
 	// not match an account_tokens row, skip silently — the account-level
 	// model_availability rows remain the source of truth.
+	// A management-token fallback discovers account models, but it did not prove
+	// the relay credential can serve inference. Do not backfill token-scoped
+	// availability from a credential other than the relay token that was probed.
 	tokenBackfilled := false
-	if tokenID, ok := resolveAccountTokenID(db, accountID, token); ok {
-		if err := persistTokenModelAvailability(db, tokenID, clean, now); err != nil {
-			slog.Warn("model-refresh: token_model_availability backfill failed",
-				"account_id", accountID, "token_id", tokenID, "error", err)
-		} else {
-			tokenBackfilled = true
+	if modelToken == token {
+		if tokenID, ok := resolveAccountTokenID(db, accountID, token); ok {
+			if err := persistTokenModelAvailability(db, tokenID, clean, now); err != nil {
+				slog.Warn("model-refresh: token_model_availability backfill failed",
+					"account_id", accountID, "token_id", tokenID, "error", err)
+			} else {
+				tokenBackfilled = true
+			}
 		}
 	}
 
@@ -330,6 +342,32 @@ func resolveAccountModelToken(account *store.Account) string {
 		return strings.TrimSpace(*account.APIToken)
 	}
 	return strings.TrimSpace(account.AccessToken)
+}
+
+// newAPIAccessTokenFallback returns the already-stored New API dashboard token
+// only when the relay credential reached an unavailable model-discovery surface.
+// Authentication and timeout failures stay terminal: falling back there would
+// report a valid management token as proof that a rejected relay key can infer.
+func newAPIAccessTokenFallback(sitePlatform string, account *store.Account, primaryToken string, primaryErr error) (string, bool) {
+	if sitePlatform != "new-api" || account == nil || primaryErr == nil {
+		return "", false
+	}
+	accessToken := strings.TrimSpace(account.AccessToken)
+	if accessToken == "" || accessToken == strings.TrimSpace(primaryToken) {
+		return "", false
+	}
+
+	if code, _ := classifyModelRefreshError(primaryErr, nil); code == "unauthorized" || code == "timeout" {
+		return "", false
+	}
+
+	lower := strings.ToLower(primaryErr.Error())
+	if strings.Contains(lower, "http 404") ||
+		strings.Contains(lower, "http 405") ||
+		strings.Contains(lower, "model-list request") {
+		return accessToken, true
+	}
+	return "", false
 }
 
 // resolveModelRefreshPlatformUserIDPtr mirrors the pre-Wave-15 handler

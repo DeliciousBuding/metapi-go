@@ -217,11 +217,11 @@ func TestSyncTokensFromUpstreamPreservesEnabledAndName(t *testing.T) {
 	disabledID := createTestAccountTokenWithEnabled(t, db, accountID, "ops-disabled", "sk-disabled-key", false, false)
 	defaultID := createTestAccountTokenWithEnabled(t, db, accountID, "ops-default", "sk-default-key", true, true)
 
-	syncResult, err := SyncTokensFromUpstream(db.DB, accountID, []UpstreamAPIToken{
+	syncResult, err := SyncTokensFromUpstream(db.DB, accountID, testTokenListing([]UpstreamAPIToken{
 		{Name: "upstream-renamed-disabled", Key: "sk-disabled-key", Enabled: true, TokenGroup: "default"},
 		{Name: "upstream-renamed-default", Key: "sk-default-key", Enabled: true, TokenGroup: "default"},
 		{Name: "brand-new", Key: "sk-new-key", Enabled: true, TokenGroup: "default"},
-	})
+	}, false))
 	if err != nil {
 		t.Fatalf("SyncTokensFromUpstream: %v", err)
 	}
