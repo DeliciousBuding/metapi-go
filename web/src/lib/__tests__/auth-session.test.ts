@@ -124,6 +124,18 @@ describe('bootstrapAuthentication', () => {
     expect(mod.wasAuthSessionExpiredOnLastBoot()).toBe(false)
   })
 
+  it('expires the bootstrapped in-memory session at its server deadline', async () => {
+    const expiresAtMs = FIXED_NOW + 1_000
+    mockFetchOnce({
+      authenticated: true,
+      expiresAt: new Date(expiresAtMs).toISOString(),
+    })
+    await mod.bootstrapAuthentication()
+
+    expect(mod.hasValidAuthSession(localStorage, expiresAtMs - 1)).toBe(true)
+    expect(mod.hasValidAuthSession(localStorage, expiresAtMs)).toBe(false)
+  })
+
   it('clears client state and reports expired when the server says no session', async () => {
     // Local metadata claims a live session; the server disagrees (the row
     // expired or was revoked) — the bootstrap must record "expired" so the

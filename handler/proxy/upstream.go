@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -571,7 +573,7 @@ func dispatchEndpointAttemptWithContinue(
 		// Transport-level failures go through the same single decision function
 		// (and therefore the same same-site abort policy) as HTTP/content
 		// failures; the historical bare check let them bypass the abort policy.
-		if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureTransport) {
+		if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, classifyEndpointTransportFailure(err)) {
 			// Network error may still be protocol-local; allow next endpoint without poison.
 			return false, nil, true
 		}
@@ -595,7 +597,7 @@ func dispatchEndpointAttemptWithContinue(
 					"err", readErr, "latency_ms", latencyMs, "status", resp.StatusCode,
 					"request_id", requestID, "retry", retry)
 				errText := readErr.Error()
-				if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureTransport) {
+				if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, classifyEndpointTransportFailure(readErr)) {
 					return false, nil, true
 				}
 				recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, errText)
@@ -691,7 +693,7 @@ func dispatchEndpointAttemptWithContinue(
 			"err", readErr, "latency_ms", latencyMs, "channel_id", selected.Channel.ID,
 			"request_id", requestID, "retry", retry)
 		errText := readErr.Error()
-		if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureTransport) {
+		if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, classifyEndpointTransportFailure(readErr)) {
 			return false, nil, true
 		}
 		recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, errText)
@@ -812,11 +814,14 @@ const (
 	// body, so both the same-site abort policy and the protocol-hint downgrade
 	// list apply.
 	endpointFailureResponse endpointFailureClass = iota
-	// endpointFailureTransport: no HTTP response at all (request construction,
-	// dial, or body read failure). The status passed in is the one the failure
+	// endpointFailureTransport: another transport failure, such as request
+	// construction or body reading. The status passed in is the one the failure
 	// is reported with, so the same-site abort policy applies to transport
 	// errors exactly as it does to responses.
 	endpointFailureTransport
+	// A typed dial/DNS failure cannot be repaired by changing the HTTP path.
+	// Classification does not depend on localized socket error messages.
+	endpointFailureDial
 	// endpointFailureFirstByteTimeout: the per-attempt budget expired before
 	// headers arrived. Intentionally exempt from the same-site abort policy —
 	// a first-byte timeout is a budget verdict about one attempt, not evidence
@@ -825,11 +830,23 @@ const (
 	endpointFailureFirstByteTimeout
 )
 
+func classifyEndpointTransportFailure(err error) endpointFailureClass {
+	var dialErr *net.OpError
+	var dnsErr *net.DNSError
+	if (errors.As(err, &dialErr) && dialErr.Op == "dial") || errors.As(err, &dnsErr) {
+		return endpointFailureDial
+	}
+	return endpointFailureTransport
+}
+
 // shouldContinueEndpointFallback is the ONE owner of "try the next protocol
 // candidate?". Every fallback decision in the dispatch path — HTTP status,
 // content failure and transport-level errors alike — goes through it.
 func shouldContinueEndpointFallback(status int, rawErrText string, isLastEndpoint bool, disableCrossProtocolFallback bool, class endpointFailureClass) bool {
 	if isLastEndpoint || disableCrossProtocolFallback {
+		return false
+	}
+	if class == endpointFailureDial {
 		return false
 	}
 	if class != endpointFailureFirstByteTimeout && proxy.ShouldAbortSameSiteEndpointFallback(status, rawErrText) {

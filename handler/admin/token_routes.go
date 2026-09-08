@@ -1,10 +1,8 @@
 package admin
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -12,7 +10,6 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
-	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/go-chi/chi/v5"
@@ -767,117 +764,6 @@ func (h *tokenRoutesHandler) batchRoutes(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":      true,
 		"updatedCount": updated,
-	})
-}
-
-// ---- Rebuild Routes ----
-// POST /api/routes/rebuild
-// Synchronously recomposes pattern-route channels from model availability and
-// invalidates the in-process route cache. Response must stay truthful: do not
-// claim a background job was queued. The work runs on a context detached from
-// the request, so a client that disconnects mid-pass does not cancel it.
-//
-// Request body (both fields optional; the frontend always sends it, curl users
-// may omit it): {"refreshModels": true, "wait": true}. refreshModels defaults
-// to true and first refreshes the upstream model list of every active account
-// (same batch semantics as the periodic model-sync: per-account failures are
-// counted, never fatal), then rebuilds channels from the refreshed
-// availability — this is what the UI's "auto rebuild" promises operators
-// (#1024: previously the field was silently ignored, so rebuilds ran against
-// stale/empty model lists). wait is accepted for TS contract compatibility;
-// this handler has always been synchronous, so queued is always false.
-// routesRebuildWorkBudget bounds one detached rebuild pass: worst case every
-// active account is refreshed at modelRefreshFetchTimeout each, then the local
-// recomposition runs. Generous on purpose — the alternative (a tight budget) is
-// what made the pass abort mid-fleet before.
-const routesRebuildWorkBudget = 30 * time.Minute
-
-func (h *tokenRoutesHandler) rebuildRoutes(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		RefreshModels *bool `json:"refreshModels"`
-		Wait          bool  `json:"wait"`
-	}
-	if r.Body != nil {
-		body, readErr := io.ReadAll(io.LimitReader(r.Body, 1<<20))
-		if readErr == nil && len(bytes.TrimSpace(body)) > 0 {
-			if jsonErr := json.Unmarshal(body, &req); jsonErr != nil {
-				slog.Warn("routes rebuild: malformed body, using defaults", "error", jsonErr)
-			}
-		}
-	}
-	refreshModels := true
-	if req.RefreshModels != nil {
-		refreshModels = *req.RefreshModels
-	}
-
-	// The pass outlives the request that asked for it (#1174). Refreshing every
-	// active account is one upstream round-trip each, bounded by
-	// modelRefreshFetchTimeout, so a fleet of dozens takes minutes — longer than
-	// a browser or a reverse proxy waits. Bound to r.Context() the work died
-	// with the connection: the model-sync loop broke mid-pass and the rebuild
-	// after it failed with "context canceled", so the operator's rebuild never
-	// happened at all. Detach, then apply our own budget; a client that hangs up
-	// no longer cancels the routing state it asked us to recompose.
-	workCtx, cancelWork := context.WithTimeout(
-		context.WithoutCancel(r.Context()), routesRebuildWorkBudget)
-	defer cancelWork()
-
-	var stats service.RouteRebuildStats
-	if refreshModels {
-		// SyncAllAccountModels always ends with exactly one rebuild, so there is
-		// no "nothing was refreshed" branch left to cover here.
-		summary := service.SyncAllAccountModels(workCtx, h.db)
-		stats = summary.Rebuild
-		if summary.RebuildErr != nil {
-			writeRebuildFailure(w, summary.RebuildErr)
-			return
-		}
-	} else {
-		rebuildStats, err := service.RebuildTokenRoutesFromAvailability(workCtx, h.db)
-		if err != nil {
-			writeRebuildFailure(w, err)
-			return
-		}
-		stats = rebuildStats
-	}
-	shared.RecordRouteRebuildCompleted()
-	// Rebuild recomposes route_channels rows; drop the list snapshot so the
-	// next GET /api/channels reflects the rebuilt fleet immediately.
-	invalidateChannelsSnapshotCache()
-	slog.Info("routes rebuild completed",
-		"queued", false,
-		"status", "completed",
-		"routesConsidered", stats.RoutesConsidered,
-		"patternRoutes", stats.PatternRoutes,
-		"groupRoutes", stats.GroupRoutes,
-		"channelsInserted", stats.ChannelsInserted,
-		"channelsRemoved", stats.ChannelsRemoved,
-	)
-	writeJSON(w, http.StatusOK, map[string]any{
-		"success":          true,
-		"queued":           false,
-		"reused":           false,
-		"status":           "completed",
-		"message":          "route channels rebuilt and cache refreshed",
-		"routesConsidered": stats.RoutesConsidered,
-		"patternRoutes":    stats.PatternRoutes,
-		"groupRoutes":      stats.GroupRoutes,
-		"channelsInserted": stats.ChannelsInserted,
-		"channelsRemoved":  stats.ChannelsRemoved,
-		"channelsKept":     stats.ChannelsKept,
-		"changed":          stats.Changed,
-	})
-}
-
-// writeRebuildFailure emits the truthful failure envelope for rebuild passes.
-func writeRebuildFailure(w http.ResponseWriter, err error) {
-	slog.Error("routes rebuild failed", "error", err)
-	writeJSON(w, http.StatusInternalServerError, map[string]any{
-		"success": false,
-		"queued":  false,
-		"reused":  false,
-		"status":  "failed",
-		"message": "route rebuild failed",
 	})
 }
 

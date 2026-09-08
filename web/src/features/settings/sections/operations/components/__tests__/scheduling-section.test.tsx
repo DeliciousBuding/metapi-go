@@ -24,7 +24,7 @@ import {
   vi,
 } from 'vitest'
 
-import '@/i18n/config'
+import i18n from '@/i18n/config'
 
 import { SchedulingSection } from '../scheduling-section'
 
@@ -243,5 +243,60 @@ describe('SchedulingSection — model sync cron (#1005)', () => {
       expect(testState.toastInfo).toHaveBeenCalledTimes(1)
     })
     expect(testState.updateRuntimeSettings).not.toHaveBeenCalled()
+  })
+})
+
+describe('SchedulingSection — automatic model routes', () => {
+  it('keeps automatic route creation off when the server has no setting', async () => {
+    renderSchedulingSection()
+    const checkbox = await screen.findByRole('checkbox', {
+      name: i18n.t(
+        'settings.operations.scheduling.fields.autoCreateModelRoutes'
+      ),
+    })
+    expect(checkbox).not.toBeChecked()
+  })
+
+  it('saves an explicit opt-in without rewriting unrelated scheduling fields', async () => {
+    testState.getRuntimeSettings.mockResolvedValue({
+      autoCreateModelRoutes: false,
+    })
+    renderSchedulingSection()
+    const checkbox = await screen.findByRole('checkbox', {
+      name: i18n.t(
+        'settings.operations.scheduling.fields.autoCreateModelRoutes'
+      ),
+    })
+    fireEvent.click(checkbox)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'save-scheduling' })
+    )
+    await waitFor(() =>
+      expect(testState.updateRuntimeSettings).toHaveBeenCalledWith({
+        autoCreateModelRoutes: true,
+      })
+    )
+  })
+
+  it('shows the persisted opt-in and lets the operator turn it off', async () => {
+    testState.getRuntimeSettings.mockResolvedValue({
+      autoCreateModelRoutes: true,
+    })
+    renderSchedulingSection()
+    const checkbox = await screen.findByRole('checkbox', {
+      name: i18n.t(
+        'settings.operations.scheduling.fields.autoCreateModelRoutes'
+      ),
+    })
+    expect(checkbox).toBeChecked()
+    fireEvent.click(checkbox)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'save-scheduling' })
+    )
+    await waitFor(() =>
+      expect(testState.updateRuntimeSettings).toHaveBeenCalledWith({
+        autoCreateModelRoutes: false,
+      })
+    )
   })
 })

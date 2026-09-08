@@ -61,7 +61,8 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		"balanceRefreshSchedule": scheduler.CronToSchedule(rt.BalanceRefreshCron),
 		"balanceRefreshEnabled":  !rt.BalanceRefreshDisabled,
 		// Model sync (#1005) — plain cron, no v2 schedule mirror
-		"modelSyncCron": rt.ModelSyncCron,
+		"modelSyncCron":         rt.ModelSyncCron,
+		"autoCreateModelRoutes": rt.AutoCreateModelRoutes,
 		// Log cleanup
 		"logCleanupCron":               rt.LogCleanupCron,
 		"logCleanupSchedule":           scheduler.CronToSchedule(rt.LogCleanupCron),
@@ -394,7 +395,7 @@ func applyBoolSettingDB(db *sqlx.DB, body map[string]any, key string, dbKey stri
 	return nil
 }
 
-func upsertSettingDB(db *sqlx.DB, key string, value any) error {
+func upsertSettingDB(db sqlx.Ext, key string, value any) error {
 	// Normalize nil string slices to empty arrays so we never persist JSON null
 	// for list settings (null historically rehydrated as a wiped allowlist).
 	if value == nil {

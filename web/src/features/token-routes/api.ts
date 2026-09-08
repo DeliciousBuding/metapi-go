@@ -8,11 +8,14 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
+import { accountQueryKeys } from '@/features/accounts/api'
 import { channelsKeys } from '@/features/channels/types'
+import { modelsKeys } from '@/features/models/types'
 import i18n from '@/i18n/config'
 import { api } from '@/lib/api'
 import { assertBusinessOk } from '@/lib/assert-business-ok'
@@ -23,6 +26,10 @@ import {
 import { buildZeroChannelPlaceholderRoutes } from '@/lib/helpers/zeroChannelRoutes'
 import { toast } from '@/lib/toast'
 
+import {
+  rememberRouteRebuild,
+  routeRebuildTaskQueryKey,
+} from './lib/route-rebuild-reference'
 import type {
   RouteChannel,
   RouteFormPayload,
@@ -37,6 +44,7 @@ import type {
 export const routeQueryKeys = {
   all: ['routes'] as const,
   summary: () => [...routeQueryKeys.all, 'summary'] as const,
+  rebuild: () => [...routeQueryKeys.all, 'rebuild'] as const,
   candidates: () => [...routeQueryKeys.all, 'candidates'] as const,
   channels: (id: number) => ['routes', 'channels', id] as const,
   channelsAll: () => ['routes', 'channels'] as const,
@@ -359,69 +367,129 @@ export function useBatchAddChannels() {
 // useRebuildRoutes
 // ---------------------------------------------------------------------------
 
-/**
- * Truthful contract of POST /api/routes/rebuild (#1024): the endpoint
- * recomposes channels of EXISTING routes from model availability — it never
- * creates routes. The legacy `created`/`channelCount` fields were TS-era
- * phantoms the Go backend never returned, so the toast always reported
- * "0 routes / 0 channels added" even when channels were rebuilt.
- */
+/** The synchronous result, also returned as a completed rebuild task's result. */
 export interface RebuildRoutesResult {
   success?: boolean
   queued?: boolean
   reused?: boolean
   status?: string
   message?: string
+  taskId?: string
+  jobId?: string
   routesConsidered?: number
+  routesCreated?: number
+  unsafeModelsSkipped?: number
   patternRoutes?: number
   groupRoutes?: number
   channelsInserted?: number
   channelsRemoved?: number
   channelsKept?: number
   changed?: boolean
+  modelRefresh?: {
+    total: number
+    success: number
+    failed: number
+    notProcessed: number
+  }
+}
+
+export function rebuildHasWarnings(result: RebuildRoutesResult): boolean {
+  return (
+    (result.unsafeModelsSkipped ?? 0) > 0 ||
+    (result.modelRefresh?.failed ?? 0) > 0 ||
+    (result.modelRefresh?.notProcessed ?? 0) > 0
+  )
+}
+
+export function invalidateRouteRebuildQueries(queryClient: QueryClient): void {
+  for (const queryKey of [
+    routeQueryKeys.all,
+    channelsKeys.all,
+    accountQueryKeys.all,
+    modelsKeys.all,
+    // Account-model inventory owns this private query namespace.
+    ['account-models'] as const,
+  ]) {
+    void queryClient.invalidateQueries({ queryKey })
+  }
+}
+
+function showRebuildResult(result: RebuildRoutesResult): void {
+  if (rebuildHasWarnings(result)) {
+    toast.warning(i18n.t('tokenRoutes.rebuild.partial'))
+    return
+  }
+  const routesConsidered = result.routesConsidered ?? 0
+  const created = result.routesCreated ?? 0
+  const inserted = result.channelsInserted ?? 0
+  const removed = result.channelsRemoved ?? 0
+  if (routesConsidered === 0 && created === 0) {
+    toast.warning(i18n.t('tokenRoutes.toast.rebuildNoRoutes'))
+  } else if (created === 0 && inserted === 0 && removed === 0) {
+    toast.info(i18n.t('tokenRoutes.toast.rebuildNoChanges'))
+  } else {
+    toast.success(
+      i18n.t('tokenRoutes.toast.rebuildComplete', {
+        routes: routesConsidered,
+        inserted,
+        removed,
+      })
+    )
+  }
 }
 
 export function useRebuildRoutes() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: routeQueryKeys.rebuild(),
     mutationFn: async (options?: {
       refreshModels?: boolean
       wait?: boolean
     }) => {
-      const result = await api.rebuildRoutes(
-        options?.refreshModels ?? true,
-        options?.wait ?? false
-      )
-      return assertBusinessOk<RebuildRoutesResult>(
-        result,
+      const wait = options?.wait ?? false
+      const result = assertBusinessOk<RebuildRoutesResult>(
+        await api.rebuildRoutes(options?.refreshModels ?? true, wait),
         'tokenRoutes.toast.rebuildFailed'
       )
+      if (result?.success !== true) {
+        throw new Error(i18n.t('tokenRoutes.rebuild.invalidResponse'))
+      }
+      if (result.queued) {
+        const taskId = result.taskId
+        if (typeof taskId !== 'string' || !taskId.trim()) {
+          throw new Error(i18n.t('tokenRoutes.rebuild.invalidResponse'))
+        }
+        return { ...result, queued: true as const, taskId }
+      }
+      if (!wait) {
+        throw new Error(i18n.t('tokenRoutes.rebuild.invalidResponse'))
+      }
+      return { ...result, queued: false as const }
     },
-    onSuccess: (data) => {
-      void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
-      // Rebuild rewrites channel bindings; refresh the channels domain so the
-      // Channels page reflects inserted/removed channels too.
-      void queryClient.invalidateQueries({ queryKey: channelsKeys.all })
-      if (data?.queued) {
-        toast.info(i18n.t('tokenRoutes.toast.rebuildStarted'))
+    onSuccess: (data, options) => {
+      if (data.queued) {
+        rememberRouteRebuild({
+          taskId: data.taskId,
+          refreshModels: options?.refreshModels ?? true,
+        })
+        // A deduplicated launch can return the same id after a failed GET.
+        // Explicitly re-query it instead of leaving its observer in error.
+        void queryClient.invalidateQueries({
+          queryKey: routeRebuildTaskQueryKey(data.taskId),
+        })
+        toast.info(
+          i18n.t(
+            data.reused
+              ? 'tokenRoutes.rebuild.resumed'
+              : 'tokenRoutes.toast.rebuildStarted'
+          )
+        )
         return
       }
-      const routesConsidered = data?.routesConsidered ?? 0
-      const inserted = data?.channelsInserted ?? 0
-      const removed = data?.channelsRemoved ?? 0
-      if (routesConsidered === 0) {
-        toast.warning(i18n.t('tokenRoutes.toast.rebuildNoRoutes'))
-      } else if (inserted === 0 && removed === 0) {
-        toast.info(i18n.t('tokenRoutes.toast.rebuildNoChanges'))
-      } else {
-        toast.success(
-          i18n.t('tokenRoutes.toast.rebuildComplete', {
-            routes: routesConsidered,
-            inserted,
-            removed,
-          })
-        )
-      }
+      // A 202 only acknowledges a launch; refresh data after a verified terminal
+      // task (useRouteRebuildTask), or after an explicit synchronous completion.
+      invalidateRouteRebuildQueries(queryClient)
+      showRebuildResult(data)
     },
   })
 }

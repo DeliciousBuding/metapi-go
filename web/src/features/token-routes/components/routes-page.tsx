@@ -2,9 +2,9 @@
 // metapi-go features/token-routes/components — the routes list page.
 // i18n: all user-visible strings migrated to t() calls.
 
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState, Table } from '@tanstack/react-table'
-import { Plus, Power, Zap } from 'lucide-react'
+import { Plus, Power, Settings2, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { useAccounts } from '@/features/accounts/api'
+import type { Account, AccountsSnapshot } from '@/features/accounts/types'
 import { useChannels } from '@/features/channels/api'
 import { useSites } from '@/features/sites/api'
 import { api } from '@/lib/api'
@@ -41,11 +42,13 @@ import {
   useZeroChannelRoutes,
 } from '../api'
 import { routesSearchSchema } from '../lib/routes-schema'
+import { useRouteRebuildTask } from '../lib/use-route-rebuild-task'
 import { useShowZeroChannelPreference } from '../lib/use-show-zero-channel'
 import type { RouteRowActions, RouteSummaryRow } from '../types'
 import { isExplicitGroupRoute, isExactModelPattern } from '../utils'
 import { RouteDetailSheet } from './route-detail-sheet'
 import { RouteFormDialog, type RouteAccountOption } from './route-form-dialog'
+import { RouteRebuildStatus } from './route-rebuild-status'
 import { useRoutesColumns } from './routes-columns'
 import { RoutesHeaderActions } from './routes-header-actions'
 import { RoutesKeyNextStep } from './routes-key-next-step'
@@ -196,6 +199,8 @@ export function RoutesPage() {
   const updateMutation = useUpdateRoute()
   const clearCooldownMutation = useClearRouteCooldown()
   const rebuildMutation = useRebuildRoutes()
+  const rebuildTask = useRouteRebuildTask()
+  const isRebuildPending = rebuildMutation.isPending || rebuildTask.isBusy
   const refreshDecisionsMutation = useRefreshRouteDecisions()
 
   const routes = useMemo(() => routesData ?? [], [routesData])
@@ -384,11 +389,6 @@ export function RoutesPage() {
     [routes, editRoute]
   )
 
-  const accountOptions = useMemo<RouteAccountOption[]>(
-    () => buildAccountOptions(candidates),
-    [candidates]
-  )
-
   const chainContext = useMemo(
     () => ({
       accountId,
@@ -402,6 +402,10 @@ export function RoutesPage() {
   // Resolve chain-context IDs to human-readable names with `#ID` fallback.
   const { data: accountsSnapshot } = useAccounts()
   const { data: sitesList } = useSites()
+  const accountOptions = useMemo(
+    () => buildAccountOptions(accountsSnapshot),
+    [accountsSnapshot]
+  )
   const chainAccountName = useMemo(() => {
     if (!accountId) return undefined
     const match = accountsSnapshot?.accounts.find((a) => a.id === accountId)
@@ -421,15 +425,25 @@ export function RoutesPage() {
           <p className='text-muted-foreground text-sm'>
             {t('tokenRoutes.page.description')}
           </p>
+          <Link
+            to='/settings/$subarea/$section'
+            params={{ subarea: 'operations', section: 'scheduling' }}
+            className='text-primary focus-visible:ring-focus-ring mt-1 inline-flex min-h-8 items-center gap-1 rounded-sm text-sm underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:outline-none'
+          >
+            <Settings2 className='size-3.5 shrink-0' aria-hidden='true' />
+            {t('tokenRoutes.page.automaticCreationSettings')}
+          </Link>
         </div>
         <RoutesHeaderActions
           onRebuild={() => setRebuildConfirmOpen(true)}
-          isRebuildPending={rebuildMutation.isPending}
+          isRebuildPending={isRebuildPending}
           onRefreshDecisions={() => refreshDecisionsMutation.mutate()}
           isRefreshDecisionsPending={refreshDecisionsMutation.isPending}
           onAddRoute={openCreate}
         />
       </div>
+
+      <RouteRebuildStatus rebuild={rebuildMutation} observation={rebuildTask} />
 
       {(accountId || siteId) && (
         <div className='bg-muted/40 text-muted-foreground rounded-lg border p-2 text-sm'>
@@ -470,9 +484,9 @@ export function RoutesPage() {
             <Button
               variant='outline'
               onClick={() => setRebuildConfirmOpen(true)}
-              disabled={rebuildMutation.isPending}
+              disabled={isRebuildPending}
             >
-              {rebuildMutation.isPending ? <Spinner /> : <Zap />}
+              {isRebuildPending ? <Spinner aria-hidden='true' /> : <Zap />}
               {t('tokenRoutes.page.rebuild')}
             </Button>
           </div>
@@ -549,7 +563,9 @@ export function RoutesPage() {
         destructive
         onConfirm={() => {
           setRebuildConfirmOpen(false)
-          rebuildMutation.mutate({ refreshModels: true })
+          if (!isRebuildPending) {
+            rebuildMutation.mutate({ refreshModels: true, wait: false })
+          }
         }}
         onCancel={() => setRebuildConfirmOpen(false)}
       />
@@ -624,42 +640,38 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
   )
 }
 
-type CandidateAccountLike = {
-  accountId?: number
-  username?: string | null
-  siteName?: string | null
-}
+// The account snapshot, not model discovery, owns manual account bindings.
+// OAuth metadata is also present on the public account snapshot; inspect only
+// masked credential presence, matching account-scoped relay credential choice.
+type ManualRouteAccount = Account & { oauthProvider?: string | null }
 
 function buildAccountOptions(
-  candidates:
-    | {
-        models?: Record<string, unknown[]>
-      }
-    | undefined
+  snapshot: AccountsSnapshot | undefined
 ): RouteAccountOption[] {
-  const models = candidates?.models
-  if (!models || typeof models !== 'object') return []
+  const siteMap = new Map(
+    (snapshot?.sites ?? []).map((site) => [site.id, site])
+  )
+  const accounts: ManualRouteAccount[] = snapshot?.accounts ?? []
+  return accounts
+    .flatMap<RouteAccountOption>((account) => {
+      const site = siteMap.get(account.siteId) ?? account.site
+      if (account.status !== 'active' || site?.status === 'disabled') {
+        return []
+      }
+      const relayCredential = account.oauthProvider
+        ? account.accessTokenMasked
+        : account.apiTokenMasked
+      if (!relayCredential?.trim()) return []
 
-  const accountMap = new Map<number, string>()
-  for (const candidatesList of Object.values(models)) {
-    if (!Array.isArray(candidatesList)) continue
-    for (const raw of candidatesList) {
-      const candidate = raw as CandidateAccountLike
-      if (!candidate || typeof candidate.accountId !== 'number') continue
-      if (accountMap.has(candidate.accountId)) continue
-      const username = (candidate.username || '').trim()
-      const siteName = (candidate.siteName || '').trim()
-      const label = username
-        ? siteName
-          ? `${username} @ ${siteName}`
-          : username
-        : `account-${candidate.accountId}`
-      accountMap.set(candidate.accountId, label)
-    }
-  }
-
-  return [...accountMap.entries()]
-    .map(([id, label]) => ({ id, label }))
+      const username = account.username?.trim() || `account-${account.id}`
+      const siteName = site?.name?.trim() || ''
+      return [
+        {
+          id: account.id,
+          label: siteName ? `${username} @ ${siteName}` : username,
+        },
+      ]
+    })
     .sort((left, right) =>
       left.label.localeCompare(right.label, undefined, { sensitivity: 'base' })
     )

@@ -33,21 +33,23 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 // accountModelRefreshPayload maps a service.AccountModelRefreshResult onto the
 // exact operator-facing JSON shape the handler returned before Wave 15.
 func accountModelRefreshPayload(accountID int64, result service.AccountModelRefreshResult) map[string]any {
+	rebuildPayload := map[string]any{
+		"routesConsidered":    result.Rebuild.RoutesConsidered,
+		"routesCreated":       result.Rebuild.RoutesCreated,
+		"unsafeModelsSkipped": result.Rebuild.UnsafeModelsSkipped,
+		"patternRoutes":       result.Rebuild.PatternRoutes,
+		"groupRoutes":         result.Rebuild.GroupRoutes,
+		"channelsInserted":    result.Rebuild.ChannelsInserted,
+		"channelsRemoved":     result.Rebuild.ChannelsRemoved,
+		"channelsKept":        result.Rebuild.ChannelsKept,
+	}
+	if result.RebuildErr != nil {
+		rebuildPayload["success"] = false
+		rebuildPayload["error"] = "route rebuild failed"
+	} else {
+		rebuildPayload["success"] = true
+	}
 	if result.Success {
-		rebuildPayload := map[string]any{
-			"routesConsidered": result.Rebuild.RoutesConsidered,
-			"patternRoutes":    result.Rebuild.PatternRoutes,
-			"groupRoutes":      result.Rebuild.GroupRoutes,
-			"channelsInserted": result.Rebuild.ChannelsInserted,
-			"channelsRemoved":  result.Rebuild.ChannelsRemoved,
-			"channelsKept":     result.Rebuild.ChannelsKept,
-		}
-		if result.RebuildErr != nil {
-			rebuildPayload["success"] = false
-			rebuildPayload["error"] = result.RebuildErr.Error()
-		} else {
-			rebuildPayload["success"] = true
-		}
 		return map[string]any{
 			"success": true,
 			"refresh": map[string]any{
@@ -84,6 +86,11 @@ func accountModelRefreshPayload(accountID int64, result service.AccountModelRefr
 		"success": false,
 		"refresh": refresh,
 		"rebuild": map[string]any{},
+	}
+	if result.RebuildRan {
+		payload["rebuild"] = rebuildPayload
+		payload["tokenBackfilled"] = result.TokenBackfilled
+		refresh["checkedAt"] = result.CheckedAt
 	}
 	if result.TopError != "" {
 		payload["error"] = result.TopError

@@ -9,7 +9,7 @@ import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 
 import { sessionApi } from '@/lib/api/session'
-import { persistSessionMeta } from '@/lib/auth-session'
+import { establishAuthentication } from '@/lib/auth-session'
 import { useAuthStore } from '@/stores/auth-store'
 
 import type { LoginError, LoginPayload } from './types'
@@ -63,7 +63,7 @@ export function useLogin() {
             status: 0,
           } as LoginError
         }
-        persistSessionMeta(expiresAtMs, localStorage)
+        establishAuthentication(expiresAtMs, localStorage)
         setSession(expiresAtMs)
         return expiresAtMs
       } catch (error: unknown) {

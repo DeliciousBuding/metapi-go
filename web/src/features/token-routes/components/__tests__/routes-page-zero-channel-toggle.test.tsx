@@ -37,6 +37,16 @@ const testState = vi.hoisted(() => ({
   tableData: null as RouteSummaryRow[] | null,
 }))
 
+// Background progress is covered by the real-page task suite; unrelated page
+// tests keep this network observer idle.
+vi.mock('../../lib/use-route-rebuild-task', () => ({
+  useRouteRebuildTask: () => ({
+    reference: null,
+    task: undefined,
+    isBusy: false,
+  }),
+}))
+
 vi.mock('@/components/data-table', () => ({
   DataTableBulkActions: () => null,
   DataTablePage: (props: { toolbarProps?: { viewToggle?: ReactNode } }) => {
@@ -64,6 +74,9 @@ vi.mock('@/components/data-table', () => ({
 }))
 
 vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children }: { children?: ReactNode }) => (
+    <a href='/settings/operations/scheduling'>{children}</a>
+  ),
   useSearch: () => ({}),
   useNavigate: () => vi.fn(),
 }))

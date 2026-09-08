@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -31,6 +32,11 @@ func TestProbeSQLiteWritableExistingWritableFile(t *testing.T) {
 }
 
 func TestProbeSQLiteWritableNonWritableDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// Chmod marks a Windows directory read-only but does not remove write
+		// access. Writable-path and read-only-file probes still run on Windows.
+		t.Skip("directory mode bits do not enforce Windows write permissions")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("permission checks are bypassed for root")
 	}

@@ -1,7 +1,7 @@
 // Behavior test for useRebuildRoutes feedback truth (#1024): the legacy toast
 // consumed phantom `created`/`channelCount` fields the Go backend never
 // returned, so every rebuild reported "0 routes / 0 channels added". The hook
-// now consumes the truthful stats envelope and branches:
+// consumes the explicit synchronous stats envelope and branches:
 //   routesConsidered === 0            -> warning guidance (no routes exist)
 //   inserted === 0 && removed === 0   -> info hint (channels come from models)
 //   otherwise                         -> success with real counts
@@ -79,7 +79,9 @@ describe('useRebuildRoutes truthful outcome toasts (#1024)', () => {
       wrapper: createWrapper(),
     })
 
-    await act(() => result.current.mutateAsync({ refreshModels: true }))
+    await act(() =>
+      result.current.mutateAsync({ refreshModels: true, wait: true })
+    )
 
     await waitFor(() => {
       expect(mockToastSuccess).toHaveBeenCalledTimes(1)
@@ -106,7 +108,9 @@ describe('useRebuildRoutes truthful outcome toasts (#1024)', () => {
       wrapper: createWrapper(),
     })
 
-    await act(() => result.current.mutateAsync({ refreshModels: true }))
+    await act(() =>
+      result.current.mutateAsync({ refreshModels: true, wait: true })
+    )
 
     await waitFor(() => {
       expect(mockToastWarning).toHaveBeenCalledTimes(1)
@@ -129,7 +133,9 @@ describe('useRebuildRoutes truthful outcome toasts (#1024)', () => {
       wrapper: createWrapper(),
     })
 
-    await act(() => result.current.mutateAsync({ refreshModels: true }))
+    await act(() =>
+      result.current.mutateAsync({ refreshModels: true, wait: true })
+    )
 
     await waitFor(() => {
       expect(mockToastInfo).toHaveBeenCalledTimes(1)

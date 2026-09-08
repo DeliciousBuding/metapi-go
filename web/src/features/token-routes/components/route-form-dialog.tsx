@@ -4,8 +4,7 @@
 // `getModelPatternError()` returns pre-translated strings via i18n.t().
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Zap } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
@@ -46,13 +45,13 @@ import {
   resolveCreatedRouteId,
   useBatchAddChannels,
   useCreateRoute,
-  useRebuildRoutes,
   useUpdateRoute,
 } from '../api'
 import {
   buildChannelDraftSeed,
   getRouteFormDefaultValues,
   getRouteFormSchema,
+  setChannelDraftSelection,
   transformFormToPayload,
   transformRouteToFormValues,
   type RouteFormValues,
@@ -424,7 +423,7 @@ function PatternModeFields({
   isEdit: boolean
 }) {
   const { t } = useTranslation()
-  const rebuildMutation = useRebuildRoutes()
+  const bulkLabelId = useId()
   const modelPattern = form.watch('modelPattern') ?? ''
   const isRegex = isRegexModelPattern(modelPattern)
   return (
@@ -462,15 +461,21 @@ function PatternModeFields({
         render={({ field }) => {
           const selected = field.value ?? []
           const selectedIds = new Set(selected.map((draft) => draft.accountId))
-          const toggleAccount = (accountId: number, checked: boolean) => {
-            if (checked) {
-              field.onChange([...selected, { accountId }])
-            } else {
-              field.onChange(
-                selected.filter((draft) => draft.accountId !== accountId)
-              )
-            }
+          const accountIds = accountOptions.map((account) => account.id)
+          const selectedCount = accountIds.filter((id) =>
+            selectedIds.has(id)
+          ).length
+          const allSelected =
+            accountIds.length > 0 && selectedCount === accountIds.length
+          const someSelected = selectedCount > 0 && !allSelected
+          const toggleAccounts = (ids: number[], checked: boolean) => {
+            field.onChange(setChannelDraftSelection(selected, ids, checked))
           }
+          const bulkLabel = t(
+            allSelected
+              ? 'tokenRoutes.formPattern.channelsDeselectAll'
+              : 'tokenRoutes.formPattern.channelsSelectAll'
+          )
           return (
             <FormItem>
               <FormLabel>{t('tokenRoutes.formPattern.channels')}</FormLabel>
@@ -478,33 +483,53 @@ function PatternModeFields({
                 {t('tokenRoutes.formPattern.channelsHint')}
               </FormDescription>
               {accountOptions.length > 0 ? (
-                <div className='max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2'>
-                  {accountOptions.map((account) => (
-                    <label
-                      key={account.id}
-                      className='hover:bg-muted flex items-center gap-2 rounded px-2 py-1'
-                    >
-                      <Checkbox
-                        checked={selectedIds.has(account.id)}
-                        onCheckedChange={(value) =>
-                          toggleAccount(account.id, Boolean(value))
-                        }
-                      />
-                      <span className='truncate text-sm'>{account.label}</span>
+                <div className='overflow-hidden rounded-lg border'>
+                  <div className='bg-muted/40 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2'>
+                    <label className='flex items-center gap-2 text-sm'>
+                      <FormControl>
+                        <Checkbox
+                          ref={field.ref}
+                          checked={allSelected}
+                          indeterminate={someSelected}
+                          onCheckedChange={(checked) =>
+                            toggleAccounts(accountIds, checked)
+                          }
+                          onBlur={field.onBlur}
+                          aria-labelledby={bulkLabelId}
+                        />
+                      </FormControl>
+                      <span id={bulkLabelId}>{bulkLabel}</span>
                     </label>
-                  ))}
+                    <span
+                      role='status'
+                      className='text-muted-foreground text-xs tabular-nums'
+                    >
+                      {t('tokenRoutes.formPattern.channelsSelectedCount', {
+                        selected: selectedCount,
+                        total: accountIds.length,
+                      })}
+                    </span>
+                  </div>
+                  <div className='max-h-48 space-y-1 overflow-y-auto p-2'>
+                    {accountOptions.map((account) => (
+                      <label
+                        key={account.id}
+                        className='hover:bg-muted flex items-center gap-2 rounded px-2 py-1'
+                      >
+                        <Checkbox
+                          checked={selectedIds.has(account.id)}
+                          onCheckedChange={(checked) =>
+                            toggleAccounts([account.id], checked)
+                          }
+                        />
+                        <span className='truncate text-sm'>
+                          {account.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                // Journey break fix (2026-08-18 review): the section used to
-                // vanish entirely before the first model discovery, so the
-                // guided chain's preselected account was invisible. Show the
-                // reason plus an inline rebuild that repopulates the list in
-                // place (rebuild invalidates the candidates query prefix).
-                //
-                // Edit-mode copy differentiates: the route's own channels are
-                // listed in the editor above, so here the hint says "no
-                // further candidates" instead of implying the route has no
-                // channels at all.
                 <div className='flex flex-col gap-2 rounded-lg border border-dashed p-3'>
                   <p className='text-muted-foreground text-sm'>
                     {t(
@@ -513,23 +538,6 @@ function PatternModeFields({
                         : 'tokenRoutes.formPattern.channelsEmptyHint'
                     )}
                   </p>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='sm'
-                    className='w-fit'
-                    onClick={() =>
-                      rebuildMutation.mutate({ refreshModels: true })
-                    }
-                    disabled={rebuildMutation.isPending}
-                  >
-                    {rebuildMutation.isPending ? (
-                      <Spinner className='size-3.5' />
-                    ) : (
-                      <Zap />
-                    )}
-                    {t('tokenRoutes.page.rebuild')}
-                  </Button>
                 </div>
               )}
               <FormMessage />

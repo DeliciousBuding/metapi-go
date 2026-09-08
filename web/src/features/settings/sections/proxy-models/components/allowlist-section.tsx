@@ -2,7 +2,8 @@
 // + brand-blocking section (legacy cards 10-11). globalAllowedModels is an
 // inline text input + badges; globalBlockedBrands is a grid of toggle
 // switches sourced from api.getBrandList(). Both saves trigger a routes
-// rebuild (api.rebuildRoutes(false)) so the channel graph stays consistent.
+// rebuild through the shared task observer so completion is not inferred from
+// a launch acknowledgement.
 //
 // Brand toggles are instant operations: switches are disabled while a toggle
 // is in flight (serializing concurrent clicks so the last click wins), and a
@@ -27,6 +28,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { useRebuildRoutes } from '@/features/token-routes/api'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
@@ -95,6 +97,7 @@ export function AllowlistSection() {
   const queryClient = useQueryClient()
   const { data, isLoading, isError, refetch } = useRuntimeSettings()
   const updateMutation = useUpdateRuntimeSettings()
+  const rebuildMutation = useRebuildRoutes()
 
   const brandsQuery = useQuery<BrandListResponse>({
     queryKey: brandsQueryKeys.all,
@@ -145,16 +148,19 @@ export function AllowlistSection() {
   const brandToggleMutation = useMutation({
     mutationFn: async (nextBlocked: string[]) => {
       await api.updateRuntimeSettings({ globalBlockedBrands: nextBlocked })
-      await api.rebuildRoutes(false)
+      try {
+        await rebuildMutation.mutateAsync({ refreshModels: false, wait: false })
+      } catch {
+        // The setting was saved; only the rebuild acknowledgement is unknown.
+        toast.warning(t('settings.proxyModels.allowlist.toast.rebuildFailed'))
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: runtimeSettingsQueryKeys.all,
       })
-      // Rebuilding routes rewrites the route set and channel bindings; refresh
-      // those domains so token-routes / channels do not keep the old set.
-      void queryClient.invalidateQueries({ queryKey: ['routes'] })
-      void queryClient.invalidateQueries({ queryKey: ['channels'] })
+      // Derived routing queries refresh when the shared task observer verifies
+      // completion, not when the queue merely acknowledges the request.
       toast.success(t('settings.proxyModels.allowlist.toast.brandsSaved'))
     },
     onError: () => {
@@ -206,11 +212,13 @@ export function AllowlistSection() {
       { globalAllowedModels: splitAllowed(values.globalAllowedModels) },
       {
         onSuccess: () => {
-          void api.rebuildRoutes(false).catch(() => {
-            toast.warning(
-              t('settings.proxyModels.allowlist.toast.rebuildFailed')
-            )
-          })
+          void rebuildMutation
+            .mutateAsync({ refreshModels: false, wait: false })
+            .catch(() => {
+              toast.warning(
+                t('settings.proxyModels.allowlist.toast.rebuildFailed')
+              )
+            })
           toast.success(t('settings.proxyModels.allowlist.toast.saved'))
         },
         onError: () =>

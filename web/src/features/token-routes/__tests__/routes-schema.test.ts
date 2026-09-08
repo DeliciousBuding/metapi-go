@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildChannelDraftSeed, routesSearchSchema } from '../lib/routes-schema'
+import {
+  buildChannelDraftSeed,
+  routesSearchSchema,
+  setChannelDraftSelection,
+} from '../lib/routes-schema'
 
 // ---------------------------------------------------------------------------
 // routesSearchSchema — tolerant URL search contract
@@ -86,4 +90,49 @@ describe('buildChannelDraftSeed', () => {
   it('returns an empty array for a fractional accountId', () => {
     expect(buildChannelDraftSeed(1.5)).toEqual([])
   })
+})
+
+describe('setChannelDraftSelection', () => {
+  it('keeps existing token and source-model choices when selecting other accounts', () => {
+    const drafts = [
+      { accountId: 7, tokenId: 70, sourceModel: 'upstream-a' },
+      { accountId: 7, tokenId: 71, sourceModel: 'upstream-b' },
+      { accountId: 99, sourceModel: 'guided-model' },
+    ]
+
+    expect(setChannelDraftSelection(drafts, [7, 8], true)).toEqual([
+      { accountId: 7, tokenId: 70, sourceModel: 'upstream-a' },
+      { accountId: 7, tokenId: 71, sourceModel: 'upstream-b' },
+      { accountId: 99, sourceModel: 'guided-model' },
+      { accountId: 8 },
+    ])
+    expect(drafts).toHaveLength(3)
+  })
+
+  it('does not duplicate drafts for repeated selections or repeated account IDs', () => {
+    const selected = setChannelDraftSelection([], [7, 8, 8], true)
+    expect(selected).toEqual([{ accountId: 7 }, { accountId: 8 }])
+    expect(setChannelDraftSelection(selected, [7, 8], true)).toEqual(selected)
+  })
+
+  it('deselects only the displayed accounts and retains an off-list draft', () => {
+    const drafts = [
+      { accountId: 7, tokenId: 70, sourceModel: 'upstream-a' },
+      { accountId: 8 },
+      { accountId: 99, tokenId: 990, sourceModel: 'guided-model' },
+    ]
+
+    expect(setChannelDraftSelection(drafts, [7, 8], false)).toEqual([
+      { accountId: 99, tokenId: 990, sourceModel: 'guided-model' },
+    ])
+    expect(drafts).toHaveLength(3)
+  })
+
+  it.each([true, false])(
+    'does not change drafts for an empty candidate list (checked=%s)',
+    (checked) => {
+      const drafts = [{ accountId: 7, tokenId: 70, sourceModel: 'upstream-a' }]
+      expect(setChannelDraftSelection(drafts, [], checked)).toEqual(drafts)
+    }
+  )
 })

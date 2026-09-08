@@ -154,14 +154,9 @@ func RefreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	}
 
 	clean := cleanModelNames(models)
-	if len(clean) == 0 {
-		return AccountModelRefreshResult{
-			ErrorCode:    "empty_models",
-			ErrorMessage: "no models available",
-			Message:      "no models available",
-			Models:       []string{},
-		}
-	}
+	// err == nil also makes an empty list an authoritative observation. Clear
+	// obsolete automatic availability before reporting empty_models; failed
+	// requests returned above and must retain their last observed snapshot.
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	if err := persistAccountModelAvailability(db, accountID, clean, now); err != nil {
@@ -203,6 +198,15 @@ func RefreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 		result.RebuildErr = rebuildErr
 		result.RebuildRan = true
 		modelRefreshInvalidateCache()
+	}
+
+	if len(clean) == 0 {
+		result.Success = false
+		result.ErrorCode = "empty_models"
+		result.ErrorMessage = "no models available"
+		result.Message = "upstream returned no models; automatic availability refreshed"
+		result.Models = []string{}
+		return result
 	}
 
 	// K1a: best-effort sync generation of model name redirects

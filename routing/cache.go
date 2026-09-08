@@ -39,17 +39,19 @@ func InvalidateCache() {
 // selector serves both from cache on the hot path and falls back to the DB on
 // miss/expiry. Cached matches are immutable snapshots: patching clones (see
 // PatchCachedChannel), so lock-free readers never race the patcher.
+// Process-local time.Time stamps retain their monotonic reading: wall-clock
+// corrections must not prolong stale routes or channel matches.
 type RouteCache struct {
 	mu           sync.RWMutex
 	routesLoaded bool
-	routesAt     int64
+	routesAt     time.Time
 	routes       []store.TokenRoute
 	matchCache   map[int64]*routeMatchEntry
 	ttlMs        int64
 }
 
 type routeMatchEntry struct {
-	loadedAt int64
+	loadedAt time.Time
 	match    *RouteMatch
 }
 
@@ -68,14 +70,14 @@ func NewRouteCache(ttlMs int64) *RouteCache {
 func (c *RouteCache) IsRoutesFresh() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.routesLoaded && (time.Now().UnixMilli()-c.routesAt < c.ttlMs)
+	return c.routesLoaded && (time.Since(c.routesAt).Milliseconds() < c.ttlMs)
 }
 
 // GetRoutes returns cached routes if fresh, nil otherwise.
 func (c *RouteCache) GetRoutes() []store.TokenRoute {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if c.routesLoaded && (time.Now().UnixMilli()-c.routesAt < c.ttlMs) {
+	if c.routesLoaded && (time.Since(c.routesAt).Milliseconds() < c.ttlMs) {
 		return c.routes
 	}
 	return nil
@@ -86,7 +88,7 @@ func (c *RouteCache) SetRoutes(routes []store.TokenRoute) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.routes = routes
-	c.routesAt = time.Now().UnixMilli()
+	c.routesAt = time.Now()
 	c.routesLoaded = true
 }
 
@@ -98,7 +100,7 @@ func (c *RouteCache) GetMatch(routeID int64) *RouteMatch {
 	if !ok {
 		return nil
 	}
-	if time.Now().UnixMilli()-entry.loadedAt >= c.ttlMs {
+	if time.Since(entry.loadedAt).Milliseconds() >= c.ttlMs {
 		return nil
 	}
 	return entry.match
@@ -109,7 +111,7 @@ func (c *RouteCache) SetMatch(routeID int64, match *RouteMatch) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.matchCache[routeID] = &routeMatchEntry{
-		loadedAt: time.Now().UnixMilli(),
+		loadedAt: time.Now(),
 		match:    match,
 	}
 }
@@ -162,7 +164,7 @@ func (c *RouteCache) InvalidateAll() {
 	defer c.mu.Unlock()
 	c.routesLoaded = false
 	c.routes = nil
-	c.routesAt = 0
+	c.routesAt = time.Time{}
 	c.matchCache = make(map[int64]*routeMatchEntry)
 	// Clear stable first global state
 	clearAllStableFirstCaches()

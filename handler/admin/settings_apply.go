@@ -201,21 +201,57 @@ func (h *settingsHandler) applyBalanceScheduleSettings(body map[string]any) *set
 	return nil
 }
 
-// applyModelSyncScheduleSettings applies the periodic model-sync cron (#1005).
-// Plain persistence (no v2 dual schedule mirror — that is legacy migration
-// baggage the new setting never had): validate, persist model_sync_cron,
-// update config, hot-reload the running scheduler.
+// applyModelSyncScheduleSettings validates and persists the scheduling/creation
+// controls together. An invalid cron must never partially enable automatic
+// route creation, and a database error must not publish an unpersisted setting.
 func (h *settingsHandler) applyModelSyncScheduleSettings(body map[string]any) *settingsApplyError {
+	var create *bool
+	var cron *string
+	if v, ok := body["autoCreateModelRoutes"]; ok {
+		enabled, err := toBoolStrict(v)
+		if err != nil {
+			return failSettings(http.StatusBadRequest, "autoCreateModelRoutes must be a boolean (true/false)")
+		}
+		create = &enabled
+	}
 	if v, ok := body["modelSyncCron"]; ok {
-		cron := normalizeString(v)
-		if !scheduler.ValidateCronExpr(cron) {
+		value := normalizeString(v)
+		if !scheduler.ValidateCronExpr(value) {
 			return failSettings(http.StatusBadRequest, "modelSyncCron is not a valid cron expression")
 		}
-		if err := upsertSettingDB(h.db, "model_sync_cron", cron); err != nil {
+		cron = &value
+	}
+	if create == nil && cron == nil {
+		return nil
+	}
+	tx, err := h.db.Beginx()
+	if err != nil {
+		return failSettings(http.StatusInternalServerError, "failed to save model sync settings")
+	}
+	defer func() { _ = tx.Rollback() }()
+	if create != nil {
+		if err := upsertSettingDB(tx, "auto_create_model_routes", *create); err != nil {
+			return failSettings(http.StatusInternalServerError, "failed to save automatic model route setting")
+		}
+	}
+	if cron != nil {
+		if err := upsertSettingDB(tx, "model_sync_cron", *cron); err != nil {
 			return failSettings(http.StatusInternalServerError, "failed to save model sync schedule")
 		}
-		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelSyncCron = cron })
-		if err := app.UpdateModelSyncCron(cron); err != nil {
+	}
+	if err := tx.Commit(); err != nil {
+		return failSettings(http.StatusInternalServerError, "failed to commit model sync settings")
+	}
+	config.UpdateRuntime(func(rt *config.RuntimeSettings) {
+		if create != nil {
+			rt.AutoCreateModelRoutes = *create
+		}
+		if cron != nil {
+			rt.ModelSyncCron = *cron
+		}
+	})
+	if cron != nil {
+		if err := app.UpdateModelSyncCron(*cron); err != nil {
 			slog.Warn("settings: model sync cron hot update failed", "error", err)
 		}
 	}
