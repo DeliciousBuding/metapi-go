@@ -58,10 +58,12 @@ type Ctx struct {
 	Retries        int
 	MaxRetries     int
 	// ForcedChannelID pins channel selection to a specific route channel when set
-	// (videos sticky pin from mapping; tester forced channel paths).
+	// (video mapping, tester selection, or Messages bridge continuation).
 	// When non-nil and >0, SelectProxyChannelForAttempt uses SelectPreferredChannel
 	// and does not fall back to other channels on retry.
 	ForcedChannelID *int64
+	// Bridge-owned tool history must never be forwarded without its replay state.
+	messagesBridgeReplayRequired bool
 }
 
 // PrepareCtx extracts all context needed for proxy request handling.

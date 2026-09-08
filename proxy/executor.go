@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
@@ -40,23 +39,12 @@ type ExecutorDispatchResult struct {
 	BodyReader io.ReadCloser
 }
 
-// defaultStreamResponseHeaderTimeout bounds the SSE header phase on the
-// executor stream client. Mirrors platform.defaultProxyResponseHeaderTimeout
-// (the PROXY_RESPONSE_HEADER_TIMEOUT_SEC default): the executor historically
-// relied on the whole-request timeout for this bound, and the stream client
-// no longer carries one, so the header wait needs its own ceiling to keep an
-// upstream that accepts but never answers from holding a connection forever.
-const defaultStreamResponseHeaderTimeout = 30 * time.Second
-
-// NewStreamTransport returns the shared baseline transport with a
-// ResponseHeaderTimeout bound for the SSE header phase. Used by the
-// executor's stream client and by fallback stream clients that must not cap
-// a flowing stream's total duration while still bounding the header wait.
-// Dial/TLS/idle bounds and the idle pool come from the internal/httpclient
-// baseline instead of an unconfigured default transport.
+// NewStreamTransport builds a reusable stream transport whose header budget is
+// owned by httpclient.DoWithHeaderBudget, not a competing fixed transport timer.
+// Callers must dispatch through that helper (as RuntimeExecutor does), including
+// when first-byte observation is disabled. Dial/TLS/idle limits remain intact.
 func NewStreamTransport() *http.Transport {
 	return httpclient.NewTransport(httpclient.Options{
-		ResponseHeaderTimeout: defaultStreamResponseHeaderTimeout,
 		// Keep explicitly forbidden site URLs out of proxies; direct dials
 		// also validate and pin DNS answers through the shared site guard.
 		// Private ranges stay allowed for self-hosted upstreams.
@@ -70,9 +58,8 @@ type RuntimeExecutor struct {
 	// streamClient relays SSE responses. Unlike client it carries no
 	// whole-request timeout — a healthy stream may keep running while chunks
 	// flow; liveness is enforced per chunk by the relay's idle guard
-	// (PROXY_STREAM_IDLE_TIMEOUT_SEC). The header phase stays bounded by the
-	// transport's ResponseHeaderTimeout (plus optional first-byte
-	// observation), so a silent upstream cannot hold a connection forever.
+	// (PROXY_STREAM_IDLE_TIMEOUT_SEC). DoWithHeaderBudget bounds the header
+	// phase with the explicit first-byte budget or DefaultRequestCeiling.
 	streamClient *http.Client
 }
 
@@ -152,7 +139,7 @@ func (e *RuntimeExecutor) Dispatch(ctx context.Context, input ExecutorDispatchIn
 //
 // Unit note: firstByteTimeoutMs is milliseconds. Config field
 // PROXY_FIRST_BYTE_TIMEOUT_SEC is seconds; convert with FirstByteTimeoutMs.
-var ErrObservedFirstByteTimeout = errors.New("first byte timeout")
+var ErrObservedFirstByteTimeout = httpclient.ErrResponseHeaderTimeout
 
 // FirstByteTimeoutMs converts ProxyFirstByteTimeoutSec (seconds) to the
 // internal first-byte observation unit (milliseconds). Values <= 0 disable
@@ -181,74 +168,29 @@ func (e *RuntimeExecutor) DoWithObservedFirstByte(
 	req *http.Request,
 	firstByteTimeoutMs int64,
 ) (*http.Response, error) {
-	return e.doWithObservedFirstByte(e.client, ctx, req, firstByteTimeoutMs)
+	if e == nil || e.client == nil {
+		return nil, fmt.Errorf("dispatch: executor is not configured")
+	}
+	if firstByteTimeoutMs <= 0 {
+		return e.client.Do(req)
+	}
+	return httpclient.DoWithHeaderBudget(req.WithContext(ctx), firstByteTimeoutMs, e.client.Do)
 }
 
-// DoStreamWithObservedFirstByte is the SSE variant of DoWithObservedFirstByte:
-// identical first-byte observation, but dispatched through the stream client,
-// which carries no whole-request timeout. A healthy stream may therefore keep
-// running while chunks flow; a stalled stream is aborted by the relay's idle
-// guard (PROXY_STREAM_IDLE_TIMEOUT_SEC) instead of the blunt whole-request
-// cap that would also kill long-but-healthy streams.
+// DoStreamWithObservedFirstByte dispatches through the stream client without a
+// whole-request timeout. The shared header-budget owner uses the explicit
+// first-byte timeout, or DefaultRequestCeiling when observation is disabled.
+// Once headers arrive, only the caller and relay body-idle guard may cancel a
+// healthy stream; callers must close resp.Body to release the request context.
 func (e *RuntimeExecutor) DoStreamWithObservedFirstByte(
 	ctx context.Context,
 	req *http.Request,
 	firstByteTimeoutMs int64,
 ) (*http.Response, error) {
-	return e.doWithObservedFirstByte(e.streamClient, ctx, req, firstByteTimeoutMs)
-}
-
-func (e *RuntimeExecutor) doWithObservedFirstByte(
-	client *http.Client,
-	ctx context.Context,
-	req *http.Request,
-	firstByteTimeoutMs int64,
-) (*http.Response, error) {
-	if e == nil || client == nil {
+	if e == nil || e.streamClient == nil {
 		return nil, fmt.Errorf("dispatch: executor is not configured")
 	}
-	if firstByteTimeoutMs <= 0 {
-		return client.Do(req)
-	}
-
-	reqCtx, cancelReq := context.WithCancel(ctx)
-	req = req.WithContext(reqCtx)
-
-	var timedOut atomic.Bool
-	timer := time.AfterFunc(time.Duration(firstByteTimeoutMs)*time.Millisecond, func() {
-		timedOut.Store(true)
-		cancelReq()
-	})
-
-	resp, err := client.Do(req)
-	if err != nil {
-		_ = timer.Stop()
-		cancelReq()
-		if timedOut.Load() && ctx.Err() == nil {
-			return nil, ErrObservedFirstByteTimeout
-		}
-		return nil, err
-	}
-
-	// Headers received: stop first-byte timer. Keep reqCtx alive for body reads;
-	// cancel when the body is closed.
-	_ = timer.Stop()
-	resp.Body = &cancelOnCloseBody{ReadCloser: resp.Body, cancel: cancelReq}
-	return resp, nil
-}
-
-// cancelOnCloseBody cancels the request context when the response body is closed.
-type cancelOnCloseBody struct {
-	io.ReadCloser
-	cancel context.CancelFunc
-}
-
-func (b *cancelOnCloseBody) Close() error {
-	err := b.ReadCloser.Close()
-	if b.cancel != nil {
-		b.cancel()
-	}
-	return err
+	return httpclient.DoWithHeaderBudget(req.WithContext(ctx), firstByteTimeoutMs, e.streamClient.Do)
 }
 
 // WithObservedFirstByte dispatches a request and observes the first-byte latency.

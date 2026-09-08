@@ -13,7 +13,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/auth"
@@ -26,6 +25,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/alert"
 	"github.com/deliciousbuding/metapi-go/store"
+	messages "github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
 )
 
 // UpstreamConfig holds the dependencies needed for upstream forwarding.
@@ -64,8 +64,8 @@ var defaultUpstreamClient = &http.Client{
 // on the fallback path (Executor unwired, e.g. tests): no whole-request
 // timeout, so a flowing stream is governed per chunk by the relay's idle
 // guard (PROXY_STREAM_IDLE_TIMEOUT_SEC) instead of total elapsed time. The
-// cloned transport keeps a ResponseHeaderTimeout so an upstream that accepts
-// but never sends headers still cannot hold a connection forever.
+// shared header-budget owner in sendUpstreamRequest bounds the initial wait;
+// the reusable stream transport has no competing response-header timer.
 var defaultStreamUpstreamClient = &http.Client{
 	Transport:     proxy.NewStreamTransport(),
 	CheckRedirect: platform.RejectCrossOriginRedirect,
@@ -126,6 +126,24 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		writeJSONErrorWithRequest(w, http.StatusBadRequest, "Invalid request path", "invalid_request_error", requestID)
 		observeProxyTerminal(ctx, shared.OutcomeClientError, ctx != nil && ctx.IsStream, time.Since(startedAt))
 		return
+	}
+	if endpoint, ok := proxy.EndpointFromPath(upstreamPath); ok && endpoint == proxy.EndpointMessages {
+		channelID, required, err := messagesBridgePreferredChannel(ctx)
+		ctx.messagesBridgeReplayRequired = required
+		if err != nil || (required && (channelID == nil || *channelID <= 0)) {
+			writeMessagesReplayFailure(w, ctx, requestID)
+			return
+		}
+		if required {
+			if ctx.ForcedChannelID != nil && *ctx.ForcedChannelID > 0 && *ctx.ForcedChannelID != *channelID {
+				writeMessagesReplayFailure(w, ctx, requestID)
+				return
+			}
+			// This is not an authorization bypass: the normal preferred-channel
+			// selector still applies current downstream policy and availability.
+			ctx.ForcedChannelID = channelID
+			maxRetries = 0
+		}
 	}
 	var pendingFailure *pendingUpstreamFailure
 
@@ -313,6 +331,11 @@ func dispatchSelectedUpstream(
 		disableCrossProtocolFallback = rt.DisableCrossProtocolFallback
 	}
 
+	if ctx.messagesBridgeReplayRequired && disableCrossProtocolFallback {
+		writeMessagesReplayFailure(w, ctx, requestID)
+		return true, nil
+	}
+
 	contentType := "application/json"
 	var bodyBytes []byte
 	var err error
@@ -355,6 +378,42 @@ func dispatchSelectedUpstream(
 	}
 
 	candidatePaths := resolveUpstreamCandidatePaths(upstreamPath, disableCrossProtocolFallback, sitePref)
+	if ctx.messagesBridgeReplayRequired && (len(candidatePaths) < 2 || !isMessagesChatBridge(upstreamPath, candidatePaths[1])) {
+		writeMessagesReplayFailure(w, ctx, requestID)
+		return true, nil
+	}
+	var chatBody []byte
+	var bridgeOptions messages.Options
+	if len(candidatePaths) > 1 && isMessagesChatBridge(upstreamPath, candidatePaths[1]) {
+		// Check fallback eligibility without modifying the native payload. If a
+		// Messages feature has no lossless Chat representation, keep the native
+		// endpoint terminal so its real failure is recorded, not silently skipped.
+		bridge := newMessagesBridgeRequest(r, ctx, selected)
+		if bridge.ready() == nil {
+			bridgeOptions = bridge.Options()
+		} else if ctx.messagesBridgeReplayRequired {
+			writeMessagesReplayFailure(w, ctx, requestID)
+			return true, nil
+		}
+		// Stateless text/tools remain usable without a session; a response that
+		// needs hidden reasoning cannot silently discard it when callbacks are absent.
+		chatBody, err = messages.ToChatRequest(bodyBytes, bridgeOptions)
+		if err != nil {
+			if ctx.messagesBridgeReplayRequired || bridge.UsedReplay() {
+				writeMessagesReplayFailure(w, ctx, requestID)
+				return true, nil
+			}
+			slog.Debug("Messages request requires a native upstream", "reason", err, "request_id", requestID)
+			candidatePaths = candidatePaths[:1]
+		} else if ctx.messagesBridgeReplayRequired && !bridge.UsedReplay() {
+			writeMessagesReplayFailure(w, ctx, requestID)
+			return true, nil
+		} else if bridge.UsedReplay() {
+			// A previous Chat reply deliberately kept its reasoning off the Messages
+			// wire. Send the restored continuation only through its matching Chat bridge.
+			candidatePaths = candidatePaths[1:]
+		}
+	}
 	// The shared body pre-scan for the stream rewrite is deferred until a
 	// candidate actually needs it, so surfaces without stream gates (embeddings,
 	// images, ...) keep the zero-body-touch path.
@@ -363,7 +422,11 @@ func dispatchSelectedUpstream(
 	var lastPending *pendingUpstreamFailure
 	for i, path := range candidatePaths {
 		isLast := i >= len(candidatePaths)-1
-		attemptBody, sanitizeErr := sanitizeUpstreamJSONBody(bodyBytes, selected.Site.Platform, path, upstreamModel)
+		candidateBody := bodyBytes
+		if isMessagesChatBridge(upstreamPath, path) {
+			candidateBody = chatBody
+		}
+		attemptBody, sanitizeErr := sanitizeUpstreamJSONBody(candidateBody, selected.Site.Platform, path, upstreamModel)
 		if sanitizeErr != nil {
 			// Clear client-facing continuity error.
 			writeJSONErrorWithRequest(w, http.StatusBadRequest, sanitizeErr.Error(), "invalid_request_error", requestID)
@@ -398,7 +461,7 @@ func dispatchSelectedUpstream(
 		finished, pending, cont := dispatchEndpointAttemptWithContinue(
 			w, r, ctx, cfg, selected, upstreamModel, proxyConfig,
 			path, contentType, attemptBody, firstByteTimeoutMs,
-			retry, maxRetries, isLast, disableCrossProtocolFallback, effectiveStream, expectStreamUsage, requestID,
+			retry, maxRetries, isLast, disableCrossProtocolFallback, effectiveStream, expectStreamUsage, requestID, bridgeOptions,
 		)
 		if finished {
 			return true, nil
@@ -424,31 +487,28 @@ func dispatchSelectedUpstream(
 	return true, nil
 }
 
-// resolveUpstreamCandidatePaths returns ordered upstream paths for one channel attempt.
-// Non chat-family paths yield the original path only.
-// sitePref controls responses-only / prefer-responses ordering.
+// resolveUpstreamCandidatePaths admits only protocols this dispatcher can serve.
+// Preference cannot manufacture a missing request/response converter. Native
+// stays first; only Messages -> Chat has a complete JSON/SSE return bridge.
 func resolveUpstreamCandidatePaths(upstreamPath string, disableCrossProtocolFallback bool, sitePref proxy.SiteProtocolPreference) []string {
-	candidates := proxy.ResolveEndpointCandidatesWithOptions(upstreamPath, proxy.EndpointCandidateOptions{
-		DisableCrossProtocolFallback: disableCrossProtocolFallback,
-		Preference:                   sitePref,
-	})
-	if len(candidates) == 0 {
+	primary, ok := proxy.EndpointFromPath(upstreamPath)
+	if !ok {
 		return []string{upstreamPath}
 	}
-	paths := make([]string, 0, len(candidates))
-	for _, ep := range candidates {
-		if p := proxy.PathForEndpoint(ep); p != "" {
-			paths = append(paths, p)
-		}
+	if sitePref.ResponsesOnly {
+		// responsesOnlyClientError already rejected native Chat/Messages bodies.
+		// A Responses-shaped body at a legacy alias needs only this path rewrite.
+		return []string{proxy.PathForEndpoint(proxy.EndpointResponses)}
 	}
-	if len(paths) == 0 {
-		return []string{upstreamPath}
+	paths := []string{proxy.PathForEndpoint(primary)}
+	if primary == proxy.EndpointMessages && !disableCrossProtocolFallback {
+		paths = append(paths, proxy.PathForEndpoint(proxy.EndpointChat))
 	}
 	return paths
 }
 
-// responsesOnlyClientError returns a clear client message when a chat/messages
-// shaped request hits a responses-only site (no heavy protocol transform in currently).
+// dispatchEndpointAttempt sends one selected native endpoint without walking
+// protocol candidates. Multipart callers use this single-attempt path.
 func dispatchEndpointAttempt(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -469,7 +529,7 @@ func dispatchEndpointAttempt(
 	finished, pending, _ := dispatchEndpointAttemptWithContinue(
 		w, r, ctx, cfg, selected, upstreamModel, proxyConfig,
 		upstreamPath, contentType, bodyBytes, firstByteTimeoutMs,
-		retry, maxRetries, true, true, ctx != nil && ctx.IsStream, false, requestID,
+		retry, maxRetries, true, true, ctx != nil && ctx.IsStream, false, requestID, messages.Options{},
 	)
 	if !recordFailure {
 		return finished, pending
@@ -499,6 +559,7 @@ func dispatchEndpointAttemptWithContinue(
 	effectiveStream bool,
 	expectStreamUsage bool,
 	requestID string,
+	bridgeOptions messages.Options,
 ) (finished bool, nextPending *pendingUpstreamFailure, cont bool) {
 	if requestID == "" {
 		requestID = proxy.RequestIDFromContext(r.Context())
@@ -639,7 +700,7 @@ func dispatchEndpointAttemptWithContinue(
 		var streamVerdict *proxy.UpstreamVerdict
 		func() {
 			defer resp.Body.Close()
-			streamUsage, streamEnd, streamVerdict = handleStreamUpstream(w, r, resp, latencyMs)
+			streamUsage, streamEnd, streamVerdict = handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, upstreamPath, upstreamModel, bridgeOptions)
 		}()
 		if status, errText, terminal, failed := streamFailureVerdict(streamEnd, int(streamIdleTimeout().Seconds())); failed {
 			// Any non-normal, non-client-driven ending is an upstream-side
@@ -763,6 +824,30 @@ func dispatchEndpointAttemptWithContinue(
 		writeJSONErrorWithRequest(w, verdict.Status, "Upstream returned an error response", "upstream_error", requestID)
 		observeProxyTerminal(ctx, shared.StatusFromHTTP(verdict.Status), false, time.Duration(latencyMs)*time.Millisecond)
 		return true, nil, false
+	}
+	if isMessagesChatBridge(ctx.DownstreamPath, upstreamPath) {
+		var convertErr error
+		if body.readable {
+			respBody, convertErr = messages.FromChatResponse(respBody, bridgeOptions)
+		} else {
+			convertErr = fmt.Errorf("Chat response encoding is not supported by the Messages bridge")
+		}
+		if convertErr != nil {
+			// The upstream did run: retain its measured usage, but never record an
+			// unusable downstream representation as a successful tool response.
+			errText := "Cannot convert upstream Chat response to Messages"
+			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, errText)
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, http.StatusBadGateway, false, usage, retry, requestID, errText)
+			if retry < maxRetries {
+				return false, jsonPendingUpstreamFailure(http.StatusBadGateway, errText, "upstream_error"), false
+			}
+			writeJSONErrorWithRequest(w, http.StatusBadGateway, errText, "upstream_error", requestID)
+			observeProxyTerminal(ctx, shared.OutcomeUpstreamError, false, time.Since(startedAt))
+			return true, nil, false
+		}
+		resp.Header.Del("Content-Length")
+		resp.Header.Del("ETag")
+		resp.Header.Set("Content-Type", "application/json")
 	}
 	recordUpstreamSuccess(r.Context(), cfg, selected, ctx.RequestedModel, upstreamModel, latencyMs, usage)
 	writeSuccessProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, resp.StatusCode, false, usage, retry, requestID)
@@ -953,7 +1038,8 @@ func applyProxyCustomHeaders(req *http.Request, proxyConfig *platform.ProxyConfi
 }
 
 // sendUpstreamRequest dispatches an upstream HTTP request with optional observed
-// first-byte timeout. firstByteTimeoutMs is milliseconds (0 disables observation).
+// header timeout. firstByteTimeoutMs is milliseconds; streams use the shared
+// finite default when it is non-positive, while buffered calls retain their bounds.
 // Config PROXY_FIRST_BYTE_TIMEOUT_SEC is seconds; convert via proxy.FirstByteTimeoutMs.
 //
 // isStream selects the SSE dispatch variants, which carry no whole-request
@@ -961,82 +1047,31 @@ func applyProxyCustomHeaders(req *http.Request, proxyConfig *platform.ProxyConfi
 // (PROXY_REQUEST_TIMEOUT_SEC / executor ceiling), because that would also
 // kill long-but-healthy streams. Body-phase liveness is instead enforced per
 // chunk by the relay's idle guard (PROXY_STREAM_IDLE_TIMEOUT_SEC); the
-// header phase stays bounded by first-byte observation and/or the
-// transport's ResponseHeaderTimeout.
+// stream header phase is owned by the shared header budget, without a shorter
+// transport timer racing it. Buffered dispatch retains its transport/total bounds.
 func sendUpstreamRequest(cfg *UpstreamConfig, req *http.Request, proxyConfig *platform.ProxyConfig, firstByteTimeoutMs int64, isStream bool) (*http.Response, error) {
 	hasProxyCfg := proxyConfig != nil && (proxyConfig.ProxyURL != "" || proxyConfig.InsecureSkipTLS)
-	// Executor path: DoWithObservedFirstByte owns the first-byte deadline and
-	// does not cancel the body after headers arrive.
 	if !hasProxyCfg && cfg != nil && cfg.Executor != nil {
 		if isStream {
 			return cfg.Executor.DoStreamWithObservedFirstByte(req.Context(), req, firstByteTimeoutMs)
 		}
 		return cfg.Executor.DoWithObservedFirstByte(req.Context(), req, firstByteTimeoutMs)
 	}
-
-	if firstByteTimeoutMs <= 0 {
-		if hasProxyCfg {
-			if isStream {
-				return platform.DoWithProxyStream(req.Context(), req, proxyConfig)
-			}
-			return platform.DoWithProxy(req.Context(), req, proxyConfig)
-		}
-		if isStream {
-			return defaultStreamUpstreamClient.Do(req)
-		}
-		return defaultUpstreamClient.Do(req)
+	if isStream && hasProxyCfg {
+		return platform.DoWithProxyStreamBudget(req.Context(), req, proxyConfig, firstByteTimeoutMs)
 	}
-
-	// Proxy / fallback client: mirror DoWithObservedFirstByte timer semantics.
-	parent := req.Context()
-	reqCtx, cancelReq := context.WithCancel(parent)
-	req = req.WithContext(reqCtx)
-	var timedOut atomic.Bool
-	timer := time.AfterFunc(time.Duration(firstByteTimeoutMs)*time.Millisecond, func() {
-		timedOut.Store(true)
-		cancelReq()
-	})
-
-	var (
-		resp *http.Response
-		err  error
-	)
-	if hasProxyCfg {
-		if isStream {
-			resp, err = platform.DoWithProxyStream(reqCtx, req, proxyConfig)
-		} else {
-			resp, err = platform.DoWithProxy(reqCtx, req, proxyConfig)
+	do := defaultUpstreamClient.Do
+	if isStream {
+		do = defaultStreamUpstreamClient.Do
+	} else if hasProxyCfg {
+		do = func(r *http.Request) (*http.Response, error) {
+			return platform.DoWithProxy(r.Context(), r, proxyConfig)
 		}
-	} else if isStream {
-		resp, err = defaultStreamUpstreamClient.Do(req)
-	} else {
-		resp, err = defaultUpstreamClient.Do(req)
 	}
-	if err != nil {
-		_ = timer.Stop()
-		cancelReq()
-		if timedOut.Load() && parent.Err() == nil {
-			return nil, proxy.ErrObservedFirstByteTimeout
-		}
-		return nil, err
+	if isStream || firstByteTimeoutMs > 0 {
+		return httpclient.DoWithHeaderBudget(req, firstByteTimeoutMs, do)
 	}
-	_ = timer.Stop()
-	resp.Body = &cancelOnCloseBody{ReadCloser: resp.Body, cancel: cancelReq}
-	return resp, nil
-}
-
-// cancelOnCloseBody cancels the request context when the response body is closed.
-type cancelOnCloseBody struct {
-	io.ReadCloser
-	cancel context.CancelFunc
-}
-
-func (b *cancelOnCloseBody) Close() error {
-	err := b.ReadCloser.Close()
-	if b.cancel != nil {
-		b.cancel()
-	}
-	return err
+	return do(req)
 }
 
 func recordUpstreamFailure(ctx context.Context, cfg *UpstreamConfig, selected *routing.SelectedChannel, modelName string, status int, rawErrText string) {
