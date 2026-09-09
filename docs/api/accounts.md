@@ -19,9 +19,10 @@ filter and create form keep working without a second full-fleet request.
 
 **Body** (create, optional): `proxyUrl` — per-account egress proxy stored in `extraConfig.proxyUrl`; accepted schemes are `http://`, `https://`, `socks5://`, `socks5h://` (SOCKS5 runs natively on Go's `net/http` transport). Invalid schemes return `400`.
 
-### GET /api/accounts/:id, PUT /api/accounts/:id, DELETE /api/accounts/:id
+### PUT /api/accounts/:id, DELETE /api/accounts/:id
 
-Get, update, delete an account.
+Update or delete an account. This build does not expose `GET /api/accounts/:id`;
+read account rows from `GET /api/accounts`, including its paginated form.
 
 **`proxyUrl` update semantics**: field omitted → keep the stored proxy; present with a value → replace (same scheme validation as create); present empty (`""`) → delete `extraConfig.proxyUrl`.
 
@@ -49,6 +50,12 @@ failure is explicit. `skipModelFetch: true` performs no model probe and returns
 ### POST /api/accounts/login
 
 Log in against the site with username/password and create the account — or update the existing one for `(siteId, username)` — with the session token and an encrypted `autoRelogin` credential (`extraConfig.credentialMode = session`).
+
+For a modern NewAPI dashboard login, Metapi exchanges the short-lived session
+credential for a durable personal access token (PAT), then revokes the temporary
+login session. If that exchange cannot complete, binding fails rather than
+storing a session that will soon expire. The PAT is a management credential for
+check-in and balance operations; a relay API key is a separate credential.
 
 **Body**: `{ "siteId": 3, "username": "me@example.com", "password": "..." }` — `siteId`/`username`/`password` are required; unsupported platforms are 400, failed logins are 401 with the platform message.
 **Response** (200): `{ "success": true, "account": { "id": 12, "siteId": 3, "username": "me@example.com", "accessToken": "sk-...", "apiToken": null, "balance": 9.5, "status": "active", "isPinned": false, "sortOrder": 1, "checkinEnabled": true, "extraConfig": "{}", "createdAt": "...", "updatedAt": "..." }, "apiTokenFound": false, "tokenCount": 1, "reusedAccount": false }`

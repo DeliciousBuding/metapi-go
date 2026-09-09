@@ -36,11 +36,20 @@ Available token candidates for route configuration.
 
 ### POST /api/models/check/:accountId
 
-Check model availability for a specific account. Returns `{ "success": true, "models": [...] }`.
+Refresh model discovery for one account. The response includes `success`,
+`refresh` (including `status`, `modelCount`, and `models`), `rebuild`, and
+`tokenBackfilled`. A discovered model is not proof of successful inference.
 
 ### POST /api/models/probe
 
-Trigger a model probe. Body: `{ "models": ["gpt-4o"], "wait": false }`. Returns 202 with probe job.
+Trigger a **scheduler-wide** model probe. The handler does not consume a request
+body: `models`, `accountId`, and `wait` do not narrow or wait for this operation.
+The 202 response (`queued`, `jobId`, `status: "pending"`) acknowledges the trigger,
+not successful inference or completion. Inspect the resulting probe history.
+
+For a bounded operator test, use `POST /api/models/verify-batch` with explicit
+`accountId`, `models`, and `limit`. That endpoint targets existing route channels;
+`probed: 0` is not successful inference coverage.
 
 ### POST /api/models/verify-batch, GET /api/models/verify-history
 

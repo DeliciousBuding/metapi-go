@@ -22,12 +22,15 @@ Usage trend data for a specific key.
 
 ### POST /api/downstream-keys
 
-Create a new downstream API key.
+Create a new downstream API key. Both `name` and `key` are required. The server
+does not generate the key for this endpoint; supply a cryptographically random
+secret beginning with `sk-` (the admin UI generates one before submission).
 
 **Body**:
 ```json
 {
   "name": "My Key",
+  "key": "${DOWNSTREAM_API_KEY}",
   "groupName": "production",
   "tags": "tag1,tag2",
   "supportedModels": ["gpt-4o", "claude-sonnet-4-20250514"],
@@ -48,6 +51,24 @@ Create a new downstream API key.
 ```
 
 Routing-policy fields (`excludedSiteIds`, `excludedCredentialRefs`, `allowedSiteIds`, `allowedCredentialRefs`, `siteWeightMultipliers`, `keyWeight`) are accepted on both create and update; their full contract is documented under **Credential & site scope** below.
+
+### Usage limits are not a prepaid billing ledger
+
+- `maxRequests` is an atomic admission counter. RPM/TPM-denied requests do not
+  consume it, but an admitted request can still fail later; it is not a count of
+  successful model completions.
+- `maxCost` rejects subsequent requests once stored `usedCost` reaches the
+  threshold. Successful proxy requests add their **estimated** cost after
+  completion. No money is reserved for in-flight requests, so overlapping
+  requests or a single completion can exceed the threshold. It is not a strict
+  spending guarantee.
+- Failed attempts may retain reported usage and an estimate in proxy logs, but
+  currently do not increase the key's `usedCost`.
+- Proxy cost estimates use the recorded pricing-source/fallback calculation.
+  They are not the upstream wallet debit or an authoritative customer invoice;
+  do not require monetary amounts at different relay layers to match.
+- For `maxCost` and `maxRequests`, omitted, `null`, zero, or an empty string
+  clears the corresponding limit.
 
 ### Credential & site scope (downstream keys)
 
