@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -485,6 +486,17 @@ type UpstreamAPIToken struct {
 	TokenGroup string
 }
 
+// UpstreamTokenListing carries the tokens plus the facts convergence needs:
+// whether the adapter proved the listing complete, and whether a legacy
+// fallback made even a short listing unsafe for default-switch decisions.
+type UpstreamTokenListing struct {
+	Tokens   []UpstreamAPIToken
+	Complete bool
+	// DefaultSwitchUnsafe is set for a legacy flat listing that answered without
+	// a total. Its tokens remain syncable, but absence cannot prove revocation.
+	DefaultSwitchUnsafe bool
+}
+
 // TokenDefaultSwitch records one convergence SyncTokensFromUpstream had to
 // perform: the stored default relay credential is no longer listed upstream, so
 // the default moved to a key the upstream still lists.
@@ -555,26 +567,49 @@ func ResolvePlatformUserIDPtr(account *store.Account) *int {
 	return nil
 }
 
-// FetchUpstreamAPITokens loads tokens via adapter.GetAPITokens, falling back to
-// adapter.GetAPIToken when the list endpoint returns nothing.
-func FetchUpstreamAPITokens(
+type completeAPITokenLister interface {
+	GetAPITokensComplete(ctx context.Context, baseURL, accessToken string, platformUserID *int, proxy *platform.ProxyConfig) ([]platform.ApiTokenInfo, bool, error)
+}
+
+// FetchUpstreamAPITokenListing loads tokens and carries whether the adapter
+// proved the listing complete. Only adapters implementing the explicit
+// complete-lister contract may bypass the convergence truncation guard.
+func FetchUpstreamAPITokenListing(
 	ctx context.Context,
 	adapter platform.PlatformAdapter,
 	baseURL, accessToken string,
 	platformUserID *int,
 	proxy *platform.ProxyConfig,
-) ([]UpstreamAPIToken, error) {
+) (UpstreamTokenListing, error) {
 	if adapter == nil {
-		return nil, fmt.Errorf("platform adapter is nil")
+		return UpstreamTokenListing{}, fmt.Errorf("platform adapter is nil")
 	}
-	tokens, err := adapter.GetAPITokens(ctx, baseURL, accessToken, platformUserID, proxy)
-	if err != nil {
-		return nil, err
+
+	var tokens []platform.ApiTokenInfo
+	complete := false
+	defaultSwitchUnsafe := false
+	if lister, ok := adapter.(completeAPITokenLister); ok {
+		var err error
+		tokens, complete, err = lister.GetAPITokensComplete(ctx, baseURL, accessToken, platformUserID, proxy)
+		if errors.Is(err, platform.ErrNewAPITokenListingCompletenessUnproven) {
+			defaultSwitchUnsafe = true
+			err = nil
+		}
+		if err != nil {
+			return UpstreamTokenListing{}, err
+		}
+	} else {
+		var err error
+		tokens, err = adapter.GetAPITokens(ctx, baseURL, accessToken, platformUserID, proxy)
+		if err != nil {
+			return UpstreamTokenListing{}, err
+		}
 	}
-	if len(tokens) == 0 {
+
+	if len(tokens) == 0 && !complete && !defaultSwitchUnsafe {
 		single, singleErr := adapter.GetAPIToken(ctx, baseURL, accessToken, platformUserID, proxy)
 		if singleErr != nil {
-			return nil, singleErr
+			return UpstreamTokenListing{}, singleErr
 		}
 		if single != nil {
 			key := strings.TrimSpace(*single)
@@ -587,14 +622,35 @@ func FetchUpstreamAPITokens(
 			}
 		}
 	}
-	return PlatformAPITokensToUpstream(tokens), nil
+	return UpstreamTokenListing{
+		Tokens:              PlatformAPITokensToUpstream(tokens),
+		Complete:            complete,
+		DefaultSwitchUnsafe: defaultSwitchUnsafe,
+	}, nil
+}
+
+// FetchUpstreamAPITokens preserves the legacy slice-only API for callers that
+// do not carry listing completeness.
+func FetchUpstreamAPITokens(
+	ctx context.Context,
+	adapter platform.PlatformAdapter,
+	baseURL, accessToken string,
+	platformUserID *int,
+	proxy *platform.ProxyConfig,
+) ([]UpstreamAPIToken, error) {
+	listing, err := FetchUpstreamAPITokenListing(ctx, adapter, baseURL, accessToken, platformUserID, proxy)
+	if err != nil {
+		return nil, err
+	}
+	return listing.Tokens, nil
 }
 
 // SyncTokensFromUpstream upserts account tokens from upstream listings.
 // When an existing ready token matches by key, local enabled (and non-empty
 // operator-set name) are preserved; upstream enable flags do not clobber
 // operator disable/enable choices (upstream / ).
-func SyncTokensFromUpstream(db *sqlx.DB, accountID int64, upstreamTokens []UpstreamAPIToken) (*TokenSyncResult, error) {
+func SyncTokensFromUpstream(db *sqlx.DB, accountID int64, listing UpstreamTokenListing) (*TokenSyncResult, error) {
+	upstreamTokens := listing.Tokens
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	var existing []store.AccountToken
@@ -718,7 +774,9 @@ func SyncTokensFromUpstream(db *sqlx.DB, accountID int64, upstreamTokens []Upstr
 	// Converge the default relay credential before repairing it: an operator who
 	// rotated their upstream key must get a working default from the sync itself,
 	// not from a second manual "set default" click (see the function comment).
-	switched, skipReason, err := convergeDefaultTokenOnUpstreamAbsence(db, accountID, existing, upstreamTokens)
+	switched, skipReason, err := convergeDefaultTokenOnUpstreamAbsence(
+		db, accountID, existing, upstreamTokens, listing.Complete, listing.DefaultSwitchUnsafe,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -751,8 +809,11 @@ func SyncTokensFromUpstream(db *sqlx.DB, accountID int64, upstreamTokens []Upstr
 //
 // "Not in the listing" only proves revocation when the listing is the whole
 // truth, so three guards gate the switch:
-//   - the listing is shorter than the adapters' page limit (a full listing may
-//     be truncated, and sub2api answers from two endpoints);
+//   - only an explicit complete-listing contract may bypass the legacy page-limit
+//     guard. Unknown adapters and incomplete sources keep the original >=100
+//     behavior; list length or a partial final page never proves completeness;
+//   - a legacy flat response retried through the old query contract may still
+//     be unproven even when short, so it never authorizes a default switch;
 //   - no listed key is a masked display value (a hydrated real key never equals
 //     its own mask, so absence there would be a hydration artifact, #1179);
 //   - the stored default is a ready row, i.e. its value is comparable at all.
@@ -765,6 +826,8 @@ func convergeDefaultTokenOnUpstreamAbsence(
 	accountID int64,
 	tokens []store.AccountToken,
 	upstream []UpstreamAPIToken,
+	listingComplete bool,
+	defaultSwitchUnsafe bool,
 ) (*TokenDefaultSwitch, string, error) {
 	var current *store.AccountToken
 	for i := range tokens {
@@ -776,7 +839,10 @@ func convergeDefaultTokenOnUpstreamAbsence(
 	if current == nil || ResolveAccountTokenValueStatus(current) != TokenValueStatusReady {
 		return nil, "", nil
 	}
-	if len(upstream) >= platform.UpstreamTokenListPageLimit {
+	if defaultSwitchUnsafe {
+		return nil, "upstream_listing_completeness_unproven", nil
+	}
+	if !listingComplete && len(upstream) >= platform.UpstreamTokenListPageLimit {
 		return nil, "upstream_listing_may_be_truncated", nil
 	}
 

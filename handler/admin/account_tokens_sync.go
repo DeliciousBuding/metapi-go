@@ -289,7 +289,7 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 	proxyCfg := service.BuildPlatformProxyConfig(cfg, &row.Account, &row.Site)
 	platformUserID := service.ResolvePlatformUserIDPtr(&row.Account)
 
-	upstreamTokens, err := service.FetchUpstreamAPITokens(
+	upstreamListing, err := service.FetchUpstreamAPITokenListing(
 		callCtx,
 		adapter,
 		row.Site.URL,
@@ -301,14 +301,14 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 		_ = service.CreateEvent(db, "token_sync", "account token sync failed", err.Error(), "error", accountID, "account")
 		return nil, fmt.Errorf("failed to sync upstream tokens: %w", err)
 	}
-	if len(upstreamTokens) == 0 {
+	if len(upstreamListing.Tokens) == 0 {
 		base["status"] = "skipped"
 		base["reason"] = "no_upstream_tokens"
 		base["message"] = "upstream returned no api tokens"
 		return base, nil
 	}
 
-	syncResult, syncErr := service.SyncTokensFromUpstream(db, accountID, upstreamTokens)
+	syncResult, syncErr := service.SyncTokensFromUpstream(db, accountID, upstreamListing)
 	if syncErr != nil {
 		_ = service.CreateEvent(db, "token_sync", "account token sync failed", syncErr.Error(), "error", accountID, "account")
 		return nil, syncErr

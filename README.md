@@ -52,7 +52,7 @@ AI 生态里基于 New API / One API 系列的聚合中转站越来越多，多�
 | 能力               | 说明                                                                                                   |
 | ------------------ | ------------------------------------------------------------------------------------------------------ |
 | **16 个上游适配器** | New API / One API / OneHub / DoneHub / Veloera / AnyRouter / Sub2API / OpenAI / Claude / Gemini / Gemini CLI / Codex / Antigravity / Grok / CLIProxyAPI / SenseTime |
-| **统一代理**        | OpenAI 与 Claude 双协议：Chat / Responses / Messages / Embeddings / Images / Models / Files，全量 SSE 流式，自动互转 |
+| **统一代理**        | OpenAI 与 Claude 双协议：Chat / Responses / Messages / Embeddings / Images / Models / Files，SSE 流式；Messages→Chat 的文本与客户端工具回退支持 JSON/SSE 返回转换 |
 | **路由与容错**      | 模型自动发现；通道按账号模型可用性绑定；可在设置中开启自动创建缺失模型路由（默认关闭）；重建在后台执行并可追踪结果；按成本/余额/使用权重分配多通道；失败通道自动冷却并重试下一通道；运行时熔断 + half-open 探测 |
 | **计费真值**        | 四级成本信号（实测 → 账号配置 → models.dev 目录参考价 → 兜底）；使用日志逐请求记录 Token 与成本 |
 | **管理 UI**         | 站点 / 账号 / 路由 / 模型 / 日志 / 告警一站管理，React SPA 预构建后嵌入二进制，无需额外前端服务 |

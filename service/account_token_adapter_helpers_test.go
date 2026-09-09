@@ -19,6 +19,10 @@ type stubTokenAdapter struct {
 	groupsCalled int
 }
 
+func testTokenListing(tokens []UpstreamAPIToken, complete bool) UpstreamTokenListing {
+	return UpstreamTokenListing{Tokens: tokens, Complete: complete}
+}
+
 func (s *stubTokenAdapter) PlatformName() string { return "stub-token" }
 
 func (s *stubTokenAdapter) GetAPITokens(ctx context.Context, url, accessToken string, platformUserId *int, proxy *platform.ProxyConfig) ([]platform.ApiTokenInfo, error) {
@@ -82,10 +86,10 @@ func TestSyncTokensFromUpstream_CreatesAndUpdates(t *testing.T) {
 	// existing ready token should be updated, not duplicated
 	_ = createTestAccountToken(t, db, accountID, "old-name", "sk-keep", true)
 
-	result, err := SyncTokensFromUpstream(db.DB, accountID, []UpstreamAPIToken{
+	result, err := SyncTokensFromUpstream(db.DB, accountID, testTokenListing([]UpstreamAPIToken{
 		{Name: "upstream-name", Key: "sk-keep", Enabled: false, TokenGroup: "vip"},
 		{Name: "new-one", Key: "sk-new", Enabled: true, TokenGroup: "default"},
-	})
+	}, false))
 	if err != nil {
 		t.Fatalf("SyncTokensFromUpstream: %v", err)
 	}
@@ -242,7 +246,7 @@ func TestSyncTokensFromUpstream_MaskedKeySyncIsIdempotent(t *testing.T) {
 		t.Fatalf("FetchUpstreamAPITokens: %v", err)
 	}
 
-	first, err := SyncTokensFromUpstream(db.DB, accountID, tokens)
+	first, err := SyncTokensFromUpstream(db.DB, accountID, testTokenListing(tokens, false))
 	if err != nil {
 		t.Fatalf("first SyncTokensFromUpstream: %v", err)
 	}
@@ -250,7 +254,7 @@ func TestSyncTokensFromUpstream_MaskedKeySyncIsIdempotent(t *testing.T) {
 		t.Fatalf("first sync created = %d, want 1", first.Created)
 	}
 
-	second, err := SyncTokensFromUpstream(db.DB, accountID, tokens)
+	second, err := SyncTokensFromUpstream(db.DB, accountID, testTokenListing(tokens, false))
 	if err != nil {
 		t.Fatalf("second SyncTokensFromUpstream: %v", err)
 	}

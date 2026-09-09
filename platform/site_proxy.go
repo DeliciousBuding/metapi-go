@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 	utls "github.com/refraction-networking/utls"
 )
@@ -37,7 +38,7 @@ var supportedProxySchemes = map[string]bool{
 	"socks5": true, "socks5h": true,
 }
 
-// transportCache pools *http.Transport instances by (proxyURL, insecureSkipTLS)
+// transportCache pools *http.Transport instances by proxy, TLS and stream mode
 // so repeated DoWithProxy / SiteProxy.Do calls to the same proxy (or direct)
 // reuse the underlying keep-alive connection pool instead of forcing a fresh
 // TLS handshake + dial on every request. Probe loops and stream traffic are
@@ -63,7 +64,16 @@ var transportCache sync.Map // map[string]*http.Transport
 // they never alias — the uTLS DialTLSContext is only paid for by sites that
 // opt in.
 func getCachedTransport(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS, useUTLS bool) *http.Transport {
+	return getCachedTransportForMode(proxy, insecureSkipTLS, useUTLS, false)
+}
+
+// Stream mode gets its own stable pool: its header phase belongs to
+// DoWithHeaderBudget. Never mutate a transport already used by buffered calls.
+func getCachedTransportForMode(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS, useUTLS, stream bool) *http.Transport {
 	key := transportCacheKey(proxy, insecureSkipTLS, useUTLS)
+	if stream {
+		key += "|stream"
+	}
 	if cached, ok := transportCache.Load(key); ok {
 		return cached.(*http.Transport)
 	}
@@ -72,6 +82,9 @@ func getCachedTransport(proxy func(*http.Request) (*url.URL, error), insecureSki
 		transport = newUTLSTransport(proxy, insecureSkipTLS)
 	} else {
 		transport = newPooledTransport(proxy, insecureSkipTLS)
+	}
+	if stream {
+		transport.ResponseHeaderTimeout = 0
 	}
 	actual, _ := transportCache.LoadOrStore(key, transport)
 	return actual.(*http.Transport)
@@ -264,9 +277,8 @@ func newProxyClient(transport *http.Transport) *http.Client {
 // newStreamProxyClient wraps a (pooled) *http.Transport for SSE stream
 // dispatch: identical to newProxyClient but without the whole-request
 // timeout, so PROXY_REQUEST_TIMEOUT_SEC does not cap a healthy stream's
-// total duration while chunks keep flowing. The header phase stays bounded
-// by the transport's ResponseHeaderTimeout; body-phase liveness is enforced
-// per chunk by the relay's idle guard (PROXY_STREAM_IDLE_TIMEOUT_SEC).
+// total duration while chunks keep flowing. Dispatch must use DoWithHeaderBudget
+// with a stream-mode transport; the relay owns body-idle liveness.
 func newStreamProxyClient(transport *http.Transport) *http.Client {
 	return &http.Client{
 		Transport:     transport,
@@ -390,20 +402,24 @@ func (sp *SiteProxy) doWithExplicitProxy(ctx context.Context, req *http.Request,
 
 // DoWithProxy is a convenience function that works without a SiteProxy instance.
 func DoWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfig) (*http.Response, error) {
-	return doWithProxy(ctx, req, proxyConfig, false)
+	return doWithProxy(ctx, req, proxyConfig, false, 0)
 }
 
-// DoWithProxyStream is the SSE variant of DoWithProxy: the dispatched client
-// carries no whole-request timeout so a healthy stream is not capped by
-// PROXY_REQUEST_TIMEOUT_SEC while chunks keep flowing. Header wait remains
-// bounded by the pooled transport's ResponseHeaderTimeout; body-phase
-// liveness is enforced by the relay's idle guard. Non-streaming callers must
-// keep using DoWithProxy.
+// DoWithProxyStream dispatches a stream with the default finite header budget.
+// Use DoWithProxyStreamBudget when an explicit first-byte budget is available.
 func DoWithProxyStream(ctx context.Context, req *http.Request, proxyConfig *ProxyConfig) (*http.Response, error) {
-	return doWithProxy(ctx, req, proxyConfig, true)
+	return DoWithProxyStreamBudget(ctx, req, proxyConfig, 0)
 }
 
-func doWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfig, stream bool) (*http.Response, error) {
+// DoWithProxyStreamBudget uses one header timer, not the buffered transport's
+// header or whole-request timeout. firstByteTimeoutMs is milliseconds; values
+// <= 0 use httpclient.DefaultRequestCeiling. After headers, the caller and relay
+// idle guard own the body lifetime. Callers must close resp.Body.
+func DoWithProxyStreamBudget(ctx context.Context, req *http.Request, proxyConfig *ProxyConfig, firstByteTimeoutMs int64) (*http.Response, error) {
+	return doWithProxy(ctx, req, proxyConfig, true, firstByteTimeoutMs)
+}
+
+func doWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfig, stream bool, firstByteTimeoutMs int64) (*http.Response, error) {
 	if proxyConfig != nil {
 		// Deny-list sensitive / hop-by-hop / metapi-control headers.
 		// Honor CustomHeadersOverrideRequest (default request-wins).
@@ -412,12 +428,7 @@ func doWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfi
 		})
 	}
 
-	newClient := newProxyClient
-	if stream {
-		newClient = newStreamProxyClient
-	}
-
-	insecureSkipTLS := proxyConfig != nil && proxyConfig.InsecureSkipTLS
+	var proxy func(*http.Request) (*url.URL, error)
 	if proxyConfig != nil && proxyConfig.ProxyURL != "" {
 		proxyURL, err := url.Parse(proxyConfig.ProxyURL)
 		if err != nil {
@@ -427,14 +438,17 @@ func doWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfi
 		if !supportedProxySchemes[scheme] {
 			return nil, fmt.Errorf("unsupported proxy scheme: %s", scheme)
 		}
-
-		client := newClient(getCachedTransport(http.ProxyURL(proxyURL), insecureSkipTLS, proxyConfig.UseUTLS))
-		return client.Do(req.WithContext(ctx))
+		proxy = http.ProxyURL(proxyURL)
 	}
 
+	insecureSkipTLS := proxyConfig != nil && proxyConfig.InsecureSkipTLS
 	useUTLS := proxyConfig != nil && proxyConfig.UseUTLS
-	client := newClient(getCachedTransport(nil, insecureSkipTLS, useUTLS))
-	return client.Do(req.WithContext(ctx))
+	transport := getCachedTransportForMode(proxy, insecureSkipTLS, useUTLS, stream)
+	req = req.WithContext(ctx)
+	if stream {
+		return httpclient.DoWithHeaderBudget(req, firstByteTimeoutMs, newStreamProxyClient(transport).Do)
+	}
+	return newProxyClient(transport).Do(req)
 }
 
 // RejectCrossOriginRedirect is the shared CheckRedirect policy for outbound

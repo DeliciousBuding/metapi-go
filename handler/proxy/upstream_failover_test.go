@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -16,40 +17,31 @@ import (
 )
 
 func TestResolveUpstreamCandidatePaths(t *testing.T) {
-	paths := resolveUpstreamCandidatePaths("/v1/chat/completions", false, proxy.SiteProtocolPreference{})
-	if len(paths) < 2 {
-		t.Fatalf("expected multi-protocol candidates, got %v", paths)
-	}
-	if paths[0] != "/v1/chat/completions" {
-		t.Fatalf("primary path = %q", paths[0])
-	}
-	disabled := resolveUpstreamCandidatePaths("/v1/chat/completions", true, proxy.SiteProtocolPreference{})
-	if len(disabled) != 1 || disabled[0] != "/v1/chat/completions" {
-		t.Fatalf("disabled fallback paths = %v", disabled)
-	}
-	nonChat := resolveUpstreamCandidatePaths("/v1/embeddings", false, proxy.SiteProtocolPreference{})
-	if len(nonChat) != 1 || nonChat[0] != "/v1/embeddings" {
-		t.Fatalf("non-chat paths = %v", nonChat)
-	}
-	// Responses-only site: chat client rewrites candidate list to responses only.
-	only := resolveUpstreamCandidatePaths("/v1/chat/completions", false, proxy.SiteProtocolPreference{
-		ResponsesOnly:   true,
-		PreferResponses: true,
-		PreferStream:    true,
-	})
-	if len(only) != 1 || only[0] != "/v1/responses" {
-		t.Fatalf("responses-only paths = %v, want [/v1/responses]", only)
-	}
-	// Prefer-responses (not only): responses first with fallbacks.
-	prefer := resolveUpstreamCandidatePaths("/v1/chat/completions", false, proxy.SiteProtocolPreference{
-		PreferResponses: true,
-	})
-	if len(prefer) < 2 || prefer[0] != "/v1/responses" {
-		t.Fatalf("prefer-responses paths = %v, want responses first", prefer)
+	for _, tc := range []struct {
+		name, path string
+		disable    bool
+		pref       proxy.SiteProtocolPreference
+		want       []string
+	}{
+		{"chat native", "/v1/chat/completions", false, proxy.SiteProtocolPreference{}, []string{"/v1/chat/completions"}},
+		{"Messages bridge", "/v1/messages", false, proxy.SiteProtocolPreference{}, []string{"/v1/messages", "/v1/chat/completions"}},
+		{"Messages disabled", "/v1/messages", true, proxy.SiteProtocolPreference{}, []string{"/v1/messages"}},
+		{"Messages native before preference", "/v1/messages", false, proxy.SiteProtocolPreference{PreferResponses: true}, []string{"/v1/messages", "/v1/chat/completions"}},
+		{"unimplemented preference", "/v1/chat/completions", false, proxy.SiteProtocolPreference{PreferResponses: true}, []string{"/v1/chat/completions"}},
+		{"responses native", "/v1/responses", false, proxy.SiteProtocolPreference{}, []string{"/v1/responses"}},
+		{"non chat", "/v1/embeddings", false, proxy.SiteProtocolPreference{}, []string{"/v1/embeddings"}},
+		{"count tokens", "/v1/messages/count_tokens", false, proxy.SiteProtocolPreference{}, []string{"/v1/messages/count_tokens"}},
+		{"responses-shaped alias", "/v1/chat/completions", false, proxy.SiteProtocolPreference{ResponsesOnly: true, PreferStream: true}, []string{"/v1/responses"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := resolveUpstreamCandidatePaths(tc.path, tc.disable, tc.pref); !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("paths=%v want %v", got, tc.want)
+			}
+		})
 	}
 }
 
-func TestDispatchCrossProtocolFallbackOnProtocolHintWithoutPoison(t *testing.T) {
+func TestDispatchDoesNotSendChatBodyToUnimplementedProtocol(t *testing.T) {
 	var (
 		mu    sync.Mutex
 		paths []string
@@ -94,20 +86,20 @@ func TestDispatchCrossProtocolFallbackOnProtocolHintWithoutPoison(t *testing.T) 
 	rec := httptest.NewRecorder()
 	HandleChatCompletions(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body=%s paths=%v", rec.Code, rec.Body.String(), paths)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want original 400; body=%s paths=%v", rec.Code, rec.Body.String(), paths)
 	}
 	mu.Lock()
 	gotPaths := append([]string(nil), paths...)
 	mu.Unlock()
-	if len(gotPaths) < 2 || gotPaths[0] != "/v1/chat/completions" || gotPaths[1] != "/v1/messages" {
-		t.Fatalf("paths = %v, want chat then messages", gotPaths)
+	if len(gotPaths) != 1 || gotPaths[0] != "/v1/chat/completions" {
+		t.Fatalf("paths = %v, want only native Chat", gotPaths)
 	}
-	if len(router.failures) != 0 {
-		t.Fatalf("failures = %#v, want none (protocol miss must not poison channel)", router.failures)
+	if len(router.failures) != 1 {
+		t.Fatalf("failures = %#v, want the actual native failure", router.failures)
 	}
-	if len(router.successes) != 1 || router.successes[0].channelID != 42 {
-		t.Fatalf("successes = %#v, want one success on channel 42", router.successes)
+	if len(router.successes) != 0 {
+		t.Fatalf("unimplemented fallback reported success: %#v", router.successes)
 	}
 }
 
@@ -122,7 +114,7 @@ func TestDispatchDisableCrossProtocolFallbackStopsAfterPrimary(t *testing.T) {
 		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"error":{"message":"please use /v1/messages"}}`))
+		_, _ = w.Write([]byte(`{"error":{"message":"please use /v1/chat/completions"}}`))
 	}))
 	t.Cleanup(upstream.Close)
 
@@ -142,9 +134,9 @@ func TestDispatchDisableCrossProtocolFallbackStopsAfterPrimary(t *testing.T) {
 	SetUpstreamConfig(&UpstreamConfig{Router: router})
 	t.Cleanup(func() { SetUpstreamConfig(nil) })
 
-	req := makeProxyReq("POST", "/v1/chat/completions", `{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}`)
+	req := makeProxyReq("POST", "/v1/messages", `{"model":"claude-3","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}`)
 	rec := httptest.NewRecorder()
-	HandleChatCompletions(rec, req)
+	HandleClaudeMessages(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
@@ -152,12 +144,12 @@ func TestDispatchDisableCrossProtocolFallbackStopsAfterPrimary(t *testing.T) {
 	mu.Lock()
 	gotPaths := append([]string(nil), paths...)
 	mu.Unlock()
-	if len(gotPaths) != 1 || gotPaths[0] != "/v1/chat/completions" {
-		t.Fatalf("paths = %v, want only primary chat path", gotPaths)
+	if len(gotPaths) != 1 || gotPaths[0] != "/v1/messages" {
+		t.Fatalf("paths = %v, want only primary Messages path", gotPaths)
 	}
 }
 
-func TestDispatchFirstByteTimeoutFallsBackToNextEndpointWithoutPoison(t *testing.T) {
+func TestDispatchChatTimeoutDoesNotReplayOtherProtocols(t *testing.T) {
 	var (
 		mu    sync.Mutex
 		paths []string
@@ -203,23 +195,22 @@ func TestDispatchFirstByteTimeoutFallsBackToNextEndpointWithoutPoison(t *testing
 	rec := httptest.NewRecorder()
 	HandleChatCompletions(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusRequestTimeout {
+		t.Fatalf("status = %d, want native timeout; body=%s", rec.Code, rec.Body.String())
 	}
 	mu.Lock()
 	gotPaths := append([]string(nil), paths...)
 	mu.Unlock()
-	if len(gotPaths) < 2 || gotPaths[0] != "/v1/chat/completions" {
-		t.Fatalf("paths = %v, want timeout on chat then fallback", gotPaths)
+	if len(gotPaths) != 1 || gotPaths[0] != "/v1/chat/completions" {
+		t.Fatalf("paths = %v, want only native Chat timeout", gotPaths)
 	}
-	if len(router.failures) != 0 {
-		t.Fatalf("failures = %#v, want none for intermediate first-byte timeout", router.failures)
+	if len(router.failures) != 1 || len(router.successes) != 0 {
+		t.Fatalf("failures = %#v, successes = %#v, want one native timeout", router.failures, router.successes)
 	}
-	if body := rec.Body.String(); !strings.Contains(body, "chatcmpl_fast") {
-		t.Fatalf("body = %q, want fast fallback response", body)
+	if body := rec.Body.String(); !strings.Contains(body, "first-byte timeout") {
+		t.Fatalf("body = %q, want the real timeout", body)
 	}
 }
-
 
 func TestDispatchResponsesOnlySiteRoutesToResponsesAndForcesStream(t *testing.T) {
 	var (

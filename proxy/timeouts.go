@@ -1,14 +1,18 @@
 package proxy
 
-import "time"
+import (
+	"time"
+
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
+)
 
 // DefaultRequestCeiling is the whole-request timeout ceiling for buffered
 // (non-stream) upstream dispatch. It is a safety net for a hung upstream, not
 // the primary liveness control: the header phase is observed separately via
 // PROXY_FIRST_BYTE_TIMEOUT_SEC, and streams are governed per chunk by the
 // relay's idle guard (PROXY_STREAM_IDLE_TIMEOUT_SEC) instead of total elapsed
-// time.
-const DefaultRequestCeiling = 90 * time.Second
+// time. The shared value also bounds the default stream header wait.
+const DefaultRequestCeiling = httpclient.DefaultRequestCeiling
 
 // bufferedWriteSlack is the extra time a proxy response write gets on top of
 // the request ceiling. When the write starts the buffered body is already in

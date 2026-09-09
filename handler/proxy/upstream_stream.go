@@ -13,6 +13,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/proxy"
+	messages "github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
 )
 
 // streamOutcome classifies how an SSE relay ended so the dispatcher can
@@ -63,6 +64,10 @@ func (o streamOutcome) String() string {
 }
 
 func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
+	return handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, r.URL.Path, "", messages.Options{})
+}
+
+func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64, upstreamPath, upstreamModel string, bridgeOptions messages.Options) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
 	empty := ParsedUsage{Source: usageSourceUnknown}
 	if resp == nil || resp.Body == nil {
 		return empty, streamEndedNormally, nil
@@ -92,6 +97,13 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 		stream:    true,
 	})
 
+	bridgeMessages := isMessagesChatBridge(r.URL.Path, upstreamPath)
+	if bridgeMessages && !bodyReadable {
+		w.Header().Del("Content-Encoding")
+		writeJSONErrorWithRequest(w, http.StatusBadGateway, "Cannot decode upstream Chat stream for Messages", "upstream_error", proxy.RequestIDFromContext(r.Context()))
+		return empty, streamEndedUpstreamFault, nil
+	}
+
 	writeSSEHeaders(w)
 	w.WriteHeader(200)
 
@@ -118,13 +130,17 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 	idleBody := &streamIdleBody{ReadCloser: resp.Body}
 	idleBody.guard = newStreamIdleGuard(idleTimeout, idleBody.closeUnderlying)
 	resp.Body = idleBody
-	if bodyReadable && !strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Disposition")), "attachment") {
+	maxStreamBytes := streamResponseByteLimit()
+	var messageBridge *messagesChatBody
+	if bridgeMessages {
+		messageBridge = newMessagesChatBody(resp.Body, upstreamModel, maxStreamBytes, bridgeOptions)
+		resp.Body = messageBridge
+	} else if bodyReadable && !strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Disposition")), "attachment") {
 		resp.Body = withNativeTerminalBody(resp.Body, r.URL.Path)
 	}
 
 	analyzer := newIncrementalSseAnalyzer()
 	sawStreamBytes := false
-	maxStreamBytes := streamResponseByteLimit()
 	var streamedBytes int64
 	outcome := streamEndedNormally
 	buf := make([]byte, 4096)
@@ -139,6 +155,11 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 		// Post-stream SSE analysis uses bounded incremental state instead of
 		// retaining the complete upstream body.
 		result := analyzer.Result()
+		if messageBridge != nil {
+			// Billing consumes the actual Chat usage, not synthetic Messages start
+			// counters or a lossy protocol projection.
+			result.Usage = messageBridge.original.Result().Usage
+		}
 		if logDetail {
 			if result.DroppedOversizedEvent {
 				slog.Warn("SSE stream event exceeded analysis buffer",
@@ -190,7 +211,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 			chunk := buf[:n]
 			remaining := maxStreamBytes - streamedBytes
 			if remaining <= 0 {
-				writeSSEStreamError(w, flusher, "stream response exceeded configured byte limit", "upstream_error")
+				writeSSEStreamError(w, flusher, r.URL.Path, "stream response exceeded configured byte limit", "upstream_error")
 				slog.Warn("SSE stream exceeded byte limit",
 					"latency_ms", latencyMs,
 					"streamed_bytes", streamedBytes,
@@ -230,7 +251,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 				flusher.Flush()
 			}
 			if exceededLimit {
-				writeSSEStreamError(w, flusher, "stream response exceeded configured byte limit", "upstream_error")
+				writeSSEStreamError(w, flusher, r.URL.Path, "stream response exceeded configured byte limit", "upstream_error")
 				slog.Warn("SSE stream exceeded byte limit",
 					"latency_ms", latencyMs,
 					"streamed_bytes", streamedBytes,
@@ -248,7 +269,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 					// unblock this read. Emit a distinct final SSE error event
 					// and report the idle outcome so the dispatcher records
 					// the failure.
-					writeSSEStreamError(w, flusher, "upstream stream idle timeout", "upstream_error")
+					writeSSEStreamError(w, flusher, r.URL.Path, "upstream stream idle timeout", "upstream_error")
 					slog.Warn("SSE stream idle timeout: upstream sent no chunk within window",
 						"idle_timeout_sec", int(idleTimeout.Seconds()),
 						"latency_ms", latencyMs,
@@ -266,12 +287,15 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 						"streamed_bytes", streamedBytes,
 					)
 					outcome = streamEndedClientDisconnect
+				case err == errMessagesChatStreamLimit:
+					writeSSEStreamError(w, flusher, r.URL.Path, "upstream stream exceeded configured byte limit", "upstream_error")
+					outcome = streamEndedTruncated
 				default:
 					// Mid-stream upstream failure (network reset, upstream crash,
 					// truncated body): emit a final SSE error event so the client
 					// can surface the failure explicitly instead of inferring it
 					// from a missing [DONE] marker. Mirrors the byte-limit path.
-					writeSSEStreamError(w, flusher, "upstream stream interrupted", "upstream_error")
+					writeSSEStreamError(w, flusher, r.URL.Path, "upstream stream interrupted", "upstream_error")
 					slog.Warn("SSE stream read error", "err", err, "latency_ms", latencyMs)
 					outcome = streamEndedUpstreamFault
 				}
@@ -351,15 +375,27 @@ func streamResponseByteLimit() int64 {
 	return int64(config.DefaultProxyMaxStreamResponseBytes)
 }
 
-func writeSSEStreamError(w http.ResponseWriter, flusher http.Flusher, message, typ string) {
-	payload, _ := json.Marshal(map[string]any{
+func writeSSEStreamError(w http.ResponseWriter, flusher http.Flusher, path, message, typ string) {
+	endpoint, _ := proxy.EndpointFromPath(path)
+	if endpoint == proxy.EndpointMessages {
+		// Anthropic errors are terminal error events, not OpenAI [DONE].
+		typ = "api_error"
+	}
+	body := map[string]any{
 		"error": map[string]string{
 			"message": message,
 			"type":    typ,
 		},
-	})
+	}
+	if endpoint == proxy.EndpointMessages {
+		body["type"] = "error"
+		_, _ = w.Write([]byte("event: error\n"))
+	}
+	payload, _ := json.Marshal(body)
 	_, _ = w.Write(sseEvent(string(payload)))
-	_, _ = w.Write(sseDone())
+	if endpoint != proxy.EndpointMessages {
+		_, _ = w.Write(sseDone())
+	}
 	if flusher != nil {
 		flusher.Flush()
 	}

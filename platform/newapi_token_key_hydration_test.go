@@ -26,7 +26,7 @@ func TestNewApiAdapter_GetAPITokens_HydratesMaskedKeysWithBatchEndpoint(t *testi
 		}
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/token/":
-			fmt.Fprint(w, `{"success":true,"data":{"items":[{"id":7,"name":"relay","key":"abcd****wxyz","status":1,"group":"default"}]}}`)
+			fmt.Fprint(w, `{"success":true,"data":{"items":[{"id":7,"name":"relay","key":"abcd****wxyz","status":1,"group":"default"}],"total":1}}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/token/batch/keys":
 			batchCalls.Add(1)
 			var body struct {
@@ -64,7 +64,7 @@ func TestNewApiAdapter_GetAPITokens_UnmaskedLegacyKeysNeedNoHydration(t *testing
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodGet && r.URL.Path == "/api/token/" {
-			fmt.Fprint(w, `{"success":true,"data":{"items":[{"id":7,"name":"relay","key":"legacy-full-key","status":1}]}}`)
+			fmt.Fprint(w, `{"success":true,"data":{"items":[{"id":7,"name":"relay","key":"legacy-full-key","status":1}],"total":1}}`)
 			return
 		}
 		unexpected.Add(1)
@@ -141,9 +141,9 @@ func TestNewApiAdapter_DeleteAPIToken_ResolvesMaskedIdentityBeforeDeleting(t *te
 		{name: "lookup_denied", batchCode: http.StatusForbidden, batch: `{"success":false,"message":"key lookup refused"}`, wantError: true},
 		{name: "lookup_missing_key", batch: `{"success":true,"data":{"keys":{}}}`, wantError: true},
 		{name: "lookup_refused_with_data", batch: `{"success":false,"data":{"keys":{"7":"full-relay-key"}}}`, wantError: true},
-		{name: "unmasked_missing_id", list: `{"success":true,"data":{"items":[{"key":"full-relay-key"}]}}`, wantError: true},
-		{name: "missing_id", list: `{"success":true,"data":{"items":[{"key":"abcd****wxyz"}]}}`, wantError: true},
-		{name: "empty_legacy", list: `{"success":true,"data":[]}`},
+		{name: "unmasked_missing_id", list: `{"success":true,"data":{"items":[{"key":"full-relay-key"}],"total":1}}`, wantError: true},
+		{name: "missing_id", list: `{"success":true,"data":{"items":[{"key":"abcd****wxyz"}],"total":1}}`, wantError: true},
+		{name: "empty_legacy_with_total", list: `{"success":true,"data":[],"total":0}`},
 		{name: "empty_v1", list: `{"success":true,"data":{"items":[],"total":0}}`},
 		{name: "listing_malformed", list: `{"success":true}`, wantError: true},
 		{name: "listing_missing_key", list: `{"success":true,"data":[{"id":7}]}`, wantError: true},
@@ -164,7 +164,7 @@ func TestNewApiAdapter_DeleteAPIToken_ResolvesMaskedIdentityBeforeDeleting(t *te
 				case r.Method == http.MethodGet && r.URL.Path == "/api/token/":
 					body := tc.list
 					if body == "" {
-						body = `{"success":true,"data":{"items":[{"id":7,"key":"abcd****wxyz","status":1}]}}`
+						body = `{"success":true,"data":{"items":[{"id":7,"key":"abcd****wxyz","status":1}],"total":1}}`
 					}
 					fmt.Fprint(w, body)
 				case r.Method == http.MethodPost && r.URL.Path == "/api/token/batch/keys":
@@ -204,15 +204,15 @@ func TestNewApiAdapter_DeleteAPIToken_ResolvesMaskedIdentityBeforeDeleting(t *te
 	}
 }
 
-func TestNewApiAdapter_DeleteAPIToken_PartialPageCannotProveAbsence(t *testing.T) {
+func TestNewApiAdapter_DeleteAPIToken_IncompleteOrInconsistentListingFailsClosed(t *testing.T) {
 	for _, tc := range []struct {
-		name         string
-		count, total int
-		present      bool
+		name  string
+		count int
+		total int
 	}{
-		{"reported_more", 1, 2, false},
-		{"capped_page", UpstreamTokenListPageLimit, 0, false},
-		{"target_on_full_page", UpstreamTokenListPageLimit, UpstreamTokenListPageLimit + 1, true},
+		{"reported_more", 1, 2},
+		{"zero_total_with_items", UpstreamTokenListPageLimit, 0},
+		{"duplicate_second_page", UpstreamTokenListPageLimit, UpstreamTokenListPageLimit + 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var deleted atomic.Int32
@@ -220,16 +220,13 @@ func TestNewApiAdapter_DeleteAPIToken_PartialPageCannotProveAbsence(t *testing.T
 			for i := range items {
 				items[i] = map[string]interface{}{"id": i + 1, "key": fmt.Sprintf("other-%d", i), "status": 1}
 			}
-			if tc.present {
-				items[0]["key"] = "target-key"
-			}
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				if r.Method == http.MethodGet && r.URL.Path == "/api/token/" {
 					_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "data": map[string]interface{}{"items": items, "total": tc.total}})
 					return
 				}
-				if r.Method == http.MethodDelete && r.URL.Path == "/api/token/1" {
+				if r.Method == http.MethodDelete {
 					deleted.Add(1)
 					fmt.Fprint(w, `{"success":true}`)
 					return
@@ -241,12 +238,11 @@ func TestNewApiAdapter_DeleteAPIToken_PartialPageCannotProveAbsence(t *testing.T
 			defer cancel()
 			uid := 1
 			err := newApiAdapterUnderTest().DeleteAPIToken(ctx, srv.URL, "dashboard-pat", "target-key", &uid, nil)
-			if tc.present {
-				if err != nil || deleted.Load() != 1 {
-					t.Fatalf("present target: error=%v deletes=%d", err, deleted.Load())
-				}
-			} else if err == nil || deleted.Load() != 0 {
-				t.Fatalf("partial absence: error=%v deletes=%d, want failure without deletion", err, deleted.Load())
+			if err == nil {
+				t.Fatal("incomplete or inconsistent listing was treated as proof of absence")
+			}
+			if deleted.Load() != 0 {
+				t.Fatalf("DELETE count = %d, want 0", deleted.Load())
 			}
 		})
 	}

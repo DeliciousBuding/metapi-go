@@ -108,19 +108,19 @@ silent until their URL/key is set. Every other provider needs its
 | `PROXY_GLOBAL_TOKEN_RPM` | `0` | Global cap across all IPs for `PROXY_TOKEN`; safety net if a token leaks. |
 | `PROXY_MAX_CHANNEL_ATTEMPTS` | `3` | Max retry/failover channel attempts per request. |
 | `PROXY_MAX_BUFFERED_RESPONSE_BYTES` | `20971520` | Non-streaming upstream response buffer cap (20 MiB); over → 502. |
-| `PROXY_MAX_STREAM_RESPONSE_BYTES` | `67108864` | Bytes relayed per SSE stream before controlled termination. |
-| `PROXY_FIRST_BYTE_TIMEOUT_SEC` | unset | First upstream response byte timeout. |
+| `PROXY_MAX_STREAM_RESPONSE_BYTES` | `67108864` | Bytes relayed per SSE stream before controlled termination. Protocol conversion also caps original upstream bytes, including discarded frames. |
+| `PROXY_FIRST_BYTE_TIMEOUT_SEC` | `0` | Upstream response-header deadline in seconds. For SSE, `0` uses a finite 90s default; positive values replace it. The timer stops at headers and never caps an active stream. |
 | `PROXY_EMPTY_CONTENT_FAIL` | empty | Treat empty upstream content as failure. |
 | `PROXY_ERROR_KEYWORDS` | empty | Extra keywords marking upstream responses as errors. |
-| `DISABLE_CROSS_PROTOCOL_FALLBACK` | empty | Disable OpenAI ⇄ Claude cross-protocol fallback. |
+| `DISABLE_CROSS_PROTOCOL_FALLBACK` | empty | Disable implemented cross-protocol fallback (Messages → Chat for supported text/function-tool requests); native routing remains enabled. |
 | `PROXY_STICKY_SESSION_TTL_MS` | `1800000` | Sticky binding TTL. |
 | `PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT` | `2` | Concurrent streams per session-channel lease. |
 | `PROXY_SESSION_CHANNEL_QUEUE_WAIT_MS` | `1500` | Queue wait for a busy session channel. |
 | `PROXY_CONNECT_TIMEOUT_SEC` | `2` | TCP dial (connect) timeout for outbound upstream requests. |
 | `PROXY_TLS_HANDSHAKE_TIMEOUT_SEC` | `10` | TLS handshake timeout. |
-| `PROXY_RESPONSE_HEADER_TIMEOUT_SEC` | `30` | How long to wait for upstream response headers. |
+| `PROXY_RESPONSE_HEADER_TIMEOUT_SEC` | `30` | Buffered/management transport response-header timeout. SSE instead uses `PROXY_FIRST_BYTE_TIMEOUT_SEC` and its 90s default, without a competing shorter transport timer. |
 | `PROXY_IDLE_CONN_TIMEOUT_SEC` | `90` | Idle keep-alive connection TTL in the pooled outbound transports. |
-| `PROXY_REQUEST_TIMEOUT_SEC` | `30` | Whole-request client timeout. |
+| `PROXY_REQUEST_TIMEOUT_SEC` | `30` | Platform HTTP client timeout; not a lifetime limit for an active SSE stream. |
 | `PROXY_STREAM_IDLE_TIMEOUT_SEC` | `300` | Chunk-gap guard for a flowing SSE stream: every relayed chunk resets the window, and a gap longer than this aborts the stream and records it as an upstream timeout fault. It does **not** cap total stream duration. |
 | `METAPI_ENABLE_PROXY_STUB` | empty | Test/demo-only local stub; leave empty in production (unconfigured forwarding returns an honest 503). |
 | `SYSTEM_PROXY_URL` | empty | Outbound HTTP proxy for upstream calls. |

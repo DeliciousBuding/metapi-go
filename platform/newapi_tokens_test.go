@@ -98,9 +98,9 @@ func TestNewApiAdapter_GetAPITokens_EmptyList(t *testing.T) {
 	}
 }
 
-// TestNewApiAdapter_GetAPITokens_ErrorResponse verifies that when the upstream
-// returns HTTP errors for every request, the adapter swallows the errors and
-// returns an empty token slice rather than surfacing an error.
+// TestNewApiAdapter_GetAPITokens_ErrorResponse verifies that when every request
+// fails, GetAPITokens reports the failure instead of returning a partial or
+// empty list that a caller could mistake for an authoritative account state.
 func TestNewApiAdapter_GetAPITokens_ErrorResponse(t *testing.T) {
 	srv := newTokenTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -113,11 +113,11 @@ func TestNewApiAdapter_GetAPITokens_ErrorResponse(t *testing.T) {
 	defer cancel()
 
 	tokens, err := n.GetAPITokens(ctx, srv.URL, "bearer-token", &uid, nil)
-	if err != nil {
-		t.Fatalf("GetAPITokens: unexpected error: %v", err)
+	if err == nil {
+		t.Fatalf("GetAPITokens error = nil, tokens=%+v; want the all-requests failure", tokens)
 	}
 	if len(tokens) != 0 {
-		t.Fatalf("GetAPITokens: got %d tokens, want 0 on error response", len(tokens))
+		t.Fatalf("GetAPITokens: got %d tokens on error response", len(tokens))
 	}
 }
 
@@ -297,7 +297,7 @@ func TestNewApiAdapter_DeleteAPIToken_NotFound(t *testing.T) {
 	srv := newTokenTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/api/token/" && r.Method == http.MethodGet:
-			tokenJSONResponse(w, `{"success":true,"data":[{"key":"sk-other","id":99,"status":1}]}`)
+			tokenJSONResponse(w, `{"success":true,"data":{"items":[{"key":"sk-other","id":99,"status":1}],"total":1}}`)
 		default:
 			http.NotFound(w, r)
 		}
