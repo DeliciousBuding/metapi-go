@@ -55,8 +55,16 @@ func TestBackupImportResyncsPostgresSequences(t *testing.T) {
 			site(3, "restored-c", "http://127.0.0.1:3012", "openai") +
 			"]"),
 	}
-	if _, err := importBackupTablesWithConn(db.DB, payload); err != nil {
+	tx, err := db.Beginx()
+	if err != nil {
+		t.Fatalf("begin import tx: %v", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := importBackupTablesWithConn(tx, payload); err != nil {
 		t.Fatalf("import: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit import tx: %v", err)
 	}
 
 	// The ordinary write path supplies no id, so PostgreSQL asks the sequence.
