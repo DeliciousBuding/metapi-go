@@ -114,10 +114,58 @@ func (n *NewApiAdapter) Login(ctx context.Context, baseURL, username, password s
 	}
 
 	msg := extractResponseMessage(parsed)
+	if newAPIV1InvalidParametersMessage(msg) {
+		if encrypted, probeErr := newAPIV1PasswordEncryptionRequired(ctx, baseURL, proxy); probeErr == nil && encrypted {
+			return &LoginResult{Success: false, Message: "New API login requires encrypted-password verification; " + newAPIManualPATImport}, nil
+		}
+	}
 	if msg == "" {
 		msg = "login failed: no usable session credential, try Cookie/Token import"
 	}
 	return &LoginResult{Success: false, Message: msg}, nil
+}
+
+// newAPIV1PasswordEncryptionRequired distinguishes New API's browser-only
+// encrypted-password login from a plaintext-capable legacy server. It is only
+// consulted after an "invalid parameters" login response, so healthy logins do
+// not pay an extra request. When the upstream advertises encryption, Login
+// reports the unsupported variant and directs the operator to the durable PAT
+// path instead of presenting a generic parameter error. A missing endpoint or
+// malformed policy keeps the original failure message.
+func newAPIV1PasswordEncryptionRequired(ctx context.Context, baseURL string, proxy *ProxyConfig) (bool, error) {
+	headers := map[string]string{
+		"X-Requested-With": "XMLHttpRequest",
+		"User-Agent":       DefaultBrowserUserAgent,
+	}
+	answer, err := fetchLoginSessionResponse(ctx, baseURL+"/api/user/login/encryption-key", http.MethodGet, nil, headers, proxy)
+	if err != nil {
+		return false, err
+	}
+	if answer.Status == http.StatusNotFound || answer.Status == http.StatusMethodNotAllowed || answer.Parsed == nil {
+		return false, nil
+	}
+	if answer.Status < 200 || answer.Status >= 300 {
+		return false, nil
+	}
+	success, _ := getBool(answer.Parsed, "success")
+	if !success {
+		return false, nil
+	}
+	data, _ := getMap(answer.Parsed, "data")
+	enabled, ok := getBool(data, "enabled")
+	if !ok {
+		return false, nil
+	}
+	return enabled, nil
+}
+
+func newAPIV1InvalidParametersMessage(message string) bool {
+	switch strings.ToLower(strings.TrimSpace(message)) {
+	case "invalid parameters", "invalid params", "参数错误":
+		return true
+	default:
+		return false
+	}
 }
 
 // newAPIV1LoginSession distinguishes New API v1's short-lived dashboard login
