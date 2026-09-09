@@ -596,7 +596,6 @@ func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 	// same owner's key/ID. A missing target is a no-op only when the listing is
 	// complete; an unproven legacy listing must fail closed. Never replay
 	// DELETE through a cookie or alternate user after a failed write.
-	listed := false
 	reason := ""
 	headers := n.authHeaders(accessToken, resolvedUserID)
 	tokenID, started, resolveErr := n.listedTokenIDForDelete(ctx, baseURL, headers, targetKey, proxy)
@@ -606,7 +605,6 @@ func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 			return fmt.Errorf("list upstream tokens: %w", resolveErr)
 		}
 	} else {
-		listed = true
 		if tokenID == nil {
 			return nil
 		}
@@ -636,7 +634,6 @@ func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 			}
 			continue
 		}
-		listed = true
 		if tokenID == nil {
 			return nil
 		}
@@ -651,9 +648,6 @@ func (n *NewApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToken
 		return fmt.Errorf("delete upstream token %d: %s", *tokenID, newApiRefusalReason(delResp))
 	}
 
-	if listed {
-		return nil
-	}
 	if reason == "" {
 		reason = "no listing answered"
 	}
