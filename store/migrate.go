@@ -78,6 +78,12 @@ func AutoMigrate(db *DB) error {
 			"dialect", dialect, "elapsed_ms", elapsed.Milliseconds())
 	}
 
+	if isPG(dialect) {
+		if err := reconcilePGIDSequences(db); err != nil {
+			return err
+		}
+	}
+
 	slog.Info("store: auto-migration complete", "dialect", dialect)
 	return nil
 }

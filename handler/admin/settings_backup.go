@@ -545,6 +545,7 @@ func validateBackupImportTableKeys(tables map[string]json.RawMessage, fromExport
 type backupImportConn interface {
 	DriverName() string
 	Queryx(query string, args ...any) (*sqlx.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
 	Exec(query string, args ...any) (sql.Result, error)
 }
 
