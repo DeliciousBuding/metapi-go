@@ -221,6 +221,26 @@ Both scripts print PASS/FAIL/WARN/SKIP summaries, preserve truncated failure evi
 - Attach sanitized request/response shapes and commit/PR references to public issues; never attach raw environment files or full tokens.
 - A healthy run is evidence for the exercised platform and version only. Do not generalize it into a cluster-wide or all-adapter claim.
 
+## Opt-in live New API authentication boundaries
+
+`scripts/e2e/verify-newapi-auth-boundaries.py` starts disposable New API and
+Metapi instances and exercises the authentication boundaries that fixture tests
+cannot prove against a real upstream. It requires Python 3, `openssl`, and
+operator-provided `METAPI_BINARY`, `METAPI_EXPECT_COMMIT`, `NEWAPI_BINARY`, and
+`EVIDENCE_DIR` environment variables. Optional integrity pins are
+`METAPI_EXPECT_SHA256` and `NEWAPI_EXPECT_SHA256`; set
+`AUTH_PROOF_EXPIRY_WAIT=0` to defer the real proof-expiry wait, and
+`KEEP_WORK_ON_FAILURE=1` to retain the disposable work directory for diagnosis.
+
+The runner checks MFA fail-closed behavior, missing/wrong-scope/wrong-password/
+reused/expired password proofs, the encrypted-password upstream variant plus
+Metapi's explicit manual-PAT failure, and the exact number of product-initiated
+automatic relogins. Each plaintext scenario receives a fresh New API instance so
+the harness cannot consume the upstream's login rate-limit window. It writes a
+sanitized JSON report, does not print credentials or proof values, and removes
+its disposable databases and process logs on success. It does not change a
+persistent testbed, upstream rate limits, or production state.
+
 ## Opt-in live model acceptance
 
 `scripts/e2e/verify-real-relay.py` exercises Chat Completions, Responses, and
