@@ -180,6 +180,19 @@ function FormItem({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
+/**
+ * The id `FormLabel` renders, derived from the same `formItemId` that
+ * `FormControl` injects onto its single child. A native control is named by the
+ * `<label htmlFor>`; a *composite* control (a group of inputs with no single
+ * labelable element) instead forwards that injected id onto its `role="group"`
+ * root and points `aria-labelledby` here, so the group gets an accessible name
+ * without reaching back into form context. One owner for the `-label` suffix
+ * convention shared by FormLabel and the composite fields (#1300).
+ */
+function formLabelIdFor(formItemId: string): string {
+  return `${formItemId}-label`
+}
+
 function FormLabel({
   className,
   ...props
@@ -188,6 +201,7 @@ function FormLabel({
 
   return (
     <Label
+      id={formLabelIdFor(formItemId)}
       data-slot='form-label'
       data-error={!!error}
       className={cn('data-[error=true]:text-destructive', className)}
@@ -269,4 +283,5 @@ export {
   FormDescription,
   FormMessage,
   FormField,
+  formLabelIdFor,
 }
