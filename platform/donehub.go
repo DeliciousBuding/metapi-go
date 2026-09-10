@@ -71,12 +71,12 @@ func (d *DoneHubAdapter) GetSiteAnnouncements(ctx context.Context, baseURL, acce
 		return []SiteAnnouncement{}, nil
 	}
 
+	// SourceURL stays empty; see NewApiAdapter.GetSiteAnnouncements (#1297).
 	return []SiteAnnouncement{{
 		SourceKey:  buildNoticeSourceKey(content),
 		Title:      "Site notice",
 		Content:    content,
 		Level:      "info",
-		SourceURL:  "/api/notice",
 		RawPayload: nil,
 	}}, nil
 }

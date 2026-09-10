@@ -1083,12 +1083,16 @@ func (n *NewApiAdapter) GetSiteAnnouncements(ctx context.Context, baseURL, acces
 		return []SiteAnnouncement{}, nil
 	}
 
+	// SourceURL stays empty on purpose. The notice is scraped from the machine
+	// endpoint /api/notice, which serves raw JSON rather than a page a person
+	// can read; emitting it as the source made the web UI's "open upstream"
+	// link land on a JSON payload (#1297). An empty source URL resolves to the
+	// trusted site home, matching the other adapters (e.g. sub2api).
 	return []SiteAnnouncement{{
 		SourceKey: fmt.Sprintf("notice:%x", sha1.Sum([]byte(content))),
 		Title:     "Site notice",
 		Content:   content,
 		Level:     "info",
-		SourceURL: "/api/notice",
 	}}, nil
 }
 

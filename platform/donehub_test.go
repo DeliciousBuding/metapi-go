@@ -218,6 +218,12 @@ func TestDoneHubAdapter_GetSiteAnnouncementsEnvelope(t *testing.T) {
 			if len(anns) != 1 || anns[0].Content != tt.wantContent {
 				t.Fatalf("announcements = %#v, want one with content %q", anns, tt.wantContent)
 			}
+			// #1297: the scrape endpoint (/api/notice) must not leak out as the
+			// user-facing source URL; an empty source URL resolves to the
+			// trusted site home in the web UI instead of a raw JSON payload.
+			if anns[0].SourceURL != "" {
+				t.Fatalf("SourceURL = %q, want empty", anns[0].SourceURL)
+			}
 		})
 	}
 }
