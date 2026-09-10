@@ -96,14 +96,6 @@ const PLATFORM_OPTIONS: readonly string[] = [
   'one-api',
 ]
 
-type CustomHeadersExample = {
-  id: string
-  /** Client product name — identical in both locales, so not translated. */
-  client: string
-  /** Read-only JSON snippet inserted into the `customHeaders` textarea. */
-  snippet: string
-}
-
 // Read-only custom-headers examples (#1132). These are deliberately NOT
 // templates: no table, no setting, no entity, no sync semantics — the snippets
 // are compiled into the bundle and their only effect is filling the textarea in
@@ -120,19 +112,20 @@ type CustomHeadersExample = {
 //   Gemini CLI  → service/oauth/gemini_cli.go buildGeminiCliProxyHeaders
 // Every key here is one a site is allowed to inject: none of them is denied by
 // platform.IsDeniedCustomHeader or service.isReservedPlatformCustomHeader.
-const CUSTOM_HEADERS_EXAMPLES: readonly CustomHeadersExample[] = [
+// Both invariants are gated in the site-form-sheet test.
+const CUSTOM_HEADERS_EXAMPLES: readonly {
+  client: string
+  snippet: string
+}[] = [
   {
-    id: 'claude-code',
     client: 'Claude Code',
     snippet: '{"User-Agent":"claude-cli/<VERSION>","x-app":"cli"}',
   },
   {
-    id: 'codex-cli',
     client: 'Codex CLI',
     snippet: '{"User-Agent":"codex-cli/<VERSION>","originator":"codex_cli_rs"}',
   },
   {
-    id: 'gemini-cli',
     client: 'Gemini CLI',
     snippet:
       '{"User-Agent":"GeminiCLI/<VERSION>/<COMMIT> (<OS>; <ARCH>)","X-Goog-Api-Client":"google-genai-sdk/<VERSION> gl-node/<NODE_VERSION>"}',
@@ -802,7 +795,7 @@ export function SiteFormSheet({
                         </span>
                         {CUSTOM_HEADERS_EXAMPLES.map((example) => (
                           <Button
-                            key={example.id}
+                            key={example.client}
                             type='button'
                             variant='outline'
                             size='xs'
