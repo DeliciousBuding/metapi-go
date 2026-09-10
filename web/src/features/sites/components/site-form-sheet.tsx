@@ -50,7 +50,6 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/lib/toast'
 
 import { useCreateSite, useDetectSite, useUpdateSite } from '../api'
@@ -66,6 +65,7 @@ import {
   type SiteFormValues,
 } from '../lib/sites-schema'
 import type { Site, SiteFormPayload, SiteProbeScope } from '../types'
+import { CustomHeadersField } from './custom-headers-field'
 import { EndpointsEditor } from './endpoints-editor'
 
 type SiteFormSheetProps = {
@@ -94,42 +94,6 @@ const PLATFORM_OPTIONS: readonly string[] = [
   'new-api',
   'sub2api',
   'one-api',
-]
-
-// Read-only custom-headers examples (#1132). These are deliberately NOT
-// templates: no table, no setting, no entity, no sync semantics — the snippets
-// are compiled into the bundle and their only effect is filling the textarea in
-// front of the user, who owns the result from then on.
-//
-// Version numbers stay `<PLACEHOLDER>` tokens on purpose. The real User-Agent
-// of these CLIs changes with every upstream release, so a baked-in "current"
-// value would rot into a wrong-but-authoritative-looking constant — the exact
-// failure mode that scoped #1132 down from a product-level template feature to
-// a read-only snippet. The header *shapes* are grounded in this repo's own
-// upstream adapters rather than guessed:
-//   Claude Code → proxy/profiles/claude_code.go (`^claude-cli/<semver>` + `x-app: cli`)
-//   Codex CLI   → service/oauth/codex.go (`codex-cli` UA + `originator: codex_cli_rs`)
-//   Gemini CLI  → service/oauth/gemini_cli.go buildGeminiCliProxyHeaders
-// Every key here is one a site is allowed to inject: none of them is denied by
-// platform.IsDeniedCustomHeader or service.isReservedPlatformCustomHeader.
-// Both invariants are gated in the site-form-sheet test.
-const CUSTOM_HEADERS_EXAMPLES: readonly {
-  client: string
-  snippet: string
-}[] = [
-  {
-    client: 'Claude Code',
-    snippet: '{"User-Agent":"claude-cli/<VERSION>","x-app":"cli"}',
-  },
-  {
-    client: 'Codex CLI',
-    snippet: '{"User-Agent":"codex-cli/<VERSION>","originator":"codex_cli_rs"}',
-  },
-  {
-    client: 'Gemini CLI',
-    snippet:
-      '{"User-Agent":"GeminiCLI/<VERSION>/<COMMIT> (<OS>; <ARCH>)","X-Goog-Api-Client":"google-genai-sdk/<VERSION> gl-node/<NODE_VERSION>"}',
-  },
 ]
 
 function nullableBoolToSelectValue(value: boolean | null): string {
@@ -764,60 +728,21 @@ export function SiteFormSheet({
             <FormField
               control={form.control}
               name='customHeaders'
-              render={({ field }) => {
-                // Fill-only insert semantics (#1132): an example may populate
-                // the field only while it is empty, so JSON the user wrote (or
-                // that an existing site already carries) is never replaced or
-                // merged behind their back. Merging was rejected because every
-                // example shares `User-Agent`, so a user-wins merge would be a
-                // silent no-op in exactly the case the entry exists for.
-                // Whitespace counts as empty, matching `isEmptyOrValidJson` in
-                // ../lib/sites-schema.
-                const hasHeadersContent = field.value.trim() !== ''
-                return (
-                  <FormItem>
-                    <FormLabel>{t('sites.form.customHeaders')}</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        rows={3}
-                        placeholder='{"X-Custom-Header":"value"}'
-                        className='font-mono text-xs'
-                        {...field}
-                      />
-                    </FormControl>
-                    <div className='flex flex-wrap items-center justify-between gap-2'>
-                      <FormDescription>
-                        {t('sites.form.customHeadersHint')}
-                      </FormDescription>
-                      <div className='flex flex-wrap items-center gap-1.5'>
-                        <span className='text-muted-foreground text-xs'>
-                          {t('sites.form.customHeadersExamplesLabel')}
-                        </span>
-                        {CUSTOM_HEADERS_EXAMPLES.map((example) => (
-                          <Button
-                            key={example.client}
-                            type='button'
-                            variant='outline'
-                            size='xs'
-                            disabled={hasHeadersContent}
-                            aria-label={t(
-                              'sites.form.customHeadersExampleInsert',
-                              { client: example.client }
-                            )}
-                            onClick={() => field.onChange(example.snippet)}
-                          >
-                            {example.client}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                    <FormDescription>
-                      {t('sites.form.customHeadersExamplesHint')}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )
-              }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('sites.form.customHeaders')}</FormLabel>
+                  <FormControl>
+                    <CustomHeadersField
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('sites.form.customHeadersHint')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
 
             <FormField
