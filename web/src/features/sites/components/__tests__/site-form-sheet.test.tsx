@@ -386,3 +386,177 @@ describe('SiteFormSheet dirty-close guard', () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
   })
 })
+
+describe('SiteFormSheet custom headers examples (#1132)', () => {
+  // Read-only snippets compiled into the bundle — no template entity, no
+  // table, no setting. Each entry's accessible name comes from the
+  // `sites.form.customHeadersExampleInsert` aria-label, not the visible
+  // product name, so a screen-reader user hears what the click will do.
+  const EXAMPLE_CLIENTS = ['Claude Code', 'Codex CLI', 'Gemini CLI'] as const
+
+  function exampleButton(client: string) {
+    return screen.getByRole('button', { name: `Insert ${client} example` })
+  }
+
+  async function renderEmptySheet() {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    const headers = await screen.findByLabelText('Custom headers')
+    await waitFor(() => expect(headers).toBeInTheDocument())
+    return headers
+  }
+
+  it('offers one enabled insert entry per built-in CLI example', async () => {
+    const headers = await renderEmptySheet()
+    expect(headers).toHaveValue('')
+
+    for (const client of EXAMPLE_CLIENTS) {
+      expect(exampleButton(client)).toBeEnabled()
+    }
+  })
+
+  it('fills an empty field with the chosen example without touching the backend', async () => {
+    const headers = await renderEmptySheet()
+
+    fireEvent.click(exampleButton('Claude Code'))
+
+    await waitFor(() =>
+      expect(headers).toHaveValue(
+        '{"User-Agent":"claude-cli/<VERSION>","x-app":"cli"}'
+      )
+    )
+    // Inserting an example is a pure textarea fill: it must not create, update
+    // or sync anything, because the snippets are not persisted entities.
+    expect(mockCreateMutate).not.toHaveBeenCalled()
+    expect(mockUpdateMutate).not.toHaveBeenCalled()
+  })
+
+  it('treats whitespace-only content as empty', async () => {
+    const headers = await renderEmptySheet()
+    fireEvent.change(headers, { target: { value: '  \n ' } })
+
+    await waitFor(() => expect(exampleButton('Codex CLI')).toBeEnabled())
+
+    fireEvent.click(exampleButton('Codex CLI'))
+
+    await waitFor(() =>
+      expect(headers).toHaveValue(
+        '{"User-Agent":"codex-cli/<VERSION>","originator":"codex_cli_rs"}'
+      )
+    )
+  })
+
+  it('refuses to touch a field the user already filled (fill-only: never merge, never replace)', async () => {
+    const headers = await renderEmptySheet()
+    const written = '{"User-Agent":"my-handwritten-client","X-Keep":"mine"}'
+    fireEvent.change(headers, { target: { value: written } })
+
+    await waitFor(() => {
+      for (const client of EXAMPLE_CLIENTS) {
+        expect(exampleButton(client)).toBeDisabled()
+      }
+    })
+
+    // Every entry is disabled, and a click on a disabled control must still
+    // leave the hand-written JSON byte-identical.
+    for (const client of EXAMPLE_CLIENTS) {
+      fireEvent.click(exampleButton(client))
+    }
+    expect(headers).toHaveValue(written)
+  })
+
+  it("keeps an existing site's stored headers locked and intact in edit mode", async () => {
+    const stored = '{"User-Agent":"claude-cli/1.2.3"}'
+    const editingSite: Site = {
+      id: 11,
+      name: 'Existing site',
+      url: 'https://existing.example',
+      platform: 'claude',
+      status: 'active',
+      customHeaders: stored,
+    }
+
+    render(
+      <SiteFormSheet open onOpenChange={vi.fn()} editingSite={editingSite} />
+    )
+
+    const headers = await screen.findByLabelText('Custom headers')
+    await waitFor(() => expect(headers).toHaveValue(stored))
+
+    for (const client of EXAMPLE_CLIENTS) {
+      expect(exampleButton(client)).toBeDisabled()
+      fireEvent.click(exampleButton(client))
+    }
+    expect(headers).toHaveValue(stored)
+  })
+
+  it('inserts valid JSON objects that are obviously placeholders and carry only injectable headers', async () => {
+    // Mirrors platform.IsDeniedCustomHeader (data plane) and
+    // service.isReservedPlatformCustomHeader (assembly side). An example that
+    // suggested one of these would be dropped silently on the way upstream, so
+    // it must never ship. Keep in step with those two Go predicates.
+    const DENIED_HEADERS = new Set([
+      'authorization',
+      'host',
+      'content-length',
+      'content-type',
+      'transfer-encoding',
+      'accept-encoding',
+      'connection',
+      'cookie',
+      'keep-alive',
+      'te',
+      'trailer',
+      'trailers',
+      'upgrade',
+      'new-api-user',
+    ])
+
+    for (const client of EXAMPLE_CLIENTS) {
+      const headers = await renderEmptySheet()
+      fireEvent.click(exampleButton(client))
+      await waitFor(() => expect(headers).not.toHaveValue(''))
+      const inserted = (headers as HTMLTextAreaElement).value
+
+      // Must satisfy the field's own `isEmptyOrValidJson` schema rule, i.e. a
+      // JSON object — never an array, a bare string or invalid JSON. Inserting
+      // an example must not be able to put the form into an error state.
+      const parsed: unknown = JSON.parse(inserted)
+      expect(parsed, `${client}: must parse`).not.toBeNull()
+      expect(parsed, `${client}: must be an object`).toBeTypeOf('object')
+      expect(Array.isArray(parsed), `${client}: must not be an array`).toBe(
+        false
+      )
+
+      const names = Object.keys(parsed as Record<string, unknown>)
+      expect(
+        names.length,
+        `${client}: must carry at least one header`
+      ).toBeGreaterThan(0)
+      for (const name of names) {
+        const lower = name.toLowerCase()
+        expect(
+          DENIED_HEADERS.has(lower),
+          `${client}: ${name} is not site-injectable`
+        ).toBe(false)
+        expect(
+          lower.startsWith('proxy-'),
+          `${client}: ${name} is a Proxy-* header`
+        ).toBe(false)
+      }
+
+      // #1132's core constraint: an example must read as a placeholder, never
+      // as an authoritative current value. A baked-in version rots with the
+      // next upstream CLI release, and a stale template is worse than none
+      // because users treat it as the real value.
+      expect(inserted, `${client}: must contain a <PLACEHOLDER> token`).toMatch(
+        /<[A-Z][A-Z_]*>/
+      )
+      expect(
+        inserted,
+        `${client}: must not bake in a concrete version`
+      ).not.toMatch(/\d+\.\d+/)
+
+      cleanup()
+    }
+  })
+})
