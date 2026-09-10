@@ -16,11 +16,12 @@ import {
   ArrowDown as ArrowDownIcon,
   ArrowUp as ArrowUpIcon,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { formLabelIdFor } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
@@ -49,7 +50,7 @@ type EndpointsEditorProps = {
    * prop may arrive as null — treat it as no live data.
    */
   liveEndpoints?: SiteApiEndpoint[] | null
-}
+} & Omit<ComponentProps<'div'>, 'onChange'>
 
 function nextRowKey(): string {
   return `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -94,6 +95,7 @@ export function EndpointsEditor({
   value,
   onChange,
   liveEndpoints = [],
+  ...props
 }: EndpointsEditorProps) {
   const { t, i18n } = useTranslation()
   const [rows, setRows] = useState<EndpointRow[]>(() => rowsFromText(value))
@@ -150,9 +152,19 @@ export function EndpointsEditor({
     commit([...rows, { key: nextRowKey(), url: '', enabled: true }])
   }
 
+  // Composite control: a group of endpoint rows with no single labelable
+  // element. Forward the FormControl-injected id / aria-describedby /
+  // aria-invalid onto the root and name the group via the FormLabel id (#1300).
+  const labelId = props.id ? formLabelIdFor(props.id) : undefined
+
   if (advanced) {
     return (
-      <div className='space-y-2'>
+      <div
+        className='space-y-2'
+        role='group'
+        aria-labelledby={labelId}
+        {...props}
+      >
         <Textarea
           aria-label={t('sites.form.apiEndpointsTextareaLabel')}
           rows={6}
@@ -187,7 +199,12 @@ export function EndpointsEditor({
   }
 
   return (
-    <div className='space-y-2'>
+    <div
+      className='space-y-2'
+      role='group'
+      aria-labelledby={labelId}
+      {...props}
+    >
       {parseBlocked ? (
         <div className='bg-destructive/10 text-destructive-soft-fg rounded-md border p-3 text-xs'>
           {t('sites.form.apiEndpointsParseBlocked')}

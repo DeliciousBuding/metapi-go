@@ -20,6 +20,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  formLabelIdFor,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
@@ -224,17 +225,28 @@ type SiteScopePickerProps = {
   value: number[]
   onChange: (siteIds: number[]) => void
   sites: Array<{ id: number; name: string }>
-}
+} & Omit<ComponentProps<'div'>, 'onChange'>
 
 // Checkbox list over the upstream sites: empty selection means "no site
 // restriction" (the routing selector treats an empty allow-list as
 // unrestricted), mirroring the model-policy empty-means-deny contrast.
-function SiteScopePicker({ value, onChange, sites }: SiteScopePickerProps) {
+function SiteScopePicker({
+  value,
+  onChange,
+  sites,
+  ...props
+}: SiteScopePickerProps) {
   const selected = new Set(value)
+  // Composite control: a checkbox list with no single labelable element.
+  // Forward the FormControl-injected id / aria-* onto the root and name the
+  // group via the FormLabel id (#1300).
   return (
     <div
       className='border-border max-h-40 space-y-1 overflow-y-auto rounded-md border p-2'
       data-testid='site-scope-picker'
+      role='group'
+      aria-labelledby={props.id ? formLabelIdFor(props.id) : undefined}
+      {...props}
     >
       {sites.length === 0
         ? null

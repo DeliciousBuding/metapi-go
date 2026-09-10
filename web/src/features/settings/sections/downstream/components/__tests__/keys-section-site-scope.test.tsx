@@ -199,3 +199,24 @@ describe('downstream key site restriction (#1026)', () => {
     expect(payload.allowedSiteIds).toEqual([])
   })
 })
+
+describe('site scope picker accessible name (#1300)', () => {
+  it('names the site-scope group through its label', async () => {
+    renderKeySheetForm(null)
+    await waitFor(() => {
+      expect(screen.getByTestId('site-scope-picker')).toBeInTheDocument()
+    })
+    const group = screen.getByTestId('site-scope-picker')
+    expect(group).toHaveAttribute('role', 'group')
+    const labelId = group.getAttribute('aria-labelledby')
+    expect(labelId).toBeTruthy()
+    // Before #1300 SiteScopePicker dropped the FormControl id entirely, so the
+    // field had no accessible name. The group must now be named by a real,
+    // non-empty label element.
+    const label = labelId ? document.getElementById(labelId) : null
+    // The aria-labelledby target must actually exist (FormLabel renders it) and
+    // carry text, or the group is named by nothing.
+    expect(label).not.toBeNull()
+    expect(label?.textContent?.trim()).not.toBe('')
+  })
+})

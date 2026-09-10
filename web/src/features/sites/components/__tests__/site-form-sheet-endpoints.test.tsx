@@ -413,3 +413,17 @@ describe('SiteFormSheet apiEndpoints validation errors', () => {
     expect(statusText2).not.toContain('Fail')
   })
 })
+
+describe('SiteFormSheet apiEndpoints accessible name (#1300)', () => {
+  it('names the endpoint editor group through its label', async () => {
+    await renderCreateDialog()
+    // Before #1300 EndpointsEditor swallowed the FormControl-injected id, so
+    // <FormLabel htmlFor> pointed at a nonexistent element and the field had no
+    // accessible name (queryByLabelText -> null). A role=group is named by
+    // aria-labelledby -> the FormLabel id; an htmlFor cannot name a
+    // non-labelable div, which is why getByRole(name) is the strict check.
+    const group = screen.getByRole('group', { name: 'API endpoints' })
+    expect(group).toHaveAttribute('aria-invalid', 'false')
+    expect(group.getAttribute('aria-describedby')).toBeTruthy()
+  })
+})

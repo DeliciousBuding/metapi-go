@@ -6,8 +6,10 @@
 // mode. `window` has no deterministic cron and is only offered when
 // `allowWindow` is set.
 
+import type { ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { formLabelIdFor } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -28,13 +30,14 @@ type ScheduleEditorProps = {
   /** Offer the random-in-window option (checkin only). */
   allowWindow?: boolean
   disabled?: boolean
-}
+} & Omit<ComponentProps<'div'>, 'onChange'>
 
 export function ScheduleEditor({
   value,
   onChange,
   allowWindow,
   disabled,
+  ...props
 }: ScheduleEditorProps) {
   const { t } = useTranslation()
   const kind = value?.kind ?? 'daily'
@@ -79,8 +82,16 @@ export function ScheduleEditor({
     })
   }
 
+  // Composite control: a group of schedule inputs with no single labelable
+  // element. Forward the FormControl-injected id / aria-* onto the root and name
+  // the group via the FormLabel id (#1300).
   return (
-    <div className='space-y-2'>
+    <div
+      className='space-y-2'
+      role='group'
+      aria-labelledby={props.id ? formLabelIdFor(props.id) : undefined}
+      {...props}
+    >
       <div className='flex flex-wrap items-center gap-2'>
         <Select
           value={kind}

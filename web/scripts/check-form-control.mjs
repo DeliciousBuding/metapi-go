@@ -48,28 +48,14 @@ const REFERENCE_IMPL = 'src/features/sites/components/custom-headers-field.tsx'
 // the entry as soon as the component is fixed — a stale entry fails the gate.
 const EXCEPTIONS = [
   {
-    component: 'EndpointsEditor',
-    reason:
-      'composite endpoint-row editor; label association empirically broken (queryByLabelText -> null). Fix pattern in #1300.',
-  },
-
-  {
-    component: 'ScheduleEditor',
-    reason:
-      'composite schedule editor, 4 call sites (scheduling-section x3, import-export-section); same mechanism, not individually probed. #1300.',
-  },
-  {
     component: 'ModelPolicyEditor',
-    reason: 'composite policy editor in key-sheet-form; same mechanism. #1300.',
-  },
-  {
-    component: 'SiteScopePicker',
-    reason: 'composite scope picker in key-sheet-form; same mechanism. #1300.',
+    reason:
+      'composite policy editor in key-sheet-form. Not a plain drop: it spreads the FormControl-injected id onto its inner add-rule <Input> (...inputProps), so the field-level id names a sub-control instead of the group. Fix = label the group root (role=group + aria-labelledby) AND give the inner Input its own aria-label, i.e. separate the field label from the sub-control label. A redesign, not a forward. #1300.',
   },
   {
     component: 'CredentialRefPicker',
     reason:
-      'composite credential picker, 2 call sites in key-sheet-form; same mechanism. #1300.',
+      'composite credential tree-picker, 2 call sites in key-sheet-form. Takes the whole props object but never spreads it, and renders three root states (loading / error / list) that each need role=group + aria-labelledby. Needs an async-query test harness. #1300.',
   },
 ]
 
