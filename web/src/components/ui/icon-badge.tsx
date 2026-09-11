@@ -1,9 +1,11 @@
-// metapi-go/ui — icon badge (soft solid-tone chip for stat cards / headers).
+// metapi-go/ui — IconBadge: a soft solid-tone icon chip for stat cards and
+// section headers.
 //
-// Conceptually borrowed from newapi's icon-badge (quantumnous, AGPL) and
-// trimmed to the metapi-go semantic tokens. Solid soft fills only —
-// DESIGN.md §1 forbids gradients. Tones map 1:1 onto the OKLCH status tokens
-// declared in styles/theme.css, so every tone stays theme- and preset-aware.
+// Tones map 1:1 onto the OKLCH status tokens declared in styles/theme.css
+// (DESIGN.md §2.4 status semantics), so every tone stays theme- and
+// preset-aware. Solid soft fills only — DESIGN.md §1 forbids gradients. The
+// icon is decorative by default (aria-hidden); the surrounding label carries
+// the meaning.
 
 import { cva, type VariantProps } from 'class-variance-authority'
 import type { ReactNode } from 'react'
@@ -47,16 +49,19 @@ type IconBadgeProps = {
   decorative?: boolean
 }
 
-export function IconBadge(props: IconBadgeProps) {
+export function IconBadge({
+  children,
+  tone,
+  size,
+  className,
+  decorative = true,
+}: IconBadgeProps) {
   return (
     <span
-      className={cn(
-        iconBadgeVariants({ tone: props.tone, size: props.size }),
-        props.className
-      )}
-      aria-hidden={props.decorative ?? true}
+      className={cn(iconBadgeVariants({ tone, size }), className)}
+      aria-hidden={decorative}
     >
-      {props.children}
+      {children}
     </span>
   )
 }
