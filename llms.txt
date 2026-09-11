@@ -8,8 +8,9 @@
 
 This repository is docs-as-code: every page below is plain markdown at the
 given raw URL and mirrors the in-repo file. User-facing docs live in `docs/`;
-maintainer process docs live in `docs/internal/` and are intentionally not
-indexed here.
+contributor design notes live in `docs/internal/` and are intentionally not
+indexed here. Maintainer process and history live outside this repository
+(GitHub issues for open work, `CHANGELOG.md` for the version narrative).
 
 ## Start here
 

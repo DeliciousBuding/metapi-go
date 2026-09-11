@@ -39,7 +39,7 @@ import (
 // - Codex upstream wss runtime (codex_ws_runtime.go) + session response id store
 // - Capability probe: platform=codex + CodexUpstreamWebsocketEnabled + extraConfig
 // - Dial / empty-event failure → HTTP SSE bridge fallback (no fake terminals)
-// - Process-local sticky only (single-instance honesty; no STICKY-B)
+// - Process-local sticky only (single-instance honest; no cluster-wide sticky-session claim)
 
 // Forbidden always: Hijack-silent-close · invent terminal frames for failed bridges.
 const (

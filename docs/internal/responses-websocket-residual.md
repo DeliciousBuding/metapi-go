@@ -1,4 +1,4 @@
-# Responses WebSocket — C3 residual
+# Responses WebSocket — single-instance residual
 
 **Status**: present (single-instance honesty)
 
@@ -11,7 +11,7 @@ residual Codex upstream `wss` transport:
 - Dial / empty-event failure falls back to the HTTP SSE bridge — no fake
   terminal frames
 - **Process-local sticky only**: the transport is single-instance honest;
-  there is no cluster-wide sticky session claim (no `STICKY-B`). Multi-instance
+  there is no cluster-wide sticky-session claim. Multi-instance
   deployments require load-balancer pinning or a single instance.
 
 Forbidden always: hijack-silent-close and inventing terminal frames for failed
