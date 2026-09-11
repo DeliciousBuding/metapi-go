@@ -1,5 +1,13 @@
-/* eslint-disable no-nested-ternary -- sort-direction icon uses chained ternary */
-// metapi-go/data-table — ported from newapi
+// metapi-go/data-table — DataTableColumnHeader: a sortable column's header cell.
+//
+// The title is a dropdown trigger rather than a click-to-cycle header, because
+// the cycle (none → asc → desc) is invisible: nothing tells the user a third
+// click exists or what the next one does. The menu states all three explicitly
+// and adds "hide column" when the column is hideable.
+//
+// Columns that cannot sort render as a plain title — no trigger, no caret — so a
+// non-sortable header never looks clickable.
+
 import type { Column } from '@tanstack/react-table'
 import {
   ArrowDown as ArrowDownIcon,
@@ -17,26 +25,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
 
-type DataTableColumnHeaderProps<TData, TValue> =
-  React.HTMLAttributes<HTMLDivElement> & {
-    column: Column<TData, TValue>
-    title: React.ReactNode
-  }
+type DataTableColumnHeaderProps<TData, TValue> = {
+  column: Column<TData, TValue>
+  title: React.ReactNode
+}
+
+/** Caret shown in the trigger for each sort state (`none` = unsorted). */
+const SORT_ICONS = {
+  asc: ArrowUpIcon,
+  desc: ArrowDownIcon,
+  none: CaretSortIcon,
+} as const
+
+const MENU_ICON_CLASS = 'text-muted-foreground/70 size-3.5'
 
 export function DataTableColumnHeader<TData, TValue>({
   column,
   title,
-  className,
 }: DataTableColumnHeaderProps<TData, TValue>) {
   const { t } = useTranslation()
+
   if (!column.getCanSort()) {
-    return <div className={cn(className)}>{title}</div>
+    return <div>{title}</div>
   }
 
+  const sorted = column.getIsSorted()
+  const SortIcon = SORT_ICONS[sorted === false ? 'none' : sorted]
+
   return (
-    <div className={cn('flex items-center space-x-2', className)}>
+    <div className='flex items-center space-x-2'>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -48,37 +66,31 @@ export function DataTableColumnHeader<TData, TValue>({
           }
         >
           <span>{title}</span>
-          {column.getIsSorted() === 'desc' ? (
-            <ArrowDownIcon className='ms-2 h-4 w-4' />
-          ) : column.getIsSorted() === 'asc' ? (
-            <ArrowUpIcon className='ms-2 h-4 w-4' />
-          ) : (
-            <CaretSortIcon className='ms-2 h-4 w-4' />
-          )}
+          <SortIcon className='ms-2 h-4 w-4' />
         </DropdownMenuTrigger>
         <DropdownMenuContent align='start'>
-          {column.getIsSorted() !== false && (
+          {sorted !== false && (
             <>
               <DropdownMenuItem onClick={() => column.clearSorting()}>
-                <CaretSortIcon className='text-muted-foreground/70 size-3.5' />
+                <CaretSortIcon className={MENU_ICON_CLASS} />
                 {t('Default order')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
           )}
           <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
-            <ArrowUpIcon className='text-muted-foreground/70 size-3.5' />
+            <ArrowUpIcon className={MENU_ICON_CLASS} />
             {t('Asc')}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => column.toggleSorting(true)}>
-            <ArrowDownIcon className='text-muted-foreground/70 size-3.5' />
+            <ArrowDownIcon className={MENU_ICON_CLASS} />
             {t('Desc')}
           </DropdownMenuItem>
           {column.getCanHide() && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
-                <EyeNoneIcon className='text-muted-foreground/70 size-3.5' />
+                <EyeNoneIcon className={MENU_ICON_CLASS} />
                 {t('Hide')}
               </DropdownMenuItem>
             </>

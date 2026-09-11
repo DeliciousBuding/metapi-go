@@ -1,4 +1,15 @@
-// metapi-go/data-table — ported from newapi
+// metapi-go/data-table — TableEmpty: the empty body, and the difference between
+// "there is nothing" and "you filtered everything out".
+//
+// Those two states need opposite actions — create something, versus clear the
+// filters — so the copy, the icon and the CTA all switch on `isFiltered`.
+// Collapsing them into one "no data" message is how a user ends up believing a
+// table is empty when it is only narrowed.
+//
+// It renders as a `<TableRow>` with one cell spanning the table, not as a
+// sibling of the table: the empty state has to sit inside the same scroll
+// container and column geometry, or a horizontally scrolled table shows the
+// message half off-screen.
 import { Database, SearchX } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -12,54 +23,25 @@ import {
 } from '@/components/ui/empty'
 import { TableRow, TableCell } from '@/components/ui/table'
 
-interface TableEmptyProps {
-  /**
-   * Number of columns to span
-   */
+type TableEmptyProps = {
+  /** Columns to span — the visible leaf count, so the cell covers the table. */
   colSpan: number
-  /**
-   * Custom title for empty state
-   * @default 'No Data'
-   */
+  /** Overrides for the "nothing here" state. */
   title?: string
-  /**
-   * Custom description for empty state
-   * @default 'No records found. Try adjusting your filters.'
-   */
   description?: string
-  /**
-   * Custom icon component
-   * @default Database icon
-   */
+  /** Defaults to a database glyph. Ignored when `isFiltered`. */
   icon?: React.ReactNode
-  /**
-   * Additional content to display (e.g., buttons)
-   */
+  /** Extra content under the copy, e.g. a create button. */
   children?: React.ReactNode
-  /**
-   * Whether the table is empty because filters are active (vs truly no data).
-   * Switches to the "no results" copy + a reset-filters CTA.
-   */
+  /** True when the table is empty because filters are active, not because there is no data. */
   isFiltered?: boolean
-  /**
-   * Custom title when the table is filtered-empty.
-   */
+  /** Overrides for the "filtered to nothing" state. */
   filteredTitle?: string
-  /**
-   * Custom description when the table is filtered-empty.
-   */
   filteredDescription?: string
-  /**
-   * Clears active filters (column + global). Rendered as a "Reset filters" CTA.
-   */
+  /** Clears column + global filters; rendered as the reset CTA. */
   onClearFilters?: () => void
 }
 
-/**
- * Generic table empty state component.
- * Distinguishes "no data" from "no results after filtering" so users know
- * whether to create something or clear filters.
- */
 export function TableEmpty({
   colSpan,
   title,
