@@ -1,4 +1,13 @@
-// metapi-go/data-table — ported from newapi
+// metapi-go/data-table — DataTableToolbar: the filter row above a list page.
+//
+// One `flex-wrap` row, no panel chrome: the search input, any page-supplied
+// controls and the column filter chips flow left, the action cluster hugs the
+// right edge via `ms-auto` and wraps to its own line when the filters fill the
+// row. Visual hierarchy comes from whitespace and the adjacent table border.
+//
+// The toolbar owns the search *draft*, not the search value: commits are
+// debounced, so between keystrokes the input shows what the user typed while
+// the table still holds the last settled value.
 import type { Table } from '@tanstack/react-table'
 import { ChevronDown, X as Cross2Icon } from 'lucide-react'
 import * as React from 'react'
@@ -7,7 +16,6 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 
 import { useDebounce } from '../hooks/use-debounce'
@@ -27,257 +35,182 @@ type FilterDef = {
   singleSelect?: boolean
 }
 
+/**
+ * What the user has typed but not yet committed. `baseValue` is the committed
+ * value it was typed against, which is how a draft tells "still mine" apart
+ * from "the table moved on without me" (Reset, a URL sync, another filter).
+ */
 type SearchDraft = {
   baseValue: string
   value: string
 }
 
+const DEFAULT_SEARCH_DEBOUNCE_MS = 300
+
 export type DataTableToolbarProps<TData> = {
   table: Table<TData>
   /**
-   * Placeholder for the default search input. Defaults to `t('Filter...')`.
+   * Placeholder for the search input. Defaults to `t('Filter...')`.
    */
   searchPlaceholder?: string
   /**
-   * Delay committing the default search input. Defaults to 300ms so
-   * filter-as-you-type pages do not re-filter (or re-fetch) on every
-   * keystroke; pass 0 for pages that explicitly want immediate commits.
+   * Delay before a keystroke reaches the table's global filter. Defaults to
+   * 300ms: filtering re-runs over the whole page of rows, so a page that
+   * filters as you type should not pay for that per keystroke.
    */
   searchDebounceMs?: number
   /**
-   * Column id to filter on. When provided, the search input filters
-   * a specific column. When omitted, the search input updates the
-   * table's `globalFilter`.
-   */
-  searchKey?: string
-  /**
-   * Column-level filter chips (faceted multi-select / single-select).
+   * Column filter chips (faceted multi-select / single-select). A chip whose
+   * `columnId` does not resolve to a column is skipped rather than rendered
+   * empty.
    */
   filters?: FilterDef[]
   /**
-   * Replaces the default search input entirely. Use when the primary
-   * "search" is something custom — e.g. a date-time range picker.
-   */
-  customSearch?: ReactNode
-  /**
-   * Extra inputs/selects displayed in the primary row alongside the
-   * search input and filter chips.
+   * Extra controls in the filter flow, after the search input — e.g. the
+   * status `<Select>` and date range the proxy-log page drives from the URL.
    */
   additionalSearch?: ReactNode
   /**
-   * Whether non-table filters (e.g. `additionalSearch` or `expandable`
-   * inputs) are currently active. Controls Reset button visibility
-   * when no column filters are set.
+   * Whether filters this toolbar does not own (`additionalSearch`,
+   * `expandable`, or anything the page keeps in the URL) are active. Decides
+   * Reset visibility once the table itself reports no filter.
    */
   hasAdditionalFilters?: boolean
   /**
-   * Callback invoked when the user clicks Reset.
+   * Called after Reset has cleared the table's own filters, so the page can
+   * clear the state it owns.
    */
   onReset?: () => void
   /**
-   * Additional filter inputs hidden behind an Expand/Collapse toggle.
-   * Inputs flow inline with the primary row when expanded.
+   * Extra filter inputs behind the Expand/Collapse toggle. They join the same
+   * wrapping flow when expanded.
    */
   expandable?: ReactNode
   /**
-   * When `expandable` is collapsed, highlights the toggle if any of
-   * the expandable inputs currently hold a value.
+   * Highlights the collapsed toggle when an `expandable` input holds a value,
+   * so a hidden filter is still visible as active.
    */
   hasExpandedActiveFilters?: boolean
   /**
-   * Custom action buttons rendered BEFORE the built-in
-   * Reset / Search / View buttons.
+   * Action buttons rendered before Reset in the right-hand cluster — the
+   * page's primary entry points (Add site, Import accounts, …).
    */
   preActions?: ReactNode
   /**
-   * Explicit "Search" / "Apply" callback. When provided the toolbar
-   * shows a primary Search button. Filters are committed only on click
-   * (form-mode workflow).
-   */
-  onSearch?: () => void
-  /**
-   * Loading state for the explicit Search button.
-   */
-  searchLoading?: boolean
-  /**
-   * Hide the View Options (column visibility) dropdown.
-   */
-  hideViewOptions?: boolean
-  /**
-   * Optional extra control rendered in the right action cluster, before the
-   * View Options dropdown. Omitted by default.
+   * Extra control rendered after Reset, before the column-visibility menu.
    */
   viewToggle?: ReactNode
-  /**
-   * Content rendered on the LEFT side of the secondary actions row. When
-   * provided the toolbar splits into two visual rows:
-   *   Row 1: search inputs / filter chips …… Expand
-   *   Row 2: expanded filters
-   *   Row 3: leftActions …… Reset / Search / ViewOptions
-   */
-  leftActions?: ReactNode
-  /**
-   * Outer wrapper className override.
-   */
-  className?: string
 }
 
-/**
- * Unified data-table filter panel — Ant Design Pro inspired.
- *
- * Layout (single flex-wrap row):
- * - Filters (search input + additional inputs + filter chips + expandable
- *   inputs) flow horizontally and wrap as needed.
- * - The action cluster (Reset / Search / View / Expand) hugs the right
- *   edge via `ms-auto`. When filters fill a row, the cluster naturally
- *   wraps to the next line — still right-aligned — matching the
- *   collapsed/expanded states from the user's reference design.
- *
- * No background panel, no row separators — relies on whitespace and the
- * adjacent table border for visual hierarchy.
- */
 export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
-  const [isSearchComposing, setIsSearchComposing] = useState(false)
+  const [draft, setDraft] = useState<SearchDraft | null>(null)
+  // True between compositionstart and compositionend. An IME builds a string
+  // across several keystrokes; committing (or debouncing) the intermediate
+  // text would filter on half-typed pinyin.
+  const [composing, setComposing] = useState(false)
 
-  const filters = props.filters ?? []
-  const hasExpandable = props.expandable != null
-  const hasSearch = props.onSearch != null
+  const committed =
+    (props.table.getState().globalFilter as string | undefined) ?? ''
+  const liveDraft =
+    draft && (composing || draft.baseValue === committed) ? draft : null
+  const searchValue = liveDraft?.value ?? committed
+  const debouncedSearchValue = useDebounce(
+    searchValue,
+    props.searchDebounceMs ?? DEFAULT_SEARCH_DEBOUNCE_MS
+  )
 
   const isFiltered =
     (props.table.getState().columnFilters ?? []).length > 0 ||
-    !!props.table.getState().globalFilter ||
-    !!props.hasAdditionalFilters
-
-  const placeholder = props.searchPlaceholder ?? t('Filter...')
-  const currentSearchValue = props.searchKey
-    ? ((props.table.getColumn(props.searchKey)?.getFilterValue() as string) ??
-      '')
-    : ((props.table.getState().globalFilter as string | undefined) ?? '')
-
-  const [searchDraft, setSearchDraft] = useState<SearchDraft | null>(null)
-  const activeSearchDraft =
-    searchDraft &&
-    (isSearchComposing || searchDraft.baseValue === currentSearchValue)
-      ? searchDraft
-      : null
-  const searchValue = activeSearchDraft?.value ?? currentSearchValue
-  const searchDebounceMs = Math.max(0, props.searchDebounceMs ?? 300)
-  const debouncedSearchValue = useDebounce(searchValue, searchDebounceMs)
+    committed !== '' ||
+    props.hasAdditionalFilters === true
 
   const commitSearchValue = React.useCallback(
     (value: string) => {
-      if (value === currentSearchValue) {
-        return
+      if (value !== committed) {
+        props.table.setGlobalFilter(value)
       }
-
-      if (props.searchKey) {
-        props.table.getColumn(props.searchKey)?.setFilterValue(value)
-        return
-      }
-
-      props.table.setGlobalFilter(value)
     },
-    [currentSearchValue, props.searchKey, props.table]
+    [committed, props.table]
   )
 
+  // The debounce has settled — the debounced value caught up with what the
+  // input shows — and the table has not been told yet: publish it.
   React.useEffect(() => {
-    if (
-      searchDebounceMs <= 0 ||
-      isSearchComposing ||
-      debouncedSearchValue !== searchValue
-    ) {
+    if (composing || debouncedSearchValue !== searchValue) {
       return
     }
-
     commitSearchValue(debouncedSearchValue)
-  }, [
-    commitSearchValue,
-    debouncedSearchValue,
-    isSearchComposing,
-    searchDebounceMs,
-    searchValue,
-  ])
-
-  const queueSearchValue = (value: string) => {
-    if (searchDebounceMs <= 0) {
-      commitSearchValue(value)
-    }
-  }
+  }, [commitSearchValue, composing, debouncedSearchValue, searchValue])
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value
-    setSearchDraft({ baseValue: currentSearchValue, value })
-
-    if (!isSearchComposing) {
-      queueSearchValue(value)
-    }
+    setDraft({ baseValue: committed, value: event.target.value })
   }
 
-  const handleSearchCompositionStart = () => {
-    setIsSearchComposing(true)
-  }
-
-  const handleSearchCompositionEnd = (
+  const handleCompositionEnd = (
     event: React.CompositionEvent<HTMLInputElement>
   ) => {
-    setIsSearchComposing(false)
-    const value = event.currentTarget.value
-    setSearchDraft({ baseValue: currentSearchValue, value })
-    queueSearchValue(value)
+    setComposing(false)
+    setDraft({ baseValue: committed, value: event.currentTarget.value })
   }
 
-  // Enter commits the draft immediately instead of waiting out the debounce,
-  // so "type → Enter" feels like an explicit search even with debounced
-  // filtering enabled.
+  // Enter commits the draft instead of waiting out the debounce, so
+  // "type → Enter" behaves like an explicit search.
   const handleSearchKeyDown = (
     event: React.KeyboardEvent<HTMLInputElement>
   ) => {
     if (event.key !== 'Enter') return
     event.preventDefault()
-    setIsSearchComposing(false)
+    setComposing(false)
     commitSearchValue(searchValue)
   }
 
-  const hasSearchValue = searchValue.length > 0
-
   const clearSearchValue = () => {
-    setIsSearchComposing(false)
-    setSearchDraft(null)
+    setComposing(false)
+    setDraft(null)
     commitSearchValue('')
   }
 
-  const searchInput = (
-    <div className='relative w-full sm:w-[200px] lg:w-[240px]'>
-      <Input
-        aria-label={placeholder}
-        placeholder={placeholder}
-        value={searchValue}
-        onChange={handleSearchChange}
-        onKeyDown={handleSearchKeyDown}
-        onCompositionStart={handleSearchCompositionStart}
-        onCompositionEnd={handleSearchCompositionEnd}
-        className={cn('w-full', hasSearchValue && 'pe-8')}
-      />
-      {hasSearchValue && (
-        <Button
-          type='button'
-          variant='ghost'
-          size='icon-xs'
-          aria-label={t('Clear search')}
-          onClick={clearSearchValue}
-          className='text-muted-foreground hover:text-foreground absolute top-1/2 right-1 -translate-y-1/2'
-        >
-          <Cross2Icon className='size-3.5' />
-        </Button>
-      )}
-    </div>
-  )
+  const handleReset = () => {
+    clearSearchValue()
+    props.table.resetColumnFilters()
+    props.onReset?.()
+  }
 
-  const filterChips = React.useMemo(
-    () =>
-      filters.map((filter) => {
+  const placeholder = props.searchPlaceholder ?? t('Filter...')
+  const hasExpandable = props.expandable != null
+
+  return (
+    <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
+      <div className='relative w-full sm:w-[200px] lg:w-[240px]'>
+        <Input
+          aria-label={placeholder}
+          placeholder={placeholder}
+          value={searchValue}
+          onChange={handleSearchChange}
+          onKeyDown={handleSearchKeyDown}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={handleCompositionEnd}
+          className={cn('w-full', searchValue !== '' && 'pe-8')}
+        />
+        {searchValue !== '' && (
+          <Button
+            type='button'
+            variant='ghost'
+            size='icon-xs'
+            aria-label={t('Clear search')}
+            onClick={clearSearchValue}
+            className='text-muted-foreground hover:text-foreground absolute top-1/2 right-1 -translate-y-1/2'
+          >
+            <Cross2Icon className='size-3.5' />
+          </Button>
+        )}
+      </div>
+
+      {props.additionalSearch}
+
+      {(props.filters ?? []).map((filter) => {
         const column = props.table.getColumn(filter.columnId)
         if (!column) return null
         return (
@@ -289,135 +222,50 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
             singleSelect={filter.singleSelect}
           />
         )
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [props.filters, props.table]
-  )
+      })}
 
-  const handleReset = () => {
-    setIsSearchComposing(false)
-    setSearchDraft(null)
-    props.table.resetColumnFilters()
-    props.table.setGlobalFilter('')
-    props.onReset?.()
-  }
+      {expanded && props.expandable}
 
-  // Reset: outline text-only for form mode (always visible, disabled when
-  // nothing to reset); ghost text + X for filter-as-you-type mode (only
-  // visible when active filters exist).
-  let resetButton: ReactNode = null
-  if (hasSearch) {
-    resetButton = (
-      <Button variant='outline' onClick={handleReset} disabled={!isFiltered}>
-        {t('Reset')}
-      </Button>
-    )
-  } else if (isFiltered) {
-    resetButton = (
-      <Button
-        variant='ghost'
-        onClick={handleReset}
-        className='text-muted-foreground hover:text-foreground gap-1 px-2'
-      >
-        {t('Reset')}
-        <Cross2Icon />
-      </Button>
-    )
-  }
-
-  const searchButton = hasSearch ? (
-    <Button onClick={props.onSearch} disabled={props.searchLoading}>
-      {props.searchLoading && <Spinner />}
-      {t('Search')}
-    </Button>
-  ) : null
-
-  const viewOptionsNode = !props.hideViewOptions ? (
-    <DataTableViewOptions table={props.table} />
-  ) : null
-
-  const viewToggleNode = props.viewToggle ?? null
-
-  const expandToggle = hasExpandable ? (
-    <Button
-      variant='ghost'
-      onClick={() => setExpanded((p) => !p)}
-      aria-expanded={expanded}
-      className={cn(
-        'text-muted-foreground hover:text-foreground gap-1 px-2',
-        props.hasExpandedActiveFilters &&
-          !expanded &&
-          'text-primary hover:text-primary'
-      )}
-    >
-      {expanded ? t('Collapse') : t('Expand')}
-      <ChevronDown
-        className={cn(
-          'size-3.5 transition-transform duration-200',
-          expanded && 'rotate-180'
-        )}
-      />
-    </Button>
-  ) : null
-
-  const hasLeftActions = props.leftActions != null
-
-  if (hasLeftActions) {
-    return (
-      <div className={cn('flex flex-col gap-2', props.className)}>
-        <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
-          {props.customSearch !== undefined ? props.customSearch : searchInput}
-          {props.additionalSearch}
-          {filterChips}
-          <div className='ms-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2'>
-            {expandToggle}
-          </div>
-        </div>
-
-        {expanded && hasExpandable && (
-          <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
-            {props.expandable}
-          </div>
-        )}
-
-        <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
-          {props.leftActions}
-          <div className='ms-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2'>
-            {props.preActions}
-            {resetButton}
-            {searchButton}
-            {viewToggleNode}
-            {viewOptionsNode}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className={cn(
-        'flex flex-wrap items-center gap-2 sm:gap-3',
-        props.className
-      )}
-    >
-      {props.customSearch !== undefined ? props.customSearch : searchInput}
-      {props.additionalSearch}
-      {filterChips}
-      {expanded && hasExpandable && props.expandable}
-
-      {/* The action cluster hugs the right edge. `shrink-0` was removed so an
-          over-long `viewToggle` (routes toolbar) cannot push the View Options
-          button past the viewport on mobile — with `min-w-0` children below
-          the label truncates and the 查看 button wraps to its own tight line
-          instead of being clipped by the page's overflow-x hidden. */}
+      {/* `shrink-0` is deliberately absent from the cluster: an over-long
+          `viewToggle` (the routes page's "show zero-channel models" switch)
+          must not push the View Options button past the viewport. With
+          `min-w-0` its label truncates and the button wraps to its own tight
+          line instead of being clipped by the page's overflow-x hidden. */}
       <div className='ms-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2'>
         {props.preActions}
-        {resetButton}
-        {searchButton}
-        {viewToggleNode}
-        {viewOptionsNode}
-        {expandToggle}
+        {isFiltered && (
+          <Button
+            variant='ghost'
+            onClick={handleReset}
+            className='text-muted-foreground hover:text-foreground gap-1 px-2'
+          >
+            {t('Reset')}
+            <Cross2Icon />
+          </Button>
+        )}
+        {props.viewToggle}
+        <DataTableViewOptions table={props.table} />
+        {hasExpandable && (
+          <Button
+            variant='ghost'
+            onClick={() => setExpanded((previous) => !previous)}
+            aria-expanded={expanded}
+            className={cn(
+              'text-muted-foreground hover:text-foreground gap-1 px-2',
+              props.hasExpandedActiveFilters &&
+                !expanded &&
+                'text-primary hover:text-primary'
+            )}
+          >
+            {expanded ? t('Collapse') : t('Expand')}
+            <ChevronDown
+              className={cn(
+                'size-3.5 transition-transform duration-200',
+                expanded && 'rotate-180'
+              )}
+            />
+          </Button>
+        )}
       </div>
     </div>
   )

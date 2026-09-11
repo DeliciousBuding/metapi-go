@@ -1,6 +1,11 @@
-// Behavior test for the toolbar search Enter shortcut (#889): with debounced
-// filtering the draft only commits after the delay, but pressing Enter must
-// commit immediately so "type → Enter" behaves like an explicit search.
+// metapi-go/data-table — when the toolbar's search draft reaches the table.
+//
+// Two timing rules, both invisible in the DOM:
+//
+// - Enter commits immediately (#889). With debounced filtering the draft would
+//   otherwise sit for the whole delay after the user has said "search now".
+// - An IME composition never commits mid-flight. Half-typed pinyin is not a
+//   filter, so the draft is held until compositionend and only then debounced.
 
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -71,5 +76,36 @@ describe('DataTableToolbar search Enter commit', () => {
       vi.advanceTimersByTime(600)
     })
     expect(setGlobalFilter).toHaveBeenCalledWith('gemini')
+  })
+})
+
+describe('DataTableToolbar search composition', () => {
+  it('holds the draft while the IME is composing, then commits it', () => {
+    vi.useFakeTimers()
+    const setGlobalFilter = vi.fn()
+    render(
+      <DataTableToolbar
+        table={makeTable('', setGlobalFilter) as never}
+        searchPlaceholder='Search…'
+        searchDebounceMs={500}
+      />
+    )
+
+    const input = screen.getByPlaceholderText('Search…')
+    fireEvent.compositionStart(input)
+    fireEvent.change(input, { target: { value: 'ni' } })
+    expect(input).toHaveValue('ni')
+
+    // The debounce elapses mid-composition and must still not commit.
+    act(() => {
+      vi.advanceTimersByTime(600)
+    })
+    expect(setGlobalFilter).not.toHaveBeenCalled()
+
+    fireEvent.compositionEnd(input, { target: { value: '你好' } })
+    act(() => {
+      vi.advanceTimersByTime(600)
+    })
+    expect(setGlobalFilter).toHaveBeenCalledWith('你好')
   })
 })
