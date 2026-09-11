@@ -1,26 +1,36 @@
-# Data Table Components
+# Data Table
 
-最后更新：2026-08-11
+The list-page framework every metapi-go table is built on: TanStack Table state,
+a responsive page composition, and the column conventions features declare.
 
-This package keeps a stable public API through `index.ts`; feature code should
-continue importing from `@/components/data-table`.
+## Public API
 
-- `core/`: TanStack table rendering primitives, headers, rows, pagination,
-  loading, empty states, and pinned-column behavior. Also contains a vendored
-  `status-badge.tsx` (local copy of newapi's `@/components/status-badge`) so the
-  package stays self-contained while the shared component is not yet ported.
-- `layout/`: responsive page-level composition that combines toolbar, desktop
-  table, mobile list, bulk actions, and pagination placement. The local
-  `PageFooterPortal` fallback renders pagination inline until
-  `@/components/layout/components/page-footer` lands.
-- `toolbar/`: filter/search/view-option controls and selection action toolbar.
-- `static/`: lightweight table rendering for local/static arrays that do not
-  need TanStack state.
-- `hooks/`: table state and filter hooks. Includes a vendored `use-debounce`
-  (local copy of newapi's `@/hooks/use-debounce`) plus `useDataTable` which
-  provides the controlled-state layer for the three-stage URL state sync pattern
-  (route validateSearch → feature useSearch → useDataTable controlled state).
+`index.ts` is the whole public surface — feature code imports from
+`@/components/data-table` and never reaches into a subdirectory. Everything
+exported there is frozen against feature call sites; everything not exported
+there is free to be reorganised.
 
-Keep feature-specific columns, actions, and dialogs inside their feature
-folders. Shared table code belongs here only when it is reusable across more
-than one feature.
+## Layout
+
+| Directory  | Contents                                                                                                                                                                                                                                                                                                                                                             |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/`    | Rendering primitives: `data-table-view` (the `<table>`), header, row, pagination, empty state, loading skeleton. Plus the column model — `table-sizing` (the width budget shared by table / colgroup / header), `column-pinning` (sticky edges), `types` (the `ColumnMeta` augmentation) — and the shared cells `badge-list-cell`, `truncated-cell`, `status-badge`. |
+| `layout/`  | `DataTablePage`, the composition features actually render: toolbar + desktop table + mobile card list + pagination, with the table↔card switch at `TABLE_MOBILE_MAX_WIDTH`. `card-cell-utils` / `card-row-content` turn the same column definitions into card fields.                                                                                                |
+| `toolbar/` | Search input, faceted filters, view options, and the bulk-action bar that replaces the toolbar while rows are selected.                                                                                                                                                                                                                                              |
+| `hooks/`   | `useDataTable` (the controlled-state layer), `useUrlTableState` / `encodeSorting` (URL ⇄ table state), and the package-private `useDebounce`.                                                                                                                                                                                                                        |
+
+## Conventions
+
+**Column meta drives the responsive layout.** A column declares `mobileTitle` /
+`mobileBadge` / `mobileHidden` / `mobileOrder` once and both the mobile card
+list and the desktop card grid render it; `label` supplies a card field name
+when `header` is a sort/filter component with no string to reuse. See
+`core/types.ts` for the augmentation and its semantics.
+
+**URL state is three-stage.** Route `validateSearch` owns parsing, the feature's
+`useSearch` owns the current value, `useDataTable` owns the controlled table
+state. Keeping the stages separate is what lets a table's sort/filter/page
+survive a reload and a back-navigation without the table owning routing.
+
+**Feature-specific columns, actions and dialogs stay in the feature folder.**
+Code belongs here only once a second feature needs it.

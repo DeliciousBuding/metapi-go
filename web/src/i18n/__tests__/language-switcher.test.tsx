@@ -1,8 +1,8 @@
 // metapi-go/i18n — language switcher integration test.
 // Drives the real AppHeader dropdown against the real i18n instance
 // (config.ts side-effect init) and asserts the active language, the
-// localStorage persistence and the <html lang> sync. `dir` is owned by
-// DirectionProvider, so a language change must NOT touch it.
+// localStorage persistence and the <html lang> sync. `dir` is static
+// (index.html), so a language change must NOT touch it.
 
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -127,8 +127,8 @@ describe('language switcher', () => {
 
   it('switches i18n.language to zhCN and syncs <html lang> on click', async () => {
     renderHeader()
-    // Simulate an RTL user's direction choice — the language change must NOT
-    // clobber it (dir is owned by DirectionProvider, not the i18n layer).
+    // Simulate a future RTL locale — the language change must NOT clobber the
+    // direction attribute (the i18n layer owns `lang` only).
     document.documentElement.dir = 'rtl'
 
     fireEvent.click(screen.getByRole('button', { name: 'Language' }))

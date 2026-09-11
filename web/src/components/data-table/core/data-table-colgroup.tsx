@@ -1,52 +1,31 @@
-// metapi-go/data-table — ported from newapi
+// metapi-go/data-table — DataTableColgroup: declares column widths once for the
+// whole table instead of repeating them on every cell of every row.
+//
+// Pure render half of the sizing model; the widths themselves come from
+// `table-sizing.ts`, which the header cells consult too.
+
 import type { Table as TanstackTable } from '@tanstack/react-table'
 
-import { isContentSizedColumn } from './content-sized-columns'
+import { getColWidth, sizedColumnsWidth } from './table-sizing'
 
 export function DataTableColgroup<TData>({
   table,
 }: {
   table: TanstackTable<TData>
 }) {
-  const columns = table.getVisibleLeafColumns()
-  const sizedColumns = columns.filter(
-    (column) => !isContentSizedColumn(column.id)
-  )
-  const totalSize = sizedColumns.reduce((sum, col) => sum + col.getSize(), 0)
+  const budget = sizedColumnsWidth(table)
+  const resizable = table.options.enableColumnResizing === true
 
   return (
     <colgroup>
-      {columns.map((column) => {
-        const width = getColumnWidth(
-          table,
-          column.id,
-          column.getSize(),
-          totalSize
-        )
-
-        return <col key={column.id} style={{ width }} />
-      })}
+      {table.getVisibleLeafColumns().map((column) => (
+        <col
+          key={column.id}
+          style={{
+            width: getColWidth(column.id, column.getSize(), budget, resizable),
+          }}
+        />
+      ))}
     </colgroup>
   )
-}
-
-function getColumnWidth<TData>(
-  table: TanstackTable<TData>,
-  columnId: string,
-  columnSize: number,
-  totalSize: number
-) {
-  if (isContentSizedColumn(columnId)) {
-    return '1%'
-  }
-
-  if (table.options.enableColumnResizing === true) {
-    return `${columnSize}px`
-  }
-
-  if (totalSize <= 0) {
-    return undefined
-  }
-
-  return `${(columnSize / totalSize) * 100}%`
 }
