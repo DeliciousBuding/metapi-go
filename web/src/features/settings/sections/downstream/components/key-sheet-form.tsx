@@ -58,19 +58,21 @@ type ModelPolicyEditorProps = {
   onChange: (rules: string[]) => void
   candidateModels?: string[]
   routeGrantCount?: number
-} & Omit<
-  ComponentProps<typeof Input>,
-  'value' | 'defaultValue' | 'onChange' | 'onKeyDown'
->
+} & Omit<ComponentProps<'div'>, 'onChange'>
 
 function ModelPolicyEditor({
   value,
   onChange,
   candidateModels = [],
   routeGrantCount = 0,
-  ...inputProps
+  ...props
 }: ModelPolicyEditorProps) {
   const { t } = useTranslation()
+  // Composite control: the field is a group (summary + rules + add-rule input +
+  // suggestions). The FormControl-injected id / aria-* belong on the group root,
+  // named via aria-labelledby -> the FormLabel id; the inner add-rule <Input> is
+  // a sub-control and gets its OWN aria-label, never the field-level id (#1300).
+  const labelId = props.id ? formLabelIdFor(props.id) : undefined
   const [pendingRule, setPendingRule] = useState('')
   const rules = normalizeModelRules(value)
   const normalizedPendingRule = pendingRule.trim()
@@ -118,7 +120,12 @@ function ModelPolicyEditor({
   }
 
   return (
-    <div className='space-y-2'>
+    <div
+      className='space-y-2'
+      role='group'
+      aria-labelledby={labelId}
+      {...props}
+    >
       <div className='flex flex-wrap items-center gap-2'>
         <Badge variant={summaryVariant} data-testid='model-policy-form-summary'>
           {summary}
@@ -168,7 +175,9 @@ function ModelPolicyEditor({
 
       <div className='flex gap-2'>
         <Input
-          {...inputProps}
+          aria-label={t('settings.downstream.keys.models.inputAria', {
+            defaultValue: 'Model rule',
+          })}
           value={pendingRule}
           onChange={(event) => setPendingRule(event.target.value)}
           onKeyDown={(event) => {

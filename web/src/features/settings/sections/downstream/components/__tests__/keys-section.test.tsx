@@ -391,7 +391,9 @@ describe('KeySheetForm — create mode', () => {
       target: { value: 'sk-pattern-key' },
     })
 
-    const modelRuleInput = screen.getByLabelText('Model access')
+    // #1300: the field id now names the group, not this sub-control. The
+    // add-rule input carries its own aria-label ("Model rule").
+    const modelRuleInput = screen.getByLabelText('Model rule')
     fireEvent.change(modelRuleInput, { target: { value: 'gpt-5.5' } })
     fireEvent.click(screen.getByRole('option', { name: '+ gpt-5.5' }))
 
@@ -640,5 +642,25 @@ describe('KeyModelPolicyCell — fail-closed summaries', () => {
     expect(screen.getByText('All models')).toBeInTheDocument()
     expect(screen.getByText('2 rules')).toBeInTheDocument()
     expect(screen.getByText('2 route grants')).toBeInTheDocument()
+  })
+})
+
+describe('ModelPolicyEditor accessible name (#1300)', () => {
+  it('names the group via its label and gives the add-rule input its own name', () => {
+    renderKeySheetForm({ editingKey: null })
+
+    // The field is a group named "Model access". Before #1300 the FormControl id
+    // was spread onto the inner add-rule <Input>, so the field-level name landed
+    // on a sub-control and the group itself had none.
+    const group = screen.getByRole('group', { name: 'Model access' })
+    expect(group).toHaveAttribute('aria-invalid', 'false')
+
+    // The add-rule input is a sub-control with its OWN accessible name and must
+    // not carry the field-level id (that id belongs to the group).
+    const input = screen.getByLabelText('Model rule')
+    expect(group).toContainElement(input)
+    const groupId = group.getAttribute('id')
+    expect(groupId).toBeTruthy()
+    expect(input).not.toHaveAttribute('id', groupId ?? '')
   })
 })

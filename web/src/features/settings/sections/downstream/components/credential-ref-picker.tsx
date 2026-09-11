@@ -11,11 +11,12 @@
 // fleets.
 
 import { ChevronRight, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { formLabelIdFor } from '@/components/ui/form'
 import { Spinner } from '@/components/ui/spinner'
 import {
   useAccounts,
@@ -36,7 +37,7 @@ import {
 type CredentialRefPickerProps = {
   value: CredentialRef[]
   onChange: (refs: CredentialRef[]) => void
-}
+} & Omit<ComponentProps<'div'>, 'onChange'>
 
 /** Machine-readable description for refs whose upstream object is gone. */
 function describeUnresolvedRef(ref: CredentialRef): string {
@@ -46,15 +47,23 @@ function describeUnresolvedRef(ref: CredentialRef): string {
     : base
 }
 
-export function CredentialRefPicker(props: CredentialRefPickerProps) {
+export function CredentialRefPicker({
+  value,
+  onChange,
+  ...props
+}: CredentialRefPickerProps) {
   const { t } = useTranslation()
+  // Composite control with three root states (loading / error / list); each is a
+  // group named via aria-labelledby -> the FormLabel id, and each forwards the
+  // FormControl-injected id / aria-describedby / aria-invalid (#1300).
+  const labelId = props.id ? formLabelIdFor(props.id) : undefined
   const sitesQuery = useSites()
   const accountsQuery = useAccounts()
   const tokensQuery = useAllAccountTokens()
 
   const selectedKeys = useMemo(
-    () => new Set(props.value.map(credentialRefKey)),
-    [props.value]
+    () => new Set(value.map(credentialRefKey)),
+    [value]
   )
 
   // Sites (and token lists) holding a selection start expanded so edit mode
@@ -62,14 +71,14 @@ export function CredentialRefPicker(props: CredentialRefPickerProps) {
   // remounts per sheet open, so a stale expansion set never leaks across
   // keys.
   const [expandedSiteIds, setExpandedSiteIds] = useState<Set<number>>(
-    () => new Set(props.value.map((ref) => ref.siteId))
+    () => new Set(value.map((ref) => ref.siteId))
   )
   const [expandedTokenAccounts, setExpandedTokenAccounts] = useState<
     Set<number>
   >(
     () =>
       new Set(
-        props.value
+        value
           .filter((ref) => ref.kind === 'account_token')
           .map((ref) => ref.accountId)
       )
@@ -127,9 +136,9 @@ export function CredentialRefPicker(props: CredentialRefPickerProps) {
 
   function toggleRef(ref: CredentialRef, checked: boolean) {
     const key = credentialRefKey(ref)
-    const next = props.value.filter((item) => credentialRefKey(item) !== key)
+    const next = value.filter((item) => credentialRefKey(item) !== key)
     if (checked) next.push(ref)
-    props.onChange(serializeCredentialRefs(next))
+    onChange(serializeCredentialRefs(next))
   }
 
   if (
@@ -141,6 +150,9 @@ export function CredentialRefPicker(props: CredentialRefPickerProps) {
       <div
         data-testid='credential-ref-picker'
         className='text-muted-foreground flex items-center gap-2 rounded-md border p-3 text-sm'
+        role='group'
+        aria-labelledby={labelId}
+        {...props}
       >
         <Spinner />
         {t('settings.downstream.keys.credentials.loading')}
@@ -153,6 +165,9 @@ export function CredentialRefPicker(props: CredentialRefPickerProps) {
       <div
         data-testid='credential-ref-picker'
         className='text-destructive rounded-md border p-3 text-xs'
+        role='group'
+        aria-labelledby={labelId}
+        {...props}
       >
         {t('settings.downstream.keys.credentials.loadFailed')}
       </div>
@@ -170,7 +185,7 @@ export function CredentialRefPicker(props: CredentialRefPickerProps) {
   const knownTokenIds = new Set(
     (tokensQuery.data ?? []).map((token) => token.id)
   )
-  const unresolvedRefs = props.value.filter((ref) => {
+  const unresolvedRefs = value.filter((ref) => {
     if (!knownSiteIds.has(ref.siteId)) return true
     if (!knownAccountIds.has(ref.accountId)) return true
     return ref.kind === 'account_token' && !knownTokenIds.has(ref.tokenId)
@@ -265,9 +280,7 @@ export function CredentialRefPicker(props: CredentialRefPickerProps) {
   function renderSite(site: Site) {
     const siteAccounts = accountsBySite.get(site.id) ?? []
     const expanded = expandedSiteIds.has(site.id)
-    const selectedCount = props.value.filter(
-      (ref) => ref.siteId === site.id
-    ).length
+    const selectedCount = value.filter((ref) => ref.siteId === site.id).length
 
     return (
       <div key={site.id} className='border-border border-b last:border-b-0'>
@@ -315,6 +328,9 @@ export function CredentialRefPicker(props: CredentialRefPickerProps) {
     <div
       data-testid='credential-ref-picker'
       className='border-border max-h-56 overflow-y-auto rounded-md border'
+      role='group'
+      aria-labelledby={labelId}
+      {...props}
     >
       {sites.length === 0 ? (
         <p className='text-muted-foreground p-2 text-xs'>
