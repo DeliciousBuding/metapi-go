@@ -1,4 +1,4 @@
-// metapi-go/ui — checkbox component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — checkbox (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 'use client'
 
 import { Checkbox as CheckboxPrimitive } from '@base-ui/react/checkbox'

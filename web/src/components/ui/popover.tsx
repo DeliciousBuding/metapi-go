@@ -1,4 +1,4 @@
-// metapi-go/ui — popover component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — popover (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { Popover as PopoverPrimitive } from '@base-ui/react/popover'
 
 import { cn } from '@/lib/utils'
