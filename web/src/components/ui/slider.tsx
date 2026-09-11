@@ -1,4 +1,4 @@
-// metapi-go/ui — slider component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — slider (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { Slider as SliderPrimitive } from '@base-ui/react/slider'
 
 import { cn } from '@/lib/utils'

@@ -1,4 +1,4 @@
-// metapi-go/ui — scroll-area component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — scroll-area (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { ScrollArea as ScrollAreaPrimitive } from '@base-ui/react/scroll-area'
 
 import { cn } from '@/lib/utils'

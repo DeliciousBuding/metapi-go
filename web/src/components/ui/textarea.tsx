@@ -1,4 +1,4 @@
-// metapi-go/ui — textarea component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — textarea (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import * as React from 'react'
 
 import { cn } from '@/lib/utils'

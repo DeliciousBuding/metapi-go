@@ -1,4 +1,4 @@
-// metapi-go/ui — radio-group component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — radio-group (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { Radio as RadioPrimitive } from '@base-ui/react/radio'
 import { RadioGroup as RadioGroupPrimitive } from '@base-ui/react/radio-group'
 

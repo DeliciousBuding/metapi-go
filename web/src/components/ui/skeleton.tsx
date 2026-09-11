@@ -1,4 +1,4 @@
-// metapi-go/ui — skeleton component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — skeleton (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { cn } from '@/lib/utils'
 
 function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
