@@ -1,4 +1,6 @@
-// metapi-go/ui — button component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — Button (base-nova style, @base-ui/react). Based on shadcn/ui
+// (MIT); the variant/size scale and the icon-button hit-area a11y are metapi-go's
+// own design.
 import { Button as ButtonPrimitive } from '@base-ui/react/button'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { isValidElement } from 'react'
@@ -41,7 +43,11 @@ const buttonVariants = cva(
   }
 )
 
-function isNativeButtonRender(render: ButtonPrimitive.Props['render']) {
+// base-ui's Button wires up native <button> semantics unless told otherwise.
+// With no `render` prop — or a `render` that is not a React element — the
+// control falls back to a real <button>; otherwise it renders natively only
+// when the render target is the 'button' tag.
+function rendersNativeButton(render: ButtonPrimitive.Props['render']): boolean {
   if (!render || !isValidElement(render)) {
     return true
   }
@@ -70,7 +76,7 @@ function Button({
       // the visual size (fine pointers keep the current density).
       data-hit-area={isIconSize(size) ? true : undefined}
       className={cn(buttonVariants({ variant, size, className }))}
-      nativeButton={nativeButton ?? isNativeButtonRender(render)}
+      nativeButton={nativeButton ?? rendersNativeButton(render)}
       render={render}
       {...props}
     />
