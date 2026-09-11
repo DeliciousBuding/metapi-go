@@ -1,16 +1,35 @@
-// metapi-go/data-table — ported from newapi
+// metapi-go/data-table — DataTableHeader: the <thead>, and the column resizer
+// that lives in it.
+//
+// Two jobs that belong together because they share the header cell:
+//
+//   rendering   each `th` gets its column's content, its `aria-sort`, and — when
+//               the table opts into resizing and the column takes a share of the
+//               width budget — an explicit width. Content-sized columns get
+//               neither the width nor a resizer: resizing the `actions` column
+//               is meaningless when its width is defined by its content.
+//   resizing    pointer drag (TanStack's own handler), plus a keyboard path the
+//               drag handler cannot provide: arrows step the width (Shift for a
+//               coarser step), Enter/Space re-fits the column to its content.
+//
+// The re-fit measures rather than guesses. A column's natural width is the widest
+// cell in it, and the only way to know that is to lay the content out unconstrained
+// — so each cell is cloned off-screen at `width: max-content` and its scrollWidth
+// read. Cloning is what makes it safe: measuring the live cell would require
+// undoing the table's own layout first.
 import {
   flexRender,
   type Header,
   type Table as TanstackTable,
 } from '@tanstack/react-table'
-import type { KeyboardEvent, MouseEvent } from 'react'
+import type { KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 
 import { DataTableColumnHeader } from './column-header'
+import { columnLabel } from './column-label'
 import { isContentSizedColumn } from './table-sizing'
 import type { DataTableColumnClassName } from './types'
 
@@ -56,9 +75,10 @@ export function DataTableHeader<TData>({
                   aria-valuenow={Math.round(header.getSize())}
                   data-column-resizer
                   tabIndex={0}
-                  onDoubleClick={(event) =>
-                    handleColumnAutoSize(event, table, header)
-                  }
+                  onDoubleClick={(event) => {
+                    event.preventDefault()
+                    autoSizeColumn(event.currentTarget, table, header)
+                  }}
                   onMouseDown={header.getResizeHandler()}
                   onTouchStart={header.getResizeHandler()}
                   onKeyDown={(event) =>
@@ -118,15 +138,6 @@ function resizeColumnByKeyboard<TData>(
   }))
 }
 
-function handleColumnAutoSize<TData>(
-  event: MouseEvent<HTMLDivElement>,
-  table: TanstackTable<TData>,
-  header: Header<TData, unknown>
-) {
-  event.preventDefault()
-  autoSizeColumn(event.currentTarget, table, header)
-}
-
 function autoSizeColumn<TData>(
   resizerElement: HTMLElement,
   table: TanstackTable<TData>,
@@ -164,62 +175,62 @@ function getClampedColumnSize<TData>(
   return nextSize
 }
 
+/** The widest laid-out width among the column's own cells, or undefined if
+ *  there is nothing to measure. `undefined` (not 0) so the caller can tell
+ *  "nothing to go on" from "measured as zero" and leave the width alone. */
 function measureColumnContentWidth(
   resizerElement: HTMLElement,
   columnId: string
 ) {
   const tableElement = resizerElement.closest('table')
-  if (!tableElement) {
-    return undefined
-  }
+  if (!tableElement) return undefined
 
-  const cells = tableElement.querySelectorAll<HTMLElement>(
-    getColumnElementSelector(columnId)
-  )
-  if (cells.length === 0) {
-    return undefined
-  }
+  // Matched on the dataset rather than by an attribute selector: column ids are
+  // arbitrary strings, and comparing them in JS needs no escaping.
+  const cells = [
+    ...tableElement.querySelectorAll<HTMLElement>('[data-column-id]'),
+  ].filter((cell) => cell.dataset.columnId === columnId)
+  if (cells.length === 0) return undefined
 
-  const measuredWidth = [...cells].reduce(
-    (maxWidth, cell) => Math.max(maxWidth, measureElementWidth(cell)),
+  const measuredWidth = cells.reduce(
+    (widest, cell) => Math.max(widest, measureElementWidth(cell)),
     0
   )
 
   return measuredWidth > 0 ? Math.ceil(measuredWidth) : undefined
 }
 
+/**
+ * The width `element` would take if nothing constrained it.
+ *
+ * Measured on an off-screen clone: the live cell is inside a table whose layout
+ * is exactly what we are trying to look past, and the resizer handle inside it is
+ * removed first so the handle's own 8px never counts as content.
+ */
 function measureElementWidth(element: HTMLElement) {
   const clone = element.cloneNode(true) as HTMLElement
-
-  clone.querySelectorAll('[data-column-resizer]').forEach((resizer) => {
-    resizer.remove()
+  clone.querySelectorAll('[data-column-resizer]').forEach((handle) => {
+    handle.remove()
   })
 
-  clone.style.position = 'absolute'
-  clone.style.visibility = 'hidden'
-  clone.style.pointerEvents = 'none'
-  clone.style.left = '-10000px'
-  clone.style.top = '0'
-  clone.style.width = 'max-content'
-  clone.style.minWidth = '0'
-  clone.style.maxWidth = 'none'
-  clone.style.height = 'auto'
-  clone.style.whiteSpace = 'nowrap'
+  Object.assign(clone.style, {
+    height: 'auto',
+    left: '-10000px',
+    maxWidth: 'none',
+    minWidth: '0',
+    pointerEvents: 'none',
+    position: 'absolute',
+    top: '0',
+    visibility: 'hidden',
+    whiteSpace: 'nowrap',
+    width: 'max-content',
+  })
 
   document.body.append(clone)
   const width = clone.scrollWidth
   clone.remove()
 
   return width
-}
-
-function getColumnElementSelector(columnId: string) {
-  const escapedColumnId =
-    typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
-      ? CSS.escape(columnId)
-      : columnId.replaceAll('\\', '\\\\').replaceAll('"', '\\"')
-
-  return `[data-column-id="${escapedColumnId}"]`
 }
 
 function shouldRenderColumnResizer<TData>(
@@ -256,18 +267,23 @@ function getHeaderSizeStyle<TData>(
   return { width: header.getSize() }
 }
 
+/**
+ * What goes inside the `th`.
+ *
+ * A column that can be named in plain text — a string `header`, or the
+ * `meta.label` a column declares when its header is a component — is wrapped in
+ * `DataTableColumnHeader`, so sorting comes for free without the feature writing
+ * the dropdown itself. Anything else (a function header, including TanStack's
+ * accessor-key fallback) is rendered as the column asked. The naming rule is
+ * shared with the card layout and the column toggle (`core/column-label.ts`).
+ */
 function renderHeaderContent<TData>(header: Header<TData, unknown>) {
   if (header.isPlaceholder) return null
-  const { header: headerDef, meta } = header.column.columnDef
-  // A string header means the user wrote e.g. `header: t('Name')` — auto-render
-  // with DataTableColumnHeader so sorting works without boilerplate.
-  // A function (including TanStack's default accessor-key fallback) is passed
-  // through as-is. meta.label is kept as a fallback for legacy columns.
-  if (typeof headerDef === 'string') {
-    return <DataTableColumnHeader column={header.column} title={headerDef} />
+
+  const label = columnLabel(header.column.columnDef)
+  if (label !== null) {
+    return <DataTableColumnHeader column={header.column} title={label} />
   }
-  if (meta?.label) {
-    return <DataTableColumnHeader column={header.column} title={meta.label} />
-  }
-  return flexRender(headerDef, header.getContext())
+
+  return flexRender(header.column.columnDef.header, header.getContext())
 }
