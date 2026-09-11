@@ -1,4 +1,4 @@
-// metapi-go/ui — select component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — select (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 'use client'
 
 import { Select as SelectPrimitive } from '@base-ui/react/select'

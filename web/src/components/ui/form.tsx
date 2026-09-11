@@ -1,4 +1,19 @@
-// metapi-go/ui — form component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — Form: react-hook-form wiring for metapi's field layout
+// (base-nova style, @base-ui/react). Based on shadcn/ui form (MIT); the
+// form-scoped submit-error focus, the Base UI render delegation and the
+// translated message bodies are metapi-go's own.
+//
+// Ownership map — one concern, one owner:
+//   Form         a selector-safe scope id, published through context
+//   FormField    the field name (an RHF Controller)
+//   FormItem     the per-field id, and the scope stamp on the DOM
+//   FormControl  the only slot that touches the rendered control
+//   FormLabel    htmlFor, plus the id composite controls label themselves by
+//
+// Submit-error focus is scoped by that id rather than by DOM ancestry because a
+// sheet form and a page form can be mounted at the same time: an unscoped
+// `[aria-invalid="true"]` lookup would happily focus the field hidden behind the
+// sheet.
 import { useRender } from '@base-ui/react/use-render'
 import * as React from 'react'
 import {
@@ -15,17 +30,22 @@ import { useTranslation } from 'react-i18next'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
-type FormRootContextValue = {
-  id: string
+const INVALID_SELECTOR = '[aria-invalid="true"]'
+const MESSAGE_SELECTOR = '[data-slot="form-message"]'
+const FOCUSABLE_SELECTOR =
+  'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+
+const FormScopeContext = React.createContext<string | null>(null)
+
+/**
+ * `React.useId()` is unique but not selector-safe (it emits `:`), so it is
+ * normalised once here instead of being escaped at every lookup.
+ */
+function toScopeId(reactId: string): string {
+  return `form-${reactId.replaceAll(/[^a-zA-Z0-9_-]/g, '_')}`
 }
 
-const FormRootContext = React.createContext<FormRootContextValue | null>(null)
-
-function getFormScopedSelector(formId: string, selector: string): string {
-  return `[data-form-root="${formId}"]${selector}`
-}
-
-function hasFormErrors(errors: unknown): boolean {
+function hasFieldErrors(errors: unknown): boolean {
   return (
     typeof errors === 'object' &&
     errors !== null &&
@@ -33,58 +53,59 @@ function hasFormErrors(errors: unknown): boolean {
   )
 }
 
-function getFirstFormErrorTarget(
-  invalidControl: HTMLElement | null,
-  errorMessage: HTMLElement | null
-): HTMLElement | null {
-  if (!invalidControl) return errorMessage
-  if (!errorMessage) return invalidControl
+/**
+ * Scrolls the first errored field of `scopeId` into view and focuses it.
+ *
+ * "First" is document order, which is what a keyboard or screen-reader user
+ * expects after a rejected submit. When the invalid node is not itself focusable
+ * — a composite `role="group"` control, or an error message with no marked
+ * control — focus lands on the first focusable element of the same item, so the
+ * announcement is never left dangling on an unfocusable node.
+ */
+function focusFirstInvalidField(scopeId: string): void {
+  const scopedItems = `[data-form-id="${scopeId}"][data-slot="form-item"]`
 
-  const position = invalidControl.compareDocumentPosition(errorMessage)
-  return position & Node.DOCUMENT_POSITION_PRECEDING
-    ? errorMessage
-    : invalidControl
+  for (const item of document.querySelectorAll<HTMLElement>(scopedItems)) {
+    const invalid =
+      item.querySelector<HTMLElement>(INVALID_SELECTOR) ??
+      item.querySelector<HTMLElement>(MESSAGE_SELECTOR)
+    if (!invalid) continue
+
+    item.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const focusTarget = invalid.matches(FOCUSABLE_SELECTOR)
+      ? invalid
+      : item.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
+    focusTarget?.focus({ preventScroll: true })
+    return
+  }
 }
 
-function FormValidationFocus() {
-  const formContext = React.useContext(FormRootContext)
+/**
+ * Renderless: moves focus to the first invalid field after a rejected submit.
+ *
+ * react-hook-form reports failure as state rather than as an event, so there is
+ * no callback to hang this on. The effect keys off `submitCount` and records the
+ * submit it already handled — without that, every keystroke re-rendering the
+ * form while errors persist would drag the user back to the field. The lookup
+ * waits a frame so it sees the error markup this submit just mounted.
+ */
+function SubmitErrorFocus() {
+  const scopeId = React.useContext(FormScopeContext)
   const { control } = useFormContext()
   const { errors, submitCount } = useFormState({ control })
-  const handledSubmitCountRef = React.useRef(0)
+  const handledSubmit = React.useRef(0)
 
   React.useEffect(() => {
-    if (!formContext || submitCount === 0 || !hasFormErrors(errors)) return
-    if (handledSubmitCountRef.current === submitCount) return
+    if (!scopeId || submitCount === 0 || !hasFieldErrors(errors)) return
+    if (handledSubmit.current === submitCount) return
 
-    handledSubmitCountRef.current = submitCount
+    handledSubmit.current = submitCount
 
-    const animationFrameId = window.requestAnimationFrame(() => {
-      const invalidControl = document.querySelector<HTMLElement>(
-        getFormScopedSelector(formContext.id, '[aria-invalid="true"]')
-      )
-      const errorMessage = document.querySelector<HTMLElement>(
-        getFormScopedSelector(formContext.id, '[data-slot="form-message"]')
-      )
-      const target = getFirstFormErrorTarget(invalidControl, errorMessage)
-      if (!target) return
-
-      const formItem = target.closest<HTMLElement>(
-        getFormScopedSelector(formContext.id, '[data-slot="form-item"]')
-      )
-      const scrollTarget = formItem ?? target
-      const focusTarget =
-        target === invalidControl
-          ? invalidControl
-          : (formItem?.querySelector<HTMLElement>(
-              '[aria-invalid="true"], input, textarea, select, button, [tabindex]:not([tabindex="-1"])'
-            ) ?? null)
-
-      scrollTarget.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      focusTarget?.focus({ preventScroll: true })
-    })
-
-    return () => window.cancelAnimationFrame(animationFrameId)
-  }, [errors, formContext, submitCount])
+    const frame = window.requestAnimationFrame(() =>
+      focusFirstInvalidField(scopeId)
+    )
+    return () => window.cancelAnimationFrame(frame)
+  }, [errors, scopeId, submitCount])
 
   return null
 }
@@ -93,19 +114,15 @@ function Form<TFieldValues extends FieldValues = FieldValues>({
   children,
   ...props
 }: React.ComponentProps<typeof FormProvider<TFieldValues>>) {
-  const reactId = React.useId()
-  const id = React.useMemo(
-    () => `form-${reactId.replaceAll(/[^a-zA-Z0-9_-]/g, '_')}`,
-    [reactId]
-  )
+  const scopeId = toScopeId(React.useId())
 
   return (
-    <FormRootContext.Provider value={{ id }}>
+    <FormScopeContext.Provider value={scopeId}>
       <FormProvider {...props}>
-        <FormValidationFocus />
+        <SubmitErrorFocus />
         {children}
       </FormProvider>
-    </FormRootContext.Provider>
+    </FormScopeContext.Provider>
   )
 }
 
@@ -133,46 +150,39 @@ const FormField = <
   )
 }
 
-const useFormField = () => {
-  const fieldContext = React.useContext(FormFieldContext)
-  const itemContext = React.useContext(FormItemContext)
+const FormItemContext = React.createContext<string>('')
+
+/**
+ * Field state plus the ids this field's slots share. Usable outside `FormField`
+ * for fields that are not RHF-controlled (`test-form.tsx` wires a plain Select
+ * this way): `name` is then empty and no error is reported, while the label /
+ * description / message ids stay consistent.
+ */
+function useFormField() {
+  const { name } = React.useContext(FormFieldContext)
+  const id = React.useContext(FormItemContext)
   const { getFieldState } = useFormContext()
-  const formState = useFormState({ name: fieldContext.name })
-  const fieldState = getFieldState(fieldContext.name, formState)
-
-  if (!fieldContext) {
-    throw new Error('useFormField should be used within <FormField>')
-  }
-
-  const { id } = itemContext
+  const formState = useFormState({ name })
 
   return {
     id,
-    name: fieldContext.name,
+    name,
     formItemId: `${id}-form-item`,
     formDescriptionId: `${id}-form-item-description`,
     formMessageId: `${id}-form-item-message`,
-    ...fieldState,
+    ...getFieldState(name, formState),
   }
 }
 
-type FormItemContextValue = {
-  id: string
-}
-
-const FormItemContext = React.createContext<FormItemContextValue>(
-  {} as FormItemContextValue
-)
-
 function FormItem({ className, ...props }: React.ComponentProps<'div'>) {
-  const id = React.useId()
-  const formContext = React.useContext(FormRootContext)
+  const itemId = React.useId()
+  const scopeId = React.useContext(FormScopeContext)
 
   return (
-    <FormItemContext.Provider value={{ id }}>
+    <FormItemContext.Provider value={itemId}>
       <div
         data-slot='form-item'
-        data-form-root={formContext?.id}
+        data-form-id={scopeId ?? undefined}
         className={cn('grid gap-2', className)}
         {...props}
       />
@@ -216,18 +226,19 @@ function FormControl({
   ...props
 }: { children: React.ReactElement } & Record<string, unknown>) {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
-  const formContext = React.useContext(FormRootContext)
 
   return useRender({
     render: children,
     props: {
       'data-slot': 'form-control',
-      'data-form-root': formContext?.id,
       id: formItemId,
-      'aria-describedby': !error
-        ? `${formDescriptionId}`
-        : `${formDescriptionId} ${formMessageId}`,
       'aria-invalid': !!error,
+      // The message joins aria-describedby only once it exists, so an errored
+      // field is announced with its reason and a clean one is not left pointing
+      // at an id that renders nothing.
+      'aria-describedby': error
+        ? `${formDescriptionId} ${formMessageId}`
+        : formDescriptionId,
       ...props,
     },
   })
@@ -246,22 +257,23 @@ function FormDescription({ className, ...props }: React.ComponentProps<'p'>) {
   )
 }
 
-function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
+function FormMessage({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<'p'>) {
   const { error, formMessageId } = useFormField()
-  const formContext = React.useContext(FormRootContext)
   const { t } = useTranslation()
-  const body = error ? String(error?.message ?? '') : props.children
 
-  if (!body) {
-    return null
-  }
-
-  const translatedBody = typeof body === 'string' ? t(body) : body
+  // The field error is the message body; `children` is the fallback for a note a
+  // caller renders itself. Error text arrives as an i18n key (from zod or from
+  // the API), so it goes through t() — an unknown key comes back verbatim.
+  const body = error ? String(error.message ?? '') : children
+  if (!body) return null
 
   return (
     <p
       data-slot='form-message'
-      data-form-root={formContext?.id}
       id={formMessageId}
       // Assertive live region: errors mount after a failed submit, and the
       // role makes screen readers announce them without waiting for focus to
@@ -270,7 +282,7 @@ function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
       className={cn('text-destructive text-sm', className)}
       {...props}
     >
-      {translatedBody}
+      {typeof body === 'string' ? t(body) : body}
     </p>
   )
 }
