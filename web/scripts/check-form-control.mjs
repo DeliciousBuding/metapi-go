@@ -9,11 +9,13 @@
 // failure from the CI `a11y` job (it scans authenticated routes, not the inside
 // of these dialogs).
 //
-// Empirically confirmed instance: `EndpointsEditor` — `queryByLabelText('API
-// endpoints')` returns null while every sibling field in the same form resolves.
-// The class recurred across five components / ten call sites, so per AGENTS.md
-// ("a violation class seen a third time gets a deterministic gate") it is now
-// mechanically enforced. Tracked in issue #1300.
+// Origin: `EndpointsEditor` was the empirically confirmed instance —
+// `queryByLabelText('API endpoints')` returned null while every sibling field in
+// the same form resolved. The class spanned five composite components / ten call
+// sites, so per AGENTS.md ("a violation class seen a third time gets a
+// deterministic gate") it is mechanically enforced. All five were fixed and
+// #1300 is closed, so the EXCEPTIONS registry is now empty; the gate stays as
+// the regression guard (a new non-forwarding composite fails it).
 //
 // Rule: a `<FormControl>` child must reach a DOM node carrying the injected
 // props. Satisfied when the child is (a) a native element, (b) a
@@ -37,7 +39,6 @@ import { fileURLToPath } from 'node:url'
 const WEB_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = join(WEB_ROOT, 'src')
 const UI_DIR = join(SRC, 'components', 'ui')
-const ISSUE = 'https://github.com/DeliciousBuding/metapi-go/issues/1300'
 const REFERENCE_IMPL = 'src/features/sites/components/custom-headers-field.tsx'
 
 // --- exceptions registry -----------------------------------------------------
@@ -230,5 +231,5 @@ console.log(
   `✓ FormControl forwarding clean: ${checked} site(s) classified in ${files.length} files — ` +
     `${tally.native} native, ${tally.uiPrimitive} ui primitive, ${tally.forwarding} forwarding component, ` +
     `${tally.exception} registered exception call site(s); ${tally.prose} prose occurrence(s) skipped; ` +
-    `0 unclassified. Exceptions: ${EXCEPTIONS.length}/${EXCEPTIONS.length} matched (${ISSUE})`
+    `0 unclassified. Exceptions: ${EXCEPTIONS.length}/${EXCEPTIONS.length} matched.`
 )
