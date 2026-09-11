@@ -1,6 +1,19 @@
-// metapi-go/context — theme-provider ported from newapi. AGPL header stripped.
-// Dark mode provider: <html> class switching + cookie persistence + prefers-color-scheme listener.
-// Exports useTheme() — consumed by sonner.tsx and the theme toggle.
+// metapi-go/context — ThemeProvider: the light / dark / system colour scheme.
+//
+// Three jobs, in the order they matter:
+//   1. resolve `system` against `prefers-color-scheme` and keep resolving it —
+//      the media-query listener is what makes "follow system" actually follow;
+//   2. publish the resolved scheme everywhere something reads it: the
+//      `.light` / `.dark` class (Tailwind 4 dark mode is class-based),
+//      `data-theme`, `color-scheme` (native form controls and scrollbars), and
+//      `<meta name="theme-color">` (browser chrome);
+//   3. persist the choice in a year-long cookie, which is what lets
+//      `public/bootstrap.js` paint the right background before the bundle loads.
+//
+// On mount it also strips the bootstrap's inline background from `<html>`: that
+// inline style exists only to win the first paint, and leaving it in place makes
+// overscroll reveal the pre-mount colour instead of the themed body background
+// (which propagates to the canvas).
 
 import {
   createContext,
@@ -12,17 +25,18 @@ import {
 } from 'react'
 
 import { getCookie, removeCookie, setCookie } from '@/lib/cookies'
+import { syncThemeColorMeta } from '@/lib/theme-color-meta'
 
 export type Theme = 'dark' | 'light' | 'system'
 export type ResolvedTheme = Exclude<Theme, 'system'>
 
-const DEFAULT_THEME = 'system'
-// Legacy name, kept deliberately: the theme is client state persisted for a
-// year, so renaming the cookie would silently reset every existing user's
-// choice. Read by `public/bootstrap.js` before the bundle loads.
-const THEME_COOKIE_NAME = 'vite-ui-theme'
+const DEFAULT_THEME: Theme = 'system'
 const THEME_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 year
 const THEMES = new Set<Theme>(['dark', 'light', 'system'])
+const PREFERS_DARK = '(prefers-color-scheme: dark)'
+// Legacy cookie name, kept deliberately: it is a year of client state, and it is
+// what `public/bootstrap.js` reads before this module exists.
+const THEME_COOKIE_NAME = 'vite-ui-theme'
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -30,7 +44,7 @@ type ThemeProviderProps = {
   storageKey?: string
 }
 
-type ThemeProviderState = {
+type ThemeContextValue = {
   defaultTheme: Theme
   resolvedTheme: ResolvedTheme
   theme: Theme
@@ -38,116 +52,95 @@ type ThemeProviderState = {
   resetTheme: () => void
 }
 
-const initialState: ThemeProviderState = {
+/**
+ * Value seen by a consumer rendered outside a provider: reads as the light
+ * default and ignores writes. Not hypothetical — `ui/__tests__/axe-toast`
+ * renders `<Toaster>` standalone, and an error boundary can mount before the
+ * provider stack is ready. A stray `useTheme()` should degrade, not crash.
+ */
+const UNMOUNTED: ThemeContextValue = {
   defaultTheme: DEFAULT_THEME,
   resolvedTheme: 'light',
   theme: DEFAULT_THEME,
-  setTheme: () => null,
-  resetTheme: () => null,
+  setTheme: () => {},
+  resetTheme: () => {},
 }
 
-const ThemeContext = createContext<ThemeProviderState>(initialState)
+const ThemeContext = createContext<ThemeContextValue>(UNMOUNTED)
 
-function getSystemTheme(): ResolvedTheme {
-  if (typeof window === 'undefined') return 'light'
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light'
+function systemTheme(): ResolvedTheme {
+  return window.matchMedia(PREFERS_DARK).matches ? 'dark' : 'light'
 }
 
-function resolveTheme(theme: Theme): ResolvedTheme {
-  return theme === 'system' ? getSystemTheme() : theme
+function resolve(theme: Theme): ResolvedTheme {
+  return theme === 'system' ? systemTheme() : theme
 }
 
-function getStoredTheme(storageKey: string, fallback: Theme): Theme {
-  const storedTheme = getCookie(storageKey) as Theme | undefined
-  return storedTheme && THEMES.has(storedTheme) ? storedTheme : fallback
+/** The persisted choice, or `fallback` when it is absent or not a known theme. */
+function readStoredTheme(storageKey: string, fallback: Theme): Theme {
+  const stored = getCookie(storageKey) as Theme | undefined
+  return stored && THEMES.has(stored) ? stored : fallback
 }
 
 export function ThemeProvider({
   children,
   defaultTheme = DEFAULT_THEME,
   storageKey = THEME_COOKIE_NAME,
-  ...props
 }: ThemeProviderProps) {
-  const [theme, _setTheme] = useState<Theme>(() =>
-    getStoredTheme(storageKey, defaultTheme)
+  const [theme, setThemeState] = useState<Theme>(() =>
+    readStoredTheme(storageKey, defaultTheme)
   )
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
-    resolveTheme(getStoredTheme(storageKey, defaultTheme))
+    resolve(readStoredTheme(storageKey, defaultTheme))
   )
 
   useEffect(() => {
-    const root = window.document.documentElement
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const root = document.documentElement
+    const prefersDark = window.matchMedia(PREFERS_DARK)
 
-    const applyTheme = () => {
-      const nextResolvedTheme = theme === 'system' ? getSystemTheme() : theme
+    const apply = () => {
+      const next = resolve(theme)
+
       root.classList.remove('light', 'dark')
-      root.classList.add(nextResolvedTheme)
-      root.setAttribute('data-theme', nextResolvedTheme)
-      root.style.colorScheme = nextResolvedTheme
-      window.requestAnimationFrame(() => {
-        const background = getComputedStyle(document.body)
-          .getPropertyValue('--background')
-          .trim()
-        const themeColor = document.querySelector('meta[name="theme-color"]')
-        if (background) themeColor?.setAttribute('content', background)
-      })
-      setResolvedTheme(nextResolvedTheme)
+      root.classList.add(next)
+      root.setAttribute('data-theme', next)
+      root.style.colorScheme = next
+      setResolvedTheme(next)
+      syncThemeColorMeta()
     }
 
-    applyTheme()
+    apply()
 
-    // The index.html FOUC bootstrap paints an inline background on <html> so
-    // the first frame matches the theme before React mounts. Once the
-    // provider owns the document, drop it: the themed body background (which
-    // propagates to the canvas) takes over, so overscroll no longer reveals
-    // the stale pre-mount color.
     root.style.removeProperty('background-color')
     root.style.removeProperty('--bootstrap-background')
 
-    mediaQuery.addEventListener('change', applyTheme)
-
-    return () => mediaQuery.removeEventListener('change', applyTheme)
+    prefersDark.addEventListener('change', apply)
+    return () => prefersDark.removeEventListener('change', apply)
   }, [theme])
 
   const setTheme = useCallback(
-    (theme: Theme) => {
-      setCookie(storageKey, theme, THEME_COOKIE_MAX_AGE)
-      _setTheme(theme)
+    (next: Theme) => {
+      setCookie(storageKey, next, THEME_COOKIE_MAX_AGE)
+      setThemeState(next)
     },
     [storageKey]
   )
 
+  /** Back to following the system, and forget the stored override. */
   const resetTheme = useCallback(() => {
     removeCookie(storageKey)
-    _setTheme(defaultTheme)
+    setThemeState(defaultTheme)
   }, [defaultTheme, storageKey])
 
-  const contextValue = useMemo(
-    () => ({
-      defaultTheme,
-      resolvedTheme,
-      resetTheme,
-      theme,
-      setTheme,
-    }),
-    [defaultTheme, resolvedTheme, resetTheme, theme, setTheme]
+  const value = useMemo<ThemeContextValue>(
+    () => ({ defaultTheme, resolvedTheme, resetTheme, setTheme, theme }),
+    [defaultTheme, resolvedTheme, resetTheme, setTheme, theme]
   )
 
-  return (
-    <ThemeContext value={contextValue} {...props}>
-      {children}
-    </ThemeContext>
-  )
+  return <ThemeContext value={value}>{children}</ThemeContext>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const useTheme = () => {
-  const context = useContext(ThemeContext)
-
-  if (!context) throw new Error('useTheme must be used within a ThemeProvider')
-
-  return context
+export function useTheme(): ThemeContextValue {
+  return useContext(ThemeContext)
 }

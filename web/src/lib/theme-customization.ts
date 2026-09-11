@@ -1,7 +1,30 @@
-const PRESET_DEFAULT_FONT: Partial<Record<ThemePreset, ResolvedThemeFont>> = {
-  default: 'sans',
-}
+// metapi-go/lib — the theme customization vocabulary: the axes a user can
+// change, their allowed values, and where each choice is persisted.
+//
+// Lives in `lib/` rather than beside the provider so both the provider and the
+// customizer panel can import it without crossing the React Fast Refresh
+// boundary (`only-export-components`).
+//
+// Two hard constraints on this module:
+//
+//   1. `public/theme-init.js` applies these choices before first paint, so it
+//      carries its own hardcoded copy of the allowlists (it runs before any
+//      bundled module exists and cannot import from here). Two gates fail if the
+//      copies drift — `styles/__tests__/fouc-bootstrap` and
+//      `lib/__tests__/theme-bootstrap-parity` — and both compare **in order**,
+//      so declaration order below is part of the contract, not a style choice.
+//   2. The cookie keys and every `value` string are persisted client state
+//      (one-year cookies). Renaming one silently resets that user's appearance.
+//
+// The preset *palette* — the `swatches` below and the oklch values they preview
+// in `styles/theme-presets.css` — is design data rather than logic, and is the
+// product's visual identity; changing it is a design decision, not a refactor.
 
+/**
+ * The colour presets, in customizer display order. Each entry carries the two
+ * swatches its card previews (the preset's `--primary` and `--secondary` from
+ * `theme-presets.css`).
+ */
 export const THEME_PRESETS = [
   {
     value: 'default',
@@ -9,8 +32,7 @@ export const THEME_PRESETS = [
     swatches: ['oklch(0.72 0.18 250)', 'oklch(0.7 0.12 280)'],
   },
   {
-    // Inspired by Anthropic's brand language: warm cream canvas paired
-    // with clay/coral as the single accent.
+    // Warm cream canvas with clay/coral as the single accent.
     value: 'anthropic',
     name: 'Anthropic',
     swatches: ['oklch(0.984 0.005 95)', 'oklch(0.57 0.15 38)'],
@@ -57,25 +79,19 @@ export const THEME_PRESETS = [
   },
 ] as const
 
-// metapi-go/lib — theme customization constants ported from newapi. AGPL header stripped.
-// Lives in lib/ (not context/) so it can be imported alongside the provider
-// without breaking React Fast Refresh boundaries.
-
 export type ThemePreset = (typeof THEME_PRESETS)[number]['value']
 export type ThemeRadius = 'default' | 'none' | 'sm' | 'md' | 'lg' | 'xl'
 export type ThemeScale = 'default' | 'sm' | 'lg' | 'xl'
 export type ContentLayout = 'full' | 'centered'
 
 /**
- * Font axis for the theme.
+ * The body-font axis.
  *
- * - `default` — resolve at runtime from the active preset
- *   (see PRESET_DEFAULT_FONT). Every shipped preset resolves to sans,
- *   so the out-of-the-box experience is the humanist Public Sans voice;
- *   serif only appears when the user explicitly selects it.
- * - `sans` — humanist sans (Public Sans), the project's UI fallback.
- * - `serif` — editorial serif (Lora + CJK fallbacks), an explicit
- *   opt-in typography.
+ * `default` is what ships and what a reset returns to; it resolves to `sans`
+ * (the humanist Public Sans voice) for every preset, so serif only ever appears
+ * as an explicit user choice. `resolveThemeFont` is the single place that
+ * resolution happens — CSS addresses the concrete face
+ * (`[data-theme-font='sans']` / `='serif'`), never `default`.
  */
 export type ThemeFont = 'default' | 'sans' | 'serif'
 
@@ -98,7 +114,7 @@ export const DEFAULT_THEME_CUSTOMIZATION: ThemeCustomization = {
 }
 
 export const THEME_PRESET_VALUES = new Set(
-  THEME_PRESETS.map((p) => p.value)
+  THEME_PRESETS.map((preset) => preset.value)
 ) as ReadonlySet<ThemePreset>
 
 export const THEME_FONT_VALUES: ReadonlySet<ThemeFont> = new Set([
@@ -128,6 +144,10 @@ export const CONTENT_LAYOUT_VALUES: ReadonlySet<ContentLayout> = new Set([
   'centered',
 ])
 
+/**
+ * Cookie each axis persists to. Read by `public/theme-init.js` before the
+ * bundle loads — the strings are a contract with that script, not free names.
+ */
 export const THEME_COOKIE_KEYS = {
   preset: 'theme_preset',
   font: 'theme_font',
@@ -136,19 +156,7 @@ export const THEME_COOKIE_KEYS = {
   contentLayout: 'theme_content_layout',
 } as const
 
-/**
- * Preset → default font mapping. Every preset resolves to `sans` — the
- * humanist Public Sans voice is the default experience everywhere, and
- * serif is only ever an explicit user choice. The map exists so a future
- * preset could opt into serif (or any other resolved face) by listing it.
- */
-
-export function resolveThemeFont(
-  font: ThemeFont,
-  preset: ThemePreset
-): ResolvedThemeFont {
-  if (font === 'default') {
-    return PRESET_DEFAULT_FONT[preset] ?? 'sans'
-  }
-  return font
+/** The stored font preference as the concrete face CSS addresses. */
+export function resolveThemeFont(font: ThemeFont): ResolvedThemeFont {
+  return font === 'default' ? 'sans' : font
 }

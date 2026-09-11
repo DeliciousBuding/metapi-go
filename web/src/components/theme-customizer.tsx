@@ -1,9 +1,14 @@
-// metapi-go/components — theme customizer panel
-// (color scheme / preset / font / radius / scale / content-layout).
-// Adapted from newapi's config-drawer (AGPL header stripped): a compact
-// popover for the app header instead of a full sheet. Consumes the
-// ThemeCustomizationProvider axes plus the ThemeProvider color scheme, so the
-// mode can always be returned to "follow system".
+// metapi-go/components — ThemeCustomizer: the appearance popover in the app
+// header (colour scheme / preset / font / radius / scale / content layout).
+//
+// A popover off the header rather than a settings page: these are axes a user
+// tweaks once and forgets, and every tile previews live because the providers
+// write straight to <body> — the swatch, the "Aa" glyph, the corner radius and
+// the font size are the real tokens, not illustrations of them.
+//
+// It owns no appearance state. Colour scheme comes from ThemeProvider, the other
+// four axes plus content layout from ThemeCustomizationProvider, which keeps
+// "follow system" and "reset" reachable from the same control that changes them.
 
 import { Radio as RadioPrimitive } from '@base-ui/react/radio'
 import { Check, Monitor, Moon, Palette, RotateCcw, Sun } from 'lucide-react'
