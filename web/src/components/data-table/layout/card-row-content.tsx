@@ -17,12 +17,9 @@
 //              design and still have to be readable on a phone.
 //
 // `mobileHidden` is honoured by both, and `mobileOrder` decides field order.
-// Badges render through `StatusBadgeTypeContext` as `text` rather than as chips:
-// a chip's background and border cost more than a card row has room for.
 
 import type { Cell, Row } from '@tanstack/react-table'
 
-import { StatusBadgeTypeContext } from '../core/status-badge'
 import { getCellLabel, renderCellContent } from './card-cell-utils'
 
 type CardCells<TData> = {
@@ -93,15 +90,11 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
     <>
       <div className='flex items-center justify-between gap-2'>
         {title && (
-          <div className='min-w-0 flex-1 text-sm font-medium [&_[data-slot=status-badge]]:max-w-full [&_[data-slot=status-badge]]:whitespace-normal'>
+          <div className='min-w-0 flex-1 text-sm font-medium'>
             {renderCellContent(title)}
           </div>
         )}
-        {badge && (
-          <div className='flex-none [&_[data-slot=status-badge]]:max-w-none'>
-            {renderCellContent(badge)}
-          </div>
-        )}
+        {badge && <div className='flex-none'>{renderCellContent(badge)}</div>}
       </div>
 
       {fields.length > 0 && (
@@ -116,7 +109,7 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
                     {label}
                   </div>
                 )}
-                <div className='min-w-0 overflow-hidden text-xs [&_:is([data-slot=badge-cell],[data-slot=provider-badge],[data-slot=status-badge])]:ml-0'>
+                <div className='min-w-0 overflow-hidden text-xs'>
                   {renderCellContent(cell) ?? '-'}
                 </div>
               </div>
@@ -149,10 +142,7 @@ function CondensedContent<TData>({ row }: { row: Row<TData> }) {
 
         if (!label) {
           return (
-            <div
-              key={cell.id}
-              className='flex justify-end overflow-hidden [&_:is([data-slot=badge-cell],[data-slot=provider-badge],[data-slot=status-badge])]:ml-0'
-            >
+            <div key={cell.id} className='flex justify-end overflow-hidden'>
               {renderCellContent(cell)}
             </div>
           )
@@ -166,7 +156,7 @@ function CondensedContent<TData>({ row }: { row: Row<TData> }) {
             <span className='text-muted-foreground shrink-0 text-[10px] font-medium select-none'>
               {label}
             </span>
-            <div className='flex min-w-0 flex-1 items-center justify-end overflow-hidden text-xs [&_:is([data-slot=badge-cell],[data-slot=provider-badge],[data-slot=status-badge])]:ml-0'>
+            <div className='flex min-w-0 flex-1 items-center justify-end overflow-hidden text-xs'>
               {renderCellContent(cell) ?? '-'}
             </div>
           </div>
@@ -188,9 +178,6 @@ function CondensedContent<TData>({ row }: { row: Row<TData> }) {
  * `compact` is decided once per table by the caller (`tableHasCompactMeta`), not
  * per row: every card in a list has to have the same shape, and recomputing the
  * scan for each row would be pure waste.
- *
- * The badge-type provider wraps the whole card rather than each field, so both
- * layouts declare it once.
  */
 export function CardRowContent<TData>({
   row,
@@ -199,9 +186,5 @@ export function CardRowContent<TData>({
   row: Row<TData>
   compact: boolean
 }) {
-  return (
-    <StatusBadgeTypeContext.Provider value='text'>
-      {compact ? <CompactContent row={row} /> : <CondensedContent row={row} />}
-    </StatusBadgeTypeContext.Provider>
-  )
+  return compact ? <CompactContent row={row} /> : <CondensedContent row={row} />
 }

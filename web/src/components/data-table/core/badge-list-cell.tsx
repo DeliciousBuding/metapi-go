@@ -7,6 +7,9 @@
 // tooltip would hide data the user came to the table for; showing everything
 // would blow out the row height and with it the whole table's rhythm.
 //
+// The badges themselves arrive pre-rendered: which badge component a column uses
+// is the feature's business, not the table's.
+//
 // The empty case renders an em dash rather than nothing, so an empty cell is
 // distinguishable from a cell that failed to render.
 
@@ -18,11 +21,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-
-import { StatusBadgeList } from './status-badge'
+import { cn } from '@/lib/utils'
 
 type BadgeListCellProps = {
-  /** Already-rendered badges; this cell does not know how to build them. */
+  /** Already-rendered badges. */
   items: React.ReactNode[]
   /** How many to show inline before the "+N" chip. */
   max?: number
@@ -43,17 +45,21 @@ export function BadgeListCell({
     return <span className='text-muted-foreground text-xs'>—</span>
   }
 
+  const overflow = items.length - max
+
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger render={<div className={CELL_CLASS} />}>
-          <StatusBadgeList
-            items={items}
-            max={max}
-            renderItem={(item) => item}
-          />
+          {/* Rendered as the caller's own elements, keys and all: wrapping each
+              in a Fragment would mean inventing a key for nodes that already
+              have one. */}
+          <div className='flex max-w-full min-w-0 items-center gap-1 overflow-hidden'>
+            {items.slice(0, max)}
+            {overflow > 0 && <OverflowChip count={overflow} />}
+          </div>
         </TooltipTrigger>
-        {items.length > max && (
+        {overflow > 0 && (
           <TooltipContent
             side='top'
             className={tooltipClassName ?? TOOLTIP_CLASS}
@@ -63,5 +69,28 @@ export function BadgeListCell({
         )}
       </Tooltip>
     </TooltipProvider>
+  )
+}
+
+/**
+ * The "+N" chip. A muted text pill with no background, so a column of badges
+ * does not turn into a wall of chips and the count does not compete with the
+ * values it is summarising.
+ */
+function OverflowChip({ count }: { count: number }) {
+  const label = `+${count}`
+
+  return (
+    <span
+      title={label}
+      className={cn(
+        'inline-flex w-fit max-w-full min-w-0 shrink items-center font-medium tracking-normal whitespace-nowrap transition-colors',
+        'rounded-4xl h-5 gap-1 px-1.5 text-sm leading-none',
+        'text-muted-foreground',
+        'shrink-0'
+      )}
+    >
+      <span className='min-w-0 truncate leading-normal'>{label}</span>
+    </span>
   )
 }
