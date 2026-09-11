@@ -1,5 +1,16 @@
-// metapi-go/data-table — ported from newapi
-import * as React from 'react'
+// metapi-go/data-table — TruncatedCell: an ellipsised cell that can still be
+// read.
+//
+// Table columns truncate constantly (site names, URLs, model descriptions) and a
+// truncated value with no way to see the rest is a dead end, so this is the one
+// cell every truncating column goes through. The tooltip body defaults to the
+// cell's own text, which is what `textContentOf` is for: a column's `cell`
+// renderer returns an arbitrary React node, and the only honest answer to "what
+// does this cell say" is to concatenate its string and number leaves and ignore
+// the markup. A node with no text at all (a pure icon cell) renders without a
+// tooltip — an empty tooltip is worse than none.
+
+import type * as React from 'react'
 
 import {
   Tooltip,
@@ -10,66 +21,39 @@ import { cn } from '@/lib/utils'
 
 type TruncatedCellProps = {
   children: React.ReactNode
-  cellClassName?: string
+  /** Extra classes for the clipping box, e.g. a `max-w-*` to truncate against. */
   className?: string
-  contentClassName?: string
-  side?: 'top' | 'bottom' | 'left' | 'right'
-  tooltipClassName?: string
+  /** Overrides the derived text body, e.g. to spell out a formatted value. */
   tooltipContent?: React.ReactNode
 }
 
 export function TruncatedCell({
   children,
-  cellClassName,
   className,
-  contentClassName,
-  side = 'top',
-  tooltipClassName,
   tooltipContent,
 }: TruncatedCellProps) {
-  const content = tooltipContent ?? getTextContent(children)
+  const content = tooltipContent ?? textContentOf(children)
+  const clipClassName = cn('block max-w-full min-w-0 truncate', className)
 
   if (!content) {
-    return (
-      <div
-        className={cn(
-          'block max-w-full min-w-0 truncate',
-          cellClassName,
-          className
-        )}
-      >
-        {children}
-      </div>
-    )
+    return <div className={clipClassName}>{children}</div>
   }
 
   return (
     <Tooltip>
-      <TooltipTrigger
-        render={
-          <div
-            className={cn(
-              'block max-w-full min-w-0 truncate',
-              cellClassName,
-              className
-            )}
-          />
-        }
-      >
-        <div className={cn('truncate', contentClassName)}>{children}</div>
+      <TooltipTrigger render={<div className={clipClassName} />}>
+        <div className='truncate'>{children}</div>
       </TooltipTrigger>
-      <TooltipContent
-        side={side}
-        className={cn('max-w-xs break-all', tooltipClassName)}
-      >
+      <TooltipContent side='top' className='max-w-xs break-all'>
         {content}
       </TooltipContent>
     </Tooltip>
   )
 }
 
-function getTextContent(node: React.ReactNode): string {
+/** The text a node reads out loud as: its string/number leaves, markup dropped. */
+function textContentOf(node: React.ReactNode): string {
   if (typeof node === 'string' || typeof node === 'number') return String(node)
-  if (Array.isArray(node)) return node.map(getTextContent).join('')
+  if (Array.isArray(node)) return node.map(textContentOf).join('')
   return ''
 }

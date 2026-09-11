@@ -1,7 +1,7 @@
 // metapi-go — application entry (main.tsx).
 // Orchestrates: QueryClient + Router (shared instances from lib/router, so
-// non-React call sites can navigate too) → RouterProvider → 3-layer Provider
-// stack (Theme → Direction → ThemeCustomization).
+// non-React call sites can navigate too) → RouterProvider → Theme →
+// ThemeCustomization.
 
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
@@ -9,7 +9,6 @@ import { setNonce } from 'get-nonce'
 import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 
-import { DirectionProvider } from '@/context/direction-provider'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
 import { getCspNonce } from '@/lib/csp-nonce'
@@ -46,11 +45,9 @@ if (!rootElement.innerHTML) {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <DirectionProvider>
-            <ThemeCustomizationProvider>
-              <RouterProvider router={router} />
-            </ThemeCustomizationProvider>
-          </DirectionProvider>
+          <ThemeCustomizationProvider>
+            <RouterProvider router={router} />
+          </ThemeCustomizationProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </StrictMode>

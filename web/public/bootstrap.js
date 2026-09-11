@@ -3,8 +3,10 @@
 // before the first frame, exactly like the former inline script. Must stay
 // dependency-free: it executes before any bundled module loads.
 //
-// Cookie-based (vite-ui-theme, 1y) to align with newapi next-themes cookie
-// storage; falls back to system preference. Legacy themeBootstrap.ts removed.
+// Cookie-based (vite-ui-theme, 1y) because a cookie is readable before the
+// bundle exists; falls back to the system preference when it is absent. The
+// cookie name is a legacy artefact and must not be renamed: it is client state
+// that already exists in the wild for up to a year.
 // Tailwind 4 dark mode is class-based: <html class="dark"> / class="light".
 ;(function () {
   // CSP runtime-style handshake (#1035 S2): the Go SPA fallback injects a

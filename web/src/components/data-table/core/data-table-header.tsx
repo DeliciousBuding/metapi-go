@@ -11,7 +11,7 @@ import { TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 
 import { DataTableColumnHeader } from './column-header'
-import { isContentSizedColumn } from './content-sized-columns'
+import { isContentSizedColumn } from './table-sizing'
 import type { DataTableColumnClassName } from './types'
 
 type DataTableHeaderProps<TData> = {

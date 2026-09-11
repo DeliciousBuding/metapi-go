@@ -209,12 +209,6 @@ export type DataTablePageProps<TData> = DataTablePageErrorProps & {
   showPagination?: boolean
 
   /**
-   * Render pagination via `PageFooterPortal` (sticks to page footer).
-   * Defaults to `true`. Set `false` to render inline below the table.
-   */
-  paginationInFooter?: boolean
-
-  /**
    * Extra content rendered between the table/mobile list and the pagination.
    * E.g. summary stats, helper text.
    */
@@ -355,12 +349,10 @@ function renderPagination<TData>(
     return null
   }
 
-  const pagination = <DataTablePagination table={props.table} />
-
-  return props.paginationInFooter !== false ? (
-    <PageFooterPortal>{pagination}</PageFooterPortal>
-  ) : (
-    <div className='pt-2'>{pagination}</div>
+  return (
+    <div className='pt-2'>
+      <DataTablePagination table={props.table} />
+    </div>
   )
 }
 
@@ -452,12 +444,4 @@ function renderDesktop<TData>(
       }
     />
   )
-}
-
-// Local fallback for PageFooterPortal — @/components/layout/components/page-footer
-// is not yet present in metapi-go. Renders pagination inline below the table.
-// When the shared portal lands, replace this with the real import so pagination
-// can be portalled into a sticky page-footer slot.
-function PageFooterPortal({ children }: { children: React.ReactNode }) {
-  return <div className='pt-2'>{children}</div>
 }

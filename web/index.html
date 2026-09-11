@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -33,9 +33,9 @@
       The script lives in web/public/bootstrap.js and is loaded synchronously
       (no defer/async) so it runs before the first frame — the same timing as
       the former inline script, but as a static asset so the CSP can drop
-      'unsafe-inline' for scripts. Cookie-based (vite-ui-theme, 1y) to align
-      with newapi next-themes cookie storage; falls back to system preference.
-      Legacy themeBootstrap.ts removed.
+      'unsafe-inline' for scripts. Cookie-based (vite-ui-theme, 1y) because a
+      cookie is readable before the bundle exists; falls back to the system
+      preference when the cookie is absent.
       Tailwind 4 dark mode is class-based: <html class="dark"> / class="light".
     -->
     <script src="/bootstrap.js"></script>

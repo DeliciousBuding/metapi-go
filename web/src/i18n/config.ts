@@ -76,9 +76,12 @@ export function initI18n(): Promise<unknown> {
 /**
  * Keep `<html lang>` in sync with the active language so assistive tech,
  * spell checkers and locale-aware tooling see the current BCP-47 tag.
- * `dir` is intentionally NOT touched here — `DirectionProvider` is the single
- * owner of the direction attribute (a language change must not clobber an
- * RTL user's direction cookie).
+ *
+ * `dir` is intentionally NOT touched here. metapi-go ships English and
+ * Simplified Chinese only — both LTR — so the direction is a static
+ * `<html dir="ltr">` in index.html and nothing in the app writes it. Setting it
+ * from the language would make the i18n layer the owner of an attribute it has
+ * no business changing the day an RTL locale is added.
  */
 function syncDocumentLanguage(language: string): void {
   document.documentElement.lang = toBcp47(language)
