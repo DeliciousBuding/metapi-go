@@ -1,4 +1,4 @@
-// metapi-go/ui — alert-dialog component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — alert-dialog (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 'use client'
 
 import { AlertDialog as AlertDialogPrimitive } from '@base-ui/react/alert-dialog'
