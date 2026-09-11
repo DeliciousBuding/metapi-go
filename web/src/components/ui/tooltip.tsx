@@ -1,4 +1,4 @@
-// metapi-go/ui — tooltip component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — tooltip (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip'
 
 import { cn } from '@/lib/utils'

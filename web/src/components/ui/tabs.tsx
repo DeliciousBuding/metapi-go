@@ -1,4 +1,4 @@
-// metapi-go/ui — tabs component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — tabs (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { Tabs as TabsPrimitive } from '@base-ui/react/tabs'
 import { cva, type VariantProps } from 'class-variance-authority'
 

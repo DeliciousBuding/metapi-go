@@ -1,4 +1,4 @@
-// metapi-go/ui — input-group component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — input-group (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 'use client'
 
 import { cva, type VariantProps } from 'class-variance-authority'

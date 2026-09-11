@@ -1,4 +1,4 @@
-// metapi-go/ui — chart component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — chart (base-nova style, recharts). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import * as React from 'react'
 import * as RechartsPrimitive from 'recharts'
 import type { TooltipValueType } from 'recharts'
