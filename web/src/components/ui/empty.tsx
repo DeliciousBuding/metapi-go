@@ -1,4 +1,4 @@
-// metapi-go/ui — empty component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — empty (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'

@@ -1,4 +1,4 @@
-// metapi-go/ui — badge component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — badge (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
 import { cva, type VariantProps } from 'class-variance-authority'

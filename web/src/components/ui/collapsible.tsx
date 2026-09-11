@@ -1,4 +1,4 @@
-// metapi-go/ui — collapsible component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — collapsible (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { Collapsible as CollapsiblePrimitive } from '@base-ui/react/collapsible'
 
 function Collapsible({ ...props }: CollapsiblePrimitive.Root.Props) {

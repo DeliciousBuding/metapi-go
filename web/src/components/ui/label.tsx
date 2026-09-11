@@ -1,4 +1,4 @@
-// metapi-go/ui — label component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — label (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 'use client'
 
 import * as React from 'react'

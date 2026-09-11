@@ -1,4 +1,4 @@
-// metapi-go/ui — separator component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — separator (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { Separator as SeparatorPrimitive } from '@base-ui/react/separator'
 
 import { cn } from '@/lib/utils'
