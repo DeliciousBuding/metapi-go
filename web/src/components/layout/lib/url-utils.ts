@@ -1,114 +1,108 @@
-// metapi-go/layout — url-utils ported from newapi. AGPL header stripped.
-// checkIsActive drives sidebar active-state highlighting.
+// metapi-go/layout — checkIsActive: which sidebar entry the current URL selects.
+//
+// The sidebar is the only navigation surface for the Settings workspace, so this
+// has to be right for the three ways an entry can declare itself active, and
+// each exists for a reason:
+//
+//   `url`          the entry's own target;
+//   `activeUrls`   extra URLs that also select it (a section index that has to
+//                  light up for its default section);
+//   `activePrefix` a whole subtree (a settings subarea stays active for every
+//                  section URL beneath it).
+//
+// Query and hash are stripped before comparing pathnames, so `/models#top` still
+// highlights `/models`. A declared URL that *does* carry a query only matches an
+// href carrying the same one — that is what keeps `/observability` and
+// `/observability?section=traffic` two distinct entries instead of one stealing
+// the other's highlight.
 
 import type { LinkProps } from '@tanstack/react-router'
 
-import type { NavItem, NavCollapsible } from '../types'
+import type { NavCollapsible, NavItem } from '../types'
+
+type NavUrl = LinkProps['to'] | (string & {})
 
 /**
- * Convert LinkProps['to'] to string
- * Handles both string URLs and object URLs (e.g., { pathname, search })
+ * A declared nav URL as a comparable string. TanStack's `to` is either a string
+ * or a `{ pathname, search }` object; anything else yields null, i.e. "never
+ * active", rather than throwing on a malformed entry.
  */
-function urlToString(url: LinkProps['to'] | (string & {})): string | null {
-  if (typeof url === 'string') {
-    return url
-  }
-  if (url && typeof url === 'object' && !Array.isArray(url)) {
-    const urlObj = url as Record<string, unknown>
-    const pathname = typeof urlObj.pathname === 'string' ? urlObj.pathname : ''
-    const search = typeof urlObj.search === 'string' ? urlObj.search : ''
-    return pathname + search
-  }
-  return null
+function urlToString(url: NavUrl): string | null {
+  if (typeof url === 'string') return url
+  if (!url || typeof url !== 'object' || Array.isArray(url)) return null
+
+  const { pathname, search } = url as Record<string, unknown>
+  const path = typeof pathname === 'string' ? pathname : ''
+  const query = typeof search === 'string' ? search : ''
+  return path + query
 }
 
-/**
- * Strip both the query string and the hash fragment from a URL, leaving only
- * the pathname. The active-state comparison should ignore transient query /
- * hash state so `/models#top` still highlights the `/models` nav item.
- */
+/** Pathname only: query and hash are transient state, not identity. */
 function stripQueryAndHash(url: string): string {
   return url.split('?')[0].split('#')[0]
 }
 
+/** Does the declared URL `candidate` select the current `href`? */
+function selects(href: string, hrefPath: string, candidate: string): boolean {
+  if (href === candidate) return true
+  // A candidate that pins a query is exact-match-only: matching it on pathname
+  // alone would claim every sibling section that shares its path.
+  return !candidate.includes('?') && stripQueryAndHash(candidate) === hrefPath
+}
+
+/** Trailing slashes normalised, except that `/` itself stays `/`. */
+function withoutTrailingSlash(path: string): string {
+  return path.length > 1 ? path.replace(/\/+$/, '') : path
+}
+
 /**
- * Check if a navigation item is active for the current href.
- * @param href - Current URL (may include query string + hash fragment)
- * @param item - Navigation item
+ * Subtree match for `activePrefix`. The `prefix + '/'` form is what stops
+ * `/settings/basic` from leaking onto `/settings/basics`.
  */
+function matchesPrefix(hrefPath: string, activePrefix: string): boolean {
+  const prefix = withoutTrailingSlash(activePrefix.split('?')[0])
+  const path = withoutTrailingSlash(hrefPath)
+
+  return path === prefix || path.startsWith(`${prefix}/`)
+}
+
 export function checkIsActive(href: string, item: NavItem): boolean {
   const hrefPath = stripQueryAndHash(href)
 
-  // Active URLs are query-aware: an entry matches the *bare* path only when
-  // the current href itself carries no query, so `/observability` highlights
-  // the default-section item without also matching `/observability?section=…`
-  // variants (which belong to their exact-match entries).
   if (
     item.activeUrls?.some((url) => {
-      const activeUrl = urlToString(url)
-      if (!activeUrl) return false
+      const declared = urlToString(url)
+      // Query-aware in the opposite direction from `selects`: a bare-path entry
+      // matches only while the href itself carries no query, so `/observability`
+      // highlights the default-section item without also claiming the
+      // `?section=…` variants that belong to their own entries.
       return (
-        activeUrl === href || (activeUrl === hrefPath && !href.includes('?'))
+        declared !== null &&
+        (declared === href || (declared === hrefPath && !href.includes('?')))
       )
     })
   ) {
     return true
   }
 
-  // Prefix match for drill-in items (e.g. a settings subarea stays active for
-  // any of its section URLs: /settings/basic matches /settings/basic/*).
-  if (item.activePrefix) {
-    const prefix = item.activePrefix.split('?')[0]
-    const cleanPrefix = prefix.length > 1 ? prefix.replace(/\/+$/, '') : prefix
-    const cleanHref =
-      hrefPath.length > 1 ? hrefPath.replace(/\/+$/, '') : hrefPath
-    if (cleanHref === cleanPrefix || cleanHref.startsWith(`${cleanPrefix}/`)) {
-      return true
-    }
+  if (item.activePrefix && matchesPrefix(hrefPath, item.activePrefix)) {
+    return true
   }
 
-  // For collapsible items (NavCollapsible), check sub-items first
+  // A branch is active when any child is, so the group stays open and highlighted
+  // while the user is somewhere inside it.
   if ('items' in item && item.items) {
-    const collapsibleItem = item as NavCollapsible
-    const items = collapsibleItem.items
-
-    // Check if any sub-item matches
+    const branch = item as NavCollapsible
     if (
-      items.some((i) => {
-        if (!i?.url) return false
-        const subItemUrl = urlToString(i.url)
-        if (!subItemUrl) return false
-        if (href === subItemUrl) return true
-        const subItemUrlPath = stripQueryAndHash(subItemUrl)
-        const subItemUrlHasQuery = subItemUrl.includes('?')
-        if (subItemUrlPath === hrefPath) {
-          if (!subItemUrlHasQuery) return true
-          if (subItemUrlHasQuery && href === subItemUrl) return true
-        }
-        return false
+      branch.items.some((child) => {
+        const declared = child?.url ? urlToString(child.url) : null
+        return declared !== null && selects(href, hrefPath, declared)
       })
     ) {
       return true
     }
   }
 
-  // For regular link items, check the item's URL
-  if (!item.url) return false
-
-  const itemUrl = urlToString(item.url)
-  if (!itemUrl) return false
-
-  // Exact match
-  if (href === itemUrl) return true
-
-  const itemUrlPath = stripQueryAndHash(itemUrl)
-  const itemUrlHasQuery = itemUrl.includes('?')
-
-  // If both URLs have the same base path
-  if (hrefPath === itemUrlPath) {
-    if (!itemUrlHasQuery) return true
-    if (itemUrlHasQuery && href === itemUrl) return true
-  }
-
-  return false
+  const declared = item.url ? urlToString(item.url) : null
+  return declared !== null && selects(href, hrefPath, declared)
 }

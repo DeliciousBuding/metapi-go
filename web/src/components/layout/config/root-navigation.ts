@@ -1,7 +1,15 @@
-// metapi-go/hooks — use-sidebar-data adapted from newapi per plan.md §5.5.4.
-// 4 collapsible groups (Console / Configuration / Models / System) with lucide icons.
-// No NavChatPresets (metapi has no chat). No requiredRole (metapi is fully open).
-// Titles are i18n keys resolved via t() at render time (nav-group.tsx).
+// metapi-go/layout — the root navigation set: what the sidebar shows when the
+// URL matches no drill-in view.
+//
+// Four collapsible groups (Console / Configuration / Models / System). Every
+// `title` is an i18n key resolved with t() by `nav-group.tsx`, so this module
+// stays pure data and can be read outside React — the command palette does
+// exactly that to index navigation alongside its other sources.
+//
+// Static by design: it lives beside `system-settings.config.ts` (the Settings
+// view's equivalent) rather than in `hooks/`, because there is nothing to
+// observe. Both callers get the same object reference, so identity comparisons
+// downstream stay cheap.
 
 import {
   Activity,
@@ -23,17 +31,7 @@ import {
 
 import type { SidebarData } from '@/components/layout/types'
 
-/**
- * Root navigation groups for the metapi sidebar.
- *
- * Shown when the URL does not match any nested sidebar view registered in
- * components/layout/lib/sidebar-view-registry.ts (currently just Settings).
- * Grouped into 4 collapsible sections per the rewrite IA redesign.
- */
-// Module-level constant: the nav groups are fully static, so returning the
-// same object reference every call keeps `useSidebarView`'s `useMemo` from
-// re-running on every render (a fresh object literal would defeat it).
-const SIDEBAR_DATA: SidebarData = {
+export const ROOT_NAVIGATION: SidebarData = {
   navGroups: [
     {
       id: 'console',
@@ -143,8 +141,4 @@ const SIDEBAR_DATA: SidebarData = {
       ],
     },
   ],
-}
-
-export function useSidebarData(): SidebarData {
-  return SIDEBAR_DATA
 }

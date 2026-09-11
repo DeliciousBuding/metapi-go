@@ -41,6 +41,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ROOT_NAVIGATION } from '@/components/layout/config/root-navigation'
 import {
   Command,
   CommandDialog,
@@ -51,7 +52,6 @@ import {
 } from '@/components/ui/command'
 import { Spinner } from '@/components/ui/spinner'
 import { useSearchActions } from '@/hooks/use-search-actions'
-import { useSidebarData } from '@/hooks/use-sidebar-data'
 import {
   searchApi,
   type SearchAccount,
@@ -120,7 +120,6 @@ function firstNonEmpty(
 export function SearchModal(props: SearchModalProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const sidebarData = useSidebarData()
 
   const [query, setQuery] = React.useState('')
   const [results, setResults] = React.useState<SearchResponse | null>(null)
@@ -350,9 +349,10 @@ export function SearchModal(props: SearchModalProps) {
 
   // ---- Local navigation layer --------------------------------------------
 
+  // ROOT_NAVIGATION is a module constant, so there is nothing to recompute on.
   const pageEntries = React.useMemo(
-    () => pageEntriesFromNavGroups(sidebarData.navGroups),
-    [sidebarData]
+    () => pageEntriesFromNavGroups(ROOT_NAVIGATION.navGroups),
+    []
   )
   const settingsEntries = React.useMemo(() => getSettingsNavEntries(), [])
 

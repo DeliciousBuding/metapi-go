@@ -8,9 +8,9 @@
 // pattern. When `onSectionChange` is omitted the tabs render read-only
 // (useful for embeds / tests).
 //
-// Phase 3: lift shared section state here (chart preferences, time-range
-// filters) once the traffic / models sections grow their own filter controls,
-// mirroring newapi's dashboard/index.tsx parent-owned state.
+// The page owns no section state: each section fetches and holds its own, and
+// the only cross-section state today (the active tab) lives in the URL, which is
+// what makes a dashboard deep link reproducible.
 
 import { useTranslation } from 'react-i18next'
 

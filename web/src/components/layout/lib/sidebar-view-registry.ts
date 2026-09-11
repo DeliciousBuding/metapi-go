@@ -1,33 +1,29 @@
-// metapi-go/layout — sidebar-view-registry ported from newapi. AGPL header stripped.
-// Resolves the active nested drill-in view for a given pathname.
+// metapi-go/layout — the registry of drill-in sidebar views, and the pathname
+// lookup that picks one.
 //
-// S5 boundary inversion: the shell owns this registry. Feature-owned views
-// register through `registerSidebarView` from the authenticated route's
-// composition root (routes/_authenticated/route.tsx) instead of the shell
-// importing features (components ↛ features, see
-// docs/internal/web-package-boundaries.md).
+// The shell owns this module and features push into it, never the reverse: a
+// feature-owned view registers through `registerSidebarView` from the
+// authenticated route's composition root (routes/_authenticated/route.tsx),
+// which keeps `components/ ↛ features/` intact (see
+// docs/internal/web-package-boundaries.md). The inversion is what lets a
+// workspace live in its own feature folder and still replace the sidebar.
 
 import { SYSTEM_SETTINGS_VIEW } from '../config/system-settings.config'
 import type { SidebarView } from '../types'
 
 /**
- * Registered nested sidebar views.
- *
- * Each entry describes a contextual sidebar that replaces the root
- * navigation when the user enters that workspace (Vercel-style
- * "drill-in" pattern).
- *
- * Match priority is array order; the first matching `pathPattern` wins.
- * The settings view is layout-owned and registered statically; feature
- * views are appended by the composition root before first render.
+ * Registered views, in match order: the first `pathPattern` that tests true
+ * wins, so a narrower pattern must be registered before a broader one.
+ * Settings is layout-owned and therefore static; feature views are appended by
+ * the composition root before first render.
  */
 const SIDEBAR_VIEWS: SidebarView[] = [SYSTEM_SETTINGS_VIEW]
 
 /**
- * Register a drill-in view owned outside the layout shell.
+ * Register a view owned outside the layout shell.
  *
- * Idempotent per view id: re-registering the same id replaces the entry
- * (keeps HMR re-evaluation from duplicating views).
+ * Idempotent per `id` — re-registering replaces the entry, so a dev-server
+ * module re-evaluation cannot leave the same workspace in the list twice.
  */
 export function registerSidebarView(view: SidebarView): void {
   const existingIndex = SIDEBAR_VIEWS.findIndex((entry) => entry.id === view.id)
@@ -38,12 +34,7 @@ export function registerSidebarView(view: SidebarView): void {
   SIDEBAR_VIEWS.push(view)
 }
 
-/**
- * Resolve the active nested view for the given path.
- *
- * @returns Matching SidebarView, or `null` when the root
- *          navigation should be displayed.
- */
+/** The view for `pathname`, or null when the root navigation applies. */
 export function resolveSidebarView(pathname: string): SidebarView | null {
   return SIDEBAR_VIEWS.find((view) => view.pathPattern.test(pathname)) ?? null
 }

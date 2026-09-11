@@ -1,9 +1,15 @@
-// metapi-go/layout — authenticated-layout adapted from newapi. AGPL header stripped.
-// SidebarProvider + SkipToMain + AppHeader + flex row (AppSidebar + SidebarInset).
-// Uses <Outlet /> from TanStack Router so matched child routes (/dashboard/*, /sites,
-// /accounts, /settings/*, ...) render inside SidebarInset. Also owns the global
-// search palette state and mounts SearchModal here (inside the router, since
-// result clicks navigate).
+// metapi-go/layout — AuthenticatedLayout: the shell every signed-in route
+// renders inside.
+//
+// SidebarProvider → SkipToMain → AppHeader → (AppSidebar | SidebarInset), with
+// TanStack's <Outlet /> putting the matched child route (/dashboard/*, /sites,
+// /accounts, /settings/*, …) into the inset panel.
+//
+// Two things live here rather than in a page because they are shell-wide:
+//   - the sidebar's initial open state, read from the `sidebar_state` cookie the
+//     SidebarProvider itself persists, so a reload keeps the rail collapsed;
+//   - the command palette's open state. SearchModal is mounted inside the router
+//     on purpose — picking a result navigates.
 
 import { Outlet } from '@tanstack/react-router'
 import * as React from 'react'

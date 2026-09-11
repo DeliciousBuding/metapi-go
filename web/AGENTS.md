@@ -4,7 +4,7 @@
 
 本文档定义 metapi-go 前端项目的开发规范与最佳实践，供开发与 AI 助手共同遵循。具体依赖与脚本以 `package.json` 为准。
 
-metapi-go 是 Meta-layer management and unified proxy for AI API aggregation platforms 的 Go 重写，前端为 React SPA，预构建产物经 `web/embed.go` 的 `go:embed dist` 打包进 Go 单二进制（生产镜像不含 node/bun）。前端采用与 newapi 同类的 React 技术栈；迁移必须保留后端 API 契约（camelCase 字段、env var 名）与 DB（SQLite/PG dual dialect）。
+metapi-go 是 Meta-layer management and unified proxy for AI API aggregation platforms 的 Go 重写，前端为 React SPA，预构建产物经 `web/embed.go` 的 `go:embed dist` 打包进 Go 单二进制（生产镜像不含 node/bun）。重写的兼容性目标是 metapi 的 TypeScript 版：后端 API 契约（camelCase 字段、env var 名）与 DB（SQLite/PG dual dialect）必须保持不变。
 
 ---
 
@@ -74,7 +74,7 @@ src/
 ├── routes/                # TanStack Router 文件路由
 ├── styles/                # theme.css + theme-presets.css + index.css
 ├── i18n/                  # config.ts + languages.ts + locales/{en,zh-CN}.json
-├── hooks/                 # use-media-query / use-mobile / use-sidebar-data / use-sidebar-view
+├── hooks/                 # use-media-query / use-mobile / use-search-actions / use-sidebar-view
 ├── context/               # theme / theme-customization / font / direction providers
 ├── stores/                # auth-store
 ├── config/                # fonts.ts
