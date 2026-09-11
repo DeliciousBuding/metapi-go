@@ -9,17 +9,15 @@
 import { flexRender, type Cell, type Table } from '@tanstack/react-table'
 import type { ReactNode } from 'react'
 
+import { columnLabel } from '../core/column-label'
+
 /**
- * The label to show beside a cell in a card layout: the column's plain-string
- * header when it has one, else the explicit `meta.label` a column declares when
- * its header is a sort/filter component with no string to reuse. `null` when
- * neither exists, which tells the caller to render the value on its own.
+ * The label to show beside a cell in a card layout, or null when the column has
+ * no human name — which tells the caller to render the value on its own. The
+ * rule itself lives in `core/column-label.ts`, shared with the column toggle.
  */
 export function getCellLabel<TData>(cell: Cell<TData, unknown>): string | null {
-  const { header, meta } = cell.column.columnDef
-
-  if (typeof header === 'string') return header
-  return meta?.label || null
+  return columnLabel(cell.column.columnDef)
 }
 
 /** Runs the column's `cell` renderer, falling back to the raw value. */
