@@ -1,4 +1,20 @@
-// metapi-go/data-table — ported from newapi
+// metapi-go/data-table — DataTableRow: one <tr>, memoised.
+//
+// Rows are the hot path of every list page — a page of 100 rows re-renders on
+// every keystroke in the global filter — so the row is memoised and the memo
+// comparator is the interesting part of this file.
+//
+// The trap it works around: TanStack keeps one stable `Row` object per record
+// while selection and column visibility mutate on the *table*. A comparator that
+// only checked `prev.row === next.row` would therefore see no change at all and
+// the row would keep rendering its old state. So the two things that can change
+// behind a stable row are lifted into explicit props by the wrapper below and
+// compared there: `isSelected`, and a signature of the visible column ids.
+//
+// Cells whose content is a bare string or number are wrapped in `TruncatedCell`,
+// which is what makes a long model id ellipsis with a tooltip instead of
+// stretching the column. Richer cells (badges, menus) are left alone: they own
+// their own overflow.
 import {
   flexRender,
   type Cell,
@@ -39,10 +55,9 @@ function DataTableRowInner<TData>({
   visibleColumnIds,
   ...rowProps
 }: DataTableRowInnerProps<TData>) {
-  // Destructured only to keep them out of `rowProps` (not valid DOM attrs)
-  // and to feed the memo comparator below; intentionally unused here.
-  void cellRenderColumns
-  void visibleColumnIds
+  // `cellRenderColumns` and `visibleColumnIds` are destructured only to keep
+  // them out of `rowProps` — they are inputs to the memo comparator below, not
+  // DOM attributes.
 
   return (
     <TableRow
@@ -51,7 +66,7 @@ function DataTableRowInner<TData>({
       {...rowProps}
     >
       {row.getVisibleCells().map((cell) => {
-        const renderedCell = renderCellContent(cell)
+        const renderedCell = renderCell(cell)
 
         return (
           <TableCell
@@ -114,23 +129,30 @@ export function DataTableRow<TData>(props: DataTableRowProps<TData>) {
   )
 }
 
-function renderCellContent<TData>(cell: Cell<TData, unknown>) {
+/**
+ * The cell's content, plus whether the cell may be clipped.
+ *
+ * `isPrimitive` drives `overflow-hidden` on the `td` as well as the tooltip
+ * wrapper: a text cell can be truncated safely, an element cell (a badge, a
+ * menu, a progress bar) has its own idea of how wide it needs to be and clipping
+ * it would cut chrome, not text.
+ */
+function renderCell<TData>(cell: Cell<TData, unknown>) {
   const content = flexRender(cell.column.columnDef.cell, cell.getContext())
-  const textContent = getPrimitiveTextContent(content)
+  const text = primitiveTextOf(content)
 
-  if (!textContent) {
+  if (text === null) {
     return { content, isPrimitive: false }
   }
 
   return {
-    content: (
-      <TruncatedCell tooltipContent={textContent}>{content}</TruncatedCell>
-    ),
+    content: <TruncatedCell tooltipContent={text}>{content}</TruncatedCell>,
     isPrimitive: true,
   }
 }
 
-function getPrimitiveTextContent(content: React.ReactNode): string | null {
+/** The cell's text when it is nothing but text; null for any element content. */
+function primitiveTextOf(content: React.ReactNode): string | null {
   if (typeof content === 'string' || typeof content === 'number') {
     return String(content)
   }
