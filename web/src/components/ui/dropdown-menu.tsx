@@ -1,4 +1,8 @@
-// metapi-go/ui — dropdown-menu component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — DropdownMenu: metapi-go's dropdown menu, built on the Base UI
+// Menu primitive and styled with base-nova design tokens. Exposes the
+// conventional trigger / content / group / label / item / checkbox-item /
+// separator API; items take the familiar onClick + onSelect pair, bridged onto
+// Base UI's single click handler in ./dropdown-menu-events.
 import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 import { Tick02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
