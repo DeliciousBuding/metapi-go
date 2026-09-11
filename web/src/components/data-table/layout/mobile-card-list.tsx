@@ -1,4 +1,12 @@
-// metapi-go/data-table — ported from newapi
+// metapi-go/data-table — MobileCardList: the narrow-viewport rendering of a table.
+//
+// Not a grid of cards: rows sit in one bordered container separated by dividers,
+// because at phone width the gaps between separate cards cost more vertical space
+// than they add clarity. Per-row content is `CardRowContent`, shared with the
+// desktop card grid so the two cannot drift.
+//
+// A row is clickable only when the table has a selection column, and only on its
+// bare surface — see `isInteractiveTarget`.
 import type { Row, Table } from '@tanstack/react-table'
 import { Database } from 'lucide-react'
 import * as React from 'react'
@@ -27,10 +35,19 @@ interface MobileCardListProps<TData> {
   getRowClassName?: (row: Row<TData>) => string | undefined
 }
 
+/** The bordered, divided shell both skeletons share with the real list. */
+function SkeletonList({ children }: { children: React.ReactNode }) {
+  return (
+    <div className='divide-y overflow-hidden rounded-lg border'>{children}</div>
+  )
+}
+
+const SKELETON_ROWS = [1, 2, 3, 4, 5]
+
 function ListSkeleton() {
   return (
-    <div className='divide-y overflow-hidden rounded-lg border'>
-      {[1, 2, 3, 4, 5].map((i) => (
+    <SkeletonList>
+      {SKELETON_ROWS.map((i) => (
         <div key={i} className='px-3 py-2.5'>
           <div className='flex items-center justify-between'>
             <Skeleton className='h-4 w-32' />
@@ -48,14 +65,14 @@ function ListSkeleton() {
           </div>
         </div>
       ))}
-    </div>
+    </SkeletonList>
   )
 }
 
 function FallbackListSkeleton() {
   return (
-    <div className='divide-y overflow-hidden rounded-lg border'>
-      {[1, 2, 3, 4, 5].map((i) => (
+    <SkeletonList>
+      {SKELETON_ROWS.map((i) => (
         <div key={i} className='space-y-1.5 px-3 py-2.5'>
           {[1, 2, 3].map((j) => (
             <div key={j} className='flex items-center justify-between'>
@@ -65,20 +82,25 @@ function FallbackListSkeleton() {
           ))}
         </div>
       ))}
-    </div>
+    </SkeletonList>
   )
 }
 
 /**
- * Mobile-optimized list view for table data.
- *
- * Renders rows inside a single bordered container with dividers —
- * a Vercel/Stripe-style list rather than individual cards.
- *
- * Per-row content is shared with the desktop card view via
- * {@link CardRowContent}; see `card-row-content.tsx` for the column-meta
- * extensions (`mobileTitle`, `mobileBadge`, `mobileHidden`).
+ * Clicking a row toggles its selection, except when the click landed on
+ * something that already does something: a button, a link, an input, the
+ * selection checkbox itself, or an open row menu. Without this, opening a row's
+ * action menu would also select the row.
  */
+const INTERACTIVE_SELECTOR =
+  'button, a, input, [data-slot=checkbox], [data-slot=dropdown-menu-content], [role=menuitem]'
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element && target.closest(INTERACTIVE_SELECTOR) !== null
+  )
+}
+
 export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
   const {
     table,
@@ -94,12 +116,11 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
   const resolvedEmptyTitle = emptyTitle ?? t('No Data')
   const resolvedEmptyDescription = emptyDescription ?? t('No data available')
 
-  const visibleColumns = table.getVisibleLeafColumns()
-  const hasCompactMeta = React.useMemo(
-    () => tableHasCompactMeta(table),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visibleColumns]
-  )
+  // No memo: `getVisibleLeafColumns()` returns a fresh array each render, so a
+  // dependency on it invalidates every time and the memo only ever added an
+  // eslint-disable. The check itself is a `.some()` over the visible columns,
+  // which TanStack already caches.
+  const hasCompactMeta = tableHasCompactMeta(table)
 
   if (isLoading) {
     return hasCompactMeta ? <ListSkeleton /> : <FallbackListSkeleton />
@@ -110,7 +131,7 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
     .getVisibleLeafColumns()
     .some((column) => column.id === 'select')
 
-  if (!rows || rows.length === 0) {
+  if (rows.length === 0) {
     return (
       <div className='rounded-lg border p-6'>
         <Empty className='border-none p-0'>
@@ -146,14 +167,7 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
             onClick={
               selectCell
                 ? (event) => {
-                    const target = event.target as HTMLElement
-                    if (
-                      target.closest(
-                        'button, a, input, [data-slot=checkbox], [data-slot=dropdown-menu-content], [role=menuitem]'
-                      )
-                    ) {
-                      return
-                    }
+                    if (isInteractiveTarget(event.target)) return
                     row.toggleSelected()
                   }
                 : undefined
