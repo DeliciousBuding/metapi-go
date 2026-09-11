@@ -1376,6 +1376,7 @@
             "fieldLabel": "Model access",
             "hint": "Empty denies all. Add exact names, glob patterns (*), or re: regex rules. All models requires an explicit *.",
             "inputPlaceholder": "gpt-4o, gpt-*, or re:^claude-",
+            "inputAria": "Model rule",
             "suggestions": "Matching models",
             "allowAll": "Allow all",
             "denyAll": "Deny all",

@@ -41,23 +41,13 @@ const ISSUE = 'https://github.com/DeliciousBuding/metapi-go/issues/1300'
 const REFERENCE_IMPL = 'src/features/sites/components/custom-headers-field.tsx'
 
 // --- exceptions registry -----------------------------------------------------
-// Composites that currently swallow FormControl's injected props. Each needs a
-// design decision rather than a mechanical fix: a group of controls has no
-// single labelable element, so the correct remedy is role="group" +
-// aria-labelledby, not forwarding one id onto an arbitrary inner input. Delete
-// the entry as soon as the component is fixed — a stale entry fails the gate.
-const EXCEPTIONS = [
-  {
-    component: 'ModelPolicyEditor',
-    reason:
-      'composite policy editor in key-sheet-form. Not a plain drop: it spreads the FormControl-injected id onto its inner add-rule <Input> (...inputProps), so the field-level id names a sub-control instead of the group. Fix = label the group root (role=group + aria-labelledby) AND give the inner Input its own aria-label, i.e. separate the field label from the sub-control label. A redesign, not a forward. #1300.',
-  },
-  {
-    component: 'CredentialRefPicker',
-    reason:
-      'composite credential tree-picker, 2 call sites in key-sheet-form. Takes the whole props object but never spreads it, and renders three root states (loading / error / list) that each need role=group + aria-labelledby. Needs an async-query test harness. #1300.',
-  },
-]
+// Empty as of #1300: every composite FormControl child now forwards the
+// injected id / aria-describedby / aria-invalid onto a role="group" root named
+// by aria-labelledby -> the FormLabel id (`formLabelIdFor`), instead of
+// dropping them or mis-routing them onto an inner sub-control. Re-add an entry
+// ONLY for a genuinely-deferred composite, with a reason and an issue link — a
+// stale entry fails the gate, so this registry cannot rot.
+const EXCEPTIONS = []
 
 // `<FormControl>` and its child may be separated by whitespace and JSX comments.
 const RAW_RES = /<FormControl>/g

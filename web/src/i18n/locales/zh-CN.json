@@ -1376,6 +1376,7 @@
             "fieldLabel": "模型授权",
             "hint": "留空即拒绝所有模型。可添加精确名称、通配符（*）或 re: 正则规则；授权全部模型需显式添加 *。",
             "inputPlaceholder": "gpt-4o、gpt-* 或 re:^claude-",
+            "inputAria": "模型规则",
             "suggestions": "匹配的模型",
             "allowAll": "全部允许",
             "denyAll": "全部拒绝",

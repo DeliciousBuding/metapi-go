@@ -147,3 +147,36 @@ describe('CredentialRefPicker', () => {
     ).toHaveAttribute('type', 'checkbox')
   })
 })
+
+describe('CredentialRefPicker accessible name (#1300)', () => {
+  it('forwards the injected id onto a role=group named by the label', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 0 } },
+    })
+    render(
+      (
+        <QueryClientProvider client={queryClient}>
+          <CredentialRefPicker
+            value={[]}
+            onChange={vi.fn()}
+            id='cred-1'
+            aria-describedby='desc-1'
+            aria-invalid={false}
+          />
+        </QueryClientProvider>
+      ) as ReactElement
+    )
+
+    // Resolved (list) root: the site expander only renders once the async
+    // site/account/token queries settle (all three roots carry the group role).
+    await screen.findByRole('button', { name: 'Toggle accounts of Alpha' })
+
+    const group = screen.getByTestId('credential-ref-picker')
+    expect(group).toHaveAttribute('role', 'group')
+    expect(group).toHaveAttribute('id', 'cred-1')
+    expect(group).toHaveAttribute('aria-describedby', 'desc-1')
+    expect(group).toHaveAttribute('aria-invalid', 'false')
+    // formLabelIdFor('cred-1') === 'cred-1-label' — the id FormLabel renders.
+    expect(group).toHaveAttribute('aria-labelledby', 'cred-1-label')
+  })
+})
