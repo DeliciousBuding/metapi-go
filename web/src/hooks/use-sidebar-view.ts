@@ -1,47 +1,28 @@
-// metapi-go/hooks — use-sidebar-view ported from newapi, simplified for metapi.
-// metapi has no role-based filtering (fully open) and no server-side module gating,
-// so this hook only resolves the nested drill-in view (Settings) vs root nav.
+// metapi-go/hooks — useSidebarView: which navigation set the current URL selects.
+//
+// The root sidebar and a drill-in workspace are mutually exclusive, so this is a
+// single lookup: `resolveSidebarView(pathname)` returns the registered view whose
+// path pattern matches, or null for the root navigation. The returned `key` is
+// what the sidebar animates on when the two swap.
+//
+// There is no role or module filtering here. metapi's routes are open and the
+// route guards own access, so this hook resolves a view — it does not authorise
+// one.
 
 import { useLocation } from '@tanstack/react-router'
-import { useMemo } from 'react'
 
+import { ROOT_NAVIGATION } from '@/components/layout/config/root-navigation'
 import { resolveSidebarView } from '@/components/layout/lib/sidebar-view-registry'
-import type { NavGroup, ResolvedSidebarView } from '@/components/layout/types'
+import type { ResolvedSidebarView } from '@/components/layout/types'
 
-import { useSidebarData } from './use-sidebar-data'
-
-/** Sentinel key used for the root navigation in animation `key=` props */
+/** Animation key for the root navigation, which has no view id of its own. */
 const ROOT_VIEW_KEY = '__root'
 
-/**
- * Resolve the active sidebar view for the current location.
- *
- * - Returns the matching nested SidebarView (with its nav groups) when the
- *   URL belongs to a registered drill-in workspace (e.g. /settings/*).
- * - Otherwise returns the root navigation from useSidebarData unfiltered.
- */
 export function useSidebarView(): ResolvedSidebarView {
-  const pathname = useLocation({ select: (l) => l.pathname })
-  const rootSidebarData = useSidebarData()
-
-  const rootNavGroups = useMemo<NavGroup[]>(
-    () => rootSidebarData.navGroups,
-    [rootSidebarData]
-  )
-
+  const pathname = useLocation({ select: (location) => location.pathname })
   const view = resolveSidebarView(pathname)
 
-  if (view) {
-    return {
-      key: view.id,
-      view,
-      navGroups: view.getNavGroups(),
-    }
-  }
-
-  return {
-    key: ROOT_VIEW_KEY,
-    view: null,
-    navGroups: rootNavGroups,
-  }
+  return view
+    ? { key: view.id, navGroups: view.getNavGroups(), view }
+    : { key: ROOT_VIEW_KEY, navGroups: ROOT_NAVIGATION.navGroups, view: null }
 }

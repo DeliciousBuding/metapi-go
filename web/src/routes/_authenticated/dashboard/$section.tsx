@@ -2,7 +2,8 @@
 //
 // Leaf route for `/dashboard/$section`. `beforeLoad` validates the section id
 // against the dashboard manifest (redirects to the default section on
-// mismatch), mirroring newapi's `dashboard/$section.tsx`. The component
+// mismatch), so a bookmarked or hand-edited section id can never render an
+// empty tab strip. The component
 // renders `DashboardPage` with the active section + a navigate-backed
 // `onSectionChange` so the Tabs switch routes (the dashboard feature stays
 // presentational; the route layer owns URL state).

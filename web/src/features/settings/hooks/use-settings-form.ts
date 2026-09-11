@@ -1,9 +1,11 @@
 // metapi-go/features/settings/hooks — unified settings form hook.
 //
-// Mirrors the newapi `useSettingsForm` interaction: a server baseline that is
-// updated only when the server payload actually changes, dirty-only diffing
-// on submit, and a reset that restores the last server state. Sections opt in
-// by passing a `serverValues` snapshot derived from GET /api/settings/runtime.
+// The interaction every settings section shares: a server baseline that is
+// refreshed only when the server payload actually changes (so a background
+// refetch cannot discard what the user is typing), dirty-only diffing on submit
+// (so an untouched field is never written back), and a reset that restores the
+// last server state rather than the form's initial one. Sections opt in by
+// passing a `serverValues` snapshot derived from GET /api/settings/runtime.
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useCallback, useEffect, useRef } from 'react'

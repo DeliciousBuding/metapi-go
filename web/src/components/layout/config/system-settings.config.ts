@@ -1,17 +1,19 @@
-// metapi-go/layout — system-settings.config adapted from newapi per plan.md §5.5.2.
-// metapi Settings is a 5-subarea drill-in workspace (general / downstream / models /
-// content / system-info). The 7-section newapi registry is collapsed to metapi's 5.
-// Titles are i18n keys resolved via t() at render time (nav-group.tsx /
-// sidebar-view-header.tsx).
+// metapi-go/layout — the Settings drill-in view: its back target and its
+// navigation groups.
 //
-// IA restructure (wave 8 lane C): the 5 subareas render as NavCollapsible
-// nested-tree entries whose sub-items are the subarea's sections (from the
-// shared section-registry manifest). Together with the removed in-page
-// settings sidebar, breadcrumbs and overview section lists, the sidebar tree
-// is now the single navigation surface for the Settings workspace — aligned
-// with the newapi "System Administration" drill-in view. The active subarea
-// auto-expands (activePrefix + checkIsActive) and the active section is
-// highlighted with aria-current.
+// Settings is five subareas (general / downstream / models / content /
+// system-info), each rendered as a `NavCollapsible` whose sub-items are that
+// subarea's sections, read from the shared section-registry manifest so a
+// section added by a feature appears in the sidebar without an edit here.
+//
+// This sidebar tree is the *only* navigation surface for the workspace — there
+// is no in-page section list, breadcrumb trail or overview index to keep in
+// sync. That is why the active subarea auto-expands (`activePrefix` +
+// `checkIsActive`) and the active section carries `aria-current`: losing the
+// highlight would leave the user with no way to tell where they are.
+//
+// Titles are i18n keys resolved with t() at render time (nav-group.tsx /
+// sidebar-view-header.tsx).
 
 import { LayoutGrid } from 'lucide-react'
 

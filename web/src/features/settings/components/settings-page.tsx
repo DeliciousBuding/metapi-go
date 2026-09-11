@@ -13,8 +13,9 @@
 // navigation surface, so the page header only needs the section title.
 // Section cards carry their own h2 title + description.
 //
-// Phase 3 will extend this to fetch the runtime-settings map and pass it into
-// each section's `build` (mirroring newapi's SettingsPage + useSystemOptions).
+// Runtime settings are not fetched here: each section takes a `serverValues`
+// snapshot of its own slice (see ../hooks/use-settings-form), so opening one
+// subarea does not pay for the others.
 
 import { Suspense } from 'react'
 import { useTranslation } from 'react-i18next'

@@ -1,6 +1,13 @@
-// metapi-go/layout — nav-group ported from newapi. AGPL header stripped.
-// Dropped ChatPresetsItem handling (metapi has no chat). Renders NavLink and
-// NavCollapsible items, with a collapsed-state dropdown for desktop icon mode.
+// metapi-go/layout — NavGroup: one labelled section of the sidebar.
+//
+// Renders both shapes of `NavItem` (see ../types): a leaf becomes a link, a
+// branch becomes a Collapsible whose open state follows the URL, so the group
+// containing the current page is already expanded on arrival. On the desktop
+// icon-collapsed rail there is no room for a nested tree, so a branch renders as
+// a dropdown instead — same entries, different container.
+//
+// Active state comes from `checkIsActive` (../lib/url-utils), which is the one
+// place that decides what a URL selects.
 
 import { Link, useLocation, type LinkProps } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
@@ -42,10 +49,6 @@ import type {
   NavGroup as NavGroupProps,
 } from '../types'
 
-/**
- * Sidebar navigation group component
- * Renders a group of navigation items, supporting regular links and collapsible submenus
- */
 export function NavGroup({ title, items }: NavGroupProps) {
   const { state, isMobile } = useSidebar()
   const href = useLocation({ select: (location) => location.href })
