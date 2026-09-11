@@ -1,4 +1,4 @@
-// metapi-go/ui — command component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — command (base-nova style, cmdk). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 'use client'
 
 import { SearchIcon, Tick02Icon } from '@hugeicons/core-free-icons'

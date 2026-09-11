@@ -1,4 +1,4 @@
-// metapi-go/ui — sheet component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — sheet (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 'use client'
 
 import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'

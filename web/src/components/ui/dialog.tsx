@@ -1,4 +1,4 @@
-// metapi-go/ui — dialog component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — dialog (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'

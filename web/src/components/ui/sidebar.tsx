@@ -1,4 +1,4 @@
-// metapi-go/ui — sidebar component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — sidebar (base-nova style, @base-ui/react). Based on shadcn/ui (MIT); adapted to metapi-go conventions.
 'use client'
 
 import { mergeProps } from '@base-ui/react/merge-props'
