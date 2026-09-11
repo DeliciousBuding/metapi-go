@@ -1,4 +1,9 @@
-// metapi-go/ui — sonner component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — Toaster: the app-wide sonner toast host.
+//
+// Wires sonner to the metapi theme (light / dark / system) and the hugeicons
+// set, and retints each toast variant onto the design-system soft-fill tokens
+// (DESIGN.md §2.4 status semantics, §2.6 glass material) via color-mix, so
+// toasts stay theme- and preset-aware instead of hard-coding colors.
 'use client'
 
 import {
@@ -22,7 +27,7 @@ import 'sonner/dist/styles.css'
 
 import { useTheme } from '@/context/theme-provider'
 
-const Toaster = (props: ToasterProps) => {
+export function Toaster(props: ToasterProps) {
   const { resolvedTheme } = useTheme()
 
   return (
@@ -97,5 +102,3 @@ const Toaster = (props: ToasterProps) => {
     />
   )
 }
-
-export { Toaster }

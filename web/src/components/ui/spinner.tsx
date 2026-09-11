@@ -1,4 +1,10 @@
-// metapi-go/ui — spinner component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
+// metapi-go/ui — Spinner: indeterminate loading indicator.
+//
+// Spins the hugeicons loading glyph. By default it is a polite live region
+// (role="status") carrying a translated label; callers that pair it with their
+// own visible text pass aria-hidden to keep it purely decorative. Size and
+// color are the caller's to set via className (size-*, text-*).
+
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
@@ -9,11 +15,17 @@ type SpinnerProps = Omit<
   React.ComponentProps<typeof HugeiconsIcon>,
   'icon' | 'strokeWidth'
 > & {
+  /** Icon stroke weight. @default 2 */
   strokeWidth?: number
 }
 
-function Spinner({ className, strokeWidth = 2, ...props }: SpinnerProps) {
+export function Spinner({
+  className,
+  strokeWidth = 2,
+  ...props
+}: SpinnerProps) {
   const { t } = useTranslation()
+
   return (
     <HugeiconsIcon
       icon={Loading03Icon}
@@ -25,5 +37,3 @@ function Spinner({ className, strokeWidth = 2, ...props }: SpinnerProps) {
     />
   )
 }
-
-export { Spinner }
