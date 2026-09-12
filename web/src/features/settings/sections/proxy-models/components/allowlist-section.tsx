@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { useRebuildRoutes } from '@/features/token-routes/api'
+import { useRebuildRoutes } from '@/features/token-routes'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 

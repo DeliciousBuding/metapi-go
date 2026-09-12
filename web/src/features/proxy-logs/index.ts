@@ -1,9 +1,15 @@
-// metapi-go/features/proxy-logs — barrel re-exports.
+// metapi-go/features/proxy-logs — public barrel.
 //
-// The page component is the primary surface; the rest is exported for the
-// future `/proxy-logs` route file (validateSearch schema + types) and for
-// cross-feature deep linking (the latency/status badges are reusable
-// presentational components for any feature that renders a proxy log row).
+// Cross-feature consumers import from here and not from a subdirectory: what
+// is exported below is frozen against their call sites, and what is not
+// exported is free to move.
+//
+// The `/proxy-logs` route reads the validateSearch schema and its type from
+// here and loads `ProxyLogsPage` directly; the observability drill-in registry
+// reads the query keys. `ProxyLogsPage` is deliberately not exported here. The
+// row badges stay inside the feature — nothing outside it renders a proxy log
+// row, and the one badge two features did need (HTTP status) lives in
+// `@/components/common/http-status-badge`.
 
 export {
   proxyLogsSearchSchema,

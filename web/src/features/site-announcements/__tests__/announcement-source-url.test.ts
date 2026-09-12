@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Site } from '@/features/sites/types'
+import type { Site } from '@/features/sites'
 
 import { resolveAnnouncementSourceURL } from '../announcement-source-url'
 import type { SiteAnnouncement } from '../types'

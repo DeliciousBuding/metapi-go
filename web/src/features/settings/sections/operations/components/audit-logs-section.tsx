@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,10 +29,7 @@ import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 
 type AuditLogItem = {
@@ -148,7 +146,7 @@ export function AuditLogsSection() {
         </Button>
       </form>
 
-      {auditQuery.isLoading ? <SettingsSectionSkeleton /> : null}
+      {auditQuery.isLoading ? <SectionSkeleton /> : null}
       {auditQuery.isError ? (
         <SettingsSectionError
           title={t('settings.operations.auditLogs.title')}

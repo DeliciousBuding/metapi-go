@@ -24,7 +24,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import {
   downstreamKeysQueryKeys,
   type DownstreamKeysResponse,
-} from '@/features/settings/sections/downstream/components/key-form-shared'
+} from '@/features/downstream-keys'
 import { useRoutes } from '@/features/token-routes'
 import { api } from '@/lib/api'
 import { formatInt } from '@/lib/format'

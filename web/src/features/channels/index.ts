@@ -1,4 +1,4 @@
-// metapi-go/features/channels — barrel re-exports.
+// metapi-go/features/channels — public barrel.
 export { channelsSearchSchema } from './lib/channels-schema'
 export { fetchChannelsPage, getChannelsErrorSummary, useChannels } from './api'
 export { channelsKeys } from './types'

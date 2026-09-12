@@ -4,10 +4,10 @@
 // charts) is intentionally reduced to its core here; richer surfaces can be
 // layered back on as separate sub-features once the rewrite matures.
 //
-// The sheet form lives in key-sheet-form.tsx, the table cells
-// in key-cells.tsx, and the shared types/schemas/mappers in
-// key-form-shared.ts. The re-exports below keep the focused tests importing
-// from this barrel.
+// The sheet form lives in key-sheet-form.tsx, the table cells in
+// key-cells.tsx, and the form schemas/mappers in key-form-shared.ts; the wire
+// contract comes from `@/features/downstream-keys`. The re-exports below keep
+// the focused tests importing from this barrel.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil } from 'lucide-react'
@@ -25,6 +25,11 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { useAccounts, useAllAccountTokens } from '@/features/accounts'
+import {
+  downstreamKeysQueryKeys,
+  type DownstreamApiKeyItem,
+  type DownstreamKeysResponse,
+} from '@/features/downstream-keys'
 import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
@@ -34,12 +39,7 @@ import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 import { accountDisplayName, tokenDisplayName } from '../lib/credential-display'
 import { KeyModelPolicyCell, KeyUsageCell } from './key-cells'
-import {
-  downstreamKeysQueryKeys,
-  extractMarketplaceModelNames,
-  type DownstreamApiKeyItem,
-  type DownstreamKeysResponse,
-} from './key-form-shared'
+import { extractMarketplaceModelNames } from './key-form-shared'
 import { KeyScopeCell, type ScopeNameMaps } from './key-scope-cell'
 import { KeySheetForm } from './key-sheet-form'
 

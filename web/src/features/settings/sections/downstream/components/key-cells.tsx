@@ -3,14 +3,12 @@
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import type { DownstreamApiKeyItem } from '@/features/downstream-keys'
 import { toBcp47 } from '@/i18n/languages'
 import { formatCurrency } from '@/lib/format'
 
 import { parseIdArray } from '../lib/credential-refs'
-import {
-  normalizeModelRules,
-  type DownstreamApiKeyItem,
-} from './key-form-shared'
+import { normalizeModelRules } from './key-form-shared'
 
 export function KeyModelPolicyCell({
   supportedModels,

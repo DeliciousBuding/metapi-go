@@ -1,4 +1,4 @@
-import type { Site } from '@/features/sites/types'
+import type { Site } from '@/features/sites'
 
 import type { SiteAnnouncement } from './types'
 

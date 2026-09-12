@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
-import { useClearRouteCooldown } from '@/features/token-routes/api'
+import { useClearRouteCooldown } from '@/features/token-routes'
 import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime } from '@/lib/format'
 

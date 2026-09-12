@@ -9,6 +9,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -32,10 +33,7 @@ import { neutralizeCsvFormulaCell } from '@/lib/helpers/csv-injection'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 import {
   eventTitleSlug,
@@ -395,7 +393,7 @@ export function ProgramLogsSection() {
           })}
         </span>
       </div>
-      {eventsQuery.isLoading ? <SettingsSectionSkeleton /> : null}
+      {eventsQuery.isLoading ? <SectionSkeleton /> : null}
       {eventsQuery.isError ? (
         <SettingsSectionError
           title={t('settings.operations.programLogs.title')}

@@ -19,9 +19,9 @@ import {
 
 import '@/i18n/config'
 import {
-  ROUTE_REBUILD_STORAGE_KEY,
   rememberRouteRebuild,
-} from '@/features/token-routes/lib/route-rebuild-reference'
+  ROUTE_REBUILD_STORAGE_KEY,
+} from '@/features/token-routes'
 
 import { AllowlistSection } from '../allowlist-section'
 

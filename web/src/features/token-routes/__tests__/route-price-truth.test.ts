@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { PriceCompareItem } from '@/features/models/price-compare/types'
+import type { PriceCompareItem } from '@/features/models'
 
 import {
   calculateRouteChannelAllocations,

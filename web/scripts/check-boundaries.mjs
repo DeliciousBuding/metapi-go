@@ -8,6 +8,9 @@
 //   rule 2: src/components/ never imports from features/ or routes/.
 //   rule 3: a subsystem that publishes a barrel is imported through that
 //           barrel and never through a subdirectory (see BARRELS).
+//   rule 4: a feature imports another feature through its barrel
+//           (`@/features/<name>`) and never a path below it. Route files are
+//           the composition root and are exempt.
 //
 // Layers are classified by the first path segment under src/. Imports may
 // point downward through the layer table; the edges above are the two hard
@@ -35,6 +38,19 @@ const DOC = 'docs/internal/web-package-boundaries.md'
 
 // --- exceptions registry -----------------------------------------------------
 const EXCEPTIONS = []
+const FEATURE_EXCEPTIONS = [
+  {
+    file: 'src/features/downstream-keys/downstream-keys-page.tsx',
+    specifier:
+      '@/features/settings/sections/downstream/components/keys-section',
+    reason:
+      'The keys UI still lives under the settings section it was promoted out ' +
+      'of, and the page lazy-loads it so that section stays its own chunk. ' +
+      'Tracked by #1335: move the UI into features/downstream-keys (promoting ' +
+      'SettingsSectionCard / SettingsSectionError to components/common first) ' +
+      'and delete this entry.',
+  },
+]
 
 // --- layer rules ----------------------------------------------------------------
 // layer of the importing file -> layers it must not import from.
@@ -57,6 +73,17 @@ const BARRELS = [
     reason: 'index.ts is the whole public surface (data-table/README.md)',
   },
 ]
+
+// --- feature barrel rule ------------------------------------------------------
+// A feature's public surface is its `index.ts`. Code in another feature imports
+// `@/features/<name>` and never a path below it — that is what makes the
+// feature's internals refactorable, and it is what lets a consumer take the
+// contract without pulling the other feature's page into its chunk.
+//
+// Route files (`src/routes/`) are the composition root and are exempt: they
+// load page components directly on purpose, and no barrel re-exports them.
+const FEATURES = 'features/'
+const ROUTES = 'routes/'
 
 // --- scanning ----------------------------------------------------------------------
 // Static + dynamic import specifiers. oxfmt keeps every import/export `from`
@@ -102,6 +129,10 @@ function resolveSpecifier(specifier, fileDirRel) {
 const files = walk(SRC, [])
 const violations = []
 const barrelViolations = []
+const featureViolations = []
+const matchedFeatureExceptions = new Set()
+let featureBarrelEdges = 0
+let featureDeepEdges = 0
 const matchedExceptions = new Set()
 // External files that import each barrel the sanctioned way. A barrel with no
 // consumer would make its rule untestable, so this is asserted below rather
@@ -165,6 +196,38 @@ function checkBarrelEdge(fileAbsRel, lineNumber, specifier, fileDirRel) {
   }
 }
 
+/**
+ * Rule 4: outside its own feature, only the barrel may be imported.
+ */
+function checkFeatureEdge(fileAbsRel, lineNumber, specifier, fileDirRel) {
+  if (!fileAbsRel.startsWith(FEATURES) || fileAbsRel.startsWith(ROUTES)) return
+  const owner = fileAbsRel.split('/')[1]
+  const resolved = resolveSpecifier(specifier, fileDirRel)
+  if (resolved === null || !resolved.startsWith(FEATURES)) return
+  const parts = resolved.split('/')
+  if (parts[1] === owner) return
+  if (parts.length <= 2) {
+    featureBarrelEdges += 1
+    return
+  }
+  featureDeepEdges += 1
+  const exceptionIndex = FEATURE_EXCEPTIONS.findIndex(
+    (entry) =>
+      entry.file === `src/${fileAbsRel}` && entry.specifier === specifier
+  )
+  if (exceptionIndex >= 0) {
+    matchedFeatureExceptions.add(exceptionIndex)
+    return
+  }
+  featureViolations.push({
+    location: `src/${fileAbsRel}:${lineNumber}`,
+    specifier,
+    resolved,
+    owner,
+    target: parts[1],
+  })
+}
+
 for (const file of files) {
   const fileAbsRel = file.slice(SRC.length + 1).replace(/\\/g, '/')
   const fileDirRel = fileAbsRel.includes('/')
@@ -178,16 +241,19 @@ for (const file of files) {
     while ((match = FROM_RES.exec(line)) !== null) {
       checkEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
       checkBarrelEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
+      checkFeatureEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
     }
     DYNAMIC_RES.lastIndex = 0
     while ((match = DYNAMIC_RES.exec(line)) !== null) {
       checkEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
       checkBarrelEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
+      checkFeatureEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
     }
     match = SIDE_EFFECT_RES.exec(line)
     if (match !== null) {
       checkEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
       checkBarrelEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
+      checkFeatureEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
     }
   })
 }
@@ -216,6 +282,29 @@ for (const violation of barrelViolations) {
   )
 }
 
+for (const violation of featureViolations) {
+  failed = true
+  console.error(
+    `✗ feature barrel violation: ${violation.location}\n` +
+      `    imports '${violation.specifier}' → src/${violation.resolved}\n` +
+      `    rule: features/${violation.owner} must import '@/features/${violation.target}',\n` +
+      `    not a path below it. Export the symbol from that feature's index.ts;\n` +
+      `    if two features need the same contract, it belongs in the feature that\n` +
+      `    owns the domain (or in src/lib/ when neither does).`
+  )
+}
+
+FEATURE_EXCEPTIONS.forEach((entry, index) => {
+  if (!matchedFeatureExceptions.has(index)) {
+    failed = true
+    console.error(
+      `✗ stale feature exception: ${entry.file} → '${entry.specifier}'\n` +
+        `    no matching import exists anymore — delete the FEATURE_EXCEPTIONS\n` +
+        `    entry (reason was: ${entry.reason})`
+    )
+  }
+})
+
 // Same invariant as the layer rules: a gate that scans nothing and reports no
 // violations is not a lenient gate, it is an absent one. Both ways this one can
 // go quiet are checked — the package disappearing (rename) and the rule losing
@@ -227,6 +316,15 @@ for (const barrel of BARRELS) {
     console.error(
       `✗ barrel gate would pass vacuously: src/${barrel.package}/index.ts is\n` +
         `    missing. Was the package renamed? Update BARRELS in this script.`
+    )
+  }
+  if (featureBarrelEdges === 0) {
+    failed = true
+    console.error(
+      `✗ feature barrel gate would pass vacuously: no feature imports another\n` +
+        `    feature's barrel, so rule 4 has no live surface. Either the features\n` +
+        `    stopped talking to each other or the specifier resolution in this\n` +
+        `    script stopped matching '@/features/<name>'.`
     )
   }
   if (barrelConsumers.get(barrel.package).size === 0) {
@@ -259,5 +357,7 @@ console.log(
     `${BARRELS.length} barrel rule(s) held by ` +
     `${[...barrelConsumers.values()].reduce((n, s) => n + s.size, 0)} consumer(s), ` +
     `${barrelEdges} deep import(s), ` +
+    `features: ${featureBarrelEdges} barrel edge(s) / ${featureDeepEdges} deep, ` +
+    `${FEATURE_EXCEPTIONS.length} feature exception(s) all matched, ` +
     `${EXCEPTIONS.length} registered exception(s) all matched`
 )

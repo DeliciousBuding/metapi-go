@@ -27,7 +27,7 @@ import { Button } from '@/components/ui/button'
 import {
   downstreamKeysQueryKeys,
   type DownstreamKeysResponse,
-} from '@/features/settings/sections/downstream/components/key-form-shared'
+} from '@/features/downstream-keys'
 import { api } from '@/lib/api'
 
 export function RoutesKeyNextStep() {

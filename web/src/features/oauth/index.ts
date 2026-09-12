@@ -1,4 +1,4 @@
-// metapi-go/features/oauth — barrel re-exports.
+// metapi-go/features/oauth — public barrel.
 
 export { fetchOAuthConnectionsPage, oauthConnectionsPageQueryKey } from './api'
 

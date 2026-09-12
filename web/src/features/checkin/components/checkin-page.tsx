@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { useAccounts } from '@/features/accounts'
-import { useSites } from '@/features/sites/api'
+import { useSites } from '@/features/sites'
 import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 

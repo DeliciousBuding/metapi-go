@@ -26,7 +26,7 @@ import {
   vi,
 } from 'vitest'
 
-import { accountSchema } from '@/features/accounts/types'
+import { accountSchema } from '@/features/accounts'
 import i18n from '@/i18n/config'
 
 import { RoutesPage } from '../routes-page'

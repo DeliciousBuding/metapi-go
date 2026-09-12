@@ -1,58 +1,20 @@
-// metapi-go/features/settings/sections/downstream — downstream-key shared
-// core: API item types, TanStack query keys, zod form schemas, and the
-// value mappers shared by the key sheet form, the table cells, and the
-// section. Pure helpers only — no React.
+// metapi-go/features/settings/sections/downstream — downstream-key form core:
+// zod form schemas and the value mappers shared by the key sheet form, the
+// table cells, and the section. Pure helpers only — no React.
+//
+// The wire contract (item/response types and the query keys) lives in
+// `@/features/downstream-keys`, which owns the domain: the dashboard and
+// token-routes read the same list and must not reach into a settings section
+// for it.
 import { z } from 'zod'
+
+import type { DownstreamApiKeyItem } from '@/features/downstream-keys'
 
 import {
   credentialRefSchema,
   parseCredentialRefs,
   parseIdArray,
 } from '../lib/credential-refs'
-
-type DownstreamKeyUsage24h = {
-  requests?: number
-  tokens?: number
-  cost?: number
-}
-
-export type DownstreamApiKeyItem = {
-  id: number
-  name: string
-  keyMasked?: string
-  groupName?: string
-  enabled: boolean
-  expiresAt?: string | null
-  maxCost?: number | null
-  usedCost?: number | null
-  maxRequests?: number | null
-  usedRequests?: number | null
-  supportedModels?: string[] | string | null
-  allowedRouteIds?: number[] | string | null
-  allowedSiteIds?: number[] | string | null
-  excludedSiteIds?: number[] | string | null
-  // Credential-ref columns: GET returns the stored columns verbatim — a raw
-  // JSON string (or null); parsed with parseCredentialRefs before use.
-  allowedCredentialRefs?: string | unknown[] | null
-  excludedCredentialRefs?: string | unknown[] | null
-  usage24h?: DownstreamKeyUsage24h
-}
-
-export type DownstreamKeysResponse = { items: DownstreamApiKeyItem[] }
-
-// POST /api/downstream-keys responds with the created row under `item` (the
-// handler re-reads the inserted row and adds a camelCase `keyMasked`). Only
-// the fields the connect dialog target needs are typed here; the dialog
-// fetches the full export payload (endpoint + plaintext key) on its own.
-export type CreateDownstreamKeyResponse = {
-  success?: boolean
-  item?: Pick<DownstreamApiKeyItem, 'id' | 'name' | 'keyMasked'>
-}
-
-export const downstreamKeysQueryKeys = {
-  all: ['downstream-keys'] as const,
-  list: () => [...downstreamKeysQueryKeys.all, 'list'] as const,
-}
 
 export const CREATE_FORM_ID = 'settings-downstream-keys-create-form'
 

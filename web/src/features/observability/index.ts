@@ -1,4 +1,4 @@
-// metapi-go/features/observability — barrel.
+// metapi-go/features/observability — public barrel.
 //
 // Public API for the Observability workspace (Overview / Health / Proxy
 // Logs). Consumers (route file, sidebar, drill-in registry) import from

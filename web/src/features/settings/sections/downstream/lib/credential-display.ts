@@ -3,7 +3,7 @@
 // key scope cell. Kept outside component files so React fast refresh only
 // sees components in .tsx modules.
 
-import type { Account, AccountToken } from '@/features/accounts/types'
+import type { Account, AccountToken } from '@/features/accounts'
 
 export function accountDisplayName(account: Account): string {
   return account.username?.trim() || `#${account.id}`

@@ -29,6 +29,11 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
+import {
+  downstreamKeysQueryKeys,
+  type CreateDownstreamKeyResponse,
+  type DownstreamApiKeyItem,
+} from '@/features/downstream-keys'
 import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
@@ -40,16 +45,13 @@ import {
   CREATE_FORM_ID,
   blankKeyFormValues,
   createKeySchema,
-  downstreamKeysQueryKeys,
   editKeySchema,
   generateDownstreamSkSuffix,
   keyFormValuesFromItem,
   localDatetimeInputToIso,
   normalizeModelRules,
   resolveApiErrorMessage,
-  type CreateDownstreamKeyResponse,
   type CreateKeyFormValues,
-  type DownstreamApiKeyItem,
 } from './key-form-shared'
 
 type ModelPolicyEditorProps = {

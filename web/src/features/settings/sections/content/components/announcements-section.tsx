@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -58,10 +59,7 @@ import {
 } from '@/lib/product-announcements'
 import { toast } from '@/lib/toast'
 
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
 
 const announcementSchema = z.object({
   title: z
@@ -229,7 +227,7 @@ export function AnnouncementsSection() {
         </Button>
       }
     >
-      {isLoading ? <SettingsSectionSkeleton /> : null}
+      {isLoading ? <SectionSkeleton /> : null}
       <QueryErrorBanner
         error={loadError}
         messageKey='settings.content.announcements.loadError'

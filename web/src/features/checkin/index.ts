@@ -1,11 +1,13 @@
-// metapi-go features/checkin — public barrel.
+// metapi-go/features/checkin — public barrel.
 //
-// Consumers should import only from here:
-//   import { CheckinPage, useCheckinLogs, type CheckinLogRow } from '@/features/checkin'
+// Cross-feature consumers import from here and not from a subdirectory: what
+// is exported below is frozen against their call sites, and what is not
+// exported is free to move.
+// `CheckinPage` is deliberately not exported here: its route file loads it
+// directly, so a feature that only needs the contract below does not pull
+// the page into its own chunk.
 //
-// `export type` is used for all type-only re-exports (isolatedModules-safe).
-
-// --- page + components ---
+// Type-only re-exports use `export type` (isolatedModules-safe).
 
 // --- checkin hooks + query keys ---
 export { checkinQueryKeys, fetchCheckinLogs, useManualCheckin } from './api'
@@ -16,5 +18,3 @@ export {
   checkinSearchSchema,
   parseCheckinSearch,
 } from './lib/checkin-schema'
-
-// --- time helpers ---
