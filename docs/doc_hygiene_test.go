@@ -709,6 +709,148 @@ func TestNoInternalProgrammeCodesInShippedSources(t *testing.T) {
 	}
 }
 
+// markdownTableCells counts the pipe characters of a table row that act as cell
+// separators, treating `\|` as content. The leading and trailing pipes are
+// counted too, so a two-column row ("| a | b |") reports 3 — only equality
+// between a row and its header matters, not the absolute number.
+func markdownTableCells(line string) int {
+	n := 0
+	for i := 0; i < len(line); i++ {
+		if line[i] == '|' && (i == 0 || line[i-1] != '\\') {
+			n++
+		}
+	}
+	return n
+}
+
+// isMarkdownTableSeparator reports whether the row is the `| --- | :-: |` line
+// between a header and its body. It carries no content, so its cell count is
+// not compared.
+func isMarkdownTableSeparator(line string) bool {
+	if !strings.Contains(line, "-") {
+		return false
+	}
+	for _, r := range line {
+		switch r {
+		case '|', '-', ':', ' ', '\t':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// TestMarkdownTablesAreWellFormed proves every markdown table in the published
+// tree renders as the table its author wrote. A `|` inside an inline code span
+// still splits the cell unless it is escaped, so a row documenting a set of
+// alternatives ("none | sm | md") or a CSS selector (`:root[lang|='zh']`)
+// silently turns one cell into several. DESIGN.md §2.1 shipped that way: five
+// of its six body rows were split — one into seven columns — and the
+// pipe-splitting had eaten the surrounding whitespace as well, so the rendered
+// prose read "set byThemeProviderand the FOUC bootstrap".
+//
+// Column padding is deliberately not checked: the tree is not formatter-managed
+// and ragged source renders identically.
+func TestMarkdownTablesAreWellFormed(t *testing.T) {
+	root := repoRoot(t)
+	var findings []string
+	tables := 0
+	bodyRows := 0
+
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			if skipHygieneDir(entry.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(path) != ".md" || hygieneSkipFile(entry.Name()) {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		header := -1
+		for i, raw := range strings.Split(string(data), "\n") {
+			line := strings.TrimSpace(raw)
+			if !strings.HasPrefix(line, "|") || !strings.HasSuffix(line, "|") {
+				header = -1 // a blank or non-table line closes the current table
+				continue
+			}
+			if isMarkdownTableSeparator(line) {
+				continue
+			}
+			cells := markdownTableCells(line)
+			if header < 0 {
+				header = cells
+				tables++
+				continue
+			}
+			bodyRows++
+			if cells != header {
+				findings = append(findings, formatFinding(rel, i+1,
+					"markdown table row has "+itoa(cells)+" cell separators but its header has "+itoa(header)+
+						": an unescaped | inside a code span splits the cell, so write \\| (or list the values without pipes)",
+					line))
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Same invariant as every other gate in this file: a check that scans
+	// nothing and reports nothing is absent, not lenient. Both counters are
+	// asserted, because a tree of header-only tables would satisfy `tables`.
+	if tables == 0 || bodyRows == 0 {
+		t.Fatalf("gate would pass vacuously: found %d table(s) and %d body row(s) in the published markdown",
+			tables, bodyRows)
+	}
+	if len(findings) > 0 {
+		t.Fatalf("malformed markdown tables in the published tree (%d tables / %d body rows scanned):\n%s",
+			tables, bodyRows, strings.Join(findings, "\n"))
+	}
+}
+
+// TestMarkdownTableGateHelpers pins the one subtlety the gate lives or dies on:
+// `\|` is content and a bare `|` is a separator, even inside a code span.
+func TestMarkdownTableGateHelpers(t *testing.T) {
+	cellCounts := []struct {
+		line string
+		want int
+	}{
+		{"| a | b |", 3},
+		{"| `<body data-theme-radius=\"none|sm|md\">` | x |", 5}, // unescaped: splits
+		{"| `:root[lang\\|='zh']` | x |", 3},                     // escaped: does not
+		{"| --- | :-: |", 3},
+	}
+	for _, tc := range cellCounts {
+		if got := markdownTableCells(tc.line); got != tc.want {
+			t.Errorf("markdownTableCells(%q) = %d, want %d", tc.line, got, tc.want)
+		}
+	}
+	separators := []struct {
+		line string
+		want bool
+	}{
+		{"| --- | --- |", true},
+		{"|:---|---:|", true},
+		{"| :-: | --- |", true},
+		{"| a | b |", false},
+		{"| --- | b |", false}, // contains a dash but also content
+	}
+	for _, tc := range separators {
+		if got := isMarkdownTableSeparator(tc.line); got != tc.want {
+			t.Errorf("isMarkdownTableSeparator(%q) = %v, want %v", tc.line, got, tc.want)
+		}
+	}
+}
+
 // TestProgrammeCodeGateRegexpSanity proves the gate above can actually fire and
 // that its near-misses stay quiet. A hygiene pattern that matches nothing is
 // indistinguishable from a clean tree; a pattern that matches product strings

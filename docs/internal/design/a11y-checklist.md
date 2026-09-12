@@ -3,7 +3,7 @@
 **Product**: Metapi admin
 **Scope**: accessibility checklist
 **Related source of truth**: `docs/internal/design/DESIGN.md`, `web/src/styles/theme.css`
-**Last updated**: 2026-08-23
+**Last updated**: 2026-09-12
 **Status**: living acceptance checklist; known limitations are documented, not an implicit backlog
 
 This document records keyboard, name, contrast, and responsive expectations. Known limitations are evidence only unless promoted to a scoped GitHub issue.
@@ -18,7 +18,7 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 | `aria-label` on icon-only controls       | **pass for chrome**          | Topbar icon buttons labeled; mobile nav open/close labeled; SearchModal close labeled; sidebar collapse labeled when icon-only. Page action grids still have mixed coverage (debt). |
 | Contrast notes for primary text/surfaces | **documented**               | §4 below; body primary ≥ 4.5:1 both themes; muted/meta may fall near threshold.                                                                                                     |
 | Responsive checklist 375 / 768 / 1280    | **documented + shell pass**  | §5; shell breakpoints via `useIsMobile` (~768) and CSS media queries; no wholesale page redesign.                                                                                   |
-| axe-core live scan (authenticated routes)| **pass**                     | 2026-08-18 `bun run a11y:scan`: 15 routes (dashboard/models/sites/accounts/checkin/token-routes/proxy-logs/oauth/about/settings ×6), 0 serious/critical violations.              |
+| axe-core live scan (authenticated routes)| **pass**                     | CI `a11y` job, on every PR and every master merge: serves the real embedded SPA from the Go binary (fresh sqlite runtime DB) and scans the shared route inventory — `DESKTOP_ROUTES` in `web/scripts/route-smoke.mjs`, imported by `a11y-scan.mjs` so the two gates cannot drift — in **both shipped locales** (en + zh-CN). Last master run (`922a2946`): `[a11y] clean — 41 routes × 2 locales scanned, 0 serious/critical violations`. This row cites the run instead of restating a count, because the inventory grows with the app. |
 | FormControl label wiring (form fields)   | **gated**                    | `web/scripts/check-form-control.mjs` (chained into `bun run lint`): 140 `<FormControl>` sites classified, **0 unclassified** (the gate fails on a shape it cannot read rather than skipping it), and all 140 reach a DOM node carrying the injected `id` — 130 `ui/**` primitives + 10 forwarding composites. **0 registered exceptions**: the five composite controls (`EndpointsEditor` / `ScheduleEditor` / `ModelPolicyEditor` / `SiteScopePicker` / `CredentialRefPicker`) now carry the injected id on a `role="group"` root named by `aria-labelledby` (#1300, closed). |
 | Residual a11y debt documented            | **yes**                      | §7                                                                                                                                                                                  |
 
