@@ -1,7 +1,7 @@
 // metapi-go/features/dashboard/components — shared chart card chrome.
 //
 // Extracts the ~60-line container template duplicated across the 8 legacy
-// charts (research/06-motion-icons-charts-responsive.md §7.3) into one shell:
+// charts into one shell:
 // card chrome (bg-card, rounded-lg, border, shadow) + a fixed-height chart
 // viewport + a header slot. Holds either a recharts SVG chart (dashboard
 // sections) or a lightweight DOM chart in the same viewport.

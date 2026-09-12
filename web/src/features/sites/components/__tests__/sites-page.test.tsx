@@ -46,7 +46,7 @@ vi.mock('@/components/data-table', async () => {
     DataTableBulkActions: () => null,
     // Sentinel component so the error-state test can assert the table page is
     // NOT rendered (and therefore the empty-state CTA inside it is absent).
-    // The S7 error contract lives in the real DataTablePage; the stub honors
+    // The error contract lives in the real DataTablePage; the stub honors
     // it so the page-level test verifies the error/refetch wiring.
     DataTablePage: (props: {
       error?: Error | null

@@ -36,7 +36,7 @@ defects unless registered as an exception below.
 4. **Routes may import everything**; they are the composition root.
 5. A **pure helper that two layers both need belongs in `src/lib/`**, not in a
    feature. `sanitizeAuthRedirect` was moved from `features/auth/lib/` to
-   `src/lib/helpers/` (2026-08-23); Wave 21 S5 extended the same rule to
+   `src/lib/helpers/` (2026-08-23); a later change extended the same rule to
    `ABOUT_INFO`, token-route summary types, and the model-pattern predicates.
 
 ## Gate mechanics
@@ -50,7 +50,7 @@ silently. Run directly with `bun run check:boundaries`.
 
 ## Registered exceptions
 
-None. Wave 21 S5 shell inversion is complete: `layout/lib/settings-nav-registry.ts`
+None. The shell inversion is complete: `layout/lib/settings-nav-registry.ts`
 is the sole settings-nav provider and is registered from the authenticated route
 composition root; `search-nav.ts` and `system-settings.config.ts` consume the
 layout registry instead of importing `features/settings`. New cross-layer edges
@@ -64,7 +64,7 @@ stale entry is rejected by the gate.
   in `http-client.ts`; `search-params-resilience.test.ts` moved
   `src/lib/helpers/__tests__/ → src/__tests__/` for the same reason (it
   exercises feature schemas).
-- **2026-08-29 (Wave 21 S5)** — shell boundary inversion:
+- **2026-08-29** — shell boundary inversion:
   - `ABOUT_INFO` moved `features/about/api.ts → src/lib/about-info.ts` to break
     `components/layout/user-menu.tsx → features/about/api`.
   - Settings nav metadata now flows feature → layout: layout owns

@@ -1,4 +1,4 @@
-// Behavior test for the chart axis currency formatter (wave 7 observability):
+// Behavior test for the chart axis currency formatter:
 // the old <1 branch rendered "$0.000000" on the zero tick beside "$1.000" —
 // mixed precision read as a rounding bug. All bands now render 3 decimals
 // (2 above $1000) so an axis reads one format throughout.

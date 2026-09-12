@@ -2,7 +2,7 @@
 // Assembles each subarea's typed section-registry adapter into a single
 // string-typed list consumed by route guards + the generic SettingsPage.
 //
-// Wave 9 lane B semantic regroup (settings-ia-plan.md §3.2 方案 A):
+// Semantic regroup of the settings navigation:
 // basic / proxy-models / downstream / content(通知与数据) / operations.
 
 import { basicSubarea } from '../sections/basic'

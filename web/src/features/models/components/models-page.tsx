@@ -299,9 +299,9 @@ export function ModelsPage() {
         </p>
       </div>
 
-      {/* Unified list-page error contract (W19-T1 P2-o → S7): the failed load
+      {/* Unified list-page error contract: the failed load
           replaces the table instead of stacking over it, so a stale cache can
-          never read as current data. Query object is the S9 server-side
+          never read as current data. Query object is the server-side
           paged one (modelsPageQuery). */}
       <DataTablePage
         table={table}

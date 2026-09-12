@@ -255,7 +255,7 @@ apiClient.interceptors.response.use(
         resolveResponseMessage(response.data) || i18n.t('common.requestFailed')
       // Stable id keyed on the message: when the backend is down, N parallel
       // queries each fail with the identical message and collapse into one
-      // toast instead of stacking N duplicates (W19-T1 N4).
+      // toast instead of stacking N duplicates.
       toast.error(message, { id: `api-error:${message}` })
     }
     return response
@@ -299,7 +299,7 @@ apiClient.interceptors.response.use(
       redirectToSignIn()
     } else if (!skipErrorHandler) {
       const message = resolveErrorMessage(data, error, status)
-      // Same message-keyed dedupe as the business-error path (W19-T1 N4).
+      // Same message-keyed dedupe as the business-error path.
       toast.error(message, { id: `api-error:${message}` })
     }
     throw error

@@ -5,7 +5,7 @@
 // Downstream API Keys → Credential & site scope. One picker instance is
 // rendered per dimension; an empty selection means "unrestricted".
 //
-// Interaction model mirrors the Wave 17 SiteScopePicker: plain checkbox
+// Interaction model mirrors SiteScopePicker: plain checkbox
 // inputs (native keyboard support) inside a bordered scroll area, extended
 // with collapsible site/account groups so the tree stays navigable on large
 // fleets.

@@ -8,7 +8,7 @@ import '@/i18n/config'
 import { SettingsOverview } from '../components/settings-overview'
 import { getSettingsSubareas } from '../config/settings-config'
 
-// Pins the overview tile contract (wave 8 lane C IA restructure): /settings
+// Pins the overview tile contract: /settings
 // renders exactly one whole-card link per subarea (5 tiles, no per-section
 // lists) and a unique h1. Tiles link straight to each subarea's default
 // section, so every tile is a large click target with a visible focus ring.

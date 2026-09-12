@@ -588,9 +588,9 @@ function ProfileRow({
         aria-hidden={masked || undefined}
       >
         {/* Masked profile must not keep the plaintext in the DOM/accessibility
-            tree — blur is visual-only and screen readers would read the key
-            (W19-T2 flow). Render a placeholder instead, matching the top-level
-            key row's real string mask; the copy button still uses the value. */}
+            tree — blur is visual-only and screen readers would read the key.
+            Render a placeholder instead, matching the top-level key row's real
+            string mask; the copy button still uses the value. */}
         {masked ? '••••••••' : content}
       </pre>
     </div>

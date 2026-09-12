@@ -73,7 +73,7 @@ export function TokensPanel({
   const [formOpen, setFormOpen] = useState(false)
   const [editingToken, setEditingToken] = useState<AccountToken | null>(null)
 
-  // S7 删除+undo 档: token delete is leaf — no confirm dialog; the row
+  // Delete-with-undo tier: token delete is leaf — no confirm dialog; the row
   // leaves immediately and a 6s undo toast gates the real DELETE.
   const undoableDelete = useUndoableDelete()
   const deleteToken = (token: AccountToken) =>

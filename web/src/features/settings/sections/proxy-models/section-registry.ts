@@ -1,5 +1,5 @@
-// metapi-go/features/settings/sections/proxy-models — Proxy & Models subarea
-// (wave 9 lane B): transport/routing behaviour + model semantics
+// metapi-go/features/settings/sections/proxy-models — Proxy & Models subarea:
+// transport/routing behaviour + model semantics
 // (redirects, rates, allowlist) + the model-catalog source registry. Absorbs
 // the retired `general` (proxy-transport, routing) and `models` subareas.
 // Each section is React.lazy so its form/table dependencies land in a

@@ -1,7 +1,6 @@
 // metapi-go/features/settings/sections/downstream — key create/edit sheet
 // form: model policy editor (rules + suggestions), site scope picker, and
-// the RHF sheet body. Split out of keys-section.tsx (S8 giant-file
-// teardown); behavior is unchanged.
+// the RHF sheet body. Split out of keys-section.tsx; behavior is unchanged.
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'

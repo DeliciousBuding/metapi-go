@@ -1,7 +1,6 @@
-// Behavior tests for the channels error banner (competitor-study-2026-08
-// P1-4): the "N failing" banner doubles as the one-click filter entry and
-// flips into a clearable error-only indicator once the URL status facet is
-// scoped to failing statuses.
+// Behavior tests for the channels error banner: the "N failing" banner doubles
+// as the one-click filter entry and flips into a clearable error-only indicator
+// once the URL status facet is scoped to failing statuses.
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'

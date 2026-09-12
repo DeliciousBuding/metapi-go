@@ -1,4 +1,4 @@
-// metapi-go/lib — curated project metadata (S5 boundary inversion).
+// metapi-go/lib — curated project metadata.
 //
 // Shared by the layout shell's user menu (components/layout) and the About
 // feature (features/about). Project metadata is a bottom-layer shared

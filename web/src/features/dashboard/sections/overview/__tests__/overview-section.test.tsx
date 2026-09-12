@@ -225,7 +225,7 @@ describe('OverviewSection load-error branch', () => {
 
     renderWithClient(<OverviewSection />)
 
-    // The failure is no longer silent (W19-T1 A4#11): a banner replaces the
+    // The failure is no longer silent: a banner replaces the
     // old "—" stat cards until Retry recovers the query.
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(

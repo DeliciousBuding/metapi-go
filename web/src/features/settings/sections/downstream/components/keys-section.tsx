@@ -4,7 +4,7 @@
 // charts) is intentionally reduced to its core here; richer surfaces can be
 // layered back on as separate sub-features once the rewrite matures.
 //
-// S8 teardown: the sheet form lives in key-sheet-form.tsx, the table cells
+// The sheet form lives in key-sheet-form.tsx, the table cells
 // in key-cells.tsx, and the shared types/schemas/mappers in
 // key-form-shared.ts. The re-exports below keep the focused tests importing
 // from this barrel.
@@ -148,7 +148,7 @@ export function KeysSection() {
       toast.error(t('settings.downstream.keys.toast.updateFailed')),
   })
 
-  // S7 删除+undo 档: key revoke is leaf (no cascade) — no confirm dialog;
+  // Delete-with-undo tier: key revoke is leaf (no cascade) — no confirm dialog;
   // the row leaves immediately and a 6s undo toast gates the real DELETE.
   const undoableDelete = useUndoableDelete()
   const deleteKey = useCallback(

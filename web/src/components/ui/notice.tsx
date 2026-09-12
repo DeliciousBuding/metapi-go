@@ -1,5 +1,5 @@
 // metapi-go/ui — notice primitive: the one owner of the bordered soft-fill
-// notice recipe (W19-T2 §3.2 consolidation). Before this landed, 10+ pages
+// notice recipe. Before this landed, 10+ pages
 // hand-rolled the same shape with drifting padding (p-2 / p-2.5 / p-3 /
 // px-3 py-2), radius (md / lg), text size (xs / sm) and border alpha
 // (/30 / /35 / /40). The canonical recipe is the query-error-banner one:

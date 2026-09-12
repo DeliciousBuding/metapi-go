@@ -7,7 +7,7 @@
 // (no URL reading) means route files stay ~10 lines and the component is
 // trivially testable.
 //
-// IA restructure (wave 8 lane C): the breadcrumb header and the in-page
+// IA restructure: the breadcrumb header and the in-page
 // settings sidebar were removed — the main sidebar's nested collapsible tree
 // (components/layout/config/system-settings.config.ts) is now the single
 // navigation surface, so the page header only needs the section title.

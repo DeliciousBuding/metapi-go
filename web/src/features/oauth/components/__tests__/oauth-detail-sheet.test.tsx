@@ -1,4 +1,4 @@
-// Behavior tests for the OAuth connection detail sheet (issue #887 S4:
+// Behavior tests for the OAuth connection detail sheet (#887:
 // OAuth was the only list page in the console without a detail sheet).
 //
 // The assertions are deliberately about what an operator SEES, with the

@@ -1,6 +1,6 @@
 // metapi-go features/accounts/components — the guided "next step" toast shown
 // after an account is created. This is step 2 of the site → account → route
-// guided configuration chain (research/10-user-flows.md §4.2): the account
+// guided configuration chain: the account
 // is added, and the operator is nudged to configure routes for it next.
 //
 // The toast also reports the post-create token sync truthfully (#1002):

@@ -1,5 +1,5 @@
-// Behavior tests for the redirects section dangerous-op tiers (#889, S7):
-// row delete is the 删除+undo tier — no dialog; the row leaves immediately
+// Behavior tests for the redirects section dangerous-op tiers (#889):
+// row delete is the delete-with-undo tier — no dialog; the row leaves immediately
 // and the real DELETE fires only when the undo toast closes without 撤销.
 // Apply keeps an explicit ConfirmDialog; Generate / Preview stay one-click.
 
@@ -135,7 +135,7 @@ describe('RedirectsSection dangerous-op confirmations', () => {
     await screen.findByText('gpt-5.5')
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
-    // 删除+undo 档: no dialog, no immediate DELETE — the row is optimistically
+    // Delete-with-undo tier: no dialog, no immediate DELETE — the row is optimistically
     // gone and the undo toast carries the commit callbacks.
     await waitFor(() => {
       expect(screen.queryByText('gpt-5.5')).not.toBeInTheDocument()

@@ -3,7 +3,7 @@
 // import lands. An import merges rows across the entire schema (~30 tables —
 // sites, accounts, tokens, routes, channels, check-in, OAuth, settings, …),
 // so the handler invalidates everything instead of a hand-maintained key list
-// that kept missing domains (audit #1029 batch B → W19-T1 N1).
+// that kept missing domains (#1029).
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {

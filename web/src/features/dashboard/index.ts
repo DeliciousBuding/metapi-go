@@ -1,6 +1,6 @@
 // metapi-go/features/dashboard — barrel.
 //
-// Public API for the 4-section Dashboard workspace (plan §5.5.1). Consumers
+// Public API for the 4-section Dashboard workspace. Consumers
 // (route files, the main sidebar, future feature modules) import from
 // `@/features/dashboard`.
 

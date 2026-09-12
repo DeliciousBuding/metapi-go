@@ -1,4 +1,4 @@
-// metapi-go/hooks — ⌘K palette action adapter (S5 boundary inversion).
+// metapi-go/hooks — ⌘K palette action adapter.
 //
 // The authenticated app shell must be able to fire high-frequency write
 // operations from the command palette without components/layout importing
@@ -8,7 +8,7 @@
 // and is consumed by SearchModal.
 //
 // No business logic is created here; every action reuses the same mutation
-// hooks and affordances the pages already expose (#1035 S6).
+// hooks and affordances the pages already expose (#1035).
 
 import { useManualCheckin } from '@/features/checkin'
 import {

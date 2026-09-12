@@ -1,9 +1,9 @@
-// metapi-go/features/settings/sections/operations — System & Ops subarea
-// (wave 9 lane B): scheduling + database/data-migration + maintenance +
+// metapi-go/features/settings/sections/operations — System & Ops subarea:
+// scheduling + database/data-migration + maintenance +
 // danger zone + logs + update center. Absorbs the retired `system-info`
 // subarea and scheduling (from the retired `general` subarea). The data
 // migration action was split out of the database page into its own section
-// (wave 9 lane B, P1). Each section is React.lazy so its form/table
+// Each section is React.lazy so its form/table
 // dependencies land in a separate async chunk; the surrounding Suspense
 // boundary lives in settings-page.tsx.
 

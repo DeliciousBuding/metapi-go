@@ -107,7 +107,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 
   return (
     // nonce: per-request CSP style-src nonce injected by the Go server as
-    // <meta name="csp-nonce"> (#1035 S2); '' (no CSP / dev server) omits it.
+    // <meta name="csp-nonce"> (#1035); '' (no CSP / dev server) omits it.
     <style
       nonce={getCspNonce() || undefined}
       dangerouslySetInnerHTML={{

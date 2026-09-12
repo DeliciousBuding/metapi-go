@@ -52,7 +52,7 @@ describe('retry button icon vocabulary', () => {
   })
 
   it('the routes page load-error retry is delegated to DataTablePage → QueryErrorBanner', () => {
-    // W19-T1 P2-o unification → S7 centralization: the page no longer
+    // The page no longer
     // hand-rolls its own retry button nor renders QueryErrorBanner directly;
     // it passes the error contract into DataTablePage, which renders the
     // shared banner. The glyph vocabulary stays pinned on QueryErrorBanner

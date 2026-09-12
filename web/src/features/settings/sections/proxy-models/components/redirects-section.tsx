@@ -111,7 +111,7 @@ export function RedirectsSection() {
       toast.error(t('settings.proxyModels.redirects.toast.promoteFailed')),
   })
 
-  // S7 删除+undo 档: leaf single-row delete — no confirm dialog; the row
+  // Delete-with-undo tier: leaf single-row delete — no confirm dialog; the row
   // leaves immediately and a 6s undo toast gates the real DELETE.
   const deleteRedirect = (redirect: ModelRedirect) =>
     undoableDelete<ModelRedirectsResponse, ModelRedirect>({

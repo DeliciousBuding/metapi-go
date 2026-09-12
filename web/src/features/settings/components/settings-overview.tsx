@@ -2,7 +2,7 @@
 //
 // Rendered at bare `/settings`: a grid of 5 icon tiles (one per subarea,
 // icon + title + description). The per-subarea section lists were removed
-// (wave 8 lane C) — the sidebar's collapsible tree is now the single
+// — the sidebar's collapsible tree is now the single
 // navigation surface, and the tiles only carry the "first location +
 // description" duty. Tile metadata derives from the shared subarea
 // manifest, so the overview stays in sync with the main sidebar and the

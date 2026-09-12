@@ -301,7 +301,7 @@ export function RoutesPage() {
     })
   }, [routerSearch, isLoading, routes, navigate, openEdit])
 
-  // S7 删除+undo 档: single route delete — no dialog; the row leaves
+  // Delete-with-undo tier: single route delete — no dialog; the row leaves
   // immediately and a 6s undo toast gates the real DELETE.
   const undoableDelete = useUndoableDelete()
   const deleteRouteUndoable = useCallback(

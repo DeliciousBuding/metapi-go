@@ -1,5 +1,5 @@
-// metapi-go/features/settings/sections/content — Notify & Data subarea
-// (wave 9 lane B): notification channels + risk-banner announcements
+// metapi-go/features/settings/sections/content — Notify & Data subarea:
+// notification channels + risk-banner announcements
 // (messages) + import/export backup (data). Retitled from "data & messages";
 // the section set is unchanged, only the front-load order puts messaging
 // first. Each section is React.lazy so its form/table dependencies land in a

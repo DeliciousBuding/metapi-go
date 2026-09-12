@@ -2,7 +2,7 @@
 //
 // Filters and the page cursor live in the URL (?siteId=&platform=&read=&
 // status=&page=) so a refresh or shared link restores the exact view,
-// matching the other list pages (W19-T1 P2-l residual). The route's
+// matching the other list pages. The route's
 // validateSearch keeps the raw params resilient (stringSearchParam); the
 // normalizers below map any unknown or malformed value back to the page
 // default instead of throwing.

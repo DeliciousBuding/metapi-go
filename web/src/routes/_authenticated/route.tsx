@@ -32,7 +32,7 @@ import {
   wasAuthSessionExpiredOnLastBoot,
 } from '@/lib/auth-session'
 
-// S5 boundary inversion (docs/internal/web-package-boundaries.md): the shell
+// Shell boundary inversion (docs/internal/web-package-boundaries.md): the shell
 // owns its nav registries, and feature-owned nav metadata is wired here.
 // The composition root may import everything, so components/layout never
 // imports features. Module scope runs before any render of this route; every

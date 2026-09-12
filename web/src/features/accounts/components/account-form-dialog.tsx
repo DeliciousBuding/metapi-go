@@ -538,7 +538,7 @@ export function AccountFormDialog({
                 / tags) only apply to session or api-key credentials: the
                 password login-bind endpoint force-sets status + check-in and
                 ignores the rest, so editing them in password mode would be a
-                silent no-op (W19-T2 flow). Hide them instead of showing
+                silent no-op. Hide them instead of showing
                 controls that do nothing. */}
             {credentialMode !== 'password' && (
               <>

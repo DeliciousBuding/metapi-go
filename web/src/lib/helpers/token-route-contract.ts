@@ -1,4 +1,4 @@
-// metapi-go/lib — token-route summary contract (S5 boundary inversion).
+// metapi-go/lib — token-route summary contract.
 //
 // Data contract shared by the token-routes feature and lib helpers
 // (zeroChannelRoutes builds placeholder rows of this shape). Pure types —

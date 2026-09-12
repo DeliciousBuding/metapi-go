@@ -1,5 +1,5 @@
-// Behavior tests for the operator-tunable status-code verdict fields
-// (competitor-study-2026-08 P1-2): the routing section edits
+// Behavior tests for the operator-tunable status-code verdict fields: the
+// routing section edits
 // proxyRetryStatusRanges / proxyDisableStatusRanges. Loose shape validation
 // catches obvious typos client-side; range bounds are enforced server-side.
 
@@ -111,7 +111,7 @@ function renderRoutingSection() {
   )
 }
 
-describe('RoutingSection status-code verdict fields (P1-2)', () => {
+describe('RoutingSection status-code verdict fields', () => {
   it('renders the server-sent specs in the two inputs', async () => {
     renderRoutingSection()
 

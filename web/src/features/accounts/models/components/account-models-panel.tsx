@@ -1,5 +1,5 @@
 // metapi-go features/accounts/models/components — account Models panel
-// (#998, Wave 12). Embedded in the account detail sheet, it shows the
+// (#998). Embedded in the account detail sheet, it shows the
 // persisted model availability for one account with honest state:
 //   - manual upstream refresh (POST /api/models/check/{id} — the existing
 //     refresh owner; no periodic scheduler in this wave);

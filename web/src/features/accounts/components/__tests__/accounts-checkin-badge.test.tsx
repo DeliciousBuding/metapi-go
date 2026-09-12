@@ -1,6 +1,6 @@
 // Behavior tests for the inline check-in toggle badge in the accounts list
-// (Wave 7 L4 finding: the check-in badge looked clickable but was a static
-// <Badge> — dead click). The cell must now render a real button that keeps
+// (the check-in badge looked clickable but was a static <Badge> — a dead
+// click). The cell must now render a real button that keeps
 // the badge look, calls actions.onToggleCheckin with the account, shows a
 // per-row spinner while the mutation is pending, and stays a plain muted
 // "Not supported" text when the account cannot check in.

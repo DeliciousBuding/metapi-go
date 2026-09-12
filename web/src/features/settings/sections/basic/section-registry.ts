@@ -1,4 +1,4 @@
-// metapi-go/features/settings/sections/basic — Basic subarea (wave 9 lane B):
+// metapi-go/features/settings/sections/basic — Basic subarea:
 // site/branding + administrator authentication. These two sections were
 // extracted from the retired `general` subarea, whose remaining sections now
 // live in proxy-models (proxy-transport, routing) and operations (scheduling).

@@ -1,4 +1,4 @@
-// Page-level wiring test for the OAuth detail sheet (issue #887 S4).
+// Page-level wiring test for the OAuth detail sheet (#887).
 //
 // Covers the two seams the sheet's own unit tests cannot see:
 //   1. the row action menu's "view details" callback actually opens the sheet

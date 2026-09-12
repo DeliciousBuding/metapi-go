@@ -244,8 +244,7 @@ export function SchedulingSection() {
       }>,
     onSuccess: (result) => {
       // The triggered runs land in the /checkin log list — invalidate it so the
-      // new entries surface instead of waiting for the stale window to pass
-      // (W19-T1 N2).
+      // new entries surface instead of waiting for the stale window to pass.
       void queryClient.invalidateQueries({ queryKey: checkinQueryKeys.logs() })
       const summary = result?.summary
       if (summary && summary.failed > 0) {

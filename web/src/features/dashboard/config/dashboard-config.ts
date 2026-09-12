@@ -1,7 +1,7 @@
 // metapi-go/features/dashboard/config — 4-section manifest.
 //
 // Registers the 4 dashboard sections (overview / traffic / models /
-// availability) per plan.md §5.5.1 and exposes the registry helpers consumed
+// availability) and exposes the registry helpers consumed
 // by `DashboardPage` (the section dispatcher) + route guards. Mirrors the
 // settings feature's per-subarea section-registry pattern (a .ts module so
 // the react/only-export-components fast-refresh rule does not apply — section

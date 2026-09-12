@@ -1,7 +1,7 @@
 // metapi-go/routes — settings section dispatcher.
 //
 // Leaf route for `/settings/$subarea/$section` (e.g. `/settings/basic/site`).
-// `beforeLoad` first resolves legacy URLs (wave 9 lane B regroup:
+// `beforeLoad` first resolves legacy URLs (the subarea regroup:
 // `/settings/general/scheduling` → `/settings/operations/scheduling` …),
 // then validates both the subarea id (against the settings manifest) and the
 // section id (against the subarea's `sectionIds` via `isValidSection`),

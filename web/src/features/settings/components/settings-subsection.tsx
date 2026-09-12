@@ -1,6 +1,6 @@
 // metapi-go/features/settings/components — card-internal subsection primitives.
 //
-// The settings heading system (P1, wave 9 lane B):
+// The settings heading system:
 //   L1 page title            → unique h1 (SettingsPage header)
 //   L2 card title            → h2 (SettingsSectionCard)
 //   L3 card subsection title → h3 (this module)

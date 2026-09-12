@@ -1,5 +1,5 @@
-// Behavior tests for the per-row re-run action in the comparison table
-// (Wave 11 feedback loops). Every settled row — failed rows included — gets
+// Behavior tests for the per-row re-run action in the comparison table.
+// Every settled row — failed rows included — gets
 // a re-run button with a channel-specific aria-label; the button shows the
 // canonical Spinner (role=status) and is disabled while that row's probe is
 // in flight, with no cross-talk to other rows.

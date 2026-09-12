@@ -1,5 +1,5 @@
 // Regression tests for the route-channel editor embedded in the edit dialog
-// (Wave 7 L6: per-channel weight/priority/enabled/delete was previously
+// (per-channel weight/priority/enabled/delete was previously
 // uneditable in the UI — backend PUT/DELETE /api/channels had zero consumers).
 // Covers: existing channels are listed with their fetched values, a weight
 // commit PUTs, the enabled switch PUTs, and delete requires confirmation.

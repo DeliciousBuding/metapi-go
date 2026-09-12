@@ -186,7 +186,7 @@ export type ModelRedirectsResponse = { items: ModelRedirect[] }
 // Disabled-model entries that a redirect mapping can repair (K1a fix
 // candidates). Only surfaced via the candidates field of the model-redirects
 // apply endpoint (Settings > Models > Redirects preview/apply) since the
-// standalone fix-candidates page was folded in (Wave 8 Lane B).
+// standalone fix-candidates page was folded in.
 export type RedirectApplyResponse = {
   success: boolean
   dryRun: boolean
@@ -614,7 +614,7 @@ export type OAuthConnectionsResponse = {
 }
 
 /**
- * Model-catalog data source registry (Wave 8 Lane A).
+ * Model-catalog data source registry.
  */
 export type CatalogSource = {
   id: number

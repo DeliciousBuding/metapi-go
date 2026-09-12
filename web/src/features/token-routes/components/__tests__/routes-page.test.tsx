@@ -52,7 +52,7 @@ vi.mock('@/components/data-table', async () => {
     await import('@/components/common/query-error-banner')
   return {
     DataTableBulkActions: () => null,
-    // The S7 error contract lives in the real DataTablePage; the stub honors
+    // The error contract lives in the real DataTablePage; the stub honors
     // it so the page-level test verifies the error/refetch wiring.
     DataTablePage: (props: {
       emptyAction?: ReactNode

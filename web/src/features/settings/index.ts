@@ -1,6 +1,6 @@
 // metapi-go/features/settings — barrel.
 //
-// Public API for the 5-subarea drill-in Settings workspace (plan §5.5.2).
+// Public API for the 5-subarea drill-in Settings workspace.
 // Consumers (route files, the main sidebar, future feature modules) import
 // from `@/features/settings`.
 

@@ -1,8 +1,8 @@
-// Behavior test for the AccountsPage → columns pending-id wiring (Wave 11
-// feedback loops). Each toggle mutation derives its OWN per-row pending id
-// from `isPending` + `variables` so pin / check-in / status spinners never
-// cross-talk. Captures the positional args handed to the columns hook via a
-// mock, mirroring accounts-toggle-feedback.test.tsx's seam strategy.
+// Behavior test for the AccountsPage → columns pending-id wiring. Each toggle
+// mutation derives its OWN per-row pending id from `isPending` + `variables` so
+// pin / check-in / status spinners never cross-talk. Captures the positional
+// args handed to the columns hook via a mock, mirroring
+// accounts-toggle-feedback.test.tsx's seam strategy.
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

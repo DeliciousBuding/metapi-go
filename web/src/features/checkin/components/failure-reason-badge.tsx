@@ -1,7 +1,7 @@
 /* eslint-disable react/only-export-components -- badge component co-located with category config */
 // metapi-go features/checkin/components — FailureReason badge.
 //
-// The centerpiece of the 签到幽灵功能修复 (plan §5.5.5): the backend's
+// The centerpiece of the check-in failure-reason work: the backend's
 // ClassifyFailureReason now persists a structured `failureReason` object on
 // every non-success log row, and this component renders it with
 // category-coded colouring so operators can triage failures at a glance.

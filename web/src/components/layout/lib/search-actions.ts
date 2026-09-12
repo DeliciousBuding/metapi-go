@@ -7,7 +7,7 @@
 // lives in `search-modal.tsx`, where the router and mutation hooks are
 // available.
 //
-// Selection audit (Wave 21, #1035 S6) — every entry reuses an existing
+// Selection audit (#1035) — every entry reuses an existing
 // dialog/mutation, no new business logic:
 //   - add-site: the sites page already consumes a one-shot `?create=1`
 //     deep link (the dashboard onboarding and the sites guided flow write

@@ -1,4 +1,4 @@
-// metapi-go/lib — section-registry tests (S8 三合一).
+// metapi-go/lib — section-registry tests.
 //
 // Pins the shared factory that replaced the three per-feature clones
 // (settings / dashboard / observability): id order, nav URL styles (path vs

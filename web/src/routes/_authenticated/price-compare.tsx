@@ -3,7 +3,7 @@
 // and reads the sorted candidate list directly from usePriceCompare.
 //
 // `validateSearch` syncs the model filter to the URL so a refresh or shared
-// link restores the filtered view (W19-T1 P2-l). The router JSON-parses search
+// link restores the filtered view. The router JSON-parses search
 // values, so a stale `?model=123` arrives as a number and must not throw.
 
 import { createFileRoute } from '@tanstack/react-router'
