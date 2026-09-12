@@ -11,6 +11,15 @@
         "selected": "selected"
       }
     },
+    "httpStatus": {
+      "success": "Success",
+      "redirect": "Redirect",
+      "clientError": "Client error",
+      "serverError": "Server error",
+      "unknown": "Unknown",
+      "titlePrefix": "Status {{label}}",
+      "failed": "Failed"
+    },
     "auth": {
       "login": {
         "brandName": "Metapi",
@@ -2641,15 +2650,6 @@
         "downstreamPath": "Downstream path",
         "upstreamPath": "Upstream path",
         "usageSource": "Usage source"
-      },
-      "status": {
-        "success": "Success",
-        "redirect": "Redirect",
-        "clientError": "Client error",
-        "serverError": "Server error",
-        "unknown": "Unknown",
-        "titlePrefix": "Status {{label}}",
-        "failed": "Failed"
       },
       "latency": {
         "totalLatency": "Total latency {{label}}",

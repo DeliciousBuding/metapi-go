@@ -19,7 +19,7 @@
 //      lake-view dark override (were 3.95 / 1.75:1)
 //   7. chart-1..5 across presets — light values darkened and dark
 //      values lightened so every chart color clears AA text contrast on its
-//      card surface (chart colors double as StatusBadge text-chart-N
+//      card surface (chart colors double as HttpStatusBadge text-chart-N
 //      foregrounds, so text AA 4.5:1 — not the 3:1 non-text floor — applies)
 
 import { readFileSync } from 'node:fs'
@@ -431,7 +431,7 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
   })
 
   it('chart colors clear AA text contrast on the card surface across presets and modes', () => {
-    // Chart series colors are also StatusBadge text foregrounds
+    // Chart series colors are also HttpStatusBadge text foregrounds
     // (text-chart-N in status-badge.tsx), so text AA applies, not the 3:1
     // non-text floor. The 2026-08-29 batch darkened 40 light values (worst
     // 1.08:1 lavender-dream-family near-whites) and lightened 8 dark values

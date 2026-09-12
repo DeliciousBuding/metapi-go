@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DetailField } from '@/components/common/detail-field'
+import { HttpStatusBadge } from '@/components/common/http-status-badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -26,7 +27,6 @@ import { toast } from '@/lib/toast'
 import { useProxyLog } from '../api'
 import type { ProxyLog, ProxyLogBillingDetails, ProxyLogDetail } from '../types'
 import { LatencyBadge } from './latency-badge'
-import { StatusBadge } from './status-badge'
 
 /** Count 0 renders as "0" (no retry happened); only a missing count is a dash. */
 function formatRetryCount(retryCount: number | null | undefined): string {
@@ -77,7 +77,7 @@ export function ProxyLogDetailSheet({
             <span className='truncate'>
               {log.modelRequested || log.modelActual || `#${log.id}`}
             </span>
-            <StatusBadge
+            <HttpStatusBadge
               status={log.status}
               httpStatus={detail?.httpStatus ?? null}
             />
@@ -148,7 +148,7 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
           {formatDateTime(detail.createdAt, locale)}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.httpStatus')}>
-          <StatusBadge
+          <HttpStatusBadge
             status={detail.status}
             httpStatus={detail.httpStatus ?? null}
           />

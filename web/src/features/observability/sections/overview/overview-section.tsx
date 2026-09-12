@@ -6,6 +6,7 @@ import { BarChart3, Flame } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { HttpStatusBadge } from '@/components/common/http-status-badge'
 import {
   Card,
   CardContent,
@@ -22,7 +23,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { StatusBadge } from '@/features/proxy-logs/components/status-badge'
 import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime, formatLatency } from '@/lib/format'
 
@@ -231,7 +231,7 @@ function renderSlowRequestsBody(
               {item.httpStatus || '—'}
             </TableCell>
             <TableCell>
-              <StatusBadge
+              <HttpStatusBadge
                 httpStatus={item.httpStatus ?? null}
                 status={item.status ?? null}
               />
