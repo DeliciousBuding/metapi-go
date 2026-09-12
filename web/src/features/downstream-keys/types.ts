@@ -1,10 +1,8 @@
 // metapi-go/features/downstream-keys — the downstream API-key wire contract.
 //
-// This lives in the feature that owns the domain rather than in the settings
-// section that happens to render it: the settings workspace, the dashboard
-// onboarding checklist and the token-routes "next step" strip all read the same
-// key list, and a contract three features depend on must not sit two
-// directories below one of their UI sections.
+// This lives in the feature that owns the domain: the dashboard onboarding
+// checklist and the token-routes "next step" strip read the same key list
+// through the barrel, so the contract cannot sit inside one consumer's UI.
 //
 // Types and query keys only — no React and no fetching; the calls themselves go
 // through `@/lib/api`.

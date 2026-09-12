@@ -1,4 +1,4 @@
-// metapi-go/features/settings/sections/downstream/components — the guided
+// metapi-go/features/downstream-keys/components — the guided
 // "connect now" toast shown after a downstream API key is created. This is the
 // LAST step of the site → account → route → key guided configuration chain:
 // the key exists, and the operator needs the credential surface to actually

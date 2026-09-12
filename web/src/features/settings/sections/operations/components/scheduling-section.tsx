@@ -12,6 +12,8 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -36,8 +38,6 @@ import { cn } from '@/lib/utils'
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { ScheduleEditor } from '../../../components/schedule-editor'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
   collectChangedFields,
@@ -292,21 +292,22 @@ export function SchedulingSection() {
 
   if (isLoading) {
     return (
-      <SettingsSectionCard
+      <SectionCard
         title={t('settings.operations.scheduling.title')}
         description={t('settings.operations.scheduling.description')}
       >
         <p className='text-muted-foreground text-sm'>
           {t('settings.common.loading')}
         </p>
-      </SettingsSectionCard>
+      </SectionCard>
     )
   }
 
   if (isError || !data) {
     return (
-      <SettingsSectionError
+      <SectionError
         title={t('settings.operations.scheduling.title')}
+        messageKey='settings.common.loadFailed'
         onRetry={() => void refetch()}
       />
     )
@@ -315,7 +316,7 @@ export function SchedulingSection() {
   const isDirty = form.formState.isDirty
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.operations.scheduling.title')}
       description={t('settings.operations.scheduling.description')}
       hideHeaderCopy
@@ -649,7 +650,7 @@ export function SchedulingSection() {
         </form>
       </Form>
       <FormNavigationGuard enabled={isDirty} />
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }
 

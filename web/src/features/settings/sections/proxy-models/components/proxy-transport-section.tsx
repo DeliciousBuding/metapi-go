@@ -8,6 +8,8 @@ import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -26,8 +28,6 @@ import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
   collectChangedFields,
@@ -240,21 +240,22 @@ export function ProxyTransportSection() {
 
   if (isLoading) {
     return (
-      <SettingsSectionCard
+      <SectionCard
         title={t('settings.proxyModels.proxyTransport.title')}
         description={t('settings.proxyModels.proxyTransport.description')}
       >
         <p className='text-muted-foreground text-sm'>
           {t('settings.common.loading')}
         </p>
-      </SettingsSectionCard>
+      </SectionCard>
     )
   }
 
   if (isError || !data) {
     return (
-      <SettingsSectionError
+      <SectionError
         title={t('settings.proxyModels.proxyTransport.title')}
+        messageKey='settings.common.loadFailed'
         onRetry={() => void refetch()}
       />
     )
@@ -264,7 +265,7 @@ export function ProxyTransportSection() {
   const systemProxyUrl = form.watch('systemProxyUrl')
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.proxyModels.proxyTransport.title')}
       description={t('settings.proxyModels.proxyTransport.description')}
       hideHeaderCopy
@@ -516,6 +517,6 @@ export function ProxyTransportSection() {
         </form>
       </Form>
       <FormNavigationGuard enabled={isDirty} />
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

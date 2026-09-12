@@ -6,14 +6,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
-
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 
 type UpdateCenterStatus = {
   currentVersion?: string
@@ -55,15 +54,16 @@ export function UpdateCenterSection() {
 
   if (statusQuery.isError) {
     return (
-      <SettingsSectionError
+      <SectionError
         title={t('settings.operations.updateCenter.title')}
+        messageKey='settings.common.loadFailed'
         onRetry={() => void statusQuery.refetch()}
       />
     )
   }
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.operations.updateCenter.title')}
       description={t('settings.operations.updateCenter.description')}
     >
@@ -146,6 +146,6 @@ export function UpdateCenterSection() {
           </p>
         </div>
       )}
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

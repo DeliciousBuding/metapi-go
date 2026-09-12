@@ -1,9 +1,10 @@
 // metapi-go/features/observability/components — load-failure state for
 // observability sections. Rendered instead of (or within) a card when a
-// /api/monitor/health or /api/stats query fails, mirroring the settings
-// `SettingsSectionError` pattern: the user sees an explicit error + a Retry
-// button that calls `refetch()` instead of dashes and empty tables that look
-// like "no data" rather than "request failed".
+// /api/monitor/health or /api/stats query fails, mirroring the shared
+// `SectionError` card: the user sees an explicit error + a Retry button that
+// calls `refetch()` instead of dashes and empty tables that look like "no
+// data" rather than "request failed". This one is an inline dashed banner, not
+// a Card, because observability sections render it inside their own cards.
 
 import { RefreshCw, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'

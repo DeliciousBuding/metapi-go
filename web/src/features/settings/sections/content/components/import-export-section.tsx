@@ -10,6 +10,8 @@ import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ReauthDialog } from '@/components/common/reauth-dialog'
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -41,8 +43,6 @@ import { toast } from '@/lib/toast'
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { ScheduleEditor } from '../../../components/schedule-editor'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 import { SettingsSubsection } from '../../../components/settings-subsection'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
@@ -313,7 +313,7 @@ export function ImportExportSection() {
   const isWebdavDirty = form.formState.isDirty
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.content.importExport.title')}
       description={t('settings.content.importExport.description')}
     >
@@ -392,8 +392,9 @@ export function ImportExportSection() {
           </p>
         ) : null}
         {!webdavQuery.isLoading && (webdavQuery.isError || !config) ? (
-          <SettingsSectionError
+          <SectionError
             title={t('settings.content.importExport.webdavGroup')}
+            messageKey='settings.common.loadFailed'
             onRetry={() => void webdavQuery.refetch()}
           />
         ) : null}
@@ -718,6 +719,6 @@ export function ImportExportSection() {
           </ul>
         </div>
       ) : null}
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

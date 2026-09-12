@@ -9,6 +9,8 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,8 +35,6 @@ import { neutralizeCsvFormulaCell } from '@/lib/helpers/csv-injection'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 import {
   eventTitleSlug,
   formatTimestamp,
@@ -320,7 +320,7 @@ export function ProgramLogsSection() {
   const items = eventsQuery.data?.items ?? []
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.operations.programLogs.title')}
       description={t('settings.operations.programLogs.description')}
       hideHeaderCopy
@@ -395,8 +395,9 @@ export function ProgramLogsSection() {
       </div>
       {eventsQuery.isLoading ? <SectionSkeleton /> : null}
       {eventsQuery.isError ? (
-        <SettingsSectionError
+        <SectionError
           title={t('settings.operations.programLogs.title')}
+          messageKey='settings.common.loadFailed'
           onRetry={() => void eventsQuery.refetch()}
         />
       ) : null}
@@ -489,6 +490,6 @@ export function ProgramLogsSection() {
         }}
         onCancel={() => setClearConfirmOpen(false)}
       />
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

@@ -1,7 +1,7 @@
 // Regression test: a failed redirects load used to fall through to the
 // empty-list branch, masquerading as "no redirects". The section must now
-// render SettingsSectionError with a Retry action (audit #1029 batch B) —
-// mirroring the allowlist section's error branch.
+// render the shared SectionError card with a Retry action — mirroring the
+// allowlist section's error branch.
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {

@@ -27,6 +27,7 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SectionCard } from '@/components/common/section-card'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -63,8 +64,6 @@ import { formatDateTime } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 import { cn } from '@/lib/utils'
-
-import { SettingsSectionCard } from '../../../components/settings-section-card'
 
 const catalogSyncKeys = {
   all: ['catalog-sync'] as const,
@@ -288,14 +287,14 @@ export function CatalogSourcesSection() {
   }
   if (statusQuery.error) {
     return (
-      <SettingsSectionCard
+      <SectionCard
         title={t('settings.proxyModels.catalogSources.title')}
         description={t('settings.proxyModels.catalogSources.description')}
       >
         <p className='text-muted-foreground text-sm'>
           {t('settings.proxyModels.catalogSources.toast.disabled')}
         </p>
-      </SettingsSectionCard>
+      </SectionCard>
     )
   }
 
@@ -418,7 +417,7 @@ export function CatalogSourcesSection() {
 
   return (
     <div className='flex flex-col gap-4'>
-      <SettingsSectionCard
+      <SectionCard
         title={t('settings.proxyModels.catalogSources.title')}
         description={t('settings.proxyModels.catalogSources.description')}
         hideHeaderCopy
@@ -685,7 +684,7 @@ export function CatalogSourcesSection() {
             </>
           )}
         </div>
-      </SettingsSectionCard>
+      </SectionCard>
 
       {dialog ? (
         <SourceDialog

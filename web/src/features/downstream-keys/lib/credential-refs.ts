@@ -1,4 +1,4 @@
-// metapi-go/features/settings/sections/downstream/lib — credential-ref
+// metapi-go/features/downstream-keys/lib — credential-ref
 // policy helpers for downstream API keys (#1026 UI follow-up).
 //
 // Contract SSOT: docs/api.md → Downstream API Keys → Credential & site scope.

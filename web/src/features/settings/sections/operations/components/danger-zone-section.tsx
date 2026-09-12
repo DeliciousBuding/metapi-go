@@ -7,6 +7,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SectionCard } from '@/components/common/section-card'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -19,8 +20,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
-
-import { SettingsSectionCard } from '../../../components/settings-section-card'
 
 const FACTORY_RESET_COUNTDOWN_SECONDS = 3
 // Type-to-confirm word: the countdown stops misclicks but not "read it yet
@@ -64,7 +63,7 @@ export function DangerZoneSection() {
   })
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.operations.dangerZone.title')}
       description={t('settings.operations.dangerZone.description')}
     >
@@ -141,6 +140,6 @@ export function DangerZoneSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

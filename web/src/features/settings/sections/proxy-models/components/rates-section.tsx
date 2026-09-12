@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SectionCard } from '@/components/common/section-card'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -21,7 +22,6 @@ import {
 import { api, type RateOverviewResponse } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
-import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSubsection } from '../../../components/settings-subsection'
 
 const ratesQueryKeys = {
@@ -101,21 +101,21 @@ export function RatesSection() {
   const overview = overviewQuery.data
   if (!overview) {
     return (
-      <SettingsSectionCard
+      <SectionCard
         title={t('settings.proxyModels.rates.title')}
         description={t('settings.proxyModels.rates.description')}
       >
         <p className='text-muted-foreground py-8 text-center text-sm'>
           {t('settings.proxyModels.rates.empty')}
         </p>
-      </SettingsSectionCard>
+      </SectionCard>
     )
   }
 
   const summary = overview.summary
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.proxyModels.rates.title')}
       description={t('settings.proxyModels.rates.description')}
     >
@@ -297,6 +297,6 @@ export function RatesSection() {
           </TableBody>
         </Table>
       </SettingsSubsection>
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

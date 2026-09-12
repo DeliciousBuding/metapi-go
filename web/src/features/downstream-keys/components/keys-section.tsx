@@ -1,13 +1,11 @@
-// metapi-go/features/settings/sections/downstream/components — downstream
-// keys section. A lean list + create sheet + enable/disable/delete actions.
-// The legacy DownstreamKeys page (1500+ lines, rich editor, batch ops, trend
-// charts) is intentionally reduced to its core here; richer surfaces can be
-// layered back on as separate sub-features once the rewrite matures.
+// metapi-go/features/downstream-keys/components — the downstream API-key
+// list: table + create/edit sheet + enable/disable/delete/connect actions.
+// Rendered by `../downstream-keys-page` (the /downstream-keys route) through a
+// lazy import, so the table and form dependencies stay in their own chunk.
 //
-// The sheet form lives in key-sheet-form.tsx, the table cells in
-// key-cells.tsx, and the form schemas/mappers in key-form-shared.ts; the wire
-// contract comes from `@/features/downstream-keys`. The re-exports below keep
-// the focused tests importing from this barrel.
+// The sheet form lives in key-sheet-form.tsx, the table cells in key-cells.tsx,
+// the scope cell in key-scope-cell.tsx, and the zod schemas + value mappers in
+// key-form-shared.ts; the wire contract is the sibling `../types`.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil } from 'lucide-react'
@@ -18,6 +16,8 @@ import {
   CredentialExportDialog,
   type CredentialExportTarget,
 } from '@/components/common/credential-export-dialog'
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { DataTablePage, useDataTable } from '@/components/data-table'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
@@ -25,26 +25,21 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { useAccounts, useAllAccountTokens } from '@/features/accounts'
-import {
-  downstreamKeysQueryKeys,
-  type DownstreamApiKeyItem,
-  type DownstreamKeysResponse,
-} from '@/features/downstream-keys'
 import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 import { accountDisplayName, tokenDisplayName } from '../lib/credential-display'
+import {
+  downstreamKeysQueryKeys,
+  type DownstreamApiKeyItem,
+  type DownstreamKeysResponse,
+} from '../types'
 import { KeyModelPolicyCell, KeyUsageCell } from './key-cells'
 import { extractMarketplaceModelNames } from './key-form-shared'
 import { KeyScopeCell, type ScopeNameMaps } from './key-scope-cell'
 import { KeySheetForm } from './key-sheet-form'
-
-export { KeyModelPolicyCell, KeyUsageCell } from './key-cells'
-export { KeySheetForm } from './key-sheet-form'
 
 export function KeysSection() {
   const { t } = useTranslation()
@@ -303,7 +298,7 @@ export function KeysSection() {
   })
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.downstream.keys.title')}
       description={t('settings.downstream.keys.description')}
       hideHeaderCopy
@@ -314,8 +309,9 @@ export function KeysSection() {
       }
     >
       {keysQuery.isError ? (
-        <SettingsSectionError
+        <SectionError
           title={t('settings.downstream.keys.title')}
+          messageKey='settings.downstream.keys.loadFailed'
           onRetry={() => void keysQuery.refetch()}
         />
       ) : (
@@ -361,6 +357,6 @@ export function KeysSection() {
           if (!open) setExportTarget(null)
         }}
       />
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

@@ -1,22 +1,21 @@
-// metapi-go/features/settings/sections/downstream — downstream-key form core:
+// metapi-go/features/downstream-keys — downstream-key form core:
 // zod form schemas and the value mappers shared by the key sheet form, the
 // table cells, and the section. Pure helpers only — no React.
 //
-// The wire contract (item/response types and the query keys) lives in
-// `@/features/downstream-keys`, which owns the domain: the dashboard and
-// token-routes read the same list and must not reach into a settings section
-// for it.
+// The wire contract (item/response types and the query keys) is the sibling
+// `../types`, re-exported by the feature barrel: the dashboard onboarding
+// checklist and the token-routes next-step strip read the same key list
+// through `@/features/downstream-keys`.
 import { z } from 'zod'
-
-import type { DownstreamApiKeyItem } from '@/features/downstream-keys'
 
 import {
   credentialRefSchema,
   parseCredentialRefs,
   parseIdArray,
 } from '../lib/credential-refs'
+import type { DownstreamApiKeyItem } from '../types'
 
-export const CREATE_FORM_ID = 'settings-downstream-keys-create-form'
+export const CREATE_FORM_ID = 'downstream-keys-create-form'
 
 // Extract the backend error message from an axios rejection. Admin API
 // errors serialize as { error: "..." } (handler/shared/errors.go APIError);
