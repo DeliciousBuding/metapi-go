@@ -44,7 +44,7 @@ import {
   type RuntimeSettings,
 } from '../../../lib/runtime-settings'
 
-const FORM_ID = 'settings-general-proxy-transport-form'
+const FORM_ID = 'settings-proxy-models-proxy-transport-form'
 
 // payloadRules is a Record<string, unknown> on the wire; the textarea holds a
 // JSON string. Zod refines it to a parseable object so we can show a friendly

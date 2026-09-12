@@ -38,7 +38,7 @@ import {
   type RuntimeSettings,
 } from '../../../lib/runtime-settings'
 
-const FORM_ID = 'settings-general-routing-form'
+const FORM_ID = 'settings-proxy-models-routing-form'
 
 // Loose client-side shape guard: comma-separated codes ("401") and
 // inclusive ranges ("500-599"). Range bounds and order are validated

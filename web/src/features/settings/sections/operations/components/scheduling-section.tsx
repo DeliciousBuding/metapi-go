@@ -56,7 +56,7 @@ import {
   specToLegacyMode,
 } from '../../../lib/schedule'
 
-const FORM_ID = 'settings-general-scheduling-form'
+const FORM_ID = 'settings-operations-scheduling-form'
 
 const scheduleSpecSchema = z.discriminatedUnion('kind', [
   z.object({
