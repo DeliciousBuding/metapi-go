@@ -952,3 +952,214 @@ func TestProgrammeCodeGateRegexpSanity(t *testing.T) {
 		}
 	}
 }
+
+// architectureDoc is the one public document that prints a directory tree and
+// labels it as-built. A tree is the easiest thing in this repository to leave
+// behind: adding a package does not touch it and deleting one does not either,
+// so nothing fails until a reader follows it into a directory that is not
+// there. Measured when this gate was added, the tree was missing three tracked
+// top-level directories (`internal/`, `scripts/`, `testbed/`) and one nested
+// package that the same document's introduction names (`transform/anthropic/`).
+const architectureDoc = "docs/architecture.md"
+
+// architectureTreeHeading is the section the gate reads. Renaming it fails the
+// gate loudly instead of silently downgrading it to "no tree found, all good".
+const architectureTreeHeading = "## Package Layout (as-built)"
+
+// architectureTreeBuildOutputDirs are top-level directories that .gitignore
+// creates at the repository root (release staging, local data, smoke output).
+// A clone never contains them, so the as-built tree must not have to list them.
+var architectureTreeBuildOutputDirs = map[string]bool{
+	"bin":          true,
+	"data":         true,
+	"dist-bin":     true,
+	"test-results": true,
+	"tmp":          true,
+	"tmp-smoke":    true,
+}
+
+// architectureTreeGeneratedDirs may be shown by the tree without existing in a
+// fresh checkout. `web/dist` is built by the frontend job and gitignored; the
+// tree already labels it "(generated; embedded into binary)".
+var architectureTreeGeneratedDirs = map[string]bool{
+	"web/dist": true,
+}
+
+// TestArchitectureTreeMatchesTheRepo holds the as-built tree to the repository
+// in both directions: every directory it shows exists, and every top-level
+// directory the repo tracks is shown. Only directories are inventoried — the
+// tree also lists a handful of root files (Dockerfile, Makefile) and requiring
+// those would make the gate fire on every new top-level dotfile policy.
+func TestArchitectureTreeMatchesTheRepo(t *testing.T) {
+	root := repoRoot(t)
+	data, err := os.ReadFile(filepath.Join(root, architectureDoc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(data), "\n")
+
+	headingLine := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == architectureTreeHeading {
+			headingLine = i
+			break
+		}
+	}
+	if headingLine < 0 {
+		t.Fatalf("%s has no %q heading: the as-built tree gate has nothing to read",
+			architectureDoc, architectureTreeHeading)
+	}
+	openFence := -1
+	for i := headingLine; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "```" {
+			openFence = i
+			break
+		}
+	}
+	if openFence < 0 {
+		t.Fatalf("%s:%d: the as-built heading is not followed by a fenced block",
+			architectureDoc, headingLine+1)
+	}
+
+	shown, shownTopLevel, nested := parseArchitectureTree(t, lines, openFence)
+	if len(shown) == 0 || len(shownTopLevel) == 0 || nested == 0 {
+		t.Fatalf("gate would pass vacuously: parsed %d directories (%d top-level, %d nested) out of the as-built tree — "+
+			"a parser that silently drops every child entry looks exactly like a clean tree",
+			len(shown), len(shownTopLevel), nested)
+	}
+
+	var findings []string
+	listed := make(map[string]bool, len(shown))
+	for _, dir := range shown {
+		listed[dir] = true
+		if architectureTreeGeneratedDirs[dir] {
+			continue
+		}
+		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(dir)))
+		if err != nil || !info.IsDir() {
+			findings = append(findings, formatFinding(architectureDoc, headingLine+1,
+				"the as-built tree shows a directory the repo does not have", dir+"/"))
+		}
+	}
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	onDisk := 0
+	for _, entry := range entries {
+		name := entry.Name()
+		if !entry.IsDir() || strings.HasPrefix(name, ".") ||
+			skipHygieneDir(name) || architectureTreeBuildOutputDirs[name] {
+			continue
+		}
+		onDisk++
+		if !listed[name] {
+			findings = append(findings, formatFinding(architectureDoc, headingLine+1,
+				"the repo has a top-level directory the as-built tree does not list", name+"/"))
+		}
+	}
+	if onDisk == 0 {
+		t.Fatal("gate would pass vacuously: no top-level directories were found next to go.mod")
+	}
+
+	if len(findings) > 0 {
+		t.Fatalf("%s is out of sync with the repository (%d directories shown, %d on disk):\n%s",
+			architectureDoc, len(shown), onDisk, strings.Join(findings, "\n"))
+	}
+}
+
+// parseArchitectureTree reads the fenced tree that starts at openFence and
+// returns the repo-relative path of every directory entry it shows, the subset
+// of those that sit at the top level, and how many were nested.
+//
+// The box-drawing prefixes are exactly four runes per level ("│   ", "    ",
+// "├── ", "└── "), so the offset of the entry marker is the depth and the
+// stack of names above it is the parent path. Lines without a marker are the
+// tree root ("metapi-go/") or a wrapped comment, and are skipped; entries that
+// do not end in "/" are files and are not part of the inventory.
+func parseArchitectureTree(t *testing.T, lines []string, openFence int) (shown, topLevel []string, nested int) {
+	t.Helper()
+
+	var stack []string
+	closed := false
+	for i := openFence + 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "```" {
+			closed = true
+			break
+		}
+		runes := []rune(lines[i])
+		marker := -1
+		for j := 0; j+4 <= len(runes); j++ {
+			if branch := string(runes[j : j+4]); branch == "├── " || branch == "└── " {
+				marker = j
+				break
+			}
+		}
+		if marker < 0 || marker%4 != 0 {
+			continue
+		}
+		name := strings.TrimSpace(string(runes[marker+4:]))
+		if hash := strings.Index(name, "#"); hash >= 0 {
+			name = strings.TrimSpace(name[:hash])
+		}
+		if name == "" {
+			continue
+		}
+		depth := marker / 4
+		isDir := strings.HasSuffix(name, "/")
+		name = strings.TrimSuffix(name, "/")
+		if depth > len(stack) {
+			t.Fatalf("%s:%d: tree entry %q is indented %d level(s) below its parent",
+				architectureDoc, i+1, name, depth-len(stack))
+		}
+		stack = append(stack[:depth], name)
+		if !isDir {
+			continue
+		}
+		path := strings.Join(stack, "/")
+		shown = append(shown, path)
+		if depth == 0 {
+			topLevel = append(topLevel, path)
+		} else {
+			nested++
+		}
+	}
+	if !closed {
+		t.Fatalf("%s:%d: the as-built tree is never closed", architectureDoc, openFence+1)
+	}
+	return shown, topLevel, nested
+}
+
+// TestArchitectureTreeParserSanity pins the two things the gate lives or dies
+// on: comments (including wrapped ones) never become entries, and depth is
+// derived from the marker offset so a child path is really a child path.
+func TestArchitectureTreeParserSanity(t *testing.T) {
+	sample := []string{
+		"```",
+		"metapi-go/",
+		"├── cmd/",
+		"│   ├── server/             # Main server entry point",
+		"│   └── migrate/            # Standalone tool",
+		"├── internal/               # wrapped comment:",
+		"│                           #   continuation that must not parse",
+		"├── web/",
+		"│   ├── embed.go            # a file, not a directory",
+		"│   └── dist/               # generated",
+		"└── Makefile",
+		"```",
+	}
+	shown, topLevel, nested := parseArchitectureTree(t, sample, 0)
+
+	want := []string{"cmd", "cmd/server", "cmd/migrate", "internal", "web", "web/dist"}
+	if strings.Join(shown, ",") != strings.Join(want, ",") {
+		t.Errorf("shown = %v, want %v", shown, want)
+	}
+	wantTop := []string{"cmd", "internal", "web"}
+	if strings.Join(topLevel, ",") != strings.Join(wantTop, ",") {
+		t.Errorf("topLevel = %v, want %v", topLevel, wantTop)
+	}
+	if nested != 3 {
+		t.Errorf("nested = %d, want 3 (cmd/server, cmd/migrate, web/dist)", nested)
+	}
+}

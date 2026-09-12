@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last updated**: 2026-09-07
+**Last updated**: 2026-09-13
 
 > **Navigation**: full docs map in [`docs/README.md`](README.md) · route list in [`api/routes-inventory.md`](api/routes-inventory.md) · environment variables in [`configuration.md`](configuration.md).
 >
@@ -96,10 +96,16 @@ exception to the test with a written justification.
 `proxycore/` and `protocol/` do not exist and must not be reintroduced — the
 test rejects those TypeScript-era names.
 
+The test also names what it does **not** police: `cmd/migrate`, `e2e`, `docs`,
+`web` and everything under `internal/` are out of scope, because those are
+repo-private helpers and fixtures rather than a layer. The single `internal/`
+edge it records is the `auth → internal/sharedcount` exception.
+
 ## Request paths: stages and single owners
 
 Two independent auth surfaces share one chi router built by `router.New`, the
-only composition root. Registrars take a `chi.Router` and register absolute
+only place the route tree is composed — `cmd/server` stays the composition root
+for dependencies. Registrars take a `chi.Router` and register absolute
 `/api/...` paths, so each can also be exercised on a standalone router in
 tests.
 
@@ -228,11 +234,24 @@ only to the exact registered paths and never shadows the SPA fallback.
 
 ### Static assets and SPA fallback
 
-`router.setupSPAFallback` serves the embedded `web/dist` tree: content-hashed
-subtrees under `/assets/` and `/static/` get an immutable cache header, while
-root files whose names are not hashed (`bootstrap.js`, `theme-init.js`, logos
-and favicons) get `no-cache` so deploys propagate without a hard refresh. The
-fallback answers `index.html` for non-API paths and a JSON 404 body for
+`router.setupSPAFallback` serves the embedded `web/dist` tree. One rule sets
+every cache header: **a content-hashed name is `immutable`, anything else
+revalidates**. `/static/*` is the only asset subtree mounted and every name in
+it is hashed, so it gets `public, max-age=31536000, immutable`. The files the
+build copies into the dist root are not hashed, so they get `no-cache` —
+`bootstrap.js`, `theme-init.js`, the logos and favicons, and the `index.html`
+the fallback serves — which is what lets a deploy propagate to an
+already-visited client without a hard refresh.
+
+There is no `/assets/*` mount. One sat here for a legacy Vite layout until it
+was removed: `//go:embed` bakes exactly one dist into a binary, so there is no
+older build to stay compatible with, and the embedded tree has had no `assets/`
+directory since the Rsbuild migration. `router/spa_layout_test.go` pins the
+replacement contract — every root-relative asset the built `index.html`
+references must be served as that asset and never as the fallback HTML, and
+mounting the shipped dist must not warn — while
+`router/static_cache_policy_test.go` pins the cache header of each class above.
+The fallback answers `index.html` for non-API paths and a JSON 404 body for
 `/api/*` and `/v1/*`.
 
 ## Package Layout (as-built)
@@ -244,11 +263,11 @@ metapi-go/
 │   └── migrate/            # Standalone SQLite→PG migration tool
 ├── app/                    # Lifecycle: start/shutdown, health, metrics, proxy upstream glue
 ├── auth/                   # Admin + proxy + downstream auth, policy, rate limit
-├── config/                 # Env loading (no prefix), defaults, validation
+├── config/                 # Env loading, defaults, validation (naming rule: BACKEND.md §1.6)
 ├── router/                 # chi router mount, middleware, security headers, SPA fallback
 ├── handler/
 │   ├── admin/              # Admin REST handlers (+ payloads/)
-│   ├── proxy/              # /v1/* proxy surface handlers
+│   ├── proxy/              # /v1/* proxy surface handlers + the non-/v1 aliases
 │   └── shared/             # Shared API error helpers
 ├── proxy/                  # Proxy orchestration (NOT "proxycore/")
 │   ├── profiles/           # Client/profile detection (Claude Code, Codex, Gemini CLI, …)
@@ -256,6 +275,7 @@ metapi-go/
 ├── routing/                # TokenRouter: match, weights, cooldown, site runtime breaker
 ├── platform/               # Upstream platform adapters (16) + site proxy
 ├── transform/              # Protocol transformers (NOT "protocol/"; no canonical IR)
+│   ├── anthropic/          # messages: the Messages ⇄ Chat request/return bridge
 │   ├── openai/             # completions, embeddings, images, responses
 │   ├── gemini/             # generate_content (native OpenAI→Gemini bridge)
 │   └── shared/             # Cross-protocol helpers
@@ -264,10 +284,14 @@ metapi-go/
 │   └── pricingcatalog/     # models.dev official catalog pricing (cold-start cost signal)
 ├── scheduler/              # Background cron jobs (checkin, balance, recovery, retention, …)
 ├── store/                  # sqlx DB open, dual dialect, schema, settings
+├── internal/               # Repo-private helpers, out of the boundary test's scope:
+│                           #   ssrf · sharedcount · httpclient · version · golden · pgtest
 ├── web/
 │   ├── embed.go            # //go:embed dist
 │   └── dist/               # Built React SPA (generated; embedded into binary)
 ├── e2e/                    # End-to-end tests
+├── scripts/                # Env-driven release/verify/e2e scripts (no host or credential baked in)
+├── testbed/                # Sanitized compose template for a local upstream testbed
 ├── docs/                   # Specs, architecture, design philosophy
 ├── Dockerfile
 ├── docker-compose.yml
@@ -284,9 +308,9 @@ metapi-go/
 | `app`           | HTTP server lifecycle, readiness, metrics, upstream executor glue                                                        |
 | `router`        | Route tree, CORS/security middleware, embed SPA                                                                          |
 | `auth`          | Fail-closed admin/proxy auth, downstream key policy                                                                      |
-| `config`        | Env → `Config` (names match TS; no `METAPI_` prefix)                                                                     |
+| `config`        | Env → `Config`; parity names match TS, Go-only knobs take a `METAPI_` prefix (`BACKEND.md` §1.6)                                                                     |
 | `handler/admin` | Admin CRUD + settings + ops endpoints                                                                                    |
-| `handler/proxy` | Protocol surfaces under `/v1/*`                                                                                          |
+| `handler/proxy` | Protocol surfaces under `/v1/*` and the non-`/v1` aliases                                                                                          |
 | `proxy`         | Coordinator + executor + channel selection + retry policy (the request loop itself lives in `handler/proxy/upstream.go`) |
 | `routing`       | Model/route match, weighted selection, Fibonacci cooldown, site breaker                                                  |
 | `platform`      | Per-upstream adapter behavior (detect, auth headers, admin APIs)                                                         |
@@ -352,7 +376,7 @@ scheduler (robfig/cron)
 | Routing              | `tokenRouter` service         | `routing/`                             |
 | Background jobs      | timers + node-cron            | `scheduler/` + robfig/cron             |
 | Image size           | ~80MB+ node base              | Alpine + static binary                 |
-| Config env names     | Unprefixed                    | Same unprefixed names                  |
+| Config env names     | Unprefixed                    | Same names for parity vars; Go-only knobs add `METAPI_` |
 
 ## Key Design Decisions
 
@@ -362,7 +386,7 @@ React SPA is built once and embedded via `//go:embed`. Production image has no N
 
 ### 2. Dual dialect: SQLite + PostgreSQL
 
-SQLite is default (zero-config dev/test). PostgreSQL is the production path. `store.Open(dialect, dsn)` and dialect rebinding hide `?` vs `$N` and type differences. MySQL was intentionally not ported.
+SQLite is default (zero-config dev/test). PostgreSQL is the production path. `store.Open(dialect, dsn, sslMode)` and dialect rebinding hide `?` vs `$N` and type differences. MySQL was intentionally not ported.
 
 ### 3. camelCase JSON API parity
 
@@ -383,7 +407,7 @@ Routing isolates bad channels instead of cascading:
 
 ### 6. Config via env, TS-compatible names
 
-`config.Load` reads the same env var names as TS Metapi (`AUTH_TOKEN`, `PROXY_TOKEN`, `DB_TYPE`, …) with **no** project prefix. Defaults and validation live in `config/`.
+`config.Load` reads the same env var names as TS Metapi for every parity variable (`AUTH_TOKEN`, `PROXY_TOKEN`, `DB_TYPE`, …). A knob that exists only in Go carries a `METAPI_` prefix so it cannot be mistaken for a parity name. The rule and its evidence live in one place: [`docs/internal/design/BACKEND.md`](internal/design/BACKEND.md) §1.6. Defaults and validation live in `config/`.
 
 ### 7. Pure Go, no CGO
 
@@ -413,14 +437,6 @@ config, web, handler/shared → leaves
 it by running `go test ./docs -run TestPackageBoundaries`. That test is the
 specification; a new edge either passes it or needs a written exception in its
 header comment.
-
-## S.U.P.E.R. Compliance
-
-- **S** (small): packages own one layer (HTTP, orchestration, routing, persistence, …)
-- **U** (understandable): real names match code (`proxy`, `transform`, `routing`)
-- **P** (pluggable): platform adapters and protocol transforms register/compose independently
-- **E** (environment-agnostic): SQLite or PostgreSQL via dialect store
-- **R** (replaceable): coordinator dependencies and platform adapters are injectable/replaceable
 
 ## Related docs
 

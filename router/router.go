@@ -273,6 +273,14 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 	// root. They are NOT under /static/, so serve them explicitly
 	// here — otherwise the SPA fallback answers 200 text/html and <img>
 	// renders blank.
+	//
+	// Cache rule for everything this function serves: a content-hashed name is
+	// immutable, every other name revalidates (no-cache) so a deploy reaches
+	// already-visited clients without a hard refresh. Only /static/* is hashed,
+	// so nothing in the dist root is immutable. These five were served
+	// immutable once, which pinned a replaced logo or favicon in every browser
+	// that had already loaded it for a year — the failure mode the rootScripts
+	// block below had already written down, one block too late to apply here.
 	rootFiles := map[string]string{
 		"logo.png":       "image/png",
 		"favicon.png":    "image/png",
@@ -290,7 +298,7 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 				return
 			}
 			w.Header().Set("Content-Type", fileType)
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			w.Header().Set("Cache-Control", "no-cache")
 			w.Write(data)
 		})))
 	}
@@ -299,9 +307,8 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 	// the dist root. They must resolve to a real JS content type — otherwise
 	// the SPA fallback answers 200 text/html and nosniff browsers refuse to
 	// execute them (the same failure mode as rootFiles above). Unlike the
-	// /static/* assets their names are NOT content-hashed, so they must NOT
-	// get the immutable cache header: no-cache keeps deploys propagating to
-	// already-visited clients without a hard refresh.
+	// /static/* assets their names are NOT content-hashed, so per the cache
+	// rule above they revalidate.
 	rootScripts := []string{"bootstrap.js", "theme-init.js"}
 	for _, name := range rootScripts {
 		fileName := name
