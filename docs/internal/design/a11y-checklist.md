@@ -45,14 +45,14 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 | Token            | `--ring` recipe — `focus-visible:ring-3 focus-visible:ring-ring/50` (`DESIGN.md` §2.7) |
 | Hit target       | Icon-only controls ≥ ~36px (topbar already ~36)                                        |
 
-**Current**: `.modal-close-button:focus-visible` uses primary outline. Broader global focus-ring utility is residual (not all controls share one rule).
+**Current**: close buttons and icon-only chrome use the shared `--ring` recipe (`focus-visible:ring-3 focus-visible:ring-ring/50`); a single global focus-ring rule for every page-level action grid is residual (§7).
 
 ### 2.3 Keyboard traps
 
 | Surface              | Expected                                                    | Notes                              |
 | -------------------- | ----------------------------------------------------------- | ---------------------------------- |
-| Search modal         | Esc exits; Tab cycles within modal                          | **Pass** — `useFocusTrap` on panel |
-| Centered modal       | Esc optional via `closeOnEscape`; close button always named | **Pass** — trap + dialog name      |
+| Search modal         | Esc exits; Tab cycles within modal                          | **Pass** — Base UI `Dialog` built-in focus trap on the panel |
+| Centered modal       | Esc dismisses (Base UI `Dialog` default); close button always named | **Pass** — trap + dialog name      |
 | Mobile drawer        | Esc exits; role=`dialog` + `aria-modal`                     | **Pass** — trap on panel           |
 | Theme/user dropdowns | Esc dismisses non-modal menus                               | **Pass** (2026-08-18) — Base UI `DropdownMenu`/`Popover` close on Esc natively; pinned by `interface-controls.test.tsx` (language menu + appearance popover) |
 
@@ -72,21 +72,20 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 
 | Control                  | Accessible name                      | Location                                               |
 | ------------------------ | ------------------------------------ | ------------------------------------------------------ |
-| Mobile hamburger         | `打开导航`                           | `web/src/components/layout/components/app-header.tsx`  |
-| Language toggle          | bilingual explicit labels            | `web/src/components/layout/components/app-header.tsx`  |
-| Search trigger           | `搜索 (Ctrl+K)`                      | `web/src/components/layout/components/app-header.tsx`  |
-| Theme menu trigger       | mode label (+ resolved system theme) | `web/src/components/layout/components/app-header.tsx`  |
+| Mobile hamburger / sidebar collapse | `切换侧边栏` (`Toggle Sidebar` key) — one static name for both directions | `web/src/components/ui/sidebar.tsx` (`SidebarTrigger`, mounted by `app-header.tsx`) |
+| Language toggle          | `语言` (`common.language`); menu options are bilingual (`common.languageName.*`) | `web/src/components/layout/components/interface-controls.tsx` |
+| Search trigger           | `搜索…` (`search.trigger`); the `Ctrl+K` hint is a visual `<Kbd>` sibling, not part of the name | `web/src/components/layout/components/app-header.tsx` |
+| Theme menu trigger       | `切换主题` (`theme.toggle`) — static name | `web/src/components/layout/components/interface-controls.tsx` |
+| User menu trigger        | `用户菜单` (`userMenu.trigger`)        | `web/src/components/layout/components/user-menu.tsx`   |
 | Sidebar item (collapsed) | item label                           | `web/src/components/layout/components/app-sidebar.tsx` |
-| Sidebar collapse         | `收起侧边栏` / `展开侧边栏`          | `web/src/components/layout/components/app-sidebar.tsx` |
-| Mobile drawer close      | `关闭导航` (or `closeLabel`)         | `web/src/components/ui/sheet.tsx`                      |
-| Modal close (×)          | `关闭弹框`                           | `web/src/components/ui/dialog.tsx`                     |
-| Search modal close       | `关闭`                               | `web/src/components/ui/command.tsx`                    |
-| Login GitHub icon link   | `GitHub`                             | `web/src/features/auth/components/login-form.tsx`      |
-| Login theme tools group  | `外观设置`                           | `web/src/features/auth/components/login-form.tsx`      |
+| Mobile drawer close      | `关闭` (`common.close`)              | `web/src/components/ui/sheet.tsx`                      |
+| Modal close (×)          | `关闭` (`common.close`)              | `web/src/components/ui/dialog.tsx`                     |
+| Search modal close       | `关闭` (`common.close`, via the dialog close) | `web/src/components/ui/command.tsx`           |
 
-> 2026-08-18 hygiene: the historical `Avatar menu` row was removed — the
-> current header ships no avatar/account menu (auth is token-based), so
-> there is no control to name.
+> 2026-09-13 correction: the header ships a `UserMenu` (version / About /
+> documentation / sign-out), named by `userMenu.trigger` — it is in the table
+> above. An earlier note here claimed no account menu existed because auth is
+> token-based; that was wrong (the menu is not avatar-shaped, but it exists).
 
 ### 3.2 Shared component rules
 
@@ -177,7 +176,7 @@ Breakpoints used by product:
 
 | Check               | Expected                                    | Status    |
 | ------------------- | ------------------------------------------- | --------- |
-| Sidebar             | Expanded 220px default; collapsible to 64px | Pass      |
+| Sidebar             | Expanded 232px (`14.5rem`) default; collapsible to 44px (`2.75rem`) icon rail | Pass      |
 | Collapsed rail      | Icon-only items named                       | Pass      |
 | Tables              | Full columns; sticky header optional        | Page debt |
 | Topbar nav + search | Visible labels where designed               | Pass      |
@@ -207,10 +206,10 @@ Breakpoints used by product:
 
 ## 7. Known limitations
 
-This section lists open residuals only. Closure history lives in root [`../../CHANGELOG.md`](../../../CHANGELOG.md). Open work is committed through a scoped GitHub issue.
+This section lists open residuals only. Closure history lives in the root [`CHANGELOG.md`](../../../CHANGELOG.md). Open work is committed through a scoped GitHub issue.
 
 1. **Charts keyboard series access** — recharts renders series as non-focusable SVG; assistive tech relies on the text axes, legends, and rich text tooltips (balance/cost, accounts, calls, tokens, share) that already carry the data. Non-color status encoding (text labels on availability buckets, attention badges) is in place; no color-only status.
-2. **Global focus-ring utility** — chrome controls share the `--ring` recipe; a single shared rule for every page-level action grid is not yet in place (`.modal-close-button:focus-visible` uses a primary outline).
+2. **Global focus-ring utility** — chrome controls share the `--ring` recipe (`focus-visible:ring-3 focus-visible:ring-ring/50`); a single shared rule for every page-level action grid is not yet in place.
 3. **Hex hygiene** — no new brand hex is allowed in pages (see [`DESIGN.md`](./DESIGN.md) §1 Principles). Existing brand assets and other justified exceptions are reviewed when their owning surface changes; this is not a standalone sweep.
 
 ---
