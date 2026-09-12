@@ -5,6 +5,7 @@
 import '@testing-library/jest-dom/vitest'
 import {
   getCoreRowModel,
+  getPaginationRowModel,
   useReactTable,
   type ColumnDef,
 } from '@tanstack/react-table'
@@ -46,20 +47,34 @@ beforeAll(() => {
 
 afterEach(() => cleanup())
 
+/**
+ * The bordered container the desktop table renders into.
+ *
+ * Scoped deliberately: the pagination footer is a *sibling* of it, and its
+ * lucide chevrons carry `pointer-events-none` the way every icon in the app
+ * does — an icon must not eat the click of the button it sits in. What #889 was
+ * about is the table region itself never becoming click-proof while a
+ * background refetch dims it.
+ */
+function tableRegion(container: HTMLElement) {
+  const region = container.querySelector('.overflow-hidden.rounded-lg.border')
+  if (!region) throw new Error('the table region did not render')
+  return region
+}
+
 function renderDataTablePage(options: { isFetching?: boolean }) {
   function Harness() {
     const table = useReactTable({
       data: probeRows,
       columns: probeColumns,
       getCoreRowModel: getCoreRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
     })
     return (
       <DataTablePage
         table={table}
-        columns={probeColumns}
         isFetching={options.isFetching}
         toolbarProps={null}
-        showPagination={false}
       />
     )
   }
@@ -74,8 +89,10 @@ describe('DataTablePage background refetch indicator', () => {
     expect(screen.getByText('alpha')).toBeInTheDocument()
     expect(screen.getByText('beta')).toBeInTheDocument()
 
-    // No element in the table layout may swallow clicks while refetching.
-    expect(container.querySelector('.pointer-events-none')).toBeNull()
+    // No element in the table region may swallow clicks while refetching.
+    expect(
+      tableRegion(container).querySelector('.pointer-events-none')
+    ).toBeNull()
     // The subtle dim indicator remains so a refetch is still perceptible.
     expect(container.querySelector('.opacity-80')).not.toBeNull()
   })
@@ -84,12 +101,14 @@ describe('DataTablePage background refetch indicator', () => {
     const { container } = renderDataTablePage({ isFetching: false })
 
     expect(screen.getByText('alpha')).toBeInTheDocument()
-    expect(container.querySelector('.pointer-events-none')).toBeNull()
+    expect(
+      tableRegion(container).querySelector('.pointer-events-none')
+    ).toBeNull()
     expect(container.querySelector('.opacity-80')).toBeNull()
   })
 })
 
-describe('DataTablePage error contract (S7)', () => {
+describe('DataTablePage error contract', () => {
   function renderWithError(options: {
     placement?: 'replace' | 'inline'
     onRetry?: () => void
@@ -99,17 +118,16 @@ describe('DataTablePage error contract (S7)', () => {
         data: probeRows,
         columns: probeColumns,
         getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
       })
       return (
         <DataTablePage
           table={table}
-          columns={probeColumns}
           error={new Error('boom')}
           errorMessageKey='sites.page.loadError'
           onErrorRetry={options.onRetry}
           errorPlacement={options.placement}
           toolbarProps={null}
-          showPagination={false}
         />
       )
     }

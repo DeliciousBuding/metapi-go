@@ -1,58 +1,85 @@
-// metapi-go/data-table — ported from newapi
+// metapi-go/data-table — DataTableView: the <table> itself.
+//
+// Two shells, one body. Pages default to the fixed-height shell (`splitHeader`):
+// the body scrolls inside a bounded container while the header stays put, which
+// is what keeps column headings readable on a hundred-row page. A page that
+// would rather grow with its rows turns it off and gets a plain table.
+//
+// The shells differ only in their scroll container. Caption, colgroup, header
+// and body are the same nodes in both, so the two cannot drift.
+//
+// Under the header there are exactly three things to render: the loading
+// skeleton, the empty state, or rows — the feature's own `renderRow` when it
+// needs one (expandable rows, row-level navigation), `DataTableRow` otherwise.
 import type { Row, Table as TanstackTable } from '@tanstack/react-table'
-import * as React from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
+import { Table, TableBody } from '@/components/ui/table'
 import { formatInt } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-import {
-  getPinnedColumnMap,
-  getResolvedColumnClassNameFromMap,
-} from './column-pinning'
+import { getPinnedSides, pinnedColumnClasses } from './column-pinning'
 import { DataTableColgroup } from './data-table-colgroup'
 import { DataTableHeader } from './data-table-header'
 import { DataTableRow } from './data-table-row'
 import { TableEmpty } from './table-empty'
 import { getTableSizeStyle } from './table-sizing'
 import { TableSkeleton } from './table-skeleton'
-import type {
-  DataTableColumnClassName,
-  DataTablePinnedColumn,
-  DataTableViewProps,
-} from './types'
+import type { DataTableColumnClassName, DataTableViewProps } from './types'
 
-export type {
-  DataTableColumnClassName,
-  DataTablePinnedColumn,
-  DataTableRenderRowHelpers,
-  DataTableViewProps,
-} from './types'
+/**
+ * A sticky header has to be opaque or the rows scrolling under it show through.
+ * The colour travels as a custom property so a pinned header cell — which paints
+ * its own opaque background — reads the same value instead of hardcoding a
+ * second one (see `column-pinning`).
+ */
+const STICKY_HEADER_BACKGROUND =
+  '**:data-[slot=table-header]:[--table-header-bg:var(--table-header)] **:data-[slot=table-header]:bg-(--table-header-bg)'
+
+/** What the `ui/table` primitive paints on the <table> element itself. */
+const TABLE_CLASS = 'w-full caption-bottom text-sm tabular-nums'
 
 export function DataTableView<TData>(props: DataTableViewProps<TData>) {
-  const rows = props.rows ?? props.table.getRowModel().rows
-  const colSpan = React.useMemo(
-    () => props.table.getVisibleLeafColumns().length,
-    [props.table]
-  )
-  const columnClassName = useResolvedColumnClassName(
-    props.table,
-    props.getColumnClassName,
-    props.pinnedColumns
-  )
-
   const { t } = useTranslation()
-  const pageIndex = props.table.getState().pagination.pageIndex
-  const pageSize = props.table.getState().pagination.pageSize
-  const totalRows = props.table.getRowCount()
-  const start = totalRows === 0 ? 0 : pageIndex * pageSize + 1
-  const end = pageIndex * pageSize + rows.length
+  const { table, splitHeader } = props
+  // Read on every render rather than memoised on `table`: hiding a column in the
+  // view menu changes this count while the table object keeps its identity.
+  const rows = table.getRowModel().rows
+  const colSpan = table.getVisibleLeafColumns().length
+  const getColumnClassName = pinnedColumnClasses(getPinnedSides(table))
+
+  const { pageIndex, pageSize } = table.getState().pagination
+  const totalRows = table.getRowCount()
   const caption = t('dataTable.summary', {
-    start: formatInt(start),
-    end: formatInt(end),
+    start: formatInt(totalRows === 0 ? 0 : pageIndex * pageSize + 1),
+    end: formatInt(pageIndex * pageSize + rows.length),
     total: formatInt(totalRows),
   })
+
+  // The column budget is only worth computing — and only means anything — when
+  // the header is separated from the body and the two have to agree on widths.
+  const sizing: { colgroup?: ReactNode; style?: CSSProperties } = splitHeader
+    ? {
+        colgroup: <DataTableColgroup table={table} />,
+        style: getTableSizeStyle(table),
+      }
+    : {}
+
+  const tableContent = (
+    <>
+      <caption className='sr-only'>{caption}</caption>
+      {sizing.colgroup}
+      <DataTableHeader
+        table={table}
+        className={splitHeader ? 'sticky top-0 z-10' : undefined}
+        getColumnClassName={getColumnClassName}
+      />
+      <TableBody>
+        {renderBody(props, rows, colSpan, getColumnClassName)}
+      </TableBody>
+    </>
+  )
 
   return (
     <div
@@ -60,221 +87,44 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
         'overflow-hidden rounded-lg border',
         props.containerClassName
       )}
-      {...props.containerProps}
     >
-      {props.splitHeader ? (
-        <SplitHeaderTableView
-          props={props}
-          rows={rows}
-          colSpan={colSpan}
-          getColumnClassName={columnClassName}
-          caption={caption}
-        />
+      {splitHeader ? (
+        <div className='flex h-full min-h-0 flex-col'>
+          <div
+            className={cn(
+              'min-h-0 flex-1 overflow-auto',
+              STICKY_HEADER_BACKGROUND
+            )}
+          >
+            {/* The split shell cannot use the `ui/table` primitive: that
+                primitive brings its own `overflow-y-hidden` container, and a
+                sticky header inside it has nothing to stick to. */}
+            <table
+              data-slot='table'
+              data-table-stagger='true'
+              className={TABLE_CLASS}
+              style={sizing.style}
+            >
+              {tableContent}
+            </table>
+          </div>
+        </div>
       ) : (
-        <UnifiedTableView
-          props={props}
-          rows={rows}
-          colSpan={colSpan}
-          getColumnClassName={columnClassName}
-          caption={caption}
-        />
+        <Table style={sizing.style}>{tableContent}</Table>
       )}
     </div>
   )
 }
 
-function UnifiedTableView<TData>({
-  props,
-  rows,
-  colSpan,
-  getColumnClassName,
-  caption,
-}: {
-  props: DataTableViewProps<TData>
-  rows: Row<TData>[]
-  colSpan: number
-  getColumnClassName: DataTableColumnClassName
-  caption: string
-}) {
-  const tableSizing = getTableSizing(props)
-
-  return (
-    <div className={props.tableContainerClassName}>
-      <Table className={props.tableClassName} style={tableSizing.style}>
-        <caption className='sr-only'>{caption}</caption>
-        {tableSizing.colgroup}
-        <DataTableHeader
-          table={props.table}
-          applyHeaderSize={props.applyHeaderSize}
-          className={props.tableHeaderClassName}
-          rowClassName={props.tableHeaderRowClassName}
-          getColumnClassName={getColumnClassName}
-        />
-        {renderTableBody(props, rows, colSpan, getColumnClassName)}
-      </Table>
-    </div>
-  )
-}
-
-function SplitHeaderTableView<TData>({
-  props,
-  rows,
-  colSpan,
-  getColumnClassName,
-  caption,
-}: {
-  props: DataTableViewProps<TData>
-  rows: Row<TData>[]
-  colSpan: number
-  getColumnClassName: DataTableColumnClassName
-  caption: string
-}) {
-  const tableSizing = getTableSizing(props)
-
-  return (
-    <div
-      className={cn(
-        'flex h-full min-h-0 flex-col',
-        props.tableContainerClassName
-      )}
-    >
-      <div
-        className={cn(
-          'min-h-0 flex-1 overflow-auto',
-          '**:data-[slot=table-header]:[--table-header-bg:var(--table-header)]',
-          '**:data-[slot=table-header]:bg-(--table-header-bg)',
-          props.splitHeaderScrollClassName,
-          props.bodyContainerClassName
-        )}
-      >
-        <table
-          data-slot='table'
-          data-table-stagger='true'
-          className={cn(
-            'w-full caption-bottom text-sm tabular-nums',
-            props.tableClassName
-          )}
-          style={tableSizing.style}
-        >
-          <caption className='sr-only'>{caption}</caption>
-          {tableSizing.colgroup}
-          <DataTableHeader
-            table={props.table}
-            applyHeaderSize={props.applyHeaderSize}
-            className={cn('sticky top-0 z-10', props.tableHeaderClassName)}
-            rowClassName={props.tableHeaderRowClassName}
-            getColumnClassName={getColumnClassName}
-          />
-          {renderTableBody(props, rows, colSpan, getColumnClassName)}
-        </table>
-      </div>
-    </div>
-  )
-}
-
-function useResolvedColumnClassName<TData>(
-  table: TanstackTable<TData>,
-  getColumnClassName?: DataTableColumnClassName,
-  pinnedColumns?: DataTablePinnedColumn[]
-) {
-  const allPinnedColumns = React.useMemo(() => {
-    const metaPinnedColumns = getMetaPinnedColumns(table)
-    return mergePinnedColumns(pinnedColumns, metaPinnedColumns)
-  }, [table, pinnedColumns])
-
-  const pinnedColumnById = React.useMemo(
-    () => getPinnedColumnMap(allPinnedColumns),
-    [allPinnedColumns]
-  )
-
-  return React.useMemo(
-    () =>
-      getResolvedColumnClassNameFromMap(getColumnClassName, pinnedColumnById),
-    [getColumnClassName, pinnedColumnById]
-  )
-}
-
-function getMetaPinnedColumns<TData>(
-  table: TanstackTable<TData>
-): DataTablePinnedColumn[] {
-  return table.getAllColumns().flatMap((column) => {
-    const side = column.columnDef.meta?.pinned
-    if (!side) {
-      return []
-    }
-
-    return [{ columnId: column.id, side }]
-  })
-}
-
-function mergePinnedColumns(
-  explicitPinnedColumns: DataTablePinnedColumn[] | undefined,
-  metaPinnedColumns: DataTablePinnedColumn[]
-): DataTablePinnedColumn[] | undefined {
-  if (!metaPinnedColumns.length) {
-    return explicitPinnedColumns
-  }
-
-  if (!explicitPinnedColumns?.length) {
-    return metaPinnedColumns
-  }
-
-  const explicitColumnIds = new Set(
-    explicitPinnedColumns.map((column) => column.columnId)
-  )
-
-  return [
-    ...explicitPinnedColumns,
-    ...metaPinnedColumns.filter(
-      (column) => !explicitColumnIds.has(column.columnId)
-    ),
-  ]
-}
-
-function getTableSizing<TData>(props: DataTableViewProps<TData>): {
-  colgroup?: React.ReactNode
-  style?: React.CSSProperties
-} {
-  if (props.colgroup) {
-    return { colgroup: props.colgroup }
-  }
-
-  if (!props.splitHeader && !props.applyHeaderSize) {
-    return {}
-  }
-
-  return {
-    colgroup: <DataTableColgroup table={props.table} />,
-    style: getTableSizeStyle(props.table),
-  }
-}
-
-function renderTableBody<TData>(
+function renderBody<TData>(
   props: DataTableViewProps<TData>,
   rows: Row<TData>[],
   colSpan: number,
   getColumnClassName: DataTableColumnClassName
-) {
-  return (
-    <TableBody className={props.tableBodyClassName}>
-      {renderTableBodyContent(props, rows, colSpan, getColumnClassName)}
-    </TableBody>
-  )
-}
-
-function renderTableBodyContent<TData>(
-  props: DataTableViewProps<TData>,
-  rows: Row<TData>[],
-  colSpan: number,
-  getColumnClassName: DataTableColumnClassName
-) {
+): ReactNode {
   if (props.isLoading) {
     return (
-      <TableSkeleton
-        table={props.table}
-        keyPrefix={props.skeletonKeyPrefix}
-        rowHeight={props.skeletonRowHeight}
-      />
+      <TableSkeleton table={props.table} keyPrefix={props.skeletonKeyPrefix} />
     )
   }
 
@@ -285,10 +135,12 @@ function renderTableBodyContent<TData>(
   return rows.map((row) =>
     props.renderRow
       ? props.renderRow(row, {
+          // A custom row still has to look pinned where the default one would,
+          // so the resolver is handed over rather than reimplemented.
           getCellClassName: (columnId, className) =>
             cn(getColumnClassName(columnId, 'cell'), className),
         })
-      : renderDefaultRow(props, row, getColumnClassName)
+      : renderDefaultRow(props.table, row, getColumnClassName)
   )
 }
 
@@ -296,29 +148,16 @@ function renderEmptyState<TData>(
   props: DataTableViewProps<TData>,
   colSpan: number
 ) {
-  if (props.emptyContent) {
-    return (
-      <TableRow>
-        <TableCell colSpan={colSpan} className={props.emptyCellClassName}>
-          {props.emptyContent}
-        </TableCell>
-      </TableRow>
-    )
-  }
-
   const state = props.table.getState()
-  const isFiltered =
-    (state.columnFilters ?? []).length > 0 || !!state.globalFilter
 
   return (
     <TableEmpty
       colSpan={colSpan}
       title={props.emptyTitle}
       description={props.emptyDescription}
-      icon={props.emptyIcon}
-      isFiltered={isFiltered}
-      filteredTitle={props.filteredEmptyTitle}
-      filteredDescription={props.filteredEmptyDescription}
+      isFiltered={
+        (state.columnFilters ?? []).length > 0 || Boolean(state.globalFilter)
+      }
       onClearFilters={() => {
         props.table.resetColumnFilters()
         props.table.resetGlobalFilter()
@@ -330,7 +169,7 @@ function renderEmptyState<TData>(
 }
 
 function renderDefaultRow<TData>(
-  props: DataTableViewProps<TData>,
+  table: TanstackTable<TData>,
   row: Row<TData>,
   getColumnClassName: DataTableColumnClassName
 ) {
@@ -338,9 +177,8 @@ function renderDefaultRow<TData>(
     <DataTableRow
       key={row.id}
       row={row}
-      className={cn(props.tableBodyRowClassName, props.getRowClassName?.(row))}
       getColumnClassName={getColumnClassName}
-      cellRenderColumns={props.table.options.columns}
+      cellRenderColumns={table.options.columns}
     />
   )
 }

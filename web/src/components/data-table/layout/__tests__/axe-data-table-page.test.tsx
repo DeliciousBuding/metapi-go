@@ -5,6 +5,7 @@
 import '@testing-library/jest-dom/vitest'
 import {
   getCoreRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
@@ -55,16 +56,10 @@ function renderDataTable() {
       data: probeRows,
       columns: probeColumns,
       getCoreRowModel: getCoreRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
       getSortedRowModel: getSortedRowModel(),
     })
-    return (
-      <DataTablePage
-        table={table}
-        columns={probeColumns}
-        toolbarProps={null}
-        showPagination={false}
-      />
-    )
+    return <DataTablePage table={table} toolbarProps={null} />
   }
   return render(<Harness />)
 }

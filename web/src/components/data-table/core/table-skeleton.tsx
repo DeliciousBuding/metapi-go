@@ -24,6 +24,9 @@ import { cn } from '@/lib/utils'
 const MAX_SKELETON_ROWS = 20
 const FALLBACK_ROW_COUNT = 20
 
+/** Height of one skeleton row. */
+const ROW_HEIGHT_CLASS = 'h-[52px]'
+
 /** Bar width as a fraction of the column budget, clamped to a readable range. */
 const BAR_WIDTH_RATIO = 0.6
 const BAR_MIN_PX = 32
@@ -31,32 +34,26 @@ const BAR_MAX_PX = 140
 
 type TableSkeletonProps<TData> = {
   table: Table<TData>
-  rowCount?: number
-  rowHeight?: string
   /** React key prefix; distinct per table when two skeletons share a page. */
   keyPrefix?: string
 }
 
 export function TableSkeleton<TData>({
   table,
-  rowCount,
-  rowHeight = 'h-[52px]',
   keyPrefix = 'skeleton',
 }: TableSkeletonProps<TData>) {
   const visibleColumns = table.getVisibleLeafColumns()
-  const rows =
-    rowCount ??
-    Math.min(
-      table.getState().pagination?.pageSize || FALLBACK_ROW_COUNT,
-      MAX_SKELETON_ROWS
-    )
+  const rows = Math.min(
+    table.getState().pagination?.pageSize || FALLBACK_ROW_COUNT,
+    MAX_SKELETON_ROWS
+  )
 
   return (
     <>
       {Array.from({ length: rows }, (_, rowIndex) => (
         <TableRow
           key={`${keyPrefix}-${rowIndex}`}
-          className={cn(rowHeight, 'border-b')}
+          className={cn(ROW_HEIGHT_CLASS, 'border-b')}
         >
           {visibleColumns.map((column) => {
             // The selection column holds a checkbox, so its placeholder is the

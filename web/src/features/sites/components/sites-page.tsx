@@ -464,7 +464,6 @@ export function SitesPage() {
 
       <DataTablePage
         table={table}
-        columns={columns}
         isLoading={sitesQuery.isLoading}
         isFetching={sitesQuery.isFetching}
         error={sitesQuery.error as Error | null}

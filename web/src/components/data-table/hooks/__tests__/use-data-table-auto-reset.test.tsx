@@ -81,13 +81,7 @@ describe('useDataTable auto-reset state stability', () => {
         getRowId: (row) => String(row.id),
       })
       tableInstance = table
-      return (
-        <DataTablePage
-          table={table}
-          columns={probeColumns}
-          toolbarProps={null}
-        />
-      )
+      return <DataTablePage table={table} toolbarProps={null} />
     }
 
     const view = render(<Harness />)
@@ -114,13 +108,7 @@ describe('useDataTable auto-reset state stability', () => {
         getRowId: (row) => String(row.id),
       })
       tableInstance = table
-      return (
-        <DataTablePage
-          table={table}
-          columns={probeColumns}
-          toolbarProps={null}
-        />
-      )
+      return <DataTablePage table={table} toolbarProps={null} />
     }
 
     render(<Harness />)

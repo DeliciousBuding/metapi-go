@@ -512,7 +512,6 @@ export function CheckinPage() {
 
       <DataTablePage
         table={table}
-        columns={columns}
         isLoading={isLoading}
         isFetching={isFetching}
         error={error as Error | null}

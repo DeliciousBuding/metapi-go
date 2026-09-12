@@ -3,11 +3,13 @@
 //
 // Two jobs that belong together because they share the header cell:
 //
-//   rendering   each `th` gets its column's content, its `aria-sort`, and — when
-//               the table opts into resizing and the column takes a share of the
-//               width budget — an explicit width. Content-sized columns get
-//               neither the width nor a resizer: resizing the `actions` column
-//               is meaningless when its width is defined by its content.
+//   rendering   each `th` gets its column's content, its `aria-sort`, and the
+//               class its column resolves to (pinning lives there, not here).
+//               Widths are not this file's business: the fixed-height shell lays
+//               them out through `data-table-colgroup` so header and body agree,
+//               and the plain shell leaves the table to auto-layout.
+//               Content-sized columns get no resizer — resizing `actions` is
+//               meaningless when its width is defined by its content.
 //   resizing    pointer drag (TanStack's own handler), plus a keyboard path the
 //               drag handler cannot provide: arrows step the width (Shift for a
 //               coarser step), Enter/Space re-fits the column to its content.
@@ -35,17 +37,13 @@ import type { DataTableColumnClassName } from './types'
 
 type DataTableHeaderProps<TData> = {
   table: TanstackTable<TData>
-  applyHeaderSize?: boolean
   className?: string
-  rowClassName?: string
   getColumnClassName?: DataTableColumnClassName
 }
 
 export function DataTableHeader<TData>({
   table,
-  applyHeaderSize,
   className,
-  rowClassName,
   getColumnClassName,
 }: DataTableHeaderProps<TData>) {
   const { t } = useTranslation()
@@ -53,7 +51,7 @@ export function DataTableHeader<TData>({
   return (
     <TableHeader className={className}>
       {table.getHeaderGroups().map((headerGroup) => (
-        <TableRow key={headerGroup.id} className={rowClassName}>
+        <TableRow key={headerGroup.id}>
           {headerGroup.headers.map((header) => (
             <TableHead
               key={header.id}
@@ -64,7 +62,6 @@ export function DataTableHeader<TData>({
                 'relative',
                 getColumnClassName?.(header.column.id, 'header')
               )}
-              style={getHeaderSizeStyle(header, applyHeaderSize)}
             >
               {renderHeaderContent(header)}
               {shouldRenderColumnResizer(table, header) && (
@@ -254,17 +251,6 @@ function getAriaSort<TData>(header: Header<TData, unknown>) {
   if (sorted === 'asc') return 'ascending'
   if (sorted === 'desc') return 'descending'
   return 'none'
-}
-
-function getHeaderSizeStyle<TData>(
-  header: Header<TData, unknown>,
-  applyHeaderSize: boolean | undefined
-) {
-  if (!applyHeaderSize || isContentSizedColumn(header.column.id)) {
-    return undefined
-  }
-
-  return { width: header.getSize() }
 }
 
 /**

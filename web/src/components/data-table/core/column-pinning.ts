@@ -6,66 +6,65 @@
 // row state, at a higher z-index than its neighbours, plus a soft edge shadow so
 // the reader can tell content is continuing underneath.
 //
-// The class map is built once per render (`getPinnedColumnMap`) and then merged
-// with whatever per-column class the feature supplied
-// (`getResolvedColumnClassNameFromMap`), so a feature can style a cell without
-// knowing whether it is pinned.
+// Pinning is declared on the column (`meta.pinned`) next to the rest of the
+// column's presentation, and read here — there is no second, page-level list to
+// keep in sync with it.
+
+import type { Table as TanstackTable } from '@tanstack/react-table'
 
 import { cn } from '@/lib/utils'
 
-import type { DataTableColumnClassName, DataTablePinnedColumn } from './types'
+import type { DataTableColumnClassName, PinnedSide } from './types'
 
-/** Pinned columns by id, or undefined when nothing is pinned. */
-export function getPinnedColumnMap(pinnedColumns?: DataTablePinnedColumn[]) {
-  if (!pinnedColumns?.length) return undefined
+/**
+ * Which side each pinned column sticks to, or undefined when nothing is pinned.
+ * Undefined (not an empty map) so the resolver below can skip the lookup
+ * entirely on the common, unpinned table.
+ */
+export function getPinnedSides<TData>(
+  table: TanstackTable<TData>
+): Map<string, PinnedSide> | undefined {
+  const pinned: [string, PinnedSide][] = []
+  for (const column of table.getAllColumns()) {
+    const side = column.columnDef.meta?.pinned
+    if (side) pinned.push([column.id, side])
+  }
 
-  return new Map(pinnedColumns.map((column) => [column.columnId, column]))
+  return pinned.length === 0 ? undefined : new Map(pinned)
 }
 
 /**
- * The class resolver the view hands to every header and cell: the feature's own
- * class first, then — only for a pinned column — the sticky treatment. Unpinned
- * columns get the feature's class untouched, so this is free to apply everywhere.
+ * The class resolver the view hands to every header and cell: the sticky
+ * treatment for pinned columns, nothing for the rest — so it is free to apply to
+ * all of them rather than making the caller ask which are pinned.
  */
-export function getResolvedColumnClassNameFromMap(
-  getColumnClassName?: DataTableColumnClassName,
-  pinnedColumnById?: Map<string, DataTablePinnedColumn>
+export function pinnedColumnClasses(
+  pinnedSides: Map<string, PinnedSide> | undefined
 ): DataTableColumnClassName {
   return (columnId, kind) => {
-    const customClassName = getColumnClassName?.(columnId, kind)
-    const pinnedColumn = pinnedColumnById?.get(columnId)
-
-    if (!pinnedColumn) return customClassName
-
-    return cn(customClassName, pinnedColumnClassName(pinnedColumn, kind))
+    const side = pinnedSides?.get(columnId)
+    return side ? pinnedClassName(side, kind) : undefined
   }
 }
 
-function pinnedColumnClassName(
-  pinnedColumn: DataTablePinnedColumn,
-  kind: 'header' | 'cell'
-) {
+function pinnedClassName(side: PinnedSide, kind: 'header' | 'cell') {
   // `--foreground` is OKLCH, so `hsl(var(--foreground))` would be invalid and the
   // whole shadow dropped. Mixing it at low alpha gives a subtle edge instead of a
   // hard dark line.
   const edgeClassName =
-    pinnedColumn.side === 'left'
+    side === 'left'
       ? 'shadow-[8px_0_10px_-10px_color-mix(in_oklch,var(--foreground)_12%,transparent)]'
       : 'shadow-[-8px_0_10px_-10px_color-mix(in_oklch,var(--foreground)_12%,transparent)]'
 
   return cn(
     'sticky whitespace-nowrap',
-    pinnedColumn.side === 'left' ? 'left-0' : 'right-0',
+    side === 'left' ? 'left-0' : 'right-0',
     edgeClassName,
     // Opaque, and tracking the row state: a transparent pinned cell would let the
     // scrolled-under columns show through, and a static one would keep the old
     // background while its row highlights.
     kind === 'header'
       ? '[background-color:var(--table-header-bg,var(--table-header))] group-hover:[background-color:var(--table-header-hover)] z-30'
-      : 'bg-background z-10 group-hover:bg-(--table-row-hover-bg) group-data-[state=selected]:bg-(--table-row-selected-bg)',
-    pinnedColumn.className,
-    kind === 'header'
-      ? pinnedColumn.headerClassName
-      : pinnedColumn.cellClassName
+      : 'bg-background z-10 group-hover:bg-(--table-row-hover-bg) group-data-[state=selected]:bg-(--table-row-selected-bg)'
   )
 }
