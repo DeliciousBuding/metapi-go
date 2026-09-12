@@ -259,7 +259,6 @@ export function ChannelsPage() {
         ))}
       <DataTablePage
         table={table}
-        columns={columns}
         isLoading={channelsPageQuery.isLoading}
         isFetching={channelsPageQuery.isFetching}
         error={channelsPageQuery.error as Error | null}

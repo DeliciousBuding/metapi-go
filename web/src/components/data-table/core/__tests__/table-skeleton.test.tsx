@@ -83,20 +83,20 @@ describe('TableSkeleton', () => {
     // 100 → 100 * 0.6 = 60  (in range)
     // 50  → 50  * 0.6 = 30  → clamped UP to 32
     // 300 → 300 * 0.6 = 180 → clamped DOWN to 140
-    const stub = buildStubTable([
-      { id: 'name', size: 200 },
-      { id: 'age', size: 100 },
-      { id: 'tiny', size: 50 },
-      { id: 'huge', size: 300 },
-    ])
-
-    // rowCount={1} keeps the assertion focused on width derivation —
-    // one row × four columns yields exactly four bars to assert against,
-    // without the row-count multiplier (pageSize default 10) inflating
-    // the bar count and masking which column produced which width.
-    const { container } = render(
-      <TableSkeleton table={asTable(stub)} rowCount={1} />
+    // pageSize 1 keeps the assertion focused on width derivation: one row ×
+    // four columns yields exactly four bars, with no row multiplier to
+    // obscure which column produced which width.
+    const stub = buildStubTable(
+      [
+        { id: 'name', size: 200 },
+        { id: 'age', size: 100 },
+        { id: 'tiny', size: 50 },
+        { id: 'huge', size: 300 },
+      ],
+      1
     )
+
+    const { container } = render(<TableSkeleton table={asTable(stub)} />)
 
     const bars = container.querySelectorAll('[data-slot="skeleton"]')
     expect(bars).toHaveLength(4) // one row × four columns
@@ -107,14 +107,15 @@ describe('TableSkeleton', () => {
   })
 
   it('preserves the select-column special-case (small square, no inline width)', () => {
-    const stub = buildStubTable([
-      { id: 'select', size: 40 },
-      { id: 'name', size: 200 },
-    ])
-
-    const { container } = render(
-      <TableSkeleton table={asTable(stub)} rowCount={1} />
+    const stub = buildStubTable(
+      [
+        { id: 'select', size: 40 },
+        { id: 'name', size: 200 },
+      ],
+      1
     )
+
+    const { container } = render(<TableSkeleton table={asTable(stub)} />)
 
     const bars = container.querySelectorAll('[data-slot="skeleton"]')
     expect(bars).toHaveLength(2)
@@ -129,14 +130,17 @@ describe('TableSkeleton', () => {
     expect(bars[1]).toHaveStyle({ width: '120px' })
   })
 
-  it('honors the rowCount prop (renders exactly N rows)', () => {
-    const stub = buildStubTable([{ id: 'name', size: 100 }])
+  it('follows the page size, capped so a long page does not shimmer', () => {
+    const columns = [{ id: 'name', size: 100 }]
 
-    const { container } = render(
-      <TableSkeleton table={asTable(stub)} rowCount={3} />
+    const small = render(
+      <TableSkeleton table={asTable(buildStubTable(columns, 3))} />
     )
+    expect(small.container.querySelectorAll('tr')).toHaveLength(3)
 
-    const rows = container.querySelectorAll('tr')
-    expect(rows).toHaveLength(3)
+    const large = render(
+      <TableSkeleton table={asTable(buildStubTable(columns, 100))} />
+    )
+    expect(large.container.querySelectorAll('tr')).toHaveLength(20)
   })
 })

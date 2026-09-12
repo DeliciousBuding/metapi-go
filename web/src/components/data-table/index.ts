@@ -7,7 +7,9 @@
 
 export { BadgeListCell } from './core/badge-list-cell'
 export { DataTableColumnHeader } from './core/column-header'
+export { DataTableRow } from './core/data-table-row'
 export { TruncatedCell } from './core/truncated-cell'
+export type { DataTableRenderRowHelpers } from './core/types'
 export { useDataTable } from './hooks/use-data-table'
 export { encodeSorting, useUrlTableState } from './hooks/use-url-table-state'
 export type {

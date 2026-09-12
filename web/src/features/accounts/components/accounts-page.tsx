@@ -590,7 +590,6 @@ export function AccountsPage() {
 
       <DataTablePage
         table={table}
-        columns={columns}
         isLoading={isLoading}
         isFetching={isFetching}
         error={error as Error | null}

@@ -15,8 +15,8 @@ declare module '@tanstack/react-table' {
   interface ColumnMeta<TData, TValue> {
     /** Header label fallback when `header` is a function (used by column-header auto-render + view-options). */
     label?: string
-    /** Pin this column to a sticky edge (resolved by data-table-view). */
-    pinned?: 'left' | 'right'
+    /** Pin this column to a sticky edge (resolved by column-pinning). */
+    pinned?: PinnedSide
     /** Card/mobile: render this column's cell as the card title (left, larger text). */
     mobileTitle?: boolean
     /** Card/mobile: render this column's cell inline with the title (right, e.g. status badge). */
@@ -34,17 +34,8 @@ export type DataTableColumnClassName = (
   kind: 'header' | 'cell'
 ) => string | undefined
 
-/**
- * A column pinned to a sticky edge. `className` applies to both header and cell;
- * the two specific ones are appended after it, so they win.
- */
-export type DataTablePinnedColumn = {
-  columnId: string
-  side: 'left' | 'right'
-  className?: string
-  headerClassName?: string
-  cellClassName?: string
-}
+/** The edge a pinned column sticks to. Declared per column via `meta.pinned`. */
+export type PinnedSide = 'left' | 'right'
 
 /** What `renderRow` gets besides the row: the pinned-aware class resolver. */
 export type DataTableRenderRowHelpers = {
@@ -52,42 +43,36 @@ export type DataTableRenderRowHelpers = {
 }
 
 /**
- * The view layer's configuration. Broad by design — it is the single place a
- * feature customises table chrome (empty copy, skeleton shape, pinned columns,
- * split header, per-part class names) without forking the renderer.
+ * The view layer's configuration: what the body shows while loading or empty,
+ * how a row is rendered, and which of the two shells to use.
+ *
+ * Deliberately short. It used to carry a class-name override per table part, an
+ * explicit pinned-column list beside `meta.pinned`, and slots for a custom
+ * colgroup / empty cell / skeleton row height — none of which any page set. An
+ * override nobody uses is not flexibility, it is a second way to be wrong.
  */
 export type DataTableViewProps<TData> = {
   table: TanstackTable<TData>
+  /** Renders the skeleton body instead of rows. */
   isLoading?: boolean
-  rows?: Row<TData>[]
   emptyTitle?: string
   emptyDescription?: string
-  emptyIcon?: React.ReactNode
+  /** Extra content under the empty-state copy, e.g. a create button. */
   emptyAction?: React.ReactNode
-  emptyContent?: React.ReactNode
-  filteredEmptyTitle?: string
-  filteredEmptyDescription?: string
-  emptyCellClassName?: string
+  /** React key prefix for skeleton rows; distinct per table when two share a page. */
   skeletonKeyPrefix?: string
-  skeletonRowHeight?: string
+  /** Replaces the default `<tr>`/`<td>` mapping — expanded rows, row navigation. */
   renderRow?: (
     row: Row<TData>,
     helpers: DataTableRenderRowHelpers
   ) => React.ReactNode
-  getRowClassName?: (row: Row<TData>) => string | undefined
+  /** Per-column class resolver. Pinning classes are appended to its result. */
   getColumnClassName?: DataTableColumnClassName
-  pinnedColumns?: DataTablePinnedColumn[]
-  applyHeaderSize?: boolean
-  tableClassName?: string
-  tableHeaderClassName?: string
-  tableHeaderRowClassName?: string
-  tableBodyClassName?: string
-  tableBodyRowClassName?: string
+  /**
+   * Sticky-header shell: the body scrolls inside a fixed-height container while
+   * the header stays put. Off renders a plain table that grows with its rows.
+   */
   splitHeader?: boolean
-  splitHeaderScrollClassName?: string
-  bodyContainerClassName?: string
+  /** Class for the bordered container the whole table sits in. */
   containerClassName?: string
-  containerProps?: Omit<React.ComponentProps<'div'>, 'className' | 'children'>
-  tableContainerClassName?: string
-  colgroup?: React.ReactNode
 }

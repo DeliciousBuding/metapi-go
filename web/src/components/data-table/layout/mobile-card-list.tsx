@@ -7,7 +7,7 @@
 //
 // A row is clickable only when the table has a selection column, and only on its
 // bare surface — see `isInteractiveTarget`.
-import type { Row, Table } from '@tanstack/react-table'
+import type { Table } from '@tanstack/react-table'
 import { Database } from 'lucide-react'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
@@ -20,7 +20,6 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
 
 import { renderCellContent, tableHasCompactMeta } from './card-cell-utils'
 import { CardRowContent } from './card-row-content'
@@ -31,8 +30,6 @@ interface MobileCardListProps<TData> {
   emptyTitle?: string
   emptyDescription?: string
   emptyAction?: React.ReactNode
-  getRowKey?: (row: Row<TData>) => string | number
-  getRowClassName?: (row: Row<TData>) => string | undefined
 }
 
 /** The bordered, divided shell both skeletons share with the real list. */
@@ -108,8 +105,6 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
     emptyTitle,
     emptyDescription,
     emptyAction,
-    getRowKey,
-    getRowClassName,
   } = props
   const { t } = useTranslation()
 
@@ -151,19 +146,15 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
   return (
     <div className='divide-y overflow-hidden rounded-lg border'>
       {rows.map((row) => {
-        const key = getRowKey ? getRowKey(row) : row.id
         const isSelected = row.getIsSelected()
         const selectCell = hasSelectColumn
           ? row.getVisibleCells().find((cell) => cell.column.id === 'select')
           : undefined
         return (
           <div
-            key={key}
+            key={row.id}
             data-state={isSelected ? 'selected' : undefined}
-            className={cn(
-              '[background-color:var(--data-table-card-bg,var(--table-row))] px-3 py-2.5 transition-colors data-[state=selected]:bg-(--table-row-selected-bg)',
-              getRowClassName?.(row)
-            )}
+            className='[background-color:var(--data-table-card-bg,var(--table-row))] px-3 py-2.5 transition-colors data-[state=selected]:bg-(--table-row-selected-bg)'
             onClick={
               selectCell
                 ? (event) => {

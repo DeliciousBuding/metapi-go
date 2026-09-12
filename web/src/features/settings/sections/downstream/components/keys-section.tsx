@@ -321,7 +321,6 @@ export function KeysSection() {
       ) : (
         <DataTablePage
           table={table}
-          columns={columns}
           isLoading={isLoading}
           emptyTitle={t('settings.downstream.keys.empty')}
           emptyAction={

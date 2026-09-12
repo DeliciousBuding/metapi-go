@@ -10,13 +10,13 @@ import { useTranslation } from 'react-i18next'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTablePage,
+  DataTableRow,
+  type DataTableRenderRowHelpers,
   type UrlTableState,
   type UrlTableStateUpdate,
   useDataTable,
   useUrlTableState,
 } from '@/components/data-table'
-import { DataTableRow } from '@/components/data-table/core/data-table-row'
-import type { DataTableRenderRowHelpers } from '@/components/data-table/core/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -441,7 +441,6 @@ export function ProxyLogsPage() {
 
       <DataTablePage
         table={table}
-        columns={columns}
         renderRow={renderRow}
         isLoading={logsQuery.isLoading}
         isFetching={logsQuery.isFetching}

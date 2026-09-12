@@ -303,7 +303,6 @@ export function OAuthPage() {
 
       <DataTablePage
         table={table}
-        columns={columns}
         isLoading={connectionsQuery.isLoading}
         isFetching={connectionsQuery.isFetching}
         error={connectionsQuery.error as Error | null}

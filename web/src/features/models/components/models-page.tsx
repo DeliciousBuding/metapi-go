@@ -305,7 +305,6 @@ export function ModelsPage() {
           paged one (modelsPageQuery). */}
       <DataTablePage
         table={table}
-        columns={columns}
         isLoading={modelsPageQuery.isLoading}
         isFetching={modelsPageQuery.isFetching}
         error={modelsPageQuery.error as Error | null}

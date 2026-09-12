@@ -5,6 +5,7 @@
 import '@testing-library/jest-dom/vitest'
 import {
   getCoreRowModel,
+  getPaginationRowModel,
   useReactTable,
   type ColumnDef,
 } from '@tanstack/react-table'
@@ -45,15 +46,14 @@ function renderEmptyPage() {
       data: [] as ProbeRow[],
       columns: probeColumns,
       getCoreRowModel: getCoreRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
     })
     return (
       <DataTablePage
         table={table}
-        columns={probeColumns}
         emptyTitle='No widgets'
         emptyAction={<button type='button'>Create widget</button>}
         toolbarProps={null}
-        showPagination={false}
       />
     )
   }
