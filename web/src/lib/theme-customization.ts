@@ -29,53 +29,54 @@ export const THEME_PRESETS = [
   {
     value: 'default',
     name: 'Default',
-    swatches: ['oklch(0.72 0.18 250)', 'oklch(0.7 0.12 280)'],
+    swatches: ['oklch(0.565 0.19 262)', 'oklch(0.47 0.16 200)'],
   },
   {
-    // Warm cream canvas with clay/coral as the single accent.
-    value: 'anthropic',
-    name: 'Anthropic',
-    swatches: ['oklch(0.984 0.005 95)', 'oklch(0.57 0.15 38)'],
+    // Achromatic high-contrast preset; pairs with the density scale axis for
+    // the accessibility-oriented reading configuration.
+    value: 'graphite',
+    name: 'Graphite',
+    swatches: ['oklch(0.24 0 0)', 'oklch(0.925 0 0)'],
   },
   {
-    value: 'simple-large',
-    name: 'Simple',
-    swatches: ['oklch(0.15 0 0)', 'oklch(0.99 0 0)'],
+    value: 'cobalt',
+    name: 'Cobalt',
+    swatches: ['oklch(0.53 0.17 230)', 'oklch(0.57 0.11 20)'],
   },
   {
-    value: 'underground',
-    name: 'Underground',
-    swatches: ['oklch(0.5315 0.0694 156.19)', 'oklch(0.5748 0.0862 336.52)'],
+    value: 'lagoon',
+    name: 'Lagoon',
+    swatches: ['oklch(0.51 0.17 196)', 'oklch(0.57 0.11 346)'],
   },
   {
-    value: 'rose-garden',
-    name: 'Rose Garden',
-    swatches: ['oklch(0.5827 0.2418 12.23)', 'oklch(0.8131 0.1129 5.67)'],
+    value: 'kelp',
+    name: 'Kelp',
+    swatches: ['oklch(0.525 0.17 156)', 'oklch(0.565 0.11 306)'],
   },
   {
-    value: 'lake-view',
-    name: 'Lake View',
-    swatches: ['oklch(0.765 0.177 163.22)', 'oklch(0.551 0.0899 200.52)'],
+    value: 'moss',
+    name: 'Moss',
+    swatches: ['oklch(0.545 0.17 124)', 'oklch(0.56 0.11 274)'],
   },
   {
-    value: 'sunset-glow',
-    name: 'Sunset Glow',
-    swatches: ['oklch(0.5591 0.1882 25.33)', 'oklch(0.7938 0.1248 42.42)'],
+    value: 'ochre',
+    name: 'Ochre',
+    swatches: ['oklch(0.555 0.17 85)', 'oklch(0.55 0.11 235)'],
   },
   {
-    value: 'forest-whisper',
-    name: 'Forest Whisper',
-    swatches: ['oklch(0.5276 0.1072 182.22)', 'oklch(0.5236 0.0505 250.18)'],
+    value: 'ember',
+    name: 'Ember',
+    swatches: ['oklch(0.575 0.17 40)', 'oklch(0.535 0.11 190)'],
   },
   {
-    value: 'ocean-breeze',
-    name: 'Ocean Breeze',
-    swatches: ['oklch(0.5461 0.2152 262.88)', 'oklch(0.5854 0.2041 277.12)'],
+    value: 'berry',
+    name: 'Berry',
+    swatches: ['oklch(0.58 0.17 350)', 'oklch(0.545 0.11 140)'],
   },
   {
-    value: 'lavender-dream',
-    name: 'Lavender Dream',
-    swatches: ['oklch(0.5709 0.1808 306.89)', 'oklch(0.811 0.0589 201.14)'],
+    value: 'plum',
+    name: 'Plum',
+    swatches: ['oklch(0.575 0.17 314)', 'oklch(0.555 0.11 104)'],
   },
 ] as const
 

@@ -90,12 +90,12 @@ describe('typography design contract', () => {
 
   it('keeps density scaling out of color presets', () => {
     const presets = read('src/styles/theme-presets.css')
-    const simpleLarge = presets.match(
-      /\[data-theme-preset='simple-large'\]\s*\{([\s\S]*?)\n\}/
+    const graphite = presets.match(
+      /\[data-theme-preset='graphite'\]\s*\{([\s\S]*?)\n\}/
     )?.[1]
 
-    expect(simpleLarge).toBeDefined()
-    expect(simpleLarge).not.toMatch(/--text-|--spacing/)
+    expect(graphite).toBeDefined()
+    expect(graphite).not.toMatch(/--text-|--spacing/)
   })
 
   it('hydrates persisted visual axes before the app mounts', () => {

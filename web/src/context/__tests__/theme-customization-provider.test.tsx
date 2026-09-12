@@ -54,11 +54,11 @@ afterEach(() => cleanup())
 
 describe('ThemeCustomizationProvider axes', () => {
   it('mirrors a stored preset onto <body> and drops an unknown one', () => {
-    document.cookie = `${THEME_COOKIE_KEYS.preset}=rose-garden; path=/`
+    document.cookie = `${THEME_COOKIE_KEYS.preset}=cobalt; path=/`
     const { result, unmount } = renderProvider()
 
-    expect(result.current.customization.preset).toBe('rose-garden')
-    expect(document.body).toHaveAttribute('data-theme-preset', 'rose-garden')
+    expect(result.current.customization.preset).toBe('cobalt')
+    expect(document.body).toHaveAttribute('data-theme-preset', 'cobalt')
     unmount()
 
     // A value outside the allowlist is not a preference, it is corrupt state:
@@ -116,14 +116,14 @@ describe('ThemeCustomizationProvider axes', () => {
     const { result } = renderProvider()
 
     act(() => {
-      result.current.setPreset('ocean-breeze')
+      result.current.setPreset('lagoon')
       result.current.setFont('serif')
       result.current.setRadius('xl')
       result.current.setScale('lg')
       result.current.setContentLayout('centered')
     })
     expect(result.current.customization).toEqual({
-      preset: 'ocean-breeze',
+      preset: 'lagoon',
       font: 'serif',
       radius: 'xl',
       scale: 'lg',

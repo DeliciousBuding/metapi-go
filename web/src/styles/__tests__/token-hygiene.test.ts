@@ -85,7 +85,7 @@ describe('design-token hygiene', () => {
     // reached ~4.0:1 on the destructive/10 tint); dark keeps the lighter
     // readable value so soft-destructive text clears AA on dark surfaces.
     // Pinned by contrast-gate.test.ts; see a11y-checklist.md §4/§7.
-    expect(theme).toMatch(/--destructive-soft-fg: oklch\(0\.5 0\.2 27\)/)
-    expect(theme).toMatch(/--destructive-soft-fg: oklch\(0\.8 0\.15 22\)/)
+    expect(theme).toMatch(/--destructive-soft-fg: oklch\(0\.495 0\.15 24\)/)
+    expect(theme).toMatch(/--destructive-soft-fg: oklch\(0\.74 0\.13 24\)/)
   })
 })

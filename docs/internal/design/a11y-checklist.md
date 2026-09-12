@@ -108,30 +108,30 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 
 ## 4. Contrast notes (primary text / surfaces)
 
-Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH values (WCAG 2.x relative luminance; token map in `DESIGN.md` §2); preset pairs re-audited and fixed 2026-08-23 (OKLCH→sRGB→WCAG pipeline, pinned by `web/src/styles/__tests__/contrast-gate.test.ts`). The light-theme primary CTA uses ink `--primary-foreground` on `--primary` (7.28:1, AAA) by design.
+Ratios recomputed 2026-09-13 for the redesigned metapi palette (WCAG 2.x relative luminance over the shipped `web/src/styles/theme.css` OKLCH values; token map in `DESIGN.md` §2). Every constrained lightness is design-time-solved against its floor and pinned by `web/src/styles/__tests__/contrast-gate.test.ts`, which re-verifies every tracked pair — all 10 presets × both modes — on each run, so the numbers below are documentation, not the enforcement point.
 
 ### 4.1 Light theme
 
 | Pair                                                                  | Ratio   | WCAG AA body (4.5:1) | Notes                                                                                                                                                  |
 | --------------------------------------------------------------------- | ------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--foreground` on `--card` / `--background`                           | 20.9:1  | Pass                 | Titles, primary values                                                                                                                                 |
-| `--muted-foreground` on `--card`                                      | 6.3:1   | Pass                 | Labels / secondary text                                                                                                                                |
-| `--secondary-foreground` on `--secondary`                             | 11.8:1  | Pass                 | Nested wells                                                                                                                                           |
-| `--primary-foreground` on `--primary`                                 | 7.28:1  | Pass                 | Light-theme CTA — ink-on-brand (`--primary-foreground` = `oklch(0.145 0 0)` on the brand primary), AAA by design                                                          |
-| White text on `--destructive`                                         | 4.8:1   | Pass                 | Errors, deletes                                                                                                                                        |
-| Soft-badge text (`--success` / `--info` / `--warning` / `--destructive`) on `/10` fills | ≥ 4.5:1 | Pass                 | 12px soft badges — light `--success`/`--info`/`--warning` lightness lowered (0.53 / 0.53 / 0.62) 2026-08-14; `*-soft-fg` tokens ship the readable tone. 2026-08-23: light `--destructive-soft-fg` is now a standalone darker ink `oklch(0.5 0.2 27)` (aliasing `--destructive` only reached 3.84–3.99:1 on the tint; now 4.93–5.70 across presets) |
+| `--foreground` on `--card` / `--background`                           | 19.7:1  | Pass                 | Titles, primary values                                                                                                                                 |
+| `--muted-foreground` on `--card`                                      | 7.3:1   | Pass                 | Labels / secondary text                                                                                                                                |
+| `--secondary-foreground` on `--secondary`                             | 12.8:1  | Pass                 | Nested wells                                                                                                                                           |
+| `--primary-foreground` on `--primary`                                 | 4.5:1   | Pass                 | Light-theme CTA — white on the brand indigo; lightness is solved at the AA floor (maximum vibrancy that still passes), and the contrast gate holds it there                                                          |
+| `--destructive-foreground` on `--destructive`                         | 4.6:1   | Pass                 | Errors, deletes — white on solved red                                                                                                                                                                     |
+| Soft-badge text (`*-soft-fg` inks) on `/10` fills                     | ≥ 5.4:1 | Pass                 | 12px soft badges — every `*-soft-fg` is a standalone ink solved against the tint composited over the most-tinted bridge card (measured 5.48–5.76 across all 10 presets) |
 
 ### 4.2 Dark theme
 
 | Pair                                      | Ratio  | WCAG AA body (4.5:1) | Notes                   |
 | ----------------------------------------- | ------ | -------------------- | ----------------------- |
-| `--foreground` on `--card`                | 13.0:1 | Pass                 | Titles, primary values  |
-| `--foreground` on `--background`          | 15.1:1 | Pass                 | Page canvas             |
-| `--muted-foreground` on `--card`          | 7.2:1  | Pass                 | Labels / secondary text |
-| `--secondary-foreground` on `--secondary` | 8.9:1  | Pass                 | Nested wells            |
-| White text on `--primary`                 | 5.0:1  | Pass                 | CTA                     |
-| White text on `--destructive`             | 4.6:1  | Pass                 | 2026-08-23: darkened to `oklch(0.575 0.19 25)` (was 2.77:1); attention-bell critical badge |
-| Soft-badge text on `/10` fills            | ≥ 5.2:1 | Pass                | 2026-08-23: dark `--info-soft-fg` lifted to `oklch(0.72 0.12 245)` (was 3.45–3.74 on card surfaces) |
+| `--foreground` on `--card`                | 14.2:1 | Pass                 | Titles, primary values  |
+| `--foreground` on `--background`          | 15.7:1 | Pass                 | Page canvas             |
+| `--muted-foreground` on `--card`          | 7.6:1  | Pass                 | Labels / secondary text |
+| `--secondary-foreground` on `--secondary` | 10.8:1 | Pass                 | Nested wells            |
+| `--primary-foreground` on `--primary`     | 6.8:1  | Pass                 | CTA — dark ink on the lifted pastel primary |
+| `--destructive-foreground` on `--destructive` | 4.5:1 | Pass                | White on solved red; attention-bell critical badge |
+| Soft-badge text (`*-soft-fg` inks) on `/10` fills | ≥ 5.1:1 | Pass           | Dark-mode warning/success reuse the base tone; info/destructive carry solved lifted inks (measured 5.14–6.85 across all 10 presets) |
 
 ### 4.3 Contrast rules for implementers
 
