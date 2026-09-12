@@ -1,13 +1,13 @@
-// metapi-go/features/settings/sections/downstream — downstream-key table
+// metapi-go/features/downstream-keys — downstream-key table
 // cell renderers (model policy summary badge, quota + 24h usage).
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
-import type { DownstreamApiKeyItem } from '@/features/downstream-keys'
 import { toBcp47 } from '@/i18n/languages'
 import { formatCurrency } from '@/lib/format'
 
 import { parseIdArray } from '../lib/credential-refs'
+import type { DownstreamApiKeyItem } from '../types'
 import { normalizeModelRules } from './key-form-shared'
 
 export function KeyModelPolicyCell({

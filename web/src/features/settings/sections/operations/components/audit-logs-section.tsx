@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,9 +30,6 @@ import {
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
-
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 
 type AuditLogItem = {
   id: number
@@ -98,7 +97,7 @@ export function AuditLogsSection() {
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.operations.auditLogs.title')}
       description={t('settings.operations.auditLogs.description')}
     >
@@ -148,8 +147,9 @@ export function AuditLogsSection() {
 
       {auditQuery.isLoading ? <SectionSkeleton /> : null}
       {auditQuery.isError ? (
-        <SettingsSectionError
+        <SectionError
           title={t('settings.operations.auditLogs.title')}
+          messageKey='settings.common.loadFailed'
           onRetry={() => void auditQuery.refetch()}
         />
       ) : null}
@@ -249,7 +249,7 @@ export function AuditLogsSection() {
           </div>
         </>
       ) : null}
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }
 

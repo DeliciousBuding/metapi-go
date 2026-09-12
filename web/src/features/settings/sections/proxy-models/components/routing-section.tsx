@@ -7,6 +7,8 @@
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -23,8 +25,6 @@ import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
   collectChangedFields,
@@ -191,21 +191,22 @@ export function RoutingSection() {
 
   if (isLoading) {
     return (
-      <SettingsSectionCard
+      <SectionCard
         title={t('settings.proxyModels.routing.title')}
         description={t('settings.proxyModels.routing.description')}
       >
         <p className='text-muted-foreground text-sm'>
           {t('settings.common.loading')}
         </p>
-      </SettingsSectionCard>
+      </SectionCard>
     )
   }
 
   if (isError || !data) {
     return (
-      <SettingsSectionError
+      <SectionError
         title={t('settings.proxyModels.routing.title')}
+        messageKey='settings.common.loadFailed'
         onRetry={() => void refetch()}
       />
     )
@@ -214,7 +215,7 @@ export function RoutingSection() {
   const isDirty = form.formState.isDirty
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.proxyModels.routing.title')}
       description={t('settings.proxyModels.routing.description')}
     >
@@ -569,6 +570,6 @@ export function RoutingSection() {
         </form>
       </Form>
       <FormNavigationGuard enabled={isDirty} />
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

@@ -1,4 +1,4 @@
-// metapi-go/features/settings/sections/downstream/components — human-readable
+// metapi-go/features/downstream-keys/components — human-readable
 // routing-scope cell for the downstream key list (#1026 UI follow-up).
 //
 // Renders every configured policy dimension (allowed/excluded sites and

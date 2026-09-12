@@ -1,4 +1,4 @@
-// metapi-go/features/settings/sections/downstream/components — tree picker
+// metapi-go/features/downstream-keys/components — tree picker
 // over site → account → (default API key | tokens) for the downstream key
 // credential-ref policy dimensions (allowedCredentialRefs /
 // excludedCredentialRefs, #1026 UI follow-up). Contract SSOT: docs/api.md →

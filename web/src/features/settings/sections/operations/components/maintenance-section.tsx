@@ -9,11 +9,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { SectionCard } from '@/components/common/section-card'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
-
-import { SettingsSectionCard } from '../../../components/settings-section-card'
 
 export function MaintenanceSection() {
   const { t } = useTranslation()
@@ -48,7 +47,7 @@ export function MaintenanceSection() {
   })
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.operations.maintenance.title')}
       description={t('settings.operations.maintenance.description')}
     >
@@ -113,6 +112,6 @@ export function MaintenanceSection() {
         }}
         onCancel={() => setConfirmClearUsageOpen(false)}
       />
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

@@ -1,4 +1,4 @@
-// metapi-go/features/settings/sections/downstream/lib — display helpers for
+// metapi-go/features/downstream-keys/lib — display helpers for
 // upstream account/token rows used by the credential-ref tree picker and the
 // key scope cell. Kept outside component files so React fast refresh only
 // sees components in .tsx modules.

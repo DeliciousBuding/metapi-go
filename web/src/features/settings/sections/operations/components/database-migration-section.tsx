@@ -12,6 +12,8 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -40,8 +42,6 @@ import { extractApiErrorBody, resolveResponseMessage } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 import {
   runtimeDatabaseQueryKeys,
   type RuntimeDatabaseConfig,
@@ -350,15 +350,16 @@ export function DatabaseMigrationSection() {
   }
   if (configQuery.isError || !configQuery.data) {
     return (
-      <SettingsSectionError
+      <SectionError
         title={t('settings.operations.database.migration.title')}
+        messageKey='settings.common.loadFailed'
         onRetry={() => void configQuery.refetch()}
       />
     )
   }
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.operations.database.migration.title')}
       description={t('settings.operations.database.migration.description')}
     >
@@ -604,6 +605,6 @@ export function DatabaseMigrationSection() {
       />
 
       <FormNavigationGuard enabled={form.formState.isDirty} />
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

@@ -10,6 +10,8 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -28,8 +30,6 @@ import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
   collectChangedFields,
@@ -158,21 +158,22 @@ export function AuthenticationSection() {
 
   if (isLoading) {
     return (
-      <SettingsSectionCard
+      <SectionCard
         title={t('settings.basic.authentication.title')}
         description={t('settings.basic.authentication.description')}
       >
         <p className='text-muted-foreground text-sm'>
           {t('settings.common.loading')}
         </p>
-      </SettingsSectionCard>
+      </SectionCard>
     )
   }
 
   if (isError || !data) {
     return (
-      <SettingsSectionError
+      <SectionError
         title={t('settings.basic.authentication.title')}
+        messageKey='settings.common.loadFailed'
         onRetry={() => void refetch()}
       />
     )
@@ -181,7 +182,7 @@ export function AuthenticationSection() {
   const isDirty = form.formState.isDirty
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.basic.authentication.title')}
       description={t('settings.basic.authentication.description')}
     >
@@ -345,6 +346,6 @@ export function AuthenticationSection() {
         </div>
       </div>
       <FormNavigationGuard enabled={isDirty} />
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

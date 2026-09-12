@@ -8,6 +8,8 @@
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -23,8 +25,6 @@ import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
   collectChangedFields,
@@ -99,21 +99,22 @@ export function ProxyTokenSection() {
 
   if (isLoading) {
     return (
-      <SettingsSectionCard
+      <SectionCard
         title={t('settings.downstream.proxyToken.title')}
         description={t('settings.downstream.proxyToken.description')}
       >
         <p className='text-muted-foreground text-sm'>
           {t('settings.common.loading')}
         </p>
-      </SettingsSectionCard>
+      </SectionCard>
     )
   }
 
   if (isError || !data) {
     return (
-      <SettingsSectionError
+      <SectionError
         title={t('settings.downstream.proxyToken.title')}
+        messageKey='settings.common.loadFailed'
         onRetry={() => void refetch()}
       />
     )
@@ -123,7 +124,7 @@ export function ProxyTokenSection() {
   const masked = asString(data.proxyTokenMasked)
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.downstream.proxyToken.title')}
       description={t('settings.downstream.proxyToken.description')}
     >
@@ -182,6 +183,6 @@ export function ProxyTokenSection() {
         </form>
       </Form>
       <FormNavigationGuard enabled={isDirty} />
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

@@ -298,7 +298,7 @@ export function CredentialExportDialog({
             className='mt-3'
             onClick={() => void exportQuery.refetch()}
           >
-            {t('settings.common.retry')}
+            {t('common.retry')}
           </Button>
         </div>
       )

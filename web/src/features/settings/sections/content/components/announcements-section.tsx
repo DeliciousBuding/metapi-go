@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { SectionCard } from '@/components/common/section-card'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
@@ -58,8 +59,6 @@ import {
   productAnnouncementKeys,
 } from '@/lib/product-announcements'
 import { toast } from '@/lib/toast'
-
-import { SettingsSectionCard } from '../../../components/settings-section-card'
 
 const announcementSchema = z.object({
   title: z
@@ -217,7 +216,7 @@ export function AnnouncementsSection() {
   const loadError = announcementsQuery.error as Error | null
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.content.announcements.title')}
       description={t('settings.content.announcements.description')}
       hideHeaderCopy
@@ -505,7 +504,7 @@ export function AnnouncementsSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }
 

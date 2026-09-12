@@ -27,7 +27,7 @@ import {
 import '@/i18n/config'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 
-import { KeySheetForm } from '../keys-section'
+import { KeySheetForm } from '../key-sheet-form'
 
 const {
   mockCreateKey,

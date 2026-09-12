@@ -9,6 +9,8 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -35,8 +37,6 @@ import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
   collectChangedFields,
@@ -180,8 +180,9 @@ export function DatabaseSection() {
   }
   if (configQuery.isError || !configQuery.data) {
     return (
-      <SettingsSectionError
+      <SectionError
         title={t('settings.operations.database.title')}
+        messageKey='settings.common.loadFailed'
         onRetry={() => void configQuery.refetch()}
       />
     )
@@ -190,7 +191,7 @@ export function DatabaseSection() {
   const active = configQuery.data.active
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.operations.database.title')}
       description={t('settings.operations.database.description')}
     >
@@ -337,6 +338,6 @@ export function DatabaseSection() {
         </Form>
       </div>
       <FormNavigationGuard enabled={isDirty} />
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

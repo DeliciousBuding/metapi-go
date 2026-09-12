@@ -64,15 +64,18 @@ with file:line when a component or lib file imports `features/` or `routes/`,
 when any file deep-imports a barrel subsystem (rule 6), or when one feature
 deep-imports another (rule 3). Static, dynamic and side-effect specifiers are
 all resolved, so a `lazy(() => import(...))` boundary is checked like any other
-edge. Both barrel rules also fail when they would pass vacuously — a barrel
-that no longer exists, or one nothing imports, means the check stopped
-covering anything rather than that the tree got clean. Exceptions are an
-explicit in-script registry with a required reason; a stale exception (no
-matching import) also fails, so whitelists cannot accumulate silently. Both
-rule families also fail when they would pass vacuously — a barrel that no
-longer exists, or one nothing imports, means the check stopped covering
-anything rather than that the tree got clean. Run directly with
+edge — the one deep feature import this gate caught on its first run was a
+`lazy()` call that three separate static `from '…'` scans had missed. Both
+barrel rules also fail when they would pass vacuously — a barrel that no longer
+exists, or one nothing imports, means the check stopped covering anything
+rather than that the tree got clean. Exceptions are an explicit in-script
+registry with a required reason; a stale exception (no matching import) also
+fails, so whitelists cannot accumulate silently. Run directly with
 `bun run check:boundaries`.
+
+Rule numbers in the script's header and failure messages are this document's
+(3 = feature barrels, 6 = subsystem barrels): `src/lib/*.ts` cites them by
+number, so the script must not carry a second numbering of its own.
 
 ## Registered exceptions
 
@@ -83,15 +86,10 @@ layout registry instead of importing `features/settings`. New cross-layer edges
 require an explicit reviewed exception in `web/scripts/check-boundaries.mjs`; a
 stale entry is rejected by the gate.
 
-**Feature barrel rule (`FEATURE_EXCEPTIONS`)**: one entry.
-`features/downstream-keys/downstream-keys-page.tsx` lazy-loads
-`features/settings/sections/downstream/components/keys-section`, because the
-keys UI was promoted to a first-class route without ever moving out of the
-settings section directory it was written in. Tracked by
-[#1335](https://github.com/DeliciousBuding/metapi-go/issues/1335): promoting
-`SettingsSectionCard` / `SettingsSectionError` to `components/common/` unblocks
-the move, after which this entry must be deleted — the gate rejects it as stale
-the moment the import goes away.
+**Feature barrel rule (`FEATURE_EXCEPTIONS`)**: none. The single entry that
+opened with the rule (`downstream-keys-page.tsx` lazy-loading the keys section
+out of `settings/sections/downstream/`) was retired by moving the keys UI into
+`features/downstream-keys/` — see the precedent log.
 
 ## Precedent log
 
@@ -133,6 +131,19 @@ the moment the import goes away.
   several claimed a page component was "the primary surface" while exporting
   none, pointed at route files as future work when those routes already ship,
   and carried empty section headings.
+- **2026-09-12** — the downstream-keys UI moved home (#1335). `keys-section`,
+  `key-sheet-form`, `key-cells`, `key-scope-cell`, `key-form-shared`,
+  `key-created-toast`, `credential-ref-picker` and `lib/credential-{refs,display}`
+  went from `features/settings/sections/downstream/` to
+  `features/downstream-keys/`, whose barrel already owned the wire contract;
+  `sections/downstream/` now holds only the proxy-token section. Two pieces of
+  generic card chrome moved down with them — `SettingsSectionCard` →
+  `components/common/section-card.tsx` (`SectionCard`) and `SettingsSectionError`
+  → `components/common/section-error.tsx` (`SectionError`) — the same promotion
+  `SectionSkeleton` got when a second feature needed it. `SectionError` now takes
+  a required `messageKey` instead of hardcoding `settings.common.loadFailed`,
+  matching `QueryErrorBanner`: shared chrome must not own one caller's copy.
+  This retired the last `FEATURE_EXCEPTIONS` entry.
 - **2026-09-12** — `features/proxy-logs` had deep-imported `DataTableRow` from
   `components/data-table/core/data-table-row`; the two symbols it needed were
   exported from the barrel instead. Rule 6 was then added to

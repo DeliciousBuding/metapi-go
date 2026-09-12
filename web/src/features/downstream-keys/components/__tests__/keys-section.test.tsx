@@ -37,7 +37,8 @@ import {
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import i18n from '@/i18n/config'
 
-import { KeyModelPolicyCell, KeySheetForm, KeyUsageCell } from '../keys-section'
+import { KeyModelPolicyCell, KeyUsageCell } from '../key-cells'
+import { KeySheetForm } from '../key-sheet-form'
 
 // vi.hoisted keeps the mock fn identities stable across the factory's
 // re-evaluation, so the vi.mock below can reference them by closure.

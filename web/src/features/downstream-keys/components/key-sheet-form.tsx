@@ -1,4 +1,4 @@
-// metapi-go/features/settings/sections/downstream — key create/edit sheet
+// metapi-go/features/downstream-keys — key create/edit sheet
 // form: model policy editor (rules + suggestions), site scope picker, and
 // the RHF sheet body. Split out of keys-section.tsx; behavior is unchanged.
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -29,16 +29,16 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
-import {
-  downstreamKeysQueryKeys,
-  type CreateDownstreamKeyResponse,
-  type DownstreamApiKeyItem,
-} from '@/features/downstream-keys'
 import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
 import { parseIdArray, serializeCredentialRefs } from '../lib/credential-refs'
+import {
+  downstreamKeysQueryKeys,
+  type CreateDownstreamKeyResponse,
+  type DownstreamApiKeyItem,
+} from '../types'
 import { CredentialRefPicker } from './credential-ref-picker'
 import { showKeyCreatedToast } from './key-created-toast'
 import {

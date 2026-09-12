@@ -2,7 +2,7 @@
 //
 // The settings heading system:
 //   L1 page title            → unique h1 (SettingsPage header)
-//   L2 card title            → h2 (SettingsSectionCard)
+//   L2 card title            → h2 (SectionCard, @/components/common/section-card)
 //   L3 card subsection title → h3 (this module)
 //
 // `SettingsSubsection` is the full L3 zone: the h3 title plus a `border-t`

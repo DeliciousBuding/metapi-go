@@ -7,6 +7,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { SectionCard } from '@/components/common/section-card'
+import { SectionError } from '@/components/common/section-error'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -26,9 +28,6 @@ import {
 } from '@/lib/api'
 import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
-
-import { SettingsSectionCard } from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
 
 const modelRedirectsQueryKeys = {
   all: ['model-redirects'] as const,
@@ -134,15 +133,16 @@ export function RedirectsSection() {
 
   if (redirectsQuery.isError || !redirectsQuery.data) {
     return (
-      <SettingsSectionError
+      <SectionError
         title={t('settings.proxyModels.redirects.title')}
+        messageKey='settings.common.loadFailed'
         onRetry={() => void redirectsQuery.refetch()}
       />
     )
   }
 
   return (
-    <SettingsSectionCard
+    <SectionCard
       title={t('settings.proxyModels.redirects.title')}
       description={t('settings.proxyModels.redirects.description')}
       hideHeaderCopy
@@ -278,6 +278,6 @@ export function RedirectsSection() {
         }}
         onCancel={() => setApplyConfirmOpen(false)}
       />
-    </SettingsSectionCard>
+    </SectionCard>
   )
 }

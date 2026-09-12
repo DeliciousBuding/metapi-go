@@ -4,13 +4,15 @@
 // Mechanically enforces the import rules of
 // docs/internal/web-package-boundaries.md:
 //
+// Rule numbers below are the doc's (src/lib/*.ts cites them by number, so the
+// doc is the authority and this script must not invent a second numbering):
 //   rule 1: src/lib/ never imports from features/ or routes/.
 //   rule 2: src/components/ never imports from features/ or routes/.
-//   rule 3: a subsystem that publishes a barrel is imported through that
-//           barrel and never through a subdirectory (see BARRELS).
-//   rule 4: a feature imports another feature through its barrel
+//   rule 3: a feature imports another feature through its barrel
 //           (`@/features/<name>`) and never a path below it. Route files are
 //           the composition root and are exempt.
+//   rule 6: a subsystem that publishes a barrel is imported through that
+//           barrel and never through a subdirectory (see BARRELS).
 //
 // Layers are classified by the first path segment under src/. Imports may
 // point downward through the layer table; the edges above are the two hard
@@ -24,9 +26,11 @@
 // Run: bun run check:boundaries (chained into `bun run lint`, so pre-push
 // and CI frontend jobs both execute it).
 //
-// Exceptions: EXCEPTIONS below — explicit registry of grandfathered
-// cross-layer edges. Every entry must carry a reason AND match a real import
-// in the tree; stale entries fail the gate (no speculative whitelisting).
+// Exceptions: EXCEPTIONS (cross-layer edges) and FEATURE_EXCEPTIONS (feature
+// barrel edges) below — explicit registries of grandfathered imports. Every
+// entry must carry a reason AND match a real import in the tree; stale entries
+// fail the gate (no speculative whitelisting). Both are empty: an entry is a
+// debt with an owner and an issue, not a way to land a change.
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -38,19 +42,7 @@ const DOC = 'docs/internal/web-package-boundaries.md'
 
 // --- exceptions registry -----------------------------------------------------
 const EXCEPTIONS = []
-const FEATURE_EXCEPTIONS = [
-  {
-    file: 'src/features/downstream-keys/downstream-keys-page.tsx',
-    specifier:
-      '@/features/settings/sections/downstream/components/keys-section',
-    reason:
-      'The keys UI still lives under the settings section it was promoted out ' +
-      'of, and the page lazy-loads it so that section stays its own chunk. ' +
-      'Tracked by #1335: move the UI into features/downstream-keys (promoting ' +
-      'SettingsSectionCard / SettingsSectionError to components/common first) ' +
-      'and delete this entry.',
-  },
-]
+const FEATURE_EXCEPTIONS = []
 
 // --- layer rules ----------------------------------------------------------------
 // layer of the importing file -> layers it must not import from.
@@ -322,7 +314,7 @@ for (const barrel of BARRELS) {
     failed = true
     console.error(
       `✗ feature barrel gate would pass vacuously: no feature imports another\n` +
-        `    feature's barrel, so rule 4 has no live surface. Either the features\n` +
+        `    feature's barrel, so rule 3 has no live surface. Either the features\n` +
         `    stopped talking to each other or the specifier resolution in this\n` +
         `    script stopped matching '@/features/<name>'.`
     )
