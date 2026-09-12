@@ -1,6 +1,6 @@
 # Backend Design Philosophy
 
-**Last updated**: 2026-09-04
+**Last updated**: 2026-09-12
 
 **Status**: contributor principles — how backend code should be written
 **Not the authority on import edges**: the boundary contract is
@@ -65,6 +65,7 @@ Rules of thumb:
 
 - Configuration is environment-driven (`config.Load` / `config.Get`).
 - Env var names match TS Metapi **without** a `METAPI_` (or similar) prefix: e.g. `AUTH_TOKEN`, `PROXY_TOKEN`, `DB_TYPE`, `DB_URL`, `PORT`.
+- A Go-only knob with no TS counterpart carries the `METAPI_` prefix **precisely so it cannot be mistaken for a parity name** (`METAPI_DB_PROFILE`, `METAPI_DB_APPLICATION_NAME`, `METAPI_ENABLE_PROXY_STUB`). `REDIS_URL` additionally accepts `METAPI_REDIS_URL` as an alias (`config/config.go`: `firstNonEmpty(get("REDIS_URL"), get("METAPI_REDIS_URL"))`).
 - Defaults live in `config`; production unsafety (default tokens, weak secrets) is warned/validated, not silently accepted as secure.
 - Runtime settings that belong in DB stay in `store` settings; do not invent a second config language.
 
@@ -102,7 +103,7 @@ Rules of thumb:
         │                       │                    │                 │
         │                    service ───────────────┘ (prefer not;     │
         │                       ▲                     transform is     │
-        │                       │                     leaf for now)    │
+        │                       │                     leaf today)      │
         │                  scheduler                                   │
         │                       ▲                                      │
         │                       │                                      │
@@ -121,7 +122,7 @@ Arrows mean **“may import”**. Edges not shown are forbidden unless listed un
 The diagram above is the *intent* — which direction is down. The contract is
 [`docs/architecture.md`](../../architecture.md) §"Ownership and boundary map": one row per
 package, the decision it owns, and what it must not import. Its executable form is
-[`docs/package_boundary_test.go`](../../package_boundary_test.go) — rules 1–8, every approved
+[`docs/package_boundary_test.go`](../../package_boundary_test.go) — rules 1–9, every approved
 exception with the reason it is approved, and an assertion that all twelve
 domains were really scanned, because a boundary gate that scans nothing and reports no
 violations is not a lenient gate but an absent one. That is not a hypothetical: it is the shape
@@ -210,5 +211,5 @@ Only `cmd/server` (and tests/e2e helpers) should construct the full graph: load 
 - [ ] Auth path fail-closed
 - [ ] Channel failure isolated (cooldown/breaker/failover) when touching routing/proxy
 - [ ] Dialect-safe SQL via `store`
-- [ ] Env names match TS, no new prefix scheme
+- [ ] Env names match TS for parity vars; a Go-only knob uses a `METAPI_` prefix so it cannot read as a parity name (§1.6)
 - [ ] Tests with `-race` for concurrent paths

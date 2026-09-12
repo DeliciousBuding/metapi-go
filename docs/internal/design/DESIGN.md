@@ -4,7 +4,7 @@
 **Scope**: Enterprise ops control plane (sites, accounts, tokens, routes, monitors, logs)
 **Visual language**: GCP cloud console density + frosted glass shell + Apple detail
 **Source of truth**: this document + `web/src/styles/theme.css` + `web/src/styles/theme-presets.css` + `web/src/lib/theme-customization.ts` + `web/src/components/ui/**`
-**Last updated**: 2026-09-08
+**Last updated**: 2026-09-12
 
 ---
 
@@ -28,7 +28,7 @@
 3. **Dual theme parity** — light and dark share the same semantic token names (`.dark` class on `<html>`).
 4. **Dense but breathing** — 14px body text by default, component-owned secondary text, clear table rhythm, and semibold page titles. The compact density axis scales text separately.
 5. **One glass system** — shell/modal/dropdown only; never blur table rows.
-6. **Progressive adoption** — primitives in `web/src/components/ui/**`; migrate pages gradually.
+6. **One primitive set** — UI starts from `web/src/components/ui/**` and nothing hand-rolls a parallel control. This used to be a migration in progress; it is now gated — `web/scripts/check-form-control.mjs` classifies every `<FormControl>` site and fails on a native control or on a shape it cannot read.
 7. **Console, not marketing** — pill nav, tabular nums, restrained card hover (no lift).
 8. **No gradients** — backgrounds, masks, charts, swatches, fallback avatars, and brand assets use solid colors only.
 
@@ -40,14 +40,14 @@ All values live in `web/src/styles/theme.css` under `:root` (light) and `.dark` 
 
 ### 2.1 Theme architecture
 
-| Layer        | Mechanism                                                                                                                                                                         |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Theme mode   | `<html class="dark                                                                                                                                                                | light">`(plus`data-theme`attr for compat) set by`ThemeProvider`and the FOUC bootstrap in`web/index.html`; cookie `vite-ui-theme`(1y), falls back to`prefers-color-scheme` |
+| Layer | Mechanism |
+| ----- | --------- |
+| Theme mode   | `<html>` carries `class="dark"` or `class="light"` plus a `data-theme` attribute (compat), set by `ThemeProvider` and the FOUC bootstrap in `web/index.html`; persisted in the `vite-ui-theme` cookie (1y) and falling back to `prefers-color-scheme` |
 | Preset       | `<body data-theme-preset>` — 10 shipped presets: default, anthropic, simple-large, underground, rose-garden, lake-view, sunset-glow, forest-whisper, ocean-breeze, lavender-dream |
-| Font axis    | `<body data-theme-font="sans                                                                                                                                                      | serif">`— swaps`--font-body`                                                                                                                                              |
-| Radius axis  | `<body data-theme-radius="none                                                                                                                                                    | sm                                                                                                                                                                        | md                                      | lg  | xl">`— overrides`--radius` |
-| Density axis | `<body data-theme-scale="sm                                                                                                                                                       | lg                                                                                                                                                                        | xl">`— rescales`--text-*`and`--spacing` |
-| Content axis | `<body data-theme-content-layout="full                                                                                                                                            | centered">`                                                                                                                                                               |
+| Font axis    | `<body data-theme-font>` — `sans` or `serif` (the `default` setting resolves to `sans`, see `public/theme-init.js`); swaps `--font-body` |
+| Radius axis  | `<body data-theme-radius>` — `default`, `none`, `sm`, `md`, `lg`, `xl`; overrides `--radius` |
+| Density axis | `<body data-theme-scale>` — `default`, `sm`, `lg`, `xl`; rescales `--text-*` and `--spacing` |
+| Content axis | `<body data-theme-content-layout>` — `full` or `centered` |
 
 Constants (allowed values, defaults, cookies `theme_preset` / `theme_font` / `theme_radius` / `theme_scale` / `theme_content_layout`): `web/src/lib/theme-customization.ts`.
 
@@ -78,7 +78,7 @@ Each maps a Tailwind alias `--color-*` (e.g. `--color-background: var(--backgrou
 | `--neutral`                                            | `oklch(0.708 0 0)`                                           | `oklch(0.76 0 0)`                                            | Cool gray secondary                 |
 | `--sidebar` / `--sidebar-primary` / `--sidebar-accent` | derived from background/primary                              | derived from background/primary                              | Sidebar canvas, brand, active tones |
 
-Presets replace `--primary`/`--background` per `data-theme-preset` (e.g. Anthropic clay `oklch(0.57 0.15 38)` on cream `oklch(0.984 0.005 95)`).
+Presets replace `--primary`/`--background` per `data-theme-preset` (e.g. Anthropic clay `oklch(0.57 0.15 38)` on cream `oklch(0.984 0.004 95)`).
 
 ### 2.4 Status semantics
 
@@ -120,10 +120,10 @@ Fallback: `supports-[backdrop-filter]` gates translucency so browsers without `b
 | Spacing          | Tailwind 4 scale — base `--spacing` (default 0.25rem; `data-theme-scale` overrides 0.225 / 0.28 / 0.3rem)                                                                                                                                                                                                                                           | `gap-*`, `p-*`, `m-*`, `space-y-*`; no custom `--space-*`                                                                                                                                        |
 | Radius           | `--radius: 0.625rem` (10px default) with `--radius-sm/md/lg/xl/2xl/3xl/4xl` derived; `data-theme-radius` overrides `--radius` (none 0 · sm 0.3 · md 0.5 · lg 0.75 · xl 1rem)                                                                                                                                                                                 | Controls/buttons `rounded-lg`; cards/sheets `rounded-xl`+                                                                                                                                        |
 | Shadow           | Tailwind default `shadow-*` + custom `--shadow-card-hover` (`0 4px 12px …`)                                                                                                                                                                                                                                                                         | Hover elevation on cards (`[data-card-hover]`); no lift on plain rows                                                                                                                            |
-| Motion           | `tw-animate-css` utilities (`animate-in/out`, `fade-in-*`, `zoom-in-*`) + keyframes in `styles/index.css` (table row stagger, landing, terminal demo)                                                                                                                                                                                               | Calm; every animation guarded by `prefers-reduced-motion`                                                                                                                                        |
-| Type             | `--font-sans` Public Sans Variable (Latin) + bundled Noto Sans SC Variable (CJK, unicode-range slices; platform CJK faces stay behind it as fetch-failure insurance) · `--font-serif` Lora Variable + CJK serif fallbacks (no bundled CJK serif — a second 4.3 MiB face for an opt-in axis did not survive the size decision) · `--font-mono` Cascadia/SFMono/Consolas · `--font-body` active face · `:root[lang|='zh']` zeroes `--tracking-tight` and the editorial tracking tokens (negative tracking is a Latin display convention; ideographs keep their side bearing)                                                                                                                     | `data-theme-font` swaps the body face; density axis rescales `--text-xs…3xl`; visible axis tick labels and body text minimum 10px — 9px only allowed for decorative labels with a `title`/`aria-label` fallback |
+| Motion           | `tw-animate-css` utilities (`animate-in/out`, `fade-in-*`, `zoom-in-*`) + the keyframes actually defined in `styles/index.css` (`tableRowEnter`, `sidebarViewEnter`, `slideDown`/`slideUp`, skeleton `shimmer`)                                                                                                                                                                                               | Calm; every animation guarded by `prefers-reduced-motion`                                                                                                                                        |
+| Type             | `--font-sans` Public Sans Variable (Latin) + bundled Noto Sans SC Variable (CJK, unicode-range slices; platform CJK faces stay behind it as fetch-failure insurance) · `--font-serif` Lora Variable + CJK serif fallbacks (no bundled CJK serif — a second 4.3 MiB face for an opt-in axis did not survive the size decision) · `--font-mono` Cascadia/SFMono/Consolas · `--font-body` active face · `:root[lang\|='zh']` zeroes `--tracking-tight` and the editorial tracking tokens (negative tracking is a Latin display convention; ideographs keep their side bearing)                                                                                                                     | `data-theme-font` swaps the body face; density axis rescales `--text-xs…3xl`; visible axis tick labels and body text minimum 10px — 9px only allowed for decorative labels with a `title`/`aria-label` fallback |
 | Page title scale | Landing/hub pages: `page-title-overview` (24px default); data/list pages: `page-title` (20px default). Both use semibold, relative snug leading and balanced wrapping | Exactly one h1 per page; Chinese tracking stays neutral; serif axis retains medium weight; title line-height follows density scaling |
-| Layout | `data-theme-content-layout="full|centered"`; centered clamps `[data-slot='sidebar-inset'] > *` to `--max-content-width` (1280px) at ≥1280px; utilities `max-w-container` 1280 / `max-w-container-lg` 1536 | Hi-res: `full` uses available width; `centered` keeps a comfortable reading width |
+| Layout | `data-theme-content-layout` set to `full` or `centered`; centered clamps `[data-slot='sidebar-inset'] > *` to `--max-content-width` (1280px) at ≥1280px; utilities `max-w-container` 1280 / `max-w-container-lg` 1536 | Hi-res: `full` uses available width; `centered` keeps a comfortable reading width |
 
 ### 3.1 Reading hierarchy and controls
 
@@ -147,11 +147,14 @@ Primitive ownership map: [`components.md`](./components.md). Component props and
 
 State-management rules for URL-synced tables and filters (single URL owner, stable callbacks, one-transaction updates): [`state-stability.md`](./state-stability.md).
 
-| Layer            | Prefix / classes                    | Where                                            |
-| ---------------- | ----------------------------------- | ------------------------------------------------ |
-| Base UI (shadcn) | `ui-*` components (data-slot attrs) | `web/src/components/ui/**`                       |
-| Shell layout     | `app-header` / `app-sidebar`        | `web/src/components/layout/**`                   |
-| Theme tokens     | OKLCH CSS variables                 | `web/src/styles/theme.css` + `theme-presets.css` |
+| Layer                     | Prefix / classes                    | Where                                            |
+| ------------------------- | ----------------------------------- | ------------------------------------------------ |
+| Base UI (shadcn)          | `ui-*` components (data-slot attrs) | `web/src/components/ui/**`                       |
+| Cross-feature composition | section card / error / skeleton, query-error banner, confirm dialog, HTTP status badge | `web/src/components/common/**` |
+| Table subsystem           | data-table barrel (`@/components/data-table`) | `web/src/components/data-table/**`     |
+| Form plumbing             | dirty-close guard                   | `web/src/components/form/**`                    |
+| Shell layout              | `app-header` / `app-sidebar`        | `web/src/components/layout/**`                   |
+| Theme tokens              | OKLCH CSS variables                 | `web/src/styles/theme.css` + `theme-presets.css` |
 
 New UI must start from shadcn Base UI primitives when possible. Import via `@/components/ui/*`.
 
@@ -182,7 +185,7 @@ Every destructive action maps to exactly one tier; never hand-roll a variant:
 2. `cd web && bun run typecheck` — TS gate
 3. `cd web && bun run lint` — oxlint
 4. `cd web && bun run build` — production bundle gate (`build:web`)
-5. `cd web && bun run a11y:scan` — axe-core serious/critical gate (needs the dev server; see `web/scripts/a11y-scan.mjs`). Also enforced in CI: the `a11y` job serves the real embedded SPA via the Go server (fresh sqlite runtime DB) and scans all 15 admin routes against it (`BASE_URL`-driven; `.github/workflows/main.yml`)
+5. `cd web && bun run a11y:scan` — axe-core serious/critical gate (needs the dev server; see `web/scripts/a11y-scan.mjs`). Also enforced in CI: the `a11y` job serves the real embedded SPA via the Go server (fresh sqlite runtime DB) and scans it in both shipped locales (`BASE_URL`-driven; `.github/workflows/main.yml`). The route list is `DESKTOP_ROUTES` in `web/scripts/route-smoke.mjs`, which `a11y-scan.mjs` imports so the two gates cannot drift — this document deliberately does not restate the count.
 6. `cd web && bun run ui:smoke` — real-Chromium route/crash/mobile smoke gate (`web/scripts/route-smoke.mjs`); also enforced in CI in the `a11y` job against the shipped bundle
 7. Manual score rubric (target ≥ 4/5 each):
    - Material (glass/solid hierarchy)
