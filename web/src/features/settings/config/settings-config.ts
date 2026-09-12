@@ -20,15 +20,6 @@ const SETTINGS_SUBAREAS: readonly SettingsSubarea[] = [
   operationsSubarea,
 ]
 
-/** Stable id list for route validation. */
-
-/**
- * All 5 settings subareas in main-sidebar order
- * (matches components/layout/config/system-settings.config.ts).
- */
-
-/** Stable id list for route validation. */
-
 /**
  * All 5 settings subareas in main-sidebar order.
  * Consumed by the settings overview landing and the layout drill-in sidebar so

@@ -77,6 +77,19 @@ Rule numbers in the script's header and failure messages are this document's
 (3 = feature barrels, 6 = subsystem barrels): `src/lib/*.ts` cites them by
 number, so the script must not carry a second numbering of its own.
 
+One piece of prose is checked too. A barrel header that documents
+`import { X } from '@/features/<name>'` states what that barrel exports, and
+nothing type-checks a comment — so the gate parses those examples out of the
+header (comment lines are concatenated first, because an example may span
+several of them) and requires every named symbol to be in the target barrel's
+export set. It fails vacuously if it finds no example at all, which is the
+"resolution stopped matching" case rather than a clean tree. The rest of a
+barrel's header — who consumes it, why a page is absent — is review-only; this
+is the one claim a machine can settle. Exported names are collected from
+`export { … }` lists and the barrel's own declarations, with line comments
+stripped from a brace body *before* it is split on commas (a comment inside the
+braces can contain one).
+
 ## Registered exceptions
 
 **Layer rules (`EXCEPTIONS`)**: none. The shell inversion is complete: `layout/lib/settings-nav-registry.ts`
@@ -131,6 +144,18 @@ out of `settings/sections/downstream/`) was retired by moving the keys UI into
   several claimed a page component was "the primary surface" while exporting
   none, pointed at route files as future work when those routes already ship,
   and carried empty section headings.
+- **2026-09-12** — barrel headers were re-read against the tree (#1338) and
+  four claims were false: `token-routes`' example import named `RoutesPage` and
+  `RouteSummaryRow`, which that barrel does not export; its rebuild-handoff
+  note credited a settings section with writing the reference when the writer is
+  the feature's own `api.ts`; `settings` still said the standalone
+  downstream-keys page lazy-loads one of its sections, which stopped being true
+  an hour earlier when the keys UI moved home; `observability` listed Proxy Logs
+  as one of its sections when it is a separate workspace the sidebar deep-links
+  out to. Six doc comments in `models/api.ts`, `models/types.ts` and
+  `settings/config/settings-config.ts` described symbols that no longer exist
+  and were deleted. The example-import claim is the part that can rot silently
+  and still compile nowhere, so it is now gated (see Gate mechanics).
 - **2026-09-12** — the downstream-keys UI moved home (#1335). `keys-section`,
   `key-sheet-form`, `key-cells`, `key-scope-cell`, `key-form-shared`,
   `key-created-toast`, `credential-ref-picker` and `lib/credential-{refs,display}`

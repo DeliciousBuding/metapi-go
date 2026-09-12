@@ -18,6 +18,11 @@
 // point downward through the layer table; the edges above are the two hard
 // upward edges the gate closes today.
 //
+// The gate also checks one piece of prose: a symbol named in a barrel header's
+// documented example import must be in that barrel's export set (see "barrel
+// doc examples" below). That is the only part of the boundaries doc's contract
+// a comment can state and a machine can verify.
+//
 // Not enforced (documented residuals in the boundaries doc — widening the
 // gate needs its own issue): lib → components/i18n (lib/router.ts fallback
 // pages, http-client/assert-business-ok i18n), hooks/use-sidebar-* →
@@ -250,6 +255,100 @@ for (const file of files) {
   })
 }
 
+// --- barrel doc examples ---------------------------------------------------------
+// A barrel header that documents `import { X } from '@/features/<name>'` makes
+// a claim about that barrel's own export set, and nothing type-checks a
+// comment. token-routes' example named `RoutesPage` and `RouteSummaryRow`,
+// neither of which the barrel exports (the page is loaded by its route file,
+// the type lives in lib/helpers/token-route-contract.ts) — so the one line
+// whose job is to show the sanctioned way in taught a contributor to write
+// code that does not compile. Every symbol named in a documented example
+// import must therefore be in the target barrel's export set.
+const BARREL_FILE_RES = /^(?:features|components)\/[^/]+\/index\.ts$/
+
+/** Names a barrel publishes: re-export lists plus its own declarations. */
+function barrelExports(text) {
+  const names = new Set()
+  const listRes = /^export\s+(?:type\s+)?\{([^}]*)\}/gm
+  const declRes =
+    /^export\s+(?:declare\s+)?(?:async\s+)?(?:function|const|let|var|class|type|interface|enum)\s+([A-Za-z0-9_$]+)/gm
+  let match
+  while ((match = listRes.exec(text)) !== null) {
+    // Strip line comments from the whole brace body BEFORE splitting: a comment
+    // inside the braces can contain a comma (token-routes documents why
+    // `useRoutes` is shared), which would otherwise split mid-sentence and
+    // swallow the symbol that follows it.
+    const body = match[1].replace(/\/\/[^\n]*/g, '')
+    for (const part of body.split(',')) {
+      const named =
+        /^\s*(?:type\s+)?([A-Za-z0-9_$]+)(?:\s+as\s+([A-Za-z0-9_$]+))?\s*$/.exec(
+          part
+        )
+      if (named) names.add(named[2] ?? named[1])
+    }
+  }
+  while ((match = declRes.exec(text)) !== null) names.add(match[1])
+  return names
+}
+
+/**
+ * The barrel's header prose, as one string. Comment lines are concatenated so
+ * an example import split across several `//` lines still parses; oxfmt does
+ * not reformat comment bodies, so this cannot rely on the one-line `from`
+ * clause assumption the edge scan above uses.
+ */
+function commentProse(text) {
+  return text
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trimStart()
+      if (trimmed.startsWith('//')) return trimmed.slice(2)
+      if (trimmed.startsWith('*')) return trimmed.slice(1)
+      return ''
+    })
+    .join('\n')
+}
+
+const DOC_EXAMPLE_RES =
+  /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g
+
+const barrelFiles = files
+  .map((file) => file.slice(SRC.length + 1).replaceAll('\\', '/'))
+  .filter((rel) => BARREL_FILE_RES.test(rel))
+const barrelSources = new Map(
+  barrelFiles.map((rel) => [rel, readFileSync(join(SRC, rel), 'utf8')])
+)
+const barrelExportSets = new Map(
+  [...barrelSources].map(([rel, text]) => [rel, barrelExports(text)])
+)
+const docExampleViolations = []
+let docExamples = 0
+
+for (const [rel, text] of barrelSources) {
+  const prose = commentProse(text)
+  const fileDirRel = dirname(rel)
+  DOC_EXAMPLE_RES.lastIndex = 0
+  let match
+  while ((match = DOC_EXAMPLE_RES.exec(prose)) !== null) {
+    const target = resolveSpecifier(match[2], fileDirRel)
+    const targetBarrel = target === null ? null : `${target}/index.ts`
+    if (target === null || !barrelExportSets.has(targetBarrel)) continue
+    const exported = barrelExportSets.get(targetBarrel)
+    for (const part of match[1].split(',')) {
+      const named =
+        /^\s*(?:type\s+)?([A-Za-z0-9_$]+)(?:\s+as\s+([A-Za-z0-9_$]+))?\s*$/.exec(
+          part
+        )
+      if (!named) continue
+      const symbol = named[2] ?? named[1]
+      docExamples += 1
+      if (!exported.has(symbol)) {
+        docExampleViolations.push({ location: rel, symbol, targetBarrel })
+      }
+    }
+  }
+}
+
 // --- verdict --------------------------------------------------------------------------
 let failed = false
 
@@ -283,6 +382,27 @@ for (const violation of featureViolations) {
       `    not a path below it. Export the symbol from that feature's index.ts;\n` +
       `    if two features need the same contract, it belongs in the feature that\n` +
       `    owns the domain (or in src/lib/ when neither does).`
+  )
+}
+
+for (const violation of docExampleViolations) {
+  failed = true
+  console.error(
+    `✗ barrel doc example does not resolve: ${violation.location}\n` +
+      `    documents '${violation.symbol}', which src/${violation.targetBarrel} does not export.\n` +
+      `    A comment is the only place this can rot silently: fix the example, or\n` +
+      `    export the symbol if a consumer genuinely needs it.`
+  )
+}
+
+if (docExamples === 0) {
+  failed = true
+  console.error(
+    `✗ barrel doc-example check would pass vacuously: no documented example\n` +
+      `    import was found in any src/{features,components}/*/index.ts header.\n` +
+      `    Either the examples were removed or DOC_EXAMPLE_RES stopped matching\n` +
+      `    (comment prose is concatenated before matching, so a multi-line\n` +
+      `    example must still parse).`
   )
 }
 
@@ -351,5 +471,6 @@ console.log(
     `${barrelEdges} deep import(s), ` +
     `features: ${featureBarrelEdges} barrel edge(s) / ${featureDeepEdges} deep, ` +
     `${FEATURE_EXCEPTIONS.length} feature exception(s) all matched, ` +
-    `${EXCEPTIONS.length} registered exception(s) all matched`
+    `${EXCEPTIONS.length} registered exception(s) all matched, ` +
+    `${docExamples} barrel doc-example symbol(s) resolved`
 )
