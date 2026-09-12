@@ -1,24 +1,38 @@
-// metapi-go/data-table — ported from newapi
-// useDataTable provides the controlled-state layer of the three-stage URL state
-// sync pattern (route validateSearch -> feature useSearch -> useDataTable). The
-// hook accepts externally-owned state (sorting/pagination/filters) plus
-// onChange callbacks, so a route loader can feed URL params in and onChange
-// can drive router navigation. The validateSearch + useSearch stages live in
-// the feature/route layer (out of data-table scope).
+// metapi-go/data-table — useDataTable: the table's state layer.
+//
+// The only place this package touches `useReactTable`. It wires the row models
+// to the page's filtering mode, hands TanStack the server's row count, and owns
+// the two column preferences that survive a reload.
+//
+// Who owns which state is the part worth being precise about, because this is
+// where the three-stage URL sync (route `validateSearch` → feature `useSearch` →
+// `useDataTable`) meets the table:
+//
+//   URL-owned       sorting, pagination, column filters and the global filter
+//                   are *controlled* here — the feature passes the value it
+//                   read from the route plus an `onChange` that navigates, and
+//                   the table keeps no copy of its own. That is what makes a
+//                   reload or a back-navigation restore the view.
+//   table-owned     row selection is left to TanStack. Nothing outside the
+//                   table reads it, and a second copy would only be a second
+//                   thing to keep in sync.
+//   storage-owned   column visibility and sizing are uncontrolled but
+//                   persisted: they are presentation, not a shareable view.
+//
+// Every setter below keeps the previous reference when an update changes
+// nothing. That is load-bearing rather than a micro-optimisation — see
+// `isShallowEqual`.
 import {
   type ColumnDef,
   type ColumnFiltersState,
   type ColumnSizingState,
-  type ExpandedState,
   type OnChangeFn,
   type PaginationState,
-  type RowSelectionState,
   type SortingState,
   type TableOptions,
   type Updater,
   type VisibilityState,
   getCoreRowModel,
-  getExpandedRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
   getFilteredRowModel,
@@ -28,79 +42,11 @@ import {
 } from '@tanstack/react-table'
 import * as React from 'react'
 
-type DataTableFeatureOptions<TData> = Pick<
-  TableOptions<TData>,
-  | 'enableRowSelection'
-  | 'getRowId'
-  | 'getSubRows'
-  | 'globalFilterFn'
-  | 'autoResetPageIndex'
-  | 'manualFiltering'
-  | 'manualPagination'
-  | 'manualSorting'
-  | 'enableSorting'
-  | 'enableColumnResizing'
->
-
-type DataTableStateOptions = {
-  initialSorting?: SortingState
-  sorting?: SortingState
-  onSortingChange?: OnChangeFn<SortingState>
-  initialColumnVisibility?: VisibilityState
-  columnVisibilityStorageKey?: string | false
-  columnVisibility?: VisibilityState
-  onColumnVisibilityChange?: OnChangeFn<VisibilityState>
-  initialColumnSizing?: ColumnSizingState
-  columnSizingStorageKey?: string | false
-  columnSizing?: ColumnSizingState
-  onColumnSizingChange?: OnChangeFn<ColumnSizingState>
-  initialRowSelection?: RowSelectionState
-  rowSelection?: RowSelectionState
-  onRowSelectionChange?: OnChangeFn<RowSelectionState>
-  initialExpanded?: ExpandedState
-  expanded?: ExpandedState
-  onExpandedChange?: OnChangeFn<ExpandedState>
-  columnFilters?: ColumnFiltersState
-  onColumnFiltersChange?: OnChangeFn<ColumnFiltersState>
-  globalFilter?: string
-  onGlobalFilterChange?: OnChangeFn<string>
-  initialPagination?: PaginationState
-  pagination?: PaginationState
-  onPaginationChange?: OnChangeFn<PaginationState>
-}
-
-type DataTableRowModelOptions = {
-  withFilteredRowModel?: boolean
-  withPaginationRowModel?: boolean
-  withSortedRowModel?: boolean
-  withFacetedRowModel?: boolean
-  withExpandedRowModel?: boolean
-}
-
-type UseDataTableOptions<TData> = DataTableFeatureOptions<TData> &
-  DataTableStateOptions &
-  DataTableRowModelOptions & {
-    data: TData[]
-    columns: ColumnDef<TData, unknown>[]
-    totalCount?: number
-    pageCount?: number
-    ensurePageInRange?: (pageCount: number) => void
-  }
-
-type ColumnSizingBounds = Record<
-  string,
-  {
-    minSize?: number
-    maxSize?: number
-  }
->
-
-type ColumnWithSizing<TData> = ColumnDef<TData, unknown> & {
-  accessorKey?: string | number
-  columns?: ColumnDef<TData, unknown>[]
-}
-
-const COLUMN_SIZING_PERSIST_DELAY_MS = 250
+/** Where a page that does not control pagination starts. */
+const DEFAULT_PAGINATION: PaginationState = { pageIndex: 0, pageSize: 20 }
+const EMPTY_SORTING: SortingState = []
+const EMPTY_VISIBILITY: VisibilityState = {}
+const EMPTY_SIZING: ColumnSizingState = {}
 
 /**
  * Shared empty column-filters value for tables without filtering.
@@ -117,12 +63,65 @@ const COLUMN_SIZING_PERSIST_DELAY_MS = 250
  */
 const EMPTY_COLUMN_FILTERS: ColumnFiltersState = []
 
+/** Column sizing is written debounced: a resize drag changes it per pointer move. */
+const COLUMN_SIZING_PERSIST_DELAY_MS = 250
+
+type UseDataTableOptions<TData> = Pick<
+  TableOptions<TData>,
+  | 'autoResetPageIndex'
+  | 'enableColumnResizing'
+  | 'enableRowSelection'
+  | 'getRowId'
+  | 'globalFilterFn'
+  | 'manualFiltering'
+  | 'manualPagination'
+  | 'manualSorting'
+> & {
+  data: TData[]
+  columns: ColumnDef<TData, unknown>[]
+
+  /**
+   * Total row count reported by the server. Drives the page count and is handed
+   * to TanStack as `rowCount`, so `manualPagination` pages show a real pager.
+   */
+  totalCount?: number
+
+  /**
+   * Called whenever the table's page count changes, so a page can pull itself
+   * back into range — e.g. after deleting the last row of the last page.
+   */
+  ensurePageInRange?: (pageCount: number) => void
+
+  // --- URL-owned (controlled) state -------------------------------------
+
+  sorting?: SortingState
+  onSortingChange?: OnChangeFn<SortingState>
+  pagination?: PaginationState
+  onPaginationChange?: OnChangeFn<PaginationState>
+  columnFilters?: ColumnFiltersState
+  onColumnFiltersChange?: OnChangeFn<ColumnFiltersState>
+  globalFilter?: string
+  onGlobalFilterChange?: OnChangeFn<string>
+
+  // --- storage-owned column preferences ---------------------------------
+
+  /** Visibility to start from; what is in storage wins over it. */
+  initialColumnVisibility?: VisibilityState
+  /** localStorage key holding column visibility. Omit to keep it in memory. */
+  columnVisibilityStorageKey?: string
+  /** localStorage key holding column widths. Omit to keep them in memory. */
+  columnSizingStorageKey?: string
+}
+
 /**
- * Shallow structural equality (one level, reference-equal leaves) over
- * plain objects and arrays. Used by `useControllableTableState` to treat
- * no-op table updates (e.g. a page-index reset to the current value, which
- * TanStack still emits as a fresh `{ ...old, pageIndex }` object) as
- * unchanged, so React's eager state bail-out can skip the re-render.
+ * Shallow structural equality (one level, reference-equal leaves) over plain
+ * objects and arrays.
+ *
+ * A no-op table update must keep the previous reference: TanStack's
+ * `resetPageIndex` emits `{ ...old, pageIndex }` even when the page index is
+ * unchanged, and re-rendering on that fresh object is what re-fuels the
+ * auto-reset microtask loop described on `EMPTY_COLUMN_FILTERS`. Returning the
+ * same reference lets React's eager state bail-out skip the render entirely.
  */
 function isShallowEqual<TValue>(a: TValue, b: TValue): boolean {
   if (Object.is(a, b)) {
@@ -161,171 +160,188 @@ function resolveUpdater<TValue>(
     : updater
 }
 
+/** State the table owns alone, with the no-op bail-out above. */
+function useTableState<TValue>(
+  initialValue: TValue | (() => TValue)
+): [TValue, OnChangeFn<TValue>] {
+  const [value, setValue] = React.useState<TValue>(initialValue)
+
+  const onChange = React.useCallback<OnChangeFn<TValue>>((updater) => {
+    setValue((previous) => {
+      const next = resolveUpdater(updater, previous)
+      return isShallowEqual(next, previous) ? previous : next
+    })
+  }, [])
+
+  return [value, onChange]
+}
+
+/**
+ * State a feature owns through the URL, with the table as fallback for pages
+ * that do not.
+ *
+ * The `onChange` is called through a ref so the setter keeps one identity: a
+ * fresh setter per render re-resolves the TanStack table, which re-runs its
+ * `autoResetPageIndex` effect and can feed an infinite render loop through the
+ * URL sync.
+ */
 function useControllableTableState<TValue>(
   controlledValue: TValue | undefined,
   defaultValue: TValue,
   onChange: OnChangeFn<TValue> | undefined
 ): [TValue, OnChangeFn<TValue>] {
-  const [uncontrolledValue, setUncontrolledValue] =
-    React.useState<TValue>(defaultValue)
+  const [uncontrolledValue, setUncontrolledValue] = useTableState(defaultValue)
 
-  const value = controlledValue ?? uncontrolledValue
-
-  // Keep the callback stable: a fresh setValue identity on every render
-  // re-resolves the TanStack table, which re-runs its autoResetPageIndex
-  // effect and can feed an infinite render loop through the URL sync.
   const onChangeRef = React.useRef(onChange)
   onChangeRef.current = onChange
 
   const setValue = React.useCallback<OnChangeFn<TValue>>(
     (updater) => {
       if (controlledValue === undefined) {
-        setUncontrolledValue((previous) => {
-          const next = resolveUpdater(updater, previous)
-          // No-op updates must keep the previous reference: TanStack's
-          // resetPageIndex emits `{ ...old, pageIndex }` even when the page
-          // index is unchanged, and re-rendering on that fresh object is
-          // what re-fuels the auto-reset microtask loop. Returning the same
-          // reference lets React's eager bail-out skip the render entirely.
-          return isShallowEqual(next, previous) ? previous : next
-        })
+        setUncontrolledValue(updater)
       }
       onChangeRef.current?.(updater)
     },
-    [controlledValue]
+    [controlledValue, setUncontrolledValue]
   )
 
-  return [value, setValue]
+  return [controlledValue ?? uncontrolledValue, setValue]
 }
 
-function readColumnVisibility(storageKey: string | undefined): VisibilityState {
-  if (!storageKey || typeof window === 'undefined') return {}
-
-  try {
-    const raw = window.localStorage.getItem(storageKey)
-    if (!raw) return {}
-
-    const parsed = JSON.parse(raw) as unknown
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return {}
-    }
-
-    return Object.entries(parsed).reduce<VisibilityState>(
-      (visibility, [key, value]) => {
-        if (typeof value === 'boolean') {
-          visibility[key] = value
-        }
-        return visibility
-      },
-      {}
-    )
-  } catch {
-    return {}
-  }
-}
-
-function getColumnId<TData>(column: ColumnDef<TData, unknown>) {
-  const columnWithSizing = column as ColumnWithSizing<TData>
-
-  if (typeof columnWithSizing.id === 'string') {
-    return columnWithSizing.id
-  }
-
-  if (typeof columnWithSizing.accessorKey === 'string') {
-    return columnWithSizing.accessorKey.replaceAll('.', '_')
-  }
-
-  if (typeof columnWithSizing.accessorKey === 'number') {
-    return String(columnWithSizing.accessorKey)
-  }
-
-  return undefined
-}
-
-function buildColumnSizingBounds<TData>(
-  columns: ColumnDef<TData, unknown>[]
-): ColumnSizingBounds {
-  return columns.reduce<ColumnSizingBounds>((bounds, column) => {
-    const columnWithSizing = column as ColumnWithSizing<TData>
-    const columnId = getColumnId(column)
-
-    if (columnId) {
-      const minSize =
-        typeof columnWithSizing.minSize === 'number' &&
-        Number.isFinite(columnWithSizing.minSize)
-          ? columnWithSizing.minSize
-          : undefined
-      const maxSize =
-        typeof columnWithSizing.maxSize === 'number' &&
-        Number.isFinite(columnWithSizing.maxSize)
-          ? columnWithSizing.maxSize
-          : undefined
-
-      if (minSize !== undefined || maxSize !== undefined) {
-        bounds[columnId] = { minSize, maxSize }
-      }
-    }
-
-    if (Array.isArray(columnWithSizing.columns)) {
-      Object.assign(bounds, buildColumnSizingBounds(columnWithSizing.columns))
-    }
-
-    return bounds
-  }, {})
-}
-
-function getBoundedColumnSize(
-  columnId: string,
-  value: unknown,
-  bounds: ColumnSizingBounds
-) {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    return undefined
-  }
-
-  const columnBounds = bounds[columnId]
-  let size = value
-
-  if (columnBounds?.minSize !== undefined && size < columnBounds.minSize) {
-    size = columnBounds.minSize
-  }
-
-  if (columnBounds?.maxSize !== undefined && size > columnBounds.maxSize) {
-    size = columnBounds.maxSize
-  }
-
-  return size > 0 ? size : undefined
-}
-
-function readColumnSizing(
+/**
+ * A JSON object read out of localStorage, validated entry by entry.
+ *
+ * Everything unusable — no key, unreadable storage, invalid JSON, a non-object,
+ * an entry `readEntry` rejects — is dropped rather than thrown. These keys are
+ * user-editable, and a corrupt column preference must not break the table.
+ */
+function readStoredRecord<TValue>(
   storageKey: string | undefined,
-  bounds: ColumnSizingBounds
-): ColumnSizingState {
-  if (!storageKey || typeof window === 'undefined') return {}
+  readEntry: (value: unknown) => TValue | undefined
+): Record<string, TValue> {
+  if (!storageKey) return {}
 
   try {
     const raw = window.localStorage.getItem(storageKey)
     if (!raw) return {}
 
-    const parsed = JSON.parse(raw) as unknown
+    const parsed: unknown = JSON.parse(raw)
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       return {}
     }
 
-    return Object.entries(parsed).reduce<ColumnSizingState>(
-      (sizing, [key, value]) => {
-        const boundedSize = getBoundedColumnSize(key, value, bounds)
-
-        if (boundedSize !== undefined) {
-          sizing[key] = boundedSize
-        }
-        return sizing
-      },
-      {}
-    )
+    const record: Record<string, TValue> = {}
+    for (const [key, value] of Object.entries(parsed)) {
+      const entry = readEntry(value)
+      if (entry !== undefined) record[key] = entry
+    }
+    return record
   } catch {
     return {}
   }
+}
+
+function writeStoredRecord(storageKey: string, value: unknown) {
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(value))
+  } catch {
+    // Private mode and full quotas are ordinary; losing the preference is not
+    // worth breaking the table over.
+  }
+}
+
+/** Stored column visibility: booleans, anything else dropped. */
+function readStoredColumnVisibility(
+  storageKey: string | undefined
+): VisibilityState {
+  return readStoredRecord(storageKey, (value) =>
+    typeof value === 'boolean' ? value : undefined
+  )
+}
+
+/**
+ * Stored column widths in px: positive finite numbers, anything else dropped.
+ * Out-of-range values need no clamping here — TanStack clamps a column's size
+ * to its own `minSize`/`maxSize` when it is read back, so a width stored before
+ * a column changed cannot escape the bounds it has now.
+ */
+function readStoredColumnSizing(
+  storageKey: string | undefined
+): ColumnSizingState {
+  return readStoredRecord(storageKey, (value) =>
+    typeof value === 'number' && Number.isFinite(value) && value > 0
+      ? value
+      : undefined
+  )
+}
+
+type PersistedColumnStateOptions<TValue extends object> = {
+  storageKey: string | undefined
+  /** Reads and validates what is in storage. Must be a stable reference. */
+  read: (storageKey: string | undefined) => TValue
+  /** Values the stored ones are merged over. Must be a stable reference. */
+  defaults: TValue
+  /** Debounce the write; 0 writes on the change itself. */
+  debounceMs?: number
+}
+
+/**
+ * Column state that survives a reload: read once per storage key, written back
+ * on change.
+ *
+ * The read is deliberately *not* per render. Reading and parsing localStorage
+ * on every render is what the previous shape did (its memo depended on a
+ * destructuring default that was a fresh object each time), and it is pure
+ * waste: the stored value cannot change while the component is mounted.
+ *
+ * A write is skipped once after a re-hydration. When the storage key changes
+ * under a mounted hook — the settings pages reuse one table component across
+ * sections, each with its own key — the freshly read value is pushed into
+ * state, and echoing it straight back to storage would be a no-op at best.
+ */
+function usePersistedColumnState<TValue extends object>({
+  storageKey,
+  read,
+  defaults,
+  debounceMs = 0,
+}: PersistedColumnStateOptions<TValue>): [TValue, OnChangeFn<TValue>] {
+  const [value, setValue] = useTableState<TValue>(() => ({
+    ...defaults,
+    ...read(storageKey),
+  }))
+
+  const hydratedKeyRef = React.useRef(storageKey)
+  const skipNextPersistRef = React.useRef(false)
+
+  React.useEffect(() => {
+    if (storageKey === hydratedKeyRef.current) return
+
+    hydratedKeyRef.current = storageKey
+    skipNextPersistRef.current = true
+    setValue(() => ({ ...defaults, ...read(storageKey) }))
+  }, [defaults, read, setValue, storageKey])
+
+  React.useEffect(() => {
+    if (!storageKey) return
+
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false
+      return
+    }
+
+    if (debounceMs <= 0) {
+      writeStoredRecord(storageKey, value)
+      return
+    }
+
+    const timer = window.setTimeout(
+      () => writeStoredRecord(storageKey, value),
+      debounceMs
+    )
+    return () => window.clearTimeout(timer)
+  }, [debounceMs, storageKey, value])
+
+  return [value, setValue]
 }
 
 export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
@@ -333,122 +349,65 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
     data,
     columns,
     totalCount,
-    pageCount: explicitPageCount,
     ensurePageInRange,
     manualFiltering,
     manualPagination,
     manualSorting,
-    initialSorting = [],
-    initialColumnVisibility = {},
-    initialColumnSizing = {},
-    initialRowSelection = {},
-    initialExpanded = {},
-    initialPagination = { pageIndex: 0, pageSize: 20 },
-    withFilteredRowModel = !manualFiltering,
-    withPaginationRowModel = !manualPagination,
-    withSortedRowModel = !manualSorting && !manualPagination,
-    withFacetedRowModel = !manualFiltering,
-    withExpandedRowModel = false,
   } = options
 
-  const columnVisibilityStorageKey =
-    typeof options.columnVisibilityStorageKey === 'string'
-      ? options.columnVisibilityStorageKey
-      : undefined
-  const columnSizingStorageKey =
-    typeof options.columnSizingStorageKey === 'string'
-      ? options.columnSizingStorageKey
-      : undefined
-  const resolvedInitialColumnVisibility = React.useMemo(
-    () => ({
-      ...initialColumnVisibility,
-      ...readColumnVisibility(columnVisibilityStorageKey),
-    }),
-    [columnVisibilityStorageKey, initialColumnVisibility]
-  )
-  const columnSizingBounds = React.useMemo(
-    () => buildColumnSizingBounds(columns),
-    [columns]
-  )
-  const resolvedInitialColumnSizing = React.useMemo(
-    () => ({
-      ...initialColumnSizing,
-      ...readColumnSizing(columnSizingStorageKey, columnSizingBounds),
-    }),
-    [columnSizingBounds, columnSizingStorageKey, initialColumnSizing]
-  )
+  const [columnVisibility, onColumnVisibilityChange] =
+    usePersistedColumnState<VisibilityState>({
+      storageKey: options.columnVisibilityStorageKey,
+      read: readStoredColumnVisibility,
+      defaults: options.initialColumnVisibility ?? EMPTY_VISIBILITY,
+    })
+
+  const [columnSizing, onColumnSizingChange] =
+    usePersistedColumnState<ColumnSizingState>({
+      storageKey: options.columnSizingStorageKey,
+      read: readStoredColumnSizing,
+      defaults: EMPTY_SIZING,
+      debounceMs: COLUMN_SIZING_PERSIST_DELAY_MS,
+    })
 
   const [sorting, onSortingChange] = useControllableTableState(
     options.sorting,
-    initialSorting,
+    EMPTY_SORTING,
     options.onSortingChange
-  )
-  const [columnVisibility, onColumnVisibilityChange] =
-    useControllableTableState(
-      options.columnVisibility,
-      resolvedInitialColumnVisibility,
-      options.onColumnVisibilityChange
-    )
-  const [columnSizing, onColumnSizingChange] = useControllableTableState(
-    options.columnSizing,
-    resolvedInitialColumnSizing,
-    options.onColumnSizingChange
-  )
-  const hydratedColumnVisibilityStorageKeyRef = React.useRef(
-    columnVisibilityStorageKey
-  )
-  const hydratedColumnSizingStorageKeyRef = React.useRef(columnSizingStorageKey)
-  const skipNextColumnVisibilityPersistRef = React.useRef(false)
-  const skipNextColumnSizingPersistRef = React.useRef(false)
-  const columnSizingPersistTimerRef = React.useRef<number | undefined>(
-    undefined
-  )
-  const [rowSelection, onRowSelectionChange] = useControllableTableState(
-    options.rowSelection,
-    initialRowSelection,
-    options.onRowSelectionChange
-  )
-  const [expanded, onExpandedChange] = useControllableTableState(
-    options.expanded,
-    initialExpanded,
-    options.onExpandedChange
   )
   const [pagination, onPaginationChange] = useControllableTableState(
     options.pagination,
-    initialPagination,
+    DEFAULT_PAGINATION,
     options.onPaginationChange
   )
 
-  const resolvedPageCount =
-    explicitPageCount ??
-    (totalCount !== undefined
-      ? Math.ceil(totalCount / pagination.pageSize)
-      : undefined)
-  const resolvedEnableSorting =
-    options.enableSorting ??
-    (!manualPagination ||
-      Boolean(options.sorting) ||
-      Boolean(options.onSortingChange))
+  // Sorting is only offered where it can be honoured: a server-paginated page
+  // that does not wire sorting through the URL would render clickable headers
+  // that reorder nothing.
+  const enableSorting =
+    !manualPagination ||
+    options.sorting !== undefined ||
+    options.onSortingChange !== undefined
 
   const table = useReactTable({
     data,
     columns,
     rowCount: totalCount,
-    pageCount: resolvedPageCount,
+    pageCount:
+      totalCount !== undefined
+        ? Math.ceil(totalCount / pagination.pageSize)
+        : undefined,
     state: {
       sorting,
       columnVisibility,
       columnSizing,
-      rowSelection,
-      expanded,
       columnFilters: options.columnFilters ?? EMPTY_COLUMN_FILTERS,
       globalFilter: options.globalFilter ?? '',
       pagination,
     },
     enableRowSelection: options.enableRowSelection,
-    enableSorting: resolvedEnableSorting,
+    enableSorting,
     getRowId: options.getRowId,
-    getSubRows: options.getSubRows,
     globalFilterFn: options.globalFilterFn ?? 'auto',
     autoResetPageIndex: options.autoResetPageIndex,
     manualFiltering,
@@ -459,120 +418,29 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
     onSortingChange,
     onColumnVisibilityChange,
     onColumnSizingChange,
-    onRowSelectionChange,
-    onExpandedChange,
     onColumnFiltersChange: options.onColumnFiltersChange,
     onGlobalFilterChange: options.onGlobalFilterChange,
     onPaginationChange,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: withFilteredRowModel
-      ? getFilteredRowModel()
-      : undefined,
-    getPaginationRowModel: withPaginationRowModel
-      ? getPaginationRowModel()
-      : undefined,
-    getSortedRowModel: withSortedRowModel ? getSortedRowModel() : undefined,
-    getFacetedRowModel: withFacetedRowModel ? getFacetedRowModel() : undefined,
-    getFacetedUniqueValues: withFacetedRowModel
-      ? getFacetedUniqueValues()
-      : undefined,
-    getExpandedRowModel: withExpandedRowModel
-      ? getExpandedRowModel()
-      : undefined,
+    // Row models follow the mode: a `manual*` page does that work server-side,
+    // and a client-side model here would re-filter or re-sort only the rows of
+    // the current page — contradicting the count the server reported.
+    getFilteredRowModel: manualFiltering ? undefined : getFilteredRowModel(),
+    getPaginationRowModel: manualPagination
+      ? undefined
+      : getPaginationRowModel(),
+    getSortedRowModel:
+      manualSorting || manualPagination ? undefined : getSortedRowModel(),
+    getFacetedRowModel: manualFiltering ? undefined : getFacetedRowModel(),
+    getFacetedUniqueValues: manualFiltering
+      ? undefined
+      : getFacetedUniqueValues(),
   })
 
-  const actualPageCount = table.getPageCount()
+  const resolvedPageCount = table.getPageCount()
   React.useEffect(() => {
-    ensurePageInRange?.(actualPageCount)
-  }, [actualPageCount, ensurePageInRange])
-
-  React.useEffect(() => {
-    if (
-      options.columnVisibility !== undefined ||
-      columnVisibilityStorageKey ===
-        hydratedColumnVisibilityStorageKeyRef.current
-    ) {
-      return
-    }
-
-    hydratedColumnVisibilityStorageKeyRef.current = columnVisibilityStorageKey
-    skipNextColumnVisibilityPersistRef.current = true
-    onColumnVisibilityChange(() => resolvedInitialColumnVisibility)
-  }, [
-    columnVisibilityStorageKey,
-    onColumnVisibilityChange,
-    options.columnVisibility,
-    resolvedInitialColumnVisibility,
-  ])
-
-  React.useEffect(() => {
-    if (
-      options.columnSizing !== undefined ||
-      columnSizingStorageKey === hydratedColumnSizingStorageKeyRef.current
-    ) {
-      return
-    }
-
-    hydratedColumnSizingStorageKeyRef.current = columnSizingStorageKey
-    skipNextColumnSizingPersistRef.current = true
-    onColumnSizingChange(() => resolvedInitialColumnSizing)
-  }, [
-    columnSizingStorageKey,
-    onColumnSizingChange,
-    options.columnSizing,
-    resolvedInitialColumnSizing,
-  ])
-
-  React.useEffect(() => {
-    if (!columnVisibilityStorageKey || typeof window === 'undefined') return
-
-    if (skipNextColumnVisibilityPersistRef.current) {
-      skipNextColumnVisibilityPersistRef.current = false
-      return
-    }
-
-    try {
-      window.localStorage.setItem(
-        columnVisibilityStorageKey,
-        JSON.stringify(columnVisibility)
-      )
-    } catch {
-      // Storage can be unavailable in private mode; table controls still work.
-    }
-  }, [columnVisibility, columnVisibilityStorageKey])
-
-  React.useEffect(() => {
-    if (!columnSizingStorageKey || typeof window === 'undefined') return
-
-    if (skipNextColumnSizingPersistRef.current) {
-      skipNextColumnSizingPersistRef.current = false
-      return
-    }
-
-    if (columnSizingPersistTimerRef.current !== undefined) {
-      window.clearTimeout(columnSizingPersistTimerRef.current)
-    }
-
-    columnSizingPersistTimerRef.current = window.setTimeout(() => {
-      try {
-        window.localStorage.setItem(
-          columnSizingStorageKey,
-          JSON.stringify(columnSizing)
-        )
-      } catch {
-        // Storage can be unavailable in private mode; table controls still work.
-      } finally {
-        columnSizingPersistTimerRef.current = undefined
-      }
-    }, COLUMN_SIZING_PERSIST_DELAY_MS)
-
-    return () => {
-      if (columnSizingPersistTimerRef.current !== undefined) {
-        window.clearTimeout(columnSizingPersistTimerRef.current)
-        columnSizingPersistTimerRef.current = undefined
-      }
-    }
-  }, [columnSizing, columnSizingStorageKey])
+    ensurePageInRange?.(resolvedPageCount)
+  }, [ensurePageInRange, resolvedPageCount])
 
   return {
     table,

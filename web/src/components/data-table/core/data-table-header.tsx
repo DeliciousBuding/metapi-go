@@ -96,12 +96,16 @@ export function DataTableHeader<TData>({
   )
 }
 
+/** Keyboard resize steps in px: one arrow press, and one with Shift held. */
+const RESIZE_STEP_PX = 10
+const RESIZE_COARSE_STEP_PX = 50
+
 function handleColumnResizeKeyDown<TData>(
   event: KeyboardEvent<HTMLDivElement>,
   table: TanstackTable<TData>,
   header: Header<TData, unknown>
 ) {
-  const step = event.shiftKey ? 50 : 10
+  const step = event.shiftKey ? RESIZE_COARSE_STEP_PX : RESIZE_STEP_PX
 
   if (event.key === 'ArrowLeft') {
     event.preventDefault()
@@ -128,10 +132,7 @@ function resizeColumnByKeyboard<TData>(
 ) {
   table.setColumnSizing((previous) => ({
     ...previous,
-    [header.column.id]: getClampedColumnSize(
-      header,
-      header.column.getSize() + delta
-    ),
+    [header.column.id]: header.column.getSize() + delta,
   }))
 }
 
@@ -149,27 +150,13 @@ function autoSizeColumn<TData>(
     return
   }
 
+  // No clamping here: `column.getSize()` is where TanStack applies a column's
+  // own `minSize`/`maxSize` (and its 20px floor) on every read, so a second
+  // clamp on the way into state would only be a second rule to keep in step.
   table.setColumnSizing((previous) => ({
     ...previous,
-    [header.column.id]: getClampedColumnSize(header, measuredSize),
+    [header.column.id]: measuredSize,
   }))
-}
-
-function getClampedColumnSize<TData>(
-  header: Header<TData, unknown>,
-  nextSize: number
-) {
-  const { minSize, maxSize } = header.column.columnDef
-
-  if (typeof minSize === 'number' && nextSize < minSize) {
-    return minSize
-  }
-
-  if (typeof maxSize === 'number' && nextSize > maxSize) {
-    return maxSize
-  }
-
-  return nextSize
 }
 
 /** The widest laid-out width among the column's own cells, or undefined if
