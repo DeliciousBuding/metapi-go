@@ -1,7 +1,7 @@
 # Web package boundaries — frontend layering rules
 
 **Status**: machine-enforced since 2026-08-29 by `web/scripts/check-boundaries.mjs`
-**Date**: 2026-08-23 (updated 2026-08-29)
+**Date**: 2026-08-23 (updated 2026-09-12)
 **Gate**: `bun run lint` chains `oxlint && bun run check:boundaries`; pre-push
 and the CI `frontend` job both run `bun run lint`, so violations are caught
 locally and in CI.
@@ -38,15 +38,29 @@ defects unless registered as an exception below.
    feature. `sanitizeAuthRedirect` was moved from `features/auth/lib/` to
    `src/lib/helpers/` (2026-08-23); a later change extended the same rule to
    `ABOUT_INFO`, token-route summary types, and the model-pattern predicates.
+6. **A subsystem that publishes a barrel is imported through the barrel.**
+   Outside `src/components/data-table/`, only `@/components/data-table` may be
+   imported — never `core/`, `layout/`, `toolbar/` or `hooks/`. This is what
+   makes the subsystem's internals refactorable: `index.ts` states the deal
+   ("anything exported here is frozen against feature call sites; anything not
+   exported here is free to be reorganised"), and the promise is only worth
+   making while nothing outside reaches in. When a consumer needs a symbol the
+   barrel does not export, the fix is to export it, not to deep-import it. The
+   boundary gate enforces this for every layer, and asserts it is not passing
+   vacuously (the barrel must exist and have at least one external consumer).
 
 ## Gate mechanics
 
 `web/scripts/check-boundaries.mjs` statically scans all `.ts`/`.tsx` under
 `web/src/`, resolves `@/` and relative specifiers to their layer, and fails
-with file:line when a component or lib file imports `features/` or `routes/`.
-Exceptions are an explicit in-script registry with a required reason; a stale
-exception (no matching import) also fails, so whitelists cannot accumulate
-silently. Run directly with `bun run check:boundaries`.
+with file:line when a component or lib file imports `features/` or `routes/`,
+or when any file deep-imports a barrel subsystem (rule 6). Exceptions are an
+explicit in-script registry with a required reason; a stale exception (no
+matching import) also fails, so whitelists cannot accumulate silently. Both
+rule families also fail when they would pass vacuously — a barrel that no
+longer exists, or one nothing imports, means the check stopped covering
+anything rather than that the tree got clean. Run directly with
+`bun run check:boundaries`.
 
 ## Registered exceptions
 
@@ -82,3 +96,8 @@ stale entry is rejected by the gate.
     that the new gate exposed.
   - Added `web/scripts/check-boundaries.mjs` and chained it into `bun run
     lint` (pre-push + CI frontend gate).
+- **2026-09-12** — `features/proxy-logs` had deep-imported `DataTableRow` from
+  `components/data-table/core/data-table-row`; the two symbols it needed were
+  exported from the barrel instead. Rule 6 was then added to
+  `web/scripts/check-boundaries.mjs` so the next one is caught by a gate rather
+  than by review (#1332).
