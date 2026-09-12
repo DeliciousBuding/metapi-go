@@ -113,16 +113,3 @@ export function useModels(
     ...queryOptions,
   })
 }
-
-/**
- * Resolve a single model's capability summary (endpoint types + tags) from
- * the pricing-hydrated marketplace cache. Returns `undefined` while loading
- * or when the model is not in the marketplace. The detail sheet uses this to
- * avoid a dedicated per-model endpoint; because the query key matches a list
- * already fetched with `includePricing`, no extra network request fires.
- */
-
-/**
- * Collect the unique capability facets (endpoint types) across a model list,
- * sorted for a stable faceted-filter dropdown.
- */

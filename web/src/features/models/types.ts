@@ -101,11 +101,6 @@ export type ModelsMarketplaceResponse = {
 }
 
 /**
- * Derived capability view used by the detail sheet: the union of
- * `supportedEndpointTypes` and `tags`, deduped and sorted for display.
- */
-
-/**
  * TanStack Query key factory. Centralised so invalidation is grep-able and
  * the keys stay stable across hooks. The marketplace options (`refresh`,
  * `includePricing`) are part of the key so a pricing-hydrated fetch does
