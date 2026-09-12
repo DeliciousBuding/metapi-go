@@ -592,6 +592,38 @@ var programmeCodeRE = regexp.MustCompile(strings.Join([]string{
 	`\b\d+-report §`,
 }, "|"))
 
+// webPhaseRE matches a delivery-phase label ("Phase 3", "phase 2", "phase-1")
+// in web product sources. It is narrower than programmeCodeRE and scoped to one
+// subtree, for two measured reasons:
+//
+//   - `Phase \d` stays legal in the Go e2e tests, where it labels steps inside a
+//     single file (`Phase 1: Setup`). A component or a type declaration has no
+//     steps to label, so the same shape in a web product source is always a
+//     stale plan label. Web test files keep the exemption for the same reason
+//     the Go side has it.
+//   - `phase` without a digit is a live product identifier: model-verify-dialog
+//     and site-probe-panel both drive a `phase` state machine (`RunPhase`,
+//     `setPhase`, `phase === 'running'`). Only the digit form may match.
+//
+// Both halves are pinned by TestProgrammeCodeGateRegexpSanity.
+var webPhaseRE = regexp.MustCompile(`\b[Pp]hase[ -]\d`)
+
+// isWebProductSource reports whether rel is a hand-authored web source file
+// that is not a test — the scope webPhaseRE applies to.
+func isWebProductSource(rel string) bool {
+	if !strings.HasPrefix(rel, "web/src/") {
+		return false
+	}
+	switch {
+	case strings.Contains(rel, "/__tests__/"):
+		return false
+	case strings.HasSuffix(rel, ".test.ts"), strings.HasSuffix(rel, ".test.tsx"),
+		strings.HasSuffix(rel, ".spec.ts"), strings.HasSuffix(rel, ".spec.tsx"):
+		return false
+	}
+	return true
+}
+
 // hygieneSourceExt lists the extensions whose text is authored by hand and can
 // therefore carry a programme code. "" covers extension-less files that are
 // still prose-bearing (.gitignore, Makefile, Dockerfile, LICENSE).
@@ -605,6 +637,7 @@ func TestNoInternalProgrammeCodesInShippedSources(t *testing.T) {
 	root := repoRoot(t)
 	var findings []string
 	scanned := 0
+	webScopedScanned := 0
 
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -638,10 +671,18 @@ func TestNoInternalProgrammeCodesInShippedSources(t *testing.T) {
 		}
 		scanned++
 		rel := filepath.ToSlash(mustRel(t, root, path))
+		webScoped := isWebProductSource(rel)
+		if webScoped {
+			webScopedScanned++
+		}
 		for i, line := range strings.Split(string(data), "\n") {
 			if programmeCodeRE.MatchString(line) {
 				findings = append(findings, formatFinding(rel, i+1,
 					"internal programme code: state what the code does, not which plan asked for it", line))
+			}
+			if webScoped && webPhaseRE.MatchString(line) {
+				findings = append(findings, formatFinding(rel, i+1,
+					"delivery-phase label in a web product source: state what the code does, not which phase shipped it", line))
 			}
 		}
 		return nil
@@ -655,6 +696,12 @@ func TestNoInternalProgrammeCodesInShippedSources(t *testing.T) {
 	// silence, so the scan itself is asserted to be non-empty.
 	if scanned == 0 {
 		t.Fatal("gate would pass vacuously: no source files were scanned")
+	}
+	// The phase arm is path-scoped, so it can go quiet on its own: if web/src
+	// moves or isWebProductSource stops matching, the arm covers nothing while
+	// the walk still reports files scanned.
+	if webScopedScanned == 0 {
+		t.Fatal("gate would pass vacuously: no web/src product sources were in scope for the phase-label rule")
 	}
 	if len(findings) > 0 {
 		t.Fatalf("internal programme codes in the published tree (%d files scanned):\n%s",
@@ -707,6 +754,59 @@ func TestProgrammeCodeGateRegexpSanity(t *testing.T) {
 	for _, sample := range mustNotMatch {
 		if programmeCodeRE.MatchString(sample) {
 			t.Errorf("gate fired on product text it must leave alone: %q", sample)
+		}
+	}
+
+	phaseMustMatch := []string{
+		"// Phase 3: wires api.getDashboardSnapshot() for the live stat numbers",
+		"/** Optional lucide icon for the sidebar (phase 2 may leave unset). */",
+		"// (`/dashboard/overview`), replacing the phase-1 stub.",
+		"// Skeleton: 2 languages. Phase 4 will add fr/ru/ja/vi/zhTW.",
+	}
+	for _, sample := range phaseMustMatch {
+		if !webPhaseRE.MatchString(sample) {
+			t.Errorf("phase gate missed a delivery-phase label it exists to catch: %q", sample)
+		}
+	}
+	phaseMustNotMatch := []string{
+		"const [phase, setPhase] = useState<'idle' | 'running' | 'done' | 'error'>(",
+		"{phase === 'running' && <Spinner />}",
+		"type RunPhase = 'idle' | 'running' | 'stopped' | 'error'",
+		"// from the idle phase instead of showing the previous run.",
+		"// `gaveUp` only marks the slow-retry phase for the UI",
+		"// phased rollout of a feature flag", // no digit: ordinary prose
+	}
+	for _, sample := range phaseMustNotMatch {
+		if webPhaseRE.MatchString(sample) {
+			t.Errorf("phase gate fired on a product identifier it must leave alone: %q", sample)
+		}
+	}
+
+	// The scope predicate is what keeps `Phase 1: Setup` legal in an e2e test
+	// and illegal in a component, so it is pinned directly rather than through
+	// the regex.
+	inScope := []string{
+		"web/src/features/settings/types.ts",
+		"web/src/features/dashboard/sections/overview/overview-section.tsx",
+		"web/src/i18n/languages.ts",
+		"web/src/routes/_authenticated/index.tsx",
+	}
+	for _, rel := range inScope {
+		if !isWebProductSource(rel) {
+			t.Errorf("phase gate scope missed a web product source: %q", rel)
+		}
+	}
+	outOfScope := []string{
+		"web/src/features/downstream-keys/components/__tests__/keys-section.test.tsx",
+		"web/src/lib/format.test.ts",
+		"web/scripts/check-boundaries.mjs",
+		"e2e/e2e_flow_test.go",
+		"docs/testing.md",
+		"handler/admin/accounts_test.go",
+	}
+	for _, rel := range outOfScope {
+		if isWebProductSource(rel) {
+			t.Errorf("phase gate scope claimed a file it must leave alone: %q", rel)
 		}
 	}
 }

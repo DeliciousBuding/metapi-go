@@ -1,5 +1,7 @@
 // metapi-go/i18n — language list + detection helpers.
-// Skeleton: 2 languages (en + zhCN). Phase 4 will add fr/ru/ja/vi/zhTW.
+// Two interface languages ship — en and zhCN (`locales/en.json`,
+// `locales/zh-CN.json`) — and `i18n/__tests__/i18n-keys.test.ts` requires their
+// key sets, and every referenced key, to exist in both.
 
 /**
  * Map a browser-detected locale onto the interface language codes this project

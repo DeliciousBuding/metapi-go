@@ -4,10 +4,10 @@
 // success rate / today's proxy requests) + AnnouncementBanner. The legacy
 // SchedulerStatusPanel is merged in here (a compact scheduled-tasks card).
 //
-// Phase 3: wires api.getDashboardSnapshot() (view=summary) for the live stat
-// numbers, api.getBalanceHistory(0, 8) for the account sparkline (aggregate
-// balance over the last 8 captured points), and api.getSchedulerStatus() for
-// the scheduled-tasks table.
+// Wires api.getDashboardSnapshot() (view=summary) for the live stat numbers,
+// api.getBalanceHistory(0, 8) for the account sparkline (aggregate balance over
+// the last 8 captured points), and api.getSchedulerStatus() for the
+// scheduled-tasks table.
 
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, type LinkProps } from '@tanstack/react-router'

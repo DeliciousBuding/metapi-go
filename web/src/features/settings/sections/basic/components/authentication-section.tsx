@@ -44,8 +44,8 @@ import {
   type RuntimeSettings,
 } from '../../../lib/runtime-settings'
 
-const ALLOWLIST_FORM_ID = 'settings-general-auth-allowlist-form'
-const TOKEN_FORM_ID = 'settings-general-auth-token-form'
+const ALLOWLIST_FORM_ID = 'settings-basic-auth-allowlist-form'
+const TOKEN_FORM_ID = 'settings-basic-auth-token-form'
 
 const tokenSchema = z
   .object({

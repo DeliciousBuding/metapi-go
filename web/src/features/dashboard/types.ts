@@ -1,9 +1,10 @@
 // metapi-go/features/dashboard — shared types for the 4-section Dashboard
 // workspace. The dashboard is split into overview / traffic /
 // models / availability; each section owns a lazy builder (`build`) returning
-// its content ReactNode. Phase 2 ships chart wiring + stub data; phase 3
-// swaps in real API data from lib/api.ts (getDashboardSnapshot /
-// getBalanceIncomeOutcome / getSiteTrend / getActiveAnnouncements etc.).
+// its content ReactNode and fetches through TanStack Query over the
+// stats/dashboard API surface (`src/lib/api/stats.ts`: getDashboardSnapshot,
+// getBalanceIncomeOutcome, getBalanceHistory, getSiteTrend,
+// getActiveAnnouncements).
 
 import type { ReactNode } from 'react'
 

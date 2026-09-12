@@ -48,7 +48,7 @@ import {
   type RuntimeSettings,
 } from '../../../lib/runtime-settings'
 
-const ALLOWLIST_FORM_ID = 'settings-models-allowlist-form'
+const ALLOWLIST_FORM_ID = 'settings-proxy-models-allowlist-form'
 
 const allowlistSchema = z.object({
   globalAllowedModels: z.string().optional(),

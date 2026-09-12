@@ -47,7 +47,7 @@ export type SectionRegistryConfig<
 > = {
   sections: readonly TSection[]
   defaultSection: TSectionId
-  /** Base path, e.g. '/settings/general'. */
+  /** Base path, e.g. '/settings/basic'. */
   basePath: string
   /**
    * 'path' (default): section URLs are `${basePath}/${id}`.

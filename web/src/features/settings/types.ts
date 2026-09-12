@@ -1,8 +1,8 @@
 // metapi-go/features/settings — shared types for the 5-subarea drill-in
-// Settings workspace. Settings is split into general /
-// downstream / models / content / system-info; each subarea owns a
-// section-registry that drives both the in-page settings sidebar and the
-// content dispatcher (SettingsPage).
+// Settings workspace. The subareas are basic / proxy-models / downstream /
+// content / operations (`SettingsSubareaId` below, assembled by
+// config/settings-config.ts); each owns a section-registry that drives both the
+// in-page settings sidebar and the content dispatcher (SettingsPage).
 
 import type { LinkProps } from '@tanstack/react-router'
 import type { ElementType, ReactNode } from 'react'
@@ -10,9 +10,11 @@ import type { ElementType, ReactNode } from 'react'
 /**
  * A single settings section — the leaf unit of the Settings workspace.
  *
- * Each section is a lazy builder (`build`) returning its content ReactNode.
- * Phase 2 stubs return a `StubSection`; phase 3 will swap in real forms wired
- * to the runtime-settings API (`GET/PUT /api/settings/runtime`).
+ * Each section is a lazy builder (`build`) returning its content ReactNode, so
+ * a section's form and table dependencies land in their own chunk. The editable
+ * ones read and write the runtime-settings API
+ * (`GET/PUT /api/settings/runtime`) through `hooks/use-settings-form`; the
+ * read-only ones set `readonly` and get a nav badge instead of a save button.
  */
 type SettingsSection = {
   /** Stable id used in the URL (`/settings/<subarea>/<id>`). */
@@ -21,11 +23,9 @@ type SettingsSection = {
   title: string
   /** Short description shown under the page header (optional). */
   description?: string
-  /** Optional lucide icon for the sidebar (phase 2 may leave unset). */
-  icon?: ElementType
   /** Read-only / external surface (rates, audit, update center) - shown as a badge. */
   readonly?: boolean
-  /** Lazy content builder. Receives nothing in phase 2; phase 3 adds settings. */
+  /** Lazy content builder for the section body. */
   build: () => ReactNode
 }
 
@@ -60,8 +60,8 @@ type SettingsSectionNavItem = {
  *                                 maintenance, program-logs, audit-logs,
  *                                 update-center, danger-zone
  * Old URLs (`/settings/general/*`, `/settings/models/*`,
- * `/settings/system-info/*`) are redirected by the legacy route map
- * (lib/legacy-redirects.ts).
+ * `/settings/system-info/*`) are redirected by this feature's legacy route map
+ * (`./lib/legacy-redirects`).
  */
 type SettingsSubareaId =
   | 'basic'
@@ -86,7 +86,7 @@ export type SettingsSubarea = {
   description?: string
   /** Optional lucide icon shown on the settings overview + main sidebar. */
   icon?: ElementType
-  /** Base path, e.g. '/settings/general'. Section URLs become `${basePath}/${id}`. */
+  /** Base path, e.g. '/settings/basic'. Section URLs become `${basePath}/${id}`. */
   basePath: string
   /** Section navigated to when no `$section` param is present. */
   defaultSection: string

@@ -47,7 +47,7 @@ import {
   type RuntimeDatabaseConfig,
 } from './database-shared'
 
-const SAVE_FORM_ID = 'settings-system-info-database-form'
+const SAVE_FORM_ID = 'settings-operations-database-form'
 
 const databaseSchema = z.object({
   dialect: z.enum(['sqlite', 'postgres']),

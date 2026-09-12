@@ -40,7 +40,7 @@ import {
   type RuntimeSettings,
 } from '../../../lib/runtime-settings'
 
-const FORM_ID = 'settings-general-site-form'
+const FORM_ID = 'settings-basic-site-form'
 
 const siteSchema = z.object({
   systemName: z.string().optional(),
