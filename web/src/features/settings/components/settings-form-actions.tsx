@@ -14,7 +14,6 @@ type SettingsFormActionsProps = {
   isPending?: boolean
   onReset: () => void
   saveLabel?: string
-  savingLabel?: string
 }
 
 export function SettingsFormActions({
@@ -23,11 +22,9 @@ export function SettingsFormActions({
   isPending,
   onReset,
   saveLabel,
-  savingLabel,
 }: SettingsFormActionsProps) {
   const { t } = useTranslation()
   const label = saveLabel ?? t('settings.common.save')
-  const pendingLabel = savingLabel ?? t('settings.common.saving')
   return (
     // Full-width row with two fixed slots (status left, actions right) so the
     // "saved / unsaved" text swap never shifts the Reset/Save buttons
@@ -52,7 +49,7 @@ export function SettingsFormActions({
           size='sm'
           disabled={!isDirty || isPending}
         >
-          {isPending ? pendingLabel : label}
+          {isPending ? t('settings.common.saving') : label}
         </Button>
       </div>
     </div>

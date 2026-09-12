@@ -28,7 +28,6 @@ type BadgeListCellProps = {
   items: React.ReactNode[]
   /** How many to show inline before the "+N" chip. */
   max?: number
-  tooltipClassName?: string
 }
 
 /** Negative margin cancels the badge's own `px-1.5` so text lines up with the header. */
@@ -36,11 +35,7 @@ const CELL_CLASS = '-ml-1.5 max-w-full'
 const TOOLTIP_CLASS =
   'border-border bg-popover max-h-48 max-w-[320px] overflow-y-auto p-2'
 
-export function BadgeListCell({
-  items,
-  max = 2,
-  tooltipClassName,
-}: BadgeListCellProps) {
+export function BadgeListCell({ items, max = 2 }: BadgeListCellProps) {
   if (items.length === 0) {
     return <span className='text-muted-foreground text-xs'>—</span>
   }
@@ -60,10 +55,7 @@ export function BadgeListCell({
           </div>
         </TooltipTrigger>
         {overflow > 0 && (
-          <TooltipContent
-            side='top'
-            className={tooltipClassName ?? TOOLTIP_CLASS}
-          >
+          <TooltipContent side='top' className={TOOLTIP_CLASS}>
             <div className='flex flex-wrap gap-1'>{items}</div>
           </TooltipContent>
         )}

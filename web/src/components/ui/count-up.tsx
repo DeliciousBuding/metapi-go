@@ -19,10 +19,6 @@ type CountUpProps = {
   value: number
   /** Formats the animated numeric value. Defaults to locale string. */
   format?: (value: number) => string
-  /** First-mount animation duration in ms. */
-  initialDuration?: number
-  /** Subsequent value-change animation duration in ms. */
-  updateDuration?: number
   className?: string
 }
 
@@ -41,8 +37,6 @@ const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
 export function CountUp({
   value,
   format = (n) => n.toLocaleString(),
-  initialDuration = DEFAULT_INITIAL_DURATION,
-  updateDuration = DEFAULT_UPDATE_DURATION,
   className,
 }: CountUpProps) {
   const [display, setDisplay] = useState(() =>
@@ -63,7 +57,9 @@ export function CountUp({
       return undefined
     }
 
-    const duration = mountedRef.current ? updateDuration : initialDuration
+    const duration = mountedRef.current
+      ? DEFAULT_UPDATE_DURATION
+      : DEFAULT_INITIAL_DURATION
     mountedRef.current = true
     const start = performance.now()
 
@@ -85,7 +81,7 @@ export function CountUp({
       }
       previousValueRef.current = to
     }
-  }, [value, initialDuration, updateDuration])
+  }, [value])
 
   return (
     <span className={cn('tabular-nums', className)}>

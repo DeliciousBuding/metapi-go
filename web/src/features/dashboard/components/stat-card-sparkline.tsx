@@ -20,13 +20,11 @@ type SparklinePoint = {
 type StatCardSparklineProps = {
   data: SparklinePoint[]
   config: ChartConfig
-  accentClassName?: string
 }
 
 export default function StatCardSparkline({
   data,
   config,
-  accentClassName,
 }: StatCardSparklineProps) {
   return (
     <ChartContainer
@@ -42,7 +40,6 @@ export default function StatCardSparkline({
           fill='var(--color-value)'
           fillOpacity={0.16}
           isAnimationActive={false}
-          className={accentClassName}
         />
       </AreaChart>
     </ChartContainer>
