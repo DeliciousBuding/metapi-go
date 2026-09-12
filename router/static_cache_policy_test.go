@@ -25,6 +25,12 @@ import (
 // worth pinning is what a released binary answers, and a synthetic MapFS would
 // keep passing no matter which root files the build actually emits.
 
+// embedPlaceholder is the empty file CI creates so //go:embed dist compiles
+// without a frontend build. embeddedDist treats its presence as "no real SPA
+// here"; when the real dist is downloaded on top of it, it is the one root
+// entry that is not an asset.
+const embedPlaceholder = "placeholder.txt"
+
 // newEmbeddedSPARouter mounts the SPA fallback over the embedded dist, the same
 // way TestEmbeddedSpaReferencesAreServedAsAssets does.
 func newEmbeddedSPARouter() chi.Router {
@@ -54,6 +60,14 @@ func TestShippedDistRootFilesRevalidate(t *testing.T) {
 		if name == "index.html" {
 			// Not registered as a root file — the SPA fallback answers it, and
 			// TestSpaFallbackAndAPIPathsKeepTheirOwnHeaders pins that header.
+			continue
+		}
+		if name == embedPlaceholder {
+			// Not a build output. .github/actions/go-toolchain touches
+			// web/dist/placeholder.txt so //go:embed type-checks on a fresh
+			// checkout, and the test jobs then download the real dist into the
+			// same directory — so in CI the scaffold and the shipped files
+			// coexist. No route serves it and none should.
 			continue
 		}
 		checked++
