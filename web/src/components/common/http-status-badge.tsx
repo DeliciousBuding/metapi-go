@@ -1,5 +1,17 @@
-// metapi-go/features/proxy-logs/components — HTTP status badge.
-// i18n: fallback labels resolved via t().
+// metapi-go/components/common — HttpStatusBadge: an HTTP outcome as a pill.
+//
+// Shared rather than feature-local because two features render it: proxy logs
+// (per row, from a numeric status) and the observability overview (recent
+// failures, where the upstream may report a word instead of a code). Both need
+// the same three rules, which is what this file owns:
+//
+//   a number  → its class band (2xx/3xx/4xx/5xx), rendered as the number
+//   a word    → mapped to the nearest band ("timeout" is a failure, not an
+//               unknown), rendered as the translated word
+//   neither   → the neutral band and the translated "unknown"
+//
+// The label is never invented: an unrecognised string is shown verbatim, so a
+// new upstream status reads as itself instead of silently becoming "unknown".
 
 import { useTranslation } from 'react-i18next'
 
@@ -15,28 +27,28 @@ const STATUS_TIERS = {
   success: {
     className: 'bg-success/10 text-success-soft-fg border-success/30',
     dotClassName: 'bg-success',
-    fallbackLabelKey: 'proxyLogs.status.success',
+    fallbackLabelKey: 'httpStatus.success',
   },
   redirect: {
     className: 'bg-info/10 text-info-soft-fg border-info/30',
     dotClassName: 'bg-info',
-    fallbackLabelKey: 'proxyLogs.status.redirect',
+    fallbackLabelKey: 'httpStatus.redirect',
   },
   clientError: {
     className: 'bg-warning/10 text-warning-soft-fg border-warning/30',
     dotClassName: 'bg-warning',
-    fallbackLabelKey: 'proxyLogs.status.clientError',
+    fallbackLabelKey: 'httpStatus.clientError',
   },
   serverError: {
     className:
       'bg-destructive/10 text-destructive-soft-fg border-destructive/30',
     dotClassName: 'bg-destructive',
-    fallbackLabelKey: 'proxyLogs.status.serverError',
+    fallbackLabelKey: 'httpStatus.serverError',
   },
   neutral: {
     className: 'bg-muted/40 text-muted-foreground border-border',
     dotClassName: 'bg-muted-foreground',
-    fallbackLabelKey: 'proxyLogs.status.unknown',
+    fallbackLabelKey: 'httpStatus.unknown',
   },
 } as const
 
@@ -54,7 +66,7 @@ function resolveTierFromStatusString(status: string): {
 } {
   const normalized = status.toLowerCase()
   if (['success', 'ok', 'succeeded', 'succeed'].includes(normalized)) {
-    return { tier: STATUS_TIERS.success, labelKey: 'proxyLogs.status.success' }
+    return { tier: STATUS_TIERS.success, labelKey: 'httpStatus.success' }
   }
   if (
     ['failed', 'error', 'failure', 'timeout', 'timeouterror'].includes(
@@ -63,19 +75,19 @@ function resolveTierFromStatusString(status: string): {
   ) {
     return {
       tier: STATUS_TIERS.serverError,
-      labelKey: 'proxyLogs.status.failed',
+      labelKey: 'httpStatus.failed',
     }
   }
   if (normalized.includes('redirect')) {
     return {
       tier: STATUS_TIERS.redirect,
-      labelKey: 'proxyLogs.status.redirect',
+      labelKey: 'httpStatus.redirect',
     }
   }
   if (normalized.includes('client')) {
     return {
       tier: STATUS_TIERS.clientError,
-      labelKey: 'proxyLogs.status.clientError',
+      labelKey: 'httpStatus.clientError',
     }
   }
   return { tier: STATUS_TIERS.neutral, labelKey: null }
@@ -121,19 +133,19 @@ function resolveTier(
   }
 }
 
-export type StatusBadgeProps = {
+export type HttpStatusBadgeProps = {
   httpStatus?: number | null
   status?: string | null
   className?: string
   showDot?: boolean
 }
 
-export function StatusBadge({
+export function HttpStatusBadge({
   httpStatus,
   status,
   className,
   showDot = true,
-}: StatusBadgeProps) {
+}: HttpStatusBadgeProps) {
   const { t } = useTranslation()
   const resolved = resolveTier(httpStatus, status)
   const tier = resolved.tier
@@ -142,7 +154,7 @@ export function StatusBadge({
     : (resolved.rawLabel ?? '')
   return (
     <span
-      title={t('proxyLogs.status.titlePrefix', { label })}
+      title={t('httpStatus.titlePrefix', { label })}
       className={cn(
         'inline-flex w-fit items-center gap-1 rounded-4xl border px-1.5 py-0.5 text-xs font-medium tabular-nums whitespace-nowrap',
         tier.className,

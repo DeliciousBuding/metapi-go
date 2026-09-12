@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { HttpStatusBadge } from '@/components/common/http-status-badge'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -26,7 +27,6 @@ import {
 import { cn } from '@/lib/utils'
 
 import type { ProxyLog } from '../types'
-import { StatusBadge } from './status-badge'
 import { TimingCell } from './timing-cell'
 
 export type ProxyLogsColumnActions = { onView: (log: ProxyLog) => void }
@@ -168,7 +168,7 @@ export function useProxyLogsColumns(
         const log = row.original
         return (
           <div className='flex min-w-0 flex-col items-start gap-1'>
-            <StatusBadge status={log.status} httpStatus={log.httpStatus} />
+            <HttpStatusBadge status={log.status} httpStatus={log.httpStatus} />
             {log.errorMessage ? (
               <span
                 className='text-destructive-soft-fg block max-w-[16rem] truncate text-[11px] leading-tight'

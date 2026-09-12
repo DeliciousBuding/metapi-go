@@ -2,8 +2,7 @@
 // status → badge-variant wiring assertion that used to live in seven
 // copy-pasted `status-badge-variants.test.tsx` files. These are wiring
 // assertions (feature X's column cell renders semantic variant Y for status
-// Z), not Badge-primitive recipe assertions; the primitive contract stays in
-// components/data-table/__tests__/status-badge-copy.test.tsx.
+// Z), not Badge-primitive recipe assertions.
 //
 // Housed at src/__tests__ (not src/components/data-table/__tests__) because
 // the package boundary gate forbids src/components/ from importing feature

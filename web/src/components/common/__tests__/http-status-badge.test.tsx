@@ -1,4 +1,4 @@
-// metapi-go/features/proxy-logs — StatusBadge label resolution tests.
+// metapi-go/components/common — HttpStatusBadge label resolution tests.
 //
 // Covers the i18n fix (#869): known string statuses (success/failed/…)
 // resolve to translated labels, numeric HTTP codes stay numeric, unknown
@@ -11,7 +11,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import '@/i18n/config'
 
-import { StatusBadge } from '../components/status-badge'
+import { HttpStatusBadge } from '../http-status-badge'
 
 beforeAll(async () => {
   await i18n.changeLanguage('zhCN')
@@ -25,10 +25,10 @@ function renderBadge(props: {
   httpStatus?: number | null
   status?: string | null
 }) {
-  return render(<StatusBadge {...props} />)
+  return render(<HttpStatusBadge {...props} />)
 }
 
-describe('StatusBadge', () => {
+describe('HttpStatusBadge', () => {
   it('translates the "success" string status via i18n', () => {
     renderBadge({ status: 'success' })
     expect(screen.getByText('成功')).toBeTruthy()
