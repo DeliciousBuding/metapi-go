@@ -20,8 +20,9 @@
 import { Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SectionSkeleton } from '@/components/common/section-skeleton'
+
 import type { SettingsSubarea } from '../types'
-import { SettingsSectionSkeleton } from './settings-section-card'
 
 type SettingsPageProps = {
   /** The assembled subarea (sections + nav + content). */
@@ -50,7 +51,7 @@ export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
             section its chunk suspends and the settings-shaped skeleton
             shows; on revisits the lazy module is already resolved so the
             section renders instantly without re-fetching. */}
-        <Suspense fallback={<SettingsSectionSkeleton />}>
+        <Suspense fallback={<SectionSkeleton />}>
           {subarea.getSectionContent(activeSection)}
         </Suspense>
       </div>

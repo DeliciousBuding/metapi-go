@@ -20,10 +20,13 @@ import {
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
-import { useAccounts } from '@/features/accounts/api'
-import type { Account, AccountsSnapshot } from '@/features/accounts/types'
-import { useChannels } from '@/features/channels/api'
-import { useSites } from '@/features/sites/api'
+import {
+  useAccounts,
+  type Account,
+  type AccountsSnapshot,
+} from '@/features/accounts'
+import { useChannels } from '@/features/channels'
+import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
 import { assertBusinessOk } from '@/lib/assert-business-ok'
 import { asStringParam } from '@/lib/helpers/searchParams'

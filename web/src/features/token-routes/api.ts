@@ -13,9 +13,9 @@ import {
 } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
-import { accountQueryKeys } from '@/features/accounts/api'
-import { channelsKeys } from '@/features/channels/types'
-import { modelsKeys } from '@/features/models/types'
+import { accountQueryKeys } from '@/features/accounts'
+import { channelsKeys } from '@/features/channels'
+import { modelsKeys } from '@/features/models'
 import i18n from '@/i18n/config'
 import { api } from '@/lib/api'
 import { assertBusinessOk } from '@/lib/assert-business-ok'

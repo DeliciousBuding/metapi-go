@@ -6,7 +6,7 @@ import {
   normalizePriceGrade,
   type PriceCompareItem,
   type PriceGrade,
-} from '@/features/models/price-compare/types'
+} from '@/features/models'
 
 import type { RouteChannel, RouteSummaryRow } from '../types'
 import { isExactModelPattern, isExplicitGroupRoute } from '../utils'

@@ -42,8 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useSites } from '@/features/sites/api'
-import type { Site } from '@/features/sites/types'
+import { useSites, type Site } from '@/features/sites'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'

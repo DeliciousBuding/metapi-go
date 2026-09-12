@@ -1,6 +1,8 @@
-// metapi-go/features/settings/components — shared layout primitives used by
+// metapi-go/features/settings/components — shared layout primitive used by
 // every real section. Keeping the Card header + save-button layout here lets
 // each section file focus on its own fields instead of repeating markup.
+// The loading placeholder that used to live beside it is
+// `@/components/common/section-skeleton`: a second feature needed it.
 
 import type { ReactNode } from 'react'
 
@@ -10,7 +12,6 @@ import {
   CardDescription,
   CardHeader,
 } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 
 type SettingsSectionCardProps = {
   title: string
@@ -68,23 +69,6 @@ export function SettingsSectionCard({
         </CardHeader>
       ) : null}
       <CardContent>{children}</CardContent>
-    </Card>
-  )
-}
-
-/** Loading placeholder rendered while the runtime-settings query is fetching. */
-export function SettingsSectionSkeleton() {
-  return (
-    <Card>
-      <CardHeader>
-        <Skeleton className='h-5 w-40' />
-        <Skeleton className='h-4 w-64' />
-      </CardHeader>
-      <CardContent className='space-y-4'>
-        <Skeleton className='h-9 w-full' />
-        <Skeleton className='h-9 w-full' />
-        <Skeleton className='h-9 w-1/2' />
-      </CardContent>
     </Card>
   )
 }

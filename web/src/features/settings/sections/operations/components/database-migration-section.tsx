@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -39,10 +40,7 @@ import { extractApiErrorBody, resolveResponseMessage } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 import {
   runtimeDatabaseQueryKeys,
@@ -348,7 +346,7 @@ export function DatabaseMigrationSection() {
   const activeConfig = configQuery.data?.active
 
   if (configQuery.isLoading) {
-    return <SettingsSectionSkeleton />
+    return <SectionSkeleton />
   }
   if (configQuery.isError || !configQuery.data) {
     return (

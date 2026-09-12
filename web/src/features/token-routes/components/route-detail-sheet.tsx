@@ -21,9 +21,11 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
-import { priceCompareQueryOptions } from '@/features/models/price-compare/api'
-import { PriceGradeBadge } from '@/features/models/price-compare/components/price-grade-badge'
-import type { PriceCompareItem } from '@/features/models/price-compare/types'
+import {
+  priceCompareQueryOptions,
+  PriceGradeBadge,
+  type PriceCompareItem,
+} from '@/features/models'
 import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime, formatInt, formatPrice } from '@/lib/format'
 

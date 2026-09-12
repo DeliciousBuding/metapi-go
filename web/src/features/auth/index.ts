@@ -1,3 +1,3 @@
-// metapi-go/features/auth — barrel re-exports.
+// metapi-go/features/auth — public barrel.
 
 export { SignInPage } from './components/sign-in-page'

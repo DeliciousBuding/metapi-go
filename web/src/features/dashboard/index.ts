@@ -1,13 +1,13 @@
-// metapi-go/features/dashboard — barrel.
+// metapi-go/features/dashboard — public barrel.
 //
-// Public API for the 4-section Dashboard workspace. Consumers
-// (route files, the main sidebar, future feature modules) import from
-// `@/features/dashboard`.
+// Public API for the 4-section Dashboard workspace: the route file and the
+// sidebar read the section manifest from here.
+//
+// Cross-feature consumers import from here and not from a subdirectory: what
+// is exported below is frozen against their call sites, and what is not
+// exported is free to move.
 
-// Types
 export type { DashboardSectionId } from './types'
-
-// Generic factory + registry types
 
 // 4-section manifest + registry helpers (route registration surface)
 export {
@@ -16,11 +16,6 @@ export {
   getDashboardSectionMeta,
 } from './config/dashboard-config'
 
-// Section dispatcher
+// Section dispatcher. The four sections are lazy-loaded at its call site, so
+// they are not part of this barrel.
 export { DashboardPage } from './components/dashboard-page'
-
-// Shared components
-
-// Hooks
-
-// The 4 sections (lazy imports land at the call site in phase 3)

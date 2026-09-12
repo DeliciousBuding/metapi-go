@@ -1,8 +1,15 @@
-// metapi-go/features/sites — barrel re-exports.
+// metapi-go/features/sites — public barrel.
 //
-// Page component is the primary surface; the rest is exported for the future
-// `/sites` route file (validateSearch schema + types) and for cross-feature
-// deep linking (the SiteCreatedModal → /accounts handoff).
+// Cross-feature consumers import from here and not from a subdirectory: what
+// is exported below is frozen against their call sites, and what is not
+// exported is free to move.
+//
+// The `/sites` route reads the validateSearch schema from here and loads
+// `SitesPage` directly; other features read the site list, the entity type and
+// the endpoint guard (cross-feature detail sheets render site-provided URLs as
+// links, and the SiteCreatedModal → /accounts handoff needs the entity).
+// `SitesPage` is deliberately not exported here, so those consumers do not pull
+// the page into their chunk.
 
 export { sitesSearchSchema } from './lib/sites-schema'
 // Endpoint URL guard (http/https + forbidden-host check) reused by

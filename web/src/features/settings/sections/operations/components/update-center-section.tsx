@@ -6,15 +6,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
+import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 
 type UpdateCenterStatus = {
@@ -70,7 +68,7 @@ export function UpdateCenterSection() {
       description={t('settings.operations.updateCenter.description')}
     >
       {statusQuery.isLoading ? (
-        <SettingsSectionSkeleton />
+        <SectionSkeleton />
       ) : (
         <div className='space-y-4'>
           <div className='flex flex-wrap items-center gap-4'>

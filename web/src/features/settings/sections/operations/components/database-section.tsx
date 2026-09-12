@@ -9,6 +9,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -34,10 +35,7 @@ import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
@@ -178,7 +176,7 @@ export function DatabaseSection() {
   })
 
   if (configQuery.isLoading) {
-    return <SettingsSectionSkeleton />
+    return <SectionSkeleton />
   }
   if (configQuery.isError || !configQuery.data) {
     return (

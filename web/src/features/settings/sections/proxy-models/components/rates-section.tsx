@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
@@ -20,10 +21,7 @@ import {
 import { api, type RateOverviewResponse } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSubsection } from '../../../components/settings-subsection'
 
 const ratesQueryKeys = {
@@ -97,7 +95,7 @@ export function RatesSection() {
   }
 
   if (overviewQuery.isLoading) {
-    return <SettingsSectionSkeleton />
+    return <SectionSkeleton />
   }
 
   const overview = overviewQuery.data

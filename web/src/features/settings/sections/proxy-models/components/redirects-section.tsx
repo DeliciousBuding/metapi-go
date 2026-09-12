@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,10 +27,7 @@ import {
 import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 
 const modelRedirectsQueryKeys = {
@@ -131,7 +129,7 @@ export function RedirectsSection() {
   const isLoading = redirectsQuery.isLoading
 
   if (isLoading) {
-    return <SettingsSectionSkeleton />
+    return <SectionSkeleton />
   }
 
   if (redirectsQuery.isError || !redirectsQuery.data) {

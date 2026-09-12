@@ -10,7 +10,7 @@
 import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { SettingsSectionSkeleton } from '@/features/settings/components/settings-section-card'
+import { SectionSkeleton } from '@/components/common/section-skeleton'
 
 const LazyKeysSection = lazy(() =>
   import('@/features/settings/sections/downstream/components/keys-section').then(
@@ -31,7 +31,7 @@ export function DownstreamKeysPage() {
           {t('downstreamKeys.page.description')}
         </p>
       </div>
-      <Suspense fallback={<SettingsSectionSkeleton />}>
+      <Suspense fallback={<SectionSkeleton />}>
         <LazyKeysSection />
       </Suspense>
     </div>

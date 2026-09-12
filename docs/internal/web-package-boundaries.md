@@ -31,8 +31,15 @@ defects unless registered as an exception below.
    UI must stay renderable without any feature context. The boundary gate
    enforces this; any exception requires an explicit in-script registry entry.
 3. **Features may import lib, shared components, stores, i18n, and other
-   features' public barrels** — feature-to-feature coupling is tolerated but
-   should stay shallow (prefer a shared lib helper when logic is reusable).
+   features' public barrels** — and *only* their barrels: `@/features/<name>`,
+   never a path below it. Feature-to-feature coupling is tolerated but must
+   stay shallow, and a deep path is never shallow: it freezes a directory
+   layout the owning feature must then keep. When a symbol is missing from the
+   barrel, export it there; when two features need the same contract, it
+   belongs in the feature that owns the domain, or in `src/lib/` when neither
+   does. The boundary gate enforces this for every feature file. Route files
+   are exempt — they are the composition root (rule 4) and load page
+   components directly on purpose, so no barrel re-exports a page.
 4. **Routes may import everything**; they are the composition root.
 5. A **pure helper that two layers both need belongs in `src/lib/`**, not in a
    feature. `sanitizeAuthRedirect` was moved from `features/auth/lib/` to
@@ -54,7 +61,12 @@ defects unless registered as an exception below.
 `web/scripts/check-boundaries.mjs` statically scans all `.ts`/`.tsx` under
 `web/src/`, resolves `@/` and relative specifiers to their layer, and fails
 with file:line when a component or lib file imports `features/` or `routes/`,
-or when any file deep-imports a barrel subsystem (rule 6). Exceptions are an
+when any file deep-imports a barrel subsystem (rule 6), or when one feature
+deep-imports another (rule 3). Static, dynamic and side-effect specifiers are
+all resolved, so a `lazy(() => import(...))` boundary is checked like any other
+edge. Both barrel rules also fail when they would pass vacuously — a barrel
+that no longer exists, or one nothing imports, means the check stopped
+covering anything rather than that the tree got clean. Exceptions are an
 explicit in-script registry with a required reason; a stale exception (no
 matching import) also fails, so whitelists cannot accumulate silently. Both
 rule families also fail when they would pass vacuously — a barrel that no
@@ -64,12 +76,22 @@ anything rather than that the tree got clean. Run directly with
 
 ## Registered exceptions
 
-None. The shell inversion is complete: `layout/lib/settings-nav-registry.ts`
+**Layer rules (`EXCEPTIONS`)**: none. The shell inversion is complete: `layout/lib/settings-nav-registry.ts`
 is the sole settings-nav provider and is registered from the authenticated route
 composition root; `search-nav.ts` and `system-settings.config.ts` consume the
 layout registry instead of importing `features/settings`. New cross-layer edges
 require an explicit reviewed exception in `web/scripts/check-boundaries.mjs`; a
 stale entry is rejected by the gate.
+
+**Feature barrel rule (`FEATURE_EXCEPTIONS`)**: one entry.
+`features/downstream-keys/downstream-keys-page.tsx` lazy-loads
+`features/settings/sections/downstream/components/keys-section`, because the
+keys UI was promoted to a first-class route without ever moving out of the
+settings section directory it was written in. Tracked by
+[#1335](https://github.com/DeliciousBuding/metapi-go/issues/1335): promoting
+`SettingsSectionCard` / `SettingsSectionError` to `components/common/` unblocks
+the move, after which this entry must be deleted — the gate rejects it as stale
+the moment the import goes away.
 
 ## Precedent log
 
@@ -96,6 +118,21 @@ stale entry is rejected by the gate.
     that the new gate exposed.
   - Added `web/scripts/check-boundaries.mjs` and chained it into `bun run
     lint` (pre-push + CI frontend gate).
+- **2026-09-12** — feature barrels became the enforced cross-feature surface.
+  32 deep imports (`@/features/<name>/api`, `/types`, `/lib/…`,
+  `/price-compare/…`) were rewritten to their feature's `index.ts`, which
+  gained the symbols its consumers actually needed (`accountSchema`,
+  `AccountsSnapshot`, `useClearRouteCooldown`, the rebuild handoff, the
+  price-compare contract and its grade badge). Two pieces of shared code moved
+  to the layer that owns them: the downstream-key wire contract out of
+  `settings/sections/downstream/components/key-form-shared.ts` into
+  `features/downstream-keys/` (three features read it), and
+  `SettingsSectionSkeleton` out of `features/settings/components/` into
+  `components/common/section-skeleton.tsx` as `SectionSkeleton` (a second
+  feature renders it). Feature barrel headers were corrected at the same time:
+  several claimed a page component was "the primary surface" while exporting
+  none, pointed at route files as future work when those routes already ship,
+  and carried empty section headings.
 - **2026-09-12** — `features/proxy-logs` had deep-imported `DataTableRow` from
   `components/data-table/core/data-table-row`; the two symbols it needed were
   exported from the barrel instead. Rule 6 was then added to
