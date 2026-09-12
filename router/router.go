@@ -156,7 +156,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterChannelTestRoutes(r, db.DB, cfg)
 			admin.RegisterUpdateCenterRoutes(r)
 			admin.RegisterOauthRoutes(r, db.DB)
-			// Resin Tier 2 (#678): observability status endpoint for the
+			// Resin (#678): observability status endpoint for the
 			// sticky-proxy-pool integration. Read-only surface.
 			admin.RegisterResinRoutes(r, db.DB, cfg)
 		} else {

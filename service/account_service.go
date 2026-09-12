@@ -310,11 +310,14 @@ func BuildPlatformProxyConfig(cfg *config.Config, account *store.Account, site *
 // BuildPlatformProxyConfig for verify-token / login / create flows where no
 // Account row exists yet. It derives a deterministic temp Resin identity from
 // (siteID, rawToken) so all pre-account requests for the same token share an
-// egress IP, then (in Tier 2) inherit-lease can transfer the lease to the
-// stable acc-{id} identity after INSERT.
+// egress IP. Nothing carries that assignment over to the stable acc-{id}
+// identity used once the Account row exists: the forward-proxy cache and the
+// lease tracker are both keyed by identity, and the tracker is
+// observability-only — resin.go is explicit that there is no TCP lease to
+// release, so there is nothing to hand over.
 //
 // Precedence matches BuildPlatformProxyConfig with the temp identity filling
-// the resin tier: site.ProxyURL > resin(temp) > system > direct.
+// the resin slot: site.ProxyURL > resin(temp) > system > direct.
 func BuildPlatformProxyConfigForToken(cfg *config.Config, site *store.Site, rawToken string) *platform.ProxyConfig {
 	// When the site has an explicit ProxyURL, that beats resin — delegate
 	// entirely so headers/cookies/UA are assembled by the shared path.

@@ -1,6 +1,6 @@
 # docs/ — Metapi Go documentation map
 
-**Last updated**: 2026-09-03
+**Last updated**: 2026-09-12
 **Purpose**: one-screen orientation for users and contributors.
 
 This directory is split into **public docs** (written for users and
@@ -9,7 +9,7 @@ residual caveats). Maintainer process/history/research — product state,
 roadmap, progress log, audits, benchmarks — live outside this public repo
 (open work in GitHub issues; version narrative in `CHANGELOG.md`). User-facing
 documents never deep-link into `internal/` — they state the fact directly.
-`docs/doc_hygiene_test.go` enforces both rules in CI.
+`docs/doc_hygiene_test.go` enforces these rules in CI.
 
 ## Public docs
 
@@ -32,10 +32,10 @@ documents never deep-link into `internal/` — they state the fact directly.
 
 | Path                                             | Role                                                        |
 | :----------------------------------------------- | :---------------------------------------------------------- |
-| [`internal/git-workflow.md`](internal/git-workflow.md) | 分支模型 / PR / 保护规则                              |
-| [`internal/design/`](internal/design/)           | 设计系统 SSOT（BACKEND / DESIGN / a11y / components / state-stability） |
-| [`internal/web-package-boundaries.md`](internal/web-package-boundaries.md) | 前端分层门禁契约（`web/scripts/check-boundaries.mjs` 机器执行） |
-| [`internal/responses-websocket-residual.md`](internal/responses-websocket-residual.md) | Responses WS 501 residual 说明 |
+| [`internal/git-workflow.md`](internal/git-workflow.md) | Branch model, PR flow, protection rules, release cadence |
+| [`internal/design/`](internal/design/)           | Design source of truth (BACKEND / DESIGN / a11y / components / state-stability) |
+| [`internal/web-package-boundaries.md`](internal/web-package-boundaries.md) | Frontend layering contract (`web/scripts/check-boundaries.mjs` enforces it) |
+| [`internal/responses-websocket-residual.md`](internal/responses-websocket-residual.md) | Why the Responses WebSocket surface answers 501 |
 
 ## Layout
 
@@ -65,8 +65,17 @@ docs/
 
 - Prefer **merge/update** over new parallel analysis files.
 - Absolute dates, not "recently".
-- Public docs state facts for users; process context (waves, gaps, audit
-  rounds) belongs in `internal/`.
-- `docs/doc_hygiene_test.go` enforces public markdown hygiene (no local
-  paths / no credential DSNs / no false Redis sticky claims) and the
-  README → `internal/` link boundary.
+- Public docs state facts for users. `internal/` holds contributor *design*
+  notes and residual caveats — it is tracked and public, so maintainer
+  process context (product state, roadmap, progress log, audits,
+  benchmarks) belongs outside this repository entirely: open work lives in
+  GitHub issues, the version narrative in `CHANGELOG.md`.
+- Work-programme vocabulary does not belong in the published tree either:
+  the batch, priority and audit labels of an internal plan, or a citation of
+  a plan file that was never published. A comment states what the code does,
+  not which plan asked for it — the label is unresolvable for anyone outside
+  that plan and rots the day the plan is archived.
+- `docs/doc_hygiene_test.go` enforces all of the above in CI: public markdown
+  hygiene (no local paths / no credential DSNs / no false Redis sticky claims
+  / no AI citation artifacts), the README → `internal/` link boundary, and
+  the work-programme vocabulary ban.

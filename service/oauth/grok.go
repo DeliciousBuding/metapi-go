@@ -226,7 +226,7 @@ type grokIDTokenClaims struct {
 // TODO: flow.go currently drives completion via HandleCallback, which requires
 // a redirect `code`. Device OAuth has no callback — completion must instead be
 // triggered by a poll-based status endpoint that calls this function until it
-// resolves. Wiring that poll trigger is intentionally out of Tier 1 scope.
+// resolves. Wiring that poll trigger is intentionally not done yet.
 func exchangeGrokAuthorizationCode(ctx context.Context, input ExchangeCodeInput) (*TokenSet, error) {
 	state := strings.TrimSpace(input.State)
 	if state == "" {

@@ -2,7 +2,7 @@ package config
 
 import "testing"
 
-// TestLoadProxyVideoTaskRetentionDefaults pins the audit-driven default: video
+// TestLoadProxyVideoTaskRetentionDefaults pins the shipped default: video
 // task mappings (publicId -> upstream video id) are short-lived, so retention
 // must be on out of the box. The same knob drives the proxy_video_tasks pruner
 // and the TTL of the process-local rewrite cache in handler/proxy.

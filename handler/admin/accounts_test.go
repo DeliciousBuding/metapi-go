@@ -1506,7 +1506,7 @@ func TestAccounts_Update(t *testing.T) {
 // TestAccounts_Update_PersistsTagsAndPlatformUserId verifies the account
 // edit form fields `tags` (accounts.tags JSON column) and `platformUserId`
 // (extraConfig) are persisted instead of silently dropped. Regression for
-// the Round 3 contract audit.
+// the API contract audit.
 func TestAccounts_Update_PersistsTagsAndPlatformUserId(t *testing.T) {
 	db, r, _ := setupAccountsTest(t)
 	_, accountID := setupAccountFixtureWithSite(t, db, r, "UpdateContract", "https://api.openai.com")

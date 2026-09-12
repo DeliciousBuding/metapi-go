@@ -7,8 +7,8 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-// TestResinForwardProxyURL_StableCacheKey verifies the Tier 2 (#678) "client
-// connection pooling" invariant for the Resin forward proxy.
+// TestResinForwardProxyURL_StableCacheKey verifies the client-connection
+// pooling invariant from #678 for the Resin forward proxy.
 //
 // The pooled-transport cache in platform.getCachedTransport uses
 // (proxyURL, insecureSkipTLS) as its key (see platform.transportCacheKey +

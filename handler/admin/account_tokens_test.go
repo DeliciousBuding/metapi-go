@@ -171,8 +171,8 @@ func TestTokens_List_AllWithoutFilter(t *testing.T) {
 
 // TestTokens_List_WireContractCamelCase verifies the GET /api/account-tokens
 // response carries the camelCase wire contract fields and does not leak raw
-// snake_case DB column names. Regression for the Round 3 D-domain contract
-// audit: MapScan exposed `account_id`, `token_group`, `is_default`, ... while
+// snake_case DB column names. Regression for the API contract audit:
+// MapScan exposed `account_id`, `token_group`, `is_default`, ... while
 // the frontend accountTokenSchema requires `accountId`, `tokenGroup`,
 // `isDefault`, `createdAt`, `updatedAt`.
 func TestTokens_List_WireContractCamelCase(t *testing.T) {

@@ -1,8 +1,8 @@
 // gzip.go — gzip response compression for the embedded SPA static assets.
 //
-// Round 3 audit (H-domain performance): the SPA static asset pipeline served
-// every JS/CSS/HTML/SVG payload uncompressed. This middleware compresses
-// compressible text responses when the client advertises gzip support.
+// The SPA static asset pipeline used to serve every JS/CSS/HTML/SVG payload
+// uncompressed. This middleware compresses compressible text responses when
+// the client advertises gzip support.
 //
 // The compression decision is made lazily in WriteHeader based on the
 // Content-Type the inner handler set (http.FileServer / ServeContent set it

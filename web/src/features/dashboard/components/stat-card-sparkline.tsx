@@ -1,12 +1,11 @@
 // metapi-go/features/dashboard/components — lazy-loaded sparkline renderer.
 //
-// Round 3 audit (H-domain performance): the dashboard shipped ~332KB of
-// recharts on first paint even when no chart was rendered, because
-// stat-card.tsx imported it statically. This module is the only dashboard
-// file that recharts can reach through the eager overview section; it is
-// loaded via React.lazy + dynamic import() from StatCard and only mounts
-// when a stat card actually has sparkline data, so the recharts chunk is
-// fetched on demand instead of up front.
+// The dashboard used to ship ~332KB of recharts on first paint even when no
+// chart was rendered, because stat-card.tsx imported it statically. This
+// module is the only dashboard file that recharts can reach through the eager
+// overview section; it is loaded via React.lazy + dynamic import() from
+// StatCard and only mounts when a stat card actually has sparkline data, so
+// the recharts chunk is fetched on demand instead of up front.
 
 import { Area, AreaChart } from 'recharts'
 
