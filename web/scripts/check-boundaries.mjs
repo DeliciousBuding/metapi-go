@@ -6,6 +6,8 @@
 //
 //   rule 1: src/lib/ never imports from features/ or routes/.
 //   rule 2: src/components/ never imports from features/ or routes/.
+//   rule 3: a subsystem that publishes a barrel is imported through that
+//           barrel and never through a subdirectory (see BARRELS).
 //
 // Layers are classified by the first path segment under src/. Imports may
 // point downward through the layer table; the edges above are the two hard
@@ -23,7 +25,7 @@
 // cross-layer edges. Every entry must carry a reason AND match a real import
 // in the tree; stale entries fail the gate (no speculative whitelisting).
 
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -40,6 +42,21 @@ const FORBIDDEN = {
   components: new Set(['features', 'routes']),
   lib: new Set(['features', 'routes']),
 }
+
+// --- barrel rules --------------------------------------------------------------
+// A subsystem that publishes a barrel owns its internals: everything outside
+// the package imports the barrel and nothing deeper. That is the only thing
+// which makes the inside refactorable — data-table/index.ts states the deal
+// explicitly ("anything not exported here is free to be reorganised"), and it
+// holds only while no outside file reaches into core/, layout/, toolbar/ or
+// hooks/. It has been broken once already: features/proxy-logs deep-imported
+// DataTableRow from core/data-table-row.
+const BARRELS = [
+  {
+    package: 'components/data-table',
+    reason: 'index.ts is the whole public surface (data-table/README.md)',
+  },
+]
 
 // --- scanning ----------------------------------------------------------------------
 // Static + dynamic import specifiers. oxfmt keeps every import/export `from`
@@ -84,8 +101,14 @@ function resolveSpecifier(specifier, fileDirRel) {
 
 const files = walk(SRC, [])
 const violations = []
+const barrelViolations = []
 const matchedExceptions = new Set()
+// External files that import each barrel the sanctioned way. A barrel with no
+// consumer would make its rule untestable, so this is asserted below rather
+// than trusted.
+const barrelConsumers = new Map(BARRELS.map((b) => [b.package, new Set()]))
 let checkedEdges = 0
+let barrelEdges = 0
 
 function checkEdge(fileAbsRel, lineNumber, specifier, fileDirRel) {
   const sourceLayer = fileAbsRel.split('/')[0]
@@ -112,6 +135,36 @@ function checkEdge(fileAbsRel, lineNumber, specifier, fileDirRel) {
   })
 }
 
+/**
+ * Rule 3: outside a barrel's own package, only the barrel itself may be
+ * imported. Applies to every layer, unlike FORBIDDEN, which is keyed on the
+ * importing file's layer.
+ */
+function checkBarrelEdge(fileAbsRel, lineNumber, specifier, fileDirRel) {
+  const resolved = resolveSpecifier(specifier, fileDirRel)
+  if (resolved === null) return
+  for (const barrel of BARRELS) {
+    const inside = `${barrel.package}/`
+    const isBarrelItself =
+      resolved === barrel.package || resolved === `${barrel.package}/index`
+    // Inside the package the barrel re-exports its own subdirectories and
+    // siblings import each other directly: both are the point of a barrel.
+    if (fileAbsRel.startsWith(inside)) continue
+    if (isBarrelItself) {
+      barrelConsumers.get(barrel.package).add(fileAbsRel)
+      return
+    }
+    if (!resolved.startsWith(inside)) continue
+    barrelEdges += 1
+    barrelViolations.push({
+      location: `src/${fileAbsRel}:${lineNumber}`,
+      specifier,
+      resolved,
+      barrel,
+    })
+  }
+}
+
 for (const file of files) {
   const fileAbsRel = file.slice(SRC.length + 1).replace(/\\/g, '/')
   const fileDirRel = fileAbsRel.includes('/')
@@ -124,13 +177,18 @@ for (const file of files) {
     let match
     while ((match = FROM_RES.exec(line)) !== null) {
       checkEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
+      checkBarrelEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
     }
     DYNAMIC_RES.lastIndex = 0
     while ((match = DYNAMIC_RES.exec(line)) !== null) {
       checkEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
+      checkBarrelEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
     }
     match = SIDE_EFFECT_RES.exec(line)
-    if (match !== null) checkEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
+    if (match !== null) {
+      checkEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
+      checkBarrelEdge(fileAbsRel, lineNumber, match[1], fileDirRel)
+    }
   })
 }
 
@@ -145,6 +203,41 @@ for (const violation of violations) {
       `    rule: ${DOC}; if the edge is legitimate, register it in\n` +
       `    web/scripts/check-boundaries.mjs EXCEPTIONS with a reason.`
   )
+}
+
+for (const violation of barrelViolations) {
+  failed = true
+  console.error(
+    `✗ barrel violation: ${violation.location}\n` +
+      `    imports '${violation.specifier}' → src/${violation.resolved}\n` +
+      `    rule: import '@/components/data-table' instead — ${violation.barrel.reason}.\n` +
+      `    If the symbol is missing from the barrel, export it there; do not\n` +
+      `    reach into the subsystem, or its internals stop being refactorable.`
+  )
+}
+
+// Same invariant as the layer rules: a gate that scans nothing and reports no
+// violations is not a lenient gate, it is an absent one. Both ways this one can
+// go quiet are checked — the package disappearing (rename) and the rule losing
+// its only consumer (nothing left to protect).
+for (const barrel of BARRELS) {
+  const barrelFile = join(SRC, `${barrel.package}/index.ts`)
+  if (!existsSync(barrelFile)) {
+    failed = true
+    console.error(
+      `✗ barrel gate would pass vacuously: src/${barrel.package}/index.ts is\n` +
+        `    missing. Was the package renamed? Update BARRELS in this script.`
+    )
+  }
+  if (barrelConsumers.get(barrel.package).size === 0) {
+    failed = true
+    console.error(
+      `✗ barrel gate would pass vacuously: no file outside\n` +
+        `    src/${barrel.package}/ imports '@/components/data-table', so the rule\n` +
+        `    protects nothing. Either the barrel lost its consumers or the\n` +
+        `    specifier resolution in this script stopped matching it.`
+    )
+  }
 }
 
 EXCEPTIONS.forEach((entry, index) => {
@@ -163,5 +256,8 @@ if (failed) process.exit(1)
 console.log(
   `✓ package boundaries clean: ${files.length} files scanned, ` +
     `${checkedEdges} cross-layer edge(s) checked, ` +
+    `${BARRELS.length} barrel rule(s) held by ` +
+    `${[...barrelConsumers.values()].reduce((n, s) => n + s.size, 0)} consumer(s), ` +
+    `${barrelEdges} deep import(s), ` +
     `${EXCEPTIONS.length} registered exception(s) all matched`
 )
