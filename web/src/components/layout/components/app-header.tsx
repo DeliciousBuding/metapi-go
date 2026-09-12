@@ -17,12 +17,6 @@ import { metapiIdentity } from '@/lib/identity-branding'
 import { cn } from '@/lib/utils'
 
 type AppHeaderProps = {
-  /** Whether to show the light/dark theme toggle button. */
-  showThemeToggle?: boolean
-  /** Custom left content, overrides the brand if provided. */
-  leftContent?: React.ReactNode
-  /** Custom right content, overrides the default interface controls if provided. */
-  rightContent?: React.ReactNode
   /** Called when the global-search trigger is clicked. */
   onSearchClick?: () => void
 }
@@ -48,12 +42,7 @@ function SearchTrigger({ onClick }: { onClick?: () => void }) {
   )
 }
 
-export function AppHeader({
-  showThemeToggle = true,
-  leftContent,
-  rightContent,
-  onSearchClick,
-}: AppHeaderProps) {
+export function AppHeader({ onSearchClick }: AppHeaderProps) {
   return (
     <header
       className={cn(
@@ -63,36 +52,32 @@ export function AppHeader({
       )}
     >
       <SidebarTrigger className='md:hidden' />
-      {leftContent ?? (
-        // The brand is the only flexible header cell: on narrow viewports it
-        // truncates so the right-hand controls (search, attention bell,
-        // interface controls, user menu) keep their full hit targets.
-        // It is a home link: `/` redirects to the default dashboard section
-        // (same target as the sidebar "Dashboard" entry).
-        <Link
-          to='/'
-          className='flex min-w-0 items-center gap-2'
-          aria-label={metapiIdentity.name}
-        >
-          <img
-            src={metapiIdentity.logoPath}
-            alt=''
-            className='size-6 shrink-0 rounded-sm'
-          />
-          <span className='truncate text-sm font-semibold tracking-tight'>
-            {metapiIdentity.name}
-          </span>
-        </Link>
-      )}
+      {/* The brand is the only flexible header cell: on narrow viewports it
+          truncates so the right-hand controls (search, attention bell,
+          interface controls, user menu) keep their full hit targets. It is a
+          home link: `/` redirects to the default dashboard section (same
+          target as the sidebar "Dashboard" entry). */}
+      <Link
+        to='/'
+        className='flex min-w-0 items-center gap-2'
+        aria-label={metapiIdentity.name}
+      >
+        <img
+          src={metapiIdentity.logoPath}
+          alt=''
+          className='size-6 shrink-0 rounded-sm'
+        />
+        <span className='truncate text-sm font-semibold tracking-tight'>
+          {metapiIdentity.name}
+        </span>
+      </Link>
 
-      {rightContent ?? (
-        <div className='ms-auto flex shrink-0 items-center gap-1'>
-          <SearchTrigger onClick={onSearchClick} />
-          <AttentionBell />
-          <InterfaceControls showThemeToggle={showThemeToggle} />
-          <UserMenu />
-        </div>
-      )}
+      <div className='ms-auto flex shrink-0 items-center gap-1'>
+        <SearchTrigger onClick={onSearchClick} />
+        <AttentionBell />
+        <InterfaceControls />
+        <UserMenu />
+      </div>
     </header>
   )
 }

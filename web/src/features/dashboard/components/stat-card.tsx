@@ -45,8 +45,6 @@ type StatCardProps = {
   hint?: string
   /** Sparkline samples (numeric). When omitted, no sparkline renders. */
   spark?: number[]
-  /** Tailwind class for the sparkline stroke (e.g. 'text-chart-1'). */
-  accentClassName?: string
   /** Render skeleton placeholders while the metric is still loading. */
   loading?: boolean
   /** Numeric value to animate (CountUp). When set, overrides the static value string. */
@@ -171,11 +169,7 @@ export function StatCard(props: StatCardProps) {
               ) : null}
               {data.length > 1 ? (
                 <Suspense fallback={null}>
-                  <LazyStatCardSparkline
-                    data={data}
-                    config={sparkConfig}
-                    accentClassName={props.accentClassName}
-                  />
+                  <LazyStatCardSparkline data={data} config={sparkConfig} />
                 </Suspense>
               ) : null}
             </div>

@@ -17,8 +17,6 @@ type QueryErrorBannerProps = {
   error: Error | null
   /** i18n key whose template interpolates `{{message}}` (e.g. `accounts.page.loadError`). */
   messageKey: string
-  /** i18n key for the Retry button label; defaults to `common.retry`. */
-  retryKey?: string
   /** When provided, a Retry button renders and re-fetches the query. */
   onRetry?: () => void
   /** True while the retry request is in flight (disables the button + shows a spinner). */
@@ -31,7 +29,6 @@ type QueryErrorBannerProps = {
 export function QueryErrorBanner({
   error,
   messageKey,
-  retryKey = 'common.retry',
   onRetry,
   isRetrying = false,
   children,
@@ -56,7 +53,7 @@ export function QueryErrorBanner({
               disabled={isRetrying}
             >
               {isRetrying ? <Spinner /> : <RefreshCw className='size-3.5' />}
-              {t(retryKey)}
+              {t('common.retry')}
             </Button>
           )}
           {children}

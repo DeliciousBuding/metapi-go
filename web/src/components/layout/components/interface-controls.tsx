@@ -17,8 +17,6 @@ import { cn } from '@/lib/utils'
 
 type InterfaceControlsProps = {
   className?: string
-  showCustomizer?: boolean
-  showThemeToggle?: boolean
 }
 
 function LanguageSwitcher() {
@@ -63,11 +61,7 @@ function LanguageSwitcher() {
   )
 }
 
-export function InterfaceControls({
-  className,
-  showCustomizer = true,
-  showThemeToggle = true,
-}: InterfaceControlsProps) {
+export function InterfaceControls({ className }: InterfaceControlsProps) {
   const { t } = useTranslation()
   const { resolvedTheme, setTheme } = useTheme()
 
@@ -78,18 +72,16 @@ export function InterfaceControls({
   return (
     <div className={cn('flex items-center gap-1', className)}>
       <LanguageSwitcher />
-      {showCustomizer && <ThemeCustomizer />}
-      {showThemeToggle && (
-        <Button
-          variant='ghost'
-          size='icon'
-          onClick={toggleTheme}
-          aria-label={t('theme.toggle')}
-        >
-          <Sun className='size-4 scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90' />
-          <Moon className='absolute size-4 scale-0 rotate-90 transition-transform dark:scale-100 dark:rotate-0' />
-        </Button>
-      )}
+      <ThemeCustomizer />
+      <Button
+        variant='ghost'
+        size='icon'
+        onClick={toggleTheme}
+        aria-label={t('theme.toggle')}
+      >
+        <Sun className='size-4 scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90' />
+        <Moon className='absolute size-4 scale-0 rotate-90 transition-transform dark:scale-100 dark:rotate-0' />
+      </Button>
     </div>
   )
 }
