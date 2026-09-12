@@ -101,7 +101,7 @@ type Config struct {
 	// nothing would ever be pruned.
 	LogCleanupEnvEnabled bool
 
-	// Resin sticky proxy pool (3 fields, env-only — no DDL for Tier 1).
+	// Resin sticky proxy pool (3 fields, env-only — no schema change).
 	// RESIN_URL carries the base URL + token, e.g. http://resin.local:2260/my-token.
 	// RESIN_PLATFORM_NAME is the Platform identity (falls back to site.Platform).
 	// RESIN_ENABLED is the global opt-in (default false).
@@ -109,7 +109,7 @@ type Config struct {
 	ResinPlatformName string
 	ResinEnabled      bool
 
-	// uTLS TLS fingerprint masking (1 field, env-only — no DDL for Tier 1).
+	// uTLS TLS fingerprint masking (1 field, env-only — no schema change).
 	// UTLS_ENABLED is the global opt-in (default false). When true, all
 	// outbound platform requests use a uTLS Chrome-ClientHello transport
 	// instead of Go's default crypto/tls ClientHello, masking the JA3/JA4

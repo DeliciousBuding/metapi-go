@@ -24,7 +24,7 @@ var (
 
 // storefrontMarkdown names the README files: the public storefront of the
 // repository. They must never deep-link into docs/internal/ — maintainer
-// process context (roadmap, audit waves, state tables) stays internal and
+// process context (roadmap, progress log, state tables) stays internal and
 // user-facing facts are stated inline instead.
 var storefrontMarkdown = map[string]bool{
 	"README.md":    true,
@@ -559,14 +559,27 @@ func hygieneSkipFile(name string) bool {
 // should be. Public-tree comments describe the product; the plan that produced
 // a line stays with the plan.
 //
-// Deliberately out of scope: bare single-letter audit item codes ("S10", "F5",
-// "M1"). They cannot be told apart from model-family names (MiniMax-M2) or
-// RFC 3339 fragments ("…T15:04:05Z") without a context rule more fragile than
-// the codes themselves. The vocabulary below is what actually recurs. Matching
-// is case-sensitive on purpose: the labels are proper nouns of a plan, while
-// the same word in lower case is ordinary prose.
+// Deliberately out of scope, both for the same reason — the shape collides
+// with product vocabulary and only a context rule could tell them apart, which
+// would be more fragile than the codes themselves:
+//
+//   - bare single-letter audit item codes ("S10", "F5", "M1") vs model-family
+//     names (MiniMax-M2) and RFC 3339 fragments ("…T15:04:05Z");
+//   - "Tier N" vs the tiers this product really has (`OPENAI_SERVICE_TIER_*`,
+//     routing/context_tier.go, prompt-cache tiers, destructive-action tiers).
+//     The Resin/uTLS delivery-tier labels that used this shape were removed by
+//     hand; a future one is review's job, not the gate's.
+//
+// In-file structure labels are fine and stay: `Phase 1: Setup` inside an e2e
+// test, `§3.14` inside config.go, and the channels-cache test's cold/warm
+// passes — those were `Round 1`/`Round 2` until the words were made to name
+// the cache state instead of a plan round. Matching is case-sensitive on
+// purpose: the labels are proper nouns of a plan, while the same word in
+// lower case is ordinary prose.
 var programmeCodeRE = regexp.MustCompile(strings.Join([]string{
 	`\bWave \d+\b`,
+	`\bRound \d+\b`,
+	`\b[A-Z]-domain\b`,
 	`\bS-line\b`,
 	`\bMilestone [A-Z]\d\b`,
 	`\bLane [A-Z]\b`,
@@ -667,6 +680,8 @@ func TestProgrammeCodeGateRegexpSanity(t *testing.T) {
 		"// see plan.md §5.5.5",
 		"// Design: k1-model-redirect-design-2026-08-01.md §7",
 		"// 13-report §4",
+		"// Regression for the Round 3 contract audit",
+		"// Round 3 audit (H-domain performance): the pipeline served",
 		"// See limitation-update-center.md.",
 		"// spec p3-sites-accounts.md lines 528-542",
 	}
@@ -684,6 +699,10 @@ func TestProgrammeCodeGateRegexpSanity(t *testing.T) {
 		"// see docs/architecture.md and docs/testing.md",
 		"// config.Load §3.14 defines this key",
 		"// milestone releases are tagged v*",
+		`want := "Checkin round 2026-08-15T03:00:00Z: 3 ok, 2 failed"`, // product string
+		"// Phase 1: Setup — in-memory SQLite + AutoMigrate",           // in-file test step
+		"// see routing/round_robin.go and routing/context_tier.go",    // tier as a product word
+		"// OPENAI_SERVICE_TIER_RULES injects service_tier per model",
 	}
 	for _, sample := range mustNotMatch {
 		if programmeCodeRE.MatchString(sample) {

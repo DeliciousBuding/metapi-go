@@ -84,11 +84,11 @@ func TestChannels_SnapshotCache_PagedKeysDoNotEvictEachOther(t *testing.T) {
 		page2 = "/api/channels?page=2&pageSize=50"
 	)
 
-	// Round 1: both keys are cold → miss (and populate).
+	// Cold: both keys miss (and populate).
 	firstP1 := requireCacheState(t, r, page1, "miss")
 	firstP2 := requireCacheState(t, r, page2, "miss")
 
-	// Round 2: both keys are warm and inside the 10s TTL → hit.
+	// Warm: both keys are inside the 10s TTL → hit.
 	secondP1 := requireCacheState(t, r, page1, "hit")
 	secondP2 := requireCacheState(t, r, page2, "hit")
 

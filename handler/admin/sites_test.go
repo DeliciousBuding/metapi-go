@@ -143,7 +143,7 @@ func TestSites_CreateWithExplicitPlatform(t *testing.T) {
 
 // TestSites_Create_PersistsResinEnabledAndUseUtls verifies the create form
 // fields resinEnabled/useUtls are persisted instead of silently dropped.
-// Regression for the Round 3 contract audit (site update/create handlers
+// Regression for the API contract audit (site update/create handlers
 // dropped fields).
 func TestSites_Create_PersistsResinEnabledAndUseUtls(t *testing.T) {
 	_, r := setupSitesTest(t)

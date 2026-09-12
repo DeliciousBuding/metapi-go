@@ -1606,7 +1606,7 @@ func TestRedactSearchSecrets(t *testing.T) {
 
 // TestRouteChannels_IncludeRuntimeCounters verifies GET /api/routes/{id}/channels
 // returns each channel's success/fail hit counts and persisted cooldown — the
-// fields the route detail sheet renders. Regression for the Round 3 contract
+// fields the route detail sheet renders. Regression for the API contract
 // audit: the enriched map dropped successCount/failCount/cooldownUntil even
 // though rc.* carried them.
 func TestRouteChannels_IncludeRuntimeCounters(t *testing.T) {

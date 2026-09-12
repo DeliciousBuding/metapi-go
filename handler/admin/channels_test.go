@@ -116,7 +116,7 @@ func TestChannels_ManuallyDisabledStatus(t *testing.T) {
 // longer hard-truncates at the default pageSize of 50 when the client omits
 // pagination params: the channels page paginates client-side, so a fleet
 // larger than 50 must come back in full. Explicit ?page/?pageSize still opts
-// into server-side paging. Regression for the Round 3 contract audit.
+// into server-side paging. Regression for the API contract audit.
 func TestChannels_List_UnboundedReturnsAllRows(t *testing.T) {
 	db, r := setupTokenRoutesTest(t)
 	routeID, accountID, tokenID := seedRouteChannelRefs(t, db)

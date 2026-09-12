@@ -14,7 +14,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-// This file implements the Resin sticky-proxy-pool integration (Tier 1).
+// This file implements the Resin sticky-proxy-pool integration.
 //
 // Resin is an external proxy pool that gives each business identity a stable
 // outbound IP. metapi-go routes its outbound traffic through Resin so each
@@ -114,7 +114,7 @@ func ClearResinLeasesForTest() {
 // Precedence:
 //  1. site.ResinEnabled non-nil → explicit per-site override wins (true =
 //     force-enable even when global is off; false = force-disable even when
-//     global is on). This is the Tier 2 per-site override (#678).
+//     global is on). This is the per-site override (#678).
 //  2. site.ResinEnabled nil → fall back to the global RESIN_ENABLED flag,
 //     which itself requires a non-empty RESIN_URL.
 //

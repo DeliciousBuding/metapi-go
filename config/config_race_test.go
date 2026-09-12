@@ -92,8 +92,8 @@ func TestSetRuntimePublishesCopies(t *testing.T) {
 	}
 }
 
-// TestRuntimeWriteRace_TornReadReproduction reproduces the concurrency-audit
-// finding against the FIXED access shape: writers publish
+// TestRuntimeWriteRace_TornReadReproduction reproduces the torn-read race
+// against the FIXED access shape: writers publish
 // correlated field tuples through UpdateRuntime while readers take atomic
 // snapshots. Each published generation g carries ProxyToken "sk-gen-g",
 // ProxyRetryStatusRanges "g-g" and NotifyCooldownSec g; a reader that ever

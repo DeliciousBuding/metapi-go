@@ -171,7 +171,7 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		},
 	},
 	{
-		// Tier 2 (#678): per-site Resin override. NULL = inherit global
+		// Per-site Resin override (#678). NULL = inherit global
 		// RESIN_ENABLED flag; true/false = explicit per-site opt-in/opt-out.
 		// This is observability-only on the storage side; service.ResinEnabled
 		// resolves site-level precedence at request time.
@@ -182,7 +182,7 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		},
 	},
 	{
-		// Tier 1 (#672): per-site uTLS TLS fingerprint masking override.
+		// Per-site uTLS TLS fingerprint masking override (#672).
 		// NULL = inherit global UTLS_ENABLED flag; true/false = explicit
 		// per-site opt-in/opt-out. Uses INTEGER/BOOLEAN (not TEXT) so the
 		// *bool struct field scans correctly via database/sql, matching the
