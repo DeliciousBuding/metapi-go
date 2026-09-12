@@ -12,7 +12,7 @@
 // cache key matches the page's first fetch exactly.
 //
 // `validateSearch` syncs the filters + page cursor to the URL so a refresh or
-// shared link restores the exact view (W19-T1 P2-l residual). The router
+// shared link restores the exact view. The router
 // JSON-parses search values, so every param uses the resilient
 // stringSearchParam union and the page normalizes to its own defaults.
 

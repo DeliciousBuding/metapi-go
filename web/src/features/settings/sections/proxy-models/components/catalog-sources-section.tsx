@@ -1,10 +1,10 @@
 // metapi-go/features/settings/sections/proxy-models — model-catalog data
-// source registry panel (Wave 8 Lane A, reorder rework Wave 9 Lane B). Lists
+// source registry panel. Lists
 // the DB-persisted catalog sources in merge order (earlier sources override
 // later ones), exposes per-source enable/URL edit/drag-reorder/delete +
 // "sync now", a global auto-sync toggle, and the merged-snapshot status.
-// Reorder is a pointer-drag on the row handle (Wave 9 Lane B: the retired
-// up/down arrow buttons) with a keyboard alternative (Enter/Space grab, arrow
+// Reorder is a pointer-drag on the row handle (the retired up/down arrow buttons)
+// with a keyboard alternative (Enter/Space grab, arrow
 // keys move, Space/Enter drop, Escape cancel); each drop writes the absolute
 // target index through PUT /api/models/catalog-sources/{id} { sortOrder }
 // (the backend repositions and renumbers contiguously). All mutations go
@@ -120,7 +120,7 @@ export function CatalogSourcesSection() {
   const undoableDelete = useUndoableDelete()
   const [syncingId, setSyncingId] = useState<number | 'all' | null>(null)
 
-  // --- reorder state (pointer drag Wave 9 Lane B + keyboard grab) ---
+  // --- reorder state (pointer drag + keyboard grab) ---
   // Declared with the other hooks — BEFORE the loading/error early returns —
   // so the hook count stays stable across status states. The keyboard path
   // reuses the same visual/commit state machine: Enter/Space grabs, arrow
@@ -266,7 +266,7 @@ export function CatalogSourcesSection() {
     },
   })
 
-  // S7 删除+undo 档: leaf single-row delete — no confirm dialog; the row
+  // Delete-with-undo tier: leaf single-row delete — no confirm dialog; the row
   // leaves immediately and a 6s undo toast gates the real DELETE.
   const deleteSource = (source: CatalogSource) =>
     undoableDelete<CatalogSyncStatus, CatalogSource>({
@@ -306,7 +306,7 @@ export function CatalogSourcesSection() {
   const busy = syncingId !== null
 
   // --- reorder helpers ---
-  // Pointer path (Wave 9 Lane B): the row handle captures the pointer and
+  // Pointer path: the row handle captures the pointer and
   // tracks the row under the cursor; on release the drop index is committed
   // as an absolute sortOrder. Storing the live target in a ref keeps the
   // pointerup handler race-free even when the last pointermove and pointerup
@@ -515,7 +515,7 @@ export function CatalogSourcesSection() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {/* Drag-handle column (reorder, Wave 9 Lane B). The
+                    {/* Drag-handle column (reorder). The
                         header cell carries an sr-only label so table scans do
                         not read an empty th (axe empty-table-header). */}
                     <TableHead className='w-7'>

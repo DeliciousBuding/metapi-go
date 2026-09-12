@@ -1,4 +1,4 @@
-// metapi-go/features/settings/lib — legacy URL redirect map (wave 9 lane B).
+// metapi-go/features/settings/lib — legacy URL redirect map.
 //
 // The semantic regroup renames three of the five subareas
 // (general→basic, models→proxy-models, system-info→operations) and moves

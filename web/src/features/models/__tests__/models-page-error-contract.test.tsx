@@ -1,4 +1,4 @@
-// Pins the unified list-page error contract on the models page (W19-T1 P2-o):
+// Pins the unified list-page error contract on the models page:
 // a failed load REPLACES the table with the QueryErrorBanner instead of
 // stacking over it, and its Retry re-fetches.
 
@@ -14,7 +14,7 @@ import { ModelsPage } from '../components/models-page'
 
 const testState = vi.hoisted(() => ({
   modelsQuery: {
-    // S9 server-side pagination: the page query carries { items, total }.
+    // Server-side pagination: the page query carries { items, total }.
     data: { items: [] as unknown[], total: 0 },
     isLoading: false,
     isFetching: false,
@@ -30,7 +30,7 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@/components/data-table', async () => {
   const { QueryErrorBanner } =
     await import('@/components/common/query-error-banner')
-  // The S7 error contract lives in the real DataTablePage; the stub honors it
+  // The error contract lives in the real DataTablePage; the stub honors it
   // so the page-level test verifies the page wires error/refetch correctly.
   return {
     DataTablePage: (props: {

@@ -35,7 +35,7 @@ export function MaintenanceSection() {
     onSuccess: () => {
       // Usage logs feed every dashboard-* widget (snapshot, cost distribution,
       // latency, income/outcome) — invalidate the whole key family so the
-      // cleared numbers show up instead of waiting for the 10s poll (W19-T1 N2).
+      // cleared numbers show up instead of waiting for the 10s poll.
       void queryClient.invalidateQueries({
         predicate: (query) =>
           typeof query.queryKey[0] === 'string' &&

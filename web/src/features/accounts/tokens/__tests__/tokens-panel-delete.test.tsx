@@ -1,4 +1,4 @@
-// Behavior test for the tokens-panel delete flow — S7 删除+undo 档:
+// Behavior test for the tokens-panel delete flow — delete-with-undo tier:
 // the row action no longer opens a dialog; it triggers the shared
 // undoable-delete helper with the account's token-list query key. The
 // helper's own contract (optimistic removal / undo restore / deferred

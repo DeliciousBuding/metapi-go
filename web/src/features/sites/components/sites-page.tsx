@@ -204,7 +204,7 @@ export function SitesPage() {
   } | null>(null)
   // Bulk disable takes sites out of rotation — same impact class as the
   // accounts/routes bulk-disable confirmations, so it gets the same gate
-  // instead of firing directly (W19-T1 P2-m①).
+  // instead of firing directly.
   const [bulkDisableState, setBulkDisableState] = useState<{
     ids: number[]
     count: number

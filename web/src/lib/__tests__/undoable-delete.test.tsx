@@ -1,4 +1,4 @@
-// metapi-go/lib — undoable-delete tests (S7 删除+undo 档).
+// metapi-go/lib — undoable-delete tests.
 //
 // Pins the deferred-delete contract: optimistic removal on trigger, commit
 // only when the window closes (auto-close or dismiss), snapshot restore on

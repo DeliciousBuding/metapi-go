@@ -3,7 +3,7 @@
 // The build provenance (`version` / `commit` / `buildTime` / `goVersion`) comes
 // from the Go binary via `GET /api/about`, so the About page shows the version
 // of the process actually serving the request rather than the frontend bundle
-// version. The curated repository metadata lives in src/lib/about-info.ts (S5 boundary inversion) — it
+// version. The curated repository metadata lives in src/lib/about-info.ts — it
 // describes the project, not the build, and has no backend owner.
 //
 // Fields the backend leaves empty (a local `go build` injects no commit or

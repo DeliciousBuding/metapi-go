@@ -1,7 +1,7 @@
 // metapi-go/features/dashboard/sections/models — models section.
 //
-// Plan §5.5.1 models: ModelAnalysisPanel（模型可用性/延迟）+ 砍重复的
-// Cost/Latency 卡片并入. Phase 3 wires three recharts-based charts:
+// Models: ModelAnalysisPanel (model availability / latency), with the
+// duplicated Cost/Latency cards folded in. Three recharts-based charts:
 //   - ModelCost donut        ← api.getModelCostDistribution(days, topN)
 //   - Latency histogram bars ← api.getLatencyHistogram(days, bucketMs)
 //   - Latency trend lines    ← api.getLatencyTrend(days)

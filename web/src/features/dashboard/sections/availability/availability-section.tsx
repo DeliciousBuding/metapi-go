@@ -1,9 +1,9 @@
 /* eslint-disable no-nested-ternary -- connection-tone uses chained ternaries */
 // metapi-go/features/dashboard/sections/availability — availability section.
 //
-// Plan §5.5.1 availability: RealtimeOpsPanel（WebSocket 实时）+ an
-// actionable-items surface (the legacy Monitors iframe is retired; phase 3
-// renders api.getAttention() as a severity-ranked list of items needing
+// Availability: RealtimeOpsPanel (live WebSocket ops) + an actionable-items
+// surface (the legacy Monitors iframe is retired; api.getAttention() renders
+// as a severity-ranked list of items needing
 // operator eyes — expired accounts, low balances, disabled sites, events).
 
 import { useQuery } from '@tanstack/react-query'

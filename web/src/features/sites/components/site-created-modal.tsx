@@ -1,7 +1,7 @@
 // metapi-go/features/sites — post-create guidance modal.
 //
 // This is the FIRST step of the guided "site → account → route" config
-// chain (research §4.2). On successful `addSite`, the form dialog hands the
+// chain. On successful `addSite`, the form dialog hands the
 // created site to this modal. Two primary CTAs mirror the TS original's
 // three-branch guidance (minus the codex OAuth branch, which the go version
 // has no handler for): 「添加账号」 opens the account form in session mode

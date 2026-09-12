@@ -193,7 +193,7 @@ export function ImportExportSection() {
    * Invalidate the entire query cache so every list page, dashboard widget and
    * settings section refetches the restored data instead of serving stale rows
    * (the previous targeted list missed routes/channels/check-in/oauth and the
-   * shared runtime-settings key — W19-T1 N1).
+   * shared runtime-settings key).
    */
   function invalidateAfterImport() {
     void queryClient.invalidateQueries()

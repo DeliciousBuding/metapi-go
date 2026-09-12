@@ -1,5 +1,5 @@
 // Unit tests for the quota-payload classification helpers that keep the
-// OAuth detail sheet honest (issue #887 S4).
+// OAuth detail sheet honest (#887).
 //
 // The three-state contract (`supported` / `unsupported` / `error` at the
 // snapshot level, plus a per-window `supported` flag with nullable numbers)

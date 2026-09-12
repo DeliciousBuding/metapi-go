@@ -1,4 +1,4 @@
-// Dashboard charts must carry an accessible name (W19-T2 P2-p). The
+// Dashboard charts must carry an accessible name. The
 // ChartContainer figure semantics are pinned in ui/__tests__/chart-a11y; this
 // locks the other half of the contract — that every real chart surface passes
 // an explicit aria-label, because five of the six are multi-series or

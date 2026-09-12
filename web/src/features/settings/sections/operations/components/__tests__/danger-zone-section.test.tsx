@@ -1,7 +1,7 @@
 // Type-to-confirm gate for the irreversible factory reset. The 3-second
 // countdown stops misclicks but not "read it yet didn't absorb it"; the confirm
 // button must also stay disabled until the operator types the word RESET
-// (W19-T3 N2 / T1 §0.2, GitHub-style hard gate).
+// (a GitHub-style hard gate).
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {

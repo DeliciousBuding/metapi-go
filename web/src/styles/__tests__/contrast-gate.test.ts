@@ -17,7 +17,7 @@
 //   5. light --destructive-soft-fg + dark --info-soft-fg soft badges
 //   6. default light --sidebar-accent-foreground + the removed pure-black
 //      lake-view dark override (were 3.95 / 1.75:1)
-//   7. W19-T2 B1: chart-1..5 across presets — light values darkened and dark
+//   7. chart-1..5 across presets — light values darkened and dark
 //      values lightened so every chart color clears AA text contrast on its
 //      card surface (chart colors double as StatusBadge text-chart-N
 //      foregrounds, so text AA 4.5:1 — not the 3:1 non-text floor — applies)
@@ -313,7 +313,7 @@ function softRatio(
   return contrastRatio(oklchToSrgb(fg), fill)
 }
 
-/** The legacy recipe the T2-§3.1 batch replaced: text-<tone> (the base color
+/** The legacy recipe the status-color batch replaced: text-<tone> (the base color
  * itself) on bg-<tone>/10. Kept under gate so a reintroduction cannot drift
  * below where it ships today without a documented exemption. */
 function baseOnSoftRatio(
@@ -397,10 +397,10 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
   })
 
   it('the retired base-on-soft recipe stays above the quarantine floor', () => {
-    // W19-T2 B2 blind spot: the gate previously only tracked
+    // Blind spot: the gate previously only tracked
     // `<tone>-soft-fg on <tone>/10`. The base-on-soft recipe
     // (text-<tone> on bg-<tone>/10) was retired from the shipped UI by the
-    // T2-§3.1 batch because it measures sub-AA almost everywhere (55 of 80
+    // that batch because it measures sub-AA almost everywhere (55 of 80
     // preset×mode×tone pairs). Nobody ships it anymore, so per-pair AA here
     // would just be a 55-entry exemption wall. The floor instead pins the
     // worst measured residual (anthropic light warning on warning/10 =
@@ -431,7 +431,7 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
   })
 
   it('chart colors clear AA text contrast on the card surface across presets and modes', () => {
-    // W19-T2 B1: chart series colors are also StatusBadge text foregrounds
+    // Chart series colors are also StatusBadge text foregrounds
     // (text-chart-N in status-badge.tsx), so text AA applies, not the 3:1
     // non-text floor. The 2026-08-29 batch darkened 40 light values (worst
     // 1.08:1 lavender-dream-family near-whites) and lightened 8 dark values

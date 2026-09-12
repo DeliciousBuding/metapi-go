@@ -37,7 +37,7 @@ vi.mock('@/lib/api', () => ({ api: mockApi }))
 vi.mock('@/lib/toast', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }))
-// The page reads its filters/page cursor from the URL (W19-T1 P2-l); the
+// The page reads its filters/page cursor from the URL; the
 // tests mount it bare, so stub the router hooks with a default search.
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),

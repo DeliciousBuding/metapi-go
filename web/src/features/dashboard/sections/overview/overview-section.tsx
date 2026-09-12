@@ -1,6 +1,6 @@
 // metapi-go/features/dashboard/sections/overview — overview section.
 //
-// Plan §5.5.1 overview: core metric cards (accounts / sites / today's checkin
+// Overview: core metric cards (accounts / sites / today's checkin
 // success rate / today's proxy requests) + AnnouncementBanner. The legacy
 // SchedulerStatusPanel is merged in here (a compact scheduled-tasks card).
 //
@@ -459,8 +459,8 @@ export function OverviewSection() {
           finished setup. */}
       <OnboardingChecklist siteCount={siteCount} accountCount={totalAccounts} />
 
-      {/* Snapshot / balance failures used to render silent "—" cards
-          (W19-T1 A4#11): surface them with a retry instead. */}
+      {/* Snapshot / balance failures used to render silent "—" cards;
+         surface them with a retry instead. */}
       <QueryErrorBanner
         error={snapshotError ?? balanceError}
         messageKey={

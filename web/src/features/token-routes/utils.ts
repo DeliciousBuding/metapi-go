@@ -43,7 +43,7 @@ export function isExplicitGroupRoute(
 // ---------------------------------------------------------------------------
 // Pattern grammar
 // The pure grammar predicates live in @/lib/helpers/model-pattern (shared
-// with lib helpers — S5 boundary inversion); re-exported for compatibility.
+// with lib helpers); re-exported for compatibility.
 export {
   isExactModelPattern,
   isRegexModelPattern,

@@ -3,7 +3,7 @@
 // migration action lives in its own standalone section
 // (`data-migration`, database-migration-section.tsx) — split out of this
 // page so every section page renders a single card / single h1-h2 pair
-// (wave 9 lane B, P1 "hidden section" fix).
+// (the "hidden section" fix).
 
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'

@@ -1,4 +1,4 @@
-// metapi-go/layout — settings nav registry (S5 boundary inversion).
+// metapi-go/layout — settings nav registry.
 //
 // The Settings workspace (features/settings) owns its 5-subarea manifest;
 // the shell only needs a declarative projection of it (titles / icons /

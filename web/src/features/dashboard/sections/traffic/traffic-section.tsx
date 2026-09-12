@@ -1,10 +1,10 @@
 // metapi-go/features/dashboard/sections/traffic — traffic section.
 //
-// Plan §5.5.1 traffic: traffic trend chart（IncomeOutcome / SiteTrend）+
-// SiteDistribution donut. Three charts built on the shared recharts-based
-// Chart components, fed by useChartColors-free CSS-var() theming. Phase 3
-// reshapes api.getBalanceIncomeOutcome / getSiteTrend / getSiteDistribution
-// responses into the chart data types.
+// Traffic: traffic trend chart (IncomeOutcome / SiteTrend) + SiteDistribution
+// donut. Three charts built on the shared recharts-based Chart components, fed
+// by useChartColors-free CSS-var() theming; the api.getBalanceIncomeOutcome /
+// getSiteTrend / getSiteDistribution responses are reshaped into the chart data
+// types.
 
 import { useQuery } from '@tanstack/react-query'
 import { Inbox, TriangleAlert } from 'lucide-react'

@@ -1,4 +1,4 @@
-// Page-level wiring for the channels error banner (P1-4 closure): the
+// Page-level wiring for the channels error banner: the
 // banner counts runtime-failing channels (cooldown / breaker_open — never
 // manually_disabled, which is operator intent) from the loaded list, its
 // filter action writes the shareable `?status=` facet, and an error-only

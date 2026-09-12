@@ -1,4 +1,4 @@
-// Behavior test for the attention panel's duplicate-event merging (wave 7):
+// Behavior test for the attention panel's duplicate-event merging:
 // a persistent "All proxies failed" storm pushes one event row per scan
 // window, so the panel stacked identical rows. Consecutive duplicates
 // (same category / label / severity / target) merge into one row with a ×N

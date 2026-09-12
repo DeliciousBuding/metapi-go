@@ -45,7 +45,7 @@ export function PriceComparePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   // The model filter lives in the URL (?model=) so a refresh or shared link
-  // restores the filtered view (W19-T1 P2-l). The route's validateSearch types
+  // restores the filtered view. The route's validateSearch types
   // the param; the input debounces its edits back into the URL and the query
   // reads the URL value as the single source of truth.
   const { model } = useSearch({ from: '/_authenticated/price-compare' })

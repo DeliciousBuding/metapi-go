@@ -1,4 +1,5 @@
-// metapi-go/lib — undoable delete (S7 删除+undo 档).
+// metapi-go/lib — undoable delete: the hook behind the delete-with-undo
+// tier (DESIGN.md §4.1).
 //
 // Gmail-style deferred delete: the row leaves the list immediately
 // (optimistic cache update) and a toast offers 撤销 for a short window;

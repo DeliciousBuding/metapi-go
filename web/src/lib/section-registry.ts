@@ -1,4 +1,4 @@
-// metapi-go/lib — createSectionRegistry generic factory (S8 三合一).
+// metapi-go/lib — createSectionRegistry generic factory.
 //
 // Single owner for the section-registry pattern previously cloned three
 // times (settings / dashboard / observability). Each feature registers a

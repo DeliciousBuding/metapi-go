@@ -1,6 +1,6 @@
-// End-to-end behavior test for the comparison row re-run loop (Wave 11
-// feedback loops): after a batch comparison settles, each row's re-run
-// button re-probes that channel with the comparison's ORIGINAL payload via
+// End-to-end behavior test for the comparison row re-run loop: after a batch
+// comparison settles, each row's re-run button re-probes that channel with the
+// comparison's ORIGINAL payload via
 // the existing batch machinery (no new API), failed rows included. The
 // button carries a channel-specific aria-label and a per-row pending state
 // (disabled + Spinner) while the probe is in flight. Mocks stop at the

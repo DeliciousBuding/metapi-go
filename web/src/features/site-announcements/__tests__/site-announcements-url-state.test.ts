@@ -1,4 +1,4 @@
-// URL-state contract for the site-announcements page (W19-T1 P2-l residual):
+// URL-state contract for the site-announcements page:
 // filters and the page cursor are normalized from the URL search and
 // serialized back with default values omitted. Every param is resilient — a
 // malformed or JSON-parsed (number/boolean) value degrades to the page

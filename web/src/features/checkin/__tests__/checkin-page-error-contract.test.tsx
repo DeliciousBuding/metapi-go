@@ -1,6 +1,6 @@
-// Pins the unified list-page error contract on the checkin page (W19-T1
-// P2-o): a failed load REPLACES the filters + table with the
-// QueryErrorBanner instead of stacking over them, and its Retry re-fetches.
+// Pins the unified list-page error contract on the checkin page: a failed load
+// REPLACES the filters + table with the QueryErrorBanner instead of stacking
+// over them, and its Retry re-fetches.
 // A stale cache must never read as current data.
 
 import '@testing-library/jest-dom/vitest'
@@ -26,7 +26,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 // Render a probe in place of the table so presence/absence is assertable.
-// The S7 error contract lives in the real DataTablePage; the stub honors it
+// The error contract lives in the real DataTablePage; the stub honors it
 // so the page-level test verifies the page wires error/refetch correctly.
 vi.mock('@/components/data-table', async () => {
   const { QueryErrorBanner } =

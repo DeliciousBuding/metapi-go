@@ -1,4 +1,4 @@
-// metapi-go/routes — legacy /fix-candidates redirect (Wave 8 Lane B).
+// metapi-go/routes — legacy /fix-candidates redirect.
 // The standalone fix-candidates page was folded into the model-name
 // redirects panel (Settings > Models > Redirects), which already ships the
 // full preview/apply flow via POST /api/model-redirects/apply. Keep old

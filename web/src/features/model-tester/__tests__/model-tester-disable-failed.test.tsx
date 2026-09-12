@@ -1,4 +1,4 @@
-// Behavior test for the batch-test closure loop (Wave 17 P1-3): after a
+// Behavior test for the batch-test closure loop: after a
 // comparison settles with failed rows, the bulk "disable failed channels"
 // action confirms with the operator, then PUTs /api/channels/batch with
 // `enabled:false` for exactly the failed channel ids and surfaces the

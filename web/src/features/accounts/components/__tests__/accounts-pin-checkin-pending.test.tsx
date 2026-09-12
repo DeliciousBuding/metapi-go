@@ -1,5 +1,5 @@
 // Behavior tests for the per-row pending state on the pin / check-in
-// dropdown toggles (Wave 11 feedback loops). While a row's pin or check-in
+// dropdown toggles. While a row's pin or check-in
 // toggle is in flight, that row's dropdown item is disabled and shows the
 // canonical Spinner (role=status); the two toggles keep independent pending
 // ids (no cross-talk), and other rows stay fully interactive. Mirrors the

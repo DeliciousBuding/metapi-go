@@ -128,7 +128,7 @@ Batch update account unit cost and route-channel weight. Pure config writes; `un
 
 ### GET /api/admin/audit-logs
 
-List recent authenticated admin write operations (B1), newest first. GET/HEAD/OPTIONS are not recorded; the middleware records best-effort and never blocks a request.
+List recent authenticated admin write operations, newest first. GET/HEAD/OPTIONS are not recorded; the middleware records best-effort and never blocks a request.
 
 **Query params**: `limit` (default 50, max 200), `offset`, `method` (exact `POST`/`PUT`/`PATCH`/`DELETE`), `path` (substring).
 **Response**: `{ items: [{ id, actor, method, path, status, requestId, remoteIp, createdAt }], total, limit, offset }`. `actor` is the first 8 hex chars of the bearer token's SHA-256 — stable, non-reversible, never the token itself.
@@ -141,7 +141,7 @@ Runtime debug snapshot (Go memory/goroutine stats, `/debug/vars` parity for the 
 
 ### GET /api/admin/ops/ws
 
-Live ops WebSocket (B2): one JSON frame per second over the current proxy-traffic window. **Auth**: one-time ticket (#1034) — the SPA mints a 60s single-use ticket via `POST /api/auth/ws-ticket` (session-authenticated) and dials with `?ticket=<one-time ticket>`. The legacy `?token=<master token>` query path is removed: the master token never appears in URLs (server logs, proxy logs, browser history). The endpoint is mounted outside the header-auth group; CORS origins follow the `ADMIN_CORS_ALLOWED_ORIGINS` configuration (same-origin when unset).
+Live ops WebSocket: one JSON frame per second over the current proxy-traffic window. **Auth**: one-time ticket (#1034) — the SPA mints a 60s single-use ticket via `POST /api/auth/ws-ticket` (session-authenticated) and dials with `?ticket=<one-time ticket>`. The legacy `?token=<master token>` query path is removed: the master token never appears in URLs (server logs, proxy logs, browser history). The endpoint is mounted outside the header-auth group; CORS origins follow the `ADMIN_CORS_ALLOWED_ORIGINS` configuration (same-origin when unset).
 
 **Frame**: `{ lifetime, points: [{ ts, total, success }] }` — points cover the last 300s (zero-filled), this instance's traffic only; no cross-instance aggregation. Invalid token: `403 {"message":"invalid token"}`.
 

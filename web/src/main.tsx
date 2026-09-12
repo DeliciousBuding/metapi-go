@@ -18,7 +18,7 @@ import { queryClient, router } from '@/lib/router'
 import './styles/index.css'
 import { initI18n } from './i18n/config'
 
-// CSP handshake (#1035 S2): hand the per-request nonce (injected by the Go
+// CSP handshake (#1035): hand the per-request nonce (injected by the Go
 // server as <meta name="csp-nonce">) to get-nonce before the router renders,
 // so react-style-singleton stamps the <style> tags it injects for dialog /
 // command-palette scroll locking with the nonce attribute. ESM evaluates all

@@ -1,10 +1,9 @@
-// metapi-go/features/channels — error-count banner that doubles as a
-// one-click filter entry (competitor-study-2026-08 P1-4: axonhub turns the
-// "N failing" banner into the filter entry so the error state and the action
-// state are one surface). When the loaded list contains failing channels,
-// the banner counts them and offers a single action that narrows the table
-// to exactly those rows; once the URL filter is scoped to failing statuses
-// it switches to a clearable "error-only" indicator with an exit action.
+// metapi-go/features/channels — error-count banner that doubles as the
+// one-click filter entry, so the error state and the action state are one
+// surface. When the loaded list contains failing channels, the banner counts
+// them and offers a single action that narrows the table to exactly those rows;
+// once the URL filter is scoped to failing statuses it switches to a clearable
+// "error-only" indicator with an exit action.
 //
 // URL semantics follow docs/internal/design/state-stability.md R1: the filter
 // is URL-owned persistent state (the existing shareable `?status=` facet),

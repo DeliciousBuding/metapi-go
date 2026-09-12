@@ -102,7 +102,7 @@ export function OAuthStartDialog({
   // round-trip — outside the browser's transient-activation window — so a
   // popup blocker can silently swallow it. The URL is therefore kept in
   // state and rendered as a link in the pending panel so the user can always
-  // open it manually (W19-T1 N3).
+  // open it manually.
   const [authorizationUrl, setAuthorizationUrl] = useState<string | null>(null)
   const [callbackUrl, setCallbackUrl] = useState('')
   // Which copyable field ('state' | 'redirectUri' | 'sshTunnel' |

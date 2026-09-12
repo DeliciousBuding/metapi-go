@@ -7,7 +7,7 @@ import '@/i18n/config'
 import { SettingsPage } from '../components/settings-page'
 import type { SettingsSubarea } from '../types'
 
-// Pins the single-h1 page-header contract (wave 8 lane C IA restructure):
+// Pins the single-h1 page-header contract:
 // the settings section page renders exactly one h1 (the section title) plus
 // its description, and no longer renders a breadcrumb or an in-page
 // secondary sidebar — the main sidebar's collapsible tree is the single

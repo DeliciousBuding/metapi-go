@@ -1,5 +1,5 @@
 // metapi-go/features/settings — shared types for the 5-subarea drill-in
-// Settings workspace (plan.md §5.5.2). Settings is split into general /
+// Settings workspace. Settings is split into general /
 // downstream / models / content / system-info; each subarea owns a
 // section-registry that drives both the in-page settings sidebar and the
 // content dispatcher (SettingsPage).
@@ -48,7 +48,7 @@ type SettingsSectionNavItem = {
  * entry in the main sidebar's Settings nested view
  * (components/layout/config/system-settings.config.ts).
  *
- * Wave 9 lane B semantic regroup (settings-ia-plan.md §3.2 方案 A):
+ * Semantic regroup of the settings navigation:
  *   basic        基础            — site, authentication
  *   proxy-models 代理与模型      — proxy-transport, routing, redirects,
  *                                 rates, allowlist, catalog-sources

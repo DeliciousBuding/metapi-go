@@ -226,7 +226,7 @@ describe('apiClient auth interceptor', () => {
     expect(adapterCalls).toHaveLength(1)
     expect(storage.has(TOKEN_KEY)).toBe(true)
     expect(replaceMock).not.toHaveBeenCalled()
-    // Error toasts carry a message-keyed dedupe id (W19-T1 N4).
+    // Error toasts carry a message-keyed dedupe id.
     expect(toastErrorMock).toHaveBeenCalledWith('IP not allowed', {
       id: 'api-error:IP not allowed',
     })
@@ -255,7 +255,7 @@ describe('apiClient auth interceptor', () => {
     await expect(apiClient.get('/api/protected')).rejects.toThrow()
 
     // A non-500 5xx (bad gateway, unavailable, timeout) maps to a status-
-    // aware server-error copy rather than the axios tech message (W19-M).
+    // aware server-error copy rather than the axios tech message.
     const expected = i18n.t('errors.serverError', { status: 502 })
     expect(toastErrorMock).toHaveBeenCalledWith(expected, {
       id: `api-error:${expected}`,

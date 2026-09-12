@@ -31,7 +31,7 @@ export function SettingsFormActions({
   return (
     // Full-width row with two fixed slots (status left, actions right) so the
     // "saved / unsaved" text swap never shifts the Reset/Save buttons
-    // (plan §3.4: 状态文案固定占位防跳动).
+    // (fixed placeholder copy, so the status text cannot shift the layout).
     <div className='flex min-w-full items-center justify-between gap-2'>
       <span className='text-muted-foreground text-xs whitespace-nowrap'>
         {isDirty ? t('settings.common.unsaved') : t('settings.common.saved')}

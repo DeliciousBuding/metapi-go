@@ -25,7 +25,7 @@ import { SettingsSectionCard } from '../../../components/settings-section-card'
 const FACTORY_RESET_COUNTDOWN_SECONDS = 3
 // Type-to-confirm word: the countdown stops misclicks but not "read it yet
 // didn't absorb it"; requiring the operator to type the word proves attention
-// (W19-T3 N2 / T1 §0.2, GitHub-style hard gate).
+// (a GitHub-style hard gate).
 const FACTORY_RESET_CONFIRM_WORD = 'RESET'
 
 export function DangerZoneSection() {

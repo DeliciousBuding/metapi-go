@@ -76,7 +76,7 @@ export const statsApi = {
   // A3: income vs outcome balance analysis.
   getBalanceIncomeOutcome: (days = 30) =>
     request(`/api/stats/balance-income-outcome?days=${days}`),
-  // B1: admin write-operation audit log.
+  // Admin write-operation audit log.
   getAdminAuditLogs: (params?: URLSearchParams) =>
     request(`/api/admin/audit-logs${params ? `?${params.toString()}` : ''}`),
   getAttention: (limit = 20) => request(`/api/stats/attention?limit=${limit}`),

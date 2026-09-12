@@ -91,7 +91,7 @@ export function RouteDetailSheet({
   const rebuildMutation = useRebuildRoutes()
   // Rebuild recomposes the route's channels from current model availability —
   // the same impact as the page-level rebuild, which already confirms. The
-  // sheet button got no gate, so mirror the confirmation here (W19-T1 P2-m②).
+  // sheet button got no gate, so mirror the confirmation here.
   const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false)
   const channels = useMemo(() => channelsQuery.data ?? [], [channelsQuery.data])
   const concreteModels = useMemo(

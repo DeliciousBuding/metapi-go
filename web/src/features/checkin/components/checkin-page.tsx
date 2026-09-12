@@ -424,7 +424,7 @@ export function CheckinPage() {
         </div>
       </div>
 
-      {/* Unified list-page error contract (W19-T1 P2-o → S7): the failed load
+      {/* Unified list-page error contract: the failed load
           replaces the filters + table instead of stacking over them, so a
           stale cache can never read as current data. The banner itself is
           owned by DataTablePage; the custom filter bar gates on !error. */}

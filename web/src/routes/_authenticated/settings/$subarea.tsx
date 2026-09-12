@@ -3,7 +3,7 @@
 // TanStack Router's file-router treats `$subarea.tsx` as the parent layout of
 // `$subarea.index.tsx` (bare subarea) and `$subarea.$section.tsx` (section).
 // `beforeLoad` validates the subarea id once for the whole subtree; legacy
-// subarea ids (general/models/system-info, wave 9 lane B regroup) fall
+// subarea ids (general/models/system-info) fall
 // through to the child routes, which know the `$section` param and map the
 // whole old URL to its new home. Unknown ids fall back to `basic`; the layout
 // renders the shared Outlet so the child route (index redirect or section

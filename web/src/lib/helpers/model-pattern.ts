@@ -1,4 +1,4 @@
-// metapi-go/lib — model pattern grammar predicates (S5 boundary inversion).
+// metapi-go/lib — model pattern grammar predicates.
 //
 // Pure string predicates for the token-route model-pattern grammar
 // (`re:` prefix = regex, glob metacharacters = non-exact). Shared by the

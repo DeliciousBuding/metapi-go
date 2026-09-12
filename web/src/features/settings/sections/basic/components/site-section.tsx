@@ -3,7 +3,7 @@
 // serverAddress) read from and written back through
 // GET/PUT /api/settings/runtime via the shared settings form.
 //
-// homePageContent was removed in Wave 8 Lane D: the field was stored but
+// homePageContent was removed: the field was stored but
 // never rendered anywhere (zero render consumers), so admins wrote landing
 // page content that no one could ever see. Old "home_page_content" rows in
 // the settings store are simply ignored.

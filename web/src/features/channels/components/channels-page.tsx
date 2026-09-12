@@ -144,7 +144,7 @@ export function ChannelsPage() {
   // the bars, never the channels table.
   const probeHistoryQuery = useProbeHistory('channels')
 
-  // P1-4 closure (competitor-study-2026-08): the error banner doubles as
+  // The error banner doubles as
   // the filter entry. The count derives from the loaded list; the mode
   // derives from the URL status facet — persistent, shareable state per
   // state-stability.md R1, never a one-shot param the page strips.
@@ -238,9 +238,9 @@ export function ChannelsPage() {
         </p>
       </div>
 
-      {/* S7: the main list-query error is owned by DataTablePage (replace
+      {/* The main list-query error is owned by DataTablePage (replace
           placement); the error-summary strip only shows when the list itself
-          loaded, matching the pre-S7 else-branch behavior. */}
+          loaded — what the page did before the contract moved here. */}
       {!channelsPageQuery.error &&
         (errorSummaryQuery.error && !errorSummaryQuery.data ? (
           <QueryErrorBanner

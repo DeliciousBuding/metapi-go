@@ -1,6 +1,6 @@
-// metapi-go/features/settings/sections/downstream — Downstream subarea
-// (wave 9 lane B): the global PROXY_TOKEN. The downstream API keys section
-// was promoted to a first-class left-nav route (/downstream-keys) in wave 10,
+// metapi-go/features/settings/sections/downstream — Downstream subarea:
+// the global PROXY_TOKEN. The downstream API keys section
+// was promoted to a first-class left-nav route (/downstream-keys),
 // so this subarea now hosts only the proxy-token surface.
 // Each section is React.lazy so its form/table dependencies land in a separate
 // async chunk; the surrounding Suspense boundary lives in settings-page.tsx.

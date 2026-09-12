@@ -1,5 +1,5 @@
 // metapi-go/features/settings/sections/operations/components — admin audit
-// logs section (B1). Read-only paginated table of admin write operations with
+// logs section. Read-only paginated table of admin write operations with
 // method and path filters.
 
 import { useQuery } from '@tanstack/react-query'

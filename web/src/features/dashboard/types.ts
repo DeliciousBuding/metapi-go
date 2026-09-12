@@ -1,5 +1,5 @@
 // metapi-go/features/dashboard — shared types for the 4-section Dashboard
-// workspace (plan.md §5.5.1). The dashboard is split into overview / traffic /
+// workspace. The dashboard is split into overview / traffic /
 // models / availability; each section owns a lazy builder (`build`) returning
 // its content ReactNode. Phase 2 ships chart wiring + stub data; phase 3
 // swaps in real API data from lib/api.ts (getDashboardSnapshot /

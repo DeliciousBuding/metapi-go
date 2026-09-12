@@ -5,7 +5,7 @@
 // the decision-snapshot projection, and the pattern helpers live here and in
 // `utils.ts` until those shared modules land.
 //
-// S5 boundary inversion: the summary-row contract shared with
+// The summary-row contract shared with
 // `@/lib/helpers/zeroChannelRoutes` moved to
 // `@/lib/helpers/token-route-contract` (lib ↛ features, rule 1); this file
 // re-exports it so existing consumers keep their import paths.

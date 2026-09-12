@@ -32,7 +32,7 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@/components/data-table', async () => {
   const { QueryErrorBanner } =
     await import('@/components/common/query-error-banner')
-  // The S7 error contract lives in the real DataTablePage; the stub honors it
+  // The error contract lives in the real DataTablePage; the stub honors it
   // so the page-level test verifies the page wires error/refetch correctly.
   return {
     DataTableBulkActions: () => null,

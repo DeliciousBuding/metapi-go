@@ -43,7 +43,7 @@ function SheetContent({
   side?: 'top' | 'right' | 'bottom' | 'left'
   showCloseButton?: boolean
   /**
-   * Mobile-only bottom close bar (W19-T1 N5). Set false on form sheets that
+   * Mobile-only bottom close bar. Set false on form sheets that
    * already render their own Cancel/Submit footer — otherwise the user sees
    * both "取消" and "关闭" stacked, two synonyms for the same exit.
    */
@@ -101,7 +101,7 @@ function SheetContent({
               <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
               <span className='sr-only'>{t('common.close')}</span>
             </SheetPrimitive.Close>
-            {/* Mobile escape hatch (W19-T1 N5): at ≤640px the panel is
+            {/* Mobile escape hatch: at ≤640px the panel is
                 full-width, so the overlay has no tappable edge and the small
                 top-right X is the only exit — poor thumb reach for a detail
                 or form sheet. The bar is a second SheetPrimitive.Close that
