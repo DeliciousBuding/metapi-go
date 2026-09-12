@@ -61,7 +61,7 @@ Rules of thumb:
 - Breaker open ⇒ filter out of selection, do not crash the process.
 - Recovery jobs (`scheduler` channel recovery, etc.) may heal state; they must not bypass auth or dialect boundaries.
 
-### 1.6 Config via env (no prefix), matching TS names
+### 1.6 Config via env: TS parity names, `METAPI_` for Go-only knobs
 
 - Configuration is environment-driven (`config.Load` / `config.Get`).
 - Env var names match TS Metapi **without** a `METAPI_` (or similar) prefix: e.g. `AUTH_TOKEN`, `PROXY_TOKEN`, `DB_TYPE`, `DB_URL`, `PORT`.
