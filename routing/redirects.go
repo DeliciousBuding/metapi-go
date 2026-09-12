@@ -5,12 +5,11 @@ import (
 	"sync"
 )
 
-// ---- K1b: in-process model redirect registry ----
+// ---- In-process model redirect registry ----
 
-// Design: k1-model-redirect-design-2026-08-01.md §7. Per-account
-// canonical→actual redirects (from model_name_redirects) are loaded into a
-// lock-free-swap registry so the hot path (eligibility + forward rewrite) is
-// an O(1) map lookup with no DB access.
+// Per-account canonical→actual redirects (from model_name_redirects) are
+// loaded into a lock-free-swap registry so the hot path (eligibility +
+// forward rewrite) is an O(1) map lookup with no DB access.
 
 // A redirect says: when a client requests `canonical` on this account, the
 // upstream actually exposes it as `actual`. Registry consumers:

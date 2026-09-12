@@ -38,7 +38,7 @@ func newMonitorWiringRouter(t *testing.T) http.Handler {
 	return New(cfg, web.Dist)
 }
 
-// TestMonitorProxyReachableWithoutBearerHeader is the Wave 4 S-line F1
+// TestMonitorProxyReachableWithoutBearerHeader is the monitor-auth
 // regression: /monitor-proxy/* serves the LDOH iframe and authenticates via
 // the HttpOnly meta_monitor_auth cookie, so it must not sit behind the Bearer
 // AdminAuth middleware. Cookie-only requests have to reach the monitor
@@ -97,8 +97,8 @@ func TestMonitorProxyReachableWithoutBearerHeader(t *testing.T) {
 	}
 }
 
-// TestMonitorAPIRoutesStayBehindBearerAuth pins the other half of the F1
-// fix: only /monitor-proxy/* leaves the AdminAuth group; the /api/monitor
+// TestMonitorAPIRoutesStayBehindBearerAuth pins the other half of the same
+// rule: only /monitor-proxy/* leaves the AdminAuth group; the /api/monitor
 // configuration surface stays Bearer-protected.
 func TestMonitorAPIRoutesStayBehindBearerAuth(t *testing.T) {
 	r := newMonitorWiringRouter(t)

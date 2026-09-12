@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verify-cascade-prod.sh — P0-585 production multi-channel cascade verification.
+# verify-cascade-prod.sh — production multi-channel cascade verification.
 #
 # Connects to a running metapi instance (any reachable host — set METAPI_URL)
 # and captures honest, READ-ONLY evidence of the multi-channel cascade
@@ -72,10 +72,10 @@ else
 	C_GREEN=""; C_RED=""; C_YELLOW=""; C_DIM=""; C_RESET=""
 fi
 
-log()      { printf '%s[p0585]%s %s\n' "$C_DIM" "$C_RESET" "$*"; }
-log_ok()   { printf '%s[p0585] OK   %s%s\n'  "$C_GREEN" "$C_RESET" "$*"; }
-log_warn() { printf '%s[p0585] WARN %s%s\n'  "$C_YELLOW" "$C_RESET" "$*"; }
-log_err()  { printf '%s[p0585] ERR  %s%s\n'  "$C_RED" "$C_RESET" "$*" >&2; }
+log()      { printf '%s[cascade]%s %s\n' "$C_DIM" "$C_RESET" "$*"; }
+log_ok()   { printf '%s[cascade] OK   %s%s\n'  "$C_GREEN" "$C_RESET" "$*"; }
+log_warn() { printf '%s[cascade] WARN %s%s\n'  "$C_YELLOW" "$C_RESET" "$*"; }
+log_err()  { printf '%s[cascade] ERR  %s%s\n'  "$C_RED" "$C_RESET" "$*" >&2; }
 
 # ---------------------------------------------------------------------------
 # Preflight
@@ -109,7 +109,7 @@ report_init() {
 		--arg timestamp "$TIMESTAMP_ISO" \
 		--arg url "$METAPI_URL" \
 		'{
-			feature: "P0-585 multi-channel cascade failover",
+			feature: "multi-channel cascade failover",
 			timestamp: $timestamp,
 			instanceUrl: $url,
 			verdict: "partial",
@@ -128,7 +128,7 @@ report_save_raw() { cp "$1" "$RAW_DIR/$2" 2>/dev/null || true; }
 
 report_init
 
-log "verifying P0-585 cascade against $METAPI_URL (report: $REPORT_JSON)"
+log "verifying cascade against $METAPI_URL (report: $REPORT_JSON)"
 
 # ---------------------------------------------------------------------------
 # HTTP helpers (curl with auth + timeout, capturing status + body)
@@ -151,7 +151,7 @@ curl_proxy_json() {
 	curl -sS -D "$RAW_DIR/$2.headers" -o "$RAW_DIR/$2.body" -w '%{http_code}' \
 		-H "Authorization: Bearer ${METAPI_PROXY_TOKEN}" \
 		-H "Content-Type: application/json" \
-		-H "X-Metapi-Verify: cascade-p0585" \
+		-H "X-Metapi-Verify: cascade-verify" \
 		-X POST --data "$3" \
 		--max-time "$METAPI_REQUEST_TIMEOUT" \
 		"${METAPI_URL}${1}" 2>"$RAW_DIR/$2.err" || true
@@ -291,7 +291,7 @@ if [ -z "$probe_model" ]; then
 	report_push_residual "live probe skipped — no model resolved (set METAPI_TEST_MODEL)"
 else
 	log "  probing model: $probe_model"
-	probe_body="{\"model\":\"${probe_model}\",\"messages\":[{\"role\":\"user\",\"content\":\"p0585 cascade verify (read-only)\"}],\"max_tokens\":1,\"stream\":false}"
+	probe_body="{\"model\":\"${probe_model}\",\"messages\":[{\"role\":\"user\",\"content\":\"cascade verify (read-only)\"}],\"max_tokens\":1,\"stream\":false}"
 	probe_status="$(curl_proxy_json /v1/chat/completions probe.json "$probe_body")"
 	if [ -f "$RAW_DIR/probe.json.headers" ]; then
 		probe_request_id="$(awk -F': ' 'tolower($1)=="x-request-id"{gsub(/\r/,"",$2); print $2; exit}' "$RAW_DIR/probe.json.headers" 2>/dev/null || true)"
@@ -430,7 +430,7 @@ fi
 report_set '.verdict' "$(jq -n --arg v "$verdict" '$v')"
 
 echo ""
-echo "================ P0-585 cascade verification report ================"
+echo "================ cascade verification report ================"
 echo " Instance      : $METAPI_URL"
 echo " Timestamp     : $TIMESTAMP_ISO"
 echo " Verdict       : $verdict"

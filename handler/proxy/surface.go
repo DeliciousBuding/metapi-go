@@ -121,7 +121,7 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 		return nil, &SurfResult{OK: false, Status: 400, Error: "model is required", ErrorType: "invalid_request_error"}
 	}
 
-	// N3 reasoning suffix: a suffix like -thinking/-high/
+	// Reasoning suffix: a suffix like -thinking/-high/
 	// -medium/-low requests a reasoning variant. Strip it so routing matches
 	// the base model; inject OpenAI reasoning_effort on OpenAI surfaces when
 	// the client didn't already set it. Non-OpenAI dialects strip for routing

@@ -15,7 +15,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-// Account model refresh (#1005 Wave 15): the single-account refresh core
+// Account model refresh (#1005): the single-account refresh core
 // moved here from handler/admin/model_refresh.go so the admin handler, the
 // periodic model-sync scheduler and future callers share one owner and one
 // data flow. The handler keeps the accountModelRefresher seam and shapes the
@@ -227,7 +227,7 @@ func RefreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	if redirectErr != nil {
 		slog.Warn("model-refresh: redirect generation failed", "account_id", accountID, "error", redirectErr)
 	} else {
-		// K1b: keep the in-process hot-path registry in sync after generation.
+		// Keep the in-process hot-path registry in sync after generation.
 		ReloadRedirectRegistry(context.Background(), db)
 		result.RedirectsCreated = redirectsCreated
 	}

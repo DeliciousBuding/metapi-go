@@ -1,6 +1,6 @@
 // metapi-go/features/dashboard — sr-only data summary table for charts.
 //
-// S10 chart-a11y alternative layer (#1035): recharts renders SVG that screen
+// Chart-a11y alternative layer (#1035): recharts renders SVG that screen
 // readers cannot walk, so each main dashboard chart also exposes its
 // already-loaded series data as a visually hidden table in a simple
 // "series x key points" shape. Read-only presentation layer — it never

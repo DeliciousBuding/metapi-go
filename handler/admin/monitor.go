@@ -41,7 +41,7 @@ func RegisterMonitorRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 // surface. Authentication is the HttpOnly meta_monitor_auth cookie minted by
 // createSession — iframe sub-resource requests cannot carry an Authorization
 // header, so mounting these routes behind the Bearer AdminAuth middleware
-// breaks the LDOH iframe (Wave 4 security handoff F1). The handler enforces
+// breaks the LDOH iframe. The handler enforces
 // the cookie itself via ensureMonitorAuth; keep this registrar outside any
 // Bearer-gated group.
 func RegisterMonitorProxyRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
@@ -253,11 +253,11 @@ func (h *monitorHandler) ldohProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wildcardPath := resolveLdohProxyPath(r)
-	// Wave 4 security handoff M1: reject ".." segments before joining the
+	// Reject ".." segments before joining the
 	// LDOH base URL. The request path arrives percent-decoded, so %2e%2e is
 	// caught in the same scan. Without this check a monitor-session cookie
 	// holder could normalize outside the LDOH base subpath on the upstream
-	// host once the surface is reachable with cookie-only auth (F1).
+	// host once the surface is reachable with cookie-only auth.
 	if proxy.ContainsPathTraversal(wildcardPath) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid proxy path"})
 		return

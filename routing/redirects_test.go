@@ -7,7 +7,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-// ---- K1b: redirect registry integration ----
+// ---- Redirect registry integration ----
 
 // End-to-end selector behavior: a channel whose source_model is the upstream
 // actual name (claude-3-5-sonnet-20241022) becomes eligible for a canonical
@@ -78,7 +78,7 @@ func TestSelectChannel_RedirectRegistryEnablesActualChannel(t *testing.T) {
 	}
 
 	// Direct actual-name request does NOT match the canonical route pattern —
-	// clients are expected to request canonical names; K1b only forwards
+	// clients are expected to request canonical names; the registry only forwards
 	// canonical → actual on the wire. Verify no crash and no selection.
 	sel, err = selector.SelectChannel(context.Background(), actualSource, DownstreamRoutingPolicy{})
 	if err != nil {

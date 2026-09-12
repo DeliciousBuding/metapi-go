@@ -1,6 +1,6 @@
 package admin
 
-// Focused tests for the Wave 12 account Models surface (#998):
+// Focused tests for the account Models surface (#998):
 //   - manual upstream refresh persists availability into the existing owner
 //     (model_availability) — proven by store read-back;
 //   - each refresh action triggers exactly one route rebuild + one routing
@@ -31,7 +31,7 @@ import (
 
 // withRefreshSideEffectCounters swaps the rebuild/invalidate seams for
 // counting fakes and restores the production owners on cleanup.
-// Wave 15 (#1005) moved the refresh core to service.RefreshAccountModels, so
+// #1005 moved the refresh core to service.RefreshAccountModels, so
 // the "exactly one route rebuild + one routing-cache invalidation per refresh
 // action" contract is asserted against the service seams; the manual-models
 // endpoint keeps using the handler-level invalidateRoutingCache seam, which is

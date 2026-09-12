@@ -186,7 +186,8 @@ func ChannelSupportsRequestedModel(channelSourceModel *string, requestedModel st
 	return false
 }
 
-// ChannelSupportsRequestedModelWithRedirects is the K1b variant: besides the
+// ChannelSupportsRequestedModelWithRedirects is the redirect-aware variant:
+// besides the
 // base checks it consults the in-process redirect registry, so a channel whose
 // source_model is an upstream `actual` name (e.g. claude-3-5-sonnet-20241022)
 // becomes eligible for a request of its `canonical` (claude-3-5-sonnet) on the
@@ -395,7 +396,7 @@ func NormalizeChannelSourceModel(channelSourceModel *string) string {
 // ResolveActualModelForSelectedChannel resolves the actual model to forward.
 // Resolution order (first match wins):
 // 1. display-name hit → the channel's own source model (existing behavior);
-// 2. K1b: per-account redirect (canonical → actual) when no route-level
+// 2. Per-account redirect (canonical → actual) when no route-level
 // model mapping already rewrote the name — the upstream only knows the
 // dated/versioned actual name;
 // 3. route-level model mapping (existing fallback).

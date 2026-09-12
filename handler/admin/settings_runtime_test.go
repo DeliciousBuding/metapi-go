@@ -514,7 +514,7 @@ func TestSettingsRuntimeNotifyTogglesPersistAsJSONObject(t *testing.T) {
 
 // errorCode contract: the settings-apply validation funnel emits the
 // additive machine-readable invalidSettingsValue code on 400-class apply
-// failures (the largest single validation family — scout §settings_apply);
+// failures (the largest single validation family);
 // 5xx apply failures intentionally carry no code. The message text stays
 // the display fallback.
 func TestSettingsRuntimeApplyValidationCarriesCode(t *testing.T) {

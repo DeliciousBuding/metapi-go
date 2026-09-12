@@ -31,7 +31,7 @@ type ChartShellProps = {
   children: ReactNode
   /**
    * Optional screen-reader-only data summary rendered next to the chart
-   * viewport (S10, #1035). Hidden until loading finishes, same as the chart.
+   * viewport (#1035). Hidden until loading finishes, same as the chart.
    */
   summary?: ReactNode
   className?: string

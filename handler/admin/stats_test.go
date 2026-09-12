@@ -1259,8 +1259,8 @@ func TestStats_SQLiteMarketplaceFromAvailability(t *testing.T) {
 	}
 }
 
-// TestStats_SQLiteMarketplaceTokensBatchedAcrossModels is the Wave 18 N+1
-// regression: enabled tokens must attach to every model entry of an account
+// TestStats_SQLiteMarketplaceTokensBatchedAcrossModels is the N+1 regression:
+// enabled tokens must attach to every model entry of an account
 // from ONE batched account_tokens load (the pre-fix shape fired one token
 // query per model×account availability row). The test pins the exact token
 // set and the legacy ordering (is_default DESC, id ASC), and proves

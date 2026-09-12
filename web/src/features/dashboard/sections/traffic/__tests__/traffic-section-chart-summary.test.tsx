@@ -1,4 +1,4 @@
-// S10 (#1035): traffic charts expose sr-only data summary tables built from
+// #1035: traffic charts expose sr-only data summary tables built from
 // the already-loaded query data, so screen-reader users get the key series
 // values instead of opaque recharts SVG. Uses the real ChartShell so the
 // summary slot is exercised end-to-end (charts themselves stay stubbed).
@@ -110,7 +110,7 @@ function renderSection() {
   )
 }
 
-describe('TrafficSection chart data summaries (S10)', () => {
+describe('TrafficSection chart data summaries', () => {
   it('exposes one sr-only summary table per loaded chart', async () => {
     renderSection()
 

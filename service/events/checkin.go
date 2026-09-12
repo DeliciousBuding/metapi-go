@@ -1,7 +1,7 @@
 package events
 
-// Checkin event definitions — batch 1 of the structured-event migration
-// (F5). The TitleEn / MessageEn / Type values replicate the historical
+// Checkin event definitions — first batch of the structured-event migration.
+// The TitleEn / MessageEn / Type values replicate the historical
 // producer output byte-for-byte so migrated rows are identical for legacy
 // consumers (notifications, CSV export, history fallback).
 func init() {

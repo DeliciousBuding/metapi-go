@@ -311,7 +311,7 @@ describe('attention bell', () => {
   })
 
   it('re-localizes labels through attention params in the active language', async () => {
-    // F3: the backend keeps an English label for API compat and ships params
+    // The backend keeps an English label for API compat and ships params
     // so the bell renders the same item in the operator's language.
     mockGetAttention.mockResolvedValue({
       items: [

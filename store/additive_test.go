@@ -350,7 +350,7 @@ func TestPostgresEnsureColumnAndMigrations(t *testing.T) {
 	}
 }
 
-// TestSC2027AdminReadPathIndexes verifies the Wave 18 admin read-path indexes
+// TestSC2027AdminReadPathIndexes verifies the admin read-path indexes
 // land on a fresh SQLite install via AutoMigrate (which runs the additive
 // registry after buildIndexes) and survive a second AutoMigrate run unchanged
 // — the CREATE INDEX IF NOT EXISTS + schema_migrations bookkeeping must make

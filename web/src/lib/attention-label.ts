@@ -1,4 +1,4 @@
-// metapi-go/lib — shared attention-item label localization (F3).
+// metapi-go/lib — shared attention-item label localization.
 //
 // The backend attention API (`GET /api/stats/attention`) keeps an English
 // `label` for API compat and ships structured `params` alongside (username /

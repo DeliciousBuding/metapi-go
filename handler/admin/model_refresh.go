@@ -15,8 +15,8 @@ import (
 var accountModelRefresher = refreshAccountModels
 
 // invalidateRoutingCache remains the side-effect seam for the manual-models
-// path (accounts_models.go). The refresh path moved to the service layer in
-// Wave 15 (#1005) carries its own rebuild/invalidate seams there — see
+// path (accounts_models.go). The refresh path moved to the service layer for
+// #1005, which carries its own rebuild/invalidate seams there — see
 // service.SetModelRefreshSideEffectsForTest.
 var invalidateRoutingCache = routing.InvalidateCache
 
@@ -31,7 +31,7 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 }
 
 // accountModelRefreshPayload maps a service.AccountModelRefreshResult onto the
-// exact operator-facing JSON shape the handler returned before Wave 15.
+// exact operator-facing JSON shape the handler returned before #1005.
 func accountModelRefreshPayload(accountID int64, result service.AccountModelRefreshResult) map[string]any {
 	rebuildPayload := map[string]any{
 		"routesConsidered":    result.Rebuild.RoutesConsidered,

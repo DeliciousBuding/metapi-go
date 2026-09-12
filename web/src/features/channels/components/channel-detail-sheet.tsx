@@ -200,7 +200,7 @@ export function ChannelDetailSheet({
                 <DetailField label={t('channels.detail.cooldownUntil')}>
                   {formatDateTime(channel.cooldownUntil, locale)}
                 </DetailField>
-                {/* Structured cooldown reason (P0-3): inline summary; the full
+                {/* Structured cooldown reason: inline summary; the full
                     root-cause dialog (countdown + clear) opens from the status
                     badge on the channels table. */}
                 <DetailField label={t('channels.reason.fieldLabel')} full>

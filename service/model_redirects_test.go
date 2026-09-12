@@ -9,7 +9,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-// ---- K1b: registry reload from model_name_redirects ----
+// ---- Registry reload from model_name_redirects ----
 
 func TestReloadRedirectRegistry_LoadsFromDB(t *testing.T) {
 	db, err := store.Open(store.DialectSQLite, ":memory:", false)

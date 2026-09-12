@@ -1,4 +1,4 @@
-// Behavior tests for the cooldown root-cause dialog (P0-3): reason rendering,
+// Behavior tests for the cooldown root-cause dialog: reason rendering,
 // honest legacy-data state, remaining-time countdown, and the route-scoped
 // clear action reuse.
 

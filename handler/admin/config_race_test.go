@@ -12,8 +12,8 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 )
 
-// TestSettingsRuntime_ConcurrentApplyVsHotReaders reproduces the Wave 18
-// config-race cluster end to end: the real PUT /api/settings/runtime writer
+// TestSettingsRuntime_ConcurrentApplyVsHotReaders reproduces the config-race
+// cluster end to end: the real PUT /api/settings/runtime writer
 // (settings_apply.go) runs concurrently with the hot-path readers that
 // dereference the same config fields lock-free:
 //

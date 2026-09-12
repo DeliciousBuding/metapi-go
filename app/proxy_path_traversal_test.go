@@ -80,7 +80,7 @@ func (env *geminiTraversalEnv) postGemini(t *testing.T, target string) *httptest
 	return rec
 }
 
-// TestGeminiWildcardPathTraversalNeverReachesUpstream is the Wave 4 S-line T1
+// TestGeminiWildcardPathTraversalNeverReachesUpstream is the path-traversal
 // regression: a legitimate downstream key holder must not be able to escape
 // the site API prefix by smuggling ".." segments through the Gemini wildcard
 // route (POST /v1beta/models/*). net/http has already percent-decoded the

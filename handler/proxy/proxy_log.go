@@ -220,7 +220,7 @@ func writeSuccessProxyLog(
 	if selected.Site.Platform != "" {
 		platformName = selected.Site.Platform
 	}
-	// K1b: billing attribution uses the requested (canonical) name so a
+	// Billing attribution uses the requested (canonical) name so a
 	// redirect/rewrite to the upstream actual name never changes cost
 	// accounting — ratio lookups stay on the canonical model.
 	billing := EstimateBillingCostFromUsage(requestedModel, platformName, usage)

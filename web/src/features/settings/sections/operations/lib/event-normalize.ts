@@ -26,7 +26,7 @@ export type ProgramEvent = {
   read?: boolean
   createdAt?: string
   /**
-   * Structured-event fields (F5): rows emitted through the events registry
+   * Structured-event fields: rows emitted through the events registry
    * carry a stable titleKey plus typed params; legacy rows have neither and
    * render through the historical title-match path.
    */

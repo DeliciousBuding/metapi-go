@@ -1,4 +1,4 @@
-// Behavior tests for the site-announcements list page (#986 Lane C):
+// Behavior tests for the site-announcements list page (#986):
 // row rendering with the site-name join, read/unread distinction, and the
 // truthful loading / empty / error states.
 

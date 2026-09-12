@@ -1,4 +1,4 @@
-// F5 structured events — registry/locale consistency.
+// Structured events — registry/locale consistency.
 //
 // The Go events registry (service/events) and the frontend locale both
 // enumerate event keys. The register() helper panics on duplicate keys;
@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest'
 
 import i18n from '@/i18n/config'
 
-/** Mirror of service/events registry keys (checkin family, batch 1 of F5). */
+/** Mirror of service/events registry keys (checkin family, first batch). */
 const REGISTRY_KEYS = [
   'checkinSuccess',
   'checkinFailed',
@@ -20,7 +20,7 @@ const REGISTRY_KEYS = [
   'checkinSkipped',
 ]
 
-describe('F5 structured events — registry/locale consistency', () => {
+describe('structured events — registry/locale consistency', () => {
   it('declares every registry key under events.titles in both locales', () => {
     for (const key of REGISTRY_KEYS) {
       expect(i18n.exists(`events.titles.${key}`), `titles.${key}`).toBe(true)

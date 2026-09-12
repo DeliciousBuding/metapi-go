@@ -93,7 +93,7 @@ func main() {
 	// before the server accepts traffic so the admin list endpoint never
 	// pays the old per-request scan+update cost. See app.RunOauthIdentityBackfill.
 	app.RunOauthIdentityBackfill()
-	// N7: apply operator-configured cache-ratio fallback overrides to routing.
+	// Apply operator-configured cache-ratio fallback overrides to routing.
 	app.ApplyCacheRatioOverrides()
 	if err := app.ConfigureProxyUpstream(cfg); err != nil {
 		slog.Error("proxy upstream wiring failed", "error", err)

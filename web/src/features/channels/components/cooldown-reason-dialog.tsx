@@ -1,4 +1,4 @@
-// metapi-go/features/channels/components — cooldown root-cause dialog (P0-3).
+// metapi-go/features/channels/components — cooldown root-cause dialog.
 //
 // Opens from the status badge of a cooling / breaker-open channel. Renders the
 // structured reason recorded when the cooldown triggered (trigger code,

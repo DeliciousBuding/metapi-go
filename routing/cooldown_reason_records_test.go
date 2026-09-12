@@ -9,7 +9,7 @@ import (
 )
 
 // =============================================================================
-// P0-3 — RecordFailure / RecordProbeFailure persist structured cooldown
+// RecordFailure / RecordProbeFailure persist structured cooldown
 // reasons; success and clear paths reset them. Uses the isolationDB harness
 // (failure_isolation_test.go) and asserts on the captured update maps, which
 // are the exact payloads ProxyRoutingStore writes to route_channels /

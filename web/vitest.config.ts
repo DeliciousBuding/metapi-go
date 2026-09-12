@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 
 // METAPI_WEB_VERSION define and '@' alias come from the shared build module
 // (single source of truth with rsbuild.config.ts) so tests resolve exactly
-// the same compile-time constants as dev/build (issue #1035 S1).
+// the same compile-time constants as dev/build (issue #1035).
 import { srcAlias, versionDefines } from './config/build-shared.ts'
 
 export default defineConfig({

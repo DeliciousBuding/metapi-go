@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Incident class under test (w18-pg-dialect audit): a shared statement binds
+// Incident class under test: a shared statement binds
 // the INTEGER literal 0/1 to a BOOLEAN column. SQLite declares its boolean
 // columns as INTEGER (see schema_ddl.go), so the literal is silently accepted;
 // PostgreSQL uses native BOOLEAN and rejects the row with

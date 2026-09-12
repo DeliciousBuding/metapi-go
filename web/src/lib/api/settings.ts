@@ -154,7 +154,7 @@ export const settingsApi = {
       body: JSON.stringify({ data }),
       skipErrorHandler: true,
     }),
-  // F1: import plan preview before commit.
+  // Import plan preview before commit.
   previewBackupImport: (data: unknown) =>
     request('/api/settings/backup/import/preview', {
       method: 'POST',

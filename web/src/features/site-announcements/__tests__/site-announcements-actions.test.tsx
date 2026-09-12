@@ -1,4 +1,4 @@
-// Behavior tests for the site-announcements actions (#986 Lane C):
+// Behavior tests for the site-announcements actions (#986):
 // mark-read / mark-all-read, the ConfirmDialog guard on the destructive
 // clear, and the sync-now background task observed through api.getTask.
 

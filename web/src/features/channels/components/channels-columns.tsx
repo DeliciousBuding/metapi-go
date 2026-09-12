@@ -29,7 +29,7 @@ import type { ChannelRow, ChannelStatus } from '../types'
 
 export type ChannelsColumnActions = {
   onView: (channel: ChannelRow) => void
-  /** Opens the cooldown root-cause dialog (P0-3); badge click on failing rows. */
+  /** Opens the cooldown root-cause dialog; badge click on failing rows. */
   onShowReason?: (channel: ChannelRow) => void
 }
 

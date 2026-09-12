@@ -424,7 +424,7 @@ func TestShouldContinueEndpointFallbackSingleOwnerFourQuadrants(t *testing.T) {
 }
 
 // TestTransportErrorFallbackGoesThroughTheSingleDecisionFunction is the
-// end-to-end half of the F3 nail: a transport-level "connection refused" on the
+// end-to-end half of that nail: a transport-level "connection refused" on the
 // primary protocol path is covered by the same-site abort policy, so the
 // dispatcher must stop walking the protocol candidate list and report the
 // failure for the PRIMARY path. Historically transport errors bypassed the

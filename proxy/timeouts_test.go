@@ -30,7 +30,7 @@ func TestRequestCeiling_DoublesFirstByteWindowOnlyAboveDefault(t *testing.T) {
 	}
 }
 
-// TestWriteBudget_NeverInvertsRequestCeiling locks the audit T1 invariant: the
+// TestWriteBudget_NeverInvertsRequestCeiling locks the write-budget invariant: the
 // server-side write budget must always be at least the whole-request ceiling,
 // otherwise a buffered response arriving late is killed while being written.
 func TestWriteBudget_NeverInvertsRequestCeiling(t *testing.T) {

@@ -87,7 +87,7 @@ func parseCSPDirectives(t *testing.T, csp string) map[string][]string {
 }
 
 // assertCSPPolicy pins the directive-level shape of the Content-Security-Policy
-// header (#1035 S2): the static directives keep their exact source lists, and
+// header (#1035): the static directives keep their exact source lists, and
 // style-src carries 'self' + exactly one per-request nonce + the sonner toast
 // hash — with 'unsafe-inline' gone from every directive.
 func assertCSPPolicy(t *testing.T, csp string) {

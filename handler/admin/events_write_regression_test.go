@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Regression guards for the w18-pg-dialect incident class: event writers that
+// Regression guards for the dialect incident class: event writers that
 // bound the INTEGER literal 0 to events.read. On SQLite (INTEGER column) the
 // row was written anyway, so these tests pass on both sides of the fix
 // locally; the PostgreSQL type-error proof lives in

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// TestLdohProxy_PathTraversalRejected is the Wave 4 S-line M1 regression: a
+// TestLdohProxy_PathTraversalRejected is the path-traversal regression: a
 // monitor session cookie must not let its holder escape the LDOH base
 // subpath by smuggling ".." segments through /monitor-proxy/ldoh/*. net/http
 // has already percent-decoded the request target into r.URL.Path before the

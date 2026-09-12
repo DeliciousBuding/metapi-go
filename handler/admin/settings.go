@@ -146,7 +146,7 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		// Global filters (always JSON arrays; never null)
 		"globalBlockedBrands": stringSliceOrEmpty(rt.GlobalBlockedBrands),
 		"globalAllowedModels": stringSliceOrEmpty(rt.GlobalAllowedModels),
-		// N7: effective prompt-cache ratio fallbacks (reflect overrides).
+		// Effective prompt-cache ratio fallbacks (reflect overrides).
 		"cacheRatioDefault": routing.DefaultCacheRatioForModel("gpt-4o"),
 		"cacheRatioClaude":  routing.DefaultCacheRatioForModel("claude-3-5-sonnet"),
 	})
@@ -174,7 +174,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		h.applySiteBrandingSettings,
 	} {
 		if err := apply(body); err != nil {
-			// Single funnel (scout §settings_apply): 400-class apply failures
+			// Single funnel: 400-class apply failures
 			// are user-side validation errors, so they carry the machine-
 			// readable invalidSettingsValue code; 5xx internals keep the raw
 			// message with no code (backend text stays the display fallback).
@@ -453,7 +453,7 @@ func stringSliceOrEmpty(in []string) []string {
 
 func logSettingsEvent(db *sqlx.DB, eventType, title, message, level, createdAt string) {
 	// read is a BOOLEAN column on PostgreSQL: bind FALSE, not the integer
-	// literal 0 (w18-pg-dialect: PG rejects integer literals for booleans).
+	// literal 0 (PG rejects integer literals for booleans).
 	query := db.Rebind(`INSERT INTO events (type, title, message, level, related_type, created_at, "read")
 		VALUES (?, ?, ?, ?, 'settings', ?, FALSE)`)
 	if _, err := db.Exec(query, eventType, title, message, level, createdAt); err != nil {

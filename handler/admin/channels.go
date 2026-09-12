@@ -35,7 +35,7 @@ type channelListRow struct {
 	SuccessCount   *int64  `db:"success_count"`
 	TotalLatencyMs *int64  `db:"total_latency_ms"`
 	CooldownUntil  *string `db:"cooldown_until"`
-	// Structured cooldown reason (P0-3): why the channel cooled down. NULL on
+	// Structured cooldown reason: why the channel cooled down. NULL on
 	// rows cooled before the reason columns existed.
 	CooldownReasonCode *string `db:"cooldown_reason_code"`
 	CooldownReason     *string `db:"cooldown_reason"`

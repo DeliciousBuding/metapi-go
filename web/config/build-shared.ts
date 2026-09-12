@@ -3,7 +3,7 @@
 //   - vitest.config.ts   → unit tests
 //
 // Keeping devProxy, the METAPI_WEB_VERSION define and the '@' alias here
-// guarantees the three consumers cannot drift apart (issue #1035 S1).
+// guarantees the three consumers cannot drift apart (issue #1035).
 
 import { readFileSync } from 'node:fs'
 import path from 'node:path'

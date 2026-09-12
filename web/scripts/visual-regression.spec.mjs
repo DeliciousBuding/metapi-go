@@ -28,7 +28,7 @@ const PAGES = [
   ['token-routes', '/token-routes'],
   ['accounts', '/accounts'],
   ['sites', '/sites'],
-  // Wave 11 expansion — same contract, audited on a fresh DB:
+  // Later expansion — same contract, audited on a fresh DB:
   // models/channels/oauth render empty tables with no timestamp columns when
   // the DB is empty (date fields only appear on data rows).
   ['models', '/models'],

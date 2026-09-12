@@ -1,4 +1,4 @@
-// metapi-go/components/common — probe history envelope parsing (P0-2).
+// metapi-go/components/common — probe history envelope parsing.
 // The parser turns the backend `{limit, items}` envelope into the row-id map
 // the table cells consume; a malformed body must throw (fail the query
 // explicitly) instead of masquerading as an empty history.

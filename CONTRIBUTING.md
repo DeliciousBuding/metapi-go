@@ -45,7 +45,7 @@ go test ./... -count=1 -race        # backend suite with race detector
 cd web && bun install                # once
 cd web && bun run typecheck && bun run lint && bun run test && bun run knip
 cd web && bun run format:check       # oxfmt
-make docs-hygiene                    # public-markdown hygiene (no local paths/secrets)
+make docs-hygiene                    # public-tree hygiene (no local paths/secrets/plan codes)
 ```
 
 TL;DR: `make verify` covers the Go side; `make verify-race` adds the race
@@ -64,7 +64,7 @@ detector. The pre-push hook runs all of it automatically.
 ## Versioning & release cadence
 
 Releases follow a **patch-first** cadence (pre-1.0 the last digit iterates
-continuously): each merged wave with user-visible changes bumps the **patch**
+continuously): each merged batch of user-visible changes bumps the **patch**
 digit and ships immediately; the minor digit is reserved for themed
 milestones; the major digit stays `0` until the 1.0 readiness criteria. The
 single source of truth is
@@ -84,8 +84,8 @@ single source of truth is
   (checked by `web/src/i18n/__tests__/i18n-keys.test.ts`).
 - **Docs**: user-facing behavior changes update public product docs and the
   `CHANGELOG.md`; open work is tracked in GitHub issues. Public docs must never
-  contain local paths, private hostnames, or credentials (`make docs-hygiene`
-  enforces this).
+  contain local paths, private hostnames, credentials, or internal work-programme
+  codes (`make docs-hygiene` enforces this).
 - **Single binary**: the production image ships no Node/Bun runtime. Don't
   add npm scripts to the runtime path.
 
