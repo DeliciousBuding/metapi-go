@@ -13,15 +13,15 @@
     const body = document.body
     const preset = readCookie('theme_preset')
     const presets = [
-      'anthropic',
-      'simple-large',
-      'underground',
-      'rose-garden',
-      'lake-view',
-      'sunset-glow',
-      'forest-whisper',
-      'ocean-breeze',
-      'lavender-dream',
+      'graphite',
+      'cobalt',
+      'lagoon',
+      'kelp',
+      'moss',
+      'ochre',
+      'ember',
+      'berry',
+      'plum',
     ]
     if (presets.includes(preset)) {
       body.setAttribute('data-theme-preset', preset)

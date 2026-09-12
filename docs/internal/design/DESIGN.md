@@ -16,7 +16,7 @@
 | Audience        | Operators managing multi-site API gateways, keys, and routing                                                                                                                                                                                                                                                         |
 | Personality     | Calm GCP control room with Apple-grade materials — not consumer marketing                                                                                                                                                                                                                                             |
 | Density default | Comfortable-dense (admin tables + KPI cards coexist); density axis `data-theme-scale`                                                                                                                                                                                                                                 |
-| Brand color     | **GCP Blue family** — light primary `oklch(0.692 0.141 243.716)`, dark primary `oklch(0.54 0.142 248.516)` (see §2.3; exact values live in `theme.css`, never hard-code hex)                                                                                                                                          |
+| Brand color     | **Indigo family** — light primary `oklch(0.565 0.19 262)` (white text), dark primary `oklch(0.71 0.155 262)` (dark ink); every constrained lightness is solved against its WCAG floor (see §2.3; exact values live in `theme.css`, never hard-code hex)                                                                                                                                          |
 | Logo mark       | Transparent solid-color badge `web/public/logo.svg` — rounded-square `#3b5bdb` field with white **π** glyph (real U+03C0, serif fallback, not hand-drawn strokes); `favicon.svg` = standalone solid blue π for small sizes; both served from the embedded SPA root (`router.go` root-file whitelist, `image/svg+xml`) |
 | Fonts           | **Public Sans + Noto Sans SC**, optional **Lora** (locally embedded via `@fontsource-variable`) — no Google Fonts CDN                                                                                                                                                                                                                            |
 | High-res        | Content layout axis `data-theme-content-layout` (`full`/`centered`); centered clamps to `--max-content-width` (1280px) at ≥1280px viewport; utilities `max-w-container` (1280px) / `max-w-container-lg` (1536px)                                                                                                      |
@@ -43,7 +43,7 @@ All values live in `web/src/styles/theme.css` under `:root` (light) and `.dark` 
 | Layer | Mechanism |
 | ----- | --------- |
 | Theme mode   | `<html>` carries `class="dark"` or `class="light"` plus a `data-theme` attribute (compat), set by `ThemeProvider` and the FOUC bootstrap in `web/index.html`; persisted in the `vite-ui-theme` cookie (1y) and falling back to `prefers-color-scheme` |
-| Preset       | `<body data-theme-preset>` — 10 shipped presets: default, anthropic, simple-large, underground, rose-garden, lake-view, sunset-glow, forest-whisper, ocean-breeze, lavender-dream |
+| Preset       | `<body data-theme-preset>` — 10 shipped presets: default, graphite, cobalt, lagoon, kelp, moss, ochre, ember, berry, plum |
 | Font axis    | `<body data-theme-font>` — `sans` or `serif` (the `default` setting resolves to `sans`, see `public/theme-init.js`); swaps `--font-body` |
 | Radius axis  | `<body data-theme-radius>` — `default`, `none`, `sm`, `md`, `lg`, `xl`; overrides `--radius` |
 | Density axis | `<body data-theme-scale>` — `default`, `sm`, `lg`, `xl`; rescales `--text-*` and `--spacing` |
@@ -55,16 +55,16 @@ Constants (allowed values, defaults, cookies `theme_preset` / `theme_font` / `th
 
 | Token                     | Light                                 | Dark                                    | Usage                                             |
 | ------------------------- | ------------------------------------- | --------------------------------------- | ------------------------------------------------- |
-| `--background`            | `oklch(1 0 0)`                        | `oklch(0.235 0 0)`                      | App canvas                                        |
-| `--foreground`            | `oklch(0.145 0 0)`                    | `oklch(0.965 0 0)`                      | Primary text                                      |
-| `--card`                  | `oklch(1 0 0)`                        | `oklch(0.285 0 0)`                      | Cards, tables, drawers                            |
-| `--popover`               | `oklch(1 0 0)`                        | `oklch(0.305 0 0)`                      | Popovers, menus, dropdowns                        |
-| `--secondary` / `--muted` | `oklch(0.95 0 0)` / `oklch(0.97 0 0)` | `oklch(0.335 0 0)` / `oklch(0.305 0 0)` | Nested wells, subdued fills                       |
-| `--muted-foreground`      | `oklch(0.49 0 0)`                     | `oklch(0.78 0 0)`                       | Meta/secondary text                               |
-| `--border`                | `oklch(0.93 0 0)`                     | `oklch(1 0 0 / 10%)`                    | Hairlines                                         |
-| `--input`                 | `oklch(0.93 0 0)`                     | `oklch(1 0 0 / 17%)`                    | Input borders                                     |
-| `--ring`                  | `oklch(0.708 0.16 249.003)`           | `oklch(0.554 0.148 250.726)`            | Focus rings (`focus-visible:ring-3 ring-ring/50`) |
-| `--overlay`               | `oklch(0 0 0 / 0.1)`                  | `oklch(0 0 0 / 0.32)`                   | Modal/sheet scrim                                 |
+| `--background`            | `oklch(1 0 0)`                        | `oklch(0.205 0.006 262)`                | App canvas                                        |
+| `--foreground`            | `oklch(0.15 0 0)`                     | `oklch(0.955 0.004 262)`                | Primary text                                      |
+| `--card`                  | `oklch(1 0 0)`                        | `oklch(0.245 0.007 262)`                | Cards, tables, drawers                            |
+| `--popover`               | `oklch(1 0 0)`                        | `oklch(0.265 0.007 262)`                | Popovers, menus, dropdowns                        |
+| `--secondary` / `--muted` | `oklch(0.955 0.004 262)` / `oklch(0.966 0.002 262)` | `oklch(0.3 0.008 262)` / `oklch(0.275 0.007 262)` | Nested wells, subdued fills                       |
+| `--muted-foreground`      | `oklch(0.455 0.008 262)`              | `oklch(0.76 0.008 262)`                 | Meta/secondary text                               |
+| `--border`                | `oklch(0.918 0.003 262)`              | `oklch(1 0 0 / 11%)`                    | Hairlines                                         |
+| `--input`                 | `oklch(0.918 0.003 262)`              | `oklch(1 0 0 / 18%)`                    | Input borders                                     |
+| `--ring`                  | `oklch(0.6 0.15 262)`                 | `oklch(0.64 0.13 262)`                  | Focus rings (`focus-visible:ring-3 ring-ring/50`) |
+| `--overlay`               | `oklch(0 0 0 / 0.12)`                 | `oklch(0 0 0 / 0.34)`                   | Modal/sheet scrim                                 |
 
 Each maps a Tailwind alias `--color-*` (e.g. `--color-background: var(--background)`) in the `@theme inline` block.
 
@@ -72,22 +72,22 @@ Each maps a Tailwind alias `--color-*` (e.g. `--color-background: var(--backgrou
 
 | Token                                                  | Light                                                        | Dark                                                         | Usage                               |
 | ------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------------------- |
-| `--primary`                                            | `oklch(0.692 0.141 243.716)`                                 | `oklch(0.54 0.142 248.516)`                                  | Primary actions, active nav         |
-| `--primary-foreground`                                 | `oklch(0.145 0 0)`                                           | `oklch(1 0 0)`                                               | Text on primary                     |
+| `--primary`                                            | `oklch(0.565 0.19 262)`                                      | `oklch(0.71 0.155 262)`                                      | Primary actions, active nav         |
+| `--primary-foreground`                                 | `oklch(0.985 0 0)`                                           | `oklch(0.21 0.03 262)`                                       | Text on primary                     |
 | `--accent`                                             | `color-mix(in oklch, var(--primary) 12%, var(--background))` | `color-mix(in oklch, var(--primary) 20%, var(--background))` | Soft primary fill / active chip     |
-| `--neutral`                                            | `oklch(0.708 0 0)`                                           | `oklch(0.76 0 0)`                                            | Cool gray secondary                 |
+| `--neutral`                                            | `oklch(0.556 0 0)`                                           | `oklch(0.7 0.004 262)`                                       | Cool gray secondary                 |
 | `--sidebar` / `--sidebar-primary` / `--sidebar-accent` | derived from background/primary                              | derived from background/primary                              | Sidebar canvas, brand, active tones |
 
-Presets replace `--primary`/`--background` per `data-theme-preset` (e.g. Anthropic clay `oklch(0.57 0.15 38)` on cream `oklch(0.984 0.004 95)`).
+Presets replace `--primary` and the derived accent/ring/chart slots per `data-theme-preset` (e.g. ember `oklch(0.575 0.17 40)` with its split-complementary teal secondary); `graphite` carries a full achromatic palette.
 
 ### 2.4 Status semantics
 
 | Token                                        | Light                                            | Dark                                             | Usage              |
 | -------------------------------------------- | ------------------------------------------------ | ------------------------------------------------ | ------------------ |
-| `--success` / `--success-foreground`         | `oklch(0.53 0.145 163.225)` / `oklch(0.985 0 0)` | `oklch(0.696 0.17 162.48)` / `oklch(0.145 0 0)`  | Healthy / active   |
-| `--warning` / `--warning-foreground`         | `oklch(0.62 0.162 75.834)` / `oklch(0.145 0 0)`  | `oklch(0.769 0.188 70.08)` / `oklch(0.145 0 0)`  | Degraded / pending |
-| `--destructive` / `--destructive-foreground` | `oklch(0.577 0.245 27.325)` / `oklch(0.985 0 0)` | `oklch(0.575 0.19 25)` / `oklch(0.985 0 0)`     | Errors, deletes    |
-| `--info` / `--info-foreground`               | `oklch(0.53 0.158 241.966)` / `oklch(0.985 0 0)` | `oklch(0.613 0.14 239.919)` / `oklch(0.145 0 0)` | Informational      |
+| `--success` / `--success-foreground`         | `oklch(0.54 0.14 152)` / `oklch(0.985 0 0)`      | `oklch(0.71 0.14 152)` / `oklch(0.19 0.03 152)`  | Healthy / active   |
+| `--warning` / `--warning-foreground`         | `oklch(0.68 0.15 82)` / `oklch(0.24 0.04 82)`    | `oklch(0.79 0.14 82)` / `oklch(0.2 0.035 82)`    | Degraded / pending |
+| `--destructive` / `--destructive-foreground` | `oklch(0.58 0.21 24)` / `oklch(0.985 0 0)`       | `oklch(0.58 0.19 24)` / `oklch(0.985 0 0)`       | Errors, deletes    |
+| `--info` / `--info-foreground`               | `oklch(0.54 0.12 222)` / `oklch(0.985 0 0)`      | `oklch(0.7 0.11 222)` / `oklch(0.19 0.025 222)`  | Informational      |
 
 Badge pattern: solid on soft fill (e.g. `bg-success/10 text-success`); each status also maps a `--color-*` Tailwind alias.
 

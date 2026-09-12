@@ -2819,15 +2819,15 @@
       },
       "preset": {
         "default": "Default",
-        "anthropic": "Anthropic",
-        "simple-large": "Simple",
-        "underground": "Underground",
-        "rose-garden": "Rose Garden",
-        "lake-view": "Lake View",
-        "sunset-glow": "Sunset Glow",
-        "forest-whisper": "Forest Whisper",
-        "ocean-breeze": "Ocean Breeze",
-        "lavender-dream": "Lavender Dream"
+        "graphite": "Graphite",
+        "cobalt": "Cobalt",
+        "lagoon": "Lagoon",
+        "kelp": "Kelp",
+        "moss": "Moss",
+        "ochre": "Ochre",
+        "ember": "Ember",
+        "berry": "Berry",
+        "plum": "Plum"
       },
       "toggle": "Toggle theme"
     },

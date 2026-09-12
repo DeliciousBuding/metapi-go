@@ -2819,15 +2819,15 @@
       },
       "preset": {
         "default": "默认",
-        "anthropic": "Anthropic",
-        "simple-large": "简洁",
-        "underground": "暗夜",
-        "rose-garden": "玫瑰花园",
-        "lake-view": "湖光",
-        "sunset-glow": "日落霞光",
-        "forest-whisper": "森林低语",
-        "ocean-breeze": "海风",
-        "lavender-dream": "薰衣草梦"
+        "graphite": "石墨",
+        "cobalt": "钴蓝",
+        "lagoon": "湖蓝",
+        "kelp": "海藻绿",
+        "moss": "苔绿",
+        "ochre": "赭石",
+        "ember": "余烬",
+        "berry": "浆果红",
+        "plum": "绛紫"
       },
       "toggle": "切换主题"
     },

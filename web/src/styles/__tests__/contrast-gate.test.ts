@@ -3,24 +3,20 @@
 // Statically parses the OKLCH tokens from theme.css / theme-presets.css,
 // resolves the cascade (base -> preset block -> semantic surface bridge),
 // converts OKLCH -> OKLab -> linear sRGB -> gamma sRGB, and computes WCAG
-// 2.x contrast ratios (same luminance pipeline as the 2026-08-23 theme
-// audit). Every tracked
-// foreground/background pair must clear AA 4.5:1 across all 10 presets x
-// {light, dark}, except a small documented exemption list of known
-// residuals (a11y-checklist.md §7).
+// 2.x contrast ratios. Every tracked foreground/background pair must clear
+// AA 4.5:1 across all 10 presets x {light, dark}; known residuals need a
+// documented exemption (a11y-checklist.md §7).
 //
-// Locks in the 2026-08-23 contrast fixes:
-//   1. rose-garden dark --secondary (was 1.50:1, lowest ratio shipped)
-//   2. default dark --destructive (solid destructive, was 2.77:1)
-//   3. five preset dark --primary CTAs (were 3.59-3.69:1 with white text)
-//   4. anthropic light clay --primary + sky --info (were 2.91 / 2.85:1)
-//   5. light --destructive-soft-fg + dark --info-soft-fg soft badges
-//   6. default light --sidebar-accent-foreground + the removed pure-black
-//      lake-view dark override (were 3.95 / 1.75:1)
-//   7. chart-1..5 across presets — light values darkened and dark
-//      values lightened so every chart color clears AA text contrast on its
-//      card surface (chart colors double as HttpStatusBadge text-chart-N
-//      foregrounds, so text AA 4.5:1 — not the 3:1 non-text floor — applies)
+// The 2026-09 palette redesign made every tracked value *derived*: hues are
+// role assignments (semantic tones, a 40-degree preset wheel), chroma is a
+// per-role constant, and each constrained lightness is solved against its
+// floor here. This gate is what makes that derivation a contract rather than
+// a claim:
+//   1. solid pairs (CTA / semantic / sidebar accents) — AA 4.5:1
+//   2. soft-badge inks (`<tone>-soft-fg`) on their `/10` (`/20`) fills — AA
+//   3. the retired base-on-soft recipe — quarantined above a loud floor
+//   4. chart-1..5 as HttpStatusBadge text on card — AA 4.5:1, not 3:1
+//   5. focus ring on background/card — WCAG 1.4.11 non-text 3:1
 
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -179,26 +175,27 @@ function classify(selector: string): {
 
 const PRESETS = [
   'default',
-  'underground',
-  'rose-garden',
-  'lake-view',
-  'sunset-glow',
-  'forest-whisper',
-  'ocean-breeze',
-  'lavender-dream',
-  'simple-large',
-  'anthropic',
+  'cobalt',
+  'lagoon',
+  'kelp',
+  'moss',
+  'ochre',
+  'ember',
+  'berry',
+  'plum',
+  'graphite',
 ]
 
 // Presets tinted by the semantic surface bridge in theme-presets.css.
 const BRIDGE_PRESETS = new Set([
-  'underground',
-  'rose-garden',
-  'lake-view',
-  'sunset-glow',
-  'forest-whisper',
-  'ocean-breeze',
-  'lavender-dream',
+  'cobalt',
+  'lagoon',
+  'kelp',
+  'moss',
+  'ochre',
+  'ember',
+  'berry',
+  'plum',
 ])
 
 function loadTokenData() {
@@ -399,15 +396,14 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
   it('the retired base-on-soft recipe stays above the quarantine floor', () => {
     // Blind spot: the gate previously only tracked
     // `<tone>-soft-fg on <tone>/10`. The base-on-soft recipe
-    // (text-<tone> on bg-<tone>/10) was retired from the shipped UI by the
-    // that batch because it measures sub-AA almost everywhere (55 of 80
-    // preset×mode×tone pairs). Nobody ships it anymore, so per-pair AA here
-    // would just be a 55-entry exemption wall. The floor instead pins the
-    // worst measured residual (anthropic light warning on warning/10 =
-    // 1.65:1) so any further catastrophic tone drift fails loudly — and a
-    // reintroduction of the recipe in a component is caught in review
-    // against this documented quarantine.
-    const QUARANTINE_MIN = 1.6
+    // (text-<tone> on bg-<tone>/10) was retired from the shipped UI because
+    // it measures sub-AA almost everywhere. Nobody ships it anymore, so
+    // per-pair AA here would just be an exemption wall. The floor instead
+    // pins the worst measured residual of the 2026-09 palette (lagoon light
+    // warning on warning/10 = 2.55:1) so any further catastrophic tone
+    // drift fails loudly — and a reintroduction of the recipe in a
+    // component is caught in review against this documented quarantine.
+    const QUARANTINE_MIN = 2.5
     const failures: string[] = []
     for (const preset of PRESETS) {
       for (const mode of ['light', 'dark'] as const) {
@@ -433,9 +429,8 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
   it('chart colors clear AA text contrast on the card surface across presets and modes', () => {
     // Chart series colors are also HttpStatusBadge text foregrounds
     // (text-chart-N in status-badge.tsx), so text AA applies, not the 3:1
-    // non-text floor. The 2026-08-29 batch darkened 40 light values (worst
-    // 1.08:1 lavender-dream-family near-whites) and lightened 8 dark values
-    // that had inherited darkened primary tones (~3.2-4.3:1).
+    // non-text floor. Every chart value is solved against this floor at
+    // design time; this test is what keeps the solved claim true.
     const failures: string[] = []
     for (const preset of PRESETS) {
       for (const mode of ['light', 'dark'] as const) {
@@ -504,7 +499,7 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
     }
   })
 
-  it('the six 2026-08-23 fixes keep their committed token values', () => {
+  it('the 2026-09 redesign values stay pinned', () => {
     const val = (preset: string, mode: 'light' | 'dark', token: string) => {
       const tokens = effectiveTokens(preset, mode)
       return resolveValue(tokens[`--${token}`], tokens)
@@ -516,32 +511,31 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
       expect(actual.c).toBeCloseTo(c, 4)
       expect(actual.h).toBeCloseTo(h, 2)
     }
-    // 1. rose-garden dark secondary: dark rose surface, was light pink 1.50:1
-    close(val('rose-garden', 'dark', 'secondary'), 0.4, 0.08, 8)
-    // 2. default dark destructive darkened for white foreground
-    close(val('default', 'dark', 'destructive'), 0.575, 0.19, 25)
-    // 3. five preset dark primaries darkened for white CTA text
-    close(val('forest-whisper', 'dark', 'primary'), 0.529, 0.12, 180.39)
-    close(val('ocean-breeze', 'dark', 'primary'), 0.563, 0.188, 259.81)
-    close(val('lavender-dream', 'dark', 'primary'), 0.5759, 0.1699, 307.95)
-    close(val('rose-garden', 'dark', 'primary'), 0.5876, 0.2348, 10.36)
-    close(val('sunset-glow', 'dark', 'primary'), 0.5787, 0.1822, 23.51)
-    // 4. anthropic light clay + sky darkened for AA
-    close(val('anthropic', 'light', 'primary'), 0.57, 0.15, 38)
-    close(val('anthropic', 'light', 'info'), 0.55, 0.075, 248)
-    // 5. independent soft-badge foregrounds
-    close(val('default', 'light', 'destructive-soft-fg'), 0.5, 0.2, 27)
-    close(val('default', 'dark', 'info-soft-fg'), 0.72, 0.12, 245)
-    // 6. sidebar active item: darkened default light foreground; the
-    //    pure-black lake-view dark override was deleted (falls back to
-    //    theme.css dark).
-    close(
-      val('default', 'light', 'sidebar-accent-foreground'),
-      0.505,
-      0.18,
-      256
-    )
-    const lakeViewDark = DATA['preset-dark']['lake-view'] ?? {}
-    expect(lakeViewDark['--sidebar-accent-foreground']).toBeUndefined()
+    // Brand primary: indigo 262, lightness solved against AA with its
+    // foreground in both modes (white text light, dark ink dark).
+    close(val('default', 'light', 'primary'), 0.565, 0.19, 262)
+    close(val('default', 'dark', 'primary'), 0.71, 0.155, 262)
+    // Semantic tones: solved per role, white text light / dark ink dark.
+    close(val('default', 'light', 'destructive'), 0.58, 0.21, 24)
+    close(val('default', 'dark', 'destructive'), 0.58, 0.19, 24)
+    close(val('default', 'light', 'success'), 0.54, 0.14, 152)
+    close(val('default', 'light', 'info'), 0.54, 0.12, 222)
+    // Soft-badge inks stay independent tokens (solved on the tinted fill).
+    close(val('default', 'light', 'destructive-soft-fg'), 0.495, 0.15, 24)
+    close(val('default', 'dark', 'info-soft-fg'), 0.72, 0.1, 222)
+    // Preset wheel: every chromatic preset dark primary is the lifted
+    // pastel + ink pairing at the preset's wheel hue.
+    close(val('cobalt', 'dark', 'primary'), 0.71, 0.15, 230)
+    close(val('ember', 'dark', 'primary'), 0.71, 0.15, 40)
+    close(val('plum', 'dark', 'primary'), 0.71, 0.15, 314)
+    // Sidebar active-item ink: solved for AA on the 12% primary tint.
+    close(val('default', 'light', 'sidebar-accent-foreground'), 0.53, 0.06, 262)
+    // No preset reintroduces a per-mode sidebar-accent-foreground override
+    // in light mode: the bridge owns that slot (dead declarations would be
+    // silently shadowed by its higher specificity).
+    for (const preset of BRIDGE_PRESETS) {
+      const light = DATA['preset'][preset] ?? {}
+      expect(light['--sidebar-accent-foreground']).toBeUndefined()
+    }
   })
 })
