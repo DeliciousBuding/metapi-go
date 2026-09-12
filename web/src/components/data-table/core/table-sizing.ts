@@ -7,8 +7,8 @@
 // This module is the whole model and nothing else — pure functions, no JSX, so
 // it stays on the non-component side of the `only-export-components` boundary.
 // `data-table-colgroup.tsx` renders it, `data-table-header.tsx` consults the
-// same predicate so a content-sized column is never given an explicit width,
-// and `getTableSizeStyle` reserves the budget on the `<table>` itself. The three
+// same predicate so a content-sized column gets no resize handle, and
+// `getTableSizeStyle` reserves the budget on the `<table>` itself. The three
 // have to agree, which is why they share one definition of "the budget".
 
 import type { Table as TanstackTable } from '@tanstack/react-table'
