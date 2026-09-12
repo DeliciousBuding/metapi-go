@@ -429,7 +429,7 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 			consecutiveFailCount, cooldownLevel, failCount, nowMs, tr.configuredMaxSec)
 	}
 
-	// P1-2 operator-tunable auto-disable: when the failing status falls in
+	// Operator-tunable auto-disable: when the failing status falls in
 	// the configured disable ranges (default: none — historical behavior),
 	// the channel is disabled outright on top of the cooldown escalation.
 	// manual_override shields it from route rebuilds; the operator

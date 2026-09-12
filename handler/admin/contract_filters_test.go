@@ -1,6 +1,6 @@
 package admin
 
-// Wave 4 contract audit — list filters actually reach the SQL WHERE clause.
+// Admin API contract audit — list filters actually reach the SQL WHERE clause.
 //
 // Positive filter coverage already exists elsewhere:
 //   - proxy-logs: TestStats_SQLiteProxyLogs*Filter* (status/search/client/

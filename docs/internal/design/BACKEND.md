@@ -122,7 +122,7 @@ The diagram above is the *intent* — which direction is down. The contract is
 [`docs/architecture.md`](../../architecture.md) §"Ownership and boundary map": one row per
 package, the decision it owns, and what it must not import. Its executable form is
 [`docs/package_boundary_test.go`](../../package_boundary_test.go) — rules 1–8, every approved
-exception with the architecture section that justifies it, and an assertion that all twelve
+exception with the reason it is approved, and an assertion that all twelve
 domains were really scanned, because a boundary gate that scans nothing and reports no
 violations is not a lenient gate but an absent one. That is not a hypothetical: it is the shape
 that let roughly thirty release tags stay green while their required shards ran zero tests.

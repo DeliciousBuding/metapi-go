@@ -116,7 +116,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		// Sites + Accounts + AccountTokens CRUD API
 		db := store.GetDB()
 		if db != nil {
-			// K1b: load the in-process redirect registry so routing eligibility
+			// Load the in-process redirect registry so routing eligibility
 			// and forward rewriting see canonical→actual mappings from boot.
 			service.ReloadRedirectRegistry(context.Background(), db.DB)
 			admin.RegisterSitesRoutes(r, db.DB)
@@ -171,12 +171,12 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		}
 	})
 
-	// Wave 4 security handoff F1: the LDOH iframe proxy authenticates via the
+	// The LDOH iframe proxy authenticates via the
 	// HttpOnly meta_monitor_auth cookie — iframe sub-resource requests cannot
 	// carry an Authorization header, so this surface must stay OUTSIDE the
 	// Bearer AdminAuth group above (which answered 401 "Missing Authorization
 	// header" and broke the iframe). The handler enforces its own cookie auth
-	// (ensureMonitorAuth) and rejects ".." traversal paths (M1).
+	// (ensureMonitorAuth) and rejects ".." traversal paths.
 	if db := store.GetDB(); db != nil {
 		admin.RegisterMonitorProxyRoutes(r, db.DB, cfg)
 	}
@@ -193,7 +193,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		r.Use(auth.ProxyAuth())
 		r.Use(auth.ProxyGlobalTokenRateLimit(cfg.ProxyGlobalTokenRPM))
 		proxyhandler.RegisterProxyRoutes(r)
-		// N2: downstream-key-visible cross-site price catalog (not admin auth).
+		// Downstream-key-visible cross-site price catalog (not admin auth).
 		// Mounted under /v1 so it inherits ProxyAuth; reuses the admin
 		// modelPriceCompare data surface (no separate catalog to drift).
 		if db := store.GetDB(); db != nil {

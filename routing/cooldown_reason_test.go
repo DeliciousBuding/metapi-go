@@ -6,7 +6,7 @@ import (
 )
 
 // =============================================================================
-// P0-3 — structured cooldown reason classification
+// Structured cooldown reason classification
 // =============================================================================
 
 func TestClassifyCooldownReason_StatusClasses(t *testing.T) {

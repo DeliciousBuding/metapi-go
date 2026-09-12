@@ -118,7 +118,7 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		},
 	},
 	{
-		// N1 security: per-downstream-key IP allowlist/blocklist.
+		// Security: per-downstream-key IP allowlist/blocklist.
 		// ip_allowlist: newline/comma-separated CIDR or exact IPs; empty = unrestricted.
 		// ip_blocklist: same format; deny first (blocklist wins over allowlist).
 		// Enforced at the ProxyAuth edge via auth.parseAllowlist/isIPAllowed.
@@ -146,7 +146,7 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		},
 	},
 	{
-		// 13-report §4 / plan.md §5.5.5: wire the existing ClassifyFailureReason
+		// Wire the existing ClassifyFailureReason
 		// (service/checkin/failure_reason.go) into the production checkin path.
 		// Stores the serialized FailureReason JSON so the UI can render the
 		// structured "分类" column instead of a phantom always-`-` value.
@@ -344,7 +344,7 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		},
 	},
 	{
-		// P0-3: structured cooldown/breaker reasons. Answers "why is this channel
+		// Structured cooldown/breaker reasons. Answers "why is this channel
 		// cooling" without log archaeology: classification code + truncated error
 		// summary + recorded-at. NULL on rows cooled before this step ran — the UI
 		// reports that honestly instead of guessing.
@@ -382,7 +382,7 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		},
 	},
 	{
-		// Wave 18 index audit (admin high-frequency read paths). Pure additive
+		// Admin high-frequency read-path index audit. Pure additive
 		// indexes on base-schema columns, measured on a 300k-proxy_logs audit
 		// fixture before adoption (SQLite EXPLAIN QUERY PLAN + timing):
 		//   - proxy_logs_channel_id_created_at_idx: the proxy-logs page
@@ -423,16 +423,16 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		},
 	},
 	{
-		// F5: structured events. New events carry a stable titleKey + JSON
+		// Structured events. New events carry a stable titleKey + JSON
 		// params so the UI renders them in the viewer's locale; legacy rows
 		// keep NULL and fall back to the stored English title/message.
 		Version:     "sc2_028_events_structured",
-		Description: "events.title_key TEXT NULL + events.params TEXT NULL — structured event rendering (F5); NULL = legacy row rendered as-is",
+		Description: "events.title_key TEXT NULL + events.params TEXT NULL — structured event rendering; NULL = legacy row rendered as-is",
 		Apply: func(db *DB) error {
 			// Production schemas always carry events (TS-era table); the
 			// legacy-schema upgrade test fixture deliberately omits it, so
 			// guard for a missing table the same way EnsureColumn guards a
-			// missing column — an install without events cannot use F5.
+			// missing column — an install without events cannot use structured events.
 			exists, err := tableExists(db, "events")
 			if err != nil {
 				return fmt.Errorf("store: probe events table: %w", err)

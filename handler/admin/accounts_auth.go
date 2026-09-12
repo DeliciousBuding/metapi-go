@@ -400,7 +400,7 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	// Sub2API managed auth: merge refreshToken/tokenExpiresAt into extraConfig.sub2apiAuth
-	// without clobbering unrelated keys (spec p3-sites-accounts lines 528-542).
+	// without clobbering unrelated keys.
 	extraConfigPatch := map[string]any{
 		"credentialMode": "session",
 	}

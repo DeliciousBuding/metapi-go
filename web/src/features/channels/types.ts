@@ -24,7 +24,7 @@ export type ChannelRow = {
   responseMs: number | null
   cooldownUntil: string | null
   /**
-   * Structured cooldown reason (P0-3). All three fields are null when the
+   * Structured cooldown reason. All three fields are null when the
    * channel cooled down before the reason columns existed — the UI reports
    * that honestly as "reason not recorded" instead of guessing.
    */

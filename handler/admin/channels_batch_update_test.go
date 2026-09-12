@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// ---- PUT /api/channels/batch (Wave 17 P1-3: batch test closure loop) ----
+// ---- PUT /api/channels/batch: batch test closure loop ----
 //
 // The model-tester batch comparison's "disable failed channels" action calls
 // this endpoint with `enabled:false` items. These tests pin the per-item

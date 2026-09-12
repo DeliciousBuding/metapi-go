@@ -1,6 +1,6 @@
 package admin
 
-// Wave 4 contract audit — pagination boundary behavior.
+// Admin API contract audit — pagination boundary behavior.
 //
 // Four admin list endpoints accept ?page/&pageSize= with identical clamp
 // semantics (page → [1, 1_000_000], pageSize → [1, 200]); two more use the

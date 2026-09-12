@@ -10,7 +10,7 @@ import (
 // (PUT /api/settings/runtime), auth-token rotation, scheduler schedule
 // write-backs, and the runtime database switch.
 //
-// Concurrency contract (Wave 18 config-race fix, Milestone C1):
+// Concurrency contract:
 //
 //   - Readers take the current immutable snapshot via Runtime() /
 //     RuntimeSafe() and must treat it as strictly read-only. The pointer
@@ -55,7 +55,7 @@ type RuntimeSettings struct {
 	LogCleanupCron        string
 	// Site & Branding (5 fields) - empty defaults keep the embedded frontend
 	// branding and login-page copy unchanged. homePageContent was removed
-	// (Wave 8 Lane D): the value was stored but never rendered anywhere.
+	// long ago: the value was stored but never rendered anywhere.
 	SystemName    string
 	Logo          string
 	Footer        string

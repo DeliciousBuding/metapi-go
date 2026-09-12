@@ -1,5 +1,5 @@
 // Package events is the single source of truth for structured event
-// emission (F5). Every event definition lives in this registry; producers
+// emission. Every event definition lives in this registry; producers
 // reference a definition by Key and pass typed params, and WriteEvent
 // renders the English fallback title/message for legacy consumers (notify /
 // CSV export / history) while storing the structured titleKey + params the

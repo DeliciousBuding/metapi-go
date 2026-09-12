@@ -105,5 +105,5 @@ web/playwright/.cache/
 .repro/
 .local/
 
-# local dev instance matrix (Wave 7 local toolchain)
+# local dev instance matrix (local toolchain, never committed)
 .dev-local/

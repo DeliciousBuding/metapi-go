@@ -1,5 +1,5 @@
 /* eslint-disable react/only-export-components -- summary helper + shared types are co-located with the component that owns them */
-// metapi-go/components/common — row-level probe history health bar (P0-2).
+// metapi-go/components/common — row-level probe history health bar.
 // Renders the recent background model-probe results of one channel/account
 // as a compact strip of vertical bars (one per probe, chronological
 // left-to-right), with a tooltip carrying the success rate and average

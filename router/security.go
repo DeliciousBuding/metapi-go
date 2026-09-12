@@ -50,7 +50,7 @@ func generateCSPNonce() string {
 
 // contentSecurityPolicy renders the CSP header value for one request.
 //
-// 'unsafe-inline' was removed from style-src (#1035 S2). The three runtime
+// 'unsafe-inline' was removed from style-src (#1035). The three runtime
 // <style> injectors in the SPA are covered individually:
 //
 //   - chart color variables (web/src/components/ui/chart.tsx): React renders

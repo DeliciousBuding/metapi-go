@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// metapi-go/web — package boundary gate (S5).
+// metapi-go/web — package boundary gate.
 //
 // Mechanically enforces the import rules of
 // docs/internal/web-package-boundaries.md:

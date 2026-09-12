@@ -243,7 +243,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	// Expired API-key recovery (p3-sites-accounts.md 594-602 / TS accounts.ts):
+	// Expired API-key recovery (TS accounts.ts parity):
 	// when credentials change on an expired apikey account and status is not forced
 	// disabled, refresh models with allowInactive and reactivate only on success.
 	recovery := shouldRecoverExpiredAPIKey(row.Account, nextAccount, updates)

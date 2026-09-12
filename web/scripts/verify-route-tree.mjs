@@ -2,8 +2,7 @@
 // Verifies src/routeTree.gen.ts is in sync with src/routes/** before vitest
 // runs. Vitest does NOT run @tanstack/router-plugin (the rsbuild config is the
 // only consumer that regenerates the tree), so a stale routeTree.gen.ts would
-// silently test yesterday's routing table (issue #1035 S1, prerequisite guard
-// for S9).
+// silently test yesterday's routing table (issue #1035).
 //
 // Checks both directions:
 //   1. every route file under src/routes/ is imported by routeTree.gen.ts

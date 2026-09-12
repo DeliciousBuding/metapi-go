@@ -45,8 +45,7 @@ func TestPublicMarkdownHygiene(t *testing.T) {
 			// Skip VCS/build caches and local evidence/worktrees so hygiene only
 			// covers published tree paths. CI clones are clean, while ignored
 			// .dev-local evidence may contain absolute capture paths by design.
-			if name == ".git" || name == "node_modules" || name == "dist" ||
-				name == ".claude" || name == ".dev-local" || name == ".worktrees" || name == ".local" {
+			if skipHygieneDir(name) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -523,4 +522,172 @@ func TestChangelogStaysANarrativeNotAForensicRecord(t *testing.T) {
 
 func utf8RuneLen(s string) int {
 	return len([]rune(s))
+}
+
+// skipHygieneDir names the directories that are not part of the published tree:
+// VCS/build caches plus local evidence and worktree checkouts. CI clones are
+// clean, while ignored .dev-local evidence may carry absolute capture paths and
+// archived plan extracts by design.
+func skipHygieneDir(name string) bool {
+	switch name {
+	case ".git", "node_modules", "dist", ".claude", ".dev-local", ".worktrees", ".local":
+		return true
+	}
+	return false
+}
+
+// hygieneSkipFile names files the source scan must not read: generated or
+// vendored output whose text nobody authors (a match there would be noise, not
+// a finding), plus this gate's own file. A gate that bans a vocabulary cannot
+// state its fixtures without quoting that vocabulary, so doc_hygiene_test.go is
+// the one exemption — and its content is pinned by the sanity test below, which
+// fails if a fixture stops matching.
+func hygieneSkipFile(name string) bool {
+	switch name {
+	case "bun.lock", "routeTree.gen.ts", "MANIFEST.md", "doc_hygiene_test.go":
+		return true
+	}
+	return false
+}
+
+// programmeCodeRE matches internal work-programme vocabulary: wave / lane /
+// milestone labels from archived plans, private backlog priority codes, a
+// private design-doc item code, and citations of design files that were never
+// published. Every one of them says how a change was scheduled and nothing
+// about what the shipped code does, and it rots the moment the plan behind it
+// is archived: a reader who cannot resolve the label gets noise where a reason
+// should be. Public-tree comments describe the product; the plan that produced
+// a line stays with the plan.
+//
+// Deliberately out of scope: bare single-letter audit item codes ("S10", "F5",
+// "M1"). They cannot be told apart from model-family names (MiniMax-M2) or
+// RFC 3339 fragments ("…T15:04:05Z") without a context rule more fragile than
+// the codes themselves. The vocabulary below is what actually recurs. Matching
+// is case-sensitive on purpose: the labels are proper nouns of a plan, while
+// the same word in lower case is ordinary prose.
+var programmeCodeRE = regexp.MustCompile(strings.Join([]string{
+	`\bWave \d+\b`,
+	`\bS-line\b`,
+	`\bMilestone [A-Z]\d\b`,
+	`\bLane [A-Z]\b`,
+	`\bP[01]-\d+\b`,
+	`\bK1b\b`,
+	`\bw\d+-[a-z]+(?:-[a-z]+)*\b`,
+	`\bscout §`,
+	`\b(?:plan|limitation(?:-[a-z]+)*|p\d+-[a-z]+(?:-[a-z]+)*)\.md\b`,
+	`\b[a-z0-9]+(?:-[a-z0-9]+)*-design-\d{4}-\d{2}-\d{2}\.md\b`,
+	`\b\d+-report §`,
+}, "|"))
+
+// hygieneSourceExt lists the extensions whose text is authored by hand and can
+// therefore carry a programme code. "" covers extension-less files that are
+// still prose-bearing (.gitignore, Makefile, Dockerfile, LICENSE).
+var hygieneSourceExt = map[string]bool{
+	".go": true, ".ts": true, ".tsx": true, ".mjs": true, ".js": true,
+	".sh": true, ".md": true, ".css": true, ".yml": true, ".yaml": true,
+	".json": true, ".sql": true, ".tmpl": true, "": true,
+}
+
+func TestNoInternalProgrammeCodesInShippedSources(t *testing.T) {
+	root := repoRoot(t)
+	var findings []string
+	scanned := 0
+
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			if skipHygieneDir(entry.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		// A symlink is not part of the published tree: a worktree checkout
+		// links web/node_modules at a shared install, and following it would
+		// scan (and report on) files this repository does not ship.
+		if entry.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+		if hygieneSkipFile(entry.Name()) || !hygieneSourceExt[filepath.Ext(path)] {
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if info.Size() > 1<<20 { // a prose gate has no business reading megabytes
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		scanned++
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		for i, line := range strings.Split(string(data), "\n") {
+			if programmeCodeRE.MatchString(line) {
+				findings = append(findings, formatFinding(rel, i+1,
+					"internal programme code: state what the code does, not which plan asked for it", line))
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Same invariant as every other gate in this file: a hygiene gate that
+	// scans nothing and reports no violations is not a lenient gate, it is an
+	// absent one. Both the skip list and the extension map could narrow it to
+	// silence, so the scan itself is asserted to be non-empty.
+	if scanned == 0 {
+		t.Fatal("gate would pass vacuously: no source files were scanned")
+	}
+	if len(findings) > 0 {
+		t.Fatalf("internal programme codes in the published tree (%d files scanned):\n%s",
+			scanned, strings.Join(findings, "\n"))
+	}
+}
+
+// TestProgrammeCodeGateRegexpSanity proves the gate above can actually fire and
+// that its near-misses stay quiet. A hygiene pattern that matches nothing is
+// indistinguishable from a clean tree; a pattern that matches product strings
+// trains contributors to ignore the gate.
+func TestProgrammeCodeGateRegexpSanity(t *testing.T) {
+	mustMatch := []string{
+		"// fixed in Wave 18",
+		"// the Wave 4 S-line T1 regression",
+		"// Milestone C1 contract",
+		"// removed in Wave 8 Lane D",
+		"// P0-3: structured cooldown reasons",
+		"// P1-2 operator-tunable auto-disable",
+		"// K1b: keep the registry fresh",
+		"// (w18-pg-dialect audit)",
+		"// Single funnel (scout §settings_apply)",
+		"// see plan.md §5.5.5",
+		"// Design: k1-model-redirect-design-2026-08-01.md §7",
+		"// 13-report §4",
+		"// See limitation-update-center.md.",
+		"// spec p3-sites-accounts.md lines 528-542",
+	}
+	for _, sample := range mustMatch {
+		if !programmeCodeRE.MatchString(sample) {
+			t.Errorf("gate missed a programme code it exists to catch: %q", sample)
+		}
+	}
+	mustNotMatch := []string{
+		`Description: "add common M2 coding models"`, // MiniMax model family
+		`dayStart := day + "T00:00:00Z"`,             // RFC 3339 fragment
+		"// Lexical compare of …T15:04:05.500Z vs …T15:04:05Z",
+		"// the second wave 3 km inland", // lower-case prose, not a plan label
+		"// P2P transfers stay disabled",
+		"// see docs/architecture.md and docs/testing.md",
+		"// config.Load §3.14 defines this key",
+		"// milestone releases are tagged v*",
+	}
+	for _, sample := range mustNotMatch {
+		if programmeCodeRE.MatchString(sample) {
+			t.Errorf("gate fired on product text it must leave alone: %q", sample)
+		}
+	}
 }

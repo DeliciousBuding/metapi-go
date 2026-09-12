@@ -11,7 +11,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 )
 
-// C1 (Wave 21 config-race): the runtime-mutable settings live on an
+// Config-race contract: the runtime-mutable settings live on an
 // immutable RuntimeSettings snapshot published through an atomic.Pointer.
 // Writers go through config.UpdateRuntime (copy-mutate-publish under a
 // mutex); readers take one atomic snapshot via config.Runtime() and never
@@ -92,8 +92,8 @@ func TestSetRuntimePublishesCopies(t *testing.T) {
 	}
 }
 
-// TestRuntimeWriteRace_TornReadReproduction reproduces the Wave 18
-// concurrency-audit finding against the FIXED access shape: writers publish
+// TestRuntimeWriteRace_TornReadReproduction reproduces the concurrency-audit
+// finding against the FIXED access shape: writers publish
 // correlated field tuples through UpdateRuntime while readers take atomic
 // snapshots. Each published generation g carries ProxyToken "sk-gen-g",
 // ProxyRetryStatusRanges "g-g" and NotifyCooldownSec g; a reader that ever

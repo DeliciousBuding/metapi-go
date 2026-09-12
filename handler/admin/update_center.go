@@ -11,7 +11,6 @@ import (
 // Known limitation:
 // - status is a local stub (never invent updateAvailable=true)
 // - deploy/rollback/task-stream surfaces are removed; product updates stay external.
-// See limitation-update-center.md.
 func RegisterUpdateCenterRoutes(r chi.Router) {
 	handler := &updateCenterHandler{}
 

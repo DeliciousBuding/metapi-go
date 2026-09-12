@@ -91,7 +91,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 
 	// SQLite LIKE is case-insensitive for ASCII but PostgreSQL LIKE is
 	// case-sensitive; normalize both sides with LOWER() so the same query
-	// matches the same rows on both dialects (w18-pg-dialect).
+	// matches the same rows on both dialects.
 	likePattern := "%" + strings.ToLower(q) + "%"
 
 	// Search sites. Each query surfaces its error so a DB failure yields an

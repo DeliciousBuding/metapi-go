@@ -1,4 +1,4 @@
-// S10 (#1035): the model-cost donut and both latency charts expose sr-only
+// #1035: the model-cost donut and both latency charts expose sr-only
 // data summary tables built from the already-loaded rows (series x key
 // points; histogram → bucket x count, trend → series x latest/window avg).
 import '@testing-library/jest-dom/vitest'
@@ -89,7 +89,7 @@ function renderSection() {
   )
 }
 
-describe('ModelsSection cost data summary (S10)', () => {
+describe('ModelsSection cost data summary', () => {
   it('exposes an sr-only summary table for the cost donut', async () => {
     renderSection()
 
@@ -124,7 +124,7 @@ describe('ModelsSection cost data summary (S10)', () => {
   })
 })
 
-describe('ModelsSection latency chart summaries (S10)', () => {
+describe('ModelsSection latency chart summaries', () => {
   it('exposes bucket × count rows for the latency histogram', async () => {
     mockHistogram.mockResolvedValue({
       buckets: [

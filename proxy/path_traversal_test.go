@@ -2,7 +2,7 @@ package proxy
 
 import "testing"
 
-// TestContainsPathTraversal covers the Wave 4 security handoff T1 helper:
+// TestContainsPathTraversal covers the path-traversal helper:
 // detection must catch every ".." segment shape that can arrive via
 // r.URL.Path (already percent-decoded by net/http) while leaving every
 // legitimate path untouched — the forwarding contract forbids altering

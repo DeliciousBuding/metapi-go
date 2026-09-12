@@ -198,7 +198,7 @@ func TestExportBackupRejectsPayloadOverLimit(t *testing.T) {
 	}
 }
 
-// F1: import plan preview reports toInsert/duplicates
+// The import plan preview reports toInsert/duplicates
 // and writes nothing.
 func TestPreviewBackupImportReportsPlanWithoutWriting(t *testing.T) {
 	db := setupBackupTestDB(t)

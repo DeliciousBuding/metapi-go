@@ -76,7 +76,7 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 		return acc
 	}
 
-	// Enabled, non-expired tokens for every account in ONE query (Wave 18
+	// Enabled, non-expired tokens for every account in ONE query (the
 	// N+1 fix): the previous shape re-ran the per-account token query inside
 	// the accountRows loop below — once per model×account availability row,
 	// i.e. hundreds of identical-round-trip queries per marketplace render.

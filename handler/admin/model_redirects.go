@@ -130,7 +130,7 @@ func (h *modelRedirectHandler) update(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "redirect not found"})
 		return
 	}
-	service.ReloadRedirectRegistry(r.Context(), h.db) // K1b: keep hot-path registry fresh
+	service.ReloadRedirectRegistry(r.Context(), h.db) // keep the hot-path redirect registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -149,7 +149,7 @@ func (h *modelRedirectHandler) remove(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "redirect not found"})
 		return
 	}
-	service.ReloadRedirectRegistry(r.Context(), h.db) // K1b: keep hot-path registry fresh
+	service.ReloadRedirectRegistry(r.Context(), h.db) // keep the hot-path redirect registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -185,7 +185,7 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"success": true, "created": created})
-		service.ReloadRedirectRegistry(r.Context(), h.db) // K1b: keep hot-path registry fresh
+		service.ReloadRedirectRegistry(r.Context(), h.db) // keep the hot-path redirect registry fresh
 		return
 	}
 
@@ -212,14 +212,14 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 		}
 		total += n
 	}
-	service.ReloadRedirectRegistry(r.Context(), h.db) // K1b: keep hot-path registry fresh
+	service.ReloadRedirectRegistry(r.Context(), h.db) // keep the hot-path redirect registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "created": total, "accounts": len(byAccount)})
 }
 
 // POST /api/model-redirects/apply — body {dryRun: true}
 // The single apply path for redirect-fix candidates (the duplicated
-// /api/models/redirect-fix-candidates endpoints were removed in Wave 8
-// Lane B). Lists disabled-model entries fixable via redirects; dryRun=true
+// /api/models/redirect-fix-candidates endpoints were removed). Lists
+// disabled-model entries fixable via redirects; dryRun=true
 // reports without deleting (default). dryRun=false deletes and records events.
 func (h *modelRedirectHandler) apply(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -259,7 +259,7 @@ func (h *modelRedirectHandler) apply(w http.ResponseWriter, r *http.Request) {
 	for _, c := range candidates {
 		_ = recordRedirectEvent(h.db, c)
 	}
-	service.ReloadRedirectRegistry(r.Context(), h.db) // K1b: keep hot-path registry fresh
+	service.ReloadRedirectRegistry(r.Context(), h.db) // keep the hot-path redirect registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": true,
 		"dryRun":  false,

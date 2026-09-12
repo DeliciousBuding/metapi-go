@@ -1,4 +1,4 @@
-// Security tests for the site-announcements page (#986 Lane C): announcement
+// Security tests for the site-announcements page (#986): announcement
 // title / content / source are UNTRUSTED upstream data. The body must render
 // as plain text (no HTML injection, no markdown). External navigation may
 // only use a same-origin URL resolved from the trusted local Site URL.

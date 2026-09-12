@@ -97,7 +97,7 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 
 	// Log the change event
 	// read is a BOOLEAN column on PostgreSQL: bind FALSE, not the integer
-	// literal 0 (w18-pg-dialect: PG rejects integer literals for booleans).
+	// literal 0 (PG rejects integer literals for booleans).
 	h.db.Exec(`INSERT INTO events (type, title, message, level, related_type, created_at, read)
 		VALUES ('token', 'Admin login token updated', 'The admin login token was changed. Use the new token to log in.', 'warning', 'settings', ?, FALSE)`, now)
 

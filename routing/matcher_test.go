@@ -478,7 +478,7 @@ func TestResolveActualModelForSelectedChannel(t *testing.T) {
 		t.Errorf("expected mapped model 'gpt-4-0613', got %q", result)
 	}
 
-	// K1b: per-account redirect rewrites canonical → actual when no route
+	// Per-account redirect rewrites canonical → actual when no route
 	// mapping rewrote the name (mapped == requested).
 	srcActual := "claude-3-5-sonnet-20241022"
 	SetModelRedirects(map[int64]map[string]string{

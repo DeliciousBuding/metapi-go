@@ -168,7 +168,7 @@ var nonHydratedSettingKeys = map[string]string{
 	// Catalog auto-sync toggle, read at use time by its own store on every
 	// sync pass; a snapshot copy would only be a stale second owner.
 	"catalog_auto_sync_enabled": "read at use time by service/catalogsync.Store.AutoSyncEnabled",
-	// Removed setting (Wave 8 Lane D): it was stored but never rendered.
+	// Removed setting: it was stored but never rendered.
 	// Legacy rows are intentionally ignored, and listed here so they do not
 	// trip the unknown-key warning on every boot.
 	"home_page_content": "setting removed; legacy rows intentionally ignored",
@@ -236,7 +236,7 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 				slog.Warn("settings: ignoring invalid admin_ip_allowlist value")
 			}
 
-		// Proxy retry/disable status-code range policy (P1-2): blank keeps
+		// Proxy retry/disable status-code range policy: blank keeps
 		// the routing defaults (historical behavior).
 		case "proxy_retry_status_ranges":
 			rt.ProxyRetryStatusRanges = parseJSONSettingString(value)
@@ -508,7 +508,7 @@ func ApplyRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings, settin
 					describeJSONSettingValue(cfg.OpenAiServiceTierRules))
 			}
 
-		// N7: prompt-cache ratio fallback overrides (0 = use code default).
+		// Prompt-cache ratio fallback overrides (0 = use code default).
 		case "cache_ratio_default":
 			rt.CacheRatioDefault = parseFloatSetting(value, 0)
 		case "cache_ratio_claude":

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Per-package budget for the race gate. Default 900s: handler/admin -race was
 # measured at 217-364s on contended dev hosts (8GB WSL VM, /mnt/d 9p) across
-# six Wave 18 lanes, and CI gives each package ~10 min (Go's default test
+# six parallel race lanes, and CI gives each package ~10 min (Go's default test
 # timeout). Override with METAPI_RACE_TIMEOUT_SECONDS=<seconds>; see
 # docs/testing.md "Race-detector budget".
 timeout_seconds="${METAPI_RACE_TIMEOUT_SECONDS:-900}"

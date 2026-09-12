@@ -453,7 +453,7 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.TokenRouterFailureCooldownMaxSec = cooldownSec })
 		upsertSettingDB(h.db, "token_router_failure_cooldown_max_sec", cooldownSec)
 	}
-	// P1-2: operator-tunable status-code range policy. Empty specs are
+	// Operator-tunable status-code range policy. Empty specs are
 	// allowed (they restore the routing defaults at lookup time); anything
 	// non-empty must parse cleanly before it is persisted or applied.
 	if v, ok := body["proxyRetryStatusRanges"]; ok {
@@ -535,7 +535,7 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 		}
 	}
 
-	// N7: prompt-cache ratio fallback overrides.
+	// Prompt-cache ratio fallback overrides.
 	if v, ok := body["cacheRatioDefault"]; ok {
 		if val, err := toFloat64Strict(v); err == nil && val >= 0 {
 			config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CacheRatioDefault = val })

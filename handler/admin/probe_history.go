@@ -1,7 +1,7 @@
 package admin
 
 // Read-only exposure of model_probe_results history for the row-level probe
-// health bars on the channels/accounts pages (P0-2). The scheduler
+// health bars on the channels/accounts pages. The scheduler
 // (scheduler/model_probe.go) is the only writer; these endpoints answer
 // "recent N probe results per channel/account" in ONE bounded query per page
 // render so the tables never issue per-row requests.

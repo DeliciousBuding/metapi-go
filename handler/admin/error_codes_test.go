@@ -10,7 +10,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 )
 
-// Audit S4: machine-readable errorCode on admin 400 responses.
+// Machine-readable errorCode on admin 400 responses.
 //
 // These tests pin the errorCode contract so it cannot silently regress:
 //

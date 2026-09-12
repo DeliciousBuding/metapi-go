@@ -4,7 +4,7 @@ import { pluginTailwindcss } from '@rsbuild/plugin-tailwindcss'
 import { tanstackRouter } from '@tanstack/router-plugin/rspack'
 
 // devProxy, version define and '@' alias live in one shared module so the
-// dev/build and vitest paths cannot drift (issue #1035 S1).
+// dev/build and vitest paths cannot drift (issue #1035).
 import {
   createDevProxy,
   srcAlias,
@@ -55,7 +55,7 @@ export default defineConfig(({ envMode }) => {
           priority: 0,
           enforce: true,
         },
-        // Issue #1035 S9: the audit's "vendor-i18n" blob was the unnamed
+        // Issue #1035: the "vendor-i18n" blob was the unnamed
         // chunk 6432 — a grab-bag of i18next, icon libraries and small
         // utilities. Split the coherent families into named chunks so the
         // i18n runtime is cache-stable on its own.

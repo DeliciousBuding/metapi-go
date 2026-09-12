@@ -76,7 +76,7 @@ describe('eventTitleSlug (shared lib/event-titles map)', () => {
     expect(eventTitleSlug('checkin failed (cloudflare challenge)')).toBe(
       'checkinFailedCloudflare'
     )
-    // Daily-frequency producers pinned by the F3 scout inventory.
+    // Daily-frequency producers, pinned against the events registry.
     expect(eventTitleSlug('checkin success')).toBe('checkinSuccess')
     expect(eventTitleSlug('Site enabled')).toBe('siteEnabled')
     expect(eventTitleSlug('Account token sync completed')).toBe(

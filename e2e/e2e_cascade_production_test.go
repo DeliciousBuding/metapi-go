@@ -2,11 +2,11 @@
 
 // Package e2e contains end-to-end integration tests for the proxy pipeline.
 //
-// This file holds the P0-585 production / staging cascade verification test.
+// This file holds the production / staging cascade verification test.
 // It is guarded by the `staging` build tag so it is NEVER compiled into the
 // normal CI test binary — it only runs when an operator explicitly invokes:
 //
-//	go test ./e2e -tags=staging -run 'P0585_ProductionCascade_Staging' \
+//	go test ./e2e -tags=staging -run 'ProductionCascade_Staging' \
 //	  -v -timeout=120s
 //
 // The test connects to a real metapi instance (env: METAPI_STAGING_URL,
@@ -57,7 +57,7 @@ func requireStagingEnv(t *testing.T) (baseURL, authToken, proxyToken string) {
 	}
 	if len(missing) > 0 {
 		t.Fatalf("staging cascade test requires env: %s (missing: %s). "+
-			"Run with: go test ./e2e -tags=staging -run P0585_ProductionCascade_Staging",
+			"Run with: go test ./e2e -tags=staging -run ProductionCascade_Staging",
 			strings.Join([]string{stagingURLEnv, stagingAuthEnv, stagingProxyEnv}, ", "),
 			strings.Join(missing, ", "))
 	}
@@ -96,7 +96,7 @@ func stagingProxyChat(t *testing.T, client *http.Client, baseURL, proxyToken, mo
 	t.Helper()
 	payload := map[string]any{
 		"model":      model,
-		"messages":   []map[string]string{{"role": "user", "content": "p0585 cascade staging verify (read-only)"}},
+		"messages":   []map[string]string{{"role": "user", "content": "cascade staging verify (read-only)"}},
 		"max_tokens": 1,
 		"stream":     false,
 	}
@@ -110,7 +110,7 @@ func stagingProxyChat(t *testing.T, client *http.Client, baseURL, proxyToken, mo
 	}
 	req.Header.Set("Authorization", "Bearer "+proxyToken)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Metapi-Verify", "cascade-p0585-staging")
+	req.Header.Set("X-Metapi-Verify", "cascade-staging-verify")
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("staging POST chat/completions: %v", err)
@@ -212,7 +212,7 @@ func fetchStagingProxyLogs(t *testing.T, client *http.Client, baseURL, authToken
 	return rows
 }
 
-// TestP0585_ProductionCascade_Staging gathers honest cascade evidence against a
+// TestProductionCascade_Staging gathers honest cascade evidence against a
 // real staging/production instance. It is NOT a self-contained cascade trigger:
 // it sends one minimal request and then reads proxy_logs for the resulting
 // X-Request-Id. Cascade is only observable when an upstream genuinely returned
@@ -227,7 +227,7 @@ func fetchStagingProxyLogs(t *testing.T, client *http.Client, baseURL, authToken
 // Asserts (always):
 //   - at least one proxy_log row exists for the request_id (request-path + logging works)
 //   - the chat probe either succeeded (200) or failed without crashing the instance
-func TestP0585_ProductionCascade_Staging(t *testing.T) {
+func TestProductionCascade_Staging(t *testing.T) {
 	baseURL, authToken, proxyToken := requireStagingEnv(t)
 	client := stagingHTTPClient()
 
@@ -314,7 +314,7 @@ func TestP0585_ProductionCascade_Staging(t *testing.T) {
 
 	// Distinct channels prove channel-scoped exclude (failed channel not retried).
 	if len(channelIDs) < 2 {
-		t.Errorf("cascade rows share a single channel_id (%v) — exclude is not channel-scoped as P0-585 requires",
+		t.Errorf("cascade rows share a single channel_id (%v) — exclude is not channel-scoped as the cascade contract requires",
 			channelIDs)
 	} else {
 		t.Logf("verified: cascade used %d distinct channels (channel-scoped exclude intact): %v",
@@ -337,7 +337,7 @@ func TestP0585_ProductionCascade_Staging(t *testing.T) {
 		t.Logf("cascade exhausted without recovery (last status=%q) — bounded failure, not a crash", last.Status)
 	}
 
-	t.Logf("P0-585 staging cascade evidence captured for request_id=%q: rows=%d channels=%d max_retry=%d",
+	t.Logf("staging cascade evidence captured for request_id=%q: rows=%d channels=%d max_retry=%d",
 		requestID, len(matchingRows), len(channelIDs), maxRetry)
 }
 

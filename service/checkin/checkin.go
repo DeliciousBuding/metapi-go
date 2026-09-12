@@ -520,7 +520,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 		return CheckinResult{Success: false, Status: CheckinFailed, Message: "failed to persist checkin log: " + err.Error()}
 	}
 
-	// 10. Write events (structured, F5): the registry definition renders the
+	// 10. Write structured events: the registry definition renders the
 	// legacy English title/message for non-UI consumers while the UI gets
 	// titleKey + params to render in the viewer's locale.
 	if !options.SkipEvent {

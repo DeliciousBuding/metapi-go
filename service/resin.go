@@ -35,8 +35,6 @@ import (
 // Account identity rules (Resin splits proxy-auth on first '.' and last ':'):
 //   - Stable (post-creation):  acc-{Account.ID}
 //   - Pre-account (verify/login/create):  tmp-{sha1(siteID:token)[:16]}
-//
-// See doc/integration-prompt.md in the resin repo for the full contract.
 
 // resinAccountPrefixStable is the prefix for stable post-creation identities.
 const resinAccountPrefixStable = "acc-"

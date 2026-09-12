@@ -299,7 +299,7 @@ type OAuthRouteUnitMember struct {
 	ConsecutiveFailCount int64    `db:"consecutive_fail_count" json:"consecutiveFailCount"`
 	CooldownLevel        int64    `db:"cooldown_level" json:"cooldownLevel"`
 	CooldownUntil        *string  `db:"cooldown_until" json:"cooldownUntil"`
-	// Structured cooldown reason — same contract as RouteChannel (P0-3).
+	// Structured cooldown reason — same contract as RouteChannel.
 	CooldownReasonCode *string `db:"cooldown_reason_code" json:"cooldownReasonCode"`
 	CooldownReason     *string `db:"cooldown_reason" json:"cooldownReason"`
 	CooldownReasonAt   *string `db:"cooldown_reason_at" json:"cooldownReasonAt"`
@@ -372,7 +372,7 @@ type RouteChannel struct {
 	ConsecutiveFailCount int64    `db:"consecutive_fail_count" json:"consecutiveFailCount"`
 	CooldownLevel        int64    `db:"cooldown_level" json:"cooldownLevel"`
 	CooldownUntil        *string  `db:"cooldown_until" json:"cooldownUntil"`
-	// Structured reason for the active cooldown (P0-3): classification code,
+	// Structured reason for the active cooldown: classification code,
 	// truncated upstream error summary, and the time the triggering failure was
 	// recorded. All NULL for rows that cooled down before this schema existed
 	// — the UI renders that honestly as "reason not recorded".

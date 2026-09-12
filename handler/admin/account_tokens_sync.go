@@ -483,7 +483,7 @@ func syncTokensAfterAccountCreate(ctx context.Context, db *sqlx.DB, cfg *config.
 		}
 	}
 
-	// Product decision (Wave 12): only session-credential accounts sync
+	// Product decision: only session-credential accounts sync
 	// automatically; API-key connections are explicitly skipped.
 	if service.IsAPIKeyConnection(&row.Account) {
 		return postCreateTokenSyncReport{

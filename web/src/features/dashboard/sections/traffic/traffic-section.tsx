@@ -89,7 +89,7 @@ function ChartEmpty({ message }: { message: string }) {
 
 /** Gate the sr-only summary exactly like the chart body: no summary while
  * the owning query is loading or failed; the builders themselves return
- * undefined when the loaded data is empty (S10, #1035). */
+ * undefined when the loaded data is empty (#1035). */
 function summaryWhenLoaded(
   query: { isLoading: boolean; isError: boolean },
   summaryNode: ReactNode
@@ -178,7 +178,7 @@ export function TrafficSection() {
   )
 
   // ---------------------------------------------------------------------
-  // S10 (#1035): sr-only data summary tables. recharts SVG is opaque to
+  // #1035: sr-only data summary tables. recharts SVG is opaque to
   // screen readers, so each chart's already-loaded data is re-presented as
   // a simple series x key-points table. Read-only presentation layer — no
   // extra requests, no data-semantics changes.

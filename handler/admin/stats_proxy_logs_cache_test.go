@@ -307,7 +307,7 @@ func TestStats_ProxyLogsAggregateSQL_NoJoinWithoutSiteID(t *testing.T) {
 	}
 
 	// With a siteId the WHERE references s.id, so the accounts/sites joins
-	// must stay — as INNER joins (Wave 18 index audit): s.id = ? already
+	// must stay — as INNER joins (index audit): s.id = ? already
 	// discards non-matching rows, and INNER lets the planner drive from the
 	// site's accounts into the proxy_logs indexes instead of scanning
 	// proxy_logs first. The dk join stays LEFT because only the search filter
@@ -378,7 +378,7 @@ func TestStats_SQLiteProxyLogsAggregatePlan_NoJoinWithoutSiteID(t *testing.T) {
 	}
 
 	// Sanity check the other direction: with a siteId the plan joins
-	// accounts/sites (INNER since the Wave 18 index audit) and keeps the
+	// accounts/sites (INNER since the index audit) and keeps the
 	// LEFT downstream_api_keys join.
 	planRows, err := queryRowsErr(db.DB, "EXPLAIN QUERY PLAN "+proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(1, ""), " WHERE s.id = 1"))
 	if err != nil {

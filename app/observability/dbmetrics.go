@@ -1,6 +1,6 @@
 // Package observability is a true leaf (stdlib-only) holding cross-cutting
 // counters that lower layers (scheduler) must record without importing
-// handler/shared or app. Resolves package-boundaries §5.11: scheduler sat
+// handler/shared or app. It resolves a boundary cycle: scheduler sat
 // below app in the dependency chain (app → handler/proxy → scheduler), so
 // it could not import either app or handler/shared to bump the DB-connection
 // error metric. This leaf has no internal imports, breaking the cycle.

@@ -60,7 +60,7 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 }
 
 // RegisterDownstreamPricingRoutes mounts the cross-site price catalog behind
-// downstream-key (ProxyAuth) auth, NOT admin auth. N2 productization: a
+// downstream-key (ProxyAuth) auth, NOT admin auth. Productized so that a
 // downstream consumer (中转站) holding a managed key can query effective
 // cross-site model pricing for its own planning — the aggregator's
 // transparent-pricing differentiator. Reuses modelPriceCompare so the data

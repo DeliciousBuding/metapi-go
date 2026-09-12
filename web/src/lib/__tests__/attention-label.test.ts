@@ -1,4 +1,4 @@
-// metapi-go/lib — attention-label tests (F3).
+// metapi-go/lib — attention-label tests.
 //
 // The backend keeps an English `label` for API compat and ships structured
 // `params` so the SPA can re-localize. These tests pin the re-localization

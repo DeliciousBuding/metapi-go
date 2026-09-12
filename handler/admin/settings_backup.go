@@ -24,7 +24,7 @@ func RegisterBackupRoutes(r chi.Router, db *sqlx.DB) {
 
 	r.Get("/api/settings/backup/export", handler.exportBackup)
 	r.Post("/api/settings/backup/import", handler.importBackup)
-	// F1: import plan preview before commit.
+	// Import plan preview before commit.
 	r.Post("/api/settings/backup/import/preview", handler.previewBackupImport)
 	r.Get("/api/settings/backup/webdav", handler.getWebdavConfig)
 	r.Put("/api/settings/backup/webdav", handler.saveWebdavConfig)
@@ -201,7 +201,7 @@ func (h *backupHandler) importTSV21Backup(w http.ResponseWriter, raw []byte) {
 	writeJSON(w, http.StatusOK, response)
 }
 
-// F1: preview backup import BEFORE committing. Reuses the
+// Preview a backup import BEFORE committing. Reuses the
 // same decode + validate path as importBackup but returns a plan — per-table
 // rows to insert, rows that would be skipped (runtime-local settings), and
 // rows whose PK (id, or key for settings) already exists in the target DB

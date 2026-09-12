@@ -46,7 +46,7 @@ function ChartEmpty({ message }: { message: string }) {
 
 /** Gate the sr-only summary exactly like the chart body: no summary while
  * the owning query is loading or failed; the builder itself returns
- * undefined when the loaded data is empty (S10, #1035). */
+ * undefined when the loaded data is empty (#1035). */
 function summaryWhenLoaded(
   query: { isLoading: boolean; isError: boolean },
   summaryNode: ReactNode
@@ -89,7 +89,7 @@ export function ModelsSection() {
     [costData]
   )
 
-  // S10 (#1035): sr-only data summary table for the cost donut — recharts
+  // #1035: sr-only data summary table for the cost donut — recharts
   // SVG is opaque to screen readers, so the already-loaded per-model rows
   // are re-presented as a simple series x key-points table. Read-only
   // presentation layer; no extra requests.
@@ -154,7 +154,7 @@ export function ModelsSection() {
     return rows
   }, [trendQuery.data, metricAvg, metricP95])
 
-  // S10 (#1035): sr-only summaries for the two latency charts — same contract
+  // #1035: sr-only summaries for the two latency charts — same contract
   // as the cost donut above (bucket bars → bucket x count; dual-line trend →
   // series x latest/window-average).
   const histogramSummary = useMemo(() => {

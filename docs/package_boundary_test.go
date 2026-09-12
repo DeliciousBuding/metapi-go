@@ -15,9 +15,8 @@ import (
 // as-built package map in docs/architecture.md as a machine assertion, so the
 // package dependency discipline cannot silently drift.
 
-// This is the Go analogue of a grep-based architecture boundary check
-// (test.yml:134-148 "web handlers must route through commands/*_core"):
-// every architecture-level boundary decision is frozen into a CI test.
+// Every architecture-level boundary decision is frozen into a CI test rather
+// than left to reviewer memory.
 
 // Rules enforced (denylist from the architecture contract):
 //  1. store        ↛ handler, proxy, routing, service, scheduler, router, auth
@@ -30,18 +29,14 @@ import (
 //  8. no revived TS-era top-level names proxycore/protocol
 //  9. no production file imports "testing" (a test helper belongs in a _test.go file)
 
-// Documented architecture exceptions are
-// allowed and excluded from the denylist:
-//   - handler/admin → scheduler (admin-ops cron validation only, §5.1)
-//   - handler/admin → app (checkin schedule lifecycle, §5.2)
-//   - app → handler/proxy (ConfigureProxyUpstream composition helper, §5.3)
-//   - platform → proxy/profiles (profile detection, §3.2)
-//   - handler/* → platform (thin admin/verify actions; docs/architecture.md boundary map)
-//   - handler/proxy → transform/* (one-way protocol wiring, §5.4)
+// Documented architecture exceptions are allowed and excluded from the denylist:
+//   - handler/admin → scheduler (admin-ops cron validation only)
+//   - handler/admin → app (checkin schedule lifecycle)
+//   - app → handler/proxy (ConfigureProxyUpstream composition helper)
+//   - platform → proxy/profiles (profile detection)
+//   - handler/* → platform (thin admin/verify actions)
+//   - handler/proxy → transform/* (one-way protocol wiring)
 //   - auth → internal/sharedcount
-//   - (scheduler → handler/shared §5.11 exception RESOLVED 2026-07-31:
-//     scheduler now records DB-conn errors via the `app` facade, no direct
-//     handler/shared import)
 
 // cmd/server is the composition root and may import anything.
 // cmd/migrate, e2e, internal, docs, web are out of scope.
@@ -211,20 +206,18 @@ func forbiddenImport(pkg, imp string) string {
 		}
 	case "scheduler":
 		// scheduler must not depend on the HTTP/handler or routing layers.
-		// DB-connection error metrics are recorded via the `app` facade
-		// (app.RecordDBConnError delegates to handler/shared), not by
-		// importing handler/shared directly — this resolved the §5.11
-		// exception (was: scheduler/lease.go imported handler/shared).
+		// DB-connection error counters live in app/observability, a stdlib-only
+		// leaf, so scheduler/lease.go needs no handler/shared import.
 		if inGroups("handler", "router", "proxy") {
-			return "rule 6: scheduler ↛ handler/router/proxy (DB-conn metric via app facade, not handler/shared)"
+			return "rule 6: scheduler ↛ handler/router/proxy (DB-conn counters go through app/observability)"
 		}
 	case "handler":
 		// handler/admin documented exceptions: → scheduler (admin-ops), → app (lifecycle).
 		if pkg == "handler/admin" && (suffix == "scheduler" || impTop == "scheduler") {
-			return "" // §5.1 admin-ops cron validation exception
+			return "" // admin-ops cron validation exception
 		}
 		if pkg == "handler/admin" && impTop == "app" {
-			return "" // §5.2 checkin schedule lifecycle exception
+			return "" // checkin schedule lifecycle exception
 		}
 		// handler → router forbidden (router mounts handlers).
 		if impTop == "router" {

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Dialect divergence under test (w18-pg-dialect audit): SQLite LIKE matches
+// Dialect divergence under test: SQLite LIKE matches
 // case-insensitively for ASCII, PostgreSQL LIKE is case-sensitive. Shared
 // filters therefore must normalize both sides with LOWER() — otherwise the
 // same admin query returns rows on SQLite and nothing on PostgreSQL.

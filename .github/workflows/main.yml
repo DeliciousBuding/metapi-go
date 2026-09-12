@@ -95,7 +95,8 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - run: go test ./docs -run TestPublicMarkdownHygiene -count=1
+      - name: Prose hygiene gates (public markdown + programme codes in sources)
+        run: go test ./docs -run 'Hygiene|ProgrammeCode' -count=1
 
   frontend:
     runs-on: ubuntu-latest

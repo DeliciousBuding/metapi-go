@@ -6,7 +6,7 @@ import (
 )
 
 // =============================================================================
-// P0-3 — structured cooldown reason columns must exist in BOTH dialects.
+// Structured cooldown reason columns must exist in BOTH dialects.
 // SQLite runs for real below; PostgreSQL is asserted statically on the DDL
 // string (CI has no PG server in this lane; PG_TEST_DSN runs cover it when
 // set).

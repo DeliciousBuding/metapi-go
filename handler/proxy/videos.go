@@ -27,7 +27,6 @@ import (
 // restart can resolve publicId. GET/DELETE treat the store as an optional
 // rewrite aid, not a hard gate — missing entries still pass the client id
 // through to upstream. Sticky site/token pin remains a known limitation.
-// See limitation.md.
 type ProxyVideoTask struct {
 	PublicID        string `json:"publicId"`
 	UpstreamVideoID string `json:"upstreamVideoId"`

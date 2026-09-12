@@ -147,7 +147,7 @@ func TestCascadeIsolation_5xxThenHealthySiblingSucceeds(t *testing.T) {
 	good := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		goodHits.Add(1)
 		writeJSONHelper(w, 200, map[string]any{
-			"id": "chatcmpl-p0585", "object": "chat.completion", "model": "gpt-4",
+			"id": "chatcmpl-cascade", "object": "chat.completion", "model": "gpt-4",
 			"choices": []map[string]any{{
 				"index": 0,
 				"message": map[string]any{"role": "assistant", "content": "recovered"},

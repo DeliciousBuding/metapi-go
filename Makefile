@@ -42,9 +42,10 @@ vuln:
 mod-verify:
 	go mod verify
 
-# Check public Markdown for local paths, credential examples, AI citation artifacts, and unsupported runtime claims
+# Check the published tree for local paths, credential examples, AI citation artifacts,
+# unsupported runtime claims, and internal work-programme codes
 docs-hygiene:
-	go test ./docs -run TestPublicMarkdownHygiene -count=1
+	go test ./docs -run 'Hygiene|ProgrammeCode' -count=1
 
 # Run routing benchmark smoke set with allocation reporting
 bench-routing:

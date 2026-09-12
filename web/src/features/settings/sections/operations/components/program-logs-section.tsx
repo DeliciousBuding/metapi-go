@@ -66,7 +66,7 @@ function levelVariant(level?: string): 'default' | 'secondary' | 'destructive' {
 }
 
 /**
- * Localized event title. Structured rows (F5) render straight from their
+ * Localized event title. Structured rows render straight from their
  * registry titleKey; legacy rows match the persisted English title against
  * the historical slug map, and unknown titles render as-is (honest residual).
  */
@@ -102,7 +102,7 @@ function EventMessage({ event }: { event: ProgramEvent }) {
   const panel =
     parts.panelPath !== null ? parsePanelPath(parts.panelPath) : null
   const hasEnrichment = routes.length > 0 || sites.length > 0 || panel !== null
-  // Structured rows (F5): the message renders from the `events.messages.*`
+  // Structured rows: the message renders from the `events.messages.*`
   // locale template with the event's typed params interpolated by i18next;
   // legacy rows keep the parsed-text path below.
   const structuredMessage =

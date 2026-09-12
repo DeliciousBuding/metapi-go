@@ -1,5 +1,5 @@
 // Package golden is a test-only snapshot harness for the protocol-conversion
-// golden suites (P0-1). It is imported exclusively from _test.go files, so it
+// golden suites. It is imported exclusively from _test.go files, so it
 // never becomes part of the production dependency graph.
 //
 // Each golden case is a pair of checked-in files under the owning package's

@@ -310,7 +310,7 @@ func TestResolveAccountTokenID_NoRows(t *testing.T) {
 	}
 }
 
-// TestSyncAllAccountModels_BatchSemantics is the Wave 15 #1005 acceptance
+// TestSyncAllAccountModels_BatchSemantics is the #1005 acceptance
 // proof: sequential per-account refreshes skip their own rebuild, and the
 // whole pass triggers exactly one route rebuild + one routing-cache
 // invalidation when at least one account succeeded. Candidate filtering

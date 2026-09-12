@@ -70,7 +70,7 @@ func additiveColumns() []additiveColumnSpec {
 		{"account_tokens", "token_group"},
 		{"account_tokens", "value_status"},
 		{"model_availability", "is_manual"},
-		// P0-3 structured cooldown reasons.
+		// Structured cooldown reasons.
 		{"route_channels", "cooldown_reason_code"},
 		{"route_channels", "cooldown_reason"},
 		{"route_channels", "cooldown_reason_at"},

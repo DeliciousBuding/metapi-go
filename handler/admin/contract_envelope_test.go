@@ -1,6 +1,6 @@
 package admin
 
-// Wave 4 contract audit — envelope consistency.
+// Admin API contract audit — envelope consistency.
 //
 // The admin API has two response families and both are pinned here:
 //

@@ -1,4 +1,4 @@
-// metapi-go/components/common — probe health bar states (P0-2).
+// metapi-go/components/common — probe health bar states.
 // Covers the honest empty state, the pending placeholder, chronological bar
 // ordering with status colors, the success-rate/latency tooltip and the
 // screen-reader summary.

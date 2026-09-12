@@ -10,8 +10,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// TestSearch_MixedCaseQueryMatchesMixedCaseRows guards the w18-pg-dialect
-// LIKE divergence fix: SQLite LIKE is case-insensitive for ASCII while
+// TestSearch_MixedCaseQueryMatchesMixedCaseRows guards the LIKE divergence
+// fix: SQLite LIKE is case-insensitive for ASCII while
 // PostgreSQL LIKE is case-sensitive, so the shared search filters normalize
 // both sides with LOWER(). On SQLite this test passes before and after the
 // fix; the PostgreSQL half of the divergence is proven in

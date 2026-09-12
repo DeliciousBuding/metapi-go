@@ -37,7 +37,7 @@ const (
 	oneHubPerCallRatio = 0.002
 )
 
-// N7: admin-overridable cache-ratio fallbacks. The consts above remain the
+// Admin-overridable cache-ratio fallbacks. The consts above remain the
 // code defaults; an operator can tune these via settings (keys
 // cache_ratio_default / cache_ratio_claude) without a code change. NaN/Inf
 // and non-positive overrides are ignored (fall back to the const).

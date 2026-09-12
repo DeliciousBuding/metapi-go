@@ -1,5 +1,5 @@
 // Component-level axe gate + semantics for the sr-only chart data summary
-// table (S10 chart accessibility alternative layer, #1035). Pins the
+// table (the chart accessibility alternative layer, #1035). Pins the
 // screen-reader contract: captioned table, column/row headers, visually
 // hidden, zero axe violations.
 import '@testing-library/jest-dom/vitest'

@@ -117,7 +117,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	if upstreamPath == "" {
 		upstreamPath = r.URL.Path
 	}
-	// Wave 4 security handoff T1: never forward a downstream path containing
+	// Never forward a downstream path containing
 	// ".." segments. Go's http.Client preserves ".." on the wire, and the
 	// upstream host would normalize it outside the site API prefix — letting
 	// any authenticated downstream key holder reach arbitrary upstream paths.
@@ -1092,7 +1092,7 @@ func recordUpstreamFailure(ctx context.Context, cfg *UpstreamConfig, selected *r
 
 // recordUpstreamSuccess feeds routing success stats. billingCostName is the
 // attribution (requested/canonical) model — the same name proxy_logs and
-// billing use, so a K1b redirect (canonical→actual) never skews channel cost
+// billing use, so a model redirect (canonical→actual) never skews channel cost
 // accumulation; modelName (actual) stays the health-stat label.
 func recordUpstreamSuccess(ctx context.Context, cfg *UpstreamConfig, selected *routing.SelectedChannel, billingCostName, modelName string, latencyMs int64, usage ParsedUsage) {
 	if cfg == nil || cfg.Router == nil || selected == nil {

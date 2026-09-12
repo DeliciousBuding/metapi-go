@@ -6,7 +6,7 @@ import (
 	"unicode"
 )
 
-// ---- Structured cooldown reasons (P0-3) ----
+// ---- Structured cooldown reasons ----
 
 // Cooldown reason trigger codes. The code is persisted into
 // route_channels.cooldown_reason_code / oauth_route_unit_members and surfaced
