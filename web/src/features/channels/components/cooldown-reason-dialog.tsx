@@ -189,7 +189,7 @@ export function CooldownReasonDialog({
         </div>
 
         <DialogFooter className='sm:flex-row sm:items-center'>
-          <p className='text-muted-foreground max-w-[240px] text-xs sm:mr-auto'>
+          <p className='text-muted-foreground max-w-60 text-xs sm:mr-auto'>
             {t('channels.detail.clearRouteCooldownHint')}
           </p>
           <Button

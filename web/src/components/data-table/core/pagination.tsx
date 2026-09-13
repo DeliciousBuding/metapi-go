@@ -114,7 +114,7 @@ export function DataTablePagination<TData>({ table }: { table: Table<TData> }) {
           >
             <SelectTrigger
               aria-label={t('Rows per page')}
-              className='text-foreground h-8 w-[64px] font-medium tabular-nums sm:w-[70px]'
+              className='text-foreground h-8 w-16 font-medium tabular-nums sm:w-18'
             >
               <SelectValue placeholder={pageSize} />
             </SelectTrigger>

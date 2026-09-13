@@ -137,7 +137,7 @@ export function useProxyLogsColumns(
       ),
       cell: ({ row }) => (
         <span
-          className='block max-w-[16rem] truncate text-sm'
+          className='block max-w-64 truncate text-sm'
           title={row.original.modelActual || row.original.modelRequested}
         >
           {formatModelCell(
@@ -171,7 +171,7 @@ export function useProxyLogsColumns(
             <HttpStatusBadge status={log.status} httpStatus={log.httpStatus} />
             {log.errorMessage ? (
               <span
-                className='text-destructive-soft-fg text-2xs block max-w-[16rem] truncate leading-tight'
+                className='text-destructive-soft-fg text-2xs block max-w-64 truncate leading-tight'
                 title={log.errorMessage}
               >
                 {log.errorMessage}

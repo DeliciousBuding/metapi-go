@@ -183,7 +183,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
 
   return (
     <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
-      <div className='relative w-full sm:w-[200px] lg:w-[240px]'>
+      <div className='relative w-full sm:w-50 lg:w-60'>
         <Input
           aria-label={placeholder}
           placeholder={placeholder}

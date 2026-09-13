@@ -276,7 +276,7 @@ export function ChannelDetailSheet({
           </Button>
           {showCooldownAction ? (
             <>
-              <p className='text-muted-foreground max-w-[220px] text-xs'>
+              <p className='text-muted-foreground max-w-55 text-xs'>
                 {t('channels.detail.clearRouteCooldownHint')}
               </p>
               <Button

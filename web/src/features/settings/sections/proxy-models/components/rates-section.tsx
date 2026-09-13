@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { SectionCard } from '@/components/common/section-card'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
+import { EmptyText } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -105,9 +106,7 @@ export function RatesSection() {
         title={t('settings.proxyModels.rates.title')}
         description={t('settings.proxyModels.rates.description')}
       >
-        <p className='text-muted-foreground py-8 text-center text-sm'>
-          {t('settings.proxyModels.rates.empty')}
-        </p>
+        <EmptyText>{t('settings.proxyModels.rates.empty')}</EmptyText>
       </SectionCard>
     )
   }

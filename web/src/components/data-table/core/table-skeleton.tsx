@@ -25,7 +25,7 @@ const MAX_SKELETON_ROWS = 20
 const FALLBACK_ROW_COUNT = 20
 
 /** Height of one skeleton row. */
-const ROW_HEIGHT_CLASS = 'h-[52px]'
+const ROW_HEIGHT_CLASS = 'h-13'
 
 /** Bar width as a fraction of the column budget, clamped to a readable range. */
 const BAR_WIDTH_RATIO = 0.6

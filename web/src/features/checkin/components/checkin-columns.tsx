@@ -139,7 +139,7 @@ export function useCheckinColumns(
         const log = checkinLogRowSchema.parse(row.original)
         const username = log.accounts?.username
         return (
-          <span className='max-w-[160px] truncate'>
+          <span className='max-w-40 truncate'>
             {username || `#${log.checkin_logs.accountId}`}
           </span>
         )
@@ -160,9 +160,7 @@ export function useCheckinColumns(
           return <span className='text-muted-foreground'>—</span>
         }
         return (
-          <span className='max-w-[160px] truncate'>
-            {site.name || site.url}
-          </span>
+          <span className='max-w-40 truncate'>{site.name || site.url}</span>
         )
       },
       filterFn: (row, _columnId, filterValue: unknown) => {
@@ -219,7 +217,7 @@ export function useCheckinColumns(
         return (
           <button
             type='button'
-            className='text-muted-foreground hover:text-foreground block min-h-6 max-w-[360px] cursor-pointer truncate text-left text-sm underline-offset-2 hover:underline'
+            className='text-muted-foreground hover:text-foreground block min-h-6 max-w-90 cursor-pointer truncate text-left text-sm underline-offset-2 hover:underline'
             title={t('checkin.detail.viewFullMessage')}
             aria-label={t('checkin.detail.viewFullMessage')}
             onClick={() => actions.onViewDetail(log)}

@@ -242,7 +242,7 @@ export function OAuthDetailSheet(props: OAuthDetailSheetProps) {
         </div>
 
         <SheetFooter className='sm:flex-row sm:items-center'>
-          <p className='text-muted-foreground max-w-[220px] text-xs sm:mr-auto'>
+          <p className='text-muted-foreground max-w-55 text-xs sm:mr-auto'>
             {t('oauth.detail.rebindHint')}
           </p>
           <Button

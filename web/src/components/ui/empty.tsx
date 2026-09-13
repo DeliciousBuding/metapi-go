@@ -79,6 +79,25 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<'p'>) {
   )
 }
 
+/**
+ * Text-only empty state for dense settings sections: the full Empty block
+ * (icon + title + description) reads oversized next to a SectionCard's own
+ * header, so these render a single muted line. One recipe — hand-rolled
+ * copies of this class string drifted across sections before (round-2 audit).
+ */
+function EmptyText({ className, ...props }: React.ComponentProps<'p'>) {
+  return (
+    <p
+      data-slot='empty-text'
+      className={cn(
+        'py-8 text-center text-sm text-muted-foreground',
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
 function EmptyContent({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
@@ -99,4 +118,5 @@ export {
   EmptyDescription,
   EmptyContent,
   EmptyMedia,
+  EmptyText,
 }

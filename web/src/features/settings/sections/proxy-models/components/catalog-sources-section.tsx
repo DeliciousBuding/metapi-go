@@ -615,7 +615,7 @@ export function CatalogSourcesSection() {
                         </Badge>
                       </TableCell>
                       <TableCell
-                        className='text-muted-foreground max-w-[16rem] truncate font-mono text-xs'
+                        className='text-muted-foreground max-w-64 truncate font-mono text-xs'
                         title={source.url}
                       >
                         {source.url}

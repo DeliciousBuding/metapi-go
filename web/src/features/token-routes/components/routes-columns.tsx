@@ -248,10 +248,7 @@ export function useRoutesColumns(
         return (
           <div className='flex flex-col gap-1'>
             <div className='flex items-center gap-2'>
-              <span
-                className='max-w-[240px] truncate font-medium'
-                title={title}
-              >
+              <span className='max-w-60 truncate font-medium' title={title}>
                 {title}
               </span>
               <Badge variant={modeBadge.variant}>{t(modeBadge.labelKey)}</Badge>

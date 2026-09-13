@@ -68,7 +68,7 @@ function StatusBadge({ status }: { status: SiteStatus | undefined }) {
 
 function TruncatedUrl({ url }: { url: string }) {
   return (
-    <SafeExternalLink url={url} className='max-w-[18rem] text-sm' title={url}>
+    <SafeExternalLink url={url} className='max-w-72 text-sm' title={url}>
       {url}
     </SafeExternalLink>
   )
@@ -138,7 +138,7 @@ export function useSitesColumns(
             )}
             <SafeExternalLink
               url={site.url}
-              className='max-w-[220px] font-medium'
+              className='max-w-55 font-medium'
               title={site.name}
             >
               {site.name}
@@ -322,7 +322,7 @@ export function useSitesColumns(
           return <span className='text-muted-foreground text-sm'>—</span>
         }
         return (
-          <span className='block max-w-[14rem] truncate text-sm' title={url}>
+          <span className='block max-w-56 truncate text-sm' title={url}>
             {url}
           </span>
         )
