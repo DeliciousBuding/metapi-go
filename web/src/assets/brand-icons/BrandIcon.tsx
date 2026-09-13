@@ -50,7 +50,7 @@ type BrandGlyphProps = {
   style?: CSSProperties
 }
 
-function BrandGlyph({
+export function BrandGlyph({
   brand,
   model,
   icon,

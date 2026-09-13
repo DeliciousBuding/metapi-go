@@ -2619,6 +2619,7 @@
         "account": "账号",
         "site": "站点",
         "model": "模型",
+        "client": "客户端",
         "status": "状态",
         "latency": "延迟",
         "token": "令牌",
