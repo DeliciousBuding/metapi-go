@@ -108,7 +108,7 @@ describe('ModelsSection cost data summary', () => {
     expect(table).toHaveTextContent('GPT-X')
     // Empty label falls back to the raw model id.
     expect(table).toHaveTextContent('claude-y')
-    expect(table).toHaveTextContent('$12.000')
+    expect(table).toHaveTextContent('$12.00')
     expect(table).toHaveTextContent('300')
     expect(table).toHaveTextContent('45,000')
     expect(table).toHaveTextContent('60.0%')

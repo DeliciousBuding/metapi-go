@@ -80,6 +80,29 @@
     }
   }
 
+  /*
+   * Horizontal scroll affordance for overflowing tables: a 20px alpha fade
+   * on the edge(s) where more content exists. Alpha-only (black →
+   * transparent), so the OKLCH token system remains the single source of
+   * color — same structural exception as the mobile card-list mask. The
+   * data attributes are driven by useScrollFade (hooks/use-scroll-fade.ts).
+   */
+  [data-scroll-fade][data-fade-right='true'] {
+    mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+  }
+  [data-scroll-fade][data-fade-left='true'] {
+    mask-image: linear-gradient(to right, transparent, black 20px);
+  }
+  [data-scroll-fade][data-fade-left='true'][data-fade-right='true'] {
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 20px,
+      black calc(100% - 20px),
+      transparent
+    );
+  }
+
   /* Prevent focus zoom on mobile devices */
   @media screen and (max-width: 767px) {
     input,

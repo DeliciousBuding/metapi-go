@@ -29,7 +29,10 @@ export function SettingsFormActions({
     // Full-width row with two fixed slots (status left, actions right) so the
     // "saved / unsaved" text swap never shifts the Reset/Save buttons
     // (fixed placeholder copy, so the status text cannot shift the layout).
-    <div className='flex min-w-full items-center justify-between gap-2'>
+    // flex-1 + min-w-0, NOT min-w-full: inside a row that already holds a
+    // sibling (e.g. the database section's "test connection" button),
+    // min-w-full forced the row ~90px past the card edge and clipped Save.
+    <div className='flex min-w-0 flex-1 items-center justify-between gap-2'>
       <span className='text-muted-foreground text-xs whitespace-nowrap'>
         {isDirty ? t('settings.common.unsaved') : t('settings.common.saved')}
       </span>

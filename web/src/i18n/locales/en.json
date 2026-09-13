@@ -113,6 +113,13 @@
       "noResults": "No results",
       "noResultsDescription": "No records match your current filters.",
       "resetFilters": "Reset filters",
+      "datePresets": {
+        "label": "Quick ranges",
+        "today": "Today",
+        "last24Hours": "Last 24 hours",
+        "last7Days": "Last 7 days",
+        "last30Days": "Last 30 days"
+      },
       "edit": "Edit",
       "close": "Close",
       "retry": "Retry",

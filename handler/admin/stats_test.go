@@ -620,6 +620,13 @@ func TestStats_SQLiteAttentionAggregatesExpiredLowBalanceDisabled(t *testing.T) 
 	if err != nil {
 		t.Fatalf("insert event: %v", err)
 	}
+	// legacy/seeded rows can carry an empty title with the text in message —
+	// the attention label must fall back to message, never render blank.
+	_, err = db.Exec(`INSERT INTO events (type, title, message, level, read, created_at)
+		VALUES ('checkin', '', '账号 team-staging 连续签到失败', 'error', FALSE, ?)`, nowStr)
+	if err != nil {
+		t.Fatalf("insert empty-title event: %v", err)
+	}
 
 	resp := doGet(t, r, "/api/stats/attention?limit=20")
 	if resp.Code != 200 {
@@ -665,6 +672,24 @@ func TestStats_SQLiteAttentionAggregatesExpiredLowBalanceDisabled(t *testing.T) 
 		if targets[category] != wantTarget {
 			t.Fatalf("%s target = %q, want %q", category, targets[category], wantTarget)
 		}
+	}
+
+	// No attention item may render an empty label; the empty-title event
+	// above must surface its message text.
+	for _, it := range items {
+		label := it.(map[string]any)["label"].(string)
+		if label == "" {
+			t.Fatalf("attention item with empty label: %+v", it)
+		}
+	}
+	var foundMessageFallback bool
+	for _, it := range items {
+		if it.(map[string]any)["label"] == "账号 team-staging 连续签到失败" {
+			foundMessageFallback = true
+		}
+	}
+	if !foundMessageFallback {
+		t.Fatalf("empty-title event did not fall back to message: %v", items)
 	}
 }
 

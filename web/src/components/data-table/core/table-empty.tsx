@@ -67,21 +67,30 @@ export function TableEmpty({
 
   return (
     <TableRow>
+      {/*
+        The cell spans the FULL table width, which inside a horizontally
+        scrollable container is wider than the viewport — centering within
+        the cell pushes the empty state past the visible area (invisible at
+        768px). The sticky inset-x-0 wrapper pins the content to the
+        scrollport's visible band instead (mx-auto + w-fit centers it).
+      */}
       <TableCell colSpan={colSpan} className='h-[280px] p-0'>
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant='icon'>{resolvedIcon}</EmptyMedia>
-            <EmptyTitle>{resolvedTitle}</EmptyTitle>
-            <EmptyDescription>{resolvedDescription}</EmptyDescription>
-          </EmptyHeader>
-          {isFiltered && onClearFilters ? (
-            <Button variant='outline' size='sm' onClick={onClearFilters}>
-              {t('common.resetFilters')}
-            </Button>
-          ) : (
-            children
-          )}
-        </Empty>
+        <div className='sticky inset-x-0 mx-auto flex h-full w-fit max-w-full items-center justify-center'>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant='icon'>{resolvedIcon}</EmptyMedia>
+              <EmptyTitle>{resolvedTitle}</EmptyTitle>
+              <EmptyDescription>{resolvedDescription}</EmptyDescription>
+            </EmptyHeader>
+            {isFiltered && onClearFilters ? (
+              <Button variant='outline' size='sm' onClick={onClearFilters}>
+                {t('common.resetFilters')}
+              </Button>
+            ) : (
+              children
+            )}
+          </Empty>
+        </div>
       </TableCell>
     </TableRow>
   )

@@ -41,7 +41,10 @@ import type {
   SiteDistributionSlice,
   SiteTrendPoint,
 } from '../types'
-import { formatChartCurrency } from './charts-currency'
+import {
+  formatChartCurrency,
+  makeChartCurrencyAxisFormatter,
+} from './charts-currency'
 
 /** Number of ordinal colours exposed by the theme (--chart-1..5). */
 const PALETTE_SIZE = 5
@@ -57,6 +60,27 @@ function seriesKey(index: number): string {
 }
 
 /** Percent-of-total string for the donut tooltip share row. */
+/**
+ * Uniform currency tick formatter for one axis: the band is chosen once from
+ * the largest numeric value in the pivoted rows so every tick on the axis
+ * shares a precision (mixed precision on one axis reads as a rounding bug).
+ */
+function useCurrencyAxisTicks(
+  rows: ReadonlyArray<object>
+): (value: number) => string {
+  return useMemo(() => {
+    let max = 0
+    for (const row of rows) {
+      for (const value of Object.values(row)) {
+        if (typeof value === 'number' && Math.abs(value) > max) {
+          max = Math.abs(value)
+        }
+      }
+    }
+    return makeChartCurrencyAxisFormatter(max)
+  }, [rows])
+}
+
 function percentOf(value: number, total: number): string {
   return `${total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'}%`
 }
@@ -289,6 +313,7 @@ function DonutLegend({ payload }: { payload?: DonutLegendPayload[] }) {
 export function IncomeOutcomeChart({ data }: { data: IncomeOutcomePoint[] }) {
   const { t } = useTranslation()
   const rows = useMemo(() => pivotIncomeOutcome(data), [data])
+  const formatCurrencyTick = useCurrencyAxisTicks(rows)
   const formatTick = useDateTickFormatter()
   const formatTooltipDate = useDateTooltipFormatter()
   const config = useMemo<ChartConfig>(
@@ -321,9 +346,9 @@ export function IncomeOutcomeChart({ data }: { data: IncomeOutcomePoint[] }) {
         <YAxis
           axisLine={false}
           tickLine={false}
-          width={48}
+          width={56}
           tickMargin={4}
-          tickFormatter={(value: number) => formatChartCurrency(value)}
+          tickFormatter={formatCurrencyTick}
         />
         <ChartLegend
           content={<ChartLegendContent />}
@@ -359,6 +384,7 @@ export function IncomeOutcomeChart({ data }: { data: IncomeOutcomePoint[] }) {
 export function SiteTrendChart({ data }: { data: SiteTrendPoint[] }) {
   const { t } = useTranslation()
   const { rows, sites } = useMemo(() => pivotSiteTrend(data), [data])
+  const formatCurrencyTick = useCurrencyAxisTicks(rows)
   const formatTick = useDateTickFormatter()
   const formatTooltipDate = useDateTooltipFormatter()
   const config = useMemo<ChartConfig>(() => {
@@ -385,9 +411,9 @@ export function SiteTrendChart({ data }: { data: SiteTrendPoint[] }) {
         <YAxis
           axisLine={false}
           tickLine={false}
-          width={48}
+          width={56}
           tickMargin={4}
-          tickFormatter={(value: number) => formatChartCurrency(value)}
+          tickFormatter={formatCurrencyTick}
         />
         <ChartLegend
           content={<ChartLegendContent />}
@@ -516,7 +542,7 @@ export function LatencyHistogramChart({
         <YAxis
           axisLine={false}
           tickLine={false}
-          width={48}
+          width={56}
           tickMargin={4}
           allowDecimals={false}
         />
@@ -570,7 +596,7 @@ export function LatencyTrendChart({
           minTickGap={24}
           tickFormatter={formatTick}
         />
-        <YAxis axisLine={false} tickLine={false} width={48} tickMargin={4} />
+        <YAxis axisLine={false} tickLine={false} width={56} tickMargin={4} />
         <ChartLegend
           content={<ChartLegendContent />}
           verticalAlign='bottom'

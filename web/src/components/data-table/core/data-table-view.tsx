@@ -16,6 +16,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Table, TableBody } from '@/components/ui/table'
+import { useScrollFade } from '@/hooks/use-scroll-fade'
 import { formatInt } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +42,7 @@ const STICKY_HEADER_BACKGROUND =
 const TABLE_CLASS = 'w-full caption-bottom text-sm tabular-nums'
 
 export function DataTableView<TData>(props: DataTableViewProps<TData>) {
+  const fadeRef = useScrollFade<HTMLDivElement>()
   const { t } = useTranslation()
   const { table, splitHeader } = props
   // Read on every render rather than memoised on `table`: hiding a column in the
@@ -91,6 +93,8 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
       {splitHeader ? (
         <div className='flex h-full min-h-0 flex-col'>
           <div
+            ref={fadeRef}
+            data-scroll-fade
             className={cn(
               'min-h-0 flex-1 overflow-auto',
               STICKY_HEADER_BACKGROUND

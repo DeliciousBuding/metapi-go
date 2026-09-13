@@ -26,6 +26,7 @@ import {
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DateRangePresets } from '@/components/common/date-range-presets'
 import {
   DataTablePage,
   type UrlTableState,
@@ -474,6 +475,14 @@ export function CheckinPage() {
               aria-label={t('checkin.page.endTime')}
             />
           </div>
+          <DateRangePresets
+            onApply={(fromValue, toValue) => {
+              updateUrlState({
+                filters: { from: fromValue, to: toValue },
+                pageIndex: 0,
+              })
+            }}
+          />
           <Select
             value={accountId ? String(accountId) : ACCOUNT_FILTER_ALL}
             onValueChange={(value) => {
