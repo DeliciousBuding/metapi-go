@@ -10,9 +10,10 @@ import {
   type ColumnDef,
 } from '@tanstack/react-table'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type * as React from 'react'
 
 import '@/i18n/config'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { DataTablePage } from '../data-table-page'
 
@@ -155,5 +156,66 @@ describe('DataTablePage error contract', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('empty-state contract (#1356)', () => {
+  function renderEmpty(options: { emptyIcon?: React.ReactNode }) {
+    function Harness() {
+      const table = useReactTable({
+        data: [] as ProbeRow[],
+        columns: probeColumns,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+      })
+      return (
+        <DataTablePage
+          table={table}
+          toolbarProps={null}
+          emptyTitle='Nothing here'
+          emptyIcon={options.emptyIcon}
+        />
+      )
+    }
+    return render(<Harness />)
+  }
+
+  it('hides the pagination footer when the first page has zero rows', () => {
+    renderEmpty({})
+
+    // A zero-row first page has nothing to page through; the footer (Total +
+    // nav) must not render at all.
+    expect(screen.queryByText('Total:')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Go to first page' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows the pagination footer when rows exist', () => {
+    function Harness() {
+      const table = useReactTable({
+        data: probeRows,
+        columns: probeColumns,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+      })
+      return <DataTablePage table={table} toolbarProps={null} />
+    }
+    render(<Harness />)
+
+    expect(screen.getByText('Total:')).toBeInTheDocument()
+  })
+
+  it('renders the per-entity empty icon when given, the fallback otherwise', () => {
+    const { unmount } = renderEmpty({
+      emptyIcon: <svg data-testid='entity-icon' />,
+    })
+    expect(screen.getByTestId('entity-icon')).toBeInTheDocument()
+    unmount()
+
+    renderEmpty({})
+    expect(screen.queryByTestId('entity-icon')).not.toBeInTheDocument()
+    // The fallback database glyph keeps rendering (lucide svg).
+    expect(screen.getByText('Nothing here')).toBeInTheDocument()
   })
 })

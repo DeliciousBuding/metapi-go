@@ -4,7 +4,7 @@
 
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState, Table } from '@tanstack/react-table'
-import { Plus, Power, Settings2, Zap } from 'lucide-react'
+import { Plus, Power, Route, Settings2, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -475,6 +475,7 @@ export function RoutesPage() {
         errorMessageKey='tokenRoutes.page.loadError'
         onErrorRetry={() => refetch()}
         isErrorRetrying={isFetching}
+        emptyIcon={<Route className='size-6' />}
         emptyTitle={t('tokenRoutes.page.emptyTitle')}
         emptyDescription={t('tokenRoutes.page.emptyDescription')}
         emptyAction={
@@ -498,19 +499,21 @@ export function RoutesPage() {
           searchPlaceholder: t('tokenRoutes.page.searchPlaceholder'),
           searchDebounceMs: 300,
           viewToggle: (
-            // min-w-0 + truncated span so the long "显示零通道模型…" label
-            // can shrink on narrow viewports instead of pushing the View
-            // Options button past the toolbar edge (375px overflow fix).
+            // Short label + the long explanation on the tooltip: truncating
+            // the full sentence clipped it mid-parenthesis, which read as a
+            // rendering bug. The whole label row is the hit target (44px).
             <label
-              className='text-muted-foreground flex min-w-0 items-center gap-1.5 text-sm'
-              title={t('tokenRoutes.page.showZeroChannel')}
+              htmlFor='show-zero-channel-routes'
+              className='text-muted-foreground flex min-h-11 min-w-0 cursor-pointer items-center gap-1.5 text-sm'
+              title={t('tokenRoutes.page.showZeroChannelHint')}
             >
               <Switch
+                id='show-zero-channel-routes'
                 className='shrink-0'
                 checked={showZeroChannel}
                 onCheckedChange={setShowZeroChannel}
               />
-              <span className='max-w-[150px] min-w-0 truncate sm:max-w-[280px]'>
+              <span className='min-w-0 truncate'>
                 {t('tokenRoutes.page.showZeroChannel')}
               </span>
             </label>

@@ -256,7 +256,7 @@ export function AttentionBell() {
           <Button
             variant='ghost'
             size='icon'
-            className='relative'
+            className='relative max-md:size-10'
             aria-label={triggerLabel}
           />
         }

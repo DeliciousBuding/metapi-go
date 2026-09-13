@@ -87,6 +87,9 @@ export type DataTablePageProps<TData> = DataTablePageErrorProps & {
   /** Empty-state extra content — e.g. a "Create" button under the message. */
   emptyAction?: React.ReactNode
 
+  /** Per-entity empty-state icon (defaults to a generic database glyph). */
+  emptyIcon?: React.ReactNode
+
   /**
    * Configuration for the default {@link DataTableToolbar}. Omit it or pass
    * `null` for a page with no toolbar at all.
@@ -167,12 +170,18 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
 
   const fixedHeight = props.fixedHeight !== false
 
+  // An empty table hugs its content: without rows the `h-full`/`flex-1`
+  // geometry would stretch the bordered shell across the whole viewport and
+  // center the empty state in a wall of blank space.
+  const isEmpty =
+    !props.isLoading && props.table.getRowModel().rows.length === 0
+
   return (
     <>
       {errorBanner}
       <div
         className={cn(
-          fixedHeight
+          fixedHeight && !isEmpty
             ? 'flex h-full min-h-0 flex-col gap-2.5 sm:gap-3'
             : 'space-y-2.5 sm:space-y-3',
           props.className
@@ -189,13 +198,19 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
           // bar). The gradient is an ALPHA ramp only — it carries no colour, so
           // the OKLCH token system stays the only source of colour (see the
           // no-gradients test allowlist note).
-          <div className='min-h-0 flex-1 overflow-y-auto [mask-image:linear-gradient(to_bottom,black_calc(100%_-_2.5rem),transparent)] pb-10'>
+          <div
+            className={cn(
+              !isEmpty &&
+                'min-h-0 flex-1 [mask-image:linear-gradient(to_bottom,black_calc(100%_-_2.5rem),transparent)] pb-10'
+            )}
+          >
             <MobileCardList
               table={props.table}
               isLoading={props.isLoading}
               emptyTitle={props.emptyTitle}
               emptyDescription={props.emptyDescription}
               emptyAction={props.emptyAction}
+              emptyIcon={props.emptyIcon}
             />
           </div>
         ) : (
@@ -205,11 +220,12 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
             emptyTitle={props.emptyTitle}
             emptyDescription={props.emptyDescription}
             emptyAction={props.emptyAction}
+            emptyIcon={props.emptyIcon}
             skeletonKeyPrefix={props.skeletonKeyPrefix}
             renderRow={props.renderRow}
             splitHeader={fixedHeight}
             containerClassName={cn(
-              fixedHeight && 'min-h-0 flex-1',
+              fixedHeight && !isEmpty && 'min-h-0 flex-1',
               'transition-opacity duration-150',
               // Subtle dim only while background-refetching; never block pointer
               // events — rows stay rendered (placeholderData) and interactive.

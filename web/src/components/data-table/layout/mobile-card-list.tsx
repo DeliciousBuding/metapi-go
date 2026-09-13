@@ -30,6 +30,8 @@ interface MobileCardListProps<TData> {
   emptyTitle?: string
   emptyDescription?: string
   emptyAction?: React.ReactNode
+  /** Per-entity empty-state icon (defaults to a generic database glyph). */
+  emptyIcon?: React.ReactNode
 }
 
 /** The bordered, divided shell both skeletons share with the real list. */
@@ -105,6 +107,7 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
     emptyTitle,
     emptyDescription,
     emptyAction,
+    emptyIcon,
   } = props
   const { t } = useTranslation()
 
@@ -132,7 +135,7 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
         <Empty className='border-none p-0'>
           <EmptyHeader>
             <EmptyMedia variant='icon'>
-              <Database className='size-6' />
+              {emptyIcon ?? <Database className='size-6' />}
             </EmptyMedia>
             <EmptyTitle>{resolvedEmptyTitle}</EmptyTitle>
             <EmptyDescription>{resolvedEmptyDescription}</EmptyDescription>

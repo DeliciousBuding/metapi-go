@@ -11,6 +11,7 @@
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
+  Globe,
   Info as InfoIcon,
   Plus as PlusIcon,
   Trash2 as Trash2Icon,
@@ -470,6 +471,7 @@ export function SitesPage() {
         errorMessageKey='sites.page.loadError'
         onErrorRetry={() => sitesQuery.refetch()}
         isErrorRetrying={sitesQuery.isFetching}
+        emptyIcon={<Globe className='size-6' />}
         emptyTitle={t('sites.empty.title')}
         emptyDescription={t('sites.empty.description')}
         emptyAction={

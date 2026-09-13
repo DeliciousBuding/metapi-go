@@ -8,7 +8,7 @@
 // key-form-shared.ts; the wire contract is the sibling `../types`.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil } from 'lucide-react'
+import { KeySquare, Pencil } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -318,6 +318,7 @@ export function KeysSection() {
         <DataTablePage
           table={table}
           isLoading={isLoading}
+          emptyIcon={<KeySquare className='size-6' />}
           emptyTitle={t('settings.downstream.keys.empty')}
           emptyAction={
             <Button size='sm' onClick={() => openCreate()}>

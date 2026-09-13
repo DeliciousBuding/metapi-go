@@ -4,6 +4,7 @@
 
 import { useNavigate } from '@tanstack/react-router'
 import type { Row } from '@tanstack/react-table'
+import { ScrollText } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -412,15 +413,17 @@ export function ProxyLogsPage() {
             label={t('proxyLogs.page.summaryTotal')}
             value={formatInt(summary.totalCount)}
           />
+          {/* Semantic tint only when the count is non-zero: an all-zero
+              summary is a healthy/neutral state, not a red/green alarm. */}
           <SummaryCard
             label={t('proxyLogs.page.summarySuccess')}
             value={formatInt(summary.successCount)}
-            tone='success'
+            tone={summary.successCount > 0 ? 'success' : undefined}
           />
           <SummaryCard
             label={t('proxyLogs.page.summaryFailed')}
             value={formatInt(summary.failedCount)}
-            tone='danger'
+            tone={summary.failedCount > 0 ? 'danger' : undefined}
           />
           <SummaryCard
             label={t('proxyLogs.page.summaryCost')}
@@ -448,6 +451,7 @@ export function ProxyLogsPage() {
         onErrorRetry={() => logsQuery.refetch()}
         isErrorRetrying={logsQuery.isFetching}
         errorPlacement='inline'
+        emptyIcon={<ScrollText className='size-6' />}
         emptyTitle={t('proxyLogs.page.emptyTitle')}
         emptyDescription={t('proxyLogs.page.emptyDescription')}
         emptyAction={

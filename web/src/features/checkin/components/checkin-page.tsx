@@ -16,7 +16,13 @@
 import { useNavigate } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
 import axios from 'axios'
-import { CalendarRange, RotateCw, Users, Zap } from 'lucide-react'
+import {
+  CalendarCheck,
+  CalendarRange,
+  RotateCw,
+  Users,
+  Zap,
+} from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -525,6 +531,7 @@ export function CheckinPage() {
         errorMessageKey='checkin.page.loadError'
         onErrorRetry={() => refetch()}
         isErrorRetrying={isFetching}
+        emptyIcon={<CalendarCheck className='size-6' />}
         emptyTitle={t('checkin.page.emptyTitle')}
         emptyDescription={t('checkin.page.emptyDescription')}
         emptyAction={

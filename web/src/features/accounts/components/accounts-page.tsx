@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Trash2,
   Upload as UploadIcon,
+  Users,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -579,13 +580,24 @@ export function AccountsPage() {
             creating a fresh site. Only the loaded-and-empty state disables
             it — during load the dialog opens and picks up the sites as the
             snapshot lands (the form consumes the live `sites` prop). */}
-        <Button
-          onClick={openCreate}
-          disabled={!isLoading && sites.length === 0}
+        {/* Disabled lives on a wrapping span so the tooltip explaining the
+            precondition still works (a disabled button swallows pointer
+            events, and with them any title of its own). */}
+        <span
+          title={
+            !isLoading && sites.length === 0
+              ? t('accounts.page.addDisabledHint')
+              : undefined
+          }
         >
-          <Plus />
-          {t('accounts.page.addButton')}
-        </Button>
+          <Button
+            onClick={openCreate}
+            disabled={!isLoading && sites.length === 0}
+          >
+            <Plus />
+            {t('accounts.page.addButton')}
+          </Button>
+        </span>
       </div>
 
       <DataTablePage
@@ -596,13 +608,32 @@ export function AccountsPage() {
         errorMessageKey='accounts.page.loadError'
         onErrorRetry={() => refetch()}
         isErrorRetrying={isFetching}
+        emptyIcon={<Users className='size-6' />}
         emptyTitle={t('accounts.page.emptyTitle')}
         emptyDescription={t('accounts.page.emptyDescription')}
         emptyAction={
-          <Button onClick={() => setImportOpen(true)}>
-            <UploadIcon className='size-4' />
-            {t('accounts.page.emptyImport')}
-          </Button>
+          <div className='flex flex-wrap items-center justify-center gap-2'>
+            <Button onClick={() => setImportOpen(true)}>
+              <UploadIcon className='size-4' />
+              {t('accounts.page.emptyImport')}
+            </Button>
+            <span
+              title={
+                !isLoading && sites.length === 0
+                  ? t('accounts.page.addDisabledHint')
+                  : undefined
+              }
+            >
+              <Button
+                variant='outline'
+                onClick={openCreate}
+                disabled={!isLoading && sites.length === 0}
+              >
+                <Plus className='size-4' />
+                {t('accounts.page.addButton')}
+              </Button>
+            </span>
+          </div>
         }
         skeletonKeyPrefix='accounts-skeleton'
         toolbarProps={{

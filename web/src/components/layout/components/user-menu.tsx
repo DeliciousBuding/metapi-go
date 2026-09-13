@@ -49,6 +49,7 @@ export function UserMenu() {
           <Button
             variant='ghost'
             size='icon'
+            className='max-md:size-10'
             aria-label={t('userMenu.trigger')}
           />
         }

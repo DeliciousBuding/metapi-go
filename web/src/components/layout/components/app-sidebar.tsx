@@ -5,6 +5,7 @@ import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
+import { InterfaceControls } from '@/components/layout/components/interface-controls'
 import { Button } from '@/components/ui/button'
 import {
   Sidebar,
@@ -95,6 +96,15 @@ export function AppSidebar() {
           ))}
         </div>
       </SidebarContent>
+
+      {/* Mobile-only footer: the interface controls (language, palette,
+          light/dark) live here so the top bar keeps five reachable targets
+          instead of seven cramped ones. */}
+      {isMobile && (
+        <div className='mt-auto flex justify-center border-t p-2.5'>
+          <InterfaceControls />
+        </div>
+      )}
 
       <SidebarRail />
     </Sidebar>
