@@ -15,7 +15,6 @@ import {
   CardDescription,
   CardHeader,
 } from '@/components/ui/card'
-import { metapiIdentity } from '@/lib/identity-branding'
 
 import { LoginForm } from './login-form'
 

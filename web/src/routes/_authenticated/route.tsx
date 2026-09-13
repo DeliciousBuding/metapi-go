@@ -23,7 +23,6 @@ import {
   NotFoundPage,
 } from '@/components/layout'
 import { registerSettingsNavProvider } from '@/components/layout/lib/settings-nav-registry'
-import { registerSidebarView } from '@/components/layout/lib/sidebar-view-registry'
 import { getSettingsSubareas } from '@/features/settings'
 import {
   hasValidAuthSession,
