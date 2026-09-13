@@ -55,6 +55,10 @@ const FORBIDDEN_PATTERNS = [
 const GRADIENT_ALLOWLIST = new Set([
   'public/logo.svg',
   'public/favicon.svg',
+  // Same brand-logomark exception as the static SVGs above: BrandLogo is the
+  // inline-rendered edition of that design asset (its ramp binds to
+  // var(--primary)), not an application surface.
+  'src/components/ui/brand-logo.tsx',
   'src/styles/index.css',
   // Alpha-only scroll-edge mask for the mobile card list(s): the gradient
   // fades `mask-image` alpha so rows desolve at the container boundary
