@@ -1245,9 +1245,10 @@ jobs:
       - name: Serve SPA and capture screenshots
         run: |
           set -euo pipefail
+          data_dir="$(mktemp -d)/data"
           AUTH_TOKEN=dev-admin-token-123 \
           PROXY_TOKEN=dev-proxy-token-123 \
-          DATA_DIR="$(mktemp -d)/data" \
+          DATA_DIR="$data_dir" \
           PORT=4099 \
           go run ./cmd/server >${RUNNER_TEMP}/screenshots-server.log 2>&1 &
           server_pid=$!
@@ -1265,9 +1266,14 @@ jobs:
             cat ${RUNNER_TEMP}/screenshots-server.log
             exit 1
           fi
+          # Populate the fresh runtime DB with deterministic demo data so the
+          # evidence shots show a lived-in UI (tables/charts/logs) rather than
+          # a wall of empty states. Golden visual-regression baselines stay on
+          # the empty DB deliberately (date-independent layout contract).
+          python3 scripts/e2e/seed-demo-data.py "$data_dir/hub.db"
           cd web
           OUT_DIR="${RUNNER_TEMP}/ui-screenshots" BASE_URL=http://127.0.0.1:4099 \
-            AUTH_TOKEN=dev-admin-token-123 bun run screenshots
+            AUTH_TOKEN=dev-admin-token-123 EXPECTED_DATA_PROFILE=seeded bun run screenshots
       - name: Upload screenshot evidence
         uses: actions/upload-artifact@v7
         with:
