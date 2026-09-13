@@ -15,6 +15,7 @@ import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { EmptyText } from '@/components/ui/empty'
 import {
   Select,
   SelectContent,
@@ -127,7 +128,7 @@ function EventMessage({ event }: { event: ProgramEvent }) {
     )
   }
   return (
-    <span className='text-muted-foreground flex max-w-[360px] flex-col gap-0.5 text-xs'>
+    <span className='text-muted-foreground flex max-w-90 flex-col gap-0.5 text-xs'>
       {messageBody}
       {expanded && routes.length > 0 ? (
         <span className='flex flex-wrap items-baseline gap-x-1'>
@@ -402,9 +403,7 @@ export function ProgramLogsSection() {
         />
       ) : null}
       {!eventsQuery.isLoading && !eventsQuery.isError && items.length === 0 ? (
-        <p className='text-muted-foreground py-8 text-center text-sm'>
-          {t('settings.operations.programLogs.empty')}
-        </p>
+        <EmptyText>{t('settings.operations.programLogs.empty')}</EmptyText>
       ) : null}
       {!eventsQuery.isLoading && !eventsQuery.isError && items.length > 0 ? (
         <Table>

@@ -226,7 +226,7 @@ export function useChannelsColumns(
         ),
         cell: ({ row }) => (
           <span
-            className='text-muted-foreground block max-w-[180px] truncate text-sm'
+            className='text-muted-foreground block max-w-50 truncate text-sm'
             title={row.original.models || undefined}
           >
             {row.original.models || '—'}

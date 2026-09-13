@@ -74,7 +74,7 @@ export function TableEmpty({
         768px). The sticky inset-x-0 wrapper pins the content to the
         scrollport's visible band instead (mx-auto + w-fit centers it).
       */}
-      <TableCell colSpan={colSpan} className='h-[280px] p-0'>
+      <TableCell colSpan={colSpan} className='h-70 p-0'>
         <div className='sticky inset-x-0 mx-auto flex h-full w-fit max-w-full items-center justify-center'>
           <Empty>
             <EmptyHeader>

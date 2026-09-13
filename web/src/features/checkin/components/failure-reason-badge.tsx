@@ -80,7 +80,7 @@ export function FailureReasonBadge({
   return (
     <Badge variant={config.variant} className={className} title={tooltip}>
       <span className={cn('size-1.5 rounded-full', config.dotClassName)} />
-      <span className='max-w-[140px] truncate'>{label}</span>
+      <span className='max-w-35 truncate'>{label}</span>
     </Badge>
   )
 }

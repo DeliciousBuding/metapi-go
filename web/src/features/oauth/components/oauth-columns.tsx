@@ -86,7 +86,7 @@ function TruncatedText({
   const display =
     text.length > maxLength ? `${text.slice(0, maxLength)}…` : text
   return (
-    <span className='block max-w-[9.5rem] truncate text-sm' title={text}>
+    <span className='block max-w-38 truncate text-sm' title={text}>
       {display}
     </span>
   )
@@ -256,7 +256,7 @@ export function useOAuthColumns(
       ),
       cell: ({ row }) => (
         <span
-          className='block max-w-[5.5rem] truncate font-medium'
+          className='block max-w-22 truncate font-medium'
           title={row.original.provider}
         >
           {row.original.provider}
@@ -299,7 +299,7 @@ export function useOAuthColumns(
         const siteName = row.original.site?.name
         return siteName ? (
           <span
-            className='text-muted-foreground block max-w-[6rem] truncate text-sm'
+            className='text-muted-foreground block max-w-24 truncate text-sm'
             title={siteName}
           >
             {siteName}
@@ -415,7 +415,7 @@ export function useOAuthColumns(
       ),
       cell: ({ row }) => (
         <span
-          className='text-muted-foreground block max-w-[7rem] truncate text-sm tabular-nums'
+          className='text-muted-foreground block max-w-28 truncate text-sm tabular-nums'
           title={formatDateTime(row.original.lastModelSyncAt, locale)}
         >
           {formatDateTime(row.original.lastModelSyncAt, locale)}

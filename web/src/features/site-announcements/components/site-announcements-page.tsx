@@ -570,7 +570,7 @@ export function SiteAnnouncementsPage() {
               )
               return (
                 <TableRow key={item.id} data-unread={unread || undefined}>
-                  <TableCell className='max-w-[420px]'>
+                  <TableCell className='max-w-105'>
                     <div className='flex flex-col gap-0.5'>
                       <span
                         className={cn(

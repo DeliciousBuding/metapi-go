@@ -342,7 +342,7 @@ export function useAccountsColumns(
           return (
             <div className='flex flex-col gap-1'>
               <div className='flex items-center gap-2'>
-                <span className='max-w-[220px] truncate font-medium'>
+                <span className='max-w-55 truncate font-medium'>
                   {resolveDisplayName(account)}
                 </span>
                 <Badge
@@ -387,7 +387,7 @@ export function useAccountsColumns(
                   page columns, #985). */}
               <SafeExternalLink
                 url={site.url ?? ''}
-                className='max-w-[160px] text-sm'
+                className='max-w-40 text-sm'
                 title={site.url ?? undefined}
               >
                 {site.name || site.url || `#${site.id}`}

@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { EmptyText } from '@/components/ui/empty'
 import {
   Form,
   FormControl,
@@ -234,9 +235,7 @@ export function AnnouncementsSection() {
         isRetrying={announcementsQuery.isFetching}
       />
       {!isLoading && !loadError && items.length === 0 ? (
-        <p className='text-muted-foreground py-8 text-center text-sm'>
-          {t('settings.content.announcements.empty')}
-        </p>
+        <EmptyText>{t('settings.content.announcements.empty')}</EmptyText>
       ) : null}
       {!isLoading && items.length > 0 ? (
         <Table>

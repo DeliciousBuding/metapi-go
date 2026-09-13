@@ -175,7 +175,7 @@ export function useModelsColumns(
                 ) : null}
               </div>
               {model.description ? (
-                <TruncatedCell className='text-muted-foreground max-w-[20rem] text-xs'>
+                <TruncatedCell className='text-muted-foreground max-w-80 text-xs'>
                   {model.description}
                 </TruncatedCell>
               ) : null}

@@ -390,7 +390,7 @@ export function TestForm({
               <FormControl>
                 <Textarea
                   placeholder={t('modelTester.form.systemPromptPlaceholder')}
-                  className='min-h-[80px] resize-y'
+                  className='min-h-20 resize-y'
                   disabled={isRunning}
                   {...field}
                 />
@@ -409,7 +409,7 @@ export function TestForm({
               <FormControl>
                 <Textarea
                   placeholder={t('modelTester.form.promptPlaceholder')}
-                  className='min-h-[140px] resize-y'
+                  className='min-h-35 resize-y'
                   disabled={isRunning}
                   autoFocus
                   onKeyDown={(event) => {

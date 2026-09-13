@@ -481,7 +481,7 @@ export function ProxyLogsPage() {
                 <SelectTrigger
                   size='sm'
                   aria-label={t('proxyLogs.page.filterStatusPlaceholder')}
-                  className='w-[120px]'
+                  className='w-32'
                 >
                   <SelectValue>
                     {(selected) => {
@@ -519,7 +519,7 @@ export function ProxyLogsPage() {
                   <SelectTrigger
                     size='sm'
                     aria-label={t('proxyLogs.page.filterSitePlaceholder')}
-                    className='w-[160px]'
+                    className='w-40'
                   >
                     <SelectValue>
                       {(selected) => {
@@ -562,7 +562,7 @@ export function ProxyLogsPage() {
                   <SelectTrigger
                     size='sm'
                     aria-label={t('proxyLogs.page.filterClientPlaceholder')}
-                    className='w-[160px]'
+                    className='w-40'
                   >
                     <SelectValue>
                       {(selected) => {
@@ -600,7 +600,7 @@ export function ProxyLogsPage() {
                     pageIndex: 0,
                   })
                 }}
-                className='w-[130px]'
+                className='w-32'
               />
               {/* Native datetime controls render in the BROWSER's locale
                   (not the page's). Layout is what we own: the pair stacks
@@ -616,7 +616,7 @@ export function ProxyLogsPage() {
                       pageIndex: 0,
                     })
                   }}
-                  className='w-[180px] max-sm:w-full'
+                  className='w-50 max-sm:w-full'
                 />
                 <Input
                   type='datetime-local'
@@ -628,7 +628,7 @@ export function ProxyLogsPage() {
                       pageIndex: 0,
                     })
                   }}
-                  className='w-[180px] max-sm:w-full'
+                  className='w-50 max-sm:w-full'
                 />
               </div>
               <DateRangePresets
@@ -659,7 +659,7 @@ export function ProxyLogsPage() {
                       pageIndex: 0,
                     })
                   }}
-                  className='w-[100px]'
+                  className='w-25'
                 />
               </div>
               <div className='flex items-center gap-1.5'>
@@ -678,7 +678,7 @@ export function ProxyLogsPage() {
                       pageIndex: 0,
                     })
                   }}
-                  className='w-[100px]'
+                  className='w-25'
                 />
               </div>
               <div className='flex items-center gap-1.5'>

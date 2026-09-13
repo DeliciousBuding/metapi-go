@@ -51,7 +51,7 @@ export function DataTableViewOptions<TData>({
         <Columns3 />
         {t('columnSettings')}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align='end' className='w-[150px]'>
+      <DropdownMenuContent align='end' className='w-38'>
         <DropdownMenuGroup>
           <DropdownMenuLabel>{t('Toggle columns')}</DropdownMenuLabel>
           {hideableColumns.map((column) => (

@@ -33,7 +33,7 @@ type BadgeListCellProps = {
 /** Negative margin cancels the badge's own `px-1.5` so text lines up with the header. */
 const CELL_CLASS = '-ml-1.5 max-w-full'
 const TOOLTIP_CLASS =
-  'border-border bg-popover max-h-48 max-w-[320px] overflow-y-auto p-2'
+  'border-border bg-popover max-h-48 max-w-80 overflow-y-auto p-2'
 
 export function BadgeListCell({ items, max = 2 }: BadgeListCellProps) {
   if (items.length === 0) {

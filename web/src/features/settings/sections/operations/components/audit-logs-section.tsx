@@ -11,6 +11,7 @@ import { SectionError } from '@/components/common/section-error'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { EmptyText } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -154,9 +155,7 @@ export function AuditLogsSection() {
         />
       ) : null}
       {!auditQuery.isLoading && !auditQuery.isError && items.length === 0 ? (
-        <p className='text-muted-foreground py-8 text-center text-sm'>
-          {t('settings.operations.auditLogs.empty')}
-        </p>
+        <EmptyText>{t('settings.operations.auditLogs.empty')}</EmptyText>
       ) : null}
       {!auditQuery.isLoading && !auditQuery.isError && items.length > 0 ? (
         <>

@@ -456,7 +456,7 @@ export function CheckinPage() {
                   pageIndex: 0,
                 })
               }}
-              className='w-[200px] max-sm:w-full'
+              className='w-50 max-sm:w-full'
               aria-label={t('checkin.page.startTime')}
             />
             <span className='text-muted-foreground text-sm max-sm:hidden'>
@@ -471,7 +471,7 @@ export function CheckinPage() {
                   pageIndex: 0,
                 })
               }}
-              className='w-[200px] max-sm:w-full'
+              className='w-50 max-sm:w-full'
               aria-label={t('checkin.page.endTime')}
             />
           </div>
@@ -497,7 +497,7 @@ export function CheckinPage() {
           >
             <SelectTrigger
               aria-label={t('checkin.page.filterAccountTitle')}
-              className='w-[200px]'
+              className='w-50'
             >
               <SelectValue>
                 {(selected) => {
