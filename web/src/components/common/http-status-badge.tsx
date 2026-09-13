@@ -18,8 +18,7 @@
 
 import { useTranslation } from 'react-i18next'
 
-import type { SoftTone } from './soft-tone-badge'
-import { SoftToneBadge } from './soft-tone-badge'
+import { SoftToneBadge, type SoftTone } from './soft-tone-badge'
 
 type StatusTier = {
   tone: SoftTone

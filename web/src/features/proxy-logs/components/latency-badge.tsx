@@ -4,8 +4,11 @@
 import { Clock, TriangleAlert, Zap, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import type { SoftTone } from '@/components/common/soft-tone-badge'
-import { SoftToneBadge, SoftToneDot } from '@/components/common/soft-tone-badge'
+import {
+  SoftToneBadge,
+  SoftToneDot,
+  type SoftTone,
+} from '@/components/common/soft-tone-badge'
 import { formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 

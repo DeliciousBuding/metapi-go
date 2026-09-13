@@ -24,7 +24,8 @@ export type SoftTone =
   | 'destructive'
   | 'neutral'
 
-export const SOFT_TONE_BADGE_TONES: Record<
+// Module-private: the recipe table belongs to this file's components only.
+const SOFT_TONE_BADGE_TONES: Record<
   SoftTone,
   { className: string; dotClassName: string }
 > = {
