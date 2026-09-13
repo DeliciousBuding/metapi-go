@@ -31,6 +31,11 @@ runtime DB、`AUTH_TOKEN=dev-admin-token-123` 经 POST /api/auth/login 换取 Ht
 - 输出目录含 `MANIFEST.md`（路由/主题/尺寸/体积清单），随 artifact
   `ui-screenshots` 上传（保留 7 天）。
 - 任意路由采集失败 → 脚本非零退出 → job 红（证据管道关门）。
+- CI 在采集前用 `scripts/e2e/seed-demo-data.py` 向全新运行时库注入确定性
+  演示数据（站点/账号/路由/渠道/密钥/代理日志/签到/用量聚合），并以
+  `EXPECTED_DATA_PROFILE=seeded` 核对注入生效——证据截图展示的是「活的」
+  UI 而不是整页空态。注意这与 §2 golden 基线**故意相反**：golden 仍用空库
+  （日期无关的布局契约），演示数据只进证据管道。
 
 可裁剪 knob（默认全量，CI 不传即为全量）：
 
