@@ -33,7 +33,7 @@ func selectOAuthAccountSiteRows(db *store.DB, suffix string, args ...any) ([]oau
 			s.platform AS site_platform, s.status AS site_status
 		FROM accounts a
 		INNER JOIN sites s ON a.site_id = s.id
-		WHERE a.oauth_provider IS NOT NULL`
+		WHERE a.oauth_provider IS NOT NULL AND a.oauth_provider != ''`
 	if suffix != "" {
 		query += " " + suffix
 	}

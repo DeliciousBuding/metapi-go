@@ -132,9 +132,9 @@ describe('TrafficSection chart data summaries', () => {
     expect(table).toHaveTextContent('Income')
     expect(table).toHaveTextContent('Outcome')
     expect(table).toHaveTextContent('Net')
-    expect(table).toHaveTextContent('$18.000') // 30d total income
-    expect(table).toHaveTextContent('$6.000') // latest-day income
-    expect(table).toHaveTextContent('$8.000') // 30d net
+    expect(table).toHaveTextContent('$18.00') // 30d total income
+    expect(table).toHaveTextContent('$6.00') // latest-day income
+    expect(table).toHaveTextContent('$8.00') // 30d net
   })
 
   it('aggregates per-site spend and calls for the trend summary', async () => {
@@ -142,7 +142,7 @@ describe('TrafficSection chart data summaries', () => {
 
     const table = await screen.findByRole('table', { name: 'Site trend' })
     expect(table).toHaveTextContent('site-a')
-    expect(table).toHaveTextContent('$5.000') // 3 + 2 spend
+    expect(table).toHaveTextContent('$5.00') // 3 + 2 spend
     expect(table).toHaveTextContent('150') // 100 + 50 calls
   })
 
@@ -153,8 +153,8 @@ describe('TrafficSection chart data summaries', () => {
       name: 'Site distribution',
     })
     expect(table).toHaveTextContent('site-a')
-    expect(table).toHaveTextContent('$40.000') // balance
-    expect(table).toHaveTextContent('$10.000') // spend
+    expect(table).toHaveTextContent('$40.00') // balance
+    expect(table).toHaveTextContent('$10.00') // spend
     expect(table).toHaveTextContent('100.0%') // sole-site share
   })
 

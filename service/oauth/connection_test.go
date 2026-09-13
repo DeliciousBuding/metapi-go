@@ -41,6 +41,42 @@ func TestListOauthConnections_EmptyDB(t *testing.T) {
 	}
 }
 
+func TestListOauthConnections_EmptyProviderCountedNowhere(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Session-imported accounts carry oauth_provider = '' (empty string, not
+	// NULL). They must not inflate the fleet total nor list as connections —
+	// the page rendered "total: 6" over an empty table before the predicates
+	// were aligned (round-2 design review finding).
+	now := "2026-01-01T00:00:00Z"
+	if _, err := db.Exec(
+		`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		 VALUES ('sess-site', 'https://sess.example.com', 'new-api', 'active', ?, ?)`,
+		now, now,
+	); err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO accounts (site_id, username, access_token, status, oauth_provider, created_at, updated_at)
+		 VALUES (1, 'sess-user', 'sess-access', 'active', '', ?, ?)`,
+		now, now,
+	); err != nil {
+		t.Fatalf("insert account: %v", err)
+	}
+
+	result, err := ListOauthConnections(ListConnectionsInput{Limit: 50})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Total != 0 {
+		t.Errorf("Total = %d, want 0 (empty-string provider is not an OAuth connection)", result.Total)
+	}
+	if len(result.Items) != 0 {
+		t.Errorf("Items len = %d, want 0", len(result.Items))
+	}
+}
+
 func TestListOauthConnections_ReturnsInsertedAccount(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()

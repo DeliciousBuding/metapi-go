@@ -85,8 +85,12 @@ func ListOauthConnections(input ListConnectionsInput) (*ListConnectionsResult, e
 	// run on every paginated list request: the original implementation did a
 	// full-table scan + N+1 UPDATE per page load on this hot path.
 
+	// `IS NOT NULL AND != ''`: session-imported accounts carry an empty-string
+	// provider, which GetOauthInfoFromAccount rejects — counting them would
+	// report a fleet total the page can never list ("total: 6" over an empty
+	// table).
 	var total int64
-	if err := db.Get(&total, "SELECT COUNT(*) FROM accounts WHERE oauth_provider IS NOT NULL"); err != nil {
+	if err := db.Get(&total, "SELECT COUNT(*) FROM accounts WHERE oauth_provider IS NOT NULL AND oauth_provider != ''"); err != nil {
 		return nil, fmt.Errorf("count oauth accounts: %w", err)
 	}
 

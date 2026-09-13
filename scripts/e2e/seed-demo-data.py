@@ -163,8 +163,8 @@ for aid, models_list in [(1, ['gpt-4o', 'gpt-4o-mini']), (2, ['gpt-4o-mini']), (
                   (mid, aid, m, random.randint(180, 900), ts(NOW - timedelta(minutes=random.randint(2, 50)))))
 
 # ── events (attention feed) ──
-c.execute("INSERT INTO events (id,type,title,message,level,read,related_id,related_type,created_at,title_key,params) VALUES (1,'balance','','账户 backup-pool-02 余额不足','warning',0,4,'account',?,'','{}')", (ts(NOW - timedelta(hours=3)),))
-c.execute("INSERT INTO events (id,type,title,message,level,read,related_id,related_type,created_at,title_key,params) VALUES (2,'checkin','','账号 team-staging@corp.dev 连续签到失败','error',0,2,'account',?,'','{}')", (ts(NOW - timedelta(days=3)),))
+c.execute("INSERT INTO events (id,type,title,message,level,read,related_id,related_type,created_at,title_key,params) VALUES (1,'balance','Low balance','账户 backup-pool-02 余额不足','warning',0,4,'account',?,'','{}')", (ts(NOW - timedelta(hours=3)),))
+c.execute("INSERT INTO events (id,type,title,message,level,read,related_id,related_type,created_at,title_key,params) VALUES (2,'checkin','checkin failed','账号 team-staging@corp.dev 连续签到失败','error',0,2,'account',?,'','{}')", (ts(NOW - timedelta(days=3)),))
 
 # ── balance history (7d, account 1) ──
 for day in range(6, -1, -1):

@@ -8,6 +8,7 @@ import { ScrollText } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DateRangePresets } from '@/components/common/date-range-presets'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTablePage,
@@ -630,6 +631,14 @@ export function ProxyLogsPage() {
                   className='w-[180px] max-sm:w-full'
                 />
               </div>
+              <DateRangePresets
+                onApply={(fromValue, toValue) => {
+                  updateUrlState({
+                    filters: { from: fromValue, to: toValue },
+                    pageIndex: 0,
+                  })
+                }}
+              />
             </>
           ),
           expandable: (

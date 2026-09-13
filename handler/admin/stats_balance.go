@@ -338,7 +338,10 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 
 	// 5. Recent unread warning/error events — info/warning (deep-link to events).
 	since24h := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
-	evRows, err := queryRowsErr(h.db, `SELECT id, type, title, level, related_id, related_type, created_at
+	// COALESCE: rows written before the structured-event registry (or by
+	// direct SQL seeding) can carry an empty title with the human-readable
+	// text in message — the attention feed must never render a blank row.
+	evRows, err := queryRowsErr(h.db, `SELECT id, type, COALESCE(NULLIF(title, ''), message) AS title, level, related_id, related_type, created_at
 		FROM events WHERE read = ? AND level IN ('warning', 'error') AND created_at >= ?
 		  AND (related_type IS NULL OR related_type <> 'site_announcement')
 		ORDER BY created_at DESC LIMIT ?`, false, since24h, limit)

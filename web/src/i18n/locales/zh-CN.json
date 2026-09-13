@@ -113,6 +113,13 @@
       "noResults": "无匹配结果",
       "noResultsDescription": "没有符合当前筛选条件的记录。",
       "resetFilters": "重置筛选",
+      "datePresets": {
+        "label": "快捷范围",
+        "today": "今天",
+        "last24Hours": "近 24 小时",
+        "last7Days": "近 7 天",
+        "last30Days": "近 30 天"
+      },
       "edit": "编辑",
       "close": "关闭",
       "retry": "重试",
