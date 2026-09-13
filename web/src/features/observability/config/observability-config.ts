@@ -1,8 +1,7 @@
 // metapi-go/features/observability/config — 2-section manifest (Overview /
 // Health). Registered through a local section-registry factory and consumed
-// by ObservabilityPage + the route file + the sidebar drill-in. Proxy logs
-// are intentionally not a section: the drill-in sidebar links straight to
-// the dedicated `/proxy-logs` workspace (see observability-nav.ts).
+// by ObservabilityPage + the route file. Proxy logs are intentionally not a
+// section: the dedicated `/proxy-logs` workspace owns them.
 
 import {
   createElement,

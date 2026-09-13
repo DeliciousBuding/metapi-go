@@ -1,18 +1,15 @@
 // metapi-go/features/observability — public barrel.
 //
 // Public API for the Observability workspace: two sections (Overview, Health)
-// behind one page. Proxy logs is not one of them — it is a separate workspace
-// at `/proxy-logs` that this feature's sidebar view deep-links out to
-// (`config/observability-nav.ts`).
+// behind one page, switched by the in-content tabs (the dashboard pattern).
+// Proxy logs is not one of them — it is a separate workspace at `/proxy-logs`
+// that lives in the root navigation. (The sidebar drill-in view was removed
+// in #1353: it duplicated the in-content tabs at the same navigation level.)
 //
-// Both consumers are route files, which is why nothing here is a page-less
-// surface: `routes/_authenticated/observability.tsx` (page + section-id type +
-// search schema) and `routes/_authenticated/route.tsx` (registers
-// `OBSERVABILITY_VIEW` with the sidebar view registry).
+// Both consumers are route files: `routes/_authenticated/observability.tsx`
+// (page + section-id type + search schema).
 
 export { ObservabilityPage } from './components/observability-page'
-
-export { OBSERVABILITY_VIEW } from './config/observability-nav'
 
 export { observabilitySearchSchema } from './lib/observability-schema'
 

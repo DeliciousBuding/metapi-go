@@ -2854,9 +2854,6 @@
         "health": {
           "title": "Health",
           "description": "Site/account health plus routing breaker and cooldown state."
-        },
-        "proxyLogs": {
-          "title": "Proxy Logs"
         }
       },
       "overview": {
@@ -2932,8 +2929,7 @@
         "configuration": "Configuration",
         "models": "Models",
         "system": "System",
-        "systemAdministration": "System Administration",
-        "observability": "Observability"
+        "systemAdministration": "System Administration"
       },
       "items": {
         "dashboard": "Dashboard",

@@ -6,6 +6,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
 import { InterfaceControls } from '@/components/layout/components/interface-controls'
+import { BrandLogo } from '@/components/ui/brand-logo'
 import { Button } from '@/components/ui/button'
 import {
   Sidebar,
@@ -41,11 +42,7 @@ function SidebarMobileHeader() {
   return (
     <SidebarHeader className='flex-row items-center justify-between border-b p-2.5'>
       <div className='flex min-w-0 items-center gap-2'>
-        <img
-          src={metapiIdentity.logoPath}
-          alt=''
-          className='size-6 shrink-0 rounded-sm'
-        />
+        <BrandLogo className='size-6 shrink-0' />
         <span className='truncate text-sm font-semibold tracking-tight'>
           {metapiIdentity.name}
         </span>

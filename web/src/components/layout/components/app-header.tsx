@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { AttentionBell } from '@/components/layout/components/attention-bell'
 import { InterfaceControls } from '@/components/layout/components/interface-controls'
 import { UserMenu } from '@/components/layout/components/user-menu'
+import { BrandLogo } from '@/components/ui/brand-logo'
 import { Button } from '@/components/ui/button'
 import { isMacPlatform, Kbd } from '@/components/ui/kbd'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -62,11 +63,7 @@ export function AppHeader({ onSearchClick }: AppHeaderProps) {
         className='flex min-w-0 items-center gap-2'
         aria-label={metapiIdentity.name}
       >
-        <img
-          src={metapiIdentity.logoPath}
-          alt=''
-          className='size-6 shrink-0 rounded-sm'
-        />
+        <BrandLogo className='size-6 shrink-0' />
         <span className='truncate text-sm font-semibold tracking-tight max-[480px]:hidden'>
           {metapiIdentity.name}
         </span>

@@ -2854,9 +2854,6 @@
         "health": {
           "title": "健康",
           "description": "站点/账号健康以及路由熔断与冷却状态。"
-        },
-        "proxyLogs": {
-          "title": "代理日志"
         }
       },
       "overview": {
@@ -2932,8 +2929,7 @@
         "configuration": "配置",
         "models": "模型",
         "system": "系统",
-        "systemAdministration": "系统管理",
-        "observability": "可观测性"
+        "systemAdministration": "系统管理"
       },
       "items": {
         "dashboard": "仪表盘",
