@@ -268,7 +268,7 @@ export function AttentionBell() {
             data-severity={highestSeverity}
             aria-hidden='true'
             className={cn(
-              'absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[0.625rem] leading-none font-semibold tabular-nums',
+              'absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-3xs leading-none font-semibold tabular-nums',
               SEVERITY_INDICATOR_CLASS[highestSeverity]
             )}
           >

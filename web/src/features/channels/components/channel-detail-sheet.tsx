@@ -214,7 +214,7 @@ export function ChannelDetailSheet({
                               defaultValue: channel.cooldownReasonCode,
                             }
                           )}
-                          <code className='bg-muted/60 ml-1.5 rounded px-1 py-0.5 font-mono text-[11px]'>
+                          <code className='bg-muted/60 text-2xs ml-1.5 rounded px-1 py-0.5 font-mono'>
                             {channel.cooldownReasonCode}
                           </code>
                         </span>
@@ -251,7 +251,7 @@ export function ChannelDetailSheet({
                 {t('channels.detail.sectionModels')}
               </h3>
               <div className='bg-muted/40 mt-2 rounded-lg border p-2'>
-                <div className='text-muted-foreground text-[11px]'>
+                <div className='text-muted-foreground text-2xs'>
                   {t('channels.detail.routePattern')}
                 </div>
                 <code className='block font-mono text-xs break-all'>

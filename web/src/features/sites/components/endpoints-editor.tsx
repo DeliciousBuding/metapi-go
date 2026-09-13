@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formLabelIdFor } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Notice } from '@/components/ui/notice'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { toBcp47 } from '@/i18n/languages'
@@ -206,9 +207,9 @@ export function EndpointsEditor({
       {...props}
     >
       {parseBlocked ? (
-        <div className='bg-destructive/10 text-destructive-soft-fg rounded-md border p-3 text-xs'>
+        <Notice tone='destructive' size='compact'>
           {t('sites.form.apiEndpointsParseBlocked')}
-        </div>
+        </Notice>
       ) : (
         <div className='space-y-2'>
           {rows.map((row, index) => {

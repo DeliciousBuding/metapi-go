@@ -21,7 +21,7 @@ export function NotFoundPage() {
         <Compass className='text-muted-foreground size-8' />
       </div>
       <div className='space-y-1 text-center'>
-        <p className='text-2xl font-semibold'>{t('errors.notFoundTitle')}</p>
+        <p className='page-title-overview'>{t('errors.notFoundTitle')}</p>
         <p className='text-muted-foreground text-sm'>
           {t('errors.notFoundDescription')}
         </p>

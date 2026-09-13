@@ -173,7 +173,7 @@ function EventMessage({ event }: { event: ProgramEvent }) {
         <button
           type='button'
           onClick={() => setExpanded((value) => !value)}
-          className='text-muted-foreground hover:text-foreground focus-visible:ring-focus-ring inline-flex w-fit items-center gap-0.5 text-[11px] underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset'
+          className='text-muted-foreground hover:text-foreground focus-visible:ring-focus-ring text-2xs inline-flex w-fit items-center gap-0.5 underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset'
           aria-expanded={expanded}
         >
           <ChevronDown

@@ -55,9 +55,7 @@ function QuotaWindowBlock(props: {
 
   return (
     <div className='bg-muted/40 rounded-lg border p-2'>
-      <div className='text-muted-foreground text-[11px]'>
-        {t(props.titleKey)}
-      </div>
+      <div className='text-muted-foreground text-2xs'>{t(props.titleKey)}</div>
       {windowState === 'reported' ? (
         <dl className='mt-1 grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
           <DetailField label={t('oauth.detail.quotaUsed')}>

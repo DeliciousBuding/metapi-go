@@ -77,7 +77,7 @@ function OverflowChip({ count }: { count: number }) {
       title={label}
       className={cn(
         'inline-flex w-fit max-w-full min-w-0 shrink items-center font-medium tracking-normal whitespace-nowrap transition-colors',
-        'rounded-4xl h-5 gap-1 px-1.5 text-sm leading-none',
+        'rounded-4xl h-5 gap-1 px-1.5 text-2xs leading-none',
         'text-muted-foreground',
         'shrink-0'
       )}

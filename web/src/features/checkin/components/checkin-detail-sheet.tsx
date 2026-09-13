@@ -129,7 +129,7 @@ export function CheckinDetailSheet({
           </dl>
           {inner.message && (
             <div className='space-y-1'>
-              <dt className='text-muted-foreground text-[11px]'>
+              <dt className='text-muted-foreground text-2xs'>
                 {t('checkin.detail.rawResponse')}
               </dt>
               <dd className='bg-muted/30 rounded-lg border p-3 font-mono text-sm break-words whitespace-pre-wrap'>
@@ -142,7 +142,7 @@ export function CheckinDetailSheet({
               <Separator />
               <div className='space-y-3'>
                 <div className='flex items-center gap-2'>
-                  <span className='text-muted-foreground text-[11px]'>
+                  <span className='text-muted-foreground text-2xs'>
                     {t('checkin.detail.failureReason')}
                   </span>
                   <FailureReasonBadge reason={reason} />

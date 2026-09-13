@@ -105,7 +105,7 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
             return (
               <div key={cell.id} className='min-w-0 flex-1 overflow-hidden'>
                 {label && (
-                  <div className='text-muted-foreground mb-0.5 text-[10px] leading-none select-none'>
+                  <div className='text-muted-foreground text-3xs mb-0.5 leading-none select-none'>
                     {label}
                   </div>
                 )}
@@ -153,7 +153,7 @@ function CondensedContent<TData>({ row }: { row: Row<TData> }) {
             key={cell.id}
             className='flex items-start justify-between gap-2 overflow-hidden'
           >
-            <span className='text-muted-foreground shrink-0 text-[10px] font-medium select-none'>
+            <span className='text-muted-foreground text-3xs shrink-0 font-medium select-none'>
               {label}
             </span>
             <div className='flex min-w-0 flex-1 items-center justify-end overflow-hidden text-xs'>

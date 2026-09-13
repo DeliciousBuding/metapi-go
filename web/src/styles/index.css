@@ -394,7 +394,8 @@
 }
 
 /* Shared admin title hierarchy; the CJK and serif axes still own tracking
- * and font family. Error-page display headings keep their separate role. */
+ * and font family. Error pages (route error boundary, 404, layout error
+ * boundary) use `page-title-overview` for their display heading. */
 @utility page-title {
   @apply text-xl leading-snug font-semibold tracking-tight text-balance;
 }

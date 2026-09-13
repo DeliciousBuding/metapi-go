@@ -28,6 +28,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Notice } from '@/components/ui/notice'
 import {
   Select,
   SelectContent,
@@ -366,12 +367,12 @@ export function DatabaseMigrationSection() {
       <div className='space-y-5'>
         {/* Wipe/restart warning surfaced inline (it used to ride in the card
             description, which is now page-header-only for headerless cards). */}
-        <div className='border-warning/40 bg-warning/5 flex items-start gap-2 rounded-lg border p-3'>
+        <Notice tone='warning'>
           <TriangleAlert className='text-warning mt-0.5 size-4 shrink-0' />
           <p className='text-muted-foreground text-xs'>
             {t('settings.operations.database.migration.warning')}
           </p>
-        </div>
+        </Notice>
 
         {activeConfig ? (
           <div className='bg-muted/25 rounded-lg border p-3'>

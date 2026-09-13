@@ -261,12 +261,12 @@ export function useRoutesColumns(
                 </Badge>
               )}
             </div>
-            <div className='text-muted-foreground flex flex-wrap items-center gap-1.5 text-[11px]'>
-              <code className='bg-muted rounded px-1 py-0.5 font-mono text-[11px]'>
+            <div className='text-muted-foreground text-2xs flex flex-wrap items-center gap-1.5'>
+              <code className='bg-muted text-2xs rounded px-1 py-0.5 font-mono'>
                 {route.modelPattern}
               </code>
               {contextLabel && (
-                <Badge variant='outline' className='text-[10px]'>
+                <Badge variant='outline' className='text-3xs'>
                   {contextLabel}
                 </Badge>
               )}
@@ -317,7 +317,7 @@ export function useRoutesColumns(
               </Badge>
             )}
             {summary.hint && (
-              <span className='text-muted-foreground text-[11px]'>
+              <span className='text-muted-foreground text-2xs'>
                 {summary.hint}
               </span>
             )}
@@ -355,12 +355,12 @@ export function useRoutesColumns(
         return (
           <div className='flex flex-wrap gap-1'>
             {sites.slice(0, 3).map((site) => (
-              <Badge key={site} variant='outline' className='text-[10px]'>
+              <Badge key={site} variant='outline' className='text-3xs'>
                 {site}
               </Badge>
             ))}
             {sites.length > 3 && (
-              <Badge variant='outline' className='text-[10px]'>
+              <Badge variant='outline' className='text-3xs'>
                 +{sites.length - 3}
               </Badge>
             )}

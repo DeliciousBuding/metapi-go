@@ -88,7 +88,7 @@ export function TimingCell({
         <span
           className={cn(
             'border-destructive/30 bg-destructive/10 text-destructive-soft-fg',
-            'rounded-sm border px-1 py-px text-[10px] font-medium whitespace-nowrap'
+            'rounded-sm border px-1 py-px text-3xs font-medium whitespace-nowrap'
           )}
         >
           {t('proxyLogs.timing.slow')}

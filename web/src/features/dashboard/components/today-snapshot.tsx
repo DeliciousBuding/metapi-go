@@ -236,7 +236,7 @@ export function TodaySnapshotStrip() {
               {t(statusKey)}
             </div>
             {!realtime.connected && lastFrameAt !== null ? (
-              <div className='text-muted-foreground truncate text-[11px] tabular-nums'>
+              <div className='text-muted-foreground text-2xs truncate tabular-nums'>
                 {t('dashboard.availability.realtime.dataAsOf', {
                   time: formatTimeOfDay(lastFrameAt, locale),
                 })}

@@ -12,45 +12,41 @@
 //
 // The label is never invented: an unrecognised string is shown verbatim, so a
 // new upstream status reads as itself instead of silently becoming "unknown".
+//
+// The pill recipe itself (soft-tint classes, dot) is owned by
+// ./soft-tone-badge — shared with features/proxy-logs' LatencyBadge.
 
 import { useTranslation } from 'react-i18next'
 
-import { cn } from '@/lib/utils'
+import { SoftToneBadge, type SoftTone } from './soft-tone-badge'
 
 type StatusTier = {
-  className: string
-  dotClassName: string
+  tone: SoftTone
   fallbackLabelKey: string
 }
 
 const STATUS_TIERS = {
   success: {
-    className: 'bg-success/10 text-success-soft-fg border-success/30',
-    dotClassName: 'bg-success',
+    tone: 'success',
     fallbackLabelKey: 'httpStatus.success',
   },
   redirect: {
-    className: 'bg-info/10 text-info-soft-fg border-info/30',
-    dotClassName: 'bg-info',
+    tone: 'info',
     fallbackLabelKey: 'httpStatus.redirect',
   },
   clientError: {
-    className: 'bg-warning/10 text-warning-soft-fg border-warning/30',
-    dotClassName: 'bg-warning',
+    tone: 'warning',
     fallbackLabelKey: 'httpStatus.clientError',
   },
   serverError: {
-    className:
-      'bg-destructive/10 text-destructive-soft-fg border-destructive/30',
-    dotClassName: 'bg-destructive',
+    tone: 'destructive',
     fallbackLabelKey: 'httpStatus.serverError',
   },
   neutral: {
-    className: 'bg-muted/40 text-muted-foreground border-border',
-    dotClassName: 'bg-muted-foreground',
+    tone: 'neutral',
     fallbackLabelKey: 'httpStatus.unknown',
   },
-} as const
+} as const satisfies Record<string, StatusTier>
 
 function resolveTierFromHttpStatus(httpStatus: number): StatusTier {
   if (httpStatus >= 200 && httpStatus < 300) return STATUS_TIERS.success
@@ -153,24 +149,13 @@ export function HttpStatusBadge({
     ? t(resolved.labelKey)
     : (resolved.rawLabel ?? '')
   return (
-    <span
+    <SoftToneBadge
+      tone={tier.tone}
+      showDot={showDot}
       title={t('httpStatus.titlePrefix', { label })}
-      className={cn(
-        'inline-flex w-fit items-center gap-1 rounded-4xl border px-1.5 py-0.5 text-xs font-medium tabular-nums whitespace-nowrap',
-        tier.className,
-        className
-      )}
+      className={className}
     >
-      {showDot && (
-        <span
-          className={cn(
-            'inline-block size-1.5 rounded-full',
-            tier.dotClassName
-          )}
-          aria-hidden='true'
-        />
-      )}
       {label}
-    </span>
+    </SoftToneBadge>
   )
 }

@@ -87,6 +87,19 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Sub-xs caption sizes, in their own NON-inline @theme block on purpose:
+ * `@theme inline` would freeze the px literal into the utility at compile
+ * time; a plain @theme emits `font-size: var(--text-2xs)` so the
+ * `data-theme-scale` density blocks in theme-presets.css can scale these
+ * along with `--text-xs` (each density sets them at the xs ratio). The
+ * defaults match the 11px / 10px hard-coded literals they replaced at the
+ * default (md) density. Arbitrary-size classes (`text-[11px]` et al.) are
+ * banned from product code by styles/__tests__/typography-contract.test.ts. */
+@theme {
+  --text-2xs: 0.6875rem;
+  --text-3xs: 0.625rem;
+}
+
 :root {
   --radius: 0.625rem;
   --app-header-height: 3.5rem;

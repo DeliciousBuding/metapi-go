@@ -216,7 +216,7 @@ export function AccountDetailSheet({
 
           {healthReason && (
             <div className='bg-muted/40 rounded-lg border p-2 text-xs'>
-              <div className='text-muted-foreground text-[11px]'>
+              <div className='text-muted-foreground text-2xs'>
                 {t('accounts.detail.healthReason')}
               </div>
               <p className='break-words'>{healthReason}</p>
@@ -226,7 +226,7 @@ export function AccountDetailSheet({
           {account.tags && account.tags.length > 0 && (
             <div className='flex flex-wrap gap-1'>
               {account.tags.map((tag) => (
-                <Badge key={tag} variant='outline' className='text-[10px]'>
+                <Badge key={tag} variant='outline' className='text-3xs'>
                   {tag}
                 </Badge>
               ))}

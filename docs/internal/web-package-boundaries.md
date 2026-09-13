@@ -169,6 +169,13 @@ out of `settings/sections/downstream/`) was retired by moving the keys UI into
   a required `messageKey` instead of hardcoding `settings.common.loadFailed`,
   matching `QueryErrorBanner`: shared chrome must not own one caller's copy.
   This retired the last `FEATURE_EXCEPTIONS` entry.
+- **2026-09-13** — the soft-tone badge recipe (pill classes, tone map, status
+  dot) was single-sourced into `components/common/soft-tone-badge.tsx`
+  (#1359): `HttpStatusBadge` (common) and `LatencyBadge` (features/proxy-logs)
+  had drifted into character-for-character copies. Both keep their own tier
+  resolution and export names; the recipe has one owner. The same change
+  merged the duplicate `SectionSkeleton` pair (`ui/` bare + `common/` shelled)
+  into the `common/` implementation behind a `shelled` prop.
 - **2026-09-12** — `features/proxy-logs` had deep-imported `DataTableRow` from
   `components/data-table/core/data-table-row`; the two symbols it needed were
   exported from the barrel instead. Rule 6 was then added to

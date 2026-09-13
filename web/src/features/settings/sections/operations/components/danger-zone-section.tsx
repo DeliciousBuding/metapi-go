@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Notice } from '@/components/ui/notice'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
@@ -67,7 +68,7 @@ export function DangerZoneSection() {
       title={t('settings.operations.dangerZone.title')}
       description={t('settings.operations.dangerZone.description')}
     >
-      <div className='border-destructive/40 bg-destructive/5 space-y-3 rounded-lg border p-4'>
+      <Notice tone='destructive' className='p-4'>
         <Button
           type='button'
           variant='destructive'
@@ -76,7 +77,7 @@ export function DangerZoneSection() {
         >
           {t('settings.operations.dangerZone.factoryReset')}
         </Button>
-      </div>
+      </Notice>
 
       <Dialog
         open={factoryResetOpen}

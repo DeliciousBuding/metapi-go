@@ -508,6 +508,8 @@
 /* ── Density scale ────────────────────────────────────────────────────── */
 /* `sm` = compact UI; `lg` = comfortable; `xl` = extra readable. Default keeps Tailwind defaults. */
 [data-theme-scale='sm'] {
+  --text-2xs: 0.64rem;
+  --text-3xs: 0.58rem;
   --text-xs: 0.7rem;
   --text-sm: 0.78rem;
   --text-base: 0.88rem;
@@ -518,6 +520,8 @@
   --spacing: 0.225rem;
 }
 [data-theme-scale='lg'] {
+  --text-2xs: 0.77rem;
+  --text-3xs: 0.7rem;
   --text-xs: 0.84rem;
   --text-sm: 0.95rem;
   --text-base: 1.075rem;
@@ -528,6 +532,8 @@
   --spacing: 0.28rem;
 }
 [data-theme-scale='xl'] {
+  --text-2xs: 0.825rem;
+  --text-3xs: 0.75rem;
   --text-xs: 0.9rem;
   --text-sm: 1rem;
   --text-base: 1.125rem;

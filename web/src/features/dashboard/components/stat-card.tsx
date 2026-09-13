@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ChartConfig } from '@/components/ui/chart'
 import { CountUp } from '@/components/ui/count-up'
 import { IconBadge } from '@/components/ui/icon-badge'
+import { KpiValue } from '@/components/ui/kpi-value'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
@@ -125,18 +126,17 @@ export function StatCard(props: StatCardProps) {
         ) : (
           <>
             <div className='flex items-end justify-between gap-2'>
-              {props.valueNumber !== undefined &&
-              Number.isFinite(props.valueNumber) ? (
-                <CountUp
-                  value={props.valueNumber}
-                  format={props.valueFormat}
-                  className='text-2xl font-semibold tracking-tight'
-                />
-              ) : (
-                <span className='text-2xl font-semibold tracking-tight tabular-nums'>
-                  {props.value}
-                </span>
-              )}
+              <KpiValue size='lg'>
+                {props.valueNumber !== undefined &&
+                Number.isFinite(props.valueNumber) ? (
+                  <CountUp
+                    value={props.valueNumber}
+                    format={props.valueFormat}
+                  />
+                ) : (
+                  props.value
+                )}
+              </KpiValue>
               {props.hint ? (
                 <span className='text-muted-foreground text-xs tabular-nums'>
                   {props.hint}
@@ -151,7 +151,7 @@ export function StatCard(props: StatCardProps) {
                       key={detail.label}
                       className='bg-muted/40 rounded-lg border px-2.5 py-2'
                     >
-                      <div className='text-muted-foreground truncate text-[11px] leading-none font-medium'>
+                      <div className='text-muted-foreground text-2xs truncate leading-none font-medium'>
                         {detail.label}
                       </div>
                       <div

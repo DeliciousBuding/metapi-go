@@ -10,7 +10,8 @@
 // shift slightly on load — an acceptable trade for one static fallback that
 // never suspends itself (no data, no Suspense), which is what makes it a
 // valid Suspense fallback. (Section-level loading uses the shared
-// `ui/section-skeleton` instead — this component is route-level only.)
+// `common/section-skeleton` instead — this component is route-level
+// only.)
 
 import { useTranslation } from 'react-i18next'
 
