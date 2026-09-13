@@ -1,11 +1,26 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+const SRC = join(WEB_ROOT, 'src')
 const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
+
+function walkSources(dir: string): string[] {
+  const out: string[] = []
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry)
+    if (statSync(full).isDirectory()) {
+      if (entry === 'node_modules' || entry === '__tests__') continue
+      out.push(...walkSources(full))
+    } else if (/\.(ts|tsx)$/.test(entry) && !/\.test\./.test(entry)) {
+      out.push(full)
+    }
+  }
+  return out
+}
 
 describe('typography design contract', () => {
   it('uses the bundled variable sans face and a project-owned mono stack', () => {
@@ -85,6 +100,48 @@ describe('typography design contract', () => {
     ]) {
       const source = read(file)
       expect(source).not.toMatch(/\[&_t[dh](?:_\*)?\]:text-/)
+    }
+  })
+
+  it('keeps product code off arbitrary font-size classes', () => {
+    // `text-[<n>px]` / `text-[<n>rem]` freeze a size at one density, which
+    // inverts the scale hierarchy under `data-theme-scale` (a hard-coded
+    // 11px caption ends up *smaller* than the scaled `text-xs` it sits
+    // under at `lg`). Caption sizes ride the density axis through the
+    // registered `--text-2xs` / `--text-3xs` tokens (theme.css). Exemptions
+    // require a per-file reason — none expected.
+    const exemptions: { file: string; reason: string }[] = []
+    const exemptedFiles = new Set(exemptions.map((e) => e.file))
+
+    const offenders = walkSources(SRC)
+      .filter((file) => !exemptedFiles.has(file.slice(SRC.length + 1)))
+      .flatMap((file) => {
+        const matches = readFileSync(file, 'utf8').match(
+          /text-\[\d+(?:\.\d+)?(?:px|rem)\]/g
+        )
+        return matches
+          ? matches.map((m) => `${file.slice(SRC.length + 1)}: ${m}`)
+          : []
+      })
+    expect(offenders).toEqual([])
+  })
+
+  it('registers the sub-xs caption tokens and scales them with density', () => {
+    // Without the @theme registration the `text-2xs` / `text-3xs` utilities
+    // stop generating and every caption silently falls back to the inherited
+    // size; without the preset overrides they freeze at the md density.
+    const theme = read('src/styles/theme.css')
+    expect(theme).toContain('--text-2xs: 0.6875rem')
+    expect(theme).toContain('--text-3xs: 0.625rem')
+
+    const presets = read('src/styles/theme-presets.css')
+    for (const scale of ['sm', 'lg', 'xl']) {
+      const block = presets.match(
+        new RegExp(`\\[data-theme-scale='${scale}'\\]\\s*\\{([^}]+)\\}`)
+      )?.[1]
+      expect(block, `density ${scale}`).toBeDefined()
+      expect(block).toContain('--text-2xs:')
+      expect(block).toContain('--text-3xs:')
     }
   })
 

@@ -741,7 +741,7 @@ function SummaryCard({
         : 'text-foreground'
   return (
     <div className={`rounded-lg border p-2.5 ${toneClass}`}>
-      <div className='text-muted-foreground text-[11px]'>{label}</div>
+      <div className='text-muted-foreground text-2xs'>{label}</div>
       <div className={`text-base font-semibold tabular-nums ${valueToneClass}`}>
         {value}
       </div>

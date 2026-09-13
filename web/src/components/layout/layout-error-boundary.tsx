@@ -77,7 +77,7 @@ export function LayoutErrorBoundary({ error }: { error: Error }) {
               )}
             </div>
             <div className='space-y-1 text-center'>
-              <p className='text-2xl font-semibold'>
+              <p className='page-title-overview'>
                 {t(
                   isSearchParamError
                     ? 'errors.searchParamTitle'

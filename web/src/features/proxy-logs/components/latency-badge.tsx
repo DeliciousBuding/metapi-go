@@ -1,33 +1,34 @@
 // metapi-go/features/proxy-logs/components — latency badge.
 // i18n: title attributes resolved via t().
 
-import { Clock, TriangleAlert, Zap } from 'lucide-react'
+import { Clock, TriangleAlert, Zap, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import type { SoftTone } from '@/components/common/soft-tone-badge'
+import { SoftToneBadge, SoftToneDot } from '@/components/common/soft-tone-badge'
 import { formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const LATENCY_TIERS = {
   fast: {
     thresholdMs: 500,
-    className: 'bg-success/10 text-success-soft-fg border-success/30',
-    dotClassName: 'bg-success',
+    tone: 'success',
     icon: Zap,
   },
   slow: {
     thresholdMs: 2000,
-    className: 'bg-warning/10 text-warning-soft-fg border-warning/30',
-    dotClassName: 'bg-warning',
+    tone: 'warning',
     icon: Clock,
   },
   unhealthy: {
     thresholdMs: Number.POSITIVE_INFINITY,
-    className:
-      'bg-destructive/10 text-destructive-soft-fg border-destructive/30',
-    dotClassName: 'bg-destructive',
+    tone: 'destructive',
     icon: TriangleAlert,
   },
-} as const
+} as const satisfies Record<
+  string,
+  { thresholdMs: number; tone: SoftTone; icon: LucideIcon }
+>
 
 function resolveTier(latencyMs: number) {
   if (latencyMs < LATENCY_TIERS.fast.thresholdMs) return LATENCY_TIERS.fast
@@ -75,25 +76,15 @@ export function LatencyBadge({
         })
       : t('proxyLogs.latency.totalLatency', { label })
   return (
-    <span
+    <SoftToneBadge
+      tone={tier.tone}
+      showDot={false}
       title={title}
-      className={cn(
-        'inline-flex w-fit items-center gap-1 rounded-4xl border px-1.5 py-0.5 text-xs font-medium tabular-nums whitespace-nowrap',
-        tier.className,
-        className
-      )}
+      className={className}
     >
       <LatencyIcon className='size-3' aria-hidden='true' />
-      {showDot && (
-        <span
-          className={cn(
-            'inline-block size-1.5 rounded-full',
-            tier.dotClassName
-          )}
-          aria-hidden='true'
-        />
-      )}
+      {showDot && <SoftToneDot tone={tier.tone} />}
       {label}
-    </span>
+    </SoftToneBadge>
   )
 }

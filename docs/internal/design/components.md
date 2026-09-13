@@ -7,7 +7,7 @@ The implementation is the primitive API source of truth. The pre-rewrite `ds-*` 
 | Concern                           | Owner                                                                     |
 | :-------------------------------- | :------------------------------------------------------------------------ |
 | Base UI / shadcn primitives       | `web/src/components/ui/**`                                                |
-| Cross-feature shared composition  | `web/src/components/common/**` (section card / error / skeleton, query-error banner, confirm dialog, HTTP status badge, credential export, safe external link) |
+| Cross-feature shared composition  | `web/src/components/common/**` (section card / error / skeleton, query-error banner, confirm dialog, HTTP status badge + the shared soft-tone badge recipe, credential export, safe external link) |
 | Data-table composition            | `web/src/components/data-table/**` (public surface is its `index.ts`; see [`web-package-boundaries.md`](../web-package-boundaries.md) rule 6) |
 | Form plumbing                     | `web/src/components/form/**` (dirty-close guard)                          |
 | Application shell                 | `web/src/components/layout/**`                                            |

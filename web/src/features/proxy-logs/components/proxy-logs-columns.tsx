@@ -71,7 +71,7 @@ export function useProxyLogsColumns(
             <span className='text-sm tabular-nums'>
               {formatTimeOfDay(createdAt, locale)}
             </span>
-            <span className='text-muted-foreground text-[10px]'>
+            <span className='text-muted-foreground text-3xs'>
               {formatLogDateDetail(createdAt, locale)}
             </span>
           </div>
@@ -171,7 +171,7 @@ export function useProxyLogsColumns(
             <HttpStatusBadge status={log.status} httpStatus={log.httpStatus} />
             {log.errorMessage ? (
               <span
-                className='text-destructive-soft-fg block max-w-[16rem] truncate text-[11px] leading-tight'
+                className='text-destructive-soft-fg text-2xs block max-w-[16rem] truncate leading-tight'
                 title={log.errorMessage}
               >
                 {log.errorMessage}
@@ -224,7 +224,7 @@ export function useProxyLogsColumns(
               {keyName || (keyId ? `#${keyId}` : '—')}
             </span>
             {groupName && (
-              <span className='text-muted-foreground text-[10px]'>
+              <span className='text-muted-foreground text-3xs'>
                 {groupName}
               </span>
             )}

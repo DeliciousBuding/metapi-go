@@ -212,7 +212,7 @@ function TokenRow({
             {token.name || t('accounts.tokens.unnamed')}
           </span>
           {token.isDefault && (
-            <Badge variant='default' className='text-[10px]'>
+            <Badge variant='default' className='text-3xs'>
               {t('accounts.tokens.default')}
             </Badge>
           )}
@@ -223,7 +223,7 @@ function TokenRow({
             // that already sits on this account, not time.
             <Badge
               variant='warning'
-              className='text-[10px]'
+              className='text-3xs'
               title={t('accounts.tokens.pendingCompleteHint')}
             >
               {t('accounts.tokens.pendingComplete')}

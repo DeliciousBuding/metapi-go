@@ -360,7 +360,7 @@ export function useAccountsColumns(
               {account.tags && account.tags.length > 0 && (
                 <div className='flex flex-wrap gap-1'>
                   {account.tags.slice(0, 3).map((tag) => (
-                    <Badge key={tag} variant='outline' className='text-[10px]'>
+                    <Badge key={tag} variant='outline' className='text-3xs'>
                       {tag}
                     </Badge>
                   ))}
@@ -393,7 +393,7 @@ export function useAccountsColumns(
                 {site.name || site.url || `#${site.id}`}
               </SafeExternalLink>
               {site.platform && (
-                <span className='text-muted-foreground text-[11px]'>
+                <span className='text-muted-foreground text-2xs'>
                   {site.platform}
                 </span>
               )}
@@ -484,7 +484,7 @@ export function useAccountsColumns(
                 {formatCurrency(account.balance)}
               </span>
               {account.todayReward ? (
-                <span className='text-success text-[11px]'>
+                <span className='text-success text-2xs'>
                   +{formatCurrency(account.todayReward)}
                 </span>
               ) : null}
@@ -503,7 +503,7 @@ export function useAccountsColumns(
               <span className='tabular-nums'>
                 {formatCurrency(account.balanceUsed)}
               </span>
-              <span className='text-muted-foreground text-[11px]'>
+              <span className='text-muted-foreground text-2xs'>
                 {formatPercent(account.balanceUsed ?? 0, account.quota ?? 0)}
               </span>
             </div>

@@ -273,7 +273,7 @@ function renderHeatmapBody(
             tickSpanValues(layout.buckets.length).map((index) => (
               <span
                 key={layout.buckets[index]}
-                className='text-muted-foreground absolute top-0 text-[10px] leading-3 whitespace-nowrap tabular-nums'
+                className='text-muted-foreground text-3xs absolute top-0 leading-3 whitespace-nowrap tabular-nums'
                 style={{ left: 161 + index * 15 }}
                 title={formatBucket(layout.buckets[index])}
               >

@@ -249,7 +249,7 @@ export function RouteDetailSheet({
 
           {route.modelMapping && (
             <div className='bg-muted/40 rounded-lg border p-2'>
-              <div className='text-muted-foreground text-[11px]'>
+              <div className='text-muted-foreground text-2xs'>
                 {t('tokenRoutes.detail.modelMapping')}
               </div>
               <code className='block font-mono text-xs break-all'>
@@ -280,7 +280,7 @@ export function RouteDetailSheet({
                 <h3 className='text-sm font-medium'>
                   {t('tokenRoutes.detail.channelTruthList')}
                 </h3>
-                <p className='text-muted-foreground text-[11px]'>
+                <p className='text-muted-foreground text-2xs'>
                   {t('tokenRoutes.detail.channelTruthDescription')}
                 </p>
               </div>
@@ -459,7 +459,7 @@ function ChannelRow({
             {formatRouteWeightShare(allocation.enabledWeightShare)}
           </span>
           {allocation.enabledWeightShare === null && (
-            <span className='text-muted-foreground block text-[10px]'>
+            <span className='text-muted-foreground text-3xs block'>
               {channel.enabled
                 ? t('tokenRoutes.detail.channelShareUnavailable')
                 : t('tokenRoutes.detail.channelShareExcluded')}
@@ -510,7 +510,7 @@ function ChannelMetric({
 }) {
   return (
     <div>
-      <dt className='text-muted-foreground text-[10px]'>{label}</dt>
+      <dt className='text-muted-foreground text-3xs'>{label}</dt>
       <dd className='font-medium'>{children}</dd>
     </div>
   )
@@ -643,7 +643,7 @@ function DecisionSnapshotSection({
       </dl>
       {reasonText && (
         <div className='bg-muted/40 rounded-lg border p-2 text-xs'>
-          <div className='text-muted-foreground text-[11px]'>
+          <div className='text-muted-foreground text-2xs'>
             {t('tokenRoutes.detail.decisionReason')}
           </div>
           <p className='break-words'>{reasonText}</p>
@@ -671,7 +671,7 @@ function DecisionSnapshotSection({
             </li>
           ))}
           {candidates.length > 6 && (
-            <li className='text-muted-foreground px-2 text-[11px]'>
+            <li className='text-muted-foreground text-2xs px-2'>
               {t('tokenRoutes.detail.moreCandidates', {
                 count: candidates.length - 6,
               })}

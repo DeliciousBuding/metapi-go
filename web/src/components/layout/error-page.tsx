@@ -23,7 +23,7 @@ export function ErrorPage({ error }: { error: Error }) {
         <TriangleAlert className='text-destructive size-8' />
       </div>
       <div className='space-y-1 text-center'>
-        <p className='text-2xl font-semibold'>{t('errors.renderTitle')}</p>
+        <p className='page-title-overview'>{t('errors.renderTitle')}</p>
         <p className='text-muted-foreground text-sm'>
           {t('errors.renderDescription')}
         </p>

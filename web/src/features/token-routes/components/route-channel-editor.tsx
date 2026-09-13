@@ -144,7 +144,7 @@ function ChannelEditRow({
         </div>
         {secondLine && (
           <div
-            className='text-muted-foreground truncate text-[11px]'
+            className='text-muted-foreground text-2xs truncate'
             title={secondLine}
           >
             {secondLine}
@@ -256,7 +256,7 @@ export function RouteChannelEditor({ routeId }: { routeId: number }) {
       {!channelsQuery.isLoading && channels.length > 0 && (
         <div className='overflow-x-auto rounded-lg border'>
           <div
-            className={`${GRID_CLASS} text-muted-foreground border-b px-2 py-1 text-[11px]`}
+            className={`${GRID_CLASS} text-muted-foreground text-2xs border-b px-2 py-1`}
           >
             <span />
             <span>{t('tokenRoutes.formChannel.weightLabel')}</span>

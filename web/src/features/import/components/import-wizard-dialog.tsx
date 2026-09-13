@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Notice } from '@/components/ui/notice'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
@@ -558,40 +559,40 @@ export function ImportWizardDialog({
                       </div>
 
                       {duplicate && (
-                        <div className='border-warning/40 bg-warning/10 rounded-lg border p-3'>
-                          <div className='mb-2 flex items-center gap-2 text-sm'>
-                            <AlertIcon className='text-warning size-4' />
-                            <span>{t('import.identify.duplicateWarning')}</span>
+                        <Notice tone='warning'>
+                          <AlertIcon className='text-warning mt-0.5 size-4 shrink-0' />
+                          <div className='min-w-0 flex-1 space-y-2'>
+                            <p>{t('import.identify.duplicateWarning')}</p>
+                            <RadioGroup
+                              value={candidate.duplicateStrategy}
+                              onValueChange={(value) =>
+                                updateCandidate(candidate.id, {
+                                  duplicateStrategy:
+                                    value as ImportDuplicateStrategy,
+                                })
+                              }
+                            >
+                              <div className='flex items-center gap-2'>
+                                <RadioGroupItem
+                                  id={`${candidate.id}-skip`}
+                                  value='skip'
+                                />
+                                <Label htmlFor={`${candidate.id}-skip`}>
+                                  {t('import.identify.skip')}
+                                </Label>
+                              </div>
+                              <div className='flex items-center gap-2'>
+                                <RadioGroupItem
+                                  id={`${candidate.id}-merge`}
+                                  value='merge'
+                                />
+                                <Label htmlFor={`${candidate.id}-merge`}>
+                                  {t('import.identify.merge')}
+                                </Label>
+                              </div>
+                            </RadioGroup>
                           </div>
-                          <RadioGroup
-                            value={candidate.duplicateStrategy}
-                            onValueChange={(value) =>
-                              updateCandidate(candidate.id, {
-                                duplicateStrategy:
-                                  value as ImportDuplicateStrategy,
-                              })
-                            }
-                          >
-                            <div className='flex items-center gap-2'>
-                              <RadioGroupItem
-                                id={`${candidate.id}-skip`}
-                                value='skip'
-                              />
-                              <Label htmlFor={`${candidate.id}-skip`}>
-                                {t('import.identify.skip')}
-                              </Label>
-                            </div>
-                            <div className='flex items-center gap-2'>
-                              <RadioGroupItem
-                                id={`${candidate.id}-merge`}
-                                value='merge'
-                              />
-                              <Label htmlFor={`${candidate.id}-merge`}>
-                                {t('import.identify.merge')}
-                              </Label>
-                            </div>
-                          </RadioGroup>
-                        </div>
+                        </Notice>
                       )}
                     </div>
                   )

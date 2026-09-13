@@ -21,7 +21,7 @@ import {
   type ReactNode,
 } from 'react'
 
-import { SectionSkeleton } from '@/components/ui/section-skeleton'
+import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { createSectionRegistry } from '@/lib/section-registry'
 
 import type { DashboardSection, DashboardSectionId } from '../types'
@@ -52,7 +52,7 @@ function mountSection(component: ComponentType): () => ReactNode {
   return () =>
     createElement(
       Suspense,
-      { fallback: createElement(SectionSkeleton) },
+      { fallback: createElement(SectionSkeleton, { shelled: false }) },
       createElement(component)
     )
 }

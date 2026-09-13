@@ -139,7 +139,7 @@ function OAuthModelsSection(props: { connection: OAuthClient }) {
       </dl>
       {previewModels.length > 0 ? (
         <div className='mt-2'>
-          <p className='text-muted-foreground text-[11px]'>
+          <p className='text-muted-foreground text-2xs'>
             {t('oauth.detail.modelsPreviewHint', {
               shown: previewModels.length,
               total: props.connection.modelCount,

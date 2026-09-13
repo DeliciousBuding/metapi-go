@@ -202,14 +202,11 @@ export function SiteProbePanel({ siteId }: { siteId: number }) {
       )}
 
       {summary?.truncated && (
-        <p
-          className='border-warning/40 bg-warning/10 rounded-md border p-2 text-xs'
-          role='alert'
-        >
+        <Notice tone='warning' size='compact' role='alert'>
           {t('sites.probe.truncatedWarning', {
             reason: summary.reason ?? t('sites.probe.truncatedNoReason'),
           })}
-        </p>
+        </Notice>
       )}
 
       {phase !== 'running' && !hasRows && (
