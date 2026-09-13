@@ -21,20 +21,20 @@ func TestListSites_NullBalanceReportsUnknown(t *testing.T) {
 
 	create := func(name string) int64 {
 		id, err := CreateSite(db.DB, map[string]any{
-			"name":                       name,
-			"url":                        "https://" + name + ".example.com",
-			"platform":                   "openai",
-			"status":                     "active",
-			"isPinned":                   false,
-			"globalWeight":               1.0,
-			"maxConcurrency":             int64(0),
-			"proxyUrl":                   nil,
-			"useSystemProxy":             false,
-			"customHeaders":              nil,
-			"externalCheckinUrl":         nil,
-			"postRefreshProbeEnabled":    false,
-			"postRefreshProbeModel":      "",
-			"postRefreshProbeScope":      "single",
+			"name":                               name,
+			"url":                                "https://" + name + ".example.com",
+			"platform":                           "openai",
+			"status":                             "active",
+			"isPinned":                           false,
+			"globalWeight":                       1.0,
+			"maxConcurrency":                     int64(0),
+			"proxyUrl":                           nil,
+			"useSystemProxy":                     false,
+			"customHeaders":                      nil,
+			"externalCheckinUrl":                 nil,
+			"postRefreshProbeEnabled":            false,
+			"postRefreshProbeModel":              "",
+			"postRefreshProbeScope":              "single",
 			"postRefreshProbeLatencyThresholdMs": 0,
 		})
 		if err != nil {
@@ -43,9 +43,9 @@ func TestListSites_NullBalanceReportsUnknown(t *testing.T) {
 		return id
 	}
 
-	knownID := create("known")   // accounts with real balances
+	knownID := create("known")     // accounts with real balances
 	unknownID := create("unknown") // accounts with NULL balances
-	create("noaccounts") // no accounts at all
+	create("noaccounts")           // no accounts at all
 
 	if _, err := db.DB.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, balance, extra_config) VALUES (?, ?, ?, ?, ?)`,

@@ -772,5 +772,3 @@ type StableFirstSitePoolState struct {
 	Trusted              bool
 	ObservationReason    string
 }
-
-

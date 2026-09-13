@@ -4,8 +4,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/jmoiron/sqlx"
 )
 
 func TestSiteAnnouncementSyncFuncInvoked(t *testing.T) {

@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
 )
 
 // ---- RequireReauth gate (#1034) ----
@@ -30,8 +29,8 @@ func TestSensitiveAdminPathMatching(t *testing.T) {
 		"/api/downstream-keys",
 		"/api/downstream-keys/1",
 		"/api/downstream-keys/1/overview",
-		"/api/downstream-keys/export",        // missing id segment
-		"/api/downstream-keys/1/2/export",    // extra segment
+		"/api/downstream-keys/export",     // missing id segment
+		"/api/downstream-keys/1/2/export", // extra segment
 		"/api/sites",
 		"/api/downstream-keys/../settings/backup/export", // traversal never matches
 	}

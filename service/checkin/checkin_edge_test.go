@@ -67,18 +67,18 @@ func TestAdapterSupportsLogin(t *testing.T) {
 // regardless of adapter (legacy shouldAttemptAutoRelogin path). Transient /
 // billing / unknown failures never trigger re-login.
 func TestShouldAttemptSelfHealLogin(t *testing.T) {
-	newapi := platform.GetAdapter("new-api")   // supports login
+	newapi := platform.GetAdapter("new-api")  // supports login
 	sub2api := platform.GetAdapter("sub2api") // JWT-only, no login
 	if newapi == nil || sub2api == nil {
 		t.Fatal("required adapters not registered")
 	}
 
 	cases := []struct {
-		name          string
-		message       string
-		wantNewApi    bool
-		wantSub2Api   bool
-		wantClassNew  platform.UpstreamErrorClass
+		name         string
+		message      string
+		wantNewApi   bool
+		wantSub2Api  bool
+		wantClassNew platform.UpstreamErrorClass
 	}{
 		// ClassAuth (401/403 with auth residual) → re-login only on supporting adapter.
 		// NOTE: avoid "access token invalid" wording — that is a confirmed

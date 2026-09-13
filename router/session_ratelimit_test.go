@@ -22,8 +22,8 @@ func TestFailedAuthIsRateLimited(t *testing.T) {
 		AdminRateLimitBurst: 1,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
-		AuthToken:           "admin-token",
-		ProxyToken:          "proxy-token",
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
@@ -69,10 +69,10 @@ func TestLoginEndpointIsRateLimited(t *testing.T) {
 		DataDir:             dataDir,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
-		AuthToken:           "admin-token",
-		ProxyToken:          "proxy-token",
-		DbType:              store.DialectSQLite,
-		DbUrl:               filepath.Join(dataDir, "login-ratelimit.db"),
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
+		DbType:     store.DialectSQLite,
+		DbUrl:      filepath.Join(dataDir, "login-ratelimit.db"),
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	// Login needs the session store (503 without one, fail-closed).

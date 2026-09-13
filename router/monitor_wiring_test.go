@@ -23,10 +23,10 @@ func newMonitorWiringRouter(t *testing.T) http.Handler {
 		DataDir:          dataDir,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
-		DbType:           store.DialectSQLite,
-		DbUrl:            filepath.Join(dataDir, "monitor-wiring.db"),
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
+		DbType:     store.DialectSQLite,
+		DbUrl:      filepath.Join(dataDir, "monitor-wiring.db"),
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {

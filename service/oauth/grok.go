@@ -22,7 +22,7 @@ import (
 // can swap in a local httptest server without monkey-patching net.Dialer.
 var (
 	grokDeviceCodeURL = "https://auth.x.ai/oauth2/device/code"
-	grokTokenURL       = "https://auth.x.ai/oauth2/token"
+	grokTokenURL      = "https://auth.x.ai/oauth2/token"
 )
 
 const (
@@ -47,9 +47,9 @@ const (
 // ---- Device-code side-channel store ----
 //
 // Device OAuth splits the flow across two provider hooks:
-//   1. BuildAuthorizationURL  — POST /device/code, hand the user the
-//      verification URI, and stash the device_code for the exchange step.
-//   2. ExchangeAuthorizationCode — POST /token with the stashed device_code.
+//  1. BuildAuthorizationURL  — POST /device/code, hand the user the
+//     verification URI, and stash the device_code for the exchange step.
+//  2. ExchangeAuthorizationCode — POST /token with the stashed device_code.
 //
 // The shared session record has no field for a device_code, so we keep a
 // short-lived side-channel map keyed by the OAuth `state`. Entries are pruned

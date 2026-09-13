@@ -11,11 +11,11 @@ import (
 // APIError represents a structured JSON error response.
 // Message is safe for public consumption; Internal is logged but never sent.
 // JSON field names are camelCase-compatible public keys used by the admin UI:
-// - error (string message; human-readable, never matched by clients)
-// - errorCode (optional machine-readable identifier; stable camelCase value
-//   from the registry in docs/api.md — additive, omitted when unset)
-// - detail (optional free-form classifier / subtype; NOT a stable contract)
-// - request_id (optional ingress correlation id, snake_case for log/ops tools)
+//   - error (string message; human-readable, never matched by clients)
+//   - errorCode (optional machine-readable identifier; stable camelCase value
+//     from the registry in docs/api.md — additive, omitted when unset)
+//   - detail (optional free-form classifier / subtype; NOT a stable contract)
+//   - request_id (optional ingress correlation id, snake_case for log/ops tools)
 type APIError struct {
 	Code      int    `json:"-"`
 	Message   string `json:"error"`

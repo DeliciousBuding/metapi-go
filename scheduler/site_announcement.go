@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 const defaultSiteAnnouncementIntervalMs = 15 * 60 * 1000 // 15 minutes

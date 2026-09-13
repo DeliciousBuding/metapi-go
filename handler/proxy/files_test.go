@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func chiRouterForFiles() chi.Router {

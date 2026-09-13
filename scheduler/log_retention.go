@@ -12,11 +12,11 @@ type ProxyLogRetentionScheduler = RetentionScheduler
 // NewProxyLogRetentionScheduler creates a new proxy log retention scheduler.
 func NewProxyLogRetentionScheduler(cfg *config.Config) *RetentionScheduler {
 	return NewRetentionScheduler(cfg, RetentionSchedulerOptions{
-		Name:              "proxy-log-retention",
-		Table:             "proxy_logs",
+		Name:               "proxy-log-retention",
+		Table:              "proxy_logs",
 		DefaultIntervalMin: 30,
-		RetentionDaysFn:   func(c *config.Config) int { return c.ProxyLogRetentionDays },
-		IntervalMinFn:     func(c *config.Config) int { return c.ProxyLogRetentionPruneIntervalMinutes },
+		RetentionDaysFn:    func(c *config.Config) int { return c.ProxyLogRetentionDays },
+		IntervalMinFn:      func(c *config.Config) int { return c.ProxyLogRetentionPruneIntervalMinutes },
 		DisabledFn: func(c *config.Config) (bool, string) {
 			if c.LogCleanupConfigured {
 				return true, "log_cleanup configured"

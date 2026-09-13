@@ -219,5 +219,3 @@ func buildVisibleEnabledRoutes(routes []store.TokenRoute) []store.TokenRoute {
 	}
 	return result
 }
-
-

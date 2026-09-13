@@ -137,10 +137,10 @@ func TestSub2ApiSubscriptions_getRaw(t *testing.T) {
 	s := newSub2ApiAdapterForSubs()
 
 	item := map[string]interface{}{
-		"present":   float64(42),
-		"str":       "hello",
-		"nilval":    nil,
-		"nested":    map[string]interface{}{"inner": float64(1)},
+		"present": float64(42),
+		"str":     "hello",
+		"nilval":  nil,
+		"nested":  map[string]interface{}{"inner": float64(1)},
 	}
 
 	tests := []struct {
@@ -172,11 +172,11 @@ func TestSub2ApiSubscriptions_getRawString(t *testing.T) {
 	s := newSub2ApiAdapterForSubs()
 
 	item := map[string]interface{}{
-		"str":       "  spaced  ",
-		"num":       float64(12),
-		"nilval":    nil,
-		"boolval":   true,
-		"nested":    map[string]interface{}{"x": float64(1)},
+		"str":     "  spaced  ",
+		"num":     float64(12),
+		"nilval":  nil,
+		"boolval": true,
+		"nested":  map[string]interface{}{"x": float64(1)},
 	}
 
 	tests := []struct {

@@ -22,7 +22,7 @@ import (
 // Filter is an immutable, goroutine-safe prompt safety filter. Construct once
 // (via NewFilter) and reuse across requests.
 type Filter struct {
-	patterns        []DenyPattern
+	patterns         []DenyPattern
 	repeatedRunLimit int
 }
 
@@ -62,7 +62,7 @@ func NewFilter(extraSubstrings []string) (*Filter, error) {
 	}
 
 	return &Filter{
-		patterns:        patterns,
+		patterns:         patterns,
 		repeatedRunLimit: maxRepeatedRunThreshold,
 	}, nil
 }

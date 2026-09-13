@@ -13,22 +13,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/admin"
 	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Test: Graceful Shutdown Under Streaming Load
 // ──────────────────────────────────────────────────────────────────────────────
 // Verifies that during a graceful shutdown (simulated SIGTERM):
-//   1. All in-flight streaming requests complete successfully.
-//   2. No new requests are accepted after shutdown begins.
-//   3. The database is closed cleanly (singleton reset).
+//  1. All in-flight streaming requests complete successfully.
+//  2. No new requests are accepted after shutdown begins.
+//  3. The database is closed cleanly (singleton reset).
 //
 // Architecture:
 //   - Mock upstream that emits SSE chunks with configurable inter-chunk delay
@@ -58,14 +58,14 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 	dbPath := dataDir + "/shutdown_test.db"
 
 	cfg := &config.Config{
-		AccountCredentialSecret:   "test-cred-secret-shutdown",
-		DataDir:                   dataDir,
-		ProxyMaxChannelAttempts:   3,
-		ProxyStickySessionTtlMs:   30000,
-		TokenRouterCacheTtlMs:     1500,
-		RequestBodyLimit:          20 * 1024 * 1024,
-		ListenHost:                "127.0.0.1",
-		Port:                      0, // OS-assigned port
+		AccountCredentialSecret: "test-cred-secret-shutdown",
+		DataDir:                 dataDir,
+		ProxyMaxChannelAttempts: 3,
+		ProxyStickySessionTtlMs: 30000,
+		TokenRouterCacheTtlMs:   1500,
+		RequestBodyLimit:        20 * 1024 * 1024,
+		ListenHost:              "127.0.0.1",
+		Port:                    0, // OS-assigned port
 	}
 	rt := &config.RuntimeSettings{
 		AuthToken:                        adminToken,

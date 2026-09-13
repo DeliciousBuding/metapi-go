@@ -20,15 +20,15 @@ const (
 // ---- ProviderMetadata ----
 
 type ProviderMetadata struct {
-	Provider                   OAuthProviderId `json:"provider"`
-	Label                      string          `json:"label"`
-	Platform                   string          `json:"platform"`
-	Enabled                    bool            `json:"enabled"`
-	LoginType                  string          `json:"loginType"`
-	RequiresProjectId          bool            `json:"requiresProjectId"`
-	SupportsDirectAccountRouting bool           `json:"supportsDirectAccountRouting"`
-	SupportsCloudValidation    bool            `json:"supportsCloudValidation"`
-	SupportsNativeProxy        bool            `json:"supportsNativeProxy"`
+	Provider                     OAuthProviderId `json:"provider"`
+	Label                        string          `json:"label"`
+	Platform                     string          `json:"platform"`
+	Enabled                      bool            `json:"enabled"`
+	LoginType                    string          `json:"loginType"`
+	RequiresProjectId            bool            `json:"requiresProjectId"`
+	SupportsDirectAccountRouting bool            `json:"supportsDirectAccountRouting"`
+	SupportsCloudValidation      bool            `json:"supportsCloudValidation"`
+	SupportsNativeProxy          bool            `json:"supportsNativeProxy"`
 }
 
 // ---- ProviderSiteConfig ----
@@ -67,8 +67,8 @@ type TokenSet struct {
 // ---- ProxyHeaderInput ----
 
 type ProxyHeaderInput struct {
-	OAuth             ProxyHeaderOAuth            `json:"oauth"`
-	DownstreamHeaders map[string]interface{}      `json:"downstreamHeaders,omitempty"`
+	OAuth             ProxyHeaderOAuth       `json:"oauth"`
+	DownstreamHeaders map[string]interface{} `json:"downstreamHeaders,omitempty"`
 }
 
 type ProxyHeaderOAuth struct {
@@ -150,9 +150,9 @@ type SessionTokenInput struct {
 
 // OAuthProviderDefinition defines the interface for an OAuth provider.
 type OAuthProviderDefinition struct {
-	Metadata ProviderMetadata `json:"metadata"`
+	Metadata ProviderMetadata   `json:"metadata"`
 	Site     ProviderSiteConfig `json:"site"`
-	Loopback LoopbackConfig   `json:"loopback"`
+	Loopback LoopbackConfig     `json:"loopback"`
 
 	BuildAuthorizationURL     func(ctx context.Context, input BuildAuthURLInput) (string, error)
 	ResolveRedirectURI        func(ctx context.Context, input ResolveRedirectURIInput) (string, error)

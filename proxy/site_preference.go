@@ -11,7 +11,6 @@ import (
 type SiteProtocolPreference = profiles.SiteProtocolPreference
 
 // DetectSiteProtocolPreference resolves responses-only / stream preference for a site.
-//
 func DetectSiteProtocolPreference(platform, siteURL string, customHeaders map[string]string) SiteProtocolPreference {
 	return profiles.DetectSiteProtocolPreference(platform, siteURL, customHeaders)
 }

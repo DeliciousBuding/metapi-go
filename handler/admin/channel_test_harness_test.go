@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

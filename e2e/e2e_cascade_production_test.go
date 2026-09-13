@@ -31,10 +31,10 @@ import (
 
 // Staging env knobs. All three are required — the test fails fast if absent.
 const (
-	stagingURLEnv      = "METAPI_STAGING_URL"
-	stagingAuthEnv     = "METAPI_AUTH_TOKEN"
-	stagingProxyEnv    = "METAPI_PROXY_TOKEN"
-	stagingModelEnv    = "METAPI_TEST_MODEL" // optional; auto-detected if unset
+	stagingURLEnv       = "METAPI_STAGING_URL"
+	stagingAuthEnv      = "METAPI_AUTH_TOKEN"
+	stagingProxyEnv     = "METAPI_PROXY_TOKEN"
+	stagingModelEnv     = "METAPI_TEST_MODEL"    // optional; auto-detected if unset
 	stagingRequestModel = "METAPI_REQUEST_MODEL" // accepted alias
 )
 
@@ -164,16 +164,16 @@ func resolveStagingModel(t *testing.T, client *http.Client, baseURL, proxyToken,
 // Field names mirror the admin /api/stats/proxy-logs?view=query payload
 // (camelCase JSON keys, as emitted by the admin handler).
 type proxyLogRow struct {
-	ID          int64  `json:"id"`
-	ChannelID   *int64 `json:"channelId"`
-	AccountID   *int64 `json:"accountId"`
-	ModelReq    string `json:"modelRequested"`
-	ModelAct    string `json:"modelActual"`
-	Status      string `json:"status"`
-	HTTPStatus  *int   `json:"httpStatus"`
-	RetryCount  *int   `json:"retryCount"`
-	RequestID   string `json:"requestId"`
-	CreatedAt   string `json:"createdAt"`
+	ID         int64  `json:"id"`
+	ChannelID  *int64 `json:"channelId"`
+	AccountID  *int64 `json:"accountId"`
+	ModelReq   string `json:"modelRequested"`
+	ModelAct   string `json:"modelActual"`
+	Status     string `json:"status"`
+	HTTPStatus *int   `json:"httpStatus"`
+	RetryCount *int   `json:"retryCount"`
+	RequestID  string `json:"requestId"`
+	CreatedAt  string `json:"createdAt"`
 }
 
 // fetchStagingProxyLogs retrieves the most recent proxy_log rows. The admin
@@ -196,16 +196,16 @@ func fetchStagingProxyLogs(t *testing.T, client *http.Client, baseURL, authToken
 	rows := make([]proxyLogRow, 0, len(payload.Items))
 	for _, item := range payload.Items {
 		row := proxyLogRow{
-			ID:        toInt64(item["id"]),
-			ChannelID: toInt64Ptr(item["channelId"]),
-			AccountID: toInt64Ptr(item["accountId"]),
-			ModelReq:  toString(item["modelRequested"]),
-			ModelAct:  toString(item["modelActual"]),
-			Status:    toString(item["status"]),
+			ID:         toInt64(item["id"]),
+			ChannelID:  toInt64Ptr(item["channelId"]),
+			AccountID:  toInt64Ptr(item["accountId"]),
+			ModelReq:   toString(item["modelRequested"]),
+			ModelAct:   toString(item["modelActual"]),
+			Status:     toString(item["status"]),
 			HTTPStatus: toIntPtr(item["httpStatus"]),
 			RetryCount: toIntPtr(item["retryCount"]),
-			RequestID: toString(item["requestId"]),
-			CreatedAt: toString(item["createdAt"]),
+			RequestID:  toString(item["requestId"]),
+			CreatedAt:  toString(item["createdAt"]),
 		}
 		rows = append(rows, row)
 	}

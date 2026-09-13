@@ -15,7 +15,7 @@ func makeRRCandidate(channelID int64, lastSelectedAt *string, lastUsedAt *string
 		Channel: store.RouteChannel{
 			ID:             channelID,
 			LastSelectedAt: lastSelectedAt,
-			LastUsedAt:    lastUsedAt,
+			LastUsedAt:     lastUsedAt,
 		},
 		Account: store.Account{ID: channelID * 10, Status: "active"},
 		Site:    store.Site{ID: channelID * 100, Status: "active"},
@@ -127,7 +127,7 @@ func TestSelectRoundRobinCandidate(t *testing.T) {
 func TestGetRoundRobinCandidates_NilTimes(t *testing.T) {
 	hasTime := "2024-03-01T00:00:00Z"
 	candidates := []RouteChannelCandidate{
-		makeRRCandidate(1, nil, nil),          // nil, nil → treated as "earliest"
+		makeRRCandidate(1, nil, nil),           // nil, nil → treated as "earliest"
 		makeRRCandidate(2, &hasTime, &hasTime), // has explicit time
 	}
 

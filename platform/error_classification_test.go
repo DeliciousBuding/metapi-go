@@ -248,9 +248,9 @@ func TestIsTokenExpiredError_NonAuthUpstreamNeverMarks(t *testing.T) {
 		{"timeout", 0, "request timed out"},
 		{"5xx", 502, "bad gateway from upstream"},
 		{"opaque 401", 401, "upstream rejected the request"},
-			{"bare 401 empty", 401, ""},
-			{"HTTP 401 Unauthorized", 0, "HTTP 401 Unauthorized"},
-			{"Unauthorized only", 401, "Unauthorized"},
+		{"bare 401 empty", 401, ""},
+		{"HTTP 401 Unauthorized", 0, "HTTP 401 Unauthorized"},
+		{"Unauthorized only", 401, "Unauthorized"},
 		{"bare token word without auth", 0, "input token encoding failed"},
 	}
 	for _, tc := range cases {

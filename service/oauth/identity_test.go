@@ -140,9 +140,9 @@ func TestParseCodexAccessToken_MalformedReturnsNil(t *testing.T) {
 func TestMergeCodexIdentity_FillsEmptyFieldsFromFallback(t *testing.T) {
 	primary := &AccountIdentity{Email: "primary@example.com"} // accountID + planType empty
 	fallback := &AccountIdentity{
-		Email:             "fallback@example.com",
-		ChatGPTAccountID:  "acc_fb",
-		PlanType:          "pro",
+		Email:            "fallback@example.com",
+		ChatGPTAccountID: "acc_fb",
+		PlanType:         "pro",
 	}
 	merged := MergeCodexIdentity(primary, fallback)
 	if merged.Email != "primary@example.com" {
@@ -174,9 +174,9 @@ func TestMergeCodexIdentity_NilPrimaryReturnsFallbackCopy(t *testing.T) {
 
 func TestIdentityIncomplete(t *testing.T) {
 	cases := []struct {
-		name    string
+		name     string
 		identity *AccountIdentity
-		want    bool
+		want     bool
 	}{
 		{"nil", nil, true},
 		{"all empty", &AccountIdentity{}, true},

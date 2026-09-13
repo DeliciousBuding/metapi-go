@@ -246,7 +246,7 @@ func TestSetAndClearSessionCookie(t *testing.T) {
 		t.Fatalf("cookie attrs wrong: %+v", found)
 	}
 	if found.MaxAge != int((12 * time.Hour).Seconds()) {
-		t.Fatalf("MaxAge = %d, want %d", found.MaxAge, int((12*time.Hour).Seconds()))
+		t.Fatalf("MaxAge = %d, want %d", found.MaxAge, int((12 * time.Hour).Seconds()))
 	}
 
 	// Round-trip: the emitted header must be parseable back by the request.

@@ -149,7 +149,7 @@ func TestCascadeIsolation_5xxThenHealthySiblingSucceeds(t *testing.T) {
 		writeJSONHelper(w, 200, map[string]any{
 			"id": "chatcmpl-cascade", "object": "chat.completion", "model": "gpt-4",
 			"choices": []map[string]any{{
-				"index": 0,
+				"index":   0,
 				"message": map[string]any{"role": "assistant", "content": "recovered"},
 			}},
 		})
@@ -216,4 +216,3 @@ func containsInt64(xs []int64, v int64) bool {
 	}
 	return false
 }
-

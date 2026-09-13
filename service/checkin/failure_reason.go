@@ -23,16 +23,16 @@ const (
 type FailureReasonCode string
 
 const (
-	CodeSiteDisabled             FailureReasonCode = "site_disabled"
-	CodeCheckinNotSupported      FailureReasonCode = "checkin_not_supported"
-	CodeManualTurnstileRequired  FailureReasonCode = "manual_turnstile_required"
-	CodeCloudflareTunnelUnavail  FailureReasonCode = "cloudflare_tunnel_unavailable"
-	CodeCloudflareChallenge      FailureReasonCode = "cloudflare_challenge"
-	CodeTokenExpired             FailureReasonCode = "token_expired"
-	CodeAlreadyCheckedIn         FailureReasonCode = "already_checked_in"
-	CodeNetworkTimeout           FailureReasonCode = "network_timeout"
-	CodeUpstreamError            FailureReasonCode = "upstream_error"
-	CodeUnknownError             FailureReasonCode = "unknown_error"
+	CodeSiteDisabled            FailureReasonCode = "site_disabled"
+	CodeCheckinNotSupported     FailureReasonCode = "checkin_not_supported"
+	CodeManualTurnstileRequired FailureReasonCode = "manual_turnstile_required"
+	CodeCloudflareTunnelUnavail FailureReasonCode = "cloudflare_tunnel_unavailable"
+	CodeCloudflareChallenge     FailureReasonCode = "cloudflare_challenge"
+	CodeTokenExpired            FailureReasonCode = "token_expired"
+	CodeAlreadyCheckedIn        FailureReasonCode = "already_checked_in"
+	CodeNetworkTimeout          FailureReasonCode = "network_timeout"
+	CodeUpstreamError           FailureReasonCode = "upstream_error"
+	CodeUnknownError            FailureReasonCode = "unknown_error"
 )
 
 // FailureReason describes why an operation failed.

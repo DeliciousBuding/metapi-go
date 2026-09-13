@@ -17,8 +17,8 @@ func TestReadyReportsDrainingWhenShutdownStarts(t *testing.T) {
 		DataDir: dataDir,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
-		DbType:  store.DialectSQLite,
-		DbUrl:   filepath.Join(dataDir, "draining.db"),
+		DbType: store.DialectSQLite,
+		DbUrl:  filepath.Join(dataDir, "draining.db"),
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {

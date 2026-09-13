@@ -6,9 +6,9 @@ import (
 
 func TestParseRequest_PreservesPromptAndModel(t *testing.T) {
 	body := map[string]any{
-		"model":  "gpt-3.5-turbo-instruct",
-		"prompt": "Explain quantum computing in simple terms.",
-		"max_tokens": 256,
+		"model":       "gpt-3.5-turbo-instruct",
+		"prompt":      "Explain quantum computing in simple terms.",
+		"max_tokens":  256,
 		"temperature": 0.7,
 	}
 

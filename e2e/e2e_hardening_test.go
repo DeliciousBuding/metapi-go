@@ -9,11 +9,11 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	proxypkg "github.com/deliciousbuding/metapi-go/proxy"
 	routerpkg "github.com/deliciousbuding/metapi-go/router"
+	"github.com/go-chi/chi/v5"
 )
 
 // TestProxyConcurrentRequests verifies 5 concurrent proxy requests all succeed.

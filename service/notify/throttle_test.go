@@ -284,7 +284,7 @@ func TestGlobalThrottle_Exists(t *testing.T) {
 
 func TestNotificationThrottleState(t *testing.T) {
 	state := NotificationThrottleState{
-		LastSentAtMs:   1000,
+		LastSentAtMs:    1000,
 		SuppressedCount: 3,
 	}
 	if state.LastSentAtMs != 1000 {

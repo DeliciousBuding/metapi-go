@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/admin"
 	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -37,12 +37,12 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 	// 1a. Build config first - EnsureRuntimeDatabase reads DbType and DbUrl
 	// from the runtime snapshot.
 	cfg := &config.Config{
-		AccountCredentialSecret:   "test-cred-secret",
-		DataDir:                   t.TempDir(),
-		ProxyMaxChannelAttempts:   3,
-		ProxyStickySessionTtlMs:   30000,
-		TokenRouterCacheTtlMs:     1500,
-		RequestBodyLimit:          20 * 1024 * 1024,
+		AccountCredentialSecret: "test-cred-secret",
+		DataDir:                 t.TempDir(),
+		ProxyMaxChannelAttempts: 3,
+		ProxyStickySessionTtlMs: 30000,
+		TokenRouterCacheTtlMs:   1500,
+		RequestBodyLimit:        20 * 1024 * 1024,
 	}
 	rt := &config.RuntimeSettings{
 		AuthToken:                        adminToken,

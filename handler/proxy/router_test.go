@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/auth"
+	"github.com/go-chi/chi/v5"
 )
 
 // makeProxyReq creates a new authenticated httptest request with JSON body.

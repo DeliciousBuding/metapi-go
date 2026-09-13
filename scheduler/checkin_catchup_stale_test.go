@@ -67,7 +67,7 @@ func insertStaleCatchUpAccount(t *testing.T, db *store.DB, siteID int64, usernam
 }
 
 // nullableStr returns the empty string as a SQL NULL (nil) and otherwise the
-// literal value — sqlite stores '' and NULL distinctly, and the stale query
+// literal value — sqlite stores ” and NULL distinctly, and the stale query
 // treats both as "no checkin yet".
 func nullableStr(value string) any {
 	if value == "" {

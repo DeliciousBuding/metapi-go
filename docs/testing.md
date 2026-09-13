@@ -9,6 +9,7 @@
 | Layer                     | Command / asset                                                                      | Protects                                                                     |
 | :------------------------ | :----------------------------------------------------------------------------------- | :--------------------------------------------------------------------------- |
 | Go unit and integration   | `go test ./... -count=1 -race`                                                       | Package behavior, dual dialect, concurrency, handlers, routing, transforms   |
+| Go formatting             | `gofmt -l` on tracked files (CI `lint` job, go.mod toolchain)                        | Whole-tree formatting consistency; the pinned toolchain keeps local and CI opinions identical |
 | Frontend static gates     | `bun run typecheck`, `lint`, `format:check`, `knip`, `test`, `build:check` in `web/` | Types, lint, dead code, UI contracts, production bundle                      |
 | Repository e2e            | `e2e/`                                                                               | Full HTTP paths with controlled upstream fixtures                            |
 | Real-service CI           | `.github/workflows/main.yml`                                                         | New API, One API, Sub2API and CLIProxyAPI detect/login/route/proxy chains in service containers, plus cross-OS binary runtime smoke (`runtime-smoke-matrix`) |

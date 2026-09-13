@@ -18,7 +18,7 @@ func TestStateToken_Format_IsBase64URLNoPadding(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
 	for i := 0; i < 256; i++ {
 		rec, err := store.Create(CreateSessionInput{
-			Provider:   "codex",
+			Provider:    "codex",
 			RedirectURI: "http://localhost:1455/callback",
 		})
 		if err != nil {
@@ -46,7 +46,7 @@ func TestStateToken_BulkUniqueness_NoCollisions(t *testing.T) {
 	seen := make(map[string]struct{}, sampleSize)
 	for i := 0; i < sampleSize; i++ {
 		rec, err := store.Create(CreateSessionInput{
-			Provider:   "codex",
+			Provider:    "codex",
 			RedirectURI: "http://localhost:1455/callback",
 		})
 		if err != nil {
@@ -67,7 +67,7 @@ func TestStateToken_AndCodeVerifier_AreIndependent(t *testing.T) {
 	const sampleSize = 256
 	for i := 0; i < sampleSize; i++ {
 		rec, err := store.Create(CreateSessionInput{
-			Provider:   "codex",
+			Provider:    "codex",
 			RedirectURI: "http://localhost:1455/callback",
 		})
 		if err != nil {

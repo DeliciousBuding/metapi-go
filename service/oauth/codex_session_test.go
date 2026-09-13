@@ -77,8 +77,8 @@ func TestRefreshCodexWithSessionToken_Success(t *testing.T) {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"accessToken": accessToken,
-			"expires":      expires,
-			"user":         map[string]string{"email": "fallback@example.com"},
+			"expires":     expires,
+			"user":        map[string]string{"email": "fallback@example.com"},
 		})
 	})
 
@@ -157,7 +157,7 @@ func TestRefreshCodexWithSessionToken_MissingAccessToken(t *testing.T) {
 	withCodexSessionServer(t, func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"accessToken": "",
-			"user":         map[string]string{"email": "x@example.com"},
+			"user":        map[string]string{"email": "x@example.com"},
 		})
 	})
 	_, err := refreshCodexWithSessionToken(context.Background(), SessionTokenInput{
@@ -176,7 +176,7 @@ func TestRefreshCodexWithSessionToken_ATMissingAccountID(t *testing.T) {
 	withCodexSessionServer(t, func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"accessToken": accessToken,
-			"expires":      time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+			"expires":     time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
 		})
 	})
 	_, err := refreshCodexWithSessionToken(context.Background(), SessionTokenInput{

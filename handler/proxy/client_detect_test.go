@@ -21,8 +21,8 @@ func TestDetectClientContext_Basic(t *testing.T) {
 
 func TestDetectClientContext_CodexDetection(t *testing.T) {
 	headers := map[string]string{
-		"Content-Type":      "application/json",
-		"User-Agent":        "codex-cli/1.0",
+		"Content-Type":        "application/json",
+		"User-Agent":          "codex-cli/1.0",
 		"x-openai-session-id": "session-123",
 	}
 	ctx := DetectClientContext("/v1/responses", headers, map[string]any{"model": "gpt-4o"})
@@ -35,8 +35,8 @@ func TestDetectClientContext_CodexDetection(t *testing.T) {
 
 func TestDetectClientContext_ClaudeCodeDetection(t *testing.T) {
 	headers := map[string]string{
-		"Content-Type":  "application/json",
-		"User-Agent":    "Claude-Code/1.0",
+		"Content-Type": "application/json",
+		"User-Agent":   "Claude-Code/1.0",
 	}
 	body := map[string]any{
 		"model":    "claude-sonnet-4-20250514",
@@ -86,8 +86,8 @@ func TestDetectClientContext_ClientKindValues(t *testing.T) {
 	}
 
 	validKinds := map[string]bool{
-		"generic":    true,
-		"codex":      true,
+		"generic":     true,
+		"codex":       true,
 		"claude_code": true,
 		"gemini_cli":  true,
 	}

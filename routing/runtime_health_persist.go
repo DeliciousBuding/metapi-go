@@ -16,7 +16,6 @@ type SiteRuntimeHealthPersistencePayload struct {
 	ModelBySiteID  map[string]map[string]*SiteRuntimeHealthState `json:"modelBySiteId"`
 }
 
-
 // SettingsStore defines the interface for persisting runtime health state.
 type SettingsStore interface {
 	Get(key string) (string, error)
@@ -31,7 +30,6 @@ func SetHealthSettingsStore(store SettingsStore) {
 	defer healthStateMu.Unlock()
 	healthSettingsStore = store
 }
-
 
 // ---- Persistence ----
 

@@ -225,7 +225,7 @@ func TestHealthRefresh_WaitModeSkipsApiKeyAccountWithoutNetwork(t *testing.T) {
 
 	rec := doPostJSON(t, r, "/api/accounts/health/refresh", map[string]any{
 		"accountId": accountID,
-		"wait":       true,
+		"wait":      true,
 	})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s, want 200", rec.Code, rec.Body.String())

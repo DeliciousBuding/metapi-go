@@ -89,8 +89,8 @@ func TestAccountTokenCreatePayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object leaves accountId zero",
-			input:   `{}`,
+			name:  "empty object leaves accountId zero",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountTokenCreatePayload)
 				if p.AccountID != 0 || p.Name != nil || p.RemainQuota != nil {
@@ -149,8 +149,8 @@ func TestAccountTokenUpdatePayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountTokenUpdatePayload)
 				if p.Name != nil || p.Enabled != nil {
@@ -190,8 +190,8 @@ func TestAccountTokenBatchPayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountTokenBatchPayload)
 				if len(p.IDs) != 0 || p.Action != "" {
@@ -243,8 +243,8 @@ func TestAccountTokenSyncAllPayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				if d.(*AccountTokenSyncAllPayload).Wait != nil {
 					t.Fatalf("expected nil wait")

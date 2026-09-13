@@ -36,10 +36,10 @@ func makeColdStartCandidate(channelID, siteID int64) RouteChannelCandidate {
 	return RouteChannelCandidate{
 		Channel: store.RouteChannel{
 			ID:           channelID,
-			Weight: int64Ptr(1),
+			Weight:       int64Ptr(1),
 			SuccessCount: int64Ptr(0),
-			FailCount: int64Ptr(0),
-			TotalCost: ptrFloat(0),
+			FailCount:    int64Ptr(0),
+			TotalCost:    ptrFloat(0),
 		},
 		Account: store.Account{ID: channelID, UnitCost: nil},
 		Site:    store.Site{ID: siteID, Name: "cold-site"},

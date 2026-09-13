@@ -9,10 +9,10 @@ import (
 // Site protocol preference control headers (site.custom_headers).
 // These are configuration signals for Metapi and must not be forwarded upstream.
 const (
-	HeaderResponsesOnly       = "x-metapi-responses-only"
-	HeaderStreamOnly          = "x-metapi-stream-only"
-	HeaderEndpointPreference  = "x-metapi-endpoint-preference"
-	HeaderProtocolPreference  = "x-metapi-protocol-preference"
+	HeaderResponsesOnly      = "x-metapi-responses-only"
+	HeaderStreamOnly         = "x-metapi-stream-only"
+	HeaderEndpointPreference = "x-metapi-endpoint-preference"
+	HeaderProtocolPreference = "x-metapi-protocol-preference"
 )
 
 // SiteProtocolPreference describes how a site should be reached for chat-family traffic.

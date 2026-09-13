@@ -204,9 +204,9 @@ func TestIsValidWebdavFileURL_SSRFGuard(t *testing.T) {
 	disallowPrivateWebdavTargetsForTest(t)
 
 	tests := []struct {
-		name    string
-		rawURL  string
-		wantOK  bool
+		name   string
+		rawURL string
+		wantOK bool
 	}{
 		{"https localhost rejected", "https://localhost/path", false},
 		{"https 127.0.0.1 rejected", "https://127.0.0.1/path", false},

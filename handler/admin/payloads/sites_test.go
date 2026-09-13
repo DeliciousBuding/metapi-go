@@ -69,7 +69,7 @@ func TestSiteCreatePayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name: "minimal required fields only",
+			name:  "minimal required fields only",
 			input: `{"name":"N","url":"https://n.example"}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*SiteCreatePayload)
@@ -206,8 +206,8 @@ func TestSiteBatchPayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object zeroes everything",
-			input:   `{}`,
+			name:  "empty object zeroes everything",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*SiteBatchPayload)
 				if len(p.IDs) != 0 || p.Action != "" {
@@ -249,8 +249,8 @@ func TestSiteDetectPayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*SiteDetectPayload)
 				if p.URL != "" {
@@ -287,8 +287,8 @@ func TestSiteDisabledModelsPayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				if len(d.(*SiteDisabledModelsPayload).Models) != 0 {
 					t.Fatalf("expected empty models")
@@ -336,8 +336,8 @@ func TestSiteImportPayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*SiteImportPayload)
 				if len(p.Items) != 0 || p.DuplicateStrategy != "" {
@@ -385,8 +385,8 @@ func TestProbeNowBody_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*ProbeNowBody)
 				if p.Scope != nil || p.ModelName != nil {

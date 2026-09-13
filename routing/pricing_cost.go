@@ -42,9 +42,9 @@ const (
 // cache_ratio_default / cache_ratio_claude) without a code change. NaN/Inf
 // and non-positive overrides are ignored (fall back to the const).
 var (
-	cacheRatioOverride       atomic.Pointer[float64]
-	cacheCreationRatioOverride atomic.Pointer[float64]
-	claudeCacheRatioOverride    atomic.Pointer[float64]
+	cacheRatioOverride               atomic.Pointer[float64]
+	cacheCreationRatioOverride       atomic.Pointer[float64]
+	claudeCacheRatioOverride         atomic.Pointer[float64]
 	claudeCacheCreationRatioOverride atomic.Pointer[float64]
 )
 
@@ -76,14 +76,14 @@ func overriddenOr(p *atomic.Pointer[float64], fallback float64) float64 {
 // PricingModel is a normalized upstream pricing row used for cost estimation.
 // Pointer ratios distinguish "missing" from an explicit zero.
 type PricingModel struct {
-	ModelName           string
-	QuotaType           int // 0 = token-based, 1 = per-call
-	ModelRatio          float64
-	CompletionRatio     float64
-	CacheRatio          *float64
-	CacheCreationRatio  *float64
-	ModelPrice          *ModelPrice
-	EnableGroups        []string
+	ModelName          string
+	QuotaType          int // 0 = token-based, 1 = per-call
+	ModelRatio         float64
+	CompletionRatio    float64
+	CacheRatio         *float64
+	CacheCreationRatio *float64
+	ModelPrice         *ModelPrice
+	EnableGroups       []string
 }
 
 // ModelPrice is either a flat per-call price or input/output pair.
@@ -98,11 +98,11 @@ type ModelPrice struct {
 
 // UsageForCost is token usage for a single request cost estimate.
 type UsageForCost struct {
-	PromptTokens             int64
-	CompletionTokens         int64
-	TotalTokens              int64
-	CacheReadTokens          int64
-	CacheCreationTokens      int64
+	PromptTokens        int64
+	CompletionTokens    int64
+	TotalTokens         int64
+	CacheReadTokens     int64
+	CacheCreationTokens int64
 	// PromptTokensIncludeCache:
 	// true/nil → prompt tokens already include cache tokens (subtract for billable input)
 	// false → prompt tokens are exclusive of cache tokens
@@ -111,10 +111,10 @@ type UsageForCost struct {
 
 // ProxyBillingDetails mirrors the TS ProxyBillingDetails shape (camelCase JSON).
 type ProxyBillingDetails struct {
-	QuotaType int                    `json:"quotaType"`
-	Usage     ProxyBillingUsage      `json:"usage"`
-	Pricing   ProxyBillingPricing    `json:"pricing"`
-	Breakdown ProxyBillingBreakdown  `json:"breakdown"`
+	QuotaType int                   `json:"quotaType"`
+	Usage     ProxyBillingUsage     `json:"usage"`
+	Pricing   ProxyBillingPricing   `json:"pricing"`
+	Breakdown ProxyBillingBreakdown `json:"breakdown"`
 }
 
 // ProxyBillingUsage is the usage section of billing details.

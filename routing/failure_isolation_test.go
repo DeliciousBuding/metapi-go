@@ -349,8 +349,8 @@ func isolationChannel(id, routeID, accountID int64) store.RouteChannel {
 		RouteID:     routeID,
 		AccountID:   accountID,
 		SourceModel: &model,
-		Priority: int64Ptr(0),
-		Weight: int64Ptr(10),
+		Priority:    int64Ptr(0),
+		Weight:      int64Ptr(10),
 		Enabled:     true,
 	}
 }

@@ -7,7 +7,7 @@ import (
 
 // NotificationThrottleState tracks the last sent timestamp and suppressed count.
 type NotificationThrottleState struct {
-	LastSentAtMs   int64
+	LastSentAtMs    int64
 	SuppressedCount int
 }
 
@@ -57,7 +57,7 @@ func (t *NotificationThrottle) EvaluateNotificationThrottle(signature string, no
 	current, exists := t.state[signature]
 	if !exists {
 		t.state[signature] = &NotificationThrottleState{
-			LastSentAtMs:   nowMs,
+			LastSentAtMs:    nowMs,
 			SuppressedCount: 0,
 		}
 		return EvaluateResult{ShouldSend: true, MergedCount: 0}
@@ -70,7 +70,7 @@ func (t *NotificationThrottle) EvaluateNotificationThrottle(signature string, no
 
 	mergedCount := current.SuppressedCount
 	t.state[signature] = &NotificationThrottleState{
-		LastSentAtMs:   nowMs,
+		LastSentAtMs:    nowMs,
 		SuppressedCount: 0,
 	}
 	return EvaluateResult{ShouldSend: true, MergedCount: mergedCount}

@@ -12,12 +12,12 @@ import (
 // config values and re-opens the original connection.
 //
 // Mirrors TS index.ts switchRuntimeDatabase() behavior:
-// 1. Close all existing connections.
-// 2. Publish the new connection settings (dialect, URL, SSL) through the
-//    atomic RuntimeSettings snapshot.
-// 3. Open new connection + run auto-migration.
-// 4. On failure: close new connection, restore old settings, re-open old
-//    connection.
+//  1. Close all existing connections.
+//  2. Publish the new connection settings (dialect, URL, SSL) through the
+//     atomic RuntimeSettings snapshot.
+//  3. Open new connection + run auto-migration.
+//  4. On failure: close new connection, restore old settings, re-open old
+//     connection.
 //
 // The new connection honors cfg.DbSslMode (DB_SSLMODE) and the runtime
 // PostgreSQL pool profile, so a switch can never silently downgrade an

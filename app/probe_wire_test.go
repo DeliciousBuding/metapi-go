@@ -40,12 +40,12 @@ func TestWireModelProbeScheduler_ProbeMutatesHealth(t *testing.T) {
 	t.Cleanup(upstream.Close)
 
 	cfg := &config.Config{
-		DataDir:                          dataDir,
-		RequestBodyLimit:                 1 << 20,
-		ProxyMaxChannelAttempts:          3,
-		TokenRouterCacheTtlMs:            60_000,
+		DataDir:                 dataDir,
+		RequestBodyLimit:        1 << 20,
+		ProxyMaxChannelAttempts: 3,
+		TokenRouterCacheTtlMs:   60_000,
 		// ticker off; manual probe still works
-		ModelAvailabilityProbeTimeoutMs:  5000,
+		ModelAvailabilityProbeTimeoutMs: 5000,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
 		AuthToken:                        "admin-token",

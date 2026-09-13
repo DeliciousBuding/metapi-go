@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 // openModelRefreshTestDB opens an in-memory SQLite DB with the full schema
@@ -208,4 +208,3 @@ func TestRefreshAccountModels_TokenBackfillSkipsWhenNoTokenMatch(t *testing.T) {
 		t.Fatalf("expected 0 token_model_availability rows, got %d", tokenModelCount)
 	}
 }
-

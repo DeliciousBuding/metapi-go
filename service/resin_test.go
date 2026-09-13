@@ -50,10 +50,10 @@ func TestResinEnabledPerSiteOverride(t *testing.T) {
 	enabled := true
 	disabled := false
 	cases := []struct {
-		name   string
-		cfg    *config.Config
-		site   *store.Site
-		want   bool
+		name string
+		cfg  *config.Config
+		site *store.Site
+		want bool
 	}{
 		{
 			name: "global on, site nil override → inherit global",

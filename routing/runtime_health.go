@@ -781,4 +781,3 @@ func BuildSiteHistoricalHealthMetrics(candidates []RouteChannelCandidate) map[in
 	}
 	return metrics
 }
-
