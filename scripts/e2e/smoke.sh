@@ -4,7 +4,8 @@
 # Exercises the full admin + proxy chain against a live metapi instance:
 #   health -> admin auth -> platform detect -> site -> login -> verify-token
 #   -> account -> models -> balance -> checkin -> downstream token -> route
-#   -> /v1 proxy relay.
+#   -> /v1 proxy relay (chat completions + Anthropic messages + OpenAI
+#   responses).
 #
 # Every step prints [PASS]/[FAIL]/[WARN]/[SKIP] and accumulates a summary;
 # the script exits 1 when any step FAILs. FAILs print the truncated response body as
@@ -25,6 +26,11 @@
 #   TOKEN_NAME         downstream key name    (default e2e-smoke-token)
 #   EXPECT_RELAY       require a real relay   (default 1; set 0 only for explicit SKIP)
 #   EXPECTED_COMPLETION_CONTENT  exact content marker to require (optional)
+#   MOCK_REQUEST_LOG   path to the deterministic upstream's JSONL request log
+#                      (scripts/e2e/mock-openai.py --log). When set, every
+#                      protocol relay assertion also reconciles a NEW upstream-
+#                      side event carrying the relayed model; when unset, that
+#                      half reports an explicit SKIP.
 #
 # Requires curl and python3 (fails fast when missing).
 
@@ -43,6 +49,7 @@ TOKEN_NAME="${TOKEN_NAME:-e2e-smoke-token}"
 SMOKE_KEY="${SMOKE_KEY:-sk-e2e-smoke-key}"
 EXPECT_RELAY="${EXPECT_RELAY:-1}"
 EXPECTED_COMPLETION_CONTENT="${EXPECTED_COMPLETION_CONTENT:-}"
+MOCK_REQUEST_LOG="${MOCK_REQUEST_LOG:-}"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -260,6 +267,105 @@ if isinstance(content, list) and not expected:
             sys.exit(0)
 sys.exit(1)
 ' "$1" < "$RESP_BODY"
+}
+
+# json_messages_ok EXPECTED_MODEL EXPECTED_CONTENT — rejects structured errors
+# and requires the Anthropic Messages shape: type=message, role=assistant, a
+# model field echoing the requested model, and non-empty text content that
+# equals EXPECTED_CONTENT when that is set.
+json_messages_ok() {
+  python3 -c '
+import json, sys
+expected_model, expected = sys.argv[1], sys.argv[2]
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+if not isinstance(payload, dict) or "error" in payload:
+    sys.exit(1)
+if payload.get("type") != "message" or payload.get("role") != "assistant":
+    sys.exit(1)
+if payload.get("model") != expected_model:
+    sys.exit(1)
+content = payload.get("content")
+if not isinstance(content, list):
+    sys.exit(1)
+text = "".join(
+    part["text"]
+    for part in content
+    if isinstance(part, dict) and part.get("type") == "text" and isinstance(part.get("text"), str)
+)
+if not text.strip() or (expected and text != expected):
+    sys.exit(1)
+sys.exit(0)
+' "$1" "$2" < "$RESP_BODY"
+}
+
+# json_responses_ok EXPECTED_MODEL EXPECTED_CONTENT — rejects structured errors
+# and requires the OpenAI Responses shape: object=response, a model field
+# echoing the requested model, and non-empty output_text that equals
+# EXPECTED_CONTENT when that is set.
+json_responses_ok() {
+  python3 -c '
+import json, sys
+expected_model, expected = sys.argv[1], sys.argv[2]
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+if not isinstance(payload, dict) or "error" in payload or payload.get("incomplete_details"):
+    sys.exit(1)
+if payload.get("object") != "response":
+    sys.exit(1)
+if payload.get("model") != expected_model:
+    sys.exit(1)
+output = payload.get("output")
+if not isinstance(output, list):
+    sys.exit(1)
+text = ""
+for item in output:
+    if not isinstance(item, dict) or item.get("type") != "message":
+        continue
+    for part in item.get("content") or []:
+        if isinstance(part, dict) and part.get("type") == "output_text" and isinstance(part.get("text"), str):
+            text += part["text"]
+if not text.strip() or (expected and text != expected):
+    sys.exit(1)
+sys.exit(0)
+' "$1" "$2" < "$RESP_BODY"
+}
+
+# mock_log_count — current line count of the deterministic upstream's JSONL
+# request log ($MOCK_REQUEST_LOG); a missing log reads as zero events.
+mock_log_count() {
+  if [ -f "$MOCK_REQUEST_LOG" ]; then
+    wc -l < "$MOCK_REQUEST_LOG" | tr -d "[:space:]"
+  else
+    echo 0
+  fi
+}
+
+# mock_log_new_event_path BEFORE EXPECTED_MODEL — prints the path of the first
+# request-log event at index >= BEFORE carrying EXPECTED_MODEL. Exit 1 when the
+# deterministic upstream recorded no such new event: a good-looking response
+# without upstream-side evidence is not relay proof. The path is reported, not
+# asserted — a middle platform may legitimately convert the wire protocol
+# (e.g. new-api serves /v1/messages by converting to its chat endpoint).
+mock_log_new_event_path() {
+  python3 -c '
+import json, sys
+log_path, before, model = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+try:
+    with open(log_path, encoding="utf-8") as handle:
+        events = [json.loads(line) for line in handle if line.strip()]
+except (OSError, ValueError):
+    sys.exit(1)
+for event in events[before:]:
+    if isinstance(event, dict) and event.get("model") == model:
+        print(event.get("path") or "?")
+        sys.exit(0)
+sys.exit(1)
+' "$MOCK_REQUEST_LOG" "$1" "$2"
 }
 
 pass_step() { PASS_COUNT=$((PASS_COUNT + 1)); echo "[PASS] $1"; }
@@ -586,11 +692,19 @@ else
 
 fi
 
-# 13. proxy relay. A structured error proves only that JSON was returned; it is
-# never accepted as successful relay evidence.
+# 13. proxy relay protocol matrix: chat completions, Anthropic messages, and
+# OpenAI responses. A structured error proves only that JSON was returned; it
+# is never accepted as successful relay evidence. When MOCK_REQUEST_LOG points
+# at the deterministic upstream's JSONL request log, each protocol assertion
+# additionally reconciles a NEW upstream-side event carrying the relayed model
+# (count delta over a pre-POST snapshot) — a 200 with a good-looking body is
+# not upstream proof. Without the log, the client-side half still runs and the
+# reconciliation half reports an explicit SKIP.
 if [ "$EXPECT_RELAY" = "0" ]; then
   skip_step "proxy /v1/models relay assertion disabled explicitly"
   skip_step "proxy /v1/chat/completions relay assertion disabled explicitly"
+  skip_step "proxy /v1/messages relay assertion disabled explicitly"
+  skip_step "proxy /v1/responses relay assertion disabled explicitly"
 elif [ -n "$PROXY_TOKEN" ]; then
   status="$(request GET "$METAPI_URL/v1/models" "" "$PROXY_TOKEN")"
   if [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_models_data_nonempty; then
@@ -600,11 +714,63 @@ elif [ -n "$PROXY_TOKEN" ]; then
     evidence
   fi
 
+  mock_before=""
+  if [ -n "$MOCK_REQUEST_LOG" ]; then mock_before="$(mock_log_count)"; fi
   status="$(request POST "$METAPI_URL/v1/chat/completions" "{\"model\":\"$RELAY_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" "$PROXY_TOKEN")"
   if [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_completion_has_content "$EXPECTED_COMPLETION_CONTENT"; then
-    pass_step "proxy /v1/chat/completions (HTTP $status, completion content present)"
+    if [ -n "$MOCK_REQUEST_LOG" ]; then
+      mock_path="$(mock_log_new_event_path "$mock_before" "$RELAY_MODEL" 2>/dev/null || true)"
+      if [ -n "$mock_path" ]; then
+        pass_step "proxy /v1/chat/completions (HTTP $status, completion content present; upstream event recorded path=$mock_path model=$RELAY_MODEL)"
+      else
+        fail_step "proxy /v1/chat/completions upstream evidence missing (HTTP $status, mock request log gained no new event for model $RELAY_MODEL)"
+      fi
+    else
+      pass_step "proxy /v1/chat/completions (HTTP $status, completion content present)"
+      skip_step "proxy /v1/chat/completions upstream mock-log reconciliation (MOCK_REQUEST_LOG unset)"
+    fi
   else
     fail_step "proxy /v1/chat/completions (HTTP $status, expected completion content without error)"
+    evidence
+  fi
+
+  mock_before=""
+  if [ -n "$MOCK_REQUEST_LOG" ]; then mock_before="$(mock_log_count)"; fi
+  status="$(request POST "$METAPI_URL/v1/messages" "{\"model\":\"$RELAY_MODEL\",\"max_tokens\":16,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" "$PROXY_TOKEN")"
+  if [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_messages_ok "$RELAY_MODEL" "$EXPECTED_COMPLETION_CONTENT"; then
+    if [ -n "$MOCK_REQUEST_LOG" ]; then
+      mock_path="$(mock_log_new_event_path "$mock_before" "$RELAY_MODEL" 2>/dev/null || true)"
+      if [ -n "$mock_path" ]; then
+        pass_step "proxy /v1/messages (HTTP $status, message content present, model echoed; upstream event recorded path=$mock_path model=$RELAY_MODEL)"
+      else
+        fail_step "proxy /v1/messages upstream evidence missing (HTTP $status, mock request log gained no new event for model $RELAY_MODEL)"
+      fi
+    else
+      pass_step "proxy /v1/messages (HTTP $status, message content present, model echoed)"
+      skip_step "proxy /v1/messages upstream mock-log reconciliation (MOCK_REQUEST_LOG unset)"
+    fi
+  else
+    fail_step "proxy /v1/messages (HTTP $status, expected message content with echoed model without error)"
+    evidence
+  fi
+
+  mock_before=""
+  if [ -n "$MOCK_REQUEST_LOG" ]; then mock_before="$(mock_log_count)"; fi
+  status="$(request POST "$METAPI_URL/v1/responses" "{\"model\":\"$RELAY_MODEL\",\"input\":\"hi\"}" "$PROXY_TOKEN")"
+  if [[ "$status" =~ ^2[0-9][0-9]$ ]] && json_responses_ok "$RELAY_MODEL" "$EXPECTED_COMPLETION_CONTENT"; then
+    if [ -n "$MOCK_REQUEST_LOG" ]; then
+      mock_path="$(mock_log_new_event_path "$mock_before" "$RELAY_MODEL" 2>/dev/null || true)"
+      if [ -n "$mock_path" ]; then
+        pass_step "proxy /v1/responses (HTTP $status, response output present, model echoed; upstream event recorded path=$mock_path model=$RELAY_MODEL)"
+      else
+        fail_step "proxy /v1/responses upstream evidence missing (HTTP $status, mock request log gained no new event for model $RELAY_MODEL)"
+      fi
+    else
+      pass_step "proxy /v1/responses (HTTP $status, response output present, model echoed)"
+      skip_step "proxy /v1/responses upstream mock-log reconciliation (MOCK_REQUEST_LOG unset)"
+    fi
+  else
+    fail_step "proxy /v1/responses (HTTP $status, expected response output with echoed model without error)"
     evidence
   fi
 else
