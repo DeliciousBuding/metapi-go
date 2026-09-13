@@ -212,10 +212,7 @@ export function TodaySnapshotStrip() {
             ) : (
               <KpiValue
                 size='md'
-                className={cn(
-                  'group-hover:underline',
-                  attentionTotal === 0 ? 'text-success' : 'text-foreground'
-                )}
+                className='text-foreground group-hover:underline'
               >
                 {formatInt(attentionTotal ?? null)}
               </KpiValue>

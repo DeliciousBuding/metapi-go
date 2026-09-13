@@ -155,6 +155,7 @@ function renderEmptyState<TData>(
       colSpan={colSpan}
       title={props.emptyTitle}
       description={props.emptyDescription}
+      icon={props.emptyIcon}
       isFiltered={
         (state.columnFilters ?? []).length > 0 || Boolean(state.globalFilter)
       }

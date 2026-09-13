@@ -28,7 +28,7 @@ function SearchTrigger({ onClick }: { onClick?: () => void }) {
   return (
     <Button
       variant='outline'
-      className='text-muted-foreground dark:border-input dark:bg-input/30 h-8 gap-2 px-2.5 font-normal'
+      className='text-muted-foreground dark:border-input dark:bg-input/30 h-8 gap-2 px-2.5 font-normal max-md:h-10 max-md:px-3'
       onClick={onClick}
       aria-label={t('search.trigger')}
     >
@@ -51,7 +51,7 @@ export function AppHeader({ onSearchClick }: AppHeaderProps) {
         'flex h-[var(--app-header-height)] items-center gap-2 border-b px-4'
       )}
     >
-      <SidebarTrigger className='md:hidden' />
+      <SidebarTrigger className='max-md:size-10 md:hidden' />
       {/* The brand is the only flexible header cell: on narrow viewports it
           truncates so the right-hand controls (search, attention bell,
           interface controls, user menu) keep their full hit targets. It is a
@@ -67,7 +67,7 @@ export function AppHeader({ onSearchClick }: AppHeaderProps) {
           alt=''
           className='size-6 shrink-0 rounded-sm'
         />
-        <span className='truncate text-sm font-semibold tracking-tight'>
+        <span className='truncate text-sm font-semibold tracking-tight max-[480px]:hidden'>
           {metapiIdentity.name}
         </span>
       </Link>
@@ -75,7 +75,10 @@ export function AppHeader({ onSearchClick }: AppHeaderProps) {
       <div className='ms-auto flex shrink-0 items-center gap-1'>
         <SearchTrigger onClick={onSearchClick} />
         <AttentionBell />
-        <InterfaceControls />
+        {/* Mobile gets the language/palette/theme controls at the drawer
+            footer instead: seven 36px icons across a 375px bar was below
+            touch-target guidance and crowded the brand. */}
+        <InterfaceControls className='max-md:hidden' />
         <UserMenu />
       </div>
     </header>

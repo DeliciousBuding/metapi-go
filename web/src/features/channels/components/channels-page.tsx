@@ -7,7 +7,7 @@
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
-import { Users } from 'lucide-react'
+import { Plug, Users } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -268,6 +268,7 @@ export function ChannelsPage() {
           void errorSummaryQuery.refetch()
         }}
         isErrorRetrying={channelsPageQuery.isFetching}
+        emptyIcon={<Plug className='size-6' />}
         emptyTitle={t('channels.empty.title')}
         emptyDescription={t('channels.empty.description')}
         emptyAction={

@@ -13,6 +13,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
 import {
+  Box,
   FlaskConical as FlaskConicalIcon,
   RefreshCw as RefreshCwIcon,
   Users as UsersIcon,
@@ -151,7 +152,10 @@ function useModelsUrlState() {
         columnFilters.push({ id: 'capabilities', value: filters.capability })
       }
       if (filters.endpointType.length > 0) {
-        columnFilters.push({ id: 'endpointTypes', value: filters.endpointType })
+        columnFilters.push({
+          id: 'endpointTypes',
+          value: filters.endpointType,
+        })
       }
       return columnFilters
     },
@@ -311,6 +315,7 @@ export function ModelsPage() {
         errorMessageKey='models.page.loadError'
         onErrorRetry={() => modelsPageQuery.refetch()}
         isErrorRetrying={modelsPageQuery.isFetching}
+        emptyIcon={<Box className='size-6' />}
         emptyTitle={t('models.empty.title')}
         emptyDescription={t('models.empty.description')}
         emptyAction={

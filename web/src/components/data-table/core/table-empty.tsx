@@ -35,6 +35,8 @@ type TableEmptyProps = {
   description?: string
   /** Extra content under the copy, e.g. a create button. */
   children?: React.ReactNode
+  /** Per-entity icon for the unfiltered empty state (defaults to Database). */
+  icon?: React.ReactNode
   /** True when the table is empty because filters are active, not because there is no data. */
   isFiltered?: boolean
   /** Clears column + global filters; rendered as the reset CTA. */
@@ -46,6 +48,7 @@ export function TableEmpty({
   title,
   description,
   children,
+  icon,
   isFiltered = false,
   onClearFilters,
 }: TableEmptyProps) {
@@ -59,12 +62,12 @@ export function TableEmpty({
   const resolvedIcon = isFiltered ? (
     <SearchX className='size-6' />
   ) : (
-    <Database className='size-6' />
+    (icon ?? <Database className='size-6' />)
   )
 
   return (
     <TableRow>
-      <TableCell colSpan={colSpan} className='h-[400px] p-0'>
+      <TableCell colSpan={colSpan} className='h-[280px] p-0'>
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant='icon'>{resolvedIcon}</EmptyMedia>

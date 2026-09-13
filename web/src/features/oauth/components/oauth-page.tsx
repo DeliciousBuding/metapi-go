@@ -17,7 +17,7 @@
 // sortable header would promise cross-page sorting the backend cannot
 // honour). Deep links keep parsing `sort` tolerantly for old URLs.
 
-import { Plus as PlusIcon } from 'lucide-react'
+import { KeyRound, Plus as PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -310,6 +310,7 @@ export function OAuthPage() {
         onErrorRetry={() => connectionsQuery.refetch()}
         isErrorRetrying={connectionsQuery.isFetching}
         errorPlacement='inline'
+        emptyIcon={<KeyRound className='size-6' />}
         emptyTitle={t('oauth.empty.title')}
         emptyDescription={t('oauth.empty.description')}
         emptyAction={

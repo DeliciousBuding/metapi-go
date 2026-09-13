@@ -3,7 +3,7 @@
 // provenance grade + best-channel recommendation for every source.
 
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { ArrowRight, Search, Star } from 'lucide-react'
+import { ArrowRight, Scale, Search, Star } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -17,7 +17,12 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+} from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -122,21 +127,28 @@ export function PriceComparePage() {
         isRetrying={query.isFetching}
       />
 
-      {!query.isLoading && !query.error && groups.length === 0 && (
-        <Empty className='border'>
-          <EmptyHeader>
-            <EmptyDescription>
-              {t('priceCompare.page.emptyDescription')}
-            </EmptyDescription>
-          </EmptyHeader>
-          <Button
-            variant='outline'
-            onClick={() => void navigate({ to: '/accounts' })}
-          >
-            {t('priceCompare.page.emptyAction')}
-          </Button>
-        </Empty>
-      )}
+      {!query.isLoading &&
+        !query.error &&
+        groups.length === 0 && (
+          // flex-none: the Empty base is flex-1, which would stretch the box
+          // across the whole viewport — a content-sized empty state instead.
+          <Empty className='flex-none border'>
+            <EmptyHeader>
+              <EmptyMedia variant='icon'>
+                <Scale className='size-6' />
+              </EmptyMedia>
+              <EmptyDescription>
+                {t('priceCompare.page.emptyDescription')}
+              </EmptyDescription>
+            </EmptyHeader>
+            <Button
+              variant='outline'
+              onClick={() => void navigate({ to: '/accounts' })}
+            >
+              {t('priceCompare.page.emptyAction')}
+            </Button>
+          </Empty>
+        )}
 
       <div className='flex flex-col gap-4'>
         {groups.map((group) => (

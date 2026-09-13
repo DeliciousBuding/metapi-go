@@ -76,6 +76,14 @@ function NavButton({
 export function DataTablePagination<TData>({ table }: { table: Table<TData> }) {
   const { t } = useTranslation()
   const { pageIndex, pageSize } = table.getState().pagination
+
+  // Nothing to page through: a zero-row first page renders no footer at all
+  // ("Total: 0" plus dead nav buttons is pure noise). A zero-row LATER page
+  // keeps the bar so the user can navigate back.
+  if (table.getRowCount() === 0 && pageIndex === 0) {
+    return null
+  }
+
   const currentPage = pageIndex + 1
   const totalPages = table.getPageCount()
   const pageNumbers = getPageNumbers(currentPage, totalPages)
