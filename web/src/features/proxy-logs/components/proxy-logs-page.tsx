@@ -597,30 +597,35 @@ export function ProxyLogsPage() {
                 }}
                 className='w-[130px]'
               />
-              <Input
-                type='datetime-local'
-                aria-label={t('proxyLogs.page.startTime')}
-                value={from}
-                onChange={(event) => {
-                  updateUrlState({
-                    filters: { from: event.target.value },
-                    pageIndex: 0,
-                  })
-                }}
-                className='w-[180px]'
-              />
-              <Input
-                type='datetime-local'
-                aria-label={t('proxyLogs.page.endTime')}
-                value={to}
-                onChange={(event) => {
-                  updateUrlState({
-                    filters: { to: event.target.value },
-                    pageIndex: 0,
-                  })
-                }}
-                className='w-[180px]'
-              />
+              {/* Native datetime controls render in the BROWSER's locale
+                  (not the page's). Layout is what we own: the pair stacks
+                  full-width on mobile so neither clips its time segment. */}
+              <div className='flex items-center gap-2 max-sm:w-full max-sm:flex-col max-sm:items-stretch'>
+                <Input
+                  type='datetime-local'
+                  aria-label={t('proxyLogs.page.startTime')}
+                  value={from}
+                  onChange={(event) => {
+                    updateUrlState({
+                      filters: { from: event.target.value },
+                      pageIndex: 0,
+                    })
+                  }}
+                  className='w-[180px] max-sm:w-full'
+                />
+                <Input
+                  type='datetime-local'
+                  aria-label={t('proxyLogs.page.endTime')}
+                  value={to}
+                  onChange={(event) => {
+                    updateUrlState({
+                      filters: { to: event.target.value },
+                      pageIndex: 0,
+                    })
+                  }}
+                  className='w-[180px] max-sm:w-full'
+                />
+              </div>
             </>
           ),
           expandable: (

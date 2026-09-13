@@ -430,37 +430,44 @@ export function CheckinPage() {
           owned by DataTablePage; the custom filter bar gates on !error. */}
       {!error && (
         <div className='flex flex-wrap items-center gap-2'>
+          {/* Native datetime controls render in the BROWSER's locale (not
+              the page's): zh-CN browsers get 年月日/24h, en-US browsers get
+              mm/dd/yyyy. What we own is the layout: on mobile the pair stacks
+              full-width so neither clips, and the 至 separator hides instead
+              of orphaning at a wrapped line end. */}
           <CalendarRange
             aria-hidden='true'
-            className='text-muted-foreground size-4'
+            className='text-muted-foreground size-4 max-sm:hidden'
           />
-          <Input
-            type='datetime-local'
-            value={from}
-            onChange={(event) => {
-              updateUrlState({
-                filters: { from: event.target.value },
-                pageIndex: 0,
-              })
-            }}
-            className='w-[200px]'
-            aria-label={t('checkin.page.startTime')}
-          />
-          <span className='text-muted-foreground text-sm'>
-            {t('checkin.page.to')}
-          </span>
-          <Input
-            type='datetime-local'
-            value={to}
-            onChange={(event) => {
-              updateUrlState({
-                filters: { to: event.target.value },
-                pageIndex: 0,
-              })
-            }}
-            className='w-[200px]'
-            aria-label={t('checkin.page.endTime')}
-          />
+          <div className='flex items-center gap-2 max-sm:w-full max-sm:flex-col max-sm:items-stretch'>
+            <Input
+              type='datetime-local'
+              value={from}
+              onChange={(event) => {
+                updateUrlState({
+                  filters: { from: event.target.value },
+                  pageIndex: 0,
+                })
+              }}
+              className='w-[200px] max-sm:w-full'
+              aria-label={t('checkin.page.startTime')}
+            />
+            <span className='text-muted-foreground text-sm max-sm:hidden'>
+              {t('checkin.page.to')}
+            </span>
+            <Input
+              type='datetime-local'
+              value={to}
+              onChange={(event) => {
+                updateUrlState({
+                  filters: { to: event.target.value },
+                  pageIndex: 0,
+                })
+              }}
+              className='w-[200px] max-sm:w-full'
+              aria-label={t('checkin.page.endTime')}
+            />
+          </div>
           <Select
             value={accountId ? String(accountId) : ACCOUNT_FILTER_ALL}
             onValueChange={(value) => {
