@@ -8,6 +8,7 @@ import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { InterfaceControls } from '@/components/layout/components/interface-controls'
+import { BrandLogo } from '@/components/ui/brand-logo'
 import {
   Card,
   CardContent,
@@ -55,11 +56,7 @@ export function SignInPage({ redirectTo, noticeReason }: SignInPageProps) {
           visually pinned to the corner via absolute positioning. */}
       <Card className='relative w-full max-w-sm shadow-sm'>
         <CardHeader className='gap-2 text-center'>
-          <img
-            src={metapiIdentity.logoPath}
-            alt=''
-            className='mx-auto size-12'
-          />
+          <BrandLogo className='mx-auto size-12' />
           <h1 className='page-title-overview'>{t('auth.login.brandName')}</h1>
           <CardDescription>{t('auth.login.brandTagline')}</CardDescription>
         </CardHeader>

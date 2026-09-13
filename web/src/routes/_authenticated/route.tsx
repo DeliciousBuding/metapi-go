@@ -24,7 +24,6 @@ import {
 } from '@/components/layout'
 import { registerSettingsNavProvider } from '@/components/layout/lib/settings-nav-registry'
 import { registerSidebarView } from '@/components/layout/lib/sidebar-view-registry'
-import { OBSERVABILITY_VIEW } from '@/features/observability'
 import { getSettingsSubareas } from '@/features/settings'
 import {
   hasValidAuthSession,
@@ -38,7 +37,6 @@ import {
 // imports features. Module scope runs before any render of this route; every
 // authenticated page matches it, so both registries are populated before the
 // shell first renders.
-registerSidebarView(OBSERVABILITY_VIEW)
 registerSettingsNavProvider(getSettingsSubareas)
 
 export const Route = createFileRoute('/_authenticated')({

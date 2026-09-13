@@ -118,9 +118,10 @@ out of `settings/sections/downstream/`) was retired by moving the keys UI into
     `lib/settings-nav-registry.ts`, the authenticated route composition root
     registers `features/settings`' `getSettingsSubareas`, and
     `system-settings.config.ts` / `search-nav.ts` consume the layout registry.
-  - `OBSERVABILITY_VIEW` now registers through
+  - Sidebar drill-in views register through
     `sidebar-view-registry.registerSidebarView()` from the same composition
-    root instead of `components → features/observability`.
+    root (settings is the remaining drill-in; observability's was removed in
+    #1353 because it duplicated the page's in-content tabs).
   - `RouteSummaryRow` / `RouteMode` / `RouteRoutingStrategy` /
     `RouteDecision` moved to `src/lib/helpers/token-route-contract.ts`; pure
     model-pattern predicates moved to `src/lib/helpers/model-pattern.ts` and
