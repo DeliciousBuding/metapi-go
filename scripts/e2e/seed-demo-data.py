@@ -118,9 +118,17 @@ for i in range(80):
     created = NOW - timedelta(minutes=random.randint(3, 2880))
     lid += 1
     chan = [ch for ch in channels if ch[1] == rid and ch[2] == aid][0][0]
-    c.execute("INSERT INTO proxy_logs (id,route_id,channel_id,account_id,downstream_api_key_id,model_requested,model_actual,status,http_status,is_stream,first_byte_latency_ms,latency_ms,prompt_tokens,completion_tokens,total_tokens,estimated_cost,billing_details,client_family,client_app_id,client_app_name,client_confidence,error_message,retry_count,request_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'','','','','',?,?,'req-'||printf('%024x',?),?)",
+    cfam, cappid, capp = random.choice([
+        ('codex', 'codex_cli', 'Codex CLI'),
+        ('codex', 'codex_desktop', 'Codex Desktop'),
+        ('claude-code', 'claude_code', 'Claude Code'),
+        ('gemini-cli', 'gemini_cli', 'Gemini CLI'),
+        ('openai-node', '', ''),
+    ])
+    c.execute("INSERT INTO proxy_logs (id,route_id,channel_id,account_id,downstream_api_key_id,model_requested,model_actual,status,http_status,is_stream,first_byte_latency_ms,latency_ms,prompt_tokens,completion_tokens,total_tokens,estimated_cost,billing_details,client_family,client_app_id,client_app_name,client_confidence,error_message,retry_count,request_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'',?,?,?,'high',?,?,'req-'||printf('%024x',?),?)",
               (lid, rid, chan, aid, random.choice([1, 2]), mreq, mact, status, http, stream, fb, lat, ptok, ctok, ptok + ctok,
                round((ptok + ctok) * rate / 1000, 6),
+               cfam, cappid, capp,
                'upstream 5xx: connection reset by peer' if fail else '', random.choice([0, 0, 0, 1]), random.getrandbits(60), ts(created)))
 
 # ── checkin logs ──

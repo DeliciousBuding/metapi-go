@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { ClientPill } from '@/components/common/client-pill'
 import { HttpStatusBadge } from '@/components/common/http-status-badge'
 import { ModelPill } from '@/components/common/model-pill'
 import { DataTableColumnHeader } from '@/components/data-table'
@@ -143,6 +144,30 @@ export function useProxyLogsColumns(
             row.original.modelActual
           )}
           title={row.original.modelActual || row.original.modelRequested}
+        />
+      ),
+    },
+    {
+      id: 'client',
+      // No accessorKey: the cell composes appName→family from the row (the
+      // backend detects these from the UA upstream), so there is nothing to
+      // sort/filter by locally — the client filter hits the server.
+      size: 150,
+      meta: {
+        label: t('proxyLogs.columns.client'),
+        mobileHidden: true,
+        mobileOrder: 21,
+      },
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('proxyLogs.columns.client')}
+        />
+      ),
+      cell: ({ row }) => (
+        <ClientPill
+          appName={row.original.clientAppName}
+          family={row.original.clientFamily}
         />
       ),
     },

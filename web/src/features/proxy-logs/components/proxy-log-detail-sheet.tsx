@@ -6,6 +6,7 @@ import { Copy as CopyIcon, Check as CheckIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ClientPill } from '@/components/common/client-pill'
 import { DetailField } from '@/components/common/detail-field'
 import { HttpStatusBadge } from '@/components/common/http-status-badge'
 import { Button } from '@/components/ui/button'
@@ -104,6 +105,7 @@ export function ProxyLogDetailSheet({
                 downstreamPath={pathMeta.downstreamPath}
                 upstreamPath={pathMeta.upstreamPath}
                 clientFamily={pathMeta.clientFamily}
+                clientAppName={detail.clientAppName ?? null}
                 sessionId={pathMeta.sessionId}
                 usageSource={pathMeta.usageSource}
               />
@@ -222,17 +224,25 @@ function ConversationFileLinks({
   downstreamPath,
   upstreamPath,
   clientFamily,
+  clientAppName,
   sessionId,
   usageSource,
 }: {
   downstreamPath: string | null
   upstreamPath: string | null
   clientFamily: string | null
+  clientAppName: string | null
   sessionId: string | null
   usageSource: string | null
 }) {
   const { t } = useTranslation()
-  if (!downstreamPath && !upstreamPath && !clientFamily && !sessionId) {
+  if (
+    !downstreamPath &&
+    !upstreamPath &&
+    !clientFamily &&
+    !clientAppName &&
+    !sessionId
+  ) {
     return null
   }
   return (
@@ -244,7 +254,11 @@ function ConversationFileLinks({
         </h3>
         <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
           <DetailField label={t('proxyLogs.detail.client')}>
-            {clientFamily || '—'}
+            {clientFamily || clientAppName ? (
+              <ClientPill appName={clientAppName} family={clientFamily} />
+            ) : (
+              '—'
+            )}
           </DetailField>
           <DetailField label={t('proxyLogs.detail.sessionId')}>
             {sessionId || '—'}
