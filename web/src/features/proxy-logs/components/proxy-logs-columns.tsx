@@ -9,6 +9,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { HttpStatusBadge } from '@/components/common/http-status-badge'
+import { ModelPill } from '@/components/common/model-pill'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -136,15 +137,13 @@ export function useProxyLogsColumns(
         />
       ),
       cell: ({ row }) => (
-        <span
-          className='block max-w-[16rem] truncate text-sm'
-          title={row.original.modelActual || row.original.modelRequested}
-        >
-          {formatModelCell(
+        <ModelPill
+          model={formatModelCell(
             row.original.modelRequested,
             row.original.modelActual
           )}
-        </span>
+          title={row.original.modelActual || row.original.modelRequested}
+        />
       ),
     },
     {
