@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func setupSchedulerStatusTest(t *testing.T) (*store.DB, chi.Router) {

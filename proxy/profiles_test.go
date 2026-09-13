@@ -11,10 +11,10 @@ func TestDetectCliProfile_ClaudeCode(t *testing.T) {
 		profile := DetectCliProfile(types.DetectInput{
 			DownstreamPath: "/v1/messages",
 			Headers: map[string]string{
-				"user-agent":       "claude-cli/1.2.3",
-				"anthropic-beta":   "messages-2023-12-15",
+				"user-agent":        "claude-cli/1.2.3",
+				"anthropic-beta":    "messages-2023-12-15",
 				"anthropic-version": "2023-06-01",
-				"x-app":            "cli",
+				"x-app":             "cli",
 			},
 		})
 		if profile.ID != types.ProfileClaudeCode {
@@ -52,10 +52,10 @@ func TestDetectCliProfile_ClaudeCode(t *testing.T) {
 		profile := DetectCliProfile(types.DetectInput{
 			DownstreamPath: "/v1/messages/count_tokens",
 			Headers: map[string]string{
-				"user-agent":       "claude-cli/2.0.0",
-				"anthropic-beta":   "messages-2023-12-15",
+				"user-agent":        "claude-cli/2.0.0",
+				"anthropic-beta":    "messages-2023-12-15",
 				"anthropic-version": "2023-06-01",
-				"x-app":            "cli",
+				"x-app":             "cli",
 			},
 		})
 		if profile.ID != types.ProfileClaudeCode {
@@ -67,10 +67,10 @@ func TestDetectCliProfile_ClaudeCode(t *testing.T) {
 		profile := DetectCliProfile(types.DetectInput{
 			DownstreamPath: "/anthropic/v1/messages",
 			Headers: map[string]string{
-				"user-agent":       "claude-cli/1.0.0",
-				"anthropic-beta":   "messages-2023-12-15",
+				"user-agent":        "claude-cli/1.0.0",
+				"anthropic-beta":    "messages-2023-12-15",
 				"anthropic-version": "2023-06-01",
-				"x-app":            "cli",
+				"x-app":             "cli",
 			},
 		})
 		if profile.ID != types.ProfileClaudeCode {
@@ -82,10 +82,10 @@ func TestDetectCliProfile_ClaudeCode(t *testing.T) {
 		profile := DetectCliProfile(types.DetectInput{
 			DownstreamPath: "/v1/chat/completions",
 			Headers: map[string]string{
-				"user-agent":       "claude-cli/1.2.3",
-				"anthropic-beta":   "messages-2023-12-15",
+				"user-agent":        "claude-cli/1.2.3",
+				"anthropic-beta":    "messages-2023-12-15",
 				"anthropic-version": "2023-06-01",
-				"x-app":            "cli",
+				"x-app":             "cli",
 			},
 		})
 		if profile.ID == types.ProfileClaudeCode {
@@ -109,8 +109,8 @@ func TestDetectCliProfile_ClaudeCode(t *testing.T) {
 		profile := DetectCliProfile(types.DetectInput{
 			DownstreamPath: "/v1/messages",
 			Headers: map[string]string{
-				"user-agent":       "claude-cli/1.2.3",
-				"anthropic-beta":   "messages-2023-12-15",
+				"user-agent":        "claude-cli/1.2.3",
+				"anthropic-beta":    "messages-2023-12-15",
 				"anthropic-version": "2023-06-01",
 			},
 		})
@@ -183,9 +183,9 @@ func TestDetectCliProfile_Codex(t *testing.T) {
 		profile := DetectCliProfile(types.DetectInput{
 			DownstreamPath: "/v1/responses",
 			Headers: map[string]string{
-				"x-stainless-os":       "macOS",
-				"x-stainless-arch":     "arm64",
-				"x-stainless-lang":     "js",
+				"x-stainless-os":              "macOS",
+				"x-stainless-arch":            "arm64",
+				"x-stainless-lang":            "js",
 				"x-stainless-package-version": "1.0.0",
 			},
 		})
@@ -373,10 +373,10 @@ func TestDetectCliProfile_PriorityOrdering(t *testing.T) {
 		profile := DetectCliProfile(types.DetectInput{
 			DownstreamPath: "/v1/messages",
 			Headers: map[string]string{
-				"user-agent":       "claude-cli/1.2.3",
-				"anthropic-beta":   "messages-2023-12-15",
+				"user-agent":        "claude-cli/1.2.3",
+				"anthropic-beta":    "messages-2023-12-15",
 				"anthropic-version": "2023-06-01",
-				"x-app":            "cli",
+				"x-app":             "cli",
 			},
 		})
 		if profile.ID != types.ProfileClaudeCode {
@@ -401,10 +401,10 @@ func TestDetectCliProfile_PriorityOrdering(t *testing.T) {
 func TestDetectClientContext(t *testing.T) {
 	t.Run("detects claude_code context", func(t *testing.T) {
 		ctx := DetectClientContext("/v1/messages", map[string]string{
-			"user-agent":       "claude-cli/1.2.3",
-			"anthropic-beta":   "messages-2023-12-15",
+			"user-agent":        "claude-cli/1.2.3",
+			"anthropic-beta":    "messages-2023-12-15",
 			"anthropic-version": "2023-06-01",
-			"x-app":            "cli",
+			"x-app":             "cli",
 		}, nil)
 
 		if ctx.ClientKind != "claude_code" {
@@ -455,4 +455,3 @@ func TestDetectClientContext(t *testing.T) {
 		}
 	})
 }
-

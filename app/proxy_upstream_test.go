@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
@@ -18,6 +17,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 var _ routing.ChannelSelectorDB = (*service.ProxyRoutingStore)(nil)

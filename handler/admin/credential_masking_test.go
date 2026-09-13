@@ -9,7 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // register pgx driver for sql.Open("pgx", ...)
-	_ "modernc.org/sqlite"            // register sqlite driver for sqlx.Open("sqlite", ...)
+	_ "modernc.org/sqlite"             // register sqlite driver for sqlx.Open("sqlite", ...)
 )
 
 // ---- test DB fixtures ----
@@ -110,9 +110,9 @@ func TestCredentialFragmentsSelectSQLiteExecutable(t *testing.T) {
 
 	secrets := []string{
 		"abcdefghij1234567890", // long secret (>8 chars)
-		"12345678",                // exactly 8 chars -> collapses to "****"
-		"abc",                     // short secret (<8 chars) -> "****"
-		"",                        // empty secret -> ""
+		"12345678",             // exactly 8 chars -> collapses to "****"
+		"abc",                  // short secret (<8 chars) -> "****"
+		"",                     // empty secret -> ""
 	}
 
 	for _, secret := range secrets {
@@ -245,7 +245,7 @@ func TestRedactSearchAccountSecrets(t *testing.T) {
 			"accessTokenPrefix": "sk-a",
 			"accessTokenSuffix": "7890",
 			"accessTokenLen":    int64(0), // explicit zero -> skip
-			"apiTokenPrefix":    "abcd",  // apiTokenLen missing entirely -> skip
+			"apiTokenPrefix":    "abcd",   // apiTokenLen missing entirely -> skip
 			"apiTokenSuffix":    "wxyz",
 		}
 		redactSearchAccountSecrets(row)

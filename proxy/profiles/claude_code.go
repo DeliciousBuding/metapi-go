@@ -60,7 +60,6 @@ func extractClaudeCodeSessionID(userID string) string {
 	return strings.TrimSpace(trimmed[idx+len("__session_"):])
 }
 
-
 func detectClaudeCode(input types.DetectInput) *types.DetectedProfile {
 	if !isClaudeSurface(input.DownstreamPath) {
 		return nil

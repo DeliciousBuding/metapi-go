@@ -17,8 +17,8 @@ func TestParseReasoningSuffix(t *testing.T) {
 		{"gemini-low", "gemini", "low"},
 		{"GPT-5-THINKING", "GPT-5", "high"}, // case-insensitive suffix
 		{"o3-reasoning", "o3", "high"},
-		{"-thinking", "-thinking", ""}, // empty base → no match (returns original, no effort)
-		{"base-high-low", "base-high", "low"}, // last suffix wins
+		{"-thinking", "-thinking", ""},          // empty base → no match (returns original, no effort)
+		{"base-high-low", "base-high", "low"},   // last suffix wins
 		{"  gpt-5-thinking  ", "gpt-5", "high"}, // trimmed
 	}
 	for _, c := range cases {

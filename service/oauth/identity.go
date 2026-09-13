@@ -12,9 +12,9 @@ import (
 // consumer for user_id or subscription expiry today (Simplicity first), so
 // this struct intentionally omits them.
 type AccountIdentity struct {
-	Email             string
+	Email            string
 	ChatGPTAccountID string
-	PlanType          string
+	PlanType         string
 }
 
 // codexIDTokenClaims mirrors the OpenAI id_token payload. The auth namespace
@@ -32,7 +32,7 @@ type codexIDTokenClaims struct {
 // than the id_token's top-level email, so a dedicated parser is needed when
 // the id_token lacks fields.
 type codexAccessTokenClaims struct {
-	Auth    *struct {
+	Auth *struct {
 		ChatGPTAccountID string `json:"chatgpt_account_id"`
 		ChatGPTPlanType  string `json:"chatgpt_plan_type"`
 	} `json:"https://api.openai.com/auth"`

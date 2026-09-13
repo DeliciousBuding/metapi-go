@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
 )
 
 // RegisterOauthRoutes registers all /api/oauth routes.

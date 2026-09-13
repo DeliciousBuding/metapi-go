@@ -80,10 +80,10 @@ func TestRespondHTML_SetsHeaders(t *testing.T) {
 
 func TestNormalizeOrigin_LoopbackVariants(t *testing.T) {
 	tests := []struct {
-		name     string
-		host     string
-		port     int
-		want     string
+		name string
+		host string
+		port int
+		want string
 	}{
 		{"empty host → localhost", "", 8080, "http://localhost:8080"},
 		{"wildcard IPv4 → localhost", "0.0.0.0", 8080, "http://localhost:8080"},
@@ -323,7 +323,7 @@ func TestHandleCallbackRequest_ValidSessionDelegatesToHandleCallback(t *testing.
 	// verify the handler delegates to HandleCallback (returns 500, NOT 404
 	// or 405) when the path + method + state all look valid.
 	session, err := CreateSession(CreateSessionInput{
-		Provider:   "codex",
+		Provider:    "codex",
 		RedirectURI: "http://localhost:1455/auth/callback",
 	})
 	if err != nil {
@@ -399,7 +399,7 @@ func TestHandleCallbackRequest_StateMismatch_Returns500(t *testing.T) {
 func TestHandleCallbackRequest_ErrorParam_PropagatesTo500(t *testing.T) {
 	withFreshSessionStore(t)
 	session, err := CreateSession(CreateSessionInput{
-		Provider:   "codex",
+		Provider:    "codex",
 		RedirectURI: "http://localhost:1455/auth/callback",
 	})
 	if err != nil {
@@ -417,7 +417,7 @@ func TestHandleCallbackRequest_ErrorParam_PropagatesTo500(t *testing.T) {
 func TestHandleCallbackRequest_MissingCodeAndError_Returns500(t *testing.T) {
 	withFreshSessionStore(t)
 	session, err := CreateSession(CreateSessionInput{
-		Provider:   "codex",
+		Provider:    "codex",
 		RedirectURI: "http://localhost:1455/auth/callback",
 	})
 	if err != nil {
@@ -449,7 +449,7 @@ func TestHandleCallbackRequest_GrokAlwaysReturns404(t *testing.T) {
 func TestHandleCallbackRequest_SetsNoStoreCacheHeader(t *testing.T) {
 	withFreshSessionStore(t)
 	session, err := CreateSession(CreateSessionInput{
-		Provider:   "codex",
+		Provider:    "codex",
 		RedirectURI: "http://localhost:1455/auth/callback",
 	})
 	if err != nil {

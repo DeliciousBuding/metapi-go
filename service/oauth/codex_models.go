@@ -87,13 +87,13 @@ const (
 
 // CodexModelDiscoveryResult is the outcome of a discovery pass.
 type CodexModelDiscoveryResult struct {
-	Models      []string                     `json:"models"`
-	Status      OauthModelDiscoveryStatus    `json:"status"`
-	ErrorCode   CodexModelDiscoveryErrorCode `json:"errorCode,omitempty"`
-	ErrorMessage string                      `json:"errorMessage,omitempty"`
-	Attempts    int                          `json:"attempts"`
-	TimedOut    bool                         `json:"timedOut,omitempty"`
-	DurationMs  int64                        `json:"durationMs"`
+	Models       []string                     `json:"models"`
+	Status       OauthModelDiscoveryStatus    `json:"status"`
+	ErrorCode    CodexModelDiscoveryErrorCode `json:"errorCode,omitempty"`
+	ErrorMessage string                       `json:"errorMessage,omitempty"`
+	Attempts     int                          `json:"attempts"`
+	TimedOut     bool                         `json:"timedOut,omitempty"`
+	DurationMs   int64                        `json:"durationMs"`
 }
 
 // CodexModelDiscoveryInput holds inputs for cloud model discovery.

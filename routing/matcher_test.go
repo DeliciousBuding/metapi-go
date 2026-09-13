@@ -22,7 +22,7 @@ func TestMatchesModelPattern_Exact(t *testing.T) {
 		// Case differences (not matching — exact only)
 		{"GPT-4", "gpt-4", false},
 		// Whitespace differences
-		{" gpt-4", "gpt-4", true},  // matcher trims
+		{" gpt-4", "gpt-4", true}, // matcher trims
 		{"gpt-4 ", "gpt-4", true},
 		// Different models
 		{"gpt-4", "gpt-3.5", false},
@@ -66,7 +66,7 @@ func TestMatchesModelPattern_Glob(t *testing.T) {
 		{"anthropic-claude-sonnet", "anthropic-*-sonnet", true},
 		{"anthropic-claude-haiku", "anthropic-*-sonnet", false},
 		// * matches empty
-		{"gpt-4", "gpt-*4", true},  // * can match empty
+		{"gpt-4", "gpt-*4", true}, // * can match empty
 		{"gpt-4", "gpt-*5", false},
 	}
 
@@ -128,7 +128,7 @@ func TestMatchesModelPattern_EdgeCases(t *testing.T) {
 		{"gpt-4", "  gpt-4  ", true}, // trimmed
 		{"  gpt-4  ", "gpt-4", true},
 		{"gpt-4", "*", true},
-		{"", "*", false},   // empty model never matches
+		{"", "*", false},      // empty model never matches
 		{"gpt-4", "?", false}, // single-char pattern, multi-char model
 		{"a", "?", true},
 	}
@@ -553,9 +553,9 @@ func TestNormalizeRouteRoutingStrategy(t *testing.T) {
 		{"latency", StrategyLowestLatency},
 		{"lowest_cost", StrategyLowestCost},
 		{"cost", StrategyLowestCost},
-		{"", StrategyWeighted},           // unknown → weighted
-		{"unknown", StrategyWeighted},    // unknown → weighted
-		{"WEIGHTED", StrategyWeighted},   // case sensitive? Let's check
+		{"", StrategyWeighted},         // unknown → weighted
+		{"unknown", StrategyWeighted},  // unknown → weighted
+		{"WEIGHTED", StrategyWeighted}, // case sensitive? Let's check
 	}
 
 	for _, tt := range tests {
@@ -589,11 +589,11 @@ func TestGlobMatch_EdgeCases(t *testing.T) {
 		{"*a*b*", "abc", true},
 		{"*a*b*", "acb", true},
 		{"*a*b*", "xxxayyybzzz", true},
-		{"a*b", "ab", true},     // * can match empty
+		{"a*b", "ab", true}, // * can match empty
 		{"a*b", "aXXb", true},
 		{"a*b", "ac", false},
 		{"a?b", "aXb", true},
-		{"a?b", "ab", false},    // ? must match exactly one char
+		{"a?b", "ab", false}, // ? must match exactly one char
 		{"a?b", "aXXb", false},
 		{"?", "x", true},
 		{"?", "", false},

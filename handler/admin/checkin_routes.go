@@ -89,7 +89,7 @@ func (h *checkinHandler) triggerOne(w http.ResponseWriter, r *http.Request) {
 //   - status:    exact match on cl.status (success/failed/skipped)
 //   - from/to:   UTC RFC3339 bounds on cl.created_at (inclusive)
 //   - reason:    comma-separated failure_reason.category values; matched as
-//                JSON substring so it works across SQLite/MySQL/Postgres
+//     JSON substring so it works across SQLite/MySQL/Postgres
 //   - site:      comma-separated site names; exact match on s.name
 //   - search:    LIKE over username / site name / message / reward
 //

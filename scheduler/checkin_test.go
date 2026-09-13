@@ -128,10 +128,10 @@ func TestFilterDue_TableDriven(t *testing.T) {
 		{
 			name: "mixed: nil + recent + old + suppressed -> only nil and old are due",
 			candidates: []intervalCandidate{
-				{id: 11, lastCheckinAt: nil},                                                   // due
-				{id: 12, lastCheckinAt: strPtr(now.Add(-2 * time.Hour).Format(time.RFC3339))},  // not due (recent)
-				{id: 13, lastCheckinAt: strPtr(now.Add(-8 * time.Hour).Format(time.RFC3339))},  // due (old)
-				{id: 14, lastCheckinAt: strPtr(now.Add(-8 * time.Hour).Format(time.RFC3339))},  // not due (suppressed)
+				{id: 11, lastCheckinAt: nil}, // due
+				{id: 12, lastCheckinAt: strPtr(now.Add(-2 * time.Hour).Format(time.RFC3339))}, // not due (recent)
+				{id: 13, lastCheckinAt: strPtr(now.Add(-8 * time.Hour).Format(time.RFC3339))}, // due (old)
+				{id: 14, lastCheckinAt: strPtr(now.Add(-8 * time.Hour).Format(time.RFC3339))}, // not due (suppressed)
 			},
 			attempts:   map[int64]int64{14: now.Add(-1 * time.Hour).UnixMilli()},
 			wantDueIDs: []int64{11, 13},
@@ -364,7 +364,7 @@ func TestRunIntervalPassLocked_CallsCheckinForDueAccountsOnly(t *testing.T) {
 		for _, id := range ids {
 			results = append(results, checkin.CheckinAllResult{
 				AccountID: id,
-				Result:     checkin.CheckinResult{Success: true},
+				Result:    checkin.CheckinResult{Success: true},
 			})
 		}
 		return results

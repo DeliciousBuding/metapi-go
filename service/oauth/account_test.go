@@ -119,7 +119,7 @@ func TestBuildOauthInfoFromAccount_BackfillsAccountKeyFromID(t *testing.T) {
 	provider := "codex"
 	account := &store.Account{
 		OAuthProvider:   &provider,
-		OAuthAccountKey:  accountStrPtr("key-1"),
+		OAuthAccountKey: accountStrPtr("key-1"),
 	}
 	// No AccountID in extraConfig → should backfill from AccountKey.
 	info, err := BuildOauthInfoFromAccount(account, nil)
@@ -137,7 +137,7 @@ func TestBuildOauthInfoFromAccount_BackfillsAccountKeyFromID(t *testing.T) {
 func TestBuildOauthInfoFromAccount_BackfillsAccountIDFromKey(t *testing.T) {
 	provider := "codex"
 	account := &store.Account{
-		OAuthProvider:  &provider,
+		OAuthProvider:   &provider,
 		OAuthAccountKey: nil, // no column key
 	}
 	extraConfig := `{"oauth":{"provider":"codex","accountId":"acct-from-extra","accountKey":"key-from-extra"}}`
@@ -157,12 +157,12 @@ func TestBuildStoredOauthStateFromAccount_Success(t *testing.T) {
 	provider := "codex"
 	account := &store.Account{
 		OAuthProvider:   &provider,
-		OAuthAccountKey:  accountStrPtr("key-1"),
+		OAuthAccountKey: accountStrPtr("key-1"),
 	}
 	stored, err := BuildStoredOauthStateFromAccount(account, &OauthInfo{
-		Provider:      "codex",
-		Email:         "user@example.com",
-		RefreshToken:  "refresh",
+		Provider:       "codex",
+		Email:          "user@example.com",
+		RefreshToken:   "refresh",
 		TokenExpiresAt: 1234567890,
 	})
 	if err != nil {
@@ -231,9 +231,9 @@ func TestBuildOauthIdentityBackfillPatch_SkipsPopulatedFields(t *testing.T) {
 	provider := "claude"
 	accountKey := "already-set"
 	account := &store.Account{
-		ExtraConfig:      &extraConfig,
-		OAuthProvider:    &provider,
-		OAuthAccountKey:  &accountKey,
+		ExtraConfig:     &extraConfig,
+		OAuthProvider:   &provider,
+		OAuthAccountKey: &accountKey,
 		// OAuthProjectID is nil → only projectId should be backfilled.
 	}
 	patch := BuildOauthIdentityBackfillPatch(account)
@@ -257,10 +257,10 @@ func TestBuildOauthIdentityBackfillPatch_AllFieldsPopulatedReturnsNil(t *testing
 	accountKey := "already-set"
 	projectID := "already-set-proj"
 	account := &store.Account{
-		ExtraConfig:      &extraConfig,
-		OAuthProvider:    &provider,
-		OAuthAccountKey:  &accountKey,
-		OAuthProjectID:   &projectID,
+		ExtraConfig:     &extraConfig,
+		OAuthProvider:   &provider,
+		OAuthAccountKey: &accountKey,
+		OAuthProjectID:  &projectID,
 	}
 	if got := BuildOauthIdentityBackfillPatch(account); got != nil {
 		t.Errorf("all fields populated should return nil, got %+v", got)

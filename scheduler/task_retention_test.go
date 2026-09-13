@@ -19,14 +19,14 @@ func TestAdminBackgroundTaskRetentionDeletesOldTerminalRowsKeepsRest(t *testing.
 	keepAt := time.Now().UTC().Add(-1 * 24 * time.Hour).Format(time.RFC3339) // inside 30d window
 
 	tasks := []struct {
-		taskID string
-		status string
+		taskID    string
+		status    string
 		createdAt string
 	}{
-		{"t-old-succeeded", "succeeded", oldAt}, // deleted (terminal + old)
-		{"t-old-failed", "failed", oldAt},       // deleted (terminal + old)
-		{"t-old-pending", "pending", oldAt},     // kept (non-terminal)
-		{"t-old-running", "running", oldAt},     // kept (non-terminal)
+		{"t-old-succeeded", "succeeded", oldAt},  // deleted (terminal + old)
+		{"t-old-failed", "failed", oldAt},        // deleted (terminal + old)
+		{"t-old-pending", "pending", oldAt},      // kept (non-terminal)
+		{"t-old-running", "running", oldAt},      // kept (non-terminal)
 		{"t-new-succeeded", "succeeded", keepAt}, // kept (in window)
 		{"t-new-failed", "failed", keepAt},       // kept (in window)
 	}

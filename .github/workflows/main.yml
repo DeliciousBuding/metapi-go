@@ -38,6 +38,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/go-toolchain
+      - name: gofmt check (pinned to the go.mod toolchain)
+        # gofmt's opinion changes between Go releases (e.g. 1.26 struct-literal
+        # alignment), so the gate runs on the go.mod toolchain — the same
+        # version local devs get from `go env`. Only tracked files are listed,
+        # which keeps gitignored evidence dirs out of scope.
+        run: |
+          out="$(gofmt -l $(git ls-files '*.go'))"
+          if [ -n "$out" ]; then
+            echo "gofmt drift in these files:"
+            echo "$out"
+            exit 1
+          fi
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:

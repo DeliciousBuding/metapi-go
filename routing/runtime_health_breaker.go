@@ -147,7 +147,6 @@ func buildRuntimeBreakerReason(details SiteRuntimeHealthDetails) string {
 	return "运行时熔断中，优先避让"
 }
 
-
 type ProbeStatus struct {
 	Status      string // success | failure | inconclusive | ""
 	AtMs        int64
@@ -259,4 +258,3 @@ func GetSiteProbeStatus(siteID int64) ProbeStatus {
 	}
 	return out
 }
-

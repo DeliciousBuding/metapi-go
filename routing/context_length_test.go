@@ -15,8 +15,8 @@ func TestBuildAvailableModelContextLengths(t *testing.T) {
 	routes := []store.TokenRoute{
 		{ID: 1, ModelPattern: "gpt-4o", Enabled: true, ContextLength: int64Ptr(64000)},
 		{ID: 2, ModelPattern: "gpt-4o", Enabled: true, ContextLength: int64Ptr(128000)}, // max wins
-		{ID: 3, ModelPattern: "gpt-4o", Enabled: true, ContextLength: nil},             // ignored
-		{ID: 4, ModelPattern: "gpt-4o", Enabled: true, ContextLength: int64Ptr(0)},     // ignored
+		{ID: 3, ModelPattern: "gpt-4o", Enabled: true, ContextLength: nil},              // ignored
+		{ID: 4, ModelPattern: "gpt-4o", Enabled: true, ContextLength: int64Ptr(0)},      // ignored
 		{ID: 5, ModelPattern: "raw-id", DisplayName: &dnCustom, Enabled: true, ContextLength: int64Ptr(32000)},
 		{ID: 6, ModelPattern: "no-ctx", Enabled: true, ContextLength: nil},
 	}

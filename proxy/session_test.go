@@ -9,7 +9,7 @@ import (
 
 func newTestCoordinator() *ProxyChannelCoordinator {
 	cfg, rt := config.Load(map[string]string{
-		"PORT":                                   "8080",
+		"PORT": "8080",
 		"PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT": "2",
 	})
 	config.Set(cfg)

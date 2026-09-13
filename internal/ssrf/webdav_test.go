@@ -11,18 +11,18 @@ import (
 // un-mapped first, so 127.0.0.1 written as ::ffff:127.0.0.1 stays blocked.
 func TestIsUnsafeAddr_BlocksNonGlobalRanges(t *testing.T) {
 	unsafe := []string{
-		"0.0.0.0", "0.0.0.1",            // unspecified
-		"::",                             // unspecified v6
-		"127.0.0.1", "127.1.2.3",         // loopback
-		"::1",                            // loopback v6
+		"0.0.0.0", "0.0.0.1", // unspecified
+		"::",                     // unspecified v6
+		"127.0.0.1", "127.1.2.3", // loopback
+		"::1",                                   // loopback v6
 		"10.0.0.1", "172.16.0.1", "192.168.1.1", // private
-		"169.254.169.254",                // cloud metadata
-		"fe80::1",                        // link-local unicast
-		"ff02::1",                        // link-local multicast
-		"224.0.0.1",                      // multicast
-		"::ffff:127.0.0.1",               // IPv4-mapped loopback
-		"::ffff:10.0.0.1",                // IPv4-mapped private
-		"::ffff:169.254.169.254",         // IPv4-mapped metadata
+		"169.254.169.254",        // cloud metadata
+		"fe80::1",                // link-local unicast
+		"ff02::1",                // link-local multicast
+		"224.0.0.1",              // multicast
+		"::ffff:127.0.0.1",       // IPv4-mapped loopback
+		"::ffff:10.0.0.1",        // IPv4-mapped private
+		"::ffff:169.254.169.254", // IPv4-mapped metadata
 	}
 	for _, raw := range unsafe {
 		addr, err := netip.ParseAddr(raw)
@@ -36,9 +36,9 @@ func TestIsUnsafeAddr_BlocksNonGlobalRanges(t *testing.T) {
 
 	safe := []string{
 		"8.8.8.8", "1.1.1.1", "93.184.216.34",
-		"2606:4700:4700::1111",  // public v6
-		"2001:4860:4860::8888",  // public v6
-		"::ffff:8.8.8.8",        // IPv4-mapped public
+		"2606:4700:4700::1111", // public v6
+		"2001:4860:4860::8888", // public v6
+		"::ffff:8.8.8.8",       // IPv4-mapped public
 	}
 	for _, raw := range safe {
 		addr, err := netip.ParseAddr(raw)

@@ -67,7 +67,7 @@ func (c *DingtalkChannel) Send(cfg *config.RuntimeSettings, title, message, leve
 	}
 	var result struct {
 		ErrCode int    `json:"errcode"`
-		ErrMsg   string `json:"errmsg"`
+		ErrMsg  string `json:"errmsg"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return fmt.Errorf("dingtalk webhook returned invalid JSON")

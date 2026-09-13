@@ -94,9 +94,9 @@ func TestApplyRecomputeDeletesAggregatesAndResetsCheckpoint(t *testing.T) {
 
 	s := NewUsageAggregationScheduler(testConfig())
 	cp := projectionCheckpoint{
-		ProjectorKey:   usageProjectorKey,
-		TimeZone:       "UTC",
-		LastProxyLogID: logID,
+		ProjectorKey:    usageProjectorKey,
+		TimeZone:        "UTC",
+		LastProxyLogID:  logID,
 		RecomputeFromID: &logID,
 	}
 
@@ -161,9 +161,9 @@ func TestApplyRecomputeAbortsOnErrorKeepsRecomputeFlag(t *testing.T) {
 
 	s := NewUsageAggregationScheduler(testConfig())
 	cp := projectionCheckpoint{
-		ProjectorKey:   usageProjectorKey,
-		TimeZone:       "UTC",
-		LastProxyLogID: logID,
+		ProjectorKey:    usageProjectorKey,
+		TimeZone:        "UTC",
+		LastProxyLogID:  logID,
 		RecomputeFromID: &logID,
 	}
 

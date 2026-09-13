@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/jmoiron/sqlx"
 )
 
 func TestConfigurePostgresPoolAppliesBudget(t *testing.T) {
@@ -97,4 +97,3 @@ func TestApplyPostgresApplicationNameKeyword(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
-

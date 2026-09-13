@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 // ---- IsSiteDisabled Tests ----
@@ -1151,9 +1151,9 @@ func TestRefreshBalance_DisabledSiteIsSkippedWithoutUpstream(t *testing.T) {
 
 func TestParseIncomeFromContent_EdgeCases(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		want    float64
+		name  string
+		input string
+		want  float64
 	}{
 		{"decimal value", "10.5", 10.5},
 		{"integer value", "100", 100},

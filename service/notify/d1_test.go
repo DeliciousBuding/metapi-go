@@ -175,9 +175,9 @@ func TestSendNotificationTaskMuteGateSkipsMutedTask(t *testing.T) {
 	newTestClient(t, &reqs, `{"errcode":0}`, http.StatusOK)
 
 	rt := &config.RuntimeSettings{
-		BarkEnabled:         true,
-		BarkUrl:             "https://bark.example/test",
-		NotifyTaskToggles:   map[string]bool{"low_balance": false},
+		BarkEnabled:       true,
+		BarkUrl:           "https://bark.example/test",
+		NotifyTaskToggles: map[string]bool{"low_balance": false},
 	}
 	res, err := SendNotification(rt, "余额不足", "m", "warning",
 		&SendNotificationOptions{TaskTag: "low_balance"})

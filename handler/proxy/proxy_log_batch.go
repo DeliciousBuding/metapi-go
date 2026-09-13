@@ -218,7 +218,7 @@ const proxyLogInsertArgCount = 24
 // Default tunables for the proxy_log batch writer. Mirrors the env defaults in
 // config.Load so the writer is usable in isolation (tests, ad-hoc tooling).
 const (
-	defaultProxyLogBatchSize        = 50
+	defaultProxyLogBatchSize       = 50
 	defaultProxyLogFlushIntervalMs = 1000
 )
 
@@ -229,7 +229,7 @@ const (
 // vars. When async is disabled the writer stays nil and EnqueueProxyLog writes
 // through synchronously — the test/e2e path that needs immediate visibility.
 var (
-	proxyLogBatchWriterMu sync.Mutex
+	proxyLogBatchWriterMu   sync.Mutex
 	proxyLogBatchWriterInst *proxyLogBatchWriter
 )
 

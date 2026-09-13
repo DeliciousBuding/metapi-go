@@ -70,7 +70,7 @@ func TestCreatePKCEChallenge_EmptyInput(t *testing.T) {
 
 func TestMemorySessionStore_Create(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	rec , err := store.Create(CreateSessionInput{
+	rec, err := store.Create(CreateSessionInput{
 		Provider:    "codex",
 		RedirectURI: "http://localhost:1455/auth/callback",
 	})
@@ -99,11 +99,11 @@ func TestMemorySessionStore_Create(t *testing.T) {
 
 func TestMemorySessionStore_Create_DifferentStates(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	s1 , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	s1, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
-	s2 , err := store.Create(CreateSessionInput{Provider: "claude", RedirectURI: "http://localhost:54545/callback"})
+	s2, err := store.Create(CreateSessionInput{Provider: "claude", RedirectURI: "http://localhost:54545/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -114,7 +114,7 @@ func TestMemorySessionStore_Create_DifferentStates(t *testing.T) {
 
 func TestMemorySessionStore_Create_StateAndVerifierLength(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	rec , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	rec, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -130,7 +130,7 @@ func TestMemorySessionStore_Create_StateAndVerifierLength(t *testing.T) {
 
 func TestMemorySessionStore_Create_SetsExpiry(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	rec , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	rec, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -151,7 +151,7 @@ func TestMemorySessionStore_Create_StoresAllFields(t *testing.T) {
 		ProxyURL:        "http://proxy:8080",
 		UseSystemProxy:  true,
 	}
-	rec , err := store.Create(input)
+	rec, err := store.Create(input)
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -173,7 +173,7 @@ func TestMemorySessionStore_Create_StoresAllFields(t *testing.T) {
 
 func TestMemorySessionStore_Get_ExistingSession(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	rec , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	rec, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -196,7 +196,7 @@ func TestMemorySessionStore_Get_MissingSession(t *testing.T) {
 
 func TestMemorySessionStore_Get_ReturnsSameInstance(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	rec , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	rec, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -213,7 +213,7 @@ func TestMemorySessionStore_Get_ReturnsSameInstance(t *testing.T) {
 
 func TestMemorySessionStore_ExpiredSession_ReturnsNil(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	rec , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	rec, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -233,7 +233,7 @@ func TestMemorySessionStore_Pruning_RemovesExpiredOnly(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
 
 	// Create one expired session
-	expired , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	expired, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -242,7 +242,7 @@ func TestMemorySessionStore_Pruning_RemovesExpiredOnly(t *testing.T) {
 	store.mu.Unlock()
 
 	// Create a valid session
-	valid , err := store.Create(CreateSessionInput{Provider: "claude", RedirectURI: "http://localhost:54545/callback"})
+	valid, err := store.Create(CreateSessionInput{Provider: "claude", RedirectURI: "http://localhost:54545/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -264,7 +264,7 @@ func TestMemorySessionStore_Pruning_OnCreate(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
 
 	// Create an expired session
-	expired , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	expired, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -292,7 +292,7 @@ func TestMemorySessionStore_TTL_IsTenMinutes(t *testing.T) {
 
 func TestMemorySessionStore_MarkSuccess(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	rec , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	rec, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -325,7 +325,7 @@ func TestMemorySessionStore_MarkSuccess_MissingSession(t *testing.T) {
 
 func TestMemorySessionStore_MarkSuccess_ClearsPreviousError(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	rec , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	rec, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -345,7 +345,7 @@ func TestMemorySessionStore_MarkSuccess_ClearsPreviousError(t *testing.T) {
 
 func TestMemorySessionStore_MarkError(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	rec , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	rec, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -364,7 +364,7 @@ func TestMemorySessionStore_MarkError(t *testing.T) {
 
 func TestMemorySessionStore_MarkError_EmptyFallsBackToDefault(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	rec , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	rec, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -377,7 +377,7 @@ func TestMemorySessionStore_MarkError_EmptyFallsBackToDefault(t *testing.T) {
 
 func TestMemorySessionStore_MarkError_WhitespaceFallsBackToDefault(t *testing.T) {
 	store := NewMemoryOAuthSessionStore()
-	rec , err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
+	rec, err := store.Create(CreateSessionInput{Provider: "codex", RedirectURI: "http://localhost:1455/callback"})
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -578,7 +578,7 @@ func TestAsNonEmptyString_NonString(t *testing.T) {
 }
 
 func TestRandomBase64URL_Length(t *testing.T) {
-	result , err := randomBase64URL(24)
+	result, err := randomBase64URL(24)
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
@@ -588,11 +588,11 @@ func TestRandomBase64URL_Length(t *testing.T) {
 }
 
 func TestRandomBase64URL_Randomness(t *testing.T) {
-	r1 , err := randomBase64URL(48)
+	r1, err := randomBase64URL(48)
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}
-	r2 , err := randomBase64URL(48)
+	r2, err := randomBase64URL(48)
 	if err != nil {
 		t.Fatal("unexpected error: " + err.Error())
 	}

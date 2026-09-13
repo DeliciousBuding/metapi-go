@@ -206,9 +206,9 @@ func TestStats_BalanceIncomeOutcome_RefundKeepsIdentity(t *testing.T) {
 	// day2: balance 10, used 2 (refund of 3) → Δused -3 → outcome -3,
 	// income = Δbal(0) + Δused(-3) = -3 → identity: -3 - (-3) = 0 = Δbalance ✓
 	for i, d := range []struct {
-		day   string
-		bal   float64
-		used  float64
+		day  string
+		bal  float64
+		used float64
 	}{{day1, 10, 5}, {day2, 10, 2}} {
 		if _, err := db.Exec(`INSERT INTO balance_history (account_id, balance, balance_used, quota, local_day, captured_at, created_at)
 			VALUES (?, ?, ?, 20, ?, ?, ?)`, accountID, d.bal, d.used, d.day, nowStr, nowStr); err != nil {

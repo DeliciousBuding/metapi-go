@@ -21,11 +21,11 @@ func TestSelectChannel_RedirectRegistryEnablesActualChannel(t *testing.T) {
 
 	db := &sourceModelFallbackDB{
 		routes: []store.TokenRoute{{
-			ID:            1,
-			ModelPattern:  "claude-3-5-sonnet",
-			RouteMode:     "pattern",
+			ID:              1,
+			ModelPattern:    "claude-3-5-sonnet",
+			RouteMode:       "pattern",
 			RoutingStrategy: "round_robin",
-			Enabled:       true,
+			Enabled:         true,
 		}},
 		channels: []struct {
 			Channel store.RouteChannel

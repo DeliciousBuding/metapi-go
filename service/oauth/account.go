@@ -21,38 +21,38 @@ const (
 
 // OauthInfo holds the full OAuth information for an account.
 type OauthInfo struct {
-	Provider             string                 `json:"provider"`
-	AccountID            string                 `json:"accountId,omitempty"`
-	AccountKey           string                 `json:"accountKey,omitempty"`
-	Email                string                 `json:"email,omitempty"`
-	PlanType             string                 `json:"planType,omitempty"`
-	ProjectID            string                 `json:"projectId,omitempty"`
-	TokenExpiresAt       int64                  `json:"tokenExpiresAt,omitempty"`
-	RefreshToken         string                 `json:"refreshToken,omitempty"`
-	IDToken              string                 `json:"idToken,omitempty"`
-	SessionToken         string                 `json:"sessionToken,omitempty"`
-	ProviderData         map[string]interface{} `json:"providerData,omitempty"`
-	Quota                *OauthQuotaSnapshot     `json:"quota,omitempty"`
+	Provider             string                    `json:"provider"`
+	AccountID            string                    `json:"accountId,omitempty"`
+	AccountKey           string                    `json:"accountKey,omitempty"`
+	Email                string                    `json:"email,omitempty"`
+	PlanType             string                    `json:"planType,omitempty"`
+	ProjectID            string                    `json:"projectId,omitempty"`
+	TokenExpiresAt       int64                     `json:"tokenExpiresAt,omitempty"`
+	RefreshToken         string                    `json:"refreshToken,omitempty"`
+	IDToken              string                    `json:"idToken,omitempty"`
+	SessionToken         string                    `json:"sessionToken,omitempty"`
+	ProviderData         map[string]interface{}    `json:"providerData,omitempty"`
+	Quota                *OauthQuotaSnapshot       `json:"quota,omitempty"`
 	ModelDiscoveryStatus OauthModelDiscoveryStatus `json:"modelDiscoveryStatus,omitempty"`
-	LastModelSyncAt      string                 `json:"lastModelSyncAt,omitempty"`
-	LastModelSyncError   string                 `json:"lastModelSyncError,omitempty"`
-	LastDiscoveredModels []string               `json:"lastDiscoveredModels,omitempty"`
+	LastModelSyncAt      string                    `json:"lastModelSyncAt,omitempty"`
+	LastModelSyncError   string                    `json:"lastModelSyncError,omitempty"`
+	LastDiscoveredModels []string                  `json:"lastDiscoveredModels,omitempty"`
 }
 
 // StoredOauthState is OauthInfo minus identity fields (provider, accountId, accountKey, projectId).
 type StoredOauthState struct {
-	Email                string                 `json:"email,omitempty"`
-	PlanType             string                 `json:"planType,omitempty"`
-	TokenExpiresAt       int64                  `json:"tokenExpiresAt,omitempty"`
-	RefreshToken         string                 `json:"refreshToken,omitempty"`
-	IDToken              string                 `json:"idToken,omitempty"`
-	SessionToken         string                 `json:"sessionToken,omitempty"`
-	ProviderData         map[string]interface{} `json:"providerData,omitempty"`
-	Quota                *OauthQuotaSnapshot     `json:"quota,omitempty"`
+	Email                string                    `json:"email,omitempty"`
+	PlanType             string                    `json:"planType,omitempty"`
+	TokenExpiresAt       int64                     `json:"tokenExpiresAt,omitempty"`
+	RefreshToken         string                    `json:"refreshToken,omitempty"`
+	IDToken              string                    `json:"idToken,omitempty"`
+	SessionToken         string                    `json:"sessionToken,omitempty"`
+	ProviderData         map[string]interface{}    `json:"providerData,omitempty"`
+	Quota                *OauthQuotaSnapshot       `json:"quota,omitempty"`
 	ModelDiscoveryStatus OauthModelDiscoveryStatus `json:"modelDiscoveryStatus,omitempty"`
-	LastModelSyncAt      string                 `json:"lastModelSyncAt,omitempty"`
-	LastModelSyncError   string                 `json:"lastModelSyncError,omitempty"`
-	LastDiscoveredModels []string               `json:"lastDiscoveredModels,omitempty"`
+	LastModelSyncAt      string                    `json:"lastModelSyncAt,omitempty"`
+	LastModelSyncError   string                    `json:"lastModelSyncError,omitempty"`
+	LastDiscoveredModels []string                  `json:"lastDiscoveredModels,omitempty"`
 }
 
 // ---- Parsing ----

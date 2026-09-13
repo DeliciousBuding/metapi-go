@@ -177,12 +177,12 @@ func GenerateModelRedirects(ctx context.Context, db *sqlx.DB, accountID int64, a
 
 // RedirectFixCandidate is one disabled-model entry that a redirect can fix.
 type RedirectFixCandidate struct {
-	SiteID     int64  `db:"site_id" json:"siteId"`
-	SiteName   string `db:"site_name" json:"siteName"`
-	AccountID  int64  `db:"account_id" json:"accountId"`
-	ModelName  string `db:"model_name" json:"modelName"`
-	Canonical  string `db:"canonical" json:"canonical"`
-	Actual     string `db:"actual" json:"actual"`
+	SiteID    int64  `db:"site_id" json:"siteId"`
+	SiteName  string `db:"site_name" json:"siteName"`
+	AccountID int64  `db:"account_id" json:"accountId"`
+	ModelName string `db:"model_name" json:"modelName"`
+	Canonical string `db:"canonical" json:"canonical"`
+	Actual    string `db:"actual" json:"actual"`
 }
 
 // ListRedirectFixCandidates finds site_disabled_models entries whose model is

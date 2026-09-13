@@ -36,10 +36,10 @@ func detectContext(t *testing.T) context.Context {
 // ship system_name in /api/status.
 func TestOneApiNewApiDetect_DiscriminatesBySystemNameValue(t *testing.T) {
 	tests := []struct {
-		name        string
-		statusBody  string
-		wantNewApi  bool
-		wantOneApi  bool
+		name       string
+		statusBody string
+		wantNewApi bool
+		wantOneApi bool
 	}{
 		{
 			name: "one-api v0.6.10 shape (system_name One API)",

@@ -17,53 +17,53 @@ func TestResponsesOnlyClientError(t *testing.T) {
 	emptyBody := []byte(nil)
 
 	tests := []struct {
-		name          string
+		name           string
 		downstreamPath string
-		bodyBytes     []byte
-		pref          proxy.SiteProtocolPreference
-		wantEmpty     bool
+		bodyBytes      []byte
+		pref           proxy.SiteProtocolPreference
+		wantEmpty      bool
 	}{
 		{
-			name:          "not responses-only returns empty",
+			name:           "not responses-only returns empty",
 			downstreamPath: "/v1/chat/completions",
-			bodyBytes:     chatBody,
-			pref:          proxy.SiteProtocolPreference{},
-			wantEmpty:     true,
+			bodyBytes:      chatBody,
+			pref:           proxy.SiteProtocolPreference{},
+			wantEmpty:      true,
 		},
 		{
-			name:          "responses-only but path is responses endpoint returns empty",
+			name:           "responses-only but path is responses endpoint returns empty",
 			downstreamPath: "/v1/responses",
-			bodyBytes:     responsesBody,
-			pref:          proxy.SiteProtocolPreference{ResponsesOnly: true},
-			wantEmpty:     true,
+			bodyBytes:      responsesBody,
+			pref:           proxy.SiteProtocolPreference{ResponsesOnly: true},
+			wantEmpty:      true,
 		},
 		{
-			name:          "responses-only with unknown path returns empty",
+			name:           "responses-only with unknown path returns empty",
 			downstreamPath: "/v1/something/else",
-			bodyBytes:     chatBody,
-			pref:          proxy.SiteProtocolPreference{ResponsesOnly: true},
-			wantEmpty:     true,
+			bodyBytes:      chatBody,
+			pref:           proxy.SiteProtocolPreference{ResponsesOnly: true},
+			wantEmpty:      true,
 		},
 		{
-			name:          "responses-only chat path with responses-shaped body returns empty",
+			name:           "responses-only chat path with responses-shaped body returns empty",
 			downstreamPath: "/v1/chat/completions",
-			bodyBytes:     responsesBody,
-			pref:          proxy.SiteProtocolPreference{ResponsesOnly: true},
-			wantEmpty:     true,
+			bodyBytes:      responsesBody,
+			pref:           proxy.SiteProtocolPreference{ResponsesOnly: true},
+			wantEmpty:      true,
 		},
 		{
-			name:          "responses-only chat path with messages body returns error message",
+			name:           "responses-only chat path with messages body returns error message",
 			downstreamPath: "/v1/chat/completions",
-			bodyBytes:     chatBody,
-			pref:          proxy.SiteProtocolPreference{ResponsesOnly: true},
-			wantEmpty:     false,
+			bodyBytes:      chatBody,
+			pref:           proxy.SiteProtocolPreference{ResponsesOnly: true},
+			wantEmpty:      false,
 		},
 		{
-			name:          "responses-only messages path with empty body returns error message",
+			name:           "responses-only messages path with empty body returns error message",
 			downstreamPath: "/v1/messages",
-			bodyBytes:     emptyBody,
-			pref:          proxy.SiteProtocolPreference{ResponsesOnly: true},
-			wantEmpty:     false,
+			bodyBytes:      emptyBody,
+			pref:           proxy.SiteProtocolPreference{ResponsesOnly: true},
+			wantEmpty:      false,
 		},
 	}
 
@@ -471,10 +471,10 @@ func TestApplyUpstreamStreamIncludeUsage(t *testing.T) {
 
 func TestShouldWarnMissingStreamUsageTableDriven(t *testing.T) {
 	tests := []struct {
-		name              string
+		name               string
 		expectIncludeUsage bool
-		usage             ParsedUsage
-		want              bool
+		usage              ParsedUsage
+		want               bool
 	}{
 		{name: "not expecting include usage", expectIncludeUsage: false, usage: ParsedUsage{}, want: false},
 		{name: "expecting but not found", expectIncludeUsage: true, usage: ParsedUsage{Found: false}, want: true},

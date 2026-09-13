@@ -399,15 +399,15 @@ func (s *UsageAggregationScheduler) applyBatch(dbw *store.DB, cp projectionCheck
 		model  string
 	}
 	type bucketDelta struct {
-		calls         int
-		successes     int
-		failures      int
-		tokens        int64
-		summarySpend  float64
-		siteSpend     float64
-		modelSpend    float64
-		latencyMs     int64
-		latencyCount  int
+		calls        int
+		successes    int
+		failures     int
+		tokens       int64
+		summarySpend float64
+		siteSpend    float64
+		modelSpend   float64
+		latencyMs    int64
+		latencyCount int
 	}
 
 	dayDeltas := make(map[dayKey]*bucketDelta)

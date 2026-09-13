@@ -118,7 +118,7 @@ func matchesAnyPattern(patterns []*regexp.Regexp, text string) bool {
 }
 
 // trimToLower trims whitespace and lowercases ASCII characters.
-// This matches TS behavior of (rawMessage || '').trim().toLowerCase().
+// This matches TS behavior of (rawMessage || ”).trim().toLowerCase().
 func trimToLower(s string) string {
 	s = strings.TrimSpace(s)
 	result := make([]byte, 0, len(s))
@@ -137,16 +137,16 @@ func trimToLower(s string) string {
 // Returns true if the proxy should retry with a different channel or the same channel.
 //
 // Decision matrix:
-// - Status inside the operator-tunable retry ranges: retryable. The default
-//   ranges (routing.DefaultRetryStatusRangesSpec) reproduce exactly the
-//   historical hardcoded verdicts: >= 500, 408/409/425/429, and 401/403
-//   (auth faults an OAuth token refresh may resolve). Operators can narrow
-//   or widen the set at runtime (proxy_retry_status_ranges setting).
-// - Error text matches model-unsupported patterns: retryable (try another channel)
-// - Error text matches non-retryable request patterns: non-retryable (bad request)
-// - Error text matches retryable channel-local patterns: retryable
-// - 400/404/422: non-retryable (unless error text overrides)
-// - Other: non-retryable
+//   - Status inside the operator-tunable retry ranges: retryable. The default
+//     ranges (routing.DefaultRetryStatusRangesSpec) reproduce exactly the
+//     historical hardcoded verdicts: >= 500, 408/409/425/429, and 401/403
+//     (auth faults an OAuth token refresh may resolve). Operators can narrow
+//     or widen the set at runtime (proxy_retry_status_ranges setting).
+//   - Error text matches model-unsupported patterns: retryable (try another channel)
+//   - Error text matches non-retryable request patterns: non-retryable (bad request)
+//   - Error text matches retryable channel-local patterns: retryable
+//   - 400/404/422: non-retryable (unless error text overrides)
+//   - Other: non-retryable
 func ShouldRetryProxyRequest(status int, upstreamErrorText string) bool {
 	if routing.StatusInRanges(status, routing.ActiveRetryStatusRanges()) {
 		return true

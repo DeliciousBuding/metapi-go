@@ -33,11 +33,11 @@ func (f *fakeProbe) ProbeChannel(_ context.Context, target ProbeTarget) (ProbeOu
 }
 
 type fakeRecorder struct {
-	mu            sync.Mutex
-	successCalls  []probeSuccessCall
-	failureCalls  []probeFailureCall
-	successErr    error
-	failureErr    error
+	mu           sync.Mutex
+	successCalls []probeSuccessCall
+	failureCalls []probeFailureCall
+	successErr   error
+	failureErr   error
 }
 
 type probeSuccessCall struct {

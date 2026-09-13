@@ -195,7 +195,7 @@ func TestSubmitManualCallback_InvalidURLAndMissingCode(t *testing.T) {
 	t.Cleanup(func() { globalSessionStore = previousStore })
 
 	session, err := CreateSession(CreateSessionInput{
-		Provider:   "codex",
+		Provider:    "codex",
 		RedirectURI: "http://localhost:1455/auth/callback",
 	})
 	if err != nil {

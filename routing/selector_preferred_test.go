@@ -11,9 +11,9 @@ import (
 
 // preferredDB is a minimal ChannelSelectorDB for SelectPreferredChannel tests.
 type preferredDB struct {
-	mu       sync.Mutex
-	routes   []store.TokenRoute
-	joined   []struct {
+	mu     sync.Mutex
+	routes []store.TokenRoute
+	joined []struct {
 		Channel store.RouteChannel
 		Account store.Account
 		Site    store.Site
@@ -134,8 +134,8 @@ func preferredEligibleJoined(channelID, siteID, accountID int64, model string) s
 			RouteID:     1,
 			AccountID:   accountID,
 			SourceModel: &m,
-			Priority: int64Ptr(0),
-			Weight: int64Ptr(10),
+			Priority:    int64Ptr(0),
+			Weight:      int64Ptr(10),
 			Enabled:     true,
 		},
 		Account: store.Account{

@@ -69,7 +69,7 @@ func TestModelSyncScheduler_runJob_NilDB(t *testing.T) {
 // Start registers a cron job and begins the runner; Stop halts it. The cron
 // expression never fires during the test.
 func TestModelSyncScheduler_StartStop_Lifecycle(t *testing.T) {
-	testConfig() // publishes the runtime baseline
+	testConfig()                                                                              // publishes the runtime baseline
 	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelSyncCron = "0 0 4 * * *" }) // 04:00 daily — won't fire during test
 	s := NewModelSyncScheduler()
 

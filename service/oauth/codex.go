@@ -75,7 +75,7 @@ func init() {
 		RefreshAccessToken:        refreshCodexAccessToken,
 		RefreshWithSessionToken:   refreshCodexWithSessionToken,
 		BuildProxyHeaders:         buildCodexProxyHeaders,
-		ParseAccessToken:           ParseCodexAccessToken,
+		ParseAccessToken:          ParseCodexAccessToken,
 	})
 }
 
@@ -272,8 +272,8 @@ func refreshCodexWithSessionToken(ctx context.Context, input SessionTokenInput) 
 
 	var sessionResp struct {
 		AccessToken string `json:"accessToken"`
-		Expires    string `json:"expires"`
-		User       struct {
+		Expires     string `json:"expires"`
+		User        struct {
 			Email string `json:"email"`
 		} `json:"user"`
 	}
@@ -315,7 +315,7 @@ func refreshCodexWithSessionToken(ctx context.Context, input SessionTokenInput) 
 		Email:          email,
 		AccountID:      accountID,
 		AccountKey:     accountID,
-		PlanType:        identity.PlanType,
+		PlanType:       identity.PlanType,
 	}, nil
 }
 
@@ -347,9 +347,9 @@ func buildCodexTokenSetFromPayload(payload *codexTokenResponse, origin string) (
 	}
 
 	identity := &AccountIdentity{
-		Email:             strings.TrimSpace(claims.Email),
+		Email:            strings.TrimSpace(claims.Email),
 		ChatGPTAccountID: strings.TrimSpace(claims.Auth.ChatGPTAccountID),
-		PlanType:          strings.TrimSpace(claims.Auth.ChatGPTPlanType),
+		PlanType:         strings.TrimSpace(claims.Auth.ChatGPTPlanType),
 	}
 	if identityIncomplete(identity) {
 		identity = MergeCodexIdentity(identity, ParseCodexAccessToken(payload.AccessToken))

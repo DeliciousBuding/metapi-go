@@ -217,7 +217,7 @@ func (s *ModelProbeScheduler) RecentRunSummaries() []ProbeRunSummary {
 }
 
 // BatchProbeResult is one row of an operator-initiated batch verification
-//. HealthApplied reports whether the outcome was
+// . HealthApplied reports whether the outcome was
 // recorded into routing health/cooldown; a nil recorder leaves it false.
 type BatchProbeResult struct {
 	Target        ProbeTarget

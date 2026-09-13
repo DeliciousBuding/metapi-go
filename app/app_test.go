@@ -39,8 +39,8 @@ func TestHealthAndReadySemantics(t *testing.T) {
 		DataDir: dataDir,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
-		DbType:  store.DialectSQLite,
-		DbUrl:   filepath.Join(dataDir, "ready.db"),
+		DbType: store.DialectSQLite,
+		DbUrl:  filepath.Join(dataDir, "ready.db"),
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
@@ -64,8 +64,8 @@ func TestShutdownDrainsBeforeCleanupAndRunsCleanupOnce(t *testing.T) {
 		DataDir: dataDir,
 	}
 	config.SetRuntime(&config.RuntimeSettings{
-		DbType:  store.DialectSQLite,
-		DbUrl:   filepath.Join(dataDir, "shutdown.db"),
+		DbType: store.DialectSQLite,
+		DbUrl:  filepath.Join(dataDir, "shutdown.db"),
 	})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {

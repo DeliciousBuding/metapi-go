@@ -78,11 +78,11 @@ func TestGetEligibleRouteUnitMembers(t *testing.T) {
 			Strategy: "round_robin",
 		},
 		RouteUnitMembers: []OAuthRouteUnitMemberCandidate{
-			makeMember(100, "active", "active", "token1", ""),         // eligible
-			makeMember(101, "disabled", "active", "token2", ""),       // disabled account
-			makeMember(102, "active", "disabled", "token3", ""),       // disabled site
-			makeMember(103, "active", "active", "", ""),               // no token
-			makeMember(104, "active", "active", "", "api-token"),      // eligible (apiToken)
+			makeMember(100, "active", "active", "token1", ""),    // eligible
+			makeMember(101, "disabled", "active", "token2", ""),  // disabled account
+			makeMember(102, "active", "disabled", "token3", ""),  // disabled site
+			makeMember(103, "active", "active", "", ""),          // no token
+			makeMember(104, "active", "active", "", "api-token"), // eligible (apiToken)
 		},
 	}
 
@@ -106,7 +106,7 @@ func TestGetEligibleRouteUnitMembers_Cooldown(t *testing.T) {
 	futureISO := time.Now().Add(1 * time.Hour).UTC().Format(time.RFC3339)
 
 	outerCandidate := RouteChannelCandidate{
-		Channel: store.RouteChannel{OAuthRouteUnitID: ptrInt(1)},
+		Channel:   store.RouteChannel{OAuthRouteUnitID: ptrInt(1)},
 		RouteUnit: &OAuthRouteUnitSummary{ID: 1, Strategy: "round_robin"},
 		RouteUnitMembers: []OAuthRouteUnitMemberCandidate{
 			{

@@ -377,7 +377,6 @@ func TestPopulateRouteChannelsByModelPattern_InsertOnly(t *testing.T) {
 	}
 }
 
-
 func TestRebuildTokenRoutesFromAvailability_PreservesManualPriorityWeight(t *testing.T) {
 	// #46: rebuild must keep operator-tuned priority/weight on manual channels
 	// even when the source model is no longer in availability.

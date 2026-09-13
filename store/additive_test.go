@@ -390,4 +390,3 @@ func TestSC2027AdminReadPathIndexes(t *testing.T) {
 		t.Fatalf("sc2_027 recorded %d times, want 1", n)
 	}
 }
-

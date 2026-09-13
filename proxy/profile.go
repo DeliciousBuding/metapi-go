@@ -9,11 +9,11 @@ import (
 
 // Re-export types for convenience so callers don't need to import proxy/types.
 type (
-	CliProfileID             = types.CliProfileID
-	CliProfileCapabilities   = types.CliProfileCapabilities
-	DetectInput              = types.DetectInput
-	DetectedProfile          = types.DetectedProfile
-	CliProfileDefinition     = types.CliProfileDefinition
+	CliProfileID           = types.CliProfileID
+	CliProfileCapabilities = types.CliProfileCapabilities
+	DetectInput            = types.DetectInput
+	DetectedProfile        = types.DetectedProfile
+	CliProfileDefinition   = types.CliProfileDefinition
 )
 
 const (

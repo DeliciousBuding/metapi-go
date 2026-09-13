@@ -9,16 +9,16 @@ import (
 // SiteInitializationPreset mirrors web/shared/siteInitializationPresets.js.
 // Platform values are protocol families (openai/claude), not vendor brand tags.
 type SiteInitializationPreset struct {
-	ID                         string
-	Label                      string
-	ProviderLabel              string
-	Description                string
-	Platform                   string
-	DefaultURL                 string
-	InitialSegment             string
-	RecommendedSkipModelFetch  bool
-	RecommendedModels          []string
-	DocsURL                    string
+	ID                        string
+	Label                     string
+	ProviderLabel             string
+	Description               string
+	Platform                  string
+	DefaultURL                string
+	InitialSegment            string
+	RecommendedSkipModelFetch bool
+	RecommendedModels         []string
+	DocsURL                   string
 	// MatchHost + MatchPaths define host/path auto-detect rules.
 	// Empty MatchHost means the preset is manual-only (matches always false).
 	MatchHost  string
@@ -443,22 +443,22 @@ type PrimarySiteURLAnalysis struct {
 }
 
 var autoStripPrimarySitePaths = map[string]struct{}{
-	"/v1":                   {},
-	"/v1beta":               {},
-	"/v1/models":            {},
-	"/v1/chat/completions":  {},
-	"/v1/responses":         {},
-	"/v1/messages":          {},
-	"/v1beta/models":        {},
+	"/v1":                  {},
+	"/v1beta":              {},
+	"/v1/models":           {},
+	"/v1/chat/completions": {},
+	"/v1/responses":        {},
+	"/v1/messages":         {},
+	"/v1beta/models":       {},
 }
 
 var semanticPrimarySitePaths = map[string]struct{}{
-	"/backend-api/codex":    {},
-	"/anthropic":            {},
-	"/apps/anthropic":       {},
-	"/api/anthropic":        {},
-	"/api/coding/paas/v4":   {},
-	"/v1beta/openai":        {},
+	"/backend-api/codex":  {},
+	"/anthropic":          {},
+	"/apps/anthropic":     {},
+	"/api/anthropic":      {},
+	"/api/coding/paas/v4": {},
+	"/v1beta/openai":      {},
 }
 
 // AnalyzePrimarySiteURL ports analyzePrimarySiteUrl for preset fallback matching.

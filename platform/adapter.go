@@ -2,22 +2,23 @@
 
 // Inheritance chain (via Go struct embedding):
 
-//	BaseAdapter (base.go)
-//	├── StandardAdapter (standard.go)
-//	│ ├── OpenAiAdapter (openai.go)
-//	│ ├── ClaudeAdapter (claude.go)
-//	│ ├── GeminiAdapter (gemini.go)
-//	│ │ └── GeminiCliAdapter (gemini_cli.go)
-//	│ └── CliProxyApiAdapter (cliproxyapi.go)
-//	├── CodexAdapter (codex.go)
-//	├── AntigravityAdapter (antigravity.go)
-//	├── OneApiAdapter (oneapi.go)
-//	│ └── OneHubAdapter (onehub.go)
-//	│ └── DoneHubAdapter (donehub.go)
-//	├── VeloeraAdapter (veloera.go)
-//	├── Sub2ApiAdapter (sub2api.go)
-//	└── NewApiAdapter (newapi.go)
-//	 └── AnyRouterAdapter (anyrouter.go)
+// BaseAdapter (base.go)
+// ├── StandardAdapter (standard.go)
+// │ ├── OpenAiAdapter (openai.go)
+// │ ├── ClaudeAdapter (claude.go)
+// │ ├── GeminiAdapter (gemini.go)
+// │ │ └── GeminiCliAdapter (gemini_cli.go)
+// │ └── CliProxyApiAdapter (cliproxyapi.go)
+// ├── CodexAdapter (codex.go)
+// ├── AntigravityAdapter (antigravity.go)
+// ├── OneApiAdapter (oneapi.go)
+// │ └── OneHubAdapter (onehub.go)
+// │ └── DoneHubAdapter (donehub.go)
+// ├── VeloeraAdapter (veloera.go)
+// ├── Sub2ApiAdapter (sub2api.go)
+// └── NewApiAdapter (newapi.go)
+//
+//	└── AnyRouterAdapter (anyrouter.go)
 package platform
 
 import (

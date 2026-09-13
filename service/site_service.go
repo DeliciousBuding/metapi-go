@@ -622,10 +622,10 @@ func jsonKeyToColumn(key string) string {
 		"postRefreshProbeModel":               "post_refresh_probe_model",
 		"postRefreshProbeScope":               "post_refresh_probe_scope",
 		"postRefreshProbeLatencyThresholdMs":  "post_refresh_probe_latency_threshold_ms",
-		"browserUa":                          "browser_ua",
-		"cfClearance":                        "cf_clearance",
-		"resinEnabled":                       "resin_enabled",
-		"useUtls":                            "use_utls",
+		"browserUa":                           "browser_ua",
+		"cfClearance":                         "cf_clearance",
+		"resinEnabled":                        "resin_enabled",
+		"useUtls":                             "use_utls",
 	}
 	return mapping[key]
 }

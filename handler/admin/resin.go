@@ -61,12 +61,12 @@ func (h *resinHandler) status(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"enabled":            enabled,
-		"resinUrl":           resinURL,
-		"platformName":       platformName,
-		"activeLeases":       activeLeases,
-		"perSiteOverrides":   perSiteOverrides,
-		"generatedAt":        time.Now().UTC().Format(time.RFC3339),
+		"enabled":          enabled,
+		"resinUrl":         resinURL,
+		"platformName":     platformName,
+		"activeLeases":     activeLeases,
+		"perSiteOverrides": perSiteOverrides,
+		"generatedAt":      time.Now().UTC().Format(time.RFC3339),
 	})
 }
 
@@ -93,10 +93,10 @@ func (h *resinHandler) perSiteOverrides() ([]map[string]any, error) {
 		platform := coerceString(row["platform"])
 		resinEnabled := coerceBool(row["resinEnabled"])
 		out = append(out, map[string]any{
-			"siteId":        siteID,
-			"name":          name,
-			"platform":      platform,
-			"resinEnabled":  resinEnabled,
+			"siteId":       siteID,
+			"name":         name,
+			"platform":     platform,
+			"resinEnabled": resinEnabled,
 		})
 	}
 	return out, nil

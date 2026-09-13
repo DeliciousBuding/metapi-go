@@ -39,7 +39,6 @@ var geminiSupportedGenerationMethods = []any{
 // Returns a Gemini-shaped models list built from the Metapi-owned catalog
 // (resolveOwnedModelCatalog / AvailableModelsSource), not a hard-coded stub and
 // not a live upstream Generative Language models scrape. See
-//
 func HandleGeminiModelsList(w http.ResponseWriter, r *http.Request) {
 	authCtx := GetProxyAuth(r)
 	if authCtx == nil {

@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
 )
 
 // TestIsPublicAPIRoute_LegitimatePaths pins the intended public surfaces:
