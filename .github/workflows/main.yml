@@ -627,23 +627,18 @@ jobs:
             exit 1
           fi
 
-          echo "===== new-api full chain ====="
+          echo "===== new-api full chain (three-protocol relay matrix) ====="
+          # MOCK_REQUEST_LOG arms smoke.sh's per-protocol upstream-evidence
+          # reconciliation (chat + messages + responses each require a NEW
+          # mock event carrying the relayed model after their POST).
           METAPI_URL=http://127.0.0.1:4010 \
           METAPI_AUTH_TOKEN=e2e-admin-token \
           UPSTREAM_URL=http://127.0.0.1:3000 \
           UPSTREAM_USERNAME=root UPSTREAM_PASSWORD=metapi123 \
           PLATFORM=new-api PROXY_MODEL=gpt-4o-mini EXPECT_RELAY=1 \
           EXPECTED_COMPLETION_CONTENT=metapi-e2e-marker \
+          MOCK_REQUEST_LOG="$mock_log" \
           bash scripts/e2e/smoke.sh
-          python3 - "$mock_log" <<'PY'
-          import json, sys
-          with open(sys.argv[1], encoding="utf-8") as handle:
-              events = [json.loads(line) for line in handle if line.strip()]
-          expected = {"path": "/v1/chat/completions", "model": "gpt-4o-mini"}
-          if expected not in events:
-              raise SystemExit(f"mock did not receive exact relay event {expected!r}: {events!r}")
-          print("mock received exact relay model: gpt-4o-mini")
-          PY
 
           echo "===== one-api admin chain (relay explicitly unavailable) ====="
           METAPI_URL=http://127.0.0.1:4010 \

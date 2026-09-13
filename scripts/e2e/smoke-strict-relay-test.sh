@@ -118,6 +118,11 @@ print(json.dumps(dict(route, id=1)))
       echo "fake curl: completion did not use the advertised route model" >&2
       exit 2
     fi
+    # Upstream-side evidence: the deterministic mock logs every request it
+    # receives; the *_log_missing mutations deliberately drop the record.
+    if [ "${STRICT_CASE:-good}" != "chat_log_missing" ] && [ -n "${MOCK_REQUEST_LOG:-}" ]; then
+      printf '{"path":"/v1/chat/completions","model":"%s"}\n' "$requested_model" >> "$MOCK_REQUEST_LOG"
+    fi
     case "${STRICT_CASE:-good}" in
       completion_error) status=502; body='{"error":{"message":"no available channels"}}' ;;
       completion_503_error) status=503; body='{"error":{"message":"no available channels"}}' ;;
@@ -133,6 +138,38 @@ print(json.dumps(dict(route, id=1)))
     esac
     if [ "${STRICT_CASE:-good}" = "completion_transport_error" ]; then exit_code=28; fi
     ;;
+  "POST /v1/messages")
+    requested_model="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("model", ""))' "$request_body")"
+    if [ "$requested_model" != "$exposed_model" ]; then
+      echo "fake curl: messages did not use the advertised route model" >&2
+      exit 2
+    fi
+    if [ "${STRICT_CASE:-good}" != "messages_log_missing" ] && [ -n "${MOCK_REQUEST_LOG:-}" ]; then
+      printf '{"path":"/v1/messages","model":"%s"}\n' "$requested_model" >> "$MOCK_REQUEST_LOG"
+    fi
+    case "${STRICT_CASE:-good}" in
+      messages_wrong_model) body='{"id":"msg-1","type":"message","role":"assistant","model":"some-other-model","content":[{"type":"text","text":"metapi-e2e-marker"}]}' ;;
+      messages_200_error) body='{"type":"error","error":{"type":"api_error","message":"boom"}}' ;;
+      messages_empty_content) body="$(printf '{"id":"msg-1","type":"message","role":"assistant","model":"%s","content":[]}' "$requested_model")" ;;
+      *) body="$(printf '{"id":"msg-1","type":"message","role":"assistant","model":"%s","content":[{"type":"text","text":"metapi-e2e-marker"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}' "$requested_model")" ;;
+    esac
+    ;;
+  "POST /v1/responses")
+    requested_model="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("model", ""))' "$request_body")"
+    if [ "$requested_model" != "$exposed_model" ]; then
+      echo "fake curl: responses did not use the advertised route model" >&2
+      exit 2
+    fi
+    if [ "${STRICT_CASE:-good}" != "responses_log_missing" ] && [ -n "${MOCK_REQUEST_LOG:-}" ]; then
+      printf '{"path":"/v1/responses","model":"%s"}\n' "$requested_model" >> "$MOCK_REQUEST_LOG"
+    fi
+    case "${STRICT_CASE:-good}" in
+      responses_wrong_model) body='{"id":"resp-1","object":"response","model":"some-other-model","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"metapi-e2e-marker"}]}]}' ;;
+      responses_200_error) body='{"object":"response","error":{"message":"boom"}}' ;;
+      responses_empty_output) body="$(printf '{"id":"resp-1","object":"response","model":"%s","output":[]}' "$requested_model")" ;;
+      *) body="$(printf '{"id":"resp-1","object":"response","model":"%s","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"metapi-e2e-marker"}]}],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}' "$requested_model")" ;;
+    esac
+    ;;
   *) status=404; body='{"error":"fake route not found"}' ;;
 esac
 printf '%s' "$body" > "$out"
@@ -145,7 +182,9 @@ run_chain() {
   local script="$1" case_name="$2" output="$3"
   shift 3
   : > "$output.requests"
+  : > "$output.mocklog"
   env PATH="$TEST_DIR:$PATH" STRICT_CASE="$case_name" RELAY_CALL_LOG="$output.requests" \
+    MOCK_REQUEST_LOG="$output.mocklog" \
     EXPECT_RELAY=1 E2E_SKIP_RELAY=0 \
     METAPI_URL=http://127.0.0.1:4000 \
     METAPI_AUTH_TOKEN=test-admin \
@@ -215,18 +254,26 @@ assert_contains "$relaxed" '[SKIP] downstream token relay setup disabled explici
 assert_contains "$relaxed" '[SKIP] route relay setup disabled explicitly'
 assert_contains "$relaxed" '[SKIP] proxy /v1/models relay assertion disabled explicitly'
 assert_contains "$relaxed" '[SKIP] proxy /v1/chat/completions relay assertion disabled explicitly'
-assert_contains "$relaxed" '== summary: 9 passed, 0 warned, 5 skipped, 0 failed =='
+assert_contains "$relaxed" '[SKIP] proxy /v1/messages relay assertion disabled explicitly'
+assert_contains "$relaxed" '[SKIP] proxy /v1/responses relay assertion disabled explicitly'
+assert_contains "$relaxed" '== summary: 9 passed, 0 warned, 7 skipped, 0 failed =='
 if grep -Fq '[PASS] models (' "$relaxed" || grep -Fq '[PASS] proxy /v1/' "$relaxed"; then
   echo "non-strict relay assertion was mislabeled PASS" >&2
   cat "$relaxed" >&2
   exit 1
 fi
-echo "explicit non-strict mode: 5 SKIP, 0 relay PASS"
+echo "explicit non-strict mode: 7 SKIP, 0 relay PASS"
 
 assert_contains "$good" '[PASS] token reuse (e2e-smoke-token, relay policy reasserted)'
 assert_contains "$good" '[PASS] proxy /v1/models (HTTP 200, non-empty data)'
-assert_contains "$good" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present)'
-assert_contains "$good" '== summary: 14 passed, 0 warned, 0 skipped, 0 failed =='
+assert_contains "$good" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present; upstream event recorded path=/v1/chat/completions model=gpt-4o-mini)'
+assert_contains "$good" '[PASS] proxy /v1/messages (HTTP 200, message content present, model echoed; upstream event recorded path=/v1/messages model=gpt-4o-mini)'
+assert_contains "$good" '[PASS] proxy /v1/responses (HTTP 200, response output present, model echoed; upstream event recorded path=/v1/responses model=gpt-4o-mini)'
+assert_contains "$good" '== summary: 16 passed, 0 warned, 0 skipped, 0 failed =='
+test "$(grep -Fxc 'POST /v1/chat/completions' "$good.requests")" = "1"
+test "$(grep -Fxc 'POST /v1/messages' "$good.requests")" = "1"
+test "$(grep -Fxc 'POST /v1/responses' "$good.requests")" = "1"
+echo "three-protocol matrix: exact relay calls"
 # Both entrypoints consume the same normalized API outcome, including the
 # token-import path that used to have no SKIP counter at all.
 for script in "$SMOKE_SCRIPT" "$TOKEN_IMPORT_SCRIPT"; do
@@ -305,7 +352,9 @@ for case_name in proxy_models_empty proxy_models_missing_selected proxy_models_2
   if [ "$case_name" = "proxy_models_http_error" ]; then status=503; fi
   assert_contains "$output" "[FAIL] proxy /v1/models (HTTP $status, expected non-empty data containing selected model without error)"
   assert_contains "$output" '[FAIL] proxy /v1/chat/completions not attempted (selected model unavailable)'
-  if grep -Fqx 'POST /v1/chat/completions' "$output.requests"; then
+  assert_contains "$output" '[FAIL] proxy /v1/messages not attempted (selected model unavailable)'
+  assert_contains "$output" '[FAIL] proxy /v1/responses not attempted (selected model unavailable)'
+  if grep -Eqx 'POST /v1/(chat/completions|messages|responses)' "$output.requests"; then
     echo "token-import verifier issued a model POST after failed model discovery" >&2
     exit 1
   else
@@ -333,11 +382,15 @@ output="$TEST_DIR/token-good.log"
 run_chain "$TOKEN_IMPORT_SCRIPT" good "$output" PROXY_MODEL=
 assert_contains "$output" '[PASS] models (HTTP 200, selected=gpt-4o-mini)'
 assert_contains "$output" '[PASS] proxy /v1/models (HTTP 200, selected model present: gpt-4o-mini)'
-assert_contains "$output" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present)'
-assert_contains "$output" '== summary: 13 passed, 0 warned, 0 skipped, 0 failed =='
+assert_contains "$output" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present; upstream event recorded path=/v1/chat/completions model=gpt-4o-mini)'
+assert_contains "$output" '[PASS] proxy /v1/messages (HTTP 200, message content present, model echoed; upstream event recorded path=/v1/messages model=gpt-4o-mini)'
+assert_contains "$output" '[PASS] proxy /v1/responses (HTTP 200, response output present, model echoed; upstream event recorded path=/v1/responses model=gpt-4o-mini)'
+assert_contains "$output" '== summary: 15 passed, 0 warned, 0 skipped, 0 failed =='
 test "$(grep -Fxc 'GET /v1/models' "$output.requests")" = "1"
 test "$(grep -Fxc 'POST /v1/chat/completions' "$output.requests")" = "1"
-echo "token-import default model selection: 13 PASS, exact relay calls"
+test "$(grep -Fxc 'POST /v1/messages' "$output.requests")" = "1"
+test "$(grep -Fxc 'POST /v1/responses' "$output.requests")" = "1"
+echo "token-import default model selection: 15 PASS, exact relay calls"
 
 output="$TEST_DIR/token-requested-model-missing.log"
 if run_chain "$TOKEN_IMPORT_SCRIPT" good "$output" PROXY_MODEL=not-discovered; then
@@ -351,7 +404,7 @@ assert_no_relay_requests "$output"
 # a configured marker requires exact string equality, tested above.
 output="$TEST_DIR/token-parts.log"
 run_chain "$TOKEN_IMPORT_SCRIPT" completion_parts "$output" EXPECTED_COMPLETION_CONTENT=
-assert_contains "$output" '== summary: 13 passed, 0 warned, 0 skipped, 0 failed =='
+assert_contains "$output" '== summary: 15 passed, 0 warned, 0 skipped, 0 failed =='
 
 output="$TEST_DIR/token-explicit-skip.log"
 run_chain "$TOKEN_IMPORT_SCRIPT" models_empty "$output" E2E_SKIP_RELAY=1
@@ -360,7 +413,9 @@ assert_contains "$output" '[SKIP] downstream token relay setup disabled explicit
 assert_contains "$output" '[SKIP] route relay setup disabled explicitly'
 assert_contains "$output" '[SKIP] proxy /v1/models relay assertion disabled explicitly'
 assert_contains "$output" '[SKIP] proxy /v1/chat/completions relay assertion disabled explicitly'
-assert_contains "$output" '== summary: 8 passed, 0 warned, 5 skipped, 0 failed =='
+assert_contains "$output" '[SKIP] proxy /v1/messages relay assertion disabled explicitly'
+assert_contains "$output" '[SKIP] proxy /v1/responses relay assertion disabled explicitly'
+assert_contains "$output" '== summary: 8 passed, 0 warned, 7 skipped, 0 failed =='
 assert_contains "$output" '[PASS] checkin (success)'
 grep -Fqx 'GET /health' "$output.requests"
 assert_no_relay_requests "$output"
@@ -370,7 +425,7 @@ if grep -Eq '^\[PASS\] (models|token|route|proxy) ' "$output"; then
 else
   test "$?" -eq 1
 fi
-echo "token-import explicit skip: 8 management PASS, 5 SKIP, zero relay/setup calls"
+echo "token-import explicit skip: 8 management PASS, 7 SKIP, zero relay/setup calls"
 
 # Existing management checks still gate even when relay coverage is disabled.
 output="$TEST_DIR/token-skip-checkin-failed.log"
@@ -415,7 +470,79 @@ for script in "$SMOKE_SCRIPT" "$TOKEN_IMPORT_SCRIPT"; do
       exit 1
     fi
     test "$(grep -Fxc 'POST /v1/chat/completions' "$output.requests")" = "1"
-    echo "$(basename "$script"): $case_name relays the advertised model"
+    test "$(grep -Fxc 'POST /v1/messages' "$output.requests")" = "1"
+    test "$(grep -Fxc 'POST /v1/responses' "$output.requests")" = "1"
+    echo "$(basename "$script"): $case_name relays the advertised model on all three protocols"
+  done
+done
+
+# Without MOCK_REQUEST_LOG the client-side half of each protocol assertion
+# still runs, and the upstream-evidence half reports explicit countable SKIPs.
+# (CI wires the log path in the workflow; a bare run must degrade honestly.)
+output="$TEST_DIR/smoke-no-mock-log.log"
+run_smoke good "$output" MOCK_REQUEST_LOG=
+assert_contains "$output" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present)'
+assert_contains "$output" '[PASS] proxy /v1/messages (HTTP 200, message content present, model echoed)'
+assert_contains "$output" '[PASS] proxy /v1/responses (HTTP 200, response output present, model echoed)'
+assert_contains "$output" '[SKIP] proxy /v1/chat/completions upstream mock-log reconciliation (MOCK_REQUEST_LOG unset)'
+assert_contains "$output" '[SKIP] proxy /v1/messages upstream mock-log reconciliation (MOCK_REQUEST_LOG unset)'
+assert_contains "$output" '[SKIP] proxy /v1/responses upstream mock-log reconciliation (MOCK_REQUEST_LOG unset)'
+assert_contains "$output" '== summary: 16 passed, 0 warned, 3 skipped, 0 failed =='
+echo "smoke without MOCK_REQUEST_LOG: client-side PASS + 3 explicit reconciliation SKIPs"
+
+output="$TEST_DIR/token-no-mock-log.log"
+run_chain "$TOKEN_IMPORT_SCRIPT" good "$output" MOCK_REQUEST_LOG=
+assert_contains "$output" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present)'
+assert_contains "$output" '[SKIP] proxy /v1/messages upstream mock-log reconciliation (MOCK_REQUEST_LOG unset)'
+assert_contains "$output" '[SKIP] proxy /v1/responses upstream mock-log reconciliation (MOCK_REQUEST_LOG unset)'
+assert_contains "$output" '== summary: 15 passed, 0 warned, 3 skipped, 0 failed =='
+echo "token-import without MOCK_REQUEST_LOG: client-side PASS + 3 explicit reconciliation SKIPs"
+
+# --- protocol-matrix mutations: upstream-evidence reconciliation must go red ---
+# Anti-vacuity proof for the mock-log half of every protocol assertion: when
+# the deterministic upstream records no new event for the relayed model, the
+# protocol FAILs even though the client-visible response was perfect, and the
+# other two protocols still PASS on their own deltas.
+for script in "$SMOKE_SCRIPT" "$TOKEN_IMPORT_SCRIPT"; do
+  chain="$(basename "$script")"
+  for case_name in chat_log_missing messages_log_missing responses_log_missing; do
+    protocol="${case_name%%_log_missing}"
+    path="/v1/chat/completions"
+    [ "$protocol" = "messages" ] && path="/v1/messages"
+    [ "$protocol" = "responses" ] && path="/v1/responses"
+    output="$TEST_DIR/$chain-$case_name.log"
+    if run_chain "$script" "$case_name" "$output"; then
+      echo "$chain: accepted $case_name (no upstream-side event recorded)" >&2
+      cat "$output" >&2
+      exit 1
+    fi
+    assert_contains "$output" "[FAIL] proxy $path upstream evidence missing (HTTP 200, mock request log gained no new event for model gpt-4o-mini)"
+    echo "$chain: $case_name rejected (client-green but upstream-silent)"
+  done
+done
+
+# --- protocol-matrix mutations: echoed model, structured errors, empty content ---
+for script in "$SMOKE_SCRIPT" "$TOKEN_IMPORT_SCRIPT"; do
+  chain="$(basename "$script")"
+  for case_name in messages_wrong_model messages_200_error messages_empty_content; do
+    output="$TEST_DIR/$chain-$case_name.log"
+    if run_chain "$script" "$case_name" "$output"; then
+      echo "$chain: accepted $case_name" >&2
+      cat "$output" >&2
+      exit 1
+    fi
+    assert_contains "$output" '[FAIL] proxy /v1/messages (HTTP 200, expected message content with echoed model without error)'
+    echo "$chain: $case_name rejected"
+  done
+  for case_name in responses_wrong_model responses_200_error responses_empty_output; do
+    output="$TEST_DIR/$chain-$case_name.log"
+    if run_chain "$script" "$case_name" "$output"; then
+      echo "$chain: accepted $case_name" >&2
+      cat "$output" >&2
+      exit 1
+    fi
+    assert_contains "$output" '[FAIL] proxy /v1/responses (HTTP 200, expected response output with echoed model without error)'
+    echo "$chain: $case_name rejected"
   done
 done
 

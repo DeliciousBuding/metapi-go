@@ -12,6 +12,10 @@ from pathlib import Path
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_MARKER = "metapi-e2e-marker"
 
+CHAT_PATH = "/v1/chat/completions"
+MESSAGES_PATH = "/v1/messages"
+RESPONSES_PATH = "/v1/responses"
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -46,7 +50,7 @@ class Handler(BaseHTTPRequestHandler):
         self.write_json(404, {"error": {"message": "not found", "type": "mock_not_found"}})
 
     def do_POST(self):
-        if self.path != "/v1/chat/completions":
+        if self.path not in (CHAT_PATH, MESSAGES_PATH, RESPONSES_PATH):
             self.write_json(404, {"error": {"message": "not found", "type": "mock_not_found"}})
             return
         try:
@@ -63,6 +67,52 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         marker = os.environ.get("MOCK_OPENAI_MARKER", DEFAULT_MARKER)
+        if self.path == MESSAGES_PATH:
+            if payload.get("stream"):
+                # Honest refusal beats a fake stream: the relay gates assert
+                # non-streaming JSON only, and this mock must not pretend
+                # otherwise.
+                self.write_json(400, {"error": {"message": "streaming is not supported by this mock", "type": "mock_unsupported_stream"}})
+                return
+            self.write_json(
+                200,
+                {
+                    "id": "msg_metapi_e2e",
+                    "type": "message",
+                    "role": "assistant",
+                    "model": model,
+                    "content": [{"type": "text", "text": marker}],
+                    "stop_reason": "end_turn",
+                    "stop_sequence": None,
+                    "usage": {"input_tokens": 1, "output_tokens": 1},
+                },
+            )
+            return
+        if self.path == RESPONSES_PATH:
+            if payload.get("stream"):
+                self.write_json(400, {"error": {"message": "streaming is not supported by this mock", "type": "mock_unsupported_stream"}})
+                return
+            self.write_json(
+                200,
+                {
+                    "id": "resp_metapi_e2e",
+                    "object": "response",
+                    "created_at": int(time.time()),
+                    "status": "completed",
+                    "model": model,
+                    "output": [
+                        {
+                            "type": "message",
+                            "id": "msg_metapi_e2e_output",
+                            "status": "completed",
+                            "role": "assistant",
+                            "content": [{"type": "output_text", "text": marker, "annotations": []}],
+                        }
+                    ],
+                    "usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2},
+                },
+            )
+            return
         self.write_json(
             200,
             {
