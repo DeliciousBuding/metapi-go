@@ -2000,6 +2000,8 @@
         "disable": "Disable",
         "disableCheckin": "Disable check-in",
         "enableCheckin": "Enable check-in",
+        "triggerCheckin": "Check in now",
+        "checkingIn": "Checking in {{name}}…",
         "name": "Connection name",
         "site": "Site",
         "balance": "Balance",

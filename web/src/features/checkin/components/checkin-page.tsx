@@ -56,6 +56,7 @@ import {
   parseFilterValues,
 } from '../lib/checkin-schema'
 import { localDatetimeInputToUtcRfc3339 } from '../lib/checkin-time'
+import { notifyCheckinResult } from '../lib/notify-checkin-result'
 import { type CheckinLogRow, checkinLogRowSchema } from '../types'
 import { useCheckinColumns } from './checkin-columns'
 import { CheckinDetailSheet } from './checkin-detail-sheet'
@@ -288,21 +289,7 @@ export function CheckinPage() {
       const targetAccountId = row.checkin_logs.accountId
       try {
         const result = await triggerOneMutation.mutateAsync(targetAccountId)
-        if (result.status === 'success') {
-          toast.success(t('checkin.toast.success'), {
-            description: result.reward
-              ? t('checkin.toast.successReward', { reward: result.reward })
-              : undefined,
-          })
-        } else if (result.status === 'skipped' || result.skipped) {
-          toast.info(t('checkin.toast.skipped'), {
-            description: result.message || undefined,
-          })
-        } else {
-          toast.error(t('checkin.toast.failed'), {
-            description: result.message || undefined,
-          })
-        }
+        notifyCheckinResult(result, t)
       } catch {
         // http-client toasted
       }

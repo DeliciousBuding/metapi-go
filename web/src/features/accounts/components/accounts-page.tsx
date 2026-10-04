@@ -50,6 +50,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
+import { notifyCheckinResult, useCheckinAccount } from '@/features/checkin'
 import { ImportWizardDialog } from '@/features/import'
 import { parseSortingParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
@@ -297,6 +298,8 @@ export function AccountsPage() {
   // (mirrors the Power button's pendingStatusId flow).
   const checkinMutation = useToggleAccountCheckin()
   const toggleCheckinMutate = checkinMutation.mutate
+  const manualCheckinMutation = useCheckinAccount()
+  const triggerCheckin = manualCheckinMutation.mutateAsync
 
   // --- dialog state ---
   const [formOpen, setFormOpen] = useState(false)
@@ -485,6 +488,26 @@ export function AccountsPage() {
               ),
           }
         ),
+      onTriggerCheckin: (account) => {
+        const toastId = toast.loading(
+          t('accounts.columns.checkingIn', {
+            name: resolveAccountDisplayName(
+              account,
+              t('accounts.columns.fallbackApiKey'),
+              t('accounts.columns.fallbackUnnamed')
+            ),
+          })
+        )
+        void triggerCheckin(account.id)
+          .then((result) => {
+            toast.dismiss(toastId)
+            notifyCheckinResult(result, t)
+          })
+          .catch(() => {
+            toast.dismiss(toastId)
+            // The HTTP client already displays transport/business failures.
+          })
+      },
     }),
     [
       openEdit,
@@ -492,6 +515,7 @@ export function AccountsPage() {
       toggleAccountPin,
       toggleStatusMutate,
       toggleCheckinMutate,
+      triggerCheckin,
       t,
     ]
   )
@@ -510,6 +534,9 @@ export function AccountsPage() {
   const pendingCheckinId = checkinMutation.isPending
     ? (checkinMutation.variables?.id ?? null)
     : null
+  const pendingManualCheckinId = manualCheckinMutation.isPending
+    ? (manualCheckinMutation.variables ?? null)
+    : null
   const pendingPinId = pinMutation.isPending
     ? (pinMutation.variables?.id ?? null)
     : null
@@ -519,6 +546,7 @@ export function AccountsPage() {
     pendingStatusId,
     pendingCheckinId,
     pendingPinId,
+    pendingManualCheckinId,
     // Row-level probe history: ONE batch fetch per page render, rendered as
     // health bars; a failed fetch only hides the bars, never the table.
     probeHistoryQuery.data

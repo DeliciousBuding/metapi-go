@@ -79,6 +79,11 @@ vi.mock('@/components/data-table', () => ({
   }),
 }))
 
+vi.mock('@/features/checkin', () => ({
+  useCheckinAccount: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  notifyCheckinResult: vi.fn(),
+}))
+
 vi.mock('@/features/import', () => ({
   ImportWizardDialog: () => null,
 }))

@@ -77,6 +77,15 @@ vi.mock('@/features/import', () => ({
   ImportWizardDialog: () => null,
 }))
 
+vi.mock('@/features/checkin', () => ({
+  useCheckinAccount: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    variables: undefined,
+  }),
+  notifyCheckinResult: vi.fn(),
+}))
+
 vi.mock('../../api', () => ({
   useAccountsPage: () => ({
     data: {

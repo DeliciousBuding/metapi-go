@@ -23,9 +23,9 @@ import {
 } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { useAccounts } from '@/features/accounts'
-import { toast } from '@/lib/toast'
 
 import { useCheckinAccount } from '../api'
+import { notifyCheckinResult } from '../lib/notify-checkin-result'
 
 interface ManualCheckinDialogProps {
   open: boolean
@@ -50,21 +50,7 @@ export function ManualCheckinDialog({
     const accountId = Number(selectedId)
     try {
       const result = await triggerMutation.mutateAsync(accountId)
-      if (result.status === 'success') {
-        toast.success(t('checkin.toast.success'), {
-          description: result.reward
-            ? t('checkin.toast.successReward', { reward: result.reward })
-            : undefined,
-        })
-      } else if (result.status === 'skipped' || result.skipped) {
-        toast.info(t('checkin.toast.skipped'), {
-          description: result.message || undefined,
-        })
-      } else {
-        toast.error(t('checkin.toast.failed'), {
-          description: result.message || undefined,
-        })
-      }
+      notifyCheckinResult(result, t)
       onOpenChange(false)
       setSelectedId(NO_SELECTION)
     } catch {

@@ -46,6 +46,7 @@ const noopAccountActions: AccountRowActions = {
   onTogglePin: noop,
   onToggleStatus: noop,
   onToggleCheckin: noop,
+  onTriggerCheckin: noop,
   onEdit: noop,
   onDelete: noop,
 }

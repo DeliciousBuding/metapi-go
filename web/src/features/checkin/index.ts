@@ -10,7 +10,13 @@
 // Type-only re-exports use `export type` (isolatedModules-safe).
 
 // --- checkin hooks + query keys ---
-export { checkinQueryKeys, fetchCheckinLogs, useManualCheckin } from './api'
+export {
+  checkinQueryKeys,
+  fetchCheckinLogs,
+  useCheckinAccount,
+  useManualCheckin,
+} from './api'
+export { notifyCheckinResult } from './lib/notify-checkin-result'
 
 // --- URL search schema + helpers ---
 export {

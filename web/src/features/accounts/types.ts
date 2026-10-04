@@ -187,5 +187,6 @@ export interface AccountRowActions {
   onViewDetail: (account: Account) => void
   onTogglePin: (account: Account) => void
   onToggleCheckin: (account: Account) => void
+  onTriggerCheckin: (account: Account) => void
   onToggleStatus: (account: Account) => void
 }
