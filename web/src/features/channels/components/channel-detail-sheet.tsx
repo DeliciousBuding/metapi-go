@@ -221,7 +221,7 @@ export function ChannelDetailSheet({
                       ) : null}
                       {channel.cooldownReason ? (
                         <span
-                          className='text-muted-foreground line-clamp-2 font-mono text-xs break-all'
+                          className='text-muted-foreground font-mono text-xs break-all'
                           title={channel.cooldownReason}
                         >
                           {channel.cooldownReason}
