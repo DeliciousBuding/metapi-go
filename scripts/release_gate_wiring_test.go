@@ -41,6 +41,20 @@ func TestReleaseGateWiring(t *testing.T) {
 	if match == nil {
 		t.Fatal("docker-build has no nonempty multiline needs block")
 	}
+	// Required checks reported as skipped can pass branch protection. The build
+	// must run on failed/skipped needs and turn those results into a real failure
+	// before checkout or image build. A dependency edge alone is not a gate.
+	if !strings.Contains(build, "    if: ${{ always() }}\n") {
+		t.Error("docker-build must run even when a prerequisite failed or skipped")
+	}
+	guard := "NEEDS_RESULTS: ${{ toJSON(needs.*.result) }}"
+	assertion := `jq -e 'length > 0 and all(.[]; . == "success")'`
+	guardAt := strings.Index(build, guard)
+	assertionAt := strings.Index(build, assertion)
+	checkoutAt := strings.Index(build, "uses: actions/checkout@")
+	if guardAt < 0 || assertionAt < 0 || checkoutAt < 0 || guardAt >= checkoutAt || assertionAt >= checkoutAt {
+		t.Error("docker-build must fail closed on every need result before checkout/build")
+	}
 	for _, dep := range []string{"runtime-smoke-matrix", "visual-regression", "ui-screenshots"} {
 		job, ok := jobs[dep]
 		if !ok {
