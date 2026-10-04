@@ -58,6 +58,7 @@ function buildActions(): AccountRowActions {
     onViewDetail: vi.fn(),
     onTogglePin: vi.fn(),
     onToggleCheckin: vi.fn(),
+    onTriggerCheckin: vi.fn(),
     onToggleStatus: vi.fn(),
   }
 }

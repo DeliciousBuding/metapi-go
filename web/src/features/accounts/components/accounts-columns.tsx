@@ -177,18 +177,21 @@ export const AccountsRowActions = memo(function AccountsRowActions({
   pendingStatusId = null,
   pendingCheckinId = null,
   pendingPinId = null,
+  pendingManualCheckinId = null,
 }: {
   account: Account
   actions: AccountRowActions
   pendingStatusId?: number | null
   pendingCheckinId?: number | null
   pendingPinId?: number | null
+  pendingManualCheckinId?: number | null
 }) {
   const { t } = useTranslation()
   const canCheckin = account.capabilities?.canCheckin ?? false
   const isThisRowPending = pendingStatusId === account.id
   const isPinPending = pendingPinId === account.id
   const isCheckinPending = pendingCheckinId === account.id
+  const isManualCheckinPending = pendingManualCheckinId === account.id
   const toggleLabel =
     account.status === 'disabled'
       ? t('accounts.columns.enable')
@@ -264,6 +267,15 @@ export const AccountsRowActions = memo(function AccountsRowActions({
           </DropdownMenuItem>
           {canCheckin && (
             <DropdownMenuItem
+              disabled={pendingManualCheckinId !== null}
+              onClick={() => actions.onTriggerCheckin(account)}
+            >
+              {isManualCheckinPending ? <Spinner /> : <CalendarCheck />}
+              {t('accounts.columns.triggerCheckin')}
+            </DropdownMenuItem>
+          )}
+          {canCheckin && (
+            <DropdownMenuItem
               disabled={isCheckinPending}
               onClick={() => actions.onToggleCheckin(account)}
             >
@@ -300,6 +312,7 @@ export function useAccountsColumns(
   pendingStatusId: number | null = null,
   pendingCheckinId: number | null = null,
   pendingPinId: number | null = null,
+  pendingManualCheckinId: number | null = null,
   probeHistory?: ProbeHistoryMap
 ): ColumnDef<Account>[] {
   const { t } = useTranslation()
@@ -582,6 +595,7 @@ export function useAccountsColumns(
               pendingStatusId={pendingStatusId}
               pendingCheckinId={pendingCheckinId}
               pendingPinId={pendingPinId}
+              pendingManualCheckinId={pendingManualCheckinId}
             />
           )
         },
@@ -593,6 +607,7 @@ export function useAccountsColumns(
       pendingStatusId,
       pendingCheckinId,
       pendingPinId,
+      pendingManualCheckinId,
       resolveHealth,
       resolveDisplayName,
       t,

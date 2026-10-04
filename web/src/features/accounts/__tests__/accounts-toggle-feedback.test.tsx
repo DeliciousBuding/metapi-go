@@ -19,7 +19,11 @@ const testState = vi.hoisted(() => ({
   pinMutate: vi.fn(),
   checkinMutate: vi.fn(),
   statusMutate: vi.fn(),
+  manualCheckin: vi.fn(),
+  notifyCheckinResult: vi.fn(),
   toastSuccess: vi.fn(),
+  toastLoading: vi.fn(() => 'manual-checkin-toast'),
+  toastDismiss: vi.fn(),
 }))
 
 vi.mock('@/components/common/use-probe-history', () => ({
@@ -58,12 +62,23 @@ vi.mock('@/features/import', () => ({
   ImportWizardDialog: () => null,
 }))
 
+vi.mock('@/features/checkin', () => ({
+  useCheckinAccount: () => ({
+    mutateAsync: testState.manualCheckin,
+    isPending: false,
+    variables: undefined,
+  }),
+  notifyCheckinResult: testState.notifyCheckinResult,
+}))
+
 vi.mock('@/lib/toast', () => ({
   toast: {
     success: (...args: unknown[]) => testState.toastSuccess(...args),
     error: vi.fn(),
     warning: vi.fn(),
     info: vi.fn(),
+    loading: testState.toastLoading,
+    dismiss: testState.toastDismiss,
   },
 }))
 
@@ -125,7 +140,11 @@ beforeEach(() => {
   testState.pinMutate.mockReset()
   testState.checkinMutate.mockReset()
   testState.statusMutate.mockReset()
+  testState.manualCheckin.mockReset()
+  testState.notifyCheckinResult.mockReset()
   testState.toastSuccess.mockReset()
+  testState.toastLoading.mockClear()
+  testState.toastDismiss.mockReset()
   // Default stubs: succeed synchronously and invoke the caller's callback.
   testState.pinMutate.mockImplementation(
     (_variables: unknown, options?: { onSuccess?: () => void }) => {
@@ -202,5 +221,44 @@ describe('AccountsPage toggle feedback', () => {
     testState.rowActions?.onTogglePin(makeAccount({}))
 
     expect(testState.toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it('runs only the chosen account and presents the real manual outcome', async () => {
+    const result = { success: true, status: 'success', reward: '+5' }
+    testState.manualCheckin.mockResolvedValue(result)
+    render(<AccountsPage />)
+
+    await waitFor(() => expect(testState.rowActions).not.toBeNull())
+    testState.rowActions?.onTriggerCheckin(
+      makeAccount({ checkinEnabled: false })
+    )
+
+    await waitFor(() => {
+      expect(testState.manualCheckin).toHaveBeenCalledWith(9)
+      expect(testState.notifyCheckinResult).toHaveBeenCalledWith(
+        result,
+        expect.any(Function)
+      )
+    })
+    expect(testState.toastLoading).toHaveBeenCalledWith(
+      expect.stringContaining('alpha-account')
+    )
+    expect(testState.toastDismiss).toHaveBeenCalledWith('manual-checkin-toast')
+    expect(testState.checkinMutate).not.toHaveBeenCalled()
+  })
+
+  it('dismisses the pending toast when the request fails without claiming success', async () => {
+    testState.manualCheckin.mockRejectedValue(new Error('upstream unavailable'))
+    render(<AccountsPage />)
+
+    await waitFor(() => expect(testState.rowActions).not.toBeNull())
+    testState.rowActions?.onTriggerCheckin(makeAccount({}))
+
+    await waitFor(() =>
+      expect(testState.toastDismiss).toHaveBeenCalledWith(
+        'manual-checkin-toast'
+      )
+    )
+    expect(testState.notifyCheckinResult).not.toHaveBeenCalled()
   })
 })

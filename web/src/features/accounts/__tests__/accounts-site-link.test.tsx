@@ -20,6 +20,7 @@ const noopActions: AccountRowActions = {
   onViewDetail: () => {},
   onTogglePin: () => {},
   onToggleCheckin: () => {},
+  onTriggerCheckin: () => {},
   onToggleStatus: () => {},
 }
 

@@ -2000,6 +2000,8 @@
         "disable": "停用",
         "disableCheckin": "关闭签到",
         "enableCheckin": "开启签到",
+        "triggerCheckin": "立即签到",
+        "checkingIn": "正在为 {{name}} 签到…",
         "name": "连接名称",
         "site": "站点",
         "balance": "余额",

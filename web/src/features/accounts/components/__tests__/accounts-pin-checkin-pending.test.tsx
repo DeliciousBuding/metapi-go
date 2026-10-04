@@ -74,6 +74,7 @@ function buildActions(): AccountRowActions {
     onViewDetail: vi.fn(),
     onTogglePin: vi.fn(),
     onToggleCheckin: vi.fn(),
+    onTriggerCheckin: vi.fn(),
     onToggleStatus: vi.fn(),
   }
 }
@@ -169,6 +170,76 @@ describe('AccountsRowActions pin/check-in pending', () => {
     expect(
       screen.getByRole('menuitem', { name: /check-in/ })
     ).not.toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('runs manual check-in from the account menu without toggling its schedule', async () => {
+    const actions = buildActions()
+    render(<AccountsRowActions account={baseAccount} actions={actions} />)
+
+    await openRowMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Check in now' }))
+    expect(actions.onTriggerCheckin).toHaveBeenCalledWith(baseAccount)
+    expect(actions.onToggleCheckin).not.toHaveBeenCalled()
+  })
+
+  it('shows this account pending without disabling the separate schedule toggle', async () => {
+    render(
+      <AccountsRowActions
+        account={baseAccount}
+        actions={buildActions()}
+        pendingManualCheckinId={42}
+      />
+    )
+
+    await openRowMenu()
+    const manualItem = screen
+      .getByText('Check in now')
+      .closest('[data-slot=dropdown-menu-item]')
+    if (!(manualItem instanceof HTMLElement)) {
+      throw new Error('manual check-in item did not render')
+    }
+    expect(manualItem).toHaveAttribute('aria-disabled', 'true')
+    expect(within(manualItem).getByRole('status')).toBeInTheDocument()
+    expect(
+      screen.getByRole('menuitem', { name: 'Enable check-in' })
+    ).not.toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('prevents a second manual check-in while another account is pending', async () => {
+    const actions = buildActions()
+    render(
+      <AccountsRowActions
+        account={baseAccount}
+        actions={actions}
+        pendingManualCheckinId={99}
+      />
+    )
+
+    await openRowMenu()
+    const manualItem = screen.getByRole('menuitem', { name: 'Check in now' })
+    expect(manualItem).toHaveAttribute('aria-disabled', 'true')
+    expect(within(manualItem).queryByRole('status')).not.toBeInTheDocument()
+    fireEvent.click(manualItem)
+    expect(actions.onTriggerCheckin).not.toHaveBeenCalled()
+  })
+
+  it('does not offer manual check-in when the platform lacks the capability', async () => {
+    const unsupported = baseAccount.capabilities
+    if (!unsupported) throw new Error('fixture requires check-in capabilities')
+    render(
+      <AccountsRowActions
+        account={{
+          ...baseAccount,
+          capabilities: { ...unsupported, canCheckin: false },
+        }}
+        actions={buildActions()}
+      />
+    )
+
+    await openRowMenu()
+    expect(
+      screen.queryByRole('menuitem', { name: 'Check in now' })
+    ).not.toBeInTheDocument()
   })
 
   it('does not fire the pin toggle when the pending item is clicked', async () => {
