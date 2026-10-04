@@ -41,6 +41,13 @@ sites = [
     (2, 'Sub2API 备用', 'https://sub-backup.example.com', 'sub2api', 'active', 0, 1),
     (3, 'CLIProxy 实验', 'https://cli-lab.example.com', 'cliproxyapi', 'disabled', 0, 2),
 ]
+# More than one default page: the mobile evidence must exercise scrolling to
+# the footer and page navigation, not just the first two cards above the fold.
+sites.extend(
+    (sid, f'Demo 站点 {sid:02d}', f'https://site-{sid:02d}.example.com',
+     'new-api', 'active', 0, sid)
+    for sid in range(4, 25)
+)
 for sid, name, url, platform, status, pinned, order in sites:
     c.execute("INSERT INTO sites (id,name,url,external_checkin_url,platform,proxy_url,use_system_proxy,custom_headers,custom_headers_override_request_headers,browser_ua,cf_clearance,resin_enabled,use_utls,status,is_pinned,sort_order,global_weight,api_key,max_concurrency,post_refresh_probe_enabled,created_at,updated_at,tags) VALUES (?,?,?,'',?,'',0,'',0,'','',0,0,?,?,?,1,'',0,0,?,?,'')",
               (sid, name, url, platform, status, pinned, order, ts(NOW - timedelta(days=30)), ts(NOW)))
@@ -54,6 +61,11 @@ accounts = [
     (5, 3, 'lab-trial', 'sess_live_c1', 5.00, 0.00, 0, 'disabled', 0),
     (6, 1, 'partner-readonly', 'sess_live_a3', 18.90, 2.10, 0, 'active', 0),
 ]
+accounts.extend(
+    (aid, ((aid - 7) % 21) + 4, f'demo-account-{aid:02d}', f'sess_demo_{aid:02d}',
+     float(15 + aid), float(aid % 7), 0, 'active', 0)
+    for aid in range(7, 31)
+)
 for aid, sid, uname, tok, bal, used, quota, status, pinned in accounts:
     c.execute("INSERT INTO accounts (id,site_id,username,access_token,api_token,balance,balance_used,quota,unit_cost,value_score,status,is_pinned,sort_order,checkin_enabled,last_checkin_at,last_balance_refresh,oauth_provider,oauth_account_key,oauth_project_id,extra_config,created_at,updated_at,tags,remark) VALUES (?,?,?,?,'',?,?,?,NULL,?,?,?,?,1,?,?,  '','','','',?,?,'','')",
               (aid, sid, uname, tok, bal, used, quota, round(bal/max(used,0.01),2), status, pinned, 0,

@@ -63,6 +63,7 @@ function NavButton({
   return (
     <Button
       variant='outline'
+      data-touch-target='square'
       className={className}
       onClick={onClick}
       disabled={disabled}
@@ -92,6 +93,7 @@ export function DataTablePagination<TData>({ table }: { table: Table<TData> }) {
     // `overflow-clip` keeps a long page-number run from stretching the footer;
     // the 1px clip margin leaves the buttons' focus ring intact at the edge.
     <div
+      data-slot='data-table-pagination'
       className='@container/pagination flex min-w-0 items-center justify-end overflow-clip'
       style={{ overflowClipMargin: 1 }}
     >
@@ -113,6 +115,7 @@ export function DataTablePagination<TData>({ table }: { table: Table<TData> }) {
             onValueChange={(value) => table.setPageSize(Number(value))}
           >
             <SelectTrigger
+              data-touch-target
               aria-label={t('Rows per page')}
               className='text-foreground h-8 w-16 font-medium tabular-nums sm:w-18'
             >
@@ -157,6 +160,7 @@ export function DataTablePagination<TData>({ table }: { table: Table<TData> }) {
                 </span>
               ) : (
                 <Button
+                  data-touch-target='square'
                   variant={currentPage === pageNumber ? 'default' : 'outline'}
                   className={cn(
                     'h-8 min-w-8 px-2 tabular-nums',

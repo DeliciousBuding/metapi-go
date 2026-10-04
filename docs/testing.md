@@ -16,6 +16,14 @@
 | Frontend acceptance       | [`../web/scripts/acceptance-e2e.mjs`](../web/scripts/acceptance-e2e.mjs) (+ [`acceptance-probe-header-quirk.mjs`](../web/scripts/acceptance-probe-header-quirk.mjs) for the fresh-site accounts-page race) | Real-browser user journeys (Playwright) against a live metapi + real upstream; operator-gated, not a PR check |
 | Operator runtime evidence | `scripts/e2e/*.sh` and focused staging procedures                                    | Compatibility that requires real credentials, topology, or upstream behavior |
 
+`test-e2e` runs real upstream service containers against a deterministic mock
+model, not real-model inference. Its New API service is pinned to an immutable
+release image so this required gate tests a reproducible login-to-relay chain;
+passing it does not establish compatibility with New API `latest`. Changes to
+the upstream's authentication API require a separate adapter migration and
+current-version acceptance, not silently changing this fixture or weakening the
+login/relay assertions (tracked in [#1383](https://github.com/DeliciousBuding/metapi-go/issues/1383)).
+
 ## From historical bugs to user-task regressions
 
 Keep the maintenance trail in the existing GitHub issue / PR, not a second task ledger:

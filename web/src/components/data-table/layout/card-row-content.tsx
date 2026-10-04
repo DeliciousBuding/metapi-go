@@ -20,6 +20,8 @@
 
 import type { Cell, Row } from '@tanstack/react-table'
 
+import { cn } from '@/lib/utils'
+
 import { getCellLabel, renderCellContent } from './card-cell-utils'
 
 type CardCells<TData> = {
@@ -55,7 +57,8 @@ function cardCells<TData>(row: Row<TData>, compact: boolean): CardCells<TData> {
         cell !== title &&
         cell !== badge &&
         cell !== actions &&
-        !cell.column.columnDef.meta?.mobileHidden
+        !cell.column.columnDef.meta?.mobileHidden &&
+        !cell.column.columnDef.meta?.mobileHideWhen?.(row.original)
     )
   )
 
@@ -85,6 +88,7 @@ function inMobileOrder<TData>(cells: Cell<TData, unknown>[]) {
  */
 function CompactContent<TData>({ row }: { row: Row<TData> }) {
   const { actions, badge, fields, title } = cardCells(row, true)
+  const actionsInHeader = actions?.column.columnDef.meta?.mobileActionsInHeader
 
   return (
     <>
@@ -94,7 +98,10 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
             {renderCellContent(title)}
           </div>
         )}
-        {badge && <div className='flex-none'>{renderCellContent(badge)}</div>}
+        <div className='flex shrink-0 items-center gap-1.5'>
+          {badge && <div>{renderCellContent(badge)}</div>}
+          {actionsInHeader && actions && renderCellContent(actions)}
+        </div>
       </div>
 
       {fields.length > 0 && (
@@ -103,7 +110,13 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
             const label = getCellLabel(cell)
 
             return (
-              <div key={cell.id} className='min-w-0 flex-1 overflow-hidden'>
+              <div
+                key={cell.id}
+                className={cn(
+                  'min-w-0 flex-1 overflow-hidden',
+                  cell.column.columnDef.meta?.mobileFullWidth && 'col-span-2'
+                )}
+              >
                 {label && (
                   <div className='text-muted-foreground text-3xs mb-0.5 leading-none select-none'>
                     {label}
@@ -118,7 +131,7 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
         </div>
       )}
 
-      {actions && (
+      {actions && !actionsInHeader && (
         <div className='mt-1 -mb-0.5 flex justify-end'>
           {renderCellContent(actions)}
         </div>

@@ -154,7 +154,7 @@ function useResolveDisplayName() {
 // ---------------------------------------------------------------------------
 
 /**
- * Inline enable/disable button + the existing "more actions" dropdown.
+ * Desktop inline enable/disable button + the existing "more actions" dropdown.
  *
  * The inline `Power` button surfaces the highest-frequency row action (status
  * toggle) as a single click, BEFORE the `MoreHorizontal` dropdown trigger. The
@@ -210,6 +210,7 @@ export const AccountsRowActions = memo(function AccountsRowActions({
                 size='icon-sm'
                 disabled={isThisRowPending}
                 aria-label={toggleLabel}
+                className='max-[640px]:hidden'
                 data-hit-area
                 onClick={() => actions.onToggleStatus(account)}
               />
@@ -345,13 +346,7 @@ export function useAccountsColumns(
                 <span className='max-w-55 truncate font-medium'>
                   {resolveDisplayName(account)}
                 </span>
-                <Badge
-                  variant={
-                    account.credentialMode === 'session'
-                      ? 'default'
-                      : 'secondary'
-                  }
-                >
+                <Badge variant='secondary'>
                   {account.credentialMode === 'session'
                     ? t('accounts.columns.credentialModeSession')
                     : t('accounts.columns.credentialModeApiKey')}
@@ -541,9 +536,13 @@ export function useAccountsColumns(
                 <TooltipTrigger
                   render={
                     <Button
-                      variant={account.checkinEnabled ? 'default' : 'outline'}
+                      variant={account.checkinEnabled ? 'ghost' : 'outline'}
                       size='xs'
-                      className='rounded-4xl px-2.5 font-medium'
+                      className={cn(
+                        'rounded-4xl px-2.5 font-medium',
+                        account.checkinEnabled &&
+                          'bg-success/10 text-success hover:bg-success/20 hover:text-success'
+                      )}
                       aria-label={actionLabel}
                       data-hit-area
                       disabled={isPending}

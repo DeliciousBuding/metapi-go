@@ -5,8 +5,8 @@
 // than they add clarity. Per-row content is `CardRowContent`, shared with the
 // desktop card grid so the two cannot drift.
 //
-// A row is clickable only when the table has a selection column, and only on its
-// bare surface — see `isInteractiveTarget`.
+// Selection stays on the explicit checkbox. A tap on the card surface must not
+// select a row (or expose bulk actions) at the end of a touch scroll.
 import type { Table } from '@tanstack/react-table'
 import { Database } from 'lucide-react'
 import * as React from 'react'
@@ -85,21 +85,6 @@ function FallbackListSkeleton() {
   )
 }
 
-/**
- * Clicking a row toggles its selection, except when the click landed on
- * something that already does something: a button, a link, an input, the
- * selection checkbox itself, or an open row menu. Without this, opening a row's
- * action menu would also select the row.
- */
-const INTERACTIVE_SELECTOR =
-  'button, a, input, [data-slot=checkbox], [data-slot=dropdown-menu-content], [role=menuitem]'
-
-function isInteractiveTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof Element && target.closest(INTERACTIVE_SELECTOR) !== null
-  )
-}
-
 export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
   const {
     table,
@@ -156,20 +141,13 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
         return (
           <div
             key={row.id}
+            data-mobile-card-row
             data-state={isSelected ? 'selected' : undefined}
             className='[background-color:var(--data-table-card-bg,var(--table-row))] px-3 py-2.5 transition-colors data-[state=selected]:bg-(--table-row-selected-bg)'
-            onClick={
-              selectCell
-                ? (event) => {
-                    if (isInteractiveTarget(event.target)) return
-                    row.toggleSelected()
-                  }
-                : undefined
-            }
           >
             <div className='flex items-start gap-1.5'>
               {selectCell && (
-                <div className='shrink-0 pt-0.5'>
+                <div className='flex size-7 shrink-0 items-center justify-center [&_[data-slot=checkbox]]:after:-inset-3'>
                   {renderCellContent(selectCell)}
                 </div>
               )}
