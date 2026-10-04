@@ -337,7 +337,10 @@ jobs:
     timeout-minutes: 35
     services:
       new-api:
-        image: calciumion/new-api:latest
+        # v1.0.0-rc.39 (2026-09-20): released before the last green E2E run;
+        # the later upstream release removed the dashboard PAT endpoint used
+        # by this chain. Pin this fixture until the adapter is migrated.
+        image: calciumion/new-api@sha256:219b0cecfd7d1aaeacc1d1d0f4bf51615b64260ac1fe73b89937efa469a6d57f
         ports:
           - 3000:3000
       one-api:
