@@ -1274,6 +1274,8 @@ jobs:
           cd web
           OUT_DIR="${RUNNER_TEMP}/ui-screenshots" BASE_URL=http://127.0.0.1:4099 \
             AUTH_TOKEN=dev-admin-token-123 EXPECTED_DATA_PROFILE=seeded bun run screenshots
+          BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 \
+            MOBILE_LIST_SHOTS_DIR="${RUNNER_TEMP}/ui-screenshots/mobile-list" bun run ui:mobile-list
       - name: Upload screenshot evidence
         uses: actions/upload-artifact@v7
         with:

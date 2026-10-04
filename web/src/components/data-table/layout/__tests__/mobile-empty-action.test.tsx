@@ -8,11 +8,20 @@ import {
   getPaginationRowModel,
   useReactTable,
   type ColumnDef,
+  type RowSelectionState,
 } from '@tanstack/react-table'
-import { cleanup, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
+import { Checkbox } from '@/components/ui/checkbox'
 
 import { DataTablePage } from '../data-table-page'
 
@@ -79,5 +88,53 @@ describe('DataTablePage emptyAction on mobile', () => {
     expect(
       screen.getByRole('button', { name: 'Create widget' })
     ).toBeInTheDocument()
+  })
+})
+
+describe('mobile card selection', () => {
+  it('selects only from the checkbox, not a tap on the card surface', async () => {
+    setMediaQuery(true)
+
+    function Harness() {
+      const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+      const table = useReactTable({
+        data: [{ id: 1, name: 'alpha' }],
+        columns: [
+          {
+            id: 'select',
+            cell: ({ row }) => (
+              <Checkbox
+                checked={row.getIsSelected()}
+                onCheckedChange={(checked) =>
+                  row.toggleSelected(Boolean(checked))
+                }
+                aria-label='Select alpha'
+              />
+            ),
+          },
+          ...probeColumns,
+        ] as ColumnDef<ProbeRow, unknown>[],
+        enableRowSelection: true,
+        state: { rowSelection },
+        onRowSelectionChange: setRowSelection,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+      })
+      return <DataTablePage table={table} toolbarProps={null} />
+    }
+
+    const { container } = render(<Harness />)
+    const card = screen.getByText('alpha').closest('[data-mobile-card-row]')
+    const checkbox = screen.getByRole('checkbox', { name: 'Select alpha' })
+    if (!card) throw new Error('mobile card did not render')
+    fireEvent.click(card)
+    expect(checkbox).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(checkbox)
+    await waitFor(() =>
+      expect(
+        screen.getByRole('checkbox', { name: 'Select alpha' })
+      ).toHaveAttribute('aria-checked', 'true')
+    )
+    expect(container.querySelector('[data-state=selected]')).not.toBeNull()
   })
 })
