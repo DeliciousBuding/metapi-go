@@ -78,13 +78,22 @@
       height: max(100%, 40px);
       translate: -50% -50%;
     }
+    /* Real, non-overlapping targets for adjacent filters, pager controls and
+       menu actions; a pseudo-element here would cover its neighbour. */
+    [data-touch-target],
+    [data-slot='dropdown-menu-item'] {
+      min-height: 40px;
+    }
+    [data-touch-target='square'] {
+      min-width: 40px;
+    }
   }
 
   /*
    * Horizontal scroll affordance for overflowing tables: a 20px alpha fade
    * on the edge(s) where more content exists. Alpha-only (black →
    * transparent), so the OKLCH token system remains the single source of
-   * color — same structural exception as the mobile card-list mask. The
+   * color. The
    * data attributes are driven by useScrollFade (hooks/use-scroll-fade.ts).
    */
   [data-scroll-fade][data-fade-right='true'] {

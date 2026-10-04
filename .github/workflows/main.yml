@@ -337,7 +337,10 @@ jobs:
     timeout-minutes: 35
     services:
       new-api:
-        image: calciumion/new-api:latest
+        # v1.0.0-rc.39 (2026-09-20): released before the last green E2E run;
+        # the later upstream release removed the dashboard PAT endpoint used
+        # by this chain. Pin this fixture until the adapter is migrated.
+        image: calciumion/new-api@sha256:219b0cecfd7d1aaeacc1d1d0f4bf51615b64260ac1fe73b89937efa469a6d57f
         ports:
           - 3000:3000
       one-api:
@@ -989,8 +992,11 @@ jobs:
           echo "runtime smoke OK: $bin ($(uname -s)/$(uname -m))"
 
   # Build + smoke the image on every run (this is also a required check on PRs).
-  # It does not push; docker-push publishes the same image via shared cache.
+  # This required check runs even when an upstream job fails or skips, then
+  # fails closed on every prerequisite result. A skipped required check counts
+  # as successful in branch protection, so needs alone cannot gate a merge.
   docker-build:
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs:
@@ -1006,7 +1012,15 @@ jobs:
       - test-pg
       - build
       - test-e2e
+      - runtime-smoke-matrix
+      - visual-regression
+      - ui-screenshots
     steps:
+      - name: Require successful prerequisites
+        env:
+          NEEDS_RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          printf '%s' "$NEEDS_RESULTS" | jq -e 'length > 0 and all(.[]; . == "success")'
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
       - name: Build Docker image
@@ -1274,6 +1288,8 @@ jobs:
           cd web
           OUT_DIR="${RUNNER_TEMP}/ui-screenshots" BASE_URL=http://127.0.0.1:4099 \
             AUTH_TOKEN=dev-admin-token-123 EXPECTED_DATA_PROFILE=seeded bun run screenshots
+          BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 \
+            MOBILE_LIST_SHOTS_DIR="${RUNNER_TEMP}/ui-screenshots/mobile-list" bun run ui:mobile-list
       - name: Upload screenshot evidence
         uses: actions/upload-artifact@v7
         with:
