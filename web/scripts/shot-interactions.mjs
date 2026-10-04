@@ -18,6 +18,7 @@
 //
 // Usage:
 //   BASE_URL=http://127.0.0.1:4000 OUT_DIR=<dir> node scripts/shot-interactions.mjs
+//   SCENARIO=chrome-theme-customizer ...  # recheck one interaction
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -28,6 +29,7 @@ import { loginSession } from './session-auth.mjs'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4000'
 const THEME = process.env.THEME ?? 'light'
+const ONLY_SCENARIO = process.env.SCENARIO
 // Portable default: OS temp dir (same convention as screenshot-scan.mjs).
 // Override OUT_DIR to keep screenshots in a stable location.
 const OUT_BASE =
@@ -191,16 +193,24 @@ const SCENARIOS = [
   },
   {
     name: 'chrome-theme-customizer',
-    run: async (page) => {
+    run: async (page, { isMobile }) => {
       await page.goto(BASE_URL + '/dashboard', {
         waitUntil: 'domcontentloaded',
       })
       await settle(page)
+      // On mobile the controls live in the sidebar footer, not the header.
+      if (isMobile) {
+        await page.locator('header [data-sidebar=trigger]').click()
+      }
       await page
         .getByRole('button', { name: /外观|Appearance/i })
         .first()
         .click()
-      await page.waitForTimeout(500)
+      await page.locator('[data-slot=popover-content]').waitFor({
+        state: 'visible',
+        timeout: 6000,
+      })
+      await page.waitForTimeout(200)
     },
   },
   {
@@ -281,7 +291,15 @@ const browser = await chromium.launch({
   args: ['--no-proxy-server'],
 })
 
-for (const scenario of SCENARIOS) {
+const selectedScenarios = ONLY_SCENARIO
+  ? SCENARIOS.filter((scenario) => scenario.name === ONLY_SCENARIO)
+  : SCENARIOS
+if (selectedScenarios.length === 0) {
+  await browser.close()
+  throw new Error(`Unknown interaction scenario: ${ONLY_SCENARIO}`)
+}
+
+for (const scenario of selectedScenarios) {
   const targets =
     scenario.viewport === 'desktop'
       ? [['desktop', { width: 1440, height: 900 }, false]]
@@ -297,7 +315,7 @@ for (const scenario of SCENARIOS) {
     const context = await newPage(browser, viewport, isMobile)
     const page = await context.newPage()
     try {
-      await scenario.run(page)
+      await scenario.run(page, { isMobile })
       await page.screenshot({ path: `${dir}/${scenario.name}.png` })
       results.push(`OK   ${vpName}/${scenario.name}`)
     } catch (error) {
@@ -317,3 +335,4 @@ console.log(results.join('\n'))
 console.log(
   `done: ${results.filter((r) => r.startsWith('OK')).length}/${results.length}`
 )
+if (results.some((r) => r.startsWith('FAIL'))) process.exitCode = 1
