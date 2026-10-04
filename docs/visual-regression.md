@@ -89,6 +89,9 @@ combobox role 且在 FormControl 内会丢 data-slot、mobile 列表无 tbody）
   基线：`web/visual-baselines/*.png`（入库提交）。
 - CI 里 `updateSnapshots: none`——基线缺失或漂移即红；失败时
   `visual-regression-diffs` artifact 上传 diff（actual/baseline/diff 三件套）。
+- `docker-build` 必须等待 `ui-screenshots`、`visual-regression` 与跨系统的
+  `runtime-smoke-matrix` 成功；任一失败都会阻止镜像发布和 tag Release。
+  截图采集成功只证明覆盖与可供复核，仍需人工检查视觉与交互细节。
 
 ### 本地运行与基线更新
 
