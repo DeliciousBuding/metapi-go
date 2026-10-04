@@ -1,6 +1,6 @@
 # UI screenshot evidence + golden visual regression
 
-**Last updated**: 2026-08-29
+**Last updated**: 2026-10-04
 
 Metapi 有两个协作的截图管道，都跑在 CI 的 `frontend` job 产物（`web-dist`
 artifact）之上，模式与 a11y job 一致：Go server 嵌入 dist、fresh sqlite
@@ -32,10 +32,13 @@ runtime DB、`AUTH_TOKEN=dev-admin-token-123` 经 POST /api/auth/login 换取 Ht
   `ui-screenshots` 上传（保留 7 天）。
 - 任意路由采集失败 → 脚本非零退出 → job 红（证据管道关门）。
 - CI 在采集前用 `scripts/e2e/seed-demo-data.py` 向全新运行时库注入确定性
-  演示数据（站点/账号/路由/渠道/密钥/代理日志/签到/用量聚合），并以
+  演示数据（24 个站点、30 个账号，另含路由/渠道/密钥/代理日志/签到/用量聚合），并以
   `EXPECTED_DATA_PROFILE=seeded` 核对注入生效——证据截图展示的是「活的」
   UI 而不是整页空态。注意这与 §2 golden 基线**故意相反**：golden 仍用空库
   （日期无关的布局契约），演示数据只进证据管道。
+- 同一批演示数据随后由 `bun run ui:mobile-list` 在 375px 真浏览器中验证
+  站点/账号第 20 张卡与分页可滚达、跨页内容变化、卡面空白不触发选择而复选框
+  可选择；页脚截图写入 `ui-screenshots/mobile-list/`，用于人工复核。
 
 可裁剪 knob（默认全量，CI 不传即为全量）：
 
@@ -70,6 +73,7 @@ OUT_DIR=<输出目录> node scripts/shot-interactions.mjs
 26 个场景（桌面+移动双视口），逐场景失败收集不中断。选择器教训已写进
 脚本头注释（告警铃 aria-label 是动态「待关注告警」、Select trigger 是
 combobox role 且在 FormControl 内会丢 data-slot、mobile 列表无 tbody）。
+此脚本仍是本地探索工具，不能替代 CI 中带断言的 `ui:mobile-list`。
 
 ## 2. 黄金基线回归（job: `visual-regression`）
 
@@ -85,6 +89,10 @@ combobox role 且在 FormControl 内会丢 data-slot、mobile 列表无 tbody）
   基线：`web/visual-baselines/*.png`（入库提交）。
 - CI 里 `updateSnapshots: none`——基线缺失或漂移即红；失败时
   `visual-regression-diffs` artifact 上传 diff（actual/baseline/diff 三件套）。
+- `docker-build` 必须等待 `ui-screenshots`、`visual-regression` 与跨系统的
+  `runtime-smoke-matrix`，并在依赖失败或跳过时自身明确失败（GitHub 不把
+  skipped required check 当红灯）；阻止 PR 合并、镜像发布和 tag Release。
+  截图采集成功只证明覆盖与可供复核，仍需人工检查视觉与交互细节。
 
 ### 本地运行与基线更新
 

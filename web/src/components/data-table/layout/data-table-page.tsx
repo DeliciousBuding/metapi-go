@@ -168,7 +168,7 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
     return errorBanner
   }
 
-  const fixedHeight = props.fixedHeight !== false
+  const fixedHeight = props.fixedHeight !== false && !showMobile
 
   // An empty table hugs its content: without rows the `h-full`/`flex-1`
   // geometry would stretch the bordered shell across the whole viewport and
@@ -192,27 +192,18 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
         )}
 
         {showMobile ? (
-          // Bottom-safe scroll edge: the mask fades the final stretch of the
-          // list instead of hard-cutting rows at the container boundary (a 2px
-          // sliver of the last row's badge used to read as a stray coloured
-          // bar). The gradient is an ALPHA ramp only — it carries no colour, so
-          // the OKLCH token system stays the only source of colour (see the
-          // no-gradients test allowlist note).
-          <div
-            className={cn(
-              !isEmpty &&
-                'min-h-0 flex-1 [mask-image:linear-gradient(to_bottom,black_calc(100%_-_2.5rem),transparent)] pb-10'
-            )}
-          >
-            <MobileCardList
-              table={props.table}
-              isLoading={props.isLoading}
-              emptyTitle={props.emptyTitle}
-              emptyDescription={props.emptyDescription}
-              emptyAction={props.emptyAction}
-              emptyIcon={props.emptyIcon}
-            />
-          </div>
+          // Phone cards grow with their rows and scroll with the page. Keeping
+          // the desktop's fixed-height flex region here clipped later cards
+          // behind the pagination footer, leaving no scrollable way to reach
+          // them.
+          <MobileCardList
+            table={props.table}
+            isLoading={props.isLoading}
+            emptyTitle={props.emptyTitle}
+            emptyDescription={props.emptyDescription}
+            emptyAction={props.emptyAction}
+            emptyIcon={props.emptyIcon}
+          />
         ) : (
           <DataTableView
             table={props.table}

@@ -153,6 +153,7 @@ export function useSitesColumns(
       size: 280,
       meta: {
         label: t('sites.columns.url'),
+        mobileFullWidth: true,
         mobileOrder: 10,
       },
       header: ({ column }) => (
@@ -263,6 +264,7 @@ export function useSitesColumns(
       size: 120,
       meta: {
         label: t('sites.columns.globalWeight'),
+        mobileHideWhen: (site) => (site.globalWeight ?? 1) === 1,
         mobileOrder: 40,
       },
       header: ({ column }) => (
@@ -367,7 +369,11 @@ export function useSitesColumns(
       enableSorting: false,
       enableHiding: false,
       enableResizing: false,
-      meta: { mobileHidden: false, mobileOrder: 5 },
+      meta: {
+        mobileHidden: false,
+        mobileOrder: 5,
+        mobileActionsInHeader: true,
+      },
       header: () => (
         <span className='text-muted-foreground text-xs'>
           {t('sites.columns.actions')}

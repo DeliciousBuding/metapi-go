@@ -527,6 +527,7 @@ export function AccountsPage() {
   const { table } = useDataTable({
     data: accounts,
     columns,
+    getRowId: (account) => String(account.id),
     enableRowSelection: true,
     // Server-side pagination + filtering (#1108): URL pagination drives a
     // page query and the true fleet total drives the pager; q/status/site
@@ -563,14 +564,14 @@ export function AccountsPage() {
   }
 
   return (
-    <div className='flex h-full flex-col gap-3 p-4'>
+    <div className='flex min-h-full flex-col gap-3 p-4 min-[641px]:h-full'>
       {/* flex-wrap + gap-3: on narrow viewports the action button wraps
           below the title block instead of squeezing the description column
           (aligns with the checkin/routes page-header pattern). */}
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
           <h1 className='page-title'>{t('accounts.page.title')}</h1>
-          <p className='text-muted-foreground text-sm'>
+          <p className='text-muted-foreground hidden text-sm min-[641px]:block'>
             {t('accounts.page.description')}
           </p>
         </div>

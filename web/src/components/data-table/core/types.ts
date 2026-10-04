@@ -23,6 +23,12 @@ declare module '@tanstack/react-table' {
     mobileBadge?: boolean
     /** Card/mobile: hide this column's cell in card content. */
     mobileHidden?: boolean
+    /** Card/mobile: give a long value (such as an upstream URL) both grid columns. */
+    mobileFullWidth?: boolean
+    /** Card/mobile: omit an uninformative default value, while retaining exceptions. */
+    mobileHideWhen?: (row: TData) => boolean
+    /** Card/mobile: put a compact action menu beside the status badge. */
+    mobileActionsInHeader?: boolean
     /** Card/mobile: sort order within the card's field list (ascending; null/undefined sinks to bottom). */
     mobileOrder?: number
   }
