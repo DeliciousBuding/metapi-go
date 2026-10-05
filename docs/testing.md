@@ -24,6 +24,12 @@ the upstream's authentication API require a separate adapter migration and
 current-version acceptance, not silently changing this fixture or weakening the
 login/relay assertions (tracked in [#1383](https://github.com/DeliciousBuding/metapi-go/issues/1383)).
 
+The same job also starts the production server binary against a copy of the
+legacy TypeScript SQLite fixture and verifies readiness, preserved site data,
+and additive-field defaults through the admin API. This is process-level SQLite
+upgrade coverage; it does not establish PostgreSQL process-startup compatibility
+or real-model relay behavior.
+
 ## From historical bugs to user-task regressions
 
 Keep the maintenance trail in the existing GitHub issue / PR, not a second task ledger:
