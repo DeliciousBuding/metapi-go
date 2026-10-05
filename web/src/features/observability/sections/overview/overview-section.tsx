@@ -106,7 +106,7 @@ export function OverviewSection() {
     <div className='flex flex-col gap-4'>
       <Card>
         <CardHeader>
-          <CardTitle className='flex items-center gap-2 text-sm font-medium'>
+          <CardTitle className='flex items-center gap-2'>
             <Flame className='size-4' />
             {t('observability.overview.slowRequests.title')}
           </CardTitle>
@@ -129,7 +129,7 @@ export function OverviewSection() {
 
       <Card>
         <CardHeader>
-          <CardTitle className='flex items-center gap-2 text-sm font-medium'>
+          <CardTitle className='flex items-center gap-2'>
             <BarChart3 className='size-4' />
             {t('observability.overview.heatmap.title')}
           </CardTitle>

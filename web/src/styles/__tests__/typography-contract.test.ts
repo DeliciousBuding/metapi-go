@@ -75,8 +75,8 @@ describe('typography design contract', () => {
   it('keeps the two page-title roles readable as density changes', () => {
     const styles = read('src/styles/index.css')
     for (const [role, size] of [
-      ['page-title', 'text-xl'],
-      ['page-title-overview', 'text-2xl'],
+      ['page-title', 'text-2xl'],
+      ['page-title-overview', 'text-3xl'],
     ]) {
       const body = styles.match(
         new RegExp(`@utility ${role}\\s*\\{([^}]+)\\}`)
@@ -85,7 +85,7 @@ describe('typography design contract', () => {
       for (const token of [
         size,
         'font-semibold',
-        'leading-snug',
+        'leading-tight',
         'text-balance',
       ]) {
         expect(body).toContain(token)

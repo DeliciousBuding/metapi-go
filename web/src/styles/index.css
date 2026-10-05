@@ -429,9 +429,9 @@
  * and font family. Error pages (route error boundary, 404, layout error
  * boundary) use `page-title-overview` for their display heading. */
 @utility page-title {
-  @apply text-xl leading-snug font-semibold tracking-tight text-balance;
+  @apply text-2xl leading-tight font-semibold tracking-tight text-balance;
 }
 
 @utility page-title-overview {
-  @apply text-2xl leading-snug font-semibold tracking-tight text-balance;
+  @apply text-3xl leading-tight font-semibold tracking-tight text-balance;
 }

@@ -528,8 +528,9 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
     close(val('cobalt', 'dark', 'primary'), 0.71, 0.15, 230)
     close(val('ember', 'dark', 'primary'), 0.71, 0.15, 40)
     close(val('plum', 'dark', 'primary'), 0.71, 0.15, 314)
-    // Sidebar active-item ink: solved for AA on the 12% primary tint.
-    close(val('default', 'light', 'sidebar-accent-foreground'), 0.53, 0.06, 262)
+    // Sidebar active-item ink: distinct from the muted nav text while still
+    // clearing AA on the 12% primary tint.
+    close(val('default', 'light', 'sidebar-accent-foreground'), 0.45, 0.1, 262)
     // No preset reintroduces a per-mode sidebar-accent-foreground override
     // in light mode: the bridge owns that slot (dead declarations would be
     // silently shadowed by its higher specificity).

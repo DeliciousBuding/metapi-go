@@ -1,7 +1,7 @@
 // SidebarMenuButton aria-current contract: the active nav item must announce
 // itself as the current page (aria-current="page") so assistive tech users can
 // locate "you are here" without re-reading the whole menu; inactive items
-// stay silent. Callers keep passing isActive only — no nav-group change.
+// stay silent. The navigation Link bridge separately forwards these props.
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'

@@ -64,7 +64,7 @@ export function AppHeader({ onSearchClick }: AppHeaderProps) {
         aria-label={metapiIdentity.name}
       >
         <BrandLogo className='size-6 shrink-0' />
-        <span className='truncate text-sm font-semibold tracking-tight max-[480px]:hidden'>
+        <span className='truncate text-base font-semibold tracking-tight max-[480px]:hidden'>
           {metapiIdentity.name}
         </span>
       </Link>

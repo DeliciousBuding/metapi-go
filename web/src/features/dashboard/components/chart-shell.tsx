@@ -51,7 +51,7 @@ export function ChartShell({
     <Card className={cn('flex flex-col', className)}>
       <CardHeader className='flex flex-row items-start justify-between gap-2'>
         <div className='space-y-1'>
-          <CardTitle className='text-sm font-medium'>{title}</CardTitle>
+          <CardTitle>{title}</CardTitle>
           {description ? (
             <CardDescription className='text-xs'>{description}</CardDescription>
           ) : null}

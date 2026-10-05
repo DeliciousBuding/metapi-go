@@ -520,7 +520,7 @@ export function OverviewSection() {
 
       <Card>
         <CardHeader>
-          <CardTitle className='flex items-center gap-2 text-sm font-medium'>
+          <CardTitle className='flex items-center gap-2'>
             <Activity className='size-4' />
             {t('dashboard.overview.scheduledTasks.title')}
           </CardTitle>

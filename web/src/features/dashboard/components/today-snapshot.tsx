@@ -184,9 +184,7 @@ export function TodaySnapshotStrip() {
   return (
     <Card>
       <CardHeader className='pb-2'>
-        <CardTitle className='text-sm font-medium'>
-          {t('dashboard.overview.snapshot.title')}
-        </CardTitle>
+        <CardTitle>{t('dashboard.overview.snapshot.title')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className='grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6'>
