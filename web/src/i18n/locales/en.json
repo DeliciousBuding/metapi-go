@@ -104,6 +104,8 @@
       }
     },
     "common": {
+      "showMore": "Show full text",
+      "showLess": "Show less",
       "skipToMain": "Skip to main content",
       "cancel": "Cancel",
       "save": "Save",

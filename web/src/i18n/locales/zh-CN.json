@@ -104,6 +104,8 @@
       }
     },
     "common": {
+      "showMore": "展开全文",
+      "showLess": "收起",
       "skipToMain": "跳转到主要内容",
       "cancel": "取消",
       "save": "保存",

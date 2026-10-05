@@ -12,6 +12,8 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
+import { ExpandableText } from './expandable-text'
+
 type DetailFieldProps = {
   label: string
   children: ReactNode
@@ -29,16 +31,30 @@ export function DetailField({
   full = false,
   className,
 }: DetailFieldProps) {
+  const plainText = typeof children === 'string' ? children : null
+  const longText =
+    plainText !== null &&
+    (plainText.length > 96 || plainText.split('\n').length > 2)
   return (
     <div
-      className={cn('flex min-w-0 flex-col', full && 'col-span-2', className)}
+      className={cn(
+        'flex min-w-0 flex-col gap-0.5',
+        (full || longText) && 'col-span-2',
+        className
+      )}
     >
-      <dt className='text-muted-foreground text-xs leading-snug'>{label}</dt>
+      <dt className='text-muted-foreground text-xs leading-snug font-medium'>
+        {label}
+      </dt>
       <dd
-        className='text-foreground min-w-0 leading-snug [overflow-wrap:anywhere]'
+        className='text-foreground min-w-0 text-sm leading-normal [overflow-wrap:anywhere]'
         title={title}
       >
-        {children}
+        {longText && plainText !== null ? (
+          <ExpandableText text={plainText} />
+        ) : (
+          children
+        )}
       </dd>
     </div>
   )

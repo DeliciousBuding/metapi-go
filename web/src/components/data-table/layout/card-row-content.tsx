@@ -118,11 +118,11 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
                 )}
               >
                 {label && (
-                  <div className='text-muted-foreground mb-0.5 text-xs leading-snug select-none'>
+                  <div className='text-muted-foreground mb-0.5 text-xs leading-snug font-medium select-none'>
                     {label}
                   </div>
                 )}
-                <div className='min-w-0 overflow-hidden text-sm leading-snug'>
+                <div className='text-foreground min-w-0 overflow-hidden text-sm leading-normal [overflow-wrap:anywhere]'>
                   {renderCellContent(cell) ?? '-'}
                 </div>
               </div>
@@ -169,7 +169,7 @@ function CondensedContent<TData>({ row }: { row: Row<TData> }) {
             <span className='text-muted-foreground shrink-0 text-xs leading-snug font-medium select-none'>
               {label}
             </span>
-            <div className='flex min-w-0 flex-1 items-center justify-end overflow-hidden text-sm leading-snug'>
+            <div className='text-foreground flex min-w-0 flex-1 items-center justify-end overflow-hidden text-right text-sm leading-normal [overflow-wrap:anywhere]'>
               {renderCellContent(cell) ?? '-'}
             </div>
           </div>
