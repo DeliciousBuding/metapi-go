@@ -132,6 +132,8 @@ The common reading roles are page title (24px; overview 30px), section/card titl
 
 Tables inherit the 14px body scale and tabular numerals. Cells and descendants must not be force-sized by the table primitive: explicit metadata, badge and secondary-label sizes belong to their components. Default control height is 36px (small 32px, large 40px); the default radius token is 10px. User-selected density, radius and font axes remain independent.
 
+Detail sheets keep 12px medium labels above 14px normal-leading values. Plain text longer than 96 characters or spanning more than two source lines spans the detail grid, shows two lines at rest and exposes a keyboard-focusable expand/collapse control; the full text remains in the DOM for selection and assistive technology. Diagnostic copy uses the same disclosure, not a hover-only tooltip. Mobile card labels and values keep the same roles and wrap long values rather than clipping plain text.
+
 Route editing presents matching and account selection first; advanced display/routing fields stay in a disclosure that preserves drafts. Invalid advanced fields must reveal and use the shared form validation focus. Filtering accounts limits bulk selection to visible matches without clearing hidden selections. Rebuild success uses a compact summary with optional metrics; partial failures, observation failures and retry actions remain visible.
 
 ### 3.2 Bundled CJK font trade-off

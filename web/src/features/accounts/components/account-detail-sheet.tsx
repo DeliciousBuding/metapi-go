@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DetailField } from '@/components/common/detail-field'
+import { ExpandableText } from '@/components/common/expandable-text'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -219,11 +220,11 @@ export function AccountDetailSheet({
           </dl>
 
           {healthReason && (
-            <div className='bg-muted/40 rounded-lg border p-2 text-xs'>
-              <div className='text-muted-foreground text-2xs'>
+            <div className='bg-muted/40 rounded-lg border p-3 text-sm'>
+              <div className='text-muted-foreground mb-1 text-xs font-medium'>
                 {t('accounts.detail.healthReason')}
               </div>
-              <p className='break-words'>{healthReason}</p>
+              <ExpandableText text={healthReason} className='leading-relaxed' />
             </div>
           )}
 

@@ -403,8 +403,12 @@ export function useAccountsColumns(
                   page columns, #985). */}
               <SafeExternalLink
                 url={site.url ?? ''}
-                className='max-w-40 text-sm'
-                title={site.url ?? undefined}
+                className='max-w-40 text-sm max-[640px]:max-w-full max-[640px]:[&>span]:line-clamp-2 max-[640px]:[&>span]:break-words max-[640px]:[&>span]:whitespace-normal'
+                title={
+                  site.name && site.url
+                    ? `${site.name} — ${site.url}`
+                    : site.name || site.url || undefined
+                }
               >
                 {site.name || site.url || `#${site.id}`}
               </SafeExternalLink>

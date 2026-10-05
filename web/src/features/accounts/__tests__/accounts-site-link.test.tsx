@@ -64,6 +64,28 @@ describe('accounts site cell quick jump (#1108)', () => {
     expect(screen.getByText('Primary site')).toBeInTheDocument()
   })
 
+  it('preserves long site identity and destination while allowing two mobile lines', () => {
+    const name =
+      'Long integration site identity that would be clipped in one line'
+    const { container } = render(
+      <SiteCell
+        account={makeAccount({
+          site: {
+            id: 7,
+            name,
+            url: 'https://primary.example',
+            platform: 'new-api',
+            status: 'active',
+          },
+        })}
+      />
+    )
+    const link = container.querySelector('a')
+    expect(link).toHaveAttribute('title', `${name} — https://primary.example`)
+    expect(link).toHaveClass('max-[640px]:[&>span]:line-clamp-2')
+    expect(screen.getByText(name)).toBeInTheDocument()
+  })
+
   it('degrades to plain text when the stored URL is not a valid http(s) endpoint', () => {
     const { container } = render(
       <SiteCell
