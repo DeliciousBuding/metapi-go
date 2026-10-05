@@ -107,26 +107,33 @@ func TestSessionSlidingExpiry(t *testing.T) {
 }
 
 func TestSessionCreatePurgesExpiredRows(t *testing.T) {
-	// TTL 2s, not 1s: expires_at is stored at SECOND precision (RFC3339 without
-	// fractional part), so a row's real lifetime can be up to 1s shorter than
-	// the TTL depending on where inside the second it was created. With a 1s
-	// TTL the window between Create #2 and Count could cross a whole-second
-	// boundary and count the brand-new row as already expired (observed as a
-	// CI red on a docs-only PR: "Count = 0, want 1"). A 2s TTL leaves a full
-	// second of margin, which no scheduler stall between two local SQL
-	// statements can eat.
-	sm := newTestSessionManager(t, 2*time.Second)
+	// Exercise the GC boundary with a stored expired row, not a wall-clock
+	// sleep. A 2.1s wait raced second-precision timestamps and clock changes
+	// under concurrent -race packages, yielding both 0 and 2 rows on healthy
+	// builds. A one-hour TTL keeps the newly issued row unambiguously live.
+	sm := newTestSessionManager(t, time.Hour)
 	ctx := context.Background()
 
-	if _, _, err := sm.Create(ctx, "", ""); err != nil {
+	_, old, err := sm.Create(ctx, "", "")
+	if err != nil {
 		t.Fatalf("Create #1: %v", err)
 	}
-	time.Sleep(2100 * time.Millisecond)
+	if _, err := sm.db.ExecContext(ctx,
+		`UPDATE admin_sessions SET expires_at = ? WHERE token_hash = ?`,
+		formatSessionTime(time.Unix(1, 0)), old.TokenHash); err != nil {
+		t.Fatalf("expire first row: %v", err)
+	}
 	if _, _, err := sm.Create(ctx, "", ""); err != nil {
 		t.Fatalf("Create #2: %v", err)
 	}
-	if n := sm.Count(ctx); n != 1 {
-		t.Fatalf("Count = %d, want 1 (expired row purged on login)", n)
+	// Count filters expired sessions, so it would report 1 even if Create
+	// forgot to delete the stale row. Check the physical table instead.
+	var rows int
+	if err := sm.db.QueryRowxContext(ctx, `SELECT COUNT(*) FROM admin_sessions`).Scan(&rows); err != nil {
+		t.Fatalf("count stored sessions: %v", err)
+	}
+	if rows != 1 {
+		t.Fatalf("stored rows = %d, want 1 (expired row purged on login)", rows)
 	}
 }
 
