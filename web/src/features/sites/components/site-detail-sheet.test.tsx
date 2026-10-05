@@ -46,6 +46,23 @@ describe('SiteDetailSheet guided-flow links', () => {
   })
 })
 
+describe('SiteDetailSheet long URL disclosure', () => {
+  it('keeps a long safe URL linked while allowing the full value to expand', () => {
+    const url = `https://primary.example/${'long-path/'.repeat(14)}`
+    render(
+      <SiteDetailSheet site={{ ...site, url }} open onOpenChange={vi.fn()} />
+    )
+
+    const link = screen.getByRole('link', { name: new RegExp(url) })
+    expect(link).toHaveAttribute('href', url)
+    const toggle = screen.getByRole('button', { name: 'Show full text' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(link).toHaveTextContent(url)
+  })
+})
+
 describe('SiteDetailSheet balance & subscription section', () => {
   it('is hidden when the backend returned no balance or subscription data', () => {
     render(<SiteDetailSheet site={site} open onOpenChange={vi.fn()} />)
@@ -120,8 +137,34 @@ describe('SiteDetailSheet endpoint status', () => {
 
     expect(screen.getByText('Cooling down')).toBeInTheDocument()
     expect(screen.getByText(/in 30 minutes/)).toBeInTheDocument()
-    // The failure reason renders with the full text available via title.
-    expect(screen.getByTitle('upstream 503')).toBeInTheDocument()
+    expect(screen.getByText('upstream 503')).toBeInTheDocument()
+  })
+
+  it('keeps long endpoint failures readable behind a keyboard-operable disclosure', () => {
+    const reason = 'upstream timeout: '.repeat(12).trim()
+    render(
+      <SiteDetailSheet
+        site={{
+          ...site,
+          apiEndpoints: [
+            { url: 'https://api.example/v1', lastFailureReason: reason },
+          ],
+        }}
+        open
+        onOpenChange={vi.fn()}
+      />
+    )
+
+    const toggle = screen.getByRole('button', { name: 'Show full text' })
+    const bodyId = toggle.getAttribute('aria-controls')
+    expect(bodyId).not.toBeNull()
+    const body = document.querySelector(`[id="${bodyId}"]`)
+    if (!body) throw new Error('expanded endpoint reason is missing')
+    expect(body.textContent).toBe(reason)
+    expect(body).toHaveClass('line-clamp-2')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(body).not.toHaveClass('line-clamp-2')
   })
 
   it('hides stale cooldowns and renders no status rows for healthy endpoints', () => {

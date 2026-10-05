@@ -45,4 +45,32 @@ describe('long detail text', () => {
     expect(screen.getByText(/first line/)).toHaveClass('line-clamp-2')
     expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'false')
   })
+
+  it('keeps rich long content linked while exposing a touch-sized disclosure', () => {
+    const value = `https://example.com/${'very-long-path/'.repeat(12)}`
+    render(
+      <ExpandableText text={value}>
+        <a href={value}>
+          <span className='break-all'>{value}</span>
+        </a>
+      </ExpandableText>
+    )
+
+    expect(screen.getByRole('link')).toHaveAttribute('href', value)
+    expect(screen.getByRole('link').parentElement).toHaveClass('max-h-[2lh]')
+    const toggle = screen.getByRole('button', {
+      name: /Show full text|展开全文/,
+    })
+    expect(toggle).toHaveClass('min-h-10')
+    expect(toggle).toHaveClass('min-w-10')
+    expect(toggle).toHaveClass('mt-1.5')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: /Show less|收起/ })).toHaveClass(
+      'min-w-10',
+      'min-h-10'
+    )
+    expect(screen.getByRole('link')).toHaveTextContent(value)
+  })
 })

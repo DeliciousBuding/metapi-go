@@ -19,6 +19,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { DetailField } from '@/components/common/detail-field'
+import { ExpandableText } from '@/components/common/expandable-text'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -220,12 +221,10 @@ export function ChannelDetailSheet({
                         </span>
                       ) : null}
                       {channel.cooldownReason ? (
-                        <span
-                          className='text-muted-foreground font-mono text-xs break-all'
-                          title={channel.cooldownReason}
-                        >
-                          {channel.cooldownReason}
-                        </span>
+                        <ExpandableText
+                          text={channel.cooldownReason}
+                          className='text-muted-foreground font-mono text-sm leading-normal break-all'
+                        />
                       ) : null}
                     </span>
                   ) : (
@@ -254,9 +253,10 @@ export function ChannelDetailSheet({
                 <div className='text-muted-foreground text-2xs'>
                   {t('channels.detail.routePattern')}
                 </div>
-                <code className='block font-mono text-xs break-all'>
-                  {models}
-                </code>
+                <ExpandableText
+                  text={models}
+                  className='font-mono text-sm leading-normal break-all'
+                />
               </div>
             </section>
           </div>

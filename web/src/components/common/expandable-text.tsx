@@ -1,10 +1,12 @@
-import { useId, useState } from 'react'
+import { type ReactNode, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
 
 type ExpandableTextProps = {
   text: string
+  /** Preserve rich content such as a safe external link while clamping it. */
+  children?: ReactNode
   className?: string
   /** Short values remain selectable without an unnecessary disclosure control. */
   threshold?: number
@@ -12,6 +14,7 @@ type ExpandableTextProps = {
 
 export function ExpandableText({
   text,
+  children,
   className,
   threshold = 96,
 }: ExpandableTextProps) {
@@ -27,15 +30,16 @@ export function ExpandableText({
         className={cn(
           'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]',
           canCollapse && !expanded && 'line-clamp-2',
+          canCollapse && !expanded && children && 'max-h-[2lh] overflow-hidden',
           className
         )}
       >
-        {text}
+        {children ?? text}
       </div>
       {canCollapse && (
         <button
           type='button'
-          className='text-primary hover:text-primary/80 focus-visible:ring-focus-ring mt-1 rounded-sm text-xs leading-snug font-medium underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:outline-none'
+          className='text-primary hover:text-primary/80 focus-visible:ring-focus-ring mt-1.5 inline-flex min-h-10 min-w-10 items-center justify-center rounded-sm px-1 text-xs leading-snug font-medium underline underline-offset-2 focus-visible:ring-2 focus-visible:outline-none'
           aria-controls={id}
           aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}

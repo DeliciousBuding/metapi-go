@@ -138,7 +138,7 @@ export function useSitesColumns(
             )}
             <SafeExternalLink
               url={site.url}
-              className='max-w-55 font-medium'
+              className='max-w-55 font-medium max-[640px]:max-w-full max-[640px]:[&>span]:line-clamp-2 max-[640px]:[&>span]:break-words max-[640px]:[&>span]:whitespace-normal'
               title={site.name}
             >
               {site.name}
