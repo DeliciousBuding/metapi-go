@@ -19,7 +19,7 @@
 | Brand color     | **Indigo family** — light primary `oklch(0.565 0.19 262)` (white text), dark primary `oklch(0.71 0.155 262)` (dark ink); every constrained lightness is solved against its WCAG floor (see §2.3; exact values live in `theme.css`, never hard-code hex)                                                                                                                                          |
 | Logo mark       | Transparent solid-color badge `web/public/logo.svg` — rounded-square `#3b5bdb` field with white **π** glyph (real U+03C0, serif fallback, not hand-drawn strokes); `favicon.svg` = standalone solid blue π for small sizes; both served from the embedded SPA root (`router.go` root-file whitelist, `image/svg+xml`) |
 | Fonts           | **Public Sans + Noto Sans SC**, optional **Lora** (locally embedded via `@fontsource-variable`) — no Google Fonts CDN                                                                                                                                                                                                                            |
-| High-res        | Content layout axis `data-theme-content-layout` (`full`/`centered`); centered clamps to `--max-content-width` (1280px) at ≥1280px viewport; utilities `max-w-container` (1280px) / `max-w-container-lg` (1536px)                                                                                                      |
+| High-res        | Content layout axis `data-theme-content-layout` (`full`/`centered`); full remains fluid until 1920px, then caps the content scan width at 1920px; centered clamps to `--max-content-width` (1280px) at ≥1280px. The sidebar and header remain viewport-wide. Utilities `max-w-container` (1280px) / `max-w-container-lg` (1536px) serve individual pages. |
 
 **Principles**
 
@@ -27,6 +27,7 @@
 2. **Token-first** — no new hard-coded hex in pages; use OKLCH CSS custom properties.
 3. **Dual theme parity** — light and dark share the same semantic token names (`.dark` class on `<html>`).
 4. **Dense but breathing** — 14px body text by default, component-owned secondary text, clear table rhythm, and semibold page titles. The compact density axis scales text separately.
+   Mobile card labels use `text-xs`, values `text-sm`; detail-sheet labels use `text-xs`. Keep list/header text compact, but show the complete value in the detail layer (wrapping URLs and diagnostic reasons rather than silently ellipsizing them). All sizes follow the density axis.
 5. **One glass system** — shell/modal/dropdown only; never blur table rows.
 6. **One primitive set** — UI starts from `web/src/components/ui/**` and nothing hand-rolls a parallel control. This used to be a migration in progress; it is now gated — `web/scripts/check-form-control.mjs` classifies every `<FormControl>` site and fails on a native control or on a shape it cannot read.
 7. **Console, not marketing** — pill nav, tabular nums, restrained card hover (no lift).

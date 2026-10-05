@@ -176,9 +176,13 @@ export function AccountDetailSheet({
             </DetailField>
             <DetailField
               label={t('accounts.detail.lastBalanceRefresh')}
-              title={account.lastBalanceRefresh || undefined}
+              title={
+                formatAbsoluteDateTime(account.lastBalanceRefresh, locale) ||
+                undefined
+              }
             >
-              {account.lastBalanceRefresh || '—'}
+              {formatAbsoluteDateTime(account.lastBalanceRefresh, locale) ||
+                '—'}
             </DetailField>
             <DetailField label={t('accounts.detail.quota')}>
               {(account.quota ?? 0) > 0 ? (

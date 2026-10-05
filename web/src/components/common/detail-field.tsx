@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 type DetailFieldProps = {
   label: string
   children: ReactNode
-  /** Full-text tooltip for values that truncate (pass the raw value). */
+  /** Optional native tooltip for values with a useful plain-text equivalent. */
   title?: string
   /** Span both columns of a two-column detail grid. */
   full?: boolean
@@ -33,8 +33,11 @@ export function DetailField({
     <div
       className={cn('flex min-w-0 flex-col', full && 'col-span-2', className)}
     >
-      <dt className='text-muted-foreground text-2xs'>{label}</dt>
-      <dd className='truncate' title={title}>
+      <dt className='text-muted-foreground text-xs leading-snug'>{label}</dt>
+      <dd
+        className='text-foreground min-w-0 leading-snug [overflow-wrap:anywhere]'
+        title={title}
+      >
         {children}
       </dd>
     </div>

@@ -22,6 +22,9 @@
 // Env knobs:
 //   THEMES         light,dark (default) — comma-separated theme list
 //   VIEWPORTS      desktop,mobile (default) — trim the sweep to a subset
+//   DESKTOP_WIDTH  desktop viewport width (default 1440; e.g. 2560 for HiDPI QA)
+//   DESKTOP_HEIGHT desktop viewport height (default 900)
+//   DESKTOP_SAMPLE comma-separated desktop route subset (default: all routes)
 //   MOBILE_SAMPLE  comma-separated mobile route subset (default: all mobile
 //                  routes; only consulted when mobile is in VIEWPORTS)
 //   DPR            device pixel ratio (default 2)
@@ -54,6 +57,20 @@ const VIEWPORTS = (process.env.VIEWPORTS ?? 'desktop,mobile')
   .split(',')
   .map((v) => v.trim())
   .filter(Boolean)
+const DESKTOP_WIDTH = Number(process.env.DESKTOP_WIDTH ?? '1440')
+const DESKTOP_HEIGHT = Number(process.env.DESKTOP_HEIGHT ?? '900')
+const DESKTOP_SAMPLE = (process.env.DESKTOP_SAMPLE ?? '')
+  .split(',')
+  .map((route) => route.trim())
+  .filter(Boolean)
+if (
+  !Number.isInteger(DESKTOP_WIDTH) ||
+  !Number.isInteger(DESKTOP_HEIGHT) ||
+  DESKTOP_WIDTH < 375 ||
+  DESKTOP_HEIGHT < 375
+) {
+  throw new Error('Desktop viewport dimensions must be integers >= 375')
+}
 const MOBILE_SAMPLE = (process.env.MOBILE_SAMPLE ?? '')
   .split(',')
   .map((r) => r.trim())
@@ -102,6 +119,10 @@ const DESKTOP_ROUTES = [
   '/settings/operations/update-center',
   '/settings/operations/danger-zone',
 ]
+
+if (DESKTOP_SAMPLE.some((route) => !DESKTOP_ROUTES.includes(route))) {
+  throw new Error('DESKTOP_SAMPLE contains an unknown route')
+}
 
 const MOBILE_ROUTES = [
   '/',
@@ -289,7 +310,7 @@ async function runCapture() {
 
         // Sign-in page (no auth token) — the first thing an operator sees.
         const authless = await browser.newContext({
-          viewport: { width: 1440, height: 900 },
+          viewport: { width: DESKTOP_WIDTH, height: DESKTOP_HEIGHT },
           deviceScaleFactor: DEVICE_SCALE,
           locale: 'zh-CN',
         })
@@ -307,13 +328,16 @@ async function runCapture() {
 
         // Desktop authenticated routes.
         const desktop = await browser.newContext({
-          viewport: { width: 1440, height: 900 },
+          viewport: { width: DESKTOP_WIDTH, height: DESKTOP_HEIGHT },
           deviceScaleFactor: DEVICE_SCALE,
           locale: 'zh-CN',
         })
         await seedAuth(desktop, theme)
         await assertAuthPageReachable(desktop)
-        for (const route of DESKTOP_ROUTES) {
+        const routes = DESKTOP_SAMPLE.length
+          ? DESKTOP_ROUTES.filter((route) => DESKTOP_SAMPLE.includes(route))
+          : DESKTOP_ROUTES
+        for (const route of routes) {
           await capture(
             desktop,
             route,

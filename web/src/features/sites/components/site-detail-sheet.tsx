@@ -96,7 +96,9 @@ export function SiteDetailSheet({
       <SheetContent side='right' className='sm:max-w-md'>
         <SheetHeader>
           <SheetTitle className='pr-6'>{site.name}</SheetTitle>
-          <SheetDescription className='truncate'>{site.url}</SheetDescription>
+          <SheetDescription className='truncate' title={site.url}>
+            {site.url}
+          </SheetDescription>
         </SheetHeader>
 
         <div className='flex flex-col gap-4 overflow-y-auto px-4 pb-4'>
@@ -130,13 +132,13 @@ export function SiteDetailSheet({
                     href={siteURL}
                     target='_blank'
                     rel='noopener noreferrer'
-                    className='text-primary inline-flex max-w-full items-center gap-1 hover:underline'
+                    className='text-primary inline-flex max-w-full min-w-0 items-start gap-1 hover:underline'
                   >
-                    <span className='truncate'>{site.url}</span>
+                    <span className='min-w-0 break-all'>{site.url}</span>
                     <ExternalLinkIcon className='size-4 shrink-0' />
                   </a>
                 ) : (
-                  <span className='block max-w-full truncate'>{site.url}</span>
+                  <span className='block max-w-full break-all'>{site.url}</span>
                 )}
               </DetailField>
               {site.externalCheckinUrl ? (
@@ -151,15 +153,15 @@ export function SiteDetailSheet({
                       href={site.externalCheckinUrl}
                       target='_blank'
                       rel='noopener noreferrer'
-                      className='text-primary inline-flex max-w-full items-center gap-1 hover:underline'
+                      className='text-primary inline-flex max-w-full min-w-0 items-start gap-1 hover:underline'
                     >
-                      <span className='truncate'>
+                      <span className='min-w-0 break-all'>
                         {site.externalCheckinUrl}
                       </span>
                       <ExternalLinkIcon className='size-4 shrink-0' />
                     </a>
                   ) : (
-                    <span className='text-muted-foreground truncate'>
+                    <span className='text-muted-foreground break-all'>
                       {site.externalCheckinUrl}
                     </span>
                   )}
@@ -365,7 +367,7 @@ function EndpointRow({
             ? t('sites.detail.disabled')
             : t('sites.detail.enabled')}
         </Badge>
-        <span className='truncate'>{endpoint.url}</span>
+        <span className='min-w-0 break-all'>{endpoint.url}</span>
       </div>
       {cooldownActive && (
         <div className='flex items-center gap-1.5'>
@@ -382,7 +384,10 @@ function EndpointRow({
         </div>
       )}
       {failureReason && (
-        <p className='text-destructive truncate text-xs' title={failureReason}>
+        <p
+          className='text-destructive text-xs break-words'
+          title={failureReason}
+        >
           {t('sites.detail.endpointFailureReason')}: {failureReason}
         </p>
       )}

@@ -545,6 +545,18 @@
 }
 
 /* ── Content layout ───────────────────────────────────────────────────── */
+/* The fluid console still needs a practical scan width on ultrawide screens:
+ * beyond 1920px, table columns and dashboard KPIs drift too far apart for a
+ * single glance. Keep the full layout fluid below that threshold; the
+ * explicitly centered reading mode remains the narrower 1280px option. */
+@media (min-width: 1920px) {
+  [data-theme-content-layout='full'] [data-slot='sidebar-inset'] > * {
+    max-width: 1920px;
+    margin-inline: auto;
+    width: 100%;
+  }
+}
+
 /* `centered` clamps inset content to a comfortable reading width on large screens.
  * Targets every direct child of <SidebarInset> so router outlet wrappers and
  * page content alike are centered. Only kicks in once the viewport exceeds the
