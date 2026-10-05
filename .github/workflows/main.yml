@@ -585,6 +585,7 @@ jobs:
           # ambiguous restart proves nothing while still going green.
           metapi_bin="$RUNNER_TEMP/metapi-e2e-server"
           go build -o "$metapi_bin" ./cmd/server
+          bash scripts/e2e/legacy-upgrade-process.sh "$metapi_bin"
           # Hoisted out of the env prefix so the restart below reuses the SAME
           # persisted data dir instead of a fresh one.
           data_dir="$(mktemp -d)/data"
