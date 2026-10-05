@@ -158,6 +158,30 @@ describe('ChannelDetailSheet cooldown action', () => {
   })
 })
 
+describe('ChannelDetailSheet long cooldown reason', () => {
+  it('expands diagnostic text without relying on the native title tooltip', () => {
+    const reason = 'upstream returned a transient gateway timeout; '.repeat(5)
+    renderSheet(
+      makeChannel({
+        status: 'cooldown',
+        cooldownReasonCode: 'upstream_timeout',
+        cooldownReason: reason,
+      })
+    )
+
+    const toggle = screen.getByRole('button', { name: 'Show full text' })
+    const bodyId = toggle.getAttribute('aria-controls')
+    expect(bodyId).not.toBeNull()
+    const body = document.querySelector(`[id="${bodyId}"]`)
+    if (!body) throw new Error('expanded cooldown reason is missing')
+    expect(body.textContent).toBe(reason)
+    expect(body).toHaveClass('line-clamp-2')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(body).not.toHaveClass('line-clamp-2')
+  })
+})
+
 describe('ChannelDetailSheet edit-route action', () => {
   it('renders the edit-route button in the footer for a healthy channel', () => {
     renderSheet(makeChannel({ status: 'enabled' }))

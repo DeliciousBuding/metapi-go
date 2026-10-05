@@ -376,7 +376,7 @@ export function useAccountsColumns(
               {account.tags && account.tags.length > 0 && (
                 <div className='flex flex-wrap gap-1'>
                   {account.tags.slice(0, 3).map((tag) => (
-                    <Badge key={tag} variant='outline' className='text-3xs'>
+                    <Badge key={tag} variant='outline' className='text-2xs'>
                       {tag}
                     </Badge>
                   ))}

@@ -161,4 +161,14 @@ describe('sites list external links', () => {
       mobileOrder: 10,
     })
   })
+
+  it('wraps long site names to two lines on phone cards without changing desktop truncation', () => {
+    renderLinkCells(makeSite({ name: `Production ${'gateway '.repeat(12)}` }))
+
+    const nameLink = screen.getByRole('link', { name: /Production/ })
+    expect(nameLink).toHaveClass('max-w-55')
+    expect(nameLink).toHaveClass('max-[640px]:[&>span]:line-clamp-2')
+    expect(nameLink).toHaveClass('max-[640px]:[&>span]:whitespace-normal')
+    expect(nameLink.querySelector('span')).toHaveClass('truncate')
+  })
 })

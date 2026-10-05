@@ -94,7 +94,7 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
     <>
       <div className='flex items-center justify-between gap-2'>
         {title && (
-          <div className='min-w-0 flex-1 text-sm font-medium'>
+          <div className='min-w-0 flex-1 text-sm leading-snug font-semibold'>
             {renderCellContent(title)}
           </div>
         )}

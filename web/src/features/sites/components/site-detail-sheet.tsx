@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { DetailField } from '@/components/common/detail-field'
+import { ExpandableText } from '@/components/common/expandable-text'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -127,19 +128,23 @@ export function SiteDetailSheet({
           <section>
             <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
               <DetailField label={t('sites.detail.url')} full title={site.url}>
-                {hasSafeSiteURL ? (
-                  <a
-                    href={siteURL}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='text-primary inline-flex max-w-full min-w-0 items-start gap-1 hover:underline'
-                  >
-                    <span className='min-w-0 break-all'>{site.url}</span>
-                    <ExternalLinkIcon className='size-4 shrink-0' />
-                  </a>
-                ) : (
-                  <span className='block max-w-full break-all'>{site.url}</span>
-                )}
+                <ExpandableText text={site.url} className='max-w-full'>
+                  {hasSafeSiteURL ? (
+                    <a
+                      href={siteURL}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='text-primary inline-flex max-w-full min-w-0 items-start gap-1 hover:underline'
+                    >
+                      <span className='min-w-0 break-all'>{site.url}</span>
+                      <ExternalLinkIcon className='size-4 shrink-0' />
+                    </a>
+                  ) : (
+                    <span className='block max-w-full break-all'>
+                      {site.url}
+                    </span>
+                  )}
+                </ExpandableText>
               </DetailField>
               {site.externalCheckinUrl ? (
                 <DetailField
@@ -147,24 +152,29 @@ export function SiteDetailSheet({
                   full
                   title={site.externalCheckinUrl}
                 >
-                  {/^https?:\/\//i.test(site.externalCheckinUrl) &&
-                  isValidEndpointUrl(site.externalCheckinUrl) ? (
-                    <a
-                      href={site.externalCheckinUrl}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      className='text-primary inline-flex max-w-full min-w-0 items-start gap-1 hover:underline'
-                    >
-                      <span className='min-w-0 break-all'>
+                  <ExpandableText
+                    text={site.externalCheckinUrl}
+                    className='max-w-full'
+                  >
+                    {/^https?:\/\//i.test(site.externalCheckinUrl) &&
+                    isValidEndpointUrl(site.externalCheckinUrl) ? (
+                      <a
+                        href={site.externalCheckinUrl}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        className='text-primary inline-flex max-w-full min-w-0 items-start gap-1 hover:underline'
+                      >
+                        <span className='min-w-0 break-all'>
+                          {site.externalCheckinUrl}
+                        </span>
+                        <ExternalLinkIcon className='size-4 shrink-0' />
+                      </a>
+                    ) : (
+                      <span className='text-muted-foreground break-all'>
                         {site.externalCheckinUrl}
                       </span>
-                      <ExternalLinkIcon className='size-4 shrink-0' />
-                    </a>
-                  ) : (
-                    <span className='text-muted-foreground break-all'>
-                      {site.externalCheckinUrl}
-                    </span>
-                  )}
+                    )}
+                  </ExpandableText>
                 </DetailField>
               ) : null}
               {site.platform ? (
@@ -361,13 +371,18 @@ function EndpointRow({
   const failureReason = endpoint.lastFailureReason?.trim() || null
   return (
     <li className='flex flex-col gap-1 text-sm'>
-      <div className='flex items-center gap-2'>
+      <div className='flex items-start gap-2'>
         <Badge variant={endpoint.enabled === false ? 'secondary' : 'outline'}>
           {endpoint.enabled === false
             ? t('sites.detail.disabled')
             : t('sites.detail.enabled')}
         </Badge>
-        <span className='min-w-0 break-all'>{endpoint.url}</span>
+        <ExpandableText
+          text={endpoint.url}
+          className='min-w-0 flex-1 text-sm leading-normal'
+        >
+          <span className='break-all'>{endpoint.url}</span>
+        </ExpandableText>
       </div>
       {cooldownActive && (
         <div className='flex items-center gap-1.5'>
@@ -384,12 +399,15 @@ function EndpointRow({
         </div>
       )}
       {failureReason && (
-        <p
-          className='text-destructive text-xs break-words'
-          title={failureReason}
-        >
-          {t('sites.detail.endpointFailureReason')}: {failureReason}
-        </p>
+        <div>
+          <div className='text-muted-foreground text-xs font-medium'>
+            {t('sites.detail.endpointFailureReason')}
+          </div>
+          <ExpandableText
+            text={failureReason}
+            className='text-destructive text-sm leading-normal break-words'
+          />
+        </div>
       )}
     </li>
   )
