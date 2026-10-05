@@ -309,6 +309,14 @@ jobs:
       - run: |
           dsn="${PG_SCHEME}://${PG_USER}:${PG_PASSWORD}@localhost:5432/${PG_DATABASE}?sslmode=disable"
           PG_TEST_DSN="$dsn" DATABASE_URL="$dsn" go test ./... -count=1 -tags=integration -p 1 # -p 1: PG integration shares one database across packages; parallel packages race AutoMigrate/table state
+      - name: PostgreSQL server process E2E
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y postgresql-client
+          go build -trimpath -o "$RUNNER_TEMP/metapi-pg-e2e" ./cmd/server
+          dsn="${PG_SCHEME}://${PG_USER}:${PG_PASSWORD}@localhost:5432/${PG_DATABASE}?sslmode=disable"
+          PG_TEST_DSN="$dsn" bash scripts/e2e/postgres-process.sh "$RUNNER_TEMP/metapi-pg-e2e"
         env:
           PG_SCHEME: postgres
           PG_USER: postgres
