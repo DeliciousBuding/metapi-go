@@ -9,10 +9,12 @@
 // parent owns the run/stop lifecycle; this form only emits validated values on
 // submit. When `defaultModel` is provided (deep link from the marketplace
 // `/models?...` → `/model-tester?model=…`) the model field is pre-selected
-// as soon as the marketplace list loads.
+// as soon as the marketplace list loads. Without a deep link, restore the last
+// valid model chosen in this browser; never invent a model absent from the
+// current catalog.
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
@@ -72,6 +74,24 @@ const TARGET_FORMAT_OPTIONS: Array<{
   { value: 'gemini', labelKey: 'modelTester.form.targetFormat.gemini' },
 ]
 
+const LAST_MODEL_KEY = 'metapi-model-tester-last-model'
+
+function readLastModel(): string {
+  try {
+    return window.localStorage.getItem(LAST_MODEL_KEY)?.trim() ?? ''
+  } catch {
+    return '' // Storage may be disabled by the browser.
+  }
+}
+
+function rememberModel(model: string): void {
+  try {
+    window.localStorage.setItem(LAST_MODEL_KEY, model)
+  } catch {
+    // The live selection still works when local persistence is unavailable.
+  }
+}
+
 export function TestForm({
   isRunning,
   defaultModel,
@@ -86,6 +106,7 @@ export function TestForm({
     resolver: zodResolver(testerSchema),
     defaultValues: TESTER_FORM_DEFAULT_VALUES,
   })
+  const appliedDeepLink = useRef<string | null>(null)
 
   const compareChannels = form.watch('compareChannels')
   const selectedChannelIds = form.watch('channelIds') ?? []
@@ -94,14 +115,26 @@ export function TestForm({
     [channelsQuery.data]
   )
 
-  // Pre-select the model from a deep link once the marketplace list lands.
+  // A deep link wins over local preference; once applied, a background model
+  // refetch must not reset a model the user chose afterward. The saved model
+  // is only restored while the field is empty and remains in the live catalog.
   useEffect(() => {
-    if (!defaultModel) return
     const models = modelsQuery.data ?? []
     if (models.length === 0) return
-    const exists = models.some((model) => model.name === defaultModel)
-    if (exists) {
-      form.setValue('model', defaultModel, { shouldDirty: true })
+    if (defaultModel) {
+      if (
+        appliedDeepLink.current !== defaultModel &&
+        models.some((model) => model.name === defaultModel)
+      ) {
+        form.setValue('model', defaultModel, { shouldDirty: true })
+        appliedDeepLink.current = defaultModel
+      }
+      return
+    }
+    if (form.getValues('model')) return
+    const saved = readLastModel()
+    if (saved && models.some((model) => model.name === saved)) {
+      form.setValue('model', saved)
     }
   }, [defaultModel, modelsQuery.data, form])
 
@@ -188,7 +221,10 @@ export function TestForm({
               <FormLabel>{t('modelTester.form.model')}</FormLabel>
               <Select
                 value={field.value}
-                onValueChange={field.onChange}
+                onValueChange={(value) => {
+                  field.onChange(value)
+                  if (value) rememberModel(value)
+                }}
                 disabled={isRunning}
               >
                 <FormControl>
