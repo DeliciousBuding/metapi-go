@@ -353,12 +353,20 @@ export function useAccountsColumns(
         header: t('accounts.columns.name'),
         cell: ({ row }) => {
           const account = row.original
+          const displayName = resolveDisplayName(account)
           return (
             <div className='flex flex-col gap-1'>
               <div className='flex items-center gap-2'>
-                <span className='max-w-55 truncate font-medium'>
-                  {resolveDisplayName(account)}
-                </span>
+                <button
+                  type='button'
+                  data-slot='account-name'
+                  aria-label={`${t('accounts.columns.viewDetails')}: ${displayName}`}
+                  title={displayName}
+                  onClick={() => actions.onViewDetail(account)}
+                  className='hover:text-primary focus-visible:outline-focus-ring max-w-55 min-w-0 truncate rounded-sm text-left font-medium hover:underline focus-visible:outline-2 max-[640px]:line-clamp-2 max-[640px]:min-h-10 max-[640px]:max-w-full max-[640px]:break-all max-[640px]:whitespace-normal'
+                >
+                  {displayName}
+                </button>
                 <Badge variant='secondary'>
                   {account.credentialMode === 'session'
                     ? t('accounts.columns.credentialModeSession')

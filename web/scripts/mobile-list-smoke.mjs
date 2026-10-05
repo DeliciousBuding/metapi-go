@@ -72,6 +72,18 @@ async function checkRoute(page, route, minimumRows) {
   await first.evaluate((element) => element.click())
   const checkbox = first.locator('[data-slot=checkbox]')
   assert.equal(await checkbox.getAttribute('aria-checked'), 'false')
+  if (route === '/accounts') {
+    const name = first.locator('[data-slot=account-name]')
+    assert.ok(
+      await name.isVisible(),
+      'account name must be a reachable detail action'
+    )
+    await name.click()
+    await page.locator('[data-slot=sheet-content]').waitFor()
+    assert.equal(await checkbox.getAttribute('aria-checked'), 'false')
+    await page.keyboard.press('Escape')
+    await page.locator('[data-slot=sheet-content]').waitFor({ state: 'hidden' })
+  }
   await checkbox.click()
   assert.equal(await checkbox.getAttribute('aria-checked'), 'true')
   // The fixture has a second page. Moving there must replace the cards and
