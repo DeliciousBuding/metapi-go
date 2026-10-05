@@ -1,7 +1,7 @@
 # Contributing to Metapi Go
 
-Thanks for considering a contribution! This project follows a small, explicit
-set of rules so the master branch stays releasable at all times.
+Thanks for considering a contribution! The protected `master` branch is the
+integration line. A green merge is not automatically a stable release.
 
 ## Development setup
 
@@ -59,17 +59,17 @@ detector. The pre-push hook runs all of it automatically.
 3. All 12 required CI checks must pass (they run on every PR, docs-only PRs
    included — no `paths-ignore` shortcuts).
 4. PRs are **squash merged** (merge commits are disabled). The PR title becomes
-   the commit message, so make it a good Conventional Commit line.
+   the commit message. Keep the Conventional Commit type/scope in English and
+   write the subject, PR description and issue discussion in Chinese; retain
+   code identifiers and protocol names in their original form.
 
 ## Versioning & release cadence
 
-Releases follow a **patch-first** cadence (pre-1.0 the last digit iterates
-continuously): each merged batch of user-visible changes bumps the **patch**
-digit and ships immediately; the minor digit is reserved for themed
-milestones; the major digit stays `0` until the 1.0 readiness criteria. The
-single source of truth is
-[`docs/internal/git-workflow.md` §6.1](docs/internal/git-workflow.md) —
-`bash scripts/next-version.sh` suggests the next candidate.
+Changes can accumulate on `master`. A maintainer chooses a candidate, checks
+the affected user journeys on that exact build, then decides whether and what
+to release. A merged PR or a green CI run alone does not bump the version.
+The decision and SemVer rules live in
+[`docs/internal/git-workflow.md` §6](docs/internal/git-workflow.md).
 
 ## Conventions to keep in mind
 
@@ -82,8 +82,9 @@ single source of truth is
 - **Frontend i18n**: all user-facing text goes through `t()` keys in
   `web/src/i18n/locales/{en,zh-CN}.json` — both languages must stay in sync
   (checked by `web/src/i18n/__tests__/i18n-keys.test.ts`).
-- **Docs**: user-facing behavior changes update public product docs and the
-  `CHANGELOG.md`; open work is tracked in GitHub issues. Public docs must never
+- **Docs**: user-facing behavior changes update the relevant public product
+  docs; `CHANGELOG.md` is written for a decided release, not every PR. Open
+  work is tracked in GitHub issues. Public docs must never
   contain local paths, private hostnames, credentials, or internal work-programme
   codes (`make docs-hygiene` enforces this).
 - **Single binary**: the production image ships no Node/Bun runtime. Don't

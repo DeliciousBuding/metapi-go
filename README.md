@@ -127,7 +127,7 @@ metapi
 
 ### 方式二：Docker（命名卷，零配置）
 
-稳定使用请选择维护者已公开发布的非预发布 Release，并固定对应的完整版本镜像标签（如 `0.19.0`）或 digest。`latest` 会随 master 构建移动，也会被版本 tag 构建更新，不代表稳定发布；合入开发分支也不等于已通过发布验收。
+稳定使用请选择维护者已公开发布的非预发布 Release，并固定对应的完整版本镜像标签或 digest。`latest` 会随 master 构建移动，也会被版本 tag 构建更新，不代表稳定发布；合入开发分支也不等于已通过发布验收。
 
 ```bash
 docker run -d --name metapi \
@@ -138,8 +138,10 @@ docker run -d --name metapi \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
   --restart unless-stopped \
-  ghcr.io/deliciousbuding/metapi-go:latest
+  ghcr.io/deliciousbuding/metapi-go:0.21.3
 ```
+
+镜像版本 `0.21.3` 是本示例的稳定版本；部署前到 [Releases](https://github.com/DeliciousBuding/metapi-go/releases) 核对当前已公开发布的版本，并替换为对应的完整版本标签或 digest。
 
 命名卷首次挂载自动继承镜像内属主，开箱即用；改用 bind mount（`./data:/app/data`）需先在宿主机 `chown -R 1001:1001 ./data`。Compose 方式（生产硬化配置）：
 
