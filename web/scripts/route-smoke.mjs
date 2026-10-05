@@ -15,6 +15,11 @@ import { loginSession } from './session-auth.mjs'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:4000'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
+const CURRENT_NAV_ROUTES = {
+  '/dashboard/overview': '/',
+  '/accounts': '/accounts',
+  '/proxy-logs': '/proxy-logs',
+}
 
 // Single source of truth for the authenticated desktop route inventory.
 // a11y-scan.mjs imports this so the two gates can never drift apart.
@@ -252,6 +257,25 @@ async function scanRoute(context, route, failures, mobile = false) {
     // Renderer liveness check: this times out if a render/effect loop wedges the
     // main thread after initial navigation.
     await page.locator('body').getAttribute('class', { timeout: 3_000 })
+
+    // The SidebarMenuButton primitive owns data-active and aria-current, but
+    // the TanStack Link render bridge must forward both to the real anchor.
+    // Previously every page looked unselected despite the URL matcher being
+    // correct; a primitive-only unit test could not see that bridge defect.
+    const expectedNav = !mobile && CURRENT_NAV_ROUTES[route]
+    if (expectedNav) {
+      const current = await page.locator(
+        '[data-sidebar=menu-button][aria-current=page][data-active]'
+      )
+      const hrefs = await current.evaluateAll((links) =>
+        links.map((link) => link.getAttribute('href'))
+      )
+      if (hrefs.length !== 1 || hrefs[0] !== expectedNav) {
+        failures.push(
+          `${label}: current sidebar link ${JSON.stringify(hrefs)}, expected ${expectedNav}`
+        )
+      }
+    }
 
     if (mobile) {
       const overflow = await page.evaluate(() => ({

@@ -170,7 +170,7 @@
   --sidebar-accent: color-mix(in oklch, var(--primary) 12%, var(--background));
   /* Darkest indigo ink that still reads as brand-tinted; clears AA 4.5:1 on
    * the 12% primary-tinted accent surface. */
-  --sidebar-accent-foreground: oklch(0.53 0.06 262);
+  --sidebar-accent-foreground: oklch(0.45 0.1 262);
   --sidebar-border: oklch(0.918 0.003 262);
   --sidebar-ring: oklch(0.6 0.15 262);
   --skeleton-base: oklch(0.962 0.002 262);

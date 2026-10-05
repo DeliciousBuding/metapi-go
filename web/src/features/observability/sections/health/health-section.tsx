@@ -89,7 +89,7 @@ export function HealthSection() {
     <div className='flex flex-col gap-4'>
       <Card>
         <CardHeader>
-          <CardTitle className='flex items-center gap-2 text-sm font-medium'>
+          <CardTitle className='flex items-center gap-2'>
             <ShieldCheck className='size-4' />
             {t('observability.health.runtime.title')}
           </CardTitle>
@@ -105,7 +105,7 @@ export function HealthSection() {
       <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
         <Card>
           <CardHeader>
-            <CardTitle className='flex items-center gap-2 text-sm font-medium'>
+            <CardTitle className='flex items-center gap-2'>
               <TriangleAlert className='size-4' />
               {t('observability.health.breakers.title')}
             </CardTitle>
@@ -125,7 +125,7 @@ export function HealthSection() {
 
         <Card>
           <CardHeader>
-            <CardTitle className='flex items-center gap-2 text-sm font-medium'>
+            <CardTitle className='flex items-center gap-2'>
               <Server className='size-4' />
               {t('observability.health.cooldown.title')}
             </CardTitle>
@@ -141,7 +141,7 @@ export function HealthSection() {
 
       <Card>
         <CardHeader>
-          <CardTitle className='flex items-center gap-2 text-sm font-medium'>
+          <CardTitle className='flex items-center gap-2'>
             <Server className='size-4' />
             {t('observability.health.inventory.title')}
           </CardTitle>

@@ -56,7 +56,7 @@ export function NavGroup({ title, items }: NavGroupProps) {
 
   return (
     <SidebarGroup className='px-2 py-1'>
-      <SidebarGroupLabel className='text-muted-foreground/70 text-2xs px-2 font-medium tracking-wider uppercase'>
+      <SidebarGroupLabel className='text-muted-foreground px-2 text-xs font-semibold tracking-normal'>
         {t(title)}
       </SidebarGroupLabel>
       <SidebarMenu>
@@ -125,8 +125,10 @@ const BASE_UI_SAFE_PROPS = [
   'data-slot',
   'data-sidebar',
   'data-size',
+  'data-active',
   'data-trigger-disabled',
   'data-base-ui-tooltip-trigger',
+  'aria-current',
   'onPointerDown',
   'onPointerEnter',
   'onPointerMove',

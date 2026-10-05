@@ -209,7 +209,7 @@ function RealtimeOpsPanel() {
   return (
     <Card className={cn(tone)}>
       <CardHeader className='pb-2'>
-        <CardTitle className='flex items-center justify-between text-sm font-medium'>
+        <CardTitle className='flex items-center justify-between'>
           <span className='flex items-center gap-2'>
             <Radio className='size-4' />
             {t('dashboard.availability.realtime.title')}
@@ -380,7 +380,7 @@ function AttentionPanel() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className='flex items-center gap-2 text-sm font-medium'>
+        <CardTitle className='flex items-center gap-2'>
           <ShieldCheck className='size-4' />
           {t('dashboard.availability.monitors.title')}
         </CardTitle>
