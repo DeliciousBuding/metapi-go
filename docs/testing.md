@@ -30,6 +30,14 @@ and additive-field defaults through the admin API. This is process-level SQLite
 upgrade coverage; it does not establish PostgreSQL process-startup compatibility
 or real-model relay behavior.
 
+`test-pg` additionally starts the production server binary against a randomized,
+disposable PostgreSQL schema using the CI service's dummy test credentials. It
+checks PostgreSQL startup/migrations and readiness, creates an account and route
+through the admin API, relays a Chat Completions request through the deterministic
+mock (reconciling the upstream request log), then restarts the server and verifies
+persisted site data. The schema is dropped on exit. This is deterministic
+PostgreSQL process/relay coverage, not real-model acceptance.
+
 ## From historical bugs to user-task regressions
 
 Keep the maintenance trail in the existing GitHub issue / PR, not a second task ledger:
