@@ -99,7 +99,7 @@ Navigate to **账号 (Accounts)** → **添加账号**.
 >
 > | The row says | What died | What to do |
 > | :--- | :--- | :--- |
-> | `Access token expired` | A **session / password** credential. On a New API-family panel that is the dashboard JWT, which lives about fifteen minutes | Re-bind: choose **添加账号 (Add account)** again with the *same site and the same username*. The backend upserts that account with the fresh credential and re-syncs its models. There is no separate "re-login" button for password/session accounts |
+> | `Access token expired` | A **session / password** credential. A hand-copied New API dashboard JWT lives only minutes; a PAT issued by password login can instead be revoked, expire, or lose the needed scopes | Re-bind through **添加账号 (Add account)** with the *same site and username*. Metapi reuses a valid scoped PAT; if its grant is insufficient, adjust it in New API or import a suitable PAT. There is no separate "re-login" button |
 > | `Connection expired; update the API key` | An **API key** credential — the `sk-…` key the site itself issued — was rotated or revoked upstream | Replace it in place: row menu → **编辑 (Edit)** → paste the new key → **保存修改 (Save changes)** |
 > | `Credentials expired; update the credentials` | An **OAuth** connection | Row menu → **重新绑定 (Rebind)** on the OAuth connections page. OAuth accounts otherwise renew themselves from their refresh token |
 > | Nothing: models still list, and balance refresh does not report `upstream credential expired` | Nothing | Nothing to do. A durable `sk-` API key does not expire on a fifteen-minute clock, so an account bound with one survives an upgrade untouched |

@@ -234,20 +234,23 @@ Both scripts print PASS/FAIL/WARN/SKIP summaries, preserve truncated failure evi
 
 `scripts/e2e/verify-newapi-auth-boundaries.py` starts disposable New API and
 Metapi instances and exercises the authentication boundaries that fixture tests
-cannot prove against a real upstream. It requires Python 3, `openssl`, and
-operator-provided `METAPI_BINARY`, `METAPI_EXPECT_COMMIT`, `NEWAPI_BINARY`, and
-`EVIDENCE_DIR` environment variables. Optional integrity pins are
+cannot prove against a real upstream. It requires Python 3, `openssl`, `curl`,
+`bash`, and operator-provided `METAPI_BINARY`, `METAPI_EXPECT_COMMIT`,
+`NEWAPI_BINARY`, and `EVIDENCE_DIR` environment variables. Optional integrity pins are
 `METAPI_EXPECT_SHA256` and `NEWAPI_EXPECT_SHA256`; set
 `AUTH_PROOF_EXPIRY_WAIT=0` to defer the real proof-expiry wait, and
 `KEEP_WORK_ON_FAILURE=1` to retain the disposable work directory for diagnosis.
 
-The runner checks MFA fail-closed behavior, missing/wrong-scope/wrong-password/
-reused/expired password proofs, the encrypted-password upstream variant plus
-Metapi's explicit manual-PAT failure, and the exact number of product-initiated
-automatic relogins. Each plaintext scenario receives a fresh New API instance so
-the harness cannot consume the upstream's login rate-limit window. It writes a
-sanitized JSON report, does not print credentials or proof values, and removes
-its disposable databases and process logs on success. It does not change a
+The runner checks scoped PAT creation with a grant-bound proof, MFA fail-closed
+behavior, missing/wrong-scope/wrong-password/reused/expired proofs, the
+encrypted-password upstream variant, and the exact number of product-initiated
+automatic relogins after revocation. It also runs the existing three-protocol
+relay smoke against a deterministic upstream and reconciles each request with
+that upstream's log; this is not real-model acceptance. Each plaintext scenario
+receives a fresh New API instance so the harness cannot consume the upstream's
+login rate-limit window. It writes a sanitized JSON report, does not print
+credentials or proof values, and removes its disposable databases and process
+logs on success. It does not change a
 persistent testbed, upstream rate limits, or production state.
 
 ## Opt-in live model acceptance

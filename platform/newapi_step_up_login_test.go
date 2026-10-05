@@ -39,6 +39,7 @@ func newAPIStepUpServer(t *testing.T, overrides map[string]stepUpResponse) (*htt
 	t.Helper()
 	responses := map[string]stepUpResponse{
 		"login":     {200, `{"success":true,"data":{"access_token":"` + stepUpJWT + `","access_expires_at":1893456000,"session":{"sid":"` + stepUpSID + `"}}}`},
+		"catalog":   {404, `{"success":false,"code":"NOT_FOUND"}`},
 		"pat":       {403, `{"success":false,"code":"SECURITY_PROOF_REQUIRED","message":"需要安全验证"}`},
 		"methods":   {200, `{"success":true,"data":{"scope":"access_token.generate","methods":[{"method":"password","available":true}],"oauth_providers":[],"password_encryption_enabled":false}}`},
 		"verify":    {200, stepUpProofBody(stepUpProof, "password", "access_token.generate", 1893456000)},
@@ -56,6 +57,8 @@ func newAPIStepUpServer(t *testing.T, overrides map[string]stepUpResponse) (*htt
 		switch r.Method + " " + r.URL.Path {
 		case "POST /api/user/login":
 			step = "login"
+		case "GET /api/user/access_tokens/catalog":
+			step = "catalog"
 		case "GET /api/user/token":
 			mu.Lock()
 			patCalls++
@@ -199,7 +202,7 @@ func TestNewApiAdapter_Login_V1PasswordStepUp(t *testing.T) {
 			if err != nil || result == nil || !result.Success || result.AccessToken != stepUpPAT {
 				t.Fatalf("password step-up did not return the durable PAT: result=%+v err=%v", result, err)
 			}
-			want := []string{"login", "pat", "methods", "verify", "pat-retry", "logout"}
+			want := []string{"login", "catalog", "pat", "methods", "verify", "pat-retry", "logout"}
 			if !reflect.DeepEqual(calls(), want) {
 				t.Fatalf("requests = %v, want %v", calls(), want)
 			}
@@ -212,10 +215,10 @@ func TestNewApiAdapter_Login_V1PasswordStepUp(t *testing.T) {
 }
 
 func TestNewApiAdapter_Login_V1StepUpFailsClosed(t *testing.T) {
-	beforeMethods := []string{"login", "pat", "logout"}
-	beforeVerify := []string{"login", "pat", "methods", "logout"}
-	beforeRetry := []string{"login", "pat", "methods", "verify", "logout"}
-	afterRetry := []string{"login", "pat", "methods", "verify", "pat-retry", "logout"}
+	beforeMethods := []string{"login", "catalog", "pat", "logout"}
+	beforeVerify := []string{"login", "catalog", "pat", "methods", "logout"}
+	beforeRetry := []string{"login", "catalog", "pat", "methods", "verify", "logout"}
+	afterRetry := []string{"login", "catalog", "pat", "methods", "verify", "pat-retry", "logout"}
 	cases := []struct {
 		name     string
 		step     string

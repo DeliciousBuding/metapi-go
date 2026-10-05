@@ -28,6 +28,9 @@ func TestNewApiAdapter_Login_V1PromotesSessionJWTToDurablePATAndLogsOut(t *testi
 		case r.Method == http.MethodPost && r.URL.Path == "/api/user/login":
 			w.Header().Set("Set-Cookie", "new_api_refresh=sess-123.refresh-secret; Path=/api/user/auth; HttpOnly")
 			fmt.Fprint(w, `{"data":{"access_token":"short-lived-jwt","access_expires_at":1893456000,"session":{"sid":"sess-123"}}}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/user/access_tokens/catalog":
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, `{"success":false,"code":"AUTH_INSUFFICIENT_PRIVILEGE"}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/user/token":
 			patCalls.Add(1)
 			if got := r.Header.Get("Authorization"); got != "Bearer short-lived-jwt" {

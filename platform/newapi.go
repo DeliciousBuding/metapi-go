@@ -3,6 +3,8 @@ package platform
 import (
 	"context"
 	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -65,7 +67,20 @@ func (n *NewApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 const newAPIPATVerificationScope = "access_token.generate"
 const newAPIManualPATImport = "complete verification in New API and import a durable dashboard PAT manually"
 
+// These scopes cover the Metapi account's profile/model discovery, balance and
+// check-in, and relay API-key listing/reveal/management. No admin grant is needed.
+var newAPIMetapiPATScopes = []string{
+	"api_key:read", "api_key:reveal", "api_key:write", "profile:read", "wallet:read", "wallet:write",
+}
+
 func (n *NewApiAdapter) Login(ctx context.Context, baseURL, username, password string, platformUserId *int, proxy *ProxyConfig) (*LoginResult, error) {
+	return n.LoginWithExistingCredential(ctx, baseURL, username, password, platformUserId, proxy, "")
+}
+
+// LoginWithExistingCredential accepts the stored PAT only as a reuse candidate.
+// The fresh browser login must succeed first; the upstream token listing then
+// proves ownership, validity and sufficient grant before the PAT is reused.
+func (n *NewApiAdapter) LoginWithExistingCredential(ctx context.Context, baseURL, username, password string, platformUserId *int, proxy *ProxyConfig, existing string) (*LoginResult, error) {
 	body := map[string]string{"username": username, "password": password}
 	headers := map[string]string{
 		"X-Requested-With": "XMLHttpRequest",
@@ -100,7 +115,7 @@ func (n *NewApiAdapter) Login(ctx context.Context, baseURL, username, password s
 	if accessToken != "" && (!hasSuccess || success) {
 		if isSession, sessionID := newAPIV1LoginSession(data); isSession {
 			durableToken, promoteErr := n.promoteV1LoginCredential(
-				ctx, baseURL, accessToken, password, cookieHeader, sessionID, platformUserId, proxy)
+				ctx, baseURL, accessToken, password, cookieHeader, sessionID, existing, platformUserId, proxy)
 			if promoteErr != nil {
 				return &LoginResult{Success: false, Message: promoteErr.Error()}, nil
 			}
@@ -190,13 +205,13 @@ func newAPIV1LoginSession(data map[string]interface{}) (bool, string) {
 // no refresh-token subsystem here: New API already owns the durable credential,
 // and using it removes a lifecycle rather than adding one.
 //
-// New API's GET /api/user/token rotates the user's one dashboard PAT. This path
-// therefore runs only when Login itself is requested. In steady state the PAT
-// does not expire, so check-in/balance auto-relogin never reaches this method;
-// an explicit re-login or recovery after a revoked PAT intentionally rotates it.
+// Legacy New API rotates its dashboard PAT through GET /api/user/token. Current
+// New API removes that route and uses scoped PATs instead. An owned stored PAT
+// is reused before any new token is requested, avoiding quota exhaustion on
+// repeated logins.
 func (n *NewApiAdapter) promoteV1LoginCredential(
 	ctx context.Context,
-	baseURL, sessionJWT, password, cookieHeader, sessionID string,
+	baseURL, sessionJWT, password, cookieHeader, sessionID, existing string,
 	platformUserID *int,
 	proxy *ProxyConfig,
 ) (string, error) {
@@ -229,6 +244,25 @@ func (n *NewApiAdapter) promoteV1LoginCredential(
 		slog.Warn("new-api login: upstream returned no session id; transient session could not be revoked")
 	}
 
+	catalog, catalogErr := fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/user/access_tokens/catalog", http.MethodGet, nil, headers, proxy)
+	if catalogErr == nil {
+		data, _ := getMap(catalog.Parsed, "data")
+		if _, ok := data["groups"].([]interface{}); !ok {
+			return "", fmt.Errorf("login succeeded, but New API returned an invalid scoped PAT catalog; %s", newAPIManualPATImport)
+		}
+		return n.scopedV1LoginCredential(ctx, baseURL, password, existing, sessionJWT, headers, proxy)
+	}
+	// Older New API has no scoped PAT catalog. Some versions serve 404; on
+	// others the path is caught by a protected /api/user/:id route. Only those
+	// recognized missing-route shapes permit the legacy rotating-token path.
+	catalogCode, _ := getString(catalog.Parsed, "code")
+	legacyCatalog := catalog.Status == http.StatusNotFound || catalog.Status == http.StatusMethodNotAllowed ||
+		(catalog.Status == http.StatusForbidden && catalogCode == "AUTH_INSUFFICIENT_PRIVILEGE") ||
+		(catalog.Status == http.StatusOK && catalog.Parsed == nil && strings.HasPrefix(catalog.ContentType, "text/html"))
+	if !legacyCatalog {
+		return "", fmt.Errorf("login succeeded, but New API scoped PAT capability could not be checked: %w; %s", catalogErr, newAPIManualPATImport)
+	}
+
 	answer, err := fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/user/token", http.MethodGet, nil, headers, proxy)
 	var proof string
 	if err != nil {
@@ -239,7 +273,7 @@ func (n *NewApiAdapter) promoteV1LoginCredential(
 		if answer.Status != http.StatusForbidden || code != "SECURITY_PROOF_REQUIRED" || !hasSuccess || success {
 			return "", fmt.Errorf("login succeeded, but New API could not issue a durable dashboard token: %w; %s", err, newAPIManualPATImport)
 		}
-		proof, err = newAPIV1PasswordProof(ctx, baseURL, password, headers, proxy)
+		proof, err = newAPIV1PasswordProof(ctx, baseURL, password, nil, headers, proxy)
 		if err != nil {
 			return "", fmt.Errorf("login succeeded, but New API security verification failed: %w; %s", err, newAPIManualPATImport)
 		}
@@ -263,10 +297,103 @@ func (n *NewApiAdapter) promoteV1LoginCredential(
 	return durableToken, nil
 }
 
+func (n *NewApiAdapter) scopedV1LoginCredential(ctx context.Context, baseURL, password, existing, sessionJWT string, headers map[string]string, proxy *ProxyConfig) (string, error) {
+	if strings.HasPrefix(existing, "nap_") {
+		usable, err := n.ownedScopedPAT(ctx, baseURL, existing, headers, proxy)
+		if err != nil {
+			return "", fmt.Errorf("login succeeded, but existing New API PAT could not be reused: %w; %s", err, newAPIManualPATImport)
+		}
+		if usable {
+			return existing, nil
+		}
+	}
+
+	request := map[string]interface{}{"name": "Metapi", "scopes": newAPIMetapiPATScopes, "expires_at": 0}
+	answer, err := fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/user/access_tokens", http.MethodPost, request, headers, proxy)
+	var proof string
+	if err != nil {
+		code, _ := getString(answer.Parsed, "code")
+		success, hasSuccess := getBool(answer.Parsed, "success")
+		if answer.Status != http.StatusForbidden || code != "SECURITY_PROOF_REQUIRED" || !hasSuccess || success {
+			return "", fmt.Errorf("login succeeded, but New API could not create a scoped PAT: %w; %s", err, newAPIManualPATImport)
+		}
+		context := map[string]interface{}{"scopes": newAPIMetapiPATScopes, "expires_at": 0}
+		proof, err = newAPIV1PasswordProof(ctx, baseURL, password, context, headers, proxy)
+		if err != nil {
+			return "", fmt.Errorf("login succeeded, but New API security verification failed: %w; %s", err, newAPIManualPATImport)
+		}
+		headers["X-Security-Proof"] = proof
+		answer, err = fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/user/access_tokens", http.MethodPost, request, headers, proxy)
+		delete(headers, "X-Security-Proof")
+		if err != nil {
+			return "", fmt.Errorf("login succeeded, but New API rejected scoped PAT creation after verification: %w; %s", err, newAPIManualPATImport)
+		}
+	}
+	data, _ := getMap(answer.Parsed, "data")
+	token, _ := getString(data, "token")
+	token = strings.TrimSpace(token)
+	if !strings.HasPrefix(token, "nap_") || token == sessionJWT || token == proof {
+		return "", fmt.Errorf("login succeeded, but New API returned no durable scoped PAT; %s", newAPIManualPATImport)
+	}
+	return token, nil
+}
+
+// The listing exposes only token fingerprints, never plaintext. Compare the
+// stored candidate's fingerprint and require every scope Metapi actually uses.
+func (n *NewApiAdapter) ownedScopedPAT(ctx context.Context, baseURL, existing string, headers map[string]string, proxy *ProxyConfig) (bool, error) {
+	answer, err := fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/user/access_tokens", http.MethodGet, nil, headers, proxy)
+	if err != nil {
+		return false, err
+	}
+	data, _ := getMap(answer.Parsed, "data")
+	items, ok := data["items"].([]interface{})
+	if !ok {
+		return false, fmt.Errorf("upstream returned no token listing")
+	}
+	digest := sha256.Sum256([]byte(existing))
+	wantRef := hex.EncodeToString(digest[:])
+	for _, raw := range items {
+		item, ok := raw.(map[string]interface{})
+		if !ok {
+			return false, fmt.Errorf("upstream returned an invalid token listing")
+		}
+		ref, _ := getString(item, "token_ref")
+		if ref != wantRef {
+			continue
+		}
+		expires, ok := getFloat(item, "expires_at")
+		if !ok {
+			return false, fmt.Errorf("existing PAT has no readable expiry")
+		}
+		if expires != 0 && expires <= float64(time.Now().Unix()) {
+			return false, nil
+		}
+		rawScopes, ok := item["scopes"].([]interface{})
+		if !ok {
+			return false, fmt.Errorf("existing PAT has no readable scopes")
+		}
+		granted := make(map[string]bool, len(rawScopes))
+		for _, rawScope := range rawScopes {
+			scope, ok := rawScope.(string)
+			if !ok {
+				return false, fmt.Errorf("existing PAT has invalid scopes")
+			}
+			granted[scope] = true
+		}
+		for _, scope := range newAPIMetapiPATScopes {
+			if !granted[scope] {
+				return false, fmt.Errorf("existing PAT lacks required scopes; update its grant or import a suitable PAT")
+			}
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
 // newAPIV1PasswordProof implements New API's advertised password ceremony for
 // access_token.generate. MFA and encrypted-password flows are not implemented
 // here; require manual PAT import rather than downgrading to plaintext.
-func newAPIV1PasswordProof(ctx context.Context, baseURL, password string, headers map[string]string, proxy *ProxyConfig) (string, error) {
+func newAPIV1PasswordProof(ctx context.Context, baseURL, password string, operationContext map[string]interface{}, headers map[string]string, proxy *ProxyConfig) (string, error) {
 	answer, err := fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/verify/methods?scope="+newAPIPATVerificationScope, http.MethodGet, nil, headers, proxy)
 	if err != nil {
 		return "", fmt.Errorf("could not obtain password verification methods: %w", err)
@@ -296,7 +423,10 @@ func newAPIV1PasswordProof(ctx context.Context, baseURL, password string, header
 	if password == "" {
 		return "", fmt.Errorf("no password was supplied for verification")
 	}
-	body := map[string]string{"method": "password", "scope": newAPIPATVerificationScope, "password": password}
+	body := map[string]interface{}{"method": "password", "scope": newAPIPATVerificationScope, "password": password}
+	if operationContext != nil {
+		body["context"] = operationContext
+	}
 	answer, err = fetchNewAPIV1SessionJSON(ctx, baseURL+"/api/verify", http.MethodPost, body, headers, proxy)
 	if err != nil {
 		return "", fmt.Errorf("password verification was rejected: %w", err)
@@ -315,7 +445,7 @@ func newAPIV1PasswordProof(ctx context.Context, baseURL, password string, header
 // fetchNewAPIV1SessionJSON retains the status and structured error code for
 // step-up detection, but never exposes upstream bodies or transport errors
 // (which may contain credentials/URLs) to a login result or a log entry.
-func fetchNewAPIV1SessionJSON(ctx context.Context, url, method string, body map[string]string, headers map[string]string, proxy *ProxyConfig) (loginResponse, error) {
+func fetchNewAPIV1SessionJSON(ctx context.Context, url, method string, body interface{}, headers map[string]string, proxy *ProxyConfig) (loginResponse, error) {
 	answer, err := fetchLoginSessionResponse(ctx, url, method, body, headers, proxy)
 	if err != nil {
 		return answer, fmt.Errorf("request failed")
@@ -1120,7 +1250,7 @@ func fetchLoginResponse(ctx context.Context, url string, body map[string]string,
 
 // fetchLoginSessionResponse shares the login transport with its authenticated
 // verification/PAT/logout requests without discarding non-2xx JSON envelopes.
-func fetchLoginSessionResponse(ctx context.Context, url, method string, body map[string]string, headers map[string]string, proxy *ProxyConfig) (loginResponse, error) {
+func fetchLoginSessionResponse(ctx context.Context, url, method string, body interface{}, headers map[string]string, proxy *ProxyConfig) (loginResponse, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		reqBody, err := json.Marshal(body)

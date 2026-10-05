@@ -194,3 +194,15 @@ type PlatformAdapter interface {
 	GetSiteAnnouncements(ctx context.Context, url, accessToken string, platformUserId *int, proxy *ProxyConfig) ([]SiteAnnouncement, error)
 	GetUserGroups(ctx context.Context, url, accessToken string, platformUserId *int, proxy *ProxyConfig) ([]string, error)
 }
+
+// LoginReusingCredential lets adapters with durable dashboard credentials
+// validate an already-stored credential before requesting another one. Other
+// platforms retain their usual login behavior.
+func LoginReusingCredential(adp PlatformAdapter, ctx context.Context, url, username, password string, platformUserID *int, proxy *ProxyConfig, existing string) (*LoginResult, error) {
+	if reusable, ok := adp.(interface {
+		LoginWithExistingCredential(context.Context, string, string, string, *int, *ProxyConfig, string) (*LoginResult, error)
+	}); ok {
+		return reusable.LoginWithExistingCredential(ctx, url, username, password, platformUserID, proxy, existing)
+	}
+	return adp.Login(ctx, url, username, password, platformUserID, proxy)
+}

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Opt-in live NewAPI authentication-boundary acceptance.
 
-Starts fresh, disposable NewAPI and Metapi instances. Plaintext scenarios each
-receive a fresh NewAPI instance so the harness cannot consume the upstream's
+Starts fresh, disposable New API and Metapi instances. Plaintext scenarios each
+receive a fresh New API instance so the harness cannot consume the upstream's
 login rate-limit window. It never changes an existing testbed, rate limit, or
-production service. The only retained evidence is a sanitized JSON report;
+production service. The relay scenario uses a deterministic mock, not a real
+model. The only retained evidence is a sanitized JSON report;
 temporary SQLite databases and process logs are deleted on exit.
 
 Required environment:
@@ -44,6 +45,9 @@ import urllib.request
 
 MAX_BODY = 1024 * 1024
 MANUAL_PAT = "complete verification in New API and import a durable dashboard PAT manually"
+PAT_SCOPES = ["api_key:read", "api_key:reveal", "api_key:write", "profile:read", "wallet:read", "wallet:write"]
+PAT_CONTEXT = {"scopes": PAT_SCOPES, "expires_at": 0}
+PAT_REQUEST = {"name": "Metapi boundary test", **PAT_CONTEXT}
 
 
 REPORT = None
@@ -224,11 +228,16 @@ class API:
         return data
 
     def token_status(self):
-        status, parsed = self.call("GET", "/api/user/token/status")
+        status, parsed = self.call("GET", "/api/user/access_tokens")
         require(status == 200 and parsed.get("success") is True, "token_status_failed")
-        return parsed.get("data") or {}
+        items = (parsed.get("data") or {}).get("items")
+        require(isinstance(items, list), "token_listing_invalid")
+        require(all(isinstance(item, dict) for item in items), "token_listing_invalid")
+        return {"exists": bool(items), "items": items,
+                "token_ref": items[0].get("token_ref") if items else None,
+                "id": items[0].get("id") if items else None}
 
-    def proof(self, scope, password, code=None):
+    def proof(self, scope, password, code=None, context=None):
         status, parsed = self.call("GET", "/api/verify/methods?scope=" + urllib.parse.quote(scope, safe=""))
         require(status == 200 and parsed.get("success") is True, "verify_methods_failed")
         data = parsed.get("data") or {}
@@ -238,6 +247,8 @@ class API:
         require(any(isinstance(x, dict) and x.get("method") == chosen and x.get("available") is True for x in methods),
                 "verification_method_unavailable")
         body = {"method": chosen, "scope": scope}
+        if context is not None:
+            body["context"] = context
         if code is not None:
             body["code"] = code
         else:
@@ -379,7 +390,7 @@ def start_upstream(binary, data_dir, encrypted, work_dir):
     except Exception:
         proc.stop()
         raise
-    return base, root, proc
+    return base, root, proc, password
 
 
 def start_metapi(binary, data_dir, expected_commit):
@@ -500,45 +511,46 @@ def scenario_proof_matrix(ctx, wait_expiry):
         initial = user.token_status()
         require(initial.get("exists") is False, "proof_initial_token_exists")
 
-        status, body = user.call("GET", "/api/user/token")
+        status, body = user.call("POST", "/api/user/access_tokens", PAT_REQUEST)
         ctx["report"].check("proof_missing_rejected", status == 403 and body_code(body) == "SECURITY_PROOF_REQUIRED",
                             code=body_code(body), httpStatus=status,
                             tokenUnchanged=(user.token_status().get("exists") is False))
 
-        revoke_proof, _ = user.proof("access_token.revoke", password)
-        status, body = user.call("GET", "/api/user/token", headers={"X-Security-Proof": revoke_proof})
+        revoke_proof, _ = user.proof("access_token.revoke", password, context={"legacy": True})
+        status, body = user.call("POST", "/api/user/access_tokens", PAT_REQUEST, headers={"X-Security-Proof": revoke_proof})
         ctx["report"].check("proof_wrong_scope_rejected", status == 403 and body_code(body) == "SECURITY_PROOF_SCOPE_MISMATCH",
                             code=body_code(body), httpStatus=status,
                             tokenUnchanged=(user.token_status().get("exists") is False))
 
         status, body = user.call("POST", "/api/verify", {
             "method": "password", "scope": "access_token.generate", "password": password + "-wrong",
+            "context": PAT_CONTEXT,
         })
         ctx["report"].check("proof_wrong_password_rejected",
                             status == 200 and isinstance(body, dict) and body.get("success") is False and body_code(body) == "SECURITY_VERIFICATION_FAILED",
                             code=body_code(body), httpStatus=status,
                             tokenUnchanged=(user.token_status().get("exists") is False))
 
-        proof, _ = user.proof("access_token.generate", password)
-        status, generated = user.call("GET", "/api/user/token", headers={"X-Security-Proof": proof})
-        token = generated.get("data") if isinstance(generated, dict) else None
+        proof, _ = user.proof("access_token.generate", password, context=PAT_CONTEXT)
+        status, generated = user.call("POST", "/api/user/access_tokens", PAT_REQUEST, headers={"X-Security-Proof": proof})
+        token = (generated.get("data") or {}).get("token") if isinstance(generated, dict) else None
         require(status == 200 and isinstance(generated, dict) and generated.get("success") is True and isinstance(token, str) and token, "valid_proof_failed")
         first_ref = user.token_status().get("token_ref")
         require(isinstance(first_ref, str) and first_ref, "token_ref_missing_after_generate")
 
-        status, body = user.call("GET", "/api/user/token", headers={"X-Security-Proof": proof})
+        status, body = user.call("POST", "/api/user/access_tokens", PAT_REQUEST, headers={"X-Security-Proof": proof})
         second_ref = user.token_status().get("token_ref")
         ctx["report"].check("proof_reuse_rejected", status == 403 and body_code(body) in ("SECURITY_PROOF_INVALID", "SECURITY_PROOF_CONSUMED"),
                             code=body_code(body), httpStatus=status,
                             tokenRefUnchanged=(second_ref == first_ref))
 
         if wait_expiry:
-            proof, expires = user.proof("access_token.generate", password)
+            proof, expires = user.proof("access_token.generate", password, context=PAT_CONTEXT)
             wait = max(1, expires - int(time.time()) + 2)
             ctx["report"].check("proof_expiry_clock_observed", wait <= 301, code="ok" if wait <= 301 else "ttl_out_of_contract",
                                 waitSeconds=wait)
             time.sleep(wait)
-            status, body = user.call("GET", "/api/user/token", headers={"X-Security-Proof": proof})
+            status, body = user.call("POST", "/api/user/access_tokens", PAT_REQUEST, headers={"X-Security-Proof": proof})
             final_ref = user.token_status().get("token_ref")
             ctx["report"].check("proof_expired_rejected", status == 403 and body_code(body) in ("SECURITY_PROOF_EXPIRED", "SECURITY_PROOF_INVALID"),
                                 code=body_code(body), httpStatus=status,
@@ -558,7 +570,14 @@ def scenario_auto_relogin(ctx):
     try:
         site_id = create_metapi_site(metapi, ctx["prefix"] + "relogin-site", ctx["plain_base"])
         require(isinstance(site_id, int) and site_id > 0, "relogin_site_create_failed")
-        logged = metapi.ok("POST", "/api/accounts/login", {"siteId": site_id, "username": username, "password": password})
+        status, logged = metapi.call("POST", "/api/accounts/login", {"siteId": site_id, "username": username, "password": password})
+        if status != 200:
+            message = body_message(logged).lower()
+            ctx["report"].check("relogin_initial_bind", False, code=f"http_{status}",
+                                capabilityCheckFailed="capability could not be checked" in message,
+                                verificationFailed="security verification failed" in message,
+                                tokenCreationFailed="could not create a scoped pat" in message)
+            raise CheckFailed("relogin_initial_bind_failed")
         account_id = (logged.get("account") or {}).get("id")
         require(isinstance(account_id, int) and account_id > 0, "relogin_account_create_failed")
         metapi.ok("PUT", f"/api/accounts/{account_id}", {"platformUserId": user.uid})
@@ -566,8 +585,8 @@ def scenario_auto_relogin(ctx):
         before = user.token_status()
         require(before.get("exists") is True and isinstance(before.get("token_ref"), str), "relogin_initial_pat_missing")
 
-        revoke_proof, _ = user.proof("access_token.revoke", password)
-        status, body = user.call("DELETE", "/api/user/token", headers={"X-Security-Proof": revoke_proof})
+        revoke_proof, _ = user.proof("access_token.revoke", password, context={"token_id": before["id"]})
+        status, body = user.call("DELETE", f"/api/user/access_tokens/{before['id']}", headers={"X-Security-Proof": revoke_proof})
         require(status == 200 and body.get("success") is True, "relogin_pat_revoke_failed")
         require(user.token_status().get("exists") is False, "relogin_pat_still_exists")
 
@@ -594,6 +613,54 @@ def scenario_auto_relogin(ctx):
         if site_id:
             metapi.call("DELETE", f"/api/sites/{site_id}")
         delete_upstream_user(root, user.uid)
+
+
+def scenario_relay(ctx):
+    root = ctx["plain_root"]
+    mock_port = free_port()
+    mock_log = Path(ctx["work"]) / "mock-requests.jsonl"
+    repo = Path(__file__).resolve().parents[2]
+    mock_env = minimal_env({
+        "MOCK_OPENAI_HOST": "127.0.0.1", "MOCK_OPENAI_PORT": str(mock_port),
+        "MOCK_OPENAI_LOG": str(mock_log), "MOCK_OPENAI_MODELS": "gpt-4o-mini",
+        "MOCK_OPENAI_MARKER": "metapi-boundary-marker",
+    })
+    mock = Process("mock-openai", [sys.executable, str(repo / "scripts/e2e/mock-openai.py")],
+                   ctx["work"], mock_env, Path(ctx["work"]) / "mock-process.log")
+    try:
+        wait_for(API(f"http://127.0.0.1:{mock_port}"), "/health", lambda x: x == {"status": "ok"})
+        channel = {
+            "mode": "single",
+            "channel": {"type": 1, "name": "metapi-boundary-mock", "key": "isolated-mock-key",
+                        "status": 1, "base_url": f"http://127.0.0.1:{mock_port}",
+                        "models": "gpt-4o-mini", "test_model": "gpt-4o-mini", "group": "default"},
+        }
+        created = root.ok("POST", "/api/channel/", channel)
+        require(created.get("success") is True, "upstream_channel_create_failed")
+        relay_key = {"name": "metapi-boundary-relay", "expired_time": -1, "remain_quota": 0,
+                     "unlimited_quota": True, "model_limits_enabled": False,
+                     "model_limits": "", "group": "default"}
+        created = root.ok("POST", "/api/token/", relay_key)
+        require(created.get("success") is True, "upstream_relay_key_create_failed")
+
+        metapi = ctx["metapi"]
+        smoke_env = minimal_env({
+            "METAPI_URL": metapi.base, "METAPI_AUTH_TOKEN": metapi.key,
+            "UPSTREAM_URL": root.base, "UPSTREAM_USERNAME": "root",
+            "UPSTREAM_PASSWORD": ctx["root_password"], "PLATFORM": "new-api",
+            "PROXY_MODEL": "gpt-4o-mini", "EXPECT_RELAY": "1",
+            "EXPECTED_COMPLETION_CONTENT": "metapi-boundary-marker",
+            "MOCK_REQUEST_LOG": str(mock_log),
+            "SITE_NAME": ctx["prefix"] + "relay", "TOKEN_NAME": ctx["prefix"] + "relay-key",
+        })
+        result = subprocess.run(["bash", str(repo / "scripts/e2e/smoke.sh")], cwd=repo, env=smoke_env,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=180)
+        failed_count = sum(line.startswith("[FAIL]") for line in result.stdout.splitlines())
+        ctx["report"].check("current_upstream_three_protocol_relay", result.returncode == 0,
+                            code="ok" if result.returncode == 0 else "smoke_failed",
+                            failedStepCount=failed_count, upstreamEvidence=mock_log.exists())
+    finally:
+        mock.stop()
 
 
 def scenario_encrypted(ctx):
@@ -632,7 +699,7 @@ def scenario_encrypted(ctx):
 
 
 def run_upstream_scenario(cfg, work_root, processes, metapi, report, name, encrypted, scenario):
-    base, root, proc = start_upstream(
+    base, root, proc, root_password = start_upstream(
         cfg["newapi_binary"], work_root / ("newapi-" + name), encrypted, work_root
     )
     processes.append(proc)
@@ -641,6 +708,7 @@ def run_upstream_scenario(cfg, work_root, processes, metapi, report, name, encry
             "report": report, "work": work_root, "prefix": cfg["prefix"],
             "plain_base": base, "encrypted_base": base,
             "plain_root": root, "encrypted_root": root,
+            "root_password": root_password,
             "newapi_log": str(proc.log_path),
             "metapi": metapi,
         }
@@ -694,6 +762,7 @@ def main():
         run_upstream_scenario(cfg, work_root, processes, metapi, report, "proof", False,
                               lambda ctx: scenario_proof_matrix(ctx, cfg["wait_expiry"]))
         run_upstream_scenario(cfg, work_root, processes, metapi, report, "relogin", False, scenario_auto_relogin)
+        run_upstream_scenario(cfg, work_root, processes, metapi, report, "relay", False, scenario_relay)
         run_upstream_scenario(cfg, work_root, processes, metapi, report, "encrypted", True, scenario_encrypted)
         report.state["freshUpstreamPerScenario"] = True
 

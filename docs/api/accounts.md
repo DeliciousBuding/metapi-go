@@ -51,14 +51,19 @@ failure is explicit. `skipModelFetch: true` performs no model probe and returns
 
 Log in against the site with username/password and create the account — or update the existing one for `(siteId, username)` — with the session token and an encrypted `autoRelogin` credential (`extraConfig.credentialMode = session`).
 
-For a modern NewAPI dashboard login, Metapi exchanges the short-lived session
+For a modern New API dashboard login, Metapi exchanges the short-lived session
 credential for a durable personal access token (PAT), then revokes the temporary
-login session. If that exchange cannot complete, binding fails rather than
-storing a session that will soon expire. The PAT is a management credential for
-check-in and balance operations; a relay API key is a separate credential.
+login session. Current New API uses scoped PATs: Metapi requests only the
+profile, wallet/check-in and relay-key permissions it uses, with verification
+bound to that grant. Rebinding the same account reuses a stored, active PAT
+when the upstream listing confirms its ownership and permissions. If the grant
+is insufficient, update it in New API or import a suitable PAT; Metapi will
+not mint another token on every login. If the exchange cannot complete, binding
+fails rather than storing a session that will soon expire. A relay API key is a
+separate credential.
 
 **Body**: `{ "siteId": 3, "username": "me@example.com", "password": "..." }` — `siteId`/`username`/`password` are required; unsupported platforms are 400, failed logins are 401 with the platform message.
-**Response** (200): `{ "success": true, "account": { "id": 12, "siteId": 3, "username": "me@example.com", "accessToken": "sk-...", "apiToken": null, "balance": 9.5, "status": "active", "isPinned": false, "sortOrder": 1, "checkinEnabled": true, "extraConfig": "{}", "createdAt": "...", "updatedAt": "..." }, "apiTokenFound": false, "tokenCount": 1, "reusedAccount": false }`
+**Response** (200, current New API example): `{ "success": true, "account": { "id": 12, "siteId": 3, "username": "me@example.com", "accessToken": "nap_...", "apiToken": null, "balance": 9.5, "status": "active", "isPinned": false, "sortOrder": 1, "checkinEnabled": true, "extraConfig": "{}", "createdAt": "...", "updatedAt": "..." }, "apiTokenFound": false, "tokenCount": 1, "reusedAccount": false }`
 
 ### POST /api/accounts/verify-token
 
