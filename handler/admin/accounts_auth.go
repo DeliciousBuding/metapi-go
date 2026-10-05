@@ -2,7 +2,9 @@ package admin
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -50,9 +52,23 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 		writeErrorWithRequest(w, r, http.StatusBadRequest, "unsupported platform: "+site.Platform)
 		return
 	}
+	var existing store.Account
+	err := h.db.Get(&existing,
+		h.db.Rebind("SELECT * FROM accounts WHERE site_id = ? AND username = ?"),
+		body.SiteID, body.Username,
+	)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "Failed to load account.")
+		return
+	}
+	reused := err == nil
+	existingCredential := ""
+	if reused {
+		existingCredential = existing.AccessToken
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	loginResult, err := adp.Login(ctx, site.URL, body.Username, body.Password, nil, service.BuildPlatformProxyConfigForToken(h.cfg, &site, body.Username))
+	loginResult, err := platform.LoginReusingCredential(adp, ctx, site.URL, body.Username, body.Password, nil, service.BuildPlatformProxyConfigForToken(h.cfg, &site, body.Username), existingCredential)
 	if err != nil {
 		slog.Warn("Account login failed", "err", err, "site_id", site.ID, "platform", site.Platform)
 		writeErrorWithRequest(w, r, http.StatusUnauthorized, "login failed")
@@ -67,17 +83,6 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	loginAccessToken := strings.TrimSpace(loginResult.AccessToken)
-
-	// Check for existing account (reusedAccount)
-	var existing store.Account
-	reused := false
-	err = h.db.Get(&existing,
-		h.db.Rebind("SELECT * FROM accounts WHERE site_id = ? AND username = ?"),
-		body.SiteID, body.Username,
-	)
-	if err == nil {
-		reused = true
-	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
 

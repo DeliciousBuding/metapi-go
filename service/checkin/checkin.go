@@ -188,7 +188,7 @@ func tryAutoRelogin(cfg *config.Config, db *sqlx.DB, account *store.Account, sit
 
 	proxyConfig := service.BuildPlatformProxyConfig(cfg, account, site)
 
-	result, err := adp.Login(context.Background(), site.URL, relogin.Username, password, nil, proxyConfig)
+	result, err := platform.LoginReusingCredential(adp, context.Background(), site.URL, relogin.Username, password, nil, proxyConfig, account.AccessToken)
 	if err != nil || !result.Success || result.AccessToken == "" {
 		if err != nil {
 			return "", err
