@@ -145,7 +145,7 @@ function useSitesUrlState() {
     read: readSearch,
     buildHref,
     toColumnFilters: (filters) =>
-      filters.status ? [{ id: 'status', value: filters.status }] : [],
+      filters.status ? [{ id: 'status', value: [filters.status] }] : [],
     fromColumnFilters: (filters) => {
       const statusEntry = filters.find((filter) => filter.id === 'status')
       return {

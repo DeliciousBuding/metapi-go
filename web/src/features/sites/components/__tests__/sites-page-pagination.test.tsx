@@ -111,7 +111,10 @@ vi.mock('../site-form-sheet', () => ({
 }))
 
 vi.mock('../sites-columns', () => ({
-  SITES_STATUS_FILTER_OPTIONS: [],
+  SITES_STATUS_FILTER_OPTIONS: [
+    { label: 'sites.status.active', value: 'active' },
+    { label: 'sites.status.disabled', value: 'disabled' },
+  ],
   useSitesColumns: () => testState.columns,
 }))
 
@@ -146,6 +149,20 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('SitesPage URL-controlled pagination', () => {
+  it('restores a status shortcut as one named filter, not string characters', async () => {
+    testState.sites[0].status = 'disabled'
+    render(<SitesPage />)
+    fireEvent.click(screen.getByRole('button', { name: /Disabled\s*1/ }))
+    await act(async () => {})
+    expect(new URLSearchParams(window.location.search).get('status')).toBe(
+      'disabled'
+    )
+    expect(
+      screen.getByRole('button', { name: /Status.*Disabled/ })
+    ).toBeInTheDocument()
+    expect(screen.queryByText('7 selected')).not.toBeInTheDocument()
+  })
+
   it('keeps page 2 selected and renders rows 11-20', async () => {
     render(<SitesPage />)
 
