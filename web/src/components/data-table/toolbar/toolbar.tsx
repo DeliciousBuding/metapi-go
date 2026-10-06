@@ -184,7 +184,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
   return (
     <div className='space-y-3'>
       <div className='flex flex-wrap items-start gap-2 sm:gap-3'>
-        <div className='flex min-w-0 flex-1 flex-wrap items-center gap-2'>
+        <div className='flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 sm:basis-64'>
           <div className='relative w-full min-w-40 sm:w-50 lg:w-60'>
             <Search
               className='text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2'
