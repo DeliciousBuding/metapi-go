@@ -35,6 +35,28 @@
 
 ---
 
+### Shared page and task composition
+
+The shared primitives also own how a task is presented; pages should not
+rebuild these arrangements with local spacing and raw data editors:
+
+- `components/common/page-header.tsx`: standard list/settings/tool page title,
+  description and wrapping actions. Overview pages retain their overview
+  hierarchy. Page containers continue to own scrolling.
+- `components/data-table/toolbar/toolbar.tsx`: separate query and view/action
+  groups, with expanded filters in their own region. The desktop and mobile
+  empty states share `core/empty-state.tsx`; page-owned filters participate in
+  the same reset action as table filters.
+- `features/settings/components/settings-subsection.tsx`: a settings group
+  with title, optional description/icon/actions, and flat or panel treatment.
+  Notifications and backup tasks use this same composition. Save/reset status
+  lives in `settings-form-actions.tsx`, including a polite live announcement
+  and responsive action placement.
+- `components/common/string-map-editor.tsx`: string mappings use labeled
+  key/value rows by default. JSON is an explicit advanced view, retains the
+  original text, and remains available for legacy object values that cannot
+  be represented as rows. A mode switch must not discard data.
+
 ## 2. Color tokens
 
 All values live in `web/src/styles/theme.css` under `:root` (light) and `.dark` (dark); presets override them per `data-theme-preset` in `theme-presets.css`.

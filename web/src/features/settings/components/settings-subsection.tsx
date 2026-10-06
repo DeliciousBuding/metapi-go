@@ -5,12 +5,8 @@
 //   L2 card title            → h2 (SectionCard, @/components/common/section-card)
 //   L3 card subsection title → h3 (this module)
 //
-// `SettingsSubsection` is the full L3 zone: the h3 title plus a `border-t`
-// separator so multiple flat zones inside one card read as distinct sections
-// (e.g. import/export's export / import / WebDAV zones). Boxed zones that
-// already carry their own `rounded-lg border` (e.g. schedule groups) render
-// a plain h3 with the same `text-sm font-medium` styling — same L3 level,
-// separator comes from the box.
+// Flat groups use separators; panel groups own their border and surface.
+// Both use the same heading, optional description/icon, and action alignment.
 
 import type { ReactNode } from 'react'
 
@@ -27,11 +23,6 @@ type SettingsSubsectionProps = {
   className?: string
 }
 
-/**
- * Flat card zone with the L3 separator convention: `border-t pt-4` above
- * every zone after the first (the card header itself separates zone one).
- * Internal spacing matches the sections' existing `space-y-3` rhythm.
- */
 export function SettingsSubsection({
   title,
   description,
