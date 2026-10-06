@@ -33,6 +33,7 @@ from pathlib import Path
 import secrets
 import shutil
 import signal
+import sqlite3
 import socket
 import struct
 import subprocess
@@ -433,6 +434,23 @@ def create_upstream_user(root, prefix, role=1, encrypted=False, work_dir=None):
     return username, password, user
 
 
+def stored_account_pat(data_dir, account_id):
+    """Read the isolated account credential without emitting it as evidence."""
+    database = Path(data_dir) / "hub.db"
+    with sqlite3.connect(database) as connection:
+        row = connection.execute("SELECT access_token FROM accounts WHERE id = ?", (account_id,)).fetchone()
+    require(row is not None and isinstance(row[0], str) and row[0].startswith("nap_"),
+            "scoped_pat_not_stored")
+    return row[0]
+
+
+def report_scoped_pat_api_key_list_failure(report, items):
+    # Upstream-controlled key names and fields are intentionally excluded from
+    # public evidence. Count is sufficient to diagnose the missing record.
+    report.check("scoped_pat_api_key_listed", False, code="created_key_absent_from_list",
+                 itemCount=len(items))
+
+
 def delete_upstream_user(root, uid):
     if uid and uid > 1:
         root.call("DELETE", f"/api/user/{uid}")
@@ -615,6 +633,102 @@ def scenario_auto_relogin(ctx):
         delete_upstream_user(root, user.uid)
 
 
+def scenario_scoped_pat_reuse_and_scopes(ctx):
+    root = ctx["plain_root"]
+    metapi = ctx["metapi"]
+    for key, value in (("checkin_setting.enabled", True), ("checkin_setting.min_quota", 1),
+                       ("checkin_setting.max_quota", 1)):
+        root.ok("PUT", "/api/option/", {"key": key, "value": value})
+    username, password, user = create_upstream_user(root, ctx["prefix"] + "scopes")
+    site_id = None
+    account_id = None
+    api_key_id = None
+    try:
+        site_id = create_metapi_site(metapi, ctx["prefix"] + "scopes-site", ctx["plain_base"])
+        status, bound = metapi.call("POST", "/api/accounts/login", {
+            "siteId": site_id, "username": username, "password": password,
+        })
+        require(status == 200 and bound.get("success") is True, "scoped_pat_initial_bind_failed")
+        account_id = (bound.get("account") or {}).get("id")
+        require(isinstance(account_id, int) and account_id > 0, "scoped_pat_account_missing")
+
+        pat = stored_account_pat(ctx["metapi_data_dir"], account_id)
+        first = user.token_status()
+        require(first.get("exists") is True and isinstance(first.get("token_ref"), str), "scoped_pat_initial_token_missing")
+        scopes = first["items"][0].get("scopes") if first["items"] else None
+        expiry = first["items"][0].get("expires_at") if first["items"] else None
+        require(scopes == PAT_SCOPES and expiry == 0, "scoped_pat_initial_grant_mismatch")
+        require(first["token_ref"] == hashlib.sha256(pat.encode()).hexdigest(), "scoped_pat_stored_fingerprint_mismatch")
+        login_count_before = count_newapi_login_requests(ctx["newapi_log"])
+
+        status, rebound = metapi.call("POST", "/api/accounts/login", {
+            "siteId": site_id, "username": username, "password": password,
+        })
+        require(status == 200 and rebound.get("success") is True, "scoped_pat_rebind_failed")
+        rebound_pat = stored_account_pat(ctx["metapi_data_dir"], account_id)
+        second = user.token_status()
+        require(rebound_pat == pat and second.get("token_ref") == first["token_ref"], "scoped_pat_was_not_reused")
+        require(len(second.get("items", [])) == 1 and second["items"][0].get("scopes") == PAT_SCOPES and
+                second["items"][0].get("expires_at") == 0, "scoped_pat_reuse_grant_changed")
+        login_count_after = count_newapi_login_requests(ctx["newapi_log"])
+        require(login_count_after - login_count_before == 1, "scoped_pat_reuse_login_count_unexpected")
+        ctx["report"].check("scoped_pat_valid_reuse_no_remint", True, code="ok", tokenRefUnchanged=True,
+                            grantUnchanged=True, expiryUnchanged=True, tokenCount=1,
+                            browserLoginCountDelta=login_count_after - login_count_before)
+
+        pat_api = API(root.base, key=pat, uid=user.uid)
+        profile = pat_api.ok("GET", "/api/user/self")
+        profile_data = profile.get("data") or {}
+        require(profile_data.get("username") == username, "scoped_pat_profile_read_failed")
+        ctx["report"].check("scoped_pat_profile_read", True, code="ok")
+
+        wallet = pat_api.ok("GET", "/api/user/checkin")
+        require(wallet.get("success") is True, "scoped_pat_wallet_read_failed")
+        checkin = pat_api.ok("POST", "/api/user/checkin")
+        require(checkin.get("success") is True, "scoped_pat_wallet_write_failed")
+        ctx["report"].check("scoped_pat_wallet_read_write", True, code="ok")
+
+        listed = pat_api.ok("GET", "/api/token/")
+        listed_data = listed.get("data") or {}
+        listed_items = listed_data.get("items") if isinstance(listed_data, dict) else listed_data
+        require(isinstance(listed_items, list), "scoped_pat_api_key_list_invalid")
+        key_name = ctx["prefix"] + "pat-write"
+        created = pat_api.ok("POST", "/api/token/", {
+            "name": key_name, "expired_time": -1, "remain_quota": 0, "unlimited_quota": True,
+            "model_limits_enabled": False, "model_limits": "", "group": "default",
+        })
+        require(created.get("success") is True, "scoped_pat_api_key_create_failed")
+
+        listed = pat_api.ok("GET", "/api/token/")
+        listed_data = listed.get("data") or {}
+        listed_items = listed_data.get("items") if isinstance(listed_data, dict) else listed_data
+        require(isinstance(listed_items, list), "scoped_pat_api_key_list_invalid")
+        item = next((value for value in listed_items if isinstance(value, dict) and value.get("name") == key_name), None)
+        if item is None or not isinstance(item.get("id"), int):
+            report_scoped_pat_api_key_list_failure(ctx["report"], listed_items)
+            raise CheckFailed("scoped_pat_api_key_not_listed")
+        api_key_id = item["id"]
+        detail = pat_api.ok("GET", f"/api/token/{api_key_id}")
+        require(detail.get("success") is True, "scoped_pat_api_key_read_failed")
+        revealed = pat_api.ok("POST", f"/api/token/{api_key_id}/key")
+        revealed_data = revealed.get("data") or {}
+        raw_key = revealed_data.get("key") if isinstance(revealed_data, dict) else None
+        require(isinstance(raw_key, str) and raw_key.strip(), "scoped_pat_api_key_reveal_failed")
+        # Do not print, persist, or include the revealed credential in evidence.
+        ctx["report"].check("scoped_pat_api_key_write_read_reveal", True, code="ok", keyCreated=True,
+                            keyListed=True, keyRead=True, keyRevealed=True, credentialRecorded=False)
+    finally:
+        if api_key_id is not None:
+            # Cleanup is an authenticated mutation using the disposable PAT.
+            with contextlib.suppress(Exception):
+                pat_api.call("DELETE", f"/api/token/{api_key_id}")
+        if account_id:
+            metapi.call("DELETE", f"/api/accounts/{account_id}")
+        if site_id:
+            metapi.call("DELETE", f"/api/sites/{site_id}")
+        delete_upstream_user(root, user.uid)
+
+
 def scenario_relay(ctx):
     root = ctx["plain_root"]
     mock_port = free_port()
@@ -711,6 +825,7 @@ def run_upstream_scenario(cfg, work_root, processes, metapi, report, name, encry
             "root_password": root_password,
             "newapi_log": str(proc.log_path),
             "metapi": metapi,
+            "metapi_data_dir": Path(work_root) / "metapi",
         }
         scenario(ctx)
     finally:
@@ -762,6 +877,8 @@ def main():
         run_upstream_scenario(cfg, work_root, processes, metapi, report, "proof", False,
                               lambda ctx: scenario_proof_matrix(ctx, cfg["wait_expiry"]))
         run_upstream_scenario(cfg, work_root, processes, metapi, report, "relogin", False, scenario_auto_relogin)
+        run_upstream_scenario(cfg, work_root, processes, metapi, report, "scoped-pat", False,
+                              scenario_scoped_pat_reuse_and_scopes)
         run_upstream_scenario(cfg, work_root, processes, metapi, report, "relay", False, scenario_relay)
         run_upstream_scenario(cfg, work_root, processes, metapi, report, "encrypted", True, scenario_encrypted)
         report.state["freshUpstreamPerScenario"] = True

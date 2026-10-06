@@ -258,14 +258,18 @@ cannot prove against a real upstream. It requires Python 3, `openssl`, `curl`,
 The runner checks scoped PAT creation with a grant-bound proof, MFA fail-closed
 behavior, missing/wrong-scope/wrong-password/reused/expired proofs, the
 encrypted-password upstream variant, and the exact number of product-initiated
-automatic relogins after revocation. It also runs the existing three-protocol
-relay smoke against a deterministic upstream and reconciles each request with
-that upstream's log; this is not real-model acceptance. Each plaintext scenario
+automatic relogins after revocation. Against a current New API rc.41 process it
+also verifies valid PAT reuse without minting another token, and exercises the
+six account grants through real profile, wallet/check-in, and API-key
+read/write/reveal requests. The three-protocol relay smoke uses a deterministic
+upstream mock and reconciles each request with that upstream's log; it verifies
+the protocol relay path, not real-model inference. Each plaintext scenario
 receives a fresh New API instance so the harness cannot consume the upstream's
-login rate-limit window. It writes a sanitized JSON report, does not print
-credentials or proof values, and removes its disposable databases and process
-logs on success. It does not change a
-persistent testbed, upstream rate limits, or production state.
+login rate-limit window. It writes a sanitized JSON report and does not print
+credentials or proof values to stdout or the report. Temporary databases and
+process logs can contain credentials during execution and are removed on
+success. It does not change a persistent testbed, upstream rate limits, or
+production state.
 
 ## Opt-in live model acceptance
 
