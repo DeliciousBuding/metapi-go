@@ -50,27 +50,15 @@ import {
   hasChanges,
 } from '../../../lib/collect-changed-fields'
 import { scheduleFromLegacy, scheduleToCron } from '../../../lib/schedule'
+import {
+  BackupImportPreviewPanel,
+  type BackupImportPreview,
+  type BackupImportTablePlan,
+  type OctopusV5Preview,
+} from './backup-import-preview-panel'
 
 const WEBDAV_FORM_ID = 'settings-content-import-export-webdav-form'
 const BACKUP_IMPORT_MAX_BYTES = 20 * 1024 * 1024
-
-type BackupImportTablePlan = Record<
-  string,
-  { rows: number; toInsert: number; duplicates: number; skippedRows: number }
->
-
-type OctopusV5Preview = {
-  source: string
-  originKey: string
-  sections: Record<string, number>
-  notImported?: Record<string, number>
-  adaptations?: string[]
-  blocking?: string[]
-}
-
-type BackupImportPreview =
-  | { kind: 'tables'; tables: BackupImportTablePlan }
-  | { kind: 'octopus'; data: OctopusV5Preview }
 
 type ImportPreviewSnapshot = {
   raw: string
@@ -265,7 +253,9 @@ export function ImportExportSection() {
           throw new Error('Invalid Octopus v5 import preview')
         }
         if (plan.originKey !== originKey) {
-          throw new Error('Octopus preview origin key does not match the request')
+          throw new Error(
+            'Octopus preview origin key does not match the request'
+          )
         }
         return {
           kind: 'octopus' as const,
@@ -422,8 +412,6 @@ export function ImportExportSection() {
     saveWebdavMutation.mutate(changed)
   }
 
-  const planEntries =
-    importPreview?.kind === 'tables' ? Object.entries(importPreview.tables) : []
   const octopusV5Import = isOctopusV5Import(importText)
   const hasNotImportedOctopusSections =
     importPreview?.kind === 'octopus' &&
@@ -587,6 +575,14 @@ export function ImportExportSection() {
                 : t('settings.content.importExport.importPreview')}
             </Button>
           </div>
+          <BackupImportPreviewPanel
+            preview={importPreview}
+            acknowledged={allowChannelsOnlyImport}
+            onAcknowledge={(checked) => {
+              setAllowChannelsOnlyImport(checked)
+              setConfirmImportOpen(checked)
+            }}
+          />
         </SettingsSubsection>
 
         {webdavQuery.isLoading ? (
@@ -912,118 +908,6 @@ export function ImportExportSection() {
         }}
         onCancel={() => setConfirmWebdavImportOpen(false)}
       />
-      {importPreview?.kind === 'octopus' && (
-        <div className='mt-4 space-y-3 rounded-lg border p-4'>
-          <h3 className='text-sm font-medium'>
-            {t('settings.content.importExport.importPreviewTitle')}
-          </h3>
-          <p className='text-muted-foreground text-xs'>
-            {t('settings.content.importExport.octopusPreviewOrigin', {
-              source: importPreview.data.source,
-              originKey: importPreview.data.originKey,
-            })}
-          </p>
-          <ul className='text-muted-foreground list-inside list-disc space-y-1 text-xs'>
-            {Object.entries(importPreview.data.sections).map(
-              ([section, count]) => (
-                <li key={section}>
-                  {t('settings.content.importExport.octopusPreviewSection', {
-                    section,
-                    count,
-                  })}
-                </li>
-              )
-            )}
-          </ul>
-          {hasNotImportedOctopusSections && (
-            <div className='text-destructive space-y-1 text-xs'>
-              <p>
-                {t('settings.content.importExport.octopusNotImportedTitle')}
-              </p>
-              <ul className='list-inside list-disc space-y-1'>
-                {Object.entries(importPreview.data.notImported ?? {}).map(
-                  ([section, count]) => (
-                    <li key={section}>
-                      {t(
-                        'settings.content.importExport.octopusPreviewSection',
-                        { section, count }
-                      )}
-                    </li>
-                  )
-                )}
-              </ul>
-            </div>
-          )}
-          {!hasNotImportedOctopusSections && !hasOctopusPolicyAdaptations && (
-            <p className='text-muted-foreground text-xs'>
-              {t('settings.content.importExport.octopusAllSectionsSupported')}
-            </p>
-          )}
-          {hasOctopusPolicyAdaptations ? (
-            <div className='space-y-1 text-xs'>
-              <p className='font-medium'>
-                {t('settings.content.importExport.octopusAdaptationsTitle')}
-              </p>
-              <ul className='list-inside list-disc space-y-1'>
-                {importPreview.data.adaptations?.map((adaptation) => (
-                  <li key={adaptation}>
-                    {t(
-                      `settings.content.importExport.octopusAdaptation.${adaptation}`
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {(importPreview.data.blocking?.length ?? 0) > 0 ? (
-            <p className='text-destructive text-xs'>
-              {t('settings.content.importExport.octopusBlockingSections', {
-                sections: importPreview.data.blocking?.join(', '),
-              })}
-            </p>
-          ) : null}
-          {(importPreview.data.blocking?.length ?? 0) === 0 &&
-          (Object.values(importPreview.data.notImported ?? {}).some(
-            (count) => count > 0
-          ) ||
-            (importPreview.data.adaptations?.length ?? 0) > 0) ? (
-            <label className='border-destructive/40 flex items-start gap-2 rounded-md border p-3 text-sm'>
-              <input
-                type='checkbox'
-                checked={allowChannelsOnlyImport}
-                onChange={(event) => {
-                  setAllowChannelsOnlyImport(event.target.checked)
-                  setConfirmImportOpen(event.target.checked)
-                }}
-              />
-              <span>
-                {t(
-                  'settings.content.importExport.octopusChannelsOnlyAcknowledgement'
-                )}
-              </span>
-            </label>
-          ) : null}
-        </div>
-      )}
-      {importPreview?.kind === 'tables' && planEntries.length > 0 && (
-        <div className='mt-4 space-y-2 rounded-lg border p-4'>
-          <h3 className='text-sm font-medium'>
-            {t('settings.content.importExport.importPreviewTitle')}
-          </h3>
-          <ul className='text-muted-foreground list-inside list-disc space-y-1 text-xs'>
-            {planEntries.map(([table, plan]) => (
-              <li key={table}>
-                {t('settings.content.importExport.importPreviewRow', {
-                  table,
-                  toInsert: plan.toInsert,
-                  duplicates: plan.duplicates,
-                  skipped: plan.skippedRows,
-                })}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </SectionCard>
   )
 }

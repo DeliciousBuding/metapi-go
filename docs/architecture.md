@@ -438,6 +438,25 @@ it by running `go test ./docs -run TestPackageBoundaries`. That test is the
 specification; a new edge either passes it or needs a written exception in its
 header comment.
 
+## External backup import ownership
+
+Octopus v5 import stays within `service/backup`: `octopus_v5_types.go` defines
+the source envelope, `octopus_v5.go` parses and checks compatibility, and
+`octopus_v5_import.go` owns transactional ID remapping and persistence. Preview
+and commit use the same compatibility checks; unsupported executable settings
+remain blocking rather than being silently accepted.
+
+`internal/httpclient.ExpandClientHeaderTemplate` owns the request metadata
+template parser and allowlist. Both backup validation and direct forwarding
+call it, so accepting a template at import time cannot bypass the forwarding
+policy. It never expands credentials or cookies and returns no partial value
+for invalid templates.
+
+The settings import workflow owns its reviewed payload snapshot and mutations.
+`BackupImportPreviewPanel` only displays the plan and reports acknowledgement;
+it sits beside the import inputs, before the independent WebDAV configuration.
+Blocking plans cannot claim full support or offer partial-import acknowledgement.
+
 ## Related docs
 
 - [`docs/package_boundary_test.go`](package_boundary_test.go) — the executable dependency denylist and its approved exceptions; read this before moving an import

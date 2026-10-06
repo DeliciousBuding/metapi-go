@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/platform"
-	"strings"
 )
 
 func directProxyConfig(raw, channelProxy string, useSystemProxy bool, client http.Header) *platform.ProxyConfig {
@@ -30,46 +30,13 @@ func directProxyConfig(raw, channelProxy string, useSystemProxy bool, client htt
 		if header.Key == "" {
 			continue
 		}
-		value, ok := expandClientHeaderTemplate(header.Value, client)
+		value, ok := httpclient.ExpandClientHeaderTemplate(header.Value, client)
 		if !ok {
 			continue
 		}
 		proxyCfg.CustomHeaders[header.Key] = value
 	}
 	return proxyCfg
-}
-
-func expandClientHeaderTemplate(value string, client http.Header) (string, bool) {
-	const marker = "{client_header:"
-	var out strings.Builder
-	for {
-		relative := strings.Index(strings.ToLower(value), marker)
-		if relative < 0 {
-			out.WriteString(value)
-			return out.String(), true
-		}
-		out.WriteString(value[:relative])
-		nameStart := relative + len(marker)
-		endRel := strings.IndexByte(value[nameStart:], '}')
-		if endRel < 0 {
-			return "", false
-		}
-		name := strings.TrimSpace(value[nameStart : nameStart+endRel])
-		if !safeDirectClientHeaderName(name) {
-			return "", false
-		}
-		out.WriteString(client.Get(name))
-		value = value[nameStart+endRel+1:]
-	}
-}
-
-func safeDirectClientHeaderName(name string) bool {
-	switch strings.ToLower(name) {
-	case "idempotency-key", "openai-beta", "x-request-id", "x-correlation-id", "traceparent", "tracestate":
-		return true
-	default:
-		return false
-	}
 }
 
 func applyDirectParamOverrides(body []byte, raw string) ([]byte, error) {
