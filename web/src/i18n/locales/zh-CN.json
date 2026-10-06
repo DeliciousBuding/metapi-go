@@ -1554,6 +1554,44 @@
             "webdavExportFailed": "WebDAV 导出失败。",
             "webdavImported": "已从 WebDAV 导入。",
             "webdavImportFailed": "WebDAV 导入失败。"
+          },
+          "design": {
+            "uploadTitle": "选择备份文件",
+            "uploadHint": "恢复 Metapi 数据，或迁移 Octopus 备份。",
+            "replaceFile": "已选择文件 · 点击更换",
+            "previewSafety": "先预览，再确认。确认导入前不会写入任何数据。",
+            "pasteJson": "高级入口 · 粘贴 JSON",
+            "importHint": "选择数据来源，核对导入计划，再确认执行。",
+            "exportHint": "按需选择备份范围，保存到你的设备。",
+            "exportAllHint": "配置、连接与历史记录",
+            "exportAccountsHint": "站点、账号与访问凭据",
+            "exportPreferencesHint": "应用设置与个性化偏好",
+            "webdavHint": "将定时备份保存到你自己的远程存储。",
+            "ready": "可以导入",
+            "review": "需要确认",
+            "blocked": "暂不可导入",
+            "emptyPlan": "这份备份中没有数据记录。",
+            "sections": {
+              "channels": "上游渠道",
+              "channelKeys": "访问凭据",
+              "channelModels": "模型",
+              "channelGrants": "模型授权",
+              "groups": "路由分组",
+              "groupItems": "分组成员",
+              "statsAPIKey": "密钥历史",
+              "statsDaily": "每日历史",
+              "statsHourly": "每小时历史",
+              "statsRecords": "历史记录",
+              "statsTotal": "历史总计",
+              "apiKeys": "下游密钥",
+              "llmInfos": "模型定价",
+              "settings": "应用设置"
+            },
+            "blockers": {
+              "clientHeaderTemplates": "不支持的客户端请求头",
+              "channelProxyUnavailable": "缺少出口代理配置",
+              "groupRelayConfig": "不支持的分组路由策略"
+            }
           }
         },
         "notifications": {

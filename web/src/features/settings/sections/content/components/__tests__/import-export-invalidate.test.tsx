@@ -128,6 +128,7 @@ function renderImportExportSection() {
       <ImportExportSection />
     </QueryClientProvider>
   )
+  fireEvent.click(screen.getByRole('button', { name: 'Advanced · paste JSON' }))
   return { invalidateSpy }
 }
 
@@ -194,8 +195,12 @@ describe('ImportExportSection — cache invalidation after import', () => {
       await screen.findByRole('button', { name: 'Preview import' })
     )
 
-    expect(await screen.findByText('channels: 2 record(s)')).toBeInTheDocument()
-    expect(screen.getByText('statsRecords: 4 record(s)')).toBeInTheDocument()
+    expect(
+      (await screen.findByText('Channels')).parentElement
+    ).toHaveTextContent('2')
+    expect(screen.getByText('History records').parentElement).toHaveTextContent(
+      '4'
+    )
     expect(mockPreviewBackupImport).toHaveBeenCalledWith(payload, 'octopus-lab')
     await screen.findByText('Confirm import?')
     clickLastButtonNamed('Import')

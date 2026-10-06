@@ -1554,6 +1554,44 @@
             "webdavExportFailed": "WebDAV export failed.",
             "webdavImported": "Imported from WebDAV.",
             "webdavImportFailed": "WebDAV import failed."
+          },
+          "design": {
+            "uploadTitle": "Choose a backup file",
+            "uploadHint": "Restore Metapi data or migrate an Octopus backup.",
+            "replaceFile": "File selected · click to replace",
+            "previewSafety": "Preview first. Nothing is written until you confirm the import.",
+            "pasteJson": "Advanced · paste JSON",
+            "importHint": "Choose your source, review the plan, then confirm.",
+            "exportHint": "Choose the data to keep in your local backup.",
+            "exportAllHint": "Configuration, connections and history",
+            "exportAccountsHint": "Sites, accounts and access credentials",
+            "exportPreferencesHint": "Application settings and preferences",
+            "webdavHint": "Keep scheduled backups in your own remote storage.",
+            "ready": "Ready to import",
+            "review": "Review required",
+            "blocked": "Cannot import",
+            "emptyPlan": "No records in this backup.",
+            "sections": {
+              "channels": "Channels",
+              "channelKeys": "Credentials",
+              "channelModels": "Models",
+              "channelGrants": "Model grants",
+              "groups": "Route groups",
+              "groupItems": "Group members",
+              "statsAPIKey": "Key history",
+              "statsDaily": "Daily history",
+              "statsHourly": "Hourly history",
+              "statsRecords": "History records",
+              "statsTotal": "Total history",
+              "apiKeys": "Downstream keys",
+              "llmInfos": "Model pricing",
+              "settings": "Settings"
+            },
+            "blockers": {
+              "clientHeaderTemplates": "unsupported client request headers",
+              "channelProxyUnavailable": "missing outbound proxy",
+              "groupRelayConfig": "unsupported group routing policies"
+            }
           }
         },
         "notifications": {
