@@ -118,7 +118,7 @@
   /* Brand primary: indigo, hue 262. Lightness 0.565 is the lightest value at
    * chroma 0.19 whose white foreground still clears WCAG AA 4.5:1. */
   --primary: oklch(0.565 0.19 262);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.955 0.004 262);
   --secondary-foreground: oklch(0.28 0.012 262);
   --muted: oklch(0.966 0.002 262);
