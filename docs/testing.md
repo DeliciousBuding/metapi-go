@@ -249,6 +249,39 @@ Both scripts print PASS/FAIL/WARN/SKIP summaries, preserve truncated failure evi
 - Attach sanitized request/response shapes and commit/PR references to public issues; never attach raw environment files or full tokens.
 - A healthy run is evidence for the exercised platform and version only. Do not generalize it into a cluster-wide or all-adapter claim.
 
+## Opt-in New API management journey
+
+`scripts/e2e/verify-management-matrix.py` is an eight-check process-level
+journey for a disposable Metapi instance and a dedicated ordinary New API user
+with no existing API keys. It verifies the pinned Metapi `/api/about` commit, admin
+authorization and empty inventories, site and account creation, a finite
+upstream API key created through Metapi, direct New API inventory corroboration,
+local-only metadata rename, and deletion on both sides. It does not send model
+requests or change global upstream settings. It is **not** the historical lost
+21-step runner and does not cover check-in rewards, PAT revocation/rebind,
+pagination, MFA, natural JWT expiry, real models or downstream clients.
+
+Set `METAPI_BASE_URL`, `METAPI_AUTH_TOKEN`, `METAPI_EXPECT_COMMIT` (full 40-digit
+commit from the running binary), `NEWAPI_BASE_URL`, `NEWAPI_USERNAME`, and
+`NEWAPI_PASSWORD` in the operator's private environment. Both
+`MANAGEMENT_DISPOSABLE=1` and `MANAGEMENT_ALLOW_MUTATIONS=1` are required.
+Both origins must be loopback; run it on the isolated test host. The script
+refuses nonempty Metapi sites/accounts and a nonempty upstream user
+token inventory. Direct requests are capped at 40 and the run at five minutes,
+with no retries or redirects.
+Record binary/image identity and upstream version separately: a matching
+`/api/about` commit does not prove the upstream process identity.
+
+The JSONL stdout contains fixed check/error codes, a random run label and
+numeric object IDs, never URLs, credentials or response bodies. Redirect it to
+private evidence storage, not a PR or the public repository. Mutation intents
+are emitted before writes so an interrupted run can be reconciled by its label
+and IDs. It deletes only its own upstream token; site/account and the dedicated
+upstream user remain in the disposable environment for inspection. The
+offline fixture `test_verify_management_matrix.py` runs in CI and proves that
+an empty journey, a local-only token create and a local-only delete cannot pass;
+it is instrument evidence, not a live New API result.
+
 ## Opt-in live New API authentication boundaries
 
 `scripts/e2e/verify-newapi-auth-boundaries.py` starts disposable New API and
