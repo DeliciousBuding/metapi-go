@@ -21,6 +21,12 @@
 | Fonts           | **Public Sans + Noto Sans SC**, optional **Lora** (locally embedded via `@fontsource-variable`) — no Google Fonts CDN                                                                                                                                                                                                                            |
 | High-res        | Content layout axis `data-theme-content-layout` (`full`/`centered`); full remains fluid until 1920px, then caps the content scan width at 1920px; centered clamps to `--max-content-width` (1280px) at ≥1280px. The sidebar and header remain viewport-wide. Utilities `max-w-container` (1280px) / `max-w-container-lg` (1536px) serve individual pages. |
 
+**Primary workspace**: desktop administration. Judge hierarchy, density and
+multi-column composition at 1440–1920px first. Mobile adapts the same tasks
+without letting narrow-screen compromises dictate the desktop layout.
+Metric cards keep title, primary value, supporting text and detail cells in
+separate visual tiers; long supporting text must not compete beside the number.
+
 **Principles**
 
 1. **Signal over decoration** — every color/weight change means status, severity, or hierarchy.
