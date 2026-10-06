@@ -112,7 +112,7 @@ export function StatCard(props: StatCardProps) {
               <Icon />
             </IconBadge>
           ) : null}
-          <CardTitle className='text-muted-foreground text-xs font-medium tracking-wide uppercase'>
+          <CardTitle className='text-muted-foreground text-sm leading-5 font-semibold tracking-normal sm:text-base'>
             {props.title}
           </CardTitle>
         </div>
@@ -151,12 +151,12 @@ export function StatCard(props: StatCardProps) {
                       key={detail.label}
                       className='bg-muted/40 rounded-lg border px-2.5 py-2'
                     >
-                      <div className='text-muted-foreground text-2xs truncate leading-none font-medium'>
+                      <div className='text-muted-foreground text-xs leading-4 font-medium'>
                         {detail.label}
                       </div>
                       <div
                         className={cn(
-                          'mt-1.5 truncate text-xs font-semibold tabular-nums',
+                          'mt-1.5 break-words text-sm leading-5 font-semibold tabular-nums [overflow-wrap:anywhere]',
                           DETAIL_TONE_CLASSES[detail.tone ?? 'default']
                         )}
                         title={detail.value}

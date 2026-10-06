@@ -10,7 +10,7 @@
 //     explains itself on the list first screen without opening the sheet.
 
 import type { ColumnDef } from '@tanstack/react-table'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import i18n from 'i18next'
 import { useEffect } from 'react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
@@ -100,6 +100,14 @@ describe('useProxyLogsColumns meta.labels', () => {
     const actions = cols.find((c) => c.id === 'actions')
     expect(actions?.enableHiding).toBe(false)
   })
+
+  it('places status and failure copy in the full-width mobile field, not the card header', async () => {
+    const cols = await loadColumns()
+    const status = cols.find((column) => column.id === 'status')
+
+    expect(status?.meta?.mobileBadge).toBeUndefined()
+    expect(status?.meta?.mobileFullWidth).toBe(true)
+  })
 })
 
 describe('proxy-logs status cell failure visibility', () => {
@@ -137,9 +145,14 @@ describe('proxy-logs status cell failure visibility', () => {
     expect(screen.getByText('502')).toBeTruthy()
   })
 
-  it('shows the failure errorMessage inline for failed rows', async () => {
+  it('shows the failure reason inline and exposes long text by disclosure', async () => {
     await renderStatusCell()
     expect(screen.getByText(/dial tcp/)).toBeTruthy()
+    const disclosure = screen.getByRole('button', { name: '展开全文' })
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(disclosure)
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText(/lookup no such host/)).toBeTruthy()
   })
 
   it('renders no error line when errorMessage is empty', async () => {

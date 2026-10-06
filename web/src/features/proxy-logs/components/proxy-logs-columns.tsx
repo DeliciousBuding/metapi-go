@@ -9,6 +9,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { ClientPill } from '@/components/common/client-pill'
+import { ExpandableText } from '@/components/common/expandable-text'
 import { HttpStatusBadge } from '@/components/common/http-status-badge'
 import { ModelPill } from '@/components/common/model-pill'
 import { DataTableColumnHeader } from '@/components/data-table'
@@ -179,7 +180,7 @@ export function useProxyLogsColumns(
       size: 200,
       meta: {
         label: t('proxyLogs.columns.status'),
-        mobileBadge: true,
+        mobileFullWidth: true,
         mobileOrder: 1,
       },
       header: ({ column }) => (
@@ -194,12 +195,11 @@ export function useProxyLogsColumns(
           <div className='flex min-w-0 flex-col items-start gap-1'>
             <HttpStatusBadge status={log.status} httpStatus={log.httpStatus} />
             {log.errorMessage ? (
-              <span
-                className='text-destructive-soft-fg text-2xs block max-w-64 truncate leading-tight'
-                title={log.errorMessage}
-              >
-                {log.errorMessage}
-              </span>
+              <ExpandableText
+                text={log.errorMessage}
+                threshold={72}
+                className='text-destructive-soft-fg max-w-64 text-xs leading-4'
+              />
             ) : null}
           </div>
         )
