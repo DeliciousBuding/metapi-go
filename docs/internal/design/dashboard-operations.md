@@ -59,8 +59,8 @@ Official source was reviewed on 2026-10-06, pinned to these revisions:
   progressively discloses deeper analytics. Its channel table retains success
   and failure counts beside percentages. Borrow that decision structure, not
   arbitrary success thresholds or cumulative/today metric mixing.
-- [Octopus trend](https://github.com/bestruirui/octopus/blob/0538c3e715e529e3a1f3a2b1229addb8ca4357ea/web/src/components/modules/home/chart.tsx)
-  and [rankings](https://github.com/bestruirui/octopus/blob/0538c3e715e529e3a1f3a2b1229addb8ca4357ea/web/src/components/modules/home/rank.tsx)
+- [Octopus overview at the reviewed revision](https://github.com/bestruirui/octopus/tree/0538c3e715e529e3a1f3a2b1229addb8ca4357ea)
+  uses trend and ranking components that
   use compact period summaries and cost/request/token dimensions. Its
   year-long activity display is better suited to an analysis view than this
   overview's incident-oriented first screen.
