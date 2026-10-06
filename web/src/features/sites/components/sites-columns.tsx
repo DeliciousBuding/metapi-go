@@ -236,7 +236,7 @@ export function useSitesColumns(
         ) : (
           <Link
             to='/accounts'
-            search={{ site: String(row.original.id) }}
+            search={{ site: row.original.id }}
             className='text-primary hover:bg-accent inline-flex items-center rounded-md border px-2 py-1 text-xs tabular-nums'
             aria-label={t('sites.page.viewAccounts', {
               name: row.original.name,
