@@ -53,6 +53,34 @@ func TestStats_SQLiteProxyLogDetail_Found(t *testing.T) {
 	}
 }
 
+func TestStats_SQLiteProxyLogDetail_UsesTypedDirectUpstreamIdentity(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+	res, err := db.Exec(`INSERT INTO proxy_logs (route_id, upstream_channel_id, upstream_grant_id, model_requested, model_actual, status, http_status, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 44, 22, 33, "octopus-model", "provider-model", "success", 200, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logID, err := res.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := doGet(t, r, "/api/stats/proxy-logs/"+itoa(logID))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["channelId"] != nil || body["accountId"] != nil {
+		t.Fatalf("direct log claims native identity: %v", body)
+	}
+	if int64(body["upstreamChannelId"].(float64)) != 22 || int64(body["upstreamGrantId"].(float64)) != 33 {
+		t.Fatalf("typed direct refs missing from detail API: %v", body)
+	}
+}
+
 func TestStats_SQLiteProxyLogDetail_NotFound(t *testing.T) {
 	_, r := setupStatsSQLiteTest(t)
 

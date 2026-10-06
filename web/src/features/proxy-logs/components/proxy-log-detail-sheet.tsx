@@ -140,6 +140,24 @@ export function ProxyLogDetailSheet({
 function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
+  const renderChannelIdentity = () => {
+    if (detail.upstreamGrantId) {
+      return t('proxyLogs.detail.directGrant', {
+        channelId: detail.upstreamChannelId ?? '—',
+        grantId: detail.upstreamGrantId,
+      })
+    }
+    if (!detail.channelId) return '—'
+    return (
+      <Link
+        to='/channels'
+        search={{ channelId: detail.channelId }}
+        className='text-primary hover:underline'
+      >
+        {`#${detail.channelId}`}
+      </Link>
+    )
+  }
   return (
     <section>
       <h3 className='mb-2 text-sm font-medium'>
@@ -200,17 +218,7 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
           )}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.channel')}>
-          {detail.channelId ? (
-            <Link
-              to='/channels'
-              search={{ channelId: detail.channelId }}
-              className='text-primary hover:underline'
-            >
-              {`#${detail.channelId}`}
-            </Link>
-          ) : (
-            '—'
-          )}
+          {renderChannelIdentity()}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.estimatedCost')}>
           {formatCurrency(detail.estimatedCost, { fractionDigits: 4 })}

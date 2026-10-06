@@ -1149,7 +1149,16 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 			continue
 		}
 		kind, _ := obj["kind"].(string)
-		if kind == "account_token" {
+		if kind == "direct_grant" {
+			grantID := coerceInt64(obj["grantId"])
+			var count int
+			if err := h.db.Get(&count, rebindAdminQuery(h.db, `SELECT COUNT(*) FROM upstream_grants WHERE id = ?`), grantID); err != nil {
+				return "", err
+			}
+			if count != 1 {
+				return fmt.Sprintf("credentialRefs contains an unknown direct grant: %d", grantID), nil
+			}
+		} else if kind == "account_token" {
 			tokenId := coerceInt64(obj["tokenId"])
 			accountId := coerceInt64(obj["accountId"])
 			siteId := coerceInt64(obj["siteId"])

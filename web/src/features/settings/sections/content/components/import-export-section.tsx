@@ -4,7 +4,7 @@
 // form using the shared semantic schedule editor.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
@@ -52,11 +52,43 @@ import {
 import { scheduleFromLegacy, scheduleToCron } from '../../../lib/schedule'
 
 const WEBDAV_FORM_ID = 'settings-content-import-export-webdav-form'
+const BACKUP_IMPORT_MAX_BYTES = 20 * 1024 * 1024
 
-type BackupImportPlan = Record<
+type BackupImportTablePlan = Record<
   string,
   { rows: number; toInsert: number; duplicates: number; skippedRows: number }
 >
+
+type OctopusV5Preview = {
+  source: string
+  originKey: string
+  sections: Record<string, number>
+  notImported?: Record<string, number>
+  adaptations?: string[]
+  blocking?: string[]
+}
+
+type BackupImportPreview =
+  | { kind: 'tables'; tables: BackupImportTablePlan }
+  | { kind: 'octopus'; data: OctopusV5Preview }
+
+type ImportPreviewSnapshot = {
+  raw: string
+  originKey?: string
+  plan: BackupImportPreview
+}
+
+function isOctopusV5Import(raw: string): boolean {
+  try {
+    const value = JSON.parse(raw) as {
+      version?: unknown
+      exported_at?: unknown
+    }
+    return value.version === 5 && typeof value.exported_at === 'string'
+  } catch {
+    return false
+  }
+}
 
 const webdavSchema = z.object({
   enabled: z.boolean(),
@@ -120,7 +152,13 @@ export function ImportExportSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [importText, setImportText] = useState('')
-  const [importPlan, setImportPlan] = useState<BackupImportPlan | null>(null)
+  const [externalOriginKey, setExternalOriginKey] = useState('')
+  const [allowChannelsOnlyImport, setAllowChannelsOnlyImport] = useState(false)
+  const [importPreview, setImportPreview] =
+    useState<BackupImportPreview | null>(null)
+  const [previewSnapshot, setPreviewSnapshot] =
+    useState<ImportPreviewSnapshot | null>(null)
+  const importRevision = useRef(0)
   const [confirmImportOpen, setConfirmImportOpen] = useState(false)
   const [confirmWebdavImportOpen, setConfirmWebdavImportOpen] = useState(false)
   // #1034: backup export is a sensitive op — the operator must re-present
@@ -200,25 +238,75 @@ export function ImportExportSection() {
   }
 
   const previewMutation = useMutation({
-    mutationFn: async (raw: string) => {
+    mutationFn: async (input: { raw: string; originKey?: string }) => {
+      const { raw, originKey } = input
       const data = JSON.parse(raw) as unknown
-      const result = (await api.previewBackupImport(data)) as {
+      const octopusV5 = isOctopusV5Import(raw)
+      const result = (await api.previewBackupImport(
+        data,
+        octopusV5 ? originKey : undefined
+      )) as {
         success?: boolean
-        plan?: BackupImportPlan
+        plan?: BackupImportTablePlan | OctopusV5Preview
       }
-      return result.plan ?? {}
+      if (octopusV5) {
+        const plan = result.plan as OctopusV5Preview | undefined
+        if (
+          !plan ||
+          typeof plan.source !== 'string' ||
+          typeof plan.originKey !== 'string' ||
+          typeof plan.sections !== 'object' ||
+          plan.sections === null ||
+          Array.isArray(plan.sections) ||
+          (plan.adaptations !== undefined &&
+            !Array.isArray(plan.adaptations)) ||
+          (plan.blocking !== undefined && !Array.isArray(plan.blocking))
+        ) {
+          throw new Error('Invalid Octopus v5 import preview')
+        }
+        if (plan.originKey !== originKey) {
+          throw new Error('Octopus preview origin key does not match the request')
+        }
+        return {
+          kind: 'octopus' as const,
+          data: plan,
+        }
+      }
+      if (
+        !result.plan ||
+        typeof result.plan !== 'object' ||
+        Array.isArray(result.plan)
+      ) {
+        throw new Error('Invalid backup import preview')
+      }
+      return {
+        kind: 'tables' as const,
+        tables: result.plan as BackupImportTablePlan,
+      }
     },
   })
 
   const importMutation = useMutation({
-    mutationFn: async (raw: string) => {
+    mutationFn: async (input: {
+      raw: string
+      originKey?: string
+      channelsOnly?: boolean
+    }) => {
+      const { raw, originKey, channelsOnly } = input
       const data = JSON.parse(raw) as unknown
-      return api.importBackup(data)
+      return api.importBackup(
+        data,
+        isOctopusV5Import(raw) ? originKey : undefined,
+        isOctopusV5Import(raw) && channelsOnly ? 'channels-only' : undefined
+      )
     },
     onSuccess: () => {
       toast.success(t('settings.content.importExport.toast.imported'))
       setImportText('')
-      setImportPlan(null)
+      setExternalOriginKey('')
+      setAllowChannelsOnlyImport(false)
+      setImportPreview(null)
+      setPreviewSnapshot(null)
       invalidateAfterImport()
     },
     onError: () =>
@@ -226,11 +314,36 @@ export function ImportExportSection() {
   })
 
   async function handlePreviewImport() {
+    const raw = importText
+    const originKey = externalOriginKey.trim()
+    const revision = importRevision.current
     try {
-      const plan = await previewMutation.mutateAsync(importText)
-      setImportPlan(plan)
-      setConfirmImportOpen(true)
+      if (isOctopusV5Import(raw) && !originKey) {
+        toast.error(t('settings.content.importExport.originKeyRequired'))
+        return
+      }
+      const plan = await previewMutation.mutateAsync({ raw, originKey })
+      if (revision !== importRevision.current) return
+      setImportPreview(plan)
+      setPreviewSnapshot({
+        raw,
+        originKey: plan.kind === 'octopus' ? originKey : undefined,
+        plan,
+      })
+      const hasUnsupportedOctopusSections =
+        plan.kind === 'octopus' &&
+        Object.values(plan.data.notImported ?? {}).some((count) => count > 0)
+      const hasAdaptations =
+        plan.kind === 'octopus' && (plan.data.adaptations?.length ?? 0) > 0
+      const hasBlockingOctopusSections =
+        plan.kind === 'octopus' && (plan.data.blocking?.length ?? 0) > 0
+      setConfirmImportOpen(
+        !hasBlockingOctopusSections &&
+          (!(hasUnsupportedOctopusSections || hasAdaptations) ||
+            allowChannelsOnlyImport)
+      )
     } catch {
+      if (revision !== importRevision.current) return
       toast.error(t('settings.content.importExport.toast.importFailed'))
     }
   }
@@ -309,7 +422,25 @@ export function ImportExportSection() {
     saveWebdavMutation.mutate(changed)
   }
 
-  const planEntries = importPlan ? Object.entries(importPlan) : []
+  const planEntries =
+    importPreview?.kind === 'tables' ? Object.entries(importPreview.tables) : []
+  const octopusV5Import = isOctopusV5Import(importText)
+  const hasNotImportedOctopusSections =
+    importPreview?.kind === 'octopus' &&
+    Object.values(importPreview.data.notImported ?? {}).some(
+      (count) => count > 0
+    )
+  const hasOctopusPolicyAdaptations =
+    importPreview?.kind === 'octopus' &&
+    (importPreview.data.adaptations?.length ?? 0) > 0
+  let confirmImportDescriptionKey =
+    'settings.content.importExport.importConfirmDescription'
+  if (importPreview?.kind === 'octopus') {
+    confirmImportDescriptionKey =
+      hasNotImportedOctopusSections || hasOctopusPolicyAdaptations
+        ? 'settings.content.importExport.octopusPartialImportConfirmDescription'
+        : 'settings.content.importExport.octopusImportConfirmDescription'
+  }
   const isWebdavDirty = form.formState.isDirty
 
   return (
@@ -364,19 +495,91 @@ export function ImportExportSection() {
         <SettingsSubsection
           title={t('settings.content.importExport.importGroup')}
         >
+          <div className='space-y-2'>
+            <label className='text-sm font-medium' htmlFor='backup-import-file'>
+              {t('settings.content.importExport.selectBackupFile')}
+            </label>
+            <Input
+              id='backup-import-file'
+              type='file'
+              accept='.json,application/json'
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (!file) return
+                const revision = ++importRevision.current
+                setConfirmImportOpen(false)
+                setPreviewSnapshot(null)
+                if (file.size > BACKUP_IMPORT_MAX_BYTES) {
+                  setImportText('')
+                  setImportPreview(null)
+                  setAllowChannelsOnlyImport(false)
+                  toast.error(
+                    t('settings.content.importExport.importFileTooLarge')
+                  )
+                  return
+                }
+                void file.text().then((text) => {
+                  if (revision !== importRevision.current) return
+                  importRevision.current++
+                  setImportText(text)
+                  setImportPreview(null)
+                  setAllowChannelsOnlyImport(false)
+                })
+              }}
+            />
+          </div>
           <Textarea
             value={importText}
-            onChange={(event) => setImportText(event.target.value)}
+            onChange={(event) => {
+              importRevision.current++
+              setImportText(event.target.value)
+              setImportPreview(null)
+              setPreviewSnapshot(null)
+              setConfirmImportOpen(false)
+              setAllowChannelsOnlyImport(false)
+            }}
             rows={8}
             placeholder='{ "version": "..." }'
             className='font-mono text-xs'
           />
+          {octopusV5Import ? (
+            <div className='space-y-1'>
+              <label
+                className='text-sm font-medium'
+                htmlFor='external-origin-key'
+              >
+                {t('settings.content.importExport.externalOriginKey')}
+              </label>
+              <Input
+                id='external-origin-key'
+                value={externalOriginKey}
+                onChange={(event) => {
+                  importRevision.current++
+                  setExternalOriginKey(event.target.value)
+                  setImportPreview(null)
+                  setPreviewSnapshot(null)
+                  setConfirmImportOpen(false)
+                  setAllowChannelsOnlyImport(false)
+                }}
+                placeholder={t(
+                  'settings.content.importExport.externalOriginKeyPlaceholder'
+                )}
+              />
+              <p className='text-muted-foreground text-xs'>
+                {t('settings.content.importExport.externalOriginKeyHint')}
+              </p>
+            </div>
+          ) : null}
           <div className='flex gap-2'>
             <Button
               type='button'
               variant='outline'
               size='sm'
-              disabled={previewMutation.isPending || !importText.trim()}
+              disabled={
+                previewMutation.isPending ||
+                !importText.trim() ||
+                (octopusV5Import && !externalOriginKey.trim())
+              }
               onClick={() => void handlePreviewImport()}
             >
               {previewMutation.isPending
@@ -671,17 +874,26 @@ export function ImportExportSection() {
       />
       <FormNavigationGuard enabled={isWebdavDirty} />
       <ConfirmDialog
+        key={
+          importPreview?.kind === 'octopus' &&
+          Object.keys(importPreview.data.notImported ?? {}).length > 0
+            ? 'blocked'
+            : 'ready'
+        }
         open={confirmImportOpen}
         title={t('settings.content.importExport.importConfirmTitle')}
-        description={t(
-          'settings.content.importExport.importConfirmDescription'
-        )}
+        description={t(confirmImportDescriptionKey)}
         confirmLabel={t('settings.content.importExport.import')}
         cancelLabel={t('settings.common.cancel')}
         destructive
         onConfirm={() => {
           setConfirmImportOpen(false)
-          importMutation.mutate(importText)
+          if (!previewSnapshot) return
+          importMutation.mutate({
+            raw: previewSnapshot.raw,
+            originKey: previewSnapshot.originKey,
+            channelsOnly: allowChannelsOnlyImport,
+          })
         }}
         onCancel={() => setConfirmImportOpen(false)}
       />
@@ -700,7 +912,100 @@ export function ImportExportSection() {
         }}
         onCancel={() => setConfirmWebdavImportOpen(false)}
       />
-      {importPlan && planEntries.length > 0 ? (
+      {importPreview?.kind === 'octopus' && (
+        <div className='mt-4 space-y-3 rounded-lg border p-4'>
+          <h3 className='text-sm font-medium'>
+            {t('settings.content.importExport.importPreviewTitle')}
+          </h3>
+          <p className='text-muted-foreground text-xs'>
+            {t('settings.content.importExport.octopusPreviewOrigin', {
+              source: importPreview.data.source,
+              originKey: importPreview.data.originKey,
+            })}
+          </p>
+          <ul className='text-muted-foreground list-inside list-disc space-y-1 text-xs'>
+            {Object.entries(importPreview.data.sections).map(
+              ([section, count]) => (
+                <li key={section}>
+                  {t('settings.content.importExport.octopusPreviewSection', {
+                    section,
+                    count,
+                  })}
+                </li>
+              )
+            )}
+          </ul>
+          {hasNotImportedOctopusSections && (
+            <div className='text-destructive space-y-1 text-xs'>
+              <p>
+                {t('settings.content.importExport.octopusNotImportedTitle')}
+              </p>
+              <ul className='list-inside list-disc space-y-1'>
+                {Object.entries(importPreview.data.notImported ?? {}).map(
+                  ([section, count]) => (
+                    <li key={section}>
+                      {t(
+                        'settings.content.importExport.octopusPreviewSection',
+                        { section, count }
+                      )}
+                    </li>
+                  )
+                )}
+              </ul>
+            </div>
+          )}
+          {!hasNotImportedOctopusSections && !hasOctopusPolicyAdaptations && (
+            <p className='text-muted-foreground text-xs'>
+              {t('settings.content.importExport.octopusAllSectionsSupported')}
+            </p>
+          )}
+          {hasOctopusPolicyAdaptations ? (
+            <div className='space-y-1 text-xs'>
+              <p className='font-medium'>
+                {t('settings.content.importExport.octopusAdaptationsTitle')}
+              </p>
+              <ul className='list-inside list-disc space-y-1'>
+                {importPreview.data.adaptations?.map((adaptation) => (
+                  <li key={adaptation}>
+                    {t(
+                      `settings.content.importExport.octopusAdaptation.${adaptation}`
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {(importPreview.data.blocking?.length ?? 0) > 0 ? (
+            <p className='text-destructive text-xs'>
+              {t('settings.content.importExport.octopusBlockingSections', {
+                sections: importPreview.data.blocking?.join(', '),
+              })}
+            </p>
+          ) : null}
+          {(importPreview.data.blocking?.length ?? 0) === 0 &&
+          (Object.values(importPreview.data.notImported ?? {}).some(
+            (count) => count > 0
+          ) ||
+            (importPreview.data.adaptations?.length ?? 0) > 0) ? (
+            <label className='border-destructive/40 flex items-start gap-2 rounded-md border p-3 text-sm'>
+              <input
+                type='checkbox'
+                checked={allowChannelsOnlyImport}
+                onChange={(event) => {
+                  setAllowChannelsOnlyImport(event.target.checked)
+                  setConfirmImportOpen(event.target.checked)
+                }}
+              />
+              <span>
+                {t(
+                  'settings.content.importExport.octopusChannelsOnlyAcknowledgement'
+                )}
+              </span>
+            </label>
+          ) : null}
+        </div>
+      )}
+      {importPreview?.kind === 'tables' && planEntries.length > 0 && (
         <div className='mt-4 space-y-2 rounded-lg border p-4'>
           <h3 className='text-sm font-medium'>
             {t('settings.content.importExport.importPreviewTitle')}
@@ -718,7 +1023,7 @@ export function ImportExportSection() {
             ))}
           </ul>
         </div>
-      ) : null}
+      )}
     </SectionCard>
   )
 }

@@ -21,6 +21,8 @@ func additiveColumns() []additiveColumnSpec {
 		{"sites", "max_concurrency"},
 		{"token_routes", "context_length"},
 		{"proxy_logs", "request_id"},
+		{"proxy_logs", "upstream_channel_id"},
+		{"proxy_logs", "upstream_grant_id"},
 		{"downstream_api_keys", "max_rpm"},
 		{"downstream_api_keys", "max_tpm"},
 		{"token_routes", "sort_order"},

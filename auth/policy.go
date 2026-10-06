@@ -6,6 +6,7 @@ type CredentialRefKind string
 const (
 	CredentialRefAccountToken  CredentialRefKind = "account_token"
 	CredentialRefDefaultApiKey CredentialRefKind = "default_api_key"
+	CredentialRefDirectGrant   CredentialRefKind = "direct_grant"
 )
 
 // ExcludedCredentialRef represents a credential that a downstream policy
@@ -25,6 +26,7 @@ type ExcludedCredentialRef struct {
 	SiteID    int64             `json:"siteId"`
 	AccountID int64             `json:"accountId"`
 	TokenID   *int64            `json:"tokenId,omitempty"` // only account_token
+	GrantID   int64             `json:"grantId,omitempty"` // only direct_grant
 }
 
 // DownstreamRoutingPolicy holds the routing constraints attached to a

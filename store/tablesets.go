@@ -68,6 +68,15 @@ var schemaTables = []schemaTable{
 	{"model_probe_results", buildModelProbeResultsDDL},
 	{"catalog_sources", buildCatalogSourcesDDL},
 	{"admin_sessions", buildAdminSessionsDDL},
+	{"upstream_channels", buildUpstreamChannelsDDL},
+	{"upstream_credentials", buildUpstreamCredentialsDDL},
+	{"upstream_models", buildUpstreamModelsDDL},
+	{"upstream_grants", buildUpstreamGrantsDDL},
+	{"upstream_groups", buildUpstreamGroupsDDL},
+	{"upstream_group_items", buildUpstreamGroupItemsDDL},
+	{"external_source_ids", buildExternalSourceIDsDDL},
+	{"upstream_route_groups", buildUpstreamRouteGroupsDDL},
+	{"upstream_import_stats", buildUpstreamImportStatsDDL},
 }
 
 // migrationExcludedTables names schema tables deliberately NOT copied across

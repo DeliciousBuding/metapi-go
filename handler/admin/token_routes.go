@@ -147,6 +147,29 @@ func (h *tokenRoutesHandler) listSummary(w http.ResponseWriter, r *http.Request)
 		countsByRoute[c.RouteID] = c
 	}
 
+	// Direct-upstream grant targets linked via upstream_route_groups count as
+	// route channels too: without them an imported route that proxies fine
+	// still renders as "0 channels, needs channels" in the summary.
+	var directCounts []routeChannelCounts
+	if err := h.db.Select(&directCounts, `
+		SELECT urg.route_id AS route_id, COUNT(*) AS total,
+		       SUM(CASE WHEN g.enabled AND cr.enabled AND ch.enabled THEN 1 ELSE 0 END) AS enabled_count
+		FROM upstream_route_groups urg
+		JOIN upstream_group_items gi ON gi.group_id = urg.group_id
+		JOIN upstream_grants g ON g.id = gi.grant_id
+		JOIN upstream_credentials cr ON cr.id = g.credential_id
+		JOIN upstream_channels ch ON ch.id = cr.channel_id
+		GROUP BY urg.route_id`); err != nil {
+		slog.Warn("listSummary: batch direct grant counts failed", "err", err)
+	}
+	for _, c := range directCounts {
+		existing := countsByRoute[c.RouteID]
+		existing.RouteID = c.RouteID
+		existing.Total += c.Total
+		existing.EnabledCount += c.EnabledCount
+		countsByRoute[c.RouteID] = existing
+	}
+
 	// Batch-load distinct site names per route via a single GROUP BY query
 	// (route_channels → accounts → sites). A route with no channels has no
 	// row in route_channels and falls through to a non-nil empty slice —

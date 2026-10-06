@@ -117,6 +117,16 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	if upstreamPath == "" {
 		upstreamPath = r.URL.Path
 	}
+	if endpoint, ok := proxy.EndpointFromPath(upstreamPath); ok {
+		switch endpoint {
+		case proxy.EndpointChat:
+			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolChat
+		case proxy.EndpointResponses:
+			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolResponses
+		case proxy.EndpointMessages:
+			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolAnthropic
+		}
+	}
 	// Never forward a downstream path containing
 	// ".." segments. Go's http.Client preserves ".." on the wire, and the
 	// upstream host would normalize it outside the site API prefix — letting
@@ -202,7 +212,11 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		if siteLimiter == nil {
 			siteLimiter = proxy.DefaultSiteConcurrencyLimiter
 		}
-		siteSlot, acquired := siteLimiter.TryAcquire(selected.Site.ID, selected.Site.MaxConcurrency)
+		var siteSlot *proxy.SiteSlot
+		acquired := true
+		if selected.Direct == nil {
+			siteSlot, acquired = siteLimiter.TryAcquire(selected.Site.ID, selected.Site.MaxConcurrency)
+		}
 		if !acquired {
 			slog.Debug("site concurrency saturated; skipping channel without failure cascade",
 				"site_id", selected.Site.ID,
@@ -219,7 +233,9 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		var finished bool
 		var nextPending *pendingUpstreamFailure
 		func() {
-			defer siteSlot.Release()
+			if siteSlot != nil {
+				defer siteSlot.Release()
+			}
 			finished, nextPending = dispatchSelectedUpstream(w, r, ctx, cfg, selected, upstreamPath, retry, maxRetries, requestID)
 		}()
 		if finished {
@@ -319,6 +335,9 @@ func dispatchSelectedUpstream(
 	staticCfg := config.Get()
 	// Proxy selection precedence: key proxy > account > site > system > direct.
 	proxyConfig := service.BuildPlatformProxyConfig(staticCfg, &selected.Account, &selected.Site)
+	if selected.Direct != nil {
+		proxyConfig = directProxyConfig(selected.Direct.CustomHeader, selected.Direct.ChannelProxy, selected.Direct.UseSystemProxy, r.Header)
+	}
 	if ctx != nil && ctx.Auth != nil {
 		proxyConfig = proxy.ApplyKeyProxyOverride(proxyConfig, ctx.Auth.ProxyURL)
 	}
@@ -378,6 +397,36 @@ func dispatchSelectedUpstream(
 	}
 
 	candidatePaths := resolveUpstreamCandidatePaths(upstreamPath, disableCrossProtocolFallback, sitePref)
+	if selected.Direct != nil {
+		if ctx.Multipart {
+			writeJSONErrorWithRequest(w, http.StatusBadRequest, "Direct upstream grants do not support multipart requests", "invalid_request_error", requestID)
+			observeProxyTerminal(ctx, shared.OutcomeClientError, false, 0)
+			return true, nil
+		}
+		endpoint, ok := proxy.EndpointFromPath(upstreamPath)
+		if !ok {
+			writeJSONErrorWithRequest(w, http.StatusBadRequest, "Unsupported direct upstream protocol", "invalid_request_error", requestID)
+			return true, nil
+		}
+		var directPath string
+		switch endpoint {
+		case proxy.EndpointChat:
+			directPath = selected.Direct.ChatPath
+		case proxy.EndpointResponses:
+			directPath = selected.Direct.ResponsesPath
+		case proxy.EndpointMessages:
+			directPath = selected.Direct.AnthropicPath
+			if strings.HasSuffix(strings.TrimRight(strings.Split(upstreamPath, "?")[0], "/"), "/count_tokens") {
+				directPath = strings.TrimRight(directPath, "/") + "/count_tokens"
+			}
+		}
+		candidatePaths = []string{directPath}
+		bodyBytes, err = applyDirectParamOverrides(bodyBytes, selected.Direct.ParamOverride)
+		if err != nil {
+			writeJSONErrorWithRequest(w, http.StatusBadGateway, "Invalid direct upstream parameter overrides", "server_error", requestID)
+			return true, nil
+		}
+	}
 	if ctx.messagesBridgeReplayRequired && (len(candidatePaths) < 2 || !isMessagesChatBridge(upstreamPath, candidatePaths[1])) {
 		writeMessagesReplayFailure(w, ctx, requestID)
 		return true, nil
@@ -426,7 +475,11 @@ func dispatchSelectedUpstream(
 		if isMessagesChatBridge(upstreamPath, path) {
 			candidateBody = chatBody
 		}
-		attemptBody, sanitizeErr := sanitizeUpstreamJSONBody(candidateBody, selected.Site.Platform, path, upstreamModel)
+		upstreamPlatform := selected.Site.Platform
+		if selected.Direct != nil {
+			upstreamPlatform = "openai"
+		}
+		attemptBody, sanitizeErr := sanitizeUpstreamJSONBody(candidateBody, upstreamPlatform, path, upstreamModel)
 		if sanitizeErr != nil {
 			// Clear client-facing continuity error.
 			writeJSONErrorWithRequest(w, http.StatusBadRequest, sanitizeErr.Error(), "invalid_request_error", requestID)
@@ -435,7 +488,7 @@ func dispatchSelectedUpstream(
 		}
 		// Single-pass stream forcing + include_usage inject (replaces two full
 		// map[string]any decode/re-encode rounds per candidate path).
-		forceStream, injectUsage := upstreamStreamRewriteGates(selected.Site.Platform, path, sitePref)
+		forceStream, injectUsage := upstreamStreamRewriteGates(upstreamPlatform, path, sitePref)
 		var forcedStream, expectStreamUsage bool
 		if forceStream || injectUsage {
 			if !hintsReady {
@@ -453,8 +506,8 @@ func dispatchSelectedUpstream(
 				attemptBody, forcedStream, expectStreamUsage = rewritten, forced, expect
 			} else {
 				// Irregular body: keep exact legacy decode semantics.
-				attemptBody, forcedStream = applyUpstreamStreamPreference(attemptBody, selected.Site.Platform, path, sitePref)
-				attemptBody, expectStreamUsage = applyUpstreamStreamIncludeUsage(attemptBody, selected.Site.Platform, path, ctx.IsStream || forcedStream)
+				attemptBody, forcedStream = applyUpstreamStreamPreference(attemptBody, upstreamPlatform, path, sitePref)
+				attemptBody, expectStreamUsage = applyUpstreamStreamIncludeUsage(attemptBody, upstreamPlatform, path, ctx.IsStream || forcedStream)
 			}
 		}
 		effectiveStream := ctx.IsStream || forcedStream
@@ -491,6 +544,9 @@ func dispatchSelectedUpstream(
 // Preference cannot manufacture a missing request/response converter. Native
 // stays first; only Messages -> Chat has a complete JSON/SSE return bridge.
 func resolveUpstreamCandidatePaths(upstreamPath string, disableCrossProtocolFallback bool, sitePref proxy.SiteProtocolPreference) []string {
+	if strings.HasSuffix(strings.TrimRight(strings.Split(upstreamPath, "?")[0], "/"), "/count_tokens") {
+		return []string{upstreamPath}
+	}
 	primary, ok := proxy.EndpointFromPath(upstreamPath)
 	if !ok {
 		return []string{upstreamPath}
@@ -505,6 +561,11 @@ func resolveUpstreamCandidatePaths(upstreamPath string, disableCrossProtocolFall
 		paths = append(paths, proxy.PathForEndpoint(proxy.EndpointChat))
 	}
 	return paths
+}
+
+func proxyPathIsMessages(path string) bool {
+	endpoint, ok := proxy.EndpointFromPath(path)
+	return ok && endpoint == proxy.EndpointMessages
 }
 
 // dispatchEndpointAttempt sends one selected native endpoint without walking
@@ -564,7 +625,11 @@ func dispatchEndpointAttemptWithContinue(
 	if requestID == "" {
 		requestID = proxy.RequestIDFromContext(r.Context())
 	}
-	upstreamURL := proxy.BuildUpstreamURL(selected.Site.URL, upstreamPath)
+	upstreamBaseURL := selected.Site.URL
+	if selected.Direct != nil {
+		upstreamBaseURL = selected.Direct.BaseURL
+	}
+	upstreamURL := proxy.BuildUpstreamURL(upstreamBaseURL, upstreamPath)
 	startedAt := time.Now()
 
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, upstreamURL, bytesReader(bodyBytes))
@@ -593,9 +658,23 @@ func dispatchEndpointAttemptWithContinue(
 	// the answer, i.e. whether we can read the body we are about to bill for and
 	// health-check — so it is never site/adapter configurable. Must run after
 	// both header builders above (see stripUpstreamAcceptEncoding).
-	stripUpstreamAcceptEncoding(req, proxyConfig, selected.Site.ID, selected.Channel.ID)
+	if selected.Direct == nil {
+		stripUpstreamAcceptEncoding(req, proxyConfig, selected.Site.ID, selected.Channel.ID)
+	}
+	directMessagesRequest := selected.Direct != nil && ctx != nil && proxyPathIsMessages(ctx.DownstreamPath)
+	if directMessagesRequest && req.Header.Get("anthropic-version") == "" {
+		req.Header.Set("anthropic-version", platform.ClaudeDefaultAnthropicVersion)
+	}
 	if selected.TokenValue != "" {
-		req.Header.Set("Authorization", "Bearer "+selected.TokenValue)
+		if selected.Direct != nil {
+			req.Header.Del("x-api-key")
+		}
+		if directMessagesRequest {
+			req.Header.Set("x-api-key", selected.TokenValue)
+			req.Header.Del("Authorization")
+		} else {
+			req.Header.Set("Authorization", "Bearer "+selected.TokenValue)
+		}
 	}
 
 	resp, err := sendUpstreamRequest(cfg, req, proxyConfig, firstByteTimeoutMs, effectiveStream)
@@ -1051,6 +1130,9 @@ func applyProxyCustomHeaders(req *http.Request, proxyConfig *platform.ProxyConfi
 // transport timer racing it. Buffered dispatch retains its transport/total bounds.
 func sendUpstreamRequest(cfg *UpstreamConfig, req *http.Request, proxyConfig *platform.ProxyConfig, firstByteTimeoutMs int64, isStream bool) (*http.Response, error) {
 	hasProxyCfg := proxyConfig != nil && (proxyConfig.ProxyURL != "" || proxyConfig.InsecureSkipTLS)
+	if hasProxyCfg && req.URL != nil && service.IsForbiddenSiteTargetURL(req.URL.String()) {
+		return nil, fmt.Errorf("refusing to dispatch proxied request to forbidden metadata or link-local target")
+	}
 	if !hasProxyCfg && cfg != nil && cfg.Executor != nil {
 		if isStream {
 			return cfg.Executor.DoStreamWithObservedFirstByte(req.Context(), req, firstByteTimeoutMs)
@@ -1078,6 +1160,9 @@ func recordUpstreamFailure(ctx context.Context, cfg *UpstreamConfig, selected *r
 	if cfg == nil || cfg.Router == nil || selected == nil {
 		return
 	}
+	if selected.Direct != nil {
+		return
+	}
 	failureCtx := routing.SiteRuntimeFailureContext{
 		ErrorText: &rawErrText,
 		ModelName: &modelName,
@@ -1096,6 +1181,9 @@ func recordUpstreamFailure(ctx context.Context, cfg *UpstreamConfig, selected *r
 // accumulation; modelName (actual) stays the health-stat label.
 func recordUpstreamSuccess(ctx context.Context, cfg *UpstreamConfig, selected *routing.SelectedChannel, billingCostName, modelName string, latencyMs int64, usage ParsedUsage) {
 	if cfg == nil || cfg.Router == nil || selected == nil {
+		return
+	}
+	if selected.Direct != nil {
 		return
 	}
 	platformName := ""
@@ -1291,6 +1379,7 @@ func mapAuthCredentialRefs(in []auth.ExcludedCredentialRef) []routing.Credential
 			SiteID:    ref.SiteID,
 			AccountID: ref.AccountID,
 			TokenID:   tokenID,
+			GrantID:   ref.GrantID,
 		})
 	}
 	return refs

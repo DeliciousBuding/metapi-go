@@ -376,9 +376,43 @@ type RouteChannel struct {
 	// truncated upstream error summary, and the time the triggering failure was
 	// recorded. All NULL for rows that cooled down before this schema existed
 	// — the UI renders that honestly as "reason not recorded".
-	CooldownReasonCode *string `db:"cooldown_reason_code" json:"cooldownReasonCode"`
-	CooldownReason     *string `db:"cooldown_reason" json:"cooldownReason"`
-	CooldownReasonAt   *string `db:"cooldown_reason_at" json:"cooldownReasonAt"`
+	CooldownReasonCode *string                  `db:"cooldown_reason_code" json:"cooldownReasonCode"`
+	CooldownReason     *string                  `db:"cooldown_reason" json:"cooldownReason"`
+	CooldownReasonAt   *string                  `db:"cooldown_reason_at" json:"cooldownReasonAt"`
+	Direct             *DirectUpstreamCandidate `db:"-" json:"-"`
+}
+
+// DirectUpstreamCandidate is the typed source for an Octopus-style grant.
+// It deliberately carries no Site or Account surrogate; selector and executor
+// branches must handle it explicitly rather than treating it as a native row.
+type DirectUpstreamCandidate struct {
+	GrantID           int64
+	RouteID           int64
+	GroupID           int64
+	GroupMode         string
+	ActiveItemID      int64
+	ItemID            int64
+	ChannelID         int64
+	ChannelName       string
+	BaseURL           string
+	Dialect           string
+	ChatPath          string
+	ResponsesPath     string
+	AnthropicPath     string
+	ChannelProxy      string
+	UseSystemProxy    bool
+	CustomHeader      string
+	ParamOverride     string
+	ModelID           int64
+	ModelName         string
+	CredentialID      int64
+	CredentialName    string
+	Credential        string
+	ChannelEnabled    bool
+	ModelEnabled      bool
+	CredentialEnabled bool
+	GrantEnabled      bool
+	Protocols         int
 }
 
 // OrZero helpers coerce the nullable numeric channel columns for callers that
@@ -432,6 +466,8 @@ type ProxyLog struct {
 	ID                 int64    `db:"id" json:"id"`
 	RouteID            *int64   `db:"route_id" json:"routeId"`
 	ChannelID          *int64   `db:"channel_id" json:"channelId"`
+	UpstreamChannelID  *int64   `db:"upstream_channel_id" json:"upstreamChannelId"`
+	UpstreamGrantID    *int64   `db:"upstream_grant_id" json:"upstreamGrantId"`
 	AccountID          *int64   `db:"account_id" json:"accountId"`
 	DownstreamAPIKeyID *int64   `db:"downstream_api_key_id" json:"downstreamApiKeyId"`
 	ModelRequested     *string  `db:"model_requested" json:"modelRequested"`

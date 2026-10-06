@@ -1131,7 +1131,7 @@ func buildRouteGroupSources(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "route_id", "channel_id", "account_id", "downstream_api_key_id", "model_requested", "model_actual", "status", "http_status", "is_stream", "first_byte_latency_ms", "latency_ms", "prompt_tokens", "completion_tokens", "total_tokens", "estimated_cost", "billing_details", "client_family", "client_app_id", "client_app_name", "client_confidence", "error_message", "retry_count", "request_id", "created_at"}
+	cols := []string{"id", "route_id", "channel_id", "upstream_channel_id", "upstream_grant_id", "account_id", "downstream_api_key_id", "model_requested", "model_actual", "status", "http_status", "is_stream", "first_byte_latency_ms", "latency_ms", "prompt_tokens", "completion_tokens", "total_tokens", "estimated_cost", "billing_details", "client_family", "client_app_id", "client_app_name", "client_confidence", "error_message", "retry_count", "request_id", "created_at"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -1140,6 +1140,8 @@ func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
 				asNumber(v(row, "id"), float64(0)),
 				asNumber(v(row, "route_id"), nil),
 				asNumber(v(row, "channel_id"), nil),
+				asNumber(v(row, "upstream_channel_id"), nil),
+				asNumber(v(row, "upstream_grant_id"), nil),
 				asNumber(v(row, "account_id"), nil),
 				asNumber(v(row, "downstream_api_key_id"), nil),
 				asNullableString(v(row, "model_requested")),

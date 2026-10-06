@@ -1827,6 +1827,83 @@ func TestTokenRoutes_SummaryBatchedCounts(t *testing.T) {
 	}
 }
 
+// TestTokenRoutes_SummaryCountsDirectGrantTargets verifies that grant targets
+// linked through upstream_route_groups count toward channelCount, so an
+// imported direct-upstream route does not render as "0 channels".
+func TestTokenRoutes_SummaryCountsDirectGrantTargets(t *testing.T) {
+	db, r := setupTokenRoutesTest(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	res, err := db.Exec(
+		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at)
+		 VALUES ('direct-*', TRUE, ?, ?)`, now, now)
+	if err != nil {
+		t.Fatalf("insert route: %v", err)
+	}
+	routeID, _ := res.LastInsertId()
+
+	// One enabled credential + grant chain, one disabled credential.
+	if _, err := db.Exec(
+		`INSERT INTO upstream_channels (origin_key, source_id, name, dialect, enabled, base_url,
+		 openai_chat_completion_path, openai_response_path, anthropic_message_path,
+		 proxy, channel_proxy, custom_header, param_override, match_regex)
+		 VALUES ('qa', 1, 'ch', 'generic', TRUE, 'https://up.example', '/v1/chat/completions',
+		 '/v1/responses', '/v1/messages', FALSE, '', '[]', '', '')`); err != nil {
+		t.Fatalf("insert channel: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO upstream_credentials (origin_key, channel_id, source_id, name, secret, enabled)
+		 VALUES ('qa', 1, 1, 'k1', 'redacted', TRUE), ('qa', 1, 2, 'k2', 'redacted', FALSE)`); err != nil {
+		t.Fatalf("insert credentials: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO upstream_models (origin_key, channel_id, source_id, name, enabled)
+		 VALUES ('qa', 1, 1, 'm', TRUE)`); err != nil {
+		t.Fatalf("insert model: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO upstream_grants (origin_key, source_id, model_id, credential_id, protocols, enabled)
+		 VALUES ('qa', 1, 1, 1, 2, TRUE), ('qa', 2, 1, 2, 2, TRUE)`); err != nil {
+		t.Fatalf("insert grants: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO upstream_groups (origin_key, source_id, name, mode, active_item_id, relay_config, enabled)
+		 VALUES ('qa', 1, 'g', 'failover', 1, '{}', TRUE)`); err != nil {
+		t.Fatalf("insert group: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO upstream_group_items (origin_key, group_id, source_id, grant_id, priority, weight)
+		 VALUES ('qa', 1, 1, 1, 0, 1), ('qa', 1, 2, 2, 1, 1)`); err != nil {
+		t.Fatalf("insert group items: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO upstream_route_groups (route_id, group_id) VALUES (?, 1)`, routeID); err != nil {
+		t.Fatalf("link route group: %v", err)
+	}
+
+	resp := doGet(t, r, "/api/routes/summary")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("summary status = %d body=%s", resp.Code, resp.Body.String())
+	}
+	var items []map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &items); err != nil {
+		t.Fatalf("decode summary: %v", err)
+	}
+	for _, item := range items {
+		if int64(item["id"].(float64)) != routeID {
+			continue
+		}
+		if got := int64(item["channelCount"].(float64)); got != 2 {
+			t.Errorf("channelCount = %d, want 2", got)
+		}
+		if got := int64(item["enabledChannelCount"].(float64)); got != 1 {
+			t.Errorf("enabledChannelCount = %d, want 1 (disabled credential must not count)", got)
+		}
+		return
+	}
+	t.Errorf("route %d missing from /api/routes/summary response", routeID)
+}
+
 // TestTokenRoutes_Summary_PopulatesSiteNames verifies that GET
 // /api/routes/summary returns the distinct site names per route
 // (route_channels → accounts → sites) instead of the previous hardcoded

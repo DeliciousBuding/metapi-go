@@ -13,6 +13,18 @@ import type {
   SettingsMigrationApplyResponse,
 } from './types'
 
+function isOctopusV5Payload(data: unknown): boolean {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    !Array.isArray(data) &&
+    'version' in data &&
+    data.version === 5 &&
+    'exported_at' in data &&
+    typeof data.exported_at === 'string'
+  )
+}
+
 export const settingsApi = {
   // Auth management
   getAuthInfo: () => request('/api/settings/auth/info'),
@@ -148,17 +160,35 @@ export const settingsApi = {
       body: JSON.stringify({}),
       skipErrorHandler: true,
     }),
-  importBackup: (data: unknown) =>
+  importBackup: (
+    data: unknown,
+    externalOriginKey?: string,
+    octopusImportMode?: 'channels-only'
+  ) =>
     request('/api/settings/backup/import', {
       method: 'POST',
-      body: JSON.stringify({ data }),
+      body: JSON.stringify(isOctopusV5Payload(data) ? data : { data }),
+      headers:
+        externalOriginKey || octopusImportMode
+          ? {
+              ...(externalOriginKey
+                ? { 'X-External-Origin-Key': externalOriginKey }
+                : {}),
+              ...(octopusImportMode
+                ? { 'X-Octopus-Import-Mode': octopusImportMode }
+                : {}),
+            }
+          : undefined,
       skipErrorHandler: true,
     }),
   // Import plan preview before commit.
-  previewBackupImport: (data: unknown) =>
+  previewBackupImport: (data: unknown, externalOriginKey?: string) =>
     request('/api/settings/backup/import/preview', {
       method: 'POST',
-      body: JSON.stringify({ data }),
+      body: JSON.stringify(isOctopusV5Payload(data) ? data : { data }),
+      headers: externalOriginKey
+        ? { 'X-External-Origin-Key': externalOriginKey }
+        : undefined,
       skipErrorHandler: true,
     }),
   getBackupWebdavConfig: () =>

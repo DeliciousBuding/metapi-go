@@ -238,6 +238,25 @@ func TestBackupTableSetRoundTrip(t *testing.T) {
 	runBackupTableSetRoundTrip(t, setupBackupTestDB(t))
 }
 
+func TestBackupExportCarriesTypedDirectProxyLogReferences(t *testing.T) {
+	db := setupBackupTestDB(t)
+	if _, err := db.Exec(`INSERT INTO proxy_logs (upstream_channel_id, upstream_grant_id, model_requested, status, created_at) VALUES (?, ?, ?, ?, ?)`, 22, 33, "octopus-model", "success", time.Now().UTC().Format(time.RFC3339)); err != nil {
+		t.Fatal(err)
+	}
+	payload, err := buildBackupPayload(db.DB, "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tables := payload["tables"].(map[string]any)
+	rows := tables["proxy_logs"].([]map[string]any)
+	if len(rows) != 1 {
+		t.Fatalf("exported proxy log rows=%d; want 1", len(rows))
+	}
+	if rows[0]["upstream_channel_id"] != int64(22) || rows[0]["upstream_grant_id"] != int64(33) {
+		t.Fatalf("export omitted typed direct references: %v", rows[0])
+	}
+}
+
 func TestBackupTableSetRoundTripPostgres(t *testing.T) {
 	runBackupTableSetRoundTrip(t, setupBackupPostgresTestDB(t))
 }
