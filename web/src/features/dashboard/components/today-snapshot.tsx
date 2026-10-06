@@ -182,11 +182,11 @@ export function TodaySnapshotStrip() {
   }
 
   return (
-    <Card>
-      <CardHeader className='pb-2'>
+    <Card className='lg:flex-row lg:items-center lg:gap-6'>
+      <CardHeader className='pb-0 lg:w-40 lg:shrink-0 lg:pe-0'>
         <CardTitle>{t('dashboard.overview.snapshot.title')}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className='lg:flex-1 lg:border-s lg:ps-6'>
         <div className='grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6'>
           <div className='flex min-w-0 flex-col gap-1'>
             <div className='text-muted-foreground truncate text-xs'>
