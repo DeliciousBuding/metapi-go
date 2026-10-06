@@ -7,6 +7,7 @@ import { ArrowRight, Scale, Search, Star } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ModelPill } from '@/components/common/model-pill'
 import { PageHeader } from '@/components/common/page-header'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Badge } from '@/components/ui/badge'
@@ -165,7 +166,11 @@ function ModelGroupCard({ group }: { group: ModelGroup }) {
     <Card>
       <CardHeader>
         <CardTitle className='flex items-center gap-2 text-base font-normal'>
-          <span className='font-mono'>{group.model}</span>
+          <ModelPill
+            model={group.model}
+            variant='inline'
+            className='text-base'
+          />
         </CardTitle>
         <CardDescription>{t('priceCompare.group.description')}</CardDescription>
       </CardHeader>

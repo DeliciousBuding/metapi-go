@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { ChartNoAxesCombined } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { ModelPill } from '@/components/common/model-pill'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   Card,
@@ -90,7 +91,11 @@ export function ModelUsagePanel() {
                         search={{ q: item.model, from: data.since }}
                         className='hover:text-primary font-medium hover:underline'
                       >
-                        {item.label || item.model}
+                        <ModelPill
+                          model={item.model}
+                          label={item.label}
+                          variant='inline'
+                        />
                       </Link>
                     ) : (
                       <span>

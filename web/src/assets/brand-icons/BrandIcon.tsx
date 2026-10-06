@@ -162,15 +162,3 @@ export function BrandIcon({
     </div>
   )
 }
-
-export function InlineBrandIcon({
-  model,
-  size = 16,
-}: {
-  model: string
-  size?: number
-}) {
-  const brand = getBrand(model)
-  if (!brand) return null
-  return <BrandGlyph brand={brand} size={size} fallbackText={brand.name} />
-}

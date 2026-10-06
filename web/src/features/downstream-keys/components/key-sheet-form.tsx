@@ -1,6 +1,3 @@
-// metapi-go/features/downstream-keys — key create/edit sheet
-// form: model policy editor (rules + suggestions), site scope picker, and
-// the RHF sheet body. Split out of keys-section.tsx; behavior is unchanged.
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
@@ -9,6 +6,10 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import type { CredentialExportTarget } from '@/components/common/credential-export-dialog'
+// metapi-go/features/downstream-keys — key create/edit sheet
+// form: model policy editor (rules + suggestions), site scope picker, and
+// the RHF sheet body. Split out of keys-section.tsx; behavior is unchanged.
+import { ModelPill } from '@/components/common/model-pill'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -222,7 +223,7 @@ function ModelPolicyEditor({
               className='font-mono'
               onClick={() => addRule(model)}
             >
-              + {model}
+              + <ModelPill model={model} variant='inline' />
             </Button>
           ))}
         </div>

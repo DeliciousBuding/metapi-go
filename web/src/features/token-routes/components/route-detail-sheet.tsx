@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DetailField } from '@/components/common/detail-field'
+import { ModelPill } from '@/components/common/model-pill'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -615,7 +616,7 @@ function DecisionSnapshotSection({
           label={t('tokenRoutes.detail.decisionModel')}
           title={decision.model || undefined}
         >
-          {decision.model || '—'}
+          {decision.model ? <ModelPill model={decision.model} /> : '—'}
         </DetailField>
         <DetailField
           label={t('tokenRoutes.detail.decisionGeneratedAt')}

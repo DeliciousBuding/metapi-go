@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
+import { ModelPill } from '@/components/common/model-pill'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -235,13 +236,25 @@ export function TestForm({
                           ? t('modelTester.form.modelLoading')
                           : t('modelTester.form.modelPlaceholder')
                       }
-                    />
+                    >
+                      {field.value ? (
+                        <ModelPill
+                          model={field.value}
+                          variant='inline'
+                          className='text-sm'
+                        />
+                      ) : undefined}
+                    </SelectValue>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   {(modelsQuery.data ?? []).map((model) => (
                     <SelectItem key={model.name} value={model.name}>
-                      {model.name}
+                      <ModelPill
+                        model={model.name}
+                        variant='inline'
+                        className='text-sm'
+                      />
                     </SelectItem>
                   ))}
                 </SelectContent>

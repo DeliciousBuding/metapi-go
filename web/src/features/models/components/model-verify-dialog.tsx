@@ -16,6 +16,7 @@ import { FlaskConical as FlaskConicalIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ModelPill } from '@/components/common/model-pill'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -66,7 +67,9 @@ function VerifyItemRow({ item }: { item: ModelVerifyItem }) {
   const { t } = useTranslation()
   return (
     <tr className='border-t'>
-      <td className='px-3 py-1.5 break-all'>{item.model}</td>
+      <td className='max-w-64 px-3 py-1.5'>
+        <ModelPill model={item.model} />
+      </td>
       <td className='text-muted-foreground px-3 py-1.5'>
         {item.siteName || '—'}
       </td>
