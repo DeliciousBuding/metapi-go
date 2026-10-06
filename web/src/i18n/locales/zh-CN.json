@@ -318,7 +318,8 @@
           "compareMinChannels": "请至少选择两个渠道进行对比。"
         },
         "channelNoneForced": "请选择渠道",
-        "channelHintForced": "当前仅支持指定渠道测试：请先选择渠道再发送；默认路由测试通道未启用。"
+        "channelHintForced": "选择本次测试使用的上游渠道。",
+        "advanced": "高级设置 · 模板、系统提示词与采样"
       },
       "toast": {
         "empty": "响应为空。",
@@ -342,7 +343,7 @@
         "usage": "Token：{{total}}（入 {{prompt}} / 出 {{completion}}）",
         "noDone": "未收到完成信号",
         "error": "错误",
-        "emptyHint": "发送请求后可在此查看响应。",
+        "emptyHint": "选择模型和渠道，输入提示词并发送。响应、推理内容和原始事件会显示在这里。",
         "tabContent": "内容",
         "tabReasoning": "推理",
         "tabRaw": "原始",
@@ -353,7 +354,8 @@
         "hint": "提示：推理和原始选项卡显示额外的模型输出。",
         "contentChars": "{{value}} 字符",
         "roleYou": "你",
-        "roleAssistant": "助手"
+        "roleAssistant": "助手",
+        "latest": "回到最新"
       },
       "compare": {
         "title": "渠道对比",
@@ -567,7 +569,9 @@
         "loadError": "加载站点失败：{{message}}",
         "title": "站点",
         "description": "管理已连接的站点、状态与路由权重。",
-        "weightFormula": "最终站点倍率 = 站点全局权重 × 路由通道的配置权重（建议 0.5–3）"
+        "weightFormula": "最终站点倍率 = 站点全局权重 × 路由通道的配置权重（建议 0.5–3）",
+        "allSites": "全部站点",
+        "viewAccounts": "查看 {{name}} 的 {{count}} 个账号"
       },
       "toast": {
         "statusToggled": "站点「{{name}}」已更新。",
@@ -3346,6 +3350,14 @@
       "duplicateKey": "此键名已使用，每个键名只能出现一次。",
       "invalid": "请填写有效的 JSON 对象，键名不能为空或重复。",
       "advancedOnly": "此配置包含需要在 JSON 编辑器中处理的值，原始内容已完整保留。"
+    },
+    "modelPicker": {
+      "title": "选择模型",
+      "description": "{{count}} 个模型 · 按提供商分组",
+      "placeholder": "选择模型",
+      "search": "搜索模型或提供商…",
+      "other": "其他模型",
+      "empty": "没有匹配的模型，试试其他名称或提供商。"
     }
   }
 }

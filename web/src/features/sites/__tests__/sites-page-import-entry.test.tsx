@@ -32,6 +32,10 @@ vi.mock('@/components/data-table', () => ({
   encodeSorting: () => '',
   useDataTable: () => ({
     table: {
+      getColumn: () => ({
+        getFilterValue: () => undefined,
+        setFilterValue: vi.fn(),
+      }),
       getFilteredSelectedRowModel: () => ({ rows: [] }),
       resetRowSelection: vi.fn(),
     },

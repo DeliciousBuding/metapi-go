@@ -21,3 +21,24 @@ The implementation is the primitive API source of truth. The pre-rewrite `ds-*` 
 2. Use semantic OKLCH tokens and Tailwind utilities. Do not revive `ds-*`, copy a primitive into a feature, or hard-code a parallel token set.
 3. Keep accessibility behavior in the primitive owner: names, labels, focus rings, invalid state, keyboard interaction, and reduced-motion/transparency behavior.
 4. Confirm light/dark rendering, keyboard behavior, focused Vitest coverage, typecheck, lint, and production build for changed primitives.
+
+## Operator workflows
+
+The model tester prioritizes model/protocol, channel, prompt and send controls.
+Templates, system instructions and sampling controls are progressively disclosed;
+validation errors in that section reveal it. The searchable provider-grouped
+model picker lives in the tester feature and composes the existing Dialog,
+Command and model identity components. Its interaction reference is
+[AI Elements Model Selector](https://elements.ai-sdk.dev/components/model-selector);
+it does not install another UI primitive stack or change the transport.
+
+Conversation output has one scroll owner. Streaming follows new content while
+the reader is at the bottom; scrolling upward suspends following until the
+reader returns to the latest message. Input/output turns retain explicit roles.
+
+List pages separate persistent create/import actions from filters. Site status
+shortcuts reuse the URL-backed table filter and show counts from the complete
+site snapshot; unavailable counts are not shown as zero. Site account counts
+link to the existing account filter. Status capsules need one status glyph and
+a label; unavailable secondary quota percentages should not fill every row
+with a repeated placeholder.

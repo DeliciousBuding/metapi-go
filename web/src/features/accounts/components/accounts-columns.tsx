@@ -61,7 +61,6 @@ import type { Account, AccountRowActions, RuntimeHealthState } from '../types'
 interface HealthBadgeConfig {
   labelKey: string
   variant: 'success' | 'secondary' | 'destructive' | 'warning' | 'outline'
-  dotClassName: string
   icon: LucideIcon
 }
 
@@ -69,31 +68,26 @@ const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
   healthy: {
     labelKey: 'accounts.columns.healthHealthy',
     variant: 'success',
-    dotClassName: 'bg-success',
     icon: CheckCircle2,
   },
   degraded: {
     labelKey: 'accounts.columns.healthDegraded',
     variant: 'warning',
-    dotClassName: 'bg-warning',
     icon: TriangleAlert,
   },
   unhealthy: {
     labelKey: 'accounts.columns.healthUnhealthy',
     variant: 'destructive',
-    dotClassName: 'bg-destructive',
     icon: XCircle,
   },
   disabled: {
     labelKey: 'accounts.columns.healthDisabled',
     variant: 'secondary',
-    dotClassName: 'bg-muted-foreground',
     icon: PauseCircle,
   },
   unknown: {
     labelKey: 'accounts.columns.healthUnknown',
     variant: 'outline',
-    dotClassName: 'bg-muted-foreground',
     icon: HelpCircle,
   },
 }
@@ -112,7 +106,6 @@ function useResolveHealth() {
           labelKey: 'accounts.columns.healthExpired',
           label: t('accounts.columns.healthExpired'),
           variant: 'destructive',
-          dotClassName: 'bg-destructive',
           icon: Clock,
         }
       }
@@ -440,10 +433,6 @@ export function useAccountsColumns(
           const badge = (
             <Badge variant={config.variant}>
               <HealthIcon className='size-3' aria-hidden='true' />
-              <span
-                className={cn('size-1.5 rounded-full', config.dotClassName)}
-                aria-hidden='true'
-              />
               {config.label}
             </Badge>
           )
@@ -523,9 +512,16 @@ export function useAccountsColumns(
               <span className='tabular-nums'>
                 {formatCurrency(account.balanceUsed)}
               </span>
-              <span className='text-muted-foreground text-2xs'>
-                {formatPercent(account.balanceUsed ?? 0, account.quota ?? 0)}
-              </span>
+              {account.balanceUsed != null &&
+                account.quota != null &&
+                account.quota > 0 && (
+                  <span className='text-muted-foreground text-2xs'>
+                    {formatPercent(
+                      account.balanceUsed ?? 0,
+                      account.quota ?? 0
+                    )}
+                  </span>
+                )}
             </div>
           )
         },
