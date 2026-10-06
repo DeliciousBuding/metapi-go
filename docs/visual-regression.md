@@ -1,15 +1,17 @@
-# UI screenshot evidence + golden visual regression
+# UI screenshot review and golden comparison
 
-**Last updated**: 2026-10-04
+**Last updated**: 2026-10-06
 
-Metapi 有两个协作的截图管道，都跑在 CI 的 `frontend` job 产物（`web-dist`
-artifact）之上，模式与 a11y job 一致：Go server 嵌入 dist、fresh sqlite
-runtime DB、`AUTH_TOKEN=dev-admin-token-123` 经 POST /api/auth/login 换取 HttpOnly session cookie、启动后
-等 `/ready` 再执行浏览器步骤。
+截图扫描和 golden 对照是 UI 改动及发版候选的按需人工复核工具，
+不在每次 PR/master 的必过 CI 中运行。CI 保留前端测试/构建及真实浏览器
+`a11y`（axe + 路由/移动端 smoke）；它们防止功能与严重可访问性回归，
+但不能替代有数据、亮暗主题、移动端和高分辨率截图的人工审美判断。
+运行截图工具时，Go server 须嵌入新构建的 `web/dist`，使用一次性 sqlite
+数据目录，登录后等 `/ready` 再执行浏览器步骤。
 
 > **本地先决条件（`web/dist` 不入 git，踩坑点在此）**：Go server 用 `go:embed`
-> 固化**启动时磁盘上的 dist**。`web/dist` 是构建产物（gitignore），CI 用
-> artifact 注入新鲜构建所以永远正确；本地直接 `go run` 时若 dist 陈旧，
+> 固化**启动时磁盘上的 dist**。`web/dist` 是构建产物（gitignore），
+> 本地直接 `go run` 时若 dist 陈旧，
 > 服务的是旧版 SPA（如 #1034 会话模型之前的认证守卫），登录页截图会
 > "成功"产出 112 张而实际全是登录页。本地 SOP：
 >
@@ -22,25 +24,25 @@ runtime DB、`AUTH_TOKEN=dev-admin-token-123` 经 POST /api/auth/login 换取 Ht
 > 断言未被弹回 `/sign-in`）：命中陈旧 dist 会立即报错并给出上述修复指引，
 > 而不是静默产出全登登录页证据。
 
-## 1. 截图证据管道（job: `ui-screenshots`）
+## 1. 有数据截图检查
 
 `web/scripts/screenshot-scan.mjs` 用真 Chromium 对打包后 SPA 做全路由采集：
 
 - 40 条 desktop + 14 条 mobile 路由 × light/dark × DPR 2 全页 PNG
   （另含每主题 1 张 /sign-in 无鉴权页），实测 ~6 分钟（110 张）。
-- 输出目录含 `MANIFEST.md`（路由/主题/尺寸/体积清单），随 artifact
-  `ui-screenshots` 上传（保留 7 天）。
-- 任意路由采集失败 → 脚本非零退出 → job 红（证据管道关门）。
-- CI 在采集前用 `scripts/e2e/seed-demo-data.py` 向全新运行时库注入确定性
+- 输出目录含 `MANIFEST.md`（路由/主题/尺寸/体积清单）；本地保留待复核截图，
+  不把原始运行截图自动作为公开 CI artifact。
+- 任意路由采集失败 → 脚本非零退出；采集成功只证明有截图，仍须逐张检查。
+- 需要有数据的页面时，用 `scripts/e2e/seed-demo-data.py` 向一次性运行时库注入确定性
   演示数据（24 个站点、30 个账号，另含路由/渠道/密钥/代理日志/签到/用量聚合），并以
   `EXPECTED_DATA_PROFILE=seeded` 核对注入生效——证据截图展示的是「活的」
   UI 而不是整页空态。注意这与 §2 golden 基线**故意相反**：golden 仍用空库
-  （日期无关的布局契约），演示数据只进证据管道。
-- 同一批演示数据随后由 `bun run ui:mobile-list` 在 375px 真浏览器中验证
+  （日期无关的布局契约）。
+- 同一批演示数据可由 `bun run ui:mobile-list` 在 375px 真浏览器中验证
   站点/账号第 20 张卡与分页可滚达、跨页内容变化、卡面空白不触发选择而复选框
-  可选择；页脚截图写入 `ui-screenshots/mobile-list/`，用于人工复核。
+  可选择；页脚截图写入指定的 `MOBILE_LIST_SHOTS_DIR`，用于人工复核。
 
-可裁剪 knob（默认全量，CI 不传即为全量）：
+可裁剪 knob（默认全量，按改动范围缩小抽样）：
 
 | 环境变量 | 默认 | 说明 |
 | --- | --- | --- |
@@ -73,9 +75,9 @@ OUT_DIR=<输出目录> node scripts/shot-interactions.mjs
 26 个场景（桌面+移动双视口），逐场景失败收集不中断。选择器教训已写进
 脚本头注释（告警铃 aria-label 是动态「待关注告警」、Select trigger 是
 combobox role 且在 FormControl 内会丢 data-slot、mobile 列表无 tbody）。
-此脚本仍是本地探索工具，不能替代 CI 中带断言的 `ui:mobile-list`。
+此脚本仍是本地探索工具，不能替代按需运行的 `ui:mobile-list` 交互断言。
 
-## 2. 黄金基线回归（job: `visual-regression`）
+## 2. 按需 golden 对照
 
 10 个关键页 golden 基线回归，用 Playwright `expect(page).toHaveScreenshot()`：
 
@@ -87,12 +89,9 @@ combobox role 且在 FormControl 内会丢 data-slot、mobile 列表无 tbody）
 - spec：`web/scripts/visual-regression.spec.mjs`；
   配置：`web/playwright.visual.config.mjs`；
   基线：`web/visual-baselines/*.png`（入库提交）。
-- CI 里 `updateSnapshots: none`——基线缺失或漂移即红；失败时
-  `visual-regression-diffs` artifact 上传 diff（actual/baseline/diff 三件套）。
-- `docker-build` 必须等待 `ui-screenshots`、`visual-regression` 与跨系统的
-  `runtime-smoke-matrix`，并在依赖失败或跳过时自身明确失败（GitHub 不把
-  skipped required check 当红灯）；阻止 PR 合并、镜像发布和 tag Release。
-  截图采集成功只证明覆盖与可供复核，仍需人工检查视觉与交互细节。
+- 配置使用 `updateSnapshots: none`，本地对照时基线缺失或漂移会报错，
+  差异图片保留在 `web/test-results/` 供复核。它只覆盖空库亮色桌面，
+  不作为每次 PR 的合并或镜像硬门禁；UI 变更/候选发布仍须结合实际有数据截图。
 
 ### 本地运行与基线更新
 
