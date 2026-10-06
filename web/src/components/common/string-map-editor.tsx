@@ -221,7 +221,7 @@ export function StringMapEditor({ ...props }: StringMapEditorProps) {
             {t('stringMapEditor.advancedOnly')}
           </p>
         )}
-        {invalid && (
+        {invalid && showJson && (
           <p id={errorId} role='alert' className='text-destructive text-xs'>
             {t('stringMapEditor.invalid')}
           </p>
