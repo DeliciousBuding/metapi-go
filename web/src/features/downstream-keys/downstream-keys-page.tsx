@@ -10,6 +10,7 @@
 import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { PageHeader } from '@/components/common/page-header'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 
 const LazyKeysSection = lazy(() =>
@@ -23,12 +24,10 @@ export function DownstreamKeysPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div>
-        <h1 className='page-title'>{t('downstreamKeys.page.title')}</h1>
-        <p className='text-muted-foreground text-sm'>
-          {t('downstreamKeys.page.description')}
-        </p>
-      </div>
+      <PageHeader
+        title={t('downstreamKeys.page.title')}
+        description={t('downstreamKeys.page.description')}
+      />
       <Suspense fallback={<SectionSkeleton />}>
         <LazyKeysSection />
       </Suspense>
