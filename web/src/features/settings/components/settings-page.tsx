@@ -20,6 +20,7 @@
 import { Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { PageHeader } from '@/components/common/page-header'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 
 import type { SettingsSubarea } from '../types'
@@ -37,14 +38,14 @@ export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
 
   return (
     <div className='flex flex-col gap-6 p-6'>
-      <header className='flex flex-col gap-1'>
-        <h1 className='page-title'>{t(activeSectionMeta.title)}</h1>
-        {activeSectionMeta.description ? (
-          <p className='text-muted-foreground text-sm'>
-            {t(activeSectionMeta.description)}
-          </p>
-        ) : null}
-      </header>
+      <PageHeader
+        title={t(activeSectionMeta.title)}
+        description={
+          activeSectionMeta.description
+            ? t(activeSectionMeta.description)
+            : undefined
+        }
+      />
       <div className='min-w-0 flex-1'>
         {/* Single Suspense boundary catches the React.lazy sections emitted
             by each subarea registry's build(). On the first visit to a

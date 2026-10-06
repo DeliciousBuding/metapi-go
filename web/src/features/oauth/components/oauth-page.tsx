@@ -21,6 +21,7 @@ import { KeyRound, Plus as PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { PageHeader } from '@/components/common/page-header'
 import {
   DataTablePage,
   encodeSorting,
@@ -294,12 +295,10 @@ export function OAuthPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div>
-        <h1 className='page-title'>{t('oauth.page.title')}</h1>
-        <p className='text-muted-foreground text-sm'>
-          {t('oauth.page.description')}
-        </p>
-      </div>
+      <PageHeader
+        title={t('oauth.page.title')}
+        description={t('oauth.page.description')}
+      />
 
       <DataTablePage
         table={table}

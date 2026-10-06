@@ -20,6 +20,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { PageHeader } from '@/components/common/page-header'
 import {
   DataTableBulkActions,
   DataTablePage,
@@ -452,16 +453,15 @@ export function SitesPage() {
 
   return (
     <div className='flex min-h-full flex-col gap-3 p-4 min-[641px]:h-full'>
-      <div>
-        <h1 className='page-title'>{t('sites.page.title')}</h1>
-        <p className='text-muted-foreground text-sm'>
-          {t('sites.page.description')}
-        </p>
-        <p className='text-muted-foreground hidden items-center gap-1.5 text-xs min-[641px]:flex'>
-          <InfoIcon className='size-3.5 shrink-0' />
+      <PageHeader
+        title={t('sites.page.title')}
+        description={t('sites.page.description')}
+      >
+        <p className='text-muted-foreground flex items-start gap-1.5 text-xs leading-relaxed'>
+          <InfoIcon aria-hidden='true' className='mt-0.5 size-3.5 shrink-0' />
           <span>{t('sites.page.weightFormula')}</span>
         </p>
-      </div>
+      </PageHeader>
 
       <DataTablePage
         table={table}
