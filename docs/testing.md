@@ -31,12 +31,17 @@ upgrade coverage; it does not establish PostgreSQL process-startup compatibility
 or real-model relay behavior.
 
 `test-pg` additionally starts the production server binary against a randomized,
-disposable PostgreSQL schema using the CI service's dummy test credentials. It
-checks PostgreSQL startup/migrations and readiness, creates an account and route
-through the admin API, relays a Chat Completions request through the deterministic
-mock (reconciling the upstream request log), then restarts the server and verifies
-persisted site data. The schema is dropped on exit. This is deterministic
-PostgreSQL process/relay coverage, not real-model acceptance.
+disposable PostgreSQL schema using the CI service's dummy test credentials. The
+schema starts with a reduced TS-era `sites` fixture missing additive columns; the
+gate checks its preserved row, migrated PostgreSQL column types/defaults and
+timestamp through both the admin API and database, then creates new records to
+check sequence reconciliation. Two independently logged deterministic upstreams
+are bound to one route in priority order. The gate serves a request from the
+primary, stops that process, and requires the same downstream route to recover
+through the sibling with two request-ID-correlated PostgreSQL attempt logs. It
+restarts the server and checks persisted data. The schema is dropped on exit.
+The reduced fixture is not a complete historical PostgreSQL dump, and the
+deterministic relay does not establish real-model or downstream-client acceptance.
 
 ## From historical bugs to user-task regressions
 
