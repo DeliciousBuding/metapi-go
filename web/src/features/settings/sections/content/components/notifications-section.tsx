@@ -1,11 +1,10 @@
+import { useMutation } from '@tanstack/react-query'
 // metapi-go/features/settings/sections/content/components — notification
 // channels section. All channels (webhook/bark/serverchan/telegram/smtp/
 // feishu/dingtalk/wecom/ntfy) in one form, plus the per-task mute toggles
 // and the "send test notification" action. Secrets are only sent when the
 // user types a fresh value; blank = keep the stored secret, masked values
 // are never echoed back.
-
-import { useMutation } from '@tanstack/react-query'
 import type {
   ControllerRenderProps,
   FieldPath,
@@ -33,6 +32,7 @@ import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
+import { SettingsSubsection } from '../../../components/settings-subsection'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
   collectChangedFields,
@@ -333,7 +333,8 @@ export function NotificationsSection() {
             )}
           />
 
-          <ChannelGroup
+          <SettingsSubsection
+            variant='panel'
             title={t('settings.content.notifications.channels.webhook')}
           >
             <FormField
@@ -357,9 +358,10 @@ export function NotificationsSection() {
                 />
               )}
             />
-          </ChannelGroup>
+          </SettingsSubsection>
 
-          <ChannelGroup
+          <SettingsSubsection
+            variant='panel'
             title={t('settings.content.notifications.channels.bark')}
           >
             <FormField
@@ -383,9 +385,10 @@ export function NotificationsSection() {
                 />
               )}
             />
-          </ChannelGroup>
+          </SettingsSubsection>
 
-          <ChannelGroup
+          <SettingsSubsection
+            variant='panel'
             title={t('settings.content.notifications.channels.serverChan')}
           >
             <FormField
@@ -409,9 +412,10 @@ export function NotificationsSection() {
                 />
               )}
             />
-          </ChannelGroup>
+          </SettingsSubsection>
 
-          <ChannelGroup
+          <SettingsSubsection
+            variant='panel'
             title={t('settings.content.notifications.channels.telegram')}
           >
             <FormField
@@ -478,9 +482,10 @@ export function NotificationsSection() {
                 />
               )}
             />
-          </ChannelGroup>
+          </SettingsSubsection>
 
-          <ChannelGroup
+          <SettingsSubsection
+            variant='panel'
             title={t('settings.content.notifications.channels.smtp')}
           >
             <FormField
@@ -575,9 +580,10 @@ export function NotificationsSection() {
                 />
               )}
             />
-          </ChannelGroup>
+          </SettingsSubsection>
 
-          <ChannelGroup
+          <SettingsSubsection
+            variant='panel'
             title={t('settings.content.notifications.channels.feishu')}
           >
             <FormField
@@ -611,9 +617,10 @@ export function NotificationsSection() {
                 />
               )}
             />
-          </ChannelGroup>
+          </SettingsSubsection>
 
-          <ChannelGroup
+          <SettingsSubsection
+            variant='panel'
             title={t('settings.content.notifications.channels.dingtalk')}
           >
             <FormField
@@ -647,9 +654,10 @@ export function NotificationsSection() {
                 />
               )}
             />
-          </ChannelGroup>
+          </SettingsSubsection>
 
-          <ChannelGroup
+          <SettingsSubsection
+            variant='panel'
             title={t('settings.content.notifications.channels.wecom')}
           >
             <FormField
@@ -672,9 +680,10 @@ export function NotificationsSection() {
                 />
               )}
             />
-          </ChannelGroup>
+          </SettingsSubsection>
 
-          <ChannelGroup
+          <SettingsSubsection
+            variant='panel'
             title={t('settings.content.notifications.channels.ntfy')}
           >
             <FormField
@@ -719,7 +728,7 @@ export function NotificationsSection() {
                 />
               )}
             />
-          </ChannelGroup>
+          </SettingsSubsection>
 
           <div className='space-y-3 rounded-lg border p-4'>
             <h3 className='text-sm font-medium'>
@@ -778,21 +787,6 @@ export function NotificationsSection() {
 type FieldProps<TValues extends FieldValues> = {
   field: ControllerRenderProps<TValues, FieldPath<TValues>>
   label: string
-}
-
-function ChannelGroup({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className='space-y-3 rounded-lg border p-4'>
-      <h3 className='text-sm font-medium'>{title}</h3>
-      {children}
-    </div>
-  )
 }
 
 function ToggleField<TValues extends FieldValues>({

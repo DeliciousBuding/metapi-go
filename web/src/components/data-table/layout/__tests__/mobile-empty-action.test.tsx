@@ -91,6 +91,39 @@ describe('DataTablePage emptyAction on mobile', () => {
   })
 })
 
+describe('external-filter empty state', () => {
+  it.each([true, false])('clears page-owned filters on mobile=%s', (mobile) => {
+    setMediaQuery(mobile)
+    function Harness() {
+      const [filtered, setFiltered] = useState(true)
+      const table = useReactTable({
+        data: filtered ? [] : [{ id: 1, name: 'Restored result' }],
+        columns: probeColumns,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+      })
+      return (
+        <DataTablePage
+          table={table}
+          emptyTitle='No widgets'
+          emptyAction={<button type='button'>Create widget</button>}
+          toolbarProps={{
+            hasAdditionalFilters: filtered,
+            onReset: () => setFiltered(false),
+          }}
+        />
+      )
+    }
+    render(<Harness />)
+    expect(screen.queryByText('No widgets')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Create widget' })
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }))
+    expect(screen.getByText('Restored result')).toBeInTheDocument()
+  })
+})
+
 describe('mobile card selection', () => {
   it('selects only from the checkbox, not a tap on the card surface', async () => {
     setMediaQuery(true)
