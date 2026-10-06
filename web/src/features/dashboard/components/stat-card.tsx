@@ -100,12 +100,12 @@ export function StatCard(props: StatCardProps) {
   const card = (
     <Card
       className={cn(
-        'h-full overflow-hidden',
+        'h-full gap-2 overflow-hidden py-3',
         props.to && 'cursor-pointer transition-colors hover:bg-muted/50',
         props.className
       )}
     >
-      <CardHeader className='pb-1'>
+      <CardHeader className='pb-0'>
         <div className='flex items-center gap-2'>
           {Icon ? (
             <IconBadge tone={props.tone ?? 'default'} size='sm'>
@@ -123,7 +123,7 @@ export function StatCard(props: StatCardProps) {
           ) : null}
         </div>
       </CardHeader>
-      <CardContent className='flex flex-1 flex-col gap-3'>
+      <CardContent className='flex flex-1 flex-col gap-2'>
         {props.loading ? (
           <div className='space-y-2'>
             <Skeleton className='h-7 w-20' />
@@ -131,7 +131,7 @@ export function StatCard(props: StatCardProps) {
           </div>
         ) : (
           <>
-            <div className='flex min-h-16 flex-col items-start gap-2'>
+            <div className='flex min-h-14 flex-col items-start gap-1.5'>
               <KpiValue size='lg'>
                 {props.valueNumber !== undefined &&
                 Number.isFinite(props.valueNumber) ? (
@@ -155,14 +155,14 @@ export function StatCard(props: StatCardProps) {
                   {props.details.map((detail) => (
                     <div
                       key={detail.label}
-                      className='bg-muted/40 rounded-lg border px-2.5 py-2'
+                      className='min-w-0 border-s ps-3 first:border-s-0 first:ps-0'
                     >
                       <div className='text-muted-foreground text-xs leading-4 font-medium'>
                         {detail.label}
                       </div>
                       <div
                         className={cn(
-                          'mt-1.5 break-words text-sm leading-5 font-semibold tabular-nums [overflow-wrap:anywhere]',
+                          'mt-1 break-words text-sm leading-5 font-semibold tabular-nums [overflow-wrap:anywhere]',
                           DETAIL_TONE_CLASSES[detail.tone ?? 'default']
                         )}
                         title={detail.value}

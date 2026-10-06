@@ -26,6 +26,11 @@ multi-column composition at 1440–1920px first. Mobile adapts the same tasks
 without letting narrow-screen compromises dictate the desktop layout.
 Metric cards keep title, primary value, supporting text and detail cells in
 separate visual tiers; long supporting text must not compete beside the number.
+Desktop table rows start at 48px and grow for multiline content; narrow layouts
+retain their existing touch spacing. Overview snapshots form one horizontal
+summary on desktop, and metric details use compact divided cells rather than
+nested padded cards. Increase information density by removing repeated spacing,
+not by shrinking body text.
 
 **Principles**
 
