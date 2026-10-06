@@ -112,7 +112,7 @@ export function StatCard(props: StatCardProps) {
               <Icon />
             </IconBadge>
           ) : null}
-          <CardTitle className='text-foreground text-sm leading-5 font-semibold tracking-normal'>
+          <CardTitle className='text-foreground text-sm leading-5 font-medium tracking-normal'>
             {props.title}
           </CardTitle>
           {props.to ? (

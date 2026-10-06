@@ -72,6 +72,46 @@ beforeEach(async () => {
 afterEach(cleanup)
 
 describe('overview operational insights', () => {
+  it('formats numbers and costs with the internal Chinese locale alias', async () => {
+    await i18n.changeLanguage('zhCN')
+    vi.mocked(api.getDashboardSnapshot).mockResolvedValue({
+      generatedAt: '2026-10-06T04:00:00Z',
+      siteAvailability: [
+        {
+          siteId: 1,
+          siteName: 'Example upstream',
+          totalRequests: 1200,
+          successCount: 1199,
+          failedCount: 1,
+          averageLatencyMs: 125,
+        },
+      ],
+    })
+    vi.mocked(api.getModelCostDistribution).mockResolvedValue({
+      days: 7,
+      since: '2026-09-29T04:00:00Z',
+      topN: 5,
+      items: [
+        {
+          model: 'example-model',
+          label: 'example-model',
+          cost: 1.25,
+          calls: 1200,
+          tokens: 24000,
+        },
+      ],
+      totals: { cost: 1.25, calls: 1200, tokens: 24000 },
+    })
+    mount(
+      <>
+        <UpstreamHealthPanel />
+        <ModelUsagePanel />
+      </>
+    )
+    expect(await screen.findByText('Example upstream')).toBeInTheDocument()
+    expect(await screen.findByText('example-model')).toBeInTheDocument()
+    expect(screen.getByText('$1.2500')).toBeInTheDocument()
+  })
   it('prioritizes failing sites, then traffic, and anchors log links to the reported window', async () => {
     vi.mocked(api.getDashboardSnapshot).mockResolvedValue({
       generatedAt: '2026-10-06T04:00:00Z',

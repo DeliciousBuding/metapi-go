@@ -27,9 +27,10 @@ without letting narrow-screen compromises dictate the desktop layout.
 Metric cards keep title, primary value, supporting text and detail cells in
 separate visual tiers; long supporting text must not compete beside the number.
 Desktop table rows start at 48px and grow for multiline content; narrow layouts
-retain their existing touch spacing. Overview snapshots form one horizontal
-summary on desktop, and metric details use compact divided cells rather than
-nested padded cards. Increase information density by removing repeated spacing,
+retain their existing touch spacing. The [operator overview](dashboard-operations.md)
+prioritizes request outcomes, actionable risks and upstream/model usage; resource
+counts and maintenance are secondary. Metric details use compact divided cells
+rather than nested padded cards. Increase information density by removing repeated spacing,
 not by shrinking body text.
 
 **Principles**
@@ -161,7 +162,7 @@ Fallback: `supports-[backdrop-filter]` gates translucency so browsers without `b
 
 ### 3.1 Reading hierarchy and controls
 
-The common reading roles are page title (24px; overview 30px), section/card title (`text-base` semibold), KPI (`text-xl` to `text-3xl` semibold with tabular numerals), table header (`text-xs` semibold), row body (`text-sm`), and field label (`text-xs` muted). Do not use opacity on tiny sidebar section labels: their foreground must stay readable. The active nav link must forward both `data-active` and `aria-current=page` through its Link bridge, so visible selection and the accessibility announcement agree. These are component-owned roles, not a second parallel set of typography tokens.
+The common reading roles are page title (24px; overview 30px), section/card title (`text-base` semibold), KPI (`text-xl` to `text-3xl` medium with tabular numerals and `leading-tight`), table header (`text-xs` semibold), row body (`text-sm`), and field label (`text-xs` muted). Do not use opacity on tiny sidebar section labels: their foreground must stay readable. The active nav link must forward both `data-active` and `aria-current=page` through its Link bridge, so visible selection and the accessibility announcement agree. These are component-owned roles, not a second parallel set of typography tokens.
 
 Tables inherit the 14px body scale and tabular numerals. Cells and descendants must not be force-sized by the table primitive: explicit metadata, badge and secondary-label sizes belong to their components. Default control height is 36px (small 32px, large 40px); the default radius token is 10px. User-selected density, radius and font axes remain independent.
 

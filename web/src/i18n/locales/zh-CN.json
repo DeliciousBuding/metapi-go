@@ -807,7 +807,7 @@
       "sections": {
         "overview": {
           "title": "概览",
-          "description": "核心指标、公告与定时任务健康。"
+          "description": "下游请求表现、上游可靠性与调用成本。"
         },
         "traffic": {
           "title": "收支",
@@ -1060,6 +1060,29 @@
         "tokens": "Token 数",
         "callCount": "{{value}} 次请求",
         "otherModels": "其他模型"
+      },
+      "operations": {
+        "serviceOverview": "下游服务表现",
+        "rolling24h": "最近 24 小时 · 全部已记录请求",
+        "requests": "请求数",
+        "success": "成功率",
+        "tokens": "Token 用量",
+        "cost": "估算调用成本",
+        "recordedRequests": "查看这一时段的全部请求",
+        "failures": "失败 {{count}} 次 · 查看失败日志",
+        "noRequests": "这一时段暂无调用记录",
+        "tokensHint": "按请求日志记录的有效 Token 汇总",
+        "costHint": "调用费用估算，不代表营收",
+        "loadError": "请求数据加载失败：{{message}}",
+        "trend": "调用量与成功率趋势",
+        "trendScope": "最近 7 个 UTC 自然日 · 含今天",
+        "performanceDetails": "模型与延迟分析",
+        "trendTotal": "图示时段共 {{value}} 次请求",
+        "resources": "资源与维护",
+        "siteCount": "{{value}} 个站点",
+        "accountCount": "{{value}} 个账号 · {{active}} 个活跃",
+        "balance": "启用站点余额 {{value}}",
+        "checkin": "今日签到 {{success}} / {{total}}"
       }
     },
     "settings": {

@@ -13,7 +13,7 @@ import '@/i18n/config'
 import { api } from '@/lib/api'
 
 import { AvailabilitySection } from '../sections/availability/availability-section'
-import { OverviewSection } from '../sections/overview/overview-section'
+import { MaintenancePanel } from '../sections/overview/components/maintenance-panel'
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -26,7 +26,7 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 
-// TodaySnapshotStrip renders a router Link; the test has no RouterProvider,
+// Dashboard panels render router Links; the test has no RouterProvider,
 // so degrade Link to a plain anchor while keeping the rest of the module.
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>()
@@ -125,7 +125,7 @@ describe('dashboard status badge variants', () => {
       generatedAt: '2026-08-18T00:00:00Z',
     })
 
-    const { container } = renderSection(<OverviewSection />)
+    const { container } = renderSection(<MaintenancePanel />)
 
     await waitFor(() => {
       expect(screen.getByText('probe-job')).toBeInTheDocument()

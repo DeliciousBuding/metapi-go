@@ -18,6 +18,12 @@ import { attentionLabel, type AttentionResponse } from '@/lib/attention-label'
 
 import { resolveAttentionTarget } from '../../availability/attention-target'
 
+const severityVariant = {
+  critical: 'destructive',
+  warning: 'warning',
+  info: 'info',
+} as const
+
 export function AttentionPanel() {
   const { t } = useTranslation()
   const query = useQuery({
@@ -28,7 +34,7 @@ export function AttentionPanel() {
   const unavailable =
     !query.isPending && !query.error && !Array.isArray(query.data?.items)
   return (
-    <Card size='sm' className='h-full'>
+    <Card className='h-full'>
       <CardHeader>
         <CardTitle className='flex items-center gap-2'>
           <Bell className='text-muted-foreground size-4' />
@@ -72,10 +78,8 @@ export function AttentionPanel() {
                   className='flex items-start gap-2 py-2'
                 >
                   <Badge
-                    variant={
-                      item.severity === 'critical' ? 'destructive' : 'secondary'
-                    }
-                    className='mt-0.5 shrink-0 text-[10px]'
+                    variant={severityVariant[item.severity]}
+                    className='mt-0.5 shrink-0'
                   >
                     {t(`dashboard.overviewInsights.${item.severity}`)}
                   </Badge>

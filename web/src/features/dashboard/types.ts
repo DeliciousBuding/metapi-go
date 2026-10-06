@@ -43,15 +43,6 @@ export type DashboardSection = {
 // can be wired now and fed real data without reshaping.
 // ---------------------------------------------------------------------------
 
-/** Aggregate balance history (GET /api/stats/balance-history?accountId=0). */
-export type BalanceHistoryResponse = {
-  series: Array<{
-    accountId: number
-    points: Array<{ day: string; balance: number }>
-  }>
-  days: number
-}
-
 /** Long-format row for the income vs outcome grouped bar chart. */
 export type IncomeOutcomePoint = {
   day: string

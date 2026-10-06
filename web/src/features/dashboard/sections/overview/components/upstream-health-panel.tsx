@@ -20,6 +20,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table'
+import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { formatInt, formatRatio } from '@/lib/format'
 
@@ -39,6 +40,7 @@ type Insights = {
 
 export function UpstreamHealthPanel() {
   const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const query = useQuery({
     queryKey: ['dashboard', 'overview-insights'],
     queryFn: () =>
@@ -69,7 +71,7 @@ export function UpstreamHealthPanel() {
     )
     .slice(0, 8)
   return (
-    <Card size='sm' className='h-full min-w-0'>
+    <Card className='h-full min-w-0'>
       <CardHeader>
         <CardTitle className='flex items-center gap-2'>
           <Globe className='text-muted-foreground size-4' />
@@ -140,7 +142,7 @@ export function UpstreamHealthPanel() {
                         )}
                       </TableCell>
                       <TableCell className='text-right tabular-nums'>
-                        {formatInt(site.totalRequests, i18n.language)}
+                        {formatInt(site.totalRequests, locale)}
                       </TableCell>
                       <TableCell className='text-right tabular-nums'>
                         {range && site.failedCount > 0 ? (
@@ -157,10 +159,10 @@ export function UpstreamHealthPanel() {
                             )}
                             className='text-destructive hover:underline'
                           >
-                            {formatInt(site.failedCount, i18n.language)}
+                            {formatInt(site.failedCount, locale)}
                           </Link>
                         ) : (
-                          formatInt(site.failedCount, i18n.language)
+                          formatInt(site.failedCount, locale)
                         )}
                       </TableCell>
                       <TableCell className='text-right tabular-nums'>
@@ -168,7 +170,7 @@ export function UpstreamHealthPanel() {
                       </TableCell>
                       <TableCell className='text-muted-foreground text-right tabular-nums'>
                         {site.totalRequests > 0 && site.averageLatencyMs != null
-                          ? `${formatInt(Math.round(site.averageLatencyMs), i18n.language)} ms`
+                          ? `${formatInt(Math.round(site.averageLatencyMs), locale)} ms`
                           : '—'}
                       </TableCell>
                     </TableRow>

@@ -12,11 +12,13 @@ import {
   CardContent,
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { formatCurrency, formatInt } from '@/lib/format'
 
 export function ModelUsagePanel() {
   const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const query = useQuery({
     queryKey: ['dashboard', 'overview-model-cost'],
     queryFn: () => api.getModelCostDistribution(7, 5),
@@ -28,7 +30,7 @@ export function ModelUsagePanel() {
     !query.error &&
     (!Array.isArray(data?.items) || !data?.totals)
   return (
-    <Card size='sm' className='h-full min-w-0'>
+    <Card className='h-full min-w-0'>
       <CardHeader>
         <CardTitle className='flex items-center gap-2'>
           <ChartNoAxesCombined className='text-muted-foreground size-4' />
@@ -55,12 +57,9 @@ export function ModelUsagePanel() {
           <>
             <dl className='border-border mb-2 grid grid-cols-3 gap-3 border-b pb-3'>
               {[
-                [
-                  'estimatedCost',
-                  formatCurrency(data.totals.cost, { locale: i18n.language }),
-                ],
-                ['calls', formatInt(data.totals.calls, i18n.language)],
-                ['tokens', formatInt(data.totals.tokens, i18n.language)],
+                ['estimatedCost', formatCurrency(data.totals.cost, { locale })],
+                ['calls', formatInt(data.totals.calls, locale)],
+                ['tokens', formatInt(data.totals.tokens, locale)],
               ].map(([key, value]) => (
                 <div key={key}>
                   <dt className='text-muted-foreground text-xs'>
@@ -104,12 +103,12 @@ export function ModelUsagePanel() {
                   <span className='text-muted-foreground shrink-0 tabular-nums'>
                     {t('dashboard.overviewInsights.callCount', {
                       count: item.calls,
-                      value: formatInt(item.calls, i18n.language),
+                      value: formatInt(item.calls, locale),
                     })}
                   </span>
                   <span className='w-20 shrink-0 text-right font-medium tabular-nums'>
                     {formatCurrency(item.cost, {
-                      locale: i18n.language,
+                      locale,
                       fractionDigits: 4,
                     })}
                   </span>

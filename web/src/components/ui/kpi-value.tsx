@@ -1,6 +1,6 @@
 // metapi-go/ui — KPI value display component. Single source for dashboard/
 // observability numeric metric sizing: text-3xl (default) / text-2xl / text-xl.
-// All variants share the canonical recipe font-semibold + tracking-tight +
+// All variants share the canonical recipe font-medium + tracking-tight +
 // tabular-nums; consumers compose children (e.g. CountUp) instead of
 // re-declaring the classes. CJK tracking is neutralised by the
 // `:root[lang|='zh']` override in theme.css.
@@ -27,7 +27,7 @@ export function KpiValue({
   return (
     <span
       className={cn(
-        'leading-none font-semibold tracking-tight tabular-nums',
+        'leading-tight font-medium tracking-tight tabular-nums',
         sizeClass[size],
         className
       )}

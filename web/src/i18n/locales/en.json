@@ -807,7 +807,7 @@
       "sections": {
         "overview": {
           "title": "Overview",
-          "description": "Core metrics, announcements, and scheduled-task health."
+          "description": "Downstream requests, upstream reliability and usage cost."
         },
         "traffic": {
           "title": "Income & spend",
@@ -1060,6 +1060,29 @@
         "tokens": "Tokens",
         "callCount": "{{value}} requests",
         "otherModels": "Other models"
+      },
+      "operations": {
+        "serviceOverview": "Downstream service",
+        "rolling24h": "Rolling 24 hours · all recorded requests",
+        "requests": "Requests",
+        "success": "Success rate",
+        "tokens": "Token usage",
+        "cost": "Estimated call cost",
+        "recordedRequests": "Open the requests in this window",
+        "failures": "{{count}} failed · open failure logs",
+        "noRequests": "No recorded requests in this period",
+        "tokensHint": "Effective tokens recorded in request logs",
+        "costHint": "Estimated usage cost, not revenue",
+        "loadError": "Unable to load request data: {{message}}",
+        "trend": "Request volume & reliability",
+        "trendScope": "Last 7 UTC calendar days · includes today",
+        "performanceDetails": "Model & latency analysis",
+        "trendTotal": "{{value}} requests in the displayed period",
+        "resources": "Resources & maintenance",
+        "siteCount": "{{value}} sites",
+        "accountCount": "{{value}} accounts · {{active}} active",
+        "balance": "Active-site balance {{value}}",
+        "checkin": "Check-in today {{success}} / {{total}}"
       }
     },
     "settings": {
