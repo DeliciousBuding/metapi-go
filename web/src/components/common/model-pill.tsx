@@ -28,17 +28,20 @@ export function ModelPill({
   return (
     <span
       className={cn(
-        'inline-flex max-w-full items-center gap-1.5 text-xs font-medium',
+        'inline-flex min-h-5 max-w-full items-center gap-2 align-middle font-mono text-xs leading-5 font-medium',
         variant === 'pill' &&
           'rounded-full border bg-muted/40 py-0.5 pr-2.5 pl-1.5',
         className
       )}
       title={title ?? name}
     >
-      <span className='inline-flex shrink-0' aria-hidden='true'>
+      <span
+        className='inline-flex size-4 shrink-0 items-center justify-center'
+        aria-hidden='true'
+      >
         <BrandGlyph model={name} size={14} />
       </span>
-      <span className='min-w-0 truncate'>{label || name}</span>
+      <span className='block min-w-0 truncate leading-5'>{label || name}</span>
     </span>
   )
 }

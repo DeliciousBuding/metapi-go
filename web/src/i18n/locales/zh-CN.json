@@ -1035,7 +1035,7 @@
       },
       "overviewInsights": {
         "attentionTitle": "待处理事项",
-        "attentionDescription": "账户、余额与运行通知",
+        "attentionDescription": "当前账户、余额与运行通知",
         "attentionEmpty": "暂无账户或运行通知。",
         "allAttention": "查看全部事项",
         "critical": "紧急",
@@ -1044,7 +1044,7 @@
         "loadError": "加载失败：{{message}}",
         "unavailable": "数据暂不可用，请重试或检查数据来源。",
         "partial": "部分仪表盘指标暂不可用；以下为已取得的上游数据。",
-        "upstreamTitle": "启用上游 · 最近24小时",
+        "upstreamTitle": "上游服务表现",
         "upstreamDescription": "失败优先 · 最多展示8个站点 · 点击站点查看请求",
         "upstreamEmpty": "暂无启用的上游站点。",
         "site": "上游站点",
@@ -1053,7 +1053,7 @@
         "successRate": "成功率",
         "latency": "平均耗时",
         "failedLink": "{{name}}：{{count}} 次失败请求",
-        "modelTitle": "模型成本 · 近7日",
+        "modelTitle": "模型消耗排行",
         "modelDescription": "按估算成本排序 · 同时展示请求与 Token 用量",
         "modelEmpty": "该时段暂无模型用量。",
         "estimatedCost": "估算成本",
@@ -1082,7 +1082,16 @@
         "siteCount": "{{value}} 个站点",
         "accountCount": "{{value}} 个账号 · {{active}} 个活跃",
         "balance": "启用站点余额 {{value}}",
-        "checkin": "今日签到 {{success}} / {{total}}"
+        "checkin": "今日签到 {{success}} / {{total}}",
+        "rangeLabel": "统计范围",
+        "refresh": "刷新统计",
+        "period": {
+          "24h": "24 小时",
+          "7d": "最近一周",
+          "30d": "最近 30 天",
+          "all": "全部"
+        },
+        "trendWindow": "{{period}} · 按 UTC 时间聚合"
       }
     },
     "settings": {

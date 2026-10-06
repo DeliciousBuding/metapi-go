@@ -1035,7 +1035,7 @@
       },
       "overviewInsights": {
         "attentionTitle": "Needs attention",
-        "attentionDescription": "Accounts, balances and operational notices",
+        "attentionDescription": "Current account, balance and operational notices",
         "attentionEmpty": "No account or operational notices.",
         "allAttention": "View all notices",
         "critical": "Critical",
@@ -1044,7 +1044,7 @@
         "loadError": "Unable to load: {{message}}",
         "unavailable": "Data unavailable. Retry or check the source.",
         "partial": "Some dashboard metrics are unavailable; available upstream data is shown.",
-        "upstreamTitle": "Enabled upstreams · Last 24 hours",
+        "upstreamTitle": "Upstream performance",
         "upstreamDescription": "Failures first · Up to 8 sites · Select a site to inspect requests",
         "upstreamEmpty": "No enabled upstream sites.",
         "site": "Upstream",
@@ -1053,7 +1053,7 @@
         "successRate": "Success rate",
         "latency": "Avg latency",
         "failedLink": "{{name}}: {{count}} failed requests",
-        "modelTitle": "Model cost · Last 7 days",
+        "modelTitle": "Model usage ranking",
         "modelDescription": "Estimated cost ranking · Includes requests and tokens",
         "modelEmpty": "No model usage in this period.",
         "estimatedCost": "Estimated cost",
@@ -1082,7 +1082,16 @@
         "siteCount": "{{value}} sites",
         "accountCount": "{{value}} accounts · {{active}} active",
         "balance": "Active-site balance {{value}}",
-        "checkin": "Check-in today {{success}} / {{total}}"
+        "checkin": "Check-in today {{success}} / {{total}}",
+        "rangeLabel": "Reporting period",
+        "refresh": "Refresh report",
+        "period": {
+          "24h": "24 hours",
+          "7d": "Last 7 days",
+          "30d": "Last 30 days",
+          "all": "All time"
+        },
+        "trendWindow": "{{period}} · UTC time buckets"
       }
     },
     "settings": {

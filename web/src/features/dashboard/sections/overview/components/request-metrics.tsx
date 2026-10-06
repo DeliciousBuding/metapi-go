@@ -1,36 +1,30 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Activity, Coins, ShieldCheck, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
-import { api } from '@/lib/api'
+import { IconBadge } from '@/components/ui/icon-badge'
+import { KpiValue } from '@/components/ui/kpi-value'
+import { Skeleton } from '@/components/ui/skeleton'
+import type { OverviewPeriod } from '@/lib/api'
 import { formatCurrency, formatInt } from '@/lib/format'
 
-import { StatCard } from '../../../components/stat-card'
+import { useOverviewReport } from '../use-overview-report'
 
-export function RequestMetrics() {
+export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
   const { t } = useTranslation()
-  const query = useQuery({
-    queryKey: ['dashboard', 'request-metrics', '24h'],
-    queryFn: async () => {
-      const end = new Date()
-      const window = {
-        from: new Date(end.getTime() - 24 * 60 * 60 * 1000).toISOString(),
-        to: end.toISOString(),
-      }
-      // The unfiltered log aggregate includes disabled sites and unassigned
-      // failures. Keep the returned window for exactly matching drill-downs.
-      const data = await api.getProxyLogsMeta(window)
-      return { ...data, window }
-    },
-    refetchInterval: 30_000,
-  })
+  const query = useOverviewReport(period)
   const summary = query.data?.summary
   const hasRequests = summary !== undefined && summary.totalCount > 0
   const success = hasRequests
     ? `${((summary.successCount / summary.totalCount) * 100).toFixed(1)}%`
     : '—'
+  let successHint = '—'
+  if (summary) {
+    successHint = hasRequests
+      ? t('dashboard.operations.failures', { count: summary.failedCount })
+      : t('dashboard.operations.noRequests')
+  }
   const metrics = [
     {
       title: 'requests',
@@ -42,9 +36,7 @@ export function RequestMetrics() {
     {
       title: 'success',
       value: success,
-      hint: hasRequests
-        ? t('dashboard.operations.failures', { count: summary.failedCount })
-        : t('dashboard.operations.noRequests'),
+      hint: successHint,
       icon: ShieldCheck,
       failed: true,
     },
@@ -68,45 +60,49 @@ export function RequestMetrics() {
       className='space-y-3'
       aria-label={t('dashboard.operations.serviceOverview')}
     >
-      <div className='flex flex-wrap items-center justify-between gap-2'>
-        <h2 className='text-sm font-semibold'>
-          {t('dashboard.operations.serviceOverview')}
-        </h2>
-        <span className='text-muted-foreground text-xs'>
-          {t('dashboard.operations.rolling24h')}
-        </span>
-      </div>
       <QueryErrorBanner
         error={query.error}
         messageKey='dashboard.operations.loadError'
         onRetry={() => void query.refetch()}
         isRetrying={query.isFetching}
       />
-      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
-        {metrics.map((metric) => (
-          <Link
-            key={metric.title}
-            to='/proxy-logs'
-            search={{
-              ...query.data?.window,
-              ...(metric.failed ? { status: 'failed' as const } : {}),
-            }}
-            className='focus-visible:ring-ring block rounded-xl outline-none focus-visible:ring-2'
-          >
-            <StatCard
-              title={t(`dashboard.operations.${metric.title}`)}
-              value={metric.value}
-              hint={metric.hint}
-              icon={metric.icon}
-              loading={query.isLoading}
-              tone={
-                metric.failed && hasRequests && summary.failedCount > 0
-                  ? 'warning'
-                  : 'default'
-              }
-            />
-          </Link>
-        ))}
+      <div className='bg-card grid overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4'>
+        {metrics.map((metric) => {
+          const Icon = metric.icon
+          return (
+            <Link
+              key={metric.title}
+              to='/proxy-logs'
+              search={{
+                ...query.data?.window,
+                ...(metric.failed ? { status: 'failed' as const } : {}),
+              }}
+              className='hover:bg-muted/40 focus-visible:ring-ring flex min-w-0 flex-col gap-3 border-b p-5 transition-colors outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset sm:odd:border-r xl:border-r xl:border-b-0 xl:last:border-r-0'
+            >
+              <div className='flex items-center gap-2 text-sm font-medium'>
+                <IconBadge
+                  size='sm'
+                  tone={
+                    metric.failed && hasRequests && summary.failedCount > 0
+                      ? 'warning'
+                      : 'info'
+                  }
+                >
+                  <Icon />
+                </IconBadge>
+                {t(`dashboard.operations.${metric.title}`)}
+              </div>
+              {query.isLoading ? (
+                <Skeleton className='h-8 w-24' />
+              ) : (
+                <KpiValue>{metric.value}</KpiValue>
+              )}
+              <span className='text-muted-foreground text-xs leading-5'>
+                {metric.hint}
+              </span>
+            </Link>
+          )
+        })}
       </div>
     </section>
   )

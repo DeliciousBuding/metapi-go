@@ -16,10 +16,12 @@ import '@/i18n/config'
 import { api } from '@/lib/api'
 
 import { OverviewSection } from '../overview-section'
+import { reportFixture } from './report-fixture'
 
 vi.mock('@/lib/api', () => ({
   api: {
     getDashboardSnapshot: vi.fn(),
+    getOverviewReport: vi.fn(),
     getSchedulerStatus: vi.fn(),
     probeModelsNow: vi.fn(),
     getDownstreamApiKeys: vi.fn(),
@@ -83,6 +85,10 @@ function renderWithClient(ui: ReactNode) {
 }
 
 beforeEach(() => {
+  localStorage.removeItem('metapi.overview.period')
+  vi.mocked(api.getOverviewReport)
+    .mockReset()
+    .mockResolvedValue(reportFixture())
   mockGetDashboardSnapshot.mockReset()
   mockGetSchedulerStatus.mockReset()
   mockProbeModelsNow.mockReset()
@@ -366,3 +372,24 @@ vi.mock('../components/upstream-health-panel', () => ({
 vi.mock('../components/model-usage-panel', () => ({
   ModelUsagePanel: () => null,
 }))
+
+describe('overview report range', () => {
+  it('switches the shared analytical query to all retained history', async () => {
+    mockGetDashboardSnapshot.mockResolvedValue({
+      siteCount: 1,
+      totalAccounts: 1,
+    })
+    renderWithClient(<OverviewSection />)
+    await waitFor(() =>
+      expect(api.getOverviewReport).toHaveBeenCalledWith('7d')
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'All time' }))
+    await waitFor(() =>
+      expect(api.getOverviewReport).toHaveBeenCalledWith('all')
+    )
+    expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+  })
+})

@@ -27,28 +27,23 @@ describe('typography design contract', () => {
     const theme = read('src/styles/theme.css')
 
     expect(theme).toContain('--font-sans:')
-    expect(theme).toContain("'Public Sans Variable', 'Public Sans'")
-    expect(theme).toContain("'Noto Sans SC'")
+    expect(theme).toContain("'Inter Variable', 'Inter'")
+    expect(theme).toContain("'Microsoft YaHei UI'")
     expect(theme).toMatch(/--font-mono:\s*'Cascadia Mono'/)
     expect(theme).not.toContain('--font-inter:')
     expect(theme).not.toContain('--font-manrope:')
   })
 
-  it('ships a bundled CJK face ahead of the platform CJK fallbacks', () => {
+  it('uses native CJK rendering after the bundled Latin face', () => {
     const theme = read('src/styles/theme.css')
-    const sans = theme.slice(theme.indexOf('--font-sans:'))
-    // Per-glyph fallback walks the stack in order: the bundled variable face
-    // must sit in front of the platform CJK fonts, which are insurance for a
-    // failed fetch only. Before the face was bundled the stack jumped from
-    // Public Sans straight to them, so every Chinese string rendered in
-    // whatever the OS shipped.
-    const bundled = sans.indexOf("'Noto Sans SC Variable'")
-    expect(bundled).toBeGreaterThan(-1)
-    expect(bundled).toBeLessThan(sans.indexOf("'Microsoft YaHei'"))
-    // Naming a family in a stack ships nothing — the @font-face lives in the
-    // fontsource package, so the import is the other half of the contract.
+    expect(theme.indexOf("'Inter Variable'")).toBeLessThan(
+      theme.indexOf("'Microsoft YaHei UI'")
+    )
     expect(read('src/styles/index.css')).toContain(
-      "@import '@fontsource-variable/noto-sans-sc'"
+      "@import '@fontsource-variable/inter'"
+    )
+    expect(read('src/styles/index.css')).not.toContain(
+      '@fontsource-variable/noto-sans-sc'
     )
   })
 

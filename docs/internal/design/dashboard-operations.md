@@ -8,13 +8,13 @@ operator needs to make, rather than the order in which features were built.
 
 1. **Are downstream calls succeeding?** Show recorded request volume, success
    rate with its failure count, effective tokens, and estimated call cost over
-   the same rolling 24-hour window. A zero-request window has no success rate.
-2. **Where should I look?** Put the seven-day request/reliability trend beside
+   the same selected reporting window. A zero-request window has no success rate.
+2. **Where should I look?** Put the selected request/reliability trend beside
    actionable account, balance and runtime notifications. No notifications is
    not proof that the request path is healthy.
 3. **Which upstreams and models carry the impact?** Rank enabled upstreams by
    failures, then volume; retain both the count and rate. Show the model cost
-   distribution as a separate seven-day aggregate. Every drill-down must use
+   distribution over that same selected window. Every drill-down must use
    a real route and preserve the scope of the number the operator clicked.
 4. **What resources and maintenance support this?** Account/site counts,
    active-site balance, check-in and scheduled jobs belong below the operating
@@ -22,33 +22,19 @@ operator needs to make, rather than the order in which features were built.
 
 ## Metric contracts
 
-| Surface | Source | Scope and limits |
-| --- | --- | --- |
-| Request metrics | `getProxyLogsMeta({from,to})` | All recorded requests without a site/status filter, including unassigned failures and records from disabled sites. Freeze these exact bounds in the result for log links. |
-| Request trend | `getLatencyTrend(7)` | Seven UTC calendar days, including today; daily volume and success rate. Distinct from the rolling 24-hour KPI window. |
-| Upstream health | `getDashboardSnapshot({view:'insights'})` | Enabled upstreams only, last 24 hours. Anchor log links to `generatedAt`. Zero traffic and failed/missing aggregates are not healthy results. |
-| Attention | `getAttention(6)` | Account, balance and runtime notices with entity links. It does not measure downstream availability. |
-| Model usage | `getModelCostDistribution(7,5)` | Backend aggregate, not a sample of recent logs. Preserve the Other bucket and never search for it as a real model. |
-| Resources | `getDashboardSnapshot()` | Configured counts and normalized balances; not request-health metrics. |
+One `GET /api/stats/overview?period=24h|7d|30d|all` response owns the selected reporting window, summary, trend, model ranking and enabled-upstream performance. The UI defaults to the last seven days. Every analytical panel observes the same query key, and every diagnostic link preserves the returned `window.from` and `window.to`. All time means all retained request logs, not deleted history.
 
-The legacy summary's `proxy24h` and `performance` fields filter by enabled
-sites. They are not reused as a global downstream-request verdict. Existing
-API semantics are preserved rather than silently changing old consumers.
+The summary, model ranking and trend include unassigned records and records from disabled sites. The upstream table explicitly includes enabled sites only. Empty traffic has no success rate. Missing buckets are zero requests and a gap in the success-rate line. The 24-hour range uses UTC hour buckets; other ranges use UTC days. The current first/last bucket may be partial.
 
-Estimated cost is not revenue or profit. The overview does not divide pooled
-upstream balances by usage to promise remaining days: route eligibility,
-balance freshness and provider restrictions differ. There is no complete
-downstream-key leaderboard here until an explicit aggregate API exists.
-First-byte time, complete-request latency and model generation speed must not
-be substituted for one another.
+The model ranking preserves an Other bucket. Costs are estimates, not revenue or profit. Aggregate data comes from grouped database queries, not a sample of recent requests. A query failure remains visible and is not rendered as a healthy zero. Existing dashboard/gallery endpoint contracts are unchanged.
+
+Resource counts and balances use the current dashboard snapshot. Notices and scheduler health remain current-state information, visibly separate from historical analytics. Balances are not divided by usage to imply a shared wallet or runway. No consumer leaderboard is shown until a complete downstream-key aggregate exists.
 
 ## Ownership
 
-`overview-section.tsx` composes the operating surfaces and the compact resource
-row. Components under its `components/` directory own their bounded query and
-presentation. `maintenance-panel.tsx` owns scheduled-job controls and history;
-it does not decide service health. Existing attention-label localization and
-target resolution are reused.
+`overview-section.tsx` owns the time-range controls and page composition. `use-overview-report.ts` shares one analytical query across the metric, trend, upstream and model panels. `overview-trend.ts` fills missing buckets. Maintenance and resource state keep their existing queries because their scope is current state, not the selected log interval.
+
+The visual hierarchy follows a grouped KPI strip, a request-trend/model-use row, then upstream performance/current attention. Model identifiers use the shared aligned icon/text identity. Desktop density comes from grouping and alignment, not compressed glyphs or smaller body text.
 
 ## Reference implementation review
 

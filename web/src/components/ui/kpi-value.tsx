@@ -27,7 +27,7 @@ export function KpiValue({
   return (
     <span
       className={cn(
-        'leading-tight font-medium tracking-tight tabular-nums',
+        'font-mono leading-tight font-semibold tracking-tight tabular-nums',
         sizeClass[size],
         className
       )}

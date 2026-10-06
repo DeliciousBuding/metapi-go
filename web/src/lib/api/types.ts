@@ -4,6 +4,37 @@
 
 export type BackupWebdavExportType = 'all' | 'accounts' | 'preferences'
 
+export type OverviewPeriod = '24h' | '7d' | '30d' | 'all'
+export type OverviewReport = {
+  period: OverviewPeriod
+  window: { from?: string; to: string }
+  summary: {
+    totalCount: number
+    successCount: number
+    failedCount: number
+    totalTokensAll: number
+    totalCost: number
+    averageLatencyMs: number | null
+  }
+  points: Array<{
+    date: string
+    requests: number
+    successCount: number
+    successRate: number
+    tokens: number
+    cost: number
+  }>
+  siteAvailability: Array<{
+    siteId: number
+    siteName: string
+    totalRequests: number
+    successCount: number
+    failedCount: number
+    averageLatencyMs: number | null
+  }>
+  models: Array<{ model: string; calls: number; tokens: number; cost: number }>
+}
+
 type BackupWebdavConfig = {
   enabled: boolean
   fileUrl: string

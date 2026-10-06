@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { ChartNoAxesCombined } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -14,22 +13,24 @@ import {
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toBcp47 } from '@/i18n/languages'
-import { api } from '@/lib/api'
+import type { OverviewPeriod } from '@/lib/api'
 import { formatCurrency, formatInt } from '@/lib/format'
 
-export function ModelUsagePanel() {
+import { useOverviewReport } from '../use-overview-report'
+
+export function ModelUsagePanel({
+  period = '7d',
+}: {
+  period?: OverviewPeriod
+}) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
-  const query = useQuery({
-    queryKey: ['dashboard', 'overview-model-cost'],
-    queryFn: () => api.getModelCostDistribution(7, 5),
-    refetchInterval: 60_000,
-  })
+  const query = useOverviewReport(period)
   const data = query.data
   const unavailable =
     !query.isPending &&
     !query.error &&
-    (!Array.isArray(data?.items) || !data?.totals)
+    (!Array.isArray(data?.models) || !data?.summary)
   return (
     <Card className='h-full min-w-0'>
       <CardHeader>
@@ -58,9 +59,12 @@ export function ModelUsagePanel() {
           <>
             <dl className='border-border mb-2 grid grid-cols-3 gap-3 border-b pb-3'>
               {[
-                ['estimatedCost', formatCurrency(data.totals.cost, { locale })],
-                ['calls', formatInt(data.totals.calls, locale)],
-                ['tokens', formatInt(data.totals.tokens, locale)],
+                [
+                  'estimatedCost',
+                  formatCurrency(data.summary.totalCost, { locale }),
+                ],
+                ['calls', formatInt(data.summary.totalCount, locale)],
+                ['tokens', formatInt(data.summary.totalTokensAll, locale)],
               ].map(([key, value]) => (
                 <div key={key}>
                   <dt className='text-muted-foreground text-xs'>
@@ -70,30 +74,27 @@ export function ModelUsagePanel() {
                 </div>
               ))}
             </dl>
-            {data.items.length === 0 && (
+            {data.models.length === 0 && (
               <p className='text-muted-foreground py-3 text-sm'>
                 {t('dashboard.overviewInsights.modelEmpty')}
               </p>
             )}
             <ul className='divide-border divide-y'>
-              {data.items.map((item) => (
+              {data.models.map((item) => (
                 <li
                   key={item.model}
                   className='flex items-center gap-3 py-2 text-xs'
                 >
-                  <span
-                    className='min-w-0 flex-1 truncate'
-                    title={item.label || item.model}
-                  >
+                  <span className='min-w-0 flex-1 truncate' title={item.model}>
                     {item.model && item.model !== 'other' ? (
                       <Link
                         to='/proxy-logs'
-                        search={{ q: item.model, from: data.since }}
+                        search={{ q: item.model, ...data.window }}
                         className='hover:text-primary font-medium hover:underline'
                       >
                         <ModelPill
                           model={item.model}
-                          label={item.label}
+
                           variant='inline'
                         />
                       </Link>
@@ -101,7 +102,7 @@ export function ModelUsagePanel() {
                       <span>
                         {item.model === 'other'
                           ? t('dashboard.overviewInsights.otherModels')
-                          : item.label}
+                          : item.model}
                       </span>
                     )}
                   </span>

@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from 'recharts'
@@ -18,28 +17,26 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart'
 import { Skeleton } from '@/components/ui/skeleton'
-import { api } from '@/lib/api'
+import type { OverviewPeriod } from '@/lib/api'
 import { formatInt } from '@/lib/format'
 
-export function RequestTrend() {
+import { overviewTrendRows } from '../overview-trend'
+import { useOverviewReport } from '../use-overview-report'
+
+export function RequestTrend({ period = '7d' }: { period?: OverviewPeriod }) {
   const { t } = useTranslation()
-  const query = useQuery({
-    queryKey: ['dashboard', 'request-trend', 7],
-    queryFn: () => api.getLatencyTrend(7),
-    staleTime: 60_000,
-  })
+  const query = useOverviewReport(period)
   const points = query.data?.points ?? []
   const total = points.reduce((sum, point) => sum + point.requests, 0)
-  const rows = points.map((point) => ({
-    ...point,
-    successPercent: point.requests > 0 ? point.successRate * 100 : null,
-  }))
+  const rows = overviewTrendRows(query.data)
   return (
     <Card className='h-full min-w-0'>
       <CardHeader>
         <CardTitle>{t('dashboard.operations.trend')}</CardTitle>
         <CardDescription>
-          {t('dashboard.operations.trendScope')}
+          {t('dashboard.operations.trendWindow', {
+            period: t(`dashboard.operations.period.${period}`),
+          })}
         </CardDescription>
         <CardAction>
           <Link
@@ -92,7 +89,9 @@ export function RequestTrend() {
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey='date'
-                  tickFormatter={(date: string) => date.slice(5)}
+                  tickFormatter={(date: string) =>
+                    period === '24h' ? date.slice(11, 16) : date.slice(5)
+                  }
                   tickLine={false}
                   axisLine={false}
                   minTickGap={24}

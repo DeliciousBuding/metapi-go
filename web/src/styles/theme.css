@@ -7,15 +7,11 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Self-hosted variable faces: Public Sans for Latin, Noto Sans SC for
-   * Chinese. Platform fallbacks stay behind them for consistent weights.
-   * unicode-range controls per-glyph downloads. Rationale and measurements:
-   * docs/internal/design/DESIGN.md, "Bundled CJK font trade-off". */
+  /* Inter for Latin UI; native CJK faces preserve platform text rendering. */
   --font-sans:
-    'Public Sans Variable', 'Public Sans', 'Noto Sans SC Variable',
-    'Noto Sans SC', 'Noto Sans TC', 'Noto Sans JP', 'Noto Sans KR',
-    'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', '微软雅黑',
-    'Segoe UI', Arial, sans-serif;
+    'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC',
+    sans-serif;
   /* Editorial serif token — the body face used by the `serif` font axis
    * (an explicit user choice; every preset defaults to sans). Lora carries
    * only Latin glyphs, so the stack walks through CJK serifs (Noto / Source

@@ -89,7 +89,7 @@ export type ContentLayout = 'full' | 'centered'
  * The body-font axis.
  *
  * `default` is what ships and what a reset returns to; it resolves to `sans`
- * (the humanist Public Sans voice) for every preset, so serif only ever appears
+ * (the Inter UI face) for every preset, so serif only ever appears
  * as an explicit user choice. `resolveThemeFont` is the single place that
  * resolution happens — CSS addresses the concrete face
  * (`[data-theme-font='sans']` / `='serif'`), never `default`.
