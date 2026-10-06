@@ -168,6 +168,18 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
     return errorBanner
   }
 
+  const tableState = props.table.getState()
+  const isFiltered =
+    (tableState.columnFilters ?? []).length > 0 ||
+    Boolean(tableState.globalFilter) ||
+    props.toolbarProps?.hasAdditionalFilters === true ||
+    props.toolbarProps?.hasExpandedActiveFilters === true
+  const clearFilters = () => {
+    props.table.resetColumnFilters()
+    props.table.setGlobalFilter('')
+    props.toolbarProps?.onReset?.()
+  }
+
   const fixedHeight = props.fixedHeight !== false && !showMobile
 
   // An empty table hugs its content: without rows the `h-full`/`flex-1`
@@ -203,6 +215,8 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
             emptyDescription={props.emptyDescription}
             emptyAction={props.emptyAction}
             emptyIcon={props.emptyIcon}
+            isFiltered={isFiltered}
+            onClearFilters={clearFilters}
           />
         ) : (
           <DataTableView
@@ -212,6 +226,8 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
             emptyDescription={props.emptyDescription}
             emptyAction={props.emptyAction}
             emptyIcon={props.emptyIcon}
+            isFiltered={isFiltered}
+            onClearFilters={clearFilters}
             skeletonKeyPrefix={props.skeletonKeyPrefix}
             renderRow={props.renderRow}
             splitHeader={fixedHeight}

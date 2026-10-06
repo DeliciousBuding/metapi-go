@@ -19,6 +19,10 @@ import { cn } from '@/lib/utils'
 type SettingsSubsectionProps = {
   /** Translated L3 title. */
   title: string
+  description?: string
+  icon?: ReactNode
+  actions?: ReactNode
+  variant?: 'flat' | 'panel'
   children: ReactNode
   className?: string
 }
@@ -30,17 +34,46 @@ type SettingsSubsectionProps = {
  */
 export function SettingsSubsection({
   title,
+  description,
+  icon,
+  actions,
+  variant = 'flat',
   children,
   className,
 }: SettingsSubsectionProps) {
   return (
     <section
       className={cn(
-        'space-y-3 border-t pt-4 first:border-t-0 first:pt-0',
+        'space-y-4',
+        variant === 'panel'
+          ? 'rounded-xl border bg-muted/20 p-4 sm:p-5'
+          : 'border-t pt-5 first:border-t-0 first:pt-0',
         className
       )}
     >
-      <h3 className='text-sm font-medium'>{title}</h3>
+      <div className='flex flex-wrap items-start justify-between gap-3'>
+        <div className='flex min-w-0 flex-1 items-start gap-3'>
+          {icon ? (
+            <span
+              className='bg-primary/10 text-primary grid size-10 shrink-0 place-items-center rounded-xl'
+              aria-hidden='true'
+            >
+              {icon}
+            </span>
+          ) : null}
+          <div className='min-w-0 space-y-1'>
+            <h3 className='text-sm leading-snug font-semibold'>{title}</h3>
+            {description ? (
+              <p className='text-muted-foreground text-sm leading-relaxed'>
+                {description}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        {actions ? (
+          <div className='flex flex-wrap items-center gap-2'>{actions}</div>
+        ) : null}
+      </div>
       {children}
     </section>
   )
