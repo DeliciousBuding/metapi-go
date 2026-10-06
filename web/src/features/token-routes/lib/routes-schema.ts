@@ -6,6 +6,7 @@
 import { z } from 'zod'
 
 import { stringSearchParam } from '@/lib/helpers/searchParams'
+import { isValidMapObject } from '@/lib/helpers/string-map'
 
 import type { RouteFormPayload, RouteMode, RouteSummaryRow } from '../types'
 import {
@@ -37,7 +38,11 @@ export function getRouteFormSchema() {
           'lowest_cost',
         ])
         .optional(),
-      modelMapping: z.string().trim().optional(),
+      modelMapping: z
+        .string()
+        .trim()
+        .refine(isValidMapObject, 'stringMapEditor.invalid')
+        .optional(),
       channelDrafts: z
         .array(
           z.object({

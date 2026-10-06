@@ -3326,6 +3326,24 @@
         "title": "API 密钥",
         "description": "签发并管理用于调用 LLM 的 API 密钥。"
       }
+    },
+    "stringMapEditor": {
+      "key": "键名",
+      "value": "值",
+      "headerName": "请求头名称",
+      "requestedModel": "请求模型",
+      "upstreamModel": "上游模型",
+      "rowsHint": "每行配置一个条目",
+      "jsonHint": "高级 JSON 编辑",
+      "editRows": "按行编辑",
+      "editJson": "编辑 JSON",
+      "empty": "暂未配置条目，需要覆盖默认值时再添加。",
+      "add": "添加条目",
+      "remove": "删除第 {{index}} 个条目",
+      "emptyKey": "请填写此条目的键名。",
+      "duplicateKey": "此键名已使用，每个键名只能出现一次。",
+      "invalid": "请填写有效的 JSON 对象，键名不能为空或重复。",
+      "advancedOnly": "此配置包含需要在 JSON 编辑器中处理的值，原始内容已完整保留。"
     }
   }
 }

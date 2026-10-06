@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildChannelDraftSeed,
+  getRouteFormSchema,
   routesSearchSchema,
   setChannelDraftSelection,
 } from '../lib/routes-schema'
@@ -135,4 +136,32 @@ describe('setChannelDraftSelection', () => {
       expect(setChannelDraftSelection(drafts, [], checked)).toEqual(drafts)
     }
   )
+})
+
+describe('structured map validation', () => {
+  it.each([
+    '{"a":"one","a":"two"}',
+    '{"":"value"}',
+    '{"a":',
+    '{"a":1,"a":2}',
+    '{"":false}',
+  ])('rejects invalid draft %s', (raw) => {
+    expect(
+      getRouteFormSchema().safeParse({
+        routeMode: 'pattern',
+        modelPattern: '*',
+        modelMapping: raw,
+      }).success
+    ).toBe(false)
+  })
+  it('preserves legacy non-string object values', () => {
+    const raw = '{"count":2,"enabled":true}'
+    expect(
+      getRouteFormSchema().safeParse({
+        routeMode: 'pattern',
+        modelPattern: '*',
+        modelMapping: raw,
+      }).success
+    ).toBe(true)
+  })
 })
