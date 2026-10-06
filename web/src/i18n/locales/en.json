@@ -3268,6 +3268,24 @@
         "title": "API Keys",
         "description": "Issue and manage API keys for calling the LLM."
       }
+    },
+    "stringMapEditor": {
+      "key": "Key",
+      "value": "Value",
+      "headerName": "Header name",
+      "requestedModel": "Requested model",
+      "upstreamModel": "Upstream model",
+      "rowsHint": "One entry per row",
+      "jsonHint": "Advanced JSON editor",
+      "editRows": "Edit rows",
+      "editJson": "Edit JSON",
+      "empty": "No entries yet. Add one when you need an override.",
+      "add": "Add entry",
+      "remove": "Remove entry {{index}}",
+      "emptyKey": "Enter a key for this entry.",
+      "duplicateKey": "This key is already used. Each key must be unique.",
+      "invalid": "Use a valid JSON object with non-empty, unique keys.",
+      "advancedOnly": "This configuration contains values that need the JSON editor. Your original content is preserved."
     }
   }
 }

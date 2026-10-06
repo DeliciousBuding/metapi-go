@@ -1,6 +1,7 @@
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
+import { StringMapEditor } from '@/components/common/string-map-editor'
 import {
   FormControl,
   FormDescription,
@@ -17,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 
 import type { RouteFormValues } from '../lib/routes-schema'
 import type { RouteRoutingStrategy } from '../types'
@@ -147,9 +147,10 @@ export function RouteAdvancedFields({
           <FormItem>
             <FormLabel>{t('tokenRoutes.form.modelMapping')}</FormLabel>
             <FormControl>
-              <Textarea
+              <StringMapEditor
                 placeholder={t('tokenRoutes.form.modelMappingPlaceholder')}
-                rows={2}
+                keyLabel={t('stringMapEditor.requestedModel')}
+                valueLabel={t('stringMapEditor.upstreamModel')}
                 {...field}
                 value={field.value ?? ''}
               />

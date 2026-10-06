@@ -20,6 +20,7 @@ function entry(client: string) {
 }
 
 function textarea() {
+  fireEvent.click(screen.getByRole('button', { name: 'Edit JSON' }))
   return screen.getByRole('textbox') as HTMLTextAreaElement
 }
 
