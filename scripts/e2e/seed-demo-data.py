@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Seed deterministic demo data into a metapi server's SQLite DB so screenshot
-evidence (ui-screenshots CI job, local design review) shows a lived-in UI
+evidence (local screenshot review and release-candidate QA) shows a lived-in UI
 instead of empty states.
 
 Usage:

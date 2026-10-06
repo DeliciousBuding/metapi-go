@@ -34,7 +34,7 @@ if ! command -v bun >/dev/null 2>&1; then
 	echo "  ✗ bun not found — cannot build the embedded SPA" >&2
 	exit 1
 fi
-(cd web && bun run test && bun run typecheck && bun run lint && bun run format:check && bun run knip && bun run build:check)
+(cd web && bun run test && bun run typecheck && bun run lint && bun run format:check && bun run knip && bun run build:web)
 echo "  ✓ frontend passed"
 
 # 2. go build — compile only after web/dist has been generated.

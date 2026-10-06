@@ -9,8 +9,8 @@ import (
 )
 
 // docker-build is the required branch-protection check and the sole upstream
-// dependency of image publishing. A sibling job that fails independently does
-// not block a merge or release unless it is in this dependency chain.
+// dependency of image publishing. An optional visual QA tool is not a release
+// prerequisite; required runtime smoke still belongs in the dependency chain.
 func TestReleaseGateWiring(t *testing.T) {
 	contents, err := os.ReadFile(filepath.Join("..", ".github", "workflows", "main.yml"))
 	if err != nil {
@@ -55,7 +55,7 @@ func TestReleaseGateWiring(t *testing.T) {
 	if guardAt < 0 || assertionAt < 0 || checkoutAt < 0 || guardAt >= checkoutAt || assertionAt >= checkoutAt {
 		t.Error("docker-build must fail closed on every need result before checkout/build")
 	}
-	for _, dep := range []string{"runtime-smoke-matrix", "visual-regression", "ui-screenshots"} {
+	for _, dep := range []string{"runtime-smoke-matrix"} {
 		job, ok := jobs[dep]
 		if !ok {
 			t.Errorf("dependency %q has no actual job", dep)

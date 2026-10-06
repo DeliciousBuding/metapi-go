@@ -78,7 +78,7 @@ func TestProjectPrePushGateMatchesHookKitAndFreshCloneOrder(t *testing.T) {
 		t.Fatal("standalone pre-push wrapper does not delegate to pre-push-project")
 	}
 	gateText := string(gate)
-	frontendBuild := strings.Index(gateText, "bun run build:check")
+	frontendBuild := strings.Index(gateText, "bun run build:web")
 	goBuild := strings.Index(gateText, "go build ./cmd/server")
 	if frontendBuild < 0 || goBuild < 0 || frontendBuild > goBuild {
 		t.Fatal("project gate must build web/dist before compiling the embedded Go server")
