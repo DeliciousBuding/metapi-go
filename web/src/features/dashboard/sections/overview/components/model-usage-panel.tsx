@@ -83,20 +83,16 @@ export function ModelUsagePanel({
               {data.models.map((item) => (
                 <li
                   key={item.model}
-                  className='flex items-center gap-3 py-2 text-xs'
+                  className='flex items-center gap-3 py-2.5 text-sm'
                 >
                   <span className='min-w-0 flex-1 truncate' title={item.model}>
                     {item.model && item.model !== 'other' ? (
                       <Link
                         to='/proxy-logs'
                         search={{ q: item.model, ...data.window }}
-                        className='hover:text-primary font-medium hover:underline'
+                        className='hover:text-primary hover:underline'
                       >
-                        <ModelPill
-                          model={item.model}
-
-                          variant='inline'
-                        />
+                        <ModelPill model={item.model} variant='inline' />
                       </Link>
                     ) : (
                       <span>
@@ -106,7 +102,7 @@ export function ModelUsagePanel({
                       </span>
                     )}
                   </span>
-                  <span className='text-muted-foreground shrink-0 tabular-nums'>
+                  <span className='text-muted-foreground shrink-0 text-xs tabular-nums'>
                     {t('dashboard.overviewInsights.callCount', {
                       count: item.calls,
                       value: formatInt(item.calls, locale),

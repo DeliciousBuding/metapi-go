@@ -27,7 +27,9 @@ without letting narrow-screen compromises dictate the desktop layout.
 Metric cards keep title, primary value, supporting text and detail cells in
 separate visual tiers; long supporting text must not compete beside the number.
 Desktop table rows start at 48px and grow for multiline content; narrow layouts
-retain their existing touch spacing. The [operator overview](dashboard-operations.md)
+retain their existing touch spacing. Desktop lists with four or fewer loaded rows
+hug their content rather than stretching a mostly empty bordered table; longer
+lists retain the sticky header. The [operator overview](dashboard-operations.md)
 prioritizes request outcomes, actionable risks and upstream/model usage; resource
 counts and maintenance are secondary. Metric details use compact divided cells
 rather than nested padded cards. Increase information density by removing repeated spacing,
@@ -176,7 +178,7 @@ Route editing presents matching and account selection first; advanced display/ro
 
 Inter is locally bundled for Latin UI text. Chinese follows the platform UI face (PingFang on macOS, Microsoft YaHei UI on Windows, Noto Sans CJK on Linux). This intentionally prioritizes native CJK rendering over identical glyphs on every platform; screenshot baselines must run in a fixed font environment. Public Sans and the bundled Noto Sans SC slices are no longer shipped.
 
-Model identifiers use the standard sans-serif UI stack at 14px regular weight, including inside capsules and selectors; do not style model names as code. KPI figures retain the shared monospace stack. Model identity rows align a 16px icon box with a 20px text line, use middle vertical alignment in surrounding inline text, and retain the complete identifier in a tooltip. Body, title, numeric and code roles remain distinct; do not stretch glyphs or compensate with transforms.
+Model identifiers use the standard sans-serif UI stack at 14px medium weight, including inside capsules and selectors; do not style model names as code. The medium weight distinguishes identities from secondary counts without making long identifiers look bold. Provider headings in the picker use semibold with quiet separators; overview rows keep model names at 14px and counts at 12px. Actionable attention text is 14px, not caption-sized. KPI figures retain the shared monospace stack. Model identity rows align a 16px icon box with a 20px text line, use middle vertical alignment in surrounding inline text, and retain the complete identifier in a tooltip. Body, title, numeric and code roles remain distinct; do not stretch glyphs or compensate with transforms.
 
 Validate actual rendered font names and model icon/text box centers in the browser, then inspect light/dark desktop screenshots. A font-family declaration alone does not prove which CJK face rendered.
 

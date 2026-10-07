@@ -86,13 +86,13 @@ export function AttentionPanel() {
                   {target ? (
                     <Link
                       {...target}
-                      className='hover:text-primary flex min-w-0 flex-1 items-start gap-1 text-xs leading-5'
+                      className='hover:text-primary flex min-w-0 flex-1 items-start gap-1 text-sm leading-5'
                     >
                       <span className='min-w-0 break-words'>{label}</span>
                       <ArrowUpRight className='mt-1 ml-auto size-3 shrink-0' />
                     </Link>
                   ) : (
-                    <span className='text-xs leading-5'>{label}</span>
+                    <span className='text-sm leading-5'>{label}</span>
                   )}
                 </li>
               )

@@ -100,6 +100,7 @@ export function ModelPicker({
               <CommandGroup
                 key={provider}
                 heading={`${provider} · ${items.length}`}
+                className='border-border/70 not-first:border-t **:[[cmdk-group-heading]]:font-semibold'
               >
                 {items.map((model) => (
                   <CommandItem
@@ -111,7 +112,7 @@ export function ModelPicker({
                       onValueChange(model.name)
                       setOpen(false)
                     }}
-                    className='min-h-10'
+                    className='min-h-10 gap-3'
                   >
                     <ModelPill
                       model={model.name}

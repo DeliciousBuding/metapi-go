@@ -28,7 +28,7 @@ export function ModelPill({
   return (
     <span
       className={cn(
-        'inline-flex min-h-5 max-w-full items-center gap-2 align-middle font-sans text-sm leading-5 font-normal',
+        'inline-flex min-h-5 max-w-full items-center gap-1.5 align-middle font-sans text-sm leading-5 font-medium tracking-normal',
         variant === 'pill' &&
           'rounded-full border bg-muted/40 py-0.5 pr-2.5 pl-1.5',
         className
