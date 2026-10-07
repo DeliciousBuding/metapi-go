@@ -336,7 +336,7 @@ export function TrafficSection() {
       <ChartShell
         title={t('dashboard.traffic.siteDistribution.title')}
         description={t('dashboard.traffic.siteDistribution.description')}
-        height={300}
+        height={420}
         className='lg:col-span-2'
         loading={siteDistributionQuery.isLoading}
         summary={summaryWhenLoaded(
