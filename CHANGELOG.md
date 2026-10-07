@@ -19,6 +19,18 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - **治理区**（v0.16.13 起）：全条目受上述契约与门禁约束。
 - **归档区**（v0.16.12 及更早）：每版只留安全修复、破坏性变更与运维动作。这些版本的全文逐字保存在各自的 [release 页](https://github.com/DeliciousBuding/metapi-go/releases)——已逐版核对，发布页与归档前的本文件段落字节一致——UI 与交互级修复因此不在这里抄第二份。
 
+## [v0.22.1] — 2026-10-08
+
+> 修复站点分布图例溢出，优化 CI 并行。
+
+### 修复
+
+- 站点分布：站点较多时图例移出图表视口，改为卡片内可滚动的多列列表，不再被卡片裁剪（#1411）。
+
+### 开发者可见
+
+- CI：`web-dist` 独立构建并与前端检查并行，SQLite/PG/a11y 不再串行等待 frontend；发布助手支持在 HEAD 等于 `origin/master` 的任意干净 checkout/worktree 打 tag（#1410）。
+
 ## [v0.22.0] — 2026-10-07
 
 > 统一管理概览的统计时间范围，兼容 New API scoped PAT，整理桌面管理与模型测试动线。
