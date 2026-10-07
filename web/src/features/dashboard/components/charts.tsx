@@ -496,35 +496,55 @@ export function SiteDistributionChart({
     ],
   })
   return (
-    <ChartContainer
-      config={config}
-      className='h-full w-full'
-      aria-label={t('dashboard.charts.siteDistributionTitle')}
-    >
-      <PieChart>
-        <ChartLegend
-          content={<DonutLegend />}
-          verticalAlign='bottom'
-          height={36}
-        />
-        <ChartTooltip content={<DonutTooltip render={render} />} />
-        <Pie
-          data={pieData}
-          dataKey='value'
-          nameKey='siteName'
-          innerRadius='62%'
-          outerRadius='85%'
-          paddingAngle={2}
-          stroke='var(--border)'
-          strokeWidth={1}
-          isAnimationActive={false}
-        >
-          {pieData.map((slice) => (
-            <Cell key={slice.key} fill={`var(--color-${slice.key})`} />
-          ))}
-        </Pie>
-      </PieChart>
-    </ChartContainer>
+    <div className='flex h-full min-h-0 flex-col gap-3'>
+      <ChartContainer
+        config={config}
+        className='h-[260px] w-full shrink-0'
+        aria-label={t('dashboard.charts.siteDistributionTitle')}
+      >
+        <PieChart>
+          <ChartTooltip content={<DonutTooltip render={render} />} />
+          <Pie
+            data={pieData}
+            dataKey='value'
+            nameKey='siteName'
+            innerRadius='62%'
+            outerRadius='85%'
+            paddingAngle={2}
+            stroke='var(--border)'
+            strokeWidth={1}
+            isAnimationActive={false}
+          >
+            {pieData.map((slice) => (
+              <Cell key={slice.key} fill={`var(--color-${slice.key})`} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+      <ul
+        className='grid min-h-0 flex-1 grid-cols-1 content-start gap-x-4 gap-y-2 overflow-y-auto pr-2 text-xs sm:grid-cols-2 lg:grid-cols-3'
+        aria-label={t('dashboard.traffic.siteDistribution.title')}
+      >
+        {pieData.map((slice, index) => (
+          <li key={slice.key} className='flex min-w-0 items-center gap-2'>
+            <span
+              className='h-2.5 w-2.5 shrink-0 rounded-sm'
+              style={{ backgroundColor: chartColor(index) }}
+              aria-hidden='true'
+            />
+            <span
+              className='text-muted-foreground min-w-0 flex-1 truncate'
+              title={slice.siteName}
+            >
+              {slice.siteName}
+            </span>
+            <span className='font-medium tabular-nums'>
+              {percentOf(slice.value, total)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
