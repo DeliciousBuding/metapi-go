@@ -76,7 +76,7 @@ func TestBunInstallWiring(t *testing.T) {
 			}
 		}
 		got := strings.Count(workflow, "sh ../scripts/bun-install.sh")
-		const want = 3 // frontend, a11y, release
+		const want = 4 // frontend, web-dist, a11y, release
 		if got != want {
 			t.Errorf(".github/workflows/main.yml routes %d web-deps installs through scripts/bun-install.sh, want %d; a new job that installs web deps must use it too", got, want)
 		}

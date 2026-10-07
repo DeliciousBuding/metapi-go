@@ -30,6 +30,17 @@ func TestReleaseGateWiring(t *testing.T) {
 	if len(jobs) == 0 {
 		t.Fatal("workflow scan found no jobs; a vacuous release gate must not pass")
 	}
+	if _, ok := jobs["web-dist"]; !ok {
+		t.Fatal("web-dist producer is missing")
+	}
+	if !strings.Contains(jobs["web-dist"], "name: web-dist") || !strings.Contains(jobs["web-dist"], "bun run build:web") {
+		t.Error("web-dist must build and publish the real SPA bundle")
+	}
+	for _, consumer := range []string{"a11y", "test-sqlite-shard", "test-pg"} {
+		if !strings.Contains(jobs[consumer], "    needs: web-dist\n") || !strings.Contains(jobs[consumer], "name: web-dist") {
+			t.Errorf("%s must consume the built bundle without waiting for frontend checks", consumer)
+		}
+	}
 
 	// A comment or shell command mentioning a gate cannot make it gate.
 	needsBlock := regexp.MustCompile(`(?m)^    needs:\n((?:      - [a-z][a-z0-9-]*\n)+)`)
@@ -55,7 +66,7 @@ func TestReleaseGateWiring(t *testing.T) {
 	if guardAt < 0 || assertionAt < 0 || checkoutAt < 0 || guardAt >= checkoutAt || assertionAt >= checkoutAt {
 		t.Error("docker-build must fail closed on every need result before checkout/build")
 	}
-	for _, dep := range []string{"runtime-smoke-matrix"} {
+	for _, dep := range []string{"runtime-smoke-matrix", "frontend", "web-dist"} {
 		job, ok := jobs[dep]
 		if !ok {
 			t.Errorf("dependency %q has no actual job", dep)
