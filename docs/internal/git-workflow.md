@@ -79,7 +79,7 @@ master (唯一长期分支，受保护，持续集成)
 1. 默认先积累修复，在 GitHub issue / PR 中关联受影响的用户任务与回归证据；维护者选定候选 commit 后，按 [`docs/testing.md`](../testing.md) 核对历史问题及关键任务。候选验收不要求先打 tag，也不为每次合入修改版本号。
 2. 验收记录绑定最终源码（commit + 未提交 diff）和实际二进制或镜像摘要，分别写明 fixture、真实模型、下游客户端结果与未验证项。源码或产物改变后重跑受影响检查，不把旧构建的成功沿用到新候选。
 3. 维护者审阅范围、剩余风险及证据后，明确决定是否发布和版本号。决定发布后才更新 `CHANGELOG.md`（必须包含 `## [vX.Y.Z]` 节）与 `web/package.json` version，经 PR 合入 master；该 PR 合入后，以最终 master commit 重新构建并补跑受影响的候选验收，不能沿用准备前的产物摘要。
-4. 仅在明确发布决定后，从选定的 master 提交运行 `bash scripts/release.sh X.Y.Z`。助手负责一致性校验、annotated tag 与推送，不负责决定发版。tag、包版本与 CHANGELOG 节须一致。
+4. 仅在明确发布决定后，从干净且 HEAD 等于 `origin/master` 的 checkout/worktree 运行 `bash scripts/release.sh X.Y.Z`；不必切换当前主工作树。助手负责一致性校验、annotated tag 与推送，不负责决定发版。tag、包版本与 CHANGELOG 节须一致；push 仍执行本地门禁。
 5. SemVer tag 触发 `.github/workflows/main.yml` 的检查及镜像发布，再构建五个平台二进制、checksums 和安装脚本，执行发布二进制冒烟。**新建 GitHub Release 使用 `--draft`**；维护者复核最终附件、验收结果和公开说明（含脱敏与已知限制）后，才发布稳定 Release。
 
 ### 构建渠道与发布状态（当前 workflow）
@@ -134,7 +134,7 @@ hotfix 不等于绕过 PR、现有 CI 或发布复核，也不自动授权关闭
 | 合并策略 | 仓库 Settings → General | Allow squash merging only |
 | master 保护 | 仓库 Settings → Branches | 见 §3 |
 | PR 模板 | `.github/pull_request_template.md` | 自动填充 |
-| CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量 12 项检查；master push 推送镜像（latest+sha）；SemVer tag：镜像（amd64+arm64）→ 多平台二进制 + 新建 draft Release；已有 Release 重跑不改 draft/published 状态 |
+| CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量必检；独立 `web-dist` 构建与 frontend 检查并行，SQLite/PG/a11y 不再串行等待 frontend；`docker-build` 汇总两者及其他门禁；master push 推送镜像（latest+sha）；SemVer tag：镜像（amd64+arm64）→ 多平台二进制 + 新建 draft Release；已有 Release 重跑不改 draft/published 状态 |
 | 本地门禁 | `.githooks/pre-push-project` | 全局 hook-kit 在 push 前链式运行（build + vet + 完整前端 + WSL-backed race）；`.githooks/pre-push` 是 standalone 兼容入口 |
 
 相关文档：[`deployment.md`](../deployment.md)（部署）· [`CHANGELOG.md`](../../CHANGELOG.md)（版本叙事）· `AGENTS.md`（工程规则）；当前状态以 GitHub issues/releases 为准。
