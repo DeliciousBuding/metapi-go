@@ -11,6 +11,7 @@ import { Plug, Users } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { PageHeader } from '@/components/common/page-header'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { useProbeHistory } from '@/components/common/use-probe-history'
 import {
@@ -231,12 +232,10 @@ export function ChannelsPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div>
-        <h1 className='page-title'>{t('channels.page.title')}</h1>
-        <p className='text-muted-foreground text-sm'>
-          {t('channels.page.description')}
-        </p>
-      </div>
+      <PageHeader
+        title={t('channels.page.title')}
+        description={t('channels.page.description')}
+      />
 
       {/* The main list-query error is owned by DataTablePage (replace
           placement); the error-summary strip only shows when the list itself

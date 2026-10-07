@@ -28,6 +28,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { PageHeader } from '@/components/common/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { channelsKeys, useChannels } from '@/features/channels'
@@ -353,27 +354,25 @@ export function ModelTesterPage() {
 
   return (
     <div className='flex h-full flex-col gap-4 p-4'>
-      <div className='flex flex-wrap items-start justify-between gap-3'>
-        <div>
-          <h1 className='page-title'>{t('modelTester.page.title')}</h1>
-          <p className='text-muted-foreground text-sm'>
-            {t('modelTester.page.description')}
-          </p>
-        </div>
-        <Button
-          type='button'
-          variant='outline'
-          size='sm'
-          onClick={() => setClearDialogOpen(true)}
-          disabled={isRunning}
-        >
-          <TrashIcon className='size-3.5' />
-          {t('modelTester.clear.button')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('modelTester.page.title')}
+        description={t('modelTester.page.description')}
+        actions={
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            onClick={() => setClearDialogOpen(true)}
+            disabled={isRunning}
+          >
+            <TrashIcon className='size-3.5' />
+            {t('modelTester.clear.button')}
+          </Button>
+        }
+      />
 
-      <div className='grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-2 lg:overflow-hidden'>
-        <Card className='flex h-full min-h-0 flex-col'>
+      <div className='grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(360px,0.85fr)_minmax(0,1.15fr)] lg:overflow-hidden'>
+        <Card className='flex h-full min-h-0 flex-col py-0'>
           <CardContent className='flex min-h-0 flex-1 flex-col overflow-y-auto p-4'>
             <TestForm
               isRunning={isRunning}
@@ -384,7 +383,7 @@ export function ModelTesterPage() {
           </CardContent>
         </Card>
 
-        <Card className='flex h-full min-h-0 flex-col'>
+        <Card className='flex h-full min-h-0 flex-col py-0'>
           <CardContent className='flex min-h-0 flex-1 flex-col p-0'>
             {comparison || isComparing ? (
               <BatchResults

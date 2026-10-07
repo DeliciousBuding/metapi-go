@@ -161,12 +161,16 @@ function renderEmptyState<TData>(
       description={props.emptyDescription}
       icon={props.emptyIcon}
       isFiltered={
-        (state.columnFilters ?? []).length > 0 || Boolean(state.globalFilter)
+        props.isFiltered ??
+        ((state.columnFilters ?? []).length > 0 || Boolean(state.globalFilter))
       }
-      onClearFilters={() => {
-        props.table.resetColumnFilters()
-        props.table.resetGlobalFilter()
-      }}
+      onClearFilters={
+        props.onClearFilters ??
+        (() => {
+          props.table.resetColumnFilters()
+          props.table.resetGlobalFilter()
+        })
+      }
     >
       {props.emptyAction}
     </TableEmpty>

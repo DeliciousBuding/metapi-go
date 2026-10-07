@@ -15,6 +15,7 @@ import { RefreshCw, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ModelPill } from '@/components/common/model-pill'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -147,7 +148,7 @@ export function AccountModelsPanel({ accountId }: AccountModelsPanelProps) {
                 )}
               >
                 <span className='min-w-0 flex-1 truncate' title={model.name}>
-                  {model.name}
+                  <ModelPill model={model.name} variant='inline' />
                 </span>
                 {model.isManual && (
                   <Badge variant='secondary'>

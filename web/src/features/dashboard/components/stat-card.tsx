@@ -11,7 +11,7 @@
 // grid (label + value) for extra information density.
 
 import { Link } from '@tanstack/react-router'
-import type { LucideIcon } from 'lucide-react'
+import { ArrowUpRight, type LucideIcon } from 'lucide-react'
 import { lazy, Suspense, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -100,24 +100,30 @@ export function StatCard(props: StatCardProps) {
   const card = (
     <Card
       className={cn(
-        'overflow-hidden h-full',
+        'h-full gap-2 overflow-hidden py-3',
         props.to && 'cursor-pointer transition-colors hover:bg-muted/50',
         props.className
       )}
     >
-      <CardHeader className='pb-2'>
+      <CardHeader className='pb-0'>
         <div className='flex items-center gap-2'>
           {Icon ? (
             <IconBadge tone={props.tone ?? 'default'} size='sm'>
               <Icon />
             </IconBadge>
           ) : null}
-          <CardTitle className='text-muted-foreground text-xs font-medium tracking-wide uppercase'>
+          <CardTitle className='text-foreground text-sm leading-5 font-medium tracking-normal'>
             {props.title}
           </CardTitle>
+          {props.to ? (
+            <ArrowUpRight
+              className='text-muted-foreground ms-auto size-4 shrink-0'
+              aria-hidden='true'
+            />
+          ) : null}
         </div>
       </CardHeader>
-      <CardContent className='flex flex-col gap-2'>
+      <CardContent className='flex flex-1 flex-col gap-2'>
         {props.loading ? (
           <div className='space-y-2'>
             <Skeleton className='h-7 w-20' />
@@ -125,7 +131,7 @@ export function StatCard(props: StatCardProps) {
           </div>
         ) : (
           <>
-            <div className='flex items-end justify-between gap-2'>
+            <div className='flex min-h-14 flex-col items-start gap-1.5'>
               <KpiValue size='lg'>
                 {props.valueNumber !== undefined &&
                 Number.isFinite(props.valueNumber) ? (
@@ -138,7 +144,7 @@ export function StatCard(props: StatCardProps) {
                 )}
               </KpiValue>
               {props.hint ? (
-                <span className='text-muted-foreground text-xs tabular-nums'>
+                <span className='text-muted-foreground text-xs leading-relaxed tabular-nums'>
                   {props.hint}
                 </span>
               ) : null}
@@ -149,14 +155,14 @@ export function StatCard(props: StatCardProps) {
                   {props.details.map((detail) => (
                     <div
                       key={detail.label}
-                      className='bg-muted/40 rounded-lg border px-2.5 py-2'
+                      className='min-w-0 border-s ps-3 first:border-s-0 first:ps-0'
                     >
-                      <div className='text-muted-foreground text-2xs truncate leading-none font-medium'>
+                      <div className='text-muted-foreground text-xs leading-4 font-medium'>
                         {detail.label}
                       </div>
                       <div
                         className={cn(
-                          'mt-1.5 truncate text-xs font-semibold tabular-nums',
+                          'mt-1 break-words text-sm leading-5 font-semibold tabular-nums [overflow-wrap:anywhere]',
                           DETAIL_TONE_CLASSES[detail.tone ?? 'default']
                         )}
                         title={detail.value}

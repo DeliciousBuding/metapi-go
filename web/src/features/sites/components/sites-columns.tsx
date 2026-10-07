@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 /* eslint-disable react/only-export-components */
 // metapi-go/features/sites — TanStack Table column definitions.
 //
@@ -6,7 +7,6 @@
 // drive the mobile-card layout (`mobileTitle` / `mobileBadge` / `mobileOrder`
 // / `mobileHidden`) so the same definition serves the desktop table and the
 // phone card list without a parallel layout file.
-
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Eye as EyeIcon,
@@ -204,9 +204,9 @@ export function useSitesColumns(
       cell: ({ row }) => {
         const platform = row.original.platform
         return (
-          <span className='text-muted-foreground text-sm'>
-            {platform ? platform : '—'}
-          </span>
+          <Badge variant='outline' className='font-normal'>
+            {platform || '—'}
+          </Badge>
         )
       },
     },
@@ -231,10 +231,20 @@ export function useSitesColumns(
         } else if (typeof activeFromSubscription === 'number') {
           resolved = activeFromSubscription
         }
-        return (
-          <span className='text-sm tabular-nums'>
-            {resolved === null ? '—' : resolved}
-          </span>
+        return resolved === null ? (
+          <span>—</span>
+        ) : (
+          <Link
+            to='/accounts'
+            search={{ site: row.original.id }}
+            className='text-primary hover:bg-accent inline-flex items-center rounded-md border px-2 py-1 text-xs tabular-nums'
+            aria-label={t('sites.page.viewAccounts', {
+              name: row.original.name,
+              count: resolved,
+            })}
+          >
+            {resolved}
+          </Link>
         )
       },
     },
@@ -268,10 +278,12 @@ export function useSitesColumns(
         mobileOrder: 40,
       },
       header: ({ column }) => (
-        <DataTableColumnHeader
-          column={column}
-          title={t('sites.columns.globalWeight')}
-        />
+        <span title={t('sites.page.weightFormula')}>
+          <DataTableColumnHeader
+            column={column}
+            title={t('sites.columns.globalWeight')}
+          />
+        </span>
       ),
       cell: ({ row }) => (
         <span className='text-muted-foreground text-sm tabular-nums'>

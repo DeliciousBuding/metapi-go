@@ -1,28 +1,5 @@
-// Behavior test for the dashboard overview onboarding checklist.
-//
-// Closes the first-time-landing dead-end (user-perspective #1): a first-time
-// user sees the journey and the one next action. The panel grew from a
-// single-step "zero sites → Create site" banner into the four-step
-// site → account → route → key checklist, because the old banner retired at
-// the first site and left the remaining three steps unguided. Asserts:
-//   (a) the checklist + CTA render on a fresh deployment, and the CTA
-//       deep-links to /sites;
-//   (b) the CTA ADVANCES (rather than the panel disappearing) once a step is
-//       built, and the panel retires only when all four are;
-//   (c) the panel does not flash while the snapshot is still loading
-//       (siteCount undefined) — no false "empty state" before the first byte.
-//
-// Counts come from existing admin endpoints only: sites/accounts from the
-// dashboard snapshot this section already fetches, routes from the
-// token-routes summary query, keys from the downstream-keys list query (both
-// stubbed here — onboarding-checklist.test.tsx covers their state matrix).
-// Sibling overview widgets (AnnouncementBanner, TodaySnapshotStrip, StatCard)
-// are stubbed so the test exercises the OverviewSection wiring in isolation;
-// each sibling has its own coverage. TodaySnapshotStrip pulls a live WebSocket
-// (useRealtimeOps) and StatCard uses requestAnimationFrame (CountUp) +
-// recharts — both are browser/animation boundaries outside the behavior under
-// test.
-
+// Onboarding, resource error handling and maintenance controls. Independent
+// request/insight panels are tested beside their components.
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
@@ -39,11 +16,12 @@ import '@/i18n/config'
 import { api } from '@/lib/api'
 
 import { OverviewSection } from '../overview-section'
+import { reportFixture } from './report-fixture'
 
 vi.mock('@/lib/api', () => ({
   api: {
     getDashboardSnapshot: vi.fn(),
-    getBalanceHistory: vi.fn(),
+    getOverviewReport: vi.fn(),
     getSchedulerStatus: vi.fn(),
     probeModelsNow: vi.fn(),
     getDownstreamApiKeys: vi.fn(),
@@ -67,9 +45,6 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 
-vi.mock('@/features/dashboard/components/today-snapshot', () => ({
-  TodaySnapshotStrip: () => null,
-}))
 vi.mock('@/features/dashboard/components/announcement-banner', () => ({
   AnnouncementBanner: () => null,
 }))
@@ -90,7 +65,6 @@ vi.mock('@/lib/toast', () => ({
 }))
 
 const mockGetDashboardSnapshot = vi.mocked(api.getDashboardSnapshot)
-const mockGetBalanceHistory = vi.mocked(api.getBalanceHistory)
 const mockGetSchedulerStatus = vi.mocked(api.getSchedulerStatus)
 const mockProbeModelsNow = vi.mocked(api.probeModelsNow)
 const mockGetDownstreamApiKeys = vi.mocked(api.getDownstreamApiKeys)
@@ -111,14 +85,16 @@ function renderWithClient(ui: ReactNode) {
 }
 
 beforeEach(() => {
+  localStorage.removeItem('metapi.overview.period')
+  vi.mocked(api.getOverviewReport)
+    .mockReset()
+    .mockResolvedValue(reportFixture())
   mockGetDashboardSnapshot.mockReset()
-  mockGetBalanceHistory.mockReset()
   mockGetSchedulerStatus.mockReset()
   mockProbeModelsNow.mockReset()
   mockGetDownstreamApiKeys.mockReset()
   // Non-checklist queries resolve to empty-but-valid shapes so the section
   // renders without throwing; the snapshot is overridden per test.
-  mockGetBalanceHistory.mockResolvedValue({ series: [], days: 8 })
   mockGetSchedulerStatus.mockResolvedValue({ items: [], generatedAt: '' })
   // Routes + keys default to "none built", so the onboarding checklist can
   // reach a verdict instead of staying hidden behind an unanswered count.
@@ -241,16 +217,13 @@ describe('OverviewSection load-error branch', () => {
     })
   })
 
-  it('surfaces a balance-history failure even when the snapshot succeeds', async () => {
-    mockGetDashboardSnapshot.mockResolvedValue({ siteCount: 3 })
-    mockGetBalanceHistory.mockRejectedValue(new Error('spark down'))
-
+  it('keeps an unavailable balance unknown instead of reporting zero', async () => {
+    mockGetDashboardSnapshot.mockResolvedValue({
+      siteCount: 3,
+      totalBalance: null,
+    })
     renderWithClient(<OverviewSection />)
-
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(
-      'Failed to load the balance history: spark down'
-    )
+    expect(await screen.findByText('Active-site balance —')).toBeInTheDocument()
   })
 })
 
@@ -382,6 +355,41 @@ describe('OverviewSection model-probe scheduler card', () => {
       expect(
         screen.queryByRole('button', { name: 'Run now' })
       ).not.toBeInTheDocument()
+    )
+  })
+})
+
+vi.mock('../components/request-metrics', () => ({ RequestMetrics: () => null }))
+
+vi.mock('../components/request-trend', () => ({ RequestTrend: () => null }))
+
+vi.mock('../components/attention-panel', () => ({ AttentionPanel: () => null }))
+
+vi.mock('../components/upstream-health-panel', () => ({
+  UpstreamHealthPanel: () => null,
+}))
+
+vi.mock('../components/model-usage-panel', () => ({
+  ModelUsagePanel: () => null,
+}))
+
+describe('overview report range', () => {
+  it('switches the shared analytical query to all retained history', async () => {
+    mockGetDashboardSnapshot.mockResolvedValue({
+      siteCount: 1,
+      totalAccounts: 1,
+    })
+    renderWithClient(<OverviewSection />)
+    await waitFor(() =>
+      expect(api.getOverviewReport).toHaveBeenCalledWith('7d')
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'All time' }))
+    await waitFor(() =>
+      expect(api.getOverviewReport).toHaveBeenCalledWith('all')
+    )
+    expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
     )
   })
 })

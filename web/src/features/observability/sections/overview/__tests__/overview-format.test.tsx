@@ -84,7 +84,9 @@ describe('OverviewSection slow requests', () => {
     render(<OverviewSection />)
 
     expect(screen.getByText('12.3 s')).toBeInTheDocument()
-    const modelCell = screen.getByText('a-very-long-model-name-that-truncates')
+    const modelCell = screen.getByRole('cell', {
+      name: 'a-very-long-model-name-that-truncates',
+    })
     expect(modelCell).toHaveAttribute(
       'title',
       'a-very-long-model-name-that-truncates'

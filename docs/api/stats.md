@@ -4,6 +4,29 @@
 
 ## Stats & Dashboard
 
+### GET /api/stats/overview
+
+One reporting window for the operator overview. `period` accepts `24h`, `7d`
+(default), `30d`, or `all`; invalid values return 400. `all` includes all retained
+logs, not deleted history. The returned `window` contains an inclusive RFC3339
+`to` bound and, except for all time, a `from` bound. Pass these same bounds to
+proxy-log drill-downs.
+
+**Response**: `{ period, window, summary, points, siteAvailability, models }`.
+`summary` contains totalCount, successCount, failedCount, totalTokensAll,
+totalCost and nullable averageLatencyMs. `points` aggregates requests,
+successCount, successRate, tokens and cost into UTC hours for `24h`, otherwise
+UTC days. Empty buckets are omitted; clients may fill them with zero requests
+and an undefined success rate. The first and last bucket can be partial.
+`models` lists the five highest-cost models and an `other` bucket when needed.
+`siteAvailability` lists up to eight enabled sites, failures first.
+
+Summary, trend and model aggregates include unassigned logs and disabled sites;
+the upstream table is explicitly limited to currently enabled sites. Costs are
+estimates. Current balances, notices and maintenance are not historical metrics
+and retain their separate endpoints. A failed aggregate query returns an error
+rather than a misleading healthy zero.
+
 ### GET /api/stats/dashboard
 
 Returns the admin dashboard snapshot.

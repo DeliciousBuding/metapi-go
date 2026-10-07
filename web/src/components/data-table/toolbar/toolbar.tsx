@@ -1,15 +1,14 @@
 // metapi-go/data-table — DataTableToolbar: the filter row above a list page.
 //
-// One `flex-wrap` row, no panel chrome: the search input, any page-supplied
-// controls and the column filter chips flow left, the action cluster hugs the
-// right edge via `ms-auto` and wraps to its own line when the filters fill the
-// row. Visual hierarchy comes from whitespace and the adjacent table border.
+// Query controls and view/actions have separate wrapping groups. Expanded
+// filters live below them so revealing a filter cannot displace the primary
+// search field or scatter the action cluster.
 //
 // The toolbar owns the search *draft*, not the search value: commits are
 // debounced, so between keystrokes the input shows what the user typed while
 // the table still holds the last settled value.
 import type { Table } from '@tanstack/react-table'
-import { ChevronDown, X as Cross2Icon } from 'lucide-react'
+import { ChevronDown, Search, X as Cross2Icon } from 'lucide-react'
 import * as React from 'react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -124,7 +123,8 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
   const isFiltered =
     (props.table.getState().columnFilters ?? []).length > 0 ||
     committed !== '' ||
-    props.hasAdditionalFilters === true
+    props.hasAdditionalFilters === true ||
+    props.hasExpandedActiveFilters === true
 
   const commitSearchValue = React.useCallback(
     (value: string) => {
@@ -182,91 +182,102 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
   const hasExpandable = props.expandable != null
 
   return (
-    <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
-      <div className='relative w-full sm:w-50 lg:w-60'>
-        <Input
-          aria-label={placeholder}
-          placeholder={placeholder}
-          value={searchValue}
-          onChange={handleSearchChange}
-          onKeyDown={handleSearchKeyDown}
-          onCompositionStart={() => setComposing(true)}
-          onCompositionEnd={handleCompositionEnd}
-          className={cn('w-full', searchValue !== '' && 'pe-8')}
-        />
-        {searchValue !== '' && (
-          <Button
-            type='button'
-            variant='ghost'
-            size='icon-xs'
-            aria-label={t('Clear search')}
-            onClick={clearSearchValue}
-            className='text-muted-foreground hover:text-foreground absolute top-1/2 right-1 -translate-y-1/2'
-          >
-            <Cross2Icon className='size-3.5' />
-          </Button>
-        )}
-      </div>
+    <div className='space-y-3'>
+      <div className='flex flex-wrap items-start gap-2 sm:gap-3'>
+        <div className='flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 sm:basis-64'>
+          <div className='relative w-full min-w-40 sm:w-50 lg:w-60'>
+            <Search
+              className='text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2'
+              aria-hidden='true'
+            />
+            <Input
+              aria-label={placeholder}
+              placeholder={placeholder}
+              value={searchValue}
+              onChange={handleSearchChange}
+              onKeyDown={handleSearchKeyDown}
+              onCompositionStart={() => setComposing(true)}
+              onCompositionEnd={handleCompositionEnd}
+              className={cn('w-full ps-9', searchValue !== '' && 'pe-8')}
+            />
+            {searchValue !== '' && (
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon-xs'
+                aria-label={t('Clear search')}
+                onClick={clearSearchValue}
+                className='text-muted-foreground hover:text-foreground absolute top-1/2 right-1 -translate-y-1/2'
+              >
+                <Cross2Icon className='size-3.5' />
+              </Button>
+            )}
+          </div>
 
-      {props.additionalSearch}
+          {props.additionalSearch}
 
-      {(props.filters ?? []).map((filter) => {
-        const column = props.table.getColumn(filter.columnId)
-        if (!column) return null
-        return (
-          <DataTableFacetedFilter
-            key={filter.columnId}
-            column={column}
-            title={filter.title}
-            options={filter.options}
-            singleSelect={filter.singleSelect}
-          />
-        )
-      })}
+          {(props.filters ?? []).map((filter) => {
+            const column = props.table.getColumn(filter.columnId)
+            if (!column) return null
+            return (
+              <DataTableFacetedFilter
+                key={filter.columnId}
+                column={column}
+                title={filter.title}
+                options={filter.options}
+                singleSelect={filter.singleSelect}
+              />
+            )
+          })}
+        </div>
 
-      {expanded && props.expandable}
-
-      {/* `shrink-0` is deliberately absent from the cluster: an over-long
+        {/* `shrink-0` is deliberately absent from the cluster: an over-long
           `viewToggle` (the routes page's "show zero-channel models" switch)
           must not push the View Options button past the viewport. With
           `min-w-0` its label truncates and the button wraps to its own tight
           line instead of being clipped by the page's overflow-x hidden. */}
-      <div className='ms-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2'>
-        {props.preActions}
-        {isFiltered && (
-          <Button
-            variant='ghost'
-            onClick={handleReset}
-            className='text-muted-foreground hover:text-foreground gap-1 px-2'
-          >
-            {t('Reset')}
-            <Cross2Icon />
-          </Button>
-        )}
-        {props.viewToggle}
-        <DataTableViewOptions table={props.table} />
-        {hasExpandable && (
-          <Button
-            variant='ghost'
-            onClick={() => setExpanded((previous) => !previous)}
-            aria-expanded={expanded}
-            className={cn(
-              'text-muted-foreground hover:text-foreground gap-1 px-2',
-              props.hasExpandedActiveFilters &&
-                !expanded &&
-                'text-primary hover:text-primary'
-            )}
-          >
-            {expanded ? t('Collapse') : t('Expand')}
-            <ChevronDown
+        <div className='ms-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2'>
+          {props.preActions}
+          {isFiltered && (
+            <Button
+              variant='ghost'
+              onClick={handleReset}
+              className='text-muted-foreground hover:text-foreground gap-1 px-2'
+            >
+              {t('Reset')}
+              <Cross2Icon />
+            </Button>
+          )}
+          {props.viewToggle}
+          <DataTableViewOptions table={props.table} />
+          {hasExpandable && (
+            <Button
+              variant='ghost'
+              onClick={() => setExpanded((previous) => !previous)}
+              aria-expanded={expanded}
               className={cn(
-                'size-3.5 transition-transform duration-200',
-                expanded && 'rotate-180'
+                'text-muted-foreground hover:text-foreground gap-1 px-2',
+                props.hasExpandedActiveFilters &&
+                  !expanded &&
+                  'text-primary hover:text-primary'
               )}
-            />
-          </Button>
-        )}
+            >
+              {expanded ? t('Collapse') : t('Expand')}
+              <ChevronDown
+                className={cn(
+                  'size-3.5 transition-transform duration-200',
+                  expanded && 'rotate-180'
+                )}
+              />
+            </Button>
+          )}
+        </div>
       </div>
+      {expanded && (
+        <div className='bg-muted/30 flex flex-wrap items-center gap-2 rounded-lg border p-3'>
+          {props.expandable}
+        </div>
+      )}
     </div>
   )
 }

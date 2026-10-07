@@ -12,7 +12,6 @@
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
   Globe,
-  Info as InfoIcon,
   Plus as PlusIcon,
   Trash2 as Trash2Icon,
   Upload as UploadIcon,
@@ -20,6 +19,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { PageHeader } from '@/components/common/page-header'
 import {
   DataTableBulkActions,
   DataTablePage,
@@ -145,7 +145,7 @@ function useSitesUrlState() {
     read: readSearch,
     buildHref,
     toColumnFilters: (filters) =>
-      filters.status ? [{ id: 'status', value: filters.status }] : [],
+      filters.status ? [{ id: 'status', value: [filters.status] }] : [],
     fromColumnFilters: (filters) => {
       const statusEntry = filters.find((filter) => filter.id === 'status')
       return {
@@ -452,15 +452,63 @@ export function SitesPage() {
 
   return (
     <div className='flex min-h-full flex-col gap-3 p-4 min-[641px]:h-full'>
-      <div>
-        <h1 className='page-title'>{t('sites.page.title')}</h1>
-        <p className='text-muted-foreground text-sm'>
-          {t('sites.page.description')}
-        </p>
-        <p className='text-muted-foreground hidden items-center gap-1.5 text-xs min-[641px]:flex'>
-          <InfoIcon className='size-3.5 shrink-0' />
-          <span>{t('sites.page.weightFormula')}</span>
-        </p>
+      <PageHeader
+        title={t('sites.page.title')}
+        description={t('sites.page.description')}
+        actions={
+          <>
+            <Button onClick={handleAddSite}>
+              <PlusIcon className='size-4' />
+              {t('sites.toolbar.addSite')}
+            </Button>
+            {/* The wizard was only reachable from the empty-state CTA,
+                    i.e. unreachable once the first site existed — keep a
+                    permanent toolbar entry. The wizard is the only flow that
+                    creates sites together with their accounts in one batch. */}
+            <Button variant='outline' onClick={() => setImportOpen(true)}>
+              <UploadIcon className='size-4' />
+              {t('sites.toolbar.import')}
+            </Button>
+          </>
+        }
+      />
+      <div
+        role='group'
+        aria-label={t('sites.columns.status')}
+        className='flex flex-wrap gap-2'
+      >
+        {['all', 'active', 'disabled'].map((value) => {
+          const selected = table.getColumn('status')?.getFilterValue()
+          const current = Array.isArray(selected) ? selected[0] : selected
+          const pressed = value === 'all' ? !current : current === value
+          const count =
+            value === 'all'
+              ? sites.length
+              : sites.filter((site) => (site.status ?? 'active') === value)
+                  .length
+          return (
+            <Button
+              key={value}
+              size='sm'
+              variant={pressed ? 'default' : 'outline'}
+              className='rounded-full'
+              aria-pressed={pressed}
+              disabled={sitesQuery.isLoading || !!sitesQuery.error}
+              onClick={() =>
+                table
+                  .getColumn('status')
+                  ?.setFilterValue(value === 'all' ? undefined : [value])
+              }
+            >
+              {value === 'all'
+                ? t('sites.page.allSites')
+                : statusFilters.find((option) => option.value === value)?.label}
+              <span className='bg-background/15 rounded px-1.5 text-xs tabular-nums'>
+                {sitesQuery.isLoading || sitesQuery.error ? '—' : count}
+              </span>
+            </Button>
+          )
+        })}
       </div>
 
       <DataTablePage
@@ -498,22 +546,6 @@ export function SitesPage() {
               singleSelect: true,
             },
           ],
-          preActions: (
-            <>
-              <Button onClick={handleAddSite}>
-                <PlusIcon className='size-4' />
-                {t('sites.toolbar.addSite')}
-              </Button>
-              {/* The wizard was only reachable from the empty-state CTA,
-                    i.e. unreachable once the first site existed — keep a
-                    permanent toolbar entry. The wizard is the only flow that
-                    creates sites together with their accounts in one batch. */}
-              <Button variant='outline' onClick={() => setImportOpen(true)}>
-                <UploadIcon className='size-4' />
-                {t('sites.toolbar.import')}
-              </Button>
-            </>
-          ),
         }}
         bulkActions={
           <DataTableBulkActions

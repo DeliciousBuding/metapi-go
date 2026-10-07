@@ -59,9 +59,9 @@ export function DashboardPage({
   const content = getDashboardSectionContent(sectionId)
 
   return (
-    <div className='flex flex-col gap-6 p-6'>
+    <div className='flex flex-col gap-4 p-6'>
       <header className='flex flex-col gap-1'>
-        <h1 className='page-title-overview'>{t(meta.title)}</h1>
+        <h1 className='page-title'>{t(meta.title)}</h1>
         {meta.description ? (
           <p className='text-muted-foreground text-sm'>{t(meta.description)}</p>
         ) : null}

@@ -9,7 +9,7 @@
 // tokens the stat-card sparkline already uses. Tooltip / legend styling comes
 // from ChartTooltipContent / ChartLegendContent so the look matches stat-card.
 
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Bar,
@@ -24,6 +24,7 @@ import {
   YAxis,
 } from 'recharts'
 
+import { ModelPill } from '@/components/common/model-pill'
 import {
   ChartContainer,
   ChartLegend,
@@ -229,7 +230,7 @@ function pivotLatencyTrend(
 type DonutTooltipRender = (
   datum: Record<string, unknown>,
   value: number
-) => { title: string; rows: Array<{ label: string; value: string }> }
+) => { title: ReactNode; rows: Array<{ label: string; value: string }> }
 
 type DonutTooltipPayload = {
   payload?: Record<string, unknown>
@@ -280,7 +281,13 @@ type DonutLegendPayload = {
   type?: string
 }
 
-function DonutLegend({ payload }: { payload?: DonutLegendPayload[] }) {
+function DonutLegend({
+  payload,
+  renderLabel,
+}: {
+  payload?: DonutLegendPayload[]
+  renderLabel?: (name: string) => ReactNode
+}) {
   if (!payload?.length) {
     return null
   }
@@ -297,7 +304,9 @@ function DonutLegend({ payload }: { payload?: DonutLegendPayload[] }) {
             style={{ backgroundColor: item.color }}
           />
           <span className='text-muted-foreground'>
-            {item.value ?? item.name}
+            {renderLabel
+              ? renderLabel(String(item.value ?? item.name ?? ''))
+              : (item.value ?? item.name)}
           </span>
         </div>
       ))}
@@ -643,6 +652,7 @@ export function ModelCostChart({
     () =>
       data.map((row, index) => ({
         model: row.label || row.model,
+        rawModel: row.model,
         value: row.cost,
         calls: row.calls,
         tokens: row.tokens,
@@ -662,7 +672,16 @@ export function ModelCostChart({
     return cfg
   }, [pieData])
   const render: DonutTooltipRender = (datum, value) => ({
-    title: String(datum.model ?? EM_DASH),
+    title:
+      datum.rawModel && datum.rawModel !== 'other' ? (
+        <ModelPill
+          model={String(datum.rawModel)}
+          label={String(datum.model)}
+          variant='inline'
+        />
+      ) : (
+        String(datum.model ?? EM_DASH)
+      ),
     rows: [
       { label: labels.cost, value: formatChartCurrency(value) },
       { label: labels.calls, value: String(datum.calls ?? 0) },
@@ -681,7 +700,20 @@ export function ModelCostChart({
     >
       <PieChart>
         <ChartLegend
-          content={<DonutLegend />}
+          content={
+            <DonutLegend
+              renderLabel={(name) => {
+                const row = data.find(
+                  (item) => (item.label || item.model) === name
+                )
+                return row?.model && row.model !== 'other' ? (
+                  <ModelPill model={row.model} label={name} variant='inline' />
+                ) : (
+                  name
+                )
+              }}
+            />
+          }
           verticalAlign='bottom'
           height={36}
         />

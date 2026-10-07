@@ -21,6 +21,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { PageHeader } from '@/components/common/page-header'
 import {
   DataTablePage,
   encodeSorting,
@@ -296,12 +297,10 @@ export function ModelsPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div>
-        <h1 className='page-title'>{t('models.page.title')}</h1>
-        <p className='text-muted-foreground text-sm'>
-          {t('models.page.description')}
-        </p>
-      </div>
+      <PageHeader
+        title={t('models.page.title')}
+        description={t('models.page.description')}
+      />
 
       {/* Unified list-page error contract: the failed load
           replaces the table instead of stacking over it, so a stale cache can
