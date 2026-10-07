@@ -176,7 +176,7 @@ Route editing presents matching and account selection first; advanced display/ro
 
 Inter is locally bundled for Latin UI text. Chinese follows the platform UI face (PingFang on macOS, Microsoft YaHei UI on Windows, Noto Sans CJK on Linux). This intentionally prioritizes native CJK rendering over identical glyphs on every platform; screenshot baselines must run in a fixed font environment. Public Sans and the bundled Noto Sans SC slices are no longer shipped.
 
-KPI figures and model identifiers use the shared monospace stack. Model identity rows align a 16px icon box with a 20px text line, use middle vertical alignment in surrounding inline text, and retain the complete identifier in a tooltip. Body, title, numeric and code roles remain distinct; do not stretch glyphs or compensate with transforms.
+Model identifiers use the standard sans-serif UI stack at 14px regular weight, including inside capsules and selectors; do not style model names as code. KPI figures retain the shared monospace stack. Model identity rows align a 16px icon box with a 20px text line, use middle vertical alignment in surrounding inline text, and retain the complete identifier in a tooltip. Body, title, numeric and code roles remain distinct; do not stretch glyphs or compensate with transforms.
 
 Validate actual rendered font names and model icon/text box centers in the browser, then inspect light/dark desktop screenshots. A font-family declaration alone does not prove which CJK face rendered.
 
