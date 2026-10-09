@@ -113,7 +113,7 @@ func BuildForcedChannelUnavailableMessage(forcedChannelID *int64) string {
 // CanRetryChannelSelection checks if a channel retry is possible.
 // Returns false if a forced channel is set (no fallback), or if max retries reached.
 func CanRetryChannelSelection(retryCount int, maxRetries int, forcedChannelID *int64) bool {
-	if forcedChannelID != nil && *forcedChannelID > 0 {
+	if forcedChannelID != nil && *forcedChannelID != 0 {
 		return false
 	}
 	return retryCount < maxRetries
@@ -130,8 +130,8 @@ func SelectProxyChannelForAttempt(
 	coord *ProxyChannelCoordinator,
 	input ChannelSelectionInput,
 ) (*routing.SelectedChannel, error) {
-	// Tester forced channel
-	if input.ForcedChannelID != nil && *input.ForcedChannelID > 0 {
+	// Tester IDs are positive; trusted replay hints can identify negative direct items.
+	if input.ForcedChannelID != nil && *input.ForcedChannelID != 0 {
 		if input.RetryCount > 0 {
 			return nil, nil
 		}

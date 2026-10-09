@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// BridgeStreamLimit bounds accumulated text, refusal and function arguments.
+// BridgeStreamLimit bounds accumulated text, reasoning, refusal and function arguments.
 // Deltas are emitted immediately; retained content is needed by the Responses
 // done events and final response object. Exceeding the limit is a sticky error.
 const BridgeStreamLimit = 8 << 20
@@ -33,11 +33,16 @@ func (item *bridgeItem) object(status string) bridgeObject {
 	}
 	content := []any{}
 	for _, part := range item.parts {
-		if part.kind == "refusal" {
+		if part.kind == "summary_text" {
+			content = append(content, bridgeObject{"type": "summary_text", "text": part.text.String()})
+		} else if part.kind == "refusal" {
 			content = append(content, bridgeObject{"type": "refusal", "refusal": part.text.String()})
 		} else {
 			content = append(content, bridgeObject{"type": "output_text", "text": part.text.String(), "annotations": []any{}})
 		}
+	}
+	if item.kind == "reasoning" {
+		return bridgeObject{"id": item.id, "type": "reasoning", "summary": content, "status": status}
 	}
 	return bridgeObject{"id": item.id, "type": "message", "role": "assistant", "content": content, "status": status}
 }
@@ -112,12 +117,14 @@ type ChatStream struct {
 	id, model, reason  string
 	created            any
 	started, done      bool
+	textSeen           bool
 	err                error
 	sequence, retained int
 	usage              bridgeObject
 	items              []*bridgeItem
 	tools              map[int]*bridgeItem
 	message            *bridgeItem
+	reasoning          *bridgeItem
 }
 
 func NewChatStream(model string) *ChatStream {
@@ -176,15 +183,22 @@ func (s *ChatStream) text(value string, kind string, out *bytes.Buffer) error {
 	if err := s.retain(len(value)); err != nil {
 		return err
 	}
-	if s.message == nil {
-		s.message = &bridgeItem{id: "msg_" + s.id, kind: "message"}
-		if err := s.addItem(s.message, out); err != nil {
+	target := &s.message
+	id, itemKind, partEvent, textEvent, indexKey := "msg_"+s.id, "message", "content_part", kind, "content_index"
+	if kind == "summary_text" {
+		target = &s.reasoning
+		id, itemKind, partEvent, textEvent, indexKey = "rs_"+s.id, "reasoning", "reasoning_summary_part", "reasoning_summary_text", "summary_index"
+	}
+	if *target == nil {
+		*target = &bridgeItem{id: id, kind: itemKind}
+		if err := s.addItem(*target, out); err != nil {
 			return err
 		}
 	}
+	item := *target
 	var part *bridgePart
 	index := 0
-	for i, current := range s.message.parts {
+	for i, current := range item.parts {
 		if current.kind == kind {
 			part = current
 			index = i
@@ -193,20 +207,22 @@ func (s *ChatStream) text(value string, kind string, out *bytes.Buffer) error {
 	}
 	if part == nil {
 		part = &bridgePart{kind: kind}
-		index = len(s.message.parts)
-		s.message.parts = append(s.message.parts, part)
+		index = len(item.parts)
+		item.parts = append(item.parts, part)
 		p := bridgeObject{"type": kind}
 		if kind == "refusal" {
 			p["refusal"] = ""
 		} else {
 			p["text"] = ""
-			p["annotations"] = []any{}
+			if kind == "output_text" {
+				p["annotations"] = []any{}
+			}
 		}
-		s.emit(out, "response.content_part.added", bridgeObject{"item_id": s.message.id, "output_index": s.itemIndex(s.message), "content_index": index, "part": p})
+		s.emit(out, "response."+partEvent+".added", bridgeObject{"item_id": item.id, "output_index": s.itemIndex(item), indexKey: index, "part": p})
 	}
 	part.text.WriteString(value)
 	if value != "" {
-		s.emit(out, "response."+kind+".delta", bridgeObject{"item_id": s.message.id, "output_index": s.itemIndex(s.message), "content_index": index, "delta": value})
+		s.emit(out, "response."+textEvent+".delta", bridgeObject{"item_id": item.id, "output_index": s.itemIndex(item), indexKey: index, "delta": value})
 	}
 	return nil
 }
@@ -378,7 +394,7 @@ func (s *ChatStream) TransformEvent(block []byte) (result []byte, err error) {
 	if delta == nil {
 		return nil, fmt.Errorf("Responses/Chat bridge: invalid delta")
 	}
-	if err = bridgeFields(delta, "role", "content", "tool_calls", "refusal"); err != nil {
+	if err = bridgeFields(delta, "role", "content", "tool_calls", "refusal", "reasoning_content"); err != nil {
 		return nil, err
 	}
 	if role := delta["role"]; role != nil && role != "assistant" {
@@ -397,11 +413,17 @@ func (s *ChatStream) TransformEvent(block []byte) (result []byte, err error) {
 		s.emit(&out, "response.created", bridgeObject{"response": s.response("in_progress", nil)})
 		s.emit(&out, "response.in_progress", bridgeObject{"response": s.response("in_progress", nil)})
 	}
-	for _, pair := range [][2]string{{"content", "output_text"}, {"refusal", "refusal"}} {
+	for _, pair := range [][2]string{{"reasoning_content", "summary_text"}, {"content", "output_text"}, {"refusal", "refusal"}} {
 		if delta[pair[0]] != nil {
+			if pair[0] == "content" {
+				s.textSeen = true
+			}
 			value, err := bridgeText(delta[pair[0]], pair[0])
 			if err != nil {
 				return nil, err
+			}
+			if value == "" && (pair[0] == "reasoning_content" || pair[0] == "content" && delta["role"] == "assistant") {
+				continue
 			}
 			if err = s.text(value, pair[1], &out); err != nil {
 				return nil, err
@@ -431,7 +453,18 @@ func (s *ChatStream) TransformEvent(block []byte) (result []byte, err error) {
 }
 
 func (s *ChatStream) complete() ([]byte, error) {
-	if !s.started || s.reason == "" || len(s.items) == 0 {
+	if !s.started || s.reason == "" {
+		return nil, fmt.Errorf("Responses/Chat bridge: [DONE] without content and finish_reason")
+	}
+	var out bytes.Buffer
+	// A role prelude's empty content must not precede a later reasoning item.
+	// Still preserve an explicitly empty completion when nothing else arrived.
+	if len(s.items) == 0 && s.textSeen {
+		if err := s.text("", "output_text", &out); err != nil {
+			return nil, err
+		}
+	}
+	if len(s.items) == 0 {
 		return nil, fmt.Errorf("Responses/Chat bridge: [DONE] without content and finish_reason")
 	}
 	for _, item := range s.tools {
@@ -446,21 +479,28 @@ func (s *ChatStream) complete() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	var out bytes.Buffer
 	for index, item := range s.items {
 		if item.kind == "function_call" {
 			s.emit(&out, "response.function_call_arguments.done", bridgeObject{"item_id": item.id, "output_index": index, "arguments": item.arguments.String()})
 		} else {
-			content := item.object(status)["content"].([]any)
+			contentKey, indexKey, partEvent := "content", "content_index", "content_part"
+			if item.kind == "reasoning" {
+				contentKey, indexKey, partEvent = "summary", "summary_index", "reasoning_summary_part"
+			}
+			content := item.object(status)[contentKey].([]any)
 			for i, part := range item.parts {
-				obj := bridgeObject{"item_id": item.id, "output_index": index, "content_index": i}
+				obj := bridgeObject{"item_id": item.id, "output_index": index, indexKey: i}
 				if part.kind == "refusal" {
 					obj["refusal"] = part.text.String()
 				} else {
 					obj["text"] = part.text.String()
 				}
-				s.emit(&out, "response."+part.kind+".done", obj)
-				s.emit(&out, "response.content_part.done", bridgeObject{"item_id": item.id, "output_index": index, "content_index": i, "part": content[i]})
+				textEvent := part.kind
+				if item.kind == "reasoning" {
+					textEvent = "reasoning_summary_text"
+				}
+				s.emit(&out, "response."+textEvent+".done", obj)
+				s.emit(&out, "response."+partEvent+".done", bridgeObject{"item_id": item.id, "output_index": index, indexKey: i, "part": content[i]})
 			}
 		}
 		s.emit(&out, "response.output_item.done", bridgeObject{"output_index": index, "item": item.object(status)})

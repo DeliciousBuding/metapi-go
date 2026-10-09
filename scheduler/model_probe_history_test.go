@@ -63,7 +63,7 @@ func TestModelProbeScheduler_RecentRunSummaries(t *testing.T) {
 	s.SetHealthRecorder(&fakeRecorder{})
 
 	// A single pass: both channels probed, one success one failure.
-	s.TriggerNow(true)
+	completed := []ProbeRunSummary{s.TriggerNow(true)}
 	runs := s.RecentRunSummaries()
 	if len(runs) != 1 {
 		t.Fatalf("runs after first pass = %d, want 1", len(runs))
@@ -74,24 +74,26 @@ func TestModelProbeScheduler_RecentRunSummaries(t *testing.T) {
 	if runs[0].TargetsScanned != 2 {
 		t.Fatalf("first run targets = %d, want 2", runs[0].TargetsScanned)
 	}
-	if runs[0].StartedAtMs == 0 || runs[0].CompletedAtMs < runs[0].StartedAtMs {
+	if runs[0].StartedAtMs == 0 || runs[0].CompletedAtMs == 0 {
 		t.Fatalf("timestamps not honest: started=%d completed=%d", runs[0].StartedAtMs, runs[0].CompletedAtMs)
 	}
-	if last := s.LastRunSummary(); last.CompletedAtMs != runs[0].CompletedAtMs {
+	if last := s.LastRunSummary(); last != runs[0] || last != completed[0] {
 		t.Fatalf("LastRunSummary diverged from RecentRunSummaries[0]")
 	}
 
 	// Passes accumulate newest-first and the buffer is depth-capped.
 	for i := 0; i < 12; i++ {
-		s.TriggerNow(true)
+		completed = append(completed, s.TriggerNow(true))
 	}
 	runs = s.RecentRunSummaries()
 	if len(runs) != probeRunHistoryDepth {
 		t.Fatalf("runs after 13 passes = %d, want capped at %d", len(runs), probeRunHistoryDepth)
 	}
-	for i := 1; i < len(runs); i++ {
-		if runs[i].CompletedAtMs > runs[i-1].CompletedAtMs {
-			t.Fatalf("run %d not newest-first: %d > %d", i, runs[i-1].CompletedAtMs, runs[i].CompletedAtMs)
+	// Unix timestamps may repeat or move backward when the wall clock is
+	// corrected. History follows completed pass order, not timestamp order.
+	for i, run := range runs {
+		if want := completed[len(completed)-1-i]; run != want {
+			t.Fatalf("run %d not newest-first: got %+v, want %+v", i, run, want)
 		}
 	}
 }

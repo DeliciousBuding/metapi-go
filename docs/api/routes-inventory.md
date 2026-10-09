@@ -10,6 +10,8 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 ### GET
 - `/api/sites/initialization-presets`
 - `/api/imported-upstreams`
+- `/api/imported-upstreams/:id`
+- `/api/imported-upstreams/:id/request-config`
 - `/api/imported-upstreams/:id/credentials`
 - `/api/about`
 - `/api/account-tokens`
@@ -90,6 +92,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/tasks/:id`
 - `/api/update-center/status`
 ### POST
+- `/api/imported-upstreams/members/:id/cooldown/clear`
 - `/api/account-tokens`
 - `/api/account-tokens/:id/default`
 - `/api/account-tokens/batch`
@@ -188,6 +191,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/sites/:id/disabled-models`
 - `/api/sites/:id/tags`
 ### PATCH
+- `/api/imported-upstreams/members/:id`
 - `/api/imported-upstreams/:id`
 - `/api/imported-upstreams/credentials/:id`
 - `/api/oauth/connections/:accountId/proxy`

@@ -106,6 +106,14 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 		}
 		path := strings.TrimSpace(ep.Path)
 		profile := ""
+		if protocol == protoChat && !custom[format] {
+			switch channel.Type {
+			case "deepseek":
+				profile = "deepseek"
+			case "zai", "zhipu", "xiaomi":
+				profile = "zai"
+			}
+		}
 		if protocol == protoResponses && (channel.Type == "codex" || channel.Type == "fenno") {
 			profile = "codex"
 			path = ""

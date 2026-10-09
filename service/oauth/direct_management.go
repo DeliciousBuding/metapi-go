@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 
@@ -10,12 +11,15 @@ import (
 )
 
 var ErrInvalidDirectCredential = errors.New("invalid direct credential replacement")
+var ErrDirectCredentialNotFound = errors.New("direct credential or channel not found")
+var ErrDirectCredentialConflict = errors.New("direct credential name already exists")
 
 type DirectOAuthReplacement struct {
 	AccessToken string `json:"accessToken"`
 	store.DirectOAuthState
 }
 type DirectCredentialUpdate struct {
+	Name    *string                 `json:"name,omitempty"`
 	Enabled *bool                   `json:"enabled,omitempty"`
 	APIKey  *string                 `json:"apiKey,omitempty"`
 	OAuth   *DirectOAuthReplacement `json:"oauth,omitempty"`
@@ -30,6 +34,13 @@ type DirectCredentialSummary struct {
 }
 
 func ListDirectCredentials(ctx context.Context, db *sqlx.DB, channelID int64) ([]DirectCredentialSummary, error) {
+	var exists int
+	if err := db.GetContext(ctx, &exists, db.Rebind(`SELECT 1 FROM upstream_channels WHERE id=?`), channelID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrDirectCredentialNotFound
+		}
+		return nil, ErrDirectCredentialUnavailable
+	}
 	rows, err := db.QueryxContext(ctx, db.Rebind(`SELECT id,name,enabled,kind,oauth_state FROM upstream_credentials WHERE channel_id=? ORDER BY id`), channelID)
 	if err != nil {
 		return nil, ErrDirectCredentialUnavailable
@@ -56,7 +67,7 @@ func ListDirectCredentials(ctx context.Context, db *sqlx.DB, channelID int64) ([
 // replacement edits only enablement. A refresh in flight compares old bytes
 // and cannot overwrite this update.
 func UpdateDirectCredential(ctx context.Context, db *sqlx.DB, id int64, input DirectCredentialUpdate) error {
-	if input.Enabled == nil && input.APIKey == nil && input.OAuth == nil {
+	if input.Name == nil && input.Enabled == nil && input.APIKey == nil && input.OAuth == nil {
 		return ErrInvalidDirectCredential
 	}
 	if input.APIKey != nil && input.OAuth != nil {
@@ -64,10 +75,21 @@ func UpdateDirectCredential(ctx context.Context, db *sqlx.DB, id int64, input Di
 	}
 	var provider string
 	if err := db.GetContext(ctx, &provider, db.Rebind(`SELECT c.provider FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrDirectCredentialNotFound
+		}
 		return ErrDirectCredentialUnavailable
 	}
 	set := []string{}
 	args := []any{}
+	if input.Name != nil {
+		name := strings.TrimSpace(*input.Name)
+		if name == "" || len(name) > 200 {
+			return ErrInvalidDirectCredential
+		}
+		set = append(set, "name=?")
+		args = append(args, name)
+	}
 	if input.Enabled != nil {
 		set = append(set, "enabled=?")
 		args = append(args, *input.Enabled)
@@ -90,11 +112,18 @@ func UpdateDirectCredential(ctx context.Context, db *sqlx.DB, id int64, input Di
 	args = append(args, id)
 	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE upstream_credentials SET `+strings.Join(set, ",")+` WHERE id=?`), args...)
 	if err != nil {
+		message := strings.ToLower(err.Error())
+		if strings.Contains(message, "unique constraint") || strings.Contains(message, "duplicate key") {
+			return ErrDirectCredentialConflict
+		}
 		return ErrDirectCredentialUnavailable
 	}
 	n, err := result.RowsAffected()
-	if err != nil || n != 1 {
+	if err != nil {
 		return ErrDirectCredentialUnavailable
+	}
+	if n != 1 {
+		return ErrDirectCredentialNotFound
 	}
 	return nil
 }

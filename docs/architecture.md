@@ -464,6 +464,20 @@ relay. Native bodies bypass conversion; converted streams retain upstream usage
 before transforming the client-facing events. Converters reject unsupported
 continuity and malformed or incomplete tool calls rather than inventing success.
 
+Domestic Chat profiles share `handler/proxy/domestic_chat_request.go` across
+direct channels and exact native-site presets. Messages tool continuation uses
+the existing bounded replay cache; direct entries bind route/item/grant/model,
+resolved credential and wire configuration, and recheck routing authorization
+before selecting their negative internal item ID. These IDs are not accepted
+through the external tester header. Responses/Chat plain reasoning conversion
+is stateless and lives entirely in `transform/openai/responses`.
+
+`handler/admin/imported_config.go` owns imported connection updates and explicit
+request-setting reads; `imported_members.go` owns route preferences and shared
+grant cooldowns. All successful writes invalidate routing state. The channels
+UI separates account-derived routing health from imported upstream maintenance;
+it reads secret-bearing request settings only on demand, outside Query caches.
+
 `internal/httpclient.ExpandClientHeaderTemplate` owns the request metadata
 template parser and allowlist. Both backup validation and direct forwarding
 call it, so accepting a template at import time cannot bypass the forwarding

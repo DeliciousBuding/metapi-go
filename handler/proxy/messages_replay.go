@@ -89,7 +89,7 @@ func (c *messagesReplayCache) expire(now time.Time) {
 }
 
 func (c *messagesReplayCache) put(key messagesReplayKey, channelID int64, reasoning string) error {
-	if channelID <= 0 {
+	if channelID == 0 {
 		return messagesReplayUnavailable("source channel is unavailable")
 	}
 	if !utf8.ValidString(reasoning) {
@@ -309,6 +309,21 @@ func messagesReplayClientScope(ctx *Ctx) ([sha256.Size]byte, error) {
 }
 
 func messagesReplayScope(ctx *Ctx, selected *routing.SelectedChannel, client [sha256.Size]byte) ([sha256.Size]byte, error) {
+	if selected != nil && selected.Direct != nil {
+		direct := selected.Direct
+		if direct.RouteID <= 0 || direct.ItemID <= 0 || direct.ChannelID <= 0 || direct.CredentialID <= 0 || direct.ModelID <= 0 || direct.GrantID <= 0 || selected.Channel.ID != -direct.ItemID || strings.TrimSpace(selected.ActualModel) == "" || strings.TrimSpace(selected.TokenValue) == "" {
+			return [sha256.Size]byte{}, messagesReplayUnavailable("selected direct upstream identity is unavailable")
+		}
+		endpoints, err := json.Marshal(direct.Endpoints)
+		if err != nil {
+			return [sha256.Size]byte{}, messagesReplayUnavailable("selected direct endpoint identity is invalid")
+		}
+		order, _ := json.Marshal(direct.ProtocolOrder)
+		return messagesReplayHash("messages-replay-direct-v1", string(client[:]), selected.ActualModel,
+			strconv.FormatInt(direct.RouteID, 10), strconv.FormatInt(direct.GroupID, 10), strconv.FormatInt(direct.ItemID, 10), strconv.FormatInt(direct.ChannelID, 10), strconv.FormatInt(direct.CredentialID, 10), strconv.FormatInt(direct.GrantID, 10), strconv.FormatInt(direct.ModelID, 10),
+			selected.TokenValue, direct.CredentialKind, direct.Provider, direct.BaseURL, direct.ChatPath, direct.ResponsesPath, direct.AnthropicPath,
+			direct.CustomHeader, direct.ParamOverride, string(endpoints), strconv.Itoa(direct.Protocols), string(order)), nil
+	}
 	if selected == nil || selected.Channel.ID <= 0 || (selected.Site.ID <= 0 && strings.TrimSpace(selected.Site.URL) == "") || (selected.Account.ID <= 0 && strings.TrimSpace(selected.TokenValue) == "") {
 		return [sha256.Size]byte{}, messagesReplayUnavailable("selected upstream identity is unavailable")
 	}
@@ -616,7 +631,7 @@ func (c *messagesReplayCache) preferredChannel(ctx *Ctx) (*int64, bool, error) {
 		if !wanted {
 			continue
 		}
-		if matched || entry.channelID <= 0 {
+		if matched || entry.channelID == 0 {
 			return fail("ambiguous bridge-owned replay source")
 		}
 		if found != 0 && (channelID != entry.channelID || origin != entry.key.scope) {

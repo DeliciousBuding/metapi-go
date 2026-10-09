@@ -210,6 +210,8 @@ Detail sheets keep 12px medium labels above 14px normal-leading values. Plain te
 
 Route editing presents matching and account selection first; advanced display/routing fields stay in a disclosure that preserves drafts. Invalid advanced fields must reveal and use the shared form validation focus. Filtering accounts limits bulk selection to visible matches without clearing hidden selections. Rebuild success uses a compact summary with optional metrics; partial failures, observation failures and retry actions remain visible.
 
+Channels keep account-derived channels as the default view. Imported upstreams have a separate list and a detail sheet with connection, credential and route tabs; an installation containing only imported upstreams opens that list directly. Provider identity uses a logo capsule, model identity uses `ModelPill`, and protocol names describe the connection rather than masquerading as providers. Tabs retain drafts and the sheet uses the shared dirty-close guard. Request settings load only after an explicit edit action and never enter Query caches; credential replacement clears inputs only after success. Eligibility, disabled dependencies and temporary cooldown are distinct states.
+
 ### 3.2 Font roles and rendering
 
 Inter is locally bundled for Latin UI text. Chinese follows the platform UI face (PingFang on macOS, Microsoft YaHei UI on Windows, Noto Sans CJK on Linux). This intentionally prioritizes native CJK rendering over identical glyphs on every platform; screenshot baselines must run in a fixed font environment. Public Sans and the bundled Noto Sans SC slices are no longer shipped.
