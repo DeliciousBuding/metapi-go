@@ -451,6 +451,7 @@ jobs:
           bash scripts/e2e/smoke-strict-relay-test.sh
           python3 -m unittest discover -s scripts/e2e -p 'test_verify_real_relay.py'
           python3 -m unittest discover -s scripts/e2e -p 'test_verify_management_matrix.py'
+          python3 -m unittest discover -s scripts/e2e -p 'test_verify_management_full.py'
           node --test web/scripts/__tests__/acceptance-evidence.test.mjs
       - name: Initialize upstreams
         run: |
