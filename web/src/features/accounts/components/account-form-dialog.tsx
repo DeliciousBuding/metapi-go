@@ -64,7 +64,10 @@ import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { getPlatformDisplayName } from '@/lib/platform-catalog'
+import {
+  getPlatformDefinition,
+  getPlatformDisplayName,
+} from '@/lib/platform-catalog'
 import { toast } from '@/lib/toast'
 
 import {
@@ -180,12 +183,16 @@ export function AccountFormDialog({
     const targetKey = isEdit && account ? `edit:${account.id}` : 'create'
     if (initializedFor === targetKey) return
     setInitializedFor(targetKey)
-    // Create default credential mode: deep-link hint wins (apikey), otherwise
-    // session. Edit always follows the account's own stored mode.
+    // An explicit deep link wins; direct API sites start in API-key mode.
+    const initialSite = sites.find((site) => site.id === initialSiteId)
+    const defaultMode =
+      getPlatformDefinition(initialSite?.platform)?.group === 'api'
+        ? 'apikey'
+        : 'session'
     const baseDefaults = getAccountFormDefaultValues(
       isEdit
         ? (account?.credentialMode ?? 'session')
-        : (initialCredentialMode ?? 'session')
+        : (initialCredentialMode ?? defaultMode)
     )
     if (isEdit && account) {
       form.reset({ ...baseDefaults, ...transformAccountToFormValues(account) })
@@ -202,6 +209,7 @@ export function AccountFormDialog({
     initializedFor,
     initialSiteId,
     initialCredentialMode,
+    sites,
     form,
   ])
 
@@ -336,10 +344,10 @@ export function AccountFormDialog({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side='right'
-        className='flex w-full flex-col gap-0 sm:max-w-lg'
+        className='flex w-full flex-col gap-0 overflow-hidden sm:max-w-lg'
         showMobileCloseBar={false}
       >
-        <SheetHeader>
+        <SheetHeader className='shrink-0 border-b'>
           <SheetTitle>
             {isEdit
               ? t('accounts.form.editTitle')
@@ -358,7 +366,7 @@ export function AccountFormDialog({
             onSubmit={form.handleSubmit(onSubmit, onInvalid)}
             inert={!isInitialized ? true : undefined}
             aria-busy={!isInitialized}
-            className='flex-1 space-y-6 overflow-y-auto p-4 text-sm leading-5 [&_[data-slot=form-description]]:leading-5 [&_[data-slot=form-label]]:font-semibold'
+            className='min-h-0 flex-1 space-y-6 overflow-y-auto p-4 text-sm leading-5 [&_[data-slot=form-description]]:leading-5 [&_[data-slot=form-label]]:font-semibold'
           >
             {/* Site selection */}
             <FormField
@@ -447,6 +455,23 @@ export function AccountFormDialog({
                                     value={getSiteSearchValue(site)}
                                     data-checked={field.value === site.id}
                                     onSelect={() => {
+                                      if (
+                                        !isEdit &&
+                                        !form.getFieldState('credentialMode')
+                                          .isDirty &&
+                                        !form.getValues('accessToken') &&
+                                        !form.getValues('apiToken') &&
+                                        !form.getValues('password') &&
+                                        !initialCredentialMode
+                                      ) {
+                                        form.setValue(
+                                          'credentialMode',
+                                          getPlatformDefinition(site.platform)
+                                            ?.group === 'api'
+                                            ? 'apikey'
+                                            : 'session'
+                                        )
+                                      }
                                       field.onChange(site.id)
                                       field.onBlur()
                                       setSiteSelectorOpen(false)

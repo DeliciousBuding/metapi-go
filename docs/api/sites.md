@@ -25,6 +25,12 @@ The following OpenAI-compatible defaults preserve their required path prefix thr
 
 Templates provide configuration defaults, not a live availability or credential check. Add the account and verify discovery and inference with the intended model. Provider-specific parameter rewriting, asynchronous image tasks, versioned API variants, Vertex/GCP credentials, AWS request signing, and dedicated OAuth flows require their corresponding adapter capabilities; a brand label alone does not add them.
 
+After creating an API site, the next action opens the API-key form with that site
+selected. Management gateways retain both session and API-key choices; OAuth
+adapters open the OAuth connection page. In a blank account form, selecting a
+model API site also selects API-key mode. Explicit credential choices and entered
+credentials are preserved when switching sites.
+
 ### GET /api/sites, POST /api/sites
 
 List all sites. Create a new site.

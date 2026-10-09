@@ -134,6 +134,40 @@ async function openSiteSearch() {
 }
 
 describe('AccountFormDialog searchable site selector', () => {
+  it('starts a direct API site in API-key mode', async () => {
+    renderCreate(1)
+    expect(await screen.findByRole('tab', { name: 'API Key' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.getByLabelText('API Key')).toBeVisible()
+  })
+
+  it('adapts a blank credential form when selecting an API site', async () => {
+    renderCreate()
+    const { input } = await openSiteSearch()
+    fireEvent.change(input, { target: { value: 'Fixture Site 01' } })
+    fireEvent.click(
+      await screen.findByRole('option', { name: /Fixture Site 01/i })
+    )
+    expect(await screen.findByLabelText('API Key')).toBeVisible()
+  })
+
+  it('preserves manually entered credentials when changing the site', async () => {
+    renderCreate(101)
+    fireEvent.change(await screen.findByLabelText('Access Token / Cookie'), {
+      target: { value: 'fixture-entered-session' },
+    })
+    const { input } = await openSiteSearch()
+    fireEvent.change(input, { target: { value: 'Fixture Site 01' } })
+    fireEvent.click(
+      await screen.findByRole('option', { name: /Fixture Site 01/i })
+    )
+    expect(await screen.findByLabelText('Access Token / Cookie')).toHaveValue(
+      'fixture-entered-session'
+    )
+  })
+
   it.each([
     ['name', 'Aurora Gateway', /Aurora Gateway/i],
     ['URL', 'lunar.example', /Lunar Relay/i],

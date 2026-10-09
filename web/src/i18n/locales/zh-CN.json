@@ -838,7 +838,8 @@
         "nextStepBody": "连接一个账号即可开始通过该站点路由。",
         "dismiss": "知道了",
         "addApiKey": "添加 API Key",
-        "goToAccounts": "前往账号"
+        "goToAccounts": "前往账号",
+        "goToOAuth": "前往 OAuth 连接"
       },
       "probe": {
         "title": "可用性探针",

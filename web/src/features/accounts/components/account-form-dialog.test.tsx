@@ -56,7 +56,7 @@ const sites = [
     id: 7,
     name: 'Primary site',
     url: 'https://primary.example',
-    platform: 'openai',
+    platform: 'new-api',
     status: 'active' as const,
   },
 ]

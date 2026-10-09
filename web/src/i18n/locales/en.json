@@ -841,6 +841,7 @@
         "nextStepBody": "Connect an account to start routing through this site.",
         "dismiss": "Dismiss",
         "goToAccounts": "Go to accounts",
+        "goToOAuth": "Connect with OAuth",
         "addApiKey": "Add API Key"
       },
       "probe": {
