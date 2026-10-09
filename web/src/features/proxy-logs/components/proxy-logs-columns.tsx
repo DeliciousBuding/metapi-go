@@ -97,6 +97,16 @@ export function useProxyLogsColumns(
       cell: ({ row }) => {
         const username = row.original.username
         const accountId = row.original.accountId
+        if (row.original.upstreamGrantId) {
+          return (
+            <span className='text-sm'>
+              {t('proxyLogs.columns.directGrant', {
+                channelId: row.original.upstreamChannelId ?? '—',
+                grantId: row.original.upstreamGrantId,
+              })}
+            </span>
+          )
+        }
         return (
           <span className='text-sm'>
             {username || (accountId ? `#${accountId}` : '—')}

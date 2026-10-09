@@ -4,6 +4,8 @@ package proxy
 type ProxyLogEntry struct {
 	RouteID              *int64
 	ChannelID            *int64
+	UpstreamChannelID    *int64
+	UpstreamGrantID      *int64
 	AccountID            *int64
 	DownstreamAPIKeyID   *int64
 	ModelRequested       string

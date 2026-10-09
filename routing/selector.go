@@ -602,6 +602,7 @@ func (s *ChannelSelector) loadRouteMatch(ctx context.Context, route store.TokenR
 			Account: j.Account,
 			Site:    j.Site,
 			Token:   j.Token,
+			Direct:  channel.Direct,
 		}
 
 		if j.Channel.OAuthRouteUnitID != nil && *j.Channel.OAuthRouteUnitID > 0 {
@@ -675,6 +676,42 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 	policy DownstreamRoutingPolicy,
 ) []string {
 	var reasons []string
+	if direct := candidate.Direct; direct != nil {
+		if IsCooldownActive(candidate.Channel.CooldownUntil, nowISO) {
+			reasons = append(reasons, "direct upstream grant cooling down")
+		}
+		if !candidate.Channel.Enabled || !direct.ChannelEnabled || !direct.ModelEnabled || !direct.CredentialEnabled || !direct.GrantEnabled {
+			reasons = append(reasons, "direct upstream grant disabled")
+		}
+		if policy.RequiredUpstreamProtocol == 0 || direct.Protocols&policy.RequiredUpstreamProtocol == 0 {
+			reasons = append(reasons, "direct upstream protocol not authorized")
+		}
+		if len(policy.AllowedSiteIDs) > 0 {
+			reasons = append(reasons, "direct upstream is not in the downstream key site allow-list")
+		}
+		if len(policy.AllowedRouteIDs) > 0 && !matchesSupportedModelPolicy(requestedModel, policy.SupportedModels) {
+			allowed := false
+			for _, routeID := range policy.AllowedRouteIDs {
+				if routeID == direct.RouteID {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				reasons = append(reasons, "direct upstream route is not allowed by downstream key")
+			}
+		}
+		if reason := s.resolveDownstreamExclusionReason(candidate, policy); reason != "" {
+			reasons = append(reasons, reason)
+		}
+		for _, id := range excludeChannelIDs {
+			if id == candidate.Channel.ID {
+				reasons = append(reasons, "direct upstream grant already tried")
+				break
+			}
+		}
+		return reasons
+	}
 
 	if !bypassSourceModelCheck && !ChannelSupportsRequestedModelWithRedirects(candidate.Channel.SourceModel, requestedModel, candidate.Account.ID) {
 		srcModel := ""
@@ -742,7 +779,22 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 	return reasons
 }
 
+func matchesSupportedModelPolicy(model string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if MatchesModelPattern(model, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *ChannelSelector) resolveChannelTokenValue(candidate RouteChannelCandidate) string {
+	if candidate.Direct != nil {
+		if !candidate.Direct.CredentialEnabled {
+			return ""
+		}
+		return candidate.Direct.Credential
+	}
 	if candidate.Channel.TokenID != nil && *candidate.Channel.TokenID > 0 {
 		if candidate.Token == nil {
 			return ""
@@ -771,6 +823,22 @@ func (s *ChannelSelector) resolveChannelTokenValue(candidate RouteChannelCandida
 }
 
 func (s *ChannelSelector) resolveDownstreamExclusionReason(candidate RouteChannelCandidate, policy DownstreamRoutingPolicy) string {
+	if candidate.Direct != nil {
+		if len(policy.AllowedSiteIDs) > 0 {
+			return "direct upstream is not in the downstream key site allow-list"
+		}
+		if len(policy.ExcludedCredentialRefs) > 0 {
+			for _, ref := range policy.ExcludedCredentialRefs {
+				if credentialRefMatchesOne(candidate, ref, s) {
+					return "direct upstream credential excluded by downstream key"
+				}
+			}
+		}
+		if len(policy.AllowedCredentialRefs) > 0 && !credentialRefMatchesCandidate(candidate, policy.AllowedCredentialRefs, s) {
+			return "direct upstream credential is not in downstream key allow-list"
+		}
+		return ""
+	}
 	// allow-list: when AllowedSiteIDs is non-empty, only listed sites are eligible.
 	if len(policy.AllowedSiteIDs) > 0 {
 		allowed := false
@@ -820,6 +888,9 @@ func credentialRefMatchesCandidate(candidate RouteChannelCandidate, refs []Crede
 }
 
 func credentialRefMatchesOne(candidate RouteChannelCandidate, ref CredentialRef, s *ChannelSelector) bool {
+	if candidate.Direct != nil {
+		return ref.Kind == "direct_grant" && ref.GrantID == candidate.Direct.GrantID
+	}
 	if ref.Kind == "account_token" {
 		return candidate.Channel.TokenID != nil && *candidate.Channel.TokenID == ref.TokenID &&
 			candidate.Token != nil && candidate.Token.ID == ref.TokenID &&
@@ -940,19 +1011,22 @@ func (s *ChannelSelector) finalizeDispatch(
 			runtimeModelKey = sm
 		}
 	}
-	if !TryAdmitSiteModelRuntimeRequest(dispatchCandidate.Site.ID, runtimeModelKey) {
+	if dispatchCandidate.Direct == nil && !TryAdmitSiteModelRuntimeRequest(dispatchCandidate.Site.ID, runtimeModelKey) {
 		return nil, nil
 	}
 
 	tokenValue := resolvedRouteUnitMemberTokenValue
-	if tokenValue == "" {
+	if dispatchCandidate.Direct != nil {
+		tokenValue = dispatchCandidate.Direct.Credential
+	}
+	if tokenValue == "" && dispatchCandidate.Direct == nil {
 		tokenValue = s.resolveChannelTokenValue(dispatchCandidate)
 	}
 	if tokenValue == "" {
 		return nil, nil
 	}
 
-	if recordSelection {
+	if recordSelection && dispatchCandidate.Direct == nil {
 		if stableFirstRotationKey != "" && stableFirstObservationKey != "" {
 			targetKey := stableFirstRotationKey
 			if usedObservation {
@@ -970,6 +1044,9 @@ func (s *ChannelSelector) finalizeDispatch(
 	}
 
 	actualModel := ResolveActualModelForSelectedChannel(requestedModel, match.Route.DisplayName, mappedModel, selected.Channel.SourceModel, selected.Channel.AccountID)
+	if dispatchCandidate.Direct != nil {
+		actualModel = dispatchCandidate.Direct.ModelName
+	}
 
 	tokenName := "default"
 	if dispatchCandidate.Token != nil {
@@ -985,5 +1062,6 @@ func (s *ChannelSelector) finalizeDispatch(
 		TokenName:     tokenName,
 		ActualModel:   actualModel,
 		ContextLength: match.Route.ContextLength,
+		Direct:        dispatchCandidate.Direct,
 	}, nil
 }

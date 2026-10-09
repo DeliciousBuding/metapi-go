@@ -10,6 +10,7 @@
 import { accountsApi } from './api/accounts'
 import { catalogSourcesApi } from './api/catalog-sources'
 import { eventsApi } from './api/events'
+import { importedUpstreamsApi } from './api/imported-upstreams'
 import { oauthApi } from './api/oauth'
 import { probeHistoryApi } from './api/probe-history'
 import { searchApi } from './api/search'
@@ -23,8 +24,10 @@ import { testChatApi } from './api/test-chat'
 import { tokenRoutesApi } from './api/token-routes'
 
 export * from './api/types'
+export type { ImportedUpstreamInventory } from './api/imported-upstreams'
 
 export const api = {
+  ...importedUpstreamsApi,
   ...sitesApi,
   ...siteAnnouncementsApi,
   ...accountsApi,

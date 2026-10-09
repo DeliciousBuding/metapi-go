@@ -45,7 +45,7 @@ func InsertProxyLog(ctx context.Context, db *store.DB, entry proxy.ProxyLogEntry
 // proxyLogInsertColumns is the canonical column list for a proxy_logs INSERT.
 // Order MUST match proxyLogEntryArgs. Shared by the single-row InsertProxyLog
 // path and the multi-row batch writer so the two never drift.
-const proxyLogInsertColumns = `route_id, channel_id, account_id, downstream_api_key_id,
+const proxyLogInsertColumns = `route_id, channel_id, upstream_channel_id, upstream_grant_id, account_id, downstream_api_key_id,
 			model_requested, model_actual, status, http_status, is_stream,
 			first_byte_latency_ms, first_output_latency_ms, latency_ms,
 			prompt_tokens, completion_tokens, total_tokens,
@@ -56,7 +56,7 @@ const proxyLogInsertColumns = `route_id, channel_id, account_id, downstream_api_
 // proxyLogSingleRowPlaceholders matches the canonical INSERT column list.
 // store.DB rebinds ? to $N for PostgreSQL, so the batch writer builds rows of
 // the same placeholder shape and lets the rebind do the dialect work.
-const proxyLogSingleRowPlaceholders = `(?, ?, ?, ?,
+const proxyLogSingleRowPlaceholders = `(?, ?, ?, ?, ?, ?,
 			?, ?, ?, ?, ?,
 			?, ?, ?,
 			?, ?, ?,
@@ -84,6 +84,8 @@ func proxyLogEntryArgs(entry proxy.ProxyLogEntry, createdAt string) []any {
 	return []any{
 		nullInt64(entry.RouteID),
 		nullInt64(entry.ChannelID),
+		nullInt64(entry.UpstreamChannelID),
+		nullInt64(entry.UpstreamGrantID),
 		nullInt64(entry.AccountID),
 		nullInt64(entry.DownstreamAPIKeyID),
 		nullString(strPtrOrEmpty(entry.ModelRequested)),
@@ -216,7 +218,18 @@ func writeSuccessProxyLog(
 		routeIDPtr = &routeID
 	}
 	channelID := selected.Channel.ID
+	var channelIDPtr, upstreamChannelIDPtr, upstreamGrantIDPtr *int64
+	if selected.Direct == nil {
+		channelIDPtr = &channelID
+	} else {
+		upstreamChannelIDPtr = &selected.Direct.ChannelID
+		upstreamGrantIDPtr = &selected.Direct.GrantID
+	}
 	accountID := selected.Account.ID
+	var accountIDPtr *int64
+	if selected.Direct == nil {
+		accountIDPtr = &accountID
+	}
 	source := usage.Source
 	if source == "" {
 		if usage.Found {
@@ -229,14 +242,19 @@ func writeSuccessProxyLog(
 	if selected.Site.Platform != "" {
 		platformName = selected.Site.Platform
 	}
+	if selected.Direct != nil {
+		platformName = "openai"
+	}
 	// Billing attribution uses the requested (canonical) name so a
 	// redirect/rewrite to the upstream actual name never changes cost
 	// accounting — ratio lookups stay on the canonical model.
 	billing := EstimateBillingCostFromUsage(requestedModel, platformName, usage)
 	entry := proxy.ProxyLogEntry{
 		RouteID:              routeIDPtr,
-		ChannelID:            &channelID,
-		AccountID:            &accountID,
+		ChannelID:            channelIDPtr,
+		UpstreamChannelID:    upstreamChannelIDPtr,
+		UpstreamGrantID:      upstreamGrantIDPtr,
+		AccountID:            accountIDPtr,
 		DownstreamAPIKeyID:   keyID,
 		ModelRequested:       requestedModel,
 		ModelActual:          &modelActual,
@@ -327,7 +345,18 @@ func writeFailureProxyLog(
 		routeIDPtr = &routeID
 	}
 	channelID := selected.Channel.ID
+	var channelIDPtr, upstreamChannelIDPtr, upstreamGrantIDPtr *int64
+	if selected.Direct == nil {
+		channelIDPtr = &channelID
+	} else {
+		upstreamChannelIDPtr = &selected.Direct.ChannelID
+		upstreamGrantIDPtr = &selected.Direct.GrantID
+	}
 	accountID := selected.Account.ID
+	var accountIDPtr *int64
+	if selected.Direct == nil {
+		accountIDPtr = &accountID
+	}
 	source := usage.Source
 	if source == "" {
 		if usage.Found {
@@ -339,6 +368,9 @@ func writeFailureProxyLog(
 	platformName := ""
 	if selected.Site.Platform != "" {
 		platformName = selected.Site.Platform
+	}
+	if selected.Direct != nil {
+		platformName = "openai"
 	}
 	// Only attach cost when usage was found; avoid inventing spend on pure
 	// network/timeout failures with zero tokens. Attribution name, not the
@@ -357,8 +389,10 @@ func writeFailureProxyLog(
 	}
 	entry := proxy.ProxyLogEntry{
 		RouteID:              routeIDPtr,
-		ChannelID:            &channelID,
-		AccountID:            &accountID,
+		ChannelID:            channelIDPtr,
+		UpstreamChannelID:    upstreamChannelIDPtr,
+		UpstreamGrantID:      upstreamGrantIDPtr,
+		AccountID:            accountIDPtr,
 		DownstreamAPIKeyID:   keyID,
 		ModelRequested:       requestedModel,
 		ModelActual:          &modelActual,

@@ -463,6 +463,8 @@ export type ProxyLogListItem = {
   firstOutputLatencyMs?: number | null
   totalTokens: number | null
   retryCount: number
+  upstreamChannelId?: number | null
+  upstreamGrantId?: number | null
   accountId?: number | null
   siteId?: number | null
   username?: string | null

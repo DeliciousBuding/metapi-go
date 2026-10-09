@@ -22,7 +22,7 @@ var tableColumnCount = map[string]int{
 	"OAuthRouteUnit":                8,
 	"OAuthRouteUnitMember":          19,
 	"RouteChannel":                  23,
-	"ProxyLog":                      26,
+	"ProxyLog":                      28,
 	"ProxyVideoTask":                15,
 	"AdminBackgroundTask":           14,
 	"Setting":                       2,
@@ -107,7 +107,7 @@ func TestColumnCounts(t *testing.T) {
 		// Exported fields only (all schema fields are exported)
 		count := 0
 		for i := 0; i < tp.NumField(); i++ {
-			if tp.Field(i).IsExported() {
+			if tp.Field(i).IsExported() && tp.Field(i).Tag.Get("db") != "-" {
 				count++
 			}
 		}

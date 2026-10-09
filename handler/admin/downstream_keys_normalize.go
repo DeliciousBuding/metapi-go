@@ -369,6 +369,7 @@ func normalizeInt64Set(input []int64) []int64 {
 // Accepted shapes:
 //   - {"kind":"account_token","siteId":>0,"accountId":>0,"tokenId":>0}
 //   - {"kind":"default_api_key","siteId":>0,"accountId":>0}
+//   - {"kind":"direct_grant","grantId":>0}
 func normalizeExcludedCredentialRefsInput(input []any) ([]any, string) {
 	seen := make(map[string]bool)
 	result := make([]any, 0, len(input))
@@ -379,6 +380,22 @@ func normalizeExcludedCredentialRefsInput(input []any) ([]any, string) {
 		}
 		kind, _ := obj["kind"].(string)
 		kind = strings.TrimSpace(kind)
+		if kind == "direct_grant" {
+			grantId := coerceInt64(obj["grantId"])
+			if grantId <= 0 {
+				return nil, fmt.Sprintf("credentialRefs[%d] (direct_grant) requires a positive grantId", i)
+			}
+			dedupeKey := fmt.Sprintf("direct_grant:%d", grantId)
+			if seen[dedupeKey] {
+				continue
+			}
+			seen[dedupeKey] = true
+			result = append(result, map[string]any{"kind": "direct_grant", "grantId": grantId})
+			if len(result) >= 1000 {
+				break
+			}
+			continue
+		}
 		siteId := coerceInt64(obj["siteId"])
 		accountId := coerceInt64(obj["accountId"])
 		if siteId <= 0 || accountId <= 0 {
@@ -414,7 +431,7 @@ func normalizeExcludedCredentialRefsInput(input []any) ([]any, string) {
 				"accountId": accountId,
 			})
 		} else {
-			return nil, fmt.Sprintf("credentialRefs[%d] has unknown kind %q (expected account_token or default_api_key)", i, kind)
+			return nil, fmt.Sprintf("credentialRefs[%d] has unknown kind %q (expected account_token, default_api_key, or direct_grant)", i, kind)
 		}
 		if len(result) >= 1000 {
 			break

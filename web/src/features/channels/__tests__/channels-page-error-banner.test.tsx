@@ -20,6 +20,10 @@ import '@/i18n/config'
 import { ChannelsPage } from '../components/channels-page'
 import type { ChannelRow } from '../types'
 
+vi.mock('../components/imported-upstreams-panel', () => ({
+  ImportedUpstreamsPanel: () => null,
+}))
+
 const testState = vi.hoisted(() => ({
   channels: [] as ChannelRow[],
   navigate: vi.fn(),

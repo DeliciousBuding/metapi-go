@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	backupsvc "github.com/deliciousbuding/metapi-go/service/backup"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -43,7 +44,7 @@ const (
 	backupWebdavFetchTimeout        = 15 * time.Second
 )
 
-var backupWebdavImportMaxBytes int64 = 64 << 20
+var backupWebdavImportMaxBytes int64 = 20 << 20
 
 var allowPrivateWebdavTargets bool
 
@@ -131,6 +132,10 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, message)
 		return
 	}
+	if backupsvc.IsOctopusV5Payload(raw) {
+		h.importOctopusV5Backup(w, r, raw)
+		return
+	}
 
 	// TS (cita-777/metapi) backup v2.1 payloads take the dedicated parser.
 	if backupsvc.IsTSV21Payload(raw) {
@@ -209,7 +214,24 @@ func (h *backupHandler) importTSV21Backup(w http.ResponseWriter, raw []byte) {
 func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Request) {
 	raw, err := readLimitedWebdavBody(r.Body, backupWebdavImportMaxBytes)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid import data: expected a JSON object with a tables field")
+		status := http.StatusBadRequest
+		message := "invalid import data: expected a JSON object with a tables field"
+		var tooLarge webdavImportTooLargeError
+		if errors.As(err, &tooLarge) {
+			status = http.StatusRequestEntityTooLarge
+			message = err.Error()
+		}
+		writeError(w, status, message)
+		return
+	}
+	if backupsvc.IsOctopusV5Payload(raw) {
+		originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
+		preview, err := backupsvc.PreviewOctopusV5(backupStoreDB(h.db), raw, originKey)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"success": true, "plan": preview})
 		return
 	}
 
@@ -260,6 +282,48 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 		response["ignoredTables"] = ignoredTables
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *backupHandler) importOctopusV5Backup(w http.ResponseWriter, r *http.Request, raw []byte) {
+	originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
+	preview, err := backupsvc.PreviewOctopusV5(backupStoreDB(h.db), raw, originKey)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(preview.Blocking) > 0 {
+		writeError(w, http.StatusBadRequest, "Octopus preview contains unsupported behavior that must be removed before import")
+		return
+	}
+	if len(preview.Removals) > 0 && r.Header.Get("X-Octopus-Replace-Origin") != "true" {
+		writeError(w, http.StatusConflict, "Source snapshot removes imported entries; review the preview and explicitly confirm origin replacement")
+		return
+	}
+	importMode := strings.TrimSpace(r.Header.Get("X-Octopus-Import-Mode"))
+	if importMode != "" && importMode != "channels-only" {
+		writeError(w, http.StatusBadRequest, "unsupported Octopus import mode")
+		return
+	}
+	if len(preview.NotImported) > 0 && importMode != "channels-only" {
+		writeError(w, http.StatusBadRequest, "Octopus backup contains unsupported sections; explicitly select channels-only import after reviewing the preview")
+		return
+	}
+	counts, err := backupsvc.ImportOctopusV5WithUnsupportedMode(backupStoreDB(h.db), raw, originKey, importMode == "channels-only", r.Header.Get("X-Octopus-Replace-Origin") == "true")
+	if err != nil {
+		if errors.Is(err, backupsvc.ErrOctopusReplacementRequired) {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
+		writeError(w, backupImportErrorStatus(err), err.Error())
+		return
+	}
+	routing.InvalidateCache()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success":     true,
+		"message":     "Octopus v5 import completed",
+		"imported":    counts,
+		"notImported": preview.NotImported,
+	})
 }
 
 // decodeBackupImportBodyFrom decodes a backup import request body and returns

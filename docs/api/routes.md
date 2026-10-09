@@ -4,6 +4,29 @@
 
 ## Models & Routes
 
+### GET /api/imported-upstreams
+
+Returns `{items, members}` for imported direct-upstream channels. `items` contains
+channel ID, name, origin key, dialect, base URL, availability, protocol paths and
+model/credential counts. `members` connects group items to route, model and
+credential names and authorized protocol bits (Chat 2, Responses 4, Messages 8).
+This is configuration inventory, not a protocol-health probe. Credential values,
+custom headers and parameter overrides are never included.
+Members also expose persisted grant success/failure counts and nullable cooldown
+time/reason code. Imported grant failures use the gateway's bounded Fibonacci
+backoff and are excluded from subsequent selection until that cooldown expires;
+success clears cooldown. Health is per model/credential grant, shared across its
+group memberships, and does not change unrelated grants. Imported historical
+statistics are retained separately and are not treated as live health evidence.
+
+### PATCH /api/imported-upstreams/:id
+
+Accepts exactly one JSON object `{enabled: boolean}`. Only channel availability
+is changed; all other fields are rejected. Returns `{success, id, enabled}`;
+unknown IDs return 404. Routing cache invalidation makes availability effective
+on the next selection. Source graph edits remain owned by re-import; re-importing
+the same origin can overwrite the local availability decision.
+
 ### GET /api/routes/lite
 
 Lightweight route list (id, modelPattern, displayName, displayIcon, routeMode, routingStrategy, enabled).

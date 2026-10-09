@@ -40,6 +40,7 @@ import {
 } from './channels-columns'
 import { ChannelsErrorBanner } from './channels-error-banner'
 import { CooldownReasonDialog } from './cooldown-reason-dialog'
+import { ImportedUpstreamsPanel } from './imported-upstreams-panel'
 
 const CHANNELS_COLUMN_VISIBILITY_STORAGE_KEY =
   'metapi-go:channels:column-visibility'
@@ -256,6 +257,7 @@ export function ChannelsPage() {
             onExitErrorOnly={handleExitErrorOnly}
           />
         ))}
+      <ImportedUpstreamsPanel />
       <DataTablePage
         table={table}
         isLoading={channelsPageQuery.isLoading}

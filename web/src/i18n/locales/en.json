@@ -1565,6 +1565,12 @@
           "reauthDescription": "The backup contains all stored configuration and credentials. Re-enter the admin token to confirm the export.",
           "importGroup": "Import data",
           "import": "Import",
+          "selectBackupFile": "Choose a JSON backup file",
+          "importFileTooLarge": "Backup files must be 20 MiB or smaller.",
+          "externalOriginKey": "External origin key",
+          "externalOriginKeyPlaceholder": "stable-source-name",
+          "externalOriginKeyHint": "Keep this value stable when previewing and re-importing the same Octopus source.",
+          "originKeyRequired": "Enter an external origin key before previewing this Octopus backup.",
           "webdavGroup": "WebDAV auto-backup",
           "saveWebdav": "Save WebDAV config",
           "exportToWebdav": "Export to WebDAV",
@@ -1572,10 +1578,24 @@
           "importPreview": "Preview import",
           "importConfirmTitle": "Confirm import?",
           "importConfirmDescription": "Importing inserts or overwrites the rows shown in the preview. Review the plan before continuing.",
+          "octopusReplacementTitle": "Remove entries deleted from this source",
+          "octopusReplacementDescription": "Confirmation removes this origin's channels, credentials, model grants, and routing relationships absent from the backup. Native data and other origins are unaffected; preview does not change data.",
+          "octopusImportConfirmDescription": "The Octopus v5 channel, credential, model grant, and group graph will be imported atomically. Historical statistics remain preserved separately and are not merged into live Metapi totals.",
+          "octopusPartialImportConfirmDescription": "Only the executable channel, credential, model grant, and group graph will be imported. Listed API keys, pricing data, and non-proxy settings remain only in your source file. Default Octopus group retry, timeout, cooldown, and affinity policies will use Metapi routing rules instead. Continue only if these omissions and adaptations are intended.",
+          "octopusChannelsOnlyAcknowledgement": "I understand: import channels, credentials, model grants, groups, supported proxy settings, and history only. Listed Octopus API keys, pricing data, and other settings will not be activated. Default group retry, timeout, cooldown, and affinity policies will use Metapi routing rules instead.",
+          "octopusAdaptationsTitle": "Routing policy adaptations requiring confirmation:",
+          "octopusAdaptation": {
+            "groupRelayConfigDefaults": "The channel/group relationships are preserved, but Octopus's default per-member retries, timeouts, cooldown, and affinity are not implemented for direct grants; Metapi's routing rules will apply instead."
+          },
+          "octopusBlockingSections": "Cannot import because these behaviors are not implemented: {{sections}}. Remove them from the source export before importing.",
           "webdavImportConfirmTitle": "Import backup from WebDAV?",
           "webdavImportConfirmDescription": "Importing replaces the current data with the WebDAV backup file. Existing rows will be overwritten. Continue?",
           "importPreviewTitle": "Import plan",
           "importPreviewRow": "{{table}}: {{toInsert}} insert(s), {{duplicates}} duplicate(s) skipped, {{skipped}} skipped by policy.",
+          "octopusPreviewOrigin": "Source: {{source}} · origin key: {{originKey}}",
+          "octopusPreviewSection": "{{section}}: {{count}} record(s)",
+          "octopusNotImportedTitle": "Not migrated (will remain only in the source file):",
+          "octopusAllSectionsSupported": "No unsupported non-empty sections detected.",
           "lastSync": "Last sync: {{at}}",
           "lastError": "Last error: {{error}}",
           "fields": {
@@ -1600,6 +1620,44 @@
             "webdavExportFailed": "WebDAV export failed.",
             "webdavImported": "Imported from WebDAV.",
             "webdavImportFailed": "WebDAV import failed."
+          },
+          "design": {
+            "uploadTitle": "Choose a backup file",
+            "uploadHint": "Restore Metapi data or migrate an Octopus backup.",
+            "replaceFile": "File selected · click to replace",
+            "previewSafety": "Preview first. Nothing is written until you confirm the import.",
+            "pasteJson": "Advanced · paste JSON",
+            "importHint": "Choose your source, review the plan, then confirm.",
+            "exportHint": "Choose the data to keep in your local backup.",
+            "exportAllHint": "Configuration, connections and history",
+            "exportAccountsHint": "Sites, accounts and access credentials",
+            "exportPreferencesHint": "Application settings and preferences",
+            "webdavHint": "Keep scheduled backups in your own remote storage.",
+            "ready": "Ready to import",
+            "review": "Review required",
+            "blocked": "Cannot import",
+            "emptyPlan": "No records in this backup.",
+            "sections": {
+              "channels": "Channels",
+              "channelKeys": "Credentials",
+              "channelModels": "Models",
+              "channelGrants": "Model grants",
+              "groups": "Route groups",
+              "groupItems": "Group members",
+              "statsAPIKey": "Key history",
+              "statsDaily": "Daily history",
+              "statsHourly": "Hourly history",
+              "statsRecords": "History records",
+              "statsTotal": "Total history",
+              "apiKeys": "Downstream keys",
+              "llmInfos": "Model pricing",
+              "settings": "Settings"
+            },
+            "blockers": {
+              "clientHeaderTemplates": "unsupported client request headers",
+              "channelProxyUnavailable": "missing outbound proxy",
+              "groupRelayConfig": "unsupported group routing policies"
+            }
           }
         },
         "notifications": {
@@ -2685,6 +2743,7 @@
       "columns": {
         "createdAt": "Time",
         "account": "Account",
+        "directGrant": "Direct upstream #{{channelId}} · grant #{{grantId}}",
         "site": "Site",
         "model": "Model",
         "client": "Client",
@@ -2726,6 +2785,7 @@
         "retry": "Retry",
         "route": "Route",
         "channel": "Channel",
+        "directGrant": "Direct upstream #{{channelId}} · grant #{{grantId}}",
         "estimatedCost": "Estimated cost",
         "client": "Client",
         "sessionId": "Session ID",
@@ -3150,6 +3210,23 @@
       "effectiveCostPrecision": "Sample cost keeps 6 decimals so sub-cent per-call prices stay accurate."
     },
     "channels": {
+      "imported": {
+        "title": "Imported upstreams ({{count}})",
+        "region": "Imported upstream inventory",
+        "refresh": "Refresh",
+        "coolingDown": "Cooling down",
+        "description": "Source channels and their authorized protocol grants. Availability changes apply to routing immediately; re-import replaces the source configuration. No credential values are displayed.",
+        "loadError": "Failed to load imported upstreams: {{message}}",
+        "updated": "Imported upstream availability updated.",
+        "updateError": "Failed to update imported upstream availability.",
+        "enable": "Enable",
+        "disable": "Disable",
+        "enableChannel": "Enable {{name}}",
+        "disableChannel": "Disable {{name}}",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "counts": "{{models}} models · {{credentials}} credentials"
+      },
       "page": {
         "title": "Channels",
         "description": "Channels generated from sites, accounts, tokens, and OAuth accounts, with read-only route health.",

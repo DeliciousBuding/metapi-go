@@ -9,6 +9,12 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
+const (
+	UpstreamProtocolChat      = 1 << 1
+	UpstreamProtocolResponses = 1 << 2
+	UpstreamProtocolAnthropic = 1 << 3
+)
+
 // Catalog pricing provenance labels for cold-start cost routing.
 const (
 	// CatalogSourceOfficial labels an official vendor list price from the
@@ -68,7 +74,8 @@ type DownstreamRoutingPolicy struct {
 	KeyWeight float64
 	// RequestedContextTokens is a best-effort inbound context estimate for
 	// multi-tier route pick. 0 means unknown → first-match honesty.
-	RequestedContextTokens int64
+	RequestedContextTokens   int64
+	RequiredUpstreamProtocol int
 }
 
 // CredentialRef identifies a specific credential to exclude.
@@ -77,6 +84,7 @@ type CredentialRef struct {
 	TokenID   int64  `json:"tokenId"`
 	AccountID int64  `json:"accountId"`
 	SiteID    int64  `json:"siteId"`
+	GrantID   int64  `json:"grantId,omitempty"`
 }
 
 // EmptyDownstreamRoutingPolicy is the default allow-all policy.
@@ -96,6 +104,7 @@ type SelectedChannel struct {
 	// ContextLength is the matched token_routes.context_length (tokens).
 	// nil or <=0 means unknown / no max_tokens enforcement on the proxy path.
 	ContextLength *int64
+	Direct        *store.DirectUpstreamCandidate
 }
 
 // RouteDecisionExplanation mirrors TS RouteDecisionExplanation.
@@ -180,6 +189,7 @@ type RouteChannelCandidate struct {
 	Account          store.Account
 	Site             store.Site
 	Token            *store.AccountToken
+	Direct           *store.DirectUpstreamCandidate
 	RouteUnit        *OAuthRouteUnitSummary
 	RouteUnitMembers []OAuthRouteUnitMemberCandidate
 }

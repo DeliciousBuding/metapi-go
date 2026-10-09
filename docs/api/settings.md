@@ -99,7 +99,44 @@ with `413` instead of truncating silently.
 ### POST /api/settings/backup/import
 
 Import settings and data from JSON. Runtime-local settings such as `auth_token`, database connection settings, and WebDAV
-sync state are skipped.
+sync state are skipped. Octopus v5 channel exports are also detected by their top-level `version: 5` envelope and imported into
+separate direct-upstream tables, never converted into native `sites`/`accounts` rows. Supply a stable `X-External-Origin-Key`
+header on both preview and commit; it scopes source-ID mappings so repeat imports update the same source identity while
+different imports of channels with the same URL remain distinct.
+
+Re-import is a source snapshot replacement, not an append-only merge. Preview returns `removals` counts for
+source-owned channels, credentials, models, grants, groups, members, and routes absent from the new snapshot.
+When removals exist, commit requires `X-Octopus-Replace-Origin: true` after reviewing the removal notice and final
+confirmation; otherwise it returns 409 without changes. Replacement and upserts share one transaction. Native
+rows and other origins are never replacement targets. Empty channel exports remain invalid, not a delete-all command.
+
+The Octopus v5 path currently imports channels, named channel keys, models, grants, groups, and group items atomically.
+Imported grants enter the normal token-route selector and proxy executor as typed direct upstream candidates; they do not
+create synthetic sites or accounts. Chat Completions, Responses, and Anthropic Messages are dispatched only when the
+selected grant authorizes the matching protocol, using each imported protocol path. Messages credentials use the
+Anthropic `x-api-key` header; OpenAI-compatible protocols use Bearer authorization. Downstream model, route, and
+direct-grant credential allow-lists still apply. Direct requests have no native site identity, so a non-empty downstream
+site allow-list fails closed for these grants.
+
+Octopus `channel_proxy` is honored only when its channel's `proxy` flag is enabled; `proxy_url` is the fallback only
+for enabled-proxy channels without their own proxy URL, and never changes Metapi's global proxy setting. A channel
+marked `proxy: true` without either effective source proxy is blocking (it never silently falls back to direct egress).
+Other Octopus settings, API keys, and pricing records are not activated or imported. Preview lists these omissions. When any
+are present, commit requires the explicit `X-Octopus-Import-Mode: channels-only` header after the operator has reviewed
+and acknowledged the partial import; the original export remains unchanged. Allowlisted `{client_header:...}` templates
+(`Idempotency-Key`, `OpenAI-Beta`, `X-Request-ID`, `X-Correlation-ID`, `traceparent`, and `tracestate`) are expanded
+from the downstream request; other template names are blocking. Octopus's exact six-field default group `relay_config`
+is listed as a routing-policy adaptation and requires `channels-only` acknowledgement: channel/group relationships are
+preserved, but default member retries, timeouts, cooldown, and affinity are replaced by Metapi's routing rules. Custom
+or extended group relay settings are blocking because their semantics cannot be represented by Metapi direct grants;
+preview identifies them and commit rejects them even in channels-only mode.
+Official `group_items` denormalized display fields (`channel_id`, channel/model/key names, protocols, and availability)
+are accepted only in their exported zero-value form and ignored; the group/grant foreign keys remain authoritative.
+
+Preview counts inline and aggregate historical statistics, and commit preserves those records as imported JSON data;
+they remain source history and are not merged into Metapi's live usage totals. The existing native and TypeScript backup
+formats retain their existing behavior. Backup import HTTP requests (including WebDAV imports) are limited to 20 MiB;
+backup exports remain subject to the separate export limits described above.
 
 Tables absent from the payload are skipped, so a backup written by an older build (which carried fewer tables) still
 imports. A payload naming a table the backup set excludes — or any table outside the schema registry — is rejected with
@@ -121,11 +158,11 @@ Export a restorable backup payload to `fileUrl` with HTTP `PUT`. The payload use
 
 ### POST /api/settings/backup/webdav/import
 
-Download a backup payload from `fileUrl` with HTTP `GET` and import its `tables`. Runtime-local settings are skipped. The response includes imported row counts and updated sync state. The maximum downloaded backup size is 64 MiB.
+Download a backup payload from `fileUrl` with HTTP `GET` and import its `tables`. Runtime-local settings are skipped. The response includes imported row counts and updated sync state. The maximum downloaded backup size is 20 MiB.
 
 ### POST /api/settings/backup/import/preview
 
-Preview a backup import without writing anything. Same body shapes as `POST /api/settings/backup/import` (`{ "tables": {...} }`, optional `{ "data": { "tables": {...} } }` wrapper, TS backup v2.1 payloads).
+Preview a backup import without writing anything. Same body shapes as `POST /api/settings/backup/import` (`{ "tables": {...} }`, optional `{ "data": { "tables": {...} }` wrapper, TS backup v2.1 payloads), plus Octopus v5 JSON. Octopus v5 requests require `X-External-Origin-Key`.
 
 **Response**: `{ success, plan: { "<table>": { rows, toInsert, duplicates, skippedRows } } }` — `duplicates` are rows whose PK already exists in the target DB (they would be dropped by `ON CONFLICT DO NOTHING`); `skippedRows` are runtime-local settings skipped by policy. No rows are written.
 

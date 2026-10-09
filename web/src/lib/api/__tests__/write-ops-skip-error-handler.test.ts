@@ -37,6 +37,36 @@ function lastRequestConfig(): Record<string, unknown> {
 }
 
 describe('caller-toasted write ops skip the global error toast', () => {
+  it('sends the same external origin key on Octopus preview and commit', async () => {
+    const payload = { version: 5, exported_at: '2026-10-06T00:00:00Z' }
+    await settingsApi.previewBackupImport(payload, 'octopus-lab')
+    expect(lastRequestConfig()).toMatchObject({
+      url: '/api/settings/backup/import/preview',
+      data: JSON.stringify(payload),
+      headers: { 'X-External-Origin-Key': 'octopus-lab' },
+      skipErrorHandler: true,
+    })
+
+    await settingsApi.importBackup(payload, 'octopus-lab')
+    expect(lastRequestConfig()).toMatchObject({
+      url: '/api/settings/backup/import',
+      data: JSON.stringify(payload),
+      headers: { 'X-External-Origin-Key': 'octopus-lab' },
+      skipErrorHandler: true,
+    })
+
+    await settingsApi.importBackup(payload, 'octopus-lab', 'channels-only')
+    expect(lastRequestConfig()).toMatchObject({
+      url: '/api/settings/backup/import',
+      data: JSON.stringify(payload),
+      headers: {
+        'X-External-Origin-Key': 'octopus-lab',
+        'X-Octopus-Import-Mode': 'channels-only',
+      },
+      skipErrorHandler: true,
+    })
+  })
+
   it('oauth start / manual callback / quota refresh / rebind', async () => {
     await oauthApi.startOAuthProvider('openai', {})
     expect(lastRequestConfig()).toMatchObject({ skipErrorHandler: true })

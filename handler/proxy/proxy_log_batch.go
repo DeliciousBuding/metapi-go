@@ -213,7 +213,7 @@ func batchInsertProxyLogs(ctx context.Context, db *store.DB, entries []proxy.Pro
 // proxyLogInsertArgCount is the number of positional args per proxy_logs row.
 // Kept as a constant so the batch writer can pre-size the args slice without a
 // runtime count of proxyLogEntryArgs output.
-const proxyLogInsertArgCount = 24
+const proxyLogInsertArgCount = 26
 
 // Default tunables for the proxy_log batch writer. Mirrors the env defaults in
 // config.Load so the writer is usable in isolation (tests, ad-hoc tooling).

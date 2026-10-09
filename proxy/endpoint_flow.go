@@ -37,7 +37,8 @@ func EndpointFromPath(path string) (UpstreamEndpoint, bool) {
 	switch {
 	case strings.HasSuffix(path, "/v1/chat/completions") || path == "/chat/completions" || path == "/v1/chat/completions":
 		return EndpointChat, true
-	case strings.HasSuffix(path, "/v1/messages") || path == "/messages" || path == "/v1/messages" ||
+	case strings.HasSuffix(path, "/v1/messages/count_tokens") || path == "/messages/count_tokens" ||
+		strings.HasSuffix(path, "/v1/messages") || path == "/messages" || path == "/v1/messages" ||
 		strings.HasSuffix(path, "/anthropic/v1/messages"):
 		return EndpointMessages, true
 	case strings.HasSuffix(path, "/v1/responses") || path == "/responses" || path == "/v1/responses":

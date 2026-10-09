@@ -13,7 +13,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/pgtest"
+	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/service"
 	backupsvc "github.com/deliciousbuding/metapi-go/service/backup"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -266,6 +269,99 @@ func TestPreviewBackupImportReportsPlanWithoutWriting(t *testing.T) {
 		t.Fatalf("preview wrote auth_token (%q), want untouched", authToken)
 	}
 }
+
+func TestOctopusV5PreviewAndCommitAreRealAndCredentialSafe(t *testing.T) {
+	db := setupBackupTestDB(t)
+	h := &backupHandler{db: db.DB}
+	previewReq := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import/preview", strings.NewReader(backupsvcFixtureV5))
+	previewReq.Header.Set("X-External-Origin-Key", "octopus-prod")
+	previewRec := httptest.NewRecorder()
+	h.previewBackupImport(previewRec, previewReq)
+	if previewRec.Code != http.StatusOK || strings.Contains(previewRec.Body.String(), "fixture-key-octopus") {
+		t.Fatalf("preview status/body unexpected: %d %s", previewRec.Code, previewRec.Body.String())
+	}
+	var before int
+	if err := db.Get(&before, `SELECT COUNT(*) FROM upstream_channels`); err != nil || before != 0 {
+		t.Fatalf("preview wrote channel rows: count=%d err=%v", before, err)
+	}
+	commitReq := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(backupsvcFixtureV5))
+	commitReq.Header.Set("X-External-Origin-Key", "octopus-prod")
+	commitRec := httptest.NewRecorder()
+	h.importBackup(commitRec, commitReq)
+	if commitRec.Code != http.StatusOK || strings.Contains(commitRec.Body.String(), "fixture-key-octopus") {
+		t.Fatalf("commit status/body unexpected: %d %s", commitRec.Code, commitRec.Body.String())
+	}
+	var channels int
+	if err := db.Get(&channels, `SELECT COUNT(*) FROM upstream_channels`); err != nil || channels != 2 {
+		t.Fatalf("imported channels=%d err=%v", channels, err)
+	}
+}
+
+func TestOctopusV5CommitInvalidatesHotRouteCache(t *testing.T) {
+	db := setupBackupTestDB(t)
+	config.SetRuntime(&config.RuntimeSettings{TokenRouterFailureCooldownMaxSec: 3600, RoutingFallbackUnitCost: 1})
+	t.Cleanup(func() {
+		config.SetRuntime(nil)
+		routing.SetGlobalCache(nil)
+	})
+	cfg := &config.Config{TokenRouterCacheTtlMs: 60_000}
+	router := routing.NewTokenRouter(service.NewProxyRoutingStore(db), cfg, nil, nil)
+	policy := routing.EmptyDownstreamRoutingPolicy
+	policy.RequiredUpstreamProtocol = routing.UpstreamProtocolChat
+	if selected, err := router.SelectChannel(t.Context(), "client-model", policy); err != nil || selected != nil {
+		t.Fatalf("pre-import select = %+v, err=%v; want no route", selected, err)
+	}
+	importRouter := chi.NewRouter()
+	RegisterBackupRoutes(importRouter, db.DB)
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(backupsvcFixtureV5))
+	req.Header.Set("X-External-Origin-Key", "hot-cache-source")
+	rec := httptest.NewRecorder()
+	importRouter.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	selected, err := router.SelectChannel(t.Context(), "client-model", policy)
+	if err != nil || selected == nil || selected.Direct == nil {
+		t.Fatalf("immediate post-import select = %+v, err=%v; want newly imported direct grant", selected, err)
+	}
+}
+
+func TestOctopusV5PreviewAndCommitChannelsOnlyAcknowledgement(t *testing.T) {
+	db := setupBackupTestDB(t)
+	h := &backupHandler{db: db.DB}
+	payload := strings.Replace(backupsvcFixtureV5, `"settings":[]`, `"settings":[{"key":"model_filter","value":"model-*"}]`, 1)
+	previewReq := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import/preview", strings.NewReader(payload))
+	previewReq.Header.Set("X-External-Origin-Key", "acknowledged-source")
+	previewRec := httptest.NewRecorder()
+	h.previewBackupImport(previewRec, previewReq)
+	if previewRec.Code != http.StatusOK || !strings.Contains(previewRec.Body.String(), `"settings":1`) {
+		t.Fatalf("preview status/body = %d %s", previewRec.Code, previewRec.Body.String())
+	}
+	blockedReq := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
+	blockedReq.Header.Set("X-External-Origin-Key", "acknowledged-source")
+	blockedRec := httptest.NewRecorder()
+	h.importBackup(blockedRec, blockedReq)
+	if blockedRec.Code != http.StatusBadRequest {
+		t.Fatalf("unacknowledged partial import status=%d body=%s", blockedRec.Code, blockedRec.Body.String())
+	}
+	commitReq := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
+	commitReq.Header.Set("X-External-Origin-Key", "acknowledged-source")
+	commitReq.Header.Set("X-Octopus-Import-Mode", "channels-only")
+	commitRec := httptest.NewRecorder()
+	h.importBackup(commitRec, commitReq)
+	if commitRec.Code != http.StatusOK {
+		t.Fatalf("acknowledged channels-only commit status=%d body=%s", commitRec.Code, commitRec.Body.String())
+	}
+	var count int
+	if err := db.Get(&count, `SELECT COUNT(*) FROM upstream_channels`); err != nil || count != 2 {
+		t.Fatalf("imported channels=%d err=%v", count, err)
+	}
+	if err := db.Get(&count, `SELECT COUNT(*) FROM settings WHERE key='model_filter'`); err != nil || count != 0 {
+		t.Fatalf("unsupported setting activated count=%d err=%v", count, err)
+	}
+}
+
+const backupsvcFixtureV5 = `{"version":5,"exported_at":"2026-10-05T00:00:00Z","channels":[{"id":11,"name":"Primary","dialect":"generic","enabled":true,"base_url":"https://upstream.example/v1","openai_chat_completion_path":"/v1/chat/completions","openai_response_path":"/v1/responses","anthropic_message_path":"/v1/messages","proxy":false,"channel_proxy":"","custom_header":[],"param_override":"","match_regex":""},{"id":12,"name":"Primary backup","dialect":"generic","enabled":true,"base_url":"https://upstream.example/v1","openai_chat_completion_path":"/v1/chat/completions","openai_response_path":"/v1/responses","anthropic_message_path":"/v1/messages","proxy":false,"channel_proxy":"","custom_header":[],"param_override":"","match_regex":""}],"groups":[{"id":21,"name":"client-model","mode":"failover","active_item_id":31,"relay_config":{}}],"channel_keys":[{"id":13,"channel_id":11,"name":"prod","key":"fixture-key-octopus-1","enabled":true},{"id":14,"channel_id":12,"name":"backup","key":"fixture-key-octopus-2","enabled":true}],"channel_models":[{"id":15,"channel_id":11,"name":"provider-model"},{"id":16,"channel_id":12,"name":"provider-model"}],"channel_grants":[{"id":17,"channel_model_id":15,"channel_key_id":13,"protocols":2},{"id":18,"channel_model_id":16,"channel_key_id":14,"protocols":2}],"group_items":[{"id":31,"group_id":21,"channel_grant_id":17,"priority":0,"weight":1},{"id":32,"group_id":21,"channel_grant_id":18,"priority":1,"weight":1}],"api_keys":[],"llm_infos":[],"settings":[],"stats_total":[],"stats_daily":[],"stats_hourly":[],"stats_api_key":[]}`
 
 // Regression: the frontend api.importBackup wraps the pasted export as
 // {"data": {"tables": ...}} — the handler must accept that shape (previously
@@ -1300,6 +1396,19 @@ func TestImportBackupReportsNewDownstreamApiKeysPostgres(t *testing.T) {
 		if strings.Contains(msg, keyA) || strings.Contains(msg, keyB) {
 			t.Fatalf("event message leaks downstream key value: %q", msg)
 		}
+	}
+}
+
+func TestOctopusBackupPreviewEnforces20MiBRequestLimit(t *testing.T) {
+	db := setupBackupTestDB(t)
+	r := chi.NewRouter()
+	RegisterBackupRoutes(r, db.DB)
+	body := "{}" + strings.Repeat(" ", int(backupWebdavImportMaxBytes-1))
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import/preview", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("preview status=%d body=%s; want 413 near the 20 MiB body limit", rec.Code, rec.Body.String())
 	}
 }
 
