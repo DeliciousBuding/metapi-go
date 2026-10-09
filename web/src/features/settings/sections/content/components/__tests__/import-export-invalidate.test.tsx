@@ -478,7 +478,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
     )
 
     expect(
-      await screen.findByText('Channel graph that will be written:')
+      await screen.findByText('Configuration that will be written:')
     ).toBeInTheDocument()
     expect(
       screen.getByText('Channels that cannot be imported:')
@@ -489,7 +489,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
       )
     ).toBeInTheDocument()
     expect(
-      screen.getByText('Source settings replaced by a Metapi equivalent:')
+      screen.getByText('Unmigrated capabilities and configuration differences:')
     ).toBeInTheDocument()
     // An AxonHub import never asks for the Octopus channels-only acknowledgement.
     expect(

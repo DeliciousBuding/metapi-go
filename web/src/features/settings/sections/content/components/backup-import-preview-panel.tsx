@@ -67,6 +67,13 @@ export function BackupImportPreviewPanel(props: Props) {
   )
   const skipped = axonhub?.skippedChannels ?? []
   const residuals = axonhub?.residuals ?? []
+  const unsupportedProtocols = residuals.flatMap((residual) => {
+    const match = /^declared_protocol_not_servable:([^\s]+)/.exec(residual)
+    return match ? [match[1]] : []
+  })
+  const otherResiduals = residuals.filter(
+    (residual) => !residual.startsWith('declared_protocol_not_servable:')
+  )
   const routable = Object.entries(axonhub?.routable ?? {}).filter(
     ([, count]) => count > 0
   )
@@ -280,7 +287,17 @@ export function BackupImportPreviewPanel(props: Props) {
                   {t('settings.content.importExport.axonhubResidualsTitle')}
                 </p>
                 <ul className='text-muted-foreground space-y-1'>
-                  {residuals.map((residual) => (
+                  {unsupportedProtocols.length > 0 && (
+                    <li className='break-words'>
+                      {t(
+                        'settings.content.importExport.axonhubUnsupportedProtocols',
+                        {
+                          formats: unsupportedProtocols.join(', '),
+                        }
+                      )}
+                    </li>
+                  )}
+                  {otherResiduals.map((residual) => (
                     <li key={residual} className='break-words'>
                       {residual}
                     </li>

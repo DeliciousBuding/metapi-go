@@ -103,6 +103,23 @@ describe('imported upstream inventory', () => {
     await waitFor(() => expect(state.get).toHaveBeenCalledTimes(1))
     expect(screen.queryByRole('region')).not.toBeInTheDocument()
   })
+  it('shows each protocol destination when a channel uses separate endpoints', async () => {
+    const data = inventory()
+    data.items[0].endpointConfig = {
+      chat: { url: 'https://chat.example/custom', auth: 'bearer' },
+      messages: { url: 'https://messages.example/native', auth: 'x-api-key' },
+    }
+    data.members[0].protocols = 30
+    state.get.mockResolvedValue(data)
+    mount()
+    fireEvent.click(await screen.findByText('Protocol endpoints'))
+    expect(screen.getByText('https://chat.example/custom')).toBeVisible()
+    expect(screen.getByText('https://messages.example/native')).toBeVisible()
+    expect(screen.getByText('x-api-key')).toBeVisible()
+    expect(
+      screen.getByText('Chat / Responses / Messages / Gemini')
+    ).toBeVisible()
+  })
   it('reads back availability after a confirmed update', async () => {
     state.patch.mockImplementation(async () => {
       state.get.mockResolvedValue(inventory(false))

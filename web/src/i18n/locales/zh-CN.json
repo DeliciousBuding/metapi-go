@@ -1596,10 +1596,11 @@
           "octopusPreviewOrigin": "来源：{{source}} · 来源键：{{originKey}}",
           "octopusPreviewSection": "{{section}}：{{count}} 条记录",
           "octopusNotImportedTitle": "未迁移（只保留在原始文件中）：",
-          "axonhubRoutableTitle": "将写入的渠道图：",
+          "axonhubRoutableTitle": "将写入的配置：",
           "axonhubSkippedTitle": "无法导入的渠道：",
-          "axonhubResidualsTitle": "已改用 Metapi 等价机制的来源设置：",
-          "axonhubImportConfirmDescription": "将在单个事务内导入 AxonHub v1.4 的渠道、凭据、上游模型、模型授权与模型路由。项目、API keys、模型定价与系统配置只保留在原始文件中；未迁移内容见上方预览。",
+          "axonhubResidualsTitle": "未迁移的能力与配置差异：",
+          "axonhubUnsupportedProtocols": "导入渠道暂不支持以下来源协议：{{formats}}。",
+          "axonhubImportConfirmDescription": "将在单个事务内写入预览列出的 AxonHub v1.4 配置。请核对配置差异与未迁移项；未迁移内容保留在原始文件中。",
           "octopusAllSectionsSupported": "未发现包含数据的不支持区段。",
           "lastError": "上次错误：{{error}}",
           "fields": {
@@ -3284,6 +3285,7 @@
       "imported": {
         "title": "导入通道（{{count}}）",
         "region": "导入通道清单",
+        "endpoints": "协议端点",
         "refresh": "刷新",
         "coolingDown": "冷却中",
         "description": "来源通道及其授权协议。启停会立即影响路由；重新导入会覆盖来源配置。这里不会显示凭据值。",

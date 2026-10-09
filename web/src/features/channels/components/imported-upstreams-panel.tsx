@@ -10,6 +10,12 @@ import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
 const queryKey = ['imported-upstreams'] as const
+const protocolNames: Record<string, string> = {
+  chat: 'Chat',
+  responses: 'Responses',
+  messages: 'Messages',
+  gemini: 'Gemini',
+}
 
 export function ImportedUpstreamsPanel() {
   const { t } = useTranslation()
@@ -114,6 +120,32 @@ export function ImportedUpstreamsPanel() {
                   })}
                 </span>
               </div>
+              {Object.keys(item.endpointConfig ?? {}).length > 0 && (
+                <details className='mt-3 text-xs'>
+                  <summary className='text-muted-foreground cursor-pointer'>
+                    {t('channels.imported.endpoints')}
+                  </summary>
+                  <dl className='mt-2 space-y-2'>
+                    {Object.entries(item.endpointConfig ?? {}).map(
+                      ([protocol, endpoint]) => (
+                        <div key={protocol}>
+                          <dt className='font-medium'>
+                            {protocolNames[protocol] ?? protocol}
+                            <span className='text-muted-foreground ml-2 font-normal'>
+                              {endpoint.auth === 'bearer'
+                                ? 'Bearer'
+                                : endpoint.auth}
+                            </span>
+                          </dt>
+                          <dd className='text-muted-foreground mt-0.5 break-all'>
+                            {endpoint.url}
+                          </dd>
+                        </div>
+                      )
+                    )}
+                  </dl>
+                </details>
+              )}
               <ul className='mt-3 space-y-2'>
                 {query.data.members
                   .filter((member) => member.channelId === item.id)
@@ -147,6 +179,7 @@ export function ImportedUpstreamsPanel() {
                           member.protocols & 2 ? 'Chat' : '',
                           member.protocols & 4 ? 'Responses' : '',
                           member.protocols & 8 ? 'Messages' : '',
+                          member.protocols & 16 ? 'Gemini' : '',
                         ]
                           .filter(Boolean)
                           .join(' / ')}
