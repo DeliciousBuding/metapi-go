@@ -26,11 +26,13 @@ import {
   formatDateTime,
   formatLogDateDetail,
   formatTimeOfDay,
+  formatCurrency,
 } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { ProxyLog } from '../types'
 import { TimingCell } from './timing-cell'
+import { UsageCell } from './usage-cell'
 
 export type ProxyLogsColumnActions = { onView: (log: ProxyLog) => void }
 
@@ -221,6 +223,51 @@ export function useProxyLogsColumns(
           latencyMs={row.original.latencyMs}
           firstByteLatencyMs={row.original.firstByteLatencyMs}
         />
+      ),
+    },
+    {
+      id: 'usage',
+      size: 130,
+      meta: { label: t('proxyLogs.columns.usage'), mobileOrder: 6 },
+      header: () => t('proxyLogs.columns.usage'),
+      cell: ({ row }) => <UsageCell log={row.original} />,
+    },
+    {
+      id: 'estimatedCost',
+      accessorKey: 'estimatedCost',
+      size: 125,
+      meta: { label: t('proxyLogs.columns.cost'), mobileOrder: 7 },
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('proxyLogs.columns.cost')}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className='bg-muted inline-flex rounded-md px-2 py-1 text-xs tabular-nums'>
+          {formatCurrency(row.original.estimatedCost, {
+            fractionDigits: 6,
+            locale,
+          })}
+        </span>
+      ),
+    },
+    {
+      id: 'isStream',
+      accessorKey: 'isStream',
+      size: 90,
+      meta: { label: t('proxyLogs.columns.mode'), mobileOrder: 8 },
+      header: () => t('proxyLogs.columns.mode'),
+      cell: ({ row }) => (
+        <span className='text-muted-foreground text-xs'>
+          {row.original.isStream == null
+            ? '—'
+            : t(
+                row.original.isStream
+                  ? 'proxyLogs.usage.stream'
+                  : 'proxyLogs.usage.nonStream'
+              )}
+        </span>
       ),
     },
     {

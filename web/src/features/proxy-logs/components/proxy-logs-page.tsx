@@ -293,6 +293,12 @@ export function ProxyLogsPage() {
   )
 
   const { table } = useDataTable<ProxyLog>({
+    initialColumnVisibility: {
+      account: false,
+      client: false,
+      token: false,
+      retryCount: false,
+    },
     data: items,
     columns,
     manualPagination: true,

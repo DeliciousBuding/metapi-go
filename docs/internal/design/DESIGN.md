@@ -35,6 +35,14 @@ counts and maintenance are secondary. Metric details use compact divided cells
 rather than nested padded cards. Increase information density by removing repeated spacing,
 not by shrinking body text.
 
+Proxy logs show attempt timing, input/output token counts, estimated USD cost,
+and stream mode in the default view. API keys are not labeled as token usage.
+Account, client, key and retry columns remain optional; saved column preferences
+are preserved. Missing usage, cost and mode stay unknown rather than becoming
+zero or non-stream. Billing details present billable input, output, cache read
+and cache creation with their individual costs; the original billing object is
+available in a disclosure, including legacy objects without that breakdown.
+
 **Principles**
 
 1. **Signal over decoration** — every color/weight change means status, severity, or hierarchy.

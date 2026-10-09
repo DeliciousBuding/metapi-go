@@ -83,6 +83,45 @@ afterEach(() => {
 })
 
 describe('ProxyLogDetailSheet drilldown links', () => {
+  it('shows cache and cost breakdown while keeping raw billing available', async () => {
+    testState.detail = {
+      ...makeLog(),
+      billingDetails: {
+        usage: {
+          billablePromptTokens: 300,
+          completionTokens: 50,
+          cacheReadTokens: 900,
+          cacheCreationTokens: 20,
+        },
+        breakdown: {
+          inputCost: 0.0003,
+          outputCost: 0.0005,
+          cacheReadCost: 0.00009,
+          cacheCreationCost: 0.00002,
+          totalCost: 0.00091,
+        },
+      },
+    } as ProxyLogDetail
+    render(<ProxyLogDetailSheet log={makeLog()} open onOpenChange={() => {}} />)
+    expect(await screen.findByText('Cache read')).toBeInTheDocument()
+    expect(screen.getByText('900')).toBeInTheDocument()
+    expect(screen.getByText('$0.000090')).toBeInTheDocument()
+    expect(screen.getByText('$0.000910')).toBeInTheDocument()
+    expect(
+      screen.getByText('Raw billing data').closest('details')
+    ).not.toHaveAttribute('open')
+  })
+
+  it('preserves legacy billing objects that have no structured usage', async () => {
+    testState.detail = {
+      ...makeLog(),
+      billingDetails: { currency: 'USD', total: '0.05' },
+    } as unknown as ProxyLogDetail
+    render(<ProxyLogDetailSheet log={makeLog()} open onOpenChange={() => {}} />)
+    expect(await screen.findByText(/"currency": "USD"/)).toBeInTheDocument()
+    expect(screen.queryByText('Cache read')).not.toBeInTheDocument()
+  })
+
   it('links the route id to the token-routes page with a routeId param', async () => {
     testState.detail = {
       ...makeLog(),

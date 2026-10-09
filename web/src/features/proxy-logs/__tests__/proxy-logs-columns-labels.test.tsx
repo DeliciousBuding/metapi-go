@@ -86,7 +86,7 @@ describe('useProxyLogsColumns meta.labels', () => {
       model: '模型',
       status: '状态',
       latencyMs: '延迟',
-      token: '令牌',
+      token: 'API 密钥',
       retryCount: '重试',
     }
     for (const id of HIDABLE_COLUMN_IDS) {

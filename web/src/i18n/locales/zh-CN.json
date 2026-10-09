@@ -2690,7 +2690,10 @@
         "client": "客户端",
         "status": "状态",
         "latency": "延迟",
-        "token": "令牌",
+        "token": "API 密钥",
+        "usage": "Token 用量",
+        "cost": "预估费用",
+        "mode": "模式",
         "retry": "重试",
         "actions": "操作",
         "rowActions": "行操作",
@@ -2698,6 +2701,7 @@
       },
       "detail": {
         "description": "日志 #{{id}} · {{time}}",
+        "requestId": "请求 ID（关联各次重试）",
         "loading": "加载详情…",
         "sectionOverview": "概览",
         "sectionConversation": "会话路径",
@@ -2737,6 +2741,17 @@
         "all": "全部",
         "success": "成功",
         "failed": "失败"
+      },
+      "usage": {
+        "input": "输入",
+        "output": "输出",
+        "cacheRead": "缓存读取",
+        "cacheCreation": "缓存写入",
+        "billableInput": "计费输入",
+        "stream": "流式",
+        "nonStream": "非流式",
+        "rawBilling": "原始计费数据",
+        "totalCost": "费用合计"
       },
       "timing": {
         "firstByte": "首字节",
