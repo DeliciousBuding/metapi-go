@@ -18,7 +18,7 @@ Pick the prerequisites for the path you deploy with:
   Pre-built binaries ship with every [GitHub Release](https://github.com/DeliciousBuding/metapi-go/releases/latest);
   `install.sh` only needs `curl` + `sha256sum`.
 - **Docker** — any recent Docker Engine with Compose v2 (for containerized deployment).
-- **From source** — Go 1.26.6+ **and** Bun 1.x. Bun is only needed to build the
+- **From source** — Go 1.26.9+ **and** Bun 1.x. Bun is only needed to build the
   embedded frontend (`cd web && bun install --frozen-lockfile && bun run build:web`
   must run before `go build`); release binaries and GHCR images already include it.
 - PostgreSQL 16+ (optional, for a production database)
