@@ -108,11 +108,7 @@ func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) Downstre
 		if managed.InvalidAccessPolicy || (managed.AccessPolicy != nil && managed.AccessPolicy.BlockReason != "") {
 			return DownstreamTokenAuthResult{StatusCode: 403, Error: "API key access policy is blocked", Reason: "access_policy"}
 		}
-		if managed.AccessPolicy != nil && managed.AccessPolicy.Quota != nil {
-			if result := checkManagedKeyQuota(managed.ID, managed.AccessPolicy.Quota); !result.OK {
-				return result
-			}
-		}
+
 		// Check enabled
 		if !managed.Enabled {
 			return DownstreamTokenAuthResult{
@@ -157,6 +153,12 @@ func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) Downstre
 				StatusCode: 429,
 				Error:      "API key has exceeded max requests",
 				Reason:     "over_requests",
+			}
+		}
+
+		if managed.AccessPolicy != nil && managed.AccessPolicy.Quota != nil {
+			if result := checkManagedKeyQuota(managed.ID, managed.AccessPolicy.Quota); !result.OK {
+				return result
 			}
 		}
 
