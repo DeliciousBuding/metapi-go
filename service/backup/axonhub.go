@@ -107,6 +107,7 @@ func axonHubSourceSections(src *AxonHubSource) map[string]int {
 
 func axonHubPlanCounts(plan *axonHubPlan) map[string]int {
 	return map[string]int{
+		"apiKeys":     len(plan.keys),
 		"channels":    len(plan.channels),
 		"credentials": len(plan.credentials),
 		"models":      len(plan.models),
@@ -123,6 +124,7 @@ var axonHubEntityDeletionOrder = []struct {
 }{
 	{"token_routes", "token_routes"},
 	{"upstream_group_items", "upstream_group_items"},
+	{"downstream_api_keys", "downstream_api_keys"},
 	{"upstream_grants", "upstream_grants"},
 	{"upstream_models", "upstream_models"},
 	{"upstream_credentials", "upstream_credentials"},
@@ -185,6 +187,9 @@ func axonHubPlanSourceIDs(plan *axonHubPlan) map[string]map[int64]bool {
 			ids[entity] = map[int64]bool{}
 		}
 		ids[entity][sourceID] = true
+	}
+	for _, key := range plan.keys {
+		mark("downstream_api_keys", int64(key.SourceID))
 	}
 	for _, channel := range plan.channels {
 		mark("upstream_channels", int64(channel.SourceID))
@@ -378,6 +383,9 @@ func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplaceme
 			}
 			counts["groupItems"]++
 		}
+	}
+	if err := importAxonHubAccess(db, tx, originKey, plan, channelIDs, counts); err != nil {
+		return nil, err
 	}
 	if err := pruneAxonHubSource(db, tx, originKey, keep, owned); err != nil {
 		return nil, err

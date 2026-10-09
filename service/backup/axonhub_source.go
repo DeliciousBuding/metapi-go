@@ -33,8 +33,10 @@ type AxonHubSource struct {
 	APIKeys               []AxonHubSourceAPIKey
 	// UsageRequests/UsageLogs are history, not configuration; only their row
 	// counts are retained so a preview can report them honestly.
-	UsageRequests int
-	UsageLogs     int
+	UsageRequests       int
+	UsageLogs           int
+	QuotaUsage          []AxonHubQuotaUsage
+	QuotaHistoryPresent bool
 	// UnknownSections counts recognized top-level sections outside this
 	// importer's contract.
 	UnknownSections map[string]int
@@ -205,6 +207,8 @@ type AxonHubSourceModelPrice struct {
 }
 
 type AxonHubSourceProject struct {
+	Profiles    *AxonHubAccessProfiles
+	DeletedAt   int
 	ID          int
 	Name        string
 	Description string
@@ -213,6 +217,9 @@ type AxonHubSourceProject struct {
 }
 
 type AxonHubSourceAPIKey struct {
+	Key         string
+	Profiles    *AxonHubAccessProfiles
+	IPAllowlist []string
 	ID          int
 	ProjectID   int
 	Name        string
@@ -309,6 +316,9 @@ func ParseAxonHubSource(raw []byte) (*AxonHubSource, error) {
 	}
 	if src.UsageRequests, err = sectionRowCount(top["usage_requests"]); err != nil {
 		return nil, axonHubErr("invalid AxonHub backup: usage_requests must be an array")
+	}
+	if src.QuotaUsage, src.QuotaHistoryPresent, err = decodeAxonHubQuotaUsage(top["usage_logs"]); err != nil {
+		return nil, err
 	}
 	if src.UsageLogs, err = sectionRowCount(top["usage_logs"]); err != nil {
 		return nil, axonHubErr("invalid AxonHub backup: usage_logs must be an array")
@@ -855,12 +865,18 @@ func decodeAxonHubProjects(raw json.RawMessage) ([]AxonHubSourceProject, error) 
 			Name        string          `json:"name"`
 			Description string          `json:"description"`
 			Status      string          `json:"status"`
+			DeletedAt   int             `json:"deleted_at"`
 			Profiles    json.RawMessage `json:"profiles"`
 		}
 		if err := json.Unmarshal(row, &shape); err != nil {
 			return nil, axonHubErr("invalid AxonHub backup: projects[%d] is invalid", i)
 		}
+		profiles, err := decodeAxonHubAccessProfiles(shape.Profiles, true)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, AxonHubSourceProject{
+			Profiles: profiles, DeletedAt: shape.DeletedAt,
 			ID: shape.ID, Name: shape.Name, Description: shape.Description,
 			Status: shape.Status, ProfileRows: profileRowCount(shape.Profiles),
 		})
@@ -910,6 +926,7 @@ func decodeAxonHubAPIKeys(raw json.RawMessage) ([]AxonHubSourceAPIKey, error) {
 	out := make([]AxonHubSourceAPIKey, 0, len(rows))
 	for i, row := range rows {
 		var shape struct {
+			Key        string          `json:"key"`
 			ID         int             `json:"id"`
 			ProjectID  int             `json:"project_id"`
 			Name       string          `json:"name"`
@@ -923,7 +940,12 @@ func decodeAxonHubAPIKeys(raw json.RawMessage) ([]AxonHubSourceAPIKey, error) {
 		if err := json.Unmarshal(row, &shape); err != nil {
 			return nil, axonHubErr("invalid AxonHub backup: api_keys[%d] is invalid", i)
 		}
+		profiles, err := decodeAxonHubAccessProfiles(shape.Profiles, false)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, AxonHubSourceAPIKey{
+			Key: shape.Key, Profiles: profiles, IPAllowlist: shape.AllowedIPs,
 			ID: shape.ID, ProjectID: shape.ProjectID, Name: shape.Name, Type: shape.Type,
 			Status: shape.Status, DeletedAt: shape.DeletedAt, Scopes: shape.Scopes,
 			ProfileRows: profileRowCount(shape.Profiles), AllowedIPs: len(shape.AllowedIPs),

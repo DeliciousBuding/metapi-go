@@ -1484,11 +1484,15 @@
             "expiresAt": "Expires at",
             "expiresAtHint": "Entered in your browser's local time, stored and compared as UTC. The key stops working the moment it passes — calls return 403. Leave empty for no expiry.",
             "enabled": "Enabled",
-            "description": "Description"
+            "description": "Description",
+            "accessPolicy": "Access boundaries and period quotas",
+            "accessPolicyJson": "Policy JSON",
+            "accessPolicyHint": "Applied together with the permissions above. allowedUpstreamChannelIds lists direct channel IDs; [] denies all. modelIds matches mapped models exactly; modelMappings runs in order. quota supports requests, tokens and cost for rolling/calendar periods. Keep imported historyMissingBefore until accounting is reconciled. Empty clears this additional policy."
           },
           "schema": {
             "nameRequired": "Name is required.",
-            "keyMinLength": "Key must be at least 8 characters."
+            "keyMinLength": "Key must be at least 8 characters.",
+            "accessPolicyInvalid": "Enter a valid JSON object"
           },
           "toast": {
             "created": "API key created.",

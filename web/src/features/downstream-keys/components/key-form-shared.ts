@@ -42,6 +42,22 @@ export function generateDownstreamSkSuffix(): string {
 }
 
 export const createKeySchema = z.object({
+  accessPolicyText: z
+    .string()
+    .default('')
+    .refine((value) => {
+      if (!value.trim()) return true
+      try {
+        const parsed: unknown = JSON.parse(value)
+        return (
+          parsed !== null &&
+          typeof parsed === 'object' &&
+          !Array.isArray(parsed)
+        )
+      } catch {
+        return false
+      }
+    }, 'settings.downstream.keys.schema.accessPolicyInvalid'),
   name: z.string().min(1, 'settings.downstream.keys.schema.nameRequired'),
   key: z.string().min(8, 'settings.downstream.keys.schema.keyMinLength'),
   groupName: z.string().optional(),
@@ -153,6 +169,7 @@ export function extractMarketplaceModelNames(result: unknown): string[] {
 
 export function blankKeyFormValues(): CreateKeyFormValues {
   return {
+    accessPolicyText: '',
     name: '',
     key: '',
     groupName: '',
@@ -171,8 +188,16 @@ export function blankKeyFormValues(): CreateKeyFormValues {
 export function keyFormValuesFromItem(
   item: DownstreamApiKeyItem
 ): CreateKeyFormValues {
+  let accessPolicyText = ''
+  if (item.accessPolicy) {
+    accessPolicyText =
+      typeof item.accessPolicy === 'string'
+        ? item.accessPolicy
+        : JSON.stringify(item.accessPolicy, null, 2)
+  }
   return {
     ...blankKeyFormValues(),
+    accessPolicyText,
     name: item.name,
     groupName: item.groupName ?? '',
     maxRequests: item.maxRequests ?? undefined,

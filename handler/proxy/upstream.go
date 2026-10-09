@@ -85,6 +85,7 @@ func getUpstreamConfig() *UpstreamConfig {
 // dispatchUpstream forwards a proxy request to the selected upstream channel.
 // Implements the spec's 10-step Handler pattern.
 func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
+	r = withDownstreamResponseModel(r, ctx)
 	shared.RecordProxyRequest()
 	startedAt := time.Now()
 	// Parent request/trace id is stable across channel retries and endpoint fallbacks.
@@ -966,6 +967,7 @@ func dispatchEndpointAttemptWithContinue(
 	writeSuccessProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, resp.StatusCode, false, usage, retry, requestID)
 	if body.readable {
 		respBody = normalizeNativeTerminalResponse(resp, respBody, r.URL.Path)
+		respBody = restoreBufferedDownstreamResponseModel(resp, respBody, downstreamResponseModel(r))
 	}
 	// Videos create: map upstream id → publicId before the client sees the body.
 	respBody = maybeRewriteVideosCreateResponse(ctx, selected, upstreamPath, respBody)
@@ -1383,6 +1385,7 @@ func routingPolicyFromAuth(policy auth.DownstreamRoutingPolicy) routing.Downstre
 	}
 
 	return routing.DownstreamRoutingPolicy{
+		AccessPolicy:           policy.AccessPolicy,
 		SupportedModels:        policy.SupportedModels,
 		AllowedRouteIDs:        policy.AllowedRouteIDs,
 		SiteWeightMultipliers:  multipliers,

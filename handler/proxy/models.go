@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/auth"
+	"github.com/deliciousbuding/metapi-go/routing"
 )
 
 // modelsOwnedBy is the OpenAI-compatible owned_by value for Metapi-owned listings.
@@ -143,6 +144,39 @@ func buildClaudeModelsResponse(models []string, now time.Time) map[string]any {
 // then downstream routing policy filters the catalog.
 func getAvailableModels(ctx context.Context, policy auth.DownstreamRoutingPolicy) []string {
 	models := resolveOwnedModelCatalog(ctx)
+	if policy.AccessPolicy != nil {
+		if cfg := getUpstreamConfig(); cfg != nil {
+			if explainer, ok := cfg.Router.(interface {
+				ExplainSelection(context.Context, string, []int64, routing.DownstreamRoutingPolicy) (routing.RouteDecisionExplanation, error)
+			}); ok {
+				for _, mapping := range policy.AccessPolicy.ModelMappings {
+					if !strings.ContainsAny(mapping.From, "*?+[]{}()^$.|\\") {
+						models = append(models, mapping.From)
+					}
+				}
+				available := make([]string, 0, len(models))
+				for _, model := range models {
+					if !IsModelAllowedByPolicy(model, policy) {
+						continue
+					}
+					listingPolicy := routingPolicyFromAuth(policy)
+					listingPolicy.RequiredUpstreamProtocol = -1 // Listing accepts any protocol the grant can serve.
+					decision, err := explainer.ExplainSelection(ctx, model, nil, listingPolicy)
+					if err != nil {
+						continue
+					}
+					for _, candidate := range decision.Candidates {
+						if candidate.Eligible {
+							available = append(available, model)
+							break
+						}
+					}
+				}
+				return normalizeModelCatalog(available)
+			}
+		}
+		return []string{}
+	}
 	if len(policy.SupportedModels) == 0 && len(policy.AllowedRouteIDs) == 0 {
 		if policy.DenyAllWhenEmpty {
 			return []string{}
@@ -324,6 +358,9 @@ func knownModelContextLength(model string) (int64, bool) {
 
 // IsModelAllowedByPolicy checks if a model is allowed by the downstream policy.
 func IsModelAllowedByPolicy(requestedModel string, policy auth.DownstreamRoutingPolicy) bool {
+	if !policy.AccessPolicy.AllowsModel(requestedModel) {
+		return false
+	}
 	if len(policy.SupportedModels) == 0 && len(policy.AllowedRouteIDs) == 0 {
 		return !policy.DenyAllWhenEmpty
 	}

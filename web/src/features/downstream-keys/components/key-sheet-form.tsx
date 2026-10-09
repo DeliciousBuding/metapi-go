@@ -30,6 +30,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
@@ -339,7 +340,11 @@ export function KeySheetForm({
     mutationFn: async (values: CreateKeyFormValues) => {
       // Canonical wire format for the credential-ref dimensions: real arrays
       // (create/update bodies never carry the stored JSON-string form).
+      const { accessPolicyText, ...keyValues } = values
       const policy = {
+        accessPolicy: accessPolicyText.trim()
+          ? JSON.parse(accessPolicyText)
+          : null,
         allowedCredentialRefs: serializeCredentialRefs(
           values.allowedCredentialRefs
         ),
@@ -351,7 +356,11 @@ export function KeySheetForm({
       // expiry it can parse (see localDatetimeInputToIso).
       const expiresAt = localDatetimeInputToIso(values.expiresAt ?? '')
       if (!editingKey) {
-        return api.createDownstreamApiKey({ ...values, ...policy, expiresAt })
+        return api.createDownstreamApiKey({
+          ...keyValues,
+          ...policy,
+          expiresAt,
+        })
       }
       return api.updateDownstreamApiKey(editingKey.id, {
         name: values.name,
@@ -712,6 +721,35 @@ export function KeySheetForm({
               )}
             />
           )}
+          <details className='rounded-md border p-3'>
+            <summary className='cursor-pointer text-sm font-medium'>
+              {t('settings.downstream.keys.fields.accessPolicy')}
+            </summary>
+            <FormField
+              control={form.control}
+              name='accessPolicyText'
+              render={({ field }) => (
+                <FormItem className='mt-3'>
+                  <FormLabel>
+                    {t('settings.downstream.keys.fields.accessPolicyJson')}
+                  </FormLabel>
+                  <FormDescription>
+                    {t('settings.downstream.keys.fields.accessPolicyHint')}
+                  </FormDescription>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      rows={10}
+                      className='font-mono text-xs'
+                      spellCheck={false}
+                      placeholder='{"modelIds":["gpt-4o"],"quota":{"requests":100,"period":{"type":"calendar_duration","calendarDuration":{"unit":"day"}},"timezone":"UTC"}}'
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </details>
         </form>
       </Form>
       <SheetFooter>

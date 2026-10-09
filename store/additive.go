@@ -518,6 +518,13 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 	// string stays reserved: databases that already recorded it keep the row,
 	// and it must never be reused for a different step.
 
+	{
+		Version:     "downstream_access_policy_v1",
+		Description: "downstream access policy and durable quota usage",
+		Apply: func(db *DB) error {
+			return EnsureColumn(db, "downstream_api_keys", "access_policy", "TEXT", "TEXT", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

@@ -188,7 +188,7 @@ func TestAxonHubPreviewRedactsSourceValues(t *testing.T) {
 	if preview.Routable["channels"] != 1 || preview.Routable["routes"] != 1 {
 		t.Fatalf("unexpected routable counts: %#v", preview.Routable)
 	}
-	if preview.NotImported["projects"] != 1 || preview.NotImported["apiKeys"] != 1 {
+	if preview.Routable["apiKeys"] != 1 || preview.NotImported["apiKeys"] != 0 {
 		t.Fatalf("unmanaged sections were not reported: %#v", preview.NotImported)
 	}
 	encoded, err := json.Marshal(preview)

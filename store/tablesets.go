@@ -56,6 +56,7 @@ var schemaTables = []schemaTable{
 	{"site_hour_usage", buildSiteHourUsageDDL},
 	{"model_day_usage", buildModelDayUsageDDL},
 	{"downstream_api_keys", buildDownstreamAPIKeysDDL},
+	{"downstream_quota_usage", buildDownstreamQuotaUsageDDL},
 	{"site_announcements", buildSiteAnnouncementsDDL},
 	{"events", buildEventsDDL},
 	{"admin_background_tasks", buildAdminBackgroundTasksDDL},

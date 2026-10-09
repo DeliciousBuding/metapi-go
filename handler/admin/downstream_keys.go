@@ -11,6 +11,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -168,28 +169,29 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 	// maxCost/maxRequests use any so clients can send number|string|null (TS parity).
 	// Explicit null/0/"" clears to unlimited (NULL); omitted also stores NULL on create.
 	var body struct {
-		Name                   string   `json:"name"`
-		Key                    string   `json:"key"`
-		Description            *string  `json:"description"`
-		GroupName              *string  `json:"groupName"`
-		Tags                   []string `json:"tags"`
-		Enabled                *bool    `json:"enabled"`
-		ExpiresAt              *string  `json:"expiresAt"`
-		MaxCost                any      `json:"maxCost"`
-		MaxRequests            any      `json:"maxRequests"`
-		MaxRpm                 any      `json:"maxRpm"`
-		MaxTpm                 any      `json:"maxTpm"`
-		SupportedModels        []string `json:"supportedModels"`
-		AllowedRouteIds        []int64  `json:"allowedRouteIds"`
-		SiteWeightMultipliers  any      `json:"siteWeightMultipliers"`
-		KeyWeight              any      `json:"keyWeight"`
-		ExcludedSiteIds        []int64  `json:"excludedSiteIds"`
-		ExcludedCredentialRefs []any    `json:"excludedCredentialRefs"`
-		AllowedSiteIds         []int64  `json:"allowedSiteIds"`
-		AllowedCredentialRefs  []any    `json:"allowedCredentialRefs"`
-		ProxyURL               *string  `json:"proxyUrl"`
-		IPAllowlist            *string  `json:"ipAllowlist"`
-		IPBlocklist            *string  `json:"ipBlocklist"`
+		AccessPolicy           json.RawMessage `json:"accessPolicy"`
+		Name                   string          `json:"name"`
+		Key                    string          `json:"key"`
+		Description            *string         `json:"description"`
+		GroupName              *string         `json:"groupName"`
+		Tags                   []string        `json:"tags"`
+		Enabled                *bool           `json:"enabled"`
+		ExpiresAt              *string         `json:"expiresAt"`
+		MaxCost                any             `json:"maxCost"`
+		MaxRequests            any             `json:"maxRequests"`
+		MaxRpm                 any             `json:"maxRpm"`
+		MaxTpm                 any             `json:"maxTpm"`
+		SupportedModels        []string        `json:"supportedModels"`
+		AllowedRouteIds        []int64         `json:"allowedRouteIds"`
+		SiteWeightMultipliers  any             `json:"siteWeightMultipliers"`
+		KeyWeight              any             `json:"keyWeight"`
+		ExcludedSiteIds        []int64         `json:"excludedSiteIds"`
+		ExcludedCredentialRefs []any           `json:"excludedCredentialRefs"`
+		AllowedSiteIds         []int64         `json:"allowedSiteIds"`
+		AllowedCredentialRefs  []any           `json:"allowedCredentialRefs"`
+		ProxyURL               *string         `json:"proxyUrl"`
+		IPAllowlist            *string         `json:"ipAllowlist"`
+		IPBlocklist            *string         `json:"ipBlocklist"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -220,6 +222,11 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	accessPolicy, policyErr := normalizeDownstreamAccessPolicy(body.AccessPolicy)
+	if policyErr != nil {
+		writeError(w, http.StatusBadRequest, policyErr.Error())
+		return
+	}
 	// Normalize policy fields.
 	normalizedTags := normalizeTagsInput(body.Tags)
 	normalizedModels := normalizeSupportedModelsInput(body.SupportedModels)
@@ -292,13 +299,13 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 		(name, key, description, group_name, tags, enabled, expires_at, max_cost, used_cost, max_requests, used_requests,
 		 supported_models, allowed_route_ids, site_weight_multipliers, key_weight, excluded_site_ids, excluded_credential_refs,
 		 allowed_site_ids, allowed_credential_refs,
-		 proxy_url, max_rpm, max_tpm, ip_allowlist, ip_blocklist, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 proxy_url, max_rpm, max_tpm, ip_allowlist, ip_blocklist, access_policy, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		body.Name, body.Key, desc, normalizedGroupName, tagsJSON, enabled, body.ExpiresAt,
 		maxCost, maxRequests,
 		modelsJSON, routeIdsJSON, swmJSON, keyWeight, excludedSitesJSON, credRefsJSON,
 		allowedSitesJSON, allowedCredRefsJSON,
-		proxyURL, maxRpm, maxTpm, ipAllowlist, ipBlocklist, now, now,
+		proxyURL, maxRpm, maxTpm, ipAllowlist, ipBlocklist, accessPolicy, now, now,
 	)
 	if err != nil {
 		if isUniqueConstraintError(err) {
@@ -338,24 +345,25 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	// nil pointer = field not present in JSON body for most fields.
 	// maxCost/maxRequests are decoded from the raw map so number|string|null all work.
 	var body struct {
-		Name                   *string  `json:"name"`
-		Key                    *string  `json:"key"`
-		Description            *string  `json:"description"`
-		GroupName              *string  `json:"groupName"`
-		Tags                   []string `json:"tags"`
-		Enabled                *bool    `json:"enabled"`
-		ExpiresAt              *string  `json:"expiresAt"`
-		SupportedModels        []string `json:"supportedModels"`
-		AllowedRouteIds        []int64  `json:"allowedRouteIds"`
-		SiteWeightMultipliers  any      `json:"siteWeightMultipliers"`
-		KeyWeight              any      `json:"keyWeight"`
-		ExcludedSiteIds        []int64  `json:"excludedSiteIds"`
-		ExcludedCredentialRefs []any    `json:"excludedCredentialRefs"`
-		AllowedSiteIds         []int64  `json:"allowedSiteIds"`
-		AllowedCredentialRefs  []any    `json:"allowedCredentialRefs"`
-		ProxyURL               *string  `json:"proxyUrl"`
-		IPAllowlist            *string  `json:"ipAllowlist"`
-		IPBlocklist            *string  `json:"ipBlocklist"`
+		AccessPolicy           json.RawMessage `json:"accessPolicy"`
+		Name                   *string         `json:"name"`
+		Key                    *string         `json:"key"`
+		Description            *string         `json:"description"`
+		GroupName              *string         `json:"groupName"`
+		Tags                   []string        `json:"tags"`
+		Enabled                *bool           `json:"enabled"`
+		ExpiresAt              *string         `json:"expiresAt"`
+		SupportedModels        []string        `json:"supportedModels"`
+		AllowedRouteIds        []int64         `json:"allowedRouteIds"`
+		SiteWeightMultipliers  any             `json:"siteWeightMultipliers"`
+		KeyWeight              any             `json:"keyWeight"`
+		ExcludedSiteIds        []int64         `json:"excludedSiteIds"`
+		ExcludedCredentialRefs []any           `json:"excludedCredentialRefs"`
+		AllowedSiteIds         []int64         `json:"allowedSiteIds"`
+		AllowedCredentialRefs  []any           `json:"allowedCredentialRefs"`
+		ProxyURL               *string         `json:"proxyUrl"`
+		IPAllowlist            *string         `json:"ipAllowlist"`
+		IPBlocklist            *string         `json:"ipBlocklist"`
 	}
 
 	bodyBytes, err := decodeJSONRequestRaw(r, &body)
@@ -373,6 +381,9 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	}
 
 	hasField := make(map[string]bool)
+	if _, ok := rawBody["accessPolicy"]; ok {
+		hasField["accessPolicy"] = true
+	}
 	if _, ok := rawBody["name"]; ok {
 		hasField["name"] = true
 	}
@@ -596,6 +607,15 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 		ipBlocklist = normalizeIPListPtr(body.IPBlocklist)
 	}
 
+	accessPolicy := existingStringPtr(existing, "access_policy")
+	if hasField["accessPolicy"] {
+		var policyErr error
+		accessPolicy, policyErr = normalizeDownstreamAccessPolicy(body.AccessPolicy)
+		if policyErr != nil {
+			writeError(w, http.StatusBadRequest, policyErr.Error())
+			return
+		}
+	}
 	// Validate.
 	if name == "" {
 		writeError(w, http.StatusBadRequest, "name is required")
@@ -605,7 +625,7 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "key is required")
 		return
 	}
-	if !strings.HasPrefix(key, "sk-") || len(key) < 6 {
+	if key != existingString(existing, "key") && (!strings.HasPrefix(key, "sk-") || len(key) < 6) {
 		writeError(w, http.StatusBadRequest, "key must start with sk- and be at least 6 characters long")
 		return
 	}
@@ -651,13 +671,13 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 			enabled = ?, expires_at = ?, max_cost = ?, max_requests = ?, max_rpm = ?, max_tpm = ?,
 			supported_models = ?, allowed_route_ids = ?, site_weight_multipliers = ?, key_weight = ?,
 			excluded_site_ids = ?, excluded_credential_refs = ?,
-				allowed_site_ids = ?, allowed_credential_refs = ?, proxy_url = ?, ip_allowlist = ?, ip_blocklist = ?, updated_at = ?
+				allowed_site_ids = ?, allowed_credential_refs = ?, proxy_url = ?, ip_allowlist = ?, ip_blocklist = ?, access_policy = ?, updated_at = ?
 		WHERE id = ?`),
 		name, key, description, groupName, tagsJSON,
 		enabled, expiresAt, maxCost, maxRequests, maxRpm, maxTpm,
 		modelsJSON, routeIdsJSON, swmJSON, keyWeight,
 		excludedSitesJSON, credRefsJSON,
-		allowedSitesJSON, allowedCredRefsJSON, proxyURL, ipAllowlist, ipBlocklist, now, id,
+		allowedSitesJSON, allowedCredRefsJSON, proxyURL, ipAllowlist, ipBlocklist, accessPolicy, now, id,
 	)
 	if err != nil {
 		if isUniqueConstraintError(err) {
@@ -1274,4 +1294,17 @@ func (h *downstreamKeysHandler) enrichKeyUsage24h(rows []map[string]any) {
 		}
 		row["usage24h"] = usage
 	}
+}
+
+func normalizeDownstreamAccessPolicy(raw json.RawMessage) (*string, error) {
+	p, err := store.ParseDownstreamAccessPolicy(string(raw))
+	if err != nil {
+		return nil, err
+	}
+	if p == nil {
+		return nil, nil
+	}
+	b, err := json.Marshal(p)
+	s := string(b)
+	return &s, err
 }

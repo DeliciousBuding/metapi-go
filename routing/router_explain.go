@@ -15,6 +15,10 @@ func (tr *TokenRouter) ExplainSelection(ctx context.Context, requestedModel stri
 	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
 		return RouteDecisionExplanation{}, err
 	}
+	if !IsModelAllowedByDownstreamPolicy(requestedModel, policy) {
+		return RouteDecisionExplanation{RequestedModel: requestedModel, Matched: false}, nil
+	}
+	requestedModel = policy.AccessPolicy.MapModel(requestedModel)
 	match, err := tr.selector.findRoute(ctx, requestedModel, policy)
 	return explainSelectionFromMatch(tr.selector, match, requestedModel, excludeChannelIDs, policy, tr.configuredMaxSec), err
 }

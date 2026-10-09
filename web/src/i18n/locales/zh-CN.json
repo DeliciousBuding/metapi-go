@@ -1484,11 +1484,15 @@
             "expiresAt": "过期时间",
             "expiresAtHint": "按浏览器本地时间填写，保存后以 UTC 存储与比较。过期后密钥立即失效，调用返回 403；留空表示永不过期。",
             "enabled": "启用",
-            "description": "备注"
+            "description": "备注",
+            "accessPolicy": "精细访问与周期配额",
+            "accessPolicyJson": "策略 JSON",
+            "accessPolicyHint": "与上方授权同时生效。allowedUpstreamChannelIds 为直连渠道 ID，空数组拒绝全部；modelIds 精确匹配映射后的模型；modelMappings 按顺序匹配。quota 支持请求、token、费用及滚动/日历周期。导入历史缺失时保留 historyMissingBefore，核对前勿移除。留空清除此附加策略。"
           },
           "schema": {
             "nameRequired": "请输入名称。",
-            "keyMinLength": "密钥至少 8 个字符。"
+            "keyMinLength": "密钥至少 8 个字符。",
+            "accessPolicyInvalid": "请输入有效的 JSON 对象"
           },
           "toast": {
             "created": "API 密钥已创建。",

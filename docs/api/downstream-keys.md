@@ -70,6 +70,61 @@ Routing-policy fields (`excludedSiteIds`, `excludedCredentialRefs`, `allowedSite
 - For `maxCost` and `maxRequests`, omitted, `null`, zero, or an empty string
   clears the corresponding limit.
 
+### Exact access boundaries and period quotas
+
+Create/update also accept an optional `accessPolicy` object. GET returns its
+stored JSON string; omitting it on update preserves it, while `null` clears it.
+The existing model/route grants still apply, and this policy narrows them:
+
+```json
+{
+  "supportedModels": ["*"],
+  "accessPolicy": {
+    "allowedUpstreamChannelIds": [4, 7],
+    "modelIds": ["gpt-4o"],
+    "modelMappings": [{"from": "client-.*", "to": "gpt-4o"}],
+    "quota": {
+      "requests": 1000,
+      "totalTokens": 1000000,
+      "cost": 10,
+      "period": {"type": "calendar_duration", "calendarDuration": {"unit": "day"}},
+      "timezone": "Asia/Hong_Kong"
+    }
+  }
+}
+```
+
+`allowedUpstreamChannelIds` uses IDs from the direct upstream channel inventory.
+An omitted list is unrestricted; a present empty list denies every channel,
+including native site/account channels. `modelIds` matches the mapped model
+exactly. Ordered mappings use anchored Go regular expressions (`*` matches all)
+and the first match wins. Invalid policy JSON or unsupported patterns fail closed.
+
+Quota limits are inclusive exhaustion thresholds; zero immediately exhausts a
+limit. Supported periods are `all_time`, `past_duration` with positive `value`
+and `unit` (`minute`, `hour`, `day`), and `calendar_duration` with `unit` (`day`,
+`month`). Calendar boundaries use the policy's IANA timezone (default UTC).
+Quota usage counts completed successes and failed attempts with observed token
+usage, independently of proxy-log retention. Cost uses the same estimated cost
+as the proxy logs. These are completion-based limits: concurrent requests may
+overrun a threshold. Unknown token/cost usage blocks the corresponding quota
+until its period expires or accounting is reconciled.
+
+AxonHub imports intersect the project and API key active profiles, including
+channel ID and `any`/`all`/`none` tag filters, into a snapshot of channel IDs.
+Reimport refreshes that boundary. Keys without `write_requests`, `noauth` keys,
+inactive projects, and unsupported active routing overrides remain blocked.
+Source usage logs are associated by their key and imported idempotently; local
+usage is retained on reimport. If the backup lacks usage history,
+`quota.historyMissingBefore` blocks periods overlapping that gap. Rolling and
+calendar quotas recover when the gap leaves the period; all-time quotas require
+reconciliation. Do not remove the marker merely to enable the key.
+
+The native backup carries both the policy and `downstream_quota_usage` ledger.
+The legacy reset-usage action resets only `usedCost`/`usedRequests`, not this
+ledger. The key editor exposes one advanced policy input for both imported and
+native keys.
+
 ### Credential & site scope (downstream keys)
 
 Optional per-key routing dimensions. All four fields are independent; each is

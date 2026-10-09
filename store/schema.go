@@ -688,6 +688,7 @@ type AdminAuditLog struct {
 
 // ---- Table 25: downstream_api_keys ----
 type DownstreamAPIKey struct {
+	AccessPolicy *string  `db:"access_policy" json:"accessPolicy"`
 	ID           int64    `db:"id" json:"id"`
 	Name         string   `db:"name" json:"name"`
 	Key          string   `db:"key" json:"key"`

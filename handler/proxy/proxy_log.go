@@ -128,6 +128,13 @@ func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntr
 	if entry.RequestID == "" {
 		entry.RequestID = proxy.RequestIDFromContext(ctx)
 	}
+	if entry.DownstreamAPIKeyID != nil && (entry.Status == "success" || entry.TotalTokens != nil) {
+		var cost *float64
+		if entry.TotalTokens != nil {
+			cost = &entry.EstimatedCost
+		}
+		auth.RecordManagedKeyQuotaUsage(*entry.DownstreamAPIKeyID, entry.TotalTokens, cost)
+	}
 	writer := cfg.LogProxy
 	if writer == nil {
 		writer = defaultLogProxyWriter
@@ -285,6 +292,7 @@ func writeSuccessProxyLog(
 	// Stream + non-stream both sink here once; helper no-ops zero/NaN/Inf.
 	// Failure paths intentionally do not call this (known limitation stays).
 	recordManagedKeyCostOnSuccess(keyID, billing.EstimatedCost)
+
 }
 
 // recordManagedKeyCostOnSuccess increments used_cost for managed keys after a

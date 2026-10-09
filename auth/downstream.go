@@ -35,14 +35,16 @@ type DownstreamTokenAuthResult struct {
 // managedKeyView is an internal struct mirroring the downstream_api_keys row
 // with parsed JSON columns. Used only within the auth package for authorization.
 type managedKeyView struct {
-	ID           int64
-	Name         string
-	Enabled      bool
-	ExpiresAt    *string
-	MaxCost      *float64
-	UsedCost     float64
-	MaxRequests  *int64
-	UsedRequests int64
+	AccessPolicy        *store.DownstreamAccessPolicy
+	InvalidAccessPolicy bool
+	ID                  int64
+	Name                string
+	Enabled             bool
+	ExpiresAt           *string
+	MaxCost             *float64
+	UsedCost            float64
+	MaxRequests         *int64
+	UsedRequests        int64
 	// ProxyURL is the optional per-key egress proxy (downstream_api_keys.proxy_url).
 	// nil/empty means inherit site/account/system proxy.
 	ProxyURL *string
@@ -102,6 +104,15 @@ func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) Downstre
 	}
 
 	if managed != nil {
+		// Invalid persisted restrictions must never become an unrestricted key.
+		if managed.InvalidAccessPolicy || (managed.AccessPolicy != nil && managed.AccessPolicy.BlockReason != "") {
+			return DownstreamTokenAuthResult{StatusCode: 403, Error: "API key access policy is blocked", Reason: "access_policy"}
+		}
+		if managed.AccessPolicy != nil && managed.AccessPolicy.Quota != nil {
+			if result := checkManagedKeyQuota(managed.ID, managed.AccessPolicy.Quota); !result.OK {
+				return result
+			}
+		}
 		// Check enabled
 		if !managed.Enabled {
 			return DownstreamTokenAuthResult{
@@ -201,13 +212,13 @@ func getManagedKeyByToken(token string) (*managedKeyView, error) {
 		        supported_models, allowed_route_ids,
 		        site_weight_multipliers, key_weight, excluded_site_ids,
 		        excluded_credential_refs, allowed_site_ids, allowed_credential_refs,
-		        ip_allowlist, ip_blocklist
+		        ip_allowlist, ip_blocklist, access_policy
 		 FROM downstream_api_keys
 		 WHERE key = ?`, token,
 	)
 
 	var v managedKeyView
-	var proxyURL *string
+	var proxyURL, accessPolicyJSON *string
 	var keyWeight *float64
 	var supportedModelsJSON, allowedRouteIDsJSON *string
 	var siteWeightMultiJSON, excludedSiteIDsJSON *string
@@ -220,7 +231,7 @@ func getManagedKeyByToken(token string) (*managedKeyView, error) {
 		&supportedModelsJSON, &allowedRouteIDsJSON,
 		&siteWeightMultiJSON, &keyWeight, &excludedSiteIDsJSON,
 		&excludedCredRefsJSON, &allowedSiteIDsJSON, &allowedCredRefsJSON,
-		&v.IPAllowlist, &v.IPBlocklist,
+		&v.IPAllowlist, &v.IPBlocklist, &accessPolicyJSON,
 	)
 	if err != nil {
 		// sql.ErrNoRows → return nil, nil (not found)
@@ -230,6 +241,11 @@ func getManagedKeyByToken(token string) (*managedKeyView, error) {
 		return nil, fmt.Errorf("query downstream_api_keys: %w", err)
 	}
 
+	if accessPolicyJSON != nil {
+		var parseErr error
+		v.AccessPolicy, parseErr = store.ParseDownstreamAccessPolicy(*accessPolicyJSON)
+		v.InvalidAccessPolicy = parseErr != nil
+	}
 	// Normalize proxy_url: whitespace-only → nil (inherit site/system).
 	if proxyURL != nil {
 		trimmed := strings.TrimSpace(*proxyURL)
@@ -355,6 +371,7 @@ func RecordManagedKeyCostUsage(keyID int64, estimatedCost float64) {
 // patterns/routes are configured).
 func toPolicyFromView(v *managedKeyView) DownstreamRoutingPolicy {
 	return DownstreamRoutingPolicy{
+		AccessPolicy:           v.AccessPolicy,
 		SupportedModels:        normalizeStringSlice(v.SupportedModels),
 		AllowedRouteIDs:        normalizeInt64Slice(v.AllowedRouteIDs),
 		SiteWeightMultipliers:  normalizeSiteWeightMap(v.SiteWeightMultipliers),
@@ -415,7 +432,10 @@ func CheckDownstreamKeyIP(key *managedKeyView, clientIP string) (bool, string) {
 	}
 	ip := strings.TrimSpace(clientIP)
 	if ip == "" {
-		return true, "" // caller did not surface a client IP; do not block
+		if key.AccessPolicy != nil && len(splitIPList(key.IPAllowlist)) > 0 {
+			return false, "ip_not_allowed"
+		}
+		return true, "" // Preserve legacy callers; imported restrictions fail closed.
 	}
 	blockEntries := splitIPList(key.IPBlocklist)
 	if len(blockEntries) > 0 {

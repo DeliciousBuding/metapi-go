@@ -190,7 +190,7 @@ func TestCompileAxonHubPlanResolvesEveryAssociationKind(t *testing.T) {
 	if !residualContains(plan.residuals, "model_has_no_importable_channel:gemini-3-pro") {
 		t.Fatalf("unreachable model was not reported: %#v", plan.residuals)
 	}
-	if plan.notImported["projects"] != 1 || plan.notImported["apiKeys"] != 1 || plan.notImported["modelPrices"] != 1 {
+	if len(plan.keys) != 1 || plan.notImported["apiKeys"] != 0 || plan.notImported["modelPrices"] != 1 {
 		t.Fatalf("unmanaged sections were not counted: %#v", plan.notImported)
 	}
 }

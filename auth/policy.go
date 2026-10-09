@@ -1,5 +1,7 @@
 package auth
 
+import "github.com/deliciousbuding/metapi-go/store"
+
 // CredentialRefKind distinguishes the two flavours of excluded credential references.
 type CredentialRefKind string
 
@@ -37,9 +39,10 @@ type ExcludedCredentialRef struct {
 // - true (managed key default): reject all models
 // - false (global token default): allow all models
 type DownstreamRoutingPolicy struct {
-	SupportedModels       []string          `json:"supported_models"`
-	AllowedRouteIDs       []int64           `json:"allowed_route_ids"`
-	SiteWeightMultipliers map[int64]float64 `json:"site_weight_multipliers"`
+	AccessPolicy          *store.DownstreamAccessPolicy `json:"accessPolicy,omitempty"`
+	SupportedModels       []string                      `json:"supported_models"`
+	AllowedRouteIDs       []int64                       `json:"allowed_route_ids"`
+	SiteWeightMultipliers map[int64]float64             `json:"site_weight_multipliers"`
 	// KeyWeight multiplies channel.Weight in weighted selection. 0 = treat as 1.0.
 	KeyWeight              float64                 `json:"key_weight"`
 	ExcludedSiteIDs        []int64                 `json:"excluded_site_ids"`

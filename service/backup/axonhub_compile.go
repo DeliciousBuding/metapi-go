@@ -18,6 +18,7 @@ import (
 // transaction executor. Both paths render exactly what this produced, so a
 // preview can never claim a channel the import will not write.
 type axonHubPlan struct {
+	keys        []axonHubPlanAPIKey
 	channels    []axonHubPlanChannel
 	credentials []axonHubPlanCredential
 	models      []axonHubPlanModel
@@ -191,11 +192,9 @@ func CompileAxonHubPlan(src *AxonHubSource) (*axonHubPlan, error) {
 		}
 	}
 
-	plan.notImported["projects"] = len(src.Projects)
-	plan.notImported["apiKeys"] = len(src.APIKeys)
-	plan.notImported["projectsWithProfiles"] = countProjectsWithProfiles(src.Projects)
-	plan.notImported["apiKeysWithProfiles"] = countAPIKeysWithProfiles(src.APIKeys)
-	plan.notImported["apiKeysWithQuota"] = countAPIKeysWithQuota(src.APIKeys)
+	if err := compileAxonHubAccess(src, plan); err != nil {
+		return nil, err
+	}
 	plan.notImported["modelPrices"] = len(src.ChannelModelPrices)
 	plan.notImported["systemConfigs"] = len(src.SystemConfigs)
 	plan.notImported["usageRequests"] = src.UsageRequests
@@ -242,36 +241,6 @@ func credentialName(index, total int) string {
 		return "default"
 	}
 	return fmt.Sprintf("key-%d", index+1)
-}
-
-func countProjectsWithProfiles(projects []AxonHubSourceProject) int {
-	count := 0
-	for _, project := range projects {
-		if project.ProfileRows > 0 {
-			count++
-		}
-	}
-	return count
-}
-
-func countAPIKeysWithProfiles(keys []AxonHubSourceAPIKey) int {
-	count := 0
-	for _, key := range keys {
-		if key.ProfileRows > 0 || len(key.Scopes) > 0 || key.AllowedIPs > 0 {
-			count++
-		}
-	}
-	return count
-}
-
-func countAPIKeysWithQuota(keys []AxonHubSourceAPIKey) int {
-	count := 0
-	for _, key := range keys {
-		if key.HasQuota {
-			count++
-		}
-	}
-	return count
 }
 
 // compileAxonHubChannel returns the direct-grant shape of one source channel,

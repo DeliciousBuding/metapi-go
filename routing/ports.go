@@ -59,6 +59,7 @@ type ChannelLoadSnapshot struct {
 
 // DownstreamRoutingPolicy mirrors TS DownstreamRoutingPolicy.
 type DownstreamRoutingPolicy struct {
+	AccessPolicy           *store.DownstreamAccessPolicy
 	ExcludedSiteIDs        []int64
 	ExcludedCredentialRefs []CredentialRef
 	// AllowedSiteIDs / AllowedCredentialRefs: optional allow-lists.
