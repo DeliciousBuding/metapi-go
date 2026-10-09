@@ -463,31 +463,32 @@ func (c RouteChannel) TotalCostOrZero() float64 {
 
 // ---- Table 14: proxy_logs ----
 type ProxyLog struct {
-	ID                 int64    `db:"id" json:"id"`
-	RouteID            *int64   `db:"route_id" json:"routeId"`
-	ChannelID          *int64   `db:"channel_id" json:"channelId"`
-	UpstreamChannelID  *int64   `db:"upstream_channel_id" json:"upstreamChannelId"`
-	UpstreamGrantID    *int64   `db:"upstream_grant_id" json:"upstreamGrantId"`
-	AccountID          *int64   `db:"account_id" json:"accountId"`
-	DownstreamAPIKeyID *int64   `db:"downstream_api_key_id" json:"downstreamApiKeyId"`
-	ModelRequested     *string  `db:"model_requested" json:"modelRequested"`
-	ModelActual        *string  `db:"model_actual" json:"modelActual"`
-	Status             *string  `db:"status" json:"status"`
-	HTTPStatus         *int64   `db:"http_status" json:"httpStatus"`
-	IsStream           *bool    `db:"is_stream" json:"isStream"`
-	FirstByteLatencyMs *int64   `db:"first_byte_latency_ms" json:"firstByteLatencyMs"`
-	LatencyMs          *int64   `db:"latency_ms" json:"latencyMs"`
-	PromptTokens       *int64   `db:"prompt_tokens" json:"promptTokens"`
-	CompletionTokens   *int64   `db:"completion_tokens" json:"completionTokens"`
-	TotalTokens        *int64   `db:"total_tokens" json:"totalTokens"`
-	EstimatedCost      *float64 `db:"estimated_cost" json:"estimatedCost"`
-	BillingDetails     *string  `db:"billing_details" json:"billingDetails"`
-	ClientFamily       *string  `db:"client_family" json:"clientFamily"`
-	ClientAppID        *string  `db:"client_app_id" json:"clientAppId"`
-	ClientAppName      *string  `db:"client_app_name" json:"clientAppName"`
-	ClientConfidence   *string  `db:"client_confidence" json:"clientConfidence"`
-	ErrorMessage       *string  `db:"error_message" json:"errorMessage"`
-	RetryCount         int64    `db:"retry_count" json:"retryCount"`
+	ID                   int64    `db:"id" json:"id"`
+	RouteID              *int64   `db:"route_id" json:"routeId"`
+	ChannelID            *int64   `db:"channel_id" json:"channelId"`
+	UpstreamChannelID    *int64   `db:"upstream_channel_id" json:"upstreamChannelId"`
+	UpstreamGrantID      *int64   `db:"upstream_grant_id" json:"upstreamGrantId"`
+	AccountID            *int64   `db:"account_id" json:"accountId"`
+	DownstreamAPIKeyID   *int64   `db:"downstream_api_key_id" json:"downstreamApiKeyId"`
+	ModelRequested       *string  `db:"model_requested" json:"modelRequested"`
+	ModelActual          *string  `db:"model_actual" json:"modelActual"`
+	Status               *string  `db:"status" json:"status"`
+	HTTPStatus           *int64   `db:"http_status" json:"httpStatus"`
+	IsStream             *bool    `db:"is_stream" json:"isStream"`
+	FirstByteLatencyMs   *int64   `db:"first_byte_latency_ms" json:"firstByteLatencyMs"`
+	FirstOutputLatencyMs *int64   `db:"first_output_latency_ms" json:"firstOutputLatencyMs"`
+	LatencyMs            *int64   `db:"latency_ms" json:"latencyMs"`
+	PromptTokens         *int64   `db:"prompt_tokens" json:"promptTokens"`
+	CompletionTokens     *int64   `db:"completion_tokens" json:"completionTokens"`
+	TotalTokens          *int64   `db:"total_tokens" json:"totalTokens"`
+	EstimatedCost        *float64 `db:"estimated_cost" json:"estimatedCost"`
+	BillingDetails       *string  `db:"billing_details" json:"billingDetails"`
+	ClientFamily         *string  `db:"client_family" json:"clientFamily"`
+	ClientAppID          *string  `db:"client_app_id" json:"clientAppId"`
+	ClientAppName        *string  `db:"client_app_name" json:"clientAppName"`
+	ClientConfidence     *string  `db:"client_confidence" json:"clientConfidence"`
+	ErrorMessage         *string  `db:"error_message" json:"errorMessage"`
+	RetryCount           int64    `db:"retry_count" json:"retryCount"`
 	// RequestID is the ingress X-Request-Id / chi RequestID shared across retries.
 	RequestID *string `db:"request_id" json:"requestId"`
 	CreatedAt string  `db:"created_at" json:"createdAt"`

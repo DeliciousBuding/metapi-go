@@ -206,6 +206,8 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
           <TimingCell
             latencyMs={detail.latencyMs}
             firstByteLatencyMs={detail.firstByteLatencyMs}
+            firstOutputLatencyMs={detail.firstOutputLatencyMs}
+            isStream={detail.isStream}
           />
         </DetailField>
         <DetailField label={t('proxyLogs.detail.isStream')}>
@@ -348,11 +350,19 @@ function BillingSection({ billing }: { billing: ProxyLogBillingDetails }) {
   const usage = billing.usage
   const breakdown = billing.breakdown
   const rows =
-    usage && breakdown
+    usage &&
+    breakdown &&
+    (typeof usage.promptTokens === 'number' ||
+      typeof usage.billablePromptTokens === 'number') &&
+    typeof breakdown.inputCost === 'number'
       ? [
           {
-            label: t('proxyLogs.usage.billableInput'),
-            tokens: usage.billablePromptTokens,
+            label: t(
+              typeof usage.billablePromptTokens === 'number'
+                ? 'proxyLogs.usage.billableInput'
+                : 'proxyLogs.usage.input'
+            ),
+            tokens: usage.billablePromptTokens ?? usage.promptTokens,
             cost: breakdown.inputCost,
           },
           {

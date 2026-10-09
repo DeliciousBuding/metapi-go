@@ -458,6 +458,13 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		},
 	},
 	{
+		Version:     "sc2_031_proxy_first_output",
+		Description: "proxy_logs.first_output_latency_ms nullable observed generated SSE output latency",
+		Apply: func(db *DB) error {
+			return EnsureColumn(db, "proxy_logs", "first_output_latency_ms", "INTEGER", "INTEGER", "")
+		},
+	},
+	{
 		Version:     "sc2_032_direct_grant_health",
 		Description: "direct upstream grant success, latency, cost and cooldown observations",
 		Apply: func(db *DB) error {

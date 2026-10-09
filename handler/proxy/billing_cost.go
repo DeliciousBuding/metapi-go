@@ -58,6 +58,9 @@ func EstimateBillingCostFromUsage(modelName, platform string, usage ParsedUsage)
 			// Cache detail present: cache-aware three-way split.
 			detail := routing.CalculateModelUsageBreakdown(pm, u, groupRatios)
 			if detail != nil {
+				billingUsage := details["usage"].(map[string]any)
+				billingUsage["billable_prompt_tokens"] = detail.Usage.BillablePromptTokens
+				billingUsage["prompt_tokens_include_cache"] = detail.Usage.PromptTokensIncludeCache
 				details["breakdown"] = map[string]any{
 					"input_cost":          detail.Breakdown.InputCost,
 					"output_cost":         detail.Breakdown.OutputCost,
@@ -86,6 +89,9 @@ func EstimateBillingCostFromUsage(modelName, platform string, usage ParsedUsage)
 			// token-divisor estimate.
 			detail := routing.CalculateModelUsageFullPrice(pm, u, groupRatios)
 			if detail != nil {
+				billingUsage := details["usage"].(map[string]any)
+				billingUsage["billable_prompt_tokens"] = detail.Usage.BillablePromptTokens
+				billingUsage["prompt_tokens_include_cache"] = detail.Usage.PromptTokensIncludeCache
 				details["breakdown"] = map[string]any{
 					"input_cost":          detail.Breakdown.InputCost,
 					"output_cost":         detail.Breakdown.OutputCost,

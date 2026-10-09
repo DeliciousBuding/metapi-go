@@ -64,10 +64,10 @@ func (o streamOutcome) String() string {
 }
 
 func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
-	return handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, r.URL.Path, "", messages.Options{})
+	return handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, r.URL.Path, "", messages.Options{}, nil)
 }
 
-func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64, upstreamPath, upstreamModel string, bridgeOptions messages.Options) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
+func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64, upstreamPath, upstreamModel string, bridgeOptions messages.Options, onFirstOutput func()) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
 	empty := ParsedUsage{Source: usageSourceUnknown}
 	if resp == nil || resp.Body == nil {
 		return empty, streamEndedNormally, nil
@@ -140,6 +140,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	}
 
 	analyzer := newIncrementalSseAnalyzer()
+	analyzer.onFirstOutput = onFirstOutput
 	sawStreamBytes := false
 	var streamedBytes int64
 	outcome := streamEndedNormally

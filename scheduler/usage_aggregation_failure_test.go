@@ -25,6 +25,11 @@ func TestUsageAggregationFlushFailurePreservesDeltaAndWatermark(t *testing.T) {
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatalf("migrate sqlite: %v", err)
 	}
+	// The checkpoint need not start at zero in a reused database. A prior
+	// orphan log supplies a nonzero baseline without affecting aggregates.
+	if _, err := db.Exec(`INSERT INTO proxy_logs (id,status,created_at) VALUES (19,'success',?)`, time.Now().UTC().Format(time.RFC3339)); err != nil {
+		t.Fatal(err)
+	}
 
 	const triggerName = "usage_fail_site_day_insert"
 	armFailure := func() {
@@ -94,7 +99,8 @@ func runUsageAggregationFlushFailureLifecycle(t *testing.T, db *store.DB, suffix
 	t.Helper()
 
 	now := time.Now().UTC().Format(time.RFC3339)
-	seedProjectionCheckpoint(t, db, maxProxyLogID(t, db))
+	initialWatermark := maxProxyLogID(t, db)
+	seedProjectionCheckpoint(t, db, initialWatermark)
 
 	siteID := insertProjectionSite(t, db, suffix, now)
 	accountID := insertProjectionAccount(t, db, siteID, suffix, now)
@@ -126,8 +132,8 @@ func runUsageAggregationFlushFailureLifecycle(t *testing.T, db *store.DB, suffix
 	// Watermark must not advance past the failed batch, and the failure must
 	// be recorded on the checkpoint for the next pass to retry.
 	watermark, lastError := readProjectionCheckpointState(t, db)
-	if watermark != 0 {
-		t.Fatalf("watermark after failed flush = %d, want 0 (unchanged)", watermark)
+	if watermark != initialWatermark {
+		t.Fatalf("watermark after failed flush = %d, want %d (unchanged)", watermark, initialWatermark)
 	}
 	if !lastError.Valid || lastError.String == "" {
 		t.Fatalf("last_error after failed flush = %v, want recorded failure", lastError)

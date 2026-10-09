@@ -460,6 +460,7 @@ export type ProxyLogListItem = {
   latencyMs: number
   isStream?: boolean | null
   firstByteLatencyMs?: number | null
+  firstOutputLatencyMs?: number | null
   totalTokens: number | null
   retryCount: number
   upstreamChannelId?: number | null
@@ -481,6 +482,8 @@ export type ProxyLogListItem = {
   usageSource?: ProxyLogUsageSource
   promptTokens?: number | null
   completionTokens?: number | null
+  cacheReadTokens?: number | null
+  cacheCreationTokens?: number | null
   estimatedCost?: number | null
 }
 

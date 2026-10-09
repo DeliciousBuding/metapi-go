@@ -784,7 +784,9 @@ func dispatchEndpointAttemptWithContinue(
 		var streamVerdict *proxy.UpstreamVerdict
 		func() {
 			defer resp.Body.Close()
-			streamUsage, streamEnd, streamVerdict = handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, upstreamPath, upstreamModel, bridgeOptions)
+			var firstOutput *int64
+			streamUsage, streamEnd, streamVerdict = handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, upstreamPath, upstreamModel, bridgeOptions, func() { firstOutput = int64Ptr(time.Since(startedAt).Milliseconds()) })
+			streamUsage.FirstOutputLatencyMs = firstOutput
 		}()
 		latencyMs = time.Since(startedAt).Milliseconds()
 		if status, errText, terminal, failed := streamFailureVerdict(streamEnd, int(streamIdleTimeout().Seconds())); failed {
