@@ -95,7 +95,7 @@ const accessPolicySchema = z.object({
 
 // Undefined means an unreadable saved policy. Omit it from writes rather than
 // clearing restrictions a newer or damaged payload cannot render safely.
-export function parseAccessPolicy(
+function parseAccessPolicy(
   value: DownstreamApiKeyItem['accessPolicy']
 ): DownstreamAccessPolicy | null | undefined {
   if (value == null || value === '') return null
