@@ -15,6 +15,9 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query'
 
+import { accountQueryKeys } from '@/features/accounts'
+import { channelsKeys } from '@/features/channels'
+import { routeQueryKeys } from '@/features/token-routes'
 import { api } from '@/lib/api'
 
 import {
@@ -141,8 +144,13 @@ export function useUpdateSite(
         queryClient.setQueryData(sitesKeys.list(), context.previous)
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, { payload }) => {
       queryClient.invalidateQueries({ queryKey: sitesKeys.list() })
+      if (payload.status !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+        void queryClient.invalidateQueries({ queryKey: channelsKeys.all })
+        void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
+      }
     },
     ...options,
   })
@@ -179,6 +187,9 @@ export function useDeleteSite(
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: sitesKeys.list() })
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+      void queryClient.invalidateQueries({ queryKey: channelsKeys.all })
+      void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
     },
     ...options,
   })
@@ -211,6 +222,9 @@ export function useBatchUpdateSites(
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: sitesKeys.list() })
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+      void queryClient.invalidateQueries({ queryKey: channelsKeys.all })
+      void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
     },
     ...options,
   })

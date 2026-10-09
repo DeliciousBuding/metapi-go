@@ -24,6 +24,11 @@ Channels for a specific route.
 
 Full route-channel list (5-way JOIN) with a 10s snapshot cache; `?refresh=true` bypasses it.
 
+`enabled` is the channel's own configured switch; `status` is its effective runtime state. A disabled parent site
+or account yields `manually_disabled` without rewriting the channel switch or disabling a model route shared
+with other sites. The nested `site.status` identifies the parent state. Site updates/deletes invalidate the
+channel list and error-summary snapshots immediately, as well as the selector cache.
+
 **Query params**: `page`/`pageSize` (when present the response is paginated; without them the bare full shape is returned and `pageSize` reports the real row count), `refresh`, `status` (optional comma-separated subset of the four `status` values below; filtering loads the full row set to read in-memory routing/breaker state, then pages the filtered result).
 
 **Response** (200): `{ "items": [ { "id": 12, "routeId": 1, "name": "svc-1", "site": { "id": 3, "name": "anthropic" }, "type": "account", "status": "enabled", "models": "gpt-4o", "priority": 10, "weight": 20, "responseMs": 842, "cooldownUntil": null, "cooldownReasonCode": null, "cooldownReason": null, "cooldownReasonAt": null, "enabled": true, "manualOverride": false } ], "total": 1, "page": 1, "pageSize": 1 }`
