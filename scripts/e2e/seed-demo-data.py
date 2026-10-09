@@ -80,11 +80,25 @@ for aid in [1, 2, 3, 4]:
         c.execute("INSERT INTO account_tokens (id,account_id,name,token,token_group,value_status,source,enabled,is_default,created_at,updated_at) VALUES (?,?,?,?,'','ready','auto',1,?,?,?)",
                   (tid, aid, name, f'sk-upstream-{aid}{i}x9f2d7c', 1 if i == 0 else 0, ts(NOW - timedelta(days=20)), ts(NOW)))
 
+# Model IDs verified against https://models.dev/api.json on 2026-10-09.
+# Fixed offline demo inputs; usage and costs below are synthetic, not benchmarks.
 # ── token routes ──
 routes = [
-    (1, 'gpt-4o-mini', 'GPT-4o Mini', 'auto'),
-    (2, 'claude-3-5-sonnet-*', 'Claude 3.5 Sonnet', 'pattern'),
-    (3, 'gpt-4o', 'GPT-4o', 'exact'),
+    (1, 'gpt-5-mini', 'GPT-5 Mini', 'auto'),
+    (2, 'claude-opus-5*', 'Claude Opus 5', 'pattern'),
+    (3, 'gpt-6-sol', 'GPT-6 Sol', 'exact'),
+    (4, 'claude-opus-4-8', 'Claude Opus 4.8', 'exact'),
+    (5, 'claude-opus-5', 'Claude Opus 5', 'exact'),
+    (6, 'gpt-5.6', 'GPT-5.6', 'exact'),
+    (7, 'gpt-6-astra', 'GPT-6 Astra', 'exact'),
+    (8, 'gpt-6.1-sol', 'GPT-6.1 Sol', 'exact'),
+    (9, 'deepseek-v4-pro', 'DeepSeek V4 Pro', 'exact'),
+    (10, 'deepseek-v4.1-flash', 'DeepSeek V4.1 Flash', 'exact'),
+    (11, 'glm-5.3', 'GLM-5.3', 'exact'),
+    (12, 'glm-5.3-flash', 'GLM-5.3 Flash', 'exact'),
+    (13, 'kimi-k3', 'Kimi K3', 'exact'),
+    (14, 'qwen3.8-max', 'Qwen3.8 Max', 'exact'),
+    (15, 'qwen3.8-flash', 'Qwen3.8 Flash', 'exact'),
 ]
 for rid, pattern, dname, mode in routes:
     c.execute("INSERT INTO token_routes (id,model_pattern,display_name,display_icon,route_mode,model_mapping,decision_snapshot,decision_refreshed_at,routing_strategy,context_length,sort_order,enabled,created_at,updated_at) VALUES (?,?,?,'',?,'','',?,'weighted',0,?,1,?,?)",
@@ -92,11 +106,23 @@ for rid, pattern, dname, mode in routes:
 
 # ── route channels (route → account/token) ──
 channels = [
-    (1, 1, 1, 1, 'gpt-4o-mini', 0, 60, 214, 3, 402110, 3.2140),
-    (2, 1, 2, 3, 'gpt-4o-mini', 1, 40, 88, 9, 197502, 1.4801),
-    (3, 2, 3, 5, 'claude-3-5-sonnet-20241022', 0, 100, 56, 1, 290344, 8.7712),
-    (4, 3, 1, 2, 'gpt-4o', 0, 70, 41, 2, 510922, 12.0551),
-    (5, 3, 4, 7, 'gpt-4o', 1, 30, 12, 5, 98012, 2.3310),
+    (1, 1, 1, 1, 'gpt-5-mini', 0, 60, 214, 3, 402110, 3.2140),
+    (2, 1, 2, 3, 'gpt-5-mini', 1, 40, 88, 9, 197502, 1.4801),
+    (3, 2, 3, 5, 'claude-opus-5-5', 0, 100, 56, 1, 290344, 8.7712),
+    (4, 3, 1, 2, 'gpt-6-sol', 0, 70, 41, 2, 510922, 12.0551),
+    (5, 3, 4, 7, 'gpt-6-sol', 1, 30, 12, 5, 98012, 2.3310),
+    (6, 4, 3, 5, 'claude-opus-4-8', 0, 100, 56, 1, 290344, 8.7712),
+    (7, 5, 3, 6, 'claude-opus-5', 0, 100, 56, 1, 290344, 8.7712),
+    (8, 6, 1, 1, 'gpt-5.6', 0, 100, 41, 2, 510922, 12.0551),
+    (9, 7, 1, 2, 'gpt-6-astra', 0, 100, 41, 2, 510922, 12.0551),
+    (10, 8, 4, 7, 'gpt-6.1-sol', 0, 100, 41, 2, 510922, 12.0551),
+    (11, 9, 1, 1, 'deepseek-v4-pro', 0, 100, 56, 1, 290344, 8.7712),
+    (12, 10, 4, 7, 'deepseek-v4.1-flash', 0, 100, 41, 2, 510922, 12.0551),
+    (13, 11, 1, 2, 'glm-5.3', 0, 100, 56, 1, 290344, 8.7712),
+    (14, 12, 4, 8, 'glm-5.3-flash', 0, 100, 41, 2, 510922, 12.0551),
+    (15, 13, 3, 5, 'kimi-k3', 0, 100, 56, 1, 290344, 8.7712),
+    (16, 14, 1, 1, 'qwen3.8-max', 0, 100, 56, 1, 290344, 8.7712),
+    (17, 15, 4, 7, 'qwen3.8-flash', 0, 100, 41, 2, 510922, 12.0551),
 ]
 for cid, rid, aid, tk, model, prio, weight, succ, fail, lat, cost in channels:
     c.execute("INSERT INTO route_channels (id,route_id,account_id,token_id,oauth_route_unit_id,source_model,priority,weight,enabled,manual_override,success_count,fail_count,total_latency_ms,total_cost,last_used_at,last_selected_at,last_fail_at,consecutive_fail_count,cooldown_level,cooldown_until,cooldown_reason_code,cooldown_reason,cooldown_reason_at) VALUES (?,?,?,?,0,?,?,?,1,0,?,?,?,?,?,?,?,0,0,'','','','')",
@@ -114,9 +140,7 @@ for kid, name, key, group, cost, reqs in keys:
               (kid, name, key, group, cost, reqs, ts(NOW - timedelta(minutes=random.randint(1, 30))), ts(NOW - timedelta(days=15)), ts(NOW)))
 
 # ── proxy logs (~80 over 48h) ──
-models = [(1, 1, 'gpt-4o-mini', 'gpt-4o-mini', 0.0004), (1, 2, 'gpt-4o-mini', 'gpt-4o-mini', 0.0004),
-          (2, 3, 'claude-3-5-sonnet-*', 'claude-3-5-sonnet-20241022', 0.008), (3, 1, 'gpt-4o', 'gpt-4o', 0.006),
-          (3, 4, 'gpt-4o', 'gpt-4o', 0.006)]
+models = [(rid, aid, model, model, 0.006) for _, rid, aid, _, model, *_ in channels]
 lid = 0
 for i in range(80):
     rid, aid, mreq, mact, rate = random.choice(models)
@@ -161,7 +185,7 @@ for day in range(13, -1, -1):
         calls = random.randint(40, 220); failed = int(calls * random.uniform(0.02, 0.1))
         c.execute("INSERT INTO site_day_usage (id,local_day,site_id,total_calls,success_calls,failed_calls,total_tokens,total_summary_spend,total_site_spend,total_latency_ms,latency_count,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                   (uid, d, sid, calls, calls - failed, failed, calls * random.randint(800, 2400), round(calls * 0.021, 4), round(calls * 0.019, 4), calls * 1100, calls, ts(NOW), ts(NOW)))
-    for model in ['gpt-4o-mini', 'gpt-4o', 'claude-3-5-sonnet-20241022']:
+    for model in sorted({ch[4] for ch in channels}):
         uid += 1
         calls = random.randint(10, 120); failed = int(calls * random.uniform(0.0, 0.12))
         c.execute("INSERT INTO model_day_usage (id,local_day,site_id,model,total_calls,success_calls,failed_calls,total_tokens,total_spend,total_latency_ms,latency_count,created_at,updated_at) VALUES (?,?,1,?,?,?,?,?,?,?,?,?,?)",
@@ -176,8 +200,11 @@ for hour in range(23, -1, -1):
 
 # ── model availability ──
 mid = 0
-for aid, models_list in [(1, ['gpt-4o', 'gpt-4o-mini']), (2, ['gpt-4o-mini']), (3, ['claude-3-5-sonnet-20241022']), (4, ['gpt-4o'])]:
-    for m in models_list:
+account_models = {}
+for _, _, aid, _, model, *_ in channels:
+    account_models.setdefault(aid, set()).add(model)
+for aid, models_list in sorted(account_models.items()):
+    for m in sorted(models_list):
         mid += 1
         c.execute("INSERT INTO model_availability (id,account_id,model_name,available,is_manual,latency_ms,checked_at) VALUES (?,?,?,1,0,?,?)",
                   (mid, aid, m, random.randint(180, 900), ts(NOW - timedelta(minutes=random.randint(2, 50)))))

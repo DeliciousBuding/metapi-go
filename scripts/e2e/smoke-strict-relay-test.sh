@@ -40,7 +40,7 @@ path="/${url#*://*/}"
 printf "%s %s\n" "$method" "$path" >> "$RELAY_CALL_LOG"
 status=200
 body='{}'
-exposed_model=gpt-4o-mini
+exposed_model=gpt-5-mini
 if [ "${STRICT_CASE:-good}" = "aliased_route" ]; then
   exposed_model=customer-alias
 elif [ -f "$RELAY_CALL_LOG.public-model" ]; then
@@ -67,8 +67,8 @@ case "$method $path" in
       models_http_error) status=503; body='{"error":"discovery unavailable"}' ;;
       models_malformed) body='{not-json' ;;
       models_bad_shape) body='{"models":[{"name":null}],"totalCount":1}' ;;
-      models_zero_count) body='{"models":[{"name":"gpt-4o-mini"}],"totalCount":0}' ;;
-      *) body='{"models":[{"name":"gpt-4o-mini"}],"totalCount":1}' ;;
+      models_zero_count) body='{"models":[{"name":"gpt-5-mini"}],"totalCount":0}' ;;
+      *) body='{"models":[{"name":"gpt-5-mini"}],"totalCount":1}' ;;
     esac
     ;;
   "POST /api/accounts/1/balance") body='{"balance":10}' ;;
@@ -87,8 +87,8 @@ case "$method $path" in
   "GET /api/routes/lite")
     case "${STRICT_CASE:-good}" in
       fresh_route) body='[]' ;;
-      aliased_route) body='[{"id":1,"modelPattern":"gpt-4o-mini","displayName":"customer-alias"}]' ;;
-      *) body='[{"id":1,"modelPattern":"gpt-4o-mini"},{"id":2,"modelPattern":"gpt-3.5-turbo"}]' ;;
+      aliased_route) body='[{"id":1,"modelPattern":"gpt-5-mini","displayName":"customer-alias"}]' ;;
+      *) body='[{"id":1,"modelPattern":"gpt-5-mini"},{"id":2,"modelPattern":"gpt-3.5-turbo"}]' ;;
     esac
     ;;
   "POST /api/routes")
@@ -105,7 +105,7 @@ print(json.dumps(dict(route, id=1)))
     case "${STRICT_CASE:-good}" in
       models_empty|proxy_models_empty) body='{"object":"list","data":[]}' ;;
       proxy_models_missing_selected) body='{"data":[{"id":"some-other-model"}]}' ;;
-      proxy_models_200_error) body='{"error":{},"data":[{"id":"gpt-4o-mini"}]}' ;;
+      proxy_models_200_error) body='{"error":{},"data":[{"id":"gpt-5-mini"}]}' ;;
       proxy_models_malformed) body='{not-json' ;;
       proxy_models_http_error) status=503; body='{"error":"no models available"}' ;;
       *) body="$(printf '{"object":"list","data":[{"id":"%s","object":"model"}]}' "$exposed_model")" ;;
@@ -193,7 +193,7 @@ run_chain() {
     UPSTREAM_PASSWORD=test-password \
     UPSTREAM_TOKEN=test-upstream-token \
     ACCOUNT_USERNAME=root SITE_NAME=e2e-smoke TOKEN_NAME=e2e-smoke-token \
-    PROXY_MODEL=gpt-4o-mini PLATFORM=new-api \
+    PROXY_MODEL=gpt-5-mini PLATFORM=new-api \
     EXPECTED_COMPLETION_CONTENT=metapi-e2e-marker \
     "$@" bash "$script" >"$output" 2>&1
 }
@@ -266,9 +266,9 @@ echo "explicit non-strict mode: 7 SKIP, 0 relay PASS"
 
 assert_contains "$good" '[PASS] token reuse (e2e-smoke-token, relay policy reasserted)'
 assert_contains "$good" '[PASS] proxy /v1/models (HTTP 200, non-empty data)'
-assert_contains "$good" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present; upstream event recorded path=/v1/chat/completions model=gpt-4o-mini)'
-assert_contains "$good" '[PASS] proxy /v1/messages (HTTP 200, message content present, model echoed; upstream event recorded path=/v1/messages model=gpt-4o-mini)'
-assert_contains "$good" '[PASS] proxy /v1/responses (HTTP 200, response output present, model echoed; upstream event recorded path=/v1/responses model=gpt-4o-mini)'
+assert_contains "$good" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present; upstream event recorded path=/v1/chat/completions model=gpt-5-mini)'
+assert_contains "$good" '[PASS] proxy /v1/messages (HTTP 200, message content present, model echoed; upstream event recorded path=/v1/messages model=gpt-5-mini)'
+assert_contains "$good" '[PASS] proxy /v1/responses (HTTP 200, response output present, model echoed; upstream event recorded path=/v1/responses model=gpt-5-mini)'
 assert_contains "$good" '== summary: 16 passed, 0 warned, 0 skipped, 0 failed =='
 test "$(grep -Fxc 'POST /v1/chat/completions' "$good.requests")" = "1"
 test "$(grep -Fxc 'POST /v1/messages' "$good.requests")" = "1"
@@ -380,11 +380,11 @@ done
 
 output="$TEST_DIR/token-good.log"
 run_chain "$TOKEN_IMPORT_SCRIPT" good "$output" PROXY_MODEL=
-assert_contains "$output" '[PASS] models (HTTP 200, selected=gpt-4o-mini)'
-assert_contains "$output" '[PASS] proxy /v1/models (HTTP 200, selected model present: gpt-4o-mini)'
-assert_contains "$output" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present; upstream event recorded path=/v1/chat/completions model=gpt-4o-mini)'
-assert_contains "$output" '[PASS] proxy /v1/messages (HTTP 200, message content present, model echoed; upstream event recorded path=/v1/messages model=gpt-4o-mini)'
-assert_contains "$output" '[PASS] proxy /v1/responses (HTTP 200, response output present, model echoed; upstream event recorded path=/v1/responses model=gpt-4o-mini)'
+assert_contains "$output" '[PASS] models (HTTP 200, selected=gpt-5-mini)'
+assert_contains "$output" '[PASS] proxy /v1/models (HTTP 200, selected model present: gpt-5-mini)'
+assert_contains "$output" '[PASS] proxy /v1/chat/completions (HTTP 200, completion content present; upstream event recorded path=/v1/chat/completions model=gpt-5-mini)'
+assert_contains "$output" '[PASS] proxy /v1/messages (HTTP 200, message content present, model echoed; upstream event recorded path=/v1/messages model=gpt-5-mini)'
+assert_contains "$output" '[PASS] proxy /v1/responses (HTTP 200, response output present, model echoed; upstream event recorded path=/v1/responses model=gpt-5-mini)'
 assert_contains "$output" '== summary: 15 passed, 0 warned, 0 skipped, 0 failed =='
 test "$(grep -Fxc 'GET /v1/models' "$output.requests")" = "1"
 test "$(grep -Fxc 'POST /v1/chat/completions' "$output.requests")" = "1"
@@ -516,7 +516,7 @@ for script in "$SMOKE_SCRIPT" "$TOKEN_IMPORT_SCRIPT"; do
       cat "$output" >&2
       exit 1
     fi
-    assert_contains "$output" "[FAIL] proxy $path upstream evidence missing (HTTP 200, mock request log gained no new event for model gpt-4o-mini)"
+    assert_contains "$output" "[FAIL] proxy $path upstream evidence missing (HTTP 200, mock request log gained no new event for model gpt-5-mini)"
     echo "$chain: $case_name rejected (client-green but upstream-silent)"
   done
 done

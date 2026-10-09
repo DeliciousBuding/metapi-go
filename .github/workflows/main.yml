@@ -490,8 +490,8 @@ jobs:
                   "key": "e2e-mock-upstream-key",
                   "status": 1,
                   "base_url": f"http://{sys.argv[1]}:3002",
-                  "models": "gpt-4o-mini",
-                  "test_model": "gpt-4o-mini",
+                  "models": "gpt-5-mini",
+                  "test_model": "gpt-5-mini",
                   "group": "default",
               },
           }))
@@ -594,7 +594,7 @@ jobs:
           MOCK_OPENAI_HOST=0.0.0.0 \
           MOCK_OPENAI_PORT=3002 \
           MOCK_OPENAI_LOG="$mock_log" \
-          MOCK_OPENAI_MODELS=gpt-4o-mini \
+          MOCK_OPENAI_MODELS=gpt-5-mini \
           MOCK_OPENAI_MARKER=metapi-e2e-marker \
           python3 scripts/e2e/mock-openai.py >"$mock_stdout" 2>&1 &
           mock_pid=$!
@@ -660,7 +660,7 @@ jobs:
           METAPI_AUTH_TOKEN=e2e-admin-token \
           UPSTREAM_URL=http://127.0.0.1:3000 \
           UPSTREAM_USERNAME=root UPSTREAM_PASSWORD=metapi123 \
-          PLATFORM=new-api PROXY_MODEL=gpt-4o-mini EXPECT_RELAY=1 \
+          PLATFORM=new-api PROXY_MODEL=gpt-5-mini EXPECT_RELAY=1 \
           EXPECTED_COMPLETION_CONTENT=metapi-e2e-marker \
           MOCK_REQUEST_LOG="$mock_log" \
           bash scripts/e2e/smoke.sh
@@ -812,7 +812,7 @@ jobs:
 
           curl -fsS -X POST -H "Authorization: Bearer sk-e2e-smoke-key" \
             -H "Content-Type: application/json" \
-            -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"restart-state"}]}' \
+            -d '{"model":"gpt-5-mini","messages":[{"role":"user","content":"restart-state"}]}' \
             http://127.0.0.1:4010/v1/chat/completions \
             | python3 -c '
           import json, sys
@@ -832,7 +832,7 @@ jobs:
           path, before = sys.argv[1], int(sys.argv[2])
           with open(path, encoding="utf-8") as handle:
               events = [json.loads(line) for line in handle if line.strip()]
-          expected = {"path": "/v1/chat/completions", "model": "gpt-4o-mini"}
+          expected = {"path": "/v1/chat/completions", "model": "gpt-5-mini"}
           if len(events) <= before:
               raise SystemExit(f"mock upstream saw no new request after the restart ({before} -> {len(events)})")
           if expected not in events[before:]:
@@ -930,7 +930,7 @@ jobs:
           '
           curl -fsS -X POST -H "Authorization: Bearer sk-e2e-smoke-key" \
             -H "Content-Type: application/json" \
-            -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"restore-state"}]}' \
+            -d '{"model":"gpt-5-mini","messages":[{"role":"user","content":"restore-state"}]}' \
             http://127.0.0.1:4011/v1/chat/completions \
             | python3 -c '
           import json, sys
@@ -946,7 +946,7 @@ jobs:
           path, before = sys.argv[1], int(sys.argv[2])
           with open(path, encoding="utf-8") as handle:
               events = [json.loads(line) for line in handle if line.strip()]
-          expected = {"path": "/v1/chat/completions", "model": "gpt-4o-mini"}
+          expected = {"path": "/v1/chat/completions", "model": "gpt-5-mini"}
           if len(events) <= before:
               raise SystemExit(f"mock upstream saw no new request after the restore ({before} -> {len(events)})")
           if expected not in events[before:]:
