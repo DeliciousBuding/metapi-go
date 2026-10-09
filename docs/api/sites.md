@@ -45,6 +45,12 @@ adapters open the OAuth connection page. In a blank account form, selecting a
 model API site also selects API-key mode. Explicit credential choices and entered
 credentials are preserved when switching sites.
 
+When a site's adapter and normalized URL match a preset, a new API-key account
+uses its model-discovery recommendation until the operator changes that option.
+Presets that skip discovery are useful for plans without a model-list endpoint.
+Suggested model names can fill the existing manual-model input; adding a model
+still requires the explicit Add action and does not mark it as verified.
+
 ### GET /api/sites, POST /api/sites
 
 List all sites. Create a new site.

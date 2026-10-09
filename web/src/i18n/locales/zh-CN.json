@@ -2479,6 +2479,8 @@
         "manualFailedInline": "手动模型更新失败：{{message}}",
         "placeholder": "模型名称，如 gpt-4o",
         "inputAria": "新手动模型名称",
+        "presetSuggestions": "{{preset}} · 预设模型",
+        "usePresetModel": "填入 {{name}}",
         "add": "添加",
         "refreshedToast_one": "模型已刷新（{{count}} 个可用）",
         "refreshedToast_other": "模型已刷新（{{count}} 个可用）",
