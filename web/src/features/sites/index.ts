@@ -17,4 +17,5 @@ export { sitesSearchSchema } from './lib/sites-schema'
 export { isValidEndpointUrl } from './lib/endpoints'
 
 export { sitesKeys, type Site } from './types'
-export { useSites } from './api'
+export { useSites, useSiteInitializationPresets } from './api'
+export { analyzePrimarySiteUrl } from './lib/site-primary-url'

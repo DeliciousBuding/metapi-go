@@ -17,6 +17,7 @@ import {
 } from 'vitest'
 
 import i18n from '@/i18n/config'
+import type { SiteInitializationPreset } from '@/lib/api/sites'
 
 import { accountSchema } from '../types'
 import { AccountFormDialog } from './account-form-dialog'
@@ -27,6 +28,10 @@ const mutations = vi.hoisted(() => ({
   update: { mutateAsync: vi.fn(), isPending: false },
   verify: { mutateAsync: vi.fn() },
 }))
+const presetState = vi.hoisted(() => ({
+  data: [] as SiteInitializationPreset[],
+  isSuccess: true,
+}))
 const showAccountCreatedToast = vi.hoisted(() => vi.fn())
 const showAccountLoginToast = vi.hoisted(() => vi.fn())
 const toastMocks = vi.hoisted(() => ({
@@ -34,6 +39,11 @@ const toastMocks = vi.hoisted(() => ({
   warning: vi.fn(),
   error: vi.fn(),
   info: vi.fn(),
+}))
+
+vi.mock('@/features/sites', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/sites')>()),
+  useSiteInitializationPresets: () => presetState,
 }))
 
 vi.mock('@/lib/toast', () => ({ toast: toastMocks }))
@@ -62,6 +72,7 @@ const sites = [
 ]
 
 beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn()
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
@@ -89,6 +100,8 @@ beforeAll(() => {
 
 beforeEach(async () => {
   await i18n.changeLanguage('en')
+  presetState.data = []
+  presetState.isSuccess = true
   mutations.create.mutateAsync.mockReset()
   mutations.login.mutateAsync.mockReset()
   mutations.update.mutateAsync.mockReset()
@@ -375,5 +388,221 @@ describe('AccountFormDialog token sync truthfulness', () => {
     })
     expect(toastMocks.success).not.toHaveBeenCalled()
     expect(toastMocks.warning).not.toHaveBeenCalled()
+  })
+})
+
+const codingSite = {
+  id: 8,
+  name: 'Coding plan',
+  url: 'https://CODING.EXAMPLE.INVALID:443/api/coding/?from=console#anchor',
+  platform: 'openai',
+  status: 'active',
+}
+const standardSite = {
+  id: 9,
+  name: 'Standard API',
+  url: 'https://standard.example.invalid/v1',
+  platform: 'openai',
+  status: 'active',
+}
+const codingPreset: SiteInitializationPreset = {
+  id: 'fixture-coding',
+  label: 'Fixture Coding',
+  providerLabel: 'Fixture',
+  platform: 'openai',
+  defaultUrl: 'https://coding.example.invalid/api/coding/',
+  recommendedSkipModelFetch: true,
+  recommendedModels: ['coding-model'],
+  docsUrl: '',
+}
+const onboardingSites = [...sites, codingSite, standardSite]
+function onboardingForm(initialSiteId = 8) {
+  return (
+    <AccountFormDialog
+      open
+      onOpenChange={vi.fn()}
+      mode='create'
+      sites={onboardingSites}
+      initialSiteId={initialSiteId}
+    />
+  )
+}
+async function selectOnboardingSite(name: string) {
+  fireEvent.click(screen.getByRole('combobox', { name: 'Site' }))
+  const search = await screen.findByPlaceholderText('Search sites…')
+  fireEvent.change(search, { target: { value: name } })
+  fireEvent.click(await screen.findByRole('option', { name: new RegExp(name) }))
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: 'Site' })).toHaveTextContent(
+      name
+    )
+  )
+}
+function submitOnboardingForm() {
+  const form = document.querySelector('form')
+  if (!form) throw new Error('Missing account form')
+  fireEvent.submit(form)
+}
+function skipDiscoverySwitch() {
+  return screen.getByRole('switch', { name: /Skip model fetch/i })
+}
+
+describe('AccountFormDialog preset onboarding', () => {
+  it('defaults matched CodingPlan API keys to skip discovery and sends that value without pretending to verify', async () => {
+    presetState.data = [codingPreset]
+    render(onboardingForm())
+    await waitFor(() => expect(skipDiscoverySwitch()).toBeChecked())
+    expect(screen.getByRole('tab', { name: 'API Key' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(
+      screen.queryByRole('tab', { name: 'Password' })
+    ).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('textbox', { name: 'API Key' }), {
+      target: { value: 'fixture-coding-key' },
+    })
+    submitOnboardingForm()
+    await waitFor(() =>
+      expect(mutations.create.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          siteId: 8,
+          credentialMode: 'apikey',
+          skipModelFetch: true,
+          accessTokens: ['fixture-coding-key'],
+        })
+      )
+    )
+    expect(mutations.verify.mutateAsync).not.toHaveBeenCalled()
+    expect(mutations.login.mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('uses recommendations on each untouched site selection, without carrying a CodingPlan default to another URL', async () => {
+    presetState.data = [codingPreset]
+    render(onboardingForm())
+    await waitFor(() => expect(skipDiscoverySwitch()).toBeChecked())
+    await selectOnboardingSite('Standard API')
+    await waitFor(() => expect(skipDiscoverySwitch()).not.toBeChecked())
+    await selectOnboardingSite('Coding plan')
+    await waitFor(() => expect(skipDiscoverySwitch()).toBeChecked())
+    fireEvent.click(skipDiscoverySwitch())
+    await selectOnboardingSite('Standard API')
+    await selectOnboardingSite('Coding plan')
+    expect(skipDiscoverySwitch()).not.toBeChecked()
+  })
+
+  it('does not overwrite an explicit toggle back to false when the preset arrives late', async () => {
+    presetState.isSuccess = false
+    const { rerender } = render(onboardingForm())
+    await waitFor(() => expect(skipDiscoverySwitch()).not.toBeChecked())
+    fireEvent.click(skipDiscoverySwitch())
+    fireEvent.click(skipDiscoverySwitch())
+    presetState.data = [codingPreset]
+    presetState.isSuccess = true
+    rerender(onboardingForm())
+    await waitFor(() => expect(skipDiscoverySwitch()).not.toBeChecked())
+    fireEvent.change(screen.getByRole('textbox', { name: 'API Key' }), {
+      target: { value: 'fixture-key' },
+    })
+    submitOnboardingForm()
+    await waitFor(() =>
+      expect(mutations.create.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ skipModelFetch: false })
+      )
+    )
+  })
+
+  it('applies a late preset to an untouched field, and resets user choices on a fresh open', async () => {
+    presetState.isSuccess = false
+    const { rerender } = render(onboardingForm())
+    await waitFor(() => expect(skipDiscoverySwitch()).not.toBeChecked())
+    presetState.data = [codingPreset]
+    presetState.isSuccess = true
+    rerender(onboardingForm())
+    await waitFor(() => expect(skipDiscoverySwitch()).toBeChecked())
+    fireEvent.click(skipDiscoverySwitch())
+    rerender(
+      <AccountFormDialog
+        open={false}
+        onOpenChange={vi.fn()}
+        mode='create'
+        sites={onboardingSites}
+        initialSiteId={8}
+      />
+    )
+    rerender(onboardingForm())
+    await waitFor(() => expect(skipDiscoverySwitch()).toBeChecked())
+  })
+
+  it('keeps historical API account editing unchanged', async () => {
+    presetState.data = [codingPreset]
+    const account = accountSchema.parse({
+      id: 90,
+      siteId: 8,
+      credentialMode: 'apikey',
+      status: 'active',
+      username: 'existing',
+    })
+    render(
+      <AccountFormDialog
+        open
+        onOpenChange={vi.fn()}
+        mode='edit'
+        account={account}
+        sites={onboardingSites}
+      />
+    )
+    await waitFor(() => expect(skipDiscoverySwitch()).not.toBeChecked())
+    expect(screen.getByRole('tab', { name: 'Password' })).toBeVisible()
+    submitOnboardingForm()
+    await waitFor(() =>
+      expect(mutations.update.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 90,
+          payload: expect.objectContaining({ skipModelFetch: false }),
+        })
+      )
+    )
+  })
+
+  it('preserves a typed password draft when switching to an API site', async () => {
+    render(onboardingForm(7))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Password' }))
+    fireEvent.change(screen.getByLabelText('Username'), {
+      target: { value: 'draft-user' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'draft-password' },
+    })
+    await selectOnboardingSite('Coding plan')
+    expect(screen.getByRole('tab', { name: 'Password' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.getByLabelText('Username')).toHaveValue('draft-user')
+    expect(screen.getByLabelText('Password')).toHaveValue('draft-password')
+    submitOnboardingForm()
+    await waitFor(() =>
+      expect(mutations.login.mutateAsync).toHaveBeenCalledWith({
+        siteId: 8,
+        username: 'draft-user',
+        password: 'draft-password',
+      })
+    )
+  })
+
+  it('replaces an empty password mode with API key mode on an API site', async () => {
+    render(onboardingForm(7))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Password' }))
+    await selectOnboardingSite('Standard API')
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('tab', { name: 'Password' })
+      ).not.toBeInTheDocument()
+    )
+    expect(screen.getByRole('tab', { name: 'API Key' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
   })
 })

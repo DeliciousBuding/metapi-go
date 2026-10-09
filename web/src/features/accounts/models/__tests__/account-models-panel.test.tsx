@@ -16,10 +16,15 @@ import {
 } from 'vitest'
 
 import '@/i18n/config'
+import type { SiteInitializationPreset } from '@/lib/api/sites'
 
 import type { AccountModelEntry, AccountModelsResponse } from '../api'
 import { AccountModelsPanel } from '../components/account-models-panel'
 
+const presetState = vi.hoisted(() => ({
+  data: [] as SiteInitializationPreset[],
+  isSuccess: true,
+}))
 const mockState = vi.hoisted(() => ({
   query: {
     data: undefined as AccountModelsResponse | undefined,
@@ -34,6 +39,11 @@ const mockState = vi.hoisted(() => ({
   manualMutate: vi.fn(),
   manualPending: { value: false },
   manualError: null as Error | null,
+}))
+
+vi.mock('@/features/sites', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/sites')>()),
+  useSiteInitializationPresets: () => presetState,
 }))
 
 vi.mock('../api', () => ({
@@ -81,6 +91,7 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
+  presetState.data = []
   mockState.query.data = undefined
   mockState.query.isLoading = false
   mockState.query.isError = false
@@ -208,4 +219,49 @@ describe('AccountModelsPanel', () => {
     const [payload] = mockState.manualMutate.mock.calls[0]
     expect(payload).toEqual({ remove: ['manual-x'] })
   })
+})
+
+it('fills preset suggestions only after a click and leaves saving to the existing manual Add action', () => {
+  presetState.data = [
+    {
+      id: 'fixture-coding',
+      label: 'Fixture Coding',
+      providerLabel: 'Fixture',
+      platform: 'openai',
+      defaultUrl: 'https://coding.example.invalid/api/coding',
+      recommendedSkipModelFetch: true,
+      recommendedModels: ['coding-model', 'existing-model'],
+      docsUrl: '',
+    },
+  ]
+  mockState.query.data = {
+    totalCount: 1,
+    models: [entry({ name: 'existing-model' })],
+  }
+  render(
+    <AccountModelsPanel
+      accountId={1}
+      site={{
+        platform: 'openai',
+        url: 'https://coding.example.invalid/api/coding/',
+      }}
+    />
+  )
+  const input = screen.getByRole('textbox', { name: 'New manual model name' })
+  expect(input).toHaveValue('')
+  expect(screen.getByText('Fixture Coding · Preset models')).toBeVisible()
+  expect(mockState.manualMutate).not.toHaveBeenCalled()
+  expect(mockState.refreshMutate).not.toHaveBeenCalled()
+  expect(
+    screen.queryByRole('button', { name: 'Fill existing-model' })
+  ).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Fill coding-model' }))
+  expect(input).toHaveValue('coding-model')
+  expect(mockState.manualMutate).not.toHaveBeenCalled()
+  expect(mockState.refreshMutate).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+  expect(mockState.manualMutate).toHaveBeenCalledWith(
+    { models: ['coding-model'] },
+    expect.any(Object)
+  )
 })

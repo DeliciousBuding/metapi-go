@@ -16,6 +16,11 @@ import '@/i18n/config'
 import type { Site } from '../../types'
 import { AccountFormDialog } from '../account-form-dialog'
 
+vi.mock('@/features/sites', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/sites')>()),
+  useSiteInitializationPresets: () => ({ data: [], isSuccess: true }),
+}))
+
 vi.mock('../../api', () => ({
   useCreateAccount: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateAccount: () => ({ mutateAsync: vi.fn(), isPending: false }),

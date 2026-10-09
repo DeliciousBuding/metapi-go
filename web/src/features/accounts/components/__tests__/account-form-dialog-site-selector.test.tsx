@@ -30,6 +30,11 @@ const mutations = vi.hoisted(() => ({
 const showAccountCreatedToast = vi.hoisted(() => vi.fn())
 const showAccountLoginToast = vi.hoisted(() => vi.fn())
 
+vi.mock('@/features/sites', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/sites')>()),
+  useSiteInitializationPresets: () => ({ data: [], isSuccess: true }),
+}))
+
 vi.mock('../../api', () => ({
   resolveCreatedAccountId: (result: { id?: number } | undefined) => result?.id,
   useCreateAccount: () => mutations.create,

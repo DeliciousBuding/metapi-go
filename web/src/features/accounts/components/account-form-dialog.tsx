@@ -64,6 +64,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { useSiteInitializationPresets } from '@/features/sites'
 import {
   getPlatformDefinition,
   getPlatformDisplayName,
@@ -85,6 +86,7 @@ import {
   transformFormToPayload,
   type AccountFormValues,
 } from '../lib/accounts-schema'
+import { findAccountInitializationPreset } from '../lib/initialization-preset'
 import type { Account, CredentialMode, Site } from '../types'
 import {
   showAccountCreatedToast,
@@ -155,6 +157,7 @@ export function AccountFormDialog({
   const updateMutation = useUpdateAccount()
   const loginMutation = useLoginAccount()
   const verifyMutation = useVerifyAccountToken()
+  const presets = useSiteInitializationPresets()
   const isEdit = mode === 'edit' && !!account
 
   const schema = useMemo(() => getAccountFormSchema(!isEdit), [isEdit])
@@ -230,6 +233,53 @@ export function AccountFormDialog({
   }, [siteSelectorOpen])
 
   const watchedSiteId = form.watch('siteId')
+  const watchedPassword = form.watch('password')
+  const watchedUsername = form.watch('username')
+  const selectedSite = sites.find((site) => site.id === watchedSiteId)
+  const preset = findAccountInitializationPreset(selectedSite, presets.data)
+  const apiSite = getPlatformDefinition(selectedSite?.platform)?.group === 'api'
+  const passwordDraft =
+    !!watchedPassword || (credentialMode === 'password' && !!watchedUsername)
+  const showPasswordMode = isEdit || !apiSite || passwordDraft
+
+  useEffect(() => {
+    if (
+      !open ||
+      !isInitialized ||
+      isEdit ||
+      credentialMode !== 'apikey' ||
+      !presets.isSuccess ||
+      form.getFieldState('skipModelFetch').isTouched
+    ) {
+      return
+    }
+    form.setValue(
+      'skipModelFetch',
+      preset?.recommendedSkipModelFetch ?? false,
+      { shouldDirty: false }
+    )
+  }, [
+    open,
+    isInitialized,
+    isEdit,
+    credentialMode,
+    watchedSiteId,
+    preset?.recommendedSkipModelFetch,
+    presets.isSuccess,
+    form,
+  ])
+
+  useEffect(() => {
+    if (
+      open &&
+      isInitialized &&
+      !showPasswordMode &&
+      credentialMode === 'password'
+    ) {
+      form.setValue('credentialMode', 'apikey')
+    }
+  }, [open, isInitialized, showPasswordMode, credentialMode, form])
+
   const watchedAccessToken = form.watch('accessToken')
   const watchedApiToken = form.watch('apiToken')
   const watchedPlatformUserId = form.watch('platformUserId')
@@ -529,9 +579,11 @@ export function AccountFormDialog({
                   <TabsTrigger value='apikey'>
                     {t('accounts.form.modeApiKey')}
                   </TabsTrigger>
-                  <TabsTrigger value='password'>
-                    {t('accounts.form.modePassword')}
-                  </TabsTrigger>
+                  {showPasswordMode && (
+                    <TabsTrigger value='password'>
+                      {t('accounts.form.modePassword')}
+                    </TabsTrigger>
+                  )}
                 </TabsList>
               </Tabs>
             </FormItem>
@@ -1013,7 +1065,13 @@ function ApiKeyFields({ form, verification, onVerify }: SessionFieldsProps) {
               </FormDescription>
             </div>
             <FormControl>
-              <Switch checked={field.value} onCheckedChange={field.onChange} />
+              <Switch
+                checked={field.value}
+                onCheckedChange={(checked) => {
+                  field.onChange(checked)
+                  field.onBlur() // Remember explicit choices even when toggled back to the default.
+                }}
+              />
             </FormControl>
           </FormItem>
         )}

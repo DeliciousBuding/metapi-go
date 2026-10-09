@@ -264,7 +264,7 @@ export function AccountDetailSheet({
 
           {/* Embedded models sub-module (#998): manual upstream refresh,
               manual add/remove, honest persisted availability. */}
-          <AccountModelsPanel accountId={account.id} />
+          <AccountModelsPanel accountId={account.id} site={site} />
 
           <Separator />
 
