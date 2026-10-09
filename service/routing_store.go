@@ -35,7 +35,7 @@ const channelAccountSiteSelect = `
 		a.checkin_enabled, a.last_checkin_at, a.last_balance_refresh, a.oauth_provider,
 		a.oauth_account_key, a.oauth_project_id, a.extra_config, a.created_at, a.updated_at,
 		s.id, s.name, s.url, s.external_checkin_url, s.platform, s.proxy_url, s.use_system_proxy,
-		s.custom_headers, s.status, s.is_pinned, s.sort_order, s.global_weight, s.api_key,
+		s.custom_headers, s.custom_headers_override_request_headers, s.status, s.is_pinned, s.sort_order, s.global_weight, s.api_key,
 		s.post_refresh_probe_enabled, s.post_refresh_probe_model, s.post_refresh_probe_scope,
 		s.post_refresh_probe_latency_threshold_ms, s.created_at, s.updated_at`
 
@@ -569,7 +569,7 @@ func scanRouteChannelJoin(rows *sqlx.Rows) (struct {
 		&account.CheckinEnabled, &account.LastCheckinAt, &account.LastBalanceRefresh, &account.OAuthProvider,
 		&account.OAuthAccountKey, &account.OAuthProjectID, &account.ExtraConfig, &account.CreatedAt, &account.UpdatedAt,
 		&site.ID, &site.Name, &site.URL, &site.ExternalCheckinURL, &site.Platform, &site.ProxyURL, &site.UseSystemProxy,
-		&site.CustomHeaders, &site.Status, &site.IsPinned, &site.SortOrder, &site.GlobalWeight, &site.APIKey,
+		&site.CustomHeaders, &site.CustomHeadersOverrideRequestHeaders, &site.Status, &site.IsPinned, &site.SortOrder, &site.GlobalWeight, &site.APIKey,
 		&site.PostRefreshProbeEnabled, &site.PostRefreshProbeModel, &site.PostRefreshProbeScope,
 		&site.PostRefreshProbeLatencyThresholdMs, &site.CreatedAt, &site.UpdatedAt,
 	}
@@ -606,7 +606,7 @@ func scanRouteUnitMemberJoin(rows *sqlx.Rows) (store.OAuthRouteUnitMember, store
 		&account.CheckinEnabled, &account.LastCheckinAt, &account.LastBalanceRefresh, &account.OAuthProvider,
 		&account.OAuthAccountKey, &account.OAuthProjectID, &account.ExtraConfig, &account.CreatedAt, &account.UpdatedAt,
 		&site.ID, &site.Name, &site.URL, &site.ExternalCheckinURL, &site.Platform, &site.ProxyURL, &site.UseSystemProxy,
-		&site.CustomHeaders, &site.Status, &site.IsPinned, &site.SortOrder, &site.GlobalWeight, &site.APIKey,
+		&site.CustomHeaders, &site.CustomHeadersOverrideRequestHeaders, &site.Status, &site.IsPinned, &site.SortOrder, &site.GlobalWeight, &site.APIKey,
 		&site.PostRefreshProbeEnabled, &site.PostRefreshProbeModel, &site.PostRefreshProbeScope,
 		&site.PostRefreshProbeLatencyThresholdMs, &site.CreatedAt, &site.UpdatedAt,
 	)

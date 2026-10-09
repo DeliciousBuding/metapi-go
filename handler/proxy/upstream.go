@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -394,12 +395,13 @@ func dispatchSelectedUpstream(
 		return dispatchEndpointAttempt(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, upstreamPath, contentType, bodyBytes, firstByteTimeoutMs, retry, maxRetries, true, requestID)
 	}
 	bodyBytes = swapModelInJSON(ctx.RawBody, upstreamModel)
-	if selected.Direct != nil {
-		if endpoint, _ := proxy.EndpointFromPath(upstreamPath); endpoint == proxy.EndpointGemini {
-			if _, found, valid := findTopLevelValue(ctx.RawBody, "model"); valid && !found {
-				bodyBytes = ctx.RawBody
-			}
+	if endpoint, _ := proxy.EndpointFromPath(upstreamPath); endpoint == proxy.EndpointGemini {
+		// Native Gemini carries its model in the URL, not the request body.
+		if _, found, valid := findTopLevelValue(ctx.RawBody, "model"); valid && !found {
+			bodyBytes = ctx.RawBody
 		}
+	}
+	if selected.Direct != nil {
 		return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, firstByteTimeoutMs, retry, maxRetries, requestID)
 	}
 
@@ -558,6 +560,40 @@ func proxyPathIsMessages(path string) bool {
 	return ok && endpoint == proxy.EndpointMessages
 }
 
+// siteRequestURL rebuilds native Gemini resource paths after routing has resolved
+// the actual model. The shared URL builder preserves semantic base paths and
+// avoids appending the API version twice.
+func siteRequestURL(baseURL, path, model string, stream bool) string {
+	if endpoint, _ := proxy.EndpointFromPath(path); endpoint == proxy.EndpointGemini {
+		version, _, action := ParseGeminiPath(path)
+		path = "/" + version + "/models/" + url.PathEscape(strings.TrimPrefix(model, "models/")) + ":" + action
+		if stream {
+			path += "?alt=sse"
+		}
+	}
+	return proxy.BuildUpstreamURL(baseURL, path)
+}
+
+// Native API keys use provider headers; OAuth credentials and compatible gateway
+// sites retain their Bearer contract even when a client uses a native protocol.
+func siteNativeAPIKeyHeader(selected *routing.SelectedChannel, path string) string {
+	if selected.Direct != nil {
+		return ""
+	}
+	endpoint, _ := proxy.EndpointFromPath(path)
+	provider := platform.NormalizePlatformAlias(selected.Site.Platform)
+	header := ""
+	if provider == "claude" && endpoint == proxy.EndpointMessages {
+		header = "x-api-key"
+	} else if provider == "gemini" && endpoint == proxy.EndpointGemini {
+		header = "x-goog-api-key"
+	}
+	if header != "" && oauth.GetOauthInfoFromAccount(&selected.Account) != nil {
+		return ""
+	}
+	return header
+}
+
 // dispatchEndpointAttempt sends one selected native endpoint without walking
 // protocol candidates. Multipart callers use this single-attempt path.
 func dispatchEndpointAttempt(
@@ -619,7 +655,7 @@ func dispatchEndpointAttemptWithContinue(
 	if selected.Direct != nil {
 		upstreamBaseURL = selected.Direct.BaseURL
 	}
-	upstreamURL := proxy.BuildUpstreamURL(upstreamBaseURL, upstreamPath)
+	upstreamURL := siteRequestURL(upstreamBaseURL, upstreamPath, upstreamModel, effectiveStream)
 	var directEndpoint *store.DirectEndpoint
 	if selected.Direct != nil && ctx != nil {
 		upstreamURL, directEndpoint = directRequestURL(selected.Direct, upstreamPath, upstreamModel, effectiveStream)
@@ -642,10 +678,15 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 	req.Header.Set("Content-Type", contentType)
-	// Precedence, lowest to highest: client protocol headers (fill-only) →
-	// site custom_headers / anti-bot identity → the selected account token.
-	// The deny-list skips Authorization/Host/hop-by-hop so site custom_headers
-	// can never override the selected token.
+	siteAuthHeader := siteNativeAPIKeyHeader(selected, upstreamPath)
+	if siteAuthHeader != "" && selected.TokenValue != "" {
+		// The native credential is a request header: an explicit site-wins
+		// custom-header setting may replace it, just like other request headers.
+		req.Header.Set(siteAuthHeader, selected.TokenValue)
+	}
+	// Native site credentials above honor the custom-header collision policy.
+	// Client protocol headers fill gaps after site headers and identity; Bearer
+	// and direct credentials below always use the selected token.
 	applyProxyCustomHeaders(req, proxyConfig)
 	applyClientProtocolHeaders(req, r.Header, upstreamPath)
 	// The value of this header decides whether net/http transparently decodes
@@ -674,7 +715,7 @@ func dispatchEndpointAttemptWithContinue(
 		} else if useAPIKey {
 			req.Header.Set("x-api-key", selected.TokenValue)
 			req.Header.Del("Authorization")
-		} else {
+		} else if siteAuthHeader == "" {
 			req.Header.Set("Authorization", "Bearer "+selected.TokenValue)
 		}
 	}
