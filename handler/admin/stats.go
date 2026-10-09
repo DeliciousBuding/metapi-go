@@ -932,10 +932,12 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	row := queryRow(h.db,
-		`SELECT pl.*, a.username, s.id as site_id, s.name as site_name, s.url as site_url
+		`SELECT pl.*, a.username, s.id as site_id, s.name as site_name, s.url as site_url,
+		 dk.id AS downstream_key_id, dk.name AS downstream_key_name
 		 FROM proxy_logs pl
 		 LEFT JOIN accounts a ON pl.account_id = a.id
 		 LEFT JOIN sites s ON a.site_id = s.id
+		 LEFT JOIN downstream_api_keys dk ON pl.downstream_api_key_id = dk.id
 		 WHERE pl.id = ?`, id)
 	if row == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "proxy log not found"})
@@ -946,6 +948,10 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 		parsed := decodeProxyLogBilling(raw)
 		row["billingDetails"] = parsed
 		projectProxyLogCacheUsage(row, parsed)
+	}
+	// SQLite scans BOOLEAN as 0/1; the public contract is JSON boolean on both dialects.
+	if row["isStream"] != nil {
+		row["isStream"] = coerceBool(row["isStream"])
 	}
 
 	writeJSON(w, http.StatusOK, row)
