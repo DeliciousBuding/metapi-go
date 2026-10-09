@@ -11,6 +11,9 @@ import (
 
 func axonHubChannelBaseURL(channel AxonHubSourceChannel) string {
 	if base := strings.TrimSpace(channel.BaseURL); base != "" {
+		if (channel.Type == "codex" || channel.Type == "fenno") && base == "https://api.openai.com/v1" {
+			return "https://chatgpt.com/backend-api/codex#"
+		}
 		return base
 	}
 	// Only defaults actually supplied by channel_llm.go / the primary
@@ -18,6 +21,10 @@ func axonHubChannelBaseURL(channel AxonHubSourceChannel) string {
 	switch channel.Type {
 	case "gemini", "zenmux_gemini":
 		return "https://generativelanguage.googleapis.com"
+	case "codex", "fenno":
+		return "https://chatgpt.com/backend-api/codex#"
+	case "claudecode":
+		return "https://api.anthropic.com/v1"
 	case "zenmux", "zenmux_responses":
 		return "https://zenmux.ai/api/v1"
 	case "zenmux_anthropic":
@@ -98,6 +105,18 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 			return 0, endpoints, []string{"provider_requires_https"}, nil
 		}
 		path := strings.TrimSpace(ep.Path)
+		profile := ""
+		if protocol == protoResponses && (channel.Type == "codex" || channel.Type == "fenno") {
+			profile = "codex"
+			path = ""
+		}
+		if protocol == protoMessages && channel.Type == "claudecode" {
+			if !custom[format] {
+				profile = "claudecode"
+			} else if channel.Credentials.OAuth {
+				return 0, endpoints, []string{"claudecode_oauth_custom_endpoint_unsupported"}, nil
+			}
+		}
 		if !safeDirectEndpointPath(path) {
 			return 0, endpoints, []string{"endpoint_path_invalid"}, nil
 		}
@@ -113,11 +132,12 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 			auth = store.DirectAuthAPIKey
 			// Custom Messages endpoints use PlatformDirect, except Command Code.
 			if channel.Type == "commandcode" || channel.Type == "commandcode_anthropic" ||
+				profile == "claudecode" ||
 				(!custom[format] && (channel.Type == "ollama_anthropic" || channel.Type == "longcat_anthropic")) {
 				auth = store.DirectAuthBearer
 			}
 		}
-		endpoint := &store.DirectEndpoint{URL: resolved, Auth: auth}
+		endpoint := &store.DirectEndpoint{URL: resolved, Auth: auth, Profile: profile}
 		switch protocol {
 		case protoChat:
 			endpoints.Chat = endpoint

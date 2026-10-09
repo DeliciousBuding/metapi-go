@@ -46,7 +46,7 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 	"qiniu":                 {Protocols: protoChat, Supported: true},
 	"qiniu_anthropic":       {Protocols: protoMessages, Supported: true},
 	"cline":                 {Protocols: protoChat, Supported: true},
-	"fenno":                 {Protocols: protoResponses, Reason: reasonProviderTranslation},
+	"fenno":                 {Protocols: protoResponses, Supported: true},
 	"vercel":                {Protocols: protoChat, ResidualFormats: axonHubCompatibleResiduals, Supported: true},
 	"anthropic":             {Protocols: protoMessages, Supported: true},
 	"gemini_openai":         {Protocols: protoChat, Supported: true},
@@ -117,8 +117,8 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 	// direct grant, or whose request/response shape is provider-specific.
 	"anthropic_aws":  {Protocols: protoMessages, Reason: reasonProviderCredentials},
 	"anthropic_gcp":  {Protocols: protoMessages, Reason: reasonProviderCredentials},
-	"codex":          {Protocols: protoResponses, Reason: reasonProviderCredentials},
-	"claudecode":     {Protocols: protoMessages, Reason: reasonProviderCredentials},
+	"codex":          {Protocols: protoResponses, ResidualFormats: []string{"openai/alpha_search", "openai/image_generation", "openai/image_edit"}, Supported: true},
+	"claudecode":     {Protocols: protoMessages, Supported: true},
 	"github_copilot": {Protocols: protoChat, Reason: reasonProviderCredentials},
 }
 

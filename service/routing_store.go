@@ -141,9 +141,9 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 	}
 	directQuery, directArgs, err := sqlx.In(`
 		SELECT i.id, i.priority, i.weight, i.protocol_order, grt.id, rg.route_id, ug.id, ug.mode, ug.active_item_id,
-			c.id, c.name, c.base_url, c.dialect, c.openai_chat_completion_path, c.openai_response_path,
+			c.id, c.name, c.base_url, c.dialect, c.provider, c.openai_chat_completion_path, c.openai_response_path,
 			c.anthropic_message_path, c.endpoint_config, c.channel_proxy, c.proxy, c.custom_header, c.param_override,
-			m.id, m.name, k.id, k.name, k.secret, c.enabled, m.enabled, k.enabled, grt.enabled, grt.protocols,
+			m.id, m.name, k.id, k.name, k.kind, k.secret, c.enabled, m.enabled, k.enabled, grt.enabled, grt.protocols,
       grt.cooldown_until,grt.success_count,grt.fail_count,grt.total_latency_ms,grt.total_cost
 		FROM upstream_route_groups rg
 		JOIN upstream_groups ug ON ug.id = rg.group_id
@@ -170,9 +170,9 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 		var successes, failures, totalLatency int64
 		var totalCost float64
 		if err := directRows.Scan(&itemID, &priority, &weight, &direct.ProtocolOrder, &direct.GrantID, &direct.RouteID, &direct.GroupID, &direct.GroupMode, &direct.ActiveItemID,
-			&direct.ChannelID, &direct.ChannelName, &direct.BaseURL, &direct.Dialect, &direct.ChatPath, &direct.ResponsesPath,
+			&direct.ChannelID, &direct.ChannelName, &direct.BaseURL, &direct.Dialect, &direct.Provider, &direct.ChatPath, &direct.ResponsesPath,
 			&direct.AnthropicPath, &direct.Endpoints, &direct.ChannelProxy, &direct.UseSystemProxy, &direct.CustomHeader, &direct.ParamOverride,
-			&direct.ModelID, &direct.ModelName, &direct.CredentialID, &direct.CredentialName, &direct.Credential,
+			&direct.ModelID, &direct.ModelName, &direct.CredentialID, &direct.CredentialName, &direct.CredentialKind, &direct.Credential,
 			&direct.ChannelEnabled, &direct.ModelEnabled, &direct.CredentialEnabled, &direct.GrantEnabled, &direct.Protocols, &cooldown, &successes, &failures, &totalLatency, &totalCost); err != nil {
 			return nil, err
 		}

@@ -53,6 +53,8 @@ type axonHubPlanChannel struct {
 	Tags            []string
 	CredentialKeys  []string
 	DisabledKeys    map[string]bool
+	Provider        string
+	OAuthState      *store.DirectOAuthState
 	// Entries maps a request model name onto the upstream model a grant to this
 	// channel has to send.
 	Entries map[string]string
@@ -62,6 +64,8 @@ type axonHubPlanCredential struct {
 	ChannelSourceID int
 	Name            string
 	Secret          string
+	Kind            string
+	OAuthState      store.DirectOAuthState
 	Enabled         bool
 }
 
@@ -146,10 +150,18 @@ func CompileAxonHubPlan(src *AxonHubSource) (*axonHubPlan, error) {
 	plan.channels = derefChannels(channels)
 	for _, channel := range plan.channels {
 		for i, secret := range channel.CredentialKeys {
+			kind := store.DirectCredentialAPIKey
+			state := store.DirectOAuthState{}
+			if channel.OAuthState != nil {
+				kind = store.DirectCredentialOAuth
+				state = *channel.OAuthState
+			}
 			plan.credentials = append(plan.credentials, axonHubPlanCredential{
 				ChannelSourceID: channel.SourceID,
 				Name:            credentialName(i, len(channel.CredentialKeys)),
 				Secret:          secret,
+				Kind:            kind,
+				OAuthState:      state,
 				Enabled:         !channel.DisabledKeys[secret],
 			})
 		}
@@ -260,8 +272,18 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		return nil, []string{provider.Reason}, nil
 	}
 	reasons = append(reasons, channelSkipReasons(channel)...)
-	if channel.Credentials.OAuth {
+	if channel.Credentials.OAuth && !axonHubOAuthProvider(channel.Type) {
 		reasons = append(reasons, "oauth_credentials_unsupported")
+	}
+	if channel.Credentials.OAuth && axonHubOAuthProvider(channel.Type) {
+		for _, endpoint := range channel.Endpoints {
+			if (channel.Type == "codex" || channel.Type == "fenno") && endpoint.APIFormat == "openai/responses" {
+				continue
+			}
+			// Source custom endpoints use a static API-key provider except the
+			// Codex Responses wrapper. Do not silently replace that contract.
+			reasons = append(reasons, "oauth_custom_endpoint_unsupported")
+		}
 	}
 	if channel.Credentials.Azure {
 		reasons = append(reasons, "azure_credentials_unsupported")
@@ -273,6 +295,12 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		reasons = append(reasons, "credential_field_unsupported:"+key)
 	}
 	keys := credentialKeys(channel.Credentials)
+	if channel.Credentials.OAuth && axonHubOAuthProvider(channel.Type) && channel.Credentials.OAuthCredentials != nil {
+		keys = []string{channel.Credentials.OAuthCredentials.AccessToken}
+		if tokenType := strings.ToLower(channel.Credentials.OAuthCredentials.TokenType); tokenType != "" && tokenType != "bearer" {
+			reasons = append(reasons, "oauth_token_type_unsupported")
+		}
+	}
 	if len(keys) == 0 {
 		reasons = append(reasons, "credential_missing")
 	}
@@ -309,6 +337,7 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		Name:            channel.Name,
 		Enabled:         channel.Status == "" || channel.Status == "enabled",
 		BaseURL:         baseURL,
+		Provider:        channel.Type,
 		// The dispatcher uses these as protocol identities. The exact URL is
 		// owned by Endpoints, so custom paths cannot accidentally trigger a
 		// different protocol's request/response conversion.
@@ -321,10 +350,15 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		Protocols:      protocols,
 		Tags:           channel.Tags,
 		CredentialKeys: keys,
+		OAuthState:     axonHubOAuthState(channel.Credentials.OAuthCredentials),
 		DisabledKeys:   map[string]bool{},
 		Entries:        axonHubChannelEntries(channel),
 	}
 	for _, disabled := range channel.DisabledAPIKeys {
+		if disabled.Key == "__oauth__" && channel.Credentials.OAuth && len(keys) > 0 {
+			compiled.DisabledKeys[keys[0]] = true
+			continue
+		}
 		if disabled.Key != "" {
 			compiled.DisabledKeys[disabled.Key] = true
 		}

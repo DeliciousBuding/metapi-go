@@ -14,7 +14,8 @@ type DirectEndpoint struct {
 	Auth string `json:"auth"`
 	// ModelPath appends the native Gemini model/action to a resolved models URL.
 	// Custom endpoint URLs remain exact when false.
-	ModelPath bool `json:"modelPath,omitempty"`
+	ModelPath bool   `json:"modelPath,omitempty"`
+	Profile   string `json:"profile,omitempty"`
 }
 
 const (

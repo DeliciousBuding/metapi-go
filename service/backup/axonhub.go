@@ -308,8 +308,8 @@ func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplaceme
 	channelIDs := map[int]int64{}
 	for _, channel := range plan.channels {
 		id, err := upsertMapped(db, tx, originKey, "upstream_channels", int64(channel.SourceID), "upstream_channels",
-			[]string{"name", "dialect", "enabled", "base_url", "endpoint_config", "openai_chat_completion_path", "openai_response_path", "anthropic_message_path", "proxy", "channel_proxy", "custom_header", "param_override", "match_regex"},
-			[]any{channel.Name, "generic", channel.Enabled, strings.TrimRight(strings.TrimRight(channel.BaseURL, "#"), "/"), channel.Endpoints, channel.ChatPath, channel.ResponsesPath, channel.MessagesPath, false, channel.ChannelProxy, "[]", channel.ParamOverride, ""})
+			[]string{"name", "dialect", "provider", "enabled", "base_url", "endpoint_config", "openai_chat_completion_path", "openai_response_path", "anthropic_message_path", "proxy", "channel_proxy", "custom_header", "param_override", "match_regex"},
+			[]any{channel.Name, "generic", channel.Provider, channel.Enabled, strings.TrimRight(strings.TrimRight(channel.BaseURL, "#"), "/"), channel.Endpoints, channel.ChatPath, channel.ResponsesPath, channel.MessagesPath, false, channel.ChannelProxy, "[]", channel.ParamOverride, ""})
 		if err != nil {
 			return nil, err
 		}
@@ -320,8 +320,8 @@ func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplaceme
 	for _, credential := range plan.credentials {
 		sourceID := axonHubCredentialSourceID(credential)
 		id, err := upsertMapped(db, tx, originKey, "upstream_credentials", sourceID, "upstream_credentials",
-			[]string{"channel_id", "name", "secret", "enabled"},
-			[]any{channelIDs[credential.ChannelSourceID], credential.Name, credential.Secret, credential.Enabled})
+			[]string{"channel_id", "name", "secret", "kind", "oauth_state", "enabled"},
+			[]any{channelIDs[credential.ChannelSourceID], credential.Name, credential.Secret, credential.Kind, credential.OAuthState, credential.Enabled})
 		if err != nil {
 			return nil, err
 		}

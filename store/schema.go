@@ -396,6 +396,7 @@ type DirectUpstreamCandidate struct {
 	ChannelName       string
 	BaseURL           string
 	Dialect           string
+	Provider          string
 	ChatPath          string
 	ResponsesPath     string
 	AnthropicPath     string
@@ -408,6 +409,7 @@ type DirectUpstreamCandidate struct {
 	ModelName         string
 	CredentialID      int64
 	CredentialName    string
+	CredentialKind    string
 	Credential        string
 	ChannelEnabled    bool
 	ModelEnabled      bool

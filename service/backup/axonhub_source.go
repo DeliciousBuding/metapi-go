@@ -69,11 +69,12 @@ type AxonHubSourceChannel struct {
 // modeled even when the importer cannot serve it, because "cannot serve" must
 // be a decision made after reading, never a field somebody forgot to parse.
 type AxonHubSourceCredentials struct {
-	APIKey  string
-	APIKeys []string
-	OAuth   bool
-	Azure   bool
-	GCP     bool
+	APIKey           string
+	APIKeys          []string
+	OAuth            bool
+	OAuthCredentials *AxonHubSourceOAuth
+	Azure            bool
+	GCP              bool
 	// UnsupportedFields names credential keys outside the audited contract.
 	UnsupportedFields []string
 }
@@ -532,7 +533,9 @@ func decodeAxonHubCredentials(raw json.RawMessage, dst *AxonHubSourceCredentials
 			return axonHubErr("credentials.apiKeys must be an array")
 		}
 	}
-	dst.OAuth = present(obj["oauth"])
+	if err := decodeAxonHubOAuthCredentials(obj["oauth"], dst); err != nil {
+		return err
+	}
 	dst.Azure = present(obj["azure"])
 	dst.GCP = present(obj["gcp"])
 	dst.UnsupportedFields = unknownKeys(obj, axonHubCredentialFields)
