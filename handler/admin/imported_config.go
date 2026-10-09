@@ -16,10 +16,12 @@ import (
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
 type importedChannelConfig struct {
+	Ownership      string                `json:"ownership"`
 	ID             int64                 `db:"id" json:"id"`
 	OriginKey      string                `db:"origin_key" json:"originKey"`
 	Provider       string                `db:"provider" json:"provider"`
@@ -127,6 +129,7 @@ func (h *importedUpstreamHandler) detail(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	row.BaseURL = importedDisplayURL(row.BaseURL)
+	row.Ownership = upstream.Ownership(row.OriginKey)
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, 200, struct {
 		importedChannelConfig
@@ -172,6 +175,10 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	defer tx.Rollback()
+	if err = upstream.LockLifecycleTx(r.Context(), tx); err != nil {
+		importedWriteError(w, err)
+		return
+	}
 	query := importedConfigSelect
 	if h.db.DriverName() == "pgx" {
 		query += " FOR UPDATE"

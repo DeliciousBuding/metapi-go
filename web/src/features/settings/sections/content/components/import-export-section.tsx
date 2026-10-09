@@ -4,6 +4,7 @@
 // form using the shared semantic schedule editor.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import {
   ArrowRight,
   Download,
@@ -69,6 +70,7 @@ import {
   type AxonHubV14Preview,
   type OctopusV5Preview,
 } from './backup-import-preview-panel'
+import { getBackupRemovalCounts } from './backup-import-removals'
 import { BackupImportSource } from './backup-import-source'
 
 const WEBDAV_FORM_ID = 'settings-content-import-export-webdav-form'
@@ -85,6 +87,19 @@ function isExternalPreview(
   plan: BackupImportTablePlan | OctopusV5Preview | AxonHubV14Preview
 ): plan is OctopusV5Preview | AxonHubV14Preview {
   const candidate = plan as OctopusV5Preview
+  const impact = candidate.removalImpact
+  if (
+    impact &&
+    (impact.kind !== 'source' ||
+      impact.id !== 0 ||
+      typeof impact.revision !== 'string' ||
+      !impact.revision.trim() ||
+      typeof impact.counts !== 'object' ||
+      impact.counts === null ||
+      Array.isArray(impact.counts))
+  ) {
+    return false
+  }
   return (
     typeof candidate.source === 'string' &&
     typeof candidate.originKey === 'string' &&
@@ -160,10 +175,9 @@ export function ImportExportSection() {
   const [importFileName, setImportFileName] = useState('')
   const [externalOriginKey, setExternalOriginKey] = useState('')
   const [allowChannelsOnlyImport, setAllowChannelsOnlyImport] = useState(false)
-  const [importPreview, setImportPreview] =
-    useState<BackupImportPreview | null>(null)
   const [previewSnapshot, setPreviewSnapshot] =
     useState<ImportPreviewSnapshot | null>(null)
+  const importPreview = previewSnapshot?.plan ?? null
   const importRevision = useRef(0)
   const [confirmImportOpen, setConfirmImportOpen] = useState(false)
   const [confirmWebdavImportOpen, setConfirmWebdavImportOpen] = useState(false)
@@ -308,12 +322,14 @@ export function ImportExportSection() {
   })
 
   const importMutation = useMutation({
+    retry: false,
     mutationFn: async (input: {
       raw: string
       originKey?: string
       source?: ExternalBackupSource
       channelsOnly?: boolean
       replaceOrigin?: boolean
+      replacementRevision?: string
     }) => {
       const { raw, originKey, source, channelsOnly, replaceOrigin } = input
       const data = JSON.parse(raw) as unknown
@@ -323,7 +339,8 @@ export function ImportExportSection() {
         source ? originKey : undefined,
         octopus && channelsOnly ? 'channels-only' : undefined,
         octopus && replaceOrigin,
-        source === 'axonhub-v1.4' && replaceOrigin
+        source === 'axonhub-v1.4' && replaceOrigin,
+        input.replacementRevision
       )
     },
     onSuccess: () => {
@@ -331,18 +348,21 @@ export function ImportExportSection() {
       setImportText('')
       setImportFileName('')
       setExternalOriginKey('')
-      setAllowChannelsOnlyImport(false)
-      setImportPreview(null)
-      setPreviewSnapshot(null)
+      resetImportReview()
       invalidateAfterImport()
     },
-    onError: () =>
-      toast.error(t('settings.content.importExport.toast.importFailed')),
+    onError: (error: unknown) => {
+      if (isAxiosError(error) && error.response?.status === 409) {
+        toast.error(t('settings.content.importExport.toast.previewChanged'))
+        void handlePreviewImport()
+        return
+      }
+      toast.error(t('settings.content.importExport.toast.importFailed'))
+    },
   })
 
   function resetImportReview() {
     importRevision.current++
-    setImportPreview(null)
     setPreviewSnapshot(null)
     setConfirmImportOpen(false)
     setAllowChannelsOnlyImport(false)
@@ -369,6 +389,7 @@ export function ImportExportSection() {
   }
 
   async function handlePreviewImport() {
+    resetImportReview()
     const raw = importText
     const originKey = externalOriginKey.trim()
     const source = detectExternalBackupSourceText(raw)
@@ -380,7 +401,6 @@ export function ImportExportSection() {
       }
       const plan = await previewMutation.mutateAsync({ raw, originKey })
       if (revision !== importRevision.current) return
-      setImportPreview(plan)
       setPreviewSnapshot({
         raw,
         originKey: plan.kind === 'tables' ? undefined : originKey,
@@ -478,6 +498,7 @@ export function ImportExportSection() {
     (importPreview.data.adaptations?.length ?? 0) > 0
   const canImport =
     previewSnapshot !== null &&
+    !previewMutation.isPending &&
     !(importPreview && importPreview.kind !== 'tables'
       ? (importPreview.data.blocking?.length ?? 0) > 0
       : false) &&
@@ -495,10 +516,13 @@ export function ImportExportSection() {
       'settings.content.importExport.axonhubImportConfirmDescription'
   }
   const isWebdavDirty = form.formState.isDirty
+  const externalPreview =
+    importPreview?.kind === 'tables' ? null : importPreview?.data
+  const removalImpact = externalPreview?.removalImpact
+  const removalCounts = getBackupRemovalCounts(externalPreview)
   const hasExternalRemovals =
-    importPreview !== null &&
-    importPreview.kind !== 'tables' &&
-    Object.values(importPreview.data.removals ?? {}).some((count) => count > 0)
+    removalCounts.length > 0 ||
+    Object.values(externalPreview?.removals ?? {}).some((count) => count > 0)
 
   return (
     <SectionCard
@@ -533,6 +557,7 @@ export function ImportExportSection() {
               type='button'
               disabled={
                 previewMutation.isPending ||
+                importMutation.isPending ||
                 !importText.trim() ||
                 (externalImportSource !== null && !externalOriginKey.trim())
               }
@@ -928,6 +953,22 @@ export function ImportExportSection() {
           t(confirmImportDescriptionKey) +
           (hasExternalRemovals
             ? ` ${t('settings.content.importExport.octopusReplacementDescription')}`
+            : '') +
+          (removalImpact?.requiresCascade
+            ? ` ${t('settings.content.importExport.removalImpactCascade')}`
+            : '') +
+          (removalCounts.length > 0
+            ? ` ${removalCounts
+                .map(([section, count]) =>
+                  t('settings.content.importExport.octopusPreviewSection', {
+                    section: t(
+                      `settings.content.importExport.design.sections.${section}`,
+                      { defaultValue: section }
+                    ),
+                    count,
+                  })
+                )
+                .join(' · ')}`
             : '')
         }
         confirmLabel={t('settings.content.importExport.import')}
@@ -935,13 +976,14 @@ export function ImportExportSection() {
         destructive
         onConfirm={() => {
           setConfirmImportOpen(false)
-          if (!previewSnapshot) return
+          if (!previewSnapshot || !canImport || importMutation.isPending) return
           importMutation.mutate({
             raw: previewSnapshot.raw,
             originKey: previewSnapshot.originKey,
             source: previewSnapshot.source,
             channelsOnly: allowChannelsOnlyImport,
             replaceOrigin: hasExternalRemovals,
+            replacementRevision: removalImpact?.revision,
           })
         }}
         onCancel={() => setConfirmImportOpen(false)}

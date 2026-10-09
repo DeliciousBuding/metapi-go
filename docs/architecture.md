@@ -475,8 +475,19 @@ is stateless and lives entirely in `transform/openai/responses`.
 `handler/admin/imported_config.go` owns imported connection updates and explicit
 request-setting reads; `imported_members.go` owns route preferences and shared
 grant cooldowns. All successful writes invalidate routing state. The channels
-UI separates account-derived routing health from imported upstream maintenance;
+UI separates account-derived routing health from independent upstream maintenance;
 it reads secret-bearing request settings only on demand, outside Query caches.
+`service/upstream` owns local channel, model, grant and group creation and the
+transactional deletion graph. Local records use `native:local` and negative
+source IDs derived from their database IDs, without external source mappings.
+Model/credential grants are explicit; creating either side never authorizes their
+Cartesian product. Each group is paired with one public route, and grant protocol
+reductions cannot invalidate a member's explicit protocol order.
+Catalog writes, existing connection/member edits, deletion commits and source
+replacements take the same graph lock before row locks. Deletion follows actual
+relationships across origins, clears all mapping aliases and stale manual active
+IDs, and preserves fail-closed downstream route permissions. Source import and
+the admin deletion API share this owner and revision-based impact confirmation.
 
 `internal/httpclient.ExpandClientHeaderTemplate` owns the request metadata
 template parser and allowlist. Both backup validation and direct forwarding

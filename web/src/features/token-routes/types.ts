@@ -140,6 +140,7 @@ export type RouteFormPayload = {
 // ---------------------------------------------------------------------------
 
 export interface RouteRowActions {
+  isDeletePending?: boolean
   onEdit: (route: RouteSummaryRow) => void
   onDelete: (route: RouteSummaryRow) => void
   onToggleEnabled: (route: RouteSummaryRow) => void

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { PageHeader } from '@/components/common/page-header'
+import { useUpstreamDeletion } from '@/components/common/upstream-deletion'
 import {
   DataTableBulkActions,
   DataTablePage,
@@ -27,8 +28,6 @@ import {
 } from '@/features/accounts'
 import { useChannels } from '@/features/channels'
 import { useSites } from '@/features/sites'
-import { api } from '@/lib/api'
-import { assertBusinessOk } from '@/lib/assert-business-ok'
 import { asStringParam } from '@/lib/helpers/searchParams'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
@@ -48,7 +47,11 @@ import { routesSearchSchema } from '../lib/routes-schema'
 import { useRouteRebuildTask } from '../lib/use-route-rebuild-task'
 import { useShowZeroChannelPreference } from '../lib/use-show-zero-channel'
 import type { RouteRowActions, RouteSummaryRow } from '../types'
-import { isExplicitGroupRoute, isExactModelPattern } from '../utils'
+import {
+  isExplicitGroupRoute,
+  isExactModelPattern,
+  resolveRouteTitle,
+} from '../utils'
 import { RouteDetailSheet } from './route-detail-sheet'
 import { RouteFormDialog, type RouteAccountOption } from './route-form-dialog'
 import { RouteRebuildStatus } from './route-rebuild-status'
@@ -304,30 +307,38 @@ export function RoutesPage() {
     })
   }, [routerSearch, isLoading, routes, navigate, openEdit])
 
-  // Delete-with-undo tier: single route delete — no dialog; the row leaves
-  // immediately and a 6s undo toast gates the real DELETE.
+  // Native leaf routes retain undo; imported groups and other dependencies
+  // require a preview of the full deletion before confirmation.
   const undoableDelete = useUndoableDelete()
+  const {
+    requestDeletion,
+    dialog: deletionDialog,
+    isPending: isDeletePending,
+  } = useUpstreamDeletion()
   const deleteRouteUndoable = useCallback(
-    (route: RouteSummaryRow) =>
-      undoableDelete<RouteSummaryRow[], RouteSummaryRow>({
-        item: route,
-        queryKey: routeQueryKeys.summary(),
-        removeFromCache: (data, item) =>
-          data.filter((entry) => entry.id !== item.id),
-        deleteFn: async (item) => {
-          const result = await api.deleteRoute(item.id)
-          assertBusinessOk(result, 'tokenRoutes.toast.deleteFailed')
-        },
-        title: t('tokenRoutes.toast.deleted'),
-        undoLabel: t('common.undo'),
-        errorTitle: t('tokenRoutes.toast.deleteFailed'),
-      }),
-    [undoableDelete, t]
+    (route: RouteSummaryRow) => {
+      void requestDeletion(
+        { kind: 'route', id: route.id, name: resolveRouteTitle(route) },
+        (_preview, commit) =>
+          undoableDelete<RouteSummaryRow[], RouteSummaryRow>({
+            item: route,
+            queryKey: routeQueryKeys.summary(),
+            removeFromCache: (data, item) =>
+              data.filter((entry) => entry.id !== item.id),
+            deleteFn: commit,
+            title: t('tokenRoutes.toast.deleted'),
+            undoLabel: t('common.undo'),
+            errorTitle: t('tokenRoutes.toast.deleteFailed'),
+          })
+      )
+    },
+    [requestDeletion, undoableDelete, t]
   )
 
   // Memoized so the column defs keep a stable identity across renders.
   const rowActions = useMemo<RouteRowActions>(
     () => ({
+      isDeletePending,
       onEdit: openEdit,
       onDelete: deleteRouteUndoable,
       onToggleEnabled: (route) =>
@@ -347,6 +358,7 @@ export function RoutesPage() {
       },
     }),
     [
+      isDeletePending,
       openEdit,
       deleteRouteUndoable,
       updateMutation,
@@ -557,6 +569,8 @@ export function RoutesPage() {
           openEdit(route)
         }}
       />
+
+      {deletionDialog}
 
       <ConfirmDialog
         open={rebuildConfirmOpen}

@@ -1,6 +1,9 @@
 package backup
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"github.com/deliciousbuding/metapi-go/service/upstream"
+)
 
 const OctopusV5Origin = "octopus-v5"
 
@@ -106,11 +109,12 @@ type octopusItem struct {
 }
 
 type OctopusV5Preview struct {
-	Removals    map[string]int `json:"removals,omitempty"`
-	Source      string         `json:"source"`
-	OriginKey   string         `json:"originKey"`
-	Sections    map[string]int `json:"sections"`
-	NotImported map[string]int `json:"notImported,omitempty"`
-	Adaptations []string       `json:"adaptations,omitempty"`
-	Blocking    []string       `json:"blocking,omitempty"`
+	Removals      map[string]int            `json:"removals,omitempty"`
+	RemovalImpact *upstream.DeletionPreview `json:"removalImpact,omitempty"`
+	Source        string                    `json:"source"`
+	OriginKey     string                    `json:"originKey"`
+	Sections      map[string]int            `json:"sections"`
+	NotImported   map[string]int            `json:"notImported,omitempty"`
+	Adaptations   []string                  `json:"adaptations,omitempty"`
+	Blocking      []string                  `json:"blocking,omitempty"`
 }

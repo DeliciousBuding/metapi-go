@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
 )
@@ -31,6 +32,7 @@ type DirectCredentialSummary struct {
 	Kind       string `json:"kind"`
 	ExpiresAt  int64  `json:"expiresAt,omitempty"`
 	CanRefresh bool   `json:"canRefresh"`
+	Ownership  string `json:"ownership"`
 }
 
 func ListDirectCredentials(ctx context.Context, db *sqlx.DB, channelID int64) ([]DirectCredentialSummary, error) {
@@ -41,7 +43,7 @@ func ListDirectCredentials(ctx context.Context, db *sqlx.DB, channelID int64) ([
 		}
 		return nil, ErrDirectCredentialUnavailable
 	}
-	rows, err := db.QueryxContext(ctx, db.Rebind(`SELECT id,name,enabled,kind,oauth_state FROM upstream_credentials WHERE channel_id=? ORDER BY id`), channelID)
+	rows, err := db.QueryxContext(ctx, db.Rebind(`SELECT id,name,enabled,kind,oauth_state,origin_key FROM upstream_credentials WHERE channel_id=? ORDER BY id`), channelID)
 	if err != nil {
 		return nil, ErrDirectCredentialUnavailable
 	}
@@ -50,11 +52,13 @@ func ListDirectCredentials(ctx context.Context, db *sqlx.DB, channelID int64) ([
 	for rows.Next() {
 		var item DirectCredentialSummary
 		var state store.DirectOAuthState
-		if err := rows.Scan(&item.ID, &item.Name, &item.Enabled, &item.Kind, &state); err != nil {
+		var origin string
+		if err := rows.Scan(&item.ID, &item.Name, &item.Enabled, &item.Kind, &state, &origin); err != nil {
 			return nil, ErrDirectCredentialUnavailable
 		}
 		item.ExpiresAt = state.ExpiresAt
 		item.CanRefresh = state.RefreshToken != ""
+		item.Ownership = upstream.Ownership(origin)
 		out = append(out, item)
 	}
 	if rows.Err() != nil {
@@ -94,20 +98,13 @@ func UpdateDirectCredential(ctx context.Context, db *sqlx.DB, id int64, input Di
 		set = append(set, "enabled=?")
 		args = append(args, *input.Enabled)
 	}
-	if input.APIKey != nil {
-		key := strings.TrimSpace(*input.APIKey)
-		if key == "" || strings.HasPrefix(key, "{") {
-			return ErrInvalidDirectCredential
+	if input.APIKey != nil || input.OAuth != nil {
+		secret, kind, state, err := directCredentialMaterial(provider, input.APIKey, input.OAuth)
+		if err != nil {
+			return err
 		}
 		set = append(set, "secret=?", "kind=?", "oauth_state=?")
-		args = append(args, key, store.DirectCredentialAPIKey, store.DirectOAuthState{})
-	}
-	if input.OAuth != nil {
-		if directOAuthProvider(provider) == "" || strings.TrimSpace(input.OAuth.AccessToken) == "" || input.OAuth.ExpiresAt < 0 {
-			return ErrInvalidDirectCredential
-		}
-		set = append(set, "secret=?", "kind=?", "oauth_state=?")
-		args = append(args, input.OAuth.AccessToken, store.DirectCredentialOAuth, input.OAuth.DirectOAuthState)
+		args = append(args, secret, kind, state)
 	}
 	args = append(args, id)
 	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE upstream_credentials SET `+strings.Join(set, ",")+` WHERE id=?`), args...)

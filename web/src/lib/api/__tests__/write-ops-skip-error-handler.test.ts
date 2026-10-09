@@ -6,6 +6,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { eventsApi } from '../events'
+import { oauthApi } from '../oauth'
+import { settingsApi } from '../settings'
+import { statsApi } from '../stats'
+
 const apiClientStub = vi.hoisted(() => ({
   get: vi.fn(),
   request: vi.fn(),
@@ -16,11 +21,6 @@ vi.mock('@/lib/http-client', () => ({
   fetchAuthenticatedResponse: vi.fn(),
   extractResponseErrorMessage: vi.fn(),
 }))
-
-import { eventsApi } from '../events'
-import { oauthApi } from '../oauth'
-import { settingsApi } from '../settings'
-import { statsApi } from '../stats'
 
 beforeEach(() => {
   apiClientStub.get.mockReset()
@@ -37,6 +37,45 @@ function lastRequestConfig(): Record<string, unknown> {
 }
 
 describe('caller-toasted write ops skip the global error toast', () => {
+  it.each([
+    { source: 'Octopus', octopus: true, axonhub: false },
+    { source: 'AxonHub', octopus: false, axonhub: true },
+  ])(
+    'sends the reviewed replacement revision for $source',
+    async ({ octopus, axonhub }) => {
+      const payload = octopus
+        ? { version: 5, exported_at: '2026-10-06T00:00:00Z' }
+        : {
+            version: '1.4',
+            timestamp: '2026-10-06T00:00:00Z',
+            channels: [],
+            models: [],
+          }
+      await settingsApi.importBackup(
+        payload,
+        'source',
+        undefined,
+        octopus,
+        axonhub,
+        'reviewed-revision'
+      )
+      expect(lastRequestConfig()).toMatchObject({
+        url: '/api/settings/backup/import',
+        data: JSON.stringify(payload),
+        headers: {
+          'X-External-Origin-Key': 'source',
+          'X-External-Replacement-Revision': 'reviewed-revision',
+          [octopus ? 'X-Octopus-Replace-Origin' : 'X-AxonHub-Replace-Origin']:
+            'true',
+        },
+        skipErrorHandler: true,
+      })
+      expect(lastRequestConfig().headers).not.toHaveProperty(
+        octopus ? 'X-AxonHub-Replace-Origin' : 'X-Octopus-Replace-Origin'
+      )
+    }
+  )
+
   it('sends the same external origin key on Octopus preview and commit', async () => {
     const payload = { version: 5, exported_at: '2026-10-06T00:00:00Z' }
     await settingsApi.previewBackupImport(payload, 'octopus-lab')

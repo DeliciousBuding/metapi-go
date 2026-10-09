@@ -6,20 +6,28 @@ import {
   RefreshCw,
   Search,
   Users,
+  Plus,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ModelPill } from '@/components/common/model-pill'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { useUpstreamDeletion } from '@/components/common/upstream-deletion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
+import type {
+  ImportedUpstream,
+  ImportedUpstreamInventory,
+} from '@/lib/api/imported-upstreams'
 import { toast } from '@/lib/toast'
+import { useUndoableDelete } from '@/lib/undoable-delete'
 
 import { memberProtocols, upstreamKeys } from '../lib/upstream-config'
+import { UpstreamCreateSheet } from './upstream-create-sheet'
 import { UpstreamDetailSheet } from './upstream-detail-sheet'
 import { UpstreamIdentity } from './upstream-identity'
 
@@ -31,6 +39,8 @@ export function ImportedUpstreamsPanel(props: {
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const deletion = useUpstreamDeletion()
+  const undoDelete = useUndoableDelete()
   const query = useQuery({
     queryKey: upstreamKeys.all,
     queryFn: api.getImportedUpstreams,
@@ -38,6 +48,7 @@ export function ImportedUpstreamsPanel(props: {
   const [selectedTab, setSelectedTab] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [detailId, setDetailId] = useState<number | null>(null)
+  const [creating, setCreating] = useState(false)
   const mutation = useMutation({
     mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
       api.setImportedUpstreamEnabled(id, enabled),
@@ -50,7 +61,31 @@ export function ImportedUpstreamsPanel(props: {
   const items = query.data?.items ?? []
   const members = query.data?.members ?? []
   const detail = items.find((item) => item.id === detailId)
-  if (!items.length && !query.error) return props.children ?? null
+  async function deleteChannel(item: ImportedUpstream) {
+    await deletion.requestDeletion(
+      { kind: 'channel', id: item.id, name: item.name },
+      (_, commit) => {
+        undoDelete<ImportedUpstreamInventory, ImportedUpstream>({
+          item,
+          queryKey: upstreamKeys.all,
+          removeFromCache: (data, deleted) => ({
+            ...data,
+            items: data.items.filter((row) => row.id !== deleted.id),
+          }),
+          deleteFn: commit,
+          title: t('channels.catalog.deleted', { name: item.name }),
+          undoLabel: t('common.undo'),
+          errorTitle: t('channels.catalog.deleteError'),
+          alsoInvalidate: [['routes']],
+        })
+        setDetailId(null)
+      },
+      () => {
+        setDetailId(null)
+        void queryClient.invalidateQueries({ queryKey: upstreamKeys.all })
+      }
+    )
+  }
   const tab =
     selectedTab ??
     (!props.forceAccounts &&
@@ -118,6 +153,10 @@ export function ImportedUpstreamsPanel(props: {
               onClick={() => void query.refetch()}
             >
               <RefreshCw className='size-4' />
+            </Button>
+            <Button onClick={() => setCreating(true)}>
+              <Plus className='size-4' />
+              {t('channels.create.title')}
             </Button>
           </div>
           {query.error && (
@@ -254,6 +293,18 @@ export function ImportedUpstreamsPanel(props: {
           item={detail}
           members={members.filter((member) => member.channelId === detail.id)}
           onClose={() => setDetailId(null)}
+          onDelete={() => void deleteChannel(detail)}
+          deleting={deletion.isPending}
+        />
+      )}
+      {deletion.dialog}
+      {creating && (
+        <UpstreamCreateSheet
+          onClose={() => setCreating(false)}
+          onCreated={(id) => {
+            setCreating(false)
+            setDetailId(id)
+          }}
         />
       )}
     </>

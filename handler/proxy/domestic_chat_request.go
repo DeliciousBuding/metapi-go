@@ -84,16 +84,5 @@ func nativeChatRequestProfile(site store.Site, path string) string {
 	if !ok || endpoint != proxy.EndpointChat {
 		return ""
 	}
-	preset := service.DetectSiteInitializationPreset(site.URL, site.Platform)
-	if preset == nil {
-		return ""
-	}
-	switch preset.ID {
-	case "deepseek-openai":
-		return "deepseek"
-	case "zhipu-openai", "zhipu-coding-plan-openai", "zai-openai", "zai-coding-plan-openai", "xiaomi-openai":
-		return "zai"
-	default:
-		return ""
-	}
+	return service.NativeChatRequestProfile(site.URL, site.Platform)
 }

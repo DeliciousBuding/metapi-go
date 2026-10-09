@@ -322,7 +322,7 @@ func (h *backupHandler) importOctopusV5Backup(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "Octopus backup contains unsupported sections; explicitly select channels-only import after reviewing the preview")
 		return
 	}
-	counts, err := backupsvc.ImportOctopusV5WithUnsupportedMode(backupStoreDB(h.db), raw, originKey, importMode == "channels-only", r.Header.Get("X-Octopus-Replace-Origin") == "true")
+	counts, err := backupsvc.ImportOctopusV5WithUnsupportedMode(backupStoreDB(h.db), raw, originKey, importMode == "channels-only", r.Header.Get("X-Octopus-Replace-Origin") == "true", r.Header.Get("X-External-Replacement-Revision"))
 	if err != nil {
 		if errors.Is(err, backupsvc.ErrOctopusReplacementRequired) {
 			writeError(w, http.StatusConflict, err.Error())
@@ -370,7 +370,7 @@ func (h *backupHandler) importAxonHubV14Backup(w http.ResponseWriter, r *http.Re
 		})
 		return
 	}
-	counts, err := backupsvc.ImportAxonHubV14(db, raw, originKey, r.Header.Get("X-AxonHub-Replace-Origin") == "true")
+	counts, err := backupsvc.ImportAxonHubV14(db, raw, originKey, r.Header.Get("X-AxonHub-Replace-Origin") == "true", r.Header.Get("X-External-Replacement-Revision"))
 	if err != nil {
 		if errors.Is(err, backupsvc.ErrAxonHubReplacementRequired) {
 			writeError(w, http.StatusConflict, err.Error())
@@ -876,6 +876,9 @@ func (e backupImportClientError) Error() string {
 }
 
 func backupImportErrorStatus(err error) int {
+	if errors.Is(err, backupsvc.ErrImportedEntityConflict) {
+		return http.StatusConflict
+	}
 	var clientErr backupImportClientError
 	if errors.As(err, &clientErr) {
 		return http.StatusBadRequest

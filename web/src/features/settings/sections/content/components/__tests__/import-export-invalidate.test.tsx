@@ -216,7 +216,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
         'octopus-lab',
         undefined,
         false,
-        false
+        false,
+        undefined
       )
     })
     await waitFor(() => expectInvalidated(invalidateSpy))
@@ -281,7 +282,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
         'origin-B',
         undefined,
         false,
-        false
+        false,
+        undefined
       )
     })
   })
@@ -326,7 +328,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
         'octopus-lab',
         'channels-only',
         false,
-        false
+        false,
+        undefined
       )
     })
   })
@@ -371,7 +374,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
         'octopus-lab',
         'channels-only',
         false,
-        false
+        false,
+        undefined
       )
     })
   })
@@ -401,9 +405,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
     expect(mockImportBackup).not.toHaveBeenCalled()
     clickLastButtonNamed('Import')
     const dialog = await screen.findByRole('alertdialog')
-    expect(dialog).toHaveTextContent(
-      'Native data and other origins are unaffected'
-    )
+    expect(dialog).toHaveTextContent('their listed dependent records')
     expect(mockImportBackup).not.toHaveBeenCalled()
     clickLastButtonNamed('Import')
     await waitFor(() => {
@@ -412,7 +414,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
         'octopus-lab',
         undefined,
         true,
-        false
+        false,
+        undefined
       )
     })
   })
@@ -506,7 +509,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
         'axonhub-lab',
         undefined,
         false,
-        false
+        false,
+        undefined
       )
     })
     await waitFor(() => expectInvalidated(invalidateSpy))
@@ -551,7 +555,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
         'axonhub-lab',
         undefined,
         false,
-        true
+        true,
+        undefined
       )
     })
   })

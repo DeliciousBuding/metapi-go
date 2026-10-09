@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import type { UpstreamDeletionPreview } from '@/lib/api/upstream-lifecycle'
+
+import { getBackupRemovalCounts } from './backup-import-removals'
 
 export type BackupImportTablePlan = Record<
   string,
@@ -15,6 +18,7 @@ export type OctopusV5Preview = {
   sections: Record<string, number>
   notImported?: Record<string, number>
   removals?: Record<string, number>
+  removalImpact?: UpstreamDeletionPreview
   adaptations?: string[]
   blocking?: string[]
 }
@@ -35,6 +39,7 @@ export type AxonHubV14Preview = {
   skippedChannels?: AxonHubSkippedChannel[]
   residuals?: string[]
   removals?: Record<string, number>
+  removalImpact?: UpstreamDeletionPreview
   blocking?: string[]
 }
 
@@ -62,9 +67,8 @@ export function BackupImportPreviewPanel(props: Props) {
   const adapted =
     (preview.kind === 'octopus' ? (preview.data.adaptations?.length ?? 0) : 0) >
     0
-  const removals = Object.entries(external?.removals ?? {}).filter(
-    ([, count]) => count > 0
-  )
+  const removalImpact = external?.removalImpact
+  const removals = getBackupRemovalCounts(external)
   const skipped = axonhub?.skippedChannels ?? []
   const residuals = axonhub?.residuals ?? []
   const unsupportedProtocols = residuals.flatMap((residual) => {
@@ -199,13 +203,22 @@ export function BackupImportPreviewPanel(props: Props) {
             {removals.length > 0 ? (
               <div className='bg-warning/10 text-warning-soft-fg space-y-2 rounded-lg p-3 text-sm'>
                 <p className='font-medium'>
-                  {t('settings.content.importExport.octopusReplacementTitle')}
+                  {removalImpact
+                    ? t('settings.content.importExport.removalImpactTitle')
+                    : t(
+                        'settings.content.importExport.octopusReplacementTitle'
+                      )}
                 </p>
                 <p className='leading-relaxed'>
                   {t(
                     'settings.content.importExport.octopusReplacementDescription'
                   )}
                 </p>
+                {removalImpact?.requiresCascade ? (
+                  <p className='leading-relaxed'>
+                    {t('settings.content.importExport.removalImpactCascade')}
+                  </p>
+                ) : null}
                 <div className='flex flex-wrap gap-2'>
                   {removals.map(([section, count]) => (
                     <Badge key={section} variant='outline'>

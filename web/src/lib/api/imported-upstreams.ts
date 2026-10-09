@@ -18,6 +18,7 @@ export type ImportedRequestConfig = {
 }
 
 export type ImportedUpstreamDetail = {
+  ownership?: 'native' | 'imported'
   id: number
   name: string
   originKey: string
@@ -52,11 +53,12 @@ export type ImportedUpstreamUpdate = Partial<
 >
 
 export type ImportedCredential = {
+  ownership?: 'native' | 'imported'
   id: number
   name: string
   enabled: boolean
   kind: 'api_key' | 'oauth'
-  expiresAt?: number
+  expiresAt?: number // Unix milliseconds
   canRefresh: boolean
 }
 
@@ -68,7 +70,7 @@ export type ImportedCredentialUpdate = {
     accessToken: string
     refreshToken?: string
     clientId?: string
-    expiresAt?: number
+    expiresAt?: number // Unix milliseconds
     idToken?: string
     accountId?: string
   }
@@ -76,6 +78,7 @@ export type ImportedCredentialUpdate = {
 
 export type ImportedUpstreamInventory = {
   items: Array<{
+    ownership?: 'native' | 'imported'
     id: number
     name: string
     originKey: string

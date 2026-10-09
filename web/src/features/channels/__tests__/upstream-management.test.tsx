@@ -228,6 +228,43 @@ describe('upstream maintenance', () => {
     expect(screen.getByLabelText('API Key')).toHaveValue('')
     expect(client.getMutationCache().getAll()).toHaveLength(0)
   })
+  it('renders OAuth millisecond expiry and submits a local date as milliseconds', async () => {
+    state.credentials.mockResolvedValue({
+      items: [
+        {
+          id: 2,
+          name: 'Coding session',
+          enabled: true,
+          kind: 'oauth',
+          canRefresh: true,
+          expiresAt: Date.UTC(2026, 9, 11, 3, 30),
+        },
+      ],
+    })
+    mount(<UpstreamCredentials id={4} active onDirtyChange={state.dirty} />)
+    expect(await screen.findByText(/Expires .*2026/)).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Coding session' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'Replace credential' }))
+    fireEvent.change(screen.getByLabelText('Access token'), {
+      target: { value: 'synthetic-access' },
+    })
+    fireEvent.change(screen.getByLabelText('Refresh token'), {
+      target: { value: 'synthetic-refresh' },
+    })
+    const expiry = screen.getByLabelText('Expiry (local time, optional)')
+    expect(expiry).toHaveAttribute('type', 'datetime-local')
+    fireEvent.change(expiry, { target: { value: '2026-10-11T11:30' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save credential' }))
+    await waitFor(() =>
+      expect(state.replace).toHaveBeenCalledWith(2, {
+        oauth: expect.objectContaining({
+          accessToken: 'synthetic-access',
+          refreshToken: 'synthetic-refresh',
+          expiresAt: new Date(2026, 9, 11, 11, 30).getTime(),
+        }),
+      })
+    )
+  })
   it('reorders only granted protocols and explicitly restores inheritance', async () => {
     mount(
       <UpstreamRouteBindings members={[member]} onDirtyChange={state.dirty} />
@@ -242,8 +279,6 @@ describe('upstream maintenance', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save route' }))
     await waitFor(() =>
       expect(state.member).toHaveBeenCalledWith(7, {
-        priority: 0,
-        weight: 1,
         protocolOrder: [2, 8],
       })
     )
@@ -264,8 +299,6 @@ describe('upstream maintenance', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save route' }))
     await waitFor(() =>
       expect(state.member).toHaveBeenLastCalledWith(7, {
-        priority: 0,
-        weight: 1,
         protocolOrder: [],
       })
     )
