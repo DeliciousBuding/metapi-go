@@ -1485,14 +1485,12 @@
             "expiresAtHint": "Entered in your browser's local time, stored and compared as UTC. The key stops working the moment it passes — calls return 403. Leave empty for no expiry.",
             "enabled": "Enabled",
             "description": "Description",
-            "accessPolicy": "Access boundaries and period quotas",
-            "accessPolicyJson": "Policy JSON",
-            "accessPolicyHint": "Applied together with the permissions above. allowedUpstreamChannelIds lists direct channel IDs; [] denies all. modelIds matches mapped models exactly; modelMappings runs in order. quota supports requests, tokens and cost for rolling/calendar periods. Keep imported historyMissingBefore until accounting is reconciled. Empty clears this additional policy."
+            "accessPolicy": "Access boundaries and period quotas"
           },
           "schema": {
             "nameRequired": "Name is required.",
             "keyMinLength": "Key must be at least 8 characters.",
-            "accessPolicyInvalid": "Enter a valid JSON object"
+            "accessPolicyInvalid": "Check the access policy: mappings need both names; quotas need at least one nonnegative limit, a positive rolling duration and a valid timezone."
           },
           "toast": {
             "created": "API key created.",
@@ -1536,6 +1534,61 @@
             "credsExclude": "Excluded credentials",
             "defaultKey": "default key",
             "unknownId": "ID {{id}} (unresolved)"
+          },
+          "access": {
+            "hint": "These restrictions apply together with the model grants and credential scope above.",
+            "unreadable": "The saved policy cannot be read. Saving this form will preserve it. Reconcile the source configuration before changing access.",
+            "blockedTitle": "Imported access restrictions need attention",
+            "blocks": {
+              "keyType": "This source key type cannot send proxy requests.",
+              "scope": "The source key does not have permission to send model requests.",
+              "project": "The source project is unavailable or inactive.",
+              "routing": "The source uses an unsupported load-balancing or session-sticky setting.",
+              "mapping": "The source contains an unsupported model mapping rule.",
+              "unknown": "The source retains access restrictions that need reconciliation. Ordinary edits preserve this status."
+            },
+            "channelScope": "Upstream channel scope",
+            "allChannels": "No additional channel restriction",
+            "selectedChannels": "Only selected direct channels",
+            "channelHint": "Selecting direct channels limits routing to those channels. Site and account channels are excluded from this scope.",
+            "noChannels": "No channels selected: all upstream channels are denied.",
+            "loadingChannels": "Loading direct channels…",
+            "loadError": "Could not load direct channels: {{message}}",
+            "disabledChannel": "Disabled",
+            "emptyInventory": "No direct channels are available.",
+            "unavailableChannel": "Saved unavailable channel #{{id}}",
+            "models": "Allowed exact models",
+            "modelsHint": "Empty adds no model restriction. Otherwise the model name after mapping must match an entry exactly.",
+            "removeModel": "Remove model {{model}}",
+            "addModel": "Add exact model",
+            "pickModel": "Choose an existing model",
+            "mappings": "Model name mappings",
+            "mappingsHint": "Rules run from top to bottom; the first match wins. Request names support regular expressions. Targets are actual model names.",
+            "mappingFrom": "Requested model or pattern",
+            "mappingTo": "Target model",
+            "quota": "Enable period quota",
+            "quotaHint": "Set at least one limit. Empty leaves that metric unlimited; 0 exhausts it immediately. Usage is accounted after completion.",
+            "requests": "Request count",
+            "totalTokens": "Total tokens",
+            "cost": "Estimated cost limit",
+            "period": "Accounting period",
+            "periods": {
+              "all_time": "All time",
+              "past_duration": "Rolling window",
+              "day": "Calendar day",
+              "month": "Calendar month"
+            },
+            "duration": "Look-back duration",
+            "unit": "Duration unit",
+            "units": {
+              "minute": "Minutes",
+              "hour": "Hours",
+              "day": "Days"
+            },
+            "timezone": "Period timezone (optional)",
+            "timezoneHint": "Calendar days and months use this timezone. Empty uses UTC, for example Asia/Hong_Kong.",
+            "historyTitle": "Quota history needs reconciliation",
+            "historyHint": "Usage before {{date}} is missing. Periods overlapping that gap remain unavailable; this restriction is preserved until reconciliation."
           }
         },
         "proxyToken": {
@@ -3523,7 +3576,9 @@
       "emptyKey": "Enter a key for this entry.",
       "duplicateKey": "This key is already used. Each key must be unique.",
       "invalid": "Use a valid JSON object with non-empty, unique keys.",
-      "advancedOnly": "This configuration contains values that need the JSON editor. Your original content is preserved."
+      "advancedOnly": "This configuration contains values that need the JSON editor. Your original content is preserved.",
+      "moveUp": "Move mapping {{index}} up",
+      "moveDown": "Move mapping {{index}} down"
     },
     "modelPicker": {
       "title": "Choose a model",

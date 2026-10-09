@@ -63,6 +63,13 @@ vi.mock('@/lib/api', () => ({
     createDownstreamApiKey: mockCreateKey,
     updateDownstreamApiKey: mockUpdateKey,
     getSites: mockGetSites,
+    getImportedUpstreams: vi.fn().mockResolvedValue({
+      items: [
+        { id: 7, name: 'Production direct', enabled: true },
+        { id: 8, name: 'Backup direct', enabled: false },
+      ],
+      members: [{ modelName: 'gpt-6' }],
+    }),
     getAccountsSnapshot: vi
       .fn()
       .mockResolvedValue({ accounts: [], sites: [], generatedAt: '' }),
@@ -79,6 +86,15 @@ vi.mock('@/lib/toast', () => ({
 }))
 
 beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn()
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
   // Radix/base-ui primitives query matchMedia on render; jsdom leaves it
   // undefined otherwise and the form layout crashes.
   Object.defineProperty(window, 'matchMedia', {
@@ -664,4 +680,290 @@ describe('ModelPolicyEditor accessible name (#1300)', () => {
     expect(groupId).toBeTruthy()
     expect(input).not.toHaveAttribute('id', groupId ?? '')
   })
+})
+
+async function chooseAccessOption(label: string, option: string) {
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: label }))
+  const item = await screen.findByRole('option', { name: option })
+  fireEvent.pointerDown(item)
+  fireEvent.click(item)
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: label })).toHaveTextContent(
+      option
+    )
+  )
+}
+function addAccessMapping() {
+  const button = screen.getByText('Add entry').closest('button')
+  if (!button) throw new Error('Missing mapping add button')
+  fireEvent.click(button)
+}
+function submitKeyForm() {
+  const form = document.querySelector('form')
+  if (!form) throw new Error('Missing key form')
+  fireEvent.submit(form)
+}
+
+describe('KeySheetForm — structured access policy', () => {
+  it('preserves imported blocks, history and missing channel references on ordinary save', async () => {
+    const policy = {
+      allowedUpstreamChannelIds: [7, 99],
+      modelIds: ['gpt-6'],
+      modelMappings: [
+        { from: 'client-.*', to: 'gpt-6' },
+        { from: '*', to: 'fallback-model' },
+      ],
+      blockReason: 'source_key_missing_write_requests',
+      quota: {
+        requests: 10,
+        totalTokens: 1000,
+        cost: 0,
+        period: {
+          type: 'calendar_duration',
+          calendarDuration: { unit: 'day' },
+        },
+        timezone: 'Asia/Hong_Kong',
+        historyMissingBefore: 1791504000000,
+      },
+    }
+    renderKeySheetForm({
+      editingKey: { ...knownKey, accessPolicy: JSON.stringify(policy) },
+    })
+    expect(
+      await screen.findByRole('checkbox', { name: 'Production direct' })
+    ).toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'Saved unavailable channel #99' })
+    ).toBeChecked()
+    expect(
+      screen.getByText(
+        'The source key does not have permission to send model requests.'
+      )
+    ).toBeVisible()
+    expect(screen.getByText('Quota history needs reconciliation')).toBeVisible()
+    expect(
+      screen.getByRole('switch', { name: 'Enable period quota' })
+    ).toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.queryByRole('button', { name: 'Edit JSON' })
+    ).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Renamed only' },
+    })
+    submitKeyForm()
+    await waitFor(() => expect(mockUpdateKey).toHaveBeenCalledTimes(1))
+    expect(mockUpdateKey.mock.calls[0][1].accessPolicy).toEqual(policy)
+    expect(mockUpdateKey.mock.calls[0][1]).not.toHaveProperty(
+      'accessPolicyText'
+    )
+  })
+
+  it('edits channels by name, exact models, ordered mappings and rolling quota as a single payload', async () => {
+    renderKeySheetForm({ editingKey: knownKey, candidateModels: ['gpt-6'] })
+    await chooseAccessOption(
+      'Upstream channel scope',
+      'Only selected direct channels'
+    )
+    expect(
+      screen.getByText(
+        'No channels selected: all upstream channels are denied.'
+      )
+    ).toBeVisible()
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: 'Production direct' })
+    )
+    fireEvent.change(screen.getByLabelText('Allowed exact models'), {
+      target: { value: 'gpt-6' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add exact model' }))
+    addAccessMapping()
+    fireEvent.change(screen.getByLabelText('Requested model or pattern'), {
+      target: { value: 'client-.*' },
+    })
+    fireEvent.change(screen.getByLabelText('Target model'), {
+      target: { value: 'gpt-6' },
+    })
+    addAccessMapping()
+    fireEvent.change(
+      screen.getAllByLabelText('Requested model or pattern')[1],
+      { target: { value: 'priority-model' } }
+    )
+    fireEvent.change(screen.getAllByLabelText('Target model')[1], {
+      target: { value: 'gpt-6' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Move mapping 2 up' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'Enable period quota' }))
+    fireEvent.change(screen.getByLabelText('Request count'), {
+      target: { value: '20' },
+    })
+    fireEvent.change(screen.getByLabelText('Total tokens'), {
+      target: { value: '1000' },
+    })
+    fireEvent.change(screen.getByLabelText('Estimated cost limit'), {
+      target: { value: '0' },
+    })
+    await chooseAccessOption('Accounting period', 'Rolling window')
+    fireEvent.change(screen.getByLabelText('Look-back duration'), {
+      target: { value: '5' },
+    })
+    await chooseAccessOption('Duration unit', 'Minutes')
+    fireEvent.change(screen.getByLabelText('Period timezone (optional)'), {
+      target: { value: 'Asia/Hong_Kong' },
+    })
+    submitKeyForm()
+    await waitFor(() => expect(mockUpdateKey).toHaveBeenCalledTimes(1))
+    expect(mockUpdateKey.mock.calls[0][1].accessPolicy).toEqual({
+      allowedUpstreamChannelIds: [7],
+      modelIds: ['gpt-6'],
+      modelMappings: [
+        { from: 'priority-model', to: 'gpt-6' },
+        { from: 'client-.*', to: 'gpt-6' },
+      ],
+      quota: {
+        requests: 20,
+        totalTokens: 1000,
+        cost: 0,
+        timezone: 'Asia/Hong_Kong',
+        period: {
+          type: 'past_duration',
+          pastDuration: { value: 5, unit: 'minute' },
+        },
+      },
+    })
+  })
+
+  it('selects an inventory model with the shared searchable picker', async () => {
+    renderKeySheetForm({ editingKey: knownKey })
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: 'Choose an existing model' })
+      ).toBeVisible()
+    )
+    fireEvent.click(
+      screen.getByRole('combobox', { name: 'Choose an existing model' })
+    )
+    const search = await screen.findByRole('combobox', {
+      name: 'Search models or providers…',
+    })
+    fireEvent.change(search, { target: { value: 'gpt-6' } })
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(1))
+    fireEvent.keyDown(search, { key: 'Enter' })
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Remove model gpt-6' })
+      ).toBeVisible()
+    )
+    submitKeyForm()
+    await waitFor(() => expect(mockUpdateKey).toHaveBeenCalledTimes(1))
+    expect(mockUpdateKey.mock.calls[0][1].accessPolicy.modelIds).toEqual([
+      'gpt-6',
+    ])
+  })
+
+  it('keeps an empty selected channel list denied and only clears it after an explicit scope change', async () => {
+    renderKeySheetForm({
+      editingKey: {
+        ...knownKey,
+        accessPolicy: { allowedUpstreamChannelIds: [] },
+      },
+    })
+    expect(
+      screen.getByText(
+        'No channels selected: all upstream channels are denied.'
+      )
+    ).toBeVisible()
+    submitKeyForm()
+    await waitFor(() => expect(mockUpdateKey).toHaveBeenCalledTimes(1))
+    expect(
+      mockUpdateKey.mock.calls[0][1].accessPolicy.allowedUpstreamChannelIds
+    ).toEqual([])
+    await chooseAccessOption(
+      'Upstream channel scope',
+      'No additional channel restriction'
+    )
+    submitKeyForm()
+    await waitFor(() => expect(mockUpdateKey).toHaveBeenCalledTimes(2))
+    expect(
+      mockUpdateKey.mock.calls[1][1].accessPolicy.allowedUpstreamChannelIds
+    ).toBeUndefined()
+  })
+
+  it('does not erase an unreadable imported policy while renaming a key', async () => {
+    renderKeySheetForm({ editingKey: { ...knownKey, accessPolicy: '{broken' } })
+    expect(screen.getByText(/The saved policy cannot be read/)).toBeVisible()
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Rename safely' },
+    })
+    submitKeyForm()
+    await waitFor(() => expect(mockUpdateKey).toHaveBeenCalledTimes(1))
+    expect(JSON.stringify(mockUpdateKey.mock.calls[0][1])).not.toContain(
+      '"accessPolicy"'
+    )
+  })
+
+  it('rejects empty enabled quota and invalid timezone without sending an update', async () => {
+    renderKeySheetForm({ editingKey: knownKey })
+    fireEvent.click(screen.getByRole('switch', { name: 'Enable period quota' }))
+    submitKeyForm()
+    await waitFor(() =>
+      expect(screen.getByText(/Check the access policy:/)).toBeVisible()
+    )
+    expect(mockUpdateKey).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByLabelText('Request count'), {
+      target: { value: '1' },
+    })
+    fireEvent.change(screen.getByLabelText('Period timezone (optional)'), {
+      target: { value: 'not/a-timezone' },
+    })
+    submitKeyForm()
+    await waitFor(() =>
+      expect(screen.getByText(/Check the access policy:/)).toBeVisible()
+    )
+    expect(mockUpdateKey).not.toHaveBeenCalled()
+  })
+  it.each([
+    ['All time', { type: 'all_time' }],
+    [
+      'Calendar day',
+      { type: 'calendar_duration', calendarDuration: { unit: 'day' } },
+    ],
+    [
+      'Calendar month',
+      { type: 'calendar_duration', calendarDuration: { unit: 'month' } },
+    ],
+  ])(
+    'switches to %s without dropping imported history or limits',
+    async (label, period) => {
+      const historyMissingBefore = 1791504000000
+      renderKeySheetForm({
+        editingKey: {
+          ...knownKey,
+          accessPolicy: {
+            quota: {
+              requests: 5,
+              totalTokens: 600,
+              cost: 1.2,
+              historyMissingBefore,
+              timezone: 'America/New_York',
+              period: {
+                type: 'past_duration',
+                pastDuration: { value: 2, unit: 'hour' },
+              },
+            },
+          },
+        },
+      })
+      await chooseAccessOption('Accounting period', label as string)
+      submitKeyForm()
+      await waitFor(() => expect(mockUpdateKey).toHaveBeenCalledTimes(1))
+      expect(mockUpdateKey.mock.calls[0][1].accessPolicy.quota).toEqual({
+        requests: 5,
+        totalTokens: 600,
+        cost: 1.2,
+        historyMissingBefore,
+        timezone: 'America/New_York',
+        period,
+      })
+    }
+  )
 })

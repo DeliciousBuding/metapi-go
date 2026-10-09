@@ -1,4 +1,12 @@
-import { ArrowRight, Braces, List, Plus, Trash2 } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  Braces,
+  List,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -16,6 +24,8 @@ import {
 
 type StringMapEditorProps = {
   value: string
+  structuredOnly?: boolean
+  ordered?: boolean
   onChange: (value: string) => void
   keyLabel?: string
   valueLabel?: string
@@ -36,8 +46,10 @@ export function StringMapEditor({ ...props }: StringMapEditorProps) {
     setRowIds(entries.map((_, index) => rowIds[index] ?? crypto.randomUUID()))
   }
   // Unsupported external values also stay visible verbatim, even after reset.
-  const showJson = advanced || entries === null
-  const invalid = !isValidMapObject(props.value)
+  const showJson = !props.structuredOnly && (advanced || entries === null)
+  const invalid = props.ordered
+    ? entries === null
+    : !isValidMapObject(props.value)
   const errorId = `${id}-error`
   const description =
     [props['aria-describedby'], invalid ? errorId : undefined]
@@ -48,6 +60,8 @@ export function StringMapEditor({ ...props }: StringMapEditorProps) {
   const {
     value: _value,
     onChange: _onChange,
+    structuredOnly: _structuredOnly,
+    ordered: _ordered,
     keyLabel: _keyLabel,
     valueLabel: _valueLabel,
     ...restProps
@@ -72,22 +86,24 @@ export function StringMapEditor({ ...props }: StringMapEditorProps) {
             ? t('stringMapEditor.jsonHint')
             : t('stringMapEditor.rowsHint')}
         </span>
-        <Button
-          type='button'
-          variant='ghost'
-          size='xs'
-          disabled={props.disabled || (showJson && entries === null)}
-          onClick={() => setAdvanced(!showJson)}
-        >
-          {showJson ? (
-            <List aria-hidden='true' />
-          ) : (
-            <Braces aria-hidden='true' />
-          )}
-          {showJson
-            ? t('stringMapEditor.editRows')
-            : t('stringMapEditor.editJson')}
-        </Button>
+        {!props.structuredOnly && (
+          <Button
+            type='button'
+            variant='ghost'
+            size='xs'
+            disabled={props.disabled || (showJson && entries === null)}
+            onClick={() => setAdvanced(!showJson)}
+          >
+            {showJson ? (
+              <List aria-hidden='true' />
+            ) : (
+              <Braces aria-hidden='true' />
+            )}
+            {showJson
+              ? t('stringMapEditor.editRows')
+              : t('stringMapEditor.editJson')}
+          </Button>
+        )}
       </div>
       <div className='space-y-3 p-3'>
         {showJson ? (
@@ -109,7 +125,10 @@ export function StringMapEditor({ ...props }: StringMapEditorProps) {
               </p>
             )}
             {entries?.map((entry, index) => {
-              const error = stringMapEntryError(entries, index)
+              const error =
+                props.ordered && entry.key.trim()
+                  ? null
+                  : stringMapEntryError(entries, index)
               const rowErrorId = `${id}-row-${index}-error`
               return (
                 <div key={rowIds[index]} className='space-y-1.5'>
@@ -156,25 +175,87 @@ export function StringMapEditor({ ...props }: StringMapEditorProps) {
                         aria-describedby={description}
                       />
                     </label>
-                    <Button
-                      type='button'
-                      variant='ghost'
-                      size='icon'
-                      disabled={props.disabled || props.readOnly}
-                      aria-label={t('stringMapEditor.remove', {
-                        index: index + 1,
-                      })}
-                      onClick={() => {
-                        setRowIds(rowIds.filter((_, i) => i !== index))
-                        props.onChange(
-                          serializeStringMap(
-                            entries.filter((_, i) => i !== index)
+                    <div className='flex items-center gap-1'>
+                      {props.ordered && (
+                        <>
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='icon'
+                            disabled={
+                              props.disabled || props.readOnly || index === 0
+                            }
+                            aria-label={t('stringMapEditor.moveUp', {
+                              index: index + 1,
+                            })}
+                            onClick={() => {
+                              const next = [...entries]
+                              ;[next[index - 1], next[index]] = [
+                                next[index],
+                                next[index - 1],
+                              ]
+                              const ids = [...rowIds]
+                              ;[ids[index - 1], ids[index]] = [
+                                ids[index],
+                                ids[index - 1],
+                              ]
+                              setRowIds(ids)
+                              props.onChange(serializeStringMap(next))
+                            }}
+                          >
+                            <ArrowUp className='size-4' />
+                          </Button>
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='icon'
+                            disabled={
+                              props.disabled ||
+                              props.readOnly ||
+                              index === entries.length - 1
+                            }
+                            aria-label={t('stringMapEditor.moveDown', {
+                              index: index + 1,
+                            })}
+                            onClick={() => {
+                              const next = [...entries]
+                              ;[next[index + 1], next[index]] = [
+                                next[index],
+                                next[index + 1],
+                              ]
+                              const ids = [...rowIds]
+                              ;[ids[index + 1], ids[index]] = [
+                                ids[index],
+                                ids[index + 1],
+                              ]
+                              setRowIds(ids)
+                              props.onChange(serializeStringMap(next))
+                            }}
+                          >
+                            <ArrowDown className='size-4' />
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='icon'
+                        disabled={props.disabled || props.readOnly}
+                        aria-label={t('stringMapEditor.remove', {
+                          index: index + 1,
+                        })}
+                        onClick={() => {
+                          setRowIds(rowIds.filter((_, i) => i !== index))
+                          props.onChange(
+                            serializeStringMap(
+                              entries.filter((_, i) => i !== index)
+                            )
                           )
-                        )
-                      }}
-                    >
-                      <Trash2 className='size-4' />
-                    </Button>
+                        }}
+                      >
+                        <Trash2 className='size-4' />
+                      </Button>
+                    </div>
                   </div>
                   {error && (
                     <p

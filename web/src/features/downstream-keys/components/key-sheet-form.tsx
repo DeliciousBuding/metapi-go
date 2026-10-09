@@ -30,7 +30,6 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
@@ -41,6 +40,7 @@ import {
   type CreateDownstreamKeyResponse,
   type DownstreamApiKeyItem,
 } from '../types'
+import { AccessPolicyEditor } from './access-policy-editor'
 import { CredentialRefPicker } from './credential-ref-picker'
 import { showKeyCreatedToast } from './key-created-toast'
 import {
@@ -340,11 +340,8 @@ export function KeySheetForm({
     mutationFn: async (values: CreateKeyFormValues) => {
       // Canonical wire format for the credential-ref dimensions: real arrays
       // (create/update bodies never carry the stored JSON-string form).
-      const { accessPolicyText, ...keyValues } = values
       const policy = {
-        accessPolicy: accessPolicyText.trim()
-          ? JSON.parse(accessPolicyText)
-          : null,
+        accessPolicy: values.accessPolicy,
         allowedCredentialRefs: serializeCredentialRefs(
           values.allowedCredentialRefs
         ),
@@ -357,7 +354,7 @@ export function KeySheetForm({
       const expiresAt = localDatetimeInputToIso(values.expiresAt ?? '')
       if (!editingKey) {
         return api.createDownstreamApiKey({
-          ...keyValues,
+          ...values,
           ...policy,
           expiresAt,
         })
@@ -721,35 +718,27 @@ export function KeySheetForm({
               )}
             />
           )}
-          <details className='rounded-md border p-3'>
-            <summary className='cursor-pointer text-sm font-medium'>
-              {t('settings.downstream.keys.fields.accessPolicy')}
-            </summary>
-            <FormField
-              control={form.control}
-              name='accessPolicyText'
-              render={({ field }) => (
-                <FormItem className='mt-3'>
-                  <FormLabel>
-                    {t('settings.downstream.keys.fields.accessPolicyJson')}
-                  </FormLabel>
-                  <FormDescription>
-                    {t('settings.downstream.keys.fields.accessPolicyHint')}
-                  </FormDescription>
-                  <FormControl>
-                    <Textarea
-                      {...field}
-                      rows={10}
-                      className='font-mono text-xs'
-                      spellCheck={false}
-                      placeholder='{"modelIds":["gpt-4o"],"quota":{"requests":100,"period":{"type":"calendar_duration","calendarDuration":{"unit":"day"}},"timezone":"UTC"}}'
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </details>
+          <FormField
+            control={form.control}
+            name='accessPolicy'
+            render={({ field }) => (
+              <FormItem className='border-t pt-4'>
+                <FormLabel>
+                  {t('settings.downstream.keys.fields.accessPolicy')}
+                </FormLabel>
+                <FormDescription>
+                  {t('settings.downstream.keys.access.hint')}
+                </FormDescription>
+                <FormControl>
+                  <AccessPolicyEditor
+                    {...field}
+                    candidateModels={candidateModels}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </form>
       </Form>
       <SheetFooter>

@@ -86,3 +86,36 @@ describe('string map editor', () => {
     expect(submit).not.toHaveBeenCalled()
   })
 })
+
+function OrderedEditor() {
+  const [value, onChange] = useState('{"same":"first","same":"second"}')
+  return (
+    <>
+      <StringMapEditor
+        value={value}
+        onChange={onChange}
+        structuredOnly
+        ordered
+      />
+      <output data-testid='ordered-value'>{value}</output>
+    </>
+  )
+}
+it('edits ordered duplicate mapping patterns without a parallel JSON path', () => {
+  render(<OrderedEditor />)
+  expect(
+    screen.queryByRole('button', { name: 'Edit JSON' })
+  ).not.toBeInTheDocument()
+  expect(screen.getAllByLabelText('Key')).toHaveLength(2)
+  expect(
+    screen.queryByText('This key is already used. Each key must be unique.')
+  ).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Move mapping 2 up' }))
+  expect(screen.getAllByLabelText('Value')[0]).toHaveValue('second')
+  expect(
+    parseStringMap(screen.getByTestId('ordered-value').textContent ?? '')
+  ).toEqual([
+    { key: 'same', value: 'second' },
+    { key: 'same', value: 'first' },
+  ])
+})

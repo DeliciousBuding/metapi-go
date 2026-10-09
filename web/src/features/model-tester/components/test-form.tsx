@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
+import { ModelPicker } from '@/components/common/model-picker'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -56,7 +57,6 @@ import {
   testerSchema,
   type TesterFormValues,
 } from '../lib/tester-schema'
-import { ModelPicker } from './model-picker'
 
 type TestFormProps = {
   isRunning: boolean

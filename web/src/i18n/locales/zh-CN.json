@@ -1485,14 +1485,12 @@
             "expiresAtHint": "按浏览器本地时间填写，保存后以 UTC 存储与比较。过期后密钥立即失效，调用返回 403；留空表示永不过期。",
             "enabled": "启用",
             "description": "备注",
-            "accessPolicy": "精细访问与周期配额",
-            "accessPolicyJson": "策略 JSON",
-            "accessPolicyHint": "与上方授权同时生效。allowedUpstreamChannelIds 为直连渠道 ID，空数组拒绝全部；modelIds 精确匹配映射后的模型；modelMappings 按顺序匹配。quota 支持请求、token、费用及滚动/日历周期。导入历史缺失时保留 historyMissingBefore，核对前勿移除。留空清除此附加策略。"
+            "accessPolicy": "精细访问与周期配额"
           },
           "schema": {
             "nameRequired": "请输入名称。",
             "keyMinLength": "密钥至少 8 个字符。",
-            "accessPolicyInvalid": "请输入有效的 JSON 对象"
+            "accessPolicyInvalid": "请检查访问策略：映射两端不能为空，配额至少填写一项非负限制，滚动时长需大于 0，并使用有效时区。"
           },
           "toast": {
             "created": "API 密钥已创建。",
@@ -1536,6 +1534,61 @@
             "credsExclude": "排除凭证",
             "defaultKey": "默认密钥",
             "unknownId": "ID {{id}}（未解析）"
+          },
+          "access": {
+            "hint": "这些限制与上方模型授权和凭据范围同时生效。",
+            "unreadable": "已保存的策略暂时无法读取，本次保存会保留原策略。请先核对来源配置，避免意外放宽访问。",
+            "blockedTitle": "导入的密钥仍有未解决的限制",
+            "blocks": {
+              "keyType": "该来源密钥类型不能用于代理请求。",
+              "scope": "来源密钥没有发送模型请求的权限。",
+              "project": "来源项目不可用或未启用。",
+              "routing": "来源使用了暂不支持的负载均衡或会话粘性设置。",
+              "mapping": "来源包含暂不支持的模型映射规则。",
+              "unknown": "来源保留了需要核对的访问限制。普通编辑不会清除此状态。"
+            },
+            "channelScope": "上游渠道范围",
+            "allChannels": "不额外限制渠道",
+            "selectedChannels": "仅使用所选直连渠道",
+            "channelHint": "选择直连渠道后，仅所选渠道可用；站点和账号渠道不在此范围内。",
+            "noChannels": "尚未选择渠道：当前拒绝所有上游渠道。",
+            "loadingChannels": "正在加载直连渠道…",
+            "loadError": "直连渠道加载失败：{{message}}",
+            "disabledChannel": "已停用",
+            "emptyInventory": "当前没有可选择的直连渠道。",
+            "unavailableChannel": "已保存但不可用的渠道 #{{id}}",
+            "models": "允许的精确模型",
+            "modelsHint": "留空不增加模型限制；填写后只允许映射后的模型名称精确匹配。",
+            "removeModel": "移除模型 {{model}}",
+            "addModel": "添加精确模型",
+            "pickModel": "从现有模型中选择",
+            "mappings": "模型名称映射",
+            "mappingsHint": "从上到下匹配，首个命中的规则生效。请求名称支持正则表达式，目标填写实际模型名称。",
+            "mappingFrom": "请求模型或匹配规则",
+            "mappingTo": "目标模型",
+            "quota": "启用周期配额",
+            "quotaHint": "至少填写一项限制。留空表示该项不限，0 表示立即耗尽；按已完成请求的用量核算。",
+            "requests": "请求次数",
+            "totalTokens": "Token 总量",
+            "cost": "估算费用上限",
+            "period": "统计周期",
+            "periods": {
+              "all_time": "累计全部时间",
+              "past_duration": "最近一段时间",
+              "day": "每个自然日",
+              "month": "每个自然月"
+            },
+            "duration": "最近时长",
+            "unit": "时长单位",
+            "units": {
+              "minute": "分钟",
+              "hour": "小时",
+              "day": "天"
+            },
+            "timezone": "周期时区（选填）",
+            "timezoneHint": "自然日和自然月按此时区划分，留空使用 UTC。例如 Asia/Hong_Kong。",
+            "historyTitle": "配额历史尚未核对",
+            "historyHint": "{{date}} 之前的用量缺失。仍覆盖该缺口的周期暂时不可用；核对完成前会保留此限制。"
           }
         },
         "proxyToken": {
@@ -3523,7 +3576,9 @@
       "emptyKey": "请填写此条目的键名。",
       "duplicateKey": "此键名已使用，每个键名只能出现一次。",
       "invalid": "请填写有效的 JSON 对象，键名不能为空或重复。",
-      "advancedOnly": "此配置包含需要在 JSON 编辑器中处理的值，原始内容已完整保留。"
+      "advancedOnly": "此配置包含需要在 JSON 编辑器中处理的值，原始内容已完整保留。",
+      "moveUp": "上移第 {{index}} 条映射",
+      "moveDown": "下移第 {{index}} 条映射"
     },
     "modelPicker": {
       "title": "选择模型",
