@@ -351,7 +351,7 @@ export function AccountFormDialog({
             onSubmit={form.handleSubmit(onSubmit, onInvalid)}
             inert={!isInitialized ? true : undefined}
             aria-busy={!isInitialized}
-            className='flex-1 space-y-5 overflow-y-auto p-4'
+            className='flex-1 space-y-6 overflow-y-auto p-4 text-sm leading-5 [&_[data-slot=form-description]]:leading-5 [&_[data-slot=form-label]]:font-semibold'
           >
             {/* Site selection */}
             <FormField

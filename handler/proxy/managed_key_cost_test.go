@@ -123,7 +123,7 @@ func TestWriteSuccessProxyLog_RecordsManagedKeyCost(t *testing.T) {
 	}
 	usage := ParsedUsage{PromptTokens: 1000, CompletionTokens: 500, TotalTokens: 1500, Found: true, Source: "upstream"}
 
-	writeSuccessProxyLog(context.Background(), cfg, selected, pctx, "gpt-4o", "/v1/chat/completions", 12, 200, false, usage, 0, "req-cost-1")
+	writeSuccessProxyLog(context.Background(), cfg, selected, pctx, "gpt-4o", "/v1/chat/completions", 12, int64Ptr(4), 200, false, usage, 0, "req-cost-1")
 
 	if len(logged) != 1 {
 		t.Fatalf("expected 1 proxy log write, got %d", len(logged))
@@ -157,7 +157,7 @@ func TestWriteFailureProxyLog_DoesNotRecordManagedKeyCost(t *testing.T) {
 	// Even with Found usage (and thus non-zero estimated cost on the log),
 	// failure sink must not advance used_cost.
 	usage := ParsedUsage{PromptTokens: 1000, CompletionTokens: 500, TotalTokens: 1500, Found: true, Source: "upstream"}
-	writeFailureProxyLog(context.Background(), cfg, selected, pctx, "gpt-4o", "/v1/chat/completions", 12, 500, false, usage, 0, "req-cost-fail", "upstream boom")
+	writeFailureProxyLog(context.Background(), cfg, selected, pctx, "gpt-4o", "/v1/chat/completions", 12, int64Ptr(4), 500, false, usage, 0, "req-cost-fail", "upstream boom")
 
 	if got := readUsedCost(t, db, id); got != 1.0 {
 		t.Fatalf("used_cost=%v want 1.0 after failure path", got)

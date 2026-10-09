@@ -21,13 +21,19 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { toBcp47 } from '@/i18n/languages'
 import { copyText } from '@/lib/clipboard'
-import { EM_DASH, formatCurrency, formatDateTime } from '@/lib/format'
+import {
+  EM_DASH,
+  formatCurrency,
+  formatDateTime,
+  formatInt,
+} from '@/lib/format'
 import { parseProxyLogPathMeta } from '@/lib/helpers/proxyLogPathMeta'
 import { toast } from '@/lib/toast'
 
 import { useProxyLog } from '../api'
 import type { ProxyLog, ProxyLogBillingDetails, ProxyLogDetail } from '../types'
-import { LatencyBadge } from './latency-badge'
+import { TimingCell } from './timing-cell'
+import { UsageCell } from './usage-cell'
 
 /** Count 0 renders as "0" (no retry happened); only a missing count is a dash. */
 function formatRetryCount(retryCount: number | null | undefined): string {
@@ -140,6 +146,12 @@ export function ProxyLogDetailSheet({
 function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
+  let streamLabel = '—'
+  if (detail.isStream != null) {
+    streamLabel = t(
+      detail.isStream ? 'proxyLogs.detail.yes' : 'proxyLogs.detail.no'
+    )
+  }
   return (
     <section>
       <h3 className='mb-2 text-sm font-medium'>
@@ -148,6 +160,11 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
       <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
         <DetailField label={t('proxyLogs.detail.createdAt')}>
           {formatDateTime(detail.createdAt, locale)}
+        </DetailField>
+        <DetailField label={t('proxyLogs.detail.requestId')} full>
+          <span className='font-mono text-xs break-all'>
+            {detail.requestId || '—'}
+          </span>
         </DetailField>
         <DetailField label={t('proxyLogs.detail.httpStatus')}>
           <HttpStatusBadge
@@ -168,16 +185,13 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
           {detail.modelActual || '—'}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.latency')}>
-          <LatencyBadge
+          <TimingCell
             latencyMs={detail.latencyMs}
             firstByteLatencyMs={detail.firstByteLatencyMs}
-            showDot
           />
         </DetailField>
         <DetailField label={t('proxyLogs.detail.isStream')}>
-          {detail.isStream
-            ? t('proxyLogs.detail.yes')
-            : t('proxyLogs.detail.no')}
+          {streamLabel}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.token')}>
           {detail.downstreamKeyName ||
@@ -213,7 +227,10 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
           )}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.estimatedCost')}>
-          {formatCurrency(detail.estimatedCost, { fractionDigits: 4 })}
+          {formatCurrency(detail.estimatedCost, { fractionDigits: 6, locale })}
+        </DetailField>
+        <DetailField label={t('proxyLogs.columns.usage')}>
+          <UsageCell log={detail} />
         </DetailField>
       </dl>
     </section>
@@ -317,8 +334,36 @@ function ErrorSection({ errorMessage }: { errorMessage: string }) {
 }
 
 function BillingSection({ billing }: { billing: ProxyLogBillingDetails }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   if (!billing) return null
+  const usage = billing.usage
+  const breakdown = billing.breakdown
+  const rows =
+    usage && breakdown
+      ? [
+          {
+            label: t('proxyLogs.usage.billableInput'),
+            tokens: usage.billablePromptTokens,
+            cost: breakdown.inputCost,
+          },
+          {
+            label: t('proxyLogs.usage.output'),
+            tokens: usage.completionTokens,
+            cost: breakdown.outputCost,
+          },
+          {
+            label: t('proxyLogs.usage.cacheRead'),
+            tokens: usage.cacheReadTokens,
+            cost: breakdown.cacheReadCost,
+          },
+          {
+            label: t('proxyLogs.usage.cacheCreation'),
+            tokens: usage.cacheCreationTokens,
+            cost: breakdown.cacheCreationCost,
+          },
+        ]
+      : []
   return (
     <>
       <Separator />
@@ -326,7 +371,43 @@ function BillingSection({ billing }: { billing: ProxyLogBillingDetails }) {
         <h3 className='mb-2 text-sm font-medium'>
           {t('proxyLogs.detail.sectionBilling')}
         </h3>
-        <JsonBlock value={billing} />
+        {rows.length > 0 ? (
+          <>
+            <dl className='divide-border divide-y rounded-md border px-3'>
+              {rows.map((row) => (
+                <div
+                  key={row.label}
+                  className='grid grid-cols-[1fr_auto_auto] items-baseline gap-3 py-2 text-xs'
+                >
+                  <dt className='text-muted-foreground'>{row.label}</dt>
+                  <dd className='tabular-nums'>
+                    {formatInt(row.tokens, locale)}
+                  </dd>
+                  <dd className='tabular-nums'>
+                    {formatCurrency(row.cost, { fractionDigits: 6, locale })}
+                  </dd>
+                </div>
+              ))}
+              <div className='flex justify-between gap-3 py-2 text-sm font-medium'>
+                <dt>{t('proxyLogs.usage.totalCost')}</dt>
+                <dd className='tabular-nums'>
+                  {formatCurrency(breakdown.totalCost, {
+                    fractionDigits: 6,
+                    locale,
+                  })}
+                </dd>
+              </div>
+            </dl>
+            <details className='mt-3 text-xs'>
+              <summary className='text-muted-foreground cursor-pointer py-1'>
+                {t('proxyLogs.usage.rawBilling')}
+              </summary>
+              <JsonBlock value={billing} />
+            </details>
+          </>
+        ) : (
+          <JsonBlock value={billing} />
+        )}
       </section>
     </>
   )
