@@ -182,6 +182,9 @@ func bridgeRequestOptions(req, out bridgeObject, toChat bool) error {
 			}
 		}
 	}
+	if err := bridgeReasoningOptions(req, out, toChat); err != nil {
+		return err
+	}
 	return bridgeRequestTools(req, out, toChat)
 }
 
@@ -284,13 +287,14 @@ func bridgeRequestTools(req, out bridgeObject, toChat bool) error {
 }
 
 // ToChatRequest converts stateless Responses text/function requests to Chat.
-// Continuity IDs, reasoning, multimodal input and built-in tools are rejected.
+// Plain reasoning is retained; continuity IDs, encrypted reasoning, multimodal
+// input and built-in tools are rejected.
 func ToChatRequest(body []byte) ([]byte, error) {
 	req, err := bridgeDecode(body)
 	if err != nil {
 		return nil, err
 	}
-	if err = bridgeFields(req, "model", "input", "instructions", "stream", "max_output_tokens", "temperature", "top_p", "tools", "tool_choice", "parallel_tool_calls", "metadata", "user", "store"); err != nil {
+	if err = bridgeFields(req, "model", "input", "instructions", "stream", "max_output_tokens", "temperature", "top_p", "tools", "tool_choice", "parallel_tool_calls", "metadata", "user", "store", "reasoning"); err != nil {
 		return nil, err
 	}
 	out := bridgeObject{}
@@ -312,12 +316,26 @@ func ToChatRequest(body []byte) ([]byte, error) {
 		if !ok {
 			return nil, fmt.Errorf("Responses/Chat bridge: input must be text or an array")
 		}
+		var reasoningMessage bridgeObject
+		previousType := ""
 		for _, raw := range items {
 			item := bridgeMap(raw)
 			if item == nil {
 				return nil, fmt.Errorf("Responses/Chat bridge: invalid input item")
 			}
-			switch bridgeString(item["type"]) {
+			kind := bridgeString(item["type"])
+			switch kind {
+			case "reasoning":
+				text, err := bridgeReasoningText(item)
+				if err != nil {
+					return nil, err
+				}
+				if previousType == "reasoning" {
+					reasoningMessage["reasoning_content"] = bridgeString(reasoningMessage["reasoning_content"]) + text
+				} else {
+					reasoningMessage = bridgeObject{"role": "assistant", "content": nil, "reasoning_content": text}
+					messages = append(messages, reasoningMessage)
+				}
 			case "", "message":
 				if err = bridgeFields(item, "type", "role", "content", "id", "status"); err != nil {
 					return nil, err
@@ -330,7 +348,12 @@ func ToChatRequest(body []byte) ([]byte, error) {
 				if err != nil {
 					return nil, err
 				}
-				messages = append(messages, bridgeObject{"role": role, "content": content})
+				if role == "assistant" && reasoningMessage != nil {
+					reasoningMessage["content"] = bridgeString(reasoningMessage["content"]) + content
+				} else {
+					reasoningMessage = nil
+					messages = append(messages, bridgeObject{"role": role, "content": content})
+				}
 			case "function_call":
 				if err = bridgeFields(item, "type", "call_id", "name", "arguments", "id", "status"); err != nil {
 					return nil, err
@@ -354,6 +377,7 @@ func ToChatRequest(body []byte) ([]byte, error) {
 				calls, _ := msg["tool_calls"].([]any)
 				msg["tool_calls"] = append(calls, call)
 			case "function_call_output":
+				reasoningMessage = nil
 				if err = bridgeFields(item, "type", "call_id", "output", "id", "status"); err != nil {
 					return nil, err
 				}
@@ -369,6 +393,7 @@ func ToChatRequest(body []byte) ([]byte, error) {
 			default:
 				return nil, fmt.Errorf("Responses/Chat bridge: unsupported input item type %q", item["type"])
 			}
+			previousType = kind
 		}
 	}
 	if len(messages) == 0 {
@@ -384,7 +409,7 @@ func FromChatRequest(body []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = bridgeFields(req, "model", "messages", "stream", "stream_options", "max_tokens", "max_completion_tokens", "temperature", "top_p", "tools", "tool_choice", "parallel_tool_calls", "metadata", "user", "store", "n"); err != nil {
+	if err = bridgeFields(req, "model", "messages", "stream", "stream_options", "max_tokens", "max_completion_tokens", "temperature", "top_p", "tools", "tool_choice", "parallel_tool_calls", "metadata", "user", "store", "n", "reasoning_effort", "reasoning_summary", "reasoning_budget"); err != nil {
 		return nil, err
 	}
 	if n := req["n"]; n != nil && n != json.Number("1") {
@@ -404,10 +429,20 @@ func FromChatRequest(body []byte) ([]byte, error) {
 		if msg == nil {
 			return nil, fmt.Errorf("Responses/Chat bridge: invalid message")
 		}
-		if err = bridgeFields(msg, "role", "content", "tool_calls", "tool_call_id"); err != nil {
+		if err = bridgeFields(msg, "role", "content", "tool_calls", "tool_call_id", "reasoning_content"); err != nil {
 			return nil, err
 		}
 		role := bridgeString(msg["role"])
+		reasoning, err := bridgeOptionalString(msg, "reasoning_content")
+		if err != nil {
+			return nil, err
+		}
+		if msg["reasoning_content"] != nil && role != "assistant" {
+			return nil, fmt.Errorf("Responses/Chat bridge: reasoning_content requires assistant role")
+		}
+		if reasoning != "" {
+			input = append(input, bridgeReasoningItem(reasoning, "", "completed"))
+		}
 		if role == "tool" {
 			if msg["tool_calls"] != nil {
 				return nil, fmt.Errorf("Responses/Chat bridge: tool message cannot call tools")
@@ -435,7 +470,7 @@ func FromChatRequest(body []byte) ([]byte, error) {
 				return nil, err
 			}
 			input = append(input, bridgeObject{"type": "message", "role": role, "content": content})
-		} else if msg["tool_calls"] == nil {
+		} else if msg["tool_calls"] == nil && reasoning == "" {
 			return nil, fmt.Errorf("Responses/Chat bridge: message lacks content")
 		}
 		if raw := msg["tool_calls"]; raw != nil {

@@ -92,11 +92,15 @@ func (s *ResponsesStream) getPart(obj bridgeObject) (*bridgeItem, *bridgePart, e
 	if err != nil {
 		return nil, nil, err
 	}
-	index, err := bridgeIndex(obj["content_index"])
+	indexKey := "content_index"
+	if item.kind == "reasoning" {
+		indexKey = "summary_index"
+	}
+	index, err := bridgeIndex(obj[indexKey])
 	if err != nil {
 		return nil, nil, err
 	}
-	if item.kind != "message" || index >= len(item.parts) {
+	if item.kind != "message" && item.kind != "reasoning" || index >= len(item.parts) {
 		return nil, nil, fmt.Errorf("Responses/Chat bridge: unknown content part")
 	}
 	return item, item.parts[index], nil
@@ -125,6 +129,16 @@ func (s *ResponsesStream) addItem(obj bridgeObject, out *bytes.Buffer) error {
 	}
 	item := &bridgeItem{id: id, kind: bridgeString(raw["type"]), started: true}
 	switch item.kind {
+	case "reasoning":
+		if err = bridgeFields(raw, "id", "type", "status", "summary"); err != nil {
+			return err
+		}
+		if raw["summary"] != nil {
+			parts, ok := raw["summary"].([]any)
+			if !ok || len(parts) != 0 {
+				return fmt.Errorf("Responses/Chat bridge: reasoning start must have empty summary")
+			}
+		}
 	case "message":
 		if err = bridgeFields(raw, "id", "type", "role", "status", "content"); err != nil {
 			return err
@@ -184,6 +198,10 @@ func bridgePartMatches(raw any, part *bridgePart) bool {
 	if part.kind == "refusal" {
 		return bridgeFields(obj, "type", "refusal") == nil && obj["refusal"] == part.text.String()
 	}
+	if part.kind == "summary_text" {
+		text, err := bridgeOptionalString(obj, "text")
+		return err == nil && bridgeFields(obj, "type", "text") == nil && text == part.text.String()
+	}
 	text, err := bridgeContent([]any{obj}, true)
 	return err == nil && text == part.text.String()
 }
@@ -199,10 +217,16 @@ func bridgeItemMatches(raw any, item *bridgeItem) bool {
 		}
 		return obj["call_id"] == item.callID && obj["name"] == item.name && obj["arguments"] == item.arguments.String()
 	}
-	if bridgeFields(obj, "id", "type", "role", "content", "status") != nil || obj["role"] != "assistant" {
+	contentKey := "content"
+	if item.kind == "reasoning" {
+		contentKey = "summary"
+		if bridgeFields(obj, "id", "type", "summary", "status") != nil {
+			return false
+		}
+	} else if bridgeFields(obj, "id", "type", "role", "content", "status") != nil || obj["role"] != "assistant" {
 		return false
 	}
-	parts, ok := obj["content"].([]any)
+	parts, ok := obj[contentKey].([]any)
 	if !ok || len(parts) != len(item.parts) {
 		return false
 	}
@@ -287,24 +311,42 @@ func (s *ResponsesStream) TransformEvent(block []byte) (result []byte, err error
 	if !s.started {
 		return nil, fmt.Errorf("Responses/Chat bridge: content before response.created")
 	}
+	if strings.HasPrefix(typ, "response.reasoning_summary_") {
+		field := "part"
+		if typ == "response.reasoning_summary_text.delta" {
+			field = "delta"
+		} else if typ == "response.reasoning_summary_text.done" {
+			field = "text"
+		}
+		if err := bridgeFields(obj, "type", "sequence_number", "item_id", "output_index", "summary_index", "obfuscation", field); err != nil {
+			return nil, err
+		}
+	}
 	switch typ {
 	case "response.output_item.added":
 		err = s.addItem(obj, &out)
-	case "response.content_part.added":
+	case "response.content_part.added", "response.reasoning_summary_part.added":
 		_, item, e := s.getItem(obj)
 		if e != nil {
 			return nil, e
 		}
-		index, e := bridgeIndex(obj["content_index"])
+		itemKind, indexKey := "message", "content_index"
+		if typ == "response.reasoning_summary_part.added" {
+			itemKind, indexKey = "reasoning", "summary_index"
+		}
+		index, e := bridgeIndex(obj[indexKey])
 		if e != nil {
 			return nil, e
 		}
-		if item.kind != "message" || index != len(item.parts) || index >= bridgeItemLimit {
+		if item.kind != itemKind || index != len(item.parts) || index >= bridgeItemLimit {
 			return nil, fmt.Errorf("Responses/Chat bridge: invalid content part index")
+		}
+		if itemKind == "reasoning" && index > 0 && !item.parts[index-1].closed {
+			return nil, fmt.Errorf("Responses/Chat bridge: overlapping reasoning summary parts cannot preserve text order")
 		}
 		raw := bridgeMap(obj["part"])
 		kind := bridgeString(raw["type"])
-		if kind != "output_text" && kind != "refusal" {
+		if itemKind == "reasoning" && kind != "summary_text" || itemKind == "message" && kind != "output_text" && kind != "refusal" {
 			return nil, fmt.Errorf("Responses/Chat bridge: unsupported content part")
 		}
 		part := &bridgePart{kind: kind}
@@ -312,12 +354,12 @@ func (s *ResponsesStream) TransformEvent(block []byte) (result []byte, err error
 			return nil, fmt.Errorf("Responses/Chat bridge: content part must start empty")
 		}
 		item.parts = append(item.parts, part)
-	case "response.output_text.delta", "response.refusal.delta":
+	case "response.output_text.delta", "response.refusal.delta", "response.reasoning_summary_text.delta":
 		_, part, e := s.getPart(obj)
 		if e != nil {
 			return nil, e
 		}
-		if part.done || typ != "response."+part.kind+".delta" {
+		if part.done || typ != "response."+bridgePartEvent(part.kind)+".delta" {
 			return nil, fmt.Errorf("Responses/Chat bridge: invalid text delta lifecycle")
 		}
 		value, e := bridgeText(obj["delta"], "text delta")
@@ -331,14 +373,16 @@ func (s *ResponsesStream) TransformEvent(block []byte) (result []byte, err error
 		key := "content"
 		if part.kind == "refusal" {
 			key = "refusal"
+		} else if part.kind == "summary_text" {
+			key = "reasoning_content"
 		}
 		s.chunk(&out, bridgeObject{key: value}, nil)
-	case "response.output_text.done", "response.refusal.done":
+	case "response.output_text.done", "response.refusal.done", "response.reasoning_summary_text.done":
 		_, part, e := s.getPart(obj)
 		if e != nil {
 			return nil, e
 		}
-		if part.done || typ != "response."+part.kind+".done" {
+		if part.done || typ != "response."+bridgePartEvent(part.kind)+".done" {
 			return nil, fmt.Errorf("Responses/Chat bridge: invalid text done lifecycle")
 		}
 		key := "text"
@@ -349,12 +393,12 @@ func (s *ResponsesStream) TransformEvent(block []byte) (result []byte, err error
 			return nil, fmt.Errorf("Responses/Chat bridge: text done contradicts emitted deltas")
 		}
 		part.done = true
-	case "response.content_part.done":
-		_, part, e := s.getPart(obj)
+	case "response.content_part.done", "response.reasoning_summary_part.done":
+		item, part, e := s.getPart(obj)
 		if e != nil {
 			return nil, e
 		}
-		if !part.done || part.closed || !bridgePartMatches(obj["part"], part) {
+		if (item.kind == "reasoning") != (typ == "response.reasoning_summary_part.done") || !part.done || part.closed || !bridgePartMatches(obj["part"], part) {
 			return nil, fmt.Errorf("Responses/Chat bridge: content part done contradicts text")
 		}
 		part.closed = true
@@ -392,7 +436,7 @@ func (s *ResponsesStream) TransformEvent(block []byte) (result []byte, err error
 		if e != nil {
 			return nil, e
 		}
-		if (item.kind == "function_call" && !item.argumentsDone) || (item.kind == "message" && len(item.parts) == 0) {
+		if (item.kind == "function_call" && !item.argumentsDone) || (item.kind != "function_call" && len(item.parts) == 0) {
 			return nil, fmt.Errorf("Responses/Chat bridge: output item ended without content")
 		}
 		for _, part := range item.parts {
@@ -413,6 +457,13 @@ func (s *ResponsesStream) TransformEvent(block []byte) (result []byte, err error
 		return nil, err
 	}
 	return out.Bytes(), nil
+}
+
+func bridgePartEvent(kind string) string {
+	if kind == "summary_text" {
+		return "reasoning_summary_text"
+	}
+	return kind
 }
 
 func (s *ResponsesStream) complete(obj bridgeObject, event string) ([]byte, error) {

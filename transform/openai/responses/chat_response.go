@@ -114,10 +114,17 @@ func bridgeChatMessage(msg bridgeObject, id string) ([]any, error) {
 	if msg == nil || bridgeString(msg["role"]) != "assistant" {
 		return nil, fmt.Errorf("Responses/Chat bridge: expected assistant message")
 	}
-	if err := bridgeFields(msg, "role", "content", "tool_calls", "refusal"); err != nil {
+	if err := bridgeFields(msg, "role", "content", "tool_calls", "refusal", "reasoning_content"); err != nil {
 		return nil, err
 	}
 	output := []any{}
+	reasoning, err := bridgeOptionalString(msg, "reasoning_content")
+	if err != nil {
+		return nil, err
+	}
+	if reasoning != "" {
+		output = append(output, bridgeReasoningItem(reasoning, "rs_"+id, "completed"))
+	}
 	content := []any{}
 	if msg["content"] != nil {
 		text, err := bridgeText(msg["content"], "assistant.content")
@@ -162,8 +169,8 @@ func bridgeChatMessage(msg bridgeObject, id string) ([]any, error) {
 	return output, nil
 }
 
-// FromChatResponse converts a complete Chat result, retaining text, function
-// calls, refusal, token usage and an explicit incomplete result on token limits.
+// FromChatResponse converts a complete Chat result, retaining plain reasoning,
+// text, function calls, refusal, usage and explicit incomplete token-limit results.
 func FromChatResponse(body []byte) ([]byte, error) {
 	src, err := bridgeDecode(body)
 	if err != nil {
@@ -223,7 +230,7 @@ func bridgeResponsesOutput(output any) (bridgeObject, int, error) {
 		return nil, 0, fmt.Errorf("Responses/Chat bridge: output must be a nonempty array")
 	}
 	msg := bridgeObject{"role": "assistant", "content": nil}
-	var text, refusal strings.Builder
+	var text, refusal, reasoning strings.Builder
 	textSeen, refusalSeen := false, false
 	calls := []any{}
 	seen := map[string]bool{}
@@ -233,6 +240,12 @@ func bridgeResponsesOutput(output any) (bridgeObject, int, error) {
 			return nil, 0, fmt.Errorf("Responses/Chat bridge: invalid output item")
 		}
 		switch bridgeString(item["type"]) {
+		case "reasoning":
+			value, err := bridgeReasoningText(item)
+			if err != nil {
+				return nil, 0, err
+			}
+			reasoning.WriteString(value)
 		case "message":
 			if err := bridgeFields(item, "id", "type", "role", "status", "content"); err != nil {
 				return nil, 0, err
@@ -295,7 +308,10 @@ func bridgeResponsesOutput(output any) (bridgeObject, int, error) {
 	if len(calls) > 0 {
 		msg["tool_calls"] = calls
 	}
-	if !textSeen && !refusalSeen && len(calls) == 0 {
+	if reasoning.Len() > 0 {
+		msg["reasoning_content"] = reasoning.String()
+	}
+	if !textSeen && !refusalSeen && len(calls) == 0 && reasoning.Len() == 0 {
 		return nil, 0, fmt.Errorf("Responses/Chat bridge: response has no supported output")
 	}
 	return msg, len(calls), nil

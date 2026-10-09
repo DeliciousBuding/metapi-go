@@ -76,13 +76,13 @@ func TestChatBridgeRequestToolRoundTrip(t *testing.T) {
 }
 
 func TestChatBridgeRejectsUnrepresentableRequests(t *testing.T) {
-	for _, extra := range []string{`"previous_response_id":"resp_1"`, `"reasoning":{"effort":"high"}`, `"tools":[{"type":"web_search_preview"}]`, `"store":true`, `"text":{"format":{"type":"json_schema"}}`, `"input":[{"type":"reasoning","encrypted_content":"cipher"}]`, `"input":[{"role":"user","content":[{"type":"input_image","image_url":"x"}]}]`} {
+	for _, extra := range []string{`"previous_response_id":"resp_1"`, `"reasoning":{"context":"all"}`, `"tools":[{"type":"web_search_preview"}]`, `"store":true`, `"text":{"format":{"type":"json_schema"}}`, `"input":[{"type":"reasoning","encrypted_content":"cipher"}]`, `"input":[{"role":"user","content":[{"type":"input_image","image_url":"x"}]}]`} {
 		body := `{"model":"m","input":"hi",` + extra + `}`
 		if _, err := ToChatRequest([]byte(body)); err == nil {
 			t.Errorf("accepted unsupported request: %s", body)
 		}
 	}
-	for _, body := range []string{`{"model":"m","messages":[{"role":"user","content":"hi"}],"n":2}`, `{"model":"m","messages":[{"role":"assistant","content":"hi","reasoning_content":"secret"}]}`, `{"model":"m","messages":[{"role":"assistant","tool_calls":[{"id":"c","type":"function","function":{"name":"f","arguments":"{"}}]}]}`} {
+	for _, body := range []string{`{"model":"m","messages":[{"role":"user","content":"hi"}],"n":2}`, `{"model":"m","messages":[{"role":"assistant","content":"hi","reasoning_signature":"opaque"}]}`, `{"model":"m","messages":[{"role":"assistant","tool_calls":[{"id":"c","type":"function","function":{"name":"f","arguments":"{"}}]}]}`} {
 		if _, err := FromChatRequest([]byte(body)); err == nil {
 			t.Errorf("accepted unsupported Chat request: %s", body)
 		}
@@ -217,7 +217,7 @@ func TestChatBridgeStreamFailureIsSticky(t *testing.T) {
 		"upstream error":      {string(bridgeTestFrame(t, bridgeChatChunk(bridgeObject{"content": "hi"}, "stop"))), "event: error\ndata: {}\n\n"},
 		"multiple frames":     {"data: {}\n\ndata: {}\n\n"},
 		"incomplete frame":    {"data: {}"},
-		"reasoning":           {string(bridgeTestFrame(t, bridgeChatChunk(bridgeObject{"reasoning_content": "secret"}, nil)))},
+		"signed reasoning":    {string(bridgeTestFrame(t, bridgeChatChunk(bridgeObject{"reasoning_signature": "opaque"}, nil)))},
 		"identity conflict":   {string(bridgeTestFrame(t, bridgeChatChunk(bridgeObject{"tool_calls": []any{bridgeCall(0, "c", "f", "{")}}, nil))), string(bridgeTestFrame(t, bridgeChatChunk(bridgeObject{"tool_calls": []any{bridgeCall(0, "other", "f", "}")}}, nil)))},
 	}
 	for name, frames := range cases {
