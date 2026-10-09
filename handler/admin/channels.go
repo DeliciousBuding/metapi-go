@@ -12,6 +12,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/service"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -43,6 +44,8 @@ type channelListRow struct {
 	Username           string  `db:"username"`
 	SiteID             int64   `db:"site_id"`
 	SiteName           string  `db:"site_name"`
+	SiteStatus         string  `db:"site_status"`
+	AccountStatus      string  `db:"account_status"`
 	RouteModelPattern  string  `db:"route_model_pattern"`
 	OAuthUnitName      string  `db:"oauth_unit_name"`
 	TokenName          string  `db:"token_name"`
@@ -57,6 +60,10 @@ type channelListRow struct {
 // keeps alive at once. See channelsSnapshotCache for the key space, the
 // eviction rule and the memory arithmetic behind this number.
 const channelsSnapshotMaxEntries = 16
+
+func init() {
+	service.RegisterSiteProxyCacheInvalidator(invalidateChannelsSnapshotCache)
+}
 
 // channelsSnapshotEntry is one cached page payload plus its deadline and its
 // position in the insertion order (seq) that drives FIFO eviction.
@@ -290,6 +297,8 @@ const channelListBaseQuery = `
 	       COALESCE(a.username, '') AS username,
 	       a.site_id,
 	       COALESCE(s.name, '') AS site_name,
+	       COALESCE(s.status, '') AS site_status,
+	       COALESCE(a.status, '') AS account_status,
 	       COALESCE(tr.model_pattern, '') AS route_model_pattern,
 	       COALESCE(oru.name, '') AS oauth_unit_name,
 	       COALESCE(at.name, '') AS token_name,
@@ -386,7 +395,7 @@ func (h *tokenRoutesHandler) computeChannelsPage(r *http.Request, page, pageSize
 	// we already load for the list (enabled channels = active candidates).
 	var enabledChannels int64
 	for _, row := range rows {
-		if row.Enabled {
+		if channelEffectivelyEnabled(row.Enabled, row.SiteStatus, row.AccountStatus) {
 			enabledChannels++
 		}
 	}
@@ -458,7 +467,13 @@ func channelStatusForRow(row channelListRow) string {
 	if row.SourceModel != nil {
 		sourceModel = *row.SourceModel
 	}
-	return routing.ChannelRuntimeStatus(row.SiteID, sourceModel, row.Enabled, row.CooldownUntil)
+	return routing.ChannelRuntimeStatus(row.SiteID, sourceModel, channelEffectivelyEnabled(row.Enabled, row.SiteStatus, row.AccountStatus), row.CooldownUntil)
+}
+
+// Keep configured enabled separate from inherited availability. Disabling a
+// site must not rewrite shared routes or a channel's explicit configuration.
+func channelEffectivelyEnabled(enabled bool, siteStatus, accountStatus string) bool {
+	return enabled && siteStatus != "disabled" && accountStatus != "disabled"
 }
 
 func channelStatusMatches(row channelListRow, statusFilter []string) bool {
@@ -510,9 +525,9 @@ func channelListItem(row channelListRow) map[string]any {
 		"id":                 row.ID,
 		"routeId":            row.RouteID,
 		"name":               name,
-		"site":               map[string]any{"id": row.SiteID, "name": row.SiteName},
+		"site":               map[string]any{"id": row.SiteID, "name": row.SiteName, "status": row.SiteStatus},
 		"type":               chType,
-		"status":             routing.ChannelRuntimeStatus(row.SiteID, sourceModel, row.Enabled, row.CooldownUntil),
+		"status":             channelStatusForRow(row),
 		"models":             models,
 		"priority":           row.Priority,
 		"weight":             row.Weight,
@@ -531,6 +546,8 @@ type channelSummaryRow struct {
 	SourceModel       *string `db:"source_model"`
 	RouteModelPattern string  `db:"route_model_pattern"`
 	Enabled           bool    `db:"enabled"`
+	SiteStatus        string  `db:"site_status"`
+	AccountStatus     string  `db:"account_status"`
 	CooldownUntil     *string `db:"cooldown_until"`
 }
 
@@ -566,9 +583,12 @@ func (h *tokenRoutesHandler) computeChannelErrorSummary(r *http.Request) ([]byte
 	err := h.db.SelectContext(r.Context(), &rows, h.db.Rebind(`
 		SELECT a.site_id, rc.source_model,
 		       COALESCE(tr.model_pattern, '') AS route_model_pattern,
-		       rc.enabled, rc.cooldown_until
+		       rc.enabled, rc.cooldown_until,
+		       COALESCE(s.status, '') AS site_status,
+		       COALESCE(a.status, '') AS account_status
 		FROM route_channels rc
 		LEFT JOIN accounts a ON rc.account_id = a.id
+		LEFT JOIN sites s ON a.site_id = s.id
 		LEFT JOIN token_routes tr ON rc.route_id = tr.id`))
 	if err != nil {
 		return nil, err
@@ -587,7 +607,7 @@ func (h *tokenRoutesHandler) computeChannelErrorSummary(r *http.Request) ([]byte
 		if row.SourceModel != nil {
 			modelName = *row.SourceModel
 		}
-		status := routing.ChannelRuntimeStatus(row.SiteID, modelName, row.Enabled, row.CooldownUntil)
+		status := routing.ChannelRuntimeStatus(row.SiteID, modelName, channelEffectivelyEnabled(row.Enabled, row.SiteStatus, row.AccountStatus), row.CooldownUntil)
 		total++
 		byStatus[status]++
 		if status == routing.ChannelStatusCooldown || status == routing.ChannelStatusBreakerOpen {
