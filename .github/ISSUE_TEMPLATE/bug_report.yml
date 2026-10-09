@@ -1,16 +1,58 @@
-name: Bug report
-description: 提交缺陷报告（安全问题请走 Security Advisory，不要用此模板）
+name: 缺陷报告
+description: 提供复现步骤、预期与实际结果；安全漏洞请先查看安全政策
 labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: 感谢报告问题。知道多少填多少。提交前请涂抹 API key、Token、Cookie、账号/用户数据及私有域名、IP、路径；不要上传原始配置或完整请求头。
+      value: |
+        提交前请搜索已有 [Issues](https://github.com/DeliciousBuding/metapi-go/issues?q=is%3Aissue)。按小节描述问题，不确定的信息可以注明。
+
+        - 截图、日志和请求示例请移除凭据、用户数据及私有地址、路径。
+        - 安全漏洞请查看[安全政策](https://github.com/DeliciousBuding/metapi-go/security/policy)，不要在公开 Issue 中披露漏洞细节。
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 说明要完成的操作，再列出触发问题的最少步骤。
+      placeholder: |
+        操作目标：
+
+        1. 打开…… / 请求……
+        2. 输入……
+        3. 执行……后出现问题
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果
+      description: 执行上述步骤后，应该得到什么结果？
+      placeholder: 执行……后，应显示 / 返回……。
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+      description: 说明观察到的结果与影响，可附截图；日志放在下方。
+      placeholder: |
+        - 实际结果：
+        - 错误信息：
+        - 发生频率 / 影响范围：
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: '### 运行环境'
   - type: input
     id: version
     attributes:
-      label: 版本
-      description: 请填实际运行进程/容器的 `--version` 输出；能取得时附镜像 digest 或二进制 SHA-256。源码构建附 commit 和是否有本地修改。仅 `latest` 或仓库 HEAD 不能识别运行产物；未知可注明。
-      placeholder: 版本输出；镜像 tag + digest（如可取得）
+      label: Metapi Go 版本
+      description: |
+        - 填写实际运行的二进制或容器中程序的 `--version` 输出；源码构建附 commit 与本地修改情况。
+        - 如可取得，附镜像 tag + digest 或二进制 SHA-256；版本未知可注明。
+        - `latest` 会随构建变化，请同时提供版本输出或产物摘要。
+      placeholder: 版本输出；镜像 tag + digest 或构建 commit（如可取得）
     validations:
       required: true
   - type: dropdown
@@ -18,9 +60,9 @@ body:
     attributes:
       label: 部署方式
       options:
-        - Docker 镜像（ghcr.io/deliciousbuding/metapi-go）
+        - Docker（docker run）
+        - Docker Compose
         - Release 二进制
-        - docker-compose
         - 源码构建（go build）
         - 其他
     validations:
@@ -35,38 +77,18 @@ body:
         - 不确定
     validations:
       required: true
-  - type: input
-    id: upstream
-    attributes:
-      label: 上游类型（可选）
-      description: 如 New API、Sub2API、CLIProxyAPI 或直连厂商；可附版本、协议/模型名。不涉及上游可留空，不要填私有地址或凭据。
   - type: textarea
-    id: steps
+    id: environment
     attributes:
-      label: 复现步骤
-      description: 简述你要完成的用户任务，再写触发问题的最少步骤；涉及客户端时附名称与版本。
+      label: 相关环境（可选）
+      description: 只填与问题有关的信息，可删除不适用项。
       placeholder: |
-        1. 打开「站点」页面
-        2. 点击「添加站点」
-        3. 看到报错：……
-    validations:
-      required: true
-  - type: textarea
-    id: expected
-    attributes:
-      label: 预期行为
-    validations:
-      required: true
-  - type: textarea
-    id: actual
-    attributes:
-      label: 实际行为
-      description: 错误信息、截图或日志片段（记得涂抹凭证）
-    validations:
-      required: true
+        - 操作系统与 CPU 架构：
+        - 浏览器 / 客户端名称和版本：
+        - 上游类型、版本、协议与模型：
   - type: textarea
     id: logs
     attributes:
-      label: 相关日志
-      description: 服务端日志关键片段（无日志可留空）
-      render: shell
+      label: 相关日志（可选）
+      description: 粘贴与问题相关的服务端或客户端日志片段；请勿上传原始配置或完整请求头。
+      render: text
