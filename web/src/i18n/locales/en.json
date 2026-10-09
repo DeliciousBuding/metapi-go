@@ -2739,6 +2739,9 @@
         "failed": "Failed"
       },
       "timing": {
+        "firstByte": "First byte",
+        "total": "Total",
+        "headerHint": "Time from this upstream attempt starting to receiving response headers (TTFB), not the first generated token.",
         "slow": "Slow",
         "ariaFirstByte": "First byte {{firstByte}}, total {{total}}",
         "ariaTotal": "Total {{total}}"

@@ -27,7 +27,7 @@ import { toast } from '@/lib/toast'
 
 import { useProxyLog } from '../api'
 import type { ProxyLog, ProxyLogBillingDetails, ProxyLogDetail } from '../types'
-import { LatencyBadge } from './latency-badge'
+import { TimingCell } from './timing-cell'
 
 /** Count 0 renders as "0" (no retry happened); only a missing count is a dash. */
 function formatRetryCount(retryCount: number | null | undefined): string {
@@ -168,10 +168,9 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
           {detail.modelActual || '—'}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.latency')}>
-          <LatencyBadge
+          <TimingCell
             latencyMs={detail.latencyMs}
             firstByteLatencyMs={detail.firstByteLatencyMs}
-            showDot
           />
         </DetailField>
         <DetailField label={t('proxyLogs.detail.isStream')}>

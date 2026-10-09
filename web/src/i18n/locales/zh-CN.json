@@ -2739,6 +2739,9 @@
         "failed": "失败"
       },
       "timing": {
+        "firstByte": "首字节",
+        "total": "总耗时",
+        "headerHint": "本次上游尝试开始至收到响应头的时间（TTFB），不等于首个生成 token。",
         "slow": "慢",
         "ariaFirstByte": "首字节 {{firstByte}}，总计 {{total}}",
         "ariaTotal": "总计 {{total}}"
