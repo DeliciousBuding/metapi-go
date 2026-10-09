@@ -488,6 +488,13 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return nil
 		},
 	},
+	{
+		Version:     "sc2_033_upstream_reported_model",
+		Description: "proxy_logs.upstream_reported_model nullable original response metadata",
+		Apply: func(db *DB) error {
+			return EnsureColumn(db, "proxy_logs", "upstream_reported_model", "TEXT", "TEXT", "")
+		},
+	},
 	// sc2_029_ts_timestamp_normalization is deliberately NOT a registry step
 	// any more. A journal gate decides "already applied" from the state of the
 	// database at the moment it runs, and the TS-shaped timestamps this rewrite

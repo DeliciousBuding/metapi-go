@@ -3,6 +3,7 @@ package proxyhandler
 import (
 	"encoding/json"
 	"strings"
+	"unicode"
 
 	"github.com/deliciousbuding/metapi-go/proxy"
 )
@@ -14,12 +15,13 @@ const (
 
 // ParsedUsage is a normalized token usage snapshot extracted from an upstream body/SSE.
 type ParsedUsage struct {
-	FirstOutputLatencyMs *int64
-	PromptTokens         int64
-	CompletionTokens     int64
-	TotalTokens          int64
-	CacheReadTokens      int64
-	CacheCreationTokens  int64
+	UpstreamReportedModel *string
+	FirstOutputLatencyMs  *int64
+	PromptTokens          int64
+	CompletionTokens      int64
+	TotalTokens           int64
+	CacheReadTokens       int64
+	CacheCreationTokens   int64
 	// ReasoningTokens captures Gemini thoughtsTokenCount / OpenAI reasoning_tokens
 	// when reported separately. Not persisted as its own proxy_logs column; it is
 	// folded into CompletionTokens / TotalTokens when total is missing.
@@ -55,7 +57,37 @@ func ParseUsageFromBody(body []byte) ParsedUsage {
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return ParsedUsage{Source: usageSourceUnknown}
 	}
-	return extractUsageFromValue(payload)
+	out := extractUsageFromValue(payload)
+	out.UpstreamReportedModel = extractReportedModel(payload)
+	return out
+}
+
+// Only protocol-owned model metadata is observed. Do not search tool results,
+// user content or errors, and never infer an upstream identity from our request.
+func extractReportedModel(payload any) *string {
+	obj, ok := payload.(map[string]any)
+	if !ok || obj["error"] != nil {
+		return nil
+	}
+	for _, field := range []string{"response", "message"} {
+		if nested, ok := obj[field].(map[string]any); ok {
+			if model := reportedModelString(nested["model"]); model != nil {
+				return model
+			}
+		}
+	}
+	if model := reportedModelString(obj["model"]); model != nil {
+		return model
+	}
+	return reportedModelString(obj["modelVersion"])
+}
+
+func reportedModelString(value any) *string {
+	model, ok := value.(string)
+	if !ok || model == "" || len(model) > 256 || strings.IndexFunc(model, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
+		return nil
+	}
+	return &model
 }
 
 // ParseUsageFromSSEEvents extracts the best-effort final usage from SSE data events.
@@ -72,19 +104,19 @@ func ParseUsageFromSSEEvents(events []SseEvent) ParsedUsage {
 			continue
 		}
 		got := ParseUsageFromBody([]byte(ev.Data))
-		if !got.Found {
-			continue
-		}
 		best = mergeUsagePreferLater(best, got)
 	}
 	return best
 }
 
 func mergeUsagePreferLater(prev, next ParsedUsage) ParsedUsage {
-	if !next.Found {
-		return prev
-	}
 	out := prev
+	if next.UpstreamReportedModel != nil {
+		out.UpstreamReportedModel = next.UpstreamReportedModel
+	}
+	if !next.Found {
+		return out
+	}
 	out.Found = true
 	out.Source = usageSourceUpstream
 	// Prefer non-zero fields from the later event; retain earlier values when

@@ -153,9 +153,7 @@ func (a *incrementalSseAnalyzer) recordEvent(ev SseEvent) {
 		// Later events with usage win (stream-end usage / message_delta / response.completed).
 		if looksLikeJSONObject(ev.Data) {
 			got := ParseUsageFromBody([]byte(ev.Data))
-			if got.Found {
-				a.usage = mergeUsagePreferLater(a.usage, got)
-			}
+			a.usage = mergeUsagePreferLater(a.usage, got)
 		}
 	}
 	if IsSseErrorEvent(ev) {

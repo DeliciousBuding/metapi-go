@@ -83,6 +83,23 @@ afterEach(() => {
 })
 
 describe('ProxyLogDetailSheet drilldown links', () => {
+  it('separates the selected outbound model from original upstream metadata', async () => {
+    testState.detail = {
+      ...makeLog(),
+      modelActual: 'selected-model-alias',
+      upstreamReportedModel: 'upstream-original-model',
+    } as ProxyLogDetail
+    render(<ProxyLogDetailSheet log={makeLog()} open onOpenChange={() => {}} />)
+    expect(
+      await screen.findByText('Selected outbound model')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Upstream-reported model')).toBeInTheDocument()
+    expect(screen.getByText('selected-model-alias')).toBeInTheDocument()
+    expect(screen.getByText('upstream-original-model')).toHaveAttribute(
+      'title',
+      expect.stringContaining('not proof')
+    )
+  })
   it('shows cache and cost breakdown while keeping raw billing available', async () => {
     testState.detail = {
       ...makeLog(),

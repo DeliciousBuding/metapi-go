@@ -38,11 +38,15 @@ func TestFirstOutputPersistence(t *testing.T) {
 			}
 			for index, output := range []*int64{nil, int64Ptr(280)} {
 				entry := proxy.ProxyLogEntry{ModelRequested: "fixture-first-output", Status: "success", HTTPStatus: 200, IsStream: boolPtr(true), FirstByteLatencyMs: int64Ptr(10), FirstOutputLatencyMs: output, LatencyMs: 400, RequestID: "fixture-timing"}
+				if index == 1 {
+					model := "fixture-upstream-model"
+					entry.UpstreamReportedModel = &model
+				}
 				if err := InsertProxyLog(context.Background(), db, entry); err != nil {
 					t.Fatal(err)
 				}
 				var row store.ProxyLog
-				if err := db.Get(&row, "SELECT first_byte_latency_ms, first_output_latency_ms, latency_ms FROM proxy_logs WHERE model_requested = ? ORDER BY id DESC LIMIT 1", entry.ModelRequested); err != nil {
+				if err := db.Get(&row, "SELECT first_byte_latency_ms, first_output_latency_ms, upstream_reported_model, latency_ms FROM proxy_logs WHERE model_requested = ? ORDER BY id DESC LIMIT 1", entry.ModelRequested); err != nil {
 					t.Fatal(err)
 				}
 				if index == 0 && row.FirstOutputLatencyMs != nil {
@@ -50,6 +54,9 @@ func TestFirstOutputPersistence(t *testing.T) {
 				}
 				if index == 1 && (row.FirstOutputLatencyMs == nil || *row.FirstOutputLatencyMs != 280) {
 					t.Fatal("first output was lost or copied from headers")
+				}
+				if index == 0 && row.UpstreamReportedModel != nil || index == 1 && (row.UpstreamReportedModel == nil || *row.UpstreamReportedModel != "fixture-upstream-model") {
+					t.Fatal("reported model was lost or invented")
 				}
 			}
 		})
