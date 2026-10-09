@@ -9,7 +9,11 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ProxyLog } from '../../types'
-import { csvEscape, proxyLogsToCsv } from '../proxy-logs-csv'
+import {
+  csvEscape,
+  loadProxyLogsForCsv,
+  proxyLogsToCsv,
+} from '../proxy-logs-csv'
 
 const translate = (key: string, params?: { defaultValue?: string }) =>
   params?.defaultValue ?? key
@@ -136,5 +140,61 @@ describe('proxyLogsToCsv', () => {
       cacheReadTokens: '0',
       cacheCreationTokens: '5',
     })
+  })
+})
+
+describe('loadProxyLogsForCsv', () => {
+  it('reads past the server 100-row limit with identical bounded filters', async () => {
+    const data = Array.from({ length: 235 }, (_, id) => makeLog({ id }))
+    const requests: unknown[] = []
+    const result = await loadProxyLogsForCsv(
+      { status: 'success', from: '2026-10-01' },
+      async (query) => {
+        requests.push(query)
+        return {
+          items: data.slice(query.offset, (query.offset ?? 0) + 100),
+          total: data.length,
+        }
+      },
+      '2026-10-09T00:00:00Z'
+    )
+    expect(result.rows.map((row) => row.id)).toEqual(data.map((row) => row.id))
+    expect(result.truncated).toBe(false)
+    expect(requests).toEqual(
+      [0, 100, 200].map((offset) => ({
+        status: 'success',
+        from: '2026-10-01',
+        to: '2026-10-09T00:00:00Z',
+        limit: 100,
+        offset,
+      }))
+    )
+  })
+  it('only reports truncation when more than the cap exists and keeps explicit time bounds', async () => {
+    for (const total of [0, 10_000, 10_001]) {
+      const result = await loadProxyLogsForCsv(
+        { to: '2026-10-08' },
+        async (query) => {
+          expect(query.to).toBe('2026-10-08')
+          return {
+            items: Array.from(
+              { length: Math.min(100, total - (query.offset ?? 0)) },
+              (_, i) => makeLog({ id: (query.offset ?? 0) + i })
+            ),
+            total,
+          }
+        }
+      )
+      expect(result.rows).toHaveLength(Math.min(total, 10_000))
+      expect(result.truncated).toBe(total > 10_000)
+    }
+  })
+  it('fails rather than labeling an incomplete export successful after records disappear', async () => {
+    await expect(
+      loadProxyLogsForCsv({}, async (query) => ({
+        items: query.offset ? [] : [makeLog({})],
+        total: 2,
+      }))
+    ).rejects.toThrow('changed during pagination')
   })
 })
