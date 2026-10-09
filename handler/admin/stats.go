@@ -944,6 +944,15 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 		if bdStr, ok2 := bd.(string); ok2 && bdStr != "" {
 			var parsed any
 			if err := json.Unmarshal([]byte(bdStr), &parsed); err == nil {
+				if billing, ok := parsed.(map[string]any); ok {
+					billing = mapKeysToCamel(billing)
+					for _, section := range []string{"usage", "pricing", "breakdown"} {
+						if fields, ok := billing[section].(map[string]any); ok {
+							billing[section] = mapKeysToCamel(fields)
+						}
+					}
+					parsed = billing
+				}
 				row["billingDetails"] = parsed
 			}
 		}

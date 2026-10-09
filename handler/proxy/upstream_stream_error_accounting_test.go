@@ -143,6 +143,12 @@ func TestDispatchStreamExplicitErrorAccounting(t *testing.T) {
 					wantUsage = [3]int64{2, 3, 5}
 					wantSource = usageSourceUpstream
 				}
+				if wantSource == usageSourceUnknown {
+					if entry.PromptTokens != nil || entry.CompletionTokens != nil || entry.TotalTokens != nil || entry.UsageSource != wantSource {
+						t.Fatalf("unknown usage was invented: %+v", entry)
+					}
+					return
+				}
 				if entry.PromptTokens == nil || entry.CompletionTokens == nil || entry.TotalTokens == nil {
 					t.Fatalf("usage fields missing: %+v", entry)
 				}

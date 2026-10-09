@@ -14,11 +14,12 @@ const (
 
 // ParsedUsage is a normalized token usage snapshot extracted from an upstream body/SSE.
 type ParsedUsage struct {
-	PromptTokens        int64
-	CompletionTokens    int64
-	TotalTokens         int64
-	CacheReadTokens     int64
-	CacheCreationTokens int64
+	FirstOutputLatencyMs *int64
+	PromptTokens         int64
+	CompletionTokens     int64
+	TotalTokens          int64
+	CacheReadTokens      int64
+	CacheCreationTokens  int64
 	// ReasoningTokens captures Gemini thoughtsTokenCount / OpenAI reasoning_tokens
 	// when reported separately. Not persisted as its own proxy_logs column; it is
 	// folded into CompletionTokens / TotalTokens when total is missing.
