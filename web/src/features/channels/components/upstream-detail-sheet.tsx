@@ -161,7 +161,7 @@ export function UpstreamDetailSheet(props: {
               <Button
                 variant='ghost'
                 size='sm'
-                className='text-destructive'
+                className='text-destructive-soft-fg'
                 disabled={props.deleting}
                 onClick={() => props.onDelete && beforeDelete(props.onDelete)}
               >
