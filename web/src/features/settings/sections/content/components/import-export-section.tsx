@@ -359,18 +359,6 @@ export function ImportExportSection() {
         originKey: plan.kind === 'octopus' ? originKey : undefined,
         plan,
       })
-      const hasUnsupportedOctopusSections =
-        plan.kind === 'octopus' &&
-        Object.values(plan.data.notImported ?? {}).some((count) => count > 0)
-      const hasAdaptations =
-        plan.kind === 'octopus' && (plan.data.adaptations?.length ?? 0) > 0
-      const hasBlockingOctopusSections =
-        plan.kind === 'octopus' && (plan.data.blocking?.length ?? 0) > 0
-      setConfirmImportOpen(
-        !hasBlockingOctopusSections &&
-          (!(hasUnsupportedOctopusSections || hasAdaptations) ||
-            allowChannelsOnlyImport)
-      )
     } catch {
       if (revision !== importRevision.current) return
       toast.error(t('settings.content.importExport.toast.importFailed'))
@@ -460,6 +448,14 @@ export function ImportExportSection() {
   const hasOctopusPolicyAdaptations =
     importPreview?.kind === 'octopus' &&
     (importPreview.data.adaptations?.length ?? 0) > 0
+  const canImport =
+    previewSnapshot !== null &&
+    !(
+      importPreview?.kind === 'octopus' &&
+      (importPreview.data.blocking?.length ?? 0) > 0
+    ) &&
+    (!(hasNotImportedOctopusSections || hasOctopusPolicyAdaptations) ||
+      allowChannelsOnlyImport)
   let confirmImportDescriptionKey =
     'settings.content.importExport.importConfirmDescription'
   if (importPreview?.kind === 'octopus') {
@@ -519,9 +515,20 @@ export function ImportExportSection() {
             acknowledged={allowChannelsOnlyImport}
             onAcknowledge={(checked) => {
               setAllowChannelsOnlyImport(checked)
-              setConfirmImportOpen(checked)
             }}
           />
+          {importPreview ? (
+            <div className='flex justify-end'>
+              <Button
+                type='button'
+                disabled={!canImport || importMutation.isPending}
+                onClick={() => setConfirmImportOpen(true)}
+              >
+                <Upload className='size-4' aria-hidden='true' />
+                {t('settings.content.importExport.import')}
+              </Button>
+            </div>
+          ) : null}
         </SettingsSubsection>
         <SettingsSubsection
           title={t('settings.content.importExport.exportGroup')}

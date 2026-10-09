@@ -205,19 +205,19 @@ func validateOctopusV5(d *OctopusV5Dump) error {
 		}
 		groups[g.ID] = g
 	}
-	itemIDs := map[int64]bool{}
+	itemGroups := map[int64]int64{}
 	for _, i := range d.GroupItems {
 		if i.ID <= 0 || groups[i.GroupID].ID == 0 || !grants[i.GrantID] || i.Priority < 0 || i.Weight < 0 || i.ChannelID != 0 || i.ChannelName != "" || i.ModelName != "" || i.KeyName != "" || i.Protocols != 0 || i.Available {
 			return fmt.Errorf("Octopus group_items contain an invalid group/grant relationship")
 		}
-		if itemIDs[i.ID] {
+		if itemGroups[i.ID] != 0 {
 			return fmt.Errorf("Octopus group_items contain a duplicate id")
 		}
-		itemIDs[i.ID] = true
+		itemGroups[i.ID] = i.GroupID
 	}
 	for _, g := range d.Groups {
-		if g.ActiveItemID != 0 && !itemIDs[g.ActiveItemID] {
-			return fmt.Errorf("Octopus groups reference a missing active item")
+		if g.ActiveItemID != 0 && itemGroups[g.ActiveItemID] != g.ID {
+			return fmt.Errorf("Octopus groups reference a missing active item or an item from another group")
 		}
 	}
 	return nil

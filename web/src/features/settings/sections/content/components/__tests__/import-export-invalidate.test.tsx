@@ -160,6 +160,10 @@ describe('ImportExportSection — cache invalidation after import', () => {
       await screen.findByRole('button', { name: 'Preview import' })
     )
 
+    await screen.findByRole('region', { name: 'Import plan' })
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(mockImportBackup).not.toHaveBeenCalled()
+    clickLastButtonNamed('Import')
     await screen.findByText('Confirm import?')
     clickLastButtonNamed('Import')
 
@@ -202,6 +206,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
       '4'
     )
     expect(mockPreviewBackupImport).toHaveBeenCalledWith(payload, 'octopus-lab')
+    clickLastButtonNamed('Import')
     await screen.findByText('Confirm import?')
     clickLastButtonNamed('Import')
 
@@ -264,6 +269,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Preview import' })
     )
+    await screen.findByText('Source: octopus-v5 · origin key: origin-B')
+    clickLastButtonNamed('Import')
     await screen.findByText('Confirm import?')
     clickLastButtonNamed('Import')
     await waitFor(() => {
@@ -305,6 +312,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
       name: /I understand: import channels, credentials, model grants/i,
     })
     fireEvent.click(acknowledgement)
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    clickLastButtonNamed('Import')
     await screen.findByText('Confirm import?')
     clickLastButtonNamed('Import')
     await waitFor(() => {
@@ -346,6 +355,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
         name: /Default group retry, timeout, cooldown, and affinity policies/i,
       })
     )
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    clickLastButtonNamed('Import')
     await screen.findByText('Confirm import?')
     clickLastButtonNamed('Import')
     await waitFor(() => {

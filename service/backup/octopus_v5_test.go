@@ -86,6 +86,32 @@ func TestOctopusV5ParseAndImportRemapsIDsAndRepeatsSafely(t *testing.T) {
 	}
 }
 
+func TestOctopusV5RejectsActiveItemFromAnotherGroup(t *testing.T) {
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(octopusV5RealShapeFixture), &payload); err != nil {
+		t.Fatal(err)
+	}
+	groups := payload["groups"].([]any)
+	groups = append(groups, map[string]any{"id": 22, "name": "other-model", "mode": "manual", "active_item_id": 31, "relay_config": map[string]any{}})
+	payload["groups"] = groups
+	if _, err := ParseOctopusV5(mustJSON(t, payload)); err == nil {
+		t.Fatal("accepted an active item belonging to a different group")
+	}
+}
+
+// The current official v5 export has no group-item weight; its priority is
+// authoritative. Keep this distinct from the older synthetic weighted fixture.
+func TestOctopusV5CurrentExportWithoutGroupItemWeight(t *testing.T) {
+	payload := strings.ReplaceAll(octopusV5RealShapeFixture, `,"weight":1`, "")
+	preview, err := PreviewOctopusV5([]byte(payload), "current-official-v5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Sections["groupItems"] != 2 || len(preview.Blocking) != 0 {
+		t.Fatalf("unexpected current v5 preview: %+v", preview)
+	}
+}
+
 func TestOctopusV5RejectsUnsupportedAndBrokenRelationships(t *testing.T) {
 	for name, payload := range map[string]string{
 		"unsupported dialect":   strings.Replace(octopusV5RealShapeFixture, `"dialect":"generic"`, `"dialect":"vendor-x"`, 1),
