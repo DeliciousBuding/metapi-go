@@ -592,6 +592,21 @@
     },
     "sites": {
       "templates": {
+        "brands": {
+          "bailian": "阿里云百炼",
+          "bailianPlan": "百炼 Coding Plan",
+          "glm": "智谱 GLM",
+          "glmPlan": "GLM Coding Plan",
+          "zai": "Z.ai",
+          "zaiPlan": "Z.ai Coding Plan",
+          "ark": "火山方舟",
+          "arkPlan": "火山 Coding Plan",
+          "qiniu": "七牛云",
+          "mimo": "小米 MiMo",
+          "mimoPlan": "MiMo Token Plan",
+          "kimi": "Kimi",
+          "kimiPlan": "Kimi Coding Plan"
+        },
         "title": "连接模板",
         "loading": "正在加载模板",
         "loadFailed": "模板加载失败。",

@@ -12,6 +12,7 @@ import type { SiteInitializationPreset } from '@/lib/api/sites'
 import {
   PLATFORM_CONNECTION_TEMPLATES,
   getConnectionPresetIcon,
+  getConnectionPresetNameKey,
   type ConnectionTemplate,
 } from '@/lib/platform-catalog'
 import { cn } from '@/lib/utils'
@@ -68,18 +69,55 @@ const DOMESTIC_PROVIDERS = [
 ]
 
 function isCodingPlan(template: ConnectionTemplate) {
-  return template.group === 'api' && /coding|token-plan/.test(template.id)
+  return (
+    template.group === 'api' &&
+    (/coding|token-plan/.test(template.id) ||
+      template.id.startsWith('minimax-'))
+  )
+}
+
+function providerFamily(template: ConnectionTemplate) {
+  const family = template.id.split('-')[0]
+  if (family === 'codingplan') return 'bailian'
+  if (family === 'kimi') return 'moonshot'
+  if (family === 'volcengine') return 'doubao'
+  return family
+}
+
+function protocolOrder(template: ConnectionTemplate) {
+  return ['openai', 'claude', 'gemini'].indexOf(template.platform)
+}
+
+function compareWithinBrand(a: ConnectionTemplate, b: ConnectionTemplate) {
+  return (
+    providerFamily(a).localeCompare(providerFamily(b), 'en') ||
+    protocolOrder(a) - protocolOrder(b) ||
+    a.id.localeCompare(b.id, 'en')
+  )
+}
+
+const CODING_PROVIDERS = [
+  'bailian',
+  'zhipu',
+  'moonshot',
+  'doubao',
+  'minimax',
+  'xiaomi',
+  'zai',
+]
+
+function codingOrder(template: ConnectionTemplate) {
+  const index = CODING_PROVIDERS.indexOf(providerFamily(template))
+  return index === -1 ? CODING_PROVIDERS.length : index
 }
 
 function serviceOrder(template: ConnectionTemplate) {
-  const domestic = DOMESTIC_PROVIDERS.findIndex(
-    (provider) =>
-      template.id === provider || template.id.startsWith(`${provider}-`)
-  )
+  const domestic = DOMESTIC_PROVIDERS.indexOf(providerFamily(template))
   if (domestic !== -1) return domestic
-  if (['openai-api', 'anthropic-api', 'gemini-api'].includes(template.id)) {
-    return 100
-  }
+  const official = ['openai-api', 'anthropic-api', 'gemini-api'].indexOf(
+    template.id
+  )
+  if (official !== -1) return 100 + official
   return 50
 }
 
@@ -91,28 +129,43 @@ function templatesForCategory(
   if (query) {
     return templates
       .filter((template) =>
-        `${template.name} ${template.label ?? ''} ${template.platform} ${template.url}`
+        `${template.name} ${template.providerLabel ?? ''} ${template.label ?? ''} ${template.platform} ${template.url}`
           .toLowerCase()
           .includes(query)
       )
-      .sort((a, b) => serviceOrder(a) - serviceOrder(b))
+      .sort(
+        (a, b) => serviceOrder(a) - serviceOrder(b) || compareWithinBrand(a, b)
+      )
   }
   if (category === 'common') {
     return COMMON_TEMPLATE_IDS.flatMap((id) =>
       templates.filter((template) => template.id === id)
     )
   }
-  if (category === 'coding') return templates.filter(isCodingPlan)
+  if (category === 'coding') {
+    return templates
+      .filter(isCodingPlan)
+      .sort(
+        (a, b) => codingOrder(a) - codingOrder(b) || compareWithinBrand(a, b)
+      )
+  }
   if (category === 'api') {
     return templates
-      .filter((template) => template.group === 'api' && !isCodingPlan(template))
-      .sort((a, b) => serviceOrder(a) - serviceOrder(b))
+      .filter(
+        (template) =>
+          template.group === 'api' &&
+          (!isCodingPlan(template) || template.id.startsWith('minimax-'))
+      )
+      .sort(
+        (a, b) => serviceOrder(a) - serviceOrder(b) || compareWithinBrand(a, b)
+      )
   }
   return templates.filter((template) => template.group === category)
 }
 
 function templateFromPreset(
-  preset: SiteInitializationPreset
+  preset: SiteInitializationPreset,
+  name: string
 ): ConnectionTemplate {
   let protocols: ConnectionTemplate['protocols'] = ['chat']
   if (preset.id === 'openai-api') protocols = ['chat', 'responses']
@@ -120,7 +173,8 @@ function templateFromPreset(
   else if (preset.platform === 'gemini') protocols = ['gemini']
   return {
     id: preset.id,
-    name: preset.providerLabel,
+    name,
+    providerLabel: preset.providerLabel,
     label: preset.label,
     platform: preset.platform,
     icon: getConnectionPresetIcon(preset.id),
@@ -135,7 +189,13 @@ export function SiteConnectionTemplates(props: Props) {
   const { t } = useTranslation()
   const presets = useSiteInitializationPresets()
   const allTemplates = [
-    ...(presets.data ?? []).map(templateFromPreset),
+    ...(presets.data ?? []).map((preset) => {
+      const nameKey = getConnectionPresetNameKey(preset.id)
+      return templateFromPreset(
+        preset,
+        nameKey ? t(nameKey) : preset.providerLabel
+      )
+    }),
     ...PLATFORM_CONNECTION_TEMPLATES,
   ]
   const [expanded, setExpanded] = useState(true)
@@ -143,6 +203,11 @@ export function SiteConnectionTemplates(props: Props) {
   const [search, setSearch] = useState('')
   const toggleRef = useRef<HTMLButtonElement>(null)
   const query = search.trim().toLowerCase()
+  const selectedNameKey =
+    props.selected && getConnectionPresetNameKey(props.selected.id)
+  const selectedName = selectedNameKey
+    ? t(selectedNameKey)
+    : props.selected?.name
 
   function select(template: ConnectionTemplate) {
     if (!props.onSelect(template)) return
@@ -184,7 +249,7 @@ export function SiteConnectionTemplates(props: Props) {
           </span>
           <div className='min-w-0 flex-1 space-y-1'>
             <div className='flex flex-wrap items-center gap-2'>
-              <span className='font-medium'>{props.selected.name}</span>
+              <span className='font-medium'>{selectedName}</span>
               <PlatformBadge platform={props.platform} />
             </div>
             <p className='text-muted-foreground text-xs break-all'>

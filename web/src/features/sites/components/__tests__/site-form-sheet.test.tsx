@@ -6,12 +6,14 @@
 import '@testing-library/jest-dom/vitest'
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react'
+import i18n from 'i18next'
 import {
   afterAll,
   afterEach,
@@ -81,6 +83,24 @@ const initializationPresets: SiteInitializationPreset[] = [
     docsUrl: '',
   },
 ]
+let listedPresets = initializationPresets
+
+function displayPreset(
+  id: string,
+  providerLabel: string,
+  platform = 'openai'
+): SiteInitializationPreset {
+  return {
+    id,
+    providerLabel,
+    platform,
+    label: `${providerLabel} / ${platform === 'claude' ? 'Claude' : 'OpenAI'}`,
+    defaultUrl: `https://example.com/${id}`,
+    recommendedSkipModelFetch: false,
+    recommendedModels: [],
+    docsUrl: '',
+  }
+}
 
 const { mockCreateMutate, mockUpdateMutate, mockDetectMutate, mockToastError } =
   vi.hoisted(() => ({
@@ -92,7 +112,7 @@ const { mockCreateMutate, mockUpdateMutate, mockDetectMutate, mockToastError } =
 
 vi.mock('../../api', () => ({
   useSiteInitializationPresets: () => ({
-    data: initializationPresets,
+    data: listedPresets,
     isPending: false,
     isError: false,
   }),
@@ -144,6 +164,7 @@ afterAll(() => {
 })
 
 beforeEach(() => {
+  listedPresets = initializationPresets
   mockCreateMutate.mockReset()
   mockUpdateMutate.mockReset()
   mockDetectMutate.mockReset()
@@ -159,6 +180,86 @@ function typeField(label: string, value: string) {
 }
 
 describe('SiteFormSheet layout and connection presets', () => {
+  it('localizes brand names while retaining original labels and URLs for search', async () => {
+    listedPresets = [
+      displayPreset('bailian', 'Alibaba Bailian'),
+      displayPreset('codingplan-openai', 'Aliyun CodingPlan'),
+      displayPreset('moonshot-openai', 'Moonshot / Kimi'),
+    ]
+    await i18n.changeLanguage('zhCN')
+    try {
+      render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+      const bailian = await screen.findByRole('button', {
+        name: '使用 Alibaba Bailian / OpenAI 模板',
+      })
+      expect(within(bailian).getByText('阿里云百炼')).toBeInTheDocument()
+      expect(screen.getByText('百炼 Coding Plan')).toBeInTheDocument()
+      const search = screen.getByRole('textbox', { name: '搜索全部连接模板…' })
+      for (const query of [
+        '阿里云百炼',
+        'Alibaba Bailian',
+        'example.com/bailian',
+      ]) {
+        fireEvent.change(search, { target: { value: query } })
+        expect(
+          await screen.findByRole('button', {
+            name: '使用 Alibaba Bailian / OpenAI 模板',
+          })
+        ).toBeInTheDocument()
+      }
+      fireEvent.change(search, { target: { value: 'Moonshot' } })
+      expect(screen.getByText('Kimi')).toBeInTheDocument()
+      await act(async () => {
+        await i18n.changeLanguage('en')
+      })
+      fireEvent.change(search, { target: { value: 'Alibaba Bailian' } })
+      expect(screen.getByText('Alibaba Cloud Bailian')).toBeInTheDocument()
+    } finally {
+      cleanup()
+      await i18n.changeLanguage('en')
+    }
+  })
+
+  it('groups Coding Plan brands and keeps Chat and Messages adjacent regardless of backend order', async () => {
+    listedPresets = [
+      displayPreset('zai-coding-plan-openai', 'Z.ai Coding Plan'),
+      displayPreset('doubao-coding-claude', 'Doubao Coding Plan', 'claude'),
+      displayPreset('minimax-claude', 'MiniMax', 'claude'),
+      displayPreset('xiaomi-token-plan-claude', 'Xiaomi Token Plan', 'claude'),
+      displayPreset('codingplan-openai', 'Aliyun CodingPlan'),
+      displayPreset('zhipu-coding-plan-openai', 'Zhipu Coding Plan'),
+      displayPreset('kimi-coding-openai', 'Kimi Coding Plan'),
+      displayPreset('doubao-coding-openai', 'Doubao Coding Plan'),
+      displayPreset('minimax-openai', 'MiniMax'),
+    ]
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Coding Plan' }))
+    const buttons = within(
+      screen.getByRole('tabpanel', { name: 'Coding Plan' })
+    ).getAllByRole('button')
+    const expected = [
+      'Aliyun CodingPlan / OpenAI',
+      'Zhipu Coding Plan / OpenAI',
+      'Kimi Coding Plan / OpenAI',
+      'Doubao Coding Plan / OpenAI',
+      'Doubao Coding Plan / Claude',
+      'MiniMax / OpenAI',
+      'MiniMax / Claude',
+      'Xiaomi Token Plan / Claude',
+      'Z.ai Coding Plan / OpenAI',
+    ]
+    expect(buttons).toHaveLength(expected.length)
+    expected.forEach((label, index) =>
+      expect(buttons[index]).toHaveAccessibleName(`Use ${label} template`)
+    )
+    fireEvent.click(screen.getByRole('tab', { name: 'APIs' }))
+    expect(
+      within(screen.getByRole('tabpanel', { name: 'APIs' })).getAllByRole(
+        'button'
+      )
+    ).toHaveLength(2)
+  })
+
   it('starts with New API and common domestic services, while all gateways and other services remain discoverable', async () => {
     render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
     const common = await screen.findByRole('tabpanel', { name: 'Common' })

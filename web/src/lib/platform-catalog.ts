@@ -115,6 +115,7 @@ export type ConnectionTemplate = {
   id: string
   name: string
   label?: string
+  providerLabel?: string
   platform: string
   icon?: string
   url: string
@@ -151,6 +152,47 @@ const PRESET_BRAND_ICONS: Record<string, string> = {
 
 export function getConnectionPresetIcon(id: string): string | undefined {
   return PRESET_BRAND_ICONS[id.split('-')[0]]
+}
+
+const PRESET_NAME_KEYS: Record<string, { normal: string; plan?: string }> = {
+  bailian: { normal: 'sites.templates.brands.bailian' },
+  codingplan: { normal: 'sites.templates.brands.bailianPlan' },
+  zhipu: {
+    normal: 'sites.templates.brands.glm',
+    plan: 'sites.templates.brands.glmPlan',
+  },
+  zai: {
+    normal: 'sites.templates.brands.zai',
+    plan: 'sites.templates.brands.zaiPlan',
+  },
+  doubao: {
+    normal: 'sites.templates.brands.ark',
+    plan: 'sites.templates.brands.arkPlan',
+  },
+  volcengine: {
+    normal: 'sites.templates.brands.ark',
+    plan: 'sites.templates.brands.arkPlan',
+  },
+  qiniu: { normal: 'sites.templates.brands.qiniu' },
+  xiaomi: {
+    normal: 'sites.templates.brands.mimo',
+    plan: 'sites.templates.brands.mimoPlan',
+  },
+  moonshot: {
+    normal: 'sites.templates.brands.kimi',
+    plan: 'sites.templates.brands.kimiPlan',
+  },
+  kimi: {
+    normal: 'sites.templates.brands.kimi',
+    plan: 'sites.templates.brands.kimiPlan',
+  },
+}
+
+export function getConnectionPresetNameKey(id: string): string | undefined {
+  const keys = PRESET_NAME_KEYS[id.split('-')[0]]
+  return /coding|token-plan/.test(id)
+    ? (keys?.plan ?? keys?.normal)
+    : keys?.normal
 }
 
 // API service defaults come from /api/sites/initialization-presets. Only local

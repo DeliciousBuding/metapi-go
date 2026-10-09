@@ -592,6 +592,21 @@
     },
     "sites": {
       "templates": {
+        "brands": {
+          "bailian": "Alibaba Cloud Bailian",
+          "bailianPlan": "Alibaba Cloud Coding Plan",
+          "glm": "Zhipu GLM",
+          "glmPlan": "GLM Coding Plan",
+          "zai": "Z.ai",
+          "zaiPlan": "Z.ai Coding Plan",
+          "ark": "Volcengine Ark",
+          "arkPlan": "Volcengine Coding Plan",
+          "qiniu": "Qiniu Cloud",
+          "mimo": "Xiaomi MiMo",
+          "mimoPlan": "MiMo Token Plan",
+          "kimi": "Kimi",
+          "kimiPlan": "Kimi Coding Plan"
+        },
         "title": "Connection templates",
         "loading": "Loading templates",
         "loadFailed": "Templates could not be loaded.",
