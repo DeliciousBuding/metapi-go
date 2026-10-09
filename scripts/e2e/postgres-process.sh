@@ -100,7 +100,7 @@ curl -fsS -X POST "$base/api/accounts" "${auth[@]}" \
   >"$tmp/account.json"
 account_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$tmp/account.json")"
 curl -fsS -X POST "$base/api/accounts/$account_id/models/manual" "${auth[@]}" \
-  -d '{"models":["gpt-4o-mini"]}' >/dev/null
+  -d '{"models":["gpt-5-mini"]}' >/dev/null
 curl -fsS -X POST "$base/api/sites" "${auth[@]}" \
   -d "{\"name\":\"pg-process-sibling\",\"url\":\"http://127.0.0.1:$sibling_port\",\"platform\":\"openai\"}" \
   >"$tmp/sibling-site.json"
@@ -110,9 +110,9 @@ curl -fsS -X POST "$base/api/accounts" "${auth[@]}" \
   >"$tmp/sibling-account.json"
 sibling_account_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$tmp/sibling-account.json")"
 curl -fsS -X POST "$base/api/accounts/$sibling_account_id/models/manual" "${auth[@]}" \
-  -d '{"models":["gpt-4o-mini"]}' >/dev/null
+  -d '{"models":["gpt-5-mini"]}' >/dev/null
 curl -fsS -X POST "$base/api/routes" "${auth[@]}" \
-  -d '{"modelPattern":"gpt-4o-mini","routeMode":"pattern","enabled":true}' >"$tmp/route.json"
+  -d '{"modelPattern":"gpt-5-mini","routeMode":"pattern","enabled":true}' >"$tmp/route.json"
 route_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$tmp/route.json")"
 curl -fsS "$base/api/routes/$route_id/channels" "${auth[@]}" >"$tmp/channels.json"
 read -r bad_channel sibling_channel < <(python3 - "$tmp/channels.json" "$account_id" "$sibling_account_id" <<'PY'
@@ -140,11 +140,11 @@ sibling_log="$tmp/sibling-requests.jsonl"
 touch "$mock_log"
 touch "$sibling_log"
 MOCK_OPENAI_HOST=127.0.0.1 MOCK_OPENAI_PORT="$mock_port" \
-MOCK_OPENAI_MODELS=gpt-4o-mini MOCK_OPENAI_MARKER=pg-process-primary-marker \
+MOCK_OPENAI_MODELS=gpt-5-mini MOCK_OPENAI_MARKER=pg-process-primary-marker \
 MOCK_OPENAI_LOG="$mock_log" python3 "$(cd "$(dirname "$0")" && pwd)/mock-openai.py" >"$tmp/mock.log" 2>&1 &
 mock_pid=$!
 MOCK_OPENAI_HOST=127.0.0.1 MOCK_OPENAI_PORT="$sibling_port" \
-MOCK_OPENAI_MODELS=gpt-4o-mini MOCK_OPENAI_MARKER=pg-process-sibling-marker \
+MOCK_OPENAI_MODELS=gpt-5-mini MOCK_OPENAI_MARKER=pg-process-sibling-marker \
 MOCK_OPENAI_LOG="$sibling_log" python3 "$(cd "$(dirname "$0")" && pwd)/mock-openai.py" >"$tmp/sibling.log" 2>&1 &
 sibling_pid=$!
 mock_ready=
@@ -162,7 +162,7 @@ if [[ -z "$mock_ready" ]]; then cat "$tmp/sibling.log" >&2; echo "sibling mock u
 before="$(wc -l < "$mock_log" | tr -d ' ')"
 curl -fsS "$base/v1/chat/completions" -H "Authorization: Bearer $proxy_key" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}' \
+  -d '{"model":"gpt-5-mini","messages":[{"role":"user","content":"hello"}]}' \
   >"$tmp/relay.json"
 python3 - "$tmp/relay.json" "$mock_log" "$before" <<'PY'
 import json, sys
@@ -173,7 +173,7 @@ events = [json.loads(line) for line in open(sys.argv[2], encoding="utf-8") if li
 new_events = events[int(sys.argv[3]):]
 if not new_events:
     raise SystemExit("mock upstream observed no new relayed request")
-if not any(event.get("model") == "gpt-4o-mini" for event in new_events):
+if not any(event.get("model") == "gpt-5-mini" for event in new_events):
     raise SystemExit("new mock upstream request did not carry the expected model")
 PY
 
@@ -190,7 +190,7 @@ sibling_before="$(wc -l < "$sibling_log" | tr -d ' ')"
 request_id="pg-cascade-${schema}"
 curl -fsS "$base/v1/chat/completions" -H "Authorization: Bearer $proxy_key" \
   -H 'Content-Type: application/json' -H "X-Request-Id: $request_id" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"cascade"}]}' \
+  -d '{"model":"gpt-5-mini","messages":[{"role":"user","content":"cascade"}]}' \
   -D "$tmp/cascade.headers" >"$tmp/cascade.json"
 psql_schema -Atqc "SELECT channel_id, status, http_status, retry_count FROM proxy_logs WHERE request_id = '$request_id' ORDER BY retry_count, id" >"$tmp/cascade.rows"
 python3 - "$tmp/cascade.json" "$tmp/cascade.headers" "$sibling_log" "$sibling_before" "$tmp/cascade.rows" "$bad_channel" "$sibling_channel" "$request_id" <<'PY'
@@ -200,7 +200,7 @@ assert response.get("choices", [{}])[0].get("message", {}).get("content") == "pg
 headers = open(sys.argv[2], encoding="utf-8").read().lower().splitlines()
 assert f"x-request-id: {sys.argv[8]}" in headers, "cascade response lost its request ID"
 events = [json.loads(line) for line in open(sys.argv[3], encoding="utf-8") if line.strip()]
-assert events[int(sys.argv[4]):] == [{"path": "/v1/chat/completions", "model": "gpt-4o-mini"}], "sibling mock did not observe exactly one relayed request"
+assert events[int(sys.argv[4]):] == [{"path": "/v1/chat/completions", "model": "gpt-5-mini"}], "sibling mock did not observe exactly one relayed request"
 rows = [line.strip() for line in open(sys.argv[5], encoding="utf-8") if line.strip()]
 want = [f"{sys.argv[6]}|failed|502|0", f"{sys.argv[7]}|success|200|1"]
 assert rows == want, f"cascade PostgreSQL proxy logs = {rows!r}, want {want!r}"

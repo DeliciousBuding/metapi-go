@@ -41,6 +41,11 @@ Query proxy request logs (server-side filtered and paginated).
 
 **Response** (`view=query`/`full`): `{ items, total, page, pageSize }` where `total` respects all active filters; `view=meta`/`full` adds `summary` (totalCount/successCount/failedCount/totalCost/totalTokensAll), `sites`, `clientOptions`.
 
+Each row describes one upstream attempt. `latencyMs` includes reading the buffered response or relaying the stream;
+`firstByteLatencyMs` measures time to response headers (TTFB), not the first generated token. Attempts that fail before
+receiving headers have a null first-byte measurement. Retries remain separate rows linked by `requestId` and `retryCount`.
+Earlier builds recorded header latency as total latency on successful responses; existing rows retain those original values.
+
 ### GET /api/stats/proxy-logs/:id
 
 Get a single proxy log entry by ID.

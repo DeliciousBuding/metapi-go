@@ -1,20 +1,10 @@
-// metapi-go/features/proxy-logs/components — timing cell.
-//
-// Two-segment latency bar: the left segment is time-to-first-byte and the
-// right segment is the remaining transfer time, so an operator sees both
-// "first token" and "total" in one compact cell. A Slow marker (text, not
-// color-only) appears when total latency crosses the slow threshold. All
-// segment colors are token-based (success/destructive/muted-foreground).
-
+// Proxy-attempt timing. First-byte latency measures response headers (TTFB),
+// not a generated token; total latency includes reading/relaying the body.
 import { useTranslation } from 'react-i18next'
 
 import { formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-const SLOW_THRESHOLD_MS = 2000
-
-// Matches the legacy local formatter (and LatencyBadge): ms below 1s,
-// seconds above, dropping decimals once the value reaches 100s.
 const LATENCY_FORMAT = {
   autoSeconds: true,
   spaced: true,
@@ -22,78 +12,61 @@ const LATENCY_FORMAT = {
   wholeSecondsThreshold: 100,
 } as const
 
-function formatDuration(ms: number): string {
-  return formatLatency(ms, LATENCY_FORMAT)
-}
-
 export type TimingCellProps = {
   latencyMs: number | null | undefined
   firstByteLatencyMs?: number | null
   className?: string
 }
 
-export function TimingCell({
-  latencyMs,
-  firstByteLatencyMs,
-  className,
-}: TimingCellProps) {
+export function TimingCell(props: TimingCellProps) {
   const { t } = useTranslation()
-  if (latencyMs === null || latencyMs === undefined || latencyMs < 0) {
-    return (
-      <span className={cn('text-muted-foreground text-sm', className)}>—</span>
-    )
+  const total = props.latencyMs
+  const first = props.firstByteLatencyMs
+  const hasTotal =
+    typeof total === 'number' && Number.isFinite(total) && total >= 0
+  const hasFirst =
+    typeof first === 'number' &&
+    Number.isFinite(first) &&
+    first >= 0 &&
+    (!hasTotal || first <= total)
+  const totalLabel = hasTotal ? formatLatency(total, LATENCY_FORMAT) : '—'
+  const firstLabel = hasFirst ? formatLatency(first, LATENCY_FORMAT) : '—'
+  let timingTone = 'border-muted-foreground/30'
+  if (hasFirst) {
+    timingTone = first >= 5000 ? 'border-warning' : 'border-success'
   }
-
-  const total = Math.max(1, latencyMs)
-  const hasFirstByte =
-    firstByteLatencyMs !== null &&
-    firstByteLatencyMs !== undefined &&
-    firstByteLatencyMs >= 0
-  const firstByte = hasFirstByte ? Math.min(firstByteLatencyMs, total) : 0
-  const firstBytePct = (firstByte / total) * 100
-  const isSlow = latencyMs >= SLOW_THRESHOLD_MS
-
-  const ariaLabel = hasFirstByte
+  const ariaLabel = hasFirst
     ? t('proxyLogs.timing.ariaFirstByte', {
-        firstByte: formatDuration(firstByte),
-        total: formatDuration(latencyMs),
+        firstByte: firstLabel,
+        total: totalLabel,
       })
-    : t('proxyLogs.timing.ariaTotal', { total: formatDuration(latencyMs) })
+    : t('proxyLogs.timing.ariaTotal', { total: totalLabel })
 
   return (
-    <div className={cn('flex w-fit items-center gap-2', className)}>
-      <span className='text-xs font-medium whitespace-nowrap tabular-nums'>
-        {formatDuration(latencyMs)}
-      </span>
+    <div
+      role='group'
+      aria-label={ariaLabel}
+      className={cn(
+        'grid w-fit grid-cols-[auto_auto] gap-x-3 gap-y-0.5 border-s-2 ps-2 text-xs leading-4 tabular-nums',
+        timingTone,
+        props.className
+      )}
+    >
       <span
-        role='img'
-        aria-label={ariaLabel}
-        className={cn(
-          'inline-flex h-1.5 w-16 shrink-0 items-stretch overflow-hidden rounded-full',
-          'bg-muted'
-        )}
+        className='text-muted-foreground'
+        title={t('proxyLogs.timing.headerHint')}
       >
-        <span
-          className={cn('h-full', isSlow ? 'bg-destructive' : 'bg-success')}
-          style={{ width: `${firstBytePct}%` }}
-        />
-        <span
-          className={cn(
-            'h-full flex-1',
-            isSlow ? 'bg-destructive/40' : 'bg-muted-foreground/30'
-          )}
-        />
+        {t('proxyLogs.timing.firstByte')}
       </span>
-      {isSlow ? (
-        <span
-          className={cn(
-            'border-destructive/30 bg-destructive/10 text-destructive-soft-fg',
-            'rounded-sm border px-1 py-px text-3xs font-medium whitespace-nowrap'
-          )}
-        >
-          {t('proxyLogs.timing.slow')}
-        </span>
-      ) : null}
+      <span className='text-end font-medium whitespace-nowrap'>
+        {firstLabel}
+      </span>
+      <span className='text-muted-foreground'>
+        {t('proxyLogs.timing.total')}
+      </span>
+      <span className='text-end font-medium whitespace-nowrap'>
+        {totalLabel}
+      </span>
     </div>
   )
 }

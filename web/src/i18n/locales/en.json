@@ -2747,7 +2747,10 @@
         "client": "Client",
         "status": "Status",
         "latency": "Latency",
-        "token": "Token",
+        "token": "API key",
+        "usage": "Tokens",
+        "cost": "Estimated cost",
+        "mode": "Mode",
         "retry": "Retry",
         "actions": "Actions",
         "rowActions": "Row actions",
@@ -2755,6 +2758,7 @@
       },
       "detail": {
         "description": "Log #{{id}} · {{time}}",
+        "requestId": "Request ID (shared by retry attempts)",
         "loading": "Loading details…",
         "sectionOverview": "Overview",
         "sectionConversation": "Conversation path",
@@ -2796,7 +2800,21 @@
         "success": "Success",
         "failed": "Failed"
       },
+      "usage": {
+        "input": "Input",
+        "output": "Output",
+        "cacheRead": "Cache read",
+        "cacheCreation": "Cache write",
+        "billableInput": "Billable input",
+        "stream": "Stream",
+        "nonStream": "Non-stream",
+        "rawBilling": "Raw billing data",
+        "totalCost": "Total cost"
+      },
       "timing": {
+        "firstByte": "First byte",
+        "total": "Total",
+        "headerHint": "Time from this upstream attempt starting to receiving response headers (TTFB), not the first generated token.",
         "slow": "Slow",
         "ariaFirstByte": "First byte {{firstByte}}, total {{total}}",
         "ariaTotal": "Total {{total}}"

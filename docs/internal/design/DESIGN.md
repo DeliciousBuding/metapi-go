@@ -35,6 +35,14 @@ counts and maintenance are secondary. Metric details use compact divided cells
 rather than nested padded cards. Increase information density by removing repeated spacing,
 not by shrinking body text.
 
+Proxy logs show attempt timing, input/output token counts, estimated USD cost,
+and stream mode in the default view. API keys are not labeled as token usage.
+Account, client, key and retry columns remain optional; saved column preferences
+are preserved. Missing usage, cost and mode stay unknown rather than becoming
+zero or non-stream. Billing details present billable input, output, cache read
+and cache creation with their individual costs; the original billing object is
+available in a disclosure, including legacy objects without that breakdown.
+
 **Principles**
 
 1. **Signal over decoration** — every color/weight change means status, severity, or hierarchy.
@@ -193,6 +201,8 @@ Fallback: `supports-[backdrop-filter]` gates translucency so browsers without `b
 The common reading roles are page title (24px; overview 30px), section/card title (`text-base` semibold), KPI (`text-xl` to `text-3xl` monospace semibold with tabular numerals and `leading-tight`), table header (`text-xs` semibold), row body (`text-sm`), and field label (`text-xs` muted). Do not use opacity on tiny sidebar section labels: their foreground must stay readable. The active nav link must forward both `data-active` and `aria-current=page` through its Link bridge, so visible selection and the accessibility announcement agree. These are component-owned roles, not a second parallel set of typography tokens.
 
 Model names use the shared `ModelPill` identity: a vendored brand glyph beside the full model identifier, with truncation and a full-name tooltip. Use its pill variant in dense records and its inline variant in selectors, rankings and headings where another container already supplies the surface. Unknown models keep a deterministic lettermark; never borrow an unrelated vendor logo. Decorative glyphs are hidden from assistive technology so a selectable model keeps its exact accessible name. Aggregates such as Other are not model identities. Status badges remain separate from brand identity.
+
+Proxy-log failure reasons use the shared keyboard-operable two-line disclosure. On mobile, status and failure copy occupy a full-width labeled field below the timestamp. Row Enter/Space shortcuts ignore nested interactive controls. Timing is a two-row label/value display shared by the list and detail sheet: response-header TTFB and complete attempt duration remain distinct, with missing measurements shown as unknown. Account editing uses semibold field labels and 24px form spacing with the shared form-control primitives.
 
 Tables inherit the 14px body scale and tabular numerals. Cells and descendants must not be force-sized by the table primitive: explicit metadata, badge and secondary-label sizes belong to their components. Default control height is 36px (small 32px, large 40px); the default radius token is 10px. User-selected density, radius and font axes remain independent.
 

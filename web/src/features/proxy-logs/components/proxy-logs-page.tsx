@@ -40,6 +40,10 @@ import {
   proxyLogsSearchSchema,
   type ProxyLogsSearch,
 } from '../lib/proxy-logs-schema'
+import {
+  handleProxyLogRowKeyDown,
+  isInteractiveRowTarget,
+} from '../lib/row-interaction'
 import { useProxyLogsAutoRefresh } from '../lib/use-proxy-logs-auto-refresh'
 import type { ProxyLog, ProxyLogFilters } from '../types'
 import { LatencyBadge } from './latency-badge'
@@ -276,23 +280,25 @@ export function ProxyLogsPage() {
       className='cursor-pointer'
       tabIndex={0}
       onClick={(event) => {
-        const target = event.target as HTMLElement
-        if (target.closest('button, a, [role="menuitem"], input, select')) {
-          return
-        }
+        if (isInteractiveRowTarget(event.target)) return
         columnActions.onView(row.original)
       }}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
+      onKeyDown={(event) =>
+        handleProxyLogRowKeyDown(event, () =>
           columnActions.onView(row.original)
-        }
-      }}
+        )
+      }
       getColumnClassName={(columnId) => helpers.getCellClassName(columnId)}
     />
   )
 
   const { table } = useDataTable<ProxyLog>({
+    initialColumnVisibility: {
+      account: false,
+      client: false,
+      token: false,
+      retryCount: false,
+    },
     data: items,
     columns,
     manualPagination: true,
