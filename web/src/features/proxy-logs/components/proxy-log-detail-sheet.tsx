@@ -202,6 +202,12 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
         <DetailField label={t('proxyLogs.detail.modelActual')}>
           {detail.modelActual || '—'}
         </DetailField>
+        <DetailField
+          label={t('proxyLogs.detail.upstreamReportedModel')}
+          title={t('proxyLogs.detail.upstreamReportedModelHint')}
+        >
+          {detail.upstreamReportedModel || '—'}
+        </DetailField>
         <DetailField label={t('proxyLogs.detail.latency')}>
           <TimingCell
             latencyMs={detail.latencyMs}

@@ -180,16 +180,10 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 			// channel that never got to finish. Still return
 			// any usage already extracted from earlier SSE events (best-effort
 			// partial) — never invent tokens.
-			if result.Usage.Found {
-				return result.Usage, end, nil
-			}
-			return empty, end, nil
+			return result.Usage, end, nil
 		}
 		verdict := judgeStreamContent(resp.StatusCode, result, latencyMs, !bodyReadable)
-		if result.Usage.Found {
-			return result.Usage, end, &verdict
-		}
-		return empty, end, &verdict
+		return result.Usage, end, &verdict
 	}
 
 	for {

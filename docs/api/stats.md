@@ -45,6 +45,12 @@ Each row describes one upstream attempt. `latencyMs` includes reading the buffer
 `cacheReadTokens` and `cacheCreationTokens`, when present, are validated projections of stored billing usage.
 Unknown, invalid or absent cache counts stay absent; cache counts are not added to total tokens or used to invent
 a cache-hit percentage. Billing detail sections normalize legacy snake_case fields to the camelCase API contract.
+`upstreamReportedModel` is nullable original response metadata observed before downstream model-name rewriting.
+It is separate from `modelRequested` and the selected outbound `modelActual`. Known Chat, Responses, Messages and
+Gemini JSON/SSE model fields are captured per attempt, including streams that omit usage; arbitrary nested content
+and error-only model fields are not scanned. Missing and historical observations remain null. Different aliases can
+be legitimate; neither agreement nor disagreement proves the provider or actual model identity.
+
 `firstByteLatencyMs` measures time to response headers (TTFB), not the first generated token. Attempts that fail before
 receiving headers keep it null. `firstOutputLatencyMs` is a separate nullable measurement for SSE: elapsed time to
 the first complete, recognized text, reasoning or tool-call output event at the relay, excluding comments, heartbeats,

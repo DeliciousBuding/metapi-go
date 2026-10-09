@@ -38,9 +38,9 @@ func TestProxyLogTimingIncludesBodyAfterResponseHeaders(t *testing.T) {
 					return
 				}
 				if stream {
-					_, _ = w.Write([]byte("data: {\"model\":\"gpt-5-mini\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"},\"finish_reason\":null}]}\n\ndata: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"))
+					_, _ = w.Write([]byte("data: {\"model\":\"fixture-upstream-model\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"},\"finish_reason\":null}]}\n\ndata: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"))
 				} else {
-					_, _ = w.Write([]byte(`{"model":"gpt-5-mini","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`))
+					_, _ = w.Write([]byte(`{"model":"fixture-upstream-model","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`))
 				}
 			}))
 			defer upstream.Close()
@@ -65,6 +65,9 @@ func TestProxyLogTimingIncludesBodyAfterResponseHeaders(t *testing.T) {
 				t.Fatalf("status=%d logs=%+v", rec.Code, logs)
 			}
 			entry := logs[0]
+			if entry.ModelActual == nil || *entry.ModelActual != "gpt-5-mini" || entry.UpstreamReportedModel == nil || *entry.UpstreamReportedModel != "fixture-upstream-model" {
+				t.Fatalf("selected and upstream-reported models conflated: %+v", entry)
+			}
 			if entry.PromptTokens != nil || entry.CompletionTokens != nil || entry.TotalTokens != nil {
 				t.Fatal("missing upstream usage was logged as observed zero")
 			}
