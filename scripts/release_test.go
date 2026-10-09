@@ -64,6 +64,37 @@ func TestReleaseScriptRejectsStaleMaster(t *testing.T) {
 	}
 }
 
+func TestReleaseScriptAcceptsCleanNonMasterCheckout(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash is required")
+	}
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin.git")
+	repo := filepath.Join(root, "release")
+	runGit(t, root, "init", "--bare", origin)
+	runGit(t, root, "init", "-b", "master", repo)
+	configureTestRepo(t, repo)
+	mustMkdir(t, filepath.Join(repo, "scripts"))
+	mustMkdir(t, filepath.Join(repo, "web"))
+	script, err := os.ReadFile("release.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(repo, "scripts", "release.sh"), script)
+	mustWrite(t, filepath.Join(repo, "CHANGELOG.md"), []byte("# Changelog\n\n## [v9.9.9]\n"))
+	mustWrite(t, filepath.Join(repo, "web", "package.json"), []byte("{\"version\":\"9.9.9\"}\n"))
+	runGit(t, repo, "add", ".")
+	runGit(t, repo, "commit", "-m", "release")
+	runGit(t, repo, "remote", "add", "origin", origin)
+	runGit(t, repo, "push", "origin", "master")
+	runGit(t, repo, "switch", "-c", "chore/release")
+	cmd := exec.Command("bash", "scripts/release.sh", "9.9.9", "--dry-run")
+	cmd.Dir = repo
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("release checkout at origin/master rejected: %v\n%s", err, output)
+	}
+}
+
 func TestProjectPrePushGateMatchesHookKitAndFreshCloneOrder(t *testing.T) {
 	root := filepath.Dir(mustWorkingDir(t))
 	wrapper, err := os.ReadFile(filepath.Join(root, ".githooks", "pre-push"))

@@ -387,9 +387,11 @@ describe('RouteFormDialog bulk channel selection', () => {
     renderDialog({ mode: 'edit', route: editableRoute, accountOptions })
     const weight = await screen.findByRole('spinbutton', { name: 'Weight' })
     fireEvent.change(weight, { target: { value: '23' } })
+    fireEvent.click(screen.getByRole('button', { name: /Advanced settings/ }))
     fireEvent.change(screen.getByLabelText('Context length (optional)'), {
       target: { value: '8192' },
     })
+    fireEvent.click(screen.getByRole('button', { name: 'Edit JSON' }))
     const mapping = '{"gpt-5.5":"upstream-model"}'
     fireEvent.change(screen.getByLabelText('Model mapping (optional)'), {
       target: { value: mapping },
@@ -519,7 +521,7 @@ describe('RouteFormDialog progressive disclosure', () => {
     ).toBeChecked()
   })
 
-  it('keeps optional fields collapsed initially and preserves edits through collapsing', async () => {
+  it('submits row-edited model mappings after collapsing initially hidden optional fields', async () => {
     renderDialog()
     const advanced = await screen.findByRole('button', {
       name: /Advanced settings/,
@@ -529,11 +531,18 @@ describe('RouteFormDialog progressive disclosure', () => {
     expect(mapping).not.toBeVisible()
     fireEvent.click(advanced)
     expect(mapping).toBeVisible()
-    fireEvent.change(mapping, {
-      target: { value: '{"gpt-5.5":"upstream-model"}' },
+    // The empty field is an add-entry button, not a raw JSON textbox.
+    fireEvent.click(mapping)
+    const requestedModel = screen.getByLabelText('Requested model')
+    fireEvent.change(requestedModel, { target: { value: 'gpt-5.5' } })
+    fireEvent.change(screen.getByLabelText('Upstream model'), {
+      target: { value: 'upstream-model' },
     })
+    expect(screen.getByLabelText('Model mapping (optional)')).toBe(
+      requestedModel
+    )
     fireEvent.click(advanced)
-    expect(mapping).not.toBeVisible()
+    expect(requestedModel).not.toBeVisible()
     fireEvent.change(screen.getByLabelText('Model match rule'), {
       target: { value: 'gpt-5.5' },
     })
@@ -541,7 +550,7 @@ describe('RouteFormDialog progressive disclosure', () => {
     await waitFor(() =>
       expect(mockCreateMutate).toHaveBeenCalledWith(
         expect.objectContaining({
-          modelMapping: '{"gpt-5.5":"upstream-model"}',
+          modelMapping: '{\n  "gpt-5.5": "upstream-model"\n}',
         })
       )
     )

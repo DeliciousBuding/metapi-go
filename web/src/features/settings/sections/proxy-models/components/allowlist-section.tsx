@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { ModelPill } from '@/components/common/model-pill'
 import { SectionCard } from '@/components/common/section-card'
 import { SectionError } from '@/components/common/section-error'
 import { Badge } from '@/components/ui/badge'
@@ -289,7 +290,7 @@ export function AllowlistSection() {
                         className='cursor-pointer'
                         onClick={() => removeAllowedModel(model)}
                       >
-                        {model} ×
+                        <ModelPill model={model} variant='inline' /> ×
                       </Badge>
                     ))}
                   </div>
@@ -329,7 +330,9 @@ export function AllowlistSection() {
                           className='cursor-pointer'
                           onClick={() => addAllowedModel(model)}
                         >
-                          <Badge variant='secondary'>+ {model}</Badge>
+                          <Badge variant='secondary'>
+                            + <ModelPill model={model} variant='inline' />
+                          </Badge>
                         </button>
                       ))}
                     </div>

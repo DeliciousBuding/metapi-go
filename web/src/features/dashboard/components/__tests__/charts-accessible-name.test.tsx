@@ -76,6 +76,28 @@ describe('dashboard charts carry an explicit accessible name', () => {
     ).toBeInTheDocument()
   })
 
+  it('keeps every site in a scrollable legend outside the donut viewport', () => {
+    render(
+      <SiteDistributionChart
+        data={Array.from({ length: 30 }, (_, index) => ({
+          siteName: `Site ${index + 1}`,
+          platform: 'newapi',
+          totalBalance: 31 - index,
+          totalSpend: 0,
+          accountCount: 1,
+        }))}
+        labels={{ balance: 'Balance', accounts: 'Accounts', share: 'Share' }}
+      />
+    )
+    const legend = screen.getByRole('list', { name: 'Site distribution' })
+    expect(legend).toHaveClass('overflow-y-auto')
+    expect(legend).toContainElement(screen.getByText('Site 30'))
+    expect(legend.querySelectorAll('li')).toHaveLength(30)
+    expect(
+      screen.getByRole('figure', { name: 'Balance distribution by site' })
+    ).not.toContainElement(legend)
+  })
+
   it('names the latency histogram (its single series label is empty)', () => {
     render(<LatencyHistogramChart data={[{ label: '<1s', count: 12 }]} />)
     expect(

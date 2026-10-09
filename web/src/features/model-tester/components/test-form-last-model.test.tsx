@@ -56,6 +56,16 @@ beforeAll(() => {
 })
 
 beforeEach(async () => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
+  Element.prototype.scrollIntoView = vi.fn()
+
   window.localStorage.clear()
   catalog.models = [{ name: 'model-a' }, { name: 'model-b' }]
   await i18n.changeLanguage('en')
@@ -111,7 +121,7 @@ describe('model tester selection', () => {
 
   it('remembers a user choice without resetting it on a catalog refetch', async () => {
     const { rerender, unmount } = showForm('model-a')
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Model' }))
+    fireEvent.click(screen.getByRole('combobox', { name: 'Model' }))
     const option = await screen.findByRole('option', { name: 'model-b' })
     fireEvent.pointerDown(option)
     fireEvent.click(option)

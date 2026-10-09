@@ -371,8 +371,8 @@ export function ModelTesterPage() {
         }
       />
 
-      <div className='grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-2 lg:overflow-hidden'>
-        <Card className='flex h-full min-h-0 flex-col'>
+      <div className='grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(360px,0.85fr)_minmax(0,1.15fr)] lg:overflow-hidden'>
+        <Card className='flex h-full min-h-0 flex-col py-0'>
           <CardContent className='flex min-h-0 flex-1 flex-col overflow-y-auto p-4'>
             <TestForm
               isRunning={isRunning}
@@ -383,7 +383,7 @@ export function ModelTesterPage() {
           </CardContent>
         </Card>
 
-        <Card className='flex h-full min-h-0 flex-col'>
+        <Card className='flex h-full min-h-0 flex-col py-0'>
           <CardContent className='flex min-h-0 flex-1 flex-col p-0'>
             {comparison || isComparing ? (
               <BatchResults

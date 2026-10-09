@@ -1,6 +1,8 @@
 /* eslint-disable no-nested-ternary -- legacy chained ternary in refresh fallback */
 import { request, buildQueryString } from './transport'
 import type {
+  OverviewPeriod,
+  OverviewReport,
   SchedulerRunStatus,
   TriggerModelProbeResponse,
   ModelCostDistributionResponse,
@@ -19,10 +21,15 @@ import type {
 } from './types'
 
 export const statsApi = {
-  getDashboardSnapshot: (options?: { refresh?: boolean }) =>
+  getOverviewReport: (period: OverviewPeriod) =>
+    request<OverviewReport>(`/api/stats/overview?period=${period}`),
+  getDashboardSnapshot: (options?: {
+    refresh?: boolean
+    view?: 'summary' | 'insights'
+  }) =>
     request(
       `/api/stats/dashboard${buildQueryString({
-        view: 'summary',
+        view: options?.view ?? 'summary',
         ...(options?.refresh ? { refresh: 1 } : {}),
       })}`
     ),

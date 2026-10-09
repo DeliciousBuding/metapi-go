@@ -8,12 +8,19 @@
 // owns the streaming accumulation state and passes the current strings down
 // each render so the viewer re-renders on every delta.
 
-import { Brain as BrainIcon, Code as CodeIcon } from 'lucide-react'
-import { useEffect, useRef, type ReactNode } from 'react'
+import {
+  ArrowDown,
+  MessageSquare,
+  UserRound,
+  Bot,
+  Brain as BrainIcon,
+  Code as CodeIcon,
+} from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -79,21 +86,49 @@ function ContentArea(props: {
 
 function ConversationArea(props: { autoScroll: boolean; children: ReactNode }) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const [following, setFollowing] = useState(true)
+  const { t } = useTranslation()
 
   useEffect(() => {
-    if (!props.autoScroll) return
+    if (!props.autoScroll || !following) return
     const node = scrollRef.current
     if (node) {
       node.scrollTop = node.scrollHeight
     }
-  })
+  }, [props.autoScroll, props.children, following])
 
   return (
-    <div
-      ref={scrollRef}
-      className='flex h-full flex-col gap-4 overflow-y-auto p-4'
-    >
-      {props.children}
+    <div className='relative h-full min-h-0'>
+      <div
+        ref={scrollRef}
+        role='log'
+        aria-label={t('modelTester.viewer.title')}
+        onScroll={(event) => {
+          const node = event.currentTarget
+          setFollowing(
+            node.scrollHeight - node.scrollTop - node.clientHeight < 48
+          )
+        }}
+        className='flex h-full flex-col gap-5 overflow-y-auto p-4'
+      >
+        {props.children}
+      </div>
+      {!following && (
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          className='absolute right-4 bottom-3 shadow-sm'
+          onClick={() => {
+            const node = scrollRef.current
+            if (node) node.scrollTop = node.scrollHeight
+            setFollowing(true)
+          }}
+        >
+          <ArrowDown className='size-4' />
+          {t('modelTester.viewer.latest')}
+        </Button>
+      )}
     </div>
   )
 }
@@ -131,8 +166,21 @@ function TurnBlock(props: {
   }
 
   return (
-    <div className='flex flex-col gap-1.5'>
+    <div
+      className={cn(
+        'flex flex-col gap-2 rounded-xl p-3',
+        props.role === 'user' ? 'bg-muted/60 ms-8' : 'border border-border/60'
+      )}
+    >
       <div className='flex items-center gap-2'>
+        {props.role === 'user' ? (
+          <UserRound
+            className='text-muted-foreground size-4'
+            aria-hidden='true'
+          />
+        ) : (
+          <Bot className='text-primary size-4' aria-hidden='true' />
+        )}
         <Badge variant={props.role === 'user' ? 'secondary' : 'default'}>
           {roleLabel}
         </Badge>
@@ -167,8 +215,20 @@ export function TestResponseViewer(props: TestResponseViewerProps) {
   if (isEmpty) {
     body = (
       <div className='flex flex-1 items-center justify-center p-8 text-center'>
-        <div className='text-muted-foreground max-w-sm text-sm'>
+        <div className='text-muted-foreground flex max-w-sm flex-col items-center gap-3 text-sm leading-relaxed'>
+          <span className='bg-primary/10 text-primary flex size-12 items-center justify-center rounded-2xl'>
+            <MessageSquare className='size-6' aria-hidden='true' />
+          </span>
           {t('modelTester.viewer.emptyHint')}
+          <span className='flex flex-wrap justify-center gap-2'>
+            <Badge variant='outline'>
+              {t('modelTester.viewer.tabContent')}
+            </Badge>
+            <Badge variant='outline'>
+              {t('modelTester.viewer.tabReasoning')}
+            </Badge>
+            <Badge variant='outline'>{t('modelTester.viewer.tabRaw')}</Badge>
+          </span>
         </div>
       </div>
     )
@@ -207,52 +267,46 @@ export function TestResponseViewer(props: TestResponseViewerProps) {
         </TabsList>
 
         <TabsContent value='content' className='min-h-0 flex-1'>
-          <ScrollArea className='h-full'>
-            <ConversationArea autoScroll={props.isRunning}>
-              {props.messages.map((message) => (
-                <TurnBlock
-                  key={message.id}
-                  role={message.role}
-                  text={message.content}
-                />
-              ))}
-              {hasLiveRound ? (
-                <TurnBlock
-                  role='assistant'
-                  text={props.content}
-                  isStreaming={props.isRunning}
-                  error={props.isRunning ? undefined : props.error}
-                  placeholder={
-                    props.isRunning
-                      ? t('modelTester.viewer.awaitingContent')
-                      : t('modelTester.viewer.noContent')
-                  }
-                />
-              ) : null}
-            </ConversationArea>
-          </ScrollArea>
+          <ConversationArea autoScroll={props.isRunning}>
+            {props.messages.map((message) => (
+              <TurnBlock
+                key={message.id}
+                role={message.role}
+                text={message.content}
+              />
+            ))}
+            {hasLiveRound ? (
+              <TurnBlock
+                role='assistant'
+                text={props.content}
+                isStreaming={props.isRunning}
+                error={props.isRunning ? undefined : props.error}
+                placeholder={
+                  props.isRunning
+                    ? t('modelTester.viewer.awaitingContent')
+                    : t('modelTester.viewer.noContent')
+                }
+              />
+            ) : null}
+          </ConversationArea>
         </TabsContent>
 
         <TabsContent value='reasoning' className='min-h-0 flex-1'>
-          <ScrollArea className='h-full'>
-            <ContentArea
-              text={props.reasoningContent}
-              placeholder={t('modelTester.viewer.noReasoning')}
-              autoScroll={props.isRunning}
-              className='text-muted-foreground'
-            />
-          </ScrollArea>
+          <ContentArea
+            text={props.reasoningContent}
+            placeholder={t('modelTester.viewer.noReasoning')}
+            autoScroll={props.isRunning}
+            className='text-muted-foreground'
+          />
         </TabsContent>
 
         <TabsContent value='raw' className='min-h-0 flex-1'>
-          <ScrollArea className='h-full'>
-            <ContentArea
-              text={prettyPrintRawEvents(props.response?.rawEvents ?? [])}
-              placeholder={t('modelTester.viewer.noRaw')}
-              autoScroll={false}
-              className='font-mono text-xs'
-            />
-          </ScrollArea>
+          <ContentArea
+            text={prettyPrintRawEvents(props.response?.rawEvents ?? [])}
+            placeholder={t('modelTester.viewer.noRaw')}
+            autoScroll={false}
+            className='font-mono text-xs'
+          />
         </TabsContent>
       </Tabs>
     )

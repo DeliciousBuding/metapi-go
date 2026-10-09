@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ModelPill } from '@/components/common/model-pill'
 import { SectionCard } from '@/components/common/section-card'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -234,7 +235,7 @@ export function RatesSection() {
                   {channel.routePattern}
                 </TableCell>
                 <TableCell className='font-mono text-xs'>
-                  {channel.modelName}
+                  <ModelPill model={channel.modelName} />
                 </TableCell>
                 <TableCell className='text-xs'>{channel.username}</TableCell>
                 <TableCell>

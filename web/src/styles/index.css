@@ -2,12 +2,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@fontsource-variable/public-sans';
-/* Self-hosted CJK variable face, split by unicode-range. Real 400/500/600
- * weights preserve the Latin hierarchy without an external CDN.
- * Rationale and measured size trade-off: docs/internal/design/DESIGN.md,
- * "Bundled CJK font trade-off". */
-@import '@fontsource-variable/noto-sans-sc';
+@import '@fontsource-variable/inter';
 /* Editorial serif (Lora) backing the `serif` font axis — an explicit user
  * choice; every preset defaults to sans. See `--font-serif` in theme.css
  * for the full Latin + CJK fallback stack and `theme-presets.css` for the

@@ -402,7 +402,10 @@ describe('SiteFormSheet custom headers field wiring (#1132)', () => {
 
     // `getByLabelText` resolving at all proves FormControl's cloned
     // id/aria-describedby survived the trip through the extracted component.
-    const headers = await screen.findByLabelText('Custom headers')
+    const addHeader = await screen.findByLabelText('Custom headers')
+    expect(addHeader).toHaveAccessibleName(/Custom headers/)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit JSON' }))
+    const headers = screen.getByLabelText('Custom headers')
     expect(headers.tagName).toBe('TEXTAREA')
 
     const describedBy = headers.getAttribute('aria-describedby') ?? ''
@@ -434,8 +437,12 @@ describe('SiteFormSheet custom headers field wiring (#1132)', () => {
       />
     )
 
-    const headers = await screen.findByLabelText('Custom headers')
-    await waitFor(() => expect(headers).toHaveValue(stored))
+    const headerKey = await screen.findByLabelText('Custom headers')
+    await waitFor(() => expect(headerKey).toHaveValue('User-Agent'))
+    expect(screen.getByLabelText('Value')).toHaveValue('claude-cli/1.2.3')
+    fireEvent.click(screen.getByRole('button', { name: 'Edit JSON' }))
+    const headers = screen.getByLabelText('Custom headers')
+    expect(headers).toHaveValue(stored)
 
     for (const client of ['Claude Code', 'Codex CLI', 'Gemini CLI']) {
       const button = screen.getByRole('button', {

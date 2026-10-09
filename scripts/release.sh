@@ -8,7 +8,7 @@
 #   scripts/release.sh 0.11.0 --dry-run  # validate only
 #
 # Preconditions (checked here):
-#   - running on master, up to date with origin/master, clean tree
+#   - HEAD equals origin/master (any clean checkout/worktree)
 #   - CHANGELOG.md contains "## [v0.11.0]" section (release body source)
 #   - web/package.json version == 0.11.0 (binary/SPA version sync)
 set -euo pipefail
@@ -29,16 +29,11 @@ dry=0
 [[ "${2:-}" == "--dry-run" ]] && dry=1
 
 # --- preconditions ---
-branch="$(git branch --show-current)"
-if [ "$branch" != "master" ]; then
-  echo "must run on master (current branch: $branch)" >&2
-  exit 1
-fi
 git fetch origin master --quiet
 local_head="$(git rev-parse HEAD)"
 remote_head="$(git rev-parse origin/master)"
 if [ "$local_head" != "$remote_head" ]; then
-  echo "local master is not exactly synchronized with origin/master; pull first" >&2
+  echo "HEAD is not exactly synchronized with origin/master; use a clean checkout of the release commit" >&2
   echo "  local : $local_head" >&2
   echo "  remote: $remote_head" >&2
   exit 1
@@ -69,6 +64,13 @@ if [ "$dry" = "1" ]; then
   exit 0
 fi
 
+# The project pre-push gate still runs. If it rejects the push (for example,
+# missing dependencies in a fresh checkout), do not leave a misleading local tag.
 git tag -a "$tag" -m "$tag"
-git push origin "$tag"
+if ! git push origin "refs/tags/$tag:refs/tags/$tag"; then
+  if remote_tag="$(git ls-remote --tags origin "refs/tags/$tag")" && [ -z "$remote_tag" ]; then
+    git tag -d "$tag" >/dev/null
+  fi
+  exit 1
+fi
 echo "pushed $tag — CI/CD will build the image and create the GitHub Release"

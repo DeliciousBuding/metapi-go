@@ -7,6 +7,7 @@ import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { HttpStatusBadge } from '@/components/common/http-status-badge'
+import { ModelPill } from '@/components/common/model-pill'
 import {
   Card,
   CardContent,
@@ -205,7 +206,7 @@ function renderSlowRequestsBody(
               className='max-w-56 truncate font-medium'
               title={item.model || undefined}
             >
-              {item.model || '—'}
+              {item.model ? <ModelPill model={item.model} /> : '—'}
             </TableCell>
             <TableCell
               className='max-w-40 truncate'

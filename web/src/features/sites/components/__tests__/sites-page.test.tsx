@@ -80,6 +80,10 @@ vi.mock('@/components/data-table', async () => {
     }),
     useDataTable: () => ({
       table: {
+        getColumn: () => ({
+          getFilterValue: () => undefined,
+          setFilterValue: vi.fn(),
+        }),
         getFilteredSelectedRowModel: () => ({ rows: [] }),
         resetRowSelection: vi.fn(),
       },
@@ -278,11 +282,12 @@ describe('SitesPage error state', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
 
     // The table page (which owns the empty-state "Add site" CTA) must be
-    // suppressed while the query is in an error state.
+    // suppressed while the query is in an error state. The persistent header
+    // action remains available independently of that empty state.
     expect(testState.dataTableRendered).toBe(false)
     expect(
       screen.queryByRole('button', { name: /Add site/ })
-    ).not.toBeInTheDocument()
+    ).toBeInTheDocument()
   })
 
   it('renders the table page (not the error banner) when there is no error', () => {

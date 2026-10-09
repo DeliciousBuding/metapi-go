@@ -318,7 +318,8 @@
           "compareMinChannels": "Select at least two channels to compare."
         },
         "channelNoneForced": "Select a channel",
-        "channelHintForced": "Only channel-specified tests are supported: pick a channel before sending; the default-routing harness is not available."
+        "channelHintForced": "Choose the upstream channel for this test.",
+        "advanced": "Advanced · templates, system prompt and sampling"
       },
       "toast": {
         "empty": "The response is empty.",
@@ -342,7 +343,7 @@
         "usage": "Tokens: {{total}} ({{prompt}} in / {{completion}} out)",
         "noDone": "No done signal",
         "error": "Error",
-        "emptyHint": "Send a request to see the response here.",
+        "emptyHint": "Choose a model and channel, enter a prompt, and send. Responses, reasoning and raw events will appear here.",
         "tabContent": "Content",
         "tabReasoning": "Reasoning",
         "tabRaw": "Raw",
@@ -353,7 +354,8 @@
         "hint": "Tip: reasoning and raw tabs show extra model output.",
         "contentChars": "{{value}} chars",
         "roleYou": "You",
-        "roleAssistant": "Assistant"
+        "roleAssistant": "Assistant",
+        "latest": "Jump to latest"
       },
       "compare": {
         "title": "Channel comparison",
@@ -567,7 +569,9 @@
         "loadError": "Failed to load sites: {{message}}",
         "title": "Sites",
         "description": "Manage connected sites, their status, and routing weight.",
-        "weightFormula": "Effective site multiplier = site global weight × the routing channel’s configured weight (recommended 0.5–3)"
+        "weightFormula": "Effective site multiplier = site global weight × the routing channel’s configured weight (recommended 0.5–3)",
+        "allSites": "All sites",
+        "viewAccounts": "View {{count}} accounts for {{name}}"
       },
       "toast": {
         "statusToggled": "Site \"{{name}}\" updated.",
@@ -807,7 +811,7 @@
       "sections": {
         "overview": {
           "title": "Overview",
-          "description": "Core metrics, announcements, and scheduled-task health."
+          "description": "Downstream requests, upstream reliability and usage cost."
         },
         "traffic": {
           "title": "Income & spend",
@@ -1032,6 +1036,66 @@
         "netRow": "Net",
         "spendColumn": "Spend",
         "callsColumn": "Calls"
+      },
+      "overviewInsights": {
+        "attentionTitle": "Needs attention",
+        "attentionDescription": "Current account, balance and operational notices",
+        "attentionEmpty": "No account or operational notices.",
+        "allAttention": "View all notices",
+        "critical": "Critical",
+        "warning": "Warning",
+        "info": "Info",
+        "loadError": "Unable to load: {{message}}",
+        "unavailable": "Data unavailable. Retry or check the source.",
+        "partial": "Some dashboard metrics are unavailable; available upstream data is shown.",
+        "upstreamTitle": "Upstream performance",
+        "upstreamDescription": "Failures first · Up to 8 sites · Select a site to inspect requests",
+        "upstreamEmpty": "No enabled upstream sites.",
+        "site": "Upstream",
+        "calls": "Requests",
+        "failed": "Failed",
+        "successRate": "Success rate",
+        "latency": "Avg latency",
+        "failedLink": "{{name}}: {{count}} failed requests",
+        "modelTitle": "Model usage ranking",
+        "modelDescription": "Estimated cost ranking · Includes requests and tokens",
+        "modelEmpty": "No model usage in this period.",
+        "estimatedCost": "Estimated cost",
+        "tokens": "Tokens",
+        "callCount": "{{value}} requests",
+        "otherModels": "Other models"
+      },
+      "operations": {
+        "serviceOverview": "Downstream service",
+        "rolling24h": "Rolling 24 hours · all recorded requests",
+        "requests": "Requests",
+        "success": "Success rate",
+        "tokens": "Token usage",
+        "cost": "Estimated call cost",
+        "recordedRequests": "Open the requests in this window",
+        "failures": "{{count}} failed · open failure logs",
+        "noRequests": "No recorded requests in this period",
+        "tokensHint": "Effective tokens recorded in request logs",
+        "costHint": "Estimated usage cost, not revenue",
+        "loadError": "Unable to load request data: {{message}}",
+        "trend": "Request volume & reliability",
+        "trendScope": "Last 7 UTC calendar days · includes today",
+        "performanceDetails": "Model & latency analysis",
+        "trendTotal": "{{value}} requests in the displayed period",
+        "resources": "Resources & maintenance",
+        "siteCount": "{{value}} sites",
+        "accountCount": "{{value}} accounts · {{active}} active",
+        "balance": "Active-site balance {{value}}",
+        "checkin": "Check-in today {{success}} / {{total}}",
+        "rangeLabel": "Reporting period",
+        "refresh": "Refresh report",
+        "period": {
+          "24h": "24 hours",
+          "7d": "Last 7 days",
+          "30d": "Last 30 days",
+          "all": "All time"
+        },
+        "trendWindow": "{{period}} · UTC time buckets"
       }
     },
     "settings": {
@@ -3344,6 +3408,14 @@
       "duplicateKey": "This key is already used. Each key must be unique.",
       "invalid": "Use a valid JSON object with non-empty, unique keys.",
       "advancedOnly": "This configuration contains values that need the JSON editor. Your original content is preserved."
+    },
+    "modelPicker": {
+      "title": "Choose a model",
+      "description": "{{count}} models · grouped by provider",
+      "placeholder": "Choose a model",
+      "search": "Search models or providers…",
+      "other": "Other models",
+      "empty": "No matching models. Try another model or provider."
     }
   }
 }

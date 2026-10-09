@@ -21,7 +21,8 @@ import {
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { getBrand, InlineBrandIcon } from '@/assets/brand-icons/BrandIcon'
+import { getBrand } from '@/assets/brand-icons/BrandIcon'
+import { ModelPill } from '@/components/common/model-pill'
 import {
   BadgeListCell,
   DataTableColumnHeader,
@@ -133,7 +134,6 @@ export function useModelsColumns(
           const brandName = resolveBrandName(modelName)
           return (
             <div className='flex items-center gap-2'>
-              <InlineBrandIcon model={modelName} size={18} />
               <span className='text-sm font-medium'>
                 {brandName || t('models.columns.unknownBrand')}
               </span>
@@ -164,7 +164,11 @@ export function useModelsColumns(
           return (
             <div className='flex flex-col'>
               <div className='flex items-center gap-2'>
-                <span className='font-medium'>{model.name}</span>
+                <ModelPill
+                  model={model.name}
+                  variant='inline'
+                  className='text-sm'
+                />
                 {model.deprecated ? (
                   <Badge
                     variant='outline'

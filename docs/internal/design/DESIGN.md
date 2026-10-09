@@ -18,8 +18,22 @@
 | Density default | Comfortable-dense (admin tables + KPI cards coexist); density axis `data-theme-scale`                                                                                                                                                                                                                                 |
 | Brand color     | **Indigo family** — light primary `oklch(0.565 0.19 262)` (white text), dark primary `oklch(0.71 0.155 262)` (dark ink); every constrained lightness is solved against its WCAG floor (see §2.3; exact values live in `theme.css`, never hard-code hex)                                                                                                                                          |
 | Logo mark       | Transparent solid-color badge `web/public/logo.svg` — rounded-square `#3b5bdb` field with white **π** glyph (real U+03C0, serif fallback, not hand-drawn strokes); `favicon.svg` = standalone solid blue π for small sizes; both served from the embedded SPA root (`router.go` root-file whitelist, `image/svg+xml`) |
-| Fonts           | **Public Sans + Noto Sans SC**, optional **Lora** (locally embedded via `@fontsource-variable`) — no Google Fonts CDN                                                                                                                                                                                                                            |
+| Fonts           | **Inter + native CJK**, optional **Lora** (locally embedded via `@fontsource-variable`) — no Google Fonts CDN                                                                                                                                                                                                                            |
 | High-res        | Content layout axis `data-theme-content-layout` (`full`/`centered`); full remains fluid until 1920px, then caps the content scan width at 1920px; centered clamps to `--max-content-width` (1280px) at ≥1280px. The sidebar and header remain viewport-wide. Utilities `max-w-container` (1280px) / `max-w-container-lg` (1536px) serve individual pages. |
+
+**Primary workspace**: desktop administration. Judge hierarchy, density and
+multi-column composition at 1440–1920px first. Mobile adapts the same tasks
+without letting narrow-screen compromises dictate the desktop layout.
+Metric cards keep title, primary value, supporting text and detail cells in
+separate visual tiers; long supporting text must not compete beside the number.
+Desktop table rows start at 48px and grow for multiline content; narrow layouts
+retain their existing touch spacing. Desktop lists with four or fewer loaded rows
+hug their content rather than stretching a mostly empty bordered table; longer
+lists retain the sticky header. The [operator overview](dashboard-operations.md)
+prioritizes request outcomes, actionable risks and upstream/model usage; resource
+counts and maintenance are secondary. Metric details use compact divided cells
+rather than nested padded cards. Increase information density by removing repeated spacing,
+not by shrinking body text.
 
 **Principles**
 
@@ -34,6 +48,28 @@
 8. **No gradients** — backgrounds, masks, charts, swatches, fallback avatars, and brand assets use solid colors only.
 
 ---
+
+### Shared page and task composition
+
+The shared primitives also own how a task is presented; pages should not
+rebuild these arrangements with local spacing and raw data editors:
+
+- `components/common/page-header.tsx`: standard list/settings/tool page title,
+  description and wrapping actions. Overview pages retain their overview
+  hierarchy. Page containers continue to own scrolling.
+- `components/data-table/toolbar/toolbar.tsx`: separate query and view/action
+  groups, with expanded filters in their own region. The desktop and mobile
+  empty states share `core/empty-state.tsx`; page-owned filters participate in
+  the same reset action as table filters.
+- `features/settings/components/settings-subsection.tsx`: a settings group
+  with title, optional description/icon/actions, and flat or panel treatment.
+  Notifications and backup tasks use this same composition. Save/reset status
+  lives in `settings-form-actions.tsx`, including a polite live announcement
+  and responsive action placement.
+- `components/common/string-map-editor.tsx`: string mappings use labeled
+  key/value rows by default. JSON is an explicit advanced view, retains the
+  original text, and remains available for legacy object values that cannot
+  be represented as rows. A mode switch must not discard data.
 
 ## 2. Color tokens
 
@@ -148,13 +184,15 @@ Fallback: `supports-[backdrop-filter]` gates translucency so browsers without `b
 | Radius           | `--radius: 0.625rem` (10px default) with `--radius-sm/md/lg/xl/2xl/3xl/4xl` derived; `data-theme-radius` overrides `--radius` (none 0 · sm 0.3 · md 0.5 · lg 0.75 · xl 1rem)                                                                                                                                                                                 | Controls/buttons `rounded-lg`; cards/sheets `rounded-xl`+                                                                                                                                        |
 | Shadow           | Tailwind default `shadow-*` + custom `--shadow-card-hover` (`0 4px 12px …`)                                                                                                                                                                                                                                                                         | Hover elevation on cards (`[data-card-hover]`); no lift on plain rows                                                                                                                            |
 | Motion           | `tw-animate-css` utilities (`animate-in/out`, `fade-in-*`, `zoom-in-*`) + the keyframes actually defined in `styles/index.css` (`tableRowEnter`, `sidebarViewEnter`, `slideDown`/`slideUp`, skeleton `shimmer`)                                                                                                                                                                                               | Calm; every animation guarded by `prefers-reduced-motion`                                                                                                                                        |
-| Type             | `--font-sans` Public Sans Variable (Latin) + bundled Noto Sans SC Variable (CJK, unicode-range slices; platform CJK faces stay behind it as fetch-failure insurance) · `--font-serif` Lora Variable + CJK serif fallbacks (no bundled CJK serif — a second 4.3 MiB face for an opt-in axis did not survive the size decision) · `--font-mono` Cascadia/SFMono/Consolas · `--font-body` active face · `:root[lang\|='zh']` zeroes `--tracking-tight` and the editorial tracking tokens (negative tracking is a Latin display convention; ideographs keep their side bearing)                                                                                                                     | `data-theme-font` swaps the body face; density axis rescales `--text-2xs…3xl` (sub-xs caption tokens registered in theme.css so captions ride the axis instead of freezing at px literals); visible axis tick labels and body text minimum 10px — 9px only allowed for decorative labels with a `title`/`aria-label` fallback |
+| Type             | `--font-sans` Inter Variable (Latin) + native CJK fallbacks (PingFang / Microsoft YaHei UI / Noto Sans CJK) · `--font-serif` Lora Variable + CJK serif fallbacks (native CJK serif fallback) · `--font-mono` Cascadia/SFMono/Consolas · `--font-body` active face · `:root[lang\|='zh']` zeroes `--tracking-tight` and the editorial tracking tokens (negative tracking is a Latin display convention; ideographs keep their side bearing)                                                                                                                     | `data-theme-font` swaps the body face; density axis rescales `--text-2xs…3xl` (sub-xs caption tokens registered in theme.css so captions ride the axis instead of freezing at px literals); visible axis tick labels and body text minimum 10px — 9px only allowed for decorative labels with a `title`/`aria-label` fallback |
 | Page title scale | Landing/hub pages: `page-title-overview` (30px default); data/list pages: `page-title` (24px default). Both use semibold, tight leading and balanced wrapping | Exactly one h1 per page; Chinese tracking stays neutral; serif axis retains medium weight; title line-height follows density scaling |
 | Layout | `data-theme-content-layout` remains `full` or `centered`; full caps content at 1920px above ultrawide viewports, centered caps at 1280px from 1280px viewport width; utilities `max-w-container` 1280 / `max-w-container-lg` 1536 | Header and sidebar remain viewport-wide; only the inset content is constrained |
 
 ### 3.1 Reading hierarchy and controls
 
-The common reading roles are page title (24px; overview 30px), section/card title (`text-base` semibold), KPI (`text-xl` to `text-3xl` semibold with tabular numerals), table header (`text-xs` semibold), row body (`text-sm`), and field label (`text-xs` muted). Do not use opacity on tiny sidebar section labels: their foreground must stay readable. The active nav link must forward both `data-active` and `aria-current=page` through its Link bridge, so visible selection and the accessibility announcement agree. These are component-owned roles, not a second parallel set of typography tokens.
+The common reading roles are page title (24px; overview 30px), section/card title (`text-base` semibold), KPI (`text-xl` to `text-3xl` monospace semibold with tabular numerals and `leading-tight`), table header (`text-xs` semibold), row body (`text-sm`), and field label (`text-xs` muted). Do not use opacity on tiny sidebar section labels: their foreground must stay readable. The active nav link must forward both `data-active` and `aria-current=page` through its Link bridge, so visible selection and the accessibility announcement agree. These are component-owned roles, not a second parallel set of typography tokens.
+
+Model names use the shared `ModelPill` identity: a vendored brand glyph beside the full model identifier, with truncation and a full-name tooltip. Use its pill variant in dense records and its inline variant in selectors, rankings and headings where another container already supplies the surface. Unknown models keep a deterministic lettermark; never borrow an unrelated vendor logo. Decorative glyphs are hidden from assistive technology so a selectable model keeps its exact accessible name. Aggregates such as Other are not model identities. Status badges remain separate from brand identity.
 
 Tables inherit the 14px body scale and tabular numerals. Cells and descendants must not be force-sized by the table primitive: explicit metadata, badge and secondary-label sizes belong to their components. Default control height is 36px (small 32px, large 40px); the default radius token is 10px. User-selected density, radius and font axes remain independent.
 
@@ -162,13 +200,13 @@ Detail sheets keep 12px medium labels above 14px normal-leading values. Plain te
 
 Route editing presents matching and account selection first; advanced display/routing fields stay in a disclosure that preserves drafts. Invalid advanced fields must reveal and use the shared form validation focus. Filtering accounts limits bulk selection to visible matches without clearing hidden selections. Rebuild success uses a compact summary with optional metrics; partial failures, observation failures and retry actions remain visible.
 
-### 3.2 Bundled CJK font trade-off
+### 3.2 Font roles and rendering
 
-Public Sans carries Latin; Noto Sans SC carries Chinese with real variable 400/500/600 weights. In the earlier platform-font comparison, Microsoft YaHei on Windows and Noto Sans CJK on the Linux test node rendered 400 and 500 pixel-identically. That observed fallback erased the medium-weight hierarchy; it is not a claim that every platform CJK family lacks those weights. Keep the bundled Chinese face ahead of platform fallbacks.
+Inter is locally bundled for Latin UI text. Chinese follows the platform UI face (PingFang on macOS, Microsoft YaHei UI on Windows, Noto Sans CJK on Linux). This intentionally prioritizes native CJK rendering over identical glyphs on every platform; screenshot baselines must run in a fixed font environment. Public Sans and the bundled Noto Sans SC slices are no longer shipped.
 
-The initial bundled-font measurement recorded 101 unicode-range slices / 4.31 MiB, approximately +4.4 MiB (+18%) in the release binary. The built Chinese sign-in loaded 9 slices / 513 KiB, dashboard 11 / 629 KiB, and five admin pages together 16 / 880 KiB. These are historical measurements, not current bundle budgets: dependencies and page text can change them. An English page may also fetch a CJK slice for symbols missing in Public Sans, so do not claim zero CJK traffic for every English page. The optional serif axis keeps platform CJK fallbacks rather than bundling a second large family.
+Model identifiers use the standard sans-serif UI stack at 14px medium weight, including inside capsules and selectors; do not style model names as code. The medium weight distinguishes identities from secondary counts without making long identifiers look bold. Provider headings in the picker use semibold with quiet separators; overview rows keep model names at 14px and counts at 12px. Actionable attention text is 14px, not caption-sized. KPI figures retain the shared monospace stack. Model identity rows align a 16px icon box with a 20px text line, use middle vertical alignment in surrounding inline text, and retain the complete identifier in a tooltip. Body, title, numeric and code roles remain distinct; do not stretch glyphs or compensate with transforms.
 
-For future font changes, measure actual platform fonts, CSS weights, page font requests and the embedded bundle size in the real browser/build before removing the bundled face; family names containing Thin are not proof of the rendered variable weight.
+Validate actual rendered font names and model icon/text box centers in the browser, then inspect light/dark desktop screenshots. A font-family declaration alone does not prove which CJK face rendered.
 
 ---
 
