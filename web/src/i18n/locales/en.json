@@ -3209,6 +3209,7 @@
       "imported": {
         "title": "Imported upstreams ({{count}})",
         "region": "Imported upstream inventory",
+        "refresh": "Refresh",
         "coolingDown": "Cooling down",
         "description": "Source channels and their authorized protocol grants. Availability changes apply to routing immediately; re-import replaces the source configuration. No credential values are displayed.",
         "loadError": "Failed to load imported upstreams: {{message}}",

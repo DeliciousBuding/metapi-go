@@ -3209,6 +3209,7 @@
       "imported": {
         "title": "导入通道（{{count}}）",
         "region": "导入通道清单",
+        "refresh": "刷新",
         "coolingDown": "冷却中",
         "description": "来源通道及其授权协议。启停会立即影响路由；重新导入会覆盖来源配置。这里不会显示凭据值。",
         "loadError": "加载导入通道失败：{{message}}",

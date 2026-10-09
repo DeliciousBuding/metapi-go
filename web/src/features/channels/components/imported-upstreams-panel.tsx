@@ -51,9 +51,19 @@ export function ImportedUpstreamsPanel() {
         role='region'
         aria-label={t('channels.imported.region')}
       >
-        <p className='text-muted-foreground text-xs'>
-          {t('channels.imported.description')}
-        </p>
+        <div className='flex items-start justify-between gap-3'>
+          <p className='text-muted-foreground text-xs'>
+            {t('channels.imported.description')}
+          </p>
+          <Button
+            size='sm'
+            variant='ghost'
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            {t('channels.imported.refresh')}
+          </Button>
+        </div>
         <div className='grid gap-3 lg:grid-cols-2'>
           {query.data.items.map((item) => (
             <article
@@ -97,7 +107,7 @@ export function ImportedUpstreamsPanel() {
                   )}
                 </Badge>
                 <span className='text-muted-foreground'>
-                  {item.dialect} ·{' '}
+                  {item.originKey} · {item.dialect} ·{' '}
                   {t('channels.imported.counts', {
                     models: item.modelCount,
                     credentials: item.credentialCount,
