@@ -84,6 +84,9 @@ export function initI18n(): Promise<unknown> {
  * no business changing the day an RTL locale is added.
  */
 function syncDocumentLanguage(language: string): void {
+  if (typeof document === 'undefined') {
+    return
+  }
   document.documentElement.lang = toBcp47(language)
 }
 

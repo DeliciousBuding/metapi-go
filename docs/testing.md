@@ -6,6 +6,13 @@
 
 ## Test layers
 
+Pure formatter, schema and export suites can opt into Node with an explicit
+`@vitest-environment node` annotation after checking their dependencies do not
+require a DOM. Component suites keep jsdom. File isolation and the single-worker
+limit remain enabled; removing isolation to save startup time can leak mocks.
+The headless i18n suite verifies locale initialization without `document`, while
+the browser language-switching suite protects the HTML language contract.
+
 | Layer                     | Command / asset                                                                      | Protects                                                                     |
 | :------------------------ | :----------------------------------------------------------------------------------- | :--------------------------------------------------------------------------- |
 | Go unit and integration   | `go test ./... -count=1 -race`                                                       | Package behavior, dual dialect, concurrency, handlers, routing, transforms   |
