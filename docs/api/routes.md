@@ -12,6 +12,12 @@ model/credential counts. `members` connects group items to route, model and
 credential names and authorized protocol bits (Chat 2, Responses 4, Messages 8).
 This is configuration inventory, not a protocol-health probe. Credential values,
 custom headers and parameter overrides are never included.
+Members also expose persisted grant success/failure counts and nullable cooldown
+time/reason code. Imported grant failures use the gateway's bounded Fibonacci
+backoff and are excluded from subsequent selection until that cooldown expires;
+success clears cooldown. Health is per model/credential grant, shared across its
+group memberships, and does not change unrelated grants. Imported historical
+statistics are retained separately and are not treated as live health evidence.
 
 ### PATCH /api/imported-upstreams/:id
 

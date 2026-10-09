@@ -677,6 +677,9 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 ) []string {
 	var reasons []string
 	if direct := candidate.Direct; direct != nil {
+		if IsCooldownActive(candidate.Channel.CooldownUntil, nowISO) {
+			reasons = append(reasons, "direct upstream grant cooling down")
+		}
 		if !candidate.Channel.Enabled || !direct.ChannelEnabled || !direct.ModelEnabled || !direct.CredentialEnabled || !direct.GrantEnabled {
 			reasons = append(reasons, "direct upstream grant disabled")
 		}

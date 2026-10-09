@@ -32,7 +32,8 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	members, err := queryRowsErr(h.db, `SELECT i.id, i.group_id, i.priority, i.weight, g.name AS group_name,
   g.mode, g.active_item_id, rg.route_id, m.channel_id, m.name AS model_name,
-  k.name AS credential_name, k.enabled AS credential_enabled, grt.protocols
+	  k.name AS credential_name, k.enabled AS credential_enabled, grt.protocols,
+    grt.cooldown_until,grt.cooldown_reason_code,grt.success_count,grt.fail_count
   FROM upstream_group_items i JOIN upstream_groups g ON g.id=i.group_id
   JOIN upstream_route_groups rg ON rg.group_id=g.id JOIN upstream_grants grt ON grt.id=i.grant_id
   JOIN upstream_models m ON m.id=grt.model_id JOIN upstream_credentials k ON k.id=grt.credential_id

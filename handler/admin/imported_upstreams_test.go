@@ -94,6 +94,35 @@ func TestImportedUpstreamsAvailabilityAndSecretBoundary(t *testing.T) {
 			if result := patch(`{"enabled":true}`); result.Code != 200 {
 				t.Fatalf("enable: %s", result.Body.String())
 			}
+			primary, err := tokenRouter.SelectChannel(t.Context(), "client-model", policy)
+			if err != nil || primary == nil || primary.Direct == nil {
+				t.Fatalf("re-enabled selection failed: %v", err)
+			}
+			status := http.StatusServiceUnavailable
+			if err := tokenRouter.RecordFailure(t.Context(), primary.Channel.ID, routing.SiteRuntimeFailureContext{Status: &status}, nil); err != nil {
+				t.Fatal(err)
+			}
+			// A new router must read persisted cooldown, not a process-local flag.
+			restarted := routing.NewTokenRouter(service.NewProxyRoutingStore(db), &config.Config{TokenRouterCacheTtlMs: 60000}, nil, nil)
+			sibling, err := restarted.SelectChannel(t.Context(), "client-model", policy)
+			if err != nil || sibling == nil || sibling.Direct == nil || sibling.Direct.GrantID == primary.Direct.GrantID {
+				t.Fatalf("failed imported grant was immediately retried: %+v %v", sibling, err)
+			}
+			if err := restarted.RecordSuccess(t.Context(), primary.Channel.ID, 250, 0.001, nil, nil); err != nil {
+				t.Fatal(err)
+			}
+			var state struct {
+				Failures  int64   `db:"fail_count"`
+				Successes int64   `db:"success_count"`
+				Latency   int64   `db:"total_latency_ms"`
+				Cooldown  *string `db:"cooldown_until"`
+			}
+			if err := db.Get(&state, "SELECT fail_count,success_count,total_latency_ms,cooldown_until FROM upstream_grants WHERE id=?", primary.Direct.GrantID); err != nil {
+				t.Fatal(err)
+			}
+			if state.Successes != 1 || state.Latency != 250 || state.Cooldown != nil {
+				t.Fatalf("direct grant recovery not persisted: %+v", state)
+			}
 		})
 	}
 }

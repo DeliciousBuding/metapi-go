@@ -25,6 +25,10 @@ export type ImportedUpstreamInventory = {
     activeItemId: number
     priority: number
     weight: number
+    cooldownUntil?: string | null
+    cooldownReasonCode?: string | null
+    successCount?: number
+    failCount?: number
   }>
 }
 

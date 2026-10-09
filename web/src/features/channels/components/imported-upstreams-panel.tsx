@@ -123,6 +123,15 @@ export function ImportedUpstreamsPanel() {
                       <span className='text-muted-foreground'>
                         {member.credentialName}
                       </span>
+                      {member.cooldownUntil &&
+                      Date.parse(member.cooldownUntil) > Date.now() ? (
+                        <Badge
+                          variant='warning'
+                          title={member.cooldownReasonCode || undefined}
+                        >
+                          {t('channels.imported.coolingDown')}
+                        </Badge>
+                      ) : null}
                       <span className='text-muted-foreground'>
                         {[
                           member.protocols & 2 ? 'Chat' : '',

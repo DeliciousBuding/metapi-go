@@ -12,6 +12,9 @@ import (
 
 // RecordSuccess records a successful channel usage.
 func (tr *TokenRouter) RecordSuccess(ctx context.Context, channelID int64, latencyMs float64, cost float64, modelName *string, actualAccountID *int64) error {
+	if channelID < 0 {
+		return tr.recordDirectSuccess(ctx, -channelID, latencyMs, cost)
+	}
 	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
 		return err
 	}
@@ -320,6 +323,9 @@ func (tr *TokenRouter) RecordProbeFailure(ctx context.Context, channelID int64, 
 
 // RecordFailure records a channel failure and sets cooldown.
 func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failureCtx SiteRuntimeFailureContext, actualAccountID *int64) error {
+	if channelID < 0 {
+		return tr.recordDirectFailure(ctx, -channelID, failureCtx)
+	}
 	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
 		return err
 	}

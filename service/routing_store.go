@@ -143,7 +143,8 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 		SELECT i.id, i.priority, i.weight, grt.id, rg.route_id, ug.id, ug.mode, ug.active_item_id,
 			c.id, c.name, c.base_url, c.dialect, c.openai_chat_completion_path, c.openai_response_path,
 			c.anthropic_message_path, c.channel_proxy, c.proxy, c.custom_header, c.param_override,
-			m.id, m.name, k.id, k.name, k.secret, c.enabled, m.enabled, k.enabled, grt.enabled, grt.protocols
+			m.id, m.name, k.id, k.name, k.secret, c.enabled, m.enabled, k.enabled, grt.enabled, grt.protocols,
+      grt.cooldown_until,grt.success_count,grt.fail_count,grt.total_latency_ms,grt.total_cost
 		FROM upstream_route_groups rg
 		JOIN upstream_groups ug ON ug.id = rg.group_id
 		JOIN upstream_group_items i ON i.group_id = ug.id
@@ -165,11 +166,14 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 	for directRows.Next() {
 		var itemID, priority, weight int64
 		var direct store.DirectUpstreamCandidate
+		var cooldown *string
+		var successes, failures, totalLatency int64
+		var totalCost float64
 		if err := directRows.Scan(&itemID, &priority, &weight, &direct.GrantID, &direct.RouteID, &direct.GroupID, &direct.GroupMode, &direct.ActiveItemID,
 			&direct.ChannelID, &direct.ChannelName, &direct.BaseURL, &direct.Dialect, &direct.ChatPath, &direct.ResponsesPath,
 			&direct.AnthropicPath, &direct.ChannelProxy, &direct.UseSystemProxy, &direct.CustomHeader, &direct.ParamOverride,
 			&direct.ModelID, &direct.ModelName, &direct.CredentialID, &direct.CredentialName, &direct.Credential,
-			&direct.ChannelEnabled, &direct.ModelEnabled, &direct.CredentialEnabled, &direct.GrantEnabled, &direct.Protocols); err != nil {
+			&direct.ChannelEnabled, &direct.ModelEnabled, &direct.CredentialEnabled, &direct.GrantEnabled, &direct.Protocols, &cooldown, &successes, &failures, &totalLatency, &totalCost); err != nil {
 			return nil, err
 		}
 		direct.ItemID = itemID
@@ -179,7 +183,7 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 			Account store.Account
 			Site    store.Site
 			Token   *store.AccountToken
-		}{Channel: store.RouteChannel{ID: itemIDForCandidate, RouteID: direct.RouteID, Priority: &priority, Weight: &weight, Enabled: true, Direct: &direct}})
+		}{Channel: store.RouteChannel{ID: itemIDForCandidate, RouteID: direct.RouteID, Priority: &priority, Weight: &weight, Enabled: true, Direct: &direct, CooldownUntil: cooldown, SuccessCount: &successes, FailCount: &failures, TotalLatencyMs: &totalLatency, TotalCost: &totalCost}})
 	}
 	return result, directRows.Err()
 }

@@ -1167,9 +1167,6 @@ func recordUpstreamFailure(ctx context.Context, cfg *UpstreamConfig, selected *r
 	if cfg == nil || cfg.Router == nil || selected == nil {
 		return
 	}
-	if selected.Direct != nil {
-		return
-	}
 	failureCtx := routing.SiteRuntimeFailureContext{
 		ErrorText: &rawErrText,
 		ModelName: &modelName,
@@ -1188,9 +1185,6 @@ func recordUpstreamFailure(ctx context.Context, cfg *UpstreamConfig, selected *r
 // accumulation; modelName (actual) stays the health-stat label.
 func recordUpstreamSuccess(ctx context.Context, cfg *UpstreamConfig, selected *routing.SelectedChannel, billingCostName, modelName string, latencyMs int64, usage ParsedUsage) {
 	if cfg == nil || cfg.Router == nil || selected == nil {
-		return
-	}
-	if selected.Direct != nil {
 		return
 	}
 	platformName := ""
