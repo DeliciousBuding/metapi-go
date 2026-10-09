@@ -27,6 +27,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DateRangePresets } from '@/components/common/date-range-presets'
+import { PageHeader } from '@/components/common/page-header'
 import {
   DataTablePage,
   type UrlTableState,
@@ -392,31 +393,29 @@ export function CheckinPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div>
-          <h1 className='page-title'>{t('checkin.page.title')}</h1>
-          <p className='text-muted-foreground text-sm'>
-            {t('checkin.page.description')}
-          </p>
-        </div>
-        <div className='flex flex-wrap items-center gap-2'>
-          <Button
-            variant='outline'
-            onClick={() => setManualOpen(true)}
-            disabled={!accountsLoading && accountOptions.length === 0}
-          >
-            <Zap />
-            {t('checkin.page.manualCheckin')}
-          </Button>
-          <Button
-            onClick={handleTriggerAll}
-            disabled={triggerAllMutation.isPending}
-          >
-            {triggerAllMutation.isPending ? <Spinner /> : <RotateCw />}
-            {t('checkin.page.runAll')}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={t('checkin.page.title')}
+        description={t('checkin.page.description')}
+        actions={
+          <>
+            <Button
+              variant='outline'
+              onClick={() => setManualOpen(true)}
+              disabled={!accountsLoading && accountOptions.length === 0}
+            >
+              <Zap />
+              {t('checkin.page.manualCheckin')}
+            </Button>
+            <Button
+              onClick={handleTriggerAll}
+              disabled={triggerAllMutation.isPending}
+            >
+              {triggerAllMutation.isPending ? <Spinner /> : <RotateCw />}
+              {t('checkin.page.runAll')}
+            </Button>
+          </>
+        }
+      />
 
       {/* Unified list-page error contract: the failed load
           replaces the filters + table instead of stacking over them, so a

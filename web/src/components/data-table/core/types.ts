@@ -67,6 +67,8 @@ export type DataTableViewProps<TData> = {
   emptyAction?: React.ReactNode
   /** Per-entity empty-state icon (defaults to a generic database glyph). */
   emptyIcon?: React.ReactNode
+  isFiltered?: boolean
+  onClearFilters?: () => void
   /** React key prefix for skeleton rows; distinct per table when two share a page. */
   skeletonKeyPrefix?: string
   /** Replaces the default `<tr>`/`<td>` mapping — expanded rows, row navigation. */

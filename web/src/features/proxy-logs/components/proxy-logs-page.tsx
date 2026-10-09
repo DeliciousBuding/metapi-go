@@ -1,14 +1,14 @@
+import { useNavigate } from '@tanstack/react-router'
 /* eslint-disable no-nested-ternary -- status-select display uses chained ternaries */
 // metapi-go/features/proxy-logs/components — proxy logs list page.
 // i18n: all user-visible strings migrated to t() calls.
-
-import { useNavigate } from '@tanstack/react-router'
 import type { Row } from '@tanstack/react-table'
 import { ScrollText } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DateRangePresets } from '@/components/common/date-range-presets'
+import { PageHeader } from '@/components/common/page-header'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTablePage,
@@ -382,31 +382,29 @@ export function ProxyLogsPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div>
-          <h1 className='page-title'>{t('proxyLogs.page.title')}</h1>
-          <p className='text-muted-foreground text-sm'>
-            {t('proxyLogs.page.description')}
-          </p>
-        </div>
-        <div className='flex flex-wrap items-center gap-2'>
-          <ProxyLogsAutoRefreshToggle
-            intervalMs={intervalMs}
-            setIntervalMs={setIntervalMs}
-          />
-          <ProxyLogsHeaderActions
-            onExport={handleExportCsv}
-            isExporting={isExporting}
-            onRefresh={() => {
-              // Refresh both halves of the split fetch: the list (view=query)
-              // and the meta facets/summary (view=meta).
-              logsQuery.refetch()
-              metaQuery.refetch()
-            }}
-            isRefreshing={logsQuery.isFetching || metaQuery.isFetching}
-          />
-        </div>
-      </div>
+      <PageHeader
+        title={t('proxyLogs.page.title')}
+        description={t('proxyLogs.page.description')}
+        actions={
+          <>
+            <ProxyLogsAutoRefreshToggle
+              intervalMs={intervalMs}
+              setIntervalMs={setIntervalMs}
+            />
+            <ProxyLogsHeaderActions
+              onExport={handleExportCsv}
+              isExporting={isExporting}
+              onRefresh={() => {
+                // Refresh both halves of the split fetch: the list (view=query)
+                // and the meta facets/summary (view=meta).
+                logsQuery.refetch()
+                metaQuery.refetch()
+              }}
+              isRefreshing={logsQuery.isFetching || metaQuery.isFetching}
+            />
+          </>
+        }
+      />
 
       {summary && (
         <div className='grid grid-cols-2 gap-2 sm:grid-cols-4'>

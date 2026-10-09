@@ -3,9 +3,11 @@
 // Save is disabled when nothing changed, Reset restores the server baseline,
 // and a "no unsaved changes" hint removes the always-on Save affordance.
 
+import { CircleCheck, CircleDot, LoaderCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 type SettingsFormActionsProps = {
   /** form id the Save button submits (`form={...}`). */
@@ -32,11 +34,32 @@ export function SettingsFormActions({
     // flex-1 + min-w-0, NOT min-w-full: inside a row that already holds a
     // sibling (e.g. the database section's "test connection" button),
     // min-w-full forced the row ~90px past the card edge and clipped Save.
-    <div className='flex min-w-0 flex-1 items-center justify-between gap-2'>
-      <span className='text-muted-foreground text-xs whitespace-nowrap'>
-        {isDirty ? t('settings.common.unsaved') : t('settings.common.saved')}
+    <div className='flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 border-t pt-4'>
+      <span
+        role='status'
+        aria-live='polite'
+        className={cn(
+          'inline-flex items-center gap-2 text-xs leading-relaxed',
+          isDirty ? 'text-warning-soft-fg' : 'text-muted-foreground'
+        )}
+      >
+        {isPending ? (
+          <LoaderCircle
+            className='size-3.5 animate-spin motion-reduce:animate-none'
+            aria-hidden='true'
+          />
+        ) : null}
+        {!isPending && isDirty ? (
+          <CircleDot className='size-3.5' aria-hidden='true' />
+        ) : null}
+        {!isPending && !isDirty ? (
+          <CircleCheck className='size-3.5' aria-hidden='true' />
+        ) : null}
+        {isPending ? t('settings.common.saving') : null}
+        {!isPending &&
+          (isDirty ? t('settings.common.unsaved') : t('settings.common.saved'))}
       </span>
-      <div className='flex shrink-0 items-center gap-2'>
+      <div className='ms-auto flex shrink-0 items-center gap-2'>
         <Button
           type='button'
           variant='outline'

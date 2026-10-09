@@ -318,7 +318,8 @@
           "compareMinChannels": "请至少选择两个渠道进行对比。"
         },
         "channelNoneForced": "请选择渠道",
-        "channelHintForced": "当前仅支持指定渠道测试：请先选择渠道再发送；默认路由测试通道未启用。"
+        "channelHintForced": "选择本次测试使用的上游渠道。",
+        "advanced": "高级设置 · 模板、系统提示词与采样"
       },
       "toast": {
         "empty": "响应为空。",
@@ -342,7 +343,7 @@
         "usage": "Token：{{total}}（入 {{prompt}} / 出 {{completion}}）",
         "noDone": "未收到完成信号",
         "error": "错误",
-        "emptyHint": "发送请求后可在此查看响应。",
+        "emptyHint": "选择模型和渠道，输入提示词并发送。响应、推理内容和原始事件会显示在这里。",
         "tabContent": "内容",
         "tabReasoning": "推理",
         "tabRaw": "原始",
@@ -353,7 +354,8 @@
         "hint": "提示：推理和原始选项卡显示额外的模型输出。",
         "contentChars": "{{value}} 字符",
         "roleYou": "你",
-        "roleAssistant": "助手"
+        "roleAssistant": "助手",
+        "latest": "回到最新"
       },
       "compare": {
         "title": "渠道对比",
@@ -567,7 +569,9 @@
         "loadError": "加载站点失败：{{message}}",
         "title": "站点",
         "description": "管理已连接的站点、状态与路由权重。",
-        "weightFormula": "最终站点倍率 = 站点全局权重 × 路由通道的配置权重（建议 0.5–3）"
+        "weightFormula": "最终站点倍率 = 站点全局权重 × 路由通道的配置权重（建议 0.5–3）",
+        "allSites": "全部站点",
+        "viewAccounts": "查看 {{name}} 的 {{count}} 个账号"
       },
       "toast": {
         "statusToggled": "站点「{{name}}」已更新。",
@@ -699,7 +703,7 @@
         "urlPreserveApiPath": "当前 URL 含 /api 路径，将原样保存。请确认这就是准确的主站点 URL；如果这是 API 请求地址，请填入下方的 API 地址池。",
         "urlPreserveUnknownPath": "当前 URL 含额外路径，将原样保存。请确认这就是准确的主站点 URL；如果这是 API 请求地址，请填入下方的 API 地址池。",
         "customHeaders": "自定义请求头",
-        "customHeadersHint": "额外请求头的 JSON 对象。",
+        "customHeadersHint": "按名称和值添加额外请求头，也可切换到高级 JSON 编辑。",
         "customHeadersExamplesLabel": "插入示例：",
         "customHeadersExampleInsert": "插入 {{client}} 示例",
         "customHeadersExamplesHint": "示例仅填充空的输入框，且始终是占位内容 —— 请把 <VERSION> 替换为当前上游实际期望的值。",
@@ -807,7 +811,7 @@
       "sections": {
         "overview": {
           "title": "概览",
-          "description": "核心指标、公告与定时任务健康。"
+          "description": "下游请求表现、上游可靠性与调用成本。"
         },
         "traffic": {
           "title": "收支",
@@ -1032,6 +1036,66 @@
         "netRow": "净额",
         "spendColumn": "花费",
         "callsColumn": "请求数"
+      },
+      "overviewInsights": {
+        "attentionTitle": "待处理事项",
+        "attentionDescription": "当前账户、余额与运行通知",
+        "attentionEmpty": "暂无账户或运行通知。",
+        "allAttention": "查看全部事项",
+        "critical": "紧急",
+        "warning": "注意",
+        "info": "通知",
+        "loadError": "加载失败：{{message}}",
+        "unavailable": "数据暂不可用，请重试或检查数据来源。",
+        "partial": "部分仪表盘指标暂不可用；以下为已取得的上游数据。",
+        "upstreamTitle": "上游服务表现",
+        "upstreamDescription": "失败优先 · 最多展示8个站点 · 点击站点查看请求",
+        "upstreamEmpty": "暂无启用的上游站点。",
+        "site": "上游站点",
+        "calls": "请求数",
+        "failed": "失败",
+        "successRate": "成功率",
+        "latency": "平均耗时",
+        "failedLink": "{{name}}：{{count}} 次失败请求",
+        "modelTitle": "模型消耗排行",
+        "modelDescription": "按估算成本排序 · 同时展示请求与 Token 用量",
+        "modelEmpty": "该时段暂无模型用量。",
+        "estimatedCost": "估算成本",
+        "tokens": "Token 数",
+        "callCount": "{{value}} 次请求",
+        "otherModels": "其他模型"
+      },
+      "operations": {
+        "serviceOverview": "下游服务表现",
+        "rolling24h": "最近 24 小时 · 全部已记录请求",
+        "requests": "请求数",
+        "success": "成功率",
+        "tokens": "Token 用量",
+        "cost": "估算调用成本",
+        "recordedRequests": "查看这一时段的全部请求",
+        "failures": "失败 {{count}} 次 · 查看失败日志",
+        "noRequests": "这一时段暂无调用记录",
+        "tokensHint": "按请求日志记录的有效 Token 汇总",
+        "costHint": "调用费用估算，不代表营收",
+        "loadError": "请求数据加载失败：{{message}}",
+        "trend": "调用量与成功率趋势",
+        "trendScope": "最近 7 个 UTC 自然日 · 含今天",
+        "performanceDetails": "模型与延迟分析",
+        "trendTotal": "图示时段共 {{value}} 次请求",
+        "resources": "资源与维护",
+        "siteCount": "{{value}} 个站点",
+        "accountCount": "{{value}} 个账号 · {{active}} 个活跃",
+        "balance": "启用站点余额 {{value}}",
+        "checkin": "今日签到 {{success}} / {{total}}",
+        "rangeLabel": "统计范围",
+        "refresh": "刷新统计",
+        "period": {
+          "24h": "24 小时",
+          "7d": "最近一周",
+          "30d": "最近 30 天",
+          "all": "全部"
+        },
+        "trendWindow": "{{period}} · 按 UTC 时间聚合"
       }
     },
     "settings": {
@@ -2220,7 +2284,7 @@
         "routingStrategy": "路由策略",
         "routingStrategyHint": "多通道时的选中策略：权重随机（默认）、轮询、稳定优先、负载最低、延迟最低、成本最低。",
         "modelMapping": "模型映射（可选）",
-        "modelMappingHint": "将匹配的模型名映射为上游模型名（JSON 对象）。",
+        "modelMappingHint": "为每个请求模型填写对应的上游模型名称。",
         "modelMappingPlaceholder": "{\"gpt-5\":\"gpt-5-codex\"} 或留空",
         "save": "保存修改",
         "create": "添加路由",
@@ -3268,6 +3332,32 @@
         "title": "API 密钥",
         "description": "签发并管理用于调用 LLM 的 API 密钥。"
       }
+    },
+    "stringMapEditor": {
+      "key": "键名",
+      "value": "值",
+      "headerName": "请求头名称",
+      "requestedModel": "请求模型",
+      "upstreamModel": "上游模型",
+      "rowsHint": "每行配置一个条目",
+      "jsonHint": "高级 JSON 编辑",
+      "editRows": "按行编辑",
+      "editJson": "编辑 JSON",
+      "empty": "暂未配置条目，需要覆盖默认值时再添加。",
+      "add": "添加条目",
+      "remove": "删除第 {{index}} 个条目",
+      "emptyKey": "请填写此条目的键名。",
+      "duplicateKey": "此键名已使用，每个键名只能出现一次。",
+      "invalid": "请填写有效的 JSON 对象，键名不能为空或重复。",
+      "advancedOnly": "此配置包含需要在 JSON 编辑器中处理的值，原始内容已完整保留。"
+    },
+    "modelPicker": {
+      "title": "选择模型",
+      "description": "{{count}} 个模型 · 按提供商分组",
+      "placeholder": "选择模型",
+      "search": "搜索模型或提供商…",
+      "other": "其他模型",
+      "empty": "没有匹配的模型，试试其他名称或提供商。"
     }
   }
 }

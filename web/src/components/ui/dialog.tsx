@@ -12,6 +12,10 @@ function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot='dialog' {...props} />
 }
 
+function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
+  return <DialogPrimitive.Trigger data-slot='dialog-trigger' {...props} />
+}
+
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
   return <DialogPrimitive.Portal data-slot='dialog-portal' {...props} />
 }
@@ -59,7 +63,7 @@ function DialogContent({
             render={
               <Button
                 variant='ghost'
-                className='absolute top-2 right-2'
+                className='absolute top-2 right-2 z-20'
                 size='icon-sm'
               />
             }
@@ -142,6 +146,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogTrigger,
   DialogContent,
   DialogDescription,
   DialogFooter,

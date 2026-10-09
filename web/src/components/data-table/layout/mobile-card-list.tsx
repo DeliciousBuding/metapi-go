@@ -8,19 +8,11 @@
 // Selection stays on the explicit checkbox. A tap on the card surface must not
 // select a row (or expose bulk actions) at the end of a touch scroll.
 import type { Table } from '@tanstack/react-table'
-import { Database } from 'lucide-react'
 import * as React from 'react'
-import { useTranslation } from 'react-i18next'
 
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 
+import { DataTableEmptyState } from '../core/empty-state'
 import { renderCellContent, tableHasCompactMeta } from './card-cell-utils'
 import { CardRowContent } from './card-row-content'
 
@@ -32,6 +24,8 @@ interface MobileCardListProps<TData> {
   emptyAction?: React.ReactNode
   /** Per-entity empty-state icon (defaults to a generic database glyph). */
   emptyIcon?: React.ReactNode
+  isFiltered?: boolean
+  onClearFilters?: () => void
 }
 
 /** The bordered, divided shell both skeletons share with the real list. */
@@ -94,11 +88,6 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
     emptyAction,
     emptyIcon,
   } = props
-  const { t } = useTranslation()
-
-  const resolvedEmptyTitle = emptyTitle ?? t('No Data')
-  const resolvedEmptyDescription = emptyDescription ?? t('No data available')
-
   // No memo: `getVisibleLeafColumns()` returns a fresh array each render, so a
   // dependency on it invalidates every time and the memo only ever added an
   // eslint-disable. The check itself is a `.some()` over the visible columns,
@@ -116,17 +105,16 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
 
   if (rows.length === 0) {
     return (
-      <div className='rounded-lg border p-6'>
-        <Empty className='border-none p-0'>
-          <EmptyHeader>
-            <EmptyMedia variant='icon'>
-              {emptyIcon ?? <Database className='size-6' />}
-            </EmptyMedia>
-            <EmptyTitle>{resolvedEmptyTitle}</EmptyTitle>
-            <EmptyDescription>{resolvedEmptyDescription}</EmptyDescription>
-          </EmptyHeader>
+      <div className='rounded-lg border'>
+        <DataTableEmptyState
+          title={emptyTitle}
+          description={emptyDescription}
+          icon={emptyIcon}
+          isFiltered={props.isFiltered}
+          onClearFilters={props.onClearFilters}
+        >
           {emptyAction}
-        </Empty>
+        </DataTableEmptyState>
       </div>
     )
   }

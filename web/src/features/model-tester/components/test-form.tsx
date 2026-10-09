@@ -56,6 +56,7 @@ import {
   testerSchema,
   type TesterFormValues,
 } from '../lib/tester-schema'
+import { ModelPicker } from './model-picker'
 
 type TestFormProps = {
   isRunning: boolean
@@ -99,6 +100,7 @@ export function TestForm({
   onStop,
 }: TestFormProps) {
   const { t } = useTranslation()
+  const advancedRef = useRef<HTMLDetailsElement>(null)
   const modelsQuery = useModels()
   const channelsQuery = useChannels()
 
@@ -138,9 +140,22 @@ export function TestForm({
     }
   }, [defaultModel, modelsQuery.data, form])
 
-  const handleSubmit = form.handleSubmit((values) => {
-    onSubmit(values)
-  })
+  const handleSubmit = form.handleSubmit(
+    (values) => {
+      onSubmit(values)
+    },
+    (errors) => {
+      if (
+        advancedRef.current &&
+        (errors.systemPrompt ||
+          errors.temperature ||
+          errors.topP ||
+          errors.maxTokens)
+      ) {
+        advancedRef.current.open = true
+      }
+    }
+  )
 
   // The template picker is not part of the validated schema: selecting a
   // template fills the prompt + sampling params, then resets to the
@@ -188,97 +203,81 @@ export function TestForm({
           onRetry={() => channelsQuery.refetch()}
           isRetrying={channelsQuery.isFetching}
         />
-        <FormItem>
-          <FormLabel>{t('modelTester.template.label')}</FormLabel>
-          <Select
-            value={selectedTemplateId}
-            onValueChange={applyTemplate}
-            disabled={isRunning}
-          >
-            <FormControl>
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={t('modelTester.template.placeholder')}
-                />
-              </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              {templates.map((template) => (
-                <SelectItem key={template.id} value={template.id}>
-                  {t(template.labelKey)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FormDescription>{t('modelTester.template.hint')}</FormDescription>
-        </FormItem>
-
-        <FormField
-          control={form.control}
-          name='model'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('modelTester.form.model')}</FormLabel>
-              <Select
-                value={field.value}
-                onValueChange={(value) => {
-                  field.onChange(value)
-                  if (value) rememberModel(value)
-                }}
-                disabled={isRunning}
-              >
+        <div className='grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_140px]'>
+          <FormField
+            control={form.control}
+            name='model'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('modelTester.form.model')}</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        modelsQuery.isLoading
-                          ? t('modelTester.form.modelLoading')
-                          : t('modelTester.form.modelPlaceholder')
-                      }
-                    />
-                  </SelectTrigger>
+                  <ModelPicker
+                    models={modelsQuery.data ?? []}
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value)
+                      rememberModel(value)
+                    }}
+                    disabled={isRunning || modelsQuery.isLoading}
+                    placeholder={
+                      modelsQuery.isLoading
+                        ? t('modelTester.form.modelLoading')
+                        : t('modelTester.form.modelPlaceholder')
+                    }
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                  />
                 </FormControl>
-                <SelectContent>
-                  {(modelsQuery.data ?? []).map((model) => (
-                    <SelectItem key={model.name} value={model.name}>
-                      {model.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {modelsQuery.isLoading && (
-                <FormDescription>
-                  <Spinner className='mr-1 inline' />
-                  {t('modelTester.form.modelLoading')}
-                </FormDescription>
-              )}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                {modelsQuery.isLoading && (
+                  <FormDescription>
+                    <Spinner className='mr-1 inline' />
+                    {t('modelTester.form.modelLoading')}
+                  </FormDescription>
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name='compareChannels'
-          render={({ field }) => (
-            <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
-              <div className='space-y-0.5'>
-                <FormLabel>{t('modelTester.form.compareChannels')}</FormLabel>
-                <FormDescription>
-                  {t('modelTester.form.compareChannelsHint')}
-                </FormDescription>
-              </div>
-              <FormControl>
-                <Switch
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
+          <FormField
+            control={form.control}
+            name='targetFormat'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('modelTester.form.targetFormatLabel')}</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
                   disabled={isRunning}
-                />
-              </FormControl>
-            </FormItem>
-          )}
-        />
-
+                >
+                  <FormControl>
+                    <SelectTrigger className='w-full'>
+                      <SelectValue>
+                        {(selected) => {
+                          const option = TARGET_FORMAT_OPTIONS.find(
+                            (item) => item.value === selected
+                          )
+                          return option
+                            ? t(option.labelKey)
+                            : String(selected ?? '')
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {TARGET_FORMAT_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {t(option.labelKey)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
         {!compareChannels && (
           <FormField
             control={form.control}
@@ -294,7 +293,7 @@ export function TestForm({
                   disabled={isRunning}
                 >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className='w-full'>
                       <SelectValue>
                         {(selected) => {
                           if (!selected || selected === 'none') {
@@ -381,57 +380,22 @@ export function TestForm({
 
         <FormField
           control={form.control}
-          name='targetFormat'
+          name='compareChannels'
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('modelTester.form.targetFormatLabel')}</FormLabel>
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-                disabled={isRunning}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue>
-                      {(selected) => {
-                        const option = TARGET_FORMAT_OPTIONS.find(
-                          (item) => item.value === selected
-                        )
-                        return option
-                          ? t(option.labelKey)
-                          : String(selected ?? '')
-                      }}
-                    </SelectValue>
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {TARGET_FORMAT_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(option.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name='systemPrompt'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('modelTester.form.systemPrompt')}</FormLabel>
+            <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
+              <div className='space-y-0.5'>
+                <FormLabel>{t('modelTester.form.compareChannels')}</FormLabel>
+                <FormDescription>
+                  {t('modelTester.form.compareChannelsHint')}
+                </FormDescription>
+              </div>
               <FormControl>
-                <Textarea
-                  placeholder={t('modelTester.form.systemPromptPlaceholder')}
-                  className='min-h-20 resize-y'
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
                   disabled={isRunning}
-                  {...field}
                 />
               </FormControl>
-              <FormMessage />
             </FormItem>
           )}
         />
@@ -445,7 +409,7 @@ export function TestForm({
               <FormControl>
                 <Textarea
                   placeholder={t('modelTester.form.promptPlaceholder')}
-                  className='min-h-35 resize-y'
+                  className='min-h-32 resize-y'
                   disabled={isRunning}
                   autoFocus
                   onKeyDown={(event) => {
@@ -459,111 +423,13 @@ export function TestForm({
                       return
                     }
                     event.preventDefault()
-                    void form.handleSubmit((values) => onSubmit(values))()
+                    void handleSubmit()
                   }}
                   {...field}
                 />
               </FormControl>
               <FormDescription>
                 {t('modelTester.form.promptSubmitHint')}
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className='grid gap-4 sm:grid-cols-2'>
-          <FormField
-            control={form.control}
-            name='temperature'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  {t('modelTester.form.temperature')}
-                  <span className='text-muted-foreground ml-1 tabular-nums'>
-                    {field.value.toFixed(2)}
-                  </span>
-                </FormLabel>
-                <FormControl>
-                  <Slider
-                    aria-label={t('modelTester.form.temperature')}
-                    value={[field.value]}
-                    min={0}
-                    max={2}
-                    step={0.05}
-                    disabled={isRunning}
-                    onValueChange={(values) => {
-                      const next = Array.isArray(values)
-                        ? (values[0] ?? 0)
-                        : values
-                      field.onChange(next)
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name='topP'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  {t('modelTester.form.topP')}
-                  <span className='text-muted-foreground ml-1 tabular-nums'>
-                    {field.value.toFixed(2)}
-                  </span>
-                </FormLabel>
-                <FormControl>
-                  <Slider
-                    aria-label={t('modelTester.form.topP')}
-                    value={[field.value]}
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    disabled={isRunning}
-                    onValueChange={(values) => {
-                      const next = Array.isArray(values)
-                        ? (values[0] ?? 0)
-                        : values
-                      field.onChange(next)
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name='maxTokens'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('modelTester.form.maxTokens')}</FormLabel>
-              <FormControl>
-                <Input
-                  type='number'
-                  min={0}
-                  step={1}
-                  value={field.value}
-                  onChange={(event) =>
-                    field.onChange(
-                      Number.isNaN(event.target.valueAsNumber)
-                        ? 0
-                        : event.target.valueAsNumber
-                    )
-                  }
-                  onBlur={field.onBlur}
-                  name={field.name}
-                  ref={field.ref}
-                  disabled={isRunning}
-                />
-              </FormControl>
-              <FormDescription>
-                {t('modelTester.form.maxTokensHint')}
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -586,6 +452,158 @@ export function TestForm({
             </Button>
           )}
         </div>
+        <details ref={advancedRef} className='group rounded-lg border'>
+          <summary className='focus-visible:outline-ring cursor-pointer px-3 py-3 text-sm font-medium'>
+            {t('modelTester.form.advanced')}
+          </summary>
+          <div className='flex flex-col gap-4 border-t p-3'>
+            <FormItem>
+              <FormLabel>{t('modelTester.template.label')}</FormLabel>
+              <Select
+                value={selectedTemplateId}
+                onValueChange={applyTemplate}
+                disabled={isRunning}
+              >
+                <FormControl>
+                  <SelectTrigger className='w-full'>
+                    <SelectValue
+                      placeholder={t('modelTester.template.placeholder')}
+                    />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {t(template.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                {t('modelTester.template.hint')}
+              </FormDescription>
+            </FormItem>
+
+            <FormField
+              control={form.control}
+              name='systemPrompt'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('modelTester.form.systemPrompt')}</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder={t(
+                        'modelTester.form.systemPromptPlaceholder'
+                      )}
+                      className='min-h-20 resize-y'
+                      disabled={isRunning}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className='grid gap-4 sm:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='temperature'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t('modelTester.form.temperature')}
+                      <span className='text-muted-foreground ml-1 tabular-nums'>
+                        {field.value.toFixed(2)}
+                      </span>
+                    </FormLabel>
+                    <FormControl>
+                      <Slider
+                        aria-label={t('modelTester.form.temperature')}
+                        value={[field.value]}
+                        min={0}
+                        max={2}
+                        step={0.05}
+                        disabled={isRunning}
+                        onValueChange={(values) => {
+                          const next = Array.isArray(values)
+                            ? (values[0] ?? 0)
+                            : values
+                          field.onChange(next)
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='topP'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t('modelTester.form.topP')}
+                      <span className='text-muted-foreground ml-1 tabular-nums'>
+                        {field.value.toFixed(2)}
+                      </span>
+                    </FormLabel>
+                    <FormControl>
+                      <Slider
+                        aria-label={t('modelTester.form.topP')}
+                        value={[field.value]}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        disabled={isRunning}
+                        onValueChange={(values) => {
+                          const next = Array.isArray(values)
+                            ? (values[0] ?? 0)
+                            : values
+                          field.onChange(next)
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name='maxTokens'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('modelTester.form.maxTokens')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={0}
+                      step={1}
+                      value={field.value}
+                      onChange={(event) =>
+                        field.onChange(
+                          Number.isNaN(event.target.valueAsNumber)
+                            ? 0
+                            : event.target.valueAsNumber
+                        )
+                      }
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                      disabled={isRunning}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('modelTester.form.maxTokensHint')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </details>
       </form>
     </Form>
   )

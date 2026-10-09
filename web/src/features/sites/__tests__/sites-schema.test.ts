@@ -250,3 +250,25 @@ describe('sitesSearchSchema — create deep-link', () => {
     ).toBe(true)
   })
 })
+
+describe('structured map validation', () => {
+  it.each([
+    '{"a":"one","a":"two"}',
+    '{"":"value"}',
+    '{"a":',
+    '{"a":1,"a":2}',
+    '{"":false}',
+  ])('rejects invalid draft %s', (raw) => {
+    expect(
+      siteFormSchema.safeParse({ ...validSiteForm(), customHeaders: raw })
+        .success
+    ).toBe(false)
+  })
+  it('preserves legacy non-string object values', () => {
+    const raw = '{"count":2,"enabled":true}'
+    expect(
+      siteFormSchema.safeParse({ ...validSiteForm(), customHeaders: raw })
+        .success
+    ).toBe(true)
+  })
+})

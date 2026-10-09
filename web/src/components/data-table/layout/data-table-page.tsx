@@ -168,20 +168,32 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
     return errorBanner
   }
 
-  const fixedHeight = props.fixedHeight !== false && !showMobile
+  const tableState = props.table.getState()
+  const isFiltered =
+    (tableState.columnFilters ?? []).length > 0 ||
+    Boolean(tableState.globalFilter) ||
+    props.toolbarProps?.hasAdditionalFilters === true ||
+    props.toolbarProps?.hasExpandedActiveFilters === true
+  const clearFilters = () => {
+    props.table.resetColumnFilters()
+    props.table.setGlobalFilter('')
+    props.toolbarProps?.onReset?.()
+  }
 
-  // An empty table hugs its content: without rows the `h-full`/`flex-1`
-  // geometry would stretch the bordered shell across the whole viewport and
-  // center the empty state in a wall of blank space.
-  const isEmpty =
-    !props.isLoading && props.table.getRowModel().rows.length === 0
-
+  const rowCount = props.table.getRowModel().rows.length
+  // A few rows do not need an internal scroll region. Let the table and its
+  // border end with the data instead of filling the rest of a desktop viewport.
+  // Loaded pages with more rows keep the sticky header and bounded scrolling.
+  const fixedHeight =
+    props.fixedHeight !== false &&
+    !showMobile &&
+    (props.isLoading || rowCount > 4)
   return (
     <>
       {errorBanner}
       <div
         className={cn(
-          fixedHeight && !isEmpty
+          fixedHeight
             ? 'flex h-full min-h-0 flex-col gap-2.5 sm:gap-3'
             : 'space-y-2.5 sm:space-y-3',
           props.className
@@ -203,6 +215,8 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
             emptyDescription={props.emptyDescription}
             emptyAction={props.emptyAction}
             emptyIcon={props.emptyIcon}
+            isFiltered={isFiltered}
+            onClearFilters={clearFilters}
           />
         ) : (
           <DataTableView
@@ -212,11 +226,13 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
             emptyDescription={props.emptyDescription}
             emptyAction={props.emptyAction}
             emptyIcon={props.emptyIcon}
+            isFiltered={isFiltered}
+            onClearFilters={clearFilters}
             skeletonKeyPrefix={props.skeletonKeyPrefix}
             renderRow={props.renderRow}
             splitHeader={fixedHeight}
             containerClassName={cn(
-              fixedHeight && !isEmpty && 'min-h-0 flex-1',
+              fixedHeight && 'min-h-0 flex-1',
               'transition-opacity duration-150',
               // Subtle dim only while background-refetching; never block pointer
               // events — rows stay rendered (placeholderData) and interactive.

@@ -7,6 +7,8 @@ import { ArrowRight, Scale, Search, Star } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ModelPill } from '@/components/common/model-pill'
+import { PageHeader } from '@/components/common/page-header'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -91,27 +93,25 @@ export function PriceComparePage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div className='flex flex-wrap items-end justify-between gap-3'>
-        <div>
-          <h1 className='page-title'>{t('priceCompare.page.title')}</h1>
-          <p className='text-muted-foreground text-sm'>
-            {t('priceCompare.page.description')}
-          </p>
-        </div>
-        <div className='relative w-full sm:w-64'>
-          <Search
-            aria-hidden='true'
-            className='text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2'
-          />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t('priceCompare.page.searchPlaceholder')}
-            aria-label={t('priceCompare.page.searchPlaceholder')}
-            className='pl-8'
-          />
-        </div>
-      </div>
+      <PageHeader
+        title={t('priceCompare.page.title')}
+        description={t('priceCompare.page.description')}
+        actions={
+          <div className='relative w-full sm:w-64'>
+            <Search
+              aria-hidden='true'
+              className='text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2'
+            />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('priceCompare.page.searchPlaceholder')}
+              aria-label={t('priceCompare.page.searchPlaceholder')}
+              className='pl-8'
+            />
+          </div>
+        }
+      />
 
       {query.isLoading && (
         <div className='text-muted-foreground flex items-center gap-2 text-sm'>
@@ -166,7 +166,11 @@ function ModelGroupCard({ group }: { group: ModelGroup }) {
     <Card>
       <CardHeader>
         <CardTitle className='flex items-center gap-2 text-base font-normal'>
-          <span className='font-mono'>{group.model}</span>
+          <ModelPill
+            model={group.model}
+            variant='inline'
+            className='text-base'
+          />
         </CardTitle>
         <CardDescription>{t('priceCompare.group.description')}</CardDescription>
       </CardHeader>

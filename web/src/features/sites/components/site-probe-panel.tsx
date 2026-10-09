@@ -16,6 +16,7 @@ import { Search as SearchIcon } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ModelPill } from '@/components/common/model-pill'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Notice } from '@/components/ui/notice'
@@ -245,7 +246,9 @@ export function SiteProbePanel({ siteId }: { siteId: number }) {
                     key={`${result.channelId}-${result.model}`}
                     className='border-t'
                   >
-                    <td className='px-2 py-1.5 break-all'>{result.model}</td>
+                    <td className='max-w-64 px-2 py-1.5'>
+                      <ModelPill model={result.model} />
+                    </td>
                     <td className='px-2 py-1.5'>
                       <Badge variant={badge.variant}>{t(badge.key)}</Badge>
                     </td>

@@ -30,6 +30,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { PageHeader } from '@/components/common/page-header'
 import { useProbeHistory } from '@/components/common/use-probe-history'
 import {
   DataTableBulkActions,
@@ -593,41 +594,38 @@ export function AccountsPage() {
 
   return (
     <div className='flex min-h-full flex-col gap-3 p-4 min-[641px]:h-full'>
-      {/* flex-wrap + gap-3: on narrow viewports the action button wraps
-          below the title block instead of squeezing the description column
-          (aligns with the checkin/routes page-header pattern). */}
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div>
-          <h1 className='page-title'>{t('accounts.page.title')}</h1>
-          <p className='text-muted-foreground hidden text-sm min-[641px]:block'>
-            {t('accounts.page.description')}
-          </p>
-        </div>
-        {/* `sites` is `[]` both while the snapshot is still fetching and for
+      <PageHeader
+        title={t('accounts.page.title')}
+        description={t('accounts.page.description')}
+        actions={
+          <>
+            {/* `sites` is `[]` both while the snapshot is still fetching and for
             a genuinely empty library; pinning disabled to the raw array kept
             the button inoperable for the whole fetch window right after
             creating a fresh site. Only the loaded-and-empty state disables
             it — during load the dialog opens and picks up the sites as the
             snapshot lands (the form consumes the live `sites` prop). */}
-        {/* Disabled lives on a wrapping span so the tooltip explaining the
+            {/* Disabled lives on a wrapping span so the tooltip explaining the
             precondition still works (a disabled button swallows pointer
             events, and with them any title of its own). */}
-        <span
-          title={
-            !isLoading && sites.length === 0
-              ? t('accounts.page.addDisabledHint')
-              : undefined
-          }
-        >
-          <Button
-            onClick={openCreate}
-            disabled={!isLoading && sites.length === 0}
-          >
-            <Plus />
-            {t('accounts.page.addButton')}
-          </Button>
-        </span>
-      </div>
+            <span
+              title={
+                !isLoading && sites.length === 0
+                  ? t('accounts.page.addDisabledHint')
+                  : undefined
+              }
+            >
+              <Button
+                onClick={openCreate}
+                disabled={!isLoading && sites.length === 0}
+              >
+                <Plus />
+                {t('accounts.page.addButton')}
+              </Button>
+            </span>
+          </>
+        }
+      />
 
       <DataTablePage
         table={table}

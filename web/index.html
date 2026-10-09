@@ -39,17 +39,7 @@
       Tailwind 4 dark mode is class-based: <html class="dark"> / class="light".
     -->
     <script src="/bootstrap.js"></script>
-    <!-- Fonts are bundled locally — no Google Fonts CDN. Preload the latin
-         Public Sans face (the UI default) so first paint skips the font
-         discovery round-trip. Path matches the content-hashed asset emitted
-         by Rsbuild into /static/font/. -->
-    <link
-      rel="preload"
-      href="/static/font/public-sans-latin-wght-normal.035c7fe496.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    <!-- Font assets are discovered from bundled CSS; no content-hash pins. -->
   </head>
 
   <body translate="no" class="notranslate min-h-screen">

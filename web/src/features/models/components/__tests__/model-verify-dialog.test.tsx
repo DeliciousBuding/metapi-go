@@ -76,9 +76,7 @@ describe('ModelVerifyDialog', () => {
     expect(screen.getByText('upstream 502')).toBeInTheDocument()
     expect(screen.getByText('probed 3')).toBeInTheDocument()
     // No success-faking: filtered target list is exactly what came back.
-    expect(
-      screen.queryByText('gpt-5-mini', { selector: 'td' })
-    ).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'gpt-5-mini' })).toBeInTheDocument()
   })
 
   it('renders the probe failure message when the scheduler is not running', async () => {

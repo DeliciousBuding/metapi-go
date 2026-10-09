@@ -130,9 +130,21 @@ jobs:
       - run: bun run format:check
       - run: bun run knip
       - run: bun run test
+
+  # Build the bundle independently: Go and browser checks need its bytes, not
+  # the frontend lint/test job's completion. docker-build still requires both.
+  web-dist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: sh ../scripts/bun-install.sh
+        working-directory: web
       - run: bun run build:web
-      # The real dist is reused by test-sqlite/test-pg (SPA-fallback tests),
-      # instead of each test job rebuilding the frontend.
+        working-directory: web
       - name: Upload web dist for test jobs
         uses: actions/upload-artifact@v7
         with:
@@ -142,12 +154,12 @@ jobs:
 
   a11y:
     # Real-browser production-SPA gates: axe accessibility + route/crash/mobile
-    # smoke. The Go server embeds web/dist (built by the frontend job) and serves
+    # smoke. The Go server embeds web/dist (built by web-dist) and serves
     # the admin app + API from one origin, so these exercise the exact shipped
     # bundle instead of the dev server. Requires a fresh sqlite runtime DB.
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: frontend
+    needs: web-dist
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -209,7 +221,7 @@ jobs:
     # protection keeps a single required check.
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: frontend
+    needs: web-dist
     strategy:
       fail-fast: false
       matrix:
@@ -219,7 +231,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/go-toolchain
       # SPA-fallback and static-asset tests exercise the real embedded dist,
-      # built once by the frontend job and passed through the artifact.
+      # built once by web-dist and passed through the artifact.
       - name: Download frontend dist
         uses: actions/download-artifact@v8
         with:
@@ -280,7 +292,7 @@ jobs:
   test-pg:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: frontend
+    needs: web-dist
     env:
       PG_SCHEME: postgres
       PG_USER: postgres
@@ -305,7 +317,7 @@ jobs:
         with:
           go-version-file: go.mod
       # SPA-fallback and static-asset tests exercise the real embedded dist,
-      # built once by the frontend job and passed through the artifact.
+      # built once by web-dist and passed through the artifact.
       - name: Download frontend dist
         uses: actions/download-artifact@v8
         with:
@@ -1019,6 +1031,7 @@ jobs:
       - secret-scan
       - docs-hygiene
       - frontend
+      - web-dist
       - a11y
       - test-sqlite
       - test-pg

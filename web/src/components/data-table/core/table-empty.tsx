@@ -1,95 +1,25 @@
-// metapi-go/data-table — TableEmpty: the empty body, and the difference between
-// "there is nothing" and "you filtered everything out".
-//
-// Those two states need opposite actions — create something, versus clear the
-// filters — so the copy, the icon and the CTA all switch on `isFiltered`.
-// Collapsing them into one "no data" message is how a user ends up believing a
-// table is empty when it is only narrowed.
-//
-// The filtered copy is not overridable: it is the same sentence on every list
-// ("no results, clear the filters"), and a page that wants to say something else
-// is describing its own filter UI, which belongs next to that UI.
-//
-// It renders as a `<TableRow>` with one cell spanning the table, not as a
-// sibling of the table: the empty state has to sit inside the same scroll
-// container and column geometry, or a horizontally scrolled table shows the
-// message half off-screen.
-import { Database, SearchX } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import type { ReactNode } from 'react'
 
-import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
-import { TableRow, TableCell } from '@/components/ui/table'
+import { TableCell, TableRow } from '@/components/ui/table'
+
+import { DataTableEmptyState } from './empty-state'
 
 type TableEmptyProps = {
-  /** Columns to span — the visible leaf count, so the cell covers the table. */
   colSpan: number
-  /** Copy for the "nothing here" state; the filtered state has its own. */
   title?: string
   description?: string
-  /** Extra content under the copy, e.g. a create button. */
-  children?: React.ReactNode
-  /** Per-entity icon for the unfiltered empty state (defaults to Database). */
-  icon?: React.ReactNode
-  /** True when the table is empty because filters are active, not because there is no data. */
+  children?: ReactNode
+  icon?: ReactNode
   isFiltered?: boolean
-  /** Clears column + global filters; rendered as the reset CTA. */
   onClearFilters?: () => void
 }
 
-export function TableEmpty({
-  colSpan,
-  title,
-  description,
-  children,
-  icon,
-  isFiltered = false,
-  onClearFilters,
-}: TableEmptyProps) {
-  const { t } = useTranslation()
-  const resolvedTitle = isFiltered
-    ? t('common.noResults')
-    : (title ?? t('No Data'))
-  const resolvedDescription = isFiltered
-    ? t('common.noResultsDescription')
-    : (description ?? t('No records found. Try adjusting your filters.'))
-  const resolvedIcon = isFiltered ? (
-    <SearchX className='size-6' />
-  ) : (
-    (icon ?? <Database className='size-6' />)
-  )
-
+export function TableEmpty({ colSpan, ...props }: TableEmptyProps) {
   return (
     <TableRow>
-      {/*
-        The cell spans the FULL table width, which inside a horizontally
-        scrollable container is wider than the viewport — centering within
-        the cell pushes the empty state past the visible area (invisible at
-        768px). The sticky inset-x-0 wrapper pins the content to the
-        scrollport's visible band instead (mx-auto + w-fit centers it).
-      */}
       <TableCell colSpan={colSpan} className='h-70 p-0'>
         <div className='sticky inset-x-0 mx-auto flex h-full w-fit max-w-full items-center justify-center'>
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant='icon'>{resolvedIcon}</EmptyMedia>
-              <EmptyTitle>{resolvedTitle}</EmptyTitle>
-              <EmptyDescription>{resolvedDescription}</EmptyDescription>
-            </EmptyHeader>
-            {isFiltered && onClearFilters ? (
-              <Button variant='outline' size='sm' onClick={onClearFilters}>
-                {t('common.resetFilters')}
-              </Button>
-            ) : (
-              children
-            )}
-          </Empty>
+          <DataTableEmptyState {...props} />
         </div>
       </TableCell>
     </TableRow>

@@ -24,7 +24,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { DetailField } from '@/components/common/detail-field'
-import { Badge } from '@/components/ui/badge'
+import { ModelPill } from '@/components/common/model-pill'
 import { Button } from '@/components/ui/button'
 import { Notice } from '@/components/ui/notice'
 import { Separator } from '@/components/ui/separator'
@@ -147,9 +147,7 @@ function OAuthModelsSection(props: { connection: OAuthClient }) {
           </p>
           <div className='mt-1 flex flex-wrap gap-1'>
             {previewModels.map((model) => (
-              <Badge key={model} variant='outline' className='font-mono'>
-                {model}
-              </Badge>
+              <ModelPill key={model} model={model} />
             ))}
           </div>
         </div>

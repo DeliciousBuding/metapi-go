@@ -1,14 +1,14 @@
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 /* eslint-disable no-nested-ternary -- empty-state text uses chained ternary */
 // metapi-go features/token-routes/components — the routes list page.
 // i18n: all user-visible strings migrated to t() calls.
-
-import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState, Table } from '@tanstack/react-table'
 import { Plus, Power, Route, Settings2, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { PageHeader } from '@/components/common/page-header'
 import {
   DataTableBulkActions,
   DataTablePage,
@@ -422,29 +422,28 @@ export function RoutesPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div className='flex flex-wrap items-center justify-between gap-4'>
-        <div>
-          <h1 className='page-title'>{t('tokenRoutes.page.title')}</h1>
-          <p className='text-muted-foreground text-sm'>
-            {t('tokenRoutes.page.description')}
-          </p>
-          <Link
-            to='/settings/$subarea/$section'
-            params={{ subarea: 'operations', section: 'scheduling' }}
-            className='text-primary focus-visible:ring-focus-ring mt-1 inline-flex min-h-8 items-center gap-1 rounded-sm text-sm underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:outline-none'
-          >
-            <Settings2 className='size-3.5 shrink-0' aria-hidden='true' />
-            {t('tokenRoutes.page.automaticCreationSettings')}
-          </Link>
-        </div>
-        <RoutesHeaderActions
-          onRebuild={() => setRebuildConfirmOpen(true)}
-          isRebuildPending={isRebuildPending}
-          onRefreshDecisions={() => refreshDecisionsMutation.mutate()}
-          isRefreshDecisionsPending={refreshDecisionsMutation.isPending}
-          onAddRoute={openCreate}
-        />
-      </div>
+      <PageHeader
+        title={t('tokenRoutes.page.title')}
+        description={t('tokenRoutes.page.description')}
+        actions={
+          <RoutesHeaderActions
+            onRebuild={() => setRebuildConfirmOpen(true)}
+            isRebuildPending={isRebuildPending}
+            onRefreshDecisions={() => refreshDecisionsMutation.mutate()}
+            isRefreshDecisionsPending={refreshDecisionsMutation.isPending}
+            onAddRoute={openCreate}
+          />
+        }
+      >
+        <Link
+          to='/settings/$subarea/$section'
+          params={{ subarea: 'operations', section: 'scheduling' }}
+          className='text-primary focus-visible:ring-focus-ring mt-1 inline-flex min-h-8 items-center gap-1 rounded-sm text-sm underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:outline-none'
+        >
+          <Settings2 className='size-3.5 shrink-0' aria-hidden='true' />
+          {t('tokenRoutes.page.automaticCreationSettings')}
+        </Link>
+      </PageHeader>
 
       <RouteRebuildStatus rebuild={rebuildMutation} observation={rebuildTask} />
 

@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { PageHeader } from '@/components/common/page-header'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -292,57 +293,55 @@ export function SiteAnnouncementsPage() {
 
   return (
     <div className='flex flex-col gap-4 p-4 md:p-6'>
-      <header className='flex flex-wrap items-start justify-between gap-3'>
-        <div>
-          <h1 className='page-title'>{t('siteAnnouncements.page.title')}</h1>
-          <p className='text-muted-foreground text-sm'>
-            {t('siteAnnouncements.page.description')}
-          </p>
-        </div>
-        <div className='flex flex-wrap items-center gap-2'>
-          {syncIsActive ? (
-            <span
-              className='text-muted-foreground inline-flex items-center gap-2 text-xs'
-              role='status'
+      <PageHeader
+        title={t('siteAnnouncements.page.title')}
+        description={t('siteAnnouncements.page.description')}
+        actions={
+          <>
+            {syncIsActive ? (
+              <span
+                className='text-muted-foreground inline-flex items-center gap-2 text-xs'
+                role='status'
+              >
+                <Spinner />
+                {syncTask?.message || t(syncStatusKey(syncTask))}
+              </span>
+            ) : null}
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={syncMutation.isPending || syncIsActive}
+              onClick={() => syncMutation.mutate()}
             >
-              <Spinner />
-              {syncTask?.message || t(syncStatusKey(syncTask))}
-            </span>
-          ) : null}
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            disabled={syncMutation.isPending || syncIsActive}
-            onClick={() => syncMutation.mutate()}
-          >
-            {syncMutation.isPending || syncIsActive ? (
-              <Spinner />
-            ) : (
-              <RefreshCw className='size-3.5' />
-            )}
-            {t('siteAnnouncements.actions.sync')}
-          </Button>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            disabled={markAllMutation.isPending || unreadCount === 0}
-            onClick={() => markAllMutation.mutate()}
-          >
-            {t('siteAnnouncements.actions.markAllRead')}
-          </Button>
-          <Button
-            type='button'
-            variant='destructive'
-            size='sm'
-            disabled={clearMutation.isPending}
-            onClick={() => setClearConfirmOpen(true)}
-          >
-            {t('siteAnnouncements.actions.clear')}
-          </Button>
-        </div>
-      </header>
+              {syncMutation.isPending || syncIsActive ? (
+                <Spinner />
+              ) : (
+                <RefreshCw className='size-3.5' />
+              )}
+              {t('siteAnnouncements.actions.sync')}
+            </Button>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={markAllMutation.isPending || unreadCount === 0}
+              onClick={() => markAllMutation.mutate()}
+            >
+              {t('siteAnnouncements.actions.markAllRead')}
+            </Button>
+            <Button
+              type='button'
+              variant='destructive'
+              size='sm'
+              disabled={clearMutation.isPending}
+              onClick={() => setClearConfirmOpen(true)}
+            >
+              {t('siteAnnouncements.actions.clear')}
+            </Button>
+          </>
+        }
+      />
 
       <div className='flex flex-wrap items-center gap-3'>
         <Select

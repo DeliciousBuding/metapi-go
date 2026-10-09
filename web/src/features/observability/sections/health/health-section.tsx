@@ -6,6 +6,7 @@ import { Link } from '@tanstack/react-router'
 import { CheckCircle2, Server, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { ModelPill } from '@/components/common/model-pill'
 import {
   Card,
   CardContent,
@@ -269,7 +270,9 @@ function renderBreakersBody(
                 {breaker.siteId}
               </Link>
             </TableCell>
-            <TableCell className='truncate'>{breaker.model || '—'}</TableCell>
+            <TableCell className='truncate'>
+              {breaker.model ? <ModelPill model={breaker.model} /> : '—'}
+            </TableCell>
             <TableCell className='text-right tabular-nums'>
               {breaker.breakerLevel}
             </TableCell>

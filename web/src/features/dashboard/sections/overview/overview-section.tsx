@@ -1,545 +1,168 @@
-// metapi-go/features/dashboard/sections/overview — overview section.
-//
-// Overview: core metric cards (accounts / sites / today's checkin
-// success rate / today's proxy requests) + AnnouncementBanner. The legacy
-// SchedulerStatusPanel is merged in here (a compact scheduled-tasks card).
-//
-// Wires api.getDashboardSnapshot() (view=summary) for the live stat numbers,
-// api.getBalanceHistory(0, 8) for the account sparkline (aggregate balance over
-// the last 8 captured points), and api.getSchedulerStatus() for the
-// scheduled-tasks table.
-
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { Link, type LinkProps } from '@tanstack/react-router'
-import {
-  Activity,
-  CalendarCheck,
-  ChevronDown,
-  ClipboardList,
-  Globe,
-  Play,
-  RefreshCw,
-  Users,
-} from 'lucide-react'
-import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import { CalendarDays, RefreshCw } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
-import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-} from '@/components/ui/empty'
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { toBcp47 } from '@/i18n/languages'
-import { api } from '@/lib/api'
-import type { SchedulerProbeRunSummary } from '@/lib/api/types'
-import { formatInt, formatRatio, formatRelativeTime } from '@/lib/format'
-import { toast } from '@/lib/toast'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { api, type OverviewPeriod } from '@/lib/api'
+import { formatCurrency, formatInt } from '@/lib/format'
 
 import { AnnouncementBanner } from '../../components/announcement-banner'
 import { OnboardingChecklist } from '../../components/onboarding-checklist'
-import { StatCard } from '../../components/stat-card'
-import { TodaySnapshotStrip } from '../../components/today-snapshot'
-import type { BalanceHistoryResponse } from '../../types'
+import { AttentionPanel } from './components/attention-panel'
+import { MaintenancePanel } from './components/maintenance-panel'
+import { ModelUsagePanel } from './components/model-usage-panel'
+import { RequestMetrics } from './components/request-metrics'
+import { RequestTrend } from './components/request-trend'
+import { UpstreamHealthPanel } from './components/upstream-health-panel'
+import { useOverviewReport } from './use-overview-report'
 
-/** Icon-badge tone for the today-checkin card — derived from the data, so a
- * 0% success day no longer reads as success-green. */
-function checkinCardTone(
-  checkin: DashboardSnapshot['todayCheckin'] | undefined
-): 'default' | 'success' | 'warning' {
-  if (!checkin) return 'default'
-  if (checkin.success > 0) return 'success'
-  if (checkin.failed > 0) return 'warning'
-  return 'default'
-}
-
-/** Summary-view dashboard snapshot (GET /api/stats/dashboard?view=summary). */
-type DashboardSnapshot = {
-  siteCount?: number
-  accountCount?: number
-  totalAccounts?: number
-  activeAccounts?: number
+type ResourceSnapshot = {
+  siteCount?: number | null
+  accountCount?: number | null
+  totalAccounts?: number | null
+  activeAccounts?: number | null
+  totalBalance?: number | null
   todayCheckin?: {
     total: number
     success: number
     skipped: number
     failed: number
-  }
-  proxy24h?: {
-    total: number
-    success: number
-    totalTokens: number
-    totalCost: number
-  }
-  performance?: { requestsPerMinute: number; tokensPerMinute: number }
+  } | null
 }
 
-/** Tone + label for a scheduler job last-status value. */
-const SCHEDULER_STATUS_BADGE: Record<
-  string,
-  { variant: 'success' | 'destructive' | 'info' | 'secondary'; key: string }
-> = {
-  success: {
-    variant: 'success',
-    key: 'dashboard.overview.scheduledTasks.statusSuccess',
-  },
-  failed: {
-    variant: 'destructive',
-    key: 'dashboard.overview.scheduledTasks.statusFailed',
-  },
-  running: {
-    variant: 'info',
-    key: 'dashboard.overview.scheduledTasks.statusRunning',
-  },
-  never: {
-    variant: 'secondary',
-    key: 'dashboard.overview.scheduledTasks.statusNever',
-  },
-}
+const PERIOD_KEY = 'metapi.overview.period'
+const PERIODS: OverviewPeriod[] = ['24h', '7d', '30d', 'all']
 
-/** Compact list of the model-probe scheduler's last completed passes. */
-function ProbeRecentRuns({
-  runs,
-  locale,
-}: {
-  runs: SchedulerProbeRunSummary[]
-  locale: string
-}) {
-  const { t } = useTranslation()
-  if (runs.length === 0) {
-    return (
-      <p className='text-muted-foreground text-xs'>
-        {t('dashboard.overview.scheduledTasks.runsEmpty')}
-      </p>
-    )
+function readPeriod(): OverviewPeriod {
+  try {
+    const saved = localStorage.getItem(PERIOD_KEY) as OverviewPeriod | null
+    if (saved && PERIODS.includes(saved)) return saved
+  } catch {
+    /* Storage can be unavailable; range selection still works. */
   }
-  return (
-    <ul className='space-y-1.5'>
-      {runs.map((run) => {
-        // Pass-level verdict stays honest: any failed target makes the pass
-        // a failure even when others succeeded.
-        const failed = run.failed > 0
-        return (
-          <li
-            key={`${run.startedAt ?? ''}-${run.completedAt ?? ''}`}
-            className='flex flex-wrap items-center gap-x-2 gap-y-1 text-xs'
-          >
-            <Badge variant={failed ? 'destructive' : 'success'}>
-              {failed
-                ? t('dashboard.overview.scheduledTasks.runFailed')
-                : t('dashboard.overview.scheduledTasks.runSuccess')}
-            </Badge>
-            <span className='text-muted-foreground tabular-nums'>
-              {run.completedAt
-                ? formatRelativeTime(run.completedAt, locale)
-                : '—'}
-            </span>
-            <span className='text-muted-foreground tabular-nums'>
-              {t('dashboard.overview.scheduledTasks.runTargets', {
-                count: run.targetsScanned,
-              })}
-            </span>
-            <span className='text-muted-foreground tabular-nums'>
-              {t('dashboard.overview.scheduledTasks.runCounts', {
-                success: run.success,
-                failed: run.failed,
-                inconclusive: run.inconclusive,
-                skipped: run.skipped,
-              })}
-            </span>
-          </li>
-        )
-      })}
-    </ul>
-  )
+  return '7d'
 }
 
 export function OverviewSection() {
-  const { t, i18n } = useTranslation()
-  const locale = toBcp47(i18n.language || 'en')
-  const [expandedJob, setExpandedJob] = useState<string | null>(null)
-
-  const {
-    data: snapshot,
-    isLoading: snapshotLoading,
-    error: snapshotError,
-    refetch: refetchSnapshot,
-    isRefetching: snapshotRefetching,
-  } = useQuery({
-    queryKey: ['dashboard-snapshot'],
-    queryFn: () => api.getDashboardSnapshot() as Promise<DashboardSnapshot>,
-    // Keep the QPS / 24h-proxy stat cards fresh without a manual refresh.
-    refetchInterval: 10 * 1000,
-  })
-
-  const {
-    data: balanceHistory,
-    error: balanceError,
-    refetch: refetchBalance,
-    isRefetching: balanceRefetching,
-  } = useQuery({
-    queryKey: ['dashboard-balance-spark', 0, 8],
-    queryFn: () =>
-      api.getBalanceHistory(0, 8) as Promise<BalanceHistoryResponse>,
-  })
-
-  const {
-    data: schedulerStatus,
-    isLoading: schedulerLoading,
-    error: schedulerError,
-    refetch: refetchScheduler,
-  } = useQuery({
-    queryKey: ['scheduler-status'],
-    queryFn: () => api.getSchedulerStatus(),
-  })
-
-  const accountSpark = useMemo(() => {
-    const series = balanceHistory?.series
-    if (!series || series.length === 0) return undefined
-    return series[0].points.map((point) => point.balance)
-  }, [balanceHistory])
-
-  const schedulerRows = schedulerStatus?.items ?? []
-
-  const triggerProbeMutation = useMutation({
-    mutationFn: () => api.probeModelsNow(),
-    onSuccess: () => {
-      toast.success(t('dashboard.overview.scheduledTasks.triggerQueued'))
-      // The pass runs asynchronously server-side; a delayed refetch picks up
-      // the finished run for the recent-runs view.
-      window.setTimeout(() => {
-        void refetchScheduler()
-      }, 5000)
-    },
-    onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error)
-      toast.error(
-        t('dashboard.overview.scheduledTasks.triggerFailed', { message })
-      )
-    },
-  })
-
-  const totalAccounts = snapshot?.totalAccounts ?? snapshot?.accountCount
-  const activeAccounts = snapshot?.activeAccounts
-  const siteCount = snapshot?.siteCount
-  const checkin = snapshot?.todayCheckin
-  const proxy = snapshot?.proxy24h
-  const performance = snapshot?.performance
-
-  // Animate integer KPI values; round during easing so grouping stays clean.
-  const animateInt = (n: number) => formatInt(Math.round(n))
-
-  const accountHint = t('dashboard.overview.statCards.accountCountHint', {
-    active: activeAccounts !== undefined ? formatInt(activeAccounts) : '—',
-  })
-  const proxyHint = t('dashboard.overview.statCards.proxy24hHintRpm', {
-    success: proxy?.success ?? 0,
-    rpm: performance?.requestsPerMinute ?? 0,
-  })
-
-  const checkinDetails = useMemo(() => {
-    if (!checkin) return undefined
-    return [
-      {
-        label: t('dashboard.overview.statCards.checkinSucceeded'),
-        value: formatInt(checkin.success),
-      },
-      {
-        label: t('dashboard.overview.statCards.checkinSkipped'),
-        value: formatInt(checkin.skipped),
-      },
-    ]
-  }, [checkin, t])
-
-  const renderSchedulerBody = (): ReactNode => {
-    if (schedulerLoading) {
-      return <Skeleton className='h-40 w-full rounded-md' />
+  const { t } = useTranslation()
+  const [period, setPeriod] = useState<OverviewPeriod>(readPeriod)
+  function selectPeriod(value: OverviewPeriod) {
+    setPeriod(value)
+    try {
+      localStorage.setItem(PERIOD_KEY, value)
+    } catch {
+      /* Keep the current in-memory selection. */
     }
-    if (schedulerError) {
-      return (
-        <Empty className='border-destructive/40 bg-destructive/10 min-h-24 border'>
-          <EmptyHeader>
-            <EmptyDescription className='text-destructive'>
-              {t('dashboard.overview.scheduledTasks.loadError')}
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => void refetchScheduler()}
-            >
-              <RefreshCw className='size-3.5' />
-              {t('dashboard.overview.scheduledTasks.retry')}
-            </Button>
-          </EmptyContent>
-        </Empty>
-      )
-    }
-    if (schedulerRows.length === 0) {
-      return (
-        <Empty className='min-h-24 border'>
-          <EmptyHeader>
-            <EmptyMedia variant='icon'>
-              <ClipboardList />
-            </EmptyMedia>
-            <EmptyDescription>
-              {t('dashboard.overview.scheduledTasks.empty')}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      )
-    }
-    return (
-      <div className='overflow-x-auto rounded-lg border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className='w-1/3'>
-                {t('dashboard.overview.scheduledTasks.colJob')}
-              </TableHead>
-              <TableHead>
-                {t('dashboard.overview.scheduledTasks.colEnabled')}
-              </TableHead>
-              <TableHead>
-                {t('dashboard.overview.scheduledTasks.colLastStatus')}
-              </TableHead>
-              <TableHead className='text-right'>
-                {t('dashboard.overview.scheduledTasks.colRuns24h')}
-              </TableHead>
-              <TableHead className='text-right'>
-                {t('dashboard.overview.scheduledTasks.colSuccess24h')}
-              </TableHead>
-              <TableHead className='text-right'>
-                {t('dashboard.overview.scheduledTasks.colActions')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {schedulerRows.map((row) => {
-              const status =
-                SCHEDULER_STATUS_BADGE[row.lastStatus ?? ''] ??
-                SCHEDULER_STATUS_BADGE.never
-              const enabledLabel = row.enabled
-                ? t('dashboard.overview.scheduledTasks.enabled')
-                : t('dashboard.overview.scheduledTasks.disabled')
-              const canTrigger =
-                row.job === 'model-probe' && row.enabled === true
-              const expanded = expandedJob === row.job
-              const showRunsToggle =
-                row.job === 'model-probe' && (row.recentRuns?.length ?? 0) > 0
-              const jobLabel = t(
-                `dashboard.overview.scheduledTasks.jobLabels.${row.job}`,
-                { defaultValue: row.job }
-              )
-              const showCheckinLogsLink =
-                row.job === 'checkin' && row.lastStatus === 'failed'
-              return (
-                <Fragment key={row.job}>
-                  <TableRow>
-                    <TableCell className='font-medium'>{jobLabel}</TableCell>
-                    <TableCell>
-                      <Badge variant={row.enabled ? 'success' : 'secondary'}>
-                        {enabledLabel}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={status.variant}>{t(status.key)}</Badge>
-                    </TableCell>
-                    <TableCell className='text-right tabular-nums'>
-                      {formatInt(row.runs24h)}
-                    </TableCell>
-                    <TableCell className='text-right tabular-nums'>
-                      {formatInt(row.success24h)}
-                    </TableCell>
-                    <TableCell className='text-right'>
-                      <div className='flex items-center justify-end gap-1'>
-                        {showCheckinLogsLink && (
-                          <Button
-                            variant='outline'
-                            size='sm'
-                            render={
-                              <Link
-                                to='/checkin'
-                                search={{ status: 'failed' }}
-                              />
-                            }
-                          >
-                            {t(
-                              'dashboard.overview.scheduledTasks.viewCheckinLogs'
-                            )}
-                          </Button>
-                        )}
-                        {canTrigger && (
-                          <Button
-                            variant='outline'
-                            size='sm'
-                            disabled={triggerProbeMutation.isPending}
-                            onClick={() => triggerProbeMutation.mutate()}
-                          >
-                            <Play className='size-3.5' />
-                            {t(
-                              'dashboard.overview.scheduledTasks.triggerButton'
-                            )}
-                          </Button>
-                        )}
-                        {showRunsToggle && (
-                          <Button
-                            variant='ghost'
-                            size='sm'
-                            aria-expanded={expanded}
-                            aria-label={t(
-                              'dashboard.overview.scheduledTasks.latestRuns'
-                            )}
-                            onClick={() =>
-                              setExpandedJob(expanded ? null : row.job)
-                            }
-                          >
-                            <ChevronDown
-                              className={cn(
-                                'size-3.5 transition-transform',
-                                expanded && 'rotate-180'
-                              )}
-                            />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  {expanded && row.recentRuns && (
-                    <TableRow className='bg-muted/30'>
-                      <TableCell colSpan={6} className='px-3 py-2'>
-                        <ProbeRecentRuns
-                          runs={row.recentRuns}
-                          locale={locale}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </div>
-    )
   }
-
+  const report = useOverviewReport(period)
+  const snapshot = useQuery({
+    queryKey: ['dashboard-snapshot'],
+    queryFn: () => api.getDashboardSnapshot() as Promise<ResourceSnapshot>,
+    refetchInterval: 30_000,
+  })
+  const data = snapshot.data
+  const accounts = data?.totalAccounts ?? data?.accountCount
   return (
     <div className='flex flex-col gap-4'>
       <AnnouncementBanner />
-
-      <TodaySnapshotStrip />
-
-      {/* Four-step journey checklist (site → account → route → key). Owns its
-          own visibility: renders only while a count is known AND a step is
-          still empty, so it neither flashes on first paint nor outstays the
-          finished setup. */}
-      <OnboardingChecklist siteCount={siteCount} accountCount={totalAccounts} />
-
-      {/* Snapshot / balance failures used to render silent "—" cards;
-         surface them with a retry instead. */}
-      <QueryErrorBanner
-        error={snapshotError ?? balanceError}
-        messageKey={
-          snapshotError
-            ? 'dashboard.overview.error.snapshotLoad'
-            : 'dashboard.overview.error.balanceLoad'
-        }
-        onRetry={() => {
-          void refetchSnapshot()
-          void refetchBalance()
-        }}
-        isRetrying={snapshotRefetching || balanceRefetching}
+      <OnboardingChecklist
+        siteCount={data?.siteCount ?? undefined}
+        accountCount={accounts ?? undefined}
       />
-
-      <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'>
-        <StatCard
-          title={t('dashboard.overview.statCards.accountCount')}
-          value={formatInt(totalAccounts ?? null)}
-          valueNumber={totalAccounts ?? undefined}
-          valueFormat={animateInt}
-          hint={accountHint}
-          spark={accountSpark}
-          icon={Users}
-          loading={snapshotLoading}
-          to='/accounts'
-        />
-        <StatCard
-          title={t('dashboard.overview.statCards.siteCount')}
-          value={formatInt(siteCount ?? null)}
-          valueNumber={siteCount ?? undefined}
-          valueFormat={animateInt}
-          hint={t('dashboard.overview.statCards.siteCountHint')}
-          icon={Globe}
-          loading={snapshotLoading}
-          to='/sites'
-        />
-        <StatCard
-          title={t('dashboard.overview.statCards.todayCheckin')}
-          value={!checkin ? '—' : formatRatio(checkin.success, checkin.total)}
-          icon={CalendarCheck}
-          tone={checkinCardTone(checkin)}
-          details={checkinDetails}
-          loading={snapshotLoading}
-          to='/checkin'
-        />
-        <StatCard
-          title={t('dashboard.overview.statCards.proxy24h')}
-          value={!proxy ? '—' : formatInt(proxy.total)}
-          valueNumber={proxy ? proxy.total : undefined}
-          valueFormat={animateInt}
-          hint={proxyHint}
-          icon={Activity}
-          loading={snapshotLoading}
-          to='/proxy-logs'
-        />
+      <div className='flex flex-wrap items-center justify-between gap-3'>
+        <div className='text-muted-foreground flex items-center gap-2 text-sm'>
+          <CalendarDays className='size-4' aria-hidden='true' />
+          <span>{t('dashboard.operations.rangeLabel')}</span>
+          <span className='text-foreground font-medium'>
+            {t(`dashboard.operations.period.${period}`)}
+          </span>
+        </div>
+        <div className='flex flex-wrap items-center gap-2'>
+          <div
+            role='group'
+            aria-label={t('dashboard.operations.rangeLabel')}
+            className='bg-muted flex items-center gap-1 rounded-lg p-1'
+          >
+            {PERIODS.map((value) => (
+              <Button
+                key={value}
+                size='sm'
+                variant={period === value ? 'secondary' : 'ghost'}
+                aria-pressed={period === value}
+                onClick={() => selectPeriod(value)}
+                className='h-7 px-3'
+              >
+                {t(`dashboard.operations.period.${value}`)}
+              </Button>
+            ))}
+          </div>
+          <Button
+            variant='outline'
+            size='icon'
+            aria-label={t('dashboard.operations.refresh')}
+            disabled={report.isFetching}
+            onClick={() => void report.refetch()}
+          >
+            <RefreshCw
+              className={report.isFetching ? 'size-4 animate-spin' : 'size-4'}
+            />
+          </Button>
+        </div>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className='flex items-center gap-2'>
-            <Activity className='size-4' />
-            {t('dashboard.overview.scheduledTasks.title')}
-          </CardTitle>
-          <CardDescription className='text-xs'>
-            {t('dashboard.overview.scheduledTasks.description')}
-          </CardDescription>
-          <CardAction>
-            <Link
-              to={
-                '/settings/basic/scheduling' as LinkProps['to'] | (string & {})
-              }
-              className={buttonVariants({ variant: 'ghost', size: 'sm' })}
-            >
-              {t('dashboard.overview.scheduledTasks.editSchedule')}
-            </Link>
-          </CardAction>
-        </CardHeader>
-        <CardContent>{renderSchedulerBody()}</CardContent>
-      </Card>
+      <RequestMetrics period={period} />
+      <div className='grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]'>
+        <RequestTrend period={period} />
+        <ModelUsagePanel period={period} />
+      </div>
+      <div className='grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]'>
+        <UpstreamHealthPanel period={period} />
+        <AttentionPanel />
+      </div>
+      <section
+        className='space-y-2 rounded-lg border px-4 py-3'
+        aria-label={t('dashboard.operations.resources')}
+      >
+        <QueryErrorBanner
+          error={snapshot.error}
+          messageKey='dashboard.overview.error.snapshotLoad'
+          onRetry={() => void snapshot.refetch()}
+          isRetrying={snapshot.isFetching}
+        />
+        <div className='text-muted-foreground flex flex-wrap items-center gap-x-6 gap-y-2 text-xs'>
+          <span className='text-foreground font-medium'>
+            {t('dashboard.operations.resources')}
+          </span>
+          <Link to='/sites' className='hover:text-primary'>
+            {t('dashboard.operations.siteCount', {
+              value: formatInt(data?.siteCount ?? null),
+            })}
+          </Link>
+          <Link to='/accounts' className='hover:text-primary'>
+            {t('dashboard.operations.accountCount', {
+              value: formatInt(accounts ?? null),
+              active: formatInt(data?.activeAccounts ?? null),
+            })}
+          </Link>
+          <Link to='/accounts' className='hover:text-primary'>
+            {t('dashboard.operations.balance', {
+              value:
+                data?.totalBalance == null
+                  ? '—'
+                  : formatCurrency(data.totalBalance),
+            })}
+          </Link>
+          <Link to='/checkin' className='hover:text-primary'>
+            {t('dashboard.operations.checkin', {
+              success: formatInt(data?.todayCheckin?.success ?? null),
+              total: formatInt(data?.todayCheckin?.total ?? null),
+            })}
+          </Link>
+        </div>
+      </section>
+      <MaintenancePanel />
     </div>
   )
 }

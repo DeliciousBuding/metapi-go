@@ -22,6 +22,7 @@ import {
   stringSearchParam,
   tableSortingItemSchema,
 } from '@/lib/helpers/searchParams'
+import { isValidMapObject } from '@/lib/helpers/string-map'
 
 import type { SiteProbeScope } from '../types'
 import {
@@ -51,19 +52,6 @@ function isEmptyOrHttpUrl(value: string): boolean {
   return isHttpUrl(trimmed)
 }
 
-function isEmptyOrValidJson(value: string): boolean {
-  const trimmed = value.trim()
-  if (trimmed.length === 0) return true
-  try {
-    const parsed: unknown = JSON.parse(trimmed)
-    return (
-      parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
-    )
-  } catch {
-    return false
-  }
-}
-
 export const siteFormSchema = z.object({
   name: z
     .string()
@@ -81,9 +69,7 @@ export const siteFormSchema = z.object({
   platform: z.string().trim().max(64, 'sites.form.errors.platformTooLong'),
   proxyUrl: z.string().refine(isEmptyOrProxyUrl, PROXY_URL_MESSAGE_KEY),
   useSystemProxy: z.boolean(),
-  customHeaders: z
-    .string()
-    .refine(isEmptyOrValidJson, JSON_OR_EMPTY_MESSAGE_KEY),
+  customHeaders: z.string().refine(isValidMapObject, JSON_OR_EMPTY_MESSAGE_KEY),
   customHeadersOverrideRequestHeaders: z.boolean(),
   // Numeric fields use plain `z.number()` (no `z.coerce`/`.default()`) so the
   // zod resolver's input and output types match, keeping RHF typing clean.
