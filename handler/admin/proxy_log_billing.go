@@ -5,6 +5,16 @@ import (
 	"math"
 )
 
+// Keep nullable observations and dialect-independent JSON types aligned for
+// both the list and detail APIs. SQLite BOOLEAN scans are integer 0/1.
+func normalizeProxyLogRow(row map[string]any) {
+	if row["isStream"] != nil {
+		row["isStream"] = coerceBool(row["isStream"])
+	}
+	billing := decodeProxyLogBilling(row["billingDetails"])
+	projectProxyLogCacheUsage(row, billing)
+}
+
 // Billing is application-owned JSON. Legacy writers used snake_case inside
 // these three sections; expose the same camelCase contract as current writers.
 func decodeProxyLogBilling(raw any) any {

@@ -805,7 +805,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, row := range items {
-			projectProxyLogCacheUsage(row, decodeProxyLogBilling(row["billingDetails"]))
+			normalizeProxyLogRow(row)
 		}
 		queryPayload["items"] = normalizeSlice(items)
 
@@ -947,12 +947,8 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 	if raw, ok := row["billingDetails"]; ok {
 		parsed := decodeProxyLogBilling(raw)
 		row["billingDetails"] = parsed
-		projectProxyLogCacheUsage(row, parsed)
 	}
-	// SQLite scans BOOLEAN as 0/1; the public contract is JSON boolean on both dialects.
-	if row["isStream"] != nil {
-		row["isStream"] = coerceBool(row["isStream"])
-	}
+	normalizeProxyLogRow(row)
 
 	writeJSON(w, http.StatusOK, row)
 }
