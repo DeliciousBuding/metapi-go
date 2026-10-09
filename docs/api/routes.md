@@ -26,7 +26,9 @@ success clears cooldown. Health is per model/credential grant, shared across its
 group memberships, and does not change unrelated grants. Imported historical
 statistics are retained separately and are not treated as live health evidence.
 
-Generation requests can use any of the four client protocols. Selection prefers
+Channels with an explicit `endpointConfig` can translate generation requests
+from any of the four client protocols. Legacy base/path grants retain their
+original protocol permission checks. Selection prefers
 the client's protocol when it is in the route item's allowed list, otherwise the
 first allowed outbound protocol is converted using the existing transform
 packages. Native requests retain their original body apart from model mapping

@@ -14,19 +14,12 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/backup"
+	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
 func installAxonHubEndpointFixture(t *testing.T, provider, baseURL string, endpoints []map[string]any, settings ...map[string]any) {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatal(err)
-	}
 	channelSettings := map[string]any{}
 	if len(settings) > 0 {
 		channelSettings = settings[0]
@@ -45,6 +38,19 @@ func installAxonHubEndpointFixture(t *testing.T, provider, baseURL string, endpo
 	if err != nil {
 		t.Fatal(err)
 	}
+	installAxonHubRawFixture(t, raw)
+}
+
+func installAxonHubRawFixture(t *testing.T, raw []byte) *store.DB {
+	t.Helper()
+	db, err := store.Open(store.DialectSQLite, ":memory:", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := store.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := backup.ImportAxonHubV14(db, raw, "endpoint-fixture", false); err != nil {
 		t.Fatal(err)
 	}
@@ -53,8 +59,11 @@ func installAxonHubEndpointFixture(t *testing.T, provider, baseURL string, endpo
 	t.Cleanup(func() { config.SetRuntime(oldRuntime) })
 	router := routing.NewTokenRouter(service.NewProxyRoutingStore(db), &config.Config{}, nil, nil)
 	previous := getUpstreamConfig()
-	SetUpstreamConfig(&UpstreamConfig{Router: router, LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil }})
+	SetUpstreamConfig(&UpstreamConfig{Router: router, LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil }, ResolveDirectCredential: func(ctx context.Context, id int64, proxyURL *string, force bool) (*oauth.DirectCredentialResult, error) {
+		return oauth.ResolveDirectCredential(ctx, db.DB, id, proxyURL, force)
+	}})
 	t.Cleanup(func() { SetUpstreamConfig(previous) })
+	return db
 }
 
 func TestAxonHubImportedEndpointsReachDistinctUpstreams(t *testing.T) {

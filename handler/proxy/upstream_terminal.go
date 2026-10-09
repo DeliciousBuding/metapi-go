@@ -137,6 +137,10 @@ func (b *nativeTerminalBody) normalizeBlock(block []byte) []byte {
 	if bytes.Equal(normalized, raw) {
 		return block
 	}
+	return replaceSSEBlockData(block, normalized)
+}
+
+func replaceSSEBlockData(block, normalized []byte) []byte {
 	// Only the data field changes. Comments, event/id/retry and line endings
 	// retain their original order. A multiline JSON payload may become one line.
 	lines := bytes.Split(block, []byte("\n"))

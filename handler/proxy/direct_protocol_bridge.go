@@ -8,6 +8,8 @@ import (
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/service/oauth"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
 	gemini "github.com/deliciousbuding/metapi-go/transform/gemini/generate_content"
 	"github.com/deliciousbuding/metapi-go/transform/openai/responses"
@@ -58,7 +60,32 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 	if endpoint, _ := proxy.EndpointFromPath(path); endpoint == proxy.EndpointChat {
 		body, expectUsage = applyUpstreamStreamIncludeUsage(body, "openai", path, ctx.IsStream)
 	}
-	finished, pending, _ := dispatchEndpointAttemptWithContinue(w, r, ctx, cfg, selected, model, proxyConfig, path, "application/json", body, firstByteTimeoutMs, retry, maxRetries, true, true, ctx.IsStream, expectUsage, requestID, options)
+	credential := &oauth.DirectCredentialResult{AccessToken: selected.TokenValue, Kind: store.DirectCredentialAPIKey, Provider: selected.Direct.Provider}
+	if cfg.ResolveDirectCredential != nil && selected.Direct.CredentialID > 0 {
+		var proxyURL *string
+		if proxyConfig != nil && proxyConfig.ProxyURL != "" {
+			value := proxyConfig.ProxyURL
+			proxyURL = &value
+		}
+		credential, err = cfg.ResolveDirectCredential(r.Context(), selected.Direct.CredentialID, proxyURL, false)
+	} else if selected.Direct.CredentialKind == store.DirectCredentialOAuth {
+		err = oauth.ErrDirectCredentialUnavailable
+	}
+	if err != nil || credential == nil || credential.AccessToken == "" {
+		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "Selected direct credential is unavailable", "upstream_error", requestID)
+		return true, nil
+	}
+	selectedCopy := *selected
+	selectedCopy.TokenValue = credential.AccessToken
+	selected = &selectedCopy
+	endpoint := directEndpointForPath(selected.Direct.Endpoints, path)
+	wire, err := prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header)
+	if err != nil {
+		writeJSONErrorWithRequest(w, http.StatusBadRequest, err.Error(), "invalid_request_error", requestID)
+		return true, nil
+	}
+	r = r.WithContext(withDirectProviderWire(r.Context(), wire))
+	finished, pending, _ := dispatchEndpointAttemptWithContinue(w, r, ctx, cfg, selected, model, proxyConfig, path, "application/json", wire.Body, firstByteTimeoutMs, retry, maxRetries, true, true, ctx.IsStream || wire.ForceStream, expectUsage, requestID, options)
 	return finished, pending
 }
 

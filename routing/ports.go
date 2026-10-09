@@ -76,8 +76,9 @@ type DownstreamRoutingPolicy struct {
 	KeyWeight float64
 	// RequestedContextTokens is a best-effort inbound context estimate for
 	// multi-tier route pick. 0 means unknown → first-match honesty.
-	RequestedContextTokens   int64
-	RequiredUpstreamProtocol int
+	RequestedContextTokens          int64
+	RequiredUpstreamProtocol        int
+	AllowUpstreamProtocolConversion bool
 }
 
 // CredentialRef identifies a specific credential to exclude.

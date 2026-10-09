@@ -33,6 +33,10 @@ type DirectEndpoints struct {
 	Gemini    *DirectEndpoint `json:"gemini,omitempty"`
 }
 
+func (e DirectEndpoints) IsConfigured() bool {
+	return e.Chat != nil || e.Responses != nil || e.Messages != nil || e.Gemini != nil
+}
+
 func (e DirectEndpoints) Value() (driver.Value, error) {
 	b, err := json.Marshal(e)
 	return string(b), err

@@ -60,6 +60,9 @@ func directSelectedPath(direct *store.DirectUpstreamCandidate, downstreamPath, m
 	if !ok {
 		return "", fmt.Errorf("unsupported direct upstream protocol")
 	}
+	if !direct.Endpoints.IsConfigured() && direct.Protocols&directProtocolBit(client) == 0 {
+		return "", fmt.Errorf("direct grant does not authorize the client protocol")
+	}
 	order := direct.ProtocolOrder
 	if len(order) == 0 {
 		order = store.DirectProtocolOrder{2, 4, 8, 16}

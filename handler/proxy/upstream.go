@@ -24,6 +24,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/alert"
+	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/store"
 	messages "github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
 )
@@ -39,7 +40,8 @@ type UpstreamConfig struct {
 	SiteLimiter *proxy.SiteConcurrencyLimiter
 	// LogProxy persists successful/failed proxy attempts into proxy_logs.
 	// When nil, defaultLogProxyWriter uses store.GetDB() (no-op if DB unset).
-	LogProxy func(ctx context.Context, entry proxy.ProxyLogEntry) error
+	LogProxy                func(ctx context.Context, entry proxy.ProxyLogEntry) error
+	ResolveDirectCredential func(context.Context, int64, *string, bool) (*oauth.DirectCredentialResult, error)
 }
 
 var upstreamCfg *UpstreamConfig
@@ -130,7 +132,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolGemini
 		}
 		if !strings.HasSuffix(strings.TrimRight(upstreamPath, "/"), "/count_tokens") {
-			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolChat | routing.UpstreamProtocolResponses | routing.UpstreamProtocolAnthropic | routing.UpstreamProtocolGemini
+			downstreamPolicy.AllowUpstreamProtocolConversion = true
 		}
 	}
 	// Never forward a downstream path containing
@@ -678,6 +680,7 @@ func dispatchEndpointAttemptWithContinue(
 			req.Header.Set("Authorization", "Bearer "+selected.TokenValue)
 		}
 	}
+	applyDirectProviderHeaders(req, directProviderWireFromContext(r.Context()))
 
 	resp, err := sendUpstreamRequest(cfg, req, proxyConfig, firstByteTimeoutMs, effectiveStream)
 	latencyMs := time.Since(startedAt).Milliseconds()
@@ -733,6 +736,28 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 
+	// A Codex endpoint always streams upstream. JSON clients receive its actual
+	// terminal response, with the original stream usage retained for accounting.
+	var aggregatedUsage *ParsedUsage
+	if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.Profile == "codex" && !ctx.IsStream && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		collected, usage, aggregateErr := collectDirectCodexResponse(resp, startedAt)
+		latencyMs = time.Since(startedAt).Milliseconds()
+		if aggregateErr != nil {
+			reason := "Cannot aggregate upstream Codex response: " + aggregateErr.Error()
+			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, reason)
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, false, usage, retry, requestID, reason)
+			writeJSONErrorWithRequest(w, http.StatusBadGateway, reason, "upstream_error", requestID)
+			observeProxyTerminal(ctx, shared.OutcomeUpstreamError, false, time.Since(startedAt))
+			return true, nil, false
+		}
+		aggregatedUsage = &usage
+		resp.Body = io.NopCloser(bytes.NewReader(collected))
+		resp.Header.Set("Content-Type", "application/json")
+		resp.Header.Del("Content-Encoding")
+		resp.Header.Del("Content-Length")
+		resp.Header.Del("ETag")
+		effectiveStream = false
+	}
 	// Step 9: Handle response
 	if effectiveStream {
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -887,6 +912,9 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 	usage := body.parseUsage()
+	if aggregatedUsage != nil {
+		usage = *aggregatedUsage
+	}
 	// Same single judge the streaming path calls (see judgeStreamContent), fed
 	// with the buffered facts this path already has. When the body could not be
 	// decoded the facts say so explicitly and the judge declines to rule.
@@ -916,6 +944,14 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 	directBridge := selected.Direct != nil && directBridgeNeeded(ctx.DownstreamPath, upstreamPath)
+	if selected.Direct != nil && body.readable {
+		restored := restoreDirectProviderResponse(r.Context(), respBody)
+		if !bytes.Equal(restored, respBody) {
+			resp.Header.Del("Content-Length")
+			resp.Header.Del("ETag")
+			respBody = restored
+		}
+	}
 	if directBridge || isMessagesChatBridge(ctx.DownstreamPath, upstreamPath) {
 		var convertErr error
 		if body.readable {
