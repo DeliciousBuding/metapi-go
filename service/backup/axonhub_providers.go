@@ -12,13 +12,11 @@ import "github.com/deliciousbuding/metapi-go/routing"
 // provider into a mis-mapped Metapi channel.
 //
 // Protocols is the servable subset of the type's *default* endpoints, used only
-// when a channel declares no endpoints of its own. UnservableDefaults records
-// that the type's built-in contract also covers formats Metapi's direct relay
-// cannot carry (embeddings, images, audio, video); those are reported per
-// channel instead of being modeled.
+// alongside custom endpoints. ResidualFormats records built-in formats the
+// direct relay cannot carry; these remain visible in the preview.
 type axonHubProviderType struct {
-	Protocols          int
-	UnservableDefaults bool
+	Protocols       int
+	ResidualFormats []string
 	// Supported is false when the source channel's wire contract cannot be
 	// reproduced by a Metapi direct grant: request/response translation,
 	// non-static or signed credentials, or a non OpenAI/Anthropic wire format.
@@ -41,21 +39,21 @@ const (
 var axonHubProviderTypes = map[string]axonHubProviderType{
 	// OpenAI-compatible chat / Responses / Anthropic-message channels with a
 	// static API key. These are the types a direct grant can actually serve.
-	"openai":                {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"openai":                {Protocols: protoChat, ResidualFormats: axonHubFullResiduals, Supported: true},
 	"openai_responses":      {Protocols: protoResponses, Supported: true},
-	"atlascloud":            {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"atlascloud":            {Protocols: protoChat, ResidualFormats: axonHubCompatibleResiduals, Supported: true},
 	"qiniu":                 {Protocols: protoChat, Supported: true},
 	"qiniu_anthropic":       {Protocols: protoMessages, Supported: true},
 	"cline":                 {Protocols: protoChat, Supported: true},
-	"fenno":                 {Protocols: protoResponses, Supported: true},
-	"vercel":                {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"fenno":                 {Protocols: protoResponses, Reason: reasonProviderTranslation},
+	"vercel":                {Protocols: protoChat, ResidualFormats: axonHubCompatibleResiduals, Supported: true},
 	"anthropic":             {Protocols: protoMessages, Supported: true},
 	"gemini_openai":         {Protocols: protoChat, Supported: true},
-	"deepseek":              {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"deepseek":              {Protocols: protoChat, ResidualFormats: []string{"openai/completions"}, Supported: true},
 	"deepseek_anthropic":    {Protocols: protoMessages, Supported: true},
-	"deepinfra":             {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"deepinfra":             {Protocols: protoChat, ResidualFormats: axonHubCompatibleResiduals, Supported: true},
 	"fireworks":             {Protocols: protoChat, Supported: true},
-	"doubao":                {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"doubao":                {Protocols: protoChat, ResidualFormats: []string{"seedance/video"}, Supported: true},
 	"doubao_anthropic":      {Protocols: protoMessages, Supported: true},
 	"moonshot":              {Protocols: protoChat, Supported: true},
 	"moonshot_anthropic":    {Protocols: protoMessages, Supported: true},
@@ -64,34 +62,46 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 	"zai":                   {Protocols: protoChat, Supported: true},
 	"zhipu_anthropic":       {Protocols: protoMessages, Supported: true},
 	"zai_anthropic":         {Protocols: protoMessages, Supported: true},
-	"openrouter":            {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"openrouter":            {Protocols: protoChat, ResidualFormats: axonHubAudioResiduals, Supported: true},
 	"xiaomi":                {Protocols: protoChat, Supported: true},
 	"xiaomi_anthropic":      {Protocols: protoMessages, Supported: true},
-	"xai":                   {Protocols: protoChat, Supported: true},
-	"ppio":                  {Protocols: protoChat, UnservableDefaults: true, Supported: true},
-	"siliconflow":           {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"xai":                   {Protocols: protoChat | protoResponses, Supported: true},
+	"ppio":                  {Protocols: protoChat, ResidualFormats: axonHubCompatibleResiduals, Supported: true},
+	"siliconflow":           {Protocols: protoChat, ResidualFormats: axonHubCompatibleResiduals, Supported: true},
 	"volcengine":            {Protocols: protoChat, Supported: true},
 	"volcengine_anthropic":  {Protocols: protoMessages, Supported: true},
 	"longcat":               {Protocols: protoChat, Supported: true},
 	"longcat_anthropic":     {Protocols: protoMessages, Supported: true},
-	"minimax":               {Protocols: protoChat, Supported: true},
+	"minimax":               {Protocols: protoChat, ResidualFormats: []string{"openai/image_generation"}, Supported: true},
 	"minimax_anthropic":     {Protocols: protoMessages, Supported: true},
-	"aihubmix":              {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"aihubmix":              {Protocols: protoChat, ResidualFormats: axonHubCompatibleResiduals, Supported: true},
 	"aihubmix_anthropic":    {Protocols: protoMessages, Supported: true},
-	"burncloud":             {Protocols: protoChat, UnservableDefaults: true, Supported: true},
-	"modelscope":            {Protocols: protoChat, Supported: true},
+	"burncloud":             {Protocols: protoChat, ResidualFormats: axonHubCompatibleResiduals, Supported: true},
+	"modelscope":            {Protocols: protoChat, ResidualFormats: []string{"modelscope/image_generation"}, Supported: true},
 	"bailian":               {Protocols: protoChat, Supported: true},
 	"bailian_anthropic":     {Protocols: protoMessages, Supported: true},
-	"github":                {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"github":                {Protocols: protoChat, ResidualFormats: axonHubCompatibleResiduals, Supported: true},
 	"cerebras":              {Protocols: protoChat, Supported: true},
-	"nanogpt":               {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"nanogpt":               {Protocols: protoChat, ResidualFormats: axonHubFullResiduals, Supported: true},
 	"nanogpt_responses":     {Protocols: protoResponses, Supported: true},
 	"ollama_anthropic":      {Protocols: protoMessages, Supported: true},
-	"evolink":               {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"evolink":               {Protocols: protoChat, ResidualFormats: axonHubCompatibleResiduals, Supported: true},
 	"evolink_anthropic":     {Protocols: protoMessages, Supported: true},
-	"groq":                  {Protocols: protoChat, UnservableDefaults: true, Supported: true},
+	"groq":                  {Protocols: protoChat, ResidualFormats: axonHubAudioResiduals, Supported: true},
 	"opencode_go":           {Protocols: protoChat, Supported: true},
-	"opencode_go_anthropic": {Protocols: protoMessages, Supported: true},
+	"opencode_go_anthropic": {Supported: true},
+
+	"xai_responses":         {Protocols: protoResponses, Supported: true},
+	"bailian_responses":     {Protocols: protoResponses, Supported: true},
+	"zenmux":                {Protocols: protoChat, ResidualFormats: axonHubFullResiduals, Supported: true},
+	"zenmux_responses":      {Protocols: protoResponses, Supported: true},
+	"zenmux_anthropic":      {Protocols: protoMessages, Supported: true},
+	"commandcode":           {Protocols: protoChat, Supported: true},
+	"commandcode_anthropic": {Protocols: protoMessages, Supported: true},
+	"xai_subscription":      {Protocols: protoResponses, Reason: reasonProviderCredentials},
+	"zenmux_gemini":         {Reason: reasonProviderTranslation},
+	"zenmux_video":          {Reason: reasonProviderWire},
+	"typesafe":              {Reason: reasonProviderWire},
 
 	// Wire formats Metapi's direct relay has no transformer for.
 	"gemini":         {Reason: reasonProviderTranslation},
@@ -120,13 +130,14 @@ var axonHubServableFormats = map[string]int{
 	"anthropic/messages":      protoMessages,
 }
 
-// axonHubDefaultPaths mirrors the direct-relay defaults used by the Octopus
-// importer; a source endpoint path always overrides them.
-var axonHubDefaultPaths = map[int]string{
-	protoChat:      "/v1/chat/completions",
-	protoResponses: "/v1/responses",
-	protoMessages:  "/v1/messages",
+var axonHubCompatibleResiduals = []string{
+	"openai/embeddings", "openai/image_generation", "openai/image_edit",
+	"openai/image_variation", "openai/video", "openai/moderations",
 }
+var axonHubAudioResiduals = []string{
+	"openai/audio_speech", "openai/audio_transcriptions", "openai/audio_translations",
+}
+var axonHubFullResiduals = append(append([]string{}, axonHubCompatibleResiduals...), axonHubAudioResiduals...)
 
 // axonHubResidualProtocolFormats names api_format values that AxonHub may grant
 // but a Metapi direct grant cannot carry. Kept as an explicit list so a preview
@@ -150,5 +161,10 @@ var axonHubResidualProtocolFormats = map[string]string{
 	"ollama/chat":                 "Ollama native protocol is not routed by direct grants",
 	"seedance/video":              "Seedance video is not routed by direct grants",
 	"aisdk/text":                  "AI SDK text protocol is not routed by direct grants",
+	"typesafe/systemone":          "TypeSafe System One is not routed by direct grants",
+	"zenmux/video":                "ZenMux video is not routed by direct grants",
+	"modelscope/image_generation": "ModelScope images are not routed by direct grants",
+	"openai/alpha_search":         "alpha search is not routed by direct grants",
+	"openai/decisions":            "decisions are not routed by direct grants",
 	"aisdk/datastream":            "AI SDK data stream protocol is not routed by direct grants",
 }

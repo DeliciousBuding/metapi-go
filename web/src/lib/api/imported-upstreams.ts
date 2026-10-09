@@ -1,5 +1,7 @@
 import { request } from './transport'
 
+type ImportedEndpoint = { url: string; auth: 'bearer' | 'x-api-key' }
+
 export type ImportedUpstreamInventory = {
   items: Array<{
     id: number
@@ -7,6 +9,11 @@ export type ImportedUpstreamInventory = {
     originKey: string
     dialect: string
     baseUrl: string
+    endpointConfig?: {
+      chat?: ImportedEndpoint
+      responses?: ImportedEndpoint
+      messages?: ImportedEndpoint
+    }
     enabled: boolean
     credentialCount: number
     modelCount: number

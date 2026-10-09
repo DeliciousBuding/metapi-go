@@ -9,7 +9,7 @@ func buildUpstreamChannelsDDL(d string) string {
 		return `CREATE TABLE IF NOT EXISTS upstream_channels (
 			id SERIAL PRIMARY KEY, origin_key TEXT NOT NULL, source_id BIGINT NOT NULL,
 			name TEXT NOT NULL, dialect TEXT NOT NULL, enabled BOOLEAN NOT NULL,
-			base_url TEXT NOT NULL, openai_chat_completion_path TEXT NOT NULL,
+			base_url TEXT NOT NULL, endpoint_config TEXT NOT NULL DEFAULT '{}', openai_chat_completion_path TEXT NOT NULL,
 			openai_response_path TEXT NOT NULL, anthropic_message_path TEXT NOT NULL,
 			proxy BOOLEAN NOT NULL, channel_proxy TEXT NOT NULL, custom_header TEXT NOT NULL,
 			param_override TEXT NOT NULL, match_regex TEXT NOT NULL,
@@ -19,7 +19,7 @@ func buildUpstreamChannelsDDL(d string) string {
 	return `CREATE TABLE IF NOT EXISTS upstream_channels (
 		id INTEGER PRIMARY KEY AUTOINCREMENT, origin_key TEXT NOT NULL, source_id BIGINT NOT NULL,
 		name TEXT NOT NULL, dialect TEXT NOT NULL, enabled INTEGER NOT NULL,
-		base_url TEXT NOT NULL, openai_chat_completion_path TEXT NOT NULL,
+		base_url TEXT NOT NULL, endpoint_config TEXT NOT NULL DEFAULT '{}', openai_chat_completion_path TEXT NOT NULL,
 		openai_response_path TEXT NOT NULL, anthropic_message_path TEXT NOT NULL,
 		proxy INTEGER NOT NULL, channel_proxy TEXT NOT NULL, custom_header TEXT NOT NULL,
 		param_override TEXT NOT NULL, match_regex TEXT NOT NULL,

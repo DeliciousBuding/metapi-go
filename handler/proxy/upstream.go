@@ -637,6 +637,20 @@ func dispatchEndpointAttemptWithContinue(
 		upstreamBaseURL = selected.Direct.BaseURL
 	}
 	upstreamURL := proxy.BuildUpstreamURL(upstreamBaseURL, upstreamPath)
+	var directEndpoint *store.DirectEndpoint
+	if selected.Direct != nil && ctx != nil {
+		downstreamPath := ctx.DownstreamPath
+		if downstreamPath == "" {
+			downstreamPath = r.URL.Path
+		}
+		directEndpoint = directEndpointForPath(selected.Direct.Endpoints, downstreamPath)
+		if directEndpoint != nil {
+			upstreamURL = directEndpoint.URL
+			if strings.HasSuffix(strings.TrimRight(strings.Split(downstreamPath, "?")[0], "/"), "/count_tokens") {
+				upstreamURL = strings.TrimRight(upstreamURL, "/") + "/count_tokens"
+			}
+		}
+	}
 	startedAt := time.Now()
 
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, upstreamURL, bytesReader(bodyBytes))
@@ -676,7 +690,11 @@ func dispatchEndpointAttemptWithContinue(
 		if selected.Direct != nil {
 			req.Header.Del("x-api-key")
 		}
-		if directMessagesRequest {
+		useAPIKey := directMessagesRequest
+		if directEndpoint != nil {
+			useAPIKey = directEndpoint.Auth == store.DirectAuthAPIKey
+		}
+		if useAPIKey {
 			req.Header.Set("x-api-key", selected.TokenValue)
 			req.Header.Del("Authorization")
 		} else {

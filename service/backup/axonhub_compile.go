@@ -11,6 +11,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // axonHubPlan is the single compiled result shared by the preview and the
@@ -39,6 +40,7 @@ type axonHubPlanChannel struct {
 	ChatPath       string
 	ResponsesPath  string
 	MessagesPath   string
+	Endpoints      store.DirectEndpoints
 	Proxy          bool
 	ChannelProxy   string
 	CustomHeader   string
@@ -305,17 +307,12 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		return nil, uniquifyReasons(reasons), nil
 	}
 
-	baseURL := strings.TrimSpace(channel.BaseURL)
-	parsed, err := url.Parse(baseURL)
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") ||
-		parsed.User != nil || parsed.Fragment != "" || parsed.RawQuery != "" {
-		return nil, []string{"base_url_invalid"}, nil
+	baseURL := axonHubChannelBaseURL(channel)
+	if problem := validateAxonHubEndpointBase(baseURL); problem != "" {
+		return nil, []string{"base_url_" + problem}, nil
 	}
-	if service.IsForbiddenSiteTargetURL(baseURL) {
-		return nil, []string{"base_url_target_forbidden"}, nil
-	}
-
-	protocols, paths, problems, protocolResiduals := resolveChannelEndpoints(channel, provider)
+	channel.BaseURL = baseURL
+	protocols, endpoints, problems, protocolResiduals := resolveChannelEndpoints(channel, provider)
 	if len(problems) > 0 {
 		return nil, problems, nil
 	}
@@ -332,13 +329,17 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 	}
 
 	compiled := &axonHubPlanChannel{
-		SourceID:       channel.ID,
-		Name:           channel.Name,
-		Enabled:        channel.Status == "" || channel.Status == "enabled",
-		BaseURL:        baseURL,
-		ChatPath:       paths[protoChat],
-		ResponsesPath:  paths[protoResponses],
-		MessagesPath:   paths[protoMessages],
+		SourceID: channel.ID,
+		Name:     channel.Name,
+		Enabled:  channel.Status == "" || channel.Status == "enabled",
+		BaseURL:  baseURL,
+		// The dispatcher uses these as protocol identities. The exact URL is
+		// owned by Endpoints, so custom paths cannot accidentally trigger a
+		// different protocol's request/response conversion.
+		ChatPath:       "/v1/chat/completions",
+		ResponsesPath:  "/v1/responses",
+		MessagesPath:   "/v1/messages",
+		Endpoints:      endpoints,
 		ChannelProxy:   channelProxy,
 		ParamOverride:  strings.TrimSpace(channel.Settings.OverrideParameters),
 		Protocols:      protocols,
@@ -428,76 +429,6 @@ func channelResiduals(channel AxonHubSourceChannel) []string {
 		add("default_test_model_not_imported")
 	}
 	return notes
-}
-
-// resolveChannelEndpoints merges the provider's built-in default endpoints with
-// the channel's own overrides, exactly as AxonHub's ResolveEndpoints does, and
-// then keeps only the protocols a direct grant can relay.
-func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProviderType) (int, map[int]string, []string, []string) {
-	paths := map[int]string{}
-	protocols := 0
-	residual := map[string]bool{}
-
-	apply := func(format, path, baseURL, transport string) []string {
-		format = strings.TrimSpace(format)
-		var problems []string
-		if transport == "websocket" {
-			return []string{"websocket_transport_unsupported"}
-		}
-		protocol, servable := axonHubServableFormats[format]
-		if !servable {
-			if _, known := axonHubResidualProtocolFormats[format]; known {
-				residual[format] = true
-				return nil
-			}
-			return []string{"api_format_unsupported"}
-		}
-		if strings.TrimSpace(baseURL) != "" && strings.TrimSpace(baseURL) != strings.TrimSpace(channel.BaseURL) {
-			return []string{"endpoint_base_url_override_unsupported"}
-		}
-		protocols |= protocol
-		if strings.TrimSpace(path) != "" {
-			paths[protocol] = strings.TrimSpace(path)
-		}
-		return problems
-	}
-
-	formats := channel.Endpoints
-	if len(formats) == 0 {
-		for _, protocol := range []int{protoChat, protoResponses, protoMessages} {
-			if provider.Protocols&protocol != 0 {
-				protocols |= protocol
-			}
-		}
-	} else {
-		for _, endpoint := range formats {
-			if problems := apply(endpoint.APIFormat, endpoint.Path, endpoint.BaseURL, endpoint.Transport); len(problems) > 0 {
-				return 0, nil, problems, nil
-			}
-		}
-	}
-	if protocols == 0 {
-		return 0, nil, []string{"no_servable_protocol"}, nil
-	}
-	for protocol := range paths {
-		if !safeDirectEndpointPath(paths[protocol]) {
-			return 0, nil, []string{"endpoint_path_invalid"}, nil
-		}
-	}
-	for _, protocol := range []int{protoChat, protoResponses, protoMessages} {
-		if protocols&protocol == 0 {
-			continue
-		}
-		if _, ok := paths[protocol]; !ok {
-			paths[protocol] = axonHubDefaultPaths[protocol]
-		}
-	}
-	var residualList []string
-	for format := range residual {
-		residualList = append(residualList, "declared_protocol_not_servable:"+format+" ("+axonHubResidualProtocolFormats[format]+")")
-	}
-	sort.Strings(residualList)
-	return protocols, paths, nil, residualList
 }
 
 // axonHubChannelEntries reproduces AxonHub's Channel.GetModelEntries: the

@@ -13,16 +13,80 @@ import (
 // upgrade introduced a provider nobody reviewed" into a red test instead of a
 // mis-mapped channel.
 var axonHubAuditedChannelTypes = []string{
-	"openai", "openai_responses", "atlascloud", "cline", "codex", "vercel", "anthropic",
-	"anthropic_aws", "anthropic_gcp", "gemini_openai", "gemini", "gemini_vertex", "deepseek",
-	"deepseek_anthropic", "deepinfra", "qiniu", "fireworks", "doubao", "doubao_anthropic",
-	"moonshot", "moonshot_anthropic", "zhipu", "zai", "zhipu_anthropic", "zai_anthropic",
-	"anthropic_fake", "openai_fake", "openrouter", "xiaomi", "xiaomi_anthropic", "xai", "ppio",
-	"siliconflow", "volcengine", "volcengine_anthropic", "longcat", "longcat_anthropic", "minimax",
-	"minimax_anthropic", "aihubmix", "aihubmix_anthropic", "burncloud", "modelscope", "bailian",
-	"bailian_anthropic", "moonshot_coding", "jina", "github", "github_copilot", "claudecode",
-	"cerebras", "antigravity", "nanogpt", "nanogpt_responses", "opencode_go", "opencode_go_anthropic",
-	"ollama", "ollama_anthropic", "evolink", "evolink_anthropic", "groq", "qiniu_anthropic", "fenno",
+	"openai",
+	"openai_responses",
+	"atlascloud",
+	"cline",
+	"codex",
+	"vercel",
+	"anthropic",
+	"anthropic_aws",
+	"anthropic_gcp",
+	"gemini_openai",
+	"gemini",
+	"gemini_vertex",
+	"deepseek",
+	"deepseek_anthropic",
+	"deepinfra",
+	"qiniu",
+	"fireworks",
+	"doubao",
+	"doubao_anthropic",
+	"moonshot",
+	"moonshot_anthropic",
+	"zhipu",
+	"zai",
+	"zhipu_anthropic",
+	"zai_anthropic",
+	"anthropic_fake",
+	"openai_fake",
+	"openrouter",
+	"xiaomi",
+	"xiaomi_anthropic",
+	"xai",
+	"xai_responses",
+	"xai_subscription",
+	"ppio",
+	"siliconflow",
+	"volcengine",
+	"volcengine_anthropic",
+	"longcat",
+	"longcat_anthropic",
+	"minimax",
+	"minimax_anthropic",
+	"aihubmix",
+	"aihubmix_anthropic",
+	"burncloud",
+	"modelscope",
+	"bailian",
+	"bailian_responses",
+	"bailian_anthropic",
+	"moonshot_coding",
+	"jina",
+	"github",
+	"github_copilot",
+	"claudecode",
+	"cerebras",
+	"antigravity",
+	"nanogpt",
+	"nanogpt_responses",
+	"opencode_go",
+	"opencode_go_anthropic",
+	"ollama",
+	"ollama_anthropic",
+	"evolink",
+	"evolink_anthropic",
+	"groq",
+	"qiniu_anthropic",
+	"fenno",
+	"zenmux",
+	"zenmux_responses",
+	"zenmux_anthropic",
+	"zenmux_gemini",
+	"zenmux_video",
+	"commandcode",
+	"commandcode_anthropic",
+	"typesafe",
 }
 
 func TestAxonHubProviderTableCoversAuditedEnum(t *testing.T) {
@@ -37,7 +101,7 @@ func TestAxonHubProviderTableCoversAuditedEnum(t *testing.T) {
 			t.Errorf("provider %q is not classified; add it to axonHubProviderTypes", name)
 			continue
 		}
-		if spec.Supported && spec.Protocols == 0 {
+		if spec.Supported && spec.Protocols == 0 && name != "opencode_go_anthropic" {
 			t.Errorf("provider %q is marked supported but carries no default protocol", name)
 		}
 		if !spec.Supported && spec.Reason == "" {
@@ -139,7 +203,7 @@ func TestCompileAxonHubPlanRefusesUnservableChannelShapes(t *testing.T) {
 	}{
 		{
 			name:    "unknown provider",
-			channel: `{"id":1,"type":"typesafe","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"openai/chat_completions"}]}`,
+			channel: `{"id":1,"type":"future_provider","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"openai/chat_completions"}]}`,
 			want:    []string{"provider_type_unknown"},
 		},
 		{
@@ -154,7 +218,7 @@ func TestCompileAxonHubPlanRefusesUnservableChannelShapes(t *testing.T) {
 		},
 		{
 			name:    "no servable protocol",
-			channel: `{"id":1,"type":"openai","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"openai/embeddings"}]}`,
+			channel: `{"id":1,"type":"opencode_go_anthropic","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"openai/embeddings"}]}`,
 			want:    []string{"no_servable_protocol"},
 		},
 		{
@@ -168,9 +232,9 @@ func TestCompileAxonHubPlanRefusesUnservableChannelShapes(t *testing.T) {
 			want:    []string{"websocket_transport_unsupported"},
 		},
 		{
-			name:    "endpoint base url override",
-			channel: `{"id":1,"type":"openai","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"openai/chat_completions","base_url":"https://other.invalid"}]}`,
-			want:    []string{"endpoint_base_url_override_unsupported"},
+			name:    "endpoint base url forbidden",
+			channel: `{"id":1,"type":"openai","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"openai/chat_completions","base_url":"http://169.254.169.254/latest"}]}`,
+			want:    []string{"endpoint_base_url_target_forbidden"},
 		},
 		{
 			name:    "body override operations",

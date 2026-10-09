@@ -399,6 +399,7 @@ type DirectUpstreamCandidate struct {
 	ChatPath          string
 	ResponsesPath     string
 	AnthropicPath     string
+	Endpoints         DirectEndpoints
 	ChannelProxy      string
 	UseSystemProxy    bool
 	CustomHeader      string
