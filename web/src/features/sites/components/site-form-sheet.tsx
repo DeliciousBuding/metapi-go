@@ -297,7 +297,7 @@ export function SiteFormSheet({
     setTemplateFeedback(
       preserved.length
         ? t('sites.templates.preserved', { fields: preserved.join(', ') })
-        : t('sites.templates.applied')
+        : ''
     )
     return true
   }
@@ -525,7 +525,8 @@ export function SiteFormSheet({
                           {t('sites.form.detect')}
                         </Button>
                       </div>
-                      {urlAnalysis.action === 'auto_strip_known_api_suffix' &&
+                      {selectedTemplate?.group !== 'api' &&
+                        urlAnalysis.action === 'auto_strip_known_api_suffix' &&
                         urlAnalysis.persistedUrl && (
                           <Notice tone='info' size='compact'>
                             {t('sites.form.urlAutoStripInfo', {
@@ -533,13 +534,15 @@ export function SiteFormSheet({
                             })}
                           </Notice>
                         )}
-                      {urlAnalysis.action === 'preserve_api_path' &&
+                      {selectedTemplate?.group !== 'api' &&
+                        urlAnalysis.action === 'preserve_api_path' &&
                         urlAnalysis.persistedUrl && (
                           <Notice tone='warning' size='compact'>
                             {t('sites.form.urlPreserveApiPath')}
                           </Notice>
                         )}
-                      {urlAnalysis.action === 'preserve_unknown_path' &&
+                      {selectedTemplate?.group !== 'api' &&
+                        urlAnalysis.action === 'preserve_unknown_path' &&
                         urlAnalysis.persistedUrl && (
                           <Notice tone='warning' size='compact'>
                             {t('sites.form.urlPreserveUnknownPath')}
