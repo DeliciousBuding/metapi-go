@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 // CSV export contract for the proxy-logs page: hostile cells (formula/DDE
 // starters like `=1+1`, `-cmd|...`, `+x`, `@SUM`) must be neutralized with
 // a single-quote prefix before reaching the downloaded file — model names

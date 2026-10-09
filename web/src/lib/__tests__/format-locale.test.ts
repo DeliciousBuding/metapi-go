@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 // Locale-aware number formatting contract: the three numeric formatters take
 // an optional BCP-47 locale (default: browser) so callers can pin grouping and
 // decimal separators to the active i18n language instead of the viewer's OS

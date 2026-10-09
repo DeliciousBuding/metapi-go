@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 // metapi-go/lib/__tests__ — shared display formatter contract tests.
 // The admin console converges all number/currency/date/latency rendering on
 // lib/format; these tests pin the shared vocabulary (EM_DASH placeholders,
