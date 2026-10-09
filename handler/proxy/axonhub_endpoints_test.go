@@ -17,7 +17,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-func installAxonHubEndpointFixture(t *testing.T, provider, baseURL string, endpoints []map[string]any) {
+func installAxonHubEndpointFixture(t *testing.T, provider, baseURL string, endpoints []map[string]any, settings ...map[string]any) {
 	t.Helper()
 	db, err := store.Open(store.DialectSQLite, ":memory:", false)
 	if err != nil {
@@ -27,11 +27,16 @@ func installAxonHubEndpointFixture(t *testing.T, provider, baseURL string, endpo
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
+	channelSettings := map[string]any{}
+	if len(settings) > 0 {
+		channelSettings = settings[0]
+	}
 	raw, err := json.Marshal(map[string]any{
 		"version": "1.4", "channels": []any{map[string]any{
 			"id": 1, "type": provider, "name": "endpoint fixture", "base_url": baseURL,
 			"credentials":      map[string]any{"apiKey": "fixture-upstream-key"},
 			"supported_models": []string{"provider-model"}, "endpoints": endpoints,
+			"settings": channelSettings,
 		}},
 		"models": []any{map[string]any{"id": 1, "model_id": "client-alias", "status": "enabled",
 			"settings": map[string]any{"associations": []any{map[string]any{"type": "channel_model", "channelModel": map[string]any{"channelId": 1, "modelId": "provider-model"}}}},

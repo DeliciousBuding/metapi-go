@@ -9,7 +9,14 @@
 Returns `{items, members}` for imported direct-upstream channels. `items` contains
 channel ID, name, origin key, dialect, base URL, availability, protocol paths and
 model/credential counts. `members` connects group items to route, model and
-credential names and authorized protocol bits (Chat 2, Responses 4, Messages 8).
+credential names and authorized outbound protocol bits (Chat 2, Responses 4,
+Messages 8, Gemini 16). Each member's `protocolOrder` restricts and orders that
+route item's outbound protocols; an empty list retains the grant's protocols.
+`items[].endpointConfig` contains optional `chat`, `responses`, `messages` and
+`gemini` entries with resolved `url`, `auth` (`bearer`, `x-api-key`, or
+`x-goog-api-key`), and optional Gemini `modelPath`. When `modelPath` is true,
+the URL is a models prefix and the selected model and generation action are
+appended at execution; otherwise it is the exact upstream endpoint URL.
 This is configuration inventory, not a protocol-health probe. Credential values,
 custom headers and parameter overrides are never included.
 Members also expose persisted grant success/failure counts and nullable cooldown
@@ -18,6 +25,13 @@ backoff and are excluded from subsequent selection until that cooldown expires;
 success clears cooldown. Health is per model/credential grant, shared across its
 group memberships, and does not change unrelated grants. Imported historical
 statistics are retained separately and are not treated as live health evidence.
+
+Generation requests can use any of the four client protocols. Selection prefers
+the client's protocol when it is in the route item's allowed list, otherwise the
+first allowed outbound protocol is converted using the existing transform
+packages. Native requests retain their original body apart from model mapping
+and configured overrides. Cross-protocol requests with nonportable continuity,
+signed reasoning or unsupported tools fail explicitly instead of losing fields.
 
 ### PATCH /api/imported-upstreams/:id
 

@@ -34,6 +34,7 @@ const (
 	protoChat      = routing.UpstreamProtocolChat
 	protoResponses = routing.UpstreamProtocolResponses
 	protoMessages  = routing.UpstreamProtocolAnthropic
+	protoGemini    = routing.UpstreamProtocolGemini
 )
 
 var axonHubProviderTypes = map[string]axonHubProviderType{
@@ -99,12 +100,12 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 	"commandcode":           {Protocols: protoChat, Supported: true},
 	"commandcode_anthropic": {Protocols: protoMessages, Supported: true},
 	"xai_subscription":      {Protocols: protoResponses, Reason: reasonProviderCredentials},
-	"zenmux_gemini":         {Reason: reasonProviderTranslation},
+	"zenmux_gemini":         {Protocols: protoGemini, ResidualFormats: []string{"gemini/embeddings"}, Supported: true},
 	"zenmux_video":          {Reason: reasonProviderWire},
 	"typesafe":              {Reason: reasonProviderWire},
 
 	// Wire formats Metapi's direct relay has no transformer for.
-	"gemini":         {Reason: reasonProviderTranslation},
+	"gemini":         {Protocols: protoGemini, ResidualFormats: []string{"gemini/embeddings"}, Supported: true},
 	"gemini_vertex":  {Reason: reasonProviderTranslation},
 	"antigravity":    {Reason: reasonProviderTranslation},
 	"jina":           {Reason: reasonProviderWire},
@@ -128,6 +129,7 @@ var axonHubServableFormats = map[string]int{
 	"openai/chat_completions": protoChat,
 	"openai/responses":        protoResponses,
 	"anthropic/messages":      protoMessages,
+	"gemini/contents":         protoGemini,
 }
 
 var axonHubCompatibleResiduals = []string{
@@ -154,7 +156,6 @@ var axonHubResidualProtocolFormats = map[string]string{
 	"openai/audio_transcriptions": "transcription is not routed by direct grants",
 	"openai/audio_translations":   "translation is not routed by direct grants",
 	"openai/moderations":          "moderations are not routed by direct grants",
-	"gemini/contents":             "Gemini native protocol is not routed by direct grants",
 	"gemini/embeddings":           "Gemini embeddings are not routed by direct grants",
 	"jina/rerank":                 "Jina rerank is not routed by direct grants",
 	"jina/embeddings":             "Jina embeddings are not routed by direct grants",

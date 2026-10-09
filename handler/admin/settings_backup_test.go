@@ -365,11 +365,11 @@ const backupsvcFixtureV5 = `{"version":5,"exported_at":"2026-10-05T00:00:00Z","c
 
 // backupFixtureAxonHubV14 is a sanitized AxonHub v1.4 export: one request model
 // served by an OpenAI-compatible channel with two keys and an Anthropic channel
-// with one, plus a Gemini channel the importer must refuse.
+// with one, plus a Vertex channel the importer must refuse.
 const backupFixtureAxonHubV14 = `{"version":"1.4","timestamp":"2026-10-05T00:00:00Z","system_configs":[],"projects":[],"channels":[` +
 	`{"id":11,"type":"openai","name":"Primary","status":"enabled","base_url":"https://upstream.example/v1","credentials":{"apiKeys":["fixture-key-axonhub-1","fixture-key-axonhub-2"]},"supported_models":["client-model"],"endpoints":[{"api_format":"openai/chat_completions"}],"deleted_at":0},` +
 	`{"id":12,"type":"anthropic","name":"Backup","status":"enabled","base_url":"https://anthropic.example","credentials":{"apiKey":"fixture-key-axonhub-3"},"supported_models":["client-model"],"endpoints":[{"api_format":"anthropic/messages"}],"deleted_at":0},` +
-	`{"id":13,"type":"gemini","name":"Native Gemini","status":"enabled","base_url":"https://gemini.example","credentials":{"apiKey":"fixture-key-axonhub-4"},"supported_models":["gemini-model"],"endpoints":[{"api_format":"gemini/contents"}],"deleted_at":0}],` +
+	`{"id":13,"type":"gemini_vertex","name":"Native Gemini","status":"enabled","base_url":"https://gemini.example","credentials":{"apiKey":"fixture-key-axonhub-4"},"supported_models":["gemini-model"],"endpoints":[{"api_format":"gemini/contents"}],"deleted_at":0}],` +
 	`"models":[{"id":21,"developer":"fixture","model_id":"client-model","type":"chat","name":"Client model","status":"enabled","settings":{"associations":[{"type":"model","modelId":{"modelId":"client-model"}}]},"deleted_at":0}],` +
 	`"channel_model_prices":[],"api_keys":[],"usage_requests":[],"usage_logs":[]}`
 
@@ -490,8 +490,8 @@ func TestAxonHubV14ReplacementRequiresConfirmation(t *testing.T) {
 func TestAxonHubV14BackupWithoutServableChannelIsRejected(t *testing.T) {
 	db := setupBackupTestDB(t)
 	h := &backupHandler{db: db.DB}
-	payload := strings.Replace(backupFixtureAxonHubV14, `"type":"openai"`, `"type":"gemini"`, 1)
-	payload = strings.Replace(payload, `"type":"anthropic"`, `"type":"gemini"`, 1)
+	payload := strings.Replace(backupFixtureAxonHubV14, `"type":"openai"`, `"type":"gemini_vertex"`, 1)
+	payload = strings.Replace(payload, `"type":"anthropic"`, `"type":"gemini_vertex"`, 1)
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
 	req.Header.Set("X-External-Origin-Key", "axonhub-blocked")
 	rec := httptest.NewRecorder()

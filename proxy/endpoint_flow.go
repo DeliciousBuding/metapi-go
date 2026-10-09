@@ -9,6 +9,7 @@ const (
 	EndpointChat      UpstreamEndpoint = "chat"      // /v1/chat/completions
 	EndpointMessages  UpstreamEndpoint = "messages"  // /v1/messages (Anthropic)
 	EndpointResponses UpstreamEndpoint = "responses" // /v1/responses (Codex)
+	EndpointGemini    UpstreamEndpoint = "gemini"    // native generateContent
 )
 
 // PathForEndpoint returns the canonical upstream path for a known endpoint type.
@@ -21,6 +22,8 @@ func PathForEndpoint(endpoint UpstreamEndpoint) string {
 		return "/v1/messages"
 	case EndpointResponses:
 		return "/v1/responses"
+	case EndpointGemini:
+		return "/v1beta/models"
 	default:
 		return ""
 	}
@@ -35,6 +38,8 @@ func EndpointFromPath(path string) (UpstreamEndpoint, bool) {
 	}
 	path = strings.TrimRight(path, "/")
 	switch {
+	case strings.Contains(path, "/models/") && (strings.HasSuffix(path, ":generateContent") || strings.HasSuffix(path, ":streamGenerateContent")):
+		return EndpointGemini, true
 	case strings.HasSuffix(path, "/v1/chat/completions") || path == "/chat/completions" || path == "/v1/chat/completions":
 		return EndpointChat, true
 	case strings.HasSuffix(path, "/v1/messages/count_tokens") || path == "/messages/count_tokens" ||

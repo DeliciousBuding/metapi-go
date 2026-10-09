@@ -84,20 +84,20 @@ func TestImportAxonHubV14PersistsExecutableGraph(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if counts["channels"] != 3 || counts["models"] != 4 || counts["grants"] != 6 || counts["routes"] != 5 {
+	if counts["channels"] != 4 || counts["models"] != 5 || counts["grants"] != 7 || counts["routes"] != 6 {
 		t.Fatalf("unexpected import counts: %#v", counts)
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got != 3 {
-		t.Fatalf("upstream_channels = %d, want 3", got)
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got != 4 {
+		t.Fatalf("upstream_channels = %d, want 4", got)
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_credentials`); got != 4 {
-		t.Fatalf("upstream_credentials = %d, want 4", got)
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_credentials`); got != 5 {
+		t.Fatalf("upstream_credentials = %d, want 5", got)
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_group_items`); got != 9 {
-		t.Fatalf("upstream_group_items = %d, want 9", got)
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_group_items`); got != 10 {
+		t.Fatalf("upstream_group_items = %d, want 10", got)
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes WHERE routing_strategy = 'weighted'`); got != 5 {
-		t.Fatalf("weighted routes = %d, want 5", got)
+	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes WHERE routing_strategy = 'weighted'`); got != 6 {
+		t.Fatalf("weighted routes = %d, want 6", got)
 	}
 	// A disabled source channel must stay disabled: it carries operator intent.
 	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels WHERE enabled = ?`, false); got != 1 {
@@ -132,8 +132,8 @@ func TestImportAxonHubV14PersistsExecutableGraph(t *testing.T) {
 			direct++
 		}
 	}
-	if direct != 9 {
-		t.Fatalf("routing store loaded %d direct candidates, want 9", direct)
+	if direct != 10 {
+		t.Fatalf("routing store loaded %d direct candidates, want 10", direct)
 	}
 
 	// Re-importing the same backup must update the same rows, preserving the
@@ -145,13 +145,13 @@ func TestImportAxonHubV14PersistsExecutableGraph(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-import: %v", err)
 	}
-	if second["channels"] != 3 || second["routes"] != 5 {
+	if second["channels"] != 4 || second["routes"] != 6 {
 		t.Fatalf("re-import counts drifted: %#v", second)
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got != 3 {
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got != 4 {
 		t.Fatalf("re-import duplicated channels: %d", got)
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_grants WHERE success_count = 7`); got != 6 {
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_grants WHERE success_count = 7`); got != 7 {
 		t.Fatalf("re-import replaced rows instead of updating them: %d grants kept their counters", got)
 	}
 }
@@ -167,8 +167,8 @@ func TestImportAxonHubV14IsOriginScoped(t *testing.T) {
 	if _, err := ImportAxonHubV14(db, raw, "origin-b", false); err == nil {
 		t.Fatal("a second origin claimed routes an existing origin owns")
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes`); got != 5 {
-		t.Fatalf("routes after refused second origin = %d, want 5", got)
+	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes`); got != 6 {
+		t.Fatalf("routes after refused second origin = %d, want 6", got)
 	}
 }
 
@@ -235,14 +235,14 @@ func TestImportAxonHubV14RequiresReplacementConfirmation(t *testing.T) {
 	if len(preview.Removals) == 0 {
 		t.Fatal("preview of a reduced snapshot reported no removals")
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes`); got != 5 {
+	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes`); got != 6 {
 		t.Fatalf("preview wrote %d routes", got)
 	}
 
 	if _, err := ImportAxonHubV14(db, reduced, "fixture-axonhub", false); !errors.Is(err, ErrAxonHubReplacementRequired) {
 		t.Fatalf("import without confirmation = %v, want ErrAxonHubReplacementRequired", err)
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got != 3 {
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got != 4 {
 		t.Fatalf("refused import changed channels: %d", got)
 	}
 
@@ -250,11 +250,11 @@ func TestImportAxonHubV14RequiresReplacementConfirmation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if counts["channels"] != 2 || counts["routes"] != 3 {
+	if counts["channels"] != 3 || counts["routes"] != 4 {
 		t.Fatalf("replacement counts = %#v", counts)
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes`); got != 3 {
-		t.Fatalf("routes after replacement = %d, want 3", got)
+	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes`); got != 4 {
+		t.Fatalf("routes after replacement = %d, want 4", got)
 	}
 	if got := countRows(t, db, `SELECT COUNT(*) FROM external_source_ids WHERE origin_key = ?`, "fixture-axonhub"); got == 0 {
 		t.Fatal("replacement dropped the origin mapping")

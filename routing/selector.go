@@ -686,7 +686,15 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 		if !candidate.Channel.Enabled || !direct.ChannelEnabled || !direct.ModelEnabled || !direct.CredentialEnabled || !direct.GrantEnabled {
 			reasons = append(reasons, "direct upstream grant disabled")
 		}
-		if policy.RequiredUpstreamProtocol == 0 || direct.Protocols&policy.RequiredUpstreamProtocol == 0 {
+		protocols := direct.Protocols
+		if len(direct.ProtocolOrder) > 0 {
+			allowed := 0
+			for _, protocol := range direct.ProtocolOrder {
+				allowed |= protocol
+			}
+			protocols &= allowed
+		}
+		if policy.RequiredUpstreamProtocol == 0 || protocols&policy.RequiredUpstreamProtocol == 0 {
 			reasons = append(reasons, "direct upstream protocol not authorized")
 		}
 		if len(policy.AllowedSiteIDs) > 0 {

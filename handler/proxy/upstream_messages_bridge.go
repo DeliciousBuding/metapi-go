@@ -23,7 +23,7 @@ func isMessagesChatBridge(downstreamPath, upstreamPath string) bool {
 // HTTP cancellation, byte limits, errors and retries remain owned by the relay.
 type messagesChatBody struct {
 	io.ReadCloser
-	stream               *messages.ChatStream
+	stream               protocolEventStream
 	original             *incrementalSseAnalyzer
 	pending, output      []byte
 	end                  error
@@ -35,6 +35,10 @@ var errMessagesChatStreamLimit = fmt.Errorf("upstream stream exceeded configured
 
 func newMessagesChatBody(body io.ReadCloser, model string, byteLimit int64, options ...messages.Options) *messagesChatBody {
 	return &messagesChatBody{ReadCloser: body, stream: messages.NewChatStream(model, options...), original: newIncrementalSseAnalyzer(), byteLimit: byteLimit}
+}
+
+func newProtocolBridgeBody(body io.ReadCloser, stream protocolEventStream, byteLimit int64) *messagesChatBody {
+	return &messagesChatBody{ReadCloser: body, stream: stream, original: newIncrementalSseAnalyzer(), byteLimit: byteLimit}
 }
 
 func (b *messagesChatBody) Read(p []byte) (int, error) {

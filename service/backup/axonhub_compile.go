@@ -34,22 +34,25 @@ type axonHubPlan struct {
 }
 
 type axonHubPlanChannel struct {
-	SourceID       int
-	Name           string
-	Enabled        bool
-	BaseURL        string
-	ChatPath       string
-	ResponsesPath  string
-	MessagesPath   string
-	Endpoints      store.DirectEndpoints
-	Proxy          bool
-	ChannelProxy   string
-	CustomHeader   string
-	ParamOverride  string
-	Protocols      int
-	Tags           []string
-	CredentialKeys []string
-	DisabledKeys   map[string]bool
+	ProtocolOrder   store.DirectProtocolOrder
+	ModelProtocols  []AxonHubSourceModelProtocol
+	DeclaredFormats map[string]bool
+	SourceID        int
+	Name            string
+	Enabled         bool
+	BaseURL         string
+	ChatPath        string
+	ResponsesPath   string
+	MessagesPath    string
+	Endpoints       store.DirectEndpoints
+	Proxy           bool
+	ChannelProxy    string
+	CustomHeader    string
+	ParamOverride   string
+	Protocols       int
+	Tags            []string
+	CredentialKeys  []string
+	DisabledKeys    map[string]bool
 	// Entries maps a request model name onto the upstream model a grant to this
 	// channel has to send.
 	Entries map[string]string
@@ -86,6 +89,7 @@ type axonHubPlanRoute struct {
 }
 
 type axonHubPlanRouteItem struct {
+	ProtocolOrder   store.DirectProtocolOrder
 	Key             string
 	ChannelSourceID int
 	ModelName       string
@@ -298,10 +302,13 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 	}
 
 	compiled := &axonHubPlanChannel{
-		SourceID: channel.ID,
-		Name:     channel.Name,
-		Enabled:  channel.Status == "" || channel.Status == "enabled",
-		BaseURL:  baseURL,
+		ProtocolOrder:   axonHubEndpointOrder(channel, provider),
+		ModelProtocols:  channel.Settings.ModelProtocols,
+		DeclaredFormats: axonHubDeclaredFormats(channel, provider),
+		SourceID:        channel.ID,
+		Name:            channel.Name,
+		Enabled:         channel.Status == "" || channel.Status == "enabled",
+		BaseURL:         baseURL,
 		// The dispatcher uses these as protocol identities. The exact URL is
 		// owned by Endpoints, so custom paths cannot accidentally trigger a
 		// different protocol's request/response conversion.
@@ -597,6 +604,11 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 				if channel == nil {
 					continue
 				}
+				protocolOrder, servable := axonHubModelProtocolOrder(channel, pattern, connection.requestModel, connection.modelName)
+				if !servable {
+					residuals = append(residuals, "model_protocol_not_servable:"+sanitizeIdentifier(pattern))
+					continue
+				}
 				for i := range channel.CredentialKeys {
 					name := credentialName(i, len(channel.CredentialKeys))
 					if channel.DisabledKeys[channel.CredentialKeys[i]] {
@@ -611,6 +623,7 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 						order = append(order, key)
 					}
 					items[key] = axonHubPlanRouteItem{
+						ProtocolOrder:   protocolOrder,
 						Key:             key,
 						ChannelSourceID: connection.channelSourceID,
 						ModelName:       connection.modelName,
@@ -661,6 +674,7 @@ func axonHubRouteStrategy(strategy string, residuals *[]string, pattern string) 
 type axonHubConnection struct {
 	channelSourceID int
 	modelName       string
+	requestModel    string
 }
 
 // matchAxonHubAssociation is a faithful port of AxonHub's six association
@@ -679,7 +693,7 @@ func matchAxonHubAssociation(assoc AxonHubSourceAssociation, channels []*axonHub
 		if _, ok := channel.Entries[assoc.ChannelModel.ModelID]; !ok {
 			return nil, true
 		}
-		return []axonHubConnection{{assoc.ChannelModel.ChannelID, channel.Entries[assoc.ChannelModel.ModelID]}}, true
+		return []axonHubConnection{{assoc.ChannelModel.ChannelID, channel.Entries[assoc.ChannelModel.ModelID], assoc.ChannelModel.ModelID}}, true
 	case "channel_regex":
 		if assoc.ChannelRegex == nil {
 			return nil, false
@@ -719,7 +733,7 @@ func matchAxonHubAssociation(assoc AxonHubSourceAssociation, channels []*axonHub
 				continue
 			}
 			if actual, ok := channel.Entries[assoc.ModelID.ModelID]; ok {
-				out = append(out, axonHubConnection{channel.SourceID, actual})
+				out = append(out, axonHubConnection{channel.SourceID, actual, assoc.ModelID.ModelID})
 			}
 		}
 		return out, true
@@ -733,7 +747,7 @@ func matchAxonHubAssociation(assoc AxonHubSourceAssociation, channels []*axonHub
 				continue
 			}
 			if actual, ok := channel.Entries[assoc.ChannelTagsModel.ModelID]; ok {
-				out = append(out, axonHubConnection{channel.SourceID, actual})
+				out = append(out, axonHubConnection{channel.SourceID, actual, assoc.ChannelTagsModel.ModelID})
 			}
 		}
 		return out, true
@@ -768,7 +782,7 @@ func matchEntries(channelSourceID int, entries map[string]string, matcher func(s
 	sort.Strings(names)
 	out := make([]axonHubConnection, 0, len(names))
 	for _, name := range names {
-		out = append(out, axonHubConnection{channelSourceID, entries[name]})
+		out = append(out, axonHubConnection{channelSourceID, entries[name], name})
 	}
 	return out
 }

@@ -454,6 +454,16 @@ plan, so the preview cannot promise a channel the commit will not write; a
 feature the direct relay cannot carry is a named per-channel skip, never a
 guess.
 
+Direct channels use resolved per-protocol endpoint URLs and authentication.
+`axonhub_protocols.go` resolves model protocol preferences onto individual route
+items, leaving shared model/credential grants unchanged. The handler chooses an
+allowed outbound protocol, preferring a client protocol match, and composes the
+existing Chat, Responses, Messages and Gemini converters when needed. HTTP
+dispatch, decompression, stream bounds and health accounting remain in the same
+relay. Native bodies bypass conversion; converted streams retain upstream usage
+before transforming the client-facing events. Converters reject unsupported
+continuity and malformed or incomplete tool calls rather than inventing success.
+
 `internal/httpclient.ExpandClientHeaderTemplate` owns the request metadata
 template parser and allowlist. Both backup validation and direct forwarding
 call it, so accepting a template at import time cannot bypass the forwarding

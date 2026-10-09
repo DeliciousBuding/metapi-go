@@ -67,7 +67,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 	return handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, r.URL.Path, "", messages.Options{}, nil)
 }
 
-func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64, upstreamPath, upstreamModel string, bridgeOptions messages.Options, onFirstOutput func()) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
+func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64, upstreamPath, upstreamModel string, bridgeOptions messages.Options, onFirstOutput func(), direct ...bool) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
 	empty := ParsedUsage{Source: usageSourceUnknown}
 	if resp == nil || resp.Body == nil {
 		return empty, streamEndedNormally, nil
@@ -98,7 +98,8 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	})
 
 	bridgeMessages := isMessagesChatBridge(r.URL.Path, upstreamPath)
-	if bridgeMessages && !bodyReadable {
+	bridgeDirect := len(direct) > 0 && direct[0] && directBridgeNeeded(r.URL.Path, upstreamPath)
+	if (bridgeMessages || bridgeDirect) && !bodyReadable {
 		w.Header().Del("Content-Encoding")
 		writeJSONErrorWithRequest(w, http.StatusBadGateway, "Cannot decode upstream Chat stream for Messages", "upstream_error", proxy.RequestIDFromContext(r.Context()))
 		return empty, streamEndedUpstreamFault, nil
@@ -132,7 +133,10 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	resp.Body = idleBody
 	maxStreamBytes := streamResponseByteLimit()
 	var messageBridge *messagesChatBody
-	if bridgeMessages {
+	if bridgeDirect {
+		messageBridge = newProtocolBridgeBody(resp.Body, directResponseStream(r.URL.Path, upstreamPath, upstreamModel, bridgeOptions), maxStreamBytes)
+		resp.Body = messageBridge
+	} else if bridgeMessages {
 		messageBridge = newMessagesChatBody(resp.Body, upstreamModel, maxStreamBytes, bridgeOptions)
 		resp.Body = messageBridge
 	} else if bodyReadable && !strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Disposition")), "attachment") {

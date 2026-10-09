@@ -126,6 +126,11 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolResponses
 		case proxy.EndpointMessages:
 			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolAnthropic
+		case proxy.EndpointGemini:
+			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolGemini
+		}
+		if !strings.HasSuffix(strings.TrimRight(upstreamPath, "/"), "/count_tokens") {
+			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolChat | routing.UpstreamProtocolResponses | routing.UpstreamProtocolAnthropic | routing.UpstreamProtocolGemini
 		}
 	}
 	// Never forward a downstream path containing
@@ -360,6 +365,10 @@ func dispatchSelectedUpstream(
 	var bodyBytes []byte
 	var err error
 	if ctx.Multipart {
+		if selected.Direct != nil {
+			writeJSONErrorWithRequest(w, http.StatusBadRequest, "Direct upstream grants do not support multipart requests", "invalid_request_error", requestID)
+			return true, nil
+		}
 		// Multipart bodies are not multi-protocol rewritten; single-shot only.
 		var bodyReader io.Reader
 		bodyReader, contentType, err = CloneMultipartBody(r, map[string]string{"model": upstreamModel})
@@ -383,6 +392,14 @@ func dispatchSelectedUpstream(
 		return dispatchEndpointAttempt(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, upstreamPath, contentType, bodyBytes, firstByteTimeoutMs, retry, maxRetries, true, requestID)
 	}
 	bodyBytes = swapModelInJSON(ctx.RawBody, upstreamModel)
+	if selected.Direct != nil {
+		if endpoint, _ := proxy.EndpointFromPath(upstreamPath); endpoint == proxy.EndpointGemini {
+			if _, found, valid := findTopLevelValue(ctx.RawBody, "model"); valid && !found {
+				bodyBytes = ctx.RawBody
+			}
+		}
+		return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, firstByteTimeoutMs, retry, maxRetries, requestID)
+	}
 
 	// Site protocol preference: responses-only + stream.
 	sitePref := proxy.DetectSiteProtocolPreferenceFromSite(
@@ -398,36 +415,6 @@ func dispatchSelectedUpstream(
 	}
 
 	candidatePaths := resolveUpstreamCandidatePaths(upstreamPath, disableCrossProtocolFallback, sitePref)
-	if selected.Direct != nil {
-		if ctx.Multipart {
-			writeJSONErrorWithRequest(w, http.StatusBadRequest, "Direct upstream grants do not support multipart requests", "invalid_request_error", requestID)
-			observeProxyTerminal(ctx, shared.OutcomeClientError, false, 0)
-			return true, nil
-		}
-		endpoint, ok := proxy.EndpointFromPath(upstreamPath)
-		if !ok {
-			writeJSONErrorWithRequest(w, http.StatusBadRequest, "Unsupported direct upstream protocol", "invalid_request_error", requestID)
-			return true, nil
-		}
-		var directPath string
-		switch endpoint {
-		case proxy.EndpointChat:
-			directPath = selected.Direct.ChatPath
-		case proxy.EndpointResponses:
-			directPath = selected.Direct.ResponsesPath
-		case proxy.EndpointMessages:
-			directPath = selected.Direct.AnthropicPath
-			if strings.HasSuffix(strings.TrimRight(strings.Split(upstreamPath, "?")[0], "/"), "/count_tokens") {
-				directPath = strings.TrimRight(directPath, "/") + "/count_tokens"
-			}
-		}
-		candidatePaths = []string{directPath}
-		bodyBytes, err = applyDirectParamOverrides(bodyBytes, selected.Direct.ParamOverride)
-		if err != nil {
-			writeJSONErrorWithRequest(w, http.StatusBadGateway, "Invalid direct upstream parameter overrides", "server_error", requestID)
-			return true, nil
-		}
-	}
 	if ctx.messagesBridgeReplayRequired && (len(candidatePaths) < 2 || !isMessagesChatBridge(upstreamPath, candidatePaths[1])) {
 		writeMessagesReplayFailure(w, ctx, requestID)
 		return true, nil
@@ -477,17 +464,9 @@ func dispatchSelectedUpstream(
 			candidateBody = chatBody
 		}
 		upstreamPlatform := selected.Site.Platform
-		if selected.Direct != nil {
-			upstreamPlatform = "openai"
-		}
 		attemptBody := candidateBody
 		var sanitizeErr error
-		if selected.Direct == nil {
-			attemptBody, sanitizeErr = sanitizeUpstreamJSONBody(candidateBody, upstreamPlatform, path, upstreamModel)
-		}
-		// A direct grant authorizes this exact native protocol, not a legacy
-		// platform bridge. Preserve valid reasoning/tool items rather than
-		// injecting gateway-specific content or stripping continuation fields.
+		attemptBody, sanitizeErr = sanitizeUpstreamJSONBody(candidateBody, upstreamPlatform, path, upstreamModel)
 		if sanitizeErr != nil {
 			// Clear client-facing continuity error.
 			writeJSONErrorWithRequest(w, http.StatusBadRequest, sanitizeErr.Error(), "invalid_request_error", requestID)
@@ -557,6 +536,9 @@ func resolveUpstreamCandidatePaths(upstreamPath string, disableCrossProtocolFall
 	}
 	primary, ok := proxy.EndpointFromPath(upstreamPath)
 	if !ok {
+		return []string{upstreamPath}
+	}
+	if primary == proxy.EndpointGemini {
 		return []string{upstreamPath}
 	}
 	if sitePref.ResponsesOnly {
@@ -640,17 +622,7 @@ func dispatchEndpointAttemptWithContinue(
 	upstreamURL := proxy.BuildUpstreamURL(upstreamBaseURL, upstreamPath)
 	var directEndpoint *store.DirectEndpoint
 	if selected.Direct != nil && ctx != nil {
-		downstreamPath := ctx.DownstreamPath
-		if downstreamPath == "" {
-			downstreamPath = r.URL.Path
-		}
-		directEndpoint = directEndpointForPath(selected.Direct.Endpoints, downstreamPath)
-		if directEndpoint != nil {
-			upstreamURL = directEndpoint.URL
-			if strings.HasSuffix(strings.TrimRight(strings.Split(downstreamPath, "?")[0], "/"), "/count_tokens") {
-				upstreamURL = strings.TrimRight(upstreamURL, "/") + "/count_tokens"
-			}
-		}
+		upstreamURL, directEndpoint = directRequestURL(selected.Direct, upstreamPath, upstreamModel, effectiveStream)
 	}
 	startedAt := time.Now()
 
@@ -683,19 +655,23 @@ func dispatchEndpointAttemptWithContinue(
 	if selected.Direct == nil {
 		stripUpstreamAcceptEncoding(req, proxyConfig, selected.Site.ID, selected.Channel.ID)
 	}
-	directMessagesRequest := selected.Direct != nil && ctx != nil && proxyPathIsMessages(ctx.DownstreamPath)
+	directMessagesRequest := selected.Direct != nil && proxyPathIsMessages(upstreamPath)
 	if directMessagesRequest && req.Header.Get("anthropic-version") == "" {
 		req.Header.Set("anthropic-version", platform.ClaudeDefaultAnthropicVersion)
 	}
 	if selected.TokenValue != "" {
 		if selected.Direct != nil {
 			req.Header.Del("x-api-key")
+			req.Header.Del("x-goog-api-key")
+			req.Header.Del("Authorization")
 		}
 		useAPIKey := directMessagesRequest
 		if directEndpoint != nil {
 			useAPIKey = directEndpoint.Auth == store.DirectAuthAPIKey
 		}
-		if useAPIKey {
+		if directEndpoint != nil && directEndpoint.Auth == store.DirectAuthGoogle {
+			req.Header.Set("x-goog-api-key", selected.TokenValue)
+		} else if useAPIKey {
 			req.Header.Set("x-api-key", selected.TokenValue)
 			req.Header.Del("Authorization")
 		} else {
@@ -811,7 +787,7 @@ func dispatchEndpointAttemptWithContinue(
 		func() {
 			defer resp.Body.Close()
 			var firstOutput *int64
-			streamUsage, streamEnd, streamVerdict = handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, upstreamPath, upstreamModel, bridgeOptions, func() { firstOutput = int64Ptr(time.Since(startedAt).Milliseconds()) })
+			streamUsage, streamEnd, streamVerdict = handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, upstreamPath, upstreamModel, bridgeOptions, func() { firstOutput = int64Ptr(time.Since(startedAt).Milliseconds()) }, selected.Direct != nil)
 			streamUsage.FirstOutputLatencyMs = firstOutput
 		}()
 		latencyMs = time.Since(startedAt).Milliseconds()
@@ -939,17 +915,22 @@ func dispatchEndpointAttemptWithContinue(
 		observeProxyTerminal(ctx, shared.StatusFromHTTP(verdict.Status), false, time.Duration(latencyMs)*time.Millisecond)
 		return true, nil, false
 	}
-	if isMessagesChatBridge(ctx.DownstreamPath, upstreamPath) {
+	directBridge := selected.Direct != nil && directBridgeNeeded(ctx.DownstreamPath, upstreamPath)
+	if directBridge || isMessagesChatBridge(ctx.DownstreamPath, upstreamPath) {
 		var convertErr error
 		if body.readable {
-			respBody, convertErr = messages.FromChatResponse(respBody, bridgeOptions)
+			if directBridge {
+				respBody, convertErr = directConvertResponse(respBody, ctx.DownstreamPath, upstreamPath, upstreamModel, bridgeOptions)
+			} else {
+				respBody, convertErr = messages.FromChatResponse(respBody, bridgeOptions)
+			}
 		} else {
 			convertErr = fmt.Errorf("Chat response encoding is not supported by the Messages bridge")
 		}
 		if convertErr != nil {
 			// The upstream did run: retain its measured usage, but never record an
 			// unusable downstream representation as a successful tool response.
-			errText := "Cannot convert upstream Chat response to Messages"
+			errText := "Cannot convert upstream response to the client protocol"
 			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, errText)
 			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, false, usage, retry, requestID, errText)
 			if retry < maxRetries {

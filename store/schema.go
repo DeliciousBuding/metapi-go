@@ -414,6 +414,7 @@ type DirectUpstreamCandidate struct {
 	CredentialEnabled bool
 	GrantEnabled      bool
 	Protocols         int
+	ProtocolOrder     DirectProtocolOrder
 }
 
 // OrZero helpers coerce the nullable numeric channel columns for callers that

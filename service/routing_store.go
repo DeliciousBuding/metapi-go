@@ -140,7 +140,7 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 		return nil, err
 	}
 	directQuery, directArgs, err := sqlx.In(`
-		SELECT i.id, i.priority, i.weight, grt.id, rg.route_id, ug.id, ug.mode, ug.active_item_id,
+		SELECT i.id, i.priority, i.weight, i.protocol_order, grt.id, rg.route_id, ug.id, ug.mode, ug.active_item_id,
 			c.id, c.name, c.base_url, c.dialect, c.openai_chat_completion_path, c.openai_response_path,
 			c.anthropic_message_path, c.endpoint_config, c.channel_proxy, c.proxy, c.custom_header, c.param_override,
 			m.id, m.name, k.id, k.name, k.secret, c.enabled, m.enabled, k.enabled, grt.enabled, grt.protocols,
@@ -169,7 +169,7 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 		var cooldown *string
 		var successes, failures, totalLatency int64
 		var totalCost float64
-		if err := directRows.Scan(&itemID, &priority, &weight, &direct.GrantID, &direct.RouteID, &direct.GroupID, &direct.GroupMode, &direct.ActiveItemID,
+		if err := directRows.Scan(&itemID, &priority, &weight, &direct.ProtocolOrder, &direct.GrantID, &direct.RouteID, &direct.GroupID, &direct.GroupMode, &direct.ActiveItemID,
 			&direct.ChannelID, &direct.ChannelName, &direct.BaseURL, &direct.Dialect, &direct.ChatPath, &direct.ResponsesPath,
 			&direct.AnthropicPath, &direct.Endpoints, &direct.ChannelProxy, &direct.UseSystemProxy, &direct.CustomHeader, &direct.ParamOverride,
 			&direct.ModelID, &direct.ModelName, &direct.CredentialID, &direct.CredentialName, &direct.Credential,

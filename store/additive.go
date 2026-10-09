@@ -506,6 +506,17 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "upstream_channels", "endpoint_config", "TEXT", "TEXT", "DEFAULT '{}' NOT NULL")
 		},
 	},
+	{
+		Version:     "sc2_035_direct_protocol_order",
+		Description: "direct route item outbound protocol priority and restriction",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "upstream_group_items")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "upstream_group_items", "protocol_order", "TEXT", "TEXT", "DEFAULT '[]' NOT NULL")
+		},
+	},
 	// sc2_029_ts_timestamp_normalization is deliberately NOT a registry step
 	// any more. A journal gate decides "already applied" from the state of the
 	// database at the moment it runs, and the TS-shaped timestamps this rewrite

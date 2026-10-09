@@ -132,14 +132,8 @@ func TestCompileAxonHubPlanResolvesEveryAssociationKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.channels) != 3 {
-		t.Fatalf("compiled channels = %d, want 3 servable channels", len(plan.channels))
-	}
-	if len(plan.skipped) != 1 || plan.skipped[0].Type != "gemini" {
-		t.Fatalf("unservable provider was not reported: %#v", plan.skipped)
-	}
-	if got := plan.skipped[0].Reasons; len(got) != 1 || got[0] != reasonProviderTranslation {
-		t.Fatalf("gemini skip reasons = %#v", got)
+	if len(plan.channels) != 4 || len(plan.skipped) != 0 {
+		t.Fatalf("compiled channels=%d skipped=%v, want all four supported", len(plan.channels), plan.skipped)
 	}
 
 	byPattern := map[string]axonHubPlanRoute{}
@@ -151,8 +145,8 @@ func TestCompileAxonHubPlanResolvesEveryAssociationKind(t *testing.T) {
 			t.Fatalf("route %q was not compiled; routes=%v", pattern, routePatterns(plan))
 		}
 	}
-	if _, ok := byPattern["gemini-3-pro"]; ok {
-		t.Fatal("a route was compiled onto an unservable provider")
+	if _, ok := byPattern["gemini-3-pro"]; !ok {
+		t.Fatal("native Gemini route was not compiled")
 	}
 	if _, ok := byPattern["orphan-model"]; ok {
 		t.Fatal("a model with no association produced a route")
@@ -187,8 +181,8 @@ func TestCompileAxonHubPlanResolvesEveryAssociationKind(t *testing.T) {
 	if !residualContains(plan.residuals, "declared_protocol_not_servable:openai/embeddings") {
 		t.Fatalf("declared unservable protocol was not reported: %#v", plan.residuals)
 	}
-	if !residualContains(plan.residuals, "model_has_no_importable_channel:gemini-3-pro") {
-		t.Fatalf("unreachable model was not reported: %#v", plan.residuals)
+	if residualContains(plan.residuals, "model_has_no_importable_channel:gemini-3-pro") {
+		t.Fatalf("native Gemini reported unreachable: %#v", plan.residuals)
 	}
 	if len(plan.keys) != 1 || plan.notImported["apiKeys"] != 0 || plan.notImported["modelPrices"] != 1 {
 		t.Fatalf("unmanaged sections were not counted: %#v", plan.notImported)
@@ -309,7 +303,7 @@ func TestCompileAxonHubPlanRefusesUnservableChannelShapes(t *testing.T) {
 func TestCompileAxonHubPlanReportsSkipReasonsPerChannel(t *testing.T) {
 	payload := `{"version":"1.4","channels":[
 		{"id":1,"type":"openai","name":"ok","base_url":"https://ok.invalid","credentials":{"apiKey":"k"},"supported_models":["gpt-5"],"endpoints":[{"api_format":"openai/chat_completions"}]},
-		{"id":2,"type":"gemini","name":"no","base_url":"https://no.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"gemini/contents"}]}
+		{"id":2,"type":"gemini_vertex","name":"no","base_url":"https://no.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"gemini/contents"}]}
 	],"models":[{"id":1,"model_id":"gpt-5","type":"chat","status":"enabled","settings":{"associations":[{"type":"channel_model","channelModel":{"channelId":1,"modelId":"gpt-5"}}]}}]}`
 	src, err := ParseAxonHubSource([]byte(payload))
 	if err != nil {

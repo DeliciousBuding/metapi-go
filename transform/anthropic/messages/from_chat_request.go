@@ -17,6 +17,13 @@ func FromChatRequest(body []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if raw, exists := req["store"]; exists {
+		value, err := boolean(raw, "Chat store")
+		if err != nil || value {
+			return nil, invalid("Chat store", "stored responses require a native endpoint")
+		}
+		delete(req, "store")
+	}
 	if err := allowOnly(req, "Chat request", "model", "messages", "max_tokens", "max_completion_tokens", "stream", "stream_options", "temperature", "top_p", "stop", "tools", "tool_choice", "parallel_tool_calls", "n", "user", "reasoning_effort", "cache_control"); err != nil {
 		return nil, err
 	}

@@ -16,6 +16,8 @@ func axonHubChannelBaseURL(channel AxonHubSourceChannel) string {
 	// Only defaults actually supplied by channel_llm.go / the primary
 	// transformer are used. Custom endpoint overrides retain this base.
 	switch channel.Type {
+	case "gemini", "zenmux_gemini":
+		return "https://generativelanguage.googleapis.com"
 	case "zenmux", "zenmux_responses":
 		return "https://zenmux.ai/api/v1"
 	case "zenmux_anthropic":
@@ -123,6 +125,10 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 			endpoints.Responses = endpoint
 		case protoMessages:
 			endpoints.Messages = endpoint
+		case protoGemini:
+			endpoint.Auth = store.DirectAuthGoogle
+			endpoint.ModelPath = path == ""
+			endpoints.Gemini = endpoint
 		}
 		protocols |= protocol
 	}
@@ -133,6 +139,22 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 }
 
 func resolveAxonHubEndpointURL(provider string, protocol int, base, path string, custom bool) (string, string) {
+	if protocol == protoGemini {
+		if strings.Contains(base, "#") {
+			return "", "endpoint_url_mode_unsupported"
+		}
+		version := "v1beta"
+		if strings.HasSuffix(base, "/v1beta") {
+			base = strings.TrimSuffix(base, "/v1beta")
+		} else if strings.HasSuffix(base, "/v1") {
+			version = "v1"
+			base = strings.TrimSuffix(base, "/v1")
+		}
+		if path != "" {
+			return strings.TrimSuffix(base, "/") + path, ""
+		}
+		return strings.TrimSuffix(base, "/") + "/" + version + "/models", ""
+	}
 	version := "v1"
 	if protocol == protoChat {
 		switch provider {

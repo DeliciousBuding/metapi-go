@@ -79,16 +79,17 @@ type AxonHubSourceCredentials struct {
 }
 
 type AxonHubSourceChannelSettings struct {
-	ExtraModelPrefix        string                      `json:"extraModelPrefix"`
-	AutoTrimedModelPrefixes []string                    `json:"autoTrimedModelPrefixes"`
-	ModelMappings           []AxonHubSourceModelMapping `json:"modelMappings"`
-	HideOriginalModels      bool                        `json:"hideOriginalModels"`
-	HideMappedModels        bool                        `json:"hideMappedModels"`
-	LowercaseModelID        bool                        `json:"lowercaseModelId"`
-	OverrideParameters      string                      `json:"overrideParameters"`
-	PassThroughUserAgent    *bool                       `json:"passThroughUserAgent"`
-	PassThroughBody         *bool                       `json:"passThroughBody"`
-	RetryableStatusCodes    []int                       `json:"retryableStatusCodes"`
+	ModelProtocols          []AxonHubSourceModelProtocol `json:"modelProtocols"`
+	ExtraModelPrefix        string                       `json:"extraModelPrefix"`
+	AutoTrimedModelPrefixes []string                     `json:"autoTrimedModelPrefixes"`
+	ModelMappings           []AxonHubSourceModelMapping  `json:"modelMappings"`
+	HideOriginalModels      bool                         `json:"hideOriginalModels"`
+	HideMappedModels        bool                         `json:"hideMappedModels"`
+	LowercaseModelID        bool                         `json:"lowercaseModelId"`
+	OverrideParameters      string                       `json:"overrideParameters"`
+	PassThroughUserAgent    *bool                        `json:"passThroughUserAgent"`
+	PassThroughBody         *bool                        `json:"passThroughBody"`
+	RetryableStatusCodes    []int                        `json:"retryableStatusCodes"`
 	// Operation-shaped transforms are retained only as presence flags so the
 	// compiler can refuse them instead of half-applying them.
 	HasBodyOverrideOperations   bool     `json:"-"`
@@ -100,6 +101,12 @@ type AxonHubSourceChannelSettings struct {
 	HasRetryableErrorPatterns   bool     `json:"-"`
 	HasProviderQuota            bool     `json:"-"`
 	UnsupportedFields           []string `json:"-"`
+}
+
+type AxonHubSourceModelProtocol struct {
+	Model      string   `json:"model"`
+	APIFormats []string `json:"apiFormats"`
+	Enabled    *bool    `json:"enabled,omitempty"`
 }
 
 type AxonHubSourceChannelPolicies struct {
@@ -445,7 +452,7 @@ var axonHubChannelSettingsFields = []string{
 	"hideMappedModels", "lowercaseModelId", "overrideParameters", "bodyOverrideOperations",
 	"overrideHeaders", "headerOverrideOperations", "proxy", "transformOptions",
 	"passThroughUserAgent", "passThroughBody", "rateLimit", "retryableStatusCodes",
-	"retryableErrorPatterns", "providerQuota",
+	"retryableErrorPatterns", "providerQuota", "modelProtocols",
 }
 
 var axonHubChannelPolicyFields = []string{"stream", "apiKeyAutoDisableRules"}
@@ -565,6 +572,21 @@ func decodeAxonHubSettings(raw json.RawMessage, dst *AxonHubSourceChannelSetting
 		return axonHubErr("invalid AxonHub backup: channel settings must be an object")
 	}
 	dst.UnsupportedFields = unknownKeys(obj, axonHubChannelSettingsFields)
+	if rawProtocols, present := obj["modelProtocols"]; present {
+		var rows []json.RawMessage
+		if err := json.Unmarshal(rawProtocols, &rows); err != nil {
+			return axonHubErr("invalid AxonHub modelProtocols")
+		}
+		for _, row := range rows {
+			value, err := rowObject(row)
+			if err != nil {
+				return axonHubErr("invalid AxonHub model protocol entry")
+			}
+			for _, field := range unknownKeys(value, []string{"model", "apiFormats", "enabled"}) {
+				dst.UnsupportedFields = append(dst.UnsupportedFields, "modelProtocols."+field)
+			}
+		}
+	}
 	if err := json.Unmarshal(raw, dst); err != nil {
 		return axonHubErr("invalid AxonHub backup: channel settings has an invalid field type")
 	}

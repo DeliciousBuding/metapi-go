@@ -12,11 +12,15 @@ import (
 type DirectEndpoint struct {
 	URL  string `json:"url"`
 	Auth string `json:"auth"`
+	// ModelPath appends the native Gemini model/action to a resolved models URL.
+	// Custom endpoint URLs remain exact when false.
+	ModelPath bool `json:"modelPath,omitempty"`
 }
 
 const (
 	DirectAuthBearer = "bearer"
 	DirectAuthAPIKey = "x-api-key"
+	DirectAuthGoogle = "x-goog-api-key"
 )
 
 // DirectEndpoints is optional for imports that use the original base/path
@@ -25,6 +29,7 @@ type DirectEndpoints struct {
 	Chat      *DirectEndpoint `json:"chat,omitempty"`
 	Responses *DirectEndpoint `json:"responses,omitempty"`
 	Messages  *DirectEndpoint `json:"messages,omitempty"`
+	Gemini    *DirectEndpoint `json:"gemini,omitempty"`
 }
 
 func (e DirectEndpoints) Value() (driver.Value, error) {
@@ -49,7 +54,7 @@ func (e *DirectEndpoints) Scan(value any) error {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		return fmt.Errorf("invalid direct endpoint configuration")
 	}
-	for _, endpoint := range []*DirectEndpoint{decoded.Chat, decoded.Responses, decoded.Messages} {
+	for _, endpoint := range []*DirectEndpoint{decoded.Chat, decoded.Responses, decoded.Messages, decoded.Gemini} {
 		if endpoint == nil {
 			continue
 		}
@@ -57,10 +62,51 @@ func (e *DirectEndpoints) Scan(value any) error {
 		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.Fragment != "" || u.RawQuery != "" {
 			return fmt.Errorf("invalid direct endpoint URL")
 		}
-		if endpoint.Auth != DirectAuthBearer && endpoint.Auth != DirectAuthAPIKey {
+		if endpoint.Auth != DirectAuthBearer && endpoint.Auth != DirectAuthAPIKey && endpoint.Auth != DirectAuthGoogle {
 			return fmt.Errorf("invalid direct endpoint authentication")
+		}
+		if endpoint.ModelPath && endpoint != decoded.Gemini {
+			return fmt.Errorf("model paths require a Gemini endpoint")
 		}
 	}
 	*e = decoded
+	return nil
+}
+
+// DirectProtocolOrder restricts one route item without broadening its shared grant.
+type DirectProtocolOrder []int
+
+func (p DirectProtocolOrder) Value() (driver.Value, error) {
+	if p == nil {
+		return "[]", nil
+	}
+	b, err := json.Marshal(p)
+	return string(b), err
+}
+func (p *DirectProtocolOrder) Scan(value any) error {
+	var raw []byte
+	switch v := value.(type) {
+	case nil:
+		*p = nil
+		return nil
+	case string:
+		raw = []byte(v)
+	case []byte:
+		raw = v
+	default:
+		return fmt.Errorf("invalid direct protocol order")
+	}
+	var values []int
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return fmt.Errorf("invalid direct protocol order")
+	}
+	seen := map[int]bool{}
+	for _, v := range values {
+		if (v != 2 && v != 4 && v != 8 && v != 16) || seen[v] {
+			return fmt.Errorf("invalid direct protocol order")
+		}
+		seen[v] = true
+	}
+	*p = values
 	return nil
 }

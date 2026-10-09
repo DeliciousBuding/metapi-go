@@ -31,7 +31,7 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Failed to load imported upstreams")
 		return
 	}
-	members, err := queryRowsErr(h.db, `SELECT i.id, i.group_id, i.priority, i.weight, g.name AS group_name,
+	members, err := queryRowsErr(h.db, `SELECT i.id, i.group_id, i.priority, i.weight, i.protocol_order, g.name AS group_name,
   g.mode, g.active_item_id, rg.route_id, m.channel_id, m.name AS model_name,
 	  k.name AS credential_name, k.enabled AS credential_enabled, grt.protocols,
     grt.cooldown_until,grt.cooldown_reason_code,grt.success_count,grt.fail_count
@@ -53,6 +53,15 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 		row["enabled"] = coerceBool(row["enabled"])
 	}
 	for _, row := range members {
+		var order store.DirectProtocolOrder
+		if err := order.Scan(row["protocolOrder"]); err != nil {
+			writeError(w, http.StatusInternalServerError, "Invalid imported protocol priority")
+			return
+		}
+		if order == nil {
+			order = store.DirectProtocolOrder{}
+		}
+		row["protocolOrder"] = order
 		row["credentialEnabled"] = coerceBool(row["credentialEnabled"])
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": normalizeSlice(channels), "members": normalizeSlice(members)})

@@ -1,6 +1,6 @@
 import { request } from './transport'
 
-type ImportedEndpoint = { url: string; auth: 'bearer' | 'x-api-key' }
+type ImportedEndpoint = { url: string; auth: 'bearer' | 'x-api-key' | 'x-goog-api-key'; modelPath?: boolean }
 
 export type ImportedUpstreamInventory = {
   items: Array<{
@@ -13,6 +13,7 @@ export type ImportedUpstreamInventory = {
       chat?: ImportedEndpoint
       responses?: ImportedEndpoint
       messages?: ImportedEndpoint
+      gemini?: ImportedEndpoint
     }
     enabled: boolean
     credentialCount: number
@@ -28,6 +29,7 @@ export type ImportedUpstreamInventory = {
     credentialName: string
     credentialEnabled: boolean
     protocols: number
+    protocolOrder?: number[]
     mode: string
     activeItemId: number
     priority: number
