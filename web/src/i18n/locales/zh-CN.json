@@ -598,10 +598,12 @@
         "customized": "已改为自定义连接，保留手填内容。",
         "manual": "手动配置",
         "change": "更换模板",
-        "search": "搜索连接模板…",
+        "search": "搜索全部连接模板…",
         "categories": "连接类型",
         "categoriesLabel": {
-          "api": "API 服务",
+          "common": "常用",
+          "api": "模型服务",
+          "coding": "Coding Plan",
           "gateway": "管理平台",
           "oauth": "OAuth"
         },

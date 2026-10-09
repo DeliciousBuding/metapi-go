@@ -43,6 +43,8 @@ import novaDark from './icons/dark/nova.png'
 import nvidiaColorDark from './icons/dark/nvidia-color.png'
 import openaiDark from './icons/dark/openai.png'
 import openrouterDark from './icons/dark/openrouter.png'
+import ppioColorDark from './icons/dark/ppio-color.png'
+import qiniuColorDark from './icons/dark/qiniu-color.png'
 import qwenColorDark from './icons/dark/qwen-color.png'
 import relaceDark from './icons/dark/relace.png'
 import replicateBrandDark from './icons/dark/replicate-brand.png'
@@ -100,6 +102,8 @@ import novaLight from './icons/light/nova.png'
 import nvidiaColorLight from './icons/light/nvidia-color.png'
 import openaiLight from './icons/light/openai.png'
 import openrouterLight from './icons/light/openrouter.png'
+import ppioColorLight from './icons/light/ppio-color.png'
+import qiniuColorLight from './icons/light/qiniu-color.png'
 import qwenColorLight from './icons/light/qwen-color.png'
 import relaceLight from './icons/light/relace.png'
 import replicateBrandLight from './icons/light/replicate-brand.png'
@@ -173,6 +177,8 @@ export const BRAND_ICONS: Record<string, Record<BrandIconVariant, string>> = {
   'nvidia-color': { dark: nvidiaColorDark, light: nvidiaColorLight },
   openai: { dark: openaiDark, light: openaiLight },
   openrouter: { dark: openrouterDark, light: openrouterLight },
+  'ppio-color': { dark: ppioColorDark, light: ppioColorLight },
+  'qiniu-color': { dark: qiniuColorDark, light: qiniuColorLight },
   'qwen-color': { dark: qwenColorDark, light: qwenColorLight },
   relace: { dark: relaceDark, light: relaceLight },
   'replicate-brand': { dark: replicateBrandDark, light: replicateBrandLight },

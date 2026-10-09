@@ -10,6 +10,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import {
   afterAll,
@@ -29,6 +30,26 @@ import type { Site } from '../../types'
 import { SiteFormSheet } from '../site-form-sheet'
 
 const initializationPresets: SiteInitializationPreset[] = [
+  {
+    id: 'codingplan-openai',
+    label: 'Aliyun CodingPlan / OpenAI',
+    providerLabel: 'Aliyun CodingPlan',
+    platform: 'openai',
+    defaultUrl: 'https://coding.dashscope.aliyuncs.com/v1',
+    recommendedSkipModelFetch: true,
+    recommendedModels: [],
+    docsUrl: '',
+  },
+  {
+    id: 'xiaomi-token-plan-claude',
+    label: 'Xiaomi Token Plan / Claude',
+    providerLabel: 'Xiaomi Token Plan',
+    platform: 'claude',
+    defaultUrl: 'https://tokenplan.example.com/anthropic',
+    recommendedSkipModelFetch: true,
+    recommendedModels: [],
+    docsUrl: '',
+  },
   {
     id: 'deepseek-openai',
     label: 'DeepSeek / OpenAI',
@@ -138,6 +159,45 @@ function typeField(label: string, value: string) {
 }
 
 describe('SiteFormSheet layout and connection presets', () => {
+  it('starts with New API and common domestic services, while all gateways and other services remain discoverable', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    const common = await screen.findByRole('tabpanel', { name: 'Common' })
+    const commonTemplates = within(common).getAllByRole('button')
+    expect(commonTemplates[0]).toHaveAccessibleName('Use New API template')
+    expect(commonTemplates[1]).toHaveAccessibleName(
+      'Use Aliyun CodingPlan / OpenAI template'
+    )
+    expect(commonTemplates[2]).toHaveAccessibleName(
+      'Use DeepSeek / OpenAI template'
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Use OpenAI API template' })
+    ).not.toBeInTheDocument()
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Search all templates…' }),
+      { target: { value: 'OpenAI API' } }
+    )
+    expect(
+      await screen.findByRole('button', { name: 'Use OpenAI API template' })
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Gateways' }))
+    expect(
+      within(screen.getByRole('tabpanel', { name: 'Gateways' })).getAllByRole(
+        'button'
+      )
+    ).toHaveLength(8)
+    fireEvent.click(screen.getByRole('tab', { name: 'Coding Plan' }))
+    const coding = screen.getByRole('tabpanel', { name: 'Coding Plan' })
+    expect(
+      within(coding).getByRole('button', {
+        name: 'Use Xiaomi Token Plan / Claude template',
+      })
+    ).toBeInTheDocument()
+    expect(
+      within(coding).queryByRole('button', { name: 'Use OpenAI API template' })
+    ).not.toBeInTheDocument()
+  })
+
   it('keeps paired controls top-aligned and scrolls fields independently of the header and actions', async () => {
     render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
     const name = await screen.findByLabelText('Name')
@@ -170,7 +230,7 @@ describe('SiteFormSheet layout and connection presets', () => {
   it('searches service presets and fills a blank connection with a canonical adapter', async () => {
     render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
     fireEvent.change(
-      await screen.findByRole('textbox', { name: 'Search templates…' }),
+      await screen.findByRole('textbox', { name: 'Search all templates…' }),
       { target: { value: 'DeepSeek' } }
     )
     fireEvent.click(
@@ -270,6 +330,7 @@ describe('SiteFormSheet template changes', () => {
       })
     )
     fireEvent.click(screen.getByRole('button', { name: 'Change template' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'APIs' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Use Gemini API template' })
     )

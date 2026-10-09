@@ -23,6 +23,12 @@ describe('platform display and connection presets', () => {
     }
     expect(getConnectionPresetIcon('xai-api')).toBe('xai')
     expect(getConnectionPresetIcon('deepseek-claude')).toBe('deepseek-color')
+    expect(getConnectionPresetIcon('kimi-coding-claude')).toBe('moonshot')
+    expect(getConnectionPresetIcon('xiaomi-token-plan-claude')).toBe(
+      'xiaomimimo'
+    )
+    expect(getConnectionPresetIcon('qiniu-openai')).toBe('qiniu-color')
+    expect(getConnectionPresetIcon('ppio-openai')).toBe('ppio-color')
     expect(getConnectionPresetIcon('new-provider')).toBeUndefined()
     expect(getPlatformDefinition('grok')?.group).toBe('oauth')
     expect(getPlatformDefinition('sensetime')?.selectable).toBe(false)

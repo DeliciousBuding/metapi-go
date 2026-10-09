@@ -142,6 +142,11 @@ const PRESET_BRAND_ICONS: Record<string, string> = {
   minimax: 'minimax-color',
   modelscope: 'modelscope-color',
   doubao: 'doubao-color',
+  kimi: 'moonshot',
+  xiaomi: 'xiaomimimo',
+  zai: 'zai',
+  ppio: 'ppio-color',
+  qiniu: 'qiniu-color',
 }
 
 export function getConnectionPresetIcon(id: string): string | undefined {

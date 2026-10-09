@@ -76,6 +76,8 @@ const ICON_KEYS = [
   'bailian-color',
   'siliconcloud-color',
   'modelscope-color',
+  'ppio-color',
+  'qiniu-color',
 ]
 
 const results = { ok: 0, missing: [] }

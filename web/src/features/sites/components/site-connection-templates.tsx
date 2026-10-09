@@ -13,7 +13,6 @@ import {
   PLATFORM_CONNECTION_TEMPLATES,
   getConnectionPresetIcon,
   type ConnectionTemplate,
-  type PlatformDefinition,
 } from '@/lib/platform-catalog'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +24,91 @@ type Props = {
   url: string
   platform: string
   onSelect: (template: ConnectionTemplate) => boolean
+}
+
+const TEMPLATE_CATEGORIES = [
+  'common',
+  'gateway',
+  'api',
+  'coding',
+  'oauth',
+] as const
+type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number]
+
+const COMMON_TEMPLATE_IDS = [
+  'new-api-connection',
+  'bailian',
+  'codingplan-openai',
+  'siliconflow',
+  'deepseek-openai',
+  'moonshot-openai',
+  'minimax-openai',
+  'zhipu-coding-plan-openai',
+  'zai-coding-plan-openai',
+  'kimi-coding-openai',
+  'doubao-coding-openai',
+  'xiaomi-token-plan-claude',
+]
+const DOMESTIC_PROVIDERS = [
+  'bailian',
+  'siliconflow',
+  'deepseek',
+  'moonshot',
+  'minimax',
+  'modelscope',
+  'zhipu',
+  'zai',
+  'doubao',
+  'xiaomi',
+  'stepfun',
+  'mimo',
+  'xiaomimimo',
+  'ppio',
+  'qiniu',
+]
+
+function isCodingPlan(template: ConnectionTemplate) {
+  return template.group === 'api' && /coding|token-plan/.test(template.id)
+}
+
+function serviceOrder(template: ConnectionTemplate) {
+  const domestic = DOMESTIC_PROVIDERS.findIndex(
+    (provider) =>
+      template.id === provider || template.id.startsWith(`${provider}-`)
+  )
+  if (domestic !== -1) return domestic
+  if (['openai-api', 'anthropic-api', 'gemini-api'].includes(template.id)) {
+    return 100
+  }
+  return 50
+}
+
+function templatesForCategory(
+  templates: ConnectionTemplate[],
+  category: TemplateCategory,
+  query: string
+) {
+  if (query) {
+    return templates
+      .filter((template) =>
+        `${template.name} ${template.label ?? ''} ${template.platform} ${template.url}`
+          .toLowerCase()
+          .includes(query)
+      )
+      .sort((a, b) => serviceOrder(a) - serviceOrder(b))
+  }
+  if (category === 'common') {
+    return COMMON_TEMPLATE_IDS.flatMap((id) =>
+      templates.filter((template) => template.id === id)
+    )
+  }
+  if (category === 'coding') return templates.filter(isCodingPlan)
+  if (category === 'api') {
+    return templates
+      .filter((template) => template.group === 'api' && !isCodingPlan(template))
+      .sort((a, b) => serviceOrder(a) - serviceOrder(b))
+  }
+  return templates.filter((template) => template.group === category)
 }
 
 function templateFromPreset(
@@ -55,7 +139,7 @@ export function SiteConnectionTemplates(props: Props) {
     ...PLATFORM_CONNECTION_TEMPLATES,
   ]
   const [expanded, setExpanded] = useState(true)
-  const [category, setCategory] = useState<PlatformDefinition['group']>('api')
+  const [category, setCategory] = useState<TemplateCategory>('common')
   const [search, setSearch] = useState('')
   const toggleRef = useRef<HTMLButtonElement>(null)
   const query = search.trim().toLowerCase()
@@ -114,16 +198,16 @@ export function SiteConnectionTemplates(props: Props) {
         <Tabs
           value={category}
           onValueChange={(value) => {
-            setCategory(value as PlatformDefinition['group'])
+            setCategory(value as TemplateCategory)
             setSearch('')
           }}
           className='gap-3'
         >
           <TabsList
-            className='w-full'
+            className='w-full justify-start overflow-x-auto'
             aria-label={t('sites.templates.categories')}
           >
-            {(['api', 'gateway', 'oauth'] as const).map((group) => (
+            {TEMPLATE_CATEGORIES.map((group) => (
               <TabsTrigger key={group} value={group}>
                 {t(`sites.templates.categoriesLabel.${group}`)}
               </TabsTrigger>
@@ -135,17 +219,16 @@ export function SiteConnectionTemplates(props: Props) {
             placeholder={t('sites.templates.search')}
             aria-label={t('sites.templates.search')}
           />
-          {(['api', 'gateway', 'oauth'] as const).map((group) => {
-            const templates = allTemplates.filter(
-              (template) =>
-                template.group === group &&
-                `${template.name} ${template.platform} ${template.url}`
-                  .toLowerCase()
-                  .includes(query)
-            )
+          {TEMPLATE_CATEGORIES.map((group) => {
+            const templates = templatesForCategory(allTemplates, group, query)
+            const usesApiPresets =
+              group === 'common' ||
+              group === 'api' ||
+              group === 'coding' ||
+              Boolean(query)
             return (
               <TabsContent key={group} value={group} className='space-y-3'>
-                {group === 'api' && presets.isPending && (
+                {usesApiPresets && presets.isPending && (
                   <div
                     className='flex justify-center py-3'
                     aria-label={t('sites.templates.loading')}
@@ -153,7 +236,7 @@ export function SiteConnectionTemplates(props: Props) {
                     <Spinner />
                   </div>
                 )}
-                {group === 'api' && presets.isError && (
+                {usesApiPresets && presets.isError && (
                   <div
                     role='alert'
                     className='flex items-center justify-between gap-3 text-sm'
@@ -171,6 +254,13 @@ export function SiteConnectionTemplates(props: Props) {
                 )}
                 <div className='grid max-h-64 grid-cols-2 gap-2 overflow-y-auto pr-1 max-[420px]:grid-cols-1'>
                   {templates.map((template) => {
+                    let detail = t('sites.templates.notAvailable')
+                    if (template.available) {
+                      detail =
+                        template.group === 'api'
+                          ? `${template.protocols?.map((protocol) => t(`sites.templates.protocols.${protocol}`)).join(' / ')} · API Key`
+                          : t(`sites.templates.auth.${template.group}`)
+                    }
                     const contents = (
                       <>
                         <span
@@ -188,16 +278,10 @@ export function SiteConnectionTemplates(props: Props) {
                             {template.name}
                           </span>
                           <span className='text-muted-foreground block text-xs font-normal'>
-                            {group === 'api'
-                              ? `${template.protocols?.map((protocol) => t(`sites.templates.protocols.${protocol}`)).join(' / ')} · API Key`
-                              : t(
-                                  template.available
-                                    ? `sites.templates.auth.${group}`
-                                    : 'sites.templates.notAvailable'
-                                )}
+                            {detail}
                           </span>
                         </span>
-                        {group === 'oauth' && (
+                        {template.group === 'oauth' && (
                           <ArrowUpRight
                             className='size-3.5 shrink-0'
                             aria-hidden='true'
@@ -210,7 +294,7 @@ export function SiteConnectionTemplates(props: Props) {
                       props.selected?.id === template.id &&
                         'border-primary bg-primary/5'
                     )
-                    if (group === 'oauth' && template.available) {
+                    if (template.group === 'oauth' && template.available) {
                       return (
                         <a
                           key={template.id}
@@ -254,7 +338,7 @@ export function SiteConnectionTemplates(props: Props) {
                 </div>
                 {templates.length === 0 &&
                   !(
-                    group === 'api' &&
+                    usesApiPresets &&
                     (presets.isPending || presets.isError)
                   ) && (
                     <p className='text-muted-foreground py-3 text-center text-sm'>

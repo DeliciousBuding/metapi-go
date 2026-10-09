@@ -598,10 +598,12 @@
         "customized": "Custom connection; your entries were preserved.",
         "manual": "Configure manually",
         "change": "Change template",
-        "search": "Search templates…",
+        "search": "Search all templates…",
         "categories": "Connection type",
         "categoriesLabel": {
-          "api": "API services",
+          "common": "Common",
+          "api": "APIs",
+          "coding": "Coding Plan",
           "gateway": "Gateways",
           "oauth": "OAuth"
         },
