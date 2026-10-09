@@ -39,6 +39,25 @@ func TestProxyLogDetailBooleanAndDownstreamIdentity(t *testing.T) {
 				if body["downstreamKeyName"] != "fixture-key-name" || body["downstreamKeyId"] != float64(keyID) || strings.Contains(out.Body.String(), "fixture-secret-do-not-return") {
 					t.Fatalf("incorrect/unsafe key identity: %s", out.Body.String())
 				}
+				list := doGet(t, mux, "/api/stats/proxy-logs?view=query")
+				var page struct {
+					Items []map[string]any `json:"items"`
+				}
+				if list.Code != 200 || json.Unmarshal(list.Body.Bytes(), &page) != nil {
+					t.Fatalf("list failed: %s", list.Body.String())
+				}
+				var found bool
+				for _, item := range page.Items {
+					if item["id"] == float64(logID) {
+						found = true
+						if got, ok := item["isStream"].(bool); !ok || got != stream {
+							t.Fatalf("list isStream must be boolean: %#v", item["isStream"])
+						}
+					}
+				}
+				if !found {
+					t.Fatal("inserted log missing from query view")
+				}
 			}
 		})
 	}
