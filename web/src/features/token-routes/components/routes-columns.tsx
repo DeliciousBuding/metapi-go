@@ -187,7 +187,7 @@ function RoutesRowActions({
         <DropdownMenuItem
           variant='destructive'
           onClick={() => actions.onDelete(route)}
-          disabled={readOnly}
+          disabled={readOnly || actions.isDeletePending}
         >
           <Trash2 />
           {t('common.delete')}

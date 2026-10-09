@@ -2,6 +2,7 @@ package backup
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
 )
@@ -26,16 +28,17 @@ var ErrAxonHubReplacementRequired = errors.New("AxonHub source snapshot removes 
 // committing. It never carries credentials, source URLs, channel names, or any
 // other operator text.
 type AxonHubImportPreview struct {
-	Source          string                  `json:"source"`
-	OriginKey       string                  `json:"originKey"`
-	Version         string                  `json:"version"`
-	Sections        map[string]int          `json:"sections"`
-	Routable        map[string]int          `json:"routable"`
-	NotImported     map[string]int          `json:"notImported,omitempty"`
-	SkippedChannels []AxonHubSkippedChannel `json:"skippedChannels,omitempty"`
-	Residuals       []string                `json:"residuals,omitempty"`
-	Removals        map[string]int          `json:"removals,omitempty"`
-	Blocking        []string                `json:"blocking,omitempty"`
+	Source          string                    `json:"source"`
+	OriginKey       string                    `json:"originKey"`
+	Version         string                    `json:"version"`
+	Sections        map[string]int            `json:"sections"`
+	Routable        map[string]int            `json:"routable"`
+	NotImported     map[string]int            `json:"notImported,omitempty"`
+	SkippedChannels []AxonHubSkippedChannel   `json:"skippedChannels,omitempty"`
+	Residuals       []string                  `json:"residuals,omitempty"`
+	Removals        map[string]int            `json:"removals,omitempty"`
+	RemovalImpact   *upstream.DeletionPreview `json:"removalImpact,omitempty"`
+	Blocking        []string                  `json:"blocking,omitempty"`
 }
 
 // IsAxonHubV14Payload reports whether the payload is an AxonHub v1.4 backup.
@@ -77,12 +80,23 @@ func PreviewAxonHubV14(db *store.DB, raw []byte, originKey string) (*AxonHubImpo
 		preview.SkippedChannels = plan.skipped
 	}
 	if db != nil {
-		removals, err := axonHubRemovals(db, plan, originKey)
+		tx, err := db.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 		if err != nil {
-			return nil, fmt.Errorf("failed to compare imported source snapshot: %w", err)
+			return nil, err
 		}
-		if len(removals) > 0 {
-			preview.Removals = removals
+		defer tx.Rollback()
+		owned, err := axonHubMappedSources(tx, db, originKey)
+		if err != nil {
+			return nil, err
+		}
+		keep := axonHubPlanSourceIDs(plan)
+		removalPlan, err := axonHubDeletionPlan(tx, originKey, keep, owned)
+		if err != nil {
+			return nil, err
+		}
+		preview.Removals = axonHubRemovalCounts(removalPlan, keep, owned)
+		if len(preview.Removals) > 0 {
+			preview.RemovalImpact = &removalPlan.Preview
 		}
 	}
 	return preview, nil
@@ -116,22 +130,6 @@ func axonHubPlanCounts(plan *axonHubPlan) map[string]int {
 	}
 }
 
-// axonHubEntityTables maps each mapped entity type to its owning table and the
-// deletion order used when a re-import drops a source entity.
-var axonHubEntityDeletionOrder = []struct {
-	entity string
-	table  string
-}{
-	{"token_routes", "token_routes"},
-	{"upstream_group_items", "upstream_group_items"},
-	{"downstream_api_keys", "downstream_api_keys"},
-	{"upstream_grants", "upstream_grants"},
-	{"upstream_models", "upstream_models"},
-	{"upstream_credentials", "upstream_credentials"},
-	{"upstream_groups", "upstream_groups"},
-	{"upstream_channels", "upstream_channels"},
-}
-
 // axonHubQueryer is satisfied by both *sqlx.DB and *sqlx.Tx, so the mapping read
 // runs either on its own or inside the import transaction.
 type axonHubQueryer interface {
@@ -159,23 +157,6 @@ func axonHubMappedSources(q axonHubQueryer, db *store.DB, originKey string) (map
 		out[entity][sourceID] = targetID
 	}
 	return out, rows.Err()
-}
-
-func axonHubRemovals(db *store.DB, plan *axonHubPlan, originKey string) (map[string]int, error) {
-	owned, err := axonHubMappedSources(db, db, originKey)
-	if err != nil {
-		return nil, err
-	}
-	keep := axonHubPlanSourceIDs(plan)
-	removals := map[string]int{}
-	for entity, sources := range owned {
-		for sourceID := range sources {
-			if !keep[entity][sourceID] {
-				removals[entity]++
-			}
-		}
-	}
-	return removals, nil
 }
 
 // axonHubPlanSourceIDs is the set of source ids the compiled plan owns, keyed by
@@ -260,8 +241,8 @@ func axonHubItemSourceID(route axonHubPlanRoute, item axonHubPlanRouteItem) int6
 
 // ImportAxonHubV14 writes the compiled channel graph in a single transaction.
 // Re-imports update the same rows through origin-scoped source-id mappings and
-// drop only entities this origin previously owned.
-func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplacement bool) (map[string]int64, error) {
+// remove this origin's dropped roots and explicitly confirmed dependents.
+func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplacement bool, expectedRevision ...string) (map[string]int64, error) {
 	src, err := ParseAxonHubSource(raw)
 	if err != nil {
 		return nil, err
@@ -285,25 +266,31 @@ func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplaceme
 	}
 	defer tx.Rollback()
 
-	// Recheck inside the transaction, not only in the HTTP preview: a caller
-	// that did not confirm replacement must never remove source-owned entries.
+	if err = upstream.LockLifecycleTx(context.Background(), tx); err != nil {
+		return nil, err
+	}
 	owned, err := axonHubMappedSources(tx, db, originKey)
 	if err != nil {
 		return nil, err
 	}
 	keep := axonHubPlanSourceIDs(plan)
-	removals := map[string]int{}
-	for entity, sources := range owned {
-		for sourceID := range sources {
-			if !keep[entity][sourceID] {
-				removals[entity]++
-			}
-		}
+	removalPlan, err := axonHubDeletionPlan(tx, originKey, keep, owned)
+	if err != nil {
+		return nil, err
 	}
+	removals := axonHubRemovalCounts(removalPlan, keep, owned)
 	if len(removals) > 0 && !allowReplacement {
 		return nil, ErrAxonHubReplacementRequired
 	}
-
+	if err = confirmSourceDeletion(removalPlan, originKey, allowReplacement, expectedRevision, ErrAxonHubReplacementRequired); err != nil {
+		return nil, err
+	}
+	if _, err = upstream.ApplyDeletionTx(context.Background(), tx, removalPlan); err != nil {
+		return nil, err
+	}
+	if err = deleteAxonHubSourceKeys(tx, originKey, keep, owned); err != nil {
+		return nil, err
+	}
 	counts := map[string]int64{}
 	channelIDs := map[int]int64{}
 	for _, channel := range plan.channels {
@@ -387,9 +374,6 @@ func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplaceme
 	if err := importAxonHubAccess(db, tx, originKey, plan, channelIDs, counts); err != nil {
 		return nil, err
 	}
-	if err := pruneAxonHubSource(db, tx, originKey, keep, owned); err != nil {
-		return nil, err
-	}
 	for label, count := range removals {
 		counts["removed"+strings.ToUpper(label[:1])+label[1:]] = int64(count)
 	}
@@ -405,8 +389,19 @@ func upsertAxonHubRoute(db *store.DB, tx *sqlx.Tx, origin string, sourceID int64
 	var routeID int64
 	err := tx.Get(&routeID, db.Rebind(`SELECT target_id FROM external_source_ids WHERE origin_key=? AND entity_type=? AND source_id=?`), origin, "token_routes", sourceID)
 	if err == nil {
-		if _, err := tx.Exec(db.Rebind(`UPDATE token_routes SET model_pattern=?, routing_strategy=?, enabled=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`), pattern, strategy, enabled, routeID); err != nil {
-			return 0, fmt.Errorf("update imported model route: %w", err)
+		if err = upstream.ValidateSourceReferencesTx(context.Background(), tx, origin, []upstream.Reference{{Kind: upstream.KindRoute, ID: routeID}}); err != nil {
+			return 0, fmt.Errorf("%w: %v", ErrImportedEntityConflict, err)
+		}
+		result, updateErr := tx.Exec(db.Rebind(`UPDATE token_routes SET model_pattern=?, routing_strategy=?, enabled=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`), pattern, strategy, enabled, routeID)
+		if updateErr != nil {
+			return 0, updateErr
+		}
+		changed, countErr := result.RowsAffected()
+		if countErr != nil {
+			return 0, countErr
+		}
+		if changed != 1 {
+			return 0, ErrImportedEntityConflict
 		}
 		return routeID, nil
 	}
@@ -427,50 +422,4 @@ func upsertAxonHubRoute(db *store.DB, tx *sqlx.Tx, origin string, sourceID int64
 		return 0, fmt.Errorf("save imported model route mapping: %w", err)
 	}
 	return routeID, nil
-}
-
-// pruneAxonHubSource removes only the entities this origin previously owned and
-// the current source no longer contains.
-func pruneAxonHubSource(db *store.DB, tx *sqlx.Tx, origin string, keep map[string]map[int64]bool, owned map[string]map[int64]int64) error {
-	for _, entry := range axonHubEntityDeletionOrder {
-		sources := owned[entry.entity]
-		if len(sources) == 0 {
-			continue
-		}
-		var staleSources []any
-		var staleTargets []any
-		for sourceID, targetID := range sources {
-			if keep[entry.entity][sourceID] {
-				continue
-			}
-			staleSources = append(staleSources, sourceID)
-			staleTargets = append(staleTargets, targetID)
-		}
-		if len(staleSources) == 0 {
-			continue
-		}
-		for start := 0; start < len(staleTargets); start += 400 {
-			end := start + 400
-			if end > len(staleTargets) {
-				end = len(staleTargets)
-			}
-			targetChunk := staleTargets[start:end]
-			sourceChunk := staleSources[start:end]
-			targetQuery, targetArgs, err := sqlx.In("DELETE FROM "+entry.table+" WHERE id IN (?)", targetChunk)
-			if err != nil {
-				return err
-			}
-			if _, err := tx.Exec(db.Rebind(targetQuery), targetArgs...); err != nil {
-				return fmt.Errorf("remove stale imported %s: %w", entry.entity, err)
-			}
-			mappingQuery, mappingArgs, err := sqlx.In(`DELETE FROM external_source_ids WHERE origin_key = ? AND entity_type = ? AND source_id IN (?)`, origin, entry.entity, sourceChunk)
-			if err != nil {
-				return err
-			}
-			if _, err := tx.Exec(db.Rebind(mappingQuery), mappingArgs...); err != nil {
-				return fmt.Errorf("remove stale imported %s mapping: %w", entry.entity, err)
-			}
-		}
-	}
-	return nil
 }

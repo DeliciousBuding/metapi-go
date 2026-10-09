@@ -81,6 +81,15 @@ rebuild these arrangements with local spacing and raw data editors:
 
 ## 2. Color tokens
 
+Independent upstreams use the same brand identities as site presets. Creation
+starts with New API, domestic platforms and Coding Plan presets; protocol names
+remain separate from provider names. The detail sheet uses four short tabs:
+connection, credentials, models and routes. Models expand on demand, and batch
+entry uses one upstream model name per line. Access always selects a credential
+and executable protocols explicitly. Refetch updates untouched fields while
+preserving edits. Deleting an edited entity first confirms draft loss; leaf
+deletion retains undo, and dependent deletion reviews the server's current impact.
+
 ### Shared page and task composition
 
 The shared primitives also own how a task is presented; pages should not

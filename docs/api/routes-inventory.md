@@ -8,6 +8,18 @@ Complete list of registered `/api` admin routes. Path parameters use `:param` no
 This list is checked against the routes reachable from `router.New` by `docs/api_inventory_parity_test.go`: a route registered in code but missing here, or listed here but not registered, fails CI. Request and response shapes live in the per-domain pages under [`docs/api/`](../api/); the shared error envelope, auth surfaces and pagination conventions are in [`conventions.md`](conventions.md).
 
 ### GET
+
+- `/api/imported-upstreams/presets`
+
+- `/api/imported-upstreams/:id/models`
+- `/api/imported-upstreams/groups`
+- `/api/routes/:id/deletion-preview`
+- `/api/imported-upstreams/:id/deletion-preview`
+- `/api/imported-upstreams/models/:id/deletion-preview`
+- `/api/imported-upstreams/credentials/:id/deletion-preview`
+- `/api/imported-upstreams/grants/:id/deletion-preview`
+- `/api/imported-upstreams/groups/:id/deletion-preview`
+- `/api/imported-upstreams/members/:id/deletion-preview`
 - `/api/sites/initialization-presets`
 - `/api/imported-upstreams`
 - `/api/imported-upstreams/:id`
@@ -92,6 +104,15 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/tasks/:id`
 - `/api/update-center/status`
 ### POST
+
+- `/api/imported-upstreams/presets/resolve`
+
+- `/api/imported-upstreams`
+- `/api/imported-upstreams/:id/credentials`
+- `/api/imported-upstreams/:id/models`
+- `/api/imported-upstreams/grants`
+- `/api/imported-upstreams/groups`
+- `/api/imported-upstreams/groups/:id/members`
 - `/api/imported-upstreams/members/:id/cooldown/clear`
 - `/api/account-tokens`
 - `/api/account-tokens/:id/default`
@@ -191,6 +212,10 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/sites/:id/disabled-models`
 - `/api/sites/:id/tags`
 ### PATCH
+
+- `/api/imported-upstreams/models/:id`
+- `/api/imported-upstreams/grants/:id`
+- `/api/imported-upstreams/groups/:id`
 - `/api/imported-upstreams/members/:id`
 - `/api/imported-upstreams/:id`
 - `/api/imported-upstreams/credentials/:id`
@@ -198,6 +223,13 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/oauth/route-units/:routeUnitId`
 
 ### DELETE
+
+- `/api/imported-upstreams/:id`
+- `/api/imported-upstreams/models/:id`
+- `/api/imported-upstreams/credentials/:id`
+- `/api/imported-upstreams/grants/:id`
+- `/api/imported-upstreams/groups/:id`
+- `/api/imported-upstreams/members/:id`
 - `/api/account-tokens/:id`
 - `/api/accounts/:id`
 - `/api/announcements/:id`

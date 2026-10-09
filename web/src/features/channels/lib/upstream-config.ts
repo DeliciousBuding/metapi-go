@@ -17,6 +17,8 @@ export const upstreamKeys = {
   detail: (id: number) => ['imported-upstreams', id] as const,
   credentials: (id: number) =>
     ['imported-upstreams', id, 'credentials'] as const,
+  models: (id: number) => ['imported-upstreams', id, 'models'] as const,
+  groups: ['imported-upstreams', 'groups'] as const,
 }
 
 export const upstreamProtocols = [

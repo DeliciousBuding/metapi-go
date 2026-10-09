@@ -139,6 +139,16 @@ vi.mock('../../api', async () => {
 
 // The page's row-delete path uses the shared undo helper; tests stub it so
 // no QueryClientProvider is required.
+
+// Deletion behavior is covered by the dedicated route-deletion suite.
+vi.mock('@/components/common/upstream-deletion', () => ({
+  useUpstreamDeletion: () => ({
+    requestDeletion: vi.fn(),
+    dialog: null,
+    isPending: false,
+  }),
+}))
+
 vi.mock('@/lib/undoable-delete', () => ({
   useUndoableDelete: () => vi.fn(),
 }))

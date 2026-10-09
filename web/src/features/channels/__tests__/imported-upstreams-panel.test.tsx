@@ -107,11 +107,14 @@ describe('imported upstream inventory', () => {
     expect(screen.getByText('gpt-6-sol')).toBeInTheDocument()
     expect(screen.getByRole('region')).toHaveAttribute('tabindex', '0')
   })
-  it('does not add an empty imported section to native installations', async () => {
+  it('keeps the upstream workspace accessible before the first upstream is created', async () => {
     state.get.mockResolvedValue({ items: [], members: [] })
     mount()
     await waitFor(() => expect(state.get).toHaveBeenCalledTimes(1))
-    expect(screen.queryByRole('region')).not.toBeInTheDocument()
+    expect(screen.getByRole('region')).toBeInTheDocument()
+    expect(
+      screen.getByRole('tab', { name: /Independent upstreams\s*0/ })
+    ).toBeInTheDocument()
   })
   it('shows each protocol destination when a channel uses separate endpoints', async () => {
     const data = inventory()

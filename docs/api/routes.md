@@ -6,7 +6,7 @@
 
 ### GET /api/imported-upstreams
 
-Returns `{items, members}` for imported direct-upstream channels. `items` contains
+Returns `{items, members}` for imported and locally created direct-upstream channels. `items` contains
 channel ID, name, origin key, dialect, base URL, availability, protocol paths and
 model/credential counts. `members` connects group items to route, model and
 credential names and authorized outbound protocol bits (Chat 2, Responses 4,
@@ -22,6 +22,9 @@ The optional endpoint `profile` selects `codex`, `claudecode`, `deepseek`, or
 it is separate from its wire protocol and credential kind.
 This is configuration inventory, not a protocol-health probe. Credential values,
 custom headers and parameter overrides are never included.
+Channel and credential summaries include `ownership` (`native` or `imported`).
+Imported channels can contain locally created models and credentials; ownership
+describes the individual record, not its parent or its routing eligibility.
 Members also expose persisted grant success/failure counts and nullable cooldown
 time/reason code. Imported grant failures use the gateway's bounded Fibonacci
 backoff and are excluded from subsequent selection until that cooldown expires;
@@ -62,7 +65,7 @@ permissions fail explicitly instead of silently dropping the tool history.
 
 ### GET /api/imported-upstreams/:id
 
-Returns a flat editable connection object: `id`, `originKey`, `provider`, `dialect`,
+Returns a flat editable connection object: `id`, `originKey`, `ownership`, `provider`, `dialect`,
 `name`, `enabled`, `baseUrl`, `endpointConfig`, `openaiChatCompletionPath`,
 `openaiResponsePath`, `anthropicMessagePath`, and `useSystemProxy`. The three
 request-configuration values below are omitted; only `hasChannelProxy`,
@@ -130,6 +133,8 @@ Supply either `apiKey` or an `oauth` object, never both. An OAuth replacement
 requires `accessToken` and may include `refreshToken`, `clientId`, `expiresAt`,
 `idToken`, and `accountId`. This is a complete credential replacement; omitted
 replacement fields are not inherited from the previous credential.
+`expiresAt` uses Unix milliseconds. The management form accepts a browser-local
+date and time and converts it to milliseconds before submission.
 Unknown fields and invalid combinations return 400; missing IDs return 404,
 duplicate names within the channel return 409, and storage failures return 500.
 Success returns `{success: true, id}` and invalidates routing caches.
@@ -141,6 +146,90 @@ an in-flight refresh from overwriting a replaced credential. Codex/Fenno use
 upstream streaming even for a JSON client; a complete terminal response is
 required before producing JSON. Native Claude Code tool names are restored
 before any downstream protocol conversion.
+
+## Upstream catalog management
+
+The `/api/imported-upstreams` API manages both imports and local records. It does
+not create shadow sites or accounts. Missing entities return 404; identity or
+relationship conflicts return 409. Secrets are accepted only in write requests.
+
+### Platform presets
+
+`GET /api/imported-upstreams/presets` returns `{items}`. Presets reuse the site
+catalog with `id`, `name`, `label`, `provider`, `platform`, `group`, `defaultUrl`
+`protocols` (executable protocol names), and `recommendedModels`. New API comes first; domestic providers and Coding Plan
+presets precede other providers. Only presets with an executable endpoint
+contract appear in this list.
+
+`POST /api/imported-upstreams/presets/resolve` accepts `{presetId,baseUrl}` and
+returns `{provider,endpointConfig}`. It resolves configuration locally without
+contacting an upstream. Resolve again after changing the base URL; do not reuse
+the previous host's endpoints. Custom hosts receive standard protocol handling
+unless the operator explicitly selects a profile. Invalid targets or unknown
+presets return 400.
+
+### Catalog operations
+
+| Method and path | Request / response |
+| --- | --- |
+| `POST /api/imported-upstreams` | Create with `name`, `provider`, `baseUrl`, explicit `endpointConfig`, optional `enabled` and connection/request settings. `dialect` is `generic`. Returns `{id,name,enabled,ownership}`. |
+| `POST /api/imported-upstreams/:id/credentials` | Create with `name`, optional `enabled`, and either `apiKey` or the OAuth object described above. Returns the secret-free credential summary. |
+| `GET /api/imported-upstreams/:id/models` | `{items:[{id,name,enabled,ownership,grants}]}`. Each grant includes `id`, `modelId`, `credentialId`, `credentialName`, `enabled`, protocol bitmask `protocols`, `memberCount`, and `ownership`. |
+| `POST /api/imported-upstreams/:id/models` | `{name,enabled?}` or `{names:[...],enabled?}` (mutually exclusive; 1–500 unique names). Always returns `{items:[model...]}`. |
+| `PATCH /api/imported-upstreams/models/:id` | Change `name` or `enabled`. Returns `{success,id,affectedRouteIds}`. This changes the upstream model name, not public route aliases. |
+| `POST /api/imported-upstreams/grants` | `{modelId,credentialId,protocols:[2,8],enabled?}`. The model and credential must belong to the same channel. |
+| `PATCH /api/imported-upstreams/grants/:id` | Change `protocols` (array) or `enabled`; model/credential identity is fixed. Returns the grant summary. |
+| `GET /api/imported-upstreams/groups` | `{items:[group...]}` with route identity and all group members. |
+| `POST /api/imported-upstreams/groups` | `{name,mode?,enabled?,route:{modelPattern,displayName?,routingStrategy?},members:[{grantId,priority?,weight?,protocolOrder?}],activeGrantId?}`. Atomically creates one group and its paired exact public-model route. |
+| `PATCH /api/imported-upstreams/groups/:id` | Change `name`, `enabled`, `mode`, or `activeMemberId`. The selected member must belong to this group. |
+| `POST /api/imported-upstreams/groups/:id/members` | Add `{grantId,priority?,weight?,protocolOrder?}`. Existing member preferences use the PATCH endpoint above. |
+
+Channels, credentials and groups default to disabled; models and grants default
+to enabled. Creating a model or credential does not implicitly create grants.
+Group mode defaults to `failover`; an enabled `manual` group needs a selected
+member. Members default to priority 0, weight 1 and inherited protocol order `[]`.
+Group summaries include `id`, `name`, `mode`, `enabled`, `activeMemberId`,
+`ownership`, `routeId`, `modelPattern`, `displayName`, and `members`. Members include
+`id`, `groupId`, `grantId`, `priority`, `weight`, `protocolOrder`, `ownership`,
+`modelName`, `credentialName`, and `channelId`.
+
+Grant protocol arrays must be non-empty, unique and executable by the channel's
+endpoints. An explicit member order must be a subset of that grant. Removing a
+protocol still used by a member returns 409 with `conflictingMemberIds`; the
+server does not silently clear the member order. Public aliases live on routes;
+multiple aliases use separate groups/members sharing the same grants.
+
+## Upstream deletion
+
+Append `/deletion-preview` to any of these resource paths, then GET before DELETE:
+
+- `/api/imported-upstreams/:id`
+- `/api/imported-upstreams/models/:id`
+- `/api/imported-upstreams/credentials/:id`
+- `/api/imported-upstreams/grants/:id`
+- `/api/imported-upstreams/groups/:id`
+- `/api/imported-upstreams/members/:id`
+- `/api/routes/:id`
+
+Preview returns `{kind,id,counts,affectedRouteIds,revision,requiresCascade}`.
+Counts cover actual dependent records regardless of origin: `channels`, `models`,
+`credentials`, `grants`, `groups`, `members`, `routes`, `routeChannels`,
+`routeGroupSources`, `downstreamKeys` and `sourceMappings`. `downstreamKeys`
+means route permissions are affected; those keys are not deleted by this API.
+
+DELETE accepts `expectedRevision` and `cascade=true`. Related-record deletion
+requires both; any supplied revision is checked even for a leaf. Missing
+confirmation or changed impact returns 409 with `{error,preview}` and changes
+nothing. Successful deletion returns `{success:true,...preview}` and optionally
+`downstreamKeysWithOnlyDeletedRoutes`. Deleting the last authorized route keeps
+its dead ID in the key scope so the key cannot become unrestricted.
+
+Deletion removes all associated source mappings, clears a removed manual active
+member without selecting a replacement, and invalidates routing caches. Deleting
+a group deletes its paired route and vice versa. Re-import can recreate deleted
+source records; stale source mappings cannot silently update zero rows.
+
+## Account routes
 
 ### GET /api/routes/lite
 
@@ -201,11 +290,13 @@ Update an existing route.
 
 ### DELETE /api/routes/:id
 
-Delete a route and its channels.
+Delete a route and its channels. A route paired with a direct-upstream group uses
+the same deletion preview and confirmation contract as that group, described below.
+Ordinary account-backed routes retain their existing DELETE contract.
 
 ### POST /api/routes/batch
 
-Batch enable/disable/delete routes. Body: `{ "ids": [1, 2, 3], "action": "enable" }`.
+Batch enable/disable routes. Body: `{ "ids": [1, 2, 3], "action": "enable" }`.
 
 ### PUT /api/routes/reorder
 

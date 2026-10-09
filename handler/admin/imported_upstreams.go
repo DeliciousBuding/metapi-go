@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
@@ -12,6 +13,9 @@ import (
 // Imported upstreams are distinct from native account-backed route channels.
 // These projections deliberately never select credentials or custom headers.
 func RegisterImportedUpstreamRoutes(r chi.Router, db *sqlx.DB) {
+	RegisterUpstreamCatalogRoutes(r, db)
+	RegisterUpstreamLifecycleRoutes(r, db)
+	RegisterUpstreamPresetRoutes(r)
 	h := &importedUpstreamHandler{db: db}
 	r.Get("/api/imported-upstreams", h.list)
 	r.Get("/api/imported-upstreams/{id}", h.detail)
@@ -51,6 +55,7 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, row := range channels {
+		row["ownership"] = upstream.Ownership(fmt.Sprint(row["originKey"]))
 		var endpoints store.DirectEndpoints
 		if err := endpoints.Scan(row["endpointConfig"]); err != nil {
 			writeError(w, http.StatusInternalServerError, "Invalid imported upstream endpoints")

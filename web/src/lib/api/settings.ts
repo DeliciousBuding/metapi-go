@@ -160,7 +160,8 @@ export const settingsApi = {
     externalOriginKey?: string,
     octopusImportMode?: 'channels-only',
     replaceOctopusOrigin?: boolean,
-    replaceAxonHubOrigin?: boolean
+    replaceAxonHubOrigin?: boolean,
+    replacementRevision?: string
   ) =>
     request('/api/settings/backup/import', {
       method: 'POST',
@@ -169,7 +170,8 @@ export const settingsApi = {
         externalOriginKey ||
         octopusImportMode ||
         replaceOctopusOrigin ||
-        replaceAxonHubOrigin
+        replaceAxonHubOrigin ||
+        replacementRevision
           ? {
               ...(externalOriginKey
                 ? { 'X-External-Origin-Key': externalOriginKey }
@@ -182,6 +184,9 @@ export const settingsApi = {
                 : {}),
               ...(replaceAxonHubOrigin
                 ? { 'X-AxonHub-Replace-Origin': 'true' }
+                : {}),
+              ...(replacementRevision
+                ? { 'X-External-Replacement-Revision': replacementRevision }
                 : {}),
             }
           : undefined,

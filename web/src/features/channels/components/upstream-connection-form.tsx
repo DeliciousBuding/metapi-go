@@ -50,6 +50,7 @@ export function UpstreamConnectionForm(props: {
   const onDirtyChange = props.onDirtyChange
   useEffect(() => {
     onDirtyChange('connection', dirty)
+    return () => onDirtyChange('connection', false)
   }, [dirty, onDirtyChange])
   useEffect(
     () => () => {

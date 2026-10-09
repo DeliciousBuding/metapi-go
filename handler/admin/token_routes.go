@@ -12,6 +12,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -694,58 +695,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 // ---- Delete Route ----
 // DELETE /api/routes/:id
 func (h *tokenRoutesHandler) deleteRoute(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r)
-	if !ok {
-		return
-	}
-
-	tx, err := h.db.Beginx()
-	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to begin transaction")
-		return
-	}
-	defer tx.Rollback()
-
-	if _, err := tx.Exec(tx.Rebind("DELETE FROM route_group_sources WHERE group_route_id = ?"), id); err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
-		return
-	}
-	if _, err := tx.Exec(tx.Rebind("DELETE FROM route_group_sources WHERE source_route_id = ?"), id); err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
-		return
-	}
-	if _, err := tx.Exec(tx.Rebind("DELETE FROM route_channels WHERE route_id = ?"), id); err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
-		return
-	}
-	// Downstream keys may authorize this route by id. Leaving the reference
-	// behind made the key unsavable afterwards (its allowlist is validated on
-	// every update and the UI cannot edit it), so the delete owns removing it.
-	onlyDeletedGrants, err := pruneDeletedRouteIDsFromDownstreamKeys(tx, id)
-	if err != nil {
-		slog.Warn("route delete could not prune downstream key route grants", "routeId", id, "error", err)
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
-		return
-	}
-	if _, err := tx.Exec(tx.Rebind("DELETE FROM token_routes WHERE id = ?"), id); err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
-		return
-	}
-
-	if err := tx.Commit(); err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to commit transaction")
-		return
-	}
-
-	routing.InvalidateCache()
-	invalidateChannelsSnapshotCache()
-	response := map[string]any{"success": true}
-	if len(onlyDeletedGrants) > 0 {
-		// Truthful at the moment the operator can still act on it: these keys now
-		// authorize nothing that exists, and were deliberately not widened.
-		response["downstreamKeysWithOnlyDeletedRoutes"] = onlyDeletedGrants
-	}
-	writeJSON(w, http.StatusOK, response)
+	deleteLifecycleEntity(w, r, h.db, upstream.KindRoute, true)
 }
 
 // ---- Batch Routes ----

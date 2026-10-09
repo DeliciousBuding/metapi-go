@@ -22,12 +22,16 @@ import { statsApi } from './api/stats'
 import { systemApi } from './api/system'
 import { testChatApi } from './api/test-chat'
 import { tokenRoutesApi } from './api/token-routes'
+import { upstreamCatalogApi } from './api/upstream-catalog'
+import { upstreamLifecycleApi } from './api/upstream-lifecycle'
 
 export * from './api/types'
 export type { ImportedUpstreamInventory } from './api/imported-upstreams'
 
 export const api = {
   ...importedUpstreamsApi,
+  ...upstreamLifecycleApi,
+  ...upstreamCatalogApi,
   ...sitesApi,
   ...siteAnnouncementsApi,
   ...accountsApi,

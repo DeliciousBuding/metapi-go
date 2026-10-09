@@ -1,13 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { ArrowDown, ArrowUp, Pencil, RotateCcw } from 'lucide-react'
+import { ArrowDown, ArrowUp, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { ModelPill } from '@/components/common/model-pill'
+import { useUpstreamDeletion } from '@/components/common/upstream-deletion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -23,15 +24,20 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
-import type { ImportedMember } from '@/lib/api/imported-upstreams'
+import type {
+  ImportedMember,
+  ImportedUpstreamInventory,
+} from '@/lib/api/imported-upstreams'
 import { formatDateTime } from '@/lib/format'
 import { toast } from '@/lib/toast'
+import { useUndoableDelete } from '@/lib/undoable-delete'
 
 import {
   memberProtocols,
   upstreamKeys,
   upstreamProtocols,
 } from '../lib/upstream-config'
+import { UpstreamGroupManager } from './upstream-group-manager'
 
 const memberSchema = z.object({
   priority: z.number().int().min(-2147483648).max(2147483647),
@@ -56,22 +62,53 @@ function MemberForm(props: {
   })
   const pending = form.formState.isSubmitting
   const dirty = form.formState.isDirty
+  const dirtyFields = form.formState.dirtyFields
   const onDirtyChange = props.onDirtyChange
   useEffect(() => {
     onDirtyChange(`member-${props.member.id}`, dirty)
   }, [props.member.id, dirty, onDirtyChange])
+  useEffect(
+    () => () => onDirtyChange(`member-${props.member.id}`, false),
+    [props.member.id, onDirtyChange]
+  )
+  useEffect(() => {
+    form.reset(
+      {
+        priority: props.member.priority,
+        weight: props.member.weight,
+        protocolOrder: props.member.protocolOrder ?? [],
+      },
+      { keepDirtyValues: true }
+    )
+  }, [props.member, form])
   async function save(values: MemberValues) {
-    const result = await api.updateImportedMember(props.member.id, values)
-    if (!result.success) return
-    form.reset(values)
-    await client.invalidateQueries({ queryKey: upstreamKeys.all })
-    toast.success(t('channels.upstream.saved'))
+    try {
+      const result = await api.updateImportedMember(props.member.id, {
+        ...(dirtyFields.priority ? { priority: values.priority } : {}),
+        ...(dirtyFields.weight ? { weight: values.weight } : {}),
+        ...(dirtyFields.protocolOrder
+          ? { protocolOrder: values.protocolOrder }
+          : {}),
+      })
+      if (!result.success) throw new Error(t('channels.group.saveError'))
+      await client.invalidateQueries({ queryKey: upstreamKeys.all })
+      await client.invalidateQueries({ queryKey: ['routes'] })
+      form.reset(form.getValues())
+      toast.success(t('channels.upstream.saved'))
+    } catch (error) {
+      form.setError('root', {
+        message:
+          error instanceof Error
+            ? error.message
+            : t('channels.group.saveError'),
+      })
+    }
   }
   return (
     <Form {...form}>
       <form
         className='space-y-4 border-t p-4'
-        onSubmit={form.handleSubmit((values) => save(values).catch(() => {}))}
+        onSubmit={form.handleSubmit(save)}
       >
         <div className='grid grid-cols-2 gap-4'>
           {(['priority', 'weight'] as const).map((name) => (
@@ -123,7 +160,13 @@ function MemberForm(props: {
               <FormItem>
                 <FormLabel>{t('channels.upstream.protocolOrder')}</FormLabel>
                 <FormControl>
-                  <div role='group' ref={field.ref} className='space-y-3'>
+                  <div
+                    role='group'
+                    aria-label={t('channels.upstream.protocolOrder')}
+                    tabIndex={-1}
+                    ref={field.ref}
+                    className='space-y-3'
+                  >
                     <label className='flex items-center justify-between gap-3 text-sm'>
                       <span>{t('channels.upstream.inheritProtocols')}</span>
                       <Switch
@@ -225,6 +268,11 @@ function MemberForm(props: {
             )
           }}
         />
+        {form.formState.errors.root && (
+          <p role='alert' className='text-destructive text-sm'>
+            {form.formState.errors.root.message}
+          </p>
+        )}
         <div className='flex justify-end'>
           <Button type='submit' size='sm' disabled={!dirty || pending}>
             {t('channels.upstream.saveRoute')}
@@ -236,6 +284,9 @@ function MemberForm(props: {
 }
 
 export function UpstreamRouteBindings(props: {
+  channelId?: number
+  active?: boolean
+  beforeDelete?: (action: () => void) => void
   members: ImportedMember[]
   onDirtyChange: (key: string, dirty: boolean) => void
 }) {
@@ -243,12 +294,38 @@ export function UpstreamRouteBindings(props: {
   const client = useQueryClient()
   const [expanded, setExpanded] = useState<number[]>([])
   const [clearing, setClearing] = useState<number | null>(null)
+  const { requestDeletion, dialog, isPending } = useUpstreamDeletion()
+  const undoableDelete = useUndoableDelete()
+  function deleteMember(member: ImportedMember) {
+    return requestDeletion(
+      {
+        kind: 'member',
+        id: member.id,
+        name: `${member.modelName} · ${member.credentialName}`,
+      },
+      (_preview, commit) =>
+        undoableDelete<ImportedUpstreamInventory, ImportedMember>({
+          item: member,
+          queryKey: upstreamKeys.all,
+          removeFromCache: (data, item) => ({
+            ...data,
+            members: data.members.filter((entry) => entry.id !== item.id),
+          }),
+          deleteFn: commit,
+          title: t('channels.group.memberDeleted'),
+          undoLabel: t('common.undo'),
+          errorTitle: t('channels.group.deleteError'),
+        }),
+      () => props.onDirtyChange(`member-${member.id}`, false)
+    )
+  }
   async function clearCooldown(id: number) {
     setClearing(id)
     try {
       const result = await api.clearImportedMemberCooldown(id)
       if (result.success) {
         await client.invalidateQueries({ queryKey: upstreamKeys.all })
+        await client.invalidateQueries({ queryKey: ['routes'] })
         toast.success(t('channels.upstream.cooldownCleared'))
       }
     } finally {
@@ -257,6 +334,19 @@ export function UpstreamRouteBindings(props: {
   }
   return (
     <div className='space-y-3'>
+      {props.channelId !== undefined && (
+        <UpstreamGroupManager
+          channelId={props.channelId}
+          active={props.active ?? false}
+          onDirtyChange={props.onDirtyChange}
+          beforeDelete={props.beforeDelete}
+        />
+      )}
+      {props.channelId !== undefined && (
+        <h3 className='pt-3 text-sm font-semibold'>
+          {t('channels.group.members')}
+        </h3>
+      )}
       {props.members.map((member) => {
         const cooling =
           !!member.cooldownUntil &&
@@ -276,8 +366,8 @@ export function UpstreamRouteBindings(props: {
             className='overflow-hidden rounded-xl border'
           >
             <div className='space-y-3 p-4'>
-              <div className='flex items-start justify-between gap-3'>
-                <div className='min-w-0 space-y-2'>
+              <div className='flex flex-wrap items-start justify-between gap-3'>
+                <div className='min-w-0 flex-1 space-y-2'>
                   <Link
                     to='/token-routes'
                     search={{ routeId: member.routeId }}
@@ -308,6 +398,24 @@ export function UpstreamRouteBindings(props: {
                     }
                   >
                     <Pencil className='size-4' />
+                  </Button>
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon-sm'
+                    disabled={isPending}
+                    aria-label={t('channels.group.deleteMember', {
+                      name: member.modelName,
+                    })}
+                    onClick={() => {
+                      const action = () => {
+                        void deleteMember(member)
+                      }
+                      if (props.beforeDelete) props.beforeDelete(action)
+                      else action()
+                    }}
+                  >
+                    <Trash2 className='size-4' />
                   </Button>
                 </div>
               </div>
@@ -388,6 +496,7 @@ export function UpstreamRouteBindings(props: {
           {t('channels.upstream.noRoutes')}
         </p>
       )}
+      {dialog}
     </div>
   )
 }

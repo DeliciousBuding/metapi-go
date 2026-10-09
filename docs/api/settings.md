@@ -105,10 +105,17 @@ header on both preview and commit; it scopes source-ID mappings so repeat import
 different imports of channels with the same URL remain distinct.
 
 Re-import is a source snapshot replacement, not an append-only merge. Preview returns `removals` counts for
-source-owned channels, credentials, models, grants, groups, members, and routes absent from the new snapshot.
+source-owned records absent from the new snapshot and their dependent channels, credentials, models, grants, groups, members, and routes.
 When removals exist, commit requires `X-Octopus-Replace-Origin: true` after reviewing the removal notice and final
-confirmation; otherwise it returns 409 without changes. Replacement and upserts share one transaction. Native
-rows and other origins are never replacement targets. Empty channel exports remain invalid, not a delete-all command.
+confirmation; otherwise it returns 409 without changes. Replacement and upserts share one transaction.
+Dependents can include local children of imported channels or members from another origin.
+Preview includes `removalImpact` with `kind: "source"`, `id: 0`, `counts`, `affectedRouteIds`,
+`requiresCascade`, and `revision`, using the [deletion preview contract](routes.md#upstream-deletion).
+Send the reviewed revision in `X-External-Replacement-Revision`; a supplied stale revision always returns 409.
+This header is required in addition to the replacement flag when the closure includes local or other-origin records.
+Existing callers replacing only their own source records remain compatible with the boolean flag.
+On 409, fetch a new preview and ask the operator to review it before resubmitting.
+Empty channel exports remain invalid, not a delete-all command.
 
 The Octopus v5 path currently imports channels, named channel keys, models, grants, groups, and group items atomically.
 Imported grants enter the normal token-route selector and proxy executor as typed direct upstream candidates; they do not
@@ -153,6 +160,10 @@ as Octopus. One compiled plan drives both the preview and the transaction.
 Repeated imports update source-owned records; removals require
 `X-AxonHub-Replace-Origin: true`. Preview never writes, and a failed import
 rolls back the entire graph and its downstream keys.
+The same `removalImpact` and replacement-revision contract applies. Its
+`counts.downstreamKeys` counts keys whose route permissions are affected, not keys
+being deleted. AxonHub's `removals.downstream_api_keys` separately counts source
+keys that will be deleted. The revision also covers a keys-only replacement.
 
 The audited source revision is `e863c6fe1942deddd0f6e471fa003c430e5314f0`.
 The parser accepts its generated `edges` metadata and default settings, rejects

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -33,6 +34,10 @@ func (h *importedUpstreamHandler) updateMember(w http.ResponseWriter, r *http.Re
 		return
 	}
 	defer tx.Rollback()
+	if err = upstream.LockLifecycleTx(r.Context(), tx); err != nil {
+		importedWriteError(w, err)
+		return
+	}
 	query := `SELECT i.priority,i.weight,i.protocol_order,g.protocols FROM upstream_group_items i JOIN upstream_grants g ON g.id=i.grant_id WHERE i.id=?`
 	if h.db.DriverName() == "pgx" {
 		query += " FOR UPDATE OF i,g"

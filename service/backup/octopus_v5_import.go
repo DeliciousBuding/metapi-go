@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
 )
@@ -23,7 +25,7 @@ func ImportOctopusV5(db *store.DB, raw []byte, originKey string) (map[string]int
 // When allowUnsupported is true, unsupported Octopus-only sections stay in
 // the user's source file and are never activated; recognized default relay
 // policies are normalized away after the caller acknowledges Metapi routing.
-func ImportOctopusV5WithUnsupportedMode(db *store.DB, raw []byte, originKey string, allowUnsupported, allowReplacement bool) (map[string]int64, error) {
+func ImportOctopusV5WithUnsupportedMode(db *store.DB, raw []byte, originKey string, allowUnsupported, allowReplacement bool, expectedRevision ...string) (map[string]int64, error) {
 	d, err := ParseOctopusV5(raw)
 	if err != nil {
 		return nil, err
@@ -49,16 +51,22 @@ func ImportOctopusV5WithUnsupportedMode(db *store.DB, raw []byte, originKey stri
 		return nil, fmt.Errorf("begin Octopus import: %w", err)
 	}
 	defer tx.Rollback()
-	// Recheck inside the transaction, not only in the HTTP preview: a caller
-	// that did not confirm replacement must never remove source-owned entries.
-	if !allowReplacement {
-		removals, removalErr := octopusRemovals(tx, db, d, originKey)
-		if removalErr != nil {
-			return nil, removalErr
-		}
-		if len(removals) > 0 {
-			return nil, ErrOctopusReplacementRequired
-		}
+	if err = upstream.LockLifecycleTx(context.Background(), tx); err != nil {
+		return nil, err
+	}
+	removalPlan, err := octopusDeletionPlan(tx, db, d, originKey)
+	if err != nil {
+		return nil, err
+	}
+	removalCounts := octopusRemovalCounts(removalPlan)
+	if len(removalCounts) > 0 && !allowReplacement {
+		return nil, ErrOctopusReplacementRequired
+	}
+	if err = confirmSourceDeletion(removalPlan, originKey, allowReplacement, expectedRevision, ErrOctopusReplacementRequired); err != nil {
+		return nil, err
+	}
+	if _, err = upstream.ApplyDeletionTx(context.Background(), tx, removalPlan); err != nil {
+		return nil, err
 	}
 	statsRecords, err := persistOctopusStats(db, tx, originKey, d)
 	if err != nil {
@@ -156,12 +164,8 @@ func ImportOctopusV5WithUnsupportedMode(db *store.DB, raw []byte, originKey stri
 			return nil, fmt.Errorf("update imported group selection: %w", e)
 		}
 	}
-	removed, err := pruneOctopusSourceSnapshot(db, tx, d, originKey)
-	if err != nil {
-		return nil, err
-	}
-	for label, count := range removed {
-		counts["removed"+strings.ToUpper(label[:1])+label[1:]] = count
+	for label, count := range removalCounts {
+		counts["removed"+strings.ToUpper(label[:1])+label[1:]] = int64(count)
 	}
 	if err = tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit Octopus import: %w", err)
@@ -266,6 +270,9 @@ func upsertOctopusRoute(db *store.DB, tx *sqlx.Tx, origin string, sourceID int64
 	var routeID int64
 	err := tx.Get(&routeID, db.Rebind(`SELECT target_id FROM external_source_ids WHERE origin_key=? AND entity_type=? AND source_id=?`), origin, "token_routes", sourceID)
 	if err == nil {
+		if err = upstream.ValidateSourceReferencesTx(context.Background(), tx, origin, []upstream.Reference{{Kind: upstream.KindRoute, ID: routeID}}); err != nil {
+			return 0, fmt.Errorf("%w: %v", ErrImportedEntityConflict, err)
+		}
 		var pattern string
 		if err = tx.Get(&pattern, db.Rebind(`SELECT model_pattern FROM token_routes WHERE id=?`), routeID); err != nil {
 			return 0, fmt.Errorf("load imported model route: %w", err)
@@ -309,9 +316,17 @@ func upsertMapped(db *store.DB, tx *sqlx.Tx, origin, entity string, sourceID int
 		for i, c := range columns {
 			sets[i] = c + " = ?"
 		}
-		args := append(append([]any{}, values...), id)
-		if _, err = tx.Exec(db.Rebind("UPDATE "+table+" SET "+strings.Join(sets, ",")+" WHERE id = ?"), args...); err != nil {
-			return 0, fmt.Errorf("update imported %s: %w", entity, err)
+		args := append(append([]any{}, values...), id, origin, sourceID)
+		result, updateErr := tx.Exec(db.Rebind("UPDATE "+table+" SET "+strings.Join(sets, ",")+" WHERE id = ? AND origin_key=? AND source_id=?"), args...)
+		if updateErr != nil {
+			return 0, importedUpsertError(entity, updateErr)
+		}
+		changed, countErr := result.RowsAffected()
+		if countErr != nil {
+			return 0, countErr
+		}
+		if changed != 1 {
+			return 0, fmt.Errorf("%w: stale or foreign %s mapping", ErrImportedEntityConflict, entity)
 		}
 		return id, nil
 	}
@@ -323,7 +338,7 @@ func upsertMapped(db *store.DB, tx *sqlx.Tx, origin, entity string, sourceID int
 	args := append([]any{origin, sourceID}, values...)
 	q := "INSERT INTO " + table + " (" + strings.Join(cols, ",") + ") VALUES (" + marks + ") RETURNING id"
 	if err = tx.Get(&id, db.Rebind(q), args...); err != nil {
-		return 0, fmt.Errorf("insert imported %s: %w", entity, err)
+		return 0, importedUpsertError(entity, err)
 	}
 	if _, err = tx.Exec(db.Rebind("INSERT INTO external_source_ids (origin_key,entity_type,source_id,target_id) VALUES (?,?,?,?)"), origin, entity, sourceID, id); err != nil {
 		return 0, fmt.Errorf("save imported %s mapping: %w", entity, err)
