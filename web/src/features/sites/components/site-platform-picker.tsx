@@ -103,7 +103,7 @@ export function SitePlatformPicker({
                   <CommandItem
                     key={entry.id}
                     value={entry.id}
-                    keywords={[entry.name, t(entry.descriptionKey)]}
+                    keywords={[entry.name]}
                     aria-label={entry.name}
                     data-checked={value === entry.id}
                     onSelect={() => {

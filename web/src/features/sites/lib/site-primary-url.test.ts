@@ -2,27 +2,9 @@
 // shared/sitePrimaryUrl tests plus the go-side sanity cases).
 import { describe, expect, it } from 'vitest'
 
-import { CONNECTION_PRESETS } from '@/lib/platform-catalog'
-
 import { analyzePrimarySiteUrl } from './site-primary-url'
 
 describe('sitePrimaryUrl', () => {
-  it.each([
-    ['moonshot', 'https://api.moonshot.cn'],
-    ['siliconflow', 'https://api.siliconflow.cn'],
-    ['bailian', 'https://dashscope.aliyuncs.com/compatible-mode'],
-    ['fireworks', 'https://api.fireworks.ai/inference'],
-    ['cerebras', 'https://api.cerebras.ai'],
-    ['modelscope', 'https://api-inference.modelscope.cn'],
-  ])(
-    'preserves the %s preset base used for model discovery and chat paths',
-    (id, expected) => {
-      const preset = CONNECTION_PRESETS.find((entry) => entry.id === id)
-      expect(preset?.platform).toBe('openai')
-      expect(analyzePrimarySiteUrl(preset?.url).persistedUrl).toBe(expected)
-    }
-  )
-
   it('returns unchanged for empty, nullish, and invalid inputs', () => {
     expect(analyzePrimarySiteUrl('')).toMatchObject({
       canonicalUrl: '',

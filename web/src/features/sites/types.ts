@@ -66,6 +66,7 @@ export type Site = {
  * legacy `SiteSavePayload` shape so the backend accepts it unchanged.
  */
 export type SiteFormPayload = {
+  initializationPresetId?: string
   name: string
   url: string
   externalCheckinUrl: string
@@ -112,5 +113,7 @@ export type SiteBatchAction =
 export const sitesKeys = {
   all: ['sites'] as const,
   list: () => [...sitesKeys.all, 'list'] as const,
+  initializationPresets: () =>
+    [...sitesKeys.all, 'initialization-presets'] as const,
   detail: (id: number) => [...sitesKeys.all, 'detail', id] as const,
 }

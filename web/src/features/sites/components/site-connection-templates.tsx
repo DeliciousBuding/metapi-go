@@ -6,13 +6,18 @@ import { BrandGlyph } from '@/assets/brand-icons/BrandIcon'
 import { PlatformBadge } from '@/components/common/platform-badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import type { SiteInitializationPreset } from '@/lib/api/sites'
 import {
-  CONNECTION_TEMPLATES,
+  PLATFORM_CONNECTION_TEMPLATES,
+  getConnectionPresetIcon,
   type ConnectionTemplate,
   type PlatformDefinition,
 } from '@/lib/platform-catalog'
 import { cn } from '@/lib/utils'
+
+import { useSiteInitializationPresets } from '../api'
 
 type Props = {
   selected: ConnectionTemplate | null
@@ -22,8 +27,33 @@ type Props = {
   onSelect: (template: ConnectionTemplate) => boolean
 }
 
+function templateFromPreset(
+  preset: SiteInitializationPreset
+): ConnectionTemplate {
+  let protocols: ConnectionTemplate['protocols'] = ['chat']
+  if (preset.id === 'openai-api') protocols = ['chat', 'responses']
+  else if (preset.platform === 'claude') protocols = ['messages']
+  else if (preset.platform === 'gemini') protocols = ['gemini']
+  return {
+    id: preset.id,
+    name: preset.providerLabel,
+    label: preset.label,
+    platform: preset.platform,
+    icon: getConnectionPresetIcon(preset.id),
+    url: preset.defaultUrl,
+    group: 'api',
+    protocols,
+    available: true,
+  }
+}
+
 export function SiteConnectionTemplates(props: Props) {
   const { t } = useTranslation()
+  const presets = useSiteInitializationPresets()
+  const allTemplates = [
+    ...(presets.data ?? []).map(templateFromPreset),
+    ...PLATFORM_CONNECTION_TEMPLATES,
+  ]
   const [expanded, setExpanded] = useState(true)
   const [category, setCategory] = useState<PlatformDefinition['group']>('api')
   const [search, setSearch] = useState('')
@@ -106,7 +136,7 @@ export function SiteConnectionTemplates(props: Props) {
             aria-label={t('sites.templates.search')}
           />
           {(['api', 'gateway', 'oauth'] as const).map((group) => {
-            const templates = CONNECTION_TEMPLATES.filter(
+            const templates = allTemplates.filter(
               (template) =>
                 template.group === group &&
                 `${template.name} ${template.platform} ${template.url}`
@@ -115,6 +145,30 @@ export function SiteConnectionTemplates(props: Props) {
             )
             return (
               <TabsContent key={group} value={group} className='space-y-3'>
+                {group === 'api' && presets.isPending && (
+                  <div
+                    className='flex justify-center py-3'
+                    aria-label={t('sites.templates.loading')}
+                  >
+                    <Spinner />
+                  </div>
+                )}
+                {group === 'api' && presets.isError && (
+                  <div
+                    role='alert'
+                    className='flex items-center justify-between gap-3 text-sm'
+                  >
+                    <span>{t('sites.templates.loadFailed')}</span>
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='xs'
+                      onClick={() => void presets.refetch()}
+                    >
+                      {t('common.retry')}
+                    </Button>
+                  </div>
+                )}
                 <div className='grid max-h-64 grid-cols-2 gap-2 overflow-y-auto pr-1 max-[420px]:grid-cols-1'>
                   {templates.map((template) => {
                     const contents = (
@@ -184,9 +238,11 @@ export function SiteConnectionTemplates(props: Props) {
                         disabled={!template.available}
                         aria-label={
                           template.available
-                            ? t('sites.templates.use', { name: template.name })
+                            ? t('sites.templates.use', {
+                                name: template.label ?? template.name,
+                              })
                             : t('sites.templates.unavailable', {
-                                name: template.name,
+                                name: template.label ?? template.name,
                               })
                         }
                         onClick={() => select(template)}
@@ -196,11 +252,15 @@ export function SiteConnectionTemplates(props: Props) {
                     )
                   })}
                 </div>
-                {templates.length === 0 && (
-                  <p className='text-muted-foreground py-3 text-center text-sm'>
-                    {t('platforms.noResults')}
-                  </p>
-                )}
+                {templates.length === 0 &&
+                  !(
+                    group === 'api' &&
+                    (presets.isPending || presets.isError)
+                  ) && (
+                    <p className='text-muted-foreground py-3 text-center text-sm'>
+                      {t('platforms.noResults')}
+                    </p>
+                  )}
               </TabsContent>
             )
           })}

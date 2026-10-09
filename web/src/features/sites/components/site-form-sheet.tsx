@@ -93,6 +93,23 @@ function selectValueToNullableBool(
   return false
 }
 
+function matchesTemplate(
+  template: ConnectionTemplate,
+  url: string,
+  platform: string
+) {
+  function savedURL(value: string) {
+    const analysis = analyzePrimarySiteUrl(value)
+    return analysis.action === 'auto_strip_known_api_suffix'
+      ? analysis.persistedUrl
+      : value.trim().replace(/\/+$/, '')
+  }
+  return (
+    platform.trim() === template.platform &&
+    savedURL(url) === savedURL(template.url)
+  )
+}
+
 function siteToFormValues(site: Site): SiteFormValues {
   return {
     name: site.name ?? '',
@@ -217,6 +234,16 @@ export function SiteFormSheet({
   // Live primary-site URL classification for the normalization alerts.
   const urlAnalysis = analyzePrimarySiteUrl(watchedUrl)
 
+  useEffect(() => {
+    if (
+      selectedTemplate?.group === 'api' &&
+      !matchesTemplate(selectedTemplate, watchedUrl, watchedPlatform)
+    ) {
+      setSelectedTemplate(null)
+      setTemplateFeedback(t('sites.templates.customized'))
+    }
+  }, [selectedTemplate, watchedUrl, watchedPlatform, t])
+
   // Auto-recognize platform when a URL is pasted and no platform has been
   // chosen yet. Unknown sites resolve to an empty result and stay manually
   // specifiable; a user-entered platform always wins over auto-detection.
@@ -316,6 +343,13 @@ export function SiteFormSheet({
       endpointsTouched,
       persistedUrl
     )
+    if (
+      !isEditing &&
+      selectedTemplate?.group === 'api' &&
+      matchesTemplate(selectedTemplate, persistedUrl, values.platform)
+    ) {
+      payload.initializationPresetId = selectedTemplate.id
+    }
     try {
       if (isEditing && editingSite) {
         await updateSite.mutateAsync({ id: editingSite.id, payload })

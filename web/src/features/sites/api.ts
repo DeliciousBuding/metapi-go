@@ -47,6 +47,13 @@ export function useSites(
 
 type CreateSiteContext = { previous: Site[] | undefined }
 
+export function useSiteInitializationPresets() {
+  return useQuery({
+    queryKey: sitesKeys.initializationPresets(),
+    queryFn: api.getSiteInitializationPresets,
+  })
+}
+
 /**
  * Create a site. Returns the created `Site` (with id) so the caller can
  * open the guided "next step: add an account" modal with the new id.

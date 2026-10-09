@@ -593,6 +593,9 @@
     "sites": {
       "templates": {
         "title": "Connection templates",
+        "loading": "Loading templates",
+        "loadFailed": "Templates could not be loaded.",
+        "customized": "Custom connection; your entries were preserved.",
         "manual": "Configure manually",
         "change": "Change template",
         "search": "Search templates…",

@@ -23,9 +23,43 @@ import {
 } from 'vitest'
 
 import '@/i18n/config'
+import type { SiteInitializationPreset } from '@/lib/api/sites'
 
 import type { Site } from '../../types'
 import { SiteFormSheet } from '../site-form-sheet'
+
+const initializationPresets: SiteInitializationPreset[] = [
+  {
+    id: 'deepseek-openai',
+    label: 'DeepSeek / OpenAI',
+    providerLabel: 'DeepSeek',
+    platform: 'openai',
+    defaultUrl: 'https://api.deepseek.com/v1',
+    recommendedSkipModelFetch: true,
+    recommendedModels: ['deepseek-chat'],
+    docsUrl: 'https://api-docs.deepseek.com/',
+  },
+  {
+    id: 'gemini-api',
+    label: 'Gemini API',
+    providerLabel: 'Google Gemini',
+    platform: 'gemini',
+    defaultUrl: 'https://generativelanguage.googleapis.com',
+    recommendedSkipModelFetch: false,
+    recommendedModels: [],
+    docsUrl: '',
+  },
+  {
+    id: 'openai-api',
+    label: 'OpenAI API',
+    providerLabel: 'OpenAI',
+    platform: 'openai',
+    defaultUrl: 'https://api.openai.com',
+    recommendedSkipModelFetch: false,
+    recommendedModels: [],
+    docsUrl: '',
+  },
+]
 
 const { mockCreateMutate, mockUpdateMutate, mockDetectMutate, mockToastError } =
   vi.hoisted(() => ({
@@ -36,6 +70,11 @@ const { mockCreateMutate, mockUpdateMutate, mockDetectMutate, mockToastError } =
   }))
 
 vi.mock('../../api', () => ({
+  useSiteInitializationPresets: () => ({
+    data: initializationPresets,
+    isPending: false,
+    isError: false,
+  }),
   useCreateSite: () => ({ mutateAsync: mockCreateMutate, isPending: false }),
   useUpdateSite: () => ({ mutateAsync: mockUpdateMutate, isPending: false }),
   useDetectSite: () => ({ mutateAsync: mockDetectMutate, isPending: false }),
@@ -135,10 +174,14 @@ describe('SiteFormSheet layout and connection presets', () => {
       { target: { value: 'DeepSeek' } }
     )
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Use DeepSeek template' })
+      await screen.findByRole('button', {
+        name: 'Use DeepSeek / OpenAI template',
+      })
     )
     expect(screen.getByLabelText('Name')).toHaveValue('DeepSeek')
-    expect(screen.getByLabelText('URL')).toHaveValue('https://api.deepseek.com')
+    expect(screen.getByLabelText('URL')).toHaveValue(
+      'https://api.deepseek.com/v1'
+    )
     expect(
       screen.getByRole('combobox', { name: 'Platform' })
     ).toHaveTextContent('OpenAI')
@@ -150,7 +193,9 @@ describe('SiteFormSheet layout and connection presets', () => {
     typeField('Name', 'My existing connection')
     typeField('URL', 'https://gateway.example.com')
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Use DeepSeek template' })
+      await screen.findByRole('button', {
+        name: 'Use DeepSeek / OpenAI template',
+      })
     )
     expect(screen.getByLabelText('Name')).toHaveValue('My existing connection')
     expect(screen.getByLabelText('URL')).toHaveValue(
@@ -163,16 +208,72 @@ describe('SiteFormSheet layout and connection presets', () => {
 })
 
 describe('SiteFormSheet template changes', () => {
+  it('submits the server preset ID after URL normalization, including a custom name', async () => {
+    mockCreateMutate.mockResolvedValue({
+      id: 42,
+      name: 'My connection',
+      url: 'https://api.deepseek.com',
+      platform: 'openai',
+    })
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Use DeepSeek / OpenAI template',
+      })
+    )
+    typeField('Name', 'My connection')
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalledTimes(1))
+    expect(mockCreateMutate.mock.calls[0]?.[0]).toMatchObject({
+      name: 'My connection',
+      url: 'https://api.deepseek.com',
+      platform: 'openai',
+      initializationPresetId: 'deepseek-openai',
+    })
+  })
+
+  it.each(['URL', 'Platform'])(
+    'clears the preset ID after manually changing %s',
+    async (field) => {
+      mockCreateMutate.mockResolvedValue({
+        id: 42,
+        name: 'Custom',
+        url: 'https://custom.example.com',
+        platform: 'openai',
+      })
+      render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'Use DeepSeek / OpenAI template',
+        })
+      )
+      if (field === 'URL') typeField('URL', 'https://custom.example.com')
+      else {
+        fireEvent.click(screen.getByRole('combobox', { name: 'Platform' }))
+        fireEvent.click(
+          await screen.findByRole('option', { name: 'Anthropic Claude' })
+        )
+      }
+      fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+      await waitFor(() => expect(mockCreateMutate).toHaveBeenCalledTimes(1))
+      expect(mockCreateMutate.mock.calls[0]?.[0]).not.toHaveProperty(
+        'initializationPresetId'
+      )
+    }
+  )
+
   it('changes untouched defaults and preserves subsequent manual edits', async () => {
     render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Use DeepSeek template' })
+      await screen.findByRole('button', {
+        name: 'Use DeepSeek / OpenAI template',
+      })
     )
     fireEvent.click(screen.getByRole('button', { name: 'Change template' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Use Gemini API template' })
     )
-    expect(screen.getByLabelText('Name')).toHaveValue('Gemini API')
+    expect(screen.getByLabelText('Name')).toHaveValue('Google Gemini')
     expect(screen.getByLabelText('URL')).toHaveValue(
       'https://generativelanguage.googleapis.com'
     )
@@ -193,14 +294,16 @@ describe('SiteFormSheet template changes', () => {
       screen.getByRole('combobox', { name: 'Platform' })
     ).toHaveTextContent('OpenAI')
     expect(screen.getByRole('status')).toHaveTextContent(
-      'kept your entries: Name, URL'
+      'Custom connection; your entries were preserved.'
     )
   })
 
   it('switches to a management template without retaining the previous service URL', async () => {
     render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Use DeepSeek template' })
+      await screen.findByRole('button', {
+        name: 'Use DeepSeek / OpenAI template',
+      })
     )
     fireEvent.click(screen.getByRole('button', { name: 'Change template' }))
     fireEvent.click(screen.getByRole('tab', { name: 'Gateways' }))

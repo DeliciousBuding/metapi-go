@@ -593,6 +593,9 @@
     "sites": {
       "templates": {
         "title": "连接模板",
+        "loading": "正在加载模板",
+        "loadFailed": "模板加载失败。",
+        "customized": "已改为自定义连接，保留手填内容。",
         "manual": "手动配置",
         "change": "更换模板",
         "search": "搜索连接模板…",

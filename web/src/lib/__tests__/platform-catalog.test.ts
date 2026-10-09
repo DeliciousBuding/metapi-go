@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  CONNECTION_PRESETS,
+  PLATFORM_CONNECTION_TEMPLATES,
+  getConnectionPresetIcon,
   getPlatformDefinition,
   getPlatformDisplayName,
 } from '../platform-catalog'
@@ -15,17 +16,15 @@ describe('platform display and connection presets', () => {
     )
   })
 
-  it('keeps API-key presets on API adapters and separates public xAI from Grok OAuth', () => {
-    for (const preset of CONNECTION_PRESETS) {
-      expect(getPlatformDefinition(preset.platform)?.group).toBe('api')
-      expect(preset.platform).not.toBe('sensetime')
+  it('keeps service URLs out of local platform templates', () => {
+    for (const template of PLATFORM_CONNECTION_TEMPLATES) {
+      expect(template.group).not.toBe('api')
+      expect(template.url).toBe('')
     }
-    expect(
-      CONNECTION_PRESETS.find((preset) => preset.id === 'xai-api')
-    ).toMatchObject({
-      platform: 'openai',
-      url: 'https://api.x.ai',
-    })
+    expect(getConnectionPresetIcon('xai-api')).toBe('xai')
+    expect(getConnectionPresetIcon('deepseek-claude')).toBe('deepseek-color')
+    expect(getConnectionPresetIcon('new-provider')).toBeUndefined()
     expect(getPlatformDefinition('grok')?.group).toBe('oauth')
+    expect(getPlatformDefinition('sensetime')?.selectable).toBe(false)
   })
 })
