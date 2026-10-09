@@ -67,6 +67,8 @@ export function proxyLogsToCsv(
       const siteLabel = log.siteName || (log.siteId ? `#${log.siteId}` : '')
       const modelLabel =
         log.modelActual?.trim() || log.modelRequested?.trim() || ''
+      let streamLabel = ''
+      if (log.isStream != null) streamLabel = String(log.isStream)
       const cells = [
         log.createdAt,
         log.httpStatus ?? '',
@@ -81,7 +83,7 @@ export function proxyLogsToCsv(
         log.retryCount,
         log.modelRequested,
         log.upstreamReportedModel,
-        log.isStream == null ? '' : log.isStream ? 'true' : 'false',
+        streamLabel,
         log.firstByteLatencyMs,
         log.firstOutputLatencyMs,
         log.promptTokens,

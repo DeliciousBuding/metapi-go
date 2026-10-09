@@ -42,13 +42,12 @@ export function TimingCell(props: TimingCellProps) {
     (!hasFirst || output >= first)
   const outputLabel = hasOutput ? formatLatency(output, LATENCY_FORMAT) : '—'
   let timingTone = 'border-muted-foreground/30'
-  const perceivedLatency = props.isStream
-    ? hasOutput
-      ? output
-      : undefined
-    : hasFirst
-      ? first
-      : undefined
+  let perceivedLatency: number | undefined
+  if (props.isStream) {
+    if (hasOutput) perceivedLatency = output
+  } else if (hasFirst) {
+    perceivedLatency = first
+  }
   if (perceivedLatency !== undefined) {
     timingTone = perceivedLatency >= 5000 ? 'border-warning' : 'border-success'
   }
