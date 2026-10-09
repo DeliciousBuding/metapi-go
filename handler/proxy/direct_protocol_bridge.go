@@ -32,13 +32,44 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		writeJSONErrorWithRequest(w, http.StatusBadRequest, err.Error(), "invalid_request_error", requestID)
 		return true, nil
 	}
+	credential := &oauth.DirectCredentialResult{AccessToken: selected.TokenValue, Kind: store.DirectCredentialAPIKey, Provider: selected.Direct.Provider}
+	if cfg.ResolveDirectCredential != nil && selected.Direct.CredentialID > 0 {
+		var proxyURL *string
+		if proxyConfig != nil && proxyConfig.ProxyURL != "" {
+			value := proxyConfig.ProxyURL
+			proxyURL = &value
+		}
+		credential, err = cfg.ResolveDirectCredential(r.Context(), selected.Direct.CredentialID, proxyURL, false)
+	} else if selected.Direct.CredentialKind == store.DirectCredentialOAuth {
+		err = oauth.ErrDirectCredentialUnavailable
+	}
+	if err != nil || credential == nil || credential.AccessToken == "" {
+		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "Selected direct credential is unavailable", "upstream_error", requestID)
+		return true, nil
+	}
+	selectedCopy := *selected
+	selectedCopy.TokenValue = credential.AccessToken
+	selected = &selectedCopy
 	options := messages.Options{}
-	if ctx.messagesBridgeReplayRequired {
+	var replay *messagesBridgeRequest
+	if proxyPathIsMessages(ctx.DownstreamPath) && directBridgeNeeded(ctx.DownstreamPath, path) {
+		replay = newMessagesBridgeRequest(r, ctx, selected)
+		if replay.ready() == nil {
+			options = replay.Options()
+		} else if ctx.messagesBridgeReplayRequired {
+			writeMessagesReplayFailure(w, ctx, requestID)
+			return true, nil
+		}
+	} else if ctx.messagesBridgeReplayRequired {
 		writeMessagesReplayFailure(w, ctx, requestID)
 		return true, nil
 	}
 	if directBridgeNeeded(ctx.DownstreamPath, path) {
 		body, err = directConvertRequest(body, ctx.DownstreamPath, path, model, ctx.IsStream, options)
+	}
+	if ctx.messagesBridgeReplayRequired && (err != nil || replay == nil || !replay.UsedReplay()) {
+		writeMessagesReplayFailure(w, ctx, requestID)
+		return true, nil
 	}
 	if err == nil {
 		body, err = applyDirectParamOverrides(body, selected.Direct.ParamOverride)
@@ -60,24 +91,6 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 	if endpoint, _ := proxy.EndpointFromPath(path); endpoint == proxy.EndpointChat {
 		body, expectUsage = applyUpstreamStreamIncludeUsage(body, "openai", path, ctx.IsStream)
 	}
-	credential := &oauth.DirectCredentialResult{AccessToken: selected.TokenValue, Kind: store.DirectCredentialAPIKey, Provider: selected.Direct.Provider}
-	if cfg.ResolveDirectCredential != nil && selected.Direct.CredentialID > 0 {
-		var proxyURL *string
-		if proxyConfig != nil && proxyConfig.ProxyURL != "" {
-			value := proxyConfig.ProxyURL
-			proxyURL = &value
-		}
-		credential, err = cfg.ResolveDirectCredential(r.Context(), selected.Direct.CredentialID, proxyURL, false)
-	} else if selected.Direct.CredentialKind == store.DirectCredentialOAuth {
-		err = oauth.ErrDirectCredentialUnavailable
-	}
-	if err != nil || credential == nil || credential.AccessToken == "" {
-		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "Selected direct credential is unavailable", "upstream_error", requestID)
-		return true, nil
-	}
-	selectedCopy := *selected
-	selectedCopy.TokenValue = credential.AccessToken
-	selected = &selectedCopy
 	endpoint := directEndpointForPath(selected.Direct.Endpoints, path)
 	wire, err := prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header)
 	if err != nil {

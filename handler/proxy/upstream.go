@@ -149,12 +149,12 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	if endpoint, ok := proxy.EndpointFromPath(upstreamPath); ok && endpoint == proxy.EndpointMessages {
 		channelID, required, err := messagesBridgePreferredChannel(ctx)
 		ctx.messagesBridgeReplayRequired = required
-		if err != nil || (required && (channelID == nil || *channelID <= 0)) {
+		if err != nil || (required && (channelID == nil || *channelID == 0)) {
 			writeMessagesReplayFailure(w, ctx, requestID)
 			return
 		}
 		if required {
-			if ctx.ForcedChannelID != nil && *ctx.ForcedChannelID > 0 && *ctx.ForcedChannelID != *channelID {
+			if ctx.ForcedChannelID != nil && *ctx.ForcedChannelID != 0 && *ctx.ForcedChannelID != *channelID {
 				writeMessagesReplayFailure(w, ctx, requestID)
 				return
 			}
@@ -469,6 +469,9 @@ func dispatchSelectedUpstream(
 		}
 		upstreamPlatform := selected.Site.Platform
 		attemptBody, sanitizeErr := sanitizeUpstreamJSONBody(candidateBody, upstreamPlatform, path, upstreamModel)
+		if sanitizeErr == nil {
+			attemptBody, sanitizeErr = prepareDomesticChatRequest(attemptBody, nativeChatRequestProfile(selected.Site, path))
+		}
 		if sanitizeErr != nil {
 			// Clear client-facing continuity error.
 			writeJSONErrorWithRequest(w, http.StatusBadRequest, sanitizeErr.Error(), "invalid_request_error", requestID)

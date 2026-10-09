@@ -89,7 +89,7 @@ func (s *ChannelSelector) SelectPreferredChannel(
 	policy DownstreamRoutingPolicy,
 	excludeChannelIDs []int64,
 ) (*SelectedChannel, error) {
-	if !IsModelAllowedByDownstreamPolicy(requestedModel, policy) || preferredChannelID <= 0 {
+	if !IsModelAllowedByDownstreamPolicy(requestedModel, policy) || preferredChannelID == 0 {
 		return nil, nil
 	}
 	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {

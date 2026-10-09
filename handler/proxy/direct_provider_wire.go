@@ -47,6 +47,12 @@ func prepareDirectProviderWire(endpoint *store.DirectEndpoint, channelID int64, 
 	}
 	wire.Profile = endpoint.Profile
 	switch endpoint.Profile {
+	case "deepseek", "zai":
+		var err error
+		wire.Body, err = prepareDomesticChatRequest(body, endpoint.Profile)
+		if err != nil {
+			return nil, err
+		}
 	case "codex":
 		var err error
 		wire.Body, err = responses.PrepareCodexRequest(body)
