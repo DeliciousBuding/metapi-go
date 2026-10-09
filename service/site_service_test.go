@@ -138,8 +138,8 @@ func TestDetectSite_StepFun(t *testing.T) {
 
 func TestDetectSite_ByteDance(t *testing.T) {
 	result := DetectSite("https://ark.cn-beijing.volces.com/api/v3")
-	if result == nil || result.Platform != "bytedance" {
-		t.Fatalf("expected 'bytedance', got %v", result)
+	if result == nil || result.Platform != "openai" {
+		t.Fatalf("expected OpenAI-compatible Volcengine adapter, got %v", result)
 	}
 }
 

@@ -8,7 +8,12 @@
 
 A **site** stores an upstream deployment URL and a `platform` adapter. An **account** stores the API key, management credentials, or OAuth identity used with that connection. Provider names and logos are display metadata; selecting a service such as Moonshot still uses the `openai` adapter.
 
-The create form groups templates into API services, management gateways, and OAuth connections. API templates supply a name, URL, and existing adapter. Management templates leave the deployment URL for the operator to enter. OAuth entries open the existing authorization page; unavailable providers remain disabled. Editing an existing site keeps the compact platform picker.
+The create form opens with frequently used management platforms and domestic
+providers. The complete catalog has management-platform, model-service,
+Coding Plan, and OAuth categories. API templates supply a name, URL, and existing
+adapter. Management templates leave the deployment URL for the operator to enter.
+OAuth entries open the existing authorization page; unavailable providers remain
+disabled. Editing an existing site keeps the compact platform picker.
 
 Changing templates updates empty fields and values filled by the previous template that the operator has not changed. Manually entered values are retained, with feedback identifying those fields. A conflicting manual platform choice prevents applying the template. Protocol labels such as **Chat / Responses** describe the template; they do not configure a protocol restriction or create a separate platform.
 
@@ -23,7 +28,16 @@ The following OpenAI-compatible defaults preserve their required path prefix thr
 | Cerebras | `https://api.cerebras.ai` | `openai` |
 | ModelScope | `https://api-inference.modelscope.cn` | `openai` |
 
-Templates provide configuration defaults, not a live availability or credential check. Add the account and verify discovery and inference with the intended model. Provider-specific parameter rewriting, asynchronous image tasks, versioned API variants, Vertex/GCP credentials, AWS request signing, and dedicated OAuth flows require their corresponding adapter capabilities; a brand label alone does not add them.
+The registry also includes the Chat and Messages entries for Bailian, DeepSeek,
+Kimi, MiniMax, ModelScope and Qiniu; versioned GLM and Volcengine endpoints; and
+Aliyun, GLM, Z.AI, Kimi, Doubao and MiMo plan endpoints. Definitions are checked
+against [AxonHub's channel configuration](https://github.com/looplj/axonhub/blob/d96748f1598837b46272923580e4ec558a6d1071/frontend/src/features/channels/data/config_channels.ts)
+and [New API's Coding Plan bases](https://github.com/QuantumNous/new-api/blob/1d4328e97417a043a161a0dd30a5b129be3ace49/constant/channel.go).
+Versioned `/v3` and `/v4` bases retain their version when request paths are joined.
+
+Templates supply compatible endpoint defaults, not a live availability or
+credential check. Provider-specific parameter rewriting, asynchronous image tasks,
+Vertex/GCP credentials and AWS request signing require their own adapter support.
 
 After creating an API site, the next action opens the API-key form with that site
 selected. Management gateways retain both session and API-key choices; OAuth
