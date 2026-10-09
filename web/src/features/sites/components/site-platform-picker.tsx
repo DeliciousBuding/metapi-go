@@ -17,11 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import {
-  PLATFORM_CATALOG,
-  getPlatformDefinition,
-  type ConnectionPreset,
-} from '@/lib/platform-catalog'
+import { PLATFORM_CATALOG, getPlatformDefinition } from '@/lib/platform-catalog'
 import { cn } from '@/lib/utils'
 
 type SitePlatformPickerProps = Omit<
@@ -30,13 +26,11 @@ type SitePlatformPickerProps = Omit<
 > & {
   value: string
   onValueChange: (value: string) => void
-  onPreset?: (preset: ConnectionPreset) => void
 }
 
 export function SitePlatformPicker({
   value,
   onValueChange,
-  onPreset: _onPreset,
   className,
   ...restProps
 }: SitePlatformPickerProps) {

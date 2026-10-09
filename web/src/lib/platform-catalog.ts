@@ -132,8 +132,9 @@ export type ConnectionPreset = {
   id: string
   name: string
   platform: string
-  icon: string
+  icon?: string
   url: string
+  protocols?: readonly ('chat' | 'responses' | 'messages' | 'gemini')[]
 }
 
 export const CONNECTION_PRESETS: readonly ConnectionPreset[] = [
@@ -143,6 +144,7 @@ export const CONNECTION_PRESETS: readonly ConnectionPreset[] = [
     platform: 'openai',
     icon: 'openai',
     url: 'https://api.openai.com',
+    protocols: ['chat', 'responses'],
   },
   {
     id: 'anthropic-api',
@@ -150,6 +152,7 @@ export const CONNECTION_PRESETS: readonly ConnectionPreset[] = [
     platform: 'claude',
     icon: 'claude-color',
     url: 'https://api.anthropic.com',
+    protocols: ['messages'],
   },
   {
     id: 'gemini-api',
@@ -157,6 +160,7 @@ export const CONNECTION_PRESETS: readonly ConnectionPreset[] = [
     platform: 'gemini',
     icon: 'gemini-color',
     url: 'https://generativelanguage.googleapis.com',
+    protocols: ['gemini'],
   },
   {
     id: 'deepseek',
@@ -193,4 +197,73 @@ export const CONNECTION_PRESETS: readonly ConnectionPreset[] = [
     icon: 'xai',
     url: 'https://api.x.ai',
   },
+  {
+    id: 'moonshot',
+    name: 'Moonshot / Kimi',
+    platform: 'openai',
+    icon: 'moonshot',
+    url: 'https://api.moonshot.cn',
+  },
+  {
+    id: 'siliconflow',
+    name: 'SiliconFlow',
+    platform: 'openai',
+    icon: 'siliconcloud-color',
+    url: 'https://api.siliconflow.cn',
+  },
+  {
+    id: 'bailian',
+    name: 'Alibaba Bailian',
+    platform: 'openai',
+    icon: 'bailian-color',
+    url: 'https://dashscope.aliyuncs.com/compatible-mode',
+  },
+  {
+    id: 'fireworks',
+    name: 'Fireworks AI',
+    platform: 'openai',
+    icon: 'fireworks-color',
+    url: 'https://api.fireworks.ai/inference',
+  },
+  {
+    id: 'cerebras',
+    name: 'Cerebras',
+    platform: 'openai',
+    icon: 'cerebras-brand-color',
+    url: 'https://api.cerebras.ai',
+  },
+  {
+    id: 'modelscope',
+    name: 'ModelScope',
+    platform: 'openai',
+    icon: 'modelscope-color',
+    url: 'https://api-inference.modelscope.cn',
+  },
+]
+
+export type ConnectionTemplate = ConnectionPreset & {
+  group: PlatformDefinition['group']
+  available: boolean
+}
+
+// The creation view derives software/OAuth templates from the same platform
+// catalog. Service URLs remain owned by CONNECTION_PRESETS above.
+export const CONNECTION_TEMPLATES: readonly ConnectionTemplate[] = [
+  ...CONNECTION_PRESETS.map((preset) => ({
+    ...preset,
+    protocols: preset.protocols ?? (['chat'] as const),
+    group: 'api' as const,
+    available: true,
+  })),
+  ...PLATFORM_CATALOG.filter((platform) => platform.group !== 'api').map(
+    (platform) => ({
+      id: `${platform.id}-connection`,
+      name: platform.name,
+      platform: platform.id,
+      icon: platform.icon,
+      url: '',
+      group: platform.group,
+      available: platform.id !== 'antigravity',
+    })
+  ),
 ]

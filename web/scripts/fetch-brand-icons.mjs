@@ -74,6 +74,8 @@ const ICON_KEYS = [
   'replicate-brand',
   'cerebras-brand-color',
   'bailian-color',
+  'siliconcloud-color',
+  'modelscope-color',
 ]
 
 const results = { ok: 0, missing: [] }

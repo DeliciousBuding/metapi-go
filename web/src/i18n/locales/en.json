@@ -4,14 +4,11 @@
       "groups": {
         "api": "Model APIs",
         "gateway": "Self-hosted gateways",
-        "oauth": "OAuth connections",
-        "presets": "Service presets · API key"
+        "oauth": "OAuth connections"
       },
-      "search": "Search platforms or services…",
+      "search": "Search platforms…",
       "noResults": "No matching platforms.",
       "custom": "Custom platform",
-      "usePreset": "Use {{name}} preset",
-      "presetHint": "Presets fill blank fields only. Existing name, URL and platform stay unchanged. Add the API key as an account after creating the site.",
       "openai": "OpenAI-compatible API; add an API key as an account.",
       "claude": "Anthropic Messages API with API-key authentication.",
       "gemini": "Native Gemini API with API-key authentication.",
@@ -594,6 +591,36 @@
       }
     },
     "sites": {
+      "templates": {
+        "title": "Connection templates",
+        "manual": "Configure manually",
+        "change": "Change template",
+        "search": "Search templates…",
+        "categories": "Connection type",
+        "categoriesLabel": {
+          "api": "API services",
+          "gateway": "Gateways",
+          "oauth": "OAuth"
+        },
+        "auth": {
+          "gateway": "Management account / token",
+          "oauth": "OAuth · opens new tab"
+        },
+        "protocols": {
+          "chat": "Chat",
+          "responses": "Responses",
+          "messages": "Messages",
+          "gemini": "Gemini"
+        },
+        "use": "Use {{name}} template",
+        "openOAuth": "Open OAuth connections for {{name}}",
+        "unavailable": "{{name}} is not available",
+        "notAvailable": "Not available",
+        "enterAddress": "Enter your deployment URL below",
+        "applied": "Template applied.",
+        "preserved": "Template applied; kept your entries: {{fields}}.",
+        "platformConflict": "Your manually selected platform was preserved. Choose a matching template or clear the platform first."
+      },
       "page": {
         "loadError": "Failed to load sites: {{message}}",
         "title": "Sites",

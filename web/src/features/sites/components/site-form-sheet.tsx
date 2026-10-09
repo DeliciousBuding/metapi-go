@@ -16,7 +16,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Search as SearchIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
@@ -51,7 +51,7 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
-import type { ConnectionPreset } from '@/lib/platform-catalog'
+import type { ConnectionTemplate } from '@/lib/platform-catalog'
 import { toast } from '@/lib/toast'
 
 import { useCreateSite, useDetectSite, useUpdateSite } from '../api'
@@ -69,6 +69,7 @@ import {
 import type { Site, SiteFormPayload, SiteProbeScope } from '../types'
 import { CustomHeadersField } from './custom-headers-field'
 import { EndpointsEditor } from './endpoints-editor'
+import { SiteConnectionTemplates } from './site-connection-templates'
 import { SitePlatformPicker } from './site-platform-picker'
 
 type SiteFormSheetProps = {
@@ -189,6 +190,12 @@ export function SiteFormSheet({
   const [platformMode, setPlatformMode] = useState<'select' | 'custom'>(
     'select'
   )
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<ConnectionTemplate | null>(null)
+  const [templateFeedback, setTemplateFeedback] = useState('')
+  const templateValues = useRef<
+    Partial<Pick<SiteFormValues, 'name' | 'url' | 'platform'>>
+  >({})
 
   useEffect(() => {
     if (!open) return
@@ -198,6 +205,9 @@ export function SiteFormSheet({
       form.reset(SITE_FORM_DEFAULT_VALUES)
     }
     setPlatformMode('select')
+    setSelectedTemplate(null)
+    setTemplateFeedback('')
+    templateValues.current = {}
   }, [open, editingSite, form])
 
   const watchedUrl = form.watch('url')
@@ -230,19 +240,39 @@ export function SiteFormSheet({
     return () => window.clearTimeout(timer)
   }, [watchedUrl, watchedPlatform, isEditing, detectSiteAsync, form])
 
-  function handlePreset(preset: ConnectionPreset) {
-    // Presets only fill blank connection fields. Existing input always wins.
+  function handlePreset(preset: ConnectionTemplate) {
     const platform = form.getValues('platform').trim()
-    if (platform && platform !== preset.platform) return
+    if (
+      platform &&
+      platform !== preset.platform &&
+      platform !== templateValues.current.platform
+    ) {
+      setTemplateFeedback(t('sites.templates.platformConflict'))
+      return false
+    }
+    const nextValues: typeof templateValues.current = {}
+    const preserved: string[] = []
     for (const [key, value] of [
       ['name', preset.name],
       ['url', preset.url],
       ['platform', preset.platform],
     ] as const) {
-      if (!form.getValues(key).trim()) {
+      const current = form.getValues(key)
+      if (!current.trim() || current === templateValues.current[key]) {
         form.setValue(key, value, { shouldDirty: true })
+        nextValues[key] = value
+      } else {
+        preserved.push(t(`sites.form.${key}`))
       }
     }
+    templateValues.current = nextValues
+    setSelectedTemplate(preset)
+    setTemplateFeedback(
+      preserved.length
+        ? t('sites.templates.preserved', { fields: preserved.join(', ') })
+        : t('sites.templates.applied')
+    )
+    return true
   }
 
   async function handleDetect() {
@@ -338,6 +368,18 @@ export function SiteFormSheet({
               data-slot='site-form-body'
               className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6'
             >
+              {!isEditing && (
+                <>
+                  <SiteConnectionTemplates
+                    selected={selectedTemplate}
+                    feedback={templateFeedback}
+                    url={watchedUrl}
+                    platform={watchedPlatform}
+                    onSelect={handlePreset}
+                  />
+                  <Separator className='my-6' />
+                </>
+              )}
               <fieldset className='min-w-0 space-y-4'>
                 <legend className='mb-4 text-sm font-semibold'>
                   {t('sites.form.sections.connection')}
@@ -352,7 +394,7 @@ export function SiteFormSheet({
                         <FormControl>
                           <Input
                             placeholder={t('sites.form.namePlaceholder')}
-                            autoFocus
+                            autoFocus={isEditing}
                             {...field}
                           />
                         </FormControl>
@@ -373,9 +415,6 @@ export function SiteFormSheet({
                                 <SitePlatformPicker
                                   value={field.value}
                                   onValueChange={field.onChange}
-                                  onPreset={
-                                    isEditing ? undefined : handlePreset
-                                  }
                                 />
                               </FormControl>
                               <div className='flex items-center justify-between gap-2'>

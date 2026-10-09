@@ -4,14 +4,11 @@
       "groups": {
         "api": "模型 API",
         "gateway": "自建网关",
-        "oauth": "OAuth 连接",
-        "presets": "常用服务预设 · API Key"
+        "oauth": "OAuth 连接"
       },
-      "search": "搜索平台或服务…",
+      "search": "搜索平台…",
       "noResults": "未找到匹配的平台。",
       "custom": "自定义平台",
-      "usePreset": "使用 {{name}} 预设",
-      "presetHint": "预设只填充空白项，保留已有名称、地址和平台。创建站点后，在账号中添加 API Key。",
       "openai": "OpenAI 格式接口，创建后添加 API Key 账号。",
       "claude": "Anthropic Messages 接口，使用 API Key。",
       "gemini": "Gemini 原生接口，使用 API Key。",
@@ -594,6 +591,33 @@
       }
     },
     "sites": {
+      "templates": {
+        "title": "连接模板",
+        "manual": "手动配置",
+        "change": "更换模板",
+        "search": "搜索连接模板…",
+        "categories": "连接类型",
+        "categoriesLabel": {
+          "api": "API 服务",
+          "gateway": "管理平台",
+          "oauth": "OAuth"
+        },
+        "auth": { "gateway": "管理账号 / Token", "oauth": "OAuth · 新标签页" },
+        "protocols": {
+          "chat": "Chat",
+          "responses": "Responses",
+          "messages": "Messages",
+          "gemini": "Gemini"
+        },
+        "use": "使用 {{name}} 模板",
+        "openOAuth": "打开 {{name}} 的 OAuth 连接页",
+        "unavailable": "{{name}} 暂不可用",
+        "notAvailable": "暂不可用",
+        "enterAddress": "请在下方填写部署地址",
+        "applied": "已应用模板。",
+        "preserved": "已应用模板，保留手填内容：{{fields}}。",
+        "platformConflict": "已保留你手动选择的平台，请选择匹配的模板或先清空平台。"
+      },
       "page": {
         "loadError": "加载站点失败：{{message}}",
         "title": "站点",

@@ -35,6 +35,7 @@ import microsoftColorDark from './icons/dark/microsoft-color.png'
 import midjourneyDark from './icons/dark/midjourney.png'
 import minimaxColorDark from './icons/dark/minimax-color.png'
 import mistralColorDark from './icons/dark/mistral-color.png'
+import modelscopeColorDark from './icons/dark/modelscope-color.png'
 import moonshotDark from './icons/dark/moonshot.png'
 import morphColorDark from './icons/dark/morph-color.png'
 import nousresearchDark from './icons/dark/nousresearch.png'
@@ -46,6 +47,7 @@ import qwenColorDark from './icons/dark/qwen-color.png'
 import relaceDark from './icons/dark/relace.png'
 import replicateBrandDark from './icons/dark/replicate-brand.png'
 import sensenovaBrandColorDark from './icons/dark/sensenova-brand-color.png'
+import siliconcloudColorDark from './icons/dark/siliconcloud-color.png'
 import sparkColorDark from './icons/dark/spark-color.png'
 import stabilityColorDark from './icons/dark/stability-color.png'
 import stepfunColorDark from './icons/dark/stepfun-color.png'
@@ -90,6 +92,7 @@ import microsoftColorLight from './icons/light/microsoft-color.png'
 import midjourneyLight from './icons/light/midjourney.png'
 import minimaxColorLight from './icons/light/minimax-color.png'
 import mistralColorLight from './icons/light/mistral-color.png'
+import modelscopeColorLight from './icons/light/modelscope-color.png'
 import moonshotLight from './icons/light/moonshot.png'
 import morphColorLight from './icons/light/morph-color.png'
 import nousresearchLight from './icons/light/nousresearch.png'
@@ -101,6 +104,7 @@ import qwenColorLight from './icons/light/qwen-color.png'
 import relaceLight from './icons/light/relace.png'
 import replicateBrandLight from './icons/light/replicate-brand.png'
 import sensenovaBrandColorLight from './icons/light/sensenova-brand-color.png'
+import siliconcloudColorLight from './icons/light/siliconcloud-color.png'
 import sparkColorLight from './icons/light/spark-color.png'
 import stabilityColorLight from './icons/light/stability-color.png'
 import stepfunColorLight from './icons/light/stepfun-color.png'
@@ -158,6 +162,10 @@ export const BRAND_ICONS: Record<string, Record<BrandIconVariant, string>> = {
   midjourney: { dark: midjourneyDark, light: midjourneyLight },
   'minimax-color': { dark: minimaxColorDark, light: minimaxColorLight },
   'mistral-color': { dark: mistralColorDark, light: mistralColorLight },
+  'modelscope-color': {
+    dark: modelscopeColorDark,
+    light: modelscopeColorLight,
+  },
   moonshot: { dark: moonshotDark, light: moonshotLight },
   'morph-color': { dark: morphColorDark, light: morphColorLight },
   nousresearch: { dark: nousresearchDark, light: nousresearchLight },
@@ -171,6 +179,10 @@ export const BRAND_ICONS: Record<string, Record<BrandIconVariant, string>> = {
   'sensenova-brand-color': {
     dark: sensenovaBrandColorDark,
     light: sensenovaBrandColorLight,
+  },
+  'siliconcloud-color': {
+    dark: siliconcloudColorDark,
+    light: siliconcloudColorLight,
   },
   'spark-color': { dark: sparkColorDark, light: sparkColorLight },
   'stability-color': { dark: stabilityColorDark, light: stabilityColorLight },

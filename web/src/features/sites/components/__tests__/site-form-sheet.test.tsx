@@ -130,13 +130,12 @@ describe('SiteFormSheet layout and connection presets', () => {
 
   it('searches service presets and fills a blank connection with a canonical adapter', async () => {
     render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
-    fireEvent.click(await screen.findByRole('combobox', { name: 'Platform' }))
     fireEvent.change(
-      screen.getByRole('combobox', { name: 'Search platforms or services…' }),
+      await screen.findByRole('textbox', { name: 'Search templates…' }),
       { target: { value: 'DeepSeek' } }
     )
     fireEvent.click(
-      await screen.findByRole('option', { name: 'Use DeepSeek preset' })
+      await screen.findByRole('button', { name: 'Use DeepSeek template' })
     )
     expect(screen.getByLabelText('Name')).toHaveValue('DeepSeek')
     expect(screen.getByLabelText('URL')).toHaveValue('https://api.deepseek.com')
@@ -150,9 +149,8 @@ describe('SiteFormSheet layout and connection presets', () => {
     await screen.findByLabelText('Name')
     typeField('Name', 'My existing connection')
     typeField('URL', 'https://gateway.example.com')
-    fireEvent.click(screen.getByRole('combobox', { name: 'Platform' }))
     fireEvent.click(
-      await screen.findByRole('option', { name: 'Use DeepSeek preset' })
+      await screen.findByRole('button', { name: 'Use DeepSeek template' })
     )
     expect(screen.getByLabelText('Name')).toHaveValue('My existing connection')
     expect(screen.getByLabelText('URL')).toHaveValue(
@@ -161,6 +159,73 @@ describe('SiteFormSheet layout and connection presets', () => {
     expect(
       screen.getByRole('combobox', { name: 'Platform' })
     ).toHaveTextContent('OpenAI')
+  })
+})
+
+describe('SiteFormSheet template changes', () => {
+  it('changes untouched defaults and preserves subsequent manual edits', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Use DeepSeek template' })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Change template' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use Gemini API template' })
+    )
+    expect(screen.getByLabelText('Name')).toHaveValue('Gemini API')
+    expect(screen.getByLabelText('URL')).toHaveValue(
+      'https://generativelanguage.googleapis.com'
+    )
+    expect(
+      screen.getByRole('combobox', { name: 'Platform' })
+    ).toHaveTextContent('Google Gemini')
+    typeField('Name', 'My gateway')
+    typeField('URL', 'https://gateway.example.com')
+    fireEvent.click(screen.getByRole('button', { name: 'Change template' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use OpenAI API template' })
+    )
+    expect(screen.getByLabelText('Name')).toHaveValue('My gateway')
+    expect(screen.getByLabelText('URL')).toHaveValue(
+      'https://gateway.example.com'
+    )
+    expect(
+      screen.getByRole('combobox', { name: 'Platform' })
+    ).toHaveTextContent('OpenAI')
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'kept your entries: Name, URL'
+    )
+  })
+
+  it('switches to a management template without retaining the previous service URL', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Use DeepSeek template' })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Change template' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Gateways' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Use New API template' })
+    )
+    expect(screen.getByLabelText('Name')).toHaveValue('New API')
+    expect(screen.getByLabelText('URL')).toHaveValue('')
+    expect(
+      screen.getByRole('combobox', { name: 'Platform' })
+    ).toHaveTextContent('New API')
+  })
+
+  it('opens the existing OAuth page and keeps unavailable providers disabled', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'OAuth' }))
+    const oauth = await screen.findByRole('link', {
+      name: 'Open OAuth connections for OpenAI Codex',
+    })
+    expect(oauth).toHaveAttribute('href', '/oauth')
+    expect(oauth).toHaveAttribute('target', '_blank')
+    expect(
+      screen.getByRole('button', { name: 'Antigravity is not available' })
+    ).toBeDisabled()
+    expect(mockCreateMutate).not.toHaveBeenCalled()
   })
 })
 

@@ -4,6 +4,27 @@
 
 ## Sites
 
+### Connection templates in the create form
+
+A **site** stores an upstream deployment URL and a `platform` adapter. An **account** stores the API key, management credentials, or OAuth identity used with that connection. Provider names and logos are display metadata; selecting a service such as Moonshot still uses the `openai` adapter.
+
+The create form groups templates into API services, management gateways, and OAuth connections. API templates supply a name, URL, and existing adapter. Management templates leave the deployment URL for the operator to enter. OAuth entries open the existing authorization page; unavailable providers remain disabled. Editing an existing site keeps the compact platform picker.
+
+Changing templates updates empty fields and values filled by the previous template that the operator has not changed. Manually entered values are retained, with feedback identifying those fields. A conflicting manual platform choice prevents applying the template. Protocol labels such as **Chat / Responses** describe the template; they do not configure a protocol restriction or create a separate platform.
+
+The following OpenAI-compatible defaults preserve their required path prefix through the form's URL normalization. Model discovery appends `/v1/models`; chat requests append `/v1/chat/completions`.
+
+| Service | Saved site URL | Adapter |
+| --- | --- | --- |
+| Moonshot / Kimi | `https://api.moonshot.cn` | `openai` |
+| SiliconFlow | `https://api.siliconflow.cn` | `openai` |
+| Alibaba Bailian | `https://dashscope.aliyuncs.com/compatible-mode` | `openai` |
+| Fireworks AI | `https://api.fireworks.ai/inference` | `openai` |
+| Cerebras | `https://api.cerebras.ai` | `openai` |
+| ModelScope | `https://api-inference.modelscope.cn` | `openai` |
+
+Templates provide configuration defaults, not a live availability or credential check. Add the account and verify discovery and inference with the intended model. Provider-specific parameter rewriting, asynchronous image tasks, versioned API variants, Vertex/GCP credentials, AWS request signing, and dedicated OAuth flows require their corresponding adapter capabilities; a brand label alone does not add them.
+
 ### GET /api/sites, POST /api/sites
 
 List all sites. Create a new site.
