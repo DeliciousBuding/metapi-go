@@ -138,6 +138,7 @@ describe('AccountFormDialog searchable site selector', () => {
     ['name', 'Aurora Gateway', /Aurora Gateway/i],
     ['URL', 'lunar.example', /Lunar Relay/i],
     ['platform', 'sub2api', /Nebula Hub/i],
+    ['platform display name', 'New API', /Aurora Gateway/i],
   ])('filters 30+ local sites by %s', async (_field, query, expectedName) => {
     renderCreate()
 
@@ -147,6 +148,10 @@ describe('AccountFormDialog searchable site selector', () => {
     expect(
       await screen.findByRole('option', { name: expectedName })
     ).toBeVisible()
+    if (query === 'New API') {
+      expect(screen.getByText('New API')).toBeVisible()
+      expect(screen.queryByText('new-api')).not.toBeInTheDocument()
+    }
     expect(
       screen.queryByRole('option', { name: /Fixture Site 01/i })
     ).not.toBeInTheDocument()
@@ -189,11 +194,14 @@ describe('AccountFormDialog searchable site selector', () => {
   })
 
   it('preserves the initialSiteId deep-link selection', async () => {
-    renderCreate(103)
+    renderCreate(101)
 
     expect(
       await screen.findByRole('combobox', { name: 'Site' })
-    ).toHaveTextContent('Nebula Hub')
+    ).toHaveTextContent('Aurora Gateway')
+    expect(screen.getByRole('combobox', { name: 'Site' })).toHaveTextContent(
+      'New API'
+    )
   })
 
   it('keeps the edit-mode site until the operator selects another option', async () => {

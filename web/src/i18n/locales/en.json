@@ -1,5 +1,34 @@
 {
   "translation": {
+    "platforms": {
+      "groups": {
+        "api": "Model APIs",
+        "gateway": "Self-hosted gateways",
+        "oauth": "OAuth connections",
+        "presets": "Service presets · API key"
+      },
+      "search": "Search platforms or services…",
+      "noResults": "No matching platforms.",
+      "custom": "Custom platform",
+      "usePreset": "Use {{name}} preset",
+      "presetHint": "Presets fill blank fields only. Existing name, URL and platform stay unchanged. Add the API key as an account after creating the site.",
+      "openai": "OpenAI-compatible API; add an API key as an account.",
+      "claude": "Anthropic Messages API with API-key authentication.",
+      "gemini": "Native Gemini API with API-key authentication.",
+      "sensetime": "Legacy adapter identifier; check upstream capabilities before use.",
+      "codex": "Connect an OpenAI Codex account through OAuth.",
+      "geminiCli": "Connect a Gemini CLI account through OAuth.",
+      "antigravity": "Connect an Antigravity account through OAuth.",
+      "grok": "Grok device OAuth; not the public xAI API.",
+      "newApi": "New API management, balances and API tokens.",
+      "oneApi": "One API management, balances and API tokens.",
+      "oneHub": "One Hub management and account synchronization.",
+      "doneHub": "Done Hub management and account synchronization.",
+      "veloera": "Veloera management and account synchronization.",
+      "anyrouter": "AnyRouter account management and check-in.",
+      "sub2api": "Sub2API account management and API tokens.",
+      "cliproxyapi": "CLIProxyAPI management key and proxy credentials."
+    },
     "dataTable": {
       "summary": "Showing {{start}}-{{end}} of {{total}} rows",
       "bulkActions": {
@@ -644,10 +673,15 @@
         "disabled": "Disabled"
       },
       "form": {
+        "sections": {
+          "connection": "Connection details",
+          "routing": "Routing and probes",
+          "request": "Proxy and requests"
+        },
         "addTitle": "Add site",
         "editTitle": "Edit site",
         "invalid": "Please check the highlighted form fields",
-        "addDescription": "Register a new upstream site.",
+        "addDescription": "Configure an upstream connection. Add API keys or account credentials after creating the site.",
         "editDescription": "Update the site configuration.",
         "name": "Name",
         "namePlaceholder": "Enter a site name",
@@ -668,16 +702,16 @@
         "proxyUrl": "Proxy URL",
         "globalWeight": "Global weight",
         "maxConcurrency": "Max concurrency",
-        "maxConcurrencyHint": "Maximum concurrent requests (0 = unlimited).",
+        "maxConcurrencyHint": "0 means unlimited.",
         "useSystemProxy": "Use system proxy",
-        "useSystemProxyHint": "Route this site's traffic through the system-configured proxy.",
+        "useSystemProxyHint": "Use the proxy configured in system settings.",
         "resinEnabled": "Resin sticky proxy",
-        "resinEnabledHint": "Override the global Resin egress setting for this site.",
+        "resinEnabledHint": "Override Resin egress for this site.",
         "resinInherit": "Inherit global",
         "resinForceOn": "Force on",
         "resinForceOff": "Force off",
         "useUtls": "uTLS fingerprint",
-        "useUtlsHint": "Override the global uTLS TLS fingerprint setting for this site.",
+        "useUtlsHint": "Override the TLS fingerprint for this site.",
         "utlsInherit": "Inherit global",
         "utlsForceOn": "Force on",
         "utlsForceOff": "Force off",
@@ -703,7 +737,7 @@
         "urlPreserveApiPath": "The URL contains an /api path and will be saved as-is. Confirm this is the exact primary site URL; if this is an API request address, add it to the API endpoint pool below.",
         "urlPreserveUnknownPath": "The URL contains an extra path and will be saved as-is. Confirm this is the exact primary site URL; if this is an API request address, add it to the API endpoint pool below.",
         "customHeaders": "Custom headers",
-        "customHeadersHint": "Add request headers as name/value pairs; advanced JSON remains available.",
+        "customHeadersHint": "Add name/value pairs to upstream requests.",
         "customHeadersExamplesLabel": "Insert example:",
         "customHeadersExampleInsert": "Insert {{client}} example",
         "customHeadersExamplesHint": "Examples fill an empty field only, and stay placeholders — replace <VERSION> with the value your upstream expects today.",

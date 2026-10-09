@@ -12,6 +12,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import {
+  afterAll,
   afterEach,
   beforeAll,
   beforeEach,
@@ -49,7 +50,18 @@ vi.mock('@/lib/toast', () => ({
   },
 }))
 
+const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
+
 beforeAll(() => {
+  HTMLElement.prototype.scrollIntoView = vi.fn()
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
   // base-ui Dialog / AlertDialog / Select need matchMedia under jsdom.
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
@@ -66,6 +78,11 @@ beforeAll(() => {
   })
 })
 
+afterAll(() => {
+  vi.unstubAllGlobals()
+  HTMLElement.prototype.scrollIntoView = originalScrollIntoView
+})
+
 beforeEach(() => {
   mockCreateMutate.mockReset()
   mockUpdateMutate.mockReset()
@@ -80,6 +97,72 @@ afterEach(() => cleanup())
 function typeField(label: string, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } })
 }
+
+describe('SiteFormSheet layout and connection presets', () => {
+  it('keeps paired controls top-aligned and scrolls fields independently of the header and actions', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    const name = await screen.findByLabelText('Name')
+    const dialog = screen.getByRole('dialog')
+    const body = dialog.querySelector('[data-slot="site-form-body"]')
+    expect(body).toHaveClass('min-h-0', 'overflow-y-auto')
+    expect(dialog).toHaveClass('overflow-hidden')
+    expect(body).not.toContainElement(
+      dialog.querySelector('[data-slot="sheet-header"]')
+    )
+    expect(body).not.toContainElement(
+      dialog.querySelector('[data-slot="sheet-footer"]')
+    )
+    for (const control of [name, screen.getByLabelText('Global weight')]) {
+      expect(
+        control.closest('[data-slot="form-item"]')?.parentElement
+      ).toHaveClass('items-start', 'sm:grid-cols-2')
+    }
+    expect(
+      screen.getByRole('group', { name: 'Connection details' })
+    ).toContainElement(name)
+    expect(
+      screen.getByRole('group', { name: 'Routing and probes' })
+    ).toContainElement(screen.getByLabelText('Max concurrency'))
+    expect(
+      screen.getByRole('group', { name: 'Proxy and requests' })
+    ).toContainElement(screen.getByLabelText('Proxy URL'))
+  })
+
+  it('searches service presets and fills a blank connection with a canonical adapter', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Platform' }))
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Search platforms or services…' }),
+      { target: { value: 'DeepSeek' } }
+    )
+    fireEvent.click(
+      await screen.findByRole('option', { name: 'Use DeepSeek preset' })
+    )
+    expect(screen.getByLabelText('Name')).toHaveValue('DeepSeek')
+    expect(screen.getByLabelText('URL')).toHaveValue('https://api.deepseek.com')
+    expect(
+      screen.getByRole('combobox', { name: 'Platform' })
+    ).toHaveTextContent('OpenAI')
+  })
+
+  it('preserves a typed name and URL when applying a compatible service preset', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    await screen.findByLabelText('Name')
+    typeField('Name', 'My existing connection')
+    typeField('URL', 'https://gateway.example.com')
+    fireEvent.click(screen.getByRole('combobox', { name: 'Platform' }))
+    fireEvent.click(
+      await screen.findByRole('option', { name: 'Use DeepSeek preset' })
+    )
+    expect(screen.getByLabelText('Name')).toHaveValue('My existing connection')
+    expect(screen.getByLabelText('URL')).toHaveValue(
+      'https://gateway.example.com'
+    )
+    expect(
+      screen.getByRole('combobox', { name: 'Platform' })
+    ).toHaveTextContent('OpenAI')
+  })
+})
 
 describe('SiteFormSheet Zod submission errors', () => {
   it('renders the nameRequired error when submitting with an empty name', async () => {
@@ -148,24 +231,24 @@ describe('SiteFormSheet create payload', () => {
 })
 
 describe('SiteFormSheet platform picker', () => {
-  // Canonical adapter platforms from platform/registry.go `orderedPlatformNames`.
+  // Human-facing names stay readable while submissions retain canonical IDs.
   const CANONICAL_PLATFORMS = [
-    'openai',
-    'codex',
-    'claude',
-    'gemini',
-    'gemini-cli',
-    'antigravity',
-    'grok',
-    'cliproxyapi',
-    'sensetime',
-    'anyrouter',
-    'done-hub',
-    'one-hub',
-    'veloera',
-    'new-api',
-    'sub2api',
-    'one-api',
+    'OpenAI',
+    'OpenAI Codex',
+    'Anthropic Claude',
+    'Google Gemini',
+    'Gemini CLI',
+    'Antigravity',
+    'xAI Grok',
+    'CLIProxyAPI',
+    'SenseTime',
+    'AnyRouter',
+    'Done Hub',
+    'One Hub',
+    'Veloera',
+    'New API',
+    'Sub2API',
+    'One API',
   ]
 
   it('lists the 16 canonical platforms in the platform select', async () => {
@@ -175,7 +258,7 @@ describe('SiteFormSheet platform picker', () => {
       name: 'Platform',
     })
 
-    fireEvent.mouseDown(platformSelect)
+    fireEvent.click(platformSelect)
 
     for (const platform of CANONICAL_PLATFORMS) {
       expect(
@@ -202,17 +285,17 @@ describe('SiteFormSheet platform picker', () => {
     typeField('Name', 'My Site')
     typeField('URL', 'https://example.com')
 
-    fireEvent.mouseDown(
-      await screen.findByRole('combobox', { name: 'Platform' })
-    )
-    const claudeOption = await screen.findByRole('option', { name: 'claude' })
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Platform' }))
+    const claudeOption = await screen.findByRole('option', {
+      name: 'Anthropic Claude',
+    })
     fireEvent.pointerDown(claudeOption)
     fireEvent.click(claudeOption)
 
     await waitFor(() => {
       expect(
         screen.getByRole('combobox', { name: 'Platform' })
-      ).toHaveTextContent('claude')
+      ).toHaveTextContent('Anthropic Claude')
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Create' }))

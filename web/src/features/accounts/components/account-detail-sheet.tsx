@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DetailField } from '@/components/common/detail-field'
 import { ExpandableText } from '@/components/common/expandable-text'
+import { PlatformBadge } from '@/components/common/platform-badge'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ import {
   formatPrice,
   formatRelativeTime,
 } from '@/lib/format'
+import { getPlatformDisplayName } from '@/lib/platform-catalog'
 
 import { useRefreshAccount } from '../api'
 import { AccountModelsPanel } from '../models/components/account-models-panel'
@@ -150,9 +152,13 @@ export function AccountDetailSheet({
             </DetailField>
             <DetailField
               label={t('accounts.detail.platform')}
-              title={site?.platform || undefined}
+              title={getPlatformDisplayName(site?.platform) || undefined}
             >
-              {site?.platform || '—'}
+              {site?.platform ? (
+                <PlatformBadge platform={site.platform} />
+              ) : (
+                '—'
+              )}
             </DetailField>
             <DetailField label={t('accounts.detail.balance')}>
               {formatCurrency(account.balance)}

@@ -19,6 +19,7 @@ import {
 } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
+import { PlatformBadge } from '@/components/common/platform-badge'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
@@ -63,6 +64,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { getPlatformDisplayName } from '@/lib/platform-catalog'
 import { toast } from '@/lib/toast'
 
 import {
@@ -121,12 +123,17 @@ function resolveAxiosErrorMessage(error: unknown): string {
 }
 
 function getSiteLabel(site: Site): string {
-  const label = site.name || site.url || `#${site.id}`
-  return site.platform ? `${label} · ${site.platform}` : label
+  return site.name || site.url || `#${site.id}`
 }
 
 function getSiteSearchValue(site: Site): string {
-  return [site.name, site.url, site.platform, String(site.id)]
+  return [
+    site.name,
+    site.url,
+    site.platform,
+    getPlatformDisplayName(site.platform),
+    String(site.id),
+  ]
     .filter(Boolean)
     .join(' ')
 }
@@ -395,11 +402,17 @@ export function AccountFormDialog({
                           <span
                             className={
                               hasSelection
-                                ? 'min-w-0 flex-1 truncate text-left'
+                                ? 'flex min-w-0 flex-1 items-center gap-2 text-left'
                                 : 'text-muted-foreground min-w-0 flex-1 truncate text-left'
                             }
                           >
-                            {selectedLabel}
+                            <span className='truncate'>{selectedLabel}</span>
+                            {selectedSite?.platform && (
+                              <PlatformBadge
+                                platform={selectedSite.platform}
+                                className='text-muted-foreground shrink-0 text-xs'
+                              />
+                            )}
                           </span>
                           <ChevronsUpDown
                             aria-hidden='true'
@@ -425,14 +438,8 @@ export function AccountFormDialog({
                             </CommandEmpty>
                             <CommandGroup>
                               {siteOptions.map((site) => {
-                                const label =
-                                  site.name || site.url || `#${site.id}`
-                                const details = [
-                                  site.platform,
-                                  site.name ? site.url : '',
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ')
+                                const label = getSiteLabel(site)
+                                const details = site.name ? site.url : ''
 
                                 return (
                                   <CommandItem
@@ -449,9 +456,19 @@ export function AccountFormDialog({
                                       <span className='block truncate'>
                                         {label}
                                       </span>
-                                      {details && (
-                                        <span className='text-muted-foreground block truncate text-xs'>
-                                          {details}
+                                      {(site.platform || details) && (
+                                        <span className='text-muted-foreground flex min-w-0 items-center gap-2 text-xs'>
+                                          {site.platform && (
+                                            <PlatformBadge
+                                              platform={site.platform}
+                                              className='shrink-0'
+                                            />
+                                          )}
+                                          {details && (
+                                            <span className='truncate'>
+                                              {details}
+                                            </span>
+                                          )}
                                         </span>
                                       )}
                                     </span>

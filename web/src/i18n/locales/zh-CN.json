@@ -1,5 +1,34 @@
 {
   "translation": {
+    "platforms": {
+      "groups": {
+        "api": "模型 API",
+        "gateway": "自建网关",
+        "oauth": "OAuth 连接",
+        "presets": "常用服务预设 · API Key"
+      },
+      "search": "搜索平台或服务…",
+      "noResults": "未找到匹配的平台。",
+      "custom": "自定义平台",
+      "usePreset": "使用 {{name}} 预设",
+      "presetHint": "预设只填充空白项，保留已有名称、地址和平台。创建站点后，在账号中添加 API Key。",
+      "openai": "OpenAI 格式接口，创建后添加 API Key 账号。",
+      "claude": "Anthropic Messages 接口，使用 API Key。",
+      "gemini": "Gemini 原生接口，使用 API Key。",
+      "sensetime": "保留兼容标识，使用前请核实上游能力。",
+      "codex": "通过 OAuth 连接 OpenAI Codex 账号。",
+      "geminiCli": "通过 OAuth 连接 Gemini CLI 账号。",
+      "antigravity": "通过 OAuth 连接 Antigravity 账号。",
+      "grok": "Grok 设备 OAuth，不用于 xAI 公共 API。",
+      "newApi": "New API 管理接口、余额与 API 令牌。",
+      "oneApi": "One API 管理接口、余额与 API 令牌。",
+      "oneHub": "One Hub 管理接口与账号同步。",
+      "doneHub": "Done Hub 管理接口与账号同步。",
+      "veloera": "Veloera 管理接口与账号同步。",
+      "anyrouter": "AnyRouter 账号管理与签到。",
+      "sub2api": "Sub2API 账号管理与 API 令牌。",
+      "cliproxyapi": "CLIProxyAPI 管理密钥与代理凭据。"
+    },
     "dataTable": {
       "summary": "显示第 {{start}}-{{end}} 条，共 {{total}} 条",
       "bulkActions": {
@@ -644,10 +673,15 @@
         "disabled": "已停用"
       },
       "form": {
+        "sections": {
+          "connection": "连接信息",
+          "routing": "调度与探测",
+          "request": "代理与请求设置"
+        },
         "addTitle": "添加站点",
         "editTitle": "编辑站点",
         "invalid": "请检查表单标红字段",
-        "addDescription": "注册一个新的上游站点。",
+        "addDescription": "配置上游连接，创建后再添加 API Key 或账号凭据。",
         "editDescription": "更新站点配置。",
         "name": "名称",
         "namePlaceholder": "输入站点名称",
@@ -668,16 +702,16 @@
         "proxyUrl": "代理地址",
         "globalWeight": "全局权重",
         "maxConcurrency": "最大并发",
-        "maxConcurrencyHint": "最大并发请求数（0 = 不限）。",
+        "maxConcurrencyHint": "0 表示不限。",
         "useSystemProxy": "使用系统代理",
-        "useSystemProxyHint": "通过系统配置的代理路由该站点的流量。",
+        "useSystemProxyHint": "使用系统设置中的代理。",
         "resinEnabled": "Resin 粘性代理",
-        "resinEnabledHint": "覆盖该站点的全局 Resin 出口设置。",
+        "resinEnabledHint": "单独设置此站点的 Resin 出口。",
         "resinInherit": "继承全局",
         "resinForceOn": "强制开启",
         "resinForceOff": "强制关闭",
         "useUtls": "uTLS 指纹",
-        "useUtlsHint": "覆盖该站点的全局 uTLS TLS 指纹设置。",
+        "useUtlsHint": "单独设置此站点的 TLS 指纹。",
         "utlsInherit": "继承全局",
         "utlsForceOn": "强制开启",
         "utlsForceOff": "强制关闭",
@@ -703,7 +737,7 @@
         "urlPreserveApiPath": "当前 URL 含 /api 路径，将原样保存。请确认这就是准确的主站点 URL；如果这是 API 请求地址，请填入下方的 API 地址池。",
         "urlPreserveUnknownPath": "当前 URL 含额外路径，将原样保存。请确认这就是准确的主站点 URL；如果这是 API 请求地址，请填入下方的 API 地址池。",
         "customHeaders": "自定义请求头",
-        "customHeadersHint": "按名称和值添加额外请求头，也可切换到高级 JSON 编辑。",
+        "customHeadersHint": "向上游请求附加名称和值。",
         "customHeadersExamplesLabel": "插入示例：",
         "customHeadersExampleInsert": "插入 {{client}} 示例",
         "customHeadersExamplesHint": "示例仅填充空的输入框，且始终是占位内容 —— 请把 <VERSION> 替换为当前上游实际期望的值。",

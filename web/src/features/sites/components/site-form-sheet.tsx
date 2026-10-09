@@ -40,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
   SheetContent,
@@ -50,6 +51,7 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
+import type { ConnectionPreset } from '@/lib/platform-catalog'
 import { toast } from '@/lib/toast'
 
 import { useCreateSite, useDetectSite, useUpdateSite } from '../api'
@@ -67,6 +69,7 @@ import {
 import type { Site, SiteFormPayload, SiteProbeScope } from '../types'
 import { CustomHeadersField } from './custom-headers-field'
 import { EndpointsEditor } from './endpoints-editor'
+import { SitePlatformPicker } from './site-platform-picker'
 
 type SiteFormSheetProps = {
   open: boolean
@@ -74,27 +77,6 @@ type SiteFormSheetProps = {
   editingSite: Site | null
   onCreated?: (site: Site) => void
 }
-
-// Canonical adapter platforms from platform/registry.go `orderedPlatformNames`.
-// Unknown platforms stay manually specifiable via the inline manual toggle.
-const PLATFORM_OPTIONS: readonly string[] = [
-  'openai',
-  'codex',
-  'claude',
-  'gemini',
-  'gemini-cli',
-  'antigravity',
-  'grok',
-  'cliproxyapi',
-  'sensetime',
-  'anyrouter',
-  'done-hub',
-  'one-hub',
-  'veloera',
-  'new-api',
-  'sub2api',
-  'one-api',
-]
 
 function nullableBoolToSelectValue(value: boolean | null): string {
   if (value === null) return 'inherit'
@@ -248,6 +230,21 @@ export function SiteFormSheet({
     return () => window.clearTimeout(timer)
   }, [watchedUrl, watchedPlatform, isEditing, detectSiteAsync, form])
 
+  function handlePreset(preset: ConnectionPreset) {
+    // Presets only fill blank connection fields. Existing input always wins.
+    const platform = form.getValues('platform').trim()
+    if (platform && platform !== preset.platform) return
+    for (const [key, value] of [
+      ['name', preset.name],
+      ['url', preset.url],
+      ['platform', preset.platform],
+    ] as const) {
+      if (!form.getValues(key).trim()) {
+        form.setValue(key, value, { shouldDirty: true })
+      }
+    }
+  }
+
   async function handleDetect() {
     const url = watchedUrl.trim()
     if (!url) {
@@ -315,8 +312,11 @@ export function SiteFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent className='gap-0 sm:max-w-2xl' showMobileCloseBar={false}>
-        <SheetHeader>
+      <SheetContent
+        className='gap-0 overflow-hidden sm:max-w-2xl'
+        showMobileCloseBar={false}
+      >
+        <SheetHeader className='shrink-0 border-b px-4 py-5 pr-12 sm:px-6'>
           <SheetTitle>
             {isEditing ? t('sites.form.editTitle') : t('sites.form.addTitle')}
           </SheetTitle>
@@ -332,480 +332,27 @@ export function SiteFormSheet({
             onSubmit={form.handleSubmit(onSubmit, () =>
               toast.error(t('sites.form.invalid'))
             )}
-            className='grid gap-4 px-4'
+            className='flex min-h-0 flex-1 flex-col'
           >
-            <div className='grid gap-4 sm:grid-cols-2'>
-              <FormField
-                control={form.control}
-                name='name'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('sites.form.name')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder={t('sites.form.namePlaceholder')}
-                        autoFocus
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='platform'
-                render={({ field }) => {
-                  const trimmedPlatform = field.value.trim()
-                  const isCustomPlatform =
-                    trimmedPlatform !== '' &&
-                    !PLATFORM_OPTIONS.includes(trimmedPlatform)
-                  return (
-                    <FormItem>
-                      <FormLabel>{t('sites.form.platform')}</FormLabel>
-                      {platformMode === 'select' ? (
-                        <>
-                          <Select
-                            value={field.value}
-                            onValueChange={(value) =>
-                              field.onChange(value ?? '')
-                            }
-                          >
-                            <FormControl>
-                              <SelectTrigger className='w-full'>
-                                <SelectValue
-                                  placeholder={t(
-                                    'sites.form.platformSelectPlaceholder'
-                                  )}
-                                />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {isCustomPlatform && (
-                                <SelectItem value={field.value}>
-                                  {field.value} (
-                                  {t('sites.form.platformCustom')})
-                                </SelectItem>
-                              )}
-                              {PLATFORM_OPTIONS.map((platform) => (
-                                <SelectItem key={platform} value={platform}>
-                                  {platform}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <div className='flex items-center justify-between gap-2'>
-                            <FormDescription>
-                              {t('sites.form.platformSelectHint')}
-                            </FormDescription>
-                            <Button
-                              type='button'
-                              variant='link'
-                              size='xs'
-                              onClick={() => setPlatformMode('custom')}
-                            >
-                              {t('sites.form.platformCustomToggle')}
-                            </Button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <FormControl>
-                            <Input
-                              placeholder={t('sites.form.platformPlaceholder')}
-                              {...field}
-                            />
-                          </FormControl>
-                          <div className='flex items-center justify-between gap-2'>
-                            <FormDescription>
-                              {t('sites.form.platformCustomHint')}
-                            </FormDescription>
-                            <Button
-                              type='button'
-                              variant='link'
-                              size='xs'
-                              onClick={() => setPlatformMode('select')}
-                            >
-                              {t('sites.form.platformSelectToggle')}
-                            </Button>
-                          </div>
-                        </>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )
-                }}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name='url'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('sites.form.url')}</FormLabel>
-                  <div className='flex gap-2'>
-                    <FormControl>
-                      <Input
-                        placeholder='https://example.com'
-                        className='flex-1'
-                        {...field}
-                      />
-                    </FormControl>
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='sm'
-                      onClick={handleDetect}
-                      disabled={detectSite.isPending}
-                    >
-                      {detectSite.isPending ? (
-                        <Spinner />
-                      ) : (
-                        <SearchIcon className='size-3.5' />
-                      )}
-                      {t('sites.form.detect')}
-                    </Button>
-                  </div>
-                  {urlAnalysis.action === 'auto_strip_known_api_suffix' &&
-                    urlAnalysis.persistedUrl && (
-                      <Notice tone='info' size='compact'>
-                        {t('sites.form.urlAutoStripInfo', {
-                          url: urlAnalysis.persistedUrl,
-                        })}
-                      </Notice>
-                    )}
-                  {urlAnalysis.action === 'preserve_api_path' &&
-                    urlAnalysis.persistedUrl && (
-                      <Notice tone='warning' size='compact'>
-                        {t('sites.form.urlPreserveApiPath')}
-                      </Notice>
-                    )}
-                  {urlAnalysis.action === 'preserve_unknown_path' &&
-                    urlAnalysis.persistedUrl && (
-                      <Notice tone='warning' size='compact'>
-                        {t('sites.form.urlPreserveUnknownPath')}
-                      </Notice>
-                    )}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name='apiEndpointsText'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('sites.form.apiEndpoints')}</FormLabel>
-                  <FormControl>
-                    <EndpointsEditor
-                      value={field.value}
-                      onChange={field.onChange}
-                      liveEndpoints={editingSite?.apiEndpoints}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className='grid gap-4 sm:grid-cols-2'>
-              <FormField
-                control={form.control}
-                name='externalCheckinUrl'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('sites.form.externalCheckinUrl')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder={t('sites.form.optionalUrlPlaceholder')}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='proxyUrl'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('sites.form.proxyUrl')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder={t('sites.form.optionalUrlPlaceholder')}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className='grid gap-4 sm:grid-cols-2'>
-              <FormField
-                control={form.control}
-                name='globalWeight'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('sites.form.globalWeight')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type='number'
-                        min={0}
-                        step={1}
-                        value={field.value}
-                        onChange={(event) =>
-                          field.onChange(
-                            Number.isNaN(event.target.valueAsNumber)
-                              ? 0
-                              : event.target.valueAsNumber
-                          )
-                        }
-                        onBlur={field.onBlur}
-                        name={field.name}
-                        ref={field.ref}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='maxConcurrency'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('sites.form.maxConcurrency')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type='number'
-                        min={0}
-                        step={1}
-                        value={field.value}
-                        onChange={(event) =>
-                          field.onChange(
-                            Number.isNaN(event.target.valueAsNumber)
-                              ? 0
-                              : event.target.valueAsNumber
-                          )
-                        }
-                        onBlur={field.onBlur}
-                        name={field.name}
-                        ref={field.ref}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {t('sites.form.maxConcurrencyHint')}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name='useSystemProxy'
-              render={({ field }) => (
-                <FormItem className='flex items-center justify-between rounded-lg border p-3'>
-                  <div className='space-y-0.5'>
-                    <FormLabel>{t('sites.form.useSystemProxy')}</FormLabel>
-                    <FormDescription>
-                      {t('sites.form.useSystemProxyHint')}
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={(checked) => field.onChange(checked)}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            <div className='grid gap-4 sm:grid-cols-2'>
-              <FormField
-                control={form.control}
-                name='resinEnabled'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('sites.form.resinEnabled')}</FormLabel>
-                    <Select
-                      value={nullableBoolToSelectValue(field.value)}
-                      onValueChange={(value) =>
-                        field.onChange(selectValueToNullableBool(value))
-                      }
-                    >
-                      <FormControl>
-                        <SelectTrigger className='w-full'>
-                          <SelectValue>
-                            {(selected) => {
-                              const resinLabels: Record<string, string> = {
-                                enabled: t('sites.form.resinForceOn'),
-                                disabled: t('sites.form.resinForceOff'),
-                                inherit: t('sites.form.resinInherit'),
-                              }
-                              return (
-                                resinLabels[String(selected)] ??
-                                t('sites.form.resinInherit')
-                              )
-                            }}
-                          </SelectValue>
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value='inherit'>
-                          {t('sites.form.resinInherit')}
-                        </SelectItem>
-                        <SelectItem value='enabled'>
-                          {t('sites.form.resinForceOn')}
-                        </SelectItem>
-                        <SelectItem value='disabled'>
-                          {t('sites.form.resinForceOff')}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      {t('sites.form.resinEnabledHint')}
-                    </FormDescription>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='useUtls'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('sites.form.useUtls')}</FormLabel>
-                    <Select
-                      value={nullableBoolToSelectValue(field.value)}
-                      onValueChange={(value) =>
-                        field.onChange(selectValueToNullableBool(value))
-                      }
-                    >
-                      <FormControl>
-                        <SelectTrigger className='w-full'>
-                          <SelectValue>
-                            {(selected) => {
-                              const utlsLabels: Record<string, string> = {
-                                enabled: t('sites.form.utlsForceOn'),
-                                disabled: t('sites.form.utlsForceOff'),
-                                inherit: t('sites.form.utlsInherit'),
-                              }
-                              return (
-                                utlsLabels[String(selected)] ??
-                                t('sites.form.utlsInherit')
-                              )
-                            }}
-                          </SelectValue>
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value='inherit'>
-                          {t('sites.form.utlsInherit')}
-                        </SelectItem>
-                        <SelectItem value='enabled'>
-                          {t('sites.form.utlsForceOn')}
-                        </SelectItem>
-                        <SelectItem value='disabled'>
-                          {t('sites.form.utlsForceOff')}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      {t('sites.form.useUtlsHint')}
-                    </FormDescription>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name='customHeaders'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('sites.form.customHeaders')}</FormLabel>
-                  <FormControl>
-                    <CustomHeadersField
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    {t('sites.form.customHeadersHint')}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name='customHeadersOverrideRequestHeaders'
-              render={({ field }) => (
-                <FormItem className='flex items-center justify-between rounded-lg border p-3'>
-                  <div className='space-y-0.5'>
-                    <FormLabel>
-                      {t('sites.form.customHeadersOverrideRequestHeaders')}
-                    </FormLabel>
-                    <FormDescription>
-                      {t('sites.form.customHeadersOverrideRequestHeadersHint')}
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={(checked) => field.onChange(checked)}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            <div className='rounded-lg border p-3'>
-              <FormField
-                control={form.control}
-                name='postRefreshProbeEnabled'
-                render={({ field }) => (
-                  <FormItem className='flex items-center justify-between'>
-                    <div className='space-y-0.5'>
-                      <FormLabel>
-                        {t('sites.form.postRefreshProbeEnabled')}
-                      </FormLabel>
-                      <FormDescription>
-                        {t('sites.form.postRefreshProbeEnabledHint')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => field.onChange(checked)}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              {probeEnabled && (
-                <div className='mt-3 grid gap-4 sm:grid-cols-2'>
+            <div
+              data-slot='site-form-body'
+              className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6'
+            >
+              <fieldset className='min-w-0 space-y-4'>
+                <legend className='mb-4 text-sm font-semibold'>
+                  {t('sites.form.sections.connection')}
+                </legend>
+                <div className='grid items-start gap-x-5 gap-y-4 sm:grid-cols-2'>
                   <FormField
                     control={form.control}
-                    name='postRefreshProbeModel'
+                    name='name'
                     render={({ field }) => (
-                      <FormItem className='sm:col-span-2'>
-                        <FormLabel>
-                          {t('sites.form.postRefreshProbeModel')}
-                        </FormLabel>
+                      <FormItem>
+                        <FormLabel>{t('sites.form.name')}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder={t(
-                              'sites.form.postRefreshProbeModelPlaceholder'
-                            )}
+                            placeholder={t('sites.form.namePlaceholder')}
+                            autoFocus
                             {...field}
                           />
                         </FormControl>
@@ -815,59 +362,203 @@ export function SiteFormSheet({
                   />
                   <FormField
                     control={form.control}
-                    name='postRefreshProbeScope'
+                    name='platform'
+                    render={({ field }) => {
+                      return (
+                        <FormItem>
+                          <FormLabel>{t('sites.form.platform')}</FormLabel>
+                          {platformMode === 'select' ? (
+                            <>
+                              <FormControl>
+                                <SitePlatformPicker
+                                  value={field.value}
+                                  onValueChange={field.onChange}
+                                  onPreset={
+                                    isEditing ? undefined : handlePreset
+                                  }
+                                />
+                              </FormControl>
+                              <div className='flex items-center justify-between gap-2'>
+                                <FormDescription>
+                                  {t('sites.form.platformSelectHint')}
+                                </FormDescription>
+                                <Button
+                                  type='button'
+                                  variant='link'
+                                  size='xs'
+                                  onClick={() => setPlatformMode('custom')}
+                                >
+                                  {t('sites.form.platformCustomToggle')}
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <FormControl>
+                                <Input
+                                  placeholder={t(
+                                    'sites.form.platformPlaceholder'
+                                  )}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <div className='flex items-center justify-between gap-2'>
+                                <FormDescription>
+                                  {t('sites.form.platformCustomHint')}
+                                </FormDescription>
+                                <Button
+                                  type='button'
+                                  variant='link'
+                                  size='xs'
+                                  onClick={() => setPlatformMode('select')}
+                                >
+                                  {t('sites.form.platformSelectToggle')}
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )
+                    }}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name='url'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('sites.form.url')}</FormLabel>
+                      <div className='flex gap-2'>
+                        <FormControl>
+                          <Input
+                            placeholder='https://example.com'
+                            className='flex-1'
+                            {...field}
+                          />
+                        </FormControl>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          onClick={handleDetect}
+                          disabled={detectSite.isPending}
+                        >
+                          {detectSite.isPending ? (
+                            <Spinner />
+                          ) : (
+                            <SearchIcon className='size-3.5' />
+                          )}
+                          {t('sites.form.detect')}
+                        </Button>
+                      </div>
+                      {urlAnalysis.action === 'auto_strip_known_api_suffix' &&
+                        urlAnalysis.persistedUrl && (
+                          <Notice tone='info' size='compact'>
+                            {t('sites.form.urlAutoStripInfo', {
+                              url: urlAnalysis.persistedUrl,
+                            })}
+                          </Notice>
+                        )}
+                      {urlAnalysis.action === 'preserve_api_path' &&
+                        urlAnalysis.persistedUrl && (
+                          <Notice tone='warning' size='compact'>
+                            {t('sites.form.urlPreserveApiPath')}
+                          </Notice>
+                        )}
+                      {urlAnalysis.action === 'preserve_unknown_path' &&
+                        urlAnalysis.persistedUrl && (
+                          <Notice tone='warning' size='compact'>
+                            {t('sites.form.urlPreserveUnknownPath')}
+                          </Notice>
+                        )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='apiEndpointsText'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('sites.form.apiEndpoints')}</FormLabel>
+                      <FormControl>
+                        <EndpointsEditor
+                          value={field.value}
+                          onChange={field.onChange}
+                          liveEndpoints={editingSite?.apiEndpoints}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='externalCheckinUrl'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('sites.form.externalCheckinUrl')}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t('sites.form.optionalUrlPlaceholder')}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </fieldset>
+              <Separator className='my-6' />
+              <fieldset className='min-w-0 space-y-4'>
+                <legend className='mb-4 text-sm font-semibold'>
+                  {t('sites.form.sections.routing')}
+                </legend>
+                <div className='grid items-start gap-x-5 gap-y-4 sm:grid-cols-2'>
+                  <FormField
+                    control={form.control}
+                    name='globalWeight'
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>
-                          {t('sites.form.postRefreshProbeScope')}
-                        </FormLabel>
-                        <Select
-                          value={field.value}
-                          onValueChange={(value) =>
-                            field.onChange(value as SiteProbeScope)
-                          }
-                        >
-                          <FormControl>
-                            <SelectTrigger className='w-full'>
-                              <SelectValue
-                                placeholder={t('sites.form.scopePlaceholder')}
-                              >
-                                {(value: unknown) =>
-                                  value === 'all'
-                                    ? t('sites.form.scopeAll')
-                                    : t('sites.form.scopeSingle')
-                                }
-                              </SelectValue>
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value='single'>
-                              {t('sites.form.scopeSingle')}
-                            </SelectItem>
-                            <SelectItem value='all'>
-                              {t('sites.form.scopeAll')}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>{t('sites.form.globalWeight')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type='number'
+                            min={0}
+                            step={1}
+                            value={field.value}
+                            onChange={(event) =>
+                              field.onChange(
+                                Number.isNaN(event.target.valueAsNumber)
+                                  ? 0
+                                  : event.target.valueAsNumber
+                              )
+                            }
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
-                    name='postRefreshProbeLatencyThresholdMs'
+                    name='maxConcurrency'
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>
-                          {t(
-                            'sites.form.postRefreshProbeLatencyThresholdMsLabel'
-                          )}
-                        </FormLabel>
+                        <FormLabel>{t('sites.form.maxConcurrency')}</FormLabel>
                         <FormControl>
                           <Input
                             type='number'
                             min={0}
-                            step={100}
+                            step={1}
                             value={field.value}
                             onChange={(event) =>
                               field.onChange(
@@ -882,19 +573,330 @@ export function SiteFormSheet({
                           />
                         </FormControl>
                         <FormDescription>
-                          {t(
-                            'sites.form.postRefreshProbeLatencyThresholdMsHint'
-                          )}
+                          {t('sites.form.maxConcurrencyHint')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-              )}
-            </div>
 
-            <SheetFooter className='bg-background sticky bottom-0 -mx-4 mt-4 flex-row justify-end gap-2 border-t px-4 py-3'>
+                <div className='space-y-4'>
+                  <FormField
+                    control={form.control}
+                    name='postRefreshProbeEnabled'
+                    render={({ field }) => (
+                      <FormItem className='flex items-center justify-between gap-4'>
+                        <div className='space-y-0.5'>
+                          <FormLabel>
+                            {t('sites.form.postRefreshProbeEnabled')}
+                          </FormLabel>
+                          <FormDescription>
+                            {t('sites.form.postRefreshProbeEnabledHint')}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={(checked) =>
+                              field.onChange(checked)
+                            }
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  {probeEnabled && (
+                    <div className='mt-3 grid items-start gap-x-5 gap-y-4 sm:grid-cols-2'>
+                      <FormField
+                        control={form.control}
+                        name='postRefreshProbeModel'
+                        render={({ field }) => (
+                          <FormItem className='sm:col-span-2'>
+                            <FormLabel>
+                              {t('sites.form.postRefreshProbeModel')}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={t(
+                                  'sites.form.postRefreshProbeModelPlaceholder'
+                                )}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name='postRefreshProbeScope'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {t('sites.form.postRefreshProbeScope')}
+                            </FormLabel>
+                            <Select
+                              value={field.value}
+                              onValueChange={(value) =>
+                                field.onChange(value as SiteProbeScope)
+                              }
+                            >
+                              <FormControl>
+                                <SelectTrigger className='w-full'>
+                                  <SelectValue
+                                    placeholder={t(
+                                      'sites.form.scopePlaceholder'
+                                    )}
+                                  >
+                                    {(value: unknown) =>
+                                      value === 'all'
+                                        ? t('sites.form.scopeAll')
+                                        : t('sites.form.scopeSingle')
+                                    }
+                                  </SelectValue>
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value='single'>
+                                  {t('sites.form.scopeSingle')}
+                                </SelectItem>
+                                <SelectItem value='all'>
+                                  {t('sites.form.scopeAll')}
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name='postRefreshProbeLatencyThresholdMs'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {t(
+                                'sites.form.postRefreshProbeLatencyThresholdMsLabel'
+                              )}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type='number'
+                                min={0}
+                                step={100}
+                                value={field.value}
+                                onChange={(event) =>
+                                  field.onChange(
+                                    Number.isNaN(event.target.valueAsNumber)
+                                      ? 0
+                                      : event.target.valueAsNumber
+                                  )
+                                }
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                ref={field.ref}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t(
+                                'sites.form.postRefreshProbeLatencyThresholdMsHint'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+              </fieldset>
+              <Separator className='my-6' />
+              <fieldset className='min-w-0 space-y-4'>
+                <legend className='mb-4 text-sm font-semibold'>
+                  {t('sites.form.sections.request')}
+                </legend>
+                <FormField
+                  control={form.control}
+                  name='proxyUrl'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('sites.form.proxyUrl')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t('sites.form.optionalUrlPlaceholder')}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='useSystemProxy'
+                  render={({ field }) => (
+                    <FormItem className='flex items-center justify-between gap-4'>
+                      <div className='space-y-0.5'>
+                        <FormLabel>{t('sites.form.useSystemProxy')}</FormLabel>
+                        <FormDescription>
+                          {t('sites.form.useSystemProxyHint')}
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={(checked) => field.onChange(checked)}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <div className='grid items-start gap-x-5 gap-y-4 sm:grid-cols-2'>
+                  <FormField
+                    control={form.control}
+                    name='resinEnabled'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('sites.form.resinEnabled')}</FormLabel>
+                        <Select
+                          value={nullableBoolToSelectValue(field.value)}
+                          onValueChange={(value) =>
+                            field.onChange(selectValueToNullableBool(value))
+                          }
+                        >
+                          <FormControl>
+                            <SelectTrigger className='w-full'>
+                              <SelectValue>
+                                {(selected) => {
+                                  const resinLabels: Record<string, string> = {
+                                    enabled: t('sites.form.resinForceOn'),
+                                    disabled: t('sites.form.resinForceOff'),
+                                    inherit: t('sites.form.resinInherit'),
+                                  }
+                                  return (
+                                    resinLabels[String(selected)] ??
+                                    t('sites.form.resinInherit')
+                                  )
+                                }}
+                              </SelectValue>
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value='inherit'>
+                              {t('sites.form.resinInherit')}
+                            </SelectItem>
+                            <SelectItem value='enabled'>
+                              {t('sites.form.resinForceOn')}
+                            </SelectItem>
+                            <SelectItem value='disabled'>
+                              {t('sites.form.resinForceOff')}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          {t('sites.form.resinEnabledHint')}
+                        </FormDescription>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='useUtls'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('sites.form.useUtls')}</FormLabel>
+                        <Select
+                          value={nullableBoolToSelectValue(field.value)}
+                          onValueChange={(value) =>
+                            field.onChange(selectValueToNullableBool(value))
+                          }
+                        >
+                          <FormControl>
+                            <SelectTrigger className='w-full'>
+                              <SelectValue>
+                                {(selected) => {
+                                  const utlsLabels: Record<string, string> = {
+                                    enabled: t('sites.form.utlsForceOn'),
+                                    disabled: t('sites.form.utlsForceOff'),
+                                    inherit: t('sites.form.utlsInherit'),
+                                  }
+                                  return (
+                                    utlsLabels[String(selected)] ??
+                                    t('sites.form.utlsInherit')
+                                  )
+                                }}
+                              </SelectValue>
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value='inherit'>
+                              {t('sites.form.utlsInherit')}
+                            </SelectItem>
+                            <SelectItem value='enabled'>
+                              {t('sites.form.utlsForceOn')}
+                            </SelectItem>
+                            <SelectItem value='disabled'>
+                              {t('sites.form.utlsForceOff')}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          {t('sites.form.useUtlsHint')}
+                        </FormDescription>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name='customHeaders'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('sites.form.customHeaders')}</FormLabel>
+                      <FormControl>
+                        <CustomHeadersField
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t('sites.form.customHeadersHint')}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='customHeadersOverrideRequestHeaders'
+                  render={({ field }) => (
+                    <FormItem className='flex items-center justify-between gap-4'>
+                      <div className='space-y-0.5'>
+                        <FormLabel>
+                          {t('sites.form.customHeadersOverrideRequestHeaders')}
+                        </FormLabel>
+                        <FormDescription>
+                          {t(
+                            'sites.form.customHeadersOverrideRequestHeadersHint'
+                          )}
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={(checked) => field.onChange(checked)}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </fieldset>
+            </div>
+            <SheetFooter className='shrink-0 flex-row justify-end gap-2 border-t px-4 py-4 sm:px-6'>
               <Button
                 type='button'
                 variant='outline'

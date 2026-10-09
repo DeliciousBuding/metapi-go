@@ -62,6 +62,8 @@ describe('accounts site cell quick jump (#1108)', () => {
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
     expect(screen.getByText('Primary site')).toBeInTheDocument()
+    expect(screen.getByText('New API')).toBeInTheDocument()
+    expect(screen.queryByText('new-api')).not.toBeInTheDocument()
   })
 
   it('preserves long site identity and destination while allowing two mobile lines', () => {

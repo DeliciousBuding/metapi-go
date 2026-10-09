@@ -1,4 +1,6 @@
 import { BRAND_ICONS } from './icons.js'
+// Official New API mark: QuantumNous/new-api, web/public/logo.png (MIT).
+import newApiLogo from './new-api.png'
 
 export { getBrand, type BrandInfo } from '../../../shared/modelBrand.js'
 
@@ -53,6 +55,7 @@ export function getBrandIconUrl(
 ): string | null {
   const normalized = normalizeBrandIconKey(icon)
   if (!normalized) return null
+  if (normalized === 'new-api') return newApiLogo
   return BRAND_ICONS[normalized]?.[variant] ?? null
 }
 

@@ -26,6 +26,7 @@ import {
 import { memo, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { PlatformBadge } from '@/components/common/platform-badge'
 import {
   ProbeHealthBar,
   type ProbeHistoryMap,
@@ -406,9 +407,10 @@ export function useAccountsColumns(
                 {site.name || site.url || `#${site.id}`}
               </SafeExternalLink>
               {site.platform && (
-                <span className='text-muted-foreground text-2xs'>
-                  {site.platform}
-                </span>
+                <PlatformBadge
+                  platform={site.platform}
+                  className='text-muted-foreground text-2xs w-fit'
+                />
               )}
             </div>
           )

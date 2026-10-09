@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next'
 
 import { DetailField } from '@/components/common/detail-field'
 import { ExpandableText } from '@/components/common/expandable-text'
+import { PlatformBadge } from '@/components/common/platform-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -110,11 +111,7 @@ export function SiteDetailSheet({
             {site.isPinned && (
               <Badge variant='outline'>{t('sites.detail.pinned')}</Badge>
             )}
-            {site.platform && (
-              <span className='text-muted-foreground text-xs'>
-                {site.platform}
-              </span>
-            )}
+            {site.platform && <PlatformBadge platform={site.platform} />}
           </div>
 
           <Separator />
@@ -179,7 +176,7 @@ export function SiteDetailSheet({
               ) : null}
               {site.platform ? (
                 <DetailField label={t('sites.detail.platform')}>
-                  {site.platform}
+                  <PlatformBadge platform={site.platform} />
                 </DetailField>
               ) : null}
               <DetailField label={t('sites.detail.globalWeight')}>
