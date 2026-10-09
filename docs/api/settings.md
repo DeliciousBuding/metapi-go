@@ -145,35 +145,63 @@ Tables absent from the payload are skipped, so a backup written by an older buil
 imports. A payload naming a table the backup set excludes — or any table outside the schema registry — is rejected with
 `400 unknown table <name>`; the exclusion is enforced on import, not just omitted on export.
 
-### AxonHub v1.4 channel-graph import
+### AxonHub v1.4 import
 
-An AxonHub backup (`version: "1.4"` with `timestamp`, `channels`, and `models`) is detected by its envelope and imported
-through the same endpoint and the same `X-External-Origin-Key` scoping as Octopus, into the shared direct-upstream
-tables. Commit requires `X-AxonHub-Replace-Origin: true` when the preview reports `removals`; preview never writes.
+An AxonHub backup (`version: "1.4"` with `timestamp`, `channels`, and `models`)
+uses the same import and preview endpoints and `X-External-Origin-Key` scoping
+as Octopus. One compiled plan drives both the preview and the transaction.
+Repeated imports update source-owned records; removals require
+`X-AxonHub-Replace-Origin: true`. Preview never writes, and a failed import
+rolls back the entire graph and its downstream keys.
 
-One compile step produces the plan the preview renders *and* the graph the transaction writes, so a preview can never
-describe a channel the commit will not create. The compiler resolves AxonHub's six model-association kinds
-(`channel_model`, `channel_regex`, `regex`, `model`, `channel_tags_model`, `channel_tags_regex`) against each channel's
-request-model map — `supported_models` plus `extraModelPrefix`, `autoTrimedModelPrefixes`, and `modelMappings`, minus
-`hideOriginalModels` / `hideMappedModels`, with `lowercaseModelId` applied to the request key only. Each source model
-becomes one exact Metapi route keyed by its `model_id`, and each resolved channel/model pair becomes a grant, one per
-enabled API key, carrying the channel's declared protocols and the association's `priority`. A model with no resolvable
-channel is reported rather than invented.
+The audited source revision is `e863c6fe1942deddd0f6e471fa003c430e5314f0`.
+The parser accepts its generated `edges` metadata and default settings, rejects
+ambiguous duplicate JSON keys and invalid source identities, and keeps secrets
+out of the preview. Unknown executable fields remain explicit incompatibilities.
 
-Provider support is an explicit table (`axonhub_providers.go`) covering the full AxonHub channel-type enum at commit
-`e863c6fe1942deddd0f6e471fa003c430e5314f0`; a type outside it is refused by name. A channel imports only when every
-declared endpoint is `openai/chat_completions`, `openai/responses`, or `anthropic/messages`, transport is HTTP, the
-endpoint does not override the channel base URL, and the credential is a static API key. Declared protocols the direct
-relay cannot carry (embeddings, images, audio, video, Gemini native, Jina, Ollama, Seedance, AI SDK) are listed as
-residuals. Channels that need request translation (`transformOptions`), in-channel rate limits, stream policies,
-body/header override operations, unreviewed settings or credential fields, OAuth/Azure/GCP credentials, or an
-unrepresentable proxy configuration are skipped with a named reason instead of being half-imported; the preview lists
-each skip. Model discovery settings (`manual_models`, `auto_sync_supported_models`, provider quota polling, source retry
-and auto-disable rules, pass-through toggles) are reported as residuals because Metapi owns equivalent workflows.
+The compiler resolves all six model-association kinds against supported models,
+prefixes, aliases and hide/lowercase settings. Developer-level associations are
+inherited unless the model opts out; local rules win ties, overlapping candidates
+retain the highest priority. Per-model `modelProtocols` becomes an ordered list
+on each route item, so two aliases sharing a credential do not widen each
+other's outbound protocol choices.
 
-Projects, AxonHub API keys, model prices, system configs, and usage history are **not** imported: their authorization,
-quota, IP allow-list, and pricing semantics have no equivalent in a Metapi downstream key, so they stay in the source
-file and are counted in the preview's `notImported`. Imported grants then serve traffic exactly like Octopus ones.
+Provider defaults and custom endpoints are merged by API format. Each endpoint
+keeps its actual URL and authentication, including distinct hosts for Chat,
+Responses and Messages. Explicit endpoint configurations support native Gemini
+and generation-protocol conversion, with JSON, streaming and function tools.
+Native bodies preserve provider-specific reasoning and continuation data;
+nonportable cross-protocol fields fail explicitly. Codex/Fenno and Claude Code
+support static and structured OAuth credentials, request-time refresh and their
+provider-specific request/stream contracts. See [direct upstreams](routes.md)
+for endpoint and credential management.
+
+API keys are imported as native downstream keys. Their project and key active
+profiles are intersected into source-channel boundaries, preserving model
+restrictions, ordered mappings, IP allowlists and scope/status checks. Project
+profiles are flattened into the key's channel-ID snapshot; changing the source
+profile requires reimport. Imported usage logs support native period quotas,
+and local usage is retained when reimporting. Missing history blocks quota
+periods that overlap the gap; see [access policies and quotas](downstream-keys.md).
+A management-only or unsupported key remains explicitly blocked for proxy use.
+
+The preview reports configuration counts, skipped channels, remaining source
+sections, configuration differences and removals. The following remain outside
+the current executable import contract:
+
+- Gemini Vertex, Antigravity, Anthropic AWS/GCP, GitHub Copilot, xAI subscription,
+  Jina, native Ollama, fake providers, Typesafe and ZenMux video.
+- Embeddings, image/audio/video, moderation and other nongeneration endpoints.
+- Active channel transform operations, channel rate limits and stream policies,
+  conditional associations, unsupported proxy modes, and nonportable key-level
+  load-balancing/sticky overrides or regular expressions.
+- Source pricing, request history and deployment settings. Developer associations
+  and quota-relevant usage are consumed as described above; this does not copy
+  the source deployment's global settings or turn historical usage into live
+  health measurements.
+
+These residuals are not a claim of equivalent behavior. Their source records
+remain in the original backup and the preview explains the affected scope.
 
 ### GET /api/settings/backup/webdav
 

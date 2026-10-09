@@ -17,6 +17,9 @@ route item's outbound protocols; an empty list retains the grant's protocols.
 `x-goog-api-key`), and optional Gemini `modelPath`. When `modelPath` is true,
 the URL is a models prefix and the selected model and generation action are
 appended at execution; otherwise it is the exact upstream endpoint URL.
+The optional endpoint `profile` selects the audited `codex` or `claudecode`
+request contract. The channel's `provider` identifies its source provider;
+it is separate from its wire protocol and credential kind.
 This is configuration inventory, not a protocol-health probe. Credential values,
 custom headers and parameter overrides are never included.
 Members also expose persisted grant success/failure counts and nullable cooldown
@@ -42,6 +45,30 @@ is changed; all other fields are rejected. Returns `{success, id, enabled}`;
 unknown IDs return 404. Routing cache invalidation makes availability effective
 on the next selection. Source graph edits remain owned by re-import; re-importing
 the same origin can overwrite the local availability decision.
+
+### GET /api/imported-upstreams/:id/credentials
+
+Authenticated administrators receive `{items}` with each credential's `id`,
+`name`, `enabled`, `kind` (`api_key` or `oauth`), optional `expiresAt` in Unix
+milliseconds, and `canRefresh`. Neither access nor refresh tokens are returned.
+
+### PATCH /api/imported-upstreams/credentials/:id
+
+Authenticated administrators can change `enabled` or replace a credential.
+Supply either `apiKey` or an `oauth` object, never both. An OAuth replacement
+requires `accessToken` and may include `refreshToken`, `clientId`, `expiresAt`,
+`idToken`, and `accountId`. This is a complete credential replacement; omitted
+replacement fields are not inherited from the previous credential.
+Unknown fields and invalid combinations return 400; unavailable IDs return 404.
+Success returns `{success: true, id}` and invalidates routing caches.
+
+Codex/Fenno and Claude Code OAuth credentials are read immediately before
+dispatch and refreshed when needed through their existing OAuth providers.
+Concurrent requests share a refresh, and a compare-and-swap update prevents
+an in-flight refresh from overwriting a replaced credential. Codex/Fenno use
+upstream streaming even for a JSON client; a complete terminal response is
+required before producing JSON. Native Claude Code tool names are restored
+before any downstream protocol conversion.
 
 ### GET /api/routes/lite
 

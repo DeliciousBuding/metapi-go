@@ -122,8 +122,9 @@ reconciliation. Do not remove the marker merely to enable the key.
 
 The native backup carries both the policy and `downstream_quota_usage` ledger.
 The legacy reset-usage action resets only `usedCost`/`usedRequests`, not this
-ledger. The key editor exposes one advanced policy input for both imported and
-native keys.
+ledger. The key editor exposes structured channel selection, model mappings and
+quota controls for both imported and native keys. Import reconciliation markers
+remain read-only and are preserved by ordinary edits.
 
 ### Credential & site scope (downstream keys)
 

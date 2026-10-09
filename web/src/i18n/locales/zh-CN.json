@@ -1771,6 +1771,7 @@
               "token_routes": "已导入模型路由"
             },
             "routable": {
+              "apiKeys": "下游密钥",
               "channels": "渠道",
               "credentials": "凭据",
               "models": "上游模型",

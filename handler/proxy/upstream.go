@@ -466,9 +466,7 @@ func dispatchSelectedUpstream(
 			candidateBody = chatBody
 		}
 		upstreamPlatform := selected.Site.Platform
-		attemptBody := candidateBody
-		var sanitizeErr error
-		attemptBody, sanitizeErr = sanitizeUpstreamJSONBody(candidateBody, upstreamPlatform, path, upstreamModel)
+		attemptBody, sanitizeErr := sanitizeUpstreamJSONBody(candidateBody, upstreamPlatform, path, upstreamModel)
 		if sanitizeErr != nil {
 			// Clear client-facing continuity error.
 			writeJSONErrorWithRequest(w, http.StatusBadRequest, sanitizeErr.Error(), "invalid_request_error", requestID)

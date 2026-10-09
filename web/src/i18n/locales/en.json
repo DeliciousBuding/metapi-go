@@ -1771,6 +1771,7 @@
               "token_routes": "Imported model routes"
             },
             "routable": {
+              "apiKeys": "Downstream keys",
               "channels": "Channels",
               "credentials": "Credentials",
               "models": "Upstream models",

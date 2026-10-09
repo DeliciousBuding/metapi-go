@@ -9,6 +9,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 
 ### GET
 - `/api/imported-upstreams`
+- `/api/imported-upstreams/:id/credentials`
 - `/api/about`
 - `/api/account-tokens`
 - `/api/account-tokens/:id/value`
@@ -187,6 +188,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/sites/:id/tags`
 ### PATCH
 - `/api/imported-upstreams/:id`
+- `/api/imported-upstreams/credentials/:id`
 - `/api/oauth/connections/:accountId/proxy`
 - `/api/oauth/route-units/:routeUnitId`
 
