@@ -22,7 +22,7 @@ var tableColumnCount = map[string]int{
 	"OAuthRouteUnit":                8,
 	"OAuthRouteUnitMember":          19,
 	"RouteChannel":                  23,
-	"ProxyLog":                      25,
+	"ProxyLog":                      26,
 	"ProxyVideoTask":                15,
 	"AdminBackgroundTask":           14,
 	"Setting":                       2,

@@ -78,7 +78,7 @@ func TestStats_SQLiteProxyLogDetail_ParsesBillingDetails(t *testing.T) {
 	// Insert a proxy log whose billing_details column holds a JSON object as a
 	// raw string. The handler must parse it into a structured object in the
 	// response rather than returning the opaque string.
-	billingDetails := `{"total":"0.05","currency":"USD"}`
+	billingDetails := `{"total":"0.05","currency":"USD","quota_type":0,"usage":{"prompt_tokens":100,"cache_read_tokens":20},"breakdown":{"input_cost":0.0001,"cache_read_cost":0.00002}}`
 	res, err := db.Exec(`INSERT INTO proxy_logs (account_id, model_requested, model_actual, status, billing_details, created_at)
 		VALUES (?, ?, ?, ?, ?, ?)`,
 		accountID, "gpt-billing", "gpt-billing", "success", billingDetails, now)
@@ -104,6 +104,22 @@ func TestStats_SQLiteProxyLogDetail_ParsesBillingDetails(t *testing.T) {
 	}
 	if bd["currency"] != "USD" {
 		t.Fatalf("billingDetails.currency=%v, want USD", bd["currency"])
+	}
+	if bd["usage"].(map[string]any)["promptTokens"] != float64(100) || bd["breakdown"].(map[string]any)["cacheReadCost"] != 0.00002 {
+		t.Fatalf("billing detail nested camelCase contract lost: %#v", bd)
+	}
+	if _, ok := bd["quota_type"]; ok {
+		t.Fatal("snake_case billing root escaped into wire response")
+	}
+	if body["cacheReadTokens"] != float64(20) {
+		t.Fatalf("detail cache count=%v", body["cacheReadTokens"])
+	}
+	list := doGet(t, r, "/api/stats/proxy-logs?view=query&search=gpt-billing")
+	var listed struct {
+		Items []map[string]any `json:"items"`
+	}
+	if list.Code != http.StatusOK || json.Unmarshal(list.Body.Bytes(), &listed) != nil || len(listed.Items) != 1 || listed.Items[0]["cacheReadTokens"] != float64(20) {
+		t.Fatalf("list omitted observed cache usage: %s", list.Body.String())
 	}
 }
 

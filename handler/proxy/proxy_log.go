@@ -47,18 +47,18 @@ func InsertProxyLog(ctx context.Context, db *store.DB, entry proxy.ProxyLogEntry
 // path and the multi-row batch writer so the two never drift.
 const proxyLogInsertColumns = `route_id, channel_id, account_id, downstream_api_key_id,
 			model_requested, model_actual, status, http_status, is_stream,
-			first_byte_latency_ms, latency_ms,
+			first_byte_latency_ms, first_output_latency_ms, latency_ms,
 			prompt_tokens, completion_tokens, total_tokens,
 			estimated_cost, billing_details,
 			client_family, client_app_id, client_app_name, client_confidence,
 			error_message, retry_count, request_id, created_at`
 
-// proxyLogSingleRowPlaceholders is the 24 "?" placeholders for one row.
+// proxyLogSingleRowPlaceholders matches the canonical INSERT column list.
 // store.DB rebinds ? to $N for PostgreSQL, so the batch writer builds rows of
 // the same placeholder shape and lets the rebind do the dialect work.
 const proxyLogSingleRowPlaceholders = `(?, ?, ?, ?,
 			?, ?, ?, ?, ?,
-			?, ?,
+			?, ?, ?,
 			?, ?, ?,
 			?, ?,
 			?, ?, ?, ?,
@@ -92,6 +92,7 @@ func proxyLogEntryArgs(entry proxy.ProxyLogEntry, createdAt string) []any {
 		entry.HTTPStatus,
 		nullBool(entry.IsStream),
 		nullInt64(entry.FirstByteLatencyMs),
+		nullInt64(entry.FirstOutputLatencyMs),
 		entry.LatencyMs,
 		nullInt64(entry.PromptTokens),
 		nullInt64(entry.CompletionTokens),
@@ -107,6 +108,13 @@ func proxyLogEntryArgs(entry proxy.ProxyLogEntry, createdAt string) []any {
 		nullString(strPtrOrEmpty(entry.RequestID)),
 		createdAt,
 	}
+}
+
+func observedUsageCount(found bool, count int64) *int64 {
+	if !found {
+		return nil
+	}
+	return int64Ptr(count)
 }
 
 func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntry) {
@@ -226,30 +234,31 @@ func writeSuccessProxyLog(
 	// accounting — ratio lookups stay on the canonical model.
 	billing := EstimateBillingCostFromUsage(requestedModel, platformName, usage)
 	entry := proxy.ProxyLogEntry{
-		RouteID:            routeIDPtr,
-		ChannelID:          &channelID,
-		AccountID:          &accountID,
-		DownstreamAPIKeyID: keyID,
-		ModelRequested:     requestedModel,
-		ModelActual:        &modelActual,
-		Status:             "success",
-		HTTPStatus:         httpStatus,
-		IsStream:           boolPtr(isStream),
-		FirstByteLatencyMs: firstByteLatencyMs,
-		LatencyMs:          latencyMs,
-		PromptTokens:       int64Ptr(usage.PromptTokens),
-		CompletionTokens:   int64Ptr(usage.CompletionTokens),
-		TotalTokens:        int64Ptr(usage.TotalTokens),
-		EstimatedCost:      billing.EstimatedCost,
-		BillingDetails:     billing.BillingDetails,
-		ClientFamily:       clientFamily,
-		ClientAppID:        clientAppID,
-		ClientAppName:      clientAppName,
-		ClientConfidence:   clientConfidence,
-		RetryCount:         retryCount,
-		RequestID:          requestID,
-		UpstreamPath:       &upstreamPath,
-		UsageSource:        source,
+		RouteID:              routeIDPtr,
+		ChannelID:            &channelID,
+		AccountID:            &accountID,
+		DownstreamAPIKeyID:   keyID,
+		ModelRequested:       requestedModel,
+		ModelActual:          &modelActual,
+		Status:               "success",
+		HTTPStatus:           httpStatus,
+		IsStream:             boolPtr(isStream),
+		FirstByteLatencyMs:   firstByteLatencyMs,
+		FirstOutputLatencyMs: usage.FirstOutputLatencyMs,
+		LatencyMs:            latencyMs,
+		PromptTokens:         observedUsageCount(usage.Found, usage.PromptTokens),
+		CompletionTokens:     observedUsageCount(usage.Found, usage.CompletionTokens),
+		TotalTokens:          observedUsageCount(usage.Found, usage.TotalTokens),
+		EstimatedCost:        billing.EstimatedCost,
+		BillingDetails:       billing.BillingDetails,
+		ClientFamily:         clientFamily,
+		ClientAppID:          clientAppID,
+		ClientAppName:        clientAppName,
+		ClientConfidence:     clientConfidence,
+		RetryCount:           retryCount,
+		RequestID:            requestID,
+		UpstreamPath:         &upstreamPath,
+		UsageSource:          source,
 	}
 	logProxy(ctx, cfg, entry)
 	// Advance managed-key used_cost so max_cost can gate subsequent traffic.
@@ -347,31 +356,32 @@ func writeFailureProxyLog(
 		errPtr = &errMsg
 	}
 	entry := proxy.ProxyLogEntry{
-		RouteID:            routeIDPtr,
-		ChannelID:          &channelID,
-		AccountID:          &accountID,
-		DownstreamAPIKeyID: keyID,
-		ModelRequested:     requestedModel,
-		ModelActual:        &modelActual,
-		Status:             "failed",
-		HTTPStatus:         httpStatus,
-		IsStream:           boolPtr(isStream),
-		FirstByteLatencyMs: firstByteLatencyMs,
-		LatencyMs:          latencyMs,
-		PromptTokens:       int64Ptr(usage.PromptTokens),
-		CompletionTokens:   int64Ptr(usage.CompletionTokens),
-		TotalTokens:        int64Ptr(usage.TotalTokens),
-		EstimatedCost:      estimatedCost,
-		BillingDetails:     billingDetails,
-		ClientFamily:       clientFamily,
-		ClientAppID:        clientAppID,
-		ClientAppName:      clientAppName,
-		ClientConfidence:   clientConfidence,
-		ErrorMessage:       errPtr,
-		RetryCount:         retryCount,
-		RequestID:          requestID,
-		UpstreamPath:       &upstreamPath,
-		UsageSource:        source,
+		RouteID:              routeIDPtr,
+		ChannelID:            &channelID,
+		AccountID:            &accountID,
+		DownstreamAPIKeyID:   keyID,
+		ModelRequested:       requestedModel,
+		ModelActual:          &modelActual,
+		Status:               "failed",
+		HTTPStatus:           httpStatus,
+		IsStream:             boolPtr(isStream),
+		FirstByteLatencyMs:   firstByteLatencyMs,
+		FirstOutputLatencyMs: usage.FirstOutputLatencyMs,
+		LatencyMs:            latencyMs,
+		PromptTokens:         observedUsageCount(usage.Found, usage.PromptTokens),
+		CompletionTokens:     observedUsageCount(usage.Found, usage.CompletionTokens),
+		TotalTokens:          observedUsageCount(usage.Found, usage.TotalTokens),
+		EstimatedCost:        estimatedCost,
+		BillingDetails:       billingDetails,
+		ClientFamily:         clientFamily,
+		ClientAppID:          clientAppID,
+		ClientAppName:        clientAppName,
+		ClientConfidence:     clientConfidence,
+		ErrorMessage:         errPtr,
+		RetryCount:           retryCount,
+		RequestID:            requestID,
+		UpstreamPath:         &upstreamPath,
+		UsageSource:          source,
 	}
 	logProxy(ctx, cfg, entry)
 }

@@ -140,6 +140,7 @@ for kid, name, key, group, cost, reqs in keys:
               (kid, name, key, group, cost, reqs, ts(NOW - timedelta(minutes=random.randint(1, 30))), ts(NOW - timedelta(days=15)), ts(NOW)))
 
 # ── proxy logs (~80 over 48h) ──
+has_first_output = any(row[1] == 'first_output_latency_ms' for row in c.execute('PRAGMA table_info(proxy_logs)'))
 models = [(rid, aid, model, model, 0.006) for _, rid, aid, _, model, *_ in channels]
 lid = 0
 for i in range(80):
@@ -150,7 +151,20 @@ for i in range(80):
     ptok = random.randint(120, 4200); ctok = 0 if fail else random.randint(40, 900)
     stream = 1 if random.random() < 0.6 else 0
     lat = random.randint(8000, 25000) if fail else random.randint(350, 4200)
-    fb = random.randint(120, 900) if stream and not fail else 0
+    fb = None if fail and http == 502 else random.randint(25, min(900, lat))
+    cache_read = random.randint(0, ptok // 2) if not fail else 0
+    cache_write = random.randint(0, ptok // 10) if stream and not fail else 0
+    billable_input = ptok - cache_read - cache_write
+    # Synthetic demo rates, not current provider prices or measured performance.
+    unit_rate = rate / 1000
+    breakdown = {'inputCost': billable_input * unit_rate, 'outputCost': ctok * unit_rate,
+                 'cacheReadCost': cache_read * unit_rate * 0.1, 'cacheCreationCost': cache_write * unit_rate * 1.25}
+    cost = round(sum(breakdown.values()), 6)
+    breakdown['totalCost'] = cost
+    billing = '' if fail else json.dumps({'usageSource': 'upstream', 'pricing': {'source': 'demo'},
+        'usage': {'promptTokens': ptok, 'completionTokens': ctok, 'totalTokens': ptok + ctok,
+                  'cacheReadTokens': cache_read, 'cacheCreationTokens': cache_write,
+                  'billablePromptTokens': billable_input, 'promptTokensIncludeCache': True}, 'breakdown': breakdown})
     created = NOW - timedelta(minutes=random.randint(3, 2880))
     lid += 1
     chan = [ch for ch in channels if ch[1] == rid and ch[2] == aid][0][0]
@@ -161,11 +175,15 @@ for i in range(80):
         ('gemini-cli', 'gemini_cli', 'Gemini CLI'),
         ('openai-node', '', ''),
     ])
-    c.execute("INSERT INTO proxy_logs (id,route_id,channel_id,account_id,downstream_api_key_id,model_requested,model_actual,status,http_status,is_stream,first_byte_latency_ms,latency_ms,prompt_tokens,completion_tokens,total_tokens,estimated_cost,billing_details,client_family,client_app_id,client_app_name,client_confidence,error_message,retry_count,request_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'',?,?,?,'high',?,?,'req-'||printf('%024x',?),?)",
-              (lid, rid, chan, aid, random.choice([1, 2]), mreq, mact, status, http, stream, fb, lat, ptok, ctok, ptok + ctok,
-               round((ptok + ctok) * rate / 1000, 6),
+    c.execute("INSERT INTO proxy_logs (id,route_id,channel_id,account_id,downstream_api_key_id,model_requested,model_actual,status,http_status,is_stream,first_byte_latency_ms,latency_ms,prompt_tokens,completion_tokens,total_tokens,estimated_cost,billing_details,client_family,client_app_id,client_app_name,client_confidence,error_message,retry_count,request_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'high',?,?,'req-'||printf('%024x',?),?)",
+              (lid, rid, chan, aid, random.choice([1, 2]), mreq, mact, status, http, stream, fb, lat,
+               None if fail else ptok, None if fail else ctok, None if fail else ptok + ctok,
+               None if fail else cost, billing,
                cfam, cappid, capp,
-               'upstream 5xx: connection reset by peer' if fail else '', random.choice([0, 0, 0, 1]), random.getrandbits(60), ts(created)))
+               {500: 'upstream 500: temporarily unavailable', 429: 'upstream 429: rate limit exceeded', 502: 'upstream 502: connection reset by peer'}.get(http, '') if fail else '', random.choice([0, 0, 0, 1]), random.getrandbits(60), ts(created)))
+    if has_first_output and stream and not fail:
+        first_output = random.randint(fb, lat)
+        c.execute('UPDATE proxy_logs SET first_output_latency_ms=? WHERE id=?', (first_output, lid))
 
 # ── checkin logs ──
 cid_ = 0

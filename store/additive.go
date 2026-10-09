@@ -447,6 +447,13 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "events", "params", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		Version:     "sc2_031_proxy_first_output",
+		Description: "proxy_logs.first_output_latency_ms nullable observed generated SSE output latency",
+		Apply: func(db *DB) error {
+			return EnsureColumn(db, "proxy_logs", "first_output_latency_ms", "INTEGER", "INTEGER", "")
+		},
+	},
 	// sc2_029_ts_timestamp_normalization is deliberately NOT a registry step
 	// any more. A journal gate decides "already applied" from the state of the
 	// database at the moment it runs, and the TS-shaped timestamps this rewrite

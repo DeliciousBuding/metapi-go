@@ -523,6 +523,7 @@ export function SiteDistributionChart({
       </ChartContainer>
       <ul
         className='grid min-h-0 flex-1 grid-cols-1 content-start gap-x-4 gap-y-2 overflow-y-auto pr-2 text-xs sm:grid-cols-2 lg:grid-cols-3'
+        tabIndex={0}
         aria-label={t('dashboard.traffic.siteDistribution.title')}
       >
         {pieData.map((slice, index) => (
