@@ -13,9 +13,56 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/pgtest"
+	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
+
+func TestSites_InitializationPresets(t *testing.T) {
+	_, router := setupSitesTest(t)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/sites/initialization-presets", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("list presets: %d %s", response.Code, response.Body.String())
+	}
+	var presets []map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &presets); err != nil {
+		t.Fatal(err)
+	}
+	if len(presets) != len(service.ListSiteInitializationPresets()) {
+		t.Fatalf("gallery omitted registered presets: got %d", len(presets))
+	}
+	for _, preset := range presets {
+		id := preset["id"].(string)
+		t.Run(id, func(t *testing.T) {
+			body, err := json.Marshal(map[string]any{
+				"name": preset["label"], "url": preset["defaultUrl"],
+				"platform": preset["platform"], "initializationPresetId": id,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			created := httptest.NewRecorder()
+			router.ServeHTTP(created, httptest.NewRequest(http.MethodPost, "/api/sites", bytes.NewReader(body)))
+			if created.Code != http.StatusOK && created.Code != http.StatusCreated {
+				t.Fatalf("listed preset cannot be created: %d %s", created.Code, created.Body.String())
+			}
+			var result map[string]any
+			if err := json.Unmarshal(created.Body.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+			if result["initializationPresetId"] != id || result["platform"] != preset["platform"] {
+				t.Fatalf("creation changed preset or adapter: %v", result)
+			}
+			if _, ok := preset["recommendedModels"].([]any); !ok {
+				t.Fatal("recommendedModels must be a JSON array, including empty lists")
+			}
+			if _, ok := preset["MatchHost"]; ok {
+				t.Fatal("list exposes internal detection rules")
+			}
+		})
+	}
+}
 
 // setupSitesTest creates an in-memory SQLite DB with chi router for sites.
 func setupSitesTest(t *testing.T) (*store.DB, chi.Router) {

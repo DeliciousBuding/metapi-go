@@ -8,6 +8,7 @@ Complete list of registered `/api` admin routes. Path parameters use `:param` no
 This list is checked against the routes reachable from `router.New` by `docs/api_inventory_parity_test.go`: a route registered in code but missing here, or listed here but not registered, fails CI. Request and response shapes live in the per-domain pages under [`docs/api/`](../api/); the shared error envelope, auth surfaces and pagination conventions are in [`conventions.md`](conventions.md).
 
 ### GET
+- `/api/sites/initialization-presets`
 - `/api/imported-upstreams`
 - `/api/imported-upstreams/:id/credentials`
 - `/api/about`

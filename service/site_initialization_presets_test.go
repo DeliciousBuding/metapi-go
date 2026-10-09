@@ -3,12 +3,28 @@ package service
 import (
 	"strings"
 	"testing"
+
+	"github.com/deliciousbuding/metapi-go/platform"
 )
 
-func TestListSiteInitializationPresets_ParityCount(t *testing.T) {
+func TestListSiteInitializationPresets(t *testing.T) {
 	presets := ListSiteInitializationPresets()
-	if len(presets) != 13 {
-		t.Fatalf("expected 13 presets, got %d", len(presets))
+	seen := map[string]bool{}
+	for _, preset := range presets {
+		if preset.ID == "" || seen[preset.ID] {
+			t.Fatalf("empty or repeated preset ID: %q", preset.ID)
+		}
+		seen[preset.ID] = true
+		if platform.GetAdapter(preset.Platform) == nil {
+			t.Fatalf("%s selects unregistered adapter %q", preset.ID, preset.Platform)
+		}
+		persisted := AnalyzePrimarySiteURL(preset.DefaultURL).PersistedURL
+		if err := ValidateSiteInitializationPreset(preset.ID, preset.Platform, persisted); err != nil {
+			t.Fatalf("%s cannot be saved after URL normalization: %v", preset.ID, err)
+		}
+		if detected := DetectSiteInitializationPreset(persisted, preset.Platform); detected == nil || detected.ID != preset.ID {
+			t.Fatalf("%s changes identity after URL normalization: %#v", preset.ID, detected)
+		}
 	}
 
 	// Defensive copy: mutating returned slice must not affect registry.

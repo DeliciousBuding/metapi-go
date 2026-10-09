@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// SiteInitializationPreset mirrors web/shared/siteInitializationPresets.js.
-// Platform values are protocol families (openai/claude), not vendor brand tags.
+// SiteInitializationPreset owns connection defaults used by creation, detection
+// and the admin template gallery. Platform values are registered adapters, not brands.
 type SiteInitializationPreset struct {
 	ID                        string
 	Label                     string
@@ -68,9 +68,75 @@ var doubaoCodingRecommendedModels = []string{
 	"doubao-seed-2.0-pro",
 }
 
-// siteInitializationPresets is the SSOT ported from siteInitializationPresets.js.
+// siteInitializationPresets is the connection preset registry.
 // Order matters for DetectSiteInitializationPreset first-match behavior.
 var siteInitializationPresets = []SiteInitializationPreset{
+	{
+		ID: "openai-api", Label: "OpenAI API", ProviderLabel: "OpenAI",
+		Platform: "openai", DefaultURL: "https://api.openai.com",
+		InitialSegment: "apikey", DocsURL: "https://platform.openai.com/docs/api-reference",
+		MatchHost: "api.openai.com", MatchPaths: []string{"/", "/v1"},
+	},
+	{
+		ID: "anthropic-api", Label: "Anthropic API", ProviderLabel: "Anthropic",
+		Platform: "claude", DefaultURL: "https://api.anthropic.com",
+		InitialSegment: "apikey", DocsURL: "https://platform.claude.com/docs/en/api/overview",
+		MatchHost: "api.anthropic.com", MatchPaths: []string{"/", "/v1"},
+	},
+	{
+		ID: "gemini-api", Label: "Gemini API", ProviderLabel: "Google Gemini",
+		Platform: "gemini", DefaultURL: "https://generativelanguage.googleapis.com",
+		InitialSegment: "apikey", DocsURL: "https://ai.google.dev/gemini-api/docs",
+		MatchHost: "generativelanguage.googleapis.com", MatchPaths: []string{"/", "/v1beta"},
+	},
+	{
+		ID: "openrouter", Label: "OpenRouter", ProviderLabel: "OpenRouter",
+		Platform: "openai", DefaultURL: "https://openrouter.ai/api",
+		InitialSegment: "apikey", DocsURL: "https://openrouter.ai/docs/api-reference/overview",
+		MatchHost: "openrouter.ai", MatchPaths: []string{"/api", "/api/v1"},
+	},
+	{
+		ID: "groq", Label: "Groq", ProviderLabel: "Groq",
+		Platform: "openai", DefaultURL: "https://api.groq.com/openai",
+		InitialSegment: "apikey", DocsURL: "https://console.groq.com/docs/openai",
+		MatchHost: "api.groq.com", MatchPaths: []string{"/openai", "/openai/v1"},
+	},
+	{
+		ID: "mistral", Label: "Mistral AI", ProviderLabel: "Mistral AI",
+		Platform: "openai", DefaultURL: "https://api.mistral.ai",
+		InitialSegment: "apikey", DocsURL: "https://docs.mistral.ai/api/",
+		MatchHost: "api.mistral.ai", MatchPaths: []string{"/", "/v1"},
+	},
+	{
+		ID: "xai-api", Label: "xAI API", ProviderLabel: "xAI",
+		Platform: "openai", DefaultURL: "https://api.x.ai",
+		InitialSegment: "apikey", DocsURL: "https://docs.x.ai/docs/api-reference",
+		MatchHost: "api.x.ai", MatchPaths: []string{"/", "/v1"},
+	},
+	{
+		ID: "siliconflow", Label: "SiliconFlow", ProviderLabel: "SiliconFlow",
+		Platform: "openai", DefaultURL: "https://api.siliconflow.cn",
+		InitialSegment: "apikey", DocsURL: "https://docs.siliconflow.cn/",
+		MatchHost: "api.siliconflow.cn", MatchPaths: []string{"/", "/v1"},
+	},
+	{
+		ID: "bailian", Label: "Alibaba Bailian", ProviderLabel: "Alibaba Bailian",
+		Platform: "openai", DefaultURL: "https://dashscope.aliyuncs.com/compatible-mode",
+		InitialSegment: "apikey", DocsURL: "https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope",
+		MatchHost: "dashscope.aliyuncs.com", MatchPaths: []string{"/compatible-mode", "/compatible-mode/v1"},
+	},
+	{
+		ID: "fireworks", Label: "Fireworks AI", ProviderLabel: "Fireworks AI",
+		Platform: "openai", DefaultURL: "https://api.fireworks.ai/inference",
+		InitialSegment: "apikey", DocsURL: "https://docs.fireworks.ai/api-reference/introduction",
+		MatchHost: "api.fireworks.ai", MatchPaths: []string{"/inference", "/inference/v1"},
+	},
+	{
+		ID: "cerebras", Label: "Cerebras", ProviderLabel: "Cerebras",
+		Platform: "openai", DefaultURL: "https://api.cerebras.ai",
+		InitialSegment: "apikey", DocsURL: "https://inference-docs.cerebras.ai/api-reference/models",
+		MatchHost: "api.cerebras.ai", MatchPaths: []string{"/", "/v1"},
+	},
 	{
 		ID:                        "codingplan-openai",
 		Label:                     "Aliyun CodingPlan / OpenAI",

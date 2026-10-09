@@ -8,6 +8,23 @@
 
 List all sites. Create a new site.
 
+### GET /api/sites/initialization-presets
+
+Returns the connection presets used by the site template gallery, URL detection,
+and creation validation. Requires admin authentication. Each array entry contains
+`id`, `label`, `providerLabel`, `platform`, `defaultUrl`,
+`recommendedSkipModelFetch`, `recommendedModels` (an array, including when empty),
+and `docsUrl`. Vendor names are display metadata; `platform` is a registered
+adapter such as `openai`, `claude`, or `gemini`.
+
+The gallery includes official APIs, compatible services, and Coding Plan entries.
+Selecting a preset fills the connection form; it does not verify a credential or
+discover models. Send its `id` as `initializationPresetId` when creating the site
+with the selected platform and URL. The server rejects unknown IDs and mismatched
+platforms or URLs. Changing the URL or platform manually clears the selection in
+the UI. OpenAI remains one platform; Chat Completions and Responses are distinct
+wire protocols rather than separate provider IDs.
+
 ### GET /api/sites/:id, PUT /api/sites/:id, DELETE /api/sites/:id
 
 Get, update, delete a site.

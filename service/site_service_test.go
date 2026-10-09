@@ -42,8 +42,8 @@ func TestDetectSite_Anthropic(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected detection for anthropic.com")
 	}
-	if result.Platform != "anthropic" {
-		t.Errorf("expected 'anthropic', got %q", result.Platform)
+	if result.Platform != "claude" {
+		t.Errorf("expected registered adapter 'claude', got %q", result.Platform)
 	}
 }
 
@@ -95,8 +95,8 @@ func TestDetectSite_Moonshot(t *testing.T) {
 
 func TestDetectSite_DashScope(t *testing.T) {
 	result := DetectSite("https://dashscope.aliyuncs.com/compatible-mode/v1")
-	if result == nil || result.Platform != "dashscope" {
-		t.Fatalf("expected 'dashscope', got %v", result)
+	if result == nil || result.Platform != "openai" {
+		t.Fatalf("expected OpenAI-compatible Bailian adapter, got %v", result)
 	}
 }
 
@@ -152,8 +152,8 @@ func TestDetectSite_Volcengine(t *testing.T) {
 
 func TestDetectSite_SiliconFlow(t *testing.T) {
 	result := DetectSite("https://api.siliconflow.cn")
-	if result == nil || result.Platform != "siliconflow" {
-		t.Fatalf("expected 'siliconflow', got %v", result)
+	if result == nil || result.Platform != "openai" {
+		t.Fatalf("expected OpenAI-compatible SiliconFlow adapter, got %v", result)
 	}
 }
 
@@ -197,8 +197,8 @@ func TestDetectSite_ModelScope(t *testing.T) {
 
 func TestDetectSite_Mistral(t *testing.T) {
 	result := DetectSite("https://api.mistral.ai")
-	if result == nil || result.Platform != "mistral" {
-		t.Fatalf("expected 'mistral', got %v", result)
+	if result == nil || result.Platform != "openai" {
+		t.Fatalf("expected OpenAI-compatible Mistral adapter, got %v", result)
 	}
 }
 
@@ -243,12 +243,16 @@ func TestDetectSite_Perplexity(t *testing.T) {
 }
 
 func TestDetectSite_XAI(t *testing.T) {
-	tests := []string{"https://api.x.ai", "https://x.ai"}
-	for _, url := range tests {
-		t.Run(url, func(t *testing.T) {
-			result := DetectSite(url)
-			if result == nil || result.Platform != "grok" {
-				t.Fatalf("expected 'grok' for %q, got %v", url, result)
+	tests := []struct{ url, platform string }{
+		{"https://api.x.ai", "openai"},
+		{"https://api.x.ai/v1", "openai"},
+		{"https://x.ai", "grok"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.url, func(t *testing.T) {
+			result := DetectSite(tc.url)
+			if result == nil || result.Platform != tc.platform {
+				t.Fatalf("expected %s for %q, got %v", tc.platform, tc.url, result)
 			}
 		})
 	}
