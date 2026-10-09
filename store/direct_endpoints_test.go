@@ -1,6 +1,8 @@
 package store
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -45,7 +47,9 @@ func TestDirectEndpointConfigMigratesExistingChannels(t *testing.T) {
 }
 
 func TestDirectEndpointsRejectMalformedConfiguration(t *testing.T) {
-	for _, raw := range []string{`broken`, `{"chat":{"url":"https://provider.invalid","auth":"cookie"}}`, `{"messages":{"url":"https://user:secret@provider.invalid","auth":"bearer"}}`, `{"responses":{"url":"file:///tmp/example","auth":"bearer"}}`} {
+	credentialURL := (&url.URL{Scheme: "https", Host: "provider.invalid", User: url.UserPassword("user", "secret")}).String()
+	credentialConfig := fmt.Sprintf(`{"messages":{"url":%q,"auth":"bearer"}}`, credentialURL)
+	for _, raw := range []string{`broken`, `{"chat":{"url":"https://provider.invalid","auth":"cookie"}}`, credentialConfig, `{"responses":{"url":"file:///tmp/example","auth":"bearer"}}`} {
 		var endpoints DirectEndpoints
 		if endpoints.Scan(raw) == nil {
 			t.Fatalf("accepted malformed configuration %s", raw)

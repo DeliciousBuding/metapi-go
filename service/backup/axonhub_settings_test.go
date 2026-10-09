@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -79,7 +80,8 @@ func TestAxonHubProxyCredentialsPreservedWithoutPreviewLeak(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.channels) != 1 || plan.channels[0].ChannelProxy != "https://fixture-user:fixture-password@proxy.invalid:8080" {
+	wantProxy := (&url.URL{Scheme: "https", Host: "proxy.invalid:8080", User: url.UserPassword("fixture-user", "fixture-password")}).String()
+	if len(plan.channels) != 1 || plan.channels[0].ChannelProxy != wantProxy {
 		t.Fatal("separate proxy credentials were not retained")
 	}
 	preview, err := PreviewAxonHubV14(nil, raw, "proxy-fixture")

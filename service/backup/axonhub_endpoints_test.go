@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"net/url"
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/store"
@@ -84,7 +85,8 @@ func TestAxonHubCustomEndpointKeepsDefaultAndResiduals(t *testing.T) {
 }
 
 func TestAxonHubEndpointOverrideRejectsUnsafeTargets(t *testing.T) {
-	for _, base := range []string{"https://user:secret@provider.invalid", "http://169.254.169.254/latest", "file:///etc/passwd", "https://provider.invalid?key=secret", "https://provider.invalid#fragment", "https://provider.invalid###"} {
+	credentialURL := (&url.URL{Scheme: "https", Host: "provider.invalid", User: url.UserPassword("user", "secret")}).String()
+	for _, base := range []string{credentialURL, "http://169.254.169.254/latest", "file:///etc/passwd", "https://provider.invalid?key=secret", "https://provider.invalid#fragment", "https://provider.invalid###"} {
 		channel := AxonHubSourceChannel{Type: "openai", BaseURL: "https://safe.invalid", Endpoints: []AxonHubSourceEndpoint{{APIFormat: "openai/responses", BaseURL: base}}}
 		_, _, reasons, _ := resolveChannelEndpoints(channel, axonHubProviderTypes[channel.Type])
 		if len(reasons) == 0 {
