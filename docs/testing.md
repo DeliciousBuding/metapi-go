@@ -291,6 +291,34 @@ it is instrument evidence, not a live New API result.
 
 ## Opt-in live New API authentication boundaries
 
+### Full management matrix
+
+`scripts/e2e/verify-management-full.py` restores the 21 behavioral checks from
+the earlier management acceptance instrument, updated for scoped PAT creation,
+exact-fingerprint revocation and parameter-bound proof. It requires an empty
+disposable Metapi process and a disposable current New API with password proof
+available, check-in enabled with a fixed 1,000-quota reward, and a deterministic
+model-discovery channel. It does not call a real model.
+
+The matrix covers repeat login/account reuse, finite API-key creation and
+upstream readback, local-only rename, default-token handoff, two-sided deletion,
+PAT import, check-in reward/no-double-reward/disabled skip, natural JWT expiry,
+PAT management after expiry, explicit revocation/rebind, disabled accounts,
+proxy-only credentials and rejected credentials without identity changes.
+Exactly 21 checks in the prescribed sequence must pass; exceptions, missing
+checks, reordered checks, duplicate checks and cleanup failures are failures.
+The upstream critical-management window is respected with a checkpointed
+20-minute wait, not weakened by changing limits or JWT duration.
+
+Run `--help` for the required private environment. Both loopback origins,
+`MANAGEMENT_DISPOSABLE=1`, `MANAGEMENT_ALLOW_MUTATIONS=1`, the exact Metapi commit,
+and disjoint evidence/secret directories are mandatory. The instrument creates
+one fresh ordinary user, changes only that disposable upstream's check-in toggle
+and restores it, then removes its owned objects. Output and identity/hash evidence
+belong in operator storage. `test_verify_management_full.py` is an offline
+instrument check, not proof that the full live journey passed. MFA and real
+model/client checks remain separate.
+
 `scripts/e2e/verify-newapi-auth-boundaries.py` starts disposable New API and
 Metapi instances and exercises the authentication boundaries that fixture tests
 cannot prove against a real upstream. It requires Python 3, `openssl`, `curl`,
