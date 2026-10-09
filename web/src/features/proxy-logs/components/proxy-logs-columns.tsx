@@ -222,6 +222,8 @@ export function useProxyLogsColumns(
         <TimingCell
           latencyMs={row.original.latencyMs}
           firstByteLatencyMs={row.original.firstByteLatencyMs}
+          firstOutputLatencyMs={row.original.firstOutputLatencyMs}
+          isStream={row.original.isStream}
         />
       ),
     },

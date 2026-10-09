@@ -7,6 +7,34 @@ import { TimingCell } from '../timing-cell'
 
 afterEach(cleanup)
 describe('proxy-attempt timing', () => {
+  it('keeps generated output separate from response headers for streams', () => {
+    render(
+      <TimingCell
+        isStream
+        firstOutputLatencyMs={2400}
+        firstByteLatencyMs={1250}
+        latencyMs={6500}
+      />
+    )
+    expect(screen.getByText('2.40 s')).toBeInTheDocument()
+    expect(screen.getByText('1.25 s')).toBeInTheDocument()
+    expect(screen.getByText('6.50 s')).toBeInTheDocument()
+  })
+  it('does not infer historical first output from response headers', () => {
+    render(<TimingCell isStream firstByteLatencyMs={1250} latencyMs={6500} />)
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
+  it('rejects output before headers or after the completed attempt', () => {
+    render(
+      <TimingCell
+        isStream
+        firstOutputLatencyMs={100}
+        firstByteLatencyMs={1250}
+        latencyMs={6500}
+      />
+    )
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
   it('shows first byte and total as separate readable values', () => {
     render(<TimingCell firstByteLatencyMs={1250} latencyMs={6500} />)
     expect(screen.getByText('1.25 s')).toBeInTheDocument()

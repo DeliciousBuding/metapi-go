@@ -2754,6 +2754,8 @@
         "totalCost": "费用合计"
       },
       "timing": {
+        "firstOutput": "首输出",
+        "outputHint": "本次上游尝试开始至首次可识别的文本、推理或工具调用 SSE 输出事件到达的时间，跳过心跳和元数据。不是 token 级 TTFT；历史或无法识别的输出显示未知。",
         "firstByte": "首字节",
         "total": "总耗时",
         "headerHint": "本次上游尝试开始至收到响应头的时间（TTFB），不等于首个生成 token。",

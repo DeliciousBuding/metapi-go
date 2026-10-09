@@ -27,6 +27,10 @@ func TestProxyLogTimingIncludesBodyAfterResponseHeaders(t *testing.T) {
 				}
 				w.WriteHeader(http.StatusOK)
 				w.(http.Flusher).Flush()
+				if stream {
+					_, _ = w.Write([]byte(": heartbeat\n\ndata: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n"))
+					w.(http.Flusher).Flush()
+				}
 				// Model a body arriving after the headers, not a client-side wait.
 				select {
 				case <-time.After(100 * time.Millisecond):
@@ -61,11 +65,21 @@ func TestProxyLogTimingIncludesBodyAfterResponseHeaders(t *testing.T) {
 				t.Fatalf("status=%d logs=%+v", rec.Code, logs)
 			}
 			entry := logs[0]
+			if entry.PromptTokens != nil || entry.CompletionTokens != nil || entry.TotalTokens != nil {
+				t.Fatal("missing upstream usage was logged as observed zero")
+			}
 			if entry.FirstByteLatencyMs == nil {
 				t.Fatal("response headers were not recorded")
 			}
 			if entry.LatencyMs-*entry.FirstByteLatencyMs < 80 {
 				t.Fatalf("body time missing: first=%d total=%d", *entry.FirstByteLatencyMs, entry.LatencyMs)
+			}
+			if stream {
+				if entry.FirstOutputLatencyMs == nil || *entry.FirstOutputLatencyMs-*entry.FirstByteLatencyMs < 80 || *entry.FirstOutputLatencyMs > entry.LatencyMs {
+					t.Fatalf("generated output timing is not independent: %+v", entry)
+				}
+			} else if entry.FirstOutputLatencyMs != nil {
+				t.Fatal("buffered JSON invented a first output measurement")
 			}
 		})
 	}

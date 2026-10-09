@@ -1131,7 +1131,7 @@ func buildRouteGroupSources(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "route_id", "channel_id", "account_id", "downstream_api_key_id", "model_requested", "model_actual", "status", "http_status", "is_stream", "first_byte_latency_ms", "latency_ms", "prompt_tokens", "completion_tokens", "total_tokens", "estimated_cost", "billing_details", "client_family", "client_app_id", "client_app_name", "client_confidence", "error_message", "retry_count", "request_id", "created_at"}
+	cols := []string{"id", "route_id", "channel_id", "account_id", "downstream_api_key_id", "model_requested", "model_actual", "status", "http_status", "is_stream", "first_byte_latency_ms", "first_output_latency_ms", "latency_ms", "prompt_tokens", "completion_tokens", "total_tokens", "estimated_cost", "billing_details", "client_family", "client_app_id", "client_app_name", "client_confidence", "error_message", "retry_count", "request_id", "created_at"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -1151,6 +1151,7 @@ func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
 				// same claim as false.
 				asNullableBool(v(row, "is_stream")),
 				asNumber(v(row, "first_byte_latency_ms"), nil),
+				asNumber(v(row, "first_output_latency_ms"), nil),
 				asNumber(v(row, "latency_ms"), nil),
 				asNumber(v(row, "prompt_tokens"), nil),
 				asNumber(v(row, "completion_tokens"), nil),

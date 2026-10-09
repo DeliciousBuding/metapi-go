@@ -804,6 +804,9 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 			writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load proxy logs")
 			return
 		}
+		for _, row := range items {
+			projectProxyLogCacheUsage(row, decodeProxyLogBilling(row["billingDetails"]))
+		}
 		queryPayload["items"] = normalizeSlice(items)
 
 		var total int
@@ -939,14 +942,10 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse billing details if present
-	if bd, ok := row["billingDetails"]; ok {
-		if bdStr, ok2 := bd.(string); ok2 && bdStr != "" {
-			var parsed any
-			if err := json.Unmarshal([]byte(bdStr), &parsed); err == nil {
-				row["billingDetails"] = parsed
-			}
-		}
+	if raw, ok := row["billingDetails"]; ok {
+		parsed := decodeProxyLogBilling(raw)
+		row["billingDetails"] = parsed
+		projectProxyLogCacheUsage(row, parsed)
 	}
 
 	writeJSON(w, http.StatusOK, row)

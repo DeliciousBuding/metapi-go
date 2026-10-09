@@ -91,6 +91,7 @@ describe('dashboard charts carry an explicit accessible name', () => {
     )
     const legend = screen.getByRole('list', { name: 'Site distribution' })
     expect(legend).toHaveClass('overflow-y-auto')
+    expect(legend).toHaveAttribute('tabindex', '0')
     expect(legend).toContainElement(screen.getByText('Site 30'))
     expect(legend.querySelectorAll('li')).toHaveLength(30)
     expect(

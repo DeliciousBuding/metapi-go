@@ -15,6 +15,10 @@ func TestEstimateBillingCostFromUsage_FallbackPositive(t *testing.T) {
 	if got.BillingDetails == nil {
 		t.Fatal("nil details")
 	}
+	usage := got.BillingDetails["usage"].(map[string]any)
+	if usage["billable_prompt_tokens"] != int64(1000) {
+		t.Fatalf("billable input not exposed: %v", usage)
+	}
 }
 
 func TestEstimateBillingCostFromUsage_ClaudeCacheFields(t *testing.T) {

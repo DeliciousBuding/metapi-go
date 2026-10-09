@@ -8,6 +8,23 @@ import { UsageCell } from '../usage-cell'
 
 afterEach(cleanup)
 describe('proxy log usage', () => {
+  it('shows measured cache reads and writes without inventing a hit percentage', () => {
+    render(
+      <UsageCell
+        log={
+          {
+            promptTokens: 1200,
+            completionTokens: 400,
+            cacheReadTokens: 900,
+            cacheCreationTokens: 20,
+          } as ProxyLog
+        }
+      />
+    )
+    expect(screen.getByText('900')).toBeInTheDocument()
+    expect(screen.getByText('20')).toBeInTheDocument()
+    expect(screen.queryByText(/%/)).not.toBeInTheDocument()
+  })
   it('shows input and output without counting a total twice', () => {
     render(
       <UsageCell

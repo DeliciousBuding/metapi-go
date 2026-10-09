@@ -24,6 +24,22 @@ export function UsageCell({ log }: { log: ProxyLog }) {
         </span>
         <span>{count(log.completionTokens)}</span>
       </span>
+      {typeof log.cacheReadTokens === 'number' &&
+      Number.isFinite(log.cacheReadTokens) &&
+      log.cacheReadTokens > 0 ? (
+        <span className='text-muted-foreground flex items-baseline gap-2'>
+          <span>{t('proxyLogs.usage.cacheRead')}</span>
+          <span>{count(log.cacheReadTokens)}</span>
+        </span>
+      ) : null}
+      {typeof log.cacheCreationTokens === 'number' &&
+      Number.isFinite(log.cacheCreationTokens) &&
+      log.cacheCreationTokens > 0 ? (
+        <span className='text-muted-foreground flex items-baseline gap-2'>
+          <span>{t('proxyLogs.usage.cacheCreation')}</span>
+          <span>{count(log.cacheCreationTokens)}</span>
+        </span>
+      ) : null}
     </div>
   )
 }

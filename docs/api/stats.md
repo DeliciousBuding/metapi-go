@@ -42,8 +42,17 @@ Query proxy request logs (server-side filtered and paginated).
 **Response** (`view=query`/`full`): `{ items, total, page, pageSize }` where `total` respects all active filters; `view=meta`/`full` adds `summary` (totalCount/successCount/failedCount/totalCost/totalTokensAll), `sites`, `clientOptions`.
 
 Each row describes one upstream attempt. `latencyMs` includes reading the buffered response or relaying the stream;
+`cacheReadTokens` and `cacheCreationTokens`, when present, are validated projections of stored billing usage.
+Unknown, invalid or absent cache counts stay absent; cache counts are not added to total tokens or used to invent
+a cache-hit percentage. Billing detail sections normalize legacy snake_case fields to the camelCase API contract.
 `firstByteLatencyMs` measures time to response headers (TTFB), not the first generated token. Attempts that fail before
-receiving headers have a null first-byte measurement. Retries remain separate rows linked by `requestId` and `retryCount`.
+receiving headers keep it null. `firstOutputLatencyMs` is a separate nullable measurement for SSE: elapsed time to
+the first complete, recognized text, reasoning or tool-call output event at the relay, excluding comments, heartbeats,
+role-only, lifecycle and usage events. It is event-level first output, not token-level TTFT. Buffered JSON, unknown
+protocol output, unreadable encoded streams and historical rows have no first-output measurement. No historical
+value is inferred from headers or total latency. Protocol bridging measures the output-bearing event in the relayed
+protocol; network chunking and bridge buffering can affect the observation.
+Retries remain separate rows linked by `requestId` and `retryCount`.
 Earlier builds recorded header latency as total latency on successful responses; existing rows retain those original values.
 
 ### GET /api/stats/proxy-logs/:id

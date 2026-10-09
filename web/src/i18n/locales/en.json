@@ -2754,6 +2754,8 @@
         "totalCost": "Total cost"
       },
       "timing": {
+        "firstOutput": "First output",
+        "outputHint": "Time from this upstream attempt starting to the first recognized text, reasoning or tool-call SSE output event. Excludes heartbeats and metadata. Not token-level TTFT; historical or unrecognized output remains unknown.",
         "firstByte": "First byte",
         "total": "Total",
         "headerHint": "Time from this upstream attempt starting to receiving response headers (TTFB), not the first generated token.",
