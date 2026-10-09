@@ -113,11 +113,14 @@ func directConvertRequest(body []byte, downstream, upstream, model string, strea
 	// Native Gemini derives stream from the path, so its Chat intermediate needs
 	// the explicit flag expected by the target request serializers.
 	if d == proxy.EndpointGemini {
-		var obj map[string]any
+		var obj map[string]json.RawMessage
 		if err = json.Unmarshal(body, &obj); err != nil {
 			return nil, err
 		}
-		obj["stream"] = stream
+		obj["stream"] = json.RawMessage("false")
+		if stream {
+			obj["stream"] = json.RawMessage("true")
+		}
 		body, err = json.Marshal(obj)
 		if err != nil {
 			return nil, err
