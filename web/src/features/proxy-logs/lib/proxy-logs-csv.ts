@@ -22,6 +22,17 @@ const PROXY_LOGS_CSV_COLUMNS = [
   'duration',
   'tokens',
   'estimatedCost',
+  'requestId',
+  'retryCount',
+  'requestedModel',
+  'upstreamReportedModel',
+  'isStream',
+  'firstByteLatencyMs',
+  'firstOutputLatencyMs',
+  'inputTokens',
+  'outputTokens',
+  'cacheReadTokens',
+  'cacheCreationTokens',
 ] as const
 
 /**
@@ -66,6 +77,17 @@ export function proxyLogsToCsv(
         log.latencyMs ?? '',
         log.totalTokens ?? '',
         log.estimatedCost ?? '',
+        log.requestId,
+        log.retryCount,
+        log.modelRequested,
+        log.upstreamReportedModel,
+        log.isStream == null ? '' : log.isStream ? 'true' : 'false',
+        log.firstByteLatencyMs,
+        log.firstOutputLatencyMs,
+        log.promptTokens,
+        log.completionTokens,
+        log.cacheReadTokens,
+        log.cacheCreationTokens,
       ]
       return cells.map(csvEscape).join(',')
     })

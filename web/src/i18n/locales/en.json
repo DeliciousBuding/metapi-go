@@ -2737,7 +2737,18 @@
           "site": "Site",
           "duration": "Duration (ms)",
           "tokens": "Tokens",
-          "estimatedCost": "Estimated cost"
+          "estimatedCost": "Estimated cost",
+          "requestId": "Request ID",
+          "retryCount": "Retry index",
+          "requestedModel": "Requested model",
+          "upstreamReportedModel": "Upstream reported model",
+          "isStream": "Streaming",
+          "firstByteLatencyMs": "Upstream first byte (ms)",
+          "firstOutputLatencyMs": "First output (ms)",
+          "inputTokens": "Input tokens",
+          "outputTokens": "Output tokens",
+          "cacheReadTokens": "Cache read tokens",
+          "cacheCreationTokens": "Cache write tokens"
         }
       },
       "columns": {

@@ -2737,7 +2737,18 @@
           "site": "站点",
           "duration": "耗时（毫秒）",
           "tokens": "令牌数",
-          "estimatedCost": "预估成本"
+          "estimatedCost": "预估成本",
+          "requestId": "请求 ID",
+          "retryCount": "重试序号",
+          "requestedModel": "请求模型",
+          "upstreamReportedModel": "上游自报模型",
+          "isStream": "流式",
+          "firstByteLatencyMs": "上游首字节（毫秒）",
+          "firstOutputLatencyMs": "首输出（毫秒）",
+          "inputTokens": "输入令牌数",
+          "outputTokens": "输出令牌数",
+          "cacheReadTokens": "缓存读取令牌数",
+          "cacheCreationTokens": "缓存写入令牌数"
         }
       },
       "columns": {

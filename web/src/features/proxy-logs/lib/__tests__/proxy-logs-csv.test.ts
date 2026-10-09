@@ -83,7 +83,7 @@ describe('proxyLogsToCsv', () => {
     expect(secondRow).toContain(',#7,')
   })
 
-  it('leaves benign rows byte-identical to the pre-fix shape', () => {
+  it('preserves existing leading columns and appends audit columns with unknown values empty', () => {
     const csv = proxyLogsToCsv(
       [
         makeLog({
@@ -96,7 +96,45 @@ describe('proxyLogsToCsv', () => {
     )
     const bodyRow = csv.split('\n')[1]
     expect(bodyRow).toBe(
-      '2026-08-22 12:00:00,200,success,gpt-5.5,alice,hub,120,30,0.05'
+      '2026-08-22 12:00:00,200,success,gpt-5.5,alice,hub,120,30,0.05,,0,gpt-5.5,,,,,,,,'
     )
+  })
+  it('exports separate timing, model provenance, retries and known zero usage', () => {
+    const csv = proxyLogsToCsv(
+      [
+        makeLog({
+          requestId: '=hostile',
+          retryCount: 2,
+          modelRequested: 'public-model',
+          upstreamReportedModel: '@untrusted',
+          isStream: false,
+          firstByteLatencyMs: 0,
+          firstOutputLatencyMs: null,
+          promptTokens: 20,
+          completionTokens: 10,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 5,
+        }),
+      ],
+      translate
+    )
+    const [header, body] = csv.split('\n')
+    const columns = header.split(',')
+    const values = body.split(',')
+    expect(values).toHaveLength(columns.length)
+    const row = Object.fromEntries(columns.map((name, i) => [name, values[i]]))
+    expect(row).toMatchObject({
+      requestId: "'=hostile",
+      retryCount: '2',
+      requestedModel: 'public-model',
+      upstreamReportedModel: "'@untrusted",
+      isStream: 'false',
+      firstByteLatencyMs: '0',
+      firstOutputLatencyMs: '',
+      inputTokens: '20',
+      outputTokens: '10',
+      cacheReadTokens: '0',
+      cacheCreationTokens: '5',
+    })
   })
 })
