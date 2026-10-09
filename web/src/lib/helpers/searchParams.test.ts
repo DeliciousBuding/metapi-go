@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 // metapi-go/helpers — tests for URL search-param decoding. Covers the three
 // wire shapes each param can arrive in: comma string, router-serialized JSON
 // array, and the literal `[]` empty marker (plus undefined / garbage input).
