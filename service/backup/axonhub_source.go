@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"sort"
 	"strings"
 )
@@ -422,7 +423,7 @@ var axonHubChannelFields = []string{
 	"credentials", "disabled_api_keys", "supported_models", "manual_models",
 	"auto_sync_supported_models", "auto_sync_model_pattern", "tags", "default_test_model",
 	"policies", "settings", "ordering_weight", "error_message", "auto_disabled_at",
-	"auto_disable_expires_at", "remark", "endpoints",
+	"auto_disable_expires_at", "remark", "endpoints", "edges",
 }
 
 var axonHubChannelSettingsFields = []string{
@@ -441,7 +442,7 @@ var axonHubEndpointFields = []string{"api_format", "path", "base_url", "transpor
 
 var axonHubModelFields = []string{
 	"id", "created_at", "updated_at", "deleted_at", "developer", "model_id", "type", "name",
-	"icon", "group", "model_card", "status", "settings", "remark",
+	"icon", "group", "model_card", "status", "settings", "remark", "edges",
 }
 
 var axonHubModelSettingsFields = []string{
@@ -553,23 +554,99 @@ func decodeAxonHubSettings(raw json.RawMessage, dst *AxonHubSourceChannelSetting
 	if err := json.Unmarshal(raw, dst); err != nil {
 		return axonHubErr("invalid AxonHub backup: channel settings has an invalid field type")
 	}
-	dst.HasBodyOverrideOperations = present(obj["bodyOverrideOperations"])
-	dst.HasHeaderOverrideOperations = present(obj["headerOverrideOperations"]) || present(obj["overrideHeaders"])
-	dst.HasTransformOptions = present(obj["transformOptions"])
+	// The source gives a non-nil operations slice precedence over the legacy
+	// settings, including an explicit empty array that clears the old override.
+	var bodyOps, headerOps []json.RawMessage
+	if rawOps, ok := obj["bodyOverrideOperations"]; ok {
+		if err := json.Unmarshal(rawOps, &bodyOps); err != nil {
+			return axonHubErr("invalid AxonHub backup: body override operations must be an array")
+		}
+	}
+	if rawOps, ok := obj["headerOverrideOperations"]; ok {
+		if err := json.Unmarshal(rawOps, &headerOps); err != nil {
+			return axonHubErr("invalid AxonHub backup: header override operations must be an array")
+		}
+	}
+	dst.HasBodyOverrideOperations = len(bodyOps) > 0
+	if bodyOps != nil {
+		dst.OverrideParameters = ""
+	}
+	dst.HasHeaderOverrideOperations = len(headerOps) > 0 || (headerOps == nil && present(obj["overrideHeaders"]))
+	dst.HasTransformOptions, err = axonHubActiveTransformOptions(obj["transformOptions"])
+	if err != nil {
+		return err
+	}
 	dst.HasRateLimit = present(obj["rateLimit"])
 	dst.HasRetryableErrorPatterns = present(obj["retryableErrorPatterns"])
 	dst.HasProviderQuota = present(obj["providerQuota"])
 	dst.ProxyConfigured = present(obj["proxy"])
 	if dst.ProxyConfigured {
 		var proxy struct {
-			URL string `json:"url"`
+			Type                   string `json:"type"`
+			URL                    string `json:"url"`
+			Username               string `json:"username"`
+			Password               string `json:"password"`
+			DisableConnectionReuse bool   `json:"disableConnectionReuse"`
 		}
 		if err := json.Unmarshal(obj["proxy"], &proxy); err != nil {
 			return axonHubErr("invalid AxonHub backup: channel proxy configuration is invalid")
 		}
-		dst.ProxyURL = strings.TrimSpace(proxy.URL)
+		proxyObj, err := rowObject(obj["proxy"])
+		if err != nil {
+			return axonHubErr("invalid AxonHub backup: channel proxy configuration is invalid")
+		}
+		for _, field := range unknownKeys(proxyObj, []string{"type", "url", "username", "password", "disableConnectionReuse"}) {
+			dst.UnsupportedFields = append(dst.UnsupportedFields, "proxy."+field)
+		}
+		if proxy.DisableConnectionReuse {
+			dst.UnsupportedFields = append(dst.UnsupportedFields, "proxy.disableConnectionReuse")
+		}
+		switch proxy.Type {
+		case "", "environment":
+			// The source ignores any stale URL/auth when using the environment.
+			dst.ProxyConfigured = false
+		case "url":
+			dst.ProxyURL = strings.TrimSpace(proxy.URL)
+			if proxy.Username != "" && proxy.Password != "" {
+				parsed, err := url.Parse(dst.ProxyURL)
+				if err != nil {
+					return axonHubErr("invalid AxonHub backup: channel proxy URL is invalid")
+				}
+				parsed.User = url.UserPassword(proxy.Username, proxy.Password)
+				dst.ProxyURL = parsed.String()
+			}
+		case "disabled":
+			// Direct grants currently inherit the process environment. Refuse
+			// an explicit no-proxy contract instead of using a leftover URL.
+		default:
+			dst.UnsupportedFields = append(dst.UnsupportedFields, "proxy.type")
+		}
 	}
 	return nil
+}
+
+// ChannelSettings exports its zero-valued TransformOptions object. Only
+// enabled known options require an implementation; unknown keys remain a
+// refusal even when false so future semantics cannot be silently discarded.
+func axonHubActiveTransformOptions(raw json.RawMessage) (bool, error) {
+	if len(raw) == 0 || string(bytes.TrimSpace(raw)) == "null" {
+		return false, nil
+	}
+	obj, err := rowObject(raw)
+	if err != nil {
+		return false, axonHubErr("invalid AxonHub backup: transform options must be an object")
+	}
+	var shape struct {
+		ForceArrayInstructions         bool              `json:"forceArrayInstructions"`
+		ForceArrayInputs               bool              `json:"forceArrayInputs"`
+		ReplaceDeveloperRoleWithSystem bool              `json:"replaceDeveloperRoleWithSystem"`
+		ReasoningEffortMapping         []json.RawMessage `json:"reasoningEffortMapping"`
+	}
+	if err := json.Unmarshal(raw, &shape); err != nil {
+		return false, axonHubErr("invalid AxonHub backup: transform options has an invalid field type")
+	}
+	unknown := unknownKeys(obj, []string{"forceArrayInstructions", "forceArrayInputs", "replaceDeveloperRoleWithSystem", "reasoningEffortMapping"})
+	return shape.ForceArrayInstructions || shape.ForceArrayInputs || shape.ReplaceDeveloperRoleWithSystem || len(shape.ReasoningEffortMapping) > 0 || len(unknown) > 0, nil
 }
 
 func decodeAxonHubPolicies(raw json.RawMessage, dst *AxonHubSourceChannelPolicies) error {
@@ -697,7 +774,15 @@ func decodeAxonHubAssociation(raw json.RawMessage) (AxonHubSourceAssociation, er
 	assoc.Type = shape.Type
 	assoc.Priority = shape.Priority
 	assoc.Disabled = shape.Disabled
-	assoc.Conditional = present(shape.When)
+	if present(shape.When) {
+		var when struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := json.Unmarshal(shape.When, &when); err != nil {
+			return assoc, axonHubErr("invalid association condition")
+		}
+		assoc.Conditional = when.Enabled
+	}
 	assoc.ChannelModel = shape.ChannelModel
 	assoc.ChannelRegex = shape.ChannelRegex
 	assoc.ChannelTagsModel = shape.ChannelTagsModel
@@ -900,7 +985,20 @@ func validateAxonHubSource(src *AxonHubSource) error {
 		}
 	}
 	seenModelIDs := make(map[string]struct{}, len(src.Models))
+	modelSourceIDs := make(map[int]struct{}, len(src.Models))
 	for i, model := range src.Models {
+		if model.ID <= 0 {
+			return axonHubErr("invalid AxonHub backup: models[%d] has a non-positive id", i)
+		}
+		if _, exists := modelSourceIDs[model.ID]; exists {
+			return axonHubErr("invalid AxonHub backup: duplicate model source id %d", model.ID)
+		}
+		modelSourceIDs[model.ID] = struct{}{}
+		switch model.Status {
+		case "", "enabled", "disabled", "archived":
+		default:
+			return axonHubErr("invalid AxonHub backup: models[%d] has an unknown status", i)
+		}
 		modelID := strings.TrimSpace(model.ModelID)
 		if modelID == "" {
 			return axonHubErr("invalid AxonHub backup: model[%d] has no model_id", i)

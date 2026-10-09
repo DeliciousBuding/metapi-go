@@ -4,23 +4,68 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"strings"
 	"testing"
 
+	"github.com/deliciousbuding/metapi-go/internal/pgtest"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
 func openAxonHubTestDB(t *testing.T) *store.DB {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
+	dialect, dsn := store.DialectSQLite, ":memory:"
+	if pgDSN := os.Getenv("PG_TEST_DSN"); pgDSN != "" {
+		dialect, dsn = store.DialectPostgres, pgDSN
+	}
+	db, err := store.Open(dialect, dsn, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
+	if dialect == store.DialectPostgres {
+		pgtest.Reset(t, db.DB)
+	}
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
 	return db
+}
+
+func TestAxonHubImportOverlappingAssociationsKeepsHighestPriority(t *testing.T) {
+	db := openAxonHubTestDB(t)
+	raw := []byte(`{"version":"1.4","timestamp":"2026-10-09T00:00:00Z","channels":[
+		{"id":1,"type":"openai","name":"overlap","base_url":"https://relay.invalid","credentials":{"apiKey":"fixture-key"},"supported_models":["gpt-6"],"endpoints":[{"api_format":"openai/chat_completions"}]}
+	],"models":[{"id":1,"model_id":"gpt-6","type":"chat","settings":{"associations":[
+		{"type":"model","priority":5,"modelId":{"modelId":"gpt-6"}},
+		{"type":"channel_model","priority":1,"channelModel":{"channelId":1,"modelId":"gpt-6"}}
+	]}}]}`)
+	if _, err := ImportAxonHubV14(db, raw, "overlap", false); err != nil {
+		t.Fatalf("overlapping associations must import one candidate: %v", err)
+	}
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_group_items WHERE priority = 1`); got != 1 {
+		t.Fatalf("highest-priority candidate count = %d, want 1", got)
+	}
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_group_items`); got != 1 {
+		t.Fatalf("duplicate candidates = %d, want one", got)
+	}
+}
+
+func TestAxonHubDisabledConditionDoesNotDropAssociation(t *testing.T) {
+	db := openAxonHubTestDB(t)
+	raw := []byte(`{"version":"1.4","timestamp":"2026-10-09T00:00:00Z","channels":[
+		{"id":1,"type":"openai","name":"unconditional","base_url":"https://relay.invalid","credentials":{"apiKey":"fixture-key"},"supported_models":["gpt-6"],"endpoints":[{"api_format":"openai/chat_completions"}]}
+	],"models":[{"id":1,"model_id":"gpt-6","type":"chat","settings":{"associations":[
+		{"type":"channel_model","when":{"enabled":false},"channelModel":{"channelId":1,"modelId":"gpt-6"}}
+	]}}]}`)
+	counts, err := ImportAxonHubV14(db, raw, "condition-disabled", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if counts["routes"] != 1 || counts["groupItems"] != 1 {
+		t.Fatalf("disabled condition removed the unconditional route: %#v", counts)
+	}
 }
 
 func countRows(t *testing.T, db *store.DB, query string, args ...any) int {
@@ -124,6 +169,54 @@ func TestImportAxonHubV14IsOriginScoped(t *testing.T) {
 	}
 	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes`); got != 5 {
 		t.Fatalf("routes after refused second origin = %d, want 5", got)
+	}
+}
+
+func TestAxonHubReimportCannotRenameOntoNativeRoute(t *testing.T) {
+	db := openAxonHubTestDB(t)
+	raw := axonHubSettingsPayload(`{}`)
+	if _, err := ImportAxonHubV14(db, raw, "rename-conflict", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO token_routes (model_pattern, routing_strategy, enabled) VALUES ('native-model', 'weighted', true)`); err != nil {
+		t.Fatal(err)
+	}
+	renamed := []byte(strings.Replace(string(raw), `"model_id":"gpt-6"`, `"model_id":"native-model"`, 1))
+	if _, err := ImportAxonHubV14(db, renamed, "rename-conflict", false); err == nil {
+		t.Fatal("reimport renamed an owned route onto an unrelated native route")
+	}
+	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes WHERE model_pattern = 'gpt-6'`); got != 1 {
+		t.Fatal("failed reimport did not roll back the existing model route")
+	}
+	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes WHERE model_pattern = 'native-model'`); got != 1 {
+		t.Fatal("failed reimport modified the native route")
+	}
+}
+
+func TestAxonHubSourceModelIdentityRejectsBeforeWrites(t *testing.T) {
+	for _, tc := range []struct{ name, models string }{
+		{"missing id", `[{"model_id":"a"}]`},
+		{"duplicate id", `[{"id":1,"model_id":"a"},{"id":1,"model_id":"b"}]`},
+		{"unknown status", `[{"id":1,"model_id":"a","status":"unknown"}]`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := openAxonHubTestDB(t)
+			var payload map[string]json.RawMessage
+			if err := json.Unmarshal(axonHubSettingsPayload(`{}`), &payload); err != nil {
+				t.Fatal(err)
+			}
+			payload["models"] = json.RawMessage(tc.models)
+			raw, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ImportAxonHubV14(db, raw, "invalid-model", false); err == nil {
+				t.Fatal("invalid model identity was accepted")
+			}
+			if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got != 0 {
+				t.Fatalf("invalid source persisted %d channels", got)
+			}
+		})
 	}
 }
 

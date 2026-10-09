@@ -705,9 +705,13 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 					if channel.DisabledKeys[channel.CredentialKeys[i]] {
 						continue
 					}
-					key := fmt.Sprintf("%d\x00%s\x00%s\x00%d", connection.channelSourceID, name, connection.modelName, assoc.Priority)
-					if _, exists := items[key]; exists {
-						continue
+					key := fmt.Sprintf("%d\x00%s\x00%s", connection.channelSourceID, name, connection.modelName)
+					if previous, exists := items[key]; exists {
+						if previous.Priority <= assoc.Priority {
+							continue
+						}
+					} else {
+						order = append(order, key)
 					}
 					items[key] = axonHubPlanRouteItem{
 						Key:             key,
@@ -716,7 +720,6 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 						CredentialName:  name,
 						Priority:        assoc.Priority,
 					}
-					order = append(order, key)
 				}
 			}
 		}
