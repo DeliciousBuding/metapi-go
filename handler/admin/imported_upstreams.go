@@ -1,11 +1,9 @@
 package admin
 
 import (
-	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 
-	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
@@ -16,7 +14,11 @@ import (
 func RegisterImportedUpstreamRoutes(r chi.Router, db *sqlx.DB) {
 	h := &importedUpstreamHandler{db: db}
 	r.Get("/api/imported-upstreams", h.list)
+	r.Get("/api/imported-upstreams/{id}", h.detail)
+	r.Get("/api/imported-upstreams/{id}/request-config", h.requestConfig)
 	r.Patch("/api/imported-upstreams/{id}", h.update)
+	r.Patch("/api/imported-upstreams/members/{id}", h.updateMember)
+	r.Post("/api/imported-upstreams/members/{id}/cooldown/clear", h.clearMemberCooldown)
 	r.Get("/api/imported-upstreams/{id}/credentials", h.credentials)
 	r.Patch("/api/imported-upstreams/credentials/{id}", h.updateCredential)
 }
@@ -36,10 +38,13 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 	members, err := queryRowsErr(h.db, `SELECT i.id, i.group_id, i.priority, i.weight, i.protocol_order, g.name AS group_name,
   g.mode, g.active_item_id, rg.route_id, m.channel_id, m.name AS model_name,
 	  k.id AS credential_id, k.name AS credential_name, k.kind AS credential_kind, k.enabled AS credential_enabled, grt.protocols,
+    grt.id AS grant_id, grt.enabled AS grant_enabled, m.enabled AS model_enabled, g.enabled AS group_enabled,
+    c.enabled AS channel_enabled, tr.enabled AS route_enabled,
     grt.cooldown_until,grt.cooldown_reason_code,grt.success_count,grt.fail_count
   FROM upstream_group_items i JOIN upstream_groups g ON g.id=i.group_id
   JOIN upstream_route_groups rg ON rg.group_id=g.id JOIN upstream_grants grt ON grt.id=i.grant_id
   JOIN upstream_models m ON m.id=grt.model_id JOIN upstream_credentials k ON k.id=grt.credential_id
+  JOIN upstream_channels c ON c.id=m.channel_id JOIN token_routes tr ON tr.id=rg.route_id
   ORDER BY g.name, i.priority, i.id`)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to load imported routing members")
@@ -52,6 +57,7 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		row["endpointConfig"] = endpoints
+		row["baseUrl"] = importedDisplayURL(fmt.Sprint(row["baseUrl"]))
 		row["enabled"] = coerceBool(row["enabled"])
 	}
 	for _, row := range members {
@@ -64,46 +70,14 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 			order = store.DirectProtocolOrder{}
 		}
 		row["protocolOrder"] = order
-		row["credentialEnabled"] = coerceBool(row["credentialEnabled"])
+		effective := true
+		for _, key := range []string{"channelEnabled", "modelEnabled", "credentialEnabled", "grantEnabled", "groupEnabled", "routeEnabled"} {
+			row[key] = coerceBool(row[key])
+			effective = effective && row[key].(bool)
+		}
+		selected := fmt.Sprint(row["mode"]) != "manual" || fmt.Sprint(row["activeItemId"]) == fmt.Sprint(row["id"])
+		row["selectedByGroup"] = selected
+		row["effectiveEnabled"] = effective && selected
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": normalizeSlice(channels), "members": normalizeSlice(members)})
-}
-
-// Re-import remains the owner of the source graph. A disabled channel must
-// disappear from cached selection immediately, without disabling its siblings.
-func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r)
-	if !ok {
-		return
-	}
-	var input struct {
-		Enabled *bool `json:"enabled"`
-	}
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&input); err != nil || input.Enabled == nil {
-		writeError(w, http.StatusBadRequest, "Expected an enabled boolean")
-		return
-	}
-	var extra any
-	if err := dec.Decode(&extra); err != io.EOF {
-		writeError(w, http.StatusBadRequest, "Expected one JSON object")
-		return
-	}
-	result, err := h.db.Exec(h.db.Rebind(`UPDATE upstream_channels SET enabled=? WHERE id=?`), *input.Enabled, id)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to update imported upstream")
-		return
-	}
-	count, err := result.RowsAffected()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to verify imported upstream update")
-		return
-	}
-	if count == 0 {
-		writeError(w, http.StatusNotFound, "Imported upstream not found")
-		return
-	}
-	routing.InvalidateCache()
-	writeJSON(w, http.StatusOK, map[string]any{"success": true, "id": id, "enabled": *input.Enabled})
 }

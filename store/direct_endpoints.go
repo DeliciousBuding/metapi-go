@@ -73,6 +73,23 @@ func (e *DirectEndpoints) Scan(value any) error {
 		if endpoint.ModelPath && endpoint != decoded.Gemini {
 			return fmt.Errorf("model paths require a Gemini endpoint")
 		}
+		switch endpoint.Profile {
+		case "":
+		case "codex":
+			if endpoint != decoded.Responses || endpoint.Auth != DirectAuthBearer {
+				return fmt.Errorf("codex profile requires bearer Responses")
+			}
+		case "claudecode":
+			if endpoint != decoded.Messages || endpoint.Auth != DirectAuthBearer {
+				return fmt.Errorf("claudecode profile requires bearer Messages")
+			}
+		case "deepseek", "zai":
+			if endpoint != decoded.Chat || endpoint.Auth != DirectAuthBearer {
+				return fmt.Errorf("chat profile requires bearer Chat")
+			}
+		default:
+			return fmt.Errorf("invalid direct endpoint profile")
+		}
 	}
 	*e = decoded
 	return nil
