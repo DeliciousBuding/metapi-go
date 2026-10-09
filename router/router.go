@@ -154,6 +154,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterCheckinRoutes(r, db.DB, cfg)
 			admin.RegisterTokenRoutesWithDeps(r, db.DB, tokenRoutesDeps())
 			admin.RegisterChannelTestRoutes(r, db.DB, cfg)
+			admin.RegisterImportedUpstreamRoutes(r, db.DB)
 			admin.RegisterUpdateCenterRoutes(r)
 			admin.RegisterOauthRoutes(r, db.DB)
 			// Resin (#678): observability status endpoint for the

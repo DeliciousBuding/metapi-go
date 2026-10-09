@@ -3188,6 +3188,21 @@
       "effectiveCostPrecision": "示例成本保留 6 位小数，以保证低于 1 美分的单次调用价格依然精确。"
     },
     "channels": {
+      "imported": {
+        "title": "导入通道（{{count}}）",
+        "region": "导入通道清单",
+        "description": "来源通道及其授权协议。启停会立即影响路由；重新导入会覆盖来源配置。这里不会显示凭据值。",
+        "loadError": "加载导入通道失败：{{message}}",
+        "updated": "导入通道状态已更新。",
+        "updateError": "更新导入通道状态失败。",
+        "enable": "启用",
+        "disable": "停用",
+        "enableChannel": "启用 {{name}}",
+        "disableChannel": "停用 {{name}}",
+        "enabled": "已启用",
+        "disabled": "已停用",
+        "counts": "{{models}} 个模型 · {{credentials}} 个凭据"
+      },
       "page": {
         "title": "通道",
         "description": "由站点、账号、令牌与 OAuth 账号生成的通道，及其只读路由健康状态。",

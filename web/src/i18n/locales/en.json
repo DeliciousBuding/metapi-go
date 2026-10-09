@@ -3188,6 +3188,21 @@
       "effectiveCostPrecision": "Sample cost keeps 6 decimals so sub-cent per-call prices stay accurate."
     },
     "channels": {
+      "imported": {
+        "title": "Imported upstreams ({{count}})",
+        "region": "Imported upstream inventory",
+        "description": "Source channels and their authorized protocol grants. Availability changes apply to routing immediately; re-import replaces the source configuration. No credential values are displayed.",
+        "loadError": "Failed to load imported upstreams: {{message}}",
+        "updated": "Imported upstream availability updated.",
+        "updateError": "Failed to update imported upstream availability.",
+        "enable": "Enable",
+        "disable": "Disable",
+        "enableChannel": "Enable {{name}}",
+        "disableChannel": "Disable {{name}}",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "counts": "{{models}} models · {{credentials}} credentials"
+      },
       "page": {
         "title": "Channels",
         "description": "Channels generated from sites, accounts, tokens, and OAuth accounts, with read-only route health.",
