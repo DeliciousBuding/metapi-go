@@ -22,14 +22,15 @@ const AxonHubBackupVersion = "1.4"
 // Sections this importer never executes are counted rather than modeled, so a
 // payload cannot smuggle routing semantics through a field nobody reads.
 type AxonHubSource struct {
-	Version            string
-	Timestamp          string
-	SystemConfigs      []AxonHubSourceSystemConfig
-	Projects           []AxonHubSourceProject
-	Channels           []AxonHubSourceChannel
-	Models             []AxonHubSourceModel
-	ChannelModelPrices []AxonHubSourceModelPrice
-	APIKeys            []AxonHubSourceAPIKey
+	Version               string
+	Timestamp             string
+	SystemConfigs         []AxonHubSourceSystemConfig
+	DeveloperAssociations map[string][]AxonHubSourceAssociation
+	Projects              []AxonHubSourceProject
+	Channels              []AxonHubSourceChannel
+	Models                []AxonHubSourceModel
+	ChannelModelPrices    []AxonHubSourceModelPrice
+	APIKeys               []AxonHubSourceAPIKey
 	// UsageRequests/UsageLogs are history, not configuration; only their row
 	// counts are retained so a preview can report them honestly.
 	UsageRequests int
@@ -292,6 +293,9 @@ func ParseAxonHubSource(raw []byte) (*AxonHubSource, error) {
 		return nil, err
 	}
 	if src.SystemConfigs, err = decodeAxonHubSystemConfigs(top["system_configs"]); err != nil {
+		return nil, err
+	}
+	if src.DeveloperAssociations, err = decodeAxonHubDeveloperSettings(src.SystemConfigs); err != nil {
 		return nil, err
 	}
 	if src.Projects, err = decodeAxonHubProjects(top["projects"]); err != nil {

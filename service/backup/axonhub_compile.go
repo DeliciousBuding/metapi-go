@@ -666,9 +666,6 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 			residuals = append(residuals, "model_settings_unsupported:"+sanitizeIdentifier(pattern))
 			continue
 		}
-		if model.Settings.DisableDeveloperSettingsInheritance {
-			residuals = append(residuals, "model_developer_inheritance_not_imported:"+sanitizeIdentifier(pattern))
-		}
 		switch model.Type {
 		case "", "chat":
 		default:
@@ -678,7 +675,7 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 
 		items := map[string]axonHubPlanRouteItem{}
 		var order []string
-		for _, assoc := range model.Settings.Associations {
+		for _, assoc := range axonHubEffectiveAssociations(src, model) {
 			if assoc.Disabled {
 				continue
 			}
