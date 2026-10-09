@@ -28,7 +28,7 @@ const octopusV5RealShapeFixture = `{
 const octopusV5AllProtocolsFixture = `{"version":5,"exported_at":"2026-10-06T00:00:00Z","channels":[{"id":1,"name":"all protocols","dialect":"generic","enabled":true,"base_url":"https://upstream.example","openai_chat_completion_path":"/v1/route-chat","openai_response_path":"/v1/route-responses","anthropic_message_path":"/v1/route-messages","proxy":false,"channel_proxy":"","custom_header":[],"param_override":"","match_regex":""}],"channel_keys":[{"id":2,"channel_id":1,"name":"primary","key":"sk-all-protocols","enabled":true}],"channel_models":[{"id":3,"channel_id":1,"name":"provider-model"}],"channel_grants":[{"id":4,"channel_model_id":3,"channel_key_id":2,"protocols":14}],"groups":[{"id":5,"name":"all-protocol-model","mode":"failover","active_item_id":6,"relay_config":{}}],"group_items":[{"id":6,"group_id":5,"channel_grant_id":4,"priority":0,"weight":1}],"api_keys":[],"llm_infos":[],"settings":[],"stats_total":[],"stats_daily":[],"stats_hourly":[],"stats_api_key":[]}`
 
 func TestOctopusV5ParseAndImportRemapsIDsAndRepeatsSafely(t *testing.T) {
-	preview, err := PreviewOctopusV5([]byte(octopusV5RealShapeFixture), "source-a")
+	preview, err := PreviewOctopusV5(nil, []byte(octopusV5RealShapeFixture), "source-a")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestOctopusV5RejectsActiveItemFromAnotherGroup(t *testing.T) {
 // authoritative. Keep this distinct from the older synthetic weighted fixture.
 func TestOctopusV5CurrentExportWithoutGroupItemWeight(t *testing.T) {
 	payload := strings.ReplaceAll(octopusV5RealShapeFixture, `,"weight":1`, "")
-	preview, err := PreviewOctopusV5([]byte(payload), "current-official-v5")
+	preview, err := PreviewOctopusV5(nil, []byte(payload), "current-official-v5")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestOctopusV5RejectsUnsupportedAndBrokenRelationships(t *testing.T) {
 				origin = "../source"
 			}
 			if name == "invalid origin key" {
-				if _, err := PreviewOctopusV5([]byte(payload), origin); err == nil {
+				if _, err := PreviewOctopusV5(nil, []byte(payload), origin); err == nil {
 					t.Fatal("invalid origin key accepted")
 				}
 				return
@@ -151,7 +151,7 @@ func TestOctopusV5RejectsUnsupportedAndBrokenRelationships(t *testing.T) {
 func TestOctopusV5StatisticsArePreviewedAndPreserved(t *testing.T) {
 	payload := strings.Replace(octopusV5RealShapeFixture, `"dialect":"generic"`, `"dialect":"generic","input_token":7,"request_success":2`, 1)
 	payload = strings.Replace(payload, `"stats_total":[]`, `"stats_total":[{"model":"client-model","input_token":7}]`, 1)
-	preview, err := PreviewOctopusV5([]byte(payload), "stats-source")
+	preview, err := PreviewOctopusV5(nil, []byte(payload), "stats-source")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +229,7 @@ func TestOctopusV5CommitRefusesUnsupportedNonEmptySections(t *testing.T) {
 func TestOctopusV5SettingsAndChannelProxyPreviewSemantics(t *testing.T) {
 	payload := strings.Replace(octopusV5RealShapeFixture, `"settings":[]`, `"settings":[{"key":"proxy_url","value":"http://proxy.example:8080"},{"key":"stats_save_interval","value":"10"},{"key":"model_filter","value":""}]`, 1)
 	payload = strings.Replace(payload, `"proxy":false`, `"proxy":true`, 1)
-	preview, err := PreviewOctopusV5([]byte(payload), "proxy-source")
+	preview, err := PreviewOctopusV5(nil, []byte(payload), "proxy-source")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func TestOctopusV5SettingsAndChannelProxyPreviewSemantics(t *testing.T) {
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ImportOctopusV5WithUnsupportedMode(db, []byte(payload), "proxy-source", true); err != nil {
+	if _, err := ImportOctopusV5WithUnsupportedMode(db, []byte(payload), "proxy-source", true, false); err != nil {
 		t.Fatalf("explicit channels-only import: %v", err)
 	}
 	var proxySetting, channelProxy string
@@ -259,7 +259,7 @@ func TestOctopusV5SettingsAndChannelProxyPreviewSemantics(t *testing.T) {
 func TestOctopusV5OfficialGroupItemVirtualFieldsAreAcceptedOnlyWhenZero(t *testing.T) {
 	virtual := `,"channel_id":0,"channel_name":"","model_name":"","key_name":"","protocols":0,"available":false`
 	payload := strings.Replace(octopusV5RealShapeFixture, `"weight":1}`, `"weight":1`+virtual+`}`, 1)
-	preview, err := PreviewOctopusV5([]byte(payload), "official-export")
+	preview, err := PreviewOctopusV5(nil, []byte(payload), "official-export")
 	if err != nil {
 		t.Fatalf("preview official v5 virtual zero fields: %v", err)
 	}
@@ -267,14 +267,14 @@ func TestOctopusV5OfficialGroupItemVirtualFieldsAreAcceptedOnlyWhenZero(t *testi
 		t.Fatalf("groupItems preview count=%d, want 2", preview.Sections["groupItems"])
 	}
 	bad := strings.Replace(payload, `"channel_id":0`, `"channel_id":11`, 1)
-	if _, err := PreviewOctopusV5([]byte(bad), "official-export"); err == nil {
+	if _, err := PreviewOctopusV5(nil, []byte(bad), "official-export"); err == nil {
 		t.Fatal("non-zero joined channel_id virtual field was accepted as authoritative")
 	}
 }
 
 func TestOctopusV5ProxyFlagControlsEffectiveChannelProxy(t *testing.T) {
 	payload := strings.Replace(octopusV5RealShapeFixture, `"channel_proxy":""`, `"channel_proxy":"http://proxy.invalid:8080"`, 1)
-	preview, err := PreviewOctopusV5([]byte(payload), "proxy-disabled")
+	preview, err := PreviewOctopusV5(nil, []byte(payload), "proxy-disabled")
 	if err != nil || len(preview.Blocking) != 0 {
 		t.Fatalf("proxy=false residual channel_proxy preview=%+v err=%v", preview, err)
 	}
@@ -295,7 +295,7 @@ func TestOctopusV5ProxyFlagControlsEffectiveChannelProxy(t *testing.T) {
 	}
 
 	missing := strings.Replace(octopusV5RealShapeFixture, `"proxy":false`, `"proxy":true`, 1)
-	preview, err = PreviewOctopusV5([]byte(missing), "proxy-missing")
+	preview, err = PreviewOctopusV5(nil, []byte(missing), "proxy-missing")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +326,7 @@ func TestOctopusV5RejectsMetadataBaseAndProxyTargets(t *testing.T) {
 		"global proxy":  strings.Replace(strings.Replace(octopusV5RealShapeFixture, `"proxy":false`, `"proxy":true`, 1), `"settings":[]`, `"settings":[{"key":"proxy_url","value":"http://169.254.169.254:8080"}]`, 1),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := PreviewOctopusV5([]byte(payload), "ssrf-source"); err == nil {
+			if _, err := PreviewOctopusV5(nil, []byte(payload), "ssrf-source"); err == nil {
 				t.Fatal("metadata destination accepted by preview parser")
 			}
 		})
@@ -344,7 +344,7 @@ func TestOctopusV5BlockingClientHeaderAndRelayConfig(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			preview, err := PreviewOctopusV5([]byte(tc.payload), "blocked-source")
+			preview, err := PreviewOctopusV5(nil, []byte(tc.payload), "blocked-source")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -361,14 +361,14 @@ func TestOctopusV5BlockingClientHeaderAndRelayConfig(t *testing.T) {
 func TestOctopusV5DefaultRelayConfigRequiresAcknowledgedAdaptation(t *testing.T) {
 	const defaultRelay = `{"member_max_attempts":2,"member_retry_interval_seconds":3,"member_non_stream_response_timeout_seconds":120,"member_stream_first_event_timeout_seconds":30,"member_cooldown_seconds":60,"member_affinity_seconds":300}`
 	payload := strings.Replace(octopusV5RealShapeFixture, `"relay_config":{}`, `"relay_config":`+defaultRelay, 1)
-	preview, err := PreviewOctopusV5([]byte(payload), "relay-default-source")
+	preview, err := PreviewOctopusV5(nil, []byte(payload), "relay-default-source")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(preview.Blocking) != 0 || len(preview.Adaptations) != 1 || preview.Adaptations[0] != "groupRelayConfigDefaults" {
 		t.Fatalf("default relay policy preview = %+v, want explicit adaptation and no hard blocker", preview)
 	}
-	if _, err := ImportOctopusV5WithUnsupportedMode(nil, []byte(payload), "relay-default-source", false); err == nil || !strings.Contains(err.Error(), "acknowledgement") {
+	if _, err := ImportOctopusV5WithUnsupportedMode(nil, []byte(payload), "relay-default-source", false, false); err == nil || !strings.Contains(err.Error(), "acknowledgement") {
 		t.Fatalf("default relay policy imported without acknowledgement: %v", err)
 	}
 
@@ -380,7 +380,7 @@ func TestOctopusV5DefaultRelayConfigRequiresAcknowledgedAdaptation(t *testing.T)
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ImportOctopusV5WithUnsupportedMode(db, []byte(payload), "relay-default-source", true); err != nil {
+	if _, err := ImportOctopusV5WithUnsupportedMode(db, []byte(payload), "relay-default-source", true, false); err != nil {
 		t.Fatalf("acknowledged default relay policy import: %v", err)
 	}
 	var groups, items int

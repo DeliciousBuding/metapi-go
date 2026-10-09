@@ -104,6 +104,12 @@ separate direct-upstream tables, never converted into native `sites`/`accounts` 
 header on both preview and commit; it scopes source-ID mappings so repeat imports update the same source identity while
 different imports of channels with the same URL remain distinct.
 
+Re-import is a source snapshot replacement, not an append-only merge. Preview returns `removals` counts for
+source-owned channels, credentials, models, grants, groups, members, and routes absent from the new snapshot.
+When removals exist, commit requires `X-Octopus-Replace-Origin: true` after reviewing the removal notice and final
+confirmation; otherwise it returns 409 without changes. Replacement and upserts share one transaction. Native
+rows and other origins are never replacement targets. Empty channel exports remain invalid, not a delete-all command.
+
 The Octopus v5 path currently imports channels, named channel keys, models, grants, groups, and group items atomically.
 Imported grants enter the normal token-route selector and proxy executor as typed direct upstream candidates; they do not
 create synthetic sites or accounts. Chat Completions, Responses, and Anthropic Messages are dispatched only when the

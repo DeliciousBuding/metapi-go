@@ -9,6 +9,34 @@ import { BackupImportPreviewPanel } from '../backup-import-preview-panel'
 afterEach(cleanup)
 
 describe('backup import preview eligibility', () => {
+  it('lists removals with the origin isolation and final confirmation notice', () => {
+    render(
+      <BackupImportPreviewPanel
+        preview={{
+          kind: 'octopus',
+          data: {
+            source: 'octopus-v5',
+            originKey: 'fixture',
+            sections: { channels: 1 },
+            removals: { channelGrants: 2, channels: 1 },
+          },
+        }}
+        acknowledged={false}
+        onAcknowledge={vi.fn()}
+      />
+    )
+    expect(
+      screen.getByText(
+        i18n.t('settings.content.importExport.octopusReplacementTitle')
+      )
+    ).toBeVisible()
+    expect(
+      screen.getByText(
+        i18n.t('settings.content.importExport.octopusReplacementDescription')
+      )
+    ).toBeVisible()
+    expect(screen.getByText(/· 2/)).toBeVisible()
+  })
   it('never promises all sections are supported when configuration blocks import', () => {
     render(
       <BackupImportPreviewPanel

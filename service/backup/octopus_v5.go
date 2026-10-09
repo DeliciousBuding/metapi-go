@@ -11,6 +11,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 func IsOctopusV5Payload(raw []byte) bool {
@@ -223,7 +224,7 @@ func validateOctopusV5(d *OctopusV5Dump) error {
 	return nil
 }
 
-func PreviewOctopusV5(raw []byte, originKey string) (*OctopusV5Preview, error) {
+func PreviewOctopusV5(db *store.DB, raw []byte, originKey string) (*OctopusV5Preview, error) {
 	d, err := ParseOctopusV5(raw)
 	if err != nil {
 		return nil, err
@@ -281,7 +282,11 @@ func PreviewOctopusV5(raw []byte, originKey string) (*OctopusV5Preview, error) {
 			break
 		}
 	}
-	return &OctopusV5Preview{Source: OctopusV5Origin, OriginKey: originKey, Sections: sections, NotImported: unsupported, Adaptations: adaptations, Blocking: blocking}, nil
+	preview := &OctopusV5Preview{Source: OctopusV5Origin, OriginKey: originKey, Sections: sections, NotImported: unsupported, Adaptations: adaptations, Blocking: blocking}
+	if err := addOctopusRemovalPreview(db, d, originKey, preview); err != nil {
+		return nil, fmt.Errorf("failed to compare imported source snapshot")
+	}
+	return preview, nil
 }
 
 func safeOctopusEndpointPath(path string) bool {

@@ -226,7 +226,7 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 	}
 	if backupsvc.IsOctopusV5Payload(raw) {
 		originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
-		preview, err := backupsvc.PreviewOctopusV5(raw, originKey)
+		preview, err := backupsvc.PreviewOctopusV5(backupStoreDB(h.db), raw, originKey)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -286,13 +286,17 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 
 func (h *backupHandler) importOctopusV5Backup(w http.ResponseWriter, r *http.Request, raw []byte) {
 	originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
-	preview, err := backupsvc.PreviewOctopusV5(raw, originKey)
+	preview, err := backupsvc.PreviewOctopusV5(backupStoreDB(h.db), raw, originKey)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if len(preview.Blocking) > 0 {
 		writeError(w, http.StatusBadRequest, "Octopus preview contains unsupported behavior that must be removed before import")
+		return
+	}
+	if len(preview.Removals) > 0 && r.Header.Get("X-Octopus-Replace-Origin") != "true" {
+		writeError(w, http.StatusConflict, "Source snapshot removes imported entries; review the preview and explicitly confirm origin replacement")
 		return
 	}
 	importMode := strings.TrimSpace(r.Header.Get("X-Octopus-Import-Mode"))
@@ -304,8 +308,12 @@ func (h *backupHandler) importOctopusV5Backup(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "Octopus backup contains unsupported sections; explicitly select channels-only import after reviewing the preview")
 		return
 	}
-	counts, err := backupsvc.ImportOctopusV5WithUnsupportedMode(backupStoreDB(h.db), raw, originKey, importMode == "channels-only")
+	counts, err := backupsvc.ImportOctopusV5WithUnsupportedMode(backupStoreDB(h.db), raw, originKey, importMode == "channels-only", r.Header.Get("X-Octopus-Replace-Origin") == "true")
 	if err != nil {
+		if errors.Is(err, backupsvc.ErrOctopusReplacementRequired) {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
 		writeError(w, backupImportErrorStatus(err), err.Error())
 		return
 	}

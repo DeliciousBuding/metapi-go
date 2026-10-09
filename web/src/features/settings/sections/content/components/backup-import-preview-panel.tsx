@@ -14,6 +14,7 @@ export type OctopusV5Preview = {
   originKey: string
   sections: Record<string, number>
   notImported?: Record<string, number>
+  removals?: Record<string, number>
   adaptations?: string[]
   blocking?: string[]
 }
@@ -38,13 +39,16 @@ export function BackupImportPreviewPanel(props: Props) {
     ([, count]) => count > 0
   )
   const adapted = (external?.adaptations?.length ?? 0) > 0
+  const removals = Object.entries(external?.removals ?? {}).filter(
+    ([, count]) => count > 0
+  )
   const needsAcknowledgement = omitted.length > 0 || adapted
   let status = 'ready'
   let variant: 'success' | 'warning' | 'destructive' = 'success'
   if (blocked) {
     status = 'blocked'
     variant = 'destructive'
-  } else if (needsAcknowledgement) {
+  } else if (needsAcknowledgement || removals.length > 0) {
     status = 'review'
     variant = 'warning'
   }
@@ -126,6 +130,31 @@ export function BackupImportPreviewPanel(props: Props) {
                 {t('settings.content.importExport.design.emptyPlan')}
               </p>
             )}
+            {removals.length > 0 ? (
+              <div className='bg-warning/10 text-warning-soft-fg space-y-2 rounded-lg p-3 text-sm'>
+                <p className='font-medium'>
+                  {t('settings.content.importExport.octopusReplacementTitle')}
+                </p>
+                <p className='leading-relaxed'>
+                  {t(
+                    'settings.content.importExport.octopusReplacementDescription'
+                  )}
+                </p>
+                <div className='flex flex-wrap gap-2'>
+                  {removals.map(([section, count]) => (
+                    <Badge key={section} variant='outline'>
+                      {t(
+                        `settings.content.importExport.design.sections.${section}`,
+                        {
+                          defaultValue: section,
+                        }
+                      )}{' '}
+                      · {count}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {omitted.length > 0 ? (
               <div className='bg-warning/10 text-warning-soft-fg space-y-2 rounded-lg p-3 text-sm'>
                 <p className='font-medium'>

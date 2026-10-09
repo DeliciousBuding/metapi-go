@@ -163,19 +163,23 @@ export const settingsApi = {
   importBackup: (
     data: unknown,
     externalOriginKey?: string,
-    octopusImportMode?: 'channels-only'
+    octopusImportMode?: 'channels-only',
+    replaceOctopusOrigin?: boolean
   ) =>
     request('/api/settings/backup/import', {
       method: 'POST',
       body: JSON.stringify(isOctopusV5Payload(data) ? data : { data }),
       headers:
-        externalOriginKey || octopusImportMode
+        externalOriginKey || octopusImportMode || replaceOctopusOrigin
           ? {
               ...(externalOriginKey
                 ? { 'X-External-Origin-Key': externalOriginKey }
                 : {}),
               ...(octopusImportMode
                 ? { 'X-Octopus-Import-Mode': octopusImportMode }
+                : {}),
+              ...(replaceOctopusOrigin
+                ? { 'X-Octopus-Replace-Origin': 'true' }
                 : {}),
             }
           : undefined,

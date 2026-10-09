@@ -1578,6 +1578,8 @@
           "importPreview": "Preview import",
           "importConfirmTitle": "Confirm import?",
           "importConfirmDescription": "Importing inserts or overwrites the rows shown in the preview. Review the plan before continuing.",
+          "octopusReplacementTitle": "Remove entries deleted from this source",
+          "octopusReplacementDescription": "Confirmation removes this origin's channels, credentials, model grants, and routing relationships absent from the backup. Native data and other origins are unaffected; preview does not change data.",
           "octopusImportConfirmDescription": "The Octopus v5 channel, credential, model grant, and group graph will be imported atomically. Historical statistics remain preserved separately and are not merged into live Metapi totals.",
           "octopusPartialImportConfirmDescription": "Only the executable channel, credential, model grant, and group graph will be imported. Listed API keys, pricing data, and non-proxy settings remain only in your source file. Default Octopus group retry, timeout, cooldown, and affinity policies will use Metapi routing rules instead. Continue only if these omissions and adaptations are intended.",
           "octopusChannelsOnlyAcknowledgement": "I understand: import channels, credentials, model grants, groups, supported proxy settings, and history only. Listed Octopus API keys, pricing data, and other settings will not be activated. Default group retry, timeout, cooldown, and affinity policies will use Metapi routing rules instead.",

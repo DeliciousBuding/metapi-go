@@ -16,14 +16,14 @@ import (
 // ImportOctopusV5 remaps every source PK through external_source_ids inside a
 // single transaction. Re-imports upsert the same source graph by origin key.
 func ImportOctopusV5(db *store.DB, raw []byte, originKey string) (map[string]int64, error) {
-	return ImportOctopusV5WithUnsupportedMode(db, raw, originKey, false)
+	return ImportOctopusV5WithUnsupportedMode(db, raw, originKey, false, false)
 }
 
 // ImportOctopusV5WithUnsupportedMode imports the executable channel graph.
 // When allowUnsupported is true, unsupported Octopus-only sections stay in
 // the user's source file and are never activated; recognized default relay
 // policies are normalized away after the caller acknowledges Metapi routing.
-func ImportOctopusV5WithUnsupportedMode(db *store.DB, raw []byte, originKey string, allowUnsupported bool) (map[string]int64, error) {
+func ImportOctopusV5WithUnsupportedMode(db *store.DB, raw []byte, originKey string, allowUnsupported, allowReplacement bool) (map[string]int64, error) {
 	d, err := ParseOctopusV5(raw)
 	if err != nil {
 		return nil, err
@@ -49,6 +49,17 @@ func ImportOctopusV5WithUnsupportedMode(db *store.DB, raw []byte, originKey stri
 		return nil, fmt.Errorf("begin Octopus import: %w", err)
 	}
 	defer tx.Rollback()
+	// Recheck inside the transaction, not only in the HTTP preview: a caller
+	// that did not confirm replacement must never remove source-owned entries.
+	if !allowReplacement {
+		removals, removalErr := octopusRemovals(tx, db, d, originKey)
+		if removalErr != nil {
+			return nil, removalErr
+		}
+		if len(removals) > 0 {
+			return nil, ErrOctopusReplacementRequired
+		}
+	}
 	statsRecords, err := persistOctopusStats(db, tx, originKey, d)
 	if err != nil {
 		return nil, err
@@ -144,6 +155,13 @@ func ImportOctopusV5WithUnsupportedMode(db *store.DB, raw []byte, originKey stri
 		if _, e := tx.Exec(db.Rebind("UPDATE upstream_groups SET active_item_id = ? WHERE id = ?"), targetItem, targetGroup); e != nil {
 			return nil, fmt.Errorf("update imported group selection: %w", e)
 		}
+	}
+	removed, err := pruneOctopusSourceSnapshot(db, tx, d, originKey)
+	if err != nil {
+		return nil, err
+	}
+	for label, count := range removed {
+		counts["removed"+strings.ToUpper(label[:1])+label[1:]] = count
 	}
 	if err = tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit Octopus import: %w", err)

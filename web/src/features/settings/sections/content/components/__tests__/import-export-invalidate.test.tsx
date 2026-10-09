@@ -214,7 +214,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
       expect(mockImportBackup).toHaveBeenCalledWith(
         payload,
         'octopus-lab',
-        undefined
+        undefined,
+        false
       )
     })
     await waitFor(() => expectInvalidated(invalidateSpy))
@@ -277,7 +278,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
       expect(mockImportBackup).toHaveBeenCalledWith(
         payloadB,
         'origin-B',
-        undefined
+        undefined,
+        false
       )
     })
   })
@@ -320,7 +322,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
       expect(mockImportBackup).toHaveBeenCalledWith(
         { version: 5, exported_at: 'now' },
         'octopus-lab',
-        'channels-only'
+        'channels-only',
+        false
       )
     })
   })
@@ -363,7 +366,48 @@ describe('ImportExportSection — cache invalidation after import', () => {
       expect(mockImportBackup).toHaveBeenCalledWith(
         { version: 5, exported_at: 'now' },
         'octopus-lab',
-        'channels-only'
+        'channels-only',
+        false
+      )
+    })
+  })
+
+  it('confirms origin removals only after reviewing the replacement notice', async () => {
+    renderImportExportSection()
+    const payload = { version: 5, exported_at: 'replacement' }
+    mockPreviewBackupImport.mockResolvedValueOnce({
+      success: true,
+      plan: {
+        source: 'octopus-v5',
+        originKey: 'octopus-lab',
+        sections: { channels: 1 },
+        removals: { channelGrants: 1 },
+      },
+    })
+    fireEvent.change(screen.getByPlaceholderText('{ "version": "..." }'), {
+      target: { value: JSON.stringify(payload) },
+    })
+    fireEvent.change(screen.getByLabelText('External origin key'), {
+      target: { value: 'octopus-lab' },
+    })
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Preview import' })
+    )
+    await screen.findByText('Remove entries deleted from this source')
+    expect(mockImportBackup).not.toHaveBeenCalled()
+    clickLastButtonNamed('Import')
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent(
+      'Native data and other origins are unaffected'
+    )
+    expect(mockImportBackup).not.toHaveBeenCalled()
+    clickLastButtonNamed('Import')
+    await waitFor(() => {
+      expect(mockImportBackup).toHaveBeenCalledExactlyOnceWith(
+        payload,
+        'octopus-lab',
+        undefined,
+        true
       )
     })
   })

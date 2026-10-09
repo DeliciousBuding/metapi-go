@@ -106,6 +106,7 @@ type octopusItem struct {
 }
 
 type OctopusV5Preview struct {
+	Removals    map[string]int `json:"removals,omitempty"`
 	Source      string         `json:"source"`
 	OriginKey   string         `json:"originKey"`
 	Sections    map[string]int `json:"sections"`

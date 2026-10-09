@@ -1579,6 +1579,8 @@
           "importPreview": "预览导入",
           "importConfirmTitle": "确认导入？",
           "importConfirmDescription": "导入将按预览所示插入或覆盖行数据，请先核对计划。",
+          "octopusReplacementTitle": "将移除来源中已删除的项目",
+          "octopusReplacementDescription": "确认后将移除该来源中已不在备份内的渠道、凭据、模型授权与路由关系。原生数据和其他来源不受影响；预览不会修改数据。",
           "octopusImportConfirmDescription": "将以原子方式导入 Octopus v5 渠道、凭据、模型授权与分组关系。历史统计单独保留，不会合并到 Metapi 实时统计。",
           "octopusPartialImportConfirmDescription": "仅导入可执行的渠道、凭据、模型授权与分组关系。列出的 API keys、定价数据和非代理设置只保留在原始文件中。Octopus 默认的分组重试、超时、冷却和亲和策略将改用 Metapi 路由规则。确认接受这些未迁移项和策略适配后再继续。",
           "octopusChannelsOnlyAcknowledgement": "我已了解：仅导入渠道、凭据、模型授权、分组、受支持的代理设置及历史统计。列出的 Octopus API keys、定价数据和其他设置不会激活；默认分组重试、超时、冷却和亲和策略将改用 Metapi 路由规则。",

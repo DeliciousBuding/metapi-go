@@ -291,13 +291,15 @@ export function ImportExportSection() {
       raw: string
       originKey?: string
       channelsOnly?: boolean
+      replaceOrigin?: boolean
     }) => {
-      const { raw, originKey, channelsOnly } = input
+      const { raw, originKey, channelsOnly, replaceOrigin } = input
       const data = JSON.parse(raw) as unknown
       return api.importBackup(
         data,
         isOctopusV5Import(raw) ? originKey : undefined,
-        isOctopusV5Import(raw) && channelsOnly ? 'channels-only' : undefined
+        isOctopusV5Import(raw) && channelsOnly ? 'channels-only' : undefined,
+        isOctopusV5Import(raw) && replaceOrigin
       )
     },
     onSuccess: () => {
@@ -465,6 +467,9 @@ export function ImportExportSection() {
         : 'settings.content.importExport.octopusImportConfirmDescription'
   }
   const isWebdavDirty = form.formState.isDirty
+  const hasOctopusRemovals =
+    importPreview?.kind === 'octopus' &&
+    Object.values(importPreview.data.removals ?? {}).some((count) => count > 0)
 
   return (
     <SectionCard
@@ -890,7 +895,12 @@ export function ImportExportSection() {
         }
         open={confirmImportOpen}
         title={t('settings.content.importExport.importConfirmTitle')}
-        description={t(confirmImportDescriptionKey)}
+        description={
+          t(confirmImportDescriptionKey) +
+          (hasOctopusRemovals
+            ? ` ${t('settings.content.importExport.octopusReplacementDescription')}`
+            : '')
+        }
         confirmLabel={t('settings.content.importExport.import')}
         cancelLabel={t('settings.common.cancel')}
         destructive
@@ -901,6 +911,7 @@ export function ImportExportSection() {
             raw: previewSnapshot.raw,
             originKey: previewSnapshot.originKey,
             channelsOnly: allowChannelsOnlyImport,
+            replaceOrigin: hasOctopusRemovals,
           })
         }}
         onCancel={() => setConfirmImportOpen(false)}
