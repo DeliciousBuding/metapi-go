@@ -17,6 +17,8 @@ import { ImportedUpstreamsPanel } from '../components/imported-upstreams-panel'
 const state = vi.hoisted(() => ({
   get: vi.fn(),
   patch: vi.fn(),
+  detail: vi.fn(),
+  credentials: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
 }))
@@ -24,6 +26,8 @@ vi.mock('@/lib/api', () => ({
   api: {
     getImportedUpstreams: state.get,
     setImportedUpstreamEnabled: state.patch,
+    getImportedUpstream: state.detail,
+    getImportedCredentials: state.credentials,
   },
 }))
 vi.mock('@/lib/toast', () => ({
@@ -84,6 +88,12 @@ function inventory(enabled = true): ImportedUpstreamInventory {
 beforeEach(() => {
   vi.clearAllMocks()
   state.get.mockResolvedValue(inventory())
+  state.detail.mockImplementation(async () => ({
+    ...inventory().items[0],
+    provider: 'openai',
+    useSystemProxy: false,
+  }))
+  state.credentials.mockResolvedValue({ items: [] })
 })
 afterEach(() => {
   cleanup()
@@ -93,7 +103,7 @@ describe('imported upstream inventory', () => {
   it('shows source models and authorized protocols without credentials', async () => {
     mount()
     expect(await screen.findByText('Example channel')).toBeInTheDocument()
-    expect(screen.getByText('Chat / Responses / Messages')).toBeInTheDocument()
+    expect(screen.getByText('Chat → Responses → Messages')).toBeInTheDocument()
     expect(screen.getByText('gpt-6-sol')).toBeInTheDocument()
     expect(screen.getByRole('region')).toHaveAttribute('tabindex', '0')
   })
@@ -111,14 +121,23 @@ describe('imported upstream inventory', () => {
     }
     data.members[0].protocols = 30
     state.get.mockResolvedValue(data)
+    state.detail.mockResolvedValue({
+      ...data.items[0],
+      provider: 'openai',
+      useSystemProxy: false,
+    })
     mount()
-    fireEvent.click(await screen.findByText('Protocol endpoints'))
-    expect(screen.getByText('https://chat.example/custom')).toBeVisible()
-    expect(screen.getByText('https://messages.example/native')).toBeVisible()
+    fireEvent.click(await screen.findByRole('button', { name: 'Manage' }))
+    expect(
+      await screen.findByDisplayValue('https://chat.example/custom')
+    ).toBeVisible()
+    expect(
+      screen.getByDisplayValue('https://messages.example/native')
+    ).toBeVisible()
     expect(screen.getByText('x-api-key')).toBeVisible()
     expect(
-      screen.getByText('Chat / Responses / Messages / Gemini')
-    ).toBeVisible()
+      screen.getAllByText('Chat → Responses → Messages → Gemini').length
+    ).toBeGreaterThan(0)
   })
   it('reads back availability after a confirmed update', async () => {
     state.patch.mockImplementation(async () => {
@@ -141,9 +160,9 @@ describe('imported upstream inventory', () => {
     data.members[0].protocolOrder = [8, 4]
     state.get.mockResolvedValue(data)
     mount()
-    expect(await screen.findByText('Messages / Responses')).toBeInTheDocument()
+    expect(await screen.findByText('Messages → Responses')).toBeInTheDocument()
     expect(
-      screen.queryByText('Chat / Responses / Messages / Gemini')
+      screen.queryByText('Chat → Responses → Messages → Gemini')
     ).not.toBeInTheDocument()
   })
   it('keeps the previous enabled state when a write fails', async () => {
@@ -152,7 +171,12 @@ describe('imported upstream inventory', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Disable Example channel' })
     )
-    await waitFor(() => expect(state.error).toHaveBeenCalled())
+    await waitFor(() => expect(state.patch).toHaveBeenCalled())
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Disable Example channel' })
+      ).toBeEnabled()
+    )
     expect(
       screen.getByRole('button', { name: 'Disable Example channel' })
     ).toBeInTheDocument()

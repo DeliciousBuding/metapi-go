@@ -17,8 +17,8 @@ route item's outbound protocols; an empty list retains the grant's protocols.
 `x-goog-api-key`), and optional Gemini `modelPath`. When `modelPath` is true,
 the URL is a models prefix and the selected model and generation action are
 appended at execution; otherwise it is the exact upstream endpoint URL.
-The optional endpoint `profile` selects the audited `codex` or `claudecode`
-request contract. The channel's `provider` identifies its source provider;
+The optional endpoint `profile` selects `codex`, `claudecode`, `deepseek`, or
+`zai` request handling. The channel's `provider` identifies its source provider;
 it is separate from its wire protocol and credential kind.
 This is configuration inventory, not a protocol-health probe. Credential values,
 custom headers and parameter overrides are never included.
@@ -42,8 +42,23 @@ original protocol permission checks. Selection prefers
 the client's protocol when it is in the route item's allowed list, otherwise the
 first allowed outbound protocol is converted using the existing transform
 packages. Native requests retain their original body apart from model mapping
-and configured overrides. Cross-protocol requests with nonportable continuity,
+and configured overrides, with provider thinking translation when an explicit
+domestic profile is selected. Cross-protocol requests with nonportable continuity,
 signed reasoning or unsupported tools fail explicitly instead of losing fields.
+
+`deepseek` and `zai` translate Chat reasoning effort into the provider's thinking
+settings; `zai` also serves GLM and MiMo. Default native AxonHub endpoints receive
+the matching profile on import. Custom endpoints and existing empty profiles
+remain generic until explicitly edited or re-imported. Native sites apply the
+same translation only when their URL and platform match a supported preset.
+
+Responses/Chat conversion preserves plain reasoning preferences, text, stream
+events and tool history. It does not generate a reasoning summary. Encrypted or
+signed reasoning and `previous_response_id` cannot cross this bridge. For
+Messages-to-Chat tools, hidden reasoning is retained in the bounded process-local
+replay cache, scoped to the client, route, model, credential and wire settings.
+The next tool turn must reach that process; expired state, changed credentials or
+permissions fail explicitly instead of silently dropping the tool history.
 
 ### GET /api/imported-upstreams/:id
 

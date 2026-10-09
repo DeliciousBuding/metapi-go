@@ -1,9 +1,5 @@
-// metapi-go/features/channels — read-only list page.
-// Wires the shared data-table to `useChannels` and mirrors search/page/sort
-// state to the URL. No mutation surfaces: this page is intentionally read-only
-// (soft isolation only — never hard-disable a channel). A detail sheet (opened
-// from the row eye action) surfaces the routing-health fields the columns
-// already render, mirroring the model / route / account detail pattern.
+// Account routing health and imported upstream maintenance share this page.
+// Account table search/page/sort remain URL-backed; edits retain their domain owner.
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
@@ -233,70 +229,73 @@ export function ChannelsPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <PageHeader
-        title={t('channels.page.title')}
-        description={t('channels.page.description')}
-      />
-
-      {/* The main list-query error is owned by DataTablePage (replace
+      <PageHeader title={t('channels.page.title')} />
+      <ImportedUpstreamsPanel
+        accountCount={
+          errorSummaryQuery.data?.total ?? channelsPageQuery.data?.total
+        }
+        accountsLoading={channelsPageQuery.isLoading}
+        forceAccounts={Boolean(search.channelId || search.status)}
+      >
+        {/* The main list-query error is owned by DataTablePage (replace
           placement); the error-summary strip only shows when the list itself
           loaded — what the page did before the contract moved here. */}
-      {!channelsPageQuery.error &&
-        (errorSummaryQuery.error && !errorSummaryQuery.data ? (
-          <QueryErrorBanner
-            error={errorSummaryQuery.error as Error | null}
-            messageKey='channels.page.loadError'
-            onRetry={() => errorSummaryQuery.refetch()}
-            isRetrying={errorSummaryQuery.isFetching}
-          />
-        ) : (
-          <ChannelsErrorBanner
-            errorCount={errorChannelCount}
-            showErrorOnly={showErrorOnly}
-            onFilterErrors={handleFilterErrors}
-            onExitErrorOnly={handleExitErrorOnly}
-          />
-        ))}
-      <ImportedUpstreamsPanel />
-      <DataTablePage
-        table={table}
-        isLoading={channelsPageQuery.isLoading}
-        isFetching={channelsPageQuery.isFetching}
-        error={channelsPageQuery.error as Error | null}
-        errorMessageKey='channels.page.loadError'
-        onErrorRetry={() => {
-          void channelsPageQuery.refetch()
-          void errorSummaryQuery.refetch()
-        }}
-        isErrorRetrying={channelsPageQuery.isFetching}
-        emptyIcon={<Plug className='size-6' />}
-        emptyTitle={t('channels.empty.title')}
-        emptyDescription={t('channels.empty.description')}
-        emptyAction={
-          <Button
-            variant='outline'
-            onClick={() => void navigate({ to: '/accounts' })}
-          >
-            <Users className='size-4' />
-            {t('channels.empty.manageAccounts')}
-          </Button>
-        }
-        skeletonKeyPrefix='channel-skeleton'
-        toolbarProps={{
-          searchPlaceholder: t('channels.toolbar.searchPlaceholder'),
-          searchDebounceMs: 400,
-          filters: [
-            {
-              columnId: 'status',
-              title: t('channels.columns.status'),
-              options: CHANNELS_STATUS_FILTER_OPTIONS.map((option) => ({
-                label: t(option.labelKey),
-                value: option.value,
-              })),
-            },
-          ],
-        }}
-      />
+        {!channelsPageQuery.error &&
+          (errorSummaryQuery.error && !errorSummaryQuery.data ? (
+            <QueryErrorBanner
+              error={errorSummaryQuery.error as Error | null}
+              messageKey='channels.page.loadError'
+              onRetry={() => errorSummaryQuery.refetch()}
+              isRetrying={errorSummaryQuery.isFetching}
+            />
+          ) : (
+            <ChannelsErrorBanner
+              errorCount={errorChannelCount}
+              showErrorOnly={showErrorOnly}
+              onFilterErrors={handleFilterErrors}
+              onExitErrorOnly={handleExitErrorOnly}
+            />
+          ))}
+        <DataTablePage
+          table={table}
+          isLoading={channelsPageQuery.isLoading}
+          isFetching={channelsPageQuery.isFetching}
+          error={channelsPageQuery.error as Error | null}
+          errorMessageKey='channels.page.loadError'
+          onErrorRetry={() => {
+            void channelsPageQuery.refetch()
+            void errorSummaryQuery.refetch()
+          }}
+          isErrorRetrying={channelsPageQuery.isFetching}
+          emptyIcon={<Plug className='size-6' />}
+          emptyTitle={t('channels.empty.title')}
+          emptyDescription={t('channels.empty.description')}
+          emptyAction={
+            <Button
+              variant='outline'
+              onClick={() => void navigate({ to: '/accounts' })}
+            >
+              <Users className='size-4' />
+              {t('channels.empty.manageAccounts')}
+            </Button>
+          }
+          skeletonKeyPrefix='channel-skeleton'
+          toolbarProps={{
+            searchPlaceholder: t('channels.toolbar.searchPlaceholder'),
+            searchDebounceMs: 400,
+            filters: [
+              {
+                columnId: 'status',
+                title: t('channels.columns.status'),
+                options: CHANNELS_STATUS_FILTER_OPTIONS.map((option) => ({
+                  label: t(option.labelKey),
+                  value: option.value,
+                })),
+              },
+            ],
+          }}
+        />
+      </ImportedUpstreamsPanel>
 
       <CooldownReasonDialog
         channel={reasonChannel}

@@ -384,7 +384,7 @@ export function SiteFormSheet({
           <SheetTitle>
             {isEditing ? t('sites.form.editTitle') : t('sites.form.addTitle')}
           </SheetTitle>
-          <SheetDescription>
+          <SheetDescription className='sr-only'>
             {isEditing
               ? t('sites.form.editDescription')
               : t('sites.form.addDescription')}
@@ -452,9 +452,6 @@ export function SiteFormSheet({
                                 />
                               </FormControl>
                               <div className='flex items-center justify-between gap-2'>
-                                <FormDescription>
-                                  {t('sites.form.platformSelectHint')}
-                                </FormDescription>
                                 <Button
                                   type='button'
                                   variant='link'
@@ -476,9 +473,6 @@ export function SiteFormSheet({
                                 />
                               </FormControl>
                               <div className='flex items-center justify-between gap-2'>
-                                <FormDescription>
-                                  {t('sites.form.platformCustomHint')}
-                                </FormDescription>
                                 <Button
                                   type='button'
                                   variant='link'
