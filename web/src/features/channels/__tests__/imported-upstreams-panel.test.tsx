@@ -135,6 +135,17 @@ describe('imported upstream inventory', () => {
     expect(state.patch).toHaveBeenCalledWith(4, false)
     expect(state.get).toHaveBeenCalledTimes(2)
   })
+  it('shows route-specific protocol choices rather than the shared grant union', async () => {
+    const data = inventory()
+    data.members[0].protocols = 30
+    data.members[0].protocolOrder = [8, 4]
+    state.get.mockResolvedValue(data)
+    mount()
+    expect(await screen.findByText('Messages / Responses')).toBeInTheDocument()
+    expect(
+      screen.queryByText('Chat / Responses / Messages / Gemini')
+    ).not.toBeInTheDocument()
+  })
   it('keeps the previous enabled state when a write fails', async () => {
     state.patch.mockRejectedValue(new Error('fixture write failed'))
     mount()

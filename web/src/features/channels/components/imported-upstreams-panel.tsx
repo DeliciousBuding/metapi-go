@@ -16,6 +16,22 @@ const protocolNames: Record<string, string> = {
   messages: 'Messages',
   gemini: 'Gemini',
 }
+const protocolBits: Record<number, string> = {
+  2: 'Chat',
+  4: 'Responses',
+  8: 'Messages',
+  16: 'Gemini',
+}
+
+function formatProtocols(mask: number, order?: number[]): string {
+  const selected = order?.length
+    ? order
+    : [2, 4, 8, 16].filter((bit) => mask & bit)
+  return selected
+    .map((bit) => protocolBits[bit])
+    .filter(Boolean)
+    .join(' / ')
+}
 
 export function ImportedUpstreamsPanel() {
   const { t } = useTranslation()
@@ -175,14 +191,10 @@ export function ImportedUpstreamsPanel() {
                         </Badge>
                       ) : null}
                       <span className='text-muted-foreground'>
-                        {[
-                          member.protocols & 2 ? 'Chat' : '',
-                          member.protocols & 4 ? 'Responses' : '',
-                          member.protocols & 8 ? 'Messages' : '',
-                          member.protocols & 16 ? 'Gemini' : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' / ')}
+                        {formatProtocols(
+                          member.protocols,
+                          member.protocolOrder
+                        )}
                       </span>
                     </li>
                   ))}
