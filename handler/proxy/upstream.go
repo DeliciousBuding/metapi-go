@@ -479,7 +479,14 @@ func dispatchSelectedUpstream(
 		if selected.Direct != nil {
 			upstreamPlatform = "openai"
 		}
-		attemptBody, sanitizeErr := sanitizeUpstreamJSONBody(candidateBody, upstreamPlatform, path, upstreamModel)
+		attemptBody := candidateBody
+		var sanitizeErr error
+		if selected.Direct == nil {
+			attemptBody, sanitizeErr = sanitizeUpstreamJSONBody(candidateBody, upstreamPlatform, path, upstreamModel)
+		}
+		// A direct grant authorizes this exact native protocol, not a legacy
+		// platform bridge. Preserve valid reasoning/tool items rather than
+		// injecting gateway-specific content or stripping continuation fields.
 		if sanitizeErr != nil {
 			// Clear client-facing continuity error.
 			writeJSONErrorWithRequest(w, http.StatusBadRequest, sanitizeErr.Error(), "invalid_request_error", requestID)
