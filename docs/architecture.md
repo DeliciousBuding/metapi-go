@@ -446,6 +446,14 @@ the source envelope, `octopus_v5.go` parses and checks compatibility, and
 and commit use the same compatibility checks; unsupported executable settings
 remain blocking rather than being silently accepted.
 
+AxonHub v1.4 import lives beside it: `axonhub_source.go` parses the source
+envelope, `axonhub_providers.go` is the audited provider/auth table, and
+`axonhub_compile.go` resolves model associations into the executable channel
+graph. `PreviewAxonHubV14` and `ImportAxonHubV14` consume that one compiled
+plan, so the preview cannot promise a channel the commit will not write; a
+feature the direct relay cannot carry is a named per-channel skip, never a
+guess.
+
 `internal/httpclient.ExpandClientHeaderTemplate` owns the request metadata
 template parser and allowlist. Both backup validation and direct forwarding
 call it, so accepting a template at import time cannot bypass the forwarding

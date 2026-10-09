@@ -45,6 +45,10 @@ import {
   type BackupWebdavExportType,
   type BackupWebdavResponse,
 } from '@/lib/api'
+import {
+  detectExternalBackupSourceText,
+  type ExternalBackupSource,
+} from '@/lib/helpers/external-backup-source'
 import { isReauthRequired } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 
@@ -62,6 +66,7 @@ import {
   BackupImportPreviewPanel,
   type BackupImportPreview,
   type BackupImportTablePlan,
+  type AxonHubV14Preview,
   type OctopusV5Preview,
 } from './backup-import-preview-panel'
 import { BackupImportSource } from './backup-import-source'
@@ -72,19 +77,22 @@ const BACKUP_IMPORT_MAX_BYTES = 20 * 1024 * 1024
 type ImportPreviewSnapshot = {
   raw: string
   originKey?: string
+  source?: ExternalBackupSource
   plan: BackupImportPreview
 }
 
-function isOctopusV5Import(raw: string): boolean {
-  try {
-    const value = JSON.parse(raw) as {
-      version?: unknown
-      exported_at?: unknown
-    }
-    return value.version === 5 && typeof value.exported_at === 'string'
-  } catch {
-    return false
-  }
+function isExternalPreview(
+  plan: BackupImportTablePlan | OctopusV5Preview | AxonHubV14Preview
+): plan is OctopusV5Preview | AxonHubV14Preview {
+  const candidate = plan as OctopusV5Preview
+  return (
+    typeof candidate.source === 'string' &&
+    typeof candidate.originKey === 'string' &&
+    typeof candidate.sections === 'object' &&
+    candidate.sections !== null &&
+    !Array.isArray(candidate.sections) &&
+    (candidate.blocking === undefined || Array.isArray(candidate.blocking))
+  )
 }
 
 const webdavSchema = z.object({
@@ -239,37 +247,50 @@ export function ImportExportSection() {
     mutationFn: async (input: { raw: string; originKey?: string }) => {
       const { raw, originKey } = input
       const data = JSON.parse(raw) as unknown
-      const octopusV5 = isOctopusV5Import(raw)
+      const external = detectExternalBackupSourceText(raw)
       const result = (await api.previewBackupImport(
         data,
-        octopusV5 ? originKey : undefined
+        external ? originKey : undefined
       )) as {
         success?: boolean
-        plan?: BackupImportTablePlan | OctopusV5Preview
+        plan?: BackupImportTablePlan | OctopusV5Preview | AxonHubV14Preview
       }
-      if (octopusV5) {
-        const plan = result.plan as OctopusV5Preview | undefined
+      if (external) {
+        const plan = result.plan
+        if (!plan || !isExternalPreview(plan)) {
+          throw new Error('Invalid external import preview')
+        }
+        if (plan.originKey !== originKey) {
+          throw new Error('Preview origin key does not match the request')
+        }
+        if (external === 'axonhub-v1.4') {
+          const axonhub = plan as AxonHubV14Preview
+          if (
+            typeof axonhub.routable !== 'object' ||
+            axonhub.routable === null ||
+            Array.isArray(axonhub.routable) ||
+            (axonhub.residuals !== undefined &&
+              !Array.isArray(axonhub.residuals)) ||
+            (axonhub.skippedChannels !== undefined &&
+              !Array.isArray(axonhub.skippedChannels))
+          ) {
+            throw new Error('Invalid AxonHub v1.4 import preview')
+          }
+          return {
+            kind: 'axonhub' as const,
+            data: axonhub,
+          }
+        }
+        const octopus = plan as OctopusV5Preview
         if (
-          !plan ||
-          typeof plan.source !== 'string' ||
-          typeof plan.originKey !== 'string' ||
-          typeof plan.sections !== 'object' ||
-          plan.sections === null ||
-          Array.isArray(plan.sections) ||
-          (plan.adaptations !== undefined &&
-            !Array.isArray(plan.adaptations)) ||
-          (plan.blocking !== undefined && !Array.isArray(plan.blocking))
+          octopus.adaptations !== undefined &&
+          !Array.isArray(octopus.adaptations)
         ) {
           throw new Error('Invalid Octopus v5 import preview')
         }
-        if (plan.originKey !== originKey) {
-          throw new Error(
-            'Octopus preview origin key does not match the request'
-          )
-        }
         return {
           kind: 'octopus' as const,
-          data: plan,
+          data: octopus,
         }
       }
       if (
@@ -290,16 +311,19 @@ export function ImportExportSection() {
     mutationFn: async (input: {
       raw: string
       originKey?: string
+      source?: ExternalBackupSource
       channelsOnly?: boolean
       replaceOrigin?: boolean
     }) => {
-      const { raw, originKey, channelsOnly, replaceOrigin } = input
+      const { raw, originKey, source, channelsOnly, replaceOrigin } = input
       const data = JSON.parse(raw) as unknown
+      const octopus = source === 'octopus-v5'
       return api.importBackup(
         data,
-        isOctopusV5Import(raw) ? originKey : undefined,
-        isOctopusV5Import(raw) && channelsOnly ? 'channels-only' : undefined,
-        isOctopusV5Import(raw) && replaceOrigin
+        source ? originKey : undefined,
+        octopus && channelsOnly ? 'channels-only' : undefined,
+        octopus && replaceOrigin,
+        source === 'axonhub-v1.4' && replaceOrigin
       )
     },
     onSuccess: () => {
@@ -347,9 +371,10 @@ export function ImportExportSection() {
   async function handlePreviewImport() {
     const raw = importText
     const originKey = externalOriginKey.trim()
+    const source = detectExternalBackupSourceText(raw)
     const revision = importRevision.current
     try {
-      if (isOctopusV5Import(raw) && !originKey) {
+      if (source && !originKey) {
         toast.error(t('settings.content.importExport.originKeyRequired'))
         return
       }
@@ -358,7 +383,8 @@ export function ImportExportSection() {
       setImportPreview(plan)
       setPreviewSnapshot({
         raw,
-        originKey: plan.kind === 'octopus' ? originKey : undefined,
+        originKey: plan.kind === 'tables' ? undefined : originKey,
+        source: plan.kind === 'tables' ? undefined : (source ?? undefined),
         plan,
       })
     } catch {
@@ -441,7 +467,7 @@ export function ImportExportSection() {
     saveWebdavMutation.mutate(changed)
   }
 
-  const octopusV5Import = isOctopusV5Import(importText)
+  const externalImportSource = detectExternalBackupSourceText(importText)
   const hasNotImportedOctopusSections =
     importPreview?.kind === 'octopus' &&
     Object.values(importPreview.data.notImported ?? {}).some(
@@ -452,10 +478,9 @@ export function ImportExportSection() {
     (importPreview.data.adaptations?.length ?? 0) > 0
   const canImport =
     previewSnapshot !== null &&
-    !(
-      importPreview?.kind === 'octopus' &&
-      (importPreview.data.blocking?.length ?? 0) > 0
-    ) &&
+    !(importPreview && importPreview.kind !== 'tables'
+      ? (importPreview.data.blocking?.length ?? 0) > 0
+      : false) &&
     (!(hasNotImportedOctopusSections || hasOctopusPolicyAdaptations) ||
       allowChannelsOnlyImport)
   let confirmImportDescriptionKey =
@@ -465,10 +490,14 @@ export function ImportExportSection() {
       hasNotImportedOctopusSections || hasOctopusPolicyAdaptations
         ? 'settings.content.importExport.octopusPartialImportConfirmDescription'
         : 'settings.content.importExport.octopusImportConfirmDescription'
+  } else if (importPreview?.kind === 'axonhub') {
+    confirmImportDescriptionKey =
+      'settings.content.importExport.axonhubImportConfirmDescription'
   }
   const isWebdavDirty = form.formState.isDirty
-  const hasOctopusRemovals =
-    importPreview?.kind === 'octopus' &&
+  const hasExternalRemovals =
+    importPreview !== null &&
+    importPreview.kind !== 'tables' &&
     Object.values(importPreview.data.removals ?? {}).some((count) => count > 0)
 
   return (
@@ -486,7 +515,7 @@ export function ImportExportSection() {
             raw={importText}
             fileName={importFileName}
             originKey={externalOriginKey}
-            external={octopusV5Import}
+            external={externalImportSource !== null}
             disabled={importMutation.isPending}
             onFile={(file) => void handleImportFile(file)}
             onText={(raw) => {
@@ -505,7 +534,7 @@ export function ImportExportSection() {
               disabled={
                 previewMutation.isPending ||
                 !importText.trim() ||
-                (octopusV5Import && !externalOriginKey.trim())
+                (externalImportSource !== null && !externalOriginKey.trim())
               }
               onClick={() => void handlePreviewImport()}
             >
@@ -897,7 +926,7 @@ export function ImportExportSection() {
         title={t('settings.content.importExport.importConfirmTitle')}
         description={
           t(confirmImportDescriptionKey) +
-          (hasOctopusRemovals
+          (hasExternalRemovals
             ? ` ${t('settings.content.importExport.octopusReplacementDescription')}`
             : '')
         }
@@ -910,8 +939,9 @@ export function ImportExportSection() {
           importMutation.mutate({
             raw: previewSnapshot.raw,
             originKey: previewSnapshot.originKey,
+            source: previewSnapshot.source,
             channelsOnly: allowChannelsOnlyImport,
-            replaceOrigin: hasOctopusRemovals,
+            replaceOrigin: hasExternalRemovals,
           })
         }}
         onCancel={() => setConfirmImportOpen(false)}

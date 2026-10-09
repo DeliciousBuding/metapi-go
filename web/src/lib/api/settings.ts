@@ -1,3 +1,4 @@
+import { detectExternalBackupSource } from '@/lib/helpers/external-backup-source'
 import {
   fetchAuthenticatedResponse,
   extractResponseErrorMessage,
@@ -13,16 +14,10 @@ import type {
   SettingsMigrationApplyResponse,
 } from './types'
 
-function isOctopusV5Payload(data: unknown): boolean {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    !Array.isArray(data) &&
-    'version' in data &&
-    data.version === 5 &&
-    'exported_at' in data &&
-    typeof data.exported_at === 'string'
-  )
+// Recognized external backups are posted verbatim; anything else is treated as a
+// Metapi tables payload (which the backend also accepts inside a `data` wrapper).
+function isExternalBackupPayload(data: unknown): boolean {
+  return detectExternalBackupSource(data) !== null
 }
 
 export const settingsApi = {
@@ -164,13 +159,17 @@ export const settingsApi = {
     data: unknown,
     externalOriginKey?: string,
     octopusImportMode?: 'channels-only',
-    replaceOctopusOrigin?: boolean
+    replaceOctopusOrigin?: boolean,
+    replaceAxonHubOrigin?: boolean
   ) =>
     request('/api/settings/backup/import', {
       method: 'POST',
-      body: JSON.stringify(isOctopusV5Payload(data) ? data : { data }),
+      body: JSON.stringify(isExternalBackupPayload(data) ? data : { data }),
       headers:
-        externalOriginKey || octopusImportMode || replaceOctopusOrigin
+        externalOriginKey ||
+        octopusImportMode ||
+        replaceOctopusOrigin ||
+        replaceAxonHubOrigin
           ? {
               ...(externalOriginKey
                 ? { 'X-External-Origin-Key': externalOriginKey }
@@ -181,6 +180,9 @@ export const settingsApi = {
               ...(replaceOctopusOrigin
                 ? { 'X-Octopus-Replace-Origin': 'true' }
                 : {}),
+              ...(replaceAxonHubOrigin
+                ? { 'X-AxonHub-Replace-Origin': 'true' }
+                : {}),
             }
           : undefined,
       skipErrorHandler: true,
@@ -189,7 +191,7 @@ export const settingsApi = {
   previewBackupImport: (data: unknown, externalOriginKey?: string) =>
     request('/api/settings/backup/import/preview', {
       method: 'POST',
-      body: JSON.stringify(isOctopusV5Payload(data) ? data : { data }),
+      body: JSON.stringify(isExternalBackupPayload(data) ? data : { data }),
       headers: externalOriginKey
         ? { 'X-External-Origin-Key': externalOriginKey }
         : undefined,

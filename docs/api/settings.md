@@ -145,6 +145,36 @@ Tables absent from the payload are skipped, so a backup written by an older buil
 imports. A payload naming a table the backup set excludes — or any table outside the schema registry — is rejected with
 `400 unknown table <name>`; the exclusion is enforced on import, not just omitted on export.
 
+### AxonHub v1.4 channel-graph import
+
+An AxonHub backup (`version: "1.4"` with `timestamp`, `channels`, and `models`) is detected by its envelope and imported
+through the same endpoint and the same `X-External-Origin-Key` scoping as Octopus, into the shared direct-upstream
+tables. Commit requires `X-AxonHub-Replace-Origin: true` when the preview reports `removals`; preview never writes.
+
+One compile step produces the plan the preview renders *and* the graph the transaction writes, so a preview can never
+describe a channel the commit will not create. The compiler resolves AxonHub's six model-association kinds
+(`channel_model`, `channel_regex`, `regex`, `model`, `channel_tags_model`, `channel_tags_regex`) against each channel's
+request-model map — `supported_models` plus `extraModelPrefix`, `autoTrimedModelPrefixes`, and `modelMappings`, minus
+`hideOriginalModels` / `hideMappedModels`, with `lowercaseModelId` applied to the request key only. Each source model
+becomes one exact Metapi route keyed by its `model_id`, and each resolved channel/model pair becomes a grant, one per
+enabled API key, carrying the channel's declared protocols and the association's `priority`. A model with no resolvable
+channel is reported rather than invented.
+
+Provider support is an explicit table (`axonhub_providers.go`) covering the full AxonHub channel-type enum at commit
+`e863c6fe1942deddd0f6e471fa003c430e5314f0`; a type outside it is refused by name. A channel imports only when every
+declared endpoint is `openai/chat_completions`, `openai/responses`, or `anthropic/messages`, transport is HTTP, the
+endpoint does not override the channel base URL, and the credential is a static API key. Declared protocols the direct
+relay cannot carry (embeddings, images, audio, video, Gemini native, Jina, Ollama, Seedance, AI SDK) are listed as
+residuals. Channels that need request translation (`transformOptions`), in-channel rate limits, stream policies,
+body/header override operations, unreviewed settings or credential fields, OAuth/Azure/GCP credentials, or an
+unrepresentable proxy configuration are skipped with a named reason instead of being half-imported; the preview lists
+each skip. Model discovery settings (`manual_models`, `auto_sync_supported_models`, provider quota polling, source retry
+and auto-disable rules, pass-through toggles) are reported as residuals because Metapi owns equivalent workflows.
+
+Projects, AxonHub API keys, model prices, system configs, and usage history are **not** imported: their authorization,
+quota, IP allow-list, and pricing semantics have no equivalent in a Metapi downstream key, so they stay in the source
+file and are counted in the preview's `notImported`. Imported grants then serve traffic exactly like Octopus ones.
+
 ### GET /api/settings/backup/webdav
 
 Get WebDAV backup configuration and last sync state. Passwords are never returned; use `hasPassword` and `passwordMasked` to show saved credential status.
@@ -165,7 +195,7 @@ Download a backup payload from `fileUrl` with HTTP `GET` and import its `tables`
 
 ### POST /api/settings/backup/import/preview
 
-Preview a backup import without writing anything. Same body shapes as `POST /api/settings/backup/import` (`{ "tables": {...} }`, optional `{ "data": { "tables": {...} }` wrapper, TS backup v2.1 payloads), plus Octopus v5 JSON. Octopus v5 requests require `X-External-Origin-Key`.
+Preview a backup import without writing anything. Same body shapes as `POST /api/settings/backup/import` (`{ "tables": {...} }`, optional `{ "data": { "tables": {...} }` wrapper, TS backup v2.1 payloads), plus Octopus v5 and AxonHub v1.4 JSON. External-source requests require `X-External-Origin-Key`; their plan is the source-specific preview described above instead of a per-table row count.
 
 **Response**: `{ success, plan: { "<table>": { rows, toInsert, duplicates, skippedRows } } }` — `duplicates` are rows whose PK already exists in the target DB (they would be dropped by `ON CONFLICT DO NOTHING`); `skippedRows` are runtime-local settings skipped by policy. No rows are written.
 
