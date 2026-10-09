@@ -67,6 +67,9 @@ func buildUpstreamGrantsDDL(d string) string {
 			model_id INTEGER NOT NULL REFERENCES upstream_models(id) ON DELETE CASCADE,
 			credential_id INTEGER NOT NULL REFERENCES upstream_credentials(id) ON DELETE CASCADE,
 			protocols INTEGER NOT NULL, enabled BOOLEAN NOT NULL,
+      success_count BIGINT DEFAULT 0 NOT NULL, fail_count BIGINT DEFAULT 0 NOT NULL,
+      total_latency_ms BIGINT DEFAULT 0 NOT NULL, total_cost DOUBLE PRECISION DEFAULT 0 NOT NULL,
+      cooldown_until TEXT, cooldown_reason_code TEXT, last_used_at TEXT, last_fail_at TEXT,
 			UNIQUE(origin_key, source_id), UNIQUE(model_id, credential_id)
 		)`
 	}
@@ -74,6 +77,9 @@ func buildUpstreamGrantsDDL(d string) string {
 		id INTEGER PRIMARY KEY AUTOINCREMENT, origin_key TEXT NOT NULL, source_id BIGINT NOT NULL,
 		model_id INTEGER NOT NULL, credential_id INTEGER NOT NULL,
 		protocols INTEGER NOT NULL, enabled INTEGER NOT NULL,
+    success_count INTEGER DEFAULT 0 NOT NULL, fail_count INTEGER DEFAULT 0 NOT NULL,
+    total_latency_ms INTEGER DEFAULT 0 NOT NULL, total_cost REAL DEFAULT 0 NOT NULL,
+    cooldown_until TEXT, cooldown_reason_code TEXT, last_used_at TEXT, last_fail_at TEXT,
 		UNIQUE(origin_key, source_id), UNIQUE(model_id, credential_id),
 		FOREIGN KEY (model_id) REFERENCES upstream_models(id) ON DELETE CASCADE,
 		FOREIGN KEY (credential_id) REFERENCES upstream_credentials(id) ON DELETE CASCADE
