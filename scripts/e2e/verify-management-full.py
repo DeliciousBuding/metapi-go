@@ -451,7 +451,8 @@ def run(config):
                 failures.record_cleanup('remove owned test account', False, accountId=aid, errorType=type(error).__name__)
         if root and cleanup_uid and (cleanup_uid > 1):
             try:
-                root.call('DELETE', '/api/user/' + str(cleanup_uid))
+                proof = root.proof('admin.user.delete', cfg['newapi_root_password'], {'user_id': cleanup_uid})
+                root.call('DELETE', '/api/user/' + str(cleanup_uid), extra_headers={'X-Security-Proof': proof})
                 failures.record_cleanup('remove created NewAPI user', find_created_user_id() is None, userId=cleanup_uid)
             except Exception as error:
                 failures.record_cleanup('remove created NewAPI user', False, errorType=type(error).__name__)
