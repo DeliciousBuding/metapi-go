@@ -5,6 +5,7 @@ export type PlatformDefinition = {
   name: string
   icon?: string
   group: 'api' | 'gateway' | 'oauth'
+  selectable?: boolean
   descriptionKey: string
 }
 
@@ -35,6 +36,7 @@ export const PLATFORM_CATALOG: readonly PlatformDefinition[] = [
     name: 'SenseTime',
     icon: 'sensenova-brand-color',
     group: 'api',
+    selectable: false,
     descriptionKey: 'platforms.sensetime',
   },
   {

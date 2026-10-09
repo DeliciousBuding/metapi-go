@@ -2,7 +2,6 @@ import { ChevronsUpDown } from 'lucide-react'
 import { useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BrandGlyph } from '@/assets/brand-icons/BrandIcon'
 import { PlatformBadge } from '@/components/common/platform-badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,7 +18,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import {
-  CONNECTION_PRESETS,
   PLATFORM_CATALOG,
   getPlatformDefinition,
   type ConnectionPreset,
@@ -38,7 +36,7 @@ type SitePlatformPickerProps = Omit<
 export function SitePlatformPicker({
   value,
   onValueChange,
-  onPreset,
+  onPreset: _onPreset,
   className,
   ...restProps
 }: SitePlatformPickerProps) {
@@ -105,69 +103,26 @@ export function SitePlatformPicker({
                 key={group}
                 heading={t(`platforms.groups.${group}`)}
               >
-                {PLATFORM_CATALOG.filter((entry) => entry.group === group).map(
-                  (entry) => (
-                    <CommandItem
-                      key={entry.id}
-                      value={entry.id}
-                      keywords={[entry.name, t(entry.descriptionKey)]}
-                      aria-label={entry.name}
-                      data-checked={value === entry.id}
-                      onSelect={() => {
-                        onValueChange(entry.id)
-                        setOpen(false)
-                      }}
-                    >
-                      <div className='min-w-0 space-y-1'>
-                        <PlatformBadge platform={entry.id} />
-                        <p className='text-muted-foreground text-xs'>
-                          {t(entry.descriptionKey)}
-                        </p>
-                      </div>
-                    </CommandItem>
-                  )
-                )}
-              </CommandGroup>
-            ))}
-            {onPreset && (
-              <CommandGroup heading={t('platforms.groups.presets')}>
-                {CONNECTION_PRESETS.map((preset) => (
+                {PLATFORM_CATALOG.filter(
+                  (entry) => entry.group === group && entry.selectable !== false
+                ).map((entry) => (
                   <CommandItem
-                    key={preset.id}
-                    value={`preset-${preset.id}`}
-                    keywords={[preset.name, preset.url]}
-                    disabled={
-                      Boolean(value.trim()) && value !== preset.platform
-                    }
-                    aria-label={t('platforms.usePreset', { name: preset.name })}
+                    key={entry.id}
+                    value={entry.id}
+                    keywords={[entry.name, t(entry.descriptionKey)]}
+                    aria-label={entry.name}
+                    data-checked={value === entry.id}
                     onSelect={() => {
-                      onPreset(preset)
+                      onValueChange(entry.id)
                       setOpen(false)
                     }}
                   >
-                    <span aria-hidden='true'>
-                      <BrandGlyph
-                        icon={preset.icon}
-                        size={18}
-                        fallbackText={preset.name}
-                      />
-                    </span>
-                    <div className='min-w-0'>
-                      <p className='font-medium'>{preset.name}</p>
-                      <p className='text-muted-foreground truncate text-xs'>
-                        {preset.url}
-                      </p>
-                    </div>
+                    <PlatformBadge platform={entry.id} />
                   </CommandItem>
                 ))}
               </CommandGroup>
-            )}
+            ))}
           </CommandList>
-          {onPreset && (
-            <p className='text-muted-foreground border-t px-3 py-2 text-xs'>
-              {t('platforms.presetHint')}
-            </p>
-          )}
         </Command>
       </PopoverContent>
     </Popover>

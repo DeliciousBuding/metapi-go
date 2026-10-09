@@ -241,7 +241,6 @@ describe('SiteFormSheet platform picker', () => {
     'Antigravity',
     'xAI Grok',
     'CLIProxyAPI',
-    'SenseTime',
     'AnyRouter',
     'Done Hub',
     'One Hub',
@@ -251,7 +250,7 @@ describe('SiteFormSheet platform picker', () => {
     'One API',
   ]
 
-  it('lists the 16 canonical platforms in the platform select', async () => {
+  it('lists selectable platforms with readable names and excludes SenseTime', async () => {
     render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
 
     const platformSelect = await screen.findByRole('combobox', {
@@ -265,6 +264,9 @@ describe('SiteFormSheet platform picker', () => {
         await screen.findByRole('option', { name: platform })
       ).toBeInTheDocument()
     }
+    expect(
+      screen.queryByRole('option', { name: 'SenseTime' })
+    ).not.toBeInTheDocument()
   })
 
   it('sets the platform form value when a canonical platform is selected', async () => {
