@@ -321,10 +321,12 @@ export function EndpointsEditor({
           )}
         </div>
       )}
-      <p className='text-muted-foreground text-xs'>
-        {t('sites.form.apiEndpointsStructuredHint')}
-      </p>
-      <div className='flex items-center justify-between gap-2'>
+      {rows.length > 0 && (
+        <p className='text-muted-foreground text-xs'>
+          {t('sites.form.apiEndpointsStructuredHint')}
+        </p>
+      )}
+      <div className='flex flex-wrap items-center justify-between gap-2'>
         <Button
           type='button'
           variant='outline'

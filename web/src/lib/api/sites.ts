@@ -1,5 +1,16 @@
 import { request, streamSse } from './transport'
 
+export type SiteInitializationPreset = {
+  id: string
+  label: string
+  providerLabel: string
+  platform: string
+  defaultUrl: string
+  recommendedSkipModelFetch: boolean
+  recommendedModels: string[]
+  docsUrl: string
+}
+
 /**
  * One model outcome from the site probe pass (probe-now / probe-stream).
  * `status` mirrors the backend vocabulary honestly — 'error' is a probe
@@ -26,6 +37,8 @@ export type SiteProbeCompletePayload = {
 export const sitesApi = {
   // Sites
   getSites: () => request('/api/sites'),
+  getSiteInitializationPresets: () =>
+    request<SiteInitializationPreset[]>('/api/sites/initialization-presets'),
   addSite: (data: unknown) =>
     request('/api/sites', { method: 'POST', body: JSON.stringify(data) }),
   updateSite: (id: number, data: unknown) =>

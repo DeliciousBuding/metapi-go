@@ -27,7 +27,7 @@ type DetectResult struct {
 
 // DetectSite attempts to detect the platform for a given URL.
 // When a site initialization preset matches the URL, the result uses the
-// preset protocol family (openai/claude) and includes initializationPresetId.
+// preset adapter and includes initializationPresetId.
 // Otherwise falls back to hostname heuristics for vendor/platform tags.
 func DetectSite(rawURL string) *DetectResult {
 	trimmed := strings.TrimSpace(rawURL)
@@ -54,8 +54,7 @@ func DetectSite(rawURL string) *DetectResult {
 	host := strings.ToLower(parsed.Hostname())
 
 	// Prefer initialization presets (protocol family + preset id) when the
-	// host/path rules match. This keeps createSite/detectSite aligned with the
-	// frontend siteInitializationPresets registry.
+	// host/path rules match. Creation and the template gallery share this registry.
 	if preset := DetectSiteInitializationPreset(trimmed, ""); preset != nil {
 		id := preset.ID
 		return &DetectResult{

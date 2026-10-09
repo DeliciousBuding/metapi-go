@@ -14,6 +14,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	messages "github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
+	"github.com/deliciousbuding/metapi-go/transform/openai/responses"
 )
 
 // streamOutcome classifies how an SSE relay ended so the dispatcher can
@@ -67,7 +68,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 	return handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, r.URL.Path, "", messages.Options{}, nil)
 }
 
-func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64, upstreamPath, upstreamModel string, bridgeOptions messages.Options, onFirstOutput func()) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
+func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, resp *http.Response, latencyMs int64, upstreamPath, upstreamModel string, bridgeOptions messages.Options, onFirstOutput func(), direct ...bool) (ParsedUsage, streamOutcome, *proxy.UpstreamVerdict) {
 	empty := ParsedUsage{Source: usageSourceUnknown}
 	if resp == nil || resp.Body == nil {
 		return empty, streamEndedNormally, nil
@@ -98,7 +99,10 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	})
 
 	bridgeMessages := isMessagesChatBridge(r.URL.Path, upstreamPath)
-	if bridgeMessages && !bodyReadable {
+	bridgeDirect := len(direct) > 0 && direct[0] && directBridgeNeeded(r.URL.Path, upstreamPath)
+	wire := directProviderWireFromContext(r.Context())
+	providerStream := wire != nil && (wire.Profile == "codex" || wire.StripToolPrefix)
+	if (bridgeMessages || bridgeDirect || providerStream) && !bodyReadable {
 		w.Header().Del("Content-Encoding")
 		writeJSONErrorWithRequest(w, http.StatusBadGateway, "Cannot decode upstream Chat stream for Messages", "upstream_error", proxy.RequestIDFromContext(r.Context()))
 		return empty, streamEndedUpstreamFault, nil
@@ -132,13 +136,30 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	resp.Body = idleBody
 	maxStreamBytes := streamResponseByteLimit()
 	var messageBridge *messagesChatBody
-	if bridgeMessages {
+	if bridgeDirect || providerStream {
+		var stream protocolEventStream
+		if bridgeDirect {
+			stream = directResponseStream(r.URL.Path, upstreamPath, upstreamModel, bridgeOptions)
+		}
+		if providerStream {
+			provider := &directProviderStream{ctx: r.Context(), next: stream}
+			if wire.Profile == "codex" {
+				provider.codex = &responses.CodexResponseCollector{Limit: maxStreamBytes}
+			}
+			stream = provider
+		}
+		messageBridge = newProtocolBridgeBody(resp.Body, stream, maxStreamBytes)
+		resp.Body = messageBridge
+	} else if bridgeMessages {
 		messageBridge = newMessagesChatBody(resp.Body, upstreamModel, maxStreamBytes, bridgeOptions)
 		resp.Body = messageBridge
 	} else if bodyReadable && !strings.HasPrefix(strings.ToLower(resp.Header.Get("Content-Disposition")), "attachment") {
-		resp.Body = withNativeTerminalBody(resp.Body, r.URL.Path)
+		resp.Body = withNativeTerminalBody(resp.Body, r.URL.Path, downstreamResponseModel(r))
 	}
 
+	if messageBridge != nil && downstreamResponseModel(r) != "" {
+		resp.Body = withNativeTerminalBody(resp.Body, r.URL.Path, downstreamResponseModel(r))
+	}
 	analyzer := newIncrementalSseAnalyzer()
 	analyzer.onFirstOutput = onFirstOutput
 	sawStreamBytes := false
@@ -156,6 +177,9 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		// Post-stream SSE analysis uses bounded incremental state instead of
 		// retaining the complete upstream body.
 		result := analyzer.Result()
+		if native, ok := resp.Body.(*nativeTerminalBody); ok && native.original != nil {
+			result.Usage = native.original.Result().Usage
+		}
 		if messageBridge != nil {
 			// Billing consumes the actual Chat usage, not synthetic Messages start
 			// counters or a lossy protocol projection.

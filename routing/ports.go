@@ -13,6 +13,7 @@ const (
 	UpstreamProtocolChat      = 1 << 1
 	UpstreamProtocolResponses = 1 << 2
 	UpstreamProtocolAnthropic = 1 << 3
+	UpstreamProtocolGemini    = 1 << 4
 )
 
 // Catalog pricing provenance labels for cold-start cost routing.
@@ -59,6 +60,7 @@ type ChannelLoadSnapshot struct {
 
 // DownstreamRoutingPolicy mirrors TS DownstreamRoutingPolicy.
 type DownstreamRoutingPolicy struct {
+	AccessPolicy           *store.DownstreamAccessPolicy
 	ExcludedSiteIDs        []int64
 	ExcludedCredentialRefs []CredentialRef
 	// AllowedSiteIDs / AllowedCredentialRefs: optional allow-lists.
@@ -74,8 +76,9 @@ type DownstreamRoutingPolicy struct {
 	KeyWeight float64
 	// RequestedContextTokens is a best-effort inbound context estimate for
 	// multi-tier route pick. 0 means unknown → first-match honesty.
-	RequestedContextTokens   int64
-	RequiredUpstreamProtocol int
+	RequestedContextTokens          int64
+	RequiredUpstreamProtocol        int
+	AllowUpstreamProtocolConversion bool
 }
 
 // CredentialRef identifies a specific credential to exclude.

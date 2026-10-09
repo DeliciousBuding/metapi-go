@@ -2,6 +2,7 @@ package proxyhandler
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -31,20 +32,30 @@ func nativeTerminalProtocol(path string) transformshared.NativeTerminalProtocol 
 // and never appends a terminal event at EOF or hides an underlying read error.
 type nativeTerminalBody struct {
 	io.ReadCloser
-	normalizer  transformshared.NativeTerminalStream
-	pending     []byte
-	output      []byte
-	end         error
-	passthrough bool
-	readBuf     [4096]byte
+	normalizer    transformshared.NativeTerminalStream
+	responseModel string
+	original      *incrementalSseAnalyzer
+	pending       []byte
+	output        []byte
+	end           error
+	passthrough   bool
+	readBuf       [4096]byte
 }
 
-func withNativeTerminalBody(body io.ReadCloser, path string) io.ReadCloser {
+func withNativeTerminalBody(body io.ReadCloser, path string, responseModels ...string) io.ReadCloser {
+	model := ""
+	if len(responseModels) > 0 {
+		model = responseModels[0]
+	}
 	protocol := nativeTerminalProtocol(path)
-	if protocol == 0 {
+	if protocol == 0 && model == "" {
 		return body
 	}
-	return &nativeTerminalBody{ReadCloser: body, normalizer: transformshared.NativeTerminalStream{Protocol: protocol}}
+	result := &nativeTerminalBody{ReadCloser: body, normalizer: transformshared.NativeTerminalStream{Protocol: protocol}, responseModel: model}
+	if model != "" {
+		result.original = newIncrementalSseAnalyzer()
+	}
+	return result
 }
 
 func (b *nativeTerminalBody) Read(p []byte) (int, error) {
@@ -56,6 +67,9 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 			return 0, b.end
 		}
 		n, err := b.ReadCloser.Read(b.readBuf[:])
+		if b.original != nil && n > 0 {
+			b.original.Push(b.readBuf[:n])
+		}
 		if b.passthrough {
 			b.output = append(b.output, b.readBuf[:n]...)
 		} else {
@@ -66,6 +80,11 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 					break
 				}
 				if boundary > maxIncrementalSsePendingBytes {
+					if b.responseModel != "" {
+						b.end = fmt.Errorf("SSE frame exceeds model mapping buffer limit")
+						b.pending = nil
+						break
+					}
 					b.output = append(b.output, b.pending...)
 					b.pending = nil
 					b.passthrough = true
@@ -77,6 +96,11 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 				b.pending = b.pending[boundary+sepLen:]
 			}
 			if len(b.pending) > maxIncrementalSsePendingBytes {
+				if b.responseModel != "" {
+					b.end = fmt.Errorf("SSE frame exceeds model mapping buffer limit")
+					b.pending = nil
+					continue
+				}
 				// Stop normalizing after an oversized frame: client-visible bytes and
 				// the existing analyzer's oversized/error verdict remain authoritative.
 				b.output = append(b.output, b.pending...)
@@ -85,7 +109,11 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 			}
 		}
 		if err != nil {
-			b.output = append(b.output, b.pending...)
+			if b.responseModel != "" && err == io.EOF {
+				b.output = append(b.output, b.normalizeBlock(b.pending)...)
+			} else {
+				b.output = append(b.output, b.pending...)
+			}
 			b.pending = nil
 			b.end = err
 		}
@@ -105,9 +133,14 @@ func (b *nativeTerminalBody) normalizeBlock(block []byte) []byte {
 	}
 	raw := []byte(event.Data)
 	normalized := b.normalizer.AddData(raw)
+	normalized = restoreDownstreamResponseModel(normalized, b.responseModel)
 	if bytes.Equal(normalized, raw) {
 		return block
 	}
+	return replaceSSEBlockData(block, normalized)
+}
+
+func replaceSSEBlockData(block, normalized []byte) []byte {
 	// Only the data field changes. Comments, event/id/retry and line endings
 	// retain their original order. A multiline JSON payload may become one line.
 	lines := bytes.Split(block, []byte("\n"))

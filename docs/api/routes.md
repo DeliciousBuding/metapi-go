@@ -9,7 +9,17 @@
 Returns `{items, members}` for imported direct-upstream channels. `items` contains
 channel ID, name, origin key, dialect, base URL, availability, protocol paths and
 model/credential counts. `members` connects group items to route, model and
-credential names and authorized protocol bits (Chat 2, Responses 4, Messages 8).
+credential names and authorized outbound protocol bits (Chat 2, Responses 4,
+Messages 8, Gemini 16). Each member's `protocolOrder` restricts and orders that
+route item's outbound protocols; an empty list retains the grant's protocols.
+`items[].endpointConfig` contains optional `chat`, `responses`, `messages` and
+`gemini` entries with resolved `url`, `auth` (`bearer`, `x-api-key`, or
+`x-goog-api-key`), and optional Gemini `modelPath`. When `modelPath` is true,
+the URL is a models prefix and the selected model and generation action are
+appended at execution; otherwise it is the exact upstream endpoint URL.
+The optional endpoint `profile` selects the audited `codex` or `claudecode`
+request contract. The channel's `provider` identifies its source provider;
+it is separate from its wire protocol and credential kind.
 This is configuration inventory, not a protocol-health probe. Credential values,
 custom headers and parameter overrides are never included.
 Members also expose persisted grant success/failure counts and nullable cooldown
@@ -19,6 +29,15 @@ success clears cooldown. Health is per model/credential grant, shared across its
 group memberships, and does not change unrelated grants. Imported historical
 statistics are retained separately and are not treated as live health evidence.
 
+Channels with an explicit `endpointConfig` can translate generation requests
+from any of the four client protocols. Legacy base/path grants retain their
+original protocol permission checks. Selection prefers
+the client's protocol when it is in the route item's allowed list, otherwise the
+first allowed outbound protocol is converted using the existing transform
+packages. Native requests retain their original body apart from model mapping
+and configured overrides. Cross-protocol requests with nonportable continuity,
+signed reasoning or unsupported tools fail explicitly instead of losing fields.
+
 ### PATCH /api/imported-upstreams/:id
 
 Accepts exactly one JSON object `{enabled: boolean}`. Only channel availability
@@ -26,6 +45,30 @@ is changed; all other fields are rejected. Returns `{success, id, enabled}`;
 unknown IDs return 404. Routing cache invalidation makes availability effective
 on the next selection. Source graph edits remain owned by re-import; re-importing
 the same origin can overwrite the local availability decision.
+
+### GET /api/imported-upstreams/:id/credentials
+
+Authenticated administrators receive `{items}` with each credential's `id`,
+`name`, `enabled`, `kind` (`api_key` or `oauth`), optional `expiresAt` in Unix
+milliseconds, and `canRefresh`. Neither access nor refresh tokens are returned.
+
+### PATCH /api/imported-upstreams/credentials/:id
+
+Authenticated administrators can change `enabled` or replace a credential.
+Supply either `apiKey` or an `oauth` object, never both. An OAuth replacement
+requires `accessToken` and may include `refreshToken`, `clientId`, `expiresAt`,
+`idToken`, and `accountId`. This is a complete credential replacement; omitted
+replacement fields are not inherited from the previous credential.
+Unknown fields and invalid combinations return 400; unavailable IDs return 404.
+Success returns `{success: true, id}` and invalidates routing caches.
+
+Codex/Fenno and Claude Code OAuth credentials are read immediately before
+dispatch and refreshed when needed through their existing OAuth providers.
+Concurrent requests share a refresh, and a compare-and-swap update prevents
+an in-flight refresh from overwriting a replaced credential. Codex/Fenno use
+upstream streaming even for a JSON client; a complete terminal response is
+required before producing JSON. Native Claude Code tool names are restored
+before any downstream protocol conversion.
 
 ### GET /api/routes/lite
 

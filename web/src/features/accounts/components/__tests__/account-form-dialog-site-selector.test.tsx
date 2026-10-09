@@ -30,6 +30,11 @@ const mutations = vi.hoisted(() => ({
 const showAccountCreatedToast = vi.hoisted(() => vi.fn())
 const showAccountLoginToast = vi.hoisted(() => vi.fn())
 
+vi.mock('@/features/sites', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/sites')>()),
+  useSiteInitializationPresets: () => ({ data: [], isSuccess: true }),
+}))
+
 vi.mock('../../api', () => ({
   resolveCreatedAccountId: (result: { id?: number } | undefined) => result?.id,
   useCreateAccount: () => mutations.create,
@@ -134,10 +139,45 @@ async function openSiteSearch() {
 }
 
 describe('AccountFormDialog searchable site selector', () => {
+  it('starts a direct API site in API-key mode', async () => {
+    renderCreate(1)
+    expect(await screen.findByRole('tab', { name: 'API Key' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.getByLabelText('API Key')).toBeVisible()
+  })
+
+  it('adapts a blank credential form when selecting an API site', async () => {
+    renderCreate()
+    const { input } = await openSiteSearch()
+    fireEvent.change(input, { target: { value: 'Fixture Site 01' } })
+    fireEvent.click(
+      await screen.findByRole('option', { name: /Fixture Site 01/i })
+    )
+    expect(await screen.findByLabelText('API Key')).toBeVisible()
+  })
+
+  it('preserves manually entered credentials when changing the site', async () => {
+    renderCreate(101)
+    fireEvent.change(await screen.findByLabelText('Access Token / Cookie'), {
+      target: { value: 'fixture-entered-session' },
+    })
+    const { input } = await openSiteSearch()
+    fireEvent.change(input, { target: { value: 'Fixture Site 01' } })
+    fireEvent.click(
+      await screen.findByRole('option', { name: /Fixture Site 01/i })
+    )
+    expect(await screen.findByLabelText('Access Token / Cookie')).toHaveValue(
+      'fixture-entered-session'
+    )
+  })
+
   it.each([
     ['name', 'Aurora Gateway', /Aurora Gateway/i],
     ['URL', 'lunar.example', /Lunar Relay/i],
     ['platform', 'sub2api', /Nebula Hub/i],
+    ['platform display name', 'New API', /Aurora Gateway/i],
   ])('filters 30+ local sites by %s', async (_field, query, expectedName) => {
     renderCreate()
 
@@ -147,6 +187,10 @@ describe('AccountFormDialog searchable site selector', () => {
     expect(
       await screen.findByRole('option', { name: expectedName })
     ).toBeVisible()
+    if (query === 'New API') {
+      expect(screen.getByText('New API')).toBeVisible()
+      expect(screen.queryByText('new-api')).not.toBeInTheDocument()
+    }
     expect(
       screen.queryByRole('option', { name: /Fixture Site 01/i })
     ).not.toBeInTheDocument()
@@ -189,11 +233,14 @@ describe('AccountFormDialog searchable site selector', () => {
   })
 
   it('preserves the initialSiteId deep-link selection', async () => {
-    renderCreate(103)
+    renderCreate(101)
 
     expect(
       await screen.findByRole('combobox', { name: 'Site' })
-    ).toHaveTextContent('Nebula Hub')
+    ).toHaveTextContent('Aurora Gateway')
+    expect(screen.getByRole('combobox', { name: 'Site' })).toHaveTextContent(
+      'New API'
+    )
   })
 
   it('keeps the edit-mode site until the operator selects another option', async () => {

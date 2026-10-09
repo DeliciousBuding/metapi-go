@@ -131,6 +131,7 @@ type ExchangeCodeInput struct {
 
 type RefreshTokenInput struct {
 	RefreshToken string
+	ClientID     string // Imported credentials retain their issuing OAuth client.
 	OAuth        *RefreshOAuthContext
 	ProxyURL     *string
 }

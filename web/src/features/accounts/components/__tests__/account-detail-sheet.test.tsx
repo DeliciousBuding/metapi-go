@@ -80,6 +80,7 @@ describe('AccountDetailSheet amount rendering', () => {
     expect(fieldValue('Used')).toBe('—')
     expect(fieldValue("Today's reward")).toBe('—')
     expect(fieldValue("Today's spend")).toBe('—')
+    expect(fieldValue('Platform')).toBe('—')
     expect(screen.queryByText('$0.00')).not.toBeInTheDocument()
     expect(screen.queryByText('+$0.00')).not.toBeInTheDocument()
   })
@@ -90,6 +91,13 @@ describe('AccountDetailSheet amount rendering', () => {
       balanceUsed: 0.5,
       todayReward: 2,
       todaySpend: 7,
+      site: {
+        id: 2,
+        name: 'Primary site',
+        url: 'https://primary.example',
+        platform: 'new-api',
+        status: 'active',
+      },
     })
 
     render(<AccountDetailSheet account={account} open onOpenChange={vi.fn()} />)
@@ -98,5 +106,7 @@ describe('AccountDetailSheet amount rendering', () => {
     expect(fieldValue('Used')).toBe('$0.50')
     expect(fieldValue("Today's reward")).toBe('+$2.00')
     expect(fieldValue("Today's spend")).toBe('$7.00')
+    expect(screen.getByText('New API')).toBeInTheDocument()
+    expect(screen.queryByText('new-api')).not.toBeInTheDocument()
   })
 })

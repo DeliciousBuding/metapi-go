@@ -40,6 +40,7 @@ import {
   type CreateDownstreamKeyResponse,
   type DownstreamApiKeyItem,
 } from '../types'
+import { AccessPolicyEditor } from './access-policy-editor'
 import { CredentialRefPicker } from './credential-ref-picker'
 import { showKeyCreatedToast } from './key-created-toast'
 import {
@@ -340,6 +341,7 @@ export function KeySheetForm({
       // Canonical wire format for the credential-ref dimensions: real arrays
       // (create/update bodies never carry the stored JSON-string form).
       const policy = {
+        accessPolicy: values.accessPolicy,
         allowedCredentialRefs: serializeCredentialRefs(
           values.allowedCredentialRefs
         ),
@@ -351,7 +353,11 @@ export function KeySheetForm({
       // expiry it can parse (see localDatetimeInputToIso).
       const expiresAt = localDatetimeInputToIso(values.expiresAt ?? '')
       if (!editingKey) {
-        return api.createDownstreamApiKey({ ...values, ...policy, expiresAt })
+        return api.createDownstreamApiKey({
+          ...values,
+          ...policy,
+          expiresAt,
+        })
       }
       return api.updateDownstreamApiKey(editingKey.id, {
         name: values.name,
@@ -712,6 +718,27 @@ export function KeySheetForm({
               )}
             />
           )}
+          <FormField
+            control={form.control}
+            name='accessPolicy'
+            render={({ field }) => (
+              <FormItem className='border-t pt-4'>
+                <FormLabel>
+                  {t('settings.downstream.keys.fields.accessPolicy')}
+                </FormLabel>
+                <FormDescription>
+                  {t('settings.downstream.keys.access.hint')}
+                </FormDescription>
+                <FormControl>
+                  <AccessPolicyEditor
+                    {...field}
+                    candidateModels={candidateModels}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </form>
       </Form>
       <SheetFooter>

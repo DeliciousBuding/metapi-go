@@ -396,9 +396,11 @@ type DirectUpstreamCandidate struct {
 	ChannelName       string
 	BaseURL           string
 	Dialect           string
+	Provider          string
 	ChatPath          string
 	ResponsesPath     string
 	AnthropicPath     string
+	Endpoints         DirectEndpoints
 	ChannelProxy      string
 	UseSystemProxy    bool
 	CustomHeader      string
@@ -407,12 +409,14 @@ type DirectUpstreamCandidate struct {
 	ModelName         string
 	CredentialID      int64
 	CredentialName    string
+	CredentialKind    string
 	Credential        string
 	ChannelEnabled    bool
 	ModelEnabled      bool
 	CredentialEnabled bool
 	GrantEnabled      bool
 	Protocols         int
+	ProtocolOrder     DirectProtocolOrder
 }
 
 // OrZero helpers coerce the nullable numeric channel columns for callers that
@@ -687,6 +691,7 @@ type AdminAuditLog struct {
 
 // ---- Table 25: downstream_api_keys ----
 type DownstreamAPIKey struct {
+	AccessPolicy *string  `db:"access_policy" json:"accessPolicy"`
 	ID           int64    `db:"id" json:"id"`
 	Name         string   `db:"name" json:"name"`
 	Key          string   `db:"key" json:"key"`

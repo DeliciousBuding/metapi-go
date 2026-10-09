@@ -4,9 +4,73 @@
 
 ## Sites
 
+### Connection templates in the create form
+
+A **site** stores an upstream deployment URL and a `platform` adapter. An **account** stores the API key, management credentials, or OAuth identity used with that connection. Provider names and logos are display metadata; selecting a service such as Moonshot still uses the `openai` adapter.
+
+The create form opens with frequently used management platforms and domestic
+providers. The complete catalog has management-platform, model-service,
+Coding Plan, and OAuth categories. API templates supply a name, URL, and existing
+adapter. Management templates leave the deployment URL for the operator to enter.
+OAuth entries open the existing authorization page; unavailable providers remain
+disabled. Editing an existing site keeps the compact platform picker.
+
+Changing templates updates empty fields and values filled by the previous template that the operator has not changed. Manually entered values are retained, with feedback identifying those fields. A conflicting manual platform choice prevents applying the template. Protocol labels such as **Chat / Responses** describe the template; they do not configure a protocol restriction or create a separate platform.
+
+The following OpenAI-compatible defaults preserve their required path prefix through the form's URL normalization. Model discovery appends `/v1/models`; chat requests append `/v1/chat/completions`.
+
+| Service | Saved site URL | Adapter |
+| --- | --- | --- |
+| Moonshot / Kimi | `https://api.moonshot.cn` | `openai` |
+| SiliconFlow | `https://api.siliconflow.cn` | `openai` |
+| Alibaba Bailian | `https://dashscope.aliyuncs.com/compatible-mode` | `openai` |
+| Fireworks AI | `https://api.fireworks.ai/inference` | `openai` |
+| Cerebras | `https://api.cerebras.ai` | `openai` |
+| ModelScope | `https://api-inference.modelscope.cn` | `openai` |
+
+The registry also includes the Chat and Messages entries for Bailian, DeepSeek,
+Kimi, MiniMax, ModelScope and Qiniu; versioned GLM and Volcengine endpoints; and
+Aliyun, GLM, Z.AI, Kimi, Doubao and MiMo plan endpoints. Definitions are checked
+against [AxonHub's channel configuration](https://github.com/looplj/axonhub/blob/d96748f1598837b46272923580e4ec558a6d1071/frontend/src/features/channels/data/config_channels.ts)
+and [New API's Coding Plan bases](https://github.com/QuantumNous/new-api/blob/1d4328e97417a043a161a0dd30a5b129be3ace49/constant/channel.go).
+Versioned `/v3` and `/v4` bases retain their version when request paths are joined.
+
+Templates supply compatible endpoint defaults, not a live availability or
+credential check. Provider-specific parameter rewriting, asynchronous image tasks,
+Vertex/GCP credentials and AWS request signing require their own adapter support.
+
+After creating an API site, the next action opens the API-key form with that site
+selected. Management gateways retain both session and API-key choices; OAuth
+adapters open the OAuth connection page. In a blank account form, selecting a
+model API site also selects API-key mode. Explicit credential choices and entered
+credentials are preserved when switching sites.
+
+When a site's adapter and normalized URL match a preset, a new API-key account
+uses its model-discovery recommendation until the operator changes that option.
+Presets that skip discovery are useful for plans without a model-list endpoint.
+Suggested model names can fill the existing manual-model input; adding a model
+still requires the explicit Add action and does not mark it as verified.
+
 ### GET /api/sites, POST /api/sites
 
 List all sites. Create a new site.
+
+### GET /api/sites/initialization-presets
+
+Returns the connection presets used by the site template gallery, URL detection,
+and creation validation. Requires admin authentication. Each array entry contains
+`id`, `label`, `providerLabel`, `platform`, `defaultUrl`,
+`recommendedSkipModelFetch`, `recommendedModels` (an array, including when empty),
+and `docsUrl`. Vendor names are display metadata; `platform` is a registered
+adapter such as `openai`, `claude`, or `gemini`.
+
+The gallery includes official APIs, compatible services, and Coding Plan entries.
+Selecting a preset fills the connection form; it does not verify a credential or
+discover models. Send its `id` as `initializationPresetId` when creating the site
+with the selected platform and URL. The server rejects unknown IDs and mismatched
+platforms or URLs. Changing the URL or platform manually clears the selection in
+the UI. OpenAI remains one platform; Chat Completions and Responses are distinct
+wire protocols rather than separate provider IDs.
 
 ### GET /api/sites/:id, PUT /api/sites/:id, DELETE /api/sites/:id
 

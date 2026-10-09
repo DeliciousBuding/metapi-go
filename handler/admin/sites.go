@@ -27,6 +27,7 @@ func RegisterSitesRoutes(r chi.Router, db *sqlx.DB) {
 	handler := &sitesHandler{db: db}
 
 	r.Get("/api/sites", handler.listSites)
+	r.Get("/api/sites/initialization-presets", handler.listInitializationPresets)
 	r.Post("/api/sites", handler.createSite)
 	r.Put("/api/sites/{id}", handler.updateSite)
 	r.Delete("/api/sites/{id}", handler.deleteSite)
@@ -44,6 +45,32 @@ func RegisterSitesRoutes(r chi.Router, db *sqlx.DB) {
 
 type sitesHandler struct {
 	db *sqlx.DB
+}
+
+// listInitializationPresets shares the creation/detection registry with the UI.
+func (h *sitesHandler) listInitializationPresets(w http.ResponseWriter, r *http.Request) {
+	type presetResponse struct {
+		ID                        string   `json:"id"`
+		Label                     string   `json:"label"`
+		ProviderLabel             string   `json:"providerLabel"`
+		Platform                  string   `json:"platform"`
+		DefaultURL                string   `json:"defaultUrl"`
+		RecommendedSkipModelFetch bool     `json:"recommendedSkipModelFetch"`
+		RecommendedModels         []string `json:"recommendedModels"`
+		DocsURL                   string   `json:"docsUrl"`
+	}
+	presets := service.ListSiteInitializationPresets()
+	result := make([]presetResponse, 0, len(presets))
+	for _, preset := range presets {
+		result = append(result, presetResponse{
+			ID: preset.ID, Label: preset.Label, ProviderLabel: preset.ProviderLabel,
+			Platform: preset.Platform, DefaultURL: preset.DefaultURL,
+			RecommendedSkipModelFetch: preset.RecommendedSkipModelFetch,
+			RecommendedModels:         append([]string{}, preset.RecommendedModels...),
+			DocsURL:                   preset.DocsURL,
+		})
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 // ---- List Sites ----

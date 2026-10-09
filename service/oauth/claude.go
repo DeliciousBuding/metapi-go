@@ -116,13 +116,13 @@ func parseClaudeExpiresAt(value interface{}) int64 {
 	return 0
 }
 
-func postClaudeToken(body map[string]interface{}, proxyURL *string) (*claudeTokenResponse, error) {
+func postClaudeToken(ctx context.Context, body map[string]interface{}, proxyURL *string) (*claudeTokenResponse, error) {
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", claudeTokenURL, bytes.NewReader(bodyBytes))
+	req, err := http.NewRequestWithContext(ctx, "POST", claudeTokenURL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func exchangeClaudeAuthorizationCode(ctx context.Context, input ExchangeCodeInpu
 	if err != nil {
 		return nil, err
 	}
-	payload, err := postClaudeToken(map[string]interface{}{
+	payload, err := postClaudeToken(ctx, map[string]interface{}{
 		"code":          input.Code,
 		"state":         input.State,
 		"grant_type":    "authorization_code",
@@ -203,11 +203,16 @@ func exchangeClaudeAuthorizationCode(ctx context.Context, input ExchangeCodeInpu
 // ---- Token Refresh ----
 
 func refreshClaudeAccessToken(ctx context.Context, input RefreshTokenInput) (*TokenSet, error) {
-	clientID, idErr := requireClaudeClientID()
-	if idErr != nil {
-		return nil, idErr
+	clientID := strings.TrimSpace(input.ClientID)
+	if clientID == "" {
+		var err error
+		clientID, err = requireClaudeClientID()
+		if err != nil {
+			return nil, err
+		}
 	}
-	payload, err := postClaudeToken(map[string]interface{}{
+
+	payload, err := postClaudeToken(ctx, map[string]interface{}{
 		"client_id":     clientID,
 		"grant_type":    "refresh_token",
 		"refresh_token": input.RefreshToken,

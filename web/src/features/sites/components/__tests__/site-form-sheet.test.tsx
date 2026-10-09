@@ -6,12 +6,16 @@
 import '@testing-library/jest-dom/vitest'
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
+import i18n from 'i18next'
 import {
+  afterAll,
   afterEach,
   beforeAll,
   beforeEach,
@@ -22,9 +26,81 @@ import {
 } from 'vitest'
 
 import '@/i18n/config'
+import type { SiteInitializationPreset } from '@/lib/api/sites'
 
 import type { Site } from '../../types'
 import { SiteFormSheet } from '../site-form-sheet'
+
+const initializationPresets: SiteInitializationPreset[] = [
+  {
+    id: 'codingplan-openai',
+    label: 'Aliyun CodingPlan / OpenAI',
+    providerLabel: 'Aliyun CodingPlan',
+    platform: 'openai',
+    defaultUrl: 'https://coding.dashscope.aliyuncs.com/v1',
+    recommendedSkipModelFetch: true,
+    recommendedModels: [],
+    docsUrl: '',
+  },
+  {
+    id: 'xiaomi-token-plan-claude',
+    label: 'Xiaomi Token Plan / Claude',
+    providerLabel: 'Xiaomi Token Plan',
+    platform: 'claude',
+    defaultUrl: 'https://tokenplan.example.com/anthropic',
+    recommendedSkipModelFetch: true,
+    recommendedModels: [],
+    docsUrl: '',
+  },
+  {
+    id: 'deepseek-openai',
+    label: 'DeepSeek / OpenAI',
+    providerLabel: 'DeepSeek',
+    platform: 'openai',
+    defaultUrl: 'https://api.deepseek.com/v1',
+    recommendedSkipModelFetch: true,
+    recommendedModels: ['deepseek-chat'],
+    docsUrl: 'https://api-docs.deepseek.com/',
+  },
+  {
+    id: 'gemini-api',
+    label: 'Gemini API',
+    providerLabel: 'Google Gemini',
+    platform: 'gemini',
+    defaultUrl: 'https://generativelanguage.googleapis.com',
+    recommendedSkipModelFetch: false,
+    recommendedModels: [],
+    docsUrl: '',
+  },
+  {
+    id: 'openai-api',
+    label: 'OpenAI API',
+    providerLabel: 'OpenAI',
+    platform: 'openai',
+    defaultUrl: 'https://api.openai.com',
+    recommendedSkipModelFetch: false,
+    recommendedModels: [],
+    docsUrl: '',
+  },
+]
+let listedPresets = initializationPresets
+
+function displayPreset(
+  id: string,
+  providerLabel: string,
+  platform = 'openai'
+): SiteInitializationPreset {
+  return {
+    id,
+    providerLabel,
+    platform,
+    label: `${providerLabel} / ${platform === 'claude' ? 'Claude' : 'OpenAI'}`,
+    defaultUrl: `https://example.com/${id}`,
+    recommendedSkipModelFetch: false,
+    recommendedModels: [],
+    docsUrl: '',
+  }
+}
 
 const { mockCreateMutate, mockUpdateMutate, mockDetectMutate, mockToastError } =
   vi.hoisted(() => ({
@@ -35,6 +111,11 @@ const { mockCreateMutate, mockUpdateMutate, mockDetectMutate, mockToastError } =
   }))
 
 vi.mock('../../api', () => ({
+  useSiteInitializationPresets: () => ({
+    data: listedPresets,
+    isPending: false,
+    isError: false,
+  }),
   useCreateSite: () => ({ mutateAsync: mockCreateMutate, isPending: false }),
   useUpdateSite: () => ({ mutateAsync: mockUpdateMutate, isPending: false }),
   useDetectSite: () => ({ mutateAsync: mockDetectMutate, isPending: false }),
@@ -49,7 +130,18 @@ vi.mock('@/lib/toast', () => ({
   },
 }))
 
+const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
+
 beforeAll(() => {
+  HTMLElement.prototype.scrollIntoView = vi.fn()
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
   // base-ui Dialog / AlertDialog / Select need matchMedia under jsdom.
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
@@ -66,7 +158,13 @@ beforeAll(() => {
   })
 })
 
+afterAll(() => {
+  vi.unstubAllGlobals()
+  HTMLElement.prototype.scrollIntoView = originalScrollIntoView
+})
+
 beforeEach(() => {
+  listedPresets = initializationPresets
   mockCreateMutate.mockReset()
   mockUpdateMutate.mockReset()
   mockDetectMutate.mockReset()
@@ -80,6 +178,321 @@ afterEach(() => cleanup())
 function typeField(label: string, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } })
 }
+
+describe('SiteFormSheet layout and connection presets', () => {
+  it('localizes brand names while retaining original labels and URLs for search', async () => {
+    listedPresets = [
+      displayPreset('bailian', 'Alibaba Bailian'),
+      displayPreset('codingplan-openai', 'Aliyun CodingPlan'),
+      displayPreset('moonshot-openai', 'Moonshot / Kimi'),
+    ]
+    await i18n.changeLanguage('zhCN')
+    try {
+      render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+      const bailian = await screen.findByRole('button', {
+        name: '使用 Alibaba Bailian / OpenAI 模板',
+      })
+      expect(within(bailian).getByText('阿里云百炼')).toBeInTheDocument()
+      expect(screen.getByText('百炼 Coding Plan')).toBeInTheDocument()
+      const search = screen.getByRole('textbox', { name: '搜索全部连接模板…' })
+      for (const query of [
+        '阿里云百炼',
+        'Alibaba Bailian',
+        'example.com/bailian',
+      ]) {
+        fireEvent.change(search, { target: { value: query } })
+        expect(
+          await screen.findByRole('button', {
+            name: '使用 Alibaba Bailian / OpenAI 模板',
+          })
+        ).toBeInTheDocument()
+      }
+      fireEvent.change(search, { target: { value: 'Moonshot' } })
+      expect(screen.getByText('Kimi')).toBeInTheDocument()
+      await act(async () => {
+        await i18n.changeLanguage('en')
+      })
+      fireEvent.change(search, { target: { value: 'Alibaba Bailian' } })
+      expect(screen.getByText('Alibaba Cloud Bailian')).toBeInTheDocument()
+    } finally {
+      cleanup()
+      await i18n.changeLanguage('en')
+    }
+  })
+
+  it('groups Coding Plan brands and keeps Chat and Messages adjacent regardless of backend order', async () => {
+    listedPresets = [
+      displayPreset('zai-coding-plan-openai', 'Z.ai Coding Plan'),
+      displayPreset('doubao-coding-claude', 'Doubao Coding Plan', 'claude'),
+      displayPreset('minimax-claude', 'MiniMax', 'claude'),
+      displayPreset('xiaomi-token-plan-claude', 'Xiaomi Token Plan', 'claude'),
+      displayPreset('codingplan-openai', 'Aliyun CodingPlan'),
+      displayPreset('zhipu-coding-plan-openai', 'Zhipu Coding Plan'),
+      displayPreset('kimi-coding-openai', 'Kimi Coding Plan'),
+      displayPreset('doubao-coding-openai', 'Doubao Coding Plan'),
+      displayPreset('minimax-openai', 'MiniMax'),
+    ]
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Coding Plan' }))
+    const buttons = within(
+      screen.getByRole('tabpanel', { name: 'Coding Plan' })
+    ).getAllByRole('button')
+    const expected = [
+      'Aliyun CodingPlan / OpenAI',
+      'Zhipu Coding Plan / OpenAI',
+      'Kimi Coding Plan / OpenAI',
+      'Doubao Coding Plan / OpenAI',
+      'Doubao Coding Plan / Claude',
+      'MiniMax / OpenAI',
+      'MiniMax / Claude',
+      'Xiaomi Token Plan / Claude',
+      'Z.ai Coding Plan / OpenAI',
+    ]
+    expect(buttons).toHaveLength(expected.length)
+    expected.forEach((label, index) =>
+      expect(buttons[index]).toHaveAccessibleName(`Use ${label} template`)
+    )
+    fireEvent.click(screen.getByRole('tab', { name: 'APIs' }))
+    expect(
+      within(screen.getByRole('tabpanel', { name: 'APIs' })).getAllByRole(
+        'button'
+      )
+    ).toHaveLength(2)
+  })
+
+  it('starts with New API and common domestic services, while all gateways and other services remain discoverable', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    const common = await screen.findByRole('tabpanel', { name: 'Common' })
+    const commonTemplates = within(common).getAllByRole('button')
+    expect(commonTemplates[0]).toHaveAccessibleName('Use New API template')
+    expect(commonTemplates[1]).toHaveAccessibleName(
+      'Use Aliyun CodingPlan / OpenAI template'
+    )
+    expect(commonTemplates[2]).toHaveAccessibleName(
+      'Use DeepSeek / OpenAI template'
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Use OpenAI API template' })
+    ).not.toBeInTheDocument()
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Search all templates…' }),
+      { target: { value: 'OpenAI API' } }
+    )
+    expect(
+      await screen.findByRole('button', { name: 'Use OpenAI API template' })
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Gateways' }))
+    expect(
+      within(screen.getByRole('tabpanel', { name: 'Gateways' })).getAllByRole(
+        'button'
+      )
+    ).toHaveLength(8)
+    fireEvent.click(screen.getByRole('tab', { name: 'Coding Plan' }))
+    const coding = screen.getByRole('tabpanel', { name: 'Coding Plan' })
+    expect(
+      within(coding).getByRole('button', {
+        name: 'Use Xiaomi Token Plan / Claude template',
+      })
+    ).toBeInTheDocument()
+    expect(
+      within(coding).queryByRole('button', { name: 'Use OpenAI API template' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('keeps paired controls top-aligned and scrolls fields independently of the header and actions', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    const name = await screen.findByLabelText('Name')
+    const dialog = screen.getByRole('dialog')
+    const body = dialog.querySelector('[data-slot="site-form-body"]')
+    expect(body).toHaveClass('min-h-0', 'overflow-y-auto')
+    expect(dialog).toHaveClass('overflow-hidden')
+    expect(body).not.toContainElement(
+      dialog.querySelector('[data-slot="sheet-header"]')
+    )
+    expect(body).not.toContainElement(
+      dialog.querySelector('[data-slot="sheet-footer"]')
+    )
+    for (const control of [name, screen.getByLabelText('Global weight')]) {
+      expect(
+        control.closest('[data-slot="form-item"]')?.parentElement
+      ).toHaveClass('items-start', 'sm:grid-cols-2')
+    }
+    expect(
+      screen.getByRole('group', { name: 'Connection details' })
+    ).toContainElement(name)
+    expect(
+      screen.getByRole('group', { name: 'Routing and probes' })
+    ).toContainElement(screen.getByLabelText('Max concurrency'))
+    expect(
+      screen.getByRole('group', { name: 'Proxy and requests' })
+    ).toContainElement(screen.getByLabelText('Proxy URL'))
+  })
+
+  it('searches service presets and fills a blank connection with a canonical adapter', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.change(
+      await screen.findByRole('textbox', { name: 'Search all templates…' }),
+      { target: { value: 'DeepSeek' } }
+    )
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Use DeepSeek / OpenAI template',
+      })
+    )
+    expect(screen.getByLabelText('Name')).toHaveValue('DeepSeek')
+    expect(screen.getByLabelText('URL')).toHaveValue(
+      'https://api.deepseek.com/v1'
+    )
+    expect(
+      screen.getByRole('combobox', { name: 'Platform' })
+    ).toHaveTextContent('OpenAI')
+  })
+
+  it('preserves a typed name and URL when applying a compatible service preset', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    await screen.findByLabelText('Name')
+    typeField('Name', 'My existing connection')
+    typeField('URL', 'https://gateway.example.com')
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Use DeepSeek / OpenAI template',
+      })
+    )
+    expect(screen.getByLabelText('Name')).toHaveValue('My existing connection')
+    expect(screen.getByLabelText('URL')).toHaveValue(
+      'https://gateway.example.com'
+    )
+    expect(
+      screen.getByRole('combobox', { name: 'Platform' })
+    ).toHaveTextContent('OpenAI')
+  })
+})
+
+describe('SiteFormSheet template changes', () => {
+  it('submits the server preset ID after URL normalization, including a custom name', async () => {
+    mockCreateMutate.mockResolvedValue({
+      id: 42,
+      name: 'My connection',
+      url: 'https://api.deepseek.com',
+      platform: 'openai',
+    })
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Use DeepSeek / OpenAI template',
+      })
+    )
+    typeField('Name', 'My connection')
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    await waitFor(() => expect(mockCreateMutate).toHaveBeenCalledTimes(1))
+    expect(mockCreateMutate.mock.calls[0]?.[0]).toMatchObject({
+      name: 'My connection',
+      url: 'https://api.deepseek.com',
+      platform: 'openai',
+      initializationPresetId: 'deepseek-openai',
+    })
+  })
+
+  it.each(['URL', 'Platform'])(
+    'clears the preset ID after manually changing %s',
+    async (field) => {
+      mockCreateMutate.mockResolvedValue({
+        id: 42,
+        name: 'Custom',
+        url: 'https://custom.example.com',
+        platform: 'openai',
+      })
+      render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'Use DeepSeek / OpenAI template',
+        })
+      )
+      if (field === 'URL') typeField('URL', 'https://custom.example.com')
+      else {
+        fireEvent.click(screen.getByRole('combobox', { name: 'Platform' }))
+        fireEvent.click(
+          await screen.findByRole('option', { name: 'Anthropic Claude' })
+        )
+      }
+      fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+      await waitFor(() => expect(mockCreateMutate).toHaveBeenCalledTimes(1))
+      expect(mockCreateMutate.mock.calls[0]?.[0]).not.toHaveProperty(
+        'initializationPresetId'
+      )
+    }
+  )
+
+  it('changes untouched defaults and preserves subsequent manual edits', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Use DeepSeek / OpenAI template',
+      })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Change template' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'APIs' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use Gemini API template' })
+    )
+    expect(screen.getByLabelText('Name')).toHaveValue('Google Gemini')
+    expect(screen.getByLabelText('URL')).toHaveValue(
+      'https://generativelanguage.googleapis.com'
+    )
+    expect(
+      screen.getByRole('combobox', { name: 'Platform' })
+    ).toHaveTextContent('Google Gemini')
+    typeField('Name', 'My gateway')
+    typeField('URL', 'https://gateway.example.com')
+    fireEvent.click(screen.getByRole('button', { name: 'Change template' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use OpenAI API template' })
+    )
+    expect(screen.getByLabelText('Name')).toHaveValue('My gateway')
+    expect(screen.getByLabelText('URL')).toHaveValue(
+      'https://gateway.example.com'
+    )
+    expect(
+      screen.getByRole('combobox', { name: 'Platform' })
+    ).toHaveTextContent('OpenAI')
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Custom connection; your entries were preserved.'
+    )
+  })
+
+  it('switches to a management template without retaining the previous service URL', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Use DeepSeek / OpenAI template',
+      })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Change template' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Gateways' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Use New API template' })
+    )
+    expect(screen.getByLabelText('Name')).toHaveValue('New API')
+    expect(screen.getByLabelText('URL')).toHaveValue('')
+    expect(
+      screen.getByRole('combobox', { name: 'Platform' })
+    ).toHaveTextContent('New API')
+  })
+
+  it('opens the existing OAuth page and keeps unavailable providers disabled', async () => {
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
+    fireEvent.click(await screen.findByRole('tab', { name: 'OAuth' }))
+    const oauth = await screen.findByRole('link', {
+      name: 'Open OAuth connections for OpenAI Codex',
+    })
+    expect(oauth).toHaveAttribute('href', '/oauth')
+    expect(oauth).toHaveAttribute('target', '_blank')
+    expect(
+      screen.getByRole('button', { name: 'Antigravity is not available' })
+    ).toBeDisabled()
+    expect(mockCreateMutate).not.toHaveBeenCalled()
+  })
+})
 
 describe('SiteFormSheet Zod submission errors', () => {
   it('renders the nameRequired error when submitting with an empty name', async () => {
@@ -148,40 +561,42 @@ describe('SiteFormSheet create payload', () => {
 })
 
 describe('SiteFormSheet platform picker', () => {
-  // Canonical adapter platforms from platform/registry.go `orderedPlatformNames`.
+  // Human-facing names stay readable while submissions retain canonical IDs.
   const CANONICAL_PLATFORMS = [
-    'openai',
-    'codex',
-    'claude',
-    'gemini',
-    'gemini-cli',
-    'antigravity',
-    'grok',
-    'cliproxyapi',
-    'sensetime',
-    'anyrouter',
-    'done-hub',
-    'one-hub',
-    'veloera',
-    'new-api',
-    'sub2api',
-    'one-api',
+    'OpenAI',
+    'OpenAI Codex',
+    'Anthropic Claude',
+    'Google Gemini',
+    'Gemini CLI',
+    'Antigravity',
+    'xAI Grok',
+    'CLIProxyAPI',
+    'AnyRouter',
+    'Done Hub',
+    'One Hub',
+    'Veloera',
+    'New API',
+    'Sub2API',
+    'One API',
   ]
 
-  it('lists the 16 canonical platforms in the platform select', async () => {
+  it('lists selectable platforms with readable names and excludes SenseTime', async () => {
     render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
 
     const platformSelect = await screen.findByRole('combobox', {
       name: 'Platform',
     })
 
-    fireEvent.mouseDown(platformSelect)
+    fireEvent.click(platformSelect)
 
     for (const platform of CANONICAL_PLATFORMS) {
       expect(
         await screen.findByRole('option', { name: platform })
       ).toBeInTheDocument()
     }
+    expect(
+      screen.queryByRole('option', { name: 'SenseTime' })
+    ).not.toBeInTheDocument()
   })
 
   it('sets the platform form value when a canonical platform is selected', async () => {
@@ -202,17 +617,17 @@ describe('SiteFormSheet platform picker', () => {
     typeField('Name', 'My Site')
     typeField('URL', 'https://example.com')
 
-    fireEvent.mouseDown(
-      await screen.findByRole('combobox', { name: 'Platform' })
-    )
-    const claudeOption = await screen.findByRole('option', { name: 'claude' })
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Platform' }))
+    const claudeOption = await screen.findByRole('option', {
+      name: 'Anthropic Claude',
+    })
     fireEvent.pointerDown(claudeOption)
     fireEvent.click(claudeOption)
 
     await waitFor(() => {
       expect(
         screen.getByRole('combobox', { name: 'Platform' })
-      ).toHaveTextContent('claude')
+      ).toHaveTextContent('Anthropic Claude')
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Create' }))

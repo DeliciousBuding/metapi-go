@@ -215,6 +215,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
         payload,
         'octopus-lab',
         undefined,
+        false,
         false
       )
     })
@@ -279,6 +280,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
         payloadB,
         'origin-B',
         undefined,
+        false,
         false
       )
     })
@@ -323,6 +325,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
         { version: 5, exported_at: 'now' },
         'octopus-lab',
         'channels-only',
+        false,
         false
       )
     })
@@ -367,6 +370,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
         { version: 5, exported_at: 'now' },
         'octopus-lab',
         'channels-only',
+        false,
         false
       )
     })
@@ -407,7 +411,8 @@ describe('ImportExportSection — cache invalidation after import', () => {
         payload,
         'octopus-lab',
         undefined,
-        true
+        true,
+        false
       )
     })
   })
@@ -427,6 +432,128 @@ describe('ImportExportSection — cache invalidation after import', () => {
 
     await waitFor(() => expect(mockImportBackup).not.toHaveBeenCalled())
     expect(screen.queryByText('Confirm import?')).not.toBeInTheDocument()
+  })
+
+  it('previews and commits an AxonHub v1.4 channel graph', async () => {
+    const { invalidateSpy } = renderImportExportSection()
+    const payload = {
+      version: '1.4',
+      timestamp: '2026-01-01T00:00:00Z',
+      channels: [],
+      models: [],
+    }
+    mockPreviewBackupImport.mockResolvedValueOnce({
+      success: true,
+      plan: {
+        source: 'axonhub-v1.4',
+        originKey: 'axonhub-lab',
+        version: '1.4',
+        sections: { channels: 3, models: 7 },
+        routable: {
+          channels: 3,
+          credentials: 4,
+          models: 5,
+          grants: 6,
+          routes: 5,
+        },
+        notImported: { projects: 1, apiKeys: 1 },
+        skippedChannels: [
+          {
+            sourceId: 3,
+            type: 'gemini',
+            reasons: ['provider_translation_unsupported'],
+          },
+        ],
+        residuals: ['channel-4:manual_models_not_imported_until_synced'],
+      },
+    })
+    fireEvent.change(screen.getByPlaceholderText('{ "version": "..." }'), {
+      target: { value: JSON.stringify(payload) },
+    })
+    fireEvent.change(screen.getByLabelText('External origin key'), {
+      target: { value: 'axonhub-lab' },
+    })
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Preview import' })
+    )
+
+    expect(
+      await screen.findByText('Configuration that will be written:')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Channels that cannot be imported:')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'requires a protocol translation this gateway does not implement'
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Unmigrated capabilities and configuration differences:')
+    ).toBeInTheDocument()
+    // An AxonHub import never asks for the Octopus channels-only acknowledgement.
+    expect(
+      screen.queryByRole('checkbox', {
+        name: /I understand: import channels, credentials, model grants/i,
+      })
+    ).not.toBeInTheDocument()
+    clickLastButtonNamed('Import')
+    await screen.findByText('Confirm import?')
+    clickLastButtonNamed('Import')
+    await waitFor(() => {
+      expect(mockImportBackup).toHaveBeenCalledExactlyOnceWith(
+        payload,
+        'axonhub-lab',
+        undefined,
+        false,
+        false
+      )
+    })
+    await waitFor(() => expectInvalidated(invalidateSpy))
+  })
+
+  it('confirms AxonHub origin removals with the AxonHub replacement header only', async () => {
+    renderImportExportSection()
+    const payload = {
+      version: '1.4',
+      timestamp: '2026-01-01T00:00:00Z',
+      channels: [],
+      models: [],
+    }
+    mockPreviewBackupImport.mockResolvedValueOnce({
+      success: true,
+      plan: {
+        source: 'axonhub-v1.4',
+        originKey: 'axonhub-lab',
+        version: '1.4',
+        sections: { channels: 2 },
+        routable: { channels: 2, routes: 3 },
+        removals: { token_routes: 2 },
+      },
+    })
+    fireEvent.change(screen.getByPlaceholderText('{ "version": "..." }'), {
+      target: { value: JSON.stringify(payload) },
+    })
+    fireEvent.change(screen.getByLabelText('External origin key'), {
+      target: { value: 'axonhub-lab' },
+    })
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Preview import' })
+    )
+
+    await screen.findByText('Remove entries deleted from this source')
+    clickLastButtonNamed('Import')
+    await screen.findByText('Confirm import?')
+    clickLastButtonNamed('Import')
+    await waitFor(() => {
+      expect(mockImportBackup).toHaveBeenCalledExactlyOnceWith(
+        payload,
+        'axonhub-lab',
+        undefined,
+        false,
+        true
+      )
+    })
   })
 
   it('loads a selected JSON backup file into the import preview editor', async () => {

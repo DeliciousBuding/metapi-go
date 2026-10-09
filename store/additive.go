@@ -495,6 +495,51 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "proxy_logs", "upstream_reported_model", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		Version:     "sc2_034_direct_endpoint_config",
+		Description: "direct upstream resolved per-protocol endpoint URLs and authentication",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "upstream_channels")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "upstream_channels", "endpoint_config", "TEXT", "TEXT", "DEFAULT '{}' NOT NULL")
+		},
+	},
+	{
+		Version:     "sc2_035_direct_protocol_order",
+		Description: "direct route item outbound protocol priority and restriction",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "upstream_group_items")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "upstream_group_items", "protocol_order", "TEXT", "TEXT", "DEFAULT '[]' NOT NULL")
+		},
+	},
+	{
+		Version:     "sc2_036_direct_oauth_credentials",
+		Description: "typed direct credentials and provider wire profile",
+		Apply: func(db *DB) error {
+			for _, column := range []struct{ table, name, def string }{
+				{"upstream_channels", "provider", "DEFAULT '' NOT NULL"},
+				{"upstream_credentials", "kind", "DEFAULT 'api_key' NOT NULL"},
+				{"upstream_credentials", "oauth_state", "DEFAULT '{}' NOT NULL"},
+			} {
+				exists, err := tableExists(db, column.table)
+				if err != nil {
+					return err
+				}
+				if !exists {
+					continue
+				}
+				if err := EnsureColumn(db, column.table, column.name, "TEXT", "TEXT", column.def); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	},
 	// sc2_029_ts_timestamp_normalization is deliberately NOT a registry step
 	// any more. A journal gate decides "already applied" from the state of the
 	// database at the moment it runs, and the TS-shaped timestamps this rewrite
@@ -507,6 +552,13 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 	// string stays reserved: databases that already recorded it keep the row,
 	// and it must never be reused for a different step.
 
+	{
+		Version:     "downstream_access_policy_v1",
+		Description: "downstream access policy and durable quota usage",
+		Apply: func(db *DB) error {
+			return EnsureColumn(db, "downstream_api_keys", "access_policy", "TEXT", "TEXT", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

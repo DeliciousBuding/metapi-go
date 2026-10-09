@@ -41,6 +41,7 @@ var accountsExportScope = map[string]bool{
 	"proxy_video_tasks":        true,
 	"admin_background_tasks":   true,
 	"downstream_api_keys":      true,
+	"downstream_quota_usage":   true,
 	"site_announcements":       true,
 }
 

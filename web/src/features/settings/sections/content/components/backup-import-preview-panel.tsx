@@ -19,9 +19,29 @@ export type OctopusV5Preview = {
   blocking?: string[]
 }
 
+type AxonHubSkippedChannel = {
+  sourceId: number
+  type: string
+  reasons: string[]
+}
+
+export type AxonHubV14Preview = {
+  source: string
+  originKey: string
+  version: string
+  sections: Record<string, number>
+  routable: Record<string, number>
+  notImported?: Record<string, number>
+  skippedChannels?: AxonHubSkippedChannel[]
+  residuals?: string[]
+  removals?: Record<string, number>
+  blocking?: string[]
+}
+
 export type BackupImportPreview =
   | { kind: 'tables'; tables: BackupImportTablePlan }
   | { kind: 'octopus'; data: OctopusV5Preview }
+  | { kind: 'axonhub'; data: AxonHubV14Preview }
 
 type Props = {
   preview: BackupImportPreview | null
@@ -33,22 +53,43 @@ export function BackupImportPreviewPanel(props: Props) {
   const { t } = useTranslation()
   const preview = props.preview
   if (!preview) return null
-  const external = preview.kind === 'octopus' ? preview.data : null
+  const external = preview.kind === 'tables' ? null : preview.data
+  const axonhub = preview.kind === 'axonhub' ? preview.data : null
   const blocked = (external?.blocking?.length ?? 0) > 0
   const omitted = Object.entries(external?.notImported ?? {}).filter(
     ([, count]) => count > 0
   )
-  const adapted = (external?.adaptations?.length ?? 0) > 0
+  const adapted =
+    (preview.kind === 'octopus' ? (preview.data.adaptations?.length ?? 0) : 0) >
+    0
   const removals = Object.entries(external?.removals ?? {}).filter(
     ([, count]) => count > 0
   )
-  const needsAcknowledgement = omitted.length > 0 || adapted
+  const skipped = axonhub?.skippedChannels ?? []
+  const residuals = axonhub?.residuals ?? []
+  const unsupportedProtocols = residuals.flatMap((residual) => {
+    const match = /^declared_protocol_not_servable:([^\s]+)/.exec(residual)
+    return match ? [match[1]] : []
+  })
+  const otherResiduals = residuals.filter(
+    (residual) => !residual.startsWith('declared_protocol_not_servable:')
+  )
+  const routable = Object.entries(axonhub?.routable ?? {}).filter(
+    ([, count]) => count > 0
+  )
+  // Only the Octopus importer needs an explicit "channels only" confirmation.
+  // An AxonHub import always commits exactly the compiled channel graph, and the
+  // sections it leaves behind are listed for review rather than acknowledged.
+  const needsAcknowledgement =
+    preview.kind === 'octopus' && (omitted.length > 0 || adapted)
+  const hasExternalReview =
+    skipped.length > 0 || residuals.length > 0 || omitted.length > 0 || adapted
   let status = 'ready'
   let variant: 'success' | 'warning' | 'destructive' = 'success'
   if (blocked) {
     status = 'blocked'
     variant = 'destructive'
-  } else if (needsAcknowledgement || removals.length > 0) {
+  } else if (hasExternalReview || removals.length > 0) {
     status = 'review'
     variant = 'warning'
   }
@@ -83,6 +124,31 @@ export function BackupImportPreviewPanel(props: Props) {
                 originKey: external.originKey,
               })}
             </p>
+            {routable.length > 0 ? (
+              <div className='space-y-2'>
+                <p className='text-sm font-medium'>
+                  {t('settings.content.importExport.axonhubRoutableTitle')}
+                </p>
+                <dl className='grid grid-cols-2 gap-2 sm:grid-cols-3'>
+                  {routable.map(([section, count]) => (
+                    <div
+                      key={section}
+                      className='bg-primary/5 min-w-0 rounded-lg px-3 py-3'
+                    >
+                      <dt className='text-muted-foreground text-xs'>
+                        {t(
+                          `settings.content.importExport.design.routable.${section}`,
+                          { defaultValue: section }
+                        )}
+                      </dt>
+                      <dd className='mt-1 text-xl leading-tight font-semibold tabular-nums'>
+                        {count.toLocaleString()}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ) : null}
             {blocked ? (
               <div
                 role='alert'
@@ -178,7 +244,10 @@ export function BackupImportPreviewPanel(props: Props) {
                 <p className='font-medium'>
                   {t('settings.content.importExport.octopusAdaptationsTitle')}
                 </p>
-                {external.adaptations?.map((key) => (
+                {(preview.kind === 'octopus'
+                  ? (preview.data.adaptations ?? [])
+                  : []
+                ).map((key) => (
                   <p key={key}>
                     {t(
                       `settings.content.importExport.octopusAdaptation.${key}`
@@ -187,7 +256,56 @@ export function BackupImportPreviewPanel(props: Props) {
                 ))}
               </div>
             ) : null}
-            {!blocked && !needsAcknowledgement ? (
+            {skipped.length > 0 ? (
+              <div className='bg-warning/10 text-warning-soft-fg space-y-2 rounded-lg p-3 text-sm'>
+                <p className='font-medium'>
+                  {t('settings.content.importExport.axonhubSkippedTitle')}
+                </p>
+                <ul className='space-y-1.5'>
+                  {skipped.map((channel) => (
+                    <li key={`${channel.type}-${channel.sourceId}`}>
+                      <span className='font-medium'>{channel.type}</span>
+                      {' · '}
+                      <span className='opacity-80'>
+                        {channel.reasons
+                          .map((reason) =>
+                            t(
+                              `settings.content.importExport.design.axonhubReasons.${reason}`,
+                              { defaultValue: reason }
+                            )
+                          )
+                          .join(' · ')}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {residuals.length > 0 ? (
+              <div className='bg-muted/50 space-y-2 rounded-lg p-3 text-sm leading-relaxed'>
+                <p className='font-medium'>
+                  {t('settings.content.importExport.axonhubResidualsTitle')}
+                </p>
+                <ul className='text-muted-foreground space-y-1'>
+                  {unsupportedProtocols.length > 0 && (
+                    <li className='break-words'>
+                      {t(
+                        'settings.content.importExport.axonhubUnsupportedProtocols',
+                        {
+                          formats: unsupportedProtocols.join(', '),
+                        }
+                      )}
+                    </li>
+                  )}
+                  {otherResiduals.map((residual) => (
+                    <li key={residual} className='break-words'>
+                      {residual}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {!blocked && !hasExternalReview ? (
               <p className='text-muted-foreground flex items-center gap-2 text-sm'>
                 <CircleCheck
                   className='text-success-soft-fg size-4 shrink-0'

@@ -10,6 +10,28 @@ import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
 const queryKey = ['imported-upstreams'] as const
+const protocolNames: Record<string, string> = {
+  chat: 'Chat',
+  responses: 'Responses',
+  messages: 'Messages',
+  gemini: 'Gemini',
+}
+const protocolBits: Record<number, string> = {
+  2: 'Chat',
+  4: 'Responses',
+  8: 'Messages',
+  16: 'Gemini',
+}
+
+function formatProtocols(mask: number, order?: number[]): string {
+  const selected = order?.length
+    ? order
+    : [2, 4, 8, 16].filter((bit) => mask & bit)
+  return selected
+    .map((bit) => protocolBits[bit])
+    .filter(Boolean)
+    .join(' / ')
+}
 
 export function ImportedUpstreamsPanel() {
   const { t } = useTranslation()
@@ -114,6 +136,32 @@ export function ImportedUpstreamsPanel() {
                   })}
                 </span>
               </div>
+              {Object.keys(item.endpointConfig ?? {}).length > 0 && (
+                <details className='mt-3 text-xs'>
+                  <summary className='text-muted-foreground cursor-pointer'>
+                    {t('channels.imported.endpoints')}
+                  </summary>
+                  <dl className='mt-2 space-y-2'>
+                    {Object.entries(item.endpointConfig ?? {}).map(
+                      ([protocol, endpoint]) => (
+                        <div key={protocol}>
+                          <dt className='font-medium'>
+                            {protocolNames[protocol] ?? protocol}
+                            <span className='text-muted-foreground ml-2 font-normal'>
+                              {endpoint.auth === 'bearer'
+                                ? 'Bearer'
+                                : endpoint.auth}
+                            </span>
+                          </dt>
+                          <dd className='text-muted-foreground mt-0.5 break-all'>
+                            {endpoint.url}
+                          </dd>
+                        </div>
+                      )
+                    )}
+                  </dl>
+                </details>
+              )}
               <ul className='mt-3 space-y-2'>
                 {query.data.members
                   .filter((member) => member.channelId === item.id)
@@ -143,13 +191,10 @@ export function ImportedUpstreamsPanel() {
                         </Badge>
                       ) : null}
                       <span className='text-muted-foreground'>
-                        {[
-                          member.protocols & 2 ? 'Chat' : '',
-                          member.protocols & 4 ? 'Responses' : '',
-                          member.protocols & 8 ? 'Messages' : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' / ')}
+                        {formatProtocols(
+                          member.protocols,
+                          member.protocolOrder
+                        )}
                       </span>
                     </li>
                   ))}

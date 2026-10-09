@@ -39,6 +39,11 @@ vi.mock('@/lib/toast', () => ({
 }))
 
 vi.mock('../api', () => ({
+  useSiteInitializationPresets: () => ({
+    data: [],
+    isPending: false,
+    isError: false,
+  }),
   useCreateSite: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateSite: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDetectSite: () => ({

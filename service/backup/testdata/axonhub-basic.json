@@ -1,0 +1,62 @@
+{
+  "version": "1.4",
+  "timestamp": "2026-10-05T14:48:53Z",
+  "system_configs": [{ "key": "brand_name", "value": "Fixture Gateway" }],
+  "projects": [{
+    "id": 1,
+    "name": "default",
+    "description": "Sanitized fixture project",
+    "status": "active",
+    "profiles": { "profiles": [{ "name": "restricted", "channelIDs": [4], "channelTags": ["fixture-tag"] }] },
+    "deleted_at": 0
+  }],
+  "channels": [{
+    "id": 4,
+    "type": "openai",
+    "name": "Fixture compatible provider",
+    "status": "enabled",
+    "base_url": "https://api.example.invalid/v1",
+    "credentials": { "apiKey": "fixture-api-key-primary", "apiKeys": ["fixture-api-key-secondary"] },
+    "supported_models": ["fixture-model"],
+    "manual_models": ["fixture-manual-model"],
+    "auto_sync_supported_models": false,
+    "settings": { "modelMappings": [{ "from": "public-model", "to": "fixture-model" }] },
+    "policies": { "stream": "unlimited" },
+    "endpoints": [{ "api_format": "openai/chat_completions" }],
+    "remark": "sanitized fixture",
+    "deleted_at": 0
+  }],
+  "models": [{
+    "id": 9,
+    "developer": "Fixture",
+    "model_id": "fixture-model",
+    "type": "chat",
+    "name": "Fixture Model",
+    "status": "enabled",
+    "settings": { "associations": [{ "type": "channel_model", "channelModel": { "channelId": 4, "modelId": "fixture-model" } }] },
+    "deleted_at": 0
+  }],
+  "channel_model_prices": [{
+    "channel_name": "Fixture compatible provider",
+    "model_id": "fixture-model",
+    "price": { "items": [
+      { "itemCode": "prompt_tokens", "pricing": { "mode": "usage_per_unit", "usagePerUnit": "0.1" } },
+      { "itemCode": "completion_tokens", "pricing": { "mode": "usage_per_unit", "usagePerUnit": "0.2" } }
+    ] },
+    "reference_id": "fixture-price"
+  }],
+  "api_keys": [{
+    "id": 3,
+    "project_id": 1,
+    "project_name": "default",
+    "key": "fixture-downstream-key",
+    "name": "fixture downstream key",
+    "type": "user",
+    "status": "enabled",
+    "scopes": ["read_channels", "write_requests"],
+    "profiles": { "activeProfile": "restricted", "profiles": [{ "name": "restricted", "channelIDs": [4], "channelTags": ["fixture-tag"], "modelIDs": ["fixture-model"], "modelMappings": [{ "from": "public-model", "to": "fixture-model" }], "quota": { "requests": 100, "period": { "type": "all_time" } } }] },
+    "allowed_ips": ["192.0.2.1/32"]
+  }],
+  "usage_requests": [],
+  "usage_logs": []
+}

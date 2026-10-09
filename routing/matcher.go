@@ -244,6 +244,9 @@ func GetExposedModelNameForRoute(displayName *string, modelPattern string) strin
 
 // IsModelAllowedByDownstreamPolicy checks whether a model is allowed by the downstream routing policy.
 func IsModelAllowedByDownstreamPolicy(requestedModel string, policy DownstreamRoutingPolicy) bool {
+	if !policy.AccessPolicy.AllowsModel(requestedModel) {
+		return false
+	}
 	hasSupportedPatterns := len(policy.SupportedModels) > 0
 	hasAllowedRoutes := len(policy.AllowedRouteIDs) > 0
 

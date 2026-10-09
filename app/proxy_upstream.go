@@ -17,6 +17,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/catalogsync"
+	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/service/pricingcatalog"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -55,6 +56,9 @@ func ConfigureProxyUpstream(cfg *config.Config) error {
 		Router:      router,
 		Coordinator: coord,
 		Executor:    proxy.NewRuntimeExecutor(requestTimeout),
+		ResolveDirectCredential: func(ctx context.Context, id int64, proxyURL *string, force bool) (*oauth.DirectCredentialResult, error) {
+			return oauth.ResolveDirectCredential(ctx, db.DB, id, proxyURL, force)
+		},
 		// Persist successful/failed proxy attempts (token usage when available).
 		// EnqueueProxyLog routes through the async batch writer when
 		// PROXY_LOG_ASYNC is enabled (default), falling back to a synchronous

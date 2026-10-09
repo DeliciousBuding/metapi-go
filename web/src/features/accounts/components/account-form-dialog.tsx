@@ -19,6 +19,7 @@ import {
 } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
+import { PlatformBadge } from '@/components/common/platform-badge'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
@@ -63,6 +64,11 @@ import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { useSiteInitializationPresets } from '@/features/sites'
+import {
+  getPlatformDefinition,
+  getPlatformDisplayName,
+} from '@/lib/platform-catalog'
 import { toast } from '@/lib/toast'
 
 import {
@@ -80,6 +86,7 @@ import {
   transformFormToPayload,
   type AccountFormValues,
 } from '../lib/accounts-schema'
+import { findAccountInitializationPreset } from '../lib/initialization-preset'
 import type { Account, CredentialMode, Site } from '../types'
 import {
   showAccountCreatedToast,
@@ -121,12 +128,17 @@ function resolveAxiosErrorMessage(error: unknown): string {
 }
 
 function getSiteLabel(site: Site): string {
-  const label = site.name || site.url || `#${site.id}`
-  return site.platform ? `${label} · ${site.platform}` : label
+  return site.name || site.url || `#${site.id}`
 }
 
 function getSiteSearchValue(site: Site): string {
-  return [site.name, site.url, site.platform, String(site.id)]
+  return [
+    site.name,
+    site.url,
+    site.platform,
+    getPlatformDisplayName(site.platform),
+    String(site.id),
+  ]
     .filter(Boolean)
     .join(' ')
 }
@@ -145,6 +157,7 @@ export function AccountFormDialog({
   const updateMutation = useUpdateAccount()
   const loginMutation = useLoginAccount()
   const verifyMutation = useVerifyAccountToken()
+  const presets = useSiteInitializationPresets()
   const isEdit = mode === 'edit' && !!account
 
   const schema = useMemo(() => getAccountFormSchema(!isEdit), [isEdit])
@@ -173,12 +186,16 @@ export function AccountFormDialog({
     const targetKey = isEdit && account ? `edit:${account.id}` : 'create'
     if (initializedFor === targetKey) return
     setInitializedFor(targetKey)
-    // Create default credential mode: deep-link hint wins (apikey), otherwise
-    // session. Edit always follows the account's own stored mode.
+    // An explicit deep link wins; direct API sites start in API-key mode.
+    const initialSite = sites.find((site) => site.id === initialSiteId)
+    const defaultMode =
+      getPlatformDefinition(initialSite?.platform)?.group === 'api'
+        ? 'apikey'
+        : 'session'
     const baseDefaults = getAccountFormDefaultValues(
       isEdit
         ? (account?.credentialMode ?? 'session')
-        : (initialCredentialMode ?? 'session')
+        : (initialCredentialMode ?? defaultMode)
     )
     if (isEdit && account) {
       form.reset({ ...baseDefaults, ...transformAccountToFormValues(account) })
@@ -195,6 +212,7 @@ export function AccountFormDialog({
     initializedFor,
     initialSiteId,
     initialCredentialMode,
+    sites,
     form,
   ])
 
@@ -215,6 +233,53 @@ export function AccountFormDialog({
   }, [siteSelectorOpen])
 
   const watchedSiteId = form.watch('siteId')
+  const watchedPassword = form.watch('password')
+  const watchedUsername = form.watch('username')
+  const selectedSite = sites.find((site) => site.id === watchedSiteId)
+  const preset = findAccountInitializationPreset(selectedSite, presets.data)
+  const apiSite = getPlatformDefinition(selectedSite?.platform)?.group === 'api'
+  const passwordDraft =
+    !!watchedPassword || (credentialMode === 'password' && !!watchedUsername)
+  const showPasswordMode = isEdit || !apiSite || passwordDraft
+
+  useEffect(() => {
+    if (
+      !open ||
+      !isInitialized ||
+      isEdit ||
+      credentialMode !== 'apikey' ||
+      !presets.isSuccess ||
+      form.getFieldState('skipModelFetch').isTouched
+    ) {
+      return
+    }
+    form.setValue(
+      'skipModelFetch',
+      preset?.recommendedSkipModelFetch ?? false,
+      { shouldDirty: false }
+    )
+  }, [
+    open,
+    isInitialized,
+    isEdit,
+    credentialMode,
+    watchedSiteId,
+    preset?.recommendedSkipModelFetch,
+    presets.isSuccess,
+    form,
+  ])
+
+  useEffect(() => {
+    if (
+      open &&
+      isInitialized &&
+      !showPasswordMode &&
+      credentialMode === 'password'
+    ) {
+      form.setValue('credentialMode', 'apikey')
+    }
+  }, [open, isInitialized, showPasswordMode, credentialMode, form])
+
   const watchedAccessToken = form.watch('accessToken')
   const watchedApiToken = form.watch('apiToken')
   const watchedPlatformUserId = form.watch('platformUserId')
@@ -329,10 +394,10 @@ export function AccountFormDialog({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side='right'
-        className='flex w-full flex-col gap-0 sm:max-w-lg'
+        className='flex w-full flex-col gap-0 overflow-hidden sm:max-w-lg'
         showMobileCloseBar={false}
       >
-        <SheetHeader>
+        <SheetHeader className='shrink-0 border-b'>
           <SheetTitle>
             {isEdit
               ? t('accounts.form.editTitle')
@@ -351,7 +416,7 @@ export function AccountFormDialog({
             onSubmit={form.handleSubmit(onSubmit, onInvalid)}
             inert={!isInitialized ? true : undefined}
             aria-busy={!isInitialized}
-            className='flex-1 space-y-6 overflow-y-auto p-4 text-sm leading-5 [&_[data-slot=form-description]]:leading-5 [&_[data-slot=form-label]]:font-semibold'
+            className='min-h-0 flex-1 space-y-6 overflow-y-auto p-4 text-sm leading-5 [&_[data-slot=form-description]]:leading-5 [&_[data-slot=form-label]]:font-semibold'
           >
             {/* Site selection */}
             <FormField
@@ -395,11 +460,17 @@ export function AccountFormDialog({
                           <span
                             className={
                               hasSelection
-                                ? 'min-w-0 flex-1 truncate text-left'
+                                ? 'flex min-w-0 flex-1 items-center gap-2 text-left'
                                 : 'text-muted-foreground min-w-0 flex-1 truncate text-left'
                             }
                           >
-                            {selectedLabel}
+                            <span className='truncate'>{selectedLabel}</span>
+                            {selectedSite?.platform && (
+                              <PlatformBadge
+                                platform={selectedSite.platform}
+                                className='text-muted-foreground shrink-0 text-xs'
+                              />
+                            )}
                           </span>
                           <ChevronsUpDown
                             aria-hidden='true'
@@ -425,14 +496,8 @@ export function AccountFormDialog({
                             </CommandEmpty>
                             <CommandGroup>
                               {siteOptions.map((site) => {
-                                const label =
-                                  site.name || site.url || `#${site.id}`
-                                const details = [
-                                  site.platform,
-                                  site.name ? site.url : '',
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ')
+                                const label = getSiteLabel(site)
+                                const details = site.name ? site.url : ''
 
                                 return (
                                   <CommandItem
@@ -440,6 +505,23 @@ export function AccountFormDialog({
                                     value={getSiteSearchValue(site)}
                                     data-checked={field.value === site.id}
                                     onSelect={() => {
+                                      if (
+                                        !isEdit &&
+                                        !form.getFieldState('credentialMode')
+                                          .isDirty &&
+                                        !form.getValues('accessToken') &&
+                                        !form.getValues('apiToken') &&
+                                        !form.getValues('password') &&
+                                        !initialCredentialMode
+                                      ) {
+                                        form.setValue(
+                                          'credentialMode',
+                                          getPlatformDefinition(site.platform)
+                                            ?.group === 'api'
+                                            ? 'apikey'
+                                            : 'session'
+                                        )
+                                      }
                                       field.onChange(site.id)
                                       field.onBlur()
                                       setSiteSelectorOpen(false)
@@ -449,9 +531,19 @@ export function AccountFormDialog({
                                       <span className='block truncate'>
                                         {label}
                                       </span>
-                                      {details && (
-                                        <span className='text-muted-foreground block truncate text-xs'>
-                                          {details}
+                                      {(site.platform || details) && (
+                                        <span className='text-muted-foreground flex min-w-0 items-center gap-2 text-xs'>
+                                          {site.platform && (
+                                            <PlatformBadge
+                                              platform={site.platform}
+                                              className='shrink-0'
+                                            />
+                                          )}
+                                          {details && (
+                                            <span className='truncate'>
+                                              {details}
+                                            </span>
+                                          )}
                                         </span>
                                       )}
                                     </span>
@@ -487,9 +579,11 @@ export function AccountFormDialog({
                   <TabsTrigger value='apikey'>
                     {t('accounts.form.modeApiKey')}
                   </TabsTrigger>
-                  <TabsTrigger value='password'>
-                    {t('accounts.form.modePassword')}
-                  </TabsTrigger>
+                  {showPasswordMode && (
+                    <TabsTrigger value='password'>
+                      {t('accounts.form.modePassword')}
+                    </TabsTrigger>
+                  )}
                 </TabsList>
               </Tabs>
             </FormItem>
@@ -971,7 +1065,13 @@ function ApiKeyFields({ form, verification, onVerify }: SessionFieldsProps) {
               </FormDescription>
             </div>
             <FormControl>
-              <Switch checked={field.value} onCheckedChange={field.onChange} />
+              <Switch
+                checked={field.value}
+                onCheckedChange={(checked) => {
+                  field.onChange(checked)
+                  field.onBlur() // Remember explicit choices even when toggled back to the default.
+                }}
+              />
             </FormControl>
           </FormItem>
         )}

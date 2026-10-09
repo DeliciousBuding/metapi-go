@@ -1,14 +1,6 @@
 // metapi-go/features/sites — post-create guidance modal.
 //
-// This is the FIRST step of the guided "site → account → route" config
-// chain. On successful `addSite`, the form dialog hands the
-// created site to this modal. Two primary CTAs mirror the TS original's
-// three-branch guidance (minus the codex OAuth branch, which the go version
-// has no handler for): 「添加账号」 opens the account form in session mode
-// with the site preselected, 「添加 API Key」 does the same but defaults the
-// credential mode to `apikey` via the `segment=apikey` deep-link param.
-// "稍后配置" is a ghost secondary so experts can skip — every page stays
-// independently deep-linkable.
+// Continue to the credential flow appropriate for the selected adapter.
 
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -18,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { PlatformBadge } from '@/components/common/platform-badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -27,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { getPlatformDefinition } from '@/lib/platform-catalog'
 
 import type { Site } from '../types'
 
@@ -43,6 +37,7 @@ export function SiteCreatedModal({
 }: SiteCreatedModalProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const group = getPlatformDefinition(site?.platform)?.group
 
   function handleGoToAccounts() {
     if (!site) return
@@ -79,29 +74,47 @@ export function SiteCreatedModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className='bg-muted/50 rounded-lg border p-3 text-sm'>
-          <p className='text-muted-foreground mb-1'>
-            {t('sites.created.nextStepLabel')}
-          </p>
-          <p className='font-medium'>{t('sites.created.nextStepBody')}</p>
-        </div>
+        {site && (
+          <div className='bg-muted/30 flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm'>
+            <PlatformBadge platform={site.platform} />
+            <span className='text-muted-foreground min-w-0 break-all'>
+              {site.url}
+            </span>
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant='outline' onClick={() => onOpenChange(false)}>
             {t('sites.created.dismiss')}
           </Button>
-          <Button
-            variant='outline'
-            onClick={handleGoToAddApiKey}
-            disabled={!site}
-          >
-            <KeyRoundIcon className='size-4' />
-            {t('sites.created.addApiKey')}
-          </Button>
-          <Button onClick={handleGoToAccounts} disabled={!site}>
-            {t('sites.created.goToAccounts')}
-            <ArrowRightIcon className='size-4' />
-          </Button>
+          {group === 'oauth' ? (
+            <Button
+              onClick={() => {
+                onOpenChange(false)
+                navigate({ to: '/oauth' })
+              }}
+            >
+              {t('sites.created.goToOAuth')}
+              <ArrowRightIcon className='size-4' />
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant={group === 'api' ? 'default' : 'outline'}
+                onClick={handleGoToAddApiKey}
+                disabled={!site}
+              >
+                <KeyRoundIcon className='size-4' />
+                {t('sites.created.addApiKey')}
+              </Button>
+              {group !== 'api' && (
+                <Button onClick={handleGoToAccounts} disabled={!site}>
+                  {t('sites.created.goToAccounts')}
+                  <ArrowRightIcon className='size-4' />
+                </Button>
+              )}
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

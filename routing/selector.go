@@ -50,6 +50,7 @@ func (s *ChannelSelector) SelectChannel(ctx context.Context, requestedModel stri
 		return nil, err
 	}
 
+	requestedModel = policy.AccessPolicy.MapModel(requestedModel)
 	match, err := s.findRoute(ctx, requestedModel, policy)
 	if err != nil {
 		return nil, err
@@ -69,6 +70,7 @@ func (s *ChannelSelector) SelectNextChannel(ctx context.Context, requestedModel 
 		return nil, err
 	}
 
+	requestedModel = policy.AccessPolicy.MapModel(requestedModel)
 	match, err := s.findRoute(ctx, requestedModel, policy)
 	if err != nil {
 		return nil, err
@@ -94,6 +96,7 @@ func (s *ChannelSelector) SelectPreferredChannel(
 		return nil, err
 	}
 
+	requestedModel = policy.AccessPolicy.MapModel(requestedModel)
 	match, err := s.findRoute(ctx, requestedModel, policy)
 	if err != nil {
 		return nil, err
@@ -683,7 +686,19 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 		if !candidate.Channel.Enabled || !direct.ChannelEnabled || !direct.ModelEnabled || !direct.CredentialEnabled || !direct.GrantEnabled {
 			reasons = append(reasons, "direct upstream grant disabled")
 		}
-		if policy.RequiredUpstreamProtocol == 0 || direct.Protocols&policy.RequiredUpstreamProtocol == 0 {
+		protocols := direct.Protocols
+		if len(direct.ProtocolOrder) > 0 {
+			allowed := 0
+			for _, protocol := range direct.ProtocolOrder {
+				allowed |= protocol
+			}
+			protocols &= allowed
+		}
+		required := policy.RequiredUpstreamProtocol
+		if required != 0 && policy.AllowUpstreamProtocolConversion && direct.Endpoints.IsConfigured() {
+			required = UpstreamProtocolChat | UpstreamProtocolResponses | UpstreamProtocolAnthropic | UpstreamProtocolGemini
+		}
+		if required == 0 || protocols&required == 0 {
 			reasons = append(reasons, "direct upstream protocol not authorized")
 		}
 		if len(policy.AllowedSiteIDs) > 0 {
@@ -823,6 +838,14 @@ func (s *ChannelSelector) resolveChannelTokenValue(candidate RouteChannelCandida
 }
 
 func (s *ChannelSelector) resolveDownstreamExclusionReason(candidate RouteChannelCandidate, policy DownstreamRoutingPolicy) string {
+	channelID := int64(0)
+	if candidate.Direct != nil {
+		channelID = candidate.Direct.ChannelID
+	}
+	if !policy.AccessPolicy.AllowsUpstreamChannel(channelID) {
+		return "upstream channel is not allowed by downstream access policy"
+	}
+
 	if candidate.Direct != nil {
 		if len(policy.AllowedSiteIDs) > 0 {
 			return "direct upstream is not in the downstream key site allow-list"

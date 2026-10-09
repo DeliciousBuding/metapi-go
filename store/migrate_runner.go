@@ -1204,7 +1204,7 @@ func buildProxyVideoTasks(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildDownstreamAPIKeys(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "name", "key", "description", "group_name", "tags", "enabled", "expires_at", "max_cost", "used_cost", "max_requests", "used_requests", "supported_models", "allowed_route_ids", "site_weight_multipliers", "excluded_site_ids", "excluded_credential_refs", "allowed_site_ids", "allowed_credential_refs", "key_weight", "proxy_url", "max_rpm", "max_tpm", "ip_allowlist", "ip_blocklist", "last_used_at", "created_at", "updated_at"}
+	cols := []string{"id", "name", "key", "description", "group_name", "tags", "enabled", "expires_at", "max_cost", "used_cost", "max_requests", "used_requests", "supported_models", "allowed_route_ids", "site_weight_multipliers", "excluded_site_ids", "excluded_credential_refs", "allowed_site_ids", "allowed_credential_refs", "key_weight", "proxy_url", "max_rpm", "max_tpm", "ip_allowlist", "ip_blocklist", "access_policy", "last_used_at", "created_at", "updated_at"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -1235,6 +1235,7 @@ func buildDownstreamAPIKeys(rows []map[string]interface{}) []insertStmt {
 				asNumber(v(row, "max_tpm"), nil),
 				asNullableString(v(row, "ip_allowlist")),
 				asNullableString(v(row, "ip_blocklist")),
+				asNullableString(v(row, "access_policy")),
 				asNullableString(v(row, "last_used_at")),
 				asNullableString(v(row, "created_at")),
 				asNullableString(v(row, "updated_at")),

@@ -28,6 +28,11 @@ import '@/i18n/config'
 import { AccountFormDialog } from '../components/account-form-dialog'
 import type { Site } from '../types'
 
+vi.mock('@/features/sites', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/sites')>()),
+  useSiteInitializationPresets: () => ({ data: [], isSuccess: true }),
+}))
+
 const { mockToastError } = vi.hoisted(() => ({ mockToastError: vi.fn() }))
 
 vi.mock('@/lib/toast', () => ({

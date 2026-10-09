@@ -363,6 +363,148 @@ func TestOctopusV5PreviewAndCommitChannelsOnlyAcknowledgement(t *testing.T) {
 
 const backupsvcFixtureV5 = `{"version":5,"exported_at":"2026-10-05T00:00:00Z","channels":[{"id":11,"name":"Primary","dialect":"generic","enabled":true,"base_url":"https://upstream.example/v1","openai_chat_completion_path":"/v1/chat/completions","openai_response_path":"/v1/responses","anthropic_message_path":"/v1/messages","proxy":false,"channel_proxy":"","custom_header":[],"param_override":"","match_regex":""},{"id":12,"name":"Primary backup","dialect":"generic","enabled":true,"base_url":"https://upstream.example/v1","openai_chat_completion_path":"/v1/chat/completions","openai_response_path":"/v1/responses","anthropic_message_path":"/v1/messages","proxy":false,"channel_proxy":"","custom_header":[],"param_override":"","match_regex":""}],"groups":[{"id":21,"name":"client-model","mode":"failover","active_item_id":31,"relay_config":{}}],"channel_keys":[{"id":13,"channel_id":11,"name":"prod","key":"fixture-key-octopus-1","enabled":true},{"id":14,"channel_id":12,"name":"backup","key":"fixture-key-octopus-2","enabled":true}],"channel_models":[{"id":15,"channel_id":11,"name":"provider-model"},{"id":16,"channel_id":12,"name":"provider-model"}],"channel_grants":[{"id":17,"channel_model_id":15,"channel_key_id":13,"protocols":2},{"id":18,"channel_model_id":16,"channel_key_id":14,"protocols":2}],"group_items":[{"id":31,"group_id":21,"channel_grant_id":17,"priority":0,"weight":1},{"id":32,"group_id":21,"channel_grant_id":18,"priority":1,"weight":1}],"api_keys":[],"llm_infos":[],"settings":[],"stats_total":[],"stats_daily":[],"stats_hourly":[],"stats_api_key":[]}`
 
+// backupFixtureAxonHubV14 is a sanitized AxonHub v1.4 export: one request model
+// served by an OpenAI-compatible channel with two keys and an Anthropic channel
+// with one, plus a Vertex channel the importer must refuse.
+const backupFixtureAxonHubV14 = `{"version":"1.4","timestamp":"2026-10-05T00:00:00Z","system_configs":[],"projects":[],"channels":[` +
+	`{"id":11,"type":"openai","name":"Primary","status":"enabled","base_url":"https://upstream.example/v1","credentials":{"apiKeys":["fixture-key-axonhub-1","fixture-key-axonhub-2"]},"supported_models":["client-model"],"endpoints":[{"api_format":"openai/chat_completions"}],"deleted_at":0},` +
+	`{"id":12,"type":"anthropic","name":"Backup","status":"enabled","base_url":"https://anthropic.example","credentials":{"apiKey":"fixture-key-axonhub-3"},"supported_models":["client-model"],"endpoints":[{"api_format":"anthropic/messages"}],"deleted_at":0},` +
+	`{"id":13,"type":"gemini_vertex","name":"Native Gemini","status":"enabled","base_url":"https://gemini.example","credentials":{"apiKey":"fixture-key-axonhub-4"},"supported_models":["gemini-model"],"endpoints":[{"api_format":"gemini/contents"}],"deleted_at":0}],` +
+	`"models":[{"id":21,"developer":"fixture","model_id":"client-model","type":"chat","name":"Client model","status":"enabled","settings":{"associations":[{"type":"model","modelId":{"modelId":"client-model"}}]},"deleted_at":0}],` +
+	`"channel_model_prices":[],"api_keys":[],"usage_requests":[],"usage_logs":[]}`
+
+func TestAxonHubV14PreviewAndCommitAreRealAndCredentialSafe(t *testing.T) {
+	db := setupBackupTestDB(t)
+	h := &backupHandler{db: db.DB}
+	previewReq := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import/preview", strings.NewReader(backupFixtureAxonHubV14))
+	previewReq.Header.Set("X-External-Origin-Key", "axonhub-prod")
+	previewRec := httptest.NewRecorder()
+	h.previewBackupImport(previewRec, previewReq)
+	if previewRec.Code != http.StatusOK {
+		t.Fatalf("preview status=%d body=%s", previewRec.Code, previewRec.Body.String())
+	}
+	body := previewRec.Body.String()
+	for _, leaked := range []string{"fixture-key-axonhub", "upstream.example", "Native Gemini"} {
+		if strings.Contains(body, leaked) {
+			t.Fatalf("preview leaked %q: %s", leaked, body)
+		}
+	}
+	if !strings.Contains(body, `"provider_translation_unsupported"`) {
+		t.Fatalf("preview did not name the refused provider: %s", body)
+	}
+	var before int
+	if err := db.Get(&before, `SELECT COUNT(*) FROM upstream_channels`); err != nil || before != 0 {
+		t.Fatalf("preview wrote channel rows: count=%d err=%v", before, err)
+	}
+
+	commitReq := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(backupFixtureAxonHubV14))
+	commitReq.Header.Set("X-External-Origin-Key", "axonhub-prod")
+	commitRec := httptest.NewRecorder()
+	h.importBackup(commitRec, commitReq)
+	if commitRec.Code != http.StatusOK || strings.Contains(commitRec.Body.String(), "fixture-key-axonhub") {
+		t.Fatalf("commit status/body unexpected: %d %s", commitRec.Code, commitRec.Body.String())
+	}
+	var channels, grants, routes int
+	if err := db.Get(&channels, `SELECT COUNT(*) FROM upstream_channels`); err != nil || channels != 2 {
+		t.Fatalf("imported channels=%d err=%v, want 2 servable channels", channels, err)
+	}
+	if err := db.Get(&grants, `SELECT COUNT(*) FROM upstream_grants`); err != nil || grants != 3 {
+		t.Fatalf("imported grants=%d err=%v, want one per enabled key", grants, err)
+	}
+	if err := db.Get(&routes, `SELECT COUNT(*) FROM token_routes WHERE model_pattern='client-model'`); err != nil || routes != 1 {
+		t.Fatalf("imported routes=%d err=%v", routes, err)
+	}
+}
+
+func TestAxonHubV14CommitInvalidatesHotRouteCache(t *testing.T) {
+	db := setupBackupTestDB(t)
+	config.SetRuntime(&config.RuntimeSettings{TokenRouterFailureCooldownMaxSec: 3600, RoutingFallbackUnitCost: 1})
+	t.Cleanup(func() {
+		config.SetRuntime(nil)
+		routing.SetGlobalCache(nil)
+	})
+	cfg := &config.Config{TokenRouterCacheTtlMs: 60_000}
+	router := routing.NewTokenRouter(service.NewProxyRoutingStore(db), cfg, nil, nil)
+	policy := routing.EmptyDownstreamRoutingPolicy
+	policy.RequiredUpstreamProtocol = routing.UpstreamProtocolChat
+	if selected, err := router.SelectChannel(t.Context(), "client-model", policy); err != nil || selected != nil {
+		t.Fatalf("pre-import select = %+v, err=%v; want no route", selected, err)
+	}
+	importRouter := chi.NewRouter()
+	RegisterBackupRoutes(importRouter, db.DB)
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(backupFixtureAxonHubV14))
+	req.Header.Set("X-External-Origin-Key", "axonhub-hot-cache")
+	rec := httptest.NewRecorder()
+	importRouter.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	selected, err := router.SelectChannel(t.Context(), "client-model", policy)
+	if err != nil || selected == nil || selected.Direct == nil {
+		t.Fatalf("immediate post-import select = %+v, err=%v; want the newly imported direct grant", selected, err)
+	}
+	// The Anthropic-only channel must not serve a chat request.
+	if selected.Direct.Protocols&routing.UpstreamProtocolChat == 0 {
+		t.Fatalf("selected grant protocols=%d do not authorize chat", selected.Direct.Protocols)
+	}
+}
+
+func TestAxonHubV14ReplacementRequiresConfirmation(t *testing.T) {
+	db := setupBackupTestDB(t)
+	h := &backupHandler{db: db.DB}
+	importFixture := func(payload, replace string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
+		req.Header.Set("X-External-Origin-Key", "axonhub-replace")
+		if replace != "" {
+			req.Header.Set("X-AxonHub-Replace-Origin", replace)
+		}
+		rec := httptest.NewRecorder()
+		h.importBackup(rec, req)
+		return rec
+	}
+	if rec := importFixture(backupFixtureAxonHubV14, ""); rec.Code != http.StatusOK {
+		t.Fatalf("first import status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	// The reduced snapshot drops the Anthropic channel and the only model, so
+	// committing it would remove entries this origin owns.
+	reduced := strings.Replace(backupFixtureAxonHubV14,
+		`{"id":12,"type":"anthropic","name":"Backup","status":"enabled","base_url":"https://anthropic.example","credentials":{"apiKey":"fixture-key-axonhub-3"},"supported_models":["client-model"],"endpoints":[{"api_format":"anthropic/messages"}],"deleted_at":0},`,
+		"", 1)
+
+	conflict := importFixture(reduced, "")
+	if conflict.Code != http.StatusConflict || !strings.Contains(conflict.Body.String(), "removals") {
+		t.Fatalf("unconfirmed replacement status=%d body=%s", conflict.Code, conflict.Body.String())
+	}
+	var channels int
+	if err := db.Get(&channels, `SELECT COUNT(*) FROM upstream_channels`); err != nil || channels != 2 {
+		t.Fatalf("refused replacement changed channels: count=%d err=%v", channels, err)
+	}
+	if rec := importFixture(reduced, "true"); rec.Code != http.StatusOK {
+		t.Fatalf("confirmed replacement status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := db.Get(&channels, `SELECT COUNT(*) FROM upstream_channels`); err != nil || channels != 1 {
+		t.Fatalf("replacement left channels=%d err=%v, want 1", channels, err)
+	}
+}
+
+func TestAxonHubV14BackupWithoutServableChannelIsRejected(t *testing.T) {
+	db := setupBackupTestDB(t)
+	h := &backupHandler{db: db.DB}
+	payload := strings.Replace(backupFixtureAxonHubV14, `"type":"openai"`, `"type":"gemini_vertex"`, 1)
+	payload = strings.Replace(payload, `"type":"anthropic"`, `"type":"gemini_vertex"`, 1)
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
+	req.Header.Set("X-External-Origin-Key", "axonhub-blocked")
+	rec := httptest.NewRecorder()
+	h.importBackup(rec, req)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "no channel that a direct upstream grant can serve") {
+		t.Fatalf("blocked import status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var count int
+	if err := db.Get(&count, `SELECT COUNT(*) FROM upstream_channels`); err != nil || count != 0 {
+		t.Fatalf("blocked import wrote channels: count=%d err=%v", count, err)
+	}
+}
+
 // Regression: the frontend api.importBackup wraps the pasted export as
 // {"data": {"tables": ...}} — the handler must accept that shape (previously
 // always 400'd because the top-level key was "data" not "tables").

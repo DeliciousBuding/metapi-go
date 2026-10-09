@@ -36,6 +36,11 @@ const { mockCreateMutate, mockUpdateMutate, mockDetectMutate, mockToastError } =
   }))
 
 vi.mock('../../api', () => ({
+  useSiteInitializationPresets: () => ({
+    data: [],
+    isPending: false,
+    isError: false,
+  }),
   useCreateSite: () => ({ mutateAsync: mockCreateMutate, isPending: false }),
   useUpdateSite: () => ({ mutateAsync: mockUpdateMutate, isPending: false }),
   useDetectSite: () => ({ mutateAsync: mockDetectMutate, isPending: false }),

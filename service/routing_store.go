@@ -35,7 +35,7 @@ const channelAccountSiteSelect = `
 		a.checkin_enabled, a.last_checkin_at, a.last_balance_refresh, a.oauth_provider,
 		a.oauth_account_key, a.oauth_project_id, a.extra_config, a.created_at, a.updated_at,
 		s.id, s.name, s.url, s.external_checkin_url, s.platform, s.proxy_url, s.use_system_proxy,
-		s.custom_headers, s.status, s.is_pinned, s.sort_order, s.global_weight, s.api_key,
+		s.custom_headers, s.custom_headers_override_request_headers, s.status, s.is_pinned, s.sort_order, s.global_weight, s.api_key,
 		s.post_refresh_probe_enabled, s.post_refresh_probe_model, s.post_refresh_probe_scope,
 		s.post_refresh_probe_latency_threshold_ms, s.created_at, s.updated_at`
 
@@ -140,10 +140,10 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 		return nil, err
 	}
 	directQuery, directArgs, err := sqlx.In(`
-		SELECT i.id, i.priority, i.weight, grt.id, rg.route_id, ug.id, ug.mode, ug.active_item_id,
-			c.id, c.name, c.base_url, c.dialect, c.openai_chat_completion_path, c.openai_response_path,
-			c.anthropic_message_path, c.channel_proxy, c.proxy, c.custom_header, c.param_override,
-			m.id, m.name, k.id, k.name, k.secret, c.enabled, m.enabled, k.enabled, grt.enabled, grt.protocols,
+		SELECT i.id, i.priority, i.weight, i.protocol_order, grt.id, rg.route_id, ug.id, ug.mode, ug.active_item_id,
+			c.id, c.name, c.base_url, c.dialect, c.provider, c.openai_chat_completion_path, c.openai_response_path,
+			c.anthropic_message_path, c.endpoint_config, c.channel_proxy, c.proxy, c.custom_header, c.param_override,
+			m.id, m.name, k.id, k.name, k.kind, k.secret, c.enabled, m.enabled, k.enabled, grt.enabled, grt.protocols,
       grt.cooldown_until,grt.success_count,grt.fail_count,grt.total_latency_ms,grt.total_cost
 		FROM upstream_route_groups rg
 		JOIN upstream_groups ug ON ug.id = rg.group_id
@@ -169,10 +169,10 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 		var cooldown *string
 		var successes, failures, totalLatency int64
 		var totalCost float64
-		if err := directRows.Scan(&itemID, &priority, &weight, &direct.GrantID, &direct.RouteID, &direct.GroupID, &direct.GroupMode, &direct.ActiveItemID,
-			&direct.ChannelID, &direct.ChannelName, &direct.BaseURL, &direct.Dialect, &direct.ChatPath, &direct.ResponsesPath,
-			&direct.AnthropicPath, &direct.ChannelProxy, &direct.UseSystemProxy, &direct.CustomHeader, &direct.ParamOverride,
-			&direct.ModelID, &direct.ModelName, &direct.CredentialID, &direct.CredentialName, &direct.Credential,
+		if err := directRows.Scan(&itemID, &priority, &weight, &direct.ProtocolOrder, &direct.GrantID, &direct.RouteID, &direct.GroupID, &direct.GroupMode, &direct.ActiveItemID,
+			&direct.ChannelID, &direct.ChannelName, &direct.BaseURL, &direct.Dialect, &direct.Provider, &direct.ChatPath, &direct.ResponsesPath,
+			&direct.AnthropicPath, &direct.Endpoints, &direct.ChannelProxy, &direct.UseSystemProxy, &direct.CustomHeader, &direct.ParamOverride,
+			&direct.ModelID, &direct.ModelName, &direct.CredentialID, &direct.CredentialName, &direct.CredentialKind, &direct.Credential,
 			&direct.ChannelEnabled, &direct.ModelEnabled, &direct.CredentialEnabled, &direct.GrantEnabled, &direct.Protocols, &cooldown, &successes, &failures, &totalLatency, &totalCost); err != nil {
 			return nil, err
 		}
@@ -569,7 +569,7 @@ func scanRouteChannelJoin(rows *sqlx.Rows) (struct {
 		&account.CheckinEnabled, &account.LastCheckinAt, &account.LastBalanceRefresh, &account.OAuthProvider,
 		&account.OAuthAccountKey, &account.OAuthProjectID, &account.ExtraConfig, &account.CreatedAt, &account.UpdatedAt,
 		&site.ID, &site.Name, &site.URL, &site.ExternalCheckinURL, &site.Platform, &site.ProxyURL, &site.UseSystemProxy,
-		&site.CustomHeaders, &site.Status, &site.IsPinned, &site.SortOrder, &site.GlobalWeight, &site.APIKey,
+		&site.CustomHeaders, &site.CustomHeadersOverrideRequestHeaders, &site.Status, &site.IsPinned, &site.SortOrder, &site.GlobalWeight, &site.APIKey,
 		&site.PostRefreshProbeEnabled, &site.PostRefreshProbeModel, &site.PostRefreshProbeScope,
 		&site.PostRefreshProbeLatencyThresholdMs, &site.CreatedAt, &site.UpdatedAt,
 	}
@@ -606,7 +606,7 @@ func scanRouteUnitMemberJoin(rows *sqlx.Rows) (store.OAuthRouteUnitMember, store
 		&account.CheckinEnabled, &account.LastCheckinAt, &account.LastBalanceRefresh, &account.OAuthProvider,
 		&account.OAuthAccountKey, &account.OAuthProjectID, &account.ExtraConfig, &account.CreatedAt, &account.UpdatedAt,
 		&site.ID, &site.Name, &site.URL, &site.ExternalCheckinURL, &site.Platform, &site.ProxyURL, &site.UseSystemProxy,
-		&site.CustomHeaders, &site.Status, &site.IsPinned, &site.SortOrder, &site.GlobalWeight, &site.APIKey,
+		&site.CustomHeaders, &site.CustomHeadersOverrideRequestHeaders, &site.Status, &site.IsPinned, &site.SortOrder, &site.GlobalWeight, &site.APIKey,
 		&site.PostRefreshProbeEnabled, &site.PostRefreshProbeModel, &site.PostRefreshProbeScope,
 		&site.PostRefreshProbeLatencyThresholdMs, &site.CreatedAt, &site.UpdatedAt,
 	)

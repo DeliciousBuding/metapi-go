@@ -1,5 +1,31 @@
 {
   "translation": {
+    "platforms": {
+      "groups": {
+        "api": "模型 API",
+        "gateway": "自建网关",
+        "oauth": "OAuth 连接"
+      },
+      "search": "搜索平台…",
+      "noResults": "未找到匹配的平台。",
+      "custom": "自定义平台",
+      "openai": "OpenAI 格式接口，创建后添加 API Key 账号。",
+      "claude": "Anthropic Messages 接口，使用 API Key。",
+      "gemini": "Gemini 原生接口，使用 API Key。",
+      "sensetime": "保留兼容标识，使用前请核实上游能力。",
+      "codex": "通过 OAuth 连接 OpenAI Codex 账号。",
+      "geminiCli": "通过 OAuth 连接 Gemini CLI 账号。",
+      "antigravity": "通过 OAuth 连接 Antigravity 账号。",
+      "grok": "Grok 设备 OAuth，不用于 xAI 公共 API。",
+      "newApi": "New API 管理接口、余额与 API 令牌。",
+      "oneApi": "One API 管理接口、余额与 API 令牌。",
+      "oneHub": "One Hub 管理接口与账号同步。",
+      "doneHub": "Done Hub 管理接口与账号同步。",
+      "veloera": "Veloera 管理接口与账号同步。",
+      "anyrouter": "AnyRouter 账号管理与签到。",
+      "sub2api": "Sub2API 账号管理与 API 令牌。",
+      "cliproxyapi": "CLIProxyAPI 管理密钥与代理凭据。"
+    },
     "dataTable": {
       "summary": "显示第 {{start}}-{{end}} 条，共 {{total}} 条",
       "bulkActions": {
@@ -565,6 +591,53 @@
       }
     },
     "sites": {
+      "templates": {
+        "brands": {
+          "bailian": "阿里云百炼",
+          "bailianPlan": "百炼 Coding Plan",
+          "glm": "智谱 GLM",
+          "glmPlan": "GLM Coding Plan",
+          "zai": "Z.ai",
+          "zaiPlan": "Z.ai Coding Plan",
+          "ark": "火山方舟",
+          "arkPlan": "火山 Coding Plan",
+          "qiniu": "七牛云",
+          "mimo": "小米 MiMo",
+          "mimoPlan": "MiMo Token Plan",
+          "kimi": "Kimi",
+          "kimiPlan": "Kimi Coding Plan"
+        },
+        "title": "连接模板",
+        "loading": "正在加载模板",
+        "loadFailed": "模板加载失败。",
+        "customized": "已改为自定义连接，保留手填内容。",
+        "manual": "手动配置",
+        "change": "更换模板",
+        "search": "搜索全部连接模板…",
+        "categories": "连接类型",
+        "categoriesLabel": {
+          "common": "常用",
+          "api": "模型服务",
+          "coding": "Coding Plan",
+          "gateway": "管理平台",
+          "oauth": "OAuth"
+        },
+        "auth": { "gateway": "管理账号 / Token", "oauth": "OAuth · 新标签页" },
+        "protocols": {
+          "chat": "Chat",
+          "responses": "Responses",
+          "messages": "Messages",
+          "gemini": "Gemini"
+        },
+        "use": "使用 {{name}} 模板",
+        "openOAuth": "打开 {{name}} 的 OAuth 连接页",
+        "unavailable": "{{name}} 暂不可用",
+        "notAvailable": "暂不可用",
+        "enterAddress": "请在下方填写部署地址",
+        "applied": "已应用模板。",
+        "preserved": "已应用模板，保留手填内容：{{fields}}。",
+        "platformConflict": "已保留你手动选择的平台，请选择匹配的模板或先清空平台。"
+      },
       "page": {
         "loadError": "加载站点失败：{{message}}",
         "title": "站点",
@@ -644,10 +717,15 @@
         "disabled": "已停用"
       },
       "form": {
+        "sections": {
+          "connection": "连接信息",
+          "routing": "调度与探测",
+          "request": "代理与请求设置"
+        },
         "addTitle": "添加站点",
         "editTitle": "编辑站点",
         "invalid": "请检查表单标红字段",
-        "addDescription": "注册一个新的上游站点。",
+        "addDescription": "配置上游连接，创建后再添加 API Key 或账号凭据。",
         "editDescription": "更新站点配置。",
         "name": "名称",
         "namePlaceholder": "输入站点名称",
@@ -668,16 +746,16 @@
         "proxyUrl": "代理地址",
         "globalWeight": "全局权重",
         "maxConcurrency": "最大并发",
-        "maxConcurrencyHint": "最大并发请求数（0 = 不限）。",
+        "maxConcurrencyHint": "0 表示不限。",
         "useSystemProxy": "使用系统代理",
-        "useSystemProxyHint": "通过系统配置的代理路由该站点的流量。",
+        "useSystemProxyHint": "使用系统设置中的代理。",
         "resinEnabled": "Resin 粘性代理",
-        "resinEnabledHint": "覆盖该站点的全局 Resin 出口设置。",
+        "resinEnabledHint": "单独设置此站点的 Resin 出口。",
         "resinInherit": "继承全局",
         "resinForceOn": "强制开启",
         "resinForceOff": "强制关闭",
         "useUtls": "uTLS 指纹",
-        "useUtlsHint": "覆盖该站点的全局 uTLS TLS 指纹设置。",
+        "useUtlsHint": "单独设置此站点的 TLS 指纹。",
         "utlsInherit": "继承全局",
         "utlsForceOn": "强制开启",
         "utlsForceOff": "强制关闭",
@@ -703,7 +781,7 @@
         "urlPreserveApiPath": "当前 URL 含 /api 路径，将原样保存。请确认这就是准确的主站点 URL；如果这是 API 请求地址，请填入下方的 API 地址池。",
         "urlPreserveUnknownPath": "当前 URL 含额外路径，将原样保存。请确认这就是准确的主站点 URL；如果这是 API 请求地址，请填入下方的 API 地址池。",
         "customHeaders": "自定义请求头",
-        "customHeadersHint": "按名称和值添加额外请求头，也可切换到高级 JSON 编辑。",
+        "customHeadersHint": "向上游请求附加名称和值。",
         "customHeadersExamplesLabel": "插入示例：",
         "customHeadersExampleInsert": "插入 {{client}} 示例",
         "customHeadersExamplesHint": "示例仅填充空的输入框，且始终是占位内容 —— 请把 <VERSION> 替换为当前上游实际期望的值。",
@@ -780,7 +858,8 @@
         "nextStepBody": "连接一个账号即可开始通过该站点路由。",
         "dismiss": "知道了",
         "addApiKey": "添加 API Key",
-        "goToAccounts": "前往账号"
+        "goToAccounts": "前往账号",
+        "goToOAuth": "前往 OAuth 连接"
       },
       "probe": {
         "title": "可用性探针",
@@ -1484,11 +1563,13 @@
             "expiresAt": "过期时间",
             "expiresAtHint": "按浏览器本地时间填写，保存后以 UTC 存储与比较。过期后密钥立即失效，调用返回 403；留空表示永不过期。",
             "enabled": "启用",
-            "description": "备注"
+            "description": "备注",
+            "accessPolicy": "精细访问与周期配额"
           },
           "schema": {
             "nameRequired": "请输入名称。",
-            "keyMinLength": "密钥至少 8 个字符。"
+            "keyMinLength": "密钥至少 8 个字符。",
+            "accessPolicyInvalid": "请检查访问策略：映射两端不能为空，配额至少填写一项非负限制，滚动时长需大于 0，并使用有效时区。"
           },
           "toast": {
             "created": "API 密钥已创建。",
@@ -1532,6 +1613,61 @@
             "credsExclude": "排除凭证",
             "defaultKey": "默认密钥",
             "unknownId": "ID {{id}}（未解析）"
+          },
+          "access": {
+            "hint": "这些限制与上方模型授权和凭据范围同时生效。",
+            "unreadable": "已保存的策略暂时无法读取，本次保存会保留原策略。请先核对来源配置，避免意外放宽访问。",
+            "blockedTitle": "导入的密钥仍有未解决的限制",
+            "blocks": {
+              "keyType": "该来源密钥类型不能用于代理请求。",
+              "scope": "来源密钥没有发送模型请求的权限。",
+              "project": "来源项目不可用或未启用。",
+              "routing": "来源使用了暂不支持的负载均衡或会话粘性设置。",
+              "mapping": "来源包含暂不支持的模型映射规则。",
+              "unknown": "来源保留了需要核对的访问限制。普通编辑不会清除此状态。"
+            },
+            "channelScope": "上游渠道范围",
+            "allChannels": "不额外限制渠道",
+            "selectedChannels": "仅使用所选直连渠道",
+            "channelHint": "选择直连渠道后，仅所选渠道可用；站点和账号渠道不在此范围内。",
+            "noChannels": "尚未选择渠道：当前拒绝所有上游渠道。",
+            "loadingChannels": "正在加载直连渠道…",
+            "loadError": "直连渠道加载失败：{{message}}",
+            "disabledChannel": "已停用",
+            "emptyInventory": "当前没有可选择的直连渠道。",
+            "unavailableChannel": "已保存但不可用的渠道 #{{id}}",
+            "models": "允许的精确模型",
+            "modelsHint": "留空不增加模型限制；填写后只允许映射后的模型名称精确匹配。",
+            "removeModel": "移除模型 {{model}}",
+            "addModel": "添加精确模型",
+            "pickModel": "从现有模型中选择",
+            "mappings": "模型名称映射",
+            "mappingsHint": "从上到下匹配，首个命中的规则生效。请求名称支持正则表达式，目标填写实际模型名称。",
+            "mappingFrom": "请求模型或匹配规则",
+            "mappingTo": "目标模型",
+            "quota": "启用周期配额",
+            "quotaHint": "至少填写一项限制。留空表示该项不限，0 表示立即耗尽；按已完成请求的用量核算。",
+            "requests": "请求次数",
+            "totalTokens": "Token 总量",
+            "cost": "估算费用上限",
+            "period": "统计周期",
+            "periods": {
+              "all_time": "累计全部时间",
+              "past_duration": "最近一段时间",
+              "day": "每个自然日",
+              "month": "每个自然月"
+            },
+            "duration": "最近时长",
+            "unit": "时长单位",
+            "units": {
+              "minute": "分钟",
+              "hour": "小时",
+              "day": "天"
+            },
+            "timezone": "周期时区（选填）",
+            "timezoneHint": "自然日和自然月按此时区划分，留空使用 UTC。例如 Asia/Hong_Kong。",
+            "historyTitle": "配额历史尚未核对",
+            "historyHint": "{{date}} 之前的用量缺失。仍覆盖该缺口的周期暂时不可用；核对完成前会保留此限制。"
           }
         },
         "proxyToken": {
@@ -1569,8 +1705,8 @@
           "importFileTooLarge": "备份文件不能超过 20 MiB。",
           "externalOriginKey": "外部来源键",
           "externalOriginKeyPlaceholder": "稳定的来源名称",
-          "externalOriginKeyHint": "预览和重复导入同一 Octopus 来源时，请保持此值不变。",
-          "originKeyRequired": "预览 Octopus 备份前请填写外部来源键。",
+          "externalOriginKeyHint": "预览和重复导入同一外部来源时，请保持此值不变。",
+          "originKeyRequired": "预览外部来源备份前请填写外部来源键。",
           "webdavGroup": "WebDAV 自动备份",
           "saveWebdav": "保存 WebDAV 配置",
           "exportToWebdav": "导出到 WebDAV",
@@ -1596,6 +1732,11 @@
           "octopusPreviewOrigin": "来源：{{source}} · 来源键：{{originKey}}",
           "octopusPreviewSection": "{{section}}：{{count}} 条记录",
           "octopusNotImportedTitle": "未迁移（只保留在原始文件中）：",
+          "axonhubRoutableTitle": "将写入的配置：",
+          "axonhubSkippedTitle": "无法导入的渠道：",
+          "axonhubResidualsTitle": "未迁移的能力与配置差异：",
+          "axonhubUnsupportedProtocols": "导入渠道暂不支持以下来源协议：{{formats}}。",
+          "axonhubImportConfirmDescription": "将在单个事务内写入预览列出的 AxonHub v1.4 配置。请核对配置差异与未迁移项；未迁移内容保留在原始文件中。",
           "octopusAllSectionsSupported": "未发现包含数据的不支持区段。",
           "lastError": "上次错误：{{error}}",
           "fields": {
@@ -1623,7 +1764,7 @@
           },
           "design": {
             "uploadTitle": "选择备份文件",
-            "uploadHint": "恢复 Metapi 数据，或迁移 Octopus 备份。",
+            "uploadHint": "恢复 Metapi 数据，或迁移 Octopus / AxonHub 备份。",
             "replaceFile": "已选择文件 · 点击更换",
             "previewSafety": "先预览，再确认。确认导入前不会写入任何数据。",
             "pasteJson": "高级入口 · 粘贴 JSON",
@@ -1651,12 +1792,67 @@
               "statsTotal": "历史总计",
               "apiKeys": "下游密钥",
               "llmInfos": "模型定价",
-              "settings": "应用设置"
+              "settings": "应用设置",
+              "credentials": "访问凭据",
+              "models": "上游模型",
+              "grants": "模型授权",
+              "routes": "模型路由",
+              "projects": "项目",
+              "modelPrices": "模型定价",
+              "systemConfigs": "系统配置",
+              "usageRequests": "请求历史",
+              "usageLogs": "用量历史",
+              "deletedChannels": "已删除渠道",
+              "disabledModelRoutes": "已停用模型路由",
+              "projectsWithProfiles": "含 profile 的项目",
+              "apiKeysWithProfiles": "含限制的密钥",
+              "apiKeysWithQuota": "含配额的密钥",
+              "upstream_channels": "已导入渠道",
+              "upstream_credentials": "已导入凭据",
+              "upstream_models": "已导入上游模型",
+              "upstream_grants": "已导入模型授权",
+              "upstream_groups": "已导入路由分组",
+              "upstream_group_items": "已导入分组成员",
+              "token_routes": "已导入模型路由"
+            },
+            "routable": {
+              "apiKeys": "下游密钥",
+              "channels": "渠道",
+              "credentials": "凭据",
+              "models": "上游模型",
+              "grants": "模型授权",
+              "routes": "模型路由"
             },
             "blockers": {
               "clientHeaderTemplates": "不支持的客户端请求头",
               "channelProxyUnavailable": "缺少出口代理配置",
-              "groupRelayConfig": "不支持的分组路由策略"
+              "groupRelayConfig": "不支持的分组路由策略",
+              "no_servable_channels": "没有 direct upstream grant 能够承载的渠道"
+            },
+            "axonhubReasons": {
+              "provider_type_unknown": "渠道类型不在已审计的 AxonHub 枚举内",
+              "provider_translation_unsupported": "需要本网关未实现的协议转换",
+              "provider_credentials_unsupported": "认证方式无法用静态 API key 表达",
+              "provider_wire_format_unsupported": "协议不是 OpenAI chat/Responses 或 Anthropic messages",
+              "oauth_credentials_unsupported": "OAuth 凭据（没有可继承的刷新身份）",
+              "azure_credentials_unsupported": "Azure 凭据",
+              "gcp_credentials_unsupported": "GCP 凭据",
+              "credential_missing": "渠道没有静态 API key",
+              "base_url_invalid": "base URL 不是绝对 http(s) 地址",
+              "base_url_target_forbidden": "base URL 指向元数据或链路本地地址",
+              "proxy_configuration_unsupported": "配置了代理但没有显式 URL",
+              "proxy_url_invalid": "代理 URL 无效或被禁止",
+              "param_override_invalid": "参数覆盖不是 JSON 对象",
+              "no_servable_protocol": "没有端点使用 direct grant 可承载的协议",
+              "api_format_unsupported": "端点使用了未经审计的 api_format",
+              "websocket_transport_unsupported": "端点使用 WebSocket 传输",
+              "endpoint_base_url_override_unsupported": "端点覆盖了渠道 base URL",
+              "endpoint_path_invalid": "端点路径不是合法相对路径",
+              "channel_stream_policy_unsupported": "渠道限制了流式请求",
+              "channel_body_override_unsupported": "渠道会改写请求体",
+              "channel_header_override_unsupported": "渠道会改写请求头",
+              "channel_transform_options_unsupported": "渠道会改写请求语义",
+              "channel_rate_limit_unsupported": "渠道自带上游限流"
             }
           }
         },
@@ -2283,6 +2479,8 @@
         "manualFailedInline": "手动模型更新失败：{{message}}",
         "placeholder": "模型名称，如 gpt-4o",
         "inputAria": "新手动模型名称",
+        "presetSuggestions": "{{preset}} · 预设模型",
+        "usePresetModel": "填入 {{name}}",
         "add": "添加",
         "refreshedToast_one": "模型已刷新（{{count}} 个可用）",
         "refreshedToast_other": "模型已刷新（{{count}} 个可用）",
@@ -3226,6 +3424,7 @@
       "imported": {
         "title": "导入通道（{{count}}）",
         "region": "导入通道清单",
+        "endpoints": "协议端点",
         "refresh": "刷新",
         "coolingDown": "冷却中",
         "description": "来源通道及其授权协议。启停会立即影响路由；重新导入会覆盖来源配置。这里不会显示凭据值。",
@@ -3459,7 +3658,9 @@
       "emptyKey": "请填写此条目的键名。",
       "duplicateKey": "此键名已使用，每个键名只能出现一次。",
       "invalid": "请填写有效的 JSON 对象，键名不能为空或重复。",
-      "advancedOnly": "此配置包含需要在 JSON 编辑器中处理的值，原始内容已完整保留。"
+      "advancedOnly": "此配置包含需要在 JSON 编辑器中处理的值，原始内容已完整保留。",
+      "moveUp": "上移第 {{index}} 条映射",
+      "moveDown": "下移第 {{index}} 条映射"
     },
     "modelPicker": {
       "title": "选择模型",

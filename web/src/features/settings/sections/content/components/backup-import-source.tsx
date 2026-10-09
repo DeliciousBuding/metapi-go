@@ -51,6 +51,7 @@ export function BackupImportSource(props: Props) {
         <span className='flex flex-wrap justify-center gap-2'>
           <Badge variant='outline'>Metapi</Badge>
           <Badge variant='outline'>Octopus v5</Badge>
+          <Badge variant='outline'>AxonHub 1.4</Badge>
           <Badge variant='secondary'>JSON · 20 MB</Badge>
         </span>
         <Input

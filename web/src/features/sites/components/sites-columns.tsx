@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { PlatformBadge } from '@/components/common/platform-badge'
 import { SafeExternalLink } from '@/components/common/safe-external-link'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
@@ -203,11 +204,7 @@ export function useSitesColumns(
       ),
       cell: ({ row }) => {
         const platform = row.original.platform
-        return (
-          <Badge variant='outline' className='font-normal'>
-            {platform || '—'}
-          </Badge>
-        )
+        return <PlatformBadge platform={platform} />
       },
     },
     {

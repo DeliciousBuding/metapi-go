@@ -13,7 +13,7 @@ import {
   parseCredentialRefs,
   parseIdArray,
 } from '../lib/credential-refs'
-import type { DownstreamApiKeyItem } from '../types'
+import type { DownstreamAccessPolicy, DownstreamApiKeyItem } from '../types'
 
 export const CREATE_FORM_ID = 'downstream-keys-create-form'
 
@@ -41,7 +41,82 @@ export function generateDownstreamSkSuffix(): string {
   )
 }
 
+const quotaLimit = z.number().finite().min(0).optional()
+const accessPolicySchema = z.object({
+  allowedUpstreamChannelIds: z.array(z.number().int().positive()).optional(),
+  modelIds: z.array(z.string().trim().min(1)).optional(),
+  modelMappings: z
+    .array(
+      z.object({ from: z.string().trim().min(1), to: z.string().trim().min(1) })
+    )
+    .optional(),
+  blockReason: z.string().optional(),
+  quota: z
+    .object({
+      requests: z.number().int().min(0).optional(),
+      totalTokens: z.number().int().min(0).optional(),
+      cost: quotaLimit,
+      timezone: z
+        .string()
+        .optional()
+        .refine((value) => {
+          if (!value) return true
+          try {
+            new Intl.DateTimeFormat('en', { timeZone: value })
+            return true
+          } catch {
+            return false
+          }
+        }),
+      historyMissingBefore: z.number().finite().optional(),
+      period: z.discriminatedUnion('type', [
+        z.object({ type: z.literal('all_time') }),
+        z.object({
+          type: z.literal('past_duration'),
+          pastDuration: z.object({
+            value: z.number().int().positive(),
+            unit: z.enum(['minute', 'hour', 'day']),
+          }),
+        }),
+        z.object({
+          type: z.literal('calendar_duration'),
+          calendarDuration: z.object({ unit: z.enum(['day', 'month']) }),
+        }),
+      ]),
+    })
+    .refine(
+      (quota) =>
+        quota.requests !== undefined ||
+        quota.totalTokens !== undefined ||
+        quota.cost !== undefined
+    )
+    .optional(),
+})
+
+// Undefined means an unreadable saved policy. Omit it from writes rather than
+// clearing restrictions a newer or damaged payload cannot render safely.
+function parseAccessPolicy(
+  value: DownstreamApiKeyItem['accessPolicy']
+): DownstreamAccessPolicy | null | undefined {
+  if (value == null || value === '') return null
+  try {
+    const parsed: unknown =
+      typeof value === 'string' ? JSON.parse(value) : value
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return undefined
+    }
+    if (!accessPolicySchema.safeParse(parsed).success) return undefined
+    return parsed as DownstreamAccessPolicy
+  } catch {
+    return undefined
+  }
+}
+
 export const createKeySchema = z.object({
+  accessPolicy: z.custom<DownstreamAccessPolicy | null | undefined>(
+    (value) => value == null || accessPolicySchema.safeParse(value).success,
+    'settings.downstream.keys.schema.accessPolicyInvalid'
+  ),
   name: z.string().min(1, 'settings.downstream.keys.schema.nameRequired'),
   key: z.string().min(8, 'settings.downstream.keys.schema.keyMinLength'),
   groupName: z.string().optional(),
@@ -153,6 +228,7 @@ export function extractMarketplaceModelNames(result: unknown): string[] {
 
 export function blankKeyFormValues(): CreateKeyFormValues {
   return {
+    accessPolicy: null,
     name: '',
     key: '',
     groupName: '',
@@ -173,6 +249,7 @@ export function keyFormValuesFromItem(
 ): CreateKeyFormValues {
   return {
     ...blankKeyFormValues(),
+    accessPolicy: parseAccessPolicy(item.accessPolicy),
     name: item.name,
     groupName: item.groupName ?? '',
     maxRequests: item.maxRequests ?? undefined,

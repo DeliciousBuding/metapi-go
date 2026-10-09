@@ -13,7 +13,27 @@ type DownstreamKeyUsage24h = {
   cost?: number
 }
 
+export type DownstreamAccessPolicy = {
+  allowedUpstreamChannelIds?: number[]
+  modelIds?: string[]
+  modelMappings?: { from: string; to: string }[]
+  blockReason?: string
+  quota?: {
+    requests?: number
+    totalTokens?: number
+    cost?: number
+    period: {
+      type: 'all_time' | 'past_duration' | 'calendar_duration'
+      pastDuration?: { value: number; unit: 'minute' | 'hour' | 'day' }
+      calendarDuration?: { unit: 'day' | 'month' }
+    }
+    timezone?: string
+    historyMissingBefore?: number
+  }
+}
+
 export type DownstreamApiKeyItem = {
+  accessPolicy?: DownstreamAccessPolicy | string | null
   id: number
   name: string
   keyMasked?: string

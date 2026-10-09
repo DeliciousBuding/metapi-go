@@ -136,6 +136,10 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 		h.importOctopusV5Backup(w, r, raw)
 		return
 	}
+	if backupsvc.IsAxonHubV14Payload(raw) {
+		h.importAxonHubV14Backup(w, r, raw)
+		return
+	}
 
 	// TS (cita-777/metapi) backup v2.1 payloads take the dedicated parser.
 	if backupsvc.IsTSV21Payload(raw) {
@@ -234,6 +238,16 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusOK, map[string]any{"success": true, "plan": preview})
 		return
 	}
+	if backupsvc.IsAxonHubV14Payload(raw) {
+		originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
+		preview, err := backupsvc.PreviewAxonHubV14(backupStoreDB(h.db), raw, originKey)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"success": true, "plan": preview})
+		return
+	}
 
 	// TS (cita-777/metapi) backup v2.1 payloads take the dedicated parser.
 	if backupsvc.IsTSV21Payload(raw) {
@@ -323,6 +337,56 @@ func (h *backupHandler) importOctopusV5Backup(w http.ResponseWriter, r *http.Req
 		"message":     "Octopus v5 import completed",
 		"imported":    counts,
 		"notImported": preview.NotImported,
+	})
+}
+
+// importAxonHubV14Backup imports the channel graph an AxonHub backup describes.
+// The preview and the transaction share one compiled plan, so an operator can
+// only ever confirm what was shown: a payload whose channels no direct grant can
+// serve is refused, and a re-import that would remove previously imported
+// entries needs an explicit confirmation header.
+func (h *backupHandler) importAxonHubV14Backup(w http.ResponseWriter, r *http.Request, raw []byte) {
+	originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
+	db := backupStoreDB(h.db)
+	preview, err := backupsvc.PreviewAxonHubV14(db, raw, originKey)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(preview.Blocking) > 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"success":  false,
+			"error":    "AxonHub backup has no channel that a direct upstream grant can serve",
+			"plan":     preview,
+			"blocking": preview.Blocking,
+		})
+		return
+	}
+	if len(preview.Removals) > 0 && r.Header.Get("X-AxonHub-Replace-Origin") != "true" {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"success": false,
+			"error":   backupsvc.ErrAxonHubReplacementRequired.Error(),
+			"plan":    preview,
+		})
+		return
+	}
+	counts, err := backupsvc.ImportAxonHubV14(db, raw, originKey, r.Header.Get("X-AxonHub-Replace-Origin") == "true")
+	if err != nil {
+		if errors.Is(err, backupsvc.ErrAxonHubReplacementRequired) {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
+		writeError(w, backupImportErrorStatus(err), err.Error())
+		return
+	}
+	routing.InvalidateCache()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success":     true,
+		"message":     "AxonHub v1.4 import completed",
+		"imported":    counts,
+		"notImported": preview.NotImported,
+		"residuals":   preview.Residuals,
+		"skipped":     preview.SkippedChannels,
 	})
 }
 

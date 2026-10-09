@@ -1,5 +1,31 @@
 {
   "translation": {
+    "platforms": {
+      "groups": {
+        "api": "Model APIs",
+        "gateway": "Self-hosted gateways",
+        "oauth": "OAuth connections"
+      },
+      "search": "Search platforms…",
+      "noResults": "No matching platforms.",
+      "custom": "Custom platform",
+      "openai": "OpenAI-compatible API; add an API key as an account.",
+      "claude": "Anthropic Messages API with API-key authentication.",
+      "gemini": "Native Gemini API with API-key authentication.",
+      "sensetime": "Legacy adapter identifier; check upstream capabilities before use.",
+      "codex": "Connect an OpenAI Codex account through OAuth.",
+      "geminiCli": "Connect a Gemini CLI account through OAuth.",
+      "antigravity": "Connect an Antigravity account through OAuth.",
+      "grok": "Grok device OAuth; not the public xAI API.",
+      "newApi": "New API management, balances and API tokens.",
+      "oneApi": "One API management, balances and API tokens.",
+      "oneHub": "One Hub management and account synchronization.",
+      "doneHub": "Done Hub management and account synchronization.",
+      "veloera": "Veloera management and account synchronization.",
+      "anyrouter": "AnyRouter account management and check-in.",
+      "sub2api": "Sub2API account management and API tokens.",
+      "cliproxyapi": "CLIProxyAPI management key and proxy credentials."
+    },
     "dataTable": {
       "summary": "Showing {{start}}-{{end}} of {{total}} rows",
       "bulkActions": {
@@ -565,6 +591,56 @@
       }
     },
     "sites": {
+      "templates": {
+        "brands": {
+          "bailian": "Alibaba Cloud Bailian",
+          "bailianPlan": "Alibaba Cloud Coding Plan",
+          "glm": "Zhipu GLM",
+          "glmPlan": "GLM Coding Plan",
+          "zai": "Z.ai",
+          "zaiPlan": "Z.ai Coding Plan",
+          "ark": "Volcengine Ark",
+          "arkPlan": "Volcengine Coding Plan",
+          "qiniu": "Qiniu Cloud",
+          "mimo": "Xiaomi MiMo",
+          "mimoPlan": "MiMo Token Plan",
+          "kimi": "Kimi",
+          "kimiPlan": "Kimi Coding Plan"
+        },
+        "title": "Connection templates",
+        "loading": "Loading templates",
+        "loadFailed": "Templates could not be loaded.",
+        "customized": "Custom connection; your entries were preserved.",
+        "manual": "Configure manually",
+        "change": "Change template",
+        "search": "Search all templates…",
+        "categories": "Connection type",
+        "categoriesLabel": {
+          "common": "Common",
+          "api": "APIs",
+          "coding": "Coding Plan",
+          "gateway": "Gateways",
+          "oauth": "OAuth"
+        },
+        "auth": {
+          "gateway": "Management account / token",
+          "oauth": "OAuth · opens new tab"
+        },
+        "protocols": {
+          "chat": "Chat",
+          "responses": "Responses",
+          "messages": "Messages",
+          "gemini": "Gemini"
+        },
+        "use": "Use {{name}} template",
+        "openOAuth": "Open OAuth connections for {{name}}",
+        "unavailable": "{{name}} is not available",
+        "notAvailable": "Not available",
+        "enterAddress": "Enter your deployment URL below",
+        "applied": "Template applied.",
+        "preserved": "Template applied; kept your entries: {{fields}}.",
+        "platformConflict": "Your manually selected platform was preserved. Choose a matching template or clear the platform first."
+      },
       "page": {
         "loadError": "Failed to load sites: {{message}}",
         "title": "Sites",
@@ -644,10 +720,15 @@
         "disabled": "Disabled"
       },
       "form": {
+        "sections": {
+          "connection": "Connection details",
+          "routing": "Routing and probes",
+          "request": "Proxy and requests"
+        },
         "addTitle": "Add site",
         "editTitle": "Edit site",
         "invalid": "Please check the highlighted form fields",
-        "addDescription": "Register a new upstream site.",
+        "addDescription": "Configure an upstream connection. Add API keys or account credentials after creating the site.",
         "editDescription": "Update the site configuration.",
         "name": "Name",
         "namePlaceholder": "Enter a site name",
@@ -668,16 +749,16 @@
         "proxyUrl": "Proxy URL",
         "globalWeight": "Global weight",
         "maxConcurrency": "Max concurrency",
-        "maxConcurrencyHint": "Maximum concurrent requests (0 = unlimited).",
+        "maxConcurrencyHint": "0 means unlimited.",
         "useSystemProxy": "Use system proxy",
-        "useSystemProxyHint": "Route this site's traffic through the system-configured proxy.",
+        "useSystemProxyHint": "Use the proxy configured in system settings.",
         "resinEnabled": "Resin sticky proxy",
-        "resinEnabledHint": "Override the global Resin egress setting for this site.",
+        "resinEnabledHint": "Override Resin egress for this site.",
         "resinInherit": "Inherit global",
         "resinForceOn": "Force on",
         "resinForceOff": "Force off",
         "useUtls": "uTLS fingerprint",
-        "useUtlsHint": "Override the global uTLS TLS fingerprint setting for this site.",
+        "useUtlsHint": "Override the TLS fingerprint for this site.",
         "utlsInherit": "Inherit global",
         "utlsForceOn": "Force on",
         "utlsForceOff": "Force off",
@@ -703,7 +784,7 @@
         "urlPreserveApiPath": "The URL contains an /api path and will be saved as-is. Confirm this is the exact primary site URL; if this is an API request address, add it to the API endpoint pool below.",
         "urlPreserveUnknownPath": "The URL contains an extra path and will be saved as-is. Confirm this is the exact primary site URL; if this is an API request address, add it to the API endpoint pool below.",
         "customHeaders": "Custom headers",
-        "customHeadersHint": "Add request headers as name/value pairs; advanced JSON remains available.",
+        "customHeadersHint": "Add name/value pairs to upstream requests.",
         "customHeadersExamplesLabel": "Insert example:",
         "customHeadersExampleInsert": "Insert {{client}} example",
         "customHeadersExamplesHint": "Examples fill an empty field only, and stay placeholders — replace <VERSION> with the value your upstream expects today.",
@@ -780,6 +861,7 @@
         "nextStepBody": "Connect an account to start routing through this site.",
         "dismiss": "Dismiss",
         "goToAccounts": "Go to accounts",
+        "goToOAuth": "Connect with OAuth",
         "addApiKey": "Add API Key"
       },
       "probe": {
@@ -1484,11 +1566,13 @@
             "expiresAt": "Expires at",
             "expiresAtHint": "Entered in your browser's local time, stored and compared as UTC. The key stops working the moment it passes — calls return 403. Leave empty for no expiry.",
             "enabled": "Enabled",
-            "description": "Description"
+            "description": "Description",
+            "accessPolicy": "Access boundaries and period quotas"
           },
           "schema": {
             "nameRequired": "Name is required.",
-            "keyMinLength": "Key must be at least 8 characters."
+            "keyMinLength": "Key must be at least 8 characters.",
+            "accessPolicyInvalid": "Check the access policy: mappings need both names; quotas need at least one nonnegative limit, a positive rolling duration and a valid timezone."
           },
           "toast": {
             "created": "API key created.",
@@ -1532,6 +1616,61 @@
             "credsExclude": "Excluded credentials",
             "defaultKey": "default key",
             "unknownId": "ID {{id}} (unresolved)"
+          },
+          "access": {
+            "hint": "These restrictions apply together with the model grants and credential scope above.",
+            "unreadable": "The saved policy cannot be read. Saving this form will preserve it. Reconcile the source configuration before changing access.",
+            "blockedTitle": "Imported access restrictions need attention",
+            "blocks": {
+              "keyType": "This source key type cannot send proxy requests.",
+              "scope": "The source key does not have permission to send model requests.",
+              "project": "The source project is unavailable or inactive.",
+              "routing": "The source uses an unsupported load-balancing or session-sticky setting.",
+              "mapping": "The source contains an unsupported model mapping rule.",
+              "unknown": "The source retains access restrictions that need reconciliation. Ordinary edits preserve this status."
+            },
+            "channelScope": "Upstream channel scope",
+            "allChannels": "No additional channel restriction",
+            "selectedChannels": "Only selected direct channels",
+            "channelHint": "Selecting direct channels limits routing to those channels. Site and account channels are excluded from this scope.",
+            "noChannels": "No channels selected: all upstream channels are denied.",
+            "loadingChannels": "Loading direct channels…",
+            "loadError": "Could not load direct channels: {{message}}",
+            "disabledChannel": "Disabled",
+            "emptyInventory": "No direct channels are available.",
+            "unavailableChannel": "Saved unavailable channel #{{id}}",
+            "models": "Allowed exact models",
+            "modelsHint": "Empty adds no model restriction. Otherwise the model name after mapping must match an entry exactly.",
+            "removeModel": "Remove model {{model}}",
+            "addModel": "Add exact model",
+            "pickModel": "Choose an existing model",
+            "mappings": "Model name mappings",
+            "mappingsHint": "Rules run from top to bottom; the first match wins. Request names support regular expressions. Targets are actual model names.",
+            "mappingFrom": "Requested model or pattern",
+            "mappingTo": "Target model",
+            "quota": "Enable period quota",
+            "quotaHint": "Set at least one limit. Empty leaves that metric unlimited; 0 exhausts it immediately. Usage is accounted after completion.",
+            "requests": "Request count",
+            "totalTokens": "Total tokens",
+            "cost": "Estimated cost limit",
+            "period": "Accounting period",
+            "periods": {
+              "all_time": "All time",
+              "past_duration": "Rolling window",
+              "day": "Calendar day",
+              "month": "Calendar month"
+            },
+            "duration": "Look-back duration",
+            "unit": "Duration unit",
+            "units": {
+              "minute": "Minutes",
+              "hour": "Hours",
+              "day": "Days"
+            },
+            "timezone": "Period timezone (optional)",
+            "timezoneHint": "Calendar days and months use this timezone. Empty uses UTC, for example Asia/Hong_Kong.",
+            "historyTitle": "Quota history needs reconciliation",
+            "historyHint": "Usage before {{date}} is missing. Periods overlapping that gap remain unavailable; this restriction is preserved until reconciliation."
           }
         },
         "proxyToken": {
@@ -1569,8 +1708,8 @@
           "importFileTooLarge": "Backup files must be 20 MiB or smaller.",
           "externalOriginKey": "External origin key",
           "externalOriginKeyPlaceholder": "stable-source-name",
-          "externalOriginKeyHint": "Keep this value stable when previewing and re-importing the same Octopus source.",
-          "originKeyRequired": "Enter an external origin key before previewing this Octopus backup.",
+          "externalOriginKeyHint": "Keep this value stable when previewing and re-importing the same external source.",
+          "originKeyRequired": "Enter an external origin key before previewing this external backup.",
           "webdavGroup": "WebDAV auto-backup",
           "saveWebdav": "Save WebDAV config",
           "exportToWebdav": "Export to WebDAV",
@@ -1595,6 +1734,11 @@
           "octopusPreviewOrigin": "Source: {{source}} · origin key: {{originKey}}",
           "octopusPreviewSection": "{{section}}: {{count}} record(s)",
           "octopusNotImportedTitle": "Not migrated (will remain only in the source file):",
+          "axonhubRoutableTitle": "Configuration that will be written:",
+          "axonhubSkippedTitle": "Channels that cannot be imported:",
+          "axonhubResidualsTitle": "Unmigrated capabilities and configuration differences:",
+          "axonhubUnsupportedProtocols": "These source protocols are not supported by imported channels yet: {{formats}}.",
+          "axonhubImportConfirmDescription": "Writes the AxonHub v1.4 configuration shown in the preview in one transaction. Review the listed differences and unmigrated items before importing; those items remain in the source file.",
           "octopusAllSectionsSupported": "No unsupported non-empty sections detected.",
           "lastSync": "Last sync: {{at}}",
           "lastError": "Last error: {{error}}",
@@ -1623,7 +1767,7 @@
           },
           "design": {
             "uploadTitle": "Choose a backup file",
-            "uploadHint": "Restore Metapi data or migrate an Octopus backup.",
+            "uploadHint": "Restore Metapi data, or migrate an Octopus / AxonHub backup.",
             "replaceFile": "File selected · click to replace",
             "previewSafety": "Preview first. Nothing is written until you confirm the import.",
             "pasteJson": "Advanced · paste JSON",
@@ -1651,12 +1795,67 @@
               "statsTotal": "Total history",
               "apiKeys": "Downstream keys",
               "llmInfos": "Model pricing",
-              "settings": "Settings"
+              "settings": "Settings",
+              "credentials": "Credentials",
+              "models": "Upstream models",
+              "grants": "Model grants",
+              "routes": "Model routes",
+              "projects": "Projects",
+              "modelPrices": "Model prices",
+              "systemConfigs": "System configs",
+              "usageRequests": "Request history",
+              "usageLogs": "Usage history",
+              "deletedChannels": "Deleted channels",
+              "disabledModelRoutes": "Disabled model routes",
+              "projectsWithProfiles": "Projects with profiles",
+              "apiKeysWithProfiles": "Keys with restrictions",
+              "apiKeysWithQuota": "Keys with quota",
+              "upstream_channels": "Imported channels",
+              "upstream_credentials": "Imported credentials",
+              "upstream_models": "Imported upstream models",
+              "upstream_grants": "Imported grants",
+              "upstream_groups": "Imported route groups",
+              "upstream_group_items": "Imported group members",
+              "token_routes": "Imported model routes"
+            },
+            "routable": {
+              "apiKeys": "Downstream keys",
+              "channels": "Channels",
+              "credentials": "Credentials",
+              "models": "Upstream models",
+              "grants": "Grants",
+              "routes": "Model routes"
             },
             "blockers": {
               "clientHeaderTemplates": "unsupported client request headers",
               "channelProxyUnavailable": "missing outbound proxy",
-              "groupRelayConfig": "unsupported group routing policies"
+              "groupRelayConfig": "unsupported group routing policies",
+              "no_servable_channels": "no channel a direct upstream grant can serve"
+            },
+            "axonhubReasons": {
+              "provider_type_unknown": "provider type is not in the audited AxonHub enum",
+              "provider_translation_unsupported": "requires a protocol translation this gateway does not implement",
+              "provider_credentials_unsupported": "authentication cannot be a static API key",
+              "provider_wire_format_unsupported": "wire format is not OpenAI chat/Responses or Anthropic messages",
+              "oauth_credentials_unsupported": "OAuth credential (no refresh identity to inherit)",
+              "azure_credentials_unsupported": "Azure credential",
+              "gcp_credentials_unsupported": "GCP credential",
+              "credential_missing": "no static API key on the channel",
+              "base_url_invalid": "base URL is not an absolute http(s) URL",
+              "base_url_target_forbidden": "base URL targets a metadata or link-local address",
+              "proxy_configuration_unsupported": "proxy is configured without an explicit URL",
+              "proxy_url_invalid": "proxy URL is invalid or forbidden",
+              "param_override_invalid": "parameter overrides are not a JSON object",
+              "no_servable_protocol": "no endpoint uses a protocol a direct grant can relay",
+              "api_format_unsupported": "endpoint uses an unreviewed api_format",
+              "websocket_transport_unsupported": "endpoint uses WebSocket transport",
+              "endpoint_base_url_override_unsupported": "endpoint overrides the channel base URL",
+              "endpoint_path_invalid": "endpoint path is not a relative path",
+              "channel_stream_policy_unsupported": "channel restricts streaming requests",
+              "channel_body_override_unsupported": "channel rewrites the request body",
+              "channel_header_override_unsupported": "channel rewrites request headers",
+              "channel_transform_options_unsupported": "channel rewrites request semantics",
+              "channel_rate_limit_unsupported": "channel applies its own upstream rate limit"
             }
           }
         },
@@ -2283,6 +2482,8 @@
         "manualFailedInline": "Manual models update failed: {{message}}",
         "placeholder": "Model name, e.g. gpt-4o",
         "inputAria": "New manual model name",
+        "presetSuggestions": "{{preset}} · Preset models",
+        "usePresetModel": "Fill {{name}}",
         "add": "Add",
         "refreshedToast_one": "Models refreshed ({{count}} available)",
         "refreshedToast_other": "Models refreshed ({{count}} available)",
@@ -3226,6 +3427,7 @@
       "imported": {
         "title": "Imported upstreams ({{count}})",
         "region": "Imported upstream inventory",
+        "endpoints": "Protocol endpoints",
         "refresh": "Refresh",
         "coolingDown": "Cooling down",
         "description": "Source channels and their authorized protocol grants. Availability changes apply to routing immediately; re-import replaces the source configuration. No credential values are displayed.",
@@ -3459,7 +3661,9 @@
       "emptyKey": "Enter a key for this entry.",
       "duplicateKey": "This key is already used. Each key must be unique.",
       "invalid": "Use a valid JSON object with non-empty, unique keys.",
-      "advancedOnly": "This configuration contains values that need the JSON editor. Your original content is preserved."
+      "advancedOnly": "This configuration contains values that need the JSON editor. Your original content is preserved.",
+      "moveUp": "Move mapping {{index}} up",
+      "moveDown": "Move mapping {{index}} down"
     },
     "modelPicker": {
       "title": "Choose a model",

@@ -156,8 +156,8 @@ func parseExpiresIn(value interface{}) (int64, bool) {
 	return 0, false
 }
 
-func exchangeCodexToken(form url.Values, proxyURL *string) (*codexTokenResponse, error) {
-	req, err := http.NewRequest("POST", codexTokenURL, strings.NewReader(form.Encode()))
+func exchangeCodexToken(ctx context.Context, form url.Values, proxyURL *string, refresh bool) (*codexTokenResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", codexTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func exchangeCodexToken(form url.Values, proxyURL *string) (*codexTokenResponse,
 	idToken := strings.TrimSpace(payload.IDToken)
 	expiresIn, hasExpiresIn := parseExpiresIn(payload.ExpiresIn)
 
-	if accessToken == "" || refreshToken == "" || idToken == "" || !hasExpiresIn || expiresIn <= 0 {
+	if accessToken == "" || (!refresh && (refreshToken == "" || idToken == "")) || !hasExpiresIn || expiresIn <= 0 {
 		return nil, fmt.Errorf("codex token exchange response missing required fields")
 	}
 	return &payload, nil
@@ -205,7 +205,7 @@ func exchangeCodexAuthorizationCode(ctx context.Context, input ExchangeCodeInput
 	form.Set("redirect_uri", input.RedirectURI)
 	form.Set("code_verifier", input.CodeVerifier)
 
-	payload, err := exchangeCodexToken(form, input.ProxyURL)
+	payload, err := exchangeCodexToken(ctx, form, input.ProxyURL, false)
 	if err != nil {
 		return nil, err
 	}
@@ -218,17 +218,38 @@ func exchangeCodexAuthorizationCode(ctx context.Context, input ExchangeCodeInput
 // ---- Token Refresh ----
 
 func refreshCodexAccessToken(ctx context.Context, input RefreshTokenInput) (*TokenSet, error) {
-	form := url.Values{}
-	form.Set("grant_type", "refresh_token")
-	form.Set("client_id", func() string { id, _ := requireCodexClientID(); return id }())
-	form.Set("refresh_token", input.RefreshToken)
-	form.Set("scope", "openid profile email")
-
-	payload, err := exchangeCodexToken(form, input.ProxyURL)
+	clientID := strings.TrimSpace(input.ClientID)
+	if clientID == "" {
+		var err error
+		clientID, err = requireCodexClientID()
+		if err != nil {
+			return nil, err
+		}
+	}
+	form := url.Values{"grant_type": {"refresh_token"}, "client_id": {clientID}, "refresh_token": {input.RefreshToken}, "scope": {"openid profile email"}}
+	if strings.TrimSpace(input.ClientID) != "" {
+		form.Del("scope")
+	}
+	payload, err := exchangeCodexToken(ctx, form, input.ProxyURL, true)
 	if err != nil {
 		return nil, err
 	}
-	return buildCodexTokenSetFromPayload(payload, "token refresh")
+	expiresIn, _ := parseExpiresIn(payload.ExpiresIn)
+	tokens := &TokenSet{AccessToken: payload.AccessToken, RefreshToken: payload.RefreshToken, IDToken: payload.IDToken, TokenExpiresAt: time.Now().UnixMilli() + expiresIn*1000}
+	identity := ParseCodexAccessToken(payload.AccessToken)
+	if claims, err := parseJWTClaims(payload.IDToken); err == nil {
+		identity = MergeCodexIdentity(&AccountIdentity{Email: claims.Email, ChatGPTAccountID: claims.Auth.ChatGPTAccountID, PlanType: claims.Auth.ChatGPTPlanType}, identity)
+	}
+	if identity != nil {
+		tokens.Email = identity.Email
+		tokens.AccountID = identity.ChatGPTAccountID
+		tokens.AccountKey = identity.ChatGPTAccountID
+		tokens.PlanType = identity.PlanType
+	}
+	if tokens.AccountID == "" {
+		return nil, fmt.Errorf("codex token refresh response missing chatgpt_account_id")
+	}
+	return tokens, nil
 }
 
 // refreshCodexWithSessionToken is the session-cookie fallback invoked by the

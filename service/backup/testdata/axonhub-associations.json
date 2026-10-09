@@ -1,0 +1,156 @@
+{
+  "version": "1.4",
+  "timestamp": "2026-10-05T14:48:53Z",
+  "system_configs": [{ "key": "brand_name", "value": "Fixture Gateway" }],
+  "projects": [{
+    "id": 1,
+    "name": "fixture-project",
+    "description": "Sanitized fixture project",
+    "status": "active",
+    "profiles": { "activeProfile": "restricted", "profiles": [{ "name": "restricted", "channelIDs": [1] }] },
+    "deleted_at": 0
+  }],
+  "channels": [
+    {
+      "id": 1,
+      "type": "openai",
+      "name": "Fixture OpenAI primary",
+      "status": "enabled",
+      "base_url": "https://api.example.invalid/v1",
+      "credentials": { "apiKeys": ["fixture-api-key-1", "fixture-api-key-2"] },
+      "supported_models": ["gpt-5", "claude-sonnet-4.5"],
+      "tags": ["prod"],
+      "settings": { "modelMappings": [{ "from": "gpt-5-fast", "to": "gpt-5" }] },
+      "endpoints": [{ "api_format": "openai/chat_completions" }, { "api_format": "openai/embeddings" }],
+      "deleted_at": 0
+    },
+    {
+      "id": 2,
+      "type": "anthropic",
+      "name": "Fixture Anthropic relay",
+      "status": "enabled",
+      "base_url": "https://anthropic.example.invalid",
+      "credentials": { "apiKey": "fixture-anthropic-key" },
+      "supported_models": ["claude-sonnet-4.5"],
+      "endpoints": [{ "api_format": "anthropic/messages" }],
+      "deleted_at": 0
+    },
+    {
+      "id": 3,
+      "type": "gemini",
+      "name": "Fixture Gemini native",
+      "status": "enabled",
+      "base_url": "https://gemini.example.invalid",
+      "credentials": { "apiKey": "fixture-gemini-key" },
+      "supported_models": ["gemini-3-pro"],
+      "endpoints": [{ "api_format": "gemini/contents" }],
+      "deleted_at": 0
+    },
+    {
+      "id": 4,
+      "type": "openrouter",
+      "name": "Fixture cheap lane",
+      "status": "disabled",
+      "base_url": "https://openrouter.example.invalid/api/v1",
+      "credentials": { "apiKey": "fixture-openrouter-key" },
+      "supported_models": ["deepseek-v4"],
+      "manual_models": ["deepseek-v4-thinking"],
+      "auto_sync_supported_models": true,
+      "tags": ["cheap"],
+      "endpoints": [{ "api_format": "openai/chat_completions", "path": "/v1/chat/completions" }],
+      "deleted_at": 0
+    }
+  ],
+  "models": [
+    {
+      "id": 11,
+      "developer": "openai",
+      "model_id": "gpt-5",
+      "type": "chat",
+      "name": "GPT-5",
+      "status": "enabled",
+      "settings": { "associations": [{ "type": "channel_model", "channelModel": { "channelId": 1, "modelId": "gpt-5" } }] },
+      "deleted_at": 0
+    },
+    {
+      "id": 12,
+      "developer": "anthropic",
+      "model_id": "claude-sonnet-4.5",
+      "type": "chat",
+      "name": "Claude Sonnet 4.5",
+      "status": "enabled",
+      "settings": { "associations": [{ "type": "model", "modelId": { "modelId": "claude-sonnet-4.5" } }] },
+      "deleted_at": 0
+    },
+    {
+      "id": 13,
+      "developer": "deepseek",
+      "model_id": "deepseek-v4",
+      "type": "chat",
+      "name": "DeepSeek V4",
+      "status": "enabled",
+      "settings": { "associations": [{ "type": "channel_tags_model", "channelTagsModel": { "channelTags": ["cheap"], "modelId": "deepseek-v4" } }] },
+      "deleted_at": 0
+    },
+    {
+      "id": 14,
+      "developer": "fixture",
+      "model_id": "legacy-alias",
+      "type": "chat",
+      "name": "Legacy alias",
+      "status": "enabled",
+      "settings": { "associations": [{ "type": "channel_regex", "channelRegex": { "channelId": 4, "pattern": "^deepseek-" } }] },
+      "deleted_at": 0
+    },
+    {
+      "id": 15,
+      "developer": "google",
+      "model_id": "gemini-3-pro",
+      "type": "chat",
+      "name": "Gemini 3 Pro",
+      "status": "enabled",
+      "settings": { "associations": [{ "type": "channel_model", "channelModel": { "channelId": 3, "modelId": "gemini-3-pro" } }] },
+      "deleted_at": 0
+    },
+    {
+      "id": 16,
+      "developer": "openai",
+      "model_id": "gpt-family",
+      "type": "chat",
+      "name": "GPT family",
+      "status": "enabled",
+      "settings": { "associations": [{ "type": "regex", "regex": { "pattern": "^gpt-", "exclude": [] } }] },
+      "deleted_at": 0
+    },
+    {
+      "id": 17,
+      "developer": "fixture",
+      "model_id": "orphan-model",
+      "type": "chat",
+      "name": "Orphan",
+      "status": "enabled",
+      "settings": { "associations": [] },
+      "deleted_at": 0
+    }
+  ],
+  "channel_model_prices": [{
+    "channel_name": "Fixture OpenAI primary",
+    "model_id": "gpt-5",
+    "price": { "items": [{ "itemCode": "prompt_tokens", "pricing": { "mode": "usage_per_unit", "usagePerUnit": "1.25" } }] },
+    "reference_id": "fixture-price"
+  }],
+  "api_keys": [{
+    "id": 21,
+    "project_id": 1,
+    "project_name": "fixture-project",
+    "key": "fixture-downstream-key",
+    "name": "fixture downstream key",
+    "type": "user",
+    "status": "enabled",
+    "scopes": ["read_channels", "write_requests"],
+    "profiles": { "activeProfile": "restricted", "profiles": [{ "name": "restricted", "quota": { "requests": 100, "period": { "type": "all_time" } } }] },
+    "allowed_ips": ["192.0.2.1/32"]
+  }],
+  "usage_requests": [],
+  "usage_logs": []
+}

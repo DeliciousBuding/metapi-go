@@ -9,9 +9,8 @@ import {
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ModelPicker } from '@/components/common/model-picker'
 import i18n from '@/i18n/config'
-
-import { ModelPicker } from '../components/model-picker'
 
 const models = [
   { name: 'gpt-4o' },

@@ -25,11 +25,15 @@ func proxyAuthErrorClass(reason string) (errType, code string) {
 		return "authentication_error", "missing_api_key"
 	case "invalid":
 		return "authentication_error", "invalid_api_key"
+	case "access_policy", "quota_history_missing", "quota_usage_unknown":
+		return "permission_error", reason
+	case "quota_unavailable":
+		return "server_error", reason
 	case "disabled":
 		return "permission_error", "key_disabled"
 	case "expired":
 		return "permission_error", "key_expired"
-	case "over_cost", "over_requests":
+	case "over_cost", "over_requests", "over_quota":
 		return "insufficient_quota", "insufficient_quota"
 	case "ip_blocked":
 		return "permission_error", "ip_blocked"

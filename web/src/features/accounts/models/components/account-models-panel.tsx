@@ -20,10 +20,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
+import { useSiteInitializationPresets } from '@/features/sites'
 import { toBcp47 } from '@/i18n/languages'
 import { formatAbsoluteDateTime, formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+import { findAccountInitializationPreset } from '../../lib/initialization-preset'
+import type { Site } from '../../types'
 import {
   useAccountModels,
   useRefreshAccountModels,
@@ -32,6 +35,7 @@ import {
 
 interface AccountModelsPanelProps {
   accountId: number
+  site?: Pick<Site, 'platform' | 'url'> | null
 }
 
 function describeError(error: unknown): string {
@@ -41,7 +45,10 @@ function describeError(error: unknown): string {
   return 'Unknown error'
 }
 
-export function AccountModelsPanel({ accountId }: AccountModelsPanelProps) {
+export function AccountModelsPanel({
+  accountId,
+  site,
+}: AccountModelsPanelProps) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
   const { data, isLoading, isError, isFetching, refetch } =
@@ -52,6 +59,11 @@ export function AccountModelsPanel({ accountId }: AccountModelsPanelProps) {
   const [newModel, setNewModel] = useState('')
 
   const models = data?.models ?? []
+  const presets = useSiteInitializationPresets()
+  const preset = findAccountInitializationPreset(site, presets.data)
+  const suggestions = [...new Set(preset?.recommendedModels ?? [])].filter(
+    (name) => !models.some((model) => model.name === name)
+  )
 
   const handleRefresh = () => {
     refreshMutation.mutate()
@@ -214,6 +226,35 @@ export function AccountModelsPanel({ accountId }: AccountModelsPanelProps) {
             defaultValue: 'Manual models update failed: {{message}}',
           })}
         </p>
+      )}
+
+      {suggestions.length > 0 && (
+        <div className='space-y-1.5'>
+          <p className='text-muted-foreground text-xs'>
+            {t('accounts.models.presetSuggestions', {
+              preset: preset?.label,
+              defaultValue: '{{preset}} · Preset models',
+            })}
+          </p>
+          <div className='flex flex-wrap gap-1'>
+            {suggestions.map((name) => (
+              <Button
+                key={name}
+                type='button'
+                variant='outline'
+                size='xs'
+                disabled={manualMutation.isPending}
+                aria-label={t('accounts.models.usePresetModel', {
+                  name,
+                  defaultValue: 'Fill {{name}}',
+                })}
+                onClick={() => setNewModel(name)}
+              >
+                <ModelPill model={name} variant='inline' />
+              </Button>
+            ))}
+          </div>
+        </div>
       )}
 
       <form onSubmit={handleAdd} className='flex gap-1'>

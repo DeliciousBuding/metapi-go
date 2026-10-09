@@ -145,6 +145,64 @@ Tables absent from the payload are skipped, so a backup written by an older buil
 imports. A payload naming a table the backup set excludes — or any table outside the schema registry — is rejected with
 `400 unknown table <name>`; the exclusion is enforced on import, not just omitted on export.
 
+### AxonHub v1.4 import
+
+An AxonHub backup (`version: "1.4"` with `timestamp`, `channels`, and `models`)
+uses the same import and preview endpoints and `X-External-Origin-Key` scoping
+as Octopus. One compiled plan drives both the preview and the transaction.
+Repeated imports update source-owned records; removals require
+`X-AxonHub-Replace-Origin: true`. Preview never writes, and a failed import
+rolls back the entire graph and its downstream keys.
+
+The audited source revision is `e863c6fe1942deddd0f6e471fa003c430e5314f0`.
+The parser accepts its generated `edges` metadata and default settings, rejects
+ambiguous duplicate JSON keys and invalid source identities, and keeps secrets
+out of the preview. Unknown executable fields remain explicit incompatibilities.
+
+The compiler resolves all six model-association kinds against supported models,
+prefixes, aliases and hide/lowercase settings. Developer-level associations are
+inherited unless the model opts out; local rules win ties, overlapping candidates
+retain the highest priority. Per-model `modelProtocols` becomes an ordered list
+on each route item, so two aliases sharing a credential do not widen each
+other's outbound protocol choices.
+
+Provider defaults and custom endpoints are merged by API format. Each endpoint
+keeps its actual URL and authentication, including distinct hosts for Chat,
+Responses and Messages. Explicit endpoint configurations support native Gemini
+and generation-protocol conversion, with JSON, streaming and function tools.
+Native bodies preserve provider-specific reasoning and continuation data;
+nonportable cross-protocol fields fail explicitly. Codex/Fenno and Claude Code
+support static and structured OAuth credentials, request-time refresh and their
+provider-specific request/stream contracts. See [direct upstreams](routes.md)
+for endpoint and credential management.
+
+API keys are imported as native downstream keys. Their project and key active
+profiles are intersected into source-channel boundaries, preserving model
+restrictions, ordered mappings, IP allowlists and scope/status checks. Project
+profiles are flattened into the key's channel-ID snapshot; changing the source
+profile requires reimport. Imported usage logs support native period quotas,
+and local usage is retained when reimporting. Missing history blocks quota
+periods that overlap the gap; see [access policies and quotas](downstream-keys.md).
+A management-only or unsupported key remains explicitly blocked for proxy use.
+
+The preview reports configuration counts, skipped channels, remaining source
+sections, configuration differences and removals. The following remain outside
+the current executable import contract:
+
+- Gemini Vertex, Antigravity, Anthropic AWS/GCP, GitHub Copilot, xAI subscription,
+  Jina, native Ollama, fake providers, Typesafe and ZenMux video.
+- Embeddings, image/audio/video, moderation and other nongeneration endpoints.
+- Active channel transform operations, channel rate limits and stream policies,
+  conditional associations, unsupported proxy modes, and nonportable key-level
+  load-balancing/sticky overrides or regular expressions.
+- Source pricing, request history and deployment settings. Developer associations
+  and quota-relevant usage are consumed as described above; this does not copy
+  the source deployment's global settings or turn historical usage into live
+  health measurements.
+
+These residuals are not a claim of equivalent behavior. Their source records
+remain in the original backup and the preview explains the affected scope.
+
 ### GET /api/settings/backup/webdav
 
 Get WebDAV backup configuration and last sync state. Passwords are never returned; use `hasPassword` and `passwordMasked` to show saved credential status.
@@ -165,7 +223,7 @@ Download a backup payload from `fileUrl` with HTTP `GET` and import its `tables`
 
 ### POST /api/settings/backup/import/preview
 
-Preview a backup import without writing anything. Same body shapes as `POST /api/settings/backup/import` (`{ "tables": {...} }`, optional `{ "data": { "tables": {...} }` wrapper, TS backup v2.1 payloads), plus Octopus v5 JSON. Octopus v5 requests require `X-External-Origin-Key`.
+Preview a backup import without writing anything. Same body shapes as `POST /api/settings/backup/import` (`{ "tables": {...} }`, optional `{ "data": { "tables": {...} }` wrapper, TS backup v2.1 payloads), plus Octopus v5 and AxonHub v1.4 JSON. External-source requests require `X-External-Origin-Key`; their plan is the source-specific preview described above instead of a per-table row count.
 
 **Response**: `{ success, plan: { "<table>": { rows, toInsert, duplicates, skippedRows } } }` — `duplicates` are rows whose PK already exists in the target DB (they would be dropped by `ON CONFLICT DO NOTHING`); `skippedRows` are runtime-local settings skipped by policy. No rows are written.
 

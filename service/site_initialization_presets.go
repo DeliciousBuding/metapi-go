@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// SiteInitializationPreset mirrors web/shared/siteInitializationPresets.js.
-// Platform values are protocol families (openai/claude), not vendor brand tags.
+// SiteInitializationPreset owns connection defaults used by creation, detection
+// and the admin template gallery. Platform values are registered adapters, not brands.
 type SiteInitializationPreset struct {
 	ID                        string
 	Label                     string
@@ -68,9 +68,164 @@ var doubaoCodingRecommendedModels = []string{
 	"doubao-seed-2.0-pro",
 }
 
-// siteInitializationPresets is the SSOT ported from siteInitializationPresets.js.
+// siteInitializationPresets is the connection preset registry.
 // Order matters for DetectSiteInitializationPreset first-match behavior.
 var siteInitializationPresets = []SiteInitializationPreset{
+	{
+		ID: "bailian-claude", Label: "Alibaba Bailian / Claude", ProviderLabel: "Alibaba Bailian",
+		Platform: "claude", DefaultURL: "https://dashscope.aliyuncs.com/apps/anthropic",
+		InitialSegment: "apikey", DocsURL: "https://dashscope.aliyuncs.com",
+		MatchHost: "dashscope.aliyuncs.com", MatchPaths: []string{"/apps/anthropic"},
+	},
+	{
+		ID: "zhipu-openai", Label: "Zhipu GLM / OpenAI", ProviderLabel: "Zhipu GLM",
+		Platform: "openai", DefaultURL: "https://open.bigmodel.cn/api/paas/v4",
+		InitialSegment: "apikey", DocsURL: "https://open.bigmodel.cn",
+		MatchHost: "open.bigmodel.cn", MatchPaths: []string{"/api/paas/v4"},
+	},
+	{
+		ID: "zai-openai", Label: "Z.AI / OpenAI", ProviderLabel: "Z.AI",
+		Platform: "openai", DefaultURL: "https://api.z.ai/api/paas/v4",
+		InitialSegment: "apikey", DocsURL: "https://api.z.ai",
+		MatchHost: "api.z.ai", MatchPaths: []string{"/api/paas/v4"},
+	},
+	{
+		ID: "zai-coding-plan-openai", Label: "Z.AI Coding Plan / OpenAI", ProviderLabel: "Z.AI Coding Plan",
+		Platform: "openai", DefaultURL: "https://api.z.ai/api/coding/paas/v4",
+		InitialSegment: "apikey", DocsURL: "https://api.z.ai",
+		MatchHost: "api.z.ai", MatchPaths: []string{"/api/coding/paas/v4"},
+		RecommendedSkipModelFetch: true, RecommendedModels: zhipuCodingPlanRecommendedModels,
+	},
+	{
+		ID: "zai-coding-plan-claude", Label: "Z.AI Coding Plan / Claude", ProviderLabel: "Z.AI Coding Plan",
+		Platform: "claude", DefaultURL: "https://api.z.ai/api/anthropic",
+		InitialSegment: "apikey", DocsURL: "https://api.z.ai",
+		RecommendedSkipModelFetch: true, RecommendedModels: zhipuCodingPlanRecommendedModels,
+	},
+	{
+		ID: "doubao-openai", Label: "Volcengine Ark / OpenAI", ProviderLabel: "Volcengine Ark",
+		Platform: "openai", DefaultURL: "https://ark.cn-beijing.volces.com/api/v3",
+		InitialSegment: "apikey", DocsURL: "https://ark.cn-beijing.volces.com",
+		MatchHost: "ark.cn-beijing.volces.com", MatchPaths: []string{"/api/v3"},
+	},
+	{
+		ID: "doubao-coding-claude", Label: "Doubao Coding Plan / Claude", ProviderLabel: "Doubao Coding Plan",
+		Platform: "claude", DefaultURL: "https://ark.cn-beijing.volces.com/api/coding",
+		InitialSegment: "apikey", DocsURL: "https://ark.cn-beijing.volces.com",
+		MatchHost: "ark.cn-beijing.volces.com", MatchPaths: []string{"/api/coding"},
+		RecommendedSkipModelFetch: true, RecommendedModels: doubaoCodingRecommendedModels,
+	},
+	{
+		ID: "kimi-coding-openai", Label: "Kimi Coding Plan / OpenAI", ProviderLabel: "Kimi Coding Plan",
+		Platform: "openai", DefaultURL: "https://api.kimi.com/coding/v1",
+		InitialSegment: "apikey", DocsURL: "https://api.kimi.com",
+		MatchHost: "api.kimi.com", MatchPaths: []string{"/coding/v1"},
+		RecommendedSkipModelFetch: true, RecommendedModels: moonshotRecommendedModels,
+	},
+	{
+		ID: "kimi-coding-claude", Label: "Kimi Coding Plan / Claude", ProviderLabel: "Kimi Coding Plan",
+		Platform: "claude", DefaultURL: "https://api.kimi.com/coding",
+		InitialSegment: "apikey", DocsURL: "https://api.kimi.com",
+		MatchHost: "api.kimi.com", MatchPaths: []string{"/coding"},
+		RecommendedSkipModelFetch: true, RecommendedModels: moonshotRecommendedModels,
+	},
+	{
+		ID: "xiaomi-openai", Label: "Xiaomi MiMo / OpenAI", ProviderLabel: "Xiaomi MiMo",
+		Platform: "openai", DefaultURL: "https://api.xiaomimimo.com",
+		InitialSegment: "apikey", DocsURL: "https://api.xiaomimimo.com",
+		MatchHost: "api.xiaomimimo.com", MatchPaths: []string{"/", "/v1"},
+	},
+	{
+		ID: "xiaomi-token-plan-claude", Label: "MiMo Token Plan / Claude", ProviderLabel: "MiMo Token Plan",
+		Platform: "claude", DefaultURL: "https://token-plan-cn.xiaomimimo.com/anthropic",
+		InitialSegment: "apikey", DocsURL: "https://token-plan-cn.xiaomimimo.com",
+		MatchHost: "token-plan-cn.xiaomimimo.com", MatchPaths: []string{"/anthropic"},
+		RecommendedSkipModelFetch: true, RecommendedModels: []string{"mimo-v2.5-pro", "mimo-v2.5"},
+	},
+	{
+		ID: "ppio-openai", Label: "PPIO / OpenAI", ProviderLabel: "PPIO",
+		Platform: "openai", DefaultURL: "https://api.ppinfra.com/openai/v1",
+		InitialSegment: "apikey", DocsURL: "https://api.ppinfra.com",
+		MatchHost: "api.ppinfra.com", MatchPaths: []string{"/openai/v1"},
+	},
+	{
+		ID: "qiniu-openai", Label: "Qiniu / OpenAI", ProviderLabel: "Qiniu",
+		Platform: "openai", DefaultURL: "https://api.qnaigc.com/v1",
+		InitialSegment: "apikey", DocsURL: "https://api.qnaigc.com",
+		MatchHost: "api.qnaigc.com", MatchPaths: []string{"/v1"},
+	},
+	{
+		ID: "qiniu-claude", Label: "Qiniu / Claude", ProviderLabel: "Qiniu",
+		Platform: "claude", DefaultURL: "https://api.qnaigc.com",
+		InitialSegment: "apikey", DocsURL: "https://api.qnaigc.com",
+		MatchHost: "api.qnaigc.com", MatchPaths: []string{"/"},
+	},
+	{
+		ID: "openai-api", Label: "OpenAI API", ProviderLabel: "OpenAI",
+		Platform: "openai", DefaultURL: "https://api.openai.com",
+		InitialSegment: "apikey", DocsURL: "https://platform.openai.com/docs/api-reference",
+		MatchHost: "api.openai.com", MatchPaths: []string{"/", "/v1"},
+	},
+	{
+		ID: "anthropic-api", Label: "Anthropic API", ProviderLabel: "Anthropic",
+		Platform: "claude", DefaultURL: "https://api.anthropic.com",
+		InitialSegment: "apikey", DocsURL: "https://platform.claude.com/docs/en/api/overview",
+		MatchHost: "api.anthropic.com", MatchPaths: []string{"/", "/v1"},
+	},
+	{
+		ID: "gemini-api", Label: "Gemini API", ProviderLabel: "Google Gemini",
+		Platform: "gemini", DefaultURL: "https://generativelanguage.googleapis.com",
+		InitialSegment: "apikey", DocsURL: "https://ai.google.dev/gemini-api/docs",
+		MatchHost: "generativelanguage.googleapis.com", MatchPaths: []string{"/", "/v1beta"},
+	},
+	{
+		ID: "openrouter", Label: "OpenRouter", ProviderLabel: "OpenRouter",
+		Platform: "openai", DefaultURL: "https://openrouter.ai/api",
+		InitialSegment: "apikey", DocsURL: "https://openrouter.ai/docs/api-reference/overview",
+		MatchHost: "openrouter.ai", MatchPaths: []string{"/api", "/api/v1"},
+	},
+	{
+		ID: "groq", Label: "Groq", ProviderLabel: "Groq",
+		Platform: "openai", DefaultURL: "https://api.groq.com/openai",
+		InitialSegment: "apikey", DocsURL: "https://console.groq.com/docs/openai",
+		MatchHost: "api.groq.com", MatchPaths: []string{"/openai", "/openai/v1"},
+	},
+	{
+		ID: "mistral", Label: "Mistral AI", ProviderLabel: "Mistral AI",
+		Platform: "openai", DefaultURL: "https://api.mistral.ai",
+		InitialSegment: "apikey", DocsURL: "https://docs.mistral.ai/api/",
+		MatchHost: "api.mistral.ai", MatchPaths: []string{"/", "/v1"},
+	},
+	{
+		ID: "xai-api", Label: "xAI API", ProviderLabel: "xAI",
+		Platform: "openai", DefaultURL: "https://api.x.ai",
+		InitialSegment: "apikey", DocsURL: "https://docs.x.ai/docs/api-reference",
+		MatchHost: "api.x.ai", MatchPaths: []string{"/", "/v1"},
+	},
+	{
+		ID: "siliconflow", Label: "SiliconFlow", ProviderLabel: "SiliconFlow",
+		Platform: "openai", DefaultURL: "https://api.siliconflow.cn",
+		InitialSegment: "apikey", DocsURL: "https://docs.siliconflow.cn/",
+		MatchHost: "api.siliconflow.cn", MatchPaths: []string{"/", "/v1"},
+	},
+	{
+		ID: "bailian", Label: "Alibaba Bailian", ProviderLabel: "Alibaba Bailian",
+		Platform: "openai", DefaultURL: "https://dashscope.aliyuncs.com/compatible-mode",
+		InitialSegment: "apikey", DocsURL: "https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope",
+		MatchHost: "dashscope.aliyuncs.com", MatchPaths: []string{"/compatible-mode", "/compatible-mode/v1"},
+	},
+	{
+		ID: "fireworks", Label: "Fireworks AI", ProviderLabel: "Fireworks AI",
+		Platform: "openai", DefaultURL: "https://api.fireworks.ai/inference",
+		InitialSegment: "apikey", DocsURL: "https://docs.fireworks.ai/api-reference/introduction",
+		MatchHost: "api.fireworks.ai", MatchPaths: []string{"/inference", "/inference/v1"},
+	},
+	{
+		ID: "cerebras", Label: "Cerebras", ProviderLabel: "Cerebras",
+		Platform: "openai", DefaultURL: "https://api.cerebras.ai",
+		InitialSegment: "apikey", DocsURL: "https://inference-docs.cerebras.ai/api-reference/models",
+		MatchHost: "api.cerebras.ai", MatchPaths: []string{"/", "/v1"},
+	},
 	{
 		ID:                        "codingplan-openai",
 		Label:                     "Aliyun CodingPlan / OpenAI",
