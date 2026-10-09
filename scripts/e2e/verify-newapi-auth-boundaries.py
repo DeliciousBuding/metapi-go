@@ -736,7 +736,7 @@ def scenario_relay(ctx):
     repo = Path(__file__).resolve().parents[2]
     mock_env = minimal_env({
         "MOCK_OPENAI_HOST": "127.0.0.1", "MOCK_OPENAI_PORT": str(mock_port),
-        "MOCK_OPENAI_LOG": str(mock_log), "MOCK_OPENAI_MODELS": "gpt-4o-mini",
+        "MOCK_OPENAI_LOG": str(mock_log), "MOCK_OPENAI_MODELS": "gpt-5-mini",
         "MOCK_OPENAI_MARKER": "metapi-boundary-marker",
     })
     mock = Process("mock-openai", [sys.executable, str(repo / "scripts/e2e/mock-openai.py")],
@@ -747,7 +747,7 @@ def scenario_relay(ctx):
             "mode": "single",
             "channel": {"type": 1, "name": "metapi-boundary-mock", "key": "isolated-mock-key",
                         "status": 1, "base_url": f"http://127.0.0.1:{mock_port}",
-                        "models": "gpt-4o-mini", "test_model": "gpt-4o-mini", "group": "default"},
+                        "models": "gpt-5-mini", "test_model": "gpt-5-mini", "group": "default"},
         }
         created = root.ok("POST", "/api/channel/", channel)
         require(created.get("success") is True, "upstream_channel_create_failed")
@@ -762,7 +762,7 @@ def scenario_relay(ctx):
             "METAPI_URL": metapi.base, "METAPI_AUTH_TOKEN": metapi.key,
             "UPSTREAM_URL": root.base, "UPSTREAM_USERNAME": "root",
             "UPSTREAM_PASSWORD": ctx["root_password"], "PLATFORM": "new-api",
-            "PROXY_MODEL": "gpt-4o-mini", "EXPECT_RELAY": "1",
+            "PROXY_MODEL": "gpt-5-mini", "EXPECT_RELAY": "1",
             "EXPECTED_COMPLETION_CONTENT": "metapi-boundary-marker",
             "MOCK_REQUEST_LOG": str(mock_log),
             "SITE_NAME": ctx["prefix"] + "relay", "TOKEN_NAME": ctx["prefix"] + "relay-key",

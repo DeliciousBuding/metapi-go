@@ -9,7 +9,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-DEFAULT_MODEL = "gpt-4o-mini"
+DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_MARKER = "metapi-e2e-marker"
 
 CHAT_PATH = "/v1/chat/completions"
