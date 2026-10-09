@@ -9,7 +9,11 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ProxyLog } from '../../types'
-import { csvEscape, proxyLogsToCsv } from '../proxy-logs-csv'
+import {
+  csvEscape,
+  loadProxyLogsForCsv,
+  proxyLogsToCsv,
+} from '../proxy-logs-csv'
 
 const translate = (key: string, params?: { defaultValue?: string }) =>
   params?.defaultValue ?? key
@@ -83,7 +87,7 @@ describe('proxyLogsToCsv', () => {
     expect(secondRow).toContain(',#7,')
   })
 
-  it('leaves benign rows byte-identical to the pre-fix shape', () => {
+  it('preserves existing leading columns and appends audit columns with unknown values empty', () => {
     const csv = proxyLogsToCsv(
       [
         makeLog({
@@ -96,7 +100,101 @@ describe('proxyLogsToCsv', () => {
     )
     const bodyRow = csv.split('\n')[1]
     expect(bodyRow).toBe(
-      '2026-08-22 12:00:00,200,success,gpt-5.5,alice,hub,120,30,0.05'
+      '2026-08-22 12:00:00,200,success,gpt-5.5,alice,hub,120,30,0.05,,0,gpt-5.5,,,,,,,,'
     )
+  })
+  it('exports separate timing, model provenance, retries and known zero usage', () => {
+    const csv = proxyLogsToCsv(
+      [
+        makeLog({
+          requestId: '=hostile',
+          retryCount: 2,
+          modelRequested: 'public-model',
+          upstreamReportedModel: '@untrusted',
+          isStream: false,
+          firstByteLatencyMs: 0,
+          firstOutputLatencyMs: null,
+          promptTokens: 20,
+          completionTokens: 10,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 5,
+        }),
+      ],
+      translate
+    )
+    const [header, body] = csv.split('\n')
+    const columns = header.split(',')
+    const values = body.split(',')
+    expect(values).toHaveLength(columns.length)
+    const row = Object.fromEntries(columns.map((name, i) => [name, values[i]]))
+    expect(row).toMatchObject({
+      requestId: "'=hostile",
+      retryCount: '2',
+      requestedModel: 'public-model',
+      upstreamReportedModel: "'@untrusted",
+      isStream: 'false',
+      firstByteLatencyMs: '0',
+      firstOutputLatencyMs: '',
+      inputTokens: '20',
+      outputTokens: '10',
+      cacheReadTokens: '0',
+      cacheCreationTokens: '5',
+    })
+  })
+})
+
+describe('loadProxyLogsForCsv', () => {
+  it('reads past the server 100-row limit with identical bounded filters', async () => {
+    const data = Array.from({ length: 235 }, (_, id) => makeLog({ id }))
+    const requests: unknown[] = []
+    const result = await loadProxyLogsForCsv(
+      { status: 'success', from: '2026-10-01' },
+      async (query) => {
+        requests.push(query)
+        return {
+          items: data.slice(query.offset, (query.offset ?? 0) + 100),
+          total: data.length,
+        }
+      },
+      '2026-10-09T00:00:00Z'
+    )
+    expect(result.rows.map((row) => row.id)).toEqual(data.map((row) => row.id))
+    expect(result.truncated).toBe(false)
+    expect(requests).toEqual(
+      [0, 100, 200].map((offset) => ({
+        status: 'success',
+        from: '2026-10-01',
+        to: '2026-10-09T00:00:00Z',
+        limit: 100,
+        offset,
+      }))
+    )
+  })
+  it('only reports truncation when more than the cap exists and keeps explicit time bounds', async () => {
+    for (const total of [0, 10_000, 10_001]) {
+      const result = await loadProxyLogsForCsv(
+        { to: '2026-10-08' },
+        async (query) => {
+          expect(query.to).toBe('2026-10-08')
+          return {
+            items: Array.from(
+              { length: Math.min(100, total - (query.offset ?? 0)) },
+              (_, i) => makeLog({ id: (query.offset ?? 0) + i })
+            ),
+            total,
+          }
+        }
+      )
+      expect(result.rows).toHaveLength(Math.min(total, 10_000))
+      expect(result.truncated).toBe(total > 10_000)
+    }
+  })
+  it('fails rather than labeling an incomplete export successful after records disappear', async () => {
+    await expect(
+      loadProxyLogsForCsv({}, async (query) => ({
+        items: query.offset ? [] : [makeLog({})],
+        total: 2,
+      }))
+    ).rejects.toThrow('changed during pagination')
   })
 })

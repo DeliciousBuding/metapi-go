@@ -114,7 +114,10 @@ The Octopus v5 path currently imports channels, named channel keys, models, gran
 Imported grants enter the normal token-route selector and proxy executor as typed direct upstream candidates; they do not
 create synthetic sites or accounts. Chat Completions, Responses, and Anthropic Messages are dispatched only when the
 selected grant authorizes the matching protocol, using each imported protocol path. Messages credentials use the
-Anthropic `x-api-key` header; OpenAI-compatible protocols use Bearer authorization. Downstream model, route, and
+Anthropic `x-api-key` header; OpenAI-compatible protocols use Bearer authorization. Direct requests preserve native
+protocol bodies, including Responses reasoning items and tool continuations, except for the selected model mapping
+and explicitly configured parameter overrides. Legacy site compatibility cleanup is not applied to direct grants.
+Downstream model, route, and
 direct-grant credential allow-lists still apply. Direct requests have no native site identity, so a non-empty downstream
 site allow-list fails closed for these grants.
 

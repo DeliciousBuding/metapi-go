@@ -34,7 +34,7 @@ import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
 import { useProxyLogs, useProxyLogsMeta } from '../api'
-import { proxyLogsToCsv } from '../lib/proxy-logs-csv'
+import { loadProxyLogsForCsv, proxyLogsToCsv } from '../lib/proxy-logs-csv'
 import {
   PROXY_LOG_STATUS_FILTER_OPTIONS,
   proxyLogsSearchSchema,
@@ -60,7 +60,6 @@ const PROXY_LOGS_COLUMN_VISIBILITY_STORAGE_KEY =
 const PROXY_LOGS_COLUMN_SIZING_STORAGE_KEY =
   'metapi-go:proxy-logs:column-sizing'
 const DEFAULT_PAGE_SIZE = 20
-const PROXY_LOGS_CSV_EXPORT_LIMIT = 10_000
 
 /** Page-specific URL filters (all strings for URL round-trip simplicity). */
 type ProxyLogsUrlFilters = {
@@ -343,13 +342,10 @@ export function ProxyLogsPage() {
   async function handleExportCsv() {
     setIsExporting(true)
     try {
-      const exportPayload = {
-        ...queryPayload,
-        limit: PROXY_LOGS_CSV_EXPORT_LIMIT,
-        offset: 0,
-      }
-      const response = await api.getProxyLogsQuery(exportPayload)
-      const rows = response.items ?? []
+      const { rows, truncated } = await loadProxyLogsForCsv(
+        queryPayload,
+        (params) => api.getProxyLogsQuery(params)
+      )
       const csv = proxyLogsToCsv(rows, t)
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
@@ -358,9 +354,7 @@ export function ProxyLogsPage() {
       anchor.download = `metapi-proxy-logs-${formatExportStamp()}.csv`
       anchor.click()
       URL.revokeObjectURL(url)
-      if (rows.length >= PROXY_LOGS_CSV_EXPORT_LIMIT) {
-        // Hitting the cap is indistinguishable from "exactly N rows" otherwise;
-        // warn so the operator does not analyze a silently truncated dataset.
+      if (truncated) {
         toast.warning(t('proxyLogs.page.exportCsvTruncated'), {
           description: t('proxyLogs.page.exportCsvTruncatedHint', {
             count: rows.length,

@@ -5,7 +5,40 @@
 
 import { neutralizeCsvFormulaCell } from '@/lib/helpers/csv-injection'
 
-import type { ProxyLog } from '../types'
+import type { ProxyLog, ProxyLogsQuery } from '../types'
+
+const EXPORT_LIMIT = 10_000
+const PAGE_LIMIT = 100
+
+// Use the API's actual page limit; a large requested limit is clamped server-side.
+export async function loadProxyLogsForCsv(
+  query: ProxyLogsQuery,
+  fetchPage: (
+    query: ProxyLogsQuery
+  ) => Promise<{ items: ProxyLog[]; total: number }>,
+  now = new Date().toISOString()
+): Promise<{ rows: ProxyLog[]; truncated: boolean }> {
+  const rows: ProxyLog[] = []
+  const filters = { ...query, to: query.to || now }
+  let target = EXPORT_LIMIT
+  let truncated = false
+  do {
+    const page = await fetchPage({
+      ...filters,
+      limit: PAGE_LIMIT,
+      offset: rows.length,
+    })
+    if (rows.length === 0) {
+      target = Math.min(page.total, EXPORT_LIMIT)
+      truncated = page.total > EXPORT_LIMIT
+    }
+    if (page.items.length === 0 && rows.length < target) {
+      throw new Error('Log export changed during pagination; refresh and retry')
+    }
+    rows.push(...page.items.slice(0, Math.max(0, target - rows.length)))
+  } while (rows.length < target)
+  return { rows, truncated }
+}
 
 // CSV export column header keys. The proxy_logs table does not persist the
 // HTTP method or upstream path (only the downstream trace surface does), so
@@ -22,6 +55,17 @@ const PROXY_LOGS_CSV_COLUMNS = [
   'duration',
   'tokens',
   'estimatedCost',
+  'requestId',
+  'retryCount',
+  'requestedModel',
+  'upstreamReportedModel',
+  'isStream',
+  'firstByteLatencyMs',
+  'firstOutputLatencyMs',
+  'inputTokens',
+  'outputTokens',
+  'cacheReadTokens',
+  'cacheCreationTokens',
 ] as const
 
 /**
@@ -56,6 +100,8 @@ export function proxyLogsToCsv(
       const siteLabel = log.siteName || (log.siteId ? `#${log.siteId}` : '')
       const modelLabel =
         log.modelActual?.trim() || log.modelRequested?.trim() || ''
+      let streamLabel = ''
+      if (log.isStream != null) streamLabel = String(log.isStream)
       const cells = [
         log.createdAt,
         log.httpStatus ?? '',
@@ -66,6 +112,17 @@ export function proxyLogsToCsv(
         log.latencyMs ?? '',
         log.totalTokens ?? '',
         log.estimatedCost ?? '',
+        log.requestId,
+        log.retryCount,
+        log.modelRequested,
+        log.upstreamReportedModel,
+        streamLabel,
+        log.firstByteLatencyMs,
+        log.firstOutputLatencyMs,
+        log.promptTokens,
+        log.completionTokens,
+        log.cacheReadTokens,
+        log.cacheCreationTokens,
       ]
       return cells.map(csvEscape).join(',')
     })

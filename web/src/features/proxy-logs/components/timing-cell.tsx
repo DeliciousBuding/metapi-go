@@ -42,8 +42,14 @@ export function TimingCell(props: TimingCellProps) {
     (!hasFirst || output >= first)
   const outputLabel = hasOutput ? formatLatency(output, LATENCY_FORMAT) : '—'
   let timingTone = 'border-muted-foreground/30'
-  if (hasFirst) {
-    timingTone = first >= 5000 ? 'border-warning' : 'border-success'
+  let perceivedLatency: number | undefined
+  if (props.isStream) {
+    if (hasOutput) perceivedLatency = output
+  } else if (hasFirst) {
+    perceivedLatency = first
+  }
+  if (perceivedLatency !== undefined) {
+    timingTone = perceivedLatency >= 5000 ? 'border-warning' : 'border-success'
   }
   const ariaLabel = hasFirst
     ? t('proxyLogs.timing.ariaFirstByte', {

@@ -451,6 +451,7 @@ export type ProxyLogBillingDetails = {
 } | null
 
 export type ProxyLogListItem = {
+  requestId?: string | null
   id: number
   createdAt: string
   modelRequested: string
@@ -489,7 +490,6 @@ export type ProxyLogListItem = {
 }
 
 export type ProxyLogDetail = ProxyLogListItem & {
-  requestId?: string | null
   routeId?: number | null
   channelId?: number | null
   httpStatus?: number | null

@@ -7,6 +7,22 @@ import { TimingCell } from '../timing-cell'
 
 afterEach(cleanup)
 describe('proxy-attempt timing', () => {
+  it('does not mark a slow first output green just because headers arrived quickly', () => {
+    render(
+      <TimingCell
+        isStream
+        firstByteLatencyMs={100}
+        firstOutputLatencyMs={6000}
+        latencyMs={9000}
+      />
+    )
+    expect(screen.getByRole('group')).toHaveClass('border-warning')
+    expect(screen.getByRole('group')).not.toHaveClass('border-success')
+  })
+  it('keeps unknown stream output neutral even with fast headers', () => {
+    render(<TimingCell isStream firstByteLatencyMs={100} latencyMs={9000} />)
+    expect(screen.getByRole('group')).toHaveClass('border-muted-foreground/30')
+  })
   it('keeps generated output separate from response headers for streams', () => {
     render(
       <TimingCell
