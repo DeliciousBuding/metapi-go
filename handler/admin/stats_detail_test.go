@@ -111,6 +111,16 @@ func TestStats_SQLiteProxyLogDetail_ParsesBillingDetails(t *testing.T) {
 	if _, ok := bd["quota_type"]; ok {
 		t.Fatal("snake_case billing root escaped into wire response")
 	}
+	if body["cacheReadTokens"] != float64(20) {
+		t.Fatalf("detail cache count=%v", body["cacheReadTokens"])
+	}
+	list := doGet(t, r, "/api/stats/proxy-logs?view=query&search=gpt-billing")
+	var listed struct {
+		Items []map[string]any `json:"items"`
+	}
+	if list.Code != http.StatusOK || json.Unmarshal(list.Body.Bytes(), &listed) != nil || len(listed.Items) != 1 || listed.Items[0]["cacheReadTokens"] != float64(20) {
+		t.Fatalf("list omitted observed cache usage: %s", list.Body.String())
+	}
 }
 
 func TestStats_SQLiteProxyLogDetail_UnlinkedLog(t *testing.T) {

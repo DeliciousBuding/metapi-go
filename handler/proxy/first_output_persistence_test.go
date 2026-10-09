@@ -25,6 +25,11 @@ func TestFirstOutputPersistence(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer db.Close()
+			defer func() {
+				if _, err := db.Exec("DELETE FROM proxy_logs WHERE model_requested=?", "fixture-first-output"); err != nil {
+					t.Errorf("clean timing fixture: %v", err)
+				}
+			}()
 			if dialect == store.DialectPostgres {
 				pgtest.Reset(t, db.DB)
 			}
