@@ -501,6 +501,7 @@ type ProxyLog struct {
 
 // ---- Table 17: proxy_video_tasks ----
 type ProxyVideoTask struct {
+	DirectIdentity       *string `db:"direct_identity" json:"directIdentity,omitempty"`
 	ID                   int64   `db:"id" json:"id"`
 	PublicID             string  `db:"public_id" json:"publicId"`
 	UpstreamVideoID      string  `db:"upstream_video_id" json:"upstreamVideoId"`

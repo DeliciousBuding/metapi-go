@@ -101,7 +101,7 @@ func TestAxonHubProviderTableCoversAuditedEnum(t *testing.T) {
 			t.Errorf("provider %q is not classified; add it to axonHubProviderTypes", name)
 			continue
 		}
-		if spec.Supported && spec.Protocols == 0 && name != "opencode_go_anthropic" {
+		if spec.Supported && len(spec.DefaultFormats) == 0 && name != "opencode_go_anthropic" {
 			t.Errorf("provider %q is marked supported but carries no default protocol", name)
 		}
 		if !spec.Supported && spec.Reason == "" {
@@ -178,8 +178,8 @@ func TestCompileAxonHubPlanResolvesEveryAssociationKind(t *testing.T) {
 	if !residualContains(plan.residuals, "manual_models_not_imported_until_synced") {
 		t.Fatalf("manual models were not reported as a residual: %#v", plan.residuals)
 	}
-	if !residualContains(plan.residuals, "declared_protocol_not_servable:openai/embeddings") {
-		t.Fatalf("declared unservable protocol was not reported: %#v", plan.residuals)
+	if residualContains(plan.residuals, "declared_protocol_not_servable:openai/embeddings") || plan.channels[0].Endpoints.Embeddings == nil {
+		t.Fatalf("supported embedding surface was lost: %#v", plan.residuals)
 	}
 	if residualContains(plan.residuals, "model_has_no_importable_channel:gemini-3-pro") {
 		t.Fatalf("native Gemini reported unreachable: %#v", plan.residuals)
@@ -212,7 +212,7 @@ func TestCompileAxonHubPlanRefusesUnservableChannelShapes(t *testing.T) {
 		},
 		{
 			name:    "no servable protocol",
-			channel: `{"id":1,"type":"opencode_go_anthropic","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"openai/embeddings"}]}`,
+			channel: `{"id":1,"type":"opencode_go_anthropic","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"openai/responses_compact"}]}`,
 			want:    []string{"no_servable_protocol"},
 		},
 		{

@@ -559,6 +559,17 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "downstream_api_keys", "access_policy", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		Version:     "direct_video_task_identity_v1",
+		Description: "durable direct video ownership and grant identity without credentials",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "proxy_video_tasks")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "proxy_video_tasks", "direct_identity", "TEXT", "TEXT", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

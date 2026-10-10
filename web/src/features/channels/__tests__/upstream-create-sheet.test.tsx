@@ -226,7 +226,7 @@ describe('UpstreamCreateSheet', () => {
     mocks.resolve.mockResolvedValue({ provider: 'deepseek', endpointConfig })
     const { onCreated, onClose } = setup()
     await selectDeepSeek()
-    await screen.findByDisplayValue(endpointConfig.chat.url)
+    await screen.findByText(endpointConfig.chat.url)
     submit()
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(42))
     expect(mocks.create.mock.calls[0][0]).toEqual({
@@ -244,7 +244,7 @@ describe('UpstreamCreateSheet', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('uses protocol pills rather than provider brands and collapses selection to reveal the form', async () => {
+  it('keeps primary protocols identifiable and collapses selection to reveal the form', async () => {
     setup()
     const deepseek = await screen.findByRole('button', {
       name: i18n.t('channels.create.usePreset', { name: 'DeepSeek / OpenAI' }),
@@ -256,9 +256,10 @@ describe('UpstreamCreateSheet', () => {
       name: i18n.t('channels.create.usePreset', { name: 'New API' }),
     })
     expect(within(newapi).getAllByText('New API')).toHaveLength(1)
-    for (const protocol of ['Chat', 'Responses', 'Messages']) {
-      expect(within(newapi).getByText(protocol)).toBeVisible()
-    }
+    expect(within(newapi).getByText('Chat / Responses +1')).toBeVisible()
+    expect(newapi).toHaveAccessibleDescription(
+      'Text & conversation: Chat, Responses, Messages'
+    )
     const coding = screen.getByRole('button', {
       name: i18n.t('channels.create.usePreset', {
         name: 'Aliyun CodingPlan / Claude',
@@ -267,9 +268,7 @@ describe('UpstreamCreateSheet', () => {
     expect(within(coding).getByText('Messages')).toBeVisible()
     expect(within(coding).queryByText('Claude')).not.toBeInTheDocument()
     fireEvent.click(deepseek)
-    await screen.findByDisplayValue(
-      'https://api.deepseek.com/v1/chat/completions'
-    )
+    await screen.findByText('https://api.deepseek.com/v1/chat/completions')
     expect(
       screen.queryByRole('textbox', { name: label('channels.create.search') })
     ).not.toBeInTheDocument()
@@ -287,15 +286,11 @@ describe('UpstreamCreateSheet', () => {
   it('keeps the draft when changing or reselecting the platform and allows explicit enabling', async () => {
     setup()
     await selectDeepSeek()
-    await screen.findByDisplayValue(
-      'https://api.deepseek.com/v1/chat/completions'
-    )
+    await screen.findByText('https://api.deepseek.com/v1/chat/completions')
     change('channels.upstream.name', 'My relay')
     change('channels.upstream.baseUrl', 'https://relay.example.com/v1')
     fireEvent.blur(field('channels.upstream.baseUrl'))
-    await screen.findByDisplayValue(
-      'https://relay.example.com/v1/chat/completions'
-    )
+    await screen.findByText('https://relay.example.com/v1/chat/completions')
     expect(
       screen.getByRole('switch', { name: label('channels.create.enabled') })
     ).not.toBeChecked()
@@ -316,7 +311,7 @@ describe('UpstreamCreateSheet', () => {
       'https://relay.example.com/v1'
     )
     expect(
-      screen.getByDisplayValue('https://relay.example.com/v1/chat/completions')
+      screen.getByText('https://relay.example.com/v1/chat/completions')
     ).toBeVisible()
     submit()
     await waitFor(() =>
@@ -341,9 +336,7 @@ describe('UpstreamCreateSheet', () => {
     expect(mocks.resolve).not.toHaveBeenCalled()
     change('channels.upstream.baseUrl', 'https://newapi.example.com/v1')
     fireEvent.blur(field('channels.upstream.baseUrl'))
-    await screen.findByDisplayValue(
-      'https://newapi.example.com/v1/chat/completions'
-    )
+    await screen.findByText('https://newapi.example.com/v1/chat/completions')
     submit()
     await waitFor(() =>
       expect(mocks.create.mock.calls[0]?.[0]).toEqual(
@@ -365,9 +358,7 @@ describe('UpstreamCreateSheet', () => {
     mocks.create.mockReturnValue(pending.promise)
     const { onCreated, onClose } = setup()
     await selectDeepSeek()
-    await screen.findByDisplayValue(
-      'https://api.deepseek.com/v1/chat/completions'
-    )
+    await screen.findByText('https://api.deepseek.com/v1/chat/completions')
     submit()
     await waitFor(() =>
       expect(
@@ -389,9 +380,7 @@ describe('UpstreamCreateSheet', () => {
   it('clears old endpoints during URL editing, resolves on blur and preserves the returned endpoint fields', async () => {
     setup()
     await selectDeepSeek()
-    await screen.findByDisplayValue(
-      'https://api.deepseek.com/v1/chat/completions'
-    )
+    await screen.findByText('https://api.deepseek.com/v1/chat/completions')
     const endpointConfig = {
       gemini: {
         url: 'https://relay.example.com/google/v1beta/models',
@@ -404,10 +393,10 @@ describe('UpstreamCreateSheet', () => {
     change('channels.upstream.baseUrl', 'https://relay.example.com/google')
     expect(mocks.resolve).toHaveBeenCalledTimes(1)
     expect(
-      screen.queryByDisplayValue('https://api.deepseek.com/v1/chat/completions')
+      screen.queryByText('https://api.deepseek.com/v1/chat/completions')
     ).not.toBeInTheDocument()
     fireEvent.blur(field('channels.upstream.baseUrl'))
-    await screen.findByDisplayValue(endpointConfig.gemini.url)
+    await screen.findByText(endpointConfig.gemini.url)
     expect(mocks.resolve).toHaveBeenCalledTimes(2)
     submit()
     await waitFor(() =>
@@ -427,9 +416,7 @@ describe('UpstreamCreateSheet', () => {
     await selectDeepSeek()
     change('channels.upstream.baseUrl', 'https://new.example.com/v1')
     fireEvent.blur(field('channels.upstream.baseUrl'))
-    await screen.findByDisplayValue(
-      'https://new.example.com/v1/chat/completions'
-    )
+    await screen.findByText('https://new.example.com/v1/chat/completions')
     await act(async () => {
       old.resolve({
         provider: 'deepseek',
@@ -442,7 +429,7 @@ describe('UpstreamCreateSheet', () => {
       })
     })
     expect(
-      screen.queryByDisplayValue('https://api.deepseek.com/v1/chat/completions')
+      screen.queryByText('https://api.deepseek.com/v1/chat/completions')
     ).not.toBeInTheDocument()
     submit()
     await waitFor(() =>
@@ -463,16 +450,12 @@ describe('UpstreamCreateSheet', () => {
   it('reselects the same preset without losing its endpoints', async () => {
     setup()
     await selectDeepSeek()
-    await screen.findByDisplayValue(
-      'https://api.deepseek.com/v1/chat/completions'
-    )
+    await screen.findByText('https://api.deepseek.com/v1/chat/completions')
     fireEvent.click(
       screen.getByRole('button', { name: label('channels.create.change') })
     )
     await selectDeepSeek()
-    await screen.findByDisplayValue(
-      'https://api.deepseek.com/v1/chat/completions'
-    )
+    await screen.findByText('https://api.deepseek.com/v1/chat/completions')
     submit()
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1))
   })
@@ -520,9 +503,7 @@ describe('UpstreamCreateSheet', () => {
   it('requires resolving the changed URL even if an endpoint is manually added afterward', async () => {
     setup()
     await selectDeepSeek()
-    await screen.findByDisplayValue(
-      'https://api.deepseek.com/v1/chat/completions'
-    )
+    await screen.findByText('https://api.deepseek.com/v1/chat/completions')
     change('channels.upstream.baseUrl', 'https://new.example.com')
     fireEvent.click(screen.getByRole('checkbox', { name: 'Chat' }))
     change(
@@ -540,9 +521,7 @@ describe('UpstreamCreateSheet', () => {
     mocks.create.mockRejectedValueOnce(new Error('offline'))
     const { onCreated } = setup()
     await selectDeepSeek()
-    await screen.findByDisplayValue(
-      'https://api.deepseek.com/v1/chat/completions'
-    )
+    await screen.findByText('https://api.deepseek.com/v1/chat/completions')
     change('channels.upstream.name', 'My relay')
     submit()
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -556,9 +535,7 @@ describe('UpstreamCreateSheet', () => {
   it('clears failed resolution and lets the user retry without sending old endpoints', async () => {
     setup()
     await selectDeepSeek()
-    await screen.findByDisplayValue(
-      'https://api.deepseek.com/v1/chat/completions'
-    )
+    await screen.findByText('https://api.deepseek.com/v1/chat/completions')
     mocks.resolve.mockRejectedValueOnce(new Error('offline'))
     change('channels.upstream.baseUrl', 'https://new.example.com/v1')
     fireEvent.blur(field('channels.upstream.baseUrl'))
@@ -566,7 +543,7 @@ describe('UpstreamCreateSheet', () => {
       await screen.findByText(label('channels.create.resolveFailed'))
     ).toBeVisible()
     expect(
-      screen.queryByDisplayValue('https://api.deepseek.com/v1/chat/completions')
+      screen.queryByText('https://api.deepseek.com/v1/chat/completions')
     ).not.toBeInTheDocument()
     submit()
     expect(
@@ -576,9 +553,7 @@ describe('UpstreamCreateSheet', () => {
     fireEvent.click(
       screen.getByRole('button', { name: label('channels.create.resolve') })
     )
-    await screen.findByDisplayValue(
-      'https://new.example.com/v1/chat/completions'
-    )
+    await screen.findByText('https://new.example.com/v1/chat/completions')
     submit()
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1))
   })
@@ -586,9 +561,7 @@ describe('UpstreamCreateSheet', () => {
   it('asks before discarding a dirty draft', async () => {
     const { onClose } = setup()
     await selectDeepSeek()
-    await screen.findByDisplayValue(
-      'https://api.deepseek.com/v1/chat/completions'
-    )
+    await screen.findByText('https://api.deepseek.com/v1/chat/completions')
     fireEvent.click(
       screen.getByRole('button', { name: label('common.cancel') })
     )

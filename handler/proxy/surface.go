@@ -10,6 +10,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/proxy"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // SurfConfig is the configuration for a proxy surface handler.
@@ -44,6 +45,7 @@ type SurfResult struct {
 
 // Ctx holds all context needed for a proxy request.
 type Ctx struct {
+	videoTask      *directVideoTask
 	Auth           *auth.ProxyAuthContext
 	Policy         auth.DownstreamRoutingPolicy
 	Body           map[string]any
@@ -104,7 +106,7 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 		r.Body.Close()
 
 		if len(bodyBytes) > 0 {
-			if err := json.Unmarshal(bodyBytes, &body); err != nil {
+			if err := json.Unmarshal(bodyBytes, &body); err != nil || body == nil {
 				return nil, &SurfResult{OK: false, Status: 400, Error: "invalid JSON body", ErrorType: "invalid_request_error"}
 			}
 		}
@@ -113,6 +115,9 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 	// Validate requested model
 	requestedModel, _ := body["model"].(string)
 	requestedModel = strings.TrimSpace(requestedModel)
+	if proxy.DirectProtocolForPath(cfg.DownstreamPath) == store.DirectProtocolGeminiEmbeddings && cfg.DefaultModel != "" {
+		requestedModel = cfg.DefaultModel
+	}
 	if requestedModel == "" && cfg.DefaultModel != "" {
 		requestedModel = cfg.DefaultModel
 		body["model"] = requestedModel
@@ -126,7 +131,7 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 	// the base model; inject OpenAI reasoning_effort on OpenAI surfaces when
 	// the client didn't already set it. Non-OpenAI dialects strip for routing
 	// only (cross-dialect injection is a documented follow-up).
-	if requestedModel != "" {
+	if requestedModel != "" && !proxy.IsDirectMediaPath(cfg.DownstreamPath) {
 		if base, effort := ParseReasoningSuffix(requestedModel); effort != "" {
 			requestedModel = base
 			body["model"] = base

@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   patch: vi.fn(),
   detail: vi.fn(),
   credentials: vi.fn(),
+  groups: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
 }))
@@ -28,6 +29,7 @@ vi.mock('@/lib/api', () => ({
     setImportedUpstreamEnabled: state.patch,
     getImportedUpstream: state.detail,
     getImportedCredentials: state.credentials,
+    getUpstreamGroups: state.groups,
   },
 }))
 vi.mock('@/lib/toast', () => ({
@@ -94,6 +96,7 @@ beforeEach(() => {
     useSystemProxy: false,
   }))
   state.credentials.mockResolvedValue({ items: [] })
+  state.groups.mockResolvedValue({ items: [] })
 })
 afterEach(() => {
   cleanup()
@@ -131,6 +134,14 @@ describe('imported upstream inventory', () => {
     })
     mount()
     fireEvent.click(await screen.findByRole('button', { name: 'Manage' }))
+    expect(await screen.findByText('https://chat.example/custom')).toBeVisible()
+    expect(screen.getByText('https://messages.example/native')).toBeVisible()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Configure Chat endpoint' })
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Configure Messages endpoint' })
+    )
     expect(
       await screen.findByDisplayValue('https://chat.example/custom')
     ).toBeVisible()

@@ -121,6 +121,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	if upstreamPath == "" {
 		upstreamPath = r.URL.Path
 	}
+	downstreamPolicy.RequiredUpstreamProtocol = proxy.DirectProtocolMaskForPath(upstreamPath)
 	if endpoint, ok := proxy.EndpointFromPath(upstreamPath); ok {
 		switch endpoint {
 		case proxy.EndpointChat:
@@ -365,16 +366,23 @@ func dispatchSelectedUpstream(
 	}
 
 	contentType := "application/json"
+	if proxy.IsDirectMediaPath(upstreamPath) && r.Header.Get("Content-Type") != "" {
+		contentType = r.Header.Get("Content-Type")
+	}
 	var bodyBytes []byte
 	var err error
 	if ctx.Multipart {
-		if selected.Direct != nil {
-			writeJSONErrorWithRequest(w, http.StatusBadRequest, "Direct upstream grants do not support multipart requests", "invalid_request_error", requestID)
-			return true, nil
-		}
 		// Multipart bodies are not multi-protocol rewritten; single-shot only.
 		var bodyReader io.Reader
-		bodyReader, contentType, err = CloneMultipartBody(r, map[string]string{"model": upstreamModel})
+		overrides := map[string]string{"model": upstreamModel}
+		if selected.Direct != nil {
+			overrides, err = directMultipartOverrides(upstreamModel, selected.Direct.ParamOverride)
+			if err != nil {
+				writeJSONErrorWithRequest(w, 400, err.Error(), "invalid_request_error", requestID)
+				return true, nil
+			}
+		}
+		bodyReader, contentType, err = CloneMultipartBody(r, overrides)
 		if err != nil {
 			slog.Warn("multipart upstream body construction failed",
 				"err", err, "path", upstreamPath, "model", upstreamModel, "request_id", requestID, "retry", retry)
@@ -392,17 +400,23 @@ func dispatchSelectedUpstream(
 				return true, nil
 			}
 		}
+		if selected.Direct != nil {
+			return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, retry, maxRetries, requestID)
+		}
 		return dispatchEndpointAttempt(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, upstreamPath, contentType, bodyBytes, firstByteTimeoutMs, retry, maxRetries, true, requestID)
 	}
 	bodyBytes = swapModelInJSON(ctx.RawBody, upstreamModel)
-	if endpoint, _ := proxy.EndpointFromPath(upstreamPath); endpoint == proxy.EndpointGemini {
+	if bit := proxy.DirectProtocolForPath(upstreamPath); bit == store.DirectProtocolGemini || bit == store.DirectProtocolGeminiEmbeddings {
 		// Native Gemini carries its model in the URL, not the request body.
 		if _, found, valid := findTopLevelValue(ctx.RawBody, "model"); valid && !found {
 			bodyBytes = ctx.RawBody
 		}
 	}
+	if mediaRequestPreservesBodyModel(upstreamPath, r.Method) {
+		bodyBytes = ctx.RawBody
+	}
 	if selected.Direct != nil {
-		return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, firstByteTimeoutMs, retry, maxRetries, requestID)
+		return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, retry, maxRetries, requestID)
 	}
 
 	// Site protocol preference: responses-only + stream.
@@ -567,7 +581,7 @@ func proxyPathIsMessages(path string) bool {
 // the actual model. The shared URL builder preserves semantic base paths and
 // avoids appending the API version twice.
 func siteRequestURL(baseURL, path, model string, stream bool) string {
-	if endpoint, _ := proxy.EndpointFromPath(path); endpoint == proxy.EndpointGemini {
+	if bit := proxy.DirectProtocolForPath(path); bit == store.DirectProtocolGemini || bit == store.DirectProtocolGeminiEmbeddings {
 		version, _, action := ParseGeminiPath(path)
 		path = "/" + version + "/models/" + url.PathEscape(strings.TrimPrefix(model, "models/")) + ":" + action
 		if stream {
@@ -588,7 +602,7 @@ func siteNativeAPIKeyHeader(selected *routing.SelectedChannel, path string) stri
 	header := ""
 	if provider == "claude" && endpoint == proxy.EndpointMessages {
 		header = "x-api-key"
-	} else if provider == "gemini" && endpoint == proxy.EndpointGemini {
+	} else if provider == "gemini" && (endpoint == proxy.EndpointGemini || proxy.DirectProtocolForPath(path) == store.DirectProtocolGeminiEmbeddings) {
 		header = "x-goog-api-key"
 	}
 	if header != "" && oauth.GetOauthInfoFromAccount(&selected.Account) != nil {
@@ -654,6 +668,10 @@ func dispatchEndpointAttemptWithContinue(
 	if requestID == "" {
 		requestID = proxy.RequestIDFromContext(r.Context())
 	}
+	if err := validateVideoTaskSelection(ctx, selected, upstreamPath); err != nil {
+		writeJSONErrorWithRequest(w, 503, err.Error(), "upstream_error", requestID)
+		return true, nil, false
+	}
 	upstreamBaseURL := selected.Site.URL
 	if selected.Direct != nil {
 		upstreamBaseURL = selected.Direct.BaseURL
@@ -661,7 +679,11 @@ func dispatchEndpointAttemptWithContinue(
 	upstreamURL := siteRequestURL(upstreamBaseURL, upstreamPath, upstreamModel, effectiveStream)
 	var directEndpoint *store.DirectEndpoint
 	if selected.Direct != nil && ctx != nil {
-		upstreamURL, directEndpoint = directRequestURL(selected.Direct, upstreamPath, upstreamModel, effectiveStream)
+		var chosen *store.DirectEndpoint
+		if wire := directProviderWireFromContext(r.Context()); wire != nil {
+			chosen = wire.Endpoint
+		}
+		upstreamURL, directEndpoint = directRequestURL(selected.Direct, upstreamPath, upstreamModel, effectiveStream, chosen)
 	}
 	startedAt := time.Now()
 
@@ -681,6 +703,16 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 	req.Header.Set("Content-Type", contentType)
+	if proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolVideo && strings.HasSuffix(upstreamPath, "/content") {
+		query := req.URL.Query()
+		if variant := r.URL.Query().Get("variant"); variant != "" {
+			query.Set("variant", variant)
+		}
+		req.URL.RawQuery = query.Encode()
+		for _, header := range []string{"Range", "If-Range", "Accept"} {
+			copyHeaderIfAbsent(req.Header, r.Header, header)
+		}
+	}
 	siteAuthHeader := siteNativeAPIKeyHeader(selected, upstreamPath)
 	if siteAuthHeader != "" && selected.TokenValue != "" {
 		// The native credential is a request header: an explicit site-wins
@@ -724,15 +756,31 @@ func dispatchEndpointAttemptWithContinue(
 	}
 	applyDirectProviderHeaders(req, directProviderWireFromContext(r.Context()))
 
-	resp, err := sendUpstreamRequest(cfg, req, proxyConfig, firstByteTimeoutMs, effectiveStream)
+	var resp *http.Response
+	if wire := directProviderWireFromContext(r.Context()); wire != nil && isDirectMediaProfile(wire.Profile) {
+		// Async image submission cannot be replayed after a poll/download failure.
+		maxRetries = retry
+		resp, err = sendDirectMediaProfileRequest(cfg, req, proxyConfig, firstByteTimeoutMs, wire.Profile)
+	} else {
+		resp, err = sendUpstreamRequest(cfg, req, proxyConfig, firstByteTimeoutMs, effectiveStream)
+	}
 	latencyMs := time.Since(startedAt).Milliseconds()
 	var firstByteLatencyMs *int64
 	if err == nil && resp != nil {
 		firstByteLatencyMs = int64Ptr(latencyMs)
+		if first := directMediaFirstByteLatencyMs(resp); first != nil {
+			firstByteLatencyMs = first
+		}
 	}
 
 	if err != nil {
 		// First-byte timeout: continue to next protocol when allowed; do not poison.
+		if proxy.IsDirectMediaPath(upstreamPath) && r.Context().Err() != nil {
+			writeFailureProxyLog(context.WithoutCancel(r.Context()), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 499, effectiveStream, directMediaFailureUsage(err), retry, requestID, "Client canceled media request")
+			w.WriteHeader(499)
+			observeProxyTerminal(ctx, shared.OutcomeClientError, effectiveStream, time.Since(startedAt))
+			return true, nil, false
+		}
 		if proxy.IsObservedFirstByteTimeoutError(err) {
 			slog.Debug("upstream first-byte timeout",
 				"url", upstreamURL,
@@ -749,7 +797,7 @@ func dispatchEndpointAttemptWithContinue(
 			// Terminal for this channel attempt.
 			errText := err.Error()
 			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, 0, errText)
-			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusRequestTimeout, effectiveStream, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, errText)
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusRequestTimeout, effectiveStream, directMediaFailureUsage(err), retry, requestID, errText)
 			if retry < maxRetries && proxy.ShouldRetryProxyRequest(408, errText) {
 				return false, jsonPendingUpstreamFailure(http.StatusRequestTimeout, "Upstream first-byte timeout", "upstream_error"), false
 			}
@@ -769,7 +817,7 @@ func dispatchEndpointAttemptWithContinue(
 			return false, nil, true
 		}
 		recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, 0, errText)
-		writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, effectiveStream, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, errText)
+		writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, effectiveStream, directMediaFailureUsage(err), retry, requestID, errText)
 		if retry < maxRetries {
 			return false, jsonPendingUpstreamFailure(http.StatusBadGateway, "Upstream request failed", "upstream_error"), false
 		}
@@ -781,10 +829,23 @@ func dispatchEndpointAttemptWithContinue(
 	// A Codex endpoint always streams upstream. JSON clients receive its actual
 	// terminal response, with the original stream usage retained for accounting.
 	var aggregatedUsage *ParsedUsage
-	if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.Profile == "codex" && !ctx.IsStream && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		collected, usage, aggregateErr := collectDirectCodexResponse(resp, startedAt)
+	if wire := directProviderWireFromContext(r.Context()); wire != nil && (wire.Profile == "codex" || wire.Profile == "codex-image") && !ctx.IsStream && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		var collected []byte
+		var usage ParsedUsage
+		var aggregateErr error
+		if wire.Profile == "codex-image" {
+			collected, usage, aggregateErr = collectDirectCodexImagesResponse(resp, startedAt, upstreamPath)
+		} else {
+			collected, usage, aggregateErr = collectDirectCodexResponse(resp, startedAt)
+		}
 		latencyMs = time.Since(startedAt).Milliseconds()
 		if aggregateErr != nil {
+			if wire.Profile == "codex-image" && r.Context().Err() != nil {
+				writeFailureProxyLog(context.WithoutCancel(r.Context()), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 499, false, usage, retry, requestID, "Client canceled media request")
+				w.WriteHeader(499)
+				observeProxyTerminal(ctx, shared.OutcomeClientError, false, time.Since(startedAt))
+				return true, nil, false
+			}
 			reason := "Cannot aggregate upstream Codex response: " + aggregateErr.Error()
 			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, reason)
 			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, false, usage, retry, requestID, reason)
@@ -801,6 +862,13 @@ func dispatchEndpointAttemptWithContinue(
 		effectiveStream = false
 	}
 	// Step 9: Handle response
+	if proxy.IsDirectMediaPath(upstreamPath) && resp.StatusCode >= 200 && resp.StatusCode < 300 && resp.StatusCode != http.StatusNoContent {
+		if proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolVideo && strings.HasSuffix(upstreamPath, "/content") {
+			effectiveStream = true
+		} else if proxy.DirectProtocolForPath(upstreamPath) != store.DirectProtocolVideo {
+			effectiveStream = !isJSONMediaResponse(resp.Header)
+		}
+	}
 	if effectiveStream {
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			respBody, readErr := proxy.ReadBufferedResponseBody(resp.Body)
@@ -854,7 +922,11 @@ func dispatchEndpointAttemptWithContinue(
 		func() {
 			defer resp.Body.Close()
 			var firstOutput *int64
-			streamUsage, streamEnd, streamVerdict = handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, upstreamPath, upstreamModel, bridgeOptions, func() { firstOutput = int64Ptr(time.Since(startedAt).Milliseconds()) }, selected.Direct != nil)
+			if proxy.IsDirectMediaPath(upstreamPath) && (!isSSEMediaResponse(resp.Header) || (proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolVideo && strings.HasSuffix(upstreamPath, "/content"))) {
+				streamUsage, streamEnd = handleMediaByteStream(w, r, resp)
+			} else {
+				streamUsage, streamEnd, streamVerdict = handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, upstreamPath, upstreamModel, bridgeOptions, func() { firstOutput = int64Ptr(time.Since(startedAt).Milliseconds()) }, selected.Direct != nil)
+			}
 			streamUsage.FirstOutputLatencyMs = firstOutput
 		}()
 		latencyMs = time.Since(startedAt).Milliseconds()
@@ -1022,14 +1094,26 @@ func dispatchEndpointAttemptWithContinue(
 		resp.Header.Del("ETag")
 		resp.Header.Set("Content-Type", "application/json")
 	}
+	videoBody, videoErr := processVideoTaskResponse(ctx, selected, r.Method, upstreamPath, respBody)
+	if videoErr != nil {
+		writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 502, false, usage, retry, requestID, videoErr.Error())
+		writeJSONErrorWithRequest(w, 502, videoErr.Error(), "upstream_error", requestID)
+		observeProxyTerminal(ctx, shared.OutcomeUpstreamError, false, time.Since(startedAt))
+		return true, nil, false
+	}
+	if !bytes.Equal(videoBody, respBody) {
+		resp.Header.Del("Content-Length")
+		resp.Header.Del("ETag")
+		resp.Header.Del("Content-MD5")
+		resp.Header.Del("Digest")
+		respBody = videoBody
+	}
 	recordUpstreamSuccess(r.Context(), cfg, selected, ctx.RequestedModel, upstreamModel, latencyMs, usage)
 	writeSuccessProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, resp.StatusCode, false, usage, retry, requestID)
 	if body.readable {
 		respBody = normalizeNativeTerminalResponse(resp, respBody, r.URL.Path)
 		respBody = restoreBufferedDownstreamResponseModel(resp, respBody, downstreamResponseModel(r))
 	}
-	// Videos create: map upstream id → publicId before the client sees the body.
-	respBody = maybeRewriteVideosCreateResponse(ctx, selected, upstreamPath, respBody)
 	relayBufferedUpstreamResponse(w, resp, respBody)
 	observeProxyTerminal(ctx, shared.OutcomeSuccess, false, time.Duration(latencyMs)*time.Millisecond)
 	return true, nil, false

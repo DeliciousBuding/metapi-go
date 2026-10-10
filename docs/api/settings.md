@@ -181,6 +181,12 @@ Provider defaults and custom endpoints are merged by API format. Each endpoint
 keeps its actual URL and authentication, including distinct hosts for Chat,
 Responses and Messages. Explicit endpoint configurations support native Gemini
 and generation-protocol conversion, with JSON, streaming and function tools.
+Media formats retain independent permissions and exact URLs: completions,
+OpenAI/Jina/native Gemini embeddings, rerank, image generation/editing/variations,
+audio, moderation and OpenAI-compatible video tasks. Jina, MiniMax, ModelScope
+and Codex image profiles preserve their source wire behavior. Media model types
+only become routable through an associated channel's configured format; a model
+type never creates a missing endpoint or grants unrelated credentials access.
 Native bodies preserve provider-specific reasoning and continuation data;
 nonportable cross-protocol fields fail explicitly. Codex/Fenno and Claude Code
 support static and structured OAuth credentials, request-time refresh and their
@@ -201,8 +207,8 @@ sections, configuration differences and removals. The following remain outside
 the current executable import contract:
 
 - Gemini Vertex, Antigravity, Anthropic AWS/GCP, GitHub Copilot, xAI subscription,
-  Jina, native Ollama, fake providers, Typesafe and ZenMux video.
-- Embeddings, image/audio/video, moderation and other nongeneration endpoints.
+  native Ollama, fake providers, Typesafe, Seedance and ZenMux video.
+- Formats not listed in [direct upstreams](routes.md), including alpha search.
 - Active channel transform operations, channel rate limits and stream policies,
   conditional associations, unsupported proxy modes, and nonportable key-level
   load-balancing/sticky overrides or regular expressions.

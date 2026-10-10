@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { upstreamProtocols } from './upstream-config'
+
 const name = z.string().trim().min(1, 'channels.upstream.required').max(255)
 export const modelSchema = z.object({ name, enabled: z.boolean() })
 export function modelNames(value: string): string[] {
@@ -25,6 +27,15 @@ export const modelsCreateSchema = z.object({
 })
 export const grantSchema = z.object({
   credentialId: z.number().int().positive('channels.catalog.selectCredential'),
-  protocols: z.array(z.number()).min(1, 'channels.catalog.selectProtocols'),
+  protocols: z
+    .array(
+      z
+        .number()
+        .refine(
+          (bit) => upstreamProtocols.some((protocol) => protocol.bit === bit),
+          'channels.catalog.selectProtocols'
+        )
+    )
+    .min(1, 'channels.catalog.selectProtocols'),
   enabled: z.boolean(),
 })

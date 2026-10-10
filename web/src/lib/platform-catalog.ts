@@ -148,6 +148,7 @@ const PRESET_BRAND_ICONS: Record<string, string> = {
   zai: 'zai',
   ppio: 'ppio-color',
   qiniu: 'qiniu-color',
+  jina: 'jina',
 }
 
 export function getConnectionPresetIcon(id: string): string | undefined {

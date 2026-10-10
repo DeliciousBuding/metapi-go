@@ -10,22 +10,7 @@ import (
 )
 
 func directEndpointForPath(endpoints store.DirectEndpoints, downstreamPath string) *store.DirectEndpoint {
-	endpoint, ok := proxy.EndpointFromPath(downstreamPath)
-	if !ok {
-		return nil
-	}
-	switch endpoint {
-	case proxy.EndpointChat:
-		return endpoints.Chat
-	case proxy.EndpointResponses:
-		return endpoints.Responses
-	case proxy.EndpointMessages:
-		return endpoints.Messages
-	case proxy.EndpointGemini:
-		return endpoints.Gemini
-	default:
-		return nil
-	}
+	return endpoints.ForProtocol(proxy.DirectProtocolForPath(downstreamPath))
 }
 
 func directProtocolBit(endpoint proxy.UpstreamEndpoint) int {
@@ -56,6 +41,13 @@ func directEndpointFromBit(bit int) proxy.UpstreamEndpoint {
 }
 
 func directSelectedPath(direct *store.DirectUpstreamCandidate, downstreamPath, model string, stream bool) (string, error) {
+	bit := proxy.DirectProtocolForPath(downstreamPath)
+	if bit != 0 && bit&store.DirectGenerationProtocols == 0 {
+		if _, err := directSelectedMediaEndpoint(direct, downstreamPath); err != nil {
+			return "", err
+		}
+		return downstreamPath, nil
+	}
 	client, ok := proxy.EndpointFromPath(downstreamPath)
 	if !ok {
 		return "", fmt.Errorf("unsupported direct upstream protocol")
@@ -69,10 +61,13 @@ func directSelectedPath(direct *store.DirectUpstreamCandidate, downstreamPath, m
 	}
 	selected := proxy.UpstreamEndpoint("")
 	for _, bit := range order {
-		if direct.Protocols&bit == 0 {
+		if bit&store.DirectGenerationProtocols == 0 || direct.Protocols&bit == 0 {
 			continue
 		}
 		endpoint := directEndpointFromBit(bit)
+		if direct.Endpoints.IsConfigured() && direct.Endpoints.ForProtocol(bit) == nil {
+			continue
+		}
 		if selected == "" {
 			selected = endpoint
 		}
@@ -100,23 +95,59 @@ func directSelectedPath(direct *store.DirectUpstreamCandidate, downstreamPath, m
 	return proxy.PathForEndpoint(selected), nil
 }
 
-func directRequestURL(direct *store.DirectUpstreamCandidate, path, model string, stream bool) (string, *store.DirectEndpoint) {
+func directSelectedMediaEndpoint(direct *store.DirectUpstreamCandidate, path string) (*store.DirectEndpoint, error) {
+	allowed := direct.Protocols & proxy.DirectProtocolMaskForPath(path)
+	order := direct.ProtocolOrder
+	if len(order) == 0 {
+		for _, entry := range direct.Endpoints.Entries() {
+			if entry.Endpoint != nil {
+				order = append(order, entry.Protocol)
+			}
+		}
+	}
+	for _, bit := range order {
+		if allowed&bit != 0 {
+			if endpoint := direct.Endpoints.ForProtocol(bit); endpoint != nil {
+				return endpoint, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("direct grant lacks an authorized media endpoint")
+}
+
+func directRequestURL(direct *store.DirectUpstreamCandidate, path, model string, stream bool, chosen ...*store.DirectEndpoint) (string, *store.DirectEndpoint) {
 	endpoint := directEndpointForPath(direct.Endpoints, path)
+	if proxy.IsDirectMediaPath(path) {
+		endpoint, _ = directSelectedMediaEndpoint(direct, path)
+	}
+	if len(chosen) > 0 && chosen[0] != nil {
+		endpoint = chosen[0]
+	}
 	if endpoint != nil {
 		target := endpoint.URL
 		if endpoint.ModelPath {
 			action := "generateContent"
-			if stream {
+			if proxy.DirectProtocolForPath(path) == store.DirectProtocolGeminiEmbeddings {
+				action = "embedContent"
+				if strings.HasSuffix(path, ":batchEmbedContents") {
+					action = "batchEmbedContents"
+				}
+			} else if stream {
 				action = "streamGenerateContent"
 			}
 			target = strings.TrimRight(target, "/") + "/" + url.PathEscape(strings.TrimPrefix(model, "models/")) + ":" + action
-			if stream {
+			if stream && action == "streamGenerateContent" {
 				target += "?alt=sse"
 			}
+		} else if proxy.DirectProtocolForPath(path) == store.DirectProtocolVideo {
+			target = strings.TrimRight(target, "/") + strings.TrimPrefix(path, "/v1/videos")
 		} else if strings.HasSuffix(path, "/count_tokens") {
 			target = strings.TrimRight(target, "/") + "/count_tokens"
 		}
 		return target, endpoint
+	}
+	if proxy.IsDirectMediaPath(path) {
+		return "", nil
 	}
 	logical, _ := proxy.EndpointFromPath(path)
 	legacy := path

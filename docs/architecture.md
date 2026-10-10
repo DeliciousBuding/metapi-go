@@ -464,6 +464,16 @@ relay. Native bodies bypass conversion; converted streams retain upstream usage
 before transforming the client-facing events. Converters reject unsupported
 continuity and malformed or incomplete tool calls rather than inventing success.
 
+`store/direct_protocols.go` owns persisted endpoint-to-bit mappings. Media
+selection requires an exact supported format, keeping Jina/OpenAI embeddings
+and ModelScope/OpenAI image generation distinct. These requests use the same
+dispatcher and accounting as conversation requests. MiniMax and ModelScope
+profiles adapt their native image APIs; Codex images use its Responses tool
+contract with a separate request model. Video task persistence stores ownership,
+route graph references and configuration fingerprints and revalidates access
+before task operations. External backup defaults enumerate source formats
+explicitly, so adding a format locally cannot expand an old source permission.
+
 Domestic Chat profiles share `handler/proxy/domestic_chat_request.go` across
 direct channels and exact native-site presets. Messages tool continuation uses
 the existing bounded replay cache; direct entries bind route/item/grant/model,

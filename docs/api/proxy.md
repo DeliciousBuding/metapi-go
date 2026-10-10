@@ -29,9 +29,15 @@ accepts a downstream key.
 | `POST /v1/images/generations` | image generation |
 | `POST /v1/images/edits` | image edit |
 | `POST /v1/images/variations` | image variations |
+| `POST /v1/audio/speech` | speech generation, including binary output |
+| `POST /v1/audio/transcriptions` | multipart audio transcription |
+| `POST /v1/audio/translations` | multipart audio translation |
+| `POST /v1/moderations` | content moderation |
 | `POST /v1/videos` | video task creation |
 | `GET /v1/videos/{id}` | video task status |
 | `DELETE /v1/videos/{id}` | video task cancel |
+| `GET /v1/videos/{id}/content` | content of an owned direct-upstream video task |
+| `POST /v1/videos/{id}/remix` | remix an owned direct-upstream video task |
 | `POST /v1/files` | file upload |
 | `GET /v1/files` | file list |
 | `GET /v1/files/{fileId}` | file metadata |
@@ -61,6 +67,37 @@ at the root, not under `/v1`, with the same proxy auth:
 
 Gemini-native bodies are converted in `transform/gemini/generate_content`; the
 `/v1` surfaces relay OpenAI-shaped bodies and convert per upstream platform.
+Native `:embedContent` and `:batchEmbedContents` use the dedicated Gemini
+embedding capability. Batch item model names follow the selected upstream model;
+they cannot override route selection or fall back to generation.
+
+### Independent upstream media
+
+Independent channels require the matching [endpoint and model grant](routes.md).
+JSON, multipart files and binary media responses use the normal timeout,
+cancellation, usage and health accounting. Media requests cannot fall back to
+Chat or Responses when the required endpoint is missing. Provider-specific
+image adapters can expose image operations through a different wire protocol.
+
+Codex image generation/editing uses the Responses `image_generation` tool.
+It accepts one image result (`n` omitted or `1`), with `b64_json` output.
+JSON edits accept data URLs; multipart edits accept `image`/`image[]` and `mask`.
+Remote HTTP references, URL output and unsupported parameters return 400.
+Streaming relays real partial/completed image events, and JSON waits for a
+successful Responses terminal event. Reported usage is preserved; missing usage
+does not become invented token counts.
+
+Direct video tasks return an opaque `video_direct_` ID. Polling, content, remix
+and deletion reload the saved task identity and current route authorization.
+The same credential record may rotate its secret; a changed owner, endpoint,
+grant, model, disabled route or expired task cannot reuse the old task. The
+database stores references and configuration fingerprints rather than a copied
+upstream credential. A mapping write failure after task creation returns 502
+without submitting a second task; the upstream task may already exist.
+Deletion removes the local mapping only after upstream success.
+
+Video support describes compatible upstream APIs. HTTP fixture coverage does
+not establish availability of a particular vendor's current video service.
 
 ## Error shape (/v1 surface)
 

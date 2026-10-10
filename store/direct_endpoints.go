@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 // DirectEndpoint is a fully resolved HTTP endpoint. The importer owns source
@@ -16,6 +17,9 @@ type DirectEndpoint struct {
 	// Custom endpoint URLs remain exact when false.
 	ModelPath bool   `json:"modelPath,omitempty"`
 	Profile   string `json:"profile,omitempty"`
+	// RequestModel is the Responses model used by the Codex image bridge;
+	// the grant's model remains the image tool model.
+	RequestModel string `json:"requestModel,omitempty"`
 }
 
 const (
@@ -27,14 +31,28 @@ const (
 // DirectEndpoints is optional for imports that use the original base/path
 // contract. When present, each endpoint owns both its URL and authentication.
 type DirectEndpoints struct {
-	Chat      *DirectEndpoint `json:"chat,omitempty"`
-	Responses *DirectEndpoint `json:"responses,omitempty"`
-	Messages  *DirectEndpoint `json:"messages,omitempty"`
-	Gemini    *DirectEndpoint `json:"gemini,omitempty"`
+	Chat                      *DirectEndpoint `json:"chat,omitempty"`
+	Responses                 *DirectEndpoint `json:"responses,omitempty"`
+	Messages                  *DirectEndpoint `json:"messages,omitempty"`
+	Gemini                    *DirectEndpoint `json:"gemini,omitempty"`
+	Completions               *DirectEndpoint `json:"completions,omitempty"`
+	Embeddings                *DirectEndpoint `json:"embeddings,omitempty"`
+	Rerank                    *DirectEndpoint `json:"rerank,omitempty"`
+	ImageGeneration           *DirectEndpoint `json:"imageGeneration,omitempty"`
+	ImageEdit                 *DirectEndpoint `json:"imageEdit,omitempty"`
+	ImageVariation            *DirectEndpoint `json:"imageVariation,omitempty"`
+	AudioSpeech               *DirectEndpoint `json:"audioSpeech,omitempty"`
+	AudioTranscription        *DirectEndpoint `json:"audioTranscription,omitempty"`
+	AudioTranslation          *DirectEndpoint `json:"audioTranslation,omitempty"`
+	Moderations               *DirectEndpoint `json:"moderations,omitempty"`
+	Video                     *DirectEndpoint `json:"video,omitempty"`
+	GeminiEmbeddings          *DirectEndpoint `json:"geminiEmbeddings,omitempty"`
+	JinaEmbeddings            *DirectEndpoint `json:"jinaEmbeddings,omitempty"`
+	ModelScopeImageGeneration *DirectEndpoint `json:"modelscopeImageGeneration,omitempty"`
 }
 
 func (e DirectEndpoints) IsConfigured() bool {
-	return e.Chat != nil || e.Responses != nil || e.Messages != nil || e.Gemini != nil
+	return e.ProtocolMask() != 0
 }
 
 func (e DirectEndpoints) Value() (driver.Value, error) {
@@ -59,7 +77,8 @@ func (e *DirectEndpoints) Scan(value any) error {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		return fmt.Errorf("invalid direct endpoint configuration")
 	}
-	for _, endpoint := range []*DirectEndpoint{decoded.Chat, decoded.Responses, decoded.Messages, decoded.Gemini} {
+	for _, entry := range decoded.Entries() {
+		endpoint := entry.Endpoint
 		if endpoint == nil {
 			continue
 		}
@@ -70,8 +89,14 @@ func (e *DirectEndpoints) Scan(value any) error {
 		if endpoint.Auth != DirectAuthBearer && endpoint.Auth != DirectAuthAPIKey && endpoint.Auth != DirectAuthGoogle {
 			return fmt.Errorf("invalid direct endpoint authentication")
 		}
-		if endpoint.ModelPath && endpoint != decoded.Gemini {
+		if endpoint.ModelPath && endpoint != decoded.Gemini && endpoint != decoded.GeminiEmbeddings {
 			return fmt.Errorf("model paths require a Gemini endpoint")
+		}
+		if endpoint.RequestModel != "" && endpoint.Profile != "codex-image" {
+			return fmt.Errorf("request model is only supported by the Codex image profile")
+		}
+		if entry.Protocol == DirectProtocolJinaEmbeddings && endpoint.Profile != "jina-embeddings" || entry.Protocol == DirectProtocolModelScopeImageGeneration && endpoint.Profile != "modelscope-image" {
+			return fmt.Errorf("provider-specific endpoint requires its wire profile")
 		}
 		switch endpoint.Profile {
 		case "":
@@ -86,6 +111,22 @@ func (e *DirectEndpoints) Scan(value any) error {
 		case "deepseek", "zai":
 			if endpoint != decoded.Chat || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("chat profile requires bearer Chat")
+			}
+		case "jina-embeddings":
+			if entry.Protocol != DirectProtocolJinaEmbeddings || endpoint.Auth != DirectAuthBearer {
+				return fmt.Errorf("Jina profile requires bearer embeddings")
+			}
+		case "minimax-image":
+			if entry.Protocol != DirectProtocolImageGeneration || endpoint.Auth != DirectAuthBearer {
+				return fmt.Errorf("MiniMax image profile requires bearer image generation")
+			}
+		case "modelscope-image":
+			if (entry.Protocol != DirectProtocolImageGeneration && entry.Protocol != DirectProtocolImageEdit && entry.Protocol != DirectProtocolModelScopeImageGeneration) || endpoint.Auth != DirectAuthBearer {
+				return fmt.Errorf("ModelScope image profile requires bearer image generation or editing")
+			}
+		case "codex-image":
+			if (entry.Protocol != DirectProtocolImageGeneration && entry.Protocol != DirectProtocolImageEdit) || endpoint.Auth != DirectAuthBearer || strings.TrimSpace(endpoint.RequestModel) == "" || len(endpoint.RequestModel) > 255 {
+				return fmt.Errorf("Codex image profile requires bearer image generation or editing and a request model")
 			}
 		default:
 			return fmt.Errorf("invalid direct endpoint profile")
@@ -124,7 +165,7 @@ func (p *DirectProtocolOrder) Scan(value any) error {
 	}
 	seen := map[int]bool{}
 	for _, v := range values {
-		if (v != 2 && v != 4 && v != 8 && v != 16) || seen[v] {
+		if !ValidDirectProtocol(v) || seen[v] {
 			return fmt.Errorf("invalid direct protocol order")
 		}
 		seen[v] = true

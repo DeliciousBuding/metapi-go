@@ -112,7 +112,7 @@ func CloneMultipartBody(r *http.Request, overrides map[string]string) (io.Reader
 		// Copy files
 		for key, files := range r.MultipartForm.File {
 			for _, fh := range files {
-				part, err := writer.CreateFormFile(key, fh.Filename)
+				part, err := writer.CreatePart(fh.Header)
 				if err != nil {
 					copyErr = fmt.Errorf("create multipart file field %q: %w", key, err)
 					return

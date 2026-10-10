@@ -3657,7 +3657,7 @@
         "refreshable": "自动续期",
         "editCredential": "编辑 {{name}}",
         "noCredentials": "暂无凭据",
-        "protocolOrder": "协议优先级",
+        "protocolOrder": "能力与对话顺序",
         "inheritProtocols": "继承授权协议",
         "moveUp": "上移 {{name}}",
         "moveDown": "下移 {{name}}",
@@ -3674,7 +3674,11 @@
           "deepseek": "DeepSeek",
           "zai": "GLM / Z.AI / MiMo",
           "codex": "OpenAI Codex",
-          "claudecode": "Claude Code"
+          "claudecode": "Claude Code",
+          "jina-embeddings": "Jina embeddings",
+          "minimax-image": "MiniMax image",
+          "modelscope-image": "ModelScope image",
+          "codex-image": "Codex image"
         },
         "reasons": {
           "channelEnabled": "上游已停用",
@@ -3701,7 +3705,7 @@
         "saveGrant": "保存授权",
         "selectCredential": "选择凭据",
         "selectProtocols": "至少选择一种协议",
-        "allowedProtocols": "允许的协议",
+        "allowedProtocols": "允许的能力",
         "grantCount_one": "{{count}} 个凭据",
         "grantCount_other": "{{count}} 个凭据",
         "routeCount_one": "{{count}} 处路由绑定",
@@ -3718,7 +3722,8 @@
         "deleteChannel": "删除上游",
         "deleted": "已删除 {{name}}",
         "deleteError": "删除失败，已恢复该项。",
-        "invalidModels": "请输入 1–500 个模型名，每个不超过 255 字符。"
+        "invalidModels": "请输入 1–500 个模型名，每个不超过 255 字符。",
+        "allCredentialsGranted": "现有凭据均已授权给此模型。可修改下方授权，或到“凭据”页添加新凭据。"
       },
       "create": {
         "title": "新建上游",
@@ -3746,6 +3751,44 @@
           "gateway": "聚合平台",
           "other": "更多"
         }
+      },
+      "capabilities": {
+        "names": {
+          "chat": "Chat",
+          "responses": "Responses",
+          "messages": "Messages",
+          "gemini": "Gemini",
+          "completions": "文本补全",
+          "embeddings": "向量嵌入",
+          "rerank": "重排序",
+          "imageGeneration": "图像生成",
+          "imageEdit": "图像编辑",
+          "imageVariation": "图像变体",
+          "audioSpeech": "语音合成",
+          "audioTranscription": "语音转写",
+          "audioTranslation": "音频翻译",
+          "moderations": "内容审核",
+          "video": "视频",
+          "geminiEmbeddings": "Gemini 向量",
+          "jinaEmbeddings": "Jina 原生向量",
+          "modelscopeImageGeneration": "ModelScope 原生图像"
+        },
+        "groups": {
+          "conversation": "文本与对话",
+          "retrieval": "向量与检索",
+          "image": "图像",
+          "audio": "音频",
+          "video": "视频"
+        },
+        "configured": "已配置 {{count}} / {{total}}",
+        "selected": "已选择 {{count}} / {{total}}",
+        "notConfigured": "端点未配置",
+        "authorized": "已授权能力",
+        "exactHint": "只选择此模型与凭据可用的能力。向量、图像、音频、视频、文本补全与审核请求需要各自匹配的端点和授权，不会回退到 Chat。",
+        "orderHint": "仅 Chat、Responses、Messages 和 Gemini 使用转换顺序。其他已选能力按请求精确匹配，不参与回退排序。",
+        "requestModel": "Codex 请求模型",
+        "requestModelHint": "用于发起 Codex 图像请求的模型，与模型列表中的图像模型名称分别保存。",
+        "configureEndpoint": "配置 {{name}} 端点"
       }
     },
     "probeHealth": {

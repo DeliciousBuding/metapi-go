@@ -141,6 +141,7 @@ var jsonColumnSet = map[string]bool{
 	"token_routes.model_mapping":                   true,
 	"token_routes.decision_snapshot":               true,
 	"proxy_logs.billing_details":                   true,
+	"proxy_video_tasks.direct_identity":            true,
 	"proxy_video_tasks.status_snapshot":            true,
 	"proxy_video_tasks.upstream_response_meta":     true,
 	"downstream_api_keys.supported_models":         true,
@@ -1176,12 +1177,13 @@ func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildProxyVideoTasks(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "public_id", "upstream_video_id", "site_url", "token_value", "requested_model", "actual_model", "channel_id", "account_id", "status_snapshot", "upstream_response_meta", "last_upstream_status", "last_polled_at", "created_at", "updated_at"}
+	cols := []string{"direct_identity", "id", "public_id", "upstream_video_id", "site_url", "token_value", "requested_model", "actual_model", "channel_id", "account_id", "status_snapshot", "upstream_response_meta", "last_upstream_status", "last_polled_at", "created_at", "updated_at"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
 			table: "proxy_video_tasks", columns: cols,
 			values: []interface{}{
+				serializeColumnValue("proxy_video_tasks", "direct_identity", v(row, "direct_identity")),
 				asNumber(v(row, "id"), float64(0)),
 				asNullableString(v(row, "public_id")),
 				asNullableString(v(row, "upstream_video_id")),

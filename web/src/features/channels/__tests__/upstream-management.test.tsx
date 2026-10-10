@@ -185,6 +185,9 @@ describe('upstream maintenance', () => {
     mount(
       <UpstreamConnectionForm detail={detail} onDirtyChange={state.dirty} />
     )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Configure Chat endpoint' })
+    )
     fireEvent.change(screen.getByLabelText('Endpoint URL'), {
       target: { value: 'invalid' },
     })

@@ -3657,7 +3657,7 @@
         "refreshable": "Automatic renewal",
         "editCredential": "Edit {{name}}",
         "noCredentials": "No credentials",
-        "protocolOrder": "Protocol preference",
+        "protocolOrder": "Capabilities & conversation order",
         "inheritProtocols": "Inherit authorized protocols",
         "moveUp": "Move {{name}} up",
         "moveDown": "Move {{name}} down",
@@ -3674,7 +3674,11 @@
           "deepseek": "DeepSeek",
           "zai": "GLM / Z.AI / MiMo",
           "codex": "OpenAI Codex",
-          "claudecode": "Claude Code"
+          "claudecode": "Claude Code",
+          "jina-embeddings": "Jina embeddings",
+          "minimax-image": "MiniMax image",
+          "modelscope-image": "ModelScope image",
+          "codex-image": "Codex image"
         },
         "reasons": {
           "channelEnabled": "Upstream disabled",
@@ -3701,7 +3705,7 @@
         "saveGrant": "Save access",
         "selectCredential": "Select a credential",
         "selectProtocols": "Select at least one protocol",
-        "allowedProtocols": "Allowed protocols",
+        "allowedProtocols": "Allowed capabilities",
         "grantCount_one": "{{count}} credential",
         "grantCount_other": "{{count}} credentials",
         "routeCount_one": "{{count}} route binding",
@@ -3718,7 +3722,8 @@
         "deleteChannel": "Delete upstream",
         "deleted": "Deleted {{name}}",
         "deleteError": "Could not delete. The item has been restored.",
-        "invalidModels": "Enter 1–500 model names, each up to 255 characters."
+        "invalidModels": "Enter 1–500 model names, each up to 255 characters.",
+        "allCredentialsGranted": "Every credential already has a grant for this model. Edit an existing grant, or add a credential in the Credentials tab."
       },
       "create": {
         "title": "Create upstream",
@@ -3746,6 +3751,44 @@
           "gateway": "Gateways",
           "other": "More"
         }
+      },
+      "capabilities": {
+        "names": {
+          "chat": "Chat",
+          "responses": "Responses",
+          "messages": "Messages",
+          "gemini": "Gemini",
+          "completions": "Completions",
+          "embeddings": "Embeddings",
+          "rerank": "Rerank",
+          "imageGeneration": "Image generation",
+          "imageEdit": "Image edits",
+          "imageVariation": "Image variations",
+          "audioSpeech": "Speech",
+          "audioTranscription": "Transcription",
+          "audioTranslation": "Translation",
+          "moderations": "Moderation",
+          "video": "Video",
+          "geminiEmbeddings": "Gemini embeddings",
+          "jinaEmbeddings": "Jina embeddings",
+          "modelscopeImageGeneration": "ModelScope images"
+        },
+        "groups": {
+          "conversation": "Text & conversation",
+          "retrieval": "Vectors & retrieval",
+          "image": "Images",
+          "audio": "Audio",
+          "video": "Video"
+        },
+        "configured": "{{count}} / {{total}} configured",
+        "selected": "{{count}} / {{total}} selected",
+        "notConfigured": "Endpoint not configured",
+        "authorized": "Authorized capabilities",
+        "exactHint": "Select only the capabilities this model and credential can use. Vector, image, audio, video, completion and moderation requests need their own matching endpoint and grant; they do not fall back to Chat.",
+        "orderHint": "Only Chat, Responses, Messages and Gemini use conversion order. Other selected capabilities match requests exactly and have no fallback order.",
+        "requestModel": "Codex request model",
+        "requestModelHint": "The model used to send the Codex image request. This is stored separately from the image model name in the catalog.",
+        "configureEndpoint": "Configure {{name}} endpoint"
       }
     },
     "probeHealth": {

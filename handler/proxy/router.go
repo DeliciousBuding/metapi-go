@@ -45,11 +45,17 @@ func RegisterProxyRoutes(r chi.Router) {
 	r.Post("/images/generations", HandleImagesGenerations)
 	r.Post("/images/edits", HandleImagesEdits)
 	r.Post("/images/variations", HandleImagesVariations)
+	r.Post("/audio/speech", HandleAudioSpeech)
+	r.Post("/audio/transcriptions", HandleAudioTranscriptions)
+	r.Post("/audio/translations", HandleAudioTranslations)
+	r.Post("/moderations", HandleModerations)
 
 	// Videos surface
 	r.Post("/videos", HandleVideosCreate)
 	r.Get("/videos/{id}", HandleVideosGet)
 	r.Delete("/videos/{id}", HandleVideosDelete)
+	r.Get("/videos/{id}/content", HandleVideosContent)
+	r.Post("/videos/{id}/remix", HandleVideosRemix)
 
 	// Search surface
 	r.Post("/search", HandleSearch)

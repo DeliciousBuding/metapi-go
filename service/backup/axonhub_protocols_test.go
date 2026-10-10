@@ -51,7 +51,7 @@ func TestAxonHubProtocolOverrideDoesNotEnableMissingSurface(t *testing.T) {
 		settings string
 		routes   int
 	}{
-		{`{"modelProtocols":[{"model":"gpt-6","apiFormats":["openai/embeddings"]}]}`, 0},
+		{`{"modelProtocols":[{"model":"gpt-6","apiFormats":["openai/embeddings"]}]}`, 1},
 		{`{"modelProtocols":[{"model":"gpt-6","apiFormats":["openai/embeddings"],"enabled":false}]}`, 1},
 		{`{"modelProtocols":[{"model":"gpt-6","apiFormats":["future/not-configured"]}]}`, 1},
 	} {

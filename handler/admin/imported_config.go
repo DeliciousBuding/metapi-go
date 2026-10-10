@@ -246,11 +246,7 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		}
 		available := 0
 		if row.Endpoints.IsConfigured() {
-			for bit, ep := range map[int]*store.DirectEndpoint{2: row.Endpoints.Chat, 4: row.Endpoints.Responses, 8: row.Endpoints.Messages, 16: row.Endpoints.Gemini} {
-				if ep != nil {
-					available |= bit
-				}
-			}
+			available = row.Endpoints.ProtocolMask()
 		} else {
 			if row.ChatPath != "" {
 				available |= 2
@@ -303,14 +299,15 @@ func validateImportedConfig(row importedChannelConfig) error {
 	if checked.Scan(raw) != nil {
 		return fmt.Errorf("Invalid endpoint URL or authentication")
 	}
-	for _, ep := range []*store.DirectEndpoint{row.Endpoints.Chat, row.Endpoints.Responses, row.Endpoints.Messages, row.Endpoints.Gemini} {
+	for _, entry := range row.Endpoints.Entries() {
+		ep := entry.Endpoint
 		if ep == nil {
 			continue
 		}
 		if !validImportedURL(ep.URL, false) {
 			return fmt.Errorf("Invalid endpoint URL")
 		}
-		if ep.Profile == "codex" && row.Provider != "codex" && row.Provider != "fenno" || ep.Profile == "claudecode" && row.Provider != "claudecode" {
+		if (ep.Profile == "codex" || ep.Profile == "codex-image") && row.Provider != "codex" && row.Provider != "fenno" || ep.Profile == "claudecode" && row.Provider != "claudecode" {
 			return fmt.Errorf("Endpoint profile does not match the provider and protocol")
 		}
 	}

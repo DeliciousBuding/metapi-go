@@ -181,7 +181,7 @@ func protocolMask(protocols []int) (int, error) {
 	}
 	mask := 0
 	for _, p := range protocols {
-		if p != 2 && p != 4 && p != 8 && p != 16 || mask&p != 0 {
+		if !store.ValidDirectProtocol(p) || mask&p != 0 {
 			return 0, invalid("Grant protocols must be unique supported protocol bits")
 		}
 		mask |= p
@@ -208,11 +208,7 @@ func validateGrantChannel(ctx context.Context, tx *sqlx.Tx, modelID, credentialI
 	}
 	available := 0
 	if endpoints.IsConfigured() {
-		for p, ep := range map[int]*store.DirectEndpoint{2: endpoints.Chat, 4: endpoints.Responses, 8: endpoints.Messages, 16: endpoints.Gemini} {
-			if ep != nil {
-				available |= p
-			}
-		}
+		available = endpoints.ProtocolMask()
 	} else {
 		if chat != "" {
 			available |= 2
