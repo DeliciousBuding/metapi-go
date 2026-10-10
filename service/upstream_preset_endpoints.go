@@ -42,6 +42,14 @@ func UpstreamPresetEndpointPaths(id, platform string) store.DirectEndpoints {
 	// Match the particular product rather than its vendor: Coding Plan and
 	// Anthropic-compatible products do not inherit a vendor's media endpoints.
 	switch id {
+	case "opencode-go":
+		config = store.DirectEndpoints{Chat: &store.DirectEndpoint{URL: "/v1/chat/completions", Auth: store.DirectAuthBearer, Profile: "opencode-go", ModelWireURLs: &store.DirectModelWireURLs{Responses: "/v1/responses", Messages: "/v1/messages"}}}
+	case "opencode-go-messages":
+		config = store.DirectEndpoints{Messages: &store.DirectEndpoint{URL: "/v1/messages", Auth: store.DirectAuthAPIKey}}
+	case "cline":
+		config = store.DirectEndpoints{Chat: &store.DirectEndpoint{URL: "/v1/chat/completions", Auth: store.DirectAuthBearer, Profile: "cline"}}
+	case "codingplan-openai":
+		config.Chat.Profile = "bailian"
 	case "ollama-native":
 		config = store.DirectEndpoints{Ollama: &store.DirectEndpoint{URL: "/api/chat", Auth: store.DirectAuthNone, Profile: "ollama"}}
 	case "ollama-anthropic":
@@ -68,7 +76,10 @@ func UpstreamPresetEndpointPaths(id, platform string) store.DirectEndpoints {
 		config.AudioTranscription = endpoint("/v1/audio/transcriptions")
 		config.AudioTranslation = endpoint("/v1/audio/translations")
 		config.Moderations = endpoint("/v1/moderations")
-	case "xai-api", "bailian":
+	case "bailian":
+		config.Chat.Profile = "bailian"
+		config.Responses = endpoint("/v1/responses")
+	case "xai-api":
 		config.Responses = endpoint("/v1/responses")
 	case "deepseek-openai":
 		config.Completions = endpoint("/beta/completions")

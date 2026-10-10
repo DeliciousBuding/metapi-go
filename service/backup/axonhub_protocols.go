@@ -9,9 +9,16 @@ import (
 // Keep the source's merge order: a custom endpoint replaces its own default
 // in place, while genuinely new formats are appended in user order.
 func axonHubMergedEndpoints(ch AxonHubSourceChannel, provider axonHubProviderType) []AxonHubSourceEndpoint {
-	out := make([]AxonHubSourceEndpoint, 0, len(provider.DefaultFormats)+len(ch.Endpoints))
+	formats := provider.DefaultFormats
+	// The source declares no defaults for this legacy type. With no custom
+	// endpoints its Chat candidate still reaches Channel.Outbound, which is
+	// the Anthropic transformer. Any custom endpoint replaces that fallback.
+	if ch.Type == "opencode_go_anthropic" && len(ch.Endpoints) == 0 {
+		formats = []string{"anthropic/messages"}
+	}
+	out := make([]AxonHubSourceEndpoint, 0, len(formats)+len(ch.Endpoints))
 	indices := map[string]int{}
-	for _, format := range provider.DefaultFormats {
+	for _, format := range formats {
 		indices[format] = len(out)
 		out = append(out, AxonHubSourceEndpoint{APIFormat: format})
 	}

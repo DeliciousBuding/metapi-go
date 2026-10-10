@@ -315,8 +315,13 @@ func validateImportedConfig(row importedChannelConfig) error {
 		if ep == nil {
 			continue
 		}
-		if !validImportedURL(ep.URL, false) {
-			return fmt.Errorf("Invalid endpoint URL")
+		for _, address := range ep.URLFields() {
+			if !validImportedURL(*address, false) {
+				return fmt.Errorf("Invalid endpoint URL")
+			}
+		}
+		if ep.Profile == "opencode-go" && row.Provider != "opencode_go" {
+			return fmt.Errorf("OpenCode Go profile requires its matching provider")
 		}
 		if (ep.Profile == "codex" || ep.Profile == "codex-image" || ep.Profile == "codex-alpha-search") && row.Provider != "codex" && row.Provider != "fenno" || ep.Profile == "claudecode" && row.Provider != "claudecode" {
 			return fmt.Errorf("Endpoint profile does not match the provider and protocol")

@@ -2,6 +2,7 @@ package proxyhandler
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime"
@@ -39,7 +40,12 @@ type nativeTerminalBody struct {
 	output        []byte
 	end           error
 	passthrough   bool
-	readBuf       [4096]byte
+	// Completion is independent of tool-stop repair and public model mapping.
+	// Only protocols with an explicit stream terminator participate.
+	completionProtocol proxy.UpstreamEndpoint
+	terminalSeen       bool
+	terminalFailed     bool
+	readBuf            [4096]byte
 }
 
 func withNativeTerminalBody(body io.ReadCloser, path string, responseModels ...string) io.ReadCloser {
@@ -48,10 +54,14 @@ func withNativeTerminalBody(body io.ReadCloser, path string, responseModels ...s
 		model = responseModels[0]
 	}
 	protocol := nativeTerminalProtocol(path)
-	if protocol == 0 && model == "" {
+	completion, _ := proxy.EndpointFromPath(path)
+	if completion != proxy.EndpointChat && completion != proxy.EndpointMessages && completion != proxy.EndpointResponses {
+		completion = ""
+	}
+	if protocol == 0 && model == "" && completion == "" {
 		return body
 	}
-	result := &nativeTerminalBody{ReadCloser: body, normalizer: transformshared.NativeTerminalStream{Protocol: protocol}, responseModel: model}
+	result := &nativeTerminalBody{ReadCloser: body, normalizer: transformshared.NativeTerminalStream{Protocol: protocol}, responseModel: model, completionProtocol: completion}
 	if model != "" {
 		result.original = newIncrementalSseAnalyzer()
 	}
@@ -109,6 +119,9 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 			}
 		}
 		if err != nil {
+			if err == io.EOF {
+				b.observeTerminalEvent(parseSseBlock(string(b.pending)))
+			}
 			if b.responseModel != "" && err == io.EOF {
 				b.output = append(b.output, b.normalizeBlock(b.pending)...)
 			} else {
@@ -116,6 +129,9 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 			}
 			b.pending = nil
 			b.end = err
+			if err == io.EOF && b.completionProtocol != "" && (!b.terminalSeen || b.terminalFailed) {
+				b.end = fmt.Errorf("native %s stream ended without a successful terminal event", b.completionProtocol)
+			}
 		}
 		if n == 0 && err == nil {
 			return 0, nil
@@ -128,6 +144,7 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 
 func (b *nativeTerminalBody) normalizeBlock(block []byte) []byte {
 	event := parseSseBlock(string(block))
+	b.observeTerminalEvent(event)
 	if event == nil || event.Data == "" {
 		return block
 	}
@@ -138,6 +155,54 @@ func (b *nativeTerminalBody) normalizeBlock(block []byte) []byte {
 		return block
 	}
 	return replaceSSEBlockData(block, normalized)
+}
+
+func (b *nativeTerminalBody) observeTerminalEvent(event *SseEvent) {
+	if b.completionProtocol == "" || event == nil {
+		return
+	}
+	if b.completionProtocol == proxy.EndpointChat && strings.TrimSpace(event.Data) == "[DONE]" {
+		b.terminalSeen = true
+		return
+	}
+	// The existing SSE error analyzer owns provider errors. Treat the event as
+	// terminal so EOF does not add an unrelated missing-terminator error.
+	if IsSseErrorEvent(*event) {
+		b.terminalSeen = true
+		return
+	}
+	if b.completionProtocol == proxy.EndpointChat {
+		return
+	}
+	var payload struct {
+		Type     string `json:"type"`
+		Response struct {
+			Status string `json:"status"`
+		} `json:"response"`
+	}
+	if json.Unmarshal([]byte(event.Data), &payload) != nil {
+		return
+	}
+	kind := payload.Type
+	if kind == "" {
+		kind = event.Event
+	}
+	switch b.completionProtocol {
+	case proxy.EndpointMessages:
+		if kind == "message_stop" {
+			b.terminalSeen = true
+		}
+	case proxy.EndpointResponses:
+		if kind == "response.completed" {
+			b.terminalSeen = true
+			if payload.Response.Status != "" && payload.Response.Status != "completed" {
+				b.terminalFailed = true
+			}
+		} else if kind == "response.incomplete" {
+			b.terminalSeen = true
+			b.terminalFailed = true
+		}
+	}
 }
 
 func replaceSSEBlockData(block, normalized []byte) []byte {

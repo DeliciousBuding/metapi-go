@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/proxy"
@@ -26,6 +27,10 @@ func directBridgeNeeded(downstream, upstream string) bool {
 }
 
 func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, model string, proxyConfig *platform.ProxyConfig, body []byte, contentType string, firstByteTimeoutMs int64, retry, maxRetries int, requestID string) (bool, *pendingUpstreamFailure) {
+	openCode := selected.Direct.Provider == "opencode_go" || selected.Direct.Provider == "opencode_go_anthropic"
+	if openCode && ctx.directOpenCodeSession == "" {
+		ctx.directOpenCodeSession = directOpenCodeSessionID(r.Header, ctx.ClientCtx.SessionID)
+	}
 	if ctx.DownstreamPath == "" {
 		copyCtx := *ctx
 		copyCtx.DownstreamPath = r.URL.Path
@@ -62,6 +67,12 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 			writeJSONErrorWithRequest(w, 400, err.Error(), "invalid_request_error", requestID)
 			return true, nil
 		}
+	}
+	var openCodeBodyProfile string
+	endpoint, path, openCodeBodyProfile, err = resolveDirectOpenCodeEndpoint(endpoint, selected.Direct.Provider, path, model)
+	if err != nil {
+		writeJSONErrorWithRequest(w, 400, err.Error(), "invalid_request_error", requestID)
+		return true, nil
 	}
 	codexImage := endpoint != nil && endpoint.Profile == "codex-image"
 	credential := &oauth.DirectCredentialResult{AccessToken: selected.TokenValue, Kind: store.DirectCredentialAPIKey, Provider: selected.Direct.Provider}
@@ -140,12 +151,25 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		wire, contentType, err = prepareDirectNativeVideoProfile(endpoint.Profile, r.Method, path, contentType, body)
 	} else if endpoint != nil && isDirectMediaProfile(endpoint.Profile) {
 		wire, contentType, err = prepareDirectMediaProfile(endpoint.Profile, path, contentType, body)
+	} else if endpoint != nil && endpoint.Profile == "opencode-go" {
+		wire, err = prepareDirectOpenCodeWire(endpoint, openCodeBodyProfile, body, r.Header, ctx.directOpenCodeSession)
 	} else {
 		wire, err = prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header)
 	}
 	if err != nil {
 		writeJSONErrorWithRequest(w, http.StatusBadRequest, err.Error(), "invalid_request_error", requestID)
 		return true, nil
+	}
+	if openCode {
+		wire.Headers.Set("X-Opencode-Session", ctx.directOpenCodeSession)
+		// Source channel headers are explicit overrides of provider defaults.
+		if proxyConfig != nil {
+			for name, value := range proxyConfig.CustomHeaders {
+				if strings.EqualFold(name, "X-Opencode-Session") {
+					wire.Headers.Set("X-Opencode-Session", value)
+				}
+			}
+		}
 	}
 	wire.Endpoint = endpoint
 	if proxy.DirectProtocolForPath(path) == store.DirectProtocolVideo && (r.Method == http.MethodPost || endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile)) {

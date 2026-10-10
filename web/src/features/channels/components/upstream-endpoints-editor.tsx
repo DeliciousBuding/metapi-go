@@ -38,6 +38,7 @@ import {
   upstreamProtocolGroups,
   upstreamProtocols,
 } from '../lib/upstream-config'
+import { UpstreamModelWireEditor } from './upstream-model-wire-editor'
 
 type EndpointEditorProps = {
   value: ImportedEndpointConfig
@@ -340,6 +341,13 @@ function EndpointRow(
                         ...(value !== 'codex-image'
                           ? { requestModel: undefined }
                           : {}),
+                        modelWireUrls:
+                          value === 'opencode-go'
+                            ? (endpoint.modelWireUrls ?? {
+                                responses: '',
+                                messages: '',
+                              })
+                            : undefined,
                       })
                     }
                   }}
@@ -372,6 +380,15 @@ function EndpointRow(
               </div>
             )}
           </div>
+          {endpoint.profile === 'opencode-go' && (
+            <UpstreamModelWireEditor
+              value={endpoint.modelWireUrls}
+              onChange={(modelWireUrls) => update({ modelWireUrls })}
+              disabled={props.disabled}
+              invalid={props.invalid}
+              validationAttempt={props.validationAttempt}
+            />
+          )}
           {endpoint.profile === 'codex-image' && (
             <div className='space-y-1.5 text-sm'>
               <label

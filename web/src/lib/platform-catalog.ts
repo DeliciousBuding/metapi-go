@@ -153,6 +153,8 @@ const PRESET_BRAND_ICONS: Record<string, string> = {
   bedrock: 'bedrock',
   seedance: 'doubao-color',
   zenmux: 'zenmux',
+  cline: 'cline',
+  opencode: 'opencode',
 }
 
 export function getConnectionPresetIcon(id: string): string | undefined {

@@ -3684,7 +3684,10 @@
           "bedrock": "Amazon Bedrock",
           "seedance-video": "Seedance",
           "zenmux-video": "ZenMux",
-          "codex-alpha-search": "Codex Alpha Search"
+          "codex-alpha-search": "Codex Alpha Search",
+          "bailian": "Bailian",
+          "cline": "Cline",
+          "opencode-go": "OpenCode Go"
         },
         "reasons": {
           "channelEnabled": "Upstream disabled",
@@ -3697,7 +3700,12 @@
         },
         "noAuthentication": "No authentication",
         "anonymousUnavailable": "Configure an Ollama endpoint without authentication first.",
-        "modelPrefixUrl": "Model URL prefix (ending in /model)"
+        "modelPrefixUrl": "Model URL prefix (ending in /model)",
+        "modelWireUrls": {
+          "title": "OpenCode Go adapter URLs",
+          "responses": "Responses wire URL",
+          "messages": "Messages wire URL"
+        }
       },
       "catalog": {
         "models": "Models",
@@ -3747,6 +3755,7 @@
         "loading": "Loading platform presets…",
         "presetsFailed": "Could not load platform presets: {{message}}",
         "selectProvider": "Select a platform or enter a provider.",
+        "openCodeProviderRequired": "The OpenCode Go adapter requires the opencode_go provider. Change the adapter or provider.",
         "endpointsRequired": "Configure at least one protocol endpoint.",
         "resolve": "Update endpoints",
         "resolveFailed": "Could not resolve endpoints. Check the base URL and retry.",

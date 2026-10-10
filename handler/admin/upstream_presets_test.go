@@ -2,8 +2,10 @@ package admin
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -54,7 +56,7 @@ func TestUpstreamPresetListSharesSiteRegistry(t *testing.T) {
 		source := service.GetSiteInitializationPreset(preset.ID)
 		if source == nil {
 			// Native formats are upstream-only: site adapters cannot execute them.
-			if !slices.Contains([]string{"seedance-video", "zenmux-video", "ollama-native", "ollama-anthropic", "bedrock-messages", "typesafe-systemone", "openai-alpha-search", "codex-alpha-search"}, preset.ID) {
+			if !slices.Contains([]string{"seedance-video", "zenmux-video", "ollama-native", "ollama-anthropic", "bedrock-messages", "typesafe-systemone", "openai-alpha-search", "codex-alpha-search", "opencode-go", "opencode-go-messages", "cline"}, preset.ID) {
 				t.Errorf("shared preset %s missing from the site registry", preset.ID)
 			}
 			continue
@@ -73,6 +75,9 @@ func TestUpstreamPresetEndpointContracts(t *testing.T) {
 		id, provider, key, url, auth, profile string
 		modelPath                             bool
 	}{
+		{"opencode-go", "opencode_go", "chat", "https://opencode.ai/zen/go/v1/chat/completions", "bearer", "opencode-go", false},
+		{"opencode-go-messages", "opencode_go_anthropic", "messages", "https://opencode.ai/zen/go/v1/messages", "x-api-key", "", false},
+		{"cline", "cline", "chat", "https://api.cline.bot/api/v1/chat/completions", "bearer", "cline", false},
 		{"ollama-native", "ollama", "ollama", "http://localhost:11434/api/chat", "none", "ollama", false},
 		{"ollama-anthropic", "ollama_anthropic", "messages", "http://localhost:11434/v1/messages", "none", "ollama-messages", false},
 		{"bedrock-messages", "anthropic_aws", "messages", "https://bedrock-runtime.us-east-1.amazonaws.com/model", "bearer", "bedrock", true},
@@ -104,7 +109,10 @@ func TestUpstreamPresetEndpointContracts(t *testing.T) {
 				}
 			}
 			want := store.DirectEndpoint{URL: tc.url, Auth: tc.auth, Profile: tc.profile, ModelPath: tc.modelPath}
-			if provider != tc.provider || endpoint == nil || *endpoint != want {
+			if tc.id == "opencode-go" {
+				want.ModelWireURLs = &store.DirectModelWireURLs{Responses: "https://opencode.ai/zen/go/v1/responses", Messages: "https://opencode.ai/zen/go/v1/messages"}
+			}
+			if provider != tc.provider || endpoint == nil || !reflect.DeepEqual(*endpoint, want) {
 				t.Fatalf("provider=%s endpoint=%+v; want %s %+v", provider, endpoint, tc.provider, want)
 			}
 		})
@@ -113,17 +121,20 @@ func TestUpstreamPresetEndpointContracts(t *testing.T) {
 
 func TestUpstreamPresetAdvertisedProtocolsMatchEndpoints(t *testing.T) {
 	contracts := map[string][]string{
-		"new-api-connection": {"chat", "responses", "messages", "gemini", "completions", "embeddings", "rerank", "imageGeneration", "imageEdit", "audioSpeech", "audioTranscription", "audioTranslation", "moderations", "video"},
-		"deepseek-openai":    {"chat", "completions"},
-		"codingplan-claude":  {"messages"},
-		"codingplan-openai":  {"chat"},
-		"bailian":            {"chat", "responses"},
-		"gemini-api":         {"gemini", "geminiEmbeddings"},
-		"openai-api":         {"chat", "responses", "embeddings", "imageGeneration", "imageEdit", "imageVariation", "audioSpeech", "audioTranscription", "audioTranslation", "moderations"},
-		"xai-api":            {"chat", "responses"},
-		"jina":               {"rerank", "jinaEmbeddings"},
-		"minimax-openai":     {"chat", "imageGeneration"},
-		"modelscope-openai":  {"chat", "modelscopeImageGeneration"},
+		"opencode-go":          {"chat"},
+		"opencode-go-messages": {"messages"},
+		"cline":                {"chat"},
+		"new-api-connection":   {"chat", "responses", "messages", "gemini", "completions", "embeddings", "rerank", "imageGeneration", "imageEdit", "audioSpeech", "audioTranscription", "audioTranslation", "moderations", "video"},
+		"deepseek-openai":      {"chat", "completions"},
+		"codingplan-claude":    {"messages"},
+		"codingplan-openai":    {"chat"},
+		"bailian":              {"chat", "responses"},
+		"gemini-api":           {"gemini", "geminiEmbeddings"},
+		"openai-api":           {"chat", "responses", "embeddings", "imageGeneration", "imageEdit", "imageVariation", "audioSpeech", "audioTranscription", "audioTranslation", "moderations"},
+		"xai-api":              {"chat", "responses"},
+		"jina":                 {"rerank", "jinaEmbeddings"},
+		"minimax-openai":       {"chat", "imageGeneration"},
+		"modelscope-openai":    {"chat", "modelscopeImageGeneration"},
 	}
 	for id, want := range contracts {
 		t.Run(id, func(t *testing.T) {
@@ -183,6 +194,57 @@ func TestUpstreamPresetCreatesNativeChannelWithoutLegacyRows(t *testing.T) {
 				}
 				if count != 0 {
 					t.Errorf("creation populated %s: %d", table, count)
+				}
+			}
+		})
+	}
+}
+
+func TestUpstreamPresetPlatformWireCRUD(t *testing.T) {
+	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
+		t.Run(dialect, func(t *testing.T) {
+			db := catalogTestDB(t, dialect, ":memory:")
+			r := catalogMux(db)
+			RegisterUpstreamPresetRoutes(r)
+			for _, id := range []string{"opencode-go", "opencode-go-messages", "cline", "bailian", "codingplan-openai"} {
+				provider, endpoints := resolvePreset(t, r, id, "https://relay.example/custom/v1")
+				if id == "bailian" || id == "codingplan-openai" {
+					if endpoints.Chat.Profile != "bailian" {
+						t.Fatal("explicit Bailian preset lost its adapter")
+					}
+				}
+				input := map[string]any{"name": id, "provider": provider, "baseUrl": "https://relay.example/custom/v1", "endpointConfig": endpoints, "enabled": true}
+				created := catalogCall(t, r, "POST", catalogPrefix, input, 201)
+				path := fmt.Sprintf("%s/%d", catalogPrefix, catalogID(created))
+				out := catalogRequest(r, "GET", path, nil)
+				var detail struct {
+					Endpoints store.DirectEndpoints `json:"endpointConfig"`
+				}
+				if out.Code != 200 || json.Unmarshal(out.Body.Bytes(), &detail) != nil || !reflect.DeepEqual(detail.Endpoints, endpoints) {
+					t.Fatalf("%s did not round-trip: %d %s", id, out.Code, out.Body.String())
+				}
+				if id != "opencode-go" {
+					continue
+				}
+				if endpoints.Chat.ModelWireURLs.Responses != "https://relay.example/custom/v1/responses" || endpoints.Chat.ModelWireURLs.Messages != "https://relay.example/custom/v1/messages" {
+					t.Fatal("internal model URLs were not resolved")
+				}
+				withUserInfo := (&url.URL{Scheme: "https", Host: "relay.example", Path: "/messages", User: url.UserPassword("fixture-user", "fixture-password")}).String()
+				for _, bad := range []string{"", withUserInfo, "https://relay.example/messages?key=fixture", "https://relay.example/messages#fragment", "http://169.254.169.254/messages", "http://metadata.google.internal/messages"} {
+					invalid := endpoints
+					chat := *endpoints.Chat
+					urls := *chat.ModelWireURLs
+					urls.Messages = bad
+					chat.ModelWireURLs = &urls
+					invalid.Chat = &chat
+					catalogCall(t, r, "PATCH", path, map[string]any{"endpointConfig": invalid}, 400)
+				}
+				catalogCall(t, r, "PATCH", path, map[string]any{"provider": "generic"}, 400)
+				endpoints.Responses = &store.DirectEndpoint{URL: "https://custom.example/responses", Auth: store.DirectAuthBearer}
+				catalogCall(t, r, "PATCH", path, map[string]any{"endpointConfig": endpoints}, 200)
+				out = catalogRequest(r, "GET", path, nil)
+				if json.Unmarshal(out.Body.Bytes(), &detail) != nil || !reflect.DeepEqual(detail.Endpoints, endpoints) {
+					t.Fatal("custom Responses replaced internal wire destination")
 				}
 			}
 		})

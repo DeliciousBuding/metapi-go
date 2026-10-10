@@ -9,6 +9,9 @@ export type ImportedEndpoint = {
     | 'claudecode'
     | 'deepseek'
     | 'zai'
+    | 'bailian'
+    | 'cline'
+    | 'opencode-go'
     | 'jina-embeddings'
     | 'minimax-image'
     | 'modelscope-image'
@@ -20,6 +23,7 @@ export type ImportedEndpoint = {
     | 'zenmux-video'
     | 'codex-alpha-search'
   requestModel?: string
+  modelWireUrls?: { responses: string; messages: string }
 }
 
 export type ImportedEndpointConfig = Partial<

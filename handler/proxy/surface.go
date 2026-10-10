@@ -70,6 +70,8 @@ type Ctx struct {
 	ForcedChannelID *int64
 	// Bridge-owned tool history must never be forwarded without its replay state.
 	messagesBridgeReplayRequired bool
+	// Generated once for an OpenCode request and retained across channel retries.
+	directOpenCodeSession string
 }
 
 // PrepareCtx extracts all context needed for proxy request handling.

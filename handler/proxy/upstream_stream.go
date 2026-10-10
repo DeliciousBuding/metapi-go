@@ -104,8 +104,9 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	bridgeDirect := len(direct) > 0 && direct[0] && directBridgeNeeded(r.URL.Path, upstreamPath)
 	wire := directProviderWireFromContext(r.Context())
 	codexImage := wire != nil && wire.Profile == "codex-image"
-	providerStream := wire != nil && (wire.Profile == "codex" || wire.StripToolPrefix || codexImage)
-	if (bridgeMessages || bridgeDirect || providerStream) && !bodyReadable {
+	providerStream := wire != nil && (wire.Profile == "codex" || wire.StripToolPrefix || codexImage || wire.Profile == "cline" && bridgeDirect)
+	bailianStream := wire != nil && wire.Profile == "bailian"
+	if (bridgeMessages || bridgeDirect || providerStream || bailianStream) && !bodyReadable {
 		w.Header().Del("Content-Encoding")
 		writeJSONErrorWithRequest(w, http.StatusBadGateway, "Cannot decode upstream Chat stream for Messages", "upstream_error", proxy.RequestIDFromContext(r.Context()))
 		return empty, streamEndedUpstreamFault, nil
@@ -143,10 +144,17 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		messageBridge = newDirectCodexImagesBody(resp.Body, r.URL.Path, true, maxStreamBytes)
 		messageBridge.original.onFirstOutput = onFirstOutput
 		resp.Body = messageBridge
-	} else if bridgeDirect || providerStream {
+	} else if bridgeDirect || providerStream || bailianStream {
 		var stream protocolEventStream
 		if bridgeDirect {
 			stream = directResponseStream(r.URL.Path, upstreamPath, upstreamModel, bridgeOptions)
+		}
+		if bailianStream {
+			if stream == nil {
+				stream = newDirectBailianStream()
+			} else {
+				stream = &chainedProtocolStream{first: newDirectBailianStream(), second: stream}
+			}
 		}
 		if providerStream {
 			provider := &directProviderStream{ctx: r.Context(), next: stream}
@@ -293,7 +301,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		if err != nil {
 			if err != io.EOF {
 				switch {
-				case (idleBody.guard.fired.Load() || errors.Is(err, ollama.ErrIdleTimeout)) && r.Context().Err() == nil:
+				case (idleBody.guard.fired.Load() || errors.Is(err, ollama.ErrIdleTimeout) || errors.Is(err, errDirectClineIdleTimeout)) && r.Context().Err() == nil:
 					// Upstream stalled: the idle guard closed the body to
 					// unblock this read. Emit a distinct final SSE error event
 					// and report the idle outcome so the dispatcher records
@@ -316,7 +324,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 						"streamed_bytes", streamedBytes,
 					)
 					outcome = streamEndedClientDisconnect
-				case err == errMessagesChatStreamLimit || errors.Is(err, ollama.ErrStreamLimit):
+				case errors.Is(err, errMessagesChatStreamLimit) || errors.Is(err, ollama.ErrStreamLimit):
 					writeSSEStreamError(w, flusher, r.URL.Path, "upstream stream exceeded configured byte limit", "upstream_error")
 					outcome = streamEndedTruncated
 				default:

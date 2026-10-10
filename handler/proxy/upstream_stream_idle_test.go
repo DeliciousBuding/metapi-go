@@ -138,6 +138,7 @@ func TestHandleStreamUpstreamFlowingStreamCompletesNormally(t *testing.T) {
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
+		_, _ = pw.Write([]byte("data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"))
 	}()
 
 	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: pr}

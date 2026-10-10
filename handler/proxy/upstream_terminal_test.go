@@ -122,8 +122,8 @@ func TestNativeTerminalReaderPreservesPartialErrorAndOversize(t *testing.T) {
 				t.Fatal("changed partial/unsupported stream or appended a false terminal")
 			}
 			if tc.end == io.EOF {
-				if err != nil {
-					t.Fatal(err)
+				if err == nil || !strings.Contains(err.Error(), "terminal event") {
+					t.Fatalf("partial stream must retain bytes and report missing terminal: %v", err)
 				}
 			} else if !errors.Is(err, tc.end) {
 				t.Fatalf("lost source error: %v", err)
