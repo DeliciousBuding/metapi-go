@@ -141,9 +141,13 @@ const httpUrl = z
     (value) => /^https?:\/\//i.test(value),
     'channels.upstream.invalidUrl'
   )
-// Profile-to-endpoint constraints match store/direct_endpoints.go. The provider
-// picker below keeps wire formats independent of provider branding; only the
-// Codex OAuth adapter is limited to its credential providers.
+export const modelWireUrlSchema = httpUrl.refine((value) => {
+  if (!URL.canParse(value)) return false
+  const url = new URL(value)
+  return !url.username && !url.password && !url.search && !url.hash
+}, 'channels.upstream.invalidUrl')
+// Profile-to-endpoint constraints match store/direct_endpoints.go. The picker
+// also respects provider restrictions for adapters such as Codex and OpenCode Go.
 const profileEndpoints: Record<
   EndpointProfile,
   readonly (keyof ImportedEndpointConfig)[]
@@ -152,6 +156,9 @@ const profileEndpoints: Record<
   claudecode: ['messages'],
   deepseek: ['chat'],
   zai: ['chat'],
+  bailian: ['chat'],
+  cline: ['chat'],
+  'opencode-go': ['chat'],
   'jina-embeddings': ['jinaEmbeddings'],
   'minimax-image': ['imageGeneration'],
   'modelscope-image': [
@@ -177,6 +184,13 @@ const endpoint = z.object({
     .optional(),
   modelPath: z.boolean().optional(),
   requestModel: z.string().max(255).optional(),
+  modelWireUrls: z
+    .object({
+      responses: modelWireUrlSchema,
+      messages: modelWireUrlSchema,
+    })
+    .strict()
+    .optional(),
 })
 
 const endpointConfigSchema = z
@@ -212,6 +226,12 @@ const endpointConfigSchema = z
               return false
             }
             if (value.profile === 'bedrock' && !value.modelPath) return false
+            if (value.profile === 'opencode-go' && !value.modelWireUrls) {
+              return false
+            }
+            if (value.modelWireUrls && value.profile !== 'opencode-go') {
+              return false
+            }
             if (value.profile === 'codex-image') {
               return !!value.requestModel?.trim()
             }
@@ -318,7 +338,11 @@ export function availableProfiles(
     if (['codex', 'fenno'].includes(provider)) profiles.push('codex-image')
     return profiles
   }
-  if (protocol === 'chat') return ['deepseek', 'zai']
+  if (protocol === 'chat') {
+    const profiles = ['bailian', 'deepseek', 'zai', 'cline']
+    if (provider === 'opencode_go') profiles.push('opencode-go')
+    return profiles
+  }
   if (protocol === 'responses' && ['codex', 'fenno'].includes(provider)) {
     return ['codex']
   }

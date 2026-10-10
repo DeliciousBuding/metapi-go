@@ -81,6 +81,8 @@ const ICON_KEYS = [
   'ollama',
   'bedrock',
   'zenmux',
+  'cline',
+  'opencode',
 ]
 
 const results = { ok: 0, missing: [] }

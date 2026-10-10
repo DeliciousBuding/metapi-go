@@ -19,6 +19,15 @@ export const upstreamCreateSchema = connectionSchema
     path: ['endpointConfig'],
     message: 'channels.create.endpointsRequired',
   })
+  .refine(
+    (value) =>
+      value.provider === 'opencode_go' ||
+      value.endpointConfig.chat?.profile !== 'opencode-go',
+    {
+      path: ['provider'],
+      message: 'channels.create.openCodeProviderRequired',
+    }
+  )
 
 export type UpstreamCreateValues = z.infer<typeof upstreamCreateSchema>
 

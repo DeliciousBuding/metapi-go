@@ -122,9 +122,6 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 			if problem != "" {
 				return 0, endpoints, []string{problem}, nil
 			}
-			if problem := validateAxonHubEndpointBase(endpoint.URL); problem != "" {
-				return 0, endpoints, []string{"endpoint_url_" + problem}, nil
-			}
 			resolvedEndpoints[endpointKeys[protocol]] = endpoint
 			protocols |= protocol
 			continue
@@ -133,9 +130,6 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 			endpoint, problem := resolveAxonHubMediaEndpoint(channel, protocol, base, path, custom[format])
 			if problem != "" {
 				return 0, endpoints, []string{problem}, nil
-			}
-			if problem := validateAxonHubEndpointBase(endpoint.URL); problem != "" {
-				return 0, endpoints, []string{"endpoint_url_" + problem}, nil
 			}
 			resolvedEndpoints[endpointKeys[protocol]] = endpoint
 			protocols |= protocol
@@ -148,7 +142,14 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 				profile = "deepseek"
 			case "zai", "zhipu", "xiaomi":
 				profile = "zai"
+			case "bailian":
+				profile = "bailian"
+			case "opencode_go":
+				profile = "opencode-go"
 			}
+		}
+		if protocol == protoChat && channel.Type == "cline" {
+			profile = "cline"
 		}
 		if protocol == protoResponses && (channel.Type == "codex" || channel.Type == "fenno") {
 			if base == "https://api.openai.com/v1" {
@@ -171,9 +172,6 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 		if problem != "" {
 			return 0, endpoints, []string{problem}, nil
 		}
-		if problem := validateAxonHubEndpointBase(resolved); problem != "" {
-			return 0, endpoints, []string{"endpoint_url_" + problem}, nil
-		}
 		auth := store.DirectAuthBearer
 		if protocol == protoMessages {
 			auth = store.DirectAuthAPIKey
@@ -185,6 +183,17 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 			}
 		}
 		endpoint := &store.DirectEndpoint{URL: resolved, Auth: auth, Profile: profile}
+		if profile == "opencode-go" {
+			responses, problem := resolveAxonHubEndpointURL(channel.Type, protoResponses, base, "", false)
+			if problem != "" {
+				return 0, endpoints, []string{problem}, nil
+			}
+			messages, problem := resolveAxonHubEndpointURL(channel.Type, protoMessages, base, "", false)
+			if problem != "" {
+				return 0, endpoints, []string{problem}, nil
+			}
+			endpoint.ModelWireURLs = &store.DirectModelWireURLs{Responses: responses, Messages: messages}
+		}
 		if protocol == protoGemini {
 			endpoint.Auth = store.DirectAuthGoogle
 			endpoint.ModelPath = path == ""
@@ -195,11 +204,25 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 	if protocols == 0 {
 		return 0, endpoints, []string{"no_servable_protocol"}, nil
 	}
+	for _, endpoint := range resolvedEndpoints {
+		if problem := validateAxonHubResolvedEndpoint(endpoint); problem != "" {
+			return 0, endpoints, []string{problem}, nil
+		}
+	}
 	raw, err := json.Marshal(resolvedEndpoints)
 	if err != nil || endpoints.Scan(raw) != nil {
 		return 0, store.DirectEndpoints{}, []string{"endpoint_config_invalid"}, nil
 	}
 	return protocols, endpoints, nil, residuals
+}
+
+func validateAxonHubResolvedEndpoint(endpoint *store.DirectEndpoint) string {
+	for _, address := range endpoint.URLFields() {
+		if problem := validateAxonHubEndpointBase(*address); problem != "" {
+			return "endpoint_url_" + problem
+		}
+	}
+	return ""
 }
 
 func resolveAxonHubEndpointURL(provider string, protocol int, base, path string, custom bool) (string, string) {
@@ -251,7 +274,7 @@ func resolveAxonHubEndpointURL(provider string, protocol int, base, path string,
 			(provider == "gemini_openai" || provider == "deepseek" || provider == "moonshot")) {
 			return "", "endpoint_url_mode_unsupported"
 		}
-		return strings.TrimRight(strings.TrimSuffix(base, "##"), "/"), ""
+		return strings.TrimSuffix(base, "##"), ""
 	}
 	if path != "" {
 		version = ""

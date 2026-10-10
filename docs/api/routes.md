@@ -136,11 +136,25 @@ gateway's configured system proxy when `channelProxy` is empty.
 HTTP(S) URLs; authentication is `bearer`, `x-api-key`, `x-goog-api-key`, or
 `none` for an Ollama profile. `modelPath` is valid for Gemini generation and
 embeddings, and required for Bedrock's `/model` URL prefix. `codex` and `claudecode` profiles require
-their matching provider, protocol, and Bearer authentication; `deepseek` and `zai`
+their matching provider, protocol, and Bearer authentication; `deepseek`, `zai`, `bailian`, and `cline`
 profiles require Chat and Bearer. Empty profile keeps the generic wire contract.
-Media profiles use Bearer authentication. Supported profiles include:
+Additional profiles include:
 
-- `jina-embeddings` is required for `jinaEmbeddings`; omitted `task` defaults to
+- `bailian` adapts Chat tool-call history, thinking controls and streaming tool
+  deltas. It does not apply to the provider's Responses or Messages endpoints.
+- `cline` normalizes Chat request content and wrapped JSON/SSE responses. A
+  failed envelope or incomplete stream is an upstream failure, even with HTTP 200.
+- `opencode-go` requires provider `opencode_go`, Chat and Bearer authentication.
+  Its required `modelWireUrls:{responses,messages}` contains exact internal
+  HTTP(S) destinations. The final upstream model selects Chat (`deepseek*`
+  with DeepSeek adaptation, otherwise generic), Responses (`gpt*`, `grok*`)
+  or Messages (`minimax*`, `qwen3*`); prefixes are case-sensitive. These addresses
+  do not create independent endpoint permissions or reuse custom top-level
+  Responses/Messages URLs. Other profiles cannot set `modelWireUrls`.
+  OpenCode providers also send a request-stable session header on custom
+  endpoints; explicit channel session headers take precedence.
+
+- `jina-embeddings` is required for Bearer `jinaEmbeddings`; omitted `task` defaults to
   `text-matching`. It cannot be attached to the generic embeddings field.
 - `minimax-image` applies to image generation and translates the native MiniMax
   request and result shapes, including application errors in HTTP 200 responses.

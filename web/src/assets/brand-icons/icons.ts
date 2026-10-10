@@ -13,6 +13,7 @@ import bedrockDark from './icons/dark/bedrock.png'
 import bytedanceColorDark from './icons/dark/bytedance-color.png'
 import cerebrasBrandColorDark from './icons/dark/cerebras-brand-color.png'
 import claudeColorDark from './icons/dark/claude-color.png'
+import clineDark from './icons/dark/cline.png'
 import cohereColorDark from './icons/dark/cohere-color.png'
 import deepcogitoColorDark from './icons/dark/deepcogito-color.png'
 import deepinfraColorDark from './icons/dark/deepinfra-color.png'
@@ -44,6 +45,7 @@ import novaDark from './icons/dark/nova.png'
 import nvidiaColorDark from './icons/dark/nvidia-color.png'
 import ollamaDark from './icons/dark/ollama.png'
 import openaiDark from './icons/dark/openai.png'
+import opencodeDark from './icons/dark/opencode.png'
 import openrouterDark from './icons/dark/openrouter.png'
 import ppioColorDark from './icons/dark/ppio-color.png'
 import qiniuColorDark from './icons/dark/qiniu-color.png'
@@ -75,6 +77,7 @@ import bedrockLight from './icons/light/bedrock.png'
 import bytedanceColorLight from './icons/light/bytedance-color.png'
 import cerebrasBrandColorLight from './icons/light/cerebras-brand-color.png'
 import claudeColorLight from './icons/light/claude-color.png'
+import clineLight from './icons/light/cline.png'
 import cohereColorLight from './icons/light/cohere-color.png'
 import deepcogitoColorLight from './icons/light/deepcogito-color.png'
 import deepinfraColorLight from './icons/light/deepinfra-color.png'
@@ -106,6 +109,7 @@ import novaLight from './icons/light/nova.png'
 import nvidiaColorLight from './icons/light/nvidia-color.png'
 import ollamaLight from './icons/light/ollama.png'
 import openaiLight from './icons/light/openai.png'
+import opencodeLight from './icons/light/opencode.png'
 import openrouterLight from './icons/light/openrouter.png'
 import ppioColorLight from './icons/light/ppio-color.png'
 import qiniuColorLight from './icons/light/qiniu-color.png'
@@ -144,6 +148,7 @@ export const BRAND_ICONS: Record<string, Record<BrandIconVariant, string>> = {
     light: cerebrasBrandColorLight,
   },
   'claude-color': { dark: claudeColorDark, light: claudeColorLight },
+  cline: { dark: clineDark, light: clineLight },
   'cohere-color': { dark: cohereColorDark, light: cohereColorLight },
   'deepcogito-color': {
     dark: deepcogitoColorDark,
@@ -184,6 +189,7 @@ export const BRAND_ICONS: Record<string, Record<BrandIconVariant, string>> = {
   'nvidia-color': { dark: nvidiaColorDark, light: nvidiaColorLight },
   ollama: { dark: ollamaDark, light: ollamaLight },
   openai: { dark: openaiDark, light: openaiLight },
+  opencode: { dark: opencodeDark, light: opencodeLight },
   openrouter: { dark: openrouterDark, light: openrouterLight },
   'ppio-color': { dark: ppioColorDark, light: ppioColorLight },
   'qiniu-color': { dark: qiniuColorDark, light: qiniuColorLight },

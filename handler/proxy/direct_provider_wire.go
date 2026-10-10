@@ -49,6 +49,19 @@ func prepareDirectProviderWire(endpoint *store.DirectEndpoint, channelID int64, 
 	}
 	wire.Profile = endpoint.Profile
 	switch endpoint.Profile {
+	case "bailian":
+		var err error
+		wire.Body, err = prepareDirectBailianRequest(body)
+		if err != nil {
+			return nil, err
+		}
+	case "cline":
+		var err error
+		wire.Body, err = prepareDirectClineRequest(body)
+		if err != nil {
+			return nil, err
+		}
+		buildDirectClineHeaders(wire.Headers)
 	case "ollama":
 		var err error
 		wire.Body, err = ollama.FromChatRequest(body)

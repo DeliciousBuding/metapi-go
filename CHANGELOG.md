@@ -23,6 +23,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 编程平台：新增 OpenCode Go、Cline 预设，百炼 Chat 接入专用适配；导入保留平台协议与会话设置，OpenCode 内部模型分流不扩大接口授权（#1396）。
 - 独立上游：支持从平台预设创建渠道，管理模型、凭据授权和路由组；导入渠道可添加本地记录，关联删除先预览影响并校验确认版本（#1396）。
 - 来源替换：预览新增 `removalImpact`；涉及本地或其他来源的关联记录时，提交须带 `X-External-Replacement-Revision`，影响变化返回 409；详见 API 文档（#1396）。
 - 独立上游：新增媒体、向量、音频与审核端点，导入保留格式权限；New API、Jina、MiniMax、ModelScope 等预设同步能力，配置按类别展开（#1396）。
@@ -32,6 +33,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 修复
 
+- 流式代理：Chat、Responses、Messages 缺少结束事件时报告上游失败，并保留已收到的内容与用量（#1396）。
 - 视频任务：新增 `accounting_state`，累计用量按任务原子记账，轮询与下载不重复计费；额度用尽后仍可读取本人已创建任务，旧任务不推测历史费用（#1396）。
 - OAuth 凭据：过期时间按 Unix 毫秒显示，编辑器将本地日期时间转换为毫秒提交；已有凭据无需迁移。
 

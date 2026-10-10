@@ -468,6 +468,14 @@ Messages retains its native body and uses a bounded AWS EventStream decoder.
 Anonymous credentials are explicitly typed, restricted to Ollama endpoints,
 and resolved again after selection before any upstream request.
 
+OpenCode Go resolves its internal wire only after selecting an authorized
+logical Chat endpoint. Its typed internal URLs are separate from independently
+configured endpoints and grants. Request and response conversion share the
+resolved protocol; session identity survives channel retries. Bailian's tool
+stream filter runs before client conversion, while Cline envelopes normalize
+before shared usage and content analysis. Native Chat, Responses and Messages
+streams require their actual terminal event; EOF alone is not success.
+
 `store/direct_protocols.go` owns persisted endpoint-to-bit mappings. Media
 selection requires an exact supported format, keeping Jina/OpenAI embeddings
 and ModelScope/OpenAI image generation distinct. These requests use the same

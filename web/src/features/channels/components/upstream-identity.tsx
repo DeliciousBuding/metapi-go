@@ -30,6 +30,11 @@ const names: Record<string, string> = {
   seedance: 'Seedance',
   zenmux: 'ZenMux',
   typesafe: 'TypeSafe',
+  cline: 'Cline',
+  opencode: 'OpenCode',
+  opencode_go: 'OpenCode Go',
+  opencode_go_anthropic: 'OpenCode Go',
+  'opencode-go': 'OpenCode Go',
   generic: 'API',
   openai_compatible: 'OpenAI Compatible',
 }

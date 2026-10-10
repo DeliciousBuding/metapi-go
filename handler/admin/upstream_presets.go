@@ -47,16 +47,17 @@ func resolveUpstreamPreset(w http.ResponseWriter, r *http.Request) {
 		if entry.Endpoint == nil {
 			continue
 		}
-		endpointBase := base
-		if strings.HasPrefix(entry.Endpoint.URL, "/beta/") || strings.HasPrefix(entry.Endpoint.URL, "/v1beta/") {
-			// These sibling APIs retain their version even when the chosen
-			// OpenAI-compatible base ends in /v1.
-			endpointBase = strings.TrimSuffix(endpointBase, "/v1")
+		for _, address := range entry.Endpoint.URLFields() {
+			endpointBase := base
+			if strings.HasPrefix(*address, "/beta/") || strings.HasPrefix(*address, "/v1beta/") {
+				// Sibling APIs retain their version with an OpenAI /v1 base.
+				endpointBase = strings.TrimSuffix(endpointBase, "/v1")
+			}
+			*address = proxy.BuildUpstreamURL(endpointBase, *address)
 		}
-		entry.Endpoint.URL = proxy.BuildUpstreamURL(endpointBase, entry.Endpoint.URL)
 	}
 	original, _ := url.Parse(preset.DefaultURL)
-	if config.Chat != nil && original != nil && strings.EqualFold(original.Host, parsed.Host) {
+	if config.Chat != nil && config.Chat.Profile == "" && original != nil && strings.EqualFold(original.Host, parsed.Host) {
 		config.Chat.Profile = service.NativeChatRequestProfile(base, preset.Platform)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"provider": preset.Provider, "endpointConfig": config})

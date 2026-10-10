@@ -780,6 +780,8 @@ func dispatchEndpointAttemptWithContinue(
 	if err == nil && resp != nil {
 		if wire := directProviderWireFromContext(r.Context()); wire != nil {
 			switch wire.Profile {
+			case "cline":
+				err = normalizeDirectClineResponse(r.Context(), resp, effectiveStream)
 			case "bedrock":
 				err = normalizeDirectBedrockResponse(r.Context(), resp, effectiveStream)
 			case "ollama":
@@ -1066,13 +1068,15 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 	nativeJSON := proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolSystemOne || proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolAlphaSearch
-	if wire := directProviderWireFromContext(r.Context()); nativeJSON || wire != nil && wire.Profile == "ollama" {
+	if wire := directProviderWireFromContext(r.Context()); nativeJSON || wire != nil && (wire.Profile == "ollama" || wire.Profile == "cline") {
 		converted := respBody
 		var convertErr error
 		if nativeJSON {
 			if !body.readable || !json.Valid(respBody) {
 				convertErr = fmt.Errorf("expected a JSON response")
 			}
+		} else if wire.Profile == "cline" {
+			converted, convertErr = normalizeDirectClineJSON(respBody, body.readable)
 		} else {
 			converted, convertErr = normalizeDirectOllamaJSON(respBody, body.readable)
 		}
@@ -1162,9 +1166,12 @@ func dispatchEndpointAttemptWithContinue(
 	if directBridge || isMessagesChatBridge(ctx.DownstreamPath, upstreamPath) {
 		var convertErr error
 		if body.readable {
-			if directBridge {
+			if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.Profile == "cline" {
+				respBody, convertErr = projectDirectClineReasoning(respBody, false)
+			}
+			if directBridge && convertErr == nil {
 				respBody, convertErr = directConvertResponse(respBody, ctx.DownstreamPath, upstreamPath, upstreamModel, bridgeOptions)
-			} else {
+			} else if convertErr == nil {
 				respBody, convertErr = messages.FromChatResponse(respBody, bridgeOptions)
 			}
 		} else {

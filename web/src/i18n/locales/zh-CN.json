@@ -3684,7 +3684,10 @@
           "bedrock": "Amazon Bedrock",
           "seedance-video": "Seedance",
           "zenmux-video": "ZenMux",
-          "codex-alpha-search": "Codex Alpha Search"
+          "codex-alpha-search": "Codex Alpha Search",
+          "bailian": "百炼",
+          "cline": "Cline",
+          "opencode-go": "OpenCode Go"
         },
         "reasons": {
           "channelEnabled": "上游已停用",
@@ -3697,7 +3700,12 @@
         },
         "noAuthentication": "无需认证",
         "anonymousUnavailable": "请先配置无需认证的 Ollama 端点。",
-        "modelPrefixUrl": "模型地址前缀（以 /model 结尾）"
+        "modelPrefixUrl": "模型地址前缀（以 /model 结尾）",
+        "modelWireUrls": {
+          "title": "OpenCode Go 适配地址",
+          "responses": "Responses 内部地址",
+          "messages": "Messages 内部地址"
+        }
       },
       "catalog": {
         "models": "模型",
@@ -3747,6 +3755,7 @@
         "loading": "正在加载平台预设…",
         "presetsFailed": "加载平台预设失败：{{message}}",
         "selectProvider": "请选择平台或填写提供方。",
+        "openCodeProviderRequired": "OpenCode Go 适配要求提供方为 opencode_go，请更换适配或提供方。",
         "endpointsRequired": "请至少配置一个协议端点。",
         "resolve": "更新端点",
         "resolveFailed": "无法生成端点，请检查基础地址后重试。",

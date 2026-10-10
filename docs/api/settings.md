@@ -202,6 +202,16 @@ contract rather than its default Bedrock invoke adapter. Source combinations
 that cannot construct an outbound adapter (custom `ollama/chat`, custom
 `seedance/video`, or no-key Ollama with custom endpoints) remain named skips.
 
+Bailian default Chat imports its tool/stream adapter; custom Chat retains the
+source's generic format. Cline default and custom Chat normalize its request
+and response envelope. OpenCode Go default Chat preserves model-selected wire
+destinations inside that logical capability. Custom endpoints remain fixed to
+their configured format and cannot replace internal addresses. OpenCode Go
+Anthropic with no endpoint configuration uses the source's primary Messages
+adapter; configured endpoints replace that fallback. The default model-dispatch
+adapter does not support a `##` raw-URL base, since the source's constituent
+adapters do not agree on that URL mode.
+
 API keys are imported as native downstream keys. Their project and key active
 profiles are intersected into source-channel boundaries, preserving model
 restrictions, ordered mappings, IP allowlists and scope/status checks. Project
@@ -218,8 +228,7 @@ the current executable import contract:
 - Gemini Vertex, Antigravity, Anthropic GCP, GitHub Copilot, xAI subscription,
   and fake providers.
 - Formats not listed in [direct upstreams](routes.md), including source Decisions
-  and provider-specific compaction. OpenCode Go dynamic protocol selection,
-  Cline envelopes, and additional Bailian tool/stream behavior are not fully matched.
+  and provider-specific compaction.
 - Active channel transform operations, channel rate limits and stream policies,
   conditional associations, unsupported proxy modes, and nonportable key-level
   load-balancing/sticky overrides or regular expressions.

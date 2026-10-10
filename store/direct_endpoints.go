@@ -20,6 +20,24 @@ type DirectEndpoint struct {
 	// RequestModel is the Responses model used by the Codex image bridge;
 	// the grant's model remains the image tool model.
 	RequestModel string `json:"requestModel,omitempty"`
+	// ModelWireURLs belong to the OpenCode Go Chat adapter. They are internal
+	// wire destinations, not additional endpoint permissions or fallbacks.
+	ModelWireURLs *DirectModelWireURLs `json:"modelWireUrls,omitempty"`
+}
+
+type DirectModelWireURLs struct {
+	Responses string `json:"responses"`
+	Messages  string `json:"messages"`
+}
+
+// URLFields includes every network destination owned by this endpoint. Both
+// validation and preset resolution must visit the same fields.
+func (e *DirectEndpoint) URLFields() []*string {
+	fields := []*string{&e.URL}
+	if e.ModelWireURLs != nil {
+		fields = append(fields, &e.ModelWireURLs.Responses, &e.ModelWireURLs.Messages)
+	}
+	return fields
 }
 
 const (
@@ -112,9 +130,11 @@ func (e *DirectEndpoints) Scan(value any) error {
 		if endpoint == nil {
 			continue
 		}
-		u, err := url.Parse(endpoint.URL)
-		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.Fragment != "" || u.RawQuery != "" {
-			return fmt.Errorf("invalid direct endpoint URL")
+		for _, address := range endpoint.URLFields() {
+			u, err := url.Parse(*address)
+			if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.Fragment != "" || u.RawQuery != "" {
+				return fmt.Errorf("invalid direct endpoint URL")
+			}
 		}
 		if endpoint.Auth != DirectAuthBearer && endpoint.Auth != DirectAuthAPIKey && endpoint.Auth != DirectAuthGoogle && endpoint.Auth != DirectAuthNone {
 			return fmt.Errorf("invalid direct endpoint authentication")
@@ -127,6 +147,9 @@ func (e *DirectEndpoints) Scan(value any) error {
 		}
 		if endpoint.RequestModel != "" && endpoint.Profile != "codex-image" {
 			return fmt.Errorf("request model is only supported by the Codex image profile")
+		}
+		if endpoint.ModelWireURLs != nil && endpoint.Profile != "opencode-go" {
+			return fmt.Errorf("model wire URLs require the OpenCode Go profile")
 		}
 		if required := requiredDirectProfiles[entry.Protocol]; required != "" && endpoint.Profile != required {
 			return fmt.Errorf("provider-specific endpoint requires its wire profile")
@@ -141,9 +164,13 @@ func (e *DirectEndpoints) Scan(value any) error {
 			if endpoint != decoded.Messages || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("claudecode profile requires bearer Messages")
 			}
-		case "deepseek", "zai":
+		case "deepseek", "zai", "bailian", "cline":
 			if endpoint != decoded.Chat || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("chat profile requires bearer Chat")
+			}
+		case "opencode-go":
+			if endpoint != decoded.Chat || endpoint.Auth != DirectAuthBearer || endpoint.ModelWireURLs == nil {
+				return fmt.Errorf("OpenCode Go requires bearer Chat and both model wire URLs")
 			}
 		case "ollama", "ollama-messages":
 			validSlot := endpoint.Profile == "ollama" && entry.Protocol == DirectProtocolOllama || endpoint.Profile == "ollama-messages" && entry.Protocol == DirectProtocolMessages

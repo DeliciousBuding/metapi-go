@@ -29,6 +29,13 @@ func (s *directProviderStream) TransformEvent(frame []byte) ([]byte, error) {
 			}
 		}
 		restored := restoreDirectProviderResponse(s.ctx, raw)
+		if wire := directProviderWireFromContext(s.ctx); wire != nil && wire.Profile == "cline" && s.next != nil && event.Data != "[DONE]" {
+			var err error
+			restored, err = projectDirectClineReasoning(restored, true)
+			if err != nil {
+				return nil, err
+			}
+		}
 		if !bytes.Equal(raw, restored) {
 			frame = replaceSSEBlockData(frame, restored)
 		}

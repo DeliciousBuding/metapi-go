@@ -105,6 +105,9 @@ func ListUpstreamPresets() []UpstreamPreset {
 func nativeUpstreamPresets() []UpstreamPreset {
 	ark := GetSiteInitializationPreset("doubao-openai")
 	return []UpstreamPreset{
+		{ID: "opencode-go", Name: "OpenCode Go", Label: "OpenCode Go", Provider: "opencode_go", Platform: "opencode", Group: "coding", DefaultURL: "https://opencode.ai/zen/go", RecommendedModels: []string{}},
+		{ID: "opencode-go-messages", Name: "OpenCode Go", Label: "OpenCode Go / Messages", Provider: "opencode_go_anthropic", Platform: "opencode", Group: "coding", DefaultURL: "https://opencode.ai/zen/go", RecommendedModels: []string{}},
+		{ID: "cline", Name: "Cline", Label: "Cline", Provider: "cline", Platform: "cline", Group: "coding", DefaultURL: "https://api.cline.bot/api/v1", RecommendedModels: []string{}},
 		{ID: "seedance-video", Name: "Seedance", Label: "Seedance", Provider: "doubao", Platform: "doubao", Group: "domestic", DefaultURL: ark.DefaultURL, RecommendedModels: []string{}},
 		{ID: "zenmux-video", Name: "ZenMux", Label: "ZenMux Video", Provider: "zenmux_video", Platform: "zenmux", Group: "gateway", DefaultURL: "https://zenmux.ai/api/v1", RecommendedModels: []string{}},
 		{ID: "ollama-native", Name: "Ollama", Label: "Ollama", Provider: "ollama", Platform: "ollama", Group: "other", DefaultURL: "http://localhost:11434", RecommendedModels: []string{}},
