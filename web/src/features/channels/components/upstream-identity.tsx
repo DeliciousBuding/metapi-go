@@ -23,6 +23,13 @@ const names: Record<string, string> = {
   xai: 'xAI',
   groq: 'Groq',
   mistral: 'Mistral',
+  ollama: 'Ollama',
+  ollama_anthropic: 'Ollama',
+  bedrock: 'Amazon Bedrock',
+  anthropic_aws: 'Amazon Bedrock',
+  seedance: 'Seedance',
+  zenmux: 'ZenMux',
+  typesafe: 'TypeSafe',
   generic: 'API',
   openai_compatible: 'OpenAI Compatible',
 }
@@ -47,6 +54,7 @@ export function UpstreamIdentity(props: {
       )
   const icon =
     platform?.icon ||
+    (id === 'anthropic_aws' ? 'bedrock' : undefined) ||
     getConnectionPresetIcon(presetId) ||
     (id === 'claudecode' ? 'claude-color' : undefined)
   return (

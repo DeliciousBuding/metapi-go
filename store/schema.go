@@ -501,6 +501,7 @@ type ProxyLog struct {
 
 // ---- Table 17: proxy_video_tasks ----
 type ProxyVideoTask struct {
+	AccountingState      *string `db:"accounting_state" json:"accountingState,omitempty"`
 	DirectIdentity       *string `db:"direct_identity" json:"directIdentity,omitempty"`
 	ID                   int64   `db:"id" json:"id"`
 	PublicID             string  `db:"public_id" json:"publicId"`

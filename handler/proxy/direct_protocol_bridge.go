@@ -18,6 +18,10 @@ import (
 func directBridgeNeeded(downstream, upstream string) bool {
 	d, dok := proxy.EndpointFromPath(downstream)
 	u, uok := proxy.EndpointFromPath(upstream)
+	// Ollama's wire normalizer exposes Chat to the existing client bridges.
+	if u == proxy.EndpointOllama {
+		u = proxy.EndpointChat
+	}
 	return dok && uok && d != u
 }
 
@@ -26,6 +30,21 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		copyCtx := *ctx
 		copyCtx.DownstreamPath = r.URL.Path
 		ctx = &copyCtx
+	}
+	if selected.Direct.CredentialKind == store.DirectCredentialNone {
+		copySelected, copyDirect := *selected, *selected.Direct
+		copyDirect.Protocols &= copyDirect.Endpoints.AnonymousProtocolMask()
+		if !store.DirectProviderAllowsAnonymous(copyDirect.Provider) {
+			copyDirect.Protocols = 0
+		}
+		copySelected.Direct = &copyDirect
+		selected = &copySelected
+	}
+	var err error
+	selected, err = pinDirectVideoTaskCandidate(ctx, selected)
+	if err != nil {
+		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, err.Error(), "upstream_error", requestID)
+		return true, nil
 	}
 	path, err := directSelectedPath(selected.Direct, ctx.DownstreamPath, model, ctx.IsStream)
 	if err != nil {
@@ -53,10 +72,11 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 			proxyURL = &value
 		}
 		credential, err = cfg.ResolveDirectCredential(r.Context(), selected.Direct.CredentialID, proxyURL, false)
-	} else if selected.Direct.CredentialKind == store.DirectCredentialOAuth {
+	} else if selected.Direct.CredentialKind == store.DirectCredentialOAuth || selected.Direct.CredentialKind == store.DirectCredentialNone {
 		err = oauth.ErrDirectCredentialUnavailable
 	}
-	if err != nil || credential == nil || credential.AccessToken == "" {
+	anonymous := credential != nil && credential.Kind == store.DirectCredentialNone && credential.AccessToken == "" && store.DirectProviderAllowsAnonymous(credential.Provider) && endpoint != nil && endpoint.Auth == store.DirectAuthNone
+	if err != nil || credential == nil || credential.AccessToken == "" && !anonymous || credential != nil && credential.Kind == store.DirectCredentialNone && !anonymous {
 		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "Selected direct credential is unavailable", "upstream_error", requestID)
 		return true, nil
 	}
@@ -116,7 +136,9 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		body, expectUsage = applyUpstreamStreamIncludeUsage(body, "openai", path, ctx.IsStream)
 	}
 	var wire *directProviderWire
-	if endpoint != nil && isDirectMediaProfile(endpoint.Profile) {
+	if endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile) {
+		wire, contentType, err = prepareDirectNativeVideoProfile(endpoint.Profile, r.Method, path, contentType, body)
+	} else if endpoint != nil && isDirectMediaProfile(endpoint.Profile) {
 		wire, contentType, err = prepareDirectMediaProfile(endpoint.Profile, path, contentType, body)
 	} else {
 		wire, err = prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header)
@@ -126,6 +148,9 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		return true, nil
 	}
 	wire.Endpoint = endpoint
+	if proxy.DirectProtocolForPath(path) == store.DirectProtocolVideo && (r.Method == http.MethodPost || endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile)) {
+		maxRetries = retry
+	}
 	r = r.WithContext(withDirectProviderWire(r.Context(), wire))
 	finished, pending, _ := dispatchEndpointAttemptWithContinue(w, r, ctx, cfg, selected, model, proxyConfig, path, contentType, wire.Body, firstByteTimeoutMs, retry, maxRetries, true, true, ctx.IsStream || wire.ForceStream, expectUsage, requestID, options)
 	return finished, pending
@@ -169,7 +194,7 @@ func directConvertRequest(body []byte, downstream, upstream, model string, strea
 		}
 	}
 	switch u {
-	case proxy.EndpointChat:
+	case proxy.EndpointChat, proxy.EndpointOllama:
 		return body, nil
 	case proxy.EndpointResponses:
 		return responses.FromChatRequest(body)
@@ -186,7 +211,7 @@ func directConvertResponse(body []byte, downstream, upstream, model string, opti
 	u, _ := proxy.EndpointFromPath(upstream)
 	var err error
 	switch u {
-	case proxy.EndpointChat:
+	case proxy.EndpointChat, proxy.EndpointOllama:
 	case proxy.EndpointResponses:
 		body, err = responses.ToChatResponse(body)
 	case proxy.EndpointMessages:

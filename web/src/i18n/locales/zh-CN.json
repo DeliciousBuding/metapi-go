@@ -3678,7 +3678,13 @@
           "jina-embeddings": "Jina embeddings",
           "minimax-image": "MiniMax image",
           "modelscope-image": "ModelScope image",
-          "codex-image": "Codex image"
+          "codex-image": "Codex image",
+          "ollama": "Ollama",
+          "ollama-messages": "Ollama Messages",
+          "bedrock": "Amazon Bedrock",
+          "seedance-video": "Seedance",
+          "zenmux-video": "ZenMux",
+          "codex-alpha-search": "Codex Alpha Search"
         },
         "reasons": {
           "channelEnabled": "上游已停用",
@@ -3688,7 +3694,10 @@
           "groupEnabled": "分组已停用",
           "grantEnabled": "授权已停用",
           "selectedByGroup": "未被分组选中"
-        }
+        },
+        "noAuthentication": "无需认证",
+        "anonymousUnavailable": "请先配置无需认证的 Ollama 端点。",
+        "modelPrefixUrl": "模型地址前缀（以 /model 结尾）"
       },
       "catalog": {
         "models": "模型",
@@ -3771,24 +3780,34 @@
           "video": "视频",
           "geminiEmbeddings": "Gemini 向量",
           "jinaEmbeddings": "Jina 原生向量",
-          "modelscopeImageGeneration": "ModelScope 原生图像"
+          "modelscopeImageGeneration": "ModelScope 原生图像",
+          "seedanceVideo": "Seedance 视频",
+          "zenmuxVideo": "ZenMux 视频",
+          "ollama": "Ollama",
+          "systemOne": "System One",
+          "alphaSearch": "Alpha Search"
         },
         "groups": {
           "conversation": "文本与对话",
           "retrieval": "向量与检索",
           "image": "图像",
           "audio": "音频",
-          "video": "视频"
+          "video": "视频",
+          "native": "专用接口"
         },
         "configured": "已配置 {{count}} / {{total}}",
         "selected": "已选择 {{count}} / {{total}}",
         "notConfigured": "端点未配置",
+        "authMismatch": "端点需要认证",
+        "anonymousProtocols": "此凭据只能授权给无需认证的端点。",
         "authorized": "已授权能力",
-        "exactHint": "只选择此模型与凭据可用的能力。向量、图像、音频、视频、文本补全与审核请求需要各自匹配的端点和授权，不会回退到 Chat。",
-        "orderHint": "仅 Chat、Responses、Messages 和 Gemini 使用转换顺序。其他已选能力按请求精确匹配，不参与回退排序。",
         "requestModel": "Codex 请求模型",
         "requestModelHint": "用于发起 Codex 图像请求的模型，与模型列表中的图像模型名称分别保存。",
-        "configureEndpoint": "配置 {{name}} 端点"
+        "configureEndpoint": "配置 {{name}} 端点",
+        "orderGroups": {
+          "conversation": "对话转换顺序",
+          "video": "视频格式顺序"
+        }
       }
     },
     "probeHealth": {

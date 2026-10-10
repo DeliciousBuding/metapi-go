@@ -570,6 +570,17 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "proxy_video_tasks", "direct_identity", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		Version:     "direct_video_accounting_v1",
+		Description: "atomic cumulative task usage without replaying generation cost",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "proxy_video_tasks")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "proxy_video_tasks", "accounting_state", "TEXT", "TEXT", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

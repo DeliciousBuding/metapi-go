@@ -33,6 +33,11 @@ import (
 // endpoints, protocol bits or aliases may repair the imported graph afterward.
 func installAxonHubMediaHTTP(t *testing.T, provider, base, format, path, kind string) http.Handler {
 	t.Helper()
+	return installAxonHubHTTPFixture(t, provider, base, format, path, kind, nil)
+}
+
+func installAxonHubHTTPFixture(t *testing.T, provider, base, format, path, kind string, configure func(map[string]any)) http.Handler {
+	t.Helper()
 	dialect, dsn := store.DialectSQLite, ":memory:"
 	if pgDSN := os.Getenv("PG_TEST_DSN"); pgDSN != "" {
 		dialect, dsn = store.DialectPostgres, pgDSN
@@ -58,6 +63,9 @@ func installAxonHubMediaHTTP(t *testing.T, provider, base, format, path, kind st
 		channel["endpoints"] = []any{map[string]any{"api_format": format, "path": path}}
 		channel["settings"] = map[string]any{"modelProtocols": []any{map[string]any{"model": "client-alias", "apiFormats": []string{format}}}}
 	}
+	if configure != nil {
+		configure(channel)
+	}
 	raw, err := json.Marshal(map[string]any{
 		"version": "1.4", "timestamp": "2026-10-10T00:00:00Z", "channels": []any{channel},
 		"models": []any{map[string]any{"id": 1, "model_id": "client-alias", "type": kind,
@@ -72,6 +80,8 @@ func installAxonHubMediaHTTP(t *testing.T, provider, base, format, path, kind st
 		t.Fatalf("media fixture import: %v counts=%v", err, counts)
 	}
 	previousConfig, previousRuntime := config.GetSafe(), config.RuntimeSafe()
+	previousDB := store.GetDB()
+	store.OverrideDB(db)
 	cfg, runtime := config.Load(map[string]string{"AUTH_TOKEN": "fixture-admin-token", "ACCOUNT_CREDENTIAL_SECRET": "fixture-credential-secret"})
 	config.Set(cfg)
 	config.SetRuntime(runtime)
@@ -79,6 +89,7 @@ func installAxonHubMediaHTTP(t *testing.T, provider, base, format, path, kind st
 		proxyhandler.SetUpstreamConfig(nil)
 		config.Set(previousConfig)
 		config.SetRuntime(previousRuntime)
+		store.OverrideDB(previousDB)
 		routing.SetGlobalCache(nil)
 	})
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{

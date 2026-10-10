@@ -703,7 +703,7 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 	req.Header.Set("Content-Type", contentType)
-	if proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolVideo && strings.HasSuffix(upstreamPath, "/content") {
+	if isDirectVideoContentPath(upstreamPath) {
 		query := req.URL.Query()
 		if variant := r.URL.Query().Get("variant"); variant != "" {
 			query.Set("variant", variant)
@@ -735,12 +735,12 @@ func dispatchEndpointAttemptWithContinue(
 	if directMessagesRequest && req.Header.Get("anthropic-version") == "" {
 		req.Header.Set("anthropic-version", platform.ClaudeDefaultAnthropicVersion)
 	}
-	if selected.TokenValue != "" {
-		if selected.Direct != nil {
-			req.Header.Del("x-api-key")
-			req.Header.Del("x-goog-api-key")
-			req.Header.Del("Authorization")
-		}
+	if selected.Direct != nil {
+		req.Header.Del("x-api-key")
+		req.Header.Del("x-goog-api-key")
+		req.Header.Del("Authorization")
+	}
+	if selected.TokenValue != "" && (directEndpoint == nil || directEndpoint.Auth != store.DirectAuthNone) {
 		useAPIKey := directMessagesRequest
 		if directEndpoint != nil {
 			useAPIKey = directEndpoint.Auth == store.DirectAuthAPIKey
@@ -757,12 +757,38 @@ func dispatchEndpointAttemptWithContinue(
 	applyDirectProviderHeaders(req, directProviderWireFromContext(r.Context()))
 
 	var resp *http.Response
-	if wire := directProviderWireFromContext(r.Context()); wire != nil && isDirectMediaProfile(wire.Profile) {
+	if wire := directProviderWireFromContext(r.Context()); wire != nil && isDirectNativeVideoProfile(wire.Profile) {
+		maxRetries = retry
+		taskID := ""
+		if ctx.videoTask != nil {
+			taskID = ctx.videoTask.UpstreamID
+			account := func(usage ParsedUsage) error {
+				ctx.videoUsageVerified = true
+				_, err := accountDirectVideoUsage(r.Context(), ctx, selected, usage)
+				return err
+			}
+			req = req.WithContext(context.WithValue(req.Context(), directVideoAccountingOperationKey{}, account))
+		}
+		resp, err = sendDirectNativeVideoRequest(cfg, req, proxyConfig, firstByteTimeoutMs, wire.Profile, taskID)
+	} else if wire != nil && isDirectMediaProfile(wire.Profile) {
 		// Async image submission cannot be replayed after a poll/download failure.
 		maxRetries = retry
 		resp, err = sendDirectMediaProfileRequest(cfg, req, proxyConfig, firstByteTimeoutMs, wire.Profile)
 	} else {
 		resp, err = sendUpstreamRequest(cfg, req, proxyConfig, firstByteTimeoutMs, effectiveStream)
+	}
+	if err == nil && resp != nil {
+		if wire := directProviderWireFromContext(r.Context()); wire != nil {
+			switch wire.Profile {
+			case "bedrock":
+				err = normalizeDirectBedrockResponse(r.Context(), resp, effectiveStream)
+			case "ollama":
+				err = normalizeDirectOllamaStream(r.Context(), resp, upstreamModel, effectiveStream)
+			}
+			if err != nil {
+				resp.Body.Close()
+			}
+		}
 	}
 	latencyMs := time.Since(startedAt).Milliseconds()
 	var firstByteLatencyMs *int64
@@ -863,10 +889,18 @@ func dispatchEndpointAttemptWithContinue(
 	}
 	// Step 9: Handle response
 	if proxy.IsDirectMediaPath(upstreamPath) && resp.StatusCode >= 200 && resp.StatusCode < 300 && resp.StatusCode != http.StatusNoContent {
-		if proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolVideo && strings.HasSuffix(upstreamPath, "/content") {
+		if isDirectVideoContentPath(upstreamPath) {
 			effectiveStream = true
-		} else if proxy.DirectProtocolForPath(upstreamPath) != store.DirectProtocolVideo {
+		} else if bit := proxy.DirectProtocolForPath(upstreamPath); bit != store.DirectProtocolVideo && bit != store.DirectProtocolSystemOne && bit != store.DirectProtocolAlphaSearch {
 			effectiveStream = !isJSONMediaResponse(resp.Header)
+		}
+	}
+	if effectiveStream && selected.Direct != nil && ctx.videoTask != nil && isDirectVideoContentPath(upstreamPath) && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		ctx.videoUsageVerified = true
+		if _, err := accountDirectVideoUsage(r.Context(), ctx, selected, directNativeVideoResponseUsage(resp)); err != nil {
+			resp.Body.Close()
+			writeJSONErrorWithRequest(w, 503, err.Error(), "upstream_error", requestID)
+			return true, nil, false
 		}
 	}
 	if effectiveStream {
@@ -922,13 +956,19 @@ func dispatchEndpointAttemptWithContinue(
 		func() {
 			defer resp.Body.Close()
 			var firstOutput *int64
-			if proxy.IsDirectMediaPath(upstreamPath) && (!isSSEMediaResponse(resp.Header) || (proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolVideo && strings.HasSuffix(upstreamPath, "/content"))) {
+			if proxy.IsDirectMediaPath(upstreamPath) && (!isSSEMediaResponse(resp.Header) || isDirectVideoContentPath(upstreamPath)) {
 				streamUsage, streamEnd = handleMediaByteStream(w, r, resp)
 			} else {
 				streamUsage, streamEnd, streamVerdict = handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, upstreamPath, upstreamModel, bridgeOptions, func() { firstOutput = int64Ptr(time.Since(startedAt).Milliseconds()) }, selected.Direct != nil)
 			}
 			streamUsage.FirstOutputLatencyMs = firstOutput
 		}()
+		if !streamUsage.Found {
+			if usage := directNativeVideoResponseUsage(resp); usage.Found {
+				streamUsage = usage
+			}
+		}
+		streamUsage = applyDirectVideoAccounting(ctx, streamUsage)
 		latencyMs = time.Since(startedAt).Milliseconds()
 		if status, errText, terminal, failed := streamFailureVerdict(streamEnd, int(streamIdleTimeout().Seconds())); failed {
 			// Any non-normal, non-client-driven ending is an upstream-side
@@ -1025,15 +1065,68 @@ func dispatchEndpointAttemptWithContinue(
 		observeProxyTerminal(ctx, shared.StatusFromHTTP(resp.StatusCode), false, time.Duration(latencyMs)*time.Millisecond)
 		return true, nil, false
 	}
+	nativeJSON := proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolSystemOne || proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolAlphaSearch
+	if wire := directProviderWireFromContext(r.Context()); nativeJSON || wire != nil && wire.Profile == "ollama" {
+		converted := respBody
+		var convertErr error
+		if nativeJSON {
+			if !body.readable || !json.Valid(respBody) {
+				convertErr = fmt.Errorf("expected a JSON response")
+			}
+		} else {
+			converted, convertErr = normalizeDirectOllamaJSON(respBody, body.readable)
+		}
+		if convertErr != nil {
+			reason := "Cannot decode upstream native JSON response"
+			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, reason)
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, false, body.parseUsage(), retry, requestID, reason)
+			writeJSONErrorWithRequest(w, http.StatusBadGateway, reason, "upstream_error", requestID)
+			observeProxyTerminal(ctx, shared.OutcomeUpstreamError, false, time.Since(startedAt))
+			return true, nil, false
+		}
+		respBody, body.bytes = converted, converted
+		resp.Header.Del("Content-Length")
+		resp.Header.Del("ETag")
+		resp.Header.Set("Content-Type", "application/json")
+	}
 	usage := body.parseUsage()
 	if aggregatedUsage != nil {
 		usage = *aggregatedUsage
+	}
+	videoBody, videoErr := respBody, error(nil)
+	if selected.Direct != nil {
+		videoBody, videoErr = processVideoTaskResponse(ctx, selected, r.Method, upstreamPath, respBody)
+	}
+	if videoErr != nil {
+		writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 502, false, usage, retry, requestID, videoErr.Error())
+		writeJSONErrorWithRequest(w, 502, videoErr.Error(), "upstream_error", requestID)
+		observeProxyTerminal(ctx, shared.OutcomeUpstreamError, false, time.Since(startedAt))
+		return true, nil, false
+	}
+	if !bytes.Equal(videoBody, respBody) {
+		resp.Header.Del("Content-Length")
+		resp.Header.Del("ETag")
+		resp.Header.Del("Content-MD5")
+		resp.Header.Del("Digest")
+		respBody = videoBody
+	}
+	usage, videoErr = accountDirectVideoUsage(r.Context(), ctx, selected, usage)
+	if videoErr != nil {
+		writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 503, false, usage, retry, requestID, videoErr.Error())
+		writeJSONErrorWithRequest(w, 503, videoErr.Error(), "upstream_error", requestID)
+		return true, nil, false
+	}
+	if r.Method == http.MethodDelete && ctx.videoTask != nil && ctx.videoUsageVerified {
+		if _, err := store.GetDB().ExecContext(context.WithoutCancel(r.Context()), `DELETE FROM proxy_video_tasks WHERE public_id=?`, ctx.videoTask.PublicID); err != nil {
+			writeJSONErrorWithRequest(w, 503, "video task deletion could not be recorded", "upstream_error", requestID)
+			return true, nil, false
+		}
 	}
 	// Same single judge the streaming path calls (see judgeStreamContent), fed
 	// with the buffered facts this path already has. When the body could not be
 	// decoded the facts say so explicitly and the judge declines to rule.
 	verdict := proxy.JudgeUpstreamContent(body.judgeFacts(resp.StatusCode, usage))
-	if verdict.Failed {
+	if verdict.Failed && !ctx.videoUsageVerified {
 		slog.Warn("content-based failure detected",
 			"reason", verdict.Reason,
 			"status", verdict.Status,
@@ -1094,19 +1187,14 @@ func dispatchEndpointAttemptWithContinue(
 		resp.Header.Del("ETag")
 		resp.Header.Set("Content-Type", "application/json")
 	}
-	videoBody, videoErr := processVideoTaskResponse(ctx, selected, r.Method, upstreamPath, respBody)
-	if videoErr != nil {
-		writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 502, false, usage, retry, requestID, videoErr.Error())
-		writeJSONErrorWithRequest(w, 502, videoErr.Error(), "upstream_error", requestID)
-		observeProxyTerminal(ctx, shared.OutcomeUpstreamError, false, time.Since(startedAt))
-		return true, nil, false
-	}
-	if !bytes.Equal(videoBody, respBody) {
-		resp.Header.Del("Content-Length")
-		resp.Header.Del("ETag")
-		resp.Header.Del("Content-MD5")
-		resp.Header.Del("Digest")
-		respBody = videoBody
+	if selected.Direct == nil {
+		videoBody := maybeRewriteVideosCreateResponse(ctx, selected, upstreamPath, respBody)
+		if !bytes.Equal(videoBody, respBody) {
+			for _, key := range []string{"Content-Length", "ETag", "Content-MD5", "Digest"} {
+				resp.Header.Del(key)
+			}
+			respBody = videoBody
+		}
 	}
 	recordUpstreamSuccess(r.Context(), cfg, selected, ctx.RequestedModel, upstreamModel, latencyMs, usage)
 	writeSuccessProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, resp.StatusCode, false, usage, retry, requestID)
@@ -1359,11 +1447,10 @@ func recordUpstreamSuccess(ctx context.Context, cfg *UpstreamConfig, selected *r
 	if cfg == nil || cfg.Router == nil || selected == nil {
 		return
 	}
-	platformName := ""
-	if selected.Site.Platform != "" {
-		platformName = selected.Site.Platform
+	billing := EstimateBillingCostFromUsage(billingCostName, selectedBillingPlatform(selected), usage)
+	if usage.videoAccounting != nil {
+		billing.EstimatedCost = 0
 	}
-	billing := EstimateBillingCostFromUsage(billingCostName, platformName, usage)
 	if err := cfg.Router.RecordSuccess(ctx, selected.Channel.ID, float64(latencyMs), billing.EstimatedCost, &modelName, nil); err != nil {
 		slog.Warn("RecordSuccess failed", "err", err, "channel_id", selected.Channel.ID, "model", modelName)
 	}

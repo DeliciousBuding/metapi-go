@@ -25,8 +25,10 @@ func axonHubChannelBaseURL(channel AxonHubSourceChannel) string {
 		return "https://chatgpt.com/backend-api/codex#"
 	case "claudecode":
 		return "https://api.anthropic.com/v1"
-	case "zenmux", "zenmux_responses":
+	case "zenmux", "zenmux_responses", "zenmux_video":
 		return "https://zenmux.ai/api/v1"
+	case "typesafe":
+		return "https://api.typesafe.ai/v1"
 	case "zenmux_anthropic":
 		return "https://zenmux.ai/api/anthropic"
 	case "fireworks":
@@ -69,6 +71,20 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 	for _, endpoint := range channel.Endpoints {
 		format := strings.TrimSpace(endpoint.APIFormat)
 		custom[format] = true
+		// The audited source's custom outbound switch has no constructors for
+		// these formats, even though their primary transformers support them.
+		if format == "ollama/chat" || format == "seedance/video" {
+			return 0, endpoints, []string{"source_custom_endpoint_not_constructible:" + format}, nil
+		}
+		if axonHubOptionalAuth(channel) {
+			return 0, endpoints, []string{"source_custom_endpoint_requires_api_key"}, nil
+		}
+		if (format == "typesafe/systemone") != (channel.Type == "typesafe") {
+			return 0, endpoints, []string{"source_endpoint_provider_mismatch"}, nil
+		}
+		if format == "zenmux/video" && !strings.HasPrefix(channel.Type, "zenmux") {
+			return 0, endpoints, []string{"source_endpoint_provider_mismatch"}, nil
+		}
 	}
 	protocols := 0
 	var residuals []string
@@ -101,6 +117,17 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 		path := strings.TrimSpace(ep.Path)
 		if !safeDirectEndpointPath(path) {
 			return 0, endpoints, []string{"endpoint_path_invalid"}, nil
+		}
+		if endpoint, handled, problem := resolveAxonHubNativeEndpoint(channel, protocol, base, path, custom[format]); handled {
+			if problem != "" {
+				return 0, endpoints, []string{problem}, nil
+			}
+			if problem := validateAxonHubEndpointBase(endpoint.URL); problem != "" {
+				return 0, endpoints, []string{"endpoint_url_" + problem}, nil
+			}
+			resolvedEndpoints[endpointKeys[protocol]] = endpoint
+			protocols |= protocol
+			continue
 		}
 		if protocol&store.DirectGenerationProtocols == 0 {
 			endpoint, problem := resolveAxonHubMediaEndpoint(channel, protocol, base, path, custom[format])

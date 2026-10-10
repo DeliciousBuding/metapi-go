@@ -3678,7 +3678,13 @@
           "jina-embeddings": "Jina embeddings",
           "minimax-image": "MiniMax image",
           "modelscope-image": "ModelScope image",
-          "codex-image": "Codex image"
+          "codex-image": "Codex image",
+          "ollama": "Ollama",
+          "ollama-messages": "Ollama Messages",
+          "bedrock": "Amazon Bedrock",
+          "seedance-video": "Seedance",
+          "zenmux-video": "ZenMux",
+          "codex-alpha-search": "Codex Alpha Search"
         },
         "reasons": {
           "channelEnabled": "Upstream disabled",
@@ -3688,7 +3694,10 @@
           "groupEnabled": "Group disabled",
           "grantEnabled": "Authorization disabled",
           "selectedByGroup": "Not selected by routing group"
-        }
+        },
+        "noAuthentication": "No authentication",
+        "anonymousUnavailable": "Configure an Ollama endpoint without authentication first.",
+        "modelPrefixUrl": "Model URL prefix (ending in /model)"
       },
       "catalog": {
         "models": "Models",
@@ -3771,24 +3780,34 @@
           "video": "Video",
           "geminiEmbeddings": "Gemini embeddings",
           "jinaEmbeddings": "Jina embeddings",
-          "modelscopeImageGeneration": "ModelScope images"
+          "modelscopeImageGeneration": "ModelScope images",
+          "seedanceVideo": "Seedance video",
+          "zenmuxVideo": "ZenMux video",
+          "ollama": "Ollama",
+          "systemOne": "System One",
+          "alphaSearch": "Alpha Search"
         },
         "groups": {
           "conversation": "Text & conversation",
           "retrieval": "Vectors & retrieval",
           "image": "Images",
           "audio": "Audio",
-          "video": "Video"
+          "video": "Video",
+          "native": "Native APIs"
         },
         "configured": "{{count}} / {{total}} configured",
         "selected": "{{count}} / {{total}} selected",
         "notConfigured": "Endpoint not configured",
+        "authMismatch": "Authentication required",
+        "anonymousProtocols": "Select only endpoints that require no authentication for this credential.",
         "authorized": "Authorized capabilities",
-        "exactHint": "Select only the capabilities this model and credential can use. Vector, image, audio, video, completion and moderation requests need their own matching endpoint and grant; they do not fall back to Chat.",
-        "orderHint": "Only Chat, Responses, Messages and Gemini use conversion order. Other selected capabilities match requests exactly and have no fallback order.",
         "requestModel": "Codex request model",
         "requestModelHint": "The model used to send the Codex image request. This is stored separately from the image model name in the catalog.",
-        "configureEndpoint": "Configure {{name}} endpoint"
+        "configureEndpoint": "Configure {{name}} endpoint",
+        "orderGroups": {
+          "conversation": "Conversation conversion order",
+          "video": "Video format order"
+        }
       }
     },
     "probeHealth": {

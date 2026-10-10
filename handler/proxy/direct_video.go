@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,10 +22,19 @@ import (
 
 const directVideoIDPrefix = "video_direct_"
 
+func isDirectVideoContentPath(path string) bool {
+	if !strings.HasPrefix(path, "/v1/videos/") {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(path, "/v1/videos/"), "/")
+	return len(parts) == 2 && parts[0] != "" && parts[1] == "content"
+}
+
 // Identity stores references and hashes only. In particular, credential values
 // never enter proxy_video_tasks; the credential resolver owns rotation.
 type directVideoIdentity struct {
 	Version        int    `json:"version"`
+	Protocol       int    `json:"protocol,omitempty"`
 	Owner          string `json:"owner"`
 	RouteID        int64  `json:"routeId"`
 	GroupID        int64  `json:"groupId"`
@@ -45,31 +53,78 @@ type directVideoTask struct {
 }
 
 func directVideoOwner(pac *auth.ProxyAuthContext) string {
-	if pac == nil {
-		return ""
+	return auth.DirectVideoTaskOwner(pac)
+}
+
+func directVideoTaskProtocol(identity directVideoIdentity) int {
+	if identity.Version == 1 && identity.Protocol == 0 {
+		return store.DirectProtocolVideo
 	}
-	owner := pac.Source + ":" + pac.Token
-	if pac.Source == "managed" && pac.KeyID != nil && *pac.KeyID > 0 {
-		owner = "managed:" + strconv.FormatInt(*pac.KeyID, 10)
-	} else if pac.Token == "" {
-		return ""
+	return identity.Protocol
+}
+
+func directVideoSelectedEndpoint(d *store.DirectUpstreamCandidate) (int, *store.DirectEndpoint) {
+	order := d.ProtocolOrder
+	if len(order) == 0 {
+		order = store.DirectProtocolOrder{store.DirectProtocolVideo, store.DirectProtocolSeedanceVideo, store.DirectProtocolZenmuxVideo}
 	}
-	digest := sha256.Sum256([]byte(owner))
-	return hex.EncodeToString(digest[:])
+	for _, bit := range order {
+		if bit&store.DirectVideoProtocols != 0 && d.Protocols&bit != 0 {
+			if endpoint := d.Endpoints.ForProtocol(bit); endpoint != nil {
+				return bit, endpoint
+			}
+		}
+	}
+	return 0, nil
+}
+
+// Pin a request-local candidate before the dispatcher chooses its wire adapter.
+// Member reordering must not send an existing task to another provider format.
+func pinDirectVideoTaskCandidate(ctx *Ctx, selected *routing.SelectedChannel) (*routing.SelectedChannel, error) {
+	if ctx == nil || ctx.videoTask == nil {
+		return selected, nil
+	}
+	if selected == nil || selected.Direct == nil {
+		return nil, errDirectVideoUnavailable
+	}
+	bit := directVideoTaskProtocol(ctx.videoTask.Identity)
+	d := selected.Direct
+	if bit&store.DirectVideoProtocols == 0 || d.Protocols&bit == 0 || d.Endpoints.ForProtocol(bit) == nil {
+		return nil, errDirectVideoUnavailable
+	}
+	if len(d.ProtocolOrder) != 0 {
+		found := false
+		for _, allowed := range d.ProtocolOrder {
+			found = found || allowed == bit
+		}
+		if !found {
+			return nil, errDirectVideoUnavailable
+		}
+	}
+	copy, direct := *selected, *d
+	direct.ProtocolOrder = store.DirectProtocolOrder{bit}
+	copy.Direct = &direct
+	return &copy, nil
 }
 
 func videoIdentity(ctx *Ctx, d *store.DirectUpstreamCandidate) directVideoIdentity {
 	// Endpoint/auth/config changes may point the same task ID at another tenant.
 	// Secret is deliberately excluded: rotating a credential keeps its identity.
+	protocol, endpoint := directVideoSelectedEndpoint(d)
 	config, _ := json.Marshal(struct {
 		Endpoint                            *store.DirectEndpoint
 		Provider, Kind, Headers, Parameters string
-	}{d.Endpoints.Video, d.Provider, d.CredentialKind, d.CustomHeader, d.ParamOverride})
+	}{endpoint, d.Provider, d.CredentialKind, d.CustomHeader, d.ParamOverride})
 	hash := sha256.Sum256(config)
-	identity := directVideoIdentity{Version: 1, Owner: directVideoOwner(ctx.Auth),
+	identity := directVideoIdentity{Version: 2, Protocol: protocol, Owner: directVideoOwner(ctx.Auth),
 		RouteID: d.RouteID, GroupID: d.GroupID, ItemID: d.ItemID,
 		ChannelID: d.ChannelID, GrantID: d.GrantID, CredentialID: d.CredentialID,
 		ModelID: d.ModelID, EndpointHash: hex.EncodeToString(hash[:])}
+	if protocol == store.DirectProtocolVideo && (ctx.videoTask == nil || ctx.videoTask.Identity.Version == 1) {
+		// Keep ordinary Video tasks readable by the previous binary during a
+		// rolling upgrade; only native formats require the extended identity.
+		identity.Version, identity.Protocol = 1, 0
+	}
 	if ctx.videoTask != nil {
 		identity.SourcePublicID = ctx.videoTask.Identity.SourcePublicID
 	}
@@ -93,7 +148,10 @@ func loadDirectVideoTask(db *store.DB, publicID string) (*directVideoTask, error
 	if err != nil {
 		return nil, errors.New("video task storage is unavailable")
 	}
-	if err := json.Unmarshal([]byte(identity), &task.Identity); err != nil || task.Identity.Version != 1 ||
+	if err := json.Unmarshal([]byte(identity), &task.Identity); err != nil ||
+		(task.Identity.Version != 1 && task.Identity.Version != 2) ||
+		(task.Identity.Version == 1 && task.Identity.Protocol != 0) ||
+		!store.ValidDirectProtocol(directVideoTaskProtocol(task.Identity)) || directVideoTaskProtocol(task.Identity)&store.DirectVideoProtocols == 0 ||
 		task.Identity.Owner == "" || task.Identity.ItemID <= 0 || !validVideoUpstreamID(task.UpstreamID) {
 		return nil, errDirectVideoUnavailable
 	}
@@ -121,6 +179,11 @@ func handleDirectVideoTask(w http.ResponseWriter, r *http.Request, suffix string
 			status = http.StatusServiceUnavailable
 		}
 		writeJSONError(w, status, errDirectVideoUnavailable.Error(), "invalid_request_error")
+		return
+	}
+	if suffix == "/content" && directVideoTaskProtocol(task.Identity) != store.DirectProtocolVideo &&
+		!validDirectNativeVideoContentVariant(r.URL.Query().Get("variant")) {
+		writeJSONError(w, http.StatusBadRequest, "unsupported native video content variant", "invalid_request_error")
 		return
 	}
 	ctx, result := PrepareCtx(r, SurfConfig{Endpoint: "videos", DownstreamPath: "/v1/videos/" + url.PathEscape(task.UpstreamID) + suffix,
@@ -165,8 +228,11 @@ func validateVideoTaskSelection(ctx *Ctx, selected *routing.SelectedChannel, pat
 		return errDirectVideoUnavailable
 	}
 	d := selected.Direct
-	if ctx.IsStream || directVideoOwner(ctx.Auth) == "" || d.Endpoints.Video == nil ||
-		d.Endpoints.Video.Profile != "" || d.Protocols&routing.UpstreamProtocolVideo == 0 {
+	protocol, endpoint := directVideoSelectedEndpoint(d)
+	if ctx.IsStream || directVideoOwner(ctx.Auth) == "" || endpoint == nil ||
+		(protocol == store.DirectProtocolVideo && endpoint.Profile != "") ||
+		(protocol == store.DirectProtocolSeedanceVideo && endpoint.Profile != "seedance-video") ||
+		(protocol == store.DirectProtocolZenmuxVideo && endpoint.Profile != "zenmux-video") {
 		return errDirectVideoUnavailable
 	}
 	want := videoIdentity(ctx, d)
@@ -181,13 +247,20 @@ func validateVideoTaskSelection(ctx *Ctx, selected *routing.SelectedChannel, pat
 	// cache. Loading channels by their old route ID alone misses route renames
 	// and explicit-group changes while another worker retains an old match.
 	policy := routingPolicyFromAuth(ctx.Policy)
-	policy.RequiredUpstreamProtocol = routing.UpstreamProtocolVideo
+	policy.RequiredUpstreamProtocol = protocol
 	policy.AllowUpstreamProtocolConversion = false
 	selector := routing.NewChannelSelector(service.NewProxyRoutingStore(db), routing.NewRouteCache(0),
 		0, routing.RoutingWeightsConfig{}, nil, 1, nil)
 	fresh, err := selector.SelectPreferredChannel(context.Background(), ctx.RequestedModel, -d.ItemID, policy, nil)
-	if err != nil || fresh == nil || fresh.Direct == nil ||
-		videoIdentity(ctx, fresh.Direct) != want || fresh.ActualModel != selected.ActualModel {
+	if err != nil || fresh == nil || fresh.Direct == nil {
+		return errDirectVideoUnavailable
+	}
+	// The fresh selector checks current grant/member authorization. Its order
+	// may differ; compare the same actual endpoint after that authorization.
+	freshCopy, directCopy := *fresh, *fresh.Direct
+	directCopy.ProtocolOrder = store.DirectProtocolOrder{protocol}
+	freshCopy.Direct = &directCopy
+	if videoIdentity(ctx, freshCopy.Direct) != want || freshCopy.ActualModel != selected.ActualModel {
 		return errDirectVideoUnavailable
 	}
 	return nil
@@ -202,17 +275,14 @@ func processVideoTaskResponse(ctx *Ctx, selected *routing.SelectedChannel, metho
 	if !strings.HasPrefix(path, "/v1/videos") {
 		return body, nil
 	}
-	if method == http.MethodGet && strings.HasSuffix(path, "/content") {
+	if method == http.MethodGet && isDirectVideoContentPath(path) {
 		return body, nil
 	}
 	if method == http.MethodDelete && ctx.videoTask != nil {
-		db := store.GetDB()
-		if db == nil {
+		if store.GetDB() == nil {
 			return nil, errors.New("video task storage is unavailable")
 		}
-		if _, err := db.Exec(`DELETE FROM proxy_video_tasks WHERE public_id = ?`, ctx.videoTask.PublicID); err != nil {
-			return nil, errors.New("video task deletion could not be recorded")
-		}
+		ctx.videoUsageVerified = true
 		if len(body) == 0 {
 			return body, nil
 		}
@@ -242,12 +312,14 @@ func processVideoTaskResponse(ctx *Ctx, selected *routing.SelectedChannel, metho
 		}
 		now := videoTaskNow().UTC().Format(time.RFC3339)
 		_, err = db.Exec(`INSERT INTO proxy_video_tasks (public_id, upstream_video_id, site_url, token_value,
-			requested_model, actual_model, channel_id, direct_identity, created_at, updated_at)
-			VALUES (?, ?, '', '', ?, ?, ?, ?, ?, ?)`, publicID, upstreamID, ctx.RequestedModel, selected.ActualModel,
+			requested_model, actual_model, channel_id, direct_identity, accounting_state, created_at, updated_at)
+			VALUES (?, ?, '', '', ?, ?, ?, ?, '{"version":1}', ?, ?)`, publicID, upstreamID, ctx.RequestedModel, selected.ActualModel,
 			-selected.Direct.ItemID, string(identity), now, now)
 		if err != nil {
 			return nil, errors.New("video task could not be persisted")
 		}
+		ctx.videoAccountingTask = &directVideoTask{PublicID: publicID, UpstreamID: upstreamID, RequestedModel: ctx.RequestedModel, ActualModel: selected.ActualModel, Identity: taskIdentity}
+		ctx.videoUsageVerified = true
 		payload["id"], _ = json.Marshal(publicID)
 		if ctx.videoTask != nil {
 			if _, ok := payload["remixed_from_video_id"]; ok {
@@ -260,6 +332,7 @@ func processVideoTaskResponse(ctx *Ctx, selected *routing.SelectedChannel, metho
 		if method == http.MethodGet && returnedID != ctx.videoTask.UpstreamID {
 			return nil, fmt.Errorf("upstream returned a different video task")
 		}
+		ctx.videoUsageVerified = true
 		payload["id"], _ = json.Marshal(ctx.videoTask.PublicID)
 		if _, ok := payload["remixed_from_video_id"]; ok {
 			if ctx.videoTask.Identity.SourcePublicID != "" {

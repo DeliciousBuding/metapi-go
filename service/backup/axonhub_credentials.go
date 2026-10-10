@@ -48,6 +48,12 @@ func axonHubOAuthProvider(provider string) bool {
 	return provider == "codex" || provider == "fenno" || provider == "claudecode"
 }
 
+func axonHubOptionalAuth(channel AxonHubSourceChannel) bool {
+	return (channel.Type == "ollama" || channel.Type == "ollama_anthropic") &&
+		!channel.Credentials.OAuth && !channel.Credentials.Azure && !channel.Credentials.GCP &&
+		len(credentialKeys(channel.Credentials)) == 0
+}
+
 func axonHubOAuthState(credentials *AxonHubSourceOAuth) *store.DirectOAuthState {
 	if credentials == nil {
 		return nil

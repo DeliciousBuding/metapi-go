@@ -2,6 +2,7 @@ import { t } from 'i18next'
 import { z } from 'zod'
 
 import type {
+  ImportedCredential,
   ImportedEndpoint,
   ImportedEndpointConfig,
   ImportedMember,
@@ -13,6 +14,11 @@ import {
   parseStringMap,
   serializeStringMap,
 } from '@/lib/helpers/string-map'
+
+export function credentialKindLabel(kind: ImportedCredential['kind']) {
+  if (kind === 'none') return t('channels.upstream.noAuthentication')
+  return kind === 'oauth' ? 'OAuth' : 'API Key'
+}
 
 export const upstreamKeys = {
   all: ['imported-upstreams'] as const,
@@ -29,6 +35,7 @@ export const upstreamProtocolGroups = [
   'image',
   'audio',
   'video',
+  'native',
 ] as const
 
 // Persisted bits and keys follow store/direct_protocols.go in the same order.
@@ -77,6 +84,29 @@ export const upstreamProtocols: readonly UpstreamProtocol[] = [
     convertible: false,
     requiredProfile: 'modelscope-image',
   },
+  {
+    key: 'seedanceVideo',
+    bit: 524288,
+    group: 'video',
+    convertible: false,
+    requiredProfile: 'seedance-video',
+  },
+  {
+    key: 'zenmuxVideo',
+    bit: 1048576,
+    group: 'video',
+    convertible: false,
+    requiredProfile: 'zenmux-video',
+  },
+  {
+    key: 'ollama',
+    bit: 2097152,
+    group: 'conversation',
+    convertible: true,
+    requiredProfile: 'ollama',
+  },
+  { key: 'systemOne', bit: 4194304, group: 'native', convertible: false },
+  { key: 'alphaSearch', bit: 8388608, group: 'retrieval', convertible: false },
 ]
 
 export function memberProtocols(member: ImportedMember) {
@@ -93,11 +123,15 @@ export function memberProtocols(member: ImportedMember) {
     .filter((p) => p.convertible)
     .map((p) => t(`channels.capabilities.names.${p.key}`))
     .join(' → ')
+  const video = protocols
+    .filter((p) => p.group === 'video')
+    .map((p) => t(`channels.capabilities.names.${p.key}`))
+    .join(' → ')
   const exact = protocols
-    .filter((p) => !p.convertible)
+    .filter((p) => !p.convertible && p.group !== 'video')
     .map((p) => t(`channels.capabilities.names.${p.key}`))
     .join(' · ')
-  return [conversation, exact].filter(Boolean).join(' · ')
+  return [conversation, video, exact].filter(Boolean).join(' · ')
 }
 
 const httpUrl = z
@@ -126,10 +160,16 @@ const profileEndpoints: Record<
     'modelscopeImageGeneration',
   ],
   'codex-image': ['imageGeneration', 'imageEdit'],
+  ollama: ['ollama'],
+  'ollama-messages': ['messages'],
+  bedrock: ['messages'],
+  'seedance-video': ['seedanceVideo'],
+  'zenmux-video': ['zenmuxVideo'],
+  'codex-alpha-search': ['alphaSearch'],
 }
 const endpoint = z.object({
   url: httpUrl,
-  auth: z.enum(['bearer', 'x-api-key', 'x-goog-api-key']),
+  auth: z.enum(['bearer', 'x-api-key', 'x-goog-api-key', 'none']),
   profile: z
     .enum(
       Object.keys(profileEndpoints) as [EndpointProfile, ...EndpointProfile[]]
@@ -152,9 +192,13 @@ const endpointConfigSchema = z
             ) {
               return false
             }
+            const optionalAuth =
+              value.profile === 'ollama' || value.profile === 'ollama-messages'
+            if (value.auth === 'none' && !optionalAuth) return false
             if (
               value.profile &&
-              (value.auth !== 'bearer' ||
+              ((value.auth !== 'bearer' &&
+                !(optionalAuth && value.auth === 'none')) ||
                 !profileEndpoints[value.profile].includes(protocol.key))
             ) {
               return false
@@ -162,10 +206,12 @@ const endpointConfigSchema = z
             if (
               value.modelPath &&
               protocol.key !== 'gemini' &&
-              protocol.key !== 'geminiEmbeddings'
+              protocol.key !== 'geminiEmbeddings' &&
+              !(protocol.key === 'messages' && value.profile === 'bedrock')
             ) {
               return false
             }
+            if (value.profile === 'bedrock' && !value.modelPath) return false
             if (value.profile === 'codex-image') {
               return !!value.requestModel?.trim()
             }
@@ -278,6 +324,10 @@ export function availableProfiles(
   }
   if (protocol === 'messages' && provider === 'claudecode') {
     return ['claudecode']
+  }
+  if (protocol === 'messages') return ['bedrock', 'ollama-messages']
+  if (protocol === 'alphaSearch' && ['codex', 'fenno'].includes(provider)) {
+    return ['codex-alpha-search']
   }
   return []
 }

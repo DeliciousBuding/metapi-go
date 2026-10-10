@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, Pencil, Plus, Trash2 } from 'lucide-react'
+import { KeyRound, Pencil, Plus, Trash2, Unplug } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -37,12 +37,12 @@ import { formatDateTime } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
-import { upstreamKeys } from '../lib/upstream-config'
+import { credentialKindLabel, upstreamKeys } from '../lib/upstream-config'
 
 const credentialSchema = z
   .object({
     name: z.string().trim().min(1, 'channels.upstream.required'),
-    kind: z.enum(['api_key', 'oauth']),
+    kind: z.enum(['api_key', 'oauth', 'none']),
     enabled: z.boolean(),
     replace: z.boolean(),
     accessToken: z.string(),
@@ -60,10 +60,14 @@ const credentialSchema = z
         'channels.upstream.invalidExpiry'
       ),
   })
-  .refine((value) => !value.replace || !!value.accessToken.trim(), {
-    path: ['accessToken'],
-    message: 'channels.upstream.required',
-  })
+  .refine(
+    (value) =>
+      value.kind === 'none' || !value.replace || !!value.accessToken.trim(),
+    {
+      path: ['accessToken'],
+      message: 'channels.upstream.required',
+    }
+  )
 type CredentialValues = z.infer<typeof credentialSchema>
 
 const credentialInputTypes = {
@@ -77,18 +81,20 @@ const credentialInputTypes = {
 function CredentialForm(props: {
   credential?: ImportedCredential
   channelId?: number
+  allowAnonymous?: boolean
   onCreated?: () => void
   onDirtyChange: (key: string, dirty: boolean) => void
 }) {
   const { t } = useTranslation()
   const client = useQueryClient()
   const credential = props.credential
+  const defaultKind = props.allowAnonymous ? 'none' : 'api_key'
   const form = useForm<CredentialValues>({
     resolver: zodResolver(credentialSchema),
     resetOptions: { keepDirtyValues: true },
     values: {
       name: credential?.name ?? '',
-      kind: credential?.kind ?? 'api_key',
+      kind: credential?.kind ?? defaultKind,
       enabled: credential?.enabled ?? false,
       replace: !credential,
       accessToken: '',
@@ -118,6 +124,12 @@ function CredentialForm(props: {
 
   async function save(values: CredentialValues) {
     if (submitting.current) return
+    if (!credential && values.kind === 'none' && !props.allowAnonymous) {
+      form.setError('kind', {
+        message: 'channels.upstream.anonymousUnavailable',
+      })
+      return
+    }
     submitting.current = true
     setSaving(true)
     try {
@@ -130,6 +142,7 @@ function CredentialForm(props: {
       }
       if (values.replace) {
         if (values.kind === 'api_key') patch.apiKey = values.accessToken
+        else if (values.kind === 'none') patch.kind = 'none'
         else {
           patch.oauth = {
             accessToken: values.accessToken,
@@ -229,12 +242,23 @@ function CredentialForm(props: {
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue>
+                        {(value) =>
+                          credentialKindLabel(
+                            value as ImportedCredential['kind']
+                          )
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     <SelectItem value='api_key'>API Key</SelectItem>
                     <SelectItem value='oauth'>OAuth</SelectItem>
+                    {props.allowAnonymous && (
+                      <SelectItem value='none'>
+                        {t('channels.upstream.noAuthentication')}
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -242,7 +266,7 @@ function CredentialForm(props: {
             )}
           />
         )}
-        {credential && (
+        {credential && credential.kind !== 'none' && (
           <FormField
             control={form.control}
             name='replace'
@@ -262,7 +286,7 @@ function CredentialForm(props: {
             )}
           />
         )}
-        {replace && (
+        {replace && kind !== 'none' && (
           <div className='space-y-4'>
             <FormField
               control={form.control}
@@ -343,6 +367,7 @@ function CredentialForm(props: {
 export function UpstreamCredentials(props: {
   id: number
   active: boolean
+  allowAnonymous?: boolean
   onDirtyChange: (key: string, dirty: boolean) => void
   beforeDelete?: (action: () => void) => void
 }) {
@@ -401,6 +426,7 @@ export function UpstreamCredentials(props: {
           <CredentialForm
             key={props.id}
             channelId={props.id}
+            allowAnonymous={props.allowAnonymous}
             onDirtyChange={props.onDirtyChange}
             onCreated={() => {
               setCreating(false)
@@ -429,14 +455,18 @@ export function UpstreamCredentials(props: {
         >
           <div className='flex items-center gap-3 p-4'>
             <span className='bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg'>
-              <KeyRound className='text-muted-foreground size-4' />
+              {credential.kind === 'none' ? (
+                <Unplug className='text-muted-foreground size-4' />
+              ) : (
+                <KeyRound className='text-muted-foreground size-4' />
+              )}
             </span>
             <div className='min-w-0 flex-1'>
               <h3 className='truncate text-sm font-medium'>
                 {credential.name}
               </h3>
               <div className='text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs'>
-                <span>{credential.kind === 'oauth' ? 'OAuth' : 'API Key'}</span>
+                <span>{credentialKindLabel(credential.kind)}</span>
                 {credential.expiresAt ? (
                   <span>
                     {t('channels.upstream.expires', {

@@ -21,8 +21,15 @@ const (
 	DirectProtocolGeminiEmbeddings          = 1 << 16
 	DirectProtocolJinaEmbeddings            = 1 << 17
 	DirectProtocolModelScopeImageGeneration = 1 << 18
-	DirectGenerationProtocols               = DirectProtocolChat | DirectProtocolResponses | DirectProtocolMessages | DirectProtocolGemini
-	DirectAllProtocols                      = (1 << 19) - 2
+	DirectProtocolSeedanceVideo             = 1 << 19
+	DirectProtocolZenmuxVideo               = 1 << 20
+	DirectProtocolOllama                    = 1 << 21
+	DirectProtocolSystemOne                 = 1 << 22
+	DirectProtocolAlphaSearch               = 1 << 23
+	DirectStandardGenerationProtocols       = DirectProtocolChat | DirectProtocolResponses | DirectProtocolMessages | DirectProtocolGemini
+	DirectGenerationProtocols               = DirectStandardGenerationProtocols | DirectProtocolOllama
+	DirectVideoProtocols                    = DirectProtocolVideo | DirectProtocolSeedanceVideo | DirectProtocolZenmuxVideo
+	DirectAllProtocols                      = (1 << 24) - 2
 )
 
 func ValidDirectProtocol(bit int) bool {
@@ -57,6 +64,11 @@ func (e DirectEndpoints) Entries() []DirectEndpointEntry {
 		{"geminiEmbeddings", DirectProtocolGeminiEmbeddings, e.GeminiEmbeddings},
 		{"jinaEmbeddings", DirectProtocolJinaEmbeddings, e.JinaEmbeddings},
 		{"modelscopeImageGeneration", DirectProtocolModelScopeImageGeneration, e.ModelScopeImageGeneration},
+		{"seedanceVideo", DirectProtocolSeedanceVideo, e.SeedanceVideo},
+		{"zenmuxVideo", DirectProtocolZenmuxVideo, e.ZenmuxVideo},
+		{"ollama", DirectProtocolOllama, e.Ollama},
+		{"systemOne", DirectProtocolSystemOne, e.SystemOne},
+		{"alphaSearch", DirectProtocolAlphaSearch, e.AlphaSearch},
 	}
 }
 

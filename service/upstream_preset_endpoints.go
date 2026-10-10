@@ -42,6 +42,22 @@ func UpstreamPresetEndpointPaths(id, platform string) store.DirectEndpoints {
 	// Match the particular product rather than its vendor: Coding Plan and
 	// Anthropic-compatible products do not inherit a vendor's media endpoints.
 	switch id {
+	case "ollama-native":
+		config = store.DirectEndpoints{Ollama: &store.DirectEndpoint{URL: "/api/chat", Auth: store.DirectAuthNone, Profile: "ollama"}}
+	case "ollama-anthropic":
+		config = store.DirectEndpoints{Messages: &store.DirectEndpoint{URL: "/v1/messages", Auth: store.DirectAuthNone, Profile: "ollama-messages"}}
+	case "bedrock-messages":
+		config = store.DirectEndpoints{Messages: &store.DirectEndpoint{URL: "/model", Auth: store.DirectAuthBearer, Profile: "bedrock", ModelPath: true}}
+	case "seedance-video":
+		config = store.DirectEndpoints{SeedanceVideo: &store.DirectEndpoint{URL: "/contents/generations/tasks", Auth: store.DirectAuthBearer, Profile: "seedance-video"}}
+	case "zenmux-video":
+		config = store.DirectEndpoints{ZenmuxVideo: &store.DirectEndpoint{URL: "/videos", Auth: store.DirectAuthBearer, Profile: "zenmux-video"}}
+	case "typesafe-systemone":
+		config = store.DirectEndpoints{SystemOne: endpoint("/systemone")}
+	case "openai-alpha-search":
+		config = store.DirectEndpoints{AlphaSearch: endpoint("/alpha/search")}
+	case "codex-alpha-search":
+		config = store.DirectEndpoints{AlphaSearch: &store.DirectEndpoint{URL: "/alpha/search", Auth: store.DirectAuthBearer, Profile: "codex-alpha-search"}}
 	case "openai-api":
 		config.Responses = endpoint("/v1/responses")
 		config.Embeddings = endpoint("/v1/embeddings")

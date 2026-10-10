@@ -687,6 +687,12 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 			reasons = append(reasons, "direct upstream grant disabled")
 		}
 		protocols := direct.Protocols
+		if direct.CredentialKind == store.DirectCredentialNone {
+			protocols &= direct.Endpoints.AnonymousProtocolMask()
+			if !store.DirectProviderAllowsAnonymous(direct.Provider) {
+				protocols = 0
+			}
+		}
 		if len(direct.ProtocolOrder) > 0 {
 			allowed := 0
 			for _, protocol := range direct.ProtocolOrder {
@@ -696,7 +702,7 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 		}
 		required := policy.RequiredUpstreamProtocol
 		if required&store.DirectGenerationProtocols != 0 && policy.AllowUpstreamProtocolConversion && direct.Endpoints.IsConfigured() {
-			required = UpstreamProtocolChat | UpstreamProtocolResponses | UpstreamProtocolAnthropic | UpstreamProtocolGemini
+			required = store.DirectGenerationProtocols
 		}
 		if direct.Endpoints.IsConfigured() {
 			protocols &= direct.Endpoints.ProtocolMask()
@@ -1051,7 +1057,7 @@ func (s *ChannelSelector) finalizeDispatch(
 	if tokenValue == "" && dispatchCandidate.Direct == nil {
 		tokenValue = s.resolveChannelTokenValue(dispatchCandidate)
 	}
-	if tokenValue == "" {
+	if tokenValue == "" && !dispatchCandidate.Direct.HasAnonymousCredential() {
 		return nil, nil
 	}
 

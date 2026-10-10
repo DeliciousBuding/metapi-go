@@ -191,36 +191,43 @@ func protocolMask(protocols []int) (int, error) {
 
 func validateGrantChannel(ctx context.Context, tx *sqlx.Tx, modelID, credentialID int64, mask int) error {
 	var channelID, credentialChannel int64
+	var credentialKind string
 	if err := tx.GetContext(ctx, &channelID, tx.Rebind(`SELECT channel_id FROM upstream_models WHERE id=?`), modelID); err != nil {
 		return err
 	}
-	if err := tx.GetContext(ctx, &credentialChannel, tx.Rebind(`SELECT channel_id FROM upstream_credentials WHERE id=?`), credentialID); err != nil {
+	if err := tx.QueryRowxContext(ctx, tx.Rebind(`SELECT channel_id,kind FROM upstream_credentials WHERE id=?`), credentialID).Scan(&credentialChannel, &credentialKind); err != nil {
 		return err
 	}
 	if channelID != credentialChannel {
 		return invalid("Model and credential must belong to the same channel")
 	}
 	var endpoints store.DirectEndpoints
-	var chat, responses, messages string
-	query := lockQuery(tx, `SELECT endpoint_config,openai_chat_completion_path,openai_response_path,anthropic_message_path FROM upstream_channels WHERE id=?`)
-	if err := tx.QueryRowxContext(ctx, tx.Rebind(query), channelID).Scan(&endpoints, &chat, &responses, &messages); err != nil {
+	var chat, responses, messages, provider string
+	query := lockQuery(tx, `SELECT endpoint_config,openai_chat_completion_path,openai_response_path,anthropic_message_path,provider FROM upstream_channels WHERE id=?`)
+	if err := tx.QueryRowxContext(ctx, tx.Rebind(query), channelID).Scan(&endpoints, &chat, &responses, &messages, &provider); err != nil {
 		return err
 	}
-	available := 0
+	availableProtocols := 0
 	if endpoints.IsConfigured() {
-		available = endpoints.ProtocolMask()
+		availableProtocols = endpoints.ProtocolMask()
 	} else {
 		if chat != "" {
-			available |= 2
+			availableProtocols |= 2
 		}
 		if responses != "" {
-			available |= 4
+			availableProtocols |= 4
 		}
 		if messages != "" {
-			available |= 8
+			availableProtocols |= 8
 		}
 	}
-	if mask&available != mask {
+	if credentialKind == store.DirectCredentialNone {
+		availableProtocols &= endpoints.AnonymousProtocolMask()
+		if !store.DirectProviderAllowsAnonymous(provider) {
+			availableProtocols = 0
+		}
+	}
+	if mask&availableProtocols != mask {
 		return invalid("Grant protocols must be supported by the channel endpoints")
 	}
 	return nil

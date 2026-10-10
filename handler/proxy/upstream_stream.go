@@ -2,6 +2,7 @@ package proxyhandler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	messages "github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
+	"github.com/deliciousbuding/metapi-go/transform/ollama"
 	"github.com/deliciousbuding/metapi-go/transform/openai/responses"
 )
 
@@ -291,7 +293,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		if err != nil {
 			if err != io.EOF {
 				switch {
-				case idleBody.guard.fired.Load() && r.Context().Err() == nil:
+				case (idleBody.guard.fired.Load() || errors.Is(err, ollama.ErrIdleTimeout)) && r.Context().Err() == nil:
 					// Upstream stalled: the idle guard closed the body to
 					// unblock this read. Emit a distinct final SSE error event
 					// and report the idle outcome so the dispatcher records
@@ -314,7 +316,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 						"streamed_bytes", streamedBytes,
 					)
 					outcome = streamEndedClientDisconnect
-				case err == errMessagesChatStreamLimit:
+				case err == errMessagesChatStreamLimit || errors.Is(err, ollama.ErrStreamLimit):
 					writeSSEStreamError(w, flusher, r.URL.Path, "upstream stream exceeded configured byte limit", "upstream_error")
 					outcome = streamEndedTruncated
 				default:

@@ -457,7 +457,7 @@ describe('explicit upstream media capabilities', () => {
     )
     expect(
       screen.getByRole('button', {
-        name: 'Text & conversation 0 / 6 configured',
+        name: 'Text & conversation 0 / 7 configured',
       })
     ).toHaveAttribute('aria-expanded', 'true')
     view.rerender(
@@ -469,7 +469,7 @@ describe('explicit upstream media capabilities', () => {
     )
     expect(
       screen.getByRole('button', {
-        name: 'Vectors & retrieval 1 / 4 configured',
+        name: 'Vectors & retrieval 1 / 5 configured',
       })
     ).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('https://vectors.example/embed')).toBeVisible()
@@ -486,7 +486,7 @@ describe('explicit upstream media capabilities', () => {
     const entries = [
       ...source.matchAll(/\{"([^"]+)", (DirectProtocol\w+), e\.\w+\}/g),
     ].map((match) => ({ key: match[1], bit: bits.get(match[2]) }))
-    expect(entries).toHaveLength(18)
+    expect(entries).toHaveLength(23)
     expect(upstreamProtocols.map(({ key, bit }) => ({ key, bit }))).toEqual(
       entries
     )
@@ -498,7 +498,7 @@ describe('explicit upstream media capabilities', () => {
     )
     expect(
       screen.getByRole('button', {
-        name: 'Vectors & retrieval 1 / 4 configured',
+        name: 'Vectors & retrieval 1 / 5 configured',
       })
     ).toHaveAttribute('aria-expanded', 'true')
     expect(
@@ -536,7 +536,7 @@ describe('explicit upstream media capabilities', () => {
       image.getByRole('combobox', { name: 'Protocol adapter' })
     ).toHaveTextContent('Standard protocol')
     const group = screen.getByRole('button', {
-      name: 'Vectors & retrieval 2 / 4 configured',
+      name: 'Vectors & retrieval 2 / 5 configured',
     })
     fireEvent.click(group)
     fireEvent.click(group)

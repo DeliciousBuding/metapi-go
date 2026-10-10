@@ -149,6 +149,10 @@ const PRESET_BRAND_ICONS: Record<string, string> = {
   ppio: 'ppio-color',
   qiniu: 'qiniu-color',
   jina: 'jina',
+  ollama: 'ollama',
+  bedrock: 'bedrock',
+  seedance: 'doubao-color',
+  zenmux: 'zenmux',
 }
 
 export function getConnectionPresetIcon(id: string): string | undefined {

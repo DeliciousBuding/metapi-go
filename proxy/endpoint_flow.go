@@ -13,6 +13,7 @@ const (
 	EndpointMessages  UpstreamEndpoint = "messages"  // /v1/messages (Anthropic)
 	EndpointResponses UpstreamEndpoint = "responses" // /v1/responses (Codex)
 	EndpointGemini    UpstreamEndpoint = "gemini"    // native generateContent
+	EndpointOllama    UpstreamEndpoint = "ollama"    // native /api/chat
 )
 
 // PathForEndpoint returns the canonical upstream path for a known endpoint type.
@@ -27,6 +28,8 @@ func PathForEndpoint(endpoint UpstreamEndpoint) string {
 		return "/v1/responses"
 	case EndpointGemini:
 		return "/v1beta/models"
+	case EndpointOllama:
+		return "/api/chat"
 	default:
 		return ""
 	}
@@ -41,6 +44,8 @@ func EndpointFromPath(path string) (UpstreamEndpoint, bool) {
 	}
 	path = strings.TrimRight(path, "/")
 	switch {
+	case path == "/api/chat":
+		return EndpointOllama, true
 	case strings.Contains(path, "/models/") && (strings.HasSuffix(path, ":generateContent") || strings.HasSuffix(path, ":streamGenerateContent")):
 		return EndpointGemini, true
 	case strings.HasSuffix(path, "/v1/chat/completions") || path == "/chat/completions" || path == "/v1/chat/completions":
@@ -70,6 +75,8 @@ func DirectProtocolForPath(path string) int {
 			return store.DirectProtocolMessages
 		case EndpointGemini:
 			return store.DirectProtocolGemini
+		case EndpointOllama:
+			return store.DirectProtocolOllama
 		}
 	}
 	for protocol, canonical := range directMediaPaths {
@@ -104,6 +111,8 @@ var directMediaPaths = map[int]string{
 	store.DirectProtocolAudioTranslation:   "/v1/audio/translations",
 	store.DirectProtocolModerations:        "/v1/moderations",
 	store.DirectProtocolVideo:              "/v1/videos",
+	store.DirectProtocolSystemOne:          "/v1/systemone",
+	store.DirectProtocolAlphaSearch:        "/v1/alpha/search",
 }
 
 func IsDirectMediaPath(path string) bool {
@@ -116,6 +125,8 @@ func IsDirectMediaPath(path string) bool {
 func DirectProtocolMaskForPath(path string) int {
 	bit := DirectProtocolForPath(path)
 	switch bit {
+	case store.DirectProtocolVideo:
+		return store.DirectVideoProtocols
 	case store.DirectProtocolEmbeddings:
 		return bit | store.DirectProtocolJinaEmbeddings
 	case store.DirectProtocolImageGeneration, store.DirectProtocolImageEdit:

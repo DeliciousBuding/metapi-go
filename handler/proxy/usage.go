@@ -15,6 +15,7 @@ const (
 
 // ParsedUsage is a normalized token usage snapshot extracted from an upstream body/SSE.
 type ParsedUsage struct {
+	videoAccounting       *directVideoAccounting
 	UpstreamReportedModel *string
 	FirstOutputLatencyMs  *int64
 	PromptTokens          int64

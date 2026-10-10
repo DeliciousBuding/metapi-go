@@ -463,6 +463,10 @@ dispatch, decompression, stream bounds and health accounting remain in the same
 relay. Native bodies bypass conversion; converted streams retain upstream usage
 before transforming the client-facing events. Converters reject unsupported
 continuity and malformed or incomplete tool calls rather than inventing success.
+Ollama adds a native Chat/NDJSON adapter through the Chat intermediate; Bedrock
+Messages retains its native body and uses a bounded AWS EventStream decoder.
+Anonymous credentials are explicitly typed, restricted to Ollama endpoints,
+and resolved again after selection before any upstream request.
 
 `store/direct_protocols.go` owns persisted endpoint-to-bit mappings. Media
 selection requires an exact supported format, keeping Jina/OpenAI embeddings
@@ -473,6 +477,13 @@ contract with a separate request model. Video task persistence stores ownership,
 route graph references and configuration fingerprints and revalidates access
 before task operations. External backup defaults enumerate source formats
 explicitly, so adding a format locally cannot expand an old source permission.
+
+`store/video_accounting.go` owns cumulative direct-video accounting. A task row
+lock serializes updates to its usage high-water mark, fixed-time quota event,
+managed-key cost and grant cost in one transaction. HTTP polling logs keep the
+observed cumulative usage separately from the increment used by aggregate columns.
+Budget-exempt result reads require durable task ownership before admission and
+still undergo the handler's current route/credential checks.
 
 Domestic Chat profiles share `handler/proxy/domestic_chat_request.go` across
 direct channels and exact native-site presets. Messages tool continuation uses

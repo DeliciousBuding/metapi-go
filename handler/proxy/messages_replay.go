@@ -311,7 +311,7 @@ func messagesReplayClientScope(ctx *Ctx) ([sha256.Size]byte, error) {
 func messagesReplayScope(ctx *Ctx, selected *routing.SelectedChannel, client [sha256.Size]byte) ([sha256.Size]byte, error) {
 	if selected != nil && selected.Direct != nil {
 		direct := selected.Direct
-		if direct.RouteID <= 0 || direct.ItemID <= 0 || direct.ChannelID <= 0 || direct.CredentialID <= 0 || direct.ModelID <= 0 || direct.GrantID <= 0 || selected.Channel.ID != -direct.ItemID || strings.TrimSpace(selected.ActualModel) == "" || strings.TrimSpace(selected.TokenValue) == "" {
+		if direct.RouteID <= 0 || direct.ItemID <= 0 || direct.ChannelID <= 0 || direct.CredentialID <= 0 || direct.ModelID <= 0 || direct.GrantID <= 0 || selected.Channel.ID != -direct.ItemID || strings.TrimSpace(selected.ActualModel) == "" || strings.TrimSpace(selected.TokenValue) == "" && !direct.HasAnonymousCredential() {
 			return [sha256.Size]byte{}, messagesReplayUnavailable("selected direct upstream identity is unavailable")
 		}
 		endpoints, err := json.Marshal(direct.Endpoints)

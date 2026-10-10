@@ -141,6 +141,17 @@ export function UpstreamDetailSheet(props: {
                 <UpstreamCredentials
                   id={props.item.id}
                   active={tab === 'credentials'}
+                  allowAnonymous={
+                    ['ollama', 'ollama_anthropic'].includes(
+                      query.data?.provider ?? ''
+                    ) &&
+                    Object.values(query.data?.endpointConfig ?? {}).some(
+                      (endpoint) =>
+                        endpoint.auth === 'none' &&
+                        (endpoint.profile === 'ollama' ||
+                          endpoint.profile === 'ollama-messages')
+                    )
+                  }
                   onDirtyChange={onDirtyChange}
                   beforeDelete={beforeDelete}
                 />

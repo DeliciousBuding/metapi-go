@@ -161,7 +161,7 @@ func axonHubMediaModelHasEndpoint(kind string, order store.DirectProtocolOrder) 
 	case "image_generation":
 		capable = protoImageGeneration | protoImageEdit | protoImageVariation | protoModelScopeImage
 	case "video_generation":
-		capable = protoVideo
+		capable = protoVideo | protoSeedanceVideo | protoZenmuxVideo
 	default:
 		return true
 	}

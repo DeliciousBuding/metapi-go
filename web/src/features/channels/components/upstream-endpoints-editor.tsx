@@ -1,5 +1,6 @@
 import {
   AudioLines,
+  Braces,
   ChevronDown,
   ImageIcon,
   MessageSquare,
@@ -50,6 +51,7 @@ const groupIcons = {
   image: ImageIcon,
   audio: AudioLines,
   video: Video,
+  native: Braces,
 }
 
 export function UpstreamEndpointsEditor(props: EndpointEditorProps) {
@@ -156,6 +158,12 @@ function EndpointRow(
   const protocol = props.protocol
   const profiles = availableProfiles(protocol.key, props.provider)
   const endpoint = props.value[protocol.key]
+  const optionalAuth =
+    endpoint?.profile === 'ollama' || endpoint?.profile === 'ollama-messages'
+  function authLabel(value: unknown) {
+    if (value === 'none') return t('channels.upstream.noAuthentication')
+    return value === 'bearer' ? 'Bearer' : String(value ?? '')
+  }
   const [editing, setEditing] = useState(false)
   useEffect(() => {
     if (props.invalid) setEditing(true)
@@ -240,7 +248,13 @@ function EndpointRow(
             className='block space-y-1.5 text-sm font-medium'
             htmlFor={`${id}-${protocol.key}-url`}
           >
-            <span>{t('channels.upstream.endpointUrl')}</span>
+            <span>
+              {t(
+                endpoint.profile === 'bedrock'
+                  ? 'channels.upstream.modelPrefixUrl'
+                  : 'channels.upstream.endpointUrl'
+              )}
+            </span>
             <Input
               id={`${id}-${protocol.key}-url`}
               value={endpoint.url}
@@ -252,7 +266,11 @@ function EndpointRow(
               }
               disabled={props.disabled}
               onChange={(event) => update({ url: event.target.value })}
-              placeholder='https://…'
+              placeholder={
+                endpoint.profile === 'bedrock'
+                  ? 'https://bedrock-runtime.us-east-1.amazonaws.com/model'
+                  : 'https://…'
+              }
             />
           </label>
           <div className='grid gap-3 sm:grid-cols-2'>
@@ -265,7 +283,9 @@ function EndpointRow(
               </label>
               <Select
                 value={endpoint.auth}
-                disabled={props.disabled || !!endpoint.profile}
+                disabled={
+                  props.disabled || (!!endpoint.profile && !optionalAuth)
+                }
                 onValueChange={(value) =>
                   value && update({ auth: value as ImportedEndpoint['auth'] })
                 }
@@ -274,16 +294,15 @@ function EndpointRow(
                   className='w-full'
                   aria-labelledby={`${id}-${protocol.key}-auth`}
                 >
-                  <SelectValue>
-                    {(value) =>
-                      value === 'bearer' ? 'Bearer' : String(value ?? '')
-                    }
-                  </SelectValue>
+                  <SelectValue>{authLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {['bearer', 'x-api-key', 'x-goog-api-key'].map((auth) => (
+                  {(optionalAuth
+                    ? ['bearer', 'none']
+                    : ['bearer', 'x-api-key', 'x-goog-api-key']
+                  ).map((auth) => (
                     <SelectItem key={auth} value={auth}>
-                      {auth === 'bearer' ? 'Bearer' : auth}
+                      {authLabel(auth)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -311,7 +330,13 @@ function EndpointRow(
                           value === 'generic'
                             ? undefined
                             : (value as ImportedEndpoint['profile']),
-                        ...(value !== 'generic' ? { auth: 'bearer' } : {}),
+                        ...(value !== 'generic' || endpoint.auth === 'none'
+                          ? { auth: 'bearer' }
+                          : {}),
+                        ...(value === 'bedrock' ||
+                        endpoint.profile === 'bedrock'
+                          ? { modelPath: value === 'bedrock' || undefined }
+                          : {}),
                         ...(value !== 'codex-image'
                           ? { requestModel: undefined }
                           : {}),

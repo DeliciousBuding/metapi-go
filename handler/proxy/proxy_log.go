@@ -128,7 +128,8 @@ func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntr
 	if entry.RequestID == "" {
 		entry.RequestID = proxy.RequestIDFromContext(ctx)
 	}
-	if entry.DownstreamAPIKeyID != nil && (entry.Status == "success" || entry.TotalTokens != nil) {
+	alreadyAccounted, _ := ctx.Value(directVideoAccountingLogKey{}).(bool)
+	if !alreadyAccounted && entry.DownstreamAPIKeyID != nil && (entry.Status == "success" || entry.TotalTokens != nil) {
 		var cost *float64
 		if entry.TotalTokens != nil {
 			cost = &entry.EstimatedCost
@@ -200,6 +201,7 @@ func writeSuccessProxyLog(
 	if cfg == nil || selected == nil {
 		return
 	}
+	usage = applyDirectVideoAccounting(proxyCtx, usage)
 	if requestID == "" {
 		requestID = proxy.RequestIDFromContext(ctx)
 	}
@@ -246,17 +248,11 @@ func writeSuccessProxyLog(
 			source = usageSourceUnknown
 		}
 	}
-	platformName := ""
-	if selected.Site.Platform != "" {
-		platformName = selected.Site.Platform
-	}
-	if selected.Direct != nil {
-		platformName = "openai"
-	}
+	platformName := selectedBillingPlatform(selected)
 	// Billing attribution uses the requested (canonical) name so a
 	// redirect/rewrite to the upstream actual name never changes cost
 	// accounting — ratio lookups stay on the canonical model.
-	billing := EstimateBillingCostFromUsage(requestedModel, platformName, usage)
+	billing := directVideoBillingResult(requestedModel, platformName, usage)
 	entry := proxy.ProxyLogEntry{
 		RouteID:               routeIDPtr,
 		ChannelID:             channelIDPtr,
@@ -287,11 +283,13 @@ func writeSuccessProxyLog(
 		UpstreamPath:          &upstreamPath,
 		UsageSource:           source,
 	}
-	logProxy(ctx, cfg, entry)
+	logProxy(directVideoLogContext(ctx, proxyCtx), cfg, entry)
 	// Advance managed-key used_cost so max_cost can gate subsequent traffic.
 	// Stream + non-stream both sink here once; helper no-ops zero/NaN/Inf.
 	// Failure paths intentionally do not call this (known limitation stays).
-	recordManagedKeyCostOnSuccess(keyID, billing.EstimatedCost)
+	if usage.videoAccounting == nil {
+		recordManagedKeyCostOnSuccess(keyID, billing.EstimatedCost)
+	}
 
 }
 
@@ -329,6 +327,7 @@ func writeFailureProxyLog(
 	if cfg == nil || selected == nil {
 		return
 	}
+	usage = applyDirectVideoAccounting(proxyCtx, usage)
 	if requestID == "" {
 		requestID = proxy.RequestIDFromContext(ctx)
 	}
@@ -375,20 +374,14 @@ func writeFailureProxyLog(
 			source = usageSourceUnknown
 		}
 	}
-	platformName := ""
-	if selected.Site.Platform != "" {
-		platformName = selected.Site.Platform
-	}
-	if selected.Direct != nil {
-		platformName = "openai"
-	}
+	platformName := selectedBillingPlatform(selected)
 	// Only attach cost when usage was found; avoid inventing spend on pure
 	// network/timeout failures with zero tokens. Attribution name, not the
 	// upstream rewritten name.
 	var estimatedCost float64
 	var billingDetails any
-	if usage.Found {
-		billing := EstimateBillingCostFromUsage(requestedModel, platformName, usage)
+	if usage.Found || usage.videoAccounting != nil {
+		billing := directVideoBillingResult(requestedModel, platformName, usage)
 		estimatedCost = billing.EstimatedCost
 		billingDetails = billing.BillingDetails
 	}
@@ -428,7 +421,7 @@ func writeFailureProxyLog(
 		UpstreamPath:          &upstreamPath,
 		UsageSource:           source,
 	}
-	logProxy(ctx, cfg, entry)
+	logProxy(directVideoLogContext(ctx, proxyCtx), cfg, entry)
 }
 
 // truncateErrText bounds proxy_logs.error_message size for large upstream bodies.

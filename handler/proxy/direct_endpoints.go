@@ -23,6 +23,8 @@ func directProtocolBit(endpoint proxy.UpstreamEndpoint) int {
 		return routing.UpstreamProtocolAnthropic
 	case proxy.EndpointGemini:
 		return routing.UpstreamProtocolGemini
+	case proxy.EndpointOllama:
+		return store.DirectProtocolOllama
 	}
 	return 0
 }
@@ -36,6 +38,8 @@ func directEndpointFromBit(bit int) proxy.UpstreamEndpoint {
 		return proxy.EndpointMessages
 	case routing.UpstreamProtocolGemini:
 		return proxy.EndpointGemini
+	case store.DirectProtocolOllama:
+		return proxy.EndpointOllama
 	}
 	return ""
 }
@@ -57,7 +61,7 @@ func directSelectedPath(direct *store.DirectUpstreamCandidate, downstreamPath, m
 	}
 	order := direct.ProtocolOrder
 	if len(order) == 0 {
-		order = store.DirectProtocolOrder{2, 4, 8, 16}
+		order = store.DirectProtocolOrder{2, 4, 8, 16, store.DirectProtocolOllama}
 	}
 	selected := proxy.UpstreamEndpoint("")
 	for _, bit := range order {
@@ -82,6 +86,9 @@ func directSelectedPath(direct *store.DirectUpstreamCandidate, downstreamPath, m
 	if strings.HasSuffix(strings.TrimRight(strings.Split(downstreamPath, "?")[0], "/"), "/count_tokens") {
 		if selected != proxy.EndpointMessages {
 			return "", fmt.Errorf("token counting requires a native Messages endpoint")
+		}
+		if endpoint := direct.Endpoints.Messages; endpoint != nil && endpoint.Profile == "bedrock" {
+			return "", fmt.Errorf("Bedrock invoke does not support token counting")
 		}
 		return "/v1/messages/count_tokens", nil
 	}
@@ -125,7 +132,9 @@ func directRequestURL(direct *store.DirectUpstreamCandidate, path, model string,
 	}
 	if endpoint != nil {
 		target := endpoint.URL
-		if endpoint.ModelPath {
+		if endpoint.Profile == "bedrock" {
+			target = directBedrockRequestURL(target, model, stream)
+		} else if endpoint.ModelPath {
 			action := "generateContent"
 			if proxy.DirectProtocolForPath(path) == store.DirectProtocolGeminiEmbeddings {
 				action = "embedContent"

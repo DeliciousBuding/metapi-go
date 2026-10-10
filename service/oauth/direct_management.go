@@ -20,6 +20,7 @@ type DirectOAuthReplacement struct {
 	store.DirectOAuthState
 }
 type DirectCredentialUpdate struct {
+	Kind    string                  `json:"kind,omitempty"`
 	Name    *string                 `json:"name,omitempty"`
 	Enabled *bool                   `json:"enabled,omitempty"`
 	APIKey  *string                 `json:"apiKey,omitempty"`
@@ -71,14 +72,23 @@ func ListDirectCredentials(ctx context.Context, db *sqlx.DB, channelID int64) ([
 // replacement edits only enablement. A refresh in flight compares old bytes
 // and cannot overwrite this update.
 func UpdateDirectCredential(ctx context.Context, db *sqlx.DB, id int64, input DirectCredentialUpdate) error {
-	if input.Name == nil && input.Enabled == nil && input.APIKey == nil && input.OAuth == nil {
+	return upstream.Write(ctx, db, func(tx *sqlx.Tx) error {
+		return updateDirectCredentialTx(ctx, tx, id, input)
+	})
+}
+
+func updateDirectCredentialTx(ctx context.Context, db *sqlx.Tx, id int64, input DirectCredentialUpdate) error {
+	if input.Name == nil && input.Enabled == nil && input.APIKey == nil && input.OAuth == nil && input.Kind == "" {
 		return ErrInvalidDirectCredential
 	}
 	if input.APIKey != nil && input.OAuth != nil {
 		return ErrInvalidDirectCredential
 	}
-	var provider string
-	if err := db.GetContext(ctx, &provider, db.Rebind(`SELECT c.provider FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), id); err != nil {
+	var channel struct {
+		Provider  string                `db:"provider"`
+		Endpoints store.DirectEndpoints `db:"endpoint_config"`
+	}
+	if err := db.GetContext(ctx, &channel, db.Rebind(`SELECT c.provider,c.endpoint_config FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrDirectCredentialNotFound
 		}
@@ -98,10 +108,21 @@ func UpdateDirectCredential(ctx context.Context, db *sqlx.DB, id int64, input Di
 		set = append(set, "enabled=?")
 		args = append(args, *input.Enabled)
 	}
-	if input.APIKey != nil || input.OAuth != nil {
-		secret, kind, state, err := directCredentialMaterial(provider, input.APIKey, input.OAuth)
+	if input.APIKey != nil || input.OAuth != nil || input.Kind != "" {
+		secret, kind, state, err := directCredentialMaterial(channel.Provider, channel.Endpoints, input.Kind, input.APIKey, input.OAuth)
 		if err != nil {
 			return err
+		}
+		if kind == store.DirectCredentialNone {
+			var masks []int
+			if err := db.SelectContext(ctx, &masks, db.Rebind(`SELECT protocols FROM upstream_grants WHERE credential_id=?`), id); err != nil {
+				return ErrDirectCredentialUnavailable
+			}
+			for _, mask := range masks {
+				if mask&channel.Endpoints.AnonymousProtocolMask() != mask {
+					return ErrInvalidDirectCredential
+				}
+			}
 		}
 		set = append(set, "secret=?", "kind=?", "oauth_state=?")
 		args = append(args, secret, kind, state)

@@ -36,6 +36,7 @@ type directCredentialRow struct {
 	Enabled        bool                   `db:"enabled"`
 	ChannelEnabled bool                   `db:"channel_enabled"`
 	State          store.DirectOAuthState `db:"-"`
+	Endpoints      store.DirectEndpoints  `db:"endpoint_config"`
 }
 
 type directRefreshKey struct {
@@ -67,10 +68,19 @@ func loadDirectCredential(ctx context.Context, db *sqlx.DB, id int64) (*directCr
 		return nil, ErrDirectCredentialUnavailable
 	}
 	var row directCredentialRow
-	if err := db.GetContext(ctx, &row, db.Rebind(`SELECT k.secret,k.kind,k.oauth_state,k.enabled,c.provider,c.enabled AS channel_enabled FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), id); err != nil {
+	if err := db.GetContext(ctx, &row, db.Rebind(`SELECT k.secret,k.kind,k.oauth_state,k.enabled,c.provider,c.endpoint_config,c.enabled AS channel_enabled FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), id); err != nil {
 		return nil, ErrDirectCredentialUnavailable
 	}
-	if !row.Enabled || !row.ChannelEnabled || strings.TrimSpace(row.Secret) == "" {
+	if !row.Enabled || !row.ChannelEnabled {
+		return nil, ErrDirectCredentialUnavailable
+	}
+	if row.Kind == store.DirectCredentialNone {
+		if !store.DirectProviderAllowsAnonymous(row.Provider) || row.Endpoints.AnonymousProtocolMask() == 0 || row.Secret != "" || row.State.Scan(row.RawOAuth) != nil || row.State != (store.DirectOAuthState{}) {
+			return nil, ErrDirectCredentialUnavailable
+		}
+		return &row, nil
+	}
+	if strings.TrimSpace(row.Secret) == "" {
 		return nil, ErrDirectCredentialUnavailable
 	}
 	if row.Kind != store.DirectCredentialAPIKey && row.Kind != store.DirectCredentialOAuth {
@@ -102,7 +112,7 @@ func ResolveDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyUR
 	if err != nil {
 		return nil, err
 	}
-	if row.Kind == store.DirectCredentialAPIKey {
+	if row.Kind == store.DirectCredentialAPIKey || row.Kind == store.DirectCredentialNone {
 		return directCredentialResult(row), nil
 	}
 	now := time.Now().UnixMilli()

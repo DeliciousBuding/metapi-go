@@ -38,6 +38,8 @@ accepts a downstream key.
 | `DELETE /v1/videos/{id}` | video task cancel |
 | `GET /v1/videos/{id}/content` | content of an owned direct-upstream video task |
 | `POST /v1/videos/{id}/remix` | remix an owned direct-upstream video task |
+| `POST /v1/systemone` | TypeSafe System One native JSON |
+| `POST /v1/alpha/search` | Alpha Search native JSON |
 | `POST /v1/files` | file upload |
 | `GET /v1/files` | file list |
 | `GET /v1/files/{fileId}` | file metadata |
@@ -96,8 +98,35 @@ upstream credential. A mapping write failure after task creation returns 502
 without submitting a second task; the upstream task may already exist.
 Deletion removes the local mapping only after upstream success.
 
+New direct video tasks keep a cumulative usage ledger in
+`proxy_video_tasks.accounting_state`. Repeated polling and content downloads
+advance only the newly observed token/cost difference; task state, the managed
+key's cost, the grant's cost and the task's quota event update in one transaction.
+Proxy-log aggregate columns contain that difference, while `billingDetails.observedUsage`
+retains the upstream cumulative observation. A task created without usage remains
+unknown until usage is reported; the gateway does not invent zero consumption.
+
+The owning key can read, download or delete its existing task after generation
+budget is exhausted. The key must still be enabled and unexpired, pass its IP
+and source policies, and retain current route access. Creation and remix keep
+their normal quota checks. Deleting the task does not erase its quota event.
+Tasks created before this ledger retain an unknown historical baseline: they
+are not billed again by guessing that previously reported consumption was zero.
+Their log `accountingMode` is `legacy_task_untracked`.
+
 Video support describes compatible upstream APIs. HTTP fixture coverage does
 not establish availability of a particular vendor's current video service.
+
+Seedance and ZenMux video profiles translate `/v1/videos` requests to their
+native task APIs. Both support creation, polling and content; only Seedance
+supports deletion. Unsupported deletion/remix returns 400 before upstream I/O.
+Saved tasks retain their selected video format even if member priority changes.
+
+System One and Alpha Search require a nonempty model and independent grants.
+They preserve native JSON fields and numeric precision, apply the routed model
+and configured overrides, and reject streaming or multipart requests with 400.
+They do not fall back to Chat or Responses. Codex Alpha Search uses its existing
+credentials/session metadata without forcing a Responses streaming envelope.
 
 ## Error shape (/v1 surface)
 

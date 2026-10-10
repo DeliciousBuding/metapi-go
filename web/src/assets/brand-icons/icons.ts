@@ -9,6 +9,7 @@ import arceeColorDark from './icons/dark/arcee-color.png'
 import baaiDark from './icons/dark/baai.png'
 import baichuanColorDark from './icons/dark/baichuan-color.png'
 import bailianColorDark from './icons/dark/bailian-color.png'
+import bedrockDark from './icons/dark/bedrock.png'
 import bytedanceColorDark from './icons/dark/bytedance-color.png'
 import cerebrasBrandColorDark from './icons/dark/cerebras-brand-color.png'
 import claudeColorDark from './icons/dark/claude-color.png'
@@ -41,6 +42,7 @@ import morphColorDark from './icons/dark/morph-color.png'
 import nousresearchDark from './icons/dark/nousresearch.png'
 import novaDark from './icons/dark/nova.png'
 import nvidiaColorDark from './icons/dark/nvidia-color.png'
+import ollamaDark from './icons/dark/ollama.png'
 import openaiDark from './icons/dark/openai.png'
 import openrouterDark from './icons/dark/openrouter.png'
 import ppioColorDark from './icons/dark/ppio-color.png'
@@ -60,6 +62,7 @@ import xaiDark from './icons/dark/xai.png'
 import xiaomimimoDark from './icons/dark/xiaomimimo.png'
 import yiColorDark from './icons/dark/yi-color.png'
 import zaiDark from './icons/dark/zai.png'
+import zenmuxDark from './icons/dark/zenmux.png'
 import zhipuColorDark from './icons/dark/zhipu-color.png'
 import ai2ColorLight from './icons/light/ai2-color.png'
 import ai21BrandColorLight from './icons/light/ai21-brand-color.png'
@@ -68,6 +71,7 @@ import arceeColorLight from './icons/light/arcee-color.png'
 import baaiLight from './icons/light/baai.png'
 import baichuanColorLight from './icons/light/baichuan-color.png'
 import bailianColorLight from './icons/light/bailian-color.png'
+import bedrockLight from './icons/light/bedrock.png'
 import bytedanceColorLight from './icons/light/bytedance-color.png'
 import cerebrasBrandColorLight from './icons/light/cerebras-brand-color.png'
 import claudeColorLight from './icons/light/claude-color.png'
@@ -100,6 +104,7 @@ import morphColorLight from './icons/light/morph-color.png'
 import nousresearchLight from './icons/light/nousresearch.png'
 import novaLight from './icons/light/nova.png'
 import nvidiaColorLight from './icons/light/nvidia-color.png'
+import ollamaLight from './icons/light/ollama.png'
 import openaiLight from './icons/light/openai.png'
 import openrouterLight from './icons/light/openrouter.png'
 import ppioColorLight from './icons/light/ppio-color.png'
@@ -119,6 +124,7 @@ import xaiLight from './icons/light/xai.png'
 import xiaomimimoLight from './icons/light/xiaomimimo.png'
 import yiColorLight from './icons/light/yi-color.png'
 import zaiLight from './icons/light/zai.png'
+import zenmuxLight from './icons/light/zenmux.png'
 import zhipuColorLight from './icons/light/zhipu-color.png'
 
 export type BrandIconVariant = 'dark' | 'light'
@@ -131,6 +137,7 @@ export const BRAND_ICONS: Record<string, Record<BrandIconVariant, string>> = {
   baai: { dark: baaiDark, light: baaiLight },
   'baichuan-color': { dark: baichuanColorDark, light: baichuanColorLight },
   'bailian-color': { dark: bailianColorDark, light: bailianColorLight },
+  bedrock: { dark: bedrockDark, light: bedrockLight },
   'bytedance-color': { dark: bytedanceColorDark, light: bytedanceColorLight },
   'cerebras-brand-color': {
     dark: cerebrasBrandColorDark,
@@ -175,6 +182,7 @@ export const BRAND_ICONS: Record<string, Record<BrandIconVariant, string>> = {
   nousresearch: { dark: nousresearchDark, light: nousresearchLight },
   nova: { dark: novaDark, light: novaLight },
   'nvidia-color': { dark: nvidiaColorDark, light: nvidiaColorLight },
+  ollama: { dark: ollamaDark, light: ollamaLight },
   openai: { dark: openaiDark, light: openaiLight },
   openrouter: { dark: openrouterDark, light: openrouterLight },
   'ppio-color': { dark: ppioColorDark, light: ppioColorLight },
@@ -203,5 +211,6 @@ export const BRAND_ICONS: Record<string, Record<BrandIconVariant, string>> = {
   xiaomimimo: { dark: xiaomimimoDark, light: xiaomimimoLight },
   'yi-color': { dark: yiColorDark, light: yiColorLight },
   zai: { dark: zaiDark, light: zaiLight },
+  zenmux: { dark: zenmuxDark, light: zenmuxLight },
   'zhipu-color': { dark: zhipuColorDark, light: zhipuColorLight },
 }

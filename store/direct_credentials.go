@@ -9,7 +9,12 @@ import (
 const (
 	DirectCredentialAPIKey = "api_key"
 	DirectCredentialOAuth  = "oauth"
+	DirectCredentialNone   = "none"
 )
+
+func (d *DirectUpstreamCandidate) HasAnonymousCredential() bool {
+	return d != nil && d.CredentialKind == DirectCredentialNone && d.Credential == "" && DirectProviderAllowsAnonymous(d.Provider) && d.Protocols&d.Endpoints.AnonymousProtocolMask() != 0
+}
 
 // DirectOAuthState contains refresh material. It belongs only in credential
 // storage and write inputs, never routing snapshots or inventory responses.

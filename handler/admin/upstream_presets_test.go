@@ -52,6 +52,13 @@ func TestUpstreamPresetListSharesSiteRegistry(t *testing.T) {
 	}
 	for _, preset := range result.Items[1:] {
 		source := service.GetSiteInitializationPreset(preset.ID)
+		if source == nil {
+			// Native formats are upstream-only: site adapters cannot execute them.
+			if !slices.Contains([]string{"seedance-video", "zenmux-video", "ollama-native", "ollama-anthropic", "bedrock-messages", "typesafe-systemone", "openai-alpha-search", "codex-alpha-search"}, preset.ID) {
+				t.Errorf("shared preset %s missing from the site registry", preset.ID)
+			}
+			continue
+		}
 		if source == nil || source.DefaultURL != preset.DefaultURL || source.ProviderLabel != preset.Name || source.Label != preset.Label || source.Platform != preset.Platform || !slices.Equal(source.RecommendedModels, preset.RecommendedModels) {
 			t.Errorf("preset %s drifted from site registry", preset.ID)
 		}
@@ -66,6 +73,13 @@ func TestUpstreamPresetEndpointContracts(t *testing.T) {
 		id, provider, key, url, auth, profile string
 		modelPath                             bool
 	}{
+		{"ollama-native", "ollama", "ollama", "http://localhost:11434/api/chat", "none", "ollama", false},
+		{"ollama-anthropic", "ollama_anthropic", "messages", "http://localhost:11434/v1/messages", "none", "ollama-messages", false},
+		{"bedrock-messages", "anthropic_aws", "messages", "https://bedrock-runtime.us-east-1.amazonaws.com/model", "bearer", "bedrock", true},
+		{"seedance-video", "doubao", "seedanceVideo", "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks", "bearer", "seedance-video", false},
+		{"zenmux-video", "zenmux_video", "zenmuxVideo", "https://zenmux.ai/api/v1/videos", "bearer", "zenmux-video", false},
+		{"typesafe-systemone", "typesafe", "systemOne", "https://api.typesafe.ai/v1/systemone", "bearer", "", false},
+		{"codex-alpha-search", "codex", "alphaSearch", "https://chatgpt.com/backend-api/codex/alpha/search", "bearer", "codex-alpha-search", false},
 		{"deepseek-openai", "deepseek", "chat", "https://api.deepseek.com/v1/chat/completions", "bearer", "deepseek", false},
 		{"zhipu-coding-plan-openai", "zhipu", "chat", "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions", "bearer", "zai", false},
 		{"doubao-openai", "doubao", "chat", "https://ark.cn-beijing.volces.com/api/v3/chat/completions", "bearer", "", false},
