@@ -320,8 +320,8 @@ func TestHandleImagesVariations(t *testing.T) {
 	rec := httptest.NewRecorder()
 	HandleImagesVariations(rec, req)
 
-	if rec.Code != 400 {
-		t.Errorf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"model":"dall-e-2"`) {
+		t.Errorf("variation surface did not dispatch with its default model: %d %s", rec.Code, rec.Body.String())
 	}
 }
 

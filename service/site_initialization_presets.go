@@ -72,6 +72,14 @@ var doubaoCodingRecommendedModels = []string{
 // Order matters for DetectSiteInitializationPreset first-match behavior.
 var siteInitializationPresets = []SiteInitializationPreset{
 	{
+		ID: "jina", Label: "Jina AI", ProviderLabel: "Jina AI",
+		Platform: "openai", DefaultURL: "https://api.jina.ai/v1",
+		InitialSegment: "apikey", DocsURL: "https://jina.ai/embeddings/",
+		RecommendedSkipModelFetch: true,
+		RecommendedModels:         []string{"jina-embeddings-v3", "jina-reranker-v2-base-multilingual"},
+		MatchHost:                 "api.jina.ai", MatchPaths: []string{"/", "/v1"},
+	},
+	{
 		ID: "bailian-claude", Label: "Alibaba Bailian / Claude", ProviderLabel: "Alibaba Bailian",
 		Platform: "claude", DefaultURL: "https://dashscope.aliyuncs.com/apps/anthropic",
 		InitialSegment: "apikey", DocsURL: "https://dashscope.aliyuncs.com",

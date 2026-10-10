@@ -195,6 +195,41 @@ func TestDetectHasUpstreamOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestJudgeUpstreamContent_MediaWithoutUsage(t *testing.T) {
+	setupFailureCfg(nil, true)
+	for _, body := range []string{
+		`{"data":[{"b64_json":"YWJj"}]}`,
+		`{"data":[{"url":"https://images.example/result.png"}]}`,
+		`{"data":[{"embedding":[0,0.25],"index":0}]}`,
+		`{"data":[{"embedding":"AACAPw==","index":0}]}`,
+		`{"embedding":{"values":[0,0.25]}}`,
+		`{"embeddings":[{"values":[0,0.25]}]}`,
+		`{"results":[{"index":0,"relevance_score":0}]}`,
+		`{"results":[{"flagged":false,"categories":{"violence":false}}]}`,
+		`{"id":"video_123","object":"video","status":"queued"}`,
+		`{"id":"video_123","object":"video","status":"failed","error":{"code":"video_generation_failed"}}`,
+		`{"id":"video_123","object":"video.deleted","deleted":true}`,
+	} {
+		if result := judgeBuffered(body, nil); result.Failed {
+			t.Errorf("valid media output without usage rejected: %s: %+v", body, result)
+		}
+	}
+	for _, body := range []string{
+		`{"data":[]}`, `{"data":[{}]}`, `{"data":[{"url":"  ","b64_json":""}]}`,
+		`{"data":[{"embedding":[]}]}`, `{"embedding":{"values":[null]}}`,
+		`{"embeddings":[{"values":[]}]}`, `{"results":[{"index":0}]}`,
+		`{"results":[{"flagged":false}]}`, `{"id":"video_123"}`,
+		`{"id":"video_123","object":"video","status":"invalid"}`,
+		`{"id":"video_123","object":"video.deleted","deleted":false}`,
+		`{"error":{"message":"failed"}}`,
+	} {
+		if result := judgeBuffered(body, nil); !result.Failed {
+			t.Errorf("empty media result accepted: %s", body)
+		}
+	}
+}
+
 func TestJudgeUpstreamContent_Combined(t *testing.T) {
 	t.Run("keyword takes priority over empty content", func(t *testing.T) {
 		setupFailureCfg([]string{"quota"}, true)

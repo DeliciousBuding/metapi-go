@@ -1,8 +1,8 @@
 package backup
 
 import (
+	"encoding/json"
 	"net/url"
-	"sort"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/service"
@@ -60,35 +60,29 @@ func validateAxonHubEndpointBase(base string) string {
 // using the actual outbound constructors at the audited source revision.
 func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProviderType) (int, store.DirectEndpoints, []string, []string) {
 	var endpoints store.DirectEndpoints
-	formats := map[string]AxonHubSourceEndpoint{}
+	resolvedEndpoints := map[string]*store.DirectEndpoint{}
+	endpointKeys := map[int]string{}
+	for _, entry := range endpoints.Entries() {
+		endpointKeys[entry.Protocol] = entry.Key
+	}
 	custom := map[string]bool{}
-	for format, protocol := range axonHubServableFormats {
-		if provider.Protocols&protocol != 0 {
-			formats[format] = AxonHubSourceEndpoint{APIFormat: format}
-		}
-	}
-	for _, format := range provider.ResidualFormats {
-		formats[format] = AxonHubSourceEndpoint{APIFormat: format}
-	}
 	for _, endpoint := range channel.Endpoints {
 		format := strings.TrimSpace(endpoint.APIFormat)
-		formats[format], custom[format] = endpoint, true
+		custom[format] = true
 	}
-	var names []string
-	for format := range formats {
-		names = append(names, format)
-	}
-	sort.Strings(names)
 	protocols := 0
 	var residuals []string
-	for _, format := range names {
-		ep := formats[format]
+	for _, ep := range axonHubMergedEndpoints(channel, provider) {
+		format := ep.APIFormat
 		protocol, servable := axonHubServableFormats[format]
 		if !servable {
 			if reason, known := axonHubResidualProtocolFormats[format]; known {
 				residuals = append(residuals, "declared_protocol_not_servable:"+format+" ("+reason+")")
 				continue
 			}
+			return 0, endpoints, []string{"api_format_unsupported"}, nil
+		}
+		if endpointKeys[protocol] == "" {
 			return 0, endpoints, []string{"api_format_unsupported"}, nil
 		}
 		base := strings.TrimSpace(ep.BaseURL)
@@ -105,6 +99,21 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 			return 0, endpoints, []string{"provider_requires_https"}, nil
 		}
 		path := strings.TrimSpace(ep.Path)
+		if !safeDirectEndpointPath(path) {
+			return 0, endpoints, []string{"endpoint_path_invalid"}, nil
+		}
+		if protocol&store.DirectGenerationProtocols == 0 {
+			endpoint, problem := resolveAxonHubMediaEndpoint(channel, protocol, base, path, custom[format])
+			if problem != "" {
+				return 0, endpoints, []string{problem}, nil
+			}
+			if problem := validateAxonHubEndpointBase(endpoint.URL); problem != "" {
+				return 0, endpoints, []string{"endpoint_url_" + problem}, nil
+			}
+			resolvedEndpoints[endpointKeys[protocol]] = endpoint
+			protocols |= protocol
+			continue
+		}
 		profile := ""
 		if protocol == protoChat && !custom[format] {
 			switch channel.Type {
@@ -115,6 +124,9 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 			}
 		}
 		if protocol == protoResponses && (channel.Type == "codex" || channel.Type == "fenno") {
+			if base == "https://api.openai.com/v1" {
+				base = "https://chatgpt.com/backend-api/codex#"
+			}
 			profile = "codex"
 			path = ""
 		}
@@ -146,22 +158,19 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 			}
 		}
 		endpoint := &store.DirectEndpoint{URL: resolved, Auth: auth, Profile: profile}
-		switch protocol {
-		case protoChat:
-			endpoints.Chat = endpoint
-		case protoResponses:
-			endpoints.Responses = endpoint
-		case protoMessages:
-			endpoints.Messages = endpoint
-		case protoGemini:
+		if protocol == protoGemini {
 			endpoint.Auth = store.DirectAuthGoogle
 			endpoint.ModelPath = path == ""
-			endpoints.Gemini = endpoint
 		}
+		resolvedEndpoints[endpointKeys[protocol]] = endpoint
 		protocols |= protocol
 	}
 	if protocols == 0 {
 		return 0, endpoints, []string{"no_servable_protocol"}, nil
+	}
+	raw, err := json.Marshal(resolvedEndpoints)
+	if err != nil || endpoints.Scan(raw) != nil {
+		return 0, store.DirectEndpoints{}, []string{"endpoint_config_invalid"}, nil
 	}
 	return protocols, endpoints, nil, residuals
 }

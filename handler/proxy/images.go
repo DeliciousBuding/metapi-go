@@ -40,7 +40,7 @@ func HandleImagesEdits(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleImagesVariations handles POST /v1/images/variations.
-// Always returns 400 — not supported.
+// Preserves JSON or multipart fields for the explicitly selected endpoint.
 func HandleImagesVariations(w http.ResponseWriter, r *http.Request) {
-	writeJSONError(w, 400, "Image variations are not supported", "invalid_request_error")
+	handleMediaSurface(w, r, "/v1/images/variations", false, "dall-e-2")
 }

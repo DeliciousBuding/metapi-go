@@ -1,6 +1,9 @@
 package proxy
 
-import "strings"
+import (
+	"github.com/deliciousbuding/metapi-go/store"
+	"strings"
+)
 
 // UpstreamEndpoint represents an upstream API endpoint type.
 type UpstreamEndpoint string
@@ -50,6 +53,75 @@ func EndpointFromPath(path string) (UpstreamEndpoint, bool) {
 		return EndpointResponses, true
 	default:
 		return "", false
+	}
+}
+
+// DirectProtocolForPath also recognizes non-generation surfaces. Keep them out
+// of EndpointFromPath: media permissions must never enable protocol fallback.
+func DirectProtocolForPath(path string) int {
+	path = strings.TrimRight(strings.TrimSpace(strings.SplitN(path, "?", 2)[0]), "/")
+	if endpoint, ok := EndpointFromPath(path); ok {
+		switch endpoint {
+		case EndpointChat:
+			return store.DirectProtocolChat
+		case EndpointResponses:
+			return store.DirectProtocolResponses
+		case EndpointMessages:
+			return store.DirectProtocolMessages
+		case EndpointGemini:
+			return store.DirectProtocolGemini
+		}
+	}
+	for protocol, canonical := range directMediaPaths {
+		if path == canonical {
+			return protocol
+		}
+	}
+	if strings.Contains(path, "/models/") && (strings.HasSuffix(path, ":embedContent") || strings.HasSuffix(path, ":batchEmbedContents")) {
+		return store.DirectProtocolGeminiEmbeddings
+	}
+	if strings.HasPrefix(path, "/v1/videos/") {
+		parts := strings.Split(strings.TrimPrefix(path, "/v1/videos/"), "/")
+		if len(parts) == 1 && parts[0] != "" {
+			return store.DirectProtocolVideo
+		}
+		if len(parts) == 2 && parts[0] != "" && (parts[1] == "content" || parts[1] == "remix") {
+			return store.DirectProtocolVideo
+		}
+	}
+	return 0
+}
+
+var directMediaPaths = map[int]string{
+	store.DirectProtocolCompletions:        "/v1/completions",
+	store.DirectProtocolEmbeddings:         "/v1/embeddings",
+	store.DirectProtocolRerank:             "/v1/rerank",
+	store.DirectProtocolImageGeneration:    "/v1/images/generations",
+	store.DirectProtocolImageEdit:          "/v1/images/edits",
+	store.DirectProtocolImageVariation:     "/v1/images/variations",
+	store.DirectProtocolAudioSpeech:        "/v1/audio/speech",
+	store.DirectProtocolAudioTranscription: "/v1/audio/transcriptions",
+	store.DirectProtocolAudioTranslation:   "/v1/audio/translations",
+	store.DirectProtocolModerations:        "/v1/moderations",
+	store.DirectProtocolVideo:              "/v1/videos",
+}
+
+func IsDirectMediaPath(path string) bool {
+	bit := DirectProtocolForPath(path)
+	return bit != 0 && bit&store.DirectGenerationProtocols == 0
+}
+
+// These wire-compatible operations retain distinct stored grants/endpoints.
+// The selected adapter, not the inbound path, owns their provider differences.
+func DirectProtocolMaskForPath(path string) int {
+	bit := DirectProtocolForPath(path)
+	switch bit {
+	case store.DirectProtocolEmbeddings:
+		return bit | store.DirectProtocolJinaEmbeddings
+	case store.DirectProtocolImageGeneration, store.DirectProtocolImageEdit:
+		return bit | store.DirectProtocolModelScopeImageGeneration
+	default:
+		return bit
 	}
 }
 

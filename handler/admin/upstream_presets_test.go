@@ -73,12 +73,22 @@ func TestUpstreamPresetEndpointContracts(t *testing.T) {
 		{"xiaomi-token-plan-claude", "xiaomi_anthropic", "messages", "https://token-plan-cn.xiaomimimo.com/anthropic/v1/messages", "x-api-key", "", false},
 		{"gemini-api", "gemini", "gemini", "https://generativelanguage.googleapis.com/v1beta/models", "x-goog-api-key", "", true},
 		{"openai-api", "openai", "responses", "https://api.openai.com/v1/responses", "bearer", "", false},
+		{"bailian", "bailian", "responses", "https://dashscope.aliyuncs.com/compatible-mode/v1/responses", "bearer", "", false},
+		{"jina", "jina", "jinaEmbeddings", "https://api.jina.ai/v1/embeddings", "bearer", "jina-embeddings", false},
+		{"minimax-openai", "minimax", "imageGeneration", "https://api.minimaxi.com/v1/image_generation", "bearer", "minimax-image", false},
+		{"modelscope-openai", "modelscope", "modelscopeImageGeneration", "https://api-inference.modelscope.cn/v1/images/generations", "bearer", "modelscope-image", false},
+		{"gemini-api", "gemini", "geminiEmbeddings", "https://generativelanguage.googleapis.com/v1beta/models", "x-goog-api-key", "", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.id, func(t *testing.T) {
 			preset := service.GetUpstreamPreset(tc.id)
 			provider, config := resolvePreset(t, presetRouter(), tc.id, preset.DefaultURL)
-			endpoint := map[string]*store.DirectEndpoint{"chat": config.Chat, "messages": config.Messages, "gemini": config.Gemini, "responses": config.Responses}[tc.key]
+			var endpoint *store.DirectEndpoint
+			for _, entry := range config.Entries() {
+				if entry.Key == tc.key {
+					endpoint = entry.Endpoint
+				}
+			}
 			want := store.DirectEndpoint{URL: tc.url, Auth: tc.auth, Profile: tc.profile, ModelPath: tc.modelPath}
 			if provider != tc.provider || endpoint == nil || *endpoint != want {
 				t.Fatalf("provider=%s endpoint=%+v; want %s %+v", provider, endpoint, tc.provider, want)
@@ -89,12 +99,17 @@ func TestUpstreamPresetEndpointContracts(t *testing.T) {
 
 func TestUpstreamPresetAdvertisedProtocolsMatchEndpoints(t *testing.T) {
 	contracts := map[string][]string{
-		"new-api-connection": {"chat", "responses", "messages"},
-		"deepseek-openai":    {"chat"},
+		"new-api-connection": {"chat", "responses", "messages", "gemini", "completions", "embeddings", "rerank", "imageGeneration", "imageEdit", "audioSpeech", "audioTranscription", "audioTranslation", "moderations", "video"},
+		"deepseek-openai":    {"chat", "completions"},
 		"codingplan-claude":  {"messages"},
-		"gemini-api":         {"gemini"},
-		"openai-api":         {"chat", "responses"},
+		"codingplan-openai":  {"chat"},
+		"bailian":            {"chat", "responses"},
+		"gemini-api":         {"gemini", "geminiEmbeddings"},
+		"openai-api":         {"chat", "responses", "embeddings", "imageGeneration", "imageEdit", "imageVariation", "audioSpeech", "audioTranscription", "audioTranslation", "moderations"},
 		"xai-api":            {"chat", "responses"},
+		"jina":               {"rerank", "jinaEmbeddings"},
+		"minimax-openai":     {"chat", "imageGeneration"},
+		"modelscope-openai":  {"chat", "modelscopeImageGeneration"},
 	}
 	for id, want := range contracts {
 		t.Run(id, func(t *testing.T) {
@@ -103,9 +118,9 @@ func TestUpstreamPresetAdvertisedProtocolsMatchEndpoints(t *testing.T) {
 				t.Fatalf("advertised protocols=%v; want %v", preset.Protocols, want)
 			}
 			_, endpoints := resolvePreset(t, presetRouter(), id, "https://relay.example.com")
-			for protocol, endpoint := range map[string]*store.DirectEndpoint{"chat": endpoints.Chat, "responses": endpoints.Responses, "messages": endpoints.Messages, "gemini": endpoints.Gemini} {
-				if (endpoint != nil) != slices.Contains(want, protocol) {
-					t.Errorf("%s endpoint=%+v; advertised protocols=%v", protocol, endpoint, want)
+			for _, entry := range endpoints.Entries() {
+				if (entry.Endpoint != nil) != slices.Contains(want, entry.Key) {
+					t.Errorf("%s endpoint=%+v; advertised protocols=%v", entry.Key, entry.Endpoint, want)
 				}
 			}
 		})

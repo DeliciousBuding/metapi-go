@@ -193,6 +193,16 @@ fixtures, plus `decision` (policy truth tables) and `unit` (leaf helpers).
 | `transform/shared` | Leaf helper edge cases |
 | `handler/proxy` | Response-body usage extraction and incremental SSE stream parsing (usage/finish/error/done state, chunk-boundary independence). In this codebase the response/stream half of protocol handling lives here: SSE bytes are generally preserved, except the documented native Chat/Messages complete-tool termination and empty Chat finish normalization ([`client-integration.md#native-tool-response-compatibility`](client-integration.md#native-tool-response-compatibility)); attachment responses and frames after `[DONE]` are left untouched. |
 
+Direct-upstream media fixtures cover imported and native configurations,
+independent format permissions, multipart files, binary responses, provider
+application errors, cancellation, image tool streams and durable video tasks.
+They test the complete HTTP path against controlled upstreams, including
+ModelScope task polling and credential-free result downloads. SQLite and
+PostgreSQL checks cover configuration, authorization and task persistence;
+use `-p 1` when packages share one `PG_TEST_DSN` because fixtures reset tables.
+These fixtures do not establish real-model availability or downstream-client
+compatibility; those remain separate acceptance layers.
+
 Run the suite like any other test (it is part of `go test ./...` and therefore
 part of CI):
 

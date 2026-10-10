@@ -20,6 +20,7 @@ import (
 )
 
 type directProviderWire struct {
+	Endpoint        *store.DirectEndpoint
 	Body            []byte
 	Headers         http.Header
 	Query           url.Values
@@ -47,13 +48,19 @@ func prepareDirectProviderWire(endpoint *store.DirectEndpoint, channelID int64, 
 	}
 	wire.Profile = endpoint.Profile
 	switch endpoint.Profile {
+	case "jina-embeddings":
+		var err error
+		wire.Body, err = prepareJinaEmbeddings(body)
+		if err != nil {
+			return nil, err
+		}
 	case "deepseek", "zai":
 		var err error
 		wire.Body, err = prepareDomesticChatRequest(body, endpoint.Profile)
 		if err != nil {
 			return nil, err
 		}
-	case "codex":
+	case "codex", "codex-image":
 		var err error
 		wire.Body, err = responses.PrepareCodexRequest(body)
 		if err != nil {
@@ -84,7 +91,7 @@ func applyDirectProviderHeaders(req *http.Request, wire *directProviderWire) {
 	if wire == nil {
 		return
 	}
-	if wire.Profile == "codex" {
+	if wire.Profile == "codex" || wire.Profile == "codex-image" {
 		req.Header.Del("X-Openai-Internal-Codex-Responses-Lite")
 		req.Header.Del("Session_id")
 	}
@@ -96,7 +103,7 @@ func applyDirectProviderHeaders(req *http.Request, wire *directProviderWire) {
 		query[name] = append([]string(nil), values...)
 	}
 	req.URL.RawQuery = query.Encode()
-	if wire.Profile == "codex" && wire.Headers.Get("Chatgpt-Account-Id") == "" {
+	if (wire.Profile == "codex" || wire.Profile == "codex-image") && wire.Headers.Get("Chatgpt-Account-Id") == "" {
 		req.Header.Del("Chatgpt-Account-Id")
 	}
 }

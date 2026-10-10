@@ -86,7 +86,11 @@ starts with New API, domestic platforms and Coding Plan presets; protocol names
 remain separate from provider names. The detail sheet uses four short tabs:
 connection, credentials, models and routes. Models expand on demand, and batch
 entry uses one upstream model name per line. Access always selects a credential
-and executable protocols explicitly. Refetch updates untouched fields while
+and executable protocols explicitly. Capabilities are grouped as conversation,
+retrieval, images, audio and video; preset cards summarize these groups, while
+endpoint details expand individually for editing. Only the four conversation
+protocols offer conversion ordering; media permissions remain exact capabilities.
+Refetch updates untouched fields while
 preserving edits. Deleting an edited entity first confirms draft loss; leaf
 deletion retains undo, and dependent deletion reviews the server's current impact.
 

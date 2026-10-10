@@ -4,11 +4,40 @@ export type ImportedEndpoint = {
   url: string
   auth: 'bearer' | 'x-api-key' | 'x-goog-api-key'
   modelPath?: boolean
-  profile?: 'codex' | 'claudecode' | 'deepseek' | 'zai'
+  profile?:
+    | 'codex'
+    | 'claudecode'
+    | 'deepseek'
+    | 'zai'
+    | 'jina-embeddings'
+    | 'minimax-image'
+    | 'modelscope-image'
+    | 'codex-image'
+  requestModel?: string
 }
 
 export type ImportedEndpointConfig = Partial<
-  Record<'chat' | 'responses' | 'messages' | 'gemini', ImportedEndpoint>
+  Record<
+    | 'chat'
+    | 'responses'
+    | 'messages'
+    | 'gemini'
+    | 'completions'
+    | 'embeddings'
+    | 'rerank'
+    | 'imageGeneration'
+    | 'imageEdit'
+    | 'imageVariation'
+    | 'audioSpeech'
+    | 'audioTranscription'
+    | 'audioTranslation'
+    | 'moderations'
+    | 'video'
+    | 'geminiEmbeddings'
+    | 'jinaEmbeddings'
+    | 'modelscopeImageGeneration',
+    ImportedEndpoint
+  >
 >
 
 export type ImportedRequestConfig = {

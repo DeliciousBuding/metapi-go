@@ -329,7 +329,12 @@ export function UpstreamCreateSheet(props: {
                             )}
                           </div>
                           <FormControl>
-                            <div role='group' ref={field.ref} tabIndex={-1}>
+                            <div
+                              className='min-w-0'
+                              role='group'
+                              ref={field.ref}
+                              tabIndex={-1}
+                            >
                               <UpstreamEndpointsEditor
                                 value={field.value}
                                 onChange={field.onChange}

@@ -277,11 +277,11 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 	}
 	if channel.Credentials.OAuth && axonHubOAuthProvider(channel.Type) {
 		for _, endpoint := range channel.Endpoints {
-			if (channel.Type == "codex" || channel.Type == "fenno") && endpoint.APIFormat == "openai/responses" {
+			if (channel.Type == "codex" || channel.Type == "fenno") && (endpoint.APIFormat == "openai/responses" || endpoint.APIFormat == "openai/image_generation" || endpoint.APIFormat == "openai/image_edit") {
 				continue
 			}
 			// Source custom endpoints use a static API-key provider except the
-			// Codex Responses wrapper. Do not silently replace that contract.
+			// Codex Responses/image wrapper. Do not silently replace that contract.
 			reasons = append(reasons, "oauth_custom_endpoint_unsupported")
 		}
 	}
@@ -435,7 +435,7 @@ func channelResiduals(channel AxonHubSourceChannel) []string {
 	if len(channel.ManualModels) > 0 {
 		add("manual_models_not_imported_until_synced")
 	}
-	if strings.TrimSpace(channel.DefaultTestModel) != "" {
+	if strings.TrimSpace(channel.DefaultTestModel) != "" && !axonHubUsesCodexImage(channel) {
 		add("default_test_model_not_imported")
 	}
 	return notes
@@ -608,7 +608,7 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 			continue
 		}
 		switch model.Type {
-		case "", "chat":
+		case "", "chat", "embedding", "rerank", "image_generation", "video_generation":
 		default:
 			residuals = append(residuals, "model_type_not_servable:"+sanitizeIdentifier(model.Type))
 			continue
@@ -639,6 +639,9 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 					continue
 				}
 				protocolOrder, servable := axonHubModelProtocolOrder(channel, pattern, connection.requestModel, connection.modelName)
+				if servable && !axonHubMediaModelHasEndpoint(model.Type, protocolOrder) {
+					servable = false
+				}
 				if !servable {
 					residuals = append(residuals, "model_protocol_not_servable:"+sanitizeIdentifier(pattern))
 					continue

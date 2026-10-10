@@ -101,7 +101,8 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	bridgeMessages := isMessagesChatBridge(r.URL.Path, upstreamPath)
 	bridgeDirect := len(direct) > 0 && direct[0] && directBridgeNeeded(r.URL.Path, upstreamPath)
 	wire := directProviderWireFromContext(r.Context())
-	providerStream := wire != nil && (wire.Profile == "codex" || wire.StripToolPrefix)
+	codexImage := wire != nil && wire.Profile == "codex-image"
+	providerStream := wire != nil && (wire.Profile == "codex" || wire.StripToolPrefix || codexImage)
 	if (bridgeMessages || bridgeDirect || providerStream) && !bodyReadable {
 		w.Header().Del("Content-Encoding")
 		writeJSONErrorWithRequest(w, http.StatusBadGateway, "Cannot decode upstream Chat stream for Messages", "upstream_error", proxy.RequestIDFromContext(r.Context()))
@@ -136,7 +137,11 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	resp.Body = idleBody
 	maxStreamBytes := streamResponseByteLimit()
 	var messageBridge *messagesChatBody
-	if bridgeDirect || providerStream {
+	if codexImage {
+		messageBridge = newDirectCodexImagesBody(resp.Body, r.URL.Path, true, maxStreamBytes)
+		messageBridge.original.onFirstOutput = onFirstOutput
+		resp.Body = messageBridge
+	} else if bridgeDirect || providerStream {
 		var stream protocolEventStream
 		if bridgeDirect {
 			stream = directResponseStream(r.URL.Path, upstreamPath, upstreamModel, bridgeOptions)
@@ -157,7 +162,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		resp.Body = withNativeTerminalBody(resp.Body, r.URL.Path, downstreamResponseModel(r))
 	}
 
-	if messageBridge != nil && downstreamResponseModel(r) != "" {
+	if messageBridge != nil && !codexImage && downstreamResponseModel(r) != "" {
 		resp.Body = withNativeTerminalBody(resp.Body, r.URL.Path, downstreamResponseModel(r))
 	}
 	analyzer := newIncrementalSseAnalyzer()
@@ -184,6 +189,9 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 			// Billing consumes the actual Chat usage, not synthetic Messages start
 			// counters or a lossy protocol projection.
 			result.Usage = messageBridge.original.Result().Usage
+			if codexImage {
+				result = messageBridge.original.Result()
+			}
 		}
 		if logDetail {
 			if result.DroppedOversizedEvent {
@@ -251,7 +259,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 				// Undecodable bytes are never fed to the analyzer: it would
 				// "analyze" noise, find no data events and hand the judge an
 				// empty-content fact for a perfectly healthy answer.
-				if bodyReadable {
+				if bodyReadable && !codexImage {
 					analyzer.Push(chunk)
 				}
 				if _, writeErr := w.Write(chunk); writeErr != nil {

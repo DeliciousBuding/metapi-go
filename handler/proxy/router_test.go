@@ -184,7 +184,7 @@ func TestSearchRoute_QueryMissing(t *testing.T) {
 	}
 }
 
-func TestImagesVariationsRoute_Always400(t *testing.T) {
+func TestImagesVariationsRoute_Dispatches(t *testing.T) {
 	r := chi.NewRouter()
 	r.Use(injectAuth)
 	RegisterProxyRoutes(r)
@@ -193,8 +193,8 @@ func TestImagesVariationsRoute_Always400(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	if rec.Code != 400 {
-		t.Errorf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != 200 {
+		t.Errorf("expected dispatch success, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

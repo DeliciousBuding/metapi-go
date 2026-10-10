@@ -73,14 +73,15 @@ func TestAxonHubEndpointsMergeAndAuthentication(t *testing.T) {
 	}
 }
 
-func TestAxonHubCustomEndpointKeepsDefaultAndResiduals(t *testing.T) {
+func TestAxonHubCustomEndpointKeepsMediaDefaults(t *testing.T) {
 	channel := AxonHubSourceChannel{Type: "openai", BaseURL: "https://provider.invalid", Endpoints: []AxonHubSourceEndpoint{{APIFormat: "openai/responses"}}}
 	protocols, endpoints, reasons, residuals := resolveChannelEndpoints(channel, axonHubProviderTypes[channel.Type])
-	if len(reasons) != 0 || protocols != protoChat|protoResponses || endpoints.Chat == nil || endpoints.Responses == nil {
+	want := protoChat | protoResponses | protoEmbeddings | protoImageGeneration | protoImageEdit | protoImageVariation | protoVideo | protoModerations | protoAudioSpeech | protoAudioTranscription | protoAudioTranslation
+	if len(reasons) != 0 || protocols != want || endpoints.Chat == nil || endpoints.Responses == nil {
 		t.Fatalf("protocols=%d endpoints=%+v reasons=%v", protocols, endpoints, reasons)
 	}
-	if !residualContains(residuals, "declared_protocol_not_servable:openai/embeddings") || !residualContains(residuals, "declared_protocol_not_servable:openai/audio_speech") {
-		t.Fatalf("lost default residuals: %v", residuals)
+	if len(residuals) != 0 || endpoints.Embeddings == nil || endpoints.AudioSpeech == nil {
+		t.Fatalf("media defaults were not carried: %v", residuals)
 	}
 }
 

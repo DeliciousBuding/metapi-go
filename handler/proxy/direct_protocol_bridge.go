@@ -21,7 +21,7 @@ func directBridgeNeeded(downstream, upstream string) bool {
 	return dok && uok && d != u
 }
 
-func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, model string, proxyConfig *platform.ProxyConfig, body []byte, firstByteTimeoutMs int64, retry, maxRetries int, requestID string) (bool, *pendingUpstreamFailure) {
+func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, model string, proxyConfig *platform.ProxyConfig, body []byte, contentType string, firstByteTimeoutMs int64, retry, maxRetries int, requestID string) (bool, *pendingUpstreamFailure) {
 	if ctx.DownstreamPath == "" {
 		copyCtx := *ctx
 		copyCtx.DownstreamPath = r.URL.Path
@@ -32,6 +32,19 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		writeJSONErrorWithRequest(w, http.StatusBadRequest, err.Error(), "invalid_request_error", requestID)
 		return true, nil
 	}
+	if ctx.Multipart && !proxy.IsDirectMediaPath(path) {
+		writeJSONErrorWithRequest(w, 400, "Multipart requires a media endpoint", "invalid_request_error", requestID)
+		return true, nil
+	}
+	endpoint := directEndpointForPath(selected.Direct.Endpoints, path)
+	if proxy.IsDirectMediaPath(path) {
+		endpoint, err = directSelectedMediaEndpoint(selected.Direct, path)
+		if err != nil {
+			writeJSONErrorWithRequest(w, 400, err.Error(), "invalid_request_error", requestID)
+			return true, nil
+		}
+	}
+	codexImage := endpoint != nil && endpoint.Profile == "codex-image"
 	credential := &oauth.DirectCredentialResult{AccessToken: selected.TokenValue, Kind: store.DirectCredentialAPIKey, Provider: selected.Direct.Provider}
 	if cfg.ResolveDirectCredential != nil && selected.Direct.CredentialID > 0 {
 		var proxyURL *string
@@ -71,11 +84,22 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		writeMessagesReplayFailure(w, ctx, requestID)
 		return true, nil
 	}
-	if err == nil {
+	if err == nil && codexImage {
+		body, err = prepareDirectCodexImagesRequest(r, ctx, endpoint, model, body)
+		contentType = "application/json"
+	}
+	if err == nil && (!ctx.Multipart || codexImage) && len(body) > 0 {
 		body, err = applyDirectParamOverrides(body, selected.Direct.ParamOverride)
 	}
+	if err == nil && proxy.DirectProtocolForPath(path) == store.DirectProtocolGeminiEmbeddings {
+		body, err = prepareGeminiEmbeddings(body, path, model)
+	}
 	if err != nil {
-		writeJSONErrorWithRequest(w, http.StatusBadRequest, "Cannot convert request for selected upstream: "+err.Error(), "invalid_request_error", requestID)
+		status := http.StatusBadRequest
+		if isRequestBodyTooLarge(err) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		writeJSONErrorWithRequest(w, status, "Cannot convert request for selected upstream: "+err.Error(), "invalid_request_error", requestID)
 		return true, nil
 	}
 	// Native Gemini streaming lives in the URL, never an invented body field.
@@ -91,14 +115,19 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 	if endpoint, _ := proxy.EndpointFromPath(path); endpoint == proxy.EndpointChat {
 		body, expectUsage = applyUpstreamStreamIncludeUsage(body, "openai", path, ctx.IsStream)
 	}
-	endpoint := directEndpointForPath(selected.Direct.Endpoints, path)
-	wire, err := prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header)
+	var wire *directProviderWire
+	if endpoint != nil && isDirectMediaProfile(endpoint.Profile) {
+		wire, contentType, err = prepareDirectMediaProfile(endpoint.Profile, path, contentType, body)
+	} else {
+		wire, err = prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header)
+	}
 	if err != nil {
 		writeJSONErrorWithRequest(w, http.StatusBadRequest, err.Error(), "invalid_request_error", requestID)
 		return true, nil
 	}
+	wire.Endpoint = endpoint
 	r = r.WithContext(withDirectProviderWire(r.Context(), wire))
-	finished, pending, _ := dispatchEndpointAttemptWithContinue(w, r, ctx, cfg, selected, model, proxyConfig, path, "application/json", wire.Body, firstByteTimeoutMs, retry, maxRetries, true, true, ctx.IsStream || wire.ForceStream, expectUsage, requestID, options)
+	finished, pending, _ := dispatchEndpointAttemptWithContinue(w, r, ctx, cfg, selected, model, proxyConfig, path, contentType, wire.Body, firstByteTimeoutMs, retry, maxRetries, true, true, ctx.IsStream || wire.ForceStream, expectUsage, requestID, options)
 	return finished, pending
 }
 

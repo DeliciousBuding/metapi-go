@@ -129,6 +129,10 @@ func HandleVideosCreate(w http.ResponseWriter, r *http.Request) {
 // Sticky pin: when the mapping has ChannelID > 0, force preferred channel
 // selection so the request hits the same upstream account/site as create.
 func HandleVideosGet(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(chi.URLParam(r, "id"), directVideoIDPrefix) {
+		handleDirectVideoTask(w, r, "")
+		return
+	}
 	publicID := chi.URLParam(r, "id")
 	if publicID == "" {
 		writeJSONError(w, 400, "missing video id", "invalid_request_error")
@@ -161,6 +165,10 @@ func HandleVideosGet(w http.ResponseWriter, r *http.Request) {
 // Sticky pin: resolve mapping before delete so channel preference and
 // path rewrite still apply for this request.
 func HandleVideosDelete(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(chi.URLParam(r, "id"), directVideoIDPrefix) {
+		handleDirectVideoTask(w, r, "")
+		return
+	}
 	publicID := chi.URLParam(r, "id")
 	if publicID == "" {
 		writeJSONError(w, 400, "missing video id", "invalid_request_error")

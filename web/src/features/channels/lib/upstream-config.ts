@@ -1,6 +1,8 @@
+import { t } from 'i18next'
 import { z } from 'zod'
 
 import type {
+  ImportedEndpoint,
   ImportedEndpointConfig,
   ImportedMember,
   ImportedUpstreamDetail,
@@ -21,23 +23,81 @@ export const upstreamKeys = {
   groups: ['imported-upstreams', 'groups'] as const,
 }
 
-export const upstreamProtocols = [
-  { key: 'chat', bit: 2, name: 'Chat' },
-  { key: 'responses', bit: 4, name: 'Responses' },
-  { key: 'messages', bit: 8, name: 'Messages' },
-  { key: 'gemini', bit: 16, name: 'Gemini' },
+export const upstreamProtocolGroups = [
+  'conversation',
+  'retrieval',
+  'image',
+  'audio',
+  'video',
 ] as const
 
+// Persisted bits and keys follow store/direct_protocols.go in the same order.
+// All endpoint, grant and member controls derive their capability list here.
+type EndpointProfile = NonNullable<ImportedEndpoint['profile']>
+type UpstreamProtocol = {
+  key: keyof ImportedEndpointConfig
+  bit: number
+  group: (typeof upstreamProtocolGroups)[number]
+  convertible: boolean
+  requiredProfile?: EndpointProfile
+}
+export const upstreamProtocols: readonly UpstreamProtocol[] = [
+  { key: 'chat', bit: 2, group: 'conversation', convertible: true },
+  { key: 'responses', bit: 4, group: 'conversation', convertible: true },
+  { key: 'messages', bit: 8, group: 'conversation', convertible: true },
+  { key: 'gemini', bit: 16, group: 'conversation', convertible: true },
+  { key: 'completions', bit: 32, group: 'conversation', convertible: false },
+  { key: 'embeddings', bit: 64, group: 'retrieval', convertible: false },
+  { key: 'rerank', bit: 128, group: 'retrieval', convertible: false },
+  { key: 'imageGeneration', bit: 256, group: 'image', convertible: false },
+  { key: 'imageEdit', bit: 512, group: 'image', convertible: false },
+  { key: 'imageVariation', bit: 1024, group: 'image', convertible: false },
+  { key: 'audioSpeech', bit: 2048, group: 'audio', convertible: false },
+  { key: 'audioTranscription', bit: 4096, group: 'audio', convertible: false },
+  { key: 'audioTranslation', bit: 8192, group: 'audio', convertible: false },
+  { key: 'moderations', bit: 16384, group: 'conversation', convertible: false },
+  { key: 'video', bit: 32768, group: 'video', convertible: false },
+  {
+    key: 'geminiEmbeddings',
+    bit: 65536,
+    group: 'retrieval',
+    convertible: false,
+  },
+  {
+    key: 'jinaEmbeddings',
+    bit: 131072,
+    group: 'retrieval',
+    convertible: false,
+    requiredProfile: 'jina-embeddings',
+  },
+  {
+    key: 'modelscopeImageGeneration',
+    bit: 262144,
+    group: 'image',
+    convertible: false,
+    requiredProfile: 'modelscope-image',
+  },
+]
+
 export function memberProtocols(member: ImportedMember) {
-  const order = member.protocolOrder?.length
+  const bits = member.protocolOrder?.length
     ? member.protocolOrder
     : upstreamProtocols
         .filter((p) => member.protocols & p.bit)
         .map((p) => p.bit)
-  return order
-    .map((bit) => upstreamProtocols.find((p) => p.bit === bit)?.name)
-    .filter(Boolean)
+  const protocols = bits.flatMap((bit) => {
+    const protocol = upstreamProtocols.find((p) => p.bit === bit)
+    return protocol ? [protocol] : []
+  })
+  const conversation = protocols
+    .filter((p) => p.convertible)
+    .map((p) => t(`channels.capabilities.names.${p.key}`))
     .join(' → ')
+  const exact = protocols
+    .filter((p) => !p.convertible)
+    .map((p) => t(`channels.capabilities.names.${p.key}`))
+    .join(' · ')
+  return [conversation, exact].filter(Boolean).join(' · ')
 }
 
 const httpUrl = z
@@ -47,19 +107,75 @@ const httpUrl = z
     (value) => /^https?:\/\//i.test(value),
     'channels.upstream.invalidUrl'
   )
+// Profile-to-endpoint constraints match store/direct_endpoints.go. The provider
+// picker below keeps wire formats independent of provider branding; only the
+// Codex OAuth adapter is limited to its credential providers.
+const profileEndpoints: Record<
+  EndpointProfile,
+  readonly (keyof ImportedEndpointConfig)[]
+> = {
+  codex: ['responses'],
+  claudecode: ['messages'],
+  deepseek: ['chat'],
+  zai: ['chat'],
+  'jina-embeddings': ['jinaEmbeddings'],
+  'minimax-image': ['imageGeneration'],
+  'modelscope-image': [
+    'imageGeneration',
+    'imageEdit',
+    'modelscopeImageGeneration',
+  ],
+  'codex-image': ['imageGeneration', 'imageEdit'],
+}
 const endpoint = z.object({
   url: httpUrl,
   auth: z.enum(['bearer', 'x-api-key', 'x-goog-api-key']),
-  profile: z.enum(['codex', 'claudecode', 'deepseek', 'zai']).optional(),
+  profile: z
+    .enum(
+      Object.keys(profileEndpoints) as [EndpointProfile, ...EndpointProfile[]]
+    )
+    .optional(),
   modelPath: z.boolean().optional(),
+  requestModel: z.string().max(255).optional(),
 })
 
-const endpointConfigSchema = z.object({
-  chat: endpoint.optional(),
-  responses: endpoint.optional(),
-  messages: endpoint.optional(),
-  gemini: endpoint.optional(),
-})
+const endpointConfigSchema = z
+  .object(
+    Object.fromEntries(
+      upstreamProtocols.map((protocol) => [
+        protocol.key,
+        endpoint
+          .refine((value) => {
+            if (
+              protocol.requiredProfile &&
+              value.profile !== protocol.requiredProfile
+            ) {
+              return false
+            }
+            if (
+              value.profile &&
+              (value.auth !== 'bearer' ||
+                !profileEndpoints[value.profile].includes(protocol.key))
+            ) {
+              return false
+            }
+            if (
+              value.modelPath &&
+              protocol.key !== 'gemini' &&
+              protocol.key !== 'geminiEmbeddings'
+            ) {
+              return false
+            }
+            if (value.profile === 'codex-image') {
+              return !!value.requestModel?.trim()
+            }
+            return !value.requestModel
+          }, 'channels.upstream.invalidEndpoints')
+          .optional(),
+      ])
+    )
+  )
+  .strict()
 
 export const connectionSchema = z.object({
   name: z.string().trim().min(1, 'channels.upstream.required'),
@@ -144,6 +260,18 @@ export function availableProfiles(
   protocol: keyof ImportedEndpointConfig,
   provider: string
 ): string[] {
+  const required = upstreamProtocols.find(
+    (p) => p.key === protocol
+  )?.requiredProfile
+  if (required) return [required]
+  if (protocol === 'imageGeneration' || protocol === 'imageEdit') {
+    const profiles =
+      protocol === 'imageGeneration'
+        ? ['minimax-image', 'modelscope-image']
+        : ['modelscope-image']
+    if (['codex', 'fenno'].includes(provider)) profiles.push('codex-image')
+    return profiles
+  }
   if (protocol === 'chat') return ['deepseek', 'zai']
   if (protocol === 'responses' && ['codex', 'fenno'].includes(provider)) {
     return ['codex']

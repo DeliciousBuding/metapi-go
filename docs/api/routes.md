@@ -9,16 +9,15 @@
 Returns `{items, members}` for imported and locally created direct-upstream channels. `items` contains
 channel ID, name, origin key, dialect, base URL, availability, protocol paths and
 model/credential counts. `members` connects group items to route, model and
-credential names and authorized outbound protocol bits (Chat 2, Responses 4,
-Messages 8, Gemini 16). Each member's `protocolOrder` restricts and orders that
+credential names and authorized outbound protocol bits listed below.
+Each member's `protocolOrder` restricts and orders that
 route item's outbound protocols; an empty list retains the grant's protocols.
-`items[].endpointConfig` contains optional `chat`, `responses`, `messages` and
-`gemini` entries with resolved `url`, `auth` (`bearer`, `x-api-key`, or
-`x-goog-api-key`), and optional Gemini `modelPath`. When `modelPath` is true,
-the URL is a models prefix and the selected model and generation action are
+`items[].endpointConfig` contains optional entries with resolved `url`, `auth`
+(`bearer`, `x-api-key`, or `x-goog-api-key`), and optional Gemini `modelPath`.
+When `modelPath` is true, the URL is a models prefix and the selected model and action are
 appended at execution; otherwise it is the exact upstream endpoint URL.
-The optional endpoint `profile` selects `codex`, `claudecode`, `deepseek`, or
-`zai` request handling. The channel's `provider` identifies its source provider;
+The optional endpoint `profile` selects provider-specific request handling.
+The channel's `provider` identifies its source provider;
 it is separate from its wire protocol and credential kind.
 This is configuration inventory, not a protocol-health probe. Credential values,
 custom headers and parameter overrides are never included.
@@ -31,6 +30,34 @@ backoff and are excluded from subsequent selection until that cooldown expires;
 success clears cooldown. Health is per model/credential grant, shared across its
 group memberships, and does not change unrelated grants. Imported historical
 statistics are retained separately and are not treated as live health evidence.
+
+| Endpoint key | Persisted protocol bit | Operation |
+| --- | ---: | --- |
+| `chat` | 2 | Chat Completions |
+| `responses` | 4 | Responses |
+| `messages` | 8 | Anthropic Messages |
+| `gemini` | 16 | Gemini generation |
+| `completions` | 32 | Legacy text completions |
+| `embeddings` | 64 | OpenAI embeddings |
+| `rerank` | 128 | Reranking |
+| `imageGeneration` | 256 | Image generation |
+| `imageEdit` | 512 | Image editing |
+| `imageVariation` | 1024 | Image variations |
+| `audioSpeech` | 2048 | Speech generation |
+| `audioTranscription` | 4096 | Audio transcription |
+| `audioTranslation` | 8192 | Audio translation |
+| `moderations` | 16384 | Content moderation |
+| `video` | 32768 | OpenAI-compatible video tasks |
+| `geminiEmbeddings` | 65536 | Native Gemini embeddings |
+| `jinaEmbeddings` | 131072 | Jina embeddings |
+| `modelscopeImageGeneration` | 262144 | ModelScope image generation |
+
+Non-generation requests require their configured capability and never fall back
+to a conversation endpoint. OpenAI/Jina embeddings and OpenAI/ModelScope image
+generation share a downstream operation but keep separate endpoint fields and
+permission bits. A member's order selects among its authorized formats without
+widening the grant. Gemini embeddings use native Gemini paths; converting an
+OpenAI embeddings body to Gemini is not implemented.
 
 Each member includes `grantId`, `channelEnabled`, `modelEnabled`,
 `credentialEnabled`, `grantEnabled`, `groupEnabled`, `routeEnabled`, and
@@ -93,9 +120,22 @@ gateway's configured system proxy when `channelProxy` is empty.
 
 `endpointConfig` replaces the whole object. Endpoint URLs are exact, credential-free
 HTTP(S) URLs; authentication is `bearer`, `x-api-key`, or `x-goog-api-key`.
-`modelPath` is only valid for Gemini. `codex` and `claudecode` profiles require
+`modelPath` is only valid for Gemini generation and embeddings. `codex` and `claudecode` profiles require
 their matching provider, protocol, and Bearer authentication; `deepseek` and `zai`
 profiles require Chat and Bearer. Empty profile keeps the generic wire contract.
+Media profiles require Bearer authentication:
+
+- `jina-embeddings` is required for `jinaEmbeddings`; omitted `task` defaults to
+  `text-matching`. It cannot be attached to the generic embeddings field.
+- `minimax-image` applies to image generation and translates the native MiniMax
+  request and result shapes, including application errors in HTTP 200 responses.
+- `modelscope-image` applies to image generation/editing and is required for
+  `modelscopeImageGeneration`. It submits and polls the task with the configured
+  credential; result downloads do not receive that credential.
+- `codex-image` applies to image generation/editing on Codex/Fenno. Its required
+  `requestModel` is the Responses model (maximum 255 bytes); the granted model
+  remains the image tool model. Other profiles cannot set `requestModel`.
+
 Endpoints still referenced by a grant and required provider profiles cannot be
 removed. Configured endpoints cannot silently revert to legacy base/path routing.
 Changing `baseUrl` does not rewrite exact URLs in `endpointConfig`.
@@ -110,8 +150,8 @@ again can overwrite local connection, credential, and membership edits.
 ### PATCH /api/imported-upstreams/members/:id
 
 Updates any of `priority` (signed int32), `weight` (positive int32), and
-`protocolOrder` (unique protocol bits 2/4/8/16). A non-empty order must be a subset
-of the immutable shared grant; an explicit empty array restores inheritance from
+`protocolOrder` (unique protocol bits from the table above). A non-empty order must be a subset
+of the shared grant; an explicit empty array restores inheritance from
 that grant. Omission retains the current restriction. Returns `{success, id}`.
 
 ### POST /api/imported-upstreams/members/:id/cooldown/clear
@@ -164,8 +204,10 @@ contract appear in this list.
 `POST /api/imported-upstreams/presets/resolve` accepts `{presetId,baseUrl}` and
 returns `{provider,endpointConfig}`. It resolves configuration locally without
 contacting an upstream. Resolve again after changing the base URL; do not reuse
-the previous host's endpoints. Custom hosts receive standard protocol handling
-unless the operator explicitly selects a profile. Invalid targets or unknown
+the previous host's endpoints. Domestic Chat profiles are applied only on their
+known hosts. A selected media preset retains its required wire adapter on custom
+hosts. New API excludes image variations, which its router does not implement;
+Coding Plan presets do not inherit a provider's media capabilities. Invalid targets or unknown
 presets return 400.
 
 ### Catalog operations

@@ -7,7 +7,6 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/service"
-	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -39,34 +38,26 @@ func resolveUpstreamPreset(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Invalid upstream base URL")
 		return
 	}
-	endpoint := func(protocol proxy.UpstreamEndpoint, auth string) *store.DirectEndpoint {
-		return &store.DirectEndpoint{URL: proxy.BuildUpstreamURL(base, proxy.PathForEndpoint(protocol)), Auth: auth}
-	}
-	var config store.DirectEndpoints
-	if len(preset.Protocols) == 0 {
+	config := service.UpstreamPresetEndpointPaths(preset.ID, preset.Platform)
+	if !config.IsConfigured() {
 		writeError(w, http.StatusBadRequest, "Preset has no executable endpoint contract")
 		return
 	}
-	for _, protocol := range preset.Protocols {
-		switch protocol {
-		case "chat":
-			config.Chat = endpoint(proxy.EndpointChat, store.DirectAuthBearer)
-			original, _ := url.Parse(preset.DefaultURL)
-			if original != nil && strings.EqualFold(original.Host, parsed.Host) {
-				config.Chat.Profile = service.NativeChatRequestProfile(base, preset.Platform)
-			}
-		case "responses":
-			config.Responses = endpoint(proxy.EndpointResponses, store.DirectAuthBearer)
-		case "messages":
-			auth := store.DirectAuthAPIKey
-			if preset.Platform == "new-api" {
-				auth = store.DirectAuthBearer
-			}
-			config.Messages = endpoint(proxy.EndpointMessages, auth)
-		case "gemini":
-			config.Gemini = endpoint(proxy.EndpointGemini, store.DirectAuthGoogle)
-			config.Gemini.ModelPath = true
+	for _, entry := range config.Entries() {
+		if entry.Endpoint == nil {
+			continue
 		}
+		endpointBase := base
+		if strings.HasPrefix(entry.Endpoint.URL, "/beta/") || strings.HasPrefix(entry.Endpoint.URL, "/v1beta/") {
+			// These sibling APIs retain their version even when the chosen
+			// OpenAI-compatible base ends in /v1.
+			endpointBase = strings.TrimSuffix(endpointBase, "/v1")
+		}
+		entry.Endpoint.URL = proxy.BuildUpstreamURL(endpointBase, entry.Endpoint.URL)
+	}
+	original, _ := url.Parse(preset.DefaultURL)
+	if config.Chat != nil && original != nil && strings.EqualFold(original.Host, parsed.Host) {
+		config.Chat.Profile = service.NativeChatRequestProfile(base, preset.Platform)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"provider": preset.Provider, "endpointConfig": config})
 }

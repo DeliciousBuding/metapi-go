@@ -149,7 +149,7 @@ export function UpstreamConnectionForm(props: {
             <FormItem>
               <FormLabel>{t('channels.imported.endpoints')}</FormLabel>
               <FormControl>
-                <div role='group' ref={field.ref}>
+                <div className='min-w-0' role='group' ref={field.ref}>
                   <UpstreamEndpointsEditor
                     value={field.value}
                     onChange={field.onChange}

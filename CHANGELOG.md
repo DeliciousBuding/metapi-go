@@ -25,6 +25,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 - 独立上游：支持从平台预设创建渠道，管理模型、凭据授权和路由组；导入渠道可添加本地记录，关联删除先预览影响并校验确认版本（#1396）。
 - 来源替换：预览新增 `removalImpact`；涉及本地或其他来源的关联记录时，提交须带 `X-External-Replacement-Revision`，影响变化返回 409；详见 API 文档（#1396）。
+- 独立上游：新增媒体、向量、音频与审核端点，导入保留格式权限；New API、Jina、MiniMax、ModelScope 等预设同步能力，配置按类别展开（#1396）。
+- 视频任务：新增 `/v1/videos/{id}/content`、`/remix`；`proxy_video_tasks.direct_identity` 保存任务归属并复查授权，创建后映射保存失败返回 502（#1396）。
 
 ### 修复
 

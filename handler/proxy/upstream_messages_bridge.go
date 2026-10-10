@@ -29,6 +29,9 @@ type messagesChatBody struct {
 	end                  error
 	readBuf              [4096]byte
 	readBytes, byteLimit int64
+	frameLimit           int64
+	skipOriginalAnalysis bool
+	boundaryScan         int
 }
 
 var errMessagesChatStreamLimit = fmt.Errorf("upstream stream exceeded configured byte limit")
@@ -45,6 +48,10 @@ func (b *messagesChatBody) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
+	frameLimit := b.frameLimit
+	if frameLimit <= 0 {
+		frameLimit = maxIncrementalSsePendingBytes
+	}
 	for len(b.output) == 0 {
 		if b.end != nil {
 			return 0, b.end
@@ -58,14 +65,18 @@ func (b *messagesChatBody) Read(p []byte) (int, error) {
 		}
 		b.readBytes += int64(n)
 		if n > 0 {
-			b.original.Push(b.readBuf[:n])
+			if !b.skipOriginalAnalysis {
+				b.original.Push(b.readBuf[:n])
+			}
 			b.pending = append(b.pending, b.readBuf[:n]...)
 			for {
-				boundary, sepLen := nextSseBoundary(string(b.pending))
+				boundary, sepLen := nextSseBoundary(string(b.pending[b.boundaryScan:]))
 				if boundary < 0 {
+					b.boundaryScan = max(len(b.pending)-3, 0)
 					break
 				}
-				if boundary > maxIncrementalSsePendingBytes {
+				boundary += b.boundaryScan
+				if int64(boundary) > frameLimit {
 					b.end = fmt.Errorf("Chat SSE frame exceeds the Messages bridge buffer limit")
 					break
 				}
@@ -76,8 +87,9 @@ func (b *messagesChatBody) Read(p []byte) (int, error) {
 				}
 				b.output = append(b.output, converted...)
 				b.pending = b.pending[boundary+sepLen:]
+				b.boundaryScan = 0
 			}
-			if len(b.pending) > maxIncrementalSsePendingBytes && b.end == nil {
+			if int64(len(b.pending)) > frameLimit && b.end == nil {
 				b.end = fmt.Errorf("Chat SSE frame exceeds the Messages bridge buffer limit")
 			}
 		}
@@ -96,7 +108,9 @@ func (b *messagesChatBody) Read(p []byte) (int, error) {
 						b.output = append(b.output, converted...)
 					}
 					// Account for a final SSE event terminated by EOF rather than a blank line.
-					b.original.Push([]byte("\n\n"))
+					if !b.skipOriginalAnalysis {
+						b.original.Push([]byte("\n\n"))
+					}
 				}
 				if b.end == io.EOF {
 					converted, err := b.stream.Finish()

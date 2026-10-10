@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next'
 import type { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
   FormControl,
@@ -41,6 +40,7 @@ import {
   modelsCreateSchema,
   modelNames,
 } from '../lib/upstream-model-schema'
+import { UpstreamCapabilityPicker } from './upstream-capability-picker'
 
 type DirtyProps = { onDirtyChange: (key: string, dirty: boolean) => void }
 
@@ -259,17 +259,7 @@ export function UpstreamGrantForm(
         }
         form.reset(
           props.grant
-            ? {
-                ...values,
-                protocols: form.formState.dirtyFields.protocols
-                  ? values.protocols
-                  : upstreamProtocols
-                      .filter((p) => p.bit & (props.grant?.protocols ?? 0))
-                      .map((p) => p.bit),
-                enabled: form.formState.dirtyFields.enabled
-                  ? values.enabled
-                  : props.grant.enabled,
-              }
+            ? form.getValues()
             : { credentialId: 0, protocols: [], enabled: true },
           { keepDirtyValues: false }
         )
@@ -350,40 +340,18 @@ export function UpstreamGrantForm(
             <FormItem>
               <FormLabel>{t('channels.catalog.allowedProtocols')}</FormLabel>
               <FormControl>
-                <div
-                  ref={field.ref}
-                  role='group'
-                  className='flex flex-wrap gap-2'
-                >
-                  {upstreamProtocols
-                    .filter(
-                      (p) =>
-                        props.availableProtocols.includes(p.bit) ||
-                        field.value.includes(p.bit)
-                    )
-                    .map((protocol) => (
-                      <label
-                        key={protocol.bit}
-                        className='flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs'
-                      >
-                        <Checkbox
-                          checked={field.value.includes(protocol.bit)}
-                          disabled={pending}
-                          onCheckedChange={(checked) =>
-                            field.onChange(
-                              checked
-                                ? [...field.value, protocol.bit]
-                                : field.value.filter(
-                                    (bit) => bit !== protocol.bit
-                                  )
-                            )
-                          }
-                        />
-                        {protocol.name}
-                      </label>
-                    ))}
+                <div ref={field.ref} role='group' className='space-y-3'>
+                  <UpstreamCapabilityPicker
+                    value={field.value}
+                    available={props.availableProtocols}
+                    onChange={field.onChange}
+                    disabled={pending}
+                  />
                 </div>
               </FormControl>
+              <p className='text-muted-foreground text-sm'>
+                {t('channels.capabilities.exactHint')}
+              </p>
               <FormMessage />
             </FormItem>
           )}
@@ -408,7 +376,11 @@ export function UpstreamGrantForm(
           <Button
             type='submit'
             size='sm'
-            disabled={pending || (!!props.grant && !dirty)}
+            disabled={
+              pending ||
+              (!!props.grant && !dirty) ||
+              (!props.grant && !props.credentials.length)
+            }
           >
             {t(
               props.grant

@@ -10,10 +10,24 @@ import (
 )
 
 const (
-	UpstreamProtocolChat      = 1 << 1
-	UpstreamProtocolResponses = 1 << 2
-	UpstreamProtocolAnthropic = 1 << 3
-	UpstreamProtocolGemini    = 1 << 4
+	UpstreamProtocolChat                      = store.DirectProtocolChat
+	UpstreamProtocolResponses                 = store.DirectProtocolResponses
+	UpstreamProtocolAnthropic                 = store.DirectProtocolMessages
+	UpstreamProtocolGemini                    = store.DirectProtocolGemini
+	UpstreamProtocolCompletions               = store.DirectProtocolCompletions
+	UpstreamProtocolEmbeddings                = store.DirectProtocolEmbeddings
+	UpstreamProtocolRerank                    = store.DirectProtocolRerank
+	UpstreamProtocolImageGeneration           = store.DirectProtocolImageGeneration
+	UpstreamProtocolImageEdit                 = store.DirectProtocolImageEdit
+	UpstreamProtocolImageVariation            = store.DirectProtocolImageVariation
+	UpstreamProtocolAudioSpeech               = store.DirectProtocolAudioSpeech
+	UpstreamProtocolAudioTranscription        = store.DirectProtocolAudioTranscription
+	UpstreamProtocolAudioTranslation          = store.DirectProtocolAudioTranslation
+	UpstreamProtocolModerations               = store.DirectProtocolModerations
+	UpstreamProtocolVideo                     = store.DirectProtocolVideo
+	UpstreamProtocolGeminiEmbeddings          = store.DirectProtocolGeminiEmbeddings
+	UpstreamProtocolJinaEmbeddings            = store.DirectProtocolJinaEmbeddings
+	UpstreamProtocolModelScopeImageGeneration = store.DirectProtocolModelScopeImageGeneration
 )
 
 // Catalog pricing provenance labels for cold-start cost routing.

@@ -180,6 +180,16 @@ func TestImportedManagementContract(t *testing.T) {
 			if _, err = db.Exec(db.Rebind(`UPDATE upstream_grants SET protocols=6 WHERE id=?`), grantID); err != nil {
 				t.Fatal(err)
 			}
+			// Inheritance restores the grant's executable endpoints, not an
+			// unconfigured permission bit. Provide both destinations before
+			// testing the member's narrower restriction and its removal.
+			inheritedEndpoints, _ := json.Marshal(map[string]any{"endpointConfig": store.DirectEndpoints{
+				Chat:      &store.DirectEndpoint{URL: upstream.URL + "/edited-chat", Auth: "bearer"},
+				Responses: &store.DirectEndpoint{URL: upstream.URL + "/responses", Auth: "bearer"},
+			}})
+			if out := request("PATCH", path, string(inheritedEndpoints)); out.Code != 200 {
+				t.Fatal(out.Body.String())
+			}
 			if out := request("PATCH", memberPath, `{"protocolOrder":[2]}`); out.Code != 200 {
 				t.Fatal(out.Body.String())
 			}

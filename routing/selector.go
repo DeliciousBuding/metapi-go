@@ -695,8 +695,14 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 			protocols &= allowed
 		}
 		required := policy.RequiredUpstreamProtocol
-		if required != 0 && policy.AllowUpstreamProtocolConversion && direct.Endpoints.IsConfigured() {
+		if required&store.DirectGenerationProtocols != 0 && policy.AllowUpstreamProtocolConversion && direct.Endpoints.IsConfigured() {
 			required = UpstreamProtocolChat | UpstreamProtocolResponses | UpstreamProtocolAnthropic | UpstreamProtocolGemini
+		}
+		if direct.Endpoints.IsConfigured() {
+			protocols &= direct.Endpoints.ProtocolMask()
+		}
+		if required != 0 && required&store.DirectGenerationProtocols == 0 && direct.Endpoints.ProtocolMask()&required == 0 {
+			protocols = 0
 		}
 		if required == 0 || protocols&required == 0 {
 			reasons = append(reasons, "direct upstream protocol not authorized")

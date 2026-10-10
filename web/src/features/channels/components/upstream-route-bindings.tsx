@@ -11,7 +11,6 @@ import { ModelPill } from '@/components/common/model-pill'
 import { useUpstreamDeletion } from '@/components/common/upstream-deletion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
   FormControl,
@@ -37,6 +36,7 @@ import {
   upstreamKeys,
   upstreamProtocols,
 } from '../lib/upstream-config'
+import { UpstreamCapabilityPicker } from './upstream-capability-picker'
 import { UpstreamGroupManager } from './upstream-group-manager'
 
 const memberSchema = z.object({
@@ -148,13 +148,25 @@ function MemberForm(props: {
             const allowed = upstreamProtocols.filter(
               (protocol) => props.member.protocols & protocol.bit
             )
+            const ordered = field.value.filter((bit) =>
+              upstreamProtocols.some((p) => p.bit === bit && p.convertible)
+            )
+            function protocolName(bit: number) {
+              const protocol = upstreamProtocols.find((p) => p.bit === bit)
+              return protocol
+                ? t(`channels.capabilities.names.${protocol.key}`)
+                : String(bit)
+            }
             function move(index: number, offset: number) {
-              const next = [...field.value]
+              const next = [...ordered]
               ;[next[index], next[index + offset]] = [
                 next[index + offset],
                 next[index],
               ]
-              field.onChange(next)
+              field.onChange([
+                ...next,
+                ...field.value.filter((bit) => !ordered.includes(bit)),
+              ])
             }
             return (
               <FormItem>
@@ -183,82 +195,59 @@ function MemberForm(props: {
                     </label>
                     {!inherited && (
                       <>
-                        <div className='flex flex-wrap gap-2'>
-                          {allowed.map((protocol) => (
-                            <label
-                              key={protocol.bit}
-                              className='flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs'
-                            >
-                              <Checkbox
-                                disabled={
-                                  pending ||
-                                  (field.value.length === 1 &&
-                                    field.value.includes(protocol.bit))
-                                }
-                                checked={field.value.includes(protocol.bit)}
-                                onCheckedChange={(checked) =>
-                                  field.onChange(
-                                    checked
-                                      ? [...field.value, protocol.bit]
-                                      : field.value.filter(
-                                          (bit) => bit !== protocol.bit
-                                        )
-                                  )
-                                }
-                              />
-                              {protocol.name}
-                            </label>
-                          ))}
-                        </div>
-                        <ol className='divide-y rounded-lg border'>
-                          {field.value.map((bit, index) => (
-                            <li
-                              key={bit}
-                              className='flex items-center gap-3 px-3 py-1.5'
-                            >
-                              <span className='text-muted-foreground text-xs tabular-nums'>
-                                {index + 1}
-                              </span>
-                              <span className='flex-1 text-sm'>
-                                {
-                                  upstreamProtocols.find(
-                                    (protocol) => protocol.bit === bit
-                                  )?.name
-                                }
-                              </span>
-                              <Button
-                                type='button'
-                                variant='ghost'
-                                size='icon-sm'
-                                disabled={pending || index === 0}
-                                aria-label={t('channels.upstream.moveUp', {
-                                  name: upstreamProtocols.find(
-                                    (protocol) => protocol.bit === bit
-                                  )?.name,
-                                })}
-                                onClick={() => move(index, -1)}
+                        <UpstreamCapabilityPicker
+                          value={field.value}
+                          available={allowed.map((protocol) => protocol.bit)}
+                          onChange={field.onChange}
+                          disabled={pending}
+                          minSelected={1}
+                        />
+                        <p className='text-muted-foreground text-sm'>
+                          {t('channels.capabilities.orderHint')}
+                        </p>
+                        {ordered.length > 1 && (
+                          <ol className='divide-y rounded-lg border'>
+                            {ordered.map((bit, index) => (
+                              <li
+                                key={bit}
+                                className='flex items-center gap-3 px-3 py-1.5'
                               >
-                                <ArrowUp className='size-3.5' />
-                              </Button>
-                              <Button
-                                type='button'
-                                variant='ghost'
-                                size='icon-sm'
-                                disabled={
-                                  pending || index === field.value.length - 1
-                                }
-                                aria-label={t('channels.upstream.moveDown', {
-                                  name: upstreamProtocols.find(
-                                    (protocol) => protocol.bit === bit
-                                  )?.name,
-                                })}
-                                onClick={() => move(index, 1)}
-                              >
-                                <ArrowDown className='size-3.5' />
-                              </Button>
-                            </li>
-                          ))}
-                        </ol>
+                                <span className='text-muted-foreground text-xs tabular-nums'>
+                                  {index + 1}
+                                </span>
+                                <span className='flex-1 text-sm'>
+                                  {protocolName(bit)}
+                                </span>
+                                <Button
+                                  type='button'
+                                  variant='ghost'
+                                  size='icon-sm'
+                                  disabled={pending || index === 0}
+                                  aria-label={t('channels.upstream.moveUp', {
+                                    name: protocolName(bit),
+                                  })}
+                                  onClick={() => move(index, -1)}
+                                >
+                                  <ArrowUp className='size-3.5' />
+                                </Button>
+                                <Button
+                                  type='button'
+                                  variant='ghost'
+                                  size='icon-sm'
+                                  disabled={
+                                    pending || index === ordered.length - 1
+                                  }
+                                  aria-label={t('channels.upstream.moveDown', {
+                                    name: protocolName(bit),
+                                  })}
+                                  onClick={() => move(index, 1)}
+                                >
+                                  <ArrowDown className='size-3.5' />
+                                </Button>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
                       </>
                     )}
                   </div>

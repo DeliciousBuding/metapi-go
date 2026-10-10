@@ -9,7 +9,7 @@ export type UpstreamPreset = {
   platform: string
   group: 'domestic' | 'coding' | 'gateway' | 'other'
   defaultUrl: string
-  protocols: Array<'chat' | 'responses' | 'messages' | 'gemini'>
+  protocols: Array<keyof ImportedEndpointConfig>
   recommendedModels: string[]
 }
 
