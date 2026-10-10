@@ -107,6 +107,8 @@ var nonAPIRouteAllowlist = map[string]string{
 	"POST /v1/audio/transcriptions":  "docs/api/proxy.md",
 	"POST /v1/audio/translations":    "docs/api/proxy.md",
 	"POST /v1/moderations":           "docs/api/proxy.md",
+	"POST /v1/systemone":             "docs/api/proxy.md", // Native TypeSafe JSON, independently authorized.
+	"POST /v1/alpha/search":          "docs/api/proxy.md", // Native Alpha Search JSON, independently authorized.
 	"POST /v1/videos":                "docs/api/proxy.md",
 	"GET /v1/videos/{id}":            "docs/api/proxy.md",
 	"DELETE /v1/videos/{id}":         "docs/api/proxy.md",

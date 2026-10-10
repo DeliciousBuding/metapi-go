@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// UpstreamPreset is a creation view of the existing site registry. It carries
-// no second copy of provider hosts, request paths or model recommendations.
+// UpstreamPreset reuses site defaults for shared providers. Native-only formats
+// are listed separately because the site adapters cannot execute those formats.
 type UpstreamPreset struct {
 	ID                string   `json:"id"`
 	Name              string   `json:"name"`
@@ -69,6 +69,10 @@ func ListUpstreamPresets() []UpstreamPreset {
 		}
 		groups[group] = append(groups[group], UpstreamPreset{ID: preset.ID, Name: preset.ProviderLabel, Label: preset.Label, Provider: provider, Platform: preset.Platform, Group: group, DefaultURL: preset.DefaultURL, Protocols: upstreamPresetProtocols(preset.ID, preset.Platform), RecommendedModels: append([]string{}, preset.RecommendedModels...)})
 	}
+	for _, preset := range nativeUpstreamPresets() {
+		preset.Protocols = upstreamPresetProtocols(preset.ID, preset.Platform)
+		groups[preset.Group] = append(groups[preset.Group], preset)
+	}
 	result := []UpstreamPreset{{ID: "new-api-connection", Name: "New API", Label: "New API", Provider: "new-api", Platform: "new-api", Group: "gateway", Protocols: upstreamPresetProtocols("new-api-connection", "new-api"), RecommendedModels: []string{}}}
 	for _, group := range []string{"domestic", "coding", "gateway", "other"} {
 		presets := groups[group]
@@ -96,6 +100,20 @@ func ListUpstreamPresets() []UpstreamPreset {
 		result = append(result, presets...)
 	}
 	return result
+}
+
+func nativeUpstreamPresets() []UpstreamPreset {
+	ark := GetSiteInitializationPreset("doubao-openai")
+	return []UpstreamPreset{
+		{ID: "seedance-video", Name: "Seedance", Label: "Seedance", Provider: "doubao", Platform: "doubao", Group: "domestic", DefaultURL: ark.DefaultURL, RecommendedModels: []string{}},
+		{ID: "zenmux-video", Name: "ZenMux", Label: "ZenMux Video", Provider: "zenmux_video", Platform: "zenmux", Group: "gateway", DefaultURL: "https://zenmux.ai/api/v1", RecommendedModels: []string{}},
+		{ID: "ollama-native", Name: "Ollama", Label: "Ollama", Provider: "ollama", Platform: "ollama", Group: "other", DefaultURL: "http://localhost:11434", RecommendedModels: []string{}},
+		{ID: "ollama-anthropic", Name: "Ollama", Label: "Ollama / Messages", Provider: "ollama_anthropic", Platform: "ollama", Group: "other", DefaultURL: "http://localhost:11434", RecommendedModels: []string{}},
+		{ID: "bedrock-messages", Name: "Amazon Bedrock", Label: "Amazon Bedrock", Provider: "anthropic_aws", Platform: "bedrock", Group: "other", DefaultURL: "https://bedrock-runtime.us-east-1.amazonaws.com", RecommendedModels: []string{}},
+		{ID: "typesafe-systemone", Name: "TypeSafe", Label: "TypeSafe System One", Provider: "typesafe", Platform: "typesafe", Group: "other", DefaultURL: "https://api.typesafe.ai/v1", RecommendedModels: []string{"jev-latest", "jev-preview"}},
+		{ID: "openai-alpha-search", Name: "Alpha Search", Label: "Alpha Search", Provider: "openai", Platform: "openai", Group: "other", RecommendedModels: []string{}},
+		{ID: "codex-alpha-search", Name: "Codex", Label: "Codex Alpha Search", Provider: "codex", Platform: "codex", Group: "other", DefaultURL: "https://chatgpt.com/backend-api/codex", RecommendedModels: []string{}},
+	}
 }
 
 func GetUpstreamPreset(id string) *UpstreamPreset {

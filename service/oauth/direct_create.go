@@ -10,6 +10,7 @@ import (
 )
 
 type DirectCredentialCreate struct {
+	Kind    string                  `json:"kind,omitempty"`
 	Name    string                  `json:"name"`
 	Enabled bool                    `json:"enabled"`
 	APIKey  *string                 `json:"apiKey"`
@@ -20,20 +21,23 @@ type DirectCredentialCreate struct {
 // Credential material is never returned by the management projection.
 func CreateDirectCredential(ctx context.Context, db *sqlx.DB, channelID int64, in DirectCredentialCreate) (DirectCredentialSummary, error) {
 	in.Name = strings.TrimSpace(in.Name)
-	if in.Name == "" || len(in.Name) > 200 || in.APIKey == nil && in.OAuth == nil || in.APIKey != nil && in.OAuth != nil {
+	if in.Name == "" || len(in.Name) > 200 {
 		return DirectCredentialSummary{}, ErrInvalidDirectCredential
 	}
 	out := DirectCredentialSummary{Name: in.Name, Enabled: in.Enabled, Ownership: "native"}
 	err := upstream.Write(ctx, db, func(tx *sqlx.Tx) error {
-		var provider string
-		query := `SELECT provider FROM upstream_channels WHERE id=?`
+		var channel struct {
+			Provider  string                `db:"provider"`
+			Endpoints store.DirectEndpoints `db:"endpoint_config"`
+		}
+		query := `SELECT provider,endpoint_config FROM upstream_channels WHERE id=?`
 		if tx.DriverName() == "pgx" {
 			query += " FOR UPDATE"
 		}
-		if err := tx.GetContext(ctx, &provider, tx.Rebind(query), channelID); err != nil {
+		if err := tx.GetContext(ctx, &channel, tx.Rebind(query), channelID); err != nil {
 			return err
 		}
-		secret, kind, state, err := directCredentialMaterial(provider, in.APIKey, in.OAuth)
+		secret, kind, state, err := directCredentialMaterial(channel.Provider, channel.Endpoints, in.Kind, in.APIKey, in.OAuth)
 		if err != nil {
 			return err
 		}
@@ -46,8 +50,17 @@ func CreateDirectCredential(ctx context.Context, db *sqlx.DB, channelID int64, i
 	return out, err
 }
 
-func directCredentialMaterial(provider string, key *string, oauth *DirectOAuthReplacement) (string, string, store.DirectOAuthState, error) {
+func directCredentialMaterial(provider string, endpoints store.DirectEndpoints, kind string, key *string, oauth *DirectOAuthReplacement) (string, string, store.DirectOAuthState, error) {
 	state := store.DirectOAuthState{}
+	if kind == store.DirectCredentialNone {
+		if key != nil || oauth != nil || !store.DirectProviderAllowsAnonymous(provider) || endpoints.AnonymousProtocolMask() == 0 {
+			return "", "", state, ErrInvalidDirectCredential
+		}
+		return "", store.DirectCredentialNone, state, nil
+	}
+	if kind != "" && (kind != store.DirectCredentialAPIKey || key == nil) && (kind != store.DirectCredentialOAuth || oauth == nil) {
+		return "", "", state, ErrInvalidDirectCredential
+	}
 	if key != nil && oauth != nil || key == nil && oauth == nil {
 		return "", "", state, ErrInvalidDirectCredential
 	}

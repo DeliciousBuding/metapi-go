@@ -61,7 +61,7 @@ func TestAxonHubEndpointsMergeAndAuthentication(t *testing.T) {
 		{"commandcode_anthropic", false, store.DirectAuthBearer},
 	} {
 		t.Run(tc.provider+map[bool]string{true: " custom", false: " default"}[tc.custom], func(t *testing.T) {
-			ch := AxonHubSourceChannel{Type: tc.provider, BaseURL: "https://provider.invalid"}
+			ch := AxonHubSourceChannel{Type: tc.provider, BaseURL: "https://provider.invalid", Credentials: AxonHubSourceCredentials{APIKey: "fixture-key"}}
 			if tc.custom {
 				ch.Endpoints = []AxonHubSourceEndpoint{{APIFormat: "anthropic/messages"}}
 			}

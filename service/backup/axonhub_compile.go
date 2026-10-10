@@ -151,6 +151,9 @@ func CompileAxonHubPlan(src *AxonHubSource) (*axonHubPlan, error) {
 	for _, channel := range plan.channels {
 		for i, secret := range channel.CredentialKeys {
 			kind := store.DirectCredentialAPIKey
+			if secret == "" {
+				kind = store.DirectCredentialNone
+			}
 			state := store.DirectOAuthState{}
 			if channel.OAuthState != nil {
 				kind = store.DirectCredentialOAuth
@@ -277,6 +280,9 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 	}
 	if channel.Credentials.OAuth && axonHubOAuthProvider(channel.Type) {
 		for _, endpoint := range channel.Endpoints {
+			if channel.Type == "codex" && endpoint.APIFormat == "openai/alpha_search" {
+				continue
+			}
 			if (channel.Type == "codex" || channel.Type == "fenno") && (endpoint.APIFormat == "openai/responses" || endpoint.APIFormat == "openai/image_generation" || endpoint.APIFormat == "openai/image_edit") {
 				continue
 			}
@@ -302,7 +308,13 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		}
 	}
 	if len(keys) == 0 {
-		reasons = append(reasons, "credential_missing")
+		if axonHubOptionalAuth(channel) {
+			// An empty secret is the explicit no-auth credential. Never replace
+			// configured but disabled keys with an anonymous grant.
+			keys = []string{""}
+		} else {
+			reasons = append(reasons, "credential_missing")
+		}
 	}
 	if len(reasons) > 0 {
 		return nil, uniquifyReasons(reasons), nil

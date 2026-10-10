@@ -264,6 +264,17 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 				return
 			}
 		}
+		var anonymousMasks []int
+		if err = tx.SelectContext(r.Context(), &anonymousMasks, tx.Rebind(`SELECT g.protocols FROM upstream_grants g JOIN upstream_credentials k ON k.id=g.credential_id WHERE k.channel_id=? AND k.kind=?`), id, store.DirectCredentialNone); err != nil {
+			importedReadError(w, err)
+			return
+		}
+		for _, mask := range anonymousMasks {
+			if mask&row.Endpoints.AnonymousProtocolMask() != mask {
+				writeError(w, 400, "Endpoints used by anonymous grants must retain anonymous authentication")
+				return
+			}
+		}
 	}
 	args = append(args, id)
 	if _, err = tx.ExecContext(r.Context(), tx.Rebind(`UPDATE upstream_channels SET `+strings.Join(set, ",")+` WHERE id=?`), args...); err != nil {
@@ -307,7 +318,7 @@ func validateImportedConfig(row importedChannelConfig) error {
 		if !validImportedURL(ep.URL, false) {
 			return fmt.Errorf("Invalid endpoint URL")
 		}
-		if (ep.Profile == "codex" || ep.Profile == "codex-image") && row.Provider != "codex" && row.Provider != "fenno" || ep.Profile == "claudecode" && row.Provider != "claudecode" {
+		if (ep.Profile == "codex" || ep.Profile == "codex-image" || ep.Profile == "codex-alpha-search") && row.Provider != "codex" && row.Provider != "fenno" || ep.Profile == "claudecode" && row.Provider != "claudecode" {
 			return fmt.Errorf("Endpoint profile does not match the provider and protocol")
 		}
 	}

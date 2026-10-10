@@ -2,7 +2,7 @@ import { request } from './transport'
 
 export type ImportedEndpoint = {
   url: string
-  auth: 'bearer' | 'x-api-key' | 'x-goog-api-key'
+  auth: 'bearer' | 'x-api-key' | 'x-goog-api-key' | 'none'
   modelPath?: boolean
   profile?:
     | 'codex'
@@ -13,6 +13,12 @@ export type ImportedEndpoint = {
     | 'minimax-image'
     | 'modelscope-image'
     | 'codex-image'
+    | 'ollama'
+    | 'ollama-messages'
+    | 'bedrock'
+    | 'seedance-video'
+    | 'zenmux-video'
+    | 'codex-alpha-search'
   requestModel?: string
 }
 
@@ -35,7 +41,12 @@ export type ImportedEndpointConfig = Partial<
     | 'video'
     | 'geminiEmbeddings'
     | 'jinaEmbeddings'
-    | 'modelscopeImageGeneration',
+    | 'modelscopeImageGeneration'
+    | 'seedanceVideo'
+    | 'zenmuxVideo'
+    | 'ollama'
+    | 'systemOne'
+    | 'alphaSearch',
     ImportedEndpoint
   >
 >
@@ -86,7 +97,7 @@ export type ImportedCredential = {
   id: number
   name: string
   enabled: boolean
-  kind: 'api_key' | 'oauth'
+  kind: 'api_key' | 'oauth' | 'none'
   expiresAt?: number // Unix milliseconds
   canRefresh: boolean
 }
@@ -95,6 +106,7 @@ export type ImportedCredentialUpdate = {
   name?: string
   enabled?: boolean
   apiKey?: string
+  kind?: 'api_key' | 'oauth' | 'none'
   oauth?: {
     accessToken: string
     refreshToken?: string
@@ -128,7 +140,7 @@ export type ImportedUpstreamInventory = {
     modelName: string
     credentialName: string
     credentialId?: number
-    credentialKind?: 'api_key' | 'oauth'
+    credentialKind?: 'api_key' | 'oauth' | 'none'
     credentialEnabled: boolean
     grantId?: number
     channelEnabled?: boolean

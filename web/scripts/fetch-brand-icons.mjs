@@ -78,6 +78,9 @@ const ICON_KEYS = [
   'modelscope-color',
   'ppio-color',
   'qiniu-color',
+  'ollama',
+  'bedrock',
+  'zenmux',
 ]
 
 const results = { ok: 0, missing: [] }

@@ -20,6 +20,7 @@ export function UpstreamCapabilityPicker(props: {
   onChange: (value: number[]) => void
   disabled?: boolean
   minSelected?: number
+  unavailableLabel?: string
 }) {
   const { t } = useTranslation()
   const visible = upstreamProtocols.filter(
@@ -78,10 +79,11 @@ export function UpstreamCapabilityPicker(props: {
                         )
                       }
                     />
-                    {t(`channels.capabilities.names.${protocol.key}`)}
+                    {t(`channels.capabilities.names.${protocol.key}`)}{' '}
                     {!props.available.includes(protocol.bit) && (
                       <span className='text-warning-soft-fg'>
-                        {t('channels.capabilities.notConfigured')}
+                        {props.unavailableLabel ??
+                          t('channels.capabilities.notConfigured')}
                       </span>
                     )}
                   </label>

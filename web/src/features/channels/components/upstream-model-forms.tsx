@@ -209,6 +209,7 @@ export function UpstreamGrantForm(
     grant?: UpstreamGrant
     credentials: ImportedCredential[]
     availableProtocols: number[]
+    anonymousProtocols?: number[]
     members: ImportedMember[]
     onCreated?: () => void
   }
@@ -229,6 +230,13 @@ export function UpstreamGrantForm(
     },
   })
   const [saving, setSaving] = useState(false)
+  const credentialId = form.watch('credentialId')
+  const anonymous =
+    props.credentials.find((credential) => credential.id === credentialId)
+      ?.kind === 'none'
+  const availableProtocols = anonymous
+    ? (props.anonymousProtocols ?? [])
+    : props.availableProtocols
   const submitting = useRef(false)
   const pending = saving || form.formState.isSubmitting
   const dirty = form.formState.isDirty
@@ -240,6 +248,15 @@ export function UpstreamGrantForm(
   }, [dirty, onDirtyChange, props.grant?.id, props.modelId])
   async function save(values: z.infer<typeof grantSchema>) {
     if (submitting.current) return
+    if (
+      anonymous &&
+      values.protocols.some((bit) => !availableProtocols.includes(bit))
+    ) {
+      form.setError('protocols', {
+        message: 'channels.capabilities.anonymousProtocols',
+      })
+      return
+    }
     submitting.current = true
     setSaving(true)
     try {
@@ -305,6 +322,12 @@ export function UpstreamGrantForm(
                 <FormLabel>{t('channels.upstream.credentials')}</FormLabel>
                 <Select
                   value={field.value ? String(field.value) : ''}
+                  items={props.credentials.map((credential) => ({
+                    value: String(credential.id),
+                    label: credential.enabled
+                      ? credential.name
+                      : `${credential.name} · ${t('channels.imported.disabled')}`,
+                  }))}
                   onValueChange={(value) => field.onChange(Number(value))}
                   disabled={pending}
                 >
@@ -343,15 +366,17 @@ export function UpstreamGrantForm(
                 <div ref={field.ref} role='group' className='space-y-3'>
                   <UpstreamCapabilityPicker
                     value={field.value}
-                    available={props.availableProtocols}
+                    available={availableProtocols}
+                    unavailableLabel={
+                      anonymous
+                        ? t('channels.capabilities.authMismatch')
+                        : undefined
+                    }
                     onChange={field.onChange}
                     disabled={pending}
                   />
                 </div>
               </FormControl>
-              <p className='text-muted-foreground text-sm'>
-                {t('channels.capabilities.exactHint')}
-              </p>
               <FormMessage />
             </FormItem>
           )}

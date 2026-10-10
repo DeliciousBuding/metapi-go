@@ -45,20 +45,24 @@ type SurfResult struct {
 
 // Ctx holds all context needed for a proxy request.
 type Ctx struct {
-	videoTask      *directVideoTask
-	Auth           *auth.ProxyAuthContext
-	Policy         auth.DownstreamRoutingPolicy
-	Body           map[string]any
-	RawBody        []byte // raw request body bytes for zero-copy model swap in upstream
-	Headers        map[string]string
-	ClientCtx      proxy.DownstreamClientContext
-	DownstreamPath string
-	RequestedModel string
-	SurfaceFormat  string
-	IsStream       bool
-	Multipart      bool
-	Retries        int
-	MaxRetries     int
+	videoTask            *directVideoTask
+	videoAccountingTask  *directVideoTask
+	videoAccounting      *directVideoAccounting
+	videoAccountingError error
+	videoUsageVerified   bool
+	Auth                 *auth.ProxyAuthContext
+	Policy               auth.DownstreamRoutingPolicy
+	Body                 map[string]any
+	RawBody              []byte // raw request body bytes for zero-copy model swap in upstream
+	Headers              map[string]string
+	ClientCtx            proxy.DownstreamClientContext
+	DownstreamPath       string
+	RequestedModel       string
+	SurfaceFormat        string
+	IsStream             bool
+	Multipart            bool
+	Retries              int
+	MaxRetries           int
 	// ForcedChannelID pins channel selection to a specific route channel when set
 	// (video mapping, tester selection, or Messages bridge continuation).
 	// When non-nil and >0, SelectProxyChannelForAttempt uses SelectPreferredChannel

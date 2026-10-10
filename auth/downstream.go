@@ -22,6 +22,7 @@ import (
 // On success (OK=true): Source, Token, Key (maybe nil for global), and Policy are populated.
 // On failure (OK=false): StatusCode, Error, and Reason are populated.
 type DownstreamTokenAuthResult struct {
+	taskRead   bool
 	OK         bool
 	Source     string                  // "managed" | "global" (when OK)
 	Token      string                  // normalized token (when OK)
@@ -83,6 +84,10 @@ type managedKeyView struct {
 // a. Match → return global result
 // b. No match → 403, reason: "invalid"
 func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) DownstreamTokenAuthResult {
+	return authorizeDownstreamToken(token, rt, "")
+}
+
+func authorizeDownstreamToken(token string, rt *config.RuntimeSettings, videoReadID string) DownstreamTokenAuthResult {
 	normalized := strings.TrimSpace(token)
 	if normalized == "" {
 		return DownstreamTokenAuthResult{
@@ -132,8 +137,10 @@ func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) Downstre
 			}
 		}
 
-		// Check max cost
-		if managed.MaxCost != nil && managed.UsedCost >= *managed.MaxCost {
+		taskRead := ownsDirectVideoTask(videoReadID, &ProxyAuthContext{Source: "managed", Token: normalized, KeyID: &managed.ID})
+		// Already admitted owned tasks remain retrievable when generation budget
+		// is exhausted. Identity, expiry, IP and route policies still apply.
+		if !taskRead && managed.MaxCost != nil && managed.UsedCost >= *managed.MaxCost {
 			// 429 insufficient_quota (OpenAI convention for exhausted
 			// per-key budget), not 403.
 			return DownstreamTokenAuthResult{
@@ -145,7 +152,7 @@ func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) Downstre
 		}
 
 		// Check max requests
-		if managed.MaxRequests != nil && managed.UsedRequests >= *managed.MaxRequests {
+		if !taskRead && managed.MaxRequests != nil && managed.UsedRequests >= *managed.MaxRequests {
 			// 429 insufficient_quota (OpenAI convention for exhausted
 			// per-key budget), not 403.
 			return DownstreamTokenAuthResult{
@@ -156,7 +163,7 @@ func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) Downstre
 			}
 		}
 
-		if managed.AccessPolicy != nil && managed.AccessPolicy.Quota != nil {
+		if !taskRead && managed.AccessPolicy != nil && managed.AccessPolicy.Quota != nil {
 			if result := checkManagedKeyQuota(managed.ID, managed.AccessPolicy.Quota); !result.OK {
 				return result
 			}
@@ -166,11 +173,12 @@ func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) Downstre
 		policy := toPolicyFromView(managed)
 
 		return DownstreamTokenAuthResult{
-			OK:     true,
-			Source: "managed",
-			Token:  normalized,
-			Key:    managed,
-			Policy: policy,
+			OK:       true,
+			taskRead: taskRead,
+			Source:   "managed",
+			Token:    normalized,
+			Key:      managed,
+			Policy:   policy,
 		}
 	}
 

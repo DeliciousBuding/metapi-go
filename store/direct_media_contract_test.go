@@ -27,6 +27,17 @@ func TestDirectMediaProfileContracts(t *testing.T) {
 		{"ordinary model override", "imageGeneration", "", DirectAuthBearer, "gpt-6-luna", false, false},
 		{"native gemini", "geminiEmbeddings", "", DirectAuthGoogle, "", true, true},
 		{"ordinary model path", "embeddings", "", DirectAuthBearer, "", true, false},
+		{"ollama bearer", "ollama", "ollama", DirectAuthBearer, "", false, true},
+		{"ollama anonymous", "ollama", "ollama", DirectAuthNone, "", false, true},
+		{"ollama missing profile", "ollama", "", DirectAuthBearer, "", false, false},
+		{"ollama messages", "messages", "ollama-messages", DirectAuthNone, "", false, true},
+		{"no anonymous generic endpoint", "chat", "", DirectAuthNone, "", false, false},
+		{"bedrock model prefix", "messages", "bedrock", DirectAuthBearer, "", true, true},
+		{"bedrock missing model prefix", "messages", "bedrock", DirectAuthBearer, "", false, false},
+		{"seedance", "seedanceVideo", "seedance-video", DirectAuthBearer, "", false, true},
+		{"zenmux video", "zenmuxVideo", "zenmux-video", DirectAuthBearer, "", false, true},
+		{"native video wrong slot", "video", "seedance-video", DirectAuthBearer, "", false, false},
+		{"codex search", "alphaSearch", "codex-alpha-search", DirectAuthBearer, "", false, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -60,7 +71,7 @@ func TestDirectMediaProtocolOrderRetainsIndependentFormats(t *testing.T) {
 			t.Fatal("order changed")
 		}
 	}
-	for _, invalid := range []string{"[64,64]", "[1]", "[524288]", "[192]"} {
+	for _, invalid := range []string{"[64,64]", "[1]", "[16777216]", "[192]"} {
 		if loaded.Scan(invalid) == nil {
 			t.Fatalf("accepted invalid order %s", invalid)
 		}

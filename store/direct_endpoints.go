@@ -13,7 +13,7 @@ import (
 type DirectEndpoint struct {
 	URL  string `json:"url"`
 	Auth string `json:"auth"`
-	// ModelPath appends the native Gemini model/action to a resolved models URL.
+	// ModelPath appends the native Gemini or Bedrock model/action to its prefix.
 	// Custom endpoint URLs remain exact when false.
 	ModelPath bool   `json:"modelPath,omitempty"`
 	Profile   string `json:"profile,omitempty"`
@@ -26,6 +26,7 @@ const (
 	DirectAuthBearer = "bearer"
 	DirectAuthAPIKey = "x-api-key"
 	DirectAuthGoogle = "x-goog-api-key"
+	DirectAuthNone   = "none"
 )
 
 // DirectEndpoints is optional for imports that use the original base/path
@@ -49,10 +50,39 @@ type DirectEndpoints struct {
 	GeminiEmbeddings          *DirectEndpoint `json:"geminiEmbeddings,omitempty"`
 	JinaEmbeddings            *DirectEndpoint `json:"jinaEmbeddings,omitempty"`
 	ModelScopeImageGeneration *DirectEndpoint `json:"modelscopeImageGeneration,omitempty"`
+	SeedanceVideo             *DirectEndpoint `json:"seedanceVideo,omitempty"`
+	ZenmuxVideo               *DirectEndpoint `json:"zenmuxVideo,omitempty"`
+	Ollama                    *DirectEndpoint `json:"ollama,omitempty"`
+	SystemOne                 *DirectEndpoint `json:"systemOne,omitempty"`
+	AlphaSearch               *DirectEndpoint `json:"alphaSearch,omitempty"`
+}
+
+var requiredDirectProfiles = map[int]string{
+	DirectProtocolJinaEmbeddings:            "jina-embeddings",
+	DirectProtocolModelScopeImageGeneration: "modelscope-image",
+	DirectProtocolSeedanceVideo:             "seedance-video",
+	DirectProtocolZenmuxVideo:               "zenmux-video",
+	DirectProtocolOllama:                    "ollama",
 }
 
 func (e DirectEndpoints) IsConfigured() bool {
 	return e.ProtocolMask() != 0
+}
+
+// AnonymousProtocolMask is deliberately narrower than the endpoint mask.
+// A credential without secret material cannot authorize authenticated slots.
+func (e DirectEndpoints) AnonymousProtocolMask() int {
+	mask := 0
+	for _, entry := range e.Entries() {
+		if ep := entry.Endpoint; ep != nil && ep.Auth == DirectAuthNone && (ep.Profile == "ollama" || ep.Profile == "ollama-messages") {
+			mask |= entry.Protocol
+		}
+	}
+	return mask
+}
+
+func DirectProviderAllowsAnonymous(provider string) bool {
+	return provider == "ollama" || provider == "ollama_anthropic"
 }
 
 func (e DirectEndpoints) Value() (driver.Value, error) {
@@ -86,16 +116,19 @@ func (e *DirectEndpoints) Scan(value any) error {
 		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.Fragment != "" || u.RawQuery != "" {
 			return fmt.Errorf("invalid direct endpoint URL")
 		}
-		if endpoint.Auth != DirectAuthBearer && endpoint.Auth != DirectAuthAPIKey && endpoint.Auth != DirectAuthGoogle {
+		if endpoint.Auth != DirectAuthBearer && endpoint.Auth != DirectAuthAPIKey && endpoint.Auth != DirectAuthGoogle && endpoint.Auth != DirectAuthNone {
 			return fmt.Errorf("invalid direct endpoint authentication")
 		}
-		if endpoint.ModelPath && endpoint != decoded.Gemini && endpoint != decoded.GeminiEmbeddings {
-			return fmt.Errorf("model paths require a Gemini endpoint")
+		if endpoint.Auth == DirectAuthNone && endpoint.Profile != "ollama" && endpoint.Profile != "ollama-messages" {
+			return fmt.Errorf("unauthenticated endpoints require an Ollama wire profile")
+		}
+		if endpoint.ModelPath && endpoint != decoded.Gemini && endpoint != decoded.GeminiEmbeddings && !(endpoint == decoded.Messages && endpoint.Profile == "bedrock") {
+			return fmt.Errorf("model paths require a Gemini or Bedrock endpoint")
 		}
 		if endpoint.RequestModel != "" && endpoint.Profile != "codex-image" {
 			return fmt.Errorf("request model is only supported by the Codex image profile")
 		}
-		if entry.Protocol == DirectProtocolJinaEmbeddings && endpoint.Profile != "jina-embeddings" || entry.Protocol == DirectProtocolModelScopeImageGeneration && endpoint.Profile != "modelscope-image" {
+		if required := requiredDirectProfiles[entry.Protocol]; required != "" && endpoint.Profile != required {
 			return fmt.Errorf("provider-specific endpoint requires its wire profile")
 		}
 		switch endpoint.Profile {
@@ -111,6 +144,24 @@ func (e *DirectEndpoints) Scan(value any) error {
 		case "deepseek", "zai":
 			if endpoint != decoded.Chat || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("chat profile requires bearer Chat")
+			}
+		case "ollama", "ollama-messages":
+			validSlot := endpoint.Profile == "ollama" && entry.Protocol == DirectProtocolOllama || endpoint.Profile == "ollama-messages" && entry.Protocol == DirectProtocolMessages
+			if !validSlot || (endpoint.Auth != DirectAuthBearer && endpoint.Auth != DirectAuthNone) {
+				return fmt.Errorf("Ollama profile requires its native endpoint and optional bearer authentication")
+			}
+		case "bedrock":
+			if entry.Protocol != DirectProtocolMessages || endpoint.Auth != DirectAuthBearer || !endpoint.ModelPath {
+				return fmt.Errorf("Bedrock requires bearer Messages and a model URL prefix")
+			}
+		case "seedance-video", "zenmux-video":
+			validSlot := endpoint.Profile == "seedance-video" && entry.Protocol == DirectProtocolSeedanceVideo || endpoint.Profile == "zenmux-video" && entry.Protocol == DirectProtocolZenmuxVideo
+			if !validSlot || endpoint.Auth != DirectAuthBearer {
+				return fmt.Errorf("native video profile requires its matching bearer endpoint")
+			}
+		case "codex-alpha-search":
+			if entry.Protocol != DirectProtocolAlphaSearch || endpoint.Auth != DirectAuthBearer {
+				return fmt.Errorf("Codex alpha search requires its bearer endpoint")
 			}
 		case "jina-embeddings":
 			if entry.Protocol != DirectProtocolJinaEmbeddings || endpoint.Auth != DirectAuthBearer {

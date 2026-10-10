@@ -52,6 +52,9 @@ func TestUpstreamMediaCatalogPersistenceAndRestriction(t *testing.T) {
 			endpoints.ModelScopeImageGeneration = &store.DirectEndpoint{URL: "/modelscope/images/generations", Auth: store.DirectAuthBearer, Profile: "modelscope-image"}
 			var bits []int
 			for _, entry := range endpoints.Entries() {
+				if entry.Endpoint == nil {
+					continue
+				}
 				entry.Endpoint.URL = "https://relay.example" + entry.Endpoint.URL
 				bits = append(bits, entry.Protocol)
 			}
@@ -73,7 +76,7 @@ func TestUpstreamMediaCatalogPersistenceAndRestriction(t *testing.T) {
 				t.Fatal("persisted endpoint fields diverged")
 			}
 			var grantMask int
-			if err := db.Get(&grantMask, db.Rebind(`SELECT protocols FROM upstream_grants WHERE id=?`), grantID); err != nil || grantMask != store.DirectAllProtocols {
+			if err := db.Get(&grantMask, db.Rebind(`SELECT protocols FROM upstream_grants WHERE id=?`), grantID); err != nil || grantMask != (1<<19)-2 {
 				t.Fatalf("grant mask = %d, err=%v", grantMask, err)
 			}
 			// Shrinking configuration or a grant cannot silently change an

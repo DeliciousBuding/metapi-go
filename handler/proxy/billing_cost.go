@@ -12,6 +12,18 @@ type BillingCostResult struct {
 	BillingDetails map[string]any
 }
 
+// Direct grants use normalized OpenAI billing attribution, as proxy logs did
+// before task accounting. Keep the ledger, logs and health-cost feed identical.
+func selectedBillingPlatform(selected *routing.SelectedChannel) string {
+	if selected == nil {
+		return ""
+	}
+	if selected.Direct != nil {
+		return "openai"
+	}
+	return selected.Site.Platform
+}
+
 // EstimateBillingCostFromUsage builds estimated_cost + billing_details for proxy_logs.
 func EstimateBillingCostFromUsage(modelName, platform string, usage ParsedUsage) BillingCostResult {
 	total := usage.TotalTokens

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
@@ -28,6 +29,12 @@ func directProxyConfig(raw, channelProxy string, useSystemProxy bool, client htt
 	}
 	for _, header := range headers {
 		if header.Key == "" {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(header.Key)) {
+		case "authorization", "x-api-key", "x-goog-api-key":
+			// Proxy transports apply custom headers again. Authentication has
+			// one owner: the selected endpoint and freshly resolved credential.
 			continue
 		}
 		value, ok := httpclient.ExpandClientHeaderTemplate(header.Value, client)

@@ -15,6 +15,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
+	"github.com/deliciousbuding/metapi-go/transform/ollama"
 	"github.com/deliciousbuding/metapi-go/transform/openai/responses"
 	"github.com/google/uuid"
 )
@@ -48,6 +49,23 @@ func prepareDirectProviderWire(endpoint *store.DirectEndpoint, channelID int64, 
 	}
 	wire.Profile = endpoint.Profile
 	switch endpoint.Profile {
+	case "ollama":
+		var err error
+		wire.Body, err = ollama.FromChatRequest(body)
+		if err != nil {
+			return nil, err
+		}
+	case "ollama-messages":
+	case "bedrock":
+		var err error
+		wire.Body, err = prepareDirectBedrockRequest(body, downstream)
+		if err != nil {
+			return nil, err
+		}
+		buildDirectBedrockHeaders(wire.Headers)
+	case "codex-alpha-search":
+		buildDirectCodexHeaders(wire.Headers, downstream, credential, endpoint.URL)
+		wire.Headers.Set("Accept", "application/json")
 	case "jina-embeddings":
 		var err error
 		wire.Body, err = prepareJinaEmbeddings(body)
@@ -91,7 +109,7 @@ func applyDirectProviderHeaders(req *http.Request, wire *directProviderWire) {
 	if wire == nil {
 		return
 	}
-	if wire.Profile == "codex" || wire.Profile == "codex-image" {
+	if wire.Profile == "codex" || wire.Profile == "codex-image" || wire.Profile == "codex-alpha-search" {
 		req.Header.Del("X-Openai-Internal-Codex-Responses-Lite")
 		req.Header.Del("Session_id")
 	}
@@ -103,7 +121,7 @@ func applyDirectProviderHeaders(req *http.Request, wire *directProviderWire) {
 		query[name] = append([]string(nil), values...)
 	}
 	req.URL.RawQuery = query.Encode()
-	if (wire.Profile == "codex" || wire.Profile == "codex-image") && wire.Headers.Get("Chatgpt-Account-Id") == "" {
+	if (wire.Profile == "codex" || wire.Profile == "codex-image" || wire.Profile == "codex-alpha-search") && wire.Headers.Get("Chatgpt-Account-Id") == "" {
 		req.Header.Del("Chatgpt-Account-Id")
 	}
 }

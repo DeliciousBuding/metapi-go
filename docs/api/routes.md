@@ -51,6 +51,11 @@ statistics are retained separately and are not treated as live health evidence.
 | `geminiEmbeddings` | 65536 | Native Gemini embeddings |
 | `jinaEmbeddings` | 131072 | Jina embeddings |
 | `modelscopeImageGeneration` | 262144 | ModelScope image generation |
+| `seedanceVideo` | 524288 | Seedance video tasks |
+| `zenmuxVideo` | 1048576 | ZenMux video tasks |
+| `ollama` | 2097152 | Native Ollama Chat |
+| `systemOne` | 4194304 | TypeSafe System One |
+| `alphaSearch` | 8388608 | Alpha Search |
 
 Non-generation requests require their configured capability and never fall back
 to a conversation endpoint. OpenAI/Jina embeddings and OpenAI/ModelScope image
@@ -67,7 +72,8 @@ may appear in more than one group, so changing its credential or clearing its
 cooldown affects every membership.
 
 Channels with an explicit `endpointConfig` can translate generation requests
-from any of the four client protocols. Legacy base/path grants retain their
+from any of the four client protocols, including an Ollama outbound endpoint.
+Legacy base/path grants retain their
 original protocol permission checks. Selection prefers
 the client's protocol when it is in the route item's allowed list, otherwise the
 first allowed outbound protocol is converted using the existing transform
@@ -89,6 +95,14 @@ Messages-to-Chat tools, hidden reasoning is retained in the bounded process-loca
 replay cache, scoped to the client, route, model, credential and wire settings.
 The next tool turn must reach that process; expired state, changed credentials or
 permissions fail explicitly instead of silently dropping the tool history.
+
+Ollama uses `/api/chat` JSON or NDJSON and converts through the Chat bridge.
+Streaming requires a real `done:true` event; errors, truncation and cancellation
+do not become successful terminal responses. Native thinking and tool history
+use the same scoped Messages replay cache. `store:false` is stateless;
+`store:true` is unsupported. Bedrock Messages uses Bearer API keys and native
+invoke paths, with bounded, CRC-checked AWS EventStream decoding for streaming.
+It does not implement SigV4 or `count_tokens`.
 
 ### GET /api/imported-upstreams/:id
 
@@ -119,11 +133,12 @@ Only supported client-header templates are accepted. `useSystemProxy` selects th
 gateway's configured system proxy when `channelProxy` is empty.
 
 `endpointConfig` replaces the whole object. Endpoint URLs are exact, credential-free
-HTTP(S) URLs; authentication is `bearer`, `x-api-key`, or `x-goog-api-key`.
-`modelPath` is only valid for Gemini generation and embeddings. `codex` and `claudecode` profiles require
+HTTP(S) URLs; authentication is `bearer`, `x-api-key`, `x-goog-api-key`, or
+`none` for an Ollama profile. `modelPath` is valid for Gemini generation and
+embeddings, and required for Bedrock's `/model` URL prefix. `codex` and `claudecode` profiles require
 their matching provider, protocol, and Bearer authentication; `deepseek` and `zai`
 profiles require Chat and Bearer. Empty profile keeps the generic wire contract.
-Media profiles require Bearer authentication:
+Media profiles use Bearer authentication. Supported profiles include:
 
 - `jina-embeddings` is required for `jinaEmbeddings`; omitted `task` defaults to
   `text-matching`. It cannot be attached to the generic embeddings field.
@@ -135,6 +150,15 @@ Media profiles require Bearer authentication:
 - `codex-image` applies to image generation/editing on Codex/Fenno. Its required
   `requestModel` is the Responses model (maximum 255 bytes); the granted model
   remains the image tool model. Other profiles cannot set `requestModel`.
+- `seedance-video` and `zenmux-video` are required by their respective endpoint
+  fields. Both expose creation, polling and content through `/v1/videos`;
+  only Seedance supports deletion, and neither profile supports remix.
+- `ollama` is required by `ollama`; `ollama-messages` applies to Messages.
+  Both accept Bearer or `none` authentication.
+- `bedrock` applies to Bearer Messages with `modelPath:true`; its endpoint URL
+  ends in `/model` before the escaped model and invoke action are appended.
+- `codex-alpha-search` applies to Bearer Alpha Search on Codex/Fenno. It uses
+  Codex credentials and session headers without Responses conversion or forced streaming.
 
 Endpoints still referenced by a grant and required provider profiles cannot be
 removed. Configured endpoints cannot silently revert to legacy base/path routing.
@@ -163,7 +187,7 @@ Routing cache invalidation takes effect on the next selection.
 ### GET /api/imported-upstreams/:id/credentials
 
 Authenticated administrators receive `{items}` with each credential's `id`,
-`name`, `enabled`, `kind` (`api_key` or `oauth`), optional `expiresAt` in Unix
+`name`, `enabled`, `kind` (`api_key`, `oauth`, or `none`), optional `expiresAt` in Unix
 milliseconds, and `canRefresh`. Neither access nor refresh tokens are returned.
 
 ### PATCH /api/imported-upstreams/credentials/:id
@@ -173,6 +197,11 @@ Supply either `apiKey` or an `oauth` object, never both. An OAuth replacement
 requires `accessToken` and may include `refreshToken`, `clientId`, `expiresAt`,
 `idToken`, and `accountId`. This is a complete credential replacement; omitted
 replacement fields are not inherited from the previous credential.
+An explicit `kind:"none"` replacement accepts no key or OAuth material. It is
+valid only for `ollama` / `ollama_anthropic` channels with anonymous endpoints;
+existing grants must all target anonymous endpoints. Anonymous grants cannot
+be expanded to authenticated endpoints, and an endpoint used by such a grant
+cannot be changed to require authentication. Disabled credentials stay disabled.
 `expiresAt` uses Unix milliseconds. The management form accepts a browser-local
 date and time and converts it to milliseconds before submission.
 Unknown fields and invalid combinations return 400; missing IDs return 404,
@@ -195,8 +224,9 @@ relationship conflicts return 409. Secrets are accepted only in write requests.
 
 ### Platform presets
 
-`GET /api/imported-upstreams/presets` returns `{items}`. Presets reuse the site
-catalog with `id`, `name`, `label`, `provider`, `platform`, `group`, `defaultUrl`
+`GET /api/imported-upstreams/presets` returns `{items}`. Shared presets reuse the site
+catalog; native-only formats appear only in this upstream catalog. Fields are
+`id`, `name`, `label`, `provider`, `platform`, `group`, `defaultUrl`,
 `protocols` (executable protocol names), and `recommendedModels`. New API comes first; domestic providers and Coding Plan
 presets precede other providers. Only presets with an executable endpoint
 contract appear in this list.
@@ -215,7 +245,7 @@ presets return 400.
 | Method and path | Request / response |
 | --- | --- |
 | `POST /api/imported-upstreams` | Create with `name`, `provider`, `baseUrl`, explicit `endpointConfig`, optional `enabled` and connection/request settings. `dialect` is `generic`. Returns `{id,name,enabled,ownership}`. |
-| `POST /api/imported-upstreams/:id/credentials` | Create with `name`, optional `enabled`, and either `apiKey` or the OAuth object described above. Returns the secret-free credential summary. |
+| `POST /api/imported-upstreams/:id/credentials` | Create with `name`, optional `enabled`, and either `apiKey`, the OAuth object above, or `kind:"none"` for an anonymous Ollama endpoint. Returns the secret-free credential summary. |
 | `GET /api/imported-upstreams/:id/models` | `{items:[{id,name,enabled,ownership,grants}]}`. Each grant includes `id`, `modelId`, `credentialId`, `credentialName`, `enabled`, protocol bitmask `protocols`, `memberCount`, and `ownership`. |
 | `POST /api/imported-upstreams/:id/models` | `{name,enabled?}` or `{names:[...],enabled?}` (mutually exclusive; 1–500 unique names). Always returns `{items:[model...]}`. |
 | `PATCH /api/imported-upstreams/models/:id` | Change `name` or `enabled`. Returns `{success,id,affectedRouteIds}`. This changes the upstream model name, not public route aliases. |

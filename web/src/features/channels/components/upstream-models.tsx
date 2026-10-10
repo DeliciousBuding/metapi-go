@@ -67,6 +67,9 @@ export function UpstreamModels(props: {
   const availableProtocols = upstreamProtocols
     .filter((p) => (configured ? !!endpoints[p.key] : !!paths[p.key]))
     .map((p) => p.bit)
+  const anonymousProtocols = upstreamProtocols
+    .filter((p) => endpoints[p.key]?.auth === 'none')
+    .map((p) => p.bit)
   async function remove(kind: 'model' | 'grant', id: number, name: string) {
     await deletion.requestDeletion(
       { kind, id, name },
@@ -277,6 +280,7 @@ export function UpstreamModels(props: {
                     modelId={model.id}
                     credentials={availableCredentials}
                     availableProtocols={availableProtocols}
+                    anonymousProtocols={anonymousProtocols}
                     members={props.members}
                     onDirtyChange={props.onDirtyChange}
                     onCreated={() =>
@@ -317,6 +321,7 @@ export function UpstreamModels(props: {
                       grant={grant}
                       credentials={credentials.data?.items ?? []}
                       availableProtocols={availableProtocols}
+                      anonymousProtocols={anonymousProtocols}
                       members={props.members}
                       onDirtyChange={props.onDirtyChange}
                     />

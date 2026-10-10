@@ -193,6 +193,15 @@ support static and structured OAuth credentials, request-time refresh and their
 provider-specific request/stream contracts. See [direct upstreams](routes.md)
 for endpoint and credential management.
 
+Native Ollama, Ollama Messages, Bedrock Messages, Seedance/ZenMux video,
+TypeSafe System One and Alpha Search retain their independent formats and
+authentication. Ollama channels with no configured API keys can create an
+anonymous credential; a configured but disabled key never becomes anonymous.
+Bedrock custom Messages endpoints follow the source's generic `x-api-key`
+contract rather than its default Bedrock invoke adapter. Source combinations
+that cannot construct an outbound adapter (custom `ollama/chat`, custom
+`seedance/video`, or no-key Ollama with custom endpoints) remain named skips.
+
 API keys are imported as native downstream keys. Their project and key active
 profiles are intersected into source-channel boundaries, preserving model
 restrictions, ordered mappings, IP allowlists and scope/status checks. Project
@@ -206,9 +215,11 @@ The preview reports configuration counts, skipped channels, remaining source
 sections, configuration differences and removals. The following remain outside
 the current executable import contract:
 
-- Gemini Vertex, Antigravity, Anthropic AWS/GCP, GitHub Copilot, xAI subscription,
-  native Ollama, fake providers, Typesafe, Seedance and ZenMux video.
-- Formats not listed in [direct upstreams](routes.md), including alpha search.
+- Gemini Vertex, Antigravity, Anthropic GCP, GitHub Copilot, xAI subscription,
+  and fake providers.
+- Formats not listed in [direct upstreams](routes.md), including source Decisions
+  and provider-specific compaction. OpenCode Go dynamic protocol selection,
+  Cline envelopes, and additional Bailian tool/stream behavior are not fully matched.
 - Active channel transform operations, channel rate limits and stream policies,
   conditional associations, unsupported proxy modes, and nonportable key-level
   load-balancing/sticky overrides or regular expressions.

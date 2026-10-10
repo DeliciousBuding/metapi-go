@@ -43,7 +43,7 @@ func ProxyAuth() func(http.Handler) http.Handler {
 			}
 
 			// ---- Authorize downstream token ----
-			result := AuthorizeDownstreamToken(token, config.Runtime())
+			result := authorizeDownstreamToken(token, config.Runtime(), directVideoReadID(r))
 
 			if !result.OK {
 				errType, code := proxyAuthErrorClass(result.Reason)
@@ -98,7 +98,7 @@ func ProxyAuth() func(http.Handler) http.Handler {
 					return
 				}
 				// Atomic max_requests gate - only after admission allows.
-				if !consumeManagedKeyRequest(result.Key.ID) {
+				if !result.taskRead && !consumeManagedKeyRequest(result.Key.ID) {
 					// 429 insufficient_quota, matching AuthorizeDownstreamToken's
 					// over_requests verdict for the same exhausted budget.
 					writeProxyError(w, http.StatusTooManyRequests, "insufficient_quota", "insufficient_quota",

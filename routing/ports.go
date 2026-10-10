@@ -28,6 +28,11 @@ const (
 	UpstreamProtocolGeminiEmbeddings          = store.DirectProtocolGeminiEmbeddings
 	UpstreamProtocolJinaEmbeddings            = store.DirectProtocolJinaEmbeddings
 	UpstreamProtocolModelScopeImageGeneration = store.DirectProtocolModelScopeImageGeneration
+	UpstreamProtocolSeedanceVideo             = store.DirectProtocolSeedanceVideo
+	UpstreamProtocolZenmuxVideo               = store.DirectProtocolZenmuxVideo
+	UpstreamProtocolOllama                    = store.DirectProtocolOllama
+	UpstreamProtocolSystemOne                 = store.DirectProtocolSystemOne
+	UpstreamProtocolAlphaSearch               = store.DirectProtocolAlphaSearch
 )
 
 // Catalog pricing provenance labels for cold-start cost routing.

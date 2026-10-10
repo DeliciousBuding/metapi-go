@@ -13,6 +13,7 @@ func TestDirectVideoIdentityLegacyUpgrade(t *testing.T) {
 	}
 	defer db.Close()
 	legacy := strings.ReplaceAll(buildProxyVideoTasksDDL(DialectSQLite), "direct_identity TEXT,", "")
+	legacy = strings.ReplaceAll(legacy, "accounting_state TEXT,", "")
 	if _, err := db.Exec(legacy); err != nil {
 		t.Fatal(err)
 	}
@@ -23,11 +24,12 @@ func TestDirectVideoIdentityLegacyUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	var identity *string
+	var accounting *string
 	var token string
-	if err := db.QueryRow(`SELECT direct_identity,token_value FROM proxy_video_tasks WHERE public_id='legacy-video'`).Scan(&identity, &token); err != nil {
+	if err := db.QueryRow(`SELECT direct_identity,accounting_state,token_value FROM proxy_video_tasks WHERE public_id='legacy-video'`).Scan(&identity, &accounting, &token); err != nil {
 		t.Fatal(err)
 	}
-	if identity != nil || token != "legacy-value" {
+	if identity != nil || accounting != nil || token != "legacy-value" {
 		t.Fatal("upgrade changed legacy video mapping")
 	}
 	if err := AutoMigrate(db); err != nil {
@@ -37,7 +39,8 @@ func TestDirectVideoIdentityLegacyUpgrade(t *testing.T) {
 
 func TestDirectVideoIdentityMigrationRoundTrip(t *testing.T) {
 	identity := map[string]any{"version": float64(1), "owner": "opaque-hash", "grantId": float64(7), "credentialId": float64(8)}
-	rows := buildProxyVideoTasks([]map[string]any{{"id": float64(2), "public_id": "video_direct_fixture", "upstream_video_id": "upstream-video", "site_url": "", "token_value": "", "direct_identity": identity}})
+	accounting := map[string]any{"version": float64(1), "initialized": true, "keyId": float64(9), "usage": map[string]any{"found": true, "totalTokens": float64(75)}, "cost": float64(0.15)}
+	rows := buildProxyVideoTasks([]map[string]any{{"id": float64(2), "public_id": "video_direct_fixture", "upstream_video_id": "upstream-video", "site_url": "", "token_value": "", "direct_identity": identity, "accounting_state": accounting}})
 	for _, dialect := range []string{DialectSQLite, DialectPostgres} {
 		var query string
 		var values []any
@@ -55,9 +58,18 @@ func TestDirectVideoIdentityMigrationRoundTrip(t *testing.T) {
 			if column == "direct_identity" {
 				index = i
 			}
+			if column == "accounting_state" {
+				var state map[string]any
+				if json.Unmarshal([]byte(values[i].(string)), &state) != nil || state["cost"] != accounting["cost"] || state["keyId"] != accounting["keyId"] {
+					t.Fatal("migration changed video accounting baseline")
+				}
+			}
 		}
 		if index < 0 {
 			t.Fatal("identity column missing")
+		}
+		if !strings.Contains(query, "accounting_state") {
+			t.Fatal("migration dropped video accounting")
 		}
 		if err := json.Unmarshal([]byte(values[index].(string)), &decoded); err != nil {
 			t.Fatal(err)

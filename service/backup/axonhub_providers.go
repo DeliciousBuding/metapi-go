@@ -48,6 +48,11 @@ const (
 	protoGeminiEmbeddings   = store.DirectProtocolGeminiEmbeddings
 	protoJinaEmbeddings     = store.DirectProtocolJinaEmbeddings
 	protoModelScopeImage    = store.DirectProtocolModelScopeImageGeneration
+	protoSeedanceVideo      = store.DirectProtocolSeedanceVideo
+	protoZenmuxVideo        = store.DirectProtocolZenmuxVideo
+	protoOllama             = store.DirectProtocolOllama
+	protoSystemOne          = store.DirectProtocolSystemOne
+	protoAlphaSearch        = store.DirectProtocolAlphaSearch
 )
 
 var axonHubProviderTypes = map[string]axonHubProviderType{
@@ -114,21 +119,21 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 	"commandcode_anthropic": {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
 	"xai_subscription":      {DefaultFormats: []string{"openai/responses"}, Reason: reasonProviderCredentials},
 	"zenmux_gemini":         {DefaultFormats: []string{"gemini/contents", "gemini/embeddings"}, Supported: true},
-	"zenmux_video":          {DefaultFormats: []string{"zenmux/video"}, Reason: reasonProviderWire},
-	"typesafe":              {DefaultFormats: []string{"typesafe/systemone"}, Reason: reasonProviderWire},
+	"zenmux_video":          {DefaultFormats: []string{"zenmux/video"}, Supported: true},
+	"typesafe":              {DefaultFormats: []string{"typesafe/systemone"}, Supported: true},
 
 	// Native provider families retain their own wire and credential contracts.
 	"gemini":         {DefaultFormats: []string{"gemini/contents", "gemini/embeddings"}, Supported: true},
 	"gemini_vertex":  {DefaultFormats: []string{"gemini/contents", "gemini/embeddings"}, Reason: reasonProviderTranslation},
 	"antigravity":    {DefaultFormats: []string{"gemini/contents"}, Reason: reasonProviderTranslation},
 	"jina":           {DefaultFormats: []string{"jina/rerank", "jina/embeddings"}, Supported: true},
-	"ollama":         {DefaultFormats: []string{"ollama/chat"}, Reason: reasonProviderWire},
+	"ollama":         {DefaultFormats: []string{"ollama/chat"}, Supported: true},
 	"openai_fake":    {DefaultFormats: []string{"openai/chat_completions"}, Reason: reasonProviderWire},
 	"anthropic_fake": {DefaultFormats: []string{"anthropic/messages"}, Reason: reasonProviderWire},
 
 	// Channels whose authentication cannot be a static API key in a Metapi
 	// direct grant, or whose request/response shape is provider-specific.
-	"anthropic_aws":  {DefaultFormats: []string{"anthropic/messages"}, Reason: reasonProviderCredentials},
+	"anthropic_aws":  {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
 	"anthropic_gcp":  {DefaultFormats: []string{"anthropic/messages"}, Reason: reasonProviderCredentials},
 	"codex":          {DefaultFormats: []string{"openai/responses", "openai/alpha_search", "openai/image_generation", "openai/image_edit"}, Supported: true},
 	"claudecode":     {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
@@ -157,6 +162,11 @@ var axonHubServableFormats = map[string]int{
 	"jina/rerank":                 protoRerank,
 	"jina/embeddings":             protoJinaEmbeddings,
 	"modelscope/image_generation": protoModelScopeImage,
+	"seedance/video":              protoSeedanceVideo,
+	"zenmux/video":                protoZenmuxVideo,
+	"ollama/chat":                 protoOllama,
+	"typesafe/systemone":          protoSystemOne,
+	"openai/alpha_search":         protoAlphaSearch,
 }
 
 var axonHubCompatibleFormats = []string{
@@ -172,12 +182,7 @@ var axonHubChatAudioFormats = append([]string{"openai/chat_completions"}, axonHu
 // Source formats without a corresponding executor stay explicit in previews.
 var axonHubResidualProtocolFormats = map[string]string{
 	"openai/responses_compact": "compact Responses variant is not routed by direct grants",
-	"ollama/chat":              "Ollama native protocol is not routed by direct grants",
-	"seedance/video":           "Seedance video is not routed by direct grants",
 	"aisdk/text":               "AI SDK text protocol is not routed by direct grants",
-	"typesafe/systemone":       "TypeSafe System One is not routed by direct grants",
-	"zenmux/video":             "ZenMux video is not routed by direct grants",
-	"openai/alpha_search":      "alpha search is not routed by direct grants",
 	"openai/decisions":         "decisions are not routed by direct grants",
 	"aisdk/datastream":         "AI SDK data stream protocol is not routed by direct grants",
 }
