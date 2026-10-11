@@ -43,6 +43,7 @@ vi.mock('@/lib/api', () => ({
     createDownstreamApiKey: mockCreateKey,
     updateDownstreamApiKey: mockUpdateKey,
     getSites: mockGetSites,
+    getImportedUpstreams: vi.fn().mockResolvedValue({ items: [], members: [] }),
     getAccountsSnapshot: vi
       .fn()
       .mockResolvedValue({ accounts: [], sites: [], generatedAt: '' }),
@@ -113,6 +114,34 @@ function siteCheckbox(name: string): HTMLInputElement {
 }
 
 describe('downstream key site restriction (#1026)', () => {
+  it('shows dimension counts and locates their controls while preserving unreadable source policy', async () => {
+    renderKeySheetForm({
+      id: 7,
+      name: 'scoped-key',
+      enabled: true,
+      supportedModels: ['*'],
+      allowedSiteIds: [2],
+      accessPolicy: 'not-json',
+    })
+    await waitFor(() => expect(siteCheckbox('Backup site')).toBeChecked())
+    const summary = screen.getByRole('button', { name: 'Allowed sites · 1' })
+    expect(
+      screen.getByRole('button', {
+        name: /Access boundaries and period quotas · Unknown/i,
+      })
+    ).toBeInTheDocument()
+    fireEvent.click(summary)
+    expect(
+      screen
+        .getByRole('group', { name: 'Upstream site restriction' })
+        .contains(document.activeElement)
+    ).toBe(true)
+    expect(mockUpdateKey).not.toHaveBeenCalled()
+    fireEvent.click(siteCheckbox('Primary site'))
+    expect(
+      screen.getByRole('button', { name: 'Allowed sites · 2' })
+    ).toBeInTheDocument()
+  })
   it('edit mode pre-fills the site scope from the stored key', async () => {
     renderKeySheetForm({
       id: 7,

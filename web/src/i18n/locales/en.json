@@ -1002,31 +1002,27 @@
       },
       "onboarding": {
         "title": "Welcome to Metapi",
-        "description": "Four steps to a working call path: sites → accounts → routes → keys.",
-        "createSite": "Create site",
+        "description": "Configure an upstream, a public model route and a downstream key. These counts describe configuration, not a verified request.",
         "createAccount": "Add account",
         "createRoute": "Add route",
         "createKey": "Issue key",
-        "stepDone": "Done",
+        "stepDone": "Configured",
         "stepPending": "To do",
         "steps": {
-          "sites": {
-            "title": "Sites",
-            "hint": "Connect the upstream AI platforms your accounts and credentials come from."
-          },
-          "accounts": {
-            "title": "Accounts",
-            "hint": "Add accounts under a site to supply callable upstream credentials."
+          "upstreams": {
+            "title": "Upstreams",
+            "hint": "Use a direct API key, a site account or OAuth. A site account is optional."
           },
           "routes": {
             "title": "Routes",
-            "hint": "Configure model routes to distribute requests across account channels."
+            "hint": "Choose the client model name and its upstream candidates."
           },
           "keys": {
             "title": "Keys",
             "hint": "Issue a downstream API key — clients call /v1 with it."
           }
-        }
+        },
+        "connectUpstream": "Connect upstream"
       },
       "traffic": {
         "loadError": "Failed to load income/spend data.",
@@ -1193,6 +1189,7 @@
         "trendTotal": "{{value}} requests in the displayed period",
         "resources": "Resources & maintenance",
         "siteCount": "{{value}} sites",
+        "upstreamChannelCount": "{{value}} independent upstreams",
         "accountCount": "{{value}} accounts · {{active}} active",
         "balance": "Active-site balance {{value}}",
         "checkin": "Check-in today {{success}} / {{total}}",
@@ -1635,14 +1632,32 @@
             "unresolvedTitle": "Unresolved references (upstream object no longer exists)",
             "unresolvedRemoveAria": "Remove unresolved reference"
           },
+          "picker": {
+            "selected": "{{count}} selected",
+            "onlySelected": "Only selected",
+            "locateSelected": "Locate selected",
+            "search": "Search options",
+            "unknown": "Unknown",
+            "noMatches": "No matching options"
+          },
           "scope": {
-            "unrestricted": "Unrestricted",
+            "unrestricted": "No additional routing restriction",
             "sitesAllow": "Allowed sites",
             "sitesExclude": "Excluded sites",
             "credsAllow": "Allowed credentials",
             "credsExclude": "Excluded credentials",
             "defaultKey": "default key",
-            "unknownId": "ID {{id}} (unresolved)"
+            "unknownId": "ID {{id}} (unresolved)",
+            "channels": "Direct channels",
+            "channelsDenied": "All channels denied",
+            "models": "Exact model restriction",
+            "mappings": "Model mappings",
+            "quota": "Period quota",
+            "blocked": "Access blocked by source policy",
+            "unknown": "Policy unreadable — restrictions preserved",
+            "additional": "Additional policy fields — inspect details",
+            "historyMissing": "Quota history incomplete",
+            "count": "{{count}} configured"
           },
           "access": {
             "hint": "These restrictions apply together with the model grants and credential scope above.",

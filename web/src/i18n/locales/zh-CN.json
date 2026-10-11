@@ -1002,31 +1002,27 @@
       },
       "onboarding": {
         "title": "欢迎使用 Metapi",
-        "description": "四步打通调用链路：站点 → 账号 → 路由 → 密钥。",
-        "createSite": "创建站点",
+        "description": "接入上游、配置公共模型路由、发下游 Key。清单仅表示配置已创建，不代表实际调用已验证。",
         "createAccount": "添加账号",
         "createRoute": "添加路由",
         "createKey": "签发密钥",
-        "stepDone": "已完成",
+        "stepDone": "已配置",
         "stepPending": "待完成",
         "steps": {
-          "sites": {
-            "title": "站点",
-            "hint": "接入上游 AI 平台，作为账号与凭证的来源。"
-          },
-          "accounts": {
-            "title": "账号",
-            "hint": "在站点下添加账号，提供可调用的上游凭证。"
+          "upstreams": {
+            "title": "上游连接",
+            "hint": "可使用直接 API Key、站点账号或 OAuth；站点账号不是必选项。"
           },
           "routes": {
             "title": "路由",
-            "hint": "配置模型路由，把请求分发到账号通道。"
+            "hint": "配置客户端填写的模型名及其上游候选。"
           },
           "keys": {
             "title": "密钥",
             "hint": "签发下游 API 密钥，客户端用它调用 /v1。"
           }
-        }
+        },
+        "connectUpstream": "接入上游"
       },
       "traffic": {
         "loadError": "加载收支数据失败。",
@@ -1193,6 +1189,7 @@
         "trendTotal": "图示时段共 {{value}} 次请求",
         "resources": "资源与维护",
         "siteCount": "{{value}} 个站点",
+        "upstreamChannelCount": "{{value}} 个独立上游",
         "accountCount": "{{value}} 个账号 · {{active}} 个活跃",
         "balance": "启用站点余额 {{value}}",
         "checkin": "今日签到 {{success}} / {{total}}",
@@ -1635,14 +1632,32 @@
             "unresolvedTitle": "未解析引用（上游对象已不存在）",
             "unresolvedRemoveAria": "移除未解析引用"
           },
+          "picker": {
+            "selected": "已选 {{count}} 项",
+            "onlySelected": "只看已选",
+            "locateSelected": "定位已选",
+            "search": "搜索选项",
+            "unknown": "未知",
+            "noMatches": "没有匹配的选项"
+          },
           "scope": {
-            "unrestricted": "不限制",
+            "unrestricted": "无额外选路限制",
             "sitesAllow": "允许站点",
             "sitesExclude": "排除站点",
             "credsAllow": "允许凭证",
             "credsExclude": "排除凭证",
             "defaultKey": "默认密钥",
-            "unknownId": "ID {{id}}（未解析）"
+            "unknownId": "ID {{id}}（未解析）",
+            "channels": "独立渠道",
+            "channelsDenied": "拒绝全部渠道",
+            "models": "精确模型限制",
+            "mappings": "模型映射",
+            "quota": "周期限额",
+            "blocked": "来源策略阻断访问",
+            "unknown": "策略无法读取，限制仍保留",
+            "additional": "存在额外策略字段，请查看详情",
+            "historyMissing": "限额历史不完整",
+            "count": "已配置 {{count}} 项"
           },
           "access": {
             "hint": "这些限制与上方模型授权和凭据范围同时生效。",

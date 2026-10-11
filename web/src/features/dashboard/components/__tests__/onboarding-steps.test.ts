@@ -13,27 +13,26 @@ import { describe, expect, it } from 'vitest'
 import { deriveOnboardingSteps, nextOnboardingStep } from '../onboarding-steps'
 
 describe('deriveOnboardingSteps', () => {
-  it('returns the four journey steps in site → account → route → key order', () => {
+  it('returns the three journey steps in upstream → route → key order', () => {
     const steps = deriveOnboardingSteps({
-      sites: 2,
+      upstreamChannels: 2,
       accounts: 1,
       routes: 3,
       keys: 0,
     })
 
     expect(steps?.map((step) => step.id)).toEqual([
-      'sites',
-      'accounts',
+      'upstreams',
       'routes',
       'keys',
     ])
-    expect(steps?.map((step) => step.count)).toEqual([2, 1, 3, 0])
-    expect(steps?.map((step) => step.done)).toEqual([true, true, true, false])
+    expect(steps?.map((step) => step.count)).toEqual([3, 3, 0])
+    expect(steps?.map((step) => step.done)).toEqual([true, true, false])
   })
 
   it('marks every step pending on a brand-new deployment', () => {
     const steps = deriveOnboardingSteps({
-      sites: 0,
+      upstreamChannels: 0,
       accounts: 0,
       routes: 0,
       keys: 0,
@@ -41,12 +40,12 @@ describe('deriveOnboardingSteps', () => {
 
     expect(steps).not.toBeNull()
     expect(steps?.every((step) => !step.done)).toBe(true)
-    expect(nextOnboardingStep(steps ?? [])?.id).toBe('sites')
+    expect(nextOnboardingStep(steps ?? [])?.id).toBe('upstreams')
   })
 
-  it('marks the journey complete once all four counts are above zero', () => {
+  it('marks the journey complete once all three counts are above zero', () => {
     const steps = deriveOnboardingSteps({
-      sites: 1,
+      upstreamChannels: 1,
       accounts: 1,
       routes: 1,
       keys: 1,
@@ -58,14 +57,23 @@ describe('deriveOnboardingSteps', () => {
   })
 
   it.each([
-    ['an unanswered site count', { sites: undefined }],
+    [
+      'an unanswered independent-upstream count',
+      { upstreamChannels: undefined },
+    ],
     ['an unanswered key count', { keys: undefined }],
     ['a null route count', { routes: null }],
     ['a NaN account count', { accounts: Number.NaN }],
   ])(
     'returns null for %s instead of inventing an empty checklist',
     (_label, patch) => {
-      const counts = { sites: 2, accounts: 2, routes: 2, keys: 2, ...patch }
+      const counts = {
+        upstreamChannels: 2,
+        accounts: 2,
+        routes: 2,
+        keys: 2,
+        ...patch,
+      }
       expect(deriveOnboardingSteps(counts)).toBeNull()
     }
   )
@@ -74,14 +82,14 @@ describe('deriveOnboardingSteps', () => {
 describe('nextOnboardingStep', () => {
   it('stops at the first gap, not at the last step', () => {
     const steps = deriveOnboardingSteps({
-      sites: 4,
+      upstreamChannels: 0,
       accounts: 0,
       routes: 7,
       keys: 9,
     })
 
-    // Routes and keys already exist, but the missing account is still the
+    // Routes and keys already exist, but the missing upstream is still the
     // step to fix first — the checklist guides one action at a time in order.
-    expect(nextOnboardingStep(steps ?? [])?.id).toBe('accounts')
+    expect(nextOnboardingStep(steps ?? [])?.id).toBe('upstreams')
   })
 })

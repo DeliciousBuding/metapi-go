@@ -1,16 +1,4 @@
-// Behavior test for the dashboard's four-step onboarding checklist.
-//
-// Replaces the old "zero sites → Create site" banner, which retired the moment
-// the first site existed and left the rest of the journey (account → route →
-// key) unguided. Locks:
-//   (a) the four steps render in journey order with the CTA on the FIRST gap
-//       only — one next action, not four competing ones;
-//   (b) each CTA points at the page that owns that step, with the `create`
-//       deep link only where the page's search schema accepts it;
-//   (c) the panel retires once every step is built;
-//   (d) the panel never renders from an unanswered count (no flash of a
-//       four-step "to do" list before the first byte, and no invented gap
-//       when a source errors).
+// Account and independent upstreams share the same configuration journey.
 
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -55,13 +43,17 @@ vi.mock('@tanstack/react-router', () => ({
 
 const mockGetKeys = vi.mocked(api.getDownstreamApiKeys)
 
-function renderChecklist(props: { siteCount?: number; accountCount?: number }) {
+function renderChecklist(props: {
+  siteCount?: number
+  accountCount?: number
+  upstreamChannelCount?: number
+}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 0 } },
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <OnboardingChecklist {...props} />
+      <OnboardingChecklist upstreamChannelCount={0} {...props} />
     </QueryClientProvider>
   )
 }
@@ -85,7 +77,33 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('OnboardingChecklist', () => {
-  it('lists all four journey steps and puts the CTA on the first one', async () => {
+  it('continues a direct-only configuration at the key without requiring a site or account', async () => {
+    testState.routes = [{ id: 1 }]
+    renderChecklist({ siteCount: 0, accountCount: 0, upstreamChannelCount: 3 })
+    expect(
+      await screen.findByRole('link', { name: /Issue key/i })
+    ).toHaveAttribute('href', '/downstream-keys')
+    expect(
+      screen.queryByRole('link', { name: /Add account/i })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: /Connect upstream/i })
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('3')).toBeInTheDocument()
+  })
+
+  it('keeps an unknown independent inventory unknown instead of inventing a missing upstream', async () => {
+    renderChecklist({
+      siteCount: 0,
+      accountCount: 0,
+      upstreamChannelCount: undefined,
+    })
+    await waitFor(() => expect(mockGetKeys).toHaveBeenCalled())
+    expect(
+      screen.queryByRole('heading', { name: 'Welcome to Metapi' })
+    ).not.toBeInTheDocument()
+  })
+  it('lists all three journey steps and puts the CTA on the first one', async () => {
     givenKeys([])
     renderChecklist({ siteCount: 0, accountCount: 0 })
 
@@ -97,20 +115,19 @@ describe('OnboardingChecklist', () => {
     ).toBeInTheDocument()
 
     const steps = screen.getAllByRole('listitem')
-    expect(steps).toHaveLength(4)
+    expect(steps).toHaveLength(3)
     expect(steps.map((step) => step.textContent)).toEqual([
-      expect.stringContaining('Sites'),
-      expect.stringContaining('Accounts'),
+      expect.stringContaining('Upstreams'),
       expect.stringContaining('Routes'),
       expect.stringContaining('Keys'),
     ])
 
-    // Exactly one CTA, on the first gap: create a site.
+    // One primary CTA, on the first gap: connect an upstream.
     const ctas = screen.getAllByRole('link')
     expect(ctas).toHaveLength(1)
-    expect(ctas[0]).toHaveTextContent('Create site')
-    expect(ctas[0]).toHaveAttribute('href', '/sites')
-    expect(ctas[0]).toHaveAttribute('data-search', '{"create":true}')
+    expect(ctas[0]).toHaveTextContent('Connect upstream')
+    expect(ctas[0]).toHaveAttribute('href', '/channels')
+    expect(ctas[0]).toHaveAttribute('data-search', 'null')
   })
 
   it('advances the CTA to the key step once sites, accounts and routes exist', async () => {
@@ -122,16 +139,15 @@ describe('OnboardingChecklist', () => {
 
     const cta = await screen.findByRole('link', { name: /Issue key/i })
     expect(cta).toHaveAttribute('href', '/downstream-keys')
-    // The three built steps report Done with their real counts.
-    expect(screen.getAllByText('Done')).toHaveLength(3)
+    // The configured milestones report their stored resource counts.
+    expect(screen.getAllByText('Configured')).toHaveLength(2)
     expect(screen.getAllByText('To do')).toHaveLength(1)
-    // Each built row reports its real count: 2 sites / 3 accounts / 5 routes.
-    expect(screen.getByText('2')).toBeInTheDocument()
+    // Each configured milestone reports its count: 3 upstream accounts / 5 routes.
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByText('5')).toBeInTheDocument()
   })
 
-  it('stops at the account step when the site exists but no account does', async () => {
+  it('offers the existing account path when a site is already configured', async () => {
     givenKeys([])
     renderChecklist({ siteCount: 1, accountCount: 0 })
 

@@ -26,9 +26,57 @@ function renderCell(item: Parameters<typeof KeyScopeCell>[0]['item']) {
 }
 
 describe('KeyScopeCell', () => {
+  it('distinguishes a present-empty direct allow-list from unrestricted routing', () => {
+    renderCell({ accessPolicy: { allowedUpstreamChannelIds: [] } })
+    expect(screen.getByText('All channels denied')).toBeInTheDocument()
+    expect(
+      screen.queryByText('No additional routing restriction')
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows exact models, mappings, zero quota and incomplete imported history', () => {
+    renderCell({
+      accessPolicy: JSON.stringify({
+        allowedUpstreamChannelIds: [2, 5],
+        modelIds: ['coding'],
+        modelMappings: [{ from: 'client', to: 'coding' }],
+        quota: {
+          requests: 0,
+          period: { type: 'all_time' },
+          historyMissingBefore: 0,
+        },
+      }),
+    })
+    expect(screen.getByText(/#2, #5/)).toBeInTheDocument()
+    expect(screen.getByText(/coding/)).toBeInTheDocument()
+    expect(screen.getByText('Model mappings:')).toBeInTheDocument()
+    expect(screen.getByText(/Request count: 0/)).toBeInTheDocument()
+    expect(screen.getByText('Quota history incomplete')).toBeInTheDocument()
+  })
+
+  it('never presents blocked, unreadable or unfamiliar policy as unrestricted', () => {
+    const result = renderCell({
+      accessPolicy: { blockReason: 'source_project_unavailable' },
+    })
+    expect(
+      screen.getByText('Access blocked by source policy')
+    ).toBeInTheDocument()
+    result.unmount()
+    const unreadable = renderCell({ accessPolicy: 'not-json' })
+    expect(
+      screen.getByText('Policy unreadable — restrictions preserved')
+    ).toBeInTheDocument()
+    unreadable.unmount()
+    renderCell({ accessPolicy: JSON.stringify({ futureRestriction: true }) })
+    expect(
+      screen.getByText('Additional policy fields — inspect details')
+    ).toBeInTheDocument()
+  })
   it('renders unrestricted when no policy dimensions are configured', () => {
     renderCell({})
-    expect(screen.getByText('Unrestricted')).toBeInTheDocument()
+    expect(
+      screen.getByText('No additional routing restriction')
+    ).toBeInTheDocument()
   })
 
   it('resolves site/account/token refs to human-readable names', () => {
@@ -49,8 +97,8 @@ describe('KeyScopeCell', () => {
         { kind: 'default_api_key', siteId: 2, accountId: 12 },
       ]),
     })
-    expect(screen.getByText('Allowed sites:')).toBeInTheDocument()
-    expect(screen.getByText('Excluded credentials:')).toBeInTheDocument()
+    expect(screen.getByText('Allowed sites (1):')).toBeInTheDocument()
+    expect(screen.getByText('Excluded credentials (1):')).toBeInTheDocument()
   })
 
   it('honestly renders missing mappings as unresolved IDs', () => {

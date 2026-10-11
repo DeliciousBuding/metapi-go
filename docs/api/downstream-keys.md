@@ -76,6 +76,19 @@ Create/update also accept an optional `accessPolicy` object. GET returns its
 stored JSON string; omitting it on update preserves it, while `null` clears it.
 The existing model/route grants still apply, and this policy narrows them:
 
+The admin key list shows additional site/credential scope, direct channel counts,
+exact-model restrictions, mappings, source blocks and period quotas. "No
+additional routing restriction" refers to that scope column only; the model
+grants, enabled state, expiry and usage limits still apply. An unreadable saved
+policy stays visible and is preserved on ordinary edits.
+
+The edit form shows dimension counts and links to their controls. Site,
+credential and direct-channel pickers support search, selected-only view and
+locating a selection. Filtering does not change the saved list. Unavailable
+references remain visible for explicit removal. Empty legacy site/credential
+allow-lists mean no additional restriction; a present empty direct-channel
+allow-list means deny all.
+
 ```json
 {
   "supportedModels": ["*"],

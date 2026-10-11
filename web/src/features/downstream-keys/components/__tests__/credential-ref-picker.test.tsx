@@ -5,6 +5,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from '@testing-library/react'
 import type { ReactElement } from 'react'
@@ -78,6 +79,44 @@ async function expandAlpha() {
 }
 
 describe('CredentialRefPicker', () => {
+  it('shows selected counts, filters to selected leaves and locates a hidden token without changing permissions', async () => {
+    const { onChange } = renderPicker([
+      { kind: 'account_token', siteId: 1, accountId: 11, tokenId: 101 },
+    ])
+    await screen.findByRole('checkbox', { name: /Token Token A/ })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Toggle accounts of Alpha' })
+    )
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search options' }), {
+      target: { value: 'nothing' },
+    })
+    expect(
+      screen.queryByRole('checkbox', { name: /Token Token A/ })
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Locate selected' }))
+    const token = await screen.findByRole('checkbox', { name: /Token Token A/ })
+    expect(token).toBeChecked()
+    await waitFor(() => expect(token).toHaveFocus())
+    expect(
+      screen.getByRole('button', { name: 'Only selected' })
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      screen.queryByRole('checkbox', { name: /bob/ })
+    ).not.toBeInTheDocument()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('retains unresolved selections in selected-only mode for explicit removal', async () => {
+    const { onChange } = renderPicker([
+      { kind: 'default_api_key', siteId: 90, accountId: 91 },
+    ])
+    await screen.findByRole('button', { name: 'Remove unresolved reference' })
+    fireEvent.click(screen.getByRole('button', { name: 'Only selected' }))
+    expect(
+      screen.getByRole('button', { name: 'Remove unresolved reference' })
+    ).toBeInTheDocument()
+    expect(onChange).not.toHaveBeenCalled()
+  })
   it('selects an account default API key and emits a canonical ref', async () => {
     const { onChange } = renderPicker([])
     await expandAlpha()

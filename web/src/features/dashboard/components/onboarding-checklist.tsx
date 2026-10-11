@@ -1,17 +1,4 @@
-// metapi-go/features/dashboard/components — the four-step onboarding checklist.
-//
-// Replaces the old "zero sites → Create site" banner. That banner retired the
-// moment the first site existed, which left the operator unguided for the rest
-// of the journey: routes built, no downstream key, and nothing on any surface
-// saying that /v1 is still not callable. This panel walks the whole chain
-// (site → account → route → key) and stops at the first step with nothing
-// built, so there is always exactly one next action.
-//
-// Counts come from existing admin endpoints only — no backend change:
-// sites/accounts from the dashboard snapshot the section already fetches,
-// routes from the token-routes summary query, keys from the downstream-keys
-// list query. Both extra queries reuse their feature's own query key + queryFn
-// shape, so an operator who has visited those pages pays no additional fetch.
+// Configuration-only guidance using existing dashboard, route and key query owners.
 
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -35,31 +22,32 @@ import {
   type OnboardingStepId,
 } from './onboarding-steps'
 
-/** CTA of the one actionable row. Destinations are the pages' own routes;
- * `create` is only added where the page's search schema accepts it (sites and
- * accounts both consume it as a one-shot "open the create dialog" deep link —
- * token-routes and downstream-keys expose no such param, so they link plain
- * rather than inventing a URL contract). */
-function StepCta({ step }: { step: OnboardingStepId }) {
+// Link to existing page contracts; account creation remains an optional branch.
+function StepCta({
+  step,
+  hasSites,
+}: {
+  step: OnboardingStepId
+  hasSites: boolean
+}) {
   const { t } = useTranslation()
   switch (step) {
-    case 'sites':
+    case 'upstreams':
       return (
-        <Button
-          size='sm'
-          render={<Link to='/sites' search={{ create: true }} />}
-        >
-          {t('dashboard.onboarding.createSite')}
-        </Button>
-      )
-    case 'accounts':
-      return (
-        <Button
-          size='sm'
-          render={<Link to='/accounts' search={{ create: true }} />}
-        >
-          {t('dashboard.onboarding.createAccount')}
-        </Button>
+        <div className='flex flex-wrap gap-2'>
+          <Button size='sm' render={<Link to='/channels' />}>
+            {t('dashboard.onboarding.connectUpstream')}
+          </Button>
+          {hasSites && (
+            <Button
+              size='sm'
+              variant='outline'
+              render={<Link to='/accounts' search={{ create: true }} />}
+            >
+              {t('dashboard.onboarding.createAccount')}
+            </Button>
+          )}
+        </div>
       )
     case 'routes':
       return (
@@ -79,10 +67,12 @@ function StepCta({ step }: { step: OnboardingStepId }) {
 export function OnboardingChecklist({
   siteCount,
   accountCount,
+  upstreamChannelCount,
 }: {
   /** From GET /api/stats/dashboard?view=summary — undefined while loading. */
   siteCount?: number
   accountCount?: number
+  upstreamChannelCount?: number
 }) {
   const { t } = useTranslation()
 
@@ -97,8 +87,8 @@ export function OnboardingChecklist({
   })
 
   const steps = deriveOnboardingSteps({
-    sites: siteCount,
     accounts: accountCount,
+    upstreamChannels: upstreamChannelCount,
     routes: routesQuery.data?.length,
     keys: keysQuery.data?.items.length,
   })
@@ -156,7 +146,9 @@ export function OnboardingChecklist({
                     {t('dashboard.onboarding.stepPending')}
                   </Badge>
                 )}
-                {next.id === step.id ? <StepCta step={step.id} /> : null}
+                {next.id === step.id ? (
+                  <StepCta step={step.id} hasSites={(siteCount ?? 0) > 0} />
+                ) : null}
               </div>
             </li>
           ))}
