@@ -243,6 +243,26 @@
       }
     },
     "models": {
+      "supply": {
+        "title": "Supply sources",
+        "description": "Stored supply and route bindings. Dispatch also depends on protocol, runtime state, and downstream key permissions.",
+        "unknown": "Supply details are not available from this server.",
+        "empty": "No supply record for this model. Check its route configuration.",
+        "direct": "Direct grant",
+        "account": "Site account",
+        "oauth": "OAuth account",
+        "disabled": "Configuration disabled",
+        "identity": "Identity / credential",
+        "upstreamModel": "Upstream model",
+        "recordedModel": "Recorded model",
+        "configured": "Configured supply; not an inference verification result.",
+        "availability": "Availability record; may come from discovery or manual configuration.",
+        "observed": "Historical requests: {{success}} succeeded · {{failure}} failed",
+        "routeBinding": "Configured route binding",
+        "routeDisabled": "Route disabled",
+        "groupDisabled": "Group disabled",
+        "notSelected": "Not selected in manual group"
+      },
       "page": {
         "loadError": "Failed to load models: {{message}}",
         "title": "Models",
@@ -253,7 +273,7 @@
       },
       "empty": {
         "title": "No models",
-        "description": "Models will appear here once accounts are connected.",
+        "description": "Connect a site account or an independent upstream to see its model supply.",
         "manageAccounts": "Manage accounts"
       },
       "toolbar": {

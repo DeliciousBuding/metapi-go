@@ -6,7 +6,43 @@
 
 ### GET /api/models/marketplace
 
-Available models by site.
+Model supply from site accounts (including OAuth accounts), direct upstream
+grants, and enabled exact public routes. Catalog metadata enriches these rows;
+catalog-only entries do not add supply.
+
+Each row retains `accountCount`, `tokenCount`, and `accounts`, and also returns
+`supplyCount` and `supplySources`. The supply count is one per account with an
+availability record plus one per direct grant, deduplicated within that model.
+It is not a count of eligible routing candidates. Direct upstream model names
+appear even before route binding; enabled exact public aliases also show the
+grants bound to them. Wildcard/regex and explicit-group expansion are not
+projected as additional public model names.
+
+`supplySources` entries contain `kind` (`account` | `oauth` | `direct`), `id`,
+`name`, `connectionName`, `upstreamModel`, `enabled`, `evidence`, and `bindings`.
+Use `(kind, id)` as identity: account/OAuth IDs refer to accounts; direct IDs
+refer to grants, with separate `channelId`, `credentialId`, and `credentialKind`.
+Account entries include `siteId`. Credential values, headers, OAuth state, and
+upstream URLs are excluded.
+
+For account/OAuth sources, `upstreamModel` is the name in the availability
+record, labeled "Recorded model" in the UI. It may be normalized; the selector
+still resolves route mappings and per-account redirects at dispatch. For direct
+sources it is the bound upstream model name used when that grant is selected.
+
+For direct supply, `evidence: "configured"` means stored configuration;
+`enabled` is the conjunction of channel, model, credential, and grant switches.
+Disabled supply remains visible. `successCount` and `failCount` are cumulative
+grant request observations (zero means no recorded outcomes), not verification
+verdicts or a recent success rate. Account/OAuth `evidence: "availability"`
+means an existing available record, possibly discovered or manually configured;
+it does not prove successful inference.
+
+Direct `bindings` contain `itemId`, `routeId`, `publicModel`, `routeEnabled`,
+`groupEnabled`, and `selected` (whether a manual group selects that item; true
+for other modes). Bindings describe configuration, including disabled and
+unselected members, not dispatch eligibility. Protocol grants, runtime health,
+cooldowns, and downstream access checks remain owned by the existing selector.
 
 **Query params**: `page`/`pageSize` — when `page` is present the endpoint
 returns `{ items, total, page, pageSize, meta }` where `total` is the full

@@ -15,6 +15,22 @@ func pgDSN() string {
 	return os.Getenv("PG_TEST_DSN")
 }
 
+func TestMarketplaceDirectSupplySourcesPostgres(t *testing.T) {
+	if pgDSN() == "" {
+		t.Skip("PG_TEST_DSN not set")
+	}
+	db, err := store.Open(store.DialectPostgres, pgDSN(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	pgtest.Reset(t, db.DB)
+	if err := store.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+	checkMarketplaceSupplySources(t, db.DB)
+}
+
 // TestStatsMarketplaceBuildersPostgres is the regression test for the
 // 2026-08-17 v0.14.0 deployment incident: four builder queries in
 // stats_marketplace.go used SQLite-only boolean literal syntax

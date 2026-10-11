@@ -43,6 +43,14 @@ zero or non-stream. Billing details present billable input, output, cache read
 and cache creation with their individual costs; the original billing object is
 available in a disclosure, including legacy objects without that breakdown.
 
+The model marketplace shows supply separately from account counts. Its detail
+sheet identifies site/OAuth accounts and direct grants, with connection names,
+upstream model names, and exact public route bindings. Configuration switches,
+manual selection, availability records, and cumulative request outcomes retain
+their own labels. None is rendered as a general healthy/verified verdict.
+Missing supply data from older servers stays unknown; an empty list is explicit.
+See [the marketplace contract](../../api/models.md) for counting and scope.
+
 **Principles**
 
 1. **Signal over decoration** — every color/weight change means status, severity, or hierarchy.

@@ -21,6 +21,8 @@ import (
 // marketplaceAccount aggregates per-account marketplace detail for one model.
 type marketplaceAccountAgg struct {
 	ID       int64
+	SiteID   int64
+	Kind     string
 	Site     string
 	Username *string
 	Latency  *float64
@@ -116,6 +118,7 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 			a.id AS account_id,
 			COALESCE(a.username, '') AS username,
 			COALESCE(a.balance, 0) AS balance,
+			s.id AS site_id, COALESCE(a.oauth_provider, '') AS oauth_provider,
 			COALESCE(s.name, '') AS site_name,
 			COALESCE(s.platform, '') AS platform
 		FROM model_availability ma
@@ -147,6 +150,11 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 			coerceFloat(row["balance"]),
 			latency,
 		)
+		acc.SiteID = coerceInt64(row["siteId"])
+		acc.Kind = "account"
+		if strings.TrimSpace(coerceString(row["oauthProvider"])) != "" {
+			acc.Kind = "oauth"
+		}
 		// Attach enabled tokens for this account (may also appear via token
 		// availability) from the single pre-loaded batch above.
 		for _, token := range enabledTokensByAccount[acc.ID] {
@@ -170,6 +178,7 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 			a.id AS account_id,
 			COALESCE(a.username, '') AS username,
 			COALESCE(a.balance, 0) AS balance,
+			s.id AS site_id, COALESCE(a.oauth_provider, '') AS oauth_provider,
 			COALESCE(s.name, '') AS site_name
 		FROM token_model_availability tma
 		INNER JOIN account_tokens at ON at.id = tma.token_id
@@ -203,6 +212,11 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 			coerceFloat(row["balance"]),
 			latency,
 		)
+		acc.SiteID = coerceInt64(row["siteId"])
+		acc.Kind = "account"
+		if strings.TrimSpace(coerceString(row["oauthProvider"])) != "" {
+			acc.Kind = "oauth"
+		}
 		tid := coerceInt64(row["tokenId"])
 		if tid <= 0 {
 			continue
@@ -235,12 +249,19 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 			continue
 		}
 		// Only exact patterns (no wildcards / regex markers) become marketplace models.
-		if strings.ContainsAny(pattern, "*?^$[]()|\\+") {
+		if !marketplaceExactModel(pattern) {
 			continue
 		}
 		if _, ok := byModel[pattern]; !ok {
 			byModel[pattern] = &modelAgg{accounts: map[int64]*marketplaceAccountAgg{}}
 		}
+	}
+	directSources, err := h.marketplaceDirectSources()
+	if err != nil {
+		return nil, err
+	}
+	for model := range directSources {
+		ensure(model)
 	}
 
 	// Optional success-rate from recent proxy_logs (bounded 7d window).
@@ -286,6 +307,7 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 	out := make([]map[string]any, 0, len(names))
 	for _, name := range names {
 		agg := byModel[name]
+		sources := append([]marketplaceModelSource{}, directSources[name]...)
 		accounts := make([]map[string]any, 0, len(agg.accounts))
 		accountIDs := make([]int64, 0, len(agg.accounts))
 		for id := range agg.accounts {
@@ -295,6 +317,15 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 		tokenCount := 0
 		for _, id := range accountIDs {
 			acc := agg.accounts[id]
+			username := ""
+			if acc.Username != nil {
+				username = *acc.Username
+			}
+			sources = append(sources, marketplaceModelSource{
+				Kind: acc.Kind, ID: acc.ID, Name: username, SiteID: acc.SiteID,
+				ConnectionName: acc.Site, UpstreamModel: name, Evidence: "availability", Enabled: true,
+				Bindings: []marketplaceRouteBinding{},
+			})
 			tokenCount += len(acc.Tokens)
 			var latency any
 			if acc.Latency != nil {
@@ -326,6 +357,8 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 		entry, catalogHit := catalogLookup(catalogSnapshot, name)
 		out = append(out, map[string]any{
 			"name":          name,
+			"supplyCount":   len(sources),
+			"supplySources": sources,
 			"accountCount":  len(accounts),
 			"tokenCount":    tokenCount,
 			"avgLatency":    avgLatency,

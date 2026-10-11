@@ -31,6 +31,7 @@ import {
 } from '@/lib/format'
 
 import type { ModelGroupPricing, ModelRow } from '../types'
+import { ModelSupplySources } from './model-supply-sources'
 import { pricingSiteLabel } from './models-columns'
 
 type ModelDetailSheetProps = {
@@ -109,11 +110,11 @@ export function ModelDetailSheet({
         <ScrollArea className='flex-1'>
           <div className='flex flex-col gap-4 px-4 pb-4'>
             <dl className='grid grid-cols-2 gap-3 text-sm sm:grid-cols-4'>
+              <DetailField label={t('models.supply.title')}>
+                {model.supplyCount ?? '—'}
+              </DetailField>
               <DetailField label={t('models.detail.accounts')}>
                 {model.accountCount}
-              </DetailField>
-              <DetailField label={t('models.detail.tokens')}>
-                {model.tokenCount}
               </DetailField>
               <DetailField label={t('models.detail.latency')}>
                 {formatLatency(model.avgLatency)}
@@ -122,6 +123,9 @@ export function ModelDetailSheet({
                 {formatSuccessRate(model.successRate)}
               </DetailField>
             </dl>
+
+            <Separator />
+            <ModelSupplySources sources={model.supplySources} />
 
             {(endpointTypes.length > 0 || tags.length > 0) && (
               <>
