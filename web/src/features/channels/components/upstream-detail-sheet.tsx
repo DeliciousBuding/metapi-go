@@ -19,9 +19,11 @@ import { api } from '@/lib/api'
 import type {
   ImportedMember,
   ImportedUpstream,
+  ImportedUpstreamInventory,
 } from '@/lib/api/imported-upstreams'
 
 import { upstreamKeys } from '../lib/upstream-config'
+import type { UpstreamDetailTab } from '../lib/upstream-view'
 import { UpstreamConnectionForm } from './upstream-connection-form'
 import { UpstreamCredentials } from './upstream-credentials'
 import { UpstreamIdentity } from './upstream-identity'
@@ -34,7 +36,8 @@ export function UpstreamDetailSheet(props: {
   onClose: () => void
   onDelete?: () => void
   deleting?: boolean
-  initialTab?: 'connection' | 'models'
+  initialTab?: UpstreamDetailTab
+  inventory?: ImportedUpstreamInventory
 }) {
   const { t } = useTranslation()
   const [tab, setTab] = useState<string>(props.initialTab ?? 'connection')
@@ -86,22 +89,22 @@ export function UpstreamDetailSheet(props: {
           >
             <TabsList
               variant='line'
-              className='mx-5 my-3 w-auto shrink-0 justify-between gap-1'
+              className='mx-5 my-3 grid w-auto shrink-0 grid-cols-4 gap-1 [&>button]:min-w-0 [&>button]:px-0.5 [&>button]:text-xs sm:[&>button]:px-1.5 sm:[&>button]:text-sm'
             >
               <TabsTrigger value='connection'>
-                <Cable />
+                <Cable aria-hidden='true' className='hidden sm:block' />
                 {t('channels.upstream.connection')}
               </TabsTrigger>
               <TabsTrigger value='credentials'>
-                <KeyRound />
+                <KeyRound aria-hidden='true' className='hidden sm:block' />
                 {t('channels.upstream.credentials')}
               </TabsTrigger>
               <TabsTrigger value='models'>
-                <Boxes />
+                <Boxes aria-hidden='true' className='hidden sm:block' />
                 {t('channels.catalog.models')}
               </TabsTrigger>
               <TabsTrigger value='routes'>
-                <Route />
+                <Route aria-hidden='true' className='hidden sm:block' />
                 {t('channels.upstream.routes')}
               </TabsTrigger>
             </TabsList>
@@ -163,6 +166,7 @@ export function UpstreamDetailSheet(props: {
                   active={tab === 'routes'}
                   beforeDelete={beforeDelete}
                   members={props.members}
+                  inventory={props.inventory}
                   onDirtyChange={onDirtyChange}
                 />
               </TabsContent>

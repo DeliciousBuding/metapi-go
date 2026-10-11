@@ -1,20 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowUpRight,
-  Cable,
-  KeyRound,
-  RefreshCw,
-  Search,
-  Users,
-  Plus,
-} from 'lucide-react'
+import { Cable, RefreshCw, Search, Users, Plus } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ModelPill } from '@/components/common/model-pill'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { useUpstreamDeletion } from '@/components/common/upstream-deletion'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -26,10 +16,12 @@ import type {
 import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
-import { memberProtocols, upstreamKeys } from '../lib/upstream-config'
+import { useUpstreamClock } from '../hooks/use-upstream-clock'
+import { upstreamKeys } from '../lib/upstream-config'
+import type { UpstreamDetailTab } from '../lib/upstream-view'
+import { UpstreamConnectionCard } from './upstream-connection-card'
 import { UpstreamCreateSheet } from './upstream-create-sheet'
 import { UpstreamDetailSheet } from './upstream-detail-sheet'
-import { UpstreamIdentity } from './upstream-identity'
 
 export function ImportedUpstreamsPanel(props: {
   children?: ReactNode
@@ -48,9 +40,7 @@ export function ImportedUpstreamsPanel(props: {
   const [selectedTab, setSelectedTab] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [detailId, setDetailId] = useState<number | null>(null)
-  const [detailTab, setDetailTab] = useState<'connection' | 'models'>(
-    'connection'
-  )
+  const [detailTab, setDetailTab] = useState<UpstreamDetailTab>('connection')
   const [creating, setCreating] = useState(false)
   const mutation = useMutation({
     mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
@@ -63,6 +53,7 @@ export function ImportedUpstreamsPanel(props: {
   })
   const items = query.data?.items ?? []
   const members = query.data?.members ?? []
+  const now = useUpstreamClock(members)
   const detail = items.find((item) => item.id === detailId)
   async function deleteChannel(item: ImportedUpstream) {
     await deletion.requestDeletion(
@@ -109,12 +100,24 @@ export function ImportedUpstreamsPanel(props: {
   )
   return (
     <>
+      <div className='flex shrink-0 flex-wrap items-center justify-between gap-3'>
+        <p className='text-muted-foreground text-sm'>
+          {t('channels.visual.workspaceHint')}
+        </p>
+        <Button onClick={() => setCreating(true)}>
+          <Plus aria-hidden='true' className='size-4' />
+          {t('channels.create.title')}
+        </Button>
+      </div>
       <Tabs
         value={tab}
         onValueChange={(value) => setSelectedTab(String(value))}
         className='min-h-0 flex-1 gap-3'
       >
-        <TabsList variant='line' className='shrink-0 gap-4 border-b pb-2'>
+        <TabsList
+          variant='line'
+          className='max-w-full shrink-0 gap-2 border-b pb-2 sm:gap-4 [&>button]:text-xs sm:[&>button]:text-sm'
+        >
           <TabsTrigger value='accounts'>
             <Users />
             {t('channels.upstream.accountsTab')}
@@ -157,10 +160,6 @@ export function ImportedUpstreamsPanel(props: {
             >
               <RefreshCw className='size-4' />
             </Button>
-            <Button onClick={() => setCreating(true)}>
-              <Plus className='size-4' />
-              {t('channels.create.title')}
-            </Button>
           </div>
           {query.error && (
             <QueryErrorBanner
@@ -181,110 +180,21 @@ export function ImportedUpstreamsPanel(props: {
                 const bindings = members.filter(
                   (member) => member.channelId === item.id
                 )
-                const models = [
-                  ...new Set(bindings.map((member) => member.modelName)),
-                ]
                 return (
-                  <article
+                  <UpstreamConnectionCard
                     key={item.id}
-                    className='bg-card hover:border-primary/30 flex flex-col gap-4 rounded-xl border p-4 transition-colors'
-                  >
-                    <div className='flex items-start justify-between gap-3'>
-                      <div className='min-w-0 space-y-2'>
-                        <UpstreamIdentity
-                          provider={item.provider}
-                          dialect={item.dialect}
-                        />
-                        <h2 className='text-base font-semibold'>
-                          <button
-                            type='button'
-                            className='hover:text-primary focus-visible:outline-ring max-w-full truncate text-left'
-                            onClick={() => {
-                              setDetailTab('connection')
-                              setDetailId(item.id)
-                            }}
-                          >
-                            {item.name}
-                          </button>
-                        </h2>
-                        <p
-                          className='text-muted-foreground truncate text-xs'
-                          title={item.baseUrl}
-                        >
-                          {item.baseUrl}
-                        </p>
-                      </div>
-                      <Badge variant={item.enabled ? 'success' : 'secondary'}>
-                        {t(
-                          item.enabled
-                            ? 'channels.imported.enabled'
-                            : 'channels.imported.disabled'
-                        )}
-                      </Badge>
-                    </div>
-                    <div className='flex flex-wrap items-center gap-2'>
-                      {models.slice(0, 3).map((model) => (
-                        <ModelPill key={model} model={model} />
-                      ))}
-                      {models.length > 3 && (
-                        <span className='text-muted-foreground text-xs'>
-                          +{models.length - 3}
-                        </span>
-                      )}
-                    </div>
-                    <div className='text-muted-foreground space-y-1 text-xs'>
-                      {[...new Set(bindings.map(memberProtocols))]
-                        .slice(0, 2)
-                        .map((protocols) => (
-                          <p key={protocols}>{protocols}</p>
-                        ))}
-                    </div>
-                    <div className='mt-auto flex flex-wrap items-center justify-between gap-3 border-t pt-3'>
-                      <span className='text-muted-foreground flex items-center gap-1.5 text-xs'>
-                        <KeyRound className='size-3.5' />
-                        {t('channels.imported.counts', {
-                          models: item.modelCount,
-                          credentials: item.credentialCount,
-                        })}
-                      </span>
-                      <div className='flex items-center gap-1'>
-                        <Button
-                          size='sm'
-                          variant='ghost'
-                          disabled={mutation.isPending}
-                          aria-label={t(
-                            item.enabled
-                              ? 'channels.imported.disableChannel'
-                              : 'channels.imported.enableChannel',
-                            { name: item.name }
-                          )}
-                          onClick={() =>
-                            mutation.mutate({
-                              id: item.id,
-                              enabled: !item.enabled,
-                            })
-                          }
-                        >
-                          {t(
-                            item.enabled
-                              ? 'channels.imported.disable'
-                              : 'channels.imported.enable'
-                          )}
-                        </Button>
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          onClick={() => {
-                            setDetailTab('connection')
-                            setDetailId(item.id)
-                          }}
-                        >
-                          {t('channels.upstream.manage')}
-                          <ArrowUpRight className='size-3.5' />
-                        </Button>
-                      </div>
-                    </div>
-                  </article>
+                    item={item}
+                    members={bindings}
+                    now={now}
+                    updating={mutation.isPending}
+                    onManage={(tab) => {
+                      setDetailTab(tab)
+                      setDetailId(item.id)
+                    }}
+                    onToggle={() =>
+                      mutation.mutate({ id: item.id, enabled: !item.enabled })
+                    }
+                  />
                 )
               })}
             </div>
@@ -302,6 +212,7 @@ export function ImportedUpstreamsPanel(props: {
           item={detail}
           initialTab={detailTab}
           members={members.filter((member) => member.channelId === detail.id)}
+          inventory={query.data}
           onClose={() => setDetailId(null)}
           onDelete={() => void deleteChannel(detail)}
           deleting={deletion.isPending}
@@ -313,6 +224,7 @@ export function ImportedUpstreamsPanel(props: {
           onClose={() => setCreating(false)}
           onCreated={(id) => {
             setCreating(false)
+            setSelectedTab('upstreams')
             setDetailTab('models')
             setDetailId(id)
           }}

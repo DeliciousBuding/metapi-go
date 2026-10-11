@@ -81,8 +81,16 @@ rebuild these arrangements with local spacing and raw data editors:
 
 ## 2. Color tokens
 
-Independent upstreams use the same brand identities as site presets. Creation
-starts with New API, domestic platforms and Coding Plan presets. Each product
+Independent upstreams use the same brand identities as site presets. The connect
+action is available above both channel views. Connection cards expose labeled credential,
+model and route counts as direct links to the corresponding detail tabs. Missing
+configuration gets a concrete next step; enabled state is not a live health result.
+Routing groups show the client model name followed by priority-ordered upstream
+models, platform and credential identities, configured protocol choices, and
+selection/cooldown states. Manual selection is labeled explicitly; configuration
+eligibility is separate from actual request history. Status must remain readable
+without color, and missing runtime data is unknown rather than healthy.
+Creation starts with New API, domestic platforms and Coding Plan presets. Each product
 has one branded card; protocol variants share that card, while distinct products
 such as Bailian and Bailian Coding Plan remain separate. The normal form asks for
 a key and, for a self-hosted gateway, its address. Connection names, custom hosts

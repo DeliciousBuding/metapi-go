@@ -26,16 +26,19 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import type { ImportedUpstreamInventory } from '@/lib/api/imported-upstreams'
 import type { UpstreamGroup } from '@/lib/api/upstream-catalog'
 import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
+import { useUpstreamClock } from '../hooks/use-upstream-clock'
 import { upstreamKeys } from '../lib/upstream-config'
 import {
   upstreamGroupBindingSchema,
   type UpstreamGroupBindingValues,
 } from '../lib/upstream-group-schema'
 import { UpstreamGroupForm, type GroupGrantOption } from './upstream-group-form'
+import { UpstreamRouteTopology } from './upstream-route-topology'
 
 function GroupBindingForm(props: {
   groups: UpstreamGroup[]
@@ -202,6 +205,7 @@ function GroupBindingForm(props: {
 export function UpstreamGroupManager(props: {
   channelId: number
   active: boolean
+  inventory?: ImportedUpstreamInventory
   onDirtyChange: (key: string, dirty: boolean) => void
   beforeDelete?: (action: () => void) => void
 }) {
@@ -209,6 +213,7 @@ export function UpstreamGroupManager(props: {
   const [creating, setCreating] = useState(false)
   const [binding, setBinding] = useState(false)
   const [expanded, setExpanded] = useState<number[]>([])
+  const now = useUpstreamClock(props.inventory?.members ?? [])
   const modelsQuery = useQuery({
     queryKey: upstreamKeys.models(props.channelId),
     queryFn: () => api.getUpstreamModels(props.channelId),
@@ -384,6 +389,12 @@ export function UpstreamGroupManager(props: {
               </Button>
             </div>
           </div>
+          <UpstreamRouteTopology
+            group={group}
+            inventory={props.inventory}
+            channelId={props.channelId}
+            now={now}
+          />
           <div hidden={!expanded.includes(group.id)}>
             <UpstreamGroupForm
               group={group}
