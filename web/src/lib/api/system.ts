@@ -21,6 +21,14 @@ export const systemApi = {
     includePricing?: boolean
     page?: number
     pageSize?: number
+    /** Whole-marketplace substring search (name / description / supply names). */
+    q?: string
+    /** Server-side filter CSVs; semantics are whitelisted in docs/api/models.md. */
+    capability?: string
+    endpointType?: string
+    sourceKind?: string
+    /** First table sort term (`column:asc|desc`); unknown columns fall back to name.asc. */
+    sort?: string
   }) => {
     const params = new URLSearchParams()
     if (options?.refresh) params.set('refresh', '1')
@@ -29,6 +37,11 @@ export const systemApi = {
     if (options?.pageSize != null) {
       params.set('pageSize', String(options.pageSize))
     }
+    if (options?.q) params.set('q', options.q)
+    if (options?.capability) params.set('capability', options.capability)
+    if (options?.endpointType) params.set('endpointType', options.endpointType)
+    if (options?.sourceKind) params.set('sourceKind', options.sourceKind)
+    if (options?.sort) params.set('sort', options.sort)
     const query = params.toString()
     return request<
       | { models?: unknown[]; meta?: unknown }
@@ -37,12 +50,26 @@ export const systemApi = {
           total?: number
           page?: number
           pageSize?: number
+          facets?: unknown
+          facetScope?: string
           meta?: unknown
         }
       | unknown[]
     >(`/api/models/marketplace${query ? `?${query}` : ''}`, {
       timeoutMs: options?.refresh ? 45_000 : 15_000,
     })
+  },
+  /**
+   * One marketplace row by exact model name, independent of pagination — the
+   * resolver behind the `?model=<name>` deep link. 404 arrives as a thrown
+   * error whose message is the server's "model not found".
+   */
+  getModelMarketplaceDetail: (name: string) => {
+    const params = new URLSearchParams({ name })
+    return request<{ model?: unknown }>(
+      `/api/models/marketplace/detail?${params.toString()}`,
+      { timeoutMs: 15_000 }
+    )
   },
   /** Cross-site effective model price comparison. */
   getModelPriceCompare: (options?: {

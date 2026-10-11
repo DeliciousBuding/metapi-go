@@ -24,6 +24,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 ### 变更
 
 - 模型页：`/api/models/marketplace` 新增 `supplyCount`、`supplySources`，展示直连授权与账号来源、上游模型和公共路由绑定；配置与历史请求结果分开标注（#1396）。
+- 模型页：`/api/models/marketplace` 支持 `q`/`capability`/`endpointType`/`sourceKind`/`sort` 服务端筛选与排序，`total` 与逐维析取 `facets` 覆盖全库；新增 `/api/models/marketplace/detail` 精确详情（#1396）。
+- 模型页：深链 `?model=` 经 detail 端点解析，不在当前页也能打开，找不到时明确提示；品牌列改为纯展示（映射仅在前端图标体系），搜索框覆盖该意图（#1396）。
 - 路由诊断：路由详情可按具体模型和接口执行只读当前检查，显示直连授权、OAuth 路由池、阻断原因和未评估项；不选择候选或调用上游（#1396）。
 - 首次引导：上游账号、OAuth 与独立连接共用配置清单；直接 Key 用户无需创建站点账号，概览单独展示独立上游数量（#1396）。
 - API 密钥：限制编辑器展示已选数量，支持搜索、只看已选和定位；列表补充独立渠道、模型映射、来源阻断与周期限额，保留失效引用（#1430）。

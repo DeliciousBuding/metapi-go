@@ -55,6 +55,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/models/catalog-sources`
 - `/api/models/catalog-sync`
 - `/api/models/marketplace`
+- `/api/models/marketplace/detail`
 - `/api/models/price-compare`
 - `/api/models/rates`
 - `/api/models/token-candidates`

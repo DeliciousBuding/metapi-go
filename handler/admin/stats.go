@@ -51,6 +51,7 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 
 	// Model routes under /api/models
 	r.Get("/api/models/marketplace", handler.marketplace)
+	r.Get("/api/models/marketplace/detail", handler.marketplaceDetail)
 	r.Get("/api/models/price-compare", handler.modelPriceCompare)
 	r.Get("/api/models/token-candidates", handler.tokenCandidates)
 	r.Post("/api/models/check/{accountId}", handler.modelCheck)
@@ -1125,40 +1126,50 @@ func (h *statsHandler) marketplace(w http.ResponseWriter, r *http.Request) {
 	refreshRequested := parseTruthyQuery(r.URL.Query().Get("refresh"))
 	includePricing := parseTruthyQuery(r.URL.Query().Get("includePricing"))
 
-	models, err := h.buildMarketplaceModels()
+	query := parseMarketplaceQuery(r)
+
+	aggregation, err := h.buildMarketplaceAggregation()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to build marketplace models")
 		return
 	}
 
-	// Defensive pagination (same page-gated envelope as /api/accounts,
-	// /api/channels and /api/routes). When ?page is absent the response keeps
-	// the legacy {models, meta} surface byte-compatible. When ?page is
-	// supplied the aggregator output is sliced server-side and the response
-	// becomes {items,total,page,pageSize,meta}: the browser no longer has to
-	// transfer the full pricing directory, and the pager can use the true
-	// total. Filtering/sorting remain client-side over the returned page only
-	// (the marketplace has no server-side filter/sort params today).
+	catalogSnapshot := appCatalogSnapshot()
+
+	// Query contract: search, filters, sort, totals, and facets run on the
+	// lightweight index projection of the whole marketplace, so a page-1
+	// search also finds page-2 models and every count shares one filter
+	// context. Only the selected page is hydrated into the full row shape.
+	indexRows := buildMarketplaceIndex(aggregation, catalogSnapshot)
+	filtered := filterMarketplaceIndex(indexRows, query)
+	sortMarketplaceIndex(filtered, query)
+
+	// Pagination keeps the same page-gated envelope as /api/accounts,
+	// /api/channels and /api/routes. When ?page is absent the response keeps
+	// the legacy {models, meta} surface; filters and sort still apply.
 	pageStr := strings.TrimSpace(r.URL.Query().Get("page"))
-	var total int
-	var respModels []map[string]any
+	total := len(filtered)
+	var pageRows []marketplaceIndexRow
 	page, pageSize := 1, 50
 	if pageStr != "" {
 		page = config.ClampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
 		pageSize = config.ClampInt(getQueryInt(r, "pageSize", 50), 1, 200)
 		offset := (page - 1) * pageSize
-		total = len(models)
 		if offset >= total {
-			respModels = []map[string]any{}
+			pageRows = []marketplaceIndexRow{}
 		} else {
 			end := offset + pageSize
 			if end > total {
 				end = total
 			}
-			respModels = models[offset:end]
+			pageRows = filtered[offset:end]
 		}
 	} else {
-		respModels = models
+		pageRows = filtered
+	}
+	respModels := make([]map[string]any, 0, len(pageRows))
+	for _, row := range pageRows {
+		respModels = append(respModels, hydrateMarketplaceRow(aggregation, row.name, catalogSnapshot))
 	}
 	meta := map[string]any{
 		"refreshRequested": refreshRequested,
@@ -1169,6 +1180,9 @@ func (h *statsHandler) marketplace(w http.ResponseWriter, r *http.Request) {
 		"refreshJobId":   nil,
 		"includePricing": includePricing,
 		"source":         "db_availability",
+		// Echo the normalized query context so a shared link never needs its
+		// raw parameters re-parsed to be understood.
+		"query": query.metaQueryEcho(),
 	}
 	// Catalog observability: which sources built the merged snapshot, when,
 	// and how many entries it carries.
@@ -1199,17 +1213,43 @@ func (h *statsHandler) marketplace(w http.ResponseWriter, r *http.Request) {
 
 	if pageStr != "" {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"items":    normalizeSlice(respModels),
-			"total":    total,
-			"page":     page,
-			"pageSize": pageSize,
-			"meta":     meta,
+			"items":      normalizeSlice(respModels),
+			"total":      total,
+			"page":       page,
+			"pageSize":   pageSize,
+			"facets":     buildMarketplaceFacets(indexRows, query),
+			"facetScope": marketplaceFacetScope,
+			"meta":       meta,
 		})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"models": respModels,
 		"meta":   meta,
+	})
+}
+
+// marketplaceDetail serves one fully hydrated row by exact model name,
+// independent of pagination: a ?model=<name> deep link resolves even when the
+// model is not on the page the browser has loaded. 404 means the name has no
+// supply and no exact route in the current aggregation.
+func (h *statsHandler) marketplaceDetail(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimSpace(r.URL.Query().Get("name"))
+	if name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	aggregation, err := h.buildMarketplaceAggregation()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to build marketplace models")
+		return
+	}
+	if _, ok := aggregation.byModel[name]; !ok {
+		writeError(w, http.StatusNotFound, "model not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"model": hydrateMarketplaceRow(aggregation, name, appCatalogSnapshot()),
 	})
 }
 
