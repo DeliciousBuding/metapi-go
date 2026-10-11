@@ -238,21 +238,54 @@ relationship conflicts return 409. Secrets are accepted only in write requests.
 
 ### Platform presets
 
-`GET /api/imported-upstreams/presets` returns `{items}`. Shared presets reuse the site
-catalog; native-only formats appear only in this upstream catalog. Fields are
+`GET /api/imported-upstreams/presets` returns `{items}` with one entry per product.
+Protocol variants share an entry; separate products such as Bailian and Bailian
+Coding Plan retain their own entries. Fields are
 `id`, `name`, `label`, `provider`, `platform`, `group`, `defaultUrl`,
-`protocols` (executable protocol names), and `recommendedModels`. New API comes first; domestic providers and Coding Plan
+`protocols` (executable protocol names), `recommendedModels`, `requiresBaseUrl`
+and `credentialMode` (`apiKey`, `optional`, or `oauth`). New API comes first; domestic providers and Coding Plan
 presets precede other providers. Only presets with an executable endpoint
 contract appear in this list.
 
-`POST /api/imported-upstreams/presets/resolve` accepts `{presetId,baseUrl}` and
-returns `{provider,endpointConfig}`. It resolves configuration locally without
-contacting an upstream. Resolve again after changing the base URL; do not reuse
+`POST /api/imported-upstreams/presets/resolve` accepts `{presetId,baseUrl?}` and
+returns `{presetId,provider,baseUrl,endpointConfig}`. It resolves configuration locally without
+contacting an upstream. An omitted URL uses the product default. Legacy preset
+IDs resolve to the combined product. Default endpoints retain each protocol's
+actual host, path, authentication and adapter. Resolve again after changing the base URL; do not reuse
 the previous host's endpoints. Domestic Chat profiles are applied only on their
 known hosts. A selected media preset retains its required wire adapter on custom
 hosts. New API excludes image variations, which its router does not implement;
 Coding Plan presets do not inherit a provider's media capabilities. Invalid targets or unknown
 presets return 400.
+
+### Quick connect
+
+`POST /api/imported-upstreams/connect` accepts `presetId`, `apiKey`, and optional
+`baseUrl`, `name`, `useSystemProxy`, and `channelProxy`. Self-hosted presets require
+`baseUrl`; anonymous Ollama connections may omit `apiKey`. OAuth products use the
+existing authorization endpoints instead of accepting pasted OAuth credentials
+through this API.
+
+The server resolves the product's endpoints, discovers its models, then creates
+the channel, credential, models, grants and route memberships in one transaction.
+New grants authorize the configured executable endpoints; clients do not select
+an outbound protocol. An existing exact model route is reused without changing
+its routing settings. Credential material is never returned.
+
+Success returns `{id,name,enabled,ownership,modelCount,routeCount,discovery}`.
+`discovery.status` is `discovered`, `preset` (configured model suggestions), or
+`empty`; an optional `message` explains a fallback. A model listing or preset is
+not a successful inference probe. With no discovered or suggested models, the
+connection is saved without model routes and can be completed in model management.
+Authentication rejection aborts before database writes; configuration and graph
+conflicts also leave no partial connection.
+
+Discovery is bounded to 15 seconds, 16 MiB across pages and 10,000 models.
+Anthropic and Gemini cursors change only query parameters on the same verified
+endpoint; redirects and repeated cursors are rejected. A missing catalog
+(`404`, `405`, `501`) can use preset models. Upstream authentication rejection
+returns a sanitized `400`; network, malformed or oversized catalog failures
+return `502`. Neither error includes the upstream's response body or credentials.
 
 ### Catalog operations
 

@@ -29,9 +29,9 @@ func (s *directProviderStream) TransformEvent(frame []byte) ([]byte, error) {
 			}
 		}
 		restored := restoreDirectProviderResponse(s.ctx, raw)
-		if wire := directProviderWireFromContext(s.ctx); wire != nil && wire.Profile == "cline" && s.next != nil && event.Data != "[DONE]" {
+		if wire := directProviderWireFromContext(s.ctx); wire != nil && s.next != nil && event.Data != "[DONE]" {
 			var err error
-			restored, err = projectDirectClineReasoning(restored, true)
+			restored, err = projectDirectProviderResponse(wire, restored, true)
 			if err != nil {
 				return nil, err
 			}
@@ -44,6 +44,17 @@ func (s *directProviderStream) TransformEvent(frame []byte) ([]byte, error) {
 		return s.next.TransformEvent(frame)
 	}
 	return frame, nil
+}
+
+func projectDirectProviderResponse(wire *directProviderWire, body []byte, stream bool) ([]byte, error) {
+	switch wire.Profile {
+	case "cline":
+		return projectDirectClineReasoning(body, stream)
+	case "openrouter", "cerebras":
+		return projectDirectRouterChatResponse(body, stream)
+	default:
+		return body, nil
+	}
 }
 func (s *directProviderStream) Finish() ([]byte, error) {
 	if s.codex != nil {

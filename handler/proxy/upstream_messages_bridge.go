@@ -25,6 +25,7 @@ type messagesChatBody struct {
 	io.ReadCloser
 	stream               protocolEventStream
 	original             *incrementalSseAnalyzer
+	outputAnalysis       *incrementalSseAnalyzer
 	pending, output      []byte
 	end                  error
 	readBuf              [4096]byte
@@ -65,9 +66,6 @@ func (b *messagesChatBody) Read(p []byte) (int, error) {
 		}
 		b.readBytes += int64(n)
 		if n > 0 {
-			if !b.skipOriginalAnalysis {
-				b.original.Push(b.readBuf[:n])
-			}
 			b.pending = append(b.pending, b.readBuf[:n]...)
 			for {
 				boundary, sepLen := nextSseBoundary(string(b.pending[b.boundaryScan:]))
@@ -80,12 +78,16 @@ func (b *messagesChatBody) Read(p []byte) (int, error) {
 					b.end = fmt.Errorf("Chat SSE frame exceeds the Messages bridge buffer limit")
 					break
 				}
-				converted, err := b.stream.TransformEvent(b.pending[:boundary+sepLen])
+				frame := b.pending[:boundary+sepLen]
+				if !b.skipOriginalAnalysis {
+					b.original.recordFrames(frame)
+				}
+				converted, err := b.stream.TransformEvent(frame)
 				if err != nil {
 					b.end = err
 					break
 				}
-				b.output = append(b.output, converted...)
+				b.appendOutput(converted)
 				b.pending = b.pending[boundary+sepLen:]
 				b.boundaryScan = 0
 			}
@@ -101,15 +103,14 @@ func (b *messagesChatBody) Read(p []byte) (int, error) {
 			b.end = readErr
 			if readErr == io.EOF {
 				if len(b.pending) > 0 {
+					if !b.skipOriginalAnalysis {
+						b.original.recordFrames(b.pending)
+					}
 					converted, err := b.stream.TransformEvent(b.pending)
 					if err != nil {
 						b.end = err
 					} else {
-						b.output = append(b.output, converted...)
-					}
-					// Account for a final SSE event terminated by EOF rather than a blank line.
-					if !b.skipOriginalAnalysis {
-						b.original.Push([]byte("\n\n"))
+						b.appendOutput(converted)
 					}
 				}
 				if b.end == io.EOF {
@@ -117,7 +118,7 @@ func (b *messagesChatBody) Read(p []byte) (int, error) {
 					if err != nil {
 						b.end = err
 					} else {
-						b.output = append(b.output, converted...)
+						b.appendOutput(converted)
 					}
 				}
 			}
@@ -130,6 +131,13 @@ func (b *messagesChatBody) Read(p []byte) (int, error) {
 	n := copy(p, b.output)
 	b.output = b.output[n:]
 	return n, nil
+}
+
+func (b *messagesChatBody) appendOutput(frame []byte) {
+	if b.outputAnalysis != nil {
+		b.outputAnalysis.recordFrames(frame)
+	}
+	b.output = append(b.output, frame...)
 }
 
 func writeMessagesReplayFailure(w http.ResponseWriter, ctx *Ctx, requestID string) {

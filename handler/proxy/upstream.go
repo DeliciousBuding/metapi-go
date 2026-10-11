@@ -401,7 +401,7 @@ func dispatchSelectedUpstream(
 			}
 		}
 		if selected.Direct != nil {
-			return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, retry, maxRetries, requestID)
+			return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, retry, maxRetries, disableCrossProtocolFallback, requestID)
 		}
 		return dispatchEndpointAttempt(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, upstreamPath, contentType, bodyBytes, firstByteTimeoutMs, retry, maxRetries, true, requestID)
 	}
@@ -416,7 +416,7 @@ func dispatchSelectedUpstream(
 		bodyBytes = ctx.RawBody
 	}
 	if selected.Direct != nil {
-		return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, retry, maxRetries, requestID)
+		return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, retry, maxRetries, disableCrossProtocolFallback, requestID)
 	}
 
 	// Site protocol preference: responses-only + stream.
@@ -770,6 +770,9 @@ func dispatchEndpointAttemptWithContinue(
 			req = req.WithContext(context.WithValue(req.Context(), directVideoAccountingOperationKey{}, account))
 		}
 		resp, err = sendDirectNativeVideoRequest(cfg, req, proxyConfig, firstByteTimeoutMs, wire.Profile, taskID)
+	} else if wire != nil && wire.Profile == "openrouter-image" {
+		maxRetries = retry
+		resp, err = sendDirectOpenRouterImageRequest(cfg, req, proxyConfig, firstByteTimeoutMs, wire.ImageResponseFormat)
 	} else if wire != nil && isDirectMediaProfile(wire.Profile) {
 		// Async image submission cannot be replayed after a poll/download failure.
 		maxRetries = retry
@@ -935,7 +938,7 @@ func dispatchEndpointAttemptWithContinue(
 			})
 			respBody = errBody.bytes
 			rawErrText := string(respBody)
-			if shouldContinueEndpointFallback(resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
+			if shouldContinueEndpointResponseFallback(selected, resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, errBody.readable) {
 				return false, nil, true
 			}
 			// Best-effort usage from error JSON bodies (some gateways still
@@ -1052,7 +1055,7 @@ func dispatchEndpointAttemptWithContinue(
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		rawErrText := string(respBody)
-		if shouldContinueEndpointFallback(resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
+		if shouldContinueEndpointResponseFallback(selected, resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, body.readable) {
 			return false, nil, true
 		}
 		// Non-stream HTTP errors: retain any usage object in the error body
@@ -1068,7 +1071,7 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 	nativeJSON := proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolSystemOne || proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolAlphaSearch
-	if wire := directProviderWireFromContext(r.Context()); nativeJSON || wire != nil && (wire.Profile == "ollama" || wire.Profile == "cline") {
+	if wire := directProviderWireFromContext(r.Context()); nativeJSON || wire != nil && (wire.Profile == "ollama" || wire.Profile == "cline" || wire.Profile == "openrouter" || wire.Profile == "cerebras" || wire.Profile == "nanogpt") {
 		converted := respBody
 		var convertErr error
 		if nativeJSON {
@@ -1077,6 +1080,14 @@ func dispatchEndpointAttemptWithContinue(
 			}
 		} else if wire.Profile == "cline" {
 			converted, convertErr = normalizeDirectClineJSON(respBody, body.readable)
+		} else if wire.Profile == "openrouter" || wire.Profile == "cerebras" {
+			converted, convertErr = normalizeDirectRouterChatJSON(respBody, body.readable)
+		} else if wire.Profile == "nanogpt" {
+			if !body.readable {
+				convertErr = fmt.Errorf("expected a readable NanoGPT JSON response")
+			} else {
+				converted, convertErr = normalizeDirectNanoGPTJSON(respBody, wire.NanoGPTTools)
+			}
 		} else {
 			converted, convertErr = normalizeDirectOllamaJSON(respBody, body.readable)
 		}
@@ -1166,11 +1177,15 @@ func dispatchEndpointAttemptWithContinue(
 	if directBridge || isMessagesChatBridge(ctx.DownstreamPath, upstreamPath) {
 		var convertErr error
 		if body.readable {
-			if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.Profile == "cline" {
-				respBody, convertErr = projectDirectClineReasoning(respBody, false)
+			if wire := directProviderWireFromContext(r.Context()); wire != nil {
+				respBody, convertErr = projectDirectProviderResponse(wire, respBody, false)
 			}
 			if directBridge && convertErr == nil {
-				respBody, convertErr = directConvertResponse(respBody, ctx.DownstreamPath, upstreamPath, upstreamModel, bridgeOptions)
+				if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.ProtocolSession != nil {
+					respBody, convertErr = wire.ProtocolSession.Response(r.Context(), respBody)
+				} else {
+					respBody, convertErr = directConvertResponse(respBody, ctx.DownstreamPath, upstreamPath, upstreamModel, bridgeOptions)
+				}
 			} else if convertErr == nil {
 				respBody, convertErr = messages.FromChatResponse(respBody, bridgeOptions)
 			}

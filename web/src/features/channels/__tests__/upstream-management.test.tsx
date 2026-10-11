@@ -137,6 +137,7 @@ describe('upstream maintenance', () => {
     mount(
       <UpstreamConnectionForm detail={detail} onDirtyChange={state.dirty} />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.change(screen.getByLabelText('Name'), {
       target: { value: 'New name' },
     })
@@ -153,6 +154,7 @@ describe('upstream maintenance', () => {
     mount(
       <UpstreamConnectionForm detail={detail} onDirtyChange={state.dirty} />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.change(screen.getByLabelText('Name'), {
       target: { value: 'Draft' },
     })
@@ -185,6 +187,7 @@ describe('upstream maintenance', () => {
     mount(
       <UpstreamConnectionForm detail={detail} onDirtyChange={state.dirty} />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Configure Chat endpoint' })
     )

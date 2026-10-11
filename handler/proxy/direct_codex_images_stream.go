@@ -57,6 +57,7 @@ func newDirectCodexImagesBody(body io.ReadCloser, path string, stream bool, byte
 	reader.skipOriginalAnalysis = true
 	converter.observe = reader.original.recordEvent
 	converter.onOutput = func() {
+		reader.original.result.HasGeneratedOutput = true
 		if reader.original.onFirstOutput != nil {
 			reader.original.onFirstOutput()
 			reader.original.onFirstOutput = nil

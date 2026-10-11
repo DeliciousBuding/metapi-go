@@ -164,7 +164,7 @@ func (e *DirectEndpoints) Scan(value any) error {
 			if endpoint != decoded.Messages || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("claudecode profile requires bearer Messages")
 			}
-		case "deepseek", "zai", "bailian", "cline":
+		case "deepseek", "zai", "bailian", "cline", "moonshot", "longcat", "openrouter", "cerebras", "nanogpt":
 			if endpoint != decoded.Chat || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("chat profile requires bearer Chat")
 			}
@@ -197,6 +197,10 @@ func (e *DirectEndpoints) Scan(value any) error {
 		case "minimax-image":
 			if entry.Protocol != DirectProtocolImageGeneration || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("MiniMax image profile requires bearer image generation")
+			}
+		case "openrouter-image":
+			if (entry.Protocol != DirectProtocolImageGeneration && entry.Protocol != DirectProtocolImageEdit) || endpoint.Auth != DirectAuthBearer {
+				return fmt.Errorf("OpenRouter image profile requires bearer image generation or editing")
 			}
 		case "modelscope-image":
 			if (entry.Protocol != DirectProtocolImageGeneration && entry.Protocol != DirectProtocolImageEdit && entry.Protocol != DirectProtocolModelScopeImageGeneration) || endpoint.Auth != DirectAuthBearer {

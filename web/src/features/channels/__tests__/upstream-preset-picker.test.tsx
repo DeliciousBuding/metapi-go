@@ -15,33 +15,32 @@ import type { UpstreamPreset } from '@/lib/api/upstream-presets'
 
 import { UpstreamPresetPicker } from '../components/upstream-preset-picker'
 
-// Raw API fixture includes the gateway's fourteen explicit capabilities.
-const newAPI: UpstreamPreset = JSON.parse(`{
-  "id": "new-api-connection", "name": "New API", "label": "New API",
-  "provider": "new-api", "platform": "new-api", "group": "gateway",
-  "defaultUrl": "", "recommendedModels": [],
-  "protocols": ["chat", "responses", "messages", "completions", "embeddings",
-    "rerank", "imageGeneration", "imageEdit", "imageVariation", "audioSpeech",
-    "audioTranscription", "audioTranslation", "moderations", "video"]
-}`)
-
-const description =
-  'Text & conversation: Chat, Responses, Messages, Completions, Moderation; Vectors & retrieval: Embeddings, Rerank; Images: Image generation, Image edits, Image variations; Audio: Speech, Transcription, Translation; Video: Video'
-const titles = [
-  'Text & conversation: Chat, Responses, Messages, Completions, Moderation',
-  'Vectors & retrieval: Embeddings, Rerank',
-  'Images: Image generation, Image edits, Image variations',
-  'Audio: Speech, Transcription, Translation',
-  'Video: Video',
-]
-
+const newAPI: UpstreamPreset = {
+  id: 'new-api',
+  name: 'New API',
+  label: 'New API',
+  provider: 'new-api',
+  platform: 'new-api',
+  group: 'gateway',
+  defaultUrl: '',
+  recommendedModels: [],
+  requiresBaseUrl: false,
+  credentialMode: 'apiKey',
+  protocols: [
+    'chat',
+    'responses',
+    'messages',
+    'imageGeneration',
+    'audioSpeech',
+  ],
+}
 beforeEach(async () => {
   await i18n.changeLanguage('en')
 })
 afterEach(cleanup)
 
-describe('upstream preset capability summaries', () => {
-  it('summarizes fourteen New API capabilities in five groups and preserves accessible details through selection', () => {
+describe('upstream platform selection', () => {
+  it('selects one platform card without presenting protocol or capability choices', () => {
     const onSelect = vi.fn()
     function Picker() {
       const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -49,75 +48,83 @@ describe('upstream preset capability summaries', () => {
         <UpstreamPresetPicker
           presets={[newAPI]}
           selectedId={selectedId}
-          manual={false}
           disabled={false}
           onSelect={(preset, name) => {
             onSelect(preset, name)
             setSelectedId(preset.id)
           }}
-          onCustom={vi.fn()}
         />
       )
     }
     render(<Picker />)
     const card = screen.getByRole('button', { name: 'Use New API' })
-    expect(card).toHaveAccessibleDescription(description)
     expect(within(card).getByText('New API')).toBeVisible()
-    expect(within(card).getByText('Chat / Responses +3')).toBeVisible()
-    expect(within(card).getByText('Vectors & retrieval · 2')).toBeVisible()
-    expect(within(card).getByText('Images · 3')).toBeVisible()
-    expect(within(card).getByText('Audio · 3')).toBeVisible()
-    expect(within(card).getByText('Video · 1')).toBeVisible()
     expect(
-      within(card).getAllByTitle(
-        /^(Text & conversation|Vectors & retrieval|Images|Audio|Video):/
-      )
-    ).toHaveLength(5)
-    for (const title of titles) {
-      expect(within(card).getByTitle(title)).toBeVisible()
-    }
-
+      within(card).queryByText(/Chat|Responses|Messages|Images|Audio/)
+    ).not.toBeInTheDocument()
+    expect(card).not.toHaveAttribute('aria-description')
     fireEvent.click(card)
     expect(onSelect).toHaveBeenCalledExactlyOnceWith(newAPI, 'New API')
-    const compact = screen.getByRole('region', { name: 'Platform preset' })
-    expect(compact).toHaveAccessibleDescription(description)
-    expect(within(compact).getByText('New API')).toBeVisible()
-    for (const title of titles) {
-      expect(within(compact).getByTitle(title)).toBeVisible()
-    }
+    const selected = screen.getByRole('region', { name: 'Platform preset' })
+    expect(within(selected).getByText('New API')).toBeVisible()
     expect(
-      within(compact).getAllByTitle(
-        /^(Text & conversation|Vectors & retrieval|Images|Audio|Video):/
-      )
-    ).toHaveLength(5)
+      within(selected).queryByText(/Chat|Responses|Messages/)
+    ).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Change' }))
     expect(screen.getByRole('button', { name: 'Use New API' })).toHaveAttribute(
       'aria-pressed',
       'true'
     )
-    expect(onSelect).toHaveBeenCalledTimes(1)
   })
 
-  it('does not imply unlisted media capabilities for a conversation-only preset', () => {
-    const onSelect = vi.fn()
+  it('preserves distinct platform products and prioritizes common providers over official direct APIs', () => {
+    const products: UpstreamPreset[] = [
+      newAPI,
+      {
+        ...newAPI,
+        id: 'bailian',
+        name: 'Bailian',
+        label: 'Bailian',
+        provider: 'bailian',
+        group: 'domestic',
+      },
+      {
+        ...newAPI,
+        id: 'codingplan',
+        name: 'Bailian Coding Plan',
+        label: 'Bailian Coding Plan',
+        provider: 'bailian',
+        group: 'coding',
+      },
+      {
+        ...newAPI,
+        id: 'openai',
+        name: 'OpenAI',
+        label: 'OpenAI',
+        provider: 'openai',
+        group: 'other',
+      },
+    ]
     render(
       <UpstreamPresetPicker
-        presets={[{ ...newAPI, protocols: ['chat'] }]}
+        presets={products}
         selectedId={null}
-        manual={false}
-        disabled
-        onSelect={onSelect}
-        onCustom={vi.fn()}
+        disabled={false}
+        onSelect={vi.fn()}
       />
     )
-    const card = screen.getByRole('button', { name: 'Use New API' })
-    expect(card).toBeDisabled()
-    expect(card).toHaveAccessibleDescription('Text & conversation: Chat')
-    expect(within(card).getByText('Chat')).toBeVisible()
+    expect(screen.getAllByRole('button', { name: /^Use / })).toHaveLength(3)
+    expect(screen.getByRole('button', { name: 'Use Bailian' })).toBeVisible()
     expect(
-      within(card).queryByText(/Images|Audio|Video|Vectors/)
+      screen.getByRole('button', { name: 'Use Bailian Coding Plan' })
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: 'Use OpenAI' })
     ).not.toBeInTheDocument()
-    fireEvent.click(card)
-    expect(onSelect).not.toHaveBeenCalled()
+    fireEvent.change(
+      screen.getByRole('textbox', { name: i18n.t('channels.create.search') }),
+      { target: { value: 'OpenAI' } }
+    )
+    expect(screen.getByRole('button', { name: 'Use OpenAI' })).toBeVisible()
   })
 })

@@ -36,6 +36,9 @@ type nativeTerminalBody struct {
 	normalizer    transformshared.NativeTerminalStream
 	responseModel string
 	original      *incrementalSseAnalyzer
+	analysis      *incrementalSseAnalyzer
+	frameLimit    int64
+	boundaryScan  int
 	pending       []byte
 	output        []byte
 	end           error
@@ -72,24 +75,27 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
+	frameLimit := b.frameLimit
+	if frameLimit <= 0 {
+		frameLimit = maxIncrementalSsePendingBytes
+	}
 	for len(b.output) == 0 {
 		if b.end != nil {
 			return 0, b.end
 		}
 		n, err := b.ReadCloser.Read(b.readBuf[:])
-		if b.original != nil && n > 0 {
-			b.original.Push(b.readBuf[:n])
-		}
 		if b.passthrough {
 			b.output = append(b.output, b.readBuf[:n]...)
 		} else {
 			b.pending = append(b.pending, b.readBuf[:n]...)
 			for {
-				boundary, sepLen := nextSseBoundary(string(b.pending))
+				boundary, sepLen := nextSseBoundary(string(b.pending[b.boundaryScan:]))
 				if boundary < 0 {
+					b.boundaryScan = max(len(b.pending)-3, 0)
 					break
 				}
-				if boundary > maxIncrementalSsePendingBytes {
+				boundary += b.boundaryScan
+				if int64(boundary) > frameLimit {
 					if b.responseModel != "" {
 						b.end = fmt.Errorf("SSE frame exceeds model mapping buffer limit")
 						b.pending = nil
@@ -104,8 +110,9 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 				b.output = append(b.output, b.normalizeBlock(block)...)
 				b.output = append(b.output, b.pending[boundary:boundary+sepLen]...)
 				b.pending = b.pending[boundary+sepLen:]
+				b.boundaryScan = 0
 			}
-			if len(b.pending) > maxIncrementalSsePendingBytes {
+			if int64(len(b.pending)) > frameLimit {
 				if b.responseModel != "" {
 					b.end = fmt.Errorf("SSE frame exceeds model mapping buffer limit")
 					b.pending = nil
@@ -144,6 +151,14 @@ func (b *nativeTerminalBody) Read(p []byte) (int, error) {
 
 func (b *nativeTerminalBody) normalizeBlock(block []byte) []byte {
 	event := parseSseBlock(string(block))
+	if event != nil {
+		if b.original != nil {
+			b.original.recordEvent(*event)
+		}
+		if b.analysis != nil {
+			b.analysis.recordEvent(*event)
+		}
+	}
 	b.observeTerminalEvent(event)
 	if event == nil || event.Data == "" {
 		return block

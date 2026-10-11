@@ -6,6 +6,9 @@ func TestGeneratedSseOutput(t *testing.T) {
 	for _, data := range []string{
 		`{"choices":[{"delta":{"content":"hello"}}]}`,
 		`{"choices":[{"delta":{"reasoning_content":"think"}}]}`,
+		`{"choices":[{"delta":{"content":[{"type":"text","text":"hello"}]}}]}`,
+		`{"choices":[{"delta":{"content":[{"type":"image_url","image_url":{"url":"data:image/png;base64,AA=="}}]}}]}`,
+		`{"choices":[{"delta":{"images":[{"type":"image_url","image_url":{"url":"https://images.example/image.png"}}]}}]}`,
 		`{"choices":[{"delta":{"tool_calls":[{"function":{"name":"search"}}]}}]}`,
 		`{"type":"response.output_text.delta","delta":"hi"}`,
 		`{"type":"response.function_call_arguments.delta","delta":"{"}`,
@@ -15,6 +18,8 @@ func TestGeneratedSseOutput(t *testing.T) {
 		`{"type":"content_block_start","content_block":{"type":"tool_use","name":"search"}}`,
 		`{"candidates":[{"content":{"parts":[{"text":"hello"}]}}]}`,
 		`{"candidates":[{"content":{"parts":[{"functionCall":{"name":"search"}}]}}]}`,
+		`{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"AA=="}}]}}]}`,
+		`{"candidates":[{"content":{"parts":[{"fileData":{"mimeType":"image/png","fileUri":"https://images.example/image.png"}}]}}]}`,
 	} {
 		if !hasGeneratedSseOutput(SseEvent{Data: data}) {
 			t.Errorf("output ignored: %s", data)
@@ -24,10 +29,15 @@ func TestGeneratedSseOutput(t *testing.T) {
 		``, `[DONE]`, `not-json`, `{"type":"response.created"}`,
 		`{"choices":[{"delta":{"role":"assistant","content":""}}]}`,
 		`{"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"completion_tokens":2}}`,
+		`{"choices":[{"delta":{"images":[]}}]}`,
+		`{"choices":[{"delta":{"images":[{"type":"image_url","image_url":{"url":""}}]}}]}`,
+		`{"choices":[{"delta":{"content":[{"type":"image_url"}]}}]}`,
 		`{"type":"message_start","message":{"role":"assistant"}}`,
 		`{"type":"content_block_start","content_block":{"type":"text","text":""}}`,
 		`{"type":"error","error":{"message":"oops"}}`,
 		`{"candidates":[{"content":{"parts":[{"text":""}]}}]}`,
+		`{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":""}}]}}]}`,
+		`{"candidates":[{"content":{"parts":[{"fileData":{"mimeType":"image/png"}}]}}]}`,
 	} {
 		if hasGeneratedSseOutput(SseEvent{Data: data}) {
 			t.Errorf("metadata counted as output: %s", data)

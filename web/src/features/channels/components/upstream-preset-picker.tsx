@@ -1,10 +1,8 @@
-import type { TFunction } from 'i18next'
-import { Check, Settings2 } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BrandGlyph } from '@/assets/brand-icons/BrandIcon'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -16,50 +14,7 @@ import {
 } from '@/lib/platform-catalog'
 import { cn } from '@/lib/utils'
 
-import {
-  upstreamProtocolGroups,
-  upstreamProtocols,
-} from '../lib/upstream-config'
-
-type CapabilitySummary = { key: string; label: string; title: string }
-
-function summarizeCapabilities(
-  preset: UpstreamPreset,
-  t: TFunction
-): CapabilitySummary[] {
-  const available = upstreamProtocols.filter((protocol) =>
-    preset.protocols.some((key) => key === protocol.key)
-  )
-  return upstreamProtocolGroups.flatMap((group) => {
-    const protocols = available.filter((protocol) => protocol.group === group)
-    if (!protocols.length) return []
-    const name = t(`channels.capabilities.groups.${group}`)
-    const conversation = protocols
-      .filter((protocol) => protocol.convertible)
-      .slice(0, 2)
-    let label = `${name} · ${protocols.length}`
-    if (conversation.length) {
-      label = conversation
-        .map((protocol) => t(`channels.capabilities.names.${protocol.key}`))
-        .join(' / ')
-      const additional = protocols.length - conversation.length
-      if (additional) label += ` +${additional}`
-    }
-    return [
-      {
-        key: group,
-        label,
-        title: `${name}: ${protocols.map((protocol) => t(`channels.capabilities.names.${protocol.key}`)).join(', ')}`,
-      },
-    ]
-  })
-}
-
-function PresetIdentity(props: {
-  preset: UpstreamPreset
-  summary: CapabilitySummary[]
-  compact?: boolean
-}) {
+function PresetIdentity(props: { preset: UpstreamPreset; compact?: boolean }) {
   const { t } = useTranslation()
   const nameKey = getConnectionPresetNameKey(props.preset.id)
   const name = nameKey ? t(nameKey) : props.preset.name
@@ -83,18 +38,6 @@ function PresetIdentity(props: {
         )}
       >
         <span className='block text-sm font-medium'>{name}</span>
-        <span className='flex flex-wrap gap-1'>
-          {props.summary.map((group) => (
-            <Badge
-              key={group.key}
-              variant='secondary'
-              title={group.title}
-              className='h-auto min-h-5 max-w-full px-1.5 py-0 text-left text-xs font-normal whitespace-normal'
-            >
-              {group.label}
-            </Badge>
-          ))}
-        </span>
       </span>
     </>
   )
@@ -103,10 +46,8 @@ function PresetIdentity(props: {
 export function UpstreamPresetPicker(props: {
   presets: UpstreamPreset[]
   selectedId: string | null
-  manual: boolean
   disabled: boolean
   onSelect: (preset: UpstreamPreset, name: string) => void
-  onCustom: () => void
 }) {
   const { t } = useTranslation()
   const [group, setGroup] = useState('common')
@@ -115,7 +56,6 @@ export function UpstreamPresetPicker(props: {
   const selected = props.presets.find(
     (preset) => preset.id === props.selectedId
   )
-  const selectedSummary = selected ? summarizeCapabilities(selected, t) : []
   const query = search.trim().toLowerCase()
   const labels = {
     common: t('channels.create.groups.common'),
@@ -136,23 +76,13 @@ export function UpstreamPresetPicker(props: {
       : preset.group === group
   })
 
-  if (!expanded && (selected || props.manual)) {
+  if (!expanded && selected) {
     return (
       <section
         className='flex items-center gap-3 rounded-xl border px-3 py-2.5'
         aria-label={t('channels.create.preset')}
-        aria-description={selectedSummary
-          .map((group) => group.title)
-          .join('; ')}
       >
-        {selected ? (
-          <PresetIdentity preset={selected} summary={selectedSummary} compact />
-        ) : (
-          <span className='flex min-w-0 flex-1 items-center gap-3 text-sm font-medium'>
-            <Settings2 className='size-4' aria-hidden='true' />
-            {t('channels.create.custom')}
-          </span>
-        )}
+        <PresetIdentity preset={selected} compact />
         <Button
           type='button'
           variant='ghost'
@@ -189,7 +119,6 @@ export function UpstreamPresetPicker(props: {
           const nameKey = getConnectionPresetNameKey(preset.id)
           const name = nameKey ? t(nameKey) : preset.name
           const selected = preset.id === props.selectedId
-          const summary = summarizeCapabilities(preset, t)
           return (
             <Button
               key={preset.id}
@@ -200,9 +129,8 @@ export function UpstreamPresetPicker(props: {
               aria-label={t('channels.create.usePreset', {
                 name: preset.label,
               })}
-              aria-description={summary.map((group) => group.title).join('; ')}
               className={cn(
-                'h-auto min-h-18 justify-start gap-3 rounded-xl px-3 py-2.5 whitespace-normal',
+                'h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-2.5 whitespace-normal',
                 selected && 'border-primary bg-primary/5'
               )}
               onClick={() => {
@@ -210,7 +138,7 @@ export function UpstreamPresetPicker(props: {
                 props.onSelect(preset, name)
               }}
             >
-              <PresetIdentity preset={preset} summary={summary} />
+              <PresetIdentity preset={preset} />
               {selected && (
                 <Check
                   className='text-primary size-4 shrink-0'
@@ -226,19 +154,6 @@ export function UpstreamPresetPicker(props: {
           {t('channels.create.noPresets')}
         </p>
       )}
-      <Button
-        type='button'
-        variant='ghost'
-        size='sm'
-        disabled={props.disabled}
-        onClick={() => {
-          setExpanded(false)
-          props.onCustom()
-        }}
-      >
-        <Settings2 className='size-4' aria-hidden='true' />
-        {t('channels.create.custom')}
-      </Button>
     </section>
   )
 }

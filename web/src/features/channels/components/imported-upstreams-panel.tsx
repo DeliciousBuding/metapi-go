@@ -48,6 +48,9 @@ export function ImportedUpstreamsPanel(props: {
   const [selectedTab, setSelectedTab] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [detailId, setDetailId] = useState<number | null>(null)
+  const [detailTab, setDetailTab] = useState<'connection' | 'models'>(
+    'connection'
+  )
   const [creating, setCreating] = useState(false)
   const mutation = useMutation({
     mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
@@ -196,7 +199,10 @@ export function ImportedUpstreamsPanel(props: {
                           <button
                             type='button'
                             className='hover:text-primary focus-visible:outline-ring max-w-full truncate text-left'
-                            onClick={() => setDetailId(item.id)}
+                            onClick={() => {
+                              setDetailTab('connection')
+                              setDetailId(item.id)
+                            }}
                           >
                             {item.name}
                           </button>
@@ -268,7 +274,10 @@ export function ImportedUpstreamsPanel(props: {
                         <Button
                           size='sm'
                           variant='outline'
-                          onClick={() => setDetailId(item.id)}
+                          onClick={() => {
+                            setDetailTab('connection')
+                            setDetailId(item.id)
+                          }}
                         >
                           {t('channels.upstream.manage')}
                           <ArrowUpRight className='size-3.5' />
@@ -291,6 +300,7 @@ export function ImportedUpstreamsPanel(props: {
         <UpstreamDetailSheet
           key={detail.id}
           item={detail}
+          initialTab={detailTab}
           members={members.filter((member) => member.channelId === detail.id)}
           onClose={() => setDetailId(null)}
           onDelete={() => void deleteChannel(detail)}
@@ -303,6 +313,7 @@ export function ImportedUpstreamsPanel(props: {
           onClose={() => setCreating(false)}
           onCreated={(id) => {
             setCreating(false)
+            setDetailTab('models')
             setDetailId(id)
           }}
         />

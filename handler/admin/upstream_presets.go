@@ -1,12 +1,14 @@
 package admin
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -27,21 +29,33 @@ func resolveUpstreamPreset(w http.ResponseWriter, r *http.Request) {
 	if !catalogDecode(w, r, &input) {
 		return
 	}
-	preset := service.GetUpstreamPreset(input.PresetID)
-	if preset == nil {
-		writeError(w, http.StatusBadRequest, "Unknown upstream preset")
+	preset, config, base, err := resolveUpstreamPresetConfig(input.PresetID, input.BaseURL)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	base := strings.TrimRight(strings.TrimSpace(input.BaseURL), "/")
+	writeJSON(w, http.StatusOK, map[string]any{"presetId": preset.ID, "provider": preset.Provider, "baseUrl": base, "endpointConfig": config})
+}
+
+// resolveUpstreamPresetConfig is shared with quick connect. It is a local
+// projection only: no model discovery, credential access or outbound request.
+func resolveUpstreamPresetConfig(presetID, baseURL string) (*service.UpstreamPreset, store.DirectEndpoints, string, error) {
+	preset := service.GetUpstreamPreset(presetID)
+	if preset == nil {
+		return nil, store.DirectEndpoints{}, "", fmt.Errorf("unknown upstream preset")
+	}
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	useDefaults := base == "" || preset.IsDefaultBaseURL(base)
+	if useDefaults {
+		base = preset.DefaultURL
+	}
 	parsed, err := url.Parse(base)
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || strings.ContainsAny(base, "?#") || service.IsForbiddenSiteTargetURL(base) {
-		writeError(w, http.StatusBadRequest, "Invalid upstream base URL")
-		return
+		return nil, store.DirectEndpoints{}, "", fmt.Errorf("invalid upstream base URL")
 	}
 	config := service.UpstreamPresetEndpointPaths(preset.ID, preset.Platform)
 	if !config.IsConfigured() {
-		writeError(w, http.StatusBadRequest, "Preset has no executable endpoint contract")
-		return
+		return nil, store.DirectEndpoints{}, "", fmt.Errorf("preset has no executable endpoint contract")
 	}
 	for _, entry := range config.Entries() {
 		if entry.Endpoint == nil {
@@ -49,6 +63,9 @@ func resolveUpstreamPreset(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, address := range entry.Endpoint.URLFields() {
 			endpointBase := base
+			if useDefaults {
+				endpointBase = preset.EndpointBaseURL(entry.Key)
+			}
 			if strings.HasPrefix(*address, "/beta/") || strings.HasPrefix(*address, "/v1beta/") {
 				// Sibling APIs retain their version with an OpenAI /v1 base.
 				endpointBase = strings.TrimSuffix(endpointBase, "/v1")
@@ -56,9 +73,13 @@ func resolveUpstreamPreset(w http.ResponseWriter, r *http.Request) {
 			*address = proxy.BuildUpstreamURL(endpointBase, *address)
 		}
 	}
-	original, _ := url.Parse(preset.DefaultURL)
-	if config.Chat != nil && config.Chat.Profile == "" && original != nil && strings.EqualFold(original.Host, parsed.Host) {
-		config.Chat.Profile = service.NativeChatRequestProfile(base, preset.Platform)
+	raw, err := config.Value()
+	if err != nil {
+		return nil, store.DirectEndpoints{}, "", err
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"provider": preset.Provider, "endpointConfig": config})
+	var validated store.DirectEndpoints
+	if err := validated.Scan(raw); err != nil {
+		return nil, store.DirectEndpoints{}, "", fmt.Errorf("invalid preset endpoint contract: %w", err)
+	}
+	return preset, config, base, nil
 }

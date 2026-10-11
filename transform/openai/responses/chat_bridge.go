@@ -185,6 +185,9 @@ func bridgeRequestOptions(req, out bridgeObject, toChat bool) error {
 	if err := bridgeReasoningOptions(req, out, toChat); err != nil {
 		return err
 	}
+	if err := bridgeTextOptions(req, out, toChat); err != nil {
+		return err
+	}
 	return bridgeRequestTools(req, out, toChat)
 }
 
@@ -286,15 +289,15 @@ func bridgeRequestTools(req, out bridgeObject, toChat bool) error {
 	return nil
 }
 
-// ToChatRequest converts stateless Responses text/function requests to Chat.
-// Plain reasoning is retained; continuity IDs, encrypted reasoning, multimodal
-// input and built-in tools are rejected.
+// ToChatRequest converts stateless Responses text/image/function requests to Chat.
+// Plain reasoning is retained; continuity IDs, encrypted reasoning, file IDs
+// and built-in tools are rejected.
 func ToChatRequest(body []byte) ([]byte, error) {
 	req, err := bridgeDecode(body)
 	if err != nil {
 		return nil, err
 	}
-	if err = bridgeFields(req, "model", "input", "instructions", "stream", "max_output_tokens", "temperature", "top_p", "tools", "tool_choice", "parallel_tool_calls", "metadata", "user", "store", "reasoning"); err != nil {
+	if err = bridgeFields(req, "model", "input", "instructions", "stream", "max_output_tokens", "temperature", "top_p", "tools", "tool_choice", "parallel_tool_calls", "metadata", "user", "store", "reasoning", "text"); err != nil {
 		return nil, err
 	}
 	out := bridgeObject{}
@@ -344,12 +347,12 @@ func ToChatRequest(body []byte) ([]byte, error) {
 				if role != "user" && role != "assistant" && role != "system" && role != "developer" {
 					return nil, fmt.Errorf("Responses/Chat bridge: unsupported message role")
 				}
-				content, err := bridgeContent(item["content"], true)
+				content, err := bridgeRequestContent(item["content"], true, role)
 				if err != nil {
 					return nil, err
 				}
 				if role == "assistant" && reasoningMessage != nil {
-					reasoningMessage["content"] = bridgeString(reasoningMessage["content"]) + content
+					reasoningMessage["content"] = bridgeString(reasoningMessage["content"]) + bridgeString(content)
 				} else {
 					reasoningMessage = nil
 					messages = append(messages, bridgeObject{"role": role, "content": content})
@@ -403,13 +406,13 @@ func ToChatRequest(body []byte) ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// FromChatRequest converts one-choice Chat text/function requests to Responses.
+// FromChatRequest converts one-choice Chat text/image/function requests to Responses.
 func FromChatRequest(body []byte) ([]byte, error) {
 	req, err := bridgeDecode(body)
 	if err != nil {
 		return nil, err
 	}
-	if err = bridgeFields(req, "model", "messages", "stream", "stream_options", "max_tokens", "max_completion_tokens", "temperature", "top_p", "tools", "tool_choice", "parallel_tool_calls", "metadata", "user", "store", "n", "reasoning_effort", "reasoning_summary", "reasoning_budget"); err != nil {
+	if err = bridgeFields(req, "model", "messages", "stream", "stream_options", "max_tokens", "max_completion_tokens", "temperature", "top_p", "tools", "tool_choice", "parallel_tool_calls", "metadata", "user", "store", "n", "reasoning_effort", "reasoning_summary", "reasoning_budget", "response_format", "verbosity"); err != nil {
 		return nil, err
 	}
 	if n := req["n"]; n != nil && n != json.Number("1") {
@@ -451,7 +454,7 @@ func FromChatRequest(body []byte) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			content, err := bridgeContent(msg["content"], false)
+			content, err := bridgeRequestContent(msg["content"], false, role)
 			if err != nil {
 				return nil, err
 			}
@@ -465,7 +468,7 @@ func FromChatRequest(body []byte) ([]byte, error) {
 			return nil, fmt.Errorf("Responses/Chat bridge: invalid tool fields for role")
 		}
 		if msg["content"] != nil {
-			content, err := bridgeContent(msg["content"], false)
+			content, err := bridgeRequestContent(msg["content"], false, role)
 			if err != nil {
 				return nil, err
 			}

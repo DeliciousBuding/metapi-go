@@ -155,7 +155,7 @@ func TestAxonHubProviderDefaultsReachRealHandler(t *testing.T) {
 				if tc.protocol == "responses" {
 					_, _ = io.WriteString(w, `{"id":"resp-fixture","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}]}`)
 				} else {
-					_, _ = io.WriteString(w, `{"id":"chat-fixture","choices":[{"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`)
+					_, _ = io.WriteString(w, `{"id":"chat-fixture","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`)
 				}
 			}))
 			defer upstream.Close()

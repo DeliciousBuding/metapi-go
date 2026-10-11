@@ -355,6 +355,11 @@ function EndpointRow(
                   <SelectTrigger
                     className='w-full'
                     aria-labelledby={`${id}-${protocol.key}-profile`}
+                    aria-describedby={
+                      endpoint.profile === 'moonshot'
+                        ? `${id}-moonshot-json`
+                        : undefined
+                    }
                   >
                     <SelectValue>
                       {(value) =>
@@ -380,6 +385,15 @@ function EndpointRow(
               </div>
             )}
           </div>
+          {endpoint.profile === 'moonshot' && (
+            <p
+              id={`${id}-moonshot-json`}
+              role='note'
+              className='text-muted-foreground text-xs'
+            >
+              {t('channels.upstream.moonshotJsonMode')}
+            </p>
+          )}
           {endpoint.profile === 'opencode-go' && (
             <UpstreamModelWireEditor
               value={endpoint.modelWireUrls}

@@ -25,7 +25,7 @@
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-latest-2496ED?logo=docker&logoColor=white"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go">
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-3DA639?logo=opensourceinitiative&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPLv3-3DA639?logo=opensourceinitiative&logoColor=white"></a>
 </p>
 
 <p align="center">
@@ -327,14 +327,20 @@ once here instead of scattered through the text:
 - [SECURITY.md](SECURITY.md) — vulnerability disclosure (Security Advisory)
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — community conduct
 
-## Related projects
+## Acknowledgments and related projects
 
 - [Metapi (TypeScript)](https://github.com/cita-777/metapi) — the original Node.js implementation this repo rewrites in Go
-- [New API](https://github.com/QuantumNous/new-api) — a primary upstream
+- [New API](https://github.com/QuantumNous/new-api) — thanks to the project and its contributors for the [RelayKit](https://github.com/QuantumNous/new-api/tree/main/relaykit) protocol conversion library. New API also informed our channel presets, frontend and backend features, administration interface, and interaction design.
+- [AxonHub](https://github.com/looplj/axonhub) — a reference for channel types, platform adapters, and import models.
 - [One API](https://github.com/songquanpeng/one-api) — the classic OpenAI-interface aggregator
 
 ## License
 
-[MIT](LICENSE). Metapi is fully self-hosted: all data stays in your own
+[GNU AGPLv3](LICENSE) (`AGPL-3.0-only`) applies to the project as a whole from this
+version onward. Previously published MIT versions retain their original license.
+Third-party licenses and existing copyright notices are retained in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Metapi is fully self-hosted: all data stays in your own
 deployment, and proxy traffic flows directly between your server and your
 upstream sites.

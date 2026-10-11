@@ -1,12 +1,20 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import { isAxiosError } from 'axios'
+import { ChevronDown, KeyRound } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   Form,
   FormControl,
@@ -31,15 +39,15 @@ import {
   upstreamPresetsApi,
   type UpstreamPreset,
 } from '@/lib/api/upstream-presets'
+import { toast } from '@/lib/toast'
 
-import { connectionSchema, upstreamKeys } from '../lib/upstream-config'
+import { upstreamKeys } from '../lib/upstream-config'
 import {
   upstreamCreateDefaults,
   upstreamCreatePayload,
   upstreamCreateSchema,
   type UpstreamCreateValues,
 } from '../lib/upstream-create'
-import { UpstreamEndpointsEditor } from './upstream-endpoints-editor'
 import { UpstreamPresetPicker } from './upstream-preset-picker'
 
 export function UpstreamCreateSheet(props: {
@@ -48,28 +56,22 @@ export function UpstreamCreateSheet(props: {
 }) {
   const { t } = useTranslation()
   const client = useQueryClient()
+  const [selected, setSelected] = useState<UpstreamPreset | null>(null)
+  const [advanced, setAdvanced] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const submitting = useRef(false)
+  const contentRef = useRef<HTMLDivElement>(null)
   const form = useForm<UpstreamCreateValues>({
-    resolver: zodResolver(upstreamCreateSchema),
+    resolver: zodResolver(upstreamCreateSchema(selected)),
     defaultValues: upstreamCreateDefaults,
   })
+  const pending = saving || form.formState.isSubmitting
   const presets = useQuery({
     queryKey: ['upstream-presets'],
     queryFn: upstreamPresetsApi.getUpstreamPresets,
   })
-  const create = useMutation({ mutationFn: api.createUpstreamChannel })
-  const [selected, setSelected] = useState<UpstreamPreset | null>(null)
-  const [manual, setManual] = useState(false)
-  const [resolving, setResolving] = useState(false)
-  const [resolvedFor, setResolvedFor] = useState('')
-  const requestVersion = useRef(0)
-  const selectedName = useRef('')
-  const contentRef = useRef<HTMLDivElement>(null)
-  useEffect(
-    () => () => {
-      requestVersion.current += 1
-    },
-    []
-  )
+  const credentialMode = selected?.credentialMode ?? 'apiKey'
+  const requiresBaseUrl = selected?.requiresBaseUrl ?? !selected?.defaultUrl
   const { handleOpenChange, guard } = useDirtyDialogClose({
     enabled: form.formState.isDirty,
     onDiscard: () => form.reset(),
@@ -77,109 +79,57 @@ export function UpstreamCreateSheet(props: {
       if (!open) props.onClose()
     },
   })
-
-  async function resolve(
-    preset: UpstreamPreset,
-    rawBaseUrl: string,
-    force = false
-  ) {
-    const baseUrl = rawBaseUrl.trim()
-    const key = `${preset.id}\n${baseUrl}`
-    if ((!force && resolvedFor === key) || !baseUrl) return
-    if (!connectionSchema.shape.baseUrl.safeParse(baseUrl).success) {
-      form.setError('baseUrl', { message: 'channels.upstream.invalidUrl' })
-      return
-    }
-    const version = ++requestVersion.current
-    setResolving(true)
-    setResolvedFor('')
-    form.setValue('endpointConfig', {}, { shouldDirty: true })
-    form.clearErrors(['baseUrl', 'endpointConfig'])
-    try {
-      const result = await upstreamPresetsApi.resolveUpstreamPreset({
-        presetId: preset.id,
-        baseUrl,
-      })
-      if (version !== requestVersion.current) return
-      form.setValue('provider', result.provider, { shouldDirty: true })
-      form.setValue('endpointConfig', result.endpointConfig, {
-        shouldDirty: true,
-        shouldValidate: true,
-      })
-      setResolvedFor(key)
-    } catch {
-      if (version === requestVersion.current) {
-        form.setError('endpointConfig', {
-          message: 'channels.create.resolveFailed',
-        })
-      }
-    } finally {
-      if (version === requestVersion.current) setResolving(false)
-    }
-  }
-
-  function selectPreset(preset: UpstreamPreset, name: string) {
-    if (contentRef.current) contentRef.current.scrollTop = 0
+  function selectPreset(preset: UpstreamPreset) {
     if (selected?.id === preset.id) return
-    requestVersion.current += 1
-    setSelected(preset)
-    setManual(false)
-    setResolvedFor('')
-    setResolving(false)
-    if (
-      !form.getValues('name') ||
-      form.getValues('name') === selectedName.current
-    ) {
-      form.setValue('name', name, { shouldDirty: true })
-    }
-    selectedName.current = name
-    form.setValue('provider', preset.provider, { shouldDirty: true })
-    form.setValue('baseUrl', preset.defaultUrl, { shouldDirty: true })
-    form.setValue('endpointConfig', {}, { shouldDirty: true })
-    form.clearErrors()
-    if (preset.defaultUrl) void resolve(preset, preset.defaultUrl, true)
-  }
-
-  function selectCustom() {
     if (contentRef.current) contentRef.current.scrollTop = 0
-    if (manual) return
-    requestVersion.current += 1
-    setSelected(null)
-    setManual(true)
-    setResolvedFor('')
-    setResolving(false)
-    form.setValue('provider', 'openai_compatible', { shouldDirty: true })
-    form.setValue('endpointConfig', {}, { shouldDirty: true })
-    form.clearErrors()
+    setSelected(preset)
+    setAdvanced(false)
+    form.reset({
+      ...upstreamCreateDefaults,
+      presetId: preset.id,
+      baseUrl: preset.defaultUrl,
+    })
   }
-
   async function submit(values: UpstreamCreateValues) {
-    if (
-      selected &&
-      resolvedFor !== `${selected.id}\n${values.baseUrl.trim()}`
-    ) {
-      form.setError('endpointConfig', {
-        message: 'channels.create.resolveRequired',
-      })
-      return
-    }
+    if (!selected || credentialMode === 'oauth' || submitting.current) return
+    submitting.current = true
+    setSaving(true)
+    form.clearErrors('root')
     try {
-      const result = await create.mutateAsync(upstreamCreatePayload(values))
-      form.reset(values)
-      void client.invalidateQueries({ queryKey: upstreamKeys.all })
+      // Credential-bearing input stays out of Query and Mutation caches.
+      const result = await api.connectUpstream(
+        upstreamCreatePayload(values, selected)
+      )
+      form.reset({ ...values, apiKey: '', channelProxy: '' })
+      await client.invalidateQueries({ queryKey: upstreamKeys.all })
+      await client.invalidateQueries({ queryKey: ['routes'] })
+      const message = t(
+        `channels.create.connected.${result.discovery.status}`,
+        { count: result.modelCount }
+      )
+      if (result.discovery.status === 'empty') {
+        toast.info(message, { description: result.discovery.message })
+      } else toast.success(message, { description: result.discovery.message })
       props.onCreated(result.id)
-    } catch {
-      form.setError('root', { message: t('channels.create.failed') })
+    } catch (error) {
+      const message = isAxiosError(error)
+        ? error.response?.data?.error
+        : undefined
+      form.setError('root', {
+        message:
+          typeof message === 'string' ? message : t('channels.create.failed'),
+      })
+    } finally {
+      submitting.current = false
+      setSaving(false)
     }
   }
-
-  const configured = selected !== null || manual
   return (
     <>
       <Sheet
         open
         onOpenChange={(open) => {
-          if (!create.isPending) handleOpenChange(open)
+          if (!pending) handleOpenChange(open)
         }}
       >
         <SheetContent
@@ -195,11 +145,19 @@ export function UpstreamCreateSheet(props: {
           <Form {...form}>
             <form
               className='flex min-h-0 flex-1 flex-col'
-              onSubmit={form.handleSubmit(submit)}
+              onSubmit={form.handleSubmit(submit, (errors) => {
+                if (
+                  (!requiresBaseUrl && errors.baseUrl) ||
+                  errors.name ||
+                  errors.channelProxy
+                ) {
+                  setAdvanced(true)
+                }
+              })}
             >
               <div
                 ref={contentRef}
-                className='min-h-0 flex-1 space-y-6 overflow-y-auto p-5'
+                className='min-h-0 flex-1 space-y-5 overflow-y-auto p-5'
               >
                 <QueryErrorBanner
                   error={presets.error}
@@ -219,37 +177,26 @@ export function UpstreamCreateSheet(props: {
                 <UpstreamPresetPicker
                   presets={presets.data?.items ?? []}
                   selectedId={selected?.id ?? null}
-                  manual={manual}
-                  disabled={create.isPending}
+                  disabled={pending}
                   onSelect={selectPreset}
-                  onCustom={selectCustom}
                 />
-                {configured && (
+                {selected && credentialMode !== 'oauth' && (
                   <div className='space-y-5 border-t pt-5'>
-                    <FormField
-                      control={form.control}
-                      name='name'
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('channels.upstream.name')}</FormLabel>
-                          <FormControl>
-                            <Input {...field} disabled={create.isPending} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {manual && (
+                    {requiresBaseUrl && (
                       <FormField
                         control={form.control}
-                        name='provider'
+                        name='baseUrl'
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
-                              {t('channels.create.provider')}
+                              {t('channels.upstream.baseUrl')}
                             </FormLabel>
                             <FormControl>
-                              <Input {...field} disabled={create.isPending} />
+                              <Input
+                                {...field}
+                                placeholder='https://…'
+                                disabled={pending}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -258,122 +205,124 @@ export function UpstreamCreateSheet(props: {
                     )}
                     <FormField
                       control={form.control}
-                      name='baseUrl'
+                      name='apiKey'
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>
-                            {t('channels.upstream.baseUrl')}
+                            {t(
+                              credentialMode === 'optional'
+                                ? 'channels.create.optionalKey'
+                                : 'channels.create.apiKey'
+                            )}
                           </FormLabel>
                           <FormControl>
                             <Input
                               {...field}
-                              disabled={create.isPending}
-                              placeholder='https://…'
-                              onChange={(event) => {
-                                field.onChange(event)
-                                requestVersion.current += 1
-                                setResolvedFor('')
-                                setResolving(false)
-                                form.setValue(
-                                  'endpointConfig',
-                                  {},
-                                  { shouldDirty: true }
-                                )
-                                form.clearErrors(['baseUrl', 'endpointConfig'])
-                              }}
-                              onBlur={() => {
-                                field.onBlur()
-                                if (selected) {
-                                  void resolve(
-                                    selected,
-                                    form.getValues('baseUrl')
-                                  )
-                                }
-                              }}
+                              type='password'
+                              autoComplete='new-password'
+                              disabled={pending}
                             />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name='endpointConfig'
-                      render={({ field }) => (
-                        <FormItem>
-                          <div className='flex items-center justify-between gap-3'>
-                            <FormLabel>
-                              {t('channels.imported.endpoints')}
-                            </FormLabel>
-                            {selected && (
-                              <Button
-                                type='button'
-                                size='xs'
-                                variant='ghost'
-                                disabled={
-                                  create.isPending ||
-                                  resolving ||
-                                  !form.getValues('baseUrl')
-                                }
-                                onClick={() =>
-                                  void resolve(
-                                    selected,
-                                    form.getValues('baseUrl'),
-                                    true
-                                  )
-                                }
-                              >
-                                {resolving && <Spinner aria-hidden />}
-                                {t('channels.create.resolve')}
-                              </Button>
-                            )}
-                          </div>
-                          <FormControl>
-                            <div
-                              className='min-w-0'
-                              role='group'
-                              ref={field.ref}
-                              tabIndex={-1}
-                            >
-                              <UpstreamEndpointsEditor
-                                value={field.value}
-                                onChange={field.onChange}
-                                provider={form.watch('provider')}
-                                disabled={create.isPending || resolving}
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className='flex flex-wrap gap-x-8 gap-y-4'>
-                      {(['enabled', 'useSystemProxy'] as const).map((name) => (
+                    <Collapsible
+                      open={advanced}
+                      onOpenChange={setAdvanced}
+                      className='rounded-xl border'
+                    >
+                      <CollapsibleTrigger className='group focus-visible:outline-ring flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium focus-visible:outline-2'>
+                        {t('channels.upstream.advanced')}
+                        <ChevronDown
+                          aria-hidden
+                          className='size-4 transition-transform group-data-[panel-open]:rotate-180'
+                        />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent
+                        keepMounted
+                        className='space-y-4 border-t p-4'
+                      >
                         <FormField
-                          key={name}
                           control={form.control}
-                          name={name}
+                          name='name'
                           render={({ field }) => (
-                            <FormItem className='flex items-center gap-3'>
+                            <FormItem>
                               <FormLabel>
-                                {t(
-                                  name === 'enabled'
-                                    ? 'channels.create.enabled'
-                                    : 'channels.upstream.systemProxy'
-                                )}
+                                {t('channels.create.optionalName')}
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  placeholder={selected.name}
+                                  disabled={pending}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        {!requiresBaseUrl && (
+                          <FormField
+                            control={form.control}
+                            name='baseUrl'
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  {t('channels.upstream.baseUrl')}
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    placeholder={selected.defaultUrl}
+                                    disabled={pending}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                        <FormField
+                          control={form.control}
+                          name='useSystemProxy'
+                          render={({ field }) => (
+                            <FormItem className='flex items-center justify-between gap-3'>
+                              <FormLabel>
+                                {t('channels.upstream.systemProxy')}
                               </FormLabel>
                               <FormControl>
                                 <Switch
                                   checked={field.value}
                                   onCheckedChange={field.onChange}
-                                  disabled={create.isPending}
+                                  disabled={pending}
                                 />
                               </FormControl>
                             </FormItem>
                           )}
                         />
-                      ))}
-                    </div>
+                        <FormField
+                          control={form.control}
+                          name='channelProxy'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {t('channels.upstream.channelProxy')}
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  type='password'
+                                  autoComplete='new-password'
+                                  disabled={pending}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
                 )}
                 {form.formState.errors.root && (
@@ -386,18 +335,26 @@ export function UpstreamCreateSheet(props: {
                 <Button
                   type='button'
                   variant='outline'
-                  disabled={create.isPending}
+                  disabled={pending}
                   onClick={() => handleOpenChange(false)}
                 >
                   {t('common.cancel')}
                 </Button>
-                <Button
-                  type='submit'
-                  disabled={!configured || create.isPending || resolving}
-                >
-                  {create.isPending && <Spinner aria-hidden />}
-                  {t('channels.create.submit')}
-                </Button>
+                {selected && credentialMode === 'oauth' ? (
+                  <Button nativeButton={false} render={<Link to='/oauth' />}>
+                    <KeyRound aria-hidden />
+                    {t('channels.create.authorize')}
+                  </Button>
+                ) : (
+                  <Button type='submit' disabled={!selected || pending}>
+                    {pending && <Spinner aria-hidden />}
+                    {t(
+                      pending
+                        ? 'channels.create.connecting'
+                        : 'channels.create.submit'
+                    )}
+                  </Button>
+                )}
               </SheetFooter>
             </form>
           </Form>

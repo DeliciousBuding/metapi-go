@@ -17,6 +17,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
 	"github.com/deliciousbuding/metapi-go/transform/ollama"
 	"github.com/deliciousbuding/metapi-go/transform/openai/responses"
+	"github.com/deliciousbuding/metapi-go/transform/relaykitbridge"
 	"github.com/google/uuid"
 )
 
@@ -28,6 +29,10 @@ type directProviderWire struct {
 	ForceStream     bool
 	StripToolPrefix bool
 	Profile         string
+	// ImageResponseFormat is the downstream output choice, never sent upstream.
+	ImageResponseFormat string
+	NanoGPTTools        *directNanoGPTTools
+	ProtocolSession     *relaykitbridge.Session
 }
 type directProviderWireKey struct{}
 
@@ -49,6 +54,27 @@ func prepareDirectProviderWire(endpoint *store.DirectEndpoint, channelID int64, 
 	}
 	wire.Profile = endpoint.Profile
 	switch endpoint.Profile {
+	case "moonshot", "longcat":
+		var err error
+		wire.Body, err = prepareDirectDomesticProfileRequest(body, endpoint.Profile)
+		if err != nil {
+			return nil, err
+		}
+	case "openrouter", "cerebras":
+		var err error
+		wire.Body, err = prepareDirectRouterChatRequest(body, endpoint.Profile)
+		if err != nil {
+			return nil, err
+		}
+	case "nanogpt":
+		var err error
+		wire.NanoGPTTools, err = newDirectNanoGPTTools(body)
+		if err == nil {
+			wire.Body, err = prepareDirectNanoGPTRequest(body)
+		}
+		if err != nil {
+			return nil, err
+		}
 	case "bailian":
 		var err error
 		wire.Body, err = prepareDirectBailianRequest(body)

@@ -212,6 +212,13 @@ adapter; configured endpoints replace that fallback. The default model-dispatch
 adapter does not support a `##` raw-URL base, since the source's constituent
 adapters do not agree on that URL mode.
 
+Moonshot, LongCat, OpenRouter, Cerebras and NanoGPT default Chat endpoints use
+their platform adapters. Explicit custom Chat endpoints retain the source's
+generic OpenAI contract. OpenRouter's dedicated image adapter is available to
+local presets; importing a generic custom image endpoint does not add it or
+expand the source grant. Signed HTTP(S) image references remain URLs forwarded
+to the selected upstream, without a gateway-side download.
+
 API keys are imported as native downstream keys. Their project and key active
 profiles are intersected into source-channel boundaries, preserving model
 restrictions, ordered mappings, IP allowlists and scope/status checks. Project

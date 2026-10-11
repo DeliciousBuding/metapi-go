@@ -158,6 +158,12 @@ const profileEndpoints: Record<
   zai: ['chat'],
   bailian: ['chat'],
   cline: ['chat'],
+  moonshot: ['chat'],
+  longcat: ['chat'],
+  openrouter: ['chat'],
+  cerebras: ['chat'],
+  nanogpt: ['chat'],
+  'openrouter-image': ['imageGeneration', 'imageEdit'],
   'opencode-go': ['chat'],
   'jina-embeddings': ['jinaEmbeddings'],
   'minimax-image': ['imageGeneration'],
@@ -333,13 +339,23 @@ export function availableProfiles(
   if (protocol === 'imageGeneration' || protocol === 'imageEdit') {
     const profiles =
       protocol === 'imageGeneration'
-        ? ['minimax-image', 'modelscope-image']
-        : ['modelscope-image']
+        ? ['openrouter-image', 'minimax-image', 'modelscope-image']
+        : ['openrouter-image', 'modelscope-image']
     if (['codex', 'fenno'].includes(provider)) profiles.push('codex-image')
     return profiles
   }
   if (protocol === 'chat') {
-    const profiles = ['bailian', 'deepseek', 'zai', 'cline']
+    const profiles = [
+      'bailian',
+      'deepseek',
+      'moonshot',
+      'zai',
+      'longcat',
+      'openrouter',
+      'cerebras',
+      'nanogpt',
+      'cline',
+    ]
     if (provider === 'opencode_go') profiles.push('opencode-go')
     return profiles
   }

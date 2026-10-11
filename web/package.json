@@ -17,7 +17,7 @@
   "bugs": {
     "url": "https://github.com/DeliciousBuding/metapi-go/issues"
   },
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "author": {
     "name": "DeliciousBuding",
     "url": "https://github.com/DeliciousBuding"

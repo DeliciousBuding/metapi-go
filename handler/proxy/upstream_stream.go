@@ -104,9 +104,20 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	bridgeDirect := len(direct) > 0 && direct[0] && directBridgeNeeded(r.URL.Path, upstreamPath)
 	wire := directProviderWireFromContext(r.Context())
 	codexImage := wire != nil && wire.Profile == "codex-image"
-	providerStream := wire != nil && (wire.Profile == "codex" || wire.StripToolPrefix || codexImage || wire.Profile == "cline" && bridgeDirect)
+	routerChatStream := wire != nil && (wire.Profile == "openrouter" || wire.Profile == "cerebras")
+	nanoGPTStream := wire != nil && wire.Profile == "nanogpt"
+	providerStream := wire != nil && (wire.Profile == "codex" || wire.StripToolPrefix || codexImage || (wire.Profile == "cline" || routerChatStream) && bridgeDirect)
 	bailianStream := wire != nil && wire.Profile == "bailian"
-	if (bridgeMessages || bridgeDirect || providerStream || bailianStream) && !bodyReadable {
+	var relayStream protocolEventStream
+	if bridgeDirect && wire != nil && wire.ProtocolSession != nil {
+		var err error
+		relayStream, err = wire.ProtocolSession.NewResponseStream()
+		if err != nil {
+			writeJSONErrorWithRequest(w, http.StatusBadGateway, "Cannot initialize upstream protocol conversion", "upstream_error", proxy.RequestIDFromContext(r.Context()))
+			return empty, streamEndedUpstreamFault, nil
+		}
+	}
+	if (bridgeMessages || bridgeDirect || providerStream || bailianStream || routerChatStream || nanoGPTStream) && !bodyReadable {
 		w.Header().Del("Content-Encoding")
 		writeJSONErrorWithRequest(w, http.StatusBadGateway, "Cannot decode upstream Chat stream for Messages", "upstream_error", proxy.RequestIDFromContext(r.Context()))
 		return empty, streamEndedUpstreamFault, nil
@@ -144,10 +155,14 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		messageBridge = newDirectCodexImagesBody(resp.Body, r.URL.Path, true, maxStreamBytes)
 		messageBridge.original.onFirstOutput = onFirstOutput
 		resp.Body = messageBridge
-	} else if bridgeDirect || providerStream || bailianStream {
+	} else if bridgeDirect || providerStream || bailianStream || routerChatStream || nanoGPTStream {
 		var stream protocolEventStream
 		if bridgeDirect {
-			stream = directResponseStream(r.URL.Path, upstreamPath, upstreamModel, bridgeOptions)
+			if relayStream != nil {
+				stream = relayStream
+			} else {
+				stream = directResponseStream(r.URL.Path, upstreamPath, upstreamModel, bridgeOptions)
+			}
 		}
 		if bailianStream {
 			if stream == nil {
@@ -163,7 +178,25 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 			}
 			stream = provider
 		}
+		var filter protocolEventStream
+		if routerChatStream {
+			filter = newDirectRouterChatStream()
+		} else if nanoGPTStream {
+			filter = newDirectNanoGPTStream(wire.NanoGPTTools)
+		}
+		if filter != nil {
+			if stream == nil {
+				stream = filter
+			} else {
+				stream = &chainedProtocolStream{first: filter, second: stream}
+			}
+		}
 		messageBridge = newProtocolBridgeBody(resp.Body, stream, maxStreamBytes)
+		if routerChatStream {
+			// A 20 MiB image needs about 27 MiB as base64. Keep other Chat
+			// profiles at 1 MiB and still enforce the total raw/output budgets.
+			messageBridge.frameLimit = min(maxStreamBytes, 32<<20)
+		}
 		resp.Body = messageBridge
 	} else if bridgeMessages {
 		messageBridge = newMessagesChatBody(resp.Body, upstreamModel, maxStreamBytes, bridgeOptions)
@@ -177,6 +210,19 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	}
 	analyzer := newIncrementalSseAnalyzer()
 	analyzer.onFirstOutput = onFirstOutput
+	if routerChatStream {
+		if native, ok := resp.Body.(*nativeTerminalBody); ok {
+			// Native normalization can retain both images and content aliases;
+			// allow that bounded expansion. The relay still enforces the total
+			// output budget and reports truncation if expansion exceeds it.
+			native.frameLimit = 2 * messageBridge.frameLimit
+			native.analysis = analyzer
+			// The bridge already owns the original provider usage and model.
+			native.original = nil
+		} else {
+			messageBridge.outputAnalysis = analyzer
+		}
+	}
 	sawStreamBytes := false
 	var streamedBytes int64
 	outcome := streamEndedNormally
@@ -269,7 +315,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 				// Undecodable bytes are never fed to the analyzer: it would
 				// "analyze" noise, find no data events and hand the judge an
 				// empty-content fact for a perfectly healthy answer.
-				if bodyReadable && !codexImage {
+				if bodyReadable && !codexImage && !routerChatStream {
 					analyzer.Push(chunk)
 				}
 				if _, writeErr := w.Write(chunk); writeErr != nil {
@@ -359,7 +405,7 @@ func judgeStreamContent(statusCode int, result incrementalSseAnalysisResult, lat
 		StatusCode:    statusCode,
 		Streaming:     true,
 		RawText:       sseErrorEventText(result.ErrorEvents),
-		HasOutput:     result.HasDataEvent,
+		HasOutput:     result.HasGeneratedOutput,
 		HasErrorEvent: result.HasErrorEvent,
 		Usage:         result.Usage.ToUsageSummary(),
 		Unreadable:    bodyUnreadable,

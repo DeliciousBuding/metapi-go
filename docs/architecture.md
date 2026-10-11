@@ -278,6 +278,7 @@ metapi-go/
 │   ├── anthropic/          # messages: the Messages ⇄ Chat request/return bridge
 │   ├── openai/             # completions, embeddings, images, responses
 │   ├── gemini/             # generate_content (native OpenAI→Gemini bridge)
+│   ├── relaykitbridge/     # Request-scoped New API RelayKit integration
 │   └── shared/             # Cross-protocol helpers
 ├── service/                # Domain services (sites, accounts, checkin, balance, notify, oauth, backup, …)
 │   ├── pricing/            # Canonical pricing normalization (ratios → $/M)
@@ -292,6 +293,7 @@ metapi-go/
 ├── e2e/                    # End-to-end tests
 ├── scripts/                # Env-driven release/verify/e2e scripts (no host or credential baked in)
 ├── testbed/                # Sanitized compose template for a local upstream testbed
+├── licenses/               # Preserved third-party and prior license notices
 ├── docs/                   # Specs, architecture, design philosophy
 ├── Dockerfile
 ├── docker-compose.yml
@@ -501,6 +503,21 @@ before selecting their negative internal item ID. These IDs are not accepted
 through the external tester header. Responses/Chat plain reasoning conversion
 is stateless and lives entirely in `transform/openai/responses`.
 
+`transform/relaykitbridge` adapts New API RelayKit to the direct conversation
+dispatcher. An attempt selects its conversion owner before I/O and keeps one
+request/response session. Ordinary text and function-tool conversions use
+RelayKit; provider wire contracts, Messages replay and requests with specialized
+image/schema/state requirements keep their dedicated converters. Native requests
+remain byte-preserving. Conversion errors never trigger a second conversion
+engine. A precision-preserving JSON codec is installed once, loss diagnostics
+are checked, and source terminal events are verified before stream finalization.
+Transport limits and billing continue to use the original upstream response.
+
+Direct channels prefer the authorized native client protocol. Explicit endpoint
+or model rejection with no output or measured usage can try another authorized
+protocol; authentication, throttling, transport failures and partial streams do
+not replay within the channel. Each candidate starts from the original request.
+
 `handler/admin/imported_config.go` owns imported connection updates and explicit
 request-setting reads; `imported_members.go` owns route preferences and shared
 grant cooldowns. All successful writes invalidate routing state. The channels
@@ -510,7 +527,10 @@ it reads secret-bearing request settings only on demand, outside Query caches.
 transactional deletion graph. Local records use `native:local` and negative
 source IDs derived from their database IDs, without external source mappings.
 Model/credential grants are explicit; creating either side never authorizes their
-Cartesian product. Each group is paired with one public route, and grant protocol
+Cartesian product. The platform quick-connect workflow resolves one product's
+complete endpoint set and discovers models before committing its channel,
+credential, grants and route memberships atomically. Default discovery and empty
+results stay distinct from verified model listings. Each group is paired with one public route, and grant protocol
 reductions cannot invalidate a member's explicit protocol order.
 Catalog writes, existing connection/member edits, deletion commits and source
 replacements take the same graph lock before row locks. Deletion follows actual

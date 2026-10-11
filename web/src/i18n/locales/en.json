@@ -3615,6 +3615,7 @@
         "search": "Search upstreams or models…",
         "noMatches": "No matching upstreams",
         "connection": "Connection",
+        "advanced": "Advanced settings",
         "credentials": "Credentials",
         "routes": "Routes",
         "name": "Name",
@@ -3687,7 +3688,13 @@
           "codex-alpha-search": "Codex Alpha Search",
           "bailian": "Bailian",
           "cline": "Cline",
-          "opencode-go": "OpenCode Go"
+          "opencode-go": "OpenCode Go",
+          "moonshot": "Kimi",
+          "longcat": "LongCat",
+          "openrouter": "OpenRouter",
+          "cerebras": "Cerebras",
+          "nanogpt": "NanoGPT",
+          "openrouter-image": "OpenRouter Images"
         },
         "reasons": {
           "channelEnabled": "Upstream disabled",
@@ -3705,7 +3712,8 @@
           "title": "OpenCode Go adapter URLs",
           "responses": "Responses wire URL",
           "messages": "Messages wire URL"
-        }
+        },
+        "moonshotJsonMode": "JSON Schema is sent as JSON Object without schema constraints."
       },
       "catalog": {
         "models": "Models",
@@ -3743,31 +3751,33 @@
         "allCredentialsGranted": "Every credential already has a grant for this model. Edit an existing grant, or add a credential in the Credentials tab."
       },
       "create": {
-        "title": "Create upstream",
-        "description": "Add credentials and models after creating the channel.",
+        "title": "Connect platform",
+        "description": "Choose a platform and connect with its key.",
         "preset": "Platform preset",
         "search": "Search platforms or Coding Plans",
-        "provider": "Provider",
         "usePreset": "Use {{name}}",
-        "custom": "Configure manually",
         "change": "Change",
         "noPresets": "No matching platforms",
         "loading": "Loading platform presets…",
         "presetsFailed": "Could not load platform presets: {{message}}",
-        "selectProvider": "Select a platform or enter a provider.",
-        "openCodeProviderRequired": "The OpenCode Go adapter requires the opencode_go provider. Change the adapter or provider.",
-        "endpointsRequired": "Configure at least one protocol endpoint.",
-        "resolve": "Update endpoints",
-        "resolveFailed": "Could not resolve endpoints. Check the base URL and retry.",
-        "resolveRequired": "Update endpoints for the current base URL before creating.",
-        "enabled": "Enabled",
-        "submit": "Create upstream",
-        "failed": "The channel could not be created. Your changes have been kept.",
+        "selectProvider": "Choose a platform.",
+        "submit": "Connect",
+        "failed": "Connection failed. Your input has been kept for retry.",
         "groups": {
           "common": "Common",
           "coding": "Coding Plan",
           "gateway": "Gateways",
           "other": "More"
+        },
+        "connecting": "Connecting…",
+        "apiKey": "API Key",
+        "optionalKey": "API Key (optional)",
+        "optionalName": "Name (optional)",
+        "authorize": "Authorize connection",
+        "connected": {
+          "discovered": "Connected; {{count}} models discovered.",
+          "preset": "Connected with {{count}} preset models.",
+          "empty": "Connected. No models were discovered; review the model configuration."
         }
       },
       "capabilities": {

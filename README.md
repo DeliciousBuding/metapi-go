@@ -23,7 +23,7 @@
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-latest-2496ED?logo=docker&logoColor=white"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go">
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-3DA639?logo=opensourceinitiative&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPLv3-3DA639?logo=opensourceinitiative&logoColor=white"></a>
 </p>
 
 <p align="center">
@@ -292,12 +292,15 @@ bun run build       # rsbuild 构建（产物经 go:embed 打包进 Go 二进制
 - [SECURITY.md](SECURITY.md) — 漏洞报告（Security Advisory）
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — 社区行为准则
 
-## 相关项目
+## 致谢与相关项目
 
 - [Metapi (TypeScript)](https://github.com/cita-777/metapi) — 原版 Node.js 实现，本项目为其 Go 重写
-- [New API](https://github.com/QuantumNous/new-api) — 主要上游之一
+- [New API](https://github.com/QuantumNous/new-api) — 感谢项目及贡献者提供 [RelayKit](https://github.com/QuantumNous/new-api/tree/main/relaykit) 协议转换库。本项目也参考了 New API 的渠道预设、前后端功能、管理界面和交互设计。
+- [AxonHub](https://github.com/looplj/axonhub) — 渠道类型、平台适配与导入模型的重要参考。
 - [One API](https://github.com/songquanpeng/one-api) — 经典 OpenAI 接口聚合
 
 ## 许可证
 
-[MIT](LICENSE)。Metapi 完全自托管：所有数据存储在你自己的部署环境中，代理请求仅在你的服务器与上游站点之间直连传输。
+[GNU AGPLv3](LICENSE)（`AGPL-3.0-only`）。本版本起整体采用 AGPLv3；此前已按 MIT 发布的版本仍保留其原许可。第三方组件及既有版权声明见 [第三方声明](THIRD_PARTY_NOTICES.md)。
+
+Metapi 完全自托管：所有数据存储在你自己的部署环境中，代理请求仅在你的服务器与上游站点之间直连传输。

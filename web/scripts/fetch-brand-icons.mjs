@@ -109,6 +109,24 @@ for (const variant of ['dark', 'light']) {
   }
 }
 
+// NanoGPT is absent from the pinned Lobe set. Render the attributed local
+// monochrome SVG, which points to its bundled source attribution and license.
+const nanoGPT = readFileSync(
+  join(ROOT, 'src/assets/brand-icons/nanogpt.svg'),
+  'utf8'
+)
+for (const variant of ['dark', 'light']) {
+  const svg = nanoGPT.replaceAll(
+    'currentColor',
+    variant === 'dark' ? '#fff' : '#000'
+  )
+  const resized = await sharp(Buffer.from(svg))
+    .resize(SIZE, SIZE)
+    .png({ quality: 90 })
+    .toBuffer()
+  writeFileSync(join(OUT, variant, 'nanogpt.png'), resized)
+}
+
 console.log(`fetched ${results.ok} icons (dark+light)`)
 if (results.missing.length) {
   console.error(

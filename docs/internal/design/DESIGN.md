@@ -82,14 +82,20 @@ rebuild these arrangements with local spacing and raw data editors:
 ## 2. Color tokens
 
 Independent upstreams use the same brand identities as site presets. Creation
-starts with New API, domestic platforms and Coding Plan presets; protocol names
-remain separate from provider names. The detail sheet uses four short tabs:
+starts with New API, domestic platforms and Coding Plan presets. Each product
+has one branded card; protocol variants share that card, while distinct products
+such as Bailian and Bailian Coding Plan remain separate. The normal form asks for
+a key and, for a self-hosted gateway, its address. Connection names, custom hosts
+and proxy settings live in a collapsed advanced section. OAuth products use their
+existing authorization flow. The detail sheet uses four short tabs:
 connection, credentials, models and routes. Models expand on demand, and batch
-entry uses one upstream model name per line. Access always selects a credential
-and executable protocols explicitly. Capabilities are grouped as conversation,
-retrieval, images, audio, video and dedicated native APIs; preset cards summarize
-these groups, while endpoint details expand individually for editing. The five
-conversation protocols (including Ollama) offer conversion ordering. Video
+entry uses one upstream model name per line. Quick connect discovers models and
+initializes their access and routes; a preset or empty discovery result must not
+be presented as verified model availability. Protocol selection is automatic.
+Explicit access restrictions and endpoint editing remain available in advanced
+management. Capabilities are grouped as conversation, retrieval, images, audio,
+video and dedicated native APIs inside that advanced view. The five conversation
+protocols (including Ollama) support native-first conversion ordering. Video
 formats use a separate order; System One and Alpha Search never join conversation
 conversion. Anonymous credentials show no secret input and can grant only
 anonymous endpoints. Media permissions remain exact capabilities.

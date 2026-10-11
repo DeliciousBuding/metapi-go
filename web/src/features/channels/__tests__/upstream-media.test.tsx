@@ -158,6 +158,7 @@ describe('explicit upstream media capabilities', () => {
         onDirtyChange={state.dirty}
       />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     expect(screen.queryAllByLabelText('Endpoint URL')).toHaveLength(0)
     expect(
       screen.queryByRole('combobox', { name: 'Protocol adapter' })
@@ -204,6 +205,7 @@ describe('explicit upstream media capabilities', () => {
     mount(
       <UpstreamConnectionForm detail={detail} onDirtyChange={state.dirty} />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Audio 0 / 3 configured' })
     )
@@ -300,6 +302,7 @@ describe('explicit upstream media capabilities', () => {
     mount(
       <UpstreamConnectionForm detail={detail} onDirtyChange={state.dirty} />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(screen.getByRole('checkbox', { name: 'Jina embeddings' }))
     const jina = within(screen.getByRole('group', { name: 'Jina embeddings' }))
     fireEvent.change(jina.getByLabelText('Endpoint URL'), {
@@ -356,6 +359,7 @@ describe('explicit upstream media capabilities', () => {
         onDirtyChange={state.dirty}
       />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', {
         name: /Configure Image (generation|edits) endpoint/,
@@ -412,6 +416,7 @@ describe('explicit upstream media capabilities', () => {
         onDirtyChange={state.dirty}
       />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', {
         name: /Configure Image (generation|edits) endpoint/,
@@ -496,6 +501,7 @@ describe('explicit upstream media capabilities', () => {
     mount(
       <UpstreamConnectionForm detail={detail} onDirtyChange={state.dirty} />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     expect(
       screen.getByRole('button', {
         name: 'Vectors & retrieval 1 / 5 configured',
@@ -566,6 +572,7 @@ describe('explicit upstream media capabilities', () => {
     mount(
       <UpstreamConnectionForm detail={detail} onDirtyChange={state.dirty} />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Configure Embeddings endpoint' })
     )
