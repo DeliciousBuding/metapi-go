@@ -34,12 +34,13 @@ vi.mock('@/components/data-table', () => ({
   useUrlTableState: () => ({
     globalFilter: '',
     onGlobalFilterChange: vi.fn(),
+    columnFilters: [],
+    onColumnFiltersChange: vi.fn(),
+    filters: { capability: [], endpointType: [], sourceKind: [] },
     pagination: { pageIndex: 0, pageSize: 20 },
     onPaginationChange: vi.fn(),
     sorting: [],
     onSortingChange: vi.fn(),
-    columnFilters: [],
-    onColumnFiltersChange: vi.fn(),
     ensurePageInRange: vi.fn(),
   }),
 }))
@@ -58,10 +59,11 @@ vi.mock('@/lib/toast', () => ({
 
 vi.mock('../../api', () => ({
   useModelsPage: () => ({
-    data: { items: [], total: 0 },
+    data: { items: [], total: 0, facets: null },
     isLoading: false,
     isFetching: false,
   }),
+  useModelDetail: () => ({ data: undefined, isPending: false, error: null }),
 }))
 
 vi.mock('../model-detail-sheet', () => ({
@@ -70,9 +72,6 @@ vi.mock('../model-detail-sheet', () => ({
 
 vi.mock('../models-columns', () => ({
   useModelsColumns: () => [],
-  buildBrandFilterOptions: () => [],
-  buildCapabilityFilterOptions: () => [],
-  buildEndpointTypeFilterOptions: () => [],
 }))
 
 beforeEach(() => {

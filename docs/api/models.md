@@ -44,15 +44,51 @@ for other modes). Bindings describe configuration, including disabled and
 unselected members, not dispatch eligibility. Protocol grants, runtime health,
 cooldowns, and downstream access checks remain owned by the existing selector.
 
-**Query params**: `page`/`pageSize` — when `page` is present the endpoint
-returns `{ items, total, page, pageSize, meta }` where `total` is the full
-marketplace row count and `pageSize` clamps to 1–200 (default 50); when
-`page` is absent it keeps the legacy `{ models, meta }` shape. Filtering and
-sorting are not server-side today, so the frontend applies them over the
-returned page only.
+**Query params**:
+
+- `page`/`pageSize` — when `page` is present the endpoint returns the
+  paged envelope (below); when absent it keeps the legacy `{ models, meta }`
+  shape. `pageSize` clamps to 1–200 (default 50).
+- `q` — case-insensitive substring over the model name, catalog description,
+  catalog tags, and supply connection/site/account names, matched against the
+  whole marketplace (not the returned page).
+- `capability`, `endpointType`, `sourceKind` — comma-separated filters.
+  Values match case-insensitively against catalog tags, supported endpoint
+  types, and supply source kinds (`account`/`oauth`/`direct`). Multiple
+  values inside one dimension are OR-ed; dimensions and `q` are AND-ed. An
+  unknown `sourceKind` value matches nothing instead of disabling the filter.
+- `sort` — one `column:asc|desc` term (the dotted form `column.asc` is
+  accepted). Whitelist: `name`, `supplyCount`, `accountCount`,
+  `tokenCount`, `avgLatency`, `successRate`, `priceInput`. Unknown
+  columns fall back to `name.asc`; ties break by ascending name; models
+  without a measurement (latency/success/price) sort last in both directions.
+
+Filters and sort also apply to the legacy no-page response. The normalized
+query context is echoed at `meta.query` (`q`, `capabilities`,
+`endpointTypes`, `sourceKinds`, `sort`), so a shared link never needs its
+raw parameters re-parsed to be understood.
 
 **Response (page-gated)**: `{ "items": [...], "total": 240, "page": 2,
-"pageSize": 50, "meta": { "refreshRequested": false, "includePricing": true } }`.
+"pageSize": 50, "facets": { "endpointTypes": [{ "value": "openai", "count":
+200 }], "capabilities": [...], "sourceKinds": [...] }, "facetScope":
+"filteredExcludingSelf", "meta": { "refreshRequested": false,
+"includePricing": true, "query": { "q": "", "capabilities": [],
+"endpointTypes": [], "sourceKinds": [], "sort": "name.asc" } } }`.
+
+`total` and `facets` are computed over the whole marketplace under the same
+filter context — never from the returned page. Facets are disjunctive per
+dimension (`facetScope: "filteredExcludingSelf"`): each dimension's options
+are counted with that dimension's own filter removed, so selecting a value
+never hides the alternatives.
+
+### GET /api/models/marketplace/detail?name=<exact>
+
+One fully hydrated marketplace row by exact model name, independent of
+pagination — the resolver behind the UI's `?model=<name>` deep link, so a
+model that is not on the loaded page still opens. Same row shape and the same
+projection boundary as the list (no credential material). `400` when `name`
+is empty; `404` when the name has no supply and no exact route in the current
+aggregation. Response: `{ "model": { ... } }`.
 
 ### GET /api/models/price-compare
 

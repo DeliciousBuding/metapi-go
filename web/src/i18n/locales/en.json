@@ -271,6 +271,12 @@
       "toast": {
         "refreshSucceeded": "Models refreshed."
       },
+      "filters": {
+        "sourceKind": "Supply source"
+      },
+      "deepLink": {
+        "unavailable": "Could not open model {{name}}: {{message}}"
+      },
       "empty": {
         "title": "No models",
         "description": "Connect a site account or an independent upstream to see its model supply.",

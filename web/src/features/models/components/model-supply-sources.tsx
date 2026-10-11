@@ -2,13 +2,8 @@ import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 
+import { supplyKindLabels } from '../lib/supply-kind-labels'
 import type { ModelSupplySource } from '../types'
-
-const kindLabels = {
-  direct: 'models.supply.direct',
-  account: 'models.supply.account',
-  oauth: 'models.supply.oauth',
-} as const
 
 export function ModelSupplySources(props: {
   sources: ModelSupplySource[] | undefined
@@ -36,7 +31,9 @@ export function ModelSupplySources(props: {
                 <span className='min-w-0 font-medium break-all'>
                   {source.connectionName}
                 </span>
-                <Badge variant='outline'>{t(kindLabels[source.kind])}</Badge>
+                <Badge variant='outline'>
+                  {t(supplyKindLabels[source.kind])}
+                </Badge>
                 {!source.enabled && (
                   <Badge variant='secondary'>
                     {t('models.supply.disabled')}

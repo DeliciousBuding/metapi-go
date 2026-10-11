@@ -6,11 +6,13 @@
 // `mobileOrder` / `mobileHidden`) so the same definition serves the desktop
 // table and the phone card list without a parallel layout file.
 //
-// The brand column is derived from the model name via `getBrand` (no separate
-// backend field) and doubles as a faceted filter. The capabilities column
-// surfaces `supportedEndpointTypes` as badges and is the second faceted
-// filter. Pricing is collapsed to the cheapest per-million input seen
-// across accounts so a glance at the list shows the floor price.
+// The brand column is derived from the model name via `getBrand` — a
+// client-side visual identity with no server-side owner, so it renders as a
+// display column only (no sort, no filter); the q search covers the intent.
+// The capability / endpoint-type / supply-source faceted filters are server
+// dimensions: their options and counts arrive with the page response
+// (facets), and the columns only render the values. Sorting is server-side
+// too, so only whitelisted columns keep clickable sort headers.
 
 import type { ColumnDef } from '@tanstack/react-table'
 import {
@@ -45,6 +47,7 @@ import {
 import { formatLatency, formatPrice, formatSuccessRate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+import { supplyKindLabels } from '../lib/supply-kind-labels'
 import type { ModelRow } from '../types'
 
 export type ModelsColumnActions = {
@@ -121,6 +124,9 @@ export function useModelsColumns(
       {
         id: 'brand',
         accessorFn: (row) => resolveBrandName(row.name),
+        // Display-only: the name-to-brand mapping lives in BrandIcon, and the
+        // server-side sort whitelist deliberately has no brand column.
+        enableSorting: false,
         size: 160,
         meta: { mobileOrder: 0, mobileBadge: true },
         header: ({ column }) => (
@@ -190,6 +196,7 @@ export function useModelsColumns(
       {
         id: 'endpointTypes',
         accessorFn: (row) => row.supportedEndpointTypes,
+        enableSorting: false,
         size: 160,
         meta: { mobileHidden: true, mobileOrder: 20 },
         header: ({ column }) => (
@@ -227,6 +234,7 @@ export function useModelsColumns(
       {
         id: 'capabilities',
         accessorFn: (row) => row.tags,
+        enableSorting: false,
         size: 200,
         meta: { mobileHidden: true, mobileOrder: 21 },
         header: ({ column }) => (
@@ -259,6 +267,47 @@ export function useModelsColumns(
             return filterValue.some((facet) => values.includes(String(facet)))
           }
           return values.includes(String(filterValue))
+        },
+      },
+      {
+        id: 'sourceKinds',
+        accessorFn: (row) => [
+          ...new Set((row.supplySources ?? []).map((source) => source.kind)),
+        ],
+        // Hidden by default; it exists so the toolbar's supply-source faceted
+        // filter has a column to bind to. Filter semantics are server-side.
+        enableSorting: false,
+        size: 140,
+        meta: {
+          mobileHidden: true,
+          mobileOrder: 25,
+          label: t('models.filters.sourceKind'),
+        },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('models.filters.sourceKind')}
+          />
+        ),
+        cell: ({ row }) => {
+          const kinds = [
+            ...new Set(
+              (row.original.supplySources ?? []).map((source) => source.kind)
+            ),
+          ]
+          if (kinds.length === 0) {
+            return <span className='text-muted-foreground text-sm'>—</span>
+          }
+          return (
+            <BadgeListCell
+              items={kinds.map((kind) => (
+                <Badge key={kind} variant='outline' className='gap-1'>
+                  {t(supplyKindLabels[kind])}
+                </Badge>
+              ))}
+              max={3}
+            />
+          )
         },
       },
       {
@@ -427,55 +476,4 @@ export function useModelsColumns(
   )
 
   return columns
-}
-
-/**
- * Build the brand faceted-filter options from the live model list. Returns
- * `[{ label, value }]` pairs for each distinct brand name resolved via
- * `getBrand`. Kept as a plain function (not a hook) so the page can call it
- * inside `useMemo` and feed the toolbar directly.
- */
-export function buildBrandFilterOptions(models: ModelRow[]): Array<{
-  label: string
-  value: string
-}> {
-  const set = new Set<string>()
-  for (const model of models) {
-    const brandName = resolveBrandName(model.name)
-    if (brandName) set.add(brandName)
-  }
-  return [...set].sort().map((name) => ({ label: name, value: name }))
-}
-
-/**
- * Build the endpoint-type faceted-filter options from the live model list.
- */
-export function buildEndpointTypeFilterOptions(models: ModelRow[]): Array<{
-  label: string
-  value: string
-}> {
-  const set = new Set<string>()
-  for (const model of models) {
-    for (const endpointType of model.supportedEndpointTypes ?? []) {
-      set.add(endpointType)
-    }
-  }
-  return [...set].sort().map((name) => ({ label: name, value: name }))
-}
-
-/**
- * Build the capability faceted-filter options from the live model list
- * (catalog tags).
- */
-export function buildCapabilityFilterOptions(models: ModelRow[]): Array<{
-  label: string
-  value: string
-}> {
-  const set = new Set<string>()
-  for (const model of models) {
-    for (const tag of model.tags ?? []) {
-      set.add(tag)
-    }
-  }
-  return [...set].sort().map((name) => ({ label: name, value: name }))
 }

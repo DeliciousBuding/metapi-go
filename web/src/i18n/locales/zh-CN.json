@@ -271,6 +271,12 @@
       "toast": {
         "refreshSucceeded": "模型已刷新。"
       },
+      "filters": {
+        "sourceKind": "供给来源"
+      },
+      "deepLink": {
+        "unavailable": "无法打开模型 {{name}}：{{message}}"
+      },
       "empty": {
         "title": "暂无模型",
         "description": "接入站点账号或独立上游后，可在这里查看模型供给。",

@@ -51,6 +51,16 @@ their own labels. None is rendered as a general healthy/verified verdict.
 Missing supply data from older servers stays unknown; an empty list is explicit.
 See [the marketplace contract](../../api/models.md) for counting and scope.
 
+The marketplace list is server-driven: search, filters, sort, totals, and
+facet counts are evaluated over the whole marketplace, and the table renders
+exactly the page it was given. Facet options and counts arrive with the page
+response and are disjunctive per dimension, so selecting a filter value never
+hides the alternatives. Brand stays a display-only column (the name-to-brand
+mapping is a client-side visual identity); the search box covers that intent.
+A `?model=<name>` deep link resolves through an exact-name detail lookup, so
+the referenced model opens even when it is not on the loaded page; an
+unresolvable name produces an explicit notice, never a silent drop.
+
 Route details separate a saved configuration snapshot from an explicit current
 check. The check asks for one concrete client model and client API/protocol,
 then labels the result as an administrator preview. It names typed account,

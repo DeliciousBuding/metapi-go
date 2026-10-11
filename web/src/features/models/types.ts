@@ -1,5 +1,10 @@
 // metapi-go/features/models — domain types for the Models marketplace feature.
 //
+// The list page is server-driven: search, filters, sort, totals, and facet
+// counts come from /api/models/marketplace over the whole marketplace (never
+// from the currently rendered page). Facet counts arrive alongside the page
+// so the toolbar options stay global while the table renders one page.
+//
 // The backend `/api/models/marketplace` surface is typed in `lib/api.ts`
 // (the rewrite replaced the legacy `any` signatures). These types are
 // the feature-level contract: `api.ts` casts the response to
@@ -125,6 +130,21 @@ export type ModelsMarketplaceResponse = {
     refreshRunning?: boolean
     refreshJobId?: string | null
   }
+}
+
+/** One facet option plus the number of matching models in its facet context. */
+type ModelsMarketplaceFacetValue = { value: string; count: number }
+
+/**
+ * Whole-marketplace facet counts carried by the paged response. Each
+ * dimension is disjunctive (`facetScope: "filteredExcludingSelf"`): its
+ * options are counted with that dimension's own filter removed, so selecting
+ * a value never hides the alternatives the user could switch to.
+ */
+export type ModelsMarketplaceFacets = {
+  endpointTypes: ModelsMarketplaceFacetValue[]
+  capabilities: ModelsMarketplaceFacetValue[]
+  sourceKinds: ModelsMarketplaceFacetValue[]
 }
 
 /**

@@ -31,25 +31,62 @@ type marketplaceAccountAgg struct {
 	tokenIDs map[int64]struct{}
 }
 
-func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
-	// Collect model names from availability tables + exact token_routes patterns.
-	type modelKey = string
-	type modelAgg struct {
-		accounts map[int64]*marketplaceAccountAgg
-		latSum   float64
-		latCount int
-	}
-	byModel := map[modelKey]*modelAgg{}
+// marketplaceModelAgg accumulates one model's per-account availability rows
+// before hydration.
+type marketplaceModelAgg struct {
+	accounts map[int64]*marketplaceAccountAgg
+	latSum   float64
+	latCount int
+}
 
-	ensure := func(model string) *modelAgg {
+// marketplaceSuccessStat is the 7d proxy_logs outcome tally for one model.
+type marketplaceSuccessStat struct {
+	total   int
+	success int
+}
+
+// marketplaceAggregation is the fleet-wide batch: a fixed set of queries
+// whose cost does not depend on how many models a page eventually renders.
+// Filtering, sorting, totals, and facets run on the lightweight index
+// projection of this aggregation; full hydration happens afterwards, only
+// for the rows a response actually returns.
+type marketplaceAggregation struct {
+	byModel        map[string]*marketplaceModelAgg
+	directSources  map[string][]marketplaceModelSource
+	successByModel map[string]marketplaceSuccessStat
+	names          []string
+}
+
+// buildMarketplaceModels hydrates every marketplace row. Legacy callers that
+// omit the pagination/query contract keep this full-list behavior.
+func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
+	aggregation, err := h.buildMarketplaceAggregation()
+	if err != nil {
+		return nil, err
+	}
+	catalogSnapshot := appCatalogSnapshot()
+	out := make([]map[string]any, 0, len(aggregation.names))
+	for _, name := range aggregation.names {
+		out = append(out, hydrateMarketplaceRow(aggregation, name, catalogSnapshot))
+	}
+	return out, nil
+}
+
+// buildMarketplaceAggregation collects model names from the availability
+// tables, exact token_routes patterns, and direct upstream grants, then
+// attaches per-account detail and the bounded 7d outcome window.
+func (h *statsHandler) buildMarketplaceAggregation() (*marketplaceAggregation, error) {
+	byModel := map[string]*marketplaceModelAgg{}
+
+	ensure := func(model string) *marketplaceModelAgg {
 		if agg, ok := byModel[model]; ok {
 			return agg
 		}
-		agg := &modelAgg{accounts: map[int64]*marketplaceAccountAgg{}}
+		agg := &marketplaceModelAgg{accounts: map[int64]*marketplaceAccountAgg{}}
 		byModel[model] = agg
 		return agg
 	}
-	ensureAccount := func(agg *modelAgg, accountID int64, site, username string, balance float64, latency *float64) *marketplaceAccountAgg {
+	ensureAccount := func(agg *marketplaceModelAgg, accountID int64, site, username string, balance float64, latency *float64) *marketplaceAccountAgg {
 		acc, ok := agg.accounts[accountID]
 		if !ok {
 			var userPtr *string
@@ -252,9 +289,7 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 		if !marketplaceExactModel(pattern) {
 			continue
 		}
-		if _, ok := byModel[pattern]; !ok {
-			byModel[pattern] = &modelAgg{accounts: map[int64]*marketplaceAccountAgg{}}
-		}
+		ensure(pattern)
 	}
 	directSources, err := h.marketplaceDirectSources()
 	if err != nil {
@@ -266,10 +301,7 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 
 	// Optional success-rate from recent proxy_logs (bounded 7d window).
 	since := time.Now().UTC().Add(-7 * 24 * time.Hour).Format(time.RFC3339)
-	successByModel := map[string]struct {
-		total   int
-		success int
-	}{}
+	successByModel := map[string]marketplaceSuccessStat{}
 	logRows, err := queryRowsErr(h.db, `
 		SELECT
 			COALESCE(NULLIF(TRIM(model_actual), ''), NULLIF(TRIM(model_requested), ''), '') AS model,
@@ -288,10 +320,7 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 		if model == "" {
 			continue
 		}
-		successByModel[model] = struct {
-			total   int
-			success int
-		}{total: coerceInt(row["total"]), success: coerceInt(row["success"])}
+		successByModel[model] = marketplaceSuccessStat{total: coerceInt(row["total"]), success: coerceInt(row["success"])}
 	}
 
 	names := make([]string, 0, len(byModel))
@@ -300,87 +329,196 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 	}
 	sort.Strings(names)
 
-	// Hydrate the merged model-catalog snapshot (nil when the catalog is
-	// disabled) so description/tags/pricing stop being hardcoded empties.
-	catalogSnapshot := appCatalogSnapshot()
+	return &marketplaceAggregation{
+		byModel:        byModel,
+		directSources:  directSources,
+		successByModel: successByModel,
+		names:          names,
+	}, nil
+}
 
-	out := make([]map[string]any, 0, len(names))
-	for _, name := range names {
-		agg := byModel[name]
-		sources := append([]marketplaceModelSource{}, directSources[name]...)
-		accounts := make([]map[string]any, 0, len(agg.accounts))
-		accountIDs := make([]int64, 0, len(agg.accounts))
-		for id := range agg.accounts {
-			accountIDs = append(accountIDs, id)
+// buildMarketplaceIndex projects the aggregation into the lightweight rows
+// the query layer (search / filters / sort / facets) runs on. Everything the
+// query contract can reference is resolved here — supply kinds, catalog tags,
+// endpoint types, and the lowest catalog input rate — so filtering never
+// touches per-account detail.
+func buildMarketplaceIndex(aggregation *marketplaceAggregation, catalogSnapshot *pricingcatalog.CatalogSnapshot) []marketplaceIndexRow {
+	rows := make([]marketplaceIndexRow, 0, len(aggregation.names))
+	for _, name := range aggregation.names {
+		modelAgg := aggregation.byModel[name]
+		directSources := aggregation.directSources[name]
+		row := marketplaceIndexRow{
+			name:         name,
+			supplyCount:  len(directSources) + len(modelAgg.accounts),
+			accountCount: len(modelAgg.accounts),
+			sourceKinds:  map[string]struct{}{},
 		}
-		sort.Slice(accountIDs, func(i, j int) bool { return accountIDs[i] < accountIDs[j] })
-		tokenCount := 0
-		for _, id := range accountIDs {
-			acc := agg.accounts[id]
+		haystack := []string{name}
+		seenHaystack := map[string]struct{}{strings.ToLower(name): {}}
+		addHaystack := func(values ...string) {
+			for _, value := range values {
+				value = strings.TrimSpace(value)
+				key := strings.ToLower(value)
+				if key == "" {
+					continue
+				}
+				if _, dup := seenHaystack[key]; dup {
+					continue
+				}
+				seenHaystack[key] = struct{}{}
+				haystack = append(haystack, value)
+			}
+		}
+		for _, acc := range modelAgg.accounts {
+			row.tokenCount += len(acc.Tokens)
+			if acc.Kind != "" {
+				row.sourceKinds[acc.Kind] = struct{}{}
+			}
 			username := ""
 			if acc.Username != nil {
 				username = *acc.Username
 			}
-			sources = append(sources, marketplaceModelSource{
-				Kind: acc.Kind, ID: acc.ID, Name: username, SiteID: acc.SiteID,
-				ConnectionName: acc.Site, UpstreamModel: name, Evidence: "availability", Enabled: true,
-				Bindings: []marketplaceRouteBinding{},
-			})
-			tokenCount += len(acc.Tokens)
-			var latency any
-			if acc.Latency != nil {
-				latency = int64(math.Round(*acc.Latency))
-			} else {
-				latency = nil
-			}
-			accounts = append(accounts, map[string]any{
-				"id":       acc.ID,
-				"site":     acc.Site,
-				"username": acc.Username,
-				"latency":  latency,
-				"balance":  roundMicro(acc.Balance),
-				"tokens":   acc.Tokens,
-			})
+			addHaystack(acc.Site, username)
 		}
-		var avgLatency any
-		if agg.latCount > 0 {
-			avgLatency = int64(math.Round(agg.latSum / float64(agg.latCount)))
-		} else {
-			avgLatency = nil
+		if len(directSources) > 0 {
+			row.sourceKinds["direct"] = struct{}{}
 		}
-		var successRate any
-		if stats, ok := successByModel[name]; ok && stats.total > 0 {
-			successRate = math.Round(1000.0*float64(stats.success)/float64(stats.total)) / 10.0
-		} else {
-			successRate = nil
+		for _, source := range directSources {
+			addHaystack(source.ConnectionName, source.Name, source.UpstreamModel)
+		}
+		if modelAgg.latCount > 0 {
+			v := math.Round(modelAgg.latSum / float64(modelAgg.latCount))
+			row.avgLatency = &v
+		}
+		if stats, ok := aggregation.successByModel[name]; ok && stats.total > 0 {
+			v := math.Round(1000.0*float64(stats.success)/float64(stats.total)) / 10.0
+			row.successRate = &v
 		}
 		entry, catalogHit := catalogLookup(catalogSnapshot, name)
-		out = append(out, map[string]any{
-			"name":          name,
-			"supplyCount":   len(sources),
-			"supplySources": sources,
-			"accountCount":  len(accounts),
-			"tokenCount":    tokenCount,
-			"avgLatency":    avgLatency,
-			"successRate":   successRate,
-			"description":   catalogDescription(entry, catalogHit),
-			"tags":          catalogTags(entry, catalogHit),
-			"deprecated":    catalogHit && entry.Status == "deprecated",
-			"releaseDate":   catalogReleaseDate(entry, catalogHit),
-			"contextWindow": entry.ContextLimit,
-			"catalogStatus": catalogStatusOf(catalogHit),
-			// supportedEndpointTypes: catalog-driven (provider dialect + modality
-			// surfaces) when the model is cataloged; name-prefix heuristic only as a
-			// catalog-miss fallback.
-			"supportedEndpointTypes": inferEndpointTypesForModel(catalogSnapshot, name, accounts),
-			// Official catalog list price as a synthetic pricing source; the
-			// frontend labels it "catalog estimate" because marketplace sites
-			// are third-party relays (siteName "catalog" is the sentinel).
-			"pricingSources": catalogPricingSources(entry, catalogHit),
-			"accounts":       accounts,
+		row.deprecated = catalogHit && entry.Status == "deprecated"
+		if description, ok := catalogDescription(entry, catalogHit).(string); ok {
+			row.description = description
+			addHaystack(description)
+		}
+		row.tags = catalogTags(entry, catalogHit)
+		addHaystack(row.tags...)
+		row.endpointTypes = inferEndpointTypesForModel(catalogSnapshot, name, nil)
+		row.priceInput = lowestCatalogInputRate(catalogPricingSources(entry, catalogHit))
+		row.searchHaystack = strings.ToLower(strings.Join(haystack, "\x00"))
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+// lowestCatalogInputRate reduces the synthetic catalog pricing sources to the
+// cheapest per-million input, mirroring the client-side price column so the
+// server can sort by it. Nil when no usable rate exists.
+func lowestCatalogInputRate(sources []any) *float64 {
+	var lowest *float64
+	for _, raw := range sources {
+		source, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		groups, ok := source["groupPricing"].(map[string]any)
+		if !ok {
+			continue
+		}
+		for _, rawGroup := range groups {
+			group, ok := rawGroup.(map[string]any)
+			if !ok {
+				continue
+			}
+			input, ok := group["inputPerMillion"].(float64)
+			if !ok {
+				continue
+			}
+			if lowest == nil || input < *lowest {
+				v := input
+				lowest = &v
+			}
+		}
+	}
+	return lowest
+}
+
+// hydrateMarketplaceRow expands one aggregated model into the full response
+// shape. This is the only step whose cost scales with the number of rendered
+// rows: the paginated query path calls it for the selected page only.
+func hydrateMarketplaceRow(aggregation *marketplaceAggregation, name string, catalogSnapshot *pricingcatalog.CatalogSnapshot) map[string]any {
+	agg := aggregation.byModel[name]
+	sources := append([]marketplaceModelSource{}, aggregation.directSources[name]...)
+	accounts := make([]map[string]any, 0, len(agg.accounts))
+	accountIDs := make([]int64, 0, len(agg.accounts))
+	for id := range agg.accounts {
+		accountIDs = append(accountIDs, id)
+	}
+	sort.Slice(accountIDs, func(i, j int) bool { return accountIDs[i] < accountIDs[j] })
+	tokenCount := 0
+	for _, id := range accountIDs {
+		acc := agg.accounts[id]
+		username := ""
+		if acc.Username != nil {
+			username = *acc.Username
+		}
+		sources = append(sources, marketplaceModelSource{
+			Kind: acc.Kind, ID: acc.ID, Name: username, SiteID: acc.SiteID,
+			ConnectionName: acc.Site, UpstreamModel: name, Evidence: "availability", Enabled: true,
+			Bindings: []marketplaceRouteBinding{},
+		})
+		tokenCount += len(acc.Tokens)
+		var latency any
+		if acc.Latency != nil {
+			latency = int64(math.Round(*acc.Latency))
+		} else {
+			latency = nil
+		}
+		accounts = append(accounts, map[string]any{
+			"id":       acc.ID,
+			"site":     acc.Site,
+			"username": acc.Username,
+			"latency":  latency,
+			"balance":  roundMicro(acc.Balance),
+			"tokens":   acc.Tokens,
 		})
 	}
-	return out, nil
+	var avgLatency any
+	if agg.latCount > 0 {
+		avgLatency = int64(math.Round(agg.latSum / float64(agg.latCount)))
+	} else {
+		avgLatency = nil
+	}
+	var successRate any
+	if stats, ok := aggregation.successByModel[name]; ok && stats.total > 0 {
+		successRate = math.Round(1000.0*float64(stats.success)/float64(stats.total)) / 10.0
+	} else {
+		successRate = nil
+	}
+	entry, catalogHit := catalogLookup(catalogSnapshot, name)
+	return map[string]any{
+		"name":          name,
+		"supplyCount":   len(sources),
+		"supplySources": sources,
+		"accountCount":  len(accounts),
+		"tokenCount":    tokenCount,
+		"avgLatency":    avgLatency,
+		"successRate":   successRate,
+		"description":   catalogDescription(entry, catalogHit),
+		"tags":          catalogTags(entry, catalogHit),
+		"deprecated":    catalogHit && entry.Status == "deprecated",
+		"releaseDate":   catalogReleaseDate(entry, catalogHit),
+		"contextWindow": entry.ContextLimit,
+		"catalogStatus": catalogStatusOf(catalogHit),
+		// supportedEndpointTypes: catalog-driven (provider dialect + modality
+		// surfaces) when the model is cataloged; name-prefix heuristic only as a
+		// catalog-miss fallback.
+		"supportedEndpointTypes": inferEndpointTypesForModel(catalogSnapshot, name, accounts),
+		// Official catalog list price as a synthetic pricing source; the
+		// frontend labels it "catalog estimate" because marketplace sites
+		// are third-party relays (siteName "catalog" is the sentinel).
+		"pricingSources": catalogPricingSources(entry, catalogHit),
+		"accounts":       accounts,
+	}
 }
 
 // appCatalogSnapshot returns the merged model-catalog snapshot, or nil when

@@ -3,36 +3,40 @@ import { describe, expect, it } from 'vitest'
 import { modelsSearchSchema } from '../lib/models-schema'
 
 // ---------------------------------------------------------------------------
-// brand / capability transforms
+// sourceKind / capability transforms
 // ---------------------------------------------------------------------------
 
-describe('modelsSearchSchema — brand transform', () => {
+describe('modelsSearchSchema — sourceKind transform', () => {
   it('normalizes a comma-separated list (trims + drops empties) to a string', () => {
-    expect(modelsSearchSchema.parse({ brand: 'openai, anthropic' }).brand).toBe(
-      'openai,anthropic'
-    )
+    expect(
+      modelsSearchSchema.parse({ sourceKind: 'account, oauth' }).sourceKind
+    ).toBe('account,oauth')
   })
 
   it('drops empty segments and surrounding whitespace', () => {
-    expect(modelsSearchSchema.parse({ brand: ' openai ,,' }).brand).toBe(
-      'openai'
-    )
+    expect(
+      modelsSearchSchema.parse({ sourceKind: ' account ,,' }).sourceKind
+    ).toBe('account')
   })
 
   it('returns undefined for missing / empty input (no URL noise)', () => {
-    expect(modelsSearchSchema.parse({}).brand).toBeUndefined()
-    expect(modelsSearchSchema.parse({ brand: '' }).brand).toBeUndefined()
-    expect(modelsSearchSchema.parse({ brand: '[]' }).brand).toBeUndefined()
+    expect(modelsSearchSchema.parse({}).sourceKind).toBeUndefined()
+    expect(
+      modelsSearchSchema.parse({ sourceKind: '' }).sourceKind
+    ).toBeUndefined()
+    expect(
+      modelsSearchSchema.parse({ sourceKind: '[]' }).sourceKind
+    ).toBeUndefined()
   })
 })
 
 describe('modelsSearchSchema — capability transform', () => {
-  it('is independent of brand', () => {
+  it('is independent of sourceKind', () => {
     const result = modelsSearchSchema.parse({
-      brand: 'openai',
+      sourceKind: 'account',
       capability: 'vision, ,code',
     })
-    expect(result.brand).toBe('openai')
+    expect(result.sourceKind).toBe('account')
     expect(result.capability).toBe('vision,code')
   })
 })
@@ -81,13 +85,13 @@ describe('modelsSearchSchema — numerics', () => {
       q: 123,
       page: 0,
       sort: true,
-      brand: 42,
+      sourceKind: 42,
       capability: [{ bad: true }],
     })
     expect(result.q).toBe(123)
     expect(result.page).toBe(0)
     expect(result.sort).toBeUndefined()
-    expect(result.brand).toBeUndefined()
+    expect(result.sourceKind).toBeUndefined()
     expect(result.capability).toBeUndefined()
   })
 })

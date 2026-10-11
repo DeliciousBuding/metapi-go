@@ -1,11 +1,11 @@
 // metapi-go/features/models — TanStack Query hooks wrapping `lib/api.ts`.
 //
-// The marketplace endpoint returns the full list (no server-side pagination
-// today), so `useModels` is a single query and the table does client-side
-// pagination/sorting/filtering. `useModelCapabilities` is a thin selector
-// over the pricing-hydrated marketplace cache: it powers the detail sheet
-// with fresh capability/pricing data without a second network round-trip
-// when the list has already been loaded (TanStack dedups identical keys).
+// The marketplace list is server-driven: page, page-size, search, filters,
+// and sort are all query parameters, and the paged response carries the true
+// total plus whole-marketplace facet counts, so a page-1 search also finds
+// page-2 models. `useModelCapabilities`-style selectors keep reading the
+// shared page cache; the `?model=<name>` deep link resolves through the
+// exact-name detail endpoint instead of scanning the loaded page.
 
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
@@ -14,27 +14,33 @@ import { api } from '@/lib/api'
 import {
   modelsKeys,
   type ModelRow,
+  type ModelsMarketplaceFacets,
   type ModelsMarketplaceResponse,
 } from './types'
 
-/**
- * Fetch the model marketplace. The backend returns the full array; the
- * table owns client-side pagination/sorting/filtering. Pass `refresh: true`
- * to request a fresh aggregation (longer timeout), `includePricing: true`
- * to hydrate per-account pricing.
- */
 /** One server-side page of the pricing-hydrated marketplace. */
 export type ModelsPageData = {
   items: ModelRow[]
   total: number
+  /** Whole-marketplace facet counts; absent only from a pre-contract server. */
+  facets: ModelsMarketplaceFacets | null
 }
 
-/** Query key for one server-side models marketplace page. */
-export function modelsPageQueryKey(params: {
+/** Every URL-owned input that shapes one marketplace page query. */
+export type ModelsPageParams = {
   pageIndex: number
   pageSize: number
   includePricing: boolean
-}) {
+  q: string
+  capabilities: string[]
+  endpointTypes: string[]
+  sourceKinds: string[]
+  /** Table sort wire form (`column:asc|desc`); '' keeps the name.asc default. */
+  sort: string
+}
+
+/** Query key for one server-side models marketplace page. */
+export function modelsPageQueryKey(params: ModelsPageParams) {
   return [
     ...modelsKeys.all,
     'marketplace',
@@ -43,6 +49,11 @@ export function modelsPageQueryKey(params: {
       pageIndex: params.pageIndex,
       pageSize: params.pageSize,
       includePricing: params.includePricing,
+      q: params.q,
+      capabilities: params.capabilities,
+      endpointTypes: params.endpointTypes,
+      sourceKinds: params.sourceKinds,
+      sort: params.sort,
     },
   ] as const
 }
@@ -53,18 +64,25 @@ export function modelsPageQueryKey(params: {
  * and therefore always receives the paged envelope. A missing/malformed
  * total degrades to the returned page length.
  */
-export async function fetchModelsPage(params: {
-  pageIndex: number
-  pageSize: number
-  includePricing: boolean
-}): Promise<ModelsPageData> {
+export async function fetchModelsPage(
+  params: ModelsPageParams
+): Promise<ModelsPageData> {
   const response = await api.getModelsMarketplace({
     page: params.pageIndex + 1,
     pageSize: params.pageSize,
     includePricing: params.includePricing,
+    q: params.q || undefined,
+    capability: params.capabilities.join(',') || undefined,
+    endpointType: params.endpointTypes.join(',') || undefined,
+    sourceKind: params.sourceKinds.join(',') || undefined,
+    sort: params.sort || undefined,
   })
   const envelope = !Array.isArray(response)
-    ? (response as { items?: unknown[]; total?: number })
+    ? (response as {
+        items?: unknown[]
+        total?: number
+        facets?: ModelsMarketplaceFacets
+      })
     : null
   const items = envelope?.items ?? []
   const total =
@@ -73,12 +91,16 @@ export async function fetchModelsPage(params: {
     Number.isFinite(envelope.total)
       ? envelope.total
       : items.length
-  return { items: items as ModelRow[], total }
+  return {
+    items: items as ModelRow[],
+    total,
+    facets: envelope?.facets ?? null,
+  }
 }
 
 /** Fetch one server-side marketplace page by URL-owned table state. */
 export function useModelsPage(
-  params: { pageIndex: number; pageSize: number; includePricing: boolean },
+  params: ModelsPageParams,
   options?: Omit<UseQueryOptions<ModelsPageData>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<ModelsPageData>({
@@ -87,6 +109,32 @@ export function useModelsPage(
     placeholderData: (previous) => previous,
     staleTime: 10 * 1000,
     ...options,
+  })
+}
+
+/** One fully hydrated marketplace row, resolved by exact model name. */
+export type ModelDetailData = { model: ModelRow }
+
+/**
+ * Exact-name detail lookup for the one-shot `?model=<name>` deep link: the
+ * referenced model opens even when it is not on the currently loaded page.
+ * A 404 arrives as a query error carrying the server's "model not found"
+ * message; the page turns that into an explicit notice, not a silent drop.
+ * Retrying is pointless for a stable negative answer, so it is disabled.
+ */
+export function useModelDetail(name: string | null) {
+  return useQuery<ModelDetailData, Error>({
+    queryKey: modelsKeys.detail(name ?? ''),
+    enabled: Boolean(name),
+    retry: false,
+    staleTime: 10 * 1000,
+    queryFn: async () => {
+      const result = await api.getModelMarketplaceDetail(name ?? '')
+      if (!result.model) {
+        throw new Error('model not found')
+      }
+      return { model: result.model as ModelRow }
+    },
   })
 }
 

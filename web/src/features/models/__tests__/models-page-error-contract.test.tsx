@@ -49,13 +49,17 @@ vi.mock('@/components/data-table', async () => {
       ) : (
         <div data-testid='models-table' />
       ),
+    encodeSorting: () => '',
     useUrlTableState: () => ({
       globalFilter: '',
       onGlobalFilterChange: vi.fn(),
       columnFilters: [],
       onColumnFiltersChange: vi.fn(),
+      filters: { capability: [], endpointType: [], sourceKind: [] },
       pagination: { pageIndex: 0, pageSize: 20 },
       onPaginationChange: vi.fn(),
+      sorting: [],
+      onSortingChange: vi.fn(),
       ensurePageInRange: vi.fn(),
     }),
     useDataTable: () => ({
@@ -69,7 +73,7 @@ vi.mock('@/components/data-table', async () => {
 
 vi.mock('../api', () => ({
   useModelsPage: () => testState.modelsQuery,
-  useRefreshModels: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useModelDetail: () => ({ data: undefined, isPending: false, error: null }),
 }))
 
 vi.mock('../components/model-detail-sheet', () => ({
