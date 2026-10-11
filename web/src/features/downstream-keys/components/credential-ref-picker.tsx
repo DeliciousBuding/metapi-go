@@ -27,12 +27,14 @@ import {
 import { useSites, type Site } from '@/features/sites'
 import { cn } from '@/lib/utils'
 
+import { useScopeSelectionFocus } from '../hooks/use-scope-selection-focus'
 import { accountDisplayName, tokenDisplayName } from '../lib/credential-display'
 import {
   credentialRefKey,
   serializeCredentialRefs,
   type CredentialRef,
 } from '../lib/credential-refs'
+import { ScopePickerToolbar } from './scope-picker-toolbar'
 
 type CredentialRefPickerProps = {
   value: CredentialRef[]
@@ -57,6 +59,11 @@ export function CredentialRefPicker({
   // group named via aria-labelledby -> the FormLabel id, and each forwards the
   // FormControl-injected id / aria-describedby / aria-invalid (#1300).
   const labelId = props.id ? formLabelIdFor(props.id) : undefined
+  const [search, setSearch] = useState('')
+  const [onlySelected, setOnlySelected] = useState(false)
+  const focus = useScopeSelectionFocus()
+  const query = search.trim().toLocaleLowerCase()
+  const matches = (text: string) => text.toLocaleLowerCase().includes(query)
   const sitesQuery = useSites()
   const accountsQuery = useAccounts()
   const tokensQuery = useAllAccountTokens()
@@ -192,8 +199,24 @@ export function CredentialRefPicker({
   })
 
   function renderAccount(site: Site, account: Account) {
-    const accountTokens = tokensByAccount.get(account.id) ?? []
-    const tokensExpanded = expandedTokenAccounts.has(account.id)
+    const accountMatches = matches(
+      `${site.name} ${accountDisplayName(account)} ${account.id}`
+    )
+    const accountTokens = (tokensByAccount.get(account.id) ?? []).filter(
+      (token) =>
+        (!onlySelected ||
+          selectedKeys.has(
+            credentialRefKey({
+              kind: 'account_token',
+              siteId: site.id,
+              accountId: account.id,
+              tokenId: token.id,
+            })
+          )) &&
+        (accountMatches || matches(`${tokenDisplayName(token)} ${token.id}`))
+    )
+    const tokensExpanded =
+      onlySelected || Boolean(query) || expandedTokenAccounts.has(account.id)
     // The snapshot redacts apiToken to apiTokenMasked, so the masked field
     // is the honest "account has a default API key" indicator.
     const hasDefaultKey = Boolean(account.apiTokenMasked)
@@ -203,6 +226,13 @@ export function CredentialRefPicker({
       accountId: account.id,
     }
     const accountName = accountDisplayName(account)
+    const showDefault =
+      (!onlySelected || selectedKeys.has(credentialRefKey(defaultRef))) &&
+      accountMatches
+    const accountSelectedCount = value.filter(
+      (ref) => ref.siteId === site.id && ref.accountId === account.id
+    ).length
+    if (!showDefault && accountTokens.length === 0) return null
 
     return (
       <div key={account.id}>
@@ -230,20 +260,38 @@ export function CredentialRefPicker({
           ) : (
             <span aria-hidden='true' className='w-8 shrink-0' />
           )}
-          <label className='flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-1 text-sm'>
-            <input
-              type='checkbox'
-              checked={selectedKeys.has(credentialRefKey(defaultRef))}
-              disabled={!hasDefaultKey}
-              onChange={(event) => toggleRef(defaultRef, event.target.checked)}
-            />
-            <span className='truncate'>{accountName}</span>
-            <span className='text-muted-foreground shrink-0 text-xs'>
-              {hasDefaultKey
-                ? t('settings.downstream.keys.credentials.defaultApiKey')
-                : t('settings.downstream.keys.credentials.noDefaultKey')}
+          {showDefault ? (
+            <label className='flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-1 text-sm'>
+              <input
+                type='checkbox'
+                checked={selectedKeys.has(credentialRefKey(defaultRef))}
+                disabled={
+                  !hasDefaultKey &&
+                  !selectedKeys.has(credentialRefKey(defaultRef))
+                }
+                onChange={(event) =>
+                  toggleRef(defaultRef, event.target.checked)
+                }
+              />
+              <span className='truncate'>{accountName}</span>
+              <span className='text-muted-foreground shrink-0 text-xs'>
+                {hasDefaultKey
+                  ? t('settings.downstream.keys.credentials.defaultApiKey')
+                  : t('settings.downstream.keys.credentials.noDefaultKey')}
+              </span>
+            </label>
+          ) : (
+            <span className='min-w-0 flex-1 text-sm break-words'>
+              {accountName}
             </span>
-          </label>
+          )}
+          {accountSelectedCount > 0 && (
+            <Badge variant='secondary'>
+              {t('settings.downstream.keys.picker.selected', {
+                count: accountSelectedCount,
+              })}
+            </Badge>
+          )}
         </div>
         {tokensExpanded
           ? accountTokens.map((token) => {
@@ -279,7 +327,12 @@ export function CredentialRefPicker({
 
   function renderSite(site: Site) {
     const siteAccounts = accountsBySite.get(site.id) ?? []
-    const expanded = expandedSiteIds.has(site.id)
+    const expanded =
+      onlySelected || Boolean(query) || expandedSiteIds.has(site.id)
+    const accountRows = siteAccounts
+      .map((account) => renderAccount(site, account))
+      .filter((row) => row !== null)
+    if (accountRows.length === 0 && (onlySelected || query)) return null
     const selectedCount = value.filter((ref) => ref.siteId === site.id).length
 
     return (
@@ -316,7 +369,7 @@ export function CredentialRefPicker({
                 {t('settings.downstream.keys.credentials.noAccounts')}
               </p>
             ) : (
-              siteAccounts.map((account) => renderAccount(site, account))
+              accountRows
             )}
           </div>
         ) : null}
@@ -324,51 +377,74 @@ export function CredentialRefPicker({
     )
   }
 
+  const siteRows = sites.map(renderSite).filter((row) => row !== null)
   return (
     <div
       data-testid='credential-ref-picker'
-      className='border-border max-h-56 overflow-y-auto rounded-md border'
+      className='space-y-2'
       role='group'
       aria-labelledby={labelId}
       {...props}
     >
-      {sites.length === 0 ? (
-        <p className='text-muted-foreground p-2 text-xs'>
-          {t('settings.downstream.keys.credentials.noSites')}
-        </p>
-      ) : (
-        sites.map(renderSite)
-      )}
-      {unresolvedRefs.length > 0 ? (
-        <div className='border-border border-t p-2'>
-          <p className='text-xs font-medium'>
-            {t('settings.downstream.keys.credentials.unresolvedTitle')}
+      <ScopePickerToolbar
+        selectedCount={selectedKeys.size}
+        search={search}
+        onSearchChange={setSearch}
+        onlySelected={onlySelected}
+        onOnlySelectedChange={setOnlySelected}
+        onLocateSelected={() => {
+          setSearch('')
+          setOnlySelected(true)
+          focus.focusSelected()
+        }}
+      />
+      <div
+        ref={focus.listRef}
+        className='border-border max-h-56 overflow-y-auto rounded-md border'
+      >
+        {sites.length === 0 && (
+          <p className='text-muted-foreground p-2 text-xs'>
+            {t('settings.downstream.keys.credentials.noSites')}
           </p>
-          <ul className='mt-1 space-y-1'>
-            {unresolvedRefs.map((ref) => (
-              <li
-                key={credentialRefKey(ref)}
-                className='text-muted-foreground flex items-center gap-2 text-xs'
-              >
-                <span className='flex-1 truncate font-mono'>
-                  {describeUnresolvedRef(ref)}
-                </span>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon-sm'
-                  aria-label={t(
-                    'settings.downstream.keys.credentials.unresolvedRemoveAria'
-                  )}
-                  onClick={() => toggleRef(ref, false)}
+        )}
+        {sites.length > 0 && siteRows.length > 0 && siteRows}
+        {sites.length > 0 && siteRows.length === 0 && (
+          <p className='text-muted-foreground p-2 text-xs'>
+            {t('settings.downstream.keys.picker.noMatches')}
+          </p>
+        )}
+        {unresolvedRefs.length > 0 ? (
+          <div className='border-border border-t p-2'>
+            <p className='text-xs font-medium'>
+              {t('settings.downstream.keys.credentials.unresolvedTitle')}
+            </p>
+            <ul className='mt-1 space-y-1'>
+              {unresolvedRefs.map((ref) => (
+                <li
+                  key={credentialRefKey(ref)}
+                  className='text-muted-foreground flex items-center gap-2 text-xs'
                 >
-                  <X aria-hidden='true' />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+                  <span className='flex-1 truncate font-mono'>
+                    {describeUnresolvedRef(ref)}
+                  </span>
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon-sm'
+                    data-unresolved-ref
+                    aria-label={t(
+                      'settings.downstream.keys.credentials.unresolvedRemoveAria'
+                    )}
+                    onClick={() => toggleRef(ref, false)}
+                  >
+                    <X aria-hidden='true' />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

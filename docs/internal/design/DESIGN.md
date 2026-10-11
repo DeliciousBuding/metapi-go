@@ -79,7 +79,12 @@ rebuild these arrangements with local spacing and raw data editors:
   original text, and remains available for legacy object values that cannot
   be represented as rows. A mode switch must not discard data.
 
-## 2. Color tokens
+- Backup import starts with file selection, then a human-readable plan and
+  confirmation. JSON paste is collapsed by default. Counts use labeled summary
+  cells; compatibility failures precede details, and omitted/adapted data
+  requires acknowledgement. Raw field names are not primary UI labels.
+
+### Upstream connections and access
 
 Independent upstreams use the same brand identities as site presets. The connect
 action is available above both channel views. Connection cards expose labeled credential,
@@ -90,6 +95,21 @@ models, platform and credential identities, configured protocol choices, and
 selection/cooldown states. Manual selection is labeled explicitly; configuration
 eligibility is separate from actual request history. Status must remain readable
 without color, and missing runtime data is unknown rather than healthy.
+The overview's configuration checklist has three milestones: upstreams, public
+model routes and downstream keys. Site accounts and OAuth accounts contribute to
+the first milestone alongside independent upstream connections. Existing sites
+can continue through account creation; direct-key users do not need a site or
+account. Configured counts never imply that a request has been verified.
+
+API-key editing keeps a dimension summary above the scrolling controls, with
+direct navigation to each control.
+Scope pickers show selected counts, search and a selected-only view; locating
+selected entries clears the search and focuses a selected control. Filtering
+does not mutate selections, including unavailable references. The list's scope
+column describes additional restrictions rather than claiming the key can call
+every model. Present-empty direct-channel policies, zero quotas, blocked sources
+and unreadable policies remain distinct states.
+
 Creation starts with New API, domestic platforms and Coding Plan presets. Each product
 has one branded card; protocol variants share that card, while distinct products
 such as Bailian and Bailian Coding Plan remain separate. The normal form asks for
@@ -111,31 +131,7 @@ Refetch updates untouched fields while
 preserving edits. Deleting an edited entity first confirms draft loss; leaf
 deletion retains undo, and dependent deletion reviews the server's current impact.
 
-### Shared page and task composition
-
-The shared primitives also own how a task is presented; pages should not
-rebuild these arrangements with local spacing and raw data editors:
-
-- `components/common/page-header.tsx`: standard list/settings/tool page title,
-  description and wrapping actions. Overview pages retain their overview
-  hierarchy. Page containers continue to own scrolling.
-- `components/data-table/toolbar/toolbar.tsx`: separate query and view/action
-  groups, with expanded filters in their own region. The desktop and mobile
-  empty states share `core/empty-state.tsx`; page-owned filters participate in
-  the same reset action as table filters.
-- `features/settings/components/settings-subsection.tsx`: a settings group
-  with title, optional description/icon/actions, and flat or panel treatment.
-  Notifications and backup tasks use this same composition. Save/reset status
-  lives in `settings-form-actions.tsx`, including a polite live announcement
-  and responsive action placement.
-- `components/common/string-map-editor.tsx`: string mappings use labeled
-  key/value rows by default. JSON is an explicit advanced view, retains the
-  original text, and remains available for legacy object values that cannot
-  be represented as rows. A mode switch must not discard data.
-- Backup import starts with file selection, then a human-readable plan and
-  confirmation. JSON paste is collapsed by default. Counts use labeled summary
-  cells; compatibility failures precede details, and omitted/adapted data
-  requires acknowledgement. Raw field names are not primary UI labels.
+## 2. Color tokens
 
 All values live in `web/src/styles/theme.css` under `:root` (light) and `.dark` (dark); presets override them per `data-theme-preset` in `theme-presets.css`.
 

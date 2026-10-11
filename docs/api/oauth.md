@@ -44,6 +44,9 @@ Refetch the upstream quota snapshot for one connection or a batch (batch runs 4-
 
 ### POST /api/oauth/import, POST /api/oauth/route-units, PATCH /api/oauth/route-units/{routeUnitId}, DELETE /api/oauth/route-units/{routeUnitId}
 
-Stubs — each answers `{ "success": true }`. Connection import and route-unit state are orchestrated inside `service/oauth` (the connection list reports `routeParticipation`); these endpoints exist for UI path parity only.
+Reserved paths. Each returns HTTP 501 with `{ "code": "oauth_operation_not_supported", "error": "..." }` and writes no state.
+Create or rebind connections through the provider authorization flow. Managed
+routing reports participation on the connection list; these reserved paths do
+not provide route-unit CRUD or generic connection import.
 
 ---

@@ -20,6 +20,7 @@ import { UpstreamHealthPanel } from './components/upstream-health-panel'
 import { useOverviewReport } from './use-overview-report'
 
 type ResourceSnapshot = {
+  upstreamChannelCount?: number | null
   siteCount?: number | null
   accountCount?: number | null
   totalAccounts?: number | null
@@ -71,6 +72,7 @@ export function OverviewSection() {
       <OnboardingChecklist
         siteCount={data?.siteCount ?? undefined}
         accountCount={accounts ?? undefined}
+        upstreamChannelCount={data?.upstreamChannelCount ?? undefined}
       />
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div className='text-muted-foreground flex items-center gap-2 text-sm'>
@@ -144,6 +146,11 @@ export function OverviewSection() {
             {t('dashboard.operations.accountCount', {
               value: formatInt(accounts ?? null),
               active: formatInt(data?.activeAccounts ?? null),
+            })}
+          </Link>
+          <Link to='/channels' className='hover:text-primary'>
+            {t('dashboard.operations.upstreamChannelCount', {
+              value: formatInt(data?.upstreamChannelCount ?? null),
             })}
           </Link>
           <Link to='/accounts' className='hover:text-primary'>

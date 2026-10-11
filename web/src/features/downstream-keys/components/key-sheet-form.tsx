@@ -55,6 +55,8 @@ import {
   resolveApiErrorMessage,
   type CreateKeyFormValues,
 } from './key-form-shared'
+import { KeyRestrictionSummary } from './key-restriction-summary'
+import { SiteScopePicker } from './site-scope-picker'
 
 type ModelPolicyEditorProps = {
   value: string[]
@@ -233,60 +235,6 @@ function ModelPolicyEditor({
   )
 }
 
-type SiteScopePickerProps = {
-  value: number[]
-  onChange: (siteIds: number[]) => void
-  sites: Array<{ id: number; name: string }>
-} & Omit<ComponentProps<'div'>, 'onChange'>
-
-// Checkbox list over the upstream sites: empty selection means "no site
-// restriction" (the routing selector treats an empty allow-list as
-// unrestricted), mirroring the model-policy empty-means-deny contrast.
-function SiteScopePicker({
-  value,
-  onChange,
-  sites,
-  ...props
-}: SiteScopePickerProps) {
-  const selected = new Set(value)
-  // Composite control: a checkbox list with no single labelable element.
-  // Forward the FormControl-injected id / aria-* onto the root and name the
-  // group via the FormLabel id (#1300).
-  return (
-    <div
-      className='border-border max-h-40 space-y-1 overflow-y-auto rounded-md border p-2'
-      data-testid='site-scope-picker'
-      role='group'
-      aria-labelledby={props.id ? formLabelIdFor(props.id) : undefined}
-      {...props}
-    >
-      {sites.length === 0
-        ? null
-        : sites.map((site) => (
-            <label
-              key={site.id}
-              className='flex cursor-pointer items-center gap-2 text-sm'
-            >
-              <input
-                type='checkbox'
-                checked={selected.has(site.id)}
-                onChange={(event) => {
-                  const next = new Set(selected)
-                  if (event.target.checked) {
-                    next.add(site.id)
-                  } else {
-                    next.delete(site.id)
-                  }
-                  onChange([...next].sort((left, right) => left - right))
-                }}
-              />
-              {site.name}
-            </label>
-          ))}
-    </div>
-  )
-}
-
 // Exported so the edit-mode behavior test can render it in isolation,
 // mirroring the AccountsRowActions export pattern. The whole KeysSection
 // remains the only public entry in the settings surface.
@@ -447,6 +395,7 @@ export function KeySheetForm({
           onSubmit={form.handleSubmit(onSubmit)}
           className='min-h-0 flex-1 space-y-4 overflow-y-auto px-4'
         >
+          <KeyRestrictionSummary />
           <FormField
             control={form.control}
             name='name'
@@ -501,7 +450,7 @@ export function KeySheetForm({
             control={form.control}
             name='supportedModels'
             render={({ field }) => (
-              <FormItem>
+              <FormItem data-key-scope='supportedModels'>
                 <FormLabel>
                   {t('settings.downstream.keys.models.fieldLabel', {
                     defaultValue: 'Model access',
@@ -531,7 +480,7 @@ export function KeySheetForm({
             control={form.control}
             name='allowedSiteIds'
             render={({ field }) => (
-              <FormItem>
+              <FormItem data-key-scope='allowedSiteIds'>
                 <FormLabel>
                   {t('settings.downstream.keys.sites.fieldLabel', {
                     defaultValue: 'Upstream site restriction',
@@ -558,7 +507,7 @@ export function KeySheetForm({
             control={form.control}
             name='allowedCredentialRefs'
             render={({ field }) => (
-              <FormItem>
+              <FormItem data-key-scope='allowedCredentialRefs'>
                 <FormLabel>
                   {t('settings.downstream.keys.credentials.fieldLabelAllow')}
                 </FormLabel>
@@ -579,7 +528,7 @@ export function KeySheetForm({
             control={form.control}
             name='excludedCredentialRefs'
             render={({ field }) => (
-              <FormItem>
+              <FormItem data-key-scope='excludedCredentialRefs'>
                 <FormLabel>
                   {t('settings.downstream.keys.credentials.fieldLabelExclude')}
                 </FormLabel>
@@ -722,7 +671,7 @@ export function KeySheetForm({
             control={form.control}
             name='accessPolicy'
             render={({ field }) => (
-              <FormItem className='border-t pt-4'>
+              <FormItem data-key-scope='accessPolicy' className='border-t pt-4'>
                 <FormLabel>
                   {t('settings.downstream.keys.fields.accessPolicy')}
                 </FormLabel>

@@ -25,7 +25,9 @@ import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 import { parseStringMap, serializeStringMap } from '@/lib/helpers/string-map'
 
+import { useScopeSelectionFocus } from '../hooks/use-scope-selection-focus'
 import type { DownstreamAccessPolicy } from '../types'
+import { ScopePickerToolbar } from './scope-picker-toolbar'
 
 type Quota = NonNullable<DownstreamAccessPolicy['quota']>
 type Props = Omit<ComponentProps<'div'>, 'onChange'> & {
@@ -51,6 +53,9 @@ export function AccessPolicyEditor({
 }: Props) {
   const { t } = useTranslation()
   const id = useId()
+  const [channelSearch, setChannelSearch] = useState('')
+  const [onlySelectedChannels, setOnlySelectedChannels] = useState(false)
+  const focus = useScopeSelectionFocus()
   const [pendingModel, setPendingModel] = useState('')
   const inventory = useQuery({
     queryKey: ['imported-upstreams'],
@@ -69,6 +74,13 @@ export function AccessPolicyEditor({
       ...(inventory.data?.members.map((member) => member.modelName) ?? []),
     ]),
   ]
+  const filteredChannels = channelOptions.filter(
+    (channel) =>
+      (!onlySelectedChannels || selectedChannels?.includes(channel.id)) &&
+      `${channel.name} ${channel.id}`
+        .toLocaleLowerCase()
+        .includes(channelSearch.trim().toLocaleLowerCase())
+  )
   const quota = policy.quota
   const historyMissingBefore = quota?.historyMissingBefore
   const historyMissing = historyMissingBefore !== undefined
@@ -179,8 +191,23 @@ export function AccessPolicyEditor({
                   onRetry={() => inventory.refetch()}
                   isRetrying={inventory.isFetching}
                 />
-                <div className='max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2'>
-                  {channelOptions.map((channel) => (
+                <ScopePickerToolbar
+                  selectedCount={new Set(selectedChannels).size}
+                  search={channelSearch}
+                  onSearchChange={setChannelSearch}
+                  onlySelected={onlySelectedChannels}
+                  onOnlySelectedChange={setOnlySelectedChannels}
+                  onLocateSelected={() => {
+                    setChannelSearch('')
+                    setOnlySelectedChannels(true)
+                    focus.focusSelected()
+                  }}
+                />
+                <div
+                  ref={focus.listRef}
+                  className='max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2'
+                >
+                  {filteredChannels.map((channel) => (
                     <Label
                       key={channel.id}
                       className='flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 font-normal'
@@ -209,9 +236,9 @@ export function AccessPolicyEditor({
                   ))}
                   {!inventory.isPending &&
                     !inventory.error &&
-                    channelOptions.length === 0 && (
+                    filteredChannels.length === 0 && (
                       <p className='text-muted-foreground p-2 text-sm'>
-                        {t('settings.downstream.keys.access.emptyInventory')}
+                        {t('settings.downstream.keys.picker.noMatches')}
                       </p>
                     )}
                   {!inventory.isPending &&

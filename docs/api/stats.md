@@ -31,7 +31,14 @@ rather than a misleading healthy zero.
 
 Returns the admin dashboard snapshot.
 
-**Response**: Site/account/token counts, total cost, usage summaries.
+**Response**: Site/account counts, `upstreamChannelCount`, total cost and usage summaries.
+
+The summary and full views include `upstreamChannelCount`, the number of stored
+independent upstream connections. It is separate from `siteCount` and
+`totalAccounts`; account-backed and OAuth connections retain the account count.
+These are configuration counts, including disabled records, not availability or
+successful-request measurements. A failed count is `null` and appears in the
+dashboard's failed-metric status. The UI keeps unanswered counts unknown.
 
 ### GET /api/stats/proxy-logs
 

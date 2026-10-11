@@ -357,22 +357,30 @@ func (h *oauthHandler) refreshQuotaBatch(w http.ResponseWriter, r *http.Request)
 
 // POST /api/oauth/import
 func (h *oauthHandler) importConnections(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	writeUnsupportedOAuthOperation(w)
 }
 
 // POST /api/oauth/route-units
 func (h *oauthHandler) createRouteUnit(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	writeUnsupportedOAuthOperation(w)
 }
 
 // PATCH /api/oauth/route-units/:routeUnitId
 func (h *oauthHandler) updateRouteUnit(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	writeUnsupportedOAuthOperation(w)
 }
 
 // DELETE /api/oauth/route-units/:routeUnitId
 func (h *oauthHandler) deleteRouteUnit(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	writeUnsupportedOAuthOperation(w)
+}
+
+// Keep the reserved paths explicit without pretending to persist a write.
+func writeUnsupportedOAuthOperation(w http.ResponseWriter) {
+	writeJSON(w, http.StatusNotImplemented, map[string]any{
+		"code":  "oauth_operation_not_supported",
+		"error": "OAuth connection import and route-unit writes are not supported. Use provider authorization and managed routing instead.",
+	})
 }
 
 // GET /api/oauth/callback/:provider

@@ -105,9 +105,10 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('OverviewSection onboarding checklist', () => {
-  it('renders the four journey steps + "Create site" CTA on a fresh deployment', async () => {
+  it('renders the three journey steps + "Connect upstream" CTA on a fresh deployment', async () => {
     mockGetDashboardSnapshot.mockResolvedValue({
       siteCount: 0,
+      upstreamChannelCount: 0,
       totalAccounts: 0,
     })
 
@@ -121,24 +122,25 @@ describe('OverviewSection onboarding checklist', () => {
     expect(heading).toBeInTheDocument()
     expect(
       screen.getByText(
-        'Four steps to a working call path: sites → accounts → routes → keys.'
+        'Configure an upstream, a public model route and a downstream key. These counts describe configuration, not a verified request.'
       )
     ).toBeInTheDocument()
 
     // The whole journey is listed, not just the first gap — the operator can
     // see that a key is where this ends (/v1 is not callable without one).
     const steps = screen.getAllByRole('listitem')
-    expect(steps).toHaveLength(4)
+    expect(steps).toHaveLength(3)
 
-    const cta = screen.getByRole('link', { name: /Create site/i })
-    expect(cta).toHaveAttribute('href', '/sites')
+    const cta = screen.getByRole('link', { name: /Connect upstream/i })
+    expect(cta).toHaveAttribute('href', '/channels')
   })
 
   it('advances the CTA to the next gap instead of retiring at the first site', async () => {
     // The pre-checklist banner disappeared here (siteCount > 0), which is
-    // exactly the dead end the four-step panel exists to close.
+    // why the checklist retains an optional account path.
     mockGetDashboardSnapshot.mockResolvedValue({
       siteCount: 3,
+      upstreamChannelCount: 0,
       totalAccounts: 0,
     })
 
@@ -147,8 +149,8 @@ describe('OverviewSection onboarding checklist', () => {
     const cta = await screen.findByRole('link', { name: /Add account/i })
     expect(cta).toHaveAttribute('href', '/accounts')
     expect(
-      screen.queryByRole('link', { name: /Create site/i })
-    ).not.toBeInTheDocument()
+      screen.getByRole('link', { name: /Connect upstream/i })
+    ).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', { name: 'Welcome to Metapi' })
     ).toBeInTheDocument()
@@ -159,6 +161,7 @@ describe('OverviewSection onboarding checklist', () => {
     mockGetDownstreamApiKeys.mockResolvedValue({ items: [{ id: 2 }] })
     mockGetDashboardSnapshot.mockResolvedValue({
       siteCount: 3,
+      upstreamChannelCount: 0,
       totalAccounts: 4,
     })
 
@@ -188,7 +191,7 @@ describe('OverviewSection onboarding checklist', () => {
       screen.queryByRole('heading', { name: 'Welcome to Metapi' })
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: /Create site/i })
+      screen.queryByRole('link', { name: /Connect upstream/i })
     ).not.toBeInTheDocument()
   })
 })
@@ -377,6 +380,7 @@ describe('overview report range', () => {
   it('switches the shared analytical query to all retained history', async () => {
     mockGetDashboardSnapshot.mockResolvedValue({
       siteCount: 1,
+      upstreamChannelCount: 0,
       totalAccounts: 1,
     })
     renderWithClient(<OverviewSection />)

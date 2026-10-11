@@ -326,6 +326,12 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 
 		if view == "summary" || view == "full" {
 			var siteCount, accountCount, activeAccounts int
+			var upstreamChannelCount int
+			if err := h.db.Get(&upstreamChannelCount, "SELECT COUNT(*) FROM upstream_channels"); err != nil {
+				markFailed("upstreamChannelCount", "load independent upstream count", err)
+			} else {
+				result["upstreamChannelCount"] = upstreamChannelCount
+			}
 			if err := h.db.Get(&siteCount, "SELECT COUNT(*) FROM sites"); err != nil {
 				markFailed("siteCount", "load site count", err)
 			} else {
