@@ -121,22 +121,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	if upstreamPath == "" {
 		upstreamPath = r.URL.Path
 	}
-	downstreamPolicy.RequiredUpstreamProtocol = proxy.DirectProtocolMaskForPath(upstreamPath)
-	if endpoint, ok := proxy.EndpointFromPath(upstreamPath); ok {
-		switch endpoint {
-		case proxy.EndpointChat:
-			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolChat
-		case proxy.EndpointResponses:
-			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolResponses
-		case proxy.EndpointMessages:
-			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolAnthropic
-		case proxy.EndpointGemini:
-			downstreamPolicy.RequiredUpstreamProtocol = routing.UpstreamProtocolGemini
-		}
-		if !strings.HasSuffix(strings.TrimRight(upstreamPath, "/"), "/count_tokens") {
-			downstreamPolicy.AllowUpstreamProtocolConversion = true
-		}
-	}
+	downstreamPolicy.RequiredUpstreamProtocol, downstreamPolicy.AllowUpstreamProtocolConversion = proxy.RoutingProtocolForPath(upstreamPath)
 	// Never forward a downstream path containing
 	// ".." segments. Go's http.Client preserves ".." on the wire, and the
 	// upstream host would normalize it outside the site API prefix — letting

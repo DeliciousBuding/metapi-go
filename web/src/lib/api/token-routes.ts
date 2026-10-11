@@ -1,3 +1,5 @@
+import type { RouteDecision } from '@/lib/helpers/token-route-contract'
+
 import { request, buildQueryString } from './transport'
 
 /** PUT /api/channels/batch response envelope — per-item truth. */
@@ -55,6 +57,10 @@ export const tokenRoutesApi = {
 
   // Routes
   getRoutesSummary: () => request('/api/routes/summary'),
+  getRouteDecision: (input: { model: string; endpoint: string }) =>
+    request<{ success: boolean; decision: RouteDecision }>(
+      `/api/routes/decision${buildQueryString(input)}`
+    ),
   getRouteChannels: (routeId: number) =>
     request(`/api/routes/${routeId}/channels`),
   getChannels: (options?: {

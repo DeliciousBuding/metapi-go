@@ -671,20 +671,32 @@ func (s *ChannelSelector) loadFallbackSourceModelByRouteID(ctx context.Context, 
 }
 
 func (s *ChannelSelector) getCandidateEligibilityReasons(
+	candidate RouteChannelCandidate, requestedModel string, bypassSourceModelCheck bool,
+	excludeChannelIDs []int64, nowISO string, policy DownstreamRoutingPolicy,
+) []string {
+	blockers := s.getCandidateBlockers(candidate, requestedModel, bypassSourceModelCheck, excludeChannelIDs, nowISO, policy)
+	reasons := make([]string, 0, len(blockers))
+	for _, blocker := range blockers {
+		reasons = append(reasons, blocker.Message)
+	}
+	return reasons
+}
+
+func (s *ChannelSelector) getCandidateBlockers(
 	candidate RouteChannelCandidate,
 	requestedModel string,
 	bypassSourceModelCheck bool,
 	excludeChannelIDs []int64,
 	nowISO string,
 	policy DownstreamRoutingPolicy,
-) []string {
-	var reasons []string
+) []CandidateBlocker {
+	reasons := make([]CandidateBlocker, 0)
 	if direct := candidate.Direct; direct != nil {
 		if IsCooldownActive(candidate.Channel.CooldownUntil, nowISO) {
-			reasons = append(reasons, "direct upstream grant cooling down")
+			reasons = append(reasons, CandidateBlocker{"cooldown", "direct upstream grant cooling down"})
 		}
 		if !candidate.Channel.Enabled || !direct.ChannelEnabled || !direct.ModelEnabled || !direct.CredentialEnabled || !direct.GrantEnabled {
-			reasons = append(reasons, "direct upstream grant disabled")
+			reasons = append(reasons, CandidateBlocker{"disabled", "direct upstream grant disabled"})
 		}
 		protocols := direct.Protocols
 		if direct.CredentialKind == store.DirectCredentialNone {
@@ -711,10 +723,14 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 			protocols = 0
 		}
 		if required == 0 || protocols&required == 0 {
-			reasons = append(reasons, "direct upstream protocol not authorized")
+			code := "protocol_not_authorized"
+			if required == 0 {
+				code = "protocol_context_missing"
+			}
+			reasons = append(reasons, CandidateBlocker{code, "direct upstream protocol not authorized"})
 		}
 		if len(policy.AllowedSiteIDs) > 0 {
-			reasons = append(reasons, "direct upstream is not in the downstream key site allow-list")
+			reasons = append(reasons, CandidateBlocker{"site_not_allowed", "direct upstream is not in the downstream key site allow-list"})
 		}
 		if len(policy.AllowedRouteIDs) > 0 && !matchesSupportedModelPolicy(requestedModel, policy.SupportedModels) {
 			allowed := false
@@ -725,15 +741,15 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 				}
 			}
 			if !allowed {
-				reasons = append(reasons, "direct upstream route is not allowed by downstream key")
+				reasons = append(reasons, CandidateBlocker{"route_not_allowed", "direct upstream route is not allowed by downstream key"})
 			}
 		}
-		if reason := s.resolveDownstreamExclusionReason(candidate, policy); reason != "" {
+		if reason := s.resolveDownstreamExclusionBlocker(candidate, policy); reason.Code != "" {
 			reasons = append(reasons, reason)
 		}
 		for _, id := range excludeChannelIDs {
 			if id == candidate.Channel.ID {
-				reasons = append(reasons, "direct upstream grant already tried")
+				reasons = append(reasons, CandidateBlocker{"already_tried", "direct upstream grant already tried"})
 				break
 			}
 		}
@@ -745,11 +761,11 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 		if candidate.Channel.SourceModel != nil {
 			srcModel = *candidate.Channel.SourceModel
 		}
-		reasons = append(reasons, "来源模型不匹配="+srcModel)
+		reasons = append(reasons, CandidateBlocker{"source_model_mismatch", "来源模型不匹配=" + srcModel})
 	}
 
 	if !candidate.Channel.Enabled {
-		reasons = append(reasons, "通道禁用")
+		reasons = append(reasons, CandidateBlocker{"disabled", "通道禁用"})
 	}
 
 	// OAuth route unit: check member availability
@@ -760,7 +776,7 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 			if candidate.RouteUnit != nil {
 				name = candidate.RouteUnit.Name
 			}
-			reasons = append(reasons, "路由池成员不可用（"+name+"）")
+			reasons = append(reasons, CandidateBlocker{"oauth_members_unavailable", "路由池成员不可用（" + name + "）"})
 		}
 		return reasons
 	}
@@ -768,26 +784,26 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 	// Account status
 	if IsExplicitTokenChannel(candidate) {
 		if candidate.Account.Status == "disabled" {
-			reasons = append(reasons, "账号状态="+candidate.Account.Status)
+			reasons = append(reasons, CandidateBlocker{"account_inactive", "账号状态=" + candidate.Account.Status})
 		}
 	} else if candidate.Account.Status != "active" {
-		reasons = append(reasons, "账号状态="+candidate.Account.Status)
+		reasons = append(reasons, CandidateBlocker{"account_inactive", "账号状态=" + candidate.Account.Status})
 	}
 
 	// Site status
 	if candidate.Site.Status == "disabled" {
-		reasons = append(reasons, "站点状态="+candidate.Site.Status)
+		reasons = append(reasons, CandidateBlocker{"site_disabled", "站点状态=" + candidate.Site.Status})
 	}
 
 	// Downstream exclusion
-	if reason := s.resolveDownstreamExclusionReason(candidate, policy); reason != "" {
+	if reason := s.resolveDownstreamExclusionBlocker(candidate, policy); reason.Code != "" {
 		reasons = append(reasons, reason)
 	}
 
 	// Already tried
 	for _, id := range excludeChannelIDs {
 		if id == candidate.Channel.ID {
-			reasons = append(reasons, "当前请求已尝试")
+			reasons = append(reasons, CandidateBlocker{"already_tried", "当前请求已尝试"})
 			break
 		}
 	}
@@ -795,12 +811,12 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 	// Token available
 	tokenValue := s.resolveChannelTokenValue(candidate)
 	if tokenValue == "" {
-		reasons = append(reasons, "令牌不可用")
+		reasons = append(reasons, CandidateBlocker{"token_unavailable", "令牌不可用"})
 	}
 
 	// Cooldown — parse timestamps (millis-aware); do not lex-compare ISO strings.
 	if IsCooldownActive(candidate.Channel.CooldownUntil, nowISO) {
-		reasons = append(reasons, "冷却中")
+		reasons = append(reasons, CandidateBlocker{"cooldown", "冷却中"})
 	}
 
 	return reasons
@@ -850,29 +866,33 @@ func (s *ChannelSelector) resolveChannelTokenValue(candidate RouteChannelCandida
 }
 
 func (s *ChannelSelector) resolveDownstreamExclusionReason(candidate RouteChannelCandidate, policy DownstreamRoutingPolicy) string {
+	return s.resolveDownstreamExclusionBlocker(candidate, policy).Message
+}
+
+func (s *ChannelSelector) resolveDownstreamExclusionBlocker(candidate RouteChannelCandidate, policy DownstreamRoutingPolicy) CandidateBlocker {
 	channelID := int64(0)
 	if candidate.Direct != nil {
 		channelID = candidate.Direct.ChannelID
 	}
 	if !policy.AccessPolicy.AllowsUpstreamChannel(channelID) {
-		return "upstream channel is not allowed by downstream access policy"
+		return CandidateBlocker{"channel_not_allowed", "upstream channel is not allowed by downstream access policy"}
 	}
 
 	if candidate.Direct != nil {
 		if len(policy.AllowedSiteIDs) > 0 {
-			return "direct upstream is not in the downstream key site allow-list"
+			return CandidateBlocker{"site_not_allowed", "direct upstream is not in the downstream key site allow-list"}
 		}
 		if len(policy.ExcludedCredentialRefs) > 0 {
 			for _, ref := range policy.ExcludedCredentialRefs {
 				if credentialRefMatchesOne(candidate, ref, s) {
-					return "direct upstream credential excluded by downstream key"
+					return CandidateBlocker{"credential_excluded", "direct upstream credential excluded by downstream key"}
 				}
 			}
 		}
 		if len(policy.AllowedCredentialRefs) > 0 && !credentialRefMatchesCandidate(candidate, policy.AllowedCredentialRefs, s) {
-			return "direct upstream credential is not in downstream key allow-list"
+			return CandidateBlocker{"credential_not_allowed", "direct upstream credential is not in downstream key allow-list"}
 		}
-		return ""
+		return CandidateBlocker{}
 	}
 	// allow-list: when AllowedSiteIDs is non-empty, only listed sites are eligible.
 	if len(policy.AllowedSiteIDs) > 0 {
@@ -884,33 +904,33 @@ func (s *ChannelSelector) resolveDownstreamExclusionReason(candidate RouteChanne
 			}
 		}
 		if !allowed {
-			return "站点不在下游密钥允许列表中"
+			return CandidateBlocker{"site_not_allowed", "站点不在下游密钥允许列表中"}
 		}
 	}
 
 	for _, siteID := range policy.ExcludedSiteIDs {
 		if siteID == candidate.Site.ID {
-			return "站点已被下游密钥排除"
+			return CandidateBlocker{"site_excluded", "站点已被下游密钥排除"}
 		}
 	}
 
 	// allow-list: when AllowedCredentialRefs is non-empty, candidate must match one.
 	if len(policy.AllowedCredentialRefs) > 0 {
 		if !credentialRefMatchesCandidate(candidate, policy.AllowedCredentialRefs, s) {
-			return "API Key/令牌不在下游密钥允许列表中"
+			return CandidateBlocker{"credential_not_allowed", "API Key/令牌不在下游密钥允许列表中"}
 		}
 	}
 
 	if len(policy.ExcludedCredentialRefs) == 0 {
-		return ""
+		return CandidateBlocker{}
 	}
 
 	for _, ref := range policy.ExcludedCredentialRefs {
 		if credentialRefMatchesOne(candidate, ref, s) {
-			return "API Key/令牌已被下游密钥排除"
+			return CandidateBlocker{"credential_excluded", "API Key/令牌已被下游密钥排除"}
 		}
 	}
-	return ""
+	return CandidateBlocker{}
 }
 
 func credentialRefMatchesCandidate(candidate RouteChannelCandidate, refs []CredentialRef, s *ChannelSelector) bool {

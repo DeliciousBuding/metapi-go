@@ -48,6 +48,27 @@ export const routeQueryKeys = {
   candidates: () => [...routeQueryKeys.all, 'candidates'] as const,
   channels: (id: number) => ['routes', 'channels', id] as const,
   channelsAll: () => ['routes', 'channels'] as const,
+  decision: (input: { model: string; endpoint: string } | null) =>
+    [...routeQueryKeys.all, 'decision', input] as const,
+}
+
+// Explicit administrator preview; no polling or focus-triggered rechecks.
+export function useRouteDecision(
+  input: { model: string; endpoint: string } | null
+) {
+  return useQuery({
+    queryKey: routeQueryKeys.decision(input),
+    queryFn: async () => {
+      if (!input) throw new Error('Route decision input is required')
+      const response = await api.getRouteDecision(input)
+      assertBusinessOk(response, 'tokenRoutes.preview.failed')
+      return response.decision
+    },
+    enabled: input !== null,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
 }
 
 // ---------------------------------------------------------------------------

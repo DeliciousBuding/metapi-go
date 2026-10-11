@@ -506,22 +506,53 @@ Returns a ~2 KiB redacted body summary (`bodyTruncated` flags truncation). Secre
 
 ### GET /api/routes/decision
 
-Get route decision (which channel was selected for which model).
+Evaluate the current route candidates for one concrete client model. This is a read-only administrator preview: it does not authenticate as a downstream key, select a route candidate, update cooldown or selection counters, or contact an upstream.
+
+Query parameters:
+
+| Parameter | Required | Meaning |
+| --- | --- | --- |
+| `model` | yes | Concrete client model or public alias. |
+| `endpoint` | no | Recognized downstream API path, such as `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, `/v1/messages/count_tokens`, `/v1/embeddings`, or a Gemini `generateContent` path. |
+
+When `endpoint` is omitted, the response includes `notEvaluated: ["protocol"]`; direct-upstream eligibility is then `notEvaluated` instead of a misleading protocol denial. Generation endpoints set `allowUpstreamProtocolConversion`; `count_tokens` and non-generation endpoints require native endpoint authorization. Unsupported paths, query strings, absolute URLs, and traversal return `400`.
+
+The response `decision` includes:
+
+| Field | Meaning |
+| --- | --- |
+| `mode` | Always `adminPreview`. |
+| `checkedAt` | UTC time of the current evaluation. |
+| `requestedModel` / `actualModel` | Client input and mapped public route model. |
+| `requiredUpstreamProtocol` / `allowUpstreamProtocolConversion` | Protocol context used for candidate evaluation. |
+| `notEvaluated` | Dimensions intentionally left unknown, including downstream admission, request context length, strategy selection, and upstream availability. |
+| `routingStrategy` / `modelPattern` | Matched route configuration. |
+| `candidates[]` | Current configured candidates and candidate-filter results. |
+
+Each candidate keeps the legacy compatibility fields and adds:
+
+| Field | Meaning |
+| --- | --- |
+| `candidateRef` | Typed identity: `account`, `direct`, or `oauth_unit`, with positive IDs for the route channel, direct group item, grant, credential, account, site, or token when applicable. |
+| `label` / `sourceModel` / `actualModel` | Safe display identity and model names. OAuth unit members are not selected, so their member identity and final model remain unknown. |
+| `eligibility` | `eligible`, `blocked`, or `notEvaluated`. `eligible` means the checked candidate filters found no blocker; it is not an upstream health verdict. |
+| `blockers[]` | Structured `code` plus a legacy human-readable `message`. The UI translates known codes and uses the message only for unknown legacy codes. |
+| `probabilityEvaluated` | Selection probability flag. Current previews do not select a candidate, so this remains `false`; consumers must not render legacy `probability: 0` as a measured 0%. |
 
 ### POST /api/routes/decision/batch
 
-Batch decision query for specific models.
+Batch preview for specific models. Accepts the same optional `endpoint` context.
 
 ### POST /api/routes/decision/by-route/batch
 
-Batch decision query for specific routes.
+Batch preview for specific route/model pairs. Accepts the same optional `endpoint` context.
 
 ### POST /api/routes/decision/route-wide/batch
 
-Route-wide decision query.
+Route-wide configuration preview. Because no concrete model is supplied, source-model matching is not evaluated and is listed in `notEvaluated`. Accepts the same optional `endpoint` context.
 
 ### POST /api/routes/decision/refresh
 
-Trigger decision snapshot refresh.
+Trigger a background snapshot refresh. Refresh writes route snapshots; the read-only preview endpoints above do not. Snapshots saved before typed identities and endpoint context existed remain valid configuration previews, but clients must render missing identity, protocol, and probability as unknown rather than inferring an account or 0% selection chance.
 
 ---

@@ -136,6 +136,15 @@ func DirectProtocolMaskForPath(path string) int {
 	}
 }
 
+// RoutingProtocolForPath supplies the request context used by both execution
+// and administrator previews. Only generation surfaces allow conversion;
+// count_tokens retains native-protocol authorization.
+func RoutingProtocolForPath(path string) (required int, allowConversion bool) {
+	required = DirectProtocolMaskForPath(path)
+	_, generation := EndpointFromPath(path)
+	return required, generation && !strings.HasSuffix(strings.TrimRight(path, "/"), "/count_tokens")
+}
+
 // ResolveEndpointCandidates lives in site_preference.go (with responses-only options).
 // See ResolveEndpointCandidates / ResolveEndpointCandidatesWithOptions.
 

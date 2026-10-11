@@ -44,6 +44,11 @@ const testState = vi.hoisted(() => ({
 }))
 
 vi.mock('../../api', () => ({
+  useRouteDecision: () => ({
+    data: undefined,
+    isFetching: false,
+    isError: false,
+  }),
   useRouteChannels: () => ({
     data: testState.channels,
     isFetching: false,

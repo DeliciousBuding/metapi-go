@@ -10,7 +10,6 @@ import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DetailField } from '@/components/common/detail-field'
-import { ModelPill } from '@/components/common/model-pill'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -44,13 +43,14 @@ import {
   type RouteChannelAllocation,
   type RouteChannelPriceTruth,
 } from '../lib/route-price-truth'
-import type { RouteChannel, RouteDecision, RouteSummaryRow } from '../types'
+import type { RouteChannel, RouteSummaryRow } from '../types'
 import {
   formatContextLength,
   isExplicitGroupRoute,
   resolveRouteTitle,
   routingStrategyLabel,
 } from '../utils'
+import { RouteDecisionPanel } from './route-decision-panel'
 
 interface RouteDetailSheetProps {
   route: RouteSummaryRow | null
@@ -327,7 +327,11 @@ export function RouteDetailSheet({
           </div>
 
           <Separator />
-          <DecisionSnapshotSection decision={decision} />
+          <RouteDecisionPanel
+            key={route.id}
+            route={route}
+            snapshot={decision}
+          />
         </div>
 
         <SheetFooter>
@@ -581,105 +585,5 @@ function PriceProvenance({
         </>
       )}
     </>
-  )
-}
-
-function DecisionSnapshotSection({
-  decision,
-}: {
-  decision: RouteDecision | null
-}) {
-  const { t, i18n } = useTranslation()
-  const locale = toBcp47(i18n.language || 'en')
-  if (!decision) {
-    return (
-      <div className='space-y-1'>
-        <h3 className='text-sm font-medium'>
-          {t('tokenRoutes.detail.decisionSnapshot')}
-        </h3>
-        <p className='text-muted-foreground text-xs'>
-          {t('tokenRoutes.detail.decisionEmpty')}
-        </p>
-      </div>
-    )
-  }
-  const candidates = decision.candidates ?? []
-  const generatedAt = formatDateTime(decision.generatedAt, locale)
-  const reasonText = decision.reasonText || decision.matchedRoutePattern || ''
-  return (
-    <div className='space-y-2'>
-      <h3 className='text-sm font-medium'>
-        {t('tokenRoutes.detail.decisionSnapshot')}
-      </h3>
-      <dl className='grid grid-cols-2 gap-x-3 gap-y-1 text-xs'>
-        <DetailField
-          label={t('tokenRoutes.detail.decisionModel')}
-          title={decision.model || undefined}
-        >
-          {decision.model ? <ModelPill model={decision.model} /> : '—'}
-        </DetailField>
-        <DetailField
-          label={t('tokenRoutes.detail.decisionGeneratedAt')}
-          title={generatedAt}
-        >
-          {generatedAt}
-        </DetailField>
-        <DetailField label={t('tokenRoutes.detail.decisionCandidateCount')}>
-          {candidates.length}
-        </DetailField>
-        <DetailField label={t('tokenRoutes.detail.decisionSelectedChannel')}>
-          {(() => {
-            const selected = candidates.find(
-              (candidate) => candidate.channelId === decision.selectedChannelId
-            )
-            if (selected?.username) return selected.username
-            if (decision.selectedChannelId != null) {
-              return t('tokenRoutes.detail.fallbackAccount', {
-                id: decision.selectedChannelId,
-              })
-            }
-            return '—'
-          })()}
-        </DetailField>
-      </dl>
-      {reasonText && (
-        <div className='bg-muted/40 rounded-lg border p-2 text-xs'>
-          <div className='text-muted-foreground text-2xs'>
-            {t('tokenRoutes.detail.decisionReason')}
-          </div>
-          <p className='break-words'>{reasonText}</p>
-        </div>
-      )}
-      {candidates.length > 0 && (
-        <ul className='space-y-1'>
-          {candidates.slice(0, 6).map((candidate, index) => (
-            <li
-              key={candidate.channelId ?? index}
-              className='flex items-center justify-between rounded border px-2 py-1 text-xs'
-            >
-              <span className='truncate'>
-                {candidate.username ||
-                  t('tokenRoutes.detail.fallbackAccount', {
-                    id: candidate.accountId,
-                  })}
-                {candidate.sourceModel ? ` · ${candidate.sourceModel}` : ''}
-              </span>
-              <span className='text-muted-foreground tabular-nums'>
-                {candidate.probability != null
-                  ? `${(candidate.probability * 100).toFixed(1)}%`
-                  : '—'}
-              </span>
-            </li>
-          ))}
-          {candidates.length > 6 && (
-            <li className='text-muted-foreground text-2xs px-2'>
-              {t('tokenRoutes.detail.moreCandidates', {
-                count: candidates.length - 6,
-              })}
-            </li>
-          )}
-        </ul>
-      )}
-    </div>
   )
 }

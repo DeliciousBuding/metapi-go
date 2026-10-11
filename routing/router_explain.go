@@ -11,7 +11,8 @@ import (
 // ---- Selection explanation ----
 
 // ExplainSelection returns a decision explanation for the requested model.
-func (tr *TokenRouter) ExplainSelection(ctx context.Context, requestedModel string, excludeChannelIDs []int64, policy DownstreamRoutingPolicy) (RouteDecisionExplanation, error) {
+func (tr *TokenRouter) ExplainSelection(ctx context.Context, requestedModel string, excludeChannelIDs []int64, policy DownstreamRoutingPolicy) (decision RouteDecisionExplanation, err error) {
+	defer func() { setExplanationContext(&decision, policy) }()
 	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
 		return RouteDecisionExplanation{}, err
 	}
@@ -24,7 +25,8 @@ func (tr *TokenRouter) ExplainSelection(ctx context.Context, requestedModel stri
 }
 
 // ExplainSelectionForRoute returns a decision explanation for a specific route.
-func (tr *TokenRouter) ExplainSelectionForRoute(ctx context.Context, routeID int64, requestedModel string, excludeChannelIDs []int64, policy DownstreamRoutingPolicy) (RouteDecisionExplanation, error) {
+func (tr *TokenRouter) ExplainSelectionForRoute(ctx context.Context, routeID int64, requestedModel string, excludeChannelIDs []int64, policy DownstreamRoutingPolicy) (decision RouteDecisionExplanation, err error) {
+	defer func() { setExplanationContext(&decision, policy) }()
 	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
 		return RouteDecisionExplanation{}, err
 	}
@@ -40,7 +42,35 @@ func (tr *TokenRouter) ExplainSelectionForRoute(ctx context.Context, routeID int
 }
 
 // ExplainSelectionRouteWide returns a decision explanation for a route-wide view.
-func (tr *TokenRouter) ExplainSelectionRouteWide(ctx context.Context, routeID int64, policy DownstreamRoutingPolicy) (RouteDecisionExplanation, error) {
+func (tr *TokenRouter) ExplainSelectionRouteWide(ctx context.Context, routeID int64, policy DownstreamRoutingPolicy) (decision RouteDecisionExplanation, err error) {
+	defer func() {
+		setExplanationContext(&decision, policy)
+		decision.NotEvaluated = append(decision.NotEvaluated, "concreteModel")
+		for i := range decision.Candidates {
+			candidate := &decision.Candidates[i]
+			filtered := make([]CandidateBlocker, 0, len(candidate.Blockers))
+			for _, blocker := range candidate.Blockers {
+				if blocker.Code != "source_model_mismatch" {
+					filtered = append(filtered, blocker)
+				}
+			}
+			candidate.Blockers = filtered
+			candidate.Eligible = false
+			candidate.Eligibility = "notEvaluated"
+			candidate.Reason = "具体请求模型未指定，候选资格未完整评估"
+			if len(filtered) > 0 {
+				candidate.Eligibility = "blocked"
+				reasons := make([]string, 0, len(filtered))
+				for _, blocker := range filtered {
+					reasons = append(reasons, blocker.Message)
+				}
+				candidate.Reason = formatReasons(reasons)
+			}
+			if candidate.CandidateRef.Kind != "direct" {
+				candidate.ActualModel = ""
+			}
+		}
+	}()
 	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
 		return RouteDecisionExplanation{}, err
 	}
@@ -58,6 +88,18 @@ func (tr *TokenRouter) ExplainSelectionRouteWide(ctx context.Context, routeID in
 		fallbackRequestedModel = fmt.Sprintf("route:%d", routeID)
 	}
 	return explainSelectionFromMatch(tr.selector, match, fallbackRequestedModel, nil, policy, tr.configuredMaxSec), nil
+}
+
+func setExplanationContext(decision *RouteDecisionExplanation, policy DownstreamRoutingPolicy) {
+	decision.CheckedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	decision.RequiredUpstreamProtocol = policy.RequiredUpstreamProtocol
+	decision.AllowUpstreamProtocolConversion = policy.AllowUpstreamProtocolConversion
+	// This preview evaluates candidate filters, not admission, request-size
+	// limits, strategy selection/leases, or the upstream's actual response.
+	decision.NotEvaluated = []string{"downstreamAdmission", "requestContextLength", "strategySelection", "upstreamAvailability"}
+	if policy.RequiredUpstreamProtocol == 0 {
+		decision.NotEvaluated = append(decision.NotEvaluated, "protocol")
+	}
 }
 
 func (tr *TokenRouter) findRouteByID(ctx context.Context, routeID int64, policy DownstreamRoutingPolicy) (*RouteMatch, error) {
@@ -130,18 +172,33 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 	var available []RouteChannelCandidate
 
 	for _, row := range match.Channels {
-		// Reuse the selector's single source of truth for eligibility so admin
-		// explanations include OAuth-member, token-availability, and downstream
-		// policy checks. selector is always non-nil (all callers route through
-		// tr.selector.findRoute first); the zero DownstreamRoutingPolicy used by
-		// admin flows is safe: every check is len()-guarded.
-		reasons := selector.getCandidateEligibilityReasons(row, requestedModel, bypassSourceModelCheck, excludeChannelIDs, nowISO, policy)
-		eligible := len(reasons) == 0
+		// The execution owner produces codes and legacy messages together.
+		// Missing protocol remains fail-closed in execution, but is an unknown
+		// dimension in a preview, not proof that a grant is unauthorized.
+		blockers := selector.getCandidateBlockers(row, requestedModel, bypassSourceModelCheck, excludeChannelIDs, nowISO, policy)
+		reasons := make([]string, 0, len(blockers))
+		filtered := make([]CandidateBlocker, 0, len(blockers))
+		for _, blocker := range blockers {
+			if blocker.Code != "protocol_context_missing" {
+				filtered = append(filtered, blocker)
+				reasons = append(reasons, blocker.Message)
+			}
+		}
+		eligibility := "eligible"
+		if policy.RequiredUpstreamProtocol == 0 {
+			eligibility = "notEvaluated"
+		}
+		if len(filtered) > 0 {
+			eligibility = "blocked"
+		}
+		eligible := eligibility == "eligible"
 		recentlyFailed := false
 		if strategy != StrategyRoundRobin {
 			recentlyFailed = IsChannelRecentlyFailed(row.Channel.FailCount, row.Channel.LastFailAt, nowMs, configuredMaxSec)
 		}
 		candidate := RouteDecisionCandidate{
+			Eligibility:            eligibility,
+			Blockers:               filtered,
 			ChannelID:              row.Channel.ID,
 			AccountID:              row.Account.ID,
 			Username:               formatUsername(row.Account.Username, row.Account.ID),
@@ -155,6 +212,10 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 			Probability:            0,
 			Reason:                 formatReasons(reasons),
 		}
+		if eligibility == "notEvaluated" {
+			candidate.Reason = "请求协议未指定，候选资格未完整评估"
+		}
+		setCandidateIdentity(&candidate, row, requestedModel, match.Route.DisplayName, mappedModel)
 		candidates = append(candidates, candidate)
 		if eligible {
 			available = append(available, row)
@@ -162,30 +223,73 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 	}
 
 	if len(available) == 0 {
-		summary = append(summary, "没有可用通道（全部被禁用、站点不可用、冷却或令牌不可用）")
+		if policy.RequiredUpstreamProtocol == 0 {
+			summary = append(summary, "缺少请求协议，候选资格未完整评估")
+		} else {
+			summary = append(summary, "候选过滤检查未发现可用通道")
+		}
 		return RouteDecisionExplanation{
-			RequestedModel: requestedModel,
-			ActualModel:    mappedModel,
-			Matched:        true,
-			RouteID:        &match.Route.ID,
-			ModelPattern:   match.Route.ModelPattern,
-			Summary:        summary,
-			Candidates:     candidates,
+			RequestedModel:  requestedModel,
+			ActualModel:     mappedModel,
+			Matched:         true,
+			RouteID:         &match.Route.ID,
+			ModelPattern:    match.Route.ModelPattern,
+			Summary:         summary,
+			Candidates:      candidates,
+			RoutingStrategy: strategy,
 		}
 	}
 
 	// Build a decision based on strategy
 	explanation := RouteDecisionExplanation{
-		RequestedModel: requestedModel,
-		ActualModel:    mappedModel,
-		Matched:        true,
-		RouteID:        &match.Route.ID,
-		ModelPattern:   match.Route.ModelPattern,
-		Summary:        summary,
-		Candidates:     candidates,
+		RequestedModel:  requestedModel,
+		ActualModel:     mappedModel,
+		Matched:         true,
+		RouteID:         &match.Route.ID,
+		ModelPattern:    match.Route.ModelPattern,
+		Summary:         summary,
+		Candidates:      candidates,
+		RoutingStrategy: strategy,
 	}
 
 	return explanation
+}
+
+func setCandidateIdentity(candidate *RouteDecisionCandidate, row RouteChannelCandidate, requestedModel string, displayName *string, mappedModel string) {
+	if direct := row.Direct; direct != nil {
+		candidate.CandidateRef = RouteDecisionCandidateRef{Kind: "direct", ID: direct.ItemID, GroupID: direct.GroupID,
+			ChannelID: direct.ChannelID, GrantID: direct.GrantID, CredentialID: direct.CredentialID}
+		candidate.Label = direct.ChannelName + " · " + direct.CredentialName
+		candidate.Username = ""
+		candidate.SiteName = direct.ChannelName
+		candidate.TokenName = direct.CredentialName
+		candidate.SourceModel = direct.ModelName
+		candidate.ActualModel = direct.ModelName
+		return
+	}
+	if IsOAuthRouteUnitCandidate(row) {
+		unitID := int64(0)
+		if row.RouteUnit != nil {
+			unitID = row.RouteUnit.ID
+		} else if row.Channel.OAuthRouteUnitID != nil {
+			unitID = *row.Channel.OAuthRouteUnitID
+		}
+		candidate.CandidateRef = RouteDecisionCandidateRef{Kind: "oauth_unit", ID: unitID, ChannelID: row.Channel.ID}
+		candidate.Label = "OAuth"
+		if row.RouteUnit != nil {
+			candidate.Label = row.RouteUnit.Name
+		}
+		candidate.Username, candidate.SiteName, candidate.TokenName = "", "", ""
+		// Member selection is deliberately not performed, so its model is unknown.
+		return
+	}
+	candidate.CandidateRef = RouteDecisionCandidateRef{Kind: "account", ID: row.Channel.ID, AccountID: row.Account.ID,
+		SiteID: row.Site.ID, TokenID: row.Channel.TokenID}
+	candidate.Label = candidate.SiteName + " · " + candidate.Username
+	if row.Channel.SourceModel != nil {
+		candidate.SourceModel = *row.Channel.SourceModel
+	}
+	candidate.ActualModel = ResolveActualModelForSelectedChannel(requestedModel, displayName, mappedModel, row.Channel.SourceModel, row.Channel.AccountID)
 }
 
 func formatUsername(username *string, accountID int64) string {

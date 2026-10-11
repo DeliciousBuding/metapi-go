@@ -27,6 +27,22 @@ export type RouteRoutingStrategy =
 // ---------------------------------------------------------------------------
 
 type RouteDecisionCandidate = {
+  candidateRef?: {
+    kind: 'account' | 'direct' | 'oauth_unit'
+    id: number
+    channelId?: number
+    groupId?: number
+    grantId?: number
+    credentialId?: number
+    accountId?: number
+    siteId?: number
+    tokenId?: number
+  }
+  label?: string
+  actualModel?: string
+  eligibility?: 'eligible' | 'blocked' | 'notEvaluated'
+  blockers?: Array<{ code: string; message: string }>
+  probabilityEvaluated?: boolean
   channelId?: number
   accountId?: number
   tokenId?: number | null
@@ -42,6 +58,18 @@ type RouteDecisionCandidate = {
 }
 
 export type RouteDecision = {
+  mode?: 'adminPreview'
+  requestedModel?: string
+  actualModel?: string
+  matched?: boolean
+  routeId?: number
+  modelPattern?: string
+  checkedAt?: string
+  requiredUpstreamProtocol?: number
+  allowUpstreamProtocolConversion?: boolean
+  notEvaluated?: string[]
+  routingStrategy?: RouteRoutingStrategy
+  summary?: string[]
   model?: string
   matchedRouteId?: number | null
   matchedRoutePattern?: string | null

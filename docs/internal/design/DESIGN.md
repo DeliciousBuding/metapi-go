@@ -51,6 +51,16 @@ their own labels. None is rendered as a general healthy/verified verdict.
 Missing supply data from older servers stays unknown; an empty list is explicit.
 See [the marketplace contract](../../api/models.md) for counting and scope.
 
+Route details separate a saved configuration snapshot from an explicit current
+check. The check asks for one concrete client model and client API/protocol,
+then labels the result as an administrator preview. It names typed account,
+direct-group, and OAuth-pool identities, shows candidate-filter blockers, and
+lists unevaluated dimensions. It never presents a candidate as the selected
+winner, infers an identity from a negative compatibility ID, or renders an
+uncalculated probability as 0%. A refresh failure clears the prior result so a
+stale answer cannot sit under new input. Saved snapshots keep their own saved
+time and unknown context labels.
+
 **Principles**
 
 1. **Signal over decoration** — every color/weight change means status, severity, or hierarchy.
