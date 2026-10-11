@@ -223,32 +223,47 @@ func directImageMultipart(body []byte, contentType string) (map[string]json.RawM
 		}
 	}
 	images := []string{}
+	fileField := ""
 	for key, files := range form.Files {
+		if len(files) == 0 {
+			continue
+		}
 		if key == "mask" {
-			return nil, fmt.Errorf("ModelScope image requests do not support masks")
+			return nil, fmt.Errorf("image requests do not support mask files")
 		}
 		if key != "image" && key != "image[]" && key != "images" {
 			return nil, fmt.Errorf("unsupported image file field %s", key)
 		}
-		for _, file := range files {
-			reader, err := file.Open()
-			if err != nil {
-				return nil, err
-			}
-			data, err := io.ReadAll(io.LimitReader(reader, defaultMaxMultipartFileBytes+1))
-			reader.Close()
-			if err != nil {
-				return nil, err
-			}
-			if len(data) == 0 || int64(len(data)) > defaultMaxMultipartFileBytes {
-				return nil, fmt.Errorf("invalid reference image size")
-			}
-			mediaType := http.DetectContentType(data)
-			if !strings.HasPrefix(mediaType, "image/") {
-				mediaType = "image/png"
-			}
-			images = append(images, "data:"+mediaType+";base64,"+base64.StdEncoding.EncodeToString(data))
+		if fileField != "" {
+			return nil, fmt.Errorf("use only one reference image file field")
 		}
+		fileField = key
+	}
+	if fileField != "" {
+		for _, key := range []string{"image", "image[]", "images", "image_url"} {
+			if len(form.Values[key]) > 0 {
+				return nil, fmt.Errorf("use reference image text fields or uploaded files, not both")
+			}
+		}
+	}
+	for _, file := range form.Files[fileField] {
+		reader, err := file.Open()
+		if err != nil {
+			return nil, err
+		}
+		data, err := io.ReadAll(io.LimitReader(reader, defaultMaxMultipartFileBytes+1))
+		reader.Close()
+		if err != nil {
+			return nil, err
+		}
+		if len(data) == 0 || int64(len(data)) > defaultMaxMultipartFileBytes {
+			return nil, fmt.Errorf("invalid reference image size")
+		}
+		mediaType := http.DetectContentType(data)
+		if !strings.HasPrefix(mediaType, "image/") {
+			mediaType = "image/png"
+		}
+		images = append(images, "data:"+mediaType+";base64,"+base64.StdEncoding.EncodeToString(data))
 	}
 	if len(images) > 0 {
 		payload["image"], _ = json.Marshal(images)

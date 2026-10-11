@@ -1,6 +1,7 @@
 package store
 
 import (
+	"encoding/json"
 	"net/url"
 	"reflect"
 	"testing"
@@ -47,5 +48,30 @@ func TestDirectModelWireURLsContract(t *testing.T) {
 	// These destinations are implementation details of the Chat capability.
 	if got := valid().ProtocolMask(); got != DirectProtocolChat {
 		t.Fatalf("wire destinations expanded grant mask: %d", got)
+	}
+}
+
+func TestDirectDomesticProfilesRequireMatchingWire(t *testing.T) {
+	for _, profile := range []string{"moonshot", "longcat", "openrouter", "cerebras", "nanogpt", "openrouter-image"} {
+		for _, protocol := range []int{DirectProtocolChat, DirectProtocolMessages, DirectProtocolImageGeneration, DirectProtocolImageEdit} {
+			for _, auth := range []string{DirectAuthBearer, DirectAuthAPIKey, DirectAuthNone} {
+				endpoints := map[string]*DirectEndpoint{}
+				for _, entry := range (DirectEndpoints{}).Entries() {
+					if entry.Protocol == protocol {
+						endpoints[entry.Key] = &DirectEndpoint{URL: "https://provider.example/endpoint", Auth: auth, Profile: profile}
+					}
+				}
+				raw, err := json.Marshal(endpoints)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var parsed DirectEndpoints
+				err = parsed.Scan(raw)
+				want := auth == DirectAuthBearer && (profile != "openrouter-image" && protocol == DirectProtocolChat || profile == "openrouter-image" && (protocol == DirectProtocolImageGeneration || protocol == DirectProtocolImageEdit))
+				if (err == nil) != want {
+					t.Fatalf("%s protocol=%d auth=%s expected valid=%t, got %v", profile, protocol, auth, want, err)
+				}
+			}
+		}
 	}
 }

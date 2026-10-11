@@ -127,6 +127,7 @@ export type ConnectionTemplate = {
 const PRESET_BRAND_ICONS: Record<string, string> = {
   openai: 'openai',
   anthropic: 'claude-color',
+  claude: 'claude-color',
   gemini: 'gemini-color',
   openrouter: 'openrouter',
   groq: 'groq',
@@ -155,6 +156,8 @@ const PRESET_BRAND_ICONS: Record<string, string> = {
   zenmux: 'zenmux',
   cline: 'cline',
   opencode: 'opencode',
+  longcat: 'longcat-color',
+  nanogpt: 'nanogpt',
 }
 
 export function getConnectionPresetIcon(id: string): string | undefined {

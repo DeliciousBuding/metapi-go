@@ -30,7 +30,10 @@ func ToChatResponse(body []byte, model string) ([]byte, error) {
 	}
 	out := map[string]any{"id": id, "object": "chat.completion", "model": model, "choices": []any{map[string]any{"index": 0, "message": delta, "finish_reason": finish}}}
 	if meta, ok := in["usageMetadata"].(map[string]any); ok {
-		out["usage"] = geminiUsage(meta)
+		out["usage"], err = geminiUsage(meta)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return json.Marshal(out)
 }
@@ -79,7 +82,10 @@ func FromChatResponse(body []byte) ([]byte, error) {
 		out["modelVersion"] = in["model"]
 	}
 	if usage, ok := in["usage"].(map[string]any); ok {
-		out["usageMetadata"] = chatUsage(usage)
+		out["usageMetadata"], err = chatUsage(usage)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return json.Marshal(out)
 }
@@ -108,7 +114,12 @@ func geminiDelta(in map[string]any, stream bool) (map[string]any, string, error)
 	msg := map[string]any{}
 	var text, thought strings.Builder
 	var calls []any
+	var blocks []any
+	hasImages := false
 	if content, ok := choice["content"].(map[string]any); ok {
+		if role := content["role"]; role != nil && role != "model" {
+			return nil, "", fmt.Errorf("Gemini response content requires model role")
+		}
 		parts, ok := content["parts"].([]any)
 		if !ok {
 			return nil, "", fmt.Errorf("invalid Gemini response parts")
@@ -118,8 +129,17 @@ func geminiDelta(in map[string]any, stream bool) (map[string]any, string, error)
 			if !ok {
 				return nil, "", fmt.Errorf("invalid Gemini response part")
 			}
-			if err := bridgeKeys(part, "text", "thought", "thoughtSignature", "functionCall"); err != nil {
+			if err := bridgeKeys(part, "text", "thought", "thoughtSignature", "functionCall", "inlineData", "fileData"); err != nil {
 				return nil, "", err
+			}
+			payloads := 0
+			for _, key := range []string{"text", "functionCall", "inlineData", "fileData"} {
+				if part[key] != nil {
+					payloads++
+				}
+			}
+			if payloads != 1 {
+				return nil, "", fmt.Errorf("Gemini response part requires one payload")
 			}
 			if raw, exists := part["text"]; exists {
 				t, ok := raw.(string)
@@ -133,6 +153,7 @@ func geminiDelta(in map[string]any, stream bool) (map[string]any, string, error)
 					thought.WriteString(t)
 				} else {
 					text.WriteString(t)
+					blocks = append(blocks, map[string]any{"type": "text", "text": t})
 				}
 			} else if fc, ok := part["functionCall"].(map[string]any); ok {
 				if err := bridgeKeys(fc, "id", "name", "args"); err != nil {
@@ -153,12 +174,21 @@ func geminiDelta(in map[string]any, stream bool) (map[string]any, string, error)
 					call["provider_specific_fields"] = map[string]any{"thought_signature": sig}
 				}
 				calls = append(calls, call)
+			} else if part["inlineData"] != nil || part["fileData"] != nil {
+				image, err := geminiResponseImage(part)
+				if err != nil {
+					return nil, "", err
+				}
+				hasImages = true
+				blocks = append(blocks, image)
 			} else {
 				return nil, "", fmt.Errorf("unsupported Gemini response part")
 			}
 		}
 	}
-	if text.Len() > 0 {
+	if hasImages {
+		msg["content"] = blocks
+	} else if text.Len() > 0 {
 		msg["content"] = text.String()
 	}
 	if thought.Len() > 0 {
@@ -196,6 +226,14 @@ func chatParts(msg map[string]any) ([]any, error) {
 	var parts []any
 	for _, key := range []string{"reasoning_content", "content"} {
 		if raw, ok := msg[key]; ok && raw != nil {
+			if key == "content" {
+				content, err := chatResponseContentParts(raw)
+				if err != nil {
+					return nil, err
+				}
+				parts = append(parts, content...)
+				continue
+			}
 			t, ok := raw.(string)
 			if !ok {
 				return nil, fmt.Errorf("Chat response content must be text")
@@ -273,31 +311,4 @@ func bridgeNumber(value any) float64 {
 	}
 	n, _ := value.(float64)
 	return n
-}
-func geminiUsage(meta map[string]any) map[string]any {
-	prompt := bridgeNumber(meta["promptTokenCount"])
-	reasoning := bridgeNumber(meta["thoughtsTokenCount"])
-	completion := bridgeNumber(meta["candidatesTokenCount"]) + reasoning
-	total := bridgeNumber(meta["totalTokenCount"])
-	if total == 0 {
-		total = prompt + completion
-	}
-	return map[string]any{"prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": total, "prompt_tokens_details": map[string]any{"cached_tokens": bridgeNumber(meta["cachedContentTokenCount"])}, "completion_tokens_details": map[string]any{"reasoning_tokens": reasoning}}
-}
-func chatUsage(usage map[string]any) map[string]any {
-	prompt := bridgeNumber(usage["prompt_tokens"])
-	completion := bridgeNumber(usage["completion_tokens"])
-	reasoning := float64(0)
-	cached := float64(0)
-	if d, ok := usage["completion_tokens_details"].(map[string]any); ok {
-		reasoning = bridgeNumber(d["reasoning_tokens"])
-	}
-	if d, ok := usage["prompt_tokens_details"].(map[string]any); ok {
-		cached = bridgeNumber(d["cached_tokens"])
-	}
-	total := bridgeNumber(usage["total_tokens"])
-	if total == 0 {
-		total = prompt + completion
-	}
-	return map[string]any{"promptTokenCount": prompt, "candidatesTokenCount": max(completion-reasoning, 0), "thoughtsTokenCount": reasoning, "totalTokenCount": total, "cachedContentTokenCount": cached}
 }

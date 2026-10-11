@@ -45,61 +45,83 @@ func directEndpointFromBit(bit int) proxy.UpstreamEndpoint {
 }
 
 func directSelectedPath(direct *store.DirectUpstreamCandidate, downstreamPath, model string, stream bool) (string, error) {
+	paths, err := directCandidatePaths(direct, downstreamPath, model, stream)
+	if err != nil {
+		return "", err
+	}
+	return paths[0], nil
+}
+
+func directCandidatePaths(direct *store.DirectUpstreamCandidate, downstreamPath, model string, stream bool) ([]string, error) {
 	bit := proxy.DirectProtocolForPath(downstreamPath)
 	if bit != 0 && bit&store.DirectGenerationProtocols == 0 {
 		if _, err := directSelectedMediaEndpoint(direct, downstreamPath); err != nil {
-			return "", err
+			return nil, err
 		}
-		return downstreamPath, nil
+		return []string{downstreamPath}, nil
 	}
 	client, ok := proxy.EndpointFromPath(downstreamPath)
 	if !ok {
-		return "", fmt.Errorf("unsupported direct upstream protocol")
+		return nil, fmt.Errorf("unsupported direct upstream protocol")
 	}
 	if !direct.Endpoints.IsConfigured() && direct.Protocols&directProtocolBit(client) == 0 {
-		return "", fmt.Errorf("direct grant does not authorize the client protocol")
+		return nil, fmt.Errorf("direct grant does not authorize the client protocol")
 	}
 	order := direct.ProtocolOrder
 	if len(order) == 0 {
 		order = store.DirectProtocolOrder{2, 4, 8, 16, store.DirectProtocolOllama}
 	}
-	selected := proxy.UpstreamEndpoint("")
+	var candidates []proxy.UpstreamEndpoint
+	seen := make(map[int]bool)
 	for _, bit := range order {
-		if bit&store.DirectGenerationProtocols == 0 || direct.Protocols&bit == 0 {
+		if bit&store.DirectGenerationProtocols == 0 || direct.Protocols&bit == 0 || seen[bit] {
 			continue
 		}
 		endpoint := directEndpointFromBit(bit)
+		if endpoint == "" {
+			continue
+		}
 		if direct.Endpoints.IsConfigured() && direct.Endpoints.ForProtocol(bit) == nil {
 			continue
 		}
-		if selected == "" {
-			selected = endpoint
-		}
+		seen[bit] = true
 		if endpoint == client {
-			selected = client
-			break
+			candidates = append([]proxy.UpstreamEndpoint{client}, candidates...)
+		} else {
+			candidates = append(candidates, endpoint)
 		}
 	}
-	if selected == "" {
-		return "", fmt.Errorf("direct grant has no authorized outbound protocol")
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("direct grant has no authorized outbound protocol")
 	}
 	if strings.HasSuffix(strings.TrimRight(strings.Split(downstreamPath, "?")[0], "/"), "/count_tokens") {
-		if selected != proxy.EndpointMessages {
-			return "", fmt.Errorf("token counting requires a native Messages endpoint")
+		if candidates[0] != proxy.EndpointMessages {
+			return nil, fmt.Errorf("token counting requires a native Messages endpoint")
 		}
 		if endpoint := direct.Endpoints.Messages; endpoint != nil && endpoint.Profile == "bedrock" {
-			return "", fmt.Errorf("Bedrock invoke does not support token counting")
+			return nil, fmt.Errorf("Bedrock invoke does not support token counting")
 		}
-		return "/v1/messages/count_tokens", nil
+		return []string{"/v1/messages/count_tokens"}, nil
 	}
-	if selected == proxy.EndpointGemini {
-		action := "generateContent"
-		if stream {
-			action = "streamGenerateContent"
+	// Legacy grants without explicit endpoints keep their existing single-path
+	// behavior. An explicit order is a restriction, never an invitation to add
+	// protocols omitted by the administrator.
+	if !direct.Endpoints.IsConfigured() {
+		candidates = candidates[:1]
+	}
+	paths := make([]string, 0, len(candidates))
+	for _, selected := range candidates {
+		if selected == proxy.EndpointGemini {
+			action := "generateContent"
+			if stream {
+				action = "streamGenerateContent"
+			}
+			paths = append(paths, "/v1beta/models/"+url.PathEscape(strings.TrimPrefix(model, "models/"))+":"+action)
+		} else {
+			paths = append(paths, proxy.PathForEndpoint(selected))
 		}
-		return "/v1beta/models/" + url.PathEscape(strings.TrimPrefix(model, "models/")) + ":" + action, nil
 	}
-	return proxy.PathForEndpoint(selected), nil
+	return paths, nil
 }
 
 func directSelectedMediaEndpoint(direct *store.DirectUpstreamCandidate, path string) (*store.DirectEndpoint, error) {

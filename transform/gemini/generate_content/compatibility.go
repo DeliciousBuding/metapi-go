@@ -712,7 +712,7 @@ func cloneGeminiGenerationConfig(v any) any {
 		return v
 	}
 	allowedKeys := []string{
-		"stopSequences", "responseModalities", "responseMimeType", "responseSchema",
+		"stopSequences", "responseModalities", "responseMimeType", "responseSchema", "responseJsonSchema",
 		"candidateCount", "maxOutputTokens", "temperature", "topP", "topK",
 		"presencePenalty", "frequencyPenalty", "seed", "responseLogprobs", "logprobs",
 		"thinkingConfig", "imageConfig",

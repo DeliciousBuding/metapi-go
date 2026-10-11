@@ -118,6 +118,7 @@ describe('native upstream configuration', () => {
     mount(
       <UpstreamConnectionForm detail={detail} onDirtyChange={state.dirty} />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Configure Ollama endpoint' })
     )
@@ -158,6 +159,7 @@ describe('native upstream configuration', () => {
         onDirtyChange={state.dirty}
       />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Configure Messages endpoint' })
     )
@@ -245,6 +247,7 @@ describe('native upstream configuration', () => {
         onDirtyChange={state.dirty}
       />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Video 0 / 3 configured' })
     )

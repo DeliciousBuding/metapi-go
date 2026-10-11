@@ -28,6 +28,7 @@ type SseParseResult struct {
 type incrementalSseAnalysisResult struct {
 	ErrorEvents           []SseEvent
 	HasDataEvent          bool
+	HasGeneratedOutput    bool
 	HasErrorEvent         bool
 	HasDoneMarker         bool
 	EventCount            int
@@ -142,9 +143,12 @@ func nextSseBoundary(s string) (int, int) {
 }
 
 func (a *incrementalSseAnalyzer) recordEvent(ev SseEvent) {
-	if a.onFirstOutput != nil && hasGeneratedSseOutput(ev) {
-		a.onFirstOutput()
-		a.onFirstOutput = nil
+	if !a.result.HasGeneratedOutput && hasGeneratedSseOutput(ev) {
+		a.result.HasGeneratedOutput = true
+		if a.onFirstOutput != nil {
+			a.onFirstOutput()
+			a.onFirstOutput = nil
+		}
 	}
 	a.result.EventCount++
 	if ev.Data != "" && ev.Data != "[DONE]" {
@@ -162,6 +166,23 @@ func (a *incrementalSseAnalyzer) recordEvent(ev SseEvent) {
 	}
 	if IsSseDoneMarker(ev) {
 		a.result.HasDoneMarker = true
+	}
+}
+
+// Framing readers already bound and assemble these events. Analyze them
+// directly instead of keeping a second pending buffer for base64 image data.
+// The final block may be terminated by the reader's verified transport EOF.
+func (a *incrementalSseAnalyzer) recordFrames(frames []byte) {
+	text := string(frames)
+	for len(text) > 0 {
+		boundary, sepLen := nextSseBoundary(text)
+		if boundary < 0 {
+			boundary = len(text)
+		}
+		if ev := parseSseBlock(text[:boundary]); ev != nil {
+			a.recordEvent(*ev)
+		}
+		text = text[boundary+sepLen:]
 	}
 }
 

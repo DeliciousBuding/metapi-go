@@ -105,6 +105,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/update-center/status`
 ### POST
 
+- `/api/imported-upstreams/connect`
 - `/api/imported-upstreams/presets/resolve`
 
 - `/api/imported-upstreams`

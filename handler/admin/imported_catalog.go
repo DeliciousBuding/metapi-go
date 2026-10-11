@@ -16,6 +16,7 @@ import (
 func RegisterUpstreamCatalogRoutes(r chi.Router, db *sqlx.DB) {
 	h := &upstreamCatalogHandler{db: db}
 	r.Post("/api/imported-upstreams", h.createChannel)
+	r.Post("/api/imported-upstreams/connect", h.connect)
 	r.Post("/api/imported-upstreams/{id}/credentials", h.createCredential)
 	r.Get("/api/imported-upstreams/{id}/models", h.models)
 	r.Post("/api/imported-upstreams/{id}/models", h.createModels)

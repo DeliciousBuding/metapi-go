@@ -35,6 +35,8 @@ func axonHubChannelBaseURL(channel AxonHubSourceChannel) string {
 		return "https://api.fireworks.ai/inference/v1"
 	case "xai":
 		return "https://api.x.ai/v1"
+	case "cerebras":
+		return "https://api.cerebras.ai/v1"
 	default:
 		return ""
 	}
@@ -146,6 +148,8 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 				profile = "bailian"
 			case "opencode_go":
 				profile = "opencode-go"
+			case "moonshot", "longcat", "openrouter", "cerebras", "nanogpt":
+				profile = channel.Type
 			}
 		}
 		if protocol == protoChat && channel.Type == "cline" {
@@ -257,7 +261,7 @@ func resolveAxonHubEndpointURL(provider string, protocol int, base, path string,
 			if !custom {
 				version = "v1beta/openai"
 			}
-		case "openrouter":
+		case "openrouter", "cerebras":
 			if !custom {
 				// The primary transformer appends directly to the supplied base.
 				if strings.HasSuffix(base, "#") {

@@ -1,12 +1,10 @@
 import type {
   ImportedCredential,
   ImportedCredentialUpdate,
-  ImportedUpstreamUpdate,
-  ImportedEndpointConfig,
 } from './imported-upstreams'
 import { request } from './transport'
 
-export type UpstreamOwnership = 'native' | 'imported'
+type UpstreamOwnership = 'native' | 'imported'
 export type UpstreamGrant = {
   id: number
   modelId: number
@@ -66,23 +64,30 @@ export type UpstreamGroupCreate = {
   members: UpstreamMemberCreate[]
   activeGrantId?: number
 }
-export type UpstreamChannelCreate = ImportedUpstreamUpdate & {
+export type UpstreamConnectInput = {
+  presetId: string
+  apiKey?: string
+  baseUrl?: string
+  name?: string
+  useSystemProxy?: boolean
+  channelProxy?: string
+}
+export type UpstreamConnectResult = {
+  id: number
   name: string
-  provider: string
-  baseUrl: string
-  endpointConfig: ImportedEndpointConfig
+  enabled: true
+  ownership: 'native'
+  modelCount: number
+  routeCount: number
+  discovery: { status: 'discovered' | 'preset' | 'empty'; message?: string }
 }
 
 export const upstreamCatalogApi = {
-  createUpstreamChannel: (input: UpstreamChannelCreate) =>
-    request<{
-      id: number
-      name: string
-      enabled: boolean
-      ownership: UpstreamOwnership
-    }>('/api/imported-upstreams', {
+  connectUpstream: (input: UpstreamConnectInput) =>
+    request<UpstreamConnectResult>('/api/imported-upstreams/connect', {
       method: 'POST',
       body: JSON.stringify(input),
+      skipErrorHandler: true,
     }),
   createUpstreamCredential: (
     channelId: number,

@@ -40,6 +40,7 @@ import mistralColorDark from './icons/dark/mistral-color.png'
 import modelscopeColorDark from './icons/dark/modelscope-color.png'
 import moonshotDark from './icons/dark/moonshot.png'
 import morphColorDark from './icons/dark/morph-color.png'
+import nanogptDark from './icons/dark/nanogpt.png'
 import nousresearchDark from './icons/dark/nousresearch.png'
 import novaDark from './icons/dark/nova.png'
 import nvidiaColorDark from './icons/dark/nvidia-color.png'
@@ -104,6 +105,7 @@ import mistralColorLight from './icons/light/mistral-color.png'
 import modelscopeColorLight from './icons/light/modelscope-color.png'
 import moonshotLight from './icons/light/moonshot.png'
 import morphColorLight from './icons/light/morph-color.png'
+import nanogptLight from './icons/light/nanogpt.png'
 import nousresearchLight from './icons/light/nousresearch.png'
 import novaLight from './icons/light/nova.png'
 import nvidiaColorLight from './icons/light/nvidia-color.png'
@@ -184,6 +186,7 @@ export const BRAND_ICONS: Record<string, Record<BrandIconVariant, string>> = {
   },
   moonshot: { dark: moonshotDark, light: moonshotLight },
   'morph-color': { dark: morphColorDark, light: morphColorLight },
+  nanogpt: { dark: nanogptDark, light: nanogptLight },
   nousresearch: { dark: nousresearchDark, light: nousresearchLight },
   nova: { dark: novaDark, light: novaLight },
   'nvidia-color': { dark: nvidiaColorDark, light: nvidiaColorLight },

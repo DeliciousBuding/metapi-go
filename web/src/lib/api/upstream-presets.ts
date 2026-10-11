@@ -9,22 +9,13 @@ export type UpstreamPreset = {
   platform: string
   group: 'domestic' | 'coding' | 'gateway' | 'other'
   defaultUrl: string
+  requiresBaseUrl: boolean
+  credentialMode: 'apiKey' | 'optional' | 'oauth'
   protocols: Array<keyof ImportedEndpointConfig>
   recommendedModels: string[]
-}
-
-export type ResolvedUpstreamPreset = {
-  provider: string
-  endpointConfig: ImportedEndpointConfig
 }
 
 export const upstreamPresetsApi = {
   getUpstreamPresets: () =>
     request<{ items: UpstreamPreset[] }>('/api/imported-upstreams/presets'),
-  resolveUpstreamPreset: (input: { presetId: string; baseUrl: string }) =>
-    request<ResolvedUpstreamPreset>('/api/imported-upstreams/presets/resolve', {
-      method: 'POST',
-      body: JSON.stringify(input),
-      skipErrorHandler: true,
-    }),
 }

@@ -4,8 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
+	"unicode"
 )
 
 // FromChatRequest converts Chat text, images and client function tools to a
@@ -299,30 +301,38 @@ func fromChatImage(raw json.RawMessage, path string) (wireObject, error) {
 	if err != nil {
 		return nil, err
 	}
+	source, err := imageSourceForURL(location, path+".url")
+	if err != nil {
+		return nil, err
+	}
+	return wireObject{"type": "image", "source": source}, nil
+}
+
+func imageSourceForURL(location, path string) (wireObject, error) {
 	var source wireObject
 	if strings.HasPrefix(location, "data:") {
 		header, data, ok := strings.Cut(strings.TrimPrefix(location, "data:"), ",")
 		media, encoded := strings.CutSuffix(header, ";base64")
 		if !ok || !encoded || data == "" {
-			return nil, invalid(path+".url", "must contain base64 image data")
+			return nil, invalid(path, "must contain base64 image data")
 		}
 		switch media {
 		case "image/jpeg", "image/png", "image/gif", "image/webp":
 		default:
-			return nil, unsupported(path + ".url media type")
+			return nil, unsupported(path + " media type")
 		}
-		if _, err := base64.StdEncoding.DecodeString(data); err != nil {
-			return nil, invalid(path+".url", "contains invalid base64")
+		if size, err := io.Copy(io.Discard, base64.NewDecoder(base64.StdEncoding.Strict(), strings.NewReader(data))); err != nil || size == 0 {
+			return nil, invalid(path, "contains invalid base64")
 		}
 		source = wireObject{"type": "base64", "media_type": media, "data": data}
 	} else {
 		parsed, err := url.Parse(location)
-		if err != nil || parsed.Host == "" || parsed.Scheme != "https" && parsed.Scheme != "http" {
-			return nil, invalid(path+".url", "must be an HTTP image URL or base64 data URL")
+		if err != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.Scheme != "https" && parsed.Scheme != "http" || strings.Contains(location, "\\") || strings.IndexFunc(location, unicode.IsSpace) >= 0 {
+			return nil, invalid(path, "must be an HTTP(S) image URL without embedded credentials or base64 data URL")
 		}
 		source = wireObject{"type": "url", "url": location}
 	}
-	return wireObject{"type": "image", "source": source}, nil
+	return source, nil
 }
 
 func fromChatTools(req rawObject, out wireObject) error {

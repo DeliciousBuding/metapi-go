@@ -263,7 +263,7 @@ func requestMessage(raw json.RawMessage, role, path string, pending, usedIDs map
 	if err != nil || len(blocks) == 0 {
 		return nil, invalid(path, "must be a string or nonempty content block array")
 	}
-	var out, texts, calls []wireObject
+	var out, parts, calls []wireObject
 	for i, raw := range blocks {
 		blockPath := fmt.Sprintf("%s[%d]", path, i)
 		block, err := object(raw, blockPath)
@@ -275,6 +275,15 @@ func requestMessage(raw json.RawMessage, role, path string, pending, usedIDs map
 			return nil, err
 		}
 		switch typ {
+		case "image":
+			if role != "user" || len(pending) != 0 {
+				return nil, invalid(blockPath, "images require a user turn after all tool results")
+			}
+			part, err := requestImage(block, blockPath)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, part)
 		case "text":
 			if len(calls) != 0 || (role == "user" && len(pending) != 0) {
 				return nil, invalid(blockPath, "cannot reorder text across tool calls or unanswered results")
@@ -283,7 +292,7 @@ func requestMessage(raw json.RawMessage, role, path string, pending, usedIDs map
 			if err != nil {
 				return nil, err
 			}
-			texts = append(texts, part)
+			parts = append(parts, part)
 		case "tool_use":
 			if role != "assistant" {
 				return nil, invalid(blockPath, "requires the assistant role")
@@ -311,8 +320,8 @@ func requestMessage(raw json.RawMessage, role, path string, pending, usedIDs map
 			usedIDs[id], pending[id] = true, true
 			calls = append(calls, wireObject{"id": id, "type": "function", "function": wireObject{"name": name, "arguments": string(block["input"])}})
 		case "tool_result":
-			if role != "user" || len(texts) != 0 {
-				return nil, invalid(blockPath, "must precede user text and answer an assistant tool_use")
+			if role != "user" || len(parts) != 0 {
+				return nil, invalid(blockPath, "must precede user content and answer an assistant tool_use")
 			}
 			if err := allowOnly(block, blockPath, "type", "tool_use_id", "content", "is_error", "cache_control"); err != nil {
 				return nil, err
@@ -349,10 +358,10 @@ func requestMessage(raw json.RawMessage, role, path string, pending, usedIDs map
 			return nil, unsupported(blockPath + ".type")
 		}
 	}
-	if len(texts) != 0 || len(calls) != 0 {
+	if len(parts) != 0 || len(calls) != 0 {
 		msg := wireObject{"role": role, "content": nil}
-		if len(texts) != 0 {
-			msg["content"] = texts
+		if len(parts) != 0 {
+			msg["content"] = parts
 		}
 		if len(calls) != 0 {
 			msg["tool_calls"] = calls

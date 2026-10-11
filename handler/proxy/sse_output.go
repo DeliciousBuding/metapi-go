@@ -29,7 +29,7 @@ func hasGeneratedSseOutput(ev SseEvent) bool {
 	for _, item := range choices {
 		choice := object(item)
 		d := object(choice["delta"])
-		if nonempty(choice["text"]) || nonempty(d["content"]) || nonempty(d["reasoning_content"]) || nonempty(d["reasoning"]) {
+		if nonempty(choice["text"]) || nonempty(d["content"]) || nonempty(d["reasoning_content"]) || nonempty(d["reasoning"]) || hasChatPartsOutput(d["content"]) || hasChatPartsOutput(d["images"]) {
 			return true
 		}
 		calls, _ := d["tool_calls"].([]any)
@@ -48,7 +48,23 @@ func hasGeneratedSseOutput(ev SseEvent) bool {
 		parts, _ := object(object(item)["content"])["parts"].([]any)
 		for _, item := range parts {
 			part := object(item)
-			if nonempty(part["text"]) || nonempty(object(part["functionCall"])["name"]) {
+			if nonempty(part["text"]) || nonempty(object(part["functionCall"])["name"]) || nonempty(object(part["inlineData"])["data"]) || nonempty(object(part["fileData"])["fileUri"]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasChatPartsOutput(value any) bool {
+	parts, _ := value.([]any)
+	for _, value := range parts {
+		part, _ := value.(map[string]any)
+		if text, _ := part["text"].(string); part["type"] == "text" && text != "" {
+			return true
+		}
+		if image, _ := part["image_url"].(map[string]any); part["type"] == "image_url" {
+			if url, _ := image["url"].(string); url != "" {
 				return true
 			}
 		}

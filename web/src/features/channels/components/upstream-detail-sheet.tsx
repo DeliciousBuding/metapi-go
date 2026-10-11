@@ -34,9 +34,10 @@ export function UpstreamDetailSheet(props: {
   onClose: () => void
   onDelete?: () => void
   deleting?: boolean
+  initialTab?: 'connection' | 'models'
 }) {
   const { t } = useTranslation()
-  const [tab, setTab] = useState('connection')
+  const [tab, setTab] = useState<string>(props.initialTab ?? 'connection')
   const [dirtyForms, setDirtyForms] = useState<Record<string, boolean>>({})
   const [pendingDelete, setPendingDelete] = useState<(() => void) | null>(null)
   const dirty = Object.values(dirtyForms).some(Boolean)

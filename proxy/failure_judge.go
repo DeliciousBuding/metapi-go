@@ -49,7 +49,7 @@ type UpstreamContentFacts struct {
 	// signal the bounded analyzer keeps.
 	RawText string
 	// HasOutput reports whether the upstream produced completion content.
-	// Streaming callers set it from the analyzer data-event flag; the buffered
+	// Streaming callers set it from output-bearing events; the buffered
 	// path leaves it false and the judge derives it from RawText.
 	HasOutput bool
 	// HasErrorEvent reports a parsed protocol error, not output mentioning an
@@ -229,6 +229,18 @@ func hasCompletionContentFromPayload(payload any) bool {
 	if hasMediaOutput(obj) {
 		return true
 	}
+	if candidates, ok := obj["candidates"].([]any); ok {
+		for _, candidate := range candidates {
+			item, _ := candidate.(map[string]any)
+			content, _ := item["content"].(map[string]any)
+			parts, _ := content["parts"].([]any)
+			for _, part := range parts {
+				if partHasContent(part) {
+					return true
+				}
+			}
+		}
+	}
 
 	// Check choices
 	if choices, ok := obj["choices"].([]any); ok {
@@ -387,6 +399,9 @@ func hasCompletionContentFromChoice(choice any) bool {
 
 	message, _ := cm["message"].(map[string]any)
 	if message != nil {
+		if partsHaveContent(message["images"]) {
+			return true
+		}
 		if s, ok := message["content"].(string); ok && strings.TrimSpace(s) != "" {
 			return true
 		}
@@ -413,6 +428,9 @@ func hasCompletionContentFromChoice(choice any) bool {
 	// Delta
 	delta, _ := cm["delta"].(map[string]any)
 	if delta != nil {
+		if partsHaveContent(delta["content"]) || partsHaveContent(delta["images"]) {
+			return true
+		}
 		if s, ok := delta["content"].(string); ok && strings.TrimSpace(s) != "" {
 			return true
 		}
@@ -442,8 +460,30 @@ func partHasContent(part any) bool {
 		return true
 	}
 	partType := strings.ToLower(stringValue(pm["type"]))
+	if partType == "image_url" {
+		image, _ := pm["image_url"].(map[string]any)
+		if strings.TrimSpace(stringValue(image["url"])) != "" {
+			return true
+		}
+	}
+	for key, field := range map[string]string{"inlineData": "data", "fileData": "fileUri", "functionCall": "name"} {
+		data, _ := pm[key].(map[string]any)
+		if strings.TrimSpace(stringValue(data[field])) != "" {
+			return true
+		}
+	}
 	if strings.Contains(partType, "function_call") || strings.Contains(partType, "tool_call") {
 		return true
+	}
+	return false
+}
+
+func partsHaveContent(value any) bool {
+	parts, _ := value.([]any)
+	for _, part := range parts {
+		if partHasContent(part) {
+			return true
+		}
 	}
 	return false
 }

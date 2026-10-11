@@ -84,7 +84,10 @@ func (s *GeminiStream) TransformEvent(frame []byte) (out []byte, err error) {
 		chunk["choices"] = []any{map[string]any{"index": 0, "delta": delta, "finish_reason": terminal}}
 	}
 	if meta, ok := in["usageMetadata"].(map[string]any); ok {
-		chunk["usage"] = geminiUsage(meta)
+		chunk["usage"], err = geminiUsage(meta)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return bridgeSSE(chunk), nil
 }
@@ -164,7 +167,10 @@ func (s *ChatStream) TransformEvent(frame []byte) (out []byte, err error) {
 		s.model = model
 	}
 	if usage, ok := in["usage"].(map[string]any); ok {
-		s.usage = chatUsage(usage)
+		s.usage, err = chatUsage(usage)
+		if err != nil {
+			return nil, err
+		}
 	}
 	choices, ok := in["choices"].([]any)
 	if !ok {

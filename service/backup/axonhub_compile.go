@@ -324,6 +324,22 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 	if problem := validateAxonHubEndpointBase(baseURL); problem != "" {
 		return nil, []string{"base_url_" + problem}, nil
 	}
+	if channel.Type == "cerebras" && strings.TrimSpace(channel.BaseURL) == "" {
+		// The Cerebras constructor supplies its primary default internally; the
+		// source custom-outbound builder still receives the empty channel base.
+		channel.Endpoints = append([]AxonHubSourceEndpoint(nil), channel.Endpoints...)
+		for i, endpoint := range channel.Endpoints {
+			if strings.TrimSpace(endpoint.BaseURL) != "" {
+				continue
+			}
+			switch endpoint.APIFormat {
+			case "gemini/contents", "gemini/embeddings":
+				channel.Endpoints[i].BaseURL = "https://generativelanguage.googleapis.com"
+			default:
+				return nil, []string{"source_custom_endpoint_requires_base_url"}, nil
+			}
+		}
+	}
 	channel.BaseURL = baseURL
 	protocols, endpoints, problems, protocolResiduals := resolveChannelEndpoints(channel, provider)
 	if len(problems) > 0 {

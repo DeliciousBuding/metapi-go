@@ -14,30 +14,18 @@ import type {
   ImportedEndpointConfig,
   ImportedUpstreamDetail,
 } from '@/lib/api/imported-upstreams'
-import type { UpstreamPreset } from '@/lib/api/upstream-presets'
 
 import { UpstreamConnectionForm } from '../components/upstream-connection-form'
-import { UpstreamCreateSheet } from '../components/upstream-create-sheet'
 import { UpstreamIdentity } from '../components/upstream-identity'
 import { connectionSchema, connectionValues } from '../lib/upstream-config'
 
 const mocks = vi.hoisted(() => ({
   update: vi.fn(),
-  create: vi.fn(),
-  presets: vi.fn(),
-  resolve: vi.fn(),
   dirty: vi.fn(),
 }))
 vi.mock('@/lib/api', () => ({
   api: {
     updateImportedUpstream: mocks.update,
-    createUpstreamChannel: mocks.create,
-  },
-}))
-vi.mock('@/lib/api/upstream-presets', () => ({
-  upstreamPresetsApi: {
-    getUpstreamPresets: mocks.presets,
-    resolveUpstreamPreset: mocks.resolve,
   },
 }))
 vi.mock('@/lib/toast', () => ({ toast: { success: vi.fn() } }))
@@ -72,17 +60,6 @@ const detail: ImportedUpstreamDetail = {
   openaiResponsePath: '',
   anthropicMessagePath: '',
 }
-const preset: UpstreamPreset = {
-  id: 'opencode-go',
-  name: 'OpenCode Go',
-  label: 'OpenCode Go',
-  provider: 'opencode_go',
-  platform: 'opencode',
-  group: 'coding',
-  defaultUrl: 'https://gateway.example',
-  protocols: ['chat'],
-  recommendedModels: [],
-}
 let client: QueryClient
 function mount(node: React.ReactNode) {
   client = new QueryClient({
@@ -105,12 +82,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   Element.prototype.scrollIntoView = vi.fn()
   mocks.update.mockResolvedValue({ success: true })
-  mocks.create.mockResolvedValue({ id: 10 })
-  mocks.presets.mockResolvedValue({ items: [preset] })
-  mocks.resolve.mockResolvedValue({
-    provider: 'opencode_go',
-    endpointConfig: endpoints,
-  })
 })
 afterEach(() => {
   cleanup()
@@ -133,6 +104,7 @@ describe('provider Chat wire adapters', () => {
           onDirtyChange={mocks.dirty}
         />
       )
+      fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
       fireEvent.click(
         screen.getByRole('button', { name: 'Configure Chat endpoint' })
       )
@@ -146,66 +118,6 @@ describe('provider Chat wire adapters', () => {
       ).not.toBeInTheDocument()
     }
   )
-
-  it('blocks an incompatible provider change during manual creation without discarding the URL draft', async () => {
-    mount(<UpstreamCreateSheet onClose={vi.fn()} onCreated={vi.fn()} />)
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Configure manually' })
-    )
-    fireEvent.change(screen.getByLabelText('Name'), {
-      target: { value: 'Manual plan' },
-    })
-    fireEvent.change(screen.getByLabelText('Provider'), {
-      target: { value: 'opencode_go' },
-    })
-    fireEvent.change(screen.getByLabelText('Base URL'), {
-      target: { value: 'https://gateway.example' },
-    })
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Chat' }))
-    fireEvent.change(screen.getByLabelText('Endpoint URL'), {
-      target: { value: 'https://chat.example/custom-chat' },
-    })
-    await chooseProfile('OpenCode Go')
-    fireEvent.change(screen.getByLabelText('Responses wire URL'), {
-      target: { value: modelWireUrls.responses },
-    })
-    fireEvent.change(screen.getByLabelText('Messages wire URL'), {
-      target: { value: modelWireUrls.messages },
-    })
-    fireEvent.change(screen.getByLabelText('Provider'), {
-      target: { value: 'cline' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Create upstream' }))
-    expect(
-      await screen.findByText(
-        'The OpenCode Go adapter requires the opencode_go provider. Change the adapter or provider.'
-      )
-    ).toBeVisible()
-    expect(mocks.create).not.toHaveBeenCalled()
-    expect(screen.getByLabelText('Messages wire URL')).toHaveValue(
-      modelWireUrls.messages
-    )
-    await chooseProfile('Cline')
-    fireEvent.click(screen.getByRole('button', { name: 'Create upstream' }))
-    await waitFor(() =>
-      expect(mocks.create.mock.calls[0]?.[0]).toEqual({
-        name: 'Manual plan',
-        provider: 'cline',
-        dialect: 'generic',
-        baseUrl: 'https://gateway.example',
-        enabled: false,
-        useSystemProxy: false,
-        endpointConfig: {
-          chat: {
-            url: 'https://chat.example/custom-chat',
-            auth: 'bearer',
-            profile: 'cline',
-            modelWireUrls: undefined,
-          },
-        },
-      })
-    )
-  })
 
   it('accepts complete provider adapters and rejects missing, misplaced or unsafe internal destinations', () => {
     for (const profile of ['bailian', 'cline', 'opencode-go']) {
@@ -284,6 +196,7 @@ describe('provider Chat wire adapters', () => {
         onDirtyChange={mocks.dirty}
       />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Configure Chat endpoint' })
     )
@@ -304,55 +217,6 @@ describe('provider Chat wire adapters', () => {
     )
   })
 
-  it('creates from the OpenCode Go preset with internal URLs intact and Chat as its sole capability', async () => {
-    const created = vi.fn()
-    mount(<UpstreamCreateSheet onClose={vi.fn()} onCreated={created} />)
-    const card = await screen.findByRole('button', { name: 'Use OpenCode Go' })
-    expect(card).toHaveAccessibleDescription('Text & conversation: Chat')
-    fireEvent.click(card)
-    await screen.findByText(endpoints.chat?.url ?? '')
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Configure Chat endpoint' })
-    )
-    expect(
-      screen.queryByLabelText('Responses wire URL')
-    ).not.toBeInTheDocument()
-    expect(
-      screen.getByRole('checkbox', { name: 'Responses' })
-    ).not.toBeChecked()
-    expect(screen.getByRole('checkbox', { name: 'Messages' })).not.toBeChecked()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'OpenCode Go adapter URLs' })
-    )
-    expect(screen.getByLabelText('Responses wire URL')).toHaveValue(
-      modelWireUrls.responses
-    )
-    expect(screen.getByLabelText('Messages wire URL')).toHaveValue(
-      modelWireUrls.messages
-    )
-    fireEvent.change(screen.getByLabelText('Endpoint URL'), {
-      target: { value: 'https://chat.example/operator-chat' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Create upstream' }))
-    await waitFor(() =>
-      expect(mocks.create.mock.calls[0]?.[0]).toEqual({
-        name: 'OpenCode Go',
-        provider: 'opencode_go',
-        dialect: 'generic',
-        baseUrl: 'https://gateway.example',
-        enabled: false,
-        useSystemProxy: false,
-        endpointConfig: {
-          chat: {
-            ...endpoints.chat,
-            url: 'https://chat.example/operator-chat',
-          },
-        },
-      })
-    )
-    await waitFor(() => expect(created).toHaveBeenCalledWith(10))
-  })
-
   it('edits one internal URL without replacing independent top-level endpoint URLs', async () => {
     const separate: ImportedEndpointConfig = {
       ...endpoints,
@@ -371,6 +235,7 @@ describe('provider Chat wire adapters', () => {
         onDirtyChange={mocks.dirty}
       />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Configure Chat endpoint' })
     )
@@ -416,6 +281,7 @@ describe('provider Chat wire adapters', () => {
         onDirtyChange={mocks.dirty}
       />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Configure Chat endpoint' })
     )
@@ -460,6 +326,7 @@ describe('provider Chat wire adapters', () => {
     mount(
       <UpstreamConnectionForm detail={detail} onDirtyChange={mocks.dirty} />
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fireEvent.click(
       screen.getByRole('button', { name: 'Configure Chat endpoint' })
     )

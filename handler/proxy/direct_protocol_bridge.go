@@ -14,6 +14,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
 	gemini "github.com/deliciousbuding/metapi-go/transform/gemini/generate_content"
 	"github.com/deliciousbuding/metapi-go/transform/openai/responses"
+	"github.com/deliciousbuding/metapi-go/transform/relaykitbridge"
 )
 
 func directBridgeNeeded(downstream, upstream string) bool {
@@ -26,7 +27,7 @@ func directBridgeNeeded(downstream, upstream string) bool {
 	return dok && uok && d != u
 }
 
-func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, model string, proxyConfig *platform.ProxyConfig, body []byte, contentType string, firstByteTimeoutMs int64, retry, maxRetries int, requestID string) (bool, *pendingUpstreamFailure) {
+func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, model string, proxyConfig *platform.ProxyConfig, body []byte, contentType string, firstByteTimeoutMs int64, retry, maxRetries int, disableCrossProtocolFallback bool, requestID string) (bool, *pendingUpstreamFailure) {
 	openCode := selected.Direct.Provider == "opencode_go" || selected.Direct.Provider == "opencode_go_anthropic"
 	if openCode && ctx.directOpenCodeSession == "" {
 		ctx.directOpenCodeSession = directOpenCodeSessionID(r.Header, ctx.ClientCtx.SessionID)
@@ -51,28 +52,59 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, err.Error(), "upstream_error", requestID)
 		return true, nil
 	}
-	path, err := directSelectedPath(selected.Direct, ctx.DownstreamPath, model, ctx.IsStream)
+	paths, err := directCandidatePaths(selected.Direct, ctx.DownstreamPath, model, ctx.IsStream)
 	if err != nil {
 		writeJSONErrorWithRequest(w, http.StatusBadRequest, err.Error(), "invalid_request_error", requestID)
 		return true, nil
 	}
+	if disableCrossProtocolFallback && len(paths) > 1 {
+		paths = paths[:1]
+	}
+	if ctx.messagesBridgeReplayRequired {
+		var bridged []string
+		for _, path := range paths {
+			if directBridgeNeeded(ctx.DownstreamPath, path) {
+				bridged = append(bridged, path)
+			}
+		}
+		paths = bridged
+		if len(paths) == 0 {
+			writeMessagesReplayFailure(w, ctx, requestID)
+			return true, nil
+		}
+	}
+	for i, path := range paths {
+		finished, pending, cont := dispatchDirectEndpointAttempt(w, r, ctx, cfg, selected, model, proxyConfig, path, body, contentType, firstByteTimeoutMs, retry, maxRetries, i == len(paths)-1, requestID)
+		if finished || !cont {
+			return finished, pending
+		}
+	}
+	return false, jsonPendingUpstreamFailure(http.StatusBadGateway, "No compatible direct endpoint", "upstream_error")
+}
+
+// Every candidate starts from the unchanged downstream body. A failed local
+// conversion writes nothing, and an HTTP miss only continues via the narrow
+// direct-endpoint rejection policy in direct_fallback.go.
+func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, model string, proxyConfig *platform.ProxyConfig, path string, body []byte, contentType string, firstByteTimeoutMs int64, retry, maxRetries int, isLastEndpoint bool, requestID string) (bool, *pendingUpstreamFailure, bool) {
+	openCode := selected.Direct.Provider == "opencode_go" || selected.Direct.Provider == "opencode_go_anthropic"
+	var err error
 	if ctx.Multipart && !proxy.IsDirectMediaPath(path) {
 		writeJSONErrorWithRequest(w, 400, "Multipart requires a media endpoint", "invalid_request_error", requestID)
-		return true, nil
+		return true, nil, false
 	}
 	endpoint := directEndpointForPath(selected.Direct.Endpoints, path)
 	if proxy.IsDirectMediaPath(path) {
 		endpoint, err = directSelectedMediaEndpoint(selected.Direct, path)
 		if err != nil {
 			writeJSONErrorWithRequest(w, 400, err.Error(), "invalid_request_error", requestID)
-			return true, nil
+			return true, nil, false
 		}
 	}
 	var openCodeBodyProfile string
 	endpoint, path, openCodeBodyProfile, err = resolveDirectOpenCodeEndpoint(endpoint, selected.Direct.Provider, path, model)
 	if err != nil {
 		writeJSONErrorWithRequest(w, 400, err.Error(), "invalid_request_error", requestID)
-		return true, nil
+		return true, nil, false
 	}
 	codexImage := endpoint != nil && endpoint.Profile == "codex-image"
 	credential := &oauth.DirectCredentialResult{AccessToken: selected.TokenValue, Kind: store.DirectCredentialAPIKey, Provider: selected.Direct.Provider}
@@ -89,7 +121,7 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 	anonymous := credential != nil && credential.Kind == store.DirectCredentialNone && credential.AccessToken == "" && store.DirectProviderAllowsAnonymous(credential.Provider) && endpoint != nil && endpoint.Auth == store.DirectAuthNone
 	if err != nil || credential == nil || credential.AccessToken == "" && !anonymous || credential != nil && credential.Kind == store.DirectCredentialNone && !anonymous {
 		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "Selected direct credential is unavailable", "upstream_error", requestID)
-		return true, nil
+		return true, nil, false
 	}
 	selectedCopy := *selected
 	selectedCopy.TokenValue = credential.AccessToken
@@ -102,18 +134,19 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 			options = replay.Options()
 		} else if ctx.messagesBridgeReplayRequired {
 			writeMessagesReplayFailure(w, ctx, requestID)
-			return true, nil
+			return true, nil, false
 		}
 	} else if ctx.messagesBridgeReplayRequired {
 		writeMessagesReplayFailure(w, ctx, requestID)
-		return true, nil
+		return true, nil, false
 	}
+	var protocolSession *relaykitbridge.Session
 	if directBridgeNeeded(ctx.DownstreamPath, path) {
-		body, err = directConvertRequest(body, ctx.DownstreamPath, path, model, ctx.IsStream, options)
+		body, protocolSession, err = prepareDirectProtocolRequest(r.Context(), endpoint, body, ctx.DownstreamPath, path, model, ctx.IsStream, options)
 	}
 	if ctx.messagesBridgeReplayRequired && (err != nil || replay == nil || !replay.UsedReplay()) {
 		writeMessagesReplayFailure(w, ctx, requestID)
-		return true, nil
+		return true, nil, false
 	}
 	if err == nil && codexImage {
 		body, err = prepareDirectCodexImagesRequest(r, ctx, endpoint, model, body)
@@ -130,8 +163,11 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		if isRequestBodyTooLarge(err) {
 			status = http.StatusRequestEntityTooLarge
 		}
+		if !isLastEndpoint && !ctx.messagesBridgeReplayRequired {
+			return false, nil, true
+		}
 		writeJSONErrorWithRequest(w, status, "Cannot convert request for selected upstream: "+err.Error(), "invalid_request_error", requestID)
-		return true, nil
+		return true, nil, false
 	}
 	// Native Gemini streaming lives in the URL, never an invented body field.
 	if endpoint, _ := proxy.EndpointFromPath(path); endpoint == proxy.EndpointGemini && directBridgeNeeded(ctx.DownstreamPath, path) {
@@ -147,7 +183,9 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		body, expectUsage = applyUpstreamStreamIncludeUsage(body, "openai", path, ctx.IsStream)
 	}
 	var wire *directProviderWire
-	if endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile) {
+	if endpoint != nil && endpoint.Profile == "openrouter-image" {
+		wire, contentType, err = prepareDirectOpenRouterImage(path, contentType, body)
+	} else if endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile) {
 		wire, contentType, err = prepareDirectNativeVideoProfile(endpoint.Profile, r.Method, path, contentType, body)
 	} else if endpoint != nil && isDirectMediaProfile(endpoint.Profile) {
 		wire, contentType, err = prepareDirectMediaProfile(endpoint.Profile, path, contentType, body)
@@ -157,8 +195,11 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		wire, err = prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header)
 	}
 	if err != nil {
+		if !isLastEndpoint {
+			return false, nil, true
+		}
 		writeJSONErrorWithRequest(w, http.StatusBadRequest, err.Error(), "invalid_request_error", requestID)
-		return true, nil
+		return true, nil, false
 	}
 	if openCode {
 		wire.Headers.Set("X-Opencode-Session", ctx.directOpenCodeSession)
@@ -172,12 +213,12 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		}
 	}
 	wire.Endpoint = endpoint
+	wire.ProtocolSession = protocolSession
 	if proxy.DirectProtocolForPath(path) == store.DirectProtocolVideo && (r.Method == http.MethodPost || endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile)) {
 		maxRetries = retry
 	}
 	r = r.WithContext(withDirectProviderWire(r.Context(), wire))
-	finished, pending, _ := dispatchEndpointAttemptWithContinue(w, r, ctx, cfg, selected, model, proxyConfig, path, contentType, wire.Body, firstByteTimeoutMs, retry, maxRetries, true, true, ctx.IsStream || wire.ForceStream, expectUsage, requestID, options)
-	return finished, pending
+	return dispatchEndpointAttemptWithContinue(w, r, ctx, cfg, selected, model, proxyConfig, path, contentType, wire.Body, firstByteTimeoutMs, retry, maxRetries, isLastEndpoint, true, ctx.IsStream || wire.ForceStream, expectUsage, requestID, options)
 }
 
 func directConvertRequest(body []byte, downstream, upstream, model string, stream bool, options messages.Options) ([]byte, error) {

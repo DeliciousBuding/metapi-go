@@ -134,6 +134,9 @@ describe('imported upstream inventory', () => {
     })
     mount()
     fireEvent.click(await screen.findByRole('button', { name: 'Manage' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Advanced settings' })
+    )
     expect(await screen.findByText('https://chat.example/custom')).toBeVisible()
     expect(screen.getByText('https://messages.example/native')).toBeVisible()
     fireEvent.click(

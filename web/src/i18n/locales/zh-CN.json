@@ -3615,6 +3615,7 @@
         "search": "搜索上游或模型…",
         "noMatches": "没有匹配的上游",
         "connection": "连接",
+        "advanced": "高级设置",
         "credentials": "凭据",
         "routes": "路由",
         "name": "名称",
@@ -3687,7 +3688,13 @@
           "codex-alpha-search": "Codex Alpha Search",
           "bailian": "百炼",
           "cline": "Cline",
-          "opencode-go": "OpenCode Go"
+          "opencode-go": "OpenCode Go",
+          "moonshot": "Kimi",
+          "longcat": "LongCat",
+          "openrouter": "OpenRouter",
+          "cerebras": "Cerebras",
+          "nanogpt": "NanoGPT",
+          "openrouter-image": "OpenRouter 图像"
         },
         "reasons": {
           "channelEnabled": "上游已停用",
@@ -3705,7 +3712,8 @@
           "title": "OpenCode Go 适配地址",
           "responses": "Responses 内部地址",
           "messages": "Messages 内部地址"
-        }
+        },
+        "moonshotJsonMode": "JSON Schema 会降为 JSON Object，Schema 约束不会发送。"
       },
       "catalog": {
         "models": "模型",
@@ -3743,31 +3751,33 @@
         "allCredentialsGranted": "现有凭据均已授权给此模型。可修改下方授权，或到“凭据”页添加新凭据。"
       },
       "create": {
-        "title": "新建上游",
-        "description": "创建后继续添加凭据和模型。",
+        "title": "接入平台",
+        "description": "选择平台并填写 Key 即可接入。",
         "preset": "平台预设",
         "search": "搜索平台或 Coding Plan",
-        "provider": "提供方",
         "usePreset": "使用 {{name}}",
-        "custom": "手动配置",
         "change": "更换",
         "noPresets": "没有匹配的平台",
         "loading": "正在加载平台预设…",
         "presetsFailed": "加载平台预设失败：{{message}}",
-        "selectProvider": "请选择平台或填写提供方。",
-        "openCodeProviderRequired": "OpenCode Go 适配要求提供方为 opencode_go，请更换适配或提供方。",
-        "endpointsRequired": "请至少配置一个协议端点。",
-        "resolve": "更新端点",
-        "resolveFailed": "无法生成端点，请检查基础地址后重试。",
-        "resolveRequired": "请先根据当前基础地址更新端点。",
-        "enabled": "启用",
-        "submit": "创建上游",
-        "failed": "创建失败，已保留填写的内容。",
+        "selectProvider": "请选择平台。",
+        "submit": "连接",
+        "failed": "连接失败，已保留填写的内容，可重试。",
         "groups": {
           "common": "常用",
           "coding": "Coding Plan",
           "gateway": "聚合平台",
           "other": "更多"
+        },
+        "connecting": "连接中…",
+        "apiKey": "API Key",
+        "optionalKey": "API Key（可选）",
+        "optionalName": "名称（可选）",
+        "authorize": "授权连接",
+        "connected": {
+          "discovered": "已接入，发现 {{count}} 个模型。",
+          "preset": "已接入，添加了 {{count}} 个预设模型。",
+          "empty": "已接入，尚未发现模型，请检查模型配置。"
         }
       },
       "capabilities": {

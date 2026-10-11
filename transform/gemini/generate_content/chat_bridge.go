@@ -187,8 +187,12 @@ func ToChatRequest(body []byte, model string) ([]byte, error) {
 		}
 	}
 	out["messages"] = messages
-	if gc, ok := in["generationConfig"].(map[string]any); ok {
-		if err := bridgeKeys(gc, "temperature", "topP", "maxOutputTokens", "stopSequences", "candidateCount", "responseMimeType", "responseSchema", "thinkingConfig"); err != nil {
+	if raw := in["generationConfig"]; raw != nil {
+		gc, ok := raw.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("Gemini generationConfig must be an object")
+		}
+		if err := bridgeKeys(gc, "temperature", "topP", "maxOutputTokens", "stopSequences", "candidateCount", "responseMimeType", "responseSchema", "responseJsonSchema", "thinkingConfig"); err != nil {
 			return nil, err
 		}
 		for from, to := range map[string]string{"temperature": "temperature", "topP": "top_p", "maxOutputTokens": "max_tokens", "stopSequences": "stop"} {
@@ -202,14 +206,12 @@ func ToChatRequest(body []byte, model string) ([]byte, error) {
 		if gc["thinkingConfig"] != nil {
 			return nil, fmt.Errorf("Gemini thinkingConfig requires a native endpoint")
 		}
-		if mime, _ := gc["responseMimeType"].(string); mime != "" && mime != "text/plain" {
-			if mime != "application/json" {
-				return nil, fmt.Errorf("unsupported Gemini responseMimeType")
-			}
-			if gc["responseSchema"] != nil {
-				return nil, fmt.Errorf("Gemini responseSchema requires a native endpoint")
-			}
-			out["response_format"] = map[string]any{"type": "json_object"}
+		format, err := geminiResponseFormat(gc, body)
+		if err != nil {
+			return nil, err
+		}
+		if format != nil {
+			out["response_format"] = format
 		}
 	}
 	if raw, ok := in["tools"].([]any); ok {
@@ -305,8 +307,9 @@ func FromChatRequest(body []byte, model string) ([]byte, error) {
 	if err := bridgeKeys(in, "model", "messages", "stream", "stream_options", "tools", "tool_choice", "temperature", "top_p", "max_tokens", "max_completion_tokens", "stop", "reasoning_effort", "reasoning_budget", "response_format", "parallel_tool_calls"); err != nil {
 		return nil, err
 	}
-	if in["response_format"] != nil {
-		return nil, fmt.Errorf("Chat response_format requires a native endpoint")
+	formatConfig, err := chatResponseFormat(in["response_format"], body)
+	if err != nil {
+		return nil, err
 	}
 	if in["parallel_tool_calls"] == false {
 		return nil, fmt.Errorf("Gemini cannot preserve disabled parallel tool calls")
@@ -436,6 +439,16 @@ func FromChatRequest(body []byte, model string) ([]byte, error) {
 		}
 	}
 	out := BuildGeminiGenerateContentRequestFromOpenAi(in, model)
+	if len(formatConfig) > 0 {
+		gc, _ := out["generationConfig"].(map[string]any)
+		if gc == nil {
+			gc = map[string]any{}
+			out["generationConfig"] = gc
+		}
+		for key, value := range formatConfig {
+			gc[key] = value
+		}
+	}
 	// Preserve JSON integer arguments and object tool results across the legacy builder.
 	if contents, ok := out["contents"].([]map[string]any); ok {
 		for _, content := range contents {
@@ -488,64 +501,6 @@ func bridgeObject(body []byte) (map[string]any, error) {
 	return out, nil
 }
 
-func geminiSchemaToJSON(value any) (any, error) {
-	switch v := value.(type) {
-	case map[string]any:
-		out := map[string]any{}
-		for key, entry := range v {
-			if key == "properties" {
-				properties, ok := entry.(map[string]any)
-				if !ok {
-					return nil, fmt.Errorf("invalid Gemini schema properties")
-				}
-				converted := map[string]any{}
-				for name, schema := range properties {
-					value, err := geminiSchemaToJSON(schema)
-					if err != nil {
-						return nil, err
-					}
-					converted[name] = value
-				}
-				out[key] = converted
-				continue
-			}
-			if key == "type" {
-				name, ok := entry.(string)
-				if !ok {
-					return nil, fmt.Errorf("invalid Gemini schema type")
-				}
-				out[key] = strings.ToLower(name)
-				continue
-			}
-			if key == "nullable" {
-				continue
-			}
-			converted, err := geminiSchemaToJSON(entry)
-			if err != nil {
-				return nil, err
-			}
-			out[key] = converted
-		}
-		if v["nullable"] == true {
-			if typ, ok := out["type"].(string); ok {
-				out["type"] = []any{typ, "null"}
-			}
-		}
-		return out, nil
-	case []any:
-		out := make([]any, len(v))
-		for i, entry := range v {
-			converted, err := geminiSchemaToJSON(entry)
-			if err != nil {
-				return nil, err
-			}
-			out[i] = converted
-		}
-		return out, nil
-	default:
-		return value, nil
-	}
-}
 func bridgeKeys(obj map[string]any, allowed ...string) error {
 	for key, value := range obj {
 		if value == nil {
