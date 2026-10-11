@@ -23,6 +23,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 模型页：`/api/models/marketplace` 新增 `supplyCount`、`supplySources`，展示直连授权与账号来源、上游模型和公共路由绑定；配置与历史请求结果分开标注（#1396）。
 - 首次引导：上游账号、OAuth 与独立连接共用配置清单；直接 Key 用户无需创建站点账号，概览单独展示独立上游数量（#1396）。
 - API 密钥：限制编辑器展示已选数量，支持搜索、只看已选和定位；列表补充独立渠道、模型映射、来源阻断与周期限额，保留失效引用（#1430）。
 - OAuth：`/api/oauth/import` 和 `/api/oauth/route-units` 的创建、更新、删除返回 501 与 `oauth_operation_not_supported`，不再返回空成功；改用授权和托管路由入口。

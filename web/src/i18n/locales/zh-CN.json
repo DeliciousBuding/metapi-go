@@ -243,6 +243,26 @@
       }
     },
     "models": {
+      "supply": {
+        "title": "供给来源",
+        "description": "展示供给记录与路由绑定；实际调用还取决于协议、运行状态和下游密钥权限。",
+        "unknown": "当前服务端未提供供给详情。",
+        "empty": "此模型暂无供给记录，请检查路由配置。",
+        "direct": "直连授权",
+        "account": "站点账号",
+        "oauth": "OAuth 账号",
+        "disabled": "配置已禁用",
+        "identity": "身份／凭据",
+        "upstreamModel": "上游模型",
+        "recordedModel": "记录中的模型",
+        "configured": "已配置供给，尚不能据此判断推理验证结果。",
+        "availability": "已有可用性记录，可能来自模型发现或手动配置。",
+        "observed": "历史请求：成功 {{success}} · 失败 {{failure}}",
+        "routeBinding": "已配置路由绑定",
+        "routeDisabled": "路由已禁用",
+        "groupDisabled": "分组已禁用",
+        "notSelected": "手动分组中未选中"
+      },
       "page": {
         "loadError": "加载模型失败：{{message}}",
         "title": "模型",
@@ -253,7 +273,7 @@
       },
       "empty": {
         "title": "暂无模型",
-        "description": "连接账号后，模型会显示在这里。",
+        "description": "接入站点账号或独立上游后，可在这里查看模型供给。",
         "manageAccounts": "管理账号"
       },
       "toolbar": {

@@ -66,6 +66,9 @@ type ModelAccountInfo = {
  */
 export type ModelRow = {
   name: string
+  /** Stored supply, not a count of currently eligible routing candidates. */
+  supplyCount?: number
+  supplySources?: ModelSupplySource[]
   accountCount: number
   tokenCount: number
   avgLatency: number | null
@@ -83,6 +86,30 @@ export type ModelRow = {
   contextWindow?: number | null
   /** Catalog hydration state: "hydrated" (metadata from catalog) or "unknown". */
   catalogStatus?: 'hydrated' | 'unknown'
+}
+
+export type ModelSupplySource = {
+  kind: 'direct' | 'account' | 'oauth'
+  id: number
+  name: string
+  connectionName: string
+  upstreamModel: string
+  evidence: 'configured' | 'availability'
+  enabled: boolean
+  siteId?: number
+  channelId?: number
+  credentialId?: number
+  credentialKind?: string
+  successCount?: number
+  failCount?: number
+  bindings: Array<{
+    itemId: number
+    routeId: number
+    publicModel: string
+    routeEnabled: boolean
+    groupEnabled: boolean
+    selected: boolean
+  }>
 }
 
 /**

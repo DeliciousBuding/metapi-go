@@ -262,6 +262,23 @@ export function useModelsColumns(
         },
       },
       {
+        id: 'supplyCount',
+        accessorKey: 'supplyCount',
+        size: 110,
+        meta: { mobileOrder: 9, label: t('models.supply.title') },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('models.supply.title')}
+          />
+        ),
+        cell: ({ row }) => (
+          <span className='text-sm tabular-nums'>
+            {row.original.supplyCount ?? '—'}
+          </span>
+        ),
+      },
+      {
         id: 'accountCount',
         accessorKey: 'accountCount',
         size: 110,
