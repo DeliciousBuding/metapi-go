@@ -296,6 +296,7 @@ function MemberForm(props: {
 export function UpstreamRouteBindings(props: {
   channelId?: number
   active?: boolean
+  inventory?: ImportedUpstreamInventory
   beforeDelete?: (action: () => void) => void
   members: ImportedMember[]
   onDirtyChange: (key: string, dirty: boolean) => void
@@ -348,6 +349,7 @@ export function UpstreamRouteBindings(props: {
         <UpstreamGroupManager
           channelId={props.channelId}
           active={props.active ?? false}
+          inventory={props.inventory}
           onDirtyChange={props.onDirtyChange}
           beforeDelete={props.beforeDelete}
         />

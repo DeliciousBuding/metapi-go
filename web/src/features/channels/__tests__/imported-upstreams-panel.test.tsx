@@ -41,7 +41,7 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 let client: QueryClient
-function mount() {
+function mount(accountCount?: number) {
   client = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: 0 },
@@ -50,7 +50,7 @@ function mount() {
   })
   render(
     <QueryClientProvider client={client}>
-      <ImportedUpstreamsPanel />
+      <ImportedUpstreamsPanel accountCount={accountCount} />
     </QueryClientProvider>
   )
 }
@@ -103,6 +103,30 @@ afterEach(() => {
   client?.clear()
 })
 describe('imported upstream inventory', () => {
+  it('keeps platform creation visible while account channels are selected', async () => {
+    mount(5)
+    expect(
+      await screen.findByRole('tab', { name: /Account channels/ })
+    ).toHaveAttribute('aria-selected', 'true')
+    expect(
+      screen.getByRole('button', { name: 'Connect platform' })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Connect platform' })
+    ).toBeEnabled()
+  })
+  it('opens the credential step directly from a platform card', async () => {
+    mount()
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Example channel: Credentials (2)',
+      })
+    )
+    expect(
+      await screen.findByRole('tab', { name: 'Credentials' })
+    ).toHaveAttribute('aria-selected', 'true')
+    expect(state.credentials).toHaveBeenCalledWith(4)
+  })
   it('shows source models and authorized protocols without credentials', async () => {
     mount()
     expect(await screen.findByText('Example channel')).toBeInTheDocument()

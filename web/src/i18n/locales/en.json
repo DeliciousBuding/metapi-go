@@ -3608,6 +3608,44 @@
         "errorOnlyMode": "Showing failing channels only.",
         "exitButton": "Show all"
       },
+      "visual": {
+        "workspaceHint": "Connect a platform, then manage its credentials, models and routing.",
+        "connectionSteps": "Connection configuration",
+        "openStep": "{{name}}: {{step}} ({{count}})",
+        "steps": {
+          "credentials": "Credentials",
+          "models": "Models",
+          "routes": "Routes"
+        },
+        "readiness": {
+          "paused": "Platform disabled",
+          "credentials": "Next: add a credential",
+          "models": "Next: add models",
+          "routes": "Next: connect a model route",
+          "configured": "Configured for routing",
+          "cooling": "Routing members are cooling down",
+          "inactive": "No enabled routing members",
+          "unknown": "Routing status not available"
+        },
+        "topology": "Routing map for {{name}}",
+        "publicModel": "Client model name",
+        "candidates": "Upstream candidates",
+        "candidatesHint": "Candidates by priority; the route strategy selects within a tier. Weights apply to weighted routing.",
+        "manualHint": "Only the manually selected member participates in routing.",
+        "priority": "Priority {{value}}",
+        "weight": "Weight {{value}}",
+        "manuallySelected": "Manually selected",
+        "platformId": "Platform #{{id}}",
+        "thisPlatform": "This platform",
+        "coolingUntil": "Cooling until {{time}}",
+        "configurationOnly": "Configuration status, not a live upstream verification. Request logs show actual attempts.",
+        "memberState": {
+          "configured": "Eligible by configuration",
+          "cooling": "Cooling down",
+          "inactive": "Not eligible",
+          "unknown": "Status unavailable"
+        }
+      },
       "upstream": {
         "accountsTab": "Account channels",
         "upstreamsTab": "Independent upstreams",
