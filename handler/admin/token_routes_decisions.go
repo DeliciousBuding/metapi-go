@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 )
 
@@ -22,7 +23,12 @@ func (h *tokenRoutesHandler) routeDecision(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	decision, err := h.router.ExplainSelection(r.Context(), model, nil, routing.EmptyDownstreamRoutingPolicy)
+	policy, err := routeDecisionPolicy(r.URL.Query().Get("endpoint"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	decision, err := h.router.ExplainSelection(r.Context(), model, nil, policy)
 	if err != nil {
 		slog.Error("route decision explain failed", "model", model, "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to query route decisions")
@@ -37,6 +43,7 @@ func (h *tokenRoutesHandler) routeDecision(w http.ResponseWriter, r *http.Reques
 // POST /api/routes/decision/batch
 func (h *tokenRoutesHandler) routeDecisionBatch(w http.ResponseWriter, r *http.Request) {
 	var body struct {
+		Endpoint              string   `json:"endpoint"`
 		Models                []string `json:"models"`
 		RefreshPricingCatalog bool     `json:"refreshPricingCatalog"`
 		PersistSnapshots      bool     `json:"persistSnapshots"`
@@ -61,10 +68,15 @@ func (h *tokenRoutesHandler) routeDecisionBatch(w http.ResponseWriter, r *http.R
 
 	_ = body.RefreshPricingCatalog
 	_ = body.PersistSnapshots
+	policy, err := routeDecisionPolicy(body.Endpoint)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	decisions := make(map[string]any, len(models))
 	for _, model := range models {
-		decision, err := h.router.ExplainSelection(r.Context(), model, nil, routing.EmptyDownstreamRoutingPolicy)
+		decision, err := h.router.ExplainSelection(r.Context(), model, nil, policy)
 		if err != nil {
 			slog.Warn("route decision batch item failed", "model", model, "error", err)
 			continue
@@ -80,7 +92,8 @@ func (h *tokenRoutesHandler) routeDecisionBatch(w http.ResponseWriter, r *http.R
 // POST /api/routes/decision/by-route/batch
 func (h *tokenRoutesHandler) routeDecisionByRouteBatch(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Items []struct {
+		Endpoint string `json:"endpoint"`
+		Items    []struct {
 			RouteID int64  `json:"routeId"`
 			Model   string `json:"model"`
 		} `json:"items"`
@@ -106,6 +119,11 @@ func (h *tokenRoutesHandler) routeDecisionByRouteBatch(w http.ResponseWriter, r 
 
 	_ = body.RefreshPricingCatalog
 	_ = body.PersistSnapshots
+	policy, err := routeDecisionPolicy(body.Endpoint)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	// Nested map: routeId -> model -> decision
 	decisions := map[string]map[string]any{}
@@ -114,7 +132,7 @@ func (h *tokenRoutesHandler) routeDecisionByRouteBatch(w http.ResponseWriter, r 
 		if item.RouteID <= 0 || model == "" {
 			continue
 		}
-		decision, err := h.router.ExplainSelectionForRoute(r.Context(), item.RouteID, model, nil, routing.EmptyDownstreamRoutingPolicy)
+		decision, err := h.router.ExplainSelectionForRoute(r.Context(), item.RouteID, model, nil, policy)
 		if err != nil {
 			slog.Warn("route decision by-route item failed", "routeId", item.RouteID, "model", model, "error", err)
 			continue
@@ -134,6 +152,7 @@ func (h *tokenRoutesHandler) routeDecisionByRouteBatch(w http.ResponseWriter, r 
 // POST /api/routes/decision/route-wide/batch
 func (h *tokenRoutesHandler) routeDecisionRouteWideBatch(w http.ResponseWriter, r *http.Request) {
 	var body struct {
+		Endpoint              string  `json:"endpoint"`
 		RouteIDs              []int64 `json:"routeIds"`
 		RefreshPricingCatalog bool    `json:"refreshPricingCatalog"`
 		PersistSnapshots      bool    `json:"persistSnapshots"`
@@ -158,10 +177,15 @@ func (h *tokenRoutesHandler) routeDecisionRouteWideBatch(w http.ResponseWriter, 
 
 	_ = body.RefreshPricingCatalog
 	_ = body.PersistSnapshots
+	policy, err := routeDecisionPolicy(body.Endpoint)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	decisions := make(map[string]any, len(routeIDs))
 	for _, routeID := range routeIDs {
-		decision, err := h.router.ExplainSelectionRouteWide(r.Context(), routeID, routing.EmptyDownstreamRoutingPolicy)
+		decision, err := h.router.ExplainSelectionRouteWide(r.Context(), routeID, policy)
 		if err != nil {
 			slog.Warn("route decision route-wide item failed", "routeId", routeID, "error", err)
 			continue
@@ -172,6 +196,22 @@ func (h *tokenRoutesHandler) routeDecisionRouteWideBatch(w http.ResponseWriter, 
 		"success":   true,
 		"decisions": decisions,
 	})
+}
+
+func routeDecisionPolicy(endpoint string) (routing.DownstreamRoutingPolicy, error) {
+	policy := routing.EmptyDownstreamRoutingPolicy
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return policy, nil
+	}
+	if !strings.HasPrefix(endpoint, "/") || strings.ContainsAny(endpoint, "?#%") || proxy.ContainsPathTraversal(endpoint) {
+		return policy, fmt.Errorf("endpoint must be a recognized downstream API path without query or traversal")
+	}
+	policy.RequiredUpstreamProtocol, policy.AllowUpstreamProtocolConversion = proxy.RoutingProtocolForPath(endpoint)
+	if policy.RequiredUpstreamProtocol == 0 {
+		return policy, fmt.Errorf("endpoint is not supported for route explanations")
+	}
+	return policy, nil
 }
 
 // POST /api/routes/decision/refresh

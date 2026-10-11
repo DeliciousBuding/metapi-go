@@ -621,6 +621,7 @@ func TestTokenRoutes_PartialUpdatePreservesModelMapping(t *testing.T) {
 // ---- Route Decision APIs (#171) ----
 
 type fakeDecisionRouter struct {
+	policies         []routing.DownstreamRoutingPolicy
 	explainCalls     []string
 	explainForRoute  []string
 	explainRouteWide []int64
@@ -628,7 +629,8 @@ type fakeDecisionRouter struct {
 	err              error
 }
 
-func (f *fakeDecisionRouter) ExplainSelection(_ context.Context, requestedModel string, _ []int64, _ routing.DownstreamRoutingPolicy) (routing.RouteDecisionExplanation, error) {
+func (f *fakeDecisionRouter) ExplainSelection(_ context.Context, requestedModel string, _ []int64, policy routing.DownstreamRoutingPolicy) (routing.RouteDecisionExplanation, error) {
+	f.policies = append(f.policies, policy)
 	f.explainCalls = append(f.explainCalls, requestedModel)
 	if f.err != nil {
 		return routing.RouteDecisionExplanation{}, f.err
@@ -643,7 +645,8 @@ func (f *fakeDecisionRouter) ExplainSelection(_ context.Context, requestedModel 
 	return d, nil
 }
 
-func (f *fakeDecisionRouter) ExplainSelectionForRoute(_ context.Context, routeID int64, requestedModel string, _ []int64, _ routing.DownstreamRoutingPolicy) (routing.RouteDecisionExplanation, error) {
+func (f *fakeDecisionRouter) ExplainSelectionForRoute(_ context.Context, routeID int64, requestedModel string, _ []int64, policy routing.DownstreamRoutingPolicy) (routing.RouteDecisionExplanation, error) {
+	f.policies = append(f.policies, policy)
 	f.explainForRoute = append(f.explainForRoute, fmt.Sprintf("%d:%s", routeID, requestedModel))
 	if f.err != nil {
 		return routing.RouteDecisionExplanation{}, f.err
@@ -656,7 +659,8 @@ func (f *fakeDecisionRouter) ExplainSelectionForRoute(_ context.Context, routeID
 	return d, nil
 }
 
-func (f *fakeDecisionRouter) ExplainSelectionRouteWide(_ context.Context, routeID int64, _ routing.DownstreamRoutingPolicy) (routing.RouteDecisionExplanation, error) {
+func (f *fakeDecisionRouter) ExplainSelectionRouteWide(_ context.Context, routeID int64, policy routing.DownstreamRoutingPolicy) (routing.RouteDecisionExplanation, error) {
+	f.policies = append(f.policies, policy)
 	f.explainRouteWide = append(f.explainRouteWide, routeID)
 	if f.err != nil {
 		return routing.RouteDecisionExplanation{}, f.err

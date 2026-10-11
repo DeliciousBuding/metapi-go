@@ -131,32 +131,63 @@ type SelectedChannel struct {
 
 // RouteDecisionExplanation mirrors TS RouteDecisionExplanation.
 type RouteDecisionExplanation struct {
-	RequestedModel    string                   `json:"requestedModel"`
-	ActualModel       string                   `json:"actualModel"`
-	Matched           bool                     `json:"matched"`
-	RouteID           *int64                   `json:"routeId,omitempty"`
-	ModelPattern      string                   `json:"modelPattern,omitempty"`
-	SelectedChannelID *int64                   `json:"selectedChannelId,omitempty"`
-	SelectedAccountID *int64                   `json:"selectedAccountId,omitempty"`
-	SelectedLabel     string                   `json:"selectedLabel,omitempty"`
-	Summary           []string                 `json:"summary"`
-	Candidates        []RouteDecisionCandidate `json:"candidates"`
+	CheckedAt                       string                   `json:"checkedAt"`
+	RequiredUpstreamProtocol        int                      `json:"requiredUpstreamProtocol"`
+	AllowUpstreamProtocolConversion bool                     `json:"allowUpstreamProtocolConversion"`
+	NotEvaluated                    []string                 `json:"notEvaluated"`
+	RoutingStrategy                 RouteRoutingStrategy     `json:"routingStrategy,omitempty"`
+	RequestedModel                  string                   `json:"requestedModel"`
+	ActualModel                     string                   `json:"actualModel"`
+	Matched                         bool                     `json:"matched"`
+	RouteID                         *int64                   `json:"routeId,omitempty"`
+	ModelPattern                    string                   `json:"modelPattern,omitempty"`
+	SelectedChannelID               *int64                   `json:"selectedChannelId,omitempty"`
+	SelectedAccountID               *int64                   `json:"selectedAccountId,omitempty"`
+	SelectedLabel                   string                   `json:"selectedLabel,omitempty"`
+	Summary                         []string                 `json:"summary"`
+	Candidates                      []RouteDecisionCandidate `json:"candidates"`
 }
 
 // RouteDecisionCandidate mirrors TS RouteDecisionCandidate.
 type RouteDecisionCandidate struct {
-	ChannelID              int64   `json:"channelId"`
-	AccountID              int64   `json:"accountId"`
-	Username               string  `json:"username"`
-	SiteName               string  `json:"siteName"`
-	TokenName              string  `json:"tokenName"`
-	Priority               int64   `json:"priority"`
-	Weight                 int64   `json:"weight"`
-	Eligible               bool    `json:"eligible"`
-	RecentlyFailed         bool    `json:"recentlyFailed"`
-	AvoidedByRecentFailure bool    `json:"avoidedByRecentFailure"`
-	Probability            float64 `json:"probability"`
-	Reason                 string  `json:"reason"`
+	CandidateRef           RouteDecisionCandidateRef `json:"candidateRef"`
+	Label                  string                    `json:"label"`
+	SourceModel            string                    `json:"sourceModel,omitempty"`
+	ActualModel            string                    `json:"actualModel,omitempty"`
+	Eligibility            string                    `json:"eligibility"`
+	Blockers               []CandidateBlocker        `json:"blockers"`
+	ProbabilityEvaluated   bool                      `json:"probabilityEvaluated"`
+	ChannelID              int64                     `json:"channelId"`
+	AccountID              int64                     `json:"accountId"`
+	Username               string                    `json:"username"`
+	SiteName               string                    `json:"siteName"`
+	TokenName              string                    `json:"tokenName"`
+	Priority               int64                     `json:"priority"`
+	Weight                 int64                     `json:"weight"`
+	Eligible               bool                      `json:"eligible"`
+	RecentlyFailed         bool                      `json:"recentlyFailed"`
+	AvoidedByRecentFailure bool                      `json:"avoidedByRecentFailure"`
+	Probability            float64                   `json:"probability"`
+	Reason                 string                    `json:"reason"`
+}
+
+// RouteDecisionCandidateRef is a safe identity projection, not a runtime row.
+// Legacy channelId (including negative direct IDs) remains compatibility-only.
+type RouteDecisionCandidateRef struct {
+	Kind         string `json:"kind"`
+	ID           int64  `json:"id"`
+	ChannelID    int64  `json:"channelId,omitempty"`
+	GroupID      int64  `json:"groupId,omitempty"`
+	GrantID      int64  `json:"grantId,omitempty"`
+	CredentialID int64  `json:"credentialId,omitempty"`
+	AccountID    int64  `json:"accountId,omitempty"`
+	SiteID       int64  `json:"siteId,omitempty"`
+	TokenID      *int64 `json:"tokenId,omitempty"`
+}
+
+type CandidateBlocker struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 // RouteRoutingStrategy is the strategy for a route.

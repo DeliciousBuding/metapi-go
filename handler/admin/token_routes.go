@@ -746,6 +746,13 @@ func routeDecisionToMap(d routing.RouteDecisionExplanation) map[string]any {
 	candidates := make([]map[string]any, 0, len(d.Candidates))
 	for _, c := range d.Candidates {
 		candidates = append(candidates, map[string]any{
+			"candidateRef":           c.CandidateRef,
+			"label":                  c.Label,
+			"sourceModel":            c.SourceModel,
+			"actualModel":            c.ActualModel,
+			"eligibility":            c.Eligibility,
+			"blockers":               c.Blockers,
+			"probabilityEvaluated":   c.ProbabilityEvaluated,
 			"channelId":              c.ChannelID,
 			"accountId":              c.AccountID,
 			"username":               c.Username,
@@ -761,13 +768,19 @@ func routeDecisionToMap(d routing.RouteDecisionExplanation) map[string]any {
 		})
 	}
 	out := map[string]any{
-		"requestedModel": d.RequestedModel,
-		"actualModel":    d.ActualModel,
-		"matched":        d.Matched,
-		"modelPattern":   d.ModelPattern,
-		"selectedLabel":  d.SelectedLabel,
-		"summary":        d.Summary,
-		"candidates":     candidates,
+		"mode":                            "adminPreview",
+		"checkedAt":                       d.CheckedAt,
+		"requiredUpstreamProtocol":        d.RequiredUpstreamProtocol,
+		"allowUpstreamProtocolConversion": d.AllowUpstreamProtocolConversion,
+		"notEvaluated":                    d.NotEvaluated,
+		"routingStrategy":                 d.RoutingStrategy,
+		"requestedModel":                  d.RequestedModel,
+		"actualModel":                     d.ActualModel,
+		"matched":                         d.Matched,
+		"modelPattern":                    d.ModelPattern,
+		"selectedLabel":                   d.SelectedLabel,
+		"summary":                         d.Summary,
+		"candidates":                      candidates,
 	}
 	if d.RouteID != nil {
 		out["routeId"] = *d.RouteID
