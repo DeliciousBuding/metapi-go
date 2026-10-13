@@ -82,6 +82,42 @@ export type UpstreamConnectResult = {
   discovery: { status: 'discovered' | 'preset' | 'empty'; message?: string }
 }
 
+/** One discovery-origin model whose name vanished upstream (E batch). */
+type UpstreamStaleModel = {
+  id: number
+  name: string
+  enabled: boolean
+  grantCount: number
+  routeIds: number[]
+}
+
+/**
+ * Read-only discovery diff for a channel's model catalog. basisToken binds the
+ * catalog rows and the discovered set; apply requires it and refuses with 409
+ * when either changed since the preview.
+ */
+export type UpstreamRefreshPreview = {
+  channelId: number
+  basisToken: string
+  discovery: { status: string; message?: string }
+  upstreamCount: number
+  added: string[]
+  stale: UpstreamStaleModel[]
+  kept: string[]
+  /** Discovery-origin rows already disabled and still absent upstream (history; apply no-ops on them). */
+  offline: string[]
+  manualOnly: string[]
+  manualKept: string[]
+  legacyNativeCount: number
+}
+
+export type UpstreamRefreshApplyResult = {
+  success: boolean
+  addedCount: number
+  staleCount: number
+  affectedRouteIds: number[]
+}
+
 export const upstreamCatalogApi = {
   connectUpstream: (input: UpstreamConnectInput) =>
     request<UpstreamConnectResult>('/api/imported-upstreams/connect', {
@@ -98,6 +134,20 @@ export const upstreamCatalogApi = {
       {
         method: 'POST',
         body: JSON.stringify(input),
+      }
+    ),
+  refreshUpstreamCatalogPreview: (channelId: number) =>
+    request<UpstreamRefreshPreview>(
+      `/api/imported-upstreams/${channelId}/models/refresh-preview`,
+      { method: 'POST', skipErrorHandler: true }
+    ),
+  applyUpstreamCatalogRefresh: (channelId: number, basisToken: string) =>
+    request<UpstreamRefreshApplyResult>(
+      `/api/imported-upstreams/${channelId}/models/refresh-apply`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ basisToken }),
+        skipErrorHandler: true,
       }
     ),
   getUpstreamModels: (channelId: number) =>

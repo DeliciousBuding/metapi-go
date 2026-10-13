@@ -27,6 +27,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - 模型页：`/api/models/marketplace` 支持 `q`/`capability`/`endpointType`/`sourceKind`/`sort` 服务端筛选与排序，`total` 与逐维析取 `facets` 覆盖全库；新增 `/api/models/marketplace/detail` 精确详情（#1396）。
 - 模型页：深链 `?model=` 经 detail 端点解析，不在当前页也能打开，找不到时明确提示；品牌列改为纯展示（映射仅在前端图标体系），搜索框覆盖该意图（#1396）。
 - 路由诊断：新增 `GET /api/routes/decision/key-context`，按下游 Key 评估准入链（策略封禁/启用/到期/预算/配额窗口/IP/速率窗口）与该 Key 权限下的路由解释；只读，不消耗配额与计数；密钥页新增“权限检查”入口（#1396）。
+- 通道：模型目录支持重新发现——`refresh-preview` 只读给出上游差异（新增/已下线/保留/手工保留及影响面），`refresh-apply` 凭 basisToken 应用；目录或上游在预览后变化即拒绝（409）。发现来源记录为 `discovery:<通道ID>`，手工模型不受影响，新发现模型不自动授权，下线只禁用不删除（#1396）。
 - 代理日志：详情新增请求级尝试视图（`requestAttempts`）——同一 `requestId` 的逐次派发按序数列出（通道/站点/状态/错误/耗时），终态取序数最大行；序数空洞与缺失 `requestId` 的旧行如实标注记录不完整，不回填不脑补（#1396）。
 - 路由诊断：路由详情可按具体模型和接口执行只读当前检查，显示直连授权、OAuth 路由池、阻断原因和未评估项；不选择候选或调用上游（#1396）。
 - 首次引导：上游账号、OAuth 与独立连接共用配置清单；直接 Key 用户无需创建站点账号，概览单独展示独立上游数量（#1396）。

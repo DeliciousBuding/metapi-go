@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, Plus, Search, Trash2 } from 'lucide-react'
+import { ChevronDown, Plus, RefreshCw, Search, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -27,6 +27,7 @@ import {
   UpstreamModelCreateForm,
   UpstreamModelEditForm,
 } from './upstream-model-forms'
+import { UpstreamRefreshDialog } from './upstream-refresh-dialog'
 
 type ModelsData = { items: UpstreamModel[] }
 
@@ -53,6 +54,7 @@ export function UpstreamModels(props: {
   })
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [expanded, setExpanded] = useState<number[]>([])
   const [opened, setOpened] = useState<number[]>([])
   const [addingGrants, setAddingGrants] = useState<number[]>([])
@@ -118,6 +120,10 @@ export function UpstreamModels(props: {
             placeholder={t('channels.catalog.searchModels')}
           />
         </div>
+        <Button variant='outline' size='sm' onClick={() => setRefreshing(true)}>
+          <RefreshCw className='size-4' />
+          {t('channels.catalog.refresh.button')}
+        </Button>
         <Button
           variant='outline'
           size='sm'
@@ -128,6 +134,16 @@ export function UpstreamModels(props: {
           {t('channels.catalog.addModels')}
         </Button>
       </div>
+      <UpstreamRefreshDialog
+        channelId={props.detail.id}
+        channelName={props.detail.name}
+        open={refreshing}
+        onOpenChange={setRefreshing}
+        onApplied={() => {
+          void query.refetch()
+          void client.invalidateQueries({ queryKey: upstreamKeys.all })
+        }}
+      />
       <div hidden={!creating}>
         <UpstreamModelCreateForm
           channelId={props.detail.id}
