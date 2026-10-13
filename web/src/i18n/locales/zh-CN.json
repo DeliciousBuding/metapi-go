@@ -3878,6 +3878,8 @@
           "selectedByGroup": "未被分组选中"
         },
         "noAuthentication": "无需认证",
+        "gcpServiceAccount": "GCP 服务账号",
+        "gcpServiceAccountHint": "粘贴服务账号 JSON 密钥文件内容。交换得到的访问令牌按有效期自动缓存与刷新；JSON 内容不会回显。",
         "anonymousUnavailable": "请先配置无需认证的 Ollama 端点。",
         "modelPrefixUrl": "模型地址前缀（以 /model 结尾）",
         "modelWireUrls": {

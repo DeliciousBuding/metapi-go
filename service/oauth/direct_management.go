@@ -25,6 +25,8 @@ type DirectCredentialUpdate struct {
 	Enabled *bool                   `json:"enabled,omitempty"`
 	APIKey  *string                 `json:"apiKey,omitempty"`
 	OAuth   *DirectOAuthReplacement `json:"oauth,omitempty"`
+	// GCPServiceAccount replaces the SA JSON when kind is gcp_service_account.
+	GCPServiceAccount *string `json:"gcpServiceAccount,omitempty"`
 }
 type DirectCredentialSummary struct {
 	ID         int64  `json:"id"`
@@ -78,10 +80,10 @@ func UpdateDirectCredential(ctx context.Context, db *sqlx.DB, id int64, input Di
 }
 
 func updateDirectCredentialTx(ctx context.Context, db *sqlx.Tx, id int64, input DirectCredentialUpdate) error {
-	if input.Name == nil && input.Enabled == nil && input.APIKey == nil && input.OAuth == nil && input.Kind == "" {
+	if input.Name == nil && input.Enabled == nil && input.APIKey == nil && input.OAuth == nil && input.GCPServiceAccount == nil && input.Kind == "" {
 		return ErrInvalidDirectCredential
 	}
-	if input.APIKey != nil && input.OAuth != nil {
+	if input.APIKey != nil && input.OAuth != nil || input.GCPServiceAccount != nil && (input.APIKey != nil || input.OAuth != nil) {
 		return ErrInvalidDirectCredential
 	}
 	var channel struct {
@@ -108,8 +110,8 @@ func updateDirectCredentialTx(ctx context.Context, db *sqlx.Tx, id int64, input 
 		set = append(set, "enabled=?")
 		args = append(args, *input.Enabled)
 	}
-	if input.APIKey != nil || input.OAuth != nil || input.Kind != "" {
-		secret, kind, state, err := directCredentialMaterial(channel.Provider, channel.Endpoints, input.Kind, input.APIKey, input.OAuth)
+	if input.APIKey != nil || input.OAuth != nil || input.GCPServiceAccount != nil || input.Kind != "" {
+		secret, kind, state, gcpMaterial, err := directCredentialMaterial(channel.Provider, channel.Endpoints, input.Kind, input.APIKey, input.OAuth, input.GCPServiceAccount)
 		if err != nil {
 			return err
 		}
@@ -124,8 +126,12 @@ func updateDirectCredentialTx(ctx context.Context, db *sqlx.Tx, id int64, input 
 				}
 			}
 		}
-		set = append(set, "secret=?", "kind=?", "oauth_state=?")
-		args = append(args, secret, kind, state)
+		set = append(set, "secret=?", "kind=?", "oauth_state=?", "gcp_service_account=?")
+		var gcpColumn any
+		if gcpMaterial != "" {
+			gcpColumn = gcpMaterial
+		}
+		args = append(args, secret, kind, state, gcpColumn)
 	}
 	args = append(args, id)
 	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE upstream_credentials SET `+strings.Join(set, ",")+` WHERE id=?`), args...)

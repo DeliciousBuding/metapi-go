@@ -10,6 +10,10 @@ const (
 	DirectCredentialAPIKey = "api_key"
 	DirectCredentialOAuth  = "oauth"
 	DirectCredentialNone   = "none"
+	// DirectCredentialGCPServiceAccount: durable material is the service-account
+	// JSON in upstream_credentials.gcp_service_account; secret holds the latest
+	// exchanged access token (single-owner token contract unchanged).
+	DirectCredentialGCPServiceAccount = "gcp_service_account"
 )
 
 func (d *DirectUpstreamCandidate) HasAnonymousCredential() bool {

@@ -15,6 +15,9 @@ type DirectCredentialCreate struct {
 	Enabled bool                    `json:"enabled"`
 	APIKey  *string                 `json:"apiKey"`
 	OAuth   *DirectOAuthReplacement `json:"oauth"`
+	// GCPServiceAccount carries the service-account JSON key document when
+	// kind is gcp_service_account. Validated at write time, never returned.
+	GCPServiceAccount *string `json:"gcpServiceAccount,omitempty"`
 }
 
 // CreateDirectCredential permits local credentials under imported channels.
@@ -37,7 +40,7 @@ func CreateDirectCredential(ctx context.Context, db *sqlx.DB, channelID int64, i
 		if err := tx.GetContext(ctx, &channel, tx.Rebind(query), channelID); err != nil {
 			return err
 		}
-		secret, kind, state, err := directCredentialMaterial(channel.Provider, channel.Endpoints, in.Kind, in.APIKey, in.OAuth)
+		secret, kind, state, gcpMaterial, err := directCredentialMaterial(channel.Provider, channel.Endpoints, in.Kind, in.APIKey, in.OAuth, in.GCPServiceAccount)
 		if err != nil {
 			return err
 		}
@@ -45,34 +48,55 @@ func CreateDirectCredential(ctx context.Context, db *sqlx.DB, channelID int64, i
 		out.ExpiresAt = state.ExpiresAt
 		out.CanRefresh = state.RefreshToken != ""
 		out.ID, err = upstream.InsertNative(ctx, tx, "credentials", channelID, in.Name, secret, in.Enabled, kind, state)
+		if err != nil {
+			return err
+		}
+		if gcpMaterial != "" {
+			_, err = tx.ExecContext(ctx, tx.Rebind("UPDATE upstream_credentials SET gcp_service_account=? WHERE id=?"), gcpMaterial, out.ID)
+		}
 		return err
 	})
 	return out, err
 }
 
-func directCredentialMaterial(provider string, endpoints store.DirectEndpoints, kind string, key *string, oauth *DirectOAuthReplacement) (string, string, store.DirectOAuthState, error) {
+func directCredentialMaterial(provider string, endpoints store.DirectEndpoints, kind string, key *string, oauth *DirectOAuthReplacement, gcp *string) (string, string, store.DirectOAuthState, string, error) {
 	state := store.DirectOAuthState{}
+	if kind == store.DirectCredentialGCPServiceAccount {
+		// Durable material is the SA JSON; no access token exists until the
+		// first resolve exchanges it, so secret starts empty.
+		if key != nil || oauth != nil || gcp == nil {
+			return "", "", state, "", ErrInvalidDirectCredential
+		}
+		material := strings.TrimSpace(*gcp)
+		if _, _, err := parseGCPServiceAccount(material); err != nil {
+			return "", "", state, "", ErrInvalidDirectCredential
+		}
+		return "", store.DirectCredentialGCPServiceAccount, state, material, nil
+	}
+	if gcp != nil {
+		return "", "", state, "", ErrInvalidDirectCredential
+	}
 	if kind == store.DirectCredentialNone {
 		if key != nil || oauth != nil || !store.DirectProviderAllowsAnonymous(provider) || endpoints.AnonymousProtocolMask() == 0 {
-			return "", "", state, ErrInvalidDirectCredential
+			return "", "", state, "", ErrInvalidDirectCredential
 		}
-		return "", store.DirectCredentialNone, state, nil
+		return "", store.DirectCredentialNone, state, "", nil
 	}
 	if kind != "" && (kind != store.DirectCredentialAPIKey || key == nil) && (kind != store.DirectCredentialOAuth || oauth == nil) {
-		return "", "", state, ErrInvalidDirectCredential
+		return "", "", state, "", ErrInvalidDirectCredential
 	}
 	if key != nil && oauth != nil || key == nil && oauth == nil {
-		return "", "", state, ErrInvalidDirectCredential
+		return "", "", state, "", ErrInvalidDirectCredential
 	}
 	if key != nil {
 		secret := strings.TrimSpace(*key)
 		if secret == "" || strings.HasPrefix(secret, "{") {
-			return "", "", state, ErrInvalidDirectCredential
+			return "", "", state, "", ErrInvalidDirectCredential
 		}
-		return secret, store.DirectCredentialAPIKey, state, nil
+		return secret, store.DirectCredentialAPIKey, state, "", nil
 	}
 	if directOAuthProvider(provider) == "" || strings.TrimSpace(oauth.AccessToken) == "" || oauth.ExpiresAt < 0 {
-		return "", "", state, ErrInvalidDirectCredential
+		return "", "", state, "", ErrInvalidDirectCredential
 	}
-	return oauth.AccessToken, store.DirectCredentialOAuth, oauth.DirectOAuthState, nil
+	return oauth.AccessToken, store.DirectCredentialOAuth, oauth.DirectOAuthState, "", nil
 }

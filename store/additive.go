@@ -540,6 +540,20 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return nil
 		},
 	},
+	{
+		// GCP service-account credential material (JWT bearer exchange input).
+		// Holds the SA JSON document; upstream_credentials.secret keeps its
+		// single-owner role for the latest exchanged access token.
+		Version:     "sc2_037_credential_gcp_service_account",
+		Description: "upstream_credentials.gcp_service_account TEXT NULL — GCP service-account JSON material for gcp_service_account kind credentials",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "upstream_credentials")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "upstream_credentials", "gcp_service_account", "TEXT", "TEXT", "")
+		},
+	},
 	// sc2_029_ts_timestamp_normalization is deliberately NOT a registry step
 	// any more. A journal gate decides "already applied" from the state of the
 	// database at the moment it runs, and the TS-shaped timestamps this rewrite
