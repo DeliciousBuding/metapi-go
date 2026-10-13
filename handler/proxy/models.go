@@ -159,7 +159,7 @@ func getAvailableModels(ctx context.Context, policy auth.DownstreamRoutingPolicy
 					if !IsModelAllowedByPolicy(model, policy) {
 						continue
 					}
-					listingPolicy := routingPolicyFromAuth(policy)
+					listingPolicy := RoutingPolicyFromAuth(policy)
 					listingPolicy.RequiredUpstreamProtocol = -1 // Listing accepts any protocol the grant can serve.
 					decision, err := explainer.ExplainSelection(ctx, model, nil, listingPolicy)
 					if err != nil {

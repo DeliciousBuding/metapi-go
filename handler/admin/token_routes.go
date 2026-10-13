@@ -77,6 +77,7 @@ func RegisterTokenRoutesWithDeps(r chi.Router, db *sqlx.DB, deps TokenRoutesDeps
 
 	// Route decisions
 	r.Get("/api/routes/decision", handler.routeDecision)
+	r.Get("/api/routes/decision/key-context", handler.routeDecisionKeyContext)
 	r.Post("/api/routes/decision/batch", handler.routeDecisionBatch)
 	r.Post("/api/routes/decision/by-route/batch", handler.routeDecisionByRouteBatch)
 	r.Post("/api/routes/decision/route-wide/batch", handler.routeDecisionRouteWideBatch)

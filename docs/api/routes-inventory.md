@@ -69,6 +69,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/routes`
 - `/api/routes/:id/channels`
 - `/api/routes/decision`
+- `/api/routes/decision/key-context`
 - `/api/routes/lite`
 - `/api/routes/summary`
 - `/api/scheduler/status`

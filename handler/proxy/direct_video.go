@@ -246,7 +246,7 @@ func validateVideoTaskSelection(ctx *Ctx, selected *routing.SelectedChannel, pat
 	// Use the routing owner's full policy/matcher logic with a request-local
 	// cache. Loading channels by their old route ID alone misses route renames
 	// and explicit-group changes while another worker retains an old match.
-	policy := routingPolicyFromAuth(ctx.Policy)
+	policy := RoutingPolicyFromAuth(ctx.Policy)
 	policy.RequiredUpstreamProtocol = protocol
 	policy.AllowUpstreamProtocolConversion = false
 	selector := routing.NewChannelSelector(service.NewProxyRoutingStore(db), routing.NewRouteCache(0),

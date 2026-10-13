@@ -27,6 +27,7 @@ import { upstreamLifecycleApi } from './api/upstream-lifecycle'
 
 export * from './api/types'
 export type { ImportedUpstreamInventory } from './api/imported-upstreams'
+export type { KeyContextDecisionResponse } from './api/token-routes'
 
 export const api = {
   ...importedUpstreamsApi,

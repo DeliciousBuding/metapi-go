@@ -778,9 +778,9 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 		return nil, false, nil
 	}
 
-	policy := routingPolicyFromAuth(auth.EmptyDownstreamRoutingPolicy)
+	policy := RoutingPolicyFromAuth(auth.EmptyDownstreamRoutingPolicy)
 	if s.auth != nil {
-		policy = routingPolicyFromAuth(s.auth.Policy)
+		policy = RoutingPolicyFromAuth(s.auth.Policy)
 	}
 	policy.RequestedContextTokens = routing.EstimateRequestContextTokens(body)
 	selected, selErr := cfg.Router.SelectChannel(ctx, requestModel, policy)

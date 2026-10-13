@@ -330,7 +330,7 @@ func TestDirectVideoTaskRevocationHTTP(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					policy := routingPolicyFromAuth(auth.AuthorizeDownstreamToken("client-one", config.Runtime()).Policy)
+					policy := RoutingPolicyFromAuth(auth.AuthorizeDownstreamToken("client-one", config.Runtime()).Policy)
 					policy.RequiredUpstreamProtocol = routing.UpstreamProtocolVideo
 					selected, err := getUpstreamConfig().Router.SelectPreferredChannel(context.Background(), "client-alias", -task.Identity.ItemID, policy, nil)
 					if err != nil || selected == nil {
@@ -521,7 +521,7 @@ func TestDirectVideoTaskExplicitGroupRevocationHTTP(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					policy := routingPolicyFromAuth(auth.AuthorizeDownstreamToken("client-one", config.Runtime()).Policy)
+					policy := RoutingPolicyFromAuth(auth.AuthorizeDownstreamToken("client-one", config.Runtime()).Policy)
 					policy.RequiredUpstreamProtocol = routing.UpstreamProtocolVideo
 					if selected, err := getUpstreamConfig().Router.SelectPreferredChannel(context.Background(), "group-alias", -task.Identity.ItemID, policy, nil); err != nil || selected == nil {
 						t.Fatalf("cannot prime group route: %v", err)
