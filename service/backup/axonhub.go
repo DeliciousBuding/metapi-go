@@ -306,9 +306,13 @@ func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplaceme
 	credentialIDs := map[int64]int64{}
 	for _, credential := range plan.credentials {
 		sourceID := axonHubCredentialSourceID(credential)
-		id, err := upsertMapped(db, tx, originKey, "upstream_credentials", sourceID, "upstream_credentials",
-			[]string{"channel_id", "name", "secret", "kind", "oauth_state", "enabled"},
-			[]any{channelIDs[credential.ChannelSourceID], credential.Name, credential.Secret, credential.Kind, credential.OAuthState, credential.Enabled})
+		columns := []string{"channel_id", "name", "secret", "kind", "oauth_state", "enabled"}
+		values := []any{channelIDs[credential.ChannelSourceID], credential.Name, credential.Secret, credential.Kind, credential.OAuthState, credential.Enabled}
+		if credential.GCPMaterial != "" {
+			columns = append(columns, "gcp_service_account")
+			values = append(values, credential.GCPMaterial)
+		}
+		id, err := upsertMapped(db, tx, originKey, "upstream_credentials", sourceID, "upstream_credentials", columns, values)
 		if err != nil {
 			return nil, err
 		}

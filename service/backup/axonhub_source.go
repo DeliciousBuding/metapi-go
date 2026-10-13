@@ -74,9 +74,18 @@ type AxonHubSourceCredentials struct {
 	OAuth            bool
 	OAuthCredentials *AxonHubSourceOAuth
 	Azure            bool
-	GCP              bool
+	// GCP carries the Vertex service-account payload (region, project and the
+	// raw key JSON) when the channel authenticates with a GCP credential.
+	GCP *AxonHubSourceGCP
 	// UnsupportedFields names credential keys outside the audited contract.
 	UnsupportedFields []string
+}
+
+// AxonHubSourceGCP mirrors objects.GCPCredential.
+type AxonHubSourceGCP struct {
+	Region    string `json:"region"`
+	ProjectID string `json:"projectID"`
+	JSONData  string `json:"jsonData"`
 }
 
 type AxonHubSourceChannelSettings struct {
@@ -537,7 +546,13 @@ func decodeAxonHubCredentials(raw json.RawMessage, dst *AxonHubSourceCredentials
 		return err
 	}
 	dst.Azure = present(obj["azure"])
-	dst.GCP = present(obj["gcp"])
+	if rawGCP, ok := obj["gcp"]; ok && present(rawGCP) {
+		var gcp AxonHubSourceGCP
+		if err := json.Unmarshal(rawGCP, &gcp); err != nil {
+			return axonHubErr("credentials.gcp must be an object")
+		}
+		dst.GCP = &gcp
+	}
 	dst.UnsupportedFields = unknownKeys(obj, axonHubCredentialFields)
 	return nil
 }

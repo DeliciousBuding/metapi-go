@@ -365,7 +365,7 @@ const backupsvcFixtureV5 = `{"version":5,"exported_at":"2026-10-05T00:00:00Z","c
 
 // backupFixtureAxonHubV14 is a sanitized AxonHub v1.4 export: one request model
 // served by an OpenAI-compatible channel with two keys and an Anthropic channel
-// with one, plus a Vertex channel the importer must refuse.
+// with one, plus a Vertex channel without its GCP credential payload, which the importer must refuse.
 const backupFixtureAxonHubV14 = `{"version":"1.4","timestamp":"2026-10-05T00:00:00Z","system_configs":[],"projects":[],"channels":[` +
 	`{"id":11,"type":"openai","name":"Primary","status":"enabled","base_url":"https://upstream.example/v1","credentials":{"apiKeys":["fixture-key-axonhub-1","fixture-key-axonhub-2"]},"supported_models":["client-model"],"endpoints":[{"api_format":"openai/chat_completions"}],"deleted_at":0},` +
 	`{"id":12,"type":"anthropic","name":"Backup","status":"enabled","base_url":"https://anthropic.example","credentials":{"apiKey":"fixture-key-axonhub-3"},"supported_models":["client-model"],"endpoints":[{"api_format":"anthropic/messages"}],"deleted_at":0},` +
@@ -389,8 +389,8 @@ func TestAxonHubV14PreviewAndCommitAreRealAndCredentialSafe(t *testing.T) {
 			t.Fatalf("preview leaked %q: %s", leaked, body)
 		}
 	}
-	if !strings.Contains(body, `"provider_translation_unsupported"`) {
-		t.Fatalf("preview did not name the refused provider: %s", body)
+	if !strings.Contains(body, `"gcp_credential_missing"`) {
+		t.Fatalf("preview did not name the refused credential shape: %s", body)
 	}
 	var before int
 	if err := db.Get(&before, `SELECT COUNT(*) FROM upstream_channels`); err != nil || before != 0 {

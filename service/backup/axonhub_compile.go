@@ -3,6 +3,7 @@ package backup
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/gcpsa"
 	"net/url"
 	"regexp"
 	"sort"
@@ -55,6 +56,8 @@ type axonHubPlanChannel struct {
 	DisabledKeys    map[string]bool
 	Provider        string
 	OAuthState      *store.DirectOAuthState
+	// GCPMaterial is the validated service-account JSON for gemini_vertex.
+	GCPMaterial string
 	// Entries maps a request model name onto the upstream model a grant to this
 	// channel has to send.
 	Entries map[string]string
@@ -66,7 +69,10 @@ type axonHubPlanCredential struct {
 	Secret          string
 	Kind            string
 	OAuthState      store.DirectOAuthState
-	Enabled         bool
+	// GCPMaterial is the service-account JSON for gcp_service_account
+	// credentials; Secret stays empty until the first token exchange.
+	GCPMaterial string
+	Enabled     bool
 }
 
 type axonHubPlanModel struct {
@@ -149,6 +155,16 @@ func CompileAxonHubPlan(src *AxonHubSource) (*axonHubPlan, error) {
 
 	plan.channels = derefChannels(channels)
 	for _, channel := range plan.channels {
+		if channel.GCPMaterial != "" {
+			plan.credentials = append(plan.credentials, axonHubPlanCredential{
+				ChannelSourceID: channel.SourceID,
+				Name:            credentialName(0, 1),
+				Kind:            store.DirectCredentialGCPServiceAccount,
+				GCPMaterial:     channel.GCPMaterial,
+				Enabled:         true,
+			})
+			continue
+		}
 		for i, secret := range channel.CredentialKeys {
 			kind := store.DirectCredentialAPIKey
 			if secret == "" {
@@ -294,7 +310,7 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 	if channel.Credentials.Azure {
 		reasons = append(reasons, "azure_credentials_unsupported")
 	}
-	if channel.Credentials.GCP {
+	if channel.Credentials.GCP != nil && channel.Type != "gemini_vertex" {
 		reasons = append(reasons, "gcp_credentials_unsupported")
 	}
 	for _, key := range channel.Credentials.UnsupportedFields {
@@ -307,6 +323,9 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 			reasons = append(reasons, "oauth_token_type_unsupported")
 		}
 	}
+	if len(keys) == 0 && channel.Credentials.GCP != nil && channel.Type == "gemini_vertex" {
+		keys = []string{""}
+	}
 	if len(keys) == 0 {
 		if axonHubOptionalAuth(channel) {
 			// An empty secret is the explicit no-auth credential. Never replace
@@ -314,6 +333,21 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 			keys = []string{""}
 		} else {
 			reasons = append(reasons, "credential_missing")
+		}
+	}
+	// gemini_vertex serves bearer tokens exchanged from the SA material only;
+	// an API-key-shaped channel would fail at the upstream on every request.
+	if channel.Type == "gemini_vertex" && channel.Credentials.GCP == nil {
+		reasons = append(reasons, "gcp_credential_missing")
+	}
+	gcpMaterial := ""
+	if gcp := channel.Credentials.GCP; gcp != nil && channel.Type == "gemini_vertex" {
+		if _, _, err := gcpsa.Parse(gcp.JSONData); err != nil {
+			reasons = append(reasons, "gcp_credential_invalid")
+		} else if strings.TrimSpace(gcp.ProjectID) == "" {
+			reasons = append(reasons, "gcp_project_missing")
+		} else {
+			gcpMaterial = gcp.JSONData
 		}
 	}
 	if len(reasons) > 0 {
@@ -379,8 +413,10 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		Tags:           channel.Tags,
 		CredentialKeys: keys,
 		OAuthState:     axonHubOAuthState(channel.Credentials.OAuthCredentials),
-		DisabledKeys:   map[string]bool{},
-		Entries:        axonHubChannelEntries(channel),
+		GCPMaterial:    gcpMaterial,
+
+		DisabledKeys: map[string]bool{},
+		Entries:      axonHubChannelEntries(channel),
 	}
 	for _, disabled := range channel.DisabledAPIKeys {
 		if disabled.Key == "__oauth__" && channel.Credentials.OAuth && len(keys) > 0 {
@@ -568,7 +604,7 @@ func credentialKeys(credentials AxonHubSourceCredentials) []string {
 		seen[key] = true
 		keys = append(keys, key)
 	}
-	if credentials.OAuth || credentials.Azure || credentials.GCP {
+	if credentials.OAuth || credentials.Azure || credentials.GCP != nil {
 		return nil
 	}
 	add(credentials.APIKey)

@@ -181,6 +181,10 @@ func (e *DirectEndpoints) Scan(value any) error {
 			if entry.Protocol != DirectProtocolMessages || endpoint.Auth != DirectAuthBearer || !endpoint.ModelPath {
 				return fmt.Errorf("Bedrock requires bearer Messages and a model URL prefix")
 			}
+		case "vertex":
+			if (entry.Protocol != DirectProtocolGemini && entry.Protocol != DirectProtocolGeminiEmbeddings) || endpoint.Auth != DirectAuthBearer || !endpoint.ModelPath {
+				return fmt.Errorf("Vertex requires bearer Gemini endpoints and a model URL prefix")
+			}
 		case "seedance-video", "zenmux-video":
 			validSlot := endpoint.Profile == "seedance-video" && entry.Protocol == DirectProtocolSeedanceVideo || endpoint.Profile == "zenmux-video" && entry.Protocol == DirectProtocolZenmuxVideo
 			if !validSlot || endpoint.Auth != DirectAuthBearer {

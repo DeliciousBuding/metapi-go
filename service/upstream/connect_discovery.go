@@ -30,7 +30,7 @@ func connectModelsEndpoint(endpoints store.DirectEndpoints) (string, string, str
 		if ep == nil {
 			continue
 		}
-		if ep.Profile == "bedrock" || ep.Profile == "codex" || ep.Profile == "claudecode" || ep.Profile == "cline" || strings.HasPrefix(ep.Profile, "codex-") {
+		if ep.Profile == "bedrock" || ep.Profile == "vertex" || ep.Profile == "codex" || ep.Profile == "claudecode" || ep.Profile == "cline" || strings.HasPrefix(ep.Profile, "codex-") {
 			continue
 		}
 		u, err := url.Parse(ep.URL)

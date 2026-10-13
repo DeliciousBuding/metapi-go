@@ -3965,6 +3965,7 @@
         "connecting": "连接中…",
         "apiKey": "API Key",
         "optionalKey": "API Key（可选）",
+        "projectId": "GCP 项目",
         "optionalName": "名称（可选）",
         "authorize": "授权连接",
         "connected": {

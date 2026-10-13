@@ -23,13 +23,14 @@ func RegisterUpstreamPresetRoutes(r chi.Router) {
 
 func resolveUpstreamPreset(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		PresetID string `json:"presetId"`
-		BaseURL  string `json:"baseUrl"`
+		PresetID  string `json:"presetId"`
+		BaseURL   string `json:"baseUrl"`
+		ProjectID string `json:"projectId"`
 	}
 	if !catalogDecode(w, r, &input) {
 		return
 	}
-	preset, config, base, err := resolveUpstreamPresetConfig(input.PresetID, input.BaseURL)
+	preset, config, base, err := resolveUpstreamPresetConfig(input.PresetID, input.BaseURL, input.ProjectID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -39,7 +40,7 @@ func resolveUpstreamPreset(w http.ResponseWriter, r *http.Request) {
 
 // resolveUpstreamPresetConfig is shared with quick connect. It is a local
 // projection only: no model discovery, credential access or outbound request.
-func resolveUpstreamPresetConfig(presetID, baseURL string) (*service.UpstreamPreset, store.DirectEndpoints, string, error) {
+func resolveUpstreamPresetConfig(presetID, baseURL, projectID string) (*service.UpstreamPreset, store.DirectEndpoints, string, error) {
 	preset := service.GetUpstreamPreset(presetID)
 	if preset == nil {
 		return nil, store.DirectEndpoints{}, "", fmt.Errorf("unknown upstream preset")
@@ -72,6 +73,14 @@ func resolveUpstreamPresetConfig(presetID, baseURL string) (*service.UpstreamPre
 			}
 			*address = proxy.BuildUpstreamURL(endpointBase, *address)
 		}
+	}
+	if preset.RequiresProject {
+		config, err = service.DeriveVertexEndpoints(config, base, projectID)
+		if err != nil {
+			return nil, store.DirectEndpoints{}, "", err
+		}
+	} else if strings.TrimSpace(projectID) != "" {
+		return nil, store.DirectEndpoints{}, "", fmt.Errorf("this platform has no project setting")
 	}
 	raw, err := config.Value()
 	if err != nil {

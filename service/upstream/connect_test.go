@@ -2,7 +2,11 @@ package upstream_test
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
@@ -353,4 +357,55 @@ func TestConnectDiscoveryProxyAndNativeCatalogs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConnectVertexGCPCredential(t *testing.T) {
+	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
+		t.Run(dialect, func(t *testing.T) {
+			db := connectDatabase(t, dialect)
+			key, err := rsa.GenerateKey(rand.Reader, 2048)
+			if err != nil {
+				t.Fatal(err)
+			}
+			der, err := x509.MarshalPKCS8PrivateKey(key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			material := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+			sa := `{"type":"service_account","client_email":"fixture@example.iam.gserviceaccount.com","private_key":` + mustJSONQuote(t, material) + `,"token_uri":"https://oauth2.googleapis.com/token"}`
+			vertex := &store.DirectEndpoint{URL: "https://us-central1-aiplatform.googleapis.com/v1/projects/my-project/locations/us-central1/publishers/google/models", Auth: store.DirectAuthBearer, ModelPath: true, Profile: "vertex"}
+			out, err := upstream.Connect(t.Context(), db.DB, upstream.ConnectInput{
+				Channel: upstream.ChannelCreate{
+					Name: "Vertex Fixture", Provider: "gemini_vertex", BaseURL: "https://us-central1-aiplatform.googleapis.com",
+					Endpoints: store.DirectEndpoints{Gemini: vertex, GeminiEmbeddings: vertex},
+				},
+				CredentialKind:    store.DirectCredentialGCPServiceAccount,
+				GCPServiceAccount: &sa,
+				RecommendedModels: []string{"gemini-2.5-pro", "gemini-2.5-flash"},
+			})
+			if err != nil {
+				t.Fatalf("connect: %v", err)
+			}
+			// The vertex profile has no derivable catalog: preset models, honestly labeled.
+			if out.Discovery.Status != "preset" || out.ModelCount != 2 || out.RouteCount != 2 {
+				t.Fatalf("preset fallback: %+v", out)
+			}
+			var kind, secret, gcpColumn string
+			if err := db.QueryRow(db.Rebind(`SELECT kind, secret, COALESCE(gcp_service_account,'') FROM upstream_credentials`)).Scan(&kind, &secret, &gcpColumn); err != nil {
+				t.Fatal(err)
+			}
+			if kind != store.DirectCredentialGCPServiceAccount || secret != "" || !strings.Contains(gcpColumn, "fixture@example.iam.gserviceaccount.com") {
+				t.Fatalf("credential row: kind=%s secret=%q gcp=%d bytes", kind, secret, len(gcpColumn))
+			}
+		})
+	}
+}
+
+func mustJSONQuote(t *testing.T, value string) string {
+	t.Helper()
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
 }

@@ -50,7 +50,7 @@ func axonHubOAuthProvider(provider string) bool {
 
 func axonHubOptionalAuth(channel AxonHubSourceChannel) bool {
 	return (channel.Type == "ollama" || channel.Type == "ollama_anthropic") &&
-		!channel.Credentials.OAuth && !channel.Credentials.Azure && !channel.Credentials.GCP &&
+		!channel.Credentials.OAuth && !channel.Credentials.Azure && channel.Credentials.GCP == nil &&
 		len(credentialKeys(channel.Credentials)) == 0
 }
 

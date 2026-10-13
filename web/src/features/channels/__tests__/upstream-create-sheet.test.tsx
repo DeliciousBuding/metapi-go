@@ -90,6 +90,18 @@ const presets: UpstreamPreset[] = [
     group: 'other',
     credentialMode: 'oauth',
   },
+  {
+    ...base,
+    id: 'vertex-gemini',
+    name: 'Google Vertex AI',
+    label: 'Google Vertex AI',
+    provider: 'gemini_vertex',
+    group: 'other',
+    defaultUrl: 'https://us-central1-aiplatform.googleapis.com',
+    credentialMode: 'gcpServiceAccount' as const,
+    requiresProject: true,
+    protocols: ['gemini', 'geminiEmbeddings'] as UpstreamPreset['protocols'],
+  },
 ]
 const result: UpstreamConnectResult = {
   id: 42,
@@ -286,5 +298,43 @@ describe('platform quick connect', () => {
         useSystemProxy: true,
       })
     )
+  })
+})
+
+describe('vertex preset connect', () => {
+  async function chooseVertex() {
+    fireEvent.click(await screen.findByRole('tab', { name: 'More' }))
+    await choose('Google Vertex AI')
+  }
+  it('collects project and service-account material instead of an API key', async () => {
+    setup()
+    await chooseVertex()
+    expect(screen.queryByLabelText('API Key')).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/GCP project/i)).toBeInTheDocument()
+    const material = '{"type":"service_account","client_email":"a@b.iam"}'
+    fireEvent.change(screen.getByLabelText(/GCP project/i), {
+      target: { value: 'my-project' },
+    })
+    fireEvent.change(
+      screen.getByPlaceholderText('{"type":"service_account",...}'),
+      { target: { value: material } }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    await waitFor(() =>
+      expect(mocks.connect).toHaveBeenCalledWith({
+        presetId: 'vertex-gemini',
+        gcpServiceAccount: material,
+        projectId: 'my-project',
+      })
+    )
+  })
+  it('requires project and material before connecting', async () => {
+    setup()
+    await chooseVertex()
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    expect(await screen.findAllByText('This field is required.')).toHaveLength(
+      2
+    )
+    expect(mocks.connect).not.toHaveBeenCalled()
   })
 })

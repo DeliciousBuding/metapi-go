@@ -67,6 +67,10 @@ export type UpstreamGroupCreate = {
 export type UpstreamConnectInput = {
   presetId: string
   apiKey?: string
+  /** SA JSON key document when the preset uses a GCP service account. */
+  gcpServiceAccount?: string
+  /** GCP project ID/number for parameterized presets (Vertex). */
+  projectId?: string
   baseUrl?: string
   name?: string
   useSystemProxy?: boolean

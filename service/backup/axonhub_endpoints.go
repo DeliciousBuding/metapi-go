@@ -87,6 +87,12 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 		if format == "zenmux/video" && !strings.HasPrefix(channel.Type, "zenmux") {
 			return 0, endpoints, []string{"source_endpoint_provider_mismatch"}, nil
 		}
+		// Vertex endpoints derive from the audited host+project contract; the
+		// generic custom path would force Google API-key auth, which a
+		// service-account token cannot serve.
+		if channel.Type == "gemini_vertex" {
+			return 0, endpoints, []string{"vertex_custom_endpoint_unsupported"}, nil
+		}
 	}
 	protocols := 0
 	var residuals []string

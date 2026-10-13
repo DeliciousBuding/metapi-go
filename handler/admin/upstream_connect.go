@@ -11,17 +11,19 @@ import (
 
 func (h *upstreamCatalogHandler) connect(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		PresetID       string  `json:"presetId"`
-		APIKey         *string `json:"apiKey,omitempty"`
-		BaseURL        string  `json:"baseUrl,omitempty"`
-		Name           string  `json:"name,omitempty"`
-		UseSystemProxy bool    `json:"useSystemProxy,omitempty"`
-		ChannelProxy   string  `json:"channelProxy,omitempty"`
+		PresetID          string  `json:"presetId"`
+		APIKey            *string `json:"apiKey,omitempty"`
+		GCPServiceAccount *string `json:"gcpServiceAccount,omitempty"`
+		BaseURL           string  `json:"baseUrl,omitempty"`
+		ProjectID         string  `json:"projectId,omitempty"`
+		Name              string  `json:"name,omitempty"`
+		UseSystemProxy    bool    `json:"useSystemProxy,omitempty"`
+		ChannelProxy      string  `json:"channelProxy,omitempty"`
 	}
 	if !catalogDecode(w, r, &input) {
 		return
 	}
-	preset, endpoints, base, err := resolveUpstreamPresetConfig(input.PresetID, input.BaseURL)
+	preset, endpoints, base, err := resolveUpstreamPresetConfig(input.PresetID, input.BaseURL, input.ProjectID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -51,12 +53,23 @@ func (h *upstreamCatalogHandler) connect(w http.ResponseWriter, r *http.Request)
 		kind = store.DirectCredentialNone
 		input.APIKey = nil
 	}
-	secret, kind, state, err := oauth.ValidateDirectCredentialMaterial(preset.Provider, endpoints, kind, input.APIKey, nil)
+	if preset.CredentialMode == "gcpServiceAccount" {
+		kind = store.DirectCredentialGCPServiceAccount
+		if input.APIKey != nil && strings.TrimSpace(*input.APIKey) != "" {
+			writeError(w, http.StatusBadRequest, "This platform uses a GCP service account JSON, not an API key")
+			return
+		}
+	}
+	secret, kind, state, gcpMaterial, err := oauth.ValidateDirectCredentialMaterial(preset.Provider, endpoints, kind, input.APIKey, nil, input.GCPServiceAccount)
 	if err != nil {
 		catalogError(w, err)
 		return
 	}
-	out, err := upstream.Connect(r.Context(), h.db, upstream.ConnectInput{Channel: channel, AutoName: strings.TrimSpace(input.Name) == "", Secret: secret, CredentialKind: kind, OAuthState: state, RecommendedModels: preset.RecommendedModels})
+	connect := upstream.ConnectInput{Channel: channel, AutoName: strings.TrimSpace(input.Name) == "", Secret: secret, CredentialKind: kind, OAuthState: state, RecommendedModels: preset.RecommendedModels}
+	if gcpMaterial != "" {
+		connect.GCPServiceAccount = &gcpMaterial
+	}
+	out, err := upstream.Connect(r.Context(), h.db, connect)
 	if err != nil {
 		catalogError(w, err)
 		return

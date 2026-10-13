@@ -11,7 +11,11 @@ import (
 // UpstreamPreset is one product, including all configured protocols. Legacy
 // protocol variants remain resolvable aliases, not separate gallery cards.
 type UpstreamPreset struct {
-	ID                string   `json:"id"`
+	ID string `json:"id"`
+	// RequiresProject marks parameterized endpoint templates (Vertex): the
+	// resolve/connect inputs must carry projectId, and the region is parsed
+	// from the base URL host.
+	RequiresProject   bool     `json:"requiresProject,omitempty"`
 	Name              string   `json:"name"`
 	Label             string   `json:"label"`
 	Provider          string   `json:"provider"`
@@ -64,6 +68,7 @@ var upstreamPresetProducts = []upstreamPresetProduct{
 	{"openai-api", "OpenAI", "openai", "other", "apiKey", []string{"openai-api"}},
 	{"anthropic-api", "Anthropic", "anthropic", "other", "apiKey", []string{"anthropic-api"}},
 	{"gemini-api", "Google Gemini", "gemini", "other", "apiKey", []string{"gemini-api"}},
+	{"vertex-gemini", "Google Vertex AI", "gemini_vertex", "other", "gcpServiceAccount", []string{"vertex-gemini"}},
 	{"xai-api", "xAI", "xai", "other", "apiKey", []string{"xai-api"}},
 	{"groq", "Groq", "groq", "other", "apiKey", []string{"groq"}},
 	{"fireworks", "Fireworks AI", "fireworks", "other", "apiKey", []string{"fireworks"}},
@@ -130,6 +135,11 @@ func buildUpstreamPreset(product upstreamPresetProduct) UpstreamPreset {
 		}
 	}
 	preset.RequiresBaseURL = preset.DefaultURL == ""
+	for _, entry := range preset.endpoints.Entries() {
+		if entry.Endpoint != nil && strings.Contains(entry.Endpoint.URL, "{project}") {
+			preset.RequiresProject = true
+		}
+	}
 	return preset
 }
 
@@ -174,6 +184,7 @@ func upstreamPresetSource(id string) *UpstreamPreset {
 		"ollama-native":        {Platform: "ollama", DefaultURL: "http://localhost:11434"},
 		"ollama-anthropic":     {Platform: "ollama", DefaultURL: "http://localhost:11434"},
 		"bedrock-messages":     {Platform: "bedrock", DefaultURL: "https://bedrock-runtime.us-east-1.amazonaws.com"},
+		"vertex-gemini":        {Platform: "gemini", DefaultURL: "https://us-central1-aiplatform.googleapis.com", RecommendedModels: []string{"gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"}},
 		"typesafe-systemone":   {Platform: "typesafe", DefaultURL: "https://api.typesafe.ai/v1", RecommendedModels: []string{"jev-latest", "jev-preview"}},
 		"openai-alpha-search":  {Platform: "openai"},
 		"codex-alpha-search":   {Platform: "codex", DefaultURL: "https://chatgpt.com/backend-api/codex"},
