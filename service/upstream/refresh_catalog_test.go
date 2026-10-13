@@ -1,11 +1,13 @@
 package upstream_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/service/upstream"
@@ -51,7 +53,7 @@ func TestCatalogRefreshPreviewApplyRoundTrip(t *testing.T) {
 			// Upstream drops m1, adds m4.
 			live = []string{"m2", "m4"}
 
-			preview, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, channelID)
+			preview, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, channelID, nil)
 			if err != nil {
 				t.Fatalf("preview: %v", err)
 			}
@@ -71,7 +73,7 @@ func TestCatalogRefreshPreviewApplyRoundTrip(t *testing.T) {
 				t.Fatalf("manual: only=%#v legacy=%d", preview.ManualOnly, preview.LegacyNativeCount)
 			}
 
-			applied, err := upstream.ApplyCatalogRefresh(t.Context(), db.DB, channelID, preview.BasisToken)
+			applied, err := upstream.ApplyCatalogRefresh(t.Context(), db.DB, channelID, preview.BasisToken, nil)
 			if err != nil {
 				t.Fatalf("apply: %v", err)
 			}
@@ -112,7 +114,7 @@ func TestCatalogRefreshPreviewApplyRoundTrip(t *testing.T) {
 			}
 
 			// A fresh preview after apply: m1 is history (offline), not actionable stale.
-			after, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, channelID)
+			after, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, channelID, nil)
 			if err != nil {
 				t.Fatalf("second preview: %v", err)
 			}
@@ -127,7 +129,7 @@ func TestCatalogRefreshPreviewApplyRoundTrip(t *testing.T) {
 			}
 
 			// Same token twice: the basis moved, so the second apply is refused.
-			if _, err := upstream.ApplyCatalogRefresh(t.Context(), db.DB, channelID, preview.BasisToken); err == nil {
+			if _, err := upstream.ApplyCatalogRefresh(t.Context(), db.DB, channelID, preview.BasisToken, nil); err == nil {
 				t.Fatal("re-apply with a spent basis token must fail")
 			} else {
 				var domain *upstream.Error
@@ -145,7 +147,7 @@ func TestCatalogRefreshApplyRejectsStaleBasis(t *testing.T) {
 			live := []string{"m1"}
 			db, channelID := refreshChannelFixture(t, dialect, &live)
 
-			preview, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, channelID)
+			preview, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, channelID, nil)
 			if err != nil {
 				t.Fatalf("preview: %v", err)
 			}
@@ -153,7 +155,7 @@ func TestCatalogRefreshApplyRejectsStaleBasis(t *testing.T) {
 			if _, err := upstream.CreateModels(t.Context(), db.DB, channelID, upstream.ModelsCreate{Name: strPtr("concurrent-edit")}); err != nil {
 				t.Fatal(err)
 			}
-			_, err = upstream.ApplyCatalogRefresh(t.Context(), db.DB, channelID, preview.BasisToken)
+			_, err = upstream.ApplyCatalogRefresh(t.Context(), db.DB, channelID, preview.BasisToken, nil)
 			var domain *upstream.Error
 			if !errors.As(err, &domain) || domain.Status != 409 {
 				t.Fatalf("stale basis: got %v, want 409", err)
@@ -168,7 +170,7 @@ func TestCatalogRefreshDiscoveryEmptyCatalog(t *testing.T) {
 	live = nil // httptest now serves an empty catalog
 	// An empty authoritative catalog is a valid observation: everything
 	// discovered is stale, manual rows stay untouched.
-	preview, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, channelID)
+	preview, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, channelID, nil)
 	if err != nil {
 		t.Fatalf("empty catalog preview: %v", err)
 	}
@@ -177,5 +179,64 @@ func TestCatalogRefreshDiscoveryEmptyCatalog(t *testing.T) {
 	}
 	if len(preview.Stale) != 1 || preview.Stale[0].Name != "m1" {
 		t.Fatalf("stale: %#v", preview.Stale)
+	}
+}
+
+func TestCatalogRefreshGCPCredentialResolution(t *testing.T) {
+	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
+		t.Run(dialect, func(t *testing.T) {
+			setup := func(t *testing.T, seenAuth *atomic.Value) (*store.DB, int64) {
+				db := connectDatabase(t, dialect)
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					seenAuth.Store(r.Header.Get("Authorization"))
+					fmt.Fprint(w, `{"data":[{"id":"m1"}]}`)
+				}))
+				t.Cleanup(server.Close)
+				out, err := upstream.Connect(t.Context(), db.DB, connectInput(server.URL))
+				if err != nil {
+					t.Fatalf("connect: %v", err)
+				}
+				// gcp_service_account credentials hold no token until exchanged.
+				if _, err := db.Exec(db.Rebind(`UPDATE upstream_credentials SET kind=?, secret='' WHERE channel_id=?`), store.DirectCredentialGCPServiceAccount, out.ID); err != nil {
+					t.Fatal(err)
+				}
+				return db, out.ID
+			}
+
+			t.Run("resolves token for discovery", func(t *testing.T) {
+				var seenAuth atomic.Value
+				db, channelID := setup(t, &seenAuth)
+				resolve := func(ctx context.Context, credentialID int64, proxyURL *string) (string, error) {
+					return "fixture-gcp-token", nil
+				}
+				if _, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, channelID, resolve); err != nil {
+					t.Fatalf("preview: %v", err)
+				}
+				if got, _ := seenAuth.Load().(string); got != "Bearer fixture-gcp-token" {
+					t.Fatalf("upstream authorization: %q", got)
+				}
+			})
+
+			t.Run("exchange failure is explicit", func(t *testing.T) {
+				var seenAuth atomic.Value
+				db, channelID := setup(t, &seenAuth)
+				resolve := func(ctx context.Context, credentialID int64, proxyURL *string) (string, error) {
+					return "", errors.New("material rejected")
+				}
+				_, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, channelID, resolve)
+				if err == nil || !strings.Contains(err.Error(), "token exchange failed") {
+					t.Fatalf("preview error: %v", err)
+				}
+			})
+
+			t.Run("no resolver reports no usable credential", func(t *testing.T) {
+				var seenAuth atomic.Value
+				db, channelID := setup(t, &seenAuth)
+				_, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, channelID, nil)
+				if err == nil || !strings.Contains(err.Error(), "no enabled credential") {
+					t.Fatalf("preview error: %v", err)
+				}
+			})
+		})
 	}
 }

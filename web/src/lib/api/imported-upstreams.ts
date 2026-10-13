@@ -107,7 +107,7 @@ export type ImportedCredential = {
   id: number
   name: string
   enabled: boolean
-  kind: 'api_key' | 'oauth' | 'none'
+  kind: 'api_key' | 'oauth' | 'none' | 'gcp_service_account'
   expiresAt?: number // Unix milliseconds
   canRefresh: boolean
 }
@@ -116,7 +116,7 @@ export type ImportedCredentialUpdate = {
   name?: string
   enabled?: boolean
   apiKey?: string
-  kind?: 'api_key' | 'oauth' | 'none'
+  kind?: 'api_key' | 'oauth' | 'none' | 'gcp_service_account'
   oauth?: {
     accessToken: string
     refreshToken?: string
@@ -125,6 +125,8 @@ export type ImportedCredentialUpdate = {
     idToken?: string
     accountId?: string
   }
+  /** SA JSON key document when kind is gcp_service_account. Never returned. */
+  gcpServiceAccount?: string
 }
 
 export type ImportedUpstreamInventory = {

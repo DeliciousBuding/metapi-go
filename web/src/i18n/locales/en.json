@@ -3882,6 +3882,8 @@
           "selectedByGroup": "Not selected by routing group"
         },
         "noAuthentication": "No authentication",
+        "gcpServiceAccount": "GCP service account",
+        "gcpServiceAccountHint": "Paste the service-account JSON key file. Exchanged access tokens are cached and refreshed automatically; the JSON is never displayed back.",
         "anonymousUnavailable": "Configure an Ollama endpoint without authentication first.",
         "modelPrefixUrl": "Model URL prefix (ending in /model)",
         "modelWireUrls": {

@@ -17,6 +17,9 @@ import {
 
 export function credentialKindLabel(kind: ImportedCredential['kind']) {
   if (kind === 'none') return t('channels.upstream.noAuthentication')
+  if (kind === 'gcp_service_account') {
+    return t('channels.upstream.gcpServiceAccount')
+  }
   return kind === 'oauth' ? 'OAuth' : 'API Key'
 }
 

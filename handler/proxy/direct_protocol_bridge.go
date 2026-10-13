@@ -115,7 +115,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 			proxyURL = &value
 		}
 		credential, err = cfg.ResolveDirectCredential(r.Context(), selected.Direct.CredentialID, proxyURL, false)
-	} else if selected.Direct.CredentialKind == store.DirectCredentialOAuth || selected.Direct.CredentialKind == store.DirectCredentialNone {
+	} else if selected.Direct.CredentialKind == store.DirectCredentialOAuth || selected.Direct.CredentialKind == store.DirectCredentialNone || selected.Direct.CredentialKind == store.DirectCredentialGCPServiceAccount {
 		err = oauth.ErrDirectCredentialUnavailable
 	}
 	anonymous := credential != nil && credential.Kind == store.DirectCredentialNone && credential.AccessToken == "" && store.DirectProviderAllowsAnonymous(credential.Provider) && endpoint != nil && endpoint.Auth == store.DirectAuthNone

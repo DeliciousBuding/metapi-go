@@ -3,7 +3,9 @@ package upstream
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -69,6 +72,17 @@ type CatalogRefreshApplyResult struct {
 	AffectedRouteIDs []int64 `json:"affectedRouteIds"`
 }
 
+// DiscoveryCredentialResolver resolves one stored credential to a usable
+// bearer token, performing the credential kind's exchange when its cached
+// token is missing or expired (gcp_service_account). The caller wires it —
+// the admin handler uses oauth.ResolveDirectCredential; nil means only
+// stored secrets are usable. Resolving may write the credential's token
+// cache (the same lazily-refreshed cache real requests maintain); catalog
+// rows are still never written by preview.
+type DiscoveryCredentialResolver func(ctx context.Context, credentialID int64, proxyURL *string) (string, error)
+
+var errDiscoveryExchangeFailed = errors.New("discovery credential token exchange failed")
+
 type catalogModelRow struct {
 	ID      int64  `db:"id"`
 	Name    string `db:"name"`
@@ -95,26 +109,67 @@ func loadCatalogChannel(ctx context.Context, db *sqlx.DB, channelID int64) (*cat
 	return &row, nil
 }
 
-// loadDiscoveryCredential returns the secret of the channel's first enabled
-// credential with usable material. The secret is used for the upstream call
-// only and never leaves the process.
-func loadDiscoveryCredential(ctx context.Context, db *sqlx.DB, channelID int64) (string, error) {
-	var secret string
-	err := db.GetContext(ctx, &secret, db.Rebind(`SELECT secret FROM upstream_credentials WHERE channel_id=? AND enabled AND secret <> '' ORDER BY id LIMIT 1`), channelID)
-	if err != nil {
+// loadDiscoveryCredential returns a usable bearer token from the channel's
+// first enabled credential. Stored secrets (api_key) are used as-is;
+// gcp_service_account credentials hold no token until their first exchange,
+// so they go through the resolver — a channel whose only credential is a
+// service account still discovers. Tokens are used for the upstream call
+// only and never leave the process.
+func loadDiscoveryCredential(ctx context.Context, db *sqlx.DB, channelID int64, proxyURL *string, resolve DiscoveryCredentialResolver) (string, error) {
+	rows := []struct {
+		ID     int64  `db:"id"`
+		Kind   string `db:"kind"`
+		Secret string `db:"secret"`
+	}{}
+	if err := db.SelectContext(ctx, &rows, db.Rebind(`SELECT id,kind,secret FROM upstream_credentials WHERE channel_id=? AND enabled ORDER BY id`), channelID); err != nil {
 		return "", err
 	}
-	return secret, nil
+	exchangeFailed := false
+	for _, row := range rows {
+		if row.Kind != store.DirectCredentialGCPServiceAccount {
+			if row.Secret != "" {
+				return row.Secret, nil
+			}
+			continue
+		}
+		if resolve == nil {
+			continue
+		}
+		token, err := resolve(ctx, row.ID, proxyURL)
+		if err != nil || token == "" {
+			exchangeFailed = true
+			continue
+		}
+		return token, nil
+	}
+	if exchangeFailed {
+		return "", errDiscoveryExchangeFailed
+	}
+	return "", sql.ErrNoRows
 }
 
 // discoverChannelCatalog runs the fallback-free discovery for a stored channel.
-func discoverChannelCatalog(ctx context.Context, db *sqlx.DB, channel *catalogChannelRow) ([]string, Discovery, error) {
+func discoverChannelCatalog(ctx context.Context, db *sqlx.DB, channel *catalogChannelRow, resolve DiscoveryCredentialResolver) ([]string, Discovery, error) {
 	secret := ""
 	_, auth, _ := connectModelsEndpoint(channel.EndpointConfig)
 	if auth != store.DirectAuthNone {
+		// The token exchange uses the same egress path as the catalog call.
+		proxyURL := channel.ChannelProxy
+		if proxyURL == "" && channel.UseSystemProxy {
+			if runtime := config.RuntimeSafe(); runtime != nil {
+				proxyURL = runtime.SystemProxyUrl
+			}
+		}
+		var proxyPtr *string
+		if proxyURL != "" {
+			proxyPtr = &proxyURL
+		}
 		var err error
-		secret, err = loadDiscoveryCredential(ctx, db, channel.ID)
+		secret, err = loadDiscoveryCredential(ctx, db, channel.ID, proxyPtr, resolve)
 		if err != nil {
+			if errors.Is(err, errDiscoveryExchangeFailed) {
+				return nil, Discovery{}, invalid("Channel credential token exchange failed")
+			}
 			return nil, Discovery{}, invalid("Channel has no enabled credential for model discovery")
 		}
 	}
@@ -207,13 +262,15 @@ func computeCatalogDiff(rows []catalogModelRow, discovered []string, discoveryOr
 	return added, kept, manualOnly, manualKept, offline, stale
 }
 
-// PreviewCatalogRefresh computes the read-only diff for one channel.
-func PreviewCatalogRefresh(ctx context.Context, db *sqlx.DB, channelID int64) (CatalogRefreshPreview, error) {
+// PreviewCatalogRefresh computes the diff for one channel. Catalog rows are
+// never written; a gcp_service_account credential may perform its token
+// exchange (cached under the credential) so discovery can authenticate.
+func PreviewCatalogRefresh(ctx context.Context, db *sqlx.DB, channelID int64, resolve DiscoveryCredentialResolver) (CatalogRefreshPreview, error) {
 	channel, err := loadCatalogChannel(ctx, db, channelID)
 	if err != nil {
 		return CatalogRefreshPreview{}, err
 	}
-	discovered, discovery, err := discoverChannelCatalog(ctx, db, channel)
+	discovered, discovery, err := discoverChannelCatalog(ctx, db, channel, resolve)
 	if err != nil {
 		return CatalogRefreshPreview{}, err
 	}
@@ -258,7 +315,7 @@ func PreviewCatalogRefresh(ctx context.Context, db *sqlx.DB, channelID int64) (C
 // recomputed from a fresh discovery plus the locked catalog rows; any change
 // since the preview — catalog edits, concurrent applies, upstream movement —
 // fails with 409 and requires a new preview.
-func ApplyCatalogRefresh(ctx context.Context, db *sqlx.DB, channelID int64, basisToken string) (CatalogRefreshApplyResult, error) {
+func ApplyCatalogRefresh(ctx context.Context, db *sqlx.DB, channelID int64, basisToken string, resolve DiscoveryCredentialResolver) (CatalogRefreshApplyResult, error) {
 	if strings.TrimSpace(basisToken) == "" {
 		return CatalogRefreshApplyResult{}, invalid("basisToken is required")
 	}
@@ -266,7 +323,7 @@ func ApplyCatalogRefresh(ctx context.Context, db *sqlx.DB, channelID int64, basi
 	if err != nil {
 		return CatalogRefreshApplyResult{}, err
 	}
-	discovered, _, err := discoverChannelCatalog(ctx, db, channel)
+	discovered, _, err := discoverChannelCatalog(ctx, db, channel, resolve)
 	if err != nil {
 		return CatalogRefreshApplyResult{}, err
 	}

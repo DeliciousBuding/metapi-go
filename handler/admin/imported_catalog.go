@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -128,15 +129,26 @@ func (h *upstreamCatalogHandler) createModels(w http.ResponseWriter, r *http.Req
 	writeJSON(w, 201, map[string]any{"items": out})
 }
 
+// discoveryCredentialResolver resolves refreshable credential kinds (GCP
+// service account) to a usable bearer token through the oauth owner.
+func (h *upstreamCatalogHandler) discoveryCredentialResolver(ctx context.Context, credentialID int64, proxyURL *string) (string, error) {
+	res, err := oauth.ResolveDirectCredential(ctx, h.db, credentialID, proxyURL, false)
+	if err != nil {
+		return "", err
+	}
+	return res.AccessToken, nil
+}
+
 // refreshModelsPreview computes the read-only discovery diff for one
-// channel's model catalog (E batch). No writes; the returned basisToken binds
-// the current catalog and the discovered set for a later apply.
+// channel's model catalog (E batch). No catalog writes; the returned
+// basisToken binds the current catalog and the discovered set for a later
+// apply. Resolving a service-account credential may refresh its token cache.
 func (h *upstreamCatalogHandler) refreshModelsPreview(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
 		return
 	}
-	out, err := upstream.PreviewCatalogRefresh(r.Context(), h.db, id)
+	out, err := upstream.PreviewCatalogRefresh(r.Context(), h.db, id, h.discoveryCredentialResolver)
 	if err != nil {
 		catalogError(w, err)
 		return
@@ -157,7 +169,7 @@ func (h *upstreamCatalogHandler) refreshModelsApply(w http.ResponseWriter, r *ht
 	if !catalogDecode(w, r, &in) {
 		return
 	}
-	out, err := upstream.ApplyCatalogRefresh(r.Context(), h.db, id, in.BasisToken)
+	out, err := upstream.ApplyCatalogRefresh(r.Context(), h.db, id, in.BasisToken, h.discoveryCredentialResolver)
 	if err != nil {
 		catalogError(w, err)
 		return

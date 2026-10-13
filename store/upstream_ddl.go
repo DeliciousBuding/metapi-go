@@ -34,6 +34,7 @@ func buildUpstreamCredentialsDDL(d string) string {
 			channel_id INTEGER NOT NULL REFERENCES upstream_channels(id) ON DELETE CASCADE,
 			source_id BIGINT NOT NULL, name TEXT NOT NULL, secret TEXT NOT NULL, enabled BOOLEAN NOT NULL,
 			kind TEXT NOT NULL DEFAULT 'api_key', oauth_state TEXT NOT NULL DEFAULT '{}',
+			gcp_service_account TEXT,
 			UNIQUE(origin_key, source_id), UNIQUE(channel_id, name)
 		)`
 	}
@@ -41,6 +42,7 @@ func buildUpstreamCredentialsDDL(d string) string {
 		id INTEGER PRIMARY KEY AUTOINCREMENT, origin_key TEXT NOT NULL, channel_id INTEGER NOT NULL,
 		source_id BIGINT NOT NULL, name TEXT NOT NULL, secret TEXT NOT NULL, enabled INTEGER NOT NULL,
 		kind TEXT NOT NULL DEFAULT 'api_key', oauth_state TEXT NOT NULL DEFAULT '{}',
+		gcp_service_account TEXT,
 		UNIQUE(origin_key, source_id), UNIQUE(channel_id, name),
 		FOREIGN KEY (channel_id) REFERENCES upstream_channels(id) ON DELETE CASCADE
 	)`

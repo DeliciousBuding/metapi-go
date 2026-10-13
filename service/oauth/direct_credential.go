@@ -32,6 +32,7 @@ type directCredentialRow struct {
 	Secret         string                 `db:"secret"`
 	Kind           string                 `db:"kind"`
 	RawOAuth       string                 `db:"oauth_state"`
+	GCPMaterial    *string                `db:"gcp_service_account"`
 	Provider       string                 `db:"provider"`
 	Enabled        bool                   `db:"enabled"`
 	ChannelEnabled bool                   `db:"channel_enabled"`
@@ -68,7 +69,7 @@ func loadDirectCredential(ctx context.Context, db *sqlx.DB, id int64) (*directCr
 		return nil, ErrDirectCredentialUnavailable
 	}
 	var row directCredentialRow
-	if err := db.GetContext(ctx, &row, db.Rebind(`SELECT k.secret,k.kind,k.oauth_state,k.enabled,c.provider,c.endpoint_config,c.enabled AS channel_enabled FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), id); err != nil {
+	if err := db.GetContext(ctx, &row, db.Rebind(`SELECT k.secret,k.kind,k.oauth_state,k.gcp_service_account,k.enabled,c.provider,c.endpoint_config,c.enabled AS channel_enabled FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), id); err != nil {
 		return nil, ErrDirectCredentialUnavailable
 	}
 	if !row.Enabled || !row.ChannelEnabled {
@@ -76,6 +77,20 @@ func loadDirectCredential(ctx context.Context, db *sqlx.DB, id int64) (*directCr
 	}
 	if row.Kind == store.DirectCredentialNone {
 		if !store.DirectProviderAllowsAnonymous(row.Provider) || row.Endpoints.AnonymousProtocolMask() == 0 || row.Secret != "" || row.State.Scan(row.RawOAuth) != nil || row.State != (store.DirectOAuthState{}) {
+			return nil, ErrDirectCredentialUnavailable
+		}
+		return &row, nil
+	}
+	if row.Kind == store.DirectCredentialGCPServiceAccount {
+		// The live token cache may be empty until the first exchange; the
+		// material is what makes the credential resolvable.
+		if row.GCPMaterial == nil {
+			return nil, ErrDirectCredentialUnavailable
+		}
+		if _, _, err := parseGCPServiceAccount(*row.GCPMaterial); err != nil {
+			return nil, ErrDirectCredentialUnavailable
+		}
+		if row.State.Scan(row.RawOAuth) != nil {
 			return nil, ErrDirectCredentialUnavailable
 		}
 		return &row, nil
@@ -115,6 +130,15 @@ func ResolveDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyUR
 	if row.Kind == store.DirectCredentialAPIKey || row.Kind == store.DirectCredentialNone {
 		return directCredentialResult(row), nil
 	}
+	if row.Kind == store.DirectCredentialGCPServiceAccount && row.State.RefreshToken == "" {
+		// Cached-token fast path; the slow path exchanges via the singleflight
+		// below. The refresh-token distinction does not apply to SA exchange.
+		now := time.Now().UnixMilli()
+		if !forceRefresh && row.State.ExpiresAt > now+gcpTokenSkew.Milliseconds() && row.Secret != "" {
+			return directCredentialResult(row), nil
+		}
+		return resolveGCPCredential(ctx, db, id, proxyURL)
+	}
 	now := time.Now().UnixMilli()
 	if !forceRefresh && row.State.ExpiresAt > now+3*60*1000 {
 		return directCredentialResult(row), nil
@@ -148,6 +172,68 @@ func ResolveDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyUR
 	case <-promise.done:
 		return promise.result, promise.err
 	}
+}
+
+// resolveGCPCredential exchanges the service-account material for an access
+// token under the shared per-credential singleflight, then caches it in
+// secret + oauth_state.expiresAt with the same optimistic-concurrency guard
+// as OAuth refresh.
+func resolveGCPCredential(ctx context.Context, db *sqlx.DB, id int64, proxyURL *string) (*DirectCredentialResult, error) {
+	key := directRefreshKey{db: db, id: id}
+	directRefreshMu.Lock()
+	promise := directRefreshes[key]
+	if promise == nil {
+		promise = &directRefreshPromise{done: make(chan struct{})}
+		directRefreshes[key] = promise
+		go func() {
+			exchangeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+			defer cancel()
+			promise.result, promise.err = exchangeGCPCredential(exchangeCtx, db, id, proxyURL)
+			directRefreshMu.Lock()
+			delete(directRefreshes, key)
+			close(promise.done)
+			directRefreshMu.Unlock()
+		}()
+	}
+	directRefreshMu.Unlock()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-promise.done:
+		return promise.result, promise.err
+	}
+}
+
+func exchangeGCPCredential(ctx context.Context, db *sqlx.DB, id int64, proxyURL *string) (*DirectCredentialResult, error) {
+	row, err := loadDirectCredential(ctx, db, id)
+	if err != nil {
+		return nil, err
+	}
+	if row.Kind != store.DirectCredentialGCPServiceAccount || row.GCPMaterial == nil {
+		return nil, ErrDirectCredentialUnavailable
+	}
+	token, expiresAt, err := exchangeGCPServiceAccount(ctx, *row.GCPMaterial, proxyURL)
+	if err != nil {
+		if errors.Is(err, ErrGCPTokenRejected) {
+			return nil, ErrDirectCredentialRevoked
+		}
+		return nil, ErrDirectCredentialRefresh
+	}
+	next := store.DirectOAuthState{ExpiresAt: expiresAt}
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE upstream_credentials SET secret=?,oauth_state=? WHERE id=? AND kind=? AND enabled=? AND secret=? AND oauth_state=?`), token, next, id, store.DirectCredentialGCPServiceAccount, true, row.Secret, row.RawOAuth)
+	if err != nil {
+		return nil, ErrDirectCredentialRefresh
+	}
+	if count, err := result.RowsAffected(); err != nil || count != 1 {
+		return nil, ErrDirectCredentialChanged
+	}
+	// Recheck enablement after the exchange; a mid-flight replacement must
+	// never authorize the just-superseded token.
+	current, err := loadDirectCredential(ctx, db, id)
+	if err != nil {
+		return nil, err
+	}
+	return directCredentialResult(current), nil
 }
 
 func refreshDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyURL *string, force bool) (*DirectCredentialResult, error) {
