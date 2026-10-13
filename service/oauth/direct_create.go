@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"context"
+	"github.com/deliciousbuding/metapi-go/internal/gcpsa"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/service/upstream"
@@ -68,7 +69,7 @@ func directCredentialMaterial(provider string, endpoints store.DirectEndpoints, 
 			return "", "", state, "", ErrInvalidDirectCredential
 		}
 		material := strings.TrimSpace(*gcp)
-		if _, _, err := parseGCPServiceAccount(material); err != nil {
+		if _, _, err := gcpsa.Parse(material); err != nil {
 			return "", "", state, "", ErrInvalidDirectCredential
 		}
 		return "", store.DirectCredentialGCPServiceAccount, state, material, nil

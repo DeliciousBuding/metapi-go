@@ -124,7 +124,7 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 
 	// Native provider families retain their own wire and credential contracts.
 	"gemini":         {DefaultFormats: []string{"gemini/contents", "gemini/embeddings"}, Supported: true},
-	"gemini_vertex":  {DefaultFormats: []string{"gemini/contents", "gemini/embeddings"}, Reason: reasonProviderTranslation},
+	"gemini_vertex":  {DefaultFormats: []string{"gemini/contents", "gemini/embeddings"}, Supported: true},
 	"antigravity":    {DefaultFormats: []string{"gemini/contents"}, Reason: reasonProviderTranslation},
 	"jina":           {DefaultFormats: []string{"jina/rerank", "jina/embeddings"}, Supported: true},
 	"ollama":         {DefaultFormats: []string{"ollama/chat"}, Supported: true},

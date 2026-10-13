@@ -10,7 +10,9 @@ export type UpstreamPreset = {
   group: 'domestic' | 'coding' | 'gateway' | 'other'
   defaultUrl: string
   requiresBaseUrl: boolean
-  credentialMode: 'apiKey' | 'optional' | 'oauth'
+  credentialMode: 'apiKey' | 'optional' | 'oauth' | 'gcpServiceAccount'
+  /** Parameterized endpoint templates (Vertex): connect needs projectId. */
+  requiresProject?: boolean
   protocols: Array<keyof ImportedEndpointConfig>
   recommendedModels: string[]
 }

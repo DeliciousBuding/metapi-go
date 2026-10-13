@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"slices"
@@ -59,7 +60,7 @@ func TestUpstreamPresetListSharesSiteRegistry(t *testing.T) {
 			t.Fatalf("duplicate or unconfigured product: %+v", preset)
 		}
 		seen[preset.ID] = true
-		if preset.RequiresBaseURL != (preset.DefaultURL == "") || !slices.Contains([]string{"apiKey", "optional", "oauth"}, preset.CredentialMode) {
+		if preset.RequiresBaseURL != (preset.DefaultURL == "") || !slices.Contains([]string{"apiKey", "optional", "oauth", "gcpServiceAccount"}, preset.CredentialMode) {
 			t.Fatalf("invalid quick-connect metadata: %+v", preset)
 		}
 		source := service.GetSiteInitializationPreset(preset.ID)
@@ -204,21 +205,26 @@ func TestUpstreamPresetRejectsInvalidInput(t *testing.T) {
 
 func TestUpstreamPresetResolverDefaultsAliasesAndCustomBases(t *testing.T) {
 	for _, id := range []string{"bailian", "codingplan-openai", "longcat", "zenmux", "opencode-go", "ollama-native", "codex"} {
-		preset, endpoints, base, err := resolveUpstreamPresetConfig(id, "")
+		preset, endpoints, base, err := resolveUpstreamPresetConfig(id, "", "")
 		if err != nil || base != preset.DefaultURL || !endpoints.IsConfigured() {
 			t.Fatalf("default resolve %s failed: %v", id, err)
 		}
 	}
 	for alias, canonical := range map[string]string{"bailian-claude": "bailian", "codingplan-claude": "codingplan-openai", "deepseek-claude": "deepseek-openai", "moonshot-claude": "moonshot-openai", "minimax-claude": "minimax-openai", "zhipu-coding-plan-claude": "zhipu-coding-plan-openai", "zai-coding-plan-claude": "zai-coding-plan-openai", "kimi-coding-claude": "kimi-coding-openai"} {
 		oldBase := service.GetSiteInitializationPreset(alias).DefaultURL
-		preset, legacy, base, err := resolveUpstreamPresetConfig(alias, oldBase)
-		_, defaults, defaultBase, defaultErr := resolveUpstreamPresetConfig(canonical, "")
+		preset, legacy, base, err := resolveUpstreamPresetConfig(alias, oldBase, "")
+		_, defaults, defaultBase, defaultErr := resolveUpstreamPresetConfig(canonical, "", "")
 		if err != nil || defaultErr != nil || preset.ID != canonical || base != defaultBase || !reflect.DeepEqual(legacy, defaults) {
 			t.Fatalf("legacy %s resolved its old Messages root as a custom Chat root: %v %v", alias, err, defaultErr)
 		}
 	}
 	for _, preset := range service.ListUpstreamPresets() {
-		_, config, actualBase, err := resolveUpstreamPresetConfig(preset.ID, " https://relay.example/custom/v1/ ")
+		if preset.RequiresProject {
+			// Parameterized presets reject non-Vertex hosts; see
+			// TestUpstreamPresetVertexDerivation.
+			continue
+		}
+		_, config, actualBase, err := resolveUpstreamPresetConfig(preset.ID, " https://relay.example/custom/v1/ ", "")
 		if err != nil || actualBase != "https://relay.example/custom/v1" {
 			t.Fatalf("custom %s: %s %v", preset.ID, actualBase, err)
 		}
@@ -245,7 +251,7 @@ func TestUpstreamPresetOpenRouterImagesUseDedicatedAPI(t *testing.T) {
 		{"", "https://openrouter.ai/api/v1/images"},
 		{"https://relay.example/custom/v1", "https://relay.example/custom/v1/images"},
 	} {
-		_, config, _, err := resolveUpstreamPresetConfig("openrouter", tc.base)
+		_, config, _, err := resolveUpstreamPresetConfig("openrouter", tc.base, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -334,5 +340,62 @@ func TestUpstreamPresetPlatformWireCRUD(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestUpstreamPresetVertexDerivation(t *testing.T) {
+	r := presetRouter()
+	resolve := func(id, base, project string) *httptest.ResponseRecorder {
+		return catalogRequest(r, "POST", catalogPrefix+"/presets/resolve", map[string]string{"presetId": id, "baseUrl": base, "projectId": project})
+	}
+	decode := func(out *httptest.ResponseRecorder) store.DirectEndpoints {
+		t.Helper()
+		var result struct {
+			Endpoints store.DirectEndpoints `json:"endpointConfig"`
+		}
+		if err := json.Unmarshal(out.Body.Bytes(), &result); err != nil {
+			t.Fatal(err)
+		}
+		return result.Endpoints
+	}
+
+	// Happy path: default region host + project ID derives both Gemini slots.
+	out := resolve("vertex-gemini", "", "my-project")
+	if out.Code != http.StatusOK {
+		t.Fatalf("resolve: %d %s", out.Code, out.Body.String())
+	}
+	endpoints := decode(out)
+	want := "https://us-central1-aiplatform.googleapis.com/v1/projects/my-project/locations/us-central1/publishers/google/models"
+	if endpoints.Gemini.URL != want || endpoints.GeminiEmbeddings.URL != want {
+		t.Fatalf("vertex URLs: %+v", endpoints)
+	}
+	if !endpoints.Gemini.ModelPath || endpoints.Gemini.Auth != store.DirectAuthBearer || endpoints.Gemini.Profile != "vertex" {
+		t.Fatalf("vertex wire contract drifted: %+v", endpoints.Gemini)
+	}
+
+	// A different region host moves the location segment.
+	endpoints = decode(resolve("vertex-gemini", "https://europe-west4-aiplatform.googleapis.com", "123456789012"))
+	if endpoints.Gemini.URL != "https://europe-west4-aiplatform.googleapis.com/v1/projects/123456789012/locations/europe-west4/publishers/google/models" {
+		t.Fatalf("region derivation: %s", endpoints.Gemini.URL)
+	}
+	// The global endpoint maps to the global location.
+	endpoints = decode(resolve("vertex-gemini", "https://aiplatform.googleapis.com", "my-project"))
+	if endpoints.Gemini.URL != "https://aiplatform.googleapis.com/v1/projects/my-project/locations/global/publishers/google/models" {
+		t.Fatalf("global derivation: %s", endpoints.Gemini.URL)
+	}
+
+	// Negatives: unknown host shape, missing/invalid project, project on a
+	// non-parameterized preset.
+	if out := resolve("vertex-gemini", "https://relay.example", "my-project"); out.Code != http.StatusBadRequest {
+		t.Fatalf("non-vertex host accepted: %d", out.Code)
+	}
+	if out := resolve("vertex-gemini", "", ""); out.Code != http.StatusBadRequest {
+		t.Fatalf("missing project accepted: %d", out.Code)
+	}
+	if out := resolve("vertex-gemini", "", "Bad_Project"); out.Code != http.StatusBadRequest {
+		t.Fatalf("invalid project accepted: %d", out.Code)
+	}
+	if out := resolve("deepseek-openai", "", "my-project"); out.Code != http.StatusBadRequest {
+		t.Fatalf("project leaked onto a non-parameterized preset: %d", out.Code)
 	}
 }

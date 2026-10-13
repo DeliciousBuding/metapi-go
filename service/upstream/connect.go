@@ -15,11 +15,14 @@ import (
 // ConnectInput is prepared by the preset and credential owners. It is not an
 // HTTP input: endpoint configuration and recommended models are trusted presets.
 type ConnectInput struct {
-	Channel           ChannelCreate
-	AutoName          bool
-	Secret            string `json:"-"`
-	CredentialKind    string
-	OAuthState        store.DirectOAuthState `json:"-"`
+	Channel        ChannelCreate
+	AutoName       bool
+	Secret         string `json:"-"`
+	CredentialKind string
+	OAuthState     store.DirectOAuthState `json:"-"`
+	// GCPServiceAccount carries the validated SA JSON when CredentialKind is
+	// gcp_service_account; Secret stays empty until the first token exchange.
+	GCPServiceAccount *string `json:"-"`
 	RecommendedModels []string
 }
 
@@ -53,6 +56,12 @@ func Connect(ctx context.Context, db *sqlx.DB, in ConnectInput) (ConnectResult, 
 		mask &= channel.Endpoints.AnonymousProtocolMask()
 		if !store.DirectProviderAllowsAnonymous(channel.Provider) || in.Secret != "" {
 			return ConnectResult{}, invalid("Platform requires credentials")
+		}
+	} else if in.CredentialKind == store.DirectCredentialGCPServiceAccount {
+		// Material was validated by the credential owner before Connect; the
+		// access token does not exist until the first exchange.
+		if in.Secret != "" || in.GCPServiceAccount == nil {
+			return ConnectResult{}, invalid("Invalid upstream credential")
 		}
 	} else if (in.CredentialKind != store.DirectCredentialAPIKey && in.CredentialKind != store.DirectCredentialOAuth) || strings.TrimSpace(in.Secret) == "" || len(in.Secret) > 16384 || strings.ContainsAny(in.Secret, "\r\n\x00") {
 		return ConnectResult{}, invalid("Invalid upstream credential")
@@ -91,6 +100,11 @@ func Connect(ctx context.Context, db *sqlx.DB, in ConnectInput) (ConnectResult, 
 		credentialID, err := InsertNative(ctx, tx, "credentials", out.ID, "Default", in.Secret, true, in.CredentialKind, in.OAuthState)
 		if err != nil {
 			return err
+		}
+		if in.GCPServiceAccount != nil {
+			if _, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE upstream_credentials SET gcp_service_account=? WHERE id=?`), *in.GCPServiceAccount, credentialID); err != nil {
+				return err
+			}
 		}
 		// Match the catalog's entity lock order, including existing groups.
 		modelIDs := make([]int64, len(models))

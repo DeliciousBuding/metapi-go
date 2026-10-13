@@ -203,30 +203,81 @@ export function UpstreamCreateSheet(props: {
                         )}
                       />
                     )}
-                    <FormField
-                      control={form.control}
-                      name='apiKey'
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            {t(
-                              credentialMode === 'optional'
-                                ? 'channels.create.optionalKey'
-                                : 'channels.create.apiKey'
-                            )}
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type='password'
-                              autoComplete='new-password'
-                              disabled={pending}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {selected.requiresProject && (
+                      <FormField
+                        control={form.control}
+                        name='projectId'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {t('channels.create.projectId')}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder='my-gcp-project'
+                                autoComplete='off'
+                                disabled={pending}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                    {credentialMode === 'gcpServiceAccount' ? (
+                      <FormField
+                        control={form.control}
+                        name='gcpServiceAccount'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {t('channels.upstream.gcpServiceAccount')}
+                            </FormLabel>
+                            <FormControl>
+                              <textarea
+                                {...field}
+                                rows={8}
+                                spellCheck={false}
+                                autoComplete='off'
+                                placeholder='{"type":"service_account",...}'
+                                disabled={pending}
+                                className='border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring min-h-32 w-full rounded-md border px-3 py-2 font-mono text-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50'
+                              />
+                            </FormControl>
+                            <p className='text-muted-foreground text-xs'>
+                              {t('channels.upstream.gcpServiceAccountHint')}
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ) : (
+                      <FormField
+                        control={form.control}
+                        name='apiKey'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {t(
+                                credentialMode === 'optional'
+                                  ? 'channels.create.optionalKey'
+                                  : 'channels.create.apiKey'
+                              )}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type='password'
+                                autoComplete='new-password'
+                                disabled={pending}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                     <Collapsible
                       open={advanced}
                       onOpenChange={setAdvanced}

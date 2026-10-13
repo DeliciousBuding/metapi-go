@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"github.com/deliciousbuding/metapi-go/service"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/store"
@@ -11,6 +12,20 @@ import (
 func resolveAxonHubNativeEndpoint(ch AxonHubSourceChannel, protocol int, base, path string, custom bool) (*store.DirectEndpoint, bool, string) {
 	ep := &store.DirectEndpoint{Auth: store.DirectAuthBearer}
 	switch protocol {
+	case protoGemini, protoGeminiEmbeddings:
+		if ch.Type != "gemini_vertex" || custom {
+			return nil, false, ""
+		}
+		if ch.Credentials.GCP == nil {
+			return nil, true, "gcp_credentials_unsupported"
+		}
+		url, err := service.VertexEndpointURL(base, ch.Credentials.GCP.ProjectID)
+		if err != nil {
+			return nil, true, "gcp_endpoint_underivable"
+		}
+		ep.URL = url
+		ep.Profile = "vertex"
+		ep.ModelPath = true
 	case protoOllama:
 		if strings.Contains(base, "#") {
 			return nil, true, "endpoint_url_mode_unsupported"

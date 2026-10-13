@@ -95,6 +95,11 @@ func upstreamPresetVariantEndpoints(id, platform string) store.DirectEndpoints {
 		config = store.DirectEndpoints{Messages: &store.DirectEndpoint{URL: "/v1/messages", Auth: store.DirectAuthNone, Profile: "ollama-messages"}}
 	case "bedrock-messages":
 		config = store.DirectEndpoints{Messages: &store.DirectEndpoint{URL: "/model", Auth: store.DirectAuthBearer, Profile: "bedrock", ModelPath: true}}
+	case "vertex-gemini":
+		vertex := func() *store.DirectEndpoint {
+			return &store.DirectEndpoint{URL: "/v1/projects/{project}/locations/{region}/publishers/google/models", Auth: store.DirectAuthBearer, Profile: "vertex", ModelPath: true}
+		}
+		config = store.DirectEndpoints{Gemini: vertex(), GeminiEmbeddings: vertex()}
 	case "seedance-video":
 		config = store.DirectEndpoints{SeedanceVideo: &store.DirectEndpoint{URL: "/contents/generations/tasks", Auth: store.DirectAuthBearer, Profile: "seedance-video"}}
 	case "zenmux-video":

@@ -3,6 +3,7 @@ package oauth
 import (
 	"context"
 	"errors"
+	"github.com/deliciousbuding/metapi-go/internal/gcpsa"
 	"strings"
 	"sync"
 	"time"
@@ -87,7 +88,7 @@ func loadDirectCredential(ctx context.Context, db *sqlx.DB, id int64) (*directCr
 		if row.GCPMaterial == nil {
 			return nil, ErrDirectCredentialUnavailable
 		}
-		if _, _, err := parseGCPServiceAccount(*row.GCPMaterial); err != nil {
+		if _, _, err := gcpsa.Parse(*row.GCPMaterial); err != nil {
 			return nil, ErrDirectCredentialUnavailable
 		}
 		if row.State.Scan(row.RawOAuth) != nil {
@@ -134,7 +135,7 @@ func ResolveDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyUR
 		// Cached-token fast path; the slow path exchanges via the singleflight
 		// below. The refresh-token distinction does not apply to SA exchange.
 		now := time.Now().UnixMilli()
-		if !forceRefresh && row.State.ExpiresAt > now+gcpTokenSkew.Milliseconds() && row.Secret != "" {
+		if !forceRefresh && row.State.ExpiresAt > now+3*60*1000 && row.Secret != "" {
 			return directCredentialResult(row), nil
 		}
 		return resolveGCPCredential(ctx, db, id, proxyURL)
@@ -212,9 +213,9 @@ func exchangeGCPCredential(ctx context.Context, db *sqlx.DB, id int64, proxyURL 
 	if row.Kind != store.DirectCredentialGCPServiceAccount || row.GCPMaterial == nil {
 		return nil, ErrDirectCredentialUnavailable
 	}
-	token, expiresAt, err := exchangeGCPServiceAccount(ctx, *row.GCPMaterial, proxyURL)
+	token, expiresAt, err := gcpsa.Exchange(ctx, *row.GCPMaterial, proxyURL)
 	if err != nil {
-		if errors.Is(err, ErrGCPTokenRejected) {
+		if errors.Is(err, gcpsa.ErrExchangeRejected) {
 			return nil, ErrDirectCredentialRevoked
 		}
 		return nil, ErrDirectCredentialRefresh

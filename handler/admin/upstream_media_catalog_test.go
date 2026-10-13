@@ -23,6 +23,12 @@ func TestUpstreamMediaPresetVersionAndValidation(t *testing.T) {
 		t.Fatalf("legacy FIM URL = %s", deepseek.Completions.URL)
 	}
 	for _, preset := range service.ListUpstreamPresets() {
+		if preset.RequiresProject {
+			// Parameterized presets (Vertex) derive destinations from the
+			// Vertex host shape plus a project; a generic relay base is
+			// rejected by contract. Covered by TestUpstreamPresetVertexDerivation.
+			continue
+		}
 		_, endpoints := resolvePreset(t, r, preset.ID, "https://relay.example")
 		raw, err := endpoints.Value()
 		if err != nil {

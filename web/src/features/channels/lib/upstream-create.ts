@@ -10,6 +10,8 @@ export function upstreamCreateSchema(preset: UpstreamPreset | null) {
     .object({
       presetId: z.string().min(1, 'channels.create.selectProvider'),
       apiKey: z.string(),
+      gcpServiceAccount: z.string(),
+      projectId: z.string().trim(),
       baseUrl: z
         .string()
         .trim()
@@ -33,6 +35,23 @@ export function upstreamCreateSchema(preset: UpstreamPreset | null) {
           message: 'channels.upstream.required',
         })
       }
+      if (
+        preset?.credentialMode === 'gcpServiceAccount' &&
+        !value.gcpServiceAccount.trim()
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['gcpServiceAccount'],
+          message: 'channels.upstream.required',
+        })
+      }
+      if (preset?.requiresProject && !value.projectId) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['projectId'],
+          message: 'channels.upstream.required',
+        })
+      }
       if ((preset?.requiresBaseUrl ?? !preset?.defaultUrl) && !value.baseUrl) {
         ctx.addIssue({
           code: 'custom',
@@ -48,6 +67,8 @@ export type UpstreamCreateValues = z.infer<
 export const upstreamCreateDefaults: UpstreamCreateValues = {
   presetId: '',
   apiKey: '',
+  gcpServiceAccount: '',
+  projectId: '',
   baseUrl: '',
   name: '',
   useSystemProxy: false,
@@ -60,6 +81,10 @@ export function upstreamCreatePayload(
   return {
     presetId: values.presetId,
     ...(values.apiKey.trim() ? { apiKey: values.apiKey } : {}),
+    ...(values.gcpServiceAccount.trim()
+      ? { gcpServiceAccount: values.gcpServiceAccount.trim() }
+      : {}),
+    ...(values.projectId ? { projectId: values.projectId } : {}),
     ...(values.baseUrl &&
     (preset.requiresBaseUrl || values.baseUrl !== preset.defaultUrl)
       ? { baseUrl: values.baseUrl }

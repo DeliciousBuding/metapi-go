@@ -3969,6 +3969,7 @@
         "connecting": "Connecting…",
         "apiKey": "API Key",
         "optionalKey": "API Key (optional)",
+        "projectId": "GCP project",
         "optionalName": "Name (optional)",
         "authorize": "Authorize connection",
         "connected": {

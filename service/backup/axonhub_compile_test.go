@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -315,6 +316,10 @@ func TestCompileAxonHubPlanReportsSkipReasonsPerChannel(t *testing.T) {
 	}
 	if len(plan.skipped) != 1 || plan.skipped[0].SourceID != 2 {
 		t.Fatalf("skipped channels = %#v", plan.skipped)
+	}
+	// A vertex channel without its GCP payload must refuse explicitly.
+	if !slices.Contains(plan.skipped[0].Reasons, "gcp_credential_missing") {
+		t.Fatalf("skip reasons = %#v", plan.skipped[0].Reasons)
 	}
 	if len(plan.channels) != 1 || len(plan.routes) != 1 {
 		t.Fatalf("servable channel was not compiled: channels=%d routes=%d", len(plan.channels), len(plan.routes))

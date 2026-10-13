@@ -243,11 +243,11 @@ Protocol variants share an entry; separate products such as Bailian and Bailian
 Coding Plan retain their own entries. Fields are
 `id`, `name`, `label`, `provider`, `platform`, `group`, `defaultUrl`,
 `protocols` (executable protocol names), `recommendedModels`, `requiresBaseUrl`
-and `credentialMode` (`apiKey`, `optional`, or `oauth`). New API comes first; domestic providers and Coding Plan
+and `credentialMode` (`apiKey`, `optional`, `oauth`, or `gcpServiceAccount`). Parameterized presets (Google Vertex AI) also set `requiresProject`. New API comes first; domestic providers and Coding Plan
 presets precede other providers. Only presets with an executable endpoint
 contract appear in this list.
 
-`POST /api/imported-upstreams/presets/resolve` accepts `{presetId,baseUrl?}` and
+`POST /api/imported-upstreams/presets/resolve` accepts `{presetId,baseUrl?,projectId?}` and
 returns `{presetId,provider,baseUrl,endpointConfig}`. It resolves configuration locally without
 contacting an upstream. An omitted URL uses the product default. Legacy preset
 IDs resolve to the combined product. Default endpoints retain each protocol's
@@ -255,16 +255,22 @@ actual host, path, authentication and adapter. Resolve again after changing the 
 the previous host's endpoints. Domestic Chat profiles are applied only on their
 known hosts. A selected media preset retains its required wire adapter on custom
 hosts. New API excludes image variations, which its router does not implement;
-Coding Plan presets do not inherit a provider's media capabilities. Invalid targets or unknown
-presets return 400.
+Coding Plan presets do not inherit a provider's media capabilities. Invalid targets, unknown
+presets, a non-Vertex base host for a parameterized preset, or a malformed project return 400. Vertex endpoints derive the publisher path
+`/v1/projects/{project}/locations/{region}/publishers/google/models` from the project and the regional host
+(`aiplatform.googleapis.com` maps to the global location); custom domains stay manual endpoint configuration.
 
 ### Quick connect
 
 `POST /api/imported-upstreams/connect` accepts `presetId`, `apiKey`, and optional
-`baseUrl`, `name`, `useSystemProxy`, and `channelProxy`. Self-hosted presets require
+`baseUrl`, `projectId`, `gcpServiceAccount`, `name`, `useSystemProxy`, and `channelProxy`. Self-hosted presets require
 `baseUrl`; anonymous Ollama connections may omit `apiKey`. OAuth products use the
 existing authorization endpoints instead of accepting pasted OAuth credentials
-through this API.
+through this API. GCP service-account products accept the key JSON as
+`gcpServiceAccount` (validated at write time, never returned) and exchange it
+for access tokens lazily at request time. Vertex catalog discovery is not
+derived: the publisher-model list is not project-scoped, so connections use
+the curated preset model list labeled as unverified.
 
 The server resolves the product's endpoints, discovers its models, then creates
 the channel, credential, models, grants and route memberships in one transaction.
