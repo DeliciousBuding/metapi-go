@@ -61,6 +61,25 @@ Keep the maintenance trail in the existing GitHub issue / PR, not a second task 
 
 Publish only sanitized reproduction and result summaries. Keep credentials, private hosts and raw runtime evidence out of issues, PRs and this repository; follow the privacy boundary below.
 
+## Local fixture previews (browser walkthroughs)
+
+For UI-facing batches, verify the change in a real browser against a local
+fixture instance before opening the PR. The pattern used by the route-decision
+batches (A–E): a throwaway script under `.local/` builds the current tree
+(`go build -o .local/<name>-preview.exe ./cmd/server` after `bun run build`),
+starts it on a fixed loopback port with fixture env (`AUTH_TOKEN` /
+`PROXY_TOKEN` / `ACCOUNT_CREDENTIAL_SECRET` all synthetic, SQLite under
+`.local/<name>-data/`, background jobs off), seeds via the admin API (or a
+scoped SQLite write when no API exists, e.g. usage projections), and records
+evidence metadata (`commit`, `diffSha256`, `binarySha256`, `pid`) so the
+walkthrough traces back to exact source inputs.
+
+Rules of engagement: fixture tokens never leave the local instance, upstreams
+are `httptest`/loopback fakes only, seeding is idempotent via a marker file,
+and the script terminates the server on exit. A green walkthrough is UI
+evidence for the fixture contract — it is not real-upstream or real-client
+acceptance, and never substitutes for the pre-push gate.
+
 ## Race-detector budget (local push gate)
 
 The pre-push gate (`scripts/go-race.sh`, chained from
