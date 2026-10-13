@@ -3166,7 +3166,19 @@
         "sessionId": "Session ID",
         "downstreamPath": "Downstream path",
         "upstreamPath": "Upstream path",
-        "usageSource": "Usage source"
+        "usageSource": "Usage source",
+        "attempts": {
+          "title": "Request attempts",
+          "summary_one": "This request made {{count}} attempt",
+          "summary_other": "This request made {{count}} attempts",
+          "terminal": "Final outcome",
+          "partial": "Incomplete record",
+          "partialOrdinalGap": "Some loop iterations left no row (e.g. skipped on site concurrency saturation); attempt ordinals have gaps",
+          "partialRequestIdMissing": "This row has no request ID (usually written by an older version); sibling attempts cannot be correlated",
+          "partialAttemptQueryFailed": "Failed to load the attempt list; showing this row only",
+          "current": "Current",
+          "uncorrelated": "Sibling attempts cannot be correlated"
+        }
       },
       "latency": {
         "totalLatency": "Total latency {{label}}",

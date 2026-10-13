@@ -494,6 +494,42 @@ export type ProxyLogDetail = ProxyLogListItem & {
   channelId?: number | null
   httpStatus?: number | null
   billingDetails?: ProxyLogBillingDetails
+  requestAttempts?: ProxyLogRequestAttempts
+}
+
+/** One sibling dispatch attempt of the same client request (request-level diagnosis). */
+export type ProxyLogAttempt = {
+  id: number
+  ordinal: number
+  status: string
+  httpStatus: number | null
+  channelId: number | null
+  siteId: number | null
+  siteName: string
+  accountUsername: string
+  modelActual: string
+  errorMessage: string
+  latencyMs: number
+  createdAt: string
+  isCurrent: boolean
+}
+
+/**
+ * Request-level attempt view on the log detail. Every dispatch attempt
+ * persists its own row; requestId correlates one client request and ordinal
+ * is the retry-loop position. partial marks a known-incomplete persisted set:
+ * requestIdMissing (legacy row, siblings unverifiable — no list returned) or
+ * ordinalGap (a loop iteration left no row, e.g. concurrency-skip). The
+ * terminal outcome is the highest-ordinal row; an all-failed request has no
+ * extra terminal row beyond the last attempt.
+ */
+export type ProxyLogRequestAttempts = {
+  requestId: string | null
+  currentOrdinal: number
+  partial: boolean
+  partialReasons: string[]
+  attempts: ProxyLogAttempt[]
+  terminal: { status: string; httpStatus: number | null; logId: number } | null
 }
 
 type ProxyLogsSummary = {

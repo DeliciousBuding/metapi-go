@@ -3166,7 +3166,19 @@
         "sessionId": "会话 ID",
         "downstreamPath": "下行路径",
         "upstreamPath": "上行路径",
-        "usageSource": "用量来源"
+        "usageSource": "用量来源",
+        "attempts": {
+          "title": "请求尝试",
+          "summary_one": "本次请求仅 {{count}} 次尝试",
+          "summary_other": "本次请求共 {{count}} 次尝试",
+          "terminal": "终态",
+          "partial": "记录不完整",
+          "partialOrdinalGap": "有调度循环未落盘（如站点并发饱和跳过），尝试序数存在空洞",
+          "partialRequestIdMissing": "该日志无请求 ID（多为旧版本写入），无法关联本次请求的其它尝试",
+          "partialAttemptQueryFailed": "尝试列表查询失败，仅显示当前行",
+          "current": "当前",
+          "uncorrelated": "无法关联同请求的其它尝试"
+        }
       },
       "latency": {
         "totalLatency": "总延迟 {{label}}",
