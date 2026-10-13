@@ -113,6 +113,8 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/imported-upstreams`
 - `/api/imported-upstreams/:id/credentials`
 - `/api/imported-upstreams/:id/models`
+- `/api/imported-upstreams/:id/models/refresh-preview`
+- `/api/imported-upstreams/:id/models/refresh-apply`
 - `/api/imported-upstreams/grants`
 - `/api/imported-upstreams/groups`
 - `/api/imported-upstreams/groups/:id/members`

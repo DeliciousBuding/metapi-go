@@ -20,6 +20,8 @@ func RegisterUpstreamCatalogRoutes(r chi.Router, db *sqlx.DB) {
 	r.Post("/api/imported-upstreams/{id}/credentials", h.createCredential)
 	r.Get("/api/imported-upstreams/{id}/models", h.models)
 	r.Post("/api/imported-upstreams/{id}/models", h.createModels)
+	r.Post("/api/imported-upstreams/{id}/models/refresh-preview", h.refreshModelsPreview)
+	r.Post("/api/imported-upstreams/{id}/models/refresh-apply", h.refreshModelsApply)
 	r.Patch("/api/imported-upstreams/models/{id}", h.updateModel)
 	r.Post("/api/imported-upstreams/grants", h.createGrant)
 	r.Patch("/api/imported-upstreams/grants/{id}", h.updateGrant)
@@ -125,6 +127,50 @@ func (h *upstreamCatalogHandler) createModels(w http.ResponseWriter, r *http.Req
 	}
 	writeJSON(w, 201, map[string]any{"items": out})
 }
+
+// refreshModelsPreview computes the read-only discovery diff for one
+// channel's model catalog (E batch). No writes; the returned basisToken binds
+// the current catalog and the discovered set for a later apply.
+func (h *upstreamCatalogHandler) refreshModelsPreview(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	out, err := upstream.PreviewCatalogRefresh(r.Context(), h.db, id)
+	if err != nil {
+		catalogError(w, err)
+		return
+	}
+	writeJSON(w, 200, out)
+}
+
+// refreshModelsApply applies a previously previewed diff. A stale basis token
+// (catalog edited or upstream changed since the preview) is refused with 409.
+func (h *upstreamCatalogHandler) refreshModelsApply(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		BasisToken string `json:"basisToken"`
+	}
+	if !catalogDecode(w, r, &in) {
+		return
+	}
+	out, err := upstream.ApplyCatalogRefresh(r.Context(), h.db, id, in.BasisToken)
+	if err != nil {
+		catalogError(w, err)
+		return
+	}
+	resp := map[string]any{
+		"success":          true,
+		"addedCount":       out.AddedCount,
+		"staleCount":       out.StaleCount,
+		"affectedRouteIds": out.AffectedRouteIDs,
+	}
+	writeJSON(w, 200, resp)
+}
+
 func (h *upstreamCatalogHandler) updateModel(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {

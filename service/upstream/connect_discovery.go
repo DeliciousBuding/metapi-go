@@ -3,6 +3,7 @@ package upstream
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -97,18 +98,40 @@ func presetConnectModels(names []string) ([]string, Discovery, error) {
 }
 
 func discoverConnectModels(ctx context.Context, in ConnectInput) ([]string, Discovery, error) {
+	models, discovery, err := discoverUpstreamCatalog(ctx, in.Channel.Endpoints, in.Secret, in.Channel.ChannelProxy, in.Channel.UseSystemProxy)
+	// Connect keeps the first-run UX fallbacks: no derivable catalog endpoint,
+	// an endpoint that does not serve a catalog, or an authoritative empty
+	// catalog all fall back to the preset list. Refresh (refresh_catalog.go)
+	// uses the fallback-free core so an empty/missing catalog is an honest
+	// answer, not a silently preserved preset.
+	if errors.Is(err, errNoCatalogEndpoint) || errors.Is(err, errCatalogUnserved) || (err == nil && len(models) == 0) {
+		return presetConnectModels(in.RecommendedModels)
+	}
+	return models, discovery, err
+}
+
+// errNoCatalogEndpoint: the channel's endpoints derive no model catalog URL.
+// errCatalogUnserved: the URL exists but answers 404/405/501 (no catalog API).
+var errNoCatalogEndpoint = errors.New("no derivable model catalog endpoint")
+var errCatalogUnserved = errors.New("upstream endpoint does not serve a model catalog")
+
+// discoverUpstreamCatalog fetches the upstream model catalog without any
+// preset fallback. An empty authoritative list is returned as ([],
+// Discovery{Status:"empty"}, nil); the caller decides what an empty catalog
+// means (connect falls back to presets, refresh reports it).
+func discoverUpstreamCatalog(ctx context.Context, endpoints store.DirectEndpoints, secret, channelProxy string, useSystemProxy bool) ([]string, Discovery, error) {
 	ctx, cancel := context.WithTimeout(ctx, connectDiscoveryTimeout)
 	defer cancel()
-	address, auth, format := connectModelsEndpoint(in.Channel.Endpoints)
+	address, auth, format := connectModelsEndpoint(endpoints)
 	if address == "" {
-		return presetConnectModels(in.RecommendedModels)
+		return nil, Discovery{}, errNoCatalogEndpoint
 	}
 	u, err := url.Parse(address)
 	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") || ssrf.IsForbiddenSiteHostname(u.Hostname()) {
 		return nil, Discovery{}, invalid("Invalid upstream model URL")
 	}
-	proxyURL := in.Channel.ChannelProxy
-	if proxyURL == "" && in.Channel.UseSystemProxy {
+	proxyURL := channelProxy
+	if proxyURL == "" && useSystemProxy {
 		if runtime := config.RuntimeSafe(); runtime != nil {
 			proxyURL = runtime.SystemProxyUrl
 		}
@@ -142,11 +165,11 @@ func discoverConnectModels(ctx context.Context, in ConnectInput) ([]string, Disc
 	}
 	switch auth {
 	case store.DirectAuthBearer:
-		request.Header.Set("Authorization", "Bearer "+in.Secret)
+		request.Header.Set("Authorization", "Bearer "+secret)
 	case store.DirectAuthAPIKey:
-		request.Header.Set("X-Api-Key", in.Secret)
+		request.Header.Set("X-Api-Key", secret)
 	case store.DirectAuthGoogle:
-		request.Header.Set("X-Goog-Api-Key", in.Secret)
+		request.Header.Set("X-Goog-Api-Key", secret)
 	case store.DirectAuthNone:
 	default:
 		return nil, Discovery{}, invalid("Invalid model discovery authentication")
@@ -164,7 +187,7 @@ func discoverConnectModels(ctx context.Context, in ConnectInput) ([]string, Disc
 		}
 		if status == http.StatusNotFound || status == http.StatusMethodNotAllowed || status == http.StatusNotImplemented {
 			if page == 0 {
-				return presetConnectModels(in.RecommendedModels)
+				return nil, Discovery{}, errCatalogUnserved
 			}
 			return nil, Discovery{}, connectDiscoveryError("Upstream model pagination failed")
 		}
@@ -219,7 +242,7 @@ func discoverConnectModels(ctx context.Context, in ConnectInput) ([]string, Disc
 		return nil, Discovery{}, err
 	}
 	if len(models) == 0 {
-		return presetConnectModels(in.RecommendedModels)
+		return models, Discovery{Status: "empty", Message: "Upstream returned an empty model catalog"}, nil
 	}
 	return models, Discovery{Status: "discovered"}, nil
 }

@@ -97,7 +97,7 @@ func Connect(ctx context.Context, db *sqlx.DB, in ConnectInput) (ConnectResult, 
 		grantIDs := make([]int64, len(models))
 		groupIDs := make([]int64, len(models))
 		for i, model := range models {
-			modelIDs[i], err = InsertNative(ctx, tx, "models", out.ID, model, true)
+			modelIDs[i], err = InsertWithOrigin(ctx, tx, DiscoveryOriginForChannel(out.ID), "models", out.ID, model, true)
 			if err != nil {
 				return err
 			}

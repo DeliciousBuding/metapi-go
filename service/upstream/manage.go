@@ -71,6 +71,13 @@ func Write(ctx context.Context, db *sqlx.DB, apply func(*sqlx.Tx) error) error {
 // the transaction. Multi-entity callers insert channel, credential, model,
 // grant, group, member in that order, avoiding inverted unique-key waits.
 func InsertNative(ctx context.Context, tx *sqlx.Tx, entity string, values ...any) (int64, error) {
+	return InsertWithOrigin(ctx, tx, NativeOrigin, entity, values...)
+}
+
+// InsertWithOrigin is InsertNative with an explicit origin. Discovery-managed
+// rows (origin discovery:<channelID>) are attribution the catalog refresh
+// diff relies on; operator-created rows keep NativeOrigin.
+func InsertWithOrigin(ctx context.Context, tx *sqlx.Tx, origin, entity string, values ...any) (int64, error) {
 	var columns string
 	switch entity {
 	case "channels":
@@ -91,7 +98,7 @@ func InsertNative(ctx context.Context, tx *sqlx.Tx, entity string, values ...any
 	if len(values) != len(strings.Split(columns, ",")) {
 		return 0, fmt.Errorf("invalid native insert arity")
 	}
-	args := append([]any{NativeOrigin, int64(0)}, values...)
+	args := append([]any{origin, int64(0)}, values...)
 	query := `INSERT INTO upstream_` + entity + ` (origin_key,source_id,` + columns + `) VALUES (` + strings.TrimSuffix(strings.Repeat("?,", len(args)), ",") + `) RETURNING id`
 	var id int64
 	if err := tx.GetContext(ctx, &id, tx.Rebind(query), args...); err != nil {
