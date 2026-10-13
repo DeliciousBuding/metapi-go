@@ -1739,6 +1739,39 @@
             "timezoneHint": "Calendar days and months use this timezone. Empty uses UTC, for example Asia/Hong_Kong.",
             "historyTitle": "Quota history needs reconciliation",
             "historyHint": "Usage before {{date}} is missing. Periods overlapping that gap remain unavailable; this restriction is preserved until reconciliation."
+          },
+          "check": {
+            "action": "Check access",
+            "title": "Access check: {{name}}",
+            "description": "Read-only admission and route evaluation for this key: no quota consumed, no counters incremented, no upstream call.",
+            "modelLabel": "Model",
+            "endpointLabel": "Endpoint",
+            "clientIpLabel": "Client IP (optional)",
+            "run": "Check",
+            "running": "Checking…",
+            "allow": "Currently allowed",
+            "deny": "Currently blocked",
+            "readOnlyNote": "Read-only evaluation; nothing is consumed",
+            "rateScopeNote": "rate window: process-local snapshot",
+            "decisionMatched": "Route {{pattern}}: {{eligible}} eligible, {{blocked}} blocked",
+            "decisionUnmatched": "No enabled route matched this model",
+            "loadFailed": "Check failed: {{message}}",
+            "cost": "cost",
+            "requests": "requests",
+            "rpm": "RPM",
+            "tpm": "TPM",
+            "quotaRequests": "quota requests",
+            "quotaTokens": "quota tokens",
+            "quotaCost": "quota cost",
+            "dimensions": {
+              "policy": "policy",
+              "state": "state",
+              "expiry": "expiry",
+              "budget": "budget",
+              "quota": "quota",
+              "ip": "IP",
+              "rate": "rate"
+            }
           }
         },
         "proxyToken": {

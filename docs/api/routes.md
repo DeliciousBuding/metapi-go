@@ -525,7 +525,7 @@ The response `decision` includes:
 | `checkedAt` | UTC time of the current evaluation. |
 | `requestedModel` / `actualModel` | Client input and mapped public route model. |
 | `requiredUpstreamProtocol` / `allowUpstreamProtocolConversion` | Protocol context used for candidate evaluation. |
-| `notEvaluated` | Dimensions intentionally left unknown, including downstream admission, request context length, strategy selection, and upstream availability. |
+| `notEvaluated` | Dimensions intentionally left unknown: downstream admission (evaluated instead by the key-context variant), request context length, strategy selection, and upstream availability. |
 | `routingStrategy` / `modelPattern` | Matched route configuration. |
 | `candidates[]` | Current configured candidates and candidate-filter results. |
 
@@ -538,6 +538,34 @@ Each candidate keeps the legacy compatibility fields and adds:
 | `eligibility` | `eligible`, `blocked`, or `notEvaluated`. `eligible` means the checked candidate filters found no blocker; it is not an upstream health verdict. |
 | `blockers[]` | Structured `code` plus a legacy human-readable `message`. The UI translates known codes and uses the message only for unknown legacy codes. |
 | `probabilityEvaluated` | Selection probability flag. Current previews do not select a candidate, so this remains `false`; consumers must not render legacy `probability: 0` as a measured 0%. |
+
+### GET /api/routes/decision/key-context
+
+Evaluate admission and route selection for one downstream API key against one
+client model: "can this key call this model on this endpoint right now, and if
+not, which dimension blocks it". Read-only by contract — no counters are
+incremented, no quota is consumed, no credential is leased, no upstream is
+called, and no decision snapshot is written.
+
+Query parameters: `keyId` (required, managed downstream key ID), `model`
+(required), `endpoint` (optional, same contract as above), `clientIp`
+(optional; when omitted the IP dimension reports `checked: false` — an
+unchecked IP list is never reported as allowed).
+
+The response adds `keyContext` beside the usual `decision`:
+
+| Field | Meaning |
+| --- | --- |
+| `keyContext.keyId` / `name` | Key identity (never the key value). |
+| `keyContext.admission.verdict` | `allow` or `deny` over the current blockers. |
+| `keyContext.admission.blockers[]` | Every currently-blocking dimension (the live chain stops at the first): `dimension` (`policy\|state\|expiry\|budget\|quota\|ip\|rate`), `code` matching the live rejection reason (`disabled`, `expired`, `over_cost`, `over_requests`, `over_quota`, `quota_usage_unknown`, `quota_history_missing`, `ip_blocked`, `ip_not_allowed`, `access_policy`), and `message`. |
+| `keyContext.admission.notes[]` | Honesty labels: `evaluationIsReadOnly`, `rateWindowProcessLocal` (rate snapshot is process-local), `ipRulesExistButUnchecked`, `quotaHistoryIncomplete`. |
+| `keyContext.admission.cost` / `requests` / `rate` / `quota` | Window snapshots with used/max numbers behind budget, rate, and quota verdicts; absent when the dimension is unrestricted. |
+
+With `keyId` present, `downstreamAdmission` leaves the decision's
+`notEvaluated` list; strategy selection, request context length, and upstream
+availability remain unevaluated. Unknown `keyId` returns `404`; missing
+`model` or an invalid `keyId`/`endpoint` returns `400`.
 
 ### POST /api/routes/decision/batch
 

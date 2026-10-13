@@ -12,6 +12,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 // ---------------------------------------------------------------------------
@@ -215,8 +216,22 @@ func getManagedKeyByToken(token string) (*managedKeyView, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
+	return loadManagedKeyFrom(db.DB, "key", token)
+}
 
-	row := db.QueryRowx(
+// loadManagedKeyFrom queries downstream_api_keys by one indexed column ("key"
+// or "id") on the given handle and parses the JSON columns. Returns
+// (nil, nil) when no row matches. The explicit handle keeps admin read paths
+// on their scoped/test database instead of the process-global singleton.
+func loadManagedKeyFrom(db *sqlx.DB, column string, value any) (*managedKeyView, error) {
+	if column != "key" && column != "id" {
+		return nil, fmt.Errorf("unsupported managed key lookup column %q", column)
+	}
+	if db == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	row := db.QueryRowx(db.Rebind(
 		`SELECT id, name, enabled, expires_at, max_cost, used_cost,
 		        max_requests, used_requests, proxy_url, max_rpm, max_tpm,
 		        supported_models, allowed_route_ids,
@@ -224,7 +239,7 @@ func getManagedKeyByToken(token string) (*managedKeyView, error) {
 		        excluded_credential_refs, allowed_site_ids, allowed_credential_refs,
 		        ip_allowlist, ip_blocklist, access_policy
 		 FROM downstream_api_keys
-		 WHERE key = ?`, token,
+		 WHERE `+column+` = ?`), value,
 	)
 
 	var v managedKeyView

@@ -112,7 +112,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 
 	excludeChannelIDs := make([]int64, 0)
 	maxRetries := ctx.MaxRetries
-	downstreamPolicy := routingPolicyFromAuth(ctx.Policy)
+	downstreamPolicy := RoutingPolicyFromAuth(ctx.Policy)
 	// multi-tier: best-effort request context estimate for route tier pick.
 	// ctx is constructed non-nil by PrepareCtx (which returns a SurfResult on
 	// failure instead of a nil Ctx), so it is safe to dereference unguarded.
@@ -1612,7 +1612,10 @@ func bytesReader(b []byte) io.Reader {
 	return bytes.NewReader(b)
 }
 
-func routingPolicyFromAuth(policy auth.DownstreamRoutingPolicy) routing.DownstreamRoutingPolicy {
+// RoutingPolicyFromAuth converts the auth-layer downstream policy into the
+// routing-layer policy. Single owner of the field mapping; both the proxy
+// admission path and the admin key-context explainer use it.
+func RoutingPolicyFromAuth(policy auth.DownstreamRoutingPolicy) routing.DownstreamRoutingPolicy {
 	refs := mapAuthCredentialRefs(policy.ExcludedCredentialRefs)
 	allowedRefs := mapAuthCredentialRefs(policy.AllowedCredentialRefs)
 

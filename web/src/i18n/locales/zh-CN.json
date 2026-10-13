@@ -1739,6 +1739,39 @@
             "timezoneHint": "自然日和自然月按此时区划分，留空使用 UTC。例如 Asia/Hong_Kong。",
             "historyTitle": "配额历史尚未核对",
             "historyHint": "{{date}} 之前的用量缺失。仍覆盖该缺口的周期暂时不可用；核对完成前会保留此限制。"
+          },
+          "check": {
+            "action": "检查权限",
+            "title": "权限检查：{{name}}",
+            "description": "只读评估该 Key 的准入与路由解释：不消耗配额、不计数、不调用上游。",
+            "modelLabel": "模型",
+            "endpointLabel": "接口",
+            "clientIpLabel": "客户端 IP（可选）",
+            "run": "检查",
+            "running": "检查中…",
+            "allow": "当前可调用",
+            "deny": "当前被阻断",
+            "readOnlyNote": "只读评估，不消耗任何配额",
+            "rateScopeNote": "速率窗口为本进程快照",
+            "decisionMatched": "命中路由 {{pattern}}：{{eligible}} 个合格候选，{{blocked}} 个被阻断",
+            "decisionUnmatched": "未匹配到启用的路由",
+            "loadFailed": "检查失败：{{message}}",
+            "cost": "成本",
+            "requests": "请求数",
+            "rpm": "RPM",
+            "tpm": "TPM",
+            "quotaRequests": "配额请求",
+            "quotaTokens": "配额 tokens",
+            "quotaCost": "配额成本",
+            "dimensions": {
+              "policy": "策略",
+              "state": "状态",
+              "expiry": "到期",
+              "budget": "预算",
+              "quota": "配额",
+              "ip": "IP",
+              "rate": "速率"
+            }
           }
         },
         "proxyToken": {

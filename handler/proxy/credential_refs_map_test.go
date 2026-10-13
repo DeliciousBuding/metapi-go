@@ -24,7 +24,7 @@ func TestRoutingPolicyFromAuth_CredentialRefs(t *testing.T) {
 		},
 	}
 
-	got := routingPolicyFromAuth(policy)
+	got := RoutingPolicyFromAuth(policy)
 
 	if len(got.ExcludedCredentialRefs) != 1 {
 		t.Fatalf("expected 1 excluded ref, got %d", len(got.ExcludedCredentialRefs))

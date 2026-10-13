@@ -38,6 +38,7 @@ import {
 } from '../types'
 import { KeyModelPolicyCell, KeyUsageCell } from './key-cells'
 import { extractMarketplaceModelNames } from './key-form-shared'
+import { KeyPermissionCheckDialog } from './key-permission-check-dialog'
 import { KeyScopeCell, type ScopeNameMaps } from './key-scope-cell'
 import { KeySheetForm } from './key-sheet-form'
 
@@ -48,6 +49,9 @@ export function KeysSection() {
   const [formDirty, setFormDirty] = useState(false)
   const [exportTarget, setExportTarget] =
     useState<CredentialExportTarget | null>(null)
+  const [checkTarget, setCheckTarget] = useState<DownstreamApiKeyItem | null>(
+    null
+  )
 
   const keysQuery = useQuery<DownstreamKeysResponse>({
     queryKey: downstreamKeysQueryKeys.list(),
@@ -268,6 +272,14 @@ export function KeysSection() {
             <Button
               type='button'
               variant='ghost'
+              size='sm'
+              onClick={() => setCheckTarget(row.original)}
+            >
+              {t('settings.downstream.keys.check.action')}
+            </Button>
+            <Button
+              type='button'
+              variant='ghost'
               size='icon-sm'
               aria-label={t('settings.downstream.keys.columns.editAria', {
                 name: row.original.name,
@@ -356,6 +368,15 @@ export function KeysSection() {
         target={exportTarget}
         onOpenChange={(open) => {
           if (!open) setExportTarget(null)
+        }}
+      />
+
+      <KeyPermissionCheckDialog
+        keyId={checkTarget?.id ?? null}
+        keyName={checkTarget?.name ?? ''}
+        open={checkTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setCheckTarget(null)
         }}
       />
     </SectionCard>

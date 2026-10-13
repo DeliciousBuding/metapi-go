@@ -1,5 +1,49 @@
 import type { RouteDecision } from '@/lib/helpers/token-route-contract'
 
+/** Admission blocker with the live chain's reason code. */
+type KeyAdmissionBlocker = {
+  dimension: 'policy' | 'state' | 'expiry' | 'budget' | 'quota' | 'ip' | 'rate'
+  code: string
+  message: string
+}
+
+export type KeyContextDecisionResponse = {
+  success: boolean
+  keyContext: {
+    keyId: number
+    name: string
+    admission: {
+      verdict: 'allow' | 'deny'
+      blockers: KeyAdmissionBlocker[]
+      notes: string[]
+      ip: { checked: boolean; allowed: boolean; reason?: string }
+      cost?: { used: number; max: number | null }
+      requests?: { used: number; max: number | null }
+      rate?: {
+        rpm: { used: number; max: number | null }
+        tpm: { used: number; max: number | null }
+        scope: string
+      }
+      quota?: {
+        windowStart: string
+        windowEnd: string
+        requestsUsed: number
+        requestsMax?: number
+        tokensUsed: number
+        tokensMax?: number
+        costUsed: number
+        costMax?: number
+        unknownTokens: number
+        unknownCost: number
+        historyMissing: boolean
+        blocker: string
+        message: string
+      }
+    }
+  }
+  decision: RouteDecision
+}
+
 import { request, buildQueryString } from './transport'
 
 /** PUT /api/channels/batch response envelope — per-item truth. */
@@ -57,6 +101,26 @@ export const tokenRoutesApi = {
 
   // Routes
   getRoutesSummary: () => request('/api/routes/summary'),
+  /**
+   * Key-context admission + route explanation: evaluates one downstream key's
+   * admission chain read-only (no counters, no quota consumption, no upstream
+   * call) and explains route selection under that key's policy.
+   */
+  getRouteDecisionKeyContext: (input: {
+    keyId: number
+    model: string
+    endpoint?: string
+    clientIp?: string
+  }) => {
+    const params = new URLSearchParams()
+    params.set('keyId', String(input.keyId))
+    params.set('model', input.model)
+    if (input.endpoint) params.set('endpoint', input.endpoint)
+    if (input.clientIp) params.set('clientIp', input.clientIp)
+    return request<KeyContextDecisionResponse>(
+      `/api/routes/decision/key-context?${params.toString()}`
+    )
+  },
   getRouteDecision: (input: { model: string; endpoint: string }) =>
     request<{ success: boolean; decision: RouteDecision }>(
       `/api/routes/decision${buildQueryString(input)}`

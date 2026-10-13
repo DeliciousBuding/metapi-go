@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/auth"
+	proxyhandler "github.com/deliciousbuding/metapi-go/handler/proxy"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 )
@@ -38,6 +40,84 @@ func (h *tokenRoutesHandler) routeDecision(w http.ResponseWriter, r *http.Reques
 		"success":  true,
 		"decision": routeDecisionToMap(decision),
 	})
+}
+
+// GET /api/routes/decision/key-context?keyId=&model=&endpoint=&clientIp=
+//
+// The key-context answer to "can this downstream key call this model on this
+// endpoint right now": the admission chain evaluated read-only for the given
+// key (all current blockers listed, not just the first), plus the route
+// selection explanation computed with that key's routing policy. With keyId
+// present, downstreamAdmission leaves the notEvaluated list — it is answered.
+// strategySelection/upstreamAvailability/requestContextLength stay
+// unevaluated (no lease, no selection, no upstream call).
+func (h *tokenRoutesHandler) routeDecisionKeyContext(w http.ResponseWriter, r *http.Request) {
+	keyID, err := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("keyId")), 10, 64)
+	if err != nil || keyID <= 0 {
+		writeError(w, http.StatusBadRequest, "keyId must be a positive integer")
+		return
+	}
+	model := strings.TrimSpace(r.URL.Query().Get("model"))
+	if model == "" {
+		writeError(w, http.StatusBadRequest, "model is required")
+		return
+	}
+	if h.router == nil {
+		writeErrorCode(w, http.StatusServiceUnavailable, ErrorCodeResourceDisabled, routeDecisionRouterUnavailable)
+		return
+	}
+	endpointPolicy, err := routeDecisionPolicy(r.URL.Query().Get("endpoint"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	keyCtx, err := auth.LoadManagedKeyContextByID(h.db, keyID)
+	if err != nil {
+		slog.Error("route decision key-context load failed", "keyId", keyID, "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load downstream key")
+		return
+	}
+	if keyCtx == nil {
+		writeError(w, http.StatusNotFound, "downstream key not found")
+		return
+	}
+
+	admission := keyCtx.ExplainAdmission(r.URL.Query().Get("clientIp"))
+
+	// The key's routing policy plus the endpoint's protocol context.
+	policy := proxyhandler.RoutingPolicyFromAuth(keyCtx.Policy)
+	policy.RequiredUpstreamProtocol = endpointPolicy.RequiredUpstreamProtocol
+	policy.AllowUpstreamProtocolConversion = endpointPolicy.AllowUpstreamProtocolConversion
+
+	decision, err := h.router.ExplainSelection(r.Context(), model, nil, policy)
+	if err != nil {
+		slog.Error("route decision key-context explain failed", "keyId", keyID, "model", model, "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to query route decisions")
+		return
+	}
+	decision.NotEvaluated = removeString(decision.NotEvaluated, "downstreamAdmission")
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"keyContext": map[string]any{
+			"keyId":     keyCtx.ID,
+			"name":      keyCtx.Name,
+			"admission": admission,
+		},
+		"decision": routeDecisionToMap(decision),
+	})
+}
+
+// removeString returns the slice without the first occurrence of value.
+func removeString(values []string, value string) []string {
+	out := make([]string, 0, len(values))
+	for _, item := range values {
+		if item != value {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // POST /api/routes/decision/batch
