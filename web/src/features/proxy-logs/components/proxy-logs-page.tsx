@@ -729,6 +729,23 @@ export function ProxyLogsPage() {
         log={detailLog}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+        onViewAttempt={(attempt) =>
+          setDetailLog((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  id: attempt.id,
+                  createdAt: attempt.createdAt,
+                  status: attempt.status,
+                  httpStatus: attempt.httpStatus,
+                  latencyMs: attempt.latencyMs,
+                  retryCount: attempt.ordinal,
+                  modelActual: attempt.modelActual,
+                  errorMessage: attempt.errorMessage || null,
+                }
+              : prev
+          )
+        }
       />
     </div>
   )

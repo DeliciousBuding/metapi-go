@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { toBcp47 } from '@/i18n/languages'
+import type { ProxyLogAttempt } from '@/lib/api'
 import { copyText } from '@/lib/clipboard'
 import {
   EM_DASH,
@@ -46,12 +47,15 @@ type ProxyLogDetailSheetProps = {
   log: ProxyLog | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Switch the sheet to another attempt of the same request. */
+  onViewAttempt?: (attempt: ProxyLogAttempt) => void
 }
 
 export function ProxyLogDetailSheet({
   log,
   open,
   onOpenChange,
+  onViewAttempt,
 }: ProxyLogDetailSheetProps) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
@@ -115,6 +119,7 @@ export function ProxyLogDetailSheet({
                 sessionId={pathMeta.sessionId}
                 usageSource={pathMeta.usageSource}
               />
+              <AttemptsSection detail={detail} onViewAttempt={onViewAttempt} />
               <ErrorSection errorMessage={pathMeta.errorMessage} />
               {detail.billingDetails ? (
                 <BillingSection billing={detail.billingDetails} />
@@ -326,6 +331,122 @@ function ConversationFileLinks({
             {usageSource || '—'}
           </DetailField>
         </dl>
+      </section>
+    </>
+  )
+}
+
+/**
+ * Request-level attempt view (route-decision D batch). Every dispatch attempt
+ * persists its own log row; the backend correlates siblings by requestId and
+ * reports ordinal gaps / missing correlation honestly via partialReasons.
+ */
+function AttemptsSection({
+  detail,
+  onViewAttempt,
+}: {
+  detail: ProxyLogDetail
+  onViewAttempt?: (attempt: ProxyLogAttempt) => void
+}) {
+  const { t } = useTranslation()
+  const ra = detail.requestAttempts
+  if (!ra) return null
+
+  const partialReasonText = (reason: string): string => {
+    switch (reason) {
+      case 'ordinalGap':
+        return t('proxyLogs.detail.attempts.partialOrdinalGap')
+      case 'requestIdMissing':
+        return t('proxyLogs.detail.attempts.partialRequestIdMissing')
+      case 'attemptQueryFailed':
+        return t('proxyLogs.detail.attempts.partialAttemptQueryFailed')
+      default:
+        return reason
+    }
+  }
+
+  return (
+    <>
+      <Separator />
+      <section>
+        <h3 className='mb-2 text-sm font-medium'>
+          {t('proxyLogs.detail.attempts.title')}
+        </h3>
+        <div className='space-y-2 text-sm'>
+          <div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
+            <span>
+              {t('proxyLogs.detail.attempts.summary', {
+                count: Math.max(ra.attempts.length, 1),
+              })}
+            </span>
+            {ra.terminal ? (
+              <span className='text-muted-foreground inline-flex items-center gap-1'>
+                {t('proxyLogs.detail.attempts.terminal')}
+                <HttpStatusBadge
+                  status={ra.terminal.status}
+                  httpStatus={ra.terminal.httpStatus}
+                />
+              </span>
+            ) : null}
+            {ra.partial ? (
+              <span className='text-warning-soft-fg bg-warning/10 inline-flex items-center rounded px-1.5 py-0.5 text-xs'>
+                {t('proxyLogs.detail.attempts.partial')}
+              </span>
+            ) : null}
+          </div>
+          {ra.partial && ra.partialReasons.length > 0 ? (
+            <ul className='text-muted-foreground list-disc space-y-1 pl-5 text-xs'>
+              {ra.partialReasons.map((reason) => (
+                <li key={reason}>{partialReasonText(reason)}</li>
+              ))}
+            </ul>
+          ) : null}
+          {ra.attempts.length > 0 ? (
+            <ol className='divide-border divide-y rounded-md border'>
+              {ra.attempts.map((attempt) => (
+                <li key={attempt.id}>
+                  <button
+                    type='button'
+                    disabled={attempt.isCurrent || !onViewAttempt}
+                    onClick={() => onViewAttempt?.(attempt)}
+                    className='hover:bg-muted/50 flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 px-2 py-1.5 text-left text-xs disabled:cursor-default disabled:hover:bg-transparent'
+                  >
+                    <span className='text-muted-foreground font-mono'>
+                      {`#${attempt.ordinal + 1}`}
+                    </span>
+                    <HttpStatusBadge
+                      status={attempt.status}
+                      httpStatus={attempt.httpStatus}
+                    />
+                    <span className='min-w-0 flex-1 truncate'>
+                      {attempt.siteName ||
+                        attempt.accountUsername ||
+                        attempt.modelActual ||
+                        EM_DASH}
+                    </span>
+                    <span className='text-muted-foreground'>
+                      {formatInt(attempt.latencyMs)} ms
+                    </span>
+                    {attempt.isCurrent ? (
+                      <span className='text-primary'>
+                        {t('proxyLogs.detail.attempts.current')}
+                      </span>
+                    ) : null}
+                  </button>
+                  {attempt.errorMessage ? (
+                    <p className='text-destructive-soft-fg truncate px-2 pb-1.5 text-xs'>
+                      {attempt.errorMessage}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className='text-muted-foreground text-xs'>
+              {t('proxyLogs.detail.attempts.uncorrelated')}
+            </p>
+          )}
+        </div>
       </section>
     </>
   )

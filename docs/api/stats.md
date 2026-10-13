@@ -72,6 +72,22 @@ Earlier builds recorded header latency as total latency on successful responses;
 
 Get a single proxy log entry by ID.
 
+The response carries a request-level attempt view in `requestAttempts`. Every dispatch attempt (including the final one) persists its own `proxy_logs` row; `requestId` correlates the rows of one client request and `retry_count` is the retry-loop ordinal. Shape:
+
+```
+requestAttempts: {
+  requestId: string | null,
+  currentOrdinal: number,          // this row's retry_count
+  attempts: [{ id, ordinal, status, httpStatus, channelId, siteId, siteName,
+               accountUsername, modelActual, errorMessage, latencyMs, createdAt, isCurrent }],
+  terminal: { status, httpStatus, logId } | null,  // highest-ordinal row = what the client finally got
+  partial: boolean,
+  partialReasons: string[]          // "requestIdMissing" | "ordinalGap" | "attemptQueryFailed"
+}
+```
+
+`partial` marks a known-incomplete persisted set: `requestIdMissing` (legacy row without correlation; `attempts` stays empty rather than presenting one unverifiable row as the whole request), `ordinalGap` (a loop iteration left no row, e.g. a selected channel skipped on site-concurrency saturation). Gaps are reported, never back-filled. The all-channels-exhausted terminal 503 writes no extra row, so for an all-failed request the last attempt row IS the terminal observation.
+
 ### GET /api/stats/site-distribution
 
 Token distribution across sites.
