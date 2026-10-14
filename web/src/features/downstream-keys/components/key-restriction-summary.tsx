@@ -3,7 +3,10 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 
-import { CREATE_FORM_ID, type CreateKeyFormValues } from './key-form-shared'
+import {
+  locateKeyScopeField,
+  type CreateKeyFormValues,
+} from './key-form-shared'
 
 // Quick navigation reads the same form values; it never evaluates permissions.
 export function KeyRestrictionSummary() {
@@ -46,16 +49,6 @@ export function KeyRestrictionSummary() {
       count: accessDimensionCount,
     },
   ]
-  function locate(field: string) {
-    const section = document
-      .querySelector(`#${CREATE_FORM_ID}`)
-      ?.querySelector<HTMLElement>(`[data-key-scope="${field}"]`)
-    const control = section?.querySelector<HTMLElement>(
-      'input, button, [tabindex="0"]'
-    )
-    control?.scrollIntoView?.({ block: 'center' })
-    control?.focus({ preventScroll: true })
-  }
   return (
     <nav
       className='bg-background sticky top-0 z-10 flex flex-wrap gap-1 border-b pt-1 pb-2'
@@ -71,7 +64,7 @@ export function KeyRestrictionSummary() {
               : 'outline'
           }
           size='xs'
-          onClick={() => locate(dimension.field)}
+          onClick={() => locateKeyScopeField(dimension.field)}
         >
           {dimension.label} ·{' '}
           {dimension.count ?? t('settings.downstream.keys.picker.unknown')}

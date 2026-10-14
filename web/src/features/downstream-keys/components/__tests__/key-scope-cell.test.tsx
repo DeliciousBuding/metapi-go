@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 
@@ -21,20 +21,93 @@ const names: ScopeNameMaps = {
   tokens: new Map([[101, 'Token A']]),
 }
 
-function renderCell(item: Parameters<typeof KeyScopeCell>[0]['item']) {
-  return render((<KeyScopeCell item={item} names={names} />) as ReactElement)
+function renderCell(
+  item: Parameters<typeof KeyScopeCell>[0]['item'],
+  onOpenDetails?: (anchorField: string | null) => void
+) {
+  return render(
+    (
+      <KeyScopeCell item={item} names={names} onOpenDetails={onOpenDetails} />
+    ) as ReactElement
+  )
 }
 
-describe('KeyScopeCell', () => {
-  it('distinguishes a present-empty direct allow-list from unrestricted routing', () => {
-    renderCell({ accessPolicy: { allowedUpstreamChannelIds: [] } })
-    expect(screen.getByText('All channels denied')).toBeInTheDocument()
-    expect(
-      screen.queryByText('No additional routing restriction')
-    ).not.toBeInTheDocument()
+describe('KeyScopeCell restriction badges (#1430)', () => {
+  it('renders a single Unrestricted badge when nothing is configured', () => {
+    renderCell({})
+    expect(screen.getByText('Unrestricted')).toBeInTheDocument()
+    expect(screen.queryByTestId('key-scope-cell')).toBeNull()
   })
 
-  it('shows exact models, mappings, zero quota and incomplete imported history', () => {
+  it('renders one badge per configured dimension with its count', () => {
+    renderCell({
+      supportedModels: ['gpt-5.5', 'claude-*'],
+      allowedSiteIds: [1, 2],
+      maxRpm: 60,
+      maxCost: 50,
+    })
+    expect(screen.getByText('Models · 2')).toBeInTheDocument()
+    expect(screen.getByText('Sites · 2')).toBeInTheDocument()
+    expect(screen.getByText('Rate · 1')).toBeInTheDocument()
+    expect(screen.getByText('Budget · 1')).toBeInTheDocument()
+  })
+
+  it('carries the human-readable detail in the badge tooltip', () => {
+    renderCell({
+      allowedSiteIds: '[1]',
+      excludedCredentialRefs: JSON.stringify([
+        { kind: 'default_api_key', siteId: 2, accountId: 12 },
+      ]),
+      ipAllowlist: '10.0.0.0/8',
+    })
+    expect(screen.getByText('Sites · 1')).toHaveAttribute(
+      'title',
+      'Allowed sites (1): Alpha'
+    )
+    expect(screen.getByText('Credentials · 1')).toHaveAttribute(
+      'title',
+      'Excluded credentials (1): Beta / bob / default key'
+    )
+    expect(screen.getByText('IP lists · 1')).toHaveAttribute(
+      'title',
+      'Allow: 10.0.0.0/8'
+    )
+  })
+
+  it('resolves missing mappings as unresolved IDs in the tooltip', () => {
+    renderCell({
+      allowedCredentialRefs: JSON.stringify([
+        { kind: 'account_token', siteId: 7, accountId: 8, tokenId: 9 },
+      ]),
+    })
+    expect(screen.getByText('Credentials · 1')).toHaveAttribute(
+      'title',
+      'Allowed credentials (1): ID 7 (unresolved) / ID 8 (unresolved) / ID 9 (unresolved)'
+    )
+  })
+
+  it('keeps the access-policy honesty markers in the tooltip', () => {
+    // Present-but-empty direct allow-list: every channel denied — a fact the
+    // operator must see, not a rounded-off "restricted".
+    const denied = renderCell({
+      accessPolicy: { allowedUpstreamChannelIds: [] },
+    })
+    const deniedBadge = screen.getByText(/^Policy · /)
+    expect(deniedBadge).toHaveAttribute(
+      'title',
+      expect.stringContaining('All channels denied')
+    )
+    denied.unmount()
+
+    cleanup()
+    renderCell({ accessPolicy: 'not-json' })
+    expect(screen.getByText('Policy · Unknown')).toHaveAttribute(
+      'title',
+      'Policy unreadable — restrictions preserved'
+    )
+  })
+
+  it('lists the access policy content in the tooltip', () => {
     renderCell({
       accessPolicy: JSON.stringify({
         allowedUpstreamChannelIds: [2, 5],
@@ -47,70 +120,40 @@ describe('KeyScopeCell', () => {
         },
       }),
     })
-    expect(screen.getByText(/#2, #5/)).toBeInTheDocument()
-    expect(screen.getByText(/coding/)).toBeInTheDocument()
-    expect(screen.getByText('Model mappings:')).toBeInTheDocument()
-    expect(screen.getByText(/Request count: 0/)).toBeInTheDocument()
-    expect(screen.getByText('Quota history incomplete')).toBeInTheDocument()
+    const badge = screen.getByText(/^Policy · /)
+    const title = badge.getAttribute('title') ?? ''
+    expect(title).toContain('#2, #5')
+    expect(title).toContain('coding')
+    expect(title).toContain('Model mappings')
+    expect(title).toContain('Request count: 0')
+    expect(title).toContain('Quota history incomplete')
   })
 
-  it('never presents blocked, unreadable or unfamiliar policy as unrestricted', () => {
-    const result = renderCell({
-      accessPolicy: { blockReason: 'source_project_unavailable' },
-    })
-    expect(
-      screen.getByText('Access blocked by source policy')
-    ).toBeInTheDocument()
-    result.unmount()
-    const unreadable = renderCell({ accessPolicy: 'not-json' })
-    expect(
-      screen.getByText('Policy unreadable — restrictions preserved')
-    ).toBeInTheDocument()
-    unreadable.unmount()
-    renderCell({ accessPolicy: JSON.stringify({ futureRestriction: true }) })
-    expect(
-      screen.getByText('Additional policy fields — inspect details')
-    ).toBeInTheDocument()
-  })
-  it('renders unrestricted when no policy dimensions are configured', () => {
-    renderCell({})
-    expect(
-      screen.getByText('No additional routing restriction')
-    ).toBeInTheDocument()
+  it('clicking a badge reports the dimension anchor of its form section', () => {
+    const onOpenDetails = vi.fn()
+    renderCell(
+      {
+        supportedModels: ['gpt-5.5'],
+        allowedSiteIds: [1],
+        allowedRouteIds: [9],
+        ipBlocklist: '10.0.0.1',
+      },
+      onOpenDetails
+    )
+    fireEvent.click(screen.getByText('Models · 1'))
+    expect(onOpenDetails).toHaveBeenLastCalledWith('supportedModels')
+    fireEvent.click(screen.getByText('Sites · 1'))
+    expect(onOpenDetails).toHaveBeenLastCalledWith('allowedSiteIds')
+    // routes and ip have no form editing surface — they open the sheet
+    // without a locate target.
+    fireEvent.click(screen.getByText('Routes · 1'))
+    expect(onOpenDetails).toHaveBeenLastCalledWith(null)
+    fireEvent.click(screen.getByText('IP lists · 1'))
+    expect(onOpenDetails).toHaveBeenLastCalledWith(null)
   })
 
-  it('resolves site/account/token refs to human-readable names', () => {
-    renderCell({
-      allowedCredentialRefs: JSON.stringify([
-        { kind: 'account_token', siteId: 1, accountId: 11, tokenId: 101 },
-        { kind: 'default_api_key', siteId: 2, accountId: 12 },
-      ]),
-    })
-    expect(screen.getByText(/Alpha \/ alice \/ Token A/)).toBeInTheDocument()
-    expect(screen.getByText(/Beta \/ bob \/ default key/)).toBeInTheDocument()
-  })
-
-  it('shows allow and exclude dimensions separately', () => {
-    renderCell({
-      allowedSiteIds: '[1]',
-      excludedCredentialRefs: JSON.stringify([
-        { kind: 'default_api_key', siteId: 2, accountId: 12 },
-      ]),
-    })
-    expect(screen.getByText('Allowed sites (1):')).toBeInTheDocument()
-    expect(screen.getByText('Excluded credentials (1):')).toBeInTheDocument()
-  })
-
-  it('honestly renders missing mappings as unresolved IDs', () => {
-    renderCell({
-      allowedCredentialRefs: JSON.stringify([
-        { kind: 'account_token', siteId: 7, accountId: 8, tokenId: 9 },
-      ]),
-    })
-    expect(
-      screen.getByText(
-        /ID 7 \(unresolved\) \/ ID 8 \(unresolved\) \/ ID 9 \(unresolved\)/
-      )
-    ).toBeInTheDocument()
+  it('renders non-interactive badges when no click-through handler is given', () => {
+    renderCell({ supportedModels: ['gpt-5.5'] })
+    expect(screen.getByText('Models · 1').tagName).toBe('SPAN')
   })
 })

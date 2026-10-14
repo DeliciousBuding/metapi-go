@@ -1671,7 +1671,18 @@
             "filterAll": "All keys",
             "filterRestricted": "Restricted only",
             "filterUnrestricted": "Unrestricted only",
-            "count": "{{restricted}} restricted of {{total}}"
+            "count": "{{restricted}} restricted of {{total}}",
+            "dim": {
+              "models": "Models",
+              "routes": "Routes",
+              "sites": "Sites",
+              "credentials": "Credentials",
+              "ip": "IP lists",
+              "rate": "Rate",
+              "budget": "Budget",
+              "policy": "Policy"
+            },
+            "none": "Unrestricted"
           },
           "scope": {
             "unrestricted": "No additional routing restriction",

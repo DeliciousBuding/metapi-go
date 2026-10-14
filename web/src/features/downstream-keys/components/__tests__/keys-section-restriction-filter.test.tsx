@@ -80,6 +80,7 @@ const keyItems = [
 ]
 
 beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn()
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
@@ -170,5 +171,40 @@ describe('KeysSection restriction filter (#1430)', () => {
 
     // Client-side filtering: the list query ran exactly once.
     expect(mockGetKeys).toHaveBeenCalledTimes(1)
+  })
+
+  it('filters by a single restriction dimension', async () => {
+    renderKeysSection()
+    await screen.findByText('wide-open key')
+
+    await chooseRestriction('Rate')
+    await waitFor(() => {
+      expect(visibleKeyNames()).toEqual(['rate-capped key'])
+    })
+
+    await chooseRestriction('Models')
+    await waitFor(() => {
+      expect(visibleKeyNames()).toEqual(['model-scoped key'])
+    })
+  })
+
+  it('opens the edit sheet located at the clicked badge dimension', async () => {
+    renderKeysSection()
+    await screen.findByText('model-scoped key')
+
+    fireEvent.click(screen.getByText('Models · 1'))
+
+    // The edit sheet opened (form name field pre-filled)…
+    expect(await screen.findByLabelText('Name')).toHaveValue('model-scoped key')
+    // …and the locate landed inside the model-access section: the anchored
+    // section's first control receives focus after the mount rAF.
+    await waitFor(() => {
+      const section = document.querySelector(
+        '[data-key-scope="supportedModels"]'
+      )
+      expect(section).not.toBeNull()
+      expect(section?.contains(document.activeElement)).toBe(true)
+    })
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
   })
 })
