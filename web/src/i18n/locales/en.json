@@ -2668,6 +2668,22 @@
         "bulkDisableConfirmTitle": "Disable selected routes?",
         "bulkDisableConfirmDescription": "The {{count}} selected route(s) will stop serving requests until re-enabled."
       },
+      "workspace": {
+        "title": "Route workspace",
+        "model": "Client model",
+        "endpoint": "Client endpoint",
+        "key": "Downstream key",
+        "noKey": "Skip key check",
+        "clientIp": "Client IP (optional)",
+        "check": "Check call path",
+        "adminBoundary": "No downstream key selected: administrator route preview only; request admission is not evaluated.",
+        "keyBoundary": "Downstream key selected: read-only admission and candidate evaluation under that key's policy; no upstream request is sent.",
+        "error": "Call-path check failed. Please retry.",
+        "empty": "Enter a concrete model to start.",
+        "routeResult": "Route and candidates",
+        "openRoute": "Open route",
+        "openLogs": "View key logs"
+      },
       "form": {
         "invalid": "Please check the highlighted form fields",
         "editTitle": "Edit route",

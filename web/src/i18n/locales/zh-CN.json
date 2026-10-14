@@ -2668,6 +2668,22 @@
         "bulkDisableConfirmTitle": "停用选中的路由？",
         "bulkDisableConfirmDescription": "选中的 {{count}} 条路由将停止响应请求，直到重新启用。"
       },
+      "workspace": {
+        "title": "路由工作区",
+        "model": "客户端模型",
+        "endpoint": "客户端接口",
+        "key": "下游 Key",
+        "noKey": "不检查 Key",
+        "clientIp": "客户端 IP（可选）",
+        "check": "检查调用链",
+        "adminBoundary": "未选择下游 Key：仅做管理员路由预览，不评估请求准入。",
+        "keyBoundary": "已选择下游 Key：只读评估准入链与该 Key 权限下的候选，不发送上游请求。",
+        "error": "调用链检查失败，请稍后重试。",
+        "empty": "填写具体模型后开始检查。",
+        "routeResult": "路由与候选",
+        "openRoute": "打开路由",
+        "openLogs": "查看 Key 日志"
+      },
       "form": {
         "invalid": "请检查表单标红字段",
         "editTitle": "编辑路由",

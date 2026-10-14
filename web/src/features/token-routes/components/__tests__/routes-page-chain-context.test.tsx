@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/i18n/config'
 
 import { RoutesPage } from '../routes-page'
+vi.mock('../route-workspace', () => ({ RouteWorkspace: () => null }))
 
 type AccountEntry = { id: number; username: string }
 type SiteEntry = { id: number; name: string }

@@ -22,6 +22,7 @@ import type { MissingTokenModelsByName } from '@/lib/helpers/routeMissingTokenHi
 
 import type { RouteSummaryRow } from '../../types'
 import { RoutesPage } from '../routes-page'
+vi.mock('../route-workspace', () => ({ RouteWorkspace: () => null }))
 
 const STORAGE_KEY = 'metapi-go:token-routes:show-zero-channel'
 

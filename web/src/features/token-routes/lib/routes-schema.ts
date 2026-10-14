@@ -259,6 +259,18 @@ export const routesSearchSchema = z.object({
   // the loaded list snapshot before opening, so a stale/unknown id is
   // stripped silently instead of opening a blank dialog.
   edit: z.coerce.number().int().positive().optional().catch(undefined),
+  // Route workspace state: one concrete client model + protocol + optional
+  // downstream key admission context. These are page-specific filters, not
+  // table columns, so list pagination and the diagnostic panel share one URL.
+  workspaceModel: stringSearchParam,
+  workspaceEndpoint: stringSearchParam,
+  workspaceKeyId: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .catch(undefined),
+  workspaceClientIp: stringSearchParam,
   page: z.coerce.number().int().positive().catch(1).default(1),
   pageSize: z.coerce.number().int().positive().max(200).catch(20).default(20),
 })
