@@ -183,6 +183,31 @@ func (h *tokenRoutesHandler) batchAddChannels(w http.ResponseWriter, r *http.Req
 
 // ---- Clear Cooldown ----
 // POST /api/routes/:id/cooldown/clear
+// clearChannelCooldown resets the cooldown of ONE route_channels row — the
+// per-candidate recovery entry used by the route decision panel (the
+// route-level clearCooldown above resets every channel of the route at once).
+// Idempotent: a row that is not cooled is a successful no-op; unknown ids 404.
+func (h *tokenRoutesHandler) clearChannelCooldown(w http.ResponseWriter, r *http.Request) {
+	channelID, err := strconv.ParseInt(chi.URLParam(r, "channelId"), 10, 64)
+	if err != nil || channelID <= 0 {
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeChannelNotFound, "channel not found")
+		return
+	}
+	res, err := h.db.Exec(h.db.Rebind(`UPDATE route_channels SET cooldown_until = NULL, consecutive_fail_count = 0, cooldown_level = 0, cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL WHERE id = ?`), channelID)
+	if err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to clear channel cooldown: "+err.Error())
+		return
+	}
+	affected, err := res.RowsAffected()
+	if err != nil || affected == 0 {
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeChannelNotFound, "channel not found")
+		return
+	}
+	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "id": channelID})
+}
+
 func (h *tokenRoutesHandler) clearCooldown(w http.ResponseWriter, r *http.Request) {
 	routeID, ok := pathID(w, r)
 	if !ok {

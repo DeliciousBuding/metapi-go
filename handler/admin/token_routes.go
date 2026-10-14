@@ -66,6 +66,7 @@ func RegisterTokenRoutesWithDeps(r chi.Router, db *sqlx.DB, deps TokenRoutesDeps
 	r.Post("/api/routes/{id}/channels", handler.addChannel)
 	r.Post("/api/routes/{id}/channels/batch", handler.batchAddChannels)
 	r.Post("/api/routes/{id}/cooldown/clear", handler.clearCooldown)
+	r.Post("/api/channels/{channelId}/cooldown/clear", handler.clearChannelCooldown)
 
 	// Channel operations
 	r.Get("/api/channels", handler.listChannels)
@@ -766,6 +767,7 @@ func routeDecisionToMap(d routing.RouteDecisionExplanation) map[string]any {
 			"avoidedByRecentFailure": c.AvoidedByRecentFailure,
 			"probability":            c.Probability,
 			"reason":                 c.Reason,
+			"cooldownUntil":          c.CooldownUntil,
 		})
 	}
 	out := map[string]any{

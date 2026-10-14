@@ -19,6 +19,12 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - **治理区**（v0.16.13 起）：全条目受上述契约与门禁约束。
 - **归档区**（v0.16.12 及更早）：每版只留安全修复、破坏性变更与运维动作。这些版本的全文逐字保存在各自的 [release 页](https://github.com/DeliciousBuding/metapi-go/releases)——已逐版核对，发布页与归档前的本文件段落字节一致——UI 与交互级修复因此不在这里抄第二份。
 
+## [Unreleased]
+
+### 变更
+
+- 路由诊断：候选的解释投影新增冷却截止时间；冷却阻断且身份已知的候选行内提供「清除冷却」恢复入口，按候选类型分发——账号/OAuth 单元走 `POST /api/channels/{id}/cooldown/clear`（route_channels 行粒度，幂等），直连 grant 成员走既有 `POST /api/imported-upstreams/members/{id}/cooldown/clear`（upstream_grants 粒度），清除后自动重新评估（#1396）。
+
 ## [v0.24.0] — 2026-10-14
 
 > 接入链闭环：GCP 服务账号凭据与 Vertex（Gemini/Anthropic）预设、通道模型目录重新发现、请求级尝试视图与 Key 情境准入解释；密钥限制徽标与维度筛选；连接对话框内两步验证与按密钥日志深链。
