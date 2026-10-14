@@ -38,14 +38,22 @@ import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
 import { accountDisplayName, tokenDisplayName } from '../lib/credential-display'
-import { isKeyRestricted } from '../lib/key-restrictions'
+import {
+  isKeyRestricted,
+  KEY_RESTRICTION_DIMENSIONS,
+  keyRestrictionDimensions,
+  type KeyRestrictionDimension,
+} from '../lib/key-restrictions'
 import {
   downstreamKeysQueryKeys,
   type DownstreamApiKeyItem,
   type DownstreamKeysResponse,
 } from '../types'
 import { KeyModelPolicyCell, KeyUsageCell } from './key-cells'
-import { extractMarketplaceModelNames } from './key-form-shared'
+import {
+  extractMarketplaceModelNames,
+  resolveKeyScopeControl,
+} from './key-form-shared'
 import { KeyPermissionCheckDialog } from './key-permission-check-dialog'
 import { KeyScopeCell, type ScopeNameMaps } from './key-scope-cell'
 import { KeySheetForm } from './key-sheet-form'
@@ -59,6 +67,9 @@ export function KeysSection() {
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
   const [formDirty, setFormDirty] = useState(false)
+  // #1430: data-key-scope anchor of the restriction badge that opened the
+  // edit sheet (null = opened from the plain edit action).
+  const [locateField, setLocateField] = useState<string | null>(null)
   const [exportTarget, setExportTarget] =
     useState<CredentialExportTarget | null>(null)
   const [checkTarget, setCheckTarget] = useState<DownstreamApiKeyItem | null>(
@@ -121,11 +132,13 @@ export function KeysSection() {
 
   function openCreate() {
     setEditingKey(null)
+    setLocateField(null)
     setCreateOpen(true)
   }
 
-  function openEdit(item: DownstreamApiKeyItem) {
+  function openEdit(item: DownstreamApiKeyItem, locateField?: string | null) {
     setEditingKey(item)
+    setLocateField(locateField ?? null)
     setCreateOpen(true)
   }
 
@@ -133,6 +146,7 @@ export function KeysSection() {
     setCreateOpen(open)
     if (!open) {
       setEditingKey(null)
+      setLocateField(null)
     }
   }
 
@@ -179,9 +193,9 @@ export function KeysSection() {
     [undoableDelete, t]
   )
 
-  const [restrictionFilter, setRestrictionFilter] = useState<
-    'all' | 'restricted' | 'unrestricted'
-  >('all')
+  // 'all' | 'restricted' | 'unrestricted' | `dim:<dimension>` (#1430
+  // per-dimension filter for "which keys touch IP lists" style audits).
+  const [restrictionFilter, setRestrictionFilter] = useState<string>('all')
   const allItems = useMemo(
     () => keysQuery.data?.items ?? EMPTY_KEY_ITEMS,
     [keysQuery.data]
@@ -196,6 +210,12 @@ export function KeysSection() {
     }
     if (restrictionFilter === 'unrestricted') {
       return allItems.filter((item) => !isKeyRestricted(item))
+    }
+    if (restrictionFilter.startsWith('dim:')) {
+      const dimension = restrictionFilter.slice(4) as KeyRestrictionDimension
+      return allItems.filter((item) =>
+        keyRestrictionDimensions(item).includes(dimension)
+      )
     }
     return allItems
   }, [allItems, restrictionFilter])
@@ -213,6 +233,10 @@ export function KeysSection() {
         value: 'unrestricted',
         label: t('settings.downstream.keys.restriction.filterUnrestricted'),
       },
+      ...KEY_RESTRICTION_DIMENSIONS.map((dimension) => ({
+        value: `dim:${dimension}`,
+        label: t(`settings.downstream.keys.restriction.dim.${dimension}`),
+      })),
     ],
     [t]
   )
@@ -275,7 +299,11 @@ export function KeysSection() {
         id: 'scope',
         header: t('settings.downstream.keys.columns.scope'),
         cell: ({ row }) => (
-          <KeyScopeCell item={row.original} names={scopeNames} />
+          <KeyScopeCell
+            item={row.original}
+            names={scopeNames}
+            onOpenDetails={(anchor) => openEdit(row.original, anchor)}
+          />
         ),
       },
       {
@@ -392,9 +420,7 @@ export function KeysSection() {
                   items={restrictionFilterItems}
                   value={restrictionFilter}
                   onValueChange={(value) =>
-                    setRestrictionFilter(
-                      value as 'all' | 'restricted' | 'unrestricted'
-                    )
+                    setRestrictionFilter(value ?? 'all')
                   }
                 >
                   <SelectTrigger
@@ -420,6 +446,13 @@ export function KeysSection() {
                         'settings.downstream.keys.restriction.filterUnrestricted'
                       )}
                     </SelectItem>
+                    {KEY_RESTRICTION_DIMENSIONS.map((dimension) => (
+                      <SelectItem key={dimension} value={`dim:${dimension}`}>
+                        {t(
+                          `settings.downstream.keys.restriction.dim.${dimension}`
+                        )}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <span className='text-muted-foreground self-center text-xs'>
@@ -444,7 +477,14 @@ export function KeysSection() {
             below `sm` + flex-column layout. The form body is the scroll
             region (flex-1), so the submit footer (SheetFooter `mt-auto`)
             stays pinned at the bottom instead of scrolling out of reach. */}
-        <SheetContent showMobileCloseBar={false}>
+        <SheetContent
+          showMobileCloseBar={false}
+          initialFocus={
+            locateField
+              ? () => resolveKeyScopeControl(locateField) ?? undefined
+              : undefined
+          }
+        >
           <KeySheetForm
             key={editingKey?.id ?? 'create'}
             editingKey={editingKey}
@@ -452,6 +492,7 @@ export function KeysSection() {
             onCreated={(target) => setExportTarget(target)}
             onDirtyChange={setFormDirty}
             candidateModels={candidateModels}
+            initialLocateField={locateField}
           />
           {sheetDirtyGuard}
         </SheetContent>

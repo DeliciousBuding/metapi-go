@@ -17,6 +17,28 @@ import type { DownstreamAccessPolicy, DownstreamApiKeyItem } from '../types'
 
 export const CREATE_FORM_ID = 'downstream-keys-create-form'
 
+/** First focusable control inside the form section tagged with
+ *  `data-key-scope="<field>"`, or null when the anchor does not exist
+ *  (dimension without a form surface, or the sheet is not open). */
+export function resolveKeyScopeControl(field: string): HTMLElement | null {
+  const section = document
+    .querySelector(`#${CREATE_FORM_ID}`)
+    ?.querySelector<HTMLElement>(`[data-key-scope="${field}"]`)
+  return (
+    section?.querySelector<HTMLElement>('input, button, [tabindex="0"]') ?? null
+  )
+}
+
+/** Scroll + focus the control inside the form section tagged with
+ *  `data-key-scope="<field>"`. Shared by the in-form restriction summary and
+ *  the list-row badge click-through (#1430): both mean "take me to where this
+ *  dimension is managed". */
+export function locateKeyScopeField(field: string): void {
+  const control = resolveKeyScopeControl(field)
+  control?.scrollIntoView?.({ block: 'center' })
+  control?.focus({ preventScroll: true })
+}
+
 // Extract the backend error message from an axios rejection. Admin API
 // errors serialize as { error: "..." } (handler/shared/errors.go APIError);
 // .message is checked too, mirroring the http-client resolveResponseMessage

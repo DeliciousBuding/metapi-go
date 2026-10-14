@@ -51,6 +51,7 @@ import {
   generateDownstreamSkSuffix,
   keyFormValuesFromItem,
   localDatetimeInputToIso,
+  resolveKeyScopeControl,
   normalizeModelRules,
   resolveApiErrorMessage,
   type CreateKeyFormValues,
@@ -248,6 +249,7 @@ export function KeySheetForm({
   onCreated,
   onDirtyChange,
   candidateModels = [],
+  initialLocateField = null,
 }: {
   editingKey: DownstreamApiKeyItem | null
   onDone: () => void
@@ -255,6 +257,10 @@ export function KeySheetForm({
   /** Reports RHF dirty state so the hosting Sheet can guard dirty closes. */
   onDirtyChange?: (dirty: boolean) => void
   candidateModels?: string[]
+  /** #1430: when the sheet was opened from a list-row restriction badge, the
+   *  `data-key-scope` anchor of that dimension — scrolled into view once on
+   *  mount; focus is owned by the Sheet's initialFocus resolver. */
+  initialLocateField?: string | null
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -277,6 +283,23 @@ export function KeySheetForm({
     onDirtyChange?.(isFormDirty)
     return () => onDirtyChange?.(false)
   }, [isFormDirty, onDirtyChange])
+
+  // #1430 badge click-through: scroll the originating dimension's section
+  // into view once the form has painted. Focus itself is owned by the
+  // Sheet's initialFocus resolver (the dialog focus trap would steal a
+  // directly-focused control). Runs once per mount — the parent remounts the
+  // form per key via the `key` prop.
+  const initialLocate = initialLocateField
+  useEffect(() => {
+    if (!initialLocate) return
+    const frame = requestAnimationFrame(() => {
+      resolveKeyScopeControl(initialLocate)?.scrollIntoView?.({
+        block: 'center',
+      })
+    })
+    return () => cancelAnimationFrame(frame)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function generateKey() {
     form.setValue('key', `sk-${generateDownstreamSkSuffix()}`, {
@@ -565,7 +588,7 @@ export function KeySheetForm({
               control={form.control}
               name='maxRequests'
               render={({ field }) => (
-                <FormItem>
+                <FormItem data-key-scope='maxRequests'>
                   <FormLabel>
                     {t('settings.downstream.keys.fields.maxRequests')}
                   </FormLabel>

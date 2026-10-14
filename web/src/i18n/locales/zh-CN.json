@@ -1671,7 +1671,18 @@
             "filterAll": "全部密钥",
             "filterRestricted": "仅有限制",
             "filterUnrestricted": "仅无限制",
-            "count": "{{total}} 个密钥中 {{restricted}} 个有限制"
+            "count": "{{total}} 个密钥中 {{restricted}} 个有限制",
+            "dim": {
+              "models": "模型",
+              "routes": "路由",
+              "sites": "站点",
+              "credentials": "凭据",
+              "ip": "IP 名单",
+              "rate": "速率",
+              "budget": "预算",
+              "policy": "策略"
+            },
+            "none": "无限制"
           },
           "scope": {
             "unrestricted": "无额外选路限制",
