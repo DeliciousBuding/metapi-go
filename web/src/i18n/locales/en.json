@@ -1635,6 +1635,8 @@
             "deleteFailed": "Failed to delete API key."
           },
           "connect": "Connect",
+          "viewLogs": "Logs",
+          "viewLogsAria": "View logs for {{name}}",
           "sites": {
             "fieldLabel": "Upstream site restriction",
             "hint": "Leave empty for no site restriction. Selecting sites limits this key to channels of the chosen upstream sites."
@@ -3093,6 +3095,8 @@
         "filterClientPlaceholder": "Client",
         "filterAllClients": "All clients",
         "filterChannelPlaceholder": "Channel ID",
+        "filterKeyActive": "Key: {{name}}",
+        "filterKeyClear": "Clear key filter",
         "startTime": "Start time",
         "endTime": "End time",
         "latencyMin": "Latency ≥",
@@ -4094,7 +4098,18 @@
       "loadFailed": "Failed to load credential export.",
       "hint": "Deep links open the client app if installed; JSON/env copies are pasted manually into clients that do not support import links.",
       "copyFailed": "Copy failed — clipboard unavailable.",
-      "testRequest": "Send a test request",
+      "verify": {
+        "title": "Verify the connection",
+        "description": "Two real requests with this key, from this browser — they consume a small amount of quota and appear in the logs, exactly like a client's traffic would.",
+        "modelsCta": "Check available models",
+        "modelsOk": "{{count}} models callable",
+        "noModels": "This key can call no models right now. Check its model policy and the route grants.",
+        "modelAria": "Model for the test request",
+        "chatCta": "Send a test chat",
+        "chatOk": "Succeeded in {{ms}} ms",
+        "timeout": "Request timed out or network error",
+        "viewLogs": "View this key's logs"
+      },
       "toast": {
         "keyCopied": "API key copied",
         "endpointCopied": "Endpoint copied",

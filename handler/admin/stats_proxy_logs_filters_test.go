@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/store"
@@ -336,6 +337,62 @@ func TestStats_SQLiteProxyLogsChannelIDCombinedWithOtherFilters(t *testing.T) {
 // the free-text filter must match the account username and the downstream key
 // (value or name) in addition to the model columns, and items / total /
 // summary must agree (shared `where`/`args` slice).
+// downstreamKeyId is the "this key's traffic" drill-down linked from the
+// keys page and the connect dialog's verify outcome. Same contract as
+// channelId: items/total/summary share one WHERE, unknown ids yield a
+// consistent empty page, and rows without key attribution (NULL) are
+// excluded only while the filter is active.
+func TestStats_SQLiteProxyLogsDownstreamKeyIDFilter(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	keyA := seedDownstreamKeyFixture(t, db, "key-a", true)
+	keyB := seedDownstreamKeyFixture(t, db, "key-b", true)
+
+	rows := []struct {
+		model string
+		keyID any // nil = legacy row without key attribution
+	}{
+		{"via-a-1", keyA},
+		{"via-a-2", keyA},
+		{"via-b", keyB},
+		{"legacy", nil},
+	}
+	for i, row := range rows {
+		if _, err := db.Exec(`INSERT INTO proxy_logs (model_requested, model_actual, status, latency_ms, client_family, downstream_api_key_id, created_at)
+			VALUES (?, ?, 'success', 100, 'openai-node', ?, ?)`,
+			row.model, row.model, row.keyID, "2026-01-01T0"+strconv.Itoa(i+1)+":00:00Z"); err != nil {
+			t.Fatalf("insert %s: %v", row.model, err)
+		}
+	}
+
+	filterA := "downstreamKeyId=" + strconv.FormatInt(keyA, 10)
+	bodyA := fetchProxyLogsFiltered(t, r, filterA)
+	if bodyA.Total != 2 || len(bodyA.Items) != 2 || bodyA.Summary.TotalCount != 2 {
+		t.Fatalf("%s: total=%d items=%d summary=%d, want 2/2/2", filterA, bodyA.Total, len(bodyA.Items), bodyA.Summary.TotalCount)
+	}
+	gotA := modelSet(bodyA.Items)
+	if _, ok := gotA["via-a-1"]; !ok {
+		t.Fatalf("%s missing via-a-1: %v", filterA, gotA)
+	}
+	if _, ok := gotA["via-b"]; ok {
+		t.Fatalf("%s must not include key B traffic: %v", filterA, gotA)
+	}
+	if _, ok := gotA["legacy"]; ok {
+		t.Fatalf("%s must not include the NULL-attribution row: %v", filterA, gotA)
+	}
+
+	// Unknown key id: consistent empty page, not an unfiltered total.
+	bodyNone := fetchProxyLogsFiltered(t, r, "downstreamKeyId=4242")
+	if bodyNone.Total != 0 || len(bodyNone.Items) != 0 || bodyNone.Summary.TotalCount != 0 {
+		t.Fatalf("unknown key: total=%d items=%d summary=%d, want 0/0/0", bodyNone.Total, len(bodyNone.Items), bodyNone.Summary.TotalCount)
+	}
+
+	// Unset: every row stays visible, including the NULL-attribution one.
+	bodyAll := fetchProxyLogsFiltered(t, r, "")
+	if bodyAll.Total != 4 {
+		t.Fatalf("unfiltered total=%d, want 4", bodyAll.Total)
+	}
+}
+
 func TestStats_SQLiteProxyLogsSearchAccountUsernameAndKey(t *testing.T) {
 	db, r := setupStatsSQLiteTest(t)
 	t1, _, _ := seedProxyLogsForFilterTests(t, db)

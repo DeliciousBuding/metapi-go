@@ -32,6 +32,15 @@ export const proxyLogsSearchSchema = z.object({
   // instead of eyeballing a global search. Positive-only: the backend treats
   // 0 as "no channel filter", so a bogus `?channelId=0` degrades to unset.
   channelId: z.coerce.number().int().positive().optional().catch(undefined),
+  // downstreamKeyId scopes the list to one downstream key's traffic — the
+  // drill-down target linked from the keys page and the connect dialog.
+  // Positive-only like channelId: 0/invalid degrades to unset.
+  downstreamKeyId: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .catch(undefined),
   // Client name and datetime-local bounds. Tolerant of router-parsed
   // primitives (null literals, duplicate-param arrays, numeric epochs) via
   // `stringSearchParam`; read sites normalize with `asStringParam`.

@@ -111,6 +111,18 @@ describe('routesSearchSchema', () => {
 // ---------------------------------------------------------------------------
 
 describe('proxyLogsSearchSchema', () => {
+  it('accepts a positive downstreamKeyId and degrades a bogus one to unset', () => {
+    expect(
+      proxyLogsSearchSchema.parse({ downstreamKeyId: 7 }).downstreamKeyId
+    ).toBe(7)
+    expect(
+      proxyLogsSearchSchema.parse({ downstreamKeyId: 0 }).downstreamKeyId
+    ).toBeUndefined()
+    expect(
+      proxyLogsSearchSchema.parse({ downstreamKeyId: 'abc' }).downstreamKeyId
+    ).toBeUndefined()
+  })
+
   it('tolerates numeric epoch / null / array client·from·to values', () => {
     const result = proxyLogsSearchSchema.parse({
       client: ['a', 'b'],
