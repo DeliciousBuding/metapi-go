@@ -1666,11 +1666,22 @@
             "unknown": "未知",
             "noMatches": "没有匹配的选项"
           },
+          "restriction": {
+            "filterAria": "限制筛选",
+            "filterAll": "全部密钥",
+            "filterRestricted": "仅有限制",
+            "filterUnrestricted": "仅无限制",
+            "count": "{{total}} 个密钥中 {{restricted}} 个有限制"
+          },
           "scope": {
             "unrestricted": "无额外选路限制",
             "sitesAllow": "允许站点",
             "sitesExclude": "排除站点",
             "credsAllow": "允许凭证",
+            "ip": "IP 名单",
+            "ipAllow": "允许",
+            "ipBlock": "封禁",
+            "rate": "速率窗口",
             "credsExclude": "排除凭证",
             "defaultKey": "默认密钥",
             "unknownId": "ID {{id}}（未解析）",

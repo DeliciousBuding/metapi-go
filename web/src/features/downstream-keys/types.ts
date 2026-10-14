@@ -46,6 +46,10 @@ export type DownstreamApiKeyItem = {
   usedRequests?: number | null
   supportedModels?: string[] | string | null
   allowedRouteIds?: number[] | string | null
+  maxRpm?: number | null
+  maxTpm?: number | null
+  ipAllowlist?: string | null
+  ipBlocklist?: string | null
   allowedSiteIds?: number[] | string | null
   excludedSiteIds?: number[] | string | null
   // Credential-ref columns: GET returns the stored columns verbatim — a raw
