@@ -12,12 +12,17 @@ logs, not deleted history. The returned `window` contains an inclusive RFC3339
 `to` bound and, except for all time, a `from` bound. Pass these same bounds to
 proxy-log drill-downs.
 
-**Response**: `{ period, window, summary, points, siteAvailability, models }`.
-`summary` contains totalCount, successCount, failedCount, totalTokensAll,
-totalCost and nullable averageLatencyMs. `points` aggregates requests,
-successCount, successRate, tokens and cost into UTC hours for `24h`, otherwise
-UTC days. Empty buckets are omitted; clients may fill them with zero requests
-and an undefined success rate. The first and last bucket can be partial.
+**Response**: `{ period, window, summary, requestSummary, points, requestPoints, siteAvailability, models }`.
+`summary` and `points` remain attempt-level: every upstream dispatch row,
+including retries. `requestSummary` and `requestPoints` count only logs that
+share a non-empty `requestId`; the terminal row is the highest `retryCount`
+(tie-break by id), so two failed attempts followed by one success is one
+successful request. Rows without `requestId` are excluded from the request
+denominator and reported as `legacyAttemptCount`; when that count is nonzero,
+`partial` is true and `partialReasons` contains `requestIdMissing`. The old
+attempt aggregates are unchanged, so historical dashboards do not silently
+change their denominator. `requestPoints` buckets the terminal attempt by its
+created timestamp; no separate request-start row is inferred.
 `models` lists the five highest-cost models and an `other` bucket when needed.
 `siteAvailability` lists up to eight enabled sites, failures first.
 

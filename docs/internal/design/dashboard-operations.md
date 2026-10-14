@@ -24,7 +24,9 @@ operator needs to make, rather than the order in which features were built.
 
 One `GET /api/stats/overview?period=24h|7d|30d|all` response owns the selected reporting window, summary, trend, model ranking and enabled-upstream performance. The UI defaults to the last seven days. Every analytical panel observes the same query key, and every diagnostic link preserves the returned `window.from` and `window.to`. All time means all retained request logs, not deleted history.
 
-The summary, model ranking and trend include unassigned records and records from disabled sites. The upstream table explicitly includes enabled sites only. Empty traffic has no success rate. Missing buckets are zero requests and a gap in the success-rate line. The 24-hour range uses UTC hour buckets; other ranges use UTC days. The current first/last bucket may be partial.
+The summary, model ranking and attempt trend include unassigned records and records from disabled sites. The upstream table explicitly includes enabled sites only. Empty traffic has no success rate. Missing buckets are zero requests and a gap in the success-rate line. The 24-hour range uses UTC hour buckets; other ranges use UTC days. The current first/last bucket may be partial.
+
+The KPI strip and request trend distinguish client requests from upstream attempts. Request-level metrics use `requestSummary`/`requestPoints`: only logs with a non-empty `requestId` are grouped, and the highest retry ordinal is the terminal outcome. Rows without `requestId` are reported as legacy attempts and do not enter the request denominator. Attempt-level metrics keep the existing `summary`/`points` contract.
 
 The model ranking preserves an Other bucket. Costs are estimates, not revenue or profit. Aggregate data comes from grouped database queries, not a sample of recent requests. A query failure remains visible and is not rendered as a healthy zero. Existing dashboard/gallery endpoint contracts are unchanged.
 

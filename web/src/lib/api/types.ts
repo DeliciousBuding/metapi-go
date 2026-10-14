@@ -16,6 +16,14 @@ export type OverviewReport = {
     totalCost: number
     averageLatencyMs: number | null
   }
+  requestSummary: {
+    totalCount: number
+    successCount: number
+    failedCount: number
+    legacyAttemptCount: number
+    partial: boolean
+    partialReasons: string[]
+  }
   points: Array<{
     date: string
     requests: number
@@ -23,6 +31,12 @@ export type OverviewReport = {
     successRate: number
     tokens: number
     cost: number
+  }>
+  requestPoints: Array<{
+    date: string
+    requests: number
+    successCount: number
+    successRate: number
   }>
   siteAvailability: Array<{
     siteId: number

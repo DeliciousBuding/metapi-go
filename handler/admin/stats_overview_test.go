@@ -90,3 +90,87 @@ func TestStats_OverviewUpstreamAndOther(t *testing.T) {
 		t.Fatalf("Other bucket lost: %v", models)
 	}
 }
+
+func insertStatsProxyLogAttempt(t *testing.T, db *store.DB, model, status, requestID string, retryCount int, createdAt string) {
+	t.Helper()
+	var nullableRequestID any
+	if requestID != "" {
+		nullableRequestID = requestID
+	}
+	_, err := db.Exec(
+		`INSERT INTO proxy_logs (model_requested, model_actual, status, request_id, retry_count, total_tokens, estimated_cost, latency_ms, created_at)
+		 VALUES (?, ?, ?, ?, ?, 10, 1, 100, ?)`,
+		model, model, status, nullableRequestID, retryCount, createdAt,
+	)
+	if err != nil {
+		t.Fatalf("insert proxy log attempt: %v", err)
+	}
+}
+
+func TestStats_OverviewRequestLevelMetrics(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(*testing.T) (*store.DB, chi.Router)
+	}{{"sqlite", setupStatsSQLiteTest}, {"postgres", setupStatsPostgresTest}} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, r := tc.setup(t)
+			now := time.Now().UTC().Format(time.RFC3339)
+			model := "request-overview-" + tc.name
+			t.Cleanup(func() {
+				_, _ = db.Exec("DELETE FROM proxy_logs WHERE model_requested = ?", model)
+			})
+
+			// Two failures followed by success is one successful client request.
+			insertStatsProxyLogAttempt(t, db, model, "failed", "req-a", 0, now)
+			insertStatsProxyLogAttempt(t, db, model, "failed", "req-a", 1, now)
+			insertStatsProxyLogAttempt(t, db, model, "success", "req-a", 2, now)
+			// Two failures with no success is one failed client request.
+			insertStatsProxyLogAttempt(t, db, model, "failed", "req-b", 0, now)
+			insertStatsProxyLogAttempt(t, db, model, "failed", "req-b", 1, now)
+			// A single-attempt request remains one request.
+			insertStatsProxyLogAttempt(t, db, model, "success", "req-c", 0, now)
+			// Legacy rows cannot be correlated and must not enter the request denominator.
+			insertStatsProxyLogAttempt(t, db, model, "success", "", 0, now)
+			insertStatsProxyLogAttempt(t, db, model, "failed", "", 0, now)
+
+			response := doGet(t, r, "/api/stats/overview?period=all")
+			if response.Code != 200 {
+				t.Fatalf("%s: %d %s", tc.name, response.Code, response.Body.String())
+			}
+			var result map[string]any
+			if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+			requestSummary := result["requestSummary"].(map[string]any)
+			if requestSummary["totalCount"] != float64(3) ||
+				requestSummary["successCount"] != float64(2) ||
+				requestSummary["failedCount"] != float64(1) {
+				t.Fatalf("requestSummary = %#v", requestSummary)
+			}
+			if requestSummary["legacyAttemptCount"] != float64(2) ||
+				requestSummary["partial"] != true {
+				t.Fatalf("request completeness = %#v", requestSummary)
+			}
+			reasons, ok := requestSummary["partialReasons"].([]any)
+			if !ok || len(reasons) != 1 || reasons[0] != "requestIdMissing" {
+				t.Fatalf("partialReasons = %#v", requestSummary["partialReasons"])
+			}
+
+			attemptSummary := result["summary"].(map[string]any)
+			if attemptSummary["totalCount"] != float64(8) {
+				t.Fatalf("attempt summary = %#v", attemptSummary)
+			}
+
+			points, ok := result["requestPoints"].([]any)
+			if !ok || len(points) != 1 {
+				t.Fatalf("requestPoints = %#v", result["requestPoints"])
+			}
+			point := points[0].(map[string]any)
+			if point["requests"] != float64(3) ||
+				point["successCount"] != float64(2) ||
+				point["successRate"] != float64(2.0/3.0) {
+				t.Fatalf("request point = %#v", point)
+			}
+		})
+	}
+}

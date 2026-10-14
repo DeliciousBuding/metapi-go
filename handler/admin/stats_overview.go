@@ -40,6 +40,10 @@ func (h *statsHandler) overview(w http.ResponseWriter, r *http.Request) {
 	if period == "24h" {
 		bucket = hourBucketSQLExpr(h.db, "pl.created_at")
 	}
+	requestBucket := dayBucketSQLExpr(h.db, "correlated.created_at")
+	if period == "24h" {
+		requestBucket = hourBucketSQLExpr(h.db, "correlated.created_at")
+	}
 	points, err := queryRowsErr(h.db, `SELECT `+bucket+` AS date,
   COUNT(*) AS requests,
   COALESCE(SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END),0) AS success_count,
@@ -50,6 +54,26 @@ func (h *statsHandler) overview(w http.ResponseWriter, r *http.Request) {
   FROM proxy_logs pl WHERE `+condition+` GROUP BY `+bucket+` ORDER BY date`, args...)
 	if err != nil {
 		writeError(w, 500, "failed to load overview trend")
+		return
+	}
+	requestPoints, err := queryRowsErr(h.db, `WITH correlated AS (
+  SELECT pl.request_id, pl.status, pl.created_at,
+         ROW_NUMBER() OVER (
+           PARTITION BY pl.request_id
+           ORDER BY COALESCE(pl.retry_count, 0) DESC, pl.id DESC
+         ) AS terminal_rank
+  FROM proxy_logs pl
+  WHERE COALESCE(pl.request_id, '') <> '' AND `+condition+`
+)
+SELECT `+requestBucket+` AS date,
+  COUNT(*) AS requests,
+  COALESCE(SUM(CASE WHEN correlated.status = 'success' THEN 1 ELSE 0 END), 0) AS success_count
+FROM correlated
+WHERE terminal_rank = 1
+GROUP BY `+requestBucket+`
+ORDER BY date`, args...)
+	if err != nil {
+		writeError(w, 500, "failed to load request overview trend")
 		return
 	}
 	var total, success, tokens, latencyCount int64
@@ -67,9 +91,36 @@ func (h *statsHandler) overview(w http.ResponseWriter, r *http.Request) {
 		delete(p, "latencySum")
 		delete(p, "latencyCount")
 	}
+	var requestTotal, requestSuccess int64
+	for _, p := range requestPoints {
+		count := coerceInt64(p["requests"])
+		ok := coerceInt64(p["successCount"])
+		requestTotal += count
+		requestSuccess += ok
+		p["successRate"] = float64(ok) / float64(count)
+	}
+	var legacyAttemptCount int64
+	if err := h.db.Get(&legacyAttemptCount, rebindAdminQuery(h.db, `
+		SELECT COUNT(*) FROM proxy_logs pl
+		WHERE COALESCE(pl.request_id, '') = '' AND `+condition), args...); err != nil {
+		writeError(w, 500, "failed to load request overview completeness")
+		return
+	}
 	summary := map[string]any{"totalCount": total, "successCount": success, "failedCount": total - success, "totalTokensAll": tokens, "totalCost": roundMicro(cost), "averageLatencyMs": nil}
 	if latencyCount > 0 {
 		summary["averageLatencyMs"] = round1(latencySum / float64(latencyCount))
+	}
+	requestPartialReasons := []string{}
+	if legacyAttemptCount > 0 {
+		requestPartialReasons = append(requestPartialReasons, "requestIdMissing")
+	}
+	requestSummary := map[string]any{
+		"totalCount":         requestTotal,
+		"successCount":       requestSuccess,
+		"failedCount":        requestTotal - requestSuccess,
+		"legacyAttemptCount": legacyAttemptCount,
+		"partial":            legacyAttemptCount > 0,
+		"partialReasons":     requestPartialReasons,
 	}
 	sites, err := queryRowsErr(h.db, `SELECT s.id AS site_id, s.name AS site_name,
   COUNT(pl.id) AS total_requests,
@@ -106,11 +157,23 @@ func (h *statsHandler) overview(w http.ResponseWriter, r *http.Request) {
 	if points == nil {
 		points = []map[string]any{}
 	}
+	if requestPoints == nil {
+		requestPoints = []map[string]any{}
+	}
 	if sites == nil {
 		sites = []map[string]any{}
 	}
 	if models == nil {
 		models = []map[string]any{}
 	}
-	writeJSON(w, 200, map[string]any{"period": period, "window": window, "summary": summary, "points": points, "siteAvailability": sites, "models": models})
+	writeJSON(w, 200, map[string]any{
+		"period":           period,
+		"window":           window,
+		"summary":          summary,
+		"requestSummary":   requestSummary,
+		"points":           points,
+		"requestPoints":    requestPoints,
+		"siteAvailability": sites,
+		"models":           models,
+	})
 }

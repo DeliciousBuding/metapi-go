@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Activity, Coins, ShieldCheck, Zap } from 'lucide-react'
+import { Activity, Coins, Repeat, ShieldCheck, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
@@ -15,30 +15,42 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
   const { t } = useTranslation()
   const query = useOverviewReport(period)
   const summary = query.data?.summary
-  const hasRequests = summary !== undefined && summary.totalCount > 0
-  const success = hasRequests
-    ? `${((summary.successCount / summary.totalCount) * 100).toFixed(1)}%`
-    : '—'
+  const requestSummary = query.data?.requestSummary
+  const hasRequests =
+    requestSummary !== undefined && requestSummary.totalCount > 0
+  const success =
+    requestSummary && requestSummary.totalCount > 0
+      ? `${((requestSummary.successCount / requestSummary.totalCount) * 100).toFixed(1)}%`
+      : '—'
   let successHint = '—'
-  if (summary) {
+  if (requestSummary) {
     successHint = hasRequests
-      ? t('dashboard.operations.failures', { count: summary.failedCount })
-      : t('dashboard.operations.noRequests')
+      ? t('dashboard.operations.failures', {
+          count: requestSummary.failedCount,
+        })
+      : t('dashboard.operations.noCorrelatedRequests')
   }
   const metrics = [
     {
       title: 'requests',
-      value: summary ? formatInt(summary.totalCount) : '—',
-      hint: t('dashboard.operations.recordedRequests'),
+      value: requestSummary ? formatInt(requestSummary.totalCount) : '—',
+      hint: t('dashboard.operations.requestHint'),
       icon: Activity,
       failed: false,
     },
     {
-      title: 'success',
+      title: 'requestSuccess',
       value: success,
       hint: successHint,
       icon: ShieldCheck,
       failed: true,
+    },
+    {
+      title: 'attempts',
+      value: summary ? formatInt(summary.totalCount) : '—',
+      hint: t('dashboard.operations.attemptHint'),
+      icon: Repeat,
+      failed: false,
     },
     {
       title: 'tokens',
@@ -66,7 +78,7 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
         onRetry={() => void query.refetch()}
         isRetrying={query.isFetching}
       />
-      <div className='bg-card grid overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4'>
+      <div className='bg-card grid overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-5'>
         {metrics.map((metric) => {
           const Icon = metric.icon
           return (
@@ -83,7 +95,7 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
                 <IconBadge
                   size='sm'
                   tone={
-                    metric.failed && hasRequests && summary.failedCount > 0
+                    metric.failed && hasRequests && requestSummary?.failedCount
                       ? 'warning'
                       : 'info'
                   }
