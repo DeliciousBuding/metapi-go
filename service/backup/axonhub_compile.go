@@ -310,7 +310,7 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 	if channel.Credentials.Azure {
 		reasons = append(reasons, "azure_credentials_unsupported")
 	}
-	if channel.Credentials.GCP != nil && channel.Type != "gemini_vertex" {
+	if channel.Credentials.GCP != nil && channel.Type != "gemini_vertex" && channel.Type != "anthropic_gcp" {
 		reasons = append(reasons, "gcp_credentials_unsupported")
 	}
 	for _, key := range channel.Credentials.UnsupportedFields {
@@ -323,7 +323,7 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 			reasons = append(reasons, "oauth_token_type_unsupported")
 		}
 	}
-	if len(keys) == 0 && channel.Credentials.GCP != nil && channel.Type == "gemini_vertex" {
+	if len(keys) == 0 && channel.Credentials.GCP != nil && (channel.Type == "gemini_vertex" || channel.Type == "anthropic_gcp") {
 		keys = []string{""}
 	}
 	if len(keys) == 0 {
@@ -337,11 +337,11 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 	}
 	// gemini_vertex serves bearer tokens exchanged from the SA material only;
 	// an API-key-shaped channel would fail at the upstream on every request.
-	if channel.Type == "gemini_vertex" && channel.Credentials.GCP == nil {
+	if (channel.Type == "gemini_vertex" || channel.Type == "anthropic_gcp") && channel.Credentials.GCP == nil {
 		reasons = append(reasons, "gcp_credential_missing")
 	}
 	gcpMaterial := ""
-	if gcp := channel.Credentials.GCP; gcp != nil && channel.Type == "gemini_vertex" {
+	if gcp := channel.Credentials.GCP; gcp != nil && (channel.Type == "gemini_vertex" || channel.Type == "anthropic_gcp") {
 		if _, _, err := gcpsa.Parse(gcp.JSONData); err != nil {
 			reasons = append(reasons, "gcp_credential_invalid")
 		} else if strings.TrimSpace(gcp.ProjectID) == "" {

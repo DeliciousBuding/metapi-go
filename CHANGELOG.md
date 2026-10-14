@@ -27,6 +27,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - 模型页：`/api/models/marketplace` 支持 `q`/`capability`/`endpointType`/`sourceKind`/`sort` 服务端筛选与排序，`total` 与逐维析取 `facets` 覆盖全库；新增 `/api/models/marketplace/detail` 精确详情（#1396）。
 - 模型页：深链 `?model=` 经 detail 端点解析，不在当前页也能打开，找不到时明确提示；品牌列改为纯展示（映射仅在前端图标体系），搜索框覆盖该意图（#1396）。
 - 路由诊断：新增 `GET /api/routes/decision/key-context`，按下游 Key 评估准入链（策略封禁/启用/到期/预算/配额窗口/IP/速率窗口）与该 Key 权限下的路由解释；只读，不消耗配额与计数；密钥页新增“权限检查”入口（#1396）。
+- 接入：平台预设新增 Anthropic on Vertex——同为 GCP 服务账号 + 项目/区域推导（`publishers/anthropic/models`），Messages wire 按 Vertex 合同适配（`rawPredict`/`streamRawPredict` 动作、请求体注入 `anthropic_version`、模型名入路径、客户端版本头不外发）。AxonHub 导入翻正 `anthropic_gcp`。同时修复路由派发对 `gcp_service_account` 凭据的准入：令牌在首次交换前为空属正常，候选不再被误丢弃（此前仅影响首次请求前的 GCP 通道）（#1396）。
 - 接入：平台预设新增 Google Vertex AI——填写区域端点（默认 us-central1）与 GCP 项目，服务端推导 `publishers/google/models` 端点路径（原生 Gemini wire，含 embeddings），凭据为 GCP 服务账号；目录不做上游发现（publisher 清单不代表项目可用性），使用策展预设模型清单并如实标注。AxonHub 导入翻正 `gemini_vertex`：GCP 凭据载荷 → `gcp_service_account` 凭据 + Vertex 端点；材料无效、缺项目、自定义端点分别明确拒绝（#1396）。
 - 凭据：通道凭据新增 `gcp_service_account` 类型——粘贴 GCP 服务账号 JSON，运行时按 RFC 7523 JWT bearer 签名交换访问令牌并按有效期缓存刷新（复用 OAuth 的单飞与乐观并发骨架）；材料只校验不落日志、不回显，配合手写 Vertex 端点 URL 即可调用；通道模型目录的重新发现同样按需完成令牌交换（URL 模板推导与 Vertex/Anthropic GCP 导入翻正留待后续批次）（#1396）。
 - 通道：模型目录支持重新发现——`refresh-preview` 只读给出上游差异（新增/已下线/保留/手工保留及影响面），`refresh-apply` 凭 basisToken 应用；目录或上游在预览后变化即拒绝（409）。发现来源记录为 `discovery:<通道ID>`，手工模型不受影响，新发现模型不自动授权，下线只禁用不删除（#1396）。

@@ -158,10 +158,12 @@ const PRESET_BRAND_ICONS: Record<string, string> = {
   opencode: 'opencode',
   longcat: 'longcat-color',
   nanogpt: 'nanogpt',
+  'vertex-gemini': 'gemini-color',
+  'vertex-anthropic': 'claude-color',
 }
 
 export function getConnectionPresetIcon(id: string): string | undefined {
-  return PRESET_BRAND_ICONS[id.split('-')[0]]
+  return PRESET_BRAND_ICONS[id] ?? PRESET_BRAND_ICONS[id.split('-')[0]]
 }
 
 const PRESET_NAME_KEYS: Record<string, { normal: string; plan?: string }> = {

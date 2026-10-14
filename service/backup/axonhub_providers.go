@@ -134,7 +134,7 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 	// Channels whose authentication cannot be a static API key in a Metapi
 	// direct grant, or whose request/response shape is provider-specific.
 	"anthropic_aws":  {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
-	"anthropic_gcp":  {DefaultFormats: []string{"anthropic/messages"}, Reason: reasonProviderCredentials},
+	"anthropic_gcp":  {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
 	"codex":          {DefaultFormats: []string{"openai/responses", "openai/alpha_search", "openai/image_generation", "openai/image_edit"}, Supported: true},
 	"claudecode":     {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
 	"github_copilot": {DefaultFormats: []string{"openai/chat_completions"}, Reason: reasonProviderCredentials},

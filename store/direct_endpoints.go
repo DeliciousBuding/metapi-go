@@ -142,8 +142,9 @@ func (e *DirectEndpoints) Scan(value any) error {
 		if endpoint.Auth == DirectAuthNone && endpoint.Profile != "ollama" && endpoint.Profile != "ollama-messages" {
 			return fmt.Errorf("unauthenticated endpoints require an Ollama wire profile")
 		}
-		if endpoint.ModelPath && endpoint != decoded.Gemini && endpoint != decoded.GeminiEmbeddings && !(endpoint == decoded.Messages && endpoint.Profile == "bedrock") {
-			return fmt.Errorf("model paths require a Gemini or Bedrock endpoint")
+		vertexAnthropic := endpoint == decoded.Messages && endpoint.Profile == "vertex-anthropic"
+		if endpoint.ModelPath && endpoint != decoded.Gemini && endpoint != decoded.GeminiEmbeddings && !(endpoint == decoded.Messages && endpoint.Profile == "bedrock") && !vertexAnthropic {
+			return fmt.Errorf("model paths require a Gemini, Bedrock or Vertex endpoint")
 		}
 		if endpoint.RequestModel != "" && endpoint.Profile != "codex-image" {
 			return fmt.Errorf("request model is only supported by the Codex image profile")
@@ -184,6 +185,10 @@ func (e *DirectEndpoints) Scan(value any) error {
 		case "vertex":
 			if (entry.Protocol != DirectProtocolGemini && entry.Protocol != DirectProtocolGeminiEmbeddings) || endpoint.Auth != DirectAuthBearer || !endpoint.ModelPath {
 				return fmt.Errorf("Vertex requires bearer Gemini endpoints and a model URL prefix")
+			}
+		case "vertex-anthropic":
+			if entry.Protocol != DirectProtocolMessages || endpoint.Auth != DirectAuthBearer || !endpoint.ModelPath {
+				return fmt.Errorf("Vertex Anthropic requires bearer Messages and a model URL prefix")
 			}
 		case "seedance-video", "zenmux-video":
 			validSlot := endpoint.Profile == "seedance-video" && entry.Protocol == DirectProtocolSeedanceVideo || endpoint.Profile == "zenmux-video" && entry.Protocol == DirectProtocolZenmuxVideo

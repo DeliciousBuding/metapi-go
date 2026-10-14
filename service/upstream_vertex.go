@@ -47,8 +47,11 @@ func vertexLocationFromBaseURL(base string) (string, error) {
 
 // VertexEndpointURL composes the publisher-models prefix for one Vertex
 // channel base URL and project. ModelPath appends {model}:{action} to it.
-func VertexEndpointURL(baseURL, project string) (string, error) {
+func VertexEndpointURL(baseURL, project, publisher string) (string, error) {
 	project = strings.TrimSpace(project)
+	if publisher != "google" && publisher != "anthropic" {
+		return "", fmt.Errorf("unsupported Vertex publisher %q", publisher)
+	}
 	if !vertexProjectID.MatchString(project) && !vertexProjectNum.MatchString(project) {
 		return "", fmt.Errorf("Invalid GCP project: %s", VertexProjectRule)
 	}
@@ -56,7 +59,7 @@ func VertexEndpointURL(baseURL, project string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimRight(baseURL, "/") + "/v1/projects/" + project + "/locations/" + location + "/publishers/google/models", nil
+	return strings.TrimRight(baseURL, "/") + "/v1/projects/" + project + "/locations/" + location + "/publishers/" + publisher + "/models", nil
 }
 
 // DeriveVertexEndpoints substitutes project and region into the vertex
