@@ -12,12 +12,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 import { api } from '@/lib/api'
+import { importedUpstreamsApi } from '@/lib/api/imported-upstreams'
 
 import type { RouteDecision, RouteSummaryRow } from '../../types'
 import { RouteDecisionPanel } from '../route-decision-panel'
 
-vi.mock('@/lib/api', () => ({ api: { getRouteDecision: vi.fn() } }))
+vi.mock('@/lib/api', () => ({
+  api: { getRouteDecision: vi.fn(), clearChannelCooldown: vi.fn() },
+}))
+vi.mock('@/lib/api/imported-upstreams', () => ({
+  importedUpstreamsApi: { clearImportedMemberCooldown: vi.fn() },
+}))
 const getDecision = vi.mocked(api.getRouteDecision)
+const clearChannelCooldown = vi.mocked(api.clearChannelCooldown)
+const clearImportedMemberCooldown = vi.mocked(
+  importedUpstreamsApi.clearImportedMemberCooldown
+)
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
 const route: RouteSummaryRow = {
   id: 1,
@@ -89,6 +99,14 @@ function renderPanel(
 
 beforeEach(() => {
   getDecision.mockReset()
+  clearChannelCooldown.mockReset()
+  clearChannelCooldown.mockResolvedValue({ success: true } as never)
+  clearImportedMemberCooldown.mockReset()
+  clearImportedMemberCooldown.mockResolvedValue({
+    success: true,
+    id: 31,
+    grantId: 17,
+  } as never)
   HTMLElement.prototype.scrollIntoView = vi.fn()
 })
 afterEach(() => {
@@ -225,6 +243,95 @@ describe('current routing preview', () => {
     expect(
       within(snapshot).queryByText(/account-0|0\.0%/)
     ).not.toBeInTheDocument()
+  })
+
+  it('offers per-channel cooldown recovery and re-evaluates after clearing', async () => {
+    const cooled = decision({
+      candidates: [
+        {
+          channelId: 42,
+          label: 'Site · user',
+          candidateRef: { kind: 'account', id: 42, accountId: 7, siteId: 3 },
+          eligibility: 'blocked',
+          blockers: [{ code: 'cooldown', message: '冷却中' }],
+          cooldownUntil: '2026-10-15T10:00:00Z',
+        },
+      ],
+    })
+    getDecision.mockResolvedValue({ success: true, decision: cooled })
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Check routing' }))
+
+    const clearButton = await screen.findByRole('button', {
+      name: 'Clear cooldown',
+    })
+    expect(screen.getByText(/Cooling until/)).toBeInTheDocument()
+    fireEvent.click(clearButton)
+
+    await waitFor(() => expect(clearChannelCooldown).toHaveBeenCalledWith(42))
+    expect(clearImportedMemberCooldown).not.toHaveBeenCalled()
+    // After the clear the decision query is invalidated and re-fetched.
+    await waitFor(() => expect(getDecision).toHaveBeenCalledTimes(2))
+  })
+
+  it('sends direct grant member cooldown recovery to the imported member endpoint', async () => {
+    // Direct candidates carry a synthetic negative channelId; the real
+    // cooldown lives in upstream_grants and clears via the group item id.
+    const cooled = decision({
+      candidates: [
+        {
+          ...decision().candidates?.[0],
+          eligibility: 'blocked',
+          blockers: [{ code: 'cooldown', message: '冷却中' }],
+          cooldownUntil: '2026-10-15T10:00:00Z',
+        },
+      ],
+    })
+    getDecision.mockResolvedValue({ success: true, decision: cooled })
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Check routing' }))
+
+    const clearButton = await screen.findByRole('button', {
+      name: 'Clear cooldown',
+    })
+    fireEvent.click(clearButton)
+
+    await waitFor(() =>
+      expect(clearImportedMemberCooldown).toHaveBeenCalledWith(31)
+    )
+    expect(clearChannelCooldown).not.toHaveBeenCalled()
+    await waitFor(() => expect(getDecision).toHaveBeenCalledTimes(2))
+  })
+
+  it('shows no recovery action for non-cooldown blockers or legacy identity', async () => {
+    const protocolBlocked = decision({
+      candidates: [
+        {
+          ...decision().candidates?.[0],
+          channelId: 42,
+          eligibility: 'blocked',
+          blockers: [{ code: 'disabled', message: 'disabled' }],
+        },
+        {
+          ...decision().candidates?.[0],
+          channelId: -1,
+          candidateRef: undefined,
+          label: 'Legacy candidate 1 · identity not recorded',
+          eligibility: 'blocked',
+          blockers: [{ code: 'cooldown', message: '冷却中' }],
+        },
+      ],
+    })
+    getDecision.mockResolvedValue({
+      success: true,
+      decision: protocolBlocked,
+    })
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Check routing' }))
+    // Both candidates render the blocked badge; wait for the list to settle.
+    await screen.findAllByText('Blocked by candidate filter')
+
+    expect(screen.queryByRole('button', { name: 'Clear cooldown' })).toBeNull()
   })
 
   it('shows no-match without presenting a selected channel', async () => {

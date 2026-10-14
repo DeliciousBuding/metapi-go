@@ -284,6 +284,78 @@ func TestTokenRoutes_Postgres_CreateUpdateChannelAndDelete(t *testing.T) {
 	}
 }
 
+// Per-channel cooldown clear: the decision panel's recovery entry targets one
+// route_channels row; the route-level clear resets every channel of the route.
+func TestClearChannelCooldownScopesToOneRow(t *testing.T) {
+	db, r := setupTokenRoutesTest(t)
+	routeID, accountID, tokenID := seedRouteChannelRefs(t, db)
+
+	future := time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
+	insertCooled := func() int64 {
+		res, err := db.Exec(`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override, cooldown_until, consecutive_fail_count, cooldown_level, cooldown_reason_code, cooldown_reason, cooldown_reason_at)
+			VALUES (?, ?, ?, 'gpt-4o', 0, 10, TRUE, FALSE, ?, 3, 2, 'upstream_5xx', 'boom', ?)`, routeID, accountID, tokenID, future, future)
+		if err != nil {
+			t.Fatalf("insert cooled channel: %v", err)
+		}
+		id, _ := res.LastInsertId()
+		return id
+	}
+	cooledA, cooledB := insertCooled(), insertCooled()
+
+	// Unknown id → 404.
+	if resp := doPostJSON(t, r, "/api/channels/424242/cooldown/clear", nil); resp.Code != http.StatusNotFound {
+		t.Fatalf("unknown channel: got %d, want 404", resp.Code)
+	}
+
+	// Clear A only: A's cooldown fields reset, B untouched.
+	if resp := doPostJSON(t, r, "/api/channels/"+itoa(cooledA)+"/cooldown/clear", nil); resp.Code != http.StatusOK {
+		t.Fatalf("clear A: got %d: %s", resp.Code, resp.Body.String())
+	}
+	var cooldownA *string
+	var failA int
+	if err := db.QueryRow("SELECT cooldown_until, consecutive_fail_count FROM route_channels WHERE id = ?", cooledA).Scan(&cooldownA, &failA); err != nil {
+		t.Fatalf("read A: %v", err)
+	}
+	if cooldownA != nil || failA != 0 {
+		t.Fatalf("A not cleared: cooldown_until=%v fail=%d", cooldownA, failA)
+	}
+	var cooldownB *string
+	if err := db.QueryRow("SELECT cooldown_until FROM route_channels WHERE id = ?", cooledB).Scan(&cooldownB); err != nil {
+		t.Fatalf("read B: %v", err)
+	}
+	if cooldownB == nil || *cooldownB != future {
+		t.Fatalf("B must stay cooled: %v", cooldownB)
+	}
+
+	// Idempotent: clearing an already-clean row still succeeds.
+	if resp := doPostJSON(t, r, "/api/channels/"+itoa(cooledA)+"/cooldown/clear", nil); resp.Code != http.StatusOK {
+		t.Fatalf("re-clear A: got %d, want 200 (idempotent no-op)", resp.Code)
+	}
+}
+
+// The decision panel renders the cooling deadline next to the recovery action;
+// the map serializer must carry the projected field to the wire (a projection
+// that stops before this map starves the UI silently).
+func TestRouteDecisionToMapSerializesCooldownUntil(t *testing.T) {
+	until := "2026-10-15T10:00:00Z"
+	out := routeDecisionToMap(routing.RouteDecisionExplanation{
+		RequestedModel: "gpt-4o",
+		Candidates: []routing.RouteDecisionCandidate{{
+			ChannelID:     42,
+			Eligibility:   "blocked",
+			CooldownUntil: &until,
+		}},
+	})
+	candidates, ok := out["candidates"].([]map[string]any)
+	if !ok || len(candidates) != 1 {
+		t.Fatalf("candidates: %#v", out["candidates"])
+	}
+	got, ok := candidates[0]["cooldownUntil"].(*string)
+	if !ok || got == nil || *got != until {
+		t.Fatalf("cooldownUntil not serialized: %#v", candidates[0]["cooldownUntil"])
+	}
+}
+
 func TestRouteChannelsBatchAllowsSameCredentialForDifferentSourceModels(t *testing.T) {
 	db, r := setupTokenRoutesTest(t)
 	routeID, accountID, tokenID := seedRouteChannelRefs(t, db)

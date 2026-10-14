@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -24,9 +25,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toBcp47 } from '@/i18n/languages'
+import { api } from '@/lib/api'
+import { importedUpstreamsApi } from '@/lib/api/imported-upstreams'
 import { formatDateTime } from '@/lib/format'
+import { toast } from '@/lib/toast'
 
-import { useRouteDecision } from '../api'
+import { routeQueryKeys, useRouteDecision } from '../api'
 import type { RouteDecision, RouteSummaryRow } from '../types'
 import { routingStrategyLabel } from '../utils'
 
@@ -199,11 +203,33 @@ export function RouteDecisionPanel(props: {
   )
 }
 
+type CooldownTarget =
+  | { kind: 'channel'; id: number }
+  | { kind: 'member'; id: number }
+
 function DecisionResult(props: {
   decision: RouteDecision
   snapshotAt?: string | null
 }) {
   const { t, i18n } = useTranslation()
+  const queryClient = useQueryClient()
+  // Recovery entry (#1396 R batch): a cooldown blocker carries a per-candidate
+  // clear action dispatched by candidate kind. Account/oauth_unit rows cool in
+  // route_channels (channel endpoint); direct grant members cool in
+  // upstream_grants (imported-member endpoint, id = group item id). Other
+  // blockers are configuration, not recovery — they get no button here, and
+  // legacy snapshots without a typed identity show none either.
+  const clearCooldown = useMutation({
+    mutationFn: (target: CooldownTarget) =>
+      target.kind === 'member'
+        ? importedUpstreamsApi.clearImportedMemberCooldown(target.id)
+        : api.clearChannelCooldown(target.id),
+    onSuccess: () => {
+      toast.success(t('tokenRoutes.preview.cooldownCleared'))
+      void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
+    },
+    onError: () => toast.error(t('tokenRoutes.preview.clearCooldownFailed')),
+  })
   const decision = props.decision
   const checkedAt =
     props.snapshotAt ?? decision.checkedAt ?? decision.generatedAt
@@ -269,6 +295,27 @@ function DecisionResult(props: {
           if (candidate.eligibility === 'blocked') {
             status = t('tokenRoutes.preview.blocked')
           }
+          // Pick the cooldown recovery target by candidate kind: direct grant
+          // members cool in upstream_grants (member endpoint, id = group item
+          // id); account/oauth_unit rows cool in route_channels (channel
+          // endpoint). Synthetic/legacy rows without a real id get no action.
+          const ref = candidate.candidateRef
+          const hasCooldownBlocker =
+            candidate.blockers?.some(
+              (blocker) => blocker.code === 'cooldown'
+            ) ?? false
+          let cooldownTarget: CooldownTarget | null = null
+          if (hasCooldownBlocker && ref) {
+            if (ref.kind === 'direct') {
+              cooldownTarget =
+                ref.id > 0 ? { kind: 'member', id: ref.id } : null
+            } else if ((candidate.channelId ?? 0) > 0) {
+              cooldownTarget = {
+                kind: 'channel',
+                id: candidate.channelId as number,
+              }
+            }
+          }
           return (
             <li
               key={candidate.channelId ?? index}
@@ -302,6 +349,29 @@ function DecisionResult(props: {
                   })}
                 </p>
               ))}
+              {cooldownTarget ? (
+                <div className='flex flex-wrap items-center gap-2'>
+                  {candidate.cooldownUntil ? (
+                    <span className='text-muted-foreground'>
+                      {t('tokenRoutes.preview.cooldownUntil', {
+                        time: formatDateTime(
+                          candidate.cooldownUntil,
+                          toBcp47(i18n.language)
+                        ),
+                      })}
+                    </span>
+                  ) : null}
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='xs'
+                    disabled={clearCooldown.isPending}
+                    onClick={() => clearCooldown.mutate(cooldownTarget)}
+                  >
+                    {t('tokenRoutes.preview.clearCooldown')}
+                  </Button>
+                </div>
+              ) : null}
               {candidate.probabilityEvaluated === true &&
                 candidate.probability != null && (
                   <p>

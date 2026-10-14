@@ -43,6 +43,10 @@ type RouteDecisionCandidate = {
   eligibility?: 'eligible' | 'blocked' | 'notEvaluated'
   blockers?: Array<{ code: string; message: string }>
   probabilityEvaluated?: boolean
+  /** RFC3339 cooling deadline when the candidate is cooled — route_channels
+   *  rows for account/oauth_unit candidates, upstream_grants for direct
+   *  grant members. Shown beside the kind-dispatched recovery action. */
+  cooldownUntil?: string | null
   channelId?: number
   accountId?: number
   tokenId?: number | null

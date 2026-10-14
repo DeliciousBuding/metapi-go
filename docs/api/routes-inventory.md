@@ -140,6 +140,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/auth/ws-ticket`
 - `/api/checkin/trigger`
 - `/api/checkin/trigger/:id`
+- `/api/channels/:channelId/cooldown/clear`
 - `/api/debug/channel-probe`
 - `/api/downstream-keys`
 - `/api/downstream-keys/:id/reset-usage`

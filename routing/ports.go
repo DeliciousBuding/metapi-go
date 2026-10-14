@@ -150,25 +150,31 @@ type RouteDecisionExplanation struct {
 
 // RouteDecisionCandidate mirrors TS RouteDecisionCandidate.
 type RouteDecisionCandidate struct {
-	CandidateRef           RouteDecisionCandidateRef `json:"candidateRef"`
-	Label                  string                    `json:"label"`
-	SourceModel            string                    `json:"sourceModel,omitempty"`
-	ActualModel            string                    `json:"actualModel,omitempty"`
-	Eligibility            string                    `json:"eligibility"`
-	Blockers               []CandidateBlocker        `json:"blockers"`
-	ProbabilityEvaluated   bool                      `json:"probabilityEvaluated"`
-	ChannelID              int64                     `json:"channelId"`
-	AccountID              int64                     `json:"accountId"`
-	Username               string                    `json:"username"`
-	SiteName               string                    `json:"siteName"`
-	TokenName              string                    `json:"tokenName"`
-	Priority               int64                     `json:"priority"`
-	Weight                 int64                     `json:"weight"`
-	Eligible               bool                      `json:"eligible"`
-	RecentlyFailed         bool                      `json:"recentlyFailed"`
-	AvoidedByRecentFailure bool                      `json:"avoidedByRecentFailure"`
-	Probability            float64                   `json:"probability"`
-	Reason                 string                    `json:"reason"`
+	CandidateRef         RouteDecisionCandidateRef `json:"candidateRef"`
+	Label                string                    `json:"label"`
+	SourceModel          string                    `json:"sourceModel,omitempty"`
+	ActualModel          string                    `json:"actualModel,omitempty"`
+	Eligibility          string                    `json:"eligibility"`
+	Blockers             []CandidateBlocker        `json:"blockers"`
+	ProbabilityEvaluated bool                      `json:"probabilityEvaluated"`
+	ChannelID            int64                     `json:"channelId"`
+	AccountID            int64                     `json:"accountId"`
+	Username             string                    `json:"username"`
+	SiteName             string                    `json:"siteName"`
+	TokenName            string                    `json:"tokenName"`
+	Priority             int64                     `json:"priority"`
+	Weight               int64                     `json:"weight"`
+	Eligible             bool                      `json:"eligible"`
+	RecentlyFailed       bool                      `json:"recentlyFailed"`
+	// CooldownUntil is the candidate's persisted cooling deadline (RFC3339):
+	// route_channels.cooldown_until for account/oauth_unit rows, or
+	// upstream_grants.cooldown_until for direct grant members (projected
+	// through the synthetic channel row). Shown next to the cooldown blocker
+	// beside the per-candidate recovery action.
+	CooldownUntil          *string `json:"cooldownUntil,omitempty"`
+	AvoidedByRecentFailure bool    `json:"avoidedByRecentFailure"`
+	Probability            float64 `json:"probability"`
+	Reason                 string  `json:"reason"`
 }
 
 // RouteDecisionCandidateRef is a safe identity projection, not a runtime row.

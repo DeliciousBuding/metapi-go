@@ -155,6 +155,10 @@ export const tokenRoutesApi = {
     }),
   deleteRoute: (id: number) =>
     request(`/api/routes/${id}`, { method: 'DELETE' }),
+  // Per-channel clear (one route_channels row) — the decision panel's
+  // recovery entry. The route-level clearRouteCooldown resets every channel.
+  clearChannelCooldown: (channelId: number) =>
+    request(`/api/channels/${channelId}/cooldown/clear`, { method: 'POST' }),
   clearRouteCooldown: (id: number) =>
     request(`/api/routes/${id}/cooldown/clear`, { method: 'POST' }),
   batchUpdateRoutes: (data: { ids: number[]; action: 'enable' | 'disable' }) =>

@@ -208,6 +208,7 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 			Weight:                 row.Channel.WeightOrZero(),
 			Eligible:               eligible,
 			RecentlyFailed:         recentlyFailed,
+			CooldownUntil:          row.Channel.CooldownUntil,
 			AvoidedByRecentFailure: false,
 			Probability:            0,
 			Reason:                 formatReasons(reasons),
