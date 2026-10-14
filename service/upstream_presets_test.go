@@ -66,7 +66,7 @@ func TestUpstreamPresetSourceOwnershipAndCredentialModes(t *testing.T) {
 		if item.ID == "codex" || item.ID == "claude-code" {
 			want = "oauth"
 		}
-		if item.ID == "vertex-gemini" {
+		if item.ID == "vertex-gemini" || item.ID == "vertex-anthropic" {
 			want = "gcpServiceAccount"
 		}
 		if item.CredentialMode != want || item.RequiresBaseURL != (item.DefaultURL == "") {

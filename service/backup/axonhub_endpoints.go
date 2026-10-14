@@ -90,7 +90,7 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 		// Vertex endpoints derive from the audited host+project contract; the
 		// generic custom path would force Google API-key auth, which a
 		// service-account token cannot serve.
-		if channel.Type == "gemini_vertex" {
+		if channel.Type == "gemini_vertex" || channel.Type == "anthropic_gcp" {
 			return 0, endpoints, []string{"vertex_custom_endpoint_unsupported"}, nil
 		}
 	}

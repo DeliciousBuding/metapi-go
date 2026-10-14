@@ -156,6 +156,12 @@ func directRequestURL(direct *store.DirectUpstreamCandidate, path, model string,
 		target := endpoint.URL
 		if endpoint.Profile == "bedrock" {
 			target = directBedrockRequestURL(target, model, stream)
+		} else if endpoint.Profile == "vertex-anthropic" {
+			action := "rawPredict"
+			if stream {
+				action = "streamRawPredict"
+			}
+			target = strings.TrimRight(target, "/") + "/" + url.PathEscape(model) + ":" + action
 		} else if endpoint.ModelPath {
 			action := "generateContent"
 			if proxy.DirectProtocolForPath(path) == store.DirectProtocolGeminiEmbeddings {

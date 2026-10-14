@@ -28,6 +28,10 @@ describe('platform display and connection presets', () => {
       'xiaomimimo'
     )
     expect(getConnectionPresetIcon('qiniu-openai')).toBe('qiniu-color')
+    // The two Vertex products share the "vertex" prefix but keep their
+    // provider brands.
+    expect(getConnectionPresetIcon('vertex-gemini')).toBe('gemini-color')
+    expect(getConnectionPresetIcon('vertex-anthropic')).toBe('claude-color')
     expect(getConnectionPresetIcon('ppio-openai')).toBe('ppio-color')
     expect(getConnectionPresetIcon('new-provider')).toBeUndefined()
     expect(getPlatformDefinition('grok')?.group).toBe('oauth')

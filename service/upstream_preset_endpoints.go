@@ -100,6 +100,8 @@ func upstreamPresetVariantEndpoints(id, platform string) store.DirectEndpoints {
 			return &store.DirectEndpoint{URL: "/v1/projects/{project}/locations/{region}/publishers/google/models", Auth: store.DirectAuthBearer, Profile: "vertex", ModelPath: true}
 		}
 		config = store.DirectEndpoints{Gemini: vertex(), GeminiEmbeddings: vertex()}
+	case "vertex-anthropic":
+		config = store.DirectEndpoints{Messages: &store.DirectEndpoint{URL: "/v1/projects/{project}/locations/{region}/publishers/anthropic/models", Auth: store.DirectAuthBearer, Profile: "vertex-anthropic", ModelPath: true}}
 	case "seedance-video":
 		config = store.DirectEndpoints{SeedanceVideo: &store.DirectEndpoint{URL: "/contents/generations/tasks", Auth: store.DirectAuthBearer, Profile: "seedance-video"}}
 	case "zenmux-video":

@@ -102,6 +102,15 @@ func prepareDirectProviderWire(endpoint *store.DirectEndpoint, channelID int64, 
 			return nil, err
 		}
 		buildDirectBedrockHeaders(wire.Headers)
+	case "vertex-anthropic":
+		var err error
+		wire.Body, err = messages.PrepareVertexRequest(body)
+		if err != nil {
+			return nil, err
+		}
+		// The Anthropic version rides in the body on Vertex; the header is
+		// the client-facing contract and must not leak upstream.
+		wire.Headers["Anthropic-Version"] = nil
 	case "codex-alpha-search":
 		buildDirectCodexHeaders(wire.Headers, downstream, credential, endpoint.URL)
 		wire.Headers.Set("Accept", "application/json")

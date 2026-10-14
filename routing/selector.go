@@ -1077,7 +1077,10 @@ func (s *ChannelSelector) finalizeDispatch(
 	if tokenValue == "" && dispatchCandidate.Direct == nil {
 		tokenValue = s.resolveChannelTokenValue(dispatchCandidate)
 	}
-	if tokenValue == "" && !dispatchCandidate.Direct.HasAnonymousCredential() {
+	if tokenValue == "" && !dispatchCandidate.Direct.HasAnonymousCredential() &&
+		!(dispatchCandidate.Direct != nil && dispatchCandidate.Direct.CredentialKind == store.DirectCredentialGCPServiceAccount) {
+		// gcp_service_account holds no stored token until the first exchange;
+		// the dispatch path resolves it through the credential owner.
 		return nil, nil
 	}
 

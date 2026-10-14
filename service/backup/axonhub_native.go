@@ -19,7 +19,7 @@ func resolveAxonHubNativeEndpoint(ch AxonHubSourceChannel, protocol int, base, p
 		if ch.Credentials.GCP == nil {
 			return nil, true, "gcp_credentials_unsupported"
 		}
-		url, err := service.VertexEndpointURL(base, ch.Credentials.GCP.ProjectID)
+		url, err := service.VertexEndpointURL(base, ch.Credentials.GCP.ProjectID, "google")
 		if err != nil {
 			return nil, true, "gcp_endpoint_underivable"
 		}
@@ -36,6 +36,19 @@ func resolveAxonHubNativeEndpoint(ch AxonHubSourceChannel, protocol int, base, p
 			ep.Auth = store.DirectAuthNone
 		}
 	case protoMessages:
+		if ch.Type == "anthropic_gcp" && !custom {
+			if ch.Credentials.GCP == nil {
+				return nil, true, "gcp_credentials_unsupported"
+			}
+			url, err := service.VertexEndpointURL(base, ch.Credentials.GCP.ProjectID, "anthropic")
+			if err != nil {
+				return nil, true, "gcp_endpoint_underivable"
+			}
+			ep.URL = url
+			ep.Profile = "vertex-anthropic"
+			ep.ModelPath = true
+			return ep, true, ""
+		}
 		if custom || (ch.Type != "anthropic_aws" && ch.Type != "ollama_anthropic") {
 			return nil, false, ""
 		}

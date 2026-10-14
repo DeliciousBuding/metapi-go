@@ -243,7 +243,7 @@ Protocol variants share an entry; separate products such as Bailian and Bailian
 Coding Plan retain their own entries. Fields are
 `id`, `name`, `label`, `provider`, `platform`, `group`, `defaultUrl`,
 `protocols` (executable protocol names), `recommendedModels`, `requiresBaseUrl`
-and `credentialMode` (`apiKey`, `optional`, `oauth`, or `gcpServiceAccount`). Parameterized presets (Google Vertex AI) also set `requiresProject`. New API comes first; domestic providers and Coding Plan
+and `credentialMode` (`apiKey`, `optional`, `oauth`, or `gcpServiceAccount`). Parameterized presets (Google Vertex AI, Anthropic on Vertex) also set `requiresProject`. New API comes first; domestic providers and Coding Plan
 presets precede other providers. Only presets with an executable endpoint
 contract appear in this list.
 
@@ -257,8 +257,10 @@ known hosts. A selected media preset retains its required wire adapter on custom
 hosts. New API excludes image variations, which its router does not implement;
 Coding Plan presets do not inherit a provider's media capabilities. Invalid targets, unknown
 presets, a non-Vertex base host for a parameterized preset, or a malformed project return 400. Vertex endpoints derive the publisher path
-`/v1/projects/{project}/locations/{region}/publishers/google/models` from the project and the regional host
+`/v1/projects/{project}/locations/{region}/publishers/{google|anthropic}/models` from the project and the regional host
 (`aiplatform.googleapis.com` maps to the global location); custom domains stay manual endpoint configuration.
+Anthropic on Vertex sends `rawPredict`/`streamRawPredict` actions with `anthropic_version` in the body and the
+client-facing `anthropic-version` header withheld.
 
 ### Quick connect
 
