@@ -50,13 +50,45 @@ jobs:
             echo "$out"
             exit 1
           fi
+      - name: Install pinned golangci-lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      # golangci-lint-action's implicit config verify uses a 2s HTTP timeout
+      # with no retry. Verify the same config explicitly against a hash-pinned
+      # schema, then let the action focus on source linting.
+      - name: Verify golangci-lint config against pinned schema
+        shell: bash
+        env:
+          GOLANGCI_SCHEMA_URL: https://golangci-lint.run/jsonschema/golangci.v1.64.jsonschema.json
+          GOLANGCI_SCHEMA_SHA256: 10b70078efef8ba3e529b3c200241661471e85d8e8b38fa898c50c56f6409bad
+        run: |
+          set -euo pipefail
+          schema="$RUNNER_TEMP/golangci.v1.64.jsonschema.json"
+          curl --fail --show-error --location \
+            --retry 5 --retry-delay 2 --retry-max-time 60 \
+            --connect-timeout 10 --max-time 20 \
+            "$GOLANGCI_SCHEMA_URL" -o "$schema"
+          printf '%s  %s\n' "$GOLANGCI_SCHEMA_SHA256" "$schema" | sha256sum --check
+
+          bad_config="$RUNNER_TEMP/golangci.bad.yml"
+          printf 'linters:\n  invalid-property: true\n' > "$bad_config"
+          if golangci-lint config verify --config "$bad_config" --schema "$schema" \
+            > "$RUNNER_TEMP/golangci.bad.log" 2>&1; then
+            echo "invalid config unexpectedly passed"
+            cat "$RUNNER_TEMP/golangci.bad.log"
+            exit 1
+          fi
+
+          golangci-lint config verify --schema "$schema"
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.64.8
-          # goinstall builds with the current toolchain (go.mod go directive is
-          # newer than the action's prebuilt binary), and still caches the build.
-          install-mode: goinstall
+          install-mode: none
+          verify: false
           args: --timeout=3m
 
   vet:
