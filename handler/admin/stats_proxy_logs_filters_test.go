@@ -369,6 +369,17 @@ func TestStats_SQLiteProxyLogsDownstreamKeyIDFilter(t *testing.T) {
 	if bodyA.Total != 2 || len(bodyA.Items) != 2 || bodyA.Summary.TotalCount != 2 {
 		t.Fatalf("%s: total=%d items=%d summary=%d, want 2/2/2", filterA, bodyA.Total, len(bodyA.Items), bodyA.Summary.TotalCount)
 	}
+	// The token column and the drill-down chip read downstreamKeyId /
+	// downstreamKeyName from list rows — pin the join-backed projection.
+	for _, item := range bodyA.Items {
+		if item["downstreamKeyName"] != "key-a" {
+			t.Fatalf("list row missing downstreamKeyName: %v", item["downstreamKeyName"])
+		}
+		if item["downstreamKeyId"] != float64(keyA) {
+			t.Fatalf("list row downstreamKeyId=%v, want %d", item["downstreamKeyId"], keyA)
+		}
+	}
+
 	gotA := modelSet(bodyA.Items)
 	if _, ok := gotA["via-a-1"]; !ok {
 		t.Fatalf("%s missing via-a-1: %v", filterA, gotA)

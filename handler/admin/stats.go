@@ -802,17 +802,17 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if view == "query" || view == "full" {
-		// The search condition references the downstream key columns, so the
-		// key join is only added when a search is active (LEFT JOIN keeps the
-		// row set unchanged for unsearched rows).
-		keyJoin := ""
-		if search != "" {
-			keyJoin = "\n\t\t\tLEFT JOIN downstream_api_keys dk ON pl.downstream_api_key_id = dk.id"
-		}
-		query := `SELECT pl.*, a.username, s.id as site_id, s.name as site_name, s.url as site_url
+		// The downstream-key join is unconditional: beyond the search
+		// condition it feeds the token column and the key drill-down chip
+		// (downstreamKeyId/downstreamKeyName on every row). LEFT JOIN keeps
+		// unattributed rows intact; the aggregate COUNT path still picks its
+		// join shape per active filter via proxyLogsAggregateFrom.
+		query := `SELECT pl.*, a.username, s.id as site_id, s.name as site_name, s.url as site_url,
+			 dk.id AS downstream_key_id, dk.name AS downstream_key_name
 			FROM proxy_logs pl
 			LEFT JOIN accounts a ON pl.account_id = a.id
-			LEFT JOIN sites s ON a.site_id = s.id` + keyJoin + where +
+			LEFT JOIN sites s ON a.site_id = s.id
+			LEFT JOIN downstream_api_keys dk ON pl.downstream_api_key_id = dk.id` + where +
 			" ORDER BY pl.created_at DESC LIMIT ? OFFSET ?"
 		qArgs := make([]any, len(args))
 		copy(qArgs, args)
