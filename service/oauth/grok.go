@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -44,60 +43,9 @@ const (
 	grokDefaultPollInterval = 5 * time.Second
 )
 
-// ---- Device-code side-channel store ----
-//
-// Device OAuth splits the flow across two provider hooks:
-//  1. BuildAuthorizationURL  — POST /device/code, hand the user the
-//     verification URI, and stash the device_code for the exchange step.
-//  2. ExchangeAuthorizationCode — POST /token with the stashed device_code.
-//
-// The shared session record has no field for a device_code, so we keep a
-// short-lived side-channel map keyed by the OAuth `state`. Entries are pruned
-// by TTL to avoid unbounded growth from abandoned flows.
-var (
-	grokDeviceCodes   = make(map[string]grokDeviceCodeEntry)
-	grokDeviceCodesMu sync.Mutex
-)
-
-type grokDeviceCodeEntry struct {
-	deviceCode      string
-	verificationURI string
-	interval        time.Duration
-	expiresAt       time.Time
-}
-
-func storeGrokDeviceCode(state, deviceCode, verificationURI string, interval time.Duration) {
-	grokDeviceCodesMu.Lock()
-	defer grokDeviceCodesMu.Unlock()
-	grokDeviceCodes[state] = grokDeviceCodeEntry{
-		deviceCode:      deviceCode,
-		verificationURI: verificationURI,
-		interval:        interval,
-		expiresAt:       time.Now().Add(grokDeviceCodeTTL),
-	}
-}
-
-func lookupGrokDeviceCode(state string) (grokDeviceCodeEntry, bool) {
-	grokDeviceCodesMu.Lock()
-	defer grokDeviceCodesMu.Unlock()
-	pruneExpiredGrokDeviceCodes(time.Now())
-	entry, ok := grokDeviceCodes[state]
-	return entry, ok
-}
-
-func clearGrokDeviceCode(state string) {
-	grokDeviceCodesMu.Lock()
-	defer grokDeviceCodesMu.Unlock()
-	delete(grokDeviceCodes, state)
-}
-
-func pruneExpiredGrokDeviceCodes(now time.Time) {
-	for state, entry := range grokDeviceCodes {
-		if !entry.expiresAt.After(now) {
-			delete(grokDeviceCodes, state)
-		}
-	}
-}
+// Device OAuth is split across two provider hooks: BuildAuthorizationURL
+// stores the device_code in the shared Device Flow side channel, and
+// ExchangeAuthorizationCode polls it. See device_flow.go.
 
 // ---- Registration ----
 
@@ -113,12 +61,14 @@ func init() {
 			SupportsDirectAccountRouting: true,
 			SupportsCloudValidation:      false,
 			SupportsNativeProxy:          true,
+			SupportsDeviceFlow:           true,
 		},
 		Site: ProviderSiteConfig{
 			Name:     "xAI Grok OAuth",
 			URL:      grokUpstreamBaseURL,
 			Platform: "grok",
 		},
+		SessionTTL: grokDeviceCodeTTL,
 		// Loopback is intentionally zero-valued: Device OAuth has no redirect
 		// callback. The shared flow layer still starts a loopback listener for
 		// every provider, but for grok it simply never receives a callback —
@@ -169,7 +119,7 @@ func buildGrokAuthorizationURL(ctx context.Context, input BuildAuthURLInput) (st
 	// the proxy later, at exchange time). The device-code start call therefore
 	// goes direct; if a per-flow proxy is configured it will apply to the
 	// subsequent token-exchange poll instead.
-	payload, err := postGrokForm(callCtx, grokDeviceCodeURL, form, nil)
+	payload, err := postOAuthForm(callCtx, grokDeviceCodeURL, form, nil)
 	if err != nil {
 		return "", fmt.Errorf("grok device oauth: device-code request failed: %w", err)
 	}
@@ -187,7 +137,11 @@ func buildGrokAuthorizationURL(ctx context.Context, input BuildAuthURLInput) (st
 		interval = time.Duration(device.Interval) * time.Second
 	}
 
-	storeGrokDeviceCode(input.State, device.DeviceCode, device.VerificationURI, interval)
+	ttl := time.Duration(device.ExpiresIn) * time.Second
+	if ttl <= 0 {
+		ttl = grokDeviceCodeTTL
+	}
+	storeDeviceFlow(input.State, device.DeviceCode, device.UserCode, device.VerificationURI, interval, ttl)
 
 	if strings.TrimSpace(device.VerificationURIComplete) != "" {
 		return device.VerificationURIComplete, nil
@@ -233,7 +187,7 @@ func exchangeGrokAuthorizationCode(ctx context.Context, input ExchangeCodeInput)
 		return nil, fmt.Errorf("grok device oauth: missing state for token exchange")
 	}
 
-	entry, ok := lookupGrokDeviceCode(state)
+	entry, ok := lookupDeviceFlow(state)
 	if !ok {
 		return nil, fmt.Errorf("grok device oauth: no device_code for state %q (expired or not started)", state)
 	}
@@ -246,7 +200,7 @@ func exchangeGrokAuthorizationCode(ctx context.Context, input ExchangeCodeInput)
 	form.Set("client_id", grokClientID)
 	form.Set("device_code", entry.deviceCode)
 
-	payload, err := postGrokForm(callCtx, grokTokenURL, form, input.ProxyURL)
+	payload, err := postOAuthForm(callCtx, grokTokenURL, form, input.ProxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("grok device oauth: token request failed: %w", err)
 	}
@@ -257,19 +211,30 @@ func exchangeGrokAuthorizationCode(ctx context.Context, input ExchangeCodeInput)
 	}
 
 	if token.Error != "" {
-		// Surface RFC 8628 polling errors verbatim so the flow layer can decide
-		// whether to retry (authorization_pending / slow_down) or abort
-		// (access_denied / expired_token).
-		msg := token.Error
-		if token.ErrorDescription != "" {
-			msg = msg + ": " + token.ErrorDescription
+		switch token.Error {
+		case "authorization_pending":
+			return nil, &DeviceFlowPendingError{
+				Reason:     "authorization_pending",
+				RetryAfter: entry.interval,
+			}
+		case "slow_down":
+			retryAfter := slowDownDeviceFlow(state)
+			return nil, &DeviceFlowPendingError{
+				Reason:     "slow_down",
+				RetryAfter: retryAfter,
+			}
+		default:
+			msg := token.Error
+			if token.ErrorDescription != "" {
+				msg = msg + ": " + token.ErrorDescription
+			}
+			clearDeviceFlow(state)
+			return nil, fmt.Errorf("grok device oauth: %s", msg)
 		}
-		clearGrokDeviceCode(state)
-		return nil, fmt.Errorf("grok device oauth: %s", msg)
 	}
 
 	if strings.TrimSpace(token.AccessToken) == "" {
-		clearGrokDeviceCode(state)
+		clearDeviceFlow(state)
 		return nil, fmt.Errorf("grok device oauth: token response missing access_token")
 	}
 
@@ -295,7 +260,7 @@ func exchangeGrokAuthorizationCode(ctx context.Context, input ExchangeCodeInput)
 		providerData["idToken"] = token.IDToken
 	}
 
-	clearGrokDeviceCode(state)
+	clearDeviceFlow(state)
 
 	return &TokenSet{
 		AccessToken:    token.AccessToken,
@@ -325,7 +290,7 @@ func refreshGrokAccessToken(ctx context.Context, input RefreshTokenInput) (*Toke
 	form.Set("client_id", grokClientID)
 	form.Set("refresh_token", refreshToken)
 
-	payload, err := postGrokForm(callCtx, grokTokenURL, form, input.ProxyURL)
+	payload, err := postOAuthForm(callCtx, grokTokenURL, form, input.ProxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("grok oauth: refresh request failed: %w", err)
 	}
@@ -411,10 +376,10 @@ func buildGrokProxyHeaders(ctx context.Context, input ProxyHeaderInput) map[stri
 
 // ---- HTTP + helpers ----
 
-// postGrokForm POSTs an x-www-form-urlencoded body to an xAI endpoint and
-// returns the raw JSON payload. Non-2xx responses are returned as errors with
-// the trimmed body so callers can surface xAI's error description.
-func postGrokForm(ctx context.Context, endpoint string, form url.Values, proxyURL *string) ([]byte, error) {
+// postOAuthForm POSTs an x-www-form-urlencoded body and returns the raw JSON
+// payload. Non-2xx responses are returned as errors with the trimmed body so
+// callers can surface the provider error description.
+func postOAuthForm(ctx context.Context, endpoint string, form url.Values, proxyURL *string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
@@ -505,11 +470,10 @@ func mergeGrokProviderData(existing map[string]interface{}, token grokTokenRespo
 	return merged
 }
 
-// resolveGrokPollInterval exposes the stashed poll interval for a state so the
-// (future) flow-layer poller can pace retries. Kept unexported but package-
-// visible for tests + the eventual poll trigger.
+// resolveGrokPollInterval exposes the stashed poll interval for tests; the
+// production flow uses sessionStatusResult's shared projection.
 func resolveGrokPollInterval(state string) time.Duration {
-	entry, ok := lookupGrokDeviceCode(state)
+	entry, ok := lookupDeviceFlow(state)
 	if !ok {
 		return grokDefaultPollInterval
 	}

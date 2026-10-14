@@ -31,7 +31,7 @@ func TestRegistry_RegistrationOrder(t *testing.T) {
 	// Verify order matches spec
 	expected := []string{
 		"openai", "codex", "claude", "gemini", "gemini-cli",
-		"antigravity", "grok", "cliproxyapi", "sensetime", "anyrouter", "done-hub",
+		"antigravity", "grok", "github-copilot", "cliproxyapi", "sensetime", "anyrouter", "done-hub",
 		"one-hub", "veloera", "new-api", "sub2api", "one-api",
 	}
 	if len(names) != len(expected) {
@@ -112,6 +112,9 @@ func TestNormalizePlatformAlias(t *testing.T) {
 		{"x.ai", "grok"},
 		{"GROK", "grok"},
 		{"XAI", "grok"},
+		{"github-copilot", "github-copilot"},
+		{"github copilot", "github-copilot"},
+		{"copilot", "github-copilot"},
 		{"cliproxyapi", "cliproxyapi"},
 		{"cpa", "cliproxyapi"},
 		{"cli-proxy-api", "cliproxyapi"},
@@ -165,6 +168,7 @@ func TestAdapterPlatformNames(t *testing.T) {
 		{adapter: buildAdapter("gemini-cli"), wantName: "gemini-cli"},
 		{adapter: buildAdapter("antigravity"), wantName: "antigravity"},
 		{adapter: buildAdapter("grok"), wantName: "grok"},
+		{adapter: buildAdapter("github-copilot"), wantName: "github-copilot"},
 		{adapter: buildAdapter("cliproxyapi"), wantName: "cliproxyapi"},
 		{adapter: buildAdapter("sensetime"), wantName: "sensetime"},
 		{adapter: buildAdapter("anyrouter"), wantName: "anyrouter"},

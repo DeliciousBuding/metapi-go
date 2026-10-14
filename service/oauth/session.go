@@ -27,6 +27,8 @@ type CreateSessionInput struct {
 	ProjectID       string
 	ProxyURL        string
 	UseSystemProxy  bool
+	// SessionTTL overrides the default TTL. Zero means sessionTTL.
+	SessionTTL time.Duration
 }
 
 const sessionTTL = 10 * time.Minute
@@ -71,7 +73,11 @@ func (s *MemoryOAuthSessionStore) Create(input CreateSessionInput) (*SessionReco
 		return nil, err
 	}
 	createdAt := now
-	expiresAt := now.Add(sessionTTL)
+	ttl := sessionTTL
+	if input.SessionTTL > 0 {
+		ttl = input.SessionTTL
+	}
+	expiresAt := now.Add(ttl)
 
 	record := &SessionRecord{
 		Provider:        input.Provider,

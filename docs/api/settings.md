@@ -232,8 +232,9 @@ The preview reports configuration counts, skipped channels, remaining source
 sections, configuration differences and removals. The following remain outside
 the current executable import contract:
 
-- Gemini Vertex, Antigravity, Anthropic GCP, GitHub Copilot, xAI subscription,
-  and fake providers.
+- Antigravity, xAI subscription, and fake providers. GitHub Copilot, Gemini
+  Vertex and Anthropic GCP are executable through their audited credential and
+  wire contracts; real upstream acceptance is still tracked separately.
 - Formats not listed in [direct upstreams](routes.md), including source Decisions
   and provider-specific compaction.
 - Active channel transform operations, channel rate limits and stream policies,

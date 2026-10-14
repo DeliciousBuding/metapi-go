@@ -302,10 +302,19 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 			if (channel.Type == "codex" || channel.Type == "fenno") && (endpoint.APIFormat == "openai/responses" || endpoint.APIFormat == "openai/image_generation" || endpoint.APIFormat == "openai/image_edit") {
 				continue
 			}
+			if channel.Type == "github_copilot" {
+				if strings.TrimSpace(endpoint.BaseURL) != "" || strings.TrimSpace(endpoint.Path) != "" {
+					reasons = append(reasons, "oauth_custom_endpoint_unsupported")
+				}
+				continue
+			}
 			// Source custom endpoints use a static API-key provider except the
 			// Codex Responses/image wrapper. Do not silently replace that contract.
 			reasons = append(reasons, "oauth_custom_endpoint_unsupported")
 		}
+	}
+	if channel.Type == "github_copilot" && !channel.Credentials.OAuth {
+		reasons = append(reasons, "copilot_oauth_credential_required")
 	}
 	if channel.Credentials.Azure {
 		reasons = append(reasons, "azure_credentials_unsupported")
@@ -317,10 +326,20 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		reasons = append(reasons, "credential_field_unsupported:"+key)
 	}
 	keys := credentialKeys(channel.Credentials)
+	oauthState := axonHubOAuthState(channel.Credentials.OAuthCredentials)
 	if channel.Credentials.OAuth && axonHubOAuthProvider(channel.Type) && channel.Credentials.OAuthCredentials != nil {
 		keys = []string{channel.Credentials.OAuthCredentials.AccessToken}
 		if tokenType := strings.ToLower(channel.Credentials.OAuthCredentials.TokenType); tokenType != "" && tokenType != "bearer" {
 			reasons = append(reasons, "oauth_token_type_unsupported")
+		}
+		if channel.Type == "github_copilot" {
+			// AxonHub exports the durable GitHub OAuth token. The short-lived
+			// Copilot token is exchanged lazily; secret starts empty.
+			keys = []string{""}
+			oauthState = &store.DirectOAuthState{
+				RefreshToken: channel.Credentials.OAuthCredentials.AccessToken,
+				ClientID:     channel.Credentials.OAuthCredentials.ClientID,
+			}
 		}
 	}
 	if len(keys) == 0 && channel.Credentials.GCP != nil && (channel.Type == "gemini_vertex" || channel.Type == "anthropic_gcp") {
@@ -412,7 +431,7 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		Protocols:      protocols,
 		Tags:           channel.Tags,
 		CredentialKeys: keys,
-		OAuthState:     axonHubOAuthState(channel.Credentials.OAuthCredentials),
+		OAuthState:     oauthState,
 		GCPMaterial:    gcpMaterial,
 
 		DisabledKeys: map[string]bool{},

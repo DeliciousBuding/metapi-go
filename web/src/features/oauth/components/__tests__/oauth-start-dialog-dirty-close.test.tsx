@@ -82,6 +82,7 @@ vi.mock('../../api', () => ({
         supportsDirectAccountRouting: true,
         supportsCloudValidation: true,
         supportsNativeProxy: true,
+        supportsDeviceFlow: false,
       },
     ],
     isLoading: false,

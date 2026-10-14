@@ -119,7 +119,7 @@ func (h *oauthHandler) getSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status := oauth.GetSessionStatus(state)
+	status := oauth.GetSessionStatus(r.Context(), state)
 	if status == nil {
 		writeJSON(w, http.StatusNotFound, map[string]any{"message": "oauth session not found"})
 		return

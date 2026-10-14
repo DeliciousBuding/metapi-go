@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -96,12 +97,12 @@ func TestBuildProxyHeaders_Grok(t *testing.T) {
 
 // ---- Pure helper tests ----
 
-func TestGrokDeviceCodeStore_StoreLookupClear(t *testing.T) {
+func TestDeviceFlowStore_StoreLookupClear(t *testing.T) {
 	// Use a unique state to avoid colliding with other tests.
 	state := "test-store-state-" + t.Name()
-	storeGrokDeviceCode(state, "device-xyz", "https://verify.example/abc", 5*time.Second)
+	storeDeviceFlow(state, "device-xyz", "USER-XYZ", "https://verify.example/abc", 5*time.Second, time.Minute)
 
-	entry, ok := lookupGrokDeviceCode(state)
+	entry, ok := lookupDeviceFlow(state)
 	if !ok {
 		t.Fatal("expected device code to be present after store")
 	}
@@ -115,23 +116,24 @@ func TestGrokDeviceCodeStore_StoreLookupClear(t *testing.T) {
 		t.Errorf("interval = %v", entry.interval)
 	}
 
-	clearGrokDeviceCode(state)
-	if _, ok := lookupGrokDeviceCode(state); ok {
+	clearDeviceFlow(state)
+	if _, ok := lookupDeviceFlow(state); ok {
 		t.Error("device code should be gone after clear")
 	}
 }
 
-func TestGrokDeviceCodeStore_PrunesExpired(t *testing.T) {
-	grokDeviceCodesMu.Lock()
-	grokDeviceCodes["expired-state"] = grokDeviceCodeEntry{
+func TestDeviceFlowStore_PrunesExpired(t *testing.T) {
+	deviceFlowsMu.Lock()
+	deviceFlows["expired-state"] = deviceFlowEntry{
 		deviceCode:      "old",
+		userCode:        "OLD",
 		verificationURI: "https://verify.example/old",
 		interval:        5 * time.Second,
 		expiresAt:       time.Now().Add(-1 * time.Minute), // already expired
 	}
-	grokDeviceCodesMu.Unlock()
+	deviceFlowsMu.Unlock()
 
-	if _, ok := lookupGrokDeviceCode("expired-state"); ok {
+	if _, ok := lookupDeviceFlow("expired-state"); ok {
 		t.Error("expired device code should be pruned on lookup")
 	}
 }
@@ -210,8 +212,8 @@ func TestResolveGrokPollInterval(t *testing.T) {
 
 	// Known state → stashed interval.
 	state := "test-interval-state-" + t.Name()
-	storeGrokDeviceCode(state, "code", "https://verify.example", 11*time.Second)
-	defer clearGrokDeviceCode(state)
+	storeDeviceFlow(state, "code", "CODE", "https://verify.example", 11*time.Second, time.Minute)
+	defer clearDeviceFlow(state)
 	if got := resolveGrokPollInterval(state); got != 11*time.Second {
 		t.Errorf("resolveGrokPollInterval(known) = %v, want 11s", got)
 	}
@@ -304,7 +306,7 @@ func TestBuildGrokAuthorizationURL_DeviceFlow_Success(t *testing.T) {
 	}
 
 	// The device_code must be stashed for the exchange step.
-	entry, ok := lookupGrokDeviceCode("flow-state")
+	entry, ok := lookupDeviceFlow("flow-state")
 	if !ok {
 		t.Fatal("expected device_code to be stashed for the flow state")
 	}
@@ -314,7 +316,7 @@ func TestBuildGrokAuthorizationURL_DeviceFlow_Success(t *testing.T) {
 	if entry.interval != 5*time.Second {
 		t.Errorf("stashed interval = %v", entry.interval)
 	}
-	clearGrokDeviceCode("flow-state")
+	clearDeviceFlow("flow-state")
 }
 
 func TestBuildGrokAuthorizationURL_DeviceFlow_PrefersBareVerificationURI(t *testing.T) {
@@ -339,11 +341,11 @@ func TestBuildGrokAuthorizationURL_DeviceFlow_PrefersBareVerificationURI(t *test
 	if urlStr != "https://auth.x.ai/device" {
 		t.Errorf("expected bare verification_uri, got %q", urlStr)
 	}
-	entry, _ := lookupGrokDeviceCode("bare-state")
+	entry, _ := lookupDeviceFlow("bare-state")
 	if entry.interval != grokDefaultPollInterval {
 		t.Errorf("expected default interval fallback, got %v", entry.interval)
 	}
-	clearGrokDeviceCode("bare-state")
+	clearDeviceFlow("bare-state")
 }
 
 func TestBuildGrokAuthorizationURL_DeviceFlow_MissingFields(t *testing.T) {
@@ -363,7 +365,7 @@ func TestBuildGrokAuthorizationURL_DeviceFlow_MissingFields(t *testing.T) {
 		t.Errorf("expected missing-fields error, got %v", err)
 	}
 	// Nothing should be stashed on failure.
-	if _, ok := lookupGrokDeviceCode("missing-state"); ok {
+	if _, ok := lookupDeviceFlow("missing-state"); ok {
 		t.Error("device_code must not be stashed when the response is incomplete")
 	}
 }
@@ -397,7 +399,7 @@ func TestExchangeGrokAuthorizationCode_DeviceFlow_Success(t *testing.T) {
 	defer tokenServer.Close()
 
 	withGrokEndpointSwap(t, grokDeviceCodeURL, tokenServer.URL)
-	storeGrokDeviceCode("exchange-state", "dc-exchange", "https://auth.x.ai/device", 5*time.Second)
+	storeDeviceFlow("exchange-state", "dc-exchange", "USER", "https://auth.x.ai/device", 5*time.Second, time.Minute)
 
 	token, err := exchangeGrokAuthorizationCode(context.Background(), ExchangeCodeInput{
 		State: "exchange-state",
@@ -430,7 +432,7 @@ func TestExchangeGrokAuthorizationCode_DeviceFlow_Success(t *testing.T) {
 		t.Errorf("ProviderData.tokenType = %v", token.ProviderData["tokenType"])
 	}
 	// Device code must be consumed (cleared) after a successful exchange.
-	if _, ok := lookupGrokDeviceCode("exchange-state"); ok {
+	if _, ok := lookupDeviceFlow("exchange-state"); ok {
 		t.Error("device_code should be cleared after successful exchange")
 	}
 }
@@ -448,7 +450,7 @@ func TestExchangeGrokAuthorizationCode_DeviceFlow_PendingError(t *testing.T) {
 	defer tokenServer.Close()
 
 	withGrokEndpointSwap(t, grokDeviceCodeURL, tokenServer.URL)
-	storeGrokDeviceCode("pending-state", "dc-pending", "https://auth.x.ai/device", 5*time.Second)
+	storeDeviceFlow("pending-state", "dc-pending", "USER", "https://auth.x.ai/device", 5*time.Second, time.Minute)
 
 	_, err := exchangeGrokAuthorizationCode(context.Background(), ExchangeCodeInput{State: "pending-state"})
 	if err == nil {
@@ -457,11 +459,13 @@ func TestExchangeGrokAuthorizationCode_DeviceFlow_PendingError(t *testing.T) {
 	if !strings.Contains(err.Error(), "authorization_pending") {
 		t.Errorf("error should mention authorization_pending, got %v", err)
 	}
-	// Terminal/aborted errors should clear the device code so we don't retry
-	// a stale code. (authorization_pending surfaces the error verbatim and the
-	// device_code is cleared so the caller must restart the flow on a true
-	// terminal state; for pending the flow layer is expected to re-poll by
-	// re-exchanging — see TODO in grok.go.)
+	if _, ok := lookupDeviceFlow("pending-state"); !ok {
+		t.Fatal("authorization_pending must keep the device_code for the next poll")
+	}
+	var pending *DeviceFlowPendingError
+	if !errors.As(err, &pending) {
+		t.Fatalf("authorization_pending must be a DeviceFlowPendingError, got %T", err)
+	}
 }
 
 func TestExchangeGrokAuthorizationCode_DeviceFlow_MissingAccessToken(t *testing.T) {
@@ -475,7 +479,7 @@ func TestExchangeGrokAuthorizationCode_DeviceFlow_MissingAccessToken(t *testing.
 	defer tokenServer.Close()
 
 	withGrokEndpointSwap(t, grokDeviceCodeURL, tokenServer.URL)
-	storeGrokDeviceCode("missing-access-state", "dc-missing", "https://auth.x.ai/device", 5*time.Second)
+	storeDeviceFlow("missing-access-state", "dc-missing", "USER", "https://auth.x.ai/device", 5*time.Second, time.Minute)
 
 	_, err := exchangeGrokAuthorizationCode(context.Background(), ExchangeCodeInput{State: "missing-access-state"})
 	if err == nil || !strings.Contains(err.Error(), "missing access_token") {

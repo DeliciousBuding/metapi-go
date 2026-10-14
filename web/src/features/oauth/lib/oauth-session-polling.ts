@@ -32,6 +32,8 @@ export type OAuthSessionPolling = {
   session: OAuthSessionInfo | null
   /** 1-based index of the check that is running / ran last. */
   attempt: number
+  /** The attempt budget used by this wait. */
+  maxAttempts: number
   /** True once the budget ran out while the session was still pending. */
   exhausted: boolean
   /** Restart polling immediately with a fresh budget. */
@@ -44,7 +46,9 @@ export type OAuthSessionPolling = {
  * (e.g. before the start-authorization mutation has returned a `state`).
  */
 export function useOAuthSessionPolling(
-  state: string | null
+  state: string | null,
+  intervalMs = OAUTH_SESSION_POLL_INTERVAL_MS,
+  maxAttempts = OAUTH_SESSION_POLL_MAX_ATTEMPTS
 ): OAuthSessionPolling {
   const [session, setSession] = useState<OAuthSessionInfo | null>(null)
   const [attempt, setAttempt] = useState(0)
@@ -65,15 +69,12 @@ export function useOAuthSessionPolling(
       if (cancelled) return
       setAttempt(attemptNumber)
 
-      const continuePolling = () => {
-        if (attemptNumber >= OAUTH_SESSION_POLL_MAX_ATTEMPTS) {
+      const continuePolling = (nextDelayMs = intervalMs) => {
+        if (attemptNumber >= maxAttempts) {
           setExhausted(true)
           return
         }
-        timer = setTimeout(
-          () => runCheck(attemptNumber + 1),
-          OAUTH_SESSION_POLL_INTERVAL_MS
-        )
+        timer = setTimeout(() => runCheck(attemptNumber + 1), nextDelayMs)
       }
 
       api
@@ -82,7 +83,11 @@ export function useOAuthSessionPolling(
           if (cancelled) return
           setSession(info)
           if (info.status !== 'pending') return
-          continuePolling()
+          const retryDelayMs =
+            info.retryAfterSeconds && info.retryAfterSeconds > 0
+              ? info.retryAfterSeconds * 1000
+              : intervalMs
+          continuePolling(retryDelayMs)
         })
         .catch(() => {
           // Transient failure: consumes the attempt, does not settle the
@@ -98,9 +103,9 @@ export function useOAuthSessionPolling(
       cancelled = true
       if (timer !== undefined) clearTimeout(timer)
     }
-  }, [state, kickToken])
+  }, [state, kickToken, intervalMs, maxAttempts])
 
   const kick = useCallback(() => setKickToken((token) => token + 1), [])
 
-  return { session, attempt, exhausted, kick }
+  return { session, attempt, maxAttempts, exhausted, kick }
 }

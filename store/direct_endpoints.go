@@ -165,7 +165,7 @@ func (e *DirectEndpoints) Scan(value any) error {
 			if endpoint != decoded.Messages || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("claudecode profile requires bearer Messages")
 			}
-		case "deepseek", "zai", "bailian", "cline", "moonshot", "longcat", "openrouter", "cerebras", "nanogpt":
+		case "deepseek", "zai", "bailian", "cline", "moonshot", "longcat", "openrouter", "cerebras", "nanogpt", "github-copilot":
 			if endpoint != decoded.Chat || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("chat profile requires bearer Chat")
 			}

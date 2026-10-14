@@ -35,6 +35,8 @@ func axonHubChannelBaseURL(channel AxonHubSourceChannel) string {
 		return "https://api.fireworks.ai/inference/v1"
 	case "xai":
 		return "https://api.x.ai/v1"
+	case "github_copilot":
+		return "https://api.githubcopilot.com"
 	case "cerebras":
 		return "https://api.cerebras.ai/v1"
 	default:
@@ -156,6 +158,8 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 				profile = "opencode-go"
 			case "moonshot", "longcat", "openrouter", "cerebras", "nanogpt":
 				profile = channel.Type
+			case "github_copilot":
+				profile = "github-copilot"
 			}
 		}
 		if protocol == protoChat && channel.Type == "cline" {
@@ -273,6 +277,10 @@ func resolveAxonHubEndpointURL(provider string, protocol int, base, path string,
 				if strings.HasSuffix(base, "#") {
 					return "", "endpoint_url_mode_unsupported"
 				}
+				return strings.TrimSuffix(base, "/") + "/chat/completions", ""
+			}
+		case "github_copilot":
+			if !custom {
 				return strings.TrimSuffix(base, "/") + "/chat/completions", ""
 			}
 		}

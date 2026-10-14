@@ -71,10 +71,7 @@ import {
   oauthStartSchema,
   type OAuthStartValues,
 } from '../lib/oauth-schema'
-import {
-  OAUTH_SESSION_POLL_MAX_ATTEMPTS,
-  useOAuthSessionPolling,
-} from '../lib/oauth-session-polling'
+import { useOAuthSessionPolling } from '../lib/oauth-session-polling'
 import { oauthKeys, type OAuthStartInstructions } from '../types'
 
 type OAuthStartDialogProps = {
@@ -116,7 +113,25 @@ export function OAuthStartDialog({
   // through the abandon confirmation.
   const [confirmAbandonOpen, setConfirmAbandonOpen] = useState(false)
 
-  const { session, exhausted, kick } = useOAuthSessionPolling(pendingState)
+  const deviceFlow = instructions?.deviceFlow ?? null
+  const devicePollIntervalSeconds =
+    deviceFlow?.pollIntervalSeconds && deviceFlow.pollIntervalSeconds > 0
+      ? deviceFlow.pollIntervalSeconds
+      : 5
+  const pollIntervalMs = deviceFlow
+    ? devicePollIntervalSeconds * 1000
+    : undefined
+  const pollMaxAttempts = deviceFlow
+    ? Math.ceil(
+        Math.max(deviceFlow.expiresInSeconds, devicePollIntervalSeconds) /
+          devicePollIntervalSeconds
+      ) + 1
+    : undefined
+  const { session, exhausted, maxAttempts, kick } = useOAuthSessionPolling(
+    pendingState,
+    pollIntervalMs,
+    pollMaxAttempts
+  )
   const submitManualCallback = useSubmitOAuthManualCallback()
 
   const enabledProviders = useMemo(
@@ -299,16 +314,24 @@ export function OAuthStartDialog({
     // Honest timeout: polling paused, the wait is NOT over.
     statusPanel = (
       <div className='text-warning-soft-fg text-sm' role='status'>
-        {t('oauth.session.pollingExhausted', {
-          attempts: OAUTH_SESSION_POLL_MAX_ATTEMPTS,
-        })}
+        {deviceFlow
+          ? t('oauth.session.devicePollingExhausted', {
+              attempts: maxAttempts,
+            })
+          : t('oauth.session.pollingExhausted', {
+              attempts: maxAttempts,
+            })}
       </div>
     )
   } else {
     statusPanel = (
       <div className='text-muted-foreground flex items-center gap-2 text-sm'>
         <Spinner className='size-3.5' />
-        <span>{t('oauth.session.waiting')}</span>
+        <span>
+          {deviceFlow
+            ? t('oauth.session.deviceWaiting')
+            : t('oauth.session.waiting')}
+        </span>
       </div>
     )
   }
@@ -366,6 +389,34 @@ export function OAuthStartDialog({
                   </div>
                 )}
 
+                {deviceFlow && (
+                  <div className='grid gap-2'>
+                    <p className='text-muted-foreground text-sm'>
+                      {t('oauth.session.deviceCodeHint')}
+                    </p>
+                    <div className='flex items-center gap-2'>
+                      <code className='bg-muted flex-1 rounded px-3 py-2 text-center text-base font-semibold tracking-widest'>
+                        {deviceFlow.userCode}
+                      </code>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='icon-sm'
+                        onClick={() =>
+                          handleCopy('deviceUserCode', deviceFlow.userCode)
+                        }
+                        aria-label={t('common.copy')}
+                      >
+                        {copiedField === 'deviceUserCode' ? (
+                          <CheckIcon className='size-3.5' />
+                        ) : (
+                          <CopyIcon className='size-3.5' />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className='grid gap-2'>
                   <p className='text-muted-foreground text-sm'>
                     {t('oauth.session.stateHint')}
@@ -390,7 +441,7 @@ export function OAuthStartDialog({
                   </div>
                 </div>
 
-                {redirectUri && (
+                {!deviceFlow && redirectUri && (
                   <div className='grid gap-2'>
                     <p className='text-muted-foreground text-sm'>
                       {t('oauth.session.redirectUriHint')}
@@ -416,7 +467,7 @@ export function OAuthStartDialog({
                   </div>
                 )}
 
-                {sshTunnelCommand && (
+                {!deviceFlow && sshTunnelCommand && (
                   <div className='grid gap-2'>
                     <p className='text-muted-foreground text-sm'>
                       {t('oauth.session.sshTunnelHint')}
@@ -471,45 +522,47 @@ export function OAuthStartDialog({
                   </div>
                 )}
 
-                <form
-                  onSubmit={handleManualCallbackSubmit}
-                  className='grid gap-2'
-                >
-                  <label
-                    className='text-sm font-medium'
-                    htmlFor='oauth-manual-callback-url'
+                {!deviceFlow && (
+                  <form
+                    onSubmit={handleManualCallbackSubmit}
+                    className='grid gap-2'
                   >
-                    {t('oauth.session.callbackLabel')}
-                  </label>
-                  <Input
-                    id='oauth-manual-callback-url'
-                    value={callbackUrl}
-                    onChange={(event) => {
-                      setCallbackUrl(event.target.value)
-                      setCallbackInvalid(false)
-                    }}
-                    placeholder={t('oauth.session.callbackPlaceholder')}
-                    // Not a user credential: a pasted OAuth callback URL.
-                    // 'off' is conforming here (WHATWG only forbids it on
-                    // login/password fields) and keeps managers from
-                    // corrupting the pasted value (#1029 batch A evaluation).
-                    autoComplete='off'
-                    spellCheck={false}
-                    aria-invalid={callbackInvalid || undefined}
-                  />
-                  {callbackInvalid && (
-                    <p className='text-destructive text-xs'>
-                      {t('oauth.session.callbackInvalidUrl')}
-                    </p>
-                  )}
-                  <Button
-                    type='submit'
-                    disabled={!callbackUrl.trim() || isSubmittingCallback}
-                  >
-                    {isSubmittingCallback ? <Spinner /> : null}
-                    {t('oauth.session.callbackSubmit')}
-                  </Button>
-                </form>
+                    <label
+                      className='text-sm font-medium'
+                      htmlFor='oauth-manual-callback-url'
+                    >
+                      {t('oauth.session.callbackLabel')}
+                    </label>
+                    <Input
+                      id='oauth-manual-callback-url'
+                      value={callbackUrl}
+                      onChange={(event) => {
+                        setCallbackUrl(event.target.value)
+                        setCallbackInvalid(false)
+                      }}
+                      placeholder={t('oauth.session.callbackPlaceholder')}
+                      // Not a user credential: a pasted OAuth callback URL.
+                      // 'off' is conforming here (WHATWG only forbids it on
+                      // login/password fields) and keeps managers from
+                      // corrupting the pasted value (#1029 batch A evaluation).
+                      autoComplete='off'
+                      spellCheck={false}
+                      aria-invalid={callbackInvalid || undefined}
+                    />
+                    {callbackInvalid && (
+                      <p className='text-destructive text-xs'>
+                        {t('oauth.session.callbackInvalidUrl')}
+                      </p>
+                    )}
+                    <Button
+                      type='submit'
+                      disabled={!callbackUrl.trim() || isSubmittingCallback}
+                    >
+                      {isSubmittingCallback ? <Spinner /> : null}
+                      {t('oauth.session.callbackSubmit')}
+                    </Button>
+                  </form>
+                )}
 
                 <DialogFooter>
                   <Button

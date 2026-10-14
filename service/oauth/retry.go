@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -28,6 +29,16 @@ var nonRetryableNeedles = []string{
 	"refresh_token_reused",
 }
 
+// NonRetryableError marks provider responses that invalidate the current
+// credential. It exists for status-code-driven cases (for example Copilot
+// token exchange 401/403) whose body does not carry an RFC 6749 error code.
+type NonRetryableError struct {
+	Message string
+}
+
+func (e *NonRetryableError) Error() string      { return e.Message }
+func (e *NonRetryableError) NonRetryable() bool { return true }
+
 // RetryBackoff returns the wait before the (attempt+1)-th retry. The first
 // retry (attempt=0) waits 1s, then 2s, then 4s — exponential with a 2x step.
 // attempt < 0 returns 0; attempt >= MaxRefreshRetries returns 0 so callers
@@ -46,6 +57,13 @@ func RetryBackoff(attempt int) time.Duration {
 func IsNonRetryable(err error) bool {
 	if err == nil {
 		return false
+	}
+	var nonRetryable interface {
+		error
+		NonRetryable() bool
+	}
+	if errors.As(err, &nonRetryable) {
+		return true
 	}
 	msg := strings.ToLower(err.Error())
 	for _, needle := range nonRetryableNeedles {

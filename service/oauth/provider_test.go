@@ -53,6 +53,9 @@ func TestRegistry_IsRegisteredProvider(t *testing.T) {
 	if !IsRegisteredProvider("grok") {
 		t.Error("grok should be registered")
 	}
+	if !IsRegisteredProvider("github-copilot") {
+		t.Error("github-copilot should be registered")
+	}
 	if IsRegisteredProvider("nonexistent") {
 		t.Error("nonexistent should not be registered")
 	}
@@ -60,14 +63,14 @@ func TestRegistry_IsRegisteredProvider(t *testing.T) {
 
 func TestRegistry_ListProviderDefinitions(t *testing.T) {
 	defs := ListProviderDefinitions()
-	if len(defs) != 5 {
-		t.Errorf("expected 5 providers, got %d", len(defs))
+	if len(defs) != 6 {
+		t.Errorf("expected 6 providers, got %d", len(defs))
 	}
 	seen := make(map[OAuthProviderId]bool)
 	for _, def := range defs {
 		seen[def.Metadata.Provider] = true
 	}
-	for _, pid := range []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity, ProviderGrok} {
+	for _, pid := range []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity, ProviderGrok, ProviderCopilot} {
 		if !seen[pid] {
 			t.Errorf("provider %q missing from list", pid)
 		}
@@ -150,6 +153,26 @@ func TestProviderMetadata_GeminiCli(t *testing.T) {
 	}
 	if !meta.RequiresProjectId {
 		t.Error("gemini-cli should require project ID")
+	}
+}
+
+func TestProviderMetadata_Copilot(t *testing.T) {
+	def := GetProviderDefinition(string(ProviderCopilot))
+	if def == nil {
+		t.Fatal("github-copilot provider not found")
+	}
+	meta := def.Metadata
+	if meta.Provider != ProviderCopilot {
+		t.Errorf("expected Provider %q, got %q", ProviderCopilot, meta.Provider)
+	}
+	if meta.Label != "GitHub Copilot" {
+		t.Errorf("expected Label 'GitHub Copilot', got %q", meta.Label)
+	}
+	if !meta.SupportsDeviceFlow {
+		t.Error("github-copilot should support Device Flow")
+	}
+	if def.SessionTTL != copilotSessionTTL {
+		t.Errorf("SessionTTL = %v, want %v", def.SessionTTL, copilotSessionTTL)
 	}
 }
 
@@ -380,7 +403,7 @@ func TestProviderSiteConfig_Claude(t *testing.T) {
 // ---- Interface Compliance Tests ----
 
 func TestInterfaceCompliance_AllProvidersHaveRequiredFunctions(t *testing.T) {
-	providers := []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity, ProviderGrok}
+	providers := []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity, ProviderGrok, ProviderCopilot}
 	for _, pid := range providers {
 		def := GetProviderDefinition(string(pid))
 		if def.BuildAuthorizationURL == nil {
@@ -396,7 +419,7 @@ func TestInterfaceCompliance_AllProvidersHaveRequiredFunctions(t *testing.T) {
 }
 
 func TestInterfaceCompliance_BuildProxyHeaders_Optional(t *testing.T) {
-	for _, pid := range []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity, ProviderGrok} {
+	for _, pid := range []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity, ProviderGrok, ProviderCopilot} {
 		def := GetProviderDefinition(string(pid))
 		if def.BuildProxyHeaders == nil {
 			t.Errorf("%s should implement BuildProxyHeaders", pid)
@@ -446,5 +469,8 @@ func TestProviderID_Constants(t *testing.T) {
 	}
 	if ProviderGrok != "grok" {
 		t.Errorf("ProviderGrok = %q, want 'grok'", ProviderGrok)
+	}
+	if ProviderCopilot != "github-copilot" {
+		t.Errorf("ProviderCopilot = %q, want 'github-copilot'", ProviderCopilot)
 	}
 }
