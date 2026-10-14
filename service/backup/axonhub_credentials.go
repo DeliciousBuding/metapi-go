@@ -45,7 +45,8 @@ func decodeAxonHubOAuthCredentials(raw json.RawMessage, dst *AxonHubSourceCreden
 }
 
 func axonHubOAuthProvider(provider string) bool {
-	return provider == "codex" || provider == "fenno" || provider == "claudecode" || provider == "github_copilot"
+	return provider == "codex" || provider == "fenno" || provider == "claudecode" ||
+		provider == "github_copilot" || provider == "xai_subscription"
 }
 
 func axonHubOptionalAuth(channel AxonHubSourceChannel) bool {

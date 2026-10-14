@@ -35,6 +35,8 @@ func axonHubChannelBaseURL(channel AxonHubSourceChannel) string {
 		return "https://api.fireworks.ai/inference/v1"
 	case "xai":
 		return "https://api.x.ai/v1"
+	case "xai_subscription":
+		return "https://cli-chat-proxy.grok.com/v1"
 	case "github_copilot":
 		return "https://api.githubcopilot.com"
 	case "cerebras":
@@ -171,6 +173,9 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 			}
 			profile = "codex"
 			path = ""
+		}
+		if protocol == protoResponses && channel.Type == "xai_subscription" {
+			profile = "xai-subscription"
 		}
 		if protocol == protoMessages && channel.Type == "claudecode" {
 			if !custom[format] {

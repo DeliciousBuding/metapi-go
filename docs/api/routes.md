@@ -173,6 +173,10 @@ Additional profiles include:
   ends in `/model` before the escaped model and invoke action are appended.
 - `codex-alpha-search` applies to Bearer Alpha Search on Codex/Fenno. It uses
   Codex credentials and session headers without Responses conversion or forced streaming.
+- `xai-subscription` applies to Bearer Responses for AxonHub `xai_subscription`
+  imports. It sends the xAI Grok CLI identity headers and ignores client-supplied
+  values for those headers. Imports use the official subscription proxy URL and
+  OAuth refresh credential; static keys and custom endpoints/base URLs are refused.
 
 Endpoints still referenced by a grant and required provider profiles cannot be
 removed. Configured endpoints cannot silently revert to legacy base/path routing.

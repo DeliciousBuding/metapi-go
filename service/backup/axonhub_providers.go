@@ -25,7 +25,6 @@ type axonHubProviderType struct {
 
 const (
 	reasonProviderTranslation = "provider_translation_unsupported"
-	reasonProviderCredentials = "provider_credentials_unsupported"
 	reasonProviderWire        = "provider_wire_format_unsupported"
 )
 
@@ -117,7 +116,7 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 	"zenmux_anthropic":      {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
 	"commandcode":           {DefaultFormats: []string{"openai/chat_completions"}, Supported: true},
 	"commandcode_anthropic": {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
-	"xai_subscription":      {DefaultFormats: []string{"openai/responses"}, Reason: reasonProviderCredentials},
+	"xai_subscription":      {DefaultFormats: []string{"openai/responses"}, Supported: true},
 	"zenmux_gemini":         {DefaultFormats: []string{"gemini/contents", "gemini/embeddings"}, Supported: true},
 	"zenmux_video":          {DefaultFormats: []string{"zenmux/video"}, Supported: true},
 	"typesafe":              {DefaultFormats: []string{"typesafe/systemone"}, Supported: true},

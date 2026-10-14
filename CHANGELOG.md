@@ -25,6 +25,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 - OAuth：新增 GitHub Copilot 设备码接入——展示用户码并按 `retryAfterSeconds` 轮询完成授权，GitHub 令牌仅用于交换短期 Copilot 令牌（#1396）。
 - AxonHub 导入：`github_copilot` 翻正为可导入，静态 Key 与自定义端点明确拒绝；直连凭据首次请求时交换 Copilot 令牌（#1396）。
+- AxonHub 导入：`xai_subscription` 翻正为可导入，要求结构化 OAuth refresh token 与官方 client；静态 Key、自定义 base/path 明确拒绝（#1396）。
+- 直连上游：新增 `xai-subscription` Responses profile，固定 `https://cli-chat-proxy.grok.com/v1/responses` 并发送 xAI Grok CLI 身份头，客户端不能伪造这些身份头（#1396）。
 - 直连上游：`github_copilot` Chat 端点固定为 `https://api.githubcopilot.com/chat/completions`，并带 Copilot/VS Code 身份头（#1396）。
 - 路由诊断：候选的解释投影新增冷却截止时间；冷却阻断且身份已知的候选行内提供「清除冷却」恢复入口，按候选类型分发——账号/OAuth 单元走 `POST /api/channels/{id}/cooldown/clear`（route_channels 行粒度，幂等），直连 grant 成员走既有 `POST /api/imported-upstreams/members/{id}/cooldown/clear`（upstream_grants 粒度），清除后自动重新评估（#1396）。
 
