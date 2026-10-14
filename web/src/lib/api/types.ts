@@ -550,6 +550,10 @@ export type ProxyLogsQuery = {
   // Channel that served the request (`proxy_logs.channel_id`). Server-side
   // like every other list filter so total + summary stay consistent.
   channelId?: number
+  // Downstream key that made the request (`proxy_logs.downstream_api_key_id`)
+  // — the "this key's traffic" drill-down linked from the keys page and the
+  // connect dialog's verify outcome. Server-side like every other filter.
+  downstreamKeyId?: number
   from?: string
   to?: string
   // Latency bounds (ms) for the "Slow only" filter. Applied server-side so

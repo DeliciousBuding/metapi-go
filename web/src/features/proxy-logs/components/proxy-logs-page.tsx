@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 // metapi-go/features/proxy-logs/components — proxy logs list page.
 // i18n: all user-visible strings migrated to t() calls.
 import type { Row } from '@tanstack/react-table'
-import { ScrollText } from 'lucide-react'
+import { ScrollText, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -66,6 +66,7 @@ type ProxyLogsUrlFilters = {
   status: string
   siteId: string
   channelId: string
+  downstreamKeyId: string
   client: string
   from: string
   to: string
@@ -99,6 +100,10 @@ function readProxyLogsSearch(
       siteId: search?.siteId === undefined ? '' : String(search.siteId),
       channelId:
         search?.channelId === undefined ? '' : String(search.channelId),
+      downstreamKeyId:
+        search?.downstreamKeyId === undefined
+          ? ''
+          : String(search.downstreamKeyId),
       client: asStringParam(search?.client) ?? '',
       from: asStringParam(search?.from) ?? '',
       to: asStringParam(search?.to) ?? '',
@@ -136,6 +141,9 @@ function buildProxyLogsHref(
   // the rendered (unfiltered) list.
   if (Number(merged.filters.channelId) > 0) {
     params.set('channelId', merged.filters.channelId)
+  }
+  if (Number(merged.filters.downstreamKeyId) > 0) {
+    params.set('downstreamKeyId', merged.filters.downstreamKeyId)
   }
   if (merged.filters.client) params.set('client', merged.filters.client)
   if (merged.filters.from) params.set('from', merged.filters.from)
@@ -180,6 +188,9 @@ export function ProxyLogsPage() {
   const status = filters.status as ProxyLogFilters['status']
   const siteId = filters.siteId ? Number(filters.siteId) : null
   const channelId = filters.channelId ? Number(filters.channelId) : null
+  const downstreamKeyId = filters.downstreamKeyId
+    ? Number(filters.downstreamKeyId)
+    : null
   const client = filters.client
   const from = filters.from
   const to = filters.to
@@ -198,6 +209,7 @@ export function ProxyLogsPage() {
       search: globalFilter.trim() || undefined,
       siteId: siteId ?? undefined,
       channelId: channelId ?? undefined,
+      downstreamKeyId: downstreamKeyId ?? undefined,
       client: client || undefined,
       from: from || undefined,
       to: to || undefined,
@@ -212,6 +224,7 @@ export function ProxyLogsPage() {
       globalFilter,
       siteId,
       channelId,
+      downstreamKeyId,
       client,
       from,
       to,
@@ -226,6 +239,7 @@ export function ProxyLogsPage() {
       search: queryPayload.search,
       siteId: queryPayload.siteId,
       channelId: queryPayload.channelId,
+      downstreamKeyId: queryPayload.downstreamKeyId,
       client: queryPayload.client,
       from: queryPayload.from,
       to: queryPayload.to,
@@ -245,6 +259,17 @@ export function ProxyLogsPage() {
     refetchInterval: intervalMs === false ? false : intervalMs,
   })
   const rawItems = useMemo(() => logsQuery.data?.items ?? [], [logsQuery.data])
+
+  // Display name for the active key-filter chip: resolved from the loaded
+  // rows (every row carries downstreamKeyName); falls back to the bare id so
+  // a zero-result page still shows an honest, dismissible chip.
+  const downstreamKeyLabel = useMemo(() => {
+    if (downstreamKeyId === null) return null
+    const hit = rawItems.find(
+      (item) => item.downstreamKeyId === downstreamKeyId
+    )
+    return hit?.downstreamKeyName || `#${downstreamKeyId}`
+  }, [downstreamKeyId, rawItems])
   const total = logsQuery.data?.total ?? 0
 
   // The server now applies the latency filter, so the page items are used
@@ -330,6 +355,7 @@ export function ProxyLogsPage() {
         status: 'all',
         siteId: '',
         channelId: '',
+        downstreamKeyId: '',
         client: '',
         from: '',
         to: '',
@@ -600,6 +626,30 @@ export function ProxyLogsPage() {
                 }}
                 className='w-32'
               />
+              {/* Active downstream-key drill-down (entered via deep link from
+                  the keys page / connect dialog). A chip, not an input: key
+                  ids are not memorable, and the name is resolved from the
+                  loaded rows. */}
+              {downstreamKeyId !== null && (
+                <Button
+                  type='button'
+                  variant='secondary'
+                  size='sm'
+                  className='gap-1'
+                  aria-label={t('proxyLogs.page.filterKeyClear')}
+                  onClick={() =>
+                    updateUrlState({
+                      filters: { downstreamKeyId: '' },
+                      pageIndex: 0,
+                    })
+                  }
+                >
+                  {t('proxyLogs.page.filterKeyActive', {
+                    name: downstreamKeyLabel,
+                  })}
+                  <X className='size-3.5' />
+                </Button>
+              )}
               {/* Native datetime controls render in the BROWSER's locale
                   (not the page's). Layout is what we own: the pair stacks
                   full-width on mobile so neither clips its time segment. */}
@@ -717,6 +767,7 @@ export function ProxyLogsPage() {
           hasAdditionalFilters:
             siteId !== null ||
             channelId !== null ||
+            downstreamKeyId !== null ||
             !!client ||
             !!from ||
             !!to ||

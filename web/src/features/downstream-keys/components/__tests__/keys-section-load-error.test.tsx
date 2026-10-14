@@ -17,7 +17,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import {
   afterEach,
   beforeAll,
@@ -51,6 +51,31 @@ vi.mock('@/lib/api', () => ({
 
 vi.mock('@/lib/toast', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+}))
+
+// The keys table's row actions link to the key-filtered logs page; the real
+// TanStack Router Link needs a router context these section-level tests do
+// not mount, so render a plain anchor whose href stays assertable.
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    search,
+    children,
+    ...rest
+  }: {
+    to: string
+    search?: Record<string, unknown>
+    children: ReactNode
+  } & Record<string, unknown>) => {
+    const query = search
+      ? '?' + new URLSearchParams(search as Record<string, string>).toString()
+      : ''
+    return (
+      <a href={to + query} {...rest}>
+        {children}
+      </a>
+    )
+  },
 }))
 
 beforeAll(() => {

@@ -16,7 +16,6 @@
 // exposes an adjacent copy fallback.
 
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
 import {
   Check,
   Copy,
@@ -53,6 +52,8 @@ import { copyText } from '@/lib/clipboard'
 import { isReauthRequired } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+
+import { CredentialVerifySection } from './credential-verify-section'
 
 type ExportProfile = {
   id: string
@@ -516,6 +517,16 @@ export function CredentialExportDialog({
           </div>
         </div>
 
+        {/* Verify — the dialog holds the plain key after unlock, so the
+            browser itself is the real client for the two-step check. */}
+        {apiKey ? (
+          <CredentialVerifySection
+            keyId={target?.id ?? 0}
+            apiBase={apiBase}
+            apiKey={apiKey}
+          />
+        ) : null}
+
         <p className='text-muted-foreground text-xs'>{t('connect.hint')}</p>
       </div>
     )
@@ -535,13 +546,6 @@ export function CredentialExportDialog({
         {renderBody()}
 
         <DialogFooter>
-          <Button
-            variant='secondary'
-            render={<Link to='/model-tester' />}
-            onClick={() => onOpenChange(false)}
-          >
-            {t('connect.testRequest')}
-          </Button>
           <Button variant='outline' onClick={() => onOpenChange(false)}>
             {t('settings.common.cancel')}
           </Button>

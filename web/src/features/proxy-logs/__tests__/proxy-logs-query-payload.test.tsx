@@ -115,6 +115,35 @@ describe('useProxyLogs — list-only view contract', () => {
   })
 })
 
+describe('useProxyLogs — downstreamKeyId drill-down payload', () => {
+  it('serializes downstreamKeyId into the request URL when set', async () => {
+    const params: ProxyLogsQuery = { limit: 20, offset: 0, downstreamKeyId: 7 }
+    const queryClient = createQueryClient()
+    renderHook(() => useProxyLogs(params), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await waitFor(() => {
+      expect(mockApiClientGet).toHaveBeenCalledTimes(1)
+    })
+
+    expect(firstRequestedUrl()).toContain('downstreamKeyId=7')
+  })
+
+  it('omits downstreamKeyId from the URL when unset', async () => {
+    const params: ProxyLogsQuery = { limit: 20, offset: 0 }
+    const queryClient = createQueryClient()
+    renderHook(() => useProxyLogs(params), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await waitFor(() => {
+      expect(mockApiClientGet).toHaveBeenCalledTimes(1)
+    })
+    expect(firstRequestedUrl()).not.toContain('downstreamKeyId')
+  })
+})
+
 describe('useProxyLogs — latency filter payload', () => {
   it('serializes latencyMin and latencyMax into the request URL when set', async () => {
     const params: ProxyLogsQuery = {

@@ -7,8 +7,9 @@
 // the scope cell in key-scope-cell.tsx, and the zod schemas + value mappers in
 // key-form-shared.ts; the wire contract is the sibling `../types`.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { KeySquare, Pencil } from 'lucide-react'
+import { KeySquare, Pencil, ScrollText } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -352,6 +353,22 @@ export function KeysSection() {
               onClick={() => setCheckTarget(row.original)}
             >
               {t('settings.downstream.keys.check.action')}
+            </Button>
+            <Button
+              variant='ghost'
+              size='icon-sm'
+              aria-label={t('settings.downstream.keys.viewLogsAria', {
+                name: row.original.name,
+              })}
+              title={t('settings.downstream.keys.viewLogs')}
+              render={
+                <Link
+                  to='/proxy-logs'
+                  search={{ downstreamKeyId: row.original.id }}
+                />
+              }
+            >
+              <ScrollText />
             </Button>
             <Button
               type='button'

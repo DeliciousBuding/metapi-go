@@ -649,7 +649,7 @@ func (h *statsHandler) dashboardError(w http.ResponseWriter, operation string, e
 }
 
 // ---- Proxy Logs ----
-// GET /api/stats/proxy-logs?view=&limit=&offset=&status=&search=&client=&siteId=&channelId=&from=&to=&latencyMin=&latencyMax=
+// GET /api/stats/proxy-logs?view=&limit=&offset=&status=&search=&client=&siteId=&channelId=&downstreamKeyId=&from=&to=&latencyMin=&latencyMax=
 //
 // All list filters (status/search/client/siteId/channelId/from/to/latencyMin/
 // latencyMax) are applied SERVER-SIDE so that items, total, and summary share
@@ -673,6 +673,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	search := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("search")))
 	siteID := getQueryInt(r, "siteId", 0)
 	channelID := getQueryInt(r, "channelId", 0)
+	downstreamKeyID := getQueryInt(r, "downstreamKeyId", 0)
 	client := strings.TrimSpace(r.URL.Query().Get("client"))
 	from := strings.TrimSpace(r.URL.Query().Get("from"))
 	to := strings.TrimSpace(r.URL.Query().Get("to"))
@@ -698,6 +699,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		"search=" + search,
 		"siteId=" + strconv.Itoa(siteID),
 		"channelId=" + strconv.Itoa(channelID),
+		"downstreamKeyId=" + strconv.Itoa(downstreamKeyID),
 		"client=" + client,
 		"from=" + from,
 		"to=" + to,
@@ -736,6 +738,15 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	if channelID > 0 {
 		conditions = append(conditions, "pl.channel_id = ?")
 		args = append(args, channelID)
+	}
+	// downstreamKeyId narrows to the downstream key that made the request —
+	// the "this key's traffic" drill-down linked from the keys page and the
+	// connect dialog's verify outcome. Same nullable-INTEGER semantics as
+	// channelId: rows without key attribution (legacy rows, admin traffic)
+	// carry NULL and are naturally excluded.
+	if downstreamKeyID > 0 {
+		conditions = append(conditions, "pl.downstream_api_key_id = ?")
+		args = append(args, downstreamKeyID)
 	}
 	// client filters on the upstream client family detected from the
 	// User-Agent (e.g. "openai-node"). Exact match: the dropdown sends a
@@ -791,17 +802,17 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if view == "query" || view == "full" {
-		// The search condition references the downstream key columns, so the
-		// key join is only added when a search is active (LEFT JOIN keeps the
-		// row set unchanged for unsearched rows).
-		keyJoin := ""
-		if search != "" {
-			keyJoin = "\n\t\t\tLEFT JOIN downstream_api_keys dk ON pl.downstream_api_key_id = dk.id"
-		}
-		query := `SELECT pl.*, a.username, s.id as site_id, s.name as site_name, s.url as site_url
+		// The downstream-key join is unconditional: beyond the search
+		// condition it feeds the token column and the key drill-down chip
+		// (downstreamKeyId/downstreamKeyName on every row). LEFT JOIN keeps
+		// unattributed rows intact; the aggregate COUNT path still picks its
+		// join shape per active filter via proxyLogsAggregateFrom.
+		query := `SELECT pl.*, a.username, s.id as site_id, s.name as site_name, s.url as site_url,
+			 dk.id AS downstream_key_id, dk.name AS downstream_key_name
 			FROM proxy_logs pl
 			LEFT JOIN accounts a ON pl.account_id = a.id
-			LEFT JOIN sites s ON a.site_id = s.id` + keyJoin + where +
+			LEFT JOIN sites s ON a.site_id = s.id
+			LEFT JOIN downstream_api_keys dk ON pl.downstream_api_key_id = dk.id` + where +
 			" ORDER BY pl.created_at DESC LIMIT ? OFFSET ?"
 		qArgs := make([]any, len(args))
 		copy(qArgs, args)
