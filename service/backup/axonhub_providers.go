@@ -137,7 +137,7 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 	"anthropic_gcp":  {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
 	"codex":          {DefaultFormats: []string{"openai/responses", "openai/alpha_search", "openai/image_generation", "openai/image_edit"}, Supported: true},
 	"claudecode":     {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
-	"github_copilot": {DefaultFormats: []string{"openai/chat_completions"}, Reason: reasonProviderCredentials},
+	"github_copilot": {DefaultFormats: []string{"openai/chat_completions"}, Supported: true},
 }
 
 // axonHubServableFormats maps source api_format values onto Metapi's direct

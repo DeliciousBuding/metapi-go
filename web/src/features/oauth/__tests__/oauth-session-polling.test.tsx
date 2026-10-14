@@ -191,6 +191,28 @@ describe('useOAuthSessionPolling', () => {
     expect(result.current.session?.status).toBe('pending')
   })
 
+  it('uses the backend retry delay for Device Flow slow-down responses', async () => {
+    mockGetSession.mockResolvedValue({
+      ...pendingSession(),
+      retryAfterSeconds: 7,
+    })
+
+    renderHook(() => useOAuthSessionPolling(TEST_STATE, 2000, 180))
+
+    await settle()
+    expect(mockGetSession).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    expect(mockGetSession).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(mockGetSession).toHaveBeenCalledTimes(2)
+  })
+
   it('kick() restarts polling immediately with a fresh budget', async () => {
     mockGetSession.mockImplementation(() => Promise.resolve(pendingSession()))
 

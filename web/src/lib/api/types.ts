@@ -586,6 +586,7 @@ export type OAuthProviderInfo = {
   supportsDirectAccountRouting: boolean
   supportsCloudValidation: boolean
   supportsNativeProxy: boolean
+  supportsDeviceFlow: boolean
 }
 
 export type OAuthProvidersResponse = {
@@ -616,6 +617,12 @@ type OAuthStartInstructions = {
   manualCallbackDelayMs: number
   sshTunnelCommand?: string
   sshTunnelKeyCommand?: string
+  deviceFlow?: {
+    userCode: string
+    verificationUri: string
+    pollIntervalSeconds: number
+    expiresInSeconds: number
+  }
 }
 
 export type OAuthStartResponse = {
@@ -632,6 +639,7 @@ export type OAuthSessionInfo = {
   accountId?: number
   siteId?: number
   error?: string
+  retryAfterSeconds?: number
 }
 
 type OAuthQuotaWindowInfo = {

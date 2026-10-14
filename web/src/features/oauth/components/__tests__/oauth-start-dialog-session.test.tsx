@@ -132,6 +132,7 @@ vi.mock('../../api', () => ({
         supportsDirectAccountRouting: true,
         supportsCloudValidation: true,
         supportsNativeProxy: true,
+        supportsDeviceFlow: false,
       },
     ],
     isLoading: false,
@@ -447,5 +448,47 @@ describe('OAuthStartDialog pending session', () => {
       target: { value: 'http://localhost:8080/callback?code=ok' },
     })
     expect(screen.queryByText('Enter a valid http(s) callback URL.')).toBeNull()
+  })
+
+  it('shows Device Flow code and hides callback-only affordances', async () => {
+    mockState.startMutate.mockResolvedValueOnce({
+      provider: 'github-copilot',
+      state: TEST_STATE,
+      authorizationUrl: 'https://github.com/login/device?user_code=ABCD-1234',
+      instructions: {
+        redirectUri: '',
+        callbackPort: 0,
+        callbackPath: '',
+        manualCallbackDelayMs: 0,
+        deviceFlow: {
+          userCode: 'ABCD-1234',
+          verificationUri: 'https://github.com/login/device',
+          pollIntervalSeconds: 5,
+          expiresInSeconds: 900,
+        },
+      },
+    })
+    renderDialog(vi.fn())
+
+    await submitStartForm()
+
+    expect(
+      await screen.findByText('Waiting for you to authorize this device…')
+    ).toBeInTheDocument()
+    expect(screen.getByText('ABCD-1234')).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', {
+        name: /open authorization page/i,
+      })
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/login/device?user_code=ABCD-1234'
+    )
+    expect(
+      screen.queryByPlaceholderText(
+        'Paste the callback URL from the OAuth redirect'
+      )
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(TEST_SSH_TUNNEL_COMMAND)).not.toBeInTheDocument()
   })
 })

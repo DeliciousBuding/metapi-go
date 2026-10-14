@@ -188,7 +188,7 @@ func TestGetSessionStatus_ExistingSession(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	status := GetSessionStatus(result.State)
+	status := GetSessionStatus(context.Background(), result.State)
 	if status == nil {
 		t.Fatal("expected non-nil status")
 	}
@@ -207,7 +207,7 @@ func TestGetSessionStatus_MissingSession(t *testing.T) {
 	custom := NewMemoryOAuthSessionStore()
 	SetSessionStore(custom)
 
-	status := GetSessionStatus("nonexistent")
+	status := GetSessionStatus(context.Background(), "nonexistent")
 	if status != nil {
 		t.Error("expected nil for missing session")
 	}
@@ -716,10 +716,10 @@ func TestFlowInstructions_CallbackPorts(t *testing.T) {
 
 // ---- ListOauthProviders Tests ----
 
-func TestListOauthProviders_ReturnsAllFour(t *testing.T) {
+func TestListOauthProviders_ReturnsAllRegistered(t *testing.T) {
 	providers := ListOauthProviders()
-	if len(providers) != 5 {
-		t.Errorf("expected 5 providers, got %d", len(providers))
+	if len(providers) != 6 {
+		t.Errorf("expected 6 providers, got %d", len(providers))
 	}
 }
 

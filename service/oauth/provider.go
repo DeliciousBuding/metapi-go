@@ -15,6 +15,7 @@ const (
 	ProviderGeminiCli   OAuthProviderId = "gemini-cli"
 	ProviderAntigravity OAuthProviderId = "antigravity"
 	ProviderGrok        OAuthProviderId = "grok"
+	ProviderCopilot     OAuthProviderId = "github-copilot"
 )
 
 // ---- ProviderMetadata ----
@@ -29,6 +30,7 @@ type ProviderMetadata struct {
 	SupportsDirectAccountRouting bool            `json:"supportsDirectAccountRouting"`
 	SupportsCloudValidation      bool            `json:"supportsCloudValidation"`
 	SupportsNativeProxy          bool            `json:"supportsNativeProxy"`
+	SupportsDeviceFlow           bool            `json:"supportsDeviceFlow"`
 }
 
 // ---- ProviderSiteConfig ----
@@ -154,6 +156,9 @@ type OAuthProviderDefinition struct {
 	Metadata ProviderMetadata   `json:"metadata"`
 	Site     ProviderSiteConfig `json:"site"`
 	Loopback LoopbackConfig     `json:"loopback"`
+	// SessionTTL overrides the default 10-minute OAuth session TTL. Device
+	// flow providers use it because their device codes commonly live longer.
+	SessionTTL time.Duration
 
 	BuildAuthorizationURL     func(ctx context.Context, input BuildAuthURLInput) (string, error)
 	ResolveRedirectURI        func(ctx context.Context, input ResolveRedirectURIInput) (string, error)

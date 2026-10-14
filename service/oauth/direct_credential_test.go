@@ -158,6 +158,49 @@ func TestDirectCredentialUnavailableAndExpiry(t *testing.T) {
 	}
 }
 
+func TestDirectCopilotCredentialExchangesLazily(t *testing.T) {
+	db, id := directCredentialFixture(t)
+	if _, err := db.Exec(`UPDATE upstream_channels SET provider='github_copilot' WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	state := store.DirectOAuthState{RefreshToken: "fixture-github-access"}
+	if _, err := db.Exec(`UPDATE upstream_credentials SET secret='',oauth_state=? WHERE id=1`, state); err != nil {
+		t.Fatal(err)
+	}
+
+	exchangeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "token fixture-github-access" {
+			t.Errorf("Authorization = %q", r.Header.Get("Authorization"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(copilotTokenResponse{
+			Token:     "fixture-copilot-token",
+			ExpiresAt: time.Now().Add(time.Hour).Unix(),
+		})
+	}))
+	defer exchangeServer.Close()
+	withCopilotEndpointSwap(t, "", "", exchangeServer.URL, "")
+
+	got, err := ResolveDirectCredential(context.Background(), db.DB, id, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.AccessToken != "fixture-copilot-token" || got.Provider != "github_copilot" {
+		t.Fatalf("credential result = %+v", got)
+	}
+
+	var secret string
+	var persisted store.DirectOAuthState
+	if err := db.QueryRow(`SELECT secret,oauth_state FROM upstream_credentials WHERE id=1`).Scan(&secret, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if secret != "fixture-copilot-token" ||
+		persisted.RefreshToken != "fixture-github-access" ||
+		persisted.ExpiresAt <= time.Now().UnixMilli() {
+		t.Fatalf("credential not persisted correctly: secret=%q state=%+v", secret, persisted)
+	}
+}
+
 func TestDirectCodexRefreshPreservesOptionalTokenFields(t *testing.T) {
 	db, id := directCredentialFixture(t)
 	if _, err := db.Exec(`UPDATE upstream_channels SET provider='codex' WHERE id=1`); err != nil {

@@ -51,8 +51,8 @@ func TestDirectModelWireURLsContract(t *testing.T) {
 	}
 }
 
-func TestDirectDomesticProfilesRequireMatchingWire(t *testing.T) {
-	for _, profile := range []string{"moonshot", "longcat", "openrouter", "cerebras", "nanogpt", "openrouter-image"} {
+func TestDirectProviderProfilesRequireMatchingWire(t *testing.T) {
+	for _, profile := range []string{"moonshot", "longcat", "openrouter", "cerebras", "nanogpt", "github-copilot", "openrouter-image"} {
 		for _, protocol := range []int{DirectProtocolChat, DirectProtocolMessages, DirectProtocolImageGeneration, DirectProtocolImageEdit} {
 			for _, auth := range []string{DirectAuthBearer, DirectAuthAPIKey, DirectAuthNone} {
 				endpoints := map[string]*DirectEndpoint{}

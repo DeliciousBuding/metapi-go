@@ -88,6 +88,8 @@ func prepareDirectProviderWire(endpoint *store.DirectEndpoint, channelID int64, 
 			return nil, err
 		}
 		buildDirectClineHeaders(wire.Headers)
+	case "github-copilot":
+		buildDirectCopilotHeaders(wire.Headers, downstream)
 	case "ollama":
 		var err error
 		wire.Body, err = ollama.FromChatRequest(body)
@@ -264,6 +266,28 @@ func buildDirectClaudeHeaders(headers, downstream http.Header, cli bool) {
 		ua = downstream.Get("User-Agent")
 	}
 	headers.Set("User-Agent", ua)
+}
+
+func buildDirectCopilotHeaders(headers, downstream http.Header) {
+	defaults := map[string]string{
+		"Editor-Version":                      "vscode/1.95.0",
+		"Editor-Plugin-Version":               "copilot-chat/0.26.7",
+		"User-Agent":                          "GitHubCopilotChat/0.26.7",
+		"Copilot-Integration-Id":              "vscode-chat",
+		"Openai-Intent":                       "conversation-edits",
+		"X-GitHub-Api-Version":                "2025-04-01",
+		"X-Vscode-User-Agent-Library-Version": "electron-fetch",
+		"X-Initiator":                         "user",
+	}
+	for name, value := range defaults {
+		if incoming := downstream.Get(name); incoming != "" {
+			value = incoming
+		}
+		headers.Set(name, value)
+	}
+	if initiator := strings.ToLower(strings.TrimSpace(headers.Get("X-Initiator"))); initiator != "user" && initiator != "agent" {
+		headers.Set("X-Initiator", "user")
+	}
 }
 
 var directClaudeLegacyUserID = regexp.MustCompile(`^user_[a-fA-F0-9]{64}_account__session_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)

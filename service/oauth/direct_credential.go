@@ -60,6 +60,8 @@ func directOAuthProvider(provider string) string {
 		return string(ProviderCodex)
 	case "claudecode":
 		return string(ProviderClaude)
+	case "github_copilot":
+		return string(ProviderCopilot)
 	default:
 		return ""
 	}
@@ -96,9 +98,6 @@ func loadDirectCredential(ctx context.Context, db *sqlx.DB, id int64) (*directCr
 		}
 		return &row, nil
 	}
-	if strings.TrimSpace(row.Secret) == "" {
-		return nil, ErrDirectCredentialUnavailable
-	}
 	if row.Kind != store.DirectCredentialAPIKey && row.Kind != store.DirectCredentialOAuth {
 		return nil, ErrDirectCredentialUnavailable
 	}
@@ -106,6 +105,13 @@ func loadDirectCredential(ctx context.Context, db *sqlx.DB, id int64) (*directCr
 		if directOAuthProvider(row.Provider) == "" || row.State.Scan(row.RawOAuth) != nil {
 			return nil, ErrDirectCredentialUnavailable
 		}
+		// Copilot stores the durable GitHub token only in oauth_state; the
+		// short-lived Copilot token is exchanged lazily into secret.
+		if strings.TrimSpace(row.Secret) == "" && directOAuthProvider(row.Provider) != string(ProviderCopilot) {
+			return nil, ErrDirectCredentialUnavailable
+		}
+	} else if strings.TrimSpace(row.Secret) == "" {
+		return nil, ErrDirectCredentialUnavailable
 	}
 	return &row, nil
 }

@@ -8,9 +8,18 @@
 
 List OAuth providers.
 
+**Response**: each provider includes `supportsDeviceFlow`. Device Flow providers
+(currently GitHub Copilot and Grok) return a verification URL plus a copyable
+user code; they do not use the manual callback form.
+
 ### POST /api/oauth/providers/{provider}/start
 
 Start OAuth authorization flow for a provider.
+
+**Response**: `{ provider, state, authorizationUrl, instructions }`. For Device
+Flow providers, `instructions.deviceFlow` contains `{ userCode, verificationUri,
+pollIntervalSeconds, expiresInSeconds }` and `device_code` itself is never
+returned.
 
 ### GET /api/oauth/callback/{provider}
 
@@ -25,9 +34,9 @@ Paginated list of OAuth-managed accounts (provider identity backfill runs once a
 
 ### GET /api/oauth/sessions/{state}, POST /api/oauth/sessions/{state}/manual-callback
 
-Poll the flow state after `start`/`rebind`, or complete it with a manually pasted callback URL (for flows without a browser redirect).
+Poll the flow state after `start`/`rebind`, or complete it with a manually pasted callback URL (for redirect flows without a browser callback).
 
-**Response** (session): `{ provider, state, status, accountId?, siteId?, error?, createdAt, updatedAt }` — 404 when the session/state is unknown or expired (10m TTL).
+**Response** (session): `{ provider, state, status, accountId?, siteId?, error?, retryAfterSeconds?, createdAt, updatedAt }` — 404 when the session/state is unknown or expired. Redirect sessions use the default 10m TTL; Device Flow sessions use the provider's device-code TTL. A pending Device Flow poll performs one upstream token request and returns `authorization_pending`/`slow_down` as a still-pending session with `retryAfterSeconds`; terminal OAuth errors settle the session as `error`.
 **Body** (manual-callback): `{ "callbackUrl": "https://..." }` — required; unknown/expired state is 404, state mismatch is 400. Success: `{ "success": true }`.
 
 ### POST /api/oauth/connections/{accountId}/rebind, PATCH /api/oauth/connections/{accountId}/proxy, DELETE /api/oauth/connections/{accountId}

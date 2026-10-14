@@ -130,3 +130,67 @@ func TestDirectClaudeProviderToolsAndHeaders(t *testing.T) {
 		})
 	}
 }
+
+func TestDirectCopilotProviderWireHeadersAndBody(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/chat/completions" {
+			t.Errorf("URL path = %q, want /chat/completions", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer fixture-copilot-token" {
+			t.Errorf("Authorization = %q", r.Header.Get("Authorization"))
+		}
+		if r.Header.Get("User-Agent") != "GitHubCopilotChat/0.26.7" ||
+			r.Header.Get("Editor-Version") != "vscode/1.95.0" ||
+			r.Header.Get("Copilot-Integration-Id") != "vscode-chat" {
+			t.Errorf("missing Copilot identity headers: %v", r.Header)
+		}
+		if r.Header.Get("X-Initiator") != "agent" {
+			t.Errorf("X-Initiator = %q, want agent", r.Header.Get("X-Initiator"))
+		}
+		var body map[string]json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if string(body["model"]) != `"gpt-5.4"` || string(body["stream"]) != `false` {
+			t.Fatalf("Chat body changed unexpectedly: %s", wireBodyString(body))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"chatcmpl-fixture","object":"chat.completion","choices":[]}`))
+	}))
+	defer upstream.Close()
+
+	downstream := http.Header{}
+	downstream.Set("X-Initiator", "agent")
+	body := []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"}],"stream":false}`)
+	wire, err := prepareDirectProviderWire(
+		&store.DirectEndpoint{URL: upstream.URL, Profile: "github-copilot"},
+		1,
+		&oauth.DirectCredentialResult{Kind: store.DirectCredentialOAuth, Provider: "github_copilot", AccessToken: "fixture-copilot-token"},
+		body,
+		downstream,
+	)
+	if err != nil {
+		t.Fatalf("prepare wire: %v", err)
+	}
+	if !bytes.Equal(wire.Body, body) {
+		t.Fatalf("Copilot wire must not rewrite OpenAI Chat body: %s", wire.Body)
+	}
+
+	req, _ := http.NewRequest(http.MethodPost, upstream.URL+"/chat/completions", bytes.NewReader(wire.Body))
+	req.Header = downstream.Clone()
+	req.Header.Set("Authorization", "Bearer fixture-copilot-token")
+	applyDirectProviderHeaders(req, wire)
+	response, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", response.StatusCode)
+	}
+}
+
+func wireBodyString(body map[string]json.RawMessage) string {
+	encoded, _ := json.Marshal(body)
+	return string(encoded)
+}
