@@ -44,27 +44,36 @@ describe('operator request metrics', () => {
     vi.mocked(api.getOverviewReport).mockResolvedValue(
       reportFixture({
         summary: {
-          totalCount: 100,
-          successCount: 97,
+          totalCount: 15,
+          successCount: 12,
           failedCount: 3,
           totalCost: 1.25,
           totalTokensAll: 12000,
           averageLatencyMs: null,
         },
+        requestSummary: {
+          totalCount: 10,
+          successCount: 9,
+          failedCount: 1,
+          legacyAttemptCount: 2,
+          partial: true,
+          partialReasons: ['requestIdMissing'],
+        },
       })
     )
     renderMetrics()
-    expect(await screen.findByText('97.0%')).toBeInTheDocument()
+    expect(await screen.findByText('90.0%')).toBeInTheDocument()
     expect(api.getOverviewReport).toHaveBeenCalledWith('7d')
     const params = reportFixture().window
-    const link = screen.getByRole('link', { name: /Success rate/ })
+    const link = screen.getByRole('link', { name: /Request success rate/ })
     const href = link.getAttribute('href')
     if (!href) throw new Error('Missing drill-down link')
     const target = new URL(href, 'http://localhost')
     expect(target.searchParams.get('status')).toBe('failed')
     expect(target.searchParams.get('from')).toBe(params.from)
     expect(target.searchParams.get('to')).toBe(params.to)
-    expect(screen.getByText('3 failed · open failure logs')).toBeInTheDocument()
+    expect(screen.getByText('1 failed · open failure logs')).toBeInTheDocument()
+    expect(screen.getByText('15')).toBeInTheDocument()
   })
 
   it('does not describe a no-traffic period as 100 percent success', async () => {
@@ -78,15 +87,25 @@ describe('operator request metrics', () => {
           totalTokensAll: 0,
           averageLatencyMs: null,
         },
+        requestSummary: {
+          totalCount: 0,
+          successCount: 0,
+          failedCount: 0,
+          legacyAttemptCount: 0,
+          partial: false,
+          partialReasons: [],
+        },
       })
     )
     renderMetrics()
     expect(
-      await screen.findByText('No recorded requests in this period')
+      await screen.findByText(
+        'No request-level records with requestId in this period'
+      )
     ).toBeInTheDocument()
     expect(screen.queryByText('100.0%')).not.toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: /Success rate/ })
+      screen.getByRole('link', { name: /Request success rate/ })
     ).toHaveTextContent('—')
   })
 

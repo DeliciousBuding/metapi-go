@@ -41,4 +41,25 @@ describe('overview time buckets', () => {
       )
     ).toEqual([])
   })
+  it('builds request-level rows from requestPoints', () => {
+    const rows = overviewTrendRows(
+      reportFixture({
+        window: { from: '2026-10-04T12:00:00Z', to: '2026-10-06T12:00:00Z' },
+        requestPoints: [
+          {
+            date: '2026-10-05',
+            requests: 3,
+            successCount: 2,
+            successRate: 2 / 3,
+          },
+        ],
+      }),
+      'request'
+    )
+    expect(rows).toEqual([
+      { date: '2026-10-04', requests: 0, successPercent: null },
+      { date: '2026-10-05', requests: 3, successPercent: 66.66666666666666 },
+      { date: '2026-10-06', requests: 0, successPercent: null },
+    ])
+  })
 })

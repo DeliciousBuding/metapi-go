@@ -1,23 +1,29 @@
 import type { OverviewReport } from '@/lib/api'
 
+export type OverviewTrendLevel = 'attempt' | 'request'
+
 // A missing bucket is zero recorded traffic, never 100% success. Keep gaps in
 // the success line while showing the whole selected time span on the axis.
-export function overviewTrendRows(report?: OverviewReport) {
+export function overviewTrendRows(
+  report?: OverviewReport,
+  level: OverviewTrendLevel = 'attempt'
+) {
   if (!report) return []
   const hourly = report.period === '24h'
-  const first = report.window.from ?? report.points[0]?.date
+  const points = level === 'request' ? report.requestPoints : report.points
+  const first = report.window.from ?? points[0]?.date
   if (!first) return []
   const cursor = new Date(first)
   if (hourly) cursor.setUTCMinutes(0, 0, 0)
   else cursor.setUTCHours(0, 0, 0, 0)
   const end = Date.parse(report.window.to)
-  const points = new Map(report.points.map((point) => [point.date, point]))
+  const pointsByDate = new Map(points.map((point) => [point.date, point]))
   const rows = []
   while (cursor.getTime() <= end) {
     const date = hourly
       ? cursor.toISOString().replace('.000Z', 'Z')
       : cursor.toISOString().slice(0, 10)
-    const point = points.get(date)
+    const point = pointsByDate.get(date)
     const requests = point?.requests ?? 0
     rows.push({
       date,

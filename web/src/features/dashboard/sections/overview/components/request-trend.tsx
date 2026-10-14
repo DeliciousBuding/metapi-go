@@ -26,13 +26,15 @@ import { useOverviewReport } from '../use-overview-report'
 export function RequestTrend({ period = '7d' }: { period?: OverviewPeriod }) {
   const { t } = useTranslation()
   const query = useOverviewReport(period)
-  const points = query.data?.points ?? []
+  const points = query.data?.requestPoints ?? []
+  const requestSummary = query.data?.requestSummary
+  const legacyAttemptCount = requestSummary?.legacyAttemptCount ?? 0
   const total = points.reduce((sum, point) => sum + point.requests, 0)
-  const rows = overviewTrendRows(query.data)
+  const rows = overviewTrendRows(query.data, 'request')
   return (
     <Card className='h-full min-w-0'>
       <CardHeader>
-        <CardTitle>{t('dashboard.operations.trend')}</CardTitle>
+        <CardTitle>{t('dashboard.operations.requestTrend')}</CardTitle>
         <CardDescription>
           {t('dashboard.operations.trendWindow', {
             period: t(`dashboard.operations.period.${period}`),
@@ -57,17 +59,28 @@ export function RequestTrend({ period = '7d' }: { period?: OverviewPeriod }) {
         {query.isLoading ? <Skeleton className='h-44 w-full' /> : null}
         {!query.isLoading && !query.isError && total === 0 ? (
           <p className='text-muted-foreground flex h-44 items-center justify-center text-sm'>
-            {t('dashboard.operations.noRequests')}
+            {legacyAttemptCount > 0
+              ? t('dashboard.operations.requestLegacyAttempts', {
+                  count: legacyAttemptCount,
+                })
+              : t('dashboard.operations.noRequests')}
           </p>
         ) : null}
         {!query.isLoading && !query.isError && total > 0 ? (
           <>
             <p className='text-muted-foreground text-xs'>
-              {t('dashboard.operations.trendTotal', {
+              {t('dashboard.operations.requestTrendTotal', {
                 count: total,
                 value: formatInt(total),
               })}
             </p>
+            {legacyAttemptCount > 0 ? (
+              <p className='text-muted-foreground text-xs'>
+                {t('dashboard.operations.requestLegacyAttempts', {
+                  count: legacyAttemptCount,
+                })}
+              </p>
+            ) : null}
             <ChartContainer
               className='h-44 w-full'
               initialDimension={{ width: 640, height: 176 }}
