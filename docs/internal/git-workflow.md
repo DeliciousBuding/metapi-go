@@ -52,6 +52,7 @@ master (唯一长期分支，受保护，持续集成)
 
 > 注意：必选状态检查与 CI 的 `paths-ignore` 互斥——任何 PR 都会触发全量 CI（含纯文档 PR），否则必选检查会永久 pending 卡住合并。
 > 注意：关闭 strict 后，合并时仍以「12 项必检全绿」为准；squash 合并若有真实文件冲突仍会被 GitHub 拦截。并行开发时优先让各分支文件面不重叠。
+> lint job 的配置校验由 workflow 显式执行：固定 schema + SHA-256 + 负例，再跑源码 lint；action 的 `verify: false` 只是不重复隐式校验，不是关闭门禁。
 
 ## 4. PR 流程
 
