@@ -230,3 +230,40 @@ func TestDirectCodexRefreshPreservesOptionalTokenFields(t *testing.T) {
 		t.Fatal("optional missing refresh token erased the stored refresh token")
 	}
 }
+
+func TestDirectXAISubscriptionRefreshUsesGrokProvider(t *testing.T) {
+	db, id := directCredentialFixture(t)
+	if _, err := db.Exec(`UPDATE upstream_channels SET provider='xai_subscription' WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		if r.PostForm.Get("client_id") != grokClientID || r.PostForm.Get("refresh_token") != "fixture-old-refresh-secret" {
+			t.Error("xAI subscription refresh did not use the Grok client")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"access_token": "fixture-xai-fresh-access",
+			"expires_in":   3600,
+			"token_type":   "bearer",
+		})
+	}))
+	defer server.Close()
+	withGrokEndpointSwap(t, grokDeviceCodeURL, server.URL)
+
+	got, err := ResolveDirectCredential(context.Background(), db.DB, id, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.AccessToken != "fixture-xai-fresh-access" || got.Provider != "xai_subscription" {
+		t.Fatalf("credential result = %+v", got)
+	}
+	var secret string
+	var state store.DirectOAuthState
+	if err := db.QueryRow(`SELECT secret,oauth_state FROM upstream_credentials WHERE id=1`).Scan(&secret, &state); err != nil {
+		t.Fatal(err)
+	}
+	if secret != "fixture-xai-fresh-access" || state.RefreshToken != "fixture-old-refresh-secret" || state.ExpiresAt <= time.Now().UnixMilli() {
+		t.Fatalf("refresh not persisted: secret=%q state=%+v", secret, state)
+	}
+}

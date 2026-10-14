@@ -165,6 +165,10 @@ func (e *DirectEndpoints) Scan(value any) error {
 			if endpoint != decoded.Messages || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("claudecode profile requires bearer Messages")
 			}
+		case "xai-subscription":
+			if endpoint != decoded.Responses || endpoint.Auth != DirectAuthBearer {
+				return fmt.Errorf("xAI subscription profile requires bearer Responses")
+			}
 		case "deepseek", "zai", "bailian", "cline", "moonshot", "longcat", "openrouter", "cerebras", "nanogpt", "github-copilot":
 			if endpoint != decoded.Chat || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("chat profile requires bearer Chat")

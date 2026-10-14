@@ -62,6 +62,8 @@ func directOAuthProvider(provider string) string {
 		return string(ProviderClaude)
 	case "github_copilot":
 		return string(ProviderCopilot)
+	case "xai_subscription":
+		return string(ProviderGrok)
 	default:
 		return ""
 	}

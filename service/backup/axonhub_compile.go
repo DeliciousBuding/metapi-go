@@ -308,6 +308,12 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 				}
 				continue
 			}
+			if channel.Type == "xai_subscription" {
+				if strings.TrimSpace(endpoint.BaseURL) != "" || strings.TrimSpace(endpoint.Path) != "" {
+					reasons = append(reasons, "oauth_custom_endpoint_unsupported")
+				}
+				continue
+			}
 			// Source custom endpoints use a static API-key provider except the
 			// Codex Responses/image wrapper. Do not silently replace that contract.
 			reasons = append(reasons, "oauth_custom_endpoint_unsupported")
@@ -315,6 +321,19 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 	}
 	if channel.Type == "github_copilot" && !channel.Credentials.OAuth {
 		reasons = append(reasons, "copilot_oauth_credential_required")
+	}
+	if channel.Type == "xai_subscription" {
+		if !channel.Credentials.OAuth {
+			reasons = append(reasons, "xai_subscription_oauth_credential_required")
+		} else if credentials := channel.Credentials.OAuthCredentials; credentials == nil ||
+			strings.TrimSpace(credentials.RefreshToken) == "" {
+			reasons = append(reasons, "xai_subscription_refresh_token_required")
+		} else if clientID := strings.TrimSpace(credentials.ClientID); clientID != "" && clientID != "b1a00492-073a-47ea-816f-4c329264a828" {
+			reasons = append(reasons, "xai_subscription_client_id_unsupported")
+		}
+		if base := strings.TrimSpace(channel.BaseURL); base != "" && base != "https://cli-chat-proxy.grok.com/v1" {
+			reasons = append(reasons, "xai_subscription_custom_base_url_unsupported")
+		}
 	}
 	if channel.Credentials.Azure {
 		reasons = append(reasons, "azure_credentials_unsupported")

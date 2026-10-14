@@ -232,9 +232,10 @@ The preview reports configuration counts, skipped channels, remaining source
 sections, configuration differences and removals. The following remain outside
 the current executable import contract:
 
-- Antigravity, xAI subscription, and fake providers. GitHub Copilot, Gemini
+- Antigravity and fake providers. GitHub Copilot, xAI subscription, Gemini
   Vertex and Anthropic GCP are executable through their audited credential and
   wire contracts; real upstream acceptance is still tracked separately.
+- xAI subscription imports require structured OAuth with a refresh token and the official client ID, and resolve to the fixed `https://cli-chat-proxy.grok.com/v1/responses` endpoint with Bearer authentication. Static keys, custom base URLs and custom endpoints are skipped rather than imported as a generic channel.
 - Formats not listed in [direct upstreams](routes.md), including source Decisions
   and provider-specific compaction.
 - Active channel transform operations, channel rate limits and stream policies,

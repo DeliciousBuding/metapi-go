@@ -75,3 +75,25 @@ func TestDirectProviderProfilesRequireMatchingWire(t *testing.T) {
 		}
 	}
 }
+
+func TestDirectXAISubscriptionProfileRequiresResponses(t *testing.T) {
+	valid := DirectEndpoints{Responses: &DirectEndpoint{URL: "https://cli-chat-proxy.grok.com/v1/responses", Auth: DirectAuthBearer, Profile: "xai-subscription"}}
+	raw, err := valid.Value()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored DirectEndpoints
+	if err := restored.Scan(raw); err != nil || restored.Responses == nil || restored.Responses.Profile != "xai-subscription" {
+		t.Fatalf("valid profile rejected: %v", err)
+	}
+
+	invalid := DirectEndpoints{Chat: &DirectEndpoint{URL: "https://cli-chat-proxy.grok.com/v1/chat/completions", Auth: DirectAuthBearer, Profile: "xai-subscription"}}
+	raw, err = invalid.Value()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored = DirectEndpoints{}
+	if err := restored.Scan(raw); err == nil {
+		t.Fatal("xAI subscription profile was accepted on Chat")
+	}
+}

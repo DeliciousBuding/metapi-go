@@ -90,6 +90,8 @@ func prepareDirectProviderWire(endpoint *store.DirectEndpoint, channelID int64, 
 		buildDirectClineHeaders(wire.Headers)
 	case "github-copilot":
 		buildDirectCopilotHeaders(wire.Headers, downstream)
+	case "xai-subscription":
+		buildDirectXAISubscriptionHeaders(wire.Headers)
 	case "ollama":
 		var err error
 		wire.Body, err = ollama.FromChatRequest(body)
@@ -162,6 +164,11 @@ func applyDirectProviderHeaders(req *http.Request, wire *directProviderWire) {
 	if wire.Profile == "codex" || wire.Profile == "codex-image" || wire.Profile == "codex-alpha-search" {
 		req.Header.Del("X-Openai-Internal-Codex-Responses-Lite")
 		req.Header.Del("Session_id")
+	}
+	if wire.Profile == "xai-subscription" {
+		for _, name := range []string{"X-Xai-Token-Auth", "X-Grok-Client-Version", "X-Grok-Client-Identifier", "User-Agent"} {
+			req.Header.Del(name)
+		}
 	}
 	for name, values := range wire.Headers {
 		req.Header[name] = append([]string(nil), values...)
@@ -288,6 +295,13 @@ func buildDirectCopilotHeaders(headers, downstream http.Header) {
 	if initiator := strings.ToLower(strings.TrimSpace(headers.Get("X-Initiator"))); initiator != "user" && initiator != "agent" {
 		headers.Set("X-Initiator", "user")
 	}
+}
+
+func buildDirectXAISubscriptionHeaders(headers http.Header) {
+	headers.Set("X-Xai-Token-Auth", "xai-grok-cli")
+	headers.Set("X-Grok-Client-Version", "0.2.114")
+	headers.Set("X-Grok-Client-Identifier", "grok-shell")
+	headers.Set("User-Agent", "xai-grok-workspace/0.2.114")
 }
 
 var directClaudeLegacyUserID = regexp.MustCompile(`^user_[a-fA-F0-9]{64}_account__session_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)

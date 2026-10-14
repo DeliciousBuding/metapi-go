@@ -194,3 +194,59 @@ func wireBodyString(body map[string]json.RawMessage) string {
 	encoded, _ := json.Marshal(body)
 	return string(encoded)
 }
+
+func TestDirectXAISubscriptionProviderWireHeaders(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer fixture-xai-access" {
+			t.Errorf("Authorization = %q", r.Header.Get("Authorization"))
+		}
+		if r.Header.Get("X-Xai-Token-Auth") != "xai-grok-cli" ||
+			r.Header.Get("X-Grok-Client-Version") != "0.2.114" ||
+			r.Header.Get("X-Grok-Client-Identifier") != "grok-shell" ||
+			r.Header.Get("User-Agent") != "xai-grok-workspace/0.2.114" {
+			t.Errorf("missing xAI subscription identity headers: %v", r.Header)
+		}
+		var body map[string]json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if string(body["model"]) != "\"grok-4.6\"" || string(body["input"]) != "\"hello\"" {
+			t.Fatalf("Responses body changed unexpectedly: %s", wireBodyString(body))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"resp-fixture","object":"response","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}]}`))
+	}))
+	defer upstream.Close()
+
+	downstream := http.Header{}
+	downstream.Set("User-Agent", "client-spoof")
+	downstream.Set("X-Xai-Token-Auth", "client-spoof")
+	downstream.Set("X-Grok-Client-Version", "999")
+	downstream.Set("X-Grok-Client-Identifier", "client-spoof")
+	body := []byte(`{"model":"grok-4.6","input":"hello","stream":false}`)
+	wire, err := prepareDirectProviderWire(
+		&store.DirectEndpoint{URL: upstream.URL + "/responses", Profile: "xai-subscription"},
+		1,
+		&oauth.DirectCredentialResult{Kind: store.DirectCredentialOAuth, Provider: "xai_subscription", AccessToken: "fixture-xai-access"},
+		body,
+		downstream,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(wire.Body, body) {
+		t.Fatalf("xAI subscription profile rewrote Responses body: %s", wire.Body)
+	}
+	req, _ := http.NewRequest(http.MethodPost, upstream.URL+"/responses", bytes.NewReader(wire.Body))
+	req.Header = downstream.Clone()
+	req.Header.Set("Authorization", "Bearer fixture-xai-access")
+	applyDirectProviderHeaders(req, wire)
+	response, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", response.StatusCode)
+	}
+}
