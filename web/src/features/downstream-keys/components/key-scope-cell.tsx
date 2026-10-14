@@ -149,6 +149,37 @@ export function KeyScopeCell(props: KeyScopeCellProps) {
     })
   }
 
+  const ipAllow =
+    typeof item.ipAllowlist === 'string' ? item.ipAllowlist.trim() : ''
+  const ipBlock =
+    typeof item.ipBlocklist === 'string' ? item.ipBlocklist.trim() : ''
+  if (ipAllow || ipBlock) {
+    const parts: string[] = []
+    if (ipAllow) {
+      parts.push(`${t('settings.downstream.keys.scope.ipAllow')}: ${ipAllow}`)
+    }
+    if (ipBlock) {
+      parts.push(`${t('settings.downstream.keys.scope.ipBlock')}: ${ipBlock}`)
+    }
+    rows.push({
+      label: t('settings.downstream.keys.scope.ip'),
+      text: parts.join(' · '),
+    })
+  }
+  const rateParts: string[] = []
+  if (item.maxRpm != null) {
+    rateParts.push(`${item.maxRpm} RPM`)
+  }
+  if (item.maxTpm != null) {
+    rateParts.push(`${item.maxTpm} TPM`)
+  }
+  if (rateParts.length > 0) {
+    rows.push({
+      label: t('settings.downstream.keys.scope.rate'),
+      text: rateParts.join(' · '),
+    })
+  }
+
   const allowedRefs = parseCredentialRefs(item.allowedCredentialRefs)
   if (allowedRefs.length > 0) {
     rows.push({

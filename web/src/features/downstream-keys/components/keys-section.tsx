@@ -22,6 +22,13 @@ import { DataTablePage, useDataTable } from '@/components/data-table'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { useAccounts, useAllAccountTokens } from '@/features/accounts'
@@ -31,6 +38,7 @@ import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
 import { accountDisplayName, tokenDisplayName } from '../lib/credential-display'
+import { isKeyRestricted } from '../lib/key-restrictions'
 import {
   downstreamKeysQueryKeys,
   type DownstreamApiKeyItem,
@@ -41,6 +49,10 @@ import { extractMarketplaceModelNames } from './key-form-shared'
 import { KeyPermissionCheckDialog } from './key-permission-check-dialog'
 import { KeyScopeCell, type ScopeNameMaps } from './key-scope-cell'
 import { KeySheetForm } from './key-sheet-form'
+
+// Stable empty list so the memos below do not re-run on every render when
+// the query has no data yet.
+const EMPTY_KEY_ITEMS: DownstreamApiKeyItem[] = []
 
 export function KeysSection() {
   const { t } = useTranslation()
@@ -167,7 +179,43 @@ export function KeysSection() {
     [undoableDelete, t]
   )
 
-  const items = keysQuery.data?.items ?? []
+  const [restrictionFilter, setRestrictionFilter] = useState<
+    'all' | 'restricted' | 'unrestricted'
+  >('all')
+  const allItems = useMemo(
+    () => keysQuery.data?.items ?? EMPTY_KEY_ITEMS,
+    [keysQuery.data]
+  )
+  const restrictedCount = useMemo(
+    () => allItems.filter(isKeyRestricted).length,
+    [allItems]
+  )
+  const items = useMemo(() => {
+    if (restrictionFilter === 'restricted') {
+      return allItems.filter(isKeyRestricted)
+    }
+    if (restrictionFilter === 'unrestricted') {
+      return allItems.filter((item) => !isKeyRestricted(item))
+    }
+    return allItems
+  }, [allItems, restrictionFilter])
+  const restrictionFilterItems = useMemo(
+    () => [
+      {
+        value: 'all',
+        label: t('settings.downstream.keys.restriction.filterAll'),
+      },
+      {
+        value: 'restricted',
+        label: t('settings.downstream.keys.restriction.filterRestricted'),
+      },
+      {
+        value: 'unrestricted',
+        label: t('settings.downstream.keys.restriction.filterUnrestricted'),
+      },
+    ],
+    [t]
+  )
   const isLoading = keysQuery.isLoading
 
   // Stable top-level refs for the columns memo (same pattern as the
@@ -337,7 +385,52 @@ export function KeysSection() {
               {t('settings.downstream.keys.create')}
             </Button>
           }
-          toolbarProps={null}
+          toolbarProps={{
+            additionalSearch: (
+              <>
+                <Select
+                  items={restrictionFilterItems}
+                  value={restrictionFilter}
+                  onValueChange={(value) =>
+                    setRestrictionFilter(
+                      value as 'all' | 'restricted' | 'unrestricted'
+                    )
+                  }
+                >
+                  <SelectTrigger
+                    size='sm'
+                    aria-label={t(
+                      'settings.downstream.keys.restriction.filterAria'
+                    )}
+                    className='w-44'
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='all'>
+                      {t('settings.downstream.keys.restriction.filterAll')}
+                    </SelectItem>
+                    <SelectItem value='restricted'>
+                      {t(
+                        'settings.downstream.keys.restriction.filterRestricted'
+                      )}
+                    </SelectItem>
+                    <SelectItem value='unrestricted'>
+                      {t(
+                        'settings.downstream.keys.restriction.filterUnrestricted'
+                      )}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className='text-muted-foreground self-center text-xs'>
+                  {t('settings.downstream.keys.restriction.count', {
+                    restricted: restrictedCount,
+                    total: allItems.length,
+                  })}
+                </span>
+              </>
+            ),
+          }}
           fixedHeight={false}
           skeletonKeyPrefix='downstream-keys-skeleton'
         />

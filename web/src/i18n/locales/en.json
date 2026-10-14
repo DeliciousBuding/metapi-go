@@ -1666,11 +1666,22 @@
             "unknown": "Unknown",
             "noMatches": "No matching options"
           },
+          "restriction": {
+            "filterAria": "Restriction filter",
+            "filterAll": "All keys",
+            "filterRestricted": "Restricted only",
+            "filterUnrestricted": "Unrestricted only",
+            "count": "{{restricted}} restricted of {{total}}"
+          },
           "scope": {
             "unrestricted": "No additional routing restriction",
             "sitesAllow": "Allowed sites",
             "sitesExclude": "Excluded sites",
             "credsAllow": "Allowed credentials",
+            "ip": "IP lists",
+            "ipAllow": "Allow",
+            "ipBlock": "Block",
+            "rate": "Rate window",
             "credsExclude": "Excluded credentials",
             "defaultKey": "default key",
             "unknownId": "ID {{id}} (unresolved)",
