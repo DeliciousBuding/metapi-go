@@ -1,6 +1,6 @@
 # Git Workflow — 分支策略与协作规范
 
-**最后更新**：2026-10-05
+**最后更新**：2026-10-15
 
 > 本文定义 metapi-go 的工作项、分支、PR 和发布流程。开放工作以 GitHub Issue 为准；本文只写稳定的决策规则，不复制实时路线图。
 
@@ -79,7 +79,7 @@ master (唯一长期分支，受保护，持续集成)
 
 1. 默认先积累修复，在 GitHub issue / PR 中关联受影响的用户任务与回归证据；维护者选定候选 commit 后，按 [`docs/testing.md`](../testing.md) 核对历史问题及关键任务。候选验收不要求先打 tag，也不为每次合入修改版本号。
 2. 验收记录绑定最终源码（commit + 未提交 diff）和实际二进制或镜像摘要，分别写明 fixture、真实模型、下游客户端结果与未验证项。源码或产物改变后重跑受影响检查，不把旧构建的成功沿用到新候选。
-3. 维护者审阅范围、剩余风险及证据后，明确决定是否发布和版本号。决定发布后才更新 `CHANGELOG.md`（必须包含 `## [vX.Y.Z]` 节）与 `web/package.json` version，经 PR 合入 master；该 PR 合入后，以最终 master commit 重新构建并补跑受影响的候选验收，不能沿用准备前的产物摘要。
+3. 维护者审阅范围、剩余风险及证据后，明确决定是否发布和版本号。决定发布后才把 `CHANGELOG.md` 的 `[Unreleased]` 整理为 `## [vX.Y.Z]` 节、更新 `web/package.json` version，经 PR 合入 master；该 PR 合入后，以最终 master commit 重新构建并补跑受影响的候选验收，不能沿用准备前的产物摘要。
 4. 仅在明确发布决定后，从干净且 HEAD 等于 `origin/master` 的 checkout/worktree 运行 `bash scripts/release.sh X.Y.Z`；不必切换当前主工作树。助手负责一致性校验、annotated tag 与推送，不负责决定发版。tag、包版本与 CHANGELOG 节须一致；push 仍执行本地门禁。
 5. SemVer tag 触发 `.github/workflows/main.yml` 的检查及镜像发布，再构建五个平台二进制、checksums 和安装脚本，执行发布二进制冒烟。**新建 GitHub Release 使用 `--draft`**；维护者复核最终附件、验收结果和公开说明（含脱敏与已知限制）后，才发布稳定 Release。
 
