@@ -35,6 +35,8 @@ Go 网关，React SPA 预构建后嵌入单个服务端二进制。
   Go build、vet、全量 race 测试。可直接执行
   `bash .githooks/pre-push-project </dev/null`。CI 是复核，不替代本地验证，
   也不作为调试环境。
+  这是 coding agent 的执行要求；公共贡献者的可选 hook 和环境例外见
+  [贡献规范](CONTRIBUTING.md#本地验证)，不要求其安装个人工具链。
 - 只在输入完全相同且验证范围适用时复用结果。记录 commit、未提交 diff 和
   相关环境；运行态结论还须绑定产物。夹具、真实模型转发和下游客户端验收
   分开报告，见[测试策略](docs/testing.md)。

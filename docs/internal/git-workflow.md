@@ -136,6 +136,6 @@ hotfix 不等于绕过 PR、现有 CI 或发布复核，也不自动授权关闭
 | master 保护 | 仓库 Settings → Branches | 见 §3 |
 | PR 模板 | `.github/pull_request_template.md` | 自动填充 |
 | CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量必检；独立 `web-dist` 构建与 frontend 检查并行，SQLite/PG/a11y 不再串行等待 frontend；`docker-build` 汇总两者及其他门禁；master push 推送镜像（latest+sha）；SemVer tag：镜像（amd64+arm64）→ 多平台二进制 + 新建 draft Release；已有 Release 重跑不改 draft/published 状态 |
-| 本地门禁 | `.githooks/pre-push-project` | 全局 hook-kit 在 push 前链式运行（build + vet + 完整前端 + WSL-backed race）；`.githooks/pre-push` 是 standalone 兼容入口 |
+| 本地门禁 | `.githooks/pre-push-project` | 可直接运行；可选的 `.githooks/pre-push` 委托此入口。完整执行前端检查/构建、Go build/vet/race，不依赖个人全局工具链 |
 
 相关文档：[`deployment.md`](../deployment.md)（部署）· [`CHANGELOG.md`](../../CHANGELOG.md)（版本叙事）· `AGENTS.md`（工程规则）；当前状态以 GitHub issues/releases 为准。
