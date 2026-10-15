@@ -238,7 +238,10 @@ function TokenRow({
     <li className='flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2'>
       <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
         <div className='flex flex-wrap items-center gap-1.5'>
-          <span className='truncate text-sm font-medium'>
+          <span
+            className='line-clamp-2 text-sm font-medium break-words'
+            title={token.name || t('accounts.tokens.unnamed')}
+          >
             {token.name || t('accounts.tokens.unnamed')}
           </span>
           {token.isDefault && (
