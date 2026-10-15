@@ -83,7 +83,7 @@ function renderSection() {
 }
 
 describe('CredentialVerifySection', () => {
-  it('runs the models smoke with the key and reports the callable count', async () => {
+  it('runs the models smoke with the key and reports the listed count', async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { data: [{ id: 'gpt-5.5' }, { id: 'claude-x' }] })
     )
@@ -93,7 +93,9 @@ describe('CredentialVerifySection', () => {
       screen.getByRole('button', { name: 'Check available models' })
     )
 
-    expect(await screen.findByText('2 models callable')).toBeInTheDocument()
+    expect(
+      await screen.findByText('2 models listed for this key')
+    ).toBeInTheDocument()
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('http://gateway.example.com/v1/models')
     expect((init.headers as Record<string, string>).Authorization).toBe(
@@ -127,7 +129,7 @@ describe('CredentialVerifySection', () => {
       .mockResolvedValueOnce(jsonResponse(200, { data: [{ id: 'gpt-5.5' }] }))
       .mockResolvedValueOnce(
         jsonResponse(200, {
-          choices: [{ message: { content: 'pong' } }],
+          choices: [{ message: { role: 'assistant', content: 'pong' } }],
         })
       )
     renderSection()
@@ -175,6 +177,51 @@ describe('CredentialVerifySection', () => {
     expect(
       screen.getByRole('link', { name: /View this key's logs/ })
     ).toBeInTheDocument()
+  })
+
+  it.each([
+    ['HTML instead of JSON', '<html>Sign in</html>'],
+    ['an error envelope', JSON.stringify({ error: { message: 'failed' } })],
+    ['empty choices', JSON.stringify({ choices: [] })],
+    ['a choice without a message', JSON.stringify({ choices: [{}] })],
+    ['an empty message', JSON.stringify({ choices: [{ message: {} }] })],
+  ])('rejects HTTP 200 with %s as a failed chat check', async (_, body) => {
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse(200, { data: [{ id: 'gpt-5.5' }] }))
+      .mockResolvedValueOnce(new Response(body, { status: 200 }))
+    renderSection()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Check available models' })
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Send a test chat' })
+    )
+
+    expect(
+      await screen.findByText(/HTTP 200:.*valid Chat Completions response/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Succeeded in/)).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: /View this key's logs/ })
+    ).toHaveAttribute('href', '/proxy-logs?downstreamKeyId=7')
+  })
+
+  it('rejects a malformed model list without treating it as an empty catalog', async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { error: { message: 'blocked' } })
+    )
+    renderSection()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Check available models' })
+    )
+
+    expect(await screen.findByText(/valid model list/)).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Send a test chat' })
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/no models right now/)).not.toBeInTheDocument()
   })
 
   it('reports a key with no callable models honestly instead of offering a chat', async () => {

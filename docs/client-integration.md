@@ -1,6 +1,6 @@
 # Client Integration
 
-**Last updated**: 2026-08-20
+**Last updated**: 2026-10-15
 
 Metapi exposes the standard OpenAI wire format on `/v1` (plus Claude native
 `/v1/messages`, Responses, Embeddings, Images and `/v1/models`), so any tool
@@ -12,7 +12,7 @@ clients and the built-in config export.
 | Value      | Where to get it                                             |
 | :--------- | :---------------------------------------------------------- |
 | Base URL   | `http://<host>:4000/v1` (or your reverse-proxied domain)    |
-| API key    | A downstream key from **设置 → 下游密钥**, or `PROXY_TOKEN`  |
+| API key    | A downstream key from **访问 → API 密钥** (`/downstream-keys`), or `PROXY_TOKEN` |
 
 Downstream keys are per-project keys with optional request/cost caps and
 expiry — create one per tool instead of sharing `PROXY_TOKEN` everywhere.
@@ -24,7 +24,9 @@ Settings → Models → enable **OpenAI API Key** override:
 - API key: your downstream key
 - Base URL (override): `http://<host>:4000/v1`
 
-Model names are whatever Metapi routes (see **模型广场** for the live list).
+Use a public model name exposed by Metapi. The model page also displays upstream
+supply names and catalog information, which need not be client-facing names.
+Check `/v1/models` with the same downstream key you configure in Cursor.
 
 ## Claude Code
 
@@ -63,24 +65,41 @@ automatically.
 
 ## Config export from the admin UI
 
-Select an account (or downstream key) → **导出凭证**. The dialog renders
+Select a downstream key → **连接 (Connect)**. After credential confirmation,
+the dialog renders
 ready-to-copy profiles for six targets — `openai`, `cherry`, `generic`,
 `claude-code`, `codex`, `openwebui` — each with the correct base URL, key
-placeholder and client-specific env/file layout, plus a **Send a test
-request** shortcut into the model tester.
+placeholder and client-specific env/file layout. Copying a profile is explicit;
+Metapi does not rewrite your local configuration automatically. Review its model
+and protocol settings for the client version you use.
+
+The connection dialog has two checks: list models with the key, then send one
+non-streaming Chat request for a selected model. The generation consumes quota
+and its attempt is logged. HTTP success without a valid response envelope is a
+failed verification. The key-filtered log link shows recorded dispatch attempts;
+an authentication or admission refusal may happen before an attempt is logged.
+
+For permission problems, use the key's permission check or the route workspace
+with its client model and protocol. The administrator model tester uses a
+different authorization context. Verify the chosen client itself for streaming,
+tools and protocol-specific behavior.
 
 ## Protocol notes
 
-- SSE is supported on native Chat, Messages and Responses paths and on the
-  supported Messages-to-Chat bridge described below.
-- Native Chat, Messages and Responses requests prefer an upstream endpoint of
-  the same protocol. A supported timeout/protocol failure may fall back from
-  Messages to Chat Completions for representable text and client-function tools;
-  both requests and JSON/SSE responses are translated, including tool-result turns.
-- Other Chat/Messages/Responses conversion directions are not implemented and
-  are not tried by forwarding an incompatible body. Endpoint preferences do not
-  add a missing converter. A responses-only site rejects an incompatible native
-  Chat/Messages request explicitly; use an upstream supporting the client protocol.
+- Native Chat, Messages, Responses and Gemini generation paths support streaming.
+  Independent upstreams with explicit endpoint configuration can convert among
+  these four generation protocols when the route item authorizes the outbound
+  protocol. Account-derived channels and legacy grants retain their own support
+  boundaries; see [route and endpoint contracts](api/routes.md).
+- Selection prefers the authorized native protocol. Within a direct channel,
+  a different authorized protocol is tried only after an explicit unsupported
+  endpoint/model response without output or measured usage. Authentication,
+  throttling, transport failures and interrupted streams do not trigger this
+  cross-protocol replay.
+- Conversions carry representable text, tools and reported usage. Protocol-specific
+  continuity, signed reasoning or unsupported tools fail explicitly. Non-generation
+  endpoints such as embeddings and count-tokens require their own authorization
+  and compatible endpoint; they are not replaced by a chat request.
 - Messages features without a lossless Chat representation stay native-only.
   Metadata and prompt-cache hints are not forwarded through the Chat bridge;
   billing still uses the usage actually reported by the upstream.
