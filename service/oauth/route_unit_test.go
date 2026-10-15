@@ -139,26 +139,6 @@ func TestUniquePositiveIDs_AllNegativeOrZero(t *testing.T) {
 	}
 }
 
-// ---- max64 Tests ----
-
-func TestMax64_FirstLarger(t *testing.T) {
-	if max64(10, 5) != 10 {
-		t.Error("expected 10")
-	}
-}
-
-func TestMax64_SecondLarger(t *testing.T) {
-	if max64(5, 10) != 10 {
-		t.Error("expected 10")
-	}
-}
-
-func TestMax64_Equal(t *testing.T) {
-	if max64(5, 5) != 5 {
-		t.Error("expected 5")
-	}
-}
-
 // ---- Route Unit Validation Tests (no DB needed) ----
 
 func TestRouteUnitStrategyConstants(t *testing.T) {

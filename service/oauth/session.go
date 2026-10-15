@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -203,23 +204,8 @@ func trimOr(s, fallback string) string {
 }
 
 func trimString(s string) string {
-	// Simple trim of whitespace.
-	start, end := 0, len(s)
-	for start < end {
-		c := s[start]
-		if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
-			break
-		}
-		start++
-	}
-	for end > start {
-		c := s[end-1]
-		if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
-			break
-		}
-		end--
-	}
-	return s[start:end]
+	// 保留原有 ASCII 空白范围；TrimSpace 还会去除 Unicode 空白。
+	return strings.Trim(s, " \t\n\r")
 }
 
 func asNonEmptyString(value interface{}) string {

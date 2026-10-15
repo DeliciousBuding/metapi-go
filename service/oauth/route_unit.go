@@ -95,7 +95,7 @@ func ListOauthRouteUnitsByAccountIDs(accountIDs []int64) map[int64]*OAuthRouteUn
 			ID:          r.UnitID,
 			Name:        r.Name,
 			Strategy:    strategy,
-			MemberCount: max64(r.MemberCount, 1),
+			MemberCount: max(r.MemberCount, 1),
 		}
 	}
 	return result
@@ -432,13 +432,6 @@ func normalizeStrategy(s string) OAuthRouteUnitStrategy {
 	default:
 		return RouteUnitStrategyRoundRobin
 	}
-}
-
-func max64(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func execRouteUnitInsertID(db *store.DB, tx *sqlx.Tx, query string, args ...any) (int64, error) {
