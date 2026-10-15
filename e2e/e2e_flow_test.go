@@ -609,24 +609,3 @@ func doAdminPost(t *testing.T, r chi.Router, path string, token string, body any
 	r.ServeHTTP(rec, req)
 	return rec
 }
-
-// mapGetInt64 extracts an int64 value from a decoded JSON map, handling
-// all numeric types that encoding/json may produce (float64, json.Number).
-func mapGetInt64(m map[string]any, key string) int64 {
-	v, ok := m[key]
-	if !ok || v == nil {
-		return 0
-	}
-	switch n := v.(type) {
-	case float64:
-		return int64(n)
-	case json.Number:
-		i, _ := n.Int64()
-		return i
-	case int64:
-		return n
-	case int:
-		return int64(n)
-	}
-	return 0
-}

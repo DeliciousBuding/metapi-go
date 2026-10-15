@@ -133,11 +133,11 @@ func TestKeyAdmission_AllowNilContextIsBackground(t *testing.T) {
 	l.SetSharedRPMCounter(fw)
 	limit := int64(1)
 
-	//lint:ignore SA1012 nil ctx is an explicitly supported input here.
+	//nolint:staticcheck // 明确验证 Allow 支持 nil context，不能换成 Background。
 	if d := l.Allow(nil, 3, &limit, nil, 0); !d.Allowed {
 		t.Fatalf("nil ctx decision = %+v, want allow", d)
 	}
-	//lint:ignore SA1012 nil ctx is an explicitly supported input here.
+	//nolint:staticcheck // 同一 nil 输入必须继续执行 RPM 限流。
 	if d := l.Allow(nil, 3, &limit, nil, 0); d.Allowed || d.Reason != "over_rpm" {
 		t.Fatalf("second nil ctx decision = %+v, want over_rpm", d)
 	}
