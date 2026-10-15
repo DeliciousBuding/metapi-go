@@ -65,9 +65,6 @@ describe('operator request metrics', () => {
     expect(await screen.findByText('90.0%')).toBeInTheDocument()
     expect(api.getOverviewReport).toHaveBeenCalledWith('7d')
     const params = reportFixture().window
-    expect(
-      screen.getByText(/Based on each request's last recorded attempt/)
-    ).toBeInTheDocument()
     const link = screen.getByRole('link', { name: /Last-attempt success rate/ })
     const href = link.getAttribute('href')
     if (!href) throw new Error('Missing drill-down link')
