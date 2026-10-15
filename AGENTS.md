@@ -13,11 +13,39 @@ Go rewrite of [Metapi](https://github.com/cita-777/metapi). Feature parity with 
   assume SQLite-only features.
 - **API compatibility**: All JSON responses must use camelCase field names matching the TS frontend.
   All env var names are identical to the TS version (no prefix).
-- **Simplicity first**: Design one owner and one data flow, then implement the smallest direct change. Do not add
-  speculative abstractions, parity scaffolds, or defensive fallback layers for behavior that has no real caller.
-  Unsupported behavior stays explicit (error/501/documented residual) instead of looking implemented.
+- **Simplicity first**: 按下方「编码行为准则」实施；一个职责 owner、一条明确数据流。
+  不支持的行为明确报错、返回 501 或记录边界，不用占位实现制造成功。
 - **Before pushing**: `go build ./cmd/server && go vet ./... && go test ./... -count=1 -race` must pass.
   🚫 **Never skip local CI** — GitHub Actions is a verification gate, not a debug environment. The pre-push hook enforces this.
+
+## 编码行为准则
+
+吸收 Karpathy behavioral guidelines，适用于编写、审阅与重构。复杂度与风险决定检查深度；简单任务不增加仪式性流程。
+
+### 动手前想清楚
+
+- 明说影响结果的假设与取舍，不掩盖不确定性。有多种会改变结果的解释时先说明差异。
+- 先查源码、调用方和现有约定；仍有会实质改变目标、权限或验收的疑点时，停下相关实现并澄清。
+- 有更简单的实现就提出；不合理的要求或设计应说明具体代价，不默默增加复杂度。
+
+### 简单优先
+
+- 只实现本次目标所需的最少代码；不为假想需求增加功能、配置、扩展点或兼容路径。
+- 单次使用的代码通常直接写在现有 owner 内；抽象须有真实复用或明确边界，不为统一形式造层。
+- 校验外部输入与真实失败，不为内部不可能状态堆防御分支。能用清晰的短实现解决，就简化长实现。
+
+### 精准修改
+
+- 每个改动都应能对应本次请求或已核实缺陷；沿用现有风格，不顺手重构邻近代码、注释或格式。
+- 清理本次改动造成的无用 import、变量和函数；无关历史死代码只报告，未经要求不删除。
+- 保留他人 WIP；规则和文档优先合并已有内容，不追加平行副本。
+
+### 以可验证结果推进
+
+- 开始时把目标写成可检查的结果；多步任务用简短计划说明每步如何验证。
+- 修 bug 先复现；加校验覆盖非法输入；重构核对改前与改后行为。测试必须保护用户可见契约。
+- 检查真实生产者、存储与消费者，不能只造一个实现并不产生的 fixture 来证明功能存在。
+- 持续修到相称验证通过；代码、测试、现役文档一起交付。CI 等待期间推进独立工作，合并仍遵守门禁。
 
 ## Project Structure
 
