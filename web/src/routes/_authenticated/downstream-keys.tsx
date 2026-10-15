@@ -7,9 +7,11 @@
 
 import { createFileRoute } from '@tanstack/react-router'
 
+import { downstreamKeysSearchSchema } from '@/features/downstream-keys'
 import { DownstreamKeysPage } from '@/features/downstream-keys/downstream-keys-page'
 
 export const Route = createFileRoute('/_authenticated/downstream-keys')({
+  validateSearch: downstreamKeysSearchSchema,
   staticData: { title: 'downstreamKeys.page.title' },
   component: DownstreamKeysPage,
 })

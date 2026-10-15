@@ -69,7 +69,7 @@ lists unevaluated dimensions. It never presents a candidate as the selected
 winner, infers an identity from a negative compatibility ID, or renders an
 uncalculated probability as 0%. A refresh failure clears the prior result so a
 stale answer cannot sit under new input. Saved snapshots keep their own saved
-time and unknown context labels. The route workspace on /token-routes keeps one URL-owned diagnostic context for a concrete client model, protocol, and optional downstream key; it renders the server's key admission verdict and candidate eligibility side by side, then links the matched route and that key's proxy logs without pretending the preview selected a candidate.
+time and unknown context labels. The route workspace on /token-routes keeps one URL-owned diagnostic context for a concrete client model, protocol, and optional downstream key; it renders the server's key admission verdict and candidate eligibility side by side, then links the matched route and that key's proxy logs without pretending the preview selected a candidate. Admission blockers also expose a one-shot edit deep link to /downstream-keys; dimensions with an editable form surface focus that control, while IP and rate blockers open the key sheet without inventing an anchor.
 
 The root sidebar follows the operator's task order instead of the storage
 model: Overview, Upstream, Models & Routes, Access, Requests & Diagnostics, and

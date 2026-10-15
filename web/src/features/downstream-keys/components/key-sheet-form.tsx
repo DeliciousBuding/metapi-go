@@ -612,7 +612,7 @@ export function KeySheetForm({
               control={form.control}
               name='maxCost'
               render={({ field }) => (
-                <FormItem>
+                <FormItem data-key-scope='maxCost'>
                   <FormLabel>
                     {t('settings.downstream.keys.fields.maxCost')}
                   </FormLabel>
@@ -638,7 +638,7 @@ export function KeySheetForm({
             control={form.control}
             name='expiresAt'
             render={({ field }) => (
-              <FormItem>
+              <FormItem data-key-scope='expiresAt'>
                 <FormLabel>
                   {t('settings.downstream.keys.fields.expiresAt')}
                 </FormLabel>
@@ -660,7 +660,10 @@ export function KeySheetForm({
             control={form.control}
             name='enabled'
             render={({ field }) => (
-              <FormItem className='flex flex-row items-center gap-3'>
+              <FormItem
+                data-key-scope='enabled'
+                className='flex flex-row items-center gap-3'
+              >
                 <FormControl>
                   <Switch
                     checked={Boolean(field.value)}

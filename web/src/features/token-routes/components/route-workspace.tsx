@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import {
+  admissionAnchorField,
   downstreamKeysQueryKeys,
   type DownstreamKeysResponse,
   KeyContextAdmissionResult,
@@ -43,6 +44,7 @@ type RouteWorkspaceProps = {
   onFiltersChange: (filters: Partial<RouteWorkspaceFilters>) => void
   onOpenRoute: (routeId: number) => void
   onOpenKeyLogs: (keyId: number) => void
+  onOpenKeyEdit: (keyId: number, locateField: string | null) => void
 }
 
 export function RouteWorkspace({
@@ -50,6 +52,7 @@ export function RouteWorkspace({
   onFiltersChange,
   onOpenRoute,
   onOpenKeyLogs,
+  onOpenKeyEdit,
 }: RouteWorkspaceProps) {
   const { t } = useTranslation()
   const [model, setModel] = useState(filters.workspaceModel || '')
@@ -151,6 +154,12 @@ export function RouteWorkspace({
   const keyContext = selectedKeyId === null ? undefined : keyContextQuery.data
   const isFetching = activeQuery.isFetching
   const isError = activeQuery.isError
+  const keyEditAnchor = keyContext?.keyContext.admission.blockers.find(
+    (blocker) => admissionAnchorField(blocker.dimension, blocker.code) !== null
+  )
+  const keyEditLocateField = keyEditAnchor
+    ? admissionAnchorField(keyEditAnchor.dimension, keyEditAnchor.code)
+    : null
 
   const keyItems = useMemo(() => {
     const items = (keysQuery.data?.items ?? []).map((key) => ({
@@ -306,13 +315,24 @@ export function RouteWorkspace({
                   </Button>
                 ) : null}
                 {selectedKeyId !== null ? (
-                  <Button
-                    size='xs'
-                    variant='outline'
-                    onClick={() => onOpenKeyLogs(selectedKeyId)}
-                  >
-                    {t('tokenRoutes.workspace.openLogs')}
-                  </Button>
+                  <>
+                    <Button
+                      size='xs'
+                      variant='outline'
+                      onClick={() =>
+                        onOpenKeyEdit(selectedKeyId, keyEditLocateField)
+                      }
+                    >
+                      {t('tokenRoutes.workspace.editKey')}
+                    </Button>
+                    <Button
+                      size='xs'
+                      variant='outline'
+                      onClick={() => onOpenKeyLogs(selectedKeyId)}
+                    >
+                      {t('tokenRoutes.workspace.openLogs')}
+                    </Button>
+                  </>
                 ) : null}
               </div>
             </div>

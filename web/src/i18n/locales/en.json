@@ -2682,7 +2682,8 @@
         "empty": "Enter a concrete model to start.",
         "routeResult": "Route and candidates",
         "openRoute": "Open route",
-        "openLogs": "View key logs"
+        "openLogs": "View key logs",
+        "editKey": "Edit key"
       },
       "form": {
         "invalid": "Please check the highlighted form fields",

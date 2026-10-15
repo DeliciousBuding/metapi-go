@@ -7,11 +7,13 @@
 // connect flow; this page only supplies the page-level header and the Suspense
 // boundary for the section's lazy chunk.
 
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PageHeader } from '@/components/common/page-header'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
+import { asStringParam } from '@/lib/helpers/searchParams'
 
 const LazyKeysSection = lazy(() =>
   import('./components/keys-section').then((module) => ({
@@ -21,6 +23,16 @@ const LazyKeysSection = lazy(() =>
 
 export function DownstreamKeysPage() {
   const { t } = useTranslation()
+  const search = useSearch({ from: '/_authenticated/downstream-keys' })
+  const navigate = useNavigate()
+
+  const consumeEditDrilldown = () => {
+    void navigate({
+      to: '/downstream-keys',
+      search: { edit: undefined, locateField: undefined },
+      replace: true,
+    })
+  }
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
@@ -29,7 +41,11 @@ export function DownstreamKeysPage() {
         description={t('downstreamKeys.page.description')}
       />
       <Suspense fallback={<SectionSkeleton />}>
-        <LazyKeysSection />
+        <LazyKeysSection
+          editId={search.edit}
+          initialLocateField={asStringParam(search.locateField)}
+          onEditDrilldownConsumed={consumeEditDrilldown}
+        />
       </Suspense>
     </div>
   )

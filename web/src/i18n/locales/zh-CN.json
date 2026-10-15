@@ -2682,7 +2682,8 @@
         "empty": "填写具体模型后开始检查。",
         "routeResult": "路由与候选",
         "openRoute": "打开路由",
-        "openLogs": "查看 Key 日志"
+        "openLogs": "查看 Key 日志",
+        "editKey": "编辑 Key"
       },
       "form": {
         "invalid": "请检查表单标红字段",

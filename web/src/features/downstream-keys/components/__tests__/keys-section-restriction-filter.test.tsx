@@ -232,4 +232,31 @@ describe('KeysSection restriction filter (#1430)', () => {
     })
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
   })
+
+  it('consumes a diagnostic edit deep link and locates the admission field', async () => {
+    const onEditDrilldownConsumed = vi.fn()
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, staleTime: 0 },
+        mutations: { retry: false },
+      },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <KeysSection
+          editId={2}
+          initialLocateField='expiresAt'
+          onEditDrilldownConsumed={onEditDrilldownConsumed}
+        />
+      </QueryClientProvider>
+    )
+
+    expect(await screen.findByLabelText('Name')).toHaveValue('model-scoped key')
+    await waitFor(() => {
+      const section = document.querySelector('[data-key-scope="expiresAt"]')
+      expect(section).not.toBeNull()
+      expect(section?.contains(document.activeElement)).toBe(true)
+    })
+    expect(onEditDrilldownConsumed).toHaveBeenCalled()
+  })
 })

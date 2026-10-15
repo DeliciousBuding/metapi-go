@@ -145,3 +145,27 @@ export function restrictionAnchorField(
       return null
   }
 }
+
+/**
+ * Form anchor for a key-context admission blocker. Dimensions without an
+ * editable form surface return null: the edit sheet can still open, but the
+ * UI must not pretend it focused a control that does not exist.
+ */
+export function admissionAnchorField(
+  dimension: string,
+  code?: string
+): string | null {
+  switch (dimension) {
+    case 'policy':
+    case 'quota':
+      return 'accessPolicy'
+    case 'state':
+      return 'enabled'
+    case 'expiry':
+      return 'expiresAt'
+    case 'budget':
+      return code === 'over_cost' ? 'maxCost' : 'maxRequests'
+    default:
+      return null
+  }
+}
