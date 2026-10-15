@@ -227,9 +227,10 @@ describe('RouteFormDialog bulk channel selection', () => {
       chainContext: { accountId: 1 },
     })
 
-    const selectAll = await screen.findByRole('checkbox', {
-      name: 'Select all accounts',
-    })
+    const bulkLabel = await screen.findByText('Select all accounts')
+    const bulkControl = bulkLabel.closest('label')
+    if (!bulkControl) throw new Error('Missing bulk checkbox label')
+    const selectAll = within(bulkControl).getByRole('checkbox')
     // Keep real controls and all 120 assertions, without repeating jsdom's
     // visibility/name walk across the entire list after every state change.
     const status = screen.getByRole('status')
@@ -238,6 +239,7 @@ describe('RouteFormDialog bulk channel selection', () => {
     if (!accountLabel) throw new Error('Missing account checkbox label')
     const accountTwo = within(accountLabel).getByRole('checkbox')
     expect(checkboxes).toHaveLength(121)
+    expect(selectAll).toHaveAccessibleName('Select all accounts')
     expect(accountTwo).toHaveAccessibleName('account-2')
     expect(selectAll).toBePartiallyChecked()
     expect(status).toHaveTextContent('1 / 120 selected')
