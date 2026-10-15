@@ -190,11 +190,20 @@ func TestApplyRoundRobinCooldown(t *testing.T) {
 	if nextFC != 0 {
 		t.Errorf("expected consecutiveFailCount=0, got %d", nextFC)
 	}
+	if cooldownISO == nil {
+		t.Error("expected cooldown ISO at level 2")
+	}
 
 	// At max level
 	nextFC, nextLevel, cooldownISO = ApplyRoundRobinCooldown(2, 3, 3000, 0)
 	if nextLevel != 3 {
 		t.Errorf("expected cooldownLevel=3 (max), got %d", nextLevel)
+	}
+	if nextFC != 0 {
+		t.Errorf("expected consecutiveFailCount=0 at max level, got %d", nextFC)
+	}
+	if cooldownISO == nil {
+		t.Error("expected cooldown ISO at max level")
 	}
 }
 

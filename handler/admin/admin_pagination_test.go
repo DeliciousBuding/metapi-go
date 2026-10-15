@@ -486,18 +486,17 @@ func TestListAccounts_ServerSideFilters(t *testing.T) {
 	if total != 1 || len(items) != 1 {
 		t.Fatalf("q=filter-b-1: total=%d items=%d, want 1/1", total, len(items))
 	}
-	_, items, total = fetch("&q=filter-a")
+	_, _, total = fetch("&q=filter-a")
 	if total != 2 {
 		t.Fatalf("q=filter-a: total=%d, want 2 (both site A usernames match)", total)
 	}
 	// LIKE wildcards match literally (escaped), never as patterns: with the
 	// escape in place the literal % matches no seeded username (a wildcard
 	// interpretation would match all three filter-*-1 accounts).
-	_, items, total = fetch("&q=" + url.QueryEscape("filter-%-1"))
+	_, _, total = fetch("&q=" + url.QueryEscape("filter-%-1"))
 	if total != 0 {
 		t.Fatalf("q=filter-%%-1 literal: total=%d, want 0 (escaped literal %%)", total)
 	}
-	_ = items
 }
 
 // TestListAccounts_ServerSideFiltersInvalidParams rejects malformed filter

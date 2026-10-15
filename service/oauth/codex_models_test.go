@@ -194,18 +194,9 @@ func TestFormatCodexModelDiscoveryTimeoutStatus_Actionable(t *testing.T) {
 		"abnormal",
 		"30s",
 	} {
-		if !strings.Contains(strings.ToLower(msg), strings.ToLower(needle)) && !strings.Contains(msg, needle) {
-			// soft check — at least core tokens
+		if !strings.Contains(strings.ToLower(msg), strings.ToLower(needle)) {
+			t.Errorf("timeout guidance missing %q: %q", needle, msg)
 		}
-	}
-	if !strings.Contains(msg, "timed out") {
-		t.Errorf("expected timeout wording, got %q", msg)
-	}
-	if !strings.Contains(msg, "abnormal") {
-		t.Errorf("expected status=abnormal guidance, got %q", msg)
-	}
-	if !strings.Contains(msg, "proxy") {
-		t.Errorf("expected proxy guidance, got %q", msg)
 	}
 }
 

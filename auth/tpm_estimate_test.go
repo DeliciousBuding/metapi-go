@@ -186,8 +186,6 @@ func TestKeyAdmissionLimiter_MaxTPMNil_Unchanged(t *testing.T) {
 		t.Fatalf("nil maxTPM must not reserve tokens, usedTPM=%d", tpmUsed)
 	}
 	if rpm != 0 {
-		// RPM also unlimited (nil) — Allow returns early before recording.
-		// usedRPM stays 0 when both limits are 0.
+		t.Fatalf("nil maxRPM must not record requests, usedRPM=%d", rpm)
 	}
-	_ = rpm
 }

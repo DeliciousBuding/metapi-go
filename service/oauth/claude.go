@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/platform"
@@ -101,21 +100,6 @@ type claudeTokenResponse struct {
 	} `json:"account"`
 }
 
-func parseClaudeExpiresAt(value interface{}) int64 {
-	switch v := value.(type) {
-	case float64:
-		if v > 0 {
-			return time.Now().UnixMilli() + int64(v)*1000
-		}
-	case string:
-		parsed, err := parseInt64(strings.TrimSpace(v))
-		if err == nil && parsed > 0 {
-			return time.Now().UnixMilli() + parsed*1000
-		}
-	}
-	return 0
-}
-
 func postClaudeToken(ctx context.Context, body map[string]interface{}, proxyURL *string) (*claudeTokenResponse, error) {
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
@@ -192,7 +176,7 @@ func exchangeClaudeAuthorizationCode(ctx context.Context, input ExchangeCodeInpu
 	return &TokenSet{
 		AccessToken:    payload.AccessToken,
 		RefreshToken:   payload.RefreshToken,
-		TokenExpiresAt: parseClaudeExpiresAt(payload.ExpiresIn),
+		TokenExpiresAt: parseTokenExpiresAt(payload.ExpiresIn, ""),
 		Email:          email,
 		AccountID:      accountID,
 		AccountKey:     accountKey,
@@ -239,7 +223,7 @@ func refreshClaudeAccessToken(ctx context.Context, input RefreshTokenInput) (*To
 	return &TokenSet{
 		AccessToken:    payload.AccessToken,
 		RefreshToken:   payload.RefreshToken,
-		TokenExpiresAt: parseClaudeExpiresAt(payload.ExpiresIn),
+		TokenExpiresAt: parseTokenExpiresAt(payload.ExpiresIn, ""),
 		Email:          email,
 		AccountID:      accountID,
 		AccountKey:     accountKey,
@@ -253,15 +237,4 @@ func buildClaudeProxyHeaders(ctx context.Context, input ProxyHeaderInput) map[st
 	return map[string]string{
 		"anthropic-version": platform.ClaudeDefaultAnthropicVersion,
 	}
-}
-
-func parseInt64(s string) (int64, error) {
-	n := int64(0)
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return 0, fmt.Errorf("not a number")
-		}
-		n = n*10 + int64(c-'0')
-	}
-	return n, nil
 }

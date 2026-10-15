@@ -158,7 +158,7 @@ func (h *tagsHandler) updateAccountTags(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var exists int
-	if err := h.db.Get(&exists, "SELECT COUNT(*) FROM accounts WHERE id = ?", id); err != nil || exists == 0 {
+	if err := h.db.Get(&exists, h.db.Rebind("SELECT COUNT(*) FROM accounts WHERE id = ?"), id); err != nil || exists == 0 {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "account not found"})
 		return
 	}
@@ -181,7 +181,7 @@ func (h *tagsHandler) updateSiteTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var exists int
-	if err := h.db.Get(&exists, "SELECT COUNT(*) FROM sites WHERE id = ?", id); err != nil || exists == 0 {
+	if err := h.db.Get(&exists, h.db.Rebind("SELECT COUNT(*) FROM sites WHERE id = ?"), id); err != nil || exists == 0 {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "site not found"})
 		return
 	}

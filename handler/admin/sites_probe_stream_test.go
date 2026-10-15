@@ -64,29 +64,18 @@ func (r *safeRecorder) StatusCode() int {
 // duration before returning. Used to prove SSE events are written
 // incrementally (the fast channel's event must appear before the slow one).
 type adminTimedProbe struct {
-	mu     sync.Mutex
-	calls  []int64
 	delays map[int64]time.Duration
 }
 
 func (p *adminTimedProbe) ProbeChannel(_ context.Context, target scheduler.ProbeTarget) (scheduler.ProbeOutcome, error) {
-	p.mu.Lock()
-	p.calls = append(p.calls, target.ChannelID)
 	delay := time.Duration(0)
 	if d, ok := p.delays[target.ChannelID]; ok {
 		delay = d
 	}
-	p.mu.Unlock()
 	if delay > 0 {
 		time.Sleep(delay)
 	}
 	return scheduler.ProbeOutcome{Status: "success", LatencyMs: float64(delay.Milliseconds())}, nil
-}
-
-func (p *adminTimedProbe) startedCount() int {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return len(p.calls)
 }
 
 // adminReleaseProbe blocks every ProbeChannel call on a shared release

@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 
@@ -32,6 +32,27 @@ function getRail(): HTMLElement {
 afterEach(() => cleanup())
 
 describe('SidebarRail hit area', () => {
+  it('toggles without submitting a containing form', () => {
+    const submit = vi.fn((event) => event.preventDefault())
+    render(
+      <form onSubmit={submit}>
+        <SidebarProvider>
+          <Sidebar>
+            <SidebarRail />
+          </Sidebar>
+        </SidebarProvider>
+      </form>
+    )
+
+    fireEvent.click(getRail())
+
+    expect(submit).not.toHaveBeenCalled()
+    expect(document.querySelector('[data-slot="sidebar"]')).toHaveAttribute(
+      'data-state',
+      'collapsed'
+    )
+  })
+
   it('uses a 24px (w-6) hit box', () => {
     renderDesktopSidebar()
 

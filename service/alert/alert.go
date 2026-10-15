@@ -108,9 +108,9 @@ func ReportLowBalance(cfg *config.RuntimeSettings, db *sqlx.DB, params LowBalanc
 	since := time.Now().UTC().Add(-lowBalanceEventWindow).Format(time.RFC3339)
 	var recent int
 	if err := db.Get(&recent,
-		`SELECT COUNT(*) FROM events
+		db.Rebind(`SELECT COUNT(*) FROM events
 		 WHERE type = 'balance' AND related_id = ? AND related_type = 'account'
-		   AND created_at >= ?`,
+		   AND created_at >= ?`),
 		params.AccountID, since); err == nil && recent > 0 {
 		return
 	}

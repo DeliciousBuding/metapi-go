@@ -1,215 +1,59 @@
-# Backend Design Philosophy
+# 后端设计契约
 
-**Last updated**: 2026-09-12
+兼容、打包和交付边界见仓库[工程规则](../../../AGENTS.md)。
+本文只定义后端职责和行为；[架构](../../architecture.md) 说明当前实现，
+[`package_boundary_test.go`](../../package_boundary_test.go) 检查依赖并记录例外，
+不在这里维护另一张依赖图。
 
-**Status**: contributor principles — how backend code should be written
-**Not the authority on import edges**: the boundary contract is
-[`docs/architecture.md`](../../architecture.md) §"Ownership and boundary map", and its
-executable form is [`docs/package_boundary_test.go`](../../package_boundary_test.go). When this
-file and those two disagree, those two are right and this file is stale.
+## 职责归属
 
-This document states the **non-negotiable backend principles** for metapi-go. Implementation work under backend architecture (package boundaries, concurrency, unified errors) must not violate these rules without an explicit design revision.
+在拥有该决策的包内修改。抽共享代码前查已有 helper 和调用方；
+接口须有真实边界或消费者，registry 须有实际实现。
+不因为尚未查明调用类型或不变量而叠加 fallback。
 
----
+依赖由组合入口装配；库通过现有构造函数/参数接收依赖，不新增全局 service locator。
+已有 config/store 访问方式不意味着局部清理需要迁移整个应用。
 
-## 1. Principles
+持久化复用 `store` 和方言 helper；裸 `sqlx` 查询须 Rebind。
+SQLite 通过不能推导 PostgreSQL 兼容，方言有差异时明确事务、NULL 和时间戳语义。
 
-### 1.1 Single binary + `go:embed` SPA
+环境变量的名称、alias、优先级和默认值由 `config/`、
+[配置文档](../../configuration.md)、`.env.example` 定义。
+保留现有名称和优先级；新增配置同步这些来源，不再发明平行命名策略或配置语言。
 
-- Ship **one** server binary from `cmd/server`.
-- Frontend is pre-built into `web/dist` and embedded by `web` (`//go:embed dist`).
-- Production images must not require Node/npm at runtime.
-- SPA fallback and `/api` + `/v1` share the same process and port.
+## 鉴权与凭据
 
-### 1.2 Dual dialect: SQLite + PostgreSQL
+- 缺失或非法凭据拒绝访问。公开路由是显式 allowlist，
+  依赖不可用不能使鉴权放行。
+- 管理 session/bearer 复用现有鉴权入口；代理接受配置的全局 token 或受管下游 key。
+  受管 key 的空授权列表拒绝所有请求。
+- secret 使用常量时间比较；token、Authorization 和原始凭据不进日志，
+  复用现有脱敏 helper。
 
-- Persistence goes through `store` only.
-- Supported dialects: **SQLite** (dev/test/default) and **PostgreSQL** (production).
-- Open via `store.Open(dialect, dsn)` (or equivalent store entrypoints); never hard-code SQLite-only SQL in callers.
-- Placeholders and type differences are handled inside `store` (rebind / dialect helpers).
-- MySQL is **out of scope** (dropped from TS).
+## 错误与上游隔离
 
-### 1.3 camelCase JSON API parity with TS frontend
+- 代理保留原生字段、错误 envelope 和流结束语义；管理 JSON 保持既有 camelCase。
+  两者是不同 wire 契约，不是整仓统一大小写的约定。
+- 区分记录不存在、读取失败和写入失败。错误传给能够决定响应的边界；
+  跨包优先 typed/sentinel error，不为鉴权或校验失败返回成功。
+- best-effort 有具体理由；失败影响结果时保留可观察的错误路径。
+  清理保持已有错误行为，错误契约变化单独作为修复验证。
+- 单个上游故障不影响无关站点/通道。routing 拥有选择、冷却和熔断状态，
+  proxy 拥有可复用重试判定，handler 拥有尝试顺序和 HTTP 输出。
+- 恢复任务可修复状态，但不能绕过鉴权、授权或持久化边界。
+  未支持能力保留明确的遗留说明。
 
-- Wire JSON uses **camelCase** field names identical to the original Metapi frontend expectations.
-- Struct tags on API models and payloads follow `json:"fooBar"`, not snake_case, for public admin/proxy contracts.
-- Breaking renames require a versioned migration plan; silent format drift is a defect.
+## 并发与可观察性
 
-### 1.4 Fail-closed auth
+通道和 session 的可变状态须支持并发请求。合并实现时保留取消、资源释放和
+有界网络操作；修改冷却、重试或锁时，用 race 测试验证受影响行为。
 
-- Unauthenticated or invalid credentials **deny** (401/403). There is no “open if misconfigured” path for protected routes.
-- **Admin** (`auth.AdminAuth`): IP allowlist (when configured) + Bearer `AUTH_TOKEN`; public API routes are an explicit allowlist only.
-- **Proxy** (`auth.ProxyAuth`): global `PROXY_TOKEN` or managed downstream keys; unknown/missing tokens fail closed.
-- **Managed downstream keys**: empty model/route allowlists mean **deny all** (`DenyAllWhenEmpty=true`). Global proxy token remains the broad default only when intentionally used.
-- Constant-time compare for secrets; do not log full tokens.
+日志使用 `log/slog` 和现有 request ID。health/metrics 属于 `app`，
+领域 service 不再建立另一套监控入口。记录失败原因，不暴露凭据或私有请求内容。
 
-### 1.5 Channel isolation / cooldown / circuit breaker
+## 重构与验证
 
-Gateway resilience is **per channel / per site**, not process-wide suicide:
-
-| Mechanism                  | Package                                     | Intent                                                               |
-| -------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
-| Fibonacci failure cooldown | `routing`                                   | Back off a bad channel without blackholing the fleet                 |
-| Recent-failure filters     | `routing` selector                          | Prefer healthy candidates in the current pick                        |
-| Site/model runtime breaker | `routing` runtime health                    | Open breaker after streak; tiered open windows                       |
-| Channel failover           | `handler/proxy` loop + `proxy` retry policy | Retry same channel, refresh auth, or move to next channel            |
-| Content failure judge      | `proxy`                                     | Detect “HTTP 200 but empty/error body” without trusting status alone |
-
-Rules of thumb:
-
-- A single upstream outage must not disable unrelated sites/channels.
-- Breaker open ⇒ filter out of selection, do not crash the process.
-- Recovery jobs (`scheduler` channel recovery, etc.) may heal state; they must not bypass auth or dialect boundaries.
-
-### 1.6 Config via env: TS parity names, `METAPI_` for Go-only knobs
-
-- Configuration is environment-driven (`config.Load` / `config.Get`).
-- Env var names match TS Metapi **without** a `METAPI_` (or similar) prefix: e.g. `AUTH_TOKEN`, `PROXY_TOKEN`, `DB_TYPE`, `DB_URL`, `PORT`.
-- A Go-only knob with no TS counterpart carries the `METAPI_` prefix **precisely so it cannot be mistaken for a parity name** (`METAPI_DB_PROFILE`, `METAPI_DB_APPLICATION_NAME`, `METAPI_ENABLE_PROXY_STUB`). `REDIS_URL` additionally accepts `METAPI_REDIS_URL` as an alias (`config/config.go`: `firstNonEmpty(get("REDIS_URL"), get("METAPI_REDIS_URL"))`).
-- Defaults live in `config`; production unsafety (default tokens, weak secrets) is warned/validated, not silently accepted as secure.
-- Runtime settings that belong in DB stay in `store` settings; do not invent a second config language.
-
-### 1.7 Feature parity with controlled evolution
-
-- Behavioral parity with original Metapi remains the default for existing APIs.
-- Enterprise upgrades (backend architecture and later) may clarify structure and fix CRITICAL defects without changing wire contracts unless the issue explicitly allows it.
-
-### 1.8 Simplicity before abstraction
-
-- Start with the owning package and the shortest explicit data flow. Add an interface, facade, registry, or shared helper only for an existing architectural boundary or multiple real consumers.
-- Do not retain scaffolds for endpoints, refresh flows, protocols, or deployment modes that do not exist. Unsupported behavior should fail explicitly or remain a documented residual.
-- Validate untrusted input at HTTP, config, storage, and upstream boundaries. Inside a validated flow, rely on typed invariants instead of repeating normalization and fallback logic at every layer.
-- A replacement removes the superseded path in the same change. Parallel implementations require a time-bounded migration plan and an explicit owner.
-- Tests protect observable contracts and high-risk boundaries; they should not freeze speculative implementation structure.
-
----
-
-## 2. Package dependency rules
-
-### 2.1 Layer diagram (allowed direction)
-
-```
-                    ┌──────────── cmd/server, cmd/migrate ────────────┐
-                    │                     │                            │
-                    ▼                     ▼                            │
-                 config ◄──────────── store                            │
-                    ▲                     ▲                            │
-                    │                     │                            │
-        ┌───────────┴───────────┬─────────┴──────────┬─────────────────┤
-        │                       │                    │                 │
-        ▼                       ▼                    ▼                 │
-      auth                   platform             transform/*          │
-        ▲                       ▲                    ▲                 │
-        │                       │                    │                 │
-        │                    service ───────────────┘ (prefer not;     │
-        │                       ▲                     transform is     │
-        │                       │                     leaf today)      │
-        │                  scheduler                                   │
-        │                       ▲                                      │
-        │                       │                                      │
-      router ──► handler/* ──► proxy ──► routing ──────────────────────┘
-        │            │           │
-        │            │           └── proxy/profiles, proxy/types
-        │            └── handler/shared
-        └── web (embed only)
-                 app (lifecycle + health/metrics glue)
-```
-
-Arrows mean **“may import”**. Edges not shown are forbidden unless listed under exceptions.
-
-### 2.2 The forbidden-import rules have one owner, and it is not this file
-
-The diagram above is the *intent* — which direction is down. The contract is
-[`docs/architecture.md`](../../architecture.md) §"Ownership and boundary map": one row per
-package, the decision it owns, and what it must not import. Its executable form is
-[`docs/package_boundary_test.go`](../../package_boundary_test.go) — rules 1–9, every approved
-exception with the reason it is approved, and an assertion that all twelve
-domains were really scanned, because a boundary gate that scans nothing and reports no
-violations is not a lenient gate but an absent one. That is not a hypothetical: it is the shape
-that let roughly thirty release tags stay green while their required shards ran zero tests.
-
-This section used to carry a dependency table and the next one a list of hard rules. Both were
-copies and both had drifted, in opposite directions: the table forbade `routing → router` and
-`auth → handler/proxy/router`, which nothing enforces, while omitting `store ↛ routing` and
-`transform ↛ auth`, which are enforced; the rule list omitted `service ↛ proxy` and
-`scheduler ↛ handler/router/proxy` altogether. Two copies of one rule in a single file — three
-counting the gate — is how a contributor gets a stale answer to "may I import this?". Read the
-gate; its failure message names the rule number.
-
-Two items from the old list are not the gate's business and stay here as principles:
-
-- **No import cycles.** The compiler already refuses them; if one appears, extract a small
-  types package rather than merging two layers.
-- **Prefer a service facade over `handler → scheduler`** for anything on a request path. The one
-  approved exception is admin-ops cron validation, and it is listed in the gate's header comment.
-
-### 2.3 Composition root
-
-Only `cmd/server` (and tests/e2e helpers) should construct the full graph: load config → open store → build services/router/schedulers → `app.Start`. Libraries under packages should accept dependencies via constructors/parameters, not hidden global grabs—except the existing `config.Get()` singleton pattern used for parity.
-
-**As-built inventory:** package ownership, public entrypoints, and documented exception edges (e.g. admin checkin schedule → `app`/`scheduler`, `app.ConfigureProxyUpstream` → `handler/proxy`) are recorded in the as-built package map [`docs/architecture.md`](../../architecture.md). New exceptions must be listed there and in the gate's header comment, with a reason, rather than introduced silently.
-
----
-
-## 3. Cross-cutting behavioral contracts
-
-### 3.1 Errors
-
-- Prefer typed/sentinel errors at package boundaries; map to HTTP in `handler` / `handler/shared`.
-- Do not return HTTP 200 for auth or validation failure.
-- Proxy surfaces should preserve upstream-compatible error shapes where TS parity requires it.
-
-### 3.2 Concurrency
-
-- Channel/session state mutations must be safe under concurrent proxy traffic.
-- Cooldown and breaker updates must not race into “always open” or “never open” corruption.
-- CRITICAL concurrency fixes under backend architecture stay inside owning packages (`routing`, `proxy`, …) without smuggling locks into `store` SQL.
-
-### 3.3 Observability
-
-- Use `log/slog` with request IDs from router middleware.
-- Metrics/health live under `app` (`/health`, `/ready`, `/metrics` patterns already established).
-- Do not log secrets, full `Authorization` headers, or raw account credentials.
-
-### 3.4 Testing
-
-- Dual dialect: store tests cover SQLite and PG where SQL diverges.
-- Package tests stay inside the package; e2e covers full binary behavior.
-- Pre-commit verification: `go vet ./...` and `go test ./... -count=1 -race` (see `AGENTS.md`).
-
----
-
-## 4. Naming glossary (TS → Go)
-
-| TS / informal name      | Actual Go package       |
-| ----------------------- | ----------------------- |
-| proxy-core / ProxyCore  | `proxy`                 |
-| transformers / protocol | `transform` (+ subdirs) |
-| tokenRouter             | `routing`               |
-| platform adapters       | `platform`              |
-| admin routes            | `handler/admin`         |
-| proxy routes            | `handler/proxy`         |
-| embed web               | `web`                   |
-
----
-
-## 5. Change routing
-
-- Open outcomes and priorities are tracked as GitHub issues.
-- Package ownership and approved exception edges live in [`docs/architecture.md`](../../architecture.md).
-- When principles change, revise this file. When only layout or request-flow facts change, update [`docs/architecture.md`](../../architecture.md).
-
----
-
-## 6. Checklist for new backend code
-
-- [ ] Belongs in an existing package (no drive-by top-level package)
-- [ ] Uses a direct implementation; any new abstraction has a real boundary or multiple consumers
-- [ ] Replaces old paths instead of adding speculative parallel scaffolding
-- [ ] Imports only allowed edges (§2)
-- [ ] JSON tags camelCase for public API
-- [ ] Auth path fail-closed
-- [ ] Channel failure isolated (cooldown/breaker/failover) when touching routing/proxy
-- [ ] Dialect-safe SQL via `store`
-- [ ] Env names match TS for parity vars; a Go-only knob uses a `METAPI_` prefix so it cannot read as a parity name (§1.6)
-- [ ] Tests with `-race` for concurrent paths
+共享的清理方法见[贡献规范](../../../CONTRIBUTING.md#重构与审查)，
+测试分层、负例和运行验证见[测试策略](../../testing.md)。
+包测试保护可观察行为，集成测试覆盖持久化/协议边界；
+工具配置维护机械规则，不作为第二份设计文档。

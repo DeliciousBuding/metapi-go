@@ -28,33 +28,13 @@ issues:
     - path: "platform/.*\\.go"
       linters: [errcheck]
 
-    # Test-only issues
+    # 测试夹具中的 best-effort 清理；其余静态检查仍检查测试代码。
     - path: "_test\\.go"
-      linters: [errcheck, ineffassign, staticcheck, unused]
-
-    # Staticcheck: deprecated RealIP is a known risk
-    - path: "router/middleware\\.go"
-      linters: [staticcheck]
-      text: "SA1019"
-
-    # Staticcheck: TS-parity regex in platform/newapi.go
-    - path: "platform/newapi\\.go"
-      linters: [staticcheck]
-      text: "SA1000"
-
-    # proxy/endpoint_flow.go: rawErrText kept for debugging
-    - path: "proxy/endpoint_flow\\.go"
-      linters: [staticcheck]
-      text: "SA4006"
+      linters: [errcheck]
 
     # app/health.go + app/metrics.go: w.Write best-effort in health/metrics handlers
     - path: "app/.*\\.go"
       linters: [errcheck]
-
-    # routing/router.go: empty branches are TS-parity (conditional model lookup)
-    - path: "routing/router\\.go"
-      linters: [staticcheck]
-      text: "SA9003"
 
     # router/router.go: w.Write in SPA fallback is best-effort
     - path: "router/router\\.go"
