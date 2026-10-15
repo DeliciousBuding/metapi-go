@@ -87,8 +87,8 @@ func (h *schedulerStatusHandler) checkinStatus() schedulerRunStatus {
 	}
 	var runs24h, success24h int64
 	_ = h.db.Get(&latest, `SELECT created_at, status FROM checkin_logs ORDER BY created_at DESC LIMIT 1`)
-	_ = h.db.Get(&runs24h, `SELECT COUNT(*) FROM checkin_logs WHERE created_at >= ?`, since24h())
-	_ = h.db.Get(&success24h, `SELECT COUNT(*) FROM checkin_logs WHERE created_at >= ? AND status = 'success'`, since24h())
+	_ = h.db.Get(&runs24h, h.db.Rebind(`SELECT COUNT(*) FROM checkin_logs WHERE created_at >= ?`), since24h())
+	_ = h.db.Get(&success24h, h.db.Rebind(`SELECT COUNT(*) FROM checkin_logs WHERE created_at >= ? AND status = 'success'`), since24h())
 
 	status := "never"
 	if latest.CreatedAt != "" {
@@ -111,7 +111,7 @@ func (h *schedulerStatusHandler) balanceRefreshStatus() schedulerRunStatus {
 	}
 	var refreshed24h, total int64
 	_ = h.db.Get(&latest, `SELECT MAX(last_balance_refresh) AS refreshed_at FROM accounts WHERE last_balance_refresh IS NOT NULL`)
-	_ = h.db.Get(&refreshed24h, `SELECT COUNT(*) FROM accounts WHERE last_balance_refresh >= ?`, since24h())
+	_ = h.db.Get(&refreshed24h, h.db.Rebind(`SELECT COUNT(*) FROM accounts WHERE last_balance_refresh >= ?`), since24h())
 	_ = h.db.Get(&total, `SELECT COUNT(*) FROM accounts WHERE status = 'active'`)
 
 	// The job records no per-run status row, so derive the last-status badge

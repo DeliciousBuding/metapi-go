@@ -435,10 +435,10 @@ func loadBackgroundTaskDB(db *sqlx.DB, id string) *BackgroundTask {
 		StartedAt  *string `db:"started_at"`
 		FinishedAt *string `db:"finished_at"`
 	}
-	err := db.Get(&rec, `
+	err := db.Get(&rec, db.Rebind(`
 		SELECT task_id, type, title, status, message, error, dedupe_key,
 		       created_at, updated_at, started_at, finished_at
-		FROM admin_background_tasks WHERE task_id = ?`, id)
+		FROM admin_background_tasks WHERE task_id = ?`), id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
@@ -482,10 +482,10 @@ func listBackgroundTasksDB(db *sqlx.DB, limit int) []BackgroundTask {
 		FinishedAt *string `db:"finished_at"`
 	}
 	var rows []dbRow
-	if err := db.Select(&rows, `
+	if err := db.Select(&rows, db.Rebind(`
 		SELECT task_id, type, title, status, message, error, dedupe_key,
 		       created_at, updated_at, started_at, finished_at
-		FROM admin_background_tasks ORDER BY created_at DESC LIMIT ?`, limit); err != nil {
+		FROM admin_background_tasks ORDER BY created_at DESC LIMIT ?`), limit); err != nil {
 		return nil
 	}
 	var out []BackgroundTask
