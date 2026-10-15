@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -82,6 +84,13 @@ func (h *tokenRoutesHandler) addChannel(w http.ResponseWriter, r *http.Request) 
 		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
+	if reason, err := h.validateChannelToken(body.AccountID, body.TokenID); err != nil {
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load channel credential")
+		return
+	} else if reason != "" {
+		writeErrorWithRequest(w, r, http.StatusBadRequest, reason)
+		return
+	}
 
 	priority := int64(0)
 	weight := int64(10)
@@ -94,12 +103,15 @@ func (h *tokenRoutesHandler) addChannel(w http.ResponseWriter, r *http.Request) 
 
 	// Check for duplicates
 	var dupCount int
-	h.db.Get(&dupCount,
+	if err := h.db.Get(&dupCount,
 		h.db.Rebind(`SELECT COUNT(*) FROM route_channels
 		 WHERE route_id = ? AND account_id = ?
-		 AND (token_id = ? OR (token_id IS NULL AND ? IS NULL))
-		 AND (source_model = ? OR (source_model IS NULL AND ? IS NULL))`),
-		routeID, body.AccountID, body.TokenID, body.TokenID, body.SourceModel, body.SourceModel)
+		 AND (token_id = ? OR (token_id IS NULL AND CAST(? AS BIGINT) IS NULL))
+		 AND (source_model = ? OR (source_model IS NULL AND CAST(? AS TEXT) IS NULL))`),
+		routeID, body.AccountID, body.TokenID, body.TokenID, body.SourceModel, body.SourceModel); err != nil {
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to check existing channel")
+		return
+	}
 	if dupCount > 0 {
 		writeErrorWithRequest(w, r, http.StatusBadRequest, "a channel for this source model already exists")
 		return
@@ -152,13 +164,23 @@ func (h *tokenRoutesHandler) batchAddChannels(w http.ResponseWriter, r *http.Req
 	var errors []string
 
 	for _, ch := range body.Channels {
+		if reason, err := h.validateChannelToken(ch.AccountID, ch.TokenID); err != nil {
+			errors = append(errors, "failed to load channel credential")
+			continue
+		} else if reason != "" {
+			errors = append(errors, reason)
+			continue
+		}
 		var dupCount int
-		h.db.Get(&dupCount,
+		if err := h.db.Get(&dupCount,
 			h.db.Rebind(`SELECT COUNT(*) FROM route_channels
 			 WHERE route_id = ? AND account_id = ?
-			 AND (token_id = ? OR (token_id IS NULL AND ? IS NULL))
-			 AND (source_model = ? OR (source_model IS NULL AND ? IS NULL))`),
-			routeID, ch.AccountID, ch.TokenID, ch.TokenID, ch.SourceModel, ch.SourceModel)
+			 AND (token_id = ? OR (token_id IS NULL AND CAST(? AS BIGINT) IS NULL))
+			 AND (source_model = ? OR (source_model IS NULL AND CAST(? AS TEXT) IS NULL))`),
+			routeID, ch.AccountID, ch.TokenID, ch.TokenID, ch.SourceModel, ch.SourceModel); err != nil {
+			errors = append(errors, "failed to check existing channel")
+			continue
+		}
 		if dupCount > 0 {
 			skipped++
 			continue
@@ -183,6 +205,30 @@ func (h *tokenRoutesHandler) batchAddChannels(w http.ResponseWriter, r *http.Req
 		"skipped": skipped,
 		"errors":  errors,
 	})
+}
+
+// Account and token are independently valid foreign keys, but a credential
+// from another account must never become a channel's relay identity. Status
+// remains operator-owned: disabled credentials can still be configured.
+func (h *tokenRoutesHandler) validateChannelToken(accountID int64, tokenID *int64) (string, error) {
+	if tokenID == nil {
+		return "", nil
+	}
+	if *tokenID <= 0 {
+		return "tokenId must be a positive integer", nil
+	}
+	var ownerID int64
+	err := h.db.Get(&ownerID, h.db.Rebind("SELECT account_id FROM account_tokens WHERE id = ?"), *tokenID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "account token not found", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if ownerID != accountID {
+		return "account token does not belong to this account", nil
+	}
+	return "", nil
 }
 
 // ---- Clear Cooldown ----

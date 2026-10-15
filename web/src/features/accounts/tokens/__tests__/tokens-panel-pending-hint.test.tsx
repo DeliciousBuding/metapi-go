@@ -6,12 +6,13 @@
 // does not carry the warning.
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import i18n from 'i18next'
 import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
@@ -24,6 +25,8 @@ import type { AccountToken } from '../../types'
 import { TokensPanel } from '../components/tokens-panel'
 
 const mockState = vi.hoisted(() => ({
+  error: null as Error | null,
+  refetch: vi.fn(),
   tokens: [] as AccountToken[],
 }))
 
@@ -51,7 +54,13 @@ vi.mock('../api', () => ({
     list: (accountId?: number) =>
       ['account-tokens', 'list', accountId ?? 'all'] as const,
   },
-  useAccountTokens: () => ({ data: mockState.tokens, isLoading: false }),
+  useAccountTokens: () => ({
+    data: mockState.tokens,
+    isLoading: false,
+    error: mockState.error,
+    refetch: mockState.refetch,
+    isFetching: false,
+  }),
   useCreateAccountToken: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateAccountToken: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSetDefaultAccountToken: () => ({ mutate: vi.fn(), isPending: false }),
@@ -93,11 +102,68 @@ beforeAll(() => {
 })
 
 afterEach(() => cleanup())
+beforeEach(async () => {
+  await i18n.changeLanguage('en')
+  mockState.error = null
+  mockState.tokens = []
+  mockState.refetch.mockReset()
+})
 afterAll(() => vi.restoreAllMocks())
 
 const hint = () => String(i18n.t('accounts.tokens.pendingCompleteHint'))
 
 describe('TokensPanel masked-pending guidance', () => {
+  it('hands off an existing key by ID without revealing it', () => {
+    mockState.tokens = [makeToken()]
+    const configure = vi.fn()
+    render(<TokensPanel accountId={1} onConfigureRoutes={configure} />)
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use this key in routes' })
+    )
+    expect(configure).toHaveBeenCalledExactlyOnceWith(9)
+  })
+
+  it.each([{ valueStatus: 'masked_pending' as const }, { enabled: false }])(
+    'does not offer an unusable key (%j)',
+    (overrides) => {
+      mockState.tokens = [makeToken(overrides)]
+      const configure = vi.fn()
+      render(<TokensPanel accountId={1} onConfigureRoutes={configure} />)
+      const button = screen.getByRole('button', {
+        name: 'Use this key in routes',
+      })
+      expect(button).toBeDisabled()
+      fireEvent.click(button)
+      expect(configure).not.toHaveBeenCalled()
+    }
+  )
+
+  it('shows an actionable load failure instead of an empty inventory', () => {
+    mockState.error = new Error('private server diagnostic')
+    render(<TokensPanel accountId={1} />)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Could not load API keys'
+    )
+    expect(
+      screen.queryByText('private server diagnostic')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(String(i18n.t('accounts.tokens.empty')))
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(mockState.refetch).toHaveBeenCalledOnce()
+  })
+
+  it('does not offer a stale key after a failed refresh', () => {
+    mockState.tokens = [makeToken()]
+    mockState.error = new Error('refresh failed')
+    render(<TokensPanel accountId={1} onConfigureRoutes={vi.fn()} />)
+    expect(screen.getByText('relay key')).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: 'Use this key in routes' })
+    ).not.toBeInTheDocument()
+  })
+
   it('tells the operator which action completes an unusable token', () => {
     mockState.tokens = [makeToken({ valueStatus: 'masked_pending' })]
 

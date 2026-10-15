@@ -69,7 +69,7 @@ interface RouteFormDialogProps {
   route?: RouteSummaryRow | null
   availableRoutes: RouteSummaryRow[]
   accountOptions: RouteAccountOption[]
-  chainContext?: { accountId?: number; siteId?: number }
+  chainContext?: { accountId?: number; tokenId?: number; siteId?: number }
 }
 
 export function RouteFormDialog({
@@ -129,7 +129,10 @@ export function RouteFormDialog({
     } else {
       form.reset({
         ...baseDefaults,
-        channelDrafts: buildChannelDraftSeed(chainContext?.accountId),
+        channelDrafts: buildChannelDraftSeed(
+          chainContext?.accountId,
+          chainContext?.tokenId
+        ),
       })
     }
   }, [open, isEdit, route, initializedFor, chainContext, form])
@@ -141,9 +144,9 @@ export function RouteFormDialog({
 
   const onSubmit = async (values: RouteFormValues) => {
     const payload = transformFormToPayload(values)
-    const drafts = (values.channelDrafts ?? []).filter(
-      (draft) => draft.accountId > 0
-    )
+    const drafts = (
+      values.routeMode === 'pattern' ? (values.channelDrafts ?? []) : []
+    ).filter((draft) => draft.accountId > 0)
     try {
       let routeId: number | undefined
       let channelBatchHadErrors = false
@@ -264,6 +267,7 @@ export function RouteFormDialog({
                 patternError={patternError}
                 accountOptions={accountOptions}
                 isEdit={isEdit}
+                chainContext={isEdit ? undefined : chainContext}
               />
             ) : (
               <GroupModeFields form={form} availableRoutes={availableRoutes} />
@@ -323,11 +327,13 @@ function PatternModeFields({
   patternError,
   accountOptions,
   isEdit,
+  chainContext,
 }: {
   form: ReturnType<typeof useForm<RouteFormValues>>
   patternError: string | null
   accountOptions: RouteAccountOption[]
   isEdit: boolean
+  chainContext?: { accountId?: number; tokenId?: number }
 }) {
   const { t } = useTranslation()
   const bulkLabelId = useId()
@@ -385,7 +391,17 @@ function PatternModeFields({
             accountIds.length > 0 && selectedCount === accountIds.length
           const someSelected = selectedCount > 0 && !allSelected
           const toggleAccounts = (ids: number[], checked: boolean) => {
-            field.onChange(setChannelDraftSelection(selected, ids, checked))
+            const next = setChannelDraftSelection(selected, ids, checked)
+            // Re-selecting the originating account still means the chosen key,
+            // not an implicit fallback to that account's default credential.
+            field.onChange(
+              next.map((draft) =>
+                draft.accountId === chainContext?.accountId &&
+                chainContext.tokenId
+                  ? { ...draft, tokenId: chainContext.tokenId }
+                  : draft
+              )
+            )
           }
           let selectKey = allSelected
             ? 'tokenRoutes.formPattern.channelsDeselectAll'
@@ -471,6 +487,21 @@ function PatternModeFields({
                         <span className='truncate text-sm'>
                           {account.label}
                         </span>
+                        {selected
+                          .filter(
+                            (draft) =>
+                              draft.accountId === account.id && draft.tokenId
+                          )
+                          .map((draft) => (
+                            <span
+                              key={draft.tokenId}
+                              className='text-muted-foreground ml-auto shrink-0 text-xs'
+                            >
+                              {t('tokenRoutes.formPattern.selectedKey', {
+                                id: draft.tokenId,
+                              })}
+                            </span>
+                          ))}
                       </label>
                     ))}
                   </div>

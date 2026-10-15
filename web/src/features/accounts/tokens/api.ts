@@ -39,7 +39,7 @@ function normalizeTokenList(raw: unknown): AccountToken[] {
   if (Array.isArray(list)) {
     return list.map((item) => accountTokenSchema.parse(item))
   }
-  return []
+  throw new Error(i18n.t('accounts.tokens.loadError'))
 }
 
 // ---------------------------------------------------------------------------

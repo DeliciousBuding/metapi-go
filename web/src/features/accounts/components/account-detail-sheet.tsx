@@ -60,6 +60,7 @@ export function AccountDetailSheet({
   // the sheet close and the "configure routes" CTA confirm before discarding.
   const [tokensFormDirty, setTokensFormDirty] = useState(false)
   const [confirmNavigateOpen, setConfirmNavigateOpen] = useState(false)
+  const [routeTokenId, setRouteTokenId] = useState<number | undefined>()
 
   const { handleOpenChange: guardedOpenChange, guard: dirtyCloseGuard } =
     useDirtyDialogClose({
@@ -76,24 +77,26 @@ export function AccountDetailSheet({
     )
   }
 
-  function navigateToTokenRoutes() {
+  function navigateToTokenRoutes(tokenId?: number) {
     if (!account) return
     void navigate({
       to: '/token-routes',
       search: {
         accountId: account.id,
+        ...(tokenId ? { tokenId } : {}),
         ...(account.siteId ? { siteId: account.siteId } : {}),
       },
     })
     onOpenChange(false)
   }
 
-  const handleConfigureRoutes = () => {
+  const handleConfigureRoutes = (tokenId?: number) => {
+    setRouteTokenId(tokenId)
     if (tokensFormDirty) {
       setConfirmNavigateOpen(true)
       return
     }
-    navigateToTokenRoutes()
+    navigateToTokenRoutes(tokenId)
   }
 
   const handleRefresh = async () => {
@@ -271,12 +274,13 @@ export function AccountDetailSheet({
           {/* Embedded tokens sub-module */}
           <TokensPanel
             accountId={account.id}
+            onConfigureRoutes={handleConfigureRoutes}
             onFormDirtyChange={setTokensFormDirty}
           />
         </div>
 
         <SheetFooter>
-          <Button onClick={handleConfigureRoutes} variant='default'>
+          <Button onClick={() => handleConfigureRoutes()} variant='default'>
             <ExternalLink />
             {t('accounts.detail.configureRoutes')}
           </Button>
@@ -294,7 +298,7 @@ export function AccountDetailSheet({
           onConfirm={() => {
             setConfirmNavigateOpen(false)
             setTokensFormDirty(false)
-            navigateToTokenRoutes()
+            navigateToTokenRoutes(routeTokenId)
           }}
           onCancel={() => setConfirmNavigateOpen(false)}
         />

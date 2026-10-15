@@ -69,6 +69,7 @@ const DEFAULT_PAGE_SIZE = 20
 type TokenRoutesUrlFilters = {
   enabled: string
   accountId: string
+  tokenId: string
   siteId: string
   routeId: string
   workspaceModel: string
@@ -101,6 +102,7 @@ function readTokenRoutesSearch(
       enabled: asStringParam(search?.enabled) ?? '',
       accountId:
         search?.accountId === undefined ? '' : String(search.accountId),
+      tokenId: search?.tokenId === undefined ? '' : String(search.tokenId),
       siteId: search?.siteId === undefined ? '' : String(search.siteId),
       routeId: search?.routeId === undefined ? '' : String(search.routeId),
       workspaceModel: asStringParam(search?.workspaceModel) ?? '',
@@ -136,6 +138,7 @@ function buildTokenRoutesHref(
     params.set('accountId', merged.filters.accountId)
   }
   if (merged.filters.siteId) params.set('siteId', merged.filters.siteId)
+  if (merged.filters.tokenId) params.set('tokenId', merged.filters.tokenId)
   if (merged.filters.workspaceModel) {
     params.set('workspaceModel', merged.filters.workspaceModel)
   }
@@ -260,6 +263,7 @@ export function RoutesPage() {
   // Chain context (account/site deep-link) is read from the URL-owned filters;
   // it is preserved across every navigation but never modified by this page.
   const accountId = filters.accountId ? Number(filters.accountId) : undefined
+  const tokenId = filters.tokenId ? Number(filters.tokenId) : undefined
   const siteId = filters.siteId ? Number(filters.siteId) : undefined
 
   const { showZeroChannel, setShowZeroChannel } = useShowZeroChannelPreference()
@@ -464,9 +468,10 @@ export function RoutesPage() {
   const chainContext = useMemo(
     () => ({
       accountId,
+      tokenId,
       siteId,
     }),
-    [accountId, siteId]
+    [accountId, tokenId, siteId]
   )
 
   // The loader already prefetches both the accounts snapshot and the sites
@@ -475,8 +480,9 @@ export function RoutesPage() {
   const { data: accountsSnapshot } = useAccounts()
   const { data: sitesList } = useSites()
   const accountOptions = useMemo(
-    () => buildAccountOptions(accountsSnapshot),
-    [accountsSnapshot]
+    () =>
+      buildAccountOptions(accountsSnapshot, tokenId ? accountId : undefined),
+    [accountsSnapshot, accountId, tokenId]
   )
   const chainAccountName = useMemo(() => {
     if (!accountId) return undefined
@@ -542,6 +548,11 @@ export function RoutesPage() {
           {chainSiteName
             ? ` / ${t('tokenRoutes.page.chainContextSite', { name: chainSiteName })} `
             : ' '}
+          {accountId && tokenId && (
+            <span className='mr-2'>
+              · {t('tokenRoutes.formPattern.selectedKey', { id: tokenId })}
+            </span>
+          )}
           {t('tokenRoutes.page.chainContextSuffix')}
         </div>
       )}
@@ -738,7 +749,8 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
 type ManualRouteAccount = Account & { oauthProvider?: string | null }
 
 function buildAccountOptions(
-  snapshot: AccountsSnapshot | undefined
+  snapshot: AccountsSnapshot | undefined,
+  keyAccountId?: number
 ): RouteAccountOption[] {
   const siteMap = new Map(
     (snapshot?.sites ?? []).map((site) => [site.id, site])
@@ -753,7 +765,9 @@ function buildAccountOptions(
       const relayCredential = account.oauthProvider
         ? account.accessTokenMasked
         : account.apiTokenMasked
-      if (!relayCredential?.trim()) return []
+      // An explicit existing key does not need the account's default relay
+      // credential. The write boundary checks that the key belongs to it.
+      if (!relayCredential?.trim() && account.id !== keyAccountId) return []
 
       const username = account.username?.trim() || `account-${account.id}`
       const siteName = site?.name?.trim() || ''

@@ -136,6 +136,52 @@ function renderDialog(
 }
 
 describe('RouteFormDialog channel drafts', () => {
+  it('keeps the exact key through deselection, reselection and bulk selection', async () => {
+    renderDialog({
+      accountOptions: [
+        { id: 7, label: 'account-seven' },
+        { id: 8, label: 'account-eight' },
+      ],
+      chainContext: { accountId: 7, tokenId: 91, siteId: 3 },
+    })
+    const account = await screen.findByRole('checkbox', {
+      name: /account-seven/,
+    })
+    expect(account).toBeChecked()
+    expect(screen.getByText('API Key #91')).toBeVisible()
+    fireEvent.click(account)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'account-seven' }))
+    expect(screen.getByText('API Key #91')).toBeVisible()
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Select all accounts' })
+    )
+    fireEvent.change(screen.getByLabelText('Model match rule'), {
+      target: { value: 'gpt-5.5' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add route' }))
+    await waitFor(() =>
+      expect(mockBatchMutate).toHaveBeenCalledWith({
+        routeId: 1,
+        channels: [{ accountId: 7, tokenId: 91 }, { accountId: 8 }],
+      })
+    )
+  })
+
+  it('does not silently bind a source key when editing an existing route', async () => {
+    renderDialog({
+      mode: 'edit',
+      route: editableRoute,
+      accountOptions: [{ id: 7, label: 'account-seven' }],
+      chainContext: { accountId: 7, tokenId: 91 },
+    })
+    expect(
+      await screen.findByRole('checkbox', { name: 'account-seven' })
+    ).not.toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(mockUpdateMutate).toHaveBeenCalled())
+    expect(mockBatchMutate).not.toHaveBeenCalled()
+  })
+
   it('explains account eligibility without requiring model discovery', async () => {
     renderDialog()
 

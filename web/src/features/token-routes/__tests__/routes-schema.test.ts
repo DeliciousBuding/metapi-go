@@ -19,6 +19,7 @@ describe('routesSearchSchema', () => {
       q: 'gpt',
       enabled: 'enabled,disabled',
       accountId: '7',
+      tokenId: '91',
       siteId: '3',
       page: '2',
       pageSize: '50',
@@ -27,6 +28,7 @@ describe('routesSearchSchema', () => {
       q: 'gpt',
       enabled: 'enabled,disabled',
       accountId: 7,
+      tokenId: 91,
       siteId: 3,
       page: 2,
       pageSize: 50,
@@ -90,6 +92,20 @@ describe('routesSearchSchema', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildChannelDraftSeed', () => {
+  it('references a concrete key without copying credentials', () => {
+    expect(buildChannelDraftSeed(7, 91)).toEqual([
+      { accountId: 7, tokenId: 91 },
+    ])
+  })
+
+  it.each([0, -1, 1.5, NaN])('rejects an invalid explicit key (%s)', (id) => {
+    expect(buildChannelDraftSeed(7, id)).toEqual([])
+  })
+
+  it('does not seed a key without its account', () => {
+    expect(buildChannelDraftSeed(undefined, 91)).toEqual([])
+  })
+
   it('seeds a single draft for a positive integer accountId', () => {
     expect(buildChannelDraftSeed(7)).toEqual([{ accountId: 7 }])
   })

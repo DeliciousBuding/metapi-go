@@ -197,18 +197,19 @@ export function transformRouteToFormValues(
 // ---------------------------------------------------------------------------
 
 /**
- * Seed one `channelDrafts` entry from the guided-chain account deep link.
- * Returns a single-element draft when the account id is a positive integer
- * (the same validity contract as the channelDrafts schema), otherwise an
- * empty array — so direct route entry and edit flows keep their normal
- * defaults and never gain a phantom pre-selected channel.
+ * Reference an account or a specific existing key from the guided deep link.
+ * Credential values never enter the URL or draft.
  */
 export function buildChannelDraftSeed(
-  accountId: number | undefined
-): Array<{ accountId: number }> {
-  return accountId && Number.isInteger(accountId) && accountId > 0
-    ? [{ accountId }]
-    : []
+  accountId: number | undefined,
+  tokenId?: number
+): NonNullable<RouteFormValues['channelDrafts']> {
+  if (!accountId || !Number.isInteger(accountId) || accountId <= 0) return []
+  if (tokenId !== undefined) {
+    if (!Number.isInteger(tokenId) || tokenId <= 0) return []
+    return [{ accountId, tokenId }]
+  }
+  return [{ accountId }]
 }
 
 /**
@@ -249,6 +250,7 @@ export const routesSearchSchema = z.object({
   // splits it — a single enum would reject the page's own writes.
   enabled: stringSearchParam,
   accountId: z.coerce.number().int().positive().optional().catch(undefined),
+  tokenId: z.coerce.number().int().positive().optional().catch(undefined),
   siteId: z.coerce.number().int().positive().optional().catch(undefined),
   // One-shot drilldown from the proxy-log detail sheet: open the detail
   // sheet for this route, then the page strips the param.

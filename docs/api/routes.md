@@ -462,11 +462,18 @@ Clear cooldown state for all channels on a route: resets `cooldown_until`, `cons
 
 ### POST /api/routes/:id/channels/batch
 
-Batch add/update channels on a route.
+Batch add channels on a route. Body: `{ "channels": [{ "accountId": 1, "tokenId": 2, "sourceModel": "model-a" }] }`.
+An explicit `tokenId` must exist and belong to `accountId`; omission keeps the account-level credential behavior.
+The response `{ success, created, skipped, errors }` reports each invalid binding in `errors` while retaining valid writes.
+Exact duplicates are skipped. This endpoint does not update existing channel properties.
 
 ### POST /api/routes/:id/channels
 
-Add a single channel to a route.
+Add a single channel to a route. Body: `{ "accountId": 1, "tokenId": 2, "sourceModel": "model-a", "priority": 0, "weight": 10 }`.
+Only `accountId` is required. An explicit `tokenId` must be positive, exist and belong to that account;
+invalid references return `400`, and credential lookup failures return `500` / `resourceLoadFailed`.
+The channel stores the key ID, not a copy of its value. Disabled keys can remain configured;
+runtime routing still applies current account, site and key eligibility.
 
 ### PUT /api/channels/batch
 
