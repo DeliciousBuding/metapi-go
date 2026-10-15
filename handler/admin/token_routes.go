@@ -507,14 +507,14 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	created := queryRow(h.db, "SELECT * FROM token_routes WHERE id = ?", id)
-	if created == nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to create route")
+	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
+	created, err := queryRow(h.db, "SELECT * FROM token_routes WHERE id = ?", id)
+	if err != nil || created == nil {
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "route created but failed to load result")
 		return
 	}
 	created["sourceRouteIds"] = body.SourceRouteIds
-	routing.InvalidateCache()
-	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, created)
 }
 
@@ -526,7 +526,11 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	existing := queryRow(h.db, "SELECT * FROM token_routes WHERE id = ?", id)
+	existing, err := queryRow(h.db, "SELECT * FROM token_routes WHERE id = ?", id)
+	if err != nil {
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load route")
+		return
+	}
 	if existing == nil {
 		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeRouteNotFound, "route not found")
 		return
@@ -685,12 +689,19 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	updated := queryRow(h.db, "SELECT * FROM token_routes WHERE id = ?", id)
-	var srcIDs []int64
-	h.db.Select(&srcIDs, h.db.Rebind("SELECT source_route_id FROM route_group_sources WHERE group_route_id = ?"), id)
-	updated["sourceRouteIds"] = srcIDs
 	routing.InvalidateCache()
 	invalidateChannelsSnapshotCache()
+	updated, err := queryRow(h.db, "SELECT * FROM token_routes WHERE id = ?", id)
+	if err != nil || updated == nil {
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "route updated but failed to load result")
+		return
+	}
+	var srcIDs []int64
+	if err := h.db.Select(&srcIDs, h.db.Rebind("SELECT source_route_id FROM route_group_sources WHERE group_route_id = ?"), id); err != nil {
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "route updated but failed to load sources")
+		return
+	}
+	updated["sourceRouteIds"] = srcIDs
 	writeJSON(w, http.StatusOK, updated)
 }
 

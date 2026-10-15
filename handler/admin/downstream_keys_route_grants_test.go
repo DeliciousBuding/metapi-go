@@ -85,7 +85,10 @@ func seedRouteGrantKey(t *testing.T, r chi.Router, name string, allowedRouteIDs 
 
 func storedRouteGrants(t *testing.T, db *store.DB, keyID int64) []int64 {
 	t.Helper()
-	row := queryRow(db.DB, "SELECT * FROM downstream_api_keys WHERE id = ?", keyID)
+	row, err := queryRow(db.DB, "SELECT * FROM downstream_api_keys WHERE id = ?", keyID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if row == nil {
 		t.Fatalf("downstream key %d is gone", keyID)
 	}

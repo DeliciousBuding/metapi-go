@@ -13,7 +13,11 @@ func (h *downstreamKeysHandler) exportKey(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	row := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	row, err := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	if err != nil {
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load API key")
+		return
+	}
 	if row == nil {
 		writeError(w, http.StatusNotFound, "API key not found")
 		return

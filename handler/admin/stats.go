@@ -949,7 +949,7 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	row := queryRow(h.db,
+	row, err := queryRow(h.db,
 		`SELECT pl.*, a.username, s.id as site_id, s.name as site_name, s.url as site_url,
 		 dk.id AS downstream_key_id, dk.name AS downstream_key_name
 		 FROM proxy_logs pl
@@ -957,6 +957,10 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 		 LEFT JOIN sites s ON a.site_id = s.id
 		 LEFT JOIN downstream_api_keys dk ON pl.downstream_api_key_id = dk.id
 		 WHERE pl.id = ?`, id)
+	if err != nil {
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load proxy log")
+		return
+	}
 	if row == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "proxy log not found"})
 		return
