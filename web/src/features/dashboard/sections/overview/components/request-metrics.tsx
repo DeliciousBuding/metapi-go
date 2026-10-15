@@ -116,6 +116,9 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
           )
         })}
       </div>
+      <p className='text-muted-foreground text-xs'>
+        {t('dashboard.operations.requestOutcomeBasis')}
+      </p>
     </section>
   )
 }

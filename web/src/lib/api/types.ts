@@ -536,8 +536,8 @@ export type ProxyLogAttempt = {
  * is the retry-loop position. partial marks a known-incomplete persisted set:
  * requestIdMissing (legacy row, siblings unverifiable — no list returned) or
  * ordinalGap (a loop iteration left no row, e.g. concurrency-skip). The
- * terminal outcome is the highest-ordinal row; an all-failed request has no
- * extra terminal row beyond the last attempt.
+ * lastAttempt is the highest-ordinal recorded row, not the gateway response
+ * or proof of client receipt. It is null when correlation/query is unavailable.
  */
 export type ProxyLogRequestAttempts = {
   requestId: string | null
@@ -545,6 +545,12 @@ export type ProxyLogRequestAttempts = {
   partial: boolean
   partialReasons: string[]
   attempts: ProxyLogAttempt[]
+  lastAttempt?: {
+    status: string
+    httpStatus: number | null
+    logId: number
+  } | null
+  /** @deprecated Legacy last-row projection, not a request outcome. */
   terminal: { status: string; httpStatus: number | null; logId: number } | null
 }
 

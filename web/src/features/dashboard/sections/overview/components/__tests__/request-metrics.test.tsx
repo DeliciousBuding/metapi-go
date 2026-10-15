@@ -65,14 +65,19 @@ describe('operator request metrics', () => {
     expect(await screen.findByText('90.0%')).toBeInTheDocument()
     expect(api.getOverviewReport).toHaveBeenCalledWith('7d')
     const params = reportFixture().window
-    const link = screen.getByRole('link', { name: /Request success rate/ })
+    expect(
+      screen.getByText(/Based on each request's last recorded attempt/)
+    ).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: /Last-attempt success rate/ })
     const href = link.getAttribute('href')
     if (!href) throw new Error('Missing drill-down link')
     const target = new URL(href, 'http://localhost')
     expect(target.searchParams.get('status')).toBe('failed')
     expect(target.searchParams.get('from')).toBe(params.from)
     expect(target.searchParams.get('to')).toBe(params.to)
-    expect(screen.getByText('1 failed · open failure logs')).toBeInTheDocument()
+    expect(
+      screen.getByText('1 failed last attempts · inspect attempt logs')
+    ).toBeInTheDocument()
     expect(screen.getByText('15')).toBeInTheDocument()
   })
 
@@ -105,7 +110,7 @@ describe('operator request metrics', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText('100.0%')).not.toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: /Request success rate/ })
+      screen.getByRole('link', { name: /Last-attempt success rate/ })
     ).toHaveTextContent('—')
   })
 

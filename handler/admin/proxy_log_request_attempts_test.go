@@ -12,8 +12,8 @@ import (
 // Request-attempt contract (route-decision D batch): every dispatch attempt
 // persists its own proxy_logs row correlated by request_id with retry_count
 // as the loop ordinal. The detail endpoint answers the request-level question
-// — how many attempts, which channels, why each failed, what the client
-// finally got — and honestly marks the persisted set partial when incomplete.
+// — recorded attempts, channels and failures — not what the client finally
+// received. Known gaps in persisted attempts are marked partial.
 
 type requestAttemptsFixture struct {
 	siteID    int64
@@ -112,6 +112,10 @@ func TestProxyLogRequestAttempts_TwoFailuresOneSuccess(t *testing.T) {
 					attempts[0].(map[string]any)["accountUsername"] != "attempts-user" {
 					t.Fatalf("attempt identity missing: %#v", attempts[0])
 				}
+				lastAttempt, ok := ra["lastAttempt"].(map[string]any)
+				if !ok || lastAttempt["status"] != "success" || lastAttempt["logId"] != float64(third) {
+					t.Fatalf("lastAttempt: got %#v, want successful recorded attempt %d", ra["lastAttempt"], third)
+				}
 				terminal := ra["terminal"].(map[string]any)
 				if terminal["status"] != "success" || terminal["logId"] != float64(third) {
 					t.Fatalf("terminal: got %#v, want success on row %d", terminal, third)
@@ -171,7 +175,7 @@ func TestProxyLogRequestAttempts_MissingRequestID(t *testing.T) {
 			}
 			fixture := seedRequestAttemptsSite(t, db)
 			// Legacy row without request correlation: the sibling set cannot be
-			// verified, so no attempts list — the row itself is the terminal.
+			// verified, so no attempts list; only the legacy projection keeps this row.
 			row := insertAttemptRow(t, db, nil, 0, "success", 200, fixture.accountID, "")
 
 			ra := getRequestAttempts(t, mux, row)

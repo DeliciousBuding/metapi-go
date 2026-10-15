@@ -39,6 +39,8 @@ export function RequestTrend({ period = '7d' }: { period?: OverviewPeriod }) {
           {t('dashboard.operations.trendWindow', {
             period: t(`dashboard.operations.period.${period}`),
           })}
+          {' · '}
+          {t('dashboard.operations.requestOutcomeBasis')}
         </CardDescription>
         <CardAction>
           <Link

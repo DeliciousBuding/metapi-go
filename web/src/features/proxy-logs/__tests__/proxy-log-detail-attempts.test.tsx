@@ -1,6 +1,5 @@
 // Behavior tests for the request-attempt view in the proxy-log detail sheet
-// (route-decision D batch): sibling attempts correlated by requestId, terminal
-// outcome from the highest-ordinal row, and honest partial markers.
+// correlated by requestId, last recorded attempt, and honest partial markers.
 
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -92,6 +91,7 @@ function makeAttempts(
     partial: false,
     partialReasons: [],
     attempts: [],
+    lastAttempt: { status: 'success', httpStatus: 200, logId: 13 },
     terminal: { status: 'success', httpStatus: 200, logId: 13 },
     ...over,
   }
@@ -103,7 +103,7 @@ afterEach(() => {
 })
 
 describe('ProxyLogDetailSheet request attempts', () => {
-  it('lists sibling attempts in ordinal order with terminal outcome and current marker', async () => {
+  it('lists recorded attempts without calling their status a gateway outcome', async () => {
     const attempts = [
       makeAttempt({
         id: 11,
@@ -137,12 +137,19 @@ describe('ProxyLogDetailSheet request attempts', () => {
     render(<ProxyLogDetailSheet log={makeLog()} open onOpenChange={() => {}} />)
 
     expect(await screen.findByText('Request attempts')).toBeInTheDocument()
-    expect(screen.getByText('This request made 3 attempts')).toBeInTheDocument()
+    expect(screen.getByText('3 recorded attempts')).toBeInTheDocument()
     expect(screen.getByText('#1')).toBeInTheDocument()
     expect(screen.getByText('#3')).toBeInTheDocument()
     expect(screen.getByText('Current')).toBeInTheDocument()
     expect(screen.getByText('site-b')).toBeInTheDocument()
     expect(screen.getByText('rate limited')).toBeInTheDocument()
+    expect(screen.getByText('Last recorded attempt')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Gateway response outcome is not recorded; attempt status does not prove client receipt.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Final outcome')).not.toBeInTheDocument()
     expect(screen.queryByText('Incomplete record')).not.toBeInTheDocument()
   })
 
@@ -201,6 +208,7 @@ describe('ProxyLogDetailSheet request attempts', () => {
         partial: true,
         partialReasons: ['ordinalGap'],
         terminal: { status: 'failed', httpStatus: 502, logId: 13 },
+        lastAttempt: { status: 'failed', httpStatus: 502, logId: 13 },
       }),
     } as ProxyLogDetail
 
@@ -217,6 +225,7 @@ describe('ProxyLogDetailSheet request attempts', () => {
       ...makeLog(),
       requestAttempts: makeAttempts({
         requestId: null,
+        lastAttempt: null,
         attempts: [],
         partial: true,
         partialReasons: ['requestIdMissing'],
@@ -230,5 +239,20 @@ describe('ProxyLogDetailSheet request attempts', () => {
       screen.getByText('Sibling attempts cannot be correlated')
     ).toBeInTheDocument()
     expect(screen.queryByText('#1')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Last recorded attempt is unknown')
+    ).toBeInTheDocument()
+  })
+
+  it('does not infer the last attempt from the legacy terminal field', async () => {
+    testState.detail = {
+      ...makeLog(),
+      requestAttempts: makeAttempts({ lastAttempt: undefined }),
+    } as ProxyLogDetail
+    render(<ProxyLogDetailSheet log={makeLog()} open onOpenChange={() => {}} />)
+    expect(
+      await screen.findByText('Last recorded attempt is unknown')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Last recorded attempt')).not.toBeInTheDocument()
   })
 })

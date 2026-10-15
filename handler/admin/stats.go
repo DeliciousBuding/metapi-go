@@ -979,7 +979,7 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 //
 // The answer is read-only over already-persisted rows: sibling attempts
 // ordered by ordinal with minimal decision metadata (channel/site identity,
-// status, error, latency), the terminal outcome (highest-ordinal row), and an
+// status, error, latency), the last recorded attempt, and an
 // honest partial marker when the persisted set is known incomplete:
 //
 //   - requestIdMissing: the row predates request_id correlation, so siblings
@@ -989,9 +989,9 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 //     skipped on site-concurrency saturation without dispatching). The gap is
 //     reported, never back-filled with invented attempts.
 //
-// The terminal client outcome is the status of the highest-ordinal row; the
-// all-channels-exhausted 503 path writes no extra row, so the last attempt
-// row IS the terminal observation for an all-failed request.
+// An attempt does not establish the gateway response or client receipt. The
+// legacy terminal field is retained for wire compatibility only; new consumers
+// use lastAttempt, which remains null when correlation or its query is missing.
 func (h *statsHandler) buildRequestAttempts(current map[string]any) map[string]any {
 	currentID := coerceInt64(current["id"])
 	currentOrdinal := coerceInt(current["retryCount"])
@@ -1001,6 +1001,7 @@ func (h *statsHandler) buildRequestAttempts(current map[string]any) map[string]a
 		"partial":        false,
 		"partialReasons": []string{},
 		"attempts":       []any{},
+		"lastAttempt":    nil,
 		"terminal": map[string]any{
 			"status":     current["status"],
 			"httpStatus": current["httpStatus"],
@@ -1076,6 +1077,7 @@ func (h *statsHandler) buildRequestAttempts(current map[string]any) map[string]a
 			"httpStatus": coerceInt(last["httpStatus"]),
 			"logId":      coerceInt64(last["id"]),
 		}
+		result["lastAttempt"] = result["terminal"]
 	}
 	return result
 }
