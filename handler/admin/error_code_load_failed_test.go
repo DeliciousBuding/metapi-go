@@ -39,7 +39,6 @@ func TestErrorCodeResourceLoadFailed(t *testing.T) {
 		name   string
 		method string
 		path   string
-		status int
 	}{
 		// writeJSON legacy `{message}` shape (accounts snapshot).
 		{name: "accounts snapshot", method: http.MethodGet, path: "/api/accounts"},
@@ -70,9 +69,8 @@ func TestErrorCodeResourceLoadFailed(t *testing.T) {
 			if msg == "" {
 				msg = body.Message
 			}
-			if msg == "" && tc.name == "accounts snapshot" {
-				// The snapshot path populates a partial cache on failures in
-				// some versions; the error envelope is still authoritative.
+			if msg == "" {
+				t.Fatalf("load failure must include a display fallback (body=%s)", rec.Body.String())
 			}
 			if body.ErrorCode != "resourceLoadFailed" {
 				t.Fatalf("errorCode = %q, want %q (body=%s)", body.ErrorCode, "resourceLoadFailed", rec.Body.String())

@@ -1,41 +1,11 @@
 #!/usr/bin/env node
-// metapi-go/web — package boundary gate.
-//
-// Mechanically enforces the import rules of
-// docs/internal/web-package-boundaries.md:
-//
-// Rule numbers below are the doc's (src/lib/*.ts cites them by number, so the
-// doc is the authority and this script must not invent a second numbering):
-//   rule 1: src/lib/ never imports from features/ or routes/.
-//   rule 2: src/components/ never imports from features/ or routes/.
-//   rule 3: a feature imports another feature through its barrel
-//           (`@/features/<name>`) and never a path below it. Route files are
-//           the composition root and are exempt.
-//   rule 6: a subsystem that publishes a barrel is imported through that
-//           barrel and never through a subdirectory (see BARRELS).
-//
-// Layers are classified by the first path segment under src/. Imports may
-// point downward through the layer table; the edges above are the two hard
-// upward edges the gate closes today.
-//
-// The gate also checks one piece of prose: a symbol named in a barrel header's
-// documented example import must be in that barrel's export set (see "barrel
-// doc examples" below). That is the only part of the boundaries doc's contract
-// a comment can state and a machine can verify.
-//
-// Not enforced (documented residuals in the boundaries doc — widening the
-// gate needs its own issue): lib → components/i18n (lib/router.ts fallback
-// pages, http-client/assert-business-ok i18n), hooks/use-sidebar-* →
-// components/layout, features/__tests__ → routes (test-only).
-//
-// Run: bun run check:boundaries (chained into `bun run lint`, so pre-push
-// and CI frontend jobs both execute it).
-//
-// Exceptions: EXCEPTIONS (cross-layer edges) and FEATURE_EXCEPTIONS (feature
-// barrel edges) below — explicit registries of grandfathered imports. Every
-// entry must carry a reason AND match a real import in the tree; stale entries
-// fail the gate (no speculative whitelisting). Both are empty: an entry is a
-// debt with an owner and an issue, not a way to land a change.
+// 前端导入门禁，契约见 docs/internal/web-package-boundaries.md。
+// 检查 lib/components → features/routes 的禁止边、跨 feature 的公共入口、
+// 已登记子系统的公共入口，以及 barrel 注释示例引用的导出名。
+// 静态、动态与副作用导入均参与检查；routes 是 feature 的组合根。
+// 未覆盖的层间关系见契约文档，不把本门禁当作完整依赖图检查。
+// 例外必须匹配真实导入，公共入口与示例必须有实际检查面，避免空扫通过。
+// 运行 bun run check:boundaries；bun run lint、pre-push 与 CI 均调用此入口。
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -57,13 +27,7 @@ const FORBIDDEN = {
 }
 
 // --- barrel rules --------------------------------------------------------------
-// A subsystem that publishes a barrel owns its internals: everything outside
-// the package imports the barrel and nothing deeper. That is the only thing
-// which makes the inside refactorable — data-table/index.ts states the deal
-// explicitly ("anything not exported here is free to be reorganised"), and it
-// holds only while no outside file reaches into core/, layout/, toolbar/ or
-// hooks/. It has been broken once already: features/proxy-logs deep-imported
-// DataTableRow from core/data-table-row.
+// 包外只消费公共入口；包内仍可直接导入自己的实现文件。
 const BARRELS = [
   {
     package: 'components/data-table',
@@ -164,9 +128,7 @@ function checkEdge(fileAbsRel, lineNumber, specifier, fileDirRel) {
 }
 
 /**
- * Rule 3: outside a barrel's own package, only the barrel itself may be
- * imported. Applies to every layer, unlike FORBIDDEN, which is keyed on the
- * importing file's layer.
+ * 包外不得深入已登记子系统；此检查适用于所有导入方层级。
  */
 function checkBarrelEdge(fileAbsRel, lineNumber, specifier, fileDirRel) {
   const resolved = resolveSpecifier(specifier, fileDirRel)
@@ -194,7 +156,7 @@ function checkBarrelEdge(fileAbsRel, lineNumber, specifier, fileDirRel) {
 }
 
 /**
- * Rule 4: outside its own feature, only the barrel may be imported.
+ * feature 之间只消费公共入口；同一 feature 内部不受此限制。
  */
 function checkFeatureEdge(fileAbsRel, lineNumber, specifier, fileDirRel) {
   if (!fileAbsRel.startsWith(FEATURES) || fileAbsRel.startsWith(ROUTES)) return
@@ -256,14 +218,7 @@ for (const file of files) {
 }
 
 // --- barrel doc examples ---------------------------------------------------------
-// A barrel header that documents `import { X } from '@/features/<name>'` makes
-// a claim about that barrel's own export set, and nothing type-checks a
-// comment. token-routes' example named `RoutesPage` and `RouteSummaryRow`,
-// neither of which the barrel exports (the page is loaded by its route file,
-// the type lives in lib/helpers/token-route-contract.ts) — so the one line
-// whose job is to show the sanctioned way in taught a contributor to write
-// code that does not compile. Every symbol named in a documented example
-// import must therefore be in the target barrel's export set.
+// 注释中的命名导入也必须引用目标 barrel 真正导出的名字；类型检查不读注释。
 const BARREL_FILE_RES = /^(?:features|components)\/[^/]+\/index\.ts$/
 
 /** Names a barrel publishes: re-export lists plus its own declarations. */
@@ -340,7 +295,7 @@ for (const [rel, text] of barrelSources) {
           part
         )
       if (!named) continue
-      const symbol = named[2] ?? named[1]
+      const symbol = named[1]
       docExamples += 1
       if (!exported.has(symbol)) {
         docExampleViolations.push({ location: rel, symbol, targetBarrel })
@@ -417,10 +372,17 @@ FEATURE_EXCEPTIONS.forEach((entry, index) => {
   }
 })
 
-// Same invariant as the layer rules: a gate that scans nothing and reports no
-// violations is not a lenient gate, it is an absent one. Both ways this one can
-// go quiet are checked — the package disappearing (rename) and the rule losing
-// its only consumer (nothing left to protect).
+// feature 检查面不依赖子系统登记项，不能放进 BARRELS 循环。
+if (featureBarrelEdges === 0) {
+  failed = true
+  console.error(
+    `✗ feature barrel gate would pass vacuously: no feature imports another\n` +
+      `    feature's barrel. Either the features stopped talking to each other\n` +
+      `    or specifier resolution stopped matching '@/features/<name>'.`
+  )
+}
+
+// 子系统入口必须存在且有包外消费者，否则门禁没有实际检查面。
 for (const barrel of BARRELS) {
   const barrelFile = join(SRC, `${barrel.package}/index.ts`)
   if (!existsSync(barrelFile)) {
@@ -428,15 +390,6 @@ for (const barrel of BARRELS) {
     console.error(
       `✗ barrel gate would pass vacuously: src/${barrel.package}/index.ts is\n` +
         `    missing. Was the package renamed? Update BARRELS in this script.`
-    )
-  }
-  if (featureBarrelEdges === 0) {
-    failed = true
-    console.error(
-      `✗ feature barrel gate would pass vacuously: no feature imports another\n` +
-        `    feature's barrel, so rule 3 has no live surface. Either the features\n` +
-        `    stopped talking to each other or the specifier resolution in this\n` +
-        `    script stopped matching '@/features/<name>'.`
     )
   }
   if (barrelConsumers.get(barrel.package).size === 0) {

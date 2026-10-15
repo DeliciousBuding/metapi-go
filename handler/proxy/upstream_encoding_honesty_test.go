@@ -77,7 +77,6 @@ func captureWarnLogs(t *testing.T) *lockedBuffer {
 type upstreamRequestRecorder struct {
 	mu              sync.Mutex
 	acceptEncodings []string
-	paths           []string
 	errors          []string
 }
 
@@ -85,19 +84,12 @@ func (c *upstreamRequestRecorder) record(r *http.Request) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.acceptEncodings = append(c.acceptEncodings, r.Header.Get("Accept-Encoding"))
-	c.paths = append(c.paths, r.URL.Path)
 }
 
 func (c *upstreamRequestRecorder) encodings() []string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return append([]string(nil), c.acceptEncodings...)
-}
-
-func (c *upstreamRequestRecorder) hits() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return len(c.paths)
 }
 
 // negotiatingGzipUpstream behaves like a normal gateway: it gzip-encodes only

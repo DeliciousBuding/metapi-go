@@ -115,26 +115,6 @@ type geminiOAuthTokenPayload struct {
 	Expiry       string      `json:"expiry"`
 }
 
-func parseGeminiExpiresAt(payload *geminiOAuthTokenPayload) int64 {
-	switch v := payload.ExpiresIn.(type) {
-	case float64:
-		if v > 0 {
-			return time.Now().UnixMilli() + int64(v)*1000
-		}
-	case string:
-		parsed, err := parseInt64Safe(strings.TrimSpace(v))
-		if err == nil && parsed > 0 {
-			return time.Now().UnixMilli() + parsed*1000
-		}
-	}
-	if payload.Expiry != "" {
-		if parsed, err := time.Parse(time.RFC3339, payload.Expiry); err == nil {
-			return parsed.UnixMilli()
-		}
-	}
-	return 0
-}
-
 func postGeminiToken(form url.Values, proxyURL *string) (*TokenSet, error) {
 	req, err := http.NewRequest("POST", geminiCliTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -180,7 +160,7 @@ func postGeminiToken(form url.Values, proxyURL *string) (*TokenSet, error) {
 	return &TokenSet{
 		AccessToken:    accessToken,
 		RefreshToken:   strings.TrimSpace(payload.RefreshToken),
-		TokenExpiresAt: parseGeminiExpiresAt(&payload),
+		TokenExpiresAt: parseTokenExpiresAt(payload.ExpiresIn, payload.Expiry),
 		ProviderData:   providerData,
 	}, nil
 }
@@ -631,15 +611,4 @@ func ensureGeminiProjectAndOnboard(ctx context.Context, accessToken, requestedPr
 		return "", fmt.Errorf("no Google Cloud projects available for this account")
 	}
 	return performGeminiCliSetup(ctx, accessToken, projects[0], proxyURL)
-}
-
-func parseInt64Safe(s string) (int64, error) {
-	n := int64(0)
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return 0, fmt.Errorf("not a number")
-		}
-		n = n*10 + int64(c-'0')
-	}
-	return n, nil
 }

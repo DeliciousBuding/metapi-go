@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
 // withClaudeTokenURLSwap redirects claudeTokenURL to the given URL for the
@@ -46,59 +45,6 @@ func claudeFullTokenResponseJSON(t *testing.T, access, refresh, orgUUID, orgName
 		t.Fatalf("marshal claude payload: %v", err)
 	}
 	return out
-}
-
-// ---- parseClaudeExpiresAt ----
-
-func TestParseClaudeExpiresAt_FloatPositive(t *testing.T) {
-	before := time.Now().UnixMilli()
-	got := parseClaudeExpiresAt(float64(3600))
-	after := time.Now().UnixMilli()
-	if got <= before {
-		t.Errorf("float64 3600 should yield future ts > %d, got %d", before, got)
-	}
-	if got > after+3600*1000+10 {
-		t.Errorf("future ts too far: %d (after=%d)", got, after)
-	}
-}
-
-func TestParseClaudeExpiresAt_FloatZeroOrNegative(t *testing.T) {
-	if got := parseClaudeExpiresAt(float64(0)); got != 0 {
-		t.Errorf("zero float should yield 0, got %d", got)
-	}
-	if got := parseClaudeExpiresAt(float64(-5)); got != 0 {
-		t.Errorf("negative float should yield 0, got %d", got)
-	}
-}
-
-func TestParseClaudeExpiresAt_StringPositive(t *testing.T) {
-	before := time.Now().UnixMilli()
-	got := parseClaudeExpiresAt("1800")
-	after := time.Now().UnixMilli()
-	if got <= before {
-		t.Errorf("string 1800 should yield future ts > %d, got %d", before, got)
-	}
-	if got > after+1800*1000+10 {
-		t.Errorf("future ts too far: %d (after=%d)", got, after)
-	}
-}
-
-func TestParseClaudeExpiresAt_StringNonNumeric(t *testing.T) {
-	if got := parseClaudeExpiresAt("abc"); got != 0 {
-		t.Errorf("non-numeric string should yield 0, got %d", got)
-	}
-}
-
-func TestParseClaudeExpiresAt_UnsupportedType(t *testing.T) {
-	if got := parseClaudeExpiresAt(int64(3600)); got != 0 {
-		t.Errorf("int64 should yield 0 (unsupported), got %d", got)
-	}
-}
-
-func TestParseClaudeExpiresAt_NilValue(t *testing.T) {
-	if got := parseClaudeExpiresAt(nil); got != 0 {
-		t.Errorf("nil should yield 0, got %d", got)
-	}
 }
 
 // ---- buildClaudeProxyHeaders ----

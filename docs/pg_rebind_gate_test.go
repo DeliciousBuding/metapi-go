@@ -1,181 +1,266 @@
 package docs
 
 import (
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
 
-// pgRebindGate scans handler/ service/ scheduler/ for SQL executed through a
-// bare *sqlx.DB with SQLite `?` placeholders.
-//
-// Background: store.DB wraps every method with an automatic PostgreSQL Rebind,
-// but code that receives a bare `*sqlx.DB` (or stores one in a handler struct)
-// bypasses the wrapper. On PostgreSQL such queries fail with SQLSTATE 42601.
-// Three incidents: balance_history snapshot (v0.8.47), admin_audit_logs insert
-// (v0.8.51), and account expiry marking in service/alert (found in the same
-// sweep). This gate makes the failure class visible at CI time.
-//
-// Rule: in any .go file that mentions the bare `*sqlx.DB` type, every
-// db.Exec/Get/Select/Query call whose first argument is a string literal
-// containing `?` must be wrapped in a Rebind helper (`db.Rebind(...)` or
-// `rebindAdminQuery(...)` etc). URLs (`://`) are not placeholders.
-
-var (
-	bareSqlxDBRe = regexp.MustCompile(`\*sqlx\.DB`)
-	// dbCallRe matches `receiver.Method("...?..."` with an optional Rebind wrapper.
-	// Covers non-context variants where the SQL string is the first argument.
-	dbCallRe = regexp.MustCompile(
-		`\b(\w+)\.(Exec|Get|Select|Query|QueryRow|QueryRowx|Queryx)\(\s*` +
-			`(?:(?:db|h\.db|r\.db|cfg\.|tx)\.Rebind\(|rebind[A-Za-z]*\(|` + // allowed wrappers
-			`("(?:[^"\\]|\\.)*\?[^"]*"|` + "`" + `[^` + "`" + `]*\?[^` + "`" + `]*` + "`" + `))`,
-	)
-	// ctxDBCallRe covers ...Context variants where ctx and dest come first and
-	// the SQL string literal is the third: db.SelectContext(ctx, &dest, "…?…", …).
-	ctxDBCallRe = regexp.MustCompile(
-		`\b(\w+)\.(ExecContext|GetContext|SelectContext|QueryContext|QueryRowxContext|QueryxContext)\(` +
-			`\s*[^,]+,\s*[^,]+,\s*` +
-			`(?:(?:db|h\.db|r\.db|cfg\.|tx)\.Rebind\(|rebind[A-Za-z]*\(|` + // allowed wrappers
-			`("(?:[^"\\]|\\.)*\?[^"]*"|` + "`" + `[^` + "`" + `]*\?[^` + "`" + `]*` + "`" + `))`,
-	)
-)
-
+// Check literal SQL arguments in production files mentioning *sqlx.DB, which
+// unlike store.DB does not rebind automatically. This file-level heuristic
+// recognizes only directly declared *store.DB parameters and store.GetDB locals
+// as safe wrappers, not general receiver types, query variables/builders, or
+// cross-file handles; PostgreSQL integration tests own those cases.
 func TestPgRebindGateNoBareQuestionMarks(t *testing.T) {
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("runtime.Caller failed")
 	}
-	repoRoot := filepath.Dir(filepath.Dir(thisFile)) // docs/ → repo root
+	root := filepath.Dir(filepath.Dir(thisFile))
 	dirs := []string{"app", "auth", "cmd", "config", "e2e", "handler", "platform", "proxy", "routing", "scheduler", "service", "store", "transform"}
+	fset := token.NewFileSet()
 	var violations []string
 	var scannedFiles, sqlxFiles int
-	dirsReached := map[string]bool{}
-	saw := map[string]bool{}
-
 	for _, dir := range dirs {
-		root := filepath.Join(repoRoot, dir)
-		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
-				return nil
+		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
 			}
-			if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
 			src, err := os.ReadFile(path)
 			if err != nil {
-				return nil
+				return err
 			}
-			rel, relErr := filepath.Rel(repoRoot, path)
-			if relErr != nil {
-				return nil
+			file, err := parser.ParseFile(fset, path, src, 0)
+			if err != nil {
+				return err
 			}
 			scannedFiles++
-			dirsReached[dir] = true
-			// Only files that handle a bare *sqlx.DB can hit the wrapper bypass.
-			if !bareSqlxDBRe.Match(src) {
+			if !mentionsBareSQLXDB(file) {
 				return nil
 			}
 			sqlxFiles++
-			saw[filepath.ToSlash(rel)] = true
-			content := string(src)
-			for _, line := range strings.Split(content, "\n") {
-				for _, re := range []*regexp.Regexp{dbCallRe, ctxDBCallRe} {
-					for _, m := range re.FindAllStringSubmatch(line, -1) {
-						if m[3] == "" {
-							continue // Rebind-wrapped call, safe
-						}
-						call := m[0]
-						if strings.Contains(call, "://") {
-							continue // URL query string, not a placeholder
-						}
-						violations = append(violations, path+":"+call)
-					}
+			for _, pos := range bareSQLPlaceholders(file) {
+				position := fset.Position(pos)
+				rel, err := filepath.Rel(root, position.Filename)
+				if err != nil {
+					return err
 				}
+				violations = append(violations, fmt.Sprintf("%s:%d", filepath.ToSlash(rel), position.Line))
 			}
 			return nil
 		})
 		if err != nil {
-			t.Fatalf("walk %s: %v", dir, err)
+			t.Fatalf("scan %s: %v", dir, err)
 		}
 	}
-
-	// Three surfaces can narrow this gate to silence while it stays green: a
-	// renamed directory (WalkDir on a missing root hands the callback an error,
-	// which the callback swallows), a broadened `_test.go` filter, and
-	// bareSqlxDBRe itself, which decides the scan surface. Assert all three
-	// before trusting a clean result — docs/testing.md, "count the input".
-	if len(dirsReached) != len(dirs) {
-		var missing []string
-		for _, d := range dirs {
-			if !dirsReached[d] {
-				missing = append(missing, d)
-			}
-		}
-		t.Fatalf("walk never reached %s — a renamed or missing directory silently empties this gate", strings.Join(missing, ", "))
+	if scannedFiles == 0 || sqlxFiles == 0 {
+		t.Fatalf("empty scan surface: %d production files, %d mentioning *sqlx.DB", scannedFiles, sqlxFiles)
 	}
-	if scannedFiles < 100 {
-		t.Fatalf("walk examined %d production .go files; the scan surface is broken, not clean", scannedFiles)
-	}
-	if sqlxFiles < 20 {
-		t.Fatalf("%d files matched bareSqlxDBRe; the scan surface is broken, not clean", sqlxFiles)
-	}
-	for _, probe := range []string{"service/model_redirects.go", "store/open.go", "store/factory_reset.go"} {
-		if !saw[probe] {
-			t.Fatalf("scan surface never admitted %s, which handles a bare *sqlx.DB", probe)
-		}
-	}
-
 	if len(violations) > 0 {
-		t.Fatalf(
-			"bare `?` placeholder through *sqlx.DB (PostgreSQL would 42601). "+
-				"Wrap each query in db.Rebind(...) or a rebind* helper:\n%s",
-			strings.Join(violations, "\n"),
-		)
+		t.Fatalf("literal SQL has bare ? placeholders in files handling *sqlx.DB; use Rebind (verify the receiver is not store.DB):\n%s", strings.Join(violations, "\n"))
 	}
 }
 
-// TestPgRebindGateRegexpSanity locks the matcher behaviour: a bare call must be
-// flagged, a Rebind-wrapped call must not, and URL query strings must not.
-//
-// It also locks bareSqlxDBRe, which the gate above uses to decide *which files it
-// looks at*. The two violation regexps were already locked; the scan-surface
-// filter was not, so narrowing it emptied the gate while both this test and the
-// gate stayed green — the same split that let two doc gates pass having scanned
-// nothing (#1238).
-func TestPgRebindGateRegexpSanity(t *testing.T) {
-	if !bareSqlxDBRe.MatchString("func (s *Store) expire(db *sqlx.DB, id int64) error {") {
-		t.Fatal("bareSqlxDBRe must match a *sqlx.DB parameter: it decides which files the gate scans")
-	}
-	if bareSqlxDBRe.MatchString("package store\n\nfunc now() time.Time { return time.Now() }\n") {
-		t.Fatal("bareSqlxDBRe matches a file with no database handle; the scan surface is not what the gate claims")
-	}
+func mentionsBareSQLXDB(file *ast.File) bool {
+	found := false
+	ast.Inspect(file, func(node ast.Node) bool {
+		star, ok := node.(*ast.StarExpr)
+		if !ok {
+			return true
+		}
+		selector, ok := star.X.(*ast.SelectorExpr)
+		if !ok || selector.Sel.Name != "DB" {
+			return true
+		}
+		ident, ok := selector.X.(*ast.Ident)
+		found = found || ok && ident.Name == "sqlx"
+		return true
+	})
+	return found
+}
 
-	bare := `db.Exec("UPDATE accounts SET status = 'expired' WHERE id = ?", 1)`
-	if !dbCallRe.MatchString(bare) {
-		t.Fatalf("regexp must match bare call: %s", bare)
-	}
+// SQL argument positions differ for execution and destination-taking methods.
+// AST calls cover selector receivers and gofmt's multiline call/literal forms.
+func bareSQLPlaceholders(file *ast.File) []token.Pos {
+	var findings []token.Pos
+	ast.Inspect(file, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		selector, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		if isDirectStoreDB(selector.X) {
+			return true
+		}
+		var index int
+		switch selector.Sel.Name {
+		case "Exec", "Query", "QueryRow", "QueryRowx", "Queryx":
+			index = 0
+		case "Get", "Select", "ExecContext", "QueryContext", "QueryRowContext", "QueryRowxContext", "QueryxContext":
+			index = 1
+		case "GetContext", "SelectContext":
+			index = 2
+		default:
+			return true
+		}
+		if len(call.Args) <= index {
+			return true
+		}
+		literal, ok := call.Args[index].(*ast.BasicLit)
+		if !ok || literal.Kind != token.STRING {
+			return true
+		} // Nonliteral SQL (including Rebind calls) is outside this gate.
+		query, err := strconv.Unquote(literal.Value)
+		if err == nil && hasSQLPlaceholder(query) {
+			findings = append(findings, literal.Pos())
+		}
+		return true
+	})
+	return findings
+}
 
-	wrapped := `db.Exec(db.Rebind("UPDATE accounts SET status = 'expired' WHERE id = ?"), 1)`
-	if m := dbCallRe.FindStringSubmatch(wrapped); m != nil && m[3] != "" {
-		t.Fatalf("regexp must treat Rebind-wrapped call as safe: %s", wrapped)
+// Use lexical bindings, not a variable-name allowlist: a sqlx.DB called dbw is
+// still checked, while a directly obtained store.DB is not.
+func isDirectStoreDB(receiver ast.Expr) bool {
+	ident, ok := receiver.(*ast.Ident)
+	if !ok || ident.Obj == nil {
+		return false
 	}
-
-	url := `h.db.Get(&x, "SELECT * FROM logs WHERE url LIKE 'https://x.com?q=1'")`
-	if m := dbCallRe.FindStringSubmatch(url); m != nil && m[3] != "" {
-		t.Fatalf("URL query string must not be flagged: %s", url)
+	switch declaration := ident.Obj.Decl.(type) {
+	case *ast.Field:
+		pointer, ok := declaration.Type.(*ast.StarExpr)
+		return ok && isStoreSelector(pointer.X, "DB")
+	case *ast.AssignStmt:
+		for i, lhs := range declaration.Lhs {
+			name, ok := lhs.(*ast.Ident)
+			if !ok || name.Obj != ident.Obj || i >= len(declaration.Rhs) {
+				continue
+			}
+			call, ok := declaration.Rhs[i].(*ast.CallExpr)
+			return ok && len(call.Args) == 0 && isStoreSelector(call.Fun, "GetDB")
+		}
 	}
+	return false
+}
 
-	// …Context variants put ctx first; the SQL string is the second argument.
-	ctxBare := `db.SelectContext(ctx, &routes, ` + "`" + `SELECT model_pattern FROM token_routes WHERE enabled = ?` + "`" + `, true)`
-	if !ctxDBCallRe.MatchString(ctxBare) {
-		t.Fatalf("regexp must match bare ctx-variant call: %s", ctxBare)
+func isStoreSelector(expression ast.Expr, name string) bool {
+	selector, ok := expression.(*ast.SelectorExpr)
+	if !ok || selector.Sel.Name != name {
+		return false
 	}
+	ident, ok := selector.X.(*ast.Ident)
+	return ok && ident.Name == "store" && ident.Obj == nil
+}
 
-	ctxWrapped := `db.SelectContext(ctx, &routes, db.Rebind(` + "`" + `SELECT model_pattern FROM token_routes WHERE enabled = ?` + "`" + `), true)`
-	if m := ctxDBCallRe.FindStringSubmatch(ctxWrapped); m != nil && m[3] != "" {
-		t.Fatalf("regexp must treat Rebind-wrapped ctx call as safe: %s", ctxWrapped)
+// Ignore question marks in quoted SQL values/identifiers and comments, not the
+// entire query: a URL value must not exempt a later real bind parameter.
+func hasSQLPlaceholder(query string) bool {
+	for i := 0; i < len(query); i++ {
+		switch query[i] {
+		case '\'', '"', '`':
+			quote := query[i]
+			for i++; i < len(query); i++ {
+				if query[i] != quote {
+					continue
+				}
+				if i+1 < len(query) && query[i+1] == quote {
+					i++
+					continue
+				}
+				break
+			}
+		case '-':
+			if i+1 < len(query) && query[i+1] == '-' {
+				for i < len(query) && query[i] != '\n' {
+					i++
+				}
+			}
+		case '/':
+			if i+1 < len(query) && query[i+1] == '*' {
+				i += 2
+				for i+1 < len(query) && (query[i] != '*' || query[i+1] != '/') {
+					i++
+				}
+				i++
+			}
+		case '?':
+			return true
+		}
+	}
+	return false
+}
+
+func TestPgRebindGateLiteralCalls(t *testing.T) {
+	cases := []struct {
+		name, call string
+		want       int
+	}{
+		{"exec", `db.Exec("UPDATE accounts SET enabled = ?", true)`, 1},
+		{"get destination", `db.Get(&out, "SELECT id FROM accounts WHERE id = ?", id)`, 1},
+		{"select destination", `db.Select(&out, "SELECT id FROM accounts WHERE id = ?", id)`, 1},
+		{"exec context", `db.ExecContext(ctx, "DELETE FROM accounts WHERE id = ?", id)`, 1},
+		{"query context", `db.QueryContext(ctx, "SELECT id FROM accounts WHERE id = ?", id)`, 1},
+		{"query row context", `db.QueryRowContext(ctx, "SELECT id FROM accounts WHERE id = ?", id)`, 1},
+		{"get context destination", `db.GetContext(ctx, &out, "SELECT id FROM accounts WHERE id = ?", id)`, 1},
+		{"select context destination", `db.SelectContext(ctx, &out, "SELECT id FROM accounts WHERE id = ?", id)`, 1},
+		{"selector multiline raw literal", "h.db.SelectContext(\nctx,\n&out,\n`SELECT id\nFROM accounts WHERE id = ?`,\nid,\n)", 1},
+		{"rebound", `h.db.Get(&out, h.db.Rebind("SELECT id FROM accounts WHERE id = ?"), id)`, 0},
+		{"rebound context", `db.ExecContext(ctx, db.Rebind("DELETE FROM accounts WHERE id = ?"), id)`, 0},
+		{"helper rebound", `db.Exec(rebindAdminQuery("DELETE FROM accounts WHERE id = ?"), id)`, 0},
+		{"url value", `db.Get(&out, "SELECT id FROM logs WHERE url = 'https://x.com?q=1'")`, 0},
+		{"url and parameter", `db.Get(&out, "SELECT id FROM logs WHERE url = 'https://x.com?q=1' AND id = ?", id)`, 1},
+		{"quoted and commented", "db.Exec(`SELECT '?' AS \"?\" /* ? */ -- ?\n`)", 0},
+		{"escaped SQL quote", `db.Exec("SELECT 'it''s ?' WHERE id = ?", id)`, 1},
+		{"nonliteral scope", `db.Exec(query, id)`, 0},
+		{"store getter", `db := store.GetDB(); db.Exec("SELECT ?", id)`, 0},
+		{"store local shadow", `db := store.GetDB(); { db := rawDB; db.Exec("SELECT ?", id) }; _ = db`, 1},
+		{"store name shadow", `store := other; db := store.GetDB(); db.Exec("SELECT ?", id)`, 1},
+		{"store parameter", `func(db *store.DB) { db.Query("SELECT ?", id) }(wrappedDB)`, 0},
+		{"sqlx parameter same name", `func(dbw *sqlx.DB) { dbw.Query("SELECT ?", id) }(rawDB)`, 1},
+		{"comment not call", `// db.Exec("SELECT ?")` + "\n", 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			file, err := parser.ParseFile(token.NewFileSet(), "fixture.go", "package fixture\nfunc check() {\n"+tc.call+"\n}", 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := bareSQLPlaceholders(file); len(got) != tc.want {
+				t.Fatalf("findings = %d, want %d for %s", len(got), tc.want, tc.call)
+			}
+		})
+	}
+}
+
+func TestPgRebindGateSQLXSurface(t *testing.T) {
+	for _, tc := range []struct {
+		source string
+		want   bool
+	}{
+		{"package p\nfunc f(db *sqlx.DB) {}", true},
+		{"package p\ntype H struct { db *sqlx.DB }", true},
+		{"package p\nfunc f(db *store.DB) {}", false},
+		{"package p\n// *sqlx.DB\nvar text = \"*sqlx.DB\"", false},
+	} {
+		file, err := parser.ParseFile(token.NewFileSet(), "fixture.go", tc.source, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := mentionsBareSQLXDB(file); got != tc.want {
+			t.Errorf("mentionsBareSQLXDB = %v, want %v for %s", got, tc.want, tc.source)
+		}
 	}
 }

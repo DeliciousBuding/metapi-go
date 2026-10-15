@@ -503,12 +503,3 @@ func unmarshalResponse(t *testing.T, rec *httptest.ResponseRecorder) map[string]
 	}
 	return m
 }
-
-func unmarshalArrayResponse(t *testing.T, rec *httptest.ResponseRecorder) []any {
-	t.Helper()
-	var a []any
-	if err := json.Unmarshal(rec.Body.Bytes(), &a); err != nil {
-		t.Fatalf("invalid JSON array response: %v\nBody: %s", err, rec.Body.String())
-	}
-	return a
-}

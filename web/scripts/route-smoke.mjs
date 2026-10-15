@@ -434,7 +434,7 @@ async function main() {
 
   if (failures.length > 0) {
     console.error(`[ui-smoke] ${failures.length} failure(s):`)
-    for (const failure of [...new Set(failures)]) console.error(`  ${failure}`)
+    for (const failure of new Set(failures)) console.error(`  ${failure}`)
     process.exit(1)
   }
 
