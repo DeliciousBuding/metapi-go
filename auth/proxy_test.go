@@ -167,12 +167,6 @@ func TestExtractProxyToken_QueryKey(t *testing.T) {
 
 func TestExtractProxyToken_QueryKeyTrimmed(t *testing.T) {
 	req := newProxyRequest("GET", "/v1/models", nil, "  sk-query-key-123  ")
-	if got := extractProxyToken(req); got != "  sk-query-key-123  " {
-		// URL query values preserve whitespace; trim is applied in extractProxyToken.
-		// Actually the test expectation should match what's in the URL, then check trim.
-		// The trim is applied when reading query value.
-	}
-	// The extractProxyToken trims the query value, so it should return trimmed
 	if got := extractProxyToken(req); got != "sk-query-key-123" {
 		t.Errorf("expected sk-query-key-123 (trimmed query), got %q", got)
 	}

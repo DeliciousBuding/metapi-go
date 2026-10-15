@@ -63,54 +63,6 @@ func antigravityUserInfoJSON(t *testing.T, email string) []byte {
 	return out
 }
 
-// ---- parseAntigravityExpiresAt ----
-
-func TestParseAntigravityExpiresAt_FloatPositive(t *testing.T) {
-	payload := &antigravityOAuthTokenPayload{ExpiresIn: float64(3600)}
-	got := parseAntigravityExpiresAt(payload)
-	if got <= 0 {
-		t.Errorf("float64 3600 should yield future ts, got %d", got)
-	}
-}
-
-func TestParseAntigravityExpiresAt_FloatZero(t *testing.T) {
-	payload := &antigravityOAuthTokenPayload{ExpiresIn: float64(0)}
-	if got := parseAntigravityExpiresAt(payload); got != 0 {
-		t.Errorf("zero float should yield 0, got %d", got)
-	}
-}
-
-func TestParseAntigravityExpiresAt_StringPositive(t *testing.T) {
-	payload := &antigravityOAuthTokenPayload{ExpiresIn: "1800"}
-	got := parseAntigravityExpiresAt(payload)
-	if got <= 0 {
-		t.Errorf("string 1800 should yield future ts, got %d", got)
-	}
-}
-
-func TestParseAntigravityExpiresAt_ExpiryRFC3339(t *testing.T) {
-	// Expiry field is an absolute RFC3339 timestamp; ExpiresIn absent.
-	payload := &antigravityOAuthTokenPayload{Expiry: "2099-01-01T00:00:00Z"}
-	got := parseAntigravityExpiresAt(payload)
-	if got <= 0 {
-		t.Errorf("future RFC3339 expiry should yield non-zero ts, got %d", got)
-	}
-}
-
-func TestParseAntigravityExpiresAt_InvalidExpiry(t *testing.T) {
-	payload := &antigravityOAuthTokenPayload{Expiry: "not-a-date"}
-	if got := parseAntigravityExpiresAt(payload); got != 0 {
-		t.Errorf("invalid expiry should yield 0, got %d", got)
-	}
-}
-
-func TestParseAntigravityExpiresAt_UnsupportedType(t *testing.T) {
-	payload := &antigravityOAuthTokenPayload{ExpiresIn: int64(3600)}
-	if got := parseAntigravityExpiresAt(payload); got != 0 {
-		t.Errorf("int64 ExpiresIn should yield 0 (unsupported), got %d", got)
-	}
-}
-
 // ---- buildAntigravityProxyHeaders ----
 
 func TestBuildAntigravityProxyHeaders_SetsIdentityHeaders(t *testing.T) {

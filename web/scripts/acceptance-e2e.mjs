@@ -1385,7 +1385,7 @@ function summarise() {
     `== acceptance:e2e summary — ${passes.length} passed, ${failures.length} failed, ${skips.length} skipped ==`
   )
   if (failures.length > 0) {
-    for (const failure of [...new Set(failures)])
+    for (const failure of new Set(failures))
       console.error(`  [FAIL] ${failure}`)
   }
 }

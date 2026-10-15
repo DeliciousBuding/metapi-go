@@ -486,6 +486,24 @@ func TestSetSessionStore_Swappable(t *testing.T) {
 
 // ---- Helpers ----
 
+func TestTrimStringWhitespaceBoundary(t *testing.T) {
+	for _, tt := range []struct {
+		name, input, want string
+	}{
+		{"ASCII boundary", " \t\r\nvalue\n\r\t ", "value"},
+		{"internal whitespace", " a\tb\nc ", "a\tb\nc"},
+		{"Unicode spaces preserved", "\u00a0value\u3000", "\u00a0value\u3000"},
+		{"form feed preserved", "\fvalue\v", "\fvalue\v"},
+		{"invalid UTF-8 preserved", " \xff ", "\xff"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := trimString(tt.input); got != tt.want {
+				t.Fatalf("trimString(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestTrimOr_NonEmpty(t *testing.T) {
 	result := trimOr("hello", "fallback")
 	if result != "hello" {

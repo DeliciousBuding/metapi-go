@@ -47,11 +47,8 @@ func TestSelectCodexQuotaProbeModel_GPT5FamilyFallback(t *testing.T) {
 	// the family member should be selected over the first normalized entry.
 	discovered := []string{"random-model", "gpt-5.5-mini"}
 	got := SelectCodexQuotaProbeModel(discovered)
-	if !strings.Contains(strings.ToLower(got), "gpt-5") && got != "random-model" {
-		// Either the gpt-5 family member or the first model is acceptable.
-	}
-	if got == "" {
-		t.Error("expected non-empty probe model")
+	if got != "gpt-5.5-mini" {
+		t.Errorf("GPT-5 family must precede the first unknown model, got %q", got)
 	}
 }
 

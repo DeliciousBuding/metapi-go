@@ -932,7 +932,6 @@ func TestRedisCounter_ConcurrentIncrAccurate(t *testing.T) {
 	const perGoroutine = 50
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
-	var total atomic.Int64
 	ctx := context.Background()
 	start := make(chan struct{})
 	for i := 0; i < goroutines; i++ {
@@ -940,12 +939,11 @@ func TestRedisCounter_ConcurrentIncrAccurate(t *testing.T) {
 			defer wg.Done()
 			<-start
 			for j := 0; j < perGoroutine; j++ {
-				n, err := c.Incr(ctx, "concurrent", time.Minute)
+				_, err := c.Incr(ctx, "concurrent", time.Minute)
 				if err != nil {
 					t.Errorf("concurrent Incr: %v", err)
 					return
 				}
-				total.Add(n - n) // no-op to use n; correctness checked below
 			}
 		}()
 	}

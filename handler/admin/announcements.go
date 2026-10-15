@@ -264,7 +264,7 @@ func (h *announcementsHandler) dismiss(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var exists int
-	if err := h.db.Get(&exists, "SELECT COUNT(*) FROM product_announcements WHERE id = ?", id); err != nil || exists == 0 {
+	if err := h.db.Get(&exists, h.db.Rebind("SELECT COUNT(*) FROM product_announcements WHERE id = ?"), id); err != nil || exists == 0 {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "announcement not found"})
 		return
 	}

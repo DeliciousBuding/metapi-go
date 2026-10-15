@@ -74,7 +74,7 @@ docker-build:
 
 # Build the React frontend (requires Bun)
 web-build:
-	cd web && bun install --frozen-lockfile && bun run build:web
+	cd web && sh ../scripts/bun-install.sh && bun run build:web
 
 # Build the standalone migration tool
 migrate-build:

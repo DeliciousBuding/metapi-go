@@ -140,22 +140,14 @@ func TestExtractResponsesTerminalResponseID(t *testing.T) {
 
 func TestSelectedChannelSupportsCodexWebsocketTransport_PlatformGate(t *testing.T) {
 	t.Parallel()
-	// Without config (panic-safe), codex platform still needs global flag → false.
-	if SelectedChannelSupportsCodexWebsocketTransport("codex", nil, "gpt-5") {
-		// may be true only if config.Set already; still platform non-codex must be false
-	}
+	// 这两条禁用条件不依赖全局开关状态。
 	if SelectedChannelSupportsCodexWebsocketTransport("openai", nil, "gpt-5") {
 		t.Fatal("non-codex platform must be false")
 	}
-	// extraConfig websockets=false
 	extra := `{"websockets":false}`
-	// Only meaningful when global flag is on — still false via explicit flag.
 	if SelectedChannelSupportsCodexWebsocketTransport("codex", &extra, "gpt-5") {
-		// if global disabled, false; if enabled, still false because websockets:false
-		// either way must not return true with websockets:false
+		t.Fatal("explicit websockets:false must disable Codex websocket transport")
 	}
-	// Force-check toBoolLike path by simulating flag true when config missing:
-	// platform non-codex remains hard false.
 }
 
 func TestBuildContinuationAwareRuntimeBody_InfersPrevious(t *testing.T) {

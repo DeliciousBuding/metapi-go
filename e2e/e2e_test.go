@@ -185,12 +185,6 @@ func (m *mockRouter) addChannel(sc *routing.SelectedChannel) {
 	m.channels = append(m.channels, sc)
 }
 
-func (m *mockRouter) addPreferredChannel(id int64, sc *routing.SelectedChannel) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.preferredChannels[id] = sc
-}
-
 // injectAuthMiddleware creates a chi middleware that injects a ProxyAuthContext
 // into the request context, simulating successful auth.
 func injectAuthMiddleware(source string, keyID *int64, token string) func(http.Handler) http.Handler {
@@ -304,8 +298,6 @@ func setupE2ERouter(mockR *mockRouter, coordinator *proxy.ProxyChannelCoordinato
 
 	return r
 }
-
-func strPtr(s string) *string { return &s }
 
 // writeJSONHelper is a test helper to write a JSON response.
 func writeJSONHelper(w http.ResponseWriter, status int, v any) {

@@ -25,8 +25,6 @@ const octopusV5RealShapeFixture = `{
   "api_keys":[],"llm_infos":[],"settings":[],"stats_total":[],"stats_daily":[],"stats_hourly":[],"stats_api_key":[]
 }`
 
-const octopusV5AllProtocolsFixture = `{"version":5,"exported_at":"2026-10-06T00:00:00Z","channels":[{"id":1,"name":"all protocols","dialect":"generic","enabled":true,"base_url":"https://upstream.example","openai_chat_completion_path":"/v1/route-chat","openai_response_path":"/v1/route-responses","anthropic_message_path":"/v1/route-messages","proxy":false,"channel_proxy":"","custom_header":[],"param_override":"","match_regex":""}],"channel_keys":[{"id":2,"channel_id":1,"name":"primary","key":"sk-all-protocols","enabled":true}],"channel_models":[{"id":3,"channel_id":1,"name":"provider-model"}],"channel_grants":[{"id":4,"channel_model_id":3,"channel_key_id":2,"protocols":14}],"groups":[{"id":5,"name":"all-protocol-model","mode":"failover","active_item_id":6,"relay_config":{}}],"group_items":[{"id":6,"group_id":5,"channel_grant_id":4,"priority":0,"weight":1}],"api_keys":[],"llm_infos":[],"settings":[],"stats_total":[],"stats_daily":[],"stats_hourly":[],"stats_api_key":[]}`
-
 func TestOctopusV5ParseAndImportRemapsIDsAndRepeatsSafely(t *testing.T) {
 	preview, err := PreviewOctopusV5(nil, []byte(octopusV5RealShapeFixture), "source-a")
 	if err != nil {

@@ -36,10 +36,9 @@ func TestSiteProxy_Do_NoProxy(t *testing.T) {
 		t.Fatalf("failed to create request: %v", err)
 	}
 
-	// Should fail gracefully on unreachable URL
 	_, err = sp.Do(ctx, req, nil)
 	if err == nil {
-		// Connection refused is expected, no error is also fine (test environment may vary)
+		t.Fatal("closed local listener must return a connection error")
 	}
 }
 
@@ -58,11 +57,7 @@ func TestSiteProxy_Do_WithCustomHeaders(t *testing.T) {
 		},
 	}
 
-	_, err = sp.Do(ctx, req, proxyConfig)
-	// Headers should be applied (we can't test the actual response, but it shouldn't panic)
-	if err == nil {
-		// ok
-	}
+	_, _ = sp.Do(ctx, req, proxyConfig)
 	// Verify header was set
 	if req.Header.Get("X-Custom") != "value" {
 		t.Error("custom header not set")
@@ -79,13 +74,13 @@ func TestSiteProxy_Do_WithExplicitProxy(t *testing.T) {
 	}
 
 	proxyConfig := &ProxyConfig{
-		ProxyURL: "http://invalid-proxy:1",
+		ProxyURL: unreachableBaseURL(t),
 	}
 
 	// Should fail on unreachable proxy
 	_, err = sp.Do(ctx, req, proxyConfig)
 	if err == nil {
-		// Proxy unreachable should cause error
+		t.Fatal("closed local proxy listener must return a connection error")
 	}
 }
 
@@ -95,7 +90,7 @@ func TestDoWithProxy_NoProxy(t *testing.T) {
 
 	_, err := DoWithProxy(ctx, req, nil)
 	if err == nil {
-		// ok
+		t.Fatal("closed local listener must return a connection error")
 	}
 }
 
@@ -125,11 +120,11 @@ func TestDoWithProxy_WithExplicitProxy(t *testing.T) {
 	req, _ := http.NewRequestWithContext(ctx, "GET", unreachableBaseURL(t)+"/test", nil)
 
 	proxyConfig := &ProxyConfig{
-		ProxyURL: "http://invalid-proxy:1",
+		ProxyURL: unreachableBaseURL(t),
 	}
 	_, err := DoWithProxy(ctx, req, proxyConfig)
 	if err == nil {
-		// Proxy unreachable should cause error
+		t.Fatal("closed local proxy listener must return a connection error")
 	}
 }
 
@@ -219,9 +214,8 @@ func TestDoWithProxy_InsecureSkipTLS(t *testing.T) {
 		InsecureSkipTLS: true,
 	}
 	_, err := DoWithProxy(ctx, req, proxyConfig)
-	// Should fail on unreachable but not due to TLS
 	if err == nil {
-		// ok
+		t.Fatal("insecure TLS mode must still report an unreachable target")
 	}
 }
 

@@ -104,26 +104,6 @@ type antigravityLoadCodeAssistPayload struct {
 	AllowedTiers            interface{} `json:"allowedTiers"`
 }
 
-func parseAntigravityExpiresAt(payload *antigravityOAuthTokenPayload) int64 {
-	switch v := payload.ExpiresIn.(type) {
-	case float64:
-		if v > 0 {
-			return time.Now().UnixMilli() + int64(v)*1000
-		}
-	case string:
-		parsed, err := parseInt64Safe(strings.TrimSpace(v))
-		if err == nil && parsed > 0 {
-			return time.Now().UnixMilli() + parsed*1000
-		}
-	}
-	if payload.Expiry != "" {
-		if parsed, err := time.Parse(time.RFC3339, payload.Expiry); err == nil {
-			return parsed.UnixMilli()
-		}
-	}
-	return 0
-}
-
 func postAntigravityToken(form url.Values, proxyURL *string) (*TokenSet, error) {
 	req, err := http.NewRequest("POST", antigravityTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -169,7 +149,7 @@ func postAntigravityToken(form url.Values, proxyURL *string) (*TokenSet, error) 
 	return &TokenSet{
 		AccessToken:    accessToken,
 		RefreshToken:   strings.TrimSpace(payload.RefreshToken),
-		TokenExpiresAt: parseAntigravityExpiresAt(&payload),
+		TokenExpiresAt: parseTokenExpiresAt(payload.ExpiresIn, payload.Expiry),
 		ProviderData:   providerData,
 	}, nil
 }

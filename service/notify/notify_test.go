@@ -2,6 +2,8 @@ package notify
 
 import (
 	"testing"
+
+	"github.com/deliciousbuding/metapi-go/config"
 )
 
 // ---- Webhook Bot Detection Tests ----
@@ -210,21 +212,12 @@ func TestChannelNames(t *testing.T) {
 // ---- SMTP Fingerprint Tests ----
 
 func TestGetSmtpFingerprint(t *testing.T) {
-	// Use a minimal test config — we only test the fingerprint function here
-	type testCfg struct {
-		SmtpHost   string
-		SmtpPort   int
-		SmtpSecure bool
-		SmtpUser   string
-		SmtpPass   string
-		SmtpFrom   string
-		SmtpTo     string
+	cfg := &config.RuntimeSettings{
+		SmtpHost: "host", SmtpPort: 25, SmtpSecure: true,
+		SmtpUser: "user", SmtpPass: "pass", SmtpFrom: "from@a.com", SmtpTo: "to@b.com",
 	}
-
-	// Build fingerprint manually to match getSmtpFingerprint logic
-	fingerprint := "host|25|true|user|pass|from@a.com|to@b.com"
-	if fingerprint == "" {
-		t.Error("fingerprint should not be empty")
+	if got, want := getSmtpFingerprint(cfg), "host|25|true|user|pass|from@a.com|to@b.com"; got != want {
+		t.Errorf("SMTP fingerprint = %q, want %q", got, want)
 	}
 }
 
