@@ -519,9 +519,8 @@ func TestRecordFailure_DoesNotCascadeToSiblingChannels(t *testing.T) {
 	}
 
 	// Site runtime health records only the failed site — not the unrelated site.
-	if !IsSiteRuntimeBreakerOpen(10) {
-		// One failure is not enough to open breaker; just check state exists for site 10
-		// and site 20 remains untouched.
+	if IsSiteRuntimeBreakerOpen(10) {
+		t.Error("one failure must not open the site breaker")
 	}
 	if IsSiteRuntimeBreakerOpen(20) {
 		t.Error("unrelated site breaker should remain closed")
