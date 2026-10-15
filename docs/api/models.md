@@ -102,9 +102,8 @@ Returns `{ model, days, limit, sampleUsage, items: [{ siteId, siteName, platform
 
 Alias: `GET /api/stats/model-prices` (same handler).
 
-前端将合法的 `items: []` 显示为空状态。`items` 缺失、类型错误或含不合法的
-候选行时，整次查询进入现有错误提示并允许重试，不丢弃坏行、不将解析失败
-转换成“没有报价”。既有字段默认值和数值兼容转换保持不变。
+前端把合法的 `items: []` 显示为空状态；`items` 缺失、类型错误或含非法行时
+显示加载错误并可重试，不当作“没有报价”。
 
 ### GET /api/models/token-candidates
 

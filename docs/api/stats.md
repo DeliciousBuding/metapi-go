@@ -15,13 +15,11 @@ proxy-log drill-downs.
 **Response**: `{ period, window, summary, requestSummary, points, requestPoints, siteAvailability, models }`.
 `summary` 和 `points` 按已记录的上游尝试统计，包含重试。
 `requestSummary` 和 `requestPoints` 按非空 `requestId` 归组，以最高
-`retryCount`（同序数按 id）对应的已记录尝试判断成功或失败。例如，两次失败
-之后一次成功计为一组末次尝试成功。此口径不包含无尝试日志的请求，也没有
-单独记录网关最终响应、流结束方式或客户端接收结果。
+`retryCount`（同序数按 id）的已记录尝试判断成败：两次失败后一次成功计为一次
+成功。未派发、因而没有尝试日志的请求不计入。
 没有 `requestId` 的行不进入请求分母，单列为 `legacyAttemptCount`；该值
 大于零时，`partial` 为 true，`partialReasons` 包含 `requestIdMissing`。
-`partial` 只说明已知的记录缺口，不证明整个请求已完成。
-`requestPoints` 使用各组末次已记录尝试的写入时间分桶，不推算请求开始时间。
+`requestPoints` 按各组末次尝试的写入时间分桶。
 `models` lists the five highest-cost models and an `other` bucket when needed.
 `siteAvailability` lists up to eight enabled sites, failures first.
 
@@ -83,12 +81,10 @@ Earlier builds recorded header latency as total latency on successful responses;
 
 Get a single proxy log entry by ID.
 
-主记录的 SQL 执行或扫描失败返回 `500` / `resourceLoadFailed`，不会误报
-`404`；记录确实不存在时仍返回 `404`。
+记录不存在返回 `404`；数据库读取失败返回 `500` / `resourceLoadFailed`。
 
 `requestAttempts` 关联同一 `requestId` 的已记录尝试，`retry_count` 是重试
-循环序数。它回答已记录了哪些尝试、使用哪个渠道及各次状态，不提供网关最终
-响应或客户端接收结果。结构如下：
+循环序数。结构如下：
 
 ```
 requestAttempts: {
@@ -103,17 +99,14 @@ requestAttempts: {
 }
 ```
 
-`lastAttempt` 只在关联查询成功且有记录时返回最后一行。缺少 `requestId`、查询
-失败或查不到关联行时为 null；旧服务端没有此字段时，客户端也显示未知。
-历史记录的 `httpStatus` 未知时保留 null，不补为 `0`。
-`terminal` 为兼容旧客户端保留原投影：通常是关联结果最后一行，缺少关联或
-查询失败时可能只是正在查看的一行。新客户端不据此推断末次尝试或请求终态。
+`lastAttempt` 是关联结果中序数最高的一行；缺少 `requestId`、关联查询失败或
+无关联行时为 null，未知的 `httpStatus` 保持 null。`terminal` 仅为兼容旧客户端
+保留。尝试状态不等于网关返回给客户端的状态：重试耗尽后网关可能另返 503，
+流也可能在 HTTP 200 之后中断。
 
-`partial` 标明已知缺口：`requestIdMissing` 表示无法关联（`attempts` 为空）；
-`ordinalGap` 表示循环序数有空洞（如站点并发饱和跳过）；`attemptQueryFailed`
-表示关联查询失败。界面显示实际返回的记录数，不补造缺失尝试。
-重试后网关可能返回 503，流也可能在已发出 HTTP 200 后失败；日志的尝试状态码
-不能替代网关响应状态。没有派发的请求可能完全没有尝试日志。
+`partial` 标明已知缺口：`requestIdMissing`（无法关联，`attempts` 为空）、
+`ordinalGap`（序数有空洞，如站点并发饱和跳过）、`attemptQueryFailed`
+（关联查询失败）。缺口只标注，不补造记录。
 
 ### GET /api/stats/site-distribution
 

@@ -144,11 +144,6 @@ describe('ProxyLogDetailSheet request attempts', () => {
     expect(screen.getByText('site-b')).toBeInTheDocument()
     expect(screen.getByText('rate limited')).toBeInTheDocument()
     expect(screen.getByText('Last recorded attempt')).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        'Gateway response outcome is not recorded; attempt status does not prove client receipt.'
-      )
-    ).toBeInTheDocument()
     expect(screen.queryByText('Final outcome')).not.toBeInTheDocument()
     expect(screen.queryByText('Incomplete record')).not.toBeInTheDocument()
   })

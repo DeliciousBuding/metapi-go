@@ -445,9 +445,6 @@ function AttemptsSection({
               </span>
             ) : null}
           </div>
-          <p className='text-muted-foreground text-xs'>
-            {t('proxyLogs.detail.attempts.outcomeBoundary')}
-          </p>
           {ra.partial && ra.partialReasons.length > 0 ? (
             <ul className='text-muted-foreground list-disc space-y-1 pl-5 text-xs'>
               {ra.partialReasons.map((reason) => (
