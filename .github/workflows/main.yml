@@ -157,11 +157,7 @@ jobs:
       # transient-fault retry policy, and scripts/bun_install_wiring_test.go
       # fails if a bare call reappears.
       - run: sh ../scripts/bun-install.sh
-      - run: bun run typecheck
-      - run: bun run lint
-      - run: bun run format:check
-      - run: bun run knip
-      - run: bun run test
+      - run: bun run check
 
   # Build the bundle independently: Go and browser checks need its bytes, not
   # the frontend lint/test job's completion. docker-build still requires both.

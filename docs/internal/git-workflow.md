@@ -57,8 +57,8 @@ master (唯一长期分支，受保护，持续集成)
 ## 4. PR 流程
 
 1. 从 master 切分支：`git checkout -b fix/xxx`
-2. 本地门禁全绿后提交（Conventional Commits 风格，见 §5），`git push -u origin fix/xxx`
-   - push 前全局 hook-kit 链式执行 `.githooks/pre-push-project`（`go build` + `go vet` + 完整前端门禁 + WSL-backed `-race`）；`.githooks/pre-push` 仅供未安装 hook-kit 的贡献者作为兼容入口。`git push --no-verify` 只用于已确认的紧急例外；hotfix 不据此默认跳过本地门禁，远端 CI 仍必须通过。
+2. 按 Conventional Commits 提交，`git push -u origin fix/xxx`，在 PR 中说明已运行和未运行的检查。
+   - 本地 hook 可选，不依赖个人 agent 工具链；启用 `.githooks/pre-push` 后，它委托 `.githooks/pre-push-project` 执行完整检查。也可直接运行该脚本或对应标准命令，见[贡献规范](../../CONTRIBUTING.md#本地验证)。Windows 日常开发不要求 WSL；脚本的 race 路径使用 WSL。环境不支持的验证须明确报告，由完整 CI 和变更验收补齐，不能宣称本地已通过。已启用的检查失败时先解决原因，不用 `--no-verify` 掩盖失败；紧急例外仍须明确批准。
 3. 开 PR（`gh pr create`，模板自动填充），base = master
 4. CI 12 job 全绿（含 PG 集成测试）后 Squash merge
 5. 合并时把 PR 标题改写为最终提交信息（符合 Conventional Commits）
