@@ -5,12 +5,20 @@
 // token form (RHF + Zod) + sync-from-site action.
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CheckCircle2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import {
+  CheckCircle2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Route,
+  Trash2,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -53,6 +61,7 @@ import {
 
 interface TokensPanelProps {
   accountId: number
+  onConfigureRoutes?: (tokenId: number) => void
   /**
    * Reports the inline token form's dirty state so the hosting account
    * detail sheet can confirm before it closes over unsaved edits.
@@ -62,10 +71,17 @@ interface TokensPanelProps {
 
 export function TokensPanel({
   accountId,
+  onConfigureRoutes,
   onFormDirtyChange,
 }: TokensPanelProps) {
   const { t } = useTranslation()
-  const { data: tokens = [], isLoading } = useAccountTokens(accountId)
+  const {
+    data: tokens = [],
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useAccountTokens(accountId)
   const syncMutation = useSyncAccountTokens()
   const setDefaultMutation = useSetDefaultAccountToken()
   const toggleEnabledMutation = useToggleAccountTokenEnabled()
@@ -151,12 +167,19 @@ export function TokensPanel({
 
       <Separator />
 
+      <QueryErrorBanner
+        error={error}
+        messageKey='accounts.tokens.loadError'
+        onRetry={() => void refetch()}
+        isRetrying={isFetching}
+      />
+
       {isLoading ? (
         <div className='text-muted-foreground flex items-center justify-center py-6 text-sm'>
           <Spinner />
           {t('accounts.tokens.loading')}
         </div>
-      ) : tokens.length === 0 ? (
+      ) : error && tokens.length === 0 ? null : tokens.length === 0 ? (
         <p className='text-muted-foreground py-6 text-center text-sm'>
           {t('accounts.tokens.empty')}
         </p>
@@ -166,6 +189,11 @@ export function TokensPanel({
             <TokenRow
               key={token.id}
               token={token}
+              onConfigureRoutes={
+                onConfigureRoutes && !error
+                  ? () => onConfigureRoutes(token.id)
+                  : undefined
+              }
               onEdit={() => openEditForm(token)}
               onDelete={() => deleteToken(token)}
               onSetDefault={() => setDefaultMutation.mutate(token.id)}
@@ -187,6 +215,7 @@ export function TokensPanel({
 
 interface TokenRowProps {
   token: AccountToken
+  onConfigureRoutes?: () => void
   onEdit: () => void
   onDelete: () => void
   onSetDefault: () => void
@@ -196,6 +225,7 @@ interface TokenRowProps {
 
 function TokenRow({
   token,
+  onConfigureRoutes,
   onEdit,
   onDelete,
   onSetDefault,
@@ -205,9 +235,9 @@ function TokenRow({
   const { t } = useTranslation()
   const isMaskedPending = token.valueStatus === 'masked_pending'
   return (
-    <li className='flex items-center gap-3 px-3 py-2'>
+    <li className='flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2'>
       <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
-        <div className='flex items-center gap-1.5'>
+        <div className='flex flex-wrap items-center gap-1.5'>
           <span className='truncate text-sm font-medium'>
             {token.name || t('accounts.tokens.unnamed')}
           </span>
@@ -233,7 +263,19 @@ function TokenRow({
         <SecretField value={token.token} masked={token.tokenMasked} />
       </div>
 
-      <div className='flex items-center gap-1'>
+      <div className='ml-auto flex items-center gap-1'>
+        {onConfigureRoutes && (
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            onClick={onConfigureRoutes}
+            disabled={!token.enabled || isMaskedPending}
+            title={t('accounts.tokens.configureRoutes')}
+            aria-label={t('accounts.tokens.configureRoutes')}
+          >
+            <Route />
+          </Button>
+        )}
         {!token.isDefault && (
           <Button
             variant='ghost'
