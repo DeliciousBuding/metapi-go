@@ -81,7 +81,8 @@ describe('ProxyLogDetailSheet current route diagnosis', () => {
     testState.detail = {
       ...makeLog(),
       downstreamKeyId: 7,
-      errorMessage: '[downstream:/v1/responses] upstream failed',
+      downstreamPath: '/v1/responses',
+      errorMessage: '[downstream:/v1/messages] upstream failed',
     } as ProxyLogDetail
 
     render(<ProxyLogDetailSheet log={makeLog()} open onOpenChange={() => {}} />)
@@ -99,11 +100,47 @@ describe('ProxyLogDetailSheet current route diagnosis', () => {
     })
   })
 
+  it('opens an administrator preview for successful calls without a managed key', async () => {
+    testState.detail = {
+      ...makeLog(),
+      status: 'success',
+      downstreamPath: '/v1/chat/completions',
+      errorMessage: null,
+    } as ProxyLogDetail
+
+    render(<ProxyLogDetailSheet log={makeLog()} open onOpenChange={() => {}} />)
+
+    await screen.findByRole('link', { name: 'Open route workspace' })
+    expect(testState.links).toContainEqual({
+      to: '/token-routes',
+      search: {
+        workspaceModel: 'gpt-5.5',
+        workspaceEndpoint: '/v1/chat/completions',
+      },
+    })
+  })
+
   it('does not invent a route-workspace context for an unevaluable protocol', async () => {
     testState.detail = {
       ...makeLog(),
       downstreamKeyId: 7,
-      errorMessage: '[downstream:/v1/images/generations] upstream failed',
+      downstreamPath: '/v1/images/generations',
+      errorMessage: 'upstream failed',
+    } as ProxyLogDetail
+
+    render(<ProxyLogDetailSheet log={makeLog()} open onOpenChange={() => {}} />)
+
+    await screen.findByText('Request ID (shared by retry attempts)')
+    expect(
+      screen.queryByRole('link', { name: 'Open route workspace' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not infer missing ingress metadata from legacy error text', async () => {
+    testState.detail = {
+      ...makeLog(),
+      downstreamPath: null,
+      errorMessage: '[downstream:/v1/responses] upstream failed',
     } as ProxyLogDetail
 
     render(<ProxyLogDetailSheet log={makeLog()} open onOpenChange={() => {}} />)

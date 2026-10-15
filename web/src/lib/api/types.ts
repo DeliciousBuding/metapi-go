@@ -465,6 +465,8 @@ export type ProxyLogBillingDetails = {
 } | null
 
 export type ProxyLogListItem = {
+  /** Canonical ingress path; null for historical or unrecognized surfaces. */
+  downstreamPath?: string | null
   requestId?: string | null
   id: number
   createdAt: string

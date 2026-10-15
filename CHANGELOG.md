@@ -32,7 +32,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - 路由诊断：候选的解释投影新增冷却截止时间；冷却阻断且身份已知的候选行内提供「清除冷却」恢复入口，按候选类型分发——账号/OAuth 单元走 `POST /api/channels/{id}/cooldown/clear`（route_channels 行粒度，幂等），直连 grant 成员走既有 `POST /api/imported-upstreams/members/{id}/cooldown/clear`（upstream_grants 粒度），清除后自动重新评估（#1396）。
 - 路由工作区：`/token-routes` 顶部新增模型/协议/可选下游 Key 的只读诊断面板，直接展示准入结论、候选资格与阻断原因，并保留命中路由与 Key 日志深链（#1396）。
 - 路由工作区：Key 准入阻断新增“编辑 Key”深链，按阻断维度定位到对应表单控件；IP/速率等暂无表单入口的维度只打开编辑 Sheet，不伪装定位（#1396）。
-- Proxy logs: detail adds a current route diagnosis deep link when the recorded model, protocol, and downstream key can populate the route workspace; unevaluable protocols hide the entry instead of pretending to recompute history (#1396).
+- 代理日志：新增可空的 `downstreamPath` 入口字段；详情按已记录接口、模型和可选下游 Key 打开当前路由诊断，未知或不支持的接口不显示入口（#1396 → #1461）。
 
 - 概览：`GET /api/stats/overview` 新增 `requestSummary`/`requestPoints`，按 `requestId` 聚合客户端请求并以最高序数行作为 terminal；缺少 `requestId` 的旧 attempt 不进入请求分母，改以 `legacyAttemptCount` 与 `partial` 标注（#1396）。
 

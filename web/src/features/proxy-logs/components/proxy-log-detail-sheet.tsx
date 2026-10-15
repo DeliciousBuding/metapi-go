@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { ClientPill } from '@/components/common/client-pill'
 import { DetailField } from '@/components/common/detail-field'
 import { HttpStatusBadge } from '@/components/common/http-status-badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
@@ -114,11 +114,11 @@ export function ProxyLogDetailSheet({
               <DetailOverview detail={detail} />
               <CurrentRouteDiagnosis
                 model={detail.modelRequested || null}
-                endpoint={routeCheckEndpointFromPath(pathMeta.downstreamPath)}
+                endpoint={routeCheckEndpointFromPath(detail.downstreamPath)}
                 keyId={detail.downstreamKeyId ?? null}
               />
               <ConversationFileLinks
-                downstreamPath={pathMeta.downstreamPath}
+                downstreamPath={detail.downstreamPath ?? null}
                 upstreamPath={pathMeta.upstreamPath}
                 clientFamily={pathMeta.clientFamily}
                 clientAppName={detail.clientAppName ?? null}
@@ -289,22 +289,17 @@ function CurrentRouteDiagnosis({
               : t('proxyLogs.detail.currentRoute.adminHint')}
           </p>
         </div>
-        <Button
-          size='sm'
-          variant='outline'
-          render={
-            <Link
-              to='/token-routes'
-              search={{
-                workspaceModel: model,
-                workspaceEndpoint: endpoint,
-                ...(keyId ? { workspaceKeyId: keyId } : {}),
-              }}
-            />
-          }
+        <Link
+          className={buttonVariants({ size: 'sm', variant: 'outline' })}
+          to='/token-routes'
+          search={{
+            workspaceModel: model,
+            workspaceEndpoint: endpoint,
+            ...(keyId ? { workspaceKeyId: keyId } : {}),
+          }}
         >
           {t('proxyLogs.detail.currentRoute.open')}
-        </Button>
+        </Link>
       </section>
     </>
   )

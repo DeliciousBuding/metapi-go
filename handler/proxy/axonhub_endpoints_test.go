@@ -18,7 +18,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-func installAxonHubEndpointFixture(t *testing.T, provider, baseURL string, endpoints []map[string]any, settings ...map[string]any) {
+func installAxonHubEndpointFixture(t *testing.T, provider, baseURL string, endpoints []map[string]any, settings ...map[string]any) *store.DB {
 	t.Helper()
 	channelSettings := map[string]any{}
 	if len(settings) > 0 {
@@ -38,7 +38,7 @@ func installAxonHubEndpointFixture(t *testing.T, provider, baseURL string, endpo
 	if err != nil {
 		t.Fatal(err)
 	}
-	installAxonHubRawFixture(t, raw)
+	return installAxonHubRawFixture(t, raw)
 }
 
 func installAxonHubRawFixture(t *testing.T, raw []byte) *store.DB {

@@ -2,6 +2,7 @@ package proxyhandler
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -86,9 +87,12 @@ func TestDirectImportedProtocolsHTTPMatrix(t *testing.T) {
 					if up.provider != "gemini" {
 						endpoints = []map[string]any{{"api_format": up.format, "path": "/native-wire"}}
 					}
-					installAxonHubEndpointFixture(t, up.provider, upstream.URL, endpoints)
+					db := installAxonHubEndpointFixture(t, up.provider, upstream.URL, endpoints)
 					logs := make(chan proxy.ProxyLogEntry, 2)
-					getUpstreamConfig().LogProxy = func(_ context.Context, entry proxy.ProxyLogEntry) error { logs <- entry; return nil }
+					getUpstreamConfig().LogProxy = func(ctx context.Context, entry proxy.ProxyLogEntry) error {
+						logs <- entry
+						return InsertProxyLog(ctx, db, entry)
+					}
 					downstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						r = r.WithContext(auth.WithProxyAuth(r.Context(), &auth.ProxyAuthContext{Token: "fixture-client", Source: "global", Policy: auth.EmptyDownstreamRoutingPolicy}))
 						down.handler(w, r)
@@ -126,6 +130,20 @@ func TestDirectImportedProtocolsHTTPMatrix(t *testing.T) {
 					}
 					if strings.Contains(string(output), `"type":"error"`) {
 						t.Errorf("stream reported conversion failure: %s", output)
+					}
+					wantPath := down.path
+					if down.provider == "gemini" {
+						wantPath = "/v1beta/models/{model}:generateContent"
+						if stream {
+							wantPath = "/v1beta/models/{model}:streamGenerateContent"
+						}
+					}
+					var recorded sql.NullString
+					if err := db.Get(&recorded, "SELECT downstream_path FROM proxy_logs ORDER BY id DESC LIMIT 1"); err != nil {
+						t.Fatal(err)
+					}
+					if !recorded.Valid || recorded.String != wantPath {
+						t.Errorf("ingress changed during conversion: got %v, want %s", recorded, wantPath)
 					}
 					select {
 					case entry := <-logs:
