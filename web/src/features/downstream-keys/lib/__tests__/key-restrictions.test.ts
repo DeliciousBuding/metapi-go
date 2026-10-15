@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  admissionAnchorField,
   isKeyRestricted,
   KEY_RESTRICTION_DIMENSIONS,
   keyRestrictionDetails,
@@ -121,5 +122,21 @@ describe('KEY_RESTRICTION_DIMENSIONS', () => {
       'budget',
       'policy',
     ])
+  })
+})
+
+describe('admissionAnchorField', () => {
+  it('maps server admission blockers to the editable form section', () => {
+    expect(admissionAnchorField('policy')).toBe('accessPolicy')
+    expect(admissionAnchorField('quota')).toBe('accessPolicy')
+    expect(admissionAnchorField('state')).toBe('enabled')
+    expect(admissionAnchorField('expiry')).toBe('expiresAt')
+    expect(admissionAnchorField('budget', 'over_cost')).toBe('maxCost')
+    expect(admissionAnchorField('budget', 'over_requests')).toBe('maxRequests')
+  })
+
+  it('does not invent a form surface for IP or rate blockers', () => {
+    expect(admissionAnchorField('ip')).toBeNull()
+    expect(admissionAnchorField('rate', 'over_rpm')).toBeNull()
   })
 })

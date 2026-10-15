@@ -75,6 +75,7 @@ function renderWorkspace(
     keyId?: string
     onOpenRoute?: (id: number) => void
     onOpenKeyLogs?: (id: number) => void
+    onOpenKeyEdit?: (id: number, locateField: string | null) => void
   } = {}
 ) {
   const client = new QueryClient({
@@ -92,6 +93,7 @@ function renderWorkspace(
         onFiltersChange={vi.fn()}
         onOpenRoute={overrides.onOpenRoute ?? vi.fn()}
         onOpenKeyLogs={overrides.onOpenKeyLogs ?? vi.fn()}
+        onOpenKeyEdit={overrides.onOpenKeyEdit ?? vi.fn()}
       />
     </QueryClientProvider>
   )
@@ -155,5 +157,16 @@ describe('RouteWorkspace', () => {
 
     expect(onOpenRoute).toHaveBeenCalledWith(12)
     expect(onOpenKeyLogs).toHaveBeenCalledWith(7)
+  })
+
+  it('links a denied key to the matching editable admission dimension', async () => {
+    getKeyDecision.mockResolvedValue(keyContextResult as never)
+    const onOpenKeyEdit = vi.fn()
+
+    renderWorkspace({ keyId: '7', onOpenKeyEdit })
+
+    fireEvent.click(await screen.findByRole('button', { name: /Edit key/i }))
+
+    expect(onOpenKeyEdit).toHaveBeenCalledWith(7, 'accessPolicy')
   })
 })

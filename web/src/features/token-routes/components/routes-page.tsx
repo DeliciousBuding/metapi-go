@@ -449,6 +449,18 @@ export function RoutesPage() {
     [navigate]
   )
 
+  const openWorkspaceKeyEdit = useCallback(
+    (keyId: number, locateField: string | null) => {
+      const params = new URLSearchParams({ edit: String(keyId) })
+      if (locateField) params.set('locateField', locateField)
+      void navigate({
+        href: `/downstream-keys?${params.toString()}`,
+        replace: true,
+      })
+    },
+    [navigate]
+  )
+
   const chainContext = useMemo(
     () => ({
       accountId,
@@ -518,6 +530,7 @@ export function RoutesPage() {
         }
         onOpenRoute={openWorkspaceRoute}
         onOpenKeyLogs={openWorkspaceKeyLogs}
+        onOpenKeyEdit={openWorkspaceKeyEdit}
       />
 
       {(accountId || siteId) && (

@@ -10,7 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { KeySquare, Pencil, ScrollText } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -63,7 +63,17 @@ import { KeySheetForm } from './key-sheet-form'
 // the query has no data yet.
 const EMPTY_KEY_ITEMS: DownstreamApiKeyItem[] = []
 
-export function KeysSection() {
+type KeysSectionProps = {
+  editId?: number
+  initialLocateField?: string
+  onEditDrilldownConsumed?: () => void
+}
+
+export function KeysSection({
+  editId,
+  initialLocateField,
+  onEditDrilldownConsumed,
+}: KeysSectionProps = {}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
@@ -137,11 +147,35 @@ export function KeysSection() {
     setCreateOpen(true)
   }
 
-  function openEdit(item: DownstreamApiKeyItem, locateField?: string | null) {
-    setEditingKey(item)
-    setLocateField(locateField ?? null)
-    setCreateOpen(true)
-  }
+  const openEdit = useCallback(
+    (item: DownstreamApiKeyItem, locateField?: string | null) => {
+      setEditingKey(item)
+      setLocateField(locateField ?? null)
+      setCreateOpen(true)
+    },
+    []
+  )
+
+  const editDrilldownConsumed = useRef(false)
+  useEffect(() => {
+    if (editId === undefined) {
+      editDrilldownConsumed.current = false
+      return
+    }
+    if (editDrilldownConsumed.current || keysQuery.isLoading) return
+
+    const target = keysQuery.data?.items.find((item) => item.id === editId)
+    editDrilldownConsumed.current = true
+    if (target) openEdit(target, initialLocateField)
+    onEditDrilldownConsumed?.()
+  }, [
+    editId,
+    keysQuery.isLoading,
+    keysQuery.data?.items,
+    initialLocateField,
+    onEditDrilldownConsumed,
+    openEdit,
+  ])
 
   function onSheetOpenChange(open: boolean) {
     setCreateOpen(open)
@@ -393,7 +427,7 @@ export function KeysSection() {
         ),
       },
     ],
-    [t, toggleKeyPending, toggleKeyMutate, scopeNames, deleteKey]
+    [t, toggleKeyPending, toggleKeyMutate, scopeNames, deleteKey, openEdit]
   )
 
   const { table } = useDataTable<DownstreamApiKeyItem>({

@@ -2,6 +2,7 @@
 //
 // Consumers should import only from here:
 //   import {
+//     downstreamKeysSearchSchema,
 //     downstreamKeysQueryKeys,
 //     KeyContextAdmissionResult,
 //     type DownstreamKeysResponse,
@@ -19,5 +20,7 @@
 // list + sheet form into every consumer's chunk.
 
 export { downstreamKeysQueryKeys } from './types'
+export { admissionAnchorField } from './lib/key-restrictions'
+export { downstreamKeysSearchSchema } from './lib/keys-search-schema'
 export { KeyContextAdmissionResult } from './components/key-context-admission-result'
 export type { DownstreamKeysResponse } from './types'
