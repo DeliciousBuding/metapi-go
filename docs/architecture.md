@@ -310,7 +310,7 @@ metapi-go/
 | `app`           | HTTP server lifecycle, readiness, metrics, upstream executor glue                                                        |
 | `router`        | Route tree, CORS/security middleware, embed SPA                                                                          |
 | `auth`          | Fail-closed admin/proxy auth, downstream key policy                                                                      |
-| `config`        | Env → `Config`; parity names match TS, Go-only knobs take a `METAPI_` prefix (`BACKEND.md` §1.6)                                                                     |
+| `config`        | 环境变量 → `Config`；保留既有名称、alias、优先级和默认值，见 `configuration.md` |
 | `handler/admin` | Admin CRUD + settings + ops endpoints                                                                                    |
 | `handler/proxy` | Protocol surfaces under `/v1/*` and the non-`/v1` aliases                                                                                          |
 | `proxy`         | Coordinator + executor + channel selection + retry policy (the request loop itself lives in `handler/proxy/upstream.go`) |
@@ -378,7 +378,7 @@ scheduler (robfig/cron)
 | Routing              | `tokenRouter` service         | `routing/`                             |
 | Background jobs      | timers + node-cron            | `scheduler/` + robfig/cron             |
 | Image size           | ~80MB+ node base              | Alpine + static binary                 |
-| Config env names     | Unprefixed                    | Same names for parity vars; Go-only knobs add `METAPI_` |
+| Config env names     | Unprefixed                    | 保留既有名称与 alias；优先级见 `config/` 和 `configuration.md` |
 
 ## Key Design Decisions
 
@@ -390,9 +390,11 @@ React SPA is built once and embedded via `//go:embed`. Production image has no N
 
 SQLite is default (zero-config dev/test). PostgreSQL is the production path. `store.Open(dialect, dsn, sslMode)` and dialect rebinding hide `?` vs `$N` and type differences. MySQL was intentionally not ported.
 
-### 3. camelCase JSON API parity
+### 3. 管理 API 与原生代理协议
 
-All admin/proxy JSON field names use camelCase tags matching the TS frontend (`externalCheckinUrl`, `useSystemProxy`, …). Do not introduce snake_case wire formats for existing APIs.
+管理 API 保持与 TS 前端兼容的 camelCase 字段（`externalCheckinUrl`、`useSystemProxy` 等）。
+代理 API 保留各原生协议的字段、错误和流式语义，包括协议定义的 snake_case 字段；
+不能为统一代码风格重命名 wire 字段。
 
 ### 4. Fail-closed auth
 
@@ -407,9 +409,12 @@ Routing isolates bad channels instead of cascading:
 - **Selection filters** — open breakers and recent failures are removed before weighted/round-robin pick.
 - **Proxy failover** — the request loop can retry the same channel, refresh auth, or failover to the next channel without taking the whole gateway down.
 
-### 6. Config via env, TS-compatible names
+### 6. 配置名称与优先级
 
-`config.Load` reads the same env var names as TS Metapi for every parity variable (`AUTH_TOKEN`, `PROXY_TOKEN`, `DB_TYPE`, …). A knob that exists only in Go carries a `METAPI_` prefix so it cannot be mistaken for a parity name. The rule and its evidence live in one place: [`docs/internal/design/BACKEND.md`](internal/design/BACKEND.md) §1.6. Defaults and validation live in `config/`.
+`config.Load` 保留已有环境变量名称及 alias。名称、优先级、默认值和校验由 `config/`
+实现，[配置文档](configuration.md) 与 `.env.example` 同步说明。
+例如 `DB_PROFILE`、`DB_APPLICATION_NAME` 优先于对应 `METAPI_` alias；
+不通过一条新命名前缀规则改写现有用户配置。
 
 ### 7. Pure Go, no CGO
 

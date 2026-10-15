@@ -80,115 +80,45 @@ and the script terminates the server on exit. A green walkthrough is UI
 evidence for the fixture contract — it is not real-upstream or real-client
 acceptance, and never substitutes for the pre-push gate.
 
-## Race-detector budget (local push gate)
+## 本地 race 检查
 
-The pre-push gate (`scripts/go-race.sh`, chained from
-`.githooks/pre-push-project`) runs the full suite under `-race` with a
-per-package timeout. The default is **900s**; override it with
-`METAPI_RACE_TIMEOUT_SECONDS=<seconds>` when a host needs more headroom.
+`scripts/go-race.sh` 执行全量 race 测试，每包默认超时 900 秒，
+可通过 `METAPI_RACE_TIMEOUT_SECONDS=<seconds>` 调整。
+Windows 的该脚本使用 WSL；日常开发和定向测试不要求在 WSL 中完成。
+资源竞争可能拖慢测试，超时时先区分环境负载和代码问题，不跳过失败检查。
 
-Why 900s (measured, August 2026):
+CI 的 SQLite race shards 独立配置，不使用这个本地超时。
+分片必须验证预期包数和非空选择；选择脚本出错直接失败，
+不能用“没有包可跑”返回成功。PostgreSQL 共享夹具需串行运行（`-p 1`）。
 
-- Six independent development lanes hit the old 300s default on
-  `handler/admin` while parallel lanes contended for an 8GB WSL VM on a slow
-  `/mnt/d` 9p mount. Isolated measurements of `handler/admin` under
-  `-race` range **217-364s** depending on host load; the master baseline is
-  equally critical.
-- CI gives each package ~10 minutes (Go's default `go test` timeout) inside
-  30-minute shard jobs, so 900s matches both CI headroom and the measured
-  worst cases.
+## 门禁与 lint
 
-Operational guidance:
+机械规则由现有工具和配置维护，分工见[贡献规范](../CONTRIBUTING.md#规则由谁维护)。
+项目特有检查只补工具无法覆盖的真实约束，例外限定范围并说明理由。
+主观设计判断留给调用链审查，不按函数长度、文件数量或注释词频自动裁决。
 
-- Stagger push gates: keep race lanes to **4 or fewer concurrent** on one dev
-  host. Beyond that, per-package times inflate and gates time out for
-  environmental reasons, not code regressions.
-- On a timeout the gate prints a one-line hint; raise the knob (for example
-  `METAPI_RACE_TIMEOUT_SECONDS=1500`) rather than skipping the gate.
-  `git push --no-verify` is emergency-only.
+新增或修改检查时，验证真实检测入口：
 
-CI is unaffected by this default: `.github/workflows/main.yml` never calls
-`go-race.sh`. It shards packages across four runners and runs `go test
--race` with Go's default 10-minute per-package timeout, so raising the local
-gate default cannot weaken CI.
+- 正常输入通过，已知违规输入失败；覆盖本次修复相关的语法变体。
+- 读取、解析失败直接报错；应检查的入口消失、筛选器意外不再命中时失败。
+  记录实际扫描面，但不依赖历史文件数量证明检测正确。
+- 负例和真实扫描共用检测函数，或在临时夹具中运行真实 CLI；
+  不用另一份复制实现证明自己正确。
+- 必要时在隔离工作树移除待保护的修复，确认门禁变红；
+  按修改前摘要恢复文件，再确认通过，不在部署实例做破坏验证。
 
-Shard selection is guarded rather than trusted, because a required check that
-runs nothing still reports green. Each `test-sqlite-shard` job binds
-`matrix.shard` / `matrix.total` through the environment, computes its
-round-robin slot in a standalone `$(( ))` assignment, and then asserts the
-number of packages it owes — `ceil((N - S) / T)` over `N = go list ./...`. A
-shard that selects fewer than it owes, or none at all, fails loudly. The
-slot computation is deliberately *not* an `if (( ... ))` condition: a command
-in an `if` condition is exempt from `set -e`, so a malformed selector there is
-swallowed instead of aborting the step.
+`docs/pg_rebind_gate_test.go` 检查其明确扫描范围内的 SQL 字面量，
+不是全程序类型分析；动态 SQL 和跨文件句柄仍需 PostgreSQL 行为测试。
+前端静态 FormControl 检查也是启发式提示，不能证明实际 DOM 的 ARIA 转发；
+表单行为由 Testing Library 验证 accessible name、describedby 和 invalid 状态。
 
-That guard is load-bearing, not decorative. The revision that introduced the
-shard matrix inlined the matrix values into the arithmetic without `${{ }}`,
-so bash saw `i % matrix.total`, errored once per package, selected nothing,
-and took the `no packages in shard; nothing to run` branch to `exit 0`. All
-four shards and the aggregated `test-sqlite` required check reported success
-while executing zero tests, from v0.14.0 through v0.17.0. `test-pg` (which
-runs `go test ./...` unsharded) was the only job actually executing the Go
-suite in that window, and it does not pass `-race`.
-
-## Gate anti-vacuity
-
-A gate that reconciles two artifacts — docs against registered routes,
-`.env.example` against `docs/configuration.md`, one package's imports against
-the allowed edges, a schema registry against the DDL — reports "no violations"
-in two very different situations: the artifacts agree, **or it looked at
-nothing**. The second is not a lenient gate, it is an absent one, and it is the
-shape that let roughly thirty release tags go green while their required test
-shards ran zero tests (#1175), and that let 33 of 42 route-ownership entries
-name a file which never mentioned the route (#1233).
-
-So every reconciliation gate asserts its own input was non-empty before its
-result is trusted, and the assertion is paired with a mutation probe: break the
-thing the gate claims to catch, watch it go red, restore, watch it go green. A
-gate added without both is incomplete work, not a smaller diff.
-
-Two shapes are in use; copy whichever fits.
-
-- **Count the input.** Assert a non-zero scanned-file count per domain, as
-  `TestPackageBoundaries` does for each of its boundary groups, rather than a
-  single total — a total hides one domain going silent.
-- **Feed it a known violation.** Assert the comparator detects deliberately
-  broken samples, as `TestEnvParityGateIsNotAVacuousPass` and the `*RegexpSanity`
-  / `*MatcherSanity` tests do. This is the stronger of the two: it also catches
-  a parser or predicate that changed shape and now matches nothing.
-
-The census is deliberately not written down here, because a hand-copied list of
-gates drifts the same way a hand-copied table list does (#1165, #1172). Run this
-instead:
+查找已有门禁和负例实现时可用：
 
 ```sh
-grep -rlniE 'vacuous|^func Test\w*Sanity' --include='*_test.go' .
+rg -n -i 'vacuous|^func Test.*Sanity' docs --glob '*_test.go'
 ```
 
-Three things about that command, each paid for once already:
-
-- **Both halves are load-bearing.** The convention shows up under two shapes: an
-  inline assertion whose failure message says the gate "would pass vacuously",
-  and a named self-proof test. The version published here first was
-  `grep -rlni vacuous`, which found only the first shape and silently dropped
-  four files — including the two PostgreSQL literal gates in this very directory,
-  whose self-proofs are named `...RegexpSanity`, two paragraphs above being named
-  as implementations of the rule. Dropping the `-i` loses three more, because
-  half the named ones are spelled `...IsNotAVacuousPass`. A section about claims
-  matching reality should not publish a command whose output contradicts it.
-- **What it prints is still a floor.** The `Sanity` half is anchored on a
-  function declaration, so a future `...PredicateSanity` is caught, but an inline
-  counter whose author never wrote the word "vacuous" is invisible to any grep —
-  there is no keyword to find. If you need the real set rather than a floor, read
-  what this prints plus the reconciliation gates in `docs/`.
-- **A gate that reads two or three *named* files is defended against a missing
-  input** — failing to read them is already fatal. That defence covers the input
-  surface only. If the gate then filters what it read through a predicate, it
-  still needs the examined-count: `TestStorefrontDoesNotLinkInternalDocs` reads
-  two named READMEs *and* shares `markdownLinkRE` / `isExternalLinkTarget` with
-  its sibling, so narrowing either predicate emptied it while both files kept
-  reading fine. This bullet used to say such a gate "needs no counter", which is
-  how the gap survived the pass that wrote the rule.
+搜索结果只用于导航，不作为覆盖完整性的证明。
 
 ## Golden snapshot suites (protocol conversion)
 
