@@ -4136,13 +4136,15 @@
       "copyFailed": "复制失败——剪贴板不可用。",
       "verify": {
         "title": "验证接入",
-        "description": "用此密钥从当前浏览器发起两次真实请求——会消耗少量配额并计入日志，与真实客户端流量完全一致。",
+        "description": "用此密钥获取模型列表，再发送一次非流式 Chat 请求。生成会消耗配额并计入日志；流式、工具调用与其他客户端协议需另行验证。",
         "modelsCta": "检查可用模型",
-        "modelsOk": "可调用 {{count}} 个模型",
+        "modelsOk": "此密钥列出 {{count}} 个模型",
         "noModels": "此密钥当前没有可调用的模型，请检查其模型策略与路由授权。",
         "modelAria": "测试请求的模型",
         "chatCta": "发送测试对话",
         "chatOk": "调用成功，耗时 {{ms}} ms",
+        "invalidModelsResponse": "网关未返回有效的模型列表，请检查网关地址与反向代理。",
+        "invalidChatResponse": "网关未返回有效的 Chat Completions 响应，请检查网关地址、反向代理与此密钥的日志。",
         "timeout": "请求超时或网络错误",
         "viewLogs": "查看此密钥的日志"
       },

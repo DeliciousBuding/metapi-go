@@ -4140,13 +4140,15 @@
       "copyFailed": "Copy failed — clipboard unavailable.",
       "verify": {
         "title": "Verify the connection",
-        "description": "Two real requests with this key, from this browser — they consume a small amount of quota and appear in the logs, exactly like a client's traffic would.",
+        "description": "List models with this key, then send one non-streaming Chat request. Generation consumes quota and is logged; streaming, tools, and other client protocols need separate checks.",
         "modelsCta": "Check available models",
-        "modelsOk": "{{count}} models callable",
+        "modelsOk": "{{count}} models listed for this key",
         "noModels": "This key can call no models right now. Check its model policy and the route grants.",
         "modelAria": "Model for the test request",
         "chatCta": "Send a test chat",
         "chatOk": "Succeeded in {{ms}} ms",
+        "invalidModelsResponse": "The gateway did not return a valid model list. Check the gateway URL and reverse proxy.",
+        "invalidChatResponse": "The gateway did not return a valid Chat Completions response. Check the gateway URL, reverse proxy, and key logs.",
         "timeout": "Request timed out or network error",
         "viewLogs": "View this key's logs"
       },

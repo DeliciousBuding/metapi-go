@@ -18,6 +18,7 @@ import { Link } from '@tanstack/react-router'
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -41,6 +42,16 @@ type ChatState = StepState<
 >
 
 const VERIFY_TIMEOUT_MS = 30_000
+const modelsResponseSchema = z.object({
+  data: z.array(z.object({ id: z.string().min(1) })),
+  error: z.never().optional(),
+})
+const chatResponseSchema = z.object({
+  choices: z
+    .array(z.object({ message: z.object({ role: z.literal('assistant') }) }))
+    .min(1),
+  error: z.never().optional(),
+})
 
 /** Parsed upstream/gateway error body, truncated — never the key. */
 async function readErrorMessage(res: Response): Promise<string> {
@@ -104,10 +115,17 @@ export function CredentialVerifySection({
         })
         return
       }
-      const body = (await res.json()) as { data?: Array<{ id?: unknown }> }
-      const models = (body.data ?? [])
-        .map((entry) => entry.id)
-        .filter((id): id is string => typeof id === 'string' && id !== '')
+      const body = modelsResponseSchema.safeParse(
+        await res.json().catch(() => null)
+      )
+      if (!body.success) {
+        setModelsState({
+          phase: 'fail',
+          message: `HTTP ${res.status}: ${t('connect.verify.invalidModelsResponse')}`,
+        })
+        return
+      }
+      const models = body.data.data.map((entry) => entry.id)
       setModelsState({ phase: 'ok', models })
       setSelectedModel((current) =>
         current && models.includes(current) ? current : (models[0] ?? '')
@@ -154,8 +172,17 @@ export function CredentialVerifySection({
         })
         return
       }
-      // A syntactically valid envelope is enough — the chain answered.
-      await res.json().catch(() => undefined)
+      const body = chatResponseSchema.safeParse(
+        await res.json().catch(() => null)
+      )
+      if (!body.success) {
+        setChatState({
+          phase: 'fail',
+          status: res.status,
+          message: t('connect.verify.invalidChatResponse'),
+        })
+        return
+      }
       setChatState({ phase: 'ok', latencyMs })
     } catch (error) {
       setChatState({

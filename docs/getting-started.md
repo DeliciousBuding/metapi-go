@@ -1,18 +1,18 @@
 # Getting Started
 
-**Last updated**: 2026-09-04
+**Last updated**: 2026-10-15
 
 A single guided path from zero to your first proxied request, in about five
 minutes. If you already know your way around, the [README quick start](../README.md)
 and [`deployment.md`](deployment.md) are the fast lane.
 
-**You will end with**: a running Metapi, one upstream site connected, one
-account verified, one route serving models, and one `/v1` request answered
-through the unified gateway.
+**You will end with**: a running Metapi, one upstream connected, a public
+model route, a downstream key, and one `/v1` request answered through the gateway.
 
-**Prerequisites**: Docker (any recent version) and one upstream account on a
-supported platform (New API, One API, OneHub, DoneHub, Veloera, AnyRouter,
-Sub2API, or an OpenAI/Claude/Gemini compatible endpoint).
+**Prerequisites**: Docker (any recent version) and an API key or supported
+account for an upstream platform. A direct API-key connection does not require
+a site account. Use the account path below when you also need balance,
+token-management or check-in features supported by that platform.
 
 Prefer a single binary over Docker? Install it with the published installer and
 run it with the same two tokens — the [README quick start](../README.md) covers
@@ -61,7 +61,24 @@ Open `http://localhost:4000` and log in with `$AUTH_TOKEN`.
 > after stopping the old server; MySQL data moves via the TS admin's database
 > migration first.
 
-## 2. Add your first site
+## 2. Connect an upstream
+
+For an API key, open **通道 (Channels)** at `/channels` and choose **接入平台
+(Connect platform)**. Select the product, paste its key, and supply a Base URL
+if it is self-hosted. Product variants such as pay-as-you-go and Coding Plan
+have different endpoints and model catalogs; select the one your key belongs to.
+
+Quick connect creates the connection, credential, model grants and public routes
+as one operation. Review the resulting models and public route names in the
+connection's detail. Discovered models and preset lists describe configuration;
+test a request before treating a model as working. If routes are already
+created, continue at §5 without creating a site or account.
+
+For OAuth subscriptions, use **上游 → OAuth** and the provider's authorization
+flow. The following site/account path remains available for supported management
+platforms.
+
+### Optional: add a managed site
 
 Navigate to **站点 (Sites)** → **添加站点**.
 
@@ -72,7 +89,7 @@ Navigate to **站点 (Sites)** → **添加站点**.
 Metapi stores the site and marks it active. You can add as many sites as you
 have accounts scattered across platforms.
 
-## 3. Add an account and verify credentials
+## 3. Optional: bind a site account
 
 Navigate to **账号 (Accounts)** → **添加账号**.
 
@@ -112,7 +129,12 @@ Navigate to **账号 (Accounts)** → **添加账号**.
 The account row shows balance and health once the first refresh lands
 (balance refresh runs hourly by default; use the row action to refresh now).
 
-## 4. Build a route
+## 4. Review or build a public route
+
+Quick connect normally creates the public routes. Use the public model name
+shown in the route, not an upstream alias or a display-only label. A Key's
+model mapping can intentionally map that client name to another routed model.
+Account connections or custom routing can be configured as follows.
 
 Navigate to **路由 (Token Routes)** → **添加路由 (Add route)**.
 
@@ -153,6 +175,20 @@ not gain balance/check-in management from this option.
 
 ## 5. Make your first proxied request
 
+Open **访问 → API 密钥** at `/downstream-keys`, create a downstream key and
+grant it the intended models or routes. Its **连接 (Connect)** action provides
+client configuration after explicit credential confirmation. In that dialog,
+check the model list, select a conversational model, then send a test chat.
+The generation uses real quota. This verifies one non-streaming Chat request;
+test your client's protocol, streaming and tools separately.
+
+The model tester uses an administrator test context. It does not establish that
+this downstream key is allowed to call the same model. Use the key's permission
+check or the route workspace when investigating admission or routing.
+
+The command below uses the instance-wide `PROXY_TOKEN` for a local smoke test.
+For everyday clients, use the downstream key you created instead.
+
 ```bash
 curl http://localhost:4000/v1/chat/completions \
   -H "Authorization: Bearer $PROXY_TOKEN" \
@@ -163,9 +199,16 @@ curl http://localhost:4000/v1/chat/completions \
   }'
 ```
 
-The response comes back from whichever channel the router selected (cost,
-balance and usage weighted). Check **使用日志 (Proxy Logs)** to see the row
-with status, latency, tokens and estimated cost.
+The router selects an eligible candidate according to the route's strategy.
+Check **请求与诊断 → 代理日志 (Proxy logs)** for status, latency, tokens and
+estimated cost. Each list row represents an upstream attempt; the detail groups
+recorded attempts by request ID and marks missing history. A denial before
+upstream dispatch may have no attempt row.
+
+For a current check, open the route workspace at `/token-routes`, enter the
+client model and protocol, and select the downstream key. It evaluates admission
+and candidate eligibility without calling the upstream. Its result describes
+the current configuration, not the decision made by an earlier request.
 
 ## 6. Point your tools at Metapi
 
