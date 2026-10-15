@@ -1,6 +1,6 @@
 # Git Workflow — 分支策略与协作规范
 
-**最后更新**：2026-10-15
+**最后更新**：2026-10-16
 
 > 本文定义 metapi-go 的工作项、分支、PR 和发布流程。开放工作以 GitHub Issue 为准；本文只写稳定的决策规则，不复制实时路线图。
 
@@ -62,7 +62,7 @@ master (唯一长期分支，受保护，持续集成)
 3. 开 PR（`gh pr create`，模板自动填充），base = master
 4. CI 12 job 全绿（含 PG 集成测试）后 Squash merge
 5. 合并时把 PR 标题改写为最终提交信息（符合 Conventional Commits）
-6. 删除已合并分支（`gh pr merge --delete-branch` 自动处理；若远端分支残留——如合并时本地有未提交改动——手动 `git push origin --delete <branch>`）
+6. 删除已合并分支（`gh pr merge --delete-branch` 自动处理；若远端分支残留——如合并时本地有未提交改动——手动 `git push origin --delete <branch>`）。分支检出在独立 worktree 时，先 `git worktree remove <path>`，再删除本地分支。
 
 ## 5. 提交信息规范（Conventional Commits）
 
