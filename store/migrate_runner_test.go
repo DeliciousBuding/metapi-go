@@ -37,6 +37,9 @@ func TestRunMigration_SQLiteToSQLiteRoundTrip(t *testing.T) {
 		"system_name", `"metapi-test"`); err != nil {
 		t.Fatalf("seed settings: %v", err)
 	}
+	if _, err := srcDB.Exec(`INSERT INTO proxy_logs (model_requested, downstream_path, created_at) VALUES ('known-ingress', '/v1/responses', '2026-10-15T00:00:00Z'), ('legacy-ingress', NULL, '2026-10-15T00:00:00Z')`); err != nil {
+		t.Fatalf("seed ingress metadata: %v", err)
+	}
 	if err := srcDB.Close(); err != nil {
 		t.Fatalf("close source: %v", err)
 	}
@@ -69,6 +72,13 @@ func TestRunMigration_SQLiteToSQLiteRoundTrip(t *testing.T) {
 		t.Fatalf("open target: %v", err)
 	}
 	defer tgtDB.Close()
+	var logs []ProxyLog
+	if err := tgtDB.Select(&logs, "SELECT * FROM proxy_logs ORDER BY id"); err != nil {
+		t.Fatal(err)
+	}
+	if len(logs) != 2 || logs[0].DownstreamPath == nil || *logs[0].DownstreamPath != "/v1/responses" || logs[1].DownstreamPath != nil {
+		t.Fatalf("copy migration lost nullable ingress: %+v", logs)
+	}
 
 	var (
 		siteID           int

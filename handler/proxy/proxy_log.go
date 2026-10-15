@@ -51,7 +51,7 @@ const proxyLogInsertColumns = `route_id, channel_id, upstream_channel_id, upstre
 			prompt_tokens, completion_tokens, total_tokens,
 			estimated_cost, billing_details,
 			client_family, client_app_id, client_app_name, client_confidence,
-			error_message, retry_count, request_id, created_at`
+			error_message, retry_count, request_id, created_at, downstream_path`
 
 // proxyLogSingleRowPlaceholders matches the canonical INSERT column list.
 // store.DB rebinds ? to $N for PostgreSQL, so the batch writer builds rows of
@@ -62,7 +62,7 @@ const proxyLogSingleRowPlaceholders = `(?, ?, ?, ?, ?, ?,
 			?, ?, ?,
 			?, ?,
 			?, ?, ?, ?,
-			?, ?, ?, ?)`
+			?, ?, ?, ?, ?)`
 
 // proxyLogEntryArgs builds the positional args for one proxy_logs INSERT row,
 // matching proxyLogInsertColumns order. Shared by InsertProxyLog (single) and
@@ -110,7 +110,39 @@ func proxyLogEntryArgs(entry proxy.ProxyLogEntry, createdAt string) []any {
 		entry.RetryCount,
 		nullString(strPtrOrEmpty(entry.RequestID)),
 		createdAt,
+		nullString(entry.DownstreamPath),
 	}
+}
+
+// Store only known API surfaces, never model IDs, task IDs or URL parameters.
+func proxyLogDownstreamPath(ctx *Ctx) *string {
+	if ctx == nil {
+		return nil
+	}
+	path := strings.TrimRight(strings.SplitN(ctx.DownstreamPath, "?", 2)[0], "/")
+	switch path {
+	case "/v1/messages/count_tokens", "/v1/responses/compact",
+		"/v1internal::generateContent", "/v1internal::streamGenerateContent", "/v1internal::countTokens",
+		"/v1/completions", "/v1/embeddings", "/v1/rerank", "/v1/search",
+		"/v1/images/generations", "/v1/images/edits", "/v1/images/variations",
+		"/v1/audio/speech", "/v1/audio/transcriptions", "/v1/audio/translations",
+		"/v1/moderations", "/v1/videos", "/v1/systemone", "/v1/alpha/search":
+		return &path
+	}
+	endpoint, ok := proxy.EndpointFromPath(path)
+	if !ok {
+		return nil
+	}
+	if endpoint == proxy.EndpointGemini {
+		if strings.HasSuffix(path, ":streamGenerateContent") {
+			path = "/v1beta/models/{model}:streamGenerateContent"
+		} else {
+			path = "/v1beta/models/{model}:generateContent"
+		}
+	} else {
+		path = proxy.PathForEndpoint(endpoint)
+	}
+	return &path
 }
 
 func observedUsageCount(found bool, count int64) *int64 {
@@ -254,6 +286,7 @@ func writeSuccessProxyLog(
 	// accounting — ratio lookups stay on the canonical model.
 	billing := directVideoBillingResult(requestedModel, platformName, usage)
 	entry := proxy.ProxyLogEntry{
+		DownstreamPath:        proxyLogDownstreamPath(proxyCtx),
 		RouteID:               routeIDPtr,
 		ChannelID:             channelIDPtr,
 		UpstreamChannelID:     upstreamChannelIDPtr,
@@ -391,6 +424,7 @@ func writeFailureProxyLog(
 		errPtr = &errMsg
 	}
 	entry := proxy.ProxyLogEntry{
+		DownstreamPath:        proxyLogDownstreamPath(proxyCtx),
 		RouteID:               routeIDPtr,
 		ChannelID:             channelIDPtr,
 		UpstreamChannelID:     upstreamChannelIDPtr,

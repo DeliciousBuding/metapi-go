@@ -467,6 +467,7 @@ func (c RouteChannel) TotalCostOrZero() float64 {
 
 // ---- Table 14: proxy_logs ----
 type ProxyLog struct {
+	DownstreamPath        *string  `db:"downstream_path" json:"downstreamPath"`
 	UpstreamReportedModel *string  `db:"upstream_reported_model" json:"upstreamReportedModel"`
 	ID                    int64    `db:"id" json:"id"`
 	RouteID               *int64   `db:"route_id" json:"routeId"`

@@ -554,6 +554,13 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "upstream_credentials", "gcp_service_account", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		Version:     "proxy_log_downstream_path_v1",
+		Description: "nullable canonical ingress path without URL parameters or resource identifiers",
+		Apply: func(db *DB) error {
+			return EnsureColumn(db, "proxy_logs", "downstream_path", "TEXT", "TEXT", "")
+		},
+	},
 	// sc2_029_ts_timestamp_normalization is deliberately NOT a registry step
 	// any more. A journal gate decides "already applied" from the state of the
 	// database at the moment it runs, and the TS-shaped timestamps this rewrite

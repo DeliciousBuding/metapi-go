@@ -54,6 +54,13 @@ Query proxy request logs (server-side filtered and paginated).
 **Response** (`view=query`/`full`): `{ items, total, page, pageSize }` where `total` respects all active filters; `view=meta`/`full` adds `summary` (totalCount/successCount/failedCount/totalCost/totalTokensAll), `sites`, `clientOptions`.
 
 Each row describes one upstream attempt. `latencyMs` includes reading the buffered response or relaying the stream;
+`downstreamPath` is a nullable canonical client API path captured for successful and failed dispatches, independently
+of the chosen outbound protocol. It omits URL parameters and replaces Gemini model identifiers with `{model}`;
+streamGenerateContent, count-tokens, Responses compact and Gemini CLI keep distinct paths. Unrecognized or
+resource-specific paths and historical rows stay null. Error text and upstream paths do not supply this value.
+The detail UI can open the current route workspace for supported recorded interfaces, using `modelRequested`
+and the recorded downstream key when present. Without a key it is an administrator preview. This checks current
+configuration, not the historical selection; unsupported or unknown interfaces have no diagnostic shortcut.
 `cacheReadTokens` and `cacheCreationTokens`, when present, are validated projections of stored billing usage.
 Unknown, invalid or absent cache counts stay absent; cache counts are not added to total tokens or used to invent
 a cache-hit percentage. Billing detail sections normalize legacy snake_case fields to the camelCase API contract.

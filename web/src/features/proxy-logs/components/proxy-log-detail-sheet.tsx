@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { ClientPill } from '@/components/common/client-pill'
 import { DetailField } from '@/components/common/detail-field'
 import { HttpStatusBadge } from '@/components/common/http-status-badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
@@ -19,6 +19,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
+import { routeCheckEndpointFromPath } from '@/features/token-routes'
 import { toBcp47 } from '@/i18n/languages'
 import type { ProxyLogAttempt } from '@/lib/api'
 import { copyText } from '@/lib/clipboard'
@@ -111,8 +112,13 @@ export function ProxyLogDetailSheet({
           {detail && (
             <>
               <DetailOverview detail={detail} />
+              <CurrentRouteDiagnosis
+                model={detail.modelRequested || null}
+                endpoint={routeCheckEndpointFromPath(detail.downstreamPath)}
+                keyId={detail.downstreamKeyId ?? null}
+              />
               <ConversationFileLinks
-                downstreamPath={pathMeta.downstreamPath}
+                downstreamPath={detail.downstreamPath ?? null}
                 upstreamPath={pathMeta.upstreamPath}
                 clientFamily={pathMeta.clientFamily}
                 clientAppName={detail.clientAppName ?? null}
@@ -255,6 +261,47 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
         </DetailField>
       </dl>
     </section>
+  )
+}
+
+function CurrentRouteDiagnosis({
+  model,
+  endpoint,
+  keyId,
+}: {
+  model: string | null
+  endpoint: string | null
+  keyId: number | null
+}) {
+  const { t } = useTranslation()
+  if (!model || !endpoint) return null
+  return (
+    <>
+      <Separator />
+      <section className='flex flex-wrap items-center justify-between gap-2'>
+        <div className='min-w-0'>
+          <h3 className='text-sm font-medium'>
+            {t('proxyLogs.detail.currentRoute.title')}
+          </h3>
+          <p className='text-muted-foreground text-xs'>
+            {keyId
+              ? t('proxyLogs.detail.currentRoute.keyHint')
+              : t('proxyLogs.detail.currentRoute.adminHint')}
+          </p>
+        </div>
+        <Link
+          className={buttonVariants({ size: 'sm', variant: 'outline' })}
+          to='/token-routes'
+          search={{
+            workspaceModel: model,
+            workspaceEndpoint: endpoint,
+            ...(keyId ? { workspaceKeyId: keyId } : {}),
+          }}
+        >
+          {t('proxyLogs.detail.currentRoute.open')}
+        </Link>
+      </section>
+    </>
   )
 }
 

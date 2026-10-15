@@ -3197,6 +3197,12 @@
         "sectionConversation": "Conversation path",
         "sectionError": "Error message",
         "sectionBilling": "Billing details",
+        "currentRoute": {
+          "title": "Current route diagnosis",
+          "keyHint": "Open the route workspace with this request's model, protocol, and downstream key to check current admission and candidates.",
+          "adminHint": "Open the route workspace with this request's model and protocol to check the current administrator preview.",
+          "open": "Open route workspace"
+        },
         "rawRequest": "Request body",
         "rawResponse": "Response body",
         "rawRequestHeaders": "Request headers",

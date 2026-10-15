@@ -21,6 +21,7 @@ export {
   useRoutes,
 } from './api'
 export { routesSearchSchema } from './lib/routes-schema'
+export { routeCheckEndpointFromPath } from './lib/route-check-endpoints'
 
 // Rebuild handoff: an acknowledged rebuild stores its task reference so the
 // routes page can pick the task up after navigation instead of showing a stale

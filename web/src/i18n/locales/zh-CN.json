@@ -3197,6 +3197,12 @@
         "sectionConversation": "会话路径",
         "sectionError": "错误信息",
         "sectionBilling": "计费详情",
+        "currentRoute": {
+          "title": "当前路由诊断",
+          "keyHint": "用此请求的模型、协议和下游 Key 打开路由工作区，检查当前准入与候选。",
+          "adminHint": "用此请求的模型和协议打开路由工作区，检查当前管理员预览。",
+          "open": "打开路由工作区"
+        },
         "rawRequest": "请求体",
         "rawResponse": "响应体",
         "rawRequestHeaders": "请求 Headers",

@@ -178,6 +178,10 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 		maxRetries = proxy.GetProxyMaxChannelRetries(config.Get().ProxyMaxChannelAttempts)
 	}
 
+	downstreamPath := cfg.DownstreamPath
+	if downstreamPath == "" {
+		downstreamPath = r.URL.Path
+	}
 	return &Ctx{
 		Auth:           authCtx,
 		Policy:         authCtx.Policy,
@@ -185,7 +189,7 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 		RawBody:        bodyBytes,
 		Headers:        headers,
 		ClientCtx:      clientCtx,
-		DownstreamPath: cfg.DownstreamPath,
+		DownstreamPath: downstreamPath,
 		RequestedModel: requestedModel,
 		SurfaceFormat:  cfg.SurfaceFormat,
 		IsStream:       isStream,

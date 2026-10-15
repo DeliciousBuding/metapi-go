@@ -198,7 +198,7 @@ func batchInsertProxyLogs(ctx context.Context, db *store.DB, entries []proxy.Pro
 	// One timestamp for the whole batch; the per-row skew vs. real occurrence
 	// is bounded by the flush interval and is irrelevant to 24h/60s windows.
 	createdAt := time.Now().UTC().Format(time.RFC3339)
-	args := make([]any, 0, len(entries)*proxyLogInsertArgCount)
+	args := make([]any, 0, len(entries)*strings.Count(proxyLogSingleRowPlaceholders, "?"))
 	for i, entry := range entries {
 		if i > 0 {
 			sb.WriteString(",")
@@ -209,11 +209,6 @@ func batchInsertProxyLogs(ctx context.Context, db *store.DB, entries []proxy.Pro
 	_, err := db.ExecContext(ctx, sb.String(), args...)
 	return err
 }
-
-// proxyLogInsertArgCount is the number of positional args per proxy_logs row.
-// Kept as a constant so the batch writer can pre-size the args slice without a
-// runtime count of proxyLogEntryArgs output.
-const proxyLogInsertArgCount = 26
 
 // Default tunables for the proxy_log batch writer. Mirrors the env defaults in
 // config.Load so the writer is usable in isolation (tests, ad-hoc tooling).
