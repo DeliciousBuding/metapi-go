@@ -4,7 +4,7 @@
 **Scope**: Enterprise ops control plane (sites, accounts, tokens, routes, monitors, logs)
 **Visual language**: GCP cloud console density + frosted glass shell + Apple detail
 **Source of truth**: this document + `web/src/styles/theme.css` + `web/src/styles/theme-presets.css` + `web/src/lib/theme-customization.ts` + `web/src/components/ui/**`
-**Last updated**: 2026-09-12
+**Last updated**: 2026-10-15
 
 ---
 
@@ -70,6 +70,14 @@ winner, infers an identity from a negative compatibility ID, or renders an
 uncalculated probability as 0%. A refresh failure clears the prior result so a
 stale answer cannot sit under new input. Saved snapshots keep their own saved
 time and unknown context labels. The route workspace on /token-routes keeps one URL-owned diagnostic context for a concrete client model, protocol, and optional downstream key; it renders the server's key admission verdict and candidate eligibility side by side, then links the matched route and that key's proxy logs without pretending the preview selected a candidate.
+
+The root sidebar follows the operator's task order instead of the storage
+model: Overview, Upstream, Models & Routes, Access, Requests & Diagnostics, and
+Settings. Site, account, check-in, announcement, and OAuth management stay with
+supply; channels join routes and models; downstream keys are the access surface;
+logs and observability form the diagnosis surface. The grouping changes labels
+and order only — every existing URL, deep link, and drill-in workspace remains
+stable, so bookmarks and cross-page links keep working.
 
 **Principles**
 

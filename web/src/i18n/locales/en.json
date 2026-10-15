@@ -3525,10 +3525,12 @@
     },
     "sidebar": {
       "groups": {
-        "console": "Console",
-        "configuration": "Configuration",
-        "models": "Models",
-        "system": "System",
+        "overview": "Overview",
+        "upstream": "Upstream",
+        "modelsRoutes": "Models & Routes",
+        "access": "Access",
+        "requestsDiagnostics": "Requests & Diagnostics",
+        "settings": "Settings",
         "systemAdministration": "System Administration"
       },
       "items": {
