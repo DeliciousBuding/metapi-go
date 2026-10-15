@@ -1081,7 +1081,11 @@ func (h *statsHandler) buildRequestAttempts(current map[string]any) map[string]a
 			"httpStatus": coerceInt(last["httpStatus"]),
 			"logId":      coerceInt64(last["id"]),
 		}
-		result["lastAttempt"] = result["terminal"]
+		result["lastAttempt"] = map[string]any{
+			"status":     coerceString(last["status"]),
+			"httpStatus": last["httpStatus"],
+			"logId":      coerceInt64(last["id"]),
+		}
 	}
 	return result
 }

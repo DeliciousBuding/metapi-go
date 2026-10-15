@@ -83,6 +83,9 @@ Earlier builds recorded header latency as total latency on successful responses;
 
 Get a single proxy log entry by ID.
 
+主记录的 SQL 执行或扫描失败返回 `500` / `resourceLoadFailed`，不会误报
+`404`；记录确实不存在时仍返回 `404`。
+
 `requestAttempts` 关联同一 `requestId` 的已记录尝试，`retry_count` 是重试
 循环序数。它回答已记录了哪些尝试、使用哪个渠道及各次状态，不提供网关最终
 响应或客户端接收结果。结构如下：
@@ -102,6 +105,7 @@ requestAttempts: {
 
 `lastAttempt` 只在关联查询成功且有记录时返回最后一行。缺少 `requestId`、查询
 失败或查不到关联行时为 null；旧服务端没有此字段时，客户端也显示未知。
+历史记录的 `httpStatus` 未知时保留 null，不补为 `0`。
 `terminal` 为兼容旧客户端保留原投影：通常是关联结果最后一行，缺少关联或
 查询失败时可能只是正在查看的一行。新客户端不据此推断末次尝试或请求终态。
 

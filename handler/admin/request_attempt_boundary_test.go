@@ -31,6 +31,17 @@ func TestRequestAttemptBoundary(t *testing.T) {
 			if !ok || attempt["logId"] != float64(last) || attempt["httpStatus"] != float64(429) || view["partial"] != true {
 				t.Fatalf("last recorded attempt must retain upstream status and known gaps: %#v", view)
 			}
+			if _, err := db.Exec("UPDATE proxy_logs SET http_status = NULL WHERE id = ?", last); err != nil {
+				t.Fatal(err)
+			}
+			view = getRequestAttempts(t, mux, first)
+			attempt = view["lastAttempt"].(map[string]any)
+			if value, exists := attempt["httpStatus"]; !exists || value != nil {
+				t.Fatalf("unknown HTTP status must remain null: %#v", attempt)
+			}
+			if legacyStatus := view["terminal"].(map[string]any)["httpStatus"]; legacyStatus != float64(0) {
+				t.Fatalf("legacy terminal wire projection changed: %#v", view["terminal"])
+			}
 
 			if err := db.Close(); err != nil {
 				t.Fatal(err)
