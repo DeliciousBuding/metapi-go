@@ -218,4 +218,11 @@ func TestDispatchAllChannelsExhaustedWritesProxyAllFailedEvent(t *testing.T) {
 	if router.failures != 0 {
 		t.Fatalf("failures = %d, want 0 (saturation must not record failure)", router.failures)
 	}
+	var attemptCount int
+	if err := db.Get(&attemptCount, "SELECT COUNT(*) FROM proxy_logs"); err != nil {
+		t.Fatal(err)
+	}
+	if attemptCount != 0 {
+		t.Fatalf("saturation returned 503 without dispatch; no attempt can represent that outcome: got %d rows", attemptCount)
+	}
 }

@@ -423,24 +423,31 @@ function AttemptsSection({
           <div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
             <span>
               {t('proxyLogs.detail.attempts.summary', {
-                count: Math.max(ra.attempts.length, 1),
+                count: ra.attempts.length,
               })}
             </span>
-            {ra.terminal ? (
+            {ra.lastAttempt ? (
               <span className='text-muted-foreground inline-flex items-center gap-1'>
-                {t('proxyLogs.detail.attempts.terminal')}
+                {t('proxyLogs.detail.attempts.lastAttempt')}
                 <HttpStatusBadge
-                  status={ra.terminal.status}
-                  httpStatus={ra.terminal.httpStatus}
+                  status={ra.lastAttempt.status}
+                  httpStatus={ra.lastAttempt.httpStatus}
                 />
               </span>
-            ) : null}
+            ) : (
+              <span className='text-muted-foreground'>
+                {t('proxyLogs.detail.attempts.lastAttemptUnknown')}
+              </span>
+            )}
             {ra.partial ? (
               <span className='text-warning-soft-fg bg-warning/10 inline-flex items-center rounded px-1.5 py-0.5 text-xs'>
                 {t('proxyLogs.detail.attempts.partial')}
               </span>
             ) : null}
           </div>
+          <p className='text-muted-foreground text-xs'>
+            {t('proxyLogs.detail.attempts.outcomeBoundary')}
+          </p>
           {ra.partial && ra.partialReasons.length > 0 ? (
             <ul className='text-muted-foreground list-disc space-y-1 pl-5 text-xs'>
               {ra.partialReasons.map((reason) => (
