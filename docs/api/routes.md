@@ -4,6 +4,11 @@
 
 ## Models & Routes
 
+路由不存在返回 `404`，数据库读取失败返回 `500` / `resourceLoadFailed`。
+路由和通道写入后若读回失败，写入已经生效且缓存已失效，客户端应重新读取状态；
+通道批量更新此时返回 `500` / `resourceLoadFailed`，并保留实际的 `successIds`
+与 `failedItems`。
+
 ### GET /api/imported-upstreams
 
 Returns `{items, members}` for imported and locally created direct-upstream channels. `items` contains

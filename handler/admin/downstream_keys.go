@@ -315,11 +315,13 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusInternalServerError, "creation failed")
 		return
 	}
-	created := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
-	if created != nil {
-		if key, ok := created["key"].(string); ok {
-			created["keyMasked"] = maskSecret(key)
-		}
+	created, err := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	if err != nil || created == nil {
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "API key created but failed to load result")
+		return
+	}
+	if key, ok := created["key"].(string); ok {
+		created["keyMasked"] = maskSecret(key)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -335,7 +337,11 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	existing := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	existing, err := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	if err != nil {
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load API key")
+		return
+	}
 	if existing == nil {
 		writeError(w, http.StatusNotFound, "API key not found")
 		return
@@ -688,7 +694,11 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	updated := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	updated, err := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	if err != nil || updated == nil {
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "API key updated but failed to load result")
+		return
+	}
 	// Update must not return full key; only keyMasked.
 	redactDownstreamKeySecret(updated)
 
@@ -826,7 +836,11 @@ func (h *downstreamKeysHandler) resetUsage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	updated := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	updated, err := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	if err != nil {
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "API key usage reset but failed to load result")
+		return
+	}
 	// Reset-usage must not return full key; only keyMasked.
 	redactDownstreamKeySecret(updated)
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -856,7 +870,11 @@ func (h *downstreamKeysHandler) overview(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	row := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	row, err := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	if err != nil {
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load API key")
+		return
+	}
 	if row == nil {
 		writeError(w, http.StatusNotFound, "API key not found")
 		return
@@ -883,7 +901,11 @@ func (h *downstreamKeysHandler) trend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	row := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	row, err := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+	if err != nil {
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load API key")
+		return
+	}
 	if row == nil {
 		writeError(w, http.StatusNotFound, "API key not found")
 		return
@@ -935,7 +957,11 @@ func (h *downstreamKeysHandler) batchKeys(w http.ResponseWriter, r *http.Request
 	var failedItems []map[string]any
 
 	for _, id := range body.IDs {
-		row := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+		row, err := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
+		if err != nil {
+			failedItems = append(failedItems, map[string]any{"id": id, "message": "failed to load API key"})
+			continue
+		}
 		if row == nil {
 			failedItems = append(failedItems, map[string]any{"id": id, "message": "API key not found"})
 			continue
@@ -1093,11 +1119,14 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 			if tokenId <= 0 {
 				return fmt.Sprintf("credentialRefs contains an invalid token reference: %v", obj["tokenId"]), nil
 			}
-			row := queryRow(h.db,
+			row, err := queryRow(h.db,
 				`SELECT at.id as token_id, at.account_id, a.site_id
 				 FROM account_tokens at
 				 INNER JOIN accounts a ON at.account_id = a.id
 				 WHERE at.id = ?`, tokenId)
+			if err != nil {
+				return "", err
+			}
 			if row == nil {
 				return fmt.Sprintf("credentialRefs contains an unknown token: %d", tokenId), nil
 			}
@@ -1109,9 +1138,12 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 		} else if kind == "default_api_key" {
 			accountId := coerceInt64(obj["accountId"])
 			siteId := coerceInt64(obj["siteId"])
-			row := queryRow(h.db,
+			row, err := queryRow(h.db,
 				`SELECT id as account_id, site_id, api_token
 				 FROM accounts WHERE id = ?`, accountId)
+			if err != nil {
+				return "", err
+			}
 			if row == nil {
 				return fmt.Sprintf("credentialRefs contains an unknown account: %d", accountId), nil
 			}

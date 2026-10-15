@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"database/sql"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -26,21 +28,16 @@ func parseTruthyQuery(v string) bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
-func queryRow(db *sqlx.DB, query string, args ...any) map[string]any {
-	rows, err := db.Queryx(rebindAdminQuery(db, query), args...)
+func queryRow(db *sqlx.DB, query string, args ...any) (map[string]any, error) {
+	row := make(map[string]any)
+	err := db.QueryRowx(rebindAdminQuery(db, query), args...).MapScan(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	defer rows.Close()
-
-	if rows.Next() {
-		row := make(map[string]any)
-		if err := rows.MapScan(row); err != nil {
-			return nil
-		}
-		return mapKeysToCamel(row)
-	}
-	return nil
+	return mapKeysToCamel(row), nil
 }
 
 func roundMicro(v float64) float64 {

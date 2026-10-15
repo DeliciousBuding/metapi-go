@@ -6,6 +6,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { ArrowRight, Scale, Search, Star } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ZodError } from 'zod'
 
 import { ModelPill } from '@/components/common/model-pill'
 import { PageHeader } from '@/components/common/page-header'
@@ -122,7 +123,11 @@ export function PriceComparePage() {
 
       <QueryErrorBanner
         error={query.error as Error | null}
-        messageKey='priceCompare.page.loadError'
+        messageKey={
+          query.error instanceof ZodError
+            ? 'priceCompare.page.invalidResponse'
+            : 'priceCompare.page.loadError'
+        }
         onRetry={() => query.refetch()}
         isRetrying={query.isFetching}
       />

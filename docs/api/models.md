@@ -102,6 +102,9 @@ Returns `{ model, days, limit, sampleUsage, items: [{ siteId, siteName, platform
 
 Alias: `GET /api/stats/model-prices` (same handler).
 
+前端把合法的 `items: []` 显示为空状态；`items` 缺失、类型错误或含非法行时
+显示加载错误并可重试，不当作“没有报价”。
+
 ### GET /api/models/token-candidates
 
 Available token candidates for route configuration.

@@ -949,7 +949,7 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	row := queryRow(h.db,
+	row, err := queryRow(h.db,
 		`SELECT pl.*, a.username, s.id as site_id, s.name as site_name, s.url as site_url,
 		 dk.id AS downstream_key_id, dk.name AS downstream_key_name
 		 FROM proxy_logs pl
@@ -957,6 +957,10 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 		 LEFT JOIN sites s ON a.site_id = s.id
 		 LEFT JOIN downstream_api_keys dk ON pl.downstream_api_key_id = dk.id
 		 WHERE pl.id = ?`, id)
+	if err != nil {
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load proxy log")
+		return
+	}
 	if row == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "proxy log not found"})
 		return
@@ -979,7 +983,7 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 //
 // The answer is read-only over already-persisted rows: sibling attempts
 // ordered by ordinal with minimal decision metadata (channel/site identity,
-// status, error, latency), the terminal outcome (highest-ordinal row), and an
+// status, error, latency), the last recorded attempt, and an
 // honest partial marker when the persisted set is known incomplete:
 //
 //   - requestIdMissing: the row predates request_id correlation, so siblings
@@ -989,9 +993,9 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 //     skipped on site-concurrency saturation without dispatching). The gap is
 //     reported, never back-filled with invented attempts.
 //
-// The terminal client outcome is the status of the highest-ordinal row; the
-// all-channels-exhausted 503 path writes no extra row, so the last attempt
-// row IS the terminal observation for an all-failed request.
+// An attempt does not establish the gateway response or client receipt. The
+// legacy terminal field is retained for wire compatibility only; new consumers
+// use lastAttempt, which remains null when correlation or its query is missing.
 func (h *statsHandler) buildRequestAttempts(current map[string]any) map[string]any {
 	currentID := coerceInt64(current["id"])
 	currentOrdinal := coerceInt(current["retryCount"])
@@ -1001,6 +1005,7 @@ func (h *statsHandler) buildRequestAttempts(current map[string]any) map[string]a
 		"partial":        false,
 		"partialReasons": []string{},
 		"attempts":       []any{},
+		"lastAttempt":    nil,
 		"terminal": map[string]any{
 			"status":     current["status"],
 			"httpStatus": current["httpStatus"],
@@ -1074,6 +1079,11 @@ func (h *statsHandler) buildRequestAttempts(current map[string]any) map[string]a
 		result["terminal"] = map[string]any{
 			"status":     coerceString(last["status"]),
 			"httpStatus": coerceInt(last["httpStatus"]),
+			"logId":      coerceInt64(last["id"]),
+		}
+		result["lastAttempt"] = map[string]any{
+			"status":     coerceString(last["status"]),
+			"httpStatus": last["httpStatus"],
 			"logId":      coerceInt64(last["id"]),
 		}
 	}

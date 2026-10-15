@@ -117,9 +117,13 @@ func (h *tokenRoutesHandler) addChannel(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	created := queryRow(h.db, "SELECT * FROM route_channels WHERE id = ?", id)
 	routing.InvalidateCache()
 	invalidateChannelsSnapshotCache()
+	created, err := queryRow(h.db, "SELECT * FROM route_channels WHERE id = ?", id)
+	if err != nil || created == nil {
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "channel created but failed to load result")
+		return
+	}
 	writeJSON(w, http.StatusOK, created)
 }
 
@@ -311,16 +315,26 @@ func (h *tokenRoutesHandler) batchUpdateChannels(w http.ResponseWriter, r *http.
 		successIDs = append(successIDs, update.ID)
 	}
 
-	updatedChannels := []map[string]any{}
-	for _, cid := range successIDs {
-		ch := queryRow(h.db, "SELECT * FROM route_channels WHERE id = ?", cid)
-		if ch != nil {
-			updatedChannels = append(updatedChannels, ch)
-		}
-	}
-
 	routing.InvalidateCache()
 	invalidateChannelsSnapshotCache()
+	updatedChannels := []map[string]any{}
+	for _, cid := range successIDs {
+		ch, err := queryRow(h.db, "SELECT * FROM route_channels WHERE id = ?", cid)
+		if err != nil || ch == nil {
+			// Writes are already committed; retain their per-item outcome even
+			// when the response projection cannot be loaded.
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"error":       "channels updated but failed to load results",
+				"errorCode":   ErrorCodeResourceLoadFailed,
+				"success":     false,
+				"successIds":  successIDs,
+				"failedItems": failedItems,
+			})
+			return
+		}
+		updatedChannels = append(updatedChannels, ch)
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":     len(failedItems) == 0,
 		"successIds":  successIDs,
@@ -440,9 +454,17 @@ func (h *tokenRoutesHandler) updateChannel(w http.ResponseWriter, r *http.Reques
 		h.db.Exec(h.db.Rebind("UPDATE route_channels SET source_model = ?, manual_override = ? WHERE id = ?"), sourceModel, true, channelID)
 	}
 
-	updated := queryRow(h.db, "SELECT * FROM route_channels WHERE id = ?", channelID)
 	routing.InvalidateCache()
 	invalidateChannelsSnapshotCache()
+	updated, err := queryRow(h.db, "SELECT * FROM route_channels WHERE id = ?", channelID)
+	if err != nil {
+		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "channel updated but failed to load result")
+		return
+	}
+	if updated == nil {
+		writeErrorCodeWithRequest(w, r, http.StatusNotFound, ErrorCodeChannelNotFound, "channel not found")
+		return
+	}
 	writeJSON(w, http.StatusOK, updated)
 }
 

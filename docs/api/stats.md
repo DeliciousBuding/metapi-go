@@ -13,16 +13,13 @@ logs, not deleted history. The returned `window` contains an inclusive RFC3339
 proxy-log drill-downs.
 
 **Response**: `{ period, window, summary, requestSummary, points, requestPoints, siteAvailability, models }`.
-`summary` and `points` remain attempt-level: every upstream dispatch row,
-including retries. `requestSummary` and `requestPoints` count only logs that
-share a non-empty `requestId`; the terminal row is the highest `retryCount`
-(tie-break by id), so two failed attempts followed by one success is one
-successful request. Rows without `requestId` are excluded from the request
-denominator and reported as `legacyAttemptCount`; when that count is nonzero,
-`partial` is true and `partialReasons` contains `requestIdMissing`. The old
-attempt aggregates are unchanged, so historical dashboards do not silently
-change their denominator. `requestPoints` buckets the terminal attempt by its
-created timestamp; no separate request-start row is inferred.
+`summary` 和 `points` 按已记录的上游尝试统计，包含重试。
+`requestSummary` 和 `requestPoints` 按非空 `requestId` 归组，以最高
+`retryCount`（同序数按 id）的已记录尝试判断成败：两次失败后一次成功计为一次
+成功。未派发、因而没有尝试日志的请求不计入。
+没有 `requestId` 的行不进入请求分母，单列为 `legacyAttemptCount`；该值
+大于零时，`partial` 为 true，`partialReasons` 包含 `requestIdMissing`。
+`requestPoints` 按各组末次尝试的写入时间分桶。
 `models` lists the five highest-cost models and an `other` bucket when needed.
 `siteAvailability` lists up to eight enabled sites, failures first.
 
@@ -84,7 +81,10 @@ Earlier builds recorded header latency as total latency on successful responses;
 
 Get a single proxy log entry by ID.
 
-The response carries a request-level attempt view in `requestAttempts`. Every dispatch attempt (including the final one) persists its own `proxy_logs` row; `requestId` correlates the rows of one client request and `retry_count` is the retry-loop ordinal. Shape:
+记录不存在返回 `404`；数据库读取失败返回 `500` / `resourceLoadFailed`。
+
+`requestAttempts` 关联同一 `requestId` 的已记录尝试，`retry_count` 是重试
+循环序数。结构如下：
 
 ```
 requestAttempts: {
@@ -92,13 +92,21 @@ requestAttempts: {
   currentOrdinal: number,          // this row's retry_count
   attempts: [{ id, ordinal, status, httpStatus, channelId, siteId, siteName,
                accountUsername, modelActual, errorMessage, latencyMs, createdAt, isCurrent }],
-  terminal: { status, httpStatus, logId } | null,  // highest-ordinal row = what the client finally got
+  lastAttempt: { status, httpStatus, logId } | null, // highest-ordinal recorded row; tie-break by id
+  terminal: { status, httpStatus, logId } | null,  // deprecated compatibility projection; not a gateway outcome
   partial: boolean,
   partialReasons: string[]          // "requestIdMissing" | "ordinalGap" | "attemptQueryFailed"
 }
 ```
 
-`partial` marks a known-incomplete persisted set: `requestIdMissing` (legacy row without correlation; `attempts` stays empty rather than presenting one unverifiable row as the whole request), `ordinalGap` (a loop iteration left no row, e.g. a selected channel skipped on site-concurrency saturation). Gaps are reported, never back-filled. The all-channels-exhausted terminal 503 writes no extra row, so for an all-failed request the last attempt row IS the terminal observation.
+`lastAttempt` 是关联结果中序数最高的一行；缺少 `requestId`、关联查询失败或
+无关联行时为 null，未知的 `httpStatus` 保持 null。`terminal` 仅为兼容旧客户端
+保留。尝试状态不等于网关返回给客户端的状态：重试耗尽后网关可能另返 503，
+流也可能在 HTTP 200 之后中断。
+
+`partial` 标明已知缺口：`requestIdMissing`（无法关联，`attempts` 为空）、
+`ordinalGap`（序数有空洞，如站点并发饱和跳过）、`attemptQueryFailed`
+（关联查询失败）。缺口只标注，不补造记录。
 
 ### GET /api/stats/site-distribution
 

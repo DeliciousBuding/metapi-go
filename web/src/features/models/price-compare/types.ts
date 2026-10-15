@@ -53,7 +53,7 @@ export const priceCompareResponseSchema = z.object({
       totalTokens: z.coerce.number().default(2000),
     })
     .catch({ promptTokens: 1000, completionTokens: 1000, totalTokens: 2000 }),
-  items: z.array(priceCompareItemSchema).catch([]),
+  items: z.array(priceCompareItemSchema),
   meta: z.unknown().nullish(),
 })
 

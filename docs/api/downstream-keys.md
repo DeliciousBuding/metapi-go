@@ -4,6 +4,11 @@
 
 ## Downstream API Keys
 
+单条 key 不存在返回 `404`，数据库读取失败返回 `500` / `resourceLoadFailed`；
+策略引用校验同样区分数据库失败（`500`）与未知账号或 token（`400`）。批处理中
+单项读取失败记入该项的 `failedItems`。创建、更新或重置用量后若读回失败，写入
+已经生效，客户端应重新读取状态，不要重复创建。
+
 ### GET /api/downstream-keys
 
 List all downstream API keys.
