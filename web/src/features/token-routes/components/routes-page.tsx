@@ -55,6 +55,7 @@ import {
 import { RouteDetailSheet } from './route-detail-sheet'
 import { RouteFormDialog, type RouteAccountOption } from './route-form-dialog'
 import { RouteRebuildStatus } from './route-rebuild-status'
+import { RouteWorkspace, type RouteWorkspaceFilters } from './route-workspace'
 import { useRoutesColumns } from './routes-columns'
 import { RoutesHeaderActions } from './routes-header-actions'
 import { RoutesKeyNextStep } from './routes-key-next-step'
@@ -70,6 +71,10 @@ type TokenRoutesUrlFilters = {
   accountId: string
   siteId: string
   routeId: string
+  workspaceModel: string
+  workspaceEndpoint: string
+  workspaceKeyId: string
+  workspaceClientIp: string
 }
 
 /**
@@ -98,6 +103,13 @@ function readTokenRoutesSearch(
         search?.accountId === undefined ? '' : String(search.accountId),
       siteId: search?.siteId === undefined ? '' : String(search.siteId),
       routeId: search?.routeId === undefined ? '' : String(search.routeId),
+      workspaceModel: asStringParam(search?.workspaceModel) ?? '',
+      workspaceEndpoint: asStringParam(search?.workspaceEndpoint) ?? '',
+      workspaceKeyId:
+        search?.workspaceKeyId === undefined
+          ? ''
+          : String(search.workspaceKeyId),
+      workspaceClientIp: asStringParam(search?.workspaceClientIp) ?? '',
     },
   }
 }
@@ -124,6 +136,18 @@ function buildTokenRoutesHref(
     params.set('accountId', merged.filters.accountId)
   }
   if (merged.filters.siteId) params.set('siteId', merged.filters.siteId)
+  if (merged.filters.workspaceModel) {
+    params.set('workspaceModel', merged.filters.workspaceModel)
+  }
+  if (merged.filters.workspaceEndpoint) {
+    params.set('workspaceEndpoint', merged.filters.workspaceEndpoint)
+  }
+  if (Number(merged.filters.workspaceKeyId) > 0) {
+    params.set('workspaceKeyId', merged.filters.workspaceKeyId)
+  }
+  if (merged.filters.workspaceClientIp) {
+    params.set('workspaceClientIp', merged.filters.workspaceClientIp)
+  }
   // Preserve the one-shot `edit` deep-link param across table-state
   // navigations (page-clamp / sort / filter) until the page's consumption
   // effect strips it — mirrors the sites page's buildHref guard for its
@@ -191,6 +215,7 @@ export function RoutesPage() {
     onPaginationChange,
     onColumnFiltersChange,
     filters,
+    updateUrlState,
   } = useTokenRoutesUrlState()
 
   const {
@@ -404,6 +429,26 @@ export function RoutesPage() {
     [routes, editRoute]
   )
 
+  const openWorkspaceRoute = useCallback(
+    (routeId: number) => {
+      const target = routes.find((route) => route.id === routeId)
+      if (!target) return
+      setDetailRoute(target)
+      setDetailOpen(true)
+    },
+    [routes]
+  )
+
+  const openWorkspaceKeyLogs = useCallback(
+    (keyId: number) => {
+      void navigate({
+        href: `/proxy-logs?downstreamKeyId=${keyId}`,
+        replace: true,
+      })
+    },
+    [navigate]
+  )
+
   const chainContext = useMemo(
     () => ({
       accountId,
@@ -458,6 +503,22 @@ export function RoutesPage() {
       </PageHeader>
 
       <RouteRebuildStatus rebuild={rebuildMutation} observation={rebuildTask} />
+
+      <RouteWorkspace
+        filters={{
+          workspaceModel: filters.workspaceModel,
+          workspaceEndpoint: filters.workspaceEndpoint,
+          workspaceKeyId: filters.workspaceKeyId,
+          workspaceClientIp: filters.workspaceClientIp,
+        }}
+        onFiltersChange={(next) =>
+          updateUrlState({
+            filters: next satisfies Partial<RouteWorkspaceFilters>,
+          })
+        }
+        onOpenRoute={openWorkspaceRoute}
+        onOpenKeyLogs={openWorkspaceKeyLogs}
+      />
 
       {(accountId || siteId) && (
         <div className='bg-muted/40 text-muted-foreground rounded-lg border p-2 text-sm'>

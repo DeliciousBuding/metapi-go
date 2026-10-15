@@ -11,7 +11,6 @@ import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -32,6 +31,8 @@ import {
 } from '@/components/ui/select'
 import { api, type KeyContextDecisionResponse } from '@/lib/api'
 import { toast } from '@/lib/toast'
+
+import { KeyContextAdmissionResult } from './key-context-admission-result'
 
 // Same endpoint surface as the route decision panel.
 const endpoints = [
@@ -154,7 +155,6 @@ export function KeyPermissionCheckDialog(props: {
 function CheckResult(props: { result: KeyContextDecisionResponse }) {
   const { t } = useTranslation()
   const { result } = props
-  const admission = result.keyContext.admission
   const candidates = result.decision.candidates ?? []
   const eligible = candidates.filter(
     (candidate) => candidate.eligibility === 'eligible'
@@ -165,40 +165,7 @@ function CheckResult(props: { result: KeyContextDecisionResponse }) {
 
   return (
     <div className='flex flex-col gap-3 border-t pt-3'>
-      <div className='flex items-center gap-2'>
-        {admission.verdict === 'allow' ? (
-          <Badge variant='default'>
-            {t('settings.downstream.keys.check.allow')}
-          </Badge>
-        ) : (
-          <Badge variant='destructive'>
-            {t('settings.downstream.keys.check.deny')}
-          </Badge>
-        )}
-        <span className='text-muted-foreground text-xs'>
-          {t('settings.downstream.keys.check.readOnlyNote')}
-        </span>
-      </div>
-
-      {admission.blockers.length > 0 ? (
-        <ul className='flex flex-col gap-1.5'>
-          {admission.blockers.map((blocker) => (
-            <li
-              key={`${blocker.dimension}-${blocker.code}`}
-              className='flex items-start gap-2 text-sm'
-            >
-              <Badge variant='outline' className='shrink-0'>
-                {t(
-                  `settings.downstream.keys.check.dimensions.${blocker.dimension}`
-                )}
-              </Badge>
-              <span className='min-w-0'>{blocker.message}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      <AdmissionWindows result={result} />
+      <KeyContextAdmissionResult result={result} />
 
       <div className='text-muted-foreground text-xs'>
         {result.decision.matched
@@ -212,86 +179,6 @@ function CheckResult(props: { result: KeyContextDecisionResponse }) {
             })
           : t('settings.downstream.keys.check.decisionUnmatched')}
       </div>
-    </div>
-  )
-}
-
-function AdmissionWindows(props: { result: KeyContextDecisionResponse }) {
-  const { t } = useTranslation()
-  const admission = props.result.keyContext.admission
-  const rows: Array<{ label: string; value: string }> = []
-  const push = (
-    label: string,
-    used: number,
-    max: number | null | undefined
-  ) => {
-    rows.push({
-      label,
-      value: max == null ? String(used) : `${used} / ${max}`,
-    })
-  }
-  if (admission.cost) {
-    push(
-      t('settings.downstream.keys.check.cost'),
-      admission.cost.used,
-      admission.cost.max
-    )
-  }
-  if (admission.requests) {
-    push(
-      t('settings.downstream.keys.check.requests'),
-      admission.requests.used,
-      admission.requests.max
-    )
-  }
-  if (admission.rate) {
-    push(
-      t('settings.downstream.keys.check.rpm'),
-      admission.rate.rpm.used,
-      admission.rate.rpm.max
-    )
-    push(
-      t('settings.downstream.keys.check.tpm'),
-      admission.rate.tpm.used,
-      admission.rate.tpm.max
-    )
-  }
-  if (admission.quota) {
-    if (admission.quota.requestsMax != null) {
-      push(
-        t('settings.downstream.keys.check.quotaRequests'),
-        admission.quota.requestsUsed,
-        admission.quota.requestsMax
-      )
-    }
-    if (admission.quota.tokensMax != null) {
-      push(
-        t('settings.downstream.keys.check.quotaTokens'),
-        admission.quota.tokensUsed,
-        admission.quota.tokensMax
-      )
-    }
-    if (admission.quota.costMax != null) {
-      push(
-        t('settings.downstream.keys.check.quotaCost'),
-        admission.quota.costUsed,
-        admission.quota.costMax
-      )
-    }
-  }
-  if (rows.length === 0) return null
-  return (
-    <div className='flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums'>
-      {rows.map((row) => (
-        <span key={row.label}>
-          <span className='text-muted-foreground'>{row.label}</span> {row.value}
-        </span>
-      ))}
-      {admission.rate ? (
-        <span className='text-muted-foreground'>
-          {t('settings.downstream.keys.check.rateScopeNote')}
-        </span>
-      ) : null}
     </div>
   )
 }

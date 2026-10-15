@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/i18n/config'
 
 import { RoutesPage } from '../components/routes-page'
+vi.mock('../components/route-workspace', () => ({ RouteWorkspace: () => null }))
 import type { RouteSummaryRow } from '../types'
 
 const testState = vi.hoisted(() => ({

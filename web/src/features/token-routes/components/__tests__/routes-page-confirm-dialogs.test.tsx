@@ -23,6 +23,7 @@ import {
 import '@/i18n/config'
 
 import { RoutesPage } from '../routes-page'
+vi.mock('../route-workspace', () => ({ RouteWorkspace: () => null }))
 
 const testState = vi.hoisted(() => ({
   rebuildMutate: vi.fn(),

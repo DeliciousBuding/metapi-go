@@ -70,6 +70,19 @@ describe('routesSearchSchema', () => {
     expect(routesSearchSchema.parse({ edit: -3 }).edit).toBeUndefined()
     expect(routesSearchSchema.parse({}).edit).toBeUndefined()
   })
+
+  it('parses route-workspace state as page-specific filters', () => {
+    const result = routesSearchSchema.parse({
+      workspaceModel: 'gpt-4o',
+      workspaceEndpoint: '/v1/responses',
+      workspaceKeyId: '7',
+      workspaceClientIp: '203.0.113.10',
+    })
+    expect(result.workspaceModel).toBe('gpt-4o')
+    expect(result.workspaceEndpoint).toBe('/v1/responses')
+    expect(result.workspaceKeyId).toBe(7)
+    expect(result.workspaceClientIp).toBe('203.0.113.10')
+  })
 })
 
 // ---------------------------------------------------------------------------

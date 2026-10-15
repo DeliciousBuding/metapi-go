@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
 
 import type { RouteRowActions, RouteSummaryRow } from '../../types'
 import { RoutesPage } from '../routes-page'
+vi.mock('../route-workspace', () => ({ RouteWorkspace: () => null }))
 
 const state = vi.hoisted(() => ({
   preview: vi.fn(),

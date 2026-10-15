@@ -69,7 +69,7 @@ lists unevaluated dimensions. It never presents a candidate as the selected
 winner, infers an identity from a negative compatibility ID, or renders an
 uncalculated probability as 0%. A refresh failure clears the prior result so a
 stale answer cannot sit under new input. Saved snapshots keep their own saved
-time and unknown context labels.
+time and unknown context labels. The route workspace on /token-routes keeps one URL-owned diagnostic context for a concrete client model, protocol, and optional downstream key; it renders the server's key admission verdict and candidate eligibility side by side, then links the matched route and that key's proxy logs without pretending the preview selected a candidate.
 
 **Principles**
 
