@@ -102,8 +102,12 @@ describe('price comparison API data errors', () => {
             <PriceComparePage />
           </QueryClientProvider>
         )
-        expect(await screen.findByRole('alert')).toHaveTextContent(
-          i18n.t('priceCompare.page.loadError', { message: '' }).trim()
+        const alert = await screen.findByRole('alert')
+        expect(alert).toHaveTextContent(
+          i18n.t('priceCompare.page.invalidResponse')
+        )
+        expect(alert).not.toHaveTextContent(
+          /invalid_type|expected|"path"|"items"/
         )
         expect(
           screen.queryByText(i18n.t('priceCompare.page.emptyDescription'))
@@ -116,6 +120,35 @@ describe('price comparison API data errors', () => {
         ).toBeInTheDocument()
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
         expect(state.get).toHaveBeenCalledTimes(2)
+      } finally {
+        queryClient.clear()
+        await i18n.changeLanguage('en')
+      }
+    }
+  )
+
+  it.each(['en', 'zhCN'])(
+    'keeps network errors distinct from invalid data in %s',
+    async (language) => {
+      await i18n.changeLanguage(language)
+      state.get.mockRejectedValueOnce(new Error('HTTP 503'))
+      const queryClient = client()
+      try {
+        render(
+          <QueryClientProvider client={queryClient}>
+            <PriceComparePage />
+          </QueryClientProvider>
+        )
+        const alert = await screen.findByRole('alert')
+        expect(alert).toHaveTextContent(
+          i18n.t('priceCompare.page.loadError', { message: 'HTTP 503' })
+        )
+        expect(alert).not.toHaveTextContent(
+          i18n.t('priceCompare.page.invalidResponse')
+        )
+        expect(
+          screen.queryByText(i18n.t('priceCompare.page.emptyDescription'))
+        ).not.toBeInTheDocument()
       } finally {
         queryClient.clear()
         await i18n.changeLanguage('en')

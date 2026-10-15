@@ -3234,8 +3234,8 @@
         "usageSource": "用量来源",
         "attempts": {
           "title": "请求尝试",
-          "summary_one": "已记录 {{count}} 次尝试",
-          "summary_other": "已记录 {{count}} 次尝试",
+          "summary_one": "已关联 {{count}} 条尝试记录",
+          "summary_other": "已关联 {{count}} 条尝试记录",
           "lastAttempt": "最后一次已记录尝试",
           "lastAttemptUnknown": "最后一次已记录尝试未知",
           "outcomeBoundary": "尚未记录网关响应终态；尝试状态不能证明客户端已接收。",
@@ -3638,6 +3638,7 @@
         "description": "跨站点有效模型价格，含价格来源与推荐（同模型最低有效成本）。",
         "searchPlaceholder": "按模型筛选…",
         "loadError": "加载价格对比失败：{{message}}",
+        "invalidResponse": "服务端返回的价格数据格式无效，请重试。",
         "emptyDescription": "暂无价格数据。连接账号或产生流量后即可查看有效价格。",
         "emptyAction": "管理账号"
       },

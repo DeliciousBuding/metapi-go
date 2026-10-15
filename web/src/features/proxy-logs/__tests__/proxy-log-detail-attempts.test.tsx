@@ -137,7 +137,7 @@ describe('ProxyLogDetailSheet request attempts', () => {
     render(<ProxyLogDetailSheet log={makeLog()} open onOpenChange={() => {}} />)
 
     expect(await screen.findByText('Request attempts')).toBeInTheDocument()
-    expect(screen.getByText('3 recorded attempts')).toBeInTheDocument()
+    expect(screen.getByText('3 correlated attempt records')).toBeInTheDocument()
     expect(screen.getByText('#1')).toBeInTheDocument()
     expect(screen.getByText('#3')).toBeInTheDocument()
     expect(screen.getByText('Current')).toBeInTheDocument()
@@ -239,6 +239,7 @@ describe('ProxyLogDetailSheet request attempts', () => {
       screen.getByText('Sibling attempts cannot be correlated')
     ).toBeInTheDocument()
     expect(screen.queryByText('#1')).not.toBeInTheDocument()
+    expect(screen.getByText('0 correlated attempt records')).toBeInTheDocument()
     expect(
       screen.getByText('Last recorded attempt is unknown')
     ).toBeInTheDocument()

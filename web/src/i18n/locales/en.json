@@ -3234,8 +3234,8 @@
         "usageSource": "Usage source",
         "attempts": {
           "title": "Request attempts",
-          "summary_one": "{{count}} recorded attempt",
-          "summary_other": "{{count}} recorded attempts",
+          "summary_one": "{{count}} correlated attempt record",
+          "summary_other": "{{count}} correlated attempt records",
           "lastAttempt": "Last recorded attempt",
           "lastAttemptUnknown": "Last recorded attempt is unknown",
           "outcomeBoundary": "Gateway response outcome is not recorded; attempt status does not prove client receipt.",
@@ -3638,6 +3638,7 @@
         "description": "Cross-site effective model pricing with price sources and recommendations (lowest effective cost per model).",
         "searchPlaceholder": "Filter by model…",
         "loadError": "Failed to load price comparison: {{message}}",
+        "invalidResponse": "The server returned invalid price data. Please retry.",
         "emptyDescription": "No price data yet. Connect accounts or run traffic to see effective pricing.",
         "emptyAction": "Manage accounts"
       },
