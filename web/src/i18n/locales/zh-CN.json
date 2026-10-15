@@ -3525,10 +3525,12 @@
     },
     "sidebar": {
       "groups": {
-        "console": "控制台",
-        "configuration": "配置",
-        "models": "模型",
-        "system": "系统",
+        "overview": "概览",
+        "upstream": "上游",
+        "modelsRoutes": "模型与路由",
+        "access": "访问",
+        "requestsDiagnostics": "请求与诊断",
+        "settings": "设置",
         "systemAdministration": "系统管理"
       },
       "items": {

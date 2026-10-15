@@ -1,7 +1,8 @@
 // metapi-go/layout — the root navigation set: what the sidebar shows when the
 // URL matches no drill-in view.
 //
-// Four collapsible groups (Console / Configuration / Models / System). Every
+// Six collapsible task domains (Overview / Upstream / Models & Routes / Access /
+// Requests & Diagnostics / Settings). Every
 // `title` is an i18n key resolved with t() by `nav-group.tsx`, so this module
 // stays pure data and can be read outside React — the command palette does
 // exactly that to index navigation alongside its other sources.
@@ -34,8 +35,8 @@ import type { SidebarData } from '@/components/layout/types'
 export const ROOT_NAVIGATION: SidebarData = {
   navGroups: [
     {
-      id: 'console',
-      title: 'sidebar.groups.console',
+      id: 'overview',
+      title: 'sidebar.groups.overview',
       items: [
         {
           title: 'sidebar.items.dashboard',
@@ -45,6 +46,12 @@ export const ROOT_NAVIGATION: SidebarData = {
           activePrefix: '/dashboard',
           icon: LayoutDashboard,
         },
+      ],
+    },
+    {
+      id: 'upstream',
+      title: 'sidebar.groups.upstream',
+      items: [
         {
           title: 'sidebar.items.sites',
           url: '/sites',
@@ -61,40 +68,9 @@ export const ROOT_NAVIGATION: SidebarData = {
           icon: CalendarCheck,
         },
         {
-          title: 'sidebar.items.proxyLogs',
-          url: '/proxy-logs',
-          icon: ScrollText,
-        },
-        {
           title: 'sidebar.items.siteAnnouncements',
           url: '/site-announcements',
           icon: Megaphone,
-        },
-        {
-          title: 'sidebar.items.observability',
-          url: '/observability',
-          icon: Activity,
-        },
-      ],
-    },
-    {
-      id: 'config',
-      title: 'sidebar.groups.configuration',
-      items: [
-        {
-          title: 'sidebar.items.tokenRoutes',
-          url: '/token-routes',
-          icon: Route,
-        },
-        {
-          title: 'sidebar.items.channels',
-          url: '/channels',
-          icon: Waypoints,
-        },
-        {
-          title: 'sidebar.items.downstreamKeys',
-          url: '/downstream-keys',
-          icon: KeyRound,
         },
         {
           title: 'sidebar.items.oauth',
@@ -104,9 +80,19 @@ export const ROOT_NAVIGATION: SidebarData = {
       ],
     },
     {
-      id: 'models',
-      title: 'sidebar.groups.models',
+      id: 'models-routes',
+      title: 'sidebar.groups.modelsRoutes',
       items: [
+        {
+          title: 'sidebar.items.channels',
+          url: '/channels',
+          icon: Waypoints,
+        },
+        {
+          title: 'sidebar.items.tokenRoutes',
+          url: '/token-routes',
+          icon: Route,
+        },
         {
           title: 'sidebar.items.models',
           url: '/models',
@@ -125,8 +111,35 @@ export const ROOT_NAVIGATION: SidebarData = {
       ],
     },
     {
-      id: 'system',
-      title: 'sidebar.groups.system',
+      id: 'access',
+      title: 'sidebar.groups.access',
+      items: [
+        {
+          title: 'sidebar.items.downstreamKeys',
+          url: '/downstream-keys',
+          icon: KeyRound,
+        },
+      ],
+    },
+    {
+      id: 'requests-diagnostics',
+      title: 'sidebar.groups.requestsDiagnostics',
+      items: [
+        {
+          title: 'sidebar.items.proxyLogs',
+          url: '/proxy-logs',
+          icon: ScrollText,
+        },
+        {
+          title: 'sidebar.items.observability',
+          url: '/observability',
+          icon: Activity,
+        },
+      ],
+    },
+    {
+      id: 'settings',
+      title: 'sidebar.groups.settings',
       items: [
         {
           title: 'sidebar.items.settings',

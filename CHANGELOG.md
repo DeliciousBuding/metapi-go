@@ -23,6 +23,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 侧边栏：根导航按任务域分组——概览、上游、模型与路由、访问、请求与诊断、设置；仅调整入口组织，不改既有 URL 与深链（#1396）。
 - OAuth：新增 GitHub Copilot 设备码接入——展示用户码并按 `retryAfterSeconds` 轮询完成授权，GitHub 令牌仅用于交换短期 Copilot 令牌（#1396）。
 - AxonHub 导入：`github_copilot` 翻正为可导入，静态 Key 与自定义端点明确拒绝；直连凭据首次请求时交换 Copilot 令牌（#1396）。
 - AxonHub 导入：`xai_subscription` 翻正为可导入，要求结构化 OAuth refresh token 与官方 client；静态 Key、自定义 base/path 明确拒绝（#1396）。
