@@ -3,9 +3,9 @@ module github.com/deliciousbuding/metapi-go
 go 1.26.9
 
 require (
-	github.com/QuantumNous/new-api/relaykit v0.3.1-0.20261010060206-c6741c36a9a1
+	github.com/QuantumNous/new-api/relaykit v0.3.3
 	github.com/coder/websocket v1.8.15
-	github.com/go-chi/chi/v5 v5.3.2
+	github.com/go-chi/chi/v5 v5.4.0
 	github.com/go-chi/cors v1.2.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
@@ -13,7 +13,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/refraction-networking/utls v1.8.2
 	github.com/robfig/cron/v3 v3.0.1
-	golang.org/x/sync v0.23.0
+	golang.org/x/sync v0.24.0
 	golang.org/x/time v0.16.0
 	modernc.org/sqlite v1.60.1
 )
