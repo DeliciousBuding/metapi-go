@@ -49,6 +49,7 @@ var schemaTables = []schemaTable{
 	{"oauth_route_unit_members", buildOAuthRouteUnitMembersDDL},
 	{"route_channels", buildRouteChannelsDDL},
 	{"proxy_logs", buildProxyLogsDDL},
+	{"gateway_requests", buildGatewayRequestsDDL},
 	{"proxy_video_tasks", buildProxyVideoTasksDDL},
 	{"settings", buildSettingsDDL},
 	{"analytics_projection_checkpoints", buildAnalyticsProjectionCheckpointsDDL},
@@ -499,7 +500,7 @@ func schemaColumns(table string) ([]schemaColumn, error) {
 	return out, nil
 }
 
-// tableHasSerialID reports whether a table's spec declares an "id" column, so
+// tableHasSerialID reports whether a table declares an integer "id" column, so
 // sequence syncing after a copy can skip text-PK tables (settings,
 // admin_sessions, analytics_projection_checkpoints) without a hardcoded list.
 func tableHasSerialID(table string) bool {
@@ -508,7 +509,7 @@ func tableHasSerialID(table string) bool {
 		return false
 	}
 	for _, c := range cols {
-		if c.name == "id" {
+		if c.name == "id" && c.kind == kindInt {
 			return true
 		}
 	}

@@ -52,13 +52,13 @@ master (唯一长期分支，受保护，持续集成)
 
 > 注意：必选状态检查与 CI 的 `paths-ignore` 互斥——任何 PR 都会触发全量 CI（含纯文档 PR），否则必选检查会永久 pending 卡住合并。
 > 注意：关闭 strict 后，合并时仍以「12 项必检全绿」为准；squash 合并若有真实文件冲突仍会被 GitHub 拦截。并行开发时优先让各分支文件面不重叠。
-> lint job 的配置校验由 workflow 显式执行：固定 schema + SHA-256 + 负例，再跑源码 lint；action 的 `verify: false` 只是不重复隐式校验，不是关闭门禁。
+> lint job 由 workflow 校验固定版本的 schema 和负例，再运行源码 lint；action 设置 `verify: false` 以复用这次校验。
 
 ## 4. PR 流程
 
 1. 从 master 切分支：`git checkout -b fix/xxx`
 2. 按 Conventional Commits 提交，`git push -u origin fix/xxx`，在 PR 中说明已运行和未运行的检查。
-   - 本地 hook 可选，不依赖个人 agent 工具链；启用 `.githooks/pre-push` 后，它委托 `.githooks/pre-push-project` 执行完整检查。也可直接运行该脚本或对应标准命令，见[贡献规范](../../CONTRIBUTING.md#本地验证)。Windows 日常开发不要求 WSL；脚本的 race 路径使用 WSL。环境不支持的验证须明确报告，由完整 CI 和变更验收补齐，不能宣称本地已通过。已启用的检查失败时先解决原因，不用 `--no-verify` 掩盖失败；紧急例外仍须明确批准。
+   - 本地 hook 的启用方式、完整检查命令和工具链要求见[贡献规范](../../CONTRIBUTING.md#本地验证)。PR 中记录本地结果和未运行项；已启用的检查失败时先修复，紧急例外见 §7。
 3. 开 PR（`gh pr create`，模板自动填充），base = master
 4. CI 12 job 全绿（含 PG 集成测试）后 Squash merge
 5. 合并时把 PR 标题改写为最终提交信息（符合 Conventional Commits）
@@ -78,7 +78,7 @@ master (唯一长期分支，受保护，持续集成)
 ## 6. Release 流程
 
 1. 默认先积累修复，在 GitHub issue / PR 中关联受影响的用户任务与回归证据；维护者选定候选 commit 后，按 [`docs/testing.md`](../testing.md) 核对历史问题及关键任务。候选验收不要求先打 tag，也不为每次合入修改版本号。
-2. 验收记录绑定最终源码（commit + 未提交 diff）和实际二进制或镜像摘要，分别写明 fixture、真实模型、下游客户端结果与未验证项。源码或产物改变后重跑受影响检查，不把旧构建的成功沿用到新候选。
+2. 在最终源码和构建上验收，记录提交、构建版本和测试结果；镜像可直接使用 digest 标识。fixture、真实模型和下游客户端结果分别列出。输入改变后重跑受影响检查。
 3. 维护者审阅范围、剩余风险及证据后，明确决定是否发布和版本号。决定发布后才把 `CHANGELOG.md` 的 `[Unreleased]` 整理为 `## [vX.Y.Z]` 节、更新 `web/package.json` version，经 PR 合入 master；该 PR 合入后，以最终 master commit 重新构建并补跑受影响的候选验收，不能沿用准备前的产物摘要。
 4. 仅在明确发布决定后，从干净且 HEAD 等于 `origin/master` 的 checkout/worktree 运行 `bash scripts/release.sh X.Y.Z`；不必切换当前主工作树。助手负责一致性校验、annotated tag 与推送，不负责决定发版。tag、包版本与 CHANGELOG 节须一致；push 仍执行本地门禁。
 5. SemVer tag 触发 `.github/workflows/main.yml` 的检查及镜像发布，再构建五个平台二进制、checksums 和安装脚本，执行发布二进制冒烟。**新建 GitHub Release 使用 `--draft`**；维护者复核最终附件、验收结果和公开说明（含脱敏与已知限制）后，才发布稳定 Release。

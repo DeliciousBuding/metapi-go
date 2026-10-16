@@ -1,3 +1,4 @@
+import { gatewayOverviewFieldsSchema } from './gateway-requests'
 /* eslint-disable no-nested-ternary -- legacy chained ternary in refresh fallback */
 import { request, buildQueryString } from './transport'
 import type {
@@ -21,8 +22,13 @@ import type {
 } from './types'
 
 export const statsApi = {
-  getOverviewReport: (period: OverviewPeriod) =>
-    request<OverviewReport>(`/api/stats/overview?period=${period}`),
+  getOverviewReport: async (period: OverviewPeriod) => {
+    const result = await request<OverviewReport>(
+      `/api/stats/overview?period=${period}`
+    )
+    gatewayOverviewFieldsSchema.parse(result)
+    return result
+  },
   getDashboardSnapshot: (options?: {
     refresh?: boolean
     view?: 'summary' | 'insights'

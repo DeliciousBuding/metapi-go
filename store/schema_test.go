@@ -22,7 +22,8 @@ var tableColumnCount = map[string]int{
 	"OAuthRouteUnit":                8,
 	"OAuthRouteUnitMember":          19,
 	"RouteChannel":                  23,
-	"ProxyLog":                      30,
+	"ProxyLog":                      31,
+	"GatewayRequest":                16,
 	"ProxyVideoTask":                17,
 	"AdminBackgroundTask":           14,
 	"Setting":                       2,
@@ -59,6 +60,7 @@ func allStructs() []any {
 		OAuthRouteUnitMember{},
 		RouteChannel{},
 		ProxyLog{},
+		GatewayRequest{},
 		ProxyVideoTask{},
 		Setting{},
 		AnalyticsProjectionCheckpoint{},
@@ -85,8 +87,8 @@ func allStructs() []any {
 // other hand-maintained inventory in this file.
 func TestTableCount(t *testing.T) {
 	structs := allStructs()
-	if len(structs) != 31 {
-		t.Errorf("expected 31 table structs, got %d", len(structs))
+	if len(structs) != 32 {
+		t.Errorf("expected 32 table structs, got %d", len(structs))
 	}
 	if len(structs) != len(tableColumnCount) {
 		t.Errorf("struct list (%d) and column-count map (%d) disagree", len(structs), len(tableColumnCount))

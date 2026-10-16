@@ -88,6 +88,12 @@ func getUpstreamConfig() *UpstreamConfig {
 // dispatchUpstream forwards a proxy request to the selected upstream channel.
 // Implements the spec's 10-step Handler pattern.
 func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
+	if ctx.lifecycle != nil {
+		ctx.lifecycle.bind(ctx.Auth, ctx.DownstreamPath, ctx.RequestedModel)
+		ctx.lifecycle.mu.Lock()
+		ctx.lifecycle.dispatched = true
+		ctx.lifecycle.mu.Unlock()
+	}
 	r = withDownstreamResponseModel(r, ctx)
 	shared.RecordProxyRequest()
 	startedAt := time.Now()
@@ -105,6 +111,11 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		unconfiguredUpstreamLogOnce.Do(func() {
 			slog.Error("proxy upstream dependencies are not configured", "request_id", requestID)
 		})
+		if ctx.lifecycle != nil {
+			ctx.lifecycle.mu.Lock()
+			ctx.lifecycle.gatewayFailure = "upstream_not_configured"
+			ctx.lifecycle.mu.Unlock()
+		}
 		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "Proxy upstream is not configured", "server_error", requestID)
 		observeProxyTerminal(ctx, shared.OutcomeUnavailable, ctx != nil && ctx.IsStream, time.Since(startedAt))
 		return
@@ -213,6 +224,11 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 			siteSlot, acquired = siteLimiter.TryAcquire(selected.Site.ID, selected.Site.MaxConcurrency)
 		}
 		if !acquired {
+			if ctx.lifecycle != nil {
+				ctx.lifecycle.mu.Lock()
+				ctx.lifecycle.noRouteReason = "site_concurrency_saturated"
+				ctx.lifecycle.mu.Unlock()
+			}
 			slog.Debug("site concurrency saturated; skipping channel without failure cascade",
 				"site_id", selected.Site.ID,
 				"channel_id", selected.Channel.ID,
@@ -273,6 +289,9 @@ func reportProxyAllFailed(model, reason string) {
 // observeProxyTerminal records labeled counters, latency histogram, and optional export hook.
 // Labels are privacy-safe (endpoint family + outcome); never model/key/body.
 func observeProxyTerminal(ctx *Ctx, status string, stream bool, latency time.Duration) {
+	if ctx != nil {
+		ctx.lifecycle.observe(status, stream)
+	}
 	endpoint := shared.EndpointOther
 	if ctx != nil && ctx.DownstreamPath != "" {
 		endpoint = shared.EndpointLabelFromPath(ctx.DownstreamPath)
@@ -741,6 +760,10 @@ func dispatchEndpointAttemptWithContinue(
 	}
 	applyDirectProviderHeaders(req, directProviderWireFromContext(r.Context()))
 
+	// Allocate the observed attempt before dispatch, independent of whether a
+	// log writer succeeds or this endpoint falls back to another protocol.
+	r = r.WithContext(beginGatewayAttempt(r.Context()))
+	req = req.WithContext(r.Context())
 	var resp *http.Response
 	if wire := directProviderWireFromContext(r.Context()); wire != nil && isDirectNativeVideoProfile(wire.Profile) {
 		maxRetries = retry
@@ -808,6 +831,7 @@ func dispatchEndpointAttemptWithContinue(
 				"retry", retry,
 			)
 			if shouldContinueEndpointFallback(http.StatusRequestTimeout, err.Error(), isLastEndpoint, disableCrossProtocolFallback, endpointFailureFirstByteTimeout) {
+				writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusRequestTimeout, effectiveStream, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, truncateErrText(err.Error()))
 				return false, nil, true
 			}
 			// Terminal for this channel attempt.
@@ -830,6 +854,7 @@ func dispatchEndpointAttemptWithContinue(
 		// failures; the historical bare check let them bypass the abort policy.
 		if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, classifyEndpointTransportFailure(err)) {
 			// Network error may still be protocol-local; allow next endpoint without poison.
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, effectiveStream, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, truncateErrText(errText))
 			return false, nil, true
 		}
 		recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, 0, errText)
@@ -904,6 +929,7 @@ func dispatchEndpointAttemptWithContinue(
 					"request_id", requestID, "retry", retry)
 				errText := readErr.Error()
 				if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, classifyEndpointTransportFailure(readErr)) {
+					writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, true, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, truncateErrText(errText))
 					return false, nil, true
 				}
 				recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, errText)
@@ -924,6 +950,7 @@ func dispatchEndpointAttemptWithContinue(
 			respBody = errBody.bytes
 			rawErrText := string(respBody)
 			if shouldContinueEndpointResponseFallback(selected, resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, errBody.readable) {
+				writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, resp.StatusCode, true, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, truncateErrText(rawErrText))
 				return false, nil, true
 			}
 			// Best-effort usage from error JSON bodies (some gateways still
@@ -949,7 +976,7 @@ func dispatchEndpointAttemptWithContinue(
 			if proxy.IsDirectMediaPath(upstreamPath) && (!isSSEMediaResponse(resp.Header) || isDirectVideoContentPath(upstreamPath)) {
 				streamUsage, streamEnd = handleMediaByteStream(w, r, resp)
 			} else {
-				streamUsage, streamEnd, streamVerdict = handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, upstreamPath, upstreamModel, bridgeOptions, func() { firstOutput = int64Ptr(time.Since(startedAt).Milliseconds()) }, selected.Direct != nil)
+				streamUsage, streamEnd, streamVerdict = handleStreamUpstreamForEndpoint(w, r, resp, latencyMs, upstreamPath, upstreamModel, bridgeOptions, func() { firstOutput = int64Ptr(time.Since(startedAt).Milliseconds()); ctx.lifecycle.firstOutput() }, selected.Direct != nil)
 			}
 			streamUsage.FirstOutputLatencyMs = firstOutput
 		}()
@@ -1014,6 +1041,7 @@ func dispatchEndpointAttemptWithContinue(
 			"request_id", requestID, "retry", retry)
 		errText := readErr.Error()
 		if shouldContinueEndpointFallback(http.StatusBadGateway, errText, isLastEndpoint, disableCrossProtocolFallback, classifyEndpointTransportFailure(readErr)) {
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, false, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, truncateErrText(errText))
 			return false, nil, true
 		}
 		recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, errText)
@@ -1041,6 +1069,7 @@ func dispatchEndpointAttemptWithContinue(
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		rawErrText := string(respBody)
 		if shouldContinueEndpointResponseFallback(selected, resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, body.readable) {
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, resp.StatusCode, false, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, truncateErrText(rawErrText))
 			return false, nil, true
 		}
 		// Non-stream HTTP errors: retain any usage object in the error body
@@ -1137,6 +1166,7 @@ func dispatchEndpointAttemptWithContinue(
 			"retry", retry,
 		)
 		if shouldContinueEndpointFallback(verdict.Status, verdict.Reason, isLastEndpoint, disableCrossProtocolFallback, endpointFailureResponse) {
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, verdict.Status, false, ParsedUsage{Source: usageSourceUnknown}, retry, requestID, truncateErrText(verdict.Reason))
 			return false, nil, true
 		}
 		// Content failures often still carry real usage (keyword match / empty-

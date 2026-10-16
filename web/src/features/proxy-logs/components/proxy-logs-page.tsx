@@ -118,15 +118,17 @@ function readProxyLogsSearch(
 /** Serialize a partial state update back to the proxy-logs href, merging over
  *  the CURRENT url state so a single filter change preserves all others. */
 function buildProxyLogsHref(
-  next: UrlTableStateUpdate<ProxyLogsUrlFilters>
+  next: UrlTableStateUpdate<ProxyLogsUrlFilters>,
+  currentSearch?: string
 ): string {
-  const current = readProxyLogsSearch(window.location.search)
+  const current = readProxyLogsSearch(currentSearch ?? window.location.search)
   const merged: UrlTableState<ProxyLogsUrlFilters> = {
     ...current,
     ...next,
     filters: { ...current.filters, ...next.filters },
   }
   const params = new URLSearchParams()
+  params.set('view', 'attempts')
   if (merged.q) params.set('q', merged.q)
   if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex))
   if (merged.pageSize !== DEFAULT_PAGE_SIZE) {

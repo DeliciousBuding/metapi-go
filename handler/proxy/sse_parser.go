@@ -39,6 +39,7 @@ type incrementalSseAnalysisResult struct {
 }
 
 type incrementalSseAnalyzer struct {
+	onEvent               func(SseEvent)
 	onFirstOutput         func()
 	pending               string
 	skippingOversized     bool
@@ -143,6 +144,9 @@ func nextSseBoundary(s string) (int, int) {
 }
 
 func (a *incrementalSseAnalyzer) recordEvent(ev SseEvent) {
+	if a.onEvent != nil {
+		a.onEvent(ev)
+	}
 	if !a.result.HasGeneratedOutput && hasGeneratedSseOutput(ev) {
 		a.result.HasGeneratedOutput = true
 		if a.onFirstOutput != nil {

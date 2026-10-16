@@ -12,7 +12,7 @@ logs, not deleted history. The returned `window` contains an inclusive RFC3339
 `to` bound and, except for all time, a `from` bound. Pass these same bounds to
 proxy-log drill-downs.
 
-**Response**: `{ period, window, summary, requestSummary, points, requestPoints, siteAvailability, models }`.
+**Response**: `{ period, window, summary, requestSummary, points, requestPoints, gatewayRequestSummary, gatewayRequestPoints, siteAvailability, models }`.
 `summary` 和 `points` 按已记录的上游尝试统计，包含重试。
 `requestSummary` 和 `requestPoints` 按非空 `requestId` 归组，以最高
 `retryCount`（同序数按 id）的已记录尝试判断成败：两次失败后一次成功计为一次
@@ -20,6 +20,15 @@ proxy-log drill-downs.
 没有 `requestId` 的行不进入请求分母，单列为 `legacyAttemptCount`；该值
 大于零时，`partial` 为 true，`partialReasons` 包含 `requestIdMissing`。
 `requestPoints` 按各组末次尝试的写入时间分桶。
+上述 `requestSummary` / `requestPoints` 仅保留旧版「末次尝试」口径兼容，
+不是网关终态。新界面应使用 `gatewayRequestSummary` / `gatewayRequestPoints`：
+从真实请求终态表统计，同样使用 `period` 与 `window`，按 `startedAt` 分桶，
+包括已观测到的零次派发请求，不从历史尝试推断或补造结果。
+`gatewayRequestSummary` 为 `{totalCount,completedCount,failedCount,cancelledCount,rejectedCount,coverageStartedAt}`；
+`gatewayRequestPoints` 为 `[{date,requests,completedCount,failedCount,cancelledCount,rejectedCount}]`。
+`failedCount` 合计上游失败、输出中断和网关失败，取消与拒绝独立计算。
+`coverageStartedAt` 是当前保留的真实请求中最早的 `startedAt`，无记录时为 null；
+它不证明之后没有记录失败，也不代表迁移以前的请求已覆盖。
 `models` lists the five highest-cost models and an `other` bucket when needed.
 `siteAvailability` lists up to eight enabled sites, failures first.
 
@@ -41,6 +50,57 @@ independent upstream connections. It is separate from `siteCount` and
 These are configuration counts, including disabled records, not availability or
 successful-request measurements. A failed count is `null` and appears in the
 dashboard's failed-metric status. The UI keeps unanswered counts unknown.
+
+### GET /api/stats/requests
+
+查询网关观测到的终态。HTTP 请求与 WebSocket turn 各自一条记录，
+不把 WebSocket 握手当作模型 turn，也不承诺客户端已确认收妥。
+
+**Query params**: `limit`（1–100，默认 50）、`offset`（非负，默认 0）、
+`status`（下表中的精确终态）、`search`（请求模型、内部 ID、外部请求 ID、原因码的
+不区分大小写字面子串）、`downstreamKeyId`（正整数）、`from` / `to`
+（含边界 RFC3339，过滤 `startedAt`，支持小数秒及时间偏移）。非法值返回 400。
+管理页面在浏览器端将本地时间输入与快捷范围转换为 UTC RFC3339。
+
+**Response**: `{items,total,page,pageSize,summary,coverageStartedAt}`。
+每行包含 `id`、`externalRequestId`、`downstreamPath`、`transport`（`http` / `websocket`）、
+`modelRequested`、`downstreamApiKeyId`、`terminalStatus`、`reasonCode`、`httpStatus`、
+`outputStarted`、`firstByteLatencyMs`、`firstOutputLatencyMs`、`latencyMs`、
+`startedAt`、`endedAt`、`attemptCount`。未观测的可空字段保留 null；
+WS turn 无独立 HTTP 响应时 `httpStatus` 为 null，而不是握手的 101 或推测的 200。
+`firstByteLatencyMs` 为响应头时间，`firstOutputLatencyMs` 为模型输出事件时间；
+两者不能互相代填。`summary` 与列表、`total` 使用全部相同过滤条件，
+包含 `{totalCount,completedCount,failedCount,cancelledCount,rejectedCount}`；
+`coverageStartedAt` 使用全部保留请求的最早 `startedAt`，不受列表筛选影响。
+
+| `terminalStatus` | 含义 |
+| --- | --- |
+| `completed` | 网关观察到正常协议结束，不仅是 HTTP 2xx |
+| `upstream_failed` | 上游失败，尚未开始模型输出 |
+| `output_interrupted` | 已开始输出，但未正常结束 |
+| `client_cancelled` | 网关观察到下游取消或断开 |
+| `rejected_no_route` | 无可用路由，可能零次派发 |
+| `rejected_policy` | 鉴权后策略或输入限制拒绝 |
+| `gateway_failed` | 网关内部失败 |
+
+内部 `id` 关联尝试；外部 `externalRequestId` 可重复，不能作为唯一身份。
+同 ID 重复完成不会覆盖首次记录。历史 `proxy_logs` 仍可独立查询，
+不会根据最后一次尝试生成请求记录。费用与 token 仍属于每次尝试，
+不可只取最终成功尝试，也不可把未知量补成 0。
+请求与尝试共用有界批写队列，各自 best-effort 写入；
+异步窗口或写入失败产生的不完整关联通过详情中的 `partial` 表达。
+
+### GET /api/stats/requests/:id
+
+返回请求行全部字段、`attemptCount`、`partial` 和 `attempts`。`attemptCount`
+由请求生产者记录实际派发次数，不根据当前已落库的尝试行数推测。`partial`
+在已落库尝试数与该值不同（如异步写入尚未完成、记录失败）时为 true；
+不能把这种空数组显示成「零次派发」。`attempts` 按
+`retryCount`、id 升序，沿用 `proxy-logs` 的完整列表字段、计费投影和可空测量。
+关联到新请求的 `retryCount` 是从 0 开始的实际派发序数，包含同通道的协议 fallback；
+旧记录保留原重试循环序数。fallback 尝试可记录失败，但不因此额外触发通道健康惩罚。
+零次派发返回空数组。内部 ID 不存在返回 404；请求、关联尝试或聚合读取失败
+返回 500 / `resourceLoadFailed`，不降级为健康空列表。
 
 ### GET /api/stats/proxy-logs
 
@@ -74,7 +134,9 @@ role-only, lifecycle and usage events. It is event-level first output, not token
 protocol output, unreadable encoded streams and historical rows have no first-output measurement. No historical
 value is inferred from headers or total latency. Protocol bridging measures the output-bearing event in the relayed
 protocol; network chunking and bridge buffering can affect the observation.
-Retries remain separate rows linked by `requestId` and `retryCount`.
+Retries remain separate rows. New attempts carry nullable `gatewayRequestId` for
+the unique gateway request/turn identity; historical rows remain null. The existing
+external `requestId` and `retryCount` fields are retained for compatibility.
 Earlier builds recorded header latency as total latency on successful responses; existing rows retain those original values.
 
 ### GET /api/stats/proxy-logs/:id
@@ -83,8 +145,9 @@ Get a single proxy log entry by ID.
 
 记录不存在返回 `404`；数据库读取失败返回 `500` / `resourceLoadFailed`。
 
-`requestAttempts` 关联同一 `requestId` 的已记录尝试，`retry_count` 是重试
-循环序数。结构如下：
+`requestAttempts` 对新记录优先关联同一 `gatewayRequestId`，历史缺少内部关联时
+沿用 `requestId`。外部 ID 重复不会合并新的独立请求或 WS turn。新关联记录的
+`retry_count` 是实际派发序数；旧记录仍是重试循环序数。结构如下：
 
 ```
 requestAttempts: {

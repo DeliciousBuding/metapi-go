@@ -504,6 +504,7 @@ func buildProxyLogsDDL(d string) string {
 			error_message TEXT,
 			retry_count INTEGER DEFAULT 0,
 			request_id TEXT,
+			gateway_request_id TEXT,
 			created_at TEXT
 		)`
 	}
@@ -537,6 +538,7 @@ func buildProxyLogsDDL(d string) string {
 		error_message TEXT,
 		retry_count INTEGER DEFAULT 0,
 		request_id TEXT,
+		gateway_request_id TEXT,
 		created_at TEXT
 	)`
 }

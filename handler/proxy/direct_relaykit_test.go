@@ -48,7 +48,7 @@ func TestDirectFallbackNewAPIMissingResponses(t *testing.T) {
 	fixture := installDirectFallbackFixture(t, []string{"chat", "responses"}, map[string]int{"responses": http.StatusNotFound}, `{"error":{"message":"Invalid URL (POST /v1/responses)","type":"invalid_request_error","param":"","code":""}}`, false)
 	out := directFallbackHTTPRequest("responses", false)
 	calls, logs := fixture.results()
-	if out.Code != http.StatusOK || !reflect.DeepEqual(calls, []string{"responses", "chat"}) || len(logs) != 1 || logs[0].Status != "success" {
+	if out.Code != http.StatusOK || !reflect.DeepEqual(calls, []string{"responses", "chat"}) || len(logs) != 2 || logs[0].Status != "failed" || logs[1].Status != "success" {
 		t.Fatalf("New API protocol fallback status=%d calls=%v logs=%d", out.Code, calls, len(logs))
 	}
 }

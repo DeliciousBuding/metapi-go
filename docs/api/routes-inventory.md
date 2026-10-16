@@ -95,6 +95,8 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/stats/model-cost-distribution`
 - `/api/stats/model-prices`
 - `/api/stats/overview`
+- `/api/stats/requests`
+- `/api/stats/requests/:id`
 - `/api/stats/proxy-logs`
 - `/api/stats/proxy-logs/:id`
 - `/api/stats/site-distribution`

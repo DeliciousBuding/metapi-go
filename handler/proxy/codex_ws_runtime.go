@@ -14,6 +14,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/transform/openai/responses"
 )
 
 // Codex upstream WebSocket runtime (
@@ -58,10 +59,13 @@ type CodexWebsocketRuntimeResult struct {
 
 // CodexWebsocketSendInput is one upstream wss turn.
 type CodexWebsocketSendInput struct {
-	SessionID  string
-	RequestURL string
-	Headers    map[string]string
-	Body       map[string]any
+	// ObserveAttempt records each actual socket attempt, including retries and
+	// zero-event dial fallback. It does not decide the downstream turn result.
+	ObserveAttempt func([]map[string]any, error, time.Duration)
+	SessionID      string
+	RequestURL     string
+	Headers        map[string]string
+	Body           map[string]any
 	// ResinAccount carries the Resin business identity for the native wss
 	// reverse-proxy rewrite. When non-empty (and ResinPlatform is set) and
 	// Resin is enabled, the dial URL is rewritten to
@@ -606,12 +610,13 @@ func SendCodexWebsocketRequest(ctx context.Context, input CodexWebsocketSendInpu
 
 	for {
 		result, err := sendCodexWSSessionAttempt(ctx, session, CodexWebsocketSendInput{
-			SessionID:     sessionID,
-			RequestURL:    input.RequestURL,
-			Headers:       input.Headers,
-			Body:          currentBody,
-			ResinAccount:  input.ResinAccount,
-			ResinPlatform: input.ResinPlatform,
+			ObserveAttempt: input.ObserveAttempt,
+			SessionID:      sessionID,
+			RequestURL:     input.RequestURL,
+			Headers:        input.Headers,
+			Body:           currentBody,
+			ResinAccount:   input.ResinAccount,
+			ResinPlatform:  input.ResinPlatform,
 		})
 		if err == nil {
 			return result, nil
@@ -640,7 +645,21 @@ func SendCodexWebsocketRequest(ctx context.Context, input CodexWebsocketSendInpu
 	}
 }
 
-func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSession, input CodexWebsocketSendInput) (*CodexWebsocketRuntimeResult, error) {
+func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSession, input CodexWebsocketSendInput) (result *CodexWebsocketRuntimeResult, attemptErr error) {
+	started := time.Now()
+	defer func() {
+		if input.ObserveAttempt == nil {
+			return
+		}
+		var events []map[string]any
+		if result != nil {
+			events = result.Events
+		}
+		if runtimeErr, ok := attemptErr.(*CodexWebsocketRuntimeError); ok {
+			events = runtimeErr.Events
+		}
+		input.ObserveAttempt(events, attemptErr, time.Since(started))
+	}()
 	wsURL := ToCodexWebsocketURL(input.RequestURL)
 	if wsURL == "" {
 		return nil, &CodexWebsocketRuntimeError{Message: "missing upstream websocket url", Status: 502}
@@ -730,6 +749,7 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 	}
 
 	events := make([]map[string]any, 0, 16)
+	collector := &responses.CodexResponseCollector{}
 	for {
 		readCtx, readCancel := context.WithTimeout(ctx, codexWSReadTimeout)
 		_, data, readErr := conn.Read(readCtx)
@@ -748,6 +768,11 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 			continue
 		}
 		events = append(events, parsed)
+		if collectErr := collector.AddData(data); collectErr != nil {
+			clearSessionSocket(session, conn)
+			_ = conn.Close(websocket.StatusGoingAway, "invalid terminal response")
+			return nil, &CodexWebsocketRuntimeError{Message: extractTerminalErrorMessage(parsed), Status: extractFailureTerminalStatus(parsed), Events: events, Payload: parsed}
+		}
 		if !isTerminalResponsesEvent(parsed) {
 			continue
 		}

@@ -27,6 +27,8 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 
 	r.Get("/api/stats/dashboard", handler.dashboard)
 	r.Get("/api/stats/overview", handler.overview)
+	r.Get("/api/stats/requests", handler.gatewayRequests)
+	r.Get("/api/stats/requests/{id}", handler.gatewayRequestDetail)
 	r.Get("/api/stats/proxy-logs", handler.proxyLogs)
 	r.Get("/api/stats/proxy-logs/{id}", handler.proxyLogDetail)
 	r.Get("/api/stats/site-distribution", handler.siteDistribution)
@@ -1013,12 +1015,22 @@ func (h *statsHandler) buildRequestAttempts(current map[string]any) map[string]a
 		},
 	}
 	requestID := coerceString(current["requestId"])
-	if requestID == "" {
+	gatewayRequestID := coerceString(current["gatewayRequestId"])
+	if requestID == "" && gatewayRequestID == "" {
 		result["partial"] = true
 		result["partialReasons"] = []string{"requestIdMissing"}
 		return result
 	}
-	result["requestId"] = requestID
+	if requestID != "" {
+		result["requestId"] = requestID
+	}
+	// An external ID may repeat across independent HTTP requests or WS turns.
+	// New observations always correlate by the gateway-owned identity; retain
+	// external-ID grouping only for historical rows that lack that observation.
+	correlationColumn, correlationID := "pl.request_id", requestID
+	if gatewayRequestID != "" {
+		correlationColumn, correlationID = "pl.gateway_request_id", gatewayRequestID
+	}
 
 	rows, err := queryRowsErr(h.db, `
 		SELECT pl.id, pl.retry_count, pl.status, pl.http_status, pl.channel_id,
@@ -1027,8 +1039,8 @@ func (h *statsHandler) buildRequestAttempts(current map[string]any) map[string]a
 		FROM proxy_logs pl
 		LEFT JOIN accounts a ON pl.account_id = a.id
 		LEFT JOIN sites s ON a.site_id = s.id
-		WHERE pl.request_id = ?
-		ORDER BY pl.retry_count ASC, pl.id ASC`, requestID)
+		WHERE `+correlationColumn+` = ?
+		ORDER BY pl.retry_count ASC, pl.id ASC`, correlationID)
 	if err != nil {
 		slog.Warn("request attempts query failed", "logId", currentID, "error", err)
 		result["partial"] = true

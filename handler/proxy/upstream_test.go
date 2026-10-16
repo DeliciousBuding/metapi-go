@@ -956,13 +956,25 @@ func TestDispatchUpstream_RetryThenSuccessKeepsSameRequestIDInProxyLog(t *testin
 	const wantID = "trace-success-after-retry"
 	req := makeProxyReq("POST", "/v1/chat/completions", `{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}`)
 	req = req.WithContext(proxy.WithRequestID(req.Context(), wantID))
+	var gateway store.GatewayRequest
+	state, req := newRequestLifecycle(req, "http", func(_ context.Context, entry store.GatewayRequest) error { gateway = entry; return nil })
 	rec := httptest.NewRecorder()
-	dispatchUpstream(rec, req, &Ctx{
+	dispatchUpstream(&requestResponseWriter{ResponseWriter: rec, state: state}, req, &Ctx{
+		lifecycle:      state,
 		RequestedModel: "gpt-4o",
 		DownstreamPath: "/v1/chat/completions",
 		RawBody:        []byte(`{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}`),
 		MaxRetries:     1,
 	})
+	state.finish(req.Context())
+	if gateway.TerminalStatus != "completed" || gateway.HTTPStatus == nil || *gateway.HTTPStatus != 200 || gateway.AttemptCount != 2 {
+		t.Fatalf("retry request result: %+v", gateway)
+	}
+	for _, entry := range logs {
+		if entry.GatewayRequestID != gateway.ID {
+			t.Fatalf("retry association: %+v", entry)
+		}
+	}
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s hits=%d", rec.Code, rec.Body.String(), hits.Load())

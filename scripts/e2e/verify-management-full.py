@@ -264,7 +264,7 @@ def run(config):
     cfg['secret_dir'].mkdir(parents=True, exist_ok=True)
     cfg['secret_dir'].chmod(448)
     run_id = secrets.token_hex(8)
-    state = {'status': 'running', 'runId': run_id, 'startedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'steps': [], 'cleanup': [], 'runnerSha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    state = {'status': 'running', 'runId': run_id, 'startedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'steps': [], 'cleanup': []}
     private = {'username': 'ma' + secrets.token_hex(5), 'password': secrets.token_urlsafe(18), 'siteName': 'management-acceptance-' + run_id}
     secret_file = cfg['secret_dir'] / ('management-' + run_id + '.json')
     failures = FailureAccumulator()

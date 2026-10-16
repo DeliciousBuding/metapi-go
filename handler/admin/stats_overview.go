@@ -166,14 +166,21 @@ ORDER BY date`, args...)
 	if models == nil {
 		models = []map[string]any{}
 	}
+	gatewaySummary, gatewayPoints, err := h.gatewayRequestOverview(period, from, now)
+	if err != nil {
+		h.gatewayRequestLoadError(w, r, err)
+		return
+	}
 	writeJSON(w, 200, map[string]any{
-		"period":           period,
-		"window":           window,
-		"summary":          summary,
-		"requestSummary":   requestSummary,
-		"points":           points,
-		"requestPoints":    requestPoints,
-		"siteAvailability": sites,
-		"models":           models,
+		"gatewayRequestSummary": gatewaySummary,
+		"gatewayRequestPoints":  gatewayPoints,
+		"period":                period,
+		"window":                window,
+		"summary":               summary,
+		"requestSummary":        requestSummary,
+		"points":                points,
+		"requestPoints":         requestPoints,
+		"siteAvailability":      sites,
+		"models":                models,
 	})
 }

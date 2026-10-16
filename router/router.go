@@ -29,6 +29,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	r.Use(SecurityHeaders)
 	r.Use(TrustedRealIP(cfg))
 	r.Use(RequestLogger)
+	r.Use(proxyhandler.RequestLifecycle)
 	r.Use(Recoverer)
 	r.Use(BodyLimitPathAware(cfg.RequestBodyLimit, cfg.FileUploadLimitBytes))
 

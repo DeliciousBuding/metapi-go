@@ -291,6 +291,9 @@ func Recoverer(next http.Handler) http.Handler {
 				if rv == http.ErrAbortHandler {
 					panic(rv)
 				}
+				if observer, ok := w.(interface{ ObserveProxyPanic() }); ok {
+					observer.ObserveProxyPanic()
+				}
 				slog.Error("panic recovered",
 					"panic", rv,
 					"method", r.Method,

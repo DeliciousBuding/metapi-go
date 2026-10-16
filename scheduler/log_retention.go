@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // ProxyLogRetentionScheduler is a legacy fallback for cleaning up proxy logs
@@ -14,6 +15,7 @@ func NewProxyLogRetentionScheduler(cfg *config.Config) *RetentionScheduler {
 	return NewRetentionScheduler(cfg, RetentionSchedulerOptions{
 		Name:               "proxy-log-retention",
 		Table:              "proxy_logs",
+		Prune:              store.PruneProxyRequestLogs,
 		DefaultIntervalMin: 30,
 		RetentionDaysFn:    func(c *config.Config) int { return c.ProxyLogRetentionDays },
 		IntervalMinFn:      func(c *config.Config) int { return c.ProxyLogRetentionPruneIntervalMinutes },

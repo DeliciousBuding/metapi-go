@@ -1,17 +1,26 @@
+# GHCR 单机部署（Docker Compose >= 2.24）。
+# 复制 .env.example 为 .env，设置独立的随机令牌与凭据加密密钥后：
+#   docker compose up -d
+# .env 中的全部运行配置传入容器；也可仅通过 shell 提供必需令牌。
+# 默认仅宿主机可访问，反向代理可连接 127.0.0.1:4000。
+# SQLite 数据保存在命名卷 metapi_data（/app/data）。
+
 services:
   metapi:
-    build: .
+    image: ghcr.io/deliciousbuding/metapi-go:0.24.0
     container_name: metapi-go
     restart: unless-stopped
     ports:
       - "127.0.0.1:4000:4000"
     volumes:
-      # Named volume is the zero-config default: the image runs as uid 1001
-      # and ownership is copied from the image on first mount.
-      # To reuse a host directory instead (e.g. existing ./data from the
-      # TypeScript version), run `chown -R 1001:1001 ./data` on the host
-      # first, then swap the entry below for: - ./data:/app/data
       - metapi_data:/app/data
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HOST: 0.0.0.0
+      AUTH_TOKEN: ${AUTH_TOKEN:?Set AUTH_TOKEN in .env or the shell}
+      PROXY_TOKEN: ${PROXY_TOKEN:?Set PROXY_TOKEN in .env or the shell}
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -30,12 +39,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    env_file:
-      - .env
-    environment:
-      HOST: 0.0.0.0
-      AUTH_TOKEN: ${AUTH_TOKEN:?Set AUTH_TOKEN in .env}
-      PROXY_TOKEN: ${PROXY_TOKEN:?Set PROXY_TOKEN in .env}
 
 volumes:
   metapi_data:

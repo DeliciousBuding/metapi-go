@@ -30,6 +30,8 @@ type RetentionSchedulerOptions struct {
 	DisabledFn func(cfg *config.Config) (disabled bool, reason string)
 	// StartLogSuffix is appended to the "started" log message ("" for none).
 	StartLogSuffix string
+	// Prune groups related log tables under the same retention transaction.
+	Prune func(*store.DB, string) (int64, error)
 }
 
 // RetentionScheduler prunes rows older than a per-config retention window on
@@ -120,6 +122,15 @@ func (s *RetentionScheduler) runCleanupLocked(dbw *store.DB, retentionDays int) 
 	}
 	cutoff := now.Add(-time.Duration(retentionDays) * 24 * time.Hour)
 	cutoffStr := formatTimeToSQL(cutoff)
+	if s.opts.Prune != nil {
+		deleted, err := s.opts.Prune(dbw, cutoffStr)
+		if err != nil {
+			slog.Warn(s.opts.Name+": cleanup failed", "error", err)
+			return
+		}
+		slog.Info(s.opts.Name+": cleanup complete", "deleted", deleted, "cutoff", cutoffStr, "retention_days", retentionDays)
+		return
+	}
 
 	query := "DELETE FROM " + s.opts.Table + " WHERE created_at < ?" + s.opts.ExtraWhere
 	result, err := dbw.Exec(query, cutoffStr)

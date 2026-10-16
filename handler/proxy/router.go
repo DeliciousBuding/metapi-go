@@ -95,6 +95,11 @@ func writeJSONError(w http.ResponseWriter, status int, message, typ string) {
 // requestID is non-empty, attaches it both in the body and as X-Request-Id
 // when the response header is still unset.
 func writeJSONErrorWithRequest(w http.ResponseWriter, status int, message, typ, requestID string) {
+	if status >= 400 && status < 500 && typ == "invalid_request_error" {
+		if observer, ok := w.(interface{ ObserveProxyRejection(string) }); ok {
+			observer.ObserveProxyRejection("invalid_request")
+		}
+	}
 	if requestID != "" && w.Header().Get("X-Request-Id") == "" {
 		w.Header().Set("X-Request-Id", requestID)
 	}

@@ -561,6 +561,16 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "proxy_logs", "downstream_path", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		Version:     "gateway_request_observations_v1",
+		Description: "gateway-observed request terminals and nullable attempt correlation; no historical backfill",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "proxy_logs", "gateway_request_id", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			return EnsureIndex(db, "proxy_logs_gateway_request_idx", `CREATE INDEX IF NOT EXISTS proxy_logs_gateway_request_idx ON proxy_logs (gateway_request_id, retry_count, id)`)
+		},
+	},
 	// sc2_029_ts_timestamp_normalization is deliberately NOT a registry step
 	// any more. A journal gate decides "already applied" from the state of the
 	// database at the moment it runs, and the TS-shaped timestamps this rewrite

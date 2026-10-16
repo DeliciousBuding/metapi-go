@@ -16,6 +16,8 @@ import (
 	"github.com/coder/websocket"
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/handler/shared"
+	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 )
@@ -235,7 +237,40 @@ func (s *responsesWSSession) loop(ctx context.Context) error {
 	}
 }
 
-func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) error {
+func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (turnErr error) {
+	writer := gatewayRequestWriter(defaultGatewayRequestWriter)
+	parent := requestLifecycleFromContext(ctx)
+	if parent != nil {
+		writer = parent.writer
+	}
+	state, turnRequest := newRequestLifecycle(s.req.WithContext(ctx), "websocket", writer)
+	if parent != nil {
+		// Authentication has already removed credential-shaped correlation IDs.
+		// A turn inherits that result, not the original handshake header.
+		parent.mu.Lock()
+		state.entry.ExternalRequestID = parent.entry.ExternalRequestID
+		parent.mu.Unlock()
+	}
+	ctx = turnRequest.Context()
+	state.bind(s.auth, "/v1/responses", "")
+	defer func() {
+		if panicValue := recover(); panicValue != nil {
+			state.mu.Lock()
+			state.gatewayFailure = "handler_panic"
+			state.failureAfterOutput = state.entry.OutputStarted
+			state.mu.Unlock()
+			state.finish(ctx)
+			panic(panicValue)
+		}
+		if turnErr != nil {
+			state.mu.Lock()
+			if state.outcome == "" && state.rejection == "" {
+				state.outcome = shared.OutcomeUpstreamError
+			}
+			state.mu.Unlock()
+		}
+		state.finish(ctx)
+	}()
 	msg, err := ParseResponsesWSMessage(raw)
 	if err != nil {
 		return s.writeError(ctx, 400, "Invalid websocket JSON payload")
@@ -262,6 +297,7 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) erro
 			requestModel = strings.TrimSpace(m)
 		}
 	}
+	state.bind(s.auth, "/v1/responses", requestModel)
 	if requestModel != "" && s.auth != nil && !IsModelAllowedByPolicy(requestModel, s.auth.Policy) {
 		return s.writeError(ctx, 403, "model is not allowed for this downstream key")
 	}
@@ -294,6 +330,7 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) erro
 		s.lastRequest = cloneMap(normalized.nextSnapshot)
 		s.lastOutput = nil
 		s.mu.Unlock()
+		state.observe(shared.OutcomeSuccess, true)
 		return nil
 	}
 
@@ -564,7 +601,44 @@ func (s *responsesWSSession) writeJSON(ctx context.Context, v any) error {
 	}
 	writeCtx, cancel := context.WithTimeout(ctx, wsWriteTimeout)
 	defer cancel()
-	return s.conn.Write(writeCtx, websocket.MessageText, data)
+	state := requestLifecycleFromContext(ctx)
+	if frame, ok := v.(map[string]any); ok && state != nil {
+		typ, _ := frame["type"].(string)
+		if typ == "error" || typ == "response.failed" || typ == "response.incomplete" {
+			state.mu.Lock()
+			state.protocolFailed = state.protocolFailed || state.attempted
+			// An error envelope relays the HTTP bridge's existing disposition;
+			// it must not turn a zero-dispatch refusal into an upstream attempt.
+			if state.outcome == "" || state.outcome == shared.OutcomeSuccess {
+				state.outcome = shared.OutcomeUpstreamError
+			}
+			if state.attempted && state.entry.OutputStarted && state.outcome != shared.OutcomeClientError {
+				state.failureAfterOutput = true
+			}
+			state.mu.Unlock()
+		}
+	}
+	err = s.conn.Write(writeCtx, websocket.MessageText, data)
+	if state != nil {
+		state.mu.Lock()
+		state.entry.OutputStarted = state.entry.OutputStarted || err == nil
+		state.writeFailed = state.writeFailed || err != nil
+		if err == nil {
+			if frame, ok := v.(map[string]any); ok && frame["type"] == "response.completed" {
+				terminal := nativeTerminalBody{completionProtocol: proxy.EndpointResponses}
+				event := SseEvent{Data: string(data)}
+				terminal.observeTerminalEvent(&event)
+				state.protocolCompleted = terminal.terminalSeen && !terminal.terminalFailed
+				state.protocolFailed = state.protocolFailed || terminal.terminalFailed
+			}
+			if state.entry.FirstOutputLatencyMs == nil && hasGeneratedSseOutput(SseEvent{Data: string(data)}) {
+				elapsed := time.Since(state.started).Milliseconds()
+				state.entry.FirstOutputLatencyMs = &elapsed
+			}
+		}
+		state.mu.Unlock()
+	}
+	return err
 }
 
 func (s *responsesWSSession) writeError(ctx context.Context, status int, message string) error {
@@ -572,6 +646,13 @@ func (s *responsesWSSession) writeError(ctx context.Context, status int, message
 }
 
 func (s *responsesWSSession) writeErrorWithPayload(ctx context.Context, status int, message string, errPayload any) error {
+	if state := requestLifecycleFromContext(ctx); state != nil && status >= 400 && status < 500 {
+		state.mu.Lock()
+		if !state.attempted {
+			state.rejection = "invalid_request"
+		}
+		state.mu.Unlock()
+	}
 	frame := ResponsesWSError(status, message)
 	if errPayload != nil {
 		if m, ok := errPayload.(map[string]any); ok {
@@ -857,6 +938,25 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 		Body:          upBody,
 		ResinAccount:  resinAccount,
 		ResinPlatform: resinPlatform,
+		ObserveAttempt: func(events []map[string]any, attemptErr error, duration time.Duration) {
+			attemptCtx := beginGatewayAttempt(ctx)
+			proxyCtx := &Ctx{Auth: s.auth, RequestedModel: requestModel, DownstreamPath: "/v1/responses", IsStream: true, lifecycle: requestLifecycleFromContext(ctx)}
+			usage := ParsedUsage{Source: usageSourceUnknown}
+			for _, event := range events {
+				data, _ := json.Marshal(event)
+				if parsed := ParseUsageFromBody(data); parsed.Found {
+					usage = parsed
+				}
+			}
+			requestID := proxy.RequestIDFromContext(ctx)
+			if attemptErr != nil {
+				writeFailureProxyLog(attemptCtx, cfg, selected, proxyCtx, upstreamModel, "/v1/responses", duration.Milliseconds(), nil, 0, true, usage, 0, requestID, "upstream websocket attempt failed")
+				proxyCtx.lifecycle.observe(shared.OutcomeUpstreamError, true)
+			} else {
+				writeSuccessProxyLog(attemptCtx, cfg, selected, proxyCtx, upstreamModel, "/v1/responses", duration.Milliseconds(), nil, 0, true, usage, 0, requestID)
+				proxyCtx.lifecycle.observe(shared.OutcomeSuccess, true)
+			}
+		},
 	})
 	if sendErr != nil {
 		runtimeErr, ok := sendErr.(*CodexWebsocketRuntimeError)

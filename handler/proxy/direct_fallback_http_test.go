@@ -174,8 +174,13 @@ func TestDirectFallbackHTTPProtocolMatrix(t *testing.T) {
 				if out.Code != 200 || !strings.Contains(out.Body.String(), "ok") || !reflect.DeepEqual(calls, want) {
 					t.Fatalf("status=%d calls=%v want=%v body=%s", out.Code, calls, want, out.Body.String())
 				}
-				if len(logs) != 1 || logs[0].Status != "success" || logs[0].TotalTokens == nil || *logs[0].TotalTokens != 2 {
-					t.Fatalf("miss was billed/poisoned or success accounting lost: %+v", logs)
+				if len(logs) != len(calls) || logs[len(logs)-1].Status != "success" || logs[len(logs)-1].TotalTokens == nil || *logs[len(logs)-1].TotalTokens != 2 {
+					t.Fatalf("endpoint attempts or success accounting lost: %+v", logs)
+				}
+				for _, entry := range logs[:len(logs)-1] {
+					if entry.Status != "failed" || entry.TotalTokens != nil || entry.EstimatedCost != 0 {
+						t.Fatalf("protocol miss invented usage or cost: %+v", entry)
+					}
 				}
 			})
 		}
@@ -232,7 +237,7 @@ func TestDirectFallbackLocalConversionSkipsWithoutWriting(t *testing.T) {
 	out := httptest.NewRecorder()
 	HandleResponses(out, req, "/v1/responses")
 	calls, logs := f.results()
-	if out.Code != 200 || !json.Valid(out.Body.Bytes()) || !reflect.DeepEqual(calls, []string{"responses", "chat"}) || len(logs) != 1 || logs[0].Status != "success" {
+	if out.Code != 200 || !json.Valid(out.Body.Bytes()) || !reflect.DeepEqual(calls, []string{"responses", "chat"}) || len(logs) != 2 || logs[0].Status != "failed" || logs[1].Status != "success" {
 		t.Fatalf("local conversion wrote a response, lost original body, or made I/O: status=%d calls=%v logs=%+v body=%s", out.Code, calls, logs, out.Body.String())
 	}
 }
@@ -241,7 +246,7 @@ func TestDirectFallbackExhaustsEachProtocolOnce(t *testing.T) {
 	f := installDirectFallbackFixture(t, []string{"gemini", "messages", "responses", "chat"}, map[string]int{"chat": 400, "responses": 400, "messages": 400, "gemini": 400}, `{"error":{"code":"model_not_found","message":"model not supported"}}`, false)
 	out := directFallbackHTTPRequest("chat", false)
 	calls, logs := f.results()
-	if out.Code != 400 || !reflect.DeepEqual(calls, []string{"chat", "gemini", "messages", "responses"}) || len(logs) != 1 || logs[0].Status == "success" || !strings.Contains(out.Body.String(), "model_not_found") {
+	if out.Code != 400 || !reflect.DeepEqual(calls, []string{"chat", "gemini", "messages", "responses"}) || len(logs) != 4 || logs[3].Status == "success" || !strings.Contains(out.Body.String(), "model_not_found") {
 		t.Fatalf("exhaustion repeated a protocol or lost the final error: status=%d calls=%v logs=%+v body=%s", out.Code, calls, logs, out.Body.String())
 	}
 }

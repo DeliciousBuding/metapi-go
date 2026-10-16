@@ -52,6 +52,9 @@ func proxyAuthErrorClass(reason string) (errType, code string) {
 // request id (when the middleware already set X-Request-Id) is mirrored into
 // the body exactly like the handler layer does.
 func writeProxyError(w http.ResponseWriter, status int, errType, code, message string) {
+	if observer, ok := w.(interface{ ObserveProxyRejection(string) }); ok {
+		observer.ObserveProxyRejection(code)
+	}
 	body := map[string]any{
 		"message": message,
 		"type":    errType,

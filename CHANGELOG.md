@@ -21,6 +21,11 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+### 变更
+
+- 请求日志：新增 `gateway_requests` 与 `proxy_logs.gateway_request_id`，分别记录网关终态和上游尝试；`/api/stats/requests` 提供请求查询，历史日志保持未知、不回填（#1465）。
+- 请求诊断：默认按请求展示完成、断流、取消和零派发；概览单独统计请求完成率，历史尝试仍可查询。记录写入失败新增 WARN，不改变代理响应（#1465）。
+
 ### 修复
 
 - 账号 API Key：支持携带所选 Key ID 新建路由，重选账号保留指定 Key；列表加载失败显示重试。通道新增接口拒绝错账号或不存在的 Key（`400`），凭据读取失败返回 `500`。

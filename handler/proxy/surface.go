@@ -45,6 +45,7 @@ type SurfResult struct {
 
 // Ctx holds all context needed for a proxy request.
 type Ctx struct {
+	lifecycle            *requestLifecycle
 	videoTask            *directVideoTask
 	videoAccountingTask  *directVideoTask
 	videoAccounting      *directVideoAccounting
@@ -77,6 +78,8 @@ type Ctx struct {
 // PrepareCtx extracts all context needed for proxy request handling.
 func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 	authCtx := GetProxyAuth(r)
+	lifecycle := requestLifecycleFromContext(r.Context())
+	lifecycle.bind(authCtx, cfg.DownstreamPath, "")
 	if authCtx == nil {
 		return nil, &SurfResult{OK: false, Status: 401, Error: "unauthorized", ErrorType: "invalid_request_error"}
 	}
@@ -128,6 +131,7 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 		requestedModel = cfg.DefaultModel
 		body["model"] = requestedModel
 	}
+	lifecycle.bind(authCtx, cfg.DownstreamPath, requestedModel)
 	if requestedModel == "" && cfg.RequireModel {
 		return nil, &SurfResult{OK: false, Status: 400, Error: "model is required", ErrorType: "invalid_request_error"}
 	}
@@ -183,6 +187,7 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 		downstreamPath = r.URL.Path
 	}
 	return &Ctx{
+		lifecycle:      lifecycle,
 		Auth:           authCtx,
 		Policy:         authCtx.Policy,
 		Body:           body,

@@ -158,8 +158,8 @@ upstream request; …`), since it describes a static misconfiguration.
 
 | Variable | Default | Description |
 |:---------|:--------|:------------|
-| `PROXY_LOG_ASYNC` | `true` | Batched async INSERTs (production latency win); set `false` for tests needing write-through. |
-| `PROXY_LOG_BATCH_SIZE` | `50` | Flush threshold rows (1–1000). |
+| `PROXY_LOG_ASYNC` | `true` | Request outcomes and attempts share a bounded async batch writer; set `false` for write-through visibility. Graceful shutdown drains both; abrupt process loss may lose queued observations. |
+| `PROXY_LOG_BATCH_SIZE` | `50` | Flush threshold observations across requests and attempts (1–1000). |
 | `PROXY_LOG_FLUSH_INTERVAL_MS` | `1000` | Flush period (1–60000 ms). |
 | `PROXY_LOG_RETENTION_DAYS` | `30` | Proxy log retention in days (`0` = keep forever). |
 | `PROXY_LOG_RETENTION_PRUNE_INTERVAL_MINUTES` | `30` | How often the proxy-log pruner runs; floored at 1 minute. |

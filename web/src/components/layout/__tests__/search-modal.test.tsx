@@ -418,7 +418,7 @@ describe('search palette entity deep links', () => {
 
     expect(navigateMock).toHaveBeenCalledWith({
       to: '/proxy-logs',
-      search: { q: 'gpt-5.5', status: 'failed' },
+      search: { view: 'attempts', q: 'gpt-5.5', status: 'failed' },
     })
   })
 
