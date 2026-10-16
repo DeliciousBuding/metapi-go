@@ -1,25 +1,22 @@
 # 后端设计契约
 
 兼容、打包和交付边界见仓库[工程规则](../../../AGENTS.md)。
-本文只定义后端职责和行为；[架构](../../architecture.md) 说明当前实现，
-[`package_boundary_test.go`](../../package_boundary_test.go) 检查依赖并记录例外，
-不在这里维护另一张依赖图。
+本文定义后端职责和行为；[架构](../../architecture.md) 说明当前实现，
+[`package_boundary_test.go`](../../package_boundary_test.go) 检查依赖并记录例外。
 
 ## 职责归属
 
 在拥有该决策的包内修改。抽共享代码前查已有 helper 和调用方；
 接口须有真实边界或消费者，registry 须有实际实现。
-不因为尚未查明调用类型或不变量而叠加 fallback。
 
-依赖由组合入口装配；库通过现有构造函数/参数接收依赖，不新增全局 service locator。
-已有 config/store 访问方式不意味着局部清理需要迁移整个应用。
+依赖由组合入口装配，库通过现有构造函数和参数接收依赖。
 
 持久化复用 `store` 和方言 helper；裸 `sqlx` 查询须 Rebind。
-SQLite 通过不能推导 PostgreSQL 兼容，方言有差异时明确事务、NULL 和时间戳语义。
+双方言分别验证事务、NULL 和时间戳语义。
 
 环境变量的名称、alias、优先级和默认值由 `config/`、
 [配置文档](../../configuration.md)、`.env.example` 定义。
-保留现有名称和优先级；新增配置同步这些来源，不再发明平行命名策略或配置语言。
+保留现有名称和优先级，新增配置同步这些来源。
 
 ## 鉴权与凭据
 
@@ -33,7 +30,6 @@ SQLite 通过不能推导 PostgreSQL 兼容，方言有差异时明确事务、N
 ## 错误与上游隔离
 
 - 代理保留原生字段、错误 envelope 和流结束语义；管理 JSON 保持既有 camelCase。
-  两者是不同 wire 契约，不是整仓统一大小写的约定。
 - 区分记录不存在、读取失败和写入失败。错误传给能够决定响应的边界；
   跨包优先 typed/sentinel error，不为鉴权或校验失败返回成功。
 - best-effort 有具体理由；失败影响结果时保留可观察的错误路径。
@@ -49,7 +45,7 @@ SQLite 通过不能推导 PostgreSQL 兼容，方言有差异时明确事务、N
 有界网络操作；修改冷却、重试或锁时，用 race 测试验证受影响行为。
 
 日志使用 `log/slog` 和现有 request ID。health/metrics 属于 `app`，
-领域 service 不再建立另一套监控入口。记录失败原因，不暴露凭据或私有请求内容。
+领域 service 复用这些入口。记录失败原因，不暴露凭据或私有请求内容。
 
 ## 重构与验证
 

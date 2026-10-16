@@ -35,7 +35,7 @@ documents never deep-link into `internal/` — they state the fact directly.
 | [`internal/git-workflow.md`](internal/git-workflow.md) | Branch model, PR flow, protection rules, release cadence |
 | [`internal/design/`](internal/design/)           | Design source of truth (BACKEND / DESIGN / a11y / components / state-stability) |
 | [`internal/web-package-boundaries.md`](internal/web-package-boundaries.md) | Frontend layering contract (`web/scripts/check-boundaries.mjs` enforces it) |
-| [`internal/responses-websocket-residual.md`](internal/responses-websocket-residual.md) | Why the Responses WebSocket surface answers 501 |
+| [`internal/responses-websocket-residual.md`](internal/responses-websocket-residual.md) | Responses WebSocket transport and single-instance session state |
 
 ## Layout
 

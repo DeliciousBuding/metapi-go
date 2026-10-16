@@ -22,28 +22,9 @@ import (
 	"github.com/deliciousbuding/metapi-go/service"
 )
 
-// Responses WebSocket transport.
-
-// C1 scope:
-// - Real WebSocket upgrade via coder/websocket
-// - Downstream auth on upgrade (ProxyAuth middleware + GetProxyAuth guard)
-// - Turn-state header capture (x-codex-turn-state)
-// - response.create single-turn via in-process HTTP SSE→WS bridge
-// - Honest errors on the open socket (no fake response.completed for real turns)
-
-// C2 scope:
-// - Multi-turn merge (last input + last output + new input)
-// - Incremental previous_response_id path when client supplies it on response.create
-// - Per-message managed-key used_requests consume (TS parity; upgrade does not bill)
-// - Per-message model policy gate (IsModelAllowedByPolicy)
-
-// C3 scope:
-// - Codex upstream wss runtime (codex_ws_runtime.go) + session response id store
-// - Capability probe: platform=codex + CodexUpstreamWebsocketEnabled + extraConfig
-// - Dial / empty-event failure → HTTP SSE bridge fallback (no fake terminals)
-// - Process-local sticky only (single-instance honest; no cluster-wide sticky-session claim)
-
-// Forbidden always: Hijack-silent-close · invent terminal frames for failed bridges.
+// Responses WebSocket uses native Codex wss when enabled and supported by the
+// selected channel, otherwise bridging HTTP SSE. Sessions and response IDs are
+// process-local. Each message enforces model policy and managed-key request quota.
 const (
 	ResponsesWebsocketResidualStatus = "c3_codex_upstream_wss"
 	ResponsesWebsocketResidualDoc    = "docs/internal/responses-websocket-residual.md"
@@ -302,7 +283,6 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 		return s.writeError(ctx, 403, "model is not allowed for this downstream key")
 	}
 
-	// C2/C3: client previous_response_id opts into incremental path.
 	supportsIncremental := clientRequestsResponsesWSIncremental(msg)
 
 	normalized, nerr := normalizeResponsesWSRequest(msg, lastReq, lastOut, supportsIncremental)
@@ -310,8 +290,8 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 		return s.writeError(ctx, nerr.status, nerr.message)
 	}
 
-	// C2: per-message managed-key quota (TS consumeManagedKeyRequest after normalize).
-	// Upgrade auth does not bill; bridge reuses seeded auth context (no double middleware).
+	// Consume quota per message; upgrade authentication and the seeded bridge
+	// context leave this as the single billing point.
 	if s.auth != nil && s.auth.Source == "managed" && s.auth.KeyID != nil {
 		if !auth.ConsumeManagedKeyRequest(*s.auth.KeyID) {
 			return s.writeError(ctx, 403, "API key has exceeded max requests")
@@ -430,12 +410,12 @@ func normalizeResponsesWSRequest(
 		}
 	}
 
-	// C2 incremental: keep previous_response_id + new input only (no history merge).
+	// An incremental request carries its previous_response_id and new input.
 	if supportsIncremental && reqType == "response.create" && responsesWSPreviousResponseID(msg) != "" {
 		return &normalizeResult{request: next, nextSnapshot: cloneMap(next)}, nil
 	}
 
-	// Multi-turn honesty (TS non-incremental): merge last input + last output + new input.
+	// Without an incremental ID, supply the accumulated turn history.
 	merged := make([]any, 0, 16)
 	if prevIn, ok := lastRequest["input"].([]any); ok {
 		merged = append(merged, prevIn...)
@@ -448,10 +428,8 @@ func normalizeResponsesWSRequest(
 	return &normalizeResult{request: next, nextSnapshot: cloneMap(next)}, nil
 }
 
-// clientRequestsResponsesWSIncremental reports whether this client message opts
-// into the previous_response_id incremental path. C2 does not yet probe channel
-// capability (C3 / Codex wss); we honor an explicit previous_response_id on
-// response.create so multi-turn clients that support it are not force-merged.
+// clientRequestsResponsesWSIncremental preserves an explicit previous_response_id
+// so the upstream can resolve history for an incremental turn.
 func clientRequestsResponsesWSIncremental(msg *ResponsesWSMessage) bool {
 	return responsesWSPreviousResponseID(msg) != ""
 }
