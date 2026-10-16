@@ -125,30 +125,37 @@ metapi
 
 脚本自动校验 SHA-256 并安装到 `/usr/local/bin/metapi`（默认安装最新发布，`METAPI_VERSION` 可钉住版本，`METAPI_INSTALL_PREFIX` 可换安装目录）。Windows 直接从 [Releases](https://github.com/DeliciousBuding/metapi-go/releases/latest) 下载 `metapi-windows-amd64.exe`。
 
-### 方式二：Docker（命名卷，零配置）
+### 方式二：Docker（预构建镜像 + 命名卷）
 
-稳定使用请选择维护者已公开发布的非预发布 Release，并固定对应的完整版本镜像标签或 digest。`latest` 会随 master 构建移动，也会被版本 tag 构建更新，不代表稳定发布；合入开发分支也不等于已通过发布验收。
+稳定部署使用完整版本标签或 digest；下例使用已发布的 `0.24.0`，`latest` 用于开发构建。升级前在 [Releases](https://github.com/DeliciousBuding/metapi-go/releases) 查看版本说明。
 
 ```bash
+export AUTH_TOKEN=$(openssl rand -hex 32)
+export PROXY_TOKEN=sk-$(openssl rand -hex 24)
+export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
+
 docker run -d --name metapi \
-  -p 4000:4000 \
-  -e AUTH_TOKEN=your-admin-token \
-  -e PROXY_TOKEN=your-proxy-sk-token \
-  -e ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32) \
+  -p 127.0.0.1:4000:4000 \
+  -e AUTH_TOKEN \
+  -e PROXY_TOKEN \
+  -e ACCOUNT_CREDENTIAL_SECRET \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
   --restart unless-stopped \
-  ghcr.io/deliciousbuding/metapi-go:0.21.3
+  ghcr.io/deliciousbuding/metapi-go:0.24.0
 ```
 
-镜像版本 `0.21.3` 是本示例的稳定版本；部署前到 [Releases](https://github.com/DeliciousBuding/metapi-go/releases) 核对当前已公开发布的版本，并替换为对应的完整版本标签或 digest。
+默认仅本机可访问。需要从其他设备访问时，经反向代理配置 TLS，或明确调整端口绑定。示例生成的管理令牌与代理令牌应保存到自己的密码管理器；也可先生成并设置为环境变量，再传给容器。
 
-命名卷首次挂载自动继承镜像内属主，开箱即用；改用 bind mount（`./data:/app/data`）需先在宿主机 `chown -R 1001:1001 ./data`。Compose 方式（生产硬化配置）：
+命名卷首次挂载继承镜像内属主；改用 bind mount（`./data:/app/data`）需先在宿主机 `chown -R 1001:1001 ./data`。使用仓库 Compose（Docker Compose >= 2.24）：
 
 ```bash
-cp .env.example .env   # 填入 AUTH_TOKEN / PROXY_TOKEN / ACCOUNT_CREDENTIAL_SECRET
-docker compose -f docker-compose.prod.yml up -d
+cp .env.example .env   # 设置独立的随机 AUTH_TOKEN / PROXY_TOKEN / ACCOUNT_CREDENTIAL_SECRET
+# .env 中其他运行配置也会传入容器，包括 PostgreSQL 和签到开关
+docker compose up -d
 ```
+
+需要从源码构建镜像时使用 `docker build -t metapi-go:dev .`；更多部署选项见 [部署指南](docs/deployment.md)。
 
 ### 方式三：源码构建
 

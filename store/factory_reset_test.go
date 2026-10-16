@@ -93,6 +93,16 @@ func seedEveryTable(t *testing.T, db *DB) {
 // insertProbeRowQuiet is insertProbeRow without t.Fatalf, so seedEveryTable
 // can retry a table on a second pass.
 func insertProbeRowQuiet(db *DB, table string, failed *[]string) {
+	// These two independent enums cannot be represented by the generic probe's
+	// one literal per column kind. Use a valid terminal observation instead.
+	if table == "gateway_requests" {
+		_, err := db.Exec(`INSERT INTO gateway_requests (id,transport,terminal_status,attempt_count,output_started,latency_ms,started_at,ended_at)
+			VALUES ('probe-request','http','completed',0,?,1,'2026-10-16T00:00:00.000000000Z','2026-10-16T00:00:00.001000000Z')`, false)
+		if err != nil {
+			*failed = append(*failed, fmt.Sprintf("%s: %v", table, err))
+		}
+		return
+	}
 	cols := make([]probeColumn, 0)
 	if db.Dialect == DialectPostgres {
 		rows, err := db.Query(db.Rebind(

@@ -29,13 +29,20 @@ import (
 //   - On batch INSERT failure: the batch falls back to per-row inserts so a
 //     single malformed row cannot sink the rest of the batch.
 type proxyLogBatchWriter struct {
-	ch            chan proxy.ProxyLogEntry
+	ch            chan proxyLogWrite
 	batchSize     int
 	flushInterval time.Duration
 	stop          chan struct{}
 	done          chan struct{}
 	stopOnce      sync.Once
 	wg            sync.WaitGroup
+}
+
+// Both observations use the same bounded queue, cadence and shutdown owner.
+// Exactly one field is populated; this is not a second event/worker framework.
+type proxyLogWrite struct {
+	attempt *proxy.ProxyLogEntry
+	request *store.GatewayRequest
 }
 
 // newProxyLogBatchWriter constructs a writer. batchSize is clamped to a sane
@@ -53,7 +60,7 @@ func newProxyLogBatchWriter(batchSize int, flushIntervalMs int) *proxyLogBatchWr
 	// predictable under sustained overload.
 	channelCapacity := batchSize * 4
 	return &proxyLogBatchWriter{
-		ch:            make(chan proxy.ProxyLogEntry, channelCapacity),
+		ch:            make(chan proxyLogWrite, channelCapacity),
 		batchSize:     batchSize,
 		flushInterval: time.Duration(flushIntervalMs) * time.Millisecond,
 		stop:          make(chan struct{}),
@@ -74,7 +81,7 @@ func (b *proxyLogBatchWriter) start() {
 // InsertProxyLog's nil-DB no-op).
 func (b *proxyLogBatchWriter) enqueue(ctx context.Context, entry proxy.ProxyLogEntry) error {
 	select {
-	case b.ch <- entry:
+	case b.ch <- proxyLogWrite{attempt: &entry}:
 		return nil
 	default:
 	}
@@ -87,6 +94,23 @@ func (b *proxyLogBatchWriter) enqueue(ctx context.Context, entry proxy.ProxyLogE
 	return InsertProxyLog(ctx, db, entry)
 }
 
+func (b *proxyLogBatchWriter) enqueueRequest(ctx context.Context, entry store.GatewayRequest) error {
+	select {
+	case b.ch <- proxyLogWrite{request: &entry}:
+		return nil
+	default:
+		return writeGatewayRequest(ctx, entry)
+	}
+}
+
+func writeGatewayRequest(ctx context.Context, entry store.GatewayRequest) error {
+	db := store.GetDB()
+	if db == nil {
+		return nil
+	}
+	return store.InsertGatewayRequest(ctx, db, entry)
+}
+
 // loop is the background drain goroutine. It accumulates entries into a buffer
 // and flushes when the buffer reaches batchSize OR the flush ticker fires,
 // whichever comes first. On stop it drains the channel + buffer one last time.
@@ -97,12 +121,24 @@ func (b *proxyLogBatchWriter) loop() {
 	ticker := time.NewTicker(b.flushInterval)
 	defer ticker.Stop()
 
-	buf := make([]proxy.ProxyLogEntry, 0, b.batchSize)
+	buf := make([]proxyLogWrite, 0, b.batchSize)
 	flush := func() {
 		if len(buf) == 0 {
 			return
 		}
-		b.flushBatch(context.Background(), buf)
+		attempts := make([]proxy.ProxyLogEntry, 0, len(buf))
+		requests := make([]store.GatewayRequest, 0, len(buf))
+		for _, entry := range buf {
+			if entry.attempt != nil {
+				attempts = append(attempts, *entry.attempt)
+			}
+			if entry.request != nil {
+				requests = append(requests, *entry.request)
+			}
+		}
+		b.flushBatch(context.Background(), attempts)
+		flushGatewayRequests(context.Background(), requests)
+		clear(buf)
 		buf = buf[:0]
 	}
 
@@ -132,6 +168,27 @@ func (b *proxyLogBatchWriter) loop() {
 			}
 			flush()
 			return
+		}
+	}
+}
+
+func flushGatewayRequests(ctx context.Context, entries []store.GatewayRequest) {
+	if len(entries) == 0 {
+		return
+	}
+	db := store.GetDB()
+	if db == nil {
+		slog.Warn("gateway request batch: no DB at flush", "count", len(entries))
+		return
+	}
+	if err := store.InsertGatewayRequests(ctx, db, entries); err == nil {
+		return
+	} else {
+		slog.Warn("gateway request batch insert failed, falling back to per-row", "err", err, "count", len(entries))
+	}
+	for _, entry := range entries {
+		if err := store.InsertGatewayRequest(ctx, db, entry); err != nil {
+			slog.Warn("gateway request record failed", "gateway_request_id", entry.ID, "err", err)
 		}
 	}
 }
@@ -295,4 +352,15 @@ func EnqueueProxyLog(ctx context.Context, entry proxy.ProxyLogEntry) error {
 		return InsertProxyLog(ctx, store.GetDB(), entry)
 	}
 	return w.enqueue(ctx, entry)
+}
+
+// EnqueueGatewayRequest follows PROXY_LOG_ASYNC and is drained before DB close.
+func EnqueueGatewayRequest(ctx context.Context, entry store.GatewayRequest) error {
+	proxyLogBatchWriterMu.Lock()
+	w := proxyLogBatchWriterInst
+	proxyLogBatchWriterMu.Unlock()
+	if w == nil {
+		return writeGatewayRequest(ctx, entry)
+	}
+	return w.enqueueRequest(ctx, entry)
 }

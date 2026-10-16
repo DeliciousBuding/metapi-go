@@ -8,8 +8,8 @@
 
 Pure formatter, schema and export suites can opt into Node with an explicit
 `@vitest-environment node` annotation after checking their dependencies do not
-require a DOM. Component suites keep jsdom. File isolation and the single-worker
-limit remain enabled; removing isolation to save startup time can leak mocks.
+require a DOM. Component suites keep jsdom. Tests use up to four workers with
+file isolation enabled to keep mocks local to each suite.
 The headless i18n suite verifies locale initialization without `document`, while
 the browser language-switching suite protects the HTML language contract.
 
@@ -52,12 +52,12 @@ deterministic relay does not establish real-model or downstream-client acceptanc
 
 ## From historical bugs to user-task regressions
 
-Keep the maintenance trail in the existing GitHub issue / PR, not a second task ledger:
+Use the existing GitHub issue / PR to connect a reported failure to its regression test:
 
-1. Link the historical report to the user task that failed (for example, add an upstream account, select a route, then complete a request from a downstream client). Record the minimal reproduction, expected result, root cause and related paths or upstream types checked. A closed issue or merged fix is not regression evidence.
-2. Link the smallest relevant regression check and show that it detects the original defect (known-bad input or the fix removed in an isolated checkout). Restore the tested source byte-identically before recording success; never mutate a running deployment for this check.
-3. For a release candidate, revisit relevant historical failures and key user tasks on the final candidate source, artifact and environment. Record commit plus uncommitted diff, binary SHA-256 or image digest, commands, environment and results. Track deterministic fixtures, real-model relay and downstream-client E2E separately; use explicit “not verified” or “not applicable” with reasons rather than inferring coverage across layers.
-4. If source, artifact or environment changes, repeat affected checks and update the issue / PR evidence. Summarize residual risks for the maintainer's release decision; do not turn a successful rerun into a claim that the original failure needs no fix.
+1. Describe the failed user task, minimal reproduction, expected result and root cause.
+2. Add a regression check that fails for the original defect. Use an isolated checkout when testing with the fix removed, then restore it before continuing.
+3. For a release candidate, run relevant checks on the final source and build. Record the commit, local changes, build version, commands and results. Distinguish fixture tests, real-model relay and downstream-client E2E in the result summary.
+4. Repeat affected checks when the source, build or environment changes. Include remaining issues in the release review.
 
 Publish only sanitized reproduction and result summaries. Keep credentials, private hosts and raw runtime evidence out of issues, PRs and this repository; follow the privacy boundary below.
 
@@ -71,20 +71,20 @@ starts it on a fixed loopback port with fixture env (`AUTH_TOKEN` /
 `PROXY_TOKEN` / `ACCOUNT_CREDENTIAL_SECRET` all synthetic, SQLite under
 `.local/<name>-data/`, background jobs off), seeds via the admin API (or a
 scoped SQLite write when no API exists, e.g. usage projections), and records
-evidence metadata (`commit`, `diffSha256`, `binarySha256`, `pid`) so the
-walkthrough traces back to exact source inputs.
+the source commit, local changes, build command and process ID with the result.
 
 Rules of engagement: fixture tokens never leave the local instance, upstreams
 are `httptest`/loopback fakes only, seeding is idempotent via a marker file,
-and the script terminates the server on exit. A green walkthrough is UI
-evidence for the fixture contract — it is not real-upstream or real-client
-acceptance, and never substitutes for the pre-push gate.
+and the script terminates the server on exit. Record the walkthrough as a local
+fixture test alongside the pre-push results.
 
 ## 本地 race 检查
 
 `scripts/go-race.sh` 执行全量 race 测试，每包默认超时 900 秒，
 可通过 `METAPI_RACE_TIMEOUT_SECONDS=<seconds>` 调整。
-Windows 的该脚本使用 WSL；日常开发和定向测试不要求在 WSL 中完成。
+脚本在当前环境执行，不自动切换操作系统。Race detector 需要 Go 支持的
+OS/架构和 C 工具链；Windows 原生若遇到工具链或运行时限制，可自行在 WSL
+或 Linux 容器执行同一命令，也可由 CI 复核。日常定向测试不要求 WSL。
 资源竞争可能拖慢测试，超时时先区分环境负载和代码问题，不跳过失败检查。
 
 CI 的 SQLite race shards 独立配置，不使用这个本地超时。
@@ -105,12 +105,11 @@ CI 的 SQLite race shards 独立配置，不使用这个本地超时。
 - 负例和真实扫描共用检测函数，或在临时夹具中运行真实 CLI；
   不用另一份复制实现证明自己正确。
 - 必要时在隔离工作树移除待保护的修复，确认门禁变红；
-  按修改前摘要恢复文件，再确认通过，不在部署实例做破坏验证。
+  恢复修改后再确认通过。
 
-`docs/pg_rebind_gate_test.go` 检查其明确扫描范围内的 SQL 字面量，
-不是全程序类型分析；动态 SQL 和跨文件句柄仍需 PostgreSQL 行为测试。
-前端静态 FormControl 检查也是启发式提示，不能证明实际 DOM 的 ARIA 转发；
-表单行为由 Testing Library 验证 accessible name、describedby 和 invalid 状态。
+`docs/pg_rebind_gate_test.go` 检查 SQL 字面量；动态 SQL 和跨文件句柄由
+PostgreSQL 行为测试覆盖。前端静态 FormControl 检查提示常见接线问题，
+Testing Library 验证实际 DOM 的 accessible name、describedby 和 invalid 状态。
 
 查找已有门禁和负例实现时可用：
 
@@ -273,8 +272,8 @@ Run `--help` for the required private environment. Both loopback origins,
 `MANAGEMENT_DISPOSABLE=1`, `MANAGEMENT_ALLOW_MUTATIONS=1`, the exact Metapi commit,
 and disjoint evidence/secret directories are mandatory. The instrument creates
 one fresh ordinary user, changes only that disposable upstream's check-in toggle
-and restores it, then removes its owned objects. Output and identity/hash evidence
-belong in operator storage. `test_verify_management_full.py` is an offline
+and restores it, then removes its owned objects. Store the output and build details
+in operator storage. `test_verify_management_full.py` is an offline
 instrument check, not proof that the full live journey passed. MFA and real
 model/client checks remain separate.
 

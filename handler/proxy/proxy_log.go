@@ -51,7 +51,7 @@ const proxyLogInsertColumns = `route_id, channel_id, upstream_channel_id, upstre
 			prompt_tokens, completion_tokens, total_tokens,
 			estimated_cost, billing_details,
 			client_family, client_app_id, client_app_name, client_confidence,
-			error_message, retry_count, request_id, created_at, downstream_path`
+			error_message, retry_count, request_id, created_at, downstream_path, gateway_request_id`
 
 // proxyLogSingleRowPlaceholders matches the canonical INSERT column list.
 // store.DB rebinds ? to $N for PostgreSQL, so the batch writer builds rows of
@@ -62,7 +62,7 @@ const proxyLogSingleRowPlaceholders = `(?, ?, ?, ?, ?, ?,
 			?, ?, ?,
 			?, ?,
 			?, ?, ?, ?,
-			?, ?, ?, ?, ?)`
+			?, ?, ?, ?, ?, ?)`
 
 // proxyLogEntryArgs builds the positional args for one proxy_logs INSERT row,
 // matching proxyLogInsertColumns order. Shared by InsertProxyLog (single) and
@@ -91,7 +91,7 @@ func proxyLogEntryArgs(entry proxy.ProxyLogEntry, createdAt string) []any {
 		nullString(strPtrOrEmpty(entry.ModelRequested)),
 		nullString(entry.ModelActual),
 		nullString(strPtrOrEmpty(entry.Status)),
-		entry.HTTPStatus,
+		proxyLogHTTPStatus(entry.HTTPStatus),
 		nullBool(entry.IsStream),
 		nullInt64(entry.FirstByteLatencyMs),
 		nullInt64(entry.FirstOutputLatencyMs),
@@ -111,7 +111,15 @@ func proxyLogEntryArgs(entry proxy.ProxyLogEntry, createdAt string) []any {
 		nullString(strPtrOrEmpty(entry.RequestID)),
 		createdAt,
 		nullString(entry.DownstreamPath),
+		nullString(strPtrOrEmpty(entry.GatewayRequestID)),
 	}
+}
+
+func proxyLogHTTPStatus(status int) any {
+	if status == 0 {
+		return nil
+	}
+	return status
 }
 
 // Store only known API surfaces, never model IDs, task IDs or URL parameters.
@@ -156,6 +164,7 @@ func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntr
 	if cfg == nil {
 		return
 	}
+	requestLifecycleFromContext(ctx).recordAttempt(ctx, &entry)
 	// Prefer explicit entry.RequestID; otherwise inherit chi/Metapi request id.
 	if entry.RequestID == "" {
 		entry.RequestID = proxy.RequestIDFromContext(ctx)

@@ -40,6 +40,41 @@ function renderMetrics() {
 }
 
 describe('operator request metrics', () => {
+  it('uses persisted gateway outcomes rather than the successful last attempt and preserves the coverage boundary', async () => {
+    vi.mocked(api.getOverviewReport).mockResolvedValue(
+      reportFixture({
+        requestSummary: {
+          totalCount: 10,
+          successCount: 10,
+          failedCount: 0,
+          legacyAttemptCount: 0,
+          partial: false,
+          partialReasons: [],
+        },
+        gatewayRequestSummary: {
+          totalCount: 5,
+          completedCount: 2,
+          failedCount: 1,
+          cancelledCount: 1,
+          rejectedCount: 1,
+          coverageStartedAt: '2026-10-16T00:00:00Z',
+        },
+        gatewayRequestPoints: [],
+      })
+    )
+    renderMetrics()
+    expect(await screen.findByText('40.0%')).toBeInTheDocument()
+    expect(screen.queryByText('100.0%')).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/1 failed · 1 cancelled · 1 rejected/)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Request records available since/)
+    ).toHaveTextContent('2026-10-16T00:00:00Z')
+    const link = screen.getByRole('link', { name: /Request completion rate/ })
+    expect(link.getAttribute('href')).toContain('view=requests')
+    expect(link.getAttribute('href')).not.toContain('status=failed')
+  })
   it('uses unfiltered aggregate counts and links failures to the exact fetched window', async () => {
     vi.mocked(api.getOverviewReport).mockResolvedValue(
       reportFixture({

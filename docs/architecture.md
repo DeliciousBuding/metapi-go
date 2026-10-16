@@ -185,6 +185,17 @@ A request then moves through stages that each have exactly one owner:
 | Upstream I/O | `platform` + `service` | Speaking to the actual provider, including outbound proxy and TLS behaviour. |
 | Persistence | `store` | Request/usage logging and every read the stages above need, with dialect differences hidden here. |
 
+请求结果与上游尝试分别记录。`handler/proxy/request_lifecycle.go` 在代理鉴权之前分配内部请求身份，
+观察实际 HTTP 提交与写出失败，并消费派发/协议处理器的结束结果；每个 HTTP 调用或 Responses
+WebSocket turn 由一个 owner 写入 `gateway_requests`。WS 升级只建立连接，不以 101 表示 turn 完成。
+`proxy_logs.gateway_request_id` 关联尝试，外部追踪 ID 可重复；历史不回填终态。
+请求保存观测到的尝试次数，详情与异步落库行数不一致时标记不完整，不能把丢失记录当作零派发。
+写入失败仅输出带内部 ID 的 WARN；取消后的记录使用有界、与客户端取消解耦的写入 context。
+请求与尝试共用既有留存策略，不引入正文存储、外部队列或新的调度服务。
+两者也复用 `PROXY_LOG_ASYNC` 控制的有界批写队列、刷新周期和停机排空 owner；
+队列满时同步回退，批量失败时逐行隔离。异步模式不承诺进程崩溃前已入队数据持久化，
+列表短暂缺少请求/尝试不等于零派发；需要即时可见时使用既有同步模式。
+
 Streaming and non-streaming responses take different paths through the attempt
 loop. A non-streaming body is buffered up to `PROXY_MAX_BUFFERED_RESPONSE_BYTES`
 and judged once; a stream is relayed under a chunk-gap guard

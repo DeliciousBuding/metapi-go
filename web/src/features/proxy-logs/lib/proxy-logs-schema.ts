@@ -17,6 +17,21 @@ import {
  * error; valid values still validate exactly as before.
  */
 export const proxyLogsSearchSchema = z.object({
+  view: z.enum(['requests', 'attempts']).catch('requests').default('requests'),
+  requestStatus: z
+    .enum([
+      'all',
+      'completed',
+      'upstream_failed',
+      'output_interrupted',
+      'client_cancelled',
+      'rejected_no_route',
+      'rejected_policy',
+      'gateway_failed',
+    ])
+    .catch('all')
+    .default('all'),
+  requestId: stringSearchParam,
   q: stringSearchParam,
   page: z.coerce.number().int().min(0).catch(0).default(0),
   pageSize: z.coerce.number().int().min(1).max(200).catch(20).default(20),

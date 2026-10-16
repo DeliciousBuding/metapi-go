@@ -16,11 +16,16 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
   const query = useOverviewReport(period)
   const summary = query.data?.summary
   const requestSummary = query.data?.requestSummary
-  const hasRequests =
-    requestSummary !== undefined && requestSummary.totalCount > 0
+  const gatewaySummary = query.data?.gatewayRequestSummary
+  const useGatewayOutcomes = gatewaySummary !== undefined
+  const displayedCount =
+    gatewaySummary?.totalCount ?? requestSummary?.totalCount
+  const completedCount =
+    gatewaySummary?.completedCount ?? requestSummary?.successCount
+  const hasRequests = displayedCount !== undefined && displayedCount > 0
   const success =
-    requestSummary && requestSummary.totalCount > 0
-      ? `${((requestSummary.successCount / requestSummary.totalCount) * 100).toFixed(1)}%`
+    displayedCount && completedCount !== undefined
+      ? `${((completedCount / displayedCount) * 100).toFixed(1)}%`
       : '—'
   let successHint = '—'
   if (requestSummary) {
@@ -30,11 +35,22 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
         })
       : t('dashboard.operations.noCorrelatedRequests')
   }
+  if (gatewaySummary) {
+    successHint = hasRequests
+      ? t('requestLogs.outcomeCounts', {
+          failed: gatewaySummary.failedCount,
+          cancelled: gatewaySummary.cancelledCount,
+          rejected: gatewaySummary.rejectedCount,
+        })
+      : t('requestLogs.noRequests')
+  }
   const metrics = [
     {
       title: 'requests',
-      value: requestSummary ? formatInt(requestSummary.totalCount) : '—',
-      hint: t('dashboard.operations.requestHint'),
+      value: displayedCount !== undefined ? formatInt(displayedCount) : '—',
+      hint: useGatewayOutcomes
+        ? t('requestLogs.observedHint')
+        : t('dashboard.operations.requestHint'),
       icon: Activity,
       failed: false,
     },
@@ -81,13 +97,24 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
       <div className='bg-card grid overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-5'>
         {metrics.map((metric) => {
           const Icon = metric.icon
+          let label = `dashboard.operations.${metric.title}`
+          if (useGatewayOutcomes && metric.title === 'requests')
+            label = 'requestLogs.requestCount'
+          if (useGatewayOutcomes && metric.failed)
+            label = 'requestLogs.completionRate'
           return (
             <Link
               key={metric.title}
               to='/proxy-logs'
               search={{
                 ...query.data?.window,
-                ...(metric.failed ? { status: 'failed' as const } : {}),
+                ...(useGatewayOutcomes &&
+                (metric.title === 'requests' || metric.failed)
+                  ? { view: 'requests' as const }
+                  : {
+                      view: 'attempts' as const,
+                      ...(metric.failed ? { status: 'failed' as const } : {}),
+                    }),
               }}
               className='hover:bg-muted/40 focus-visible:ring-ring flex min-w-0 flex-col gap-3 border-b p-5 transition-colors outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset sm:odd:border-r xl:border-r xl:border-b-0 xl:last:border-r-0'
             >
@@ -95,14 +122,16 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
                 <IconBadge
                   size='sm'
                   tone={
-                    metric.failed && hasRequests && requestSummary?.failedCount
+                    metric.failed &&
+                    hasRequests &&
+                    (gatewaySummary?.failedCount ?? requestSummary?.failedCount)
                       ? 'warning'
                       : 'info'
                   }
                 >
                   <Icon />
                 </IconBadge>
-                {t(`dashboard.operations.${metric.title}`)}
+                {t(label)}
               </div>
               {query.isLoading ? (
                 <Skeleton className='h-8 w-24' />
@@ -116,6 +145,15 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
           )
         })}
       </div>
+      {gatewaySummary && (
+        <p className='text-muted-foreground text-xs leading-5'>
+          {gatewaySummary.coverageStartedAt
+            ? t('requestLogs.coverage', {
+                time: gatewaySummary.coverageStartedAt,
+              })
+            : t('requestLogs.noCoverage')}
+        </p>
+      )}
     </section>
   )
 }

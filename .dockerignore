@@ -23,6 +23,10 @@ docs
 
 # Agent worktrees and scratch dirs
 .worktrees
+.local
+.dev-local
+.claude
+.repro
 tmp
 
 # IDE

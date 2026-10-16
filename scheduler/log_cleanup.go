@@ -129,11 +129,11 @@ func (s *LogCleanupScheduler) runJobLocked(dbw *store.DB, rt *config.RuntimeSett
 	var usageDeleted, programDeleted int64
 
 	if rt.LogCleanupUsageLogsEnabled {
-		result, err := dbw.Exec("DELETE FROM proxy_logs WHERE created_at < ?", cutoffStr)
+		deleted, err := store.PruneProxyRequestLogs(dbw, cutoffStr)
 		if err != nil {
 			slog.Error("log-cleanup: failed to cleanup proxy_logs", "error", err)
 		} else {
-			usageDeleted, _ = result.RowsAffected()
+			usageDeleted = deleted
 		}
 	}
 

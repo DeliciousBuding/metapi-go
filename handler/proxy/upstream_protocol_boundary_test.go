@@ -145,11 +145,11 @@ func TestMessagesToolsFallbackTranslatesWireProtocol(t *testing.T) {
 					t.Fatalf("tool input = %#v", tool["input"])
 				}
 			}
-			if len(router.failures) != 0 || len(router.successes) != 1 || len(logs) != 1 || logs[0].Status != "success" {
+			if len(router.failures) != 0 || len(router.successes) != 1 || len(logs) != 2 || logs[0].Status != "failed" || logs[0].TotalTokens != nil || logs[0].EstimatedCost != 0 || logs[1].Status != "success" {
 				t.Fatalf("router failures=%+v successes=%+v logs=%+v", router.failures, router.successes, logs)
 			}
-			if logs[0].TotalTokens == nil || *logs[0].TotalTokens != 13 {
-				t.Fatalf("upstream usage lost: %+v", logs[0])
+			if logs[1].TotalTokens == nil || *logs[1].TotalTokens != 13 {
+				t.Fatalf("upstream usage lost: %+v", logs[1])
 			}
 		})
 	}
@@ -307,7 +307,7 @@ func TestMessagesAdaptiveToolContinuationKeepsBridgeAndHiddenReasoning(t *testin
 			if !reflect.DeepEqual(got, []string{"/v1/messages", "/v1/chat/completions", "/v1/chat/completions"}) {
 				t.Fatalf("tool continuation replayed a different protocol: %v", got)
 			}
-			if router.preferredCalls != 1 || len(logs) != 2 || len(router.failures) != 0 || logs[0].TotalTokens == nil || *logs[0].TotalTokens != 13 || logs[1].TotalTokens == nil || *logs[1].TotalTokens != 14 {
+			if router.preferredCalls != 1 || len(logs) != 3 || len(router.failures) != 0 || logs[0].Status != "failed" || logs[0].TotalTokens != nil || logs[0].EstimatedCost != 0 || logs[1].TotalTokens == nil || *logs[1].TotalTokens != 13 || logs[2].TotalTokens == nil || *logs[2].TotalTokens != 14 {
 				t.Fatalf("tool-roundtrip billing/failure mismatch: %+v failures=%+v preferred=%d", logs, router.failures, router.preferredCalls)
 			}
 			if stream && (strings.Count(secondRec.Body.String(), "event: message_stop") != 1 || strings.Contains(secondRec.Body.String(), "[DONE]")) {

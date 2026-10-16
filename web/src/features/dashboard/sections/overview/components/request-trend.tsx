@@ -26,21 +26,45 @@ import { useOverviewReport } from '../use-overview-report'
 export function RequestTrend({ period = '7d' }: { period?: OverviewPeriod }) {
   const { t } = useTranslation()
   const query = useOverviewReport(period)
-  const points = query.data?.requestPoints ?? []
+  const gateway = query.data?.gatewayRequestSummary
+  const points = gateway
+    ? (query.data?.gatewayRequestPoints ?? [])
+    : (query.data?.requestPoints ?? [])
   const requestSummary = query.data?.requestSummary
-  const legacyAttemptCount = requestSummary?.legacyAttemptCount ?? 0
+  const legacyAttemptCount = gateway
+    ? 0
+    : (requestSummary?.legacyAttemptCount ?? 0)
   const total = points.reduce((sum, point) => sum + point.requests, 0)
-  const rows = overviewTrendRows(query.data, 'request')
+  const rows = overviewTrendRows(
+    query.data,
+    gateway ? 'gateway-request' : 'request'
+  )
+  const countLabel = gateway
+    ? 'requestLogs.requestCount'
+    : 'dashboard.operations.requests'
+  const rateLabel = gateway
+    ? 'requestLogs.completion'
+    : 'dashboard.operations.success'
   return (
     <Card className='h-full min-w-0'>
       <CardHeader>
-        <CardTitle>{t('dashboard.operations.requestTrend')}</CardTitle>
+        <CardTitle>
+          {t(
+            gateway
+              ? 'requestLogs.requestTrend'
+              : 'dashboard.operations.requestTrend'
+          )}
+        </CardTitle>
         <CardDescription>
           {t('dashboard.operations.trendWindow', {
             period: t(`dashboard.operations.period.${period}`),
           })}
           {' · '}
-          {t('dashboard.operations.requestOutcomeBasis')}
+          {t(
+            gateway
+              ? 'requestLogs.observedHint'
+              : 'dashboard.operations.requestOutcomeBasis'
+          )}
         </CardDescription>
         <CardAction>
           <Link
@@ -65,7 +89,11 @@ export function RequestTrend({ period = '7d' }: { period?: OverviewPeriod }) {
               ? t('dashboard.operations.requestLegacyAttempts', {
                   count: legacyAttemptCount,
                 })
-              : t('dashboard.operations.noRequests')}
+              : t(
+                  gateway
+                    ? 'requestLogs.noRequests'
+                    : 'dashboard.operations.noRequests'
+                )}
           </p>
         ) : null}
         {!query.isLoading && !query.isError && total > 0 ? (
@@ -88,11 +116,11 @@ export function RequestTrend({ period = '7d' }: { period?: OverviewPeriod }) {
               initialDimension={{ width: 640, height: 176 }}
               config={{
                 requests: {
-                  label: t('dashboard.operations.requests'),
+                  label: t(countLabel),
                   color: 'var(--chart-1)',
                 },
                 successPercent: {
-                  label: t('dashboard.operations.success'),
+                  label: t(rateLabel),
                   color: 'var(--chart-2)',
                 },
               }}
@@ -134,7 +162,7 @@ export function RequestTrend({ period = '7d' }: { period?: OverviewPeriod }) {
                         <div className='flex w-full items-center justify-between gap-4'>
                           <span className='text-muted-foreground'>
                             {t(
-                              `dashboard.operations.${name === 'successPercent' ? 'success' : 'requests'}`
+                              name === 'successPercent' ? rateLabel : countLabel
                             )}
                           </span>
                           <span className='font-medium tabular-nums'>
@@ -169,11 +197,11 @@ export function RequestTrend({ period = '7d' }: { period?: OverviewPeriod }) {
             <div className='text-muted-foreground flex flex-wrap gap-4 text-xs'>
               <span className='flex items-center gap-1.5'>
                 <span className='bg-chart-1 size-2 rounded-sm' />
-                {t('dashboard.operations.requests')}
+                {t(countLabel)}
               </span>
               <span className='flex items-center gap-1.5'>
                 <span className='bg-chart-2 h-0.5 w-3' />
-                {t('dashboard.operations.success')}
+                {t(rateLabel)}
               </span>
             </div>
           </>

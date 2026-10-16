@@ -35,6 +35,9 @@ func ProxyAuth() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// ---- Extract token (EXCLUSIVE priority semantics) ----
 			token := extractProxyToken(r)
+			if observer, ok := w.(interface{ ObserveProxyCredential(string) }); ok {
+				observer.ObserveProxyCredential(token)
+			}
 
 			if token == "" {
 				writeProxyError(w, http.StatusUnauthorized, "authentication_error", "missing_api_key",
@@ -44,6 +47,11 @@ func ProxyAuth() func(http.Handler) http.Handler {
 
 			// ---- Authorize downstream token ----
 			result := authorizeDownstreamToken(token, config.Runtime(), directVideoReadID(r))
+			if result.Key != nil {
+				if observer, ok := w.(interface{ ObserveProxyKey(int64) }); ok {
+					observer.ObserveProxyKey(result.Key.ID)
+				}
+			}
 
 			if !result.OK {
 				errType, code := proxyAuthErrorClass(result.Reason)

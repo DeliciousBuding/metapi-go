@@ -242,7 +242,11 @@ export function SearchModal(props: SearchModalProps) {
   const navigateToProxyLogs = React.useCallback(
     (log: SearchProxyLog) => {
       const searchText = firstNonEmpty(log.modelRequested, trimmedQuery)
-      const search: { q?: string; status?: 'success' | 'failed' } = {}
+      const search: {
+        view: 'attempts'
+        q?: string
+        status?: 'success' | 'failed'
+      } = { view: 'attempts' }
       if (searchText) search.q = searchText
       if (log.status === 'success' || log.status === 'failed') {
         search.status = log.status

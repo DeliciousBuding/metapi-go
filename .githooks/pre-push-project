@@ -51,7 +51,7 @@ echo "  ✓ vet passed"
 
 # 4. full test suite with race detector
 echo ""
-echo "[4/4] race gate (native Unix, WSL-backed on Windows)"
+echo "[4/4] race gate (current Go environment)"
 bash ./scripts/go-race.sh
 echo "  ✓ tests passed (-race clean)"
 

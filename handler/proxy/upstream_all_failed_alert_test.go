@@ -200,7 +200,14 @@ func TestDispatchAllChannelsExhaustedWritesProxyAllFailedEvent(t *testing.T) {
 	req := makeProxyReq("POST", "/v1/chat/completions",
 		`{"model":"gpt-exhausted-alert","messages":[{"role":"user","content":"hi"}]}`)
 	rec := httptest.NewRecorder()
-	HandleChatCompletions(rec, req)
+	RequestLifecycle(http.HandlerFunc(HandleChatCompletions)).ServeHTTP(rec, req)
+	var gateway store.GatewayRequest
+	if err := db.Get(&gateway, "SELECT * FROM gateway_requests"); err != nil {
+		t.Fatal(err)
+	}
+	if gateway.TerminalStatus != "rejected_no_route" || gateway.ReasonCode == nil || *gateway.ReasonCode != "site_concurrency_saturated" || gateway.AttemptCount != 0 || gateway.HTTPStatus == nil || *gateway.HTTPStatus != 503 {
+		t.Fatalf("saturation request result: %+v", gateway)
+	}
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503; body=%s", rec.Code, rec.Body.String())

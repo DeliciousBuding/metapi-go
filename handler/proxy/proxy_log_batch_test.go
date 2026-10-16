@@ -48,6 +48,73 @@ func sampleBatchEntry(index int) proxy.ProxyLogEntry {
 	}
 }
 
+func sampleGatewayBatchEntry(index int) store.GatewayRequest {
+	return store.GatewayRequest{ID: fmt.Sprintf("request-batch-%d", index), Transport: "http", TerminalStatus: "completed", AttemptCount: 1, StartedAt: "2026-10-16T00:00:00Z", EndedAt: "2026-10-16T00:00:01Z"}
+}
+
+func TestGatewayRequestBatchBackpressureAndDrain(t *testing.T) {
+	db := setupBatchTestDB(t)
+	w := newProxyLogBatchWriter(2, 60_000)
+	// Do not start the consumer yet: the ninth observation must take the
+	// synchronous overflow path, independent of goroutine scheduling.
+	for i := range 10 {
+		if err := w.enqueueRequest(context.Background(), sampleGatewayBatchEntry(i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var before int
+	if err := db.Get(&before, "SELECT COUNT(*) FROM gateway_requests"); err != nil || before != 2 {
+		t.Fatalf("sync overflow count=%d err=%v", before, err)
+	}
+	entry := sampleBatchEntry(1)
+	entry.GatewayRequestID = sampleGatewayBatchEntry(1).ID
+	if err := w.enqueue(context.Background(), entry); err != nil {
+		t.Fatal(err)
+	}
+	w.start()
+	shutdownWriterSoon(t, w)
+	var linked int
+	if err := db.Get(&linked, "SELECT COUNT(*) FROM gateway_requests"); err != nil || linked != 10 {
+		t.Fatalf("request drain count=%d err=%v", linked, err)
+	}
+	if err := db.Get(&linked, "SELECT COUNT(*) FROM proxy_logs p JOIN gateway_requests r ON r.id=p.gateway_request_id"); err != nil || linked != 1 {
+		t.Fatalf("drained association count=%d err=%v", linked, err)
+	}
+}
+
+func TestGatewayRequestBatchFailurePreservesValidRows(t *testing.T) {
+	db := setupBatchTestDB(t)
+	bad := sampleGatewayBatchEntry(2)
+	bad.Transport = "invalid"
+	flushGatewayRequests(context.Background(), []store.GatewayRequest{sampleGatewayBatchEntry(1), bad, sampleGatewayBatchEntry(3)})
+	var count int
+	if err := db.Get(&count, "SELECT COUNT(*) FROM gateway_requests"); err != nil || count != 2 {
+		t.Fatalf("valid fallback count=%d err=%v", count, err)
+	}
+}
+
+func TestGatewayRequestGlobalAsyncAndSync(t *testing.T) {
+	db := setupBatchTestDB(t)
+	ConfigureProxyLogWriter(true, 100, 60_000)
+	t.Cleanup(func() { ConfigureProxyLogWriter(false, 50, 1000) })
+	if err := EnqueueGatewayRequest(context.Background(), sampleGatewayBatchEntry(1)); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := db.Get(&count, "SELECT COUNT(*) FROM gateway_requests"); err != nil || count != 0 {
+		t.Fatalf("premature async count=%d err=%v", count, err)
+	}
+	if err := ShutdownProxyLogBatchWriter(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnqueueGatewayRequest(context.Background(), sampleGatewayBatchEntry(2)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Get(&count, "SELECT COUNT(*) FROM gateway_requests"); err != nil || count != 2 {
+		t.Fatalf("async drain + sync count=%d err=%v", count, err)
+	}
+}
+
 // countProxyLogsRows counts proxy_logs rows for a model pattern so parallel
 // tests do not double-count each other's data.
 func countProxyLogsRows(t *testing.T, db *store.DB, pattern string) int {

@@ -111,6 +111,18 @@ export function ProxyLogDetailSheet({
           )}
           {detail && (
             <>
+              {detail.gatewayRequestId && (
+                <Link
+                  to='/proxy-logs'
+                  search={{
+                    view: 'requests',
+                    requestId: detail.gatewayRequestId,
+                  }}
+                  className='text-primary text-sm hover:underline'
+                >
+                  {t('requestLogs.backToRequests')}
+                </Link>
+              )}
               <DetailOverview detail={detail} />
               <CurrentRouteDiagnosis
                 model={detail.modelRequested || null}
@@ -264,7 +276,7 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
   )
 }
 
-function CurrentRouteDiagnosis({
+export function CurrentRouteDiagnosis({
   model,
   endpoint,
   keyId,
@@ -521,7 +533,11 @@ function ErrorSection({ errorMessage }: { errorMessage: string }) {
   )
 }
 
-function BillingSection({ billing }: { billing: ProxyLogBillingDetails }) {
+export function BillingSection({
+  billing,
+}: {
+  billing: ProxyLogBillingDetails
+}) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
   if (!billing) return null

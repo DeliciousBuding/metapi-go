@@ -57,6 +57,10 @@ func buildIndexes() []struct {
 		{"route_channels_oauth_route_unit_id_idx", `CREATE INDEX IF NOT EXISTS route_channels_oauth_route_unit_id_idx ON route_channels (oauth_route_unit_id)`},
 		{"route_channels_route_enabled_idx", `CREATE INDEX IF NOT EXISTS route_channels_route_enabled_idx ON route_channels (route_id, enabled)`},
 		{"route_channels_route_token_idx", `CREATE INDEX IF NOT EXISTS route_channels_route_token_idx ON route_channels (route_id, token_id)`},
+		{"gateway_requests_started_at_idx", `CREATE INDEX IF NOT EXISTS gateway_requests_started_at_idx ON gateway_requests (started_at, id)`},
+		{"gateway_requests_status_started_at_idx", `CREATE INDEX IF NOT EXISTS gateway_requests_status_started_at_idx ON gateway_requests (terminal_status, started_at, id)`},
+		{"gateway_requests_key_started_at_idx", `CREATE INDEX IF NOT EXISTS gateway_requests_key_started_at_idx ON gateway_requests (downstream_api_key_id, started_at, id)`},
+		{"gateway_requests_ended_at_idx", `CREATE INDEX IF NOT EXISTS gateway_requests_ended_at_idx ON gateway_requests (ended_at)`},
 		// proxy_logs
 		{"proxy_logs_created_at_idx", `CREATE INDEX IF NOT EXISTS proxy_logs_created_at_idx ON proxy_logs (created_at)`},
 		{"proxy_logs_account_created_at_idx", `CREATE INDEX IF NOT EXISTS proxy_logs_account_created_at_idx ON proxy_logs (account_id, created_at)`},

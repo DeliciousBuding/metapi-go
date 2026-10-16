@@ -136,30 +136,37 @@ The script verifies the SHA-256 checksum and installs to `/usr/local/bin/metapi`
 change the install location with `METAPI_INSTALL_PREFIX`). On Windows, download
 `metapi-windows-amd64.exe` directly from [Releases](https://github.com/DeliciousBuding/metapi-go/releases/latest).
 
-### Option 2: Docker (named volume, zero config)
+### Option 2: Docker (pre-built image + named volume)
 
-For stable use, choose a published non-prerelease GitHub Release and pin the matching full-version image tag (for example, `0.19.0`) or digest. The `latest` tag moves with master builds and is also updated by version-tag builds; it is not a stable-release channel. A merged development change does not imply release acceptance.
+Pin a full release tag or digest for stable deployments; this example uses the published `0.24.0` release. Use `latest` for development builds. Check [Releases](https://github.com/DeliciousBuding/metapi-go/releases) before upgrading.
 
 ```bash
+export AUTH_TOKEN=$(openssl rand -hex 32)
+export PROXY_TOKEN=sk-$(openssl rand -hex 24)
+export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
+
 docker run -d --name metapi \
-  -p 4000:4000 \
-  -e AUTH_TOKEN=your-admin-token \
-  -e PROXY_TOKEN=your-proxy-sk-token \
-  -e ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32) \
+  -p 127.0.0.1:4000:4000 \
+  -e AUTH_TOKEN \
+  -e PROXY_TOKEN \
+  -e ACCOUNT_CREDENTIAL_SECRET \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
   --restart unless-stopped \
-  ghcr.io/deliciousbuding/metapi-go:latest
+  ghcr.io/deliciousbuding/metapi-go:0.24.0
 ```
 
-A named volume inherits the image ownership on first mount — it just works.
-If you prefer a bind mount (`./data:/app/data`), run `chown -R 1001:1001 ./data`
-on the host first. With Compose (production-hardened config):
+Save the generated tokens and encryption key in your password manager. The default port binding is local-only; use a TLS reverse proxy or explicitly change the binding for remote access.
+
+A named volume inherits the image ownership on first mount. For a bind mount (`./data:/app/data`), run `chown -R 1001:1001 ./data` on the host first. With the repository Compose file (Docker Compose >= 2.24):
 
 ```bash
-cp .env.example .env   # fill in AUTH_TOKEN / PROXY_TOKEN / ACCOUNT_CREDENTIAL_SECRET
-docker compose -f docker-compose.prod.yml up -d
+cp .env.example .env   # set independent random tokens and credential encryption key
+# All runtime settings in .env are passed through, including PostgreSQL and check-in settings.
+docker compose up -d
 ```
+
+To build an image from source, run `docker build -t metapi-go:dev .`. See the [deployment guide](docs/deployment.md) for more options.
 
 ### Option 3: From source
 

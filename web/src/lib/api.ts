@@ -10,6 +10,7 @@
 import { accountsApi } from './api/accounts'
 import { catalogSourcesApi } from './api/catalog-sources'
 import { eventsApi } from './api/events'
+import { gatewayRequestsApi } from './api/gateway-requests'
 import { importedUpstreamsApi } from './api/imported-upstreams'
 import { oauthApi } from './api/oauth'
 import { probeHistoryApi } from './api/probe-history'
@@ -26,10 +27,17 @@ import { upstreamCatalogApi } from './api/upstream-catalog'
 import { upstreamLifecycleApi } from './api/upstream-lifecycle'
 
 export * from './api/types'
+export type {
+  GatewayRequest,
+  GatewayRequestDetail,
+  GatewayRequestStatus,
+  GatewayRequestsQuery,
+} from './api/gateway-requests'
 export type { ImportedUpstreamInventory } from './api/imported-upstreams'
 export type { KeyContextDecisionResponse } from './api/token-routes'
 
 export const api = {
+  ...gatewayRequestsApi,
   ...importedUpstreamsApi,
   ...upstreamLifecycleApi,
   ...upstreamCatalogApi,

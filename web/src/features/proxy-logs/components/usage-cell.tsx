@@ -5,7 +5,17 @@ import { formatInt } from '@/lib/format'
 
 import type { ProxyLog } from '../types'
 
-export function UsageCell({ log }: { log: ProxyLog }) {
+export function UsageCell({
+  log,
+}: {
+  log: Pick<
+    ProxyLog,
+    | 'promptTokens'
+    | 'completionTokens'
+    | 'cacheReadTokens'
+    | 'cacheCreationTokens'
+  >
+}) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
   const count = (value: number | null | undefined) =>

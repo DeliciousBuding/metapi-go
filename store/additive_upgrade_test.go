@@ -97,7 +97,7 @@ var legacySchemaDDL = []string{
 	"CREATE TABLE downstream_api_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, key TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
 	"CREATE TABLE sites (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, url TEXT NOT NULL, platform TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
 	"CREATE TABLE token_routes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
-	"CREATE TABLE proxy_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, channel_id INTEGER, status TEXT, estimated_cost REAL, total_tokens INTEGER, prompt_tokens INTEGER, completion_tokens INTEGER, created_at TEXT NOT NULL)",
+	"CREATE TABLE proxy_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, channel_id INTEGER, status TEXT, estimated_cost REAL, total_tokens INTEGER, prompt_tokens INTEGER, completion_tokens INTEGER, retry_count INTEGER DEFAULT 0, created_at TEXT NOT NULL)",
 	"CREATE TABLE accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
 	"CREATE TABLE checkin_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'success', created_at TEXT NOT NULL)",
 	"CREATE TABLE route_channels (id INTEGER PRIMARY KEY AUTOINCREMENT, route_id INTEGER NOT NULL, account_id INTEGER NOT NULL, created_at TEXT NOT NULL)",

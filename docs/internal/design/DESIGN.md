@@ -73,9 +73,17 @@ time and unknown context labels. The route workspace on /token-routes keeps one 
 
 Proxy-log details offer the reverse handoff: the structured `downstreamPath`, requested model, and optional downstream key populate a current-diagnosis deep link. Without a recorded key it is an administrator preview. Unknown or unsupported interfaces hide the shortcut; error text never supplies the protocol. The check describes current configuration, not the historical decision.
 
-代理日志详情显示关联到的尝试数和 `lastAttempt`；关联缺失或查询失败显示为
-未知，不读取旧 `terminal` 字段。概览成功率按每个 `requestId` 的末次已记录尝试
-统计，文案称“末次尝试”，不称请求终态。
+`/proxy-logs` 默认展示网关请求结果：时间、模型/接口、终态、总耗时和尝试数。
+HTTP 状态与终态分开，200 后输出中断不能显示为完成；WS 记录以 turn 为单位，
+不拿握手状态表示完成。一个 URL-owned 详情抽屉展示内部 ID、实际响应信息、
+首输出与响应头 TTFB、按序尝试和当前路由诊断。零派发不构造尝试；缺失关联、
+未知用量与费用保持未知，失败尝试也保留其已记录用量。
+
+尝试记录保留独立入口及旧筛选深链，详情仍显示 `lastAttempt`，不读取旧
+`terminal` 字段。未关联的历史记录不推断请求终态。概览使用独立网关请求
+summary/points 展示已记录请求完成率及覆盖起点；旧服务器只提供末次尝试时，
+保留明确的“末次尝试”标签，不拼接成请求结果趋势。完成只说明网关观察到
+协议处理结束，不代表客户端确认收妥。新管理 API 的非法数据显式报错与重试。
 
 The root sidebar follows the operator's task order instead of the storage
 model: Overview, Upstream, Models & Routes, Access, Requests & Diagnostics, and

@@ -24,7 +24,7 @@ import {
   proxyLogsSearchSchema,
   type ProxyLogsSearch,
 } from '@/features/proxy-logs'
-import { ProxyLogsPage } from '@/features/proxy-logs/components/proxy-logs-page'
+import { ProxyLogsWorkspace } from '@/features/proxy-logs/components/gateway-requests-page'
 import { api } from '@/lib/api'
 import { asStringParam } from '@/lib/helpers/searchParams'
 
@@ -48,10 +48,20 @@ function parseProxyLogsSearch(searchStr: string): ProxyLogsSearch | null {
 
 export const Route = createFileRoute('/_authenticated/proxy-logs')({
   validateSearch: proxyLogsSearchSchema,
-  staticData: { title: 'proxyLogs.page.title' },
+  staticData: { title: 'requestLogs.title' },
   loader: async ({ context, location }) => {
     const search = parseProxyLogsSearch(location.searchStr)
     if (!search) return
+    if (
+      search.view !== 'attempts' &&
+      !search.siteId &&
+      !search.channelId &&
+      !search.client &&
+      !search.latencyMin &&
+      !search.latencyMax &&
+      search.status === 'all'
+    )
+      return
 
     const pageIndex = search.page ?? 0
     const pageSize = search.pageSize ?? DEFAULT_PROXY_LOGS_PAGE_SIZE
@@ -97,5 +107,5 @@ export const Route = createFileRoute('/_authenticated/proxy-logs')({
       }),
     ])
   },
-  component: ProxyLogsPage,
+  component: ProxyLogsWorkspace,
 })

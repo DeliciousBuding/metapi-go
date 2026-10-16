@@ -24,6 +24,22 @@ export type OverviewReport = {
     partial: boolean
     partialReasons: string[]
   }
+  gatewayRequestSummary?: {
+    totalCount: number
+    completedCount: number
+    failedCount: number
+    cancelledCount: number
+    rejectedCount: number
+    coverageStartedAt: string | null
+  }
+  gatewayRequestPoints?: Array<{
+    date: string
+    requests: number
+    completedCount: number
+    failedCount: number
+    cancelledCount: number
+    rejectedCount: number
+  }>
   points: Array<{
     date: string
     requests: number
@@ -468,6 +484,7 @@ export type ProxyLogListItem = {
   /** Canonical ingress path; null for historical or unrecognized surfaces. */
   downstreamPath?: string | null
   requestId?: string | null
+  gatewayRequestId?: string | null
   id: number
   createdAt: string
   modelRequested: string
