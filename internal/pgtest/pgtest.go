@@ -1,29 +1,7 @@
-// Package pgtest is a test-only helper for the PostgreSQL-gated suites
-// (PG_TEST_DSN). It is imported exclusively from _test.go files, so it never
-// becomes part of the production dependency graph, and it depends on nothing
-// but sqlx so even the store package's own tests can use it.
-//
-// Why it exists: CI runs every PG-gated test against a freshly created
-// database, while a local development loop reuses one. Fixtures with a fixed
-// identity — a site keyed on the unique (platform, url) pair, a downstream key
-// with a constant value — then collide with the previous run's leftovers, and
-// whole-table assertions count rows nobody seeded in this run. The failures are
-// real red herrings: they say "duplicate key" or "total = 4, want 3" about
-// state, not about the code under test. The documented escape hatch was "drop
-// and recreate the database by hand before trusting a result", which is exactly
-// the kind of tribal knowledge that makes a suite nobody dares to run twice.
-//
-// Reset makes the local loop match CI: every PG-gated test starts from an empty
-// database, so a suite is repeatable by construction and a second run of the
-// same command is evidence rather than noise.
-//
-// Run the PG suite the way CI does — serialized, one database:
+// Package pgtest resets shared PostgreSQL fixtures between tests. Packages must
+// run serially because they share the database selected by PG_TEST_DSN:
 //
 //	PG_TEST_DSN=... go test ./... -count=1 -tags=integration -p 1
-//
-// -p 1 is not optional: packages share one database, so parallel packages race
-// each other on AutoMigrate and on this truncation (the CI workflow carries the
-// same note). Tests inside a package already run sequentially.
 package pgtest
 
 import (

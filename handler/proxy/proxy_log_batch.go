@@ -11,23 +11,9 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-// proxyLogBatchWriter drains proxy.ProxyLogEntry values from a buffered channel
-// and INSERTs them in batches, decoupling the hot proxy path from DB write
-// latency (especially SQLite's single-writer lock contention).
-//
-// Trade-off: entries are visible in proxy_logs up to flushInterval (default 1s)
-// after they are produced. Operators that need write-through visibility (e2e
-// tests, audit-on-write) set PROXY_LOG_ASYNC=false to bypass the writer.
-//
-// Reliability contract:
-//   - On enqueue: a non-blocking send fills the channel; when the channel is
-//     full (backpressure) the entry is written synchronously so logs are never
-//     dropped due to saturation.
-//   - On graceful shutdown: the loop drains everything still in the channel +
-//     the in-memory buffer and flushes before returning, so no log is lost
-//     when the server is stopped between flush ticks.
-//   - On batch INSERT failure: the batch falls back to per-row inserts so a
-//     single malformed row cannot sink the rest of the batch.
+// proxyLogBatchWriter batches observations to reduce database writes. A full
+// queue falls back to synchronous inserts; failed batches retry individual rows.
+// Shutdown drains queued entries. PROXY_LOG_ASYNC=false uses write-through mode.
 type proxyLogBatchWriter struct {
 	ch            chan proxyLogWrite
 	batchSize     int
@@ -38,8 +24,7 @@ type proxyLogBatchWriter struct {
 	wg            sync.WaitGroup
 }
 
-// Both observations use the same bounded queue, cadence and shutdown owner.
-// Exactly one field is populated; this is not a second event/worker framework.
+// Each queue entry contains either an attempt or a request observation.
 type proxyLogWrite struct {
 	attempt *proxy.ProxyLogEntry
 	request *store.GatewayRequest
@@ -75,10 +60,7 @@ func (b *proxyLogBatchWriter) start() {
 	go b.loop()
 }
 
-// enqueue pushes entry onto the channel. When the channel is full it falls
-// back to a synchronous InsertProxyLog so logs are never dropped under
-// backpressure. Returns nil when there is no DB to write to (mirrors
-// InsertProxyLog's nil-DB no-op).
+// enqueue falls back to InsertProxyLog when the queue is full, returning its error.
 func (b *proxyLogBatchWriter) enqueue(ctx context.Context, entry proxy.ProxyLogEntry) error {
 	select {
 	case b.ch <- proxyLogWrite{attempt: &entry}:

@@ -1,53 +1,25 @@
 package docs_test
 
-// TestEnvVarDocParity locks the three-way agreement between the environment
-// variables a deployment can set and the two places that document them:
+// TestEnvVarDocParity compares variable names across config readers, .env.example
+// and configuration.md. Defaults remain prose or placeholders in those files;
+// the credential placeholder has its own behavior test below.
 //
-//	.env.example           — key + inline comment (the machine-readable source)
-//	docs/configuration.md  — grouped table (variable / default / description)
-//	config/config.go       — what config.Load actually reads, plus clamps
-//
-// Why a test and not a checklist: the three files drift independently, and a
-// drifted key is a support ticket waiting to happen.
-//
-// What this gate does NOT do, stated plainly because an earlier revision
-// claimed otherwise: it compares key *sets* in the four directions below and
-// never compares default *values*. Auditing all 83 documented keys against
-// .env.example found no value drift, and a naive value comparison would be
-// wrong rather than merely strict, because the two columns are not the same
-// kind of thing — docs/configuration.md's default column is prose
-// ("platform-dependent", "system local time", "on", "falls back to
-// `AUTH_TOKEN`"), while .env.example deliberately ships empties and
-// placeholders that are not defaults. An empty line is usually consistent with
-// a documented non-empty default, because parseBoolean("") and friends return
-// the code fallback. The one shipped literal that IS load-bearing is pinned by
-// TestShippedCredentialSecretPlaceholderIsTheGuardedOne below.
-//
-// Directions asserted (all must be empty):
+// Directions checked:
 //  1. every key in .env.example is documented in docs/configuration.md
 //  2. every variable named in docs/configuration.md exists in .env.example
 //  3. every key read by config.Load's get("X") helper exists in .env.example
 //  4. every key in .env.example has a real reader somewhere in non-test Go
 //     code (get("X"), os.Getenv, os.LookupEnv or a direct env-map index)
 //
-// Direction 4 is the one that catches dead keys — a variable shipped in
-// .env.example that no code path ever reads. There is no allowlist: the fix is
-// to drop the key or add the reader, which is what happened to the only key this
-// direction ever caught (HOME_PAGE_CONTENT, #1160 → #1166).
-//
-// Parsing note: the doc side extracts every backticked ALL-CAPS token, not
-// just table first-columns, because docs/configuration.md legitimately packs
-// several variables into one cell (`A` / `B`). That is over-eager on purpose:
-// a prose token like `TLS` in backticks fails the test loudly and is fixed by
-// dropping the backticks, whereas a too-narrow parser would silently pass
-// while a real variable went undocumented. Failure direction matters more
-// than precision here.
+// Documentation may list several variables in one cell, so the parser reads
+// backticked ALL-CAPS names throughout the file.
 
 import (
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -330,7 +302,7 @@ func reportDiff(b *strings.Builder, label string, keys []string) {
 	if len(keys) == 0 {
 		return
 	}
-	b.WriteString("  " + label + " (" + itoa(len(keys)) + "):\n")
+	b.WriteString("  " + label + " (" + strconv.Itoa(len(keys)) + "):\n")
 	for _, k := range keys {
 		b.WriteString("    - " + k + "\n")
 	}

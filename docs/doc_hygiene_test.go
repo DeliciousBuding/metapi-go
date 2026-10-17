@@ -83,10 +83,7 @@ func TestPublicMarkdownHygiene(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// A hygiene gate that scans nothing and reports no violations is not a
-	// lenient gate, it is an absent one: the skip list above or the .md
-	// extension check could each narrow it to silence. Same invariant as
-	// TestPackageBoundaries — see docs/testing.md.
+	// Catch accidental exclusions that leave the scan empty.
 	if scanned == 0 {
 		t.Fatal("gate would pass vacuously: no markdown files were scanned")
 	}
@@ -123,7 +120,7 @@ func mustRel(t *testing.T, root, path string) string {
 }
 
 func formatFinding(path string, line int, kind string, text string) string {
-	return path + ":" + itoa(line) + ": " + kind + ": " + strings.TrimSpace(text)
+	return path + ":" + strconv.Itoa(line) + ": " + kind + ": " + strings.TrimSpace(text)
 }
 
 func hasPrivateRepoLink(line string) bool {
@@ -205,20 +202,6 @@ func looksLikeRedisSupportedClaim(line string) bool {
 	return !hasNegation
 }
 
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(buf[i:])
-}
-
 // TestStorefrontDoesNotLinkInternalDocs pins the public/internal docs split:
 // the README files are the storefront and may only link user-facing material.
 // Maintainer process docs under docs/internal/ (roadmap, state, audits,
@@ -251,13 +234,7 @@ func TestStorefrontDoesNotLinkInternalDocs(t *testing.T) {
 		}
 	}
 
-	// Reading two named files defends the *input* surface — a missing README is
-	// already fatal above. It says nothing about the *predicate* surface: this
-	// gate shares markdownLinkRE and isExternalLinkTarget with
-	// TestRelativeMarkdownLinksResolve, and narrowing either one empties this
-	// gate while both files still read fine. Probed both ways before adding the
-	// counter; measured 23 + 24 links examined across the two READMEs. Same
-	// reason the sibling counts links rather than files (#1233, #1238).
+	// A parser change must still examine links in the storefront files.
 	if linksChecked == 0 {
 		t.Fatal("gate would pass vacuously: no storefront links were examined — markdownLinkRE or isExternalLinkTarget changed shape")
 	}
@@ -324,10 +301,7 @@ func TestRelativeMarkdownLinksResolve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Two counters, not one: scanning files but examining no links is the
-	// failure mode of a regex or an exclusion predicate that quietly changed
-	// shape, which is how an ownership entry ends up naming a file that never
-	// mentions the thing it owns (#1233). See docs/testing.md.
+	// Check both file selection and link parsing remain active.
 	if scanned == 0 {
 		t.Fatal("gate would pass vacuously: no markdown files were scanned")
 	}
@@ -794,7 +768,7 @@ func TestMarkdownTablesAreWellFormed(t *testing.T) {
 			bodyRows++
 			if cells != header {
 				findings = append(findings, formatFinding(rel, i+1,
-					"markdown table row has "+itoa(cells)+" cell separators but its header has "+itoa(header)+
+					"markdown table row has "+strconv.Itoa(cells)+" cell separators but its header has "+strconv.Itoa(header)+
 						": an unescaped | inside a code span splits the cell, so write \\| (or list the values without pipes)",
 					line))
 			}
