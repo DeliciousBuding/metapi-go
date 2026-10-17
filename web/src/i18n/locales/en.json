@@ -4222,7 +4222,7 @@
       "copyFailed": "Copy failed — clipboard unavailable.",
       "verify": {
         "title": "Verify the connection",
-        "description": "List models with this key, then send one non-streaming Chat request. Generation consumes quota and is logged; streaming, tools, and other client protocols need separate checks.",
+        "description": "Check model access and send one non-streaming Chat request. The test uses upstream quota and is recorded in this key's logs.",
         "modelsCta": "Check available models",
         "modelsOk": "{{count}} models listed for this key",
         "noModels": "This key can call no models right now. Check its model policy and the route grants.",

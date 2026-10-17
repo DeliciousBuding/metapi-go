@@ -66,12 +66,14 @@ async function copyTextWithToast(
   successKey: string,
   t: (key: string) => string
 ) {
-  if (await copyText(text)) {
+  const copied = await copyText(text)
+  if (copied) {
     toast.success(t(successKey))
   } else {
     // Clipboard may be unavailable (non-secure context / permissions).
     toast.error(t('connect.copyFailed'))
   }
+  return copied
 }
 
 function buildCherryStudioLink(
@@ -198,7 +200,7 @@ function OpenCredentialExportDialog({
   }
 
   async function handleCopyKey() {
-    await copyTextWithToast(apiKey, 'connect.toast.keyCopied', t)
+    if (!(await copyTextWithToast(apiKey, 'connect.toast.keyCopied', t))) return
     setCopiedKey(true)
     setTimeout(() => setCopiedKey(false), 1500)
   }
@@ -331,7 +333,9 @@ function OpenCredentialExportDialog({
             <Button
               variant='outline'
               size='icon-sm'
-              aria-label={t('connect.copyKey')}
+              aria-label={t(
+                copiedKey ? 'connect.toast.keyCopied' : 'connect.copyKey'
+              )}
               onClick={() => void handleCopyKey()}
             >
               {copiedKey ? (

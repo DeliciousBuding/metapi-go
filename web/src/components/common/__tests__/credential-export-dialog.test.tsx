@@ -12,10 +12,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 import { api } from '@/lib/api'
+import { copyText } from '@/lib/clipboard'
 
 import { CredentialExportDialog } from '../credential-export-dialog'
 
 vi.mock('@/lib/api', () => ({ api: { getDownstreamKeyExport: vi.fn() } }))
+vi.mock('@/lib/clipboard', () => ({ copyText: vi.fn() }))
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ to, children }: { to: string; children: ReactNode }) => (
     <a href={to}>{children}</a>
@@ -42,6 +44,7 @@ const getExport = vi.mocked(api.getDownstreamKeyExport)
 beforeEach(() => {
   getExport.mockReset()
   getExport.mockResolvedValue(exportData)
+  vi.mocked(copyText).mockReset().mockResolvedValue(true)
 })
 afterEach(cleanup)
 
@@ -73,6 +76,27 @@ function unlock(token = 'master-token') {
 }
 
 describe('CredentialExportDialog', () => {
+  it('keeps the copy action available without a success check when clipboard access fails', async () => {
+    vi.mocked(copyText).mockResolvedValue(false)
+    renderDialog()
+    unlock()
+    const copy = await screen.findByRole('button', {
+      name: 'Copy API key',
+    })
+    fireEvent.click(copy)
+    await waitFor(() => expect(copyText).toHaveBeenCalledWith('sk-plain-demo'))
+    await waitFor(() => expect(copy.querySelector('.lucide-check')).toBeNull())
+  })
+
+  it('announces a successful key copy through the button accessible name', async () => {
+    renderDialog()
+    unlock()
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy API key' }))
+    expect(
+      await screen.findByRole('button', { name: 'API key copied' })
+    ).toBeVisible()
+  })
+
   it('unlocks into request verification and keeps client exports in their own tab', async () => {
     renderDialog()
     expect(getExport).not.toHaveBeenCalled()
