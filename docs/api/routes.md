@@ -460,6 +460,8 @@ Automatic creation requires observed model availability and a usable relay token
 
 Clear cooldown state for all channels on a route: resets `cooldown_until`, `consecutive_fail_count`, `cooldown_level`, and the structured reason fields (`cooldown_reason_code` / `cooldown_reason` / `cooldown_reason_at`) back to their neutral values.
 
+Returns `{ "success": true }` after the update succeeds. A storage failure returns `500`; the operation can be retried after storage recovers. Channels on other routes are unchanged.
+
 ### POST /api/routes/:id/channels/batch
 
 Batch add channels on a route. Body: `{ "channels": [{ "accountId": 1, "tokenId": 2, "sourceModel": "model-a" }] }`.

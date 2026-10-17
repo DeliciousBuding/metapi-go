@@ -28,6 +28,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 修复
 
+- 清除路由冷却：`POST /api/routes/:id/cooldown/clear` 写入失败时返回 `500`，界面显示失败；数据库恢复后可重试（#1396）。
 - 运维 WebSocket：`/api/admin/ops/ws` 正常响应 Ping，并在客户端关闭连接后停止推送，无需调整配置（#1473）。
 - Chat 流：已开始返回 choice、但未收到非空 `finish_reason` 就结束的流记录为输出中断；后续 `[DONE]` 不再使其误报完成，已解析用量保留。
 - 账号 API Key：支持携带所选 Key ID 新建路由，重选账号保留指定 Key；列表加载失败显示重试。通道新增接口拒绝错账号或不存在的 Key（`400`），凭据读取失败返回 `500`。
