@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
@@ -43,14 +44,7 @@ func installAxonHubEndpointFixture(t *testing.T, provider, baseURL string, endpo
 
 func installAxonHubRawFixture(t *testing.T, raw []byte) *store.DB {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatal(err)
-	}
+	db := sqlitetest.Open(t)
 	if _, err := backup.ImportAxonHubV14(db, raw, "endpoint-fixture", false); err != nil {
 		t.Fatal(err)
 	}
