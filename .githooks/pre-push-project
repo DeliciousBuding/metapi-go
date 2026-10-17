@@ -5,6 +5,9 @@
 # Skip with: git push --no-verify (emergency only).
 set -euo pipefail
 
+# Bound Go build/vet workers too; go's default -p follows GOMAXPROCS.
+export GOMAXPROCS="${GOMAXPROCS:-2}"
+
 # A push that only deletes refs changes no branch content, so it does not
 # need the full CI gate. Deletes arrive on stdin as:
 #   <local-ref> <40-zero-oid> <remote-ref> <remote-oid>
