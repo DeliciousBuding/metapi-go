@@ -21,6 +21,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+## [v0.25.0] — 2026-10-17
+
 ### 变更
 
 - 部署：仓库只保留一个 compose 入口；镜像由 `METAPI_IMAGE` 固定，主机绑定由 `METAPI_BIND_ADDRESS`/`METAPI_PORT` 控制。
