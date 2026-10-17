@@ -367,7 +367,8 @@
         "outputPrice": "输出 ${{price}}/M",
         "unknownUser": "未知用户",
         "availableAccounts": "可用账号",
-        "openTester": "打开测试器"
+        "openTester": "打开测试器",
+        "copyName": "复制模型名"
       },
       "columns": {
         "brand": "品牌",

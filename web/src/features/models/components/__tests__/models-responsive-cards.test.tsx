@@ -93,3 +93,16 @@ it('retains the brand and protocol columns in the Chinese desktop table', () => 
   expect(screen.getByText('anthropic')).toBeInTheDocument()
   expect(screen.getByRole('columnheader', { name: /品牌/ })).toBeInTheDocument()
 })
+
+it.each([true, false])(
+  'opens model details directly from the name (mobile=%s)',
+  (mobile) => {
+    const actions = { onView: vi.fn(), onTest: vi.fn() }
+    mountCards(mobile, actions)
+    fireEvent.click(
+      screen.getByRole('button', { name: `查看详情: ${model.name}` })
+    )
+    expect(actions.onView).toHaveBeenCalledExactlyOnceWith(model)
+    expect(actions.onTest).not.toHaveBeenCalled()
+  }
+)

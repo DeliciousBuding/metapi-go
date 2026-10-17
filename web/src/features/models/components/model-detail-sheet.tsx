@@ -1,18 +1,16 @@
 // metapi-go/features/models — model detail Sheet (side panel).
 //
-// Opens from the row "view details" action. Shows the model's full
-// capability set (endpoint types + tags), per-account pricing matrix, and
-// the live availability rows (site / username / latency / balance /
-// downstream tokens). The sheet also offers a CTA into the model tester
-// so an operator can probe a model straight from the marketplace.
+// Opens from the model name or row menu. Copy and tester actions sit by the
+// identity; descriptions, capabilities, pricing and account data follow below.
 
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowRight as ArrowRightIcon } from 'lucide-react'
+import { ArrowRight as ArrowRightIcon, Copy as CopyIcon } from 'lucide-react'
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BrandIcon } from '@/assets/brand-icons/BrandIcon'
 import { DetailField } from '@/components/common/detail-field'
+import { ExpandableText } from '@/components/common/expandable-text'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -24,12 +22,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { copyText } from '@/lib/clipboard'
 import {
   formatCurrency,
   formatLatency,
   formatPrice,
   formatSuccessRate,
 } from '@/lib/format'
+import { toast } from '@/lib/toast'
 
 import type { ModelGroupPricing, ModelRow } from '../types'
 import { ModelSupplySources } from './model-supply-sources'
@@ -87,10 +87,19 @@ export function ModelDetailSheet({
   const tags = model.tags ?? []
   const pricingSources = model.pricingSources ?? []
   const accounts = model.accounts ?? []
+  const modelName = model.name
+
+  async function copyModelName() {
+    if (await copyText(modelName)) {
+      toast.success(t('common.copied'))
+    } else {
+      toast.error(t('common.copyFailed'))
+    }
+  }
 
   function goToTester() {
     onOpenChange(false)
-    const params = new URLSearchParams({ model: model?.name ?? '' })
+    const params = new URLSearchParams({ model: modelName })
     navigate({ href: `/model-tester?${params.toString()}`, replace: true })
   }
 
@@ -108,15 +117,32 @@ export function ModelDetailSheet({
               <SheetTitle ref={titleRef} tabIndex={-1} className='outline-none'>
                 {model.name}
               </SheetTitle>
-              <SheetDescription className='wrap-anywhere'>
-                {model.description || t('models.detail.noDescription')}
-              </SheetDescription>
             </div>
+          </div>
+          <div className='flex flex-wrap gap-2 pt-2'>
+            <Button
+              variant='outline'
+              size='sm'
+              data-touch-target
+              onClick={copyModelName}
+            >
+              <CopyIcon className='size-4' />
+              {t('models.detail.copyName')}
+            </Button>
+            <Button size='sm' data-touch-target onClick={goToTester}>
+              {t('models.detail.openTester')}
+              <ArrowRightIcon className='size-4' />
+            </Button>
           </div>
         </SheetHeader>
 
         <ScrollArea className='flex-1'>
           <div className='flex flex-col gap-4 px-4 pb-4'>
+            <SheetDescription render={<div />}>
+              <ExpandableText
+                text={model.description || t('models.detail.noDescription')}
+              />
+            </SheetDescription>
             <dl className='grid grid-cols-2 gap-3 text-sm sm:grid-cols-4'>
               <DetailField label={t('models.supply.title')}>
                 {model.supplyCount ?? '—'}
@@ -236,15 +262,6 @@ export function ModelDetailSheet({
                 </section>
               </>
             )}
-
-            <Separator />
-
-            <section className='flex flex-col gap-2'>
-              <Button variant='outline' onClick={goToTester}>
-                {t('models.detail.openTester')}
-                <ArrowRightIcon className='size-4' />
-              </Button>
-            </section>
           </div>
         </ScrollArea>
       </SheetContent>

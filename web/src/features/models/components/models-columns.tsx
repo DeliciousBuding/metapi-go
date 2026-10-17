@@ -170,11 +170,18 @@ export function useModelsColumns(
           return (
             <div className='flex min-w-0 flex-col gap-0.5'>
               <div className='flex min-w-0 items-center gap-2'>
-                <ModelPill
-                  model={model.name}
-                  variant='inline'
-                  className='text-sm'
-                />
+                <Button
+                  variant='link'
+                  aria-label={`${t('models.actions.viewDetails')}: ${model.name}`}
+                  className='text-foreground h-auto max-w-full min-w-0 justify-start p-0 text-left hover:no-underline max-[640px]:min-h-10'
+                  onClick={() => actions.onView(model)}
+                >
+                  <ModelPill
+                    model={model.name}
+                    variant='inline'
+                    className='text-sm'
+                  />
+                </Button>
                 {model.deprecated ? (
                   <Badge
                     variant='outline'

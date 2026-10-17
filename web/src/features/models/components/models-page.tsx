@@ -256,15 +256,17 @@ export function ModelsPage() {
     t,
   ])
 
-  const columns = useModelsColumns({
-    onView: (model) => {
-      setViewingModel(model)
-    },
-    onTest: (model) => {
-      const params = new URLSearchParams({ model: model.name })
-      navigate({ href: `/model-tester?${params.toString()}` })
-    },
-  })
+  const columnActions = useMemo(
+    () => ({
+      onView: setViewingModel,
+      onTest: (model: ModelRow) => {
+        const params = new URLSearchParams({ model: model.name })
+        navigate({ href: `/model-tester?${params.toString()}` })
+      },
+    }),
+    [navigate]
+  )
+  const columns = useModelsColumns(columnActions)
 
   const { table } = useDataTable<ModelRow>({
     data: modelsPageQuery.data?.items ?? [],

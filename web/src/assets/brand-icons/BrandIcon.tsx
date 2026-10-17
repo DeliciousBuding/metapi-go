@@ -5,7 +5,6 @@ import {
   avatarLetters,
   getBrand,
   getBrandIconUrl,
-  hashColor,
   normalizeBrandIconKey,
   type BrandInfo,
 } from './brandRegistry.js'
@@ -102,12 +101,12 @@ export function BrandGlyph({
         width: size,
         height: size,
         borderRadius: Math.max(4, Math.round(size * 0.33)),
-        background: hashColor(fallback),
-        color: 'var(--color-primary-foreground)',
+        background: 'var(--color-secondary)',
+        color: 'var(--color-secondary-foreground)',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: Math.max(9, Math.round(size * 0.5)),
+        fontSize: Math.max(8, Math.floor(size * 0.4)),
         fontWeight: 700,
         lineHeight: 1,
         flexShrink: 0,
@@ -127,38 +126,5 @@ export function BrandIcon({
   model: string
   size?: number
 }) {
-  const brand = getBrand(model)
-
-  if (brand) {
-    return (
-      <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: 10,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          background: 'transparent',
-        }}
-      >
-        <BrandGlyph brand={brand} size={size} fallbackText={brand.name} />
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className='model-card-avatar'
-      style={{
-        width: size,
-        height: size,
-        background: hashColor(model),
-        fontSize: size > 32 ? 16 : 10,
-      }}
-    >
-      {avatarLetters(model)}
-    </div>
-  )
+  return <BrandGlyph model={model} size={size} />
 }

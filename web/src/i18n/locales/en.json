@@ -367,7 +367,8 @@
         "outputPrice": "out ${{price}}/M",
         "unknownUser": "Unknown user",
         "availableAccounts": "Available accounts",
-        "openTester": "Open tester"
+        "openTester": "Open tester",
+        "copyName": "Copy model name"
       },
       "columns": {
         "brand": "Brand",
