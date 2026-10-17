@@ -8,6 +8,7 @@
 
 import { useNavigate } from '@tanstack/react-router'
 import { ArrowRight as ArrowRightIcon } from 'lucide-react'
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BrandIcon } from '@/assets/brand-icons/BrandIcon'
@@ -72,6 +73,7 @@ export function ModelDetailSheet({
 }: ModelDetailSheetProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const titleRef = useRef<HTMLHeadingElement>(null)
 
   if (!model) {
     return (
@@ -94,12 +96,18 @@ export function ModelDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side='right' className='sm:max-w-md'>
+      <SheetContent
+        side='right'
+        className='sm:max-w-md'
+        initialFocus={titleRef}
+      >
         <SheetHeader>
           <div className='flex items-start gap-3'>
             <BrandIcon model={model.name} size={40} />
             <div className='min-w-0 flex-1'>
-              <SheetTitle>{model.name}</SheetTitle>
+              <SheetTitle ref={titleRef} tabIndex={-1} className='outline-none'>
+                {model.name}
+              </SheetTitle>
               <SheetDescription className='wrap-anywhere'>
                 {model.description || t('models.detail.noDescription')}
               </SheetDescription>

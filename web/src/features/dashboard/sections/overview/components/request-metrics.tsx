@@ -116,7 +116,7 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
               }}
               className='hover:bg-muted/40 focus-visible:ring-ring flex min-w-0 flex-col gap-3 border-b p-5 transition-colors outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset sm:odd:border-r xl:border-r xl:border-b-0 xl:last:border-r-0'
             >
-              <div className='flex items-center gap-2 text-sm font-medium'>
+              <div className='flex min-h-10 items-center gap-2 text-sm font-medium'>
                 <IconBadge
                   size='sm'
                   tone={

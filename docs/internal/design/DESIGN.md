@@ -116,7 +116,9 @@ rebuild these arrangements with local spacing and raw data editors:
   description and wrapping actions. Overview pages retain their overview
   hierarchy. Page containers use `page-padding` (16px on small screens, 24px
   from `md`) and continue to own scrolling. Sheet headers reserve space for the
-  close button; long detail titles wrap within that space.
+  close button; long detail titles wrap within that space. Model details focus
+  the title on opening so the first action below the content does not scroll
+  the header out of view.
 
 Model-list protocols and capabilities use compact text, with at most two values
 inline. Overflow remains available on hover and keyboard focus. Badges mark
