@@ -124,6 +124,8 @@ race 入口默认 `-p 2 -parallel 2`。显式的 `GOMAXPROCS` 会被保留，
 `METAPI_RACE_PACKAGES` 和 `METAPI_RACE_PARALLEL` 分别调整 race 的包并发和包内并发。
 用 `bash scripts/go-race.sh --help` 查看参数；入口固定运行所有包、禁用结果缓存，
 不接受筛选用例的参数。降低并发不会减少测试范围，但可能延长墙钟时间。
+完整本地检查及 race 入口在子进程环境中将 `GOFLAGS` 设为空白值，覆盖当前环境和
+`go env -w` 保存的选测参数；个人定向测试继续直接使用 `go test`。
 这些参数控制 Go 调度与测试并发，不是整机 CPU、内存或功耗的硬配额。
 脚本在当前环境执行，不自动切换操作系统。Race detector 需要 Go 支持的
 OS/架构和 C 工具链；Windows 原生若遇到工具链或运行时限制，可自行在 WSL

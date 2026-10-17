@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Nonempty whitespace overrides GOFLAGS saved with go env -w and parses as no
+# flags. An empty value would fall back to the saved configuration. Selectors
+# (-run/-skip/-short) or -exec must not turn a full gate into a partial/no-op run.
+export GOFLAGS=" "
+
 # Keep the full local gate bounded on developer machines. CI owns its own
 # runner/shard budget; these controls do not remove any packages or tests.
 if (( $# > 0 )); then

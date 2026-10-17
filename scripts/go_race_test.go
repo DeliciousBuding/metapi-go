@@ -21,6 +21,11 @@ func runRaceScript(t *testing.T, overrides map[string]string, args ...string) (s
   printf 'STUB_GO GOMAXPROCS=%s' "$GOMAXPROCS"
   printf ' <%s>' "$@"
   printf '\n'
+  if [[ -n "${STUB_GO_BINARY:-}" ]]; then
+    printf 'EFFECTIVE_GOFLAGS=<'
+    if ! "$STUB_GO_BINARY" env GOFLAGS | tr -d ' \r\n'; then return 1; fi
+    printf '>\n'
+  fi
   if [[ "${STUB_TIMEOUT:-}" == 1 ]]; then echo 'panic: test timed out'; fi
   return "${STUB_EXIT:-0}"
 }
@@ -30,7 +35,7 @@ func runRaceScript(t *testing.T, overrides map[string]string, args ...string) (s
 	for _, entry := range os.Environ() {
 		name, _, _ := strings.Cut(entry, "=")
 		switch strings.ToUpper(name) {
-		case "GOMAXPROCS", "METAPI_RACE_PACKAGES", "METAPI_RACE_PARALLEL", "METAPI_RACE_TIMEOUT_SECONDS", "PG_TEST_DSN", "BASH_ENV", "STUB_EXIT", "STUB_TIMEOUT":
+		case "GOMAXPROCS", "METAPI_RACE_PACKAGES", "METAPI_RACE_PARALLEL", "METAPI_RACE_TIMEOUT_SECONDS", "PG_TEST_DSN", "BASH_ENV", "GOFLAGS", "STUB_EXIT", "STUB_TIMEOUT", "STUB_GO_BINARY":
 			continue
 		}
 		cmd.Env = append(cmd.Env, entry)
@@ -114,4 +119,31 @@ func TestRaceScriptDoesNotAcceptPartialGateArguments(t *testing.T) {
 	if err != nil || !strings.Contains(output, "Usage:") || strings.Contains(output, "STUB_GO") {
 		t.Fatalf("help should not run Go: %v\n%s", err, output)
 	}
+}
+
+func TestRaceScriptClearsEnvironmentAndPersistedGoFlags(t *testing.T) {
+	goBinary, err := exec.LookPath("go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range []string{"environment", "saved go env"} {
+		t.Run(source, func(t *testing.T) {
+			goEnv := filepath.Join(t.TempDir(), "go-env")
+			mustWrite(t, goEnv, []byte("GOFLAGS=-run=^NoSuchTest$ -short -skip=. -exec=echo\n"))
+			overrides := map[string]string{"GOENV": goEnv, "STUB_GO_BINARY": filepath.ToSlash(goBinary)}
+			if source == "environment" {
+				overrides["GOFLAGS"] = "-run=^NoSuchTest$ -short -skip=. -exec=echo"
+			}
+			output, err := runRaceScript(t, overrides)
+			if err != nil || !strings.Contains(output, "EFFECTIVE_GOFLAGS=<>\n") {
+				t.Fatalf("effective Go configuration still filters the full gate: %v\n%s", err, output)
+			}
+		})
+	}
+	t.Run("configuration read fails", func(t *testing.T) {
+		output, err := runRaceScript(t, map[string]string{"STUB_GO_BINARY": filepath.ToSlash(filepath.Join(t.TempDir(), "missing-go"))})
+		if err == nil {
+			t.Fatalf("failed Go configuration read was treated as success:\n%s", output)
+		}
+	})
 }
