@@ -5,6 +5,7 @@
 package pgtest
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -22,31 +23,38 @@ const schemaMigrationsTable = "schema_migrations"
 // are deterministic across runs. Call it right after opening the database and
 // before AutoMigrate.
 //
-// CASCADE is required because the schema is a web of foreign keys (sites →
-// accounts → account_tokens → route_channels → …); enumerating a deletion order
-// per test would be a second source of truth about the schema. Only tables
-// outside pg_catalog/information_schema are touched, and the statement is built
-// from quoted identifiers returned by PostgreSQL itself.
+// All tables are truncated together so intra-schema foreign keys need no
+// deletion order. Do not use CASCADE: a foreign key from another schema must
+// fail the reset, not silently clear another fixture. ONLY likewise prevents
+// PostgreSQL from implicitly including descendants in another schema. Table
+// identifiers are quoted by PostgreSQL itself.
 func Reset(t testing.TB, db *sqlx.DB) {
 	t.Helper()
 	if db == nil {
 		t.Fatal("pgtest.Reset: nil database handle")
 	}
+	if err := reset(db); err != nil {
+		t.Fatalf("pgtest.Reset: %v", err)
+	}
+}
 
+func reset(db *sqlx.DB) error {
 	var tables []string
-	const listTables = `SELECT format('%I.%I', schemaname, tablename)
+	const listTables = `SELECT format('ONLY %I.%I', schemaname, tablename)
 		FROM pg_tables
-		WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+		WHERE schemaname = current_schema()
+		  AND schemaname NOT IN ('pg_catalog', 'information_schema')
 		  AND tablename <> $1
 		ORDER BY tablename`
 	if err := db.Select(&tables, listTables, schemaMigrationsTable); err != nil {
-		t.Fatalf("pgtest.Reset: list tables: %v", err)
+		return fmt.Errorf("list tables: %w", err)
 	}
 	if len(tables) == 0 {
 		// Fresh database: AutoMigrate has not created anything yet.
-		return
+		return nil
 	}
-	if _, err := db.Exec("TRUNCATE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE"); err != nil {
-		t.Fatalf("pgtest.Reset: truncate %d tables: %v", len(tables), err)
+	if _, err := db.Exec("TRUNCATE " + strings.Join(tables, ", ") + " RESTART IDENTITY"); err != nil {
+		return fmt.Errorf("truncate %d tables: %w", len(tables), err)
 	}
+	return nil
 }
