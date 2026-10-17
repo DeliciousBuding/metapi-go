@@ -155,6 +155,72 @@ func TestOpsWS_RequiresValidTicket(t *testing.T) {
 	}
 }
 
+func TestOpsWS_ControlFrames(t *testing.T) {
+	for _, ping := range []bool{false, true} {
+		name := "normal close"
+		if ping {
+			name = "ping and normal close"
+		}
+		t.Run(name, func(t *testing.T) {
+			r, sessions := setupOpsWSTest(t)
+			handlerDone := make(chan struct{})
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				defer close(handlerDone)
+				r.ServeHTTP(w, req)
+			}))
+			t.Cleanup(srv.Close)
+
+			ticket, _ := sessions.IssueWSTicket()
+			if ticket == "" {
+				t.Fatal("IssueWSTicket returned an empty ticket")
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			conn, _, err := websocket.Dial(ctx, "ws"+srv.URL[4:]+"/api/admin/ops/ws?ticket="+ticket, nil)
+			if err != nil {
+				t.Fatalf("dial: %v", err)
+			}
+			defer conn.CloseNow() // Also clean up if a control-frame assertion fails.
+			if _, _, err := conn.Read(ctx); err != nil {
+				t.Fatalf("read first snapshot: %v", err)
+			}
+
+			// Ping needs a concurrent reader to receive pong. Continue accepting
+			// snapshots while the server processes control frames.
+			readerDone := make(chan struct{})
+			go func() {
+				defer close(readerDone)
+				for {
+					if _, _, err := conn.Read(ctx); err != nil {
+						return
+					}
+				}
+			}()
+			if ping {
+				pingCtx, pingCancel := context.WithTimeout(ctx, 3*time.Second)
+				err := conn.Ping(pingCtx)
+				pingCancel()
+				if err != nil {
+					t.Fatalf("ping: %v", err)
+				}
+			}
+			if err := conn.Close(websocket.StatusNormalClosure, "done"); err != nil {
+				t.Fatalf("normal close handshake: %v", err)
+			}
+			select {
+			case <-handlerDone:
+			case <-ctx.Done():
+				t.Fatal("handler did not release the closed connection")
+			}
+			select {
+			case <-readerDone:
+			case <-ctx.Done():
+				t.Fatal("client reader did not stop after close")
+			}
+		})
+	}
+}
+
 // TestOpsWSOriginPatterns covers the origin-restriction helper:
 //   - nil/empty config -> nil (same-origin only, the safe default)
 //   - configured origins -> configured + localhost/127.0.0.1 (dev convenience)

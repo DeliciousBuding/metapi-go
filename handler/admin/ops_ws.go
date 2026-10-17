@@ -74,8 +74,11 @@ func (h *opsWSHandler) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.CloseNow()
 
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
+	// This is a server-push endpoint: no client data messages are expected.
+	// Keep reading control frames so ping/close handshakes work, and stop
+	// pushing immediately when the peer disconnects instead of waiting for
+	// the next write to discover it.
+	ctx := conn.CloseRead(r.Context())
 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
