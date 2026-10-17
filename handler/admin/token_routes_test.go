@@ -16,6 +16,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 func setupTokenRoutesTest(t *testing.T) (*store.DB, chi.Router) {
@@ -48,7 +49,7 @@ func setupTokenRoutesPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, tokenID int64) {
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
-	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	suffix := uuid.NewString()
 	siteName := "Route Site " + suffix
 	routeURL := "https://route.example.com/" + suffix
 	sessionToken := "session-token-" + suffix
@@ -183,7 +184,7 @@ func TestRouteChannelsAllowSameCredentialForDifferentSourceModels(t *testing.T) 
 
 func TestTokenRoutes_Postgres_CreateUpdateChannelAndDelete(t *testing.T) {
 	db, r := setupTokenRoutesPostgresTest(t)
-	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	suffix := uuid.NewString()
 	siteURL := "https://pg-routes-" + suffix + ".example.com"
 	t.Cleanup(func() {
 		_, _ = db.Exec("DELETE FROM sites WHERE url = ?", siteURL)

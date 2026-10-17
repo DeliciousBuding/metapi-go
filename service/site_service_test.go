@@ -337,9 +337,11 @@ func TestDetectSite_AdapterChain_OneAPI(t *testing.T) {
 }
 
 func TestDetectSite_Unknown(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
+	t.Cleanup(server.Close)
 	tests := []string{
-		"https://unknown-llm-provider.example.com",
-		"https://random-site.invalid",
+		server.URL,
+		server.URL + "/unknown-provider",
 		"",
 	}
 	for _, url := range tests {

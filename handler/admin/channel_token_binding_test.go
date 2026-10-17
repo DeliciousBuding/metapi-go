@@ -2,12 +2,47 @@ package admin
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
+
+func TestRouteChannelFixturesIndependentAndCleanedUp(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			var db *store.DB
+			if dialect == "postgres" {
+				db, _ = setupTokenRoutesPostgresTest(t)
+			} else {
+				db, _ = setupTokenRoutesTest(t)
+			}
+			const fixtureCount = 16
+			assertCount := func(t *testing.T, want int) {
+				t.Helper()
+				for _, table := range []string{"sites", "accounts", "account_tokens", "token_routes"} {
+					var count int
+					if err := db.Get(&count, fmt.Sprintf("SELECT COUNT(*) FROM %s", table)); err != nil {
+						t.Fatal(err)
+					}
+					if count != want {
+						t.Fatalf("%s rows = %d, want %d", table, count, want)
+					}
+				}
+			}
+			t.Run("repeated-setup", func(t *testing.T) {
+				// Repeated fixtures must coexist even on clocks with coarse precision.
+				for range fixtureCount {
+					seedRouteChannelRefs(t, db)
+				}
+				assertCount(t, fixtureCount)
+			})
+			assertCount(t, 0)
+		})
+	}
+}
 
 func TestChannelTokenBinding(t *testing.T) {
 	for _, dialect := range []string{"sqlite", "postgres"} {
