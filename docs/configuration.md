@@ -1,16 +1,19 @@
 # Configuration Reference
 
-**Last updated**: 2026-09-03
+**Last updated**: 2026-10-17
 
 Complete environment-variable reference. The single machine-readable source
 is [`.env.example`](../.env.example); this page groups and explains every
-knob a deployment is likely to touch. Docker Compose users pass these via
-`environment:` (see [`deployment.md`](deployment.md)).
+knob a deployment is likely to touch. The repository Compose file passes the
+runtime variables through `env_file`; its own three Compose-only variables are
+listed separately below.
 
-Every variable listed here is checked against `.env.example` and against the
-keys `config.Load` actually reads, by `docs/env_parity_test.go`. If you add a
-knob, add it in all three places or that test fails — names must be written
-out in full (no `SOME_PREFIX_*` shorthand) so they stay greppable.
+Every runtime variable listed here is checked against `.env.example` and
+against the keys `config.Load` actually reads, by `docs/env_parity_test.go`.
+The three Compose-only variables are checked against `.env.example` and
+`docker-compose.yml` instead. If you add a knob, add it in all required places
+or that test fails — names must be written out in full (no `SOME_PREFIX_*`
+shorthand) so they stay greppable.
 
 > **How to read this page**: first-time deployment only needs the two
 > [Required](#required) variables (plus the
@@ -32,7 +35,19 @@ out in full (no `SOME_PREFIX_*` shorthand) so they stay greppable.
 | Variable | Default | Description |
 |:---------|:--------|:------------|
 | `ACCOUNT_CREDENTIAL_SECRET` | falls back to `AUTH_TOKEN` | Independent secret for encrypting stored upstream credentials (AES key derived via SHA-256). Set a unique 32+ byte random value in production; empty falls back to `AUTH_TOKEN` with a startup warning, short values log weak-secret warnings. |
-| `TZ` | system local time | Timezone for cron schedules and daily aggregation. No code-level default; `.env.example` and the compose files preset `Asia/Shanghai`. |
+| `TZ` | system local time | Timezone for cron schedules and daily aggregation. No code-level default; `.env.example` presets `Asia/Shanghai`, and the Compose file passes it through. |
+
+## Docker Compose only
+
+These variables are read by `docker compose`, not by `config.Load`. They live
+in `.env` so the same file drives both the Compose interpolation and the
+container environment.
+
+| Variable | Default | Description |
+|:---------|:--------|:------------|
+| `METAPI_IMAGE` | required | Image reference for the service. Pin a release tag or digest; `edge` tracks master and is not a stable channel. |
+| `METAPI_BIND_ADDRESS` | `127.0.0.1` | Host address for the published port. Keep loopback unless a reverse proxy on another host reaches this port directly. |
+| `METAPI_PORT` | `4000` | Host port. The container always listens on `4000`, so changing this moves only the host side. |
 
 ## Server
 

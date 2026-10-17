@@ -138,7 +138,7 @@ change the install location with `METAPI_INSTALL_PREFIX`). On Windows, download
 
 ### Option 2: Docker (pre-built image + named volume)
 
-Pin a full release tag or digest for stable deployments; this example uses the published `0.24.0` release. Use `latest` for development builds. Check [Releases](https://github.com/DeliciousBuding/metapi-go/releases) before upgrading.
+Pin a full release tag or digest for stable deployments; this example uses the published `0.24.0` release. `edge` tracks master, and `latest` moves only with stable releases. Check [Releases](https://github.com/DeliciousBuding/metapi-go/releases) before upgrading.
 
 ```bash
 export AUTH_TOKEN=$(openssl rand -hex 32)
@@ -161,7 +161,7 @@ Save the generated tokens and encryption key in your password manager. The defau
 A named volume inherits the image ownership on first mount. For a bind mount (`./data:/app/data`), run `chown -R 1001:1001 ./data` on the host first. With the repository Compose file (Docker Compose >= 2.24):
 
 ```bash
-cp .env.example .env   # set independent random tokens and credential encryption key
+cp .env.example .env   # replace the three secrets; METAPI_IMAGE is pinned to 0.24.0
 # All runtime settings in .env are passed through, including PostgreSQL and check-in settings.
 docker compose up -d
 ```
@@ -297,7 +297,8 @@ volumes need no action). Full steps, the `metapi-migrate` tool and rollback:
 
 ```bash
 make build    # build
-make test     # all tests (incl. -race)
+make test     # all tests (no -race)
+make race     # all tests + race detector
 make vet      # go vet
 make lint     # golangci-lint
 make vuln     # govulncheck vulnerability scan
@@ -325,7 +326,7 @@ once here instead of scattered through the text:
 | ----------------------------------------------- | -------------------------------------------------------------- |
 | Release binary: installer → empty data dir → health checks → documented site/account/route path → real relay | Tested end to end (v0.19.0)                    |
 | From source: frontend build → go build → start  | Tested end to end                                              |
-| Docker / Compose commands                       | Cross-checked line by line against the repo `Dockerfile` / `docker-compose.prod.yml` |
+| Docker / Compose commands                       | Checked against the repo `Dockerfile` / `docker-compose.yml`; CI parses the Compose config |
 | 503 without routes, healthcheck exit codes      | Tested                                                         |
 
 ## Contributing & security

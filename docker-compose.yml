@@ -1,26 +1,34 @@
 # GHCR 单机部署（Docker Compose >= 2.24）。
-# 复制 .env.example 为 .env，设置独立的随机令牌与凭据加密密钥后：
+# 复制 .env.example 为 .env，替换其中的令牌与凭据加密密钥，并把 METAPI_IMAGE
+# 固定到要运行的发布标签或 digest，然后：
 #   docker compose up -d
-# .env 中的全部运行配置传入容器；也可仅通过 shell 提供必需令牌。
-# 默认仅宿主机可访问，反向代理可连接 127.0.0.1:4000。
+#
+# METAPI_IMAGE / METAPI_BIND_ADDRESS / METAPI_PORT 只由 Compose 读取；其余
+# .env 配置通过 env_file 传入容器。默认只绑定宿主机回环地址。
 # SQLite 数据保存在命名卷 metapi_data（/app/data）。
+
+name: metapi-go
 
 services:
   metapi:
-    image: ghcr.io/deliciousbuding/metapi-go:0.24.0
-    container_name: metapi-go
+    image: ${METAPI_IMAGE:?Set METAPI_IMAGE in .env to a release tag or digest}
     restart: unless-stopped
     ports:
-      - "127.0.0.1:4000:4000"
+      - "${METAPI_BIND_ADDRESS:-127.0.0.1}:${METAPI_PORT:-4000}:4000"
     volumes:
       - metapi_data:/app/data
     env_file:
       - path: .env
         required: false
     environment:
+      # Keep the in-container port fixed; METAPI_PORT only moves the host side.
+      PORT: "4000"
       HOST: 0.0.0.0
+      DATA_DIR: /app/data
       AUTH_TOKEN: ${AUTH_TOKEN:?Set AUTH_TOKEN in .env or the shell}
       PROXY_TOKEN: ${PROXY_TOKEN:?Set PROXY_TOKEN in .env or the shell}
+      ACCOUNT_CREDENTIAL_SECRET: ${ACCOUNT_CREDENTIAL_SECRET:?Set ACCOUNT_CREDENTIAL_SECRET in .env or the shell}
+    # The image owns the health check; do not repeat it here.
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -28,17 +36,17 @@ services:
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64M
+    stop_grace_period: 30s
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: "0.5"
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/metapi", "healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 
 volumes:
   metapi_data:

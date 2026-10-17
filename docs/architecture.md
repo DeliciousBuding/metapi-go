@@ -308,7 +308,6 @@ metapi-go/
 ├── docs/                   # Specs, architecture, design philosophy
 ├── Dockerfile
 ├── docker-compose.yml
-├── docker-compose.prod.yml
 └── Makefile
 ```
 

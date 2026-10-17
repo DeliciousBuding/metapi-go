@@ -8,8 +8,13 @@ package docs_test
 //  1. every key in .env.example is documented in docs/configuration.md
 //  2. every variable named in docs/configuration.md exists in .env.example
 //  3. every key read by config.Load's get("X") helper exists in .env.example
-//  4. every key in .env.example has a real reader somewhere in non-test Go
-//     code (get("X"), os.Getenv, os.LookupEnv or a direct env-map index)
+//  4. every key in .env.example has a real consumer: a non-test Go reader
+//     (get("X"), os.Getenv, os.LookupEnv or a direct env-map index), or a
+//     ${KEY} interpolation in a root docker-compose file for Compose-only
+//     settings.
+//  5. every ${KEY} interpolated by a docker-compose file exists in
+//     .env.example, so the shipped template is the single source for both
+//     the container and its Compose wrapper.
 //
 // Documentation may list several variables in one cell, so the parser reads
 // backticked ALL-CAPS names throughout the file.
@@ -85,6 +90,11 @@ var readerREs = []*regexp.Regexp{
 	regexp.MustCompile(`env\["([A-Z0-9_]+)"\]`),
 }
 
+// composeVarRE matches a Compose interpolation such as ${KEY:?message} or
+// ${KEY:-default}. Compose-only settings have no Go reader, but they are still
+// real consumers: docker compose resolves them before the container starts.
+var composeVarRE = regexp.MustCompile(`\$\{([A-Z][A-Z0-9_]*)`)
+
 func TestEnvVarDocParity(t *testing.T) {
 	root := repoRoot(t)
 
@@ -108,11 +118,19 @@ func TestEnvVarDocParity(t *testing.T) {
 	if len(readers) == 0 {
 		t.Fatal("parser sanity: no environment readers found in Go sources — the scan is broken")
 	}
+	composeKeys := collectComposeKeys(t, root)
+	if len(composeKeys) == 0 {
+		t.Fatal("parser sanity: docker-compose.yml yielded 0 interpolated keys — the scan is broken")
+	}
 
 	// Same comparator the self-proof below feeds violating samples through, so
 	// that proof covers the code that actually runs on the real files.
 	if drift := detectDrift(envKeys, docVars, cfgKeys, readers); drift != "" {
 		t.Fatalf("environment-variable documentation drift:\n%s\nFix the docs (or .env.example) — do not relax this test.", drift)
+	}
+	if missing := diffKeys(composeKeys, envKeys); len(missing) > 0 {
+		t.Fatalf("docker-compose interpolates variables missing from .env.example (%d):\n    - %s",
+			len(missing), strings.Join(missing, "\n    - "))
 	}
 }
 
@@ -246,9 +264,9 @@ func firstGroups(matches [][]string) []string {
 	return out
 }
 
-// collectEnvReaders returns the set of environment keys read anywhere in
-// non-test Go source, so a key shipped in .env.example that nothing reads is
-// reported instead of silently documented forever.
+// collectEnvReaders returns the set of environment keys consumed by non-test
+// Go source or by a root docker-compose file, so a key shipped in .env.example
+// that nothing reads is reported instead of silently documented forever.
 func collectEnvReaders(t *testing.T, root string) map[string]bool {
 	t.Helper()
 	readers := map[string]bool{}
@@ -257,9 +275,18 @@ func collectEnvReaders(t *testing.T, root string) map[string]bool {
 			return err
 		}
 		if entry.IsDir() {
-			switch entry.Name() {
-			case ".git", "node_modules", "dist", ".dev-local", ".worktrees", ".local", "web":
+			if skipEnvScanDir(entry.Name()) {
 				return filepath.SkipDir
+			}
+			return nil
+		}
+		if isComposeFile(path) {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			for _, m := range composeVarRE.FindAllStringSubmatch(string(data), -1) {
+				readers[m[1]] = true
 			}
 			return nil
 		}
@@ -282,6 +309,58 @@ func collectEnvReaders(t *testing.T, root string) map[string]bool {
 		t.Fatal(err)
 	}
 	return readers
+}
+
+// collectComposeKeys returns every ${KEY} interpolation in a docker-compose
+// file. The reverse direction matters too: a Compose-only knob that is not in
+// .env.example has no template and no documentation owner.
+func collectComposeKeys(t *testing.T, root string) []string {
+	t.Helper()
+	var keys []string
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			if skipEnvScanDir(entry.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !isComposeFile(path) {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, m := range composeVarRE.FindAllStringSubmatch(string(data), -1) {
+			keys = append(keys, m[1])
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dedupeSorted(keys)
+}
+
+func skipEnvScanDir(name string) bool {
+	switch name {
+	case ".git", "node_modules", "dist", ".dev-local", ".worktrees", ".local", "web":
+		return true
+	}
+	return false
+}
+
+// isComposeFile limits the Compose scan to runtime entrypoints at any level.
+// Testbed templates use a different name and are intentionally excluded.
+func isComposeFile(path string) bool {
+	base := filepath.Base(path)
+	if !strings.HasPrefix(base, "docker-compose") {
+		return false
+	}
+	return strings.HasSuffix(base, ".yml") || strings.HasSuffix(base, ".yaml")
 }
 
 func diffKeys(a, b []string) []string {
@@ -357,5 +436,40 @@ func TestEnvReaderScanIgnoresLocalDrafts(t *testing.T) {
 				t.Fatalf("public copy must count as a production reader: readers=%v drift=%q", readers, drift)
 			}
 		})
+	}
+}
+
+// TestComposeInterpolationCountsAsConsumer pins the Compose-only half of the
+// dead-key direction: METAPI_IMAGE and the host binding knobs are consumed by
+// docker compose rather than by config.Load.
+func TestComposeInterpolationCountsAsConsumer(t *testing.T) {
+	root := t.TempDir()
+	compose := []byte(`services:
+  app:
+    image: ${ZZZ_COMPOSE_IMAGE:?set an image}
+    ports:
+      - "${ZZZ_COMPOSE_BIND:-127.0.0.1}:${ZZZ_COMPOSE_PORT:-4000}:4000"
+`)
+	if err := os.WriteFile(filepath.Join(root, "docker-compose.yml"), compose, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	keys := []string{"ZZZ_COMPOSE_IMAGE", "ZZZ_COMPOSE_BIND", "ZZZ_COMPOSE_PORT"}
+	readers := collectEnvReaders(t, root)
+	for _, key := range keys {
+		if !readers[key] {
+			t.Fatalf("Compose interpolation for %s was not counted as a consumer: %v", key, readers)
+		}
+	}
+	if missing := diffKeys(keys, collectComposeKeys(t, root)); len(missing) > 0 {
+		t.Fatalf("Compose key parser missed %v", missing)
+	}
+	if drift := detectDrift(keys, keys, keys, readers); drift != "" {
+		t.Fatalf("Compose-only keys were reported as dead:\n%s", drift)
+	}
+
+	const unread = "ZZZ_COMPOSE_UNREAD"
+	if drift := detectDrift([]string{unread}, []string{unread}, []string{unread}, readers); !strings.Contains(drift, unread) {
+		t.Fatalf("a key absent from both Go and Compose was not reported: %q", drift)
 	}
 }

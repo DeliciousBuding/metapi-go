@@ -61,21 +61,9 @@ Go 镜像以**非 root 用户（uid 1001）**运行；旧 TS 容器以 root 写�
 
 环境变量名与 TS 版一致（`DATA_DIR`、`DB_TYPE`、`DB_URL`、`AUTH_TOKEN`、`PROXY_TOKEN`、`ACCOUNT_CREDENTIAL_SECRET` 等），指向同一数据目录即可：
 
-```yaml
-# docker-compose 片段（bind mount 指向旧 data 目录）
-services:
-  metapi:
-    image: ghcr.io/deliciousbuding/metapi-go:v0.16.20
-    volumes:
-      - ./data:/app/data
-    environment:
-      AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN is required}
-      PROXY_TOKEN: ${PROXY_TOKEN:?PROXY_TOKEN is required}
-      ACCOUNT_CREDENTIAL_SECRET: ${ACCOUNT_CREDENTIAL_SECRET:-}
-      DATA_DIR: /app/data
-      TZ: ${TZ:-Asia/Shanghai}
-    restart: unless-stopped
-```
+使用仓库的 [`docker-compose.yml`](../docker-compose.yml)，把
+`metapi_data:/app/data` 换成 `./data:/app/data`，并在 `.env` 中把
+`METAPI_IMAGE` 固定到迁移后的版本。其余环境变量与 TS 版同名，直接复用。
 
 首次启动日志应出现：
 
@@ -243,15 +231,15 @@ TS 版还提供 JSON 备份（Schema v2.1）导出/导入，可作为 MySQL 数�
 
 生产环境**不要用 `:latest`**，把镜像固定到具体版本标签：
 
-```yaml
-image: ghcr.io/deliciousbuding/metapi-go:v0.16.20
+```dotenv
+METAPI_IMAGE=ghcr.io/deliciousbuding/metapi-go:0.24.0
 ```
 
 升级步骤：
 
 1. **读 [CHANGELOG](../CHANGELOG.md)**：确认目标版本对老库 / 迁移的改动（例如 v0.16.2 补齐了 34 个 TS-heritage 列，老 TS 库无需手动操作）。
 2. **备份**：SQLite 复制 `hub.db`；PostgreSQL `pg_dump -Fc`。
-3. **换 tag**：改 compose 的 `image:` 后 `docker compose up -d`（或 `docker pull` 新 tag 后重建容器）。
+3. **换 tag**：改 `.env` 的 `METAPI_IMAGE` 后 `docker compose up -d`。
 4. **观察日志**：启动日志应出现 `store: running auto-migration` / `store: auto-migration complete`，然后 `curl http://localhost:4000/ready` 确认 `database` 为 `ok`。
 
 schema 升级是 forward-only（只加列 / 表，不做自动降级）；回退版本时旧二进制会忽略新列，数据回滚靠步骤 2 的备份。
