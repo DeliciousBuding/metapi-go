@@ -1,6 +1,10 @@
 # 参与 Metapi Go 开发
 
-所有改动通过 PR 合入受保护的 `master`。版本发布流程见[Git 工作流](docs/internal/git-workflow.md#6-release-流程)。
+欢迎修 bug、改进界面和文档，也欢迎分享使用中遇到的问题。小修可以直接提交 PR；
+新功能或较大的调整，建议先开 Issue 说说使用场景和预期，方便一起讨论方向。
+
+代码通过 PR 合入 `master`。本文介绍本地开发和验证；版本发布见
+[Git 工作流](docs/internal/git-workflow.md#6-release-流程)。
 
 ## 开发环境
 
