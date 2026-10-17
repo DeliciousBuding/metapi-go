@@ -1,21 +1,7 @@
-// metapi-go/components/common — credential export dialog.
-//
-// The "distribution" surface for a downstream API key: shows the gateway
-// base URL, offers one-click deep-link imports (Cherry Studio / CC Switch)
-// and copy-to-clipboard profiles (env vars / generic JSON) fetched from
-// GET /api/downstream-keys/{id}/export.
-//
-// #1034 hardening: the dialog opens LOCKED. The export endpoint is a
-// sensitive op, so the operator must re-enter the master token before any
-// credential material is fetched (X-Admin-Confirm-Token), the key renders
-// masked until explicitly revealed, and deep links — which hand the plain
-// key to an external app — require an explicit confirmation step.
-//
-// Deep links are opened via location.href; when the protocol handler is not
-// installed the navigation is a no-op, so every deep-link action also
-// exposes an adjacent copy fallback.
+// Unlocks a downstream key for verification, client imports and config export.
+// Exports live for this dialog session; reopening requires confirmation again.
 
-import { useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import {
   Check,
   Copy,
@@ -26,7 +12,7 @@ import {
   Lock,
   Sparkles,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -141,14 +127,26 @@ export function CredentialExportDialog({
   target,
   onOpenChange,
 }: CredentialExportDialogProps) {
+  return target ? (
+    <OpenCredentialExportDialog
+      key={target.id}
+      target={target}
+      onOpenChange={onOpenChange}
+    />
+  ) : null
+}
+
+function OpenCredentialExportDialog({
+  target,
+  onOpenChange,
+}: {
+  target: CredentialExportTarget
+  onOpenChange: (open: boolean) => void
+}) {
   const { t } = useTranslation()
   const [ccApp, setCcApp] = useState<string>('codex')
   const [copiedKey, setCopiedKey] = useState(false)
-  // #1034: locked until the master token is re-entered; the token is held
-  // in component state only (never persisted) and reset on close.
-  const [confirmToken, setConfirmToken] = useState<string | null>(null)
   const [unlockDraft, setUnlockDraft] = useState('')
-  const [unlockError, setUnlockError] = useState<string | null>(null)
   // #1034: the key renders masked until explicitly revealed.
   const [showKey, setShowKey] = useState(false)
   // #1034: deep links hand the plain key to an external app — they wait for
@@ -158,39 +156,22 @@ export function CredentialExportDialog({
     fallback: string
   } | null>(null)
 
-  const open = target !== null
-
-  // Fresh lock state every time the dialog opens.
-  useEffect(() => {
-    if (!open) {
-      setConfirmToken(null)
-      setUnlockDraft('')
-      setUnlockError(null)
-      setShowKey(false)
-      setPendingDeepLink(null)
-    }
-  }, [open])
-
-  const exportQuery = useQuery<ExportResponse>({
-    queryKey: ['downstream-key-export', target?.id, confirmToken !== null],
-    queryFn: async () =>
+  const exportMutation = useMutation({
+    mutationFn: async (confirmToken: string) =>
       (await api.getDownstreamKeyExport(
-        target?.id ?? 0,
+        target.id,
         'all',
-        confirmToken ?? undefined
+        confirmToken
       )) as ExportResponse,
-    // Locked dialog never fetches: no credential material is even requested
-    // until the master token is presented.
-    enabled: open && target?.id != null && confirmToken !== null,
-    staleTime: 30 * 1000,
+    gcTime: 0,
     retry: false,
   })
 
-  const locked = confirmToken === null
+  const locked = exportMutation.isIdle
   const reauthRejected =
-    exportQuery.isError && isReauthRequired(exportQuery.error)
+    exportMutation.isError && isReauthRequired(exportMutation.error)
 
-  const data = exportQuery.data
+  const data = exportMutation.data
   const apiBase = useMemo(
     () => `${(data?.baseUrl ?? '').replace(/\/+$/, '')}/v1`,
     [data]
@@ -213,8 +194,7 @@ export function CredentialExportDialog({
   function handleUnlock() {
     const token = unlockDraft.trim()
     if (!token) return
-    setUnlockError(null)
-    setConfirmToken(token)
+    exportMutation.mutate(token)
   }
 
   async function handleCopyKey() {
@@ -264,9 +244,9 @@ export function CredentialExportDialog({
             placeholder={t('reauth.tokenPlaceholder')}
             aria-label={t('reauth.tokenLabel')}
           />
-          {(unlockError || reauthRejected) && (
-            <p className='text-destructive text-xs'>
-              {unlockError ?? t('reauth.errorInvalid')}
+          {reauthRejected && (
+            <p role='alert' className='text-destructive-soft-fg text-xs'>
+              {t('reauth.errorInvalid')}
             </p>
           )}
           <Button type='submit' size='sm' disabled={!unlockDraft.trim()}>
@@ -281,7 +261,7 @@ export function CredentialExportDialog({
     if (locked || reauthRejected) {
       return renderLocked()
     }
-    if (exportQuery.isLoading) {
+    if (exportMutation.isPending) {
       return (
         <div className='space-y-3'>
           <Skeleton className='h-16 w-full rounded-lg' />
@@ -289,15 +269,17 @@ export function CredentialExportDialog({
         </div>
       )
     }
-    if (exportQuery.isError || !data) {
+    if (exportMutation.isError || !data) {
       return (
         <div className='rounded-lg border border-dashed px-4 py-6 text-center'>
-          <p className='text-destructive text-sm'>{t('connect.loadFailed')}</p>
+          <p className='text-destructive-soft-fg text-sm'>
+            {t('connect.loadFailed')}
+          </p>
           <Button
             variant='outline'
             size='sm'
             className='mt-3'
-            onClick={() => void exportQuery.refetch()}
+            onClick={() => exportMutation.mutate(unlockDraft.trim())}
           >
             {t('common.retry')}
           </Button>
@@ -332,7 +314,7 @@ export function CredentialExportDialog({
           </div>
           <div className='mt-2 flex items-center gap-2 border-t pt-2'>
             <code className='text-muted-foreground flex-1 truncate font-mono text-xs'>
-              {showKey ? apiKey : (target?.keyMasked ?? 'sk-…')}
+              {showKey ? apiKey : (target.keyMasked ?? 'sk-…')}
             </code>
             <Button
               variant='outline'
@@ -361,6 +343,14 @@ export function CredentialExportDialog({
           </div>
         </div>
 
+        {apiKey ? (
+          <CredentialVerifySection
+            keyId={target.id}
+            apiBase={apiBase}
+            apiKey={apiKey}
+          />
+        ) : null}
+
         {/* One-click deep links (explicit confirmation, #1034) */}
         <div className='space-y-2'>
           <p className='text-muted-foreground text-xs font-medium'>
@@ -373,14 +363,14 @@ export function CredentialExportDialog({
               onClick={() =>
                 requestDeepLink(
                   buildCherryStudioLink(
-                    target?.id ?? 0,
-                    target?.name ?? '',
+                    target.id,
+                    target.name,
                     apiBase,
                     apiKey
                   ),
                   JSON.stringify(
                     {
-                      name: target?.name ?? '',
+                      name: target.name,
                       type: 'openai',
                       apiHost: apiBase,
                       apiKey,
@@ -517,28 +507,18 @@ export function CredentialExportDialog({
           </div>
         </div>
 
-        {/* Verify — the dialog holds the plain key after unlock, so the
-            browser itself is the real client for the two-step check. */}
-        {apiKey ? (
-          <CredentialVerifySection
-            keyId={target?.id ?? 0}
-            apiBase={apiBase}
-            apiKey={apiKey}
-          />
-        ) : null}
-
         <p className='text-muted-foreground text-xs'>{t('connect.hint')}</p>
       </div>
     )
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className='sm:max-w-lg'>
         <DialogHeader>
           <DialogTitle className='flex items-center gap-2'>
             <Link2 className='text-primary size-4' />
-            {t('connect.title', { name: target?.name ?? '' })}
+            {t('connect.title', { name: target.name })}
           </DialogTitle>
           <DialogDescription>{t('connect.description')}</DialogDescription>
         </DialogHeader>

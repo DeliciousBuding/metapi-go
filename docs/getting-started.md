@@ -154,9 +154,10 @@ not gain balance/check-in management from this option.
 ## 5. Make your first proxied request
 
 Open **访问 → API 密钥** at `/downstream-keys`, create a downstream key and
-grant it the intended models or routes. Its **连接 (Connect)** action provides
-client configuration after explicit credential confirmation. In that dialog,
-check the model list, select a conversational model, then send a test chat.
+grant it the intended models or routes. The **连接 (Connect)** dialog opens
+after creation; you can reopen it from the key's row action. Enter your admin
+token to unlock it, check the model list, select a conversational model, then
+send a test chat. Client imports and configuration exports follow the checks.
 The generation uses real quota. This verifies one non-streaming Chat request;
 test your client's protocol, streaming and tools separately.
 
@@ -179,9 +180,11 @@ curl http://localhost:4000/v1/chat/completions \
 
 The router selects an eligible candidate according to the route's strategy.
 Check **请求与诊断 → 代理日志 (Proxy logs)** for status, latency, tokens and
-estimated cost. Each list row represents an upstream attempt; the detail groups
-recorded attempts by request ID and marks missing history. A denial before
-upstream dispatch may have no attempt row.
+estimated cost. The default **请求记录 (Requests)** view shows one row
+per request, including denials before upstream dispatch. Open its detail for
+recorded upstream attempts, or open **尝试记录 (Attempt records)** to
+inspect individual attempts. Older logs without a request record remain in
+the attempts view.
 
 For a current check, open the route workspace at `/token-routes`, enter the
 client model and protocol, and select the downstream key. It evaluates admission
