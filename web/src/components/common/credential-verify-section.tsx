@@ -1,22 +1,9 @@
-// metapi-go/components/common — the Connect dialog's verify section.
-//
-// "接入 → 用对 → 查明" closes here: after the master-token unlock the dialog
-// already holds the plain key, so the browser IS the real client — calling
-// the gateway from here exercises the exact path a user's client would
-// (same origin, no CORS surface). Two steps:
-//
-//   1. GET {base}/v1/models        — auth + admission + the key's model list
-//   2. POST {base}/v1/chat/completions (max_tokens=1, non-stream) — the full
-//      transform/dispatch/billing chain, model chosen from step 1's list
-//
-// Verify traffic consumes real quota and appears in the key's proxy logs —
-// deliberately: there is no server-side exemption and no hidden marker, so
-// what the operator sees in the logs is what a real client would produce.
-// Failures link straight to the log list pre-filtered to this key.
+// Checks model access and a non-streaming Chat request with the unlocked key.
+// Chat consumes upstream quota; results link to this key's request logs.
 
 import { Link } from '@tanstack/react-router'
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
@@ -97,11 +84,24 @@ export function CredentialVerifySection({
   const [modelsState, setModelsState] = useState<ModelsState>({ phase: 'idle' })
   const [chatState, setChatState] = useState<ChatState>({ phase: 'idle' })
   const [selectedModel, setSelectedModel] = useState('')
+  const request = useRef<AbortController | null>(null)
+  const busy = modelsState.phase === 'loading' || chatState.phase === 'loading'
+
+  useEffect(
+    () => () => {
+      const controller = request.current
+      request.current = null
+      controller?.abort()
+    },
+    []
+  )
 
   async function runModelsCheck() {
+    if (request.current) return
     setModelsState({ phase: 'loading' })
     setChatState({ phase: 'idle' })
     const controller = new AbortController()
+    request.current = controller
     const timer = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS)
     try {
       const res = await fetch(`${apiBase}/models`, {
@@ -109,15 +109,18 @@ export function CredentialVerifySection({
         signal: controller.signal,
       })
       if (!res.ok) {
-        setModelsState({
-          phase: 'fail',
-          message: `HTTP ${res.status}: ${await readErrorMessage(res)}`,
-        })
+        const message = `HTTP ${res.status}: ${await readErrorMessage(res)}`
+        if (request.current === controller)
+          setModelsState({
+            phase: 'fail',
+            message,
+          })
         return
       }
       const body = modelsResponseSchema.safeParse(
         await res.json().catch(() => null)
       )
+      if (request.current !== controller) return
       if (!body.success) {
         setModelsState({
           phase: 'fail',
@@ -131,19 +134,22 @@ export function CredentialVerifySection({
         current && models.includes(current) ? current : (models[0] ?? '')
       )
     } catch (error) {
+      if (request.current !== controller) return
       setModelsState({
         phase: 'fail',
         message: classifyFetchError(error, t('connect.verify.timeout')).message,
       })
     } finally {
       clearTimeout(timer)
+      if (request.current === controller) request.current = null
     }
   }
 
   async function runChatCheck() {
-    if (!selectedModel) return
+    if (!selectedModel || request.current) return
     setChatState({ phase: 'loading' })
     const controller = new AbortController()
+    request.current = controller
     const timer = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS)
     const started = performance.now()
     try {
@@ -153,8 +159,7 @@ export function CredentialVerifySection({
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        // Minimal real generation: proves the dispatch/transform/billing
-        // chain at the smallest billable shape.
+        // Keep the connectivity check short.
         body: JSON.stringify({
           model: selectedModel,
           messages: [{ role: 'user', content: 'ping' }],
@@ -165,16 +170,19 @@ export function CredentialVerifySection({
       })
       const latencyMs = Math.round(performance.now() - started)
       if (!res.ok) {
-        setChatState({
-          phase: 'fail',
-          status: res.status,
-          message: await readErrorMessage(res),
-        })
+        const message = await readErrorMessage(res)
+        if (request.current === controller)
+          setChatState({
+            phase: 'fail',
+            status: res.status,
+            message,
+          })
         return
       }
       const body = chatResponseSchema.safeParse(
         await res.json().catch(() => null)
       )
+      if (request.current !== controller) return
       if (!body.success) {
         setChatState({
           phase: 'fail',
@@ -185,12 +193,14 @@ export function CredentialVerifySection({
       }
       setChatState({ phase: 'ok', latencyMs })
     } catch (error) {
+      if (request.current !== controller) return
       setChatState({
         phase: 'fail',
         ...classifyFetchError(error, t('connect.verify.timeout')),
       })
     } finally {
       clearTimeout(timer)
+      if (request.current === controller) request.current = null
     }
   }
 
@@ -217,7 +227,7 @@ export function CredentialVerifySection({
         <Button
           size='sm'
           variant='outline'
-          disabled={!apiKey || modelsState.phase === 'loading'}
+          disabled={!apiKey || busy}
           onClick={() => void runModelsCheck()}
         >
           {modelsState.phase === 'loading' ? (
@@ -227,7 +237,7 @@ export function CredentialVerifySection({
         </Button>
         {modelsState.phase === 'ok' ? (
           <span className='text-muted-foreground flex items-center gap-1 text-xs'>
-            <CheckCircle2 className='text-success size-3.5' />
+            <CheckCircle2 className='text-success-soft-fg size-3.5' />
             {t('connect.verify.modelsOk', { count: modelsState.models.length })}
           </span>
         ) : null}
@@ -247,7 +257,11 @@ export function CredentialVerifySection({
                   label: model,
                 }))}
                 value={selectedModel}
-                onValueChange={(value) => setSelectedModel(value ?? '')}
+                disabled={busy}
+                onValueChange={(value) => {
+                  setSelectedModel(value ?? '')
+                  setChatState({ phase: 'idle' })
+                }}
               >
                 <SelectTrigger
                   size='sm'
@@ -266,7 +280,7 @@ export function CredentialVerifySection({
               </Select>
               <Button
                 size='sm'
-                disabled={!selectedModel || chatState.phase === 'loading'}
+                disabled={!selectedModel || busy}
                 onClick={() => void runChatCheck()}
               >
                 {chatState.phase === 'loading' ? (
@@ -279,7 +293,7 @@ export function CredentialVerifySection({
 
           {chatState.phase === 'ok' ? (
             <div className='flex flex-wrap items-center gap-2'>
-              <span className='text-success flex items-center gap-1 text-xs'>
+              <span className='text-success-soft-fg flex items-center gap-1 text-xs'>
                 <CheckCircle2 className='size-3.5' />
                 {t('connect.verify.chatOk', { ms: chatState.latencyMs })}
               </span>
@@ -288,7 +302,7 @@ export function CredentialVerifySection({
           ) : null}
           {chatState.phase === 'fail' ? (
             <div className='space-y-2'>
-              <p className='text-destructive flex items-start gap-1 text-xs break-all'>
+              <p className='text-destructive-soft-fg flex items-start gap-1 text-xs break-all'>
                 <XCircle className='mt-0.5 size-3.5 shrink-0' />
                 <span>
                   {chatState.status !== null
@@ -304,7 +318,7 @@ export function CredentialVerifySection({
 
       {modelsState.phase === 'fail' ? (
         <div className='space-y-2 border-t pt-2'>
-          <p className='text-destructive flex items-start gap-1 text-xs break-all'>
+          <p className='text-destructive-soft-fg flex items-start gap-1 text-xs break-all'>
             <XCircle className='mt-0.5 size-3.5 shrink-0' />
             <span>{modelsState.message}</span>
           </p>

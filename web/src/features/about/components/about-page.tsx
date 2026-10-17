@@ -164,7 +164,7 @@ export function AboutPage() {
   const authorUrl = `https://github.com/${info.author}`
 
   return (
-    <div className='mx-auto w-full max-w-4xl space-y-6 p-6'>
+    <div className='page-padding mx-auto w-full max-w-4xl space-y-6'>
       <div className='space-y-1'>
         <h1 className='page-title-overview'>{t('about.title')}</h1>
         <p className='text-muted-foreground text-sm'>

@@ -33,9 +33,10 @@ type BadgeListCellProps = {
 /** Negative margin cancels the badge's own `px-1.5` so text lines up with the header. */
 const CELL_CLASS = '-ml-1.5 max-w-full'
 const TOOLTIP_CLASS =
-  'border-border bg-popover max-h-48 max-w-80 overflow-y-auto p-2'
+  'border-border bg-popover text-popover-foreground max-h-48 max-w-80 overflow-y-auto p-2'
 
 export function BadgeListCell({ items, max = 2 }: BadgeListCellProps) {
+  const tooltipId = React.useId()
   if (items.length === 0) {
     return <span className='text-muted-foreground text-xs'>—</span>
   }
@@ -45,7 +46,15 @@ export function BadgeListCell({ items, max = 2 }: BadgeListCellProps) {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger render={<div className={CELL_CLASS} />}>
+        <TooltipTrigger
+          render={
+            <div
+              className={CELL_CLASS}
+              tabIndex={overflow > 0 ? 0 : undefined}
+              aria-describedby={overflow > 0 ? tooltipId : undefined}
+            />
+          }
+        >
           {/* Rendered as the caller's own elements, keys and all: wrapping each
               in a Fragment would mean inventing a key for nodes that already
               have one. */}
@@ -55,7 +64,12 @@ export function BadgeListCell({ items, max = 2 }: BadgeListCellProps) {
           </div>
         </TooltipTrigger>
         {overflow > 0 && (
-          <TooltipContent side='top' className={TOOLTIP_CLASS}>
+          <TooltipContent
+            id={tooltipId}
+            role='tooltip'
+            side='top'
+            className={TOOLTIP_CLASS}
+          >
             <div className='flex flex-wrap gap-1'>{items}</div>
           </TooltipContent>
         )}

@@ -65,6 +65,7 @@ const PROXY_MODELS_SECTIONS = [
   },
   {
     id: 'rates',
+    wide: true,
     title: 'settings.proxyModels.rates.title',
     description: 'settings.proxyModels.rates.description',
     build: () => createElement(LazyRatesSection),

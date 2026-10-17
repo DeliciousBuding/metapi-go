@@ -45,7 +45,7 @@ export function ObservabilityPage({
 
   return (
     <ObservabilityAutoRefreshProvider>
-      <div className='flex flex-col gap-6 p-6'>
+      <div className='page-padding flex flex-col gap-6'>
         <header className='flex flex-wrap items-start justify-between gap-3'>
           <div className='flex flex-col gap-1'>
             <h1 className='page-title-overview'>{t('observability.title')}</h1>

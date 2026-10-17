@@ -4,7 +4,7 @@
 **Scope**: Enterprise ops control plane (sites, accounts, tokens, routes, monitors, logs)
 **Visual language**: GCP cloud console density + frosted glass shell + Apple detail
 **Source of truth**: this document + `web/src/styles/theme.css` + `web/src/styles/theme-presets.css` + `web/src/lib/theme-customization.ts` + `web/src/components/ui/**`
-**Last updated**: 2026-10-15
+**Last updated**: 2026-10-18
 
 ---
 
@@ -114,7 +114,11 @@ rebuild these arrangements with local spacing and raw data editors:
 
 - `components/common/page-header.tsx`: standard list/settings/tool page title,
   description and wrapping actions. Overview pages retain their overview
-  hierarchy. Page containers continue to own scrolling.
+  hierarchy. Page containers use `page-padding` (16px on small screens, 24px
+  from `md`) and continue to own scrolling. Sheet headers reserve space for the
+  close button; long detail titles wrap within that space. Model details focus
+  the title on opening so the first action below the content does not scroll
+  the header out of view.
 - `components/data-table/toolbar/toolbar.tsx`: separate query and view/action
   groups, with expanded filters in their own region. The desktop and mobile
   empty states share `core/empty-state.tsx`; page-owned filters participate in
@@ -133,6 +137,19 @@ rebuild these arrangements with local spacing and raw data editors:
   confirmation. JSON paste is collapsed by default. Counts use labeled summary
   cells; compatibility failures precede details, and omitted/adapted data
   requires acknowledgement. Raw field names are not primary UI labels.
+
+模型列表的接口与能力使用轻量文字，每列最多显示两项，其余内容可悬停或键盘
+聚焦查看。徽章用于弃用等状态。手机卡片保留模型品牌图标，操作菜单位于标题
+旁；描述使用普通字重，品牌文字保留在桌面列中。模型名称直接打开详情，支持
+键盘和触摸操作，关闭详情后焦点返回原入口。详情顶部提供复制模型名与测试入口，
+长说明在正文中按需展开。
+
+概览时间选择与刷新共用一行，按钮直接显示当前选择。指标在手机上按两列排列，
+末项费用占满一行；宽屏保留五列。统计口径与记录起点集中在指标下方说明，
+趋势图副标题显示所选时段。视觉验收以中文桌面与窄屏为主，英文检查长文案布局。
+
+共享分页按表格容器宽度切换：窄处显示当前页、总页数和前后翻页，宽处提供页码
+直达与首尾页按钮。条数与导航分组允许换行，控件与焦点轮廓完整可见。
 
 ### Upstream connections and access
 
@@ -274,9 +291,15 @@ Fallback: `supports-[backdrop-filter]` gates translucency so browsers without `b
 
 ### 3.1 Reading hierarchy and controls
 
-The common reading roles are page title (24px; overview 30px), section/card title (`text-base` semibold), KPI (`text-xl` to `text-3xl` monospace semibold with tabular numerals and `leading-tight`), table header (`text-xs` semibold), row body (`text-sm`), and field label (`text-xs` muted). Do not use opacity on tiny sidebar section labels: their foreground must stay readable. The active nav link must forward both `data-active` and `aria-current=page` through its Link bridge, so visible selection and the accessibility announcement agree. These are component-owned roles, not a second parallel set of typography tokens.
+The base UI text is 14px. Page titles use 24px (overview display titles 30px), section/card titles 16px semibold, field labels and row bodies 14px, and form help and table headers 12px. Sortable headers keep the same size and weight as plain headers. KPI values use the body face with semibold tabular numerals at 20–30px; monospace is reserved for code, keys and technical identifiers. User-selected font and density settings still apply.
 
-Model names use the shared `ModelPill` identity: a vendored brand glyph beside the full model identifier, with truncation and a full-name tooltip. Use its pill variant in dense records and its inline variant in selectors, rankings and headings where another container already supplies the surface. Unknown models keep a deterministic lettermark; never borrow an unrelated vendor logo. Decorative glyphs are hidden from assistive technology so a selectable model keeps its exact accessible name. Aggregates such as Other are not model identities. Status badges remain separate from brand identity.
+Table-toolbar search, filters, column settings and reset controls share the 32px compact size. Form inputs retain the 36px default size. Settings forms have an 896px maximum page width; rate tables and log readers opt into full width through section metadata. Creation feedback uses the next dialog when it opens immediately, leaving its heading unobscured.
+
+The Connect dialog keeps the endpoint and key visible above two tabs: request verification and client setup. Client profiles show their preview only after the key is revealed; copy actions remain available while masked.
+
+Sidebar section labels keep readable foreground colors. Active navigation forwards both `data-active` and `aria-current=page` through its Link bridge. Reading roles belong to the shared components.
+
+Model names use the shared `ModelPill` identity: a vendored brand glyph beside the full model identifier, with truncation and a full-name tooltip. Use its pill variant in dense records and its inline variant in selectors, rankings and headings where another container already supplies the surface. Unknown models keep a deterministic lettermark using the secondary surface and foreground pair; never borrow an unrelated vendor logo. Decorative glyphs are hidden from assistive technology so a selectable model keeps its exact accessible name. Aggregates such as Other are not model identities. Status badges remain separate from brand identity.
 
 Proxy-log failure reasons use the shared keyboard-operable two-line disclosure. On mobile, status and failure copy occupy a full-width labeled field below the timestamp. Row Enter/Space shortcuts ignore nested interactive controls. Timing is a two-row label/value display shared by the list and detail sheet: response-header TTFB and complete attempt duration remain distinct, with missing measurements shown as unknown. Account editing uses semibold field labels and 24px form spacing with the shared form-control primitives.
 

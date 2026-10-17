@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { CalendarDays, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -74,45 +74,36 @@ export function OverviewSection() {
         accountCount={accounts ?? undefined}
         upstreamChannelCount={data?.upstreamChannelCount ?? undefined}
       />
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div className='text-muted-foreground flex items-center gap-2 text-sm'>
-          <CalendarDays className='size-4' aria-hidden='true' />
-          <span>{t('dashboard.operations.rangeLabel')}</span>
-          <span className='text-foreground font-medium'>
-            {t(`dashboard.operations.period.${period}`)}
-          </span>
+      <div className='flex min-w-0 items-center gap-2'>
+        <div
+          role='group'
+          aria-label={t('dashboard.operations.rangeLabel')}
+          className='bg-muted grid min-w-0 flex-1 grid-cols-4 gap-1 rounded-lg p-1 sm:flex-none'
+        >
+          {PERIODS.map((value) => (
+            <Button
+              key={value}
+              size='sm'
+              variant={period === value ? 'secondary' : 'ghost'}
+              aria-pressed={period === value}
+              onClick={() => selectPeriod(value)}
+              className='h-7 min-w-0 shrink px-1 text-xs leading-3 whitespace-normal sm:px-3 sm:text-sm sm:leading-5'
+            >
+              {t(`dashboard.operations.period.${value}`)}
+            </Button>
+          ))}
         </div>
-        <div className='flex flex-wrap items-center gap-2'>
-          <div
-            role='group'
-            aria-label={t('dashboard.operations.rangeLabel')}
-            className='bg-muted flex items-center gap-1 rounded-lg p-1'
-          >
-            {PERIODS.map((value) => (
-              <Button
-                key={value}
-                size='sm'
-                variant={period === value ? 'secondary' : 'ghost'}
-                aria-pressed={period === value}
-                onClick={() => selectPeriod(value)}
-                className='h-7 px-3'
-              >
-                {t(`dashboard.operations.period.${value}`)}
-              </Button>
-            ))}
-          </div>
-          <Button
-            variant='outline'
-            size='icon'
-            aria-label={t('dashboard.operations.refresh')}
-            disabled={report.isFetching}
-            onClick={() => void report.refetch()}
-          >
-            <RefreshCw
-              className={report.isFetching ? 'size-4 animate-spin' : 'size-4'}
-            />
-          </Button>
-        </div>
+        <Button
+          variant='outline'
+          size='icon'
+          aria-label={t('dashboard.operations.refresh')}
+          disabled={report.isFetching}
+          onClick={() => void report.refetch()}
+        >
+          <RefreshCw
+            className={report.isFetching ? 'size-4 animate-spin' : 'size-4'}
+          />
+        </Button>
       </div>
       <RequestMetrics period={period} />
       <div className='grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]'>

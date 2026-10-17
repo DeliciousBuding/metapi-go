@@ -33,14 +33,6 @@ function normalizeInput(value: string): string {
     .toLowerCase()
 }
 
-const FALLBACK_COLORS = [
-  'var(--color-chart-1)',
-  'var(--color-chart-2)',
-  'var(--color-chart-3)',
-  'var(--color-chart-4)',
-  'var(--color-chart-5)',
-]
-
 export function normalizeBrandIconKey(
   icon: string | null | undefined
 ): string | null {
@@ -57,12 +49,6 @@ export function getBrandIconUrl(
   if (!normalized) return null
   if (normalized === 'new-api') return newApiLogo
   return BRAND_ICONS[normalized]?.[variant] ?? null
-}
-
-export function hashColor(name: string): string {
-  let h = 0
-  for (let i = 0; i < name.length; i += 1) h = (h * 31 + name.charCodeAt(i)) | 0
-  return FALLBACK_COLORS[Math.abs(h) % FALLBACK_COLORS.length]
 }
 
 export function avatarLetters(name: string): string {

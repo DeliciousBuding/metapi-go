@@ -264,9 +264,7 @@ function DonutTooltip({
             className='flex justify-between gap-3 leading-none'
           >
             <span className='text-muted-foreground'>{row.label}</span>
-            <span className='font-mono font-medium tabular-nums'>
-              {row.value}
-            </span>
+            <span className='font-medium tabular-nums'>{row.value}</span>
           </div>
         ))}
       </div>

@@ -292,7 +292,7 @@ export function SiteAnnouncementsPage() {
   // --- Render ------------------------------------------------------------------
 
   return (
-    <div className='flex flex-col gap-4 p-4 md:p-6'>
+    <div className='page-padding flex flex-col gap-4'>
       <PageHeader
         title={t('siteAnnouncements.page.title')}
         description={t('siteAnnouncements.page.description')}

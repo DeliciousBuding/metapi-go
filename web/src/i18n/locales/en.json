@@ -6,7 +6,7 @@
       "history": "Attempt records",
       "historyHint": "Attempt records are not request outcomes. Unlinked historical records have an unknown request outcome.",
       "backToRequests": "View request outcomes",
-      "observedHint": "Protocol completion observed by the gateway, not proof of delivery to the client application.",
+      "observedHint": "Completion is based on protocol outcomes recorded by the gateway.",
       "detailTitle": "Request details",
       "copyId": "Copy internal request ID",
       "copyFailed": "Could not copy the request ID",
@@ -43,7 +43,7 @@
       "attemptError": "Could not load attempt billing details: {{message}}",
       "emptyTitle": "No recorded requests in this view",
       "emptyDescription": "Try another time range or check your model routing. Earlier attempt records remain available from Attempt records.",
-      "coverage": "Request records available since {{time}}. Missing records are not counted as completed; earlier attempts use a separate view.",
+      "coverage": "Request records available since {{time}}; earlier data is in the attempt view.",
       "noCoverage": "No request coverage start has been recorded. Earlier attempt records remain separate.",
       "completionRate": "Request completion rate",
       "requestCount": "Recorded requests",
@@ -367,7 +367,8 @@
         "outputPrice": "out ${{price}}/M",
         "unknownUser": "Unknown user",
         "availableAccounts": "Available accounts",
-        "openTester": "Open tester"
+        "openTester": "Open tester",
+        "copyName": "Copy model name"
       },
       "columns": {
         "brand": "Brand",
@@ -1706,8 +1707,6 @@
           },
           "toast": {
             "created": "API key created.",
-            "createdConnectHint": "Connect a client right away: copy the key or use a one-click import.",
-            "connectAction": "Connect now",
             "createFailed": "Failed to create API key.",
             "updated": "API key updated.",
             "updateFailed": "Failed to update API key.",
@@ -3452,6 +3451,8 @@
     "Resize column": "Resize column",
     "Total:": "Total:",
     "Rows per page": "Rows per page",
+    "Pagination": "Pagination",
+    "Page {{current}} of {{total}}": "Page {{current}} of {{total}}",
     "Go to first page": "Go to first page",
     "Go to previous page": "Go to previous page",
     "Go to page {{page}}": "Go to page {{page}}",
@@ -4193,6 +4194,8 @@
       "errorInvalid": "Token rejected. Check the value and try again."
     },
     "connect": {
+      "verifyTab": "Test request",
+      "clientsTab": "Client setup",
       "title": "Connect {{name}}",
       "description": "Copy the gateway endpoint and key, or import into a client with one click.",
       "endpointLabel": "Gateway endpoint",
@@ -4219,7 +4222,7 @@
       "copyFailed": "Copy failed — clipboard unavailable.",
       "verify": {
         "title": "Verify the connection",
-        "description": "List models with this key, then send one non-streaming Chat request. Generation consumes quota and is logged; streaming, tools, and other client protocols need separate checks.",
+        "description": "Check model access and send one non-streaming Chat request. The test uses upstream quota and is recorded in this key's logs.",
         "modelsCta": "Check available models",
         "modelsOk": "{{count}} models listed for this key",
         "noModels": "This key can call no models right now. Check its model policy and the route grants.",

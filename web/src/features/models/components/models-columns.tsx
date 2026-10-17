@@ -128,7 +128,7 @@ export function useModelsColumns(
         // server-side sort whitelist deliberately has no brand column.
         enableSorting: false,
         size: 160,
-        meta: { mobileOrder: 0, mobileBadge: true },
+        meta: { mobileOrder: 0, mobileHidden: true },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -140,7 +140,7 @@ export function useModelsColumns(
           const brandName = resolveBrandName(modelName)
           return (
             <div className='flex items-center gap-2'>
-              <span className='text-sm font-medium'>
+              <span className='text-muted-foreground text-sm'>
                 {brandName || t('models.columns.unknownBrand')}
               </span>
             </div>
@@ -168,13 +168,20 @@ export function useModelsColumns(
         cell: ({ row }) => {
           const model = row.original
           return (
-            <div className='flex flex-col'>
-              <div className='flex items-center gap-2'>
-                <ModelPill
-                  model={model.name}
-                  variant='inline'
-                  className='text-sm'
-                />
+            <div className='flex min-w-0 flex-col gap-0.5'>
+              <div className='flex min-w-0 items-center gap-2'>
+                <Button
+                  variant='link'
+                  aria-label={`${t('models.actions.viewDetails')}: ${model.name}`}
+                  className='text-foreground h-auto max-w-full min-w-0 justify-start p-0 text-left hover:no-underline max-[640px]:min-h-10'
+                  onClick={() => actions.onView(model)}
+                >
+                  <ModelPill
+                    model={model.name}
+                    variant='inline'
+                    className='text-sm'
+                  />
+                </Button>
                 {model.deprecated ? (
                   <Badge
                     variant='outline'
@@ -185,7 +192,7 @@ export function useModelsColumns(
                 ) : null}
               </div>
               {model.description ? (
-                <TruncatedCell className='text-muted-foreground max-w-80 text-xs'>
+                <TruncatedCell className='text-muted-foreground max-w-80 text-xs leading-5 font-normal'>
                   {model.description}
                 </TruncatedCell>
               ) : null}
@@ -213,11 +220,11 @@ export function useModelsColumns(
           return (
             <BadgeListCell
               items={endpointTypes.map((type) => (
-                <Badge key={type} variant='outline' className='gap-1'>
+                <span key={type} className='shrink-0 px-1.5 text-xs'>
                   {type}
-                </Badge>
+                </span>
               ))}
-              max={3}
+              max={2}
             />
           )
         },
@@ -251,11 +258,14 @@ export function useModelsColumns(
           return (
             <BadgeListCell
               items={tags.map((tag) => (
-                <Badge key={tag} variant='secondary' className='gap-1'>
+                <span
+                  key={tag}
+                  className='text-muted-foreground shrink-0 px-1.5 text-xs'
+                >
                   {tag}
-                </Badge>
+                </span>
               ))}
-              max={3}
+              max={2}
             />
           )
         },
@@ -433,7 +443,11 @@ export function useModelsColumns(
         enableSorting: false,
         enableHiding: false,
         enableResizing: false,
-        meta: { mobileHidden: false, mobileOrder: 5 },
+        meta: {
+          mobileHidden: false,
+          mobileOrder: 5,
+          mobileActionsInHeader: true,
+        },
         header: () => (
           <span className='text-muted-foreground text-xs'>
             {t('models.columns.actions')}

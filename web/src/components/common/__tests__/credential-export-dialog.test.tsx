@@ -1,56 +1,27 @@
-// Behavior test for the credential-export dialog's verify entry. The
-// onboarding journey's final step ("prove the key works") lives INSIDE the
-// dialog: after the master-token unlock the dialog holds the plain key, and
-// the verify section runs the two real requests from the browser (the real
-// client path). The old footer escape hatch to the channel-level model
-// tester was removed — it tested channels with admin credentials, never the
-// key the operator just created.
-//
-// Mocks react-query (stable data surface) and the router Link (assertion
-// targets user-visible markup, not router context).
-
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
+import { api } from '@/lib/api'
+import { copyText } from '@/lib/clipboard'
 
 import { CredentialExportDialog } from '../credential-export-dialog'
 
-const { mockUseQuery } = vi.hoisted(() => ({
-  mockUseQuery: vi.fn(),
-}))
-
-vi.mock('@tanstack/react-query', () => ({
-  useQuery: mockUseQuery,
-}))
-
-// The real TanStack Router Link needs a router context; render a plain
-// anchor so the href is queryable via role=link + accessible name.
+vi.mock('@/lib/api', () => ({ api: { getDownstreamKeyExport: vi.fn() } }))
+vi.mock('@/lib/clipboard', () => ({ copyText: vi.fn() }))
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    search,
-    children,
-  }: {
-    to: string
-    search?: Record<string, unknown>
-    children: ReactNode
-  }) => {
-    const query = search
-      ? '?' + new URLSearchParams(search as Record<string, string>).toString()
-      : ''
-    return <a href={to + query}>{children}</a>
-  },
-}))
-
-// Toast helpers pull in sonner; stub them so no portal side effects run.
-vi.mock('@/lib/toast', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
+  Link: ({ to, children }: { to: string; children: ReactNode }) => (
+    <a href={to}>{children}</a>
+  ),
 }))
 
 const exportData = {
@@ -67,59 +38,135 @@ const exportData = {
     },
   ],
 }
+const target = { id: 1, name: 'demo-key', keyMasked: 'sk-***' }
+const getExport = vi.mocked(api.getDownstreamKeyExport)
 
-beforeAll(() => {
-  // Base UI primitives query matchMedia for reduced-motion/pointer tests.
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  })
+beforeEach(() => {
+  getExport.mockReset()
+  getExport.mockResolvedValue(exportData)
+  vi.mocked(copyText).mockReset().mockResolvedValue(true)
 })
-
-afterEach(() => cleanup())
+afterEach(cleanup)
 
 function renderDialog() {
-  mockUseQuery.mockReturnValue({
-    isLoading: false,
-    isError: false,
-    data: exportData,
-    refetch: vi.fn(),
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
   })
-  render(
-    <CredentialExportDialog
-      target={{ id: 1, name: 'demo-key', keyMasked: 'sk-***' }}
-      onOpenChange={() => {}}
-    />
+  const view = render(
+    <QueryClientProvider client={client}>
+      <CredentialExportDialog target={target} onOpenChange={() => {}} />
+    </QueryClientProvider>
   )
-  // Unlock: the verify section (and the profiles) only render once the
-  // master token is presented.
+  return {
+    client,
+    rerender: (next: typeof target | null) =>
+      view.rerender(
+        <QueryClientProvider client={client}>
+          <CredentialExportDialog target={next} onOpenChange={() => {}} />
+        </QueryClientProvider>
+      ),
+  }
+}
+
+function unlock(token = 'master-token') {
   fireEvent.change(screen.getByPlaceholderText('Paste the admin token'), {
-    target: { value: 'master-token' },
+    target: { value: token },
   })
   fireEvent.click(screen.getByRole('button', { name: 'Unlock' }))
 }
 
-describe('CredentialExportDialog verify entry', () => {
-  it('renders the verify section after unlock, and no channel-tester link', async () => {
+describe('CredentialExportDialog', () => {
+  it('keeps the copy action available without a success check when clipboard access fails', async () => {
+    vi.mocked(copyText).mockResolvedValue(false)
     renderDialog()
+    unlock()
+    const copy = await screen.findByRole('button', {
+      name: 'Copy API key',
+    })
+    fireEvent.click(copy)
+    await waitFor(() => expect(copyText).toHaveBeenCalledWith('sk-plain-demo'))
+    await waitFor(() => expect(copy.querySelector('.lucide-check')).toBeNull())
+  })
 
-    expect(await screen.findByText('Verify the connection')).toBeInTheDocument()
+  it('announces a successful key copy through the button accessible name', async () => {
+    renderDialog()
+    unlock()
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy API key' }))
     expect(
-      screen.getByRole('button', { name: 'Check available models' })
-    ).toBeInTheDocument()
-    // The old footer escape hatch tested channels with admin credentials —
-    // it must not come back next to a key-scoped verify.
+      await screen.findByRole('button', { name: 'API key copied' })
+    ).toBeVisible()
+  })
+
+  it('unlocks into request verification and keeps client exports in their own tab', async () => {
+    renderDialog()
+    expect(getExport).not.toHaveBeenCalled()
+    unlock()
+    expect(await screen.findByText('Verify the connection')).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Test request' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.queryByRole('button', { name: 'Cherry Studio' })).toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: 'Client setup' }))
+    expect(
+      await screen.findByRole('button', { name: 'Cherry Studio' })
+    ).toBeVisible()
+    expect(screen.queryByText('sk-plain-demo')).toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: 'Test request' }))
+    expect(screen.getByText('Verify the connection')).toBeVisible()
+    expect(getExport).toHaveBeenCalledWith(1, 'all', 'master-token')
     expect(
       screen.queryByRole('link', { name: 'Send a test request' })
     ).toBeNull()
+  })
+
+  it('retries with the corrected admin token after rejection', async () => {
+    getExport.mockRejectedValueOnce({
+      response: { data: { reauthRequired: true } },
+    })
+    renderDialog()
+    unlock('wrong-token')
+    await screen.findByText('Token rejected. Check the value and try again.')
+    unlock('correct-token')
+    expect(await screen.findByText('Verify the connection')).toBeInTheDocument()
+    expect(getExport.mock.calls.map((call) => call[2])).toEqual([
+      'wrong-token',
+      'correct-token',
+    ])
+  })
+
+  it('relocks when switching keys without fetching the new credential', async () => {
+    const view = renderDialog()
+    unlock()
+    await screen.findByText('Verify the connection')
+    view.rerender({ id: 2, name: 'second-key', keyMasked: 'sk-second' })
+    expect(screen.getByPlaceholderText('Paste the admin token')).toHaveValue('')
+    expect(screen.queryByText('Verify the connection')).not.toBeInTheDocument()
+    expect(getExport).toHaveBeenCalledTimes(1)
+  })
+
+  it('drops exported credentials on close and requires a fresh request after reopening', async () => {
+    const view = renderDialog()
+    unlock()
+    await screen.findByText('Verify the connection')
+    view.rerender(null)
+    await waitFor(() => {
+      expect(view.client.getQueryCache().getAll()).toHaveLength(0)
+      expect(view.client.getMutationCache().getAll()).toHaveLength(0)
+    })
+    view.rerender(target)
+    expect(screen.getByPlaceholderText('Paste the admin token')).toHaveValue('')
+    expect(screen.queryByText('Verify the connection')).not.toBeInTheDocument()
+    unlock()
+    await waitFor(() => expect(getExport).toHaveBeenCalledTimes(2))
+  })
+
+  it('can retry a failed export without losing the submitted token', async () => {
+    getExport.mockRejectedValueOnce(new Error('temporarily unavailable'))
+    renderDialog()
+    unlock()
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('Verify the connection')).toBeInTheDocument()
+    expect(getExport).toHaveBeenLastCalledWith(1, 'all', 'master-token')
   })
 })

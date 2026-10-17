@@ -5,7 +5,7 @@
 // wire calls (URL, Authorization header, body shape).
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import {
   afterEach,
@@ -83,6 +83,80 @@ function renderSection() {
 }
 
 describe('CredentialVerifySection', () => {
+  it('clears the previous chat result when selecting another model', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse(200, { data: [{ id: 'gpt-5.5' }, { id: 'claude-x' }] })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, { choices: [{ message: { role: 'assistant' } }] })
+      )
+    renderSection()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Check available models' })
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Send a test chat' })
+    )
+    await screen.findByText(/Succeeded in/)
+    fireEvent.click(screen.getByRole('combobox'))
+    const option = await screen.findByRole('option', { name: 'claude-x' })
+    fireEvent.pointerDown(option, { pointerType: 'mouse' })
+    fireEvent.click(option)
+    expect(screen.getByRole('combobox')).toHaveTextContent('claude-x')
+    expect(screen.queryByText(/Succeeded in/)).not.toBeInTheDocument()
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the tested model fixed and blocks another check while chat is pending', async () => {
+    let finish!: (response: Response) => void
+    const pending = new Promise<Response>((resolve) => {
+      finish = resolve
+    })
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse(200, { data: [{ id: 'gpt-5.5' }, { id: 'claude-x' }] })
+      )
+      .mockReturnValueOnce(pending)
+    renderSection()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Check available models' })
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Send a test chat' })
+    )
+    expect(screen.getByRole('combobox')).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Check available models' })
+    ).toBeDisabled()
+    await act(async () =>
+      finish(
+        jsonResponse(200, {
+          choices: [{ message: { role: 'assistant', content: 'pong' } }],
+        })
+      )
+    )
+    expect(screen.getByRole('combobox')).not.toBeDisabled()
+  })
+
+  it('aborts a pending check when the dialog closes', async () => {
+    let finish!: (response: Response) => void
+    const pending = new Promise<Response>((resolve) => {
+      finish = resolve
+    })
+    mockFetch.mockReturnValueOnce(pending)
+    const view = renderSection()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Check available models' })
+    )
+    const signal = (mockFetch.mock.calls[0][1] as RequestInit).signal
+    view.unmount()
+    expect(signal?.aborted).toBe(true)
+    await act(async () =>
+      finish(jsonResponse(200, { data: [{ id: 'late-model' }] }))
+    )
+  })
+
   it('runs the models smoke with the key and reports the listed count', async () => {
     mockFetch.mockResolvedValue(
       jsonResponse(200, { data: [{ id: 'gpt-5.5' }, { id: 'claude-x' }] })

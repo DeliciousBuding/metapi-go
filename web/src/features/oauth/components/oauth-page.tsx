@@ -294,7 +294,7 @@ export function OAuthPage() {
   }))
 
   return (
-    <div className='flex h-full flex-col gap-3 p-4'>
+    <div className='page-padding flex h-full flex-col gap-3'>
       <PageHeader
         title={t('oauth.page.title')}
         description={t('oauth.page.description')}

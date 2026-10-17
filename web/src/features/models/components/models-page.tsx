@@ -256,15 +256,17 @@ export function ModelsPage() {
     t,
   ])
 
-  const columns = useModelsColumns({
-    onView: (model) => {
-      setViewingModel(model)
-    },
-    onTest: (model) => {
-      const params = new URLSearchParams({ model: model.name })
-      navigate({ href: `/model-tester?${params.toString()}` })
-    },
-  })
+  const columnActions = useMemo(
+    () => ({
+      onView: setViewingModel,
+      onTest: (model: ModelRow) => {
+        const params = new URLSearchParams({ model: model.name })
+        navigate({ href: `/model-tester?${params.toString()}` })
+      },
+    }),
+    [navigate]
+  )
+  const columns = useModelsColumns(columnActions)
 
   const { table } = useDataTable<ModelRow>({
     data: modelsPageQuery.data?.items ?? [],
@@ -347,7 +349,7 @@ export function ModelsPage() {
   )
 
   return (
-    <div className='flex h-full flex-col gap-3 p-4'>
+    <div className='page-padding flex h-full flex-col gap-3'>
       <PageHeader
         title={t('models.page.title')}
         description={t('models.page.description')}

@@ -40,7 +40,7 @@
     @apply overflow-x-hidden;
   }
   body {
-    @apply bg-background text-foreground has-[div[data-variant='inset']]:bg-sidebar min-h-svh w-full;
+    @apply bg-background text-foreground has-[div[data-variant='inset']]:bg-sidebar min-h-svh w-full text-sm;
     /* Font is driven by the theme's font axis via `--font-body`
      * (defined in theme.css, swapped by `[data-theme-font='...']` blocks
      * in theme-presets.css). Defaults to the project's humanist sans. */
@@ -425,6 +425,10 @@
  * boundary) use `page-title-overview` for their display heading. */
 @utility page-title {
   @apply text-2xl leading-tight font-semibold tracking-tight text-balance;
+}
+
+@utility page-padding {
+  @apply p-4 md:p-6;
 }
 
 @utility page-title-overview {

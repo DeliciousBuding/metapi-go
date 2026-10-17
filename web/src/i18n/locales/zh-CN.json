@@ -6,7 +6,7 @@
       "history": "尝试记录",
       "historyHint": "尝试记录不代表请求终态。未关联的历史记录，其请求结果未知。",
       "backToRequests": "查看请求结果",
-      "observedHint": "表示网关观察到的协议处理结果，不证明客户端应用已收到全部回复。",
+      "observedHint": "完成率按网关记录的协议处理结果统计。",
       "detailTitle": "请求详情",
       "copyId": "复制内部请求 ID",
       "copyFailed": "无法复制请求 ID",
@@ -43,7 +43,7 @@
       "attemptError": "无法加载尝试计费详情：{{message}}",
       "emptyTitle": "当前范围内暂无请求记录",
       "emptyDescription": "可调整时间范围或检查模型路由。更早的记录仍可从“尝试记录”查看。",
-      "coverage": "请求记录起点：{{time}}。缺失记录不计为完成；此前尝试记录单独展示。",
+      "coverage": "请求记录起点：{{time}}；更早的数据见尝试记录。",
       "noCoverage": "尚未记录请求覆盖起点，历史尝试记录仍单独保留。",
       "completionRate": "请求完成率",
       "requestCount": "已记录请求",
@@ -367,7 +367,8 @@
         "outputPrice": "输出 ${{price}}/M",
         "unknownUser": "未知用户",
         "availableAccounts": "可用账号",
-        "openTester": "打开测试器"
+        "openTester": "打开测试器",
+        "copyName": "复制模型名"
       },
       "columns": {
         "brand": "品牌",
@@ -1303,8 +1304,8 @@
         "refresh": "刷新统计",
         "period": {
           "24h": "24 小时",
-          "7d": "最近一周",
-          "30d": "最近 30 天",
+          "7d": "近 7 天",
+          "30d": "近 30 天",
           "all": "全部"
         },
         "trendWindow": "{{period}} · 按 UTC 时间聚合"
@@ -1706,8 +1707,6 @@
           },
           "toast": {
             "created": "API 密钥已创建。",
-            "createdConnectHint": "现在就能接入客户端：复制密钥或使用一键导入。",
-            "connectAction": "立即接入",
             "createFailed": "创建 API 密钥失败。",
             "updated": "API 密钥已更新。",
             "updateFailed": "更新 API 密钥失败。",
@@ -3452,6 +3451,8 @@
     "Resize column": "调整列宽",
     "Total:": "共计：",
     "Rows per page": "每页行数",
+    "Pagination": "分页",
+    "Page {{current}} of {{total}}": "第 {{current}} / {{total}} 页",
     "Go to first page": "第一页",
     "Go to previous page": "上一页",
     "Go to page {{page}}": "前往第 {{page}} 页",
@@ -4189,6 +4190,8 @@
       "errorInvalid": "Token 校验失败，请检查后重试。"
     },
     "connect": {
+      "verifyTab": "验证调用",
+      "clientsTab": "配置客户端",
       "title": "接入 {{name}}",
       "description": "复制网关地址与密钥，或一键导入客户端。",
       "endpointLabel": "网关接入地址",
@@ -4215,7 +4218,7 @@
       "copyFailed": "复制失败——剪贴板不可用。",
       "verify": {
         "title": "验证接入",
-        "description": "用此密钥获取模型列表，再发送一次非流式 Chat 请求。生成会消耗配额并计入日志；流式、工具调用与其他客户端协议需另行验证。",
+        "description": "检查模型列表并发送一次非流式 Chat 请求。测试会消耗上游配额，结果可在此密钥的日志中查看。",
         "modelsCta": "检查可用模型",
         "modelsOk": "此密钥列出 {{count}} 个模型",
         "noModels": "此密钥当前没有可调用的模型，请检查其模型策略与路由授权。",
