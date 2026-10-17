@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/deliciousbuding/metapi-go/app"
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service/catalogsync"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
@@ -36,9 +37,7 @@ type catalogSourceHandler struct {
 	db *sqlx.DB
 }
 
-// managerOrFallback returns the runtime manager (nil when the pricing
-// catalog is disabled) plus a standalone store so CRUD still works while the
-// catalog feature is off.
+// Data-source CRUD uses the store even when the runtime catalog is off.
 func (h *catalogSourceHandler) manager() *catalogsync.Manager {
 	return app.CatalogManager()
 }
@@ -172,13 +171,25 @@ func (h *catalogSourceHandler) sync(w http.ResponseWriter, r *http.Request) {
 func (h *catalogSourceHandler) status(w http.ResponseWriter, r *http.Request) {
 	manager := h.manager()
 	if manager == nil {
-		writeJSON(w, http.StatusConflict, map[string]any{
-			"message":  "pricing catalog is disabled (PRICING_CATALOG_ENABLED=false)",
-			"autoSync": false,
-		})
+		cfg := config.GetSafe()
+		if cfg == nil || cfg.PricingCatalogEnabled {
+			writeError(w, http.StatusServiceUnavailable, "pricing catalog runtime is unavailable")
+			return
+		}
+		sources, err := h.store().ListSources(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to read catalog sources")
+			return
+		}
+		writeJSON(w, http.StatusOK, catalogsync.SyncStatus{Enabled: false, Sources: sources})
 		return
 	}
-	writeJSON(w, http.StatusOK, manager.Status(r.Context()))
+	status, err := manager.Status(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read catalog status")
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
 }
 
 // PUT /api/models/catalog-sync/config — body {autoSync: bool}
@@ -199,5 +210,10 @@ func (h *catalogSourceHandler) updateConfig(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusInternalServerError, "failed to update auto-sync config")
 		return
 	}
-	writeJSON(w, http.StatusOK, manager.Status(r.Context()))
+	status, err := manager.Status(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read catalog status")
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
 }

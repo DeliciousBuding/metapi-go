@@ -26,6 +26,27 @@ func setupCatalogDB(t *testing.T) *store.DB {
 	return db
 }
 
+func TestManager_StatusReadFailure(t *testing.T) {
+	db := setupCatalogDB(t)
+	manager, err := NewManager(db.DB, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := manager.Status(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !status.Enabled || len(status.Sources) != 3 {
+		t.Fatalf("enabled catalog status: %+v", status)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if status, err := manager.Status(context.Background()); err == nil || status != nil {
+		t.Fatalf("closed database returned status=%+v, err=%v", status, err)
+	}
+}
+
 func TestStore_EnsureDefaultsSeedsPresetsAndLegacyURL(t *testing.T) {
 	db := setupCatalogDB(t)
 	s := NewStore(db.DB)
@@ -244,7 +265,10 @@ func TestManager_SyncAllAndSingleSourceMerge(t *testing.T) {
 	if err := manager.SetAutoSyncEnabled(ctx, false); err != nil {
 		t.Fatalf("SetAutoSyncEnabled: %v", err)
 	}
-	status = manager.Status(ctx)
+	status, err = manager.Status(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if status.AutoSync {
 		t.Error("status autoSync = true after disabling")
 	}
@@ -254,7 +278,10 @@ func TestManager_SyncAllAndSingleSourceMerge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewManager rebuild: %v", err)
 	}
-	status2 := manager2.Status(ctx)
+	status2, err := manager2.Status(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	found := false
 	for _, src := range status2.Sources {
 		if src.ID == rows[0].ID && src.LastCount == 1 && src.LastSuccessAt != nil {

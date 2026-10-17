@@ -763,6 +763,8 @@ export type CatalogSourceInput = {
 }
 
 export type CatalogSyncStatus = {
+  /** Older servers returned status only while the runtime was enabled. */
+  enabled?: boolean
   autoSync: boolean
   intervalMin: number
   snapshot: {

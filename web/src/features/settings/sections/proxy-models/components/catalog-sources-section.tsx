@@ -27,6 +27,7 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { SectionCard } from '@/components/common/section-card'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -41,6 +42,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Notice } from '@/components/ui/notice'
 import {
   Select,
   SelectContent,
@@ -291,15 +293,19 @@ export function CatalogSourcesSection() {
         title={t('settings.proxyModels.catalogSources.title')}
         description={t('settings.proxyModels.catalogSources.description')}
       >
-        <p className='text-muted-foreground text-sm'>
-          {t('settings.proxyModels.catalogSources.toast.disabled')}
-        </p>
+        <QueryErrorBanner
+          error={statusQuery.error}
+          messageKey='settings.proxyModels.catalogSources.loadError'
+          onRetry={() => void statusQuery.refetch()}
+          isRetrying={statusQuery.isFetching}
+        />
       </SectionCard>
     )
   }
 
   const status = statusQuery.data as CatalogSyncStatus
   const sources = status.sources ?? []
+  const runtimeEnabled = status.enabled !== false
   const busy = syncingId !== null
 
   // --- reorder helpers ---
@@ -434,7 +440,7 @@ export function CatalogSourcesSection() {
             <Button
               size='sm'
               onClick={() => syncAllMutation.mutate()}
-              disabled={busy}
+              disabled={busy || !runtimeEnabled}
             >
               {syncingId === 'all' ? (
                 <Spinner />
@@ -449,6 +455,19 @@ export function CatalogSourcesSection() {
         }
       >
         <div className='flex flex-col gap-4'>
+          {!runtimeEnabled && (
+            <Notice tone='info' className='block'>
+              <p className='font-medium'>
+                {t('settings.proxyModels.catalogSources.runtimeDisabled')}
+              </p>
+              <p className='mt-1'>
+                {t('settings.proxyModels.catalogSources.runtimeDisabledHint')}{' '}
+                <code className='[overflow-wrap:anywhere]'>
+                  PRICING_CATALOG_ENABLED=true
+                </code>
+              </p>
+            </Notice>
+          )}
           <div className='flex items-center justify-between gap-4 rounded-md border p-3'>
             <div className='flex flex-col gap-0.5'>
               <Label htmlFor='catalog-auto-sync'>
@@ -463,46 +482,50 @@ export function CatalogSourcesSection() {
               id='catalog-auto-sync'
               checked={status.autoSync}
               onCheckedChange={(checked) => autoSyncMutation.mutate(checked)}
-              disabled={autoSyncMutation.isPending}
+              disabled={autoSyncMutation.isPending || !runtimeEnabled}
               aria-label={t('settings.proxyModels.catalogSources.autoSync')}
             />
           </div>
 
-          <div className='rounded-md border p-3'>
-            <h3 className='text-sm font-medium'>
-              {t('settings.proxyModels.catalogSources.snapshot.title')}
-            </h3>
-            <dl className='mt-2 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3'>
-              <div>
-                <dt className='text-muted-foreground text-xs'>
-                  {t('settings.proxyModels.catalogSources.snapshot.source')}
-                </dt>
-                <dd className='truncate' title={status.snapshot.source}>
-                  {status.snapshot.source || '—'}
-                </dd>
-              </div>
-              <div>
-                <dt className='text-muted-foreground text-xs'>
-                  {t('settings.proxyModels.catalogSources.snapshot.fetchedAt')}
-                </dt>
-                <dd>
-                  {status.snapshot.fetchedAt
-                    ? formatDateTime(status.snapshot.fetchedAt, locale)
-                    : t('settings.proxyModels.catalogSources.snapshot.never')}
-                </dd>
-              </div>
-              <div>
-                <dt className='text-muted-foreground text-xs'>
-                  {t('settings.proxyModels.catalogSources.snapshot.models')}
-                </dt>
-                <dd className='tabular-nums'>{status.snapshot.models}</dd>
-              </div>
-            </dl>
-          </div>
+          {runtimeEnabled && (
+            <div className='rounded-md border p-3'>
+              <h3 className='text-sm font-medium'>
+                {t('settings.proxyModels.catalogSources.snapshot.title')}
+              </h3>
+              <dl className='mt-2 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3'>
+                <div>
+                  <dt className='text-muted-foreground text-xs'>
+                    {t('settings.proxyModels.catalogSources.snapshot.source')}
+                  </dt>
+                  <dd className='truncate' title={status.snapshot.source}>
+                    {status.snapshot.source || '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className='text-muted-foreground text-xs'>
+                    {t(
+                      'settings.proxyModels.catalogSources.snapshot.fetchedAt'
+                    )}
+                  </dt>
+                  <dd>
+                    {status.snapshot.fetchedAt
+                      ? formatDateTime(status.snapshot.fetchedAt, locale)
+                      : t('settings.proxyModels.catalogSources.snapshot.never')}
+                  </dd>
+                </div>
+                <div>
+                  <dt className='text-muted-foreground text-xs'>
+                    {t('settings.proxyModels.catalogSources.snapshot.models')}
+                  </dt>
+                  <dd className='tabular-nums'>{status.snapshot.models}</dd>
+                </div>
+              </dl>
+            </div>
+          )}
 
           {sources.length === 0 ? (
             <p className='text-muted-foreground py-4 text-center text-sm'>
-              {t('settings.proxyModels.catalogSources.toast.disabled')}
+              {t('settings.proxyModels.catalogSources.empty')}
             </p>
           ) : (
             <>
@@ -643,7 +666,7 @@ export function CatalogSourcesSection() {
                           <Button
                             variant='ghost'
                             size='icon-sm'
-                            disabled={busy}
+                            disabled={busy || !runtimeEnabled}
                             onClick={() => syncOneMutation.mutate(source.id)}
                             aria-label={t(
                               'settings.proxyModels.catalogSources.syncNow'

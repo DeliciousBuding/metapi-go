@@ -169,8 +169,8 @@ list order and **earlier sources override later ones**; per-source sync status
 
 All routes below sit on the admin surface: same auth, error envelope and
 pagination conventions as everything else in [`conventions.md`](conventions.md).
-When `PRICING_CATALOG_ENABLED=false` there is no runtime manager, and the
-`catalog-sync` routes answer `409` with
+When `PRICING_CATALOG_ENABLED=false`, source management and status reads remain
+available. Sync requests and auto-sync configuration writes answer `409` with
 `{"message": "pricing catalog is disabled (PRICING_CATALOG_ENABLED=false)"}`;
 the `catalog-sources` CRUD routes keep working, because they talk to the store
 directly.
@@ -209,10 +209,12 @@ source.
 
 ### GET /api/models/catalog-sync
 
-**Response**: the manager's status — the auto-sync flag plus per-source last
-success / last error / entry count.
-**Errors**: `409` with `{"message": ..., "autoSync": false}` when the catalog is
-disabled.
+**Response**: `enabled`, `autoSync`, `intervalMin`, `snapshot` and `sources`,
+including per-source last success / last error / entry count. A disabled catalog
+returns `200` with `enabled: false`, `autoSync: false` and the persisted sources.
+Its `intervalMin` and `snapshot` have zero values; no runtime snapshot is available.
+**Errors**: `500` on a source/status read failure; `503` when the catalog is
+configured as enabled but its runtime is unavailable.
 
 ### PUT /api/models/catalog-sync/config
 

@@ -1508,6 +1508,10 @@
         },
         "catalogSources": {
           "title": "Model Catalog Sources",
+          "loadError": "Could not load catalog sources. {{message}}",
+          "runtimeDisabled": "The model catalog is turned off.",
+          "runtimeDisabledHint": "You can still manage sources. To enable the catalog and syncing, set this environment variable and restart the server:",
+          "empty": "No catalog sources yet. Add a source to get started.",
           "description": "Registry of model catalog data sources: fetched in list order, with earlier sources taking precedence.",
           "autoSync": "Auto-sync",
           "toggleEnabled": "Toggle {{name}} enabled",
@@ -1557,8 +1561,7 @@
             "autoSyncOn": "Auto-sync turned on.",
             "autoSyncOff": "Auto-sync turned off.",
             "saveFailed": "Failed to save source: {{message}}",
-            "deleteFailed": "Failed to delete source: {{message}}",
-            "disabled": "The pricing catalog is not enabled (PRICING_CATALOG_ENABLED=false)."
+            "deleteFailed": "Failed to delete source: {{message}}"
           },
           "dragToReorder": "Drag to reorder",
           "reorderRow": "Reorder {{name}}",
