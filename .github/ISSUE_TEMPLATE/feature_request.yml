@@ -1,18 +1,18 @@
 name: 功能建议
-description: 描述使用场景、期望行为和可验证的完成条件
+description: 说说你想完成什么，以及目前哪里不方便
 labels: [enhancement]
 body:
   - type: markdown
     attributes:
       value: |
-        提交前请搜索已有 [Issues](https://github.com/DeliciousBuding/metapi-go/issues?q=is%3Aissue)。围绕一个使用场景说明需求。
+        先看看已有 [Issues](https://github.com/DeliciousBuding/metapi-go/issues?q=is%3Aissue)，也许有人提过类似需求。欢迎补充你的使用场景。
 
         截图、请求示例和附件请移除凭据、用户数据及私有地址、路径。
   - type: textarea
     id: problem
     attributes:
-      label: 使用场景与问题
-      description: 说明谁在做什么，以及目前卡在哪里。
+      label: 你想解决什么问题？
+      description: 说说你在什么情况下遇到了不便，现在是怎样处理的。
       placeholder: |
         - 使用场景：
         - 当前操作：
@@ -23,7 +23,7 @@ body:
     id: solution
     attributes:
       label: 期望行为
-      description: 分点说明功能应如何工作；涉及页面或 API 时，可给出操作或输入输出示例。
+      description: 你希望怎样操作？页面草图、请求示例或文字说明都可以。
       placeholder: |
         - 当……时，可以……。
         - 对于……，应显示 / 返回……。
@@ -32,13 +32,13 @@ body:
   - type: textarea
     id: acceptance
     attributes:
-      label: 完成条件
-      description: 列出能通过操作或输入输出核对的结果。
+      label: 怎样确认问题解决了（可选）
+      description: 可以写一个具体操作，说明希望看到的结果。
       placeholder: |
         1. 在……条件下执行……，结果为……。
         2. ……
     validations:
-      required: true
+      required: false
   - type: textarea
     id: alternatives
     attributes:
