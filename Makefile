@@ -55,11 +55,13 @@ bench-routing:
 coverage:
 	go test ./... -count=1 -coverprofile=coverage.out
 
-# Local release gate
-verify: docs-hygiene mod-verify test vet lint vuln build migrate-build
+# Full local gate, followed by release-specific static checks and binaries.
+verify:
+	bash .githooks/pre-push-project </dev/null
+	$(MAKE) mod-verify lint vuln build migrate-build
 
-# Local release gate plus race detector (requires a working CGO/C toolchain)
-verify-race: verify race
+# Compatibility alias: verify already includes the full race suite.
+verify-race: verify
 
 # Local container release gate (requires Docker)
 docker-verify: docker-build
