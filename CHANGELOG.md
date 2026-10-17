@@ -29,6 +29,10 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - 连接：修复管理令牌输错后无法重试；关闭或切换 Key 后重新解锁，验证接入移到客户端配置之前。
 - 接入验证：请求期间禁用模型切换和重复检查，切换模型清除旧结果，关闭对话框取消验证请求。
 
+### 变更
+
+- OAuth 路由诊断：展开查看各成员的阻断原因和冷却时间，通过 `POST /api/oauth/route-units/{routeUnitId}/members/{memberId}/cooldown/clear` 单独清除成员冷却，保留累计统计（#1396）。
+
 ## [v0.25.0] — 2026-10-17
 
 ### 变更

@@ -2899,6 +2899,11 @@
         "clearCooldownFailed": "Failed to clear the cooldown",
         "upstreamModel": "Upstream model",
         "memberNotSelected": "OAuth member and its upstream model were not selected.",
+        "members": "Pool members ({{count}})",
+        "memberScope": "Member checks cover account, site, credentials, policy and cooldown. The route's filters also apply.",
+        "memberReady": "Member checks passed",
+        "memberBlocked": "Unavailable",
+        "clearMemberCooldown": "Clear cooldown for {{name}}",
         "probability": "Calculated probability",
         "kind": {
           "account": "Account route channel",

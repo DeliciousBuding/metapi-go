@@ -213,7 +213,9 @@ export function RouteWorkspace({
             />
           </div>
           <div className='space-y-1.5'>
-            <Label>{t('tokenRoutes.workspace.endpoint')}</Label>
+            <Label htmlFor='route-workspace-endpoint'>
+              {t('tokenRoutes.workspace.endpoint')}
+            </Label>
             <Select
               items={routeCheckEndpoints.map(([value, label]) => ({
                 value,
@@ -222,7 +224,7 @@ export function RouteWorkspace({
               value={endpoint}
               onValueChange={(value) => setEndpoint(value ?? endpoint)}
             >
-              <SelectTrigger className='w-full'>
+              <SelectTrigger id='route-workspace-endpoint' className='w-full'>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -235,13 +237,15 @@ export function RouteWorkspace({
             </Select>
           </div>
           <div className='space-y-1.5'>
-            <Label>{t('tokenRoutes.workspace.key')}</Label>
+            <Label htmlFor='route-workspace-key'>
+              {t('tokenRoutes.workspace.key')}
+            </Label>
             <Select
               items={keyItems}
               value={keyId}
               onValueChange={(value) => setKeyId(value ?? 'none')}
             >
-              <SelectTrigger className='w-full'>
+              <SelectTrigger id='route-workspace-key' className='w-full'>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

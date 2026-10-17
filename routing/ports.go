@@ -171,10 +171,23 @@ type RouteDecisionCandidate struct {
 	// upstream_grants.cooldown_until for direct grant members (projected
 	// through the synthetic channel row). Shown next to the cooldown blocker
 	// beside the per-candidate recovery action.
-	CooldownUntil          *string `json:"cooldownUntil,omitempty"`
-	AvoidedByRecentFailure bool    `json:"avoidedByRecentFailure"`
-	Probability            float64 `json:"probability"`
-	Reason                 string  `json:"reason"`
+	CooldownUntil          *string                    `json:"cooldownUntil,omitempty"`
+	AvoidedByRecentFailure bool                       `json:"avoidedByRecentFailure"`
+	Probability            float64                    `json:"probability"`
+	Reason                 string                     `json:"reason"`
+	OAuthMembers           []RouteDecisionOAuthMember `json:"oauthMembers,omitempty"`
+}
+
+// RouteDecisionOAuthMember describes member filters without selecting or leasing a member.
+type RouteDecisionOAuthMember struct {
+	MemberID      int64              `json:"memberId"`
+	AccountID     int64              `json:"accountId"`
+	SiteID        int64              `json:"siteId"`
+	Username      string             `json:"username"`
+	SiteName      string             `json:"siteName"`
+	Eligibility   string             `json:"eligibility"`
+	Blockers      []CandidateBlocker `json:"blockers"`
+	CooldownUntil *string            `json:"cooldownUntil,omitempty"`
 }
 
 // RouteDecisionCandidateRef is a safe identity projection, not a runtime row.

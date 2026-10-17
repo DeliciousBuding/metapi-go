@@ -58,4 +58,14 @@ Create or rebind connections through the provider authorization flow. Managed
 routing reports participation on the connection list; these reserved paths do
 not provide route-unit CRUD or generic connection import.
 
+### POST /api/oauth/route-units/{routeUnitId}/members/{memberId}/cooldown/clear
+
+清除指定路由池成员的冷却时间、连续失败次数、冷却级别和冷却原因，保留累计
+成功/失败次数及选择、使用、失败时间。其他成员和路由通道的状态保持不变。
+成功后选路缓存失效；未处于冷却的成员也返回成功。
+
+**响应**：`{ "success": true, "routeUnitId": 7, "memberId": 11 }`。
+非法 ID 返回 400，成员不存在或不属于该路由池返回 404，存储失败返回 500。
+此接口使用管理 API 鉴权。
+
 ---

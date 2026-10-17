@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
@@ -31,11 +32,40 @@ func RegisterOauthRoutes(r chi.Router, db *sqlx.DB) {
 	r.Post("/api/oauth/route-units", handler.createRouteUnit)
 	r.Patch("/api/oauth/route-units/{routeUnitId}", handler.updateRouteUnit)
 	r.Delete("/api/oauth/route-units/{routeUnitId}", handler.deleteRouteUnit)
+	r.Post("/api/oauth/route-units/{routeUnitId}/members/{memberId}/cooldown/clear", handler.clearMemberCooldown)
 	r.Get("/api/oauth/callback/{provider}", handler.callback)
 }
 
 type oauthHandler struct {
 	db *sqlx.DB
+}
+
+func (h *oauthHandler) clearMemberCooldown(w http.ResponseWriter, r *http.Request) {
+	unitID, unitErr := strconv.ParseInt(chi.URLParam(r, "routeUnitId"), 10, 64)
+	memberID, memberErr := strconv.ParseInt(chi.URLParam(r, "memberId"), 10, 64)
+	if unitErr != nil || memberErr != nil || unitID <= 0 || memberID <= 0 {
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "invalid route unit or member id")
+		return
+	}
+	result, err := h.db.ExecContext(r.Context(), h.db.Rebind(`UPDATE oauth_route_unit_members SET
+		cooldown_until = NULL, consecutive_fail_count = 0, cooldown_level = 0,
+		cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL
+		WHERE unit_id = ? AND id = ?`), unitID, memberID)
+	if err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to clear member cooldown")
+		return
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to read member update result")
+		return
+	}
+	if affected == 0 {
+		writeErrorWithRequest(w, r, http.StatusNotFound, "route unit member not found")
+		return
+	}
+	routing.InvalidateCache()
+	writeJSON(w, http.StatusOK, map[string]any{"success": true, "routeUnitId": unitID, "memberId": memberID})
 }
 
 // GET /api/oauth/providers

@@ -47,6 +47,16 @@ type RouteDecisionCandidate = {
    *  rows for account/oauth_unit candidates, upstream_grants for direct
    *  grant members. Shown beside the kind-dispatched recovery action. */
   cooldownUntil?: string | null
+  oauthMembers?: Array<{
+    memberId: number
+    accountId: number
+    siteId: number
+    username: string
+    siteName: string
+    eligibility: 'eligible' | 'blocked' | 'notEvaluated'
+    blockers: Array<{ code: string; message: string }>
+    cooldownUntil?: string | null
+  }> | null
   channelId?: number
   accountId?: number
   tokenId?: number | null

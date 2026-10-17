@@ -163,6 +163,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/oauth/import`
 - `/api/oauth/providers/:provider/start`
 - `/api/oauth/route-units`
+- `/api/oauth/route-units/:routeUnitId/members/:memberId/cooldown/clear`
 - `/api/oauth/sessions/:state/manual-callback`
 - `/api/routes`
 - `/api/routes/:id/channels`
