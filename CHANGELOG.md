@@ -42,6 +42,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 修复
 
+- 下游 Key：请求入口支持与路由一致的 `*`/`?`/`re:` 模型匹配；指定路由授权正常生效，`GET /v1/models` 展示其可选模型（#1396）。
 - OAuth 路由池：成员选择应用下游 Key 的站点、凭据和直连渠道限制；诊断预览与实际转发保持一致（#1396）。
 - 清除路由冷却：`POST /api/routes/:id/cooldown/clear` 写入失败时返回 `500`，界面显示失败；数据库恢复后可重试（#1396）。
 - 运维 WebSocket：`/api/admin/ops/ws` 正常响应 Ping，并在客户端关闭连接后停止推送，无需调整配置（#1473）。
