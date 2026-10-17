@@ -3445,6 +3445,8 @@
     "Resize column": "Resize column",
     "Total:": "Total:",
     "Rows per page": "Rows per page",
+    "Pagination": "Pagination",
+    "Page {{current}} of {{total}}": "Page {{current}} of {{total}}",
     "Go to first page": "Go to first page",
     "Go to previous page": "Go to previous page",
     "Go to page {{page}}": "Go to page {{page}}",

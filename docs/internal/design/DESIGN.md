@@ -146,6 +146,9 @@ rebuild these arrangements with local spacing and raw data editors:
 末项费用占满一行；宽屏保留五列。统计口径与记录起点集中在指标下方说明，
 趋势图副标题显示所选时段。视觉验收以中文桌面与窄屏为主，英文检查长文案布局。
 
+共享分页按表格容器宽度切换：窄处显示当前页、总页数和前后翻页，宽处提供页码
+直达与首尾页按钮。条数与导航分组允许换行，控件与焦点轮廓完整可见。
+
 ### Upstream connections and access
 
 Independent upstreams use the same brand identities as site presets. The connect

@@ -3445,6 +3445,8 @@
     "Resize column": "调整列宽",
     "Total:": "共计：",
     "Rows per page": "每页行数",
+    "Pagination": "分页",
+    "Page {{current}} of {{total}}": "第 {{current}} / {{total}} 页",
     "Go to first page": "第一页",
     "Go to previous page": "上一页",
     "Go to page {{page}}": "前往第 {{page}} 页",

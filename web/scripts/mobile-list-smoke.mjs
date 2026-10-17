@@ -88,7 +88,7 @@ async function checkRoute(page, route, minimumRows) {
   assert.equal(await checkbox.getAttribute('aria-checked'), 'true')
   // The fixture has a second page. Moving there must replace the cards and
   // leave the pager accessible, not silently keep showing page one.
-  await pager.getByRole('button', { name: /2/ }).click()
+  await pager.getByRole('button', { name: '下一页', exact: true }).click()
   await page.waitForFunction((previous) => {
     const card = document.querySelector('[data-mobile-card-row]')
     return card && card.textContent !== previous
@@ -113,6 +113,53 @@ async function checkRoute(page, route, minimumRows) {
   )
 }
 
+async function checkManyPages(page) {
+  const response = await page.request.get(
+    `${BASE_URL}/api/models/marketplace?page=1&pageSize=20`
+  )
+  assert.ok(response.ok(), 'model fixture request failed')
+  const fixture = await response.json()
+  assert.ok(fixture.items.length > 0, 'model fixture is empty')
+  // Exercise a middle page with two ellipses without seeding thousands of models.
+  await page.route('**/api/models/marketplace?*', (route) =>
+    route.fulfill({ json: { ...fixture, total: 2000 } })
+  )
+  for (const width of [320, 375]) {
+    await page.setViewportSize({ width, height: VIEWPORT.height })
+    await page.goto(`${BASE_URL}/models?page=24`, { waitUntil: 'networkidle' })
+    const pager = page.getByRole('navigation', { name: '分页', exact: true })
+    await pager.scrollIntoViewIfNeeded()
+    const bounds = await pager.boundingBox()
+    assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width)
+    for (const control of await pager.locator('button:visible').all()) {
+      const box = await control.boundingBox()
+      assert.ok(
+        box &&
+          box.x >= bounds.x &&
+          box.x + box.width <= bounds.x + bounds.width + 1,
+        `${width}px: pagination control is clipped`
+      )
+      assert.ok(box.width >= 40 && box.height >= 40)
+      if (!(await control.isDisabled())) await control.click({ trial: true })
+    }
+    const summary = pager.getByRole('status')
+    await summary.waitFor()
+    assert.equal(await summary.textContent(), '第 25 / 100 页')
+    await pager.getByRole('button', { name: '下一页', exact: true }).click()
+    await page.waitForURL((url) => url.searchParams.get('page') === '25')
+    assert.equal(await summary.textContent(), '第 26 / 100 页')
+    await pager.getByRole('button', { name: '上一页', exact: true }).click()
+    await page.waitForURL((url) => url.searchParams.get('page') === '24')
+    if (SHOTS_DIR) {
+      await page.screenshot({
+        path: join(SHOTS_DIR, `models-${width}-pagination.png`),
+      })
+    }
+  }
+  await page.unroute('**/api/models/marketplace?*')
+  console.log('[mobile-list] 100-page pagination at 320/375px OK')
+}
+
 const browser = await chromium.launch({
   headless: true,
   args: ['--no-proxy-server', '--disable-dev-shm-usage'],
@@ -133,6 +180,7 @@ try {
   const page = await context.newPage()
   await checkRoute(page, '/sites', 20)
   await checkRoute(page, '/accounts', 20)
+  await checkManyPages(page)
   await context.close()
 } finally {
   await browser.close()
