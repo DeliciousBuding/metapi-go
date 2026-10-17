@@ -264,7 +264,11 @@ func (h *tokenRoutesHandler) clearCooldown(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	h.db.Exec(h.db.Rebind(`UPDATE route_channels SET cooldown_until = NULL, consecutive_fail_count = 0, cooldown_level = 0, cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL WHERE route_id = ?`), routeID)
+	_, err := h.db.ExecContext(r.Context(), h.db.Rebind(`UPDATE route_channels SET cooldown_until = NULL, consecutive_fail_count = 0, cooldown_level = 0, cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL WHERE route_id = ?`), routeID)
+	if err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to clear route cooldown: "+err.Error())
+		return
+	}
 	routing.InvalidateCache()
 	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
