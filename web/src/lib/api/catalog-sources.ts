@@ -18,6 +18,7 @@ export const catalogSourcesApi = {
   getCatalogSync: () =>
     request<CatalogSyncStatus>('/api/models/catalog-sync', {
       timeoutMs: 20_000,
+      skipErrorHandler: true,
     }),
   syncCatalog: (sourceId?: number) =>
     request<CatalogSyncStatus>('/api/models/catalog-sync', {

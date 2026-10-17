@@ -1508,6 +1508,10 @@
         },
         "catalogSources": {
           "title": "模型数据源",
+          "loadError": "目录数据源加载失败：{{message}}",
+          "runtimeDisabled": "模型目录已关闭。",
+          "runtimeDisabledHint": "可继续管理数据源。要启用目录与同步，请设置下列环境变量并重启服务：",
+          "empty": "尚无目录数据源，可以先添加一个。",
           "description": "模型目录数据源注册表：按列表顺序拉取，靠前的源优先覆盖。",
           "autoSync": "自动同步",
           "toggleEnabled": "切换 {{name}} 启用状态",
@@ -1557,8 +1561,7 @@
             "autoSyncOn": "自动同步已开启。",
             "autoSyncOff": "自动同步已关闭。",
             "saveFailed": "保存失败：{{message}}",
-            "deleteFailed": "删除失败：{{message}}",
-            "disabled": "价格目录未启用（PRICING_CATALOG_ENABLED=false）。"
+            "deleteFailed": "删除失败：{{message}}"
           },
           "dragToReorder": "拖拽调整顺序",
           "reorderRow": "调整 {{name}} 顺序",

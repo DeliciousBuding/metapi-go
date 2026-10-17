@@ -207,7 +207,7 @@ func (m *Manager) SyncNow(ctx context.Context, sourceID int64) (*SyncStatus, err
 			m.logger.Warn("catalogsync: persist source status failed", "source", sourceReport.Name, "error", recordErr)
 		}
 	}
-	return m.Status(ctx), nil
+	return m.Status(ctx)
 }
 
 // ErrSyncBusy reports an overlapping sync run.
@@ -215,6 +215,7 @@ var ErrSyncBusy = errors.New("catalogsync: sync already running")
 
 // SyncStatus is the status payload served to the panel.
 type SyncStatus struct {
+	Enabled     bool           `json:"enabled"`
 	AutoSync    bool           `json:"autoSync"`
 	IntervalMin int            `json:"intervalMin"`
 	Snapshot    SnapshotStatus `json:"snapshot"`
@@ -228,7 +229,7 @@ type SnapshotStatus struct {
 	Models    int        `json:"models"`
 }
 
-func (m *Manager) Status(ctx context.Context) *SyncStatus {
+func (m *Manager) Status(ctx context.Context) (*SyncStatus, error) {
 	m.mu.Lock()
 	autoSync := m.autoEnabled
 	m.mu.Unlock()
@@ -240,7 +241,7 @@ func (m *Manager) Status(ctx context.Context) *SyncStatus {
 
 	sources, err := m.ListSources(ctx)
 	if err != nil {
-		sources = []Source{}
+		return nil, err
 	}
 	// Live provider statuses win over DB rows for the just-run attempt.
 	live := m.provider.SourceStatuses()
@@ -282,6 +283,7 @@ func (m *Manager) Status(ctx context.Context) *SyncStatus {
 	}
 
 	return &SyncStatus{
+		Enabled:     true,
 		AutoSync:    autoSync,
 		IntervalMin: intervalMin,
 		Snapshot: SnapshotStatus{
@@ -290,7 +292,7 @@ func (m *Manager) Status(ctx context.Context) *SyncStatus {
 			Models:    snapshotLen(snapshot),
 		},
 		Sources: merged,
-	}
+	}, nil
 }
 
 func snapshotLen(snapshot *pricingcatalog.CatalogSnapshot) int {
