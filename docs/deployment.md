@@ -41,7 +41,7 @@ curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download
 The script downloads the matching platform binary from GitHub Releases,
 verifies its SHA-256 against `checksums.txt`, and installs to
 `/usr/local/bin/metapi` (override with `METAPI_INSTALL_PREFIX`; pin a version
-with `METAPI_VERSION=v0.24.0`). Windows: download `metapi-windows-amd64.exe`
+with `METAPI_VERSION=v0.25.0`). Windows: download `metapi-windows-amd64.exe`
 from the release page instead. Then start with the two required tokens:
 
 ```bash
@@ -84,7 +84,7 @@ docker run -d --name metapi \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
   --restart unless-stopped \
-  ghcr.io/deliciousbuding/metapi-go:0.24.0
+  ghcr.io/deliciousbuding/metapi-go:0.25.0
 ```
 
 The named volume is the zero-config default; bind mounts need a one-time
@@ -194,7 +194,7 @@ cp .env.example .env
 ```
 
 ```dotenv
-METAPI_IMAGE=ghcr.io/deliciousbuding/metapi-go:0.24.0
+METAPI_IMAGE=ghcr.io/deliciousbuding/metapi-go:0.25.0
 AUTH_TOKEN=<new random admin token>
 PROXY_TOKEN=<new random downstream key>
 ACCOUNT_CREDENTIAL_SECRET=<new random 32+ byte secret>
@@ -259,7 +259,7 @@ data directory is the most common Docker deployment pitfall:
   ```
 
 - **Image tags**: pin a release tag or digest (for example
-  `ghcr.io/deliciousbuding/metapi-go:0.24.0`). `edge` and `sha-*` are master
+  `ghcr.io/deliciousbuding/metapi-go:0.25.0`). `edge` and `sha-*` are master
   builds; `latest` follows stable releases but is still a moving alias.
 
 ## Nginx Reverse Proxy
