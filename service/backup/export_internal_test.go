@@ -11,23 +11,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/jmoiron/sqlx"
 )
 
 func setupInternalBackupDB(t *testing.T) *sqlx.DB {
 	t.Helper()
 
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("open db: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatalf("migrate db: %v", err)
-	}
-	return db.DB
+	return sqlitetest.Open(t).DB
 }
 
 func TestQueryTableAsJSONRejectsUnknownTable(t *testing.T) {

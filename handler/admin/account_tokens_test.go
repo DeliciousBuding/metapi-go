@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
@@ -17,16 +18,7 @@ import (
 
 func setupTokensTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("failed to open SQLite: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-
-	if err := store.AutoMigrate(db); err != nil {
-		db.Close()
-		t.Fatalf("AutoMigrate failed: %v", err)
-	}
+	db := sqlitetest.Open(t)
 
 	cfg := &config.Config{
 		AccountCredentialSecret: "token-test-secret",

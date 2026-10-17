@@ -7,27 +7,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-// setupBatchTestDB opens an in-memory SQLite DB, auto-migrates it, and
+// setupBatchTestDB opens an isolated migrated in-memory SQLite DB and
 // overrides the process-global store DB so the batch writer (which resolves
 // store.GetDB() at flush time) writes here. Restores nil on cleanup.
 func setupBatchTestDB(t *testing.T) *store.DB {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	if err := store.AutoMigrate(db); err != nil {
-		db.Close()
-		t.Fatalf("migrate: %v", err)
-	}
+	db := sqlitetest.Open(t)
 	store.OverrideDB(db)
 	t.Cleanup(func() {
 		store.OverrideDB(nil)
-		db.Close()
 	})
 	return db
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -163,15 +164,7 @@ func TestChannelHealthProbeExecutor_RejectsCrossOriginRedirect(t *testing.T) {
 
 func openProbeTestDB(t *testing.T) *store.DB {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("Open SQLite: %v", err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatalf("AutoMigrate: %v", err)
-	}
-	return db
+	return sqlitetest.Open(t)
 }
 
 func seedProbeChannel(t *testing.T, db *store.DB, upstreamURL, model, token string) int64 {

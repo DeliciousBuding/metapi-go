@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
@@ -24,15 +25,7 @@ func setupTokenRoutesTest(t *testing.T) (*store.DB, chi.Router) {
 	// Each test gets a fresh :memory: DB; clear the process-global channels
 	// snapshot cache so a prior test's cached page can't shadow this one.
 	globalChannelsCache.clear()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("failed to open SQLite: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatalf("AutoMigrate failed: %v", err)
-	}
+	db := sqlitetest.Open(t)
 
 	r := chi.NewRouter()
 	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
@@ -771,14 +764,7 @@ func (f *fakeDecisionRefresher) callCount() int {
 
 func setupTokenRoutesDecisionTest(t *testing.T, deps TokenRoutesDeps) (*store.DB, chi.Router) {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("failed to open SQLite: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatalf("AutoMigrate failed: %v", err)
-	}
+	db := sqlitetest.Open(t)
 	r := chi.NewRouter()
 	RegisterTokenRoutesWithDeps(r, db.DB, deps)
 	return db, r

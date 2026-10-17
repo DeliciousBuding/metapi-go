@@ -15,6 +15,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/pgtest"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	backupsvc "github.com/deliciousbuding/metapi-go/service/backup"
@@ -24,16 +25,7 @@ import (
 func setupBackupTestDB(t *testing.T) *store.DB {
 	t.Helper()
 
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("open db: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatalf("migrate db: %v", err)
-	}
-	return db
+	return sqlitetest.Open(t)
 }
 
 func allowPrivateWebdavTargetsForTest(t *testing.T) {
