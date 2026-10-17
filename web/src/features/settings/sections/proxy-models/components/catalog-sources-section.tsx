@@ -95,7 +95,7 @@ function LastSyncCell({ source }: { source: CatalogSource }) {
       <span className='flex flex-col'>
         <span className='text-sm'>{at}</span>
         <span
-          className='text-destructive truncate text-xs'
+          className='text-destructive-soft-fg max-w-64 truncate text-xs max-sm:max-w-none max-sm:[overflow-wrap:anywhere] max-sm:whitespace-normal'
           title={source.lastError}
         >
           {source.lastError}
@@ -532,8 +532,8 @@ export function CatalogSourcesSection() {
               <p id='catalog-source-reorder-help' className='sr-only'>
                 {t('settings.proxyModels.catalogSources.reorderInstructions')}
               </p>
-              <Table>
-                <TableHeader>
+              <Table className='max-sm:block'>
+                <TableHeader className='max-sm:sr-only'>
                   <TableRow>
                     {/* Drag-handle column (reorder). The
                         header cell carries an sr-only label so table scans do
@@ -567,7 +567,7 @@ export function CatalogSourcesSection() {
                     </TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className='max-sm:block max-sm:[&>tr]:h-auto'>
                   {sources.map((source, index) => (
                     <TableRow
                       key={source.id}
@@ -575,13 +575,14 @@ export function CatalogSourcesSection() {
                         rowRefs.current[index] = row
                       }}
                       className={cn(
+                        'max-sm:grid max-sm:grid-cols-[auto_minmax(0,1fr)_auto] max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-3 max-sm:p-3',
                         dragIndex !== null &&
                           overIndex === index &&
                           'bg-accent/60',
                         dragIndex === index && 'opacity-40'
                       )}
                     >
-                      <TableCell className='w-7 px-0'>
+                      <TableCell className='w-7 px-0 max-sm:col-start-1 max-sm:row-start-1 max-sm:p-0'>
                         <Button
                           type='button'
                           variant='ghost'
@@ -619,10 +620,10 @@ export function CatalogSourcesSection() {
                           <GripVerticalIcon className='size-3.5' />
                         </Button>
                       </TableCell>
-                      <TableCell className='text-sm font-medium'>
+                      <TableCell className='text-sm font-medium max-sm:col-start-2 max-sm:row-start-1 max-sm:min-w-0 max-sm:p-0 max-sm:[overflow-wrap:anywhere] max-sm:whitespace-normal'>
                         {source.name}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className='max-sm:col-start-3 max-sm:row-start-1 max-sm:p-0'>
                         <Badge
                           variant={
                             source.type === 'official' ? 'secondary' : 'outline'
@@ -638,12 +639,20 @@ export function CatalogSourcesSection() {
                         </Badge>
                       </TableCell>
                       <TableCell
-                        className='text-muted-foreground max-w-64 truncate font-mono text-xs'
+                        className='text-muted-foreground max-w-64 truncate font-mono text-xs max-sm:col-span-3 max-sm:row-start-2 max-sm:max-w-none max-sm:p-0 max-sm:[overflow-wrap:anywhere] max-sm:whitespace-normal'
                         title={source.url}
                       >
                         {source.url}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className='max-sm:col-span-3 max-sm:row-start-3 max-sm:flex max-sm:items-center max-sm:justify-between max-sm:p-0'>
+                        <span
+                          aria-hidden='true'
+                          className='text-muted-foreground hidden text-xs max-sm:inline'
+                        >
+                          {t(
+                            'settings.proxyModels.catalogSources.columns.enabled'
+                          )}
+                        </span>
                         <Switch
                           checked={source.enabled}
                           onCheckedChange={() =>
@@ -658,14 +667,23 @@ export function CatalogSourcesSection() {
                           )}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className='max-sm:col-span-3 max-sm:row-start-4 max-sm:min-w-0 max-sm:p-0 max-sm:whitespace-normal'>
+                        <span
+                          aria-hidden='true'
+                          className='text-muted-foreground hidden text-xs max-sm:block max-sm:pb-1'
+                        >
+                          {t(
+                            'settings.proxyModels.catalogSources.columns.lastSync'
+                          )}
+                        </span>
                         <LastSyncCell source={source} />
                       </TableCell>
-                      <TableCell>
-                        <div className='flex justify-end gap-1'>
+                      <TableCell className='max-sm:col-span-3 max-sm:row-start-5 max-sm:p-0'>
+                        <div className='flex justify-end gap-1 max-sm:flex-wrap max-sm:border-t max-sm:pt-2'>
                           <Button
                             variant='ghost'
                             size='icon-sm'
+                            className='max-sm:w-auto max-sm:gap-1.5 max-sm:px-2'
                             disabled={busy || !runtimeEnabled}
                             onClick={() => syncOneMutation.mutate(source.id)}
                             aria-label={t(
@@ -677,26 +695,37 @@ export function CatalogSourcesSection() {
                             ) : (
                               <RefreshCwIcon className='size-3.5' />
                             )}
+                            <span className='hidden max-sm:inline'>
+                              {t('settings.proxyModels.catalogSources.syncNow')}
+                            </span>
                           </Button>
                           <Button
                             variant='ghost'
                             size='icon-sm'
+                            className='max-sm:w-auto max-sm:gap-1.5 max-sm:px-2'
                             onClick={() => setDialog({ mode: 'edit', source })}
                             aria-label={t(
                               'settings.proxyModels.catalogSources.edit'
                             )}
                           >
                             <PencilIcon className='size-3.5' />
+                            <span className='hidden max-sm:inline'>
+                              {t('settings.proxyModels.catalogSources.edit')}
+                            </span>
                           </Button>
                           <Button
                             variant='ghost'
                             size='icon-sm'
+                            className='max-sm:w-auto max-sm:gap-1.5 max-sm:px-2'
                             onClick={() => deleteSource(source)}
                             aria-label={t(
                               'settings.proxyModels.catalogSources.delete'
                             )}
                           >
                             <Trash2Icon className='size-3.5' />
+                            <span className='hidden max-sm:inline'>
+                              {t('settings.proxyModels.catalogSources.delete')}
+                            </span>
                           </Button>
                         </div>
                       </TableCell>
