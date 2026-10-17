@@ -274,7 +274,13 @@ Fallback: `supports-[backdrop-filter]` gates translucency so browsers without `b
 
 ### 3.1 Reading hierarchy and controls
 
-The common reading roles are page title (24px; overview 30px), section/card title (`text-base` semibold), KPI (`text-xl` to `text-3xl` monospace semibold with tabular numerals and `leading-tight`), table header (`text-xs` semibold), row body (`text-sm`), and field label (`text-xs` muted). Do not use opacity on tiny sidebar section labels: their foreground must stay readable. The active nav link must forward both `data-active` and `aria-current=page` through its Link bridge, so visible selection and the accessibility announcement agree. These are component-owned roles, not a second parallel set of typography tokens.
+The base UI text is 14px. Page titles use 24px (overview display titles 30px), section/card titles 16px semibold, field labels and row bodies 14px, and form help and table headers 12px. Sortable headers keep the same size and weight as plain headers. KPI values use the body face with semibold tabular numerals at 20–30px; monospace is reserved for code, keys and technical identifiers. User-selected font and density settings still apply.
+
+Table-toolbar search, filters, column settings and reset controls share the 32px compact size. Form inputs retain the 36px default size. Settings forms have an 896px maximum page width; rate tables and log readers opt into full width through section metadata. Creation feedback uses the next dialog when it opens immediately, leaving its heading unobscured.
+
+The Connect dialog keeps the endpoint and key visible above two tabs: request verification and client setup. Client profiles show their preview only after the key is revealed; copy actions remain available while masked.
+
+Sidebar section labels keep readable foreground colors. Active navigation forwards both `data-active` and `aria-current=page` through its Link bridge. Reading roles belong to the shared components.
 
 Model names use the shared `ModelPill` identity: a vendored brand glyph beside the full model identifier, with truncation and a full-name tooltip. Use its pill variant in dense records and its inline variant in selectors, rankings and headings where another container already supplies the surface. Unknown models keep a deterministic lettermark; never borrow an unrelated vendor logo. Decorative glyphs are hidden from assistive technology so a selectable model keeps its exact accessible name. Aggregates such as Other are not model identities. Status badges remain separate from brand identity.
 

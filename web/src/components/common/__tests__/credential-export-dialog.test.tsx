@@ -73,15 +73,23 @@ function unlock(token = 'master-token') {
 }
 
 describe('CredentialExportDialog', () => {
-  it('requests credentials only after explicit unlock and puts verification before client exports', async () => {
+  it('unlocks into request verification and keeps client exports in their own tab', async () => {
     renderDialog()
     expect(getExport).not.toHaveBeenCalled()
     unlock()
-    const verify = await screen.findByText('Verify the connection')
-    const client = screen.getByRole('button', { name: 'Cherry Studio' })
+    expect(await screen.findByText('Verify the connection')).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Test request' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.queryByRole('button', { name: 'Cherry Studio' })).toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: 'Client setup' }))
     expect(
-      verify.compareDocumentPosition(client) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
+      await screen.findByRole('button', { name: 'Cherry Studio' })
+    ).toBeVisible()
+    expect(screen.queryByText('sk-plain-demo')).toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: 'Test request' }))
+    expect(screen.getByText('Verify the connection')).toBeVisible()
     expect(getExport).toHaveBeenCalledWith(1, 'all', 'master-token')
     expect(
       screen.queryByRole('link', { name: 'Send a test request' })

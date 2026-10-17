@@ -1706,8 +1706,6 @@
           },
           "toast": {
             "created": "API key created.",
-            "createdConnectHint": "Connect a client right away: copy the key or use a one-click import.",
-            "connectAction": "Connect now",
             "createFailed": "Failed to create API key.",
             "updated": "API key updated.",
             "updateFailed": "Failed to update API key.",
@@ -4188,6 +4186,8 @@
       "errorInvalid": "Token rejected. Check the value and try again."
     },
     "connect": {
+      "verifyTab": "Test request",
+      "clientsTab": "Client setup",
       "title": "Connect {{name}}",
       "description": "Copy the gateway endpoint and key, or import into a client with one click.",
       "endpointLabel": "Gateway endpoint",

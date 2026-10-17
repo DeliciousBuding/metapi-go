@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 
 import { PageHeader } from '@/components/common/page-header'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
+import { cn } from '@/lib/utils'
 
 import type { SettingsSubarea } from '../types'
 
@@ -37,7 +38,12 @@ export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
   const activeSectionMeta = subarea.getSectionMeta(activeSection)
 
   return (
-    <div className='flex flex-col gap-6 p-6'>
+    <div
+      className={cn(
+        'flex w-full min-w-0 flex-col gap-6 p-4 md:p-6',
+        !activeSectionMeta.wide && 'max-w-4xl'
+      )}
+    >
       <PageHeader
         title={t(activeSectionMeta.title)}
         description={

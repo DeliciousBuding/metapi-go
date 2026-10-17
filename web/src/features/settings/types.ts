@@ -25,6 +25,8 @@ type SettingsSection = {
   description?: string
   /** Read-only / external surface (rates, audit, update center) - shown as a badge. */
   readonly?: boolean
+  /** Tables and log readers use the full content width. Forms default to a reading width. */
+  wide?: boolean
   /** Lazy content builder for the section body. */
   build: () => ReactNode
 }

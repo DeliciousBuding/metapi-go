@@ -42,7 +42,6 @@ import {
 } from '../types'
 import { AccessPolicyEditor } from './access-policy-editor'
 import { CredentialRefPicker } from './credential-ref-picker'
-import { showKeyCreatedToast } from './key-created-toast'
 import {
   CREATE_FORM_ID,
   blankKeyFormValues,
@@ -351,12 +350,7 @@ export function KeySheetForm({
         onDone()
         return
       }
-      // Auto-open the Connect dialog for the freshly created key. The
-      // dialog target only needs id/name/keyMasked, which the create
-      // response carries under `item`; the plaintext key itself is pulled
-      // by the dialog's own export query. When the response lacks the row
-      // (older/unexpected payloads) nothing is fabricated — a plain success
-      // toast stays the only feedback.
+      // The dialog fetches the credential after confirmation.
       const createdItem = (result as CreateDownstreamKeyResponse | undefined)
         ?.item
       if (createdItem && createdItem.id > 0) {
@@ -365,10 +359,11 @@ export function KeySheetForm({
           name: createdItem.name || values.name,
           keyMasked: createdItem.keyMasked,
         }
-        onCreated?.(target)
-        // Journey step 4 closes here: the toast carries a "connect now"
-        // action that reopens the dialog, so dismissing it is not a dead end.
-        showKeyCreatedToast(target, (reopen) => onCreated?.(reopen))
+        if (onCreated) {
+          onCreated(target)
+        } else {
+          toast.success(t('settings.downstream.keys.toast.created'))
+        }
       } else {
         toast.success(t('settings.downstream.keys.toast.created'))
       }

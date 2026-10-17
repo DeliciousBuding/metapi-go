@@ -82,12 +82,14 @@ const OPERATIONS_SECTIONS = [
   },
   {
     id: 'program-logs',
+    wide: true,
     title: 'settings.operations.programLogs.title',
     description: 'settings.operations.programLogs.description',
     build: () => createElement(LazyProgramLogsSection),
   },
   {
     id: 'audit-logs',
+    wide: true,
     title: 'settings.operations.auditLogs.title',
     description: 'settings.operations.auditLogs.description',
     readonly: true,

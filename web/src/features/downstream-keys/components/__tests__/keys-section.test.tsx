@@ -316,10 +316,7 @@ describe('KeySheetForm — create mode', () => {
     expect(mockToastSuccess).toHaveBeenCalledTimes(1)
   })
 
-  it('offers a "connect now" toast action that reopens the export dialog', async () => {
-    // Journey step 4: the Connect dialog auto-opens, but it is dismissible and
-    // (#1034) locked behind a master-token re-confirm — the toast action is
-    // the way back in, and it must hand the SAME created row back.
+  it('opens the created key without overlaying the dialog with a toast', async () => {
     mockCreateKey.mockResolvedValue({
       success: true,
       item: { id: 99, name: 'New key', keyMasked: 'sk-n****y' },
@@ -339,25 +336,10 @@ describe('KeySheetForm — create mode', () => {
     await waitFor(() => {
       expect(mockCreateKey).toHaveBeenCalledTimes(1)
     })
-    await waitFor(() => {
-      expect(mockToastSuccess).toHaveBeenCalledTimes(1)
-    })
-
     const createdTarget = { id: 99, name: 'New key', keyMasked: 'sk-n****y' }
-    expect(onCreated).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1))
     expect(onCreated).toHaveBeenCalledWith(createdTarget)
-
-    const options = mockToastSuccess.mock.calls[0][1] as {
-      description?: string
-      duration?: number
-      action?: { label?: string; onClick?: () => void }
-    }
-    expect(options.action?.label).toBe('Connect now')
-    expect(options.duration).toBe(8000)
-
-    options.action?.onClick?.()
-    expect(onCreated).toHaveBeenCalledTimes(2)
-    expect(onCreated).toHaveBeenLastCalledWith(createdTarget)
+    expect(mockToastSuccess).not.toHaveBeenCalled()
   })
 
   it('sends expiresAt as RFC3339 UTC so the server actually enforces it', async () => {

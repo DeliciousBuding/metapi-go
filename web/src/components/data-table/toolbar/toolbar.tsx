@@ -198,7 +198,10 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
               onKeyDown={handleSearchKeyDown}
               onCompositionStart={() => setComposing(true)}
               onCompositionEnd={handleCompositionEnd}
-              className={cn('w-full ps-9', searchValue !== '' && 'pe-8')}
+              className={cn(
+                'h-8 w-full rounded-md ps-9',
+                searchValue !== '' && 'pe-8'
+              )}
             />
             {searchValue !== '' && (
               <Button
@@ -241,6 +244,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
           {isFiltered && (
             <Button
               variant='ghost'
+              size='sm'
               onClick={handleReset}
               className='text-muted-foreground hover:text-foreground gap-1 px-2'
             >
@@ -253,6 +257,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
           {hasExpandable && (
             <Button
               variant='ghost'
+              size='sm'
               onClick={() => setExpanded((previous) => !previous)}
               aria-expanded={expanded}
               className={cn(

@@ -157,7 +157,8 @@ Open **访问 → API 密钥** at `/downstream-keys`, create a downstream key an
 grant it the intended models or routes. The **连接 (Connect)** dialog opens
 after creation; you can reopen it from the key's row action. Enter your admin
 token to unlock it, check the model list, select a conversational model, then
-send a test chat. Client imports and configuration exports follow the checks.
+send a test chat in **验证调用 (Test request)**. Use **配置客户端 (Client setup)**
+for client imports and configuration exports.
 The generation uses real quota. This verifies one non-streaming Chat request;
 test your client's protocol, streaming and tools separately.
 

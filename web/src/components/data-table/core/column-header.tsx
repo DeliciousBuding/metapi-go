@@ -61,12 +61,12 @@ export function DataTableColumnHeader<TData, TValue>({
             <Button
               variant='ghost'
               size='sm'
-              className='data-popup-open:bg-accent -ms-3 h-8'
+              className='data-popup-open:bg-accent -ms-2.5 h-8 text-xs font-semibold'
             />
           }
         >
           <span>{title}</span>
-          <SortIcon className='ms-2 h-4 w-4' />
+          <SortIcon className='size-3.5' />
         </DropdownMenuTrigger>
         <DropdownMenuContent align='start'>
           {sorted !== false && (

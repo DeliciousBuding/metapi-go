@@ -1706,8 +1706,6 @@
           },
           "toast": {
             "created": "API 密钥已创建。",
-            "createdConnectHint": "现在就能接入客户端：复制密钥或使用一键导入。",
-            "connectAction": "立即接入",
             "createFailed": "创建 API 密钥失败。",
             "updated": "API 密钥已更新。",
             "updateFailed": "更新 API 密钥失败。",
@@ -4184,6 +4182,8 @@
       "errorInvalid": "Token 校验失败，请检查后重试。"
     },
     "connect": {
+      "verifyTab": "验证调用",
+      "clientsTab": "配置客户端",
       "title": "接入 {{name}}",
       "description": "复制网关地址与密钥，或一键导入客户端。",
       "endpointLabel": "网关接入地址",

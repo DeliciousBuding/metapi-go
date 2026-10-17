@@ -33,11 +33,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
 import { copyText } from '@/lib/clipboard'
 import { isReauthRequired } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
-import { cn } from '@/lib/utils'
 
 import { CredentialVerifySection } from './credential-verify-section'
 
@@ -343,171 +343,201 @@ function OpenCredentialExportDialog({
           </div>
         </div>
 
-        {apiKey ? (
-          <CredentialVerifySection
-            keyId={target.id}
-            apiBase={apiBase}
-            apiKey={apiKey}
-          />
-        ) : null}
-
-        {/* One-click deep links (explicit confirmation, #1034) */}
-        <div className='space-y-2'>
-          <p className='text-muted-foreground text-xs font-medium'>
-            {t('connect.oneClickLabel')}
-          </p>
-          <div className='flex flex-wrap gap-2'>
-            <Button
-              size='sm'
-              disabled={!apiKey}
-              onClick={() =>
-                requestDeepLink(
-                  buildCherryStudioLink(
-                    target.id,
-                    target.name,
-                    apiBase,
-                    apiKey
-                  ),
-                  JSON.stringify(
-                    {
-                      name: target.name,
-                      type: 'openai',
-                      apiHost: apiBase,
-                      apiKey,
-                    },
-                    null,
-                    2
-                  )
-                )
-              }
-            >
-              <Sparkles className='size-3.5' />
-              {t('connect.cherryStudio')}
-            </Button>
-            <div className='flex gap-2'>
-              <Select
-                value={ccApp}
-                onValueChange={(value) => setCcApp(value ?? 'codex')}
-              >
-                <SelectTrigger
-                  className='h-8 w-28 text-xs'
-                  aria-label={t('connect.ccAppLabel')}
-                >
-                  <SelectValue>{ccApp}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {CC_SWITCH_APPS.map((app) => (
-                    <SelectItem key={app} value={app}>
-                      {app}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size='sm'
-                variant='outline'
-                disabled={!apiKey}
-                onClick={() =>
-                  requestDeepLink(
-                    buildCcSwitchLink(ccApp, apiBase, apiKey),
-                    `${apiBase} ${apiKey}`
-                  )
-                }
-              >
-                <ExternalLink className='size-4' />
-                {t('connect.ccSwitch')}
-              </Button>
-            </div>
-          </div>
-          {pendingDeepLink ? (
-            <div className='space-y-2 rounded-lg border border-dashed p-3'>
-              <p className='text-sm font-medium'>
-                {t('connect.deepLinkConfirmTitle')}
+        <Tabs defaultValue='verify'>
+          <TabsList className='w-full'>
+            <TabsTrigger value='verify'>{t('connect.verifyTab')}</TabsTrigger>
+            <TabsTrigger value='clients'>{t('connect.clientsTab')}</TabsTrigger>
+          </TabsList>
+          <TabsContent value='verify' keepMounted>
+            {apiKey ? (
+              <CredentialVerifySection
+                keyId={target.id}
+                apiBase={apiBase}
+                apiKey={apiKey}
+              />
+            ) : null}
+          </TabsContent>
+          <TabsContent value='clients' className='space-y-4'>
+            {/* One-click deep links (explicit confirmation, #1034) */}
+            <div className='space-y-2'>
+              <p className='text-muted-foreground text-xs font-medium'>
+                {t('connect.oneClickLabel')}
               </p>
-              <p className='text-muted-foreground text-xs'>
-                {t('connect.deepLinkConfirmDescription')}
-              </p>
-              <div className='flex gap-2'>
-                <Button size='sm' onClick={confirmDeepLink}>
-                  {t('connect.deepLinkConfirmContinue')}
-                </Button>
+              <div className='flex flex-wrap gap-2'>
                 <Button
                   size='sm'
-                  variant='outline'
-                  onClick={() => setPendingDeepLink(null)}
+                  disabled={!apiKey}
+                  onClick={() =>
+                    requestDeepLink(
+                      buildCherryStudioLink(
+                        target.id,
+                        target.name,
+                        apiBase,
+                        apiKey
+                      ),
+                      JSON.stringify(
+                        {
+                          name: target.name,
+                          type: 'openai',
+                          apiHost: apiBase,
+                          apiKey,
+                        },
+                        null,
+                        2
+                      )
+                    )
+                  }
                 >
-                  {t('settings.common.cancel')}
+                  <Sparkles className='size-3.5' />
+                  {t('connect.cherryStudio')}
                 </Button>
+                <div className='flex gap-2'>
+                  <Select
+                    value={ccApp}
+                    onValueChange={(value) => setCcApp(value ?? 'codex')}
+                  >
+                    <SelectTrigger
+                      size='sm'
+                      className='w-28'
+                      aria-label={t('connect.ccAppLabel')}
+                    >
+                      <SelectValue>{ccApp}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CC_SWITCH_APPS.map((app) => (
+                        <SelectItem key={app} value={app}>
+                          {app}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size='sm'
+                    variant='outline'
+                    disabled={!apiKey}
+                    onClick={() =>
+                      requestDeepLink(
+                        buildCcSwitchLink(ccApp, apiBase, apiKey),
+                        `${apiBase} ${apiKey}`
+                      )
+                    }
+                  >
+                    <ExternalLink className='size-4' />
+                    {t('connect.ccSwitch')}
+                  </Button>
+                </div>
+              </div>
+              {pendingDeepLink ? (
+                <div className='space-y-2 rounded-lg border border-dashed p-3'>
+                  <p className='text-sm font-medium'>
+                    {t('connect.deepLinkConfirmTitle')}
+                  </p>
+                  <p className='text-muted-foreground text-xs'>
+                    {t('connect.deepLinkConfirmDescription')}
+                  </p>
+                  <div className='flex gap-2'>
+                    <Button size='sm' onClick={confirmDeepLink}>
+                      {t('connect.deepLinkConfirmContinue')}
+                    </Button>
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      onClick={() => setPendingDeepLink(null)}
+                    >
+                      {t('settings.common.cancel')}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Copy profiles */}
+            <div className='space-y-2'>
+              <p className='text-muted-foreground text-xs font-medium'>
+                {t('connect.copyLabel')}
+              </p>
+              <div className='space-y-2'>
+                {envProfile ? (
+                  <ProfileRow
+                    title={t('connect.envVars')}
+                    description={envProfile.description ?? ''}
+                    content={String(envProfile.content)}
+                    masked={!showKey}
+                    onCopy={(text) =>
+                      void copyTextWithToast(
+                        text,
+                        'connect.toast.jsonCopied',
+                        t
+                      )
+                    }
+                  />
+                ) : null}
+                {genericProfile ? (
+                  <ProfileRow
+                    title={t('connect.genericJson')}
+                    description={genericProfile.description ?? ''}
+                    content={genericJson}
+                    masked={!showKey}
+                    onCopy={(text) =>
+                      void copyTextWithToast(
+                        text,
+                        'connect.toast.jsonCopied',
+                        t
+                      )
+                    }
+                  />
+                ) : null}
+                {claudeCodeProfile ? (
+                  <ProfileRow
+                    title={claudeCodeProfile.label}
+                    description={claudeCodeProfile.description ?? ''}
+                    content={stringifyProfileContent(claudeCodeProfile)}
+                    masked={!showKey}
+                    onCopy={(text) =>
+                      void copyTextWithToast(
+                        text,
+                        'connect.toast.jsonCopied',
+                        t
+                      )
+                    }
+                  />
+                ) : null}
+                {codexProfile ? (
+                  <ProfileRow
+                    title={codexProfile.label}
+                    description={codexProfile.description ?? ''}
+                    content={stringifyProfileContent(codexProfile)}
+                    masked={!showKey}
+                    onCopy={(text) =>
+                      void copyTextWithToast(
+                        text,
+                        'connect.toast.jsonCopied',
+                        t
+                      )
+                    }
+                  />
+                ) : null}
+                {openWebUiProfile ? (
+                  <ProfileRow
+                    title={openWebUiProfile.label}
+                    description={openWebUiProfile.description ?? ''}
+                    content={stringifyProfileContent(openWebUiProfile)}
+                    masked={!showKey}
+                    onCopy={(text) =>
+                      void copyTextWithToast(
+                        text,
+                        'connect.toast.jsonCopied',
+                        t
+                      )
+                    }
+                  />
+                ) : null}
               </div>
             </div>
-          ) : null}
-        </div>
 
-        {/* Copy profiles */}
-        <div className='space-y-2'>
-          <p className='text-muted-foreground text-xs font-medium'>
-            {t('connect.copyLabel')}
-          </p>
-          <div className='space-y-2'>
-            {envProfile ? (
-              <ProfileRow
-                title={t('connect.envVars')}
-                description={envProfile.description ?? ''}
-                content={String(envProfile.content)}
-                masked={!showKey}
-                onCopy={(text) =>
-                  void copyTextWithToast(text, 'connect.toast.jsonCopied', t)
-                }
-              />
-            ) : null}
-            {genericProfile ? (
-              <ProfileRow
-                title={t('connect.genericJson')}
-                description={genericProfile.description ?? ''}
-                content={genericJson}
-                masked={!showKey}
-                onCopy={(text) =>
-                  void copyTextWithToast(text, 'connect.toast.jsonCopied', t)
-                }
-              />
-            ) : null}
-            {claudeCodeProfile ? (
-              <ProfileRow
-                title={claudeCodeProfile.label}
-                description={claudeCodeProfile.description ?? ''}
-                content={stringifyProfileContent(claudeCodeProfile)}
-                masked={!showKey}
-                onCopy={(text) =>
-                  void copyTextWithToast(text, 'connect.toast.jsonCopied', t)
-                }
-              />
-            ) : null}
-            {codexProfile ? (
-              <ProfileRow
-                title={codexProfile.label}
-                description={codexProfile.description ?? ''}
-                content={stringifyProfileContent(codexProfile)}
-                masked={!showKey}
-                onCopy={(text) =>
-                  void copyTextWithToast(text, 'connect.toast.jsonCopied', t)
-                }
-              />
-            ) : null}
-            {openWebUiProfile ? (
-              <ProfileRow
-                title={openWebUiProfile.label}
-                description={openWebUiProfile.description ?? ''}
-                content={stringifyProfileContent(openWebUiProfile)}
-                masked={!showKey}
-                onCopy={(text) =>
-                  void copyTextWithToast(text, 'connect.toast.jsonCopied', t)
-                }
-              />
-            ) : null}
-          </div>
-        </div>
-
-        <p className='text-muted-foreground text-xs'>{t('connect.hint')}</p>
+            <p className='text-muted-foreground text-xs'>{t('connect.hint')}</p>
+          </TabsContent>
+        </Tabs>
       </div>
     )
   }
@@ -564,19 +594,11 @@ function ProfileRow({
           {t('connect.copy')}
         </Button>
       </div>
-      <pre
-        className={cn(
-          'bg-muted/40 max-h-28 overflow-auto rounded-b-lg border-t px-3 py-2 font-mono text-xs',
-          masked && 'select-none'
-        )}
-        aria-hidden={masked || undefined}
-      >
-        {/* Masked profile must not keep the plaintext in the DOM/accessibility
-            tree — blur is visual-only and screen readers would read the key.
-            Render a placeholder instead, matching the top-level key row's real
-            string mask; the copy button still uses the value. */}
-        {masked ? '••••••••' : content}
-      </pre>
+      {!masked ? (
+        <pre className='bg-muted/40 max-h-28 overflow-auto rounded-b-lg border-t px-3 py-2 font-mono text-xs'>
+          {content}
+        </pre>
+      ) : null}
     </div>
   )
 }
