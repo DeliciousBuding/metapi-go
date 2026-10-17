@@ -84,6 +84,11 @@ func TestNativeCompletionReaderProtocolScopeAndErrors(t *testing.T) {
 		wantError            bool
 	}{
 		{"chat", "/v1/chat/completions", "data: [DONE]\n\n", false},
+		{"chat-unfinished-choice", "/v1/chat/completions", "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"},\"finish_reason\":null}]}\n\ndata: [DONE]\n\n", true},
+		{"chat-empty-finish", "/v1/chat/completions", "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"\"}]}\n\ndata: [DONE]\n\n", true},
+		{"chat-length-finish", "/v1/chat/completions", "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"length\"}]}\n\ndata: [DONE]\n\n", false},
+		{"chat-one-of-two-finished", "/v1/chat/completions", "data: {\"choices\":[{\"index\":0,\"finish_reason\":\"stop\"},{\"index\":1,\"finish_reason\":null}]}\n\ndata: [DONE]\n\n", true},
+		{"chat-both-finished", "/v1/chat/completions", "data: {\"choices\":[{\"index\":0,\"finish_reason\":\"stop\"},{\"index\":1,\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n", false},
 		{"messages", "/v1/messages", "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n", false},
 		{"responses", "/v1/responses", "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n", false},
 		{"foreign-chat-marker", "/v1/messages", "data: [DONE]\n\n", true},

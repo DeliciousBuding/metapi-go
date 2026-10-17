@@ -85,7 +85,7 @@ func TestHandleStreamUpstreamEmitsErrorEventOnReadError(t *testing.T) {
 // normal end-of-stream path) does NOT inject an error event — only non-EOF
 // read errors surface the upstream_error event.
 func TestHandleStreamUpstreamNoErrorEventOnCleanEOF(t *testing.T) {
-	raw := "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n"
+	raw := "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     make(http.Header),

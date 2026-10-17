@@ -39,7 +39,7 @@ func TestDispatchStreamExplicitErrorAccounting(t *testing.T) {
 			output: `data: {"choices":[{"delta":{"content":"The word error, including insufficient_quota, is ordinary output."}}]}` + "\n\n" +
 				`data: {"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}}` + "\n\n",
 			failure: `data: {"type":"error","error":{"message":"insufficient_quota","type":"invalid_request_error"}}` + "\n\n",
-			done:    "data: [DONE]\n\n", hasUsage: true,
+			done:    "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n", hasUsage: true,
 		},
 		{
 			name: "messages", path: "/v1/messages", model: "claude-sonnet-test",
