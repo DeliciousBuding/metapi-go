@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -55,6 +56,7 @@ func TestReleaseScriptRejectsStaleMaster(t *testing.T) {
 
 	cmd := exec.Command("bash", "scripts/release.sh", "9.9.9", "--dry-run")
 	cmd.Dir = stale
+	cmd.Env = gitTestEnv(t)
 	output, err := cmd.CombinedOutput()
 	if err == nil {
 		t.Fatalf("release helper accepted stale master:\n%s", output)
@@ -90,6 +92,7 @@ func TestReleaseScriptAcceptsCleanNonMasterCheckout(t *testing.T) {
 	runGit(t, repo, "switch", "-c", "chore/release")
 	cmd := exec.Command("bash", "scripts/release.sh", "9.9.9", "--dry-run")
 	cmd.Dir = repo
+	cmd.Env = gitTestEnv(t)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("release checkout at origin/master rejected: %v\n%s", err, output)
 	}
@@ -135,12 +138,60 @@ func configureTestRepo(t *testing.T, repo string) {
 	runGit(t, repo, "config", "core.hooksPath", ".disabled-hooks")
 }
 
-func runGit(t *testing.T, dir string, args ...string) {
+func gitTestEnv(t *testing.T) []string {
+	t.Helper()
+	output, err := exec.Command("git", "rev-parse", "--local-env-vars").Output()
+	if err != nil {
+		t.Fatalf("list repository-local Git variables: %v", err)
+	}
+	local := strings.Fields(string(output))
+	var env []string
+	for _, entry := range os.Environ() {
+		name, _, _ := strings.Cut(entry, "=")
+		if !slices.Contains(local, name) {
+			env = append(env, entry)
+		}
+	}
+	return env
+}
+
+func runGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
-	if output, err := cmd.CombinedOutput(); err != nil {
+	cmd.Env = gitTestEnv(t)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
 		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, output)
+	}
+	return strings.TrimSpace(string(output))
+}
+
+func TestReleaseTestsIgnoreInheritedGitRepository(t *testing.T) {
+	for _, tool := range []string{"git", "bash"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skip(tool + " is required")
+		}
+	}
+	repo := t.TempDir()
+	runGit(t, repo, "init", "-b", "master")
+	configureTestRepo(t, repo)
+	runGit(t, repo, "commit", "--allow-empty", "-m", "sentinel")
+	head := runGit(t, repo, "rev-parse", "HEAD")
+	cmd := exec.Command(os.Args[0], "-test.run", "^TestReleaseScript(RejectsStaleMaster|AcceptsCleanNonMasterCheckout)$")
+	cmd.Env = append(gitTestEnv(t), "GIT_DIR="+filepath.Join(repo, ".git"), "GIT_WORK_TREE="+repo,
+		"GIT_COMMON_DIR="+filepath.Join(repo, ".git"), "GIT_INDEX_FILE="+filepath.Join(repo, ".git", "index"))
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("release tests under hook environment: %v\n%s", err, output)
+	}
+	if got := runGit(t, repo, "rev-parse", "HEAD"); got != head {
+		t.Fatalf("release tests changed parent HEAD: %s -> %s", head, got)
+	}
+	if got := runGit(t, repo, "status", "--porcelain"); got != "" {
+		t.Fatalf("release tests changed parent worktree: %s", got)
+	}
+	if got := runGit(t, repo, "config", "--get", "core.bare"); got != "false" {
+		t.Fatalf("release tests changed parent configuration: core.bare=%s", got)
 	}
 }
 
