@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import type { UpstreamDeletionPreview } from '@/lib/api/upstream-lifecycle'
 
 import { getBackupRemovalCounts } from './backup-import-removals'
+import { formatAxonHubResidual } from './backup-import-residuals'
 
 export type BackupImportTablePlan = Record<
   string,
@@ -312,7 +313,7 @@ export function BackupImportPreviewPanel(props: Props) {
                   )}
                   {otherResiduals.map((residual) => (
                     <li key={residual} className='break-words'>
-                      {residual}
+                      {formatAxonHubResidual(residual, t)}
                     </li>
                   ))}
                 </ul>
