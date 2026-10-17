@@ -562,10 +562,17 @@ Each candidate keeps the legacy compatibility fields and adds:
 | Field | Meaning |
 | --- | --- |
 | `candidateRef` | Typed identity: `account`, `direct`, or `oauth_unit`, with positive IDs for the route channel, direct group item, grant, credential, account, site, or token when applicable. |
-| `label` / `sourceModel` / `actualModel` | Safe display identity and model names. OAuth unit members are not selected, so their member identity and final model remain unknown. |
+| `label` / `sourceModel` / `actualModel` | Safe display identity and model names. OAuth pools expose their configured members separately; the selected member and final model remain unknown. |
 | `eligibility` | `eligible`, `blocked`, or `notEvaluated`. `eligible` means the checked candidate filters found no blocker; it is not an upstream health verdict. |
 | `blockers[]` | Structured `code` plus a legacy human-readable `message`. The UI translates known codes and uses the message only for unknown legacy codes. |
 | `probabilityEvaluated` | Selection probability flag. Current previews do not select a candidate, so this remains `false`; consumers must not render legacy `probability: 0` as a measured 0%. |
+
+OAuth 候选另有 `oauthMembers[]`，包含 `memberId`、`accountId`、`siteId`、
+`username`、`siteName`、`eligibility`、`blockers[]` 和可空的 `cooldownUntil`。
+成员检查复用选路的账号、站点、凭据、下游策略与冷却规则；父候选的筛选仍然适用。
+缺少协议或具体模型时，无已知阻断的成员标为 `notEvaluated`。
+检查不选择成员，不计算策略偏好，不修改选择时间；凭据及原始失败信息不出现在响应中。
+冷却成员可通过 [成员恢复接口](oauth.md#post-apioauthroute-unitsrouteunitidmembersmemberidcooldownclear) 单独恢复。
 
 ### GET /api/routes/decision/key-context
 

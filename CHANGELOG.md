@@ -21,6 +21,10 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+### 变更
+
+- OAuth 路由诊断：展开查看各成员的阻断原因和冷却时间，通过 `POST /api/oauth/route-units/{routeUnitId}/members/{memberId}/cooldown/clear` 单独清除成员冷却，保留累计统计（#1396）。
+
 ## [v0.25.0] — 2026-10-17
 
 ### 变更

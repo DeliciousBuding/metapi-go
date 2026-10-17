@@ -69,6 +69,11 @@ func (tr *TokenRouter) ExplainSelectionRouteWide(ctx context.Context, routeID in
 			if candidate.CandidateRef.Kind != "direct" {
 				candidate.ActualModel = ""
 			}
+			for j := range candidate.OAuthMembers {
+				if candidate.OAuthMembers[j].Eligibility == "eligible" {
+					candidate.OAuthMembers[j].Eligibility = "notEvaluated"
+				}
+			}
 		}
 	}()
 	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
@@ -217,6 +222,9 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 			candidate.Reason = "请求协议未指定，候选资格未完整评估"
 		}
 		setCandidateIdentity(&candidate, row, requestedModel, match.Route.DisplayName, mappedModel)
+		if IsOAuthRouteUnitCandidate(row) {
+			candidate.OAuthMembers = explainRouteUnitMembers(selector, row, nowISO, policy)
+		}
 		candidates = append(candidates, candidate)
 		if eligible {
 			available = append(available, row)
@@ -256,6 +264,29 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 	return explanation
 }
 
+func explainRouteUnitMembers(selector *ChannelSelector, row RouteChannelCandidate, nowISO string, policy DownstreamRoutingPolicy) []RouteDecisionOAuthMember {
+	members := make([]RouteDecisionOAuthMember, 0, len(row.RouteUnitMembers))
+	for _, member := range row.RouteUnitMembers {
+		blockers := routeUnitMemberBlockers(member, nowISO)
+		if blocker := selector.routeUnitMemberPolicyBlocker(row, member, policy); blocker.Code != "" {
+			blockers = append(blockers, blocker)
+		}
+		eligibility := "eligible"
+		if policy.RequiredUpstreamProtocol == 0 {
+			eligibility = "notEvaluated"
+		}
+		if len(blockers) > 0 {
+			eligibility = "blocked"
+		}
+		members = append(members, RouteDecisionOAuthMember{
+			MemberID: member.Member.ID, AccountID: member.Account.ID, SiteID: member.Site.ID,
+			Username: formatUsername(member.Account.Username, member.Account.ID), SiteName: formatSiteName(member.Site.Name),
+			Eligibility: eligibility, Blockers: blockers, CooldownUntil: member.Member.CooldownUntil,
+		})
+	}
+	return members
+}
+
 func setCandidateIdentity(candidate *RouteDecisionCandidate, row RouteChannelCandidate, requestedModel string, displayName *string, mappedModel string) {
 	if direct := row.Direct; direct != nil {
 		candidate.CandidateRef = RouteDecisionCandidateRef{Kind: "direct", ID: direct.ItemID, GroupID: direct.GroupID,
@@ -281,6 +312,7 @@ func setCandidateIdentity(candidate *RouteDecisionCandidate, row RouteChannelCan
 			candidate.Label = row.RouteUnit.Name
 		}
 		candidate.Username, candidate.SiteName, candidate.TokenName = "", "", ""
+		candidate.AccountID = 0
 		// Member selection is deliberately not performed, so its model is unknown.
 		return
 	}

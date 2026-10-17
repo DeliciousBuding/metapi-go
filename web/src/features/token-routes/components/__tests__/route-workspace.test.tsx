@@ -115,6 +115,12 @@ describe('RouteWorkspace', () => {
 
     renderWorkspace()
 
+    expect(
+      screen.getByRole('combobox', { name: 'Client endpoint' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('combobox', { name: 'Downstream key' })
+    ).toBeInTheDocument()
     expect(await screen.findByText('Primary account')).toBeInTheDocument()
     expect(getDecision).toHaveBeenCalledWith({
       model: 'gpt-4o',
