@@ -128,7 +128,7 @@ export function useModelsColumns(
         // server-side sort whitelist deliberately has no brand column.
         enableSorting: false,
         size: 160,
-        meta: { mobileOrder: 0, mobileBadge: true },
+        meta: { mobileOrder: 0, mobileHidden: true },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -168,8 +168,8 @@ export function useModelsColumns(
         cell: ({ row }) => {
           const model = row.original
           return (
-            <div className='flex flex-col'>
-              <div className='flex items-center gap-2'>
+            <div className='flex min-w-0 flex-col gap-0.5'>
+              <div className='flex min-w-0 items-center gap-2'>
                 <ModelPill
                   model={model.name}
                   variant='inline'
@@ -185,7 +185,7 @@ export function useModelsColumns(
                 ) : null}
               </div>
               {model.description ? (
-                <TruncatedCell className='text-muted-foreground max-w-80 text-xs'>
+                <TruncatedCell className='text-muted-foreground max-w-80 text-xs leading-5 font-normal'>
                   {model.description}
                 </TruncatedCell>
               ) : null}
@@ -436,7 +436,11 @@ export function useModelsColumns(
         enableSorting: false,
         enableHiding: false,
         enableResizing: false,
-        meta: { mobileHidden: false, mobileOrder: 5 },
+        meta: {
+          mobileHidden: false,
+          mobileOrder: 5,
+          mobileActionsInHeader: true,
+        },
         header: () => (
           <span className='text-muted-foreground text-xs'>
             {t('models.columns.actions')}

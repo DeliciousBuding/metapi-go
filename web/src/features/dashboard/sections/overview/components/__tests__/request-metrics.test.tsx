@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 import { api } from '@/lib/api'
+import { formatDateTime } from '@/lib/format'
 
 import { reportFixture } from '../../__tests__/report-fixture'
 import { RequestMetrics } from '../request-metrics'
@@ -72,7 +73,8 @@ describe('operator request metrics', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByText(/Request records available since/)
-    ).toHaveTextContent('2026-10-16T00:00:00Z')
+    ).toHaveTextContent(formatDateTime('2026-10-16T00:00:00Z', 'en'))
+    expect(screen.queryByText(/2026-10-16T00:00:00Z/)).not.toBeInTheDocument()
     expect(
       screen.getAllByText(/Completion is based on protocol outcomes/)
     ).toHaveLength(1)

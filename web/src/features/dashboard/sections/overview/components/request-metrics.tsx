@@ -3,16 +3,16 @@ import { Activity, Coins, Repeat, ShieldCheck, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
-import { IconBadge } from '@/components/ui/icon-badge'
 import { KpiValue } from '@/components/ui/kpi-value'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toBcp47 } from '@/i18n/languages'
 import type { OverviewPeriod } from '@/lib/api'
-import { formatCurrency, formatInt } from '@/lib/format'
+import { formatCurrency, formatDateTime, formatInt } from '@/lib/format'
 
 import { useOverviewReport } from '../use-overview-report'
 
 export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const query = useOverviewReport(period)
   const summary = query.data?.summary
   const requestSummary = query.data?.requestSummary
@@ -92,7 +92,7 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
         onRetry={() => void query.refetch()}
         isRetrying={query.isFetching}
       />
-      <div className='bg-card grid overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-5'>
+      <div className='bg-card grid grid-cols-2 overflow-hidden rounded-xl border xl:grid-cols-5'>
         {metrics.map((metric) => {
           const Icon = metric.icon
           let label = `dashboard.operations.${metric.title}`
@@ -114,27 +114,27 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
                       ...(metric.failed ? { status: 'failed' as const } : {}),
                     }),
               }}
-              className='hover:bg-muted/40 focus-visible:ring-ring flex min-w-0 flex-col gap-3 border-b p-5 transition-colors outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset sm:odd:border-r xl:border-r xl:border-b-0 xl:last:border-r-0'
+              className='hover:bg-muted/40 focus-visible:ring-ring flex min-w-0 flex-col gap-2 border-b p-4 transition-colors outline-none last:col-span-2 last:border-r-0 last:border-b-0 odd:border-r focus-visible:ring-2 focus-visible:ring-inset xl:gap-3 xl:border-r xl:border-b-0 xl:p-5 xl:last:col-span-1'
             >
-              <div className='flex min-h-10 items-center gap-2 text-sm font-medium'>
-                <IconBadge
-                  size='sm'
-                  tone={
+              <div className='flex min-h-8 items-center gap-2 text-xs font-medium sm:text-sm xl:min-h-10'>
+                <Icon
+                  aria-hidden='true'
+                  className={
                     metric.failed &&
                     hasRequests &&
                     (gatewaySummary?.failedCount ?? requestSummary?.failedCount)
-                      ? 'warning'
-                      : 'info'
+                      ? 'text-warning-soft-fg size-4 shrink-0'
+                      : 'text-muted-foreground size-4 shrink-0'
                   }
-                >
-                  <Icon />
-                </IconBadge>
+                />
                 {t(label)}
               </div>
               {query.isLoading ? (
                 <Skeleton className='h-8 w-24' />
               ) : (
-                <KpiValue>{metric.value}</KpiValue>
+                <KpiValue className='text-2xl xl:text-3xl'>
+                  {metric.value}
+                </KpiValue>
               )}
               {metric.hint && (
                 <span className='text-muted-foreground text-xs leading-5'>
@@ -150,7 +150,10 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
           {t('requestLogs.observedHint')}{' '}
           {gatewaySummary.coverageStartedAt
             ? t('requestLogs.coverage', {
-                time: gatewaySummary.coverageStartedAt,
+                time: formatDateTime(
+                  gatewaySummary.coverageStartedAt,
+                  toBcp47(i18n.language)
+                ),
               })
             : t('requestLogs.noCoverage')}
         </p>

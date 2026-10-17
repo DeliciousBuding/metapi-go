@@ -12,7 +12,7 @@ import {
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import '@/i18n/config'
+import i18n from '@/i18n/config'
 import { api } from '@/lib/api'
 
 import { OverviewSection } from '../overview-section'
@@ -377,6 +377,33 @@ vi.mock('../components/model-usage-panel', () => ({
 }))
 
 describe('overview report range', () => {
+  it('selects and restores the range through the Chinese controls', async () => {
+    await i18n.changeLanguage('zhCN')
+    try {
+      mockGetDashboardSnapshot.mockResolvedValue({
+        siteCount: 1,
+        totalAccounts: 1,
+      })
+      const first = renderWithClient(<OverviewSection />)
+      expect(
+        screen.getByRole('group', { name: '统计范围' })
+      ).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: '近 30 天' }))
+      await waitFor(() =>
+        expect(api.getOverviewReport).toHaveBeenCalledWith('30d')
+      )
+      expect(localStorage.getItem('metapi.overview.period')).toBe('30d')
+      first.unmount()
+      renderWithClient(<OverviewSection />)
+      expect(screen.getByRole('button', { name: '近 30 天' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
+    } finally {
+      await i18n.changeLanguage('en')
+    }
+  })
+
   it('switches the shared analytical query to all retained history', async () => {
     mockGetDashboardSnapshot.mockResolvedValue({
       siteCount: 1,

@@ -119,11 +119,6 @@ rebuild these arrangements with local spacing and raw data editors:
   close button; long detail titles wrap within that space. Model details focus
   the title on opening so the first action below the content does not scroll
   the header out of view.
-
-Model-list protocols and capabilities use compact text, with at most two values
-inline. Overflow remains available on hover and keyboard focus. Badges mark
-states such as deprecation. Overview metrics share one outcome/coverage note
-below the metric strip; the trend subtitle shows the selected period.
 - `components/data-table/toolbar/toolbar.tsx`: separate query and view/action
   groups, with expanded filters in their own region. The desktop and mobile
   empty states share `core/empty-state.tsx`; page-owned filters participate in
@@ -142,6 +137,14 @@ below the metric strip; the trend subtitle shows the selected period.
   confirmation. JSON paste is collapsed by default. Counts use labeled summary
   cells; compatibility failures precede details, and omitted/adapted data
   requires acknowledgement. Raw field names are not primary UI labels.
+
+模型列表的接口与能力使用轻量文字，每列最多显示两项，其余内容可悬停或键盘
+聚焦查看。徽章用于弃用等状态。手机卡片保留模型品牌图标，操作菜单位于标题
+旁；描述使用普通字重，品牌文字保留在桌面列中。
+
+概览时间选择与刷新共用一行，按钮直接显示当前选择。指标在手机上按两列排列，
+末项费用占满一行；宽屏保留五列。统计口径与记录起点集中在指标下方说明，
+趋势图副标题显示所选时段。视觉验收以中文桌面与窄屏为主，英文检查长文案布局。
 
 ### Upstream connections and access
 
