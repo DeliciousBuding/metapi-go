@@ -770,6 +770,7 @@ func (s *ChannelSelector) getCandidateBlockers(
 
 	// OAuth route unit: check member availability
 	if IsOAuthRouteUnitCandidate(candidate) {
+		candidate = s.filterRouteUnitMembersByPolicy(candidate, policy)
 		eligibleMembers := getEligibleRouteUnitMembers(candidate, requestedModel, nowISO)
 		if len(eligibleMembers) == 0 {
 			name := "round_robin"
@@ -832,6 +833,9 @@ func matchesSupportedModelPolicy(model string, patterns []string) bool {
 }
 
 func (s *ChannelSelector) resolveChannelTokenValue(candidate RouteChannelCandidate) string {
+	if IsOAuthRouteUnitCandidate(candidate) {
+		return ResolveRouteUnitMemberTokenValue(candidate.Account)
+	}
 	if candidate.Direct != nil {
 		if !candidate.Direct.CredentialEnabled {
 			return ""
@@ -1033,7 +1037,8 @@ func (s *ChannelSelector) finalizeDispatch(
 	var resolvedRouteUnitMemberTokenValue string
 
 	if IsOAuthRouteUnitCandidate(*selected) {
-		member := SelectRouteUnitMember(*selected, requestedModel, nowISO, nowMs, s.configuredMaxSec, excludeChannelIDs)
+		allowed := s.filterRouteUnitMembersByPolicy(*selected, policy)
+		member := SelectRouteUnitMember(allowed, requestedModel, nowISO, nowMs, s.configuredMaxSec, excludeChannelIDs)
 		if member == nil || selected.RouteUnit == nil {
 			return nil, nil
 		}
