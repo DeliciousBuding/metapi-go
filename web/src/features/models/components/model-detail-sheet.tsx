@@ -96,11 +96,11 @@ export function ModelDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side='right' className='sm:max-w-md'>
         <SheetHeader>
-          <div className='flex items-center gap-3 pr-6'>
+          <div className='flex items-start gap-3'>
             <BrandIcon model={model.name} size={40} />
             <div className='min-w-0 flex-1'>
-              <SheetTitle className='truncate'>{model.name}</SheetTitle>
-              <SheetDescription className='truncate'>
+              <SheetTitle>{model.name}</SheetTitle>
+              <SheetDescription className='wrap-anywhere'>
                 {model.description || t('models.detail.noDescription')}
               </SheetDescription>
             </div>

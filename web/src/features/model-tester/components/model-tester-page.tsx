@@ -353,7 +353,7 @@ export function ModelTesterPage() {
     testModel.isPending || isComparing || rerunningChannelIds.size > 0
 
   return (
-    <div className='flex h-full flex-col gap-4 p-4'>
+    <div className='page-padding flex h-full flex-col gap-4'>
       <PageHeader
         title={t('modelTester.page.title')}
         description={t('modelTester.page.description')}

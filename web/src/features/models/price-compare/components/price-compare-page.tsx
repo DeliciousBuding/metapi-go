@@ -93,7 +93,7 @@ export function PriceComparePage() {
   }, [query.data])
 
   return (
-    <div className='flex h-full flex-col gap-3 p-4'>
+    <div className='page-padding flex h-full flex-col gap-3'>
       <PageHeader
         title={t('priceCompare.page.title')}
         description={t('priceCompare.page.description')}

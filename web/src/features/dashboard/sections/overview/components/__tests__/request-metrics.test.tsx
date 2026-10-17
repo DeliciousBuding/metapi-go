@@ -9,6 +9,7 @@ import { api } from '@/lib/api'
 
 import { reportFixture } from '../../__tests__/report-fixture'
 import { RequestMetrics } from '../request-metrics'
+import { RequestTrend } from '../request-trend'
 
 vi.mock('@/lib/api', () => ({ api: { getOverviewReport: vi.fn() } }))
 vi.mock('@tanstack/react-router', () => ({
@@ -28,13 +29,14 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-function renderMetrics() {
+function renderMetrics(withTrend = false) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   return render(
     <QueryClientProvider client={client}>
       <RequestMetrics />
+      {withTrend && <RequestTrend />}
     </QueryClientProvider>
   )
 }
@@ -62,7 +64,7 @@ describe('operator request metrics', () => {
         gatewayRequestPoints: [],
       })
     )
-    renderMetrics()
+    renderMetrics(true)
     expect(await screen.findByText('40.0%')).toBeInTheDocument()
     expect(screen.queryByText('100.0%')).not.toBeInTheDocument()
     expect(
@@ -71,6 +73,9 @@ describe('operator request metrics', () => {
     expect(
       screen.getByText(/Request records available since/)
     ).toHaveTextContent('2026-10-16T00:00:00Z')
+    expect(
+      screen.getAllByText(/Completion is based on protocol outcomes/)
+    ).toHaveLength(1)
     const link = screen.getByRole('link', { name: /Request completion rate/ })
     expect(link.getAttribute('href')).toContain('view=requests')
     expect(link.getAttribute('href')).not.toContain('status=failed')

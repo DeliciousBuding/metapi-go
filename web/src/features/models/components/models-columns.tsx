@@ -140,7 +140,7 @@ export function useModelsColumns(
           const brandName = resolveBrandName(modelName)
           return (
             <div className='flex items-center gap-2'>
-              <span className='text-sm font-medium'>
+              <span className='text-muted-foreground text-sm'>
                 {brandName || t('models.columns.unknownBrand')}
               </span>
             </div>
@@ -213,11 +213,11 @@ export function useModelsColumns(
           return (
             <BadgeListCell
               items={endpointTypes.map((type) => (
-                <Badge key={type} variant='outline' className='gap-1'>
+                <span key={type} className='shrink-0 px-1.5 text-xs'>
                   {type}
-                </Badge>
+                </span>
               ))}
-              max={3}
+              max={2}
             />
           )
         },
@@ -251,11 +251,14 @@ export function useModelsColumns(
           return (
             <BadgeListCell
               items={tags.map((tag) => (
-                <Badge key={tag} variant='secondary' className='gap-1'>
+                <span
+                  key={tag}
+                  className='text-muted-foreground shrink-0 px-1.5 text-xs'
+                >
                   {tag}
-                </Badge>
+                </span>
               ))}
-              max={3}
+              max={2}
             />
           )
         },

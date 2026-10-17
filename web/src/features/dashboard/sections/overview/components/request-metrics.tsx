@@ -48,9 +48,7 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
     {
       title: 'requests',
       value: displayedCount !== undefined ? formatInt(displayedCount) : '—',
-      hint: useGatewayOutcomes
-        ? t('requestLogs.observedHint')
-        : t('dashboard.operations.requestHint'),
+      hint: useGatewayOutcomes ? null : t('dashboard.operations.requestHint'),
       icon: Activity,
       failed: false,
     },
@@ -138,15 +136,18 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
               ) : (
                 <KpiValue>{metric.value}</KpiValue>
               )}
-              <span className='text-muted-foreground text-xs leading-5'>
-                {metric.hint}
-              </span>
+              {metric.hint && (
+                <span className='text-muted-foreground text-xs leading-5'>
+                  {metric.hint}
+                </span>
+              )}
             </Link>
           )
         })}
       </div>
       {gatewaySummary && (
         <p className='text-muted-foreground text-xs leading-5'>
+          {t('requestLogs.observedHint')}{' '}
           {gatewaySummary.coverageStartedAt
             ? t('requestLogs.coverage', {
                 time: gatewaySummary.coverageStartedAt,

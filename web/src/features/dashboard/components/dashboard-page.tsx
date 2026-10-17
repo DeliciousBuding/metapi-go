@@ -59,7 +59,7 @@ export function DashboardPage({
   const content = getDashboardSectionContent(sectionId)
 
   return (
-    <div className='flex flex-col gap-4 p-6'>
+    <div className='page-padding flex flex-col gap-4'>
       <header className='flex flex-col gap-1'>
         <h1 className='page-title'>{t(meta.title)}</h1>
         {meta.description ? (

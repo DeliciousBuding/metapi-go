@@ -35,7 +35,7 @@ export function DownstreamKeysPage() {
   }
 
   return (
-    <div className='flex h-full flex-col gap-3 p-4'>
+    <div className='page-padding flex h-full flex-col gap-3'>
       <PageHeader
         title={t('downstreamKeys.page.title')}
         description={t('downstreamKeys.page.description')}

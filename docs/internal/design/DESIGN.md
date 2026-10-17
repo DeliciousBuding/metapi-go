@@ -114,7 +114,14 @@ rebuild these arrangements with local spacing and raw data editors:
 
 - `components/common/page-header.tsx`: standard list/settings/tool page title,
   description and wrapping actions. Overview pages retain their overview
-  hierarchy. Page containers continue to own scrolling.
+  hierarchy. Page containers use `page-padding` (16px on small screens, 24px
+  from `md`) and continue to own scrolling. Sheet headers reserve space for the
+  close button; long detail titles wrap within that space.
+
+Model-list protocols and capabilities use compact text, with at most two values
+inline. Overflow remains available on hover and keyboard focus. Badges mark
+states such as deprecation. Overview metrics share one outcome/coverage note
+below the metric strip; the trend subtitle shows the selected period.
 - `components/data-table/toolbar/toolbar.tsx`: separate query and view/action
   groups, with expanded filters in their own region. The desktop and mobile
   empty states share `core/empty-state.tsx`; page-owned filters participate in

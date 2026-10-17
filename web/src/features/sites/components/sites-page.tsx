@@ -451,7 +451,7 @@ export function SitesPage() {
   }))
 
   return (
-    <div className='flex min-h-full flex-col gap-3 p-4 min-[641px]:h-full'>
+    <div className='page-padding flex min-h-full flex-col gap-3 min-[641px]:h-full'>
       <PageHeader
         title={t('sites.page.title')}
         description={t('sites.page.description')}

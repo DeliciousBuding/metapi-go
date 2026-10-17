@@ -392,7 +392,7 @@ export function CheckinPage() {
     columnFilters.length > 0 || hasActiveDateRange || accountId !== undefined
 
   return (
-    <div className='flex h-full flex-col gap-3 p-4'>
+    <div className='page-padding flex h-full flex-col gap-3'>
       <PageHeader
         title={t('checkin.page.title')}
         description={t('checkin.page.description')}

@@ -409,7 +409,7 @@ export function ProxyLogsPage() {
   const slowOnly = latencyMin === 2000 && latencyMax === null
 
   return (
-    <div className='flex h-full flex-col gap-3 p-4'>
+    <div className='page-padding flex h-full flex-col gap-3'>
       <PageHeader
         title={t('proxyLogs.page.title')}
         description={t('proxyLogs.page.description')}

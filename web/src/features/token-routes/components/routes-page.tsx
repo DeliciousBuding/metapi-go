@@ -496,7 +496,7 @@ export function RoutesPage() {
   }, [siteId, sitesList])
 
   return (
-    <div className='flex h-full flex-col gap-3 p-4'>
+    <div className='page-padding flex h-full flex-col gap-3'>
       <PageHeader
         title={t('tokenRoutes.page.title')}
         description={t('tokenRoutes.page.description')}

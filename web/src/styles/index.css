@@ -427,6 +427,10 @@
   @apply text-2xl leading-tight font-semibold tracking-tight text-balance;
 }
 
+@utility page-padding {
+  @apply p-4 md:p-6;
+}
+
 @utility page-title-overview {
   @apply text-3xl leading-tight font-semibold tracking-tight text-balance;
 }
