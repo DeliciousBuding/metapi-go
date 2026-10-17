@@ -163,6 +163,11 @@ documented in [conventions.md](conventions.md); the two contracts never mix
 
 ### Errors inside an upstream SSE response
 
+Chat streams that emit choices require a non-empty `finish_reason` before
+`[DONE]`. A stream ending with unfinished choices is recorded as interrupted;
+parsed usage is retained. Existing explicit error events keep their error
+classification.
+
 An explicit error in a readable HTTP 200 SSE response (such as `event: error`,
 `response.failed`, or a non-null top-level `error` payload) records a failed
 request with HTTP 502 in the proxy log and does not count as channel success.

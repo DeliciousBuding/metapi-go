@@ -218,7 +218,7 @@ func TestDispatchStreamCleanEOFStillRecordsSuccess(t *testing.T) {
 	upstream := sseChunkUpstream([]string{
 		"data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n",
 		"data: {\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":4,\"total_tokens\":7}}\n\n",
-		"data: [DONE]\n\n",
+		"data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
 	}, 0)
 	t.Cleanup(upstream.Close)
 

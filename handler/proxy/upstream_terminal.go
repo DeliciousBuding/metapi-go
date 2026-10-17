@@ -48,6 +48,7 @@ type nativeTerminalBody struct {
 	completionProtocol proxy.UpstreamEndpoint
 	terminalSeen       bool
 	terminalFailed     bool
+	chatChoices        map[int]bool
 	readBuf            [4096]byte
 }
 
@@ -177,6 +178,12 @@ func (b *nativeTerminalBody) observeTerminalEvent(event *SseEvent) {
 		return
 	}
 	if b.completionProtocol == proxy.EndpointChat && strings.TrimSpace(event.Data) == "[DONE]" {
+		// [DONE] closes the stream; a choice still needs its finish_reason.
+		if !b.terminalSeen {
+			for _, finished := range b.chatChoices {
+				b.terminalFailed = b.terminalFailed || !finished
+			}
+		}
 		b.terminalSeen = true
 		return
 	}
@@ -186,16 +193,26 @@ func (b *nativeTerminalBody) observeTerminalEvent(event *SseEvent) {
 		b.terminalSeen = true
 		return
 	}
-	if b.completionProtocol == proxy.EndpointChat {
-		return
-	}
 	var payload struct {
-		Type     string `json:"type"`
+		Type    string `json:"type"`
+		Choices []struct {
+			Index        int    `json:"index"`
+			FinishReason string `json:"finish_reason"`
+		} `json:"choices"`
 		Response struct {
 			Status string `json:"status"`
 		} `json:"response"`
 	}
 	if json.Unmarshal([]byte(event.Data), &payload) != nil {
+		return
+	}
+	if b.completionProtocol == proxy.EndpointChat {
+		for _, choice := range payload.Choices {
+			if b.chatChoices == nil {
+				b.chatChoices = make(map[int]bool)
+			}
+			b.chatChoices[choice.Index] = b.chatChoices[choice.Index] || strings.TrimSpace(choice.FinishReason) != ""
+		}
 		return
 	}
 	kind := payload.Type

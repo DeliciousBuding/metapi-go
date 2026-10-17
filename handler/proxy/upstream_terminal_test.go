@@ -82,7 +82,7 @@ func (r *terminalChunkReader) Read(p []byte) (int, error) {
 }
 func (r *terminalChunkReader) Close() error { r.closed = true; return nil }
 func TestNativeTerminalSSEFramingAcrossEveryByte(t *testing.T) {
-	input := ": comment\r\nevent: message\r\nid: one\r\nretry: 250\r\ndata: {\"id\":\"one\",\"object\":\"chat.completion.chunk\",\"choices\":[\r\ndata: {\"index\":0,\"delta\":{\"content\":\"你好\"},\"finish_reason\":\"\"}]}\r\n\r\ndata: [DONE]\r\n\r\n"
+	input := ": comment\r\nevent: message\r\nid: one\r\nretry: 250\r\ndata: {\"id\":\"one\",\"object\":\"chat.completion.chunk\",\"choices\":[\r\ndata: {\"index\":0,\"delta\":{\"content\":\"你好\"},\"finish_reason\":\"\"}]}\r\n\r\ndata: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\r\n\r\ndata: [DONE]\r\n\r\n"
 	for _, size := range []int{1, 2, 7, 4096} {
 		source := &terminalChunkReader{data: []byte(input), size: size, end: io.EOF}
 		reader := withNativeTerminalBody(source, "/v1/chat/completions")
@@ -151,7 +151,7 @@ func TestNativeTerminalStreamDispatchPreservesAttachmentsAndPostDoneData(t *test
 	for _, tc := range []struct{ name, disposition, stream string }{
 		{"attachment", "attachment; filename=completion.sse", start + terminal + "data: [DONE]\n\n"},
 		{"attachment_case", "Attachment; filename=completion.sse", start + terminal + "data: [DONE]\n\n"},
-		{"after_done", "", start + "data: [DONE]\n\n" + terminal},
+		{"after_done", "", terminal + "data: [DONE]\n\n" + start + terminal},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resp := &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(tc.stream))}

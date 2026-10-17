@@ -31,6 +31,7 @@ func TestGatewayLifecycleDispatchResults(t *testing.T) {
 		abrupt                 bool
 	}{
 		{"complete", "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\ndata: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n", "completed", false},
+		{"done-without-finish", "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"},\"finish_reason\":null}]}\n\ndata: [DONE]\n\n", "output_interrupted", false},
 		{"interrupted", "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n", "output_interrupted", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {

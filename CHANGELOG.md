@@ -28,6 +28,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 修复
 
+- Chat 流：已开始返回 choice、但未收到非空 `finish_reason` 就结束的流记录为输出中断；后续 `[DONE]` 不再使其误报完成，已解析用量保留。
 - 账号 API Key：支持携带所选 Key ID 新建路由，重选账号保留指定 Key；列表加载失败显示重试。通道新增接口拒绝错账号或不存在的 Key（`400`），凭据读取失败返回 `500`。
 - 路由通道：修复 PostgreSQL 下新增通道的查重失效；查重读取失败返回错误，批量添加保留已成功项。
 
