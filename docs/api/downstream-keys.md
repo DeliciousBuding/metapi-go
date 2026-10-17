@@ -57,6 +57,15 @@ secret beginning with `sk-` (the admin UI generates one before submission).
 
 Routing-policy fields (`excludedSiteIds`, `excludedCredentialRefs`, `allowedSiteIds`, `allowedCredentialRefs`, `siteWeightMultipliers`, `keyWeight`) are accepted on both create and update; their full contract is documented under **Credential & site scope** below.
 
+### 模型与路由授权
+
+`supportedModels` 支持精确名称、`*` / `?` 通配符和 `re:` 正则表达式。
+模型范围与 `allowedRouteIds` 为并集：命中模型范围，或命中指定路由，均可继续选路。
+`accessPolicy`、站点和凭据限制仍需同时满足；受管 Key 的模型范围和路由列表都为空时拒绝请求。
+
+`GET /v1/models` 对路由授权使用与转发相同的只读选路检查，只展示当前存在可选候选的模型，
+不调用上游。请求入口与选路共用模型匹配规则。
+
 ### Usage limits are not a prepaid billing ledger
 
 - `maxRequests` is an atomic admission counter. RPM/TPM-denied requests do not

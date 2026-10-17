@@ -97,38 +97,6 @@ func withModelsRouter(t *testing.T, router proxy.TokenRouterInterface) {
 	})
 }
 
-// ---- matchModelPattern ----
-
-func TestMatchModelPattern(t *testing.T) {
-	tests := []struct {
-		model   string
-		pattern string
-		want    bool
-	}{
-		// Exact match
-		{"gpt-4o", "gpt-4o", true},
-		{"gpt-4o", "gpt-3.5", false},
-		// Wildcard
-		{"gpt-4o", "*", true},
-		// Prefix wildcard
-		{"gpt-4o", "gpt-*", true},
-		{"claude-sonnet", "gpt-*", false},
-		{"gpt-4o-2024", "gpt-4o*", true},
-		// Suffix wildcard
-		{"gpt-4o", "*-4o", true},
-		{"gpt-3.5", "*-4o", false},
-		// Empty
-		{"", "", true},
-		{"gpt-4o", "", false},
-	}
-	for _, tt := range tests {
-		got := matchModelPattern(tt.model, tt.pattern)
-		if got != tt.want {
-			t.Errorf("matchModelPattern(%q, %q) = %v, want %v", tt.model, tt.pattern, got, tt.want)
-		}
-	}
-}
-
 // ---- IsModelAllowedByPolicy ----
 
 func TestIsModelAllowedByPolicy(t *testing.T) {
@@ -160,7 +128,7 @@ func TestIsModelAllowedByPolicy(t *testing.T) {
 		t.Error("gemini-pro should not match")
 	}
 
-	// AllowedRouteIDs (stub — always true if no supported models)
+	// Route grants are checked during channel selection.
 	routePolicy := auth.DownstreamRoutingPolicy{
 		AllowedRouteIDs: []int64{1, 2, 3},
 	}
@@ -552,7 +520,7 @@ func TestGetAvailableModelsAppliesManagedPolicy(t *testing.T) {
 		t.Fatal("wildcard supported policy returned empty, want Claude models")
 	}
 	for _, model := range got {
-		if !matchModelPattern(model, "claude-*") {
+		if !routing.MatchesModelPattern(model, "claude-*") {
 			t.Fatalf("wildcard supported policy returned non-Claude model %q in %v", model, got)
 		}
 	}
@@ -562,7 +530,7 @@ func TestGetAvailableModelsAppliesManagedPolicy(t *testing.T) {
 		DenyAllWhenEmpty: true,
 	}
 	if got := getAvailableModels(context.Background(), routeOnly); len(got) != 0 {
-		t.Fatalf("route-only policy returned %v, want empty until route-aware model listing is available", got)
+		t.Fatalf("route-only policy returned %v, want empty without a route-aware model source", got)
 	}
 }
 

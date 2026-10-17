@@ -144,23 +144,25 @@ func buildClaudeModelsResponse(models []string, now time.Time) map[string]any {
 // then downstream routing policy filters the catalog.
 func getAvailableModels(ctx context.Context, policy auth.DownstreamRoutingPolicy) []string {
 	models := resolveOwnedModelCatalog(ctx)
-	if policy.AccessPolicy != nil {
+	if policy.AccessPolicy != nil || len(policy.AllowedRouteIDs) > 0 {
 		if cfg := getUpstreamConfig(); cfg != nil {
 			if explainer, ok := cfg.Router.(interface {
 				ExplainSelection(context.Context, string, []int64, routing.DownstreamRoutingPolicy) (routing.RouteDecisionExplanation, error)
 			}); ok {
-				for _, mapping := range policy.AccessPolicy.ModelMappings {
-					if !strings.ContainsAny(mapping.From, "*?+[]{}()^$.|\\") {
-						models = append(models, mapping.From)
+				if policy.AccessPolicy != nil {
+					for _, mapping := range policy.AccessPolicy.ModelMappings {
+						if !strings.ContainsAny(mapping.From, "*?+[]{}()^$.|\\") {
+							models = append(models, mapping.From)
+						}
 					}
 				}
+				listingPolicy := RoutingPolicyFromAuth(policy)
+				listingPolicy.RequiredUpstreamProtocol = -1 // Listing accepts any protocol the grant can serve.
 				available := make([]string, 0, len(models))
 				for _, model := range models {
 					if !IsModelAllowedByPolicy(model, policy) {
 						continue
 					}
-					listingPolicy := RoutingPolicyFromAuth(policy)
-					listingPolicy.RequiredUpstreamProtocol = -1 // Listing accepts any protocol the grant can serve.
 					decision, err := explainer.ExplainSelection(ctx, model, nil, listingPolicy)
 					if err != nil {
 						continue
@@ -183,12 +185,6 @@ func getAvailableModels(ctx context.Context, policy auth.DownstreamRoutingPolicy
 		}
 		return models
 	}
-	// SupportedModels empty but AllowedRouteIDs set: keep empty until listing can
-	// join route IDs (AllowedRouteIDs is enforced at channel selection today).
-	if len(policy.SupportedModels) == 0 {
-		return []string{}
-	}
-
 	filtered := make([]string, 0, len(models))
 	for _, model := range models {
 		if IsModelAllowedByPolicy(model, policy) {
@@ -358,39 +354,5 @@ func knownModelContextLength(model string) (int64, bool) {
 
 // IsModelAllowedByPolicy checks if a model is allowed by the downstream policy.
 func IsModelAllowedByPolicy(requestedModel string, policy auth.DownstreamRoutingPolicy) bool {
-	if !policy.AccessPolicy.AllowsModel(requestedModel) {
-		return false
-	}
-	if len(policy.SupportedModels) == 0 && len(policy.AllowedRouteIDs) == 0 {
-		return !policy.DenyAllWhenEmpty
-	}
-
-	if len(policy.SupportedModels) > 0 {
-		for _, m := range policy.SupportedModels {
-			if matchModelPattern(requestedModel, m) {
-				return true
-			}
-		}
-		return false
-	}
-
-	// AllowedRouteIDs is checked by the token router at channel selection time
-	return true
+	return routing.IsModelAllowedByDownstreamPolicy(requestedModel, RoutingPolicyFromAuth(policy))
 }
-
-// matchModelPattern does simple wildcard matching for model patterns.
-func matchModelPattern(model, pattern string) bool {
-	if pattern == "*" || pattern == model {
-		return true
-	}
-	if strings.HasPrefix(pattern, "*") {
-		return strings.HasSuffix(model, strings.TrimPrefix(pattern, "*"))
-	}
-	if strings.HasSuffix(pattern, "*") {
-		return strings.HasPrefix(model, strings.TrimSuffix(pattern, "*"))
-	}
-	return false
-}
-
-// Ensure auth/policy imports are used
-var _ = auth.ProxyAuthContext{}
