@@ -127,7 +127,7 @@ metapi
 
 ### 方式二：Docker（预构建镜像 + 命名卷）
 
-稳定部署使用完整版本标签或 digest；下例使用已发布的 `0.24.0`，`latest` 用于开发构建。升级前在 [Releases](https://github.com/DeliciousBuding/metapi-go/releases) 查看版本说明。
+稳定部署使用完整版本标签或 digest；下例使用已发布的 `0.24.0`。`edge` 跟随 master，`latest` 只随稳定发布更新。升级前在 [Releases](https://github.com/DeliciousBuding/metapi-go/releases) 查看版本说明。
 
 ```bash
 export AUTH_TOKEN=$(openssl rand -hex 32)
@@ -150,7 +150,7 @@ docker run -d --name metapi \
 命名卷首次挂载继承镜像内属主；改用 bind mount（`./data:/app/data`）需先在宿主机 `chown -R 1001:1001 ./data`。使用仓库 Compose（Docker Compose >= 2.24）：
 
 ```bash
-cp .env.example .env   # 设置独立的随机 AUTH_TOKEN / PROXY_TOKEN / ACCOUNT_CREDENTIAL_SECRET
+cp .env.example .env   # 替换三个独立随机密钥；METAPI_IMAGE 已钉在 0.24.0
 # .env 中其他运行配置也会传入容器，包括 PostgreSQL 和签到开关
 docker compose up -d
 ```
@@ -263,7 +263,8 @@ Claude 原生格式（`/v1/messages`）、Responses、Embeddings、Images、`/v1
 
 ```bash
 make build    # 构建
-make test     # 全部测试（含 -race）
+make test     # 全部测试（不含 -race）
+make race     # 全部测试 + race detector
 make vet      # go vet
 make lint     # golangci-lint
 make vuln     # govulncheck 漏洞扫描
@@ -290,7 +291,7 @@ bun run build       # rsbuild 构建（产物经 go:embed 打包进 Go 二进制
 | ------------------------------------- | ---------------------------------------------------- |
 | Release 二进制：安装脚本 → 空数据目录启动 → 健康检查 → 文档路径建站点/账号/路由 → 真实中继 | 端到端实测（v0.19.0）                |
 | 源码构建：前端构建 → go build → 启动   | 端到端实测                                           |
-| Docker / Compose 命令                  | 与仓库 `Dockerfile` / `docker-compose.prod.yml` 逐项核对 |
+| Docker / Compose 命令                  | 与仓库 `Dockerfile` / `docker-compose.yml` 核对；CI 解析 Compose 配置 |
 | 未配置路由返回 503、健康检查退出码     | 实测                                                 |
 
 ## 贡献与安全

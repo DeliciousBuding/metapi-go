@@ -23,8 +23,22 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 部署：仓库只保留一个 compose 入口；镜像由 `METAPI_IMAGE` 固定，主机绑定由 `METAPI_BIND_ADDRESS`/`METAPI_PORT` 控制。
+- 发布：master 镜像标签改为 `edge`/`sha-*`，稳定 tag 同时发布 `vX.Y.Z`/`X.Y.Z`/`X.Y` 并更新 `latest`。
 - 请求日志：新增 `gateway_requests` 与 `proxy_logs.gateway_request_id`，分别记录网关终态和上游尝试；`/api/stats/requests` 提供请求查询，历史日志保持未知、不回填（#1465）。
 - 请求诊断：默认按请求展示完成、断流、取消和零派发；概览单独统计请求完成率，历史尝试仍可查询。记录写入失败新增 WARN，不改变代理响应（#1465）。
+- 侧边栏：根导航按任务域分组——概览、上游、模型与路由、访问、请求与诊断、设置；仅调整入口组织，不改既有 URL 与深链（#1396）。
+- OAuth：新增 GitHub Copilot 设备码接入——展示用户码并按 `retryAfterSeconds` 轮询完成授权，GitHub 令牌仅用于交换短期 Copilot 令牌（#1396）。
+- AxonHub 导入：`github_copilot` 翻正为可导入，静态 Key 与自定义端点明确拒绝；直连凭据首次请求时交换 Copilot 令牌（#1396）。
+- AxonHub 导入：`xai_subscription` 翻正为可导入，要求结构化 OAuth refresh token 与官方 client；静态 Key、自定义 base/path 明确拒绝（#1396）。
+- 直连上游：新增 `xai-subscription` Responses profile，固定 `https://cli-chat-proxy.grok.com/v1/responses` 并发送 xAI Grok CLI 身份头，客户端不能伪造这些身份头（#1396）。
+- 直连上游：`github_copilot` Chat 端点固定为 `https://api.githubcopilot.com/chat/completions`，并带 Copilot/VS Code 身份头（#1396）。
+- 路由诊断：候选解释投影新增冷却截止时间；账号/OAuth 单元可在候选行清除冷却（`POST /api/channels/{id}/cooldown/clear`，幂等），清除后自动复评（#1396）。
+- 路由诊断：直连 grant 成员清除冷却走 `POST /api/imported-upstreams/members/{id}/cooldown/clear`，与账号单元同样按候选类型提供入口（#1396）。
+- 路由工作区：`/token-routes` 顶部新增模型/协议/可选下游 Key 的只读诊断面板，直接展示准入结论、候选资格与阻断原因，并保留命中路由与 Key 日志深链（#1396）。
+- 路由工作区：Key 准入阻断新增“编辑 Key”深链，按阻断维度定位到对应表单控件；IP/速率等暂无表单入口的维度只打开编辑 Sheet，不伪装定位（#1396）。
+- 代理日志：新增可空的 `downstreamPath` 入口字段；详情按已记录接口、模型和可选下游 Key 打开当前路由诊断，未知或不支持的接口不显示入口（#1396 → #1461）。
+- 概览：`GET /api/stats/overview` 新增 `requestSummary`/`requestPoints`，按 `requestId` 聚合；缺少 `requestId` 的旧 attempt 以 `legacyAttemptCount` 与 `partial` 标注（#1396）。
 
 ### 修复
 
@@ -34,25 +48,9 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - Chat 流：已开始返回 choice、但未收到非空 `finish_reason` 就结束的流记录为输出中断；后续 `[DONE]` 不再使其误报完成，已解析用量保留。
 - 账号 API Key：支持携带所选 Key ID 新建路由，重选账号保留指定 Key；列表加载失败显示重试。通道新增接口拒绝错账号或不存在的 Key（`400`），凭据读取失败返回 `500`。
 - 路由通道：修复 PostgreSQL 下新增通道的查重失效；查重读取失败返回错误，批量添加保留已成功项。
-
 - 管理 API：数据库读取失败返回 `500` / `resourceLoadFailed`，不再误报 `404` 或空结果；比价数据含非法行时显示错误并可重试，不再静默清空（#1396）。
 - 代理日志：详情新增 `requestAttempts.lastAttempt`（末次已记录尝试），关联未知时显示未知；概览成功率改按末次尝试统计（#1396）。
 - 接入验证：HTTP 200 的非 JSON、错误对象或无有效消息的 Chat 响应不再显示成功；非法模型列表与空目录分别报告（#1396）。
-
-### 变更
-
-- 侧边栏：根导航按任务域分组——概览、上游、模型与路由、访问、请求与诊断、设置；仅调整入口组织，不改既有 URL 与深链（#1396）。
-- OAuth：新增 GitHub Copilot 设备码接入——展示用户码并按 `retryAfterSeconds` 轮询完成授权，GitHub 令牌仅用于交换短期 Copilot 令牌（#1396）。
-- AxonHub 导入：`github_copilot` 翻正为可导入，静态 Key 与自定义端点明确拒绝；直连凭据首次请求时交换 Copilot 令牌（#1396）。
-- AxonHub 导入：`xai_subscription` 翻正为可导入，要求结构化 OAuth refresh token 与官方 client；静态 Key、自定义 base/path 明确拒绝（#1396）。
-- 直连上游：新增 `xai-subscription` Responses profile，固定 `https://cli-chat-proxy.grok.com/v1/responses` 并发送 xAI Grok CLI 身份头，客户端不能伪造这些身份头（#1396）。
-- 直连上游：`github_copilot` Chat 端点固定为 `https://api.githubcopilot.com/chat/completions`，并带 Copilot/VS Code 身份头（#1396）。
-- 路由诊断：候选的解释投影新增冷却截止时间；冷却阻断且身份已知的候选行内提供「清除冷却」恢复入口，按候选类型分发——账号/OAuth 单元走 `POST /api/channels/{id}/cooldown/clear`（route_channels 行粒度，幂等），直连 grant 成员走既有 `POST /api/imported-upstreams/members/{id}/cooldown/clear`（upstream_grants 粒度），清除后自动重新评估（#1396）。
-- 路由工作区：`/token-routes` 顶部新增模型/协议/可选下游 Key 的只读诊断面板，直接展示准入结论、候选资格与阻断原因，并保留命中路由与 Key 日志深链（#1396）。
-- 路由工作区：Key 准入阻断新增“编辑 Key”深链，按阻断维度定位到对应表单控件；IP/速率等暂无表单入口的维度只打开编辑 Sheet，不伪装定位（#1396）。
-- 代理日志：新增可空的 `downstreamPath` 入口字段；详情按已记录接口、模型和可选下游 Key 打开当前路由诊断，未知或不支持的接口不显示入口（#1396 → #1461）。
-
-- 概览：`GET /api/stats/overview` 新增 `requestSummary`/`requestPoints`，按 `requestId` 聚合客户端请求并以最高序数行作为 terminal；缺少 `requestId` 的旧 attempt 不进入请求分母，改以 `legacyAttemptCount` 与 `partial` 标注（#1396）。
 
 ## [v0.24.0] — 2026-10-14
 

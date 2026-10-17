@@ -17,6 +17,7 @@ if (( $# > 0 )); then
     echo "METAPI_RACE_PARALLEL=2           Parallel tests per package (-parallel)"
     echo "METAPI_RACE_TIMEOUT_SECONDS=900  Per-package timeout"
     echo "With PG_TEST_DSN set, package parallelism defaults to 1 and must stay 1."
+    echo "On Windows, run this script from WSL if ThreadSanitizer cannot allocate shadow memory."
     exit 0
   fi
   echo "race: unexpected arguments; use --help. Use go test directly for focused tests." >&2
@@ -56,8 +57,19 @@ run_race() {
   if grep -q "test timed out" "$race_log"; then
     echo "race: a package exceeded the ${timeout_seconds}s per-package budget; raise it with METAPI_RACE_TIMEOUT_SECONDS=<seconds>." >&2
   fi
+  if grep -qE "ThreadSanitizer failed to allocate|error code: 87" "$race_log"; then
+    echo "race: Windows native ThreadSanitizer could not allocate its shadow memory." >&2
+    echo "race: run the same gate from WSL:" >&2
+    wsl_repo=""
+    if command -v wslpath >/dev/null 2>&1; then
+      wsl_repo="$(wslpath -a . 2>/dev/null || true)"
+    fi
+    echo "  wsl --cd '${wsl_repo:-/path/to/metapi-go}' -- bash -lc 'bash scripts/go-race.sh'" >&2
+  fi
   return 1
 }
 
 # Run in the caller's environment; WSL/container use is an explicit choice.
-run_race go test ./... -count=1 -race -p "$package_parallelism" -parallel "$test_parallelism" -timeout "${timeout_seconds}s"
+if ! run_race go test ./... -count=1 -race -p "$package_parallelism" -parallel "$test_parallelism" -timeout "${timeout_seconds}s"; then
+  exit 1
+fi

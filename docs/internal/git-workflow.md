@@ -85,8 +85,8 @@ master (唯一长期分支，受保护，持续集成)
 
 ### 构建渠道与发布状态（当前 workflow）
 
-- **master 构建**：成功的镜像发布 job 更新 `latest` 与短 commit SHA 标签，构建版本为 `dev`。这不是稳定发布批准。
-- **tag 构建**：镜像标签由 `docker/metadata-action@v6` 的 `{{version}}` / `{{major}}.{{minor}}` 生成（不带 `v`）；该 action 默认 `latest=auto`，也会为符合触发格式的 SemVer tag 生成 `latest`。因此 `latest` 是可变构建标签，不能当作稳定渠道。
+- **master 构建**：成功的镜像发布 job 更新 `edge` 与 `sha-<short>` 标签，构建版本为 `dev`。这不是稳定发布批准。
+- **tag 构建**：同一镜像同时打 `vX.Y.Z`、`X.Y.Z`（精确版本）、`X.Y`（补丁别名）与 `latest`；`latest` 只由稳定 tag 更新，`edge` 不参与。
 - **Release 草稿**：镜像在创建草稿之前已发布；草稿不会隔离或回滚镜像。已有同 tag Release 的重跑只覆盖附件、更新说明，不改变其 draft/published 状态；已发布 Release 不会因重跑重新进入审阅。
 - **稳定安装**：选维护者已公开发布的非预发布 Release，并固定对应完整版本镜像标签或 digest；开发验证选具体 commit 构建并记录摘要。不要用 `latest` 或仓库 HEAD 代替验收身份。
 
@@ -120,7 +120,7 @@ Dependabot 每周一自动开升级 PR（Go / npm / GitHub Actions / Docker）�
    ```
    再等 CI 全绿后合并。`oxfmt` 升级可能顺带改格式（`format:check` 失败时跑 `bun run format` 一并提交）。
 4. **前端库 major（如 `@tanstack/react-table` 8→9）**：关闭 PR，注明需手动迁移 PR（API 改动 + 重新生成 lockfile），不自动合并。
-5. 合并后无需手动重推镜像：master push 会触发单一管道自动推送 `latest` + sha。
+5. 合并后无需手动重推镜像：master push 会触发单一管道自动推送 `edge` + `sha-<short>`。
 
 ## 7. 紧急修复
 
@@ -135,7 +135,7 @@ hotfix 不等于绕过 PR、现有 CI 或发布复核，也不自动授权关闭
 | 合并策略 | 仓库 Settings → General | Allow squash merging only |
 | master 保护 | 仓库 Settings → Branches | 见 §3 |
 | PR 模板 | `.github/pull_request_template.md` | 自动填充 |
-| CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量必检；独立 `web-dist` 构建与 frontend 检查并行，SQLite/PG/a11y 不再串行等待 frontend；`docker-build` 汇总两者及其他门禁；master push 推送镜像（latest+sha）；SemVer tag：镜像（amd64+arm64）→ 多平台二进制 + 新建 draft Release；已有 Release 重跑不改 draft/published 状态 |
+| CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量必检；独立 `web-dist` 构建与 frontend 检查并行，SQLite/PG/a11y 不再串行等待 frontend；`docker-build` 汇总两者及其他门禁；master push 推送镜像（edge+sha）；SemVer tag：镜像（amd64+arm64，vX.Y.Z/X.Y.Z/X.Y/latest）→ 多平台二进制 + 新建 draft Release；已有 Release 重跑不改 draft/published 状态 |
 | 本地门禁 | `.githooks/pre-push-project` | 可直接运行；可选的 `.githooks/pre-push` 委托此入口。完整执行前端检查/构建、Go build/vet/race，不依赖个人全局工具链 |
 
 相关文档：[`deployment.md`](../deployment.md)（部署）· [`CHANGELOG.md`](../../CHANGELOG.md)（版本叙事）· `AGENTS.md`（工程规则）；当前状态以 GitHub issues/releases 为准。

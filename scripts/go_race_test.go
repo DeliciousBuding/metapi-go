@@ -27,6 +27,10 @@ func runRaceScript(t *testing.T, overrides map[string]string, args ...string) (s
     printf '>\n'
   fi
   if [[ "${STUB_TIMEOUT:-}" == 1 ]]; then echo 'panic: test timed out'; fi
+  if [[ "${STUB_TSAN:-}" == 1 ]]; then
+    echo 'ThreadSanitizer failed to allocate 0x200000000 (8589934592) bytes'
+    echo 'error code: 87'
+  fi
   return "${STUB_EXIT:-0}"
 }
 `))
@@ -35,7 +39,7 @@ func runRaceScript(t *testing.T, overrides map[string]string, args ...string) (s
 	for _, entry := range os.Environ() {
 		name, _, _ := strings.Cut(entry, "=")
 		switch strings.ToUpper(name) {
-		case "GOMAXPROCS", "METAPI_RACE_PACKAGES", "METAPI_RACE_PARALLEL", "METAPI_RACE_TIMEOUT_SECONDS", "PG_TEST_DSN", "BASH_ENV", "GOFLAGS", "STUB_EXIT", "STUB_TIMEOUT", "STUB_GO_BINARY":
+		case "GOMAXPROCS", "METAPI_RACE_PACKAGES", "METAPI_RACE_PARALLEL", "METAPI_RACE_TIMEOUT_SECONDS", "PG_TEST_DSN", "BASH_ENV", "GOFLAGS", "STUB_EXIT", "STUB_TIMEOUT", "STUB_TSAN", "STUB_GO_BINARY":
 			continue
 		}
 		cmd.Env = append(cmd.Env, entry)
@@ -107,6 +111,16 @@ func TestRaceScriptPropagatesFailuresAndTimeoutDiagnostic(t *testing.T) {
 				t.Fatalf("incorrect timeout diagnostic:\n%s", output)
 			}
 		})
+	}
+}
+
+func TestRaceScriptPointsWindowsTsanFailureAtWSL(t *testing.T) {
+	output, err := runRaceScript(t, map[string]string{"STUB_EXIT": "1", "STUB_TSAN": "1"})
+	if err == nil || !strings.Contains(output, "ThreadSanitizer") {
+		t.Fatalf("ThreadSanitizer failure was swallowed: %v\n%s", err, output)
+	}
+	if !strings.Contains(output, "wsl --cd") || !strings.Contains(output, "bash scripts/go-race.sh") {
+		t.Fatalf("Windows race failure did not point at the WSL command:\n%s", output)
 	}
 }
 

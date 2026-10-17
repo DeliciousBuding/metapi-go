@@ -1,6 +1,6 @@
 # FAQ
 
-**Last updated**: 2026-09-04
+**Last updated**: 2026-10-17
 
 Frequently asked questions. Anything not covered here lives in
 [`configuration.md`](configuration.md) (env vars), [`deployment.md`](deployment.md)
@@ -50,9 +50,10 @@ SQLite at `DATA_DIR/hub.db`. On Windows, empty `HOST` binds `127.0.0.1` to
 avoid firewall prompts — set `HOST=0.0.0.0` for LAN access.
 
 **How do I upgrade?**
-`docker compose pull && docker compose up -d` (or replace the binary). Schema
-upgrades are additive and run automatically at startup; keep a backup of
-`./data` before major version bumps like any database.
+Follow the pin, backup, upgrade and rollback checklist in
+[deployment.md](deployment.md#upgrading). Schema upgrades are additive and run
+automatically at startup; keep a backup before major version bumps like any
+database.
 
 **Why does the admin UI not load behind my reverse proxy?**
 WebSocket endpoints (realtime panel, Responses WS) need upgrade headers.

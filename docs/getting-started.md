@@ -1,6 +1,6 @@
 # Getting Started
 
-**Last updated**: 2026-10-15
+**Last updated**: 2026-10-17
 
 A single guided path from zero to your first proxied request, in about five
 minutes. If you already know your way around, the [README quick start](../README.md)
@@ -9,57 +9,35 @@ and [`deployment.md`](deployment.md) are the fast lane.
 **You will end with**: a running Metapi, one upstream connected, a public
 model route, a downstream key, and one `/v1` request answered through the gateway.
 
-**Prerequisites**: Docker (any recent version) and an API key or supported
-account for an upstream platform. A direct API-key connection does not require
-a site account. Use the account path below when you also need balance,
+**Prerequisites**: one install path from
+[deployment.md](deployment.md#prerequisites) — Docker Compose 2.24+ for the
+container path, or a release binary — plus an API key or supported account for
+an upstream platform. A direct API-key connection does not require a site
+account. Use the account path below when you also need balance,
 token-management or check-in features supported by that platform.
 
 Prefer a single binary over Docker? Install it with the published installer and
 run it with the same two tokens — the [README quick start](../README.md) covers
-all three install paths. Everything below is identical either way; the commands
-shown use Docker.
+all three install paths. Everything below is identical either way.
 
 ## 1. Start the server
 
+Install and start Metapi with one of the paths in
+[deployment.md](deployment.md#quick-paths). The Compose path is the default for
+a long-lived install: copy `.env.example` to `.env`, replace the three secrets,
+pin `METAPI_IMAGE` to a release tag or digest, and run `docker compose up -d`.
+
+Verify before continuing:
+
 ```bash
-mkdir metapi && cd metapi
-
-export AUTH_TOKEN=$(openssl rand -hex 16)     # admin login token
-export PROXY_TOKEN=sk-$(openssl rand -hex 24) # downstream proxy key
-
-cat > docker-compose.yml << 'EOF'
-services:
-  metapi:
-    image: ghcr.io/deliciousbuding/metapi-go:latest
-    ports:
-      - "4000:4000"
-    volumes:
-      - ./data:/app/data
-    environment:
-      AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN is required}
-      PROXY_TOKEN: ${PROXY_TOKEN:?PROXY_TOKEN is required}
-      DATA_DIR: /app/data
-      TZ: ${TZ:-Asia/Shanghai}
-    restart: unless-stopped
-EOF
-
-docker compose up -d
+curl -fsS http://127.0.0.1:4000/ready
+# {"status":"ok","database":"ok"}
 ```
 
-**Verify**: `curl http://localhost:4000/health` prints `{"status":"ok"}`.
-Open `http://localhost:4000` and log in with `$AUTH_TOKEN`.
-
-> `ACCOUNT_CREDENTIAL_SECRET` is the key that encrypts stored account
-> credentials. Unset, it falls back to `AUTH_TOKEN`; below 8 bytes the server
-> refuses to start, below 16 it warns. Set a 32+ byte random secret
-> (`openssl rand -hex 32`) for anything that is not a throwaway.
-
-> All data lives in `./data` on your host. Upgrading = pull a new image and
-> `docker compose up -d`; the schema migrates automatically at startup.
-> Coming from the TypeScript version? [migration.md](migration.md) covers the
-> three takeover paths: SQLite and PostgreSQL data are taken over directly
-> after stopping the old server; MySQL data moves via the TS admin's database
-> migration first.
+Open `http://127.0.0.1:4000` and sign in with `AUTH_TOKEN`. Data layout,
+upgrades, PostgreSQL and rollback are owned by [deployment.md](deployment.md)
+and are not repeated here. Coming from the TypeScript version? Follow
+[migration.md](migration.md) first.
 
 ## 2. Connect an upstream
 

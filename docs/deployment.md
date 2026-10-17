@@ -1,9 +1,10 @@
 # Deployment Guide
 
-**Last updated**: 2026-09-04
+**Last updated**: 2026-10-17
 
 > **How to read this page**: just getting started? The README Quick Start covers
-> the 3-minute paths — this page is the full reference behind them. Start with
+> the short path — this page owns the full install, Compose, upgrade and
+> rollback commands behind it. Start with
 > [Prerequisites](#prerequisites) and [Quick paths](#quick-paths), then jump to
 > the production topics you need: reverse proxy and TLS, PostgreSQL, backup,
 > upgrades and rollback. Every environment variable is listed in
@@ -17,7 +18,8 @@ Pick the prerequisites for the path you deploy with:
 - **Release binary (fastest, recommended for first-time users)** — none.
   Pre-built binaries ship with every [GitHub Release](https://github.com/DeliciousBuding/metapi-go/releases/latest);
   `install.sh` only needs `curl` + `sha256sum`.
-- **Docker** — any recent Docker Engine with Compose v2 (for containerized deployment).
+- **Docker** — Docker Engine with Compose v2.24+ (the Compose file uses
+  optional `env_file`; older versions reject it).
 - **From source** — Go 1.26.9+ **and** Bun 1.x. Bun is only needed to build the
   embedded frontend (`cd web && bun install --frozen-lockfile && bun run build:web`
   must run before `go build`); release binaries and GHCR images already include it.
@@ -26,9 +28,9 @@ Pick the prerequisites for the path you deploy with:
 
 ## Quick paths
 
-Three equivalent ways to a running server. All commands below were executed
-against a real release/source build during documentation review; default port
-is 4000.
+Three ways to a running server. CI parses the Compose file with its example
+values; release and source paths were exercised against real builds. The
+default port is 4000.
 
 ### 1. Release binary (3 minutes)
 
@@ -39,7 +41,7 @@ curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download
 The script downloads the matching platform binary from GitHub Releases,
 verifies its SHA-256 against `checksums.txt`, and installs to
 `/usr/local/bin/metapi` (override with `METAPI_INSTALL_PREFIX`; pin a version
-with `METAPI_VERSION=v0.16.20`). Windows: download `metapi-windows-amd64.exe`
+with `METAPI_VERSION=v0.24.0`). Windows: download `metapi-windows-amd64.exe`
 from the release page instead. Then start with the two required tokens:
 
 ```bash
@@ -52,21 +54,41 @@ Data lands in `./data` (SQLite, code default) unless `DATA_DIR` / `DATABASE_URL`
 
 ### 2. Docker
 
+**Compose (recommended for anything long-lived).** From a checkout:
+
 ```bash
+git clone https://github.com/DeliciousBuding/metapi-go.git
+cd metapi-go
+cp .env.example .env
+# Edit .env: replace the three secrets and point METAPI_IMAGE at the
+# release tag or digest you intend to run.
+docker compose up -d
+```
+
+The shipped Compose file binds the host side to `127.0.0.1:4000` by default
+and stores SQLite in the `metapi_data` volume. The full lifecycle is in
+[Docker Compose](#docker-compose).
+
+**One-off container.** If you do not want a checkout:
+
+```bash
+export AUTH_TOKEN=$(openssl rand -hex 32)
+export PROXY_TOKEN=sk-$(openssl rand -hex 24)
+export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
+
 docker run -d --name metapi \
-  -p 4000:4000 \
-  -e AUTH_TOKEN=your-admin-token \
-  -e PROXY_TOKEN=your-proxy-sk-token \
-  -e ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32) \
+  -p 127.0.0.1:4000:4000 \
+  -e AUTH_TOKEN \
+  -e PROXY_TOKEN \
+  -e ACCOUNT_CREDENTIAL_SECRET \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
   --restart unless-stopped \
-  ghcr.io/deliciousbuding/metapi-go:latest
+  ghcr.io/deliciousbuding/metapi-go:0.24.0
 ```
 
-Named volume is the zero-config default; bind mounts need a one-time
+The named volume is the zero-config default; bind mounts need a one-time
 `chown -R 1001:1001` — see [Data directory & volumes](#data-directory--volumes).
-Compose variants: [Docker Compose (Production)](#docker-compose-production).
 
 ### 3. From source
 
@@ -123,14 +145,14 @@ root; the tables below list only what a deployment needs plus common options.
 | `AUTH_RATE_LIMIT_RPS`               | `10`                          | Strict per-IP rate limit for `/api/auth/*` (login is the only surface accepting the master token, #1034) |
 | `AUTH_RATE_LIMIT_BURST`             | `20`                          | Burst size of the `/api/auth/*` bucket |
 | `PORT`                              | `4000`                        | HTTP listen port                                                                                                                                                                                                                                                                                                                                                                                    |
-| `DATA_DIR`                          | `./data`                      | Data directory (SQLite database and uploaded files). Code default is `./data` relative to the working directory; the container image sets `DATA_DIR=/app/data` via its `ENV`, and compose files pass it through explicitly |
+| `DATA_DIR`                          | `./data`                      | Data directory (SQLite database and uploaded files). Code default is `./data` relative to the working directory; the container image sets `DATA_DIR=/app/data`, and the Compose file pins the same path |
 | `LOG_LEVEL`                         | `info`                        | slog threshold: `debug`/`info`/`warn`/`error`. Raise to `warn` to quiet hot-path logs.                                                                                                                                                                                                                                                                                                              |
 | `CHECKIN_CRON`                      | `0 8 * * *`                   | Daily checkin cron expression                                                                                                                                                                                                                                                                                                                                                                      |
 | `CHECKIN_ENABLED`                   | `true`                        | Global kill switch for the automatic check-in scheduler: `false` stops scheduled check-in requests to upstream sites. Runtime setting `checkinEnabled` wins when set (#1027)                                                                                                                                                                                                                       |
 | `BALANCE_REFRESH_CRON`              | `0 * * * *`                   | Hourly balance refresh cron                                                                                                                                                                                                                                                                                                                                                                        |
 | `BALANCE_REFRESH_ENABLED`           | `true`                        | Global kill switch for the balance-refresh scheduler: `false` stops scheduled upstream balance queries. Runtime setting `balanceRefreshEnabled` wins when set (#1027)                                                                                                                                                                                                                              |
 | `MODEL_SYNC_CRON`                   | `0 4 * * *`                   | Daily upstream model-list sync cron; DB setting `model_sync_cron` overrides                                                                                                                                                                                                                                                                                                                        |
-| `TZ`                                | system local time             | Timezone for cron scheduling. No code-level default; `.env.example` and the compose files preset `Asia/Shanghai`                                                                                                                                                                                                                                                                                   |
+| `TZ`                                | system local time             | Timezone for cron scheduling. No code-level default; `.env.example` presets `Asia/Shanghai`, and the Compose file passes it through                                                                                                                                                                                                                                                               |
 | `DB_TYPE`                           | `sqlite`                      | Database type: `sqlite` or `postgres`; inferred as `postgres` when a PostgreSQL URL is provided                                                                                                                                                                                                                                          |
 | `DATABASE_URL`                      | _(empty)_                     | PostgreSQL connection string; alias of `DB_URL`; when set to `postgres://` or `postgresql://`, uses PG instead of SQLite                                                                                                                                                                                                                 |
 | `DB_URL`                            | _(empty)_                     | Database URL or SQLite file path; takes precedence over `DATABASE_URL`                                                                                                                                                                                                                                                                   |
@@ -156,33 +178,67 @@ root; the tables below list only what a deployment needs plus common options.
 | `PRICING_CATALOG_REFRESH_MIN`       | `60`                          | Catalog refresh period in minutes (`0` disables periodic refresh after the initial fetch)                                                                                                                                                                                                                                                |
 | `PRICING_CATALOG_URL`               | `https://models.dev/api.json` | models.dev dataset URL override (self-hosted mirror supported)                                                                                                                                                                                                                                                                           |
 
-## Docker Compose (Production)
+`METAPI_IMAGE`, `METAPI_BIND_ADDRESS` and `METAPI_PORT` are Compose-only and
+are not read by the server; they are documented in
+[configuration.md](configuration.md#docker-compose-only).
 
-Both compose files mount a **named volume** (`metapi_data:/app/data`) by
-default — zero configuration. To use a bind mount instead, follow the chown
-instructions in the compose file comments and in
-[Data directory & volumes](#data-directory--volumes).
+## Docker Compose
 
-1. Create a `.env` file:
+`docker-compose.yml` is the only runtime Compose entry in the repository. It
+requires Compose >= 2.24 for optional `env_file`.
 
-```bash
-AUTH_TOKEN=<your-admin-token>
-PROXY_TOKEN=<your-proxy-token>
-ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)   # recommended
-```
-
-2. Start the service:
+1. Copy the template and replace the required values:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
+cp .env.example .env
 ```
 
-3. Check health:
+```dotenv
+METAPI_IMAGE=ghcr.io/deliciousbuding/metapi-go:0.24.0
+AUTH_TOKEN=<new random admin token>
+PROXY_TOKEN=<new random downstream key>
+ACCOUNT_CREDENTIAL_SECRET=<new random 32+ byte secret>
+```
+
+2. Start the service and verify readiness:
 
 ```bash
-curl http://localhost:4000/health
-# {"status":"ok"}
+docker compose up -d
+docker compose ps
+curl -fsS http://127.0.0.1:4000/ready
+# {"status":"ok","database":"ok"}
 ```
+
+3. Follow logs when needed:
+
+```bash
+docker compose logs -f metapi
+```
+
+The host side is `METAPI_BIND_ADDRESS` (default `127.0.0.1`) and
+`METAPI_PORT` (default `4000`); the container port stays `4000`. Set
+`METAPI_BIND_ADDRESS=0.0.0.0` only when another host must reach the port
+directly — otherwise keep the reverse proxy on loopback.
+
+The service runs read-only with all Linux capabilities dropped, a bounded
+`/tmp` and bounded JSON logs. The named volume is
+`metapi_data:/app/data`; the image owns the health check. The Compose project
+is named `metapi-go`; set `COMPOSE_PROJECT_NAME` to run a second stack on the
+same host.
+
+### Image tags
+
+| Tag | Published by | Use |
+|:----|:-------------|:----|
+| `vX.Y.Z` / `X.Y.Z` | stable tag | Same digest. Pin this or a digest for production. |
+| `X.Y` | stable tag | Moving alias to the newest patch in that minor. |
+| `latest` | stable tag | Newest stable release; updated only by stable tags. |
+| `edge` | `master` push | Tip of master. Development only. |
+| `sha-<short>` | `master` push | Immutable per-commit build. |
+
+Before the first stable release after this workflow change, `latest` may
+still point at an older master build. Use an explicit release tag when in
+doubt.
 
 ## Data directory & volumes
 
@@ -202,9 +258,9 @@ data directory is the most common Docker deployment pitfall:
   sudo chown -R 1001:1001 ./data
   ```
 
-- **Image tags**: `latest` is convenient for trying things out; for production,
-  pin a version tag (e.g. `ghcr.io/deliciousbuding/metapi-go:v0.16.20`) so
-  deployments stay reproducible.
+- **Image tags**: pin a release tag or digest (for example
+  `ghcr.io/deliciousbuding/metapi-go:0.24.0`). `edge` and `sha-*` are master
+  builds; `latest` follows stable releases but is still a moving alias.
 
 ## Nginx Reverse Proxy
 
@@ -360,7 +416,7 @@ BALANCE_REFRESH_ENABLED=false
 ```
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
+docker compose up -d
 ```
 
 Flipping the same two checkboxes in the admin UI achieves the identical result
@@ -390,20 +446,24 @@ without any restart.
 
 ## Upgrading
 
-```bash
-# Pull new image
-docker pull ghcr.io/deliciousbuding/metapi-go:latest
+Change `METAPI_IMAGE` in `.env` to the new release tag or digest, then:
 
-# Restart with new image
-docker compose -f docker-compose.prod.yml up -d
+```bash
+docker compose pull
+docker compose up -d
+docker compose ps
+curl -fsS http://127.0.0.1:4000/ready
 ```
 
-Docker Compose will automatically recreate the container with the new image. Auto-migration runs at startup to apply any new schema changes.
+Compose recreates the container when the resolved image or configuration
+changed. Auto-migration runs at startup. To roll back, restore the backup, set
+`METAPI_IMAGE` back to the previous tag or digest, and run
+`docker compose up -d`.
 
 Upgrade checklist:
 
 1. Back up the database first (cp data/hub.db ... or pg_dump -Fc ...).
-2. Prefer pinning the release selected for your deployment (for example `ghcr.io/deliciousbuding/metapi-go:vX.Y.Z`) over `latest` so rollback is reproducible.
+2. Pin the exact release tag or digest selected for your deployment (for example `ghcr.io/deliciousbuding/metapi-go:vX.Y.Z` or `@sha256:...`). Do not use `edge` or a moving alias.
 3. After upgrade, verify GET /ready returns 200 and run bash web/scripts/verify-live-assets.sh http://127.0.0.1:4000.
 4. **Upgrading from v0.17.x or older? Re-bind each upstream account once.**
    Those versions stored the upstream *dashboard session* as the account
@@ -424,7 +484,7 @@ Upgrade checklist:
    v0.16.23 → v0.19.0 in-place upgrade of a live SQLite database: 28 additive
    migrations, site / account / downstream key / route all preserved, and the
    chain only served a real completion again after this step.
-5. Rollback = restore the pre-upgrade backup and re-run the previous pinned image tag. Schema changes are forward-only; do not downgrade the schema by deleting rows from schema_migrations.
+5. Rollback = restore the pre-upgrade backup and set `METAPI_IMAGE` back to the previous pinned tag or digest. Schema changes are forward-only; do not downgrade the schema by deleting rows from schema_migrations.
 
 ## Post-deploy asset smoke (mandatory)
 

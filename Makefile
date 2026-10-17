@@ -72,7 +72,7 @@ run:
 
 # Build Docker image (multi-stage: frontend + Go)
 docker-build:
-	docker build -t metapi-go:latest .
+	docker build -t metapi-go:dev .
 
 # Build the React frontend (requires Bun)
 web-build:

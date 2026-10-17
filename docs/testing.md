@@ -1,6 +1,6 @@
 # Testing Strategy and Real-Platform Testbed
 
-**Last verified**: 2026-08-29
+**Last verified**: 2026-10-17
 
 > Public, environment-agnostic test guidance. The version narrative lives in `CHANGELOG.md`; open outcomes are tracked as GitHub issues.
 
@@ -136,8 +136,9 @@ race 入口默认 `-p 2 -parallel 2`。显式的 `GOMAXPROCS` 会被保留，
 `go env -w` 保存的选测参数；个人定向测试继续直接使用 `go test`。
 这些参数控制 Go 调度与测试并发，不是整机 CPU、内存或功耗的硬配额。
 脚本在当前环境执行，不自动切换操作系统。Race detector 需要 Go 支持的
-OS/架构和 C 工具链；Windows 原生若遇到工具链或运行时限制，可自行在 WSL
-或 Linux 容器执行同一命令，也可由 CI 复核。日常定向测试不要求 WSL。
+OS/架构和 C 工具链；Windows 原生若因 ThreadSanitizer 无法分配 shadow memory
+而失败，脚本会打印可直接执行的 WSL 命令。也可在 Linux 容器执行同一命令，
+或由 CI 复核。日常定向测试不要求 WSL。
 资源竞争可能拖慢测试，超时时先区分环境负载和代码问题，不跳过失败检查。
 
 CI 的 SQLite race shards 独立配置，不使用这个本地超时。
