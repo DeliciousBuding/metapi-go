@@ -8,14 +8,17 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/pgtest"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 func TestSites_InitializationPresets(t *testing.T) {
@@ -67,16 +70,7 @@ func TestSites_InitializationPresets(t *testing.T) {
 // setupSitesTest creates an in-memory SQLite DB with chi router for sites.
 func setupSitesTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("failed to open SQLite: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-
-	if err := store.AutoMigrate(db); err != nil {
-		db.Close()
-		t.Fatalf("AutoMigrate failed: %v", err)
-	}
+	db := sqlitetest.Open(t)
 
 	r := chi.NewRouter()
 	RegisterSitesRoutes(r, db.DB)
@@ -290,7 +284,7 @@ func TestSites_Update_PersistsResinEnabledAndUseUtls(t *testing.T) {
 
 func TestSites_Postgres_CreateUpdateAndDisabledModels(t *testing.T) {
 	db, r := setupSitesPostgresTest(t)
-	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	suffix := uuid.NewString()
 	siteURL := "https://pg-sites-" + suffix + ".example.com"
 	endpointURL := siteURL + "/v1"
 	updatedEndpointURL := siteURL + "/api"
@@ -541,7 +535,7 @@ func TestSites_Detect_AnyRouter(t *testing.T) {
 
 func TestSites_Detect_Unknown(t *testing.T) {
 	_, r := setupSitesTest(t)
-	body := map[string]string{"url": "https://unknown.example.com"}
+	body := map[string]string{"url": unknownSiteURL(t)}
 	resp := doPostJSON(t, r, "/api/sites/detect", body)
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d body=%s", resp.Code, resp.Body.String())
@@ -551,6 +545,23 @@ func TestSites_Detect_Unknown(t *testing.T) {
 	if result["error"] != "Could not detect platform" {
 		t.Errorf("expected 'Could not detect platform' error, got %v", result)
 	}
+}
+
+// unknownSiteURL exercises the real adapter chain without DNS or public upstreams.
+func unknownSiteURL(t *testing.T) string {
+	t.Helper()
+	var probes atomic.Int64
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probes.Add(1)
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(func() {
+		upstream.Close()
+		if probes.Load() == 0 {
+			t.Error("unknown-site detection did not probe the upstream")
+		}
+	})
+	return upstream.URL
 }
 
 // ---- Disabled Models Tests ----
@@ -1118,7 +1129,7 @@ func TestSites_ErrorStatusCodes(t *testing.T) {
 		{name: "Create_Duplicate", seed: "duplicate-site", method: http.MethodPost, path: "/api/sites", body: map[string]any{"name": "Site2", "url": "https://api.openai.com"}, wantStatus: http.StatusConflict, wantErr: "already exists"},
 		{name: "Create_EmptyName", method: http.MethodPost, path: "/api/sites", body: map[string]any{"name": "  ", "url": "https://api.openai.com"}, wantStatus: http.StatusBadRequest},
 		{name: "Create_EmptyURL", method: http.MethodPost, path: "/api/sites", body: map[string]any{"name": "Test", "url": ""}, wantStatus: http.StatusBadRequest},
-		{name: "CannotDetectPlatform", method: http.MethodPost, path: "/api/sites", body: map[string]any{"name": "Unknown", "url": "https://completely-unknown-llm.example.com"}, wantStatus: http.StatusBadRequest},
+		{name: "CannotDetectPlatform", seed: "unknown-upstream", method: http.MethodPost, path: "/api/sites", wantStatus: http.StatusBadRequest, wantErr: "Could not detect platform. Please specify manually."},
 		{name: "Update_NotFound", method: http.MethodPut, path: "/api/sites/99999", body: map[string]any{"name": "Ghost"}, wantStatus: http.StatusNotFound},
 		{name: "Update_InvalidStatus", seed: "existing-site", method: http.MethodPut, path: "/api/sites/{id}", body: map[string]any{"status": "invalid-status"}, wantStatus: http.StatusBadRequest},
 		{name: "DisabledModels_NotFound", method: http.MethodGet, path: "/api/sites/99999/disabled-models", wantStatus: http.StatusNotFound},
@@ -1130,6 +1141,8 @@ func TestSites_ErrorStatusCodes(t *testing.T) {
 			_, r := setupSitesTest(t)
 			path := tt.path
 			switch tt.seed {
+			case "unknown-upstream":
+				tt.body = map[string]any{"name": "Unknown", "url": unknownSiteURL(t)}
 			case "duplicate-site":
 				newSiteFixture(t, r, "Site1", "https://api.openai.com")
 			case "existing-site":

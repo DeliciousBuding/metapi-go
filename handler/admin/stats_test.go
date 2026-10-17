@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/internal/pgtest"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -53,14 +54,7 @@ func setupStatsSQLiteTest(t *testing.T) (*store.DB, chi.Router) {
 	// cached payload never leaks in (especially for the DB-closed 500 test).
 	globalDashboardCache.clear()
 	globalProxyLogsSummaryCache.clear()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatalf("migrate sqlite: %v", err)
-	}
+	db := sqlitetest.Open(t)
 	r := chi.NewRouter()
 	RegisterStatsRoutes(r, db.DB)
 	return db, r

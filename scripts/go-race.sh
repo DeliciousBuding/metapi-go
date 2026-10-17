@@ -1,13 +1,48 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Match CI's per-package budget; override for slower local machines.
-# See docs/testing.md "Race-detector budget".
-timeout_seconds="${METAPI_RACE_TIMEOUT_SECONDS:-900}"
-if [[ ! "$timeout_seconds" =~ ^[0-9]+$ ]] || (( timeout_seconds < 1 )); then
-  echo "race: METAPI_RACE_TIMEOUT_SECONDS must be a positive integer." >&2
+# Nonempty whitespace overrides GOFLAGS saved with go env -w and parses as no
+# flags. An empty value would fall back to the saved configuration. Selectors
+# (-run/-skip/-short) or -exec must not turn a full gate into a partial/no-op run.
+export GOFLAGS=" "
+
+# Keep the full local gate bounded on developer machines. CI owns its own
+# runner/shard budget; these controls do not remove any packages or tests.
+if (( $# > 0 )); then
+  if [[ $# == 1 && "$1" == "--help" ]]; then
+    echo "Usage: bash scripts/go-race.sh"
+    echo "Runs every Go package with -race and -count=1 in the current environment."
+    echo "GOMAXPROCS=2                    Go execution parallelism per process"
+    echo "METAPI_RACE_PACKAGES=2           Concurrent build/test packages (-p)"
+    echo "METAPI_RACE_PARALLEL=2           Parallel tests per package (-parallel)"
+    echo "METAPI_RACE_TIMEOUT_SECONDS=900  Per-package timeout"
+    echo "With PG_TEST_DSN set, package parallelism defaults to 1 and must stay 1."
+    exit 0
+  fi
+  echo "race: unexpected arguments; use --help. Use go test directly for focused tests." >&2
   exit 2
 fi
+
+timeout_seconds="${METAPI_RACE_TIMEOUT_SECONDS:-900}"
+default_packages=2
+if [[ -n "${PG_TEST_DSN:-}" ]]; then
+  default_packages=1
+fi
+package_parallelism="${METAPI_RACE_PACKAGES:-$default_packages}"
+test_parallelism="${METAPI_RACE_PARALLEL:-2}"
+export GOMAXPROCS="${GOMAXPROCS:-2}"
+for name in timeout_seconds package_parallelism test_parallelism GOMAXPROCS; do
+  if [[ ! "${!name}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "race: $name must be a positive integer without leading zeros." >&2
+    exit 2
+  fi
+done
+if [[ -n "${PG_TEST_DSN:-}" && "$package_parallelism" != 1 ]]; then
+  echo "race: shared PG_TEST_DSN fixtures require METAPI_RACE_PACKAGES=1." >&2
+  exit 2
+fi
+
+echo "race: full suite; GOMAXPROCS=$GOMAXPROCS, -p=$package_parallelism, -parallel=$test_parallelism, timeout=${timeout_seconds}s"
 
 race_log="$(mktemp)"
 trap 'rm -f "$race_log"' EXIT
@@ -25,4 +60,4 @@ run_race() {
 }
 
 # Run in the caller's environment; WSL/container use is an explicit choice.
-run_race go test ./... -count=1 -race -timeout "${timeout_seconds}s"
+run_race go test ./... -count=1 -race -p "$package_parallelism" -parallel "$test_parallelism" -timeout "${timeout_seconds}s"

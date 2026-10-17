@@ -78,10 +78,63 @@ are `httptest`/loopback fakes only, seeding is idempotent via a marker file,
 and the script terminates the server on exit. Record the walkthrough as a local
 fixture test alongside the pre-push results.
 
+## 开发反馈与测试夹具
+
+开发时按修改范围运行用例和所属包，例如：
+
+```bash
+go test ./handler/admin -run '^TestOpsWS' -count=1
+go test ./handler/admin ./service -count=1
+```
+
+涉及并发行为时，对相关用例加 `-race`。需要检查顺序依赖和偶发失败时，
+对定向用例使用 `-shuffle=on -count=10`，保留失败输出中的 seed。
+日常测试可使用 Go 的结果缓存；`-count=1` 用于需要实际执行的验证。
+push 前仍运行[完整本地检查](../CONTRIBUTING.md#本地验证)。
+
+普通业务测试可用 `internal/sqlitetest.Open(t)` 获得独立内存库。
+每个测试进程按当前生产迁移生成一次模板，再由 SQLite 驱动复制到各测试连接；
+表、索引、默认值、迁移记录和连接设置由真实初始化产生。
+模板只存在于本进程内，不保存二进制 schema 夹具或跨运行缓存。
+测试数据库打开、迁移、历史兼容和启动过程时，直接使用 `store.Open` 和
+`store.AutoMigrate`；文件持久化测试继续使用独立临时文件。
+
+添加 `t.Parallel()` 前检查数据库、配置、缓存、环境变量和后台任务的所有权。
+每项并行测试应拥有自己的可变资源；修改进程级状态的用例保持串行。
+网络测试使用可控上游或传输错误，未知平台测试仍执行真实 adapter detection。
+异步测试优先等待明确的完成信号；超时作为失败上限，正常收尾应主动释放资源。
+并发断言调用生产实现，检查操作错误与合法最终状态；手写竞争演示不能代替回归测试。
+并发用例用启动信号和固定操作次数组织读写，等待所有 worker 退出；
+需要在锁外读取的缓存快照，应检查后续更新不会修改已返回的数据。
+纯进程内 TTL、计时器测试可使用 `testing/synctest` 验证到期前和到期边界，
+网络 I/O、真实取消和传输超时测试保留实际时钟。
+
+大数据夹具按所保护的边界选大小：协议组合矩阵使用仍能触发缺陷的最小有效数据，
+容量上限、超限和多 MiB 数据另由定向用例覆盖。缩减数据时保留协议组合、
+完整性和失败断言，不通过减少断言或跳过路径提速。
+
+优化前后使用相同工具链、参数和资源预算，分别记录墙钟、CPU、分配与峰值内存。
+冷缓存与暖缓存、race 与非 race 分开比较。数据库夹具的微基准可运行：
+
+```bash
+go test ./internal/sqlitetest -run '^$' -bench '^BenchmarkOpen$' -benchmem
+```
+
+`go test -json` 可定位慢用例，CPU profile 用于区分初始化与业务计算的 CPU 成本。
+性能结果同时记录源码提交与未提交差异；失败运行可用于诊断耗时，但不作为通过结果。
+
 ## 本地 race 检查
 
 `scripts/go-race.sh` 执行全量 race 测试，每包默认超时 900 秒，
 可通过 `METAPI_RACE_TIMEOUT_SECONDS=<seconds>` 调整。
+完整本地检查默认设置 `GOMAXPROCS=2`，限制 Go build/vet 的默认包并行度；
+race 入口默认 `-p 2 -parallel 2`。显式的 `GOMAXPROCS` 会被保留，
+`METAPI_RACE_PACKAGES` 和 `METAPI_RACE_PARALLEL` 分别调整 race 的包并发和包内并发。
+用 `bash scripts/go-race.sh --help` 查看参数；入口固定运行所有包、禁用结果缓存，
+不接受筛选用例的参数。降低并发不会减少测试范围，但可能延长墙钟时间。
+完整本地检查及 race 入口在子进程环境中将 `GOFLAGS` 设为空白值，覆盖当前环境和
+`go env -w` 保存的选测参数；个人定向测试继续直接使用 `go test`。
+这些参数控制 Go 调度与测试并发，不是整机 CPU、内存或功耗的硬配额。
 脚本在当前环境执行，不自动切换操作系统。Race detector 需要 Go 支持的
 OS/架构和 C 工具链；Windows 原生若遇到工具链或运行时限制，可自行在 WSL
 或 Linux 容器执行同一命令，也可由 CI 复核。日常定向测试不要求 WSL。
@@ -90,6 +143,9 @@ OS/架构和 C 工具链；Windows 原生若遇到工具链或运行时限制，
 CI 的 SQLite race shards 独立配置，不使用这个本地超时。
 分片必须验证预期包数和非空选择；选择脚本出错直接失败，
 不能用“没有包可跑”返回成功。PostgreSQL 共享夹具需串行运行（`-p 1`）。
+`internal/pgtest.Reset` 只清空当前 schema 的业务表并保留迁移记录；
+跨 schema 外键会使清理失败，不连带清空其他 schema。
+本地 race 入口检测到 `PG_TEST_DSN` 时默认 `-p 1`，并拒绝更高的包并发设置。
 
 ## 门禁与 lint
 

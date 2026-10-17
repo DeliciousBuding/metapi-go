@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	backupsvc "github.com/deliciousbuding/metapi-go/service/backup"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -11,16 +12,7 @@ import (
 func setupBackupServiceTestDB(b testing.TB) *store.DB {
 	b.Helper()
 
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		b.Fatalf("open db: %v", err)
-	}
-	b.Cleanup(func() { db.Close() })
-
-	if err := store.AutoMigrate(db); err != nil {
-		b.Fatalf("migrate db: %v", err)
-	}
-	return db
+	return sqlitetest.Open(b)
 }
 
 func setExportLimitsForTest(t *testing.T, maxRows int, maxCellBytes int, maxPayloadBytes int64) {

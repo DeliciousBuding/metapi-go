@@ -16,6 +16,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
@@ -24,15 +25,8 @@ import (
 
 func installDirectCodexImageHTTPFixture(t *testing.T, provider, kind, endpointURL string) (*upstreamTestRouter, <-chan proxy.ProxyLogEntry, *store.DB) {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatal(err)
-	}
-	_, err = db.Exec(`INSERT INTO upstream_channels(id,origin_key,source_id,name,dialect,provider,enabled,base_url,openai_chat_completion_path,openai_response_path,anthropic_message_path,proxy,channel_proxy,custom_header,param_override,match_regex) VALUES(1,'fixture',1,'fixture','generic',?,1,'https://provider.invalid','/v1/chat/completions','/v1/responses','/v1/messages',0,'','[]','','')`, provider)
+	db := sqlitetest.Open(t)
+	_, err := db.Exec(`INSERT INTO upstream_channels(id,origin_key,source_id,name,dialect,provider,enabled,base_url,openai_chat_completion_path,openai_response_path,anthropic_message_path,proxy,channel_proxy,custom_header,param_override,match_regex) VALUES(1,'fixture',1,'fixture','generic',?,1,'https://provider.invalid','/v1/chat/completions','/v1/responses','/v1/messages',0,'','[]','','')`, provider)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
@@ -18,17 +19,10 @@ import (
 func setupOAuthRoutesTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
 
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
+	db := sqlitetest.Open(t)
 	t.Cleanup(func() {
 		store.OverrideDB(nil)
-		db.Close()
 	})
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
 	store.OverrideDB(db)
 
 	// Isolate session store per test so state cannot leak across cases.

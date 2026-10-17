@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -268,19 +269,92 @@ func TestInvalidateAll_ClearsStableFirstCaches(t *testing.T) {
 }
 
 // =============================================================================
-// Stability under concurrent access (single-goroutine proxy)
+// Immutable snapshots under concurrent access
 // =============================================================================
 
-func TestRouteCache_ConcurrentReadsDontPanic(t *testing.T) {
-	cache := NewRouteCache(5000)
+func TestRouteCache_ConcurrentReads(t *testing.T) {
+	t.Parallel()
+	cache := NewRouteCache(int64(time.Hour / time.Millisecond))
 	routes := []store.TokenRoute{{ID: 1}}
 	cache.SetRoutes(routes)
-	cache.SetMatch(1, &RouteMatch{Route: store.TokenRoute{ID: 1}})
+	match := &RouteMatch{Route: store.TokenRoute{ID: 1}}
+	cache.SetMatch(1, match)
 
-	// Multiple reads should not panic (mutex is no-op stub, so this is trivial)
-	for i := 0; i < 100; i++ {
-		cache.IsRoutesFresh()
-		cache.GetRoutes()
-		cache.GetMatch(1)
+	start := make(chan struct{})
+	var workers sync.WaitGroup
+	for range 8 {
+		workers.Go(func() {
+			<-start
+			for range 64 {
+				if !cache.IsRoutesFresh() {
+					t.Error("warm route cache unexpectedly stale")
+				}
+				if got := cache.GetRoutes(); len(got) != 1 || got[0].ID != 1 {
+					t.Errorf("cached routes = %+v, want route 1", got)
+				}
+				if got := cache.GetMatch(1); got != match {
+					t.Errorf("cached match = %p, want unchanged snapshot %p", got, match)
+				}
+			}
+		})
+	}
+	close(start)
+	workers.Wait()
+}
+
+func TestRouteCache_ConcurrentPatchPreservesSnapshots(t *testing.T) {
+	t.Parallel()
+	cache := NewRouteCache(int64(time.Hour / time.Millisecond))
+	cache.SetMatch(1, &RouteMatch{
+		Route: store.TokenRoute{ID: 1},
+		Channels: []RouteChannelCandidate{{Channel: store.RouteChannel{
+			ID: 42, Priority: int64Ptr(0), Weight: int64Ptr(0),
+		}}},
+	})
+	retained := cache.GetMatch(1)
+	patch := func(value int64) {
+		cache.PatchCachedChannel(42, func(channel *store.RouteChannel) {
+			channel.Priority = int64Ptr(value)
+			channel.Weight = int64Ptr(value)
+		})
+	}
+	patch(1)
+	if retained.Channels[0].Channel.PriorityOrZero() != 0 || retained.Channels[0].Channel.WeightOrZero() != 0 {
+		t.Fatal("patch mutated a previously returned snapshot")
+	}
+
+	start := make(chan struct{})
+	var workers sync.WaitGroup
+	workers.Go(func() {
+		<-start
+		for value := int64(2); value <= 64; value++ {
+			patch(value)
+		}
+	})
+	for range 8 {
+		workers.Go(func() {
+			<-start
+			for range 64 {
+				// Read fields after GetMatch releases the cache lock: callers
+				// must retain a coherent snapshot while the writer patches it.
+				match := cache.GetMatch(1)
+				if match == nil || match.Route.ID != 1 || len(match.Channels) != 1 {
+					t.Errorf("invalid cached match: %+v", match)
+					return
+				}
+				channel := match.Channels[0].Channel
+				if priority, weight := channel.PriorityOrZero(), channel.WeightOrZero(); priority < 1 || priority > 64 || priority != weight {
+					t.Errorf("incoherent patched channel: priority=%d weight=%d", priority, weight)
+				}
+			}
+		})
+	}
+	close(start)
+	workers.Wait()
+	if got := cache.GetMatch(1).Channels[0].Channel.PriorityOrZero(); got != 64 {
+		t.Errorf("final priority = %d, want 64", got)
+	}
+	if retained.Channels[0].Channel.PriorityOrZero() != 0 || retained.Channels[0].Channel.WeightOrZero() != 0 {
+		t.Error("concurrent patch mutated the retained snapshot")
 	}
 }

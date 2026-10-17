@@ -29,11 +29,15 @@ const routerImageUsageFrame = "data: {\"id\":\"large-image\",\"model\":\"provide
 // mapping and actual usage logger participate. Zero completion tokens ensure
 // image-only success is based on output evidence, not the usage fallback.
 func TestRouterLargeImageHTTP(t *testing.T) {
-	for i, provider := range []string{"openrouter", "cerebras"} {
+	// Cross the old SSE pending limit with a complete base64 quartet. The
+	// protocol/gzip matrix shares this immutable fixture; multi-MiB sizes and
+	// expansion limits are covered separately below and in the bridge tests.
+	encoded := strings.Repeat("A", maxIncrementalSsePendingBytes+4)
+	frame := routerLargeImageFrame(encoded) + routerImageUsageFrame + "data: [DONE]\n\n"
+	for _, provider := range []string{"openrouter", "cerebras"} {
 		for _, down := range []directWireFixture{directWireFixtures[0], directWireFixtures[3]} {
 			for _, compressed := range []bool{false, true} {
 				t.Run(fmt.Sprintf("%s/%s/gzip=%t", provider, down.provider, compressed), func(t *testing.T) {
-					encoded := strings.Repeat("A", (2+i)<<20)
 					upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						if r.URL.Path != "/chat/completions" && r.URL.Path != "/v1/chat/completions" {
 							t.Errorf("unexpected upstream path %s", r.URL.Path)
@@ -46,7 +50,7 @@ func TestRouterLargeImageHTTP(t *testing.T) {
 							defer writer.Close()
 							target = writer
 						}
-						_, _ = io.WriteString(target, routerLargeImageFrame(encoded)+routerImageUsageFrame+"data: [DONE]\n\n")
+						_, _ = io.WriteString(target, frame)
 					}))
 					defer upstream.Close()
 					installAxonHubEndpointFixture(t, provider, upstream.URL, nil)

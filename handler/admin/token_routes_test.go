@@ -13,9 +13,11 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 func setupTokenRoutesTest(t *testing.T) (*store.DB, chi.Router) {
@@ -23,15 +25,7 @@ func setupTokenRoutesTest(t *testing.T) (*store.DB, chi.Router) {
 	// Each test gets a fresh :memory: DB; clear the process-global channels
 	// snapshot cache so a prior test's cached page can't shadow this one.
 	globalChannelsCache.clear()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("failed to open SQLite: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatalf("AutoMigrate failed: %v", err)
-	}
+	db := sqlitetest.Open(t)
 
 	r := chi.NewRouter()
 	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
@@ -48,7 +42,7 @@ func setupTokenRoutesPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, tokenID int64) {
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
-	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	suffix := uuid.NewString()
 	siteName := "Route Site " + suffix
 	routeURL := "https://route.example.com/" + suffix
 	sessionToken := "session-token-" + suffix
@@ -183,7 +177,7 @@ func TestRouteChannelsAllowSameCredentialForDifferentSourceModels(t *testing.T) 
 
 func TestTokenRoutes_Postgres_CreateUpdateChannelAndDelete(t *testing.T) {
 	db, r := setupTokenRoutesPostgresTest(t)
-	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	suffix := uuid.NewString()
 	siteURL := "https://pg-routes-" + suffix + ".example.com"
 	t.Cleanup(func() {
 		_, _ = db.Exec("DELETE FROM sites WHERE url = ?", siteURL)
@@ -770,14 +764,7 @@ func (f *fakeDecisionRefresher) callCount() int {
 
 func setupTokenRoutesDecisionTest(t *testing.T, deps TokenRoutesDeps) (*store.DB, chi.Router) {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("failed to open SQLite: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatalf("AutoMigrate failed: %v", err)
-	}
+	db := sqlitetest.Open(t)
 	r := chi.NewRouter()
 	RegisterTokenRoutesWithDeps(r, db.DB, deps)
 	return db, r

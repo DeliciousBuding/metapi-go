@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -53,17 +54,10 @@ func (r *allFailedAlertRouter) RecordFailure(_ context.Context, _ int64, _ routi
 // terminal all-failed exits can write events via store.GetDB().
 func setupAllFailedAlertDB(t *testing.T) *store.DB {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	if err := store.AutoMigrate(db); err != nil {
-		t.Fatalf("AutoMigrate: %v", err)
-	}
+	db := sqlitetest.Open(t)
 	store.OverrideDB(db)
 	t.Cleanup(func() {
 		store.OverrideDB(nil)
-		db.Close()
 	})
 	return db
 }

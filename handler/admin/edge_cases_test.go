@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
@@ -29,16 +30,7 @@ import (
 
 func setupEdgeTest(t *testing.T) (*store.DB, chi.Router, *config.Config) {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
-	if err != nil {
-		t.Fatalf("failed to open SQLite: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-
-	if err := store.AutoMigrate(db); err != nil {
-		db.Close()
-		t.Fatalf("AutoMigrate failed: %v", err)
-	}
+	db := sqlitetest.Open(t)
 
 	cfg := &config.Config{
 		AccountCredentialSecret: "test-secret-edge",
@@ -329,69 +321,6 @@ func TestEdge_NegativePaginationIgnored_Accounts(t *testing.T) {
 // 4. SQLite Concurrent Writes (LOCK detection)
 // =============================================================================
 
-// TestEdge_SQLiteConcurrentWrites_Settings tests that concurrent writes to the
-// settings table do not cause data loss or corruption under WAL mode.
-// Uses a proper transaction-based UPSERT to avoid TOCTOU races.
-func TestEdge_SQLiteConcurrentWrites_Settings(t *testing.T) {
-	db, _, _ := setupEdgeTest(t)
-
-	const goroutines = 10
-	const iterations = 30
-	var wg sync.WaitGroup
-	errorsCh := make(chan error, goroutines*iterations)
-	uniqueErrors := make(chan error, goroutines*iterations)
-
-	for g := 0; g < goroutines; g++ {
-		wg.Add(1)
-		go func(gid int) {
-			defer wg.Done()
-			for i := 0; i < iterations; i++ {
-				key := "edge.concurrent.key." + itoa(int64(gid%3))
-				value := "value-" + itoa(int64(gid)) + "-" + itoa(int64(i))
-				jsonValue, _ := json.Marshal(value)
-				// Use the racy upsertSettingDB which has TOCTOU bug
-				var count int
-				if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = ?", key); err != nil {
-					errorsCh <- err
-					continue
-				}
-				if count > 0 {
-					_, err := db.Exec("UPDATE settings SET value = ? WHERE key = ?", string(jsonValue), key)
-					if err != nil {
-						if strings.Contains(err.Error(), "UNIQUE") {
-							uniqueErrors <- err
-						} else {
-							errorsCh <- err
-						}
-					}
-				} else {
-					_, err := db.Exec("INSERT INTO settings (key, value) VALUES (?, ?)", key, string(jsonValue))
-					if err != nil {
-						if strings.Contains(err.Error(), "UNIQUE") {
-							uniqueErrors <- err
-						} else {
-							errorsCh <- err
-						}
-					}
-				}
-			}
-		}(g)
-	}
-	wg.Wait()
-	close(errorsCh)
-	close(uniqueErrors)
-
-	errCount := 0
-	for range errorsCh {
-		errCount++
-	}
-	uniqueCount := 0
-	for range uniqueErrors {
-		uniqueCount++
-	}
-	t.Logf("Racy upsertSettingDB: %d non-unique errors, %d UNIQUE constraint violations (TOCTOU race evidence)", errCount, uniqueCount)
-}
-
 // TestEdge_SQLiteConcurrentWrites_SafeSettingsStore verifies that the
 // SettingsStore.Set (which uses ON CONFLICT DO UPDATE) handles concurrent
 // writes without errors.
@@ -403,11 +332,13 @@ func TestEdge_SQLiteConcurrentWrites_SafeSettingsStore(t *testing.T) {
 	const iterations = 30
 	var wg sync.WaitGroup
 	errorsCh := make(chan error, goroutines*iterations)
+	start := make(chan struct{})
 
 	for g := 0; g < goroutines; g++ {
 		wg.Add(1)
 		go func(gid int) {
 			defer wg.Done()
+			<-start
 			for i := 0; i < iterations; i++ {
 				key := "edge.safe.key." + itoa(int64(gid%3))
 				value := "value-" + itoa(int64(gid)) + "-" + itoa(int64(i))
@@ -417,18 +348,37 @@ func TestEdge_SQLiteConcurrentWrites_SafeSettingsStore(t *testing.T) {
 			}
 		}(g)
 	}
+	close(start)
 	wg.Wait()
 	close(errorsCh)
 
-	errCount := 0
 	for err := range errorsCh {
-		errCount++
-		t.Logf("SettingsStore.Set error: %v", err)
+		t.Errorf("SettingsStore.Set error: %v", err)
 	}
-	if errCount > 0 {
-		t.Logf("SettingsStore ON CONFLICT UPSERT: %d errors (SQLite WAL may serialize concurrent writes)", errCount)
-	} else {
-		t.Log("SettingsStore ON CONFLICT UPSERT: 0 errors under concurrent writes")
+	var count int
+	if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key LIKE 'edge.safe.key.%'"); err != nil {
+		t.Fatalf("count settings: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("setting row count = %d, want 3", count)
+	}
+	for group := 0; group < 3; group++ {
+		key := "edge.safe.key." + itoa(int64(group))
+		value, err := settingsStore.Get(key)
+		if err != nil {
+			t.Fatalf("read final setting: %v", err)
+		}
+		// Any writer sharing this key may finish last, but its final value
+		// must survive intact. Do not assert an arbitrary scheduling order.
+		valid := false
+		for writer := group; writer < goroutines; writer += 3 {
+			if value == "value-"+itoa(int64(writer))+"-"+itoa(iterations-1) {
+				valid = true
+			}
+		}
+		if !valid {
+			t.Errorf("%s final value = %q, want one writer's last value", key, value)
+		}
 	}
 }
 
@@ -687,154 +637,69 @@ func TestEdge_GeneratedAtTimestampIsUTC(t *testing.T) {
 }
 
 // =============================================================================
-// 8. Concurrent Settings Updates (TOCTOU Race)
+// 8. Concurrent Settings Updates
 // =============================================================================
 
-// TestEdge_UpsertSettingDB_RaceCondition demonstrates the TOCTOU race in
-// upsertSettingDB which uses SELECT-then-INSERT/UPDATE instead of ON CONFLICT.
-func TestEdge_UpsertSettingDB_RaceCondition(t *testing.T) {
+// TestEdge_UpsertSettingDB_ConcurrentWrites exercises the production helper's
+// atomic first-write and update paths, rather than a copied SQL implementation.
+func TestEdge_UpsertSettingDB_ConcurrentWrites(t *testing.T) {
 	db, _, _ := setupEdgeTest(t)
 
-	key := "edge.race.test"
-	key2 := "edge.race.safe"
-	key3 := "edge.race.admin_helper"
-
-	// Phase 1: racy upsertSettingDB (SELECT count + INSERT/UPDATE)
 	const writers = 20
-	var wg sync.WaitGroup
-	uniqueErrors := make(chan struct{}, writers)
+	for _, initial := range []string{"absent", "existing"} {
+		t.Run(initial, func(t *testing.T) {
+			key := "edge.concurrent.admin_helper." + initial
+			if initial == "existing" {
+				if err := upsertSettingDB(db.DB, key, -1); err != nil {
+					t.Fatalf("seed existing setting: %v", err)
+				}
+			}
 
-	for i := 0; i < writers; i++ {
-		wg.Add(1)
-		go func(v int) {
-			defer wg.Done()
-			jsonValue, _ := json.Marshal(v)
+			var wg sync.WaitGroup
+			errorsCh := make(chan error, writers)
+			start := make(chan struct{})
+			for i := 0; i < writers; i++ {
+				wg.Add(1)
+				go func(v int) {
+					defer wg.Done()
+					<-start
+					if err := upsertSettingDB(db.DB, key, v); err != nil {
+						errorsCh <- err
+					}
+				}(i)
+			}
+			close(start)
+			wg.Wait()
+			close(errorsCh)
+			for err := range errorsCh {
+				t.Errorf("upsertSettingDB returned error under concurrency: %v", err)
+			}
+
 			var count int
-			db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = ?", key)
-			if count > 0 {
-				db.Exec("UPDATE settings SET value = ? WHERE key = ?", string(jsonValue), key)
-			} else {
-				_, err := db.Exec("INSERT INTO settings (key, value) VALUES (?, ?)", key, string(jsonValue))
-				if err != nil && strings.Contains(err.Error(), "UNIQUE") {
-					uniqueErrors <- struct{}{}
-				}
+			if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = ?", key); err != nil {
+				t.Fatalf("count admin helper setting: %v", err)
 			}
-		}(i)
-	}
-	wg.Wait()
-	close(uniqueErrors)
-
-	raceCount := len(uniqueErrors)
-	if raceCount > 0 {
-		t.Logf("TOCTOU race confirmed: %d UNIQUE constraint violations (concurrent first-write)", raceCount)
-	} else {
-		t.Log("No TOCTOU race detected (WAL mode may have serialized -- try with higher concurrency)")
-	}
-
-	// Phase 2: safe UPSERT (SettingsStore.Set — uses ON CONFLICT)
-	for i := 0; i < writers; i++ {
-		wg.Add(1)
-		go func(v int) {
-			defer wg.Done()
-			store.NewSettingsStore(db).Set(key2, itoa(int64(v)))
-		}(i)
-	}
-	wg.Wait()
-	t.Log("Safe UPSERT via SettingsStore.Set: completed without errors (ON CONFLICT handles races)")
-
-	// Phase 3: admin settings helper should use the same atomic UPSERT pattern.
-	helperErrors := make(chan error, writers)
-	for i := 0; i < writers; i++ {
-		wg.Add(1)
-		go func(v int) {
-			defer wg.Done()
-			if err := upsertSettingDB(db.DB, key3, v); err != nil {
-				helperErrors <- err
+			if count != 1 {
+				t.Fatalf("admin helper setting row count = %d, want 1", count)
 			}
-		}(i)
-	}
-	wg.Wait()
-	close(helperErrors)
-	for err := range helperErrors {
-		t.Fatalf("upsertSettingDB returned error under concurrency: %v", err)
-	}
-
-	var count int
-	if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = ?", key3); err != nil {
-		t.Fatalf("count admin helper setting: %v", err)
-	}
-	if count != 1 {
-		t.Fatalf("admin helper setting row count = %d, want 1", count)
+			var raw string
+			if err := db.Get(&raw, "SELECT value FROM settings WHERE key = ?", key); err != nil {
+				t.Fatalf("read admin helper setting: %v", err)
+			}
+			var value int
+			if err := json.Unmarshal([]byte(raw), &value); err != nil {
+				t.Fatalf("decode stored setting: %v", err)
+			}
+			if value < 0 || value >= writers {
+				t.Errorf("stored value = %d, want a concurrent writer's value", value)
+			}
+		})
 	}
 }
 
 // =============================================================================
-// 9. Race on Route Rebuild + Cache Reads
+// 9. Concurrent Route Rebuilds
 // =============================================================================
-
-// TestEdge_RouteCacheConcurrentReadWrite tests that RouteCache handles
-// concurrent reads, writes, and invalidations without panicking or
-// returning corrupted data.
-func TestEdge_RouteCacheConcurrentReadWrite(t *testing.T) {
-	// RouteCache is internal to routing package but uses sync.RWMutex.
-	// Here we verify that the pattern used (mutex-protected reads) is safe.
-	// The actual RouteCache is tested within the routing package.
-
-	// Simulate the pattern: concurrent reads of a shared map with a mutex
-	var mu sync.RWMutex
-	shared := make(map[string]int)
-
-	const readers = 50
-	const writers = 5
-	const iterations = 200
-	var wg sync.WaitGroup
-	panicked := false
-
-	// Writers
-	for w := 0; w < writers; w++ {
-		wg.Add(1)
-		go func(wid int) {
-			defer func() {
-				if r := recover(); r != nil {
-					panicked = true
-				}
-				wg.Done()
-			}()
-			for i := 0; i < iterations; i++ {
-				mu.Lock()
-				shared["key-"+itoa(int64(wid%3))] = i
-				mu.Unlock()
-			}
-		}(w)
-	}
-
-	// Readers
-	for r := 0; r < readers; r++ {
-		wg.Add(1)
-		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					panicked = true
-				}
-				wg.Done()
-			}()
-			for i := 0; i < iterations; i++ {
-				mu.RLock()
-				_ = shared["key-0"]
-				_ = shared["key-1"]
-				_ = shared["key-2"]
-				mu.RUnlock()
-			}
-		}()
-	}
-	wg.Wait()
-
-	if panicked {
-		t.Error("PANIC during concurrent read/write with RWMutex")
-	} else {
-		t.Log("RWMutex-protected concurrent access: no panics, data consistent")
-	}
-}
 
 // TestEdge_RebuildRoutesConcurrent verifies concurrent rebuild calls do not panic.
 // RebuildRoutesBestEffort now performs real channel recompose under a process mutex.

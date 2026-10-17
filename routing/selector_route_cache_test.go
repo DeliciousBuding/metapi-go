@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/store"
@@ -214,31 +215,40 @@ func TestSelectChannel_InvalidationForcesReload(t *testing.T) {
 // TestSelectChannel_TTLExpiryRefetches proves a stale cache falls back to the
 // DB (TTL is the staleness backstop even without explicit invalidation).
 func TestSelectChannel_TTLExpiryRefetches(t *testing.T) {
-	resetHealthForCacheTest(t)
+	synctest.Test(t, func(t *testing.T) {
+		resetHealthForCacheTest(t)
 
-	model := "gpt-ttl-expiry"
-	db := &countingRoutesDB{preferredDB: &preferredDB{
-		routes: []store.TokenRoute{countingTestRoute(1, model)},
-	}}
-	db.setJoined(countingEligibleJoined(1, 101, 10, 1001, model))
-	selector := newCountingSelector(db, NewRouteCache(100)) // minimum TTL
+		model := "gpt-ttl-expiry"
+		db := &countingRoutesDB{preferredDB: &preferredDB{
+			routes: []store.TokenRoute{countingTestRoute(1, model)},
+		}}
+		db.setJoined(countingEligibleJoined(1, 101, 10, 1001, model))
+		selector := newCountingSelector(db, NewRouteCache(100)) // minimum TTL
 
-	if _, err := selector.SelectChannel(context.Background(), model, EmptyDownstreamRoutingPolicy); err != nil {
-		t.Fatal(err)
-	}
-	if got := db.loadCalls.Load(); got != 1 {
-		t.Fatalf("loadCalls = %d, want 1", got)
-	}
+		if _, err := selector.SelectChannel(context.Background(), model, EmptyDownstreamRoutingPolicy); err != nil {
+			t.Fatal(err)
+		}
+		if got := db.loadCalls.Load(); got != 1 {
+			t.Fatalf("loadCalls = %d, want 1", got)
+		}
 
-	time.Sleep(150 * time.Millisecond)
+		time.Sleep(99 * time.Millisecond)
+		if sel, err := selector.SelectChannel(context.Background(), model, EmptyDownstreamRoutingPolicy); err != nil || sel == nil || sel.Channel.ID != 101 {
+			t.Fatalf("pre-expiry select = %+v, err=%v; want channel 101", sel, err)
+		}
+		if got := db.loadCalls.Load(); got != 1 {
+			t.Fatalf("loadCalls = %d before TTL expiry, want 1", got)
+		}
+		time.Sleep(time.Millisecond)
 
-	sel, err := selector.SelectChannel(context.Background(), model, EmptyDownstreamRoutingPolicy)
-	if err != nil || sel == nil {
-		t.Fatalf("post-expiry select = %+v, err=%v", sel, err)
-	}
-	if got := db.loadCalls.Load(); got != 2 {
-		t.Fatalf("loadCalls = %d after TTL expiry, want 2", got)
-	}
+		sel, err := selector.SelectChannel(context.Background(), model, EmptyDownstreamRoutingPolicy)
+		if err != nil || sel == nil {
+			t.Fatalf("post-expiry select = %+v, err=%v", sel, err)
+		}
+		if got := db.loadCalls.Load(); got != 2 {
+			t.Fatalf("loadCalls = %d after TTL expiry, want 2", got)
+		}
+	})
 }
 
 // TestSelectChannel_ConcurrentSafe hammers the selector from many goroutines:
@@ -287,39 +297,32 @@ func TestSelectChannel_ConcurrentSafe(t *testing.T) {
 	}
 
 	// Mixed invalidation + reads: must stay race-free and keep serving.
-	stop := make(chan struct{})
-	var writer sync.WaitGroup
-	writer.Add(1)
-	go func() {
-		defer writer.Done()
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-				cache.InvalidateAll()
-			}
+	start := make(chan struct{})
+	var workers sync.WaitGroup
+	workers.Go(func() {
+		<-start
+		for range iters {
+			cache.InvalidateAll()
 		}
-	}()
-	var readers sync.WaitGroup
-	for g := 0; g < 8; g++ {
-		readers.Add(1)
-		go func() {
-			defer readers.Done()
-			deadline := time.Now().Add(50 * time.Millisecond)
-			for time.Now().Before(deadline) {
+	})
+	for range 8 {
+		workers.Go(func() {
+			<-start
+			for range iters {
 				sel, err := selector.SelectChannel(context.Background(), model, EmptyDownstreamRoutingPolicy)
-				if err != nil || sel == nil {
+				if err != nil || sel == nil || sel.Channel.ID != 101 {
 					db.failures.Add(1)
 				}
 			}
-		}()
+		})
 	}
-	readers.Wait()
-	close(stop)
-	writer.Wait()
+	close(start)
+	workers.Wait()
 	if f := db.failures.Load(); f != 0 {
 		t.Fatalf("%d selections failed during concurrent invalidation", f)
+	}
+	if sel, err := selector.SelectChannel(context.Background(), model, EmptyDownstreamRoutingPolicy); err != nil || sel == nil || sel.Channel.ID != 101 {
+		t.Fatalf("final select = %+v, err=%v; want channel 101", sel, err)
 	}
 }
 
