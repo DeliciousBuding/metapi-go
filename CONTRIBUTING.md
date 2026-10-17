@@ -37,6 +37,8 @@ bash .githooks/pre-push-project </dev/null
 它运行前端测试、类型、lint、格式、死代码检查和构建，再执行 Go build、vet、
 全量 race 测试。`scripts/go-race.sh` 使用当前 Go 工具链，不自动进入 WSL；
 Windows 原生的工具链要求与环境限制见[测试策略](docs/testing.md#本地-race-检查)。
+`make verify` 先执行同一入口，再检查依赖、lint 和漏洞，并构建发行二进制；
+`make verify-race` 是它的别名。
 PR 中说明本地验证结果，合并须通过完整 CI。测试分层、PostgreSQL 夹具和真实上游
 验收见[测试策略](docs/testing.md)。
 
