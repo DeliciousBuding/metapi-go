@@ -370,7 +370,7 @@ func resolveLinkTarget(root, linkingFileRel, target string) string {
 const changelogBulletBudget = 170
 
 var (
-	changelogVersionRE = regexp.MustCompile(`^## \[v\d+\.\d+\.\d+\]`)
+	changelogVersionRE = regexp.MustCompile(`^## \[(?:Unreleased|v\d+\.\d+\.\d+)\]`)
 	changelogSectionRE = regexp.MustCompile(`^### (.+)$`)
 	// The forensic-mechanism arrow: "the code did X ⇒ therefore the user saw
 	// Y" is the shape every over-long entry grew from. The reader needs the
@@ -411,32 +411,62 @@ func TestChangelogStaysANarrativeNotAForensicRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lines := strings.Split(string(data), "\n")
+	scan := scanChangelog(strings.Split(string(data), "\n"))
 
-	var findings []string
-	versionSections, bulletsChecked, devVisibleSections := 0, 0, 0
+	// Same invariant as the two gates above: a budget nobody is measured
+	// against is not a lenient gate, it is no gate. The counters fail on
+	// different drifts — versionSections goes to 0 if changelogVersionRE stops
+	// matching (every version, including ones with no bullets at all),
+	// bulletsChecked goes to 0 if the entries lose their "- " prefix, and
+	// sectionsChecked goes to 0 if the headings stop parsing.
+	if scan.versionSections == 0 {
+		t.Fatal("gate would pass vacuously: no CHANGELOG version section matched changelogVersionRE")
+	}
+	if scan.bullets == 0 {
+		t.Fatal("gate would pass vacuously: no CHANGELOG entries were examined")
+	}
+	if scan.sectionsChecked == 0 {
+		t.Fatal("gate would pass vacuously: no CHANGELOG section headings were examined")
+	}
+	if len(scan.findings) > 0 {
+		t.Fatalf("CHANGELOG.md violates its own writing contract (%d version sections, %d entries, %d sections examined):\n%s",
+			scan.versionSections, scan.bullets, scan.sectionsChecked, strings.Join(scan.findings, "\n"))
+	}
+}
+
+type changelogScan struct {
+	findings                                  []string
+	versionSections, bullets, sectionsChecked int
+}
+
+// scanChangelog is the pure rule engine shared by the real-file gate and its
+// self-proof. Unreleased is a version section like any other: duplicate
+// headings and oversized entries there are the ones most likely to ship next.
+func scanChangelog(lines []string) changelogScan {
+	var scan changelogScan
 	// The contract preamble at the top of the file names the tokens it bans
 	// (`⇒` among them), so the entry rules only apply below the first version
 	// heading. Without this the gate reports the rule as a violation of itself.
 	inVersionSections := false
+	seenSections := map[string]bool{}
 
 	for i, line := range lines {
 		lineNo := i + 1
 		if changelogVersionRE.MatchString(line) {
 			inVersionSections = true
-			versionSections++
-			devVisibleSections = 0
+			scan.versionSections++
+			seenSections = map[string]bool{}
 			continue
 		}
 		if m := changelogSectionRE.FindStringSubmatch(line); m != nil {
-			if !changelogAllowedSections[m[1]] {
-				findings = append(findings, formatFinding("CHANGELOG.md", lineNo, "unknown section heading "+m[1], line))
+			scan.sectionsChecked++
+			if seenSections[m[1]] {
+				scan.findings = append(scan.findings, formatFinding("CHANGELOG.md", lineNo,
+					"duplicate section heading "+m[1]+" in one version", line))
 			}
-			if m[1] == "开发者可见" {
-				devVisibleSections++
-				if devVisibleSections > 1 {
-					findings = append(findings, formatFinding("CHANGELOG.md", lineNo, "more than one 开发者可见 section in one version", line))
-				}
+			seenSections[m[1]] = true
+			if !changelogAllowedSections[m[1]] {
+				scan.findings = append(scan.findings, formatFinding("CHANGELOG.md", lineNo, "unknown section heading "+m[1], line))
 			}
 			continue
 		}
@@ -448,7 +478,7 @@ func TestChangelogStaysANarrativeNotAForensicRecord(t *testing.T) {
 			continue
 		}
 		entry := strings.TrimPrefix(trimmed, "- ")
-		bulletsChecked++
+		scan.bullets++
 		// The forensic markers are banned in every section, including the
 		// archive tail: applying the rule file-wide costs nothing and stops
 		// the tail from becoming a place to hide them.
@@ -462,35 +492,43 @@ func TestChangelogStaysANarrativeNotAForensicRecord(t *testing.T) {
 			{changelogTestNameRE, "Go test name (belongs in the commit body)"},
 		} {
 			if m := check.re.FindString(entry); m != "" {
-				findings = append(findings, formatFinding("CHANGELOG.md", lineNo, check.what+" -> "+m, line))
+				scan.findings = append(scan.findings, formatFinding("CHANGELOG.md", lineNo, check.what+" -> "+m, line))
 			}
 		}
 		if utf8RuneLen(entry) > changelogBulletBudget {
-			findings = append(findings, formatFinding("CHANGELOG.md", lineNo,
+			scan.findings = append(scan.findings, formatFinding("CHANGELOG.md", lineNo,
 				"entry is "+strconv.Itoa(utf8RuneLen(entry))+" runes, budget is "+strconv.Itoa(changelogBulletBudget)+
 					": split it, or point at the doc that owns the identifier list", line))
 		}
 		if changelogBoldHeadlineRE.MatchString(entry) {
-			findings = append(findings, formatFinding("CHANGELOG.md", lineNo,
+			scan.findings = append(scan.findings, formatFinding("CHANGELOG.md", lineNo,
 				"entry opens with a bold headline: lead with the identifier or the behaviour, "+
 					"and keep bold for the action an operator must take", line))
 		}
 	}
+	return scan
+}
 
-	// Same invariant as the two gates above: a budget nobody is measured
-	// against is not a lenient gate, it is no gate. The two counters fail on
-	// different drifts — versionSections goes to 0 if changelogVersionRE stops
-	// matching (every version, including ones with no bullets at all), and
-	// bulletsChecked goes to 0 if the entries lose their "- " prefix.
-	if versionSections == 0 {
-		t.Fatal("gate would pass vacuously: no CHANGELOG version section matched changelogVersionRE")
+// TestChangelogContractGateIsNotAVacuousPass feeds a deliberately duplicated
+// section through the same scanner the real file uses. The old gate only
+// watched 开发者可见, so a second 变更 section passed silently.
+func TestChangelogContractGateIsNotAVacuousPass(t *testing.T) {
+	lines := []string{
+		"## [Unreleased]",
+		"### 修复",
+		"- 正常条目",
+		"### 修复",
+		"- 重复节下的条目",
+		"## [v1.2.3]",
+		"### 变更",
+		"- 正常条目",
 	}
-	if bulletsChecked == 0 {
-		t.Fatal("gate would pass vacuously: no CHANGELOG entries were examined")
+	scan := scanChangelog(lines)
+	if scan.versionSections != 2 || scan.bullets != 3 || scan.sectionsChecked != 3 {
+		t.Fatalf("scanner counters changed: %+v", scan)
 	}
-	if len(findings) > 0 {
-		t.Fatalf("CHANGELOG.md violates its own writing contract (%d version sections, %d entries examined):\n%s",
-			versionSections, bulletsChecked, strings.Join(findings, "\n"))
+	if !strings.Contains(strings.Join(scan.findings, "\n"), "duplicate section heading 修复") {
+		t.Fatalf("duplicate section was not reported: %v", scan.findings)
 	}
 }
 
