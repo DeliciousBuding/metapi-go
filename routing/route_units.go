@@ -11,6 +11,21 @@ func IsOAuthRouteUnitCandidate(candidate RouteChannelCandidate) bool {
 	return candidate.RouteUnit != nil || (candidate.Channel.OAuthRouteUnitID != nil && *candidate.Channel.OAuthRouteUnitID > 0)
 }
 
+// Filter a copy: cached pool membership is shared across downstream keys.
+func (s *ChannelSelector) filterRouteUnitMembersByPolicy(candidate RouteChannelCandidate, policy DownstreamRoutingPolicy) RouteChannelCandidate {
+	allowed := make([]OAuthRouteUnitMemberCandidate, 0, len(candidate.RouteUnitMembers))
+	for _, member := range candidate.RouteUnitMembers {
+		projection := candidate
+		projection.Account, projection.Site = member.Account, member.Site
+		projection.Channel.TokenID, projection.Token = nil, nil
+		if s.resolveDownstreamExclusionBlocker(projection, policy).Code == "" {
+			allowed = append(allowed, member)
+		}
+	}
+	candidate.RouteUnitMembers = allowed
+	return candidate
+}
+
 // SelectRouteUnitMember selects a member from an OAuth route unit channel.
 // Implements both round_robin and stick_until_unavailable strategies.
 func SelectRouteUnitMember(

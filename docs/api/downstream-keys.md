@@ -214,6 +214,11 @@ with `400` and nothing is persisted:
 - equivalent site-dimension reasons: `站点不在下游密钥允许列表中` /
   `站点已被下游密钥排除`.
 
+OAuth 路由池按实际成员的站点和凭据应用这些限制，再执行轮询或保持当前成员策略。
+仅授权直连渠道的 Key 不能使用账号路由池。没有授权成员时，诊断预览显示池不可用，
+代理请求不向上游派发。`default_api_key` 只匹配实际使用该 API Key 的成员，
+不会授权同一账号下不同的 OAuth access token。
+
 **Dangling refs.** Refs are validated only at write time. Deleting an account
 or token afterwards does **not** cascade-clean stored refs; a dangling ref
 simply never matches a candidate — a dangling allow ref makes that credential
