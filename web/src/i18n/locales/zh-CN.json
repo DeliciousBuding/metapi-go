@@ -2900,6 +2900,11 @@
         "clearCooldownFailed": "清除冷却失败",
         "upstreamModel": "上游模型",
         "memberNotSelected": "尚未选择 OAuth 成员及其上游模型。",
+        "members": "路由池成员（{{count}}）",
+        "memberScope": "成员检查涵盖账号、站点、凭据、策略和冷却；实际选路还需通过路由本身的筛选。",
+        "memberReady": "成员检查通过",
+        "memberBlocked": "不可用",
+        "clearMemberCooldown": "清除 {{name}} 的冷却",
         "probability": "已计算的选择概率",
         "kind": {
           "account": "账号路由通道",

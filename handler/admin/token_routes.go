@@ -779,6 +779,7 @@ func routeDecisionToMap(d routing.RouteDecisionExplanation) map[string]any {
 			"probability":            c.Probability,
 			"reason":                 c.Reason,
 			"cooldownUntil":          c.CooldownUntil,
+			"oauthMembers":           c.OAuthMembers,
 		})
 	}
 	out := map[string]any{

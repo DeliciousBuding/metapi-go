@@ -1,9 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { ModelPill } from '@/components/common/model-pill'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { importedUpstreamsApi } from '@/lib/api/imported-upstreams'
@@ -17,6 +23,7 @@ import { routingStrategyLabel } from '../utils'
 type CooldownTarget =
   | { kind: 'channel'; id: number }
   | { kind: 'member'; id: number }
+  | { kind: 'oauthMember'; id: number; unitId: number }
 
 /**
  * The one route-decision renderer. The route detail's explicit check and the
@@ -29,17 +36,17 @@ export function RouteDecisionResult(props: {
 }) {
   const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
-  // Recovery entry (#1396 R batch): a cooldown blocker carries a per-candidate
-  // clear action dispatched by candidate kind. Account/oauth_unit rows cool in
-  // route_channels (channel endpoint); direct grant members cool in
-  // upstream_grants (imported-member endpoint, id = group item id). Other
-  // blockers are configuration, not recovery — they get no button here, and
-  // legacy snapshots without a typed identity show none either.
+  // Recovery targets follow the persisted cooldown owner: route channel,
+  // direct grant (addressed by group item), or OAuth pool member.
   const clearCooldown = useMutation({
-    mutationFn: (target: CooldownTarget) =>
-      target.kind === 'member'
+    mutationFn: (target: CooldownTarget) => {
+      if (target.kind === 'oauthMember') {
+        return api.clearOAuthMemberCooldown(target.unitId, target.id)
+      }
+      return target.kind === 'member'
         ? importedUpstreamsApi.clearImportedMemberCooldown(target.id)
-        : api.clearChannelCooldown(target.id),
+        : api.clearChannelCooldown(target.id)
+    },
     onSuccess: () => {
       toast.success(t('tokenRoutes.preview.cooldownCleared'))
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
@@ -157,6 +164,85 @@ export function RouteDecisionResult(props: {
                 <p className='text-muted-foreground'>
                   {t('tokenRoutes.preview.memberNotSelected')}
                 </p>
+              )}
+              {ref?.kind === 'oauth_unit' && candidate.oauthMembers && (
+                <Collapsible>
+                  <CollapsibleTrigger className='group focus-visible:ring-ring flex w-full items-center justify-between gap-2 rounded-md py-2 text-left font-medium outline-none focus-visible:ring-2'>
+                    {t('tokenRoutes.preview.members', {
+                      count: candidate.oauthMembers.length,
+                    })}
+                    <ChevronDown
+                      aria-hidden='true'
+                      className='size-4 shrink-0 transition-transform group-aria-expanded:rotate-180'
+                    />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <p className='text-muted-foreground mb-2'>
+                      {t('tokenRoutes.preview.memberScope')}
+                    </p>
+                    <ul className='divide-y border-t text-sm'>
+                      {candidate.oauthMembers.map((member) => (
+                        <li key={member.memberId} className='space-y-2 py-3'>
+                          <div className='flex flex-wrap items-start justify-between gap-2'>
+                            <span className='min-w-0 [overflow-wrap:anywhere] break-words'>
+                              {member.siteName} · {member.username}
+                            </span>
+                            <Badge variant='outline'>
+                              {t(
+                                `tokenRoutes.preview.${member.eligibility === 'blocked' ? 'memberBlocked' : member.eligibility === 'eligible' ? 'memberReady' : 'notEvaluated'}`
+                              )}
+                            </Badge>
+                          </div>
+                          {member.blockers.map((blocker) => (
+                            <p key={blocker.code} className='break-words'>
+                              {t(
+                                `tokenRoutes.preview.blockers.${blocker.code}`,
+                                { defaultValue: blocker.message }
+                              )}
+                            </p>
+                          ))}
+                          {member.blockers.some(
+                            (blocker) => blocker.code === 'cooldown'
+                          ) && (
+                            <div className='flex flex-wrap items-center gap-2'>
+                              {member.cooldownUntil && (
+                                <span className='text-muted-foreground text-xs'>
+                                  {t('tokenRoutes.preview.cooldownUntil', {
+                                    time: formatDateTime(
+                                      member.cooldownUntil,
+                                      toBcp47(i18n.language)
+                                    ),
+                                  })}
+                                </span>
+                              )}
+                              {ref.id > 0 && member.memberId > 0 && (
+                                <Button
+                                  type='button'
+                                  variant='outline'
+                                  size='xs'
+                                  disabled={clearCooldown.isPending}
+                                  aria-label={t(
+                                    'tokenRoutes.preview.clearMemberCooldown',
+                                    { name: member.username }
+                                  )}
+                                  onClick={() =>
+                                    clearCooldown.mutate({
+                                      kind: 'oauthMember',
+                                      id: member.memberId,
+                                      unitId: ref.id,
+                                    })
+                                  }
+                                >
+                                  {t('tokenRoutes.preview.clearCooldown')}
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </CollapsibleContent>
+                </Collapsible>
               )}
               {candidate.blockers?.map((blocker) => (
                 <p key={blocker.code} className='break-words'>

@@ -18,13 +18,18 @@ import type { RouteDecision, RouteSummaryRow } from '../../types'
 import { RouteDecisionPanel } from '../route-decision-panel'
 
 vi.mock('@/lib/api', () => ({
-  api: { getRouteDecision: vi.fn(), clearChannelCooldown: vi.fn() },
+  api: {
+    getRouteDecision: vi.fn(),
+    clearChannelCooldown: vi.fn(),
+    clearOAuthMemberCooldown: vi.fn(),
+  },
 }))
 vi.mock('@/lib/api/imported-upstreams', () => ({
   importedUpstreamsApi: { clearImportedMemberCooldown: vi.fn() },
 }))
 const getDecision = vi.mocked(api.getRouteDecision)
 const clearChannelCooldown = vi.mocked(api.clearChannelCooldown)
+const clearOAuthMemberCooldown = vi.mocked(api.clearOAuthMemberCooldown)
 const clearImportedMemberCooldown = vi.mocked(
   importedUpstreamsApi.clearImportedMemberCooldown
 )
@@ -101,6 +106,12 @@ beforeEach(() => {
   getDecision.mockReset()
   clearChannelCooldown.mockReset()
   clearChannelCooldown.mockResolvedValue({ success: true } as never)
+  clearOAuthMemberCooldown.mockReset()
+  clearOAuthMemberCooldown.mockResolvedValue({
+    success: true,
+    routeUnitId: 7,
+    memberId: 11,
+  })
   clearImportedMemberCooldown.mockReset()
   clearImportedMemberCooldown.mockResolvedValue({
     success: true,
@@ -115,6 +126,112 @@ afterEach(() => {
 })
 
 describe('current routing preview', () => {
+  it('expands OAuth members and clears only the cooled member, then refreshes its state', async () => {
+    const pool = decision({
+      candidates: [
+        {
+          channelId: 42,
+          label: 'Team pool',
+          candidateRef: { kind: 'oauth_unit', id: 7 },
+          eligibility: 'eligible',
+          oauthMembers: [
+            {
+              memberId: 11,
+              accountId: 1,
+              siteId: 2,
+              username: 'Alice',
+              siteName: 'Codex',
+              eligibility: 'blocked',
+              blockers: [{ code: 'cooldown', message: 'cooling' }],
+              cooldownUntil: '2999-01-01T00:00:00Z',
+            },
+            {
+              memberId: 12,
+              accountId: 2,
+              siteId: 2,
+              username: 'Bob',
+              siteName: 'Codex',
+              eligibility: 'eligible',
+              blockers: [],
+            },
+          ],
+        },
+      ],
+    })
+    const recovered = structuredClone(pool)
+    const member = recovered.candidates![0].oauthMembers![0]
+    member.eligibility = 'eligible'
+    member.blockers = []
+    member.cooldownUntil = null
+    getDecision
+      .mockResolvedValueOnce({ success: true, decision: pool })
+      .mockResolvedValue({ success: true, decision: recovered })
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Check routing' }))
+    const expand = await screen.findByRole('button', {
+      name: 'Pool members (2)',
+    })
+    expect(expand).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Codex · Alice')).not.toBeInTheDocument()
+    fireEvent.click(expand)
+    expect(await screen.findByText('Codex · Alice')).toBeInTheDocument()
+    expect(screen.getByText('Codex · Bob')).toBeInTheDocument()
+    expect(
+      screen.getAllByRole('button', { name: /Clear cooldown for/ })
+    ).toHaveLength(1)
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Clear cooldown for Alice' })
+    )
+    await waitFor(() =>
+      expect(clearOAuthMemberCooldown).toHaveBeenCalledWith(7, 11)
+    )
+    await waitFor(() => expect(getDecision).toHaveBeenCalledTimes(2))
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Clear cooldown for Alice' })
+      ).not.toBeInTheDocument()
+    )
+    expect(clearChannelCooldown).not.toHaveBeenCalled()
+    expect(clearImportedMemberCooldown).not.toHaveBeenCalled()
+  })
+
+  it('keeps OAuth recovery available after an asynchronous failure', async () => {
+    clearOAuthMemberCooldown.mockRejectedValue(new Error('offline'))
+    getDecision.mockResolvedValue({
+      success: true,
+      decision: decision({
+        candidates: [
+          {
+            candidateRef: { kind: 'oauth_unit', id: 7 },
+            oauthMembers: [
+              {
+                memberId: 11,
+                accountId: 1,
+                siteId: 2,
+                username: 'Alice',
+                siteName: 'Codex',
+                eligibility: 'blocked',
+                blockers: [{ code: 'cooldown', message: 'cooling' }],
+              },
+            ],
+          },
+        ],
+      }),
+    })
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: 'Check routing' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Pool members (1)' })
+    )
+    const clear = await screen.findByRole('button', {
+      name: 'Clear cooldown for Alice',
+    })
+    fireEvent.click(clear)
+    await waitFor(() => expect(clearOAuthMemberCooldown).toHaveBeenCalledOnce())
+    await waitFor(() => expect(clear).toBeEnabled())
+    expect(getDecision).toHaveBeenCalledTimes(1)
+  })
+
   it('checks only on explicit submission and displays typed direct identity, not a winner or 0%', async () => {
     getDecision.mockResolvedValue({ success: true, decision: decision() })
     renderPanel()

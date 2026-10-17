@@ -15,15 +15,35 @@ func IsOAuthRouteUnitCandidate(candidate RouteChannelCandidate) bool {
 func (s *ChannelSelector) filterRouteUnitMembersByPolicy(candidate RouteChannelCandidate, policy DownstreamRoutingPolicy) RouteChannelCandidate {
 	allowed := make([]OAuthRouteUnitMemberCandidate, 0, len(candidate.RouteUnitMembers))
 	for _, member := range candidate.RouteUnitMembers {
-		projection := candidate
-		projection.Account, projection.Site = member.Account, member.Site
-		projection.Channel.TokenID, projection.Token = nil, nil
-		if s.resolveDownstreamExclusionBlocker(projection, policy).Code == "" {
+		if s.routeUnitMemberPolicyBlocker(candidate, member, policy).Code == "" {
 			allowed = append(allowed, member)
 		}
 	}
 	candidate.RouteUnitMembers = allowed
 	return candidate
+}
+
+func (s *ChannelSelector) routeUnitMemberPolicyBlocker(candidate RouteChannelCandidate, member OAuthRouteUnitMemberCandidate, policy DownstreamRoutingPolicy) CandidateBlocker {
+	candidate.Account, candidate.Site = member.Account, member.Site
+	candidate.Channel.TokenID, candidate.Token = nil, nil
+	return s.resolveDownstreamExclusionBlocker(candidate, policy)
+}
+
+func routeUnitMemberBlockers(member OAuthRouteUnitMemberCandidate, nowISO string) []CandidateBlocker {
+	blockers := make([]CandidateBlocker, 0)
+	if member.Account.Status != "active" {
+		blockers = append(blockers, CandidateBlocker{"account_inactive", "账号未启用"})
+	}
+	if member.Site.Status == "disabled" {
+		blockers = append(blockers, CandidateBlocker{"site_disabled", "站点已停用"})
+	}
+	if IsCooldownActive(member.Member.CooldownUntil, nowISO) {
+		blockers = append(blockers, CandidateBlocker{"cooldown", "成员冷却中"})
+	}
+	if ResolveRouteUnitMemberTokenValue(member.Account) == "" {
+		blockers = append(blockers, CandidateBlocker{"token_unavailable", "成员缺少凭据"})
+	}
+	return blockers
 }
 
 // SelectRouteUnitMember selects a member from an OAuth route unit channel.
@@ -109,17 +129,7 @@ func getEligibleRouteUnitMembers(
 
 	var eligible []OAuthRouteUnitMemberCandidate
 	for _, m := range outerCandidate.RouteUnitMembers {
-		if m.Account.Status != "active" {
-			continue
-		}
-		if m.Site.Status == "disabled" {
-			continue
-		}
-		if IsCooldownActive(m.Member.CooldownUntil, nowISO) {
-			continue
-		}
-		// Token check: account accessToken or apiToken must be non-empty
-		if m.Account.AccessToken == "" && (m.Account.APIToken == nil || *m.Account.APIToken == "") {
+		if len(routeUnitMemberBlockers(m, nowISO)) > 0 {
 			continue
 		}
 		eligible = append(eligible, m)

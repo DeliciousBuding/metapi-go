@@ -8,6 +8,14 @@ import type {
 } from './types'
 
 export const oauthApi = {
+  clearOAuthMemberCooldown: (unitId: number, memberId: number) =>
+    request(
+      `/api/oauth/route-units/${unitId}/members/${memberId}/cooldown/clear`,
+      {
+        method: 'POST',
+        skipErrorHandler: true,
+      }
+    ) as Promise<{ success: true; routeUnitId: number; memberId: number }>,
   // OAuth
   getOAuthProviders: () =>
     request('/api/oauth/providers') as Promise<OAuthProvidersResponse>,
