@@ -674,6 +674,13 @@ func TestNoInternalProgrammeCodesInShippedSources(t *testing.T) {
 		if err != nil {
 			return err
 		}
+		// A Windows directory junction (bun links a worktree's node_modules
+		// that way) reports as neither a directory nor a symlink; reading it
+		// fails with "Incorrect function". Only regular files carry authored
+		// text, so anything else is outside this gate's scope.
+		if !info.Mode().IsRegular() {
+			return nil
+		}
 		if info.Size() > 1<<20 { // a prose gate has no business reading megabytes
 			return nil
 		}
