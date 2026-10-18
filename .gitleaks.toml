@@ -20,6 +20,7 @@ paths = [
   '''_test\.go$''',
   '''\.test\.[cm]?[jt]s$''',
   '''e2e/''',
+  '''service/backup/testdata/axonhub-complete\.json$''',
 ]
 
 [allowlist]
