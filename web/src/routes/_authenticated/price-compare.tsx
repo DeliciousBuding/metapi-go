@@ -1,6 +1,5 @@
 // metapi-go/routes — standalone cross-site price comparison page.
-// The page owns its model-filter state (debounced server-side `model` param)
-// and reads the sorted candidate list directly from usePriceCompare.
+// Model search and published-price pagination are owned by the URL.
 //
 // `validateSearch` syncs the model filter to the URL so a refresh or shared
 // link restores the filtered view. The router JSON-parses search
@@ -14,6 +13,7 @@ import { stringSearchParam } from '@/lib/helpers/searchParams'
 
 const priceCompareSearchSchema = z.object({
   model: stringSearchParam,
+  pricePage: z.coerce.number().int().min(1).catch(1).optional(),
 })
 
 export const Route = createFileRoute('/_authenticated/price-compare')({

@@ -4,7 +4,7 @@
 
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { ArrowRight, Scale, Search, Star } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ZodError } from 'zod'
 
@@ -39,8 +39,9 @@ import {
 import { formatCurrency, formatPrice } from '@/lib/format'
 import { asStringParam } from '@/lib/helpers/searchParams'
 
-import { usePriceCompare } from '../api'
+import { usePriceWorkspace } from '../api'
 import type { PriceCompareItem } from '../types'
+import { CurrentPrices } from './current-prices'
 import { PriceGradeBadge } from './price-grade-badge'
 
 type ModelGroup = {
@@ -52,34 +53,20 @@ type ModelGroup = {
 export function PriceComparePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  // The model filter lives in the URL (?model=) so a refresh or shared link
-  // restores the filtered view. The route's validateSearch types
-  // the param; the input debounces its edits back into the URL and the query
-  // reads the URL value as the single source of truth.
-  const { model } = useSearch({ from: '/_authenticated/price-compare' })
+  const { model, pricePage } = useSearch({
+    from: '/_authenticated/price-compare',
+  })
   const modelParam = asStringParam(model)?.trim() ?? ''
-  const [search, setSearch] = useState(modelParam)
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const next = search.trim()
-      if (next === modelParam) return
-      const href = next
-        ? `/price-compare?${new URLSearchParams({ model: next }).toString()}`
-        : '/price-compare'
-      void navigate({ href, replace: true })
-    }, 350)
-    return () => window.clearTimeout(timer)
-  }, [search, modelParam, navigate])
-
-  const query = usePriceCompare({
+  const query = usePriceWorkspace({
     model: modelParam || undefined,
     limit: 200,
+    pricePage: pricePage ?? 1,
   })
 
   const groups = useMemo<ModelGroup[]>(() => {
     const map = new Map<string, PriceCompareItem[]>()
-    for (const item of query.data ?? []) {
+    for (const item of query.data?.items ?? []) {
+      if (item.missingPrice) continue
       const key = item.model.trim().toLowerCase() || '__unknown__'
       const list = map.get(key) ?? []
       list.push(item)
@@ -98,21 +85,94 @@ export function PriceComparePage() {
         title={t('priceCompare.page.title')}
         description={t('priceCompare.page.description')}
         actions={
-          <div className='relative w-full sm:w-64'>
-            <Search
-              aria-hidden='true'
-              className='text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2'
-            />
+          <form
+            className='flex w-full gap-2 sm:w-72'
+            onSubmit={(event) => {
+              event.preventDefault()
+              const next = String(
+                new FormData(event.currentTarget).get('model') ?? ''
+              ).trim()
+              void navigate({
+                href: next
+                  ? `/price-compare?${new URLSearchParams({ model: next })}`
+                  : '/price-compare',
+              })
+            }}
+          >
             <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              key={modelParam}
+              name='model'
+              defaultValue={modelParam}
               placeholder={t('priceCompare.page.searchPlaceholder')}
               aria-label={t('priceCompare.page.searchPlaceholder')}
-              className='pl-8'
             />
-          </div>
+            <Button
+              type='submit'
+              variant='outline'
+              size='icon'
+              aria-label={t('priceCompare.current.search')}
+            >
+              <Search aria-hidden='true' />
+            </Button>
+          </form>
         }
       />
+
+      {query.data?.currentPage && query.data.currentPage.totalModels > 0 && (
+        <nav
+          className='flex flex-wrap items-center justify-between gap-3'
+          aria-label={t('priceCompare.current.pagination')}
+        >
+          <p className='text-muted-foreground text-sm'>
+            {t('priceCompare.current.pageSummary', {
+              page: query.data.currentPage.page,
+              pages: Math.max(
+                1,
+                Math.ceil(
+                  query.data.currentPage.totalModels /
+                    query.data.currentPage.pageSize
+                )
+              ),
+              count: query.data.currentPage.totalModels,
+            })}
+          </p>
+          <div className='flex gap-2'>
+            {[-1, 1].map((delta) => (
+              <Button
+                key={delta}
+                variant='outline'
+                size='sm'
+                disabled={
+                  query.isFetching ||
+                  (delta < 0
+                    ? query.data!.currentPage!.page <= 1
+                    : query.data!.currentPage!.page *
+                        query.data!.currentPage!.pageSize >=
+                      query.data!.currentPage!.totalModels)
+                }
+                onClick={() => {
+                  const params = new URLSearchParams(window.location.search)
+                  params.set(
+                    'pricePage',
+                    String(query.data!.currentPage!.page + delta)
+                  )
+                  void navigate({ href: `/price-compare?${params}` })
+                }}
+              >
+                {t(
+                  delta < 0
+                    ? 'priceCompare.current.previous'
+                    : 'priceCompare.current.next'
+                )}
+              </Button>
+            ))}
+          </div>
+        </nav>
+      )}
+
+      {query.data?.pricingAccounts && !query.error && (
+        <CurrentPrices data={query.data} />
+      )}
 
       {query.isLoading && (
         <div className='text-muted-foreground flex items-center gap-2 text-sm'>
@@ -134,7 +194,8 @@ export function PriceComparePage() {
 
       {!query.isLoading &&
         !query.error &&
-        groups.length === 0 && (
+        groups.length === 0 &&
+        (query.data?.pricingAccounts?.length ?? 0) === 0 && (
           // flex-none: the Empty base is flex-1, which would stretch the box
           // across the whole viewport — a content-sized empty state instead.
           <Empty className='flex-none border'>
@@ -156,6 +217,11 @@ export function PriceComparePage() {
         )}
 
       <div className='flex flex-col gap-4'>
+        {groups.length > 0 && (
+          <h2 className='text-base font-semibold'>
+            {t('priceCompare.current.history')}
+          </h2>
+        )}
         {groups.map((group) => (
           <ModelGroupCard key={group.key} group={group} />
         ))}
@@ -225,25 +291,52 @@ export function PriceRow({ row }: { row: PriceCompareItem }) {
         {row.username && (
           <div className='text-muted-foreground text-xs'>{row.username}</div>
         )}
+        {row.source === 'observed' && (
+          <p className='text-muted-foreground mt-1 text-xs'>
+            {t('priceCompare.current.observedAverage', {
+              price: formatCurrency(row.estimatedCostSample, {
+                fractionDigits: 6,
+              }),
+              count: row.observedSamples,
+            })}
+          </p>
+        )}
+        {row.source === 'configured' && (
+          <p className='text-muted-foreground mt-1 text-xs'>
+            {t('priceCompare.current.configuredCost', {
+              price: formatCurrency(row.estimatedCostSample, {
+                fractionDigits: 6,
+              }),
+            })}
+          </p>
+        )}
       </TableCell>
       <TableCell className='hidden sm:table-cell'>
         <PriceGradeBadge grade={row.source} />
       </TableCell>
       <TableCell className='text-right tabular-nums'>
-        {formatPrice(row.inputPerMillion, { fractionDigits: 4 })}
+        {row.ratesSource === 'billing_details'
+          ? formatPrice(row.inputPerMillion, { fractionDigits: 4 })
+          : '—'}
       </TableCell>
       <TableCell className='hidden text-right tabular-nums sm:table-cell'>
-        {formatPrice(row.outputPerMillion, { fractionDigits: 4 })}
+        {row.ratesSource === 'billing_details'
+          ? formatPrice(row.outputPerMillion, { fractionDigits: 4 })
+          : '—'}
       </TableCell>
       <TableCell
         className='hidden text-right tabular-nums sm:table-cell'
         title={
-          row.missingPrice
+          row.missingPrice ||
+          row.source === 'observed' ||
+          row.source === 'configured'
             ? undefined
             : t('priceCompare.effectiveCostPrecision')
         }
       >
-        {row.missingPrice
+        {row.missingPrice ||
+        row.source === 'observed' ||
+        row.source === 'configured'
           ? '—'
           : formatCurrency(row.estimatedCostSample, { fractionDigits: 6 })}
       </TableCell>
@@ -274,7 +367,7 @@ function PriceRowStatus({ row }: { row: PriceCompareItem }) {
       </span>
     )
   }
-  if (row.recommended) {
+  if (row.recommended && row.source === 'billing_details') {
     return (
       <Badge variant='default' title={t('priceCompare.recommendedHint')}>
         <Star aria-hidden='true' className='size-3!' />

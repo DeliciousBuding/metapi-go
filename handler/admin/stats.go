@@ -55,6 +55,7 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 	r.Get("/api/models/marketplace", handler.marketplace)
 	r.Get("/api/models/marketplace/detail", handler.marketplaceDetail)
 	r.Get("/api/models/price-compare", handler.modelPriceCompare)
+	r.Post("/api/models/price-compare/accounts/{accountId}/refresh", handler.refreshPriceCompareAccount)
 	r.Get("/api/models/token-candidates", handler.tokenCandidates)
 	r.Post("/api/models/check/{accountId}", handler.modelCheck)
 	r.Post("/api/models/probe", handler.modelProbe)

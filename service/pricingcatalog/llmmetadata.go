@@ -120,6 +120,7 @@ func parseLLMMetadataEntry(providerSlug, providerID string, model llmMetadataMod
 		if output, outOK := validCostField(model.Cost.Output); outOK {
 			entry.InputPerMillion = input
 			entry.OutputPerMillion = output
+			entry.ListPriceKnown = true
 		}
 	}
 	entry.CacheReadPerMillion = cloneCostField(model.Cost.CacheRead)

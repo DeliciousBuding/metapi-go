@@ -3729,9 +3729,49 @@
       }
     },
     "priceCompare": {
+      "current": {
+        "observedAverage": "观测平均 {{price}} / 次 · {{count}} 条样本",
+        "configuredCost": "配置费用 {{price}} / 次",
+        "builtIn": "内置 models.dev 快照 · {{date}}",
+        "search": "搜索模型",
+        "pagination": "站点模型报价分页",
+        "pageSummary": "第 {{page}} / {{pages}} 页 · 共 {{count}} 个模型",
+        "previous": "上一页",
+        "next": "下一页",
+        "refresh": "刷新报价",
+        "title": "站点报价与官方基准",
+        "units": "美元 / 百万 token · 按次价格单独标注",
+        "refreshHint": "刷新账号可读取站点报价及可用分组。浏览页面使用已保存的报价。",
+        "accounts": "报价来源（{{count}} 个账号）",
+        "fetched": "获取于 {{time}}",
+        "notFetched": "尚未获取报价",
+        "refreshAccount": "刷新 {{name}} 的报价",
+        "refreshFailed": "报价刷新失败，请检查账号凭据与站点连接后重试。",
+        "unsupported": "该平台暂未提供报价读取",
+        "official": "官方标准价",
+        "noBaseline": "暂无官方基准",
+        "input": "输入",
+        "output": "输出",
+        "cacheRead": "缓存读取",
+        "cacheWrite": "缓存写入",
+        "alias": "别名匹配",
+        "catalogUpdated": "目录更新于 {{date}}",
+        "noQuote": "暂无该模型的已存报价，可展开报价来源并刷新账号。",
+        "stale": "最近一次刷新失败，以下保留上次获取的报价。",
+        "nonLinear": "条件计费，实际费用按站点规则计算。",
+        "perRequestFormula": "基础价格 {{price}} / 次 × 有效分组倍率",
+        "formula": "输入 = $2 × 模型 {{model}} × 分组倍率。输出 × {{output}} · 缓存读取 × {{read}} · 缓存写入 × {{write}}（相对输入价格）。",
+        "noGroups": "该账号没有可用于此模型的分组。",
+        "groupRatio": "有效分组倍率",
+        "relative": "相对官方",
+        "perRequest": "美元 / 次",
+        "oneCall": "单次费用：",
+        "sample": "示例：输入 1K + 输出 1K，无缓存：",
+        "history": "历史费率与费用观测"
+      },
       "page": {
         "title": "价格对比",
-        "description": "跨站点有效模型价格，含价格来源与推荐（同模型最低有效成本）。",
+        "description": "对照官方标准价，查看站点各分组报价与计算明细。",
         "searchPlaceholder": "按模型筛选…",
         "loadError": "加载价格对比失败：{{message}}",
         "invalidResponse": "服务端返回的价格数据格式无效，请重试。",
@@ -3739,7 +3779,7 @@
         "emptyAction": "管理账号"
       },
       "group": {
-        "description": "按来源站点的有效价格从低到高。来源优先级：计费明细 > 观测 > 已配置 > 兜底，取可用且优先级最高者。"
+        "description": "历史账单费率及已记录的费用信号。请求平均费用与配置单价不计算固定 token 示例费用。"
       },
       "grade": {
         "billing_details": "计费明细",

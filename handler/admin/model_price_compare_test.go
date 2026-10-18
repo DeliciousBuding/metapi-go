@@ -1,10 +1,52 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/deliciousbuding/metapi-go/store"
 	"testing"
 	"time"
 )
+
+func TestStats_SQLiteModelPriceCompare_CurrentPricesPagination(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	if _, err := db.Exec(`INSERT INTO sites (id,name,url,platform,status) VALUES (501,'Synthetic relay','https://relay.example','new-api','active')`); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []int64{501, 502} {
+		if _, err := db.Exec(`INSERT INTO accounts (id,site_id,username,access_token,status) VALUES (?,501,'demo','synthetic-management','active')`, id); err != nil {
+			t.Fatal(err)
+		}
+		payload := `{"models":[{"model":"alpha","quotaType":0,"modelRatio":1,"completionRatio":2,"groups":["all"],"billingMode":"","billingExpression":""},{"model":"beta","quotaType":0,"modelRatio":0,"completionRatio":2,"groups":["all"],"billingMode":"","billingExpression":""}],"usableGroups":{"default":"Standard","special":"Discount"},"groupRatios":{"default":1,"special":0.5}}`
+		if err := store.SaveAccountPricing(context.Background(), db.DB, store.AccountPricingSnapshot{AccountID: id, Payload: payload, FetchedAt: "2026-10-18T02:00:00Z"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct {
+		query, model string
+		page, total  int
+	}{{"pricePage=1&pricePageSize=1", "alpha", 1, 2}, {"pricePage=2&pricePageSize=1", "beta", 2, 2}, {"pricePage=99&pricePageSize=1", "beta", 2, 2}, {"model=BETA&exactModel=true", "beta", 1, 1}} {
+		resp := doGet(t, r, "/api/models/price-compare?"+tc.query)
+		if resp.Code != 200 {
+			t.Fatalf("%d: %s", resp.Code, resp.Body.String())
+		}
+		var body struct {
+			CurrentPrices []currentPrice   `json:"currentPrices"`
+			CurrentPage   currentPricePage `json:"currentPage"`
+		}
+		if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if len(body.CurrentPrices) != 2 || body.CurrentPage.Page != tc.page || body.CurrentPage.TotalModels != tc.total {
+			t.Fatalf("page mismatch: %+v", body)
+		}
+		for _, row := range body.CurrentPrices {
+			if row.Model != tc.model || len(row.Groups) != 2 {
+				t.Fatalf("account or group split from model page: %+v", row)
+			}
+		}
+	}
+}
 
 func TestStats_SQLiteModelPriceCompare_ObservedAndConfigured(t *testing.T) {
 	db, r := setupStatsSQLiteTest(t)

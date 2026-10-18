@@ -102,6 +102,33 @@ Returns `{ model, days, limit, sampleUsage, items: [{ siteId, siteName, platform
 
 Alias: `GET /api/stats/model-prices` (same handler).
 
+响应还包含 `pricingAccounts`、`currentPrices` 和 `officialPrices`。GET 只读取本地
+快照。当前报价按模型分页：`pricePage` 默认 1，`pricePageSize` 默认 10、最多 50；
+`currentPage` 返回 `page`、`pageSize`、`totalModels`，越界页码收至最后一页。
+同模型的账号和分组保留在同一页；历史 `items` 的 `limit` 仍单独生效。
+`currentPrices` 按账号和模型保存站点报价，每项的 `groups` 包含可用组的
+有效倍率、输入/输出/缓存读写单价、相对官方倍率以及 1K 输入 + 1K 输出（无缓存）
+示例费用。金额单位为 USD/百万 token，`perRequest` 为 USD/次。`null` 表示未知，
+`0` 表示免费；官方基准为零时，相对倍率为 `null`。
+
+New API 的 `group_ratio` 已包含当前用户组的特殊倍率覆盖，计算时只应用一次：
+输入单价 = `2 × modelRatio × groupMultiplier`，输出与缓存分别再乘相应倍率。
+分组以账号的 `usable_group` 和模型的 `enable_groups` 交集为准，`all` 展开为
+账号全部可用组。缺少分组倍率或某项费率时保留未知。按次计费使用
+`modelPrice × groupMultiplier`；表达式、阶梯及未知模式保留规则，不计算线性单价。
+
+`officialPrices` 复用已配置的 basellm/models.dev 目录，返回匹配模型、供应商、
+别名匹配、来源及获取/目录更新时间。目录没有价格的元数据记录保持未知；目录标准档
+价格与站点的条件计费分别展示。历史 `items` 保持兼容，观测到的请求平均费用与
+账号配置单价只作为历史信号，界面不把它们放入固定 token 示例。
+
+### POST /api/models/price-compare/accounts/:accountId/refresh
+
+管理员显式刷新一个账号的报价，最多等待 20 秒。复用账号的管理凭据、用户 ID、
+代理和站点请求头读取上游 `/api/pricing`；当前支持 New API 系列适配器。
+成功返回 `{ "success": true }` 并替换该账号快照。失败返回错误，保留旧报价及
+原获取时间，同时记录本次失败状态。刷新无需发起模型调用。删除账号时删除报价快照。
+
 前端把合法的 `items: []` 显示为空状态；`items` 缺失、类型错误或含非法行时
 显示加载错误并可重试，不当作“没有报价”。
 

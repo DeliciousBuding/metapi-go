@@ -477,6 +477,17 @@ func (p *Provider) fetchSource(ctx context.Context, spec SourceSpec) *CatalogSna
 	if err == nil {
 		snapshot, err = parseSourceData(spec.Kind, data)
 	}
+	if err == nil && snapshot != nil {
+		for key, entry := range snapshot.models {
+			entry.PriceSource = spec.Name
+			entry.PriceFetchedAt = attemptedAt
+			snapshot.models[key] = entry
+		}
+		snapshot.claudeAliases = make(map[string]CatalogEntry)
+		for _, entry := range snapshot.models {
+			snapshot.addAlias(entry)
+		}
+	}
 
 	p.sourcesMu.Lock()
 	found := false

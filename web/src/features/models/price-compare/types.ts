@@ -42,6 +42,67 @@ const priceCompareItemSchema = z.object({
 })
 export type PriceCompareItem = z.infer<typeof priceCompareItemSchema>
 
+const rate = z.number().finite().nonnegative().nullable()
+const ratesSchema = z.object({
+  input: rate,
+  output: rate,
+  cacheRead: rate,
+  cacheWrite: rate,
+  perRequest: rate,
+})
+const officialSchema = z.object({
+  model: z.string(),
+  provider: z.string(),
+  aliased: z.boolean(),
+  source: z.string(),
+  fetchedAt: z.string(),
+  updatedAt: z.string(),
+  known: z.boolean(),
+  rates: ratesSchema,
+})
+export const currentPriceSchema = z.object({
+  accountId: z.number(),
+  siteName: z.string(),
+  username: z.string(),
+  model: z.string(),
+  fetchedAt: z.string(),
+  lastError: z.string(),
+  pricing: z.object({
+    model: z.string(),
+    quotaType: z.number(),
+    modelRatio: rate,
+    completionRatio: rate,
+    cacheRatio: rate,
+    cacheWriteRatio: rate,
+    pricePerRequest: rate,
+    groups: z.array(z.string()).nullable(),
+    billingMode: z.string(),
+    billingExpression: z.string(),
+  }),
+  groups: z.array(
+    z.object({
+      group: z.string(),
+      description: z.string(),
+      multiplier: rate,
+      rates: ratesSchema,
+      relative: ratesSchema,
+      sampleCost: rate,
+    })
+  ),
+  official: officialSchema.nullable(),
+})
+export type CurrentPrice = z.infer<typeof currentPriceSchema>
+const pricingAccountSchema = z.object({
+  accountId: z.number(),
+  siteName: z.string(),
+  username: z.string(),
+  platform: z.string(),
+  fetchedAt: z.string(),
+  attemptedAt: z.string(),
+  lastError: z.string(),
+  supported: z.boolean(),
+})
+
 export const priceCompareResponseSchema = z.object({
   model: z.string().catch(''),
   days: z.coerce.number().default(30),
@@ -54,8 +115,19 @@ export const priceCompareResponseSchema = z.object({
     })
     .catch({ promptTokens: 1000, completionTokens: 1000, totalTokens: 2000 }),
   items: z.array(priceCompareItemSchema),
+  pricingAccounts: z.array(pricingAccountSchema).optional(),
+  currentPrices: z.array(currentPriceSchema).optional(),
+  officialPrices: z.record(z.string(), officialSchema.nullable()).optional(),
+  currentPage: z
+    .object({
+      page: z.number().int().positive(),
+      pageSize: z.number().int().positive(),
+      totalModels: z.number().int().nonnegative(),
+    })
+    .optional(),
   meta: z.unknown().nullish(),
 })
+export type PriceWorkspace = z.infer<typeof priceCompareResponseSchema>
 
 export const priceCompareQueryKeys = {
   all: ['models', 'price-compare'] as const,

@@ -27,6 +27,10 @@ const (
 // cost shape (Description / Tags / Status / limits / Modalities) are
 // hydrated by the llm-metadata parser and stay empty for models.dev rows.
 type CatalogEntry struct {
+	// ListPriceKnown distinguishes explicit free pricing from metadata-only rows.
+	ListPriceKnown bool
+	PriceSource    string
+	PriceFetchedAt time.Time
 	// ModelID is the normalized (lowercase, provider prefix stripped)
 	// catalog model id, e.g. "gpt-4o" or "claude-sonnet-4-20250514".
 	ModelID string
@@ -300,6 +304,7 @@ func parseCatalogEntry(providerSlug, providerID string, model modelsDevModel) (C
 		Provider:             provider,
 		InputPerMillion:      input,
 		OutputPerMillion:     output,
+		ListPriceKnown:       true,
 		CacheReadPerMillion:  cloneCostField(model.Cost.CacheRead),
 		CacheWritePerMillion: cloneCostField(model.Cost.CacheWrite),
 		ReleaseDate:          strings.TrimSpace(model.ReleaseDate),
@@ -380,7 +385,7 @@ func MergeSnapshots(parts []*CatalogSnapshot) *CatalogSnapshot {
 // fields (USD prices, description, modalities, provider), so an earlier
 // high-priority source always wins its own data.
 func augmentEntry(existing, incoming CatalogEntry) CatalogEntry {
-	if incoming.ModelRatio == nil && incoming.InputPerMillion <= 0 && incoming.OutputPerMillion <= 0 {
+	if !incoming.ListPriceKnown && incoming.ModelRatio == nil && incoming.InputPerMillion <= 0 && incoming.OutputPerMillion <= 0 {
 		return existing
 	}
 	out := existing
@@ -395,8 +400,11 @@ func augmentEntry(existing, incoming CatalogEntry) CatalogEntry {
 			out.BillingExpr = incoming.BillingExpr
 		}
 	}
-	if !isUsableAmount(out.InputPerMillion) && isUsableAmount(incoming.InputPerMillion) {
+	if !out.ListPriceKnown && !isUsableAmount(out.InputPerMillion) && (incoming.ListPriceKnown || isUsableAmount(incoming.InputPerMillion)) {
 		out.InputPerMillion = incoming.InputPerMillion
+		out.ListPriceKnown = incoming.ListPriceKnown
+		out.PriceSource = incoming.PriceSource
+		out.PriceFetchedAt = incoming.PriceFetchedAt
 		if isUsableAmount(incoming.OutputPerMillion) {
 			out.OutputPerMillion = incoming.OutputPerMillion
 		}
