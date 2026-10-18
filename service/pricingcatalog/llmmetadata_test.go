@@ -210,7 +210,8 @@ func TestProvider_MultiSourceFirstWinsAndStatus(t *testing.T) {
 	defer fallback.Close()
 
 	provider := NewProvider(Options{
-		Logger: testLogger(),
+		HTTPClient: testCatalogHTTPClient(),
+		Logger:     testLogger(),
 		Sources: []SourceSpec{
 			{ID: 1, Name: "llm-metadata", URL: primary.URL, Kind: SourceKindAuto},
 			{ID: 2, Name: "models.dev", URL: fallback.URL, Kind: SourceKindAuto},
@@ -270,8 +271,9 @@ func TestProvider_SyncSourceReusesOtherSources(t *testing.T) {
 	defer primary.Close()
 
 	provider := NewProvider(Options{
-		Logger:  testLogger(),
-		Sources: []SourceSpec{{ID: 7, Name: "primary", URL: primary.URL, Kind: SourceKindAuto}},
+		HTTPClient: testCatalogHTTPClient(),
+		Logger:     testLogger(),
+		Sources:    []SourceSpec{{ID: 7, Name: "primary", URL: primary.URL, Kind: SourceKindAuto}},
 	})
 	if _, err := provider.Refresh(context.Background()); err != nil {
 		t.Fatalf("Refresh: %v", err)

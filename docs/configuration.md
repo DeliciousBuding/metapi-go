@@ -116,7 +116,13 @@ silent until their URL/key is set. Every other provider needs its
 | DingTalk | `DINGTALK_ENABLED`, `DINGTALK_WEBHOOK`, `DINGTALK_SECRET` (HMAC signing) |
 | WeCom | `WECOM_ENABLED`, `WECOM_WEBHOOK` |
 | ntfy | `NTFY_ENABLED`, `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` |
-| SMTP | `SMTP_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_TO`, `SMTP_SECURE` |
+| SMTP | `SMTP_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_TO`, `SMTP_SECURE`, `SMTP_ALLOW_CUSTOM_PORT` |
+
+SMTP and HTTP notification targets are server-side outbound requests configured
+through admin settings, so they are pinned to public addresses at dial time:
+loopback, RFC1918, ULA/metadata and `0.0.0.0/8` are refused. `SMTP_PORT` is
+restricted to 25, 465 and 587; set `SMTP_ALLOW_CUSTOM_PORT=true` only when the
+target is trusted and the escape hatch is genuinely needed.
 
 ## Proxy behavior
 

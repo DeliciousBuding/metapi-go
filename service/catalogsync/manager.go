@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
@@ -48,6 +49,9 @@ type Options struct {
 	// SiteSnapshotSource resolves site platform/URL for vendor
 	// classification in ResolveCatalogPricing.
 	SiteSnapshotSource pricingcatalog.SiteSnapshotSource
+	// HTTPClient overrides the source-fetch client. nil uses the default
+	// public-only guarded client (see pricingcatalog.NewProvider).
+	HTTPClient *http.Client
 	// Logger defaults to slog.Default().
 	Logger *slog.Logger
 }
@@ -88,6 +92,7 @@ func NewManager(db *sqlx.DB, opts Options) (*Manager, error) {
 	provider := pricingcatalog.NewProvider(pricingcatalog.Options{
 		Sources:            specs,
 		SiteSnapshotSource: opts.SiteSnapshotSource,
+		HTTPClient:         opts.HTTPClient,
 		Logger:             logger,
 	})
 	// Restore persisted last-known status so the panel shows history before

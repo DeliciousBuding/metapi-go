@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
-	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/service"
 )
@@ -18,6 +18,15 @@ import (
 type TelegramChannel struct{}
 
 func (c *TelegramChannel) Name() string { return "telegram" }
+
+// telegramHTTPClient is the default (direct) client. Tests replace it to
+// exercise response handling without a network; production uses the
+// notify transport's public-only dial guard.
+var telegramHTTPClient = &http.Client{
+	Timeout:       30 * time.Second,
+	Transport:     newNotifyHTTPTransport(),
+	CheckRedirect: platform.RejectCrossOriginRedirect,
+}
 
 func (c *TelegramChannel) Send(cfg *config.RuntimeSettings, title, message, level, timeFootnote string) error {
 	if !cfg.TelegramEnabled || cfg.TelegramBotToken == "" || cfg.TelegramChatId == "" {
@@ -30,6 +39,18 @@ func (c *TelegramChannel) Send(cfg *config.RuntimeSettings, title, message, leve
 	}
 
 	reqURL := fmt.Sprintf("%s/bot%s/sendMessage", apiBase, cfg.TelegramBotToken)
+	parsedURL, err := url.Parse(reqURL)
+	if err != nil {
+		return fmt.Errorf("telegram API base URL is invalid")
+	}
+	// The API base URL is admin-controlled, so it is an outbound target the
+	// session could repoint. Reject loopback/RFC1918/ULA/metadata before any
+	// dial; the transport additionally pins the checked DNS answer and
+	// rejects cross-origin redirects (audit M2).
+	if err := validateNotifyRequestURL(parsedURL); err != nil {
+		return fmt.Errorf("telegram request target rejected: %w", err)
+	}
+
 	text := buildTelegramText(title, message, level, timeFootnote)
 
 	bodyMap := map[string]any{
@@ -47,17 +68,19 @@ func (c *TelegramChannel) Send(cfg *config.RuntimeSettings, title, message, leve
 
 	body, _ := json.Marshal(bodyMap)
 
-	// Use system proxy if configured. Always reject cross-origin redirects so a
-	// compromised/misconfigured Telegram API base cannot SSRF via 302.
-	var client *http.Client
+	// Use the configured system proxy if requested; otherwise the guarded
+	// direct client. Both reject cross-origin redirects.
+	client := telegramHTTPClient
 	if cfg.TelegramUseSystemProxy && cfg.SystemProxyUrl != "" {
 		client = service.ProxyAwareHTTPClient(cfg.SystemProxyUrl, 30*time.Second)
-	} else {
-		client = &http.Client{Timeout: 30 * time.Second, Transport: httpclient.SharedTransport()}
 	}
-	client.CheckRedirect = platform.RejectCrossOriginRedirect
 
-	resp, err := client.Post(reqURL, "application/json", strings.NewReader(string(body)))
+	req, err := http.NewRequest(http.MethodPost, reqURL, strings.NewReader(string(body)))
+	if err != nil {
+		return fmt.Errorf("telegram request failed: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("telegram request failed: %w", err)
 	}
@@ -72,11 +95,13 @@ func (c *TelegramChannel) Send(cfg *config.RuntimeSettings, title, message, leve
 		return fmt.Errorf("telegram response read failed: %w", err)
 	}
 	var payload struct {
-		OK          bool   `json:"ok"`
-		Description string `json:"description"`
+		OK bool `json:"ok"`
 	}
 	if err := json.Unmarshal(respBody, &payload); err == nil && !payload.OK {
-		return fmt.Errorf("telegram error: %s", payload.Description)
+		// Never echo the upstream body: a repointed API base could reflect
+		// arbitrary internal response content into the admin-facing error
+		// (audit M2).
+		return fmt.Errorf("telegram API rejected the message")
 	}
 
 	return nil

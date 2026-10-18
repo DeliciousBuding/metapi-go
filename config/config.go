@@ -577,6 +577,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	rt.SmtpPass = firstNonEmpty(get("SMTP_PASS"), "")
 	rt.SmtpFrom = firstNonEmpty(get("SMTP_FROM"), "")
 	rt.SmtpTo = firstNonEmpty(get("SMTP_TO"), "")
+	rt.SmtpAllowCustomPort = parseBoolean(get("SMTP_ALLOW_CUSTOM_PORT"), false)
 
 	// ---- §3.11 Notify: General ----
 	rt.NotifyCooldownSec = max(0, int(math.Trunc(parseNumber(get("NOTIFY_COOLDOWN_SEC"), DefaultNotifyCooldownSec))))

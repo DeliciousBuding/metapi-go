@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,12 +13,31 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/deliciousbuding/metapi-go/internal/httpclient"
+	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 )
 
 // maxCatalogPayloadBytes bounds the catalog payload read (the datasets are
 // ~2 MB; the bound protects against an unexpectedly large response body).
 const maxCatalogPayloadBytes = 32 << 20
+
+// newCatalogHTTPClient builds the default source-fetch client. Catalog
+// sources are an admin-configurable outbound URL, so the transport uses the
+// public-only dial guard and pins the validated DNS answer: a source cannot
+// point the server at loopback/RFC1918/ULA/metadata, and a hostname cannot
+// pass validation and then resolve privately on the dial (audit L10).
+func newCatalogHTTPClient() *http.Client {
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	return &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			Proxy:                 nil,
+			DialContext:           ssrf.NewPublicOnlyDialContext(net.DefaultResolver, dialer.DialContext),
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 30 * time.Second,
+			IdleConnTimeout:       30 * time.Second,
+		},
+	}
+}
 
 // SourceKind selects the wire-shape parser for a catalog source.
 type SourceKind string
@@ -180,7 +200,7 @@ func NewProvider(opts Options) *Provider {
 	}
 	httpClient := opts.HTTPClient
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 30 * time.Second, Transport: httpclient.SharedTransport()}
+		httpClient = newCatalogHTTPClient()
 	}
 	logger := opts.Logger
 	if logger == nil {

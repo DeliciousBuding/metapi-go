@@ -47,3 +47,30 @@ func TestSanitizeImportedSiteRows_UnguardedTablesUntouched(t *testing.T) {
 		t.Fatalf("unguarded table must pass through: kept=%d dropped=%d", len(kept), dropped)
 	}
 }
+
+// TestSanitizeImportedSiteRows_UpstreamChannelsBaseURL covers the M9 gap: a
+// crafted backup could plant a GCP IPv6 metadata base URL in
+// upstream_channels, then the proxy data plane would dial it with the caller's
+// custom headers.
+func TestSanitizeImportedSiteRows_UpstreamChannelsBaseURL(t *testing.T) {
+	rows := []map[string]any{
+		{"id": int64(1), "name": "public", "base_url": "https://provider.example/v1"},
+		{"id": int64(2), "name": "gcp-metadata", "base_url": "http://[fd20:ce::254]"},
+		{"id": int64(3), "name": "link-local", "base_url": "http://169.254.169.254"},
+		{"id": int64(4), "name": "private-allowed", "base_url": "http://10.0.0.5:8080"},
+		{"id": int64(5), "name": "null-base", "base_url": nil},
+	}
+	kept, dropped := SanitizeImportedSiteRows("upstream_channels", rows)
+	if dropped != 2 {
+		t.Fatalf("dropped = %d, want 2 (kept=%v)", dropped, kept)
+	}
+	if len(kept) != 3 {
+		t.Fatalf("kept = %d rows, want 3", len(kept))
+	}
+	for _, row := range kept {
+		name := row["name"]
+		if name == "gcp-metadata" || name == "link-local" {
+			t.Fatalf("forbidden upstream channel row survived: %v", row)
+		}
+	}
+}

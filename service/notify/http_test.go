@@ -3,12 +3,13 @@ package notify
 import (
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/platform"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -92,6 +93,7 @@ func TestNotifyURLValidationRejectsUnsafeTargets(t *testing.T) {
 		"http://[fe80::1]/notify",
 		"http://224.0.0.1/notify",
 		"http://0.0.0.0/notify",
+		"http://0.1.2.3/notify", // 0.0.0.0/8 non-zero address (audit L11)
 		"file:///tmp/notify",
 		"https://user:pass@example.com/notify",
 	}
@@ -175,17 +177,35 @@ func TestNotifyChannelsUseBoundedHTTPClient(t *testing.T) {
 	}
 }
 
+// useTelegramTestClient swaps the package-level Telegram client so response
+// handling can be exercised without a network. The production client and its
+// public-only dial guard are checked by TestTelegramRejectsPrivateAPIBase.
+func useTelegramTestClient(t *testing.T, transport http.RoundTripper) {
+	t.Helper()
+	old := telegramHTTPClient
+	telegramHTTPClient = &http.Client{
+		Timeout:       time.Second,
+		Transport:     transport,
+		CheckRedirect: platform.RejectCrossOriginRedirect,
+	}
+	t.Cleanup(func() { telegramHTTPClient = old })
+}
+
 func TestTelegramRejectsOversizedResponseBody(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, strings.Repeat("x", notifyMaxResponseBodySize+1))
+	useTelegramTestClient(t, roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(strings.Repeat("x", notifyMaxResponseBodySize+1))),
+			Request:    req,
+		}, nil
 	}))
-	defer server.Close()
 
 	err := (&TelegramChannel{}).Send(&config.RuntimeSettings{
 		TelegramEnabled:    true,
 		TelegramBotToken:   "bot-token",
 		TelegramChatId:     "123",
-		TelegramApiBaseUrl: server.URL,
+		TelegramApiBaseUrl: "https://api.telegram.org",
 	}, "title", "message", "info", "time")
 	if err == nil {
 		t.Fatal("expected oversized telegram response body to fail")
@@ -196,23 +216,22 @@ func TestTelegramRejectsOversizedResponseBody(t *testing.T) {
 }
 
 func TestTelegramRejectsCrossOriginRedirect(t *testing.T) {
-	targetCalled := false
-	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		targetCalled = true
-		w.WriteHeader(http.StatusOK)
+	useTelegramTestClient(t, roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		header := make(http.Header)
+		header.Set("Location", "https://evil.example/landing")
+		return &http.Response{
+			StatusCode: http.StatusFound,
+			Header:     header,
+			Body:       io.NopCloser(strings.NewReader("")),
+			Request:    req,
+		}, nil
 	}))
-	t.Cleanup(target.Close)
-
-	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, target.URL+"/landing", http.StatusFound)
-	}))
-	t.Cleanup(source.Close)
 
 	err := (&TelegramChannel{}).Send(&config.RuntimeSettings{
 		TelegramEnabled:    true,
 		TelegramBotToken:   "bot-token",
 		TelegramChatId:     "123",
-		TelegramApiBaseUrl: source.URL,
+		TelegramApiBaseUrl: "https://api.telegram.org",
 	}, "title", "message", "info", "time")
 	if err == nil {
 		t.Fatal("expected cross-origin telegram redirect to fail")
@@ -223,7 +242,60 @@ func TestTelegramRejectsCrossOriginRedirect(t *testing.T) {
 	if !strings.Contains(err.Error(), "cross-origin") {
 		t.Fatalf("error = %q, want cross-origin", err)
 	}
-	if targetCalled {
-		t.Fatal("cross-origin redirect target was called")
+}
+
+// TestTelegramRejectsPrivateAPIBase is the M2 regression: the API base URL is
+// session-writable, so a private/metadata target must be rejected before any
+// connection attempt.
+func TestTelegramRejectsPrivateAPIBase(t *testing.T) {
+	cases := []string{
+		"http://127.0.0.1:8080",
+		"http://169.254.169.254",
+		"http://[fd20:ce::254]",
+		"http://localhost",
+	}
+	for _, base := range cases {
+		t.Run(base, func(t *testing.T) {
+			err := (&TelegramChannel{}).Send(&config.RuntimeSettings{
+				TelegramEnabled:    true,
+				TelegramBotToken:   "bot-token",
+				TelegramChatId:     "123",
+				TelegramApiBaseUrl: base,
+			}, "title", "message", "info", "time")
+			if err == nil {
+				t.Fatal("telegram accepted a private API base URL")
+			}
+			if !strings.Contains(err.Error(), "request target rejected") {
+				t.Fatalf("error = %q, want request target rejection", err)
+			}
+		})
+	}
+}
+
+// TestTelegramDoesNotEchoUpstreamResponseBody pins the second half of M2: a
+// repointed API base must not reflect internal response content into the
+// admin-visible error.
+func TestTelegramDoesNotEchoUpstreamResponseBody(t *testing.T) {
+	const secret = "INTERNAL-SECRET-VALUE-42"
+	useTelegramTestClient(t, roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(`{"ok":false,"description":"` + secret + `"}`)),
+			Request:    req,
+		}, nil
+	}))
+
+	err := (&TelegramChannel{}).Send(&config.RuntimeSettings{
+		TelegramEnabled:    true,
+		TelegramBotToken:   "bot-token",
+		TelegramChatId:     "123",
+		TelegramApiBaseUrl: "https://api.telegram.org",
+	}, "title", "message", "info", "time")
+	if err == nil {
+		t.Fatal("expected telegram API rejection to fail")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("error echoes upstream response body: %q", err)
 	}
 }

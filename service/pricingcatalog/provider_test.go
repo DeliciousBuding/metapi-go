@@ -28,6 +28,12 @@ func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
+// testCatalogHTTPClient bypasses the default public-only dial guard so tests
+// can fetch from an httptest server on 127.0.0.1. Production never uses it.
+func testCatalogHTTPClient() *http.Client {
+	return &http.Client{Timeout: 30 * time.Second}
+}
+
 func TestProvider_ResolveCatalogPricing_OfficialAndRelay(t *testing.T) {
 	sites := fakeSiteSource{sites: map[int64]SiteSnapshot{
 		1: {Platform: "openai", URL: "https://api.openai.com/v1"},
@@ -106,8 +112,9 @@ func TestProvider_RefreshPublishesAndKeepsSnapshotOnFailure(t *testing.T) {
 	defer server.Close()
 
 	provider := NewProvider(Options{
-		FetchURL: server.URL,
-		Logger:   testLogger(),
+		FetchURL:   server.URL,
+		HTTPClient: testCatalogHTTPClient(),
+		Logger:     testLogger(),
 	})
 	if provider.Snapshot().Source != PresetSnapshotSource {
 		t.Fatalf("initial snapshot source = %q, want presets", provider.Snapshot().Source)
@@ -236,6 +243,7 @@ func TestProvider_StartStop(t *testing.T) {
 	provider := NewProvider(Options{
 		FetchURL:        server.URL,
 		RefreshInterval: 0, // no ticker
+		HTTPClient:      testCatalogHTTPClient(),
 		Logger:          testLogger(),
 	})
 	provider.Start()
@@ -258,4 +266,30 @@ func mustParse(t *testing.T, payload string) *CatalogSnapshot {
 		t.Fatalf("ParseCatalog: %v", err)
 	}
 	return snapshot
+}
+
+// TestProvider_DefaultClientRejectsPrivateSource is the L10 regression: the
+// default source-fetch client must not connect to loopback/RFC1918/ULA or
+// metadata addresses chosen through an admin-configured source URL.
+func TestProvider_DefaultClientRejectsPrivateSource(t *testing.T) {
+	var called bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		_, _ = w.Write([]byte(sampleCatalogJSON))
+	}))
+	defer server.Close()
+
+	provider := NewProvider(Options{
+		FetchURL: server.URL,
+		Logger:   testLogger(),
+	})
+	if _, err := provider.Refresh(context.Background()); err == nil {
+		t.Fatal("default catalog client fetched a loopback source, want rejection")
+	}
+	if called {
+		t.Fatal("catalog source server on 127.0.0.1 received the request")
+	}
+	if provider.Snapshot().Source != PresetSnapshotSource {
+		t.Fatalf("snapshot source = %q, want presets retained", provider.Snapshot().Source)
+	}
 }

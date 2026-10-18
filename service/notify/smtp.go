@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -10,7 +11,41 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 )
+
+// smtpDialContext is the guarded dialer for SMTP conversations. SMTP is an
+// admin/session-configurable outbound target (smtpHost/smtpPort), so it uses
+// the same public-only policy as the HTTP notification channels: loopback,
+// RFC1918/ULA, link-local/metadata and 0.0.0.0/8 are refused, and the
+// validated DNS answer is pinned for the dial (no TOCTOU window).
+var smtpDialContext = ssrf.NewPublicOnlyDialContext(nil, (&net.Dialer{Timeout: 30 * time.Second}).DialContext)
+
+// smtpAllowedPorts are the standard submission ports. A non-standard port is
+// allowed only when the operator explicitly sets SMTP_ALLOW_CUSTOM_PORT=true;
+// otherwise a session-writable smtpPort turns the notify test into an
+// arbitrary-port probe of internal hosts (audit M12).
+var smtpAllowedPorts = map[int]struct{}{25: {}, 465: {}, 587: {}}
+
+func smtpPortAllowed(port int, allowCustom bool) bool {
+	if allowCustom {
+		return port > 0 && port <= 65535
+	}
+	_, ok := smtpAllowedPorts[port]
+	return ok
+}
+
+// guardSMTPTarget applies the port whitelist and the public-only host policy
+// before any connection is attempted.
+func guardSMTPTarget(host string, port int, allowCustom bool) error {
+	if !smtpPortAllowed(port, allowCustom) {
+		return fmt.Errorf("smtp port %d is not allowed (allowed: 25, 465, 587); set SMTP_ALLOW_CUSTOM_PORT=true to override", port)
+	}
+	if ssrf.IsForbiddenPublicHost(host) {
+		return fmt.Errorf("smtp host %q is not a public address", host)
+	}
+	return nil
+}
 
 // SMTPChannel sends notifications via SMTP email.
 type SMTPChannel struct {
@@ -32,6 +67,9 @@ func (c *SMTPChannel) Send(cfg *config.RuntimeSettings, title, message, level, t
 	if !cfg.SmtpEnabled || cfg.SmtpHost == "" || cfg.SmtpPort <= 0 || cfg.SmtpFrom == "" || cfg.SmtpTo == "" {
 		return fmt.Errorf("smtp not configured")
 	}
+	if err := guardSMTPTarget(cfg.SmtpHost, cfg.SmtpPort, cfg.SmtpAllowCustomPort); err != nil {
+		return err
+	}
 
 	fingerprint := getSmtpFingerprint(cfg)
 
@@ -51,68 +89,15 @@ func (c *SMTPChannel) Send(cfg *config.RuntimeSettings, title, message, level, t
 	cachedClient := c.cachedClient
 	c.mu.Unlock()
 
-	// Use cached client if available and config hasn't changed
-	if cachedClient != nil && cachedClient.addr == addr {
-		err := smtp.SendMail(addr, cachedClient.auth, cachedClient.from, strings.Split(cfg.SmtpTo, ","), []byte(emailBody))
-		if err != nil {
-			return fmt.Errorf("smtp send failed: %w", err)
-		}
-		return nil
-	}
-
 	var auth smtp.Auth
-	if cfg.SmtpUser != "" {
+	if cachedClient != nil && cachedClient.addr == addr && cachedClient.useTLS == cfg.SmtpSecure {
+		auth = cachedClient.auth
+	} else if cfg.SmtpUser != "" {
 		auth = smtp.PlainAuth("", cfg.SmtpUser, cfg.SmtpPass, cfg.SmtpHost)
 	}
 
-	if cfg.SmtpSecure {
-		// Direct TLS connection (SMTPS, typically port 465)
-		tlsConfig := &tls.Config{ServerName: cfg.SmtpHost}
-		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 30 * time.Second}, "tcp", addr, tlsConfig)
-		if err != nil {
-			return fmt.Errorf("smtp tls dial failed: %w", err)
-		}
-		defer conn.Close()
-
-		client, err := smtp.NewClient(conn, cfg.SmtpHost)
-		if err != nil {
-			return fmt.Errorf("smtp new client failed: %w", err)
-		}
-		defer client.Close()
-
-		if auth != nil {
-			if err := client.Auth(auth); err != nil {
-				return fmt.Errorf("smtp auth failed: %w", err)
-			}
-		}
-		if err := client.Mail(cfg.SmtpFrom); err != nil {
-			return fmt.Errorf("smtp mail failed: %w", err)
-		}
-		for _, to := range strings.Split(cfg.SmtpTo, ",") {
-			if err := client.Rcpt(strings.TrimSpace(to)); err != nil {
-				return fmt.Errorf("smtp rcpt failed: %w", err)
-			}
-		}
-		wc, err := client.Data()
-		if err != nil {
-			return fmt.Errorf("smtp data failed: %w", err)
-		}
-		_, err = wc.Write([]byte(emailBody))
-		if err != nil {
-			wc.Close()
-			return fmt.Errorf("smtp write failed: %w", err)
-		}
-		err = wc.Close()
-		if err != nil {
-			return fmt.Errorf("smtp close failed: %w", err)
-		}
-		client.Quit()
-	} else {
-		// Plain SMTP or STARTTLS (net/smtp.SendMail handles STARTTLS automatically)
-		err := smtp.SendMail(addr, auth, cfg.SmtpFrom, strings.Split(cfg.SmtpTo, ","), []byte(emailBody))
-		if err != nil {
-			return fmt.Errorf("smtp send failed: %w", err)
-		}
+	if err := sendSMTP(addr, cfg.SmtpHost, cfg.SmtpSecure, auth, cfg.SmtpFrom, cfg.SmtpTo, emailBody); err != nil {
+		return err
 	}
 
 	// Cache the client config for reuse
@@ -125,6 +110,78 @@ func (c *SMTPChannel) Send(cfg *config.RuntimeSettings, title, message, level, t
 	}
 	c.mu.Unlock()
 
+	return nil
+}
+
+// sendSMTP runs one SMTP conversation over the guarded dialer. It mirrors the
+// semantics of smtp.SendMail (implicit TLS when configured, opportunistic
+// STARTTLS otherwise, auth only over TLS) but dials through smtpDialContext so
+// the target cannot reach private addresses and a DNS answer cannot change
+// between validation and dial.
+func sendSMTP(addr, host string, secure bool, auth smtp.Auth, from, to, emailBody string) error {
+	conn, err := smtpDialContext(context.Background(), "tcp", addr)
+	if err != nil {
+		return fmt.Errorf("smtp dial failed: %w", err)
+	}
+	defer conn.Close()
+	// Bound the whole conversation: net/smtp has no per-command deadline.
+	_ = conn.SetDeadline(time.Now().Add(60 * time.Second))
+
+	tlsActive := secure
+	if secure {
+		tlsConn := tls.Client(conn, &tls.Config{ServerName: host})
+		if err := tlsConn.Handshake(); err != nil {
+			return fmt.Errorf("smtp tls handshake failed: %w", err)
+		}
+		conn = tlsConn
+	}
+
+	client, err := smtp.NewClient(conn, host)
+	if err != nil {
+		return fmt.Errorf("smtp new client failed: %w", err)
+	}
+	defer client.Close()
+
+	if !tlsActive {
+		if ok, _ := client.Extension("STARTTLS"); ok {
+			if err := client.StartTLS(&tls.Config{ServerName: host}); err != nil {
+				return fmt.Errorf("smtp starttls failed: %w", err)
+			}
+			tlsActive = true
+		}
+	}
+
+	// PlainAuth refuses to send credentials over an unencrypted connection;
+	// skip auth rather than downgrade, matching smtp.SendMail.
+	if auth != nil && tlsActive {
+		if err := client.Auth(auth); err != nil {
+			return fmt.Errorf("smtp auth failed: %w", err)
+		}
+	}
+	if err := client.Mail(from); err != nil {
+		return fmt.Errorf("smtp mail failed: %w", err)
+	}
+	for _, recipient := range strings.Split(to, ",") {
+		recipient = strings.TrimSpace(recipient)
+		if recipient == "" {
+			continue
+		}
+		if err := client.Rcpt(recipient); err != nil {
+			return fmt.Errorf("smtp rcpt failed: %w", err)
+		}
+	}
+	wc, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("smtp data failed: %w", err)
+	}
+	if _, err := wc.Write([]byte(emailBody)); err != nil {
+		wc.Close()
+		return fmt.Errorf("smtp write failed: %w", err)
+	}
+	if err := wc.Close(); err != nil {
+		return fmt.Errorf("smtp close failed: %w", err)
+	}
+	_ = client.Quit()
 	return nil
 }
 

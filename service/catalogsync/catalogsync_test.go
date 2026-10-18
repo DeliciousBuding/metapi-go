@@ -13,6 +13,12 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
+// testCatalogHTTPClient bypasses the default public-only dial guard so tests
+// can fetch from an httptest server on 127.0.0.1. Production never uses it.
+func testCatalogHTTPClient() *http.Client {
+	return &http.Client{Timeout: 30 * time.Second}
+}
+
 func setupCatalogDB(t *testing.T) *store.DB {
 	t.Helper()
 	db, err := store.Open(store.DialectSQLite, ":memory:", false)
@@ -226,8 +232,9 @@ func TestManager_SyncAllAndSingleSourceMerge(t *testing.T) {
 	defer primary.Close()
 
 	manager, err := NewManager(db.DB, Options{
-		Interval:  time.Hour,
-		LegacyURL: primary.URL, // seeds as top custom source above the presets
+		Interval:   time.Hour,
+		LegacyURL:  primary.URL, // seeds as top custom source above the presets
+		HTTPClient: testCatalogHTTPClient(),
 	})
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
@@ -274,7 +281,7 @@ func TestManager_SyncAllAndSingleSourceMerge(t *testing.T) {
 	}
 
 	// Persisted status survives a manager rebuild (process restart shape).
-	manager2, err := NewManager(db.DB, Options{Interval: time.Hour, LegacyURL: primary.URL})
+	manager2, err := NewManager(db.DB, Options{Interval: time.Hour, LegacyURL: primary.URL, HTTPClient: testCatalogHTTPClient()})
 	if err != nil {
 		t.Fatalf("NewManager rebuild: %v", err)
 	}

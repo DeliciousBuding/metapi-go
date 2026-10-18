@@ -1863,3 +1863,28 @@ type errorStopScheduler struct {
 func (e *errorStopScheduler) Name() string                    { return e.name }
 func (e *errorStopScheduler) Start(ctx context.Context) error { return nil }
 func (e *errorStopScheduler) Stop() error                     { return fmt.Errorf("simulated stop error") }
+
+// TestBackupWebdavTransportPinsAndGuardsDial is the L24 regression: the
+// transport itself must reject private targets at dial time (not just
+// validate before dialing), so a hostname that resolves differently on the
+// second lookup cannot escape the check.
+func TestBackupWebdavTransportPinsAndGuardsDial(t *testing.T) {
+	old := allowPrivateBackupWebdavTargets
+	allowPrivateBackupWebdavTargets = false
+	t.Cleanup(func() { allowPrivateBackupWebdavTargets = old })
+
+	transport := newBackupWebdavHTTPTransport()
+	if transport.Proxy != nil {
+		t.Fatal("WebDAV transport must not use the environment proxy")
+	}
+	if transport.DialContext == nil {
+		t.Fatal("DialContext is nil, want the pinned guard")
+	}
+
+	for _, address := range []string{"127.0.0.1:9", "10.0.0.1:9", "[fd20:ce::254]:80", "0.1.2.3:80"} {
+		if _, err := transport.DialContext(context.Background(), "tcp", address); err == nil ||
+			!strings.Contains(err.Error(), "forbidden") {
+			t.Errorf("DialContext(%s) error = %v, want forbidden-target rejection", address, err)
+		}
+	}
+}
