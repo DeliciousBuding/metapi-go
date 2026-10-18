@@ -143,6 +143,15 @@ func TestReleaseGateWiring(t *testing.T) {
 	if !strings.Contains(workflow, "cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}") {
 		t.Error("tag publications must not be cancelled by a concurrent run")
 	}
+	dockerfile, err := os.ReadFile(filepath.Join("..", "Dockerfile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/", "COPY licenses/ /licenses/licenses/"} {
+		if !strings.Contains(string(dockerfile), path) {
+			t.Errorf("Dockerfile must ship AGPL and third-party license files: missing %q", path)
+		}
+	}
 }
 
 // Third-party actions run with the workflow's token, including the publish

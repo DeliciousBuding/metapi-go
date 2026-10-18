@@ -92,6 +92,7 @@ RUN mkdir -p /app/data && chown -R appuser:appgroup /app/data
 COPY --from=build /app/metapi /usr/local/bin/metapi
 COPY --from=build /app/metapi-migrate /usr/local/bin/metapi-migrate
 COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/
+COPY licenses/ /licenses/licenses/
 USER appuser
 EXPOSE 4000
 ENV HOST=0.0.0.0 \
