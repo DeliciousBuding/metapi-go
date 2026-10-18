@@ -136,6 +136,7 @@ func parseNewAPIModelRows(rows []newAPIModelRow) (*CatalogSnapshot, error) {
 			if output, outOK := validCostField(row.PricePerMOutput); outOK {
 				entry.InputPerMillion = input
 				entry.OutputPerMillion = output
+				entry.ListPriceKnown = true
 			}
 		}
 		entry.CacheReadPerMillion = cloneCostField(row.PricePerMCacheRead)

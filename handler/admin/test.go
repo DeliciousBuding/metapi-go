@@ -41,6 +41,18 @@ type flexibleTestBody struct {
 	Path            string          `json:"path"`
 	JSONBody        json.RawMessage `json:"jsonBody"`
 	Messages        []testMessage   `json:"messages"`
+	TargetFormat    string          `json:"targetFormat"`
+	Temperature     *float64        `json:"temperature"`
+	TopP            *float64        `json:"top_p"`
+	MaxTokens       *int            `json:"max_tokens"`
+}
+
+type chatTestOptions struct {
+	Messages     []testMessage
+	TargetFormat string
+	Temperature  *float64
+	TopP         *float64
+	MaxTokens    *int
 }
 
 type testMessage struct {
@@ -70,6 +82,12 @@ func (h *testHandler) handleSyncProbe(w http.ResponseWriter, r *http.Request, su
 			"full /api/test/"+surface+" path/multipart/routing matrix without a forced channel is residual; provide channelId/siteId/forcedChannelId or use POST /api/admin/test-channel",
 		)
 		return
+	}
+	if req.Chat != nil {
+		if err := req.Chat.validate(); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	h.channel.runChannelTest(w, r, req)
@@ -103,6 +121,9 @@ func mapFlexibleToChannelTest(body flexibleTestBody) (channelTestRequest, bool) 
 			Input    string        `json:"input"`
 		}
 		if err := json.Unmarshal(body.JSONBody, &nested); err == nil {
+			if len(body.Messages) == 0 {
+				body.Messages = nested.Messages
+			}
 			if p := strings.TrimSpace(nested.Prompt); p != "" {
 				prompt = p
 			} else if p := strings.TrimSpace(nested.Input); p != "" {
@@ -123,6 +144,10 @@ func mapFlexibleToChannelTest(body flexibleTestBody) (channelTestRequest, bool) 
 		}
 	}
 
+	var chat *chatTestOptions
+	if mode == channelTestModeChat {
+		chat = &chatTestOptions{Messages: body.Messages, TargetFormat: body.TargetFormat, Temperature: body.Temperature, TopP: body.TopP, MaxTokens: body.MaxTokens}
+	}
 	return channelTestRequest{
 		ChannelID: channelID,
 		SiteID:    siteID,
@@ -130,6 +155,7 @@ func mapFlexibleToChannelTest(body flexibleTestBody) (channelTestRequest, bool) 
 		Prompt:    prompt,
 		Mode:      mode,
 		TimeoutMs: body.TimeoutMs,
+		Chat:      chat,
 	}, true
 }
 

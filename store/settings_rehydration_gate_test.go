@@ -268,7 +268,7 @@ func TestSettingsRehydrationGateCoversEveryAdminWritableKey(t *testing.T) {
 	if len(writeKeys) == 0 {
 		t.Fatal("write-side extractor found no settings keys; the matcher is broken")
 	}
-	for _, probe := range []string{"system_name", "proxy_token"} {
+	for _, probe := range []string{"system_name", "system_proxy_url"} {
 		if _, ok := writeKeys[probe]; !ok {
 			t.Fatalf("write-side extractor missed %q; the matcher is broken", probe)
 		}

@@ -27,7 +27,7 @@ import (
 type RuntimeSettings struct {
 	// Auth (4 fields)
 	AuthToken  string
-	ProxyToken string
+	ProxyToken string // Legacy startup import only; cleared after migration.
 	DbType     string
 	DbUrl      string
 	DbSsl      bool

@@ -24,9 +24,9 @@ const (
 // authorization. It is stored in the request context by ProxyAuth middleware.
 type ProxyAuthContext struct {
 	Token   string                  // Normalized token string
-	Source  string                  // "managed" | "global"
-	KeyID   *int64                  // Managed key row ID; nil for global
-	KeyName string                  // Managed key name; "global" for global
+	Source  string                  // "managed" for authenticated requests
+	KeyID   *int64                  // Managed key row ID
+	KeyName string                  // Managed key name
 	Policy  DownstreamRoutingPolicy // Resolved routing policy
 	// ProxyURL is an optional per-key egress proxy override from
 	// downstream_api_keys.proxy_url.
@@ -44,8 +44,8 @@ type ProxyAuthContext struct {
 // ProxyResourceOwner identifies the downstream principal that owns a proxy
 // resource (log entry, file, etc.).
 type ProxyResourceOwner struct {
-	OwnerType string // "managed_key" | "global_proxy_token"
-	OwnerID   string // managed_key: String(keyID) or token fallback; global: "global"
+	OwnerType string // "managed_key"; historical records may use "global_proxy_token"
+	OwnerID   string // managed key ID, or historical owner reference
 }
 
 // GetProxyResourceOwner derives a ProxyResourceOwner from a ProxyAuthContext.

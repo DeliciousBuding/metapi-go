@@ -41,6 +41,8 @@ func NewPresetSnapshot() *CatalogSnapshot {
 	snapshot.Source = PresetSnapshotSource
 	snapshot.FetchedAt = time.Time{}
 	for _, entry := range presetEntries {
+		entry.ListPriceKnown = true
+		entry.PriceSource = PresetSnapshotSource
 		if strings.TrimSpace(entry.ModelID) == "" {
 			continue
 		}

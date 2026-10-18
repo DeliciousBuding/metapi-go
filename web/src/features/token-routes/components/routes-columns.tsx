@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { RowDisclosureTrigger } from '@/components/common/row-disclosure'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -201,7 +202,12 @@ export function useRoutesColumns(
   actions: RouteRowActions,
   pendingToggleId: number | null = null,
   pendingCooldownId: number | null = null,
-  cooldownRouteIds?: ReadonlySet<number>
+  cooldownRouteIds?: ReadonlySet<number>,
+  disclosure?: {
+    expandedIds: ReadonlySet<number>
+    toggle: (id: number) => void
+    getContentId: (id: number) => string
+  }
 ): ColumnDef<RouteSummaryRow>[] {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
@@ -248,9 +254,22 @@ export function useRoutesColumns(
         return (
           <div className='flex flex-col gap-1'>
             <div className='flex items-center gap-2'>
-              <span className='max-w-60 truncate font-medium' title={title}>
-                {title}
-              </span>
+              {disclosure ? (
+                <RowDisclosureTrigger
+                  expanded={disclosure.expandedIds.has(route.id)}
+                  controls={disclosure.getContentId(route.id)}
+                  onClick={() => disclosure.toggle(route.id)}
+                  title={title}
+                >
+                  <span className='min-w-0 font-medium [overflow-wrap:anywhere] break-words'>
+                    {title}
+                  </span>
+                </RowDisclosureTrigger>
+              ) : (
+                <span className='max-w-60 truncate font-medium' title={title}>
+                  {title}
+                </span>
+              )}
               <Badge variant={modeBadge.variant}>{t(modeBadge.labelKey)}</Badge>
               {readOnly && (
                 <Badge variant='outline' className='text-muted-foreground'>

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -148,19 +149,26 @@ func (h *downstreamKeysHandler) listKeys(w http.ResponseWriter, r *http.Request)
 		enrichKeyRateWindow(row)
 	}
 	h.enrichKeyUsage24h(rows)
+	var migratedKeyID int64
+	if err := h.db.Get(&migratedKeyID, `SELECT value FROM settings WHERE key = 'downstream.root_token_migrated_v1'`); err != nil && err != sql.ErrNoRows {
+		writeError(w, http.StatusInternalServerError, "failed to load key migration status")
+		return
+	}
 
 	if paginate {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"items":    normalizeSlice(rows),
-			"total":    total,
-			"page":     page,
-			"pageSize": pageSize,
+			"items":         normalizeSlice(rows),
+			"total":         total,
+			"page":          page,
+			"pageSize":      pageSize,
+			"migratedKeyId": migratedKeyID,
 		})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"items":   normalizeSlice(rows),
+		"success":       true,
+		"items":         normalizeSlice(rows),
+		"migratedKeyId": migratedKeyID,
 	})
 }
 

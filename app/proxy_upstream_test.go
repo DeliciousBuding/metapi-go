@@ -29,6 +29,19 @@ var _ routing.ChannelSelectorDB = (*service.ProxyRoutingStore)(nil)
 var _ routing.ChannelLoadSnapshotProvider = proxyLoadProvider{}
 var _ proxy.TokenRouterInterface = (*routing.TokenRouter)(nil)
 
+const testDownstreamToken = "downstream-token"
+
+// Route fixtures open the database without the server bootstrap. Apply its
+// one-time key upgrade explicitly, using a draft rather than the published
+// runtime snapshot. Requests retain the original synthetic credential.
+func migrateTestDownstreamToken(t *testing.T) {
+	t.Helper()
+	draft := *config.Runtime()
+	if err := store.MigrateLegacyProxyToken(store.GetDB(), &draft, 0); err != nil {
+		t.Fatalf("migrate downstream fixture key: %v", err)
+	}
+}
+
 func TestConfigureProxyUpstreamWiresRealSQLiteRouter(t *testing.T) {
 	_ = store.CloseDatabase()
 
@@ -57,6 +70,7 @@ func TestConfigureProxyUpstreamWiresRealSQLiteRouter(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
+	migrateTestDownstreamToken(t)
 	db := store.GetDB()
 	channelID := seedProxyRoute(t, db, upstream.URL, "gpt-real", "upstream-token")
 
@@ -136,6 +150,7 @@ func TestOctopusV5DirectGrantTraversesProxyRouter(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatal(err)
 	}
+	migrateTestDownstreamToken(t)
 	db := store.GetDB()
 	fixture := fmt.Sprintf(`{"version":5,"exported_at":"2026-10-06T00:00:00Z","channels":[{"id":11,"name":"direct one","dialect":"generic","enabled":true,"base_url":%q,"openai_chat_completion_path":"/v1/chat/completions","openai_response_path":"/v1/responses","anthropic_message_path":"/v1/messages","proxy":false,"channel_proxy":"","custom_header":[{"header_key":"X-Octopus-Test","header_value":"channel-one"}],"param_override":"","match_regex":""},{"id":12,"name":"direct two","dialect":"generic","enabled":true,"base_url":%q,"openai_chat_completion_path":"/v1/chat/completions","openai_response_path":"/v1/responses","anthropic_message_path":"/v1/messages","proxy":false,"channel_proxy":"","custom_header":[{"header_key":"X-Octopus-Test","header_value":"channel-two"}],"param_override":"","match_regex":""}],"channel_keys":[{"id":13,"channel_id":11,"name":"primary","key":"octopus-secret-1","enabled":true},{"id":14,"channel_id":12,"name":"backup","key":"octopus-secret-2","enabled":true}],"channel_models":[{"id":15,"channel_id":11,"name":"provider-model"},{"id":16,"channel_id":12,"name":"provider-model"}],"channel_grants":[{"id":17,"channel_model_id":15,"channel_key_id":13,"protocols":2},{"id":18,"channel_model_id":16,"channel_key_id":14,"protocols":2}],"groups":[{"id":21,"name":"octopus-chat","mode":"failover","active_item_id":31,"relay_config":{}}],"group_items":[{"id":31,"group_id":21,"channel_grant_id":17,"priority":0,"weight":1},{"id":32,"group_id":21,"channel_grant_id":18,"priority":1,"weight":1}],"api_keys":[],"llm_infos":[],"settings":[],"stats_total":[],"stats_daily":[],"stats_hourly":[],"stats_api_key":[]}`, upstream.URL, upstream.URL)
 	fixture = strings.Replace(fixture, `"channel_proxy":""`, `"channel_proxy":`+fmt.Sprintf("%q", proxySpy.URL), 1)
@@ -328,6 +343,7 @@ func TestOctopusClientHeaderTemplateExpandsOnlySafeHeaders(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatal(err)
 	}
+	migrateTestDownstreamToken(t)
 	db := store.GetDB()
 	t.Cleanup(func() {
 		proxyhandler.SetUpstreamConfig(nil)
@@ -397,6 +413,7 @@ func TestOctopusV5DirectGrantDispatchesResponsesAndMessages(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatal(err)
 	}
+	migrateTestDownstreamToken(t)
 	db := store.GetDB()
 	t.Cleanup(func() {
 		proxyhandler.SetUpstreamConfig(nil)
@@ -562,6 +579,7 @@ func TestConfigureProxyUpstreamWiresActiveChannelIDsProvider(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
+	migrateTestDownstreamToken(t)
 	if err := ConfigureProxyUpstream(cfg); err != nil {
 		t.Fatalf("ConfigureProxyUpstream: %v", err)
 	}

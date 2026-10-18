@@ -86,11 +86,13 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase failed: %v", err)
 	}
+	migrateFixtureRootKey(t, rt)
 
 	db := store.GetDB()
 	if db == nil {
 		t.Fatal("store.GetDB() returned nil after EnsureRuntimeDatabase")
 	}
+	migrateFixtureRootKey(t, rt)
 
 	// Restrict SQLite to 1 connection to avoid :memory:-style pool issues
 	// under concurrency (each new connection gets its own in-memory DB).
@@ -434,12 +436,14 @@ func TestShutdownUnderStreamingLoad(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Errorf("re-open database after close failed: %v", err)
 	}
+	migrateFixtureRootKey(t, rt)
 	reopened := store.GetDB()
 	if reopened == nil {
 		t.Error("expected store.GetDB() to return non-nil after re-open")
 	} else {
 		t.Log("PASS: database successfully re-opened after clean close")
 	}
+	migrateFixtureRootKey(t, rt)
 	store.CloseDatabase()
 
 	t.Log("=== shutdown-under-load test PASSED ===")
@@ -472,6 +476,7 @@ func TestShutdownRejectsNewConnections(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase failed: %v", err)
 	}
+	migrateFixtureRootKey(t, rt)
 	defer store.CloseDatabase()
 
 	db := store.GetDB()

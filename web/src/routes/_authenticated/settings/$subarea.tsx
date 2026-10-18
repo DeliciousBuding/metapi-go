@@ -24,6 +24,9 @@ export const Route = createFileRoute('/_authenticated/settings/$subarea')({
     title: ({ subarea }) => getSettingsSubarea(subarea)?.title,
   },
   beforeLoad: ({ params }) => {
+    if (params.subarea === 'downstream') {
+      throw redirect({ to: '/downstream-keys' })
+    }
     // Legacy subareas are handled by the child routes (they carry the
     // `$section` param needed to map the exact old URL).
     if (isLegacySubarea(params.subarea)) return

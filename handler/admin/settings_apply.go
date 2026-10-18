@@ -43,17 +43,8 @@ func applyStringSettingDB(db *sqlx.DB, body map[string]any, key string, dbKey st
 
 // applyProxyAccessSettings applies the proxy token and system proxy URL.
 func (h *settingsHandler) applyProxyAccessSettings(body map[string]any) *settingsApplyError {
-	// Proxy token
-	if v, ok := body["proxyToken"]; ok {
-		token := normalizeString(v)
-		if !strings.HasPrefix(token, "sk-") {
-			return failSettings(http.StatusBadRequest, "downstream access token must start with sk-")
-		}
-		if len(token) < 6 {
-			return failSettings(http.StatusBadRequest, "downstream access token must be at least 6 characters (including sk-)")
-		}
-		config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ProxyToken = token })
-		upsertSettingDB(h.db, "proxy_token", token)
+	if _, ok := body["proxyToken"]; ok {
+		return failSettings(http.StatusGone, "Root downstream keys have moved to API keys. Manage access tokens at /downstream-keys.")
 	}
 
 	// System proxy URL

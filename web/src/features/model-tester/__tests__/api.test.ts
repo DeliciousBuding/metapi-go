@@ -171,6 +171,97 @@ describe('resolveTestResponseError', () => {
 })
 
 describe('runChatProbe', () => {
+  it.each([
+    {
+      body: {
+        type: 'message',
+        content: [
+          { type: 'thinking', thinking: 'reasoning' },
+          { type: 'text', text: 'answer' },
+        ],
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 2, output_tokens: 3 },
+      },
+    },
+    {
+      body: {
+        object: 'response',
+        output: [
+          {
+            type: 'reasoning',
+            summary: [{ type: 'summary_text', text: 'reasoning' }],
+          },
+          {
+            type: 'message',
+            content: [{ type: 'output_text', text: 'answer' }],
+          },
+        ],
+        status: 'completed',
+        usage: { input_tokens: 2, output_tokens: 3, total_tokens: 5 },
+      },
+    },
+    {
+      body: {
+        candidates: [
+          {
+            content: {
+              parts: [{ thought: true, text: 'reasoning' }, { text: 'answer' }],
+            },
+            finishReason: 'STOP',
+          },
+        ],
+        usageMetadata: {
+          promptTokenCount: 2,
+          candidatesTokenCount: 3,
+          totalTokenCount: 5,
+        },
+      },
+    },
+  ])(
+    'reads complete native JSON content, reasoning and usage',
+    async ({ body }) => {
+      testChatSync.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            statusCode: 200,
+            latencyMs: 100,
+            truncatedBody: JSON.stringify(body),
+            error: null,
+            bodyTruncated: false,
+          })
+        )
+      )
+      const result = await runChatProbe(buildChatPayload(formValues()))
+      expect(result).toMatchObject({
+        content: 'answer',
+        reasoningContent: 'reasoning',
+        doneReceived: true,
+        promptTokens: 2,
+        completionTokens: 3,
+        totalTokens: 5,
+        bodyTruncated: false,
+      })
+    }
+  )
+
+  it('preserves truncation metadata for the response details', async () => {
+    testChatSync.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          statusCode: 200,
+          latencyMs: 100,
+          truncatedBody: '{"partial":…[truncated]',
+          error: null,
+          bodyTruncated: true,
+        })
+      )
+    )
+    const result = await runChatProbe(buildChatPayload(formValues()))
+    expect(result.bodyTruncated).toBe(true)
+    expect(result.rawEvents).toEqual(['{"partial":…[truncated]'])
+  })
   it('unwraps the harness envelope and preserves upstream timing truth', async () => {
     const truncatedBody = JSON.stringify({
       choices: [
@@ -204,6 +295,7 @@ describe('runChatProbe', () => {
       rawEvents: [truncatedBody],
       empty: false,
       error: undefined,
+      bodyTruncated: false,
     })
   })
 

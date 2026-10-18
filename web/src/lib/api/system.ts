@@ -78,6 +78,8 @@ export const systemApi = {
     limit?: number
     topModels?: number
     exactModel?: boolean
+    pricePage?: number
+    pricePageSize?: number
   }) => {
     const params = new URLSearchParams()
     if (options?.model) params.set('model', options.model)
@@ -87,10 +89,18 @@ export const systemApi = {
       params.set('topModels', String(options.topModels))
     }
     if (options?.exactModel) params.set('exactModel', 'true')
+    if (options?.pricePage) params.set('pricePage', String(options.pricePage))
+    if (options?.pricePageSize)
+      params.set('pricePageSize', String(options.pricePageSize))
     const query = params.toString()
     return request(`/api/models/price-compare${query ? `?${query}` : ''}`, {
       timeoutMs: 20_000,
     })
   },
   getModelTokenCandidates: () => request('/api/models/token-candidates'),
+  refreshAccountPricing: (accountId: number) =>
+    request(`/api/models/price-compare/accounts/${accountId}/refresh`, {
+      method: 'POST',
+      timeoutMs: 25_000,
+    }),
 }

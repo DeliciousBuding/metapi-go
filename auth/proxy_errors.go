@@ -27,7 +27,7 @@ func proxyAuthErrorClass(reason string) (errType, code string) {
 		return "authentication_error", "invalid_api_key"
 	case "access_policy", "quota_history_missing", "quota_usage_unknown":
 		return "permission_error", reason
-	case "quota_unavailable":
+	case "quota_unavailable", "unavailable":
 		return "server_error", reason
 	case "disabled":
 		return "permission_error", "key_disabled"

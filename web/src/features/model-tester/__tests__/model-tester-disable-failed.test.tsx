@@ -58,12 +58,22 @@ vi.mock('@/lib/toast', () => ({
 }))
 
 vi.mock('../components/test-form', () => ({
-  TestForm: ({ onSubmit }: { isRunning: boolean; onSubmit: SubmitFn }) => {
+  TestForm: ({
+    onSubmit,
+    children,
+  }: {
+    isRunning: boolean
+    onSubmit: SubmitFn
+    children?: ReactNode
+  }) => {
     testState.submit = onSubmit
     return (
-      <button type='button' onClick={() => void onSubmit(comparisonValues)}>
-        run comparison
-      </button>
+      <>
+        <button type='button' onClick={() => void onSubmit(comparisonValues)}>
+          run comparison
+        </button>
+        {children}
+      </>
     )
   },
 }))

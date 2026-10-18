@@ -2,7 +2,7 @@
 // The backend returns the full sorted candidate list (cheaper first); the
 // page groups by model for the cross-site view.
 
-import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
 
@@ -18,6 +18,8 @@ export type PriceCompareParams = {
   limit?: number
   topModels?: number
   exactModel?: boolean
+  pricePage?: number
+  pricePageSize?: number
 }
 
 async function fetchPriceCompare(
@@ -36,15 +38,20 @@ export function priceCompareQueryOptions(params: PriceCompareParams = {}) {
   }
 }
 
-export function usePriceCompare(
-  params: PriceCompareParams = {},
-  options?: Omit<
-    UseQueryOptions<PriceCompareItem[], Error, PriceCompareItem[]>,
-    'queryKey' | 'queryFn'
-  >
-) {
+export function usePriceWorkspace(params: PriceCompareParams = {}) {
   return useQuery({
-    ...priceCompareQueryOptions(params),
-    ...options,
+    queryKey: [...priceCompareQueryKeys.list(params), 'workspace'],
+    queryFn: async () =>
+      priceCompareResponseSchema.parse(await api.getModelPriceCompare(params)),
+    staleTime: 30_000,
+  })
+}
+
+export function useRefreshAccountPricing() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (accountId: number) => api.refreshAccountPricing(accountId),
+    onSettled: () =>
+      client.invalidateQueries({ queryKey: priceCompareQueryKeys.all }),
   })
 }

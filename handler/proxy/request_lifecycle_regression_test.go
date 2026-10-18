@@ -205,7 +205,16 @@ func TestGatewayLifecycleDispatchCountDoesNotDependOnLogWriter(t *testing.T) {
 
 func TestGatewayLifecycleWSTurnInheritsSanitizedCorrelation(t *testing.T) {
 	previous := config.RuntimeSafe()
-	config.UpdateRuntime(func(c *config.RuntimeSettings) { c.ProxyToken = "synthetic-custom-token" })
+	_ = store.CloseDatabase()
+	cfg := &config.Config{DataDir: t.TempDir()}
+	rt := &config.RuntimeSettings{DbType: "sqlite", DbUrl: ":memory:", ProxyToken: "synthetic-custom-token"}
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.CloseDatabase() })
+	if err := store.MigrateLegacyProxyToken(store.GetDB(), rt, 0); err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { config.SetRuntime(previous) })
 	for _, externalID := range []string{"synthetic-custom-token", "safe-client-correlation"} {
 		t.Run(externalID, func(t *testing.T) {

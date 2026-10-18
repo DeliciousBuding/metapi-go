@@ -10,11 +10,8 @@ afterEach(cleanup)
 describe('streaming conversation reading', () => {
   it('preserves a manually scrolled reading position until the user returns to latest', () => {
     const props = {
-      messages: [],
-      content: 'first response',
-      reasoningContent: '',
+      messages: [{ id: 'u1', role: 'user' as const, content: 'first prompt' }],
       isRunning: true,
-      response: null,
     }
     const { rerender } = render(<TestResponseViewer {...props} />)
     const history = screen.getByRole('log')
@@ -31,7 +28,10 @@ describe('streaming conversation reading', () => {
     rerender(
       <TestResponseViewer
         {...props}
-        content='first response with another chunk'
+        messages={[
+          ...props.messages,
+          { id: 'a1', role: 'assistant', content: 'first response' },
+        ]}
       />
     )
     expect(history.scrollTop).toBe(100)

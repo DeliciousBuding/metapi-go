@@ -2,7 +2,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 /* eslint-disable no-nested-ternary -- empty-state text uses chained ternary */
 // metapi-go features/token-routes/components — the routes list page.
 // i18n: all user-visible strings migrated to t() calls.
-import type { ColumnFiltersState, Table } from '@tanstack/react-table'
+import type { ColumnFiltersState, Table, Row } from '@tanstack/react-table'
 import { Plus, Power, Route, Settings2, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -52,6 +52,7 @@ import {
   isExactModelPattern,
   resolveRouteTitle,
 } from '../utils'
+import { RouteChannelList } from './route-channel-list'
 import { RouteDetailSheet } from './route-detail-sheet'
 import { RouteFormDialog, type RouteAccountOption } from './route-form-dialog'
 import { RouteRebuildStatus } from './route-rebuild-status'
@@ -61,6 +62,8 @@ import { RoutesHeaderActions } from './routes-header-actions'
 import { RoutesKeyNextStep } from './routes-key-next-step'
 
 const DEFAULT_PAGE_SIZE = 20
+const routeContentId = (id: number) => `route-channels-${id}`
+const routeRowId = (route: RouteSummaryRow) => String(route.id)
 
 /** Page-specific URL filters: the `enabled` column filter + chain context.
  * `routeId` is a one-shot drilldown param (proxy-log detail sheet) that the
@@ -274,6 +277,17 @@ export function RoutesPage() {
   const [editRoute, setEditRoute] = useState<RouteSummaryRow | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailRoute, setDetailRoute] = useState<RouteSummaryRow | null>(null)
+  const [expandedRouteIds, setExpandedRouteIds] = useState<ReadonlySet<number>>(
+    () => new Set()
+  )
+  const toggleRouteExpansion = useCallback((id: number) => {
+    setExpandedRouteIds((previous) => {
+      const next = new Set(previous)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
   const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false)
 
   // One-shot route drilldown (proxy-log detail -> `?routeId=N`): wait for
@@ -402,12 +416,18 @@ export function RoutesPage() {
     clearCooldownMutation.isPending
       ? (clearCooldownMutation.variables ?? null)
       : null,
-    cooldownRouteIds
+    cooldownRouteIds,
+    {
+      expandedIds: expandedRouteIds,
+      toggle: toggleRouteExpansion,
+      getContentId: routeContentId,
+    }
   )
 
   const { table } = useDataTable({
     data: rows,
     columns,
+    getRowId: routeRowId,
     enableRowSelection: true,
     // The URL-synced callbacks already reset the page on every filter change
     // (resetPageIndexOnFilterChange), so disable TanStack's own auto-reset to
@@ -565,6 +585,42 @@ export function RoutesPage() {
 
       <DataTablePage
         table={table}
+        rowDisclosure={{
+          isExpanded: (row: Row<RouteSummaryRow>) =>
+            expandedRouteIds.has(row.original.id),
+          onToggle: (row: Row<RouteSummaryRow>) =>
+            toggleRouteExpansion(row.original.id),
+          getContentId: (row: Row<RouteSummaryRow>) =>
+            routeContentId(row.original.id),
+          getLabel: (row: Row<RouteSummaryRow>) =>
+            t('tokenRoutes.detail.inlineLabel', {
+              model: resolveRouteTitle(row.original),
+            }),
+          renderContent: (row: Row<RouteSummaryRow>) => (
+            <div className='space-y-3'>
+              <RouteChannelList route={row.original} />
+              <div className='flex flex-wrap gap-2'>
+                {row.original.kind !== 'zero_channel' &&
+                  !row.original.readOnly && (
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      onClick={() => openEdit(row.original)}
+                    >
+                      {t('common.edit')}
+                    </Button>
+                  )}
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={() => rowActions.onViewDetail(row.original)}
+                >
+                  {t('tokenRoutes.detail.openDiagnostics')}
+                </Button>
+              </div>
+            </div>
+          ),
+        }}
         isLoading={isLoading}
         isFetching={isFetching}
         error={error as Error | null}

@@ -173,10 +173,36 @@ Developer/QA test harness surfaces. The legacy TS-era `/api/test/read|write|upda
 
 ### POST /api/test/chat
 
-Sync forced-channel probe: delegates to the same forced-channel harness as `POST /api/admin/test-channel` when `channelId`/`siteId`/`forcedChannelId` is given; without a forced channel the full path/multipart matrix is a known limitation and the endpoint answers an honest `501` residual rather than inventing a successful probe.
+聊天测试使用指定渠道的凭据、站点代理与取消机制，完成后返回同步响应。
+须提供 `channelId`、`siteId` 或 `forcedChannelId`；缺少时返回 `501`。
 
-**Body**: `{ "channelId": 12, "siteId": 3, "forcedChannelId": 12, "model": "gpt-4o-mini", "prompt": "ping", "mode": "chat", "timeoutMs": 15000, "path": "...", "jsonBody": {...}, "messages": [{ "role": "user", "content": "..." }] }` — `jsonBody`/`messages` are read for model/prompt extraction when the flat fields are absent. `mode` defaults to `chat` (or `models` when `path` contains `/models` and not `/chat`).
-**Response**: same shape as `POST /api/admin/test-channel` (see above).
+```json
+{
+  "channelId": 12,
+  "model": "example-model",
+  "targetFormat": "openai",
+  "messages": [
+    { "role": "system", "content": "简明回答。" },
+    { "role": "user", "content": "你好" },
+    { "role": "assistant", "content": "你好！" },
+    { "role": "user", "content": "继续" }
+  ],
+  "temperature": 0.7,
+  "top_p": 1,
+  "max_tokens": 1024
+}
+```
+
+`messages` 保留完整文本上下文，支持 `system`、`user`、`assistant`。
+`targetFormat` 支持 `openai`（默认）、`claude`、`responses`、`gemini`，
+通过现有协议转换器生成对应原生请求。采样值直接传入转换器；未指定输出上限时
+使用 1024 tokens。默认等待 60 秒，`timeoutMs` 可在 1000–60000 毫秒内调整。
+
+旧的 `prompt`、`path`、`mode` 和 `jsonBody` 输入仍可使用。
+`mode` 默认 `chat`；`path` 指向模型列表时为 `models`。
+响应沿用渠道测试 envelope，`truncatedBody` 最多保留 1 MiB，并用
+`bodyTruncated` 标明截断。请求和回复不写入数据库。独立的
+`POST /api/admin/test-channel` 连通性探针保持原有短提示词、8-token 与 2 KiB 限额。
 
 ### POST /api/debug/channel-probe
 

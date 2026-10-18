@@ -9,7 +9,7 @@
 // before the "unknown subarea / unknown section" fallbacks so a stale link
 // lands on the exact new page instead of bouncing to a default section.
 //
-// Served URLs that did not change (downstream/*, content/*) need no entry.
+// /settings/downstream/* is redirected to API Keys by the parent route guard.
 
 /** Old `<subarea>/<section>` path → `[newSubarea, newSection]`. */
 const LEGACY_SECTION_ROUTES: Readonly<

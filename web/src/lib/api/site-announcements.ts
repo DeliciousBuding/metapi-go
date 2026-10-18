@@ -31,9 +31,11 @@ export type SiteAnnouncement = {
   readAt: string | null
   dismissedAt: string | null
   rawPayload: string | null
+  revisionCount?: number
 }
 
 export type SiteAnnouncementStatusFilter = 'active' | 'expired' | 'dismissed'
+export type SiteAnnouncementVersion = SiteAnnouncement & { revisionId: number }
 
 export type SiteAnnouncementListParams = {
   limit?: number
@@ -65,6 +67,8 @@ export type SiteAnnouncementSyncResponse = {
 }
 
 export const siteAnnouncementsApi = {
+  getSiteAnnouncementHistory: (id: number) =>
+    request<SiteAnnouncementVersion[]>(`/api/site-announcements/${id}/history`),
   /**
    * List upstream site announcements. The backend returns a BARE JSON array
    * (no wrapper object) ordered by firstSeenAt desc; server-side filters:

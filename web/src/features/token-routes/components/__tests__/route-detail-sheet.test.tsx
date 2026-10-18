@@ -140,8 +140,8 @@ describe('RouteDetailSheet channel hit counters', () => {
     render(<RouteDetailSheet route={makeRoute()} open onOpenChange={vi.fn()} />)
 
     expect(
-      screen.getByText('0', { selector: '.text-success' })
-    ).toBeInTheDocument()
+      screen.getByText('Success / fail').nextElementSibling
+    ).toHaveTextContent('0 / 0')
   })
 })
 

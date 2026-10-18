@@ -1,8 +1,6 @@
 // metapi-go/features/model-tester — Zod form schema.
 //
-// Validates the test form: model (required), target channel (optional —
-// absent means the backend's honest 501 "requires channelId" residual, since
-// the sync harness only runs against a forced channel), a comparison mode
+// Validates the test form: model, a target channel for single requests, a comparison mode
 // (`compareChannels` + a multi-channel `channelIds` list requiring at least
 // two channels), system prompt (optional), user prompt (required), target
 // protocol format, and sampling parameters (temperature / top_p / max_tokens).
@@ -51,6 +49,13 @@ export const testerSchema = z
       .max(128000, 'modelTester.form.errors.maxTokensMax'),
   })
   .superRefine((values, ctx) => {
+    if (!values.compareChannels && !values.channelId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['channelId'],
+        message: 'modelTester.form.errors.channelRequired',
+      })
+    }
     if (values.compareChannels && (values.channelIds ?? []).length < 2) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

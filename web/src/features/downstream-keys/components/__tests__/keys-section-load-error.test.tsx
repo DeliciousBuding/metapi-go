@@ -117,6 +117,34 @@ function renderKeysSection() {
 }
 
 describe('KeysSection load error', () => {
+  it('explains the migrated token and stops showing the notice after it is deleted', async () => {
+    mockGetKeys.mockResolvedValue({
+      migratedKeyId: 71,
+      items: [
+        {
+          id: 71,
+          name: 'Migrated access token',
+          enabled: false,
+          supportedModels: ['*'],
+        },
+      ],
+    })
+    const view = renderKeysSection()
+    expect(
+      await screen.findByText('Your root key has moved to API keys')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Review migrated key' })
+    ).toBeInTheDocument()
+    view.unmount()
+    mockGetKeys.mockResolvedValue({ migratedKeyId: 71, items: [] })
+    renderKeysSection()
+    await screen.findByText(/No API keys yet/)
+    expect(
+      screen.queryByText('Your root key has moved to API keys')
+    ).not.toBeInTheDocument()
+  })
+
   it('reports the key list failure, not the settings form failure', async () => {
     mockGetKeys.mockRejectedValue(new Error('boom'))
 

@@ -23,6 +23,13 @@ combined version does not revoke the license of previously published versions.
 
 ## Other components
 
+The model playground message components adapt Vercel's
+[AI Elements Message](https://github.com/vercel/ai-elements), copyright 2023
+Vercel, Inc., under the [Apache License 2.0](licenses/apache-2.0.txt).
+Local changes retain only the message layout and Markdown response composition,
+using Metapi's controls, translations and theme. Streamdown, also maintained by
+Vercel, provides Markdown rendering under the same license.
+
 Other dependencies retain their own licenses and copyright notices. Their
 versions are recorded in `go.mod`, `go.sum`, `web/package.json`, and `web/bun.lock`.
 Bundled brand assets retain notices in `web/public/licenses/`, including the

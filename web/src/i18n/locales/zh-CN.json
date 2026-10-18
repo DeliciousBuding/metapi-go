@@ -443,7 +443,7 @@
         "systemPrompt": "系统提示词",
         "systemPromptPlaceholder": "输入系统提示词（可选）",
         "prompt": "提示词",
-        "promptPlaceholder": "输入提示词",
+        "promptPlaceholder": "给模型发消息…",
         "promptSubmitHint": "按 ⌘/Ctrl + Enter 发送。",
         "temperature": "温度",
         "topP": "Top P",
@@ -453,6 +453,7 @@
         "submit": "发送",
         "errors": {
           "modelRequired": "请选择模型。",
+          "channelRequired": "请选择渠道。",
           "systemTooLong": "系统提示词不能超过 4000 个字符。",
           "promptRequired": "请输入提示词。",
           "promptTooLong": "提示词不能超过 16000 个字符。",
@@ -467,7 +468,9 @@
         },
         "channelNoneForced": "请选择渠道",
         "channelHintForced": "选择本次测试使用的上游渠道。",
-        "advanced": "高级设置 · 模板、系统提示词与采样"
+        "advanced": "设置 · 模板、系统提示词与采样",
+        "settings": "对话设置",
+        "settingsHint": "选择测试渠道、协议，调整系统提示词与采样参数。"
       },
       "toast": {
         "empty": "响应为空。",
@@ -483,15 +486,21 @@
         "sessionExpired": "会话已过期，请重新登录。"
       },
       "viewer": {
-        "title": "响应",
+        "title": "对话",
+        "emptyTitle": "今天想测试什么？",
+        "details": "响应详情 · 原始数据",
+        "copy": "复制回复",
+        "copied": "回复已复制",
+        "copyFailed": "复制回复失败。",
         "streaming": "流式中",
         "empty": "空响应",
         "done": "完成",
         "latency": "延迟：{{value}}",
         "usage": "Token：{{total}}（入 {{prompt}} / 出 {{completion}}）",
         "noDone": "未收到完成信号",
+        "truncated": "响应超过大小限制，原始数据已截断。",
         "error": "错误",
-        "emptyHint": "选择模型和渠道，输入提示词并发送。响应、推理内容和原始事件会显示在这里。",
+        "emptyHint": "选择模型与渠道，发条消息试试。也可以从下面的测试开始。",
         "tabContent": "内容",
         "tabReasoning": "推理",
         "tabRaw": "原始",
@@ -522,8 +531,8 @@
         "disableFailed": "禁用失败渠道"
       },
       "page": {
-        "title": "模型测试器",
-        "description": "向模型发送测试提示并查看响应。"
+        "title": "模型测试场",
+        "description": "与模型对话，查看每轮响应，也可以对比不同渠道。"
       },
       "template": {
         "label": "模板",
@@ -1879,25 +1888,6 @@
               "rate": "速率"
             }
           }
-        },
-        "proxyToken": {
-          "title": "根下游密钥（已弃用）",
-          "description": "全局下游兜底密钥，无 per-key 策略。已弃用，请改用「API 密钥」签发细粒度密钥。",
-          "current": "当前令牌",
-          "notSet": "未设置",
-          "generate": "生成",
-          "save": "更新令牌",
-          "fields": {
-            "suffix": "令牌后缀",
-            "suffixHint": "sk- 前缀固定。生成或输入新后缀。"
-          },
-          "schema": {
-            "suffixMinLength": "后缀至少 8 个字符。"
-          },
-          "toast": {
-            "saved": "根下游密钥已更新。",
-            "saveFailed": "更新根下游密钥失败。"
-          }
         }
       },
       "content": {
@@ -2975,6 +2965,10 @@
         "modelMapping": "模型映射",
         "clearCooldown": "清除冷却",
         "channelTruthList": "通道分配与价格",
+        "inlineLabel": "{{model}} 的通道详情",
+        "openDiagnostics": "详情与路由诊断",
+        "channelsLoadError": "通道加载失败：{{message}}",
+        "retryPrices": "重新加载价格",
         "channelTruthDescription": "同一行展示配置权重、启用占比，以及来自价格对比的标准化价格。",
         "channelEmptyReadOnly": "暂无通道，先补齐连接配置后再重建路由。",
         "channelEmptyEditable": "暂无通道，编辑路由添加通道或等待自动重建。",
@@ -3387,7 +3381,14 @@
     "siteAnnouncements": {
       "page": {
         "title": "站点公告",
-        "description": "公告同步从上游站点抓取的通知。"
+        "description": "查看各站点的最新公告，点击公告行展开正文和更新记录。"
+      },
+      "timeline": {
+        "title": "历史更新",
+        "current": "当前版本",
+        "siteNotice": "站点通知",
+        "updates": "{{count}} 次更新",
+        "lastSeen": "最后发现：{{time}}"
       },
       "actions": {
         "sync": "立即同步",
@@ -3662,7 +3663,7 @@
         "tokenRoutes": "路由",
         "oauth": "OAuth",
         "models": "模型清单",
-        "modelTester": "模型测试器",
+        "modelTester": "模型测试场",
         "settings": "设置",
         "about": "关于",
         "priceCompare": "价格对比",
@@ -3741,9 +3742,49 @@
       }
     },
     "priceCompare": {
+      "current": {
+        "observedAverage": "观测平均 {{price}} / 次 · {{count}} 条样本",
+        "configuredCost": "配置费用 {{price}} / 次",
+        "builtIn": "内置 models.dev 快照 · {{date}}",
+        "search": "搜索模型",
+        "pagination": "站点模型报价分页",
+        "pageSummary": "第 {{page}} / {{pages}} 页 · 共 {{count}} 个模型",
+        "previous": "上一页",
+        "next": "下一页",
+        "refresh": "刷新报价",
+        "title": "站点报价与官方基准",
+        "units": "美元 / 百万 token · 按次价格单独标注",
+        "refreshHint": "刷新账号可读取站点报价及可用分组。浏览页面使用已保存的报价。",
+        "accounts": "报价来源（{{count}} 个账号）",
+        "fetched": "获取于 {{time}}",
+        "notFetched": "尚未获取报价",
+        "refreshAccount": "刷新 {{name}} 的报价",
+        "refreshFailed": "报价刷新失败，请检查账号凭据与站点连接后重试。",
+        "unsupported": "该平台暂未提供报价读取",
+        "official": "官方标准价",
+        "noBaseline": "暂无官方基准",
+        "input": "输入",
+        "output": "输出",
+        "cacheRead": "缓存读取",
+        "cacheWrite": "缓存写入",
+        "alias": "别名匹配",
+        "catalogUpdated": "目录更新于 {{date}}",
+        "noQuote": "暂无该模型的已存报价，可展开报价来源并刷新账号。",
+        "stale": "最近一次刷新失败，以下保留上次获取的报价。",
+        "nonLinear": "条件计费，实际费用按站点规则计算。",
+        "perRequestFormula": "基础价格 {{price}} / 次 × 有效分组倍率",
+        "formula": "输入 = $2 × 模型 {{model}} × 分组倍率。输出 × {{output}} · 缓存读取 × {{read}} · 缓存写入 × {{write}}（相对输入价格）。",
+        "noGroups": "该账号没有可用于此模型的分组。",
+        "groupRatio": "有效分组倍率",
+        "relative": "相对官方",
+        "perRequest": "美元 / 次",
+        "oneCall": "单次费用：",
+        "sample": "示例：输入 1K + 输出 1K，无缓存：",
+        "history": "历史费率与费用观测"
+      },
       "page": {
         "title": "价格对比",
-        "description": "跨站点有效模型价格，含价格来源与推荐（同模型最低有效成本）。",
+        "description": "对照官方标准价，查看站点各分组报价与计算明细。",
         "searchPlaceholder": "按模型筛选…",
         "loadError": "加载价格对比失败：{{message}}",
         "invalidResponse": "服务端返回的价格数据格式无效，请重试。",
@@ -3751,7 +3792,7 @@
         "emptyAction": "管理账号"
       },
       "group": {
-        "description": "按来源站点的有效价格从低到高。来源优先级：计费明细 > 观测 > 已配置 > 兜底，取可用且优先级最高者。"
+        "description": "历史账单费率及已记录的费用信号。请求平均费用与配置单价不计算固定 token 示例费用。"
       },
       "grade": {
         "billing_details": "计费明细",
@@ -4319,6 +4360,11 @@
       }
     },
     "downstreamKeys": {
+      "migration": {
+        "title": "原根密钥已迁入 API 密钥",
+        "description": "升级已保留原密钥，现有客户端可继续使用。你可以在这里调整权限、限制用量或停用它。停用或删除后，重启不会恢复该密钥。",
+        "review": "查看迁入密钥"
+      },
       "page": {
         "title": "API 密钥",
         "description": "签发并管理用于调用 LLM 的 API 密钥。"

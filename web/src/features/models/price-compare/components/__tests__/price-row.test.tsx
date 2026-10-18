@@ -131,6 +131,23 @@ describe('PriceRow routes deep-link', () => {
 })
 
 describe('PriceRow currency display', () => {
+  it('labels observed averages separately from the fixed-token sample', () => {
+    render(
+      <PriceRow
+        row={buildRow({
+          source: 'observed',
+          ratesSource: 'fallback',
+          observedSamples: 7,
+          estimatedCostSample: 0.0125,
+        })}
+      />
+    )
+    expect(
+      screen.getByText('Observed average $0.012500 / request · 7 samples')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('$2.5000')).not.toBeInTheDocument()
+    expect(screen.getAllByText('—')).toHaveLength(3)
+  })
   it('prefixes unit prices and the sample cost with the currency symbol', () => {
     render(
       <PriceRow

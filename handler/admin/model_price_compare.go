@@ -9,8 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/pricing"
+	"github.com/go-chi/chi/v5"
 )
 
 // modelPriceCompare handles:
@@ -74,6 +78,26 @@ func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request)
 	if sorted == nil {
 		sorted = []routing.PriceCompareRow{}
 	}
+	accounts, current, currentPage, err := h.currentPriceComparison(r, modelQ, exactModel)
+	if err != nil {
+		writeErrorCode(w, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load current pricing")
+		return
+	}
+	baselines := map[string]*pricing.OfficialPrice{}
+	manager := app.CatalogManager()
+	if manager != nil {
+		if currentPage.TotalModels == 0 {
+			for _, row := range sorted {
+				baselines[row.Model] = pricing.OfficialPriceFor(manager.Snapshot(), row.Model)
+			}
+		}
+		for _, row := range current {
+			baselines[row.Model] = row.Official
+		}
+		if modelQ != "" && currentPage.TotalModels == 0 {
+			baselines[modelQ] = pricing.OfficialPriceFor(manager.Snapshot(), modelQ)
+		}
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"model": modelQ,
@@ -84,7 +108,11 @@ func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request)
 			"completionTokens": routing.DefaultPriceCompareSampleUsage.CompletionTokens,
 			"totalTokens":      routing.DefaultPriceCompareSampleUsage.TotalTokens,
 		},
-		"items": sorted,
+		"items":           sorted,
+		"pricingAccounts": accounts,
+		"currentPrices":   current,
+		"officialPrices":  baselines,
+		"currentPage":     currentPage,
 		"meta": map[string]any{
 			"count":            len(sorted),
 			"modelsConsidered": len(models),
@@ -97,6 +125,19 @@ func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request)
 			"notes": "Rates/costs from billing_details, observed proxy_logs, account unit_cost, or labeled fallback. missingPrice=true means no catalog/observed/configured signal.",
 		},
 	})
+}
+
+func (h *statsHandler) refreshPriceCompareAccount(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "accountId"), 10, 64)
+	if err != nil || id <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid accountId")
+		return
+	}
+	if err := service.RefreshAccountPricing(r.Context(), h.db, id); err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
 func (h *statsHandler) topModelsForPriceCompare(limit int, since string) ([]string, error) {

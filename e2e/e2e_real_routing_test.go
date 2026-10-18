@@ -42,6 +42,7 @@ func TestConfiguredRoutesReachUpstreamThroughRealRouter(t *testing.T) {
 			if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 				t.Fatal(err)
 			}
+			migrateFixtureRootKey(t, rt)
 			db := store.GetDB()
 			if err := app.ConfigureProxyUpstream(cfg); err != nil {
 				t.Fatal(err)

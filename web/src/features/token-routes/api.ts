@@ -149,7 +149,8 @@ export function useRouteChannels(
     queryKey: routeQueryKeys.channels(routeId ?? 0),
     queryFn: async () => {
       const channels = await api.getRouteChannels(routeId as number)
-      if (!Array.isArray(channels)) return [] as RouteChannel[]
+      if (!Array.isArray(channels))
+        throw new Error('Failed to load route channels')
       return channels as RouteChannel[]
     },
     enabled: routeId != null,
