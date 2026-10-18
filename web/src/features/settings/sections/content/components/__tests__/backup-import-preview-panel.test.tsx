@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import i18n from '@/i18n/config'
@@ -12,6 +18,41 @@ afterEach(async () => {
 })
 
 describe('backup import preview eligibility', () => {
+  it('keeps source counts separate from the executable AxonHub plan', async () => {
+    render(
+      <BackupImportPreviewPanel
+        preview={{
+          kind: 'axonhub',
+          data: {
+            source: 'axonhub-v1.4',
+            version: '1.4',
+            originKey: 'fixture',
+            sections: { channels: 7, projects: 3 },
+            routable: { channels: 2 },
+            residuals: ['channel-4:manual_models_not_imported_until_synced'],
+          },
+        }}
+        acknowledged={false}
+        onAcknowledge={vi.fn()}
+      />
+    )
+    expect(screen.getByText('2')).toBeVisible()
+    expect(screen.queryByText('7')).not.toBeInTheDocument()
+    expect(screen.getByText(/Source channel #4:/)).toBeVisible()
+    const toggle = screen.getByRole('button', {
+      name: 'View source backup record counts',
+    })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(await screen.findByText('7')).toBeVisible()
+    expect(screen.getByText('3')).toBeVisible()
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(
+      within(screen.getByRole('region', { name: 'Import plan' })).getByText('2')
+    ).toBeVisible()
+  })
   it.each(['zh-CN', 'en'])(
     'explains AxonHub differences in %s and preserves source identifiers',
     async (language) => {
