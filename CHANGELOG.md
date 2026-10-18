@@ -21,8 +21,24 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+### 安全
+
+- 代理准入：`Upgrade: websocket` 头不再跳过 RPM/TPM 与 `max_requests`；Responses WebSocket 每条消息复查密钥状态、策略与配额（#1499）。
+- 代理路径：`/v1/files/{fileId}` 与 `/v1/videos/{id}` 只接受 `[A-Za-z0-9_-]{1,200}`，编码斜杠、双重编码与 `..` 返回 400（#1500）。
+- 管理面：备份导入、WebDAV 配置/导入、数据库迁移与连通性测试、恢复出厂、清空用量、下游 key 创建/轮换、上游 token 明文读取要求 `X-Admin-Confirm-Token`；响应带 `Cache-Control: no-store`（#1502）。
+- 管理面：Cookie 写请求校验 `Origin`/`Sec-Fetch-Site`；额外来源用 `ADMIN_CORS_ALLOWED_ORIGINS` 放行，未配置时非浏览器客户端不受影响（#1502）。
+- 运行时设置：`systemProxyUrl`、`telegramApiBaseUrl`/`telegramBotToken`、`adminIpAllowlist`、SMTP 与各通知 Webhook 地址变更需主令牌确认（#1502）。
+- 凭据回显：账号列表与搜索不再返回 refreshToken、idToken、passwordCipher；站点 `apiKey` 改为 `apiKeyMasked`+`hasApiKey`，`cfClearance` 不再回传（#1503）。
+- 敏感读接口：`/api/settings/auth/info` 只返回 `customized`/`configured`/`length`；imported upstream `customHeaders` 值掩码（#1503）。
+- 告警放大：模型名在事件消息中截断到 4 KiB，节流表有上限并清理；超大单元格导出改为截断并在 `metadata.warnings` 记录（#1498）。
+- 备份导入：拒绝出口代理、通知、管理员 IP 白名单与日志清理设置；配额账本拒绝负值与不合理时间戳（#1501）。
+- 出站：Telegram、SMTP、目录源与 WebDAV 默认拒绝环回/私网/metadata；SMTP 仅允许 25/465/587，自建内网目录源用 `PRICING_CATALOG_ALLOW_PRIVATE=true`（#1504）。
+- 匿名端点：`/api/auth/login|logout|session` 请求体上限 4–8 KiB；`adminIpAllowlist` 同时约束登录端点（#1504）。
+- 媒体：上游响应中的 image/video URL 二次抓取默认仅允许公网目标（#1506）。
+
 ### 修复
 
+- 备份导入：AxonHub 的 `managementApiKey` 不再导致整条渠道跳过，改为 `management_api_key_not_imported` 残留项（#1396）。
 - 站点公告：旧单条通知自动合并，点击列表行就地展开 Markdown 正文与更新历史；重复同步不再新增公告（#1489）。
 - 下游密钥：升级时将旧根密钥原值迁入 API 密钥，移除独立设置和鉴权入口；新安装无需 `PROXY_TOKEN`，旧设置写入返回 410，鉴权数据库不可用返回 503（#1491）。
 - 模型比价：展示官方目录基准、站点各分组的输入/输出与缓存单价、倍率和计算明细；报价按账号手动刷新，历史平均费用单独标注（#1492）。
