@@ -181,7 +181,7 @@ def upstream_tokens(http, cfg, auth):
 
 
 def journey(cfg, http, report):
-    admin = {"Authorization": "Bearer " + cfg["admin"]}
+    admin = {"Authorization": "Bearer " + cfg["admin"], "X-Admin-Confirm-Token": cfg["admin"]}
     metapi, newapi = cfg["metapi"], cfg["newapi"]
     about = expected(http.call(metapi, "GET", "/api/about", admin))
     require(about.get("commit") == cfg["commit"], "server_commit_mismatch")

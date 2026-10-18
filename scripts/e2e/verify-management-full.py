@@ -114,6 +114,8 @@ class API:
         headers = {'Content-Type': 'application/json'}
         if self.key:
             headers['Authorization'] = 'Bearer ' + self.key
+            # Sensitive admin reads require the master token again (#1034 family).
+            headers['X-Admin-Confirm-Token'] = self.key
         if self.uid:
             headers['New-Api-User'] = str(self.uid)
         if self.sid:

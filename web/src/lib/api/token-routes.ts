@@ -58,10 +58,38 @@ export type BatchUpdateChannelsResult = {
 // submits wait:false and observes the task through the existing tasks API.
 const REBUILD_ROUTES_TIMEOUT_MS = 300_000
 
+/** Master-token re-confirmation header for sensitive admin reads (#1034). */
+function confirmHeader(
+  confirmToken?: string
+): Record<string, string> | undefined {
+  return confirmToken ? { 'X-Admin-Confirm-Token': confirmToken } : undefined
+}
+
+type AccountTokenValueResponse = {
+  success: boolean
+  id: number
+  name: string
+  token: string
+  tokenMasked: string
+}
+
 export const tokenRoutesApi = {
   // Account tokens
   getAccountTokens: (accountId?: number) =>
     request(`/api/account-tokens${accountId ? `?accountId=${accountId}` : ''}`),
+  /**
+   * Reveal one stored upstream token in plaintext. Sensitive read: the
+   * backend answers `403 reauthRequired` until the master token rides in
+   * X-Admin-Confirm-Token, so the UI prompts before calling this.
+   */
+  getAccountTokenValue: (id: number, confirmToken?: string) =>
+    request<AccountTokenValueResponse>(`/api/account-tokens/${id}/value`, {
+      headers: confirmHeader(confirmToken),
+      // Never join another in-flight GET: the request carries a one-shot
+      // confirmation header and must run exactly when the operator submits.
+      disableDuplicate: true,
+      skipErrorHandler: true,
+    }),
   addAccountToken: (data: unknown) =>
     request('/api/account-tokens', {
       method: 'POST',

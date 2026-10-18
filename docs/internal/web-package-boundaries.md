@@ -183,3 +183,10 @@ out of `settings/sections/downstream/`) was retired by moving the keys UI into
   exported from the barrel instead. Rule 6 was then added to
   `web/scripts/check-boundaries.mjs` so the next one is caught by a gate rather
   than by review (#1332).
+- **2026-10-18** — master-token re-confirmation became a shared host
+  (`components/common/reauth-provider.tsx`): settings sections, downstream-key
+  mutations and the account-token reveal all need the same prompt-and-replay
+  flow, so `ReauthProvider` renders the existing `ReauthDialog` once and hands
+  the entered token to the pending replay. The provider lives in `common`
+  rather than a feature because three feature owners consume it; the token is
+  never written to context, storage or the URL.

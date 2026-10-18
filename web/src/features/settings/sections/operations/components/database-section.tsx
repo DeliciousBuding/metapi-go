@@ -9,6 +9,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { useReauthReplay } from '@/components/common/reauth-provider'
 import { SectionCard } from '@/components/common/section-card'
 import { SectionError } from '@/components/common/section-error'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
@@ -77,6 +78,7 @@ function deriveServerValues(
 
 export function DatabaseSection() {
   const { t } = useTranslation()
+  const handleReauth = useReauthReplay()
 
   const configQuery = useQuery<RuntimeDatabaseConfig>({
     queryKey: runtimeDatabaseQueryKeys.all,
@@ -106,16 +108,37 @@ export function DatabaseSection() {
   }
 
   const testMutation = useMutation({
-    mutationFn: async (values: DatabaseFormValues) =>
-      api.testExternalDatabaseConnection({
-        dialect: values.dialect,
-        connectionString: values.connectionString,
-        ssl: values.ssl,
-      }),
+    mutationFn: async (input: {
+      values: DatabaseFormValues
+      confirmToken?: string
+    }) => {
+      const data = {
+        dialect: input.values.dialect,
+        connectionString: input.values.connectionString,
+        ssl: input.values.ssl,
+      }
+      return input.confirmToken
+        ? api.testExternalDatabaseConnection(data, input.confirmToken)
+        : api.testExternalDatabaseConnection(data)
+    },
     onSuccess: () =>
       toast.success(t('settings.operations.database.toast.testOk')),
-    onError: () =>
-      toast.error(t('settings.operations.database.toast.testFailed')),
+    onError: (error, input) => {
+      if (
+        handleReauth(
+          error,
+          t('reauth.operations.databaseTest'),
+          (confirmToken) =>
+            testMutation.mutateAsync({
+              values: input.values,
+              confirmToken,
+            })
+        )
+      ) {
+        return
+      }
+      toast.error(t('settings.operations.database.toast.testFailed'))
+    },
   })
 
   const saveMutation = useMutation({
@@ -172,7 +195,9 @@ export function DatabaseSection() {
       'settings.operations.database.schema.testConnectionRequired'
     )
     if (!connection) return
-    testMutation.mutate({ ...values, connectionString: connection })
+    testMutation.mutate({
+      values: { ...values, connectionString: connection },
+    })
   })
 
   if (configQuery.isLoading) {

@@ -20,6 +20,7 @@ import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ReauthDialog } from '@/components/common/reauth-dialog'
+import { useReauthReplay } from '@/components/common/reauth-provider'
 import { SectionCard } from '@/components/common/section-card'
 import { SectionError } from '@/components/common/section-error'
 import { Button } from '@/components/ui/button'
@@ -171,6 +172,7 @@ function downloadTextFile(filename: string, text: string) {
 export function ImportExportSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const handleReauth = useReauthReplay()
   const [importText, setImportText] = useState('')
   const [importFileName, setImportFileName] = useState('')
   const [externalOriginKey, setExternalOriginKey] = useState('')
@@ -330,18 +332,34 @@ export function ImportExportSection() {
       channelsOnly?: boolean
       replaceOrigin?: boolean
       replacementRevision?: string
+      confirmToken?: string
     }) => {
       const { raw, originKey, source, channelsOnly, replaceOrigin } = input
       const data = JSON.parse(raw) as unknown
       const octopus = source === 'octopus-v5'
-      return api.importBackup(
-        data,
-        source ? originKey : undefined,
-        octopus && channelsOnly ? 'channels-only' : undefined,
-        octopus && replaceOrigin,
-        source === 'axonhub-v1.4' && replaceOrigin,
-        input.replacementRevision
-      )
+      const originKeyArg = source ? originKey : undefined
+      const octopusMode =
+        octopus && channelsOnly ? ('channels-only' as const) : undefined
+      const replaceOctopus = octopus && replaceOrigin
+      const replaceAxonHub = source === 'axonhub-v1.4' && replaceOrigin
+      return input.confirmToken
+        ? api.importBackup(
+            data,
+            originKeyArg,
+            octopusMode,
+            replaceOctopus,
+            replaceAxonHub,
+            input.replacementRevision,
+            input.confirmToken
+          )
+        : api.importBackup(
+            data,
+            originKeyArg,
+            octopusMode,
+            replaceOctopus,
+            replaceAxonHub,
+            input.replacementRevision
+          )
     },
     onSuccess: () => {
       toast.success(t('settings.content.importExport.toast.imported'))
@@ -351,10 +369,20 @@ export function ImportExportSection() {
       resetImportReview()
       invalidateAfterImport()
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, input) => {
       if (isAxiosError(error) && error.response?.status === 409) {
         toast.error(t('settings.content.importExport.toast.previewChanged'))
         void handlePreviewImport()
+        return
+      }
+      if (
+        handleReauth(
+          error,
+          t('reauth.operations.backupImport'),
+          (confirmToken) =>
+            importMutation.mutateAsync({ ...input, confirmToken })
+        )
+      ) {
         return
       }
       toast.error(t('settings.content.importExport.toast.importFailed'))
@@ -414,7 +442,10 @@ export function ImportExportSection() {
   }
 
   const saveWebdavMutation = useMutation({
-    mutationFn: async (values: Partial<WebdavFormValues>) => {
+    mutationFn: async (
+      input: Partial<WebdavFormValues> & { confirmToken?: string }
+    ) => {
+      const { confirmToken, ...values } = input
       const payload: Parameters<typeof api.saveBackupWebdavConfig>[0] = {}
       if (values.enabled !== undefined) payload.enabled = values.enabled
       if (values.fileUrl !== undefined) payload.fileUrl = values.fileUrl ?? ''
@@ -434,14 +465,27 @@ export function ImportExportSection() {
           config?.autoSyncCron ??
           '0 */6 * * *'
       }
-      return api.saveBackupWebdavConfig(payload)
+      return confirmToken
+        ? api.saveBackupWebdavConfig(payload, confirmToken)
+        : api.saveBackupWebdavConfig(payload)
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: webdavQueryKeys.all })
       toast.success(t('settings.content.importExport.toast.webdavSaved'))
     },
-    onError: () =>
-      toast.error(t('settings.content.importExport.toast.webdavSaveFailed')),
+    onError: (error, input) => {
+      if (
+        handleReauth(
+          error,
+          t('reauth.operations.backupWebdavSave'),
+          (confirmToken) =>
+            saveWebdavMutation.mutateAsync({ ...input, confirmToken })
+        )
+      ) {
+        return
+      }
+      toast.error(t('settings.content.importExport.toast.webdavSaveFailed'))
+    },
   })
 
   const exportWebdavMutation = useMutation({
@@ -469,13 +513,27 @@ export function ImportExportSection() {
   })
 
   const importWebdavMutation = useMutation({
-    mutationFn: async () => api.importBackupFromWebdav(),
+    mutationFn: async (input: { confirmToken?: string }) =>
+      input.confirmToken
+        ? api.importBackupFromWebdav(input.confirmToken)
+        : api.importBackupFromWebdav(),
     onSuccess: () => {
       toast.success(t('settings.content.importExport.toast.webdavImported'))
       invalidateAfterImport()
     },
-    onError: () =>
-      toast.error(t('settings.content.importExport.toast.webdavImportFailed')),
+    onError: (error, input) => {
+      if (
+        handleReauth(
+          error,
+          t('reauth.operations.backupWebdavImport'),
+          (confirmToken) =>
+            importWebdavMutation.mutateAsync({ ...input, confirmToken })
+        )
+      ) {
+        return
+      }
+      toast.error(t('settings.content.importExport.toast.webdavImportFailed'))
+    },
   })
 
   function onWebdavSubmit(values: WebdavFormValues) {
@@ -999,7 +1057,7 @@ export function ImportExportSection() {
         destructive
         onConfirm={() => {
           setConfirmWebdavImportOpen(false)
-          importWebdavMutation.mutate()
+          importWebdavMutation.mutate({})
         }}
         onCancel={() => setConfirmWebdavImportOpen(false)}
       />

@@ -17,6 +17,7 @@ import {
   CredentialExportDialog,
   type CredentialExportTarget,
 } from '@/components/common/credential-export-dialog'
+import { useReauthReplay } from '@/components/common/reauth-provider'
 import { SectionCard } from '@/components/common/section-card'
 import { SectionError } from '@/components/common/section-error'
 import { DataTablePage, useDataTable } from '@/components/data-table'
@@ -77,6 +78,7 @@ export function KeysSection({
 }: KeysSectionProps = {}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const handleReauth = useReauthReplay()
   const [createOpen, setCreateOpen] = useState(false)
   const [formDirty, setFormDirty] = useState(false)
   // #1430: data-key-scope anchor of the restriction badge that opened the
@@ -200,16 +202,39 @@ export function KeysSection({
     })
 
   const toggleMutation = useMutation({
-    mutationFn: async ({ id, enabled }: { id: number; enabled: boolean }) =>
-      api.updateDownstreamApiKey(id, { enabled }),
+    mutationFn: async (input: {
+      id: number
+      enabled: boolean
+      confirmToken?: string
+    }) =>
+      input.confirmToken
+        ? api.updateDownstreamApiKey(
+            input.id,
+            { enabled: input.enabled },
+            input.confirmToken
+          )
+        : api.updateDownstreamApiKey(input.id, { enabled: input.enabled }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: downstreamKeysQueryKeys.all,
       })
       toast.success(t('settings.downstream.keys.toast.updated'))
     },
-    onError: () =>
-      toast.error(t('settings.downstream.keys.toast.updateFailed')),
+    onError: (error, input) => {
+      // Enable/disable rides the same sensitive PUT; a reauth demand must not
+      // be reported as an ordinary update failure.
+      if (
+        handleReauth(
+          error,
+          t('reauth.operations.downstreamKey'),
+          (confirmToken) =>
+            toggleMutation.mutateAsync({ ...input, confirmToken })
+        )
+      ) {
+        return
+      }
+      toast.error(t('settings.downstream.keys.toast.updateFailed'))
+    },
   })
 
   // Delete-with-undo tier: key revoke is leaf (no cascade) — no confirm dialog;

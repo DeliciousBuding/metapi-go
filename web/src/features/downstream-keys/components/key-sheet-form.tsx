@@ -10,6 +10,7 @@ import type { CredentialExportTarget } from '@/components/common/credential-expo
 // form: model policy editor (rules + suggestions), site scope picker, and
 // the RHF sheet body. Split out of keys-section.tsx; behavior is unchanged.
 import { ModelPill } from '@/components/common/model-pill'
+import { useReauthReplay } from '@/components/common/reauth-provider'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -262,6 +263,7 @@ export function KeySheetForm({
   initialLocateField?: string | null
 }) {
   const { t } = useTranslation()
+  const handleReauth = useReauthReplay()
   const queryClient = useQueryClient()
   const isEdit = editingKey !== null
   const { data: sites } = useSites()
@@ -307,7 +309,11 @@ export function KeySheetForm({
   }
 
   const submitMutation = useMutation({
-    mutationFn: async (values: CreateKeyFormValues) => {
+    mutationFn: async (input: {
+      values: CreateKeyFormValues
+      confirmToken?: string
+    }) => {
+      const values = input.values
       // Canonical wire format for the credential-ref dimensions: real arrays
       // (create/update bodies never carry the stored JSON-string form).
       const policy = {
@@ -323,13 +329,16 @@ export function KeySheetForm({
       // expiry it can parse (see localDatetimeInputToIso).
       const expiresAt = localDatetimeInputToIso(values.expiresAt ?? '')
       if (!editingKey) {
-        return api.createDownstreamApiKey({
+        const payload = {
           ...values,
           ...policy,
           expiresAt,
-        })
+        }
+        return input.confirmToken
+          ? api.createDownstreamApiKey(payload, input.confirmToken)
+          : api.createDownstreamApiKey(payload)
       }
-      return api.updateDownstreamApiKey(editingKey.id, {
+      const payload = {
         name: values.name,
         groupName: values.groupName,
         maxRequests: values.maxRequests,
@@ -339,9 +348,13 @@ export function KeySheetForm({
         supportedModels: values.supportedModels,
         allowedSiteIds: values.allowedSiteIds,
         ...policy,
-      })
+      }
+      return input.confirmToken
+        ? api.updateDownstreamApiKey(editingKey.id, payload, input.confirmToken)
+        : api.updateDownstreamApiKey(editingKey.id, payload)
     },
-    onSuccess: (result, values) => {
+    onSuccess: (result, input) => {
+      const values = input.values
       void queryClient.invalidateQueries({
         queryKey: downstreamKeysQueryKeys.all,
       })
@@ -369,7 +382,23 @@ export function KeySheetForm({
       }
       onDone()
     },
-    onError: (error) => {
+    onError: (error, input) => {
+      // A new/rotated downstream key is a long-lived credential: the backend
+      // may demand the master token. Replay the same form values once; the
+      // sheet keeps its input because the form is never reset here.
+      if (
+        handleReauth(
+          error,
+          t('reauth.operations.downstreamKey'),
+          (confirmToken) =>
+            submitMutation.mutateAsync({
+              values: input.values,
+              confirmToken,
+            })
+        )
+      ) {
+        return
+      }
       // skipErrorHandler owns this call's feedback: surface the backend's
       // own message when present (400s carry the offending credentialRefs
       // entry index / unknown id), fall back to the generic toast.
@@ -384,7 +413,7 @@ export function KeySheetForm({
   })
 
   function onSubmit(values: CreateKeyFormValues) {
-    submitMutation.mutate(values)
+    submitMutation.mutate({ values })
   }
 
   function resolveSubmitLabel(): string {

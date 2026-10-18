@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { useReauthReplay } from '@/components/common/reauth-provider'
 import { SectionCard } from '@/components/common/section-card'
 import { SectionError } from '@/components/common/section-error'
 import { SectionSkeleton } from '@/components/common/section-skeleton'
@@ -197,6 +198,7 @@ function MigrationResultSummary({
 
 export function DatabaseMigrationSection() {
   const { t } = useTranslation()
+  const handleReauth = useReauthReplay()
   const [migrationTaskId, setMigrationTaskId] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   // Guards the terminal-status toasts: the task query refetches every poll,
@@ -274,34 +276,77 @@ export function DatabaseMigrationSection() {
   }, [task, t])
 
   const testMutation = useMutation({
-    mutationFn: async (values: MigrationFormValues) =>
-      api.testExternalDatabaseConnection({
-        dialect: values.dialect,
-        connectionString: values.connectionString.trim(),
-        ssl: values.ssl,
-      }),
+    mutationFn: async (input: {
+      values: MigrationFormValues
+      confirmToken?: string
+    }) => {
+      const data = {
+        dialect: input.values.dialect,
+        connectionString: input.values.connectionString.trim(),
+        ssl: input.values.ssl,
+      }
+      return input.confirmToken
+        ? api.testExternalDatabaseConnection(data, input.confirmToken)
+        : api.testExternalDatabaseConnection(data)
+    },
     onSuccess: () =>
       toast.success(t('settings.operations.database.toast.testOk')),
-    onError: () =>
-      toast.error(t('settings.operations.database.toast.testFailed')),
+    onError: (error, input) => {
+      if (
+        handleReauth(
+          error,
+          t('reauth.operations.databaseTest'),
+          (confirmToken) =>
+            testMutation.mutateAsync({
+              values: input.values,
+              confirmToken,
+            })
+        )
+      ) {
+        return
+      }
+      toast.error(t('settings.operations.database.toast.testFailed'))
+    },
   })
 
   const startMutation = useMutation({
-    mutationFn: async (values: MigrationFormValues) =>
-      api.startDatabaseMigration({
-        dialect: values.dialect,
-        connectionString: values.connectionString.trim(),
-        overwrite: values.overwrite,
-        ssl: values.ssl,
-      }),
+    mutationFn: async (input: {
+      values: MigrationFormValues
+      confirmToken?: string
+    }) => {
+      const data = {
+        dialect: input.values.dialect,
+        connectionString: input.values.connectionString.trim(),
+        overwrite: input.values.overwrite,
+        ssl: input.values.ssl,
+      }
+      return input.confirmToken
+        ? api.startDatabaseMigration(data, input.confirmToken)
+        : api.startDatabaseMigration(data)
+    },
     onSuccess: (response) => {
       handledTerminalRef.current = null
       setMigrationTaskId(response.taskId)
       setConfirmOpen(false)
       toast.info(t('settings.operations.database.migration.toast.started'))
     },
-    onError: (error) => {
+    onError: (error, input) => {
       setConfirmOpen(false)
+      // The destructive confirmation already happened; a reauth demand only
+      // adds the master-token step and replays the same job exactly once.
+      if (
+        handleReauth(
+          error,
+          t('reauth.operations.databaseMigrate'),
+          (confirmToken) =>
+            startMutation.mutateAsync({
+              values: input.values,
+              confirmToken,
+            })
+        )
+      ) {
+        return
+      }
       const errorBody = extractApiErrorBody(error)
       if (errorBody?.errorCode === ERROR_CODE_SAME_MIGRATION_TARGET) {
         toast.error(
@@ -330,8 +375,7 @@ export function DatabaseMigrationSection() {
     )
     if (!connection) return
     testMutation.mutate({
-      ...form.getValues(),
-      connectionString: connection,
+      values: { ...form.getValues(), connectionString: connection },
     })
   }
 
@@ -602,7 +646,7 @@ export function DatabaseMigrationSection() {
         cancelLabel={t('settings.common.cancel')}
         destructive
         onCancel={() => setConfirmOpen(false)}
-        onConfirm={() => startMutation.mutate(form.getValues())}
+        onConfirm={() => startMutation.mutate({ values: form.getValues() })}
       />
 
       <FormNavigationGuard enabled={form.formState.isDirty} />

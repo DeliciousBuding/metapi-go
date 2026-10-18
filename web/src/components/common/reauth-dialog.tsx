@@ -44,9 +44,11 @@ export function ReauthDialog({
   const { t } = useTranslation()
   const [token, setToken] = useState('')
 
-  // Fresh prompt every time the dialog opens.
+  // Fresh prompt every time the dialog opens, and no retained token after it
+  // closes: the entered master token lives only while the operator is
+  // interacting with this prompt.
   useEffect(() => {
-    if (open) setToken('')
+    setToken('')
   }, [open])
 
   function submit() {

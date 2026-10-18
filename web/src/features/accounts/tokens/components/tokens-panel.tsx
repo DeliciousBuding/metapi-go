@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { useReauth } from '@/components/common/reauth-provider'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -37,6 +38,12 @@ import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 import { assertBusinessOk } from '@/lib/assert-business-ok'
+import { copyText } from '@/lib/clipboard'
+import {
+  extractApiErrorBody,
+  isReauthRequired,
+  resolveResponseMessage,
+} from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 import { cn } from '@/lib/utils'
@@ -233,7 +240,53 @@ function TokenRow({
   isToggling,
 }: TokenRowProps) {
   const { t } = useTranslation()
+  const { requestReauth } = useReauth()
   const isMaskedPending = token.valueStatus === 'masked_pending'
+  // The list response only carries the masked form. Plaintext is fetched
+  // lazily on an explicit eye/copy click, behind master-token confirmation,
+  // and kept only for this row's lifetime (never persisted or cached).
+  const [revealedValue, setRevealedValue] = useState<string | null>(null)
+  const [revealPending, setRevealPending] = useState(false)
+  const canReveal = !isMaskedPending
+
+  function copyValue(value: string) {
+    void copyText(value).then((ok) => {
+      if (!ok) {
+        toast.error(t('common.copyFailed'))
+      }
+    })
+  }
+
+  function requestValue(options: { onReady?: (value: string) => void } = {}) {
+    requestReauth({
+      description: t('reauth.operations.accountTokenReveal'),
+      replay: async (confirmToken) => {
+        setRevealPending(true)
+        try {
+          const data = await api.getAccountTokenValue(token.id, confirmToken)
+          const value = typeof data?.token === 'string' ? data.token : ''
+          if (!value) {
+            throw new Error('Empty token value')
+          }
+          setRevealedValue(value)
+          options.onReady?.(value)
+        } catch (error) {
+          // A rejected master token keeps the dialog open with its inline
+          // error; every other failure is surfaced here and closes it.
+          if (!isReauthRequired(error)) {
+            toast.error(
+              resolveResponseMessage(extractApiErrorBody(error)) ??
+                t('accounts.tokens.toast.revealFailed')
+            )
+          }
+          throw error
+        } finally {
+          setRevealPending(false)
+        }
+      },
+    })
+  }
+
   return (
     <li className='flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2'>
       <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
@@ -263,7 +316,19 @@ function TokenRow({
             </Badge>
           )}
         </div>
-        <SecretField value={token.token} masked={token.tokenMasked} />
+        <SecretField
+          value={revealedValue}
+          masked={token.tokenMasked}
+          busy={revealPending}
+          onRevealRequest={
+            canReveal && !revealedValue ? () => requestValue() : undefined
+          }
+          onCopyRequest={
+            canReveal && !revealedValue
+              ? () => requestValue({ onReady: copyValue })
+              : undefined
+          }
+        />
       </div>
 
       <div className='ml-auto flex items-center gap-1'>

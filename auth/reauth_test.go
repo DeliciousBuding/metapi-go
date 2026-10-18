@@ -4,39 +4,186 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // ---- RequireReauth gate (#1034) ----
 
-func TestSensitiveAdminPathMatching(t *testing.T) {
-	sensitive := []string{
-		"/api/settings/backup/export",
-		"/api/settings/backup/webdav/export",
-		"/api/settings/auth/change",
-		"/api/downstream-keys/1/export",
-		"/api/downstream-keys/999/export",
+func TestSensitiveAdminRoutePatterns(t *testing.T) {
+	sensitive := []struct {
+		method, pattern string
+	}{
+		{http.MethodGet, "/api/settings/backup/export"},
+		{http.MethodGet, "/api/settings/backup/webdav/export"},
+		{http.MethodPost, "/api/settings/backup/import"},
+		{http.MethodPost, "/api/settings/backup/webdav/import"},
+		{http.MethodPut, "/api/settings/backup/webdav"},
+		{http.MethodPost, "/api/settings/database/migrate"},
+		{http.MethodPost, "/api/settings/database/test-connection"},
+		{http.MethodPost, "/api/settings/maintenance/factory-reset"},
+		{http.MethodPost, "/api/settings/maintenance/clear-usage"},
+		{http.MethodPost, "/api/settings/auth/change"},
+		{http.MethodGet, "/api/downstream-keys/{id}/export"},
+		{http.MethodPost, "/api/downstream-keys"},
+		{http.MethodPost, "/api/downstream-keys/batch"},
+		{http.MethodPut, "/api/downstream-keys/{id}"},
+		{http.MethodGet, "/api/account-tokens/{id}/value"},
 	}
-	for _, p := range sensitive {
-		if !sensitiveAdminPath(p) {
-			t.Errorf("%s must be sensitive", p)
+	for _, tc := range sensitive {
+		if !sensitiveAdminOperation(tc.method, tc.pattern) {
+			t.Errorf("%s %s must be sensitive", tc.method, tc.pattern)
 		}
 	}
 
-	notSensitive := []string{
-		"/api/settings/backup/import",
-		"/api/settings/backup/webdav",
-		"/api/settings/auth/info",
-		"/api/downstream-keys",
-		"/api/downstream-keys/1",
-		"/api/downstream-keys/1/overview",
-		"/api/downstream-keys/export",     // missing id segment
-		"/api/downstream-keys/1/2/export", // extra segment
-		"/api/sites",
-		"/api/downstream-keys/../settings/backup/export", // traversal never matches
+	notSensitive := []struct {
+		method, pattern string
+	}{
+		{http.MethodGet, "/api/settings/backup/import/preview"},
+		{http.MethodGet, "/api/settings/backup/webdav"},
+		{http.MethodGet, "/api/settings/auth/info"},
+		{http.MethodGet, "/api/downstream-keys"},
+		{http.MethodGet, "/api/downstream-keys/{id}"},
+		{http.MethodDelete, "/api/downstream-keys/{id}"},
+		{http.MethodGet, "/api/downstream-keys/{id}/overview"},
+		{http.MethodGet, "/api/sites"},
+		{http.MethodGet, "/api/account-tokens"},
 	}
-	for _, p := range notSensitive {
-		if sensitiveAdminPath(p) {
-			t.Errorf("%s must NOT be sensitive", p)
+	for _, tc := range notSensitive {
+		if sensitiveAdminOperation(tc.method, tc.pattern) {
+			t.Errorf("%s %s must NOT be sensitive", tc.method, tc.pattern)
+		}
+	}
+}
+
+// The middleware must key on the chi route pattern, not the raw request path:
+// an encoded id ("+1", "%209") must not slip past the gate while the handler
+// still resolves it to key 9.
+func TestRequireReauthUsesRoutePattern(t *testing.T) {
+	publishRuntimeAuthToken(t, "master-token")
+	r := chi.NewRouter()
+	r.Use(RequireReauth())
+	r.Get("/api/downstream-keys/{id}/export", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	do := func(path, confirm string) int {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		if confirm != "" {
+			req.Header.Set(ReauthConfirmHeader, confirm)
+		}
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	for _, path := range []string{
+		"/api/downstream-keys/9/export",
+		"/api/downstream-keys/+9/export",
+		"/api/downstream-keys/%209%20/export",
+		"/api/downstream-keys/%C2%A09/export",
+		"/api/downstream-keys/%E3%80%809/export",
+	} {
+		if code := do(path, ""); code != http.StatusForbidden {
+			t.Errorf("%s without confirmation = %d, want 403", path, code)
+		}
+	}
+	if code := do("/api/downstream-keys/+9/export", "master-token"); code != http.StatusOK {
+		t.Errorf("confirmed request = %d, want 200", code)
+	}
+}
+
+func TestRequireReauthSetsNoStore(t *testing.T) {
+	publishRuntimeAuthToken(t, "master-token")
+	r := chi.NewRouter()
+	r.Use(RequireReauth())
+	r.Get("/api/settings/backup/export", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/settings/backup/export", nil)
+	req.Header.Set(ReauthConfirmHeader, "master-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if got := rec.Header().Get("Cache-Control"); got == "" || !contains(got, "no-store") {
+		t.Fatalf("sensitive response Cache-Control = %q, want no-store", got)
+	}
+}
+
+func TestSameOriginGuard(t *testing.T) {
+	h := SameOriginGuard([]string{"https://admin.example.com"})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	do := func(method, origin, fetchSite, host string) int {
+		req := httptest.NewRequest(method, "http://gateway.example.com/api/sites", nil)
+		req.Host = host
+		if origin != "" {
+			req.Header.Set("Origin", origin)
+		}
+		if fetchSite != "" {
+			req.Header.Set("Sec-Fetch-Site", fetchSite)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	if code := do(http.MethodPost, "https://evil.example", "", "gateway.example.com"); code != http.StatusForbidden {
+		t.Errorf("cross-site origin = %d, want 403", code)
+	}
+	if code := do(http.MethodPost, "http://gateway.example.com", "", "gateway.example.com"); code != http.StatusOK {
+		t.Errorf("same-origin request = %d, want 200", code)
+	}
+	if code := do(http.MethodPost, "https://admin.example.com", "", "gateway.example.com"); code != http.StatusOK {
+		t.Errorf("explicitly allowed origin = %d, want 200", code)
+	}
+	if code := do(http.MethodPost, "", "same-site", "gateway.example.com"); code != http.StatusForbidden {
+		t.Errorf("same-site fetch metadata = %d, want 403", code)
+	}
+	if code := do(http.MethodPost, "", "same-origin", "gateway.example.com"); code != http.StatusOK {
+		t.Errorf("same-origin fetch metadata = %d, want 200", code)
+	}
+	if code := do(http.MethodPost, "", "", "gateway.example.com"); code != http.StatusOK {
+		t.Errorf("non-browser client without headers = %d, want 200", code)
+	}
+	if code := do(http.MethodGet, "https://evil.example", "", "gateway.example.com"); code != http.StatusOK {
+		t.Errorf("GET must not be gated = %d, want 200", code)
+	}
+}
+
+func TestSensitiveAdminPathMatching(t *testing.T) {
+	sensitive := []struct{ method, path string }{
+		{http.MethodGet, "/api/settings/backup/export"},
+		{http.MethodGet, "/api/settings/backup/webdav/export"},
+		{http.MethodPost, "/api/settings/auth/change"},
+		{http.MethodGet, "/api/downstream-keys/1/export"},
+		{http.MethodGet, "/api/downstream-keys/999/export"},
+		{http.MethodGet, "/api/downstream-keys/+1/export"},
+		{http.MethodGet, "/api/downstream-keys/%209%20/export"},
+		{http.MethodGet, "/api/downstream-keys/%C2%A01/export"},
+		{http.MethodGet, "/api/downstream-keys/%E3%80%801/export"},
+		{http.MethodGet, "/api/downstream-keys/..%2f..%2fadmin/export"},
+		{http.MethodGet, "/api/downstream-keys/x/export"},
+	}
+	for _, tc := range sensitive {
+		if !sensitiveAdminPath(tc.method, tc.path) {
+			t.Errorf("%s %s must be sensitive", tc.method, tc.path)
+		}
+	}
+
+	notSensitive := []struct{ method, path string }{
+		{http.MethodGet, "/api/settings/backup/import/preview"},
+		{http.MethodGet, "/api/settings/backup/webdav"},
+		{http.MethodGet, "/api/settings/auth/info"},
+		{http.MethodGet, "/api/downstream-keys"},
+		{http.MethodGet, "/api/downstream-keys/1"},
+		{http.MethodGet, "/api/downstream-keys/1/overview"},
+		{http.MethodGet, "/api/downstream-keys/export"},     // missing id segment
+		{http.MethodGet, "/api/downstream-keys/1/2/export"}, // extra segment
+		{http.MethodGet, "/api/sites"},
+	}
+	for _, tc := range notSensitive {
+		if sensitiveAdminPath(tc.method, tc.path) {
+			t.Errorf("%s %s must NOT be sensitive", tc.method, tc.path)
 		}
 	}
 }

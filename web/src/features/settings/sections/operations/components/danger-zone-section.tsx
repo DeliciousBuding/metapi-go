@@ -7,6 +7,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useReauthReplay } from '@/components/common/reauth-provider'
 import { SectionCard } from '@/components/common/section-card'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,6 +31,7 @@ const FACTORY_RESET_CONFIRM_WORD = 'RESET'
 
 export function DangerZoneSection() {
   const { t } = useTranslation()
+  const handleReauth = useReauthReplay()
   const [factoryResetOpen, setFactoryResetOpen] = useState(false)
   const [countdown, setCountdown] = useState(FACTORY_RESET_COUNTDOWN_SECONDS)
   const [confirmText, setConfirmText] = useState('')
@@ -50,14 +52,29 @@ export function DangerZoneSection() {
   }, [factoryResetOpen, countdown])
 
   const factoryResetMutation = useMutation({
-    mutationFn: async () => api.factoryReset(),
+    mutationFn: async (input: { confirmToken?: string }) =>
+      input.confirmToken
+        ? api.factoryReset(input.confirmToken)
+        : api.factoryReset(),
     onSuccess: () => {
       toast.success(t('settings.operations.dangerZone.toast.factoryResetDone'))
       setFactoryResetOpen(false)
       // The backend wipes session + DB; reload to drop the in-memory auth state.
       window.location.reload()
     },
-    onError: () => {
+    onError: (error, input) => {
+      // The countdown + typed-word confirmation already ran; the master-token
+      // step is an extra server-side gate and replays the same reset once.
+      if (
+        handleReauth(
+          error,
+          t('reauth.operations.factoryReset'),
+          (confirmToken) =>
+            factoryResetMutation.mutateAsync({ ...input, confirmToken })
+        )
+      ) {
+        return
+      }
       toast.error(t('settings.operations.dangerZone.toast.factoryResetFailed'))
       setFactoryResetOpen(false)
     },
@@ -130,7 +147,7 @@ export function DangerZoneSection() {
                 factoryResetMutation.isPending ||
                 confirmText.trim() !== FACTORY_RESET_CONFIRM_WORD
               }
-              onClick={() => factoryResetMutation.mutate()}
+              onClick={() => factoryResetMutation.mutate({})}
             >
               {countdown > 0
                 ? t('settings.operations.dangerZone.factoryResetCountdown', {

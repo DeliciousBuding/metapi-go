@@ -9,6 +9,7 @@ import { setNonce } from 'get-nonce'
 import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 
+import { ReauthProvider } from '@/components/common/reauth-provider'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
 import { getCspNonce } from '@/lib/csp-nonce'
@@ -46,7 +47,9 @@ if (!rootElement.innerHTML) {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <ThemeCustomizationProvider>
-            <RouterProvider router={router} />
+            <ReauthProvider>
+              <RouterProvider router={router} />
+            </ReauthProvider>
           </ThemeCustomizationProvider>
         </ThemeProvider>
       </QueryClientProvider>
