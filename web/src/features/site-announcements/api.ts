@@ -32,7 +32,8 @@ export function useSiteAnnouncements(
     queryKey: siteAnnouncementsKeys.list(params),
     queryFn: async () => {
       const result = await api.getSiteAnnouncements(params)
-      return Array.isArray(result) ? result : []
+      if (!Array.isArray(result)) throw new Error('Invalid announcement list')
+      return result
     },
     placeholderData: (previous) => previous,
     ...options,

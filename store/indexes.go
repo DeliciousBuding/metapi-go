@@ -121,6 +121,7 @@ func buildIndexes() []struct {
 		// site_announcements
 		{"site_announcements_site_id_first_seen_at_idx", `CREATE INDEX IF NOT EXISTS site_announcements_site_id_first_seen_at_idx ON site_announcements (site_id, first_seen_at)`},
 		{"site_announcements_read_at_idx", `CREATE INDEX IF NOT EXISTS site_announcements_read_at_idx ON site_announcements (read_at)`},
+		{"site_announcement_history_parent_id_idx", `CREATE INDEX IF NOT EXISTS site_announcement_history_parent_id_idx ON site_announcement_history (announcement_id, id)`},
 		// events
 		{"events_read_created_at_idx", `CREATE INDEX IF NOT EXISTS events_read_created_at_idx ON events (read, created_at)`},
 		{"events_type_created_at_idx", `CREATE INDEX IF NOT EXISTS events_type_created_at_idx ON events (type, created_at)`},

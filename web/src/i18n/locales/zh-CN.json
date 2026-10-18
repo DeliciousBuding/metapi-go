@@ -3387,7 +3387,14 @@
     "siteAnnouncements": {
       "page": {
         "title": "站点公告",
-        "description": "公告同步从上游站点抓取的通知。"
+        "description": "查看各站点的最新公告，点击公告行展开正文和更新记录。"
+      },
+      "timeline": {
+        "title": "历史更新",
+        "current": "当前版本",
+        "siteNotice": "站点通知",
+        "updates": "{{count}} 次更新",
+        "lastSeen": "最后发现：{{time}}"
       },
       "actions": {
         "sync": "立即同步",

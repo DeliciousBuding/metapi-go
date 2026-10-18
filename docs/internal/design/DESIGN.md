@@ -153,6 +153,12 @@ rebuild these arrangements with local spacing and raw data editors:
 
 ### Upstream connections and access
 
+列表详情优先在当前行下展开，保留列表位置。主行的非交互区域可点击，标题旁
+用带箭头的按钮提供键盘入口，按钮声明 `aria-expanded` 和 `aria-controls`。
+复选框、开关、链接和操作菜单独立响应。详情以缩进和边线区分，可同时展开多行；
+窄屏沿用同一内容并允许长名称换行。详情按需加载，加载失败显示重试，未知值
+保持未知。编辑和深入诊断仍保留独立入口。共享组件见[组件地图](components.md)。
+
 Independent upstreams use the same brand identities as site presets. The connect
 action is available above both channel views. Connection cards expose labeled credential,
 model and route counts as direct links to the corresponding detail tabs. Missing

@@ -5,10 +5,7 @@
 // (NewAPI-style /api/notice and friends). The operator risk banners served by
 // /api/announcements live in Settings > Content and never intersect here.
 //
-// SECURITY: title / content / source fields are UNTRUSTED upstream data.
-// The body is rendered as plain text only (never dangerouslySetInnerHTML,
-// never markdown), and `sourceUrl` is deliberately NOT rendered as a
-// clickable external link unless it resolves safely against the trusted Site URL.
+// Titles and previews are plain text; expanded bodies use the shared Markdown renderer.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
@@ -18,12 +15,17 @@ import {
   ExternalLink,
   RefreshCw,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { PageHeader } from '@/components/common/page-header'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import {
+  RowDisclosureTrigger,
+  RowDisclosureContent,
+  rowDisclosureClick,
+} from '@/components/common/row-disclosure'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -65,6 +67,7 @@ import {
   buildSiteAnnouncementsHref,
   parseSiteAnnouncementsSearch,
 } from '../url-state'
+import { AnnouncementDetails } from './announcement-details'
 
 type BadgeVariant =
   | 'default'
@@ -141,6 +144,7 @@ function syncStatusKey(syncTask: SiteAnnouncementSyncTask | undefined): string {
 }
 
 export function SiteAnnouncementsPage() {
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(() => new Set())
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
   const queryClient = useQueryClient()
@@ -551,10 +555,16 @@ export function SiteAnnouncementsPage() {
               <TableHead>
                 {t('siteAnnouncements.columns.announcement')}
               </TableHead>
-              <TableHead>{t('siteAnnouncements.columns.site')}</TableHead>
-              <TableHead>{t('siteAnnouncements.columns.level')}</TableHead>
-              <TableHead>{t('siteAnnouncements.columns.seen')}</TableHead>
-              <TableHead className='text-right'>
+              <TableHead className='hidden md:table-cell'>
+                {t('siteAnnouncements.columns.site')}
+              </TableHead>
+              <TableHead className='hidden md:table-cell'>
+                {t('siteAnnouncements.columns.level')}
+              </TableHead>
+              <TableHead className='hidden md:table-cell'>
+                {t('siteAnnouncements.columns.seen')}
+              </TableHead>
+              <TableHead className='w-20 text-right md:w-auto'>
                 {t('siteAnnouncements.columns.actions')}
               </TableHead>
             </TableRow>
@@ -562,111 +572,160 @@ export function SiteAnnouncementsPage() {
           <TableBody>
             {items.map((item) => {
               const unread = !item.readAt
+              const expanded = expandedIds.has(item.id)
+              const contentId = `announcement-details-${item.id}`
+              const title =
+                item.title === 'Site notice'
+                  ? t('siteAnnouncements.timeline.siteNotice')
+                  : item.title
+              const toggle = () => {
+                setExpandedIds((previous) => {
+                  const next = new Set(previous)
+                  if (next.has(item.id)) next.delete(item.id)
+                  else next.add(item.id)
+                  return next
+                })
+                // Keep an unread-filtered row visible while its body is open.
+                if (expanded && unread) markReadMutation.mutate(item.id)
+              }
               const lifecycle = rowLifecycle(item)
               const sourceURL = resolveAnnouncementSourceURL(
                 item,
                 siteById.get(item.siteId)
               )
               return (
-                <TableRow key={item.id} data-unread={unread || undefined}>
-                  <TableCell className='max-w-105'>
-                    <div className='flex flex-col gap-0.5'>
-                      <span
-                        className={cn(
-                          'flex items-center gap-2 text-sm',
-                          unread ? 'font-medium' : 'text-muted-foreground'
-                        )}
-                      >
-                        {unread ? (
-                          <span
-                            aria-label={t('siteAnnouncements.row.unread')}
-                            className='bg-primary size-1.5 shrink-0 rounded-full'
-                          />
-                        ) : null}
-                        {/* Untrusted upstream content: plain text only. */}
-                        <span className='truncate' title={item.title}>
-                          {item.title}
-                        </span>
-                        {lifecycle ? (
-                          <Badge variant='outline'>
-                            {t(
-                              lifecycle === 'dismissed'
-                                ? 'siteAnnouncements.row.dismissed'
-                                : 'siteAnnouncements.row.expired'
-                            )}
-                          </Badge>
-                        ) : null}
-                      </span>
-                      {item.content ? (
+                <Fragment key={item.id}>
+                  <TableRow
+                    data-unread={unread || undefined}
+                    className='cursor-pointer'
+                    onClick={(event) => rowDisclosureClick(event, toggle)}
+                  >
+                    <TableCell className='max-w-105 whitespace-normal'>
+                      <div className='flex flex-col gap-0.5'>
                         <span
-                          className='text-muted-foreground line-clamp-2 text-xs'
-                          title={item.content}
+                          className={cn(
+                            'flex items-center gap-2 text-sm',
+                            unread ? 'font-medium' : 'text-muted-foreground'
+                          )}
                         >
-                          {item.content}
+                          {unread ? (
+                            <span
+                              aria-label={t('siteAnnouncements.row.unread')}
+                              className='bg-primary size-1.5 shrink-0 rounded-full'
+                            />
+                          ) : null}
+                          <RowDisclosureTrigger
+                            expanded={expanded}
+                            controls={contentId}
+                            className='h-auto min-w-0 justify-start p-0 text-left text-sm font-medium break-words whitespace-normal'
+                            onClick={toggle}
+                          >
+                            {title}
+                          </RowDisclosureTrigger>
+                          {lifecycle ? (
+                            <Badge variant='outline'>
+                              {t(
+                                lifecycle === 'dismissed'
+                                  ? 'siteAnnouncements.row.dismissed'
+                                  : 'siteAnnouncements.row.expired'
+                              )}
+                            </Badge>
+                          ) : null}
                         </span>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className='flex flex-col text-sm'>
-                      <span>
-                        {siteById.get(item.siteId)?.name ??
-                          t('siteAnnouncements.row.siteUnknown', {
-                            id: item.siteId,
-                          })}
-                      </span>
-                      <span className='text-muted-foreground text-xs'>
-                        {item.platform}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <LevelBadge level={item.level} />
-                  </TableCell>
-                  <TableCell className='text-muted-foreground text-xs whitespace-nowrap'>
-                    <SeenRange item={item} locale={locale} />
-                  </TableCell>
-                  <TableCell className='text-right'>
-                    <div className='flex items-center justify-end gap-1'>
-                      {sourceURL ? (
-                        <a
-                          href={sourceURL}
-                          target='_blank'
-                          rel='noopener noreferrer'
-                          aria-label={t('siteAnnouncements.row.openUpstream')}
-                          title={t('siteAnnouncements.row.openUpstream')}
-                          className={buttonVariants({
-                            variant: 'ghost',
-                            size: 'icon-sm',
-                          })}
-                          onClick={() => {
-                            if (unread) markReadMutation.mutate(item.id)
-                          }}
-                        >
-                          <ExternalLink aria-hidden='true' />
-                        </a>
-                      ) : null}
-                      {unread ? (
-                        <Button
-                          type='button'
-                          variant='ghost'
-                          size='sm'
-                          disabled={markReadMutation.isPending}
-                          onClick={() => markReadMutation.mutate(item.id)}
-                        >
-                          {t('siteAnnouncements.row.markRead')}
-                        </Button>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                        {item.content && !expanded ? (
+                          <span
+                            className='text-muted-foreground line-clamp-2 text-xs'
+                            title={item.content}
+                          >
+                            {item.content}
+                          </span>
+                        ) : null}
+                        <span className='text-muted-foreground mt-1 text-xs md:hidden'>
+                          {siteById.get(item.siteId)?.name ?? item.platform} ·{' '}
+                          {formatDateTime(item.firstSeenAt, locale)}
+                        </span>
+                        {(item.revisionCount ?? 0) > 0 ? (
+                          <span className='text-muted-foreground mt-1 text-xs'>
+                            {t('siteAnnouncements.timeline.updates', {
+                              count: item.revisionCount,
+                            })}
+                          </span>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className='hidden md:table-cell'>
+                      <div className='flex flex-col text-sm'>
+                        <span>
+                          {siteById.get(item.siteId)?.name ??
+                            t('siteAnnouncements.row.siteUnknown', {
+                              id: item.siteId,
+                            })}
+                        </span>
+                        <span className='text-muted-foreground text-xs'>
+                          {item.platform}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className='hidden md:table-cell'>
+                      <LevelBadge level={item.level} />
+                    </TableCell>
+                    <TableCell className='text-muted-foreground hidden text-xs whitespace-nowrap md:table-cell'>
+                      <SeenRange item={item} locale={locale} />
+                    </TableCell>
+                    <TableCell className='w-20 text-right md:w-auto'>
+                      <div className='flex flex-col items-end justify-end gap-1 md:flex-row md:items-center'>
+                        {sourceURL ? (
+                          <a
+                            href={sourceURL}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                            aria-label={t('siteAnnouncements.row.openUpstream')}
+                            title={t('siteAnnouncements.row.openUpstream')}
+                            className={buttonVariants({
+                              variant: 'ghost',
+                              size: 'icon-sm',
+                            })}
+                            onClick={() => {
+                              if (unread) markReadMutation.mutate(item.id)
+                            }}
+                          >
+                            <ExternalLink aria-hidden='true' />
+                          </a>
+                        ) : null}
+                        {unread ? (
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='sm'
+                            disabled={markReadMutation.isPending}
+                            onClick={() => markReadMutation.mutate(item.id)}
+                          >
+                            {t('siteAnnouncements.row.markRead')}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {expanded ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className='max-w-0 py-4 whitespace-normal'
+                      >
+                        <RowDisclosureContent id={contentId} label={title}>
+                          <AnnouncementDetails item={item} />
+                        </RowDisclosureContent>
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
               )
             })}
           </TableBody>
         </Table>
       ) : null}
 
-      {!listQuery.isLoading && items.length > 0 ? (
+      {!listQuery.isLoading && (items.length > 0 || page > 0) ? (
         <div className='flex items-center justify-between'>
           <span className='text-muted-foreground text-xs'>
             {t('siteAnnouncements.pagination.summary', {

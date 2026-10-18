@@ -59,6 +59,7 @@ var schemaTables = []schemaTable{
 	{"downstream_api_keys", buildDownstreamAPIKeysDDL},
 	{"downstream_quota_usage", buildDownstreamQuotaUsageDDL},
 	{"site_announcements", buildSiteAnnouncementsDDL},
+	{"site_announcement_history", buildSiteAnnouncementHistoryDDL},
 	{"events", buildEventsDDL},
 	{"admin_background_tasks", buildAdminBackgroundTasksDDL},
 	{"balance_history", buildBalanceHistoryDDL},

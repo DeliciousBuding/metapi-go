@@ -2,7 +2,6 @@ package platform
 
 import (
 	"context"
-	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -1219,7 +1218,7 @@ func (n *NewApiAdapter) GetSiteAnnouncements(ctx context.Context, baseURL, acces
 	// link land on a JSON payload (#1297). An empty source URL resolves to the
 	// trusted site home, matching the other adapters (e.g. sub2api).
 	return []SiteAnnouncement{{
-		SourceKey: fmt.Sprintf("notice:%x", sha1.Sum([]byte(content))),
+		SourceKey: "notice",
 		Title:     "Site notice",
 		Content:   content,
 		Level:     "info",

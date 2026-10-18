@@ -24,6 +24,11 @@ The implementation is the primitive API source of truth. The pre-rewrite `ds-*` 
 
 ## Operator workflows
 
+Expandable list rows compose `components/common/row-disclosure.tsx`: a named
+`RowDisclosureTrigger`, `rowDisclosureClick` for the non-interactive row surface,
+and `RowDisclosureContent` for the indented region. Data tables and ordinary
+tables share these controls; feature owners supply the detail content and state.
+
 The model tester prioritizes model/protocol, channel, prompt and send controls.
 Templates, system instructions and sampling controls are progressively disclosed;
 validation errors in that section reveal it. The searchable provider-grouped

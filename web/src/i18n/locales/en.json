@@ -3385,9 +3385,16 @@
       }
     },
     "siteAnnouncements": {
+      "timeline": {
+        "title": "Previous updates",
+        "current": "Current version",
+        "siteNotice": "Site notice",
+        "updates": "{{count}} updates",
+        "lastSeen": "Last seen: {{time}}"
+      },
       "page": {
         "title": "Site Announcements",
-        "description": "Notices scraped from your upstream sites by the announcement sync."
+        "description": "Read the latest notices from your sites. Click a row to expand its content and updates."
       },
       "actions": {
         "sync": "Sync now",
