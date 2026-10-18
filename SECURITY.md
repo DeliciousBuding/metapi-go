@@ -37,6 +37,12 @@ notes (unless anonymity is requested).
 - The embedded frontend (React SPA).
 - The Docker image and build pipeline.
 
+The trust boundaries, the controls at each one, and the limits that are
+deliberate design choices are documented in
+[docs/security-model.md](docs/security-model.md). Reports that restate one of
+those documented limits are still welcome, but please say why the limit is
+insufficient for your deployment.
+
 Out of scope: misconfiguration of your own deployment (weak `AUTH_TOKEN`,
 exposed ports, etc.) — please check the deployment docs and harden your
 environment. General questions belong in issues or discussions, not
@@ -46,4 +52,6 @@ advisories.
 
 This is a self-hosted product: all credentials and traffic live on your own
 server. Do not expose the admin UI or proxy port to the public internet
-without a reverse proxy, TLS, and a strong `AUTH_TOKEN` and individually managed downstream API keys.
+without a reverse proxy, TLS, a strong `AUTH_TOKEN` (when it is unset, Metapi
+generates one on first boot and writes it to `DATA_DIR/admin-token`; keep that
+file private), and individually managed downstream API keys.
