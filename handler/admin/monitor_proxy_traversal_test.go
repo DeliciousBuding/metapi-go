@@ -92,3 +92,67 @@ func TestLdohProxy_DottedSegmentPathsStillProxied(t *testing.T) {
 		t.Fatalf("upstream path = %q, want /static/app..min.js", receivedPath)
 	}
 }
+
+// TestLdohProxy_DoubleEncodedTraversalRejected covers the L4 gap: net/http
+// decodes the request target once, so "%252e%252e%252fadmin" reaches the
+// handler as "%2e%2e%2fadmin". An upstream that decodes again would see
+// "../admin", so the traversal check must decode a second round before
+// deciding the path is safe.
+func TestLdohProxy_DoubleEncodedTraversalRejected(t *testing.T) {
+	receivedPaths := make(chan string, 4)
+	env := newMonitorProxyEnv(t, func(w http.ResponseWriter, r *http.Request) {
+		receivedPaths <- r.URL.Path
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// One decode happens during request parsing; the handler must not trust
+	// the resulting literal "%2e%2e%2f" segment.
+	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/%252e%252e%252fadmin")
+	if req.URL.Path != "/monitor-proxy/ldoh/%2e%2e%2fadmin" {
+		t.Fatalf("precondition: URL.Path = %q, want the once-decoded form", req.URL.Path)
+	}
+	rec := httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s, want 400 for double-encoded traversal", rec.Code, rec.Body.String())
+	}
+	select {
+	case upstreamPath := <-receivedPaths:
+		t.Fatalf("upstream received double-encoded traversal path %q", upstreamPath)
+	default:
+	}
+
+	// Backslash separators are normalized to "/" by some upstream stacks.
+	req = monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/seed")
+	req.URL.Path = `/monitor-proxy/ldoh/..\..\admin`
+	rec = httptest.NewRecorder()
+	env.router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 for backslash traversal", rec.Code)
+	}
+}
+
+// TestLdohProxy_ResponseUsesIsolatedCSP pins the M17 mitigation: proxied
+// third-party content must never execute as same-origin script.
+func TestLdohProxy_ResponseUsesIsolatedCSP(t *testing.T) {
+	env := newMonitorProxyEnv(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte("<html><body>third-party</body></html>"))
+	})
+
+	rec := httptest.NewRecorder()
+	env.router.ServeHTTP(rec, monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/dashboard"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s, want 200", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); got != monitorProxyCSP {
+		t.Fatalf("Content-Security-Policy = %q, want %q", got, monitorProxyCSP)
+	}
+	for _, directive := range []string{"script-src 'none'", "sandbox", "default-src 'none'"} {
+		if !strings.Contains(monitorProxyCSP, directive) {
+			t.Fatalf("monitor proxy CSP %q missing %q", monitorProxyCSP, directive)
+		}
+	}
+}

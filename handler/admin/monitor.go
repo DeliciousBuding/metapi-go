@@ -16,7 +16,6 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
-	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -234,6 +233,36 @@ func clearMonitorAuthCookies(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// monitorProxyCSP is the response policy for the /monitor-proxy/* surface.
+// The content is third-party and served from the admin origin; script-src
+// 'none' plus sandbox keeps it from acting as same-origin code, while the
+// inline-style allowance keeps the LDOH UI readable.
+const monitorProxyCSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; script-src 'none'; sandbox"
+
+// containsEncodedPathTraversal reports whether the proxy path reaches a ".."
+// segment after up to two extra percent-decode rounds. r.URL.Path has already
+// been decoded once by net/http, so "%252e%252e" arrives as "%2e%2e"; an
+// upstream that decodes again would turn that into "..". Backslashes are
+// treated as separators because some upstream stacks normalize them to "/".
+func containsEncodedPathTraversal(path string) bool {
+	decoded := path
+	for i := 0; i < 2; i++ {
+		next, err := url.PathUnescape(decoded)
+		if err != nil || next == decoded {
+			break
+		}
+		decoded = next
+	}
+	for _, segment := range strings.FieldsFunc(decoded, func(r rune) bool {
+		return r == '/' || r == '\\'
+	}) {
+		if segment == ".." {
+			return true
+		}
+	}
+	return false
+}
+
 // GET/POST/ALL /monitor-proxy/ldoh and /monitor-proxy/ldoh/*
 func (h *monitorHandler) ldohProxy(w http.ResponseWriter, r *http.Request) {
 	if !h.ensureMonitorAuth(r) {
@@ -242,6 +271,14 @@ func (h *monitorHandler) ldohProxy(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	// Third-party LDOH content is served from the Metapi origin. The global
+	// policy allows script-src 'self', so proxied pages/scripts would execute
+	// as same-origin code and could call /api/* with the admin session
+	// (audit M17). This response policy disables scripts entirely and sandboxes
+	// the document; setting it here replaces the global header for this
+	// response, which is strictly narrower.
+	w.Header().Set("Content-Security-Policy", monitorProxyCSP)
 
 	storedCookie := getSettingValue(h.db, ldohCookieSettingKey)
 	if storedCookie == "" {
@@ -255,10 +292,10 @@ func (h *monitorHandler) ldohProxy(w http.ResponseWriter, r *http.Request) {
 	wildcardPath := resolveLdohProxyPath(r)
 	// Reject ".." segments before joining the
 	// LDOH base URL. The request path arrives percent-decoded, so %2e%2e is
-	// caught in the same scan. Without this check a monitor-session cookie
-	// holder could normalize outside the LDOH base subpath on the upstream
-	// host once the surface is reachable with cookie-only auth.
-	if proxy.ContainsPathTraversal(wildcardPath) {
+	// caught in the same scan. For the proxy surface a single decode is not
+	// enough: upstream frameworks may decode again, so %252e%252e (which
+	// reaches us as the literal "%2e%2e") must also be rejected (audit L4).
+	if containsEncodedPathTraversal(wildcardPath) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid proxy path"})
 		return
 	}
