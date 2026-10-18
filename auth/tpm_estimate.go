@@ -13,10 +13,14 @@ import (
 // Strategy (documented intentionally; not a tokenizer):
 // 1. Prefer JSON body fields used by chat/completions, responses, Claude, Gemini:
 // sum string rune lengths under "messages", "input", "system", "contents",
-// then chars/4 (same leaf strategy as routing.EstimateRequestContextTokens).
-// 2. Else fall back to Content-Length/4 when present (floor only).
+// "prompt", then chars/4 (same leaf strategy as routing.EstimateRequestContextTokens).
+// 2. Else fall back to bytes actually read from the body (covers chunked
+// requests, where Content-Length is -1), then to Content-Length when the body
+// was not readable.
 // 3. Clamp positive estimates to [1, 128000].
-// 4. Unreadable / empty / non-JSON with no Content-Length → 0 (skip TPM accounting).
+// 4. Unreadable / empty body with no Content-Length → reserve the 1-token
+// minimum instead of skipping TPM accounting. A request that cannot be
+// estimated must not silently bypass maxTPM.
 
 // Never invent large defaults that false-block admission.
 const (
@@ -28,16 +32,19 @@ const (
 
 // estimateAdmissionTokens returns a best-effort token estimate for TPM admission.
 // Safe to call on any request; restores r.Body when it was peeked.
-// Returns 0 when no reliable signal is available (caller should skip TPM reserve).
+// Returns at least 1 so callers never skip TPM accounting for an admitted
+// request; an unestimable body conservatively reserves the minimum.
 func estimateAdmissionTokens(r *http.Request) int64 {
 	if r == nil {
-		return 0
+		return 1
 	}
 
 	chars := int64(0)
+	readBytes := int64(0)
 	if r.Body != nil && r.Body != http.NoBody {
 		// Peek up to cap+1 so we can detect truncation without consuming the rest.
 		peek, err := io.ReadAll(io.LimitReader(r.Body, tpmEstimateMaxBodyBytes+1))
+		readBytes = int64(len(peek))
 		if err != nil {
 			// Re-chain whatever was read with the remaining body; skip JSON path.
 			r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(peek), r.Body))
@@ -54,12 +61,20 @@ func estimateAdmissionTokens(r *http.Request) int64 {
 	}
 
 	if chars <= 0 {
-		// Content-Length floor when JSON path yielded nothing.
-		if r.ContentLength > 0 {
-			chars = r.ContentLength
-		} else {
-			return 0
+		// Bytes actually read cover chunked bodies (Content-Length -1) and
+		// unparseable/truncated bodies. A declared Content-Length larger than
+		// what we could read stays a conservative floor.
+		if readBytes > 0 {
+			chars = readBytes
 		}
+		if r.ContentLength > chars {
+			chars = r.ContentLength
+		}
+	}
+
+	if chars <= 0 {
+		// No signal at all: reserve the 1-token minimum rather than skipping.
+		return 1
 	}
 
 	// chars/4 ≈ tokens; clamp positive results to [1, 128000].
@@ -74,9 +89,9 @@ func estimateAdmissionTokens(r *http.Request) int64 {
 }
 
 // sumMessagesInputStringRunes walks JSON "messages" / "input" and sums rune
-// lengths of string leaves. Also counts Claude "system" and Gemini "contents"
-// envelopes (parity with routing.EstimateRequestContextTokens). Returns 0 for
-// non-JSON or missing fields.
+// lengths of string leaves. Also counts Claude "system", Gemini "contents" and
+// top-level "prompt" envelopes (parity with routing.EstimateRequestContextTokens
+// plus the completions prompt surface). Returns 0 for non-JSON or missing fields.
 func sumMessagesInputStringRunes(raw []byte) int64 {
 	raw = bytes.TrimSpace(raw)
 	if len(raw) == 0 || raw[0] != '{' {
@@ -99,6 +114,10 @@ func sumMessagesInputStringRunes(raw []byte) int64 {
 	}
 	if contents, ok := top["contents"]; ok {
 		total += sumJSONStringRunes(contents)
+	}
+	// Legacy completions prompt (string or string array).
+	if prompt, ok := top["prompt"]; ok {
+		total += sumJSONStringRunes(prompt)
 	}
 	return total
 }

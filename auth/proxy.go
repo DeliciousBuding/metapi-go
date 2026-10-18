@@ -77,14 +77,19 @@ func ProxyAuth() func(http.Handler) http.Handler {
 			// 429 over_rpm/over_tpm does not permanently burn used_requests.
 			// Successful admit still increments used_requests exactly once.
 
-			// WebSocket upgrade (GET + Upgrade: websocket): authorize only.
+			// Responses WebSocket handshake: authorize only.
 			// TS responsesWebsocket authorizes on upgrade but bills per message
 			// via consumeManagedKeyRequest in the session loop (WS C2).
 			// Burning used_requests on Accept would double-count the first turn.
-			if result.Source == "managed" && result.Key != nil && !isWebsocketUpgradeRequest(r) {
+			//
+			// Upgrade/Connection are client-controlled headers, so the skip is
+			// gated on method + a registered WS route too. A forged header on
+			// any other request still takes the normal admission/consume path.
+			if result.Source == "managed" && result.Key != nil && !isResponsesWebsocketHandshake(r) {
 				// Soft RPM/TPM admission. Fail closed with 429 + Retry-After.
 				// When maxTPM is set, reserve a best-effort estimate from the request
-				// body. estimatedTokens=0 skips TPM accounting (no invent).
+				// body; the estimator reserves at least one token when it cannot
+				// derive a larger value, so TPM accounting is never skipped.
 				estimatedTokens := int64(0)
 				if result.Key.MaxTPM != nil && *result.Key.MaxTPM > 0 {
 					estimatedTokens = estimateAdmissionTokens(r)
@@ -176,7 +181,6 @@ func extractProxyToken(r *http.Request) string {
 
 // isWebsocketUpgradeRequest mirrors proxyhandler.IsWebsocketUpgradeRequest
 // without importing that package (auth must stay free of handler deps).
-// Used so ProxyAuth can authorize upgrade GETs without billing the handshake.
 func isWebsocketUpgradeRequest(r *http.Request) bool {
 	if r == nil {
 		return false
@@ -190,4 +194,28 @@ func isWebsocketUpgradeRequest(r *http.Request) bool {
 		}
 	}
 	return false
+}
+
+// isResponsesWebsocketHandshake reports whether r is a WebSocket handshake on a
+// route that actually serves the Responses WebSocket transport. Only these
+// requests may skip the per-request admission/consume in ProxyAuth; the session
+// loop bills every message instead.
+//
+// The Upgrade headers alone are not evidence: any client can set them. The
+// method must be GET and the path must be one of the registered upgrade
+// endpoints (handler/proxy/router.go: GET /v1/responses, GET /responses,
+// GET /responses/* which resolves to /v1/responses or /v1/responses/compact).
+func isResponsesWebsocketHandshake(r *http.Request) bool {
+	if r == nil || r.Method != http.MethodGet {
+		return false
+	}
+	if !isWebsocketUpgradeRequest(r) {
+		return false
+	}
+	switch r.URL.Path {
+	case "/v1/responses", "/responses", "/responses/compact":
+		return true
+	default:
+		return false
+	}
 }
