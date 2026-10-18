@@ -103,4 +103,33 @@ func TestBunInstallWiring(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("Bun image pin matches CI", func(t *testing.T) {
+		workflow := read(".github/workflows/main.yml")
+		dockerfile := read("Dockerfile")
+		version := regexp.MustCompile(`(?m)^  BUN_VERSION: "([^"]+)"\s*$`).FindStringSubmatch(workflow)
+		digest := regexp.MustCompile(`(?m)^  BUN_DIGEST: "(sha256:[0-9a-f]{64})"\s*$`).FindStringSubmatch(workflow)
+		argVersion := regexp.MustCompile(`(?m)^ARG BUN_VERSION=([^\s]+)\s*$`).FindStringSubmatch(dockerfile)
+		argDigest := regexp.MustCompile(`(?m)^ARG BUN_DIGEST=(sha256:[0-9a-f]{64})\s*$`).FindStringSubmatch(dockerfile)
+		if version == nil || digest == nil {
+			t.Fatal("workflow no longer declares BUN_VERSION and a 64-hex BUN_DIGEST")
+		}
+		if argVersion == nil || argDigest == nil {
+			t.Fatal("Dockerfile no longer declares matching BUN_VERSION and BUN_DIGEST build args")
+		}
+		if version[1] != argVersion[1] {
+			t.Errorf("BUN_VERSION drift: workflow %q, Dockerfile %q", version[1], argVersion[1])
+		}
+		if digest[1] != argDigest[1] {
+			t.Errorf("BUN_DIGEST drift: workflow %q, Dockerfile %q", digest[1], argDigest[1])
+		}
+		if !strings.Contains(dockerfile, "FROM oven/bun:${BUN_VERSION}-alpine@${BUN_DIGEST}") {
+			t.Error("Dockerfile must consume both the Bun version and its digest in FROM")
+		}
+		for _, arg := range []string{"BUN_VERSION=", "BUN_DIGEST="} {
+			if got := strings.Count(workflow, arg); got < 2 {
+				t.Errorf("workflow passes %s %d time(s), want both docker-build and docker-push", arg, got)
+			}
+		}
+	})
 }

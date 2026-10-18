@@ -79,10 +79,127 @@ func TestReleaseGateWiring(t *testing.T) {
 			t.Errorf("%s has a job-level condition or allowed failure; it must gate every workflow trigger", dep)
 		}
 	}
-	if !strings.Contains(jobs["docker-push"], "needs: [docker-build]") {
-		t.Error("docker-push does not require docker-build")
+	// The publication path is prepare → native per-architecture builds →
+	// manifest merge → anonymous pull smoke → draft Release. Every edge is
+	// required; a skipped matrix leg must not let a release through.
+	needsInline := regexp.MustCompile(`(?m)^    needs: \[([^\]]*)\]`)
+	hasNeed := func(job, dep string) bool {
+		match := needsInline.FindStringSubmatch(job)
+		if match == nil {
+			return false
+		}
+		for _, item := range strings.Split(match[1], ",") {
+			if strings.TrimSpace(item) == dep {
+				return true
+			}
+		}
+		return false
 	}
-	if !strings.Contains(jobs["release"], "needs: [docker-push]") {
-		t.Error("release does not require docker-push")
+	for _, edge := range []struct{ job, dep string }{
+		{"docker-prepare", "docker-build"},
+		{"docker-push", "docker-prepare"},
+		{"docker-manifest", "docker-prepare"},
+		{"docker-manifest", "docker-push"},
+		{"image-verify", "docker-prepare"},
+		{"image-verify", "docker-manifest"},
+		{"release", "image-verify"},
+	} {
+		job, ok := jobs[edge.job]
+		if !ok {
+			t.Errorf("publication job %q is missing", edge.job)
+			continue
+		}
+		if !hasNeed(job, edge.dep) {
+			t.Errorf("%s does not require %s", edge.job, edge.dep)
+		}
+	}
+
+	push := jobs["docker-push"]
+	for _, want := range []string{
+		"runner: ubuntu-latest",
+		"runner: ubuntu-24.04-arm",
+		"platform: linux/amd64",
+		"platform: linux/arm64",
+		"fail-fast: false",
+	} {
+		if !strings.Contains(push, want) {
+			t.Errorf("docker-push is missing %q; native per-architecture builds are required", want)
+		}
+	}
+	if !strings.Contains(jobs["docker-manifest"], "docker buildx imagetools create") {
+		t.Error("docker-manifest must merge the per-architecture images with imagetools create")
+	}
+	if !strings.Contains(jobs["docker-prepare"], "published version tags are immutable") {
+		t.Error("docker-prepare must refuse to overwrite an existing release tag")
+	}
+	for _, want := range []string{"docker logout ghcr.io", "docker pull", "/api/about"} {
+		if !strings.Contains(jobs["image-verify"], want) {
+			t.Errorf("image-verify is missing %q; the published image must be pulled anonymously and booted", want)
+		}
+	}
+	if got := strings.Count(workflow, "sigstore/cosign-installer@"); got < 2 {
+		t.Errorf("workflow pins cosign-installer %d time(s), want at least 2 (per-arch images and final manifest)", got)
+	}
+	if !strings.Contains(workflow, "cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}") {
+		t.Error("tag publications must not be cancelled by a concurrent run")
+	}
+	// An index-only Accept returns 404 for a tag that exists as a single image
+	// manifest, which would let the immutable check overwrite it.
+	if !strings.Contains(jobs["docker-prepare"], "application/vnd.oci.image.manifest.v1+json") {
+		t.Error("the immutable tag check must accept single OCI image manifests")
+	}
+	for _, want := range []string{"image-digest-", "${RUNNER_TEMP}/${ARCH}.txt"} {
+		if !strings.Contains(jobs["docker-push"], want) {
+			t.Errorf("docker-push is missing %q; architecture digests must be handed to the manifest job", want)
+		}
+	}
+	for _, want := range []string{"pattern: image-digest-*", "${IMAGE_NAME}@${amd64}", "${IMAGE_NAME}@${arm64}", "unknown/unknown"} {
+		if !strings.Contains(jobs["docker-manifest"], want) {
+			t.Errorf("docker-manifest is missing %q; it must merge this run's digests and keep attestations", want)
+		}
+	}
+	if !strings.Contains(jobs["image-verify"], "EXPECTED_DIGEST") || !strings.Contains(jobs["image-verify"], "resolved") {
+		t.Error("image-verify must compare the pulled tag against the manifest digest")
+	}
+	dockerfile, err := os.ReadFile(filepath.Join("..", "Dockerfile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/", "COPY licenses/ /licenses/licenses/"} {
+		if !strings.Contains(string(dockerfile), path) {
+			t.Errorf("Dockerfile must ship AGPL and third-party license files: missing %q", path)
+		}
+	}
+}
+
+// Third-party actions run with the workflow's token, including the publish
+// job's packages:write and id-token:write. A floating major tag is mutable by
+// its owner; pin the commit and let Dependabot move the pin.
+func TestGitHubActionsArePinned(t *testing.T) {
+	files := []string{
+		".github/workflows/main.yml",
+		".github/actions/go-toolchain/action.yml",
+	}
+	useRE := regexp.MustCompile(`(?m)^\s*-?\s*uses:\s+([^\s#]+)`)
+	pinnedRE := regexp.MustCompile(`^[^@]+@[0-9a-f]{40}$`)
+	checked := 0
+	for _, rel := range files {
+		data, err := os.ReadFile(filepath.Join("..", rel))
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		for _, match := range useRE.FindAllStringSubmatch(string(data), -1) {
+			ref := match[1]
+			if strings.HasPrefix(ref, "./") {
+				continue
+			}
+			checked++
+			if !pinnedRE.MatchString(ref) {
+				t.Errorf("%s uses %q; pin the commit SHA instead of a mutable tag", rel, ref)
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("action pin scan found no external actions; a vacuous pass is not allowed")
 	}
 }

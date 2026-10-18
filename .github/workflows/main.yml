@@ -20,15 +20,20 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # A tag run publishes images and creates a Release. Cancelling it midway can
+  # leave a partially published tag set, so only branch/PR runs are cancelled.
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   # Single source of truth for the Bun toolchain: every setup-bun step and the
-  # Dockerfile bun build stage (BUN_VERSION build-arg) read this value.
+  # Dockerfile bun build stage (BUN_VERSION + BUN_DIGEST build-args) read this
+  # value. Bump both together; scripts/bun_install_wiring_test.go enforces it.
   BUN_VERSION: "1.3.14"
+  BUN_DIGEST: "sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0"
   REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/deliciousbuding/metapi-go
-  # Shared gha cache scope so docker-push reuses layers built by docker-build.
+  # Per-architecture gha cache scopes keep native amd64/arm64 builds from
+  # evicting each other; docker-build reuses the amd64 scope.
   DOCKER_CACHE_SCOPE: metapi-go
 
 jobs:
@@ -36,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/go-toolchain
       - name: gofmt check (pinned to the go.mod toolchain)
         # gofmt's opinion changes between Go releases (e.g. 1.26 struct-literal
@@ -89,7 +94,7 @@ jobs:
 
           golangci-lint config verify --schema "$schema"
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@d6c05c543676670c2115a45b24210890aede0f83 # v6.4.0
         with:
           version: v1.64.8
           install-mode: none
@@ -100,7 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/go-toolchain
       - run: go vet ./...
 
@@ -108,7 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/go-toolchain
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 
@@ -116,8 +121,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - run: go mod download
@@ -127,10 +132,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - name: Run gitleaks (full git history)
@@ -140,8 +145,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - name: Prose hygiene gates (public markdown + programme codes in sources)
@@ -154,8 +159,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
       # Never call `bun install` directly: scripts/bun-install.sh carries the
@@ -170,8 +175,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: sh ../scripts/bun-install.sh
@@ -179,7 +184,7 @@ jobs:
       - run: bun run build:web
         working-directory: web
       - name: Upload web dist for test jobs
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-dist
           path: web/dist
@@ -194,15 +199,15 @@ jobs:
     timeout-minutes: 30
     needs: web-dist
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - name: Download frontend dist
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: web-dist
           path: web/dist
@@ -210,7 +215,7 @@ jobs:
         run: sh ../scripts/bun-install.sh
         working-directory: web
       - name: Cache Playwright browsers
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
@@ -262,12 +267,12 @@ jobs:
         shard: [0, 1, 2, 3]
         total: [4]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/go-toolchain
       # SPA-fallback and static-asset tests exercise the real embedded dist,
       # built once by web-dist and passed through the artifact.
       - name: Download frontend dist
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: web-dist
           path: web/dist
@@ -346,14 +351,14 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       # SPA-fallback and static-asset tests exercise the real embedded dist,
       # built once by web-dist and passed through the artifact.
       - name: Download frontend dist
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: web-dist
           path: web/dist
@@ -373,7 +378,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/go-toolchain
       - run: go build -trimpath ./cmd/server
       - run: go build -trimpath ./cmd/migrate
@@ -474,7 +479,7 @@ jobs:
         options: >-
           --restart on-failure
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/go-toolchain
       - name: Prove strict relay smoke semantics
         run: |
@@ -1005,7 +1010,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Same pattern as the build job: go-toolchain sets up Go and creates the
       # web/dist placeholder so the //go:embed dist directive compiles on a
       # fresh checkout (the runtime smoke only needs the API, not the real SPA).
@@ -1079,19 +1084,21 @@ jobs:
           NEEDS_RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
           printf '%s' "$NEEDS_RESULTS" | jq -e 'length > 0 and all(.[]; . == "success")'
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build Docker image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: ./Dockerfile
           push: false
           tags: metapi-go:ci
           load: true
-          build-args: BUN_VERSION=${{ env.BUN_VERSION }}
-          cache-from: type=gha,scope=${{ env.DOCKER_CACHE_SCOPE }}
-          cache-to: type=gha,mode=max,scope=${{ env.DOCKER_CACHE_SCOPE }}
+          build-args: |
+            BUN_VERSION=${{ env.BUN_VERSION }}
+            BUN_DIGEST=${{ env.BUN_DIGEST }}
+          cache-from: type=gha,scope=${{ env.DOCKER_CACHE_SCOPE }}-amd64
+          cache-to: type=gha,mode=max,scope=${{ env.DOCKER_CACHE_SCOPE }}-amd64
       - name: Smoke Docker image
         run: |
           set -euo pipefail
@@ -1122,21 +1129,102 @@ jobs:
           curl -fsS "http://127.0.0.1:${port}/health" | grep -q '"status":"ok"'
           curl -fsS "http://127.0.0.1:${port}/ready" | grep -q '"database":"ok"'
 
-  # ---- Publish images: master → edge + sha; SemVer tags → release tags + latest ----
-  docker-push:
+  # ---- Publish images: one native build per architecture, then one manifest ----
+  # The old single-job build ran the arm64 half under emulation (about 10.5
+  # minutes for the 0.25.0 release). Native runners build both halves in
+  # parallel; the manifest job is the only place a user-facing tag is created.
+  docker-prepare:
     if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 10
     needs: [docker-build]
     permissions:
       contents: read
+    outputs:
+      tags: ${{ steps.tags.outputs.tags }}
+      version: ${{ steps.tags.outputs.version }}
+    steps:
+      - name: Resolve tags and refuse to overwrite a released version
+        id: tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="$GITHUB_REF_NAME"
+            plain="${version#v}"
+            major="${plain%%.*}"
+            rest="${plain#*.}"
+            minor="${rest%%.*}"
+            tags=("$version" "$plain" "${major}.${minor}" "latest")
+
+            # A released version tag is an immutable identity. Re-running a
+            # failed publication must use a new patch version, not silently
+            # replace bytes that downstream deployments may have pinned.
+            registry_path="${IMAGE_NAME#ghcr.io/}"
+            token="$(curl -fsS --retry 3 --retry-delay 2 --retry-all-errors \
+              "https://ghcr.io/token?scope=repository:${registry_path}:pull" | jq -r '.token')"
+            if [[ -z "$token" || "$token" == "null" ]]; then
+              echo "::error::GHCR did not issue an anonymous pull token"
+              exit 1
+            fi
+            for existing in "$version" "$plain"; do
+              code="$(curl -sS --retry 3 --retry-delay 2 --retry-all-errors \
+                -o /dev/null -w '%{http_code}' \
+                -H "Authorization: Bearer ${token}" \
+                -H 'Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json' \
+                "https://ghcr.io/v2/${registry_path}/manifests/${existing}")"
+              case "$code" in
+                404) ;;
+                200)
+                  echo "::error::release image ${IMAGE_NAME}:${existing} already exists; published version tags are immutable. Bump the patch version."
+                  exit 1
+                  ;;
+                *)
+                  echo "::error::could not determine whether ${IMAGE_NAME}:${existing} exists (HTTP ${code})"
+                  exit 1
+                  ;;
+              esac
+            done
+          else
+            version=dev
+            tags=("edge" "sha-${GITHUB_SHA:0:7}")
+          fi
+          {
+            echo "tags<<EOF"
+            printf '%s\n' "${tags[@]}"
+            echo "EOF"
+            echo "version=${version}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Image publication"
+            echo
+            echo "- version: \`${version}\`"
+            echo "- tags: \`$(printf '%s ' "${tags[@]}")\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  docker-push:
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    needs: [docker-prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
       packages: write
-      attestations: write
       id-token: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -1144,50 +1232,239 @@ jobs:
       - name: Resolve build provenance
         id: provenance
         run: echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-      - uses: docker/metadata-action@v6
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         id: meta
         with:
           images: ${{ env.IMAGE_NAME }}
           flavor: latest=false
-          tags: |
-            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/master' }}
-            type=sha,prefix=sha-,format=short,enable=${{ github.ref == 'refs/heads/master' }}
-            type=semver,pattern=v{{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-      - uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        id: build
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VERSION=${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'dev' }}
+            VERSION=${{ needs.docker-prepare.outputs.version }}
             COMMIT=${{ github.sha }}
             BUILD_TIME=${{ steps.provenance.outputs.build_time }}
             BUN_VERSION=${{ env.BUN_VERSION }}
-          cache-from: type=gha,scope=${{ env.DOCKER_CACHE_SCOPE }}
-          cache-to: type=gha,mode=max,scope=${{ env.DOCKER_CACHE_SCOPE }}
-          platforms: linux/amd64,linux/arm64
+            BUN_DIGEST=${{ env.BUN_DIGEST }}
+          cache-from: type=gha,scope=${{ env.DOCKER_CACHE_SCOPE }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ env.DOCKER_CACHE_SCOPE }}-${{ matrix.arch }}
+          platforms: ${{ matrix.platform }}
           provenance: mode=max
           sbom: true
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Sign per-architecture image
+        run: cosign sign --yes "${IMAGE_NAME}@${{ steps.build.outputs.digest }}"
+      - name: Record per-architecture digest
+        env:
+          ARCH: ${{ matrix.arch }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          printf '%s' "${{ steps.build.outputs.digest }}" > "${RUNNER_TEMP}/${ARCH}.txt"
+          {
+            echo "### ${IMAGE_NAME} ${ARCH} (${PLATFORM})"
+            echo '```text'
+            echo "${IMAGE_NAME}@${{ steps.build.outputs.digest }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload architecture digest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: image-digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/${{ matrix.arch }}.txt
+          if-no-files-found: error
+
+  docker-manifest:
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    needs: [docker-prepare, docker-push]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      digest: ${{ steps.manifest.outputs.digest }}
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download architecture digests
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: image-digest-*
+          path: ${{ runner.temp }}/image-digests
+          merge-multiple: true
+      - name: Create and verify multi-arch manifests
+        id: manifest
+        shell: bash
+        env:
+          BASE_TAGS: ${{ needs.docker-prepare.outputs.tags }}
+        run: |
+          set -euo pipefail
+          amd64="$(cat "${RUNNER_TEMP}/image-digests/amd64.txt")"
+          arm64="$(cat "${RUNNER_TEMP}/image-digests/arm64.txt")"
+          for value in "$amd64" "$arm64"; do
+            if [[ ! "$value" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::architecture digest is missing or malformed: ${value}"
+              exit 1
+            fi
+          done
+          digest=""
+          while IFS= read -r tag; do
+            [[ -n "$tag" ]] || continue
+            ref="${IMAGE_NAME}:${tag}"
+            # Merge exactly the digests this run built; floating tag names could
+            # mix architectures when two releases publish concurrently.
+            docker buildx imagetools create -t "$ref" \
+              "${IMAGE_NAME}@${amd64}" "${IMAGE_NAME}@${arm64}"
+            inspect="$(docker buildx imagetools inspect "$ref")"
+            printf '%s\n' "$inspect"
+            for platform in linux/amd64 linux/arm64; do
+              if ! grep -Eq "Platform:[[:space:]]+${platform}" <<< "$inspect"; then
+                echo "::error::${ref} is missing ${platform}"
+                exit 1
+              fi
+            done
+            if ! grep -Eq 'Platform:[[:space:]]+unknown/unknown' <<< "$inspect"; then
+              echo "::error::${ref} lost the build provenance attestation"
+              exit 1
+            fi
+            tag_digest="$(printf '%s\n' "$inspect" | awk '/^Digest:/ {print $2; exit}')"
+            if [[ -z "$tag_digest" ]]; then
+              echo "::error::could not read the manifest digest for ${ref}"
+              exit 1
+            fi
+            if [[ -z "$digest" ]]; then digest="$tag_digest"; fi
+            if [[ "$tag_digest" != "$digest" ]]; then
+              echo "::error::${ref} resolved to ${tag_digest}, expected ${digest}"
+              exit 1
+            fi
+          done <<< "$BASE_TAGS"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Multi-arch manifest"
+            echo '```text'
+            echo "${IMAGE_NAME}@${digest}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Sign multi-arch manifest
+        run: cosign sign --yes "${IMAGE_NAME}@${{ steps.manifest.outputs.digest }}"
+
+  # Pull with no GHCR credentials, then run the exact bytes a user receives.
+  image-verify:
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    needs: [docker-prepare, docker-manifest]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Pull anonymously and smoke the published image
+        shell: bash
+        env:
+          BASE_TAGS: ${{ needs.docker-prepare.outputs.tags }}
+          EXPECTED_VERSION: ${{ needs.docker-prepare.outputs.version }}
+          EXPECTED_DIGEST: ${{ needs.docker-manifest.outputs.digest }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          docker logout ghcr.io >/dev/null 2>&1 || true
+          first_tag="$(printf '%s\n' "$BASE_TAGS" | head -n 1)"
+          ref="${IMAGE_NAME}:${first_tag}"
+          pulled=
+          for attempt in 1 2 3; do
+            if docker pull "$ref"; then pulled=1; break; fi
+            echo "pull attempt ${attempt} failed; retrying"
+            sleep 5
+          done
+          if [[ -z "$pulled" ]]; then
+            echo "::error::anonymous pull of ${ref} failed after 3 attempts"
+            exit 1
+          fi
+          resolved="$(docker buildx imagetools inspect "$ref" | awk '/^Digest:/ {print $2; exit}')"
+          if [[ "$resolved" != "$EXPECTED_DIGEST" ]]; then
+            echo "::error::${ref} resolved to ${resolved}, expected ${EXPECTED_DIGEST}"
+            exit 1
+          fi
+          actual_arch="$(docker image inspect "$ref" --format '{{.Architecture}}')"
+          if [[ "$actual_arch" != "$ARCH" ]]; then
+            echo "::error::${ref} pulled ${actual_arch} on the ${ARCH} runner"
+            exit 1
+          fi
+          name="metapi-verify-${ARCH}"
+          port=49041
+          docker rm -f "$name" >/dev/null 2>&1 || true
+          trap 'docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
+          docker run -d --name "$name" \
+            -p "127.0.0.1:${port}:4000" \
+            -e AUTH_TOKEN=verify-admin-token \
+            -e PROXY_TOKEN=verify-proxy-token \
+            -e ACCOUNT_CREDENTIAL_SECRET=verify-credential-secret-0123456789abcdef \
+            "$ref"
+          ready=
+          for _ in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:${port}/ready" 2>/dev/null | grep -q '"status":"ok"'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [[ -z "$ready" ]]; then
+            docker logs "$name"
+            exit 1
+          fi
+          curl -fsS "http://127.0.0.1:${port}/health" | grep -q '"status":"ok"'
+          curl -fsS "http://127.0.0.1:${port}/ready" | grep -q '"database":"ok"'
+          about="$(curl -fsS -H 'Authorization: Bearer verify-admin-token' \
+            "http://127.0.0.1:${port}/api/about")"
+          printf '%s\n' "$about"
+          printf '%s' "$about" | jq -e --arg v "$EXPECTED_VERSION" '.version == $v' >/dev/null
+          echo "verified ${ref} on ${ARCH} (version ${EXPECTED_VERSION})"
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        if: matrix.arch == 'amd64'
+      - name: Verify the published signature
+        if: matrix.arch == 'amd64'
+        shell: bash
+        env:
+          BASE_TAGS: ${{ needs.docker-prepare.outputs.tags }}
+        run: |
+          set -euo pipefail
+          first_tag="$(printf '%s\n' "$BASE_TAGS" | head -n 1)"
+          cosign verify "${IMAGE_NAME}:${first_tag}" \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/main.yml@${GITHUB_REF}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
   # ---- Release: SemVer tags only, after the image is published ----
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [docker-push]
+    needs: [image-verify]
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - name: Verify release consistency (tag == package.json == CHANGELOG)

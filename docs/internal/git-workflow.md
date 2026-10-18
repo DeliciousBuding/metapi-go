@@ -1,6 +1,6 @@
 # Git Workflow — 分支策略与协作规范
 
-**最后更新**：2026-10-16
+**最后更新**：2026-10-18
 
 > 本文定义 metapi-go 的工作项、分支、PR 和发布流程。开放工作以 GitHub Issue 为准；本文只写稳定的决策规则，不复制实时路线图。
 
@@ -81,13 +81,15 @@ master (唯一长期分支，受保护，持续集成)
 2. 在最终源码和构建上验收，记录提交、构建版本和测试结果；镜像可直接使用 digest 标识。fixture、真实模型和下游客户端结果分别列出。输入改变后重跑受影响检查。
 3. 维护者审阅范围、剩余风险及证据后，明确决定是否发布和版本号。决定发布后才把 `CHANGELOG.md` 的 `[Unreleased]` 整理为 `## [vX.Y.Z]` 节、更新 `web/package.json` version，经 PR 合入 master；该 PR 合入后，以最终 master commit 重新构建并补跑受影响的候选验收，不能沿用准备前的产物摘要。
 4. 仅在明确发布决定后，从干净且 HEAD 等于 `origin/master` 的 checkout/worktree 运行 `bash scripts/release.sh X.Y.Z`；不必切换当前主工作树。助手负责一致性校验、annotated tag 与推送，不负责决定发版。tag、包版本与 CHANGELOG 节须一致；push 仍执行本地门禁。
-5. SemVer tag 触发 `.github/workflows/main.yml` 的检查及镜像发布，再构建五个平台二进制、checksums 和安装脚本，执行发布二进制冒烟。**新建 GitHub Release 使用 `--draft`**；维护者复核最终附件、验收结果和公开说明（含脱敏与已知限制）后，才发布稳定 Release。
+5. SemVer tag 触发 `.github/workflows/main.yml` 的检查及镜像发布：amd64/arm64 在原生 runner 并行构建，合并为多架构 manifest，匿名回拉并启动两种架构，校验构建版本与 cosign 签名后，才构建五个平台二进制、checksums 和安装脚本并执行发布二进制冒烟。**新建 GitHub Release 使用 `--draft`**；维护者复核最终附件、验收结果和公开说明（含脱敏与已知限制）后，才发布稳定 Release。
 
 ### 构建渠道与发布状态（当前 workflow）
 
-- **master 构建**：成功的镜像发布 job 更新 `edge` 与 `sha-<short>` 标签，构建版本为 `dev`。这不是稳定发布批准。
-- **tag 构建**：同一镜像同时打 `vX.Y.Z`、`X.Y.Z`（精确版本）、`X.Y`（补丁别名）与 `latest`；`latest` 只由稳定 tag 更新，`edge` 不参与。
-- **Release 草稿**：镜像在创建草稿之前已发布；草稿不会隔离或回滚镜像。已有同 tag Release 的重跑只覆盖附件、更新说明，不改变其 draft/published 状态；已发布 Release 不会因重跑重新进入审阅。
+- **master 构建**：成功的镜像发布链更新 `edge` 与 `sha-<short>` 标签，构建版本为 `dev`。这不是稳定发布批准。
+- **tag 构建**：amd64 与 arm64 分别原生构建，再合并为 `vX.Y.Z`、`X.Y.Z`（精确版本）、`X.Y`（补丁别名）与 `latest` 的多架构 manifest；`latest` 只由稳定 tag 更新，`edge` 不参与。
+- **版本不可变**：已发布的 `vX.Y.Z` / `X.Y.Z` 不允许覆盖；发布失败后重跑必须使用新的补丁版本。`X.Y` 与 `latest` 是移动别名。manifest 已发布但回拉或验签失败时，下一次尝试同样需要新补丁版本。
+- **发布前验证**：manifest 合并后，两个原生 runner 各自匿名拉取并启动镜像，校验 tag 解析到的 manifest digest、`/ready`、`/api/about` 版本和 cosign 签名；任一步失败都不会创建 Release 草稿。
+- **Release 草稿**：镜像在创建草稿之前已发布并验证；草稿不会隔离或回滚镜像。已有同 tag Release 的重跑只覆盖附件、更新说明，不改变其 draft/published 状态；已发布 Release 不会因重跑重新进入审阅。
 - **稳定安装**：选维护者已公开发布的非预发布 Release，并固定对应完整版本镜像标签或 digest；开发验证选具体 commit 构建并记录摘要。不要用 `latest` 或仓库 HEAD 代替验收身份。
 
 ## 6.1 版本号与发布节奏
@@ -135,7 +137,7 @@ hotfix 不等于绕过 PR、现有 CI 或发布复核，也不自动授权关闭
 | 合并策略 | 仓库 Settings → General | Allow squash merging only |
 | master 保护 | 仓库 Settings → Branches | 见 §3 |
 | PR 模板 | `.github/pull_request_template.md` | 自动填充 |
-| CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量必检；独立 `web-dist` 构建与 frontend 检查并行，SQLite/PG/a11y 不再串行等待 frontend；`docker-build` 汇总两者及其他门禁；master push 推送镜像（edge+sha）；SemVer tag：镜像（amd64+arm64，vX.Y.Z/X.Y.Z/X.Y/latest）→ 多平台二进制 + 新建 draft Release；已有 Release 重跑不改 draft/published 状态 |
+| CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量必检；独立 `web-dist` 构建与 frontend 检查并行，SQLite/PG/a11y 不再串行等待 frontend；`docker-build` 汇总两者及其他门禁；master push 推送镜像（edge+sha）；SemVer tag：amd64/arm64 原生并行构建 → 多架构 manifest → 匿名回拉冒烟 + cosign 验签 → 多平台二进制 + 新建 draft Release；已发布版本 tag 不可覆盖，已有 Release 重跑不改 draft/published 状态 |
 | 本地门禁 | `.githooks/pre-push-project` | 可直接运行；可选的 `.githooks/pre-push` 委托此入口。完整执行前端检查/构建、Go build/vet/race，不依赖个人全局工具链 |
 
 相关文档：[`deployment.md`](../deployment.md)（部署）· [`CHANGELOG.md`](../../CHANGELOG.md)（版本叙事）· `AGENTS.md`（工程规则）；当前状态以 GitHub issues/releases 为准。

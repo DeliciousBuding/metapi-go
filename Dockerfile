@@ -14,11 +14,13 @@ ARG VERSION=dev
 ARG COMMIT
 ARG BUILD_TIME
 # Single source of truth: .github/workflows/main.yml env.BUN_VERSION
-# (docker-push/docker-build pass it as a build-arg; default matches).
+# (docker-push/docker-build pass BUN_VERSION + BUN_DIGEST as build-args; the
+# defaults below match). scripts/bun_install_wiring_test.go enforces the match.
 ARG BUN_VERSION=1.3.14
+ARG BUN_DIGEST=sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0
 
 # Stage 1: Frontend build (Bun + Rsbuild)
-FROM oven/bun:${BUN_VERSION}-alpine AS web
+FROM oven/bun:${BUN_VERSION}-alpine@${BUN_DIGEST} AS web
 WORKDIR /app/web
 COPY web/package.json web/bun.lock ./
 # The install retry policy is shared with CI so the two cannot drift. It lives in
@@ -38,7 +40,7 @@ COPY web ./
 RUN bun run build:web
 
 # Stage 2: Go build
-FROM golang:1.27.2-alpine AS build
+FROM golang:1.27.2-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS build
 ARG VERSION
 ARG COMMIT
 ARG BUILD_TIME
@@ -83,12 +85,14 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -o metapi-migrate ./cmd/migrate
 
 # Stage 3: Runtime
-FROM alpine:3.24
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 RUN apk add --no-cache ca-certificates tzdata
 RUN addgroup -g 1001 -S appgroup && adduser -u 1001 -S appuser -G appgroup
 RUN mkdir -p /app/data && chown -R appuser:appgroup /app/data
 COPY --from=build /app/metapi /usr/local/bin/metapi
 COPY --from=build /app/metapi-migrate /usr/local/bin/metapi-migrate
+COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/
+COPY licenses/ /licenses/licenses/
 USER appuser
 EXPOSE 4000
 ENV HOST=0.0.0.0 \
