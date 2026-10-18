@@ -44,7 +44,7 @@ func TestBootstrapRuntimeFailsOnUnavailablePostgres(t *testing.T) {
 
 	cfg, rt := config.Load(map[string]string{
 		"DB_TYPE":      "postgres",
-		"DATABASE_URL": "postgres://user:pass@127.0.0.1:1/metapi?sslmode=disable",
+		"DATABASE_URL": "postgres://user:pass@127.0.0.1:1/metapi?sslmode=disable&connect_timeout=1",
 		"DATA_DIR":     t.TempDir(),
 	})
 
@@ -54,6 +54,9 @@ func TestBootstrapRuntimeFailsOnUnavailablePostgres(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "ensure runtime database") {
 		t.Fatalf("bootstrapRuntime error = %v, want ensure runtime database context", err)
+	}
+	if !strings.Contains(err.Error(), "failed to ping postgres database") {
+		t.Fatalf("bootstrapRuntime error = %v, want PostgreSQL connection failure", err)
 	}
 }
 
