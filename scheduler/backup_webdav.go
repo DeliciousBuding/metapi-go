@@ -199,16 +199,24 @@ func newBackupWebdavHTTPClient() *http.Client {
 }
 
 func newBackupWebdavHTTPTransport() *http.Transport {
-	dialer := &net.Dialer{Timeout: 5 * time.Second}
-	// Pin the validated DNS answer instead of validating once and then
-	// asking the dialer to resolve the hostname again: the old
-	// reject-then-dial sequence left a DNS-rebinding TOCTOU window
-	// (audit L24). The default policy is public-only; the operator escape
-	// hatch keeps private/loopback targets but still rejects metadata and
-	// link-local addresses.
-	dialContext := ssrf.NewPublicOnlyDialContext(net.DefaultResolver, dialer.DialContext)
+	return newBackupWebdavHTTPTransportWithGuard(net.DefaultResolver, nil)
+}
+
+// newBackupWebdavHTTPTransportWithGuard builds the WebDAV transport with an
+// injectable resolver/dialer so tests can prove the resolved answer is pinned.
+// Pin the validated DNS answer instead of validating once and then asking the
+// dialer to resolve the hostname again: the old reject-then-dial sequence left
+// a DNS-rebinding TOCTOU window (audit L24). The default policy is
+// public-only; the operator escape hatch keeps private/loopback targets but
+// still rejects metadata and link-local addresses.
+func newBackupWebdavHTTPTransportWithGuard(resolver ssrf.NetIPResolver, dial ssrf.DialContextFunc) *http.Transport {
+	if dial == nil {
+		dialer := &net.Dialer{Timeout: 5 * time.Second}
+		dial = dialer.DialContext
+	}
+	dialContext := ssrf.NewPublicOnlyDialContext(resolver, dial)
 	if allowPrivateBackupWebdavTargets {
-		dialContext = ssrf.NewSiteDialContext(net.DefaultResolver, dialer.DialContext)
+		dialContext = ssrf.NewSiteDialContext(resolver, dial)
 	}
 	return &http.Transport{
 		Proxy:                 nil,
