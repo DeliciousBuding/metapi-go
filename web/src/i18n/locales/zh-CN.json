@@ -1413,22 +1413,23 @@
           "changeToken": "更换令牌",
           "cancelChange": "取消",
           "submitToken": "轮换令牌",
+          "generatedTitle": "新的管理员令牌（仅显示一次）",
+          "generatedHint": "请立即复制并存入密码管理器；点击下方按钮后将退出登录，无法再次查看。",
+          "generatedCopy": "复制",
+          "generatedCopied": "已复制",
+          "generatedSaved": "我已保存，重新登录",
           "detectedIp": "检测到的管理员 IP：",
           "fields": {
             "oldToken": "当前令牌",
-            "newToken": "新令牌",
-            "newTokenHint": "至少 6 个字符。",
-            "confirmToken": "确认新令牌",
+            "generateHint": "轮换后由服务器生成强随机令牌，仅显示一次。",
             "adminIpAllowlist": "管理员 IP 白名单",
             "adminIpAllowlistHint": "每行一个 IP 或 CIDR（如 127.0.0.1、192.168.1.0/24）。留空 = 不限制。"
           },
           "schema": {
-            "oldRequired": "请输入当前令牌。",
-            "newMinLength": "新令牌至少 6 个字符。",
-            "confirmRequired": "请确认新令牌。",
-            "confirmMismatch": "两次输入的新令牌不一致。"
+            "oldRequired": "请输入当前令牌。"
           },
           "toast": {
+            "tokenGenerated": "已生成新的管理员令牌。",
             "tokenChanged": "管理员令牌已轮换。请用新令牌重新登录。",
             "tokenChangeFailed": "轮换管理员令牌失败。",
             "allowlistSaved": "IP 白名单已保存。",

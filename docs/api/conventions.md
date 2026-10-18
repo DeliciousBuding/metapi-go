@@ -45,6 +45,11 @@ and the UI prompts for the token:
 - `POST /api/settings/maintenance/factory-reset`
 - `POST /api/settings/maintenance/clear-usage`
 - `POST /api/settings/auth/change`
+
+Master-token rotation omits `newToken` in the UI: the server generates a
+32-byte random token, returns it once in the response (`newToken`), persists
+it, and updates `DATA_DIR/admin-token` (0600). Automation may still supply an
+explicit `newToken` of at least 16 characters.
 - `GET /api/downstream-keys/:id/export`
 - `POST /api/downstream-keys`
 - `POST /api/downstream-keys/batch`

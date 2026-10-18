@@ -27,7 +27,7 @@ shorthand) so they stay greppable.
 
 | Variable | Default | Description |
 |:---------|:--------|:------------|
-| `AUTH_TOKEN` | `change-me-admin-token` | Admin web UI login token and management API bearer. Change it. Empty, the built-in default, or shorter than 8 bytes refuses startup; shorter than 16 bytes logs a weak-token warning. A token rotated through the admin API is persisted in settings and overrides the environment value on restart. |
+| `AUTH_TOKEN` | auto-generated | Admin web UI login token and management API bearer. Leave it unset (or at the shipped placeholder) and the first startup generates a 32-byte random token, persists it, and writes it to `DATA_DIR/admin-token` (0600). An explicit value shorter than 8 bytes refuses startup; shorter than 16 bytes logs a weak-token warning. A token rotated through the admin API is persisted in settings and overrides the environment value on restart. |
 
 ## Legacy upgrade imports
 

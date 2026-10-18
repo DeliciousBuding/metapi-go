@@ -3,12 +3,14 @@ package admin
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/admintoken"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -55,13 +57,17 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	body.OldToken = strings.TrimSpace(body.OldToken)
 	body.NewToken = strings.TrimSpace(body.NewToken)
 
-	if body.OldToken == "" || body.NewToken == "" {
-		writeError(w, http.StatusBadRequest, "All fields are required")
+	if body.OldToken == "" {
+		writeError(w, http.StatusBadRequest, "Old token is required")
 		return
 	}
 
-	if len(body.NewToken) < 6 {
-		writeError(w, http.StatusBadRequest, "New token must be at least 6 characters")
+	// Operators no longer invent the replacement secret: an empty newToken is
+	// generated server-side below. An explicit value stays supported for
+	// automation, but it must clear the same strength floor the startup check
+	// applies (16 bytes; 32+ recommended).
+	if body.NewToken != "" && len(body.NewToken) < 16 {
+		writeError(w, http.StatusBadRequest, "New token must be at least 16 characters; omit it to have the server generate one")
 		return
 	}
 
@@ -71,6 +77,16 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	if !constantTimeTokenEqual(body.OldToken, config.Runtime().AuthToken) {
 		writeError(w, http.StatusForbidden, "Old token verification failed")
 		return
+	}
+
+	generated := body.NewToken == ""
+	if generated {
+		token, err := admintoken.Generate()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to generate a new token")
+			return
+		}
+		body.NewToken = token
 	}
 
 	// Persist to settings table
@@ -103,10 +119,27 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	h.db.Exec(h.db.Rebind(`INSERT INTO events (type, title, message, level, related_type, created_at, read)
 		VALUES ('token', 'Admin login token updated', 'The admin login token was changed. Use the new token to log in.', 'warning', 'settings', ?, FALSE)`), now)
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	// Keep the 0600 handoff file in sync when this deployment uses it. A
+	// custom rotation overwrites the previous value instead of leaving a dead
+	// token behind; the token itself is never logged.
+	if cfg := config.GetSafe(); cfg != nil && cfg.DataDir != "" {
+		if path, err := admintoken.WriteFile(cfg.DataDir, body.NewToken); err != nil {
+			slog.Warn("rotated admin token could not be written to the handoff file", "error", err)
+		} else if generated {
+			slog.Warn("generated a new admin token", "path", path, "hint", "read it once, store it securely, and remove the file")
+		}
+	}
+
+	resp := map[string]any{
 		"success": true,
 		"message": "Token updated",
-	})
+	}
+	if generated {
+		// The server chose the secret, so the caller gets exactly one chance
+		// to capture it. The response itself is no-store (reauth gate).
+		resp["newToken"] = body.NewToken
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // constantTimeTokenEqual compares a and b as UTF-8 bytes in constant time when

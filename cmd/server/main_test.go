@@ -5,11 +5,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/admintoken"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -50,7 +52,7 @@ func TestBootstrapRuntimeFailsOnUnavailablePostgres(t *testing.T) {
 		"DATA_DIR":     t.TempDir(),
 	})
 
-	err := bootstrapRuntime(cfg, rt, "")
+	err := bootstrapRuntime(cfg, rt, "", "")
 	if err == nil {
 		t.Fatal("bootstrapRuntime succeeded with unavailable PostgreSQL")
 	}
@@ -94,7 +96,7 @@ func TestBootstrapRuntimeInitializesSQLite(t *testing.T) {
 		"AUTH_TOKEN": "bootstrap-test-admin-token",
 	})
 
-	if err := bootstrapRuntime(cfg, rt, "bootstrap-test-admin-token"); err != nil {
+	if err := bootstrapRuntime(cfg, rt, "bootstrap-test-admin-token", ""); err != nil {
 		t.Fatalf("bootstrapRuntime sqlite: %v", err)
 	}
 	if db := store.GetDB(); db == nil {
@@ -138,7 +140,7 @@ func TestBootstrapRuntimeRejectsPersistedDefaultAuthToken(t *testing.T) {
 		"DATA_DIR":   dataDir,
 		"AUTH_TOKEN": "strong-env-admin-token",
 	})
-	err := bootstrapRuntime(cfg, rt, "strong-env-admin-token")
+	err := bootstrapRuntime(cfg, rt, "strong-env-admin-token", "")
 	if err == nil {
 		t.Fatal("bootstrapRuntime accepted a persisted default auth_token")
 	}
@@ -167,7 +169,7 @@ func TestBootstrapRuntimeRejectsPersistedWeakAuthToken(t *testing.T) {
 		"DATA_DIR":   dataDir,
 		"AUTH_TOKEN": "strong-env-admin-token",
 	})
-	err := bootstrapRuntime(cfg, rt, "strong-env-admin-token")
+	err := bootstrapRuntime(cfg, rt, "strong-env-admin-token", "")
 	if err == nil {
 		t.Fatal("bootstrapRuntime accepted a persisted auth_token shorter than 8 bytes")
 	}
@@ -202,7 +204,7 @@ func TestBootstrapRuntimeUsesPersistedAuthTokenAndWarns(t *testing.T) {
 		"DATA_DIR":   dataDir,
 		"AUTH_TOKEN": envToken,
 	})
-	if err := bootstrapRuntime(cfg, rt, envToken); err != nil {
+	if err := bootstrapRuntime(cfg, rt, envToken, ""); err != nil {
 		t.Fatalf("bootstrapRuntime: %v", err)
 	}
 	if rt.AuthToken != persisted {
@@ -214,5 +216,86 @@ func TestBootstrapRuntimeUsesPersistedAuthTokenAndWarns(t *testing.T) {
 	}
 	if strings.Contains(output, persisted) || strings.Contains(output, envToken) {
 		t.Fatalf("startup log leaks a token value: %s", output)
+	}
+}
+
+// When AUTH_TOKEN is unset, main generates a random token before validation
+// and bootstrap persists it. The operator retrieves it from the 0600 handoff
+// file, never from logs.
+func TestBootstrapRuntimePersistsGeneratedAdminToken(t *testing.T) {
+	_ = store.CloseDatabase()
+
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	dataDir := t.TempDir()
+	t.Cleanup(func() { _ = store.CloseDatabase() })
+	dbPath := filepath.Join(dataDir, "bootstrap.db")
+
+	cfg, rt := config.Load(map[string]string{
+		"DB_TYPE":  "sqlite",
+		"DB_URL":   dbPath,
+		"DATA_DIR": dataDir,
+	})
+	if rt.AuthToken != config.DefaultAuthToken {
+		t.Fatalf("precondition: AuthToken = %q, want the default placeholder", rt.AuthToken)
+	}
+	token, err := admintoken.Generate()
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+	if len(token) != 2*admintoken.GeneratedBytes {
+		t.Fatalf("generated token length = %d, want %d", len(token), 2*admintoken.GeneratedBytes)
+	}
+	rt.AuthToken = token
+
+	if err := bootstrapRuntime(cfg, rt, "", token); err != nil {
+		t.Fatalf("bootstrapRuntime: %v", err)
+	}
+	if rt.AuthToken != token {
+		t.Fatalf("AuthToken = %q, want the generated token", rt.AuthToken)
+	}
+	var stored string
+	if err := store.GetDB().Get(&stored, "SELECT value FROM settings WHERE key = 'auth_token'"); err != nil {
+		t.Fatalf("read persisted auth_token: %v", err)
+	}
+	if stored != `"`+token+`"` {
+		t.Fatalf("persisted auth_token = %q, want the JSON-encoded generated token", stored)
+	}
+	raw, err := os.ReadFile(filepath.Join(dataDir, admintoken.FileName))
+	if err != nil {
+		t.Fatalf("read handoff file: %v", err)
+	}
+	if strings.TrimSpace(string(raw)) != token {
+		t.Fatalf("handoff file does not contain the generated token")
+	}
+	if strings.Contains(logs.String(), token) {
+		t.Fatalf("startup log leaks the generated token")
+	}
+}
+
+func TestAdminTokenGenerateIsRandom(t *testing.T) {
+	first, err := admintoken.Generate()
+	if err != nil {
+		t.Fatalf("generate first: %v", err)
+	}
+	second, err := admintoken.Generate()
+	if err != nil {
+		t.Fatalf("generate second: %v", err)
+	}
+	if first == second {
+		t.Fatal("two generated tokens are identical")
+	}
+	for _, token := range []string{first, second} {
+		if len(token) != 2*admintoken.GeneratedBytes {
+			t.Fatalf("token length = %d, want %d", len(token), 2*admintoken.GeneratedBytes)
+		}
+		for _, r := range token {
+			if !strings.ContainsRune("0123456789abcdef", r) {
+				t.Fatalf("token contains non-hex rune %q", r)
+			}
+		}
 	}
 }

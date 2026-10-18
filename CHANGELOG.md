@@ -28,7 +28,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - 管理面：备份导入、WebDAV 配置/导入、数据库迁移与连通性测试、恢复出厂、清空用量、下游 key 创建/轮换、上游 token 明文读取要求 `X-Admin-Confirm-Token`；响应带 `Cache-Control: no-store`（#1502）。
 - 管理面：Cookie 写请求校验 `Origin`/`Sec-Fetch-Site`；额外来源用 `ADMIN_CORS_ALLOWED_ORIGINS` 放行，未配置时非浏览器客户端不受影响（#1502）。
 - 运行时设置：`systemProxyUrl`、`telegramApiBaseUrl`/`telegramBotToken`/`telegramChatId`、`adminIpAllowlist`、SMTP 与通知目的地变更，及 `POST /api/settings/system-proxy/test` 需主令牌确认（#1502）。
-- 启动：持久化 `auth_token` 为空或短于 8 字节时拒绝启动，短于 16 字节告警；数据库仍可覆盖环境变量以支持轮换。
+- 管理员令牌：未设置 `AUTH_TOKEN` 时首次启动生成 32 字节随机令牌并写入 `DATA_DIR/admin-token`（0600）；轮换默认由服务端生成并只返回一次；显式令牌短于 8 字节拒绝启动，短于 16 字节告警。
 - 凭据回显：账号列表与搜索不再返回 refreshToken、idToken、passwordCipher；站点 `apiKey` 改为 `apiKeyMasked`+`hasApiKey`，`cfClearance` 不再回传（#1503）。
 - 敏感读接口：`/api/settings/auth/info` 只返回 `customized`/`configured`/`length`；imported upstream `customHeaders` 值掩码（#1503）。
 - 告警放大：模型名在事件消息中截断到 4 KiB，节流表有上限并清理；超大单元格导出改为截断并在 `metadata.warnings` 记录（#1498）。
