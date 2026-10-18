@@ -318,7 +318,11 @@ The table set is derived from the schema registry (`store.FactoryResetTableNames
 
 ### GET /api/settings/auth/info
 
-Get authentication settings (admin IP allowlist, proxy token config).
+Get the current admin token state without disclosing the token. The response is
+`{ customized, configured, length }`: `customized` is true when the token
+differs from the built-in default, `configured` reports whether a non-empty
+token is active, and `length` is its character count. No prefix, suffix, or
+masked token is returned. The response is `Cache-Control: no-store`.
 
 ### POST /api/settings/auth/change
 

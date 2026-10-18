@@ -1408,6 +1408,8 @@
           "description": "Management API access token (AccessToken) rotation and IP allowlist.",
           "currentToken": "Current access token",
           "notSet": "not set",
+          "defaultToken": "default token",
+          "customizedToken": "customized ({{length}} characters)",
           "changeToken": "Change token",
           "cancelChange": "Cancel",
           "submitToken": "Rotate token",

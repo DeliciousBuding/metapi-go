@@ -1408,6 +1408,8 @@
           "description": "管理 API 访问令牌（AccessToken）的轮换与 IP 白名单。",
           "currentToken": "当前访问令牌",
           "notSet": "未设置",
+          "defaultToken": "默认令牌",
+          "customizedToken": "已自定义（{{length}} 个字符）",
           "changeToken": "更换令牌",
           "cancelChange": "取消",
           "submitToken": "轮换令牌",

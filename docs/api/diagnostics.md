@@ -153,6 +153,11 @@ Live ops WebSocket: one JSON frame per second over the current proxy-traffic win
 
 Global search across sites, accounts, routes, and keys.
 
+Account results apply the same credential policy as `GET /api/accounts`
+(recursive `extraConfig` redaction, masked token projections); site results
+apply the `GET /api/sites` policy (`apiKeyMasked` / `hasApiKey`, no
+`cfClearance`). The response is `Cache-Control: no-store`.
+
 ---
 
 ## Tasks

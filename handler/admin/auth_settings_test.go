@@ -191,6 +191,61 @@ func assertNoMonitorAuthClearCookies(t *testing.T, resp interface{ Header() http
 	}
 }
 
+func TestAuthSettingsInfo_DoesNotEchoToken(t *testing.T) {
+	_, r := setupAuthSettingsTest(t)
+
+	resp := doGet(t, r, "/api/settings/auth/info")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s, want 200", resp.Code, resp.Body.String())
+	}
+	if got := resp.Header().Get("Cache-Control"); got != noStoreCacheControl {
+		t.Fatalf("Cache-Control = %q, want %q", got, noStoreCacheControl)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if _, ok := body["masked"]; ok {
+		t.Fatalf("response still carries a masked token: %#v", body)
+	}
+	if body["customized"] != true {
+		t.Fatalf("customized = %v, want true", body["customized"])
+	}
+	if body["configured"] != true {
+		t.Fatalf("configured = %v, want true", body["configured"])
+	}
+	if body["length"] != float64(len("admin-auth-settings-token")) {
+		t.Fatalf("length = %v, want %d", body["length"], len("admin-auth-settings-token"))
+	}
+	raw := resp.Body.String()
+	if strings.Contains(raw, "admin-auth-settings-token") || strings.Contains(raw, "dmin") || strings.Contains(raw, "oken") {
+		t.Fatalf("response leaked token fragments: %s", raw)
+	}
+}
+
+func TestAuthSettingsInfo_ReportsDefaultToken(t *testing.T) {
+	_, r := setupAuthSettingsTest(t)
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: config.DefaultAuthToken})
+
+	resp := doGet(t, r, "/api/settings/auth/info")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s, want 200", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["customized"] != false {
+		t.Fatalf("customized = %v, want false", body["customized"])
+	}
+	if body["configured"] != true {
+		t.Fatalf("configured = %v, want true", body["configured"])
+	}
+	if strings.Contains(resp.Body.String(), config.DefaultAuthToken) {
+		t.Fatalf("response leaked the default token: %s", resp.Body.String())
+	}
+}
+
 func TestConstantTimeTokenEqual(t *testing.T) {
 	if !constantTimeTokenEqual("same-token", "same-token") {
 		t.Fatal("expected equal tokens to match")
