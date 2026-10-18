@@ -163,7 +163,7 @@ func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings, envAuthTok
 		}
 	}()
 
-	if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {
+	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return fmt.Errorf("create data directory %q: %w", cfg.DataDir, err)
 	}
 	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {

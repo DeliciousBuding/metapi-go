@@ -77,7 +77,7 @@ func TestDirectOpenCodeSessionPrecedenceAndRetryStability(t *testing.T) {
 	}
 	endpoint := &store.DirectEndpoint{URL: "https://example.test/exact?tenant=one", Auth: store.DirectAuthBearer}
 	for range 2 {
-		wire, err := prepareDirectOpenCodeWire(endpoint, "", []byte(`{"model":"gpt-fixture","input":"hello"}`), nil, fallback)
+		wire, err := prepareDirectOpenCodeWire(endpoint, "", []byte(`{"model":"gpt-fixture","input":"hello"}`), nil, fallback, "")
 		if err != nil || wire.Headers.Get("X-Opencode-Session") != fallback {
 			t.Fatalf("retry lost request-scoped session: %v", err)
 		}
@@ -122,7 +122,7 @@ func TestDirectOpenCodeDeepSeekBodyAndExplicitCustomIsolation(t *testing.T) {
 	headers.Set("X-Opencode-Session", "session-fixture")
 	original := append([]byte(nil), body...)
 	for _, profile := range []string{"deepseek", ""} {
-		wire, err := prepareDirectOpenCodeWire(endpoint, profile, body, headers, "fallback")
+		wire, err := prepareDirectOpenCodeWire(endpoint, profile, body, headers, "fallback", "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -150,19 +150,19 @@ func TestDirectOpenCodeDeepSeekBodyAndExplicitCustomIsolation(t *testing.T) {
 	if !bytes.Equal(body, original) {
 		t.Fatal("body input was mutated")
 	}
-	disabled, err := prepareDirectOpenCodeWire(endpoint, "deepseek", []byte(`{"messages":[{"role":"user","content":"hi"}],"reasoning_effort":"none"}`), nil, "fixed")
+	disabled, err := prepareDirectOpenCodeWire(endpoint, "deepseek", []byte(`{"messages":[{"role":"user","content":"hi"}],"reasoning_effort":"none"}`), nil, "fixed", "")
 	if err != nil || !bytes.Contains(disabled.Body, []byte(`"type":"disabled"`)) || bytes.Contains(disabled.Body, []byte(`reasoning_effort`)) {
 		t.Fatalf("DeepSeek none was not disabled: %v", err)
 	}
 	for _, invalid := range []string{`[]`, `{"messages":[]}`, `{"messages":[{"role":"user"}],"response_format":"json_schema"}`} {
-		if _, err := prepareDirectOpenCodeWire(endpoint, "deepseek", []byte(invalid), nil, "fixed"); err == nil {
+		if _, err := prepareDirectOpenCodeWire(endpoint, "deepseek", []byte(invalid), nil, "fixed", ""); err == nil {
 			t.Errorf("accepted invalid DeepSeek body: %s", invalid)
 		}
 	}
-	if _, err := prepareDirectOpenCodeWire(nil, "", body, nil, "fixed"); err == nil {
+	if _, err := prepareDirectOpenCodeWire(nil, "", body, nil, "fixed", ""); err == nil {
 		t.Error("accepted missing selected endpoint")
 	}
-	if _, err := prepareDirectOpenCodeWire(endpoint, "unknown", body, nil, "fixed"); err == nil {
+	if _, err := prepareDirectOpenCodeWire(endpoint, "unknown", body, nil, "fixed", ""); err == nil {
 		t.Error("accepted unknown body profile")
 	}
 }
@@ -290,7 +290,7 @@ func runOpenCodeWireAttempt(t *testing.T, target, model string, down directWireF
 	req.Header.Set("Authorization", "Bearer downstream-private")
 	req.Header.Set("X-Api-Key", "downstream-private")
 	req.Header.Set("X-Goog-Api-Key", "downstream-private")
-	wire, err := prepareDirectOpenCodeWire(endpoint, profile, body, req.Header, "request-fallback")
+	wire, err := prepareDirectOpenCodeWire(endpoint, profile, body, req.Header, "request-fallback", "")
 	if err != nil {
 		t.Fatal(err)
 	}

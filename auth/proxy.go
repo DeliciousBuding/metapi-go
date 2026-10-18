@@ -20,7 +20,10 @@ var bearerPrefixRe = regexp.MustCompile(`(?i)^Bearer\s+`)
 // Token extraction priority (EXCLUSIVE, not a fallback chain):
 // 1. If Authorization header exists and is a string → use it exclusively
 // (even if Bearer token is empty; NO fallback to other sources).
-// 2. Otherwise, try in order: x-api-key, x-goog-api-key, ?key= query param.
+// 2. Otherwise, try in order: x-api-key, x-goog-api-key, the OpenAI browser
+// WebSocket subprotocol, and a ?key= query parameter on model-list routes.
+// ?key= is deliberately narrow (audit L2): on every other route the key would
+// land in reverse-proxy logs and browser history.
 
 // After extraction, the token is passed to AuthorizeDownstreamToken which:
 // - Queries the downstream_api_keys table for a managed key match
@@ -40,7 +43,7 @@ func ProxyAuth() func(http.Handler) http.Handler {
 
 			if token == "" {
 				writeProxyError(w, http.StatusUnauthorized, "authentication_error", "missing_api_key",
-					"Missing Authorization, x-api-key, x-goog-api-key, or key query parameter")
+					"Missing Authorization, x-api-key, or x-goog-api-key header")
 				return
 			}
 
@@ -152,7 +155,8 @@ func ProxyAuth() func(http.Handler) http.Handler {
 // 2. If Authorization header is absent → fall back in order:
 // a. x-api-key header (trimmed)
 // b. x-goog-api-key header (trimmed)
-// c. ?key= query parameter (trimmed)
+// c. browser WebSocket subprotocol (openai-insecure-api-key.<key>)
+// d. ?key= query parameter, only on GET model-list routes (audit L2)
 func extractProxyToken(r *http.Request) string {
 	auth := r.Header.Get("Authorization")
 
@@ -172,11 +176,57 @@ func extractProxyToken(r *http.Request) string {
 	if googKey := strings.TrimSpace(r.Header.Get("x-goog-api-key")); googKey != "" {
 		return googKey
 	}
-	if queryKey := strings.TrimSpace(r.URL.Query().Get("key")); queryKey != "" {
-		return queryKey
+	if subprotocolKey := websocketSubprotocolToken(r); subprotocolKey != "" {
+		return subprotocolKey
+	}
+	if modelListingQueryKeyAllowed(r) {
+		if queryKey := strings.TrimSpace(r.URL.Query().Get("key")); queryKey != "" {
+			return queryKey
+		}
 	}
 
 	return ""
+}
+
+// insecureAPIKeySubprotocolPrefix is the OpenAI browser WebSocket convention
+// for carrying a key in Sec-WebSocket-Protocol instead of the URL.
+const insecureAPIKeySubprotocolPrefix = "openai-insecure-api-key."
+
+// websocketSubprotocolToken reads the key from a WebSocket upgrade's
+// Sec-WebSocket-Protocol offer. Non-upgrade requests are ignored so an HTTP
+// client cannot smuggle a key through a header it does not actually negotiate.
+func websocketSubprotocolToken(r *http.Request) string {
+	if !isWebsocketUpgradeRequest(r) {
+		return ""
+	}
+	for _, header := range r.Header.Values("Sec-WebSocket-Protocol") {
+		for _, part := range strings.Split(header, ",") {
+			part = strings.TrimSpace(part)
+			if !strings.HasPrefix(part, insecureAPIKeySubprotocolPrefix) {
+				continue
+			}
+			if token := strings.TrimSpace(strings.TrimPrefix(part, insecureAPIKeySubprotocolPrefix)); token != "" {
+				return token
+			}
+		}
+	}
+	return ""
+}
+
+// modelListingQueryKeyAllowed reports whether ?key= may authenticate this
+// request. It is limited to the GET model-list routes Metapi actually serves
+// (/v1/models, /v1beta/models, /gemini/{version}/models) so keys stay out of
+// reverse-proxy logs and browser history on every other route (audit L2).
+func modelListingQueryKeyAllowed(r *http.Request) bool {
+	if r == nil || r.Method != http.MethodGet || r.URL == nil {
+		return false
+	}
+	switch r.URL.Path {
+	case "/v1/models", "/v1beta/models":
+		return true
+	}
+	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/"), "/")
+	return len(parts) == 3 && parts[0] == "gemini" && parts[2] == "models"
 }
 
 // isWebsocketUpgradeRequest mirrors proxyhandler.IsWebsocketUpgradeRequest

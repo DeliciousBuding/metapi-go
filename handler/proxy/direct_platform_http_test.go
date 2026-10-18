@@ -135,8 +135,11 @@ func TestDirectPlatformOpenCodeLogicalGrantHTTP(t *testing.T) {
 					if strings.HasPrefix(tc.model, "deepseek") && !bytes.Contains(body, []byte(`"thinking":{"type":"enabled"}`)) {
 						t.Errorf("DeepSeek body profile missing: %s", body)
 					}
-					if r.Header.Get("X-Opencode-Session") != "client-current" {
-						t.Error("OpenCode session precedence lost")
+					// Session headers are namespaced per downstream key (audit L28),
+					// so the raw client value must not reach upstream. Precedence
+					// itself is covered by TestDirectOpenCodeSessionPrecedenceAndRetryStability.
+					if session := r.Header.Get("X-Opencode-Session"); session == "" || session == "client-current" {
+						t.Errorf("OpenCode session not namespaced: %q", session)
 					}
 					assertPlatformAuth(t, r, tc.up == 2)
 					if tc.stream {

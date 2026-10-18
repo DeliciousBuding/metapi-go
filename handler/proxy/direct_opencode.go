@@ -59,7 +59,7 @@ func directOpenCodeRouteForModel(model string) (protocol int, bodyProfile string
 // prepareDirectOpenCodeWire consumes a body already converted to the selected
 // protocol. The resolved endpoint is exact: no URL, authentication or grant is
 // inferred here. Custom OpenCode endpoints pass an empty bodyProfile.
-func prepareDirectOpenCodeWire(endpoint *store.DirectEndpoint, bodyProfile string, body []byte, downstream http.Header, sessionID string) (*directProviderWire, error) {
+func prepareDirectOpenCodeWire(endpoint *store.DirectEndpoint, bodyProfile string, body []byte, downstream http.Header, sessionID string, sessionNamespace string) (*directProviderWire, error) {
 	if endpoint == nil {
 		return nil, fmt.Errorf("missing selected OpenCode endpoint")
 	}
@@ -95,7 +95,9 @@ func prepareDirectOpenCodeWire(endpoint *store.DirectEndpoint, bodyProfile strin
 	default:
 		return nil, fmt.Errorf("unsupported OpenCode body profile")
 	}
-	wire.Headers.Set("X-Opencode-Session", directOpenCodeSessionID(downstream, sessionID))
+	// Namespace the session per downstream key: a shared OpenCode upstream must
+	// not let one key continue another key's conversation context (audit L28).
+	wire.Headers.Set("X-Opencode-Session", namespaceSessionID(sessionNamespace, directOpenCodeSessionID(downstream, sessionID)))
 	return wire, nil
 }
 

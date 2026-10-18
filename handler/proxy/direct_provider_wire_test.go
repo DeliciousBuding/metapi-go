@@ -42,7 +42,7 @@ func TestDirectCodexProviderWireHTTPAndTerminalAggregation(t *testing.T) {
 	headers.Set("Session-Id", "session-fixture")
 	headers.Set("Chatgpt-Account-Id", "attacker")
 	headers.Set("X-Openai-Internal-Codex-Responses-Lite", "true")
-	wire, err := prepareDirectProviderWire(&store.DirectEndpoint{URL: upstream.URL, Profile: "codex"}, 1, &oauth.DirectCredentialResult{Kind: "oauth", AccountID: "account-fixture"}, []byte(`{"model":"gpt-test","input":"hello","max_output_tokens":40,"metadata":{"x":1},"user":"user"}`), headers)
+	wire, err := prepareDirectProviderWire(&store.DirectEndpoint{URL: upstream.URL, Profile: "codex"}, 1, &oauth.DirectCredentialResult{Kind: "oauth", AccountID: "account-fixture"}, []byte(`{"model":"gpt-test","input":"hello","max_output_tokens":40,"metadata":{"x":1},"user":"user"}`), headers, "")
 	if err != nil || !wire.ForceStream {
 		t.Fatalf("wire error=%v", err)
 	}
@@ -90,7 +90,7 @@ func TestDirectClaudeProviderToolsAndHeaders(t *testing.T) {
 			downstream.Set("User-Agent", tc.ua)
 			downstream.Set("Anthropic-Beta", "client-beta")
 			downstream.Set("X-Claude-Code-Session-Id", "session")
-			wire, err := prepareDirectProviderWire(&store.DirectEndpoint{URL: "https://api.example.invalid/v1/messages", Profile: "claudecode"}, 1, &oauth.DirectCredentialResult{Kind: tc.kind}, []byte(`{"model":"claude","max_tokens":10,"system":"Keep this instruction","thinking":{"type":"enabled","budget_tokens":1024},"tools":[{"name":"echo","input_schema":{"type":"object"}}],"tool_choice":{"type":"tool","name":"echo"},"messages":[{"role":"user","content":"hello"}]}`), downstream)
+			wire, err := prepareDirectProviderWire(&store.DirectEndpoint{URL: "https://api.example.invalid/v1/messages", Profile: "claudecode"}, 1, &oauth.DirectCredentialResult{Kind: tc.kind}, []byte(`{"model":"claude","max_tokens":10,"system":"Keep this instruction","thinking":{"type":"enabled","budget_tokens":1024},"tools":[{"name":"echo","input_schema":{"type":"object"}}],"tool_choice":{"type":"tool","name":"echo"},"messages":[{"role":"user","content":"hello"}]}`), downstream, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -168,6 +168,7 @@ func TestDirectCopilotProviderWireHeadersAndBody(t *testing.T) {
 		&oauth.DirectCredentialResult{Kind: store.DirectCredentialOAuth, Provider: "github_copilot", AccessToken: "fixture-copilot-token"},
 		body,
 		downstream,
+		"",
 	)
 	if err != nil {
 		t.Fatalf("prepare wire: %v", err)
@@ -230,6 +231,7 @@ func TestDirectXAISubscriptionProviderWireHeaders(t *testing.T) {
 		&oauth.DirectCredentialResult{Kind: store.DirectCredentialOAuth, Provider: "xai_subscription", AccessToken: "fixture-xai-access"},
 		body,
 		downstream,
+		"",
 	)
 	if err != nil {
 		t.Fatal(err)

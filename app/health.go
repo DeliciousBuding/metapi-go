@@ -4,12 +4,51 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
 var readinessDraining atomic.Bool
+
+// readinessPingTTL bounds how often the unauthenticated /ready endpoint may
+// reach the database. SQLite runs with MaxOpenConns=1, so an uncached ping can
+// be used to contend for the only connection; PostgreSQL can be drained the
+// same way (audit L15). Failure results are cached too: readiness stays 503
+// until the TTL expires and a fresh probe succeeds.
+const readinessPingTTL = time.Second
+
+// readinessProbeCache memoises a dependency probe and merges concurrent
+// callers behind one execution. The database pointer is part of the key so a
+// database switch (tests, runtime reload) never reuses another handle's result.
+type readinessProbeCache struct {
+	mu    sync.Mutex
+	key   any
+	at    time.Time
+	err   error
+	valid bool
+}
+
+var readinessDatabaseProbe readinessProbeCache
+
+// probe returns the cached result when it is younger than the TTL. Otherwise
+// it runs fn while holding the lock, so concurrent callers wait for the same
+// probe instead of each taking a connection.
+func (c *readinessProbeCache) probe(key any, ttl time.Duration, fn func() error) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	now := time.Now()
+	if c.valid && c.key == key && now.Sub(c.at) < ttl {
+		return c.err
+	}
+	c.err = fn()
+	c.key = key
+	c.at = now
+	c.valid = true
+	return c.err
+}
 
 type HealthStatus struct {
 	Status   string `json:"status"`
@@ -35,7 +74,7 @@ func Ready(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.Ping(); err != nil {
+	if err := readinessDatabaseProbe.probe(db, readinessPingTTL, db.Ping); err != nil {
 		slog.Warn("readiness: database ping failed", "error", err)
 		writeHealthJSON(w, http.StatusServiceUnavailable, HealthStatus{Status: "degraded", Database: "error"})
 		return

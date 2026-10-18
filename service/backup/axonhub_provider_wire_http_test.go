@@ -143,8 +143,11 @@ func TestAxonHubProviderWireImportHTTPOpenCode(t *testing.T) {
 					}
 					var model string
 					_ = json.Unmarshal(request["model"], &model)
-					if r.URL.Path != tc.path || model != tc.model || r.Header.Get("X-Opencode-Session") != "fixture-session" {
-						t.Errorf("OpenCode destination/model/session changed: %s %s", r.URL.Path, body)
+					// Session headers are namespaced per downstream key (audit L28);
+					// the raw client value must not reach the imported upstream.
+					session := r.Header.Get("X-Opencode-Session")
+					if r.URL.Path != tc.path || model != tc.model || session == "" || session == "fixture-session" {
+						t.Errorf("OpenCode destination/model/session changed: %s %s session=%q", r.URL.Path, body, session)
 					}
 					for _, header := range []string{"Authorization", "x-api-key", "x-goog-api-key"} {
 						want := ""
