@@ -64,7 +64,7 @@ container environment.
 | `LOG_LEVEL` | `info` | slog threshold: `debug` / `info` / `warn` / `error`. |
 | `METAPI_HEALTHCHECK_URL` / `METAPI_HEALTHCHECK_PATH` | — / `/ready` | Override the container healthcheck target. |
 | `SYSTEM_NAME`, `LOGO`, `FOOTER`, `ABOUT` | brand defaults | Optional site branding; runtime settings in the admin UI override these. |
-| `SERVER_ADDRESS` | empty | Public base URL used when the server has to build an absolute link back to itself (OAuth callbacks, exported key/backup URLs). Empty = derived from the request's `X-Forwarded-Proto` / `X-Forwarded-Host` headers, falling back to the request host. |
+| `SERVER_ADDRESS` | empty | Public base URL used when the server has to build an absolute link back to itself (OAuth callbacks, exported key/backup URLs). Empty = derived from the request's `Host`; the scheme is direct TLS, or `X-Forwarded-Proto` when the request arrived from a `TRUSTED_PROXY_CIDRS` peer. `X-Forwarded-Host` is only a fallback (trusted proxy, empty `Host`) — direct clients cannot steer the exported URL. |
 
 ## Database
 
@@ -224,7 +224,7 @@ upstream request; …`), since it describes a static misconfiguration.
 | `ADMIN_SESSION_TTL_MINUTES` | `720` | Sliding TTL of the server-side admin UI session minted by `POST /api/auth/login`; floored at 1 minute. |
 | `ADMIN_SESSION_COOKIE_SECURE` | `auto` | `Secure` flag of the `metapi_session` cookie. Accepted values: `true`/`1`/`yes` → always secure, `false`/`0`/`no` → never secure, anything else (including `auto`) → `auto`, which follows the request protocol. |
 | `OAUTH_RATE_LIMIT_RPS` / `OAUTH_RATE_LIMIT_BURST` | `10` / `20` | OAuth per-IP token bucket. |
-| `TRUSTED_PROXY_CIDRS` | empty | Reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; empty ignores forwarded headers. When the peer is trusted the chain is walked right-to-left and trusted hops are skipped, so a client-supplied left-most value cannot forge identity. List every proxy layer; a layer missing here becomes the resolved client for the traffic behind it. |
+| `TRUSTED_PROXY_CIDRS` | empty | Reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; empty ignores forwarded headers. When the peer is trusted the chain is walked right-to-left and trusted hops are skipped, so a client-supplied left-most value cannot forge identity. The same trusted-peer gate controls whether `X-Forwarded-Proto` may set the `Secure` cookie flag / export scheme and whether `X-Forwarded-Host` may be used as an export-base fallback; direct clients cannot spoof them. List every proxy layer; a layer missing here becomes the resolved client for the traffic behind it and its forwarding headers are ignored. |
 | `ADMIN_CORS_ALLOWED_ORIGINS` | empty | Exact `http(s)` origins allowed for `/api/*`; empty = same-origin admin UI only (`*` rejected). |
 | `PROMPT_FILTER_ENABLED` | empty | Opt-in pattern filter blocking jailbreak/exfiltration prompts before shared OAuth upstreams; `PROMPT_FILTER_DENY_PATTERNS` extends the seed list. |
 

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/internal/trustedproxy"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -205,18 +206,21 @@ func TestWSTicketSingleUseAndExpiry(t *testing.T) {
 
 func TestSessionCookieSecureModes(t *testing.T) {
 	cases := []struct {
-		name   string
-		mode   string
-		tls    bool
-		xfp    string
-		secure bool
+		name    string
+		mode    string
+		tls     bool
+		xfp     string
+		trusted bool
+		secure  bool
 	}{
-		{"auto plain http", "auto", false, "", false},
-		{"auto https via X-Forwarded-Proto", "auto", false, "https", true},
-		{"auto tls", "auto", true, "", true},
-		{"forced true", "true", false, "", true},
-		{"forced false even on tls", "false", true, "https", false},
-		{"garbage falls back to auto", "banana", false, "", false},
+		{"auto plain http", "auto", false, "", false, false},
+		{"auto X-Forwarded-Proto from a direct client is ignored", "auto", false, "https", false, false},
+		{"auto https via trusted proxy X-Forwarded-Proto", "auto", false, "https", true, true},
+		{"auto trusted proxy with http stays insecure", "auto", false, "http", true, false},
+		{"auto tls", "auto", true, "", false, true},
+		{"forced true", "true", false, "", false, true},
+		{"forced false even on tls", "false", true, "https", false, false},
+		{"garbage falls back to auto", "banana", false, "", false, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -226,6 +230,9 @@ func TestSessionCookieSecureModes(t *testing.T) {
 			}
 			if tc.xfp != "" {
 				req.Header.Set("X-Forwarded-Proto", tc.xfp)
+			}
+			if tc.trusted {
+				req = req.WithContext(trustedproxy.WithTrust(req.Context()))
 			}
 			if got := cookieSecure(req, tc.mode); got != tc.secure {
 				t.Fatalf("cookieSecure(%q) = %v, want %v", tc.mode, got, tc.secure)

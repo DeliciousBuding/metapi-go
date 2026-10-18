@@ -16,6 +16,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
+	"github.com/deliciousbuding/metapi-go/internal/trustedproxy"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -410,15 +411,14 @@ func deriveMonitorSessionToken(authToken string) string {
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-// isMonitorHTTPS reports whether the request arrived over TLS (directly or
-// via a reverse proxy that sets X-Forwarded-Proto). Cookie.Secure is set
-// when true; deployments that terminate TLS elsewhere should forward that
-// header so the Secure flag is applied.
+// isMonitorHTTPS reports whether the browser-facing request used HTTPS:
+// direct TLS, or X-Forwarded-Proto: https from a peer inside
+// TRUSTED_PROXY_CIDRS. Direct clients cannot spoof the header to force (or
+// weaken) the Secure flag (audit L26). Cookie.Secure is set when true;
+// deployments that terminate TLS at a proxy must list that proxy in
+// TRUSTED_PROXY_CIDRS and forward the header.
 func isMonitorHTTPS(r *http.Request) bool {
-	if r.TLS != nil {
-		return true
-	}
-	return strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+	return trustedproxy.IsHTTPS(r)
 }
 
 func parseCookieHeader(raw string) map[string]string {

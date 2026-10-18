@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/trustedproxy"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -158,6 +159,10 @@ func TrustedRealIP(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if len(prefixes) > 0 && isTrustedProxyPeer(r.RemoteAddr, prefixes) {
+				// Downstream consumers (cookie Secure, exported base URLs)
+				// use this marker to decide whether X-Forwarded-* may be
+				// believed; direct clients never get it (audit L26/L27).
+				r = r.WithContext(trustedproxy.WithTrust(r.Context()))
 				if ip := forwardedClientIP(r, prefixes); ip != "" {
 					r.RemoteAddr = ip
 				}

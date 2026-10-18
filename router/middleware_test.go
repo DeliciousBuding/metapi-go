@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/trustedproxy"
 )
 
 func TestTrustedRealIPIgnoresForwardedHeadersWithoutTrustedProxy(t *testing.T) {
@@ -432,4 +433,43 @@ func TestTrustedRealIPFallsBackToRealIPWhenForwardedChainIsUnusable(t *testing.T
 			want: "127.0.0.1:1",
 		},
 	})
+}
+
+// TestTrustedRealIPMarksOnlyTrustedProxyRequests pins the trust signal that
+// cookie Secure flags and exported base URLs rely on (audit L26/L27): it is
+// set for peers inside TRUSTED_PROXY_CIDRS and never for direct clients.
+func TestTrustedRealIPMarksOnlyTrustedProxyRequests(t *testing.T) {
+	handler := TrustedRealIP(&config.Config{
+		TrustedProxyCidrs: []string{"10.0.0.0/8"},
+	})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Test-Trusted", boolString(trustedproxy.FromRequest(r.Context())))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	cases := []struct {
+		name       string
+		remoteAddr string
+		want       string
+	}{
+		{"trusted proxy peer", "10.1.2.3:8443", "true"},
+		{"direct client", "203.0.113.10:12345", "false"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.RemoteAddr = tc.remoteAddr
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if got := rec.Header().Get("X-Test-Trusted"); got != tc.want {
+				t.Fatalf("trusted marker = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func boolString(v bool) string {
+	if v {
+		return "true"
+	}
+	return "false"
 }
