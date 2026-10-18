@@ -396,3 +396,32 @@ func TestBodyLimitPathAware_AnonymousLimitOnlyCoversPostLifecycleRoutes(t *testi
 		t.Fatalf("handler calls = %d, want %d", calls, len(cases))
 	}
 }
+
+// TestRouterAnonymousLoginBodyLimit is the end-to-end M15 regression: a
+// multi-hundred-KB login body must be rejected by the mounted router before
+// the handler buffers it, while a normal token body still reaches the login
+// handler (503 here because the test router has no session store).
+func TestRouterAnonymousLoginBodyLimit(t *testing.T) {
+	cfg := &config.Config{RequestBodyLimit: config.DefaultRequestBodyLimit}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	r := New(cfg, web.Dist)
+
+	oversized := `{"token":"` + strings.Repeat("a", 256<<10) + `"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(oversized))
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized login body = %d body=%s, want 413", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"token":"short"}`))
+	r.ServeHTTP(rec, req)
+	if rec.Code == http.StatusRequestEntityTooLarge {
+		t.Fatalf("normal login body was rejected as too large: %s", rec.Body.String())
+	}
+}
