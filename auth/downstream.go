@@ -32,6 +32,23 @@ type DownstreamTokenAuthResult struct {
 	StatusCode int                     // HTTP status (when !OK)
 	Error      string                  // error message (when !OK)
 	Reason     string                  // "missing"|"invalid"|"disabled"|"expired"|"over_cost"|"over_requests"|"over_rpm"|"over_tpm"
+	// QuotaReservationID is the admission hold created for an accessPolicy
+	// quota window. The completion path settles it; the caller releases it if
+	// the request ends without billable usage.
+	QuotaReservationID string
+}
+
+// admissionOptions controls how the accessPolicy quota dimension is evaluated.
+// The zero value keeps the historical read-only check.
+type admissionOptions struct {
+	// reserveQuota performs the atomic check-and-insert instead of a plain
+	// read. Used by live HTTP admission and by per-message WebSocket turns.
+	reserveQuota bool
+	// estimateTokens supplies the input-token estimate for a token-limited
+	// quota. It is called at most once and only when the quota has a token
+	// limit; a nil function or a non-positive result reserves the 1-token
+	// minimum that a chunked/unestimable body must not bypass.
+	estimateTokens func() int64
 }
 
 // managedKeyView is an internal struct mirroring the downstream_api_keys row
@@ -75,11 +92,12 @@ type managedKeyView struct {
 
 // AuthorizeDownstreamToken validates a token against downstream_api_keys and
 // enforces its enabled state, expiry and quota. Runtime root tokens are retired.
+// It is the read-only admission variant: quota checks never create a hold.
 func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) DownstreamTokenAuthResult {
-	return authorizeDownstreamToken(token, rt, "")
+	return authorizeDownstreamToken(token, rt, "", admissionOptions{})
 }
 
-func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoReadID string) DownstreamTokenAuthResult {
+func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoReadID string, opts admissionOptions) DownstreamTokenAuthResult {
 	normalized := strings.TrimSpace(token)
 	if normalized == "" {
 		return DownstreamTokenAuthResult{
@@ -129,6 +147,13 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 		taskRead := ownsDirectVideoTask(videoReadID, &ProxyAuthContext{Source: "managed", Token: normalized, KeyID: &managed.ID})
 		// Already admitted owned tasks remain retrievable when generation budget
 		// is exhausted. Identity, expiry, IP and route policies still apply.
+		//
+		// max_cost is checked against the used_cost snapshot loaded above and
+		// advanced only after a successful attempt (RecordManagedKeyCostUsage),
+		// so concurrent in-flight requests can each pass this check and overshoot
+		// the limit by roughly (concurrency x per-request cost). The increment
+		// itself is a single atomic UPDATE; a pre-dispatch reservation is not
+		// possible because the channel price is unknown before routing.
 		if !taskRead && managed.MaxCost != nil && managed.UsedCost >= *managed.MaxCost {
 			// 429 insufficient_quota (OpenAI convention for exhausted
 			// per-key budget), not 403.
@@ -152,8 +177,21 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 			}
 		}
 
+		quotaReservationID := ""
 		if !taskRead && managed.AccessPolicy != nil && managed.AccessPolicy.Quota != nil {
-			if result := checkManagedKeyQuota(managed.ID, managed.AccessPolicy.Quota); !result.OK {
+			if opts.reserveQuota {
+				estimatedTokens := int64(1)
+				if opts.estimateTokens != nil {
+					if estimated := opts.estimateTokens(); estimated > 0 {
+						estimatedTokens = estimated
+					}
+				}
+				id, result := reserveManagedKeyQuota(managed.ID, managed.AccessPolicy.Quota, estimatedTokens)
+				if !result.OK {
+					return result
+				}
+				quotaReservationID = id
+			} else if result := checkManagedKeyQuota(managed.ID, managed.AccessPolicy.Quota); !result.OK {
 				return result
 			}
 		}
@@ -162,12 +200,13 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 		policy := toPolicyFromView(managed)
 
 		return DownstreamTokenAuthResult{
-			OK:       true,
-			taskRead: taskRead,
-			Source:   "managed",
-			Token:    normalized,
-			Key:      managed,
-			Policy:   policy,
+			OK:                 true,
+			taskRead:           taskRead,
+			Source:             "managed",
+			Token:              normalized,
+			Key:                managed,
+			Policy:             policy,
+			QuotaReservationID: quotaReservationID,
 		}
 	}
 
@@ -331,17 +370,36 @@ func consumeManagedKeyRequest(keyID int64) bool {
 // The chain mirrors ProxyAuth exactly: reload by token (enabled, expiry,
 // max_cost, max_requests, accessPolicy/quota), then IP rules, then RPM/TPM
 // admission, then the atomic max_requests consume. A successful result
-// therefore consumed exactly one request slot and carries the freshly loaded
-// key + policy, which callers must use for the turn.
+// therefore consumed exactly one request slot, reserved its quota slot, and
+// carries the freshly loaded key + policy, which callers must use for the turn.
+// A rejection after the quota reservation keeps the reservation ID so the
+// caller can release it.
 //
 // estimatedTokens is reserved against maxTPM; when maxTPM is set a minimum of
 // one token is reserved so an unestimable message cannot skip TPM accounting.
 func ReauthorizeManagedKeyForTurn(ctx context.Context, token, clientIP string, estimatedTokens int64) DownstreamTokenAuthResult {
 	// RuntimeSafe keeps session-loop tests and early boot paths from panicking;
 	// authorizeDownstreamToken independently loads the key from the store.
-	result := authorizeDownstreamToken(token, config.RuntimeSafe(), "")
+	// Each turn reserves its own quota slot so an open socket cannot let
+	// concurrent messages exceed an accessPolicy quota window.
+	result := authorizeDownstreamToken(token, config.RuntimeSafe(), "", admissionOptions{
+		reserveQuota: true,
+		estimateTokens: func() int64 {
+			if estimatedTokens < 1 {
+				return 1
+			}
+			return estimatedTokens
+		},
+	})
 	if !result.OK || result.Source != "managed" || result.Key == nil {
 		return result
+	}
+
+	// Later gates can still reject this turn. Keep the reservation ID on the
+	// denial so the caller releases the slot it just acquired.
+	deny := func(r DownstreamTokenAuthResult) DownstreamTokenAuthResult {
+		r.QuotaReservationID = result.QuotaReservationID
+		return r
 	}
 
 	if ok, denyReason := CheckDownstreamKeyIP(result.Key, clientIP); !ok {
@@ -349,7 +407,7 @@ func ReauthorizeManagedKeyForTurn(ctx context.Context, token, clientIP string, e
 		if denyReason == "ip_blocked" {
 			msg = "IP address is blocked for this API key"
 		}
-		return DownstreamTokenAuthResult{StatusCode: 403, Reason: denyReason, Error: msg}
+		return deny(DownstreamTokenAuthResult{StatusCode: 403, Reason: denyReason, Error: msg})
 	}
 
 	if result.Key.MaxTPM != nil && *result.Key.MaxTPM > 0 && estimatedTokens < 1 {
@@ -361,15 +419,15 @@ func ReauthorizeManagedKeyForTurn(ctx context.Context, token, clientIP string, e
 		if adm.Reason == "over_tpm" {
 			msg = "API key token-per-minute limit exceeded"
 		}
-		return DownstreamTokenAuthResult{StatusCode: 429, Reason: adm.Reason, Error: msg}
+		return deny(DownstreamTokenAuthResult{StatusCode: 429, Reason: adm.Reason, Error: msg})
 	}
 
 	if !consumeManagedKeyRequest(result.Key.ID) {
-		return DownstreamTokenAuthResult{
+		return deny(DownstreamTokenAuthResult{
 			StatusCode: 429,
 			Reason:     "over_requests",
 			Error:      "API key has exceeded max requests",
-		}
+		})
 	}
 
 	return result

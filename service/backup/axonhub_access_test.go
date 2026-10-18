@@ -195,7 +195,7 @@ func TestAxonHubQuotaImportsHistoryAndKeepsLocalUsageOnReimport(t *testing.T) {
 	_ = db.Get(&id, `SELECT id FROM downstream_api_keys WHERE key='sk-fixture-access'`)
 	tokens := int64(60)
 	cost := 0.1
-	auth.RecordManagedKeyQuotaUsage(id, &tokens, &cost)
+	auth.RecordManagedKeyQuotaUsage(id, "", &tokens, &cost)
 	if result = auth.AuthorizeDownstreamToken("sk-fixture-access", config.Runtime()); result.OK || result.StatusCode != 429 {
 		t.Fatalf("token quota ignored: %+v", result)
 	}
@@ -227,7 +227,7 @@ func TestAxonHubQuotaNativeBackupIncludesPolicyAndUsage(t *testing.T) {
 	_ = db.Get(&id, `SELECT id FROM downstream_api_keys WHERE key='sk-fixture-access'`)
 	tokens := int64(9)
 	cost := 0.2
-	auth.RecordManagedKeyQuotaUsage(id, &tokens, &cost)
+	auth.RecordManagedKeyQuotaUsage(id, "", &tokens, &cost)
 	payload, err := BuildPayload(db.DB, "all")
 	if err != nil {
 		t.Fatal(err)

@@ -288,6 +288,12 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 	// then max_requests consume).
 	if s.auth != nil && s.auth.Source == "managed" && s.auth.KeyID != nil {
 		refreshed := auth.ReauthorizeManagedKeyForTurn(ctx, s.auth.Token, s.clientIP, responsesWSTurnTokenEstimate(msg, raw))
+		// This turn's quota hold settles through its proxy-log sink. Release it
+		// if the turn exits without billable usage (policy rejection, prewarm,
+		// or a failure before any attempt is logged).
+		if refreshed.QuotaReservationID != "" {
+			defer auth.ReleaseManagedKeyQuotaReservation(refreshed.QuotaReservationID)
+		}
 		if !refreshed.OK {
 			status, message, endSession := responsesWSTurnAuthError(refreshed)
 			_ = s.writeError(ctx, status, message)
@@ -301,6 +307,7 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 		fresh := *s.auth
 		fresh.Policy = refreshed.Policy
 		fresh.KeyName = refreshed.Key.Name
+		fresh.QuotaReservationID = refreshed.QuotaReservationID
 		fresh.ProxyURL = nil
 		if refreshed.Key.ProxyURL != nil {
 			if trimmed := strings.TrimSpace(*refreshed.Key.ProxyURL); trimmed != "" {
@@ -986,7 +993,13 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 		ResinAccount:  resinAccount,
 		ResinPlatform: resinPlatform,
 		ObserveAttempt: func(events []map[string]any, attemptErr error, duration time.Duration) {
-			attemptCtx := beginGatewayAttempt(ctx)
+			// The WS loop context carries no ProxyAuth; seed this turn's auth
+			// so the proxy-log sink can settle its quota reservation.
+			attemptCtx := ctx
+			if s.auth != nil {
+				attemptCtx = auth.WithProxyAuth(attemptCtx, s.auth)
+			}
+			attemptCtx = beginGatewayAttempt(attemptCtx)
 			proxyCtx := &Ctx{Auth: s.auth, RequestedModel: requestModel, DownstreamPath: "/v1/responses", IsStream: true, lifecycle: requestLifecycleFromContext(ctx)}
 			usage := ParsedUsage{Source: usageSourceUnknown}
 			for _, event := range events {

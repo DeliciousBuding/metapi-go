@@ -137,9 +137,16 @@ and `unit` (`minute`, `hour`, `day`), and `calendar_duration` with `unit` (`day`
 `month`). Calendar boundaries use the policy's IANA timezone (default UTC).
 Quota usage counts completed successes and failed attempts with observed token
 usage, independently of proxy-log retention. Cost uses the same estimated cost
-as the proxy logs. These are completion-based limits: concurrent requests may
-overrun a threshold. Unknown token/cost usage blocks the corresponding quota
-until its period expires or accounting is reconciled.
+as the proxy logs. A request admits atomically against the current window: it
+reserves one request slot (and, when the policy has a token limit, a
+best-effort input-token estimate) in the same transaction as the check, so
+concurrent requests cannot overrun the requests limit. The hold is settled by
+the completed attempt or released when the request ends without billable usage;
+a hold left by a crashed process expires after 30 minutes. Output tokens and
+the selected channel's price are unknown before dispatch, so concurrent
+in-flight output can still exceed a token limit and concurrent in-flight cost
+can exceed a cost limit. Unknown token/cost usage blocks the corresponding
+quota until its period expires or accounting is reconciled.
 
 AxonHub imports intersect the project and API key active profiles, including
 channel ID and `any`/`all`/`none` tag filters, into a snapshot of channel IDs.

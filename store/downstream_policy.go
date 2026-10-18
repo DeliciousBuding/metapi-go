@@ -218,3 +218,24 @@ func buildDownstreamQuotaUsageDDL(dialect string) string {
 		UNIQUE (key_id,event_key)
 	)`
 }
+
+// buildDownstreamQuotaReservationsDDL declares in-flight admission holds for
+// accessPolicy quota windows. A reservation is inserted in the same transaction
+// as the window check (per-key row lock on PostgreSQL, single SQLite
+// connection) and removed when the attempt settles or expires. It is an
+// admission estimate, never durable billing history: tokens holds the
+// estimated input size when a token limit exists, and cost stays NULL until a
+// trustworthy pre-dispatch cost exists.
+func buildDownstreamQuotaReservationsDDL(dialect string) string {
+	_ = dialect // identical column types; SQLite accepts DOUBLE PRECISION
+	return `CREATE TABLE IF NOT EXISTS downstream_quota_reservations (
+		reservation_id TEXT PRIMARY KEY,
+		key_id BIGINT NOT NULL REFERENCES downstream_api_keys(id) ON DELETE CASCADE,
+		window_start BIGINT NOT NULL,
+		window_end BIGINT NOT NULL,
+		requests BIGINT NOT NULL DEFAULT 1,
+		tokens BIGINT,
+		cost DOUBLE PRECISION,
+		created_at BIGINT NOT NULL
+	)`
+}

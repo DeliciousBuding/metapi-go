@@ -175,7 +175,7 @@ func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntr
 		if entry.TotalTokens != nil {
 			cost = &entry.EstimatedCost
 		}
-		auth.RecordManagedKeyQuotaUsage(*entry.DownstreamAPIKeyID, entry.TotalTokens, cost)
+		auth.RecordManagedKeyQuotaUsage(*entry.DownstreamAPIKeyID, quotaReservationID(ctx, *entry.DownstreamAPIKeyID), entry.TotalTokens, cost)
 	}
 	writer := cfg.LogProxy
 	if writer == nil {
@@ -190,6 +190,18 @@ func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntr
 			"retry_count", entry.RetryCount,
 		)
 	}
+}
+
+// quotaReservationID returns the admission hold carried on this request's auth
+// context when it belongs to the same managed key. A mismatch (or a missing
+// auth context in tests) settles without a reservation, which keeps the usage
+// row authoritative; the admission middleware releases any orphaned hold.
+func quotaReservationID(ctx context.Context, keyID int64) string {
+	pac := auth.GetProxyAuth(ctx)
+	if pac == nil || pac.KeyID == nil || *pac.KeyID != keyID {
+		return ""
+	}
+	return pac.QuotaReservationID
 }
 
 func nullInt64(v *int64) any {

@@ -34,6 +34,10 @@ type ProxyAuthContext struct {
 	// When set, it takes precedence over site/account proxy for that key's
 	// upstream requests (product intent: multi-tenant key isolation).
 	ProxyURL *string
+	// QuotaReservationID is the accessPolicy quota hold created at admission.
+	// The completion path deletes it together with the usage insert; the
+	// admission middleware releases it when no billable attempt completes.
+	QuotaReservationID string
 }
 
 // ---------------------------------------------------------------------------
