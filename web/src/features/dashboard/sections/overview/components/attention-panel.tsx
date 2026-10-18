@@ -69,12 +69,14 @@ export function AttentionPanel() {
         )}
         {!query.error && (
           <ul className='divide-border divide-y'>
-            {query.data?.items?.slice(0, 6).map((item) => {
+            {query.data?.items?.slice(0, 6).map((item, index) => {
               const target = resolveAttentionTarget(item.target)
               const label = attentionLabel(item, t)
               return (
                 <li
-                  key={`${item.category}-${item.target}-${item.createdAt}-${item.label}`}
+                  // The API has no stable item ID; position distinguishes repeated summaries.
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={`${item.target}-${index}`}
                   className='flex items-start gap-2 py-2'
                 >
                   <Badge

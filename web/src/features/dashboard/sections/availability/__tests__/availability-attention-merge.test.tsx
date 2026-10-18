@@ -7,7 +7,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -90,9 +90,12 @@ function createQueryClient() {
 
 function renderWithClient(ui: ReactNode) {
   const queryClient = createQueryClient()
-  return render(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-  )
+  return {
+    ...render(
+      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+    ),
+    queryClient,
+  }
 }
 
 beforeEach(() => {
@@ -118,6 +121,37 @@ const PROXY_EVENT = {
 }
 
 describe('AvailabilitySection attention duplicate merging', () => {
+  it('removes obsolete rows when same-label severities refresh and reorder', async () => {
+    const critical = { ...PROXY_EVENT, createdAt: '2026-10-18T00:00:00Z' }
+    const warning = { ...critical, severity: 'warning' }
+    const other = {
+      ...critical,
+      severity: 'info',
+      label: 'Another incident',
+      target: '/accounts?accountId=8',
+    }
+    mockGetAttention.mockResolvedValue({
+      items: [critical, warning, other],
+      total: 3,
+    })
+    const { queryClient } = renderWithClient(<AvailabilitySection />)
+    expect(await screen.findAllByRole('link')).toHaveLength(3)
+
+    await act(async () => {
+      queryClient.setQueryData(['dashboard-attention', 20], {
+        items: [other, warning],
+        total: 2,
+      })
+    })
+
+    await waitFor(() => expect(screen.getAllByRole('link')).toHaveLength(2))
+    const links = screen.getAllByRole('link')
+    expect(links[0]).toHaveTextContent('Another incident')
+    expect(links[0]).toHaveAttribute('href', '/accounts?accountId=8')
+    expect(links[1]).toHaveTextContent('All proxies failed')
+    expect(links[1].closest('li')).toHaveTextContent(/warning/i)
+    expect(screen.queryByText(/^critical$/i)).not.toBeInTheDocument()
+  })
   it('merges two identical events into one row with a ×2 count badge', async () => {
     mockGetAttention.mockResolvedValue({
       items: [
