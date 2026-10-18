@@ -259,7 +259,7 @@ func TestValidateRejectsDefaultTokensAsCritical(t *testing.T) {
 		"GEMINI_CLI_CLIENT_ID":      "gemini-client",
 	})
 
-	for _, field := range []string{"auth_token", "proxy_token"} {
+	for _, field := range []string{"auth_token"} {
 		t.Run(field, func(t *testing.T) {
 			var found bool
 			for _, err := range rt.Validate() {

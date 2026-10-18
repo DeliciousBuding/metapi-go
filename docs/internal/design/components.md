@@ -24,17 +24,22 @@ The implementation is the primitive API source of truth. The pre-rewrite `ds-*` 
 
 ## Operator workflows
 
-The model tester prioritizes model/protocol, channel, prompt and send controls.
-Templates, system instructions and sampling controls are progressively disclosed;
-validation errors in that section reveal it. The searchable provider-grouped
-model picker lives in the tester feature and composes the existing Dialog,
-Command and model identity components. Its interaction reference is
-[AI Elements Model Selector](https://elements.ai-sdk.dev/components/model-selector);
-it does not install another UI primitive stack or change the transport.
+Expandable list rows compose `components/common/row-disclosure.tsx`: a named
+`RowDisclosureTrigger`, `rowDisclosureClick` for the non-interactive row surface,
+and `RowDisclosureContent` for the indented region. Data tables and ordinary
+tables share these controls; feature owners supply the detail content and state.
 
-Conversation output has one scroll owner. Streaming follows new content while
-the reader is at the bottom; scrolling upward suspends following until the
-reader returns to the latest message. Input/output turns retain explicit roles.
+模型测试场使用开放对话画布，顶部仅保留模型选择和新会话操作。
+消息与底部圆角输入框使用同一阅读宽度；空态提供现有模板入口。
+输入框工具栏显示当前渠道和协议；渠道、协议、对比、模板、系统提示词与采样
+参数集中在按需打开的设置侧栏，手机使用全宽面板。校验失败会打开对应设置。
+消息组件采用 [Vercel AI Elements Message](https://elements.ai-sdk.dev/components/message)
+的组合方式，并用 Streamdown 渲染 Markdown；控件继续复用现有 Base UI 原语。
+共享 Markdown 渲染由 `components/common/markdown-content.tsx` 维护，供测试场
+与公告正文复用；HTML 标签不参与页面渲染，远程图片仅显示说明文字。
+每轮响应独立保留推理、用量与原始数据。当前测试接口完成同步请求后返回响应，
+等待状态显示“等待响应”。对话只有一个滚动容器；阅读旧消息时保持位置，
+回到最新后跟随新消息。会话内容仅在当前页面内存中保留。
 
 List pages separate persistent create/import actions from filters. Site status
 shortcuts reuse the URL-backed table filter and show counts from the complete

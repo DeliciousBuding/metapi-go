@@ -1,36 +1,15 @@
-// metapi-go/features/model-tester — tester page (dual-column layout).
-//
-// Left column: `TestForm` (model picker + prompt + params). Right column:
-// `TestResponseViewer` (conversation turns + live streaming content /
-// reasoning / raw SSE). The page owns the conversation history
-// (`messages`) and the streaming accumulation state (`content` /
-// `reasoningContent`) plus the `AbortController`, and wires them to the
-// `useTestModel` mutation: each parsed delta appends to the live strings
-// (functional setState so rapid chunks don't clobber each other); the
-// resolved `TestResponse` summary is committed to the viewer's stats bar
-// when the stream closes.
-//
-// Session semantics: a single run appends the user prompt to `messages` and
-// sends prior turns as request context; comparisons measure the same prompt
-// across channels without adding an unmatched conversation turn. When a
-// single run finishes with non-empty content, the assistant turn is appended.
-// The Clear button wipes the conversation and live run state.
-//
-// A deep link from the marketplace (`/model-tester?model=…`) pre-selects
-// the model in the form. The Stop button aborts the in-flight fetch; the
-// resulting `AbortError` is detected and surfaced as a "stopped" state
-// rather than a hard error.
+// The page owns the in-memory conversation and request cancellation.
+// Each synchronous response keeps its own diagnostics; comparisons keep
+// their original request context without adding a conversation turn.
 
 import { useQueryClient } from '@tanstack/react-query'
 import { useSearch } from '@tanstack/react-router'
-import { Trash2 as TrashIcon } from 'lucide-react'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { SquarePen } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { PageHeader } from '@/components/common/page-header'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { channelsKeys, useChannels } from '@/features/channels'
 import { tokenRoutesApi } from '@/lib/api/token-routes'
 import { asStringParam } from '@/lib/helpers/searchParams'
@@ -46,12 +25,7 @@ import {
 } from '../api'
 import { retainEnabledComparisonChannelIds } from '../lib/comparison-channels'
 import type { TesterFormValues } from '../lib/tester-schema'
-import type {
-  BatchProbeResult,
-  ChatMessage,
-  TestResponse,
-  TestStreamDelta,
-} from '../types'
+import type { BatchProbeResult, ChatMessage } from '../types'
 import { BatchResults } from './batch-results'
 import { TestForm } from './test-form'
 import { TestResponseViewer } from './test-response-viewer'
@@ -76,10 +50,6 @@ export function ModelTesterPage() {
   const channelsQuery = useChannels()
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [content, setContent] = useState('')
-  const [reasoningContent, setReasoningContent] = useState('')
-  const [response, setResponse] = useState<TestResponse | null>(null)
-  const [error, setError] = useState<string | undefined>(undefined)
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [disableFailedDialogOpen, setDisableFailedDialogOpen] = useState(false)
   const [isDisablingFailed, setIsDisablingFailed] = useState(false)
@@ -102,14 +72,13 @@ export function ModelTesterPage() {
     history: ChatMessage[]
   } | null>(null)
 
-  const handleDelta = useCallback((delta: TestStreamDelta) => {
-    if (delta.contentDelta) {
-      setContent((prev) => prev + delta.contentDelta)
-    }
-    if (delta.reasoningDelta) {
-      setReasoningContent((prev) => prev + delta.reasoningDelta)
-    }
-  }, [])
+  useEffect(
+    () => () => {
+      abortControllerRef.current?.abort()
+      rerunControllersRef.current.forEach((controller) => controller.abort())
+    },
+    []
+  )
 
   const handleStop = useCallback(() => {
     abortControllerRef.current?.abort()
@@ -118,6 +87,8 @@ export function ModelTesterPage() {
 
   const handleSubmit = useCallback(
     async (values: TesterFormValues) => {
+      if (abortControllerRef.current || rerunControllersRef.current.size > 0)
+        return false
       const comparisonChannelIds = retainEnabledComparisonChannelIds(
         values.channelIds ?? [],
         channelsQuery.data ?? []
@@ -128,12 +99,6 @@ export function ModelTesterPage() {
       }
 
       const history = messages
-      // Reset previous run state.
-      setContent('')
-      setReasoningContent('')
-      setResponse(null)
-      setError(undefined)
-
       const controller = new AbortController()
       abortControllerRef.current = controller
 
@@ -185,6 +150,7 @@ export function ModelTesterPage() {
 
       // Single runs join the conversation immediately; comparisons are
       // measurements and do not create an unmatched user-only turn.
+      setComparison(null)
       setMessages((prev) => [
         ...prev,
         { id: nextMessageId(), role: 'user', content: values.prompt },
@@ -194,30 +160,36 @@ export function ModelTesterPage() {
         const result = await testModel.mutateAsync({
           payload: values,
           history,
-          onDelta: handleDelta,
           signal: controller.signal,
         })
-        setResponse(result)
-        if (result.error) {
-          setError(result.error)
-        } else if (result.empty) {
+        if (controller.signal.aborted)
+          throw new DOMException('This operation was aborted', 'AbortError')
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: nextMessageId(),
+            role: 'assistant',
+            content: result.content,
+            response: result,
+            error: result.error,
+            model: values.model,
+          },
+        ])
+        if (!result.error && result.empty) {
           toast.warning(t('modelTester.toast.empty'))
-        } else {
-          if (result.content) {
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: nextMessageId(),
-                role: 'assistant',
-                content: result.content,
-              },
-            ])
-          }
-          toast.success(t('modelTester.toast.succeeded'))
         }
+        return !result.error && !result.empty
       } catch (err) {
-        if (isAbortError(err)) {
-          setError(t('modelTester.error.stopped'))
+        if (controller.signal.aborted || isAbortError(err)) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: nextMessageId(),
+              role: 'assistant',
+              content: '',
+              error: t('modelTester.error.stopped'),
+            },
+          ])
           toast.info(t('modelTester.toast.stopped'))
         } else {
           const rawMessage =
@@ -228,14 +200,23 @@ export function ModelTesterPage() {
           const message = rawMessage.startsWith('modelTester.')
             ? t(rawMessage)
             : rawMessage
-          setError(message)
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: nextMessageId(),
+              role: 'assistant',
+              content: '',
+              error: message,
+            },
+          ])
           toast.error(t('modelTester.toast.failed'))
         }
+        return false
       } finally {
         abortControllerRef.current = null
       }
     },
-    [channelsQuery.data, handleDelta, testModel, t, messages]
+    [channelsQuery.data, testModel, t, messages]
   )
 
   // Re-run ONE comparison row with the exact payload the batch used. Reuses
@@ -288,10 +269,6 @@ export function ModelTesterPage() {
 
   const handleClearSession = useCallback(() => {
     setMessages([])
-    setContent('')
-    setReasoningContent('')
-    setResponse(null)
-    setError(undefined)
     setComparison(null)
     lastComparisonRef.current = null
     setClearDialogOpen(false)
@@ -353,62 +330,45 @@ export function ModelTesterPage() {
     testModel.isPending || isComparing || rerunningChannelIds.size > 0
 
   return (
-    <div className='page-padding flex h-full flex-col gap-4'>
-      <PageHeader
-        title={t('modelTester.page.title')}
-        description={t('modelTester.page.description')}
+    <div className='flex h-full min-h-0 flex-col overflow-hidden'>
+      <TestForm
+        hasConversation={
+          messages.length > 0 || Boolean(comparison) || isRunning
+        }
         actions={
           <Button
             type='button'
-            variant='outline'
+            variant='ghost'
             size='sm'
             onClick={() => setClearDialogOpen(true)}
-            disabled={isRunning}
+            disabled={isRunning || (messages.length === 0 && !comparison)}
           >
-            <TrashIcon className='size-3.5' />
+            <SquarePen className='size-4' />
             {t('modelTester.clear.button')}
           </Button>
         }
-      />
-
-      <div className='grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(360px,0.85fr)_minmax(0,1.15fr)] lg:overflow-hidden'>
-        <Card className='flex h-full min-h-0 flex-col py-0'>
-          <CardContent className='flex min-h-0 flex-1 flex-col overflow-y-auto p-4'>
-            <TestForm
-              isRunning={isRunning}
-              defaultModel={defaultModel}
-              onSubmit={handleSubmit}
-              onStop={handleStop}
-            />
-          </CardContent>
-        </Card>
-
-        <Card className='flex h-full min-h-0 flex-col py-0'>
-          <CardContent className='flex min-h-0 flex-1 flex-col p-0'>
-            {comparison || isComparing ? (
-              <BatchResults
-                results={comparison ?? []}
-                channels={channelsQuery.data ?? []}
-                isRunning={isComparing}
-                rerunningChannelIds={rerunningChannelIds}
-                onRerunRow={handleRerunRow}
-                onDisableFailed={() => setDisableFailedDialogOpen(true)}
-                isDisablingFailed={isDisablingFailed}
-              />
-            ) : (
-              <TestResponseViewer
-                messages={messages}
-                content={content}
-                reasoningContent={reasoningContent}
-                isRunning={isRunning}
-                response={response}
-                error={error}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
+        isRunning={isRunning}
+        defaultModel={defaultModel}
+        onSubmit={handleSubmit}
+        onStop={handleStop}
+        onCompareChange={(enabled) => {
+          if (!enabled) setComparison(null)
+        }}
+      >
+        {comparison || isComparing ? (
+          <BatchResults
+            results={comparison ?? []}
+            channels={channelsQuery.data ?? []}
+            isRunning={isComparing}
+            rerunningChannelIds={rerunningChannelIds}
+            onRerunRow={handleRerunRow}
+            onDisableFailed={() => setDisableFailedDialogOpen(true)}
+            isDisablingFailed={isDisablingFailed}
+          />
+        ) : (
+          <TestResponseViewer messages={messages} isRunning={isRunning} />
+        )}
+      </TestForm>
       <ConfirmDialog
         open={clearDialogOpen}
         title={t('modelTester.clear.title')}

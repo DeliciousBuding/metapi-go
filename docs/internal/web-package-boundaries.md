@@ -162,7 +162,8 @@ out of `settings/sections/downstream/`) was retired by moving the keys UI into
   `key-created-toast`, `credential-ref-picker` and `lib/credential-{refs,display}`
   went from `features/settings/sections/downstream/` to
   `features/downstream-keys/`, whose barrel already owned the wire contract;
-  `sections/downstream/` now holds only the proxy-token section. Two pieces of
+  `sections/downstream/` held the proxy-token section until root keys migrated
+  to managed API keys. Two pieces of
   generic card chrome moved down with them — `SettingsSectionCard` →
   `components/common/section-card.tsx` (`SectionCard`) and `SettingsSectionError`
   → `components/common/section-error.tsx` (`SectionError`) — the same promotion

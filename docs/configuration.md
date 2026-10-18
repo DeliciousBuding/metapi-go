@@ -15,7 +15,7 @@ The three Compose-only variables are checked against `.env.example` and
 or that test fails — names must be written out in full (no `SOME_PREFIX_*`
 shorthand) so they stay greppable.
 
-> **How to read this page**: first-time deployment only needs the two
+> **How to read this page**: first-time deployment only needs the
 > [Required](#required) variables (plus the
 > [Recommended](#recommended) credential secret). Everything else is optional
 > and grouped by area — [Server](#server), [Database](#database),
@@ -28,7 +28,12 @@ shorthand) so they stay greppable.
 | Variable | Default | Description |
 |:---------|:--------|:------------|
 | `AUTH_TOKEN` | `change-me-admin-token` | Admin web UI login token and management API bearer. Change it. |
-| `PROXY_TOKEN` | `change-me-proxy-sk-token` | Default downstream key for `/v1/*` proxy calls. Additional per-project keys are created in the UI (downstream keys). |
+
+## Legacy upgrade imports
+
+| Variable | Default | Description |
+|:---------|:--------|:------------|
+| `PROXY_TOKEN` | empty | 升级导入用的旧根密钥。首次启动迁入 API 密钥后由数据库管理；此变量不再参与鉴权，也不会在重启时覆盖、恢复或新建密钥。新安装可留空，在 API 密钥页创建访问令牌。 |
 
 ## Recommended
 
@@ -120,7 +125,7 @@ silent until their URL/key is set. Every other provider needs its
 | `REQUEST_BODY_LIMIT_MB` | `20` | Body limit for `/v1` routes (clamped 1–200). |
 | `FILE_UPLOAD_LIMIT_MB` | `100` | Multipart limit for `/v1/files` and `/v1/images/*` (clamped 1–1000). |
 | `PROXY_RATE_LIMIT_RPM` | `60` | Per-IP requests/min on `/v1`; `0` disables. |
-| `PROXY_GLOBAL_TOKEN_RPM` | `0` | Global cap across all IPs for `PROXY_TOKEN`; safety net if a token leaks. |
+| `PROXY_GLOBAL_TOKEN_RPM` | `0` | 旧根密钥迁入 API 密钥时使用的 RPM 限额。迁移完成后，在 API 密钥页调整单个令牌的 RPM；修改此变量不影响已迁移密钥。 |
 | `PROXY_MAX_CHANNEL_ATTEMPTS` | `3` | Max retry/failover channel attempts per request. |
 | `PROXY_MAX_BUFFERED_RESPONSE_BYTES` | `20971520` | Non-streaming upstream response buffer cap (20 MiB); over → 502. |
 | `PROXY_MAX_STREAM_RESPONSE_BYTES` | `67108864` | Bytes relayed per SSE stream before controlled termination. Protocol conversion also caps original upstream bytes, including discarded frames. |

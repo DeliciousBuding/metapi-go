@@ -7,7 +7,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 )
@@ -17,8 +16,6 @@ import (
 // (settings_apply.go) runs concurrently with the hot-path readers that
 // dereference the same config fields lock-free:
 //
-//   - auth.AuthorizeDownstreamToken — reads the runtime snapshot
-//     ProxyToken on every proxy request (auth/downstream.go)
 //   - routing.ActiveRetryStatusRanges / ActiveDisableStatusRanges — reads
 //     the snapshot ProxyRetryStatusRanges / ProxyDisableStatusRanges on
 //     every upstream verdict (routing/status_ranges.go)
@@ -26,8 +23,7 @@ import (
 //
 // Before the fix this FAILS under -race (DATA RACE). After the atomic
 // RuntimeSettings snapshot redesign it passes, and the trailing assertions
-// prove hot-update semantics survive: a freshly applied proxyToken
-// authenticates immediately (no restart) and the old token stops working.
+// prove routing and system proxy settings take effect without a restart.
 func TestSettingsRuntime_ConcurrentApplyVsHotReaders(t *testing.T) {
 	db, r, _ := setupEdgeTest(t)
 
@@ -44,7 +40,6 @@ func TestSettingsRuntime_ConcurrentApplyVsHotReaders(t *testing.T) {
 		defer writerWG.Done()
 		for i := 0; i < writerIters; i++ {
 			body := map[string]any{
-				"proxyToken":             fmt.Sprintf("sk-race-%06d", i),
 				"proxyRetryStatusRanges": "500-599",
 				"systemProxyUrl":         fmt.Sprintf("http://10.0.0.%d:8080", i%5),
 				"notifyCooldownSec":      i % 60,
@@ -74,7 +69,7 @@ func TestSettingsRuntime_ConcurrentApplyVsHotReaders(t *testing.T) {
 					return
 				default:
 				}
-				_ = auth.AuthorizeDownstreamToken("sk-race-probe", config.Runtime())
+				_ = config.Runtime().SystemProxyUrl
 				_ = routing.ActiveRetryStatusRanges()
 				_ = routing.ActiveDisableStatusRanges()
 			}
@@ -106,21 +101,17 @@ func TestSettingsRuntime_ConcurrentApplyVsHotReaders(t *testing.T) {
 	readerWG.Wait()
 
 	// ---- Hot-update behavior proof: settings take effect without restart ----
-	finalToken := "sk-hot-update-final-token"
+	finalProxy := "http://proxy.example:8080"
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
-		"proxyToken":             finalToken,
+		"systemProxyUrl":         finalProxy,
 		"proxyRetryStatusRanges": "429,500-599",
 	})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("final apply: status = %d body=%s", resp.Code, resp.Body.String())
 	}
 
-	got := auth.AuthorizeDownstreamToken(finalToken, config.Runtime())
-	if !got.OK || got.Source != "global" {
-		t.Fatalf("hot-updated proxy token rejected: ok=%v source=%q reason=%q (hot update lost)", got.OK, got.Source, got.Reason)
-	}
-	if stale := auth.AuthorizeDownstreamToken("sk-race-000000", config.Runtime()); stale.OK && stale.Source == "global" {
-		t.Fatalf("superseded proxy token still authenticates as global")
+	if config.Runtime().SystemProxyUrl != finalProxy {
+		t.Fatal("hot-updated system proxy URL was not published")
 	}
 	if ranges := routing.ActiveRetryStatusRanges(); len(ranges) != 2 {
 		t.Fatalf("hot-updated retry ranges = %v, want 2 ranges (429 + 500-599)", ranges)

@@ -34,3 +34,11 @@ survive a reload and a back-navigation without the table owning routing.
 
 **Feature-specific columns, actions and dialogs stay in the feature folder.**
 Code belongs here only once a second feature needs it.
+
+**Inline details use `DataTablePage.rowDisclosure`.** The feature owns expansion
+by stable entity ID and supplies a label, content ID, toggle and content renderer.
+The page mounts that content only while expanded, in a spanning desktop row or
+beneath its mobile card. Use `RowDisclosureTrigger` in the title cell; the shared
+row-surface handler leaves nested controls and selected text alone. Detail data
+loading and retry stay with the feature. Custom `renderRow` retains precedence
+on desktop when supplied.

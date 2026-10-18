@@ -15,7 +15,7 @@ import (
 var bearerPrefixRe = regexp.MustCompile(`(?i)^Bearer\s+`)
 
 // ProxyAuth returns a chi-compatible middleware that authenticates downstream
-// proxy clients using managed API keys or the global proxy token.
+// proxy clients using API keys from downstream_api_keys.
 
 // Token extraction priority (EXCLUSIVE, not a fallback chain):
 // 1. If Authorization header exists and is a string → use it exclusively
@@ -24,7 +24,6 @@ var bearerPrefixRe = regexp.MustCompile(`(?i)^Bearer\s+`)
 
 // After extraction, the token is passed to AuthorizeDownstreamToken which:
 // - Queries the downstream_api_keys table for a managed key match
-// - Falls back to checking against the runtime snapshot ProxyToken
 // - Returns a ProxyAuthContext on success
 
 // On successful managed key auth, the middleware runs soft RPM/TPM admission
@@ -131,8 +130,6 @@ func ProxyAuth() func(http.Handler) http.Handler {
 						pac.ProxyURL = &trimmed
 					}
 				}
-			} else {
-				pac.KeyName = "global"
 			}
 
 			r = r.WithContext(WithProxyAuth(r.Context(), pac))

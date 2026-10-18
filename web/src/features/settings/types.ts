@@ -46,7 +46,7 @@ type SettingsSectionNavItem = {
 }
 
 /**
- * The 5 settings subareas (drill-in workspaces). Each maps to a top-level
+ * The settings subareas (drill-in workspaces). Each maps to a top-level
  * entry in the main sidebar's Settings nested view
  * (components/layout/config/system-settings.config.ts).
  *
@@ -54,8 +54,6 @@ type SettingsSectionNavItem = {
  *   basic        基础            — site, authentication
  *   proxy-models 代理与模型      — proxy-transport, routing, redirects,
  *                                 rates, allowlist, catalog-sources
- *   downstream   下游            — proxy-token (downstream API keys moved
- *                                 to the top-level /downstream-keys route)
  *   content      通知与数据      — notifications, announcements,
  *                                 import-export
  *   operations   系统与运维      — scheduling, database, data-migration,

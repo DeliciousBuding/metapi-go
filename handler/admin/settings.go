@@ -137,8 +137,7 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		"currentAdminIp":   extractClientIP(r),
 		"serverTimeZone":   cfg.Tz,
 		// System
-		"systemProxyUrl":   rt.SystemProxyUrl,
-		"proxyTokenMasked": maskValue(rt.ProxyToken),
+		"systemProxyUrl": rt.SystemProxyUrl,
 		// Proxy
 		"payloadRules":                 rt.PayloadRules,
 		"proxyErrorKeywords":           rt.ProxyErrorKeywords,

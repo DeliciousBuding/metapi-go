@@ -612,6 +612,11 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "proxy_video_tasks", "accounting_state", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		Version:     "site_announcement_timeline_v1",
+		Description: "merge legacy single-notice records and preserve announcement revisions",
+		Apply:       migrateSiteAnnouncementTimeline,
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

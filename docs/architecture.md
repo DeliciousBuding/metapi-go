@@ -164,12 +164,9 @@ fail-closed handler.
 2. `CORS()`
 3. `auth.ProxyRateLimit(cfg.ProxyRateLimitRPM)` — per-IP, **before** auth so an
    unauthenticated flood is dropped without a database lookup
-4. `auth.ProxyAuth()` — resolves the caller (global `PROXY_TOKEN` or a managed
-   downstream key) and puts the result in the request context
-5. `auth.ProxyGlobalTokenRateLimit(cfg.ProxyGlobalTokenRPM)` — **after** auth,
-   because the global cap only applies once the resolved auth source is known
-   to be the shared token; managed keys have their own admission
-6. `proxyhandler.RegisterProxyRoutes(r)` — the surface itself
+4. `auth.ProxyAuth()` — resolves the managed downstream key, applies its
+   admission limits and puts the result in the request context
+5. `proxyhandler.RegisterProxyRoutes(r)` — the surface itself
 7. `admin.RegisterDownstreamPricingRoutes(r, db.DB)` — the downstream-key-visible
    price catalog, mounted here so it inherits proxy auth instead of admin auth
 
@@ -339,7 +336,7 @@ metapi-go/
 ```
 Client → /v1/chat/completions (or messages / generateContent / …)
   → router middleware (RequestID, security headers, body limits where applied)
-  → auth.ProxyAuth (PROXY_TOKEN or managed downstream key; fail-closed)
+  → auth.ProxyAuth (managed downstream key; fail-closed)
   → handler/proxy surface
   → routing.TokenRouter.Match(requestedModel) + policy filters
   → routing selector (weights / round-robin / stable-first)

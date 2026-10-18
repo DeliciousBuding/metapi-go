@@ -12,10 +12,10 @@ clients and the built-in config export.
 | Value      | Where to get it                                             |
 | :--------- | :---------------------------------------------------------- |
 | Base URL   | `http://<host>:4000/v1` (or your reverse-proxied domain)    |
-| API key    | A downstream key from **访问 → API 密钥** (`/downstream-keys`), or `PROXY_TOKEN` |
+| API key    | A downstream key from **访问 → API 密钥** (`/downstream-keys`) |
 
 Downstream keys are per-project keys with optional request/cost caps and
-expiry — create one per tool instead of sharing `PROXY_TOKEN` everywhere.
+expiry. Create one per tool to manage access independently.
 
 ## Cursor
 

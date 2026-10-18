@@ -60,16 +60,21 @@ vi.mock('../components/test-form', () => ({
   TestForm: ({
     isRunning,
     onSubmit,
+    children,
   }: {
     isRunning: boolean
     onSubmit: SubmitFn
+    children?: ReactNode
   }) => {
     testState.submit = onSubmit
     testState.formIsRunning = isRunning
     return (
-      <button type='button' onClick={() => void onSubmit(comparisonValues)}>
-        run comparison
-      </button>
+      <>
+        <button type='button' onClick={() => void onSubmit(comparisonValues)}>
+          run comparison
+        </button>
+        {children}
+      </>
     )
   },
 }))

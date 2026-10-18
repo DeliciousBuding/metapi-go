@@ -23,6 +23,7 @@ import { DataTablePage, useDataTable } from '@/components/data-table'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Notice } from '@/components/ui/notice'
 import {
   Select,
   SelectContent,
@@ -93,6 +94,9 @@ export function KeysSection({
       (await api.getDownstreamApiKeys()) as DownstreamKeysResponse,
     staleTime: 15 * 1000,
   })
+  const migratedKey = keysQuery.data?.items.find(
+    (item) => item.id === keysQuery.data?.migratedKeyId
+  )
 
   const modelInventoryQuery = useQuery<unknown>({
     queryKey: [
@@ -447,6 +451,23 @@ export function KeysSection({
         </Button>
       }
     >
+      {migratedKey && (
+        <Notice tone='info' role='status' className='mb-3'>
+          <KeySquare className='mt-0.5 size-4 shrink-0' />
+          <div>
+            <p className='font-medium'>{t('downstreamKeys.migration.title')}</p>
+            <p>{t('downstreamKeys.migration.description')}</p>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => openEdit(migratedKey)}
+              className='mt-2'
+            >
+              {t('downstreamKeys.migration.review')}
+            </Button>
+          </div>
+        </Notice>
+      )}
       {keysQuery.isError ? (
         <SectionError
           title={t('settings.downstream.keys.title')}

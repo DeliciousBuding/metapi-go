@@ -33,8 +33,8 @@ vi.mock('@/components/common/query-error-banner', () => ({
 }))
 
 vi.mock('../../api', () => ({
-  usePriceCompare: () => ({
-    data: [],
+  usePriceWorkspace: () => ({
+    data: { items: [] },
     isLoading: false,
     isFetching: false,
     error: null,

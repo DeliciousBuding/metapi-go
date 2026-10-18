@@ -334,7 +334,6 @@ export type RuntimeSettingsPayload = {
   footer?: string
   about?: string
   serverAddress?: string
-  proxyToken?: string
   systemProxyUrl?: string
   payloadRules?: Record<string, unknown> | null
   modelAvailabilityProbeEnabled?: boolean

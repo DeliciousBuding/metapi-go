@@ -2,7 +2,6 @@ package platform
 
 import (
 	"context"
-	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -566,14 +565,6 @@ func extractResponseMessageFromBytes(body []byte) string {
 		return ""
 	}
 	return extractResponseMessage(m)
-}
-
-// --- Notice helpers ---
-
-func buildNoticeSourceKey(content string) string {
-	normalized := strings.TrimSpace(content)
-	hash := sha1.Sum([]byte(normalized))
-	return fmt.Sprintf("notice:%x", hash[:])
 }
 
 // --- Token helpers ---

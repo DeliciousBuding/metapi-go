@@ -193,7 +193,6 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		r.Use(CORS())
 		r.Use(auth.ProxyRateLimit(cfg.ProxyRateLimitRPM))
 		r.Use(auth.ProxyAuth())
-		r.Use(auth.ProxyGlobalTokenRateLimit(cfg.ProxyGlobalTokenRPM))
 		proxyhandler.RegisterProxyRoutes(r)
 		// Downstream-key-visible cross-site price catalog (not admin auth).
 		// Mounted under /v1 so it inherits ProxyAuth; reuses the admin
@@ -212,7 +211,6 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		r.Use(CORS())
 		r.Use(auth.ProxyRateLimit(cfg.ProxyRateLimitRPM))
 		r.Use(auth.ProxyAuth())
-		r.Use(auth.ProxyGlobalTokenRateLimit(cfg.ProxyGlobalTokenRPM))
 		proxyhandler.RegisterNonV1ProxyRoutes(r)
 	})
 

@@ -46,4 +46,4 @@ advisories.
 
 This is a self-hosted product: all credentials and traffic live on your own
 server. Do not expose the admin UI or proxy port to the public internet
-without a reverse proxy, TLS, and strong `AUTH_TOKEN` / `PROXY_TOKEN` values.
+without a reverse proxy, TLS, and a strong `AUTH_TOKEN` and individually managed downstream API keys.

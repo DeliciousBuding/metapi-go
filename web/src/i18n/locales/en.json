@@ -443,7 +443,7 @@
         "systemPrompt": "System prompt",
         "systemPromptPlaceholder": "Enter a system prompt (optional)",
         "prompt": "Prompt",
-        "promptPlaceholder": "Enter a prompt",
+        "promptPlaceholder": "Message the model…",
         "promptSubmitHint": "Press ⌘/Ctrl + Enter to send.",
         "temperature": "Temperature",
         "topP": "Top P",
@@ -453,6 +453,7 @@
         "submit": "Send",
         "errors": {
           "modelRequired": "Please select a model.",
+          "channelRequired": "Please select a channel.",
           "systemTooLong": "System prompt must be at most 4000 characters.",
           "promptRequired": "Please enter a prompt.",
           "promptTooLong": "Prompt must be at most 16000 characters.",
@@ -467,7 +468,9 @@
         },
         "channelNoneForced": "Select a channel",
         "channelHintForced": "Choose the upstream channel for this test.",
-        "advanced": "Advanced · templates, system prompt and sampling"
+        "advanced": "Settings · templates, system prompt and sampling",
+        "settings": "Chat settings",
+        "settingsHint": "Choose a channel and protocol, or adjust the system prompt and sampling."
       },
       "toast": {
         "empty": "The response is empty.",
@@ -483,15 +486,21 @@
         "sessionExpired": "Session expired, please sign in again."
       },
       "viewer": {
-        "title": "Response",
+        "title": "Conversation",
+        "emptyTitle": "What would you like to try?",
+        "details": "Response details · raw data",
+        "copy": "Copy response",
+        "copied": "Response copied",
+        "copyFailed": "Could not copy the response.",
         "streaming": "Streaming",
         "empty": "Empty",
         "done": "Done",
         "latency": "Latency: {{value}}",
         "usage": "Tokens: {{total}} ({{prompt}} in / {{completion}} out)",
         "noDone": "No done signal",
+        "truncated": "The response exceeded the size limit. Raw data was truncated.",
         "error": "Error",
-        "emptyHint": "Choose a model and channel, enter a prompt, and send. Responses, reasoning and raw events will appear here.",
+        "emptyHint": "Choose a model and channel, then send a message. Or start with one of these tests.",
         "tabContent": "Content",
         "tabReasoning": "Reasoning",
         "tabRaw": "Raw",
@@ -522,8 +531,8 @@
         "disableFailed": "Disable failed channels"
       },
       "page": {
-        "title": "Model Tester",
-        "description": "Send test prompts to a model and inspect the response."
+        "title": "Model Playground",
+        "description": "Chat with a model, inspect each reply and compare channels."
       },
       "template": {
         "label": "Template",
@@ -1879,25 +1888,6 @@
               "rate": "rate"
             }
           }
-        },
-        "proxyToken": {
-          "title": "Root downstream key (deprecated)",
-          "description": "Global downstream fallback key with no per-key policy. Deprecated; use API Keys to issue scoped keys instead.",
-          "current": "Current token",
-          "notSet": "not set",
-          "generate": "Generate",
-          "save": "Update token",
-          "fields": {
-            "suffix": "Token suffix",
-            "suffixHint": "The sk- prefix is fixed. Generate or type a new suffix."
-          },
-          "schema": {
-            "suffixMinLength": "Suffix must be at least 8 characters."
-          },
-          "toast": {
-            "saved": "Root downstream key updated.",
-            "saveFailed": "Failed to update root downstream key."
-          }
         }
       },
       "content": {
@@ -2975,6 +2965,10 @@
         "modelMapping": "Model mapping",
         "clearCooldown": "Clear cooldown",
         "channelTruthList": "Channel allocation and price",
+        "inlineLabel": "Channels for {{model}}",
+        "openDiagnostics": "Details and diagnosis",
+        "channelsLoadError": "Could not load channels: {{message}}",
+        "retryPrices": "Retry prices",
         "channelTruthDescription": "Configured weights, enabled shares, and normalized prices from Price Compare.",
         "channelEmptyReadOnly": "No channels, complete the connection config first then rebuild routes.",
         "channelEmptyEditable": "No channels, edit the route to add channels or wait for auto-rebuild.",
@@ -3385,9 +3379,16 @@
       }
     },
     "siteAnnouncements": {
+      "timeline": {
+        "title": "Previous updates",
+        "current": "Current version",
+        "siteNotice": "Site notice",
+        "updates": "{{count}} updates",
+        "lastSeen": "Last seen: {{time}}"
+      },
       "page": {
         "title": "Site Announcements",
-        "description": "Notices scraped from your upstream sites by the announcement sync."
+        "description": "Read the latest notices from your sites. Click a row to expand its content and updates."
       },
       "actions": {
         "sync": "Sync now",
@@ -3662,7 +3663,7 @@
         "tokenRoutes": "Token Routes",
         "oauth": "OAuth",
         "models": "Model List",
-        "modelTester": "Model Tester",
+        "modelTester": "Model Playground",
         "settings": "Settings",
         "about": "About",
         "priceCompare": "Price Compare",
@@ -3741,9 +3742,49 @@
       }
     },
     "priceCompare": {
+      "current": {
+        "observedAverage": "Observed average {{price}} / request · {{count}} samples",
+        "configuredCost": "Configured cost {{price}} / request",
+        "builtIn": "Built-in models.dev snapshot · {{date}}",
+        "search": "Search models",
+        "pagination": "Published model price pages",
+        "pageSummary": "Page {{page}} of {{pages}} · {{count}} models",
+        "previous": "Previous",
+        "next": "Next",
+        "refresh": "Refresh",
+        "title": "Published prices & official baseline",
+        "units": "USD / 1M tokens · per-call prices labeled separately",
+        "refreshHint": "Refresh each account to read its published prices and available groups. Reading this page uses the saved snapshot.",
+        "accounts": "Pricing sources ({{count}} accounts)",
+        "fetched": "Fetched {{time}}",
+        "notFetched": "Prices have not been fetched",
+        "refreshAccount": "Refresh prices for {{name}}",
+        "refreshFailed": "Price refresh failed. Check the account credential and site connection, then retry.",
+        "unsupported": "Published pricing unavailable for this platform",
+        "official": "Official list price",
+        "noBaseline": "No official baseline",
+        "input": "Input",
+        "output": "Output",
+        "cacheRead": "Cache read",
+        "cacheWrite": "Cache write",
+        "alias": "Alias match",
+        "catalogUpdated": "Catalog updated {{date}}",
+        "noQuote": "No saved quote for this model. Expand pricing sources and refresh an account.",
+        "stale": "The latest refresh failed; these prices are from the saved snapshot.",
+        "nonLinear": "Conditional billing. The upstream rule determines the final cost.",
+        "perRequestFormula": "Base price {{price}} / call × effective group multiplier",
+        "formula": "Input = $2 × model {{model}} × group. Output × {{output}} · cache read × {{read}} · cache write × {{write}} (relative to input).",
+        "noGroups": "This account has no usable group for this model.",
+        "groupRatio": "Effective group multiplier",
+        "relative": "vs official",
+        "perRequest": "USD / call",
+        "oneCall": "One call:",
+        "sample": "Example: 1K input + 1K output, no cache:",
+        "history": "Historical rates & observations"
+      },
       "page": {
         "title": "Price Compare",
-        "description": "Cross-site effective model pricing with price sources and recommendations (lowest effective cost per model).",
+        "description": "Compare published group prices with official list prices, and inspect the calculation.",
         "searchPlaceholder": "Filter by model…",
         "loadError": "Failed to load price comparison: {{message}}",
         "invalidResponse": "The server returned invalid price data. Please retry.",
@@ -3751,7 +3792,7 @@
         "emptyAction": "Manage accounts"
       },
       "group": {
-        "description": "Effective price per source site, cheapest first. Source priority: billing > observed > configured > fallback (first available wins)."
+        "description": "Historical billing rates and recorded cost signals. Observed request averages and configured unit costs have no fixed-token sample estimate."
       },
       "grade": {
         "billing_details": "Billing",
@@ -4323,6 +4364,11 @@
       }
     },
     "downstreamKeys": {
+      "migration": {
+        "title": "Your root key has moved to API keys",
+        "description": "The upgrade preserved your key, so existing clients can keep using it. Manage its permissions, usage limits, or enabled state here. Restarting will not restore a disabled or deleted key.",
+        "review": "Review migrated key"
+      },
       "page": {
         "title": "API Keys",
         "description": "Issue and manage API keys for calling the LLM."

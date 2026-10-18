@@ -45,7 +45,7 @@ session pinning if you need stickiness.
 ## Deployment
 
 **What are the defaults?**
-Port `4000`; admin token `AUTH_TOKEN`, proxy key `PROXY_TOKEN` (change both);
+Port `4000`; admin token `AUTH_TOKEN`; create downstream access tokens in API Keys;
 SQLite at `DATA_DIR/hub.db`. On Windows, empty `HOST` binds `127.0.0.1` to
 avoid firewall prompts — set `HOST=0.0.0.0` for LAN access.
 

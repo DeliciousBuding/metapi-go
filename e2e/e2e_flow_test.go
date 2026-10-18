@@ -60,12 +60,14 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase failed: %v", err)
 	}
+	migrateFixtureRootKey(t, rt)
 	defer store.CloseDatabase()
 
 	db := store.GetDB()
 	if db == nil {
 		t.Fatal("store.GetDB() returned nil after EnsureRuntimeDatabase")
 	}
+	migrateFixtureRootKey(t, rt)
 
 	// 1c. Mock upstream HTTP server that returns a valid chat completion.
 	mockUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -370,6 +372,7 @@ func TestSiteCreateToProxyFlow_UnauthorizedAccess(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase failed: %v", err)
 	}
+	migrateFixtureRootKey(t, rt)
 	defer store.CloseDatabase()
 
 	db := store.GetDB()
@@ -470,6 +473,7 @@ func TestSiteCreateToProxyFlow_Streaming(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase failed: %v", err)
 	}
+	migrateFixtureRootKey(t, rt)
 	defer store.CloseDatabase()
 
 	db := store.GetDB()

@@ -3,11 +3,10 @@
 // string-typed list consumed by route guards + the generic SettingsPage.
 //
 // Semantic regroup of the settings navigation:
-// basic / proxy-models / downstream / content(通知与数据) / operations.
+// basic / proxy-models / content(通知与数据) / operations.
 
 import { basicSubarea } from '../sections/basic'
 import { contentSubarea } from '../sections/content'
-import { downstreamSubarea } from '../sections/downstream'
 import { operationsSubarea } from '../sections/operations'
 import { proxyModelsSubarea } from '../sections/proxy-models'
 import type { SettingsSubarea } from '../types'
@@ -15,13 +14,12 @@ import type { SettingsSubarea } from '../types'
 const SETTINGS_SUBAREAS: readonly SettingsSubarea[] = [
   basicSubarea,
   proxyModelsSubarea,
-  downstreamSubarea,
   contentSubarea,
   operationsSubarea,
 ]
 
 /**
- * All 5 settings subareas in main-sidebar order.
+ * Settings subareas in main-sidebar order.
  * Consumed by the settings overview landing and the layout drill-in sidebar so
  * both surfaces share one metadata source (title / icon / description).
  */

@@ -29,6 +29,7 @@ import { SiteAnnouncementsPage } from '../components/site-announcements-page'
 const { mockApi, mockToast, mockRouter } = vi.hoisted(() => ({
   mockApi: {
     getSiteAnnouncements: vi.fn(),
+    getSiteAnnouncementHistory: vi.fn(),
     getSites: vi.fn(),
     markSiteAnnouncementRead: vi.fn(),
     markAllSiteAnnouncementsRead: vi.fn(),
@@ -137,6 +138,67 @@ function renderPage() {
 }
 
 describe('SiteAnnouncementsPage — list rendering', () => {
+  it('opens the complete announcement and its previous versions', async () => {
+    const current = makeAnnouncement({ revisionCount: 1, revisionId: 0 })
+    mockApi.getSiteAnnouncements.mockResolvedValue([current])
+    mockApi.getSiteAnnouncementHistory.mockResolvedValue([
+      current,
+      makeAnnouncement({
+        revisionId: 1,
+        content: 'Original schedule',
+        firstSeenAt: '2026-08-19T01:00:00Z',
+      }),
+    ])
+    renderPage()
+    await screen.findByRole('button', { name: 'Scheduled maintenance' })
+    expect(mockApi.getSiteAnnouncementHistory).not.toHaveBeenCalled()
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Scheduled maintenance' })
+    )
+    expect(await screen.findByText('Original schedule')).toBeInTheDocument()
+    expect(screen.getByText('Current version')).toBeInTheDocument()
+    expect(mockApi.getSiteAnnouncementHistory).toHaveBeenCalledWith(1)
+    expect(mockApi.markSiteAnnouncementRead).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getAllByText(current.content)).toHaveLength(1)
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Scheduled maintenance' })
+    )
+    expect(screen.queryByText('Original schedule')).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(mockApi.markSiteAnnouncementRead).toHaveBeenCalledWith(1)
+    )
+  })
+
+  it('shows history failures with a retry action', async () => {
+    mockApi.getSiteAnnouncements.mockResolvedValue([makeAnnouncement()])
+    mockApi.getSiteAnnouncementHistory.mockRejectedValue(
+      new Error('History unavailable')
+    )
+    renderPage()
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Scheduled maintenance' })
+    )
+    expect(await screen.findByText(/History unavailable/)).toBeInTheDocument()
+  })
+
+  it('expands when clicking the row but leaves action buttons independent', async () => {
+    const current = makeAnnouncement()
+    mockApi.getSiteAnnouncements.mockResolvedValue([current])
+    mockApi.getSiteAnnouncementHistory.mockResolvedValue([
+      { ...current, revisionId: 0 },
+    ])
+    renderPage()
+    const preview = await screen.findByText(current.content)
+    fireEvent.click(screen.getByRole('button', { name: 'Mark read' }))
+    expect(mockApi.getSiteAnnouncementHistory).not.toHaveBeenCalled()
+    fireEvent.click(preview)
+    expect(await screen.findByText('Current version')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: current.title })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+  })
   it('renders rows with title, content preview, joined site name, platform and level badge', async () => {
     mockApi.getSiteAnnouncements.mockResolvedValue([
       makeAnnouncement(),

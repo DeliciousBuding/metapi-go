@@ -1,11 +1,10 @@
 // Security tests for the site-announcements page (#986): announcement
-// title / content / source are UNTRUSTED upstream data. The body must render
-// as plain text (no HTML injection, no markdown). External navigation may
-// only use a same-origin URL resolved from the trusted local Site URL.
+// Titles and previews stay literal. Expanded Markdown must not execute HTML
+// or unsafe links; source navigation resolves against the trusted Site URL.
 
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import {
   afterEach,
@@ -24,6 +23,7 @@ import { SiteAnnouncementsPage } from '../components/site-announcements-page'
 const { mockApi } = vi.hoisted(() => ({
   mockApi: {
     getSiteAnnouncements: vi.fn(),
+    getSiteAnnouncementHistory: vi.fn(),
     getSites: vi.fn(),
     markSiteAnnouncementRead: vi.fn(),
     markAllSiteAnnouncementsRead: vi.fn(),
@@ -148,5 +148,38 @@ describe('SiteAnnouncementsPage — untrusted upstream content', () => {
     expect(trusted).toBeDefined()
     expect(trusted).toHaveAttribute('target', '_blank')
     expect(trusted).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('renders Markdown tables and code inline while blocking executable HTML and links', async () => {
+    const markdown =
+      '# 服务更新\n\n[查看文档](https://docs.example/notice)\n\n| 模型 | 状态 |\n| --- | --- |\n| 示例模型 | 可用 |\n\n```json\n{"ready":true}\n```\n\n<script>alert(1)</script>\n\n[危险链接](javascript:alert(1))'
+    const current = {
+      id: 1,
+      siteId: 7,
+      title: '更新说明',
+      content: markdown,
+      firstSeenAt: '2026-10-18T00:00:00Z',
+      lastSeenAt: '2026-10-18T01:00:00Z',
+      platform: 'newapi',
+      level: 'info',
+      revisionId: 0,
+    }
+    mockApi.getSiteAnnouncements.mockResolvedValue([current])
+    mockApi.getSiteAnnouncementHistory.mockResolvedValue([current])
+    const { container } = renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: '更新说明' }))
+    expect(
+      await screen.findByRole('heading', { name: '服务更新' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '查看文档' })).toHaveAttribute(
+      'href',
+      'https://docs.example/notice'
+    )
+    expect(screen.getByRole('cell', { name: '示例模型' })).toBeInTheDocument()
+    expect(container.querySelector('pre code')).toHaveTextContent(
+      '{"ready":true}'
+    )
+    expect(container.querySelector('script')).toBeNull()
+    expect(container.querySelector('a[href^="javascript:"]')).toBeNull()
   })
 })

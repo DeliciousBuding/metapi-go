@@ -5,8 +5,8 @@
 ## Endpoint surface
 
 Two mounts, one contract. Everything below sits behind the same downstream-key
-proxy auth (`Authorization: Bearer <downstream key>`, or the global
-`PROXY_TOKEN`), the same per-IP and per-key rate limits, and the error shape,
+proxy auth (`Authorization: Bearer <downstream key>`), the same per-IP and
+per-key rate limits, and the error shape,
 header policy and timeouts documented in the next three sections. None of it is
 admin surface: these routes never accept an admin token, and `/api/*` never
 accepts a downstream key.

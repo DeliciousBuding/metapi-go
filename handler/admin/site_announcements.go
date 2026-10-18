@@ -16,8 +16,8 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/scheduler"
-	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/notify"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -32,6 +32,7 @@ func RegisterSiteAnnouncementsRoutes(r chi.Router, db *sqlx.DB) {
 	handler := &siteAnnouncementsHandler{db: db}
 
 	r.Get("/api/site-announcements", handler.listAnnouncements)
+	r.Get("/api/site-announcements/{id}/history", handler.history)
 	r.Post("/api/site-announcements/{id}/read", handler.markRead)
 	r.Post("/api/site-announcements/read-all", handler.markAllRead)
 	r.Delete("/api/site-announcements", handler.deleteAll)
@@ -103,11 +104,11 @@ func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *h
 		args = append(args, platformFilter)
 	}
 
-	query := "SELECT * FROM site_announcements"
+	query := `SELECT site_announcements.*, (SELECT COUNT(*) FROM site_announcement_history h WHERE h.announcement_id = site_announcements.id) AS revision_count FROM site_announcements`
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
-	query += " ORDER BY first_seen_at DESC"
+	query += " ORDER BY first_seen_at DESC, id DESC"
 
 	rows, err := h.db.Queryx(h.db.Rebind(query), args...)
 	if err != nil {
@@ -121,9 +122,14 @@ func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *h
 	for rows.Next() {
 		row := make(map[string]any)
 		if err := rows.MapScan(row); err != nil {
-			continue
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load announcements"})
+			return
 		}
 		all = append(all, mapKeysToCamel(row))
+	}
+	if err := rows.Err(); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load announcements"})
+		return
 	}
 
 	// Apply read filter
@@ -193,6 +199,44 @@ func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *h
 	writeJSON(w, http.StatusOK, normalizeSlice(all))
 }
 
+func (h *siteAnnouncementsHandler) history(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	var current store.SiteAnnouncement
+	if err := h.db.Get(&current, h.db.Rebind(`SELECT * FROM site_announcements WHERE id = ?`), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "Announcement not found"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load announcement history", "errorCode": "resourceLoadFailed"})
+		return
+	}
+	var snapshots []struct {
+		ID       int64  `db:"id"`
+		Snapshot string `db:"snapshot"`
+	}
+	if err := h.db.Select(&snapshots, h.db.Rebind(`SELECT id, snapshot FROM site_announcement_history WHERE announcement_id = ? ORDER BY id DESC`), id); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load announcement history", "errorCode": "resourceLoadFailed"})
+		return
+	}
+	type version struct {
+		store.SiteAnnouncement
+		RevisionID int64 `json:"revisionId"`
+	}
+	versions := []version{{SiteAnnouncement: current}}
+	for _, snapshot := range snapshots {
+		var announcement store.SiteAnnouncement
+		if err := json.Unmarshal([]byte(snapshot.Snapshot), &announcement); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load announcement history", "errorCode": "resourceLoadFailed"})
+			return
+		}
+		versions = append(versions, version{SiteAnnouncement: announcement, RevisionID: snapshot.ID})
+	}
+	writeJSON(w, http.StatusOK, versions)
+}
+
 // POST /api/site-announcements/:id/read
 func (h *siteAnnouncementsHandler) markRead(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
@@ -200,20 +244,29 @@ func (h *siteAnnouncementsHandler) markRead(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	h.db.Exec(h.db.Rebind("UPDATE site_announcements SET read_at = ? WHERE id = ?"), now, id)
+	if _, err := h.db.Exec(h.db.Rebind("UPDATE site_announcements SET read_at = ? WHERE id = ?"), now, id); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to mark announcement read"})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
 // POST /api/site-announcements/read-all
 func (h *siteAnnouncementsHandler) markAllRead(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC().Format(time.RFC3339)
-	h.db.Exec(h.db.Rebind("UPDATE site_announcements SET read_at = ?"), now)
+	if _, err := h.db.Exec(h.db.Rebind("UPDATE site_announcements SET read_at = ?"), now); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to mark announcements read"})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
 // DELETE /api/site-announcements
 func (h *siteAnnouncementsHandler) deleteAll(w http.ResponseWriter, r *http.Request) {
-	h.db.Exec("DELETE FROM site_announcements")
+	if _, err := h.db.Exec("DELETE FROM site_announcements"); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to delete announcements"})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
@@ -385,7 +438,7 @@ func SyncSiteAnnouncements(db *sqlx.DB, siteID *int64) SiteAnnouncementSyncResul
 			continue
 		}
 
-		seenAt := service.FormatUtcSqlDateTime(time.Now())
+		seenAt := time.Now().UTC().Format(time.RFC3339)
 		for _, announcement := range anns {
 			sourceKey := strings.TrimSpace(announcement.SourceKey)
 			if sourceKey == "" {
@@ -435,11 +488,31 @@ func SyncSiteAnnouncements(db *sqlx.DB, siteID *int64) SiteAnnouncementSyncResul
 			}
 
 			if !isNew {
+				var previous store.SiteAnnouncement
+				query := `SELECT * FROM site_announcements WHERE site_id = ? AND source_key = ?`
+				if db.DriverName() == "pgx" {
+					query += " FOR UPDATE"
+				}
+				if err := tx.Get(&previous, tx.Rebind(query), site.ID, sourceKey); err != nil {
+					_ = tx.Rollback()
+					recordSiteAnnouncementFailure(&result, site.ID, site.Name, "load previous version", err)
+					continue
+				}
+				changed := previous.Title != announcement.Title || previous.Content != announcement.Content || previous.Level != defaultLevel(announcement.Level)
+				firstSeenAt, readAt, dismissedAt := previous.FirstSeenAt, previous.ReadAt, previous.DismissedAt
+				if changed {
+					if err := store.SaveSiteAnnouncementRevision(tx, previous); err != nil {
+						_ = tx.Rollback()
+						recordSiteAnnouncementFailure(&result, site.ID, site.Name, "save previous version", err)
+						continue
+					}
+					firstSeenAt, readAt, dismissedAt = seenAt, nil, nil
+				}
 				updateResult, updateErr := tx.Exec(tx.Rebind(`
 					UPDATE site_announcements
 					SET platform = ?, title = ?, content = ?, level = ?, source_url = ?,
 					    starts_at = ?, ends_at = ?, upstream_created_at = ?, upstream_updated_at = ?,
-					    last_seen_at = ?, raw_payload = ?
+					    last_seen_at = ?, raw_payload = ?, first_seen_at = ?, read_at = ?, dismissed_at = ?
 					WHERE site_id = ? AND source_key = ?
 				`),
 					site.Platform,
@@ -453,6 +526,7 @@ func SyncSiteAnnouncements(db *sqlx.DB, siteID *int64) SiteAnnouncementSyncResul
 					emptyToNil(announcement.UpstreamUpdatedAt),
 					seenAt,
 					emptyToNil(rawPayload),
+					firstSeenAt, readAt, dismissedAt,
 					site.ID,
 					sourceKey,
 				)
@@ -470,12 +544,15 @@ func SyncSiteAnnouncements(db *sqlx.DB, siteID *int64) SiteAnnouncementSyncResul
 					recordSiteAnnouncementFailure(&result, site.ID, site.Name, "update", rowsErr)
 					continue
 				}
-				if commitErr := tx.Commit(); commitErr != nil {
-					recordSiteAnnouncementFailure(&result, site.ID, site.Name, "commit", commitErr)
+				if !changed {
+					if commitErr := tx.Commit(); commitErr != nil {
+						recordSiteAnnouncementFailure(&result, site.ID, site.Name, "commit", commitErr)
+						continue
+					}
+					result.Updated++
 					continue
 				}
-				result.Updated++
-				continue
+				announcementID = previous.ID
 			}
 
 			title := "Site announcement: " + site.Name
@@ -492,7 +569,11 @@ func SyncSiteAnnouncements(db *sqlx.DB, siteID *int64) SiteAnnouncementSyncResul
 				recordSiteAnnouncementFailure(&result, site.ID, site.Name, "commit", commitErr)
 				continue
 			}
-			result.Inserted++
+			if isNew {
+				result.Inserted++
+			} else {
+				result.Updated++
+			}
 			result.Events++
 
 			// Notification delivery is best-effort and counted only when at least

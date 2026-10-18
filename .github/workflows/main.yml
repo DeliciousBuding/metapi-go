@@ -249,7 +249,7 @@ jobs:
           cd web
           BASE_URL=http://127.0.0.1:4099 bun run a11y:scan
           BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 bun run ui:smoke
-          BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 bunx playwright test --config playwright.visual.config.mjs catalog-sources-responsive.spec.mjs
+          BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 bunx playwright test --config playwright.visual.config.mjs catalog-sources-responsive.spec.mjs model-playground.spec.mjs
 
   test-sqlite-shard:
     # The race detector makes the full suite the pipeline's long pole (~5 min).

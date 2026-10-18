@@ -81,6 +81,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/settings/migration/preview`
 - `/api/settings/runtime`
 - `/api/site-announcements`
+- `/api/site-announcements/:id/history`
 - `/api/sites`
 - `/api/sites/:id/available-models`
 - `/api/sites/:id/disabled-models`
@@ -108,6 +109,8 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/tasks/:id`
 - `/api/update-center/status`
 ### POST
+
+- `/api/models/price-compare/accounts/:accountId/refresh`
 
 - `/api/imported-upstreams/connect`
 - `/api/imported-upstreams/presets/resolve`

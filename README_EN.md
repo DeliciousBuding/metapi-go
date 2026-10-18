@@ -116,8 +116,9 @@ Supported upstreams:
 
 ## Quick start (3 minutes)
 
-Three equivalent ways — pick any one. Starting the server needs only two tokens:
-`AUTH_TOKEN` (admin UI login) and `PROXY_TOKEN` (the downstream key for `/v1/*`).
+Choose one of the following deployment methods. Set `AUTH_TOKEN` to sign in,
+then create a downstream access token in **API Keys**. Existing root keys move
+there automatically on upgrade.
 
 ### Option 1: Release binary (recommended)
 
@@ -127,7 +128,6 @@ Pre-built binaries for Linux / macOS / Windows — one file, no runtime:
 curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download/install.sh | bash
 
 export AUTH_TOKEN=$(openssl rand -hex 16)      # admin UI login token
-export PROXY_TOKEN=sk-$(openssl rand -hex 24)  # downstream key for /v1/* calls
 metapi
 ```
 
@@ -142,13 +142,11 @@ Pin a full release tag or digest for stable deployments; this example uses `0.25
 
 ```bash
 export AUTH_TOKEN=$(openssl rand -hex 32)
-export PROXY_TOKEN=sk-$(openssl rand -hex 24)
 export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
 
 docker run -d --name metapi \
   -p 127.0.0.1:4000:4000 \
   -e AUTH_TOKEN \
-  -e PROXY_TOKEN \
   -e ACCOUNT_CREDENTIAL_SECRET \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
@@ -161,7 +159,7 @@ Save the generated tokens and encryption key in your password manager. The defau
 A named volume inherits the image ownership on first mount. For a bind mount (`./data:/app/data`), run `chown -R 1001:1001 ./data` on the host first. With the repository Compose file (Docker Compose >= 2.24):
 
 ```bash
-cp .env.example .env   # replace the three secrets; METAPI_IMAGE is pinned to 0.25.0
+cp .env.example .env   # replace the admin token and encryption key; METAPI_IMAGE is pinned to 0.25.0
 # All runtime settings in .env are passed through, including PostgreSQL and check-in settings.
 docker compose up -d
 ```
@@ -179,7 +177,7 @@ git clone https://github.com/DeliciousBuding/metapi-go.git
 cd metapi-go
 cd web && bun install --frozen-lockfile && bun run build:web && cd ..
 go build -o metapi ./cmd/server
-AUTH_TOKEN=your-admin-token PROXY_TOKEN=your-proxy-sk-token ./metapi
+AUTH_TOKEN=your-admin-token ./metapi
 ```
 
 ### Verify
@@ -200,11 +198,12 @@ Open `http://localhost:4000` and sign in with `AUTH_TOKEN`. Data lives in
 Add an upstream site and account in the UI. Create a route for the model you want
 to expose, or enable **Automatically create model routes** in **Settings → Operations → Scheduling**
 and rebuild (off by default). Channels bind from account model availability.
+Create an access token in **API Keys** and set `DOWNSTREAM_API_KEY` to its value.
 See the [getting-started walkthrough](docs/getting-started.md), then call Metapi like OpenAI:
 
 ```bash
 curl http://localhost:4000/v1/chat/completions \
-  -H "Authorization: Bearer $PROXY_TOKEN" \
+  -H "Authorization: Bearer $DOWNSTREAM_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "<any routed model>",
@@ -233,7 +232,7 @@ All configuration is driven by environment variables; only two are required to b
 | Variable      | Description                                  |
 | ------------- | -------------------------------------------- |
 | `AUTH_TOKEN`  | Admin web UI login token                     |
-| `PROXY_TOKEN` | Downstream key for `/v1/*` proxy calls       |
+| `PROXY_TOKEN` | Optional one-time import of a legacy root key |
 
 Common options:
 

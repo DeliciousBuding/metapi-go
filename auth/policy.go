@@ -32,12 +32,12 @@ type ExcludedCredentialRef struct {
 }
 
 // DownstreamRoutingPolicy holds the routing constraints attached to a
-// downstream API key (managed) or the global proxy token.
+// downstream API key.
 //
 // DenyAllWhenEmpty controls the default behaviour when both SupportedModels
 // and AllowedRouteIDs are empty:
 // - true (managed key default): reject all models
-// - false (global token default): allow all models
+// - false (administrator preview): allow all models
 type DownstreamRoutingPolicy struct {
 	AccessPolicy          *store.DownstreamAccessPolicy `json:"accessPolicy,omitempty"`
 	SupportedModels       []string                      `json:"supported_models"`
@@ -55,7 +55,7 @@ type DownstreamRoutingPolicy struct {
 }
 
 // EmptyDownstreamRoutingPolicy is the zero-value policy used as the default
-// for the global proxy token (DenyAllWhenEmpty=false → allow all).
+// for administrator previews (DenyAllWhenEmpty=false → allow all).
 var EmptyDownstreamRoutingPolicy = DownstreamRoutingPolicy{
 	SupportedModels:        []string{},
 	AllowedRouteIDs:        []int64{},

@@ -426,27 +426,6 @@ func TestExtractResponseMessageFromBytes(t *testing.T) {
 	}
 }
 
-// --- Notice helpers ---
-
-func TestBuildNoticeSourceKey(t *testing.T) {
-	key := buildNoticeSourceKey("test notice content")
-	if key == "" || key[:7] != "notice:" {
-		t.Errorf("buildNoticeSourceKey: %q", key)
-	}
-
-	// Same content = same key
-	key2 := buildNoticeSourceKey("test notice content")
-	if key != key2 {
-		t.Error("same content should produce same key")
-	}
-
-	// Different content = different key
-	key3 := buildNoticeSourceKey("different content")
-	if key == key3 {
-		t.Error("different content should produce different keys")
-	}
-}
-
 // --- Token helpers ---
 
 func TestNormalizeTokenKeyForCompare(t *testing.T) {

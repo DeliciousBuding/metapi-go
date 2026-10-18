@@ -42,11 +42,10 @@ The script downloads the matching platform binary from GitHub Releases,
 verifies its SHA-256 against `checksums.txt`, and installs to
 `/usr/local/bin/metapi` (override with `METAPI_INSTALL_PREFIX`; pin a version
 with `METAPI_VERSION=v0.25.0`). Windows: download `metapi-windows-amd64.exe`
-from the release page instead. Then start with the two required tokens:
+from the release page instead. Set the admin token and start the server:
 
 ```bash
 export AUTH_TOKEN=$(openssl rand -hex 16)      # admin UI login token
-export PROXY_TOKEN=sk-$(openssl rand -hex 24)  # downstream key for /v1/* calls
 metapi
 ```
 
@@ -60,7 +59,7 @@ Data lands in `./data` (SQLite, code default) unless `DATA_DIR` / `DATABASE_URL`
 git clone https://github.com/DeliciousBuding/metapi-go.git
 cd metapi-go
 cp .env.example .env
-# Edit .env: replace the three secrets and point METAPI_IMAGE at the
+# Edit .env: replace the admin token and encryption key, and point METAPI_IMAGE at the
 # release tag or digest you intend to run.
 docker compose up -d
 ```
@@ -73,13 +72,11 @@ and stores SQLite in the `metapi_data` volume. The full lifecycle is in
 
 ```bash
 export AUTH_TOKEN=$(openssl rand -hex 32)
-export PROXY_TOKEN=sk-$(openssl rand -hex 24)
 export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
 
 docker run -d --name metapi \
   -p 127.0.0.1:4000:4000 \
   -e AUTH_TOKEN \
-  -e PROXY_TOKEN \
   -e ACCOUNT_CREDENTIAL_SECRET \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
@@ -97,7 +94,7 @@ git clone https://github.com/DeliciousBuding/metapi-go.git
 cd metapi-go
 cd web && bun install --frozen-lockfile && bun run build:web && cd ..
 go build -o metapi ./cmd/server
-AUTH_TOKEN=your-admin-token PROXY_TOKEN=your-proxy-sk-token ./metapi
+AUTH_TOKEN=your-admin-token ./metapi
 ```
 
 The frontend build step is mandatory: `web/dist/` is gitignored and `go build`
@@ -133,7 +130,7 @@ root; the tables below list only what a deployment needs plus common options.
 | Variable      | Description                                      |
 | ------------- | ------------------------------------------------ |
 | `AUTH_TOKEN`  | Admin API bearer token. Server exits if missing. |
-| `PROXY_TOKEN` | Proxy endpoint API key. Server exits if missing. |
+| `PROXY_TOKEN` | Optional one-time legacy root key import. Manage downstream tokens in API Keys. |
 
 ### Optional
 
@@ -196,7 +193,6 @@ cp .env.example .env
 ```dotenv
 METAPI_IMAGE=ghcr.io/deliciousbuding/metapi-go:0.25.0
 AUTH_TOKEN=<new random admin token>
-PROXY_TOKEN=<new random downstream key>
 ACCOUNT_CREDENTIAL_SECRET=<new random 32+ byte secret>
 ```
 
@@ -349,7 +345,6 @@ go build -ldflags="-s -w" -o metapi ./cmd/server
 
 # 3. Configure environment
 export AUTH_TOKEN=<your-admin-token>
-export PROXY_TOKEN=<your-proxy-token>
 export DATABASE_URL='postgres://<user>:<password>@<host>:5432/<db>?sslmode=require'  # optional
 
 # 4. Start server

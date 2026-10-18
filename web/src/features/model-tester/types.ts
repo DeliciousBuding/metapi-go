@@ -10,14 +10,17 @@ export type TestTargetFormat = 'openai' | 'claude' | 'responses' | 'gemini'
 
 /**
  * One turn in the tester conversation. The user prompt is appended when a
- * run starts; the assistant turn is appended when the run finishes with
- * non-empty content. `id` is a UI-only stable key for list rendering — the
+ * run starts; an assistant turn records the response or error when it finishes.
+ * Response diagnostics stay on that turn. `id` is a UI-only stable key — the
  * wire payload only carries `role` + `content`.
  */
 export type ChatMessage = {
   id: string
   role: 'user' | 'assistant'
   content: string
+  response?: TestResponse
+  error?: string
+  model?: string
 }
 
 /**
@@ -94,6 +97,7 @@ export type TestResponse = {
   promptTokens?: number
   completionTokens?: number
   totalTokens?: number
+  bodyTruncated?: boolean
 }
 
 /**

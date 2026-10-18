@@ -34,6 +34,9 @@ func LoadRuntimeSettings(cfg *config.Config, rt *config.RuntimeSettings) error {
 		// Apply runtime overrides to the static + runtime drafts.
 		ApplyRuntimeSettings(cfg, rt, settingsMap)
 	}
+	if err := MigrateLegacyProxyToken(db, rt, cfg.ProxyGlobalTokenRPM); err != nil {
+		return fmt.Errorf("migrate legacy downstream key: %w", err)
+	}
 
 	// Which log-retention regime owns the log tables is decided by explicit
 	// operator intent only: an admin-saved log-cleanup setting, or an env
@@ -142,6 +145,7 @@ func HasExplicitLogCleanupSettings(settingsMap map[string]string) bool {
 // unallowlisted key there is what made every boot log a hydration warning for
 // oauth.identity_backfill_complete, a marker its own writer reads back.
 var nonHydratedSettingKeys = map[string]string{
+	LegacyProxyTokenMigrationKey: "consumed by MigrateLegacyProxyToken at startup",
 	// Resolved by store.EnsureRuntimeDatabase from the env-derived snapshot:
 	// the database is already open (and is the very thing being read) by the
 	// time LoadRuntimeSettings runs.

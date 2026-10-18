@@ -1,11 +1,8 @@
 package auth
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/store"
@@ -16,14 +13,7 @@ func DirectVideoTaskOwner(pac *ProxyAuthContext) string {
 	if pac == nil {
 		return ""
 	}
-	owner := pac.Source + ":" + pac.Token
-	if pac.Source == "managed" && pac.KeyID != nil && *pac.KeyID > 0 {
-		owner = "managed:" + strconv.FormatInt(*pac.KeyID, 10)
-	} else if pac.Token == "" {
-		return ""
-	}
-	digest := sha256.Sum256([]byte(owner))
-	return hex.EncodeToString(digest[:])
+	return store.DirectVideoTaskOwner(pac.Source, pac.Token, pac.KeyID)
 }
 
 func directVideoReadID(r *http.Request) string {
