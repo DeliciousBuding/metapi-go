@@ -1,6 +1,6 @@
 # docs/ — Metapi Go documentation map
 
-**Last updated**: 2026-10-17
+**Last updated**: 2026-10-19
 **Purpose**: one-screen orientation for users and contributors.
 
 This directory is split into **public docs** (written for users and
@@ -21,6 +21,7 @@ documents never deep-link into `internal/` — they state the fact directly.
 | Client wiring (Cursor etc.)         | [`client-integration.md`](client-integration.md)                                         |
 | Common questions                    | [`faq.md`](faq.md)                                                                       |
 | HTTP API surface (index + by-domain) | [`api.md`](api.md) · [`api/`](api/)                                                        |
+| Trust boundaries, controls and deliberate limits | [`security-model.md`](security-model.md)                                      |
 | Package architecture & request path | [`architecture.md`](architecture.md)                                                     |
 | TS→Go migration (SQLite / PG / MySQL) | [`migration.md`](migration.md)                                                           |
 | Test layers / real-platform testbed | [`testing.md`](testing.md) |
@@ -51,6 +52,7 @@ docs/
   deployment.md             ← install / Compose / upgrade owner
   faq.md                    ← common questions
   migration.md              ← TS→Go takeover paths (SQLite / PG / MySQL) + version pinning
+  security-model.md         ← trust boundaries, controls and deliberate limits
   testing.md                ← test layers + public real-platform testbed SOP
   visual-regression.md      ← screenshot evidence + golden visual regression SOP
   assets/                   ← public images (hero, screenshots)
