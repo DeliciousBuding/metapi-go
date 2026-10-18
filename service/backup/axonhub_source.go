@@ -74,6 +74,10 @@ type AxonHubSourceCredentials struct {
 	OAuth            bool
 	OAuthCredentials *AxonHubSourceOAuth
 	Azure            bool
+	// HasManagementKey reports whether a provider console key was present. The
+	// source uses it only for server-side quota checks and never attaches it to
+	// inference requests, so only its presence is retained.
+	HasManagementKey bool
 	// GCP carries the Vertex service-account payload (region, project and the
 	// raw key JSON) when the channel authenticates with a GCP credential.
 	GCP *AxonHubSourceGCP
@@ -467,7 +471,7 @@ var axonHubChannelSettingsFields = []string{
 
 var axonHubChannelPolicyFields = []string{"stream", "apiKeyAutoDisableRules"}
 
-var axonHubCredentialFields = []string{"apiKey", "apiKeys", "oauth", "azure", "gcp"}
+var axonHubCredentialFields = []string{"apiKey", "apiKeys", "oauth", "azure", "gcp", "managementApiKey"}
 
 var axonHubEndpointFields = []string{"api_format", "path", "base_url", "transport"}
 
@@ -546,6 +550,7 @@ func decodeAxonHubCredentials(raw json.RawMessage, dst *AxonHubSourceCredentials
 		return err
 	}
 	dst.Azure = present(obj["azure"])
+	dst.HasManagementKey = present(obj["managementApiKey"])
 	if rawGCP, ok := obj["gcp"]; ok && present(rawGCP) {
 		var gcp AxonHubSourceGCP
 		if err := json.Unmarshal(rawGCP, &gcp); err != nil {

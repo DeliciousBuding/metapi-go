@@ -204,6 +204,10 @@ Bedrock custom Messages endpoints follow the source's generic `x-api-key`
 contract rather than its default Bedrock invoke adapter. Source combinations
 that cannot construct an outbound adapter (custom `ollama/chat`, custom
 `seedance/video`, or no-key Ollama with custom endpoints) remain named skips.
+A channel that also carries a provider management key used only for console
+quota checks still imports: that key is never attached to inference requests,
+so it is omitted with the `management_api_key_not_imported` residual instead of
+skipping the channel.
 
 Bailian default Chat imports its tool/stream adapter; custom Chat retains the
 source's generic format. Cline default and custom Chat normalize its request

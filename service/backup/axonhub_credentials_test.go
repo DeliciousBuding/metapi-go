@@ -62,6 +62,48 @@ func TestAxonHubOAuthCredentialsAreTypedAndPrivate(t *testing.T) {
 	}
 }
 
+func TestAxonHubManagementAPIKeyDoesNotDropChannel(t *testing.T) {
+	// managementApiKey only feeds provider quota polling (itself a residual)
+	// and is never attached to inference requests, so the channel stays
+	// importable and the omission is reported instead of skipping it.
+	body, _ := json.Marshal(map[string]any{
+		"version": "1.4",
+		"channels": []any{map[string]any{
+			"id": 1, "type": "openai", "name": "management",
+			"base_url": "https://api.example.invalid/v1",
+			"credentials": map[string]any{
+				"apiKey":           "fixture-inference-key",
+				"managementApiKey": "fixture-console-key",
+			},
+			"supported_models": []string{"model"},
+		}},
+		"models": []any{map[string]any{
+			"id": 1, "model_id": "model", "type": "chat",
+			"settings": map[string]any{"associations": []any{map[string]any{
+				"type":         "channel_model",
+				"channelModel": map[string]any{"channelId": 1, "modelId": "model"},
+			}}},
+		}},
+	})
+	src, err := ParseAxonHubSource(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := CompileAxonHubPlan(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.channels) != 1 || len(plan.skipped) != 0 {
+		t.Fatalf("management key dropped the channel: %+v", plan.skipped)
+	}
+	if !containsString(plan.residuals, "channel-1:management_api_key_not_imported") {
+		t.Fatalf("management key omission not reported: %v", plan.residuals)
+	}
+	if len(plan.credentials) != 1 || plan.credentials[0].Secret != "fixture-inference-key" {
+		t.Fatalf("inference credential changed: %+v", plan.credentials)
+	}
+}
+
 func TestAxonHubCodexAndFennoWireProfile(t *testing.T) {
 	for _, provider := range []string{"codex", "fenno"} {
 		channel := AxonHubSourceChannel{ID: 1, Type: provider, Credentials: AxonHubSourceCredentials{APIKey: "fixture-static-key"}, SupportedModels: []string{"model"}}
