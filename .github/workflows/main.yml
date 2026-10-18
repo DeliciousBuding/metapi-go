@@ -1402,7 +1402,22 @@ jobs:
             echo "::error::anonymous pull of ${ref} failed after 3 attempts"
             exit 1
           fi
-          resolved="$(docker buildx imagetools inspect "$ref" | awk '/^Digest:/ {print $2; exit}')"
+          # GHCR/buildx occasionally answers with a transient 5xx/timeout even
+          # though the pull succeeded; retry so a registry hiccup does not fail
+          # an otherwise verified publication.
+          resolved=
+          for attempt in 1 2 3; do
+            if inspect_out="$(docker buildx imagetools inspect "$ref" 2>&1)"; then
+              resolved="$(printf '%s\n' "$inspect_out" | awk '/^Digest:/ {print $2; exit}')"
+              break
+            fi
+            echo "imagetools inspect attempt ${attempt} failed: ${inspect_out}"
+            sleep 5
+          done
+          if [[ -z "$resolved" ]]; then
+            echo "::error::could not resolve ${ref} after 3 attempts"
+            exit 1
+          fi
           if [[ "$resolved" != "$EXPECTED_DIGEST" ]]; then
             echo "::error::${ref} resolved to ${resolved}, expected ${EXPECTED_DIGEST}"
             exit 1

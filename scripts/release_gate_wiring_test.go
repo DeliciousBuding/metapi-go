@@ -161,6 +161,13 @@ func TestReleaseGateWiring(t *testing.T) {
 	if !strings.Contains(jobs["image-verify"], "EXPECTED_DIGEST") || !strings.Contains(jobs["image-verify"], "resolved") {
 		t.Error("image-verify must compare the pulled tag against the manifest digest")
 	}
+	// A transient registry/buildx error must not fail an otherwise verified
+	// publication: the digest lookup is retried before comparing.
+	for _, want := range []string{"imagetools inspect attempt", "could not resolve", "for attempt in 1 2 3"} {
+		if !strings.Contains(jobs["image-verify"], want) {
+			t.Errorf("image-verify is missing %q; digest resolution must be retried", want)
+		}
+	}
 	dockerfile, err := os.ReadFile(filepath.Join("..", "Dockerfile"))
 	if err != nil {
 		t.Fatal(err)
