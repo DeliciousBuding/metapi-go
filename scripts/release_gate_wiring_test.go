@@ -148,7 +148,7 @@ func TestReleaseGateWiring(t *testing.T) {
 	if !strings.Contains(jobs["docker-prepare"], "application/vnd.oci.image.manifest.v1+json") {
 		t.Error("the immutable tag check must accept single OCI image manifests")
 	}
-	for _, want := range []string{"image-digest-", "${RUNNER_TEMP}/${ARCH}.txt"} {
+	for _, want := range []string{"image-digest-", "${RUNNER_TEMP}/${ARCH}.txt", "tags: ${{ env.IMAGE_NAME }}:build-${{ matrix.arch }}"} {
 		if !strings.Contains(jobs["docker-push"], want) {
 			t.Errorf("docker-push is missing %q; architecture digests must be handed to the manifest job", want)
 		}
