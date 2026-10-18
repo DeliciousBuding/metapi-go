@@ -105,6 +105,49 @@ var RuntimeLocalSettingKeys = map[string]bool{
 	// Downstream proxy API bearer token; planting it hands the attacker a
 	// known working credential for the proxy surface.
 	"proxy_token": true,
+	// Egress destinations and notification credentials. A planted import turns
+	// the gateway into a sender to an attacker endpoint (upstream traffic via a
+	// proxy, alerts via a bot/webhook/SMTP account) without any further
+	// operator action.
+	"system_proxy_url":          true,
+	"telegram_api_base_url":     true,
+	"telegram_bot_token":        true,
+	"telegram_chat_id":          true,
+	"telegram_use_system_proxy": true,
+	"webhook_enabled":           true,
+	"webhook_url":               true,
+	"bark_enabled":              true,
+	"bark_url":                  true,
+	"serverchan_enabled":        true,
+	"serverchan_key":            true,
+	"feishu_enabled":            true,
+	"feishu_webhook":            true,
+	"feishu_secret":             true,
+	"dingtalk_enabled":          true,
+	"dingtalk_webhook":          true,
+	"dingtalk_secret":           true,
+	"wecom_enabled":             true,
+	"wecom_webhook":             true,
+	"ntfy_enabled":              true,
+	"ntfy_url":                  true,
+	"ntfy_token":                true,
+	"smtp_enabled":              true,
+	"smtp_host":                 true,
+	"smtp_port":                 true,
+	"smtp_user":                 true,
+	"smtp_pass":                 true,
+	"smtp_from":                 true,
+	"smtp_to":                   true,
+	// Admin network ACL; importing it can widen the management surface.
+	"admin_ip_allowlist": true,
+	// Log retention: planting a short window deletes audit/usage evidence on
+	// the next cleanup run.
+	"log_cleanup_enabled":              true,
+	"log_cleanup_cron":                 true,
+	"log_cleanup_schedule_v2":          true,
+	"log_cleanup_usage_logs_enabled":   true,
+	"log_cleanup_program_logs_enabled": true,
+	"log_cleanup_retention_days":       true,
 }
 
 // TSV21ClientError reports a payload problem that is the caller's fault
