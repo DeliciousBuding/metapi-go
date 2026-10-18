@@ -49,6 +49,7 @@ var axonHubCompleteSkipped = map[int][]string{
 	51: {"param_override_invalid"},
 	52: {"source_custom_endpoint_not_constructible:ollama/chat"},
 	53: {"api_format_unsupported"},
+	57: {"azure_credentials_unsupported", "credential_missing"},
 }
 
 func TestAxonHubCompleteFixturePreview(t *testing.T) {
@@ -57,7 +58,7 @@ func TestAxonHubCompleteFixturePreview(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse complete fixture: %v", err)
 	}
-	if len(src.Channels) != 104 || len(src.Models) != 52 || len(src.Projects) != 3 ||
+	if len(src.Channels) != 105 || len(src.Models) != 52 || len(src.Projects) != 3 ||
 		len(src.APIKeys) != 12 || len(src.ChannelModelPrices) != 2 ||
 		len(src.SystemConfigs) != 5 || src.UsageRequests != 4 || src.UsageLogs != 4 {
 		t.Fatalf("fixture sections drifted: channels=%d models=%d projects=%d keys=%d prices=%d configs=%d requests=%d logs=%d",

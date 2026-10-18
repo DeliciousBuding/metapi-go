@@ -2674,6 +2674,52 @@
       "edges": {}
     },
     {
+      "id": 57,
+      "created_at": "2026-09-01T08:00:00Z",
+      "updated_at": "2026-10-01T08:00:00Z",
+      "deleted_at": 0,
+      "type": "openai",
+      "base_url": "https://openai.example.invalid/v1",
+      "name": "Skip Azure credential",
+      "status": "enabled",
+      "credentials": {
+        "apiKey": "sk-synthetic-azure-key",
+        "azure": {
+          "apiVersion": "2024-02-01"
+        }
+      },
+      "supported_models": [
+        "azure-model"
+      ],
+      "manual_models": [],
+      "auto_sync_supported_models": false,
+      "auto_sync_model_pattern": "",
+      "tags": [],
+      "default_test_model": "",
+      "policies": {
+        "stream": "unlimited"
+      },
+      "settings": {
+        "extraModelPrefix": "",
+        "autoTrimedModelPrefixes": [],
+        "modelMappings": [],
+        "hideOriginalModels": false,
+        "hideMappedModels": false,
+        "lowercaseModelId": false,
+        "overrideParameters": "",
+        "overrideHeaders": [],
+        "transformOptions": {
+          "forceArrayInstructions": false,
+          "forceArrayInputs": false,
+          "replaceDeveloperRoleWithSystem": false
+        }
+      },
+      "ordering_weight": 0,
+      "remark": "synthetic fixture channel",
+      "endpoints": [],
+      "edges": {}
+    },
+    {
       "id": 55,
       "created_at": "2026-09-01T08:00:00Z",
       "updated_at": "2026-10-01T08:00:00Z",
