@@ -557,6 +557,7 @@ func buildProxyVideoTasksDDL(d string) string {
 			actual_model TEXT,
 			channel_id INTEGER,
 			account_id INTEGER,
+			owner TEXT,
 			status_snapshot TEXT,
 			upstream_response_meta TEXT,
 			last_upstream_status INTEGER,
@@ -578,6 +579,7 @@ func buildProxyVideoTasksDDL(d string) string {
 		actual_model TEXT,
 		channel_id INTEGER,
 		account_id INTEGER,
+		owner TEXT,
 		status_snapshot TEXT,
 		upstream_response_meta TEXT,
 		last_upstream_status INTEGER,
@@ -585,6 +587,32 @@ func buildProxyVideoTasksDDL(d string) string {
 		created_at TEXT,
 		updated_at TEXT,
 		CONSTRAINT proxy_video_tasks_public_id_unique UNIQUE (public_id)
+	)`
+}
+
+// buildProxyFileObjectsDDL stores the downstream-key owner of an upstream file
+// id. The Files API proxies to a shared upstream credential, so without this
+// mapping every key could enumerate, download and delete every other key's
+// files on that upstream. file_id is the upstream id verbatim: Metapi does not
+// rewrite file ids, so the client-facing id and the upstream id are the same.
+func buildProxyFileObjectsDDL(d string) string {
+	if isPG(d) {
+		return `CREATE TABLE IF NOT EXISTS proxy_file_objects (
+			id SERIAL PRIMARY KEY,
+			file_id TEXT NOT NULL,
+			owner TEXT NOT NULL,
+			created_at TEXT,
+			updated_at TEXT,
+			CONSTRAINT proxy_file_objects_file_id_unique UNIQUE (file_id)
+		)`
+	}
+	return `CREATE TABLE IF NOT EXISTS proxy_file_objects (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		file_id TEXT NOT NULL,
+		owner TEXT NOT NULL,
+		created_at TEXT,
+		updated_at TEXT,
+		CONSTRAINT proxy_file_objects_file_id_unique UNIQUE (file_id)
 	)`
 }
 

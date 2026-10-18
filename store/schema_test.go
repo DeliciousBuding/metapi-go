@@ -24,7 +24,7 @@ var tableColumnCount = map[string]int{
 	"RouteChannel":                  23,
 	"ProxyLog":                      31,
 	"GatewayRequest":                16,
-	"ProxyVideoTask":                17,
+	"ProxyVideoTask":                18,
 	"AdminBackgroundTask":           14,
 	"Setting":                       2,
 	"AnalyticsProjectionCheckpoint": 17,

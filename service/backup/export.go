@@ -40,6 +40,7 @@ var accountsExportScope = map[string]bool{
 	"oauth_route_unit_members": true,
 	"route_channels":           true,
 	"proxy_video_tasks":        true,
+	"proxy_file_objects":       true,
 	"admin_background_tasks":   true,
 	"downstream_api_keys":      true,
 	"downstream_quota_usage":   true,

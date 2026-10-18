@@ -16,6 +16,18 @@ import (
 // so the tests exercise the same chi matching (RawPath included) as production.
 func newPathTraversalHarness(t *testing.T) (chi.Router, *atomic.Int32) {
 	t.Helper()
+	// Path validation and ownership are independent gates: these tests target
+	// the former, so seed a valid owner for the ids whose "allowed shape" case
+	// must reach the upstream.
+	db := openProxyOwnershipDB(t)
+	insertFileOwner(t, db, "file-abc_123", testOwner())
+	SaveProxyVideoTask(&ProxyVideoTask{
+		PublicID:        "video_abc-123",
+		UpstreamVideoID: "video_abc-123",
+		Owner:           testOwner(),
+	})
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID("video_abc-123") })
+
 	var hits atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits.Add(1)

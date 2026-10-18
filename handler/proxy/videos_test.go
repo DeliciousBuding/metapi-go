@@ -107,6 +107,9 @@ func TestHandleVideosCreate_RewritesPublicIDAndSavesMapping(t *testing.T) {
 	if task.RequestedModel != "sora-2" || task.ActualModel != "sora-upstream" {
 		t.Fatalf("models requested=%q actual=%q", task.RequestedModel, task.ActualModel)
 	}
+	if task.Owner != testOwner() {
+		t.Fatalf("Owner = %q, want %q", task.Owner, testOwner())
+	}
 
 	// resolve path uses UpstreamVideoID for subsequent GET.
 	if got := resolveVideoUpstreamIDFromTask(publicID, GetProxyVideoTaskByPublicID(publicID)); got != "upstream_vid_abc" {
@@ -209,6 +212,7 @@ func TestHandleVideosGet_WithMapping(t *testing.T) {
 	SaveProxyVideoTask(&ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: "upstream_" + publicID,
+		Owner:           testOwner(),
 		RequestedModel:  "sora-2",
 	})
 	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
@@ -229,22 +233,16 @@ func TestHandleVideosGet_WithMapping(t *testing.T) {
 	}
 }
 
-func TestHandleVideosGet_WithoutMapping_Passthrough(t *testing.T) {
-	// Missing local store entry must not hard-404; auth + stub/upstream path proceeds.
+func TestHandleVideosGet_WithoutMapping_NotFound(t *testing.T) {
+	// No mapping means no way to attribute the upstream id to this key. The
+	// client-supplied id must not be forwarded to the shared upstream account.
 	r := chiRouterForVideo()
 	req := makeProxyReqNoBody("GET", "/v1/videos/nonexistent_video_id")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	if rec.Code == http.StatusNotFound {
-		t.Fatalf("expected no store-gated 404, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected stub 200 when auth proceeds, got %d: %s", rec.Code, rec.Body.String())
-	}
-	m := unmarshalResponse(t, rec)
-	if m == nil {
-		t.Fatal("expected non-nil stub response")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -260,45 +258,102 @@ func TestHandleVideosGet_Unauthorized(t *testing.T) {
 	}
 }
 
-func TestHandleVideosDelete_WithMapping_ClearsAndPassthrough(t *testing.T) {
+func TestHandleVideosDelete_WithMapping_ClearsAfterUpstreamSuccess(t *testing.T) {
 	publicID := "video_test_delete_456"
 	SaveProxyVideoTask(&ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: "upstream_" + publicID,
+		Owner:           testOwner(),
 		RequestedModel:  "sora-2",
 	})
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
+
+	gotMethod, gotPath := make(chan string, 1), make(chan string, 1)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod <- r.Method
+		gotPath <- r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"upstream_video_test_delete_456","deleted":true}`))
+	}))
+	t.Cleanup(upstream.Close)
+	SetUpstreamConfig(&UpstreamConfig{
+		Router: &upstreamTestRouter{selected: routing.SelectedChannel{
+			Channel:     store.RouteChannel{ID: 1, Enabled: true},
+			Account:     store.Account{ID: 2, Status: "active"},
+			Site:        store.Site{ID: 3, URL: upstream.URL, Status: "active"},
+			TokenValue:  "upstream-token",
+			ActualModel: "sora-up",
+		}},
+	})
+	t.Cleanup(func() { SetUpstreamConfig(nil) })
 
 	r := chiRouterForVideo()
 	req := makeProxyReqNoBody("DELETE", "/v1/videos/"+publicID)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	// Prefer upstream/stub dispatch over local-only 204 residual.
-	if rec.Code == http.StatusNotFound {
-		t.Fatalf("expected no store-gated 404, got %d: %s", rec.Code, rec.Body.String())
-	}
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected stub 200 when auth proceeds, got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-
-	// Local mapping must be cleared even though we pass through upstream.
-	task := GetProxyVideoTaskByPublicID(publicID)
-	if task != nil {
-		t.Error("task should be deleted")
+	if got := <-gotMethod; got != http.MethodDelete {
+		t.Fatalf("upstream method = %q", got)
+	}
+	if got := <-gotPath; got != "/v1/videos/upstream_"+publicID {
+		t.Fatalf("upstream path = %q", got)
+	}
+	if task := GetProxyVideoTaskByPublicID(publicID); task != nil {
+		t.Fatal("mapping must be removed after the upstream delete succeeded")
 	}
 }
 
-func TestHandleVideosDelete_WithoutMapping_Passthrough(t *testing.T) {
+func TestHandleVideosDelete_UpstreamFailureKeepsMapping(t *testing.T) {
+	publicID := "video_test_delete_fail"
+	SaveProxyVideoTask(&ProxyVideoTask{
+		PublicID:        publicID,
+		UpstreamVideoID: "upstream_" + publicID,
+		Owner:           testOwner(),
+		RequestedModel:  "sora-2",
+	})
+	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":{"message":"upstream delete failed","type":"server_error"}}`))
+	}))
+	t.Cleanup(upstream.Close)
+	SetUpstreamConfig(&UpstreamConfig{
+		Router: &upstreamTestRouter{selected: routing.SelectedChannel{
+			Channel:     store.RouteChannel{ID: 1, Enabled: true},
+			Account:     store.Account{ID: 2, Status: "active"},
+			Site:        store.Site{ID: 3, URL: upstream.URL, Status: "active"},
+			TokenValue:  "upstream-token",
+			ActualModel: "sora-up",
+		}},
+	})
+	t.Cleanup(func() { SetUpstreamConfig(nil) })
+
+	r := chiRouterForVideo()
+	req := makeProxyReqNoBody("DELETE", "/v1/videos/"+publicID)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected upstream 500, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if task := GetProxyVideoTaskByPublicID(publicID); task == nil || task.Owner != testOwner() {
+		t.Fatal("mapping must survive a failed upstream delete")
+	}
+}
+
+func TestHandleVideosDelete_WithoutMapping_NotFound(t *testing.T) {
 	r := chiRouterForVideo()
 	req := makeProxyReqNoBody("DELETE", "/v1/videos/nonexistent_id")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	if rec.Code == http.StatusNotFound {
-		t.Fatalf("expected no store-gated 404, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected stub 200 when auth proceeds, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -435,6 +490,7 @@ func TestProxyVideoTask_DBDurableRoundTrip(t *testing.T) {
 	SaveProxyVideoTask(&ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: "up_db_999",
+		Owner:           testOwner(),
 		SiteURL:         "https://upstream.example.test",
 		TokenValue:      "sk-db",
 		RequestedModel:  "sora-2",
@@ -459,6 +515,9 @@ func TestProxyVideoTask_DBDurableRoundTrip(t *testing.T) {
 	}
 	if got.TokenValue != "sk-db" {
 		t.Fatalf("token=%q", got.TokenValue)
+	}
+	if got.Owner != testOwner() {
+		t.Fatalf("owner=%q want %q", got.Owner, testOwner())
 	}
 	// Second get hits warm cache.
 	got2 := GetProxyVideoTaskByPublicID(publicID)
@@ -507,6 +566,7 @@ func TestHandleVideosGet_StickyPinForcesPreferredChannel(t *testing.T) {
 	SaveProxyVideoTask(&ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: "upstream_sticky_vid",
+		Owner:           testOwner(),
 		RequestedModel:  "sora-2",
 		ChannelID:       42,
 		AccountID:       7,
