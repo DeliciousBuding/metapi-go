@@ -1,9 +1,13 @@
 package alert
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
@@ -149,6 +153,47 @@ var proxyAllFailedThrottle = notifypkg.NewNotificationThrottle()
 // acceptable, so the throttle always applies.
 const proxyAllFailedCooldownFloorMs = int64(config.DefaultNotifyCooldownSec) * 1000
 
+// proxyAllFailedModelDisplayLimit bounds how much of the client-supplied
+// model name is rendered into events, notifications and logs. The throttle
+// signature is a hash, so an attacker cannot grow the throttle map with
+// long keys or read them back out of it.
+const proxyAllFailedModelDisplayLimit = 128
+
+var lastProxyAllFailedPruneMs atomic.Int64
+
+func proxyAllFailedSignature(model string) string {
+	sum := sha256.Sum256([]byte(model))
+	return "proxy_all_failed:" + hex.EncodeToString(sum[:])
+}
+
+func truncateModelForDisplay(model string) string {
+	if len(model) <= proxyAllFailedModelDisplayLimit {
+		return model
+	}
+	keep := proxyAllFailedModelDisplayLimit
+	for keep > 0 && !utf8.RuneStart(model[keep]) {
+		keep--
+	}
+	return model[:keep] + "…[truncated]"
+}
+
+// maybePruneProxyAllFailedThrottle drops entries that are far past their
+// cooldown. Production never used to prune this map, so every distinct model
+// name a client sent stayed resident forever.
+func maybePruneProxyAllFailedThrottle(nowMs int64, cooldownMs int64) {
+	stale := cooldownMs * 2
+	if stale < 10*60*1000 {
+		stale = 10 * 60 * 1000
+	}
+	last := lastProxyAllFailedPruneMs.Load()
+	if nowMs-last < 10*60*1000 {
+		return
+	}
+	if lastProxyAllFailedPruneMs.CompareAndSwap(last, nowMs) {
+		proxyAllFailedThrottle.PruneNotificationThrottleState(nowMs, stale)
+	}
+}
+
 // ReportProxyAllFailed reports a proxy all-failed event.
 // Mirrors TS reportProxyAllFailed(). Deduped per model: at most one event +
 // notification per cooldown window (cfg.NotifyCooldownSec, floored at
@@ -163,16 +208,20 @@ func ReportProxyAllFailed(cfg *config.RuntimeSettings, db *sqlx.DB, params Proxy
 	if cfg != nil && cfg.NotifyCooldownSec > 0 {
 		cooldownMs = int64(cfg.NotifyCooldownSec) * 1000
 	}
-	signature := "proxy_all_failed:" + params.Model
-	if !proxyAllFailedThrottle.EvaluateNotificationThrottle(signature, time.Now().UnixMilli(), cooldownMs).ShouldSend {
-		slog.Debug("proxy all-failed alert throttled", "model", params.Model)
+	nowMs := time.Now().UnixMilli()
+	maybePruneProxyAllFailedThrottle(nowMs, cooldownMs)
+
+	displayModel := truncateModelForDisplay(params.Model)
+	signature := proxyAllFailedSignature(params.Model)
+	if !proxyAllFailedThrottle.EvaluateNotificationThrottle(signature, nowMs, cooldownMs).ShouldSend {
+		slog.Debug("proxy all-failed alert throttled", "model", displayModel)
 		return
 	}
 
 	createdAt := service.FormatUtcSqlDateTime(time.Now())
 
 	message := enrichAlertMessage(db,
-		fmt.Sprintf("model=%s, reason=%s", params.Model, params.Reason),
+		fmt.Sprintf("model=%s, reason=%s", displayModel, params.Reason),
 		alertEnrichmentScope{model: params.Model})
 
 	service.CreateEvent(db, "proxy", "All proxies failed",

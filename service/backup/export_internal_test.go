@@ -31,7 +31,7 @@ func TestQueryTableAsJSONRejectsUnknownTable(t *testing.T) {
 		"not_a_table",
 		"",
 	} {
-		rows, err := queryTableAsJSON(db, table, nil)
+		rows, _, err := queryTableAsJSON(db, table, nil)
 		if err == nil {
 			t.Errorf("queryTableAsJSON(%q) returned %d rows and no error, want an unknown-table rejection", table, len(rows))
 			continue
@@ -49,11 +49,49 @@ func TestQueryTableAsJSONReadsAKnownTable(t *testing.T) {
 		t.Fatalf("seed setting: %v", err)
 	}
 
-	rows, err := queryTableAsJSON(db, "settings", nil)
+	rows, _, err := queryTableAsJSON(db, "settings", nil)
 	if err != nil {
 		t.Fatalf("queryTableAsJSON(settings) = %v", err)
 	}
 	if len(rows) != 1 {
 		t.Fatalf("rows = %d, want the one seeded row", len(rows))
+	}
+}
+
+// A single oversized cell must not abort the whole backup: the scheduled
+// WebDAV backup would then fail forever until someone manually cleaned the
+// row. The export truncates the cell, keeps going, and records a warning.
+func TestBuildPayloadTruncatesOversizedCells(t *testing.T) {
+	db := setupInternalBackupDB(t)
+	oldMax := MaxExportCellBytes
+	MaxExportCellBytes = 64
+	t.Cleanup(func() { MaxExportCellBytes = oldMax })
+
+	huge := strings.Repeat("x", 4096)
+	if _, err := db.Exec(`INSERT INTO events (type, title, message, level, read, related_id, related_type, created_at)
+		VALUES ('proxy', 't', ?, 'error', 0, 0, 'route', '2026-01-01T00:00:00Z')`, huge); err != nil {
+		t.Fatalf("seed event: %v", err)
+	}
+
+	payload, err := BuildPayload(db, "all")
+	if err != nil {
+		t.Fatalf("BuildPayload must not fail on an oversized cell: %v", err)
+	}
+	metadata, _ := payload["metadata"].(map[string]any)
+	warnings, _ := metadata["warnings"].(map[string]int)
+	if warnings["events.message"] != 1 {
+		t.Fatalf("warnings = %#v, want events.message counted once", warnings)
+	}
+	tables, _ := payload["tables"].(map[string]any)
+	rows, _ := tables["events"].([]map[string]any)
+	if len(rows) != 1 {
+		t.Fatalf("events rows = %d, want 1", len(rows))
+	}
+	message, _ := rows[0]["message"].(string)
+	if len(message) > 64 {
+		t.Fatalf("exported cell = %d bytes, want at most 64", len(message))
+	}
+	if !strings.Contains(message, "…[truncated by metapi: original 4096 bytes]") {
+		t.Fatalf("truncation marker missing: %q", message)
 	}
 }
