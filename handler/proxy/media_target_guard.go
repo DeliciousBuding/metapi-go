@@ -22,6 +22,15 @@ import (
 
 var mediaTargetAllowPrivate bool
 
+// SetMediaTargetAllowPrivateForTest lets tests in other packages that stand up
+// a loopback CDN exercise the media path. It returns a restore function and is
+// never called from production code.
+func SetMediaTargetAllowPrivateForTest(allow bool) func() {
+	previous := mediaTargetAllowPrivate
+	mediaTargetAllowPrivate = allow
+	return func() { mediaTargetAllowPrivate = previous }
+}
+
 // allowedPublicMediaTarget reports whether the gateway may fetch raw. It
 // rejects unsafe literal addresses, then resolves hostnames once and rejects
 // any answer outside the global unicast range; the actual dial still goes

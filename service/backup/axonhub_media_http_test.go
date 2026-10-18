@@ -228,6 +228,9 @@ func TestAxonHubMediaImportHTTPBinary(t *testing.T) {
 }
 
 func TestAxonHubMediaImportHTTPImageProfiles(t *testing.T) {
+	// ModelScope image downloads point at the loopback fixture server; the
+	// production public-only media policy is covered in handler/proxy tests.
+	defer proxyhandler.SetMediaTargetAllowPrivateForTest(true)()
 	t.Run("minimax", func(t *testing.T) {
 		var calls atomic.Int32
 		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
