@@ -1,6 +1,6 @@
 # Deployment Guide
 
-**Last updated**: 2026-10-17
+**Last updated**: 2026-10-18
 
 > **How to read this page**: just getting started? The README Quick Start covers
 > the short path — this page owns the full install, Compose, upgrade and
@@ -236,9 +236,35 @@ same host.
 | `edge` | `master` push | Tip of master. Development only. |
 | `sha-<short>` | `master` push | Immutable per-commit build. |
 
-Before the first stable release after this workflow change, `latest` may
-still point at an older master build. Use an explicit release tag when in
-doubt.
+The published image is a multi-architecture manifest for `linux/amd64` and
+`linux/arm64`; Docker selects the matching architecture. Each build also
+publishes architecture-specific tags such as `0.25.0-amd64` and
+`0.25.0-arm64`; prefer the multi-architecture tag unless you need to pin one
+architecture.
+
+`vX.Y.Z` and `X.Y.Z` are immutable once published: rerunning a failed release
+must bump the patch version rather than replace bytes a deployment may have
+pinned. `X.Y` and `latest` remain moving aliases by design.
+
+### Verify the image signature
+
+Every published architecture image and the final multi-architecture manifest
+from this pipeline onward are signed with keyless cosign through GitHub OIDC.
+Releases published before the change (`v0.25.0` and earlier) have no signature.
+To verify a release, set `VERSION` to the release you are checking:
+
+```bash
+VERSION=0.26.0  # replace with the exact release, without the leading v
+cosign verify "ghcr.io/deliciousbuding/metapi-go:${VERSION}" \
+  --certificate-identity "https://github.com/DeliciousBuding/metapi-go/.github/workflows/main.yml@refs/tags/v${VERSION}" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+For an `edge` image, use the same command with
+`@refs/heads/master` in place of `@refs/tags/v${VERSION}`.
+
+Pin an explicit release tag or digest when the exact bytes matter; do not rely
+on `latest` or `edge` for production.
 
 ## Data directory & volumes
 

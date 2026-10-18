@@ -16,6 +16,7 @@ node_modules
 docs
 *.md
 !go.sum
+!THIRD_PARTY_NOTICES.md
 
 # CI
 .githooks

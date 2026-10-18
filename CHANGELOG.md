@@ -38,6 +38,10 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 - OAuth 路由诊断：展开查看各成员的阻断原因和冷却时间，通过 `POST /api/oauth/route-units/{routeUnitId}/members/{memberId}/cooldown/clear` 单独清除成员冷却，保留累计统计（#1396）。
 
+### 开发者可见
+
+- 发布：GHCR 镜像改为 amd64/arm64 原生并行构建并合并 manifest；发布前匿名回拉冒烟并校验 cosign 签名，已发布版本 tag 不可覆盖。
+
 ## [v0.25.0] — 2026-10-17
 
 ### 变更
