@@ -45,7 +45,22 @@ func ProxyAuth() func(http.Handler) http.Handler {
 			}
 
 			// ---- Authorize downstream token ----
-			result := authorizeDownstreamToken(token, config.Runtime(), directVideoReadID(r))
+			// A WebSocket handshake is authorized but not billed: the session
+			// loop reauthorizes (and reserves) every message. Other requests
+			// atomically check-and-reserve their accessPolicy quota slot here.
+			wsHandshake := isResponsesWebsocketHandshake(r)
+			result := authorizeDownstreamToken(token, config.Runtime(), directVideoReadID(r), admissionOptions{
+				reserveQuota: !wsHandshake,
+				estimateTokens: func() int64 {
+					return estimateAdmissionTokens(r)
+				},
+			})
+			// Every exit that does not settle the hold must release it. A
+			// settled request (logProxy) leaves nothing behind, so this is a
+			// no-op then; early 4xx/5xx paths and panics stay covered.
+			if result.QuotaReservationID != "" {
+				defer ReleaseManagedKeyQuotaReservation(result.QuotaReservationID)
+			}
 			if result.Key != nil {
 				if observer, ok := w.(interface{ ObserveProxyKey(int64) }); ok {
 					observer.ObserveProxyKey(result.Key.ID)
@@ -85,8 +100,8 @@ func ProxyAuth() func(http.Handler) http.Handler {
 			// Upgrade/Connection are client-controlled headers, so the skip is
 			// gated on method + a registered WS route too. A forged header on
 			// any other request still takes the normal admission/consume path.
-			if result.Source == "managed" && result.Key != nil && !isResponsesWebsocketHandshake(r) {
-				// Soft RPM/TPM admission. Fail closed with 429 + Retry-After.
+			// Soft RPM/TPM admission. Fail closed with 429 + Retry-After.
+			if result.Source == "managed" && result.Key != nil && !wsHandshake {
 				// When maxTPM is set, reserve a best-effort estimate from the request
 				// body; the estimator reserves at least one token when it cannot
 				// derive a larger value, so TPM accounting is never skipped.
@@ -121,9 +136,10 @@ func ProxyAuth() func(http.Handler) http.Handler {
 
 			// ---- Build ProxyAuthContext and store in request context ----
 			pac := &ProxyAuthContext{
-				Token:  result.Token,
-				Source: result.Source,
-				Policy: result.Policy,
+				Token:              result.Token,
+				Source:             result.Source,
+				Policy:             result.Policy,
+				QuotaReservationID: result.QuotaReservationID,
 			}
 			if result.Key != nil {
 				pac.KeyID = &result.Key.ID

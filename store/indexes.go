@@ -116,6 +116,8 @@ func buildIndexes() []struct {
 		{"admin_audit_logs_method_idx", `CREATE INDEX IF NOT EXISTS admin_audit_logs_method_idx ON admin_audit_logs (method)`},
 		// downstream_quota_usage
 		{"downstream_quota_usage_key_time_idx", `CREATE INDEX IF NOT EXISTS downstream_quota_usage_key_time_idx ON downstream_quota_usage (key_id, occurred_at)`},
+		// downstream_quota_reservations
+		{"downstream_quota_reservations_key_window_idx", `CREATE INDEX IF NOT EXISTS downstream_quota_reservations_key_window_idx ON downstream_quota_reservations (key_id, window_start)`},
 		// downstream_api_keys
 		{"downstream_api_keys_name_idx", `CREATE INDEX IF NOT EXISTS downstream_api_keys_name_idx ON downstream_api_keys (name)`},
 		{"downstream_api_keys_enabled_idx", `CREATE INDEX IF NOT EXISTS downstream_api_keys_enabled_idx ON downstream_api_keys (enabled)`},

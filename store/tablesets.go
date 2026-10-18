@@ -60,6 +60,7 @@ var schemaTables = []schemaTable{
 	{"model_day_usage", buildModelDayUsageDDL},
 	{"downstream_api_keys", buildDownstreamAPIKeysDDL},
 	{"downstream_quota_usage", buildDownstreamQuotaUsageDDL},
+	{"downstream_quota_reservations", buildDownstreamQuotaReservationsDDL},
 	{"site_announcements", buildSiteAnnouncementsDDL},
 	{"site_announcement_history", buildSiteAnnouncementHistoryDDL},
 	{"events", buildEventsDDL},

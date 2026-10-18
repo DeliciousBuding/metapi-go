@@ -76,8 +76,18 @@ func TestDownstreamAccessPolicyImportedHTTPRelayAndQuota(t *testing.T) {
 	if err := db.QueryRowx(`SELECT COUNT(*),COALESCE(SUM(total_tokens),0) FROM downstream_quota_usage`).Scan(&count, &tokens); err != nil || count != 1 || tokens != 7 {
 		t.Fatalf("relay quota accounting=%d/%d err=%v", count, tokens, err)
 	}
+	// The admitted request settled its admission hold; the two earlier
+	// requests (model listing and a policy-denied model) released theirs
+	// without a billable attempt.
+	var reservations int64
+	if err := db.QueryRowx(`SELECT COUNT(*) FROM downstream_quota_reservations`).Scan(&reservations); err != nil || reservations != 0 {
+		t.Fatalf("reservation rows after requests=%d err=%v, want 0", reservations, err)
+	}
 	exhausted := request("POST", "/v1/chat/completions", `{"model":"client-alias","messages":[{"role":"user","content":"again"}]}`)
 	if exhausted.Code != 429 || calls.Load() != 1 {
 		t.Fatalf("exhausted quota reached upstream: %d calls=%d", exhausted.Code, calls.Load())
+	}
+	if err := db.QueryRowx(`SELECT COUNT(*) FROM downstream_quota_reservations`).Scan(&reservations); err != nil || reservations != 0 {
+		t.Fatalf("reservation rows after denial=%d err=%v, want 0", reservations, err)
 	}
 }
