@@ -81,6 +81,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/settings/migration/preview`
 - `/api/settings/runtime`
 - `/api/site-announcements`
+- `/api/site-announcements/:id/history`
 - `/api/sites`
 - `/api/sites/:id/available-models`
 - `/api/sites/:id/disabled-models`

@@ -19,9 +19,17 @@ New API / DoneHub 的单条站点通知按站点合并，独立公告按上游�
 
 ### GET /api/site-announcements/{id}/history
 
+鉴权：管理 session cookie 或 `Authorization: Bearer <AUTH_TOKEN>`，沿用
+[管理 API 鉴权](conventions.md)。路径参数 `id` 为公告 ID，无请求体。
+
 返回公告版本数组：当前版本在前，历史版本按保存顺序倒序。
 每个版本保留标题、正文、级别、来源及发现时间。内容恢复为旧值也会保留一次新更新。
-公告不存在返回 404，历史读取或解析失败返回 500。
+响应字段沿用当前公告：`id`、`siteId`、`platform`、`sourceKey`、`title`、
+`content`、`level`、`sourceUrl`、`startsAt`、`endsAt`、`upstreamCreatedAt`、
+`upstreamUpdatedAt`、`firstSeenAt`、`lastSeenAt`、`readAt`、`dismissedAt`、
+`rawPayload`；额外的 `revisionId` 在当前版本为 `0`，历史版本为对应记录 ID。
+公告不存在返回 404；历史读取或解析失败返回
+`500 {"error":"Failed to load announcement history","errorCode":"resourceLoadFailed"}`。
 
 ### POST /api/site-announcements/{id}/read
 
