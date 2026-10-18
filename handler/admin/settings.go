@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/routing"
@@ -17,6 +18,34 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
+
+// sensitiveRuntimeFieldPresent reports whether a runtime-settings patch
+// touches an egress destination or the admin network ACL. Changing any of
+// these can redirect credentials or open the management API, so the operator
+// must re-present the master token. The UI submits only changed fields, so an
+// ordinary settings save is unaffected.
+func sensitiveRuntimeFieldPresent(body map[string]any) bool {
+	for _, key := range []string{
+		"systemProxyUrl",
+		"telegramApiBaseUrl",
+		"telegramUseSystemProxy",
+		"telegramBotToken",
+		"adminIpAllowlist",
+		"smtpHost",
+		"smtpPort",
+		"feishuWebhook",
+		"dingtalkWebhook",
+		"wecomWebhook",
+		"ntfyUrl",
+		"barkUrl",
+		"serverChanKey",
+	} {
+		if _, ok := body[key]; ok {
+			return true
+		}
+	}
+	return false
+}
 
 // RegisterSettingsRoutes registers all /api/settings routes (runtime, brand-list, system-proxy/test).
 func RegisterSettingsRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
@@ -156,6 +185,14 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	var body map[string]any
 	if err := decodeJSONRequest(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Egress endpoints and the admin network ACL are credential-bearing
+	// controls: a session alone must not be able to redirect upstream traffic,
+	// exfiltrate the Telegram bot token, or widen the management allowlist.
+	if sensitiveRuntimeFieldPresent(body) && !auth.ReauthConfirmed(r) {
+		auth.WriteReauthRequired(w)
 		return
 	}
 

@@ -218,13 +218,33 @@ func getQueryInt(r *http.Request, key string, fallback int) int {
 // The rejection carries ErrorCodeInvalidID so clients can distinguish a
 // malformed path ID from payload validation failures.
 func pathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	idStr := strings.TrimSpace(chi.URLParam(r, "id"))
+	idStr := chi.URLParam(r, "id")
+	// strconv.ParseInt accepts a leading sign and TrimSpace accepts Unicode
+	// spaces; middleware that inspects the raw path may treat those forms as
+	// "not an id". Require digits only so both sides agree on the route.
+	if !isDigitString(idStr) {
+		writeErrorCodeWithRequest(w, r, http.StatusBadRequest, ErrorCodeInvalidID, "invalid ID")
+		return 0, false
+	}
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || id <= 0 {
 		writeErrorCodeWithRequest(w, r, http.StatusBadRequest, ErrorCodeInvalidID, "invalid ID")
 		return 0, false
 	}
 	return id, true
+}
+
+// isDigitString reports whether s is a non-empty ASCII digit string.
+func isDigitString(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // parseLimitOffset parses ?limit= and ?offset= query params, clamping limit to

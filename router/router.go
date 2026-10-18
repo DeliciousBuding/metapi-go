@@ -92,6 +92,11 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		// Dual-track admin auth: session cookie (UI) or Bearer master token
 		// (external scripts) — see auth.AdminAuth (#1034).
 		r.Use(auth.AdminAuth(sessions))
+		// Cookie-authenticated admin writes must originate from the gateway's
+		// own origin. SameSite=Strict blocks cross-site requests but not
+		// sibling subdomains or other ports on the same host; Origin and
+		// Sec-Fetch-Site close that gap. Non-browser clients send neither.
+		r.Use(auth.SameOriginGuard(cfg.AdminCorsAllowedOrigins))
 		// Sensitive operations (backup/key export, token rotation) require the
 		// master token re-presented in X-Admin-Confirm-Token (#1034).
 		r.Use(auth.RequireReauth())

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/pgtest"
 	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
@@ -1097,6 +1098,13 @@ func doPutJSON(t *testing.T, r chi.Router, path string, body any) *httptest.Resp
 	}
 	req := httptest.NewRequest("PUT", path, bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
+	// Sensitive runtime fields (systemProxyUrl, adminIpAllowlist, notify
+	// endpoints) require re-confirmation. Behaviour tests that drive the real
+	// settings handler present the runtime master token like the UI does after
+	// its reauth prompt; the gate itself is exercised in reauth tests.
+	if rt := config.RuntimeSafe(); rt != nil && rt.AuthToken != "" {
+		req.Header.Set(auth.ReauthConfirmHeader, rt.AuthToken)
+	}
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	return rec
