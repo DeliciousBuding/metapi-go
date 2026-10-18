@@ -278,19 +278,36 @@ func parseResinURL(cfg *config.Config) (host, token string, ok bool) {
 	}
 	parsed, err := url.Parse(raw)
 	if err != nil || parsed == nil {
-		slog.Warn("resin: invalid RESIN_URL, falling back to direct", "resin_url", raw, "err", err)
+		// Never log the raw value: a malformed URL can still contain
+		// user:password@host credentials (audit L14).
+		slog.Warn("resin: invalid RESIN_URL, falling back to direct",
+			"error_class", "invalid_url",
+			"host", resinURLHost(raw))
 		return "", "", false
 	}
 	host = parsed.Host
 	if host == "" {
-		slog.Warn("resin: RESIN_URL missing host, falling back to direct", "resin_url", raw)
+		slog.Warn("resin: RESIN_URL missing host, falling back to direct",
+			"error_class", "missing_host")
 		return "", "", false
 	}
 	// The token is the whole path-after-host (minus the leading slash).
 	token = strings.TrimPrefix(parsed.Path, "/")
 	if token == "" {
-		slog.Warn("resin: RESIN_URL missing token segment, falling back to direct", "resin_url", raw)
+		slog.Warn("resin: RESIN_URL missing token segment, falling back to direct",
+			"error_class", "missing_token",
+			"host", host)
 		return "", "", false
 	}
 	return host, token, true
+}
+
+// resinURLHost returns the host[:port] of raw without userinfo or path, or ""
+// when the value cannot be parsed. Used only for log context.
+func resinURLHost(raw string) string {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed == nil {
+		return ""
+	}
+	return parsed.Host
 }

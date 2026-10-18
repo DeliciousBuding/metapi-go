@@ -44,7 +44,7 @@ func EnsureRuntimeDatabase(cfg *config.Config, rt *config.RuntimeSettings) error
 	if dataDir == "" {
 		dataDir = config.DefaultDataDir
 	}
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return fmt.Errorf("bootstrap: failed to create data directory %q: %w", dataDir, err)
 	}
 
@@ -60,6 +60,9 @@ func EnsureRuntimeDatabase(cfg *config.Config, rt *config.RuntimeSettings) error
 		// error (issue #849: "readonly database" / "unable to open database file").
 		if sqlitePath != ":memory:" {
 			if err := probeSQLiteWritable(sqlitePath); err != nil {
+				return fmt.Errorf("bootstrap: %w", err)
+			}
+			if err := ensureSQLiteFilePermissions(sqlitePath); err != nil {
 				return fmt.Errorf("bootstrap: %w", err)
 			}
 		}

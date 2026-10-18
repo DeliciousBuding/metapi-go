@@ -3,12 +3,14 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -442,7 +444,10 @@ func configurePostgresPool(db *DB, pool PostgresPoolConfig) error {
 // TypeScript container. Fail fast with an actionable fix instead.
 func probeSQLiteWritable(dbPath string) error {
 	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	// Owner-only directory: the database holds upstream credentials (audit L6).
+	// MkdirAll applies the mode only to directories it creates, so an operator's
+	// existing (possibly stricter) permissions are left untouched.
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("store: failed to create data directory %q: %w", dir, err)
 	}
 
@@ -471,4 +476,40 @@ func writableDataDirError(dir string) error {
 	return fmt.Errorf(
 		"store: data directory %q is not writable by the current process (uid %d). The metapi image runs as non-root uid 1001 — on the Docker host, make the mounted data directory writable by uid 1001, e.g. 'chown -R 1001:1001 <host-data-dir>' or 'chmod -R a+rwX <host-data-dir>'",
 		dir, os.Getuid())
+}
+
+// ensureSQLiteFilePermissions creates a missing SQLite database file with
+// owner-only permissions and strips group/other bits from an existing file
+// (audit L6: the credential database was world-readable under a default umask).
+//
+// It never widens permissions: an existing stricter mode keeps its owner bits
+// and loses only group/other access. Ownership is never changed. Platforms
+// without Unix mode-bit semantics (Windows) are a no-op.
+func ensureSQLiteFilePermissions(dbPath string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	if _, err := os.Stat(dbPath); errors.Is(err, os.ErrNotExist) {
+		file, createErr := os.OpenFile(dbPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if createErr != nil {
+			return fmt.Errorf("store: failed to create SQLite file %q: %w", dbPath, createErr)
+		}
+		if closeErr := file.Close(); closeErr != nil {
+			return fmt.Errorf("store: failed to close SQLite file %q: %w", dbPath, closeErr)
+		}
+	} else if err != nil {
+		return fmt.Errorf("store: failed to stat SQLite file %q: %w", dbPath, err)
+	}
+	info, err := os.Stat(dbPath)
+	if err != nil {
+		return fmt.Errorf("store: failed to stat SQLite file %q: %w", dbPath, err)
+	}
+	mode := info.Mode().Perm()
+	if mode&0o077 == 0 {
+		return nil
+	}
+	if err := os.Chmod(dbPath, mode&^0o077); err != nil {
+		return fmt.Errorf("store: failed to restrict SQLite file %q to owner-only access: %w (fix the file mode, e.g. 'chmod 600 <path>', and ensure the process owns it)", dbPath, err)
+	}
+	return nil
 }

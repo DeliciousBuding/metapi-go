@@ -97,6 +97,29 @@ func IsWebsocketUpgradeRequest(r *http.Request) bool {
 	return false
 }
 
+// insecureAPIKeySubprotocolPrefix mirrors auth's browser WebSocket key
+// convention. The value is offered by the client and echoed on accept.
+const insecureAPIKeySubprotocolPrefix = "openai-insecure-api-key."
+
+// insecureAPIKeySubprotocols returns the client-offered insecure-key
+// subprotocols that the server may select. Only this prefix is negotiated;
+// unrelated protocols stay unselected.
+func insecureAPIKeySubprotocols(r *http.Request) []string {
+	if r == nil {
+		return nil
+	}
+	var protocols []string
+	for _, header := range r.Header.Values("Sec-WebSocket-Protocol") {
+		for _, part := range strings.Split(header, ",") {
+			part = strings.TrimSpace(part)
+			if strings.HasPrefix(part, insecureAPIKeySubprotocolPrefix) && len(part) > len(insecureAPIKeySubprotocolPrefix) {
+				protocols = append(protocols, part)
+			}
+		}
+	}
+	return protocols
+}
+
 // HandleResponsesWebsocket serves a Responses WebSocket connection (C1).
 // Caller must only invoke this when IsWebsocketUpgradeRequest(r) is true.
 // Auth is expected from ProxyAuth middleware (GetProxyAuth); if missing, upgrade
@@ -120,6 +143,9 @@ func HandleResponsesWebsocket(w http.ResponseWriter, r *http.Request) {
 		// for local tools. Operators can put this behind a reverse proxy ACL.
 		InsecureSkipVerify: true,
 		CompressionMode:    websocket.CompressionDisabled,
+		// Echo the OpenAI insecure-key subprotocol so browser WebSocket clients
+		// can authenticate without putting the key in the URL (audit L2).
+		Subprotocols: insecureAPIKeySubprotocols(r),
 	}
 	conn, err := websocket.Accept(w, r, acceptOpts)
 	if err != nil {
@@ -339,6 +365,13 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 	normalized, nerr := normalizeResponsesWSRequest(msg, lastReq, lastOut, supportsIncremental)
 	if nerr != nil {
 		return s.writeError(ctx, nerr.status, nerr.message)
+	}
+
+	// Prompt safety filter (#681, audit L1): the native Codex WSS branch below
+	// runs before bridgeHTTP, so it must apply the same pre-forward check as the
+	// HTTP Responses handler. A blocked prompt never reaches either transport.
+	if blocked := checkPromptFilter(&Ctx{Body: normalized.request, RequestedModel: requestModel}); blocked != nil {
+		return s.writeError(ctx, blocked.Status, blocked.Error)
 	}
 
 	// Local prewarm: generate=false on first create — emit synthetic created+completed.

@@ -11,6 +11,14 @@ header policy and timeouts documented in the next three sections. None of it is
 admin surface: these routes never accept an admin token, and `/api/*` never
 accepts a downstream key.
 
+Downstream keys are accepted from `Authorization: Bearer <key>`, `x-api-key`,
+or `x-goog-api-key`. The `?key=` query parameter is accepted only on the GET
+model-list routes (`/v1/models`, `/v1beta/models`, `/gemini/{version}/models`);
+every other route requires one of the headers, so relay keys do not end up in
+reverse-proxy logs or browser history. Browser WebSocket clients may instead
+send `Sec-WebSocket-Protocol: openai-insecure-api-key.<key>`; the server echoes
+the selected subprotocol during the upgrade.
+
 `/v1` — the OpenAI-compatible surface:
 
 | Route | What it relays |

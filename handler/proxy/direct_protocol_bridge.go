@@ -87,6 +87,9 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 // direct-endpoint rejection policy in direct_fallback.go.
 func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, model string, proxyConfig *platform.ProxyConfig, path string, body []byte, contentType string, firstByteTimeoutMs int64, retry, maxRetries int, isLastEndpoint bool, requestID string) (bool, *pendingUpstreamFailure, bool) {
 	openCode := selected.Direct.Provider == "opencode_go" || selected.Direct.Provider == "opencode_go_anthropic"
+	// Scope forwarded session headers to the downstream key so shared upstream
+	// credentials cannot be resumed across keys (audit L28).
+	sessionNamespace := downstreamSessionNamespace(ctx.Auth)
 	var err error
 	if ctx.Multipart && !proxy.IsDirectMediaPath(path) {
 		writeJSONErrorWithRequest(w, 400, "Multipart requires a media endpoint", "invalid_request_error", requestID)
@@ -190,9 +193,9 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 	} else if endpoint != nil && isDirectMediaProfile(endpoint.Profile) {
 		wire, contentType, err = prepareDirectMediaProfile(endpoint.Profile, path, contentType, body)
 	} else if endpoint != nil && endpoint.Profile == "opencode-go" {
-		wire, err = prepareDirectOpenCodeWire(endpoint, openCodeBodyProfile, body, r.Header, ctx.directOpenCodeSession)
+		wire, err = prepareDirectOpenCodeWire(endpoint, openCodeBodyProfile, body, r.Header, ctx.directOpenCodeSession, sessionNamespace)
 	} else {
-		wire, err = prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header)
+		wire, err = prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header, sessionNamespace)
 	}
 	if err != nil {
 		if !isLastEndpoint {
@@ -202,7 +205,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 		return true, nil, false
 	}
 	if openCode {
-		wire.Headers.Set("X-Opencode-Session", ctx.directOpenCodeSession)
+		wire.Headers.Set("X-Opencode-Session", namespaceSessionID(sessionNamespace, ctx.directOpenCodeSession))
 		// Source channel headers are explicit overrides of provider defaults.
 		if proxyConfig != nil {
 			for name, value := range proxyConfig.CustomHeaders {
