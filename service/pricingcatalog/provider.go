@@ -25,13 +25,19 @@ const maxCatalogPayloadBytes = 32 << 20
 // public-only dial guard and pins the validated DNS answer: a source cannot
 // point the server at loopback/RFC1918/ULA/metadata, and a hostname cannot
 // pass validation and then resolve privately on the dial (audit L10).
-func newCatalogHTTPClient() *http.Client {
+func newCatalogHTTPClient(allowPrivate bool) *http.Client {
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	dial := ssrf.NewPublicOnlyDialContext(net.DefaultResolver, dialer.DialContext)
+	if allowPrivate {
+		// Operators may host an internal catalog mirror. Private targets are
+		// still dialed by the pinned IP, so DNS rebinding stays closed.
+		dial = ssrf.NewSiteDialContext(net.DefaultResolver, dialer.DialContext)
+	}
 	return &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			Proxy:                 nil,
-			DialContext:           ssrf.NewPublicOnlyDialContext(net.DefaultResolver, dialer.DialContext),
+			DialContext:           dial,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ResponseHeaderTimeout: 30 * time.Second,
 			IdleConnTimeout:       30 * time.Second,
@@ -146,6 +152,10 @@ type Options struct {
 	Sources []SourceSpec
 	// HTTPClient defaults to a client with a 30s timeout.
 	HTTPClient *http.Client
+	// AllowPrivateSources permits operator-hosted catalog mirrors on
+	// loopback/RFC1918. Imports cannot set it: it comes from deployment
+	// configuration, not from the source row.
+	AllowPrivateSources bool
 	// SiteSnapshotSource resolves site platform/URL for vendor
 	// classification. nil → every site classifies as relay (honest default).
 	SiteSnapshotSource SiteSnapshotSource
@@ -200,7 +210,7 @@ func NewProvider(opts Options) *Provider {
 	}
 	httpClient := opts.HTTPClient
 	if httpClient == nil {
-		httpClient = newCatalogHTTPClient()
+		httpClient = newCatalogHTTPClient(opts.AllowPrivateSources)
 	}
 	logger := opts.Logger
 	if logger == nil {

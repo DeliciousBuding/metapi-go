@@ -203,6 +203,7 @@ upstream request; …`), since it describes a static misconfiguration.
 | `TOKEN_ROUTER_FAILURE_COOLDOWN_MAX_SEC` | — | Upper bound for failure cooldown. |
 | `PRICING_CATALOG_ENABLED` | on | models.dev catalog as cold-start price signal; third-party relays are always labeled `catalog_estimate`. |
 | `PRICING_CATALOG_REFRESH_MIN` / `PRICING_CATALOG_URL` | — | Catalog refresh period / mirror. |
+| `PRICING_CATALOG_ALLOW_PRIVATE` | off | Allow catalog sources on loopback/RFC1918 (operator-hosted internal mirror). Imports cannot enable it. |
 | `MODEL_AVAILABILITY_PROBE_ENABLED` | `false` | Background channel health probing (off by default). |
 | `MODEL_AVAILABILITY_PROBE_INTERVAL_MS` | `1800000` | Probe period; floored at 60000 ms (60 s). |
 | `MODEL_AVAILABILITY_PROBE_TIMEOUT_MS` | `15000` | Per-probe timeout; floored at 3000 ms (3 s). |

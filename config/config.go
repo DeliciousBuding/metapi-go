@@ -207,9 +207,10 @@ type Config struct {
 	//   PRICING_CATALOG_REFRESH_MIN  — auto-sync period in minutes (default 720 = 12h)
 	//   PRICING_CATALOG_URL          — legacy single-source dataset URL; migrated
 	//                                  into the registry as the top custom source
-	PricingCatalogEnabled    bool
-	PricingCatalogRefreshMin int
-	PricingCatalogURL        string
+	PricingCatalogEnabled      bool
+	PricingCatalogRefreshMin   int
+	PricingCatalogURL          string
+	PricingCatalogAllowPrivate bool
 
 	// Proxy: Channel (2 fields)
 	ProxyMaxChannelAttempts int
@@ -685,6 +686,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// ---- §3.14b Pricing Catalog (models.dev official list prices) ----
 	cfg.PricingCatalogEnabled = parseBoolean(get("PRICING_CATALOG_ENABLED"), DefaultPricingCatalogEnabled)
 	cfg.PricingCatalogRefreshMin = max(0, int(math.Trunc(parseNumber(get("PRICING_CATALOG_REFRESH_MIN"), float64(DefaultPricingCatalogRefreshMin)))))
+	cfg.PricingCatalogAllowPrivate = parseBoolean(get("PRICING_CATALOG_ALLOW_PRIVATE"), false)
 	cfg.PricingCatalogURL = strings.TrimSpace(get("PRICING_CATALOG_URL"))
 	if cfg.PricingCatalogURL == "" {
 		cfg.PricingCatalogURL = DefaultPricingCatalogURL

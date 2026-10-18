@@ -40,6 +40,8 @@ type Manager struct {
 
 // Options configures a Manager.
 type Options struct {
+	// AllowPrivateSources permits operator-hosted internal catalog mirrors.
+	AllowPrivateSources bool
 	// Interval is the auto-sync cadence. <= 0 disables the periodic loop
 	// (the initial background fetch still runs when auto sync is enabled).
 	Interval time.Duration
@@ -90,10 +92,11 @@ func NewManager(db *sqlx.DB, opts Options) (*Manager, error) {
 	}
 
 	provider := pricingcatalog.NewProvider(pricingcatalog.Options{
-		Sources:            specs,
-		SiteSnapshotSource: opts.SiteSnapshotSource,
-		HTTPClient:         opts.HTTPClient,
-		Logger:             logger,
+		Sources:             specs,
+		SiteSnapshotSource:  opts.SiteSnapshotSource,
+		HTTPClient:          opts.HTTPClient,
+		AllowPrivateSources: opts.AllowPrivateSources,
+		Logger:              logger,
 	})
 	// Restore persisted last-known status so the panel shows history before
 	// the first sync of this process.
