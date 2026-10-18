@@ -1243,6 +1243,10 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          # buildx requires a tag when pushing. This pointer is internal: the
+          # manifest job merges the per-architecture digests, so a concurrent
+          # run overwriting the tag cannot mix architectures.
+          tags: ${{ env.IMAGE_NAME }}:build-${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ needs.docker-prepare.outputs.version }}
