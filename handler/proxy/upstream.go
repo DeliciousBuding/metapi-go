@@ -133,12 +133,14 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		upstreamPath = r.URL.Path
 	}
 	downstreamPolicy.RequiredUpstreamProtocol, downstreamPolicy.AllowUpstreamProtocolConversion = proxy.RoutingProtocolForPath(upstreamPath)
-	// Never forward a downstream path containing
-	// ".." segments. Go's http.Client preserves ".." on the wire, and the
-	// upstream host would normalize it outside the site API prefix — letting
-	// any authenticated downstream key holder reach arbitrary upstream paths.
-	// Reject before channel selection; clean paths pass through untouched.
-	if proxy.ContainsPathTraversal(upstreamPath) {
+	// Never forward a downstream path that can escape the selected site's API
+	// prefix. Go's http.Client preserves ".." on the wire, and the upstream host
+	// would normalize it outside the prefix — letting any authenticated
+	// downstream key holder reach arbitrary upstream paths. chi hands back the
+	// raw segment when RawPath is set, so the guard also decodes encoded
+	// separators/dots and re-checks the files/videos resource prefixes after
+	// path.Clean. Traversal-free paths pass through byte-for-byte.
+	if !validUpstreamDispatchPath(upstreamPath) {
 		writeJSONErrorWithRequest(w, http.StatusBadRequest, "Invalid request path", "invalid_request_error", requestID)
 		observeProxyTerminal(ctx, shared.OutcomeClientError, ctx != nil && ctx.IsStream, time.Since(startedAt))
 		return
@@ -591,6 +593,13 @@ func siteRequestURL(baseURL, path, model string, stream bool) string {
 		if stream {
 			path += "?alt=sse"
 		}
+	}
+	// Defense in depth at the final concatenation: the dispatcher already
+	// validated the downstream path, but a rewrite must never reintroduce an
+	// escaping path. An empty URL fails request construction before any
+	// upstream I/O.
+	if !validUpstreamDispatchPath(path) {
+		return ""
 	}
 	return proxy.BuildUpstreamURL(baseURL, path)
 }

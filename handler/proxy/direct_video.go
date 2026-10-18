@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/auth"
+	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -162,8 +163,13 @@ func loadDirectVideoTask(db *store.DB, publicID string) (*directVideoTask, error
 	return task, nil
 }
 
+// validVideoUpstreamID reports whether an upstream task id is safe to embed in
+// a proxied path. Native providers use ids that are not restricted to the file
+// id charset ("task/id ?#%" appears in provider fixtures), so the id is escaped
+// with url.PathEscape when it enters the path; only path traversal segments and
+// request-line controls remain forbidden.
 func validVideoUpstreamID(id string) bool {
-	return id != "" && id != "." && id != ".." && !strings.ContainsAny(id, "\r\n\x00")
+	return id != "" && !strings.ContainsAny(id, "\r\n\x00") && !proxy.ContainsPathTraversal(id)
 }
 
 func handleDirectVideoTask(w http.ResponseWriter, r *http.Request, suffix string) {
@@ -172,7 +178,12 @@ func handleDirectVideoTask(w http.ResponseWriter, r *http.Request, suffix string
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized", "invalid_request_error")
 		return
 	}
-	task, err := loadDirectVideoTask(store.GetDB(), chi.URLParam(r, "id"))
+	publicID := chi.URLParam(r, "id")
+	if !validProxiedResourceID(publicID) {
+		writeJSONError(w, http.StatusBadRequest, "invalid video id", "invalid_request_error")
+		return
+	}
+	task, err := loadDirectVideoTask(store.GetDB(), publicID)
 	if err != nil || task.Identity.Owner != directVideoOwner(pac) {
 		status := http.StatusNotFound
 		if err != nil && !errors.Is(err, errDirectVideoUnavailable) {
