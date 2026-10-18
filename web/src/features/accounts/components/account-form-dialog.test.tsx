@@ -466,10 +466,12 @@ describe('AccountFormDialog preset onboarding', () => {
     await waitFor(() =>
       expect(mutations.create.mutateAsync).toHaveBeenCalledWith(
         expect.objectContaining({
-          siteId: 8,
-          credentialMode: 'apikey',
-          skipModelFetch: true,
-          accessTokens: ['fixture-coding-key'],
+          payload: expect.objectContaining({
+            siteId: 8,
+            credentialMode: 'apikey',
+            skipModelFetch: true,
+            accessTokens: ['fixture-coding-key'],
+          }),
         })
       )
     )
@@ -507,7 +509,9 @@ describe('AccountFormDialog preset onboarding', () => {
     submitOnboardingForm()
     await waitFor(() =>
       expect(mutations.create.mutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ skipModelFetch: false })
+        expect.objectContaining({
+          payload: expect.objectContaining({ skipModelFetch: false }),
+        })
       )
     )
   })

@@ -116,7 +116,11 @@ func (h *oauthHandler) startProviderFlow(w http.ResponseWriter, r *http.Request)
 		input.ProjectID = strings.TrimSpace(*body.ProjectID)
 	}
 	if body.ProxyURL != nil {
-		input.ProxyURL = strings.TrimSpace(*body.ProxyURL)
+		normalized, ok := gateOAuthProxyURL(w, r, body.ProxyURL)
+		if !ok {
+			return
+		}
+		input.ProxyURL = *normalized
 	}
 	if body.UseSystemProxy != nil {
 		input.UseSystemProxy = *body.UseSystemProxy
@@ -265,8 +269,12 @@ func (h *oauthHandler) rebindConnection(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
+	proxyURL, ok := gateOAuthProxyURL(w, r, body.ProxyURL)
+	if !ok {
+		return
+	}
 
-	result, err := oauth.StartOauthRebindFlow(id, requestOrigin(r), body.ProxyURL, body.UseSystemProxy)
+	result, err := oauth.StartOauthRebindFlow(id, requestOrigin(r), proxyURL, body.UseSystemProxy)
 	if err != nil {
 		msg := err.Error()
 		status := http.StatusBadRequest
@@ -315,7 +323,12 @@ func (h *oauthHandler) updateProxy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := oauth.UpdateOauthConnectionProxySettings(id, body.ProxyURL, body.UseSystemProxy)
+	proxyURL, ok := gateOAuthProxyURL(w, r, body.ProxyURL)
+	if !ok {
+		return
+	}
+
+	result, err := oauth.UpdateOauthConnectionProxySettings(id, proxyURL, body.UseSystemProxy)
 	if err != nil {
 		msg := err.Error()
 		status := http.StatusNotFound

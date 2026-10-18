@@ -217,11 +217,17 @@ export function resolveCreatedAccountId(
   return undefined
 }
 
+type CreateAccountVariables = {
+  payload: AccountPayload
+  /** Present when replaying after the master-token reauth prompt. */
+  confirmToken?: string
+}
+
 export function useCreateAccount() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: AccountPayload) => {
-      const result = await api.addAccount(payload)
+    mutationFn: async ({ payload, confirmToken }: CreateAccountVariables) => {
+      const result = await api.addAccount(payload, confirmToken)
       return assertBusinessOk<CreateAccountResult>(
         result,
         'accounts.toast.createFailed'
@@ -305,17 +311,22 @@ export function useVerifyAccountToken() {
 // useUpdateAccount — PUT /api/accounts/:id
 // ---------------------------------------------------------------------------
 
+type UpdateAccountVariables = {
+  id: number
+  payload: AccountPayload
+  /** Present when replaying after the master-token reauth prompt. */
+  confirmToken?: string
+}
+
 export function useUpdateAccount() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({
       id,
       payload,
-    }: {
-      id: number
-      payload: AccountPayload
-    }) => {
-      const result = await api.updateAccount(id, payload)
+      confirmToken,
+    }: UpdateAccountVariables) => {
+      const result = await api.updateAccount(id, payload, confirmToken)
       return assertBusinessOk(result, 'accounts.toast.updateFailed')
     },
     onSuccess: () => {

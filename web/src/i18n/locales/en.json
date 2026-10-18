@@ -4278,7 +4278,10 @@
         "clearUsage": "Clearing usage logs cannot be undone. Re-enter the admin token to proceed.",
         "runtimeSettings": "These settings include egress destinations, notification endpoints or the admin access ACL. Re-enter the admin token to save.",
         "downstreamKey": "A downstream key is a long-lived credential. Re-enter the admin token to create or rotate it.",
-        "accountTokenReveal": "Reading an upstream token in plaintext is a sensitive operation. Re-enter the admin token to unlock it."
+        "accountTokenReveal": "Reading an upstream token in plaintext is a sensitive operation. Re-enter the admin token to unlock it.",
+        "siteProxy": "A site proxy reroutes all egress for that site's upstream credentials. Re-enter the admin token to save.",
+        "accountProxy": "An account proxy reroutes where that account's upstream credential is sent. Re-enter the admin token to save.",
+        "oauthProxy": "An OAuth connection proxy reroutes the credential exchange. Re-enter the admin token to save."
       }
     },
     "connect": {

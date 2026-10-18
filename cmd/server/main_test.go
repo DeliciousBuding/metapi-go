@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -48,7 +50,7 @@ func TestBootstrapRuntimeFailsOnUnavailablePostgres(t *testing.T) {
 		"DATA_DIR":     t.TempDir(),
 	})
 
-	err := bootstrapRuntime(cfg, rt)
+	err := bootstrapRuntime(cfg, rt, "")
 	if err == nil {
 		t.Fatal("bootstrapRuntime succeeded with unavailable PostgreSQL")
 	}
@@ -86,15 +88,102 @@ func TestBootstrapRuntimeInitializesSQLite(t *testing.T) {
 	dataDir := t.TempDir()
 	t.Cleanup(func() { _ = store.CloseDatabase() })
 	cfg, rt := config.Load(map[string]string{
-		"DB_TYPE":  "sqlite",
-		"DB_URL":   filepath.Join(dataDir, "bootstrap.db"),
-		"DATA_DIR": dataDir,
+		"DB_TYPE":    "sqlite",
+		"DB_URL":     filepath.Join(dataDir, "bootstrap.db"),
+		"DATA_DIR":   dataDir,
+		"AUTH_TOKEN": "bootstrap-test-admin-token",
 	})
 
-	if err := bootstrapRuntime(cfg, rt); err != nil {
+	if err := bootstrapRuntime(cfg, rt, "bootstrap-test-admin-token"); err != nil {
 		t.Fatalf("bootstrapRuntime sqlite: %v", err)
 	}
 	if db := store.GetDB(); db == nil {
 		t.Fatal("bootstrapRuntime did not initialize active DB")
+	}
+}
+
+// seedPersistedAuthToken writes a settings row the way the admin rotation path
+// stores it (JSON-encoded string) into a fresh SQLite file.
+func seedPersistedAuthToken(t *testing.T, dbPath, token string) {
+	t.Helper()
+	db, err := store.Open(store.DialectSQLite, dbPath, false)
+	if err != nil {
+		t.Fatalf("open seed database: %v", err)
+	}
+	defer db.Close()
+	if err := store.AutoMigrate(db); err != nil {
+		t.Fatalf("migrate seed database: %v", err)
+	}
+	if err := store.NewSettingsStore(db).Set("auth_token", `"`+token+`"`); err != nil {
+		t.Fatalf("seed auth_token: %v", err)
+	}
+}
+
+// M8: hydration runs after the env-based validation, so a database that still
+// carries the built-in default must abort startup instead of silently
+// downgrading a strong AUTH_TOKEN.
+func TestBootstrapRuntimeRejectsPersistedDefaultAuthToken(t *testing.T) {
+	_ = store.CloseDatabase()
+
+	dataDir := t.TempDir()
+	// Registered after TempDir so the database closes first (LIFO), letting
+	// Windows remove the temp directory.
+	t.Cleanup(func() { _ = store.CloseDatabase() })
+	dbPath := filepath.Join(dataDir, "bootstrap.db")
+	seedPersistedAuthToken(t, dbPath, config.DefaultAuthToken)
+
+	cfg, rt := config.Load(map[string]string{
+		"DB_TYPE":    "sqlite",
+		"DB_URL":     dbPath,
+		"DATA_DIR":   dataDir,
+		"AUTH_TOKEN": "strong-env-admin-token",
+	})
+	err := bootstrapRuntime(cfg, rt, "strong-env-admin-token")
+	if err == nil {
+		t.Fatal("bootstrapRuntime accepted a persisted default auth_token")
+	}
+	if !strings.Contains(err.Error(), "auth_token") {
+		t.Fatalf("bootstrapRuntime error = %v, want auth_token context", err)
+	}
+	if strings.Contains(err.Error(), config.DefaultAuthToken) {
+		t.Fatalf("bootstrapRuntime error leaks the token value: %v", err)
+	}
+}
+
+// A strong persisted token still wins over env (existing rotation behavior),
+// and the conflict is reported without either value.
+func TestBootstrapRuntimeUsesPersistedAuthTokenAndWarns(t *testing.T) {
+	_ = store.CloseDatabase()
+
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	dataDir := t.TempDir()
+	t.Cleanup(func() { _ = store.CloseDatabase() })
+	dbPath := filepath.Join(dataDir, "bootstrap.db")
+	const persisted = "strong-persisted-admin-token"
+	const envToken = "strong-env-admin-token"
+	seedPersistedAuthToken(t, dbPath, persisted)
+
+	cfg, rt := config.Load(map[string]string{
+		"DB_TYPE":    "sqlite",
+		"DB_URL":     dbPath,
+		"DATA_DIR":   dataDir,
+		"AUTH_TOKEN": envToken,
+	})
+	if err := bootstrapRuntime(cfg, rt, envToken); err != nil {
+		t.Fatalf("bootstrapRuntime: %v", err)
+	}
+	if rt.AuthToken != persisted {
+		t.Fatalf("AuthToken = %q, want the persisted rotated token", rt.AuthToken)
+	}
+	output := logs.String()
+	if !strings.Contains(output, "persisted auth_token overrides AUTH_TOKEN") {
+		t.Fatalf("startup log missing the override warning: %s", output)
+	}
+	if strings.Contains(output, persisted) || strings.Contains(output, envToken) {
+		t.Fatalf("startup log leaks a token value: %s", output)
 	}
 }

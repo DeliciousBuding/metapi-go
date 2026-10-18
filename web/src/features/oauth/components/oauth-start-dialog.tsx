@@ -28,6 +28,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { useReauthReplay } from '@/components/common/reauth-provider'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -87,6 +88,7 @@ export function OAuthStartDialog({
   const queryClient = useQueryClient()
   const providersQuery = useOAuthProviders({ enabled: open })
   const startOAuth = useStartOAuth()
+  const handleReauth = useReauthReplay()
 
   // Pending-session state — set after `useStartOAuth` returns a `state`. While
   // set, the dialog swaps the form for a pending panel that polls the
@@ -219,12 +221,13 @@ export function OAuthStartDialog({
       })
       return
     }
-    try {
+    const start = async (confirmToken?: string) => {
       const result = await startOAuth.mutateAsync({
         provider: values.provider,
         projectId: values.projectId.trim() || undefined,
         proxyUrl: values.proxyUrl.trim() || null,
         useSystemProxy: values.useSystemProxy,
+        confirmToken,
       })
       if (result.authorizationUrl) {
         setAuthorizationUrl(result.authorizationUrl)
@@ -235,7 +238,19 @@ export function OAuthStartDialog({
       setInstructions(result.instructions)
       setCallbackInvalid(false)
       setPendingState(result.state)
-    } catch {
+    }
+    try {
+      await start()
+    } catch (error) {
+      // A connection-level proxy redirects the OAuth refresh token exchange;
+      // the backend answers reauthRequired until the master token is re-entered.
+      if (
+        handleReauth(error, t('reauth.operations.oauthProxy'), (confirmToken) =>
+          start(confirmToken)
+        )
+      ) {
+        return
+      }
       toast.error(t('oauth.form.startFailed'))
     }
   }

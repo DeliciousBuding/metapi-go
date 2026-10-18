@@ -41,7 +41,7 @@ func setupOAuthRoutesTest(t *testing.T) (*store.DB, chi.Router) {
 		CodexClientId:  "test-codex-client",
 		ClaudeClientId: "test-claude-client",
 	})
-	config.SetRuntime(&config.RuntimeSettings{SystemProxyUrl: ""})
+	config.SetRuntime(&config.RuntimeSettings{SystemProxyUrl: "", AuthToken: "oauth-routes-test-master-token"})
 	t.Cleanup(func() { config.SetRuntime(nil) })
 
 	r := chi.NewRouter()

@@ -127,9 +127,18 @@ func (h *sitesHandler) createSite(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if body.ProxyURL != nil && *body.ProxyURL != "" && !service.IsValidProxyURL(*body.ProxyURL) {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid proxyUrl. Expected a valid http(s)/socks proxy URL.")
-		return
+	if body.ProxyURL != nil {
+		normalizedProxyURL, valid := normalizeProxyURLInput(body.ProxyURL)
+		if !valid {
+			writeErrorWithRequest(w, r, http.StatusBadRequest, invalidProxyURLMessage)
+			return
+		}
+		// A per-site proxy silently redirects stored upstream credentials, so
+		// setting one requires the master token; clearing it does not.
+		if requireProxyURLReauth(w, r, normalizedProxyURL) {
+			return
+		}
+		body.ProxyURL = &normalizedProxyURL
 	}
 	if body.ExternalCheckinURL != nil && *body.ExternalCheckinURL != "" && !service.IsValidHTTPURL(*body.ExternalCheckinURL) {
 		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid externalCheckinUrl. Expected a valid http(s) URL.")
@@ -377,11 +386,15 @@ func (h *sitesHandler) updateSite(w http.ResponseWriter, r *http.Request) {
 		updates["platform"] = p
 	}
 	if body.ProxyURL != nil {
-		if *body.ProxyURL != "" && !service.IsValidProxyURL(*body.ProxyURL) {
-			writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid proxyUrl. Expected a valid http(s)/socks proxy URL.")
+		normalizedProxyURL, valid := normalizeProxyURLInput(body.ProxyURL)
+		if !valid {
+			writeErrorWithRequest(w, r, http.StatusBadRequest, invalidProxyURLMessage)
 			return
 		}
-		updates["proxyUrl"] = service.NormalizeNullable(body.ProxyURL)
+		if requireProxyURLReauth(w, r, normalizedProxyURL) {
+			return
+		}
+		updates["proxyUrl"] = service.NormalizeNullable(&normalizedProxyURL)
 	}
 	if body.UseSystemProxy != nil {
 		updates["useSystemProxy"] = *body.UseSystemProxy

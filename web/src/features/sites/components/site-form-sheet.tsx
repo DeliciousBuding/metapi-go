@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
+import { useReauthReplay } from '@/components/common/reauth-provider'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
@@ -202,6 +203,7 @@ export function SiteFormSheet({
 
   const createSite = useCreateSite()
   const updateSite = useUpdateSite()
+  const handleReauth = useReauthReplay()
   const detectSite = useDetectSite()
   const detectSiteAsync = detectSite.mutateAsync
   const [platformMode, setPlatformMode] = useState<'select' | 'custom'>(
@@ -350,27 +352,46 @@ export function SiteFormSheet({
     ) {
       payload.initializationPresetId = selectedTemplate.id
     }
-    try {
-      if (isEditing && editingSite) {
-        await updateSite.mutateAsync({ id: editingSite.id, payload })
-        toast.success(t('sites.form.updateSucceeded', { name: values.name }))
-        if (urlWasNormalized) {
-          toast.info(t('sites.form.urlNormalizedToast', { url: persistedUrl }))
-        }
-        form.reset()
-        onOpenChange(false)
-      } else {
-        const created = await createSite.mutateAsync(payload)
-        toast.success(t('sites.form.createSucceeded', { name: values.name }))
-        if (urlWasNormalized) {
-          toast.info(t('sites.form.urlNormalizedToast', { url: persistedUrl }))
-        }
-        form.reset()
-        onOpenChange(false)
+    const finishSave = (created?: Site) => {
+      toast.success(
+        t(
+          isEditing
+            ? 'sites.form.updateSucceeded'
+            : 'sites.form.createSucceeded',
+          { name: values.name }
+        )
+      )
+      if (urlWasNormalized) {
+        toast.info(t('sites.form.urlNormalizedToast', { url: persistedUrl }))
+      }
+      form.reset()
+      onOpenChange(false)
+      if (!isEditing && created) {
         onCreated?.(created)
       }
-    } catch {
-      // http-client toasted
+    }
+    const save = async (confirmToken?: string) => {
+      if (isEditing && editingSite) {
+        await updateSite.mutateAsync({
+          id: editingSite.id,
+          payload,
+          confirmToken,
+        })
+        finishSave()
+        return
+      }
+      const created = await createSite.mutateAsync({ payload, confirmToken })
+      finishSave(created)
+    }
+    try {
+      await save()
+    } catch (error) {
+      // Setting a per-site proxy redirects stored upstream credentials; the
+      // backend rejects it with reauthRequired until the master token is
+      // re-entered. Replay the same form values once through the dialog.
+      handleReauth(error, t('reauth.operations.siteProxy'), (confirmToken) =>
+        save(confirmToken)
+      )
     }
   }
 

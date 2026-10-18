@@ -39,9 +39,14 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if body.ProxyURL != nil {
-		normalizedProxyURL := strings.TrimSpace(*body.ProxyURL)
-		if normalizedProxyURL != "" && !service.IsValidProxyURL(normalizedProxyURL) {
-			writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid proxyUrl. Expected a valid http(s)/socks proxy URL.")
+		normalizedProxyURL, valid := normalizeProxyURLInput(body.ProxyURL)
+		if !valid {
+			writeErrorWithRequest(w, r, http.StatusBadRequest, invalidProxyURLMessage)
+			return
+		}
+		// A per-account proxy redirects this account's upstream credential
+		// (and auto-relogin traffic), so setting one needs the master token.
+		if requireProxyURLReauth(w, r, normalizedProxyURL) {
 			return
 		}
 		body.ProxyURL = &normalizedProxyURL

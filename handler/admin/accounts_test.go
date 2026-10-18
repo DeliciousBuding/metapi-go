@@ -26,6 +26,7 @@ func setupAccountsTest(t *testing.T) (*store.DB, chi.Router, *config.Config) {
 	// Reassigning the package pointer races with async health-refresh runners
 	// that call globalAccountsCache.clear() after StartBackgroundTask (#328).
 	globalAccountsCache.clear()
+	publishAdminTestMasterToken(t)
 
 	db := sqlitetest.Open(t)
 
@@ -43,6 +44,7 @@ func setupAccountsPostgresTest(t *testing.T) (*store.DB, chi.Router, *config.Con
 	t.Helper()
 	// Same isolation rule as setupAccountsTest: never reassign the global pointer (#328).
 	globalAccountsCache.clear()
+	publishAdminTestMasterToken(t)
 
 	db, r := setupSitesPostgresTest(t)
 	cfg := &config.Config{

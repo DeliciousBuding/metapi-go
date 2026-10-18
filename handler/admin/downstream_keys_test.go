@@ -18,6 +18,7 @@ import (
 
 func setupDownstreamKeysTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
+	publishAdminTestMasterToken(t)
 	db := sqlitetest.Open(t)
 
 	r := chi.NewRouter()
@@ -27,6 +28,7 @@ func setupDownstreamKeysTest(t *testing.T) (*store.DB, chi.Router) {
 
 func setupDownstreamKeysPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
+	publishAdminTestMasterToken(t)
 
 	dsn := strings.TrimSpace(os.Getenv("PG_TEST_DSN"))
 	if dsn == "" {

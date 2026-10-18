@@ -1,4 +1,4 @@
-import { request, buildQueryString } from './transport'
+import { confirmHeader, request, buildQueryString } from './transport'
 import type {
   OAuthProvidersResponse,
   OAuthStartResponse,
@@ -26,11 +26,13 @@ export const oauthApi = {
       projectId?: string
       proxyUrl?: string | null
       useSystemProxy?: boolean
-    }
+    },
+    confirmToken?: string
   ) =>
     request(`/api/oauth/providers/${encodeURIComponent(provider)}/start`, {
       method: 'POST',
       body: JSON.stringify(data || {}),
+      headers: confirmHeader(confirmToken),
       // The start dialog surfaces its own specific startFailed message.
       skipErrorHandler: true,
     }) as Promise<OAuthStartResponse>,

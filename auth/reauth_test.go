@@ -27,7 +27,6 @@ func TestSensitiveAdminRoutePatterns(t *testing.T) {
 		{http.MethodGet, "/api/downstream-keys/{id}/export"},
 		{http.MethodPost, "/api/downstream-keys"},
 		{http.MethodPost, "/api/downstream-keys/batch"},
-		{http.MethodPut, "/api/downstream-keys/{id}"},
 		{http.MethodGet, "/api/account-tokens/{id}/value"},
 	}
 	for _, tc := range sensitive {
@@ -44,6 +43,7 @@ func TestSensitiveAdminRoutePatterns(t *testing.T) {
 		{http.MethodGet, "/api/settings/auth/info"},
 		{http.MethodGet, "/api/downstream-keys"},
 		{http.MethodGet, "/api/downstream-keys/{id}"},
+		{http.MethodPut, "/api/downstream-keys/{id}"}, // handler gates proxyUrl/key rotation only
 		{http.MethodDelete, "/api/downstream-keys/{id}"},
 		{http.MethodGet, "/api/downstream-keys/{id}/overview"},
 		{http.MethodGet, "/api/sites"},

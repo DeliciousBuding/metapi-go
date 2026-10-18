@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/service"
 )
 
 func redactDownstreamKeySecret(row map[string]any) {
@@ -442,7 +444,8 @@ func normalizeExcludedCredentialRefsInput(input []any) ([]any, string) {
 
 // normalizeDownstreamProxyURL trims proxyUrl for create/update.
 // Empty / whitespace / null -> nil (inherit site/account/system proxy).
-// Non-empty values must include a supported scheme (http/https/socks*).
+// Non-empty values share the same scheme/host validation as sites and
+// accounts, so a key cannot store an egress target the transport cannot dial.
 func normalizeDownstreamProxyURL(input *string) (*string, string) {
 	if input == nil {
 		return nil, ""
@@ -451,16 +454,8 @@ func normalizeDownstreamProxyURL(input *string) (*string, string) {
 	if v == "" {
 		return nil, ""
 	}
-	lower := strings.ToLower(v)
-	supported := false
-	for _, scheme := range []string{"http://", "https://", "socks://", "socks4://", "socks4a://", "socks5://", "socks5h://"} {
-		if strings.HasPrefix(lower, scheme) {
-			supported = true
-			break
-		}
-	}
-	if !supported {
-		return nil, "proxyUrl must start with http://, https:// or a socks proxy scheme"
+	if err := service.ValidateProxyURL(v); err != nil {
+		return nil, invalidProxyURLMessage
 	}
 	return &v, ""
 }

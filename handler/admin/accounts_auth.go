@@ -202,9 +202,9 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.ProxyURL != nil {
-		normalizedProxyURL := strings.TrimSpace(*body.ProxyURL)
-		if normalizedProxyURL != "" && !service.IsValidProxyURL(normalizedProxyURL) {
-			writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid proxyUrl. Expected a valid http(s)/socks proxy URL.")
+		normalizedProxyURL, valid := normalizeProxyURLInput(body.ProxyURL)
+		if !valid {
+			writeErrorWithRequest(w, r, http.StatusBadRequest, invalidProxyURLMessage)
 			return
 		}
 		body.ProxyURL = &normalizedProxyURL

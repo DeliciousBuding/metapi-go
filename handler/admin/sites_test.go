@@ -1085,9 +1085,23 @@ func doPostJSON(t *testing.T, r chi.Router, path string, body any) *httptest.Res
 	}
 	req := httptest.NewRequest("POST", path, bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
+	// See doPutJSON: present the master token the UI would send after its
+	// reauth prompt when a test fixture publishes one.
+	if rt := config.RuntimeSafe(); rt != nil && rt.AuthToken != "" {
+		req.Header.Set(auth.ReauthConfirmHeader, rt.AuthToken)
+	}
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	return rec
+}
+
+// publishAdminTestMasterToken makes the shared JSON request helpers present
+// the re-confirmation header, mirroring the UI after its reauth prompt. The
+// gate itself is exercised by the reauth tests, which use raw requests.
+func publishAdminTestMasterToken(t *testing.T) {
+	t.Helper()
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: "admin-test-master-token"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 }
 
 func doPutJSON(t *testing.T, r chi.Router, path string, body any) *httptest.ResponseRecorder {

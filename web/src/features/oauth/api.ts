@@ -122,8 +122,8 @@ export function useStartOAuth(
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (payload: OAuthStartPayload) => {
-      const { provider, ...rest } = payload
-      return api.startOAuthProvider(provider, rest)
+      const { provider, confirmToken, ...rest } = payload
+      return api.startOAuthProvider(provider, rest, confirmToken)
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: oauthKeys.connections() })

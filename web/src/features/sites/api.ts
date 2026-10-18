@@ -47,6 +47,19 @@ export function useSites(
 
 type CreateSiteContext = { previous: Site[] | undefined }
 
+type CreateSiteVariables = {
+  payload: SiteFormPayload
+  /** Present when replaying after the master-token reauth prompt. */
+  confirmToken?: string
+}
+
+type UpdateSiteVariables = {
+  id: number
+  payload: Partial<Site>
+  /** Present when replaying after the master-token reauth prompt. */
+  confirmToken?: string
+}
+
 export function useSiteInitializationPresets() {
   return useQuery({
     queryKey: sitesKeys.initializationPresets(),
@@ -60,15 +73,20 @@ export function useSiteInitializationPresets() {
  * Optimistically rolls back the list on error.
  */
 export function useCreateSite(
-  options?: UseMutationOptions<Site, Error, SiteFormPayload, CreateSiteContext>
+  options?: UseMutationOptions<
+    Site,
+    Error,
+    CreateSiteVariables,
+    CreateSiteContext
+  >
 ) {
   const queryClient = useQueryClient()
-  return useMutation<Site, Error, SiteFormPayload, CreateSiteContext>({
-    mutationFn: async (payload) => {
-      const created = (await api.addSite(payload)) as Site
+  return useMutation<Site, Error, CreateSiteVariables, CreateSiteContext>({
+    mutationFn: async ({ payload, confirmToken }) => {
+      const created = (await api.addSite(payload, confirmToken)) as Site
       return created
     },
-    onMutate: async (payload) => {
+    onMutate: async ({ payload }) => {
       await queryClient.cancelQueries({ queryKey: sitesKeys.list() })
       const previous = queryClient.getQueryData<Site[]>(sitesKeys.list())
       const optimistic: Site = {
@@ -121,19 +139,14 @@ export function useUpdateSite(
   options?: UseMutationOptions<
     Site,
     Error,
-    { id: number; payload: Partial<Site> },
+    UpdateSiteVariables,
     UpdateSiteContext
   >
 ) {
   const queryClient = useQueryClient()
-  return useMutation<
-    Site,
-    Error,
-    { id: number; payload: Partial<Site> },
-    UpdateSiteContext
-  >({
-    mutationFn: async ({ id, payload }) => {
-      const updated = (await api.updateSite(id, payload)) as Site
+  return useMutation<Site, Error, UpdateSiteVariables, UpdateSiteContext>({
+    mutationFn: async ({ id, payload, confirmToken }) => {
+      const updated = (await api.updateSite(id, payload, confirmToken)) as Site
       return updated
     },
     onMutate: async ({ id, payload }) => {
