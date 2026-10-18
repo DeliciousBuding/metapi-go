@@ -68,7 +68,8 @@ Routing-policy fields (`excludedSiteIds`, `excludedCredentialRefs`, `allowedSite
 `accessPolicy`、站点和凭据限制仍需同时满足；受管 Key 的模型范围和路由列表都为空时拒绝请求。
 
 `GET /v1/models` 对路由授权使用与转发相同的只读选路检查，只展示当前存在可选候选的模型，
-不调用上游。请求入口与选路共用模型匹配规则。
+不调用上游。请求入口与选路共用模型匹配规则。策略或暴露的模型目录变化会让缓存立即失效；
+仅运行时候选状态变化时，列表最迟在 15 秒的进程内缓存 TTL 后更新。
 
 ### Usage limits are not a prepaid billing ledger
 
