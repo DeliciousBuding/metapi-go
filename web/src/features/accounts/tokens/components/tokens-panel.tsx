@@ -6,11 +6,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
-  Check,
   CheckCircle2,
-  Copy,
-  Eye,
-  EyeOff,
   Pencil,
   Plus,
   RefreshCw,
@@ -36,6 +32,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { SecretField } from '@/components/ui/secret-field'
 import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
@@ -249,24 +246,19 @@ function TokenRow({
   // lazily on an explicit eye/copy click, behind master-token confirmation,
   // and kept only for this row's lifetime (never persisted or cached).
   const [revealedValue, setRevealedValue] = useState<string | null>(null)
-  const [visible, setVisible] = useState(false)
   const [revealPending, setRevealPending] = useState(false)
-  const [copied, setCopied] = useState(false)
   const canReveal = !isMaskedPending
 
   function copyValue(value: string) {
     void copyText(value).then((ok) => {
       if (!ok) {
         toast.error(t('common.copyFailed'))
-        return
       }
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
     })
   }
 
   function requestValue(
-    options: { reveal?: boolean; onReady?: (value: string) => void } = {}
+    options: { onReady?: (value: string) => void } = {}
   ) {
     requestReauth({
       description: t('reauth.operations.accountTokenReveal'),
@@ -279,7 +271,6 @@ function TokenRow({
             throw new Error('Empty token value')
           }
           setRevealedValue(value)
-          if (options.reveal) setVisible(true)
           options.onReady?.(value)
         } catch (error) {
           // A rejected master token keeps the dialog open with its inline
@@ -296,24 +287,6 @@ function TokenRow({
         }
       },
     })
-  }
-
-  function handleReveal() {
-    if (!canReveal) return
-    if (revealedValue) {
-      setVisible((value) => !value)
-      return
-    }
-    requestValue({ reveal: true })
-  }
-
-  function handleCopy() {
-    if (!canReveal) return
-    if (revealedValue) {
-      copyValue(revealedValue)
-      return
-    }
-    requestValue({ onReady: copyValue })
   }
 
   return (
@@ -345,39 +318,19 @@ function TokenRow({
             </Badge>
           )}
         </div>
-        <span className='inline-flex max-w-full items-center gap-0.5'>
-          <span className='text-muted-foreground text-2xs truncate font-mono'>
-            {visible && revealedValue
-              ? revealedValue
-              : token.tokenMasked || '••••••••'}
-          </span>
-          {canReveal ? (
-            <>
-              <Button
-                variant='ghost'
-                size='icon-sm'
-                disabled={revealPending}
-                onClick={handleReveal}
-                title={t(visible ? 'common.hide' : 'common.reveal')}
-                aria-label={t(
-                  visible ? 'common.hideSecret' : 'common.revealSecret'
-                )}
-              >
-                {visible ? <EyeOff /> : <Eye />}
-              </Button>
-              <Button
-                variant='ghost'
-                size='icon-sm'
-                disabled={revealPending}
-                onClick={handleCopy}
-                title={t('common.copy')}
-                aria-label={t('common.copySecret')}
-              >
-                {copied ? <Check className='text-success' /> : <Copy />}
-              </Button>
-            </>
-          ) : null}
-        </span>
+        <SecretField
+          value={revealedValue}
+          masked={token.tokenMasked}
+          busy={revealPending}
+          onRevealRequest={
+            canReveal && !revealedValue ? () => requestValue() : undefined
+          }
+          onCopyRequest={
+            canReveal && !revealedValue
+              ? () => requestValue({ onReady: copyValue })
+              : undefined
+          }
+        />
       </div>
 
       <div className='ml-auto flex items-center gap-1'>
