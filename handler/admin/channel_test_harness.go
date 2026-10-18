@@ -34,6 +34,7 @@ const (
 	channelTestDefaultModel     = "gpt-4o-mini"
 	channelTestModeChat         = "chat"
 	channelTestModeModels       = "models"
+	chatTestMaxBodyBytes        = 1 << 20
 )
 
 // secretLikeRE redacts common secret-looking tokens from operator-visible bodies/errors.
@@ -59,12 +60,13 @@ type channelTestHandler struct {
 }
 
 type channelTestRequest struct {
-	ChannelID *int64 `json:"channelId"`
-	SiteID    *int64 `json:"siteId"`
-	Model     string `json:"model"`
-	Prompt    string `json:"prompt"`
-	Mode      string `json:"mode"`
-	TimeoutMs *int64 `json:"timeoutMs"`
+	ChannelID *int64           `json:"channelId"`
+	SiteID    *int64           `json:"siteId"`
+	Model     string           `json:"model"`
+	Prompt    string           `json:"prompt"`
+	Mode      string           `json:"mode"`
+	TimeoutMs *int64           `json:"timeoutMs"`
+	Chat      *chatTestOptions `json:"-"`
 }
 
 type channelTestTarget struct {
@@ -151,13 +153,16 @@ func (h *channelTestHandler) runChannelTest(w http.ResponseWriter, r *http.Reque
 	if prompt == "" {
 		prompt = channelTestDefaultPrompt
 	}
-	if utf8.RuneCountInString(prompt) > channelTestMaxPromptRunes {
+	if body.Chat == nil && utf8.RuneCountInString(prompt) > channelTestMaxPromptRunes {
 		// Bound operator input; never store prompt corpora.
 		runes := []rune(prompt)
 		prompt = string(runes[:channelTestMaxPromptRunes])
 	}
 
 	timeoutMs := int64(channelTestDefaultTimeoutMs)
+	if body.Chat != nil {
+		timeoutMs = channelTestMaxTimeoutMs
+	}
 	if body.TimeoutMs != nil && *body.TimeoutMs > 0 {
 		timeoutMs = *body.TimeoutMs
 	}
@@ -203,7 +208,7 @@ func (h *channelTestHandler) runChannelTest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	result := h.executeProbe(r.Context(), target, mode, model, prompt, timeoutMs)
+	result := h.executeProbe(r.Context(), target, mode, model, prompt, timeoutMs, body.Chat)
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -372,6 +377,7 @@ func (h *channelTestHandler) executeProbe(
 	target *channelTestTarget,
 	mode, model, prompt string,
 	timeoutMs int64,
+	chat *chatTestOptions,
 ) map[string]any {
 	upstreamPath := "/v1/models"
 	method := http.MethodGet
@@ -388,6 +394,13 @@ func (h *channelTestHandler) executeProbe(
 			"stream":     false,
 		}
 		bodyBytes, _ = json.Marshal(payload)
+		if chat != nil {
+			var err error
+			upstreamPath, bodyBytes, err = chat.request(ctx, model, prompt)
+			if err != nil {
+				return harnessFail(target, mode, model, upstreamPath, "", 0, 0, "", safeError(err))
+			}
+		}
 	}
 
 	upstreamURL := proxy.BuildUpstreamURL(target.SiteURL, upstreamPath)
@@ -409,6 +422,20 @@ func (h *channelTestHandler) executeProbe(
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Authorization", "Bearer "+target.TokenValue)
+	credentialHeader := "Authorization"
+	if chat != nil {
+		switch chat.TargetFormat {
+		case "claude":
+			credentialHeader = "x-api-key"
+			req.Header.Del("Authorization")
+			req.Header.Set(credentialHeader, target.TokenValue)
+			req.Header.Set("anthropic-version", "2023-06-01")
+		case "gemini":
+			credentialHeader = "x-goog-api-key"
+			req.Header.Del("Authorization")
+			req.Header.Set(credentialHeader, target.TokenValue)
+		}
+	}
 	req.Header.Set("User-Agent", "metapi-go-admin-channel-test/1.0")
 
 	proxyCfg := service.BuildPlatformProxyConfig(h.cfg, &target.Account, &target.Site)
@@ -418,7 +445,7 @@ func (h *channelTestHandler) executeProbe(
 				continue
 			}
 			// Never let site headers clobber the harness Authorization.
-			if strings.EqualFold(k, "Authorization") {
+			if strings.EqualFold(k, "Authorization") || strings.EqualFold(k, credentialHeader) {
 				continue
 			}
 			req.Header.Set(k, v)
@@ -434,12 +461,19 @@ func (h *channelTestHandler) executeProbe(
 	defer resp.Body.Close()
 
 	// Bound body read tightly for operator summary.
-	limited := io.LimitReader(resp.Body, channelTestMaxBodyBytes+1)
+	bodyLimit := channelTestMaxBodyBytes
+	if chat != nil {
+		bodyLimit = chatTestMaxBodyBytes
+	}
+	limited := io.LimitReader(resp.Body, int64(bodyLimit+1))
 	raw, readErr := io.ReadAll(limited)
 	if readErr != nil {
 		return harnessFail(target, mode, model, upstreamPath, host, resp.StatusCode, latencyMs, "", "read body: "+safeError(readErr))
 	}
-	truncated, wasTruncated := truncateAndRedact(raw, channelTestMaxBodyBytes)
+	truncated, wasTruncated := truncateAndRedact(raw, bodyLimit)
+	if chat != nil {
+		latencyMs = time.Since(started).Milliseconds()
+	}
 
 	success := resp.StatusCode >= 200 && resp.StatusCode < 300
 	out := map[string]any{

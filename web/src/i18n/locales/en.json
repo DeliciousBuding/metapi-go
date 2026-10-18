@@ -443,7 +443,7 @@
         "systemPrompt": "System prompt",
         "systemPromptPlaceholder": "Enter a system prompt (optional)",
         "prompt": "Prompt",
-        "promptPlaceholder": "Enter a prompt",
+        "promptPlaceholder": "Message the model…",
         "promptSubmitHint": "Press ⌘/Ctrl + Enter to send.",
         "temperature": "Temperature",
         "topP": "Top P",
@@ -453,6 +453,7 @@
         "submit": "Send",
         "errors": {
           "modelRequired": "Please select a model.",
+          "channelRequired": "Please select a channel.",
           "systemTooLong": "System prompt must be at most 4000 characters.",
           "promptRequired": "Please enter a prompt.",
           "promptTooLong": "Prompt must be at most 16000 characters.",
@@ -467,7 +468,9 @@
         },
         "channelNoneForced": "Select a channel",
         "channelHintForced": "Choose the upstream channel for this test.",
-        "advanced": "Advanced · templates, system prompt and sampling"
+        "advanced": "Settings · templates, system prompt and sampling",
+        "settings": "Chat settings",
+        "settingsHint": "Choose a channel and protocol, or adjust the system prompt and sampling."
       },
       "toast": {
         "empty": "The response is empty.",
@@ -483,15 +486,21 @@
         "sessionExpired": "Session expired, please sign in again."
       },
       "viewer": {
-        "title": "Response",
+        "title": "Conversation",
+        "emptyTitle": "What would you like to try?",
+        "details": "Response details · raw data",
+        "copy": "Copy response",
+        "copied": "Response copied",
+        "copyFailed": "Could not copy the response.",
         "streaming": "Streaming",
         "empty": "Empty",
         "done": "Done",
         "latency": "Latency: {{value}}",
         "usage": "Tokens: {{total}} ({{prompt}} in / {{completion}} out)",
         "noDone": "No done signal",
+        "truncated": "The response exceeded the size limit. Raw data was truncated.",
         "error": "Error",
-        "emptyHint": "Choose a model and channel, enter a prompt, and send. Responses, reasoning and raw events will appear here.",
+        "emptyHint": "Choose a model and channel, then send a message. Or start with one of these tests.",
         "tabContent": "Content",
         "tabReasoning": "Reasoning",
         "tabRaw": "Raw",
@@ -522,8 +531,8 @@
         "disableFailed": "Disable failed channels"
       },
       "page": {
-        "title": "Model Tester",
-        "description": "Send test prompts to a model and inspect the response."
+        "title": "Model Playground",
+        "description": "Chat with a model, inspect each reply and compare channels."
       },
       "template": {
         "label": "Template",
@@ -3654,7 +3663,7 @@
         "tokenRoutes": "Token Routes",
         "oauth": "OAuth",
         "models": "Model List",
-        "modelTester": "Model Tester",
+        "modelTester": "Model Playground",
         "settings": "Settings",
         "about": "About",
         "priceCompare": "Price Compare",

@@ -443,7 +443,7 @@
         "systemPrompt": "系统提示词",
         "systemPromptPlaceholder": "输入系统提示词（可选）",
         "prompt": "提示词",
-        "promptPlaceholder": "输入提示词",
+        "promptPlaceholder": "给模型发消息…",
         "promptSubmitHint": "按 ⌘/Ctrl + Enter 发送。",
         "temperature": "温度",
         "topP": "Top P",
@@ -453,6 +453,7 @@
         "submit": "发送",
         "errors": {
           "modelRequired": "请选择模型。",
+          "channelRequired": "请选择渠道。",
           "systemTooLong": "系统提示词不能超过 4000 个字符。",
           "promptRequired": "请输入提示词。",
           "promptTooLong": "提示词不能超过 16000 个字符。",
@@ -467,7 +468,9 @@
         },
         "channelNoneForced": "请选择渠道",
         "channelHintForced": "选择本次测试使用的上游渠道。",
-        "advanced": "高级设置 · 模板、系统提示词与采样"
+        "advanced": "设置 · 模板、系统提示词与采样",
+        "settings": "对话设置",
+        "settingsHint": "选择测试渠道、协议，调整系统提示词与采样参数。"
       },
       "toast": {
         "empty": "响应为空。",
@@ -483,15 +486,21 @@
         "sessionExpired": "会话已过期，请重新登录。"
       },
       "viewer": {
-        "title": "响应",
+        "title": "对话",
+        "emptyTitle": "今天想测试什么？",
+        "details": "响应详情 · 原始数据",
+        "copy": "复制回复",
+        "copied": "回复已复制",
+        "copyFailed": "复制回复失败。",
         "streaming": "流式中",
         "empty": "空响应",
         "done": "完成",
         "latency": "延迟：{{value}}",
         "usage": "Token：{{total}}（入 {{prompt}} / 出 {{completion}}）",
         "noDone": "未收到完成信号",
+        "truncated": "响应超过大小限制，原始数据已截断。",
         "error": "错误",
-        "emptyHint": "选择模型和渠道，输入提示词并发送。响应、推理内容和原始事件会显示在这里。",
+        "emptyHint": "选择模型与渠道，发条消息试试。也可以从下面的测试开始。",
         "tabContent": "内容",
         "tabReasoning": "推理",
         "tabRaw": "原始",
@@ -522,8 +531,8 @@
         "disableFailed": "禁用失败渠道"
       },
       "page": {
-        "title": "模型测试器",
-        "description": "向模型发送测试提示并查看响应。"
+        "title": "模型测试场",
+        "description": "与模型对话，查看每轮响应，也可以对比不同渠道。"
       },
       "template": {
         "label": "模板",
@@ -3654,7 +3663,7 @@
         "tokenRoutes": "路由",
         "oauth": "OAuth",
         "models": "模型清单",
-        "modelTester": "模型测试器",
+        "modelTester": "模型测试场",
         "settings": "设置",
         "about": "关于",
         "priceCompare": "价格对比",

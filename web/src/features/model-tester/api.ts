@@ -46,6 +46,7 @@ type ChatTestHarnessEnvelope = {
   latencyMs: number
   truncatedBody: string
   error: string | null
+  bodyTruncated?: boolean
 }
 
 type ParsedUpstreamBody = {
@@ -67,7 +68,15 @@ export function buildChatPayload(
   if (values.systemPrompt.trim().length > 0) {
     messages.push({ role: 'system', content: values.systemPrompt.trim() })
   }
-  for (const message of history) {
+  for (const [index, message] of history.entries()) {
+    const next = history[index + 1]
+    if (message.error || message.response?.empty) continue
+    if (
+      message.role === 'user' &&
+      next?.role === 'assistant' &&
+      (next.error || next.response?.empty)
+    )
+      continue
     messages.push({ role: message.role, content: message.content })
   }
   messages.push({ role: 'user', content: values.prompt })
@@ -128,6 +137,7 @@ function parseChatTestHarnessEnvelope(
     latencyMs: record.latencyMs,
     truncatedBody: record.truncatedBody,
     error: record.error as string | null,
+    bodyTruncated: record.bodyTruncated === true,
   }
 }
 
@@ -142,6 +152,55 @@ function parseChatTestHarnessEnvelope(
 function parseAnyStreamDelta(eventPayload: unknown): TestStreamDelta {
   if (!eventPayload || typeof eventPayload !== 'object') return {}
   const payload = eventPayload as Record<string, unknown>
+
+  if (payload.type === 'message' && Array.isArray(payload.content)) {
+    const blocks = payload.content as Array<Record<string, unknown>>
+    return {
+      contentDelta: blocks
+        .filter((block) => block.type === 'text')
+        .map((block) => (typeof block.text === 'string' ? block.text : ''))
+        .join(''),
+      reasoningDelta: blocks
+        .filter((block) => block.type === 'thinking')
+        .map((block) =>
+          typeof block.thinking === 'string' ? block.thinking : ''
+        )
+        .join(''),
+      done: Boolean(payload.stop_reason),
+    }
+  }
+  if (Array.isArray(payload.output)) {
+    const output = payload.output as Array<Record<string, unknown>>
+    const content = output
+      .filter((item) => item.type === 'message')
+      .flatMap((item) =>
+        Array.isArray(item.content)
+          ? (item.content as Array<Record<string, unknown>>)
+          : []
+      )
+    const summary = output
+      .filter((item) => item.type === 'reasoning')
+      .flatMap((item) =>
+        Array.isArray(item.summary)
+          ? (item.summary as Array<Record<string, unknown>>)
+          : []
+      )
+    return {
+      contentDelta: content
+        .map((part) =>
+          typeof part.text === 'string'
+            ? part.text
+            : typeof part.refusal === 'string'
+              ? part.refusal
+              : ''
+        )
+        .join(''),
+      reasoningDelta: summary
+        .map((part) => (typeof part.text === 'string' ? part.text : ''))
+        .join(''),
+      done: payload.status === 'completed',
+    }
+  }
 
   if (Array.isArray(payload.choices)) {
     const choice = payload.choices[0] as Record<string, unknown> | undefined
@@ -456,6 +515,7 @@ export async function runChatProbe(
     promptTokens: upstreamBody.promptTokens,
     completionTokens: upstreamBody.completionTokens,
     totalTokens: upstreamBody.totalTokens,
+    bodyTruncated: envelope.bodyTruncated,
   }
 }
 

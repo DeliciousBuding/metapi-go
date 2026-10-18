@@ -9,6 +9,7 @@ import {
 function validOverrides(): Partial<TesterFormValues> {
   return {
     model: 'gpt-5.5',
+    channelId: 1,
     prompt: 'hello',
     targetFormat: 'claude',
     temperature: 0.7,
@@ -183,12 +184,16 @@ describe('testerSchema — no coercion + enum', () => {
     expect(result.error.issues[0]?.message).toContain('Invalid option')
   })
 
-  it('accepts an omitted channelId (optional channel targeting)', () => {
+  it('requires a channel for the synchronous chat test', () => {
     const result = testerSchema.safeParse({
       ...validInput(),
       channelId: undefined,
     })
-    expect(result.success).toBe(true)
+    expect(result.success).toBe(false)
+    if (!result.success)
+      expect(result.error.issues[0]?.message).toBe(
+        'modelTester.form.errors.channelRequired'
+      )
   })
 })
 
