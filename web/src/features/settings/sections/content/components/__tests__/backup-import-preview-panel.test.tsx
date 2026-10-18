@@ -40,7 +40,7 @@ describe('backup import preview eligibility', () => {
     expect(screen.queryByText('7')).not.toBeInTheDocument()
     expect(screen.getByText(/Source channel #4:/)).toBeVisible()
     const toggle = screen.getByRole('button', {
-      name: 'View source backup record counts',
+      name: 'Source record counts',
     })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(toggle)
