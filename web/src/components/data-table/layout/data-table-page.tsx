@@ -20,7 +20,10 @@ import { cn } from '@/lib/utils'
 
 import { DataTableView } from '../core/data-table-view'
 import { DataTablePagination } from '../core/pagination'
-import type { DataTableRenderRowHelpers } from '../core/types'
+import type {
+  DataTableRenderRowHelpers,
+  DataTableRowDisclosure,
+} from '../core/types'
 import { DataTableToolbar } from '../toolbar/toolbar'
 import { MobileCardList } from './mobile-card-list'
 
@@ -114,6 +117,8 @@ export type DataTablePageProps<TData> = DataTablePageErrorProps & {
     row: Row<TData>,
     helpers: DataTableRenderRowHelpers
   ) => React.ReactNode
+  /** Feature-owned expansion state and lazily mounted content. */
+  rowDisclosure?: DataTableRowDisclosure<TData>
 
   /** React key prefix for skeleton rows; distinct per table when two share a page. */
   skeletonKeyPrefix?: string
@@ -217,6 +222,7 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
             emptyIcon={props.emptyIcon}
             isFiltered={isFiltered}
             onClearFilters={clearFilters}
+            rowDisclosure={props.rowDisclosure}
           />
         ) : (
           <DataTableView
@@ -230,6 +236,7 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
             onClearFilters={clearFilters}
             skeletonKeyPrefix={props.skeletonKeyPrefix}
             renderRow={props.renderRow}
+            rowDisclosure={props.rowDisclosure}
             splitHeader={fixedHeight}
             containerClassName={cn(
               fixedHeight && 'min-h-0 flex-1',

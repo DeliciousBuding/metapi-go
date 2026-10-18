@@ -12,10 +12,14 @@
 // skeleton, the empty state, or rows — the feature's own `renderRow` when it
 // needs one (expandable rows, row-level navigation), `DataTableRow` otherwise.
 import type { Row, Table as TanstackTable } from '@tanstack/react-table'
-import type { CSSProperties, ReactNode } from 'react'
+import { Fragment, type CSSProperties, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Table, TableBody } from '@/components/ui/table'
+import {
+  RowDisclosureContent,
+  rowDisclosureClick,
+} from '@/components/common/row-disclosure'
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 import { useScrollFade } from '@/hooks/use-scroll-fade'
 import { formatInt } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -136,16 +140,47 @@ function renderBody<TData>(
     return renderEmptyState(props, colSpan)
   }
 
-  return rows.map((row) =>
-    props.renderRow
-      ? props.renderRow(row, {
-          // A custom row still has to look pinned where the default one would,
-          // so the resolver is handed over rather than reimplemented.
-          getCellClassName: (columnId, className) =>
-            cn(getColumnClassName(columnId, 'cell'), className),
-        })
-      : renderDefaultRow(props.table, row, getColumnClassName)
-  )
+  return rows.map((row) => {
+    if (props.renderRow) {
+      return props.renderRow(row, {
+        // A custom row still has to look pinned where the default one would,
+        // so the resolver is handed over rather than reimplemented.
+        getCellClassName: (columnId, className) =>
+          cn(getColumnClassName(columnId, 'cell'), className),
+      })
+    }
+    const disclosure = props.rowDisclosure
+    if (!disclosure)
+      return renderDefaultRow(props.table, row, getColumnClassName)
+    return (
+      <Fragment key={row.id}>
+        <DataTableRow
+          row={row}
+          getColumnClassName={getColumnClassName}
+          cellRenderColumns={props.table.options.columns}
+          className='cursor-pointer'
+          onClick={(event) =>
+            rowDisclosureClick(event, () => disclosure.onToggle(row))
+          }
+        />
+        {disclosure.isExpanded(row) && (
+          <TableRow className='hover:bg-transparent'>
+            <TableCell
+              colSpan={colSpan}
+              className='bg-muted/15 px-3 py-4 sm:pl-12'
+            >
+              <RowDisclosureContent
+                id={disclosure.getContentId(row)}
+                label={disclosure.getLabel(row)}
+              >
+                {disclosure.renderContent(row)}
+              </RowDisclosureContent>
+            </TableCell>
+          </TableRow>
+        )}
+      </Fragment>
+    )
+  })
 }
 
 function renderEmptyState<TData>(

@@ -137,7 +137,12 @@ function resolveUsablePriceValue(
   price: PriceCompareItem | null,
   field: 'inputPerMillion' | 'outputPerMillion'
 ): number | null {
-  if (!price || price.missingPrice) return null
+  if (
+    !price ||
+    price.missingPrice ||
+    normalizePriceGrade(price.ratesSource) === 'fallback'
+  )
+    return null
   const value = price[field]
   return Number.isFinite(value) ? value : null
 }

@@ -10,9 +10,14 @@
 import type { Table } from '@tanstack/react-table'
 import * as React from 'react'
 
+import {
+  RowDisclosureContent,
+  rowDisclosureClick,
+} from '@/components/common/row-disclosure'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import { DataTableEmptyState } from '../core/empty-state'
+import type { DataTableRowDisclosure } from '../core/types'
 import { renderCellContent, tableHasCompactMeta } from './card-cell-utils'
 import { CardRowContent } from './card-row-content'
 
@@ -26,6 +31,7 @@ interface MobileCardListProps<TData> {
   emptyIcon?: React.ReactNode
   isFiltered?: boolean
   onClearFilters?: () => void
+  rowDisclosure?: DataTableRowDisclosure<TData>
 }
 
 /** The bordered, divided shell both skeletons share with the real list. */
@@ -131,6 +137,14 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
             key={row.id}
             data-mobile-card-row
             data-state={isSelected ? 'selected' : undefined}
+            onClick={
+              props.rowDisclosure
+                ? (event) =>
+                    rowDisclosureClick(event, () =>
+                      props.rowDisclosure?.onToggle(row)
+                    )
+                : undefined
+            }
             className='[background-color:var(--data-table-card-bg,var(--table-row))] px-3 py-2.5 transition-colors data-[state=selected]:bg-(--table-row-selected-bg)'
           >
             <div className='flex items-start gap-1.5'>
@@ -143,6 +157,15 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
                 <CardRowContent row={row} compact={hasCompactMeta} />
               </div>
             </div>
+            {props.rowDisclosure?.isExpanded(row) && (
+              <RowDisclosureContent
+                id={props.rowDisclosure.getContentId(row)}
+                label={props.rowDisclosure.getLabel(row)}
+                className='mt-3'
+              >
+                {props.rowDisclosure.renderContent(row)}
+              </RowDisclosureContent>
+            )}
           </div>
         )
       })}

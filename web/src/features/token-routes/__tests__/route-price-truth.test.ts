@@ -207,6 +207,36 @@ describe('resolveRouteChannelPriceTruth', () => {
     expect(truth.provenance.source).toBe('configured')
     expect(truth.provenance.ratesSource).toBe('observed')
   })
+
+  it.each(['configured', 'observed'])(
+    'keeps fallback token rates unknown when sample cost is %s',
+    (source) => {
+      const truth = resolveRouteChannelPriceTruth(
+        makeRoute(),
+        makeChannel(),
+        new Map([
+          [
+            'gpt-5.5',
+            [
+              makePrice({
+                source,
+                ratesSource: 'fallback',
+                missingPrice: false,
+                inputPerMillion: 2,
+                outputPerMillion: 2,
+                estimatedCostSample: 0.25,
+                configuredUnitCost: 0.25,
+              }),
+            ],
+          ],
+        ])
+      )
+      expect(truth.inputPerMillion).toBeNull()
+      expect(truth.outputPerMillion).toBeNull()
+      expect(truth.provenance).toEqual({ source, ratesSource: 'fallback' })
+      expect(truth.price?.estimatedCostSample).toBe(0.25)
+    }
+  )
 })
 
 describe('format helpers', () => {

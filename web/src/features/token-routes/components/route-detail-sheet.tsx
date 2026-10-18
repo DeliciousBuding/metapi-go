@@ -3,9 +3,8 @@
 // i18n: all user-visible strings migrated to t() calls.
 // `routingStrategyLabel()` returns an i18n key; wrapped with `t()`.
 
-import { useQueries } from '@tanstack/react-query'
 import { Pencil, RefreshCw, Snowflake } from 'lucide-react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -20,36 +19,22 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { Spinner } from '@/components/ui/spinner'
-import {
-  priceCompareQueryOptions,
-  PriceGradeBadge,
-  type PriceCompareItem,
-} from '@/features/models'
 import { toBcp47 } from '@/i18n/languages'
-import { formatDateTime, formatInt, formatPrice } from '@/lib/format'
+import { formatDateTime } from '@/lib/format'
 
 import {
   useClearRouteCooldown,
   useRebuildRoutes,
   useRouteChannels,
 } from '../api'
-import {
-  calculateRouteChannelAllocations,
-  formatRouteWeightShare,
-  normalizeModelKey,
-  resolveDistinctConcreteModels,
-  resolveRouteChannelPriceTruth,
-  type RouteChannelAllocation,
-  type RouteChannelPriceTruth,
-} from '../lib/route-price-truth'
-import type { RouteChannel, RouteSummaryRow } from '../types'
+import type { RouteSummaryRow } from '../types'
 import {
   formatContextLength,
   isExplicitGroupRoute,
   resolveRouteTitle,
   routingStrategyLabel,
 } from '../utils'
+import { RouteChannelList } from './route-channel-list'
 import { RouteDecisionPanel } from './route-decision-panel'
 
 interface RouteDetailSheetProps {
@@ -57,28 +42,6 @@ interface RouteDetailSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onEdit?: (route: RouteSummaryRow) => void
-}
-
-type PriceQueryState = {
-  isLoading: boolean
-  hasError: boolean
-}
-
-function resolveChannelAllocation(
-  allocationsByChannelId: ReadonlyMap<number, RouteChannelAllocation>,
-  channel: RouteChannel
-): RouteChannelAllocation {
-  const allocation = allocationsByChannelId.get(channel.id)
-  if (allocation) return allocation
-  // A refetch race could momentarily deliver a channel whose allocation
-  // hasn't been computed yet. Throwing in the render path would surface to
-  // the layout error boundary and blank the whole page, so fall back to a
-  // zero-share allocation derived from the channel's own weight instead.
-  return {
-    channelId: channel.id,
-    configuredWeight: channel.weight,
-    enabledWeightShare: null,
-  }
 }
 
 export function RouteDetailSheet({
@@ -97,43 +60,6 @@ export function RouteDetailSheet({
   // sheet button got no gate, so mirror the confirmation here.
   const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false)
   const channels = useMemo(() => channelsQuery.data ?? [], [channelsQuery.data])
-  const concreteModels = useMemo(
-    () => (route ? resolveDistinctConcreteModels(route, channels) : []),
-    [route, channels]
-  )
-  const priceQueries = useQueries({
-    queries: concreteModels.map((concreteModel) => ({
-      ...priceCompareQueryOptions({
-        model: concreteModel,
-        limit: 200,
-        exactModel: true,
-      }),
-      enabled: open && route !== null,
-    })),
-  })
-
-  const priceRowsByModel = new Map<string, readonly PriceCompareItem[]>()
-  const priceQueryStateByModel = new Map<string, PriceQueryState>()
-  concreteModels.forEach((concreteModel, modelIndex) => {
-    const modelKey = normalizeModelKey(concreteModel)
-    const priceQuery = priceQueries[modelIndex]
-    priceRowsByModel.set(modelKey, priceQuery?.data ?? [])
-    priceQueryStateByModel.set(modelKey, {
-      isLoading: priceQuery?.isPending ?? false,
-      hasError: priceQuery?.isError ?? false,
-    })
-  })
-
-  const allocationsByChannelId = new Map(
-    calculateRouteChannelAllocations(channels).map((allocation) => [
-      allocation.channelId,
-      allocation,
-    ])
-  )
-  const isPriceFetching = priceQueries.some(
-    (priceQuery) => priceQuery.isFetching
-  )
-
   if (!route) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
@@ -275,56 +201,7 @@ export function RouteDetailSheet({
 
           <Separator />
 
-          <div className='space-y-2'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <h3 className='text-sm font-medium'>
-                  {t('tokenRoutes.detail.channelTruthList')}
-                </h3>
-                <p className='text-muted-foreground text-2xs'>
-                  {t('tokenRoutes.detail.channelTruthDescription')}
-                </p>
-              </div>
-              {(channelsQuery.isFetching || isPriceFetching) && (
-                <Spinner className='text-muted-foreground size-3.5' />
-              )}
-            </div>
-            {channels.length === 0 ? (
-              <p className='text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm'>
-                {isReadOnly
-                  ? t('tokenRoutes.detail.channelEmptyReadOnly')
-                  : t('tokenRoutes.detail.channelEmptyEditable')}
-              </p>
-            ) : (
-              <ul className='space-y-1.5'>
-                {channels.map((channel) => {
-                  const allocation = resolveChannelAllocation(
-                    allocationsByChannelId,
-                    channel
-                  )
-                  const priceTruth = resolveRouteChannelPriceTruth(
-                    route,
-                    channel,
-                    priceRowsByModel
-                  )
-                  const priceQueryState = priceTruth.concreteModel
-                    ? priceQueryStateByModel.get(
-                        normalizeModelKey(priceTruth.concreteModel)
-                      )
-                    : undefined
-                  return (
-                    <ChannelRow
-                      key={channel.id}
-                      channel={channel}
-                      allocation={allocation}
-                      priceTruth={priceTruth}
-                      priceQueryState={priceQueryState}
-                    />
-                  )
-                })}
-              </ul>
-            )}
-          </div>
+          {open && <RouteChannelList route={route} />}
 
           <Separator />
           <RouteDecisionPanel
@@ -366,224 +243,5 @@ export function RouteDetailSheet({
         />
       </SheetContent>
     </Sheet>
-  )
-}
-
-function ChannelRow({
-  channel,
-  allocation,
-  priceTruth,
-  priceQueryState,
-}: {
-  channel: RouteChannel
-  allocation: RouteChannelAllocation
-  priceTruth: RouteChannelPriceTruth
-  priceQueryState: PriceQueryState | undefined
-}) {
-  const { t } = useTranslation()
-  const accountLabel =
-    channel.account?.username ||
-    t('tokenRoutes.detail.fallbackAccount', { id: channel.accountId })
-  const siteLabel = channel.site?.name || channel.site?.platform || ''
-  const tokenBound = Boolean(channel.token?.name || channel.tokenId)
-  // An account-scoped channel (no token_id) is NOT unbound: the selector relays
-  // it with the account's own credential — the access token for an OAuth
-  // account, the API key otherwise (routing.resolveChannelTokenValue). Route
-  // rebuild deliberately creates both flavours for the same account and model,
-  // so calling the account-scoped one "Unbound" labelled a working channel as
-  // broken and sent operators hunting for a binding step that does not exist.
-  // Only when the wire reports neither masked credential is the channel really
-  // unable to serve, and that is the one case worth shouting about.
-  const accountCredential = Boolean(
-    channel.account?.accessTokenMasked || channel.account?.apiTokenMasked
-  )
-  const tokenLabel =
-    channel.token?.name ||
-    (channel.tokenId
-      ? t('tokenRoutes.detail.fallbackToken', { id: channel.tokenId })
-      : accountCredential
-        ? t('tokenRoutes.detail.channelTokenAccount')
-        : t('tokenRoutes.detail.channelTokenMissing'))
-  const sourceModel = priceTruth.concreteModel || '—'
-  const cooldownActive =
-    Boolean(channel.cooldownUntil) &&
-    new Date(channel.cooldownUntil as string) > new Date()
-  return (
-    <li className='rounded-lg border p-2 text-xs'>
-      <div className='flex items-start justify-between gap-2'>
-        <div className='min-w-0 flex-1'>
-          <div className='flex items-center gap-1.5'>
-            <span className='truncate font-medium'>{accountLabel}</span>
-            {siteLabel && (
-              <span className='text-muted-foreground truncate'>
-                @ {siteLabel}
-              </span>
-            )}
-          </div>
-          <div className='text-muted-foreground mt-0.5 flex flex-wrap items-center gap-1.5'>
-            <span
-              // The label names the credential this channel relays with; the
-              // title carries the mechanism and, for the credential-less case,
-              // the action that fixes it (on the account, not the channel).
-              title={
-                tokenBound
-                  ? undefined
-                  : accountCredential
-                    ? t('tokenRoutes.detail.channelTokenAccountHint')
-                    : t('tokenRoutes.detail.channelTokenMissingHint')
-              }
-            >
-              {t('tokenRoutes.detail.channelToken')}: {tokenLabel}
-            </span>
-            <span>
-              {t('tokenRoutes.detail.channelUpstream')} {sourceModel}
-            </span>
-            <span>
-              {t('tokenRoutes.detail.channelPriority')} {channel.priority}
-            </span>
-          </div>
-        </div>
-        <div className='flex flex-col items-end gap-1'>
-          <Badge variant={channel.enabled ? 'success' : 'secondary'}>
-            {channel.enabled
-              ? t('tokenRoutes.columns.enable')
-              : t('tokenRoutes.columns.disable')}
-          </Badge>
-          {cooldownActive && (
-            <Badge variant='warning'>{t('tokenRoutes.detail.cooldown')}</Badge>
-          )}
-        </div>
-      </div>
-
-      <dl className='bg-muted/30 mt-2 grid grid-cols-2 gap-2 rounded-md p-2 sm:grid-cols-5'>
-        <ChannelMetric label={t('tokenRoutes.detail.channelConfiguredWeight')}>
-          {allocation.configuredWeight}
-        </ChannelMetric>
-        <ChannelMetric label={t('tokenRoutes.detail.channelEnabledShare')}>
-          <span className='tabular-nums'>
-            {formatRouteWeightShare(allocation.enabledWeightShare)}
-          </span>
-          {allocation.enabledWeightShare === null && (
-            <span className='text-muted-foreground text-3xs block'>
-              {channel.enabled
-                ? t('tokenRoutes.detail.channelShareUnavailable')
-                : t('tokenRoutes.detail.channelShareExcluded')}
-            </span>
-          )}
-        </ChannelMetric>
-        <ChannelMetric label={t('tokenRoutes.detail.channelHits')}>
-          <span className='tabular-nums'>
-            <span className='text-success'>
-              {formatInt(channel.successCount)}
-            </span>
-            <span className='text-muted-foreground'> / </span>
-            <span
-              className={
-                channel.failCount > 0
-                  ? 'text-destructive'
-                  : 'text-muted-foreground'
-              }
-            >
-              {formatInt(channel.failCount)}
-            </span>
-          </span>
-        </ChannelMetric>
-        <ChannelMetric label={t('tokenRoutes.detail.channelInputPrice')}>
-          <PriceValue value={priceTruth.inputPerMillion} />
-        </ChannelMetric>
-        <ChannelMetric label={t('tokenRoutes.detail.channelOutputPrice')}>
-          <PriceValue value={priceTruth.outputPerMillion} />
-        </ChannelMetric>
-      </dl>
-
-      <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1'>
-        <PriceProvenance
-          priceTruth={priceTruth}
-          priceQueryState={priceQueryState}
-        />
-      </div>
-    </li>
-  )
-}
-
-function ChannelMetric({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}) {
-  return (
-    <div>
-      <dt className='text-muted-foreground text-3xs'>{label}</dt>
-      <dd className='font-medium'>{children}</dd>
-    </div>
-  )
-}
-
-function PriceValue({ value }: { value: number | null }) {
-  return (
-    <span className='tabular-nums'>
-      {formatPrice(value, { fractionDigits: 4 })}
-    </span>
-  )
-}
-
-function PriceProvenance({
-  priceTruth,
-  priceQueryState,
-}: {
-  priceTruth: RouteChannelPriceTruth
-  priceQueryState: PriceQueryState | undefined
-}) {
-  const { t } = useTranslation()
-
-  if (!priceTruth.concreteModel) {
-    return (
-      <span className='text-muted-foreground'>
-        {t('tokenRoutes.detail.channelPriceProvenance')}: — ·{' '}
-        {t('tokenRoutes.detail.channelPatternUnavailable')}
-      </span>
-    )
-  }
-  if (priceQueryState?.isLoading) {
-    return (
-      <span className='text-muted-foreground inline-flex items-center gap-1'>
-        <Spinner className='size-3' />
-        {t('tokenRoutes.detail.channelPriceLoading')}
-      </span>
-    )
-  }
-  if (
-    priceQueryState?.hasError ||
-    !priceTruth.price ||
-    priceTruth.price.missingPrice ||
-    !priceTruth.provenance.ratesSource
-  ) {
-    return (
-      <span className='text-muted-foreground'>
-        {t('tokenRoutes.detail.channelPriceProvenance')}: — ·{' '}
-        {t('tokenRoutes.detail.channelPriceUnavailable')}
-      </span>
-    )
-  }
-
-  const costSource = priceTruth.provenance.source
-  const ratesSource = priceTruth.provenance.ratesSource
-  return (
-    <>
-      <span className='text-muted-foreground'>
-        {t('tokenRoutes.detail.channelRateProvenance')}:
-      </span>
-      <PriceGradeBadge grade={ratesSource} />
-      {costSource && costSource !== ratesSource && (
-        <>
-          <span className='text-muted-foreground'>
-            {t('tokenRoutes.detail.channelCostProvenance')}:
-          </span>
-          <PriceGradeBadge grade={costSource} />
-        </>
-      )}
-    </>
   )
 }

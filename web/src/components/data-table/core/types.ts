@@ -48,6 +48,14 @@ export type DataTableRenderRowHelpers = {
   getCellClassName: (columnId: string, className?: string) => string | undefined
 }
 
+export type DataTableRowDisclosure<TData> = {
+  isExpanded: (row: Row<TData>) => boolean
+  onToggle: (row: Row<TData>) => void
+  getContentId: (row: Row<TData>) => string
+  getLabel: (row: Row<TData>) => string
+  renderContent: (row: Row<TData>) => React.ReactNode
+}
+
 /**
  * The view layer's configuration: what the body shows while loading or empty,
  * how a row is rendered, and which of the two shells to use.
@@ -76,6 +84,8 @@ export type DataTableViewProps<TData> = {
     row: Row<TData>,
     helpers: DataTableRenderRowHelpers
   ) => React.ReactNode
+  /** Inline details shared by desktop rows and mobile cards. */
+  rowDisclosure?: DataTableRowDisclosure<TData>
   /** Per-column class resolver. Pinning classes are appended to its result. */
   getColumnClassName?: DataTableColumnClassName
   /**
