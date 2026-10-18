@@ -205,4 +205,3 @@ func RequireReauth() func(http.Handler) http.Handler {
 		})
 	}
 }
-
