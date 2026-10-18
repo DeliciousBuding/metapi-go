@@ -175,8 +175,9 @@ Site URLs are operator input, so they are guarded at two layers:
    separately by the shared redirect policy.
 
 Blocked: cloud metadata endpoints (`169.254.169.254`, `100.100.100.200`,
-`fd00:ec2::254`, and the `metadata` / `metadata.google.internal` aliases),
-link-local, multicast, and unspecified/reserved ranges.
+`fd00:ec2::254`, `fd20:ce::254`, and the `metadata` / `metadata.google.internal`
+aliases), link-local, multicast, and unspecified/reserved ranges. Backup import
+also applies the same rule to `upstream_channels.base_url`.
 
 Deliberately allowed: loopback, RFC 1918, and IPv6 ULA. Self-hosted upstreams
 (a local new-api, one-api, sub2api, or LiteLLM gateway) are a first-class
@@ -188,9 +189,27 @@ blocking operator infrastructure.
 WebDAV import/export URLs (`fileUrl`) are validated against SSRF at two layers:
 
 1. **URL validation** (`isValidWebdavFileURL`): rejects schemes other than `http`/`https`, embedded userinfo, invalid ports, `localhost` hostnames, and literal IP addresses in private (RFC 1918), loopback (127.0.0.0/8, ::1), link-local (169.254.0.0/16, fe80::/10 — blocks cloud metadata endpoints like 169.254.169.254), multicast, and unspecified (0.0.0.0/8, ::) ranges.
-2. **Dial-time DNS resolution** (`rejectUnsafeWebdavDialHost`): resolves the hostname and rejects any resolved IP in the same unsafe ranges, preventing TOCTOU races where a hostname resolves differently between validation and connection.
+2. **Dial-time guard** (`internal/ssrf.NewPublicOnlyDialContext`, or
+   `NewSiteDialContext` when the operator sets the private-target escape hatch):
+   resolves the hostname and rejects any resolved IP in the same unsafe ranges,
+   then dials the already-checked IP. Validating and re-resolving separately
+   would leave a DNS-rebinding TOCTOU window.
 
 Redirect targets are validated with the same `isValidWebdavFileURL` check before being followed (max 5 redirects; HTTPS-to-HTTP downgrades refused).
+
+### Notification, SMTP and catalog-source outbound targets
+
+Targets that a session — not an operator-only data-plane configuration — can
+repoint use the stricter public-only policy (`internal/ssrf`): notification
+webhooks plus Telegram, the SMTP conversation, and pricing-catalog source
+URLs. Loopback, RFC 1918, IPv6 ULA (including metadata endpoints inside it),
+link-local/metadata, multicast and the whole `0.0.0.0/8` block are refused at
+dial time, and the validated DNS answer is pinned. Telegram responses are
+never echoed back into admin-visible errors. SMTP ports are restricted to
+25/465/587 unless `SMTP_ALLOW_CUSTOM_PORT=true` is set explicitly.
+
+Site upstreams remain on the operator policy above: private addresses are
+allowed because self-hosted gateways are a supported deployment shape.
 
 ## Browser CORS
 

@@ -159,9 +159,10 @@ var (
 
 // SharedTransport returns the process-wide baseline transport for outbound
 // clients whose whole-request timeout is at most sharedResponseHeaderTimeout
-// (telegram notifications, pricing catalog fetch, Codex websocket upgrade,
-// server healthcheck). Callers needing a different header-phase cap must
-// build their own transport via NewTransport instead of mutating this one.
+// (Codex websocket upgrade, server healthcheck). Callers needing a different
+// header-phase cap must build their own transport via NewTransport instead of
+// mutating this one. SSRF-sensitive surfaces (notifications, SMTP, catalog
+// sources, WebDAV) build their own guarded transports instead.
 func SharedTransport() *http.Transport {
 	sharedOnce.Do(func() {
 		sharedTransport = NewTransport(Options{
