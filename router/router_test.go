@@ -229,12 +229,19 @@ func TestAdminRoutesAreMountedWithoutDoubleAPIPrefix(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("admin auth info status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	var body map[string]string
+	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode auth info: %v", err)
 	}
-	if got := body["masked"]; got != "admi****oken" {
-		t.Fatalf("masked token = %q, want %q", got, "admi****oken")
+	// The response must describe the token without echoing any part of it.
+	if _, leaked := body["masked"]; leaked {
+		t.Fatal("auth info must not return a masked token prefix/suffix")
+	}
+	if got, _ := body["configured"].(bool); !got {
+		t.Fatalf("configured = %v, want true", body["configured"])
+	}
+	if got, _ := body["length"].(float64); int(got) != len("admin-token") {
+		t.Fatalf("length = %v, want %d", body["length"], len("admin-token"))
 	}
 
 	rec = httptest.NewRecorder()
