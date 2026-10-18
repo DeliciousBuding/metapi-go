@@ -262,9 +262,9 @@ func TestCompileAxonHubPlanRefusesUnservableChannelShapes(t *testing.T) {
 			want:    []string{"credential_missing"},
 		},
 		{
-			name:    "unknown credential kind",
-			channel: `{"id":1,"type":"openai","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k","managementApiKey":"m"},"endpoints":[{"api_format":"openai/chat_completions"}]}`,
-			want:    []string{"credential_field_unsupported:managementApiKey"},
+			name:    "unknown credential field",
+			channel: `{"id":1,"type":"openai","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k","futureCredential":{"kind":"m"}},"endpoints":[{"api_format":"openai/chat_completions"}]}`,
+			want:    []string{"credential_field_unsupported:futureCredential"},
 		},
 	}
 	for _, tc := range cases {

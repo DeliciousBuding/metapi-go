@@ -525,6 +525,12 @@ func channelResiduals(channel AxonHubSourceChannel) []string {
 	if channel.Settings.HasProviderQuota {
 		add("provider_quota_polling_not_imported")
 	}
+	// The management key only feeds provider quota polling, which is already a
+	// residual; it is never attached to inference requests, so leaving the
+	// channel behind would lose its traffic for no routing benefit.
+	if channel.Credentials.HasManagementKey {
+		add("management_api_key_not_imported")
+	}
 	if channel.Settings.PassThroughUserAgent != nil {
 		add("pass_through_user_agent_not_configurable")
 	}
