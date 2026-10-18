@@ -161,6 +161,17 @@ func extractClientIP(r *http.Request) string {
 	return normalizeIP(stripPort(r.RemoteAddr))
 }
 
+// ClientIP returns the normalized client IP used by downstream IP policies.
+// Exported for session loops that authorize beyond the HTTP middleware (the
+// Responses WebSocket transport has no per-message *http.Request), so both
+// paths derive the IP identically.
+func ClientIP(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	return extractClientIP(r)
+}
+
 // stripPort removes the port suffix from an "IP:port" string.
 // If there is no colon, returns the string as-is.
 // For IPv6 addresses like "[::1]:1234", strips the brackets and port.

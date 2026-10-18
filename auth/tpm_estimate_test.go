@@ -56,21 +56,34 @@ func TestEstimateAdmissionTokens_ContentLengthFloor(t *testing.T) {
 	}
 }
 
-func TestEstimateAdmissionTokens_EmptyBodySkips(t *testing.T) {
+func TestEstimateAdmissionTokens_EmptyBodyReservesMinimum(t *testing.T) {
+	// No body signal at all must not skip TPM accounting: reserve 1 token.
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	got := estimateAdmissionTokens(req)
-	if got != 0 {
-		t.Fatalf("empty body estimate = %d, want 0 (skip TPM)", got)
+	if got != 1 {
+		t.Fatalf("empty body estimate = %d, want conservative 1", got)
 	}
 }
 
-func TestEstimateAdmissionTokens_NoContentLengthNonJSONSkips(t *testing.T) {
-	// Chunked-style: body present but ContentLength unknown and non-JSON → 0.
+func TestEstimateAdmissionTokens_NoContentLengthNonJSONUsesReadBytes(t *testing.T) {
+	// Chunked-style: ContentLength unknown, body present but non-JSON →
+	// bytes actually read ("plain", 5 bytes) → 1 token, never 0.
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader("plain"))
 	req.ContentLength = -1
 	got := estimateAdmissionTokens(req)
-	if got != 0 {
-		t.Fatalf("non-json without content-length estimate = %d, want 0", got)
+	if got != int64(len("plain"))/4 {
+		t.Fatalf("non-json without content-length estimate = %d, want %d", got, len("plain")/4)
+	}
+}
+
+func TestEstimateAdmissionTokens_ChunkedPromptEnvelope(t *testing.T) {
+	// Chunked completions prompt must be counted from the prompt field.
+	body := `{"prompt":"` + strings.Repeat("a", 400) + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/completions", strings.NewReader(body))
+	req.ContentLength = -1
+	got := estimateAdmissionTokens(req)
+	if got != 100 {
+		t.Fatalf("chunked prompt estimate = %d, want 100", got)
 	}
 }
 
@@ -97,8 +110,8 @@ func TestEstimateAdmissionTokens_ClampMax(t *testing.T) {
 }
 
 func TestEstimateAdmissionTokens_NilRequest(t *testing.T) {
-	if got := estimateAdmissionTokens(nil); got != 0 {
-		t.Fatalf("nil request estimate = %d, want 0", got)
+	if got := estimateAdmissionTokens(nil); got != 1 {
+		t.Fatalf("nil request estimate = %d, want conservative 1", got)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -39,6 +40,12 @@ const (
 
 // responsesWebsocketTransportRegistered is set by EnsureResponsesWebsocketTransport.
 var responsesWebsocketTransportRegistered atomic.Bool
+
+// errResponsesWSSessionEnded is returned by handleMessage when the per-message
+// authorization check finds a terminal key state (disabled/expired/revoked,
+// exhausted budget, blocked policy). The session loop stops reading and the
+// connection closes; transient rate windows only reject the current turn.
+var errResponsesWSSessionEnded = errors.New("responses websocket session ended after authorization failure")
 
 // ResponsesWebsocketTransportRegistered reports whether the transport registration
 // entrypoint has been called in this process.
@@ -139,6 +146,7 @@ func HandleResponsesWebsocket(w http.ResponseWriter, r *http.Request) {
 		auth:            authCtx,
 		path:            path,
 		turnState:       turnState,
+		clientIP:        auth.ClientIP(r),
 		clientSessionID: newResponsesWSClientSessionID(),
 	}
 
@@ -183,6 +191,9 @@ type responsesWSSession struct {
 	auth      *auth.ProxyAuthContext
 	path      string
 	turnState string
+	// clientIP is captured at handshake time so each message can re-run the
+	// key's IP rules without a per-message HTTP request.
+	clientIP string
 
 	mu          sync.Mutex
 	lastRequest map[string]any
@@ -210,6 +221,9 @@ func (s *responsesWSSession) loop(ctx context.Context) error {
 		err = s.handleMessage(ctx, data)
 		s.queueMu.Unlock()
 		if err != nil {
+			if errors.Is(err, errResponsesWSSessionEnded) {
+				return err
+			}
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
@@ -266,6 +280,36 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 		return s.writeError(ctx, 400, "unsupported websocket request type: "+reqType)
 	}
 
+	// Re-authorize every turn against the current key state. The handshake was
+	// authorized once (and deliberately not billed at Accept), so this loop is
+	// the single request-count point, and a disabled/expired key or tightened
+	// policy must not survive an open socket. The chain is the same one
+	// ProxyAuth runs for HTTP requests (enabled/expiry/cost/quota/IP/RPM/TPM
+	// then max_requests consume).
+	if s.auth != nil && s.auth.Source == "managed" && s.auth.KeyID != nil {
+		refreshed := auth.ReauthorizeManagedKeyForTurn(ctx, s.auth.Token, s.clientIP, responsesWSTurnTokenEstimate(msg, raw))
+		if !refreshed.OK {
+			status, message, endSession := responsesWSTurnAuthError(refreshed)
+			_ = s.writeError(ctx, status, message)
+			if endSession {
+				return errResponsesWSSessionEnded
+			}
+			return nil
+		}
+		// Carry the freshly loaded policy into this turn: the model gate below
+		// and routing both read s.auth.Policy.
+		fresh := *s.auth
+		fresh.Policy = refreshed.Policy
+		fresh.KeyName = refreshed.Key.Name
+		fresh.ProxyURL = nil
+		if refreshed.Key.ProxyURL != nil {
+			if trimmed := strings.TrimSpace(*refreshed.Key.ProxyURL); trimmed != "" {
+				fresh.ProxyURL = &trimmed
+			}
+		}
+		s.auth = &fresh
+	}
+
 	s.mu.Lock()
 	lastReq := s.lastRequest
 	lastOut := s.lastOutput
@@ -288,14 +332,6 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 	normalized, nerr := normalizeResponsesWSRequest(msg, lastReq, lastOut, supportsIncremental)
 	if nerr != nil {
 		return s.writeError(ctx, nerr.status, nerr.message)
-	}
-
-	// Consume quota per message; upgrade authentication and the seeded bridge
-	// context leave this as the single billing point.
-	if s.auth != nil && s.auth.Source == "managed" && s.auth.KeyID != nil {
-		if !auth.ConsumeManagedKeyRequest(*s.auth.KeyID) {
-			return s.writeError(ctx, 403, "API key has exceeded max requests")
-		}
 	}
 
 	// Local prewarm: generate=false on first create — emit synthetic created+completed.
@@ -643,6 +679,39 @@ func (s *responsesWSSession) writeErrorWithPayload(ctx context.Context, status i
 }
 
 // ---- helpers ----
+
+// responsesWSTurnTokenEstimate returns the TPM reservation for one WS message.
+// Reuses the routing request estimator; when it finds no prompt strings, the
+// raw frame size is a conservative floor. Zero is allowed here because the
+// auth chain reserves a 1-token minimum whenever maxTPM is set.
+func responsesWSTurnTokenEstimate(msg *ResponsesWSMessage, raw []byte) int64 {
+	if msg != nil && msg.Raw != nil {
+		if tokens := routing.EstimateRequestContextTokens(msg.Raw); tokens > 0 {
+			return tokens
+		}
+	}
+	return int64(len(raw)) / 4
+}
+
+// responsesWSTurnAuthError maps a failed per-message reauthorization onto the
+// Responses WS error frame. Terminal key states end the session; transient
+// rate windows reject only this turn so the client can retry.
+func responsesWSTurnAuthError(result auth.DownstreamTokenAuthResult) (status int, message string, endSession bool) {
+	status = result.StatusCode
+	if status == 0 {
+		status = http.StatusForbidden
+	}
+	message = strings.TrimSpace(result.Error)
+	if message == "" {
+		message = "API key authorization failed"
+	}
+	switch result.Reason {
+	case "over_rpm", "over_tpm", "quota_unavailable", "unavailable":
+		return status, message, false
+	default:
+		return status, message, true
+	}
+}
 
 // extractWSTurnState extracts the x-codex-turn-state header value.
 func extractWSTurnState(r *http.Request) string {

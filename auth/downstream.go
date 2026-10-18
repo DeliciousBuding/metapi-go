@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -275,15 +276,9 @@ func loadManagedKeyFrom(db *sqlx.DB, column string, value any) (*managedKeyView,
 // Usage consumption — atomic SQL increment (matches TS).
 // ---------------------------------------------------------------------------
 
-// ConsumeManagedKeyRequest atomically reserves one request for a managed key.
-// Used by Responses WebSocket multi-turn billing (WS C2) so each client message
-// is counted once without re-running ProxyAuth middleware on the HTTP bridge.
-// Returns false when the key no longer exists or has reached max_requests.
-func ConsumeManagedKeyRequest(keyID int64) bool {
-	return consumeManagedKeyRequest(keyID)
-}
-
 // consumeManagedKeyRequest atomically reserves one request for a managed key.
+// Called by ReauthorizeManagedKeyForTurn so each HTTP request and each
+// Responses WebSocket message is counted exactly once.
 // It returns false when the key no longer exists or has reached max_requests.
 
 // SQL:
@@ -325,6 +320,59 @@ func consumeManagedKeyRequest(keyID int64) bool {
 		return false
 	}
 	return rows > 0
+}
+
+// ReauthorizeManagedKeyForTurn re-runs the managed-key admission chain for one
+// unit of work inside an already established session (a Responses WebSocket
+// message). Long-lived connections otherwise keep the handshake snapshot: a
+// disabled/expired key, a tightened accessPolicy, or an exhausted
+// max_cost/quota/max_requests budget would stay usable until disconnect.
+//
+// The chain mirrors ProxyAuth exactly: reload by token (enabled, expiry,
+// max_cost, max_requests, accessPolicy/quota), then IP rules, then RPM/TPM
+// admission, then the atomic max_requests consume. A successful result
+// therefore consumed exactly one request slot and carries the freshly loaded
+// key + policy, which callers must use for the turn.
+//
+// estimatedTokens is reserved against maxTPM; when maxTPM is set a minimum of
+// one token is reserved so an unestimable message cannot skip TPM accounting.
+func ReauthorizeManagedKeyForTurn(ctx context.Context, token, clientIP string, estimatedTokens int64) DownstreamTokenAuthResult {
+	// RuntimeSafe keeps session-loop tests and early boot paths from panicking;
+	// authorizeDownstreamToken independently loads the key from the store.
+	result := authorizeDownstreamToken(token, config.RuntimeSafe(), "")
+	if !result.OK || result.Source != "managed" || result.Key == nil {
+		return result
+	}
+
+	if ok, denyReason := CheckDownstreamKeyIP(result.Key, clientIP); !ok {
+		msg := "IP address not allowed for this API key"
+		if denyReason == "ip_blocked" {
+			msg = "IP address is blocked for this API key"
+		}
+		return DownstreamTokenAuthResult{StatusCode: 403, Reason: denyReason, Error: msg}
+	}
+
+	if result.Key.MaxTPM != nil && *result.Key.MaxTPM > 0 && estimatedTokens < 1 {
+		estimatedTokens = 1
+	}
+	adm := GlobalKeyAdmission.Allow(ctx, result.Key.ID, result.Key.MaxRPM, result.Key.MaxTPM, estimatedTokens)
+	if !adm.Allowed {
+		msg := "API key rate limit exceeded"
+		if adm.Reason == "over_tpm" {
+			msg = "API key token-per-minute limit exceeded"
+		}
+		return DownstreamTokenAuthResult{StatusCode: 429, Reason: adm.Reason, Error: msg}
+	}
+
+	if !consumeManagedKeyRequest(result.Key.ID) {
+		return DownstreamTokenAuthResult{
+			StatusCode: 429,
+			Reason:     "over_requests",
+			Error:      "API key has exceeded max requests",
+		}
+	}
+
+	return result
 }
 
 // RecordManagedKeyCostUsage atomically increments used_cost for a managed key.
