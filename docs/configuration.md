@@ -212,7 +212,7 @@ upstream request; …`), since it describes a static misconfiguration.
 
 | Variable | Default | Description |
 |:---------|:--------|:------------|
-| `ADMIN_IP_ALLOWLIST` | empty | CSV of allowed admin IPs/CIDRs. |
+| `ADMIN_IP_ALLOWLIST` | empty | CSV of allowed admin IPs/CIDRs. Applies to the whole admin surface including the public session lifecycle (`/api/auth/login`, `/api/auth/logout`, `/api/auth/session`) and `/api/oauth/callback/*`, so an allowlisted deployment also restricts where sign-in and OAuth callbacks can come from. `/health`, `/ready` and `/metrics` are outside the allowlist. Empty = every IP. |
 | `ADMIN_RATE_LIMIT_RPS` / `ADMIN_RATE_LIMIT_BURST` | `100` / `200` | Admin per-IP token bucket. |
 | `AUTH_RATE_LIMIT_RPS` / `AUTH_RATE_LIMIT_BURST` | `10` / `20` | Stricter per-IP token bucket applied only to `/api/auth/*`, which is the only surface accepting the master token. Values ≤ 0 fall back to the defaults at mount time. |
 | `ADMIN_SESSION_TTL_MINUTES` | `720` | Sliding TTL of the server-side admin UI session minted by `POST /api/auth/login`; floored at 1 minute. |

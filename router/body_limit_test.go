@@ -2,6 +2,8 @@ package router
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -314,5 +316,83 @@ func TestV1FileUploadRouteUsesHigherBodyLimit(t *testing.T) {
 
 	if rec.Code == http.StatusRequestEntityTooLarge {
 		t.Fatalf("/v1/files with 2 KB got 413 but should use the higher upload limit (100 KB)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Anonymous session-lifecycle body limit (audit M15)
+// ---------------------------------------------------------------------------
+
+func TestBodyLimitPathAware_AnonymousAuthPostUsesSmallLimit(t *testing.T) {
+	// The default admin limit is far larger; the anonymous lifecycle POSTs
+	// must still be capped at AnonymousRequestBodyLimit.
+	mw := BodyLimitPathAware(20<<20, 100<<20)
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login",
+		strings.NewReader(strings.Repeat("x", AnonymousRequestBodyLimit+1)))
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want 413 (anonymous login body cap)", rec.Code)
+	}
+}
+
+func TestBodyLimitPathAware_AnonymousAuthChunkedBodyCapped(t *testing.T) {
+	mw := BodyLimitPathAware(20<<20, 100<<20)
+	var readErr error
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, readErr = io.ReadAll(r.Body)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login",
+		strings.NewReader(strings.Repeat("x", AnonymousRequestBodyLimit+1)))
+	req.ContentLength = -1 // chunked: no Content-Length to reject early
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if readErr == nil {
+		t.Fatal("handler read a chunked body larger than the anonymous cap")
+	}
+	var maxBytesErr *http.MaxBytesError
+	if !errors.As(readErr, &maxBytesErr) {
+		t.Fatalf("read error = %v, want *http.MaxBytesError", readErr)
+	}
+}
+
+func TestBodyLimitPathAware_AnonymousLimitOnlyCoversPostLifecycleRoutes(t *testing.T) {
+	mw := BodyLimitPathAware(20<<20, 100<<20)
+	calls := 0
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	cases := []struct {
+		method string
+		path   string
+	}{
+		// GET /api/auth/session is a bodyless probe; its limit must stay the
+		// general one (and no body is read anyway).
+		{http.MethodGet, "/api/auth/session"},
+		// Authenticated admin endpoints keep the configured admin limit.
+		{http.MethodPost, "/api/sites"},
+		// Proxy traffic keeps its own configured limit.
+		{http.MethodPost, "/v1/chat/completions"},
+	}
+	for _, tc := range cases {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(tc.method, tc.path,
+			strings.NewReader(strings.Repeat("x", AnonymousRequestBodyLimit+1)))
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s %s status = %d, want 200 (only anonymous POST lifecycle routes are capped)", tc.method, tc.path, rec.Code)
+		}
+	}
+	if calls != len(cases) {
+		t.Fatalf("handler calls = %d, want %d", calls, len(cases))
 	}
 }

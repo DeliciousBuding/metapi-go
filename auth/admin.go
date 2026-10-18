@@ -18,20 +18,25 @@ import (
 //
 // Order of checks (first failure returns immediately):
 // 1. Extract client IP from RemoteAddr + normalize.
-// 2. If allowlist is non-empty and IP is not allowed → 403
-// 3. Session track: a metapi_session cookie is validated against
+// 2. If allowlist is non-empty and IP is not allowed → 403. This runs
+//    before the public-route bypass so the admin network ACL covers login,
+//    session and OAuth callbacks too.
+// 3. Public routes (below) are admitted without credentials.
+// 4. Session track: a metapi_session cookie is validated against
 //    admin_sessions (sliding TTL). Valid → authenticated.
-// 4. Bearer track: Authorization: Bearer <master token> still authenticates
+// 5. Bearer track: Authorization: Bearer <master token> still authenticates
 //    (dual-track for external scripts/automation; the UI never stores the
 //    master token client-side anymore).
-// 5. No credentials → 401; stale cookie only → 401 Session expired;
+// 6. No credentials → 401; stale cookie only → 401 Session expired;
 //    wrong Bearer → 403 Invalid token.
 //
-// Public routes that bypass this middleware:
+// Public routes that bypass authentication (but not the IP allowlist):
 // - GET /api/oauth/callback/*
 // - POST /api/auth/login, POST /api/auth/logout, GET /api/auth/session
 //   (the session lifecycle surface; login is master-token + rate limited,
 //   logout/session are idempotent/read-only and answer without a session)
+// - /health, /ready and /metrics are registered outside this middleware and
+//   are not part of the admin allowlist.
 // ---------------------------------------------------------------------------
 
 // AdminAuth returns a chi-compatible middleware that enforces admin
@@ -60,20 +65,27 @@ func AdminAuth(sessions *SessionManager) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// ---- Public route bypass ----
-			if isPublicAPIRoute(r.URL.Path) {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// ---- 1. Extract client IP ----
+			// ---- 1. IP allowlist (before every public bypass) ----
+			// The allowlist is the operator's network ACL for the admin
+			// surface; it must also cover the public lifecycle routes
+			// (/api/auth/login|logout|session and OAuth callbacks). Otherwise
+			// login stays reachable network-wide and GET /api/auth/session
+			// becomes a master-token oracle outside the ACL (audit L17).
+			// /health, /ready and /metrics are registered outside this
+			// middleware and are deliberately not gated by the allowlist.
 			clientIP := extractClientIP(r)
 			if !isIPAllowed(clientIP, parsedAllowlist) {
 				writeJSON(w, http.StatusForbidden, jsonErrorWithCode("IP not allowed", ErrorCodeAuthIPBlocked))
 				return
 			}
 
-			// ---- 2. Session track: HttpOnly cookie → admin_sessions row ----
+			// ---- 2. Public route bypass ----
+			if isPublicAPIRoute(r.URL.Path) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// ---- 3. Session track: HttpOnly cookie → admin_sessions row ----
 			cookieToken := SessionCookieFromRequest(r)
 			if cookieToken != "" {
 				if sess := sessions.Validate(r.Context(), cookieToken); sess != nil {
@@ -85,7 +97,7 @@ func AdminAuth(sessions *SessionManager) func(http.Handler) http.Handler {
 				}
 			}
 
-			// ---- 3. Bearer track: master token (dual-track, #1034) ----
+			// ---- 4. Bearer track: master token (dual-track, #1034) ----
 			auth := r.Header.Get("Authorization")
 			if auth == "" {
 				if cookieToken != "" {

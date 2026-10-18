@@ -163,3 +163,52 @@ func TestStaticAssetsDoNotCompressAlreadyCompressedBinaries(t *testing.T) {
 		t.Fatalf("Cache-Control = %q, want immutable cache header preserved", got)
 	}
 }
+
+// TestAcceptsGzipHonorsQValues pins the RFC 9110 semantics that replaced the
+// substring match (audit L29): an explicit "gzip;q=0" is a refusal even
+// though the token appears in the header.
+func TestAcceptsGzipHonorsQValues(t *testing.T) {
+	cases := []struct {
+		header string
+		want   bool
+	}{
+		{"", false},
+		{"gzip", true},
+		{"gzip, deflate, br", true},
+		{"gzip;q=1.0", true},
+		{"gzip;q=0.5", true},
+		{"gzip;q=0", false},
+		{"gzip;q=0.0", false},
+		{"gzip;q=0.000", false},
+		{"br;q=1, gzip;q=0", false},
+		{"gzip;q=0, deflate", false},
+		{"x-gzip;q=0", false},
+		{"*", true},
+		{"*;q=0", false},
+		{"br", false},
+	}
+	for _, tc := range cases {
+		req := httptest.NewRequest(http.MethodGet, "/static/js/app.js", nil)
+		if tc.header != "" {
+			req.Header.Set("Accept-Encoding", tc.header)
+		}
+		if got := acceptsGzip(req); got != tc.want {
+			t.Errorf("acceptsGzip(%q) = %v, want %v", tc.header, got, tc.want)
+		}
+	}
+}
+
+func TestStaticAssetsSkipGzipWhenClientRefusesIt(t *testing.T) {
+	r := newSPAFallbackTestRouter(t)
+
+	rec := serveRequest(t, r, "/static/js/app.js", "gzip;q=0")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Encoding"); got != "" {
+		t.Fatalf("Content-Encoding = %q, want empty for gzip;q=0", got)
+	}
+	if !strings.Contains(rec.Body.String(), "console.log('metapi static asset');") {
+		t.Fatal("identity body corrupted")
+	}
+}

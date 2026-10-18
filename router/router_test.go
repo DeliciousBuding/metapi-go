@@ -99,11 +99,13 @@ func assertCSPPolicy(t *testing.T, csp string) {
 
 	wantStatic := map[string][]string{
 		"default-src":     {"'self'"},
-		"script-src":      {"'self'", "https://static.cloudflareinsights.com"},
+		"script-src":      {"'self'"},
 		"img-src":         {"'self'", "https://api.dicebear.com"},
 		"connect-src":     {"'self'"},
 		"frame-src":       {"'self'", "https://check.linux.do"},
 		"frame-ancestors": {"'none'"},
+		"form-action":     {"'self'"},
+		"base-uri":        {"'self'"},
 	}
 	for name, want := range wantStatic {
 		if got := dirs[name]; !slices.Equal(got, want) {
@@ -580,5 +582,77 @@ func TestSPAFallbackServesClientRoutesAfterStaticMount(t *testing.T) {
 	}
 	if body := rec.Body.String(); !strings.Contains(body, "<html") {
 		t.Fatalf("client route body does not look like HTML: %q", body[:min(len(body), 120)])
+	}
+}
+
+// TestMethodNotAllowedDoesNotEnumerateAPI ensures a wrong-method API request
+// is indistinguishable from an unknown route: chi's default 405 advertises
+// "Allow: GET, POST" before any middleware (auth/rate limiting) runs, which
+// let unauthenticated callers map the admin and proxy surface (audit L18).
+func TestMethodNotAllowedDoesNotEnumerateAPI(t *testing.T) {
+	cfg := &config.Config{
+		RequestBodyLimit: config.DefaultRequestBodyLimit,
+	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	r := New(cfg, web.Dist)
+
+	// /api/auth/login is registered for POST only.
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/login", nil)
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("GET /api/auth/login = %d, want 404 (no method enumeration)", rec.Code)
+	}
+	if allow := rec.Header().Get("Allow"); allow != "" {
+		t.Fatalf("Allow = %q, want empty (must not enumerate methods to unauthenticated callers)", allow)
+	}
+	if !strings.Contains(rec.Body.String(), "Not found") {
+		t.Fatalf("body = %q, want the API 404 contract", rec.Body.String())
+	}
+
+	// Non-API paths keep a bodyless 405 but still hide the Allow list.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/logo.png", nil)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST /logo.png = %d, want 405", rec.Code)
+	}
+	if allow := rec.Header().Get("Allow"); allow != "" {
+		t.Fatalf("Allow = %q, want empty", allow)
+	}
+}
+
+// TestStaticDirectoryRequestsAreNotListed ensures /static/ and subdirectory
+// requests do not reach http.FileServer's directory listing, which enumerated
+// every content-hashed chunk name (audit L19).
+func TestStaticDirectoryRequestsAreNotListed(t *testing.T) {
+	cfg := &config.Config{
+		RequestBodyLimit: config.DefaultRequestBodyLimit,
+	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	r := New(cfg, web.Dist)
+
+	for _, path := range []string{"/static/", "/static/js/", "/static/css/"} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("GET %s = %d, want 404 (no directory listing)", path, rec.Code)
+		}
+		if strings.Contains(rec.Body.String(), "Preformatted") || strings.Contains(rec.Body.String(), "<a href=") {
+			t.Fatalf("GET %s returned a directory listing: %q", path, rec.Body.String())
+		}
+		if cache := rec.Header().Get("Cache-Control"); strings.Contains(cache, "immutable") {
+			t.Fatalf("GET %s Cache-Control = %q, directory errors must not be cached immutable", path, cache)
+		}
 	}
 }

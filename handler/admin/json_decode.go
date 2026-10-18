@@ -47,6 +47,19 @@ func decodeJSONRequestRaw(r *http.Request, dst any) ([]byte, error) {
 	return raw, nil
 }
 
+// isJSONBodyTooLarge reports whether a decode failure came from a body limit
+// rather than malformed JSON. The global path-aware middleware wraps the body
+// in http.MaxBytesReader, whose read error surfaces as *http.MaxBytesError;
+// the local adminJSONBodyLimitBytes guard returns errJSONRequestBodyTooLarge.
+// Callers use this to answer 413 instead of a misleading 400 (audit M15).
+func isJSONBodyTooLarge(err error) bool {
+	if errors.Is(err, errJSONRequestBodyTooLarge) {
+		return true
+	}
+	var maxBytesErr *http.MaxBytesError
+	return errors.As(err, &maxBytesErr)
+}
+
 func readAdminJSONBody(body io.Reader) ([]byte, error) {
 	if adminJSONBodyLimitBytes <= 0 {
 		return io.ReadAll(body)

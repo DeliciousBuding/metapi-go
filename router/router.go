@@ -24,6 +24,20 @@ import (
 func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	r := chi.NewRouter()
 
+	// 405 responses must not enumerate the supported methods for API paths:
+	// chi's default handler answers "405 Allow: GET, POST" before any route
+	// middleware (including auth and rate limiting) runs, which lets an
+	// unauthenticated caller map the admin/proxy surface (audit L18). Answer
+	// the same 404 shape as an unknown route instead. Non-API paths keep a
+	// bodyless 405 without the Allow list.
+	r.MethodNotAllowed(func(w http.ResponseWriter, req *http.Request) {
+		if isAPIPath(req.URL.Path) {
+			writeAPINotFound(w)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	})
+
 	// ---- Middleware stack ----
 	r.Use(WithRequestID)
 	r.Use(SecurityHeaders)
@@ -242,6 +256,21 @@ func tokenRoutesDeps() admin.TokenRoutesDeps {
 	return deps
 }
 
+// isAPIPath reports whether the path belongs to the JSON API surface (admin
+// /api/* or proxy /v1/*). The SPA fallback and the custom 405 handler use the
+// same predicate so unreachable API routes never answer with HTML.
+func isAPIPath(path string) bool {
+	return strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/v1/")
+}
+
+// writeAPINotFound answers with the flat JSON 404 contract shared by the SPA
+// fallback and the MethodNotAllowed handler.
+func writeAPINotFound(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotFound)
+	_, _ = w.Write([]byte(`{"error":"Not found"}`))
+}
+
 // setupSPAFallback configures static asset serving and SPA fallback.
 // distFS is the embedded frontend filesystem, rooted at web/dist/.
 func setupSPAFallback(r chi.Router, distFS fs.FS) {
@@ -326,10 +355,8 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 
 	// SPA fallback: non-API paths → index.html; API → 404 JSON
 	r.NotFound(withGzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/v1/") {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"error":"Not found"}`))
+		if isAPIPath(r.URL.Path) {
+			writeAPINotFound(w)
 			return
 		}
 		data, err := fs.ReadFile(distFS, "index.html")
@@ -387,6 +414,17 @@ func mountStaticSubdir(r chi.Router, distFS fs.FS, dir, route, stripPrefix strin
 		return
 	}
 	r.Handle(route, http.StripPrefix(stripPrefix, withGzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Directory-style requests must not reach http.FileServer: it answers
+		// them with a directory listing that enumerates every content-hashed
+		// chunk name, and the asset mount is the only route serving them
+		// (audit L19). The embedded tree contains files only, so no
+		// legitimate request for an asset ends in "/". StripPrefix turns the
+		// mount root ("/static/") into "", which http.FileServer would also
+		// treat as the directory rather than a file.
+		if r.URL.Path == "" || strings.HasSuffix(r.URL.Path, "/") {
+			http.NotFound(w, r)
+			return
+		}
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		http.FileServer(http.FS(subFS)).ServeHTTP(w, r)
 	}))))
