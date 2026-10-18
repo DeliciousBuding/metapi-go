@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/auth"
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -25,9 +27,19 @@ func doPatchJSON(t *testing.T, r chi.Router, path string, body any) *httptest.Re
 	}
 	req := httptest.NewRequest("PATCH", path, bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
+	// OAuth connection proxy writes require master-token re-confirmation.
+	addTestReauthHeader(req)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	return rec
+}
+
+// addTestReauthHeader presents the runtime master token the way the UI does
+// after its reauth prompt. Gate behavior itself is covered by dedicated tests.
+func addTestReauthHeader(req *http.Request) {
+	if rt := config.RuntimeSafe(); rt != nil && rt.AuthToken != "" {
+		req.Header.Set(auth.ReauthConfirmHeader, rt.AuthToken)
+	}
 }
 
 // doPatchRaw issues a PATCH request with an arbitrary raw body. Used to send

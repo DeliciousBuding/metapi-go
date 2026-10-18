@@ -57,12 +57,13 @@ func sensitiveAdminOperation(method, routePattern string) bool {
 
 	// Downstream keys are long-lived bearer credentials: minting or rotating
 	// one from a session creates a credential that survives session revocation.
+	// PUT is NOT gated here: the handler only demands re-confirmation when the
+	// request actually rotates the secret or sets a per-key egress proxyUrl;
+	// ordinary metadata edits stay usable from a live session.
 	case "/api/downstream-keys":
 		return method == http.MethodPost
 	case "/api/downstream-keys/batch":
 		return method == http.MethodPost
-	case "/api/downstream-keys/{id}":
-		return method == http.MethodPut
 	}
 	return false
 }
@@ -107,8 +108,7 @@ func sensitiveAdminPath(method, urlPath string) bool {
 			match("api", "downstream-keys") ||
 			match("api", "downstream-keys", "batch")
 	case http.MethodPut:
-		return match("api", "settings", "backup", "webdav") ||
-			match("api", "downstream-keys", "*")
+		return match("api", "settings", "backup", "webdav")
 	}
 	return false
 }

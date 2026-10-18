@@ -1,4 +1,4 @@
-import { request, streamSse } from './transport'
+import { confirmHeader, request, streamSse } from './transport'
 
 export type SiteInitializationPreset = {
   id: string
@@ -39,12 +39,17 @@ export const sitesApi = {
   getSites: () => request('/api/sites'),
   getSiteInitializationPresets: () =>
     request<SiteInitializationPreset[]>('/api/sites/initialization-presets'),
-  addSite: (data: unknown) =>
-    request('/api/sites', { method: 'POST', body: JSON.stringify(data) }),
-  updateSite: (id: number, data: unknown) =>
+  addSite: (data: unknown, confirmToken?: string) =>
+    request('/api/sites', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: confirmHeader(confirmToken),
+    }),
+  updateSite: (id: number, data: unknown, confirmToken?: string) =>
     request(`/api/sites/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+      headers: confirmHeader(confirmToken),
     }),
   deleteSite: (id: number) => request(`/api/sites/${id}`, { method: 'DELETE' }),
   batchUpdateSites: (data: unknown) =>

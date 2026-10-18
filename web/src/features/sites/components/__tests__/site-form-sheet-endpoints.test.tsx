@@ -119,7 +119,10 @@ async function renderCreateDialog(): Promise<void> {
 }
 
 function lastCreatePayload(): SiteFormPayload {
-  return mockCreateMutate.mock.calls[0]?.[0] as SiteFormPayload
+  const args = mockCreateMutate.mock.calls[0]?.[0] as
+    | { payload: SiteFormPayload }
+    | undefined
+  return args?.payload as SiteFormPayload
 }
 
 describe('SiteFormSheet apiEndpoints structured editor interaction', () => {

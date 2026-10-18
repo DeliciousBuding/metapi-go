@@ -1,9 +1,12 @@
 package service
 
 import (
+	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 )
@@ -39,21 +42,47 @@ func IsValidAPIEndpointURL(raw string) bool {
 	return true
 }
 
-// IsValidProxyURL checks whether a string is a valid http(s)/socks proxy URL.
-func IsValidProxyURL(raw string) bool {
+// proxyURLSchemes are the egress proxy schemes admin write APIs accept.
+// platform.supportedProxySchemes also carries the legacy socks/socks4/socks4a
+// spellings for URLs already persisted by older deployments; new writes are
+// restricted to the schemes we document.
+var proxyURLSchemes = map[string]bool{
+	"http": true, "https": true, "socks5": true, "socks5h": true,
+}
+
+// ValidateProxyURL validates an optional egress proxy URL. Empty means "no
+// proxy" and is valid. A non-empty value needs a supported scheme, a host, and
+// no whitespace or control characters: storing a value the transport cannot
+// dial would silently disable egress, and control characters can split the
+// URL across transport layers. Private/loopback targets are intentionally
+// allowed here — internal proxies are a legitimate deployment; outbound
+// destination guarding is enforced by the site dial guard instead.
+func ValidateProxyURL(raw string) error {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return true // empty/null is valid (no proxy)
+		return nil
+	}
+	for _, r := range trimmed {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			return errors.New("proxy URL contains whitespace or control characters")
+		}
 	}
 	parsed, err := url.Parse(trimmed)
 	if err != nil {
-		return false
+		return fmt.Errorf("proxy URL is malformed: %w", err)
 	}
-	switch parsed.Scheme {
-	case "http", "https", "socks", "socks5", "socks5h":
-		return true
+	if !proxyURLSchemes[strings.ToLower(parsed.Scheme)] {
+		return errors.New("proxy URL scheme must be http, https, socks5, or socks5h")
 	}
-	return false
+	if parsed.Hostname() == "" {
+		return errors.New("proxy URL is missing a host")
+	}
+	return nil
+}
+
+// IsValidProxyURL checks whether a string is a valid http(s)/socks proxy URL.
+func IsValidProxyURL(raw string) bool {
+	return ValidateProxyURL(raw) == nil
 }
 
 // IsValidHTTPURL checks whether a string is a valid http/https URL (not socks).

@@ -1,4 +1,4 @@
-import { request, buildQueryString } from './transport'
+import { confirmHeader, request, buildQueryString } from './transport'
 
 export const accountsApi = {
   getAccountsSnapshot: (options?: { refresh?: boolean }) =>
@@ -35,8 +35,12 @@ export const accountsApi = {
       generatedAt?: string
       sites?: unknown[]
     }>,
-  addAccount: (data: unknown) =>
-    request('/api/accounts', { method: 'POST', body: JSON.stringify(data) }),
+  addAccount: (data: unknown, confirmToken?: string) =>
+    request('/api/accounts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: confirmHeader(confirmToken),
+    }),
   loginAccount: (data: {
     siteId: number
     username: string
@@ -61,10 +65,11 @@ export const accountsApi = {
       body: JSON.stringify(data),
       skipErrorHandler: options?.skipErrorHandler,
     }),
-  updateAccount: (id: number, data: unknown) =>
+  updateAccount: (id: number, data: unknown, confirmToken?: string) =>
     request(`/api/accounts/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+      headers: confirmHeader(confirmToken),
     }),
   deleteAccount: (id: number) =>
     request(`/api/accounts/${id}`, { method: 'DELETE' }),

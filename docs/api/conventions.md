@@ -38,6 +38,18 @@ and the UI prompts for the token:
 - `POST /api/settings/backup/webdav/export`
 - `GET /api/downstream-keys/:id/export`
 - `POST /api/settings/auth/change`
+- `PUT /api/settings/runtime` when the body touches egress/notification
+  destinations or the admin IP allowlist
+- Site, account, downstream-key and OAuth-connection writes that set a
+  non-empty `proxyUrl` (the field reroutes stored upstream credentials);
+  downstream-key updates that rotate `key` are gated as well. Clearing a proxy
+  or editing unrelated metadata stays available with a session alone.
+
+`proxyUrl` values are validated before they are stored: the accepted schemes
+are `http`, `https`, `socks5` and `socks5h`, a host is required, and whitespace
+or control characters are rejected with `400`. Private/loopback proxy targets
+remain allowed because internal proxies are a legitimate deployment; outbound
+destination guarding is a separate control.
 
 ## Response Format
 

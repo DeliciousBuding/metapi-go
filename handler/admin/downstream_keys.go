@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -291,10 +292,17 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 		desc = &s
 	}
 
-	// Per-key egress proxy. NULL/empty inherits site/system.
+	// Per-key egress proxy. NULL/empty inherits site/system. A non-empty value
+	// reroutes this key's upstream traffic, so it needs the master token (the
+	// route-level gate also covers POST, this keeps the handler safe if the
+	// route is mounted elsewhere).
 	proxyURL, proxyErr := normalizeDownstreamProxyURL(body.ProxyURL)
 	if proxyErr != "" {
 		writeError(w, http.StatusBadRequest, proxyErr)
+		return
+	}
+	if proxyURL != nil && !auth.ReauthConfirmed(r) {
+		auth.WriteReauthRequired(w)
 		return
 	}
 
@@ -608,6 +616,10 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 			writeError(w, http.StatusBadRequest, proxyErr)
 			return
 		}
+		if normalized != nil && !auth.ReauthConfirmed(r) {
+			auth.WriteReauthRequired(w)
+			return
+		}
 		proxyURL = normalized
 	}
 
@@ -646,6 +658,14 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 
 	// Duplicate key check: if key is being changed, verify new key doesn't collide.
 	if hasField["key"] && key != existingString(existing, "key") {
+		// Rotating the bearer secret from a live session mints a credential that
+		// survives session revocation, so it keeps the re-confirmation it had
+		// under the route-level gate (only proxyUrl/key rotation are gated here;
+		// ordinary metadata edits save from the session).
+		if !auth.ReauthConfirmed(r) {
+			auth.WriteReauthRequired(w)
+			return
+		}
 		var dupCount int
 		h.db.Get(&dupCount, rebindAdminQuery(h.db, "SELECT COUNT(*) FROM downstream_api_keys WHERE key = ? AND id != ?"), key, id)
 		if dupCount > 0 {

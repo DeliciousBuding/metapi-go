@@ -220,11 +220,13 @@ describe('AccountFormDialog searchable site selector', () => {
 
     await waitFor(() => {
       expect(mutations.create.mutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ siteId: 102 })
+        expect.objectContaining({
+          payload: expect.objectContaining({ siteId: 102 }),
+        })
       )
     })
-    const payload = mutations.create.mutateAsync.mock.calls[0]?.[0]
-    expect(typeof payload.siteId).toBe('number')
+    const payload = mutations.create.mutateAsync.mock.calls[0]?.[0]?.payload
+    expect(typeof payload?.siteId).toBe('number')
     expect(showAccountCreatedToast).toHaveBeenCalledWith(77, 102, {
       tokenCount: undefined,
       tokenSyncStatus: undefined,

@@ -20,6 +20,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { PlatformBadge } from '@/components/common/platform-badge'
+import { useReauthReplay } from '@/components/common/reauth-provider'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
@@ -155,6 +156,7 @@ export function AccountFormDialog({
   const { t } = useTranslation()
   const createMutation = useCreateAccount()
   const updateMutation = useUpdateAccount()
+  const handleReauth = useReauthReplay()
   const loginMutation = useLoginAccount()
   const verifyMutation = useVerifyAccountToken()
   const presets = useSiteInitializationPresets()
@@ -332,8 +334,8 @@ export function AccountFormDialog({
   }
 
   const onSubmit = async (values: AccountFormValues) => {
-    try {
-      if (values.credentialMode === 'password') {
+    if (values.credentialMode === 'password') {
+      try {
         const result = await loginMutation.mutateAsync({
           siteId: values.siteId,
           username: values.username?.trim() ?? '',
@@ -351,32 +353,50 @@ export function AccountFormDialog({
         )
         form.reset()
         onOpenChange(false)
-        return
+      } catch {
+        // http-client already toasted the business/network error.
       }
+      return
+    }
 
-      const payload = transformFormToPayload(
-        values,
-        isEdit ? 'update' : 'create'
-      )
-      if (!payload) {
-        toast.error(t('accounts.toast.loginFailed'))
-        return
-      }
+    const payload = transformFormToPayload(values, isEdit ? 'update' : 'create')
+    if (!payload) {
+      toast.error(t('accounts.toast.loginFailed'))
+      return
+    }
+    const save = async (confirmToken?: string) => {
       if (isEdit && account) {
-        await updateMutation.mutateAsync({ id: account.id, payload })
-      } else {
-        const result = await createMutation.mutateAsync(payload)
-        const newId = resolveCreatedAccountId(result)
-        showAccountCreatedToast(newId, values.siteId, {
-          tokenCount: result?.tokenCount,
-          tokenSyncStatus: result?.tokenSyncStatus,
-          tokenSyncMessage: result?.tokenSyncMessage,
+        await updateMutation.mutateAsync({
+          id: account.id,
+          payload,
+          confirmToken,
         })
+      } else {
+        const result = await createMutation.mutateAsync({
+          payload,
+          confirmToken,
+        })
+        showAccountCreatedToast(
+          resolveCreatedAccountId(result),
+          values.siteId,
+          {
+            tokenCount: result?.tokenCount,
+            tokenSyncStatus: result?.tokenSyncStatus,
+            tokenSyncMessage: result?.tokenSyncMessage,
+          }
+        )
       }
       form.reset()
       onOpenChange(false)
-    } catch {
-      // http-client already toasted the business/network error.
+    }
+    try {
+      await save()
+    } catch (error) {
+      // A per-account proxy redirects the stored upstream credential; the
+      // backend answers reauthRequired until the master token is re-entered.
+      handleReauth(error, t('reauth.operations.accountProxy'), (confirmToken) =>
+        save(confirmToken)
+      )
     }
   }
 

@@ -30,6 +30,16 @@ export type RequestOptions = {
 }
 
 /**
+ * Header carrying the master token a user re-entered in the reauth dialog.
+ * Sensitive admin writes (egress proxy changes, credential rotation, exports)
+ * reject a session-only request with `403 { reauthRequired: true }` until this
+ * header is present.
+ */
+export function confirmHeader(confirmToken?: string) {
+  return confirmToken ? { 'X-Admin-Confirm-Token': confirmToken } : undefined
+}
+
+/**
  * Core JSON request helper. Routes GET through `apiClient.get` so the
  * http-client GET-dedup applies; non-GET goes through `apiClient.request`.
  * Returns the parsed response body, matching the legacy `res.json()` contract.

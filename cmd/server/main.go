@@ -81,7 +81,7 @@ func main() {
 	// Normalize DataDir (E11: trailing slash / Windows backslash)
 	cfg.DataDir = filepath.Clean(cfg.DataDir)
 
-	if err := bootstrapRuntime(cfg, rt); err != nil {
+	if err := bootstrapRuntime(cfg, rt, env["AUTH_TOKEN"]); err != nil {
 		slog.Error("startup bootstrap failed", "error", err)
 		os.Exit(1)
 	}
@@ -136,7 +136,7 @@ func main() {
 	}
 }
 
-func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings) (err error) {
+func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings, envAuthToken string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("startup bootstrap panicked: %v", r)
@@ -152,8 +152,30 @@ func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings) (err error
 	if err := store.LoadRuntimeSettings(cfg, rt); err != nil {
 		return fmt.Errorf("load runtime settings: %w", err)
 	}
+	// Hydration may have replaced the env token with the settings row; the
+	// earlier Validate only saw the env value. Re-check the downgrade risk
+	// before any listener starts.
+	if err := validateHydratedAuthToken(rt, envAuthToken); err != nil {
+		return err
+	}
 
 	slog.Info("bootstrap complete")
+	return nil
+}
+
+// validateHydratedAuthToken re-checks the admin token after the settings table
+// has overridden the env value. config.Validate ran against the env token only,
+// so a migrated or tampered database could silently downgrade a strong token to
+// the built-in default. Only auth_token is re-checked here: running the full
+// runtime snapshot validation again would let unrelated persisted warnings
+// block boot. Error and warning text never include a token value.
+func validateHydratedAuthToken(rt *config.RuntimeSettings, envAuthToken string) error {
+	if rt.AuthToken == config.DefaultAuthToken {
+		return fmt.Errorf("refusing to start: persisted auth_token resolves to the built-in default; rotate the admin token and restart")
+	}
+	if envAuthToken != "" && envAuthToken != rt.AuthToken {
+		slog.Warn("settings: persisted auth_token overrides AUTH_TOKEN from the environment; serving with the database value")
+	}
 	return nil
 }
 

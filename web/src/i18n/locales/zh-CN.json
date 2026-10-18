@@ -4274,7 +4274,10 @@
         "clearUsage": "清空用量日志不可恢复。重新输入管理员 Token 以确认执行。",
         "runtimeSettings": "该设置包含出口地址、通知端点或管理员访问控制。重新输入管理员 Token 以确认保存。",
         "downstreamKey": "下游 Key 是长期有效的凭证。重新输入管理员 Token 以确认创建或轮换。",
-        "accountTokenReveal": "读取上游 Token 明文属于敏感操作。重新输入管理员 Token 以解锁。"
+        "accountTokenReveal": "读取上游 Token 明文属于敏感操作。重新输入管理员 Token 以解锁。",
+        "siteProxy": "站点代理会改写该站点的全部上游出站流量。重新输入管理员 Token 以确认保存。",
+        "accountProxy": "账户代理会改写该账户的上游凭据走向。重新输入管理员 Token 以确认保存。",
+        "oauthProxy": "OAuth 代理会改写该连接的凭据交换走向。重新输入管理员 Token 以确认保存。"
       }
     },
     "connect": {

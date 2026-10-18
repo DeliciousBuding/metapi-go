@@ -10,6 +10,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/scheduler"
+	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -47,7 +48,13 @@ func (h *settingsHandler) applyProxyAccessSettings(body map[string]any) *setting
 		return failSettings(http.StatusGone, "Root downstream keys have moved to API keys. Manage access tokens at /downstream-keys.")
 	}
 
-	// System proxy URL
+	// System proxy URL: same scheme/host validation as the per-site, per-account
+	// and per-key fields. Empty disables the system proxy and stays valid.
+	if v, ok := body["systemProxyUrl"]; ok {
+		if err := service.ValidateProxyURL(normalizeString(v)); err != nil {
+			return failSettings(http.StatusBadRequest, invalidProxyURLMessage)
+		}
+	}
 	if err := applyStringSettingDB(h.db, body, "systemProxyUrl", "system_proxy_url", func(r *config.RuntimeSettings, v string) { r.SystemProxyUrl = v }); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}

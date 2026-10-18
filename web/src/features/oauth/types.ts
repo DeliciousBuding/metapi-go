@@ -39,6 +39,8 @@ export type OAuthStartPayload = {
   projectId?: string
   proxyUrl?: string | null
   useSystemProxy?: boolean
+  /** Present when replaying after the master-token reauth prompt. */
+  confirmToken?: string
 }
 
 /**

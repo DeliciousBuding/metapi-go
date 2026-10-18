@@ -385,7 +385,7 @@ describe('SiteFormSheet template changes', () => {
     typeField('Name', 'My connection')
     fireEvent.click(screen.getByRole('button', { name: 'Create' }))
     await waitFor(() => expect(mockCreateMutate).toHaveBeenCalledTimes(1))
-    expect(mockCreateMutate.mock.calls[0]?.[0]).toMatchObject({
+    expect(mockCreateMutate.mock.calls[0]?.[0]?.payload).toMatchObject({
       name: 'My connection',
       url: 'https://api.deepseek.com',
       platform: 'openai',
@@ -417,7 +417,7 @@ describe('SiteFormSheet template changes', () => {
       }
       fireEvent.click(screen.getByRole('button', { name: 'Create' }))
       await waitFor(() => expect(mockCreateMutate).toHaveBeenCalledTimes(1))
-      expect(mockCreateMutate.mock.calls[0]?.[0]).not.toHaveProperty(
+      expect(mockCreateMutate.mock.calls[0]?.[0]?.payload).not.toHaveProperty(
         'initializationPresetId'
       )
     }
@@ -550,7 +550,7 @@ describe('SiteFormSheet create payload', () => {
     // The payload must carry the entered fields plus the default
     // `customHeadersOverrideRequestHeaders: false` (gap-1 round-trip
     // contract: create sends the schema's boolean, never undefined).
-    const payload = mockCreateMutate.mock.calls[0]?.[0]
+    const payload = mockCreateMutate.mock.calls[0]?.[0]?.payload
     expect(payload).toMatchObject({
       name: 'My Site',
       url: 'https://example.com',
@@ -636,7 +636,7 @@ describe('SiteFormSheet platform picker', () => {
       expect(mockCreateMutate).toHaveBeenCalledTimes(1)
     })
 
-    expect(mockCreateMutate.mock.calls[0]?.[0]).toMatchObject({
+    expect(mockCreateMutate.mock.calls[0]?.[0]?.payload).toMatchObject({
       platform: 'claude',
     })
   })
@@ -672,7 +672,7 @@ describe('SiteFormSheet platform picker', () => {
       expect(mockCreateMutate).toHaveBeenCalledTimes(1)
     })
 
-    expect(mockCreateMutate.mock.calls[0]?.[0]).toMatchObject({
+    expect(mockCreateMutate.mock.calls[0]?.[0]?.payload).toMatchObject({
       platform: 'my-unknown-platform',
     })
   })
@@ -724,7 +724,7 @@ describe('SiteFormSheet post-refresh probe latency threshold (gap-11)', () => {
       expect(mockCreateMutate).toHaveBeenCalledTimes(1)
     })
 
-    const payload = mockCreateMutate.mock.calls[0]?.[0]
+    const payload = mockCreateMutate.mock.calls[0]?.[0]?.payload
     expect(payload).toMatchObject({
       name: 'Probe site',
       url: 'https://probe.example',

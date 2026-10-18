@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/handler/admin/payloads"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
@@ -25,6 +26,35 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 	if err := decodeJSONRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid account payload: " + err.Error()})
 		return
+	}
+
+	// A per-account proxy redirects the stored upstream credential: validate it
+	// and require the master token when the request sets a non-empty value.
+	// Clearing the field stays possible from a session because it cannot
+	// redirect traffic.
+	if body.ProxyURL != nil {
+		normalizedProxyURL, valid := normalizeProxyURLInput(body.ProxyURL)
+		if !valid {
+			writeErrorWithRequest(w, r, http.StatusBadRequest, invalidProxyURLMessage)
+			return
+		}
+		if requireProxyURLReauth(w, r, normalizedProxyURL) {
+			return
+		}
+		body.ProxyURL = &normalizedProxyURL
+	}
+	// extraConfig is merged verbatim below, so the same field can arrive
+	// nested; it must pass the same validation and reauth gate.
+	if patch, nestedProxyURL, found := extraConfigProxyURL(body.ExtraConfig); found {
+		if err := service.ValidateProxyURL(nestedProxyURL); err != nil {
+			writeErrorWithRequest(w, r, http.StatusBadRequest, invalidProxyURLMessage)
+			return
+		}
+		if !auth.ReauthConfirmed(r) {
+			auth.WriteReauthRequired(w)
+			return
+		}
+		patch["proxyUrl"] = nestedProxyURL
 	}
 
 	// Wrap the read-merge-write in a transaction so concurrent patches of
@@ -157,18 +187,15 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 		updates["sortOrder"] = int64(*so)
 	}
 	if body.ProxyURL != nil {
-		normalizedProxyURL := strings.TrimSpace(*body.ProxyURL)
-		if normalizedProxyURL != "" && !service.IsValidProxyURL(normalizedProxyURL) {
-			writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid proxyUrl. Expected a valid http(s)/socks proxy URL.")
-			return
-		}
-		// An explicitly cleared proxyUrl must persist as a deletion (issue
-		// #1009 residual). MergeExtraConfig deletes keys whose patch value is
-		// an untyped nil, so build the patch with a nil interface rather than
-		// a typed (*string)(nil), which would marshal to "proxyUrl": null.
+		// Validation and the reauth gate ran before the transaction; here the
+		// field only needs the #1009 deletion semantics: an explicitly cleared
+		// proxyUrl must persist as a deletion (issue #1009 residual).
+		// MergeExtraConfig deletes keys whose patch value is an untyped nil, so
+		// build the patch with a nil interface rather than a typed
+		// (*string)(nil), which would marshal to "proxyUrl": null.
 		var proxyPatch any
-		if normalizedProxyURL != "" {
-			proxyPatch = normalizedProxyURL
+		if *body.ProxyURL != "" {
+			proxyPatch = *body.ProxyURL
 		}
 		mergeExtraConfigUpdate(map[string]any{"proxyUrl": proxyPatch})
 	}
