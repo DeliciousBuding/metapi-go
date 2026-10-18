@@ -22,9 +22,13 @@ import (
 
 // RejectUnsafeWebdavDialHost validates a host immediately before a network
 // dial. It applies hostname-level allow/deny rules and then resolves the host
-// to verify that none of the resolved IPs fall in an unsafe range, preventing
-// the TOCTOU race where a hostname resolves to a safe IP at validation time
-// but a private IP by dial time (and vice versa).
+// to verify that none of the resolved IPs fall in an unsafe range.
+//
+// Deprecated for new dial paths: resolving here and then dialing the hostname
+// re-resolves, which leaves a DNS-rebinding TOCTOU window (audit L24). Prefer
+// NewPublicOnlyDialContext / NewSiteDialContext, which pin the validated IP.
+// The WebDAV transports keep this helper only for pre-dial error messaging in
+// tests and older call sites.
 //
 // allowPrivate=true disables the guard entirely (operator escape hatch /
 // test isolation for httptest servers on 127.0.0.1).
@@ -103,9 +107,9 @@ func IsUnsafeAddr(addr netip.Addr) bool {
 //   - Unspecified: 0.0.0.0/8, ::
 //
 // Hostnames that are not literal IPs return false: DNS resolution for
-// hostnames is deferred to the dial-time guard (RejectUnsafeWebdavDialHost)
-// to avoid TOCTOU races (a hostname that resolves to a safe IP at validation
-// time could resolve to a private IP by dial time, and vice versa).
+// hostnames is deferred to the pinned dial-time guards
+// (NewPublicOnlyDialContext / NewSiteDialContext), so a hostname that resolves
+// to a safe IP at validation time cannot resolve to a private IP at dial time.
 func IsPrivateOrLoopbackLiteral(host string) bool {
 	addr, err := netip.ParseAddr(strings.Trim(host, "[]"))
 	if err != nil {
