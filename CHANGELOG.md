@@ -23,6 +23,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 修复
 
+- 备份导入：AxonHub 预览优先展示将写入的配置与迁移差异，来源记录数改为展开查看，避免与实际导入数量混淆（#1396）。
 - 模型数据源：手机端按条目显示完整 URL、同步状态和文字操作按钮，无需横向滚动即可编辑、启用和删除；保留拖动与键盘排序。
 - 模型数据源：`PRICING_CATALOG_ENABLED=false` 时仍可管理数据源，`GET /api/models/catalog-sync` 从 409 改为 200 并返回 `enabled: false`；读取失败可重试（#1483）。
 - 备份导入：AxonHub 预览用中文或英文解释未迁移项、密钥阻断和选路差异，保留来源渠道与模型标识（#1396）。

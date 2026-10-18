@@ -1942,6 +1942,7 @@
           "octopusPreviewSection": "{{section}}: {{count}} record(s)",
           "octopusNotImportedTitle": "Not migrated (will remain only in the source file):",
           "axonhubRoutableTitle": "Configuration that will be written:",
+          "sourceRecordCounts": "Source record counts",
           "axonhubSkippedTitle": "Channels that cannot be imported:",
           "axonhubResidualsTitle": "Unmigrated capabilities and configuration differences:",
           "axonhubResidualChannel": "Source channel #{{id}}: {{message}}",
