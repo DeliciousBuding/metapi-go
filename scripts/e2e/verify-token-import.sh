@@ -119,7 +119,7 @@ request() {
   : > "$RESP_BODY" || return 1
   local args=(-q --noproxy "*" -sS -m 120 -X "$method" "$url" -o "$RESP_BODY" -w "%{http_code}" -H "Content-Type: application/json")
   if [ -n "$token" ]; then
-    args+=(-H "Authorization: Bearer $token")
+    args+=(-H "Authorization: Bearer $token" -H "X-Admin-Confirm-Token: $token")
   fi
   if [ -n "$body" ]; then
     args+=(-d "$body")

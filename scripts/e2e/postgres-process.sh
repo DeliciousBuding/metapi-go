@@ -86,7 +86,7 @@ psql_schema -Atqc "SELECT data_type FROM information_schema.columns WHERE table_
   python3 -c 'import sys; assert sys.stdin.read().strip()=="boolean", "additive PostgreSQL boolean column has the wrong type"'
 psql_schema -Atqc "SELECT COUNT(*) FROM schema_migrations WHERE version IN ('sc2_002_site_max_concurrency', 'sc2_008_site_custom_headers_override_request_headers')" |
   python3 -c 'import sys; assert sys.stdin.read().strip()=="2", "legacy PostgreSQL additive migrations were not recorded"'
-auth=(-H 'Authorization: Bearer pg-process-admin-token' -H 'Content-Type: application/json')
+auth=(-H 'Authorization: Bearer pg-process-admin-token' -H 'X-Admin-Confirm-Token: pg-process-admin-token' -H 'Content-Type: application/json')
 curl -fsS -X POST "$base/api/sites" "${auth[@]}" \
   -d "{\"name\":\"pg-process-e2e\",\"url\":\"http://127.0.0.1:$mock_port\",\"platform\":\"openai\"}" \
   >"$tmp/site.json"
