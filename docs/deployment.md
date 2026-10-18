@@ -234,17 +234,18 @@ same host.
 | `X.Y` | stable tag | Moving alias to the newest patch in that minor. |
 | `latest` | stable tag | Newest stable release; updated only by stable tags. |
 | `edge` | `master` push | Tip of master. Development only. |
-| `sha-<short>` | `master` push | Immutable per-commit build. |
+| `sha-<short>` | `master` push | Per-commit build. Re-running the same commit produces a new digest. |
 
 The published image is a multi-architecture manifest for `linux/amd64` and
-`linux/arm64`; Docker selects the matching architecture. Each build also
-publishes architecture-specific tags such as `0.25.0-amd64` and
-`0.25.0-arm64`; prefer the multi-architecture tag unless you need to pin one
-architecture.
+`linux/arm64`; Docker selects the matching architecture. Architecture-specific
+intermediate images are addressed by digest during publication and are not
+published as user-facing tags.
 
 `vX.Y.Z` and `X.Y.Z` are immutable once published: rerunning a failed release
 must bump the patch version rather than replace bytes a deployment may have
-pinned. `X.Y` and `latest` remain moving aliases by design.
+pinned. If the manifest is published but the anonymous pull or signature check
+fails, the release is blocked and the next attempt also needs a new patch
+version. `X.Y` and `latest` remain moving aliases by design.
 
 ### Verify the image signature
 

@@ -1144,7 +1144,6 @@ jobs:
       tags: ${{ steps.tags.outputs.tags }}
       version: ${{ steps.tags.outputs.version }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Resolve tags and refuse to overwrite a released version
         id: tags
         shell: bash
@@ -1172,7 +1171,7 @@ jobs:
               code="$(curl -sS --retry 3 --retry-delay 2 --retry-all-errors \
                 -o /dev/null -w '%{http_code}' \
                 -H "Authorization: Bearer ${token}" \
-                -H 'Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json' \
+                -H 'Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json' \
                 "https://ghcr.io/v2/${registry_path}/manifests/${existing}")"
               case "$code" in
                 404) ;;
@@ -1221,7 +1220,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      attestations: write
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1234,22 +1232,6 @@ jobs:
       - name: Resolve build provenance
         id: provenance
         run: echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-      - name: Compose per-architecture tags
-        id: tags
-        shell: bash
-        env:
-          BASE_TAGS: ${{ needs.docker-prepare.outputs.tags }}
-          ARCH: ${{ matrix.arch }}
-        run: |
-          set -euo pipefail
-          {
-            echo "tags<<EOF"
-            while IFS= read -r tag; do
-              [[ -n "$tag" ]] || continue
-              printf '%s:%s-%s\n' "$IMAGE_NAME" "$tag" "$ARCH"
-            done <<< "$BASE_TAGS"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
       - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         id: meta
         with:
@@ -1261,7 +1243,6 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.tags.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ needs.docker-prepare.outputs.version }}
@@ -1282,12 +1263,20 @@ jobs:
           ARCH: ${{ matrix.arch }}
           PLATFORM: ${{ matrix.platform }}
         run: |
+          set -euo pipefail
+          printf '%s' "${{ steps.build.outputs.digest }}" > "${RUNNER_TEMP}/${ARCH}.txt"
           {
             echo "### ${IMAGE_NAME} ${ARCH} (${PLATFORM})"
             echo '```text'
             echo "${IMAGE_NAME}@${{ steps.build.outputs.digest }}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload architecture digest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: image-digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/${{ matrix.arch }}.txt
+          if-no-files-found: error
 
   docker-manifest:
     if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
@@ -1307,6 +1296,12 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download architecture digests
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: image-digest-*
+          path: ${{ runner.temp }}/image-digests
+          merge-multiple: true
       - name: Create and verify multi-arch manifests
         id: manifest
         shell: bash
@@ -1314,12 +1309,22 @@ jobs:
           BASE_TAGS: ${{ needs.docker-prepare.outputs.tags }}
         run: |
           set -euo pipefail
+          amd64="$(cat "${RUNNER_TEMP}/image-digests/amd64.txt")"
+          arm64="$(cat "${RUNNER_TEMP}/image-digests/arm64.txt")"
+          for value in "$amd64" "$arm64"; do
+            if [[ ! "$value" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::architecture digest is missing or malformed: ${value}"
+              exit 1
+            fi
+          done
           digest=""
           while IFS= read -r tag; do
             [[ -n "$tag" ]] || continue
             ref="${IMAGE_NAME}:${tag}"
+            # Merge exactly the digests this run built; floating tag names could
+            # mix architectures when two releases publish concurrently.
             docker buildx imagetools create -t "$ref" \
-              "${IMAGE_NAME}:${tag}-amd64" "${IMAGE_NAME}:${tag}-arm64"
+              "${IMAGE_NAME}@${amd64}" "${IMAGE_NAME}@${arm64}"
             inspect="$(docker buildx imagetools inspect "$ref")"
             printf '%s\n' "$inspect"
             for platform in linux/amd64 linux/arm64; do
@@ -1328,6 +1333,10 @@ jobs:
                 exit 1
               fi
             done
+            if ! grep -Eq 'Platform:[[:space:]]+unknown/unknown' <<< "$inspect"; then
+              echo "::error::${ref} lost the build provenance attestation"
+              exit 1
+            fi
             tag_digest="$(printf '%s\n' "$inspect" | awk '/^Digest:/ {print $2; exit}')"
             if [[ -z "$tag_digest" ]]; then
               echo "::error::could not read the manifest digest for ${ref}"
@@ -1372,13 +1381,28 @@ jobs:
         env:
           BASE_TAGS: ${{ needs.docker-prepare.outputs.tags }}
           EXPECTED_VERSION: ${{ needs.docker-prepare.outputs.version }}
+          EXPECTED_DIGEST: ${{ needs.docker-manifest.outputs.digest }}
           ARCH: ${{ matrix.arch }}
         run: |
           set -euo pipefail
           docker logout ghcr.io >/dev/null 2>&1 || true
           first_tag="$(printf '%s\n' "$BASE_TAGS" | head -n 1)"
           ref="${IMAGE_NAME}:${first_tag}"
-          docker pull "$ref"
+          pulled=
+          for attempt in 1 2 3; do
+            if docker pull "$ref"; then pulled=1; break; fi
+            echo "pull attempt ${attempt} failed; retrying"
+            sleep 5
+          done
+          if [[ -z "$pulled" ]]; then
+            echo "::error::anonymous pull of ${ref} failed after 3 attempts"
+            exit 1
+          fi
+          resolved="$(docker buildx imagetools inspect "$ref" | awk '/^Digest:/ {print $2; exit}')"
+          if [[ "$resolved" != "$EXPECTED_DIGEST" ]]; then
+            echo "::error::${ref} resolved to ${resolved}, expected ${EXPECTED_DIGEST}"
+            exit 1
+          fi
           actual_arch="$(docker image inspect "$ref" --format '{{.Architecture}}')"
           if [[ "$actual_arch" != "$ARCH" ]]; then
             echo "::error::${ref} pulled ${actual_arch} on the ${ARCH} runner"
@@ -1414,7 +1438,9 @@ jobs:
           printf '%s' "$about" | jq -e --arg v "$EXPECTED_VERSION" '.version == $v' >/dev/null
           echo "verified ${ref} on ${ARCH} (version ${EXPECTED_VERSION})"
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        if: matrix.arch == 'amd64'
       - name: Verify the published signature
+        if: matrix.arch == 'amd64'
         shell: bash
         env:
           BASE_TAGS: ${{ needs.docker-prepare.outputs.tags }}

@@ -143,6 +143,24 @@ func TestReleaseGateWiring(t *testing.T) {
 	if !strings.Contains(workflow, "cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}") {
 		t.Error("tag publications must not be cancelled by a concurrent run")
 	}
+	// An index-only Accept returns 404 for a tag that exists as a single image
+	// manifest, which would let the immutable check overwrite it.
+	if !strings.Contains(jobs["docker-prepare"], "application/vnd.oci.image.manifest.v1+json") {
+		t.Error("the immutable tag check must accept single OCI image manifests")
+	}
+	for _, want := range []string{"image-digest-", "${RUNNER_TEMP}/${ARCH}.txt"} {
+		if !strings.Contains(jobs["docker-push"], want) {
+			t.Errorf("docker-push is missing %q; architecture digests must be handed to the manifest job", want)
+		}
+	}
+	for _, want := range []string{"pattern: image-digest-*", "${IMAGE_NAME}@${amd64}", "${IMAGE_NAME}@${arm64}", "unknown/unknown"} {
+		if !strings.Contains(jobs["docker-manifest"], want) {
+			t.Errorf("docker-manifest is missing %q; it must merge this run's digests and keep attestations", want)
+		}
+	}
+	if !strings.Contains(jobs["image-verify"], "EXPECTED_DIGEST") || !strings.Contains(jobs["image-verify"], "resolved") {
+		t.Error("image-verify must compare the pulled tag against the manifest digest")
+	}
 	dockerfile, err := os.ReadFile(filepath.Join("..", "Dockerfile"))
 	if err != nil {
 		t.Fatal(err)

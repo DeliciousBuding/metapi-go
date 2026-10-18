@@ -87,8 +87,8 @@ master (唯一长期分支，受保护，持续集成)
 
 - **master 构建**：成功的镜像发布链更新 `edge` 与 `sha-<short>` 标签，构建版本为 `dev`。这不是稳定发布批准。
 - **tag 构建**：amd64 与 arm64 分别原生构建，再合并为 `vX.Y.Z`、`X.Y.Z`（精确版本）、`X.Y`（补丁别名）与 `latest` 的多架构 manifest；`latest` 只由稳定 tag 更新，`edge` 不参与。
-- **版本不可变**：已发布的 `vX.Y.Z` / `X.Y.Z` 不允许覆盖；发布失败后重跑必须使用新的补丁版本。`X.Y` 与 `latest` 是移动别名。
-- **发布前验证**：manifest 合并后，两个原生 runner 各自匿名拉取并启动镜像，检查 `/ready`、`/api/about` 版本和 cosign 签名；任一步失败都不会创建 Release 草稿。
+- **版本不可变**：已发布的 `vX.Y.Z` / `X.Y.Z` 不允许覆盖；发布失败后重跑必须使用新的补丁版本。`X.Y` 与 `latest` 是移动别名。manifest 已发布但回拉或验签失败时，下一次尝试同样需要新补丁版本。
+- **发布前验证**：manifest 合并后，两个原生 runner 各自匿名拉取并启动镜像，校验 tag 解析到的 manifest digest、`/ready`、`/api/about` 版本和 cosign 签名；任一步失败都不会创建 Release 草稿。
 - **Release 草稿**：镜像在创建草稿之前已发布并验证；草稿不会隔离或回滚镜像。已有同 tag Release 的重跑只覆盖附件、更新说明，不改变其 draft/published 状态；已发布 Release 不会因重跑重新进入审阅。
 - **稳定安装**：选维护者已公开发布的非预发布 Release，并固定对应完整版本镜像标签或 digest；开发验证选具体 commit 构建并记录摘要。不要用 `latest` 或仓库 HEAD 代替验收身份。
 
