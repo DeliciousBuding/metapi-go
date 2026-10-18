@@ -257,9 +257,7 @@ function TokenRow({
     })
   }
 
-  function requestValue(
-    options: { onReady?: (value: string) => void } = {}
-  ) {
+  function requestValue(options: { onReady?: (value: string) => void } = {}) {
     requestReauth({
       description: t('reauth.operations.accountTokenReveal'),
       replay: async (confirmToken) => {
