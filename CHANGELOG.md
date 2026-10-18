@@ -36,6 +36,9 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - 出站：Telegram、SMTP、目录源与 WebDAV 默认拒绝环回/私网/metadata；SMTP 仅允许 25/465/587，自建内网目录源用 `PRICING_CATALOG_ALLOW_PRIVATE=true`（#1504）。
 - 匿名端点：`/api/auth/login|logout|session` 请求体上限 4–8 KiB；`adminIpAllowlist` 同时约束登录端点（#1504）。
 - 媒体：上游响应中的 image/video URL 二次抓取默认仅允许公网目标（#1506）。
+- 下游密钥：`?key=` 仅接受于 `GET /v1/models`、`/v1beta/models` 与 `/gemini/{version}/models`；其他路径要求请求头，浏览器 WebSocket 改用 `openai-insecure-api-key.<key>` 子协议（#1515）。
+- 配额：`accessPolicy.quota` 的请求数/Token 改为准入事务内预留、完成时结算，新增 `downstream_quota_reservations` 表；成本配额仍在完成后结算（#1513）。
+- 数据目录：SQLite 数据目录权限为 `0700`、数据库文件为 `0600`；`/ready` 的数据库探测最多每秒一次（#1515）。
 
 ### 修复
 
@@ -60,10 +63,12 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - 模型测试场：改为对话画布与底部输入框，渠道和参数移入设置；`POST /api/test/chat` 保留多轮上下文和协议参数，默认最多生成 1024 token，请求超时 60 秒（#1490）。
 - 路由：点击列表行即可展开渠道、权重、状态与价格来源，可同时查看多条路由；缺失费率保持未知（#1493）。
 - OAuth 路由诊断：展开查看各成员的阻断原因和冷却时间，通过 `POST /api/oauth/route-units/{routeUnitId}/members/{memberId}/cooldown/clear` 单独清除成员冷却，保留累计统计（#1396）。
+- 模型列表：受限下游 Key 的 `GET /v1/models` 可见结果按策略缓存 15 秒，策略或目录变化立即失效（#1514）。
 
 ### 开发者可见
 
 - 发布：GHCR 镜像改为 amd64/arm64 原生并行构建并合并 manifest；发布前匿名回拉冒烟并校验 cosign 签名，已发布版本 tag 不可覆盖。
+- 安全模型：新增 `docs/security-model.md`，记录信任边界、各边界控制点与已知设计限制。
 
 ## [v0.25.0] — 2026-10-17
 
