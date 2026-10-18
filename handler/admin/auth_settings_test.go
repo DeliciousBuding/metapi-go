@@ -257,3 +257,61 @@ func TestConstantTimeTokenEqual(t *testing.T) {
 		t.Fatal("expected length mismatch to fail")
 	}
 }
+
+// Rotation without a caller-supplied secret must generate a 32-byte token,
+// publish it, persist it, and return it exactly once.
+func TestAuthSettingsChange_GeneratesStrongTokenWhenOmitted(t *testing.T) {
+	db, r := setupAuthSettingsTest(t)
+
+	resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
+		"oldToken": "admin-auth-settings-token",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s, want 200", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	generated, _ := body["newToken"].(string)
+	if len(generated) != 64 {
+		t.Fatalf("generated token length = %d, want 64 hex characters", len(generated))
+	}
+	for _, ch := range generated {
+		if !strings.ContainsRune("0123456789abcdef", ch) {
+			t.Fatalf("generated token contains non-hex rune %q", ch)
+		}
+	}
+	if config.Runtime().AuthToken != generated {
+		t.Fatal("runtime token was not updated to the generated value")
+	}
+	var stored string
+	if err := db.Get(&stored, "SELECT value FROM settings WHERE key = 'auth_token'"); err != nil {
+		t.Fatalf("read persisted token: %v", err)
+	}
+	if stored != `"`+generated+`"` {
+		t.Fatalf("persisted token = %q, want the JSON-encoded generated value", stored)
+	}
+
+	// The previous master token no longer verifies.
+	resp = doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
+		"oldToken": "admin-auth-settings-token",
+	})
+	if resp.Code != http.StatusForbidden {
+		t.Fatalf("old token replay = %d, want 403", resp.Code)
+	}
+}
+
+// An explicit replacement secret is still accepted for automation, but only
+// above the strength floor the startup check enforces.
+func TestAuthSettingsChange_RejectsShortCustomToken(t *testing.T) {
+	_, r := setupAuthSettingsTest(t)
+
+	resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
+		"oldToken": "admin-auth-settings-token",
+		"newToken": "fifteen-bytes!!",
+	})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s, want 400", resp.Code, resp.Body.String())
+	}
+}

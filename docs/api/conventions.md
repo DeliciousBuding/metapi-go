@@ -35,9 +35,32 @@ live session. Without it they answer `403 {"error":"...","reauthRequired":true}`
 and the UI prompts for the token:
 
 - `GET /api/settings/backup/export`
-- `POST /api/settings/backup/webdav/export`
-- `GET /api/downstream-keys/:id/export`
+- `GET /api/settings/backup/webdav/export`
+- `POST /api/settings/backup/import`
+- `POST /api/settings/backup/webdav/import`
+- `PUT /api/settings/backup/webdav`
+- `POST /api/settings/database/migrate`
+- `POST /api/settings/database/test-connection`
+- `POST /api/settings/system-proxy/test`
+- `POST /api/settings/maintenance/factory-reset`
+- `POST /api/settings/maintenance/clear-usage`
 - `POST /api/settings/auth/change`
+
+Master-token rotation omits `newToken` in the UI: the server generates a
+32-byte random token, returns it once in the response (`newToken`), persists
+it, and updates `DATA_DIR/admin-token` (0600). Automation may still supply an
+explicit `newToken` of at least 16 characters.
+- `GET /api/downstream-keys/:id/export`
+- `POST /api/downstream-keys`
+- `POST /api/downstream-keys/batch`
+- `GET /api/account-tokens/:id/value`
+
+Field-level confirmation applies to credential-bearing edits that are part of
+otherwise ordinary updates: rotating a downstream key's `key`, setting a
+downstream key/site/account `proxyUrl`, and changing egress or notification
+destinations in `PUT /api/settings/runtime` (`systemProxyUrl`,
+`telegramApiBaseUrl`/`telegramBotToken`/`telegramChatId`, `adminIpAllowlist`,
+SMTP fields, webhook URLs).
 - `PUT /api/settings/runtime` when the body touches egress/notification
   destinations or the admin IP allowlist
 - Site, account, downstream-key and OAuth-connection writes that set a

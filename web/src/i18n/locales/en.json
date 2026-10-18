@@ -1413,22 +1413,23 @@
           "changeToken": "Change token",
           "cancelChange": "Cancel",
           "submitToken": "Rotate token",
+          "generatedTitle": "New admin token (shown once)",
+          "generatedHint": "Copy it into your password manager now. Continuing signs you out and the token cannot be shown again.",
+          "generatedCopy": "Copy",
+          "generatedCopied": "Copied",
+          "generatedSaved": "I saved it, sign in again",
           "detectedIp": "Detected admin IP:",
           "fields": {
             "oldToken": "Current token",
-            "newToken": "New token",
-            "newTokenHint": "At least 6 characters.",
-            "confirmToken": "Confirm new token",
+            "generateHint": "The server generates a strong random token and shows it exactly once.",
             "adminIpAllowlist": "Admin IP allowlist",
             "adminIpAllowlistHint": "One IP or CIDR per line (e.g. 127.0.0.1, 192.168.1.0/24). Empty = no restriction."
           },
           "schema": {
-            "oldRequired": "Current token is required.",
-            "newMinLength": "New token must be at least 6 characters.",
-            "confirmRequired": "Please confirm the new token.",
-            "confirmMismatch": "New token and confirmation do not match."
+            "oldRequired": "Current token is required."
           },
           "toast": {
+            "tokenGenerated": "A new admin token was generated.",
             "tokenChanged": "Admin token rotated. Re-authenticate with the new token.",
             "tokenChangeFailed": "Failed to rotate admin token.",
             "allowlistSaved": "IP allowlist saved.",

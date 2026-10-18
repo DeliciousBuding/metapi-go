@@ -36,14 +36,18 @@ export const settingsApi = {
   getAuthInfo: () => request('/api/settings/auth/info'),
   // #1034: rotation is a sensitive op — the current master token is
   // re-presented in X-Admin-Confirm-Token (the form already collects it as
-  // "old token", so no extra prompt is needed).
-  changeAuthToken: (oldToken: string, newToken: string) =>
-    request('/api/settings/auth/change', {
-      method: 'POST',
-      body: JSON.stringify({ oldToken, newToken }),
-      headers: { 'X-Admin-Confirm-Token': oldToken },
-      skipErrorHandler: true,
-    }),
+  // "old token", so no extra prompt is needed). Omitting newToken asks the
+  // server to generate a strong random one; it is returned exactly once.
+  changeAuthToken: (oldToken: string, newToken?: string) =>
+    request<{ success: boolean; message?: string; newToken?: string }>(
+      '/api/settings/auth/change',
+      {
+        method: 'POST',
+        body: JSON.stringify(newToken ? { oldToken, newToken } : { oldToken }),
+        headers: { 'X-Admin-Confirm-Token': oldToken },
+        skipErrorHandler: true,
+      }
+    ),
   getRuntimeSettings: () => request('/api/settings/runtime'),
   getBrandList: () => request('/api/settings/brand-list'),
   updateRuntimeSettings: (

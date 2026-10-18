@@ -7,10 +7,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/admintoken"
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/internal/version"
 	"github.com/deliciousbuding/metapi-go/router"
@@ -63,7 +66,24 @@ func main() {
 		Level: config.SlogLevel(cfg.LogLevel),
 	})))
 
-	// ---- 1a. Validate config at startup ----
+	// ---- 1a. Generate the admin token when the operator did not supply one ----
+	// Tokens are never operator-chosen by default: an unset or shipped-default
+	// AUTH_TOKEN is replaced by a cryptographically random value, persisted at
+	// bootstrap and handed over once through DATA_DIR/admin-token (0600). An
+	// explicit strong AUTH_TOKEN still wins, and an explicit weak one fails
+	// validation below instead of being silently replaced.
+	generatedAuthToken := ""
+	if strings.TrimSpace(env["AUTH_TOKEN"]) == "" || rt.AuthToken == config.DefaultAuthToken {
+		token, err := admintoken.Generate()
+		if err != nil {
+			slog.Error("admin token generation failed", "error", err)
+			os.Exit(1)
+		}
+		rt.AuthToken = token
+		generatedAuthToken = token
+	}
+
+	// ---- 1b. Validate config at startup ----
 	errs := append(cfg.Validate(), rt.Validate()...)
 	hasCritical := false
 	for _, err := range errs {
@@ -81,7 +101,7 @@ func main() {
 	// Normalize DataDir (E11: trailing slash / Windows backslash)
 	cfg.DataDir = filepath.Clean(cfg.DataDir)
 
-	if err := bootstrapRuntime(cfg, rt, env["AUTH_TOKEN"]); err != nil {
+	if err := bootstrapRuntime(cfg, rt, env["AUTH_TOKEN"], generatedAuthToken); err != nil {
 		slog.Error("startup bootstrap failed", "error", err)
 		os.Exit(1)
 	}
@@ -136,7 +156,7 @@ func main() {
 	}
 }
 
-func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings, envAuthToken string) (err error) {
+func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings, envAuthToken, generatedAuthToken string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("startup bootstrap panicked: %v", r)
@@ -158,6 +178,27 @@ func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings, envAuthTok
 	if err := validateHydratedAuthToken(rt, envAuthToken); err != nil {
 		return err
 	}
+	// Persist a freshly generated token only when the settings table did not
+	// already carry one (hydration would have replaced rt.AuthToken). Writing
+	// it here means the next boot authenticates with the same token without
+	// requiring the operator to edit the environment.
+	if generatedAuthToken != "" && rt.AuthToken == generatedAuthToken {
+		db := store.GetDB()
+		if db == nil {
+			return fmt.Errorf("persist generated admin token: database unavailable")
+		}
+		if err := store.NewSettingsStore(db).Set("auth_token", strconv.Quote(generatedAuthToken)); err != nil {
+			return fmt.Errorf("persist generated admin token: %w", err)
+		}
+		path, writeErr := admintoken.WriteFile(cfg.DataDir, generatedAuthToken)
+		if writeErr != nil {
+			slog.Warn("generated admin token could not be written to disk", "error", writeErr)
+		} else {
+			slog.Warn("AUTH_TOKEN is not set; generated a random admin token",
+				"path", path,
+				"hint", "read it once, store it in your secret manager, and remove the file")
+		}
+	}
 
 	slog.Info("bootstrap complete")
 	return nil
@@ -170,8 +211,24 @@ func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings, envAuthTok
 // runtime snapshot validation again would let unrelated persisted warnings
 // block boot. Error and warning text never include a token value.
 func validateHydratedAuthToken(rt *config.RuntimeSettings, envAuthToken string) error {
+	if rt == nil {
+		return fmt.Errorf("refusing to start: runtime settings are unavailable")
+	}
 	if rt.AuthToken == config.DefaultAuthToken {
 		return fmt.Errorf("refusing to start: persisted auth_token resolves to the built-in default; rotate the admin token and restart")
+	}
+	// config.Validate only rejects the built-in default. Hydration can replace
+	// the env value with any persisted string, so a tampered or migrated
+	// database could still install a trivially brute-forceable token. Reject
+	// the same weak class here regardless of which source produced it.
+	if strings.TrimSpace(rt.AuthToken) == "" {
+		return fmt.Errorf("refusing to start: admin auth_token is empty")
+	}
+	if len(rt.AuthToken) < 8 {
+		return fmt.Errorf("refusing to start: admin auth_token is shorter than 8 bytes; use a 32+ byte random token")
+	}
+	if len(rt.AuthToken) < 16 {
+		slog.Warn("security: admin auth_token is shorter than 16 bytes; use a 32+ byte random token")
 	}
 	if envAuthToken != "" && envAuthToken != rt.AuthToken {
 		slog.Warn("settings: persisted auth_token overrides AUTH_TOKEN from the environment; serving with the database value")

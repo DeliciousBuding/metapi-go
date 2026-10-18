@@ -46,7 +46,8 @@ func sensitiveAdminOperation(method, routePattern string) bool {
 	case "/api/settings/backup/webdav":
 		return method == http.MethodPut
 	case "/api/settings/database/migrate",
-		"/api/settings/database/test-connection":
+		"/api/settings/database/test-connection",
+		"/api/settings/system-proxy/test":
 		return method == http.MethodPost
 
 	// Destructive maintenance and master-token rotation.
@@ -102,6 +103,7 @@ func sensitiveAdminPath(method, urlPath string) bool {
 			match("api", "settings", "backup", "webdav", "import") ||
 			match("api", "settings", "database", "migrate") ||
 			match("api", "settings", "database", "test-connection") ||
+			match("api", "settings", "system-proxy", "test") ||
 			match("api", "settings", "maintenance", "factory-reset") ||
 			match("api", "settings", "maintenance", "clear-usage") ||
 			match("api", "settings", "auth", "change") ||

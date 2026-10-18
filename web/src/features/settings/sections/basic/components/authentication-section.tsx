@@ -47,22 +47,11 @@ import {
 const ALLOWLIST_FORM_ID = 'settings-basic-auth-allowlist-form'
 const TOKEN_FORM_ID = 'settings-basic-auth-token-form'
 
-const tokenSchema = z
-  .object({
-    oldToken: z
-      .string()
-      .min(1, 'settings.basic.authentication.schema.oldRequired'),
-    newToken: z
-      .string()
-      .min(6, 'settings.basic.authentication.schema.newMinLength'),
-    confirmToken: z
-      .string()
-      .min(1, 'settings.basic.authentication.schema.confirmRequired'),
-  })
-  .refine((values) => values.newToken === values.confirmToken, {
-    path: ['confirmToken'],
-    message: 'settings.basic.authentication.schema.confirmMismatch',
-  })
+const tokenSchema = z.object({
+  oldToken: z
+    .string()
+    .min(1, 'settings.basic.authentication.schema.oldRequired'),
+})
 
 type TokenFormValues = z.infer<typeof tokenSchema>
 
@@ -107,25 +96,39 @@ export function AuthenticationSection() {
     staleTime: 30 * 1000,
   })
 
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null)
+
   const tokenMutation = useMutation({
     mutationFn: async (values: TokenFormValues) =>
-      api.changeAuthToken(values.oldToken, values.newToken),
-    onSuccess: () => {
-      toast.success(t('settings.basic.authentication.toast.tokenChanged'))
-      // The old token stops working immediately, so the current session is
-      // dead the moment rotation succeeds. Clear it and send the operator to
-      // sign in with the new token — staying on this page would just loop
-      // on invalid-token 403s.
-      clearAuthentication()
-      window.location.replace('/sign-in?reason=tokenChanged')
+      api.changeAuthToken(values.oldToken),
+    onSuccess: (result) => {
+      const newToken = result?.newToken
+      if (newToken) {
+        // The server chose the secret. Show it exactly once and only then
+        // invalidate the local session; redirecting immediately would hide
+        // the only copy of the new token.
+        setGeneratedToken(newToken)
+        toast.success(t('settings.basic.authentication.toast.tokenGenerated'))
+        return
+      }
+      finishRotation()
     },
     onError: () =>
       toast.error(t('settings.basic.authentication.toast.tokenChangeFailed')),
   })
 
+  function finishRotation() {
+    // The old token stops working immediately, so the current session is
+    // dead the moment rotation succeeds. Clear it and send the operator to
+    // sign in with the new token — staying on this page would just loop
+    // on invalid-token 403s.
+    clearAuthentication()
+    window.location.replace('/sign-in?reason=tokenChanged')
+  }
+
   const tokenForm = useForm<TokenFormValues>({
     resolver: zodResolver(tokenSchema) as never,
-    defaultValues: { oldToken: '', newToken: '', confirmToken: '' },
+    defaultValues: { oldToken: '' },
   })
 
   const serverValues = deriveAllowlistServerValues(data)
@@ -208,18 +211,20 @@ export function AuthenticationSection() {
                     : t('settings.basic.authentication.notSet')
                 : t('settings.basic.authentication.notSet')}
             </code>
-            <Button
-              type='button'
-              variant='outline'
-              size='sm'
-              onClick={() => setShowTokenFields((prev) => !prev)}
-            >
-              {showTokenFields
-                ? t('settings.basic.authentication.cancelChange')
-                : t('settings.basic.authentication.changeToken')}
-            </Button>
+            {generatedToken ? null : (
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={() => setShowTokenFields((prev) => !prev)}
+              >
+                {showTokenFields
+                  ? t('settings.basic.authentication.cancelChange')
+                  : t('settings.basic.authentication.changeToken')}
+              </Button>
+            )}
           </div>
-          {showTokenFields ? (
+          {showTokenFields && !generatedToken ? (
             <Form {...tokenForm}>
               <form
                 id={TOKEN_FORM_ID}
@@ -241,47 +246,9 @@ export function AuthenticationSection() {
                           autoComplete='current-password'
                         />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={tokenForm.control}
-                  name='newToken'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {t('settings.basic.authentication.fields.newToken')}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type='password'
-                          autoComplete='new-password'
-                        />
-                      </FormControl>
                       <FormDescription>
-                        {t('settings.basic.authentication.fields.newTokenHint')}
+                        {t('settings.basic.authentication.fields.generateHint')}
                       </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={tokenForm.control}
-                  name='confirmToken'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {t('settings.basic.authentication.fields.confirmToken')}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type='password'
-                          autoComplete='new-password'
-                        />
-                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -297,6 +264,40 @@ export function AuthenticationSection() {
                 </Button>
               </form>
             </Form>
+          ) : null}
+          {generatedToken ? (
+            <div className='border-warning/40 bg-warning/10 space-y-2 rounded-md border p-3'>
+              <p className='text-sm font-medium'>
+                {t('settings.basic.authentication.generatedTitle')}
+              </p>
+              <code className='bg-background block rounded px-2 py-1 text-xs break-all'>
+                {generatedToken}
+              </code>
+              <p className='text-muted-foreground text-xs'>
+                {t('settings.basic.authentication.generatedHint')}
+              </p>
+              <div className='flex gap-2'>
+                <Button
+                  type='button'
+                  size='sm'
+                  variant='outline'
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(generatedToken)
+                      .then(() =>
+                        toast.success(
+                          t('settings.basic.authentication.generatedCopied')
+                        )
+                      )
+                  }}
+                >
+                  {t('settings.basic.authentication.generatedCopy')}
+                </Button>
+                <Button type='button' size='sm' onClick={finishRotation}>
+                  {t('settings.basic.authentication.generatedSaved')}
+                </Button>
+              </div>
+            </div>
           ) : null}
         </div>
 
