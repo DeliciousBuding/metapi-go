@@ -2691,7 +2691,8 @@
           "deleteFailed": "Failed to delete token",
           "defaultFailed": "Failed to set default token",
           "syncFailed": "Failed to sync tokens",
-          "statusFailed": "Failed to update token status"
+          "statusFailed": "Failed to update token status",
+          "revealFailed": "Failed to read the token value"
         },
         "schema": {
           "accountRequired": "Please select an account",
@@ -4264,7 +4265,19 @@
       "tokenPlaceholder": "Paste the admin token",
       "submit": "Confirm",
       "cancel": "Cancel",
-      "errorInvalid": "Token rejected. Check the value and try again."
+      "errorInvalid": "Token rejected. Check the value and try again.",
+      "operations": {
+        "backupImport": "Importing a backup writes configuration, accounts and credentials. Re-enter the admin token to confirm the import.",
+        "backupWebdavSave": "The WebDAV configuration decides where backups are pushed and may carry access credentials. Re-enter the admin token to save.",
+        "backupWebdavImport": "Importing from WebDAV replaces local data. Re-enter the admin token to confirm the import.",
+        "databaseTest": "The connection test contacts the target database with the supplied DSN. Re-enter the admin token to run it.",
+        "databaseMigrate": "The migration copies every table to the target database. Re-enter the admin token to start it.",
+        "factoryReset": "Factory reset erases all configuration and data. Re-enter the admin token to proceed.",
+        "clearUsage": "Clearing usage logs cannot be undone. Re-enter the admin token to proceed.",
+        "runtimeSettings": "These settings include egress destinations, notification endpoints or the admin access ACL. Re-enter the admin token to save.",
+        "downstreamKey": "A downstream key is a long-lived credential. Re-enter the admin token to create or rotate it.",
+        "accountTokenReveal": "Reading an upstream token in plaintext is a sensitive operation. Re-enter the admin token to unlock it."
+      }
     },
     "connect": {
       "verifyTab": "Test request",

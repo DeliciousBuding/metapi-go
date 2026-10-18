@@ -8,15 +8,20 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type MutateOptions,
   type UseQueryOptions,
 } from '@tanstack/react-query'
+import { useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
+import { useReauthReplay } from '@/components/common/reauth-provider'
 import {
   api,
   type RuntimeSettingsPayload,
   type ScheduleSpecV1,
   type SettingsMigrationApplyResponse,
 } from '@/lib/api'
+import { isReauthRequired } from '@/lib/http-client'
 
 /**
  * Strongly-typed read view of GET /api/settings/runtime. The backend returns
@@ -148,23 +153,99 @@ export function useRuntimeSettings(
   })
 }
 
+type RuntimeSettingsUpdatePayload = Partial<RuntimeSettingsPayload>
+type RuntimeSettingsUpdateVariables = {
+  payload: RuntimeSettingsUpdatePayload
+  confirmToken?: string
+}
+type RuntimeSettingsUpdateOptions = MutateOptions<
+  unknown,
+  Error,
+  RuntimeSettingsUpdatePayload,
+  unknown
+>
+
 /**
  * Partial update against PUT /api/settings/runtime. The backend accepts a
  * partial payload, so callers pass only the keys they own. On success the
  * shared runtime-settings cache is invalidated so every mounted section
  * refetches the new server state.
+ *
+ * Some fields (egress destinations, proxy URLs, admin IP allowlist, notify
+ * endpoints) make the backend demand master-token re-confirmation. The hook
+ * owns that prompt here, once, so sections keep their existing
+ * `mutate(payload, { onSuccess, onError })` call shape: a reauth rejection
+ * opens the shared dialog, replays the same payload with the token, and
+ * suppresses the section's generic "save failed" toast. Ordinary saves and
+ * non-reauth failures behave exactly as before.
  */
 export function useUpdateRuntimeSettings() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (payload: Partial<RuntimeSettingsPayload>) =>
-      api.updateRuntimeSettings(payload),
+  const handleReauth = useReauthReplay()
+  // Per-call callbacks of the last submit, reused when the request is
+  // replayed so the section still gets its success/failure feedback.
+  const callOptionsRef = useRef<RuntimeSettingsUpdateOptions | undefined>(
+    undefined
+  )
+
+  const mutation = useMutation<unknown, Error, RuntimeSettingsUpdateVariables>({
+    mutationFn: async ({ payload, confirmToken }) =>
+      confirmToken
+        ? api.updateRuntimeSettings(payload, confirmToken)
+        : api.updateRuntimeSettings(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: runtimeSettingsQueryKeys.all,
       })
     },
+    onError: (error, variables) => {
+      handleReauth(
+        error,
+        t('reauth.operations.runtimeSettings'),
+        (confirmToken) =>
+          mutation.mutateAsync(
+            { payload: variables.payload, confirmToken },
+            callOptionsRef.current as never
+          )
+      )
+    },
   })
+
+  /** Drop the section's generic failure toast for reauth demands. */
+  function wrapCallOptions(
+    options: RuntimeSettingsUpdateOptions | undefined
+  ): RuntimeSettingsUpdateOptions | undefined {
+    if (!options?.onError) return options
+    const onError = options.onError
+    return {
+      ...options,
+      onError: (error, payload, context, mutationInstance) => {
+        if (isReauthRequired(error)) return
+        onError(error, payload, context, mutationInstance)
+      },
+    }
+  }
+
+  function mutate(
+    payload: RuntimeSettingsUpdatePayload,
+    options?: RuntimeSettingsUpdateOptions
+  ) {
+    const wrapped = wrapCallOptions(options)
+    callOptionsRef.current = wrapped
+    mutation.mutate({ payload }, wrapped as never)
+  }
+
+  async function mutateAsync(
+    payload: RuntimeSettingsUpdatePayload,
+    options?: RuntimeSettingsUpdateOptions
+  ) {
+    const wrapped = wrapCallOptions(options)
+    callOptionsRef.current = wrapped
+    return mutation.mutateAsync({ payload }, wrapped as never)
+  }
+
+  return { ...mutation, mutate, mutateAsync }
 }
 
 /** Read the one-click schedule migration preview. */

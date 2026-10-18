@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { useReauthReplay } from '@/components/common/reauth-provider'
 import { SectionCard } from '@/components/common/section-card'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
@@ -17,6 +18,7 @@ import { toast } from '@/lib/toast'
 export function MaintenanceSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const handleReauth = useReauthReplay()
   const [confirmClearUsageOpen, setConfirmClearUsageOpen] = useState(false)
 
   const clearCacheMutation = useMutation({
@@ -30,7 +32,10 @@ export function MaintenanceSection() {
   })
 
   const clearUsageMutation = useMutation({
-    mutationFn: async () => api.clearUsageData(),
+    mutationFn: async (input: { confirmToken?: string }) =>
+      input.confirmToken
+        ? api.clearUsageData(input.confirmToken)
+        : api.clearUsageData(),
     onSuccess: () => {
       // Usage logs feed every dashboard-* widget (snapshot, cost distribution,
       // latency, income/outcome) — invalidate the whole key family so the
@@ -42,8 +47,16 @@ export function MaintenanceSection() {
       })
       toast.success(t('settings.operations.maintenance.toast.usageCleared'))
     },
-    onError: () =>
-      toast.error(t('settings.operations.maintenance.toast.usageClearFailed')),
+    onError: (error, input) => {
+      if (
+        handleReauth(error, t('reauth.operations.clearUsage'), (confirmToken) =>
+          clearUsageMutation.mutateAsync({ ...input, confirmToken })
+        )
+      ) {
+        return
+      }
+      toast.error(t('settings.operations.maintenance.toast.usageClearFailed'))
+    },
   })
 
   return (
@@ -108,7 +121,7 @@ export function MaintenanceSection() {
         destructive
         onConfirm={() => {
           setConfirmClearUsageOpen(false)
-          clearUsageMutation.mutate()
+          clearUsageMutation.mutate({})
         }}
         onCancel={() => setConfirmClearUsageOpen(false)}
       />

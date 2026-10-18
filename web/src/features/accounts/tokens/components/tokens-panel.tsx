@@ -6,7 +6,11 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
+  Check,
   CheckCircle2,
+  Copy,
+  Eye,
+  EyeOff,
   Pencil,
   Plus,
   RefreshCw,
@@ -19,6 +23,7 @@ import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { useReauth } from '@/components/common/reauth-provider'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -31,12 +36,17 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { SecretField } from '@/components/ui/secret-field'
 import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 import { assertBusinessOk } from '@/lib/assert-business-ok'
+import { copyText } from '@/lib/clipboard'
+import {
+  extractApiErrorBody,
+  isReauthRequired,
+  resolveResponseMessage,
+} from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 import { cn } from '@/lib/utils'
@@ -233,7 +243,79 @@ function TokenRow({
   isToggling,
 }: TokenRowProps) {
   const { t } = useTranslation()
+  const { requestReauth } = useReauth()
   const isMaskedPending = token.valueStatus === 'masked_pending'
+  // The list response only carries the masked form. Plaintext is fetched
+  // lazily on an explicit eye/copy click, behind master-token confirmation,
+  // and kept only for this row's lifetime (never persisted or cached).
+  const [revealedValue, setRevealedValue] = useState<string | null>(null)
+  const [visible, setVisible] = useState(false)
+  const [revealPending, setRevealPending] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const canReveal = !isMaskedPending
+
+  function copyValue(value: string) {
+    void copyText(value).then((ok) => {
+      if (!ok) {
+        toast.error(t('common.copyFailed'))
+        return
+      }
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
+  function requestValue(
+    options: { reveal?: boolean; onReady?: (value: string) => void } = {}
+  ) {
+    requestReauth({
+      description: t('reauth.operations.accountTokenReveal'),
+      replay: async (confirmToken) => {
+        setRevealPending(true)
+        try {
+          const data = await api.getAccountTokenValue(token.id, confirmToken)
+          const value = typeof data?.token === 'string' ? data.token : ''
+          if (!value) {
+            throw new Error('Empty token value')
+          }
+          setRevealedValue(value)
+          if (options.reveal) setVisible(true)
+          options.onReady?.(value)
+        } catch (error) {
+          // A rejected master token keeps the dialog open with its inline
+          // error; every other failure is surfaced here and closes it.
+          if (!isReauthRequired(error)) {
+            toast.error(
+              resolveResponseMessage(extractApiErrorBody(error)) ??
+                t('accounts.tokens.toast.revealFailed')
+            )
+          }
+          throw error
+        } finally {
+          setRevealPending(false)
+        }
+      },
+    })
+  }
+
+  function handleReveal() {
+    if (!canReveal) return
+    if (revealedValue) {
+      setVisible((value) => !value)
+      return
+    }
+    requestValue({ reveal: true })
+  }
+
+  function handleCopy() {
+    if (!canReveal) return
+    if (revealedValue) {
+      copyValue(revealedValue)
+      return
+    }
+    requestValue({ onReady: copyValue })
+  }
+
   return (
     <li className='flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2'>
       <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
@@ -263,7 +345,39 @@ function TokenRow({
             </Badge>
           )}
         </div>
-        <SecretField value={token.token} masked={token.tokenMasked} />
+        <span className='inline-flex max-w-full items-center gap-0.5'>
+          <span className='text-muted-foreground text-2xs truncate font-mono'>
+            {visible && revealedValue
+              ? revealedValue
+              : token.tokenMasked || '••••••••'}
+          </span>
+          {canReveal ? (
+            <>
+              <Button
+                variant='ghost'
+                size='icon-sm'
+                disabled={revealPending}
+                onClick={handleReveal}
+                title={t(visible ? 'common.hide' : 'common.reveal')}
+                aria-label={t(
+                  visible ? 'common.hideSecret' : 'common.revealSecret'
+                )}
+              >
+                {visible ? <EyeOff /> : <Eye />}
+              </Button>
+              <Button
+                variant='ghost'
+                size='icon-sm'
+                disabled={revealPending}
+                onClick={handleCopy}
+                title={t('common.copy')}
+                aria-label={t('common.copySecret')}
+              >
+                {copied ? <Check className='text-success' /> : <Copy />}
+              </Button>
+            </>
+          ) : null}
+        </span>
       </div>
 
       <div className='ml-auto flex items-center gap-1'>

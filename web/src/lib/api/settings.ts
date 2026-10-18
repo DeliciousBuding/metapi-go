@@ -20,6 +20,17 @@ function isExternalBackupPayload(data: unknown): boolean {
   return detectExternalBackupSource(data) !== null
 }
 
+/**
+ * Master-token re-confirmation header (#1034). Sensitive endpoints answer
+ * `403 reauthRequired` until this header carries the current admin token; the
+ * caller collects it from the ReauthDialog and replays the request once.
+ */
+function confirmHeader(
+  confirmToken?: string
+): Record<string, string> | undefined {
+  return confirmToken ? { 'X-Admin-Confirm-Token': confirmToken } : undefined
+}
+
 export const settingsApi = {
   // Auth management
   getAuthInfo: () => request('/api/settings/auth/info'),
@@ -35,10 +46,14 @@ export const settingsApi = {
     }),
   getRuntimeSettings: () => request('/api/settings/runtime'),
   getBrandList: () => request('/api/settings/brand-list'),
-  updateRuntimeSettings: (data: RuntimeSettingsPayload) =>
+  updateRuntimeSettings: (
+    data: RuntimeSettingsPayload,
+    confirmToken?: string
+  ) =>
     request('/api/settings/runtime', {
       method: 'PUT',
       body: JSON.stringify(data),
+      headers: confirmHeader(confirmToken),
       skipErrorHandler: true,
     }),
   getUpdateCenterStatus: () => request('/api/update-center/status'),
@@ -62,14 +77,18 @@ export const settingsApi = {
       body: JSON.stringify(data),
       skipErrorHandler: true,
     }),
-  testExternalDatabaseConnection: (data: {
-    dialect: 'sqlite' | 'postgres'
-    connectionString: string
-    ssl?: boolean
-  }) =>
+  testExternalDatabaseConnection: (
+    data: {
+      dialect: 'sqlite' | 'postgres'
+      connectionString: string
+      ssl?: boolean
+    },
+    confirmToken?: string
+  ) =>
     request('/api/settings/database/test-connection', {
       method: 'POST',
       body: JSON.stringify(data),
+      headers: confirmHeader(confirmToken),
       skipErrorHandler: true,
     }),
   /**
@@ -77,32 +96,38 @@ export const settingsApi = {
    * an admin background task. Resolves with the task ID once the backend has
    * accepted the job (202); progress is observed by polling `eventsApi.getTask`.
    */
-  startDatabaseMigration: (data: {
-    dialect: 'sqlite' | 'postgres'
-    connectionString: string
-    overwrite?: boolean
-    ssl?: boolean
-  }) =>
+  startDatabaseMigration: (
+    data: {
+      dialect: 'sqlite' | 'postgres'
+      connectionString: string
+      overwrite?: boolean
+      ssl?: boolean
+    },
+    confirmToken?: string
+  ) =>
     request<{ success: boolean; message: string; taskId: string }>(
       '/api/settings/database/migrate',
       {
         method: 'POST',
         body: JSON.stringify(data),
+        headers: confirmHeader(confirmToken),
         skipErrorHandler: true,
       }
     ),
   getDownstreamApiKeys: () => request('/api/downstream-keys'),
-  createDownstreamApiKey: (data: unknown) =>
+  createDownstreamApiKey: (data: unknown, confirmToken?: string) =>
     request('/api/downstream-keys', {
       method: 'POST',
       body: JSON.stringify(data),
+      headers: confirmHeader(confirmToken),
       // The keys section surfaces its own createFailed toast.
       skipErrorHandler: true,
     }),
-  updateDownstreamApiKey: (id: number, data: unknown) =>
+  updateDownstreamApiKey: (id: number, data: unknown, confirmToken?: string) =>
     request(`/api/downstream-keys/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+      headers: confirmHeader(confirmToken),
       // The keys section surfaces its own updateFailed toast (form + toggle).
       skipErrorHandler: true,
     }),
@@ -161,7 +186,8 @@ export const settingsApi = {
     octopusImportMode?: 'channels-only',
     replaceOctopusOrigin?: boolean,
     replaceAxonHubOrigin?: boolean,
-    replacementRevision?: string
+    replacementRevision?: string,
+    confirmToken?: string
   ) =>
     request('/api/settings/backup/import', {
       method: 'POST',
@@ -171,7 +197,8 @@ export const settingsApi = {
         octopusImportMode ||
         replaceOctopusOrigin ||
         replaceAxonHubOrigin ||
-        replacementRevision
+        replacementRevision ||
+        confirmToken
           ? {
               ...(externalOriginKey
                 ? { 'X-External-Origin-Key': externalOriginKey }
@@ -188,6 +215,7 @@ export const settingsApi = {
               ...(replacementRevision
                 ? { 'X-External-Replacement-Revision': replacementRevision }
                 : {}),
+              ...confirmHeader(confirmToken),
             }
           : undefined,
       skipErrorHandler: true,
@@ -214,11 +242,13 @@ export const settingsApi = {
       exportType: BackupWebdavExportType
       autoSyncEnabled: boolean
       autoSyncCron: string
-    }>
+    }>,
+    confirmToken?: string
   ) =>
     request<BackupWebdavResponse>('/api/settings/backup/webdav', {
       method: 'PUT',
       body: JSON.stringify(data),
+      headers: confirmHeader(confirmToken),
       skipErrorHandler: true,
     }),
   // #1034: sensitive op — master-token re-confirmation via confirmToken.
@@ -235,10 +265,11 @@ export const settingsApi = {
       timeoutMs: 60_000,
       skipErrorHandler: true,
     }),
-  importBackupFromWebdav: () =>
+  importBackupFromWebdav: (confirmToken?: string) =>
     request<BackupWebdavResponse>('/api/settings/backup/webdav/import', {
       method: 'POST',
       body: JSON.stringify({}),
+      headers: confirmHeader(confirmToken),
       timeoutMs: 60_000,
       skipErrorHandler: true,
     }),
@@ -247,14 +278,16 @@ export const settingsApi = {
       method: 'POST',
       skipErrorHandler: true,
     }),
-  clearUsageData: () =>
+  clearUsageData: (confirmToken?: string) =>
     request('/api/settings/maintenance/clear-usage', {
       method: 'POST',
+      headers: confirmHeader(confirmToken),
       skipErrorHandler: true,
     }),
-  factoryReset: () =>
+  factoryReset: (confirmToken?: string) =>
     request('/api/settings/maintenance/factory-reset', {
       method: 'POST',
+      headers: confirmHeader(confirmToken),
       skipErrorHandler: true,
     }),
   testNotification: () =>
