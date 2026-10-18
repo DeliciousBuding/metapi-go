@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"sort"
 	"strings"
@@ -921,6 +922,9 @@ func importTableRowsWithConn(conn backupImportConn, table string, rows []map[str
 			skipped++
 			continue
 		}
+		if err := validateBackupImportRow(table, row); err != nil {
+			return 0, 0, err
+		}
 
 		columns := make([]string, 0, len(row))
 		values := make([]any, 0, len(row))
@@ -987,6 +991,51 @@ func validateBackupImportCellValue(column string, value any) error {
 	default:
 		return backupImportClientError{message: fmt.Sprintf("column %q must be a scalar JSON value", column)}
 	}
+}
+
+// validateBackupImportRow applies per-table value checks that the generic
+// scalar validator cannot express. A backup is untrusted input: quotas are
+// summed into admission decisions (negative ledger rows cancel real usage),
+// and rows that omit NOT NULL-ish time columns used to import "successfully"
+// and then break the list endpoints with a NULL scan error.
+func validateBackupImportRow(table string, row map[string]any) error {
+	switch table {
+	case "downstream_quota_usage":
+		for _, column := range []string{"requests", "total_tokens", "cost"} {
+			value, ok := row[column]
+			if !ok || value == nil {
+				continue
+			}
+			n, ok := value.(float64)
+			if !ok || math.IsNaN(n) || math.IsInf(n, 0) || n < 0 {
+				return backupImportClientError{message: fmt.Sprintf("column %q must be a non-negative number", column)}
+			}
+		}
+		if value, ok := row["occurred_at"]; ok && value != nil {
+			n, ok := value.(float64)
+			// 0 < occurred_at < 2100-01-01 (ms). Anything else is a poisoned
+			// ledger row that would land outside every quota window.
+			if !ok || n <= 0 || n > 4102444800000 {
+				return backupImportClientError{message: `column "occurred_at" must be a plausible millisecond timestamp`}
+			}
+		}
+	case "sites":
+		for _, column := range []string{"name", "url", "platform"} {
+			if value, ok := row[column].(string); !ok || strings.TrimSpace(value) == "" {
+				return backupImportClientError{message: fmt.Sprintf("column %q is required for table sites", column)}
+			}
+		}
+		// created_at/updated_at are scanned into non-nullable Go strings by the
+		// sites list. Older exports may omit them; fill them rather than
+		// importing a row that returns 500 on the next read.
+		now := time.Now().UTC().Format(time.RFC3339)
+		for _, column := range []string{"created_at", "updated_at"} {
+			if value, ok := row[column].(string); !ok || strings.TrimSpace(value) == "" {
+				row[column] = now
+			}
+		}
+	}
+	return nil
 }
 
 // shouldSkipBackupImportRow reports whether a row must be dropped by policy.

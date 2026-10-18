@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
@@ -1702,5 +1703,83 @@ func TestImportBackupTablesDropsForbiddenSiteURLs(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("sites rows = %d, want 1", count)
+	}
+}
+
+func TestImportBackupSkipsSchedulerAndEgressSettings(t *testing.T) {
+	db := setupBackupTestDB(t)
+	handler := &backupHandler{db: db.DB}
+
+	payload := `{"tables":{"settings":[
+		{"key":"theme","value":"\"dark\""},
+		{"key":"system_proxy_url","value":"\"http://127.0.0.1:18099\""},
+		{"key":"telegram_api_base_url","value":"\"http://127.0.0.1:18098\""},
+		{"key":"admin_ip_allowlist","value":"[\"203.0.113.7\"]"},
+		{"key":"log_cleanup_retention_days","value":"1"},
+		{"key":"smtp_host","value":"\"127.0.0.1\""}
+	]}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
+	rec := httptest.NewRecorder()
+	handler.importBackup(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+
+	for _, key := range []string{"system_proxy_url", "telegram_api_base_url", "admin_ip_allowlist", "log_cleanup_retention_days", "smtp_host"} {
+		var count int
+		if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = ?", key); err != nil {
+			t.Fatalf("count %s: %v", key, err)
+		}
+		if count != 0 {
+			t.Errorf("runtime-local setting %q was imported", key)
+		}
+	}
+	var count int
+	if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = 'theme'"); err != nil || count != 1 {
+		t.Fatalf("benign setting not imported: count=%d err=%v", count, err)
+	}
+}
+
+func TestImportBackupRejectsNegativeQuotaLedger(t *testing.T) {
+	db := setupBackupTestDB(t)
+	handler := &backupHandler{db: db.DB}
+
+	payload := `{"tables":{"downstream_quota_usage":[
+		{"key_id":1,"event_key":"forged","occurred_at":1700000000000,"requests":-1000000,"total_tokens":-1000000000,"cost":-1000000}
+	]}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
+	rec := httptest.NewRecorder()
+	handler.importBackup(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
+	}
+	var count int
+	if err := db.Get(&count, "SELECT COUNT(*) FROM downstream_quota_usage"); err != nil {
+		t.Fatalf("count quota rows: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("negative quota rows imported: %d", count)
+	}
+}
+
+func TestImportBackupSitesFillsMissingTimestamps(t *testing.T) {
+	db := setupBackupTestDB(t)
+	handler := &backupHandler{db: db.DB}
+
+	payload := `{"tables":{"sites":[
+		{"name":"synthetic-site","url":"https://synthetic.example","platform":"newapi"}
+	]}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
+	rec := httptest.NewRecorder()
+	handler.importBackup(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var createdAt, updatedAt sql.NullString
+	if err := db.QueryRow("SELECT created_at, updated_at FROM sites WHERE name = 'synthetic-site'").Scan(&createdAt, &updatedAt); err != nil {
+		t.Fatalf("select site: %v", err)
+	}
+	if !createdAt.Valid || createdAt.String == "" || !updatedAt.Valid || updatedAt.String == "" {
+		t.Fatalf("timestamps not filled: created=%v updated=%v", createdAt, updatedAt)
 	}
 }
