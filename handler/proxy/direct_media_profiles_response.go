@@ -15,7 +15,6 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/proxy"
-	"github.com/deliciousbuding/metapi-go/service"
 )
 
 type directMediaTimingKey struct{}
@@ -387,7 +386,7 @@ func (op directMediaOperation) downloadModelScopeImage(ctx context.Context, imag
 		return encoded, nil, err
 	}
 	parsed, err := url.Parse(imageURL)
-	if err != nil || parsed.Host == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || service.IsForbiddenSiteTargetURL(imageURL) {
+	if err != nil || parsed.Host == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || !allowedPublicMediaTarget(ctx, imageURL) {
 		return "", nil, fmt.Errorf("invalid ModelScope output image URL")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)

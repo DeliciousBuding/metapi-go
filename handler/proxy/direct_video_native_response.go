@@ -12,7 +12,6 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/proxy"
-	"github.com/deliciousbuding/metapi-go/service"
 )
 
 type directVideoUsageKey struct{}
@@ -128,7 +127,7 @@ func sendDirectNativeVideoRequest(cfg *UpstreamConfig, original *http.Request, p
 	}
 	target := mediaString(payload, key)
 	parsed, err := url.Parse(target)
-	if err != nil || parsed.Host == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || service.IsForbiddenSiteTargetURL(target) {
+	if err != nil || parsed.Host == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || !allowedPublicMediaTarget(original.Context(), target) {
 		return directMediaFailure(resp, payload, "invalid_video_url", "video result URL is unavailable or invalid"), nil
 	}
 	download, err := http.NewRequestWithContext(original.Context(), http.MethodGet, target, nil)
