@@ -1,8 +1,14 @@
-import { CircleCheck, TriangleAlert, Layers3 } from 'lucide-react'
+import { ChevronDown, CircleCheck, TriangleAlert, Layers3 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import type { UpstreamDeletionPreview } from '@/lib/api/upstream-lifecycle'
 
 import { getBackupRemovalCounts } from './backup-import-removals'
@@ -101,6 +107,44 @@ export function BackupImportPreviewPanel(props: Props) {
   const counts = external
     ? Object.entries(external.sections).filter(([, count]) => count > 0)
     : []
+  const sourceCounts =
+    counts.length > 0 ? (
+      <dl
+        className={
+          axonhub ? 'divide-y text-sm' : 'grid grid-cols-2 gap-2 sm:grid-cols-3'
+        }
+      >
+        {counts.map(([section, count]) => (
+          <div
+            key={section}
+            className={
+              axonhub
+                ? 'flex items-center justify-between gap-3 py-2'
+                : 'bg-muted/40 min-w-0 rounded-lg px-3 py-3'
+            }
+          >
+            <dt className='text-muted-foreground text-xs'>
+              {t(`settings.content.importExport.design.sections.${section}`, {
+                defaultValue: section,
+              })}
+            </dt>
+            <dd
+              className={
+                axonhub
+                  ? 'tabular-nums'
+                  : 'mt-1 text-xl leading-tight font-semibold tabular-nums'
+              }
+            >
+              {count.toLocaleString()}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    ) : (
+      <p className='text-muted-foreground text-sm'>
+        {t('settings.content.importExport.design.emptyPlan')}
+      </p>
+    )
   return (
     <section
       className='overflow-hidden rounded-xl border'
@@ -177,30 +221,7 @@ export function BackupImportPreviewPanel(props: Props) {
                 </p>
               </div>
             ) : null}
-            {counts.length > 0 ? (
-              <dl className='grid grid-cols-2 gap-2 sm:grid-cols-3'>
-                {counts.map(([section, count]) => (
-                  <div
-                    key={section}
-                    className='bg-muted/40 min-w-0 rounded-lg px-3 py-3'
-                  >
-                    <dt className='text-muted-foreground text-xs'>
-                      {t(
-                        `settings.content.importExport.design.sections.${section}`,
-                        { defaultValue: section }
-                      )}
-                    </dt>
-                    <dd className='mt-1 text-xl leading-tight font-semibold tabular-nums'>
-                      {count.toLocaleString()}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p className='text-muted-foreground text-sm'>
-                {t('settings.content.importExport.design.emptyPlan')}
-              </p>
-            )}
+            {!axonhub && sourceCounts}
             {removals.length > 0 ? (
               <div className='bg-warning/10 text-warning-soft-fg space-y-2 rounded-lg p-3 text-sm'>
                 <p className='font-medium'>
@@ -319,6 +340,24 @@ export function BackupImportPreviewPanel(props: Props) {
                 </ul>
               </div>
             ) : null}
+            {axonhub && counts.length > 0 ? (
+              <Collapsible className='rounded-lg border'>
+                <CollapsibleTrigger
+                  render={<Button variant='ghost' />}
+                  className='group w-full justify-between px-3'
+                >
+                  {t('settings.content.importExport.sourceRecordCounts')}
+                  <ChevronDown
+                    className='size-4 transition-transform group-data-panel-open:rotate-180'
+                    aria-hidden='true'
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent className='px-3 pb-1'>
+                  {sourceCounts}
+                </CollapsibleContent>
+              </Collapsible>
+            ) : null}
+            {axonhub && counts.length === 0 && sourceCounts}
             {!blocked && !hasExternalReview ? (
               <p className='text-muted-foreground flex items-center gap-2 text-sm'>
                 <CircleCheck

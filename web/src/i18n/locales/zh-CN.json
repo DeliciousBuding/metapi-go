@@ -1943,6 +1943,7 @@
           "octopusPreviewSection": "{{section}}：{{count}} 条记录",
           "octopusNotImportedTitle": "未迁移（只保留在原始文件中）：",
           "axonhubRoutableTitle": "将写入的配置：",
+          "sourceRecordCounts": "查看来源备份记录数",
           "axonhubSkippedTitle": "无法导入的渠道：",
           "axonhubResidualsTitle": "未迁移的能力与配置差异：",
           "axonhubResidualChannel": "来源渠道 #{{id}}：{{message}}",
