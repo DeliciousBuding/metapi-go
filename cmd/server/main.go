@@ -21,7 +21,7 @@ import (
 
 func main() {
 	// ---- Help / version flags (must run before config load so they work
-	// without a valid AUTH_TOKEN/PROXY_TOKEN, which --help/--version must not require) ----
+	// without a valid AUTH_TOKEN, which --help/--version must not require) ----
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "--version", "-v":

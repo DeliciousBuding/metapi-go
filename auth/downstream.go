@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -20,12 +19,12 @@ import (
 // ---------------------------------------------------------------------------
 
 // DownstreamTokenAuthResult is the result of authorizing a downstream token.
-// On success (OK=true): Source, Token, Key (maybe nil for global), and Policy are populated.
+// On success (OK=true): Source, Token, Key, and Policy are populated.
 // On failure (OK=false): StatusCode, Error, and Reason are populated.
 type DownstreamTokenAuthResult struct {
 	taskRead   bool
 	OK         bool
-	Source     string                  // "managed" | "global" (when OK)
+	Source     string                  // "managed" (when OK)
 	Token      string                  // normalized token (when OK)
 	Key        *managedKeyView         // managed key view (when OK, source="managed")
 	Policy     DownstreamRoutingPolicy // resolved policy (when OK)
@@ -73,22 +72,13 @@ type managedKeyView struct {
 // AuthorizeDownstreamToken — the core downstream auth logic.
 // ---------------------------------------------------------------------------
 
-// AuthorizeDownstreamToken validates a downstream token against the managed key
-// table and the global proxy token.
-
-// Flow (matches TS authorizeDownstreamToken exactly):
-// 1. If token is empty → 401, reason: "missing"
-// 2. Query downstream_api_keys WHERE key = token:
-// a. Found → check enabled/expired/over_cost/over_requests → return managed result
-// b. Not found → continue
-// 3. Check if token == runtime snapshot ProxyToken:
-// a. Match → return global result
-// b. No match → 403, reason: "invalid"
+// AuthorizeDownstreamToken validates a token against downstream_api_keys and
+// enforces its enabled state, expiry and quota. Runtime root tokens are retired.
 func AuthorizeDownstreamToken(token string, rt *config.RuntimeSettings) DownstreamTokenAuthResult {
 	return authorizeDownstreamToken(token, rt, "")
 }
 
-func authorizeDownstreamToken(token string, rt *config.RuntimeSettings, videoReadID string) DownstreamTokenAuthResult {
+func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoReadID string) DownstreamTokenAuthResult {
 	normalized := strings.TrimSpace(token)
 	if normalized == "" {
 		return DownstreamTokenAuthResult{
@@ -102,11 +92,8 @@ func authorizeDownstreamToken(token string, rt *config.RuntimeSettings, videoRea
 	// ---- Check managed key table ----
 	managed, err := getManagedKeyByToken(normalized)
 	if err != nil {
-		slog.Warn("downstream auth: failed to query managed key, falling back to global", "error", err)
-		// DO NOT return 500. Fall through to global token check below.
-		// This matches the TypeScript resilience pattern where the DB query
-		// failure does not block the global token fallback.
-		managed = nil
+		slog.Warn("downstream auth: failed to query API key", "error", err)
+		return DownstreamTokenAuthResult{StatusCode: 503, Error: "API key authentication is temporarily unavailable", Reason: "unavailable"}
 	}
 
 	if managed != nil {
@@ -180,17 +167,6 @@ func authorizeDownstreamToken(token string, rt *config.RuntimeSettings, videoRea
 			Token:    normalized,
 			Key:      managed,
 			Policy:   policy,
-		}
-	}
-
-	// ---- Check global proxy token ----
-	if subtle.ConstantTimeCompare([]byte(normalized), []byte(rt.ProxyToken)) == 1 {
-		return DownstreamTokenAuthResult{
-			OK:     true,
-			Source: "global",
-			Token:  normalized,
-			Key:    nil,
-			Policy: EmptyDownstreamRoutingPolicy,
 		}
 	}
 
@@ -443,7 +419,7 @@ func splitIPList(raw *string) []string {
 }
 
 // CheckDownstreamKeyIP reports whether a managed key permits a client IP.
-// Returns (allowed, denyReason). Empty clientIP (e.g. test/global path)
+// Returns (allowed, denyReason). Empty clientIP (e.g. internal test calls)
 // is treated as "no restriction": the caller is responsible for passing a
 // real RemoteAddr-derived IP at the proxy edge.
 

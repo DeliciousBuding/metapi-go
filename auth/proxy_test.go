@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -245,23 +246,35 @@ func TestAuthorizeDownstreamToken_WhitespaceOnlyToken(t *testing.T) {
 	}
 }
 
-func TestAuthorizeDownstreamToken_GlobalTokenMatch(t *testing.T) {
-	// Requires DB to be initialized so getManagedKeyByToken doesn't error.
-	// Test only the global token path — the DB is empty, so managed key lookup
-	// returns nil (not found), and we fall through to global token check.
+func TestAuthorizeDownstreamToken_RootKeyRequiresMigration(t *testing.T) {
 	setupTestDB(t)
-	result := AuthorizeDownstreamToken("global-secret", proxyCfg("global-secret"))
+	rt := proxyCfg("global-secret")
+	if result := AuthorizeDownstreamToken("global-secret", rt); result.OK || result.StatusCode != 401 {
+		t.Fatal("unmanaged root credential was accepted")
+	}
+	if err := store.MigrateLegacyProxyToken(testDB(t), rt, 0); err != nil {
+		t.Fatal(err)
+	}
+	result := AuthorizeDownstreamToken("global-secret", rt)
 	if !result.OK {
 		t.Fatalf("expected OK=true, got error: %s (code=%d)", result.Error, result.StatusCode)
 	}
-	if result.Source != "global" {
-		t.Errorf("expected source=global, got %q", result.Source)
+	if result.Source != "managed" {
+		t.Errorf("expected source=managed, got %q", result.Source)
 	}
-	if result.Key != nil {
-		t.Errorf("expected Key=nil for global token, got %+v", result.Key)
+	if result.Key == nil {
+		t.Fatal("migrated key has no managed identity")
 	}
-	if result.Policy.DenyAllWhenEmpty {
-		t.Error("expected DenyAllWhenEmpty=false for global token policy")
+	if len(result.Policy.SupportedModels) != 1 || result.Policy.SupportedModels[0] != "*" {
+		t.Error("migrated token lost full model access")
+	}
+}
+
+func TestAuthorizeDownstreamToken_DatabaseFailureRejectsRootCredential(t *testing.T) {
+	_ = store.CloseDatabase()
+	result := AuthorizeDownstreamToken("synthetic-root", proxyCfg("synthetic-root"))
+	if result.OK || result.StatusCode != 503 || result.Reason != "unavailable" {
+		t.Fatalf("database outage result: %+v", result)
 	}
 }
 
@@ -522,9 +535,12 @@ func proxyAuthMiddlewareHelper(t *testing.T, rt *config.RuntimeSettings, headers
 	return w
 }
 
-func TestProxyAuthMiddleware_GlobalToken(t *testing.T) {
+func TestProxyAuthMiddleware_MigratedRootToken(t *testing.T) {
 	setupTestDB(t)
 	cfg := proxyCfg("global-secret")
+	if err := store.MigrateLegacyProxyToken(testDB(t), cfg, 0); err != nil {
+		t.Fatal(err)
+	}
 	w := proxyAuthMiddlewareHelper(t, cfg, map[string]string{
 		"Authorization": "Bearer global-secret",
 	}, "")
@@ -571,6 +587,7 @@ func TestProxyAuthMiddleware_EmptyToken_401(t *testing.T) {
 
 func TestProxyAuthMiddleware_XApiKey(t *testing.T) {
 	setupTestDB(t)
+	insertTestKey(t, "global-secret", true, nil, 0, nil, 0, nil)
 	cfg := proxyCfg("global-secret")
 	w := proxyAuthMiddlewareHelper(t, cfg, map[string]string{
 		"x-api-key": "global-secret",

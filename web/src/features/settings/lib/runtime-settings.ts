@@ -118,8 +118,6 @@ export type RuntimeSettings = {
   // models / allowlist
   globalBlockedBrands?: string[] | string
   globalAllowedModels?: string[] | string
-  // downstream
-  proxyTokenMasked?: string
 }
 
 export const runtimeSettingsQueryKeys = {

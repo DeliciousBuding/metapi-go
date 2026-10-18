@@ -1879,25 +1879,6 @@
               "rate": "rate"
             }
           }
-        },
-        "proxyToken": {
-          "title": "Root downstream key (deprecated)",
-          "description": "Global downstream fallback key with no per-key policy. Deprecated; use API Keys to issue scoped keys instead.",
-          "current": "Current token",
-          "notSet": "not set",
-          "generate": "Generate",
-          "save": "Update token",
-          "fields": {
-            "suffix": "Token suffix",
-            "suffixHint": "The sk- prefix is fixed. Generate or type a new suffix."
-          },
-          "schema": {
-            "suffixMinLength": "Suffix must be at least 8 characters."
-          },
-          "toast": {
-            "saved": "Root downstream key updated.",
-            "saveFailed": "Failed to update root downstream key."
-          }
         }
       },
       "content": {
@@ -4330,6 +4311,11 @@
       }
     },
     "downstreamKeys": {
+      "migration": {
+        "title": "Your root key has moved to API keys",
+        "description": "The upgrade preserved your key, so existing clients can keep using it. Manage its permissions, usage limits, or enabled state here. Restarting will not restore a disabled or deleted key.",
+        "review": "Review migrated key"
+      },
       "page": {
         "title": "API Keys",
         "description": "Issue and manage API keys for calling the LLM."

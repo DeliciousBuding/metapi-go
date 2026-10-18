@@ -59,7 +59,10 @@ export type DownstreamApiKeyItem = {
   usage24h?: DownstreamKeyUsage24h
 }
 
-export type DownstreamKeysResponse = { items: DownstreamApiKeyItem[] }
+export type DownstreamKeysResponse = {
+  items: DownstreamApiKeyItem[]
+  migratedKeyId?: number
+}
 
 // POST /api/downstream-keys responds with the created row under `item` (the
 // handler re-reads the inserted row and adds a camelCase `keyMasked`). Only

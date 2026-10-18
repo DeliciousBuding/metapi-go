@@ -6,7 +6,10 @@
 
 ### GET /api/settings/runtime
 
-Get all runtime settings as a flat JSON object. Sensitive values (proxyToken, tokens, passwords) are masked. The response includes branding fields (`systemName`, `logo`, `footer`, `about`, `serverAddress`) and semantic schedule mirrors (`checkinSchedule`, `balanceRefreshSchedule`, `logCleanupSchedule`).
+Get all runtime settings as a flat JSON object. Sensitive values (tokens, passwords) are masked. The response includes branding fields (`systemName`, `logo`, `footer`, `about`, `serverAddress`) and semantic schedule mirrors (`checkinSchedule`, `balanceRefreshSchedule`, `logCleanupSchedule`).
+
+根下游密钥已迁入 API 密钥管理。此接口不再返回 `proxyTokenMasked`；发送
+`proxyToken` 更新返回 `410 Gone`，并引导至 `/downstream-keys`。
 
 `ScheduleSpec` v1 uses `{ "version": 1, "kind": "daily|interval|window|custom", ... }`. The legacy `*_cron` fields remain available and remain the runtime compatibility source of truth.
 

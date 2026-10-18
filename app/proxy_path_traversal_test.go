@@ -52,6 +52,7 @@ func newGeminiTraversalEnv(t *testing.T) *geminiTraversalEnv {
 	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
+	migrateTestDownstreamToken(t)
 	// Model requested in the body; the route pattern makes channel selection
 	// succeed independently of the (attacker-controlled) path shape.
 	seedProxyRoute(t, store.GetDB(), upstream.URL, "gemini-trav", "upstream-token")
@@ -74,7 +75,7 @@ func (env *geminiTraversalEnv) postGemini(t *testing.T, target string) *httptest
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(`{"model":"gemini-trav","contents":[]}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+config.Runtime().ProxyToken)
+	req.Header.Set("Authorization", "Bearer "+testDownstreamToken)
 	rec := httptest.NewRecorder()
 	env.router.ServeHTTP(rec, req)
 	return rec

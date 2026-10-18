@@ -64,5 +64,5 @@ echo "Installed metapi to ${install_dir}/metapi"
 "$install_dir/metapi" --version
 echo ""
 echo "Next steps:"
-echo "  export AUTH_TOKEN=<admin-token> PROXY_TOKEN=<proxy-token>"
+echo "  export AUTH_TOKEN=<admin-token>"
 echo "  metapi"

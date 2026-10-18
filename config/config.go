@@ -193,7 +193,7 @@ type Config struct {
 	// ProxyRateLimitRPM is the per-IP request-per-minute cap for /v1 proxy
 	// routes. Parsed from PROXY_RATE_LIMIT_RPM (default 60; 0 = disabled).
 	ProxyRateLimitRPM int
-	// ProxyGlobalTokenRPM caps the global PROXY_TOKEN across all IPs. Parsed
+	// ProxyGlobalTokenRPM supplies the initial max_rpm for a migrated root key. Parsed
 	// from PROXY_GLOBAL_TOKEN_RPM (default 0 = unlimited). Safety net: even if
 	// the token leaks, upstream spend is bounded.
 	ProxyGlobalTokenRPM int
@@ -476,7 +476,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 
 	// ---- §3.1 Auth ----
 	rt.AuthToken = firstNonEmpty(get("AUTH_TOKEN"), DefaultAuthToken)
-	rt.ProxyToken = firstNonEmpty(get("PROXY_TOKEN"), DefaultProxyToken)
+	rt.ProxyToken = get("PROXY_TOKEN") // One-time legacy key import; never used for authentication.
 	cfg.AccountCredentialSecret = resolveAccountCredentialSecret()
 	if cfg.AccountCredentialSecret == DefaultAuthToken {
 		slog.Warn("config: AccountCredentialSecret is using the default value — this is insecure for production. Set ACCOUNT_CREDENTIAL_SECRET or AUTH_TOKEN environment variable.")
@@ -664,7 +664,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	// operator — consumers (auth.ProxyRateLimit) already treat <=0 as disabled,
 	// so the only observable effect of a negative is the startup warning.
 	cfg.ProxyRateLimitRPM = int(math.Trunc(parseNumber(get("PROXY_RATE_LIMIT_RPM"), float64(DefaultProxyRateLimitRPM))))
-	// Global PROXY_TOKEN RPM cap across all IPs (default 0 = unlimited).
+	// Legacy root key's initial managed RPM cap (default 0 = unlimited).
 	// Negative left intact for Validate to warn on; <=0 disables at the limiter.
 	cfg.ProxyGlobalTokenRPM = int(math.Trunc(parseNumber(get("PROXY_GLOBAL_TOKEN_RPM"), 0)))
 

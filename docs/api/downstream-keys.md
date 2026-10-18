@@ -13,6 +13,10 @@
 
 List all downstream API keys.
 
+响应的 `migratedKeyId` 是旧根密钥迁入后的受管 key ID，未发生导入时为 `0`。
+它只提供升级引导，不代表该 key 仍然存在或启用；状态以 `items` 为准。
+所有下游鉴权都查询该表，数据库不可用返回 `503`，不会退回旧环境变量。
+
 ### GET /api/downstream-keys/summary
 
 Key list with usage summaries. **Query params**: `group`, `tags`, `tagMatch`.

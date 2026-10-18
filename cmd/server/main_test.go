@@ -63,8 +63,8 @@ func TestBootstrapRuntimeFailsOnUnavailablePostgres(t *testing.T) {
 func TestStartupValidationRejectsDefaultTokens(t *testing.T) {
 	cfg, rt := config.Load(map[string]string{})
 
-	// auth/proxy token checks live on the runtime snapshot now; startup
-	// validation covers both halves.
+	// Admin token checks live on the runtime snapshot. Downstream keys are
+	// created or migrated after the database opens.
 	var critical []string
 	for _, err := range append(cfg.Validate(), rt.Validate()...) {
 		if config.IsCritical(err) {
@@ -75,8 +75,8 @@ func TestStartupValidationRejectsDefaultTokens(t *testing.T) {
 	if !strings.Contains(got, "auth_token") {
 		t.Fatalf("startup validation critical errors = %q, want auth_token", got)
 	}
-	if !strings.Contains(got, "proxy_token") {
-		t.Fatalf("startup validation critical errors = %q, want proxy_token", got)
+	if strings.Contains(got, "proxy_token") {
+		t.Fatalf("startup incorrectly requires a retired root token: %q", got)
 	}
 }
 

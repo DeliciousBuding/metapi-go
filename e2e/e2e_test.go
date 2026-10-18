@@ -39,6 +39,16 @@ func TestMain(m *testing.M) {
 // Test infrastructure
 // ---------------------------------------------------------------------------
 
+// These route-level fixtures skip the process bootstrap; apply its key upgrade
+// explicitly so the requests use a real managed credential.
+func migrateFixtureRootKey(t *testing.T, rt *config.RuntimeSettings) {
+	t.Helper()
+	draft := *rt
+	if err := store.MigrateLegacyProxyToken(store.GetDB(), &draft, 0); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // mockRouter implements proxy.TokenRouterInterface for test control.
 type mockRouter struct {
 	mu sync.Mutex
@@ -469,6 +479,7 @@ func TestDownstreamAuth(t *testing.T) {
 	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("failed to init runtime DB: %v", err)
 	}
+	migrateFixtureRootKey(t, rt)
 	defer store.CloseDatabase()
 
 	db := store.GetDB()

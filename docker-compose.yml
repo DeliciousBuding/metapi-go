@@ -26,7 +26,8 @@ services:
       HOST: 0.0.0.0
       DATA_DIR: /app/data
       AUTH_TOKEN: ${AUTH_TOKEN:?Set AUTH_TOKEN in .env or the shell}
-      PROXY_TOKEN: ${PROXY_TOKEN:?Set PROXY_TOKEN in .env or the shell}
+      # Optional one-time import for upgrades from the old root-key setting.
+      PROXY_TOKEN: ${PROXY_TOKEN:-}
       ACCOUNT_CREDENTIAL_SECRET: ${ACCOUNT_CREDENTIAL_SECRET:?Set ACCOUNT_CREDENTIAL_SECRET in .env or the shell}
     # The image owns the health check; do not repeat it here.
     security_opt:

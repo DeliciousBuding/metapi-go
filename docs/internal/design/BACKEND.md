@@ -22,7 +22,7 @@
 
 - 缺失或非法凭据拒绝访问。公开路由是显式 allowlist，
   依赖不可用不能使鉴权放行。
-- 管理 session/bearer 复用现有鉴权入口；代理接受配置的全局 token 或受管下游 key。
+- 管理 session/bearer 复用现有鉴权入口；代理只接受受管下游 key，旧根 token 在升级时迁入该表。
   受管 key 的空授权列表拒绝所有请求。
 - secret 使用常量时间比较；token、Authorization 和原始凭据不进日志，
   复用现有脱敏 helper。

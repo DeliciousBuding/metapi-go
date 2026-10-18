@@ -17,14 +17,14 @@ account. Use the account path below when you also need balance,
 token-management or check-in features supported by that platform.
 
 Prefer a single binary over Docker? Install it with the published installer and
-run it with the same two tokens — the [README quick start](../README.md) covers
+run it with your admin token. The [README quick start](../README.md) covers
 all three install paths. Everything below is identical either way.
 
 ## 1. Start the server
 
 Install and start Metapi with one of the paths in
 [deployment.md](deployment.md#quick-paths). The Compose path is the default for
-a long-lived install: copy `.env.example` to `.env`, replace the three secrets,
+a long-lived install: copy `.env.example` to `.env`, replace the admin token and encryption key,
 pin `METAPI_IMAGE` to a release tag or digest, and run `docker compose up -d`.
 
 Verify before continuing:
@@ -166,12 +166,11 @@ The model tester uses an administrator test context. It does not establish that
 this downstream key is allowed to call the same model. Use the key's permission
 check or the route workspace when investigating admission or routing.
 
-The command below uses the instance-wide `PROXY_TOKEN` for a local smoke test.
-For everyday clients, use the downstream key you created instead.
+Set `DOWNSTREAM_API_KEY` to the key you created, then send a request:
 
 ```bash
 curl http://localhost:4000/v1/chat/completions \
-  -H "Authorization: Bearer $PROXY_TOKEN" \
+  -H "Authorization: Bearer $DOWNSTREAM_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "<any routed model>",
@@ -197,8 +196,7 @@ the current configuration, not the decision made by an earlier request.
 Everything that speaks the OpenAI protocol now only needs:
 
 - **Base URL**: `http://<your-host>:4000/v1`
-- **API key**: a downstream key from **API 密钥 (API Keys)** in the sidebar, or
-  the `$PROXY_TOKEN` you started the server with
+- **API key**: a downstream access token from **API 密钥 (API Keys)** in the sidebar
 
 Per-client walkthroughs (Cursor, Claude Code, Codex, Open WebUI, client
 config export) live in [`client-integration.md`](client-integration.md).
@@ -217,7 +215,7 @@ config export) live in [`client-integration.md`](client-integration.md).
 
 | Symptom                          | First check                                            |
 | :------------------------------- | :----------------------------------------------------- |
-| `401` on `/v1`                   | `Authorization: Bearer` uses a downstream key or `PROXY_TOKEN` |
+| `401` on `/v1`                   | `Authorization: Bearer` uses an access token from API Keys |
 | `503` from the proxy             | No route/channel configured for the model, or upstream unconfigured |
 | `503 No available channels: 未匹配到启用的路由` | No **enabled route** matches that model: add one or enable optional automatic creation and rebuild (§4). Existing disabled routes are not re-enabled |
 | Models were listed, then went empty / relay started failing | The stored credential aged out. Session/password account: re-bind with **Add account**, same site + username. API-key account: **Edit** the account and paste the new key (§3) |

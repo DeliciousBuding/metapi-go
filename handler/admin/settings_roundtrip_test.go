@@ -49,8 +49,6 @@ func TestSettingsRuntimeWritePathSurvivesRestart(t *testing.T) {
 		"footer":        "",
 		"about":         "",
 		"serverAddress": "",
-		// Credential: persisted JSON-encoded, must be decoded on the way back.
-		"proxyToken": "sk-round-trip-token",
 	})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("PUT /api/settings/runtime: %d %s", resp.Code, resp.Body.String())
@@ -102,7 +100,6 @@ func TestSettingsRuntimeWritePathSurvivesRestart(t *testing.T) {
 		{"Footer", func(rt *config.RuntimeSettings) any { return rt.Footer }},
 		{"About", func(rt *config.RuntimeSettings) any { return rt.About }},
 		{"ServerAddress", func(rt *config.RuntimeSettings) any { return rt.ServerAddress }},
-		{"ProxyToken", func(rt *config.RuntimeSettings) any { return rt.ProxyToken }},
 	}
 	for _, check := range checks {
 		want, got := check.get(&hot), check.get(restarted)
@@ -116,9 +113,6 @@ func TestSettingsRuntimeWritePathSurvivesRestart(t *testing.T) {
 	// nothing.
 	if restarted.SystemName != "" {
 		t.Fatalf("SystemName = %q, want the cleared value (env said Metapi)", restarted.SystemName)
-	}
-	if restarted.ProxyToken != "sk-round-trip-token" {
-		t.Fatalf("ProxyToken = %q, want the saved token (env said sk-env-token)", restarted.ProxyToken)
 	}
 	if len(restarted.AdminIpAllowlist) != 2 {
 		t.Fatalf("AdminIpAllowlist = %#v, want the two saved entries (env said 192.0.2.1)", restarted.AdminIpAllowlist)

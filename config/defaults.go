@@ -16,8 +16,7 @@ const (
 	// named Default*: every other constant in this block is a value Load()
 	// falls back to, whereas nothing in the code ever falls back to this one.
 	// It matters because Load() takes any non-empty env value verbatim, so a
-	// deployment that copies .env.example and fills in only the two variables
-	// docker-compose forces (${AUTH_TOKEN:?}, ${PROXY_TOKEN:?}) runs with this
+	// deployment that copies .env.example and leaves this value unchanged runs with this
 	// public string as its real credential-encryption key. config.Validate
 	// reports it; TestShippedCredentialSecretPlaceholderIsTheGuardedOne pins
 	// the two files to each other so retyping the placeholder in only one of

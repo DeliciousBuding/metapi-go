@@ -1879,25 +1879,6 @@
               "rate": "速率"
             }
           }
-        },
-        "proxyToken": {
-          "title": "根下游密钥（已弃用）",
-          "description": "全局下游兜底密钥，无 per-key 策略。已弃用，请改用「API 密钥」签发细粒度密钥。",
-          "current": "当前令牌",
-          "notSet": "未设置",
-          "generate": "生成",
-          "save": "更新令牌",
-          "fields": {
-            "suffix": "令牌后缀",
-            "suffixHint": "sk- 前缀固定。生成或输入新后缀。"
-          },
-          "schema": {
-            "suffixMinLength": "后缀至少 8 个字符。"
-          },
-          "toast": {
-            "saved": "根下游密钥已更新。",
-            "saveFailed": "更新根下游密钥失败。"
-          }
         }
       },
       "content": {
@@ -4326,6 +4307,11 @@
       }
     },
     "downstreamKeys": {
+      "migration": {
+        "title": "原根密钥已迁入 API 密钥",
+        "description": "升级已保留原密钥，现有客户端可继续使用。你可以在这里调整权限、限制用量或停用它。停用或删除后，重启不会恢复该密钥。",
+        "review": "查看迁入密钥"
+      },
       "page": {
         "title": "API 密钥",
         "description": "签发并管理用于调用 LLM 的 API 密钥。"

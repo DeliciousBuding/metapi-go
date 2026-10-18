@@ -190,7 +190,7 @@ func (c *Config) Validate() []error {
 		errs = append(errs, &configError{
 			field:    "proxy_global_token_rpm",
 			value:    fmt.Sprintf("%d", c.ProxyGlobalTokenRPM),
-			msg:      "negative value silently disables the global token limiter — use 0 for explicit disable",
+			msg:      "negative value imports the legacy key without an RPM limit — use 0 for unlimited",
 			critical: false,
 		})
 	}
@@ -527,20 +527,12 @@ func (r *RuntimeSettings) Validate() []error {
 		})
 	}
 
-	// --- Critical: Default AUTH_TOKEN / PROXY_TOKEN ---
+	// --- Critical: Default AUTH_TOKEN ---
 	if r.AuthToken == DefaultAuthToken {
 		errs = append(errs, &configError{
 			field:    "auth_token",
 			value:    "(default)",
 			msg:      "UNSAFE: using default admin token — set AUTH_TOKEN",
-			critical: true,
-		})
-	}
-	if r.ProxyToken == DefaultProxyToken {
-		errs = append(errs, &configError{
-			field:    "proxy_token",
-			value:    "(default)",
-			msg:      "UNSAFE: using default proxy token — set PROXY_TOKEN",
 			critical: true,
 		})
 	}

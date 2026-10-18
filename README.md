@@ -109,7 +109,7 @@ AI 生态里基于 New API / One API 系列的聚合中转站越来越多，多�
 
 ## 快速开始（3 分钟）
 
-三种等价方式，任选其一。启动只需要两个令牌：`AUTH_TOKEN`（管理后台登录）与 `PROXY_TOKEN`（下游调用 `/v1/*` 的 Key）。
+三种等价方式，任选其一。配置 `AUTH_TOKEN` 后启动并登录后台，在「API 密钥」创建下游访问令牌。旧版本的根密钥会在升级时自动迁入。
 
 ### 方式一：Release 二进制（推荐）
 
@@ -119,7 +119,6 @@ AI 生态里基于 New API / One API 系列的聚合中转站越来越多，多�
 curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download/install.sh | bash
 
 export AUTH_TOKEN=$(openssl rand -hex 16)      # 管理后台登录令牌
-export PROXY_TOKEN=sk-$(openssl rand -hex 24)  # 下游客户端调用 /v1/* 的 Key
 metapi
 ```
 
@@ -131,13 +130,11 @@ metapi
 
 ```bash
 export AUTH_TOKEN=$(openssl rand -hex 32)
-export PROXY_TOKEN=sk-$(openssl rand -hex 24)
 export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
 
 docker run -d --name metapi \
   -p 127.0.0.1:4000:4000 \
   -e AUTH_TOKEN \
-  -e PROXY_TOKEN \
   -e ACCOUNT_CREDENTIAL_SECRET \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
@@ -145,12 +142,12 @@ docker run -d --name metapi \
   ghcr.io/deliciousbuding/metapi-go:0.25.0
 ```
 
-默认仅本机可访问。需要从其他设备访问时，经反向代理配置 TLS，或明确调整端口绑定。示例生成的管理令牌与代理令牌应保存到自己的密码管理器；也可先生成并设置为环境变量，再传给容器。
+默认仅本机可访问。需要从其他设备访问时，经反向代理配置 TLS，或明确调整端口绑定。示例生成的管理令牌与加密密钥应保存到自己的密码管理器；也可先生成并设置为环境变量，再传给容器。
 
 命名卷首次挂载继承镜像内属主；改用 bind mount（`./data:/app/data`）需先在宿主机 `chown -R 1001:1001 ./data`。使用仓库 Compose（Docker Compose >= 2.24）：
 
 ```bash
-cp .env.example .env   # 替换三个独立随机密钥；METAPI_IMAGE 已钉在 0.25.0
+cp .env.example .env   # 替换管理令牌和独立加密密钥；METAPI_IMAGE 已钉在 0.25.0
 # .env 中其他运行配置也会传入容器，包括 PostgreSQL 和签到开关
 docker compose up -d
 ```
@@ -166,7 +163,7 @@ git clone https://github.com/DeliciousBuding/metapi-go.git
 cd metapi-go
 cd web && bun install --frozen-lockfile && bun run build:web && cd ..
 go build -o metapi ./cmd/server
-AUTH_TOKEN=your-admin-token PROXY_TOKEN=your-proxy-sk-token ./metapi
+AUTH_TOKEN=your-admin-token ./metapi
 ```
 
 ### 验证
@@ -182,11 +179,11 @@ curl http://localhost:4000/ready
 
 ## 第一个代理请求
 
-在界面里添加至少一个上游站点与账号，再为要暴露的模型**建一条路由**，或在「设置 → 运维 → 任务调度」开启「自动创建模型路由」后重建（默认关闭；通道按账号模型可用性绑定），然后像调用 OpenAI 一样调用 Metapi：
+在界面里添加至少一个上游站点与账号，再为要暴露的模型**建一条路由**，或在「设置 → 运维 → 任务调度」开启「自动创建模型路由」后重建（默认关闭；通道按账号模型可用性绑定），并在「API 密钥」创建允许该模型的令牌。把它设为 `DOWNSTREAM_API_KEY`，然后像调用 OpenAI 一样调用 Metapi：
 
 ```bash
 curl http://localhost:4000/v1/chat/completions \
-  -H "Authorization: Bearer $PROXY_TOKEN" \
+  -H "Authorization: Bearer $DOWNSTREAM_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "<任意已路由模型>",
@@ -206,12 +203,12 @@ Claude 原生格式（`/v1/messages`）、Responses、Embeddings、Images、`/v1
 
 ## 部署与配置
 
-全部配置由环境变量驱动，启动只需两个必填项：
+启动时配置管理令牌，下游访问令牌在 API 密钥页管理：
 
 | 变量          | 说明                          |
 | ------------- | ----------------------------- |
 | `AUTH_TOKEN`  | 管理后台登录令牌              |
-| `PROXY_TOKEN` | 下游客户端调用 `/v1/*` 的 Key |
+| `PROXY_TOKEN` | 可选，旧根密钥的一次性升级导入值 |
 
 常用项：
 
