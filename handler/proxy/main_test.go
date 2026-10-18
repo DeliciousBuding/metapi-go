@@ -18,5 +18,8 @@ func TestMain(m *testing.M) {
 	// Most proxy surface tests exercise the historical local stub path.
 	// Production keeps the stub disabled unless this flag is set explicitly.
 	os.Setenv("METAPI_ENABLE_PROXY_STUB", "1")
+	// Media-download tests use loopback httptest CDNs; the production policy is
+	// exercised explicitly in media_target_guard_test.go.
+	mediaTargetAllowPrivate = true
 	os.Exit(m.Run())
 }

@@ -94,6 +94,22 @@ func parseSiteHTTPURL(raw string) (*url.URL, bool) {
 	return parsed, true
 }
 
+// IsForbiddenPublicTargetURL applies the public-only outbound policy for
+// targets supplied by an upstream response or another non-operator party.
+// Unlike IsForbiddenSiteTargetURL it also rejects loopback, RFC1918, ULA and
+// 0.0.0.0/8, and fails closed on unparseable or credential-bearing URLs.
+func IsForbiddenPublicTargetURL(raw string) bool {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return true
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Hostname() == "" || parsed.User != nil {
+		return true
+	}
+	return ssrf.IsForbiddenPublicHost(parsed.Hostname())
+}
+
 // IsForbiddenSiteTargetURL reports whether a site/endpoint URL must be rejected
 // as a first-hop SSRF risk to cloud metadata / link-local targets.
 // RFC1918 private and localhost remain allowed for lab/docker operators.
