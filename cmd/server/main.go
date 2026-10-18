@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/app"
@@ -170,8 +171,24 @@ func bootstrapRuntime(cfg *config.Config, rt *config.RuntimeSettings, envAuthTok
 // runtime snapshot validation again would let unrelated persisted warnings
 // block boot. Error and warning text never include a token value.
 func validateHydratedAuthToken(rt *config.RuntimeSettings, envAuthToken string) error {
+	if rt == nil {
+		return fmt.Errorf("refusing to start: runtime settings are unavailable")
+	}
 	if rt.AuthToken == config.DefaultAuthToken {
 		return fmt.Errorf("refusing to start: persisted auth_token resolves to the built-in default; rotate the admin token and restart")
+	}
+	// config.Validate only rejects the built-in default. Hydration can replace
+	// the env value with any persisted string, so a tampered or migrated
+	// database could still install a trivially brute-forceable token. Reject
+	// the same weak class here regardless of which source produced it.
+	if strings.TrimSpace(rt.AuthToken) == "" {
+		return fmt.Errorf("refusing to start: admin auth_token is empty")
+	}
+	if len(rt.AuthToken) < 8 {
+		return fmt.Errorf("refusing to start: admin auth_token is shorter than 8 bytes; use a 32+ byte random token")
+	}
+	if len(rt.AuthToken) < 16 {
+		slog.Warn("security: admin auth_token is shorter than 16 bytes; use a 32+ byte random token")
 	}
 	if envAuthToken != "" && envAuthToken != rt.AuthToken {
 		slog.Warn("settings: persisted auth_token overrides AUTH_TOKEN from the environment; serving with the database value")

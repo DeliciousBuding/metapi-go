@@ -40,6 +40,10 @@ func TestSettingsRuntime_SensitiveFieldsRequireReauth(t *testing.T) {
 		{"telegramBotToken": "synthetic-bot-token"},
 		{"adminIpAllowlist": []any{"127.0.0.1"}},
 		{"smtpHost": "127.0.0.1", "smtpPort": 18100},
+		{"smtpUser": "synthetic-user", "smtpPass": "synthetic-pass"},
+		{"smtpTo": "synthetic@example.invalid"},
+		{"webhookUrl": "http://127.0.0.1:18099/hook"},
+		{"telegramChatId": "-1001234567890"},
 		{"feishuWebhook": "http://127.0.0.1:18099/hook"},
 	} {
 		resp := putRuntimeSettings(t, r, body, "")

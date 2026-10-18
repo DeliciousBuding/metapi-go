@@ -21,6 +21,7 @@ func TestSensitiveAdminRoutePatterns(t *testing.T) {
 		{http.MethodPut, "/api/settings/backup/webdav"},
 		{http.MethodPost, "/api/settings/database/migrate"},
 		{http.MethodPost, "/api/settings/database/test-connection"},
+		{http.MethodPost, "/api/settings/system-proxy/test"},
 		{http.MethodPost, "/api/settings/maintenance/factory-reset"},
 		{http.MethodPost, "/api/settings/maintenance/clear-usage"},
 		{http.MethodPost, "/api/settings/auth/change"},

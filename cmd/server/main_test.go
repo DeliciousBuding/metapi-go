@@ -150,6 +150,35 @@ func TestBootstrapRuntimeRejectsPersistedDefaultAuthToken(t *testing.T) {
 	}
 }
 
+// A persisted token that is not the shipped default but is trivially short
+// must be rejected too: hydration bypasses config.Validate, so checking only
+// the default value would let a tampered database install e.g. "secret".
+func TestBootstrapRuntimeRejectsPersistedWeakAuthToken(t *testing.T) {
+	_ = store.CloseDatabase()
+
+	dataDir := t.TempDir()
+	t.Cleanup(func() { _ = store.CloseDatabase() })
+	dbPath := filepath.Join(dataDir, "bootstrap.db")
+	seedPersistedAuthToken(t, dbPath, "short")
+
+	cfg, rt := config.Load(map[string]string{
+		"DB_TYPE":    "sqlite",
+		"DB_URL":     dbPath,
+		"DATA_DIR":   dataDir,
+		"AUTH_TOKEN": "strong-env-admin-token",
+	})
+	err := bootstrapRuntime(cfg, rt, "strong-env-admin-token")
+	if err == nil {
+		t.Fatal("bootstrapRuntime accepted a persisted auth_token shorter than 8 bytes")
+	}
+	if !strings.Contains(err.Error(), "auth_token") {
+		t.Fatalf("bootstrapRuntime error = %v, want auth_token context", err)
+	}
+	if strings.Contains(err.Error(), "short\"") || strings.Contains(err.Error(), "short ") {
+		t.Fatalf("bootstrapRuntime error leaks the token value: %v", err)
+	}
+}
+
 // A strong persisted token still wins over env (existing rotation behavior),
 // and the conflict is reported without either value.
 func TestBootstrapRuntimeUsesPersistedAuthTokenAndWarns(t *testing.T) {

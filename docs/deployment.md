@@ -129,7 +129,7 @@ root; the tables below list only what a deployment needs plus common options.
 
 | Variable      | Description                                      |
 | ------------- | ------------------------------------------------ |
-| `AUTH_TOKEN`  | Admin API bearer token. Server exits if missing. |
+| `AUTH_TOKEN`  | Admin API bearer token. Server exits if missing, empty, the built-in default, or shorter than 8 bytes; shorter than 16 bytes logs a warning. |
 | `PROXY_TOKEN` | Optional one-time legacy root key import. Manage downstream tokens in API Keys. |
 
 ### Optional
