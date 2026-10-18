@@ -90,10 +90,12 @@ var (
 
 func withModelsRouter(t *testing.T, router proxy.TokenRouterInterface) {
 	t.Helper()
+	globalModelsListCache.clear()
 	prev := getUpstreamConfig()
 	SetUpstreamConfig(&UpstreamConfig{Router: router})
 	t.Cleanup(func() {
 		SetUpstreamConfig(prev)
+		globalModelsListCache.clear()
 	})
 }
 

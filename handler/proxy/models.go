@@ -138,43 +138,36 @@ func buildClaudeModelsResponse(models []string, now time.Time) map[string]any {
 	}
 }
 
+// routeSelectionExplainer is the optional router capability used to evaluate
+// downstream policy visibility per catalog model.
+type routeSelectionExplainer interface {
+	ExplainSelection(context.Context, string, []int64, routing.DownstreamRoutingPolicy) (routing.RouteDecisionExplanation, error)
+}
+
 // getAvailableModels returns the list of available model names for this caller.
 // This is the Metapi-owned listing path (not a live upstream /v1/models proxy):
 // resolveOwnedModelCatalog loads route-backed names when TokenRouter is wired,
 // then downstream routing policy filters the catalog.
 func getAvailableModels(ctx context.Context, policy auth.DownstreamRoutingPolicy) []string {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	models := resolveOwnedModelCatalog(ctx)
 	if policy.AccessPolicy != nil || len(policy.AllowedRouteIDs) > 0 {
 		if cfg := getUpstreamConfig(); cfg != nil {
-			if explainer, ok := cfg.Router.(interface {
-				ExplainSelection(context.Context, string, []int64, routing.DownstreamRoutingPolicy) (routing.RouteDecisionExplanation, error)
-			}); ok {
-				if policy.AccessPolicy != nil {
-					for _, mapping := range policy.AccessPolicy.ModelMappings {
-						if !strings.ContainsAny(mapping.From, "*?+[]{}()^$.|\\") {
-							models = append(models, mapping.From)
-						}
-					}
+			if explainer, ok := cfg.Router.(routeSelectionExplainer); ok {
+				// Per-model ExplainSelection is O(models×routes); reuse the
+				// result while the policy and exposed catalog are unchanged.
+				if key, keyOK := modelsListCacheKey(policy, models); keyOK {
+					// The cached view is shared across requests, so compute it
+					// without the leader request's cancellation to keep a
+					// disconnecting caller from poisoning concurrent waiters.
+					computeCtx := context.WithoutCancel(ctx)
+					return globalModelsListCache.getOrCompute(key, func() []string {
+						return filterModelsByRouteVisibility(computeCtx, explainer, models, policy)
+					})
 				}
-				listingPolicy := RoutingPolicyFromAuth(policy)
-				listingPolicy.RequiredUpstreamProtocol = -1 // Listing accepts any protocol the grant can serve.
-				available := make([]string, 0, len(models))
-				for _, model := range models {
-					if !IsModelAllowedByPolicy(model, policy) {
-						continue
-					}
-					decision, err := explainer.ExplainSelection(ctx, model, nil, listingPolicy)
-					if err != nil {
-						continue
-					}
-					for _, candidate := range decision.Candidates {
-						if candidate.Eligible {
-							available = append(available, model)
-							break
-						}
-					}
-				}
-				return normalizeModelCatalog(available)
+				return filterModelsByRouteVisibility(ctx, explainer, models, policy)
 			}
 		}
 		return []string{}
@@ -192,6 +185,40 @@ func getAvailableModels(ctx context.Context, policy auth.DownstreamRoutingPolicy
 		}
 	}
 	return filtered
+}
+
+// filterModelsByRouteVisibility evaluates each catalog model against the
+// caller's policy, explaining route selection once per model. The input catalog
+// slice is never mutated.
+func filterModelsByRouteVisibility(ctx context.Context, explainer routeSelectionExplainer, catalog []string, policy auth.DownstreamRoutingPolicy) []string {
+	models := catalog
+	if policy.AccessPolicy != nil {
+		models = append([]string(nil), catalog...)
+		for _, mapping := range policy.AccessPolicy.ModelMappings {
+			if !strings.ContainsAny(mapping.From, "*?+[]{}()^$.|\\") {
+				models = append(models, mapping.From)
+			}
+		}
+	}
+	listingPolicy := RoutingPolicyFromAuth(policy)
+	listingPolicy.RequiredUpstreamProtocol = -1 // Listing accepts any protocol the grant can serve.
+	available := make([]string, 0, len(models))
+	for _, model := range models {
+		if !IsModelAllowedByPolicy(model, policy) {
+			continue
+		}
+		decision, err := explainer.ExplainSelection(ctx, model, nil, listingPolicy)
+		if err != nil {
+			continue
+		}
+		for _, candidate := range decision.Candidates {
+			if candidate.Eligible {
+				available = append(available, model)
+				break
+			}
+		}
+	}
+	return normalizeModelCatalog(available)
 }
 
 // resolveOwnedModelCatalog loads the Metapi-owned model name catalog.
