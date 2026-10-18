@@ -1234,12 +1234,24 @@ func dispatchEndpointAttemptWithContinue(
 		resp.Header.Set("Content-Type", "application/json")
 	}
 	if selected.Direct == nil {
-		videoBody := maybeRewriteVideosCreateResponse(ctx, selected, upstreamPath, respBody)
-		if !bytes.Equal(videoBody, respBody) {
+		managedBody, managedErr := processManagedProxyResponse(ctx, selected, r.Method, upstreamPath, respBody)
+		if managedErr != nil {
+			// The upstream call succeeded but its body cannot be relayed without
+			// leaking or misattributing another key's objects. Relay the failure
+			// instead of the unsafe body.
+			slog.Warn("cannot process shared-upstream response safely",
+				"err", managedErr, "path", upstreamPath,
+				"channel_id", selected.Channel.ID, "request_id", requestID)
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, false, usage, retry, requestID, truncateErrText(managedErr.Error()))
+			writeJSONErrorWithRequest(w, http.StatusBadGateway, managedErr.Error(), "upstream_error", requestID)
+			observeProxyTerminal(ctx, shared.OutcomeUpstreamError, false, time.Since(startedAt))
+			return true, nil, false
+		}
+		if !bytes.Equal(managedBody, respBody) {
 			for _, key := range []string{"Content-Length", "ETag", "Content-MD5", "Digest"} {
 				resp.Header.Del(key)
 			}
-			respBody = videoBody
+			respBody = managedBody
 		}
 	}
 	recordUpstreamSuccess(r.Context(), cfg, selected, ctx.RequestedModel, upstreamModel, latencyMs, usage)

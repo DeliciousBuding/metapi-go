@@ -50,8 +50,10 @@ func HandleFilesUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleFilesList handles GET /v1/files.
-// Forwards to upstream GET /v1/files. When no channel can be selected and the
-// proxy stub is enabled (tests), returns an empty OpenAI-shaped list.
+// Forwards to upstream GET /v1/files and filters the successful response to the
+// calling key's files (see processManagedProxyResponse). When no channel can be
+// selected and the proxy stub is enabled (tests), returns an empty
+// OpenAI-shaped list.
 func HandleFilesList(w http.ResponseWriter, r *http.Request) {
 	ctx, errResp := prepareFilesCtx(r, "/v1/files")
 	if errResp != nil {
@@ -93,6 +95,13 @@ func HandleFilesInfo(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "files does not support streaming", "invalid_request_error")
 		return
 	}
+	// An id the calling key did not upload is indistinguishable from an id that
+	// does not exist. Missing mappings (including files uploaded before
+	// ownership was recorded) are denied as well.
+	if !proxyFileOwnedBy(ctx.Auth, fileID) {
+		writeJSONError(w, http.StatusNotFound, "file not found", "invalid_request_error")
+		return
+	}
 	dispatchUpstream(w, r, ctx)
 }
 
@@ -111,6 +120,10 @@ func HandleFilesDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	if ctx.IsStream {
 		writeJSONError(w, http.StatusBadRequest, "files does not support streaming", "invalid_request_error")
+		return
+	}
+	if !proxyFileOwnedBy(ctx.Auth, fileID) {
+		writeJSONError(w, http.StatusNotFound, "file not found", "invalid_request_error")
 		return
 	}
 	dispatchUpstream(w, r, ctx)
@@ -132,6 +145,12 @@ func HandleFilesDelete(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "files does not support streaming", "invalid_request_error")
 		return
 	}
+	if !proxyFileOwnedBy(ctx.Auth, fileID) {
+		writeJSONError(w, http.StatusNotFound, "file not found", "invalid_request_error")
+		return
+	}
+	// The ownership mapping is dropped by the 2xx response hook, after the
+	// upstream delete succeeds; a failed upstream call keeps it for retry.
 	dispatchUpstream(w, r, ctx)
 }
 

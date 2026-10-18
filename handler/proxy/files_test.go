@@ -24,6 +24,8 @@ func chiRouterForFiles() chi.Router {
 }
 
 func TestRegisterFilesRoutes_PathsExist(t *testing.T) {
+	db := openProxyOwnershipDB(t)
+	insertFileOwner(t, db, "file_test", testOwner())
 	r := chiRouterForFiles()
 	paths := []struct {
 		method string
@@ -84,6 +86,9 @@ func TestHandleFilesList_Unauthorized(t *testing.T) {
 }
 
 func TestHandleFilesList_ForwardsToUpstream(t *testing.T) {
+	db := openProxyOwnershipDB(t)
+	insertFileOwner(t, db, "file_1", testOwner())
+
 	pathCh := make(chan string, 1)
 	authCh := make(chan string, 1)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -127,6 +132,7 @@ func TestHandleFilesList_ForwardsToUpstream(t *testing.T) {
 }
 
 func TestHandleFilesUpload_MultipartForwardsToUpstream(t *testing.T) {
+	db := openProxyOwnershipDB(t)
 	var gotModel, gotPurpose, gotFilename string
 	var gotFileBody string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -219,6 +225,10 @@ func TestHandleFilesUpload_MultipartForwardsToUpstream(t *testing.T) {
 	if body := rec.Body.String(); !strings.Contains(body, "file_abc") {
 		t.Fatalf("body = %q, want upstream file object", body)
 	}
+	owner, ok := fileOwner(db, "file_abc")
+	if !ok || owner != testOwner() {
+		t.Fatalf("uploaded file owner = %q (present=%v), want %q", owner, ok, testOwner())
+	}
 }
 
 func TestHandleFilesUpload_JSONBodyRejected(t *testing.T) {
@@ -240,6 +250,9 @@ func TestHandleFilesUpload_Unauthorized(t *testing.T) {
 }
 
 func TestHandleFilesInfo_ForwardsToUpstream(t *testing.T) {
+	db := openProxyOwnershipDB(t)
+	insertFileOwner(t, db, "file_xyz", testOwner())
+
 	pathCh := make(chan string, 1)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pathCh <- r.URL.Path
@@ -276,6 +289,9 @@ func TestHandleFilesInfo_ForwardsToUpstream(t *testing.T) {
 }
 
 func TestHandleFilesDownload_ForwardsBinaryContent(t *testing.T) {
+	db := openProxyOwnershipDB(t)
+	insertFileOwner(t, db, "file_pdf", testOwner())
+
 	pathCh := make(chan string, 1)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pathCh <- r.URL.Path
@@ -316,6 +332,9 @@ func TestHandleFilesDownload_ForwardsBinaryContent(t *testing.T) {
 }
 
 func TestHandleFilesDelete_ForwardsToUpstream(t *testing.T) {
+	db := openProxyOwnershipDB(t)
+	insertFileOwner(t, db, "file_del", testOwner())
+
 	pathCh := make(chan string, 1)
 	methodCh := make(chan string, 1)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -354,6 +373,9 @@ func TestHandleFilesDelete_ForwardsToUpstream(t *testing.T) {
 	if body := rec.Body.String(); !strings.Contains(body, `"deleted":true`) {
 		t.Fatalf("body = %q", body)
 	}
+	if _, ok := fileOwner(db, "file_del"); ok {
+		t.Fatal("ownership mapping survived a successful upstream delete")
+	}
 }
 
 func TestHandleFilesInfo_MissingFileID(t *testing.T) {
@@ -367,6 +389,9 @@ func TestHandleFilesInfo_MissingFileID(t *testing.T) {
 }
 
 func TestHandleFiles_UpstreamErrorShape(t *testing.T) {
+	db := openProxyOwnershipDB(t)
+	insertFileOwner(t, db, "file_missing", testOwner())
+
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
@@ -399,6 +424,7 @@ func TestHandleFiles_UpstreamErrorShape(t *testing.T) {
 }
 
 func TestHandleFiles_ModelOverrideFromQuery(t *testing.T) {
+	openProxyOwnershipDB(t)
 	modelSeen := make(chan string, 1)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// GET has no body; selection uses RequestedModel only. Capture via auth path.

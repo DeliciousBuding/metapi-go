@@ -514,6 +514,7 @@ type ProxyVideoTask struct {
 	ActualModel          *string `db:"actual_model" json:"actualModel"`
 	ChannelID            *int64  `db:"channel_id" json:"channelId"`
 	AccountID            *int64  `db:"account_id" json:"accountId"`
+	Owner                *string `db:"owner" json:"owner"`
 	StatusSnapshot       *string `db:"status_snapshot" json:"statusSnapshot"`
 	UpstreamResponseMeta *string `db:"upstream_response_meta" json:"upstreamResponseMeta"`
 	LastUpstreamStatus   *int64  `db:"last_upstream_status" json:"lastUpstreamStatus"`

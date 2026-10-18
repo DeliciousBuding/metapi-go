@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -24,18 +25,21 @@ import (
 
 // Create saves a process-local cache entry and dual-writes to
 // `proxy_video_tasks` when store.GetDB() is available so multi-instance /
-// restart can resolve publicId. GET/DELETE treat the store as an optional
-// rewrite aid, not a hard gate — missing entries still pass the client id
-// through to upstream. Sticky site/token pin remains a known limitation.
+// restart can resolve publicId. Owner is the downstream key identity
+// (store.DirectVideoTaskOwner); GET/DELETE require a mapping whose owner
+// matches the caller, so a missing or ownerless row is a 404 rather than a
+// pass-through of a client-supplied upstream id.
 type ProxyVideoTask struct {
 	PublicID        string `json:"publicId"`
 	UpstreamVideoID string `json:"upstreamVideoId"`
-	SiteURL         string `json:"siteUrl"`
-	TokenValue      string `json:"tokenValue"`
-	RequestedModel  string `json:"requestedModel"`
-	ActualModel     string `json:"actualModel"`
-	ChannelID       int64  `json:"channelId"`
-	AccountID       int64  `json:"accountId"`
+	// Owner is an internal opaque identity hash; it is never serialized.
+	Owner          string `json:"-"`
+	SiteURL        string `json:"siteUrl"`
+	TokenValue     string `json:"tokenValue"`
+	RequestedModel string `json:"requestedModel"`
+	ActualModel    string `json:"actualModel"`
+	ChannelID      int64  `json:"channelId"`
+	AccountID      int64  `json:"accountId"`
 }
 
 // The process-local video task cache has two owners with two lifetimes:
@@ -122,15 +126,22 @@ func HandleVideosCreate(w http.ResponseWriter, r *http.Request) {
 
 // HandleVideosGet handles GET /v1/videos/{id}.
 
-// If a local mapping exists and UpstreamVideoID differs from the public path id,
-// the upstream path uses UpstreamVideoID. When the mapping is missing, the
-// client-provided id is passed through — no store-gated 404 theater.
+// The request is served only when a local mapping exists and belongs to the
+// calling key; the upstream path then uses the mapped UpstreamVideoID. A
+// missing mapping, an ownerless legacy row and another key's task are all 404:
+// forwarding the client-supplied id would expose every video on the shared
+// upstream account.
 
 // Sticky pin: when the mapping has ChannelID > 0, force preferred channel
 // selection so the request hits the same upstream account/site as create.
 func HandleVideosGet(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(chi.URLParam(r, "id"), directVideoIDPrefix) {
 		handleDirectVideoTask(w, r, "")
+		return
+	}
+	pac := GetProxyAuth(r)
+	if pac == nil {
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized", "invalid_request_error")
 		return
 	}
 	publicID := chi.URLParam(r, "id")
@@ -144,6 +155,10 @@ func HandleVideosGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	task := GetProxyVideoTaskByPublicID(publicID)
+	if !proxyVideoTaskOwnedBy(task, pac) {
+		writeJSONError(w, http.StatusNotFound, "video not found", "invalid_request_error")
+		return
+	}
 	upstreamID := resolveVideoUpstreamIDFromTask(publicID, task)
 	if !validProxiedResourceID(upstreamID) {
 		writeJSONError(w, 400, "invalid video id", "invalid_request_error")
@@ -166,15 +181,20 @@ func HandleVideosGet(w http.ResponseWriter, r *http.Request) {
 
 // HandleVideosDelete handles DELETE /v1/videos/{id}.
 
-// Clears any local mapping for the public id, then always dispatches DELETE to
-// upstream (mapping is optional rewrite aid, not a hard gate). Prefer honest
-// upstream status over a local-only 204.
+// Requires a mapping owned by the calling key, exactly like GET. The mapping is
+// removed by the 2xx response hook after the upstream delete succeeds, so a
+// failed upstream call never strands the task without its rewrite entry.
 
 // Sticky pin: resolve mapping before delete so channel preference and
 // path rewrite still apply for this request.
 func HandleVideosDelete(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(chi.URLParam(r, "id"), directVideoIDPrefix) {
 		handleDirectVideoTask(w, r, "")
+		return
+	}
+	pac := GetProxyAuth(r)
+	if pac == nil {
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized", "invalid_request_error")
 		return
 	}
 	publicID := chi.URLParam(r, "id")
@@ -188,13 +208,15 @@ func HandleVideosDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	task := GetProxyVideoTaskByPublicID(publicID)
+	if !proxyVideoTaskOwnedBy(task, pac) {
+		writeJSONError(w, http.StatusNotFound, "video not found", "invalid_request_error")
+		return
+	}
 	upstreamID := resolveVideoUpstreamIDFromTask(publicID, task)
 	if !validProxiedResourceID(upstreamID) {
 		writeJSONError(w, 400, "invalid video id", "invalid_request_error")
 		return
 	}
-	// Best-effort local cleanup whether or not a mapping existed.
-	DeleteProxyVideoTaskByPublicID(publicID)
 
 	ctx, errResp := PrepareCtx(r, SurfConfig{
 		Endpoint:       "videos",
@@ -206,8 +228,20 @@ func HandleVideosDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	applyVideoTaskStickyPin(ctx, task)
+	ctx.managedVideoTaskID = publicID
 
 	dispatchUpstream(w, r, ctx)
+}
+
+// proxyVideoTaskOwnedBy reports whether task is a shared-upstream mapping owned
+// by pac. Ownerless rows (written before the owner column existed) fail closed:
+// an unknown owner cannot be treated as "everyone's" for an opaque upstream id.
+func proxyVideoTaskOwnedBy(task *ProxyVideoTask, pac *auth.ProxyAuthContext) bool {
+	if task == nil {
+		return false
+	}
+	owner := directVideoOwner(pac)
+	return owner != "" && task.Owner != "" && task.Owner == owner
 }
 
 // resolveVideoUpstreamIDFromTask returns the upstream path id for a client-facing id.
@@ -255,6 +289,7 @@ func SaveProxyVideoTask(task *ProxyVideoTask) {
 	cp := *task
 	cp.PublicID = strings.TrimSpace(cp.PublicID)
 	cp.UpstreamVideoID = strings.TrimSpace(cp.UpstreamVideoID)
+	cp.Owner = strings.TrimSpace(cp.Owner)
 
 	now := videoTaskNow().UTC()
 	videoTaskStoreMu.Lock()
@@ -440,12 +475,13 @@ func upsertProxyVideoTaskDB(task *ProxyVideoTask, at time.Time) error {
 	// store.DB rebinds ? → $N for postgres.
 	const q = `
 INSERT INTO proxy_video_tasks (
-	public_id, upstream_video_id, site_url, token_value,
+	public_id, upstream_video_id, owner, site_url, token_value,
 	requested_model, actual_model, channel_id, account_id,
 	created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(public_id) DO UPDATE SET
 	upstream_video_id = excluded.upstream_video_id,
+	owner = excluded.owner,
 	site_url = excluded.site_url,
 	token_value = excluded.token_value,
 	requested_model = excluded.requested_model,
@@ -471,6 +507,7 @@ ON CONFLICT(public_id) DO UPDATE SET
 	_, err := db.Exec(q,
 		task.PublicID,
 		task.UpstreamVideoID,
+		nullableString(task.Owner),
 		task.SiteURL,
 		task.TokenValue,
 		reqModel,
@@ -483,13 +520,20 @@ ON CONFLICT(public_id) DO UPDATE SET
 	return err
 }
 
+func nullableString(value string) any {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	return value
+}
+
 func loadProxyVideoTaskDB(publicID string) (*ProxyVideoTask, error) {
 	db := store.GetDB()
 	if db == nil {
 		return nil, nil
 	}
 	const q = `
-SELECT public_id, upstream_video_id, site_url, token_value,
+SELECT public_id, upstream_video_id, owner, site_url, token_value,
        requested_model, actual_model, channel_id, account_id
 FROM proxy_video_tasks
 WHERE public_id = ?
@@ -497,11 +541,11 @@ LIMIT 1
 `
 	var (
 		rowPublic, upstream, siteURL, token string
-		reqModel, actModel                  *string
+		owner, reqModel, actModel           *string
 		channelID, accountID                *int64
 	)
 	err := db.QueryRow(q, publicID).Scan(
-		&rowPublic, &upstream, &siteURL, &token,
+		&rowPublic, &upstream, &owner, &siteURL, &token,
 		&reqModel, &actModel, &channelID, &accountID,
 	)
 	if err != nil {
@@ -515,6 +559,9 @@ LIMIT 1
 		UpstreamVideoID: upstream,
 		SiteURL:         siteURL,
 		TokenValue:      token,
+	}
+	if owner != nil {
+		task.Owner = *owner
 	}
 	if reqModel != nil {
 		task.RequestedModel = *reqModel
@@ -541,10 +588,10 @@ func deleteProxyVideoTaskDB(publicID string) error {
 }
 
 // maybeRewriteVideosCreateResponse rewrites a successful POST /v1/videos body so
-// clients see an opaque publicId, and seeds the process-local mapping used by
-// GET/DELETE path rewrite. Best-effort: any parse/shape miss returns body unchanged.
-
-// Multi-instance durable store and sticky site pin are known limitations (follow-ups).
+// clients see an opaque publicId, and seeds the process-local + durable mapping
+// used by GET/DELETE path rewrite and ownership checks. Best-effort: any
+// parse/shape miss returns body unchanged, which leaves the upstream id
+// unmapped and therefore unreadable (fail closed).
 func maybeRewriteVideosCreateResponse(
 	ctx *Ctx,
 	selected *routing.SelectedChannel,
@@ -581,6 +628,7 @@ func maybeRewriteVideosCreateResponse(
 	SaveProxyVideoTask(&ProxyVideoTask{
 		PublicID:        publicID,
 		UpstreamVideoID: upstreamID,
+		Owner:           directVideoOwner(ctx.Auth),
 		SiteURL:         selected.Site.URL,
 		TokenValue:      selected.TokenValue,
 		RequestedModel:  ctx.RequestedModel,

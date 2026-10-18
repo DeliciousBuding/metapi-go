@@ -52,6 +52,7 @@ var schemaTables = []schemaTable{
 	{"proxy_logs", buildProxyLogsDDL},
 	{"gateway_requests", buildGatewayRequestsDDL},
 	{"proxy_video_tasks", buildProxyVideoTasksDDL},
+	{"proxy_file_objects", buildProxyFileObjectsDDL},
 	{"settings", buildSettingsDDL},
 	{"analytics_projection_checkpoints", buildAnalyticsProjectionCheckpointsDDL},
 	{"site_day_usage", buildSiteDayUsageDDL},

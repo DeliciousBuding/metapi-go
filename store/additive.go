@@ -613,6 +613,23 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		},
 	},
 	{
+		// Shared-upstream video mappings (everything outside the video_direct_
+		// path) live on one upstream account for every downstream key. The owner
+		// column records which downstream identity created the mapping so
+		// GET/DELETE can reject other keys. Rows written before this column
+		// existed keep NULL and are therefore inaccessible: fail closed is the
+		// only safe reading of "owner unknown" for an opaque upstream task id.
+		Version:     "proxy_video_task_owner_v1",
+		Description: "proxy_video_tasks.owner TEXT NULL — downstream key owner for shared-upstream video mappings; NULL legacy rows are denied",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "proxy_video_tasks")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "proxy_video_tasks", "owner", "TEXT", "TEXT", "")
+		},
+	},
+	{
 		Version:     "site_announcement_timeline_v1",
 		Description: "merge legacy single-notice records and preserve announcement revisions",
 		Apply:       migrateSiteAnnouncementTimeline,

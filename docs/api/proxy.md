@@ -117,6 +117,14 @@ Their log `accountingMode` is `legacy_task_untracked`.
 Video support describes compatible upstream APIs. HTTP fixture coverage does
 not establish availability of a particular vendor's current video service.
 
+Tasks created through a shared upstream channel (an id that does not start with
+`video_direct_`) are owned by the downstream key that created them, recorded in
+`proxy_video_tasks.owner`. Polling and deletion require a mapping whose owner
+matches the caller: a missing mapping, another key's task, or a row written
+before owner tracking existed (NULL owner) is answered with 404 and is never
+forwarded to the shared upstream account. The mapping is removed only after the
+upstream delete succeeds, so a failed delete can be retried.
+
 Seedance and ZenMux video profiles translate `/v1/videos` requests to their
 native task APIs. Both support creation, polling and content; only Seedance
 supports deletion. Unsupported deletion/remix returns 400 before upstream I/O.
@@ -276,6 +284,20 @@ OpenAI-compatible Files surface (proxy auth required). Forwards to the selected 
 | DELETE | `/v1/files/{fileId}` | Delete file. |
 
 Channel selection uses model key: body/multipart `model`, else `?model=`, else `X-Metapi-Files-Model`, else default `gpt-4o`. Residual platforms without a Files API return upstream errors.
+
+Files are isolated per downstream key. An upload records the upstream file id
+and the calling key's identity in `proxy_file_objects` (the same owner identity
+video tasks use, stable across token rotation). Metadata, content and delete
+requests are served only when that record belongs to the caller; everything
+else — including files uploaded before ownership tracking existed — is a 404 and
+is never forwarded to the shared upstream account. The list response is filtered
+to the caller's file ids; a response that cannot be parsed fails with
+`502 upstream_error` instead of relaying the account-wide inventory. Delete
+removes the record only after upstream success.
+
+Ownership rows ship in `type=all` backups. A backup written before this table
+existed restores without them, so those files stay inaccessible (fail closed)
+rather than becoming shared.
 
 ---
 

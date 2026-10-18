@@ -84,6 +84,8 @@ func buildIndexes() []struct {
 		// proxy_video_tasks
 		{"proxy_video_tasks_upstream_video_id_idx", `CREATE INDEX IF NOT EXISTS proxy_video_tasks_upstream_video_id_idx ON proxy_video_tasks (upstream_video_id)`},
 		{"proxy_video_tasks_created_at_idx", `CREATE INDEX IF NOT EXISTS proxy_video_tasks_created_at_idx ON proxy_video_tasks (created_at)`},
+		// proxy_file_objects: list filtering loads the owned ids for one key.
+		{"proxy_file_objects_owner_idx", `CREATE INDEX IF NOT EXISTS proxy_file_objects_owner_idx ON proxy_file_objects (owner)`},
 		// analytics_projection_checkpoints
 		{"analytics_projection_checkpoints_recompute_from_id_idx", `CREATE INDEX IF NOT EXISTS analytics_projection_checkpoints_recompute_from_id_idx ON analytics_projection_checkpoints (recompute_from_id)`},
 		{"analytics_projection_checkpoints_lease_expires_at_idx", `CREATE INDEX IF NOT EXISTS analytics_projection_checkpoints_lease_expires_at_idx ON analytics_projection_checkpoints (lease_expires_at)`},

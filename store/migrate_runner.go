@@ -1180,7 +1180,7 @@ func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildProxyVideoTasks(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"direct_identity", "accounting_state", "id", "public_id", "upstream_video_id", "site_url", "token_value", "requested_model", "actual_model", "channel_id", "account_id", "status_snapshot", "upstream_response_meta", "last_upstream_status", "last_polled_at", "created_at", "updated_at"}
+	cols := []string{"direct_identity", "accounting_state", "id", "public_id", "upstream_video_id", "site_url", "token_value", "requested_model", "actual_model", "channel_id", "account_id", "owner", "status_snapshot", "upstream_response_meta", "last_upstream_status", "last_polled_at", "created_at", "updated_at"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -1197,6 +1197,7 @@ func buildProxyVideoTasks(rows []map[string]interface{}) []insertStmt {
 				asNullableString(v(row, "actual_model")),
 				asNumber(v(row, "channel_id"), nil),
 				asNumber(v(row, "account_id"), nil),
+				asNullableString(v(row, "owner")),
 				serializeColumnValue("proxy_video_tasks", "status_snapshot", v(row, "status_snapshot")),
 				serializeColumnValue("proxy_video_tasks", "upstream_response_meta", v(row, "upstream_response_meta")),
 				asNumber(v(row, "last_upstream_status"), nil),
