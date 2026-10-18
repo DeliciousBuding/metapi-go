@@ -281,7 +281,7 @@ Channel selection uses model key: body/multipart `model`, else `?model=`, else `
 
 ## Downstream Pricing (`/v1/pricing`)
 
-Cross-site effective model price catalog exposed behind downstream-key (ProxyAuth) auth — NOT admin auth. A downstream consumer (中转站) holding a managed key can query effective cross-site model pricing for its own planning. Reuses the `modelPriceCompare` handler so the data surface is identical to `GET /api/models/price-compare`; no separate catalog to drift.
+Cross-site effective model price catalog exposed behind downstream-key (ProxyAuth) auth — NOT admin auth. A downstream consumer (中转站) holding a managed key can query effective cross-site model pricing for its own planning. This is a dedicated handler (not the admin `modelPriceCompare` surface): every response is scoped to the key's routing policy, and account identities plus internal cost fields are omitted. The admin `GET /api/models/price-compare` and `GET /api/stats/model-prices` responses are unchanged.
 
 Mounted under `/v1/*` so it inherits ProxyAuth + wildcard CORS.
 
@@ -289,7 +289,16 @@ Mounted under `/v1/*` so it inherits ProxyAuth + wildcard CORS.
 
 **Auth**: ProxyAuth (downstream API key), not admin Bearer token.
 
-**Query params**: `model` (optional name/substring), `days` (1–365, default 30), `limit` (default 50, max 200), `topModels` (1–50, default 12, used only when `model` is empty).
+**Query params**: `model` (optional; exact, case-insensitive model name), `days` (1–30, default 30), `limit` (default 50, max 100), `topModels` (1–12, default 12, used only when `model` is empty), `pricePage` / `pricePageSize` (current-price pagination, page size max 20). The admin-only `exactModel` and substring `%LIKE%` matching are not available here.
+
+**Policy scoping**:
+
+- Sites: `allowedSiteIds` is an allow-list; `excludedSiteIds` is removed. Rows on any other site are never returned, including its `siteId`, `siteName`, `platform` and prices.
+- Models: the routing policy's model visibility (`accessPolicy.modelIds`, `supportedModels`, `allowedRouteIds`) decides which models may appear. A request for a model the key cannot call returns `200` with empty results.
+- Credentials: `allowedCredentialRefs` / `excludedCredentialRefs` are mapped to accounts (`account_token` and `default_api_key` refs). `direct_grant` refs have no account-level pricing row and therefore authorize/exclude nothing; an allow-list made only of direct grants returns no account pricing. A policy restricted to specific imported upstream channels likewise exposes no account-backed pricing rows.
+- Derived structures (`pricingAccounts`, `currentPrices`, `officialPrices`) are filtered with the same scope.
+
+Account identities and internal cost are not part of the contract: rows carry no `accountId` or `username`, no `configuredUnitCost`, and `configured` is not used as a price source downstream. Multiple accounts on one site collapse to the best price per site/model.
 
 **Response** (200):
 ```json
@@ -304,28 +313,31 @@ Mounted under `/v1/*` so it inherits ProxyAuth + wildcard CORS.
       "siteName": "anthropic",
       "platform": "anthropic",
       "model": "claude-sonnet-4-20250514",
-      "accountId": 5,
-      "username": "svc-1",
       "inputPerMillion": 3.0,
       "outputPerMillion": 15.0,
       "source": "billing_details",
       "ratesSource": "billing_details",
       "estimatedCostSample": 0.0105,
       "observedSamples": 1200,
-      "configuredUnitCost": 0.003,
       "missingPrice": false,
       "recommended": true
     }
   ],
+  "pricingAccounts": [
+    { "siteId": 3, "siteName": "anthropic", "platform": "anthropic", "fetchedAt": "2026-10-18T02:00:00Z", "attemptedAt": "", "supported": true }
+  ],
+  "currentPrices": [],
+  "officialPrices": {},
+  "currentPage": { "page": 1, "pageSize": 10, "totalModels": 1 },
   "meta": {
-    "count": 12,
-    "modelsConsidered": 12,
-    "sources": ["billing_details", "observed", "configured", "fallback"],
-    "notes": "Rates/costs from billing_details, observed proxy_logs, account unit_cost, or labeled fallback. missingPrice=true means no catalog/observed/configured signal."
+    "count": 1,
+    "modelsConsidered": 1,
+    "sources": ["billing_details", "observed", "fallback"],
+    "notes": "Rates/costs from billing_details or observed proxy_logs, or labeled platform fallback. Rows are scoped to this key's sites, models and credentials; account identities and configured unit cost are not exposed."
   }
 }
 ```
 
-`source` is one of `billing_details` | `observed` | `configured` | `fallback`. Fallback is always labeled; `missingPrice=true` when no catalog/observed/configured signal exists. Rows are sorted cheapest-first and `recommended=true` marks the best channel per model. Alias: `GET /v1/models/price-compare` (same handler).
+`source` is one of `billing_details` | `observed` | `fallback`. Fallback is always labeled; `missingPrice=true` when no billing/observed/fallback signal exists. `pricingAccounts` is site-level and only lists sites that contributed a row to this response (no account identifiers). `currentPrices` is deduplicated per site/model and keeps `pricing`, `groups` and `official` product fields. Rows are sorted cheapest-first and `recommended=true` marks the best site per model. Alias: `GET /v1/models/price-compare` (same handler).
 
 ---
