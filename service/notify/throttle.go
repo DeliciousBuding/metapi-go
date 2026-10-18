@@ -11,16 +11,51 @@ type NotificationThrottleState struct {
 	SuppressedCount int
 }
 
+// DefaultMaxThrottleEntries bounds the throttle map. Signatures can embed
+// request-derived values (model names), so an attacker could otherwise grow
+// this map without limit for the lifetime of the process.
+const DefaultMaxThrottleEntries = 4096
+
 // NotificationThrottle is a global throttle for notification deduplication.
 type NotificationThrottle struct {
-	mu    sync.Mutex
-	state map[string]*NotificationThrottleState
+	mu         sync.Mutex
+	state      map[string]*NotificationThrottleState
+	maxEntries int
 }
 
 // NewNotificationThrottle creates a new throttle instance.
 func NewNotificationThrottle() *NotificationThrottle {
 	return &NotificationThrottle{
-		state: make(map[string]*NotificationThrottleState),
+		state:      make(map[string]*NotificationThrottleState),
+		maxEntries: DefaultMaxThrottleEntries,
+	}
+}
+
+// SetMaxEntries overrides the entry cap (tests use a small value).
+func (t *NotificationThrottle) SetMaxEntries(n int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.maxEntries = n
+}
+
+// enforceCapLocked evicts a slice of arbitrary entries once the map is full.
+// Exact LRU would make every insert O(n); evicting a fraction keeps inserts
+// amortized O(1) and only costs at most a few extra notifications under
+// adversarial cardinality.
+func (t *NotificationThrottle) enforceCapLocked() {
+	if t.maxEntries <= 0 || len(t.state) < t.maxEntries {
+		return
+	}
+	evict := len(t.state) / 8
+	if evict < 1 {
+		evict = 1
+	}
+	for key := range t.state {
+		delete(t.state, key)
+		evict--
+		if evict <= 0 {
+			break
+		}
 	}
 }
 
@@ -56,6 +91,7 @@ func (t *NotificationThrottle) EvaluateNotificationThrottle(signature string, no
 
 	current, exists := t.state[signature]
 	if !exists {
+		t.enforceCapLocked()
 		t.state[signature] = &NotificationThrottleState{
 			LastSentAtMs:    nowMs,
 			SuppressedCount: 0,

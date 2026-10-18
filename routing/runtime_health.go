@@ -1,6 +1,8 @@
 package routing
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"math"
 	"regexp"
 	"sync"
@@ -361,7 +363,7 @@ func getOrCreateSiteRuntimeHealthState(siteID int64) *SiteRuntimeHealthState {
 }
 
 func getSiteModelRuntimeHealthState(siteID int64, modelName string) *SiteRuntimeHealthState {
-	modelKey := NormalizeModelAlias(modelName)
+	modelKey := runtimeHealthModelKey(modelName)
 	if modelKey == "" {
 		return nil
 	}
@@ -373,8 +375,33 @@ func getSiteModelRuntimeHealthState(siteID int64, modelName string) *SiteRuntime
 	return nil
 }
 
+// maxSiteModelHealthStates bounds the per-site model map. A wildcard route
+// with no mapping records the client-supplied model name, so an attacker
+// could otherwise create an unbounded number of permanently resident states.
+const maxSiteModelHealthStates = 1024
+
+// runtimeHealthModelKey normalizes a model name for the health map and hashes
+// pathologically long names so each entry has bounded size.
+func runtimeHealthModelKey(modelName string) string {
+	key := NormalizeModelAlias(modelName)
+	if len(key) > 256 {
+		sum := sha256.Sum256([]byte(key))
+		return "sha256:" + hex.EncodeToString(sum[:])
+	}
+	return key
+}
+
+// evictOneModelHealthLocked drops an arbitrary entry when the per-site map is
+// full. The evicted model simply starts from a neutral health state.
+func evictOneModelHealthLocked(modelStates map[string]*SiteRuntimeHealthState) {
+	for key := range modelStates {
+		delete(modelStates, key)
+		return
+	}
+}
+
 func getOrCreateSiteModelRuntimeHealthState(siteID int64, modelName string) *SiteRuntimeHealthState {
-	modelKey := NormalizeModelAlias(modelName)
+	modelKey := runtimeHealthModelKey(modelName)
 	if modelKey == "" {
 		return nil
 	}
@@ -392,6 +419,9 @@ func getOrCreateSiteModelRuntimeHealthState(siteID int64, modelName string) *Sit
 			state.LastUpdatedAtMs = now
 		}
 		return state
+	}
+	if len(modelStates) >= maxSiteModelHealthStates {
+		evictOneModelHealthLocked(modelStates)
 	}
 	n := nowMs()
 	s := &SiteRuntimeHealthState{
@@ -480,6 +510,10 @@ func GetSiteRuntimeHealthDetails(siteID int64, modelName string) SiteRuntimeHeal
 	if modelKey != "" {
 		modelState = getSiteModelRuntimeHealthState(siteID, modelKey)
 	}
+	displayKey := modelKey
+	if len(displayKey) > 256 {
+		displayKey = displayKey[:256] + "…"
+	}
 	globalMultiplier := GetRuntimeHealthMultiplier(globalState)
 	modelMultiplier := 1.0
 	if modelState != nil {
@@ -500,7 +534,7 @@ func GetSiteRuntimeHealthDetails(siteID int64, modelName string) SiteRuntimeHeal
 		ModelBreakerOpen:   isRuntimeHealthBreakerOpen(modelState),
 		GlobalHalfOpen:     isRuntimeHealthHalfOpenActive(globalState),
 		ModelHalfOpen:      isRuntimeHealthHalfOpenActive(modelState),
-		ModelKey:           modelKey,
+		ModelKey:           displayKey,
 		RecentSuccessRate:  recentSnapshot.SuccessRate,
 		RecentSampleCount:  recentSnapshot.SampleCount,
 		RecentConfidence:   recentSnapshot.Confidence,

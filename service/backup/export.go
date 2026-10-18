@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
@@ -83,26 +84,38 @@ func BuildPayload(db *sqlx.DB, exportType string) (map[string]any, error) {
 	}
 
 	result := map[string]any{}
+	warnings := map[string]int{}
 	estimatedPayloadBytes := int64(512)
 	for _, table := range tables {
 		if err := addEstimatedPayloadBytes(&estimatedPayloadBytes, int64(len(table)+16)); err != nil {
 			return nil, err
 		}
-		rows, err := queryTableAsJSON(db, table, &estimatedPayloadBytes)
+		rows, tableWarnings, err := queryTableAsJSON(db, table, &estimatedPayloadBytes)
 		if err != nil {
 			return nil, fmt.Errorf("export failed: unable to read table %s: %w", table, err)
+		}
+		for column, count := range tableWarnings {
+			warnings[table+"."+column] += count
 		}
 		result[table] = rows
 	}
 
+	metadata := map[string]any{
+		"exported_at":     time.Now().UTC().Format(time.RFC3339Nano),
+		"version":         "1.0",
+		"excluded_tables": excludedTablesFor(exportType, tables),
+	}
+	if len(warnings) > 0 {
+		// Oversized cells (historically events.message written before the
+		// length cap) are truncated instead of failing the whole backup: one
+		// poisoned row must not break every scheduled export.
+		metadata["warnings"] = warnings
+	}
+
 	return map[string]any{
-		"metadata": map[string]any{
-			"exported_at":     time.Now().UTC().Format(time.RFC3339Nano),
-			"version":         "1.0",
-			"excluded_tables": excludedTablesFor(exportType, tables),
-		},
-		"type":   exportType,
-		"tables": result,
+		"metadata": metadata,
+		"type":     exportType,
+		"tables":   result,
 	}, nil
 }
 
@@ -154,39 +167,43 @@ func TablesForExportType(exportType string) (string, []string, error) {
 	}
 }
 
-func queryTableAsJSON(db *sqlx.DB, table string, estimatedPayloadBytes *int64) ([]map[string]any, error) {
+func queryTableAsJSON(db *sqlx.DB, table string, estimatedPayloadBytes *int64) ([]map[string]any, map[string]int, error) {
 	if !IsKnownTable(table) {
-		return nil, fmt.Errorf("unknown table: %s", table)
+		return nil, nil, fmt.Errorf("unknown table: %s", table)
 	}
 
 	rows, err := db.Queryx(fmt.Sprintf("SELECT * FROM %s", quoteIdentifier(table)))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer rows.Close()
 
 	var result []map[string]any
+	warnings := map[string]int{}
 	for rows.Next() {
 		if MaxExportRowsPerTable > 0 && len(result) >= MaxExportRowsPerTable {
-			return nil, ExportLimitError{
+			return nil, nil, ExportLimitError{
 				message: fmt.Sprintf("table %s exceeds max export rows of %d", table, MaxExportRowsPerTable),
 			}
 		}
 		row := make(map[string]any)
 		if err := rows.MapScan(row); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for k, v := range row {
 			if b, ok := v.([]byte); ok {
-				row[k] = string(b)
+				v = string(b)
 			}
-			if err := validateExportCell(table, k, row[k]); err != nil {
-				return nil, err
+			if truncated, ok := truncateExportCell(v); ok {
+				row[k] = truncated
+				warnings[k]++
+				continue
 			}
+			row[k] = v
 		}
 		if estimatedPayloadBytes != nil {
 			if err := addEstimatedPayloadBytes(estimatedPayloadBytes, estimateJSONRowBytes(row)+1); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		result = append(result, row)
@@ -194,28 +211,39 @@ func queryTableAsJSON(db *sqlx.DB, table string, estimatedPayloadBytes *int64) (
 	if result == nil {
 		result = []map[string]any{}
 	}
-	return result, rows.Err()
+	return result, warnings, rows.Err()
 }
 
-func validateExportCell(table string, column string, value any) error {
+// truncateExportCell replaces a value that exceeds the per-cell export limit
+// with a bounded, clearly marked prefix. The previous behaviour aborted the
+// entire export (and every scheduled WebDAV backup) on a single oversized
+// cell, which turned one poisoned row into a persistent backup outage.
+func truncateExportCell(value any) (any, bool) {
 	if MaxExportCellBytes <= 0 {
-		return nil
+		return value, false
 	}
+	var s string
 	switch v := value.(type) {
 	case string:
-		if len(v) > MaxExportCellBytes {
-			return ExportLimitError{
-				message: fmt.Sprintf("table %s column %s exceeds max export cell size of %d bytes", table, column, MaxExportCellBytes),
-			}
-		}
+		s = v
 	case []byte:
-		if len(v) > MaxExportCellBytes {
-			return ExportLimitError{
-				message: fmt.Sprintf("table %s column %s exceeds max export cell size of %d bytes", table, column, MaxExportCellBytes),
-			}
-		}
+		s = string(v)
+	default:
+		return value, false
 	}
-	return nil
+	if len(s) <= MaxExportCellBytes {
+		return value, false
+	}
+	marker := fmt.Sprintf("\n…[truncated by metapi: original %d bytes]", len(s))
+	keep := MaxExportCellBytes - len(marker)
+	if keep < 0 {
+		keep = 0
+	}
+	// Do not cut a multi-byte rune in half.
+	for keep > 0 && !utf8.RuneStart(s[keep]) {
+		keep--
+	}
+	return s[:keep] + marker, true
 }
 
 func estimateJSONRowBytes(row map[string]any) int64 {
