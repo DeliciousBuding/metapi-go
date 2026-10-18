@@ -2,7 +2,6 @@ package admin
 
 import (
 	"bytes"
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -499,21 +498,25 @@ func newWebdavHTTPClient() *http.Client {
 }
 
 func newWebdavHTTPTransport() *http.Transport {
-	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	return newWebdavHTTPTransportWithGuard(net.DefaultResolver, nil)
+}
+
+// newWebdavHTTPTransportWithGuard builds the admin WebDAV transport with an
+// injectable resolver/dialer so tests can prove the resolved answer is pinned.
+// Validating the hostname and then handing it back to the dialer leaves a
+// DNS-rebinding TOCTOU window (audit L24); the checked IP is dialed instead.
+func newWebdavHTTPTransportWithGuard(resolver ssrf.NetIPResolver, dial ssrf.DialContextFunc) *http.Transport {
+	if dial == nil {
+		dialer := &net.Dialer{Timeout: 5 * time.Second}
+		dial = dialer.DialContext
+	}
+	dialContext := ssrf.NewPublicOnlyDialContext(resolver, dial)
+	if allowPrivateWebdavTargets {
+		dialContext = ssrf.NewSiteDialContext(resolver, dial)
+	}
 	return &http.Transport{
-		Proxy: nil,
-		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
-			if !allowPrivateWebdavTargets {
-				host, _, err := net.SplitHostPort(address)
-				if err != nil {
-					return nil, err
-				}
-				if err := ssrf.RejectUnsafeWebdavDialHost(ctx, host, allowPrivateWebdavTargets); err != nil {
-					return nil, err
-				}
-			}
-			return dialer.DialContext(ctx, network, address)
-		},
+		Proxy:                 nil,
+		DialContext:           dialContext,
 		TLSHandshakeTimeout:   5 * time.Second,
 		ResponseHeaderTimeout: backupWebdavFetchTimeout,
 		IdleConnTimeout:       30 * time.Second,
