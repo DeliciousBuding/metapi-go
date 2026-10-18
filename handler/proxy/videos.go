@@ -138,9 +138,17 @@ func HandleVideosGet(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, 400, "missing video id", "invalid_request_error")
 		return
 	}
+	if !validProxiedResourceID(publicID) {
+		writeJSONError(w, 400, "invalid video id", "invalid_request_error")
+		return
+	}
 
 	task := GetProxyVideoTaskByPublicID(publicID)
 	upstreamID := resolveVideoUpstreamIDFromTask(publicID, task)
+	if !validProxiedResourceID(upstreamID) {
+		writeJSONError(w, 400, "invalid video id", "invalid_request_error")
+		return
+	}
 
 	ctx, errResp := PrepareCtx(r, SurfConfig{
 		Endpoint:       "videos",
@@ -174,9 +182,17 @@ func HandleVideosDelete(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, 400, "missing video id", "invalid_request_error")
 		return
 	}
+	if !validProxiedResourceID(publicID) {
+		writeJSONError(w, 400, "invalid video id", "invalid_request_error")
+		return
+	}
 
 	task := GetProxyVideoTaskByPublicID(publicID)
 	upstreamID := resolveVideoUpstreamIDFromTask(publicID, task)
+	if !validProxiedResourceID(upstreamID) {
+		writeJSONError(w, 400, "invalid video id", "invalid_request_error")
+		return
+	}
 	// Best-effort local cleanup whether or not a mapping existed.
 	DeleteProxyVideoTaskByPublicID(publicID)
 

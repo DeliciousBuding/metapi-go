@@ -79,9 +79,8 @@ func HandleFilesList(w http.ResponseWriter, r *http.Request) {
 
 // HandleFilesInfo handles GET /v1/files/{fileId}.
 func HandleFilesInfo(w http.ResponseWriter, r *http.Request) {
-	fileID := strings.TrimSpace(chi.URLParam(r, "fileId"))
-	if fileID == "" {
-		writeJSONError(w, http.StatusBadRequest, "missing file id", "invalid_request_error")
+	fileID, ok := filesPathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -100,9 +99,8 @@ func HandleFilesInfo(w http.ResponseWriter, r *http.Request) {
 // HandleFilesDownload handles GET /v1/files/{fileId}/content.
 // Relays binary/content responses via the standard buffered upstream path.
 func HandleFilesDownload(w http.ResponseWriter, r *http.Request) {
-	fileID := strings.TrimSpace(chi.URLParam(r, "fileId"))
-	if fileID == "" {
-		writeJSONError(w, http.StatusBadRequest, "missing file id", "invalid_request_error")
+	fileID, ok := filesPathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -120,9 +118,8 @@ func HandleFilesDownload(w http.ResponseWriter, r *http.Request) {
 
 // HandleFilesDelete handles DELETE /v1/files/{fileId}.
 func HandleFilesDelete(w http.ResponseWriter, r *http.Request) {
-	fileID := strings.TrimSpace(chi.URLParam(r, "fileId"))
-	if fileID == "" {
-		writeJSONError(w, http.StatusBadRequest, "missing file id", "invalid_request_error")
+	fileID, ok := filesPathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -136,6 +133,23 @@ func HandleFilesDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dispatchUpstream(w, r, ctx)
+}
+
+// filesPathID returns the validated {fileId} path parameter for the files
+// handlers. chi hands back the raw segment when RawPath is set, so values such
+// as "..%2f..%2fadmin" must never be concatenated into an upstream path: the
+// id whitelist rejects every encoded separator or dot.
+func filesPathID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	fileID := strings.TrimSpace(chi.URLParam(r, "fileId"))
+	if fileID == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing file id", "invalid_request_error")
+		return "", false
+	}
+	if !validProxiedResourceID(fileID) {
+		writeJSONError(w, http.StatusBadRequest, "invalid file id", "invalid_request_error")
+		return "", false
+	}
+	return fileID, true
 }
 
 // prepareFilesCtx builds proxy context for files surfaces.
