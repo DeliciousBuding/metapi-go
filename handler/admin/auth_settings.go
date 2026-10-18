@@ -29,14 +29,16 @@ type authSettingsHandler struct {
 
 // GET /api/settings/auth/info
 func (h *authSettingsHandler) getInfo(w http.ResponseWriter, r *http.Request) {
-	token := config.Runtime().AuthToken
-	var masked string
-	if len(token) > 8 {
-		masked = token[:4] + "****" + token[len(token)-4:]
-	} else {
-		masked = "****"
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"masked": masked})
+	setNoStore(w)
+	token := strings.TrimSpace(config.Runtime().AuthToken)
+	// The master token itself must never cross the wire. Report only whether
+	// the operator replaced the shipped default and how long it is, which is
+	// enough for the settings form to describe the current state.
+	writeJSON(w, http.StatusOK, map[string]any{
+		"customized": token != "" && token != config.DefaultAuthToken,
+		"configured": token != "",
+		"length":     len(token),
+	})
 }
 
 // POST /api/settings/auth/change

@@ -160,7 +160,7 @@ func LoadSiteWithEndpoints(db *sqlx.DB, siteID int64) (map[string]any, error) {
 }
 
 func siteToMap(site store.Site, endpoints []store.SiteAPIEndpoint) map[string]any {
-	return map[string]any{
+	siteMap := map[string]any{
 		"id":                                  site.ID,
 		"name":                                site.Name,
 		"url":                                 site.URL,
@@ -188,6 +188,34 @@ func siteToMap(site store.Site, endpoints []store.SiteAPIEndpoint) map[string]an
 		"updatedAt":                           site.UpdatedAt,
 		"apiEndpoints":                        endpoints,
 	}
+	RedactSiteCredentials(siteMap)
+	return siteMap
+}
+
+// RedactSiteCredentials applies the admin site credential policy to a site map:
+// apiKey becomes a masked projection plus hasApiKey, and cfClearance (a live
+// Cloudflare clearance cookie) is removed. Both GET /api/sites and search rows
+// (scanned as maps) answer through this helper, so the two surfaces cannot
+// drift.
+func RedactSiteCredentials(site map[string]any) {
+	if site == nil {
+		return
+	}
+	apiKey := secretValue(site["apiKey"])
+	delete(site, "apiKey")
+	delete(site, "cfClearance")
+	site["hasApiKey"] = apiKey != ""
+	if apiKey != "" {
+		site["apiKeyMasked"] = maskSecretTail(apiKey)
+	}
+}
+
+// SitePublicMap returns the admin-safe site projection without loading
+// sub-resources. Account list responses also embed sites and must answer with
+// the same credential policy as GET /api/sites instead of marshaling
+// store.Site, whose JSON tags would expose apiKey and cfClearance.
+func SitePublicMap(site store.Site) map[string]any {
+	return siteToMap(site, []store.SiteAPIEndpoint{})
 }
 
 // ---- Site CRUD ----

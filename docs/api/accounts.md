@@ -15,7 +15,9 @@ snapshot cache is bypassed so each page uses a bounded query); when `page` is
 absent it keeps the legacy `{ generatedAt, accounts, sites }` snapshot shape.
 
 The `sites` array is still returned on paged responses so the page's site
-filter and create form keep working without a second full-fleet request.
+filter and create form keep working without a second full-fleet request. Its
+entries follow the site read policy (`apiKeyMasked` / `hasApiKey`, no
+`cfClearance`).
 
 **Body** (create, optional): `proxyUrl` — per-account egress proxy stored in `extraConfig.proxyUrl`; accepted schemes are `http://`, `https://`, `socks5://`, `socks5h://` (SOCKS5 runs natively on Go's `net/http` transport). Invalid schemes return `400`.
 
@@ -26,7 +28,23 @@ read account rows from `GET /api/accounts`, including its paginated form.
 
 **`proxyUrl` update semantics**: field omitted → keep the stored proxy; present with a value → replace (same scheme validation as create); present empty (`""`) → delete `extraConfig.proxyUrl`.
 
-**Credential redaction**: the update response carries `accessTokenMasked` / `apiTokenMasked` instead of plaintext `accessToken` / `apiToken`, and `autoRelogin.passwordCipher` is stripped out of `extraConfig` — the same contract `GET /api/accounts` answers with, so a no-op update cannot be used to harvest what the list surface withholds. Revealing a stored secret stays an explicit act (`GET /api/account-tokens/{id}/value`). The credential-provisioning responses keep returning what they obtained — `POST /api/accounts/login` hands back the session token it just logged in with, `POST /api/accounts/verify-token` the API token it discovered — because in those two the caller never had it.
+**Credential redaction**: admin account responses never carry plaintext
+credentials. The update response carries `accessTokenMasked` / `apiTokenMasked`
+instead of plaintext `accessToken` / `apiToken`, and the same policy is applied
+recursively inside `extraConfig`: credential-shaped keys (`*token*`, `*secret*`,
+`*cipher*`, `*password*`, `apiKey`) are removed, including
+`oauth.refreshToken` / `idToken` / `sessionToken` / `accessToken`,
+`sub2apiAuth.refreshToken`, and `autoRelogin.passwordCipher`. Display metadata
+such as the OAuth provider/e-mail, `tokenExpiresAt`, and proxy settings is
+preserved. This is the same contract `GET /api/accounts` and `POST /api/search`
+answer with, so a no-op update cannot be used to harvest what the list surface
+withholds. Revealing a stored secret stays an explicit act
+(`GET /api/account-tokens/{id}/value`). The credential-provisioning responses
+keep returning what they obtained — `POST /api/accounts/login` hands back the
+session token it just logged in with, `POST /api/accounts/verify-token` the API
+token it discovered — because in those two the caller never had it. Account
+list responses are sent with
+`Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0`.
 
 ### GET /api/accounts/probe-history
 

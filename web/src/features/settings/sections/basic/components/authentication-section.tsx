@@ -74,7 +74,12 @@ type AllowlistFormValues = z.infer<typeof allowlistSchema>
 
 const DEFAULT_ALLOWLIST_VALUES: AllowlistFormValues = { adminIpAllowlist: '' }
 
-type AuthInfo = { masked?: string; currentAdminIp?: string }
+type AuthInfo = {
+  customized?: boolean
+  configured?: boolean
+  length?: number
+  currentAdminIp?: string
+}
 
 function deriveAllowlistServerValues(
   data: RuntimeSettings | undefined
@@ -193,8 +198,15 @@ export function AuthenticationSection() {
               {t('settings.basic.authentication.currentToken')}
             </span>
             <code className='bg-muted rounded px-2 py-0.5 text-xs'>
-              {asString(authInfoQuery.data?.masked) ||
-                t('settings.basic.authentication.notSet')}
+              {authInfoQuery.data
+                ? authInfoQuery.data.customized
+                  ? t('settings.basic.authentication.customizedToken', {
+                      length: authInfoQuery.data.length ?? 0,
+                    })
+                  : authInfoQuery.data.configured
+                    ? t('settings.basic.authentication.defaultToken')
+                    : t('settings.basic.authentication.notSet')
+                : t('settings.basic.authentication.notSet')}
             </code>
             <Button
               type='button'

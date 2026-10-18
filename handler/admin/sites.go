@@ -76,6 +76,9 @@ func (h *sitesHandler) listInitializationPresets(w http.ResponseWriter, r *http.
 // ---- List Sites ----
 
 func (h *sitesHandler) listSites(w http.ResponseWriter, r *http.Request) {
+	// Lists answer with masked site credentials and must not be cached by the
+	// browser or an intermediary.
+	setNoStore(w)
 	sites, err := service.ListSites(h.db)
 	if err != nil {
 		slog.Error("Failed to load sites", "err", err)

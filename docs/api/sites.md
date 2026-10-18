@@ -55,6 +55,13 @@ still requires the explicit Add action and does not mark it as verified.
 
 List all sites. Create a new site.
 
+Site-level credentials are write-only on read responses: `apiKey` is returned as
+`apiKeyMasked` plus `hasApiKey`, and `cfClearance` (the live Cloudflare
+clearance cookie) is never returned. The list response is sent with
+`Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0`.
+Site `customHeaders` values are operator configuration and are not expanded by
+this contract.
+
 ### GET /api/sites/initialization-presets
 
 Returns the connection presets used by the site template gallery, URL detection,

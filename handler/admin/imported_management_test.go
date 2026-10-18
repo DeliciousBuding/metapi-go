@@ -143,8 +143,17 @@ func TestImportedManagementContract(t *testing.T) {
 					}
 				}
 			}
-			if out := request("GET", path+"/request-config", ""); out.Code != 200 || out.Header().Get("Cache-Control") != "no-store" || !strings.Contains(out.Body.String(), "confidential-config") || strings.Contains(out.Body.String(), "fixture-key-octopus") {
+			if out := request("GET", path+"/request-config", ""); out.Code != 200 || out.Header().Get("Cache-Control") != noStoreCacheControl || strings.Contains(out.Body.String(), "confidential-config") || !strings.Contains(out.Body.String(), "X-Private-Config") || strings.Contains(out.Body.String(), "fixture-key-octopus") {
 				t.Fatalf("explicit config read: %d %s", out.Code, out.Body.String())
+			}
+			// A masked value read from request-config and submitted unchanged
+			// means "keep the stored value" rather than overwriting it.
+			if out := request("PATCH", path, `{"customHeaders":"[{\"header_key\":\"X-Private-Config\",\"header_value\":\"****\"}]"}`); out.Code != 200 {
+				t.Fatalf("masked header round-trip: %d %s", out.Code, out.Body.String())
+			}
+			var storedHeaders string
+			if err = db.Get(&storedHeaders, db.Rebind(`SELECT custom_header FROM upstream_channels WHERE id=?`), channelID); err != nil || !strings.Contains(storedHeaders, "confidential-config") {
+				t.Fatalf("masked header round-trip overwrote the stored value: %q %v", storedHeaders, err)
 			}
 			if out := request("PATCH", path, `{"channelProxy":""}`); out.Code != 200 {
 				t.Fatal(out.Body.String())

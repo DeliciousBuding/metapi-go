@@ -56,7 +56,10 @@ export type Site = {
   resinEnabled?: boolean | null
   useUtls?: boolean | null
   browserUa?: string | null
-  cfClearance?: string | null
+  // Site-level credentials are write-only on read surfaces: the list answers
+  // with a masked projection and a presence flag, never cfClearance.
+  hasApiKey?: boolean
+  apiKeyMasked?: string | null
   apiEndpoints?: SiteApiEndpoint[]
   tags?: string[]
 }

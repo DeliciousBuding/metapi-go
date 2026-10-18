@@ -46,6 +46,9 @@ const accountTokenPublicSelectColumns = `at.id, at.account_id, at.name, at.token
 
 // POST /api/search
 func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
+	// Search rows may include redacted credential projections and account
+	// display metadata; never let an intermediary cache the response.
+	setNoStore(w)
 	var body searchRequestBody
 	if err := decodeJSONRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -180,6 +183,9 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	for _, row := range accounts {
 		redactSearchAccountSecrets(row)
 	}
+	for _, row := range sites {
+		service.RedactSiteCredentials(row)
+	}
 	for _, row := range accountTokens {
 		redactSearchTokenSecrets(row)
 	}
@@ -194,10 +200,12 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 }
 
 // redactSearchAccountSecrets rebuilds masked credentials from the
-// prefix/suffix/length fragments selected by credentialFragmentsSelect().
-// The plaintext access_token/api_token are never pulled from the DB, so there
-// is nothing to delete — this helper exists to keep the response shape
-// (accessTokenMasked / apiTokenMasked) identical to the prior behavior.
+// prefix/suffix/length fragments selected by credentialFragmentsSelect(), then
+// applies the same service.RedactAccountSecrets policy used by GET /api/accounts
+// so the search surface cannot grow a second, drifting credential field list.
+// The plaintext access_token/api_token are never pulled from the DB; the shared
+// pass additionally strips nested extraConfig credentials (oauth refreshToken,
+// sub2apiAuth, passwordCipher, apiKey, ...).
 func redactSearchAccountSecrets(row map[string]any) {
 	if row == nil {
 		return
@@ -208,6 +216,7 @@ func redactSearchAccountSecrets(row map[string]any) {
 	if apiTokenLen := coerceInt64(row["apiTokenLen"]); apiTokenLen > 0 {
 		row["apiTokenMasked"] = maskSecretFromFragments(row["apiTokenPrefix"], row["apiTokenSuffix"], apiTokenLen)
 	}
+	service.RedactAccountSecrets(row)
 }
 
 // redactSearchTokenSecrets rebuilds the masked token from the prefix/suffix/

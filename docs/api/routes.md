@@ -121,9 +121,13 @@ request-configuration values below are omitted; only `hasChannelProxy`,
 ### GET /api/imported-upstreams/:id/request-config
 
 Explicitly retrieves `{channelProxy, customHeaders, paramOverride}` for editing.
-These values can contain sensitive operator configuration. Fetch only when the
-operator opens this editor, do not put the response in persistent or query caches,
-and clear editor state on close. The response is `Cache-Control: no-store`.
+These values can contain sensitive operator configuration. Custom header names
+are returned, but every non-empty header value is masked as `****`; submitting a
+`****` value back in a `PATCH` keeps the stored value instead of overwriting it,
+so editing one row does not destroy the others. Fetch only when the operator
+opens this editor, do not put the response in persistent or query caches, and
+clear editor state on close. The response is
+`Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0`.
 Upstream credential secrets and OAuth state are never returned by either GET.
 
 ### PATCH /api/imported-upstreams/:id

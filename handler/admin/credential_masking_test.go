@@ -2,6 +2,7 @@ package admin
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -255,6 +256,56 @@ func TestRedactSearchAccountSecrets(t *testing.T) {
 		}
 		if _, ok := row["apiTokenMasked"]; ok {
 			t.Errorf("apiTokenMasked should not be set when length is missing, got %v", row["apiTokenMasked"])
+		}
+	})
+
+	t.Run("reuses_shared_extra_config_policy", func(t *testing.T) {
+		row := map[string]any{
+			"accessTokenPrefix": "sk-a",
+			"accessTokenSuffix": "7890",
+			"accessTokenLen":    int64(23),
+			"username":          "operator",
+			"extraConfig": `{"credentialMode":"session","oauth":{"provider":"codex","refreshToken":"synthetic-search-refresh",` +
+				`"idToken":"synthetic-search-id","tokenExpiresAt":1760000000000},` +
+				`"sub2apiAuth":{"refreshToken":"synthetic-search-sub2api"},` +
+				`"autoRelogin":{"username":"operator","passwordCipher":"synthetic-search-cipher"},` +
+				`"apiKey":"synthetic-search-api-key"}`,
+		}
+		redactSearchAccountSecrets(row)
+
+		if got, _ := row["accessTokenMasked"].(string); got != "sk-a****7890" {
+			t.Errorf("accessTokenMasked = %q, want sk-a****7890", got)
+		}
+		body := fmt.Sprintf("%v", row)
+		for _, secret := range []string{
+			"synthetic-search-refresh",
+			"synthetic-search-id",
+			"synthetic-search-sub2api",
+			"synthetic-search-cipher",
+			"synthetic-search-api-key",
+		} {
+			if strings.Contains(body, secret) {
+				t.Errorf("search row leaked %q: %s", secret, body)
+			}
+		}
+		// Fragment projections are inputs to the mask, not response fields.
+		for _, fragment := range []string{"accessTokenPrefix", "accessTokenSuffix", "apiTokenPrefix", "tokenPrefix"} {
+			if _, ok := row[fragment]; ok {
+				t.Errorf("fragment field %q survived redaction", fragment)
+			}
+		}
+		encoded, _ := json.Marshal(row["extraConfig"])
+		if strings.Contains(string(encoded), "synthetic") {
+			t.Fatalf("extraConfig still carries synthetic credentials: %s", encoded)
+		}
+		ec, _ := row["extraConfig"].(string)
+		var nested map[string]any
+		if err := json.Unmarshal([]byte(ec), &nested); err != nil {
+			t.Fatalf("extraConfig is no longer valid JSON: %v", err)
+		}
+		oauth, _ := nested["oauth"].(map[string]any)
+		if oauth["provider"] != "codex" || oauth["tokenExpiresAt"] != float64(1760000000000) {
+			t.Fatalf("extraConfig display metadata was dropped: %#v", nested)
 		}
 	})
 }

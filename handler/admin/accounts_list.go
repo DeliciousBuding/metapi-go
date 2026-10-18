@@ -18,6 +18,10 @@ import (
 // ---- List Accounts ----
 
 func (h *accountsHandler) listAccounts(w http.ResponseWriter, r *http.Request) {
+	// Account rows carry masked credential projections and upstream metadata.
+	// Both the snapshot and paginated shapes must stay out of shared caches.
+	setNoStore(w)
+
 	refresh := strings.TrimSpace(r.URL.Query().Get("refresh"))
 	forceRefresh := refresh == "true" || refresh == "1"
 
@@ -81,28 +85,29 @@ func (h *accountsHandler) computeAccountsSnapshot() ([]byte, error) {
 		applyAccountTodayMetrics(accounts, todayMetrics)
 	}
 
-	// Also fetch sites for the response
+	// Also fetch sites for the response. Never marshal []store.Site directly:
+	// its JSON tags include the plaintext apiKey and cf_clearance values.
 	var sites []store.Site
 	h.db.Select(&sites, "SELECT "+service.SiteSelectColumns+" FROM sites ORDER BY sort_order, id")
 
 	resp := map[string]any{
 		"generatedAt": time.Now().UTC().Format(time.RFC3339),
 		"accounts":    normalizeSlice(accounts),
-		"sites":       sitesOrEmpty(sites),
+		"sites":       publicSiteMaps(sites),
 	}
 	return json.Marshal(resp)
 }
 
-// sitesOrEmpty keeps the snapshot contract array-shaped on an empty database:
-// a nil []store.Site marshals to JSON null, which trips the admin frontend's
-// Array.isArray guards (useAccounts) into treating an empty fleet as a broken
-// payload. normalizeSlice covers the []map[string]any accounts slice; sites is
-// a typed slice so it gets its own one-liner instead of widening the helper.
-func sitesOrEmpty(sites []store.Site) []store.Site {
-	if sites == nil {
-		return []store.Site{}
+// publicSiteMaps projects sites through service.SitePublicMap so every
+// response that embeds the site list follows the same credential policy as
+// GET /api/sites. The accounts snapshot returns an array even on an empty
+// database so the admin frontend's Array.isArray guards keep working.
+func publicSiteMaps(sites []store.Site) []map[string]any {
+	rows := make([]map[string]any, len(sites))
+	for i, site := range sites {
+		rows[i] = service.SitePublicMap(site)
 	}
-	return sites
+	return normalizeSlice(rows)
 }
 
 // listAccountsPaginated serves GET /api/accounts?page=&pageSize=&status=&site=
@@ -150,7 +155,7 @@ func (h *accountsHandler) listAccountsPaginated(w http.ResponseWriter, r *http.R
 		"page":        page,
 		"pageSize":    pageSize,
 		"generatedAt": time.Now().UTC().Format(time.RFC3339),
-		"sites":       sitesOrEmpty(sites),
+		"sites":       publicSiteMaps(sites),
 	})
 }
 
