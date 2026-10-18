@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -225,5 +227,57 @@ func TestIsValidWebdavFileURL_SSRFGuard(t *testing.T) {
 				t.Fatalf("isValidWebdavFileURL(%q) = %v, want %v", tt.rawURL, got, tt.wantOK)
 			}
 		})
+	}
+}
+
+type webdavTestResolver map[string][]netip.Addr
+
+func (r webdavTestResolver) LookupNetIP(_ context.Context, _ string, host string) ([]netip.Addr, error) {
+	return r[host], nil
+}
+
+type webdavTestDialer struct {
+	addresses []string
+}
+
+func (d *webdavTestDialer) DialContext(_ context.Context, _ string, address string) (net.Conn, error) {
+	d.addresses = append(d.addresses, address)
+	client, server := net.Pipe()
+	_ = server.Close()
+	return client, nil
+}
+
+// TestWebdavTransportPinsValidatedIP is the L24 regression for the admin
+// WebDAV export/import path: the connection must go to the already-checked
+// IP, not back through a second hostname resolution.
+func TestWebdavTransportPinsValidatedIP(t *testing.T) {
+	disallowPrivateWebdavTargetsForTest(t)
+
+	dialer := &webdavTestDialer{}
+	resolver := webdavTestResolver{
+		"public.example":  {netip.MustParseAddr("203.0.113.10")},
+		"private.example": {netip.MustParseAddr("10.20.30.40")},
+	}
+	transport := newWebdavHTTPTransportWithGuard(resolver, dialer.DialContext)
+	if transport.Proxy != nil {
+		t.Fatal("WebDAV transport must not use the environment proxy")
+	}
+
+	conn, err := transport.DialContext(context.Background(), "tcp", "public.example:443")
+	if err != nil {
+		t.Fatalf("public dial: %v", err)
+	}
+	_ = conn.Close()
+	if len(dialer.addresses) != 1 || dialer.addresses[0] != "203.0.113.10:443" {
+		t.Fatalf("dialed addresses = %v, want the checked IP", dialer.addresses)
+	}
+
+	for _, address := range []string{"private.example:443", "127.0.0.1:9", "[fd20:ce::254]:80", "0.1.2.3:80"} {
+		if _, err := transport.DialContext(context.Background(), "tcp", address); err == nil {
+			t.Errorf("DialContext(%s) = nil error, want rejection", address)
+		}
+	}
+	if len(dialer.addresses) != 1 {
+		t.Fatalf("underlying dialer called for a forbidden target: %v", dialer.addresses)
 	}
 }

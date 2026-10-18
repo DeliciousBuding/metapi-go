@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/internal/trustedproxy"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -296,6 +297,12 @@ func (sm *SessionManager) ConsumeWSTicket(ticket string) bool {
 // cookieSecure resolves the Secure flag for the request. mode: "true" always,
 // "false" never, anything else (default "auto") follows the request protocol
 // so local plain-HTTP dev keeps working while HTTPS stays protected.
+//
+// X-Forwarded-Proto is honored only when router.TrustedRealIP marked the
+// request as arriving through a configured trusted proxy. A direct client can
+// send the header itself, and believing it would both force Secure cookies
+// over plain HTTP and let a spoofed "http" weaken an HTTPS deployment
+// (audit L26).
 func cookieSecure(r *http.Request, mode string) bool {
 	switch mode {
 	case "true":
@@ -303,10 +310,7 @@ func cookieSecure(r *http.Request, mode string) bool {
 	case "false":
 		return false
 	default: // "auto"
-		if r.TLS != nil {
-			return true
-		}
-		return strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https")
+		return trustedproxy.IsHTTPS(r)
 	}
 }
 

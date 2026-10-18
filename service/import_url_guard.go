@@ -10,6 +10,11 @@ package service
 var importURLColumns = map[string][]string{
 	"sites":              {"url", "external_checkin_url", "proxy_url"},
 	"site_api_endpoints": {"url"},
+	// Direct-upstream channel rows carry their own outbound base URL. The
+	// site policy still allows loopback/RFC1918 (operator-hosted upstreams)
+	// but rejects metadata/link-local targets planted by a crafted backup
+	// (audit M9).
+	"upstream_channels": {"base_url"},
 }
 
 // SanitizeImportedSiteRows drops imported rows whose outbound-target URL

@@ -90,6 +90,11 @@ type RuntimeSettings struct {
 	SmtpPass    string
 	SmtpFrom    string
 	SmtpTo      string
+	// SmtpAllowCustomPort permits SMTP ports outside 25/465/587. It exists
+	// only as an explicit operator escape hatch (SMTP_ALLOW_CUSTOM_PORT);
+	// without it a session-writable smtpHost/smtpPort cannot turn the
+	// notification test into an arbitrary-port probe of internal hosts.
+	SmtpAllowCustomPort bool
 	// Notify: Feishu (3 fields) —
 	FeishuEnabled bool
 	FeishuWebhook string

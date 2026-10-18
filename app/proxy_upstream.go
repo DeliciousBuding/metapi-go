@@ -161,9 +161,10 @@ func pricingCatalogResolver(cfg *config.Config, db *store.DB) routing.CatalogPri
 		return pricingCatalogManager
 	}
 	manager, err := catalogsync.NewManager(db.DB, catalogsync.Options{
-		Interval:           time.Duration(cfg.PricingCatalogRefreshMin) * time.Minute,
-		LegacyURL:          cfg.PricingCatalogURL,
-		SiteSnapshotSource: &siteSnapshotSource{db: db},
+		Interval:            time.Duration(cfg.PricingCatalogRefreshMin) * time.Minute,
+		LegacyURL:           cfg.PricingCatalogURL,
+		SiteSnapshotSource:  &siteSnapshotSource{db: db},
+		AllowPrivateSources: cfg.PricingCatalogAllowPrivate,
 	})
 	if err != nil {
 		slog.Warn("pricingcatalog: manager init failed; catalog disabled", "error", err)

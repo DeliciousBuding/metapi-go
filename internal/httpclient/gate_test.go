@@ -28,7 +28,8 @@ import (
 //     traffic, operator-tunable via PROXY_*_TIMEOUT_SEC;
 //   - SSRF-hardened clients whose DialContext enforces dial-level target
 //     guards internal/httpclient does not model: notifyHTTPClient
-//     (service/notify, all webhook-style channels) and the WebDAV backup
+//     (service/notify, all webhook-style channels plus Telegram), the SMTP
+//     dialer, the pricing-catalog source client, and the WebDAV backup
 //     clients in handler/admin and scheduler. Transports built here opt into
 //     the shared site dial guard (internal/ssrf) with Options.SiteDialGuard —
 //     used by the proxy data plane and channel health probes;

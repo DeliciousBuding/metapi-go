@@ -66,6 +66,7 @@ func TestIsForbiddenSiteAddr_PreservesOperatorPrivateNetworks(t *testing.T) {
 		"fe80::1",
 		"ff02::1",
 		"fd00:ec2::254",
+		"fd20:ce::254",
 		"::ffff:169.254.169.254",
 	}
 	for _, raw := range forbidden {

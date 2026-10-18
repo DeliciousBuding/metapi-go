@@ -51,6 +51,13 @@ func (h *sessionRoutesHandler) login(w http.ResponseWriter, r *http.Request) {
 	}
 	var body loginRequest
 	if err := decodeJSONRequest(r, &body); err != nil {
+		if isJSONBodyTooLarge(err) {
+			// The anonymous body cap (router.AnonymousRequestBodyLimit) fires
+			// before parsing; answer 413 so clients are not told the JSON was
+			// malformed.
+			writeError(w, http.StatusRequestEntityTooLarge, "Request body too large")
+			return
+		}
 		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}

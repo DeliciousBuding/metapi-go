@@ -32,6 +32,7 @@ var forbiddenSitePrefixes = []netip.Prefix{
 var explicitMetadataAddrs = map[netip.Addr]struct{}{
 	netip.MustParseAddr("100.100.100.200"): {}, // Alibaba Cloud instance metadata
 	netip.MustParseAddr("fd00:ec2::254"):   {}, // AWS IMDS IPv6 endpoint
+	netip.MustParseAddr("fd20:ce::254"):    {}, // GCP IMDS IPv6 endpoint (inside ULA)
 }
 
 // IsForbiddenSiteHostname reports hostnames that are metadata service aliases
@@ -77,6 +78,19 @@ func IsForbiddenSiteAddr(addr netip.Addr) bool {
 // underlying dialer to resolve the hostname again. This closes the usual DNS
 // rebinding / validation-to-dial window.
 func NewSiteDialContext(resolver NetIPResolver, dial DialContextFunc) DialContextFunc {
+	return newGuardedDialContext("site", resolver, dial, IsForbiddenSiteHostname, IsForbiddenSiteAddr)
+}
+
+// newGuardedDialContext builds the resolve-once, check-every-answer,
+// dial-the-pinned-IP transport shared by the site and public-only policies.
+// kind only names the policy in error messages.
+func newGuardedDialContext(
+	kind string,
+	resolver NetIPResolver,
+	dial DialContextFunc,
+	forbiddenHost func(string) bool,
+	forbiddenAddr func(netip.Addr) bool,
+) DialContextFunc {
 	if resolver == nil {
 		resolver = net.DefaultResolver
 	}
@@ -88,10 +102,10 @@ func NewSiteDialContext(resolver NetIPResolver, dial DialContextFunc) DialContex
 	return func(ctx context.Context, network, address string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(address)
 		if err != nil {
-			return nil, fmt.Errorf("invalid site dial address %q: %w", address, err)
+			return nil, fmt.Errorf("invalid %s dial address %q: %w", kind, address, err)
 		}
-		if IsForbiddenSiteHostname(host) {
-			return nil, fmt.Errorf("refusing site request to forbidden host %q", host)
+		if forbiddenHost(host) {
+			return nil, fmt.Errorf("refusing %s request to forbidden host %q", kind, host)
 		}
 
 		var addrs []netip.Addr
@@ -100,16 +114,16 @@ func NewSiteDialContext(resolver NetIPResolver, dial DialContextFunc) DialContex
 		} else {
 			addrs, err = resolver.LookupNetIP(ctx, "ip", host)
 			if err != nil {
-				return nil, fmt.Errorf("resolve site host %q: %w", host, err)
+				return nil, fmt.Errorf("resolve %s host %q: %w", kind, host, err)
 			}
 		}
 		if len(addrs) == 0 {
-			return nil, fmt.Errorf("no IP addresses found for site host %q", host)
+			return nil, fmt.Errorf("no IP addresses found for %s host %q", kind, host)
 		}
 
 		for _, addr := range addrs {
-			if IsForbiddenSiteAddr(addr) {
-				return nil, fmt.Errorf("refusing site request to forbidden resolved address %s for host %q", addr, host)
+			if forbiddenAddr(addr) {
+				return nil, fmt.Errorf("refusing %s request to forbidden resolved address %s for host %q", kind, addr, host)
 			}
 		}
 
@@ -132,9 +146,9 @@ func NewSiteDialContext(resolver NetIPResolver, dial DialContextFunc) DialContex
 			}
 		}
 		if compatible == 0 {
-			return nil, fmt.Errorf("no %s addresses found for site host %q", network, host)
+			return nil, fmt.Errorf("no %s addresses found for %s host %q", network, kind, host)
 		}
-		return nil, fmt.Errorf("dial site host %q: %w", host, errors.Join(dialErrs...))
+		return nil, fmt.Errorf("dial %s host %q: %w", kind, host, errors.Join(dialErrs...))
 	}
 }
 

@@ -64,7 +64,7 @@ container environment.
 | `LOG_LEVEL` | `info` | slog threshold: `debug` / `info` / `warn` / `error`. |
 | `METAPI_HEALTHCHECK_URL` / `METAPI_HEALTHCHECK_PATH` | — / `/ready` | Override the container healthcheck target. |
 | `SYSTEM_NAME`, `LOGO`, `FOOTER`, `ABOUT` | brand defaults | Optional site branding; runtime settings in the admin UI override these. |
-| `SERVER_ADDRESS` | empty | Public base URL used when the server has to build an absolute link back to itself (OAuth callbacks, exported key/backup URLs). Empty = derived from the request's `X-Forwarded-Proto` / `X-Forwarded-Host` headers, falling back to the request host. |
+| `SERVER_ADDRESS` | empty | Public base URL used when the server has to build an absolute link back to itself (OAuth callbacks, exported key/backup URLs). Empty = derived from the request's `Host`; the scheme is direct TLS, or `X-Forwarded-Proto` when the request arrived from a `TRUSTED_PROXY_CIDRS` peer. `X-Forwarded-Host` is only a fallback (trusted proxy, empty `Host`) — direct clients cannot steer the exported URL. |
 
 ## Database
 
@@ -116,7 +116,13 @@ silent until their URL/key is set. Every other provider needs its
 | DingTalk | `DINGTALK_ENABLED`, `DINGTALK_WEBHOOK`, `DINGTALK_SECRET` (HMAC signing) |
 | WeCom | `WECOM_ENABLED`, `WECOM_WEBHOOK` |
 | ntfy | `NTFY_ENABLED`, `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` |
-| SMTP | `SMTP_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_TO`, `SMTP_SECURE` |
+| SMTP | `SMTP_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_TO`, `SMTP_SECURE`, `SMTP_ALLOW_CUSTOM_PORT` |
+
+SMTP and HTTP notification targets are server-side outbound requests configured
+through admin settings, so they are pinned to public addresses at dial time:
+loopback, RFC1918, ULA/metadata and `0.0.0.0/8` are refused. `SMTP_PORT` is
+restricted to 25, 465 and 587; set `SMTP_ALLOW_CUSTOM_PORT=true` only when the
+target is trusted and the escape hatch is genuinely needed.
 
 ## Proxy behavior
 
@@ -197,6 +203,7 @@ upstream request; …`), since it describes a static misconfiguration.
 | `TOKEN_ROUTER_FAILURE_COOLDOWN_MAX_SEC` | — | Upper bound for failure cooldown. |
 | `PRICING_CATALOG_ENABLED` | on | models.dev catalog as cold-start price signal; third-party relays are always labeled `catalog_estimate`. |
 | `PRICING_CATALOG_REFRESH_MIN` / `PRICING_CATALOG_URL` | — | Catalog refresh period / mirror. |
+| `PRICING_CATALOG_ALLOW_PRIVATE` | off | Allow catalog sources on loopback/RFC1918 (operator-hosted internal mirror). Imports cannot enable it. |
 | `MODEL_AVAILABILITY_PROBE_ENABLED` | `false` | Background channel health probing (off by default). |
 | `MODEL_AVAILABILITY_PROBE_INTERVAL_MS` | `1800000` | Probe period; floored at 60000 ms (60 s). |
 | `MODEL_AVAILABILITY_PROBE_TIMEOUT_MS` | `15000` | Per-probe timeout; floored at 3000 ms (3 s). |
@@ -212,13 +219,13 @@ upstream request; …`), since it describes a static misconfiguration.
 
 | Variable | Default | Description |
 |:---------|:--------|:------------|
-| `ADMIN_IP_ALLOWLIST` | empty | CSV of allowed admin IPs/CIDRs. |
+| `ADMIN_IP_ALLOWLIST` | empty | CSV of allowed admin IPs/CIDRs. Applies to the whole admin surface including the public session lifecycle (`/api/auth/login`, `/api/auth/logout`, `/api/auth/session`) and `/api/oauth/callback/*`, so an allowlisted deployment also restricts where sign-in and OAuth callbacks can come from. `/health`, `/ready` and `/metrics` are outside the allowlist. Empty = every IP. |
 | `ADMIN_RATE_LIMIT_RPS` / `ADMIN_RATE_LIMIT_BURST` | `100` / `200` | Admin per-IP token bucket. |
 | `AUTH_RATE_LIMIT_RPS` / `AUTH_RATE_LIMIT_BURST` | `10` / `20` | Stricter per-IP token bucket applied only to `/api/auth/*`, which is the only surface accepting the master token. Values ≤ 0 fall back to the defaults at mount time. |
 | `ADMIN_SESSION_TTL_MINUTES` | `720` | Sliding TTL of the server-side admin UI session minted by `POST /api/auth/login`; floored at 1 minute. |
 | `ADMIN_SESSION_COOKIE_SECURE` | `auto` | `Secure` flag of the `metapi_session` cookie. Accepted values: `true`/`1`/`yes` → always secure, `false`/`0`/`no` → never secure, anything else (including `auto`) → `auto`, which follows the request protocol. |
 | `OAUTH_RATE_LIMIT_RPS` / `OAUTH_RATE_LIMIT_BURST` | `10` / `20` | OAuth per-IP token bucket. |
-| `TRUSTED_PROXY_CIDRS` | empty | Reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; empty ignores forwarded headers. When the peer is trusted the chain is walked right-to-left and trusted hops are skipped, so a client-supplied left-most value cannot forge identity. List every proxy layer; a layer missing here becomes the resolved client for the traffic behind it. |
+| `TRUSTED_PROXY_CIDRS` | empty | Reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; empty ignores forwarded headers. When the peer is trusted the chain is walked right-to-left and trusted hops are skipped, so a client-supplied left-most value cannot forge identity. The same trusted-peer gate controls whether `X-Forwarded-Proto` may set the `Secure` cookie flag / export scheme and whether `X-Forwarded-Host` may be used as an export-base fallback; direct clients cannot spoof them. List every proxy layer; a layer missing here becomes the resolved client for the traffic behind it and its forwarding headers are ignored. |
 | `ADMIN_CORS_ALLOWED_ORIGINS` | empty | Exact `http(s)` origins allowed for `/api/*`; empty = same-origin admin UI only (`*` rejected). |
 | `PROMPT_FILTER_ENABLED` | empty | Opt-in pattern filter blocking jailbreak/exfiltration prompts before shared OAuth upstreams; `PROMPT_FILTER_DENY_PATTERNS` extends the seed list. |
 

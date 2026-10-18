@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/trustedproxy"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -158,6 +159,10 @@ func TrustedRealIP(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if len(prefixes) > 0 && isTrustedProxyPeer(r.RemoteAddr, prefixes) {
+				// Downstream consumers (cookie Secure, exported base URLs)
+				// use this marker to decide whether X-Forwarded-* may be
+				// believed; direct clients never get it (audit L26/L27).
+				r = r.WithContext(trustedproxy.WithTrust(r.Context()))
 				if ip := forwardedClientIP(r, prefixes); ip != "" {
 					r.RemoteAddr = ip
 				}
@@ -336,6 +341,29 @@ func isFileUploadPath(path string) bool {
 	return false
 }
 
+// AnonymousRequestBodyLimit caps unauthenticated POST bodies on the session
+// lifecycle surface. Login carries one short master token and logout/session
+// carry no meaningful body, so 8 KiB is ample; the global 20 MB admin limit
+// would let an unauthenticated client allocate tens of MB per request. This
+// mirrors NewAPI's AnonymousRequestBodyLimit (see the security audit M15 and
+// §6.9): the anonymous bucket is separate from the authenticated and proxy
+// limits, which keep their configured values.
+const AnonymousRequestBodyLimit = 8 << 10 // 8 KiB
+
+// isAnonymousAuthPath reports whether the request targets one of the public
+// session-lifecycle routes that accept a request body without admin auth.
+// Only POST is limited: GET /api/auth/session is a bodyless probe.
+func isAnonymousAuthPath(method, path string) bool {
+	if method != http.MethodPost {
+		return false
+	}
+	switch path {
+	case "/api/auth/login", "/api/auth/logout", "/api/auth/session":
+		return true
+	}
+	return false
+}
+
 // writeBodyLimitError emits a 413 Request Entity Too Large response with a
 // JSON error body, so clients receive a clean rejection instead of a silently
 // truncated body. The body limit is mounted globally, so the shape follows
@@ -355,7 +383,10 @@ func writeBodyLimitError(w http.ResponseWriter, r *http.Request) {
 // BodyLimitPathAware enforces a maximum request body size, selecting between a
 // general limit and a higher file-upload limit based on the request path.
 // Multipart upload routes (/v1/files, /v1/images/*) use the higher
-// fileUploadLimitBytes; all other paths use defaultLimitBytes.
+// fileUploadLimitBytes; all other paths use defaultLimitBytes. The public
+// session-lifecycle POSTs are additionally capped at AnonymousRequestBodyLimit
+// so an unauthenticated caller cannot make the server buffer a multi-MB body
+// before authentication runs.
 //
 // A Content-Length that already exceeds the selected limit is rejected early
 // with a 413 JSON response before the handler runs, so the client gets a
@@ -367,6 +398,10 @@ func BodyLimitPathAware(defaultLimitBytes, fileUploadLimitBytes int) func(http.H
 			limit := defaultLimitBytes
 			if isFileUploadPath(r.URL.Path) && fileUploadLimitBytes > 0 {
 				limit = fileUploadLimitBytes
+			}
+			if isAnonymousAuthPath(r.Method, r.URL.Path) &&
+				(limit == 0 || limit > AnonymousRequestBodyLimit) {
+				limit = AnonymousRequestBodyLimit
 			}
 			if limit > 0 {
 				if r.ContentLength > int64(limit) {

@@ -24,7 +24,8 @@ func TestConfigureProxyUpstreamWiresPricingCatalogResolver(t *testing.T) {
 	cfg := testProxyConfig(t)
 	cfg.PricingCatalogEnabled = true
 	cfg.PricingCatalogURL = ""
-	cfg.PricingCatalogRefreshMin = 0 // no periodic ticker in tests
+	cfg.PricingCatalogRefreshMin = 0      // no periodic ticker in tests
+	cfg.PricingCatalogAllowPrivate = true // the catalog fixture runs on loopback
 	t.Cleanup(func() {
 		proxyhandler.SetUpstreamConfig(nil)
 		scheduler.SetActiveChannelIDsProvider(nil)

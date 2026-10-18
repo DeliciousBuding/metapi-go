@@ -64,14 +64,21 @@ func generateCSPNonce() string {
 //
 // script-src keeps no nonce: index.html has no inline scripts (theme
 // bootstraps are static files) and none may be added without a review here.
+// The cloudflareinsights source was removed (audit L8): the repository's
+// frontend build contains no reference to it, so allowing it only widened the
+// policy for a script the page never loads. form-action and base-uri keep a
+// reflected or injected <form>/<base> from steering credentialed submissions
+// or resolving same-origin URLs elsewhere.
 func contentSecurityPolicy(nonce string) string {
 	return "default-src 'self'; " +
-		"script-src 'self' https://static.cloudflareinsights.com; " +
+		"script-src 'self'; " +
 		"style-src 'self' 'nonce-" + nonce + "' " + sonnerToastStyleHash + "; " +
 		"img-src 'self' https://api.dicebear.com; " +
 		"connect-src 'self'; " +
 		"frame-src 'self' https://check.linux.do; " +
-		"frame-ancestors 'none'"
+		"frame-ancestors 'none'; " +
+		"form-action 'self'; " +
+		"base-uri 'self'"
 }
 
 // SecurityHeaders adds standard security HTTP response headers.

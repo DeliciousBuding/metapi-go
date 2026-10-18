@@ -635,12 +635,43 @@ func TestAdminAuth_IgnoresSpoofedXForwardedForForAllowlist(t *testing.T) {
 	}
 }
 
-func TestAdminAuth_PublicRouteBypass_OAuthCallback(t *testing.T) {
+func TestAdminAuth_PublicRouteBypass_RespectsIPAllowlist(t *testing.T) {
+	// Public routes bypass authentication but not the admin network ACL
+	// (audit L17): login/session/OAuth callbacks must stay inside the
+	// allowlist the operator configured for the admin surface.
 	rt := newTestConfig(t, "my-secret-token", []string{"10.0.0.0/8"})
 	w := adminTestHelper(t, rt, "GET", "/api/oauth/callback/claude", "",
 		"1.2.3.4:12345", "")
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403 (public route outside allowlist), got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "IP not allowed") {
+		t.Errorf("expected 'IP not allowed' in body, got %q", w.Body.String())
+	}
+
+	// The same public route from an allowed address still bypasses auth.
+	w = adminTestHelper(t, rt, "GET", "/api/oauth/callback/claude", "",
+		"10.1.2.3:12345", "")
 	if w.Code != http.StatusOK {
-		t.Errorf("expected 200 (public route bypass), got %d", w.Code)
+		t.Errorf("expected 200 (public route inside allowlist), got %d", w.Code)
+	}
+}
+
+func TestAdminAuth_LoginAndSessionRespectIPAllowlist(t *testing.T) {
+	rt := newTestConfig(t, "my-secret-token", []string{"10.0.0.0/8"})
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodPost, "/api/auth/login"},
+		{http.MethodPost, "/api/auth/logout"},
+		{http.MethodGet, "/api/auth/session"},
+	} {
+		w := adminTestHelper(t, rt, tc.method, tc.path, "", "192.168.1.1:12345", "")
+		if w.Code != http.StatusForbidden {
+			t.Errorf("%s %s from outside the allowlist = %d, want 403", tc.method, tc.path, w.Code)
+		}
+		w = adminTestHelper(t, rt, tc.method, tc.path, "", "10.0.0.9:12345", "")
+		if w.Code != http.StatusOK {
+			t.Errorf("%s %s from inside the allowlist = %d, want 200", tc.method, tc.path, w.Code)
+		}
 	}
 }
 

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -1863,3 +1865,58 @@ type errorStopScheduler struct {
 func (e *errorStopScheduler) Name() string                    { return e.name }
 func (e *errorStopScheduler) Start(ctx context.Context) error { return nil }
 func (e *errorStopScheduler) Stop() error                     { return fmt.Errorf("simulated stop error") }
+
+type webdavFakeResolver map[string][]netip.Addr
+
+func (r webdavFakeResolver) LookupNetIP(_ context.Context, _ string, host string) ([]netip.Addr, error) {
+	return r[host], nil
+}
+
+type webdavRecordingDialer struct {
+	addresses []string
+}
+
+func (d *webdavRecordingDialer) DialContext(_ context.Context, _ string, address string) (net.Conn, error) {
+	d.addresses = append(d.addresses, address)
+	client, server := net.Pipe()
+	_ = server.Close()
+	return client, nil
+}
+
+// TestBackupWebdavTransportPinsAndGuardsDial is the L24 regression: the
+// transport must reject private/metadata targets at dial time and dial the
+// already-validated IP instead of passing the hostname back to the resolver,
+// which is what left the DNS-rebinding TOCTOU window.
+func TestBackupWebdavTransportPinsAndGuardsDial(t *testing.T) {
+	old := allowPrivateBackupWebdavTargets
+	allowPrivateBackupWebdavTargets = false
+	t.Cleanup(func() { allowPrivateBackupWebdavTargets = old })
+
+	dialer := &webdavRecordingDialer{}
+	resolver := webdavFakeResolver{
+		"public.example":  {netip.MustParseAddr("203.0.113.10")},
+		"private.example": {netip.MustParseAddr("10.20.30.40")},
+	}
+	transport := newBackupWebdavHTTPTransportWithGuard(resolver, dialer.DialContext)
+	if transport.Proxy != nil {
+		t.Fatal("WebDAV transport must not use the environment proxy")
+	}
+
+	conn, err := transport.DialContext(context.Background(), "tcp", "public.example:443")
+	if err != nil {
+		t.Fatalf("public dial: %v", err)
+	}
+	_ = conn.Close()
+	if len(dialer.addresses) != 1 || dialer.addresses[0] != "203.0.113.10:443" {
+		t.Fatalf("dialed addresses = %v, want the checked IP (not the hostname)", dialer.addresses)
+	}
+
+	for _, address := range []string{"private.example:443", "127.0.0.1:9", "[fd20:ce::254]:80", "0.1.2.3:80"} {
+		if _, err := transport.DialContext(context.Background(), "tcp", address); err == nil {
+			t.Errorf("DialContext(%s) = nil error, want rejection", address)
+		}
+	}
+	if len(dialer.addresses) != 1 {
+		t.Fatalf("underlying dialer called for a forbidden target: %v", dialer.addresses)
+	}
+}

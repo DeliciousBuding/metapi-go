@@ -321,6 +321,8 @@ server {
 
 If this service is reachable only through that proxy and admin IP allowlists depend on the client IP, set `TRUSTED_PROXY_CIDRS` to the proxy source CIDR. Leave it empty when clients can reach Metapi directly.
 
+`TRUSTED_PROXY_CIDRS` also gates the other forwarding hints: `X-Forwarded-Proto` is honored for `Secure` session/monitor cookies and for exported key URLs only when the direct peer is listed, and `X-Forwarded-Host` is only a fallback for exports when the proxy rewrote `Host` to an empty value. Direct clients cannot spoof these headers. The nginx example above preserves `Host $host`, so exported URLs use the public hostname; alternatively set `SERVER_ADDRESS` explicitly.
+
 ## TLS with Let's Encrypt
 
 ```bash

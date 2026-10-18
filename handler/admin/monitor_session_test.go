@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/trustedproxy"
 )
 
 func TestMonitorSession_CookieIsOpaqueNotAuthToken(t *testing.T) {
@@ -68,6 +70,10 @@ func TestMonitorSession_CookieSecureWhenHTTPS(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/monitor/session", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
+	// X-Forwarded-Proto is honored only after router.TrustedRealIP proved the
+	// direct peer is a configured proxy; the handler harness mounts no router
+	// middleware, so mark the request the way that middleware would.
+	req = req.WithContext(trustedproxy.WithTrust(req.Context()))
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -231,6 +237,7 @@ func TestMonitorSession_ClearCookieSecureWhenHTTPS(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/monitor/session", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
+	req = req.WithContext(trustedproxy.WithTrust(req.Context()))
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -268,5 +275,51 @@ func TestClearMonitorAuthCookies_HelperContract(t *testing.T) {
 	// net/http renders MaxAge < 0 as Max-Age=0.
 	if !strings.Contains(joined, "Max-Age=0") {
 		t.Fatalf("Set-Cookie missing Max-Age=0: %s", joined)
+	}
+}
+
+// TestMonitorSession_IgnoresSpoofedProtoFromDirectClient is the L26
+// regression: a direct client can send X-Forwarded-Proto itself, so it must
+// not control the Secure flag.
+func TestMonitorSession_IgnoresSpoofedProtoFromDirectClient(t *testing.T) {
+	_, r, _ := setupOpsAdminStubsTest(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/monitor/session", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	var sessionCookie *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == monitorAuthCookie {
+			sessionCookie = c
+			break
+		}
+	}
+	if sessionCookie == nil {
+		t.Fatal("missing monitor session cookie")
+	}
+	if sessionCookie.Secure {
+		t.Fatal("direct client spoofed X-Forwarded-Proto:https and got a Secure cookie")
+	}
+}
+
+// TestIsMonitorHTTPS pins the helper contract directly.
+func TestIsMonitorHTTPS(t *testing.T) {
+	plain := httptest.NewRequest(http.MethodGet, "/", nil)
+	plain.Header.Set("X-Forwarded-Proto", "https")
+	if isMonitorHTTPS(plain) {
+		t.Fatal("direct client X-Forwarded-Proto must be ignored")
+	}
+
+	trusted := plain.WithContext(trustedproxy.WithTrust(plain.Context()))
+	if !isMonitorHTTPS(trusted) {
+		t.Fatal("trusted proxy X-Forwarded-Proto:https must be honored")
+	}
+
+	tlsReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	tlsReq.TLS = &tls.ConnectionState{}
+	if !isMonitorHTTPS(tlsReq) {
+		t.Fatal("direct TLS must be detected")
 	}
 }

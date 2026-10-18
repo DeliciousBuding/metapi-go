@@ -4,6 +4,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/trustedproxy"
 )
 
 const credentialExportFormatVersion = "1.0.0"
@@ -61,23 +64,36 @@ func (h *downstreamKeysHandler) exportKey(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// resolveExportBaseURL builds the base URL written into an exported client
+// profile. Precedence:
+//
+//  1. SERVER_ADDRESS — the operator's explicit public base URL.
+//  2. The request Host (the URL the client actually called).
+//  3. X-Forwarded-Host, only when router.TrustedRealIP marked the peer as a
+//     configured trusted proxy and the value is a bare host[:port].
+//
+// X-Forwarded-Host is never taken from a direct client: it is
+// attacker-controlled and would let a spoofed export point the operator's CLI
+// at an arbitrary host (audit L27). Scheme follows trustedproxy.IsHTTPS, so a
+// forged X-Forwarded-Proto cannot downgrade or upgrade it either.
 func resolveExportBaseURL(r *http.Request) string {
-	proto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto"))
-	if proto == "" {
-		if r.TLS != nil {
-			proto = "https"
-		} else {
-			proto = "http"
+	if rt := config.RuntimeSafe(); rt != nil {
+		if configured := strings.TrimRight(strings.TrimSpace(rt.ServerAddress), "/"); configured != "" {
+			return configured
 		}
 	}
-	host := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
+	proto := "http"
+	if trustedproxy.IsHTTPS(r) {
+		proto = "https"
+	}
+	host := trustedproxy.ValidateHost(r.Host)
 	if host == "" {
-		host = strings.TrimSpace(r.Host)
+		host = trustedproxy.ForwardedHost(r)
 	}
 	if host == "" {
 		return "http://localhost:4000"
 	}
-	return strings.TrimRight(proto+"://"+host, "/")
+	return proto + "://" + host
 }
 
 func buildCredentialExportProfiles(name, key, baseURL string) []map[string]any {

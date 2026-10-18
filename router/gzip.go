@@ -20,6 +20,7 @@ import (
 	"compress/gzip"
 	"mime"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -56,11 +57,55 @@ func isCompressibleContentType(contentType string) bool {
 	return ok && (suffix == "json" || suffix == "xml")
 }
 
-// acceptsGzip reports whether the client advertised gzip support. A substring
-// match covers the common "gzip, deflate, br" headers; clients that refuse
-// gzip (q=0) simply omit it.
+// acceptsGzip reports whether the client accepts gzip with a non-zero
+// q-value. The header is parsed per RFC 9110 instead of substring-matched:
+// "gzip;q=0" is an explicit refusal and must not be compressed (audit L29).
+// An explicit gzip/x-gzip entry overrides a wildcard; "*" alone accepts gzip
+// when its q-value is positive.
 func acceptsGzip(r *http.Request) bool {
-	return strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
+	header := r.Header.Get("Accept-Encoding")
+	if header == "" {
+		return false
+	}
+	explicit := false
+	accepted := false
+	wildcard := -1.0
+	for _, part := range strings.Split(header, ",") {
+		coding, q := parseAcceptEncodingPart(part)
+		switch coding {
+		case "gzip", "x-gzip":
+			explicit = true
+			accepted = q > 0
+		case "*":
+			wildcard = q
+		}
+	}
+	if explicit {
+		return accepted
+	}
+	return wildcard > 0
+}
+
+// parseAcceptEncodingPart splits one Accept-Encoding list member into its
+// lowercase coding name and q-value (default 1). Malformed parameters are
+// ignored; an unparseable q-value falls back to the default.
+func parseAcceptEncodingPart(part string) (string, float64) {
+	fields := strings.Split(part, ";")
+	coding := strings.ToLower(strings.TrimSpace(fields[0]))
+	q := 1.0
+	for _, param := range fields[1:] {
+		key, value, ok := strings.Cut(strings.TrimSpace(param), "=")
+		if !ok || !strings.EqualFold(strings.TrimSpace(key), "q") {
+			continue
+		}
+		if parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil {
+			q = parsed
+		}
+	}
+	if q < 0 {
+		q = 0
+	}
+	return coding, q
 }
 
 // gzipResponseWriter wraps a ResponseWriter and transparently compresses the
