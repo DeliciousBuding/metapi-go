@@ -67,11 +67,6 @@ func DetectSiteProtocolPreference(platform, siteURL string, customHeaders map[st
 	return pref
 }
 
-// IsResponsesOnlySite is a convenience wrapper for DetectSiteProtocolPreference(...).ResponsesOnly.
-func IsResponsesOnlySite(platform, siteURL string, customHeaders map[string]string) bool {
-	return DetectSiteProtocolPreference(platform, siteURL, customHeaders).ResponsesOnly
-}
-
 // IsMetapiControlHeader reports whether a custom header is a Metapi control signal
 // that must not be forwarded to upstream. Only known preference keys are blocked;
 // other x-metapi-* values (e.g. operator tracing headers) still pass through.

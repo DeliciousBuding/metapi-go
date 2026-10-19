@@ -209,52 +209,6 @@ func ResetSiteRuntimeHealthState() {
 	healthPersistInFlight = false
 }
 
-// ChannelRuntimeHealthRow describes a channel-row pair for health clearing.
-type ChannelRuntimeHealthRow struct {
-	SiteID            int64
-	SourceModel       *string
-	RouteModelPattern string
-}
-
-// ClearRuntimeHealthStatesForChannels clears the in-memory runtime health state
-// for the site+model combinations of the given channel rows. Returns true if any
-// state was cleared and persistence should be triggered.
-func ClearRuntimeHealthStatesForChannels(rows []ChannelRuntimeHealthRow) bool {
-	if len(rows) == 0 {
-		return false
-	}
-	healthStateMu.Lock()
-	defer healthStateMu.Unlock()
-
-	cleared := false
-	clearedSites := make(map[int64]bool)
-	for _, row := range rows {
-		if row.SiteID <= 0 {
-			continue
-		}
-		if row.SourceModel != nil && *row.SourceModel != "" {
-			modelKey := NormalizeChannelSourceModel(row.SourceModel)
-			if modelKey != "" {
-				if siteModels, ok := siteModelRuntimeHealthStates[row.SiteID]; ok {
-					if _, exists := siteModels[modelKey]; exists {
-						delete(siteModels, modelKey)
-						cleared = true
-					}
-				}
-			}
-		}
-		// Also clear global site health for sites we touched
-		if !clearedSites[row.SiteID] {
-			clearedSites[row.SiteID] = true
-			if _, exists := siteRuntimeHealthStates[row.SiteID]; exists {
-				delete(siteRuntimeHealthStates, row.SiteID)
-				cleared = true
-			}
-		}
-	}
-	return cleared
-}
-
 // EnsureSiteRuntimeHealthStateLoaded lazy-loads health state from settings.
 func EnsureSiteRuntimeHealthStateLoaded() error {
 	healthStateMu.RLock()

@@ -63,9 +63,3 @@ func newRequestID() string {
 	}
 	return fmt.Sprintf("req-%d-%d", time.Now().UnixNano(), requestIDFallback.Add(1))
 }
-
-// RequestIDFromContext extracts the request ID from context.
-// Returns an empty string if not set.
-func RequestIDFromContext(r *http.Request) string {
-	return middleware.GetReqID(r.Context())
-}
