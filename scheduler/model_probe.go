@@ -10,6 +10,8 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
+const probeRecordTimeout = 5 * time.Second
+
 // ProbeTarget is one lightweight channel/model pair the background probe may hit.
 type ProbeTarget struct {
 	ChannelID int64
@@ -468,11 +470,16 @@ func (s *ModelProbeScheduler) probeOne(target ProbeTarget, timeoutMs int, dbw ..
 	}
 	accountID := target.AccountID
 	accountPtr := &accountID
+	// The probe context may already be expired when a probe times out. Health
+	// bookkeeping is a separate database write and must not inherit that
+	// deadline, otherwise a timed-out channel is never cooled down.
+	recordCtx, recordCancel := context.WithTimeout(context.Background(), probeRecordTimeout)
+	defer recordCancel()
 
 	status := "inconclusive"
 	switch outcome.Status {
 	case "success":
-		if err := recorder.RecordProbeSuccess(ctx, target.ChannelID, outcome.LatencyMs, modelPtr, accountPtr); err != nil {
+		if err := recorder.RecordProbeSuccess(recordCtx, target.ChannelID, outcome.LatencyMs, modelPtr, accountPtr); err != nil {
 			slog.Warn("model-probe: RecordProbeSuccess failed",
 				"channel_id", target.ChannelID,
 				"error", err,
@@ -491,7 +498,7 @@ func (s *ModelProbeScheduler) probeOne(target ProbeTarget, timeoutMs int, dbw ..
 			e := outcome.ErrorText
 			errPtr = &e
 		}
-		if err := recorder.RecordProbeFailure(ctx, target.ChannelID, statusPtr, errPtr, modelPtr, accountPtr); err != nil {
+		if err := recorder.RecordProbeFailure(recordCtx, target.ChannelID, statusPtr, errPtr, modelPtr, accountPtr); err != nil {
 			slog.Warn("model-probe: RecordProbeFailure failed",
 				"channel_id", target.ChannelID,
 				"error", err,
