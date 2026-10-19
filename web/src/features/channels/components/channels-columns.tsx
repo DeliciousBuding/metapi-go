@@ -31,23 +31,28 @@ const STATUS_CONFIG: Record<
   ChannelStatus,
   {
     labelKey: string
+    variant: 'success' | 'warning' | 'destructive' | 'secondary'
     dotClass: string
   }
 > = {
   enabled: {
     labelKey: 'channels.status.enabled',
+    variant: 'success',
     dotClass: 'bg-success',
   },
   cooldown: {
     labelKey: 'channels.status.cooldown',
+    variant: 'warning',
     dotClass: 'bg-warning',
   },
   breaker_open: {
     labelKey: 'channels.status.breakerOpen',
+    variant: 'destructive',
     dotClass: 'bg-destructive',
   },
   manually_disabled: {
     labelKey: 'channels.status.manuallyDisabled',
+    variant: 'secondary',
     dotClass: 'bg-muted-foreground',
   },
 }
@@ -138,13 +143,16 @@ export function useChannelsColumns(
           const status = row.original.status
           const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.enabled
           const badge = (
-            <span className='inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap'>
+            <Badge
+              variant={config.variant}
+              className='h-auto gap-1.5 rounded-none border-0 bg-transparent px-0 py-0'
+            >
               <span
                 aria-hidden='true'
                 className={cn('size-1.5 rounded-full', config.dotClass)}
               />
               {t(config.labelKey)}
-            </span>
+            </Badge>
           )
           // Only failing states are interesting to click, and only when the
           // page wires the root-cause dialog — enabled rows stay inert.
