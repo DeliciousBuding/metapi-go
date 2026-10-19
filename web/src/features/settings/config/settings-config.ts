@@ -20,8 +20,8 @@ const SETTINGS_SUBAREAS: readonly SettingsSubarea[] = [
 
 /**
  * Settings subareas in main-sidebar order.
- * Consumed by the settings overview landing and the layout drill-in sidebar so
- * both surfaces share one metadata source (title / icon / description).
+ * Consumed by the layout drill-in sidebar and the `/settings` entry redirect so
+ * both share one metadata source (title / icon / description / default section).
  */
 export function getSettingsSubareas(): readonly SettingsSubarea[] {
   return SETTINGS_SUBAREAS

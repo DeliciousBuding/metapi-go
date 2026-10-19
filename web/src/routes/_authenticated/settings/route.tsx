@@ -8,7 +8,7 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_authenticated/settings')({
-  staticData: { title: 'settings.overview.title' },
+  staticData: { title: 'settings.title' },
   component: SettingsLayout,
 })
 

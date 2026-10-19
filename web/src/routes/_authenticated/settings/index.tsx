@@ -1,20 +1,23 @@
-// metapi-go/routes — settings index (overview landing).
+// metapi-go/routes — settings index.
 //
-// Bare `/settings` renders the subarea overview grid instead of redirecting,
-// so the full configuration scope is visible before drilling in. Each card
-// links to the subarea (which redirects to its default section) and lists the
-// subarea's sections for direct jumps. The main sidebar links to `/settings`,
-// so this index closes the loop.
+// Bare `/settings` is a bookmark/legacy entry point, not a destination: the
+// settings sidebar already lists every subarea with the same titles and
+// descriptions, so a landing grid of those five links only duplicated it and
+// left most of the page empty. Send the operator straight to the first
+// subarea's default section and let the sidebar carry orientation.
 
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { SettingsOverview } from '@/features/settings'
+import { getSettingsSubareas } from '@/features/settings'
 
 export const Route = createFileRoute('/_authenticated/settings/')({
-  staticData: { title: 'settings.overview.title' },
-  component: SettingsOverviewRoute,
+  staticData: { title: 'settings.subareas.basic' },
+  beforeLoad: () => {
+    const first = getSettingsSubareas()[0]
+    throw redirect({
+      to: '/settings/$subarea/$section',
+      params: { subarea: first.id, section: first.defaultSection },
+      replace: true,
+    })
+  },
 })
-
-function SettingsOverviewRoute() {
-  return <SettingsOverview />
-}

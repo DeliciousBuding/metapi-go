@@ -34,8 +34,6 @@ const PAGES = [
   ['models', '/models'],
   ['channels', '/channels'],
   ['oauth', '/oauth'],
-  // settings-overview is a static card grid of section links; no live data.
-  ['settings-overview', '/settings'],
   // settings-basic-site is a static configuration form (defaults only).
   ['settings-basic-site', '/settings/basic/site'],
   // model-tester is a static request form; responses only render after a

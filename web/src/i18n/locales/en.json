@@ -1333,10 +1333,7 @@
         "operations": "System & Ops",
         "operations.description": "Scheduling, database and migration, maintenance, logs and updates."
       },
-      "overview": {
-        "title": "Settings",
-        "description": "Manage gateway configuration, API keys, model behavior, data & messaging, and system maintenance."
-      },
+      "title": "Settings",
       "common": {
         "save": "Save",
         "saving": "Saving…",
@@ -3688,8 +3685,7 @@
         "channels": "Channels",
         "downstreamKeys": "API Keys"
       },
-      "backToHome": "Back to Home",
-      "settingsOverview": "Settings Overview"
+      "backToHome": "Back to Home"
     },
     "import": {
       "title": "Import sites",
