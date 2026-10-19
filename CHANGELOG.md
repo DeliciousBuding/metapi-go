@@ -62,6 +62,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 接入验证：连接对话框可选择 Chat、Responses 或 Messages，仅向所选协议发送一次非流式请求；空输出、错误和非法响应不再显示成功，切换协议清除旧结果。
 - 模型测试场：改为对话画布与底部输入框，渠道和参数移入设置；`POST /api/test/chat` 保留多轮上下文和协议参数，默认最多生成 1024 token，请求超时 60 秒（#1490）。
 - 路由：点击列表行即可展开渠道、权重、状态与价格来源，可同时查看多条路由；缺失费率保持未知（#1493）。
 - OAuth 路由诊断：展开查看各成员的阻断原因和冷却时间，通过 `POST /api/oauth/route-units/{routeUnitId}/members/{memberId}/cooldown/clear` 单独清除成员冷却，保留累计统计（#1396）。

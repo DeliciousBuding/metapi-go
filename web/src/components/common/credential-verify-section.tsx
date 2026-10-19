@@ -1,13 +1,16 @@
-// Checks model access and a non-streaming Chat request with the unlocked key.
-// Chat consumes upstream quota; results link to this key's request logs.
+// Checks model access and one non-streaming request in the protocol the user
+// explicitly selects. The request consumes upstream quota; the result links to
+// this key's request logs and never auto-retries through another protocol.
 
 import { Link } from '@tanstack/react-router'
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Select,
   SelectContent,
@@ -16,6 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+type Protocol = 'chat' | 'responses' | 'messages'
+
 type StepState<TOk, TErr> =
   | { phase: 'idle' }
   | { phase: 'loading' }
@@ -23,21 +28,39 @@ type StepState<TOk, TErr> =
   | ({ phase: 'fail' } & TErr)
 
 type ModelsState = StepState<{ models: string[] }, { message: string }>
-type ChatState = StepState<
-  { latencyMs: number },
+type VerificationState = StepState<
+  { latencyMs: number; protocol: Protocol },
   { status: number | null; message: string }
 >
 
 const VERIFY_TIMEOUT_MS = 30_000
+const VERIFY_MAX_OUTPUT_TOKENS = 32
+const ANTHROPIC_VERSION = '2023-06-01'
 const modelsResponseSchema = z.object({
   data: z.array(z.object({ id: z.string().min(1) })),
   error: z.never().optional(),
 })
 const chatResponseSchema = z.object({
   choices: z
-    .array(z.object({ message: z.object({ role: z.literal('assistant') }) }))
+    .array(
+      z.object({
+        message: z.object({
+          role: z.literal('assistant'),
+          content: z.string().trim().min(1),
+        }),
+      })
+    )
     .min(1),
-  error: z.never().optional(),
+})
+const responsesResponseSchema = z.object({
+  object: z.literal('response'),
+  status: z.literal('completed'),
+  output: z.array(z.unknown()).min(1),
+})
+const messagesResponseSchema = z.object({
+  type: z.literal('message'),
+  role: z.literal('assistant'),
+  content: z.array(z.unknown()).min(1),
 })
 
 /** Parsed upstream/gateway error body, truncated — never the key. */
@@ -69,6 +92,104 @@ function classifyFetchError(
   }
 }
 
+function verificationRequest(
+  protocol: Protocol,
+  apiBase: string,
+  model: string,
+  apiKey: string
+): { url: string; headers: Record<string, string>; body: unknown } {
+  if (protocol === 'responses') {
+    return {
+      url: `${apiBase}/responses`,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: {
+        model,
+        input: 'ping',
+        max_output_tokens: VERIFY_MAX_OUTPUT_TOKENS,
+        stream: false,
+      },
+    }
+  }
+  if (protocol === 'messages') {
+    return {
+      url: `${apiBase}/messages`,
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': ANTHROPIC_VERSION,
+        'Content-Type': 'application/json',
+      },
+      body: {
+        model,
+        max_tokens: VERIFY_MAX_OUTPUT_TOKENS,
+        messages: [{ role: 'user', content: 'ping' }],
+        stream: false,
+      },
+    }
+  }
+  return {
+    url: `${apiBase}/chat/completions`,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: {
+      model,
+      messages: [{ role: 'user', content: 'ping' }],
+      max_tokens: VERIFY_MAX_OUTPUT_TOKENS,
+      stream: false,
+    },
+  }
+}
+
+function validVerificationResponse(protocol: Protocol, body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false
+  const error = (body as Record<string, unknown>).error
+  if (error !== undefined && error !== null) return false
+
+  if (protocol === 'responses') {
+    const parsed = responsesResponseSchema.safeParse(body)
+    if (!parsed.success) return false
+    return parsed.data.output.some(
+      (item) =>
+        item !== null &&
+        typeof item === 'object' &&
+        (item as Record<string, unknown>).type === 'message' &&
+        (item as Record<string, unknown>).role === 'assistant' &&
+        Array.isArray((item as Record<string, unknown>).content) &&
+        ((item as Record<string, unknown>).content as unknown[]).some(
+          (part) =>
+            part !== null &&
+            typeof part === 'object' &&
+            (part as Record<string, unknown>).type === 'output_text' &&
+            typeof (part as Record<string, unknown>).text === 'string' &&
+            ((part as Record<string, unknown>).text as string).trim() !== ''
+        )
+    )
+  }
+  if (protocol === 'messages') {
+    const parsed = messagesResponseSchema.safeParse(body)
+    if (!parsed.success) return false
+    return parsed.data.content.some(
+      (block) =>
+        block !== null &&
+        typeof block === 'object' &&
+        (block as Record<string, unknown>).type === 'text' &&
+        typeof (block as Record<string, unknown>).text === 'string' &&
+        ((block as Record<string, unknown>).text as string).trim() !== ''
+    )
+  }
+  return chatResponseSchema.safeParse(body).success
+}
+
+function invalidResponseKey(protocol: Protocol): string {
+  if (protocol === 'responses') return 'connect.verify.invalidResponsesResponse'
+  if (protocol === 'messages') return 'connect.verify.invalidMessagesResponse'
+  return 'connect.verify.invalidChatResponse'
+}
+
 export function CredentialVerifySection({
   keyId,
   apiBase,
@@ -82,10 +203,15 @@ export function CredentialVerifySection({
 }) {
   const { t } = useTranslation()
   const [modelsState, setModelsState] = useState<ModelsState>({ phase: 'idle' })
-  const [chatState, setChatState] = useState<ChatState>({ phase: 'idle' })
+  const [verificationState, setVerificationState] = useState<VerificationState>(
+    { phase: 'idle' }
+  )
+  const [protocol, setProtocol] = useState<Protocol>('chat')
   const [selectedModel, setSelectedModel] = useState('')
   const request = useRef<AbortController | null>(null)
-  const busy = modelsState.phase === 'loading' || chatState.phase === 'loading'
+  const protocolLabelId = useId()
+  const busy =
+    modelsState.phase === 'loading' || verificationState.phase === 'loading'
 
   useEffect(
     () => () => {
@@ -99,7 +225,7 @@ export function CredentialVerifySection({
   async function runModelsCheck() {
     if (request.current) return
     setModelsState({ phase: 'loading' })
-    setChatState({ phase: 'idle' })
+    setVerificationState({ phase: 'idle' })
     const controller = new AbortController()
     request.current = controller
     const timer = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS)
@@ -145,56 +271,56 @@ export function CredentialVerifySection({
     }
   }
 
-  async function runChatCheck() {
+  async function runVerificationCheck() {
     if (!selectedModel || request.current) return
-    setChatState({ phase: 'loading' })
+    setVerificationState({ phase: 'loading' })
     const controller = new AbortController()
     request.current = controller
     const timer = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS)
     const started = performance.now()
+    const selectedProtocol = protocol
+    const upstreamRequest = verificationRequest(
+      selectedProtocol,
+      apiBase,
+      selectedModel,
+      apiKey
+    )
     try {
-      const res = await fetch(`${apiBase}/chat/completions`, {
+      const res = await fetch(upstreamRequest.url, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        // Keep the connectivity check short.
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: [{ role: 'user', content: 'ping' }],
-          max_tokens: 1,
-          stream: false,
-        }),
+        headers: upstreamRequest.headers,
+        body: JSON.stringify(upstreamRequest.body),
         signal: controller.signal,
       })
       const latencyMs = Math.round(performance.now() - started)
       if (!res.ok) {
         const message = await readErrorMessage(res)
         if (request.current === controller)
-          setChatState({
+          setVerificationState({
             phase: 'fail',
             status: res.status,
             message,
           })
         return
       }
-      const body = chatResponseSchema.safeParse(
-        await res.json().catch(() => null)
-      )
+      const parsedBody = await res.json().catch(() => null)
       if (request.current !== controller) return
-      if (!body.success) {
-        setChatState({
+      if (!validVerificationResponse(selectedProtocol, parsedBody)) {
+        setVerificationState({
           phase: 'fail',
           status: res.status,
-          message: t('connect.verify.invalidChatResponse'),
+          message: t(invalidResponseKey(selectedProtocol)),
         })
         return
       }
-      setChatState({ phase: 'ok', latencyMs })
+      setVerificationState({
+        phase: 'ok',
+        latencyMs,
+        protocol: selectedProtocol,
+      })
     } catch (error) {
       if (request.current !== controller) return
-      setChatState({
+      setVerificationState({
         phase: 'fail',
         ...classifyFetchError(error, t('connect.verify.timeout')),
       })
@@ -250,64 +376,118 @@ export function CredentialVerifySection({
               {t('connect.verify.noModels')}
             </p>
           ) : (
-            <div className='flex flex-wrap items-center gap-2'>
-              <Select
-                items={modelsState.models.map((model) => ({
-                  value: model,
-                  label: model,
-                }))}
-                value={selectedModel}
-                disabled={busy}
-                onValueChange={(value) => {
-                  setSelectedModel(value ?? '')
-                  setChatState({ phase: 'idle' })
-                }}
-              >
-                <SelectTrigger
-                  size='sm'
-                  aria-label={t('connect.verify.modelAria')}
-                  className='w-56'
+            <div className='space-y-2'>
+              <div className='space-y-1'>
+                <p
+                  id={protocolLabelId}
+                  className='text-muted-foreground text-xs font-medium'
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {modelsState.models.map((model) => (
-                    <SelectItem key={model} value={model}>
-                      {model}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size='sm'
-                disabled={!selectedModel || busy}
-                onClick={() => void runChatCheck()}
-              >
-                {chatState.phase === 'loading' ? (
-                  <Loader2 className='size-3.5 animate-spin' />
-                ) : null}
-                {t('connect.verify.chatCta')}
-              </Button>
+                  {t('connect.verify.protocol.label')}
+                </p>
+                <RadioGroup
+                  className='flex flex-wrap gap-x-4 gap-y-2'
+                  value={protocol}
+                  disabled={busy}
+                  aria-labelledby={protocolLabelId}
+                  onValueChange={(value) => {
+                    if (!value || value === protocol) return
+                    setProtocol(value as Protocol)
+                    setVerificationState({ phase: 'idle' })
+                  }}
+                >
+                  <div className='flex items-center gap-1.5'>
+                    <RadioGroupItem
+                      id={`${protocolLabelId}-chat`}
+                      value='chat'
+                    />
+                    <Label htmlFor={`${protocolLabelId}-chat`}>
+                      {t('connect.verify.protocol.chat')}
+                    </Label>
+                  </div>
+                  <div className='flex items-center gap-1.5'>
+                    <RadioGroupItem
+                      id={`${protocolLabelId}-responses`}
+                      value='responses'
+                    />
+                    <Label htmlFor={`${protocolLabelId}-responses`}>
+                      {t('connect.verify.protocol.responses')}
+                    </Label>
+                  </div>
+                  <div className='flex items-center gap-1.5'>
+                    <RadioGroupItem
+                      id={`${protocolLabelId}-messages`}
+                      value='messages'
+                    />
+                    <Label htmlFor={`${protocolLabelId}-messages`}>
+                      {t('connect.verify.protocol.messages')}
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              <div className='flex flex-wrap items-center gap-2'>
+                <Select
+                  items={modelsState.models.map((model) => ({
+                    value: model,
+                    label: model,
+                  }))}
+                  value={selectedModel}
+                  disabled={busy}
+                  onValueChange={(value) => {
+                    setSelectedModel(value ?? '')
+                    setVerificationState({ phase: 'idle' })
+                  }}
+                >
+                  <SelectTrigger
+                    size='sm'
+                    aria-label={t('connect.verify.modelAria')}
+                    className='w-56'
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {modelsState.models.map((model) => (
+                      <SelectItem key={model} value={model}>
+                        {model}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size='sm'
+                  disabled={!selectedModel || busy}
+                  onClick={() => void runVerificationCheck()}
+                >
+                  {verificationState.phase === 'loading' ? (
+                    <Loader2 className='size-3.5 animate-spin' />
+                  ) : null}
+                  {t('connect.verify.testCta')}
+                </Button>
+              </div>
             </div>
           )}
 
-          {chatState.phase === 'ok' ? (
+          {verificationState.phase === 'ok' ? (
             <div className='flex flex-wrap items-center gap-2'>
               <span className='text-success-soft-fg flex items-center gap-1 text-xs'>
                 <CheckCircle2 className='size-3.5' />
-                {t('connect.verify.chatOk', { ms: chatState.latencyMs })}
+                {t('connect.verify.testOk', {
+                  protocol: t(
+                    `connect.verify.protocol.${verificationState.protocol}`
+                  ),
+                  ms: verificationState.latencyMs,
+                })}
               </span>
               {logsLink}
             </div>
           ) : null}
-          {chatState.phase === 'fail' ? (
+          {verificationState.phase === 'fail' ? (
             <div className='space-y-2'>
               <p className='text-destructive-soft-fg flex items-start gap-1 text-xs break-all'>
                 <XCircle className='mt-0.5 size-3.5 shrink-0' />
                 <span>
-                  {chatState.status !== null
-                    ? `HTTP ${chatState.status}: ${chatState.message}`
-                    : chatState.message}
+                  {verificationState.status !== null
+                    ? `HTTP ${verificationState.status}: ${verificationState.message}`
+                    : verificationState.message}
                 </span>
               </p>
               {logsLink}
