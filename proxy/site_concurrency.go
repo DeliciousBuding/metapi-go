@@ -2,13 +2,17 @@ package proxy
 
 import "sync"
 
-// SiteConcurrencyLimiter caps concurrent upstream dispatches per site.
+// SiteConcurrencyLimiter caps concurrent upstream dispatches per scope.
 // It is orthogonal to ProxyChannelCoordinator channel leases: a request may
 // hold both a site slot and a channel lease independently.
 //
-// Semantics (sites.max_concurrency / Site.MaxConcurrency):
+// The scope key is a site ID for regular channels and an upstream credential
+// ID for direct channels (see DefaultDirectAccountConcurrencyLimiter); the two
+// populations use separate limiter instances so their ID spaces never collide.
+//
+// Semantics:
 // - limit <= 0 → unlimited (always acquire; no tracking)
-// - limit > 0 → at most that many concurrent held slots per siteID
+// - limit > 0 → at most that many concurrent held slots per scope key
 //
 // On saturation callers must skip to the next channel/site and must NOT mark
 // the channel expired or record a routing failure cascade.
@@ -21,7 +25,8 @@ type siteConcurrencyState struct {
 	active int
 }
 
-// SiteSlot is a held (or no-op) site concurrency permit.
+// SiteSlot is a held (or no-op) concurrency permit for one attempt scope
+// (site or direct credential).
 // Always call Release exactly once when the upstream attempt finishes.
 type SiteSlot struct {
 	siteID  int64
@@ -32,6 +37,12 @@ type SiteSlot struct {
 // DefaultSiteConcurrencyLimiter is the process-global site limiter used by the
 // proxy data plane when UpstreamConfig does not inject a custom instance.
 var DefaultSiteConcurrencyLimiter = NewSiteConcurrencyLimiter()
+
+// DefaultDirectAccountConcurrencyLimiter caps concurrent dispatches per direct
+// upstream account. Direct channels bypass Site.MaxConcurrency because they
+// have no site row, so the data plane keys a separate limiter by credential ID
+// to retain per-account isolation.
+var DefaultDirectAccountConcurrencyLimiter = NewSiteConcurrencyLimiter()
 
 // NewSiteConcurrencyLimiter creates an empty site-scoped limiter.
 func NewSiteConcurrencyLimiter() *SiteConcurrencyLimiter {
