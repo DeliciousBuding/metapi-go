@@ -39,6 +39,13 @@ type UpstreamConfig struct {
 	// When nil, proxy.DefaultSiteConcurrencyLimiter is used.
 	// Orthogonal to Coordinator channel leases.
 	SiteLimiter *proxy.SiteConcurrencyLimiter
+	// DirectAccountLimiter caps concurrent dispatches per direct upstream
+	// account (upstream_credentials.id), since direct channels have no site
+	// row to carry MaxConcurrency. The limit comes from
+	// PROXY_DIRECT_ACCOUNT_MAX_CONCURRENCY; 0 leaves direct dispatch
+	// unlimited. When nil, proxy.DefaultDirectAccountConcurrencyLimiter is
+	// used.
+	DirectAccountLimiter *proxy.SiteConcurrencyLimiter
 	// LogProxy persists successful/failed proxy attempts into proxy_logs.
 	// When nil, defaultLogProxyWriter uses store.GetDB() (no-op if DB unset).
 	LogProxy                func(ctx context.Context, entry proxy.ProxyLogEntry) error
@@ -84,6 +91,24 @@ func SetUpstreamConfig(cfg *UpstreamConfig) {
 func getUpstreamConfig() *UpstreamConfig {
 	return upstreamCfg
 }
+
+// directAccountConcurrencyLimit returns the configured per-direct-account
+// concurrency cap from the startup-loaded config singleton. <=0 (default)
+// means unlimited, preserving the pre-existing direct dispatch behavior;
+// tests that construct a partial config stay unlimited unless they opt in.
+func directAccountConcurrencyLimit() int {
+	if cfg := config.GetSafe(); cfg != nil && cfg.ProxyDirectAccountMaxConcurrency > 0 {
+		return cfg.ProxyDirectAccountMaxConcurrency
+	}
+	return 0
+}
+
+// maxDirectSaturationSkips bounds how many saturated direct candidates one
+// request will examine. It is a loop-safety limit against a router that
+// ignores ExcludeChannelIDs, not a routing or retry budget: skipping a
+// saturated account is cheaper than an upstream attempt and must not spend
+// the request's real retry allowance.
+const maxDirectSaturationSkips = 64
 
 // dispatchUpstream forwards a proxy request to the selected upstream channel.
 // Implements the spec's 10-step Handler pattern.
@@ -164,8 +189,18 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		}
 	}
 	var pendingFailure *pendingUpstreamFailure
+	// The selection round and the upstream attempt budget are deliberately
+	// separate. A saturated direct credential only skips candidates, so its
+	// grants (models) must not consume real retries while they are skipped.
+	// Regular site saturation keeps its historical budget behavior: it still
+	// advances the attempt counter, exactly as the old retry loop did.
+	attempt := 0
+	selectionRound := 0
+	directSaturationSkips := 0
+	lastSaturationReason := ""
+	directLimit := int64(directAccountConcurrencyLimit())
 
-	for retry := 0; retry <= maxRetries; retry++ {
+	for attempt <= maxRetries {
 		// Step 6: Channel selection
 		selected, err := proxy.SelectProxyChannelForAttempt(
 			r.Context(),
@@ -175,7 +210,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 				RequestedModel:    ctx.RequestedModel,
 				DownstreamPolicy:  downstreamPolicy,
 				ExcludeChannelIDs: excludeChannelIDs,
-				RetryCount:        retry,
+				RetryCount:        selectionRound,
 				ForcedChannelID:   ctx.ForcedChannelID,
 			},
 		)
@@ -191,7 +226,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 				"err", err,
 				"model", ctx.RequestedModel,
 				"reason", noChannelReason,
-				"retry", retry,
+				"retry", attempt,
 				"request_id", requestID,
 			)
 			if pendingFailure != nil {
@@ -201,6 +236,9 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 				return
 			}
 			eventReason := "no available channels"
+			if lastSaturationReason == "direct_account_concurrency_saturated" {
+				eventReason = lastSaturationReason
+			}
 			message := "No available channels"
 			if noChannelReason != "" {
 				eventReason += ": " + noChannelReason
@@ -211,45 +249,77 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 			observeProxyTerminal(ctx, shared.OutcomeUnavailable, ctx != nil && ctx.IsStream, time.Since(startedAt))
 			return
 		}
+		selectionRound++
 		excludeChannelIDs = append(excludeChannelIDs, selected.Channel.ID)
 
-		// Site-scoped concurrency (orthogonal to channel leases).
-		// On saturate: skip to next channel/site — do NOT mark expired/cascade.
-		// sites.max_concurrency.
+		// Concurrency admission (orthogonal to channel leases).
+		// Regular channels take a site-scoped slot (sites.max_concurrency);
+		// direct channels have no site row, so they take an account-scoped
+		// slot keyed by upstream credential ID. On saturation: skip to the
+		// next channel — do NOT record failure or start a cooldown cascade.
 		siteLimiter := cfg.SiteLimiter
 		if siteLimiter == nil {
 			siteLimiter = proxy.DefaultSiteConcurrencyLimiter
 		}
-		var siteSlot *proxy.SiteSlot
+		var attemptSlot *proxy.SiteSlot
 		acquired := true
-		if selected.Direct == nil {
-			siteSlot, acquired = siteLimiter.TryAcquire(selected.Site.ID, selected.Site.MaxConcurrency)
+		saturationReason := "site_concurrency_saturated"
+		credentialID := int64(0)
+		if selected.Direct != nil {
+			credentialID = selected.Direct.CredentialID
+			directLimiter := cfg.DirectAccountLimiter
+			if directLimiter == nil {
+				directLimiter = proxy.DefaultDirectAccountConcurrencyLimiter
+			}
+			attemptSlot, acquired = directLimiter.TryAcquire(credentialID, directLimit)
+			if !acquired {
+				saturationReason = "direct_account_concurrency_saturated"
+			}
+		} else {
+			attemptSlot, acquired = siteLimiter.TryAcquire(selected.Site.ID, selected.Site.MaxConcurrency)
 		}
 		if !acquired {
+			lastSaturationReason = saturationReason
 			if ctx.lifecycle != nil {
 				ctx.lifecycle.mu.Lock()
-				ctx.lifecycle.noRouteReason = "site_concurrency_saturated"
+				ctx.lifecycle.noRouteReason = saturationReason
 				ctx.lifecycle.mu.Unlock()
 			}
-			slog.Debug("site concurrency saturated; skipping channel without failure cascade",
+			slog.Debug("concurrency saturated; skipping channel without failure cascade",
+				"reason", saturationReason,
 				"site_id", selected.Site.ID,
+				"credential_id", credentialID,
 				"channel_id", selected.Channel.ID,
 				"max_concurrency", selected.Site.MaxConcurrency,
 				"model", ctx.RequestedModel,
-				"retry", retry,
+				"retry", attempt,
 				"request_id", requestID,
 			)
+			if selected.Direct != nil {
+				directSaturationSkips++
+				if directSaturationSkips >= maxDirectSaturationSkips {
+					// Loop-safety bound for routers that ignore exclusions; this
+					// is not a routing budget and does not represent an attempt.
+					break
+				}
+				// Saturated direct account: move the selection cursor, not the
+				// upstream retry budget.
+				continue
+			}
+			// Historical site saturation behavior: the skip consumed one retry.
+			attempt++
 			continue
 		}
 
-		// Hold the site slot for the full attempt; always release (even on panic path).
+		// Hold the slot for the full attempt, including the streamed body;
+		// always release, including on the panic path.
 		var finished bool
 		var nextPending *pendingUpstreamFailure
 		func() {
-			if siteSlot != nil {
-				defer siteSlot.Release()
+			if attemptSlot != nil {
+				defer attemptSlot.Release()
 			}
-			finished, nextPending = dispatchSelectedUpstream(w, r, ctx, cfg, selected, upstreamPath, retry, maxRetries, requestID)
+			finished, nextPending = dispatchSelectedUpstream(w, r, ctx, cfg, selected, upstreamPath, attempt, maxRetries, requestID)
 		}()
 		if finished {
 			return
@@ -257,11 +327,14 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		if nextPending != nil {
 			pendingFailure = nextPending
 		}
+		attempt++
 	}
 
 	reason := "all channels exhausted"
 	if pendingFailure != nil {
 		reason = pendingFailure.reason()
+	} else if lastSaturationReason == "direct_account_concurrency_saturated" {
+		reason = lastSaturationReason
 	}
 	reportProxyAllFailedTerminal(ctx, reason)
 	writeJSONErrorWithRequest(w, 503, "All channels exhausted", "server_error", requestID)

@@ -144,6 +144,14 @@ type Config struct {
 	// pre-generalization PROXY_SSE_WRITE_TIMEOUT_SEC accepted as an alias;
 	// 0/negative/invalid falls back to DefaultProxyStreamWriteTimeoutSec.
 	ProxyStreamWriteTimeoutSec int
+	// ProxyDirectAccountMaxConcurrency caps concurrent proxy dispatches per
+	// direct upstream account, keyed by upstream_credentials.id. Direct
+	// channels have no site row to carry MaxConcurrency, so this is their
+	// equivalent isolation knob. Parsed from
+	// PROXY_DIRECT_ACCOUNT_MAX_CONCURRENCY; 0 (or any non-positive value)
+	// means unlimited, which is the historical behavior. The cap is
+	// process-local and read once at startup.
+	ProxyDirectAccountMaxConcurrency int
 
 	// LDOHBaseURL is the upstream LDOH dashboard URL proxied through
 	// /monitor-proxy/ldoh/* (env-only — no DDL). Parsed from LDOH_BASE_URL;
@@ -317,6 +325,17 @@ func parseNumber(value string, fallback float64) float64 {
 func parseTimeoutSec(value string, def int) int {
 	parsed := int(math.Trunc(parseNumber(value, float64(def))))
 	if parsed <= 0 {
+		return def
+	}
+	return parsed
+}
+
+// parseConcurrencyLimit parses an optional concurrency cap where 0 is a
+// meaningful value (unlimited) rather than a typo to clamp. Unset, invalid or
+// negative values fall back to def so the documented default keeps working.
+func parseConcurrencyLimit(value string, def int) int {
+	parsed := int(math.Trunc(parseNumber(value, float64(def))))
+	if parsed < 0 {
 		return def
 	}
 	return parsed
@@ -630,6 +649,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 		firstNonEmpty(get("PROXY_STREAM_WRITE_TIMEOUT_SEC"), get("PROXY_SSE_WRITE_TIMEOUT_SEC")),
 		DefaultProxyStreamWriteTimeoutSec,
 	)
+	cfg.ProxyDirectAccountMaxConcurrency = parseConcurrencyLimit(get("PROXY_DIRECT_ACCOUNT_MAX_CONCURRENCY"), DefaultProxyDirectAccountMaxConcurrency)
 
 	// ---- §3.12 Notify: Feishu / DingTalk / WeCom / Ntfy ----
 	rt.FeishuEnabled = parseBoolean(get("FEISHU_ENABLED"), false)

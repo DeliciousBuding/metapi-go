@@ -837,6 +837,34 @@ func TestLoadProxyTimeoutsFallBackOnInvalid(t *testing.T) {
 	}
 }
 
+func TestLoadDirectAccountMaxConcurrency(t *testing.T) {
+	// Unset keeps the historical unlimited behavior, and an explicit 0 is a
+	// meaningful opt-out rather than the typo clamp used by timeout vars.
+	tests := []struct {
+		value    string
+		set      bool
+		want     int
+		scenario string
+	}{
+		{scenario: "unset", want: DefaultProxyDirectAccountMaxConcurrency},
+		{set: true, value: "", want: DefaultProxyDirectAccountMaxConcurrency, scenario: "blank"},
+		{set: true, value: "0", want: 0, scenario: "explicit zero"},
+		{set: true, value: "4", want: 4, scenario: "positive"},
+		{set: true, value: "-2", want: DefaultProxyDirectAccountMaxConcurrency, scenario: "negative"},
+		{set: true, value: "soon", want: DefaultProxyDirectAccountMaxConcurrency, scenario: "invalid"},
+	}
+	for _, tt := range tests {
+		env := map[string]string{}
+		if tt.set {
+			env["PROXY_DIRECT_ACCOUNT_MAX_CONCURRENCY"] = tt.value
+		}
+		cfg, _ := Load(env)
+		if cfg.ProxyDirectAccountMaxConcurrency != tt.want {
+			t.Fatalf("%s: ProxyDirectAccountMaxConcurrency = %d, want %d", tt.scenario, cfg.ProxyDirectAccountMaxConcurrency, tt.want)
+		}
+	}
+}
+
 func TestLoadModelSyncCronDefault(t *testing.T) {
 	_, rt := Load(map[string]string{})
 	if rt.ModelSyncCron != DefaultModelSyncCron {

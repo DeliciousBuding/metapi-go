@@ -207,4 +207,10 @@ const (
 	// while a client that stopped reading is cut off instead of blocking the
 	// relay and its concurrency slot.
 	DefaultProxyStreamWriteTimeoutSec = 60
+	// DefaultProxyDirectAccountMaxConcurrency caps concurrent dispatches per
+	// direct upstream account (upstream_credentials.id). 0 keeps the
+	// historical unlimited behavior; a positive value opts into per-account
+	// isolation for direct channels, which have no site row to carry
+	// sites.max_concurrency.
+	DefaultProxyDirectAccountMaxConcurrency = 0
 )

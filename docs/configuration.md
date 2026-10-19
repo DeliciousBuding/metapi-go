@@ -133,6 +133,7 @@ target is trusted and the escape hatch is genuinely needed.
 | `PROXY_RATE_LIMIT_RPM` | `60` | Per-IP requests/min on `/v1`; `0` disables. |
 | `PROXY_GLOBAL_TOKEN_RPM` | `0` | 旧根密钥迁入 API 密钥时使用的 RPM 限额。迁移完成后，在 API 密钥页调整单个令牌的 RPM；修改此变量不影响已迁移密钥。 |
 | `PROXY_MAX_CHANNEL_ATTEMPTS` | `3` | Max retry/failover channel attempts per request. |
+| `PROXY_DIRECT_ACCOUNT_MAX_CONCURRENCY` | `0` | Direct 渠道按 upstream credential ID 的进程内并发上限；`0`/未配置 = 不限流。见下方“并发上限的三种范围”。 |
 | `PROXY_MAX_BUFFERED_RESPONSE_BYTES` | `20971520` | Non-streaming upstream response buffer cap (20 MiB); over → 502. |
 | `PROXY_MAX_STREAM_RESPONSE_BYTES` | `67108864` | Bytes relayed per SSE stream before controlled termination. Protocol conversion also caps original upstream bytes, including discarded frames. |
 | `PROXY_FIRST_BYTE_TIMEOUT_SEC` | `0` | Upstream response-header deadline in seconds. For SSE, `0` uses a finite 90s default; positive values replace it. The timer stops at headers and never caps an active stream. |
@@ -156,6 +157,23 @@ target is trusted and the escape hatch is genuinely needed.
 These `*_SEC` timeouts share one clamp (`config.parseTimeoutSec`): unset,
 blank, invalid, zero or negative values fall back to the listed default, so a
 typo can never disable a timeout entirely.
+
+### 并发上限的三种范围
+
+| 机制 | 范围与键 | 生效方式 |
+|:-----|:---------|:---------|
+| `sites.max_concurrency`（数据库字段） | 单个站点的所有 regular 渠道 | 管理 API 修改后即时生效 |
+| `PROXY_DIRECT_ACCOUNT_MAX_CONCURRENCY` | 本进程全局，按 `upstream_credentials.id` 计数，跨模型/grant/协议共享 | 启动时读取，重启生效；`0`/未配置 = 不限流 |
+| `PROXY_SESSION_CHANNEL_CONCURRENCY_LIMIT` | 仅 session-scoped 渠道的会话租约 | runtime settings 热更新；当前 lease 机制为 deferred，不参与 direct 账号限流 |
+
+Direct 渠道没有 `sites` 行，因此 `sites.max_concurrency` 不适用；上面的环境变量
+是它们的等价隔离项。它只统计**同一进程内、同一 credential ID** 正在进行的
+attempt（含 SSE 流的整个生命周期），不同 credential 各自独立。没有 credential
+的匿名 direct 渠道（ID 为 0）不计入上限。饱和时该候选只被跳过，继续尝试下一个
+渠道；不会写 `RecordFailure`、不会进入 cooldown，也不消耗真实 upstream retry
+预算。全部候选都因 direct 账号饱和而无法尝试时，仍返回既有的 503（
+`No available channels` / `All channels exhausted` 语义不变），生命周期记录为
+`rejected_no_route` / `direct_account_concurrency_saturated`，`AttemptCount=0`。
 
 ### Upstream content encoding
 
