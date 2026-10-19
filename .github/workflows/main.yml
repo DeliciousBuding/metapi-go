@@ -94,7 +94,7 @@ jobs:
 
           golangci-lint config verify --schema "$schema"
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@d6c05c543676670c2115a45b24210890aede0f83 # v6.4.0
+        uses: golangci/golangci-lint-action@0adbc47a5910e47adb692df88187ec8c73c76778 # v6.4.0
         with:
           version: v1.64.8
           install-mode: none
