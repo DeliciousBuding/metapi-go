@@ -1,5 +1,5 @@
 // Package store's migrate_runner.go is the callable form of the metapi-migrate
-// CLI: it transfers all 18 application tables between a SQLite database and a
+// CLI: it transfers all application tables between a SQLite database and a
 // PostgreSQL database (either direction). cmd/migrate/main.go is now a thin
 // wrapper around RunMigration, and handler/admin/settings_database.go queues
 // RunMigration as an admin background task.
@@ -283,7 +283,7 @@ func RunMigration(opts RunMigrationOptions) (*MigrationSummary, error) {
 	}
 	defer srcDB.Close()
 
-	// 2. Read all 18 tables into memory (matching TS toBackupSnapshot)
+	// 2. Read all application tables into memory (matching TS toBackupSnapshot)
 	fmt.Fprintf(logw, "Reading source database...\n")
 	snapshot, err := readAllTables(srcDB)
 	if err != nil {

@@ -1,4 +1,4 @@
-// Package platform implements detection and operation adapters for 14 upstream API platforms.
+// Package platform implements detection and operation adapters for the registered upstream API platforms.
 
 // Inheritance chain (via Go struct embedding):
 
