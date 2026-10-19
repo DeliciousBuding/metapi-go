@@ -201,6 +201,9 @@ describe('explicit upstream media capabilities', () => {
     )
   })
 
+  // Every async assertion below keeps its own 1s waitFor budget, so a real
+  // regression still fails fast. The outer 5s ceiling only added sensitivity
+  // to jsdom environment creation and CPU contention across CI workers.
   it('opens a newly enabled empty endpoint and reveals it again when a collapsed invalid draft is submitted', async () => {
     mount(
       <UpstreamConnectionForm detail={detail} onDirtyChange={state.dirty} />
@@ -248,7 +251,7 @@ describe('explicit upstream media capabilities', () => {
         },
       })
     )
-  })
+  }, 15_000)
 
   it('requires the declared native wire profile and Bearer authentication', () => {
     const invalid = [
