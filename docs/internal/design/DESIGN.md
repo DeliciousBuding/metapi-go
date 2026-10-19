@@ -4,7 +4,7 @@
 **Scope**: Enterprise ops control plane (sites, accounts, tokens, routes, monitors, logs)
 **Visual language**: GCP cloud console density + frosted glass shell + Apple detail
 **Source of truth**: this document + `web/src/styles/theme.css` + `web/src/styles/theme-presets.css` + `web/src/lib/theme-customization.ts` + `web/src/components/ui/**`
-**Last updated**: 2026-10-18
+**Last updated**: 2026-10-19
 
 ---
 
@@ -339,16 +339,9 @@ Primitive ownership map: [`components.md`](./components.md). Component props and
 
 State-management rules for URL-synced tables and filters (single URL owner, stable callbacks, one-transaction updates): [`state-stability.md`](./state-stability.md).
 
-| Layer                     | Prefix / classes                    | Where                                            |
-| ------------------------- | ----------------------------------- | ------------------------------------------------ |
-| Base UI (shadcn)          | `ui-*` components (data-slot attrs) | `web/src/components/ui/**`                       |
-| Cross-feature composition | section card / error / skeleton, query-error banner, confirm dialog, HTTP status badge + the shared soft-tone badge recipe | `web/src/components/common/**` |
-| Table subsystem           | data-table barrel (`@/components/data-table`) | `web/src/components/data-table/**`     |
-| Form plumbing             | dirty-close guard                   | `web/src/components/form/**`                    |
-| Shell layout              | `app-header` / `app-sidebar`        | `web/src/components/layout/**`                   |
-| Theme tokens              | OKLCH CSS variables                 | `web/src/styles/theme.css` + `theme-presets.css` |
-
-New UI must start from shadcn Base UI primitives when possible. Import via `@/components/ui/*`.
+New UI must start from the primitives assigned in that ownership map. Import
+shared primitives through `@/components/ui/*`; the component map, not this
+page, maintains the layer-to-directory list.
 
 ### 4.1 Destructive-action tiers（破坏性操作四档）
 

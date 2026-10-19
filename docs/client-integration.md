@@ -1,6 +1,6 @@
 # Client Integration
 
-**Last updated**: 2026-10-15
+**Last updated**: 2026-10-19
 
 Metapi exposes the standard OpenAI wire format on `/v1` (plus Claude native
 `/v1/messages`, Responses, Embeddings, Images and `/v1/models`), so any tool

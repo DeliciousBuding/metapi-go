@@ -24,7 +24,7 @@
   <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml/badge.svg?branch=master"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-latest-2496ED?logo=docker&logoColor=white"></a>
-  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go">
+  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.9-00ADD8?logo=go">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPLv3-3DA639?logo=opensourceinitiative&logoColor=white"></a>
 </p>
 
@@ -52,13 +52,13 @@ Supported upstreams:
 
 - **Aggregation panels**: New API, One API, OneHub, DoneHub, Veloera, AnyRouter, Sub2API
 - **Compatible endpoints**: OpenAI / Claude / Gemini compatible APIs, plus `cliproxyapi` / CPA
-- **OAuth connections**: Codex, Claude, Gemini CLI, Antigravity
+- **OAuth connections**: Codex, Claude, Gemini CLI, Antigravity, GitHub Copilot
 
 ## Features
 
 | Capability                 | Description                                                                                                                                    |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **16 upstream adapters**   | New API / One API / OneHub / DoneHub / Veloera / AnyRouter / Sub2API / OpenAI / Claude / Gemini / Gemini CLI / Codex / Antigravity / Grok / CLIProxyAPI / SenseTime |
+| **17 upstream adapters**   | New API / One API / OneHub / DoneHub / Veloera / AnyRouter / Sub2API / OpenAI / Claude / Gemini / Gemini CLI / Codex / Antigravity / Grok / GitHub Copilot / CLIProxyAPI / SenseTime |
 | **Unified proxy**          | OpenAI and Claude protocols side by side: Chat / Responses / Messages / Embeddings / Images / Models / Files, SSE streaming; Messages-to-Chat text/function-tool fallback with JSON/SSE return conversion |
 | **Routing & fault tolerance** | Automatic model discovery and channel binding; opt-in creation of missing model routes (off by default); observable background rebuilds; multi-channel allocation weighted by cost / balance / usage; failed channels cool down while the request retries on the next; runtime circuit breaker with half-open probing |
 | **Cost ground truth**      | Four-level cost signal (measured → account-configured → models.dev catalog → fallback); every request logged with tokens and cost            |
@@ -168,7 +168,7 @@ To build an image from source, run `docker build -t metapi-go:dev .`. See the [d
 
 ### Option 3: From source
 
-Requires Go 1.26+ and Bun 1.x. The frontend must be built first — the output is
+Requires Go 1.26.9+ and Bun 1.x. The frontend must be built first — the output is
 embedded into the binary via `go:embed`, and skipping it fails with
 `pattern dist: no matching files found`:
 
@@ -227,27 +227,13 @@ Claude native format (`/v1/messages`), Responses, Embeddings, Images,
 
 ## Deployment & configuration
 
-All configuration is driven by environment variables; only two are required to boot:
-
-| Variable      | Description                                  |
-| ------------- | -------------------------------------------- |
-| `AUTH_TOKEN`  | Admin web UI login token                     |
-| `PROXY_TOKEN` | Optional one-time import of a legacy root key |
-
-Common options:
-
-| Variable                  | Default                    | Description                                    |
-| ------------------------- | -------------------------- | ---------------------------------------------- |
-| `ACCOUNT_CREDENTIAL_SECRET` | falls back to `AUTH_TOKEN` | Upstream credential encryption key; a 32+ byte random secret is recommended |
-| `PORT`                    | `4000`                     | Listen port                                    |
-| `DATA_DIR`                | `./data`                   | Data directory (SQLite database and uploads)   |
-| `DATABASE_URL`            | empty                      | PostgreSQL connection string; empty = SQLite   |
-| `LOG_LEVEL`               | `info`                     | Log level: `debug` / `info` / `warn` / `error` |
-| `CHECKIN_CRON`            | `0 8 * * *`                | Check-in schedule                              |
-| `BALANCE_REFRESH_CRON`    | `0 * * * *`                | Balance refresh schedule                       |
-
-The complete reference (~150 variables) lives in the
-[configuration reference](docs/configuration.md) and [`.env.example`](.env.example).
+Names, aliases, precedence, defaults and clamps for environment variables are
+owned by the [configuration reference](docs/configuration.md);
+[`.env.example`](.env.example) is the copyable template. If no admin token is
+set, the first start generates one and writes it to `DATA_DIR/admin-token`;
+production should also set a dedicated upstream credential encryption key.
+Manage downstream keys in **API Keys**; the legacy root key is imported once
+during upgrade.
 
 **Health checks**: `GET /health` (liveness), `GET /ready` (readiness, checks the
 database); the Docker image ships `metapi healthcheck`, which probes `/ready`.
@@ -264,7 +250,6 @@ database); the Docker image ships `metapi healthcheck`, which probes `/ready`.
 | [docs/migration.md](docs/migration.md)                       | TS → Go migration (SQLite / PG / MySQL)              |
 | [docs/faq.md](docs/faq.md)                                   | Frequently asked questions                           |
 | [docs/api/routes-inventory.md](docs/api/routes-inventory.md) | Full registered `/api` route list (kept in sync with the code by `docs/api_inventory_parity_test.go`) |
-| [docs/configuration.md](docs/configuration.md)               | Real default and clamp for every environment variable (kept in sync with `.env.example` and `config/config.go` by `docs/env_parity_test.go`) |
 | [docs/architecture.md](docs/architecture.md)                 | Layering, ownership boundaries, and the stages a `/v1` request passes through (read before moving code or deciding who owns a bug) |
 | [CHANGELOG.md](CHANGELOG.md)                                 | Release notes                                        |
 
@@ -292,41 +277,17 @@ volumes need no action). Full steps, the `metapi-migrate` tool and rollback:
 
 ## Development
 
-### Backend (Go)
+Frontend setup, focused checks and the full local gate live in
+[CONTRIBUTING.md](CONTRIBUTING.md). The common entrypoints are `make test` (fast
+Go suite) and `make web-check` (full frontend check); run `bun run dev` from
+`web/` for local UI work. This page does not keep a second copy of the script
+inventory maintained by `web/package.json`.
 
-```bash
-make build    # build
-make test     # all tests (no -race)
-make race     # all tests + race detector
-make vet      # go vet
-make lint     # golangci-lint
-make vuln     # govulncheck vulnerability scan
-```
-
-### Frontend (`web/`, Bun)
-
-```bash
-cd web
-bun install
-bun run dev         # local dev (/api /v1 proxied to the backend on :4000)
-bun run typecheck   # tsgo type check
-bun run test        # vitest full suite
-bun run build       # rsbuild build (output embedded into the Go binary via go:embed)
-```
-
-Contribution flow (branch model, PR gates): [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Verification notes
-
-Every command in this documentation was verified as summarized below — stated
-once here instead of scattered through the text:
-
-| Path                                            | How it was verified                                            |
-| ----------------------------------------------- | -------------------------------------------------------------- |
-| Release binary: installer → empty data dir → health checks → documented site/account/route path → real relay | Tested end to end (v0.19.0)                    |
-| From source: frontend build → go build → start  | Tested end to end                                              |
-| Docker / Compose commands                       | Checked against the repo `Dockerfile` / `docker-compose.yml`; CI parses the Compose config |
-| 503 without routes, healthcheck exit codes      | Tested                                                         |
+The last full end-to-end walkthrough recorded in this README was v0.19.0
+(installer → real relay). Commands changed since then are checked against the
+repository entrypoints and CI configuration, not presented as a fresh
+end-to-end run. [CHANGELOG.md](CHANGELOG.md) and release notes remain the
+version-specific evidence.
 
 ## Contributing & security
 

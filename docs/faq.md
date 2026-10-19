@@ -1,6 +1,6 @@
 # FAQ
 
-**Last updated**: 2026-10-17
+**Last updated**: 2026-10-19
 
 Frequently asked questions. Anything not covered here lives in
 [`configuration.md`](configuration.md) (env vars), [`deployment.md`](deployment.md)
@@ -57,7 +57,7 @@ database.
 
 **Why does the admin UI not load behind my reverse proxy?**
 WebSocket endpoints (realtime panel, Responses WS) need upgrade headers.
-The nginx/Caddy templates in [deployment.md](deployment.md) include them.
+The nginx template in [deployment.md](deployment.md) includes them.
 
 **Why does a proxy request return 503 instead of a fake answer?**
 Unconfigured forwarding is reported honestly: no route/channel for the
@@ -116,4 +116,4 @@ never attach real credentials or `.env` files.
 
 **Can I contribute?**
 Yes — see [CONTRIBUTING.md](../CONTRIBUTING.md). Every change lands through a
-short-lived branch + PR with the 12-check CI green.
+short-lived branch + PR with the required CI checks green.

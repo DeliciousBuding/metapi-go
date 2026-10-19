@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last updated**: 2026-09-13
+**Last updated**: 2026-10-18
 
 > **Navigation**: full docs map in [`docs/README.md`](README.md) · route list in [`api/routes-inventory.md`](api/routes-inventory.md) · environment variables in [`configuration.md`](configuration.md).
 >

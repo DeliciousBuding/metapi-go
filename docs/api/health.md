@@ -1,6 +1,6 @@
 # Health Checks & Build Info
 
-> **Index**: back to [API Reference](../api.md). This file is the /health /ready & /about domain split out of the pre-`docs/api/` `docs/api.md`.
+> **Index**: back to [API Reference](../api.md). This file owns the `/health`, `/ready`, `/metrics` and `/about` surfaces.
 
 ## Health
 
@@ -11,6 +11,17 @@ Liveness check (no auth required). It does not touch dependencies and returns `{
 ### GET /ready
 
 Readiness check (no auth required). It pings the active database and returns `200 {"status":"ok","database":"ok"}` when ready, `503 {"status":"degraded","database":"error"}` when the database is unavailable, or `503 {"status":"draining","database":"ok"}` while graceful shutdown is in progress.
+
+### GET /metrics
+
+Prometheus text exposition, registered alongside `/health` and `/ready` outside
+admin authentication. It requires no token and retains wildcard CORS for
+scrapers. Series: `metapi_uptime_seconds`, `metapi_active_channels`,
+`metapi_proxy_requests_total`, `metapi_proxy_errors_total`,
+`metapi_proxy_outcomes_total`, the `metapi_proxy_request_duration_seconds`
+histogram, `metapi_proxy_streams_active`, `metapi_stream_missing_usage_total`,
+`metapi_route_rebuild_total`, `metapi_db_connections_open`,
+`metapi_db_connections_in_use` and `metapi_db_conn_errors_total`.
 
 ---
 

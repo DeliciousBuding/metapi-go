@@ -1,6 +1,6 @@
 # UI screenshot review and golden comparison
 
-**Last updated**: 2026-10-06
+**Last updated**: 2026-10-07
 
 截图扫描和 golden 对照是 UI 改动及发版候选的按需人工复核工具，
 不在每次 PR/master 的必过 CI 中运行。CI 保留前端测试/构建及真实浏览器

@@ -1,6 +1,6 @@
 # 迁移指南：TypeScript → Go
 
-**Last updated**: 2026-08-22
+**Last updated**: 2026-10-19
 
 本文覆盖把 TypeScript 版 Metapi 部署迁到 Go 版的完整过程。走哪条路取决于旧版使用哪种数据库：SQLite 与 PostgreSQL 库**停止旧服务后由 Go 直接接管**；MySQL 库必须**先在 TypeScript 版内完成转换**。文末是 `metapi-migrate` CLI 参考、镜像版本锁定与故障排查。
 
@@ -194,7 +194,7 @@ TS 版还提供 JSON 备份（Schema v2.1）导出/导入，可作为 MySQL 数�
 
 ## metapi-migrate CLI 参考
 
-`metapi-migrate`（`make migrate-build` 构建）在 SQLite 与 PostgreSQL 之间搬运 18 张应用表的数据（含逐列类型转换与 JSON 列序列化，行为对齐 TS 原版 databaseMigrationService）。支持的方向：
+`metapi-migrate`（`make migrate-build` 构建）在 SQLite 与 PostgreSQL 之间搬运全部应用表的数据（含逐列类型转换与 JSON 列序列化，行为对齐 TS 原版 databaseMigrationService）；表集合由 `store.AllTableNames()` 维护，不在文档里复制数量。支持的方向：
 
 | 方向 | 说明 |
 | ---- | ---- |
@@ -261,7 +261,7 @@ TS 版还提供 JSON 备份（Schema v2.1）导出/导入，可作为 MySQL 数�
 生产环境**不要用 `:latest`**，把镜像固定到具体版本标签：
 
 ```dotenv
-METAPI_IMAGE=ghcr.io/deliciousbuding/metapi-go:0.24.0
+METAPI_IMAGE=ghcr.io/deliciousbuding/metapi-go:<release-tag>
 ```
 
 升级步骤：
@@ -283,7 +283,7 @@ schema 升级是 forward-only（只加列 / 表，不做自动降级）；回退
 | `metapi-migrate` 报 `target database already contains data` | 目标库已有数据且未开 `--overwrite`。确认覆盖意图后加 `--overwrite`（默认即开启） |
 | `metapi-migrate` 报 `unsupported direction: PostgreSQL source to PostgreSQL target` | PG→PG 数据搬运不支持；PG 库用场景 B 直接接管 |
 | `metapi-migrate` 对 MySQL URL 报错 | 工具不支持 MySQL 源；MySQL 库走场景 C（TS 版内迁移） |
-| 启动报 `AUTH_TOKEN is required` | 必填环境变量缺失，见 [配置参考](configuration.md) |
+| 启动报 `persisted auth_token resolves to the built-in default` 或 `admin auth_token is shorter than 8 bytes` | 数据库中的管理令牌被降级为默认值或弱令牌。轮换管理令牌后重启；令牌规则见[配置参考](configuration.md#required) |
 | 迁移后数据对不上 | 先看 `metapi-migrate --verify` 的输出；仍不对就用 A.1 / B.1 的备份回滚重来 |
 
 ## 附：Go 版内的其它迁移

@@ -1,6 +1,6 @@
 # Configuration Reference
 
-**Last updated**: 2026-10-17
+**Last updated**: 2026-10-19
 
 Complete environment-variable reference. The single machine-readable source
 is [`.env.example`](../.env.example); this page groups and explains every

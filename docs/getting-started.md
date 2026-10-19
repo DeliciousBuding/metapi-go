@@ -1,6 +1,6 @@
 # Getting Started
 
-**Last updated**: 2026-10-17
+**Last updated**: 2026-10-18
 
 A single guided path from zero to your first proxied request, in about five
 minutes. If you already know your way around, the [README quick start](../README.md)
