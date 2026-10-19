@@ -1,16 +1,10 @@
 // metapi-go/features/channels — TanStack Table column definitions for the
 // read-only Channels list. Status uses the routing package vocabulary
 // (enabled / cooldown / breaker_open / manually_disabled) and renders it with
-// color + icon + text (dual-channel, never color-only).
+// color + text (dual-channel, never color-only).
 
 import type { ColumnDef } from '@tanstack/react-table'
-import {
-  Ban,
-  CheckCircle2,
-  Clock,
-  Eye as EyeIcon,
-  TriangleAlert,
-} from 'lucide-react'
+import { Eye as EyeIcon } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -37,34 +31,24 @@ const STATUS_CONFIG: Record<
   ChannelStatus,
   {
     labelKey: string
-    variant: 'success' | 'warning' | 'destructive' | 'secondary'
     dotClass: string
-    Icon: typeof CheckCircle2
   }
 > = {
   enabled: {
     labelKey: 'channels.status.enabled',
-    variant: 'success',
     dotClass: 'bg-success',
-    Icon: CheckCircle2,
   },
   cooldown: {
     labelKey: 'channels.status.cooldown',
-    variant: 'warning',
     dotClass: 'bg-warning',
-    Icon: Clock,
   },
   breaker_open: {
     labelKey: 'channels.status.breakerOpen',
-    variant: 'destructive',
     dotClass: 'bg-destructive',
-    Icon: TriangleAlert,
   },
   manually_disabled: {
     labelKey: 'channels.status.manuallyDisabled',
-    variant: 'secondary',
     dotClass: 'bg-muted-foreground',
-    Icon: Ban,
   },
 }
 
@@ -106,7 +90,7 @@ export function useChannelsColumns(
         id: 'site',
         accessorFn: (row) => row.site.name,
         size: 160,
-        meta: { mobileOrder: 1 },
+        meta: { mobileOrder: 2 },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -153,16 +137,14 @@ export function useChannelsColumns(
         cell: ({ row }) => {
           const status = row.original.status
           const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.enabled
-          const Icon = config.Icon
           const badge = (
-            <Badge variant={config.variant} className='gap-1.5'>
+            <span className='inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap'>
               <span
                 aria-hidden='true'
                 className={cn('size-1.5 rounded-full', config.dotClass)}
               />
-              <Icon aria-hidden='true' />
               {t(config.labelKey)}
-            </Badge>
+            </span>
           )
           // Only failing states are interesting to click, and only when the
           // page wires the root-cause dialog — enabled rows stay inert.
@@ -217,7 +199,7 @@ export function useChannelsColumns(
         id: 'models',
         accessorKey: 'models',
         size: 180,
-        meta: { mobileHidden: true, mobileOrder: 31 },
+        meta: { mobileOrder: 1, mobileFullWidth: true },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -226,7 +208,7 @@ export function useChannelsColumns(
         ),
         cell: ({ row }) => (
           <span
-            className='text-muted-foreground block max-w-50 truncate text-sm'
+            className='text-muted-foreground block truncate text-sm'
             title={row.original.models || undefined}
           >
             {row.original.models || '—'}
@@ -270,7 +252,7 @@ export function useChannelsColumns(
         // icon claimed its space; 130 fits the title in both locales. Users
         // with a persisted size keep their choice (columnSizingStorageKey).
         size: 130,
-        meta: { mobileHidden: true, mobileOrder: 34 },
+        meta: { mobileOrder: 3 },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -310,7 +292,12 @@ export function useChannelsColumns(
         // when the 10 columns exceed the content width — routes-columns
         // already pins its actions column the same way (the sticky right
         // edge keeps the eye outside the horizontal scroll region).
-        meta: { pinned: 'right', mobileHidden: false, mobileOrder: 4 },
+        meta: {
+          pinned: 'right',
+          mobileHidden: false,
+          mobileOrder: 4,
+          mobileActionsInHeader: true,
+        },
         header: () => (
           <span className='text-muted-foreground text-xs'>
             {t('common.actions')}
