@@ -4314,15 +4314,23 @@
       "copyFailed": "Copy failed — clipboard unavailable.",
       "verify": {
         "title": "Verify the connection",
-        "description": "Check model access and send one non-streaming Chat request. The test uses upstream quota and is recorded in this key's logs.",
+        "description": "Check model access, then send one non-streaming request in the protocol you select. The test uses upstream quota and is recorded in this key's logs. It does not cover streaming, tools, or the full client, and a failure is not retried with another protocol.",
         "modelsCta": "Check available models",
         "modelsOk": "{{count}} models listed for this key",
         "noModels": "This key can call no models right now. Check its model policy and the route grants.",
         "modelAria": "Model for the test request",
-        "chatCta": "Send a test chat",
-        "chatOk": "Succeeded in {{ms}} ms",
+        "protocol": {
+          "label": "Protocol",
+          "chat": "Chat Completions",
+          "responses": "Responses",
+          "messages": "Anthropic Messages"
+        },
+        "testCta": "Send test request",
+        "testOk": "{{protocol}} request succeeded in {{ms}} ms",
         "invalidModelsResponse": "The gateway did not return a valid model list. Check the gateway URL and reverse proxy.",
-        "invalidChatResponse": "The gateway did not return a valid Chat Completions response. Check the gateway URL, reverse proxy, and key logs.",
+        "invalidChatResponse": "The gateway did not return a valid Chat Completions response with assistant text. Check the gateway URL, reverse proxy, and key logs.",
+        "invalidResponsesResponse": "The gateway did not return a valid Responses API response with assistant text. Check the gateway URL, reverse proxy, and key logs.",
+        "invalidMessagesResponse": "The gateway did not return a valid Anthropic Messages response with assistant text. Check the gateway URL, reverse proxy, and key logs.",
         "timeout": "Request timed out or network error",
         "viewLogs": "View this key's logs"
       },

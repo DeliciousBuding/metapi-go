@@ -74,15 +74,29 @@ Metapi does not rewrite your local configuration automatically. Review its model
 and protocol settings for the client version you use.
 
 The connection dialog has two checks: list models with the key, then send one
-non-streaming Chat request for a selected model. The generation consumes quota
-and its attempt is logged. HTTP success without a valid response envelope is a
-failed verification. The key-filtered log link shows recorded dispatch attempts;
-an authentication or admission refusal may happen before an attempt is logged.
+finite non-streaming request for the selected model and an explicitly selected
+protocol. The choices use the gateway's native data-plane shapes:
+
+- Chat Completions calls `/v1/chat/completions` with `messages` and
+  `max_tokens`.
+- Responses calls `/v1/responses` with `input` and `max_output_tokens`.
+- Anthropic Messages calls `/v1/messages` with `messages` and `max_tokens`, plus
+  the `x-api-key` and `anthropic-version` headers.
+
+The generation consumes quota and its attempt is logged. A verification passes
+only when the selected protocol returns nonempty assistant text in its expected
+response envelope; HTTP 200 with an error, empty content, or a malformed shape
+fails. The dialog does not retry or switch protocols after a failure, because
+that could consume quota twice. The key-filtered log link shows recorded
+dispatch attempts; an authentication or admission refusal may happen before an
+attempt is logged.
 
 For permission problems, use the key's permission check or the route workspace
 with its client model and protocol. The administrator model tester uses a
 different authorization context. Verify the chosen client itself for streaming,
-tools and protocol-specific behavior.
+tools and protocol-specific behavior. A passing connection check proves only
+that one finite request in the selected protocol returned valid assistant text;
+it does not accept the full client, streaming, or tool use.
 
 ## Protocol notes
 
