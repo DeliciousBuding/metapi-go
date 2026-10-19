@@ -42,6 +42,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 修复
 
+- 备份：全量导出不再携带在途配额表 `downstream_quota_reservations`，避免恢复后占用目标实例配额；已结算的 `downstream_quota_usage` 仍保留。
+- 备份导入：旧导出中的在途配额表在预览和导入时跳过，并以 `ignoredTables` 报告；手写数据和其他排除表仍返回 400。
 - 备份导入：AxonHub 的 `managementApiKey` 不再导致整条渠道跳过，改为 `management_api_key_not_imported` 残留项（#1396）。
 - 站点公告：旧单条通知自动合并，点击列表行就地展开 Markdown 正文与更新历史；重复同步不再新增公告（#1489）。
 - 下游密钥：升级时将旧根密钥原值迁入 API 密钥，移除独立设置和鉴权入口；新安装无需 `PROXY_TOKEN`，旧设置写入返回 410，鉴权数据库不可用返回 503（#1491）。

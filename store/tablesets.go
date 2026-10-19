@@ -138,6 +138,12 @@ var backupExcludedTables = map[string]string{
 	// backup would let a crafted payload plant a cloud-metadata / link-local
 	// fetch target. Extend that guard, then delete this entry.
 	"catalog_sources": "each row's url is fetched server-side by the catalog sync and the import URL guard does not cover this table yet, so a crafted backup could plant an SSRF fetch target",
+	// In-flight admission holds for accessPolicy quota windows. A hold is
+	// inserted with the admission check and settled or TTL-expired by the
+	// source process; after a restore there is no such request to settle it,
+	// so replaying the row would occupy the target's quota as ghost usage.
+	// The settled downstream_quota_usage ledger remains part of every backup.
+	"downstream_quota_reservations": "in-flight access-policy quota holds expire after 30 minutes and settle only in the source process, so importing one would reserve quota on the target for a request that never ran there",
 }
 
 // Column kinds reported by schemaColumns. They drive value coercion in the
