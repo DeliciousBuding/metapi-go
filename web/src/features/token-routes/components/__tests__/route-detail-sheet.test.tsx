@@ -127,9 +127,7 @@ describe('RouteDetailSheet channel hit counters', () => {
 
     render(<RouteDetailSheet route={makeRoute()} open onOpenChange={vi.fn()} />)
 
-    expect(screen.getByText('Success / fail')).toBeInTheDocument()
-    expect(screen.getByText('123')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.getByTestId('channel-health')).toHaveTextContent('123 / 2')
   })
 
   it('keeps zero counts visible and honest', () => {
@@ -139,9 +137,7 @@ describe('RouteDetailSheet channel hit counters', () => {
 
     render(<RouteDetailSheet route={makeRoute()} open onOpenChange={vi.fn()} />)
 
-    expect(
-      screen.getByText('Success / fail').nextElementSibling
-    ).toHaveTextContent('0 / 0')
+    expect(screen.getByTestId('channel-health')).toHaveTextContent('0 / 0')
   })
 })
 

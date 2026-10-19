@@ -3,7 +3,15 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 // metapi-go features/token-routes/components — the routes list page.
 // i18n: all user-visible strings migrated to t() calls.
 import type { ColumnFiltersState, Table, Row } from '@tanstack/react-table'
-import { Plus, Power, Route, Settings2, Zap } from 'lucide-react'
+import {
+  Activity,
+  Pencil,
+  Plus,
+  Power,
+  Route,
+  Settings2,
+  Zap,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -586,6 +594,11 @@ export function RoutesPage() {
 
       <DataTablePage
         table={table}
+        // An expanded channel table is the content the operator asked for.
+        // Keeping the list in a fixed-height scroll region clipped the second
+        // channel below the fold at 1024px, so let the page grow while any
+        // route is open.
+        fixedHeight={expandedRouteIds.size === 0}
         rowDisclosure={{
           isExpanded: (row: Row<RouteSummaryRow>) =>
             expandedRouteIds.has(row.original.id),
@@ -598,28 +611,32 @@ export function RoutesPage() {
               model: resolveRouteTitle(row.original),
             }),
           renderContent: (row: Row<RouteSummaryRow>) => (
-            <div className='space-y-3'>
-              <RouteChannelList route={row.original} />
-              <div className='flex flex-wrap gap-2'>
-                {row.original.kind !== 'zero_channel' &&
-                  !row.original.readOnly && (
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() => openEdit(row.original)}
-                    >
-                      {t('common.edit')}
-                    </Button>
-                  )}
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  onClick={() => rowActions.onViewDetail(row.original)}
-                >
-                  {t('tokenRoutes.detail.openDiagnostics')}
-                </Button>
-              </div>
-            </div>
+            <RouteChannelList
+              route={row.original}
+              actions={
+                <>
+                  {row.original.kind !== 'zero_channel' &&
+                    !row.original.readOnly && (
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => openEdit(row.original)}
+                      >
+                        <Pencil />
+                        {t('common.edit')}
+                      </Button>
+                    )}
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    onClick={() => rowActions.onViewDetail(row.original)}
+                  >
+                    <Activity />
+                    {t('tokenRoutes.detail.openDiagnostics')}
+                  </Button>
+                </>
+              }
+            />
           ),
         }}
         isLoading={isLoading}

@@ -42,6 +42,14 @@ import type { DataTableColumnClassName, DataTableViewProps } from './types'
 const STICKY_HEADER_BACKGROUND =
   '**:data-[slot=table-header]:[--table-header-bg:var(--table-header)] **:data-[slot=table-header]:bg-(--table-header-bg)'
 
+/**
+ * The plain shell has no separate tinted header. Tell a pinned header cell so
+ * explicitly, otherwise it paints `--table-header` while the rest of the row
+ * stays on the page background and the empty actions column looks like a block.
+ */
+const PLAIN_HEADER_BACKGROUND =
+  '**:data-[slot=table-header]:[--table-header-bg:var(--background)]'
+
 /** What the `ui/table` primitive paints on the <table> element itself. */
 const TABLE_CLASS = 'w-full caption-bottom text-sm tabular-nums'
 
@@ -118,7 +126,9 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
           </div>
         </div>
       ) : (
-        <Table style={sizing.style}>{tableContent}</Table>
+        <Table className={PLAIN_HEADER_BACKGROUND} style={sizing.style}>
+          {tableContent}
+        </Table>
       )}
     </div>
   )

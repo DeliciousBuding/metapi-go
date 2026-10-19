@@ -8,7 +8,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
@@ -101,7 +101,7 @@ afterEach(() => {
 })
 
 const contentId = (id: number) => `channel-details-${id}`
-function Harness() {
+function Harness({ sectionActions }: { sectionActions?: ReactNode }) {
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set())
   const toggle = useCallback(
     (id: number) =>
@@ -132,23 +132,73 @@ function Harness() {
         onToggle: (row) => toggle(row.original.id),
         getContentId: (row) => contentId(row.original.id),
         getLabel: (row) => `Channels for ${row.original.modelPattern}`,
-        renderContent: (row) => <RouteChannelList route={row.original} />,
+        renderContent: (row) => (
+          <RouteChannelList route={row.original} actions={sectionActions} />
+        ),
       }}
     />
   )
 }
-function renderHarness() {
+function renderHarness(sectionActions?: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   return render(
     <QueryClientProvider client={client}>
-      <Harness />
+      <Harness sectionActions={sectionActions} />
     </QueryClientProvider>
   )
 }
 
 describe('route inline details', () => {
+  it('shows one semantic status per channel and keeps actions in the section header', async () => {
+    vi.mocked(api.getRouteChannels).mockResolvedValue([
+      {
+        ...channel,
+        cooldownUntil: new Date(Date.now() + 60_000).toISOString(),
+      },
+    ])
+    renderHarness(<button type='button'>Edit route</button>)
+
+    fireEvent.click(screen.getByRole('button', { name: 'model-1' }))
+    const region = await screen.findByRole('region', {
+      name: 'Channels for model-1',
+    })
+    await within(region).findByText('Example account')
+
+    const status = within(region).getByTestId('channel-status')
+    expect(status).toHaveTextContent('Cooling')
+    expect(status).not.toHaveTextContent('Enable')
+    expect(status).toHaveAttribute(
+      'title',
+      expect.stringContaining('Cooling until')
+    )
+    expect(
+      within(region).getByRole('button', { name: 'Edit route' })
+    ).toBeInTheDocument()
+  })
+
+  it('reports a disabled channel once, without treating it as cooling', async () => {
+    vi.mocked(api.getRouteChannels).mockResolvedValue([
+      {
+        ...channel,
+        enabled: false,
+        cooldownUntil: new Date(Date.now() + 60_000).toISOString(),
+      },
+    ])
+    renderHarness()
+
+    fireEvent.click(screen.getByRole('button', { name: 'model-1' }))
+    const region = await screen.findByRole('region', {
+      name: 'Channels for model-1',
+    })
+    await within(region).findByText('Example account')
+
+    const status = within(region).getByTestId('channel-status')
+    expect(status).toHaveTextContent('Disable')
+    expect(status).not.toHaveTextContent('Cooling')
+  })
+
   it.each(['configured', 'observed'])(
     'shows sample cost provenance without fallback token prices (%s)',
     async (source) => {

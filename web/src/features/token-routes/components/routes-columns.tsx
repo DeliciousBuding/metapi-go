@@ -240,6 +240,7 @@ export function useRoutesColumns(
     },
     {
       id: 'title',
+      size: 240,
       accessorFn: (row) => resolveRouteTitle(row as RouteSummaryRow),
       header: t('tokenRoutes.columns.modelAndName'),
       cell: ({ row }) => {
@@ -290,6 +291,7 @@ export function useRoutesColumns(
     },
     {
       id: 'channels',
+      size: 80,
       accessorFn: (row) => (row as RouteSummaryRow).channelCount,
       header: t('tokenRoutes.columns.channels'),
       cell: ({ row }) => {
@@ -328,6 +330,7 @@ export function useRoutesColumns(
     },
     {
       id: 'strategy',
+      size: 80,
       accessorFn: (row) => (row as RouteSummaryRow).routingStrategy ?? '',
       header: t('tokenRoutes.columns.strategy'),
       cell: ({ row }) => {
@@ -344,6 +347,7 @@ export function useRoutesColumns(
     },
     {
       id: 'sites',
+      size: 80,
       accessorFn: (row) => (row as RouteSummaryRow).siteNames ?? [],
       header: t('tokenRoutes.columns.sites'),
       cell: ({ row }) => {
@@ -371,6 +375,7 @@ export function useRoutesColumns(
     },
     {
       id: 'enabled',
+      size: 90,
       accessorFn: (row) => {
         const route = row as RouteSummaryRow
         if (isReadOnlyRoute(route)) return 'readonly'
