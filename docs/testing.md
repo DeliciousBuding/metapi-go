@@ -101,6 +101,13 @@ are `httptest`/loopback fakes only, seeding is idempotent via a marker file,
 and the script terminates the server on exit. Record the walkthrough as a local
 fixture test alongside the pre-push results.
 
+For the route list's inline channel expansion, `bun run screenshots:routes`
+(`web/scripts/route-expansion-shots.mjs`) drives a real browser while mocking
+only the route, channel, and price API responses. It captures multi-channel,
+cooldown, missing-credential, fallback-price, price-error, diagnostics-sheet,
+dark-mode, and mobile states from one deterministic fixture set, so the review
+does not depend on whatever happens to be seeded locally.
+
 ## 开发反馈与测试夹具
 
 开发时按修改范围运行用例和所属包，例如：

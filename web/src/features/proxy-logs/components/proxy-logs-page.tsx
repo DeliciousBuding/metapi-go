@@ -54,6 +54,7 @@ import {
   type ProxyLogsColumnActions,
 } from './proxy-logs-columns'
 import { ProxyLogsHeaderActions } from './proxy-logs-header-actions'
+import { SummaryStat, SummaryStrip } from './summary-strip'
 
 const PROXY_LOGS_COLUMN_VISIBILITY_STORAGE_KEY =
   'metapi-go:proxy-logs:column-visibility'
@@ -324,6 +325,7 @@ export function ProxyLogsPage() {
       client: false,
       token: false,
       retryCount: false,
+      isStream: false,
     },
     data: items,
     columns,
@@ -412,7 +414,6 @@ export function ProxyLogsPage() {
     <div className='page-padding flex h-full flex-col gap-3'>
       <PageHeader
         title={t('proxyLogs.page.title')}
-        description={t('proxyLogs.page.description')}
         actions={
           <>
             <ProxyLogsAutoRefreshToggle
@@ -435,28 +436,28 @@ export function ProxyLogsPage() {
       />
 
       {summary && (
-        <div className='grid grid-cols-2 gap-2 sm:grid-cols-4'>
-          <SummaryCard
+        <SummaryStrip>
+          <SummaryStat
             label={t('proxyLogs.page.summaryTotal')}
             value={formatInt(summary.totalCount)}
           />
           {/* Semantic tint only when the count is non-zero: an all-zero
               summary is a healthy/neutral state, not a red/green alarm. */}
-          <SummaryCard
+          <SummaryStat
             label={t('proxyLogs.page.summarySuccess')}
             value={formatInt(summary.successCount)}
             tone={summary.successCount > 0 ? 'success' : undefined}
           />
-          <SummaryCard
+          <SummaryStat
             label={t('proxyLogs.page.summaryFailed')}
             value={formatInt(summary.failedCount)}
             tone={summary.failedCount > 0 ? 'danger' : undefined}
           />
-          <SummaryCard
+          <SummaryStat
             label={t('proxyLogs.page.summaryCost')}
             value={formatCurrency(summary.totalCost, { fractionDigits: 4 })}
           />
-        </div>
+        </SummaryStrip>
       )}
 
       {/* The meta query owns the summary strip; surface its failure so the
@@ -530,6 +531,34 @@ export function ProxyLogsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {/* Active downstream-key drill-down (entered via deep link from
+                  the keys page / connect dialog). A chip, not an input: key
+                  ids are not memorable, and the name is resolved from the
+                  loaded rows. */}
+              {downstreamKeyId !== null && (
+                <Button
+                  type='button'
+                  variant='secondary'
+                  size='sm'
+                  className='gap-1'
+                  aria-label={t('proxyLogs.page.filterKeyClear')}
+                  onClick={() =>
+                    updateUrlState({
+                      filters: { downstreamKeyId: '' },
+                      pageIndex: 0,
+                    })
+                  }
+                >
+                  {t('proxyLogs.page.filterKeyActive', {
+                    name: downstreamKeyLabel,
+                  })}
+                  <X className='size-3.5' />
+                </Button>
+              )}
+            </>
+          ),
+          expandable: (
+            <>
               {siteOptions.length > 0 && (
                 <Select
                   value={siteId === null ? 'all' : String(siteId)}
@@ -628,30 +657,6 @@ export function ProxyLogsPage() {
                 }}
                 className='w-32'
               />
-              {/* Active downstream-key drill-down (entered via deep link from
-                  the keys page / connect dialog). A chip, not an input: key
-                  ids are not memorable, and the name is resolved from the
-                  loaded rows. */}
-              {downstreamKeyId !== null && (
-                <Button
-                  type='button'
-                  variant='secondary'
-                  size='sm'
-                  className='gap-1'
-                  aria-label={t('proxyLogs.page.filterKeyClear')}
-                  onClick={() =>
-                    updateUrlState({
-                      filters: { downstreamKeyId: '' },
-                      pageIndex: 0,
-                    })
-                  }
-                >
-                  {t('proxyLogs.page.filterKeyActive', {
-                    name: downstreamKeyLabel,
-                  })}
-                  <X className='size-3.5' />
-                </Button>
-              )}
               {/* Native datetime controls render in the BROWSER's locale
                   (not the page's). Layout is what we own: the pair stacks
                   full-width on mobile so neither clips its time segment. */}
@@ -689,10 +694,6 @@ export function ProxyLogsPage() {
                   })
                 }}
               />
-            </>
-          ),
-          expandable: (
-            <>
               <div className='flex items-center gap-1.5'>
                 <label className='text-muted-foreground text-xs'>
                   {t('proxyLogs.page.latencyMin')}
@@ -765,7 +766,13 @@ export function ProxyLogsPage() {
               )}
             </>
           ),
-          hasExpandedActiveFilters: hasLatencyFilter,
+          hasExpandedActiveFilters:
+            hasLatencyFilter ||
+            siteId !== null ||
+            channelId !== null ||
+            !!client ||
+            !!from ||
+            !!to,
           hasAdditionalFilters:
             siteId !== null ||
             channelId !== null ||
@@ -800,37 +807,6 @@ export function ProxyLogsPage() {
           )
         }
       />
-    </div>
-  )
-}
-
-function SummaryCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: string
-  tone?: 'success' | 'danger'
-}) {
-  const toneClass =
-    tone === 'success'
-      ? 'border-success/30 bg-success/5'
-      : tone === 'danger'
-        ? 'border-destructive/30 bg-destructive/5'
-        : 'border-border bg-muted/30'
-  const valueToneClass =
-    tone === 'success'
-      ? 'text-success'
-      : tone === 'danger'
-        ? 'text-destructive'
-        : 'text-foreground'
-  return (
-    <div className={`rounded-lg border p-2.5 ${toneClass}`}>
-      <div className='text-muted-foreground text-2xs'>{label}</div>
-      <div className={`text-base font-semibold tabular-nums ${valueToneClass}`}>
-        {value}
-      </div>
     </div>
   )
 }

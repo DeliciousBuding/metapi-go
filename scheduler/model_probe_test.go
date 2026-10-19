@@ -32,12 +32,21 @@ func (f *fakeProbe) ProbeChannel(_ context.Context, target ProbeTarget) (ProbeOu
 	return ProbeOutcome{Status: "inconclusive"}, nil
 }
 
+type timeoutProbe struct{}
+
+func (timeoutProbe) ProbeChannel(ctx context.Context, _ ProbeTarget) (ProbeOutcome, error) {
+	<-ctx.Done()
+	return ProbeOutcome{Status: "failure", ErrorText: "probe timed out"}, nil
+}
+
 type fakeRecorder struct {
-	mu           sync.Mutex
-	successCalls []probeSuccessCall
-	failureCalls []probeFailureCall
-	successErr   error
-	failureErr   error
+	mu            sync.Mutex
+	successCalls  []probeSuccessCall
+	failureCalls  []probeFailureCall
+	successCtxErr error
+	failureCtxErr error
+	successErr    error
+	failureErr    error
 }
 
 type probeSuccessCall struct {
@@ -55,9 +64,10 @@ type probeFailureCall struct {
 	AccountID  *int64
 }
 
-func (f *fakeRecorder) RecordProbeSuccess(_ context.Context, channelID int64, latencyMs float64, modelName *string, actualAccountID *int64) error {
+func (f *fakeRecorder) RecordProbeSuccess(ctx context.Context, channelID int64, latencyMs float64, modelName *string, actualAccountID *int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.successCtxErr = ctx.Err()
 	f.successCalls = append(f.successCalls, probeSuccessCall{
 		ChannelID: channelID,
 		LatencyMs: latencyMs,
@@ -67,9 +77,10 @@ func (f *fakeRecorder) RecordProbeSuccess(_ context.Context, channelID int64, la
 	return f.successErr
 }
 
-func (f *fakeRecorder) RecordProbeFailure(_ context.Context, channelID int64, httpStatus *int, errorText *string, modelName *string, actualAccountID *int64) error {
+func (f *fakeRecorder) RecordProbeFailure(ctx context.Context, channelID int64, httpStatus *int, errorText *string, modelName *string, actualAccountID *int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.failureCtxErr = ctx.Err()
 	f.failureCalls = append(f.failureCalls, probeFailureCall{
 		ChannelID:  channelID,
 		HTTPStatus: httpStatus,
@@ -157,6 +168,23 @@ func TestModelProbeScheduler_ProbeOne_RecordsSuccessAndFailure(t *testing.T) {
 	}
 	if len(rec.failureCalls) != 1 || rec.failureCalls[0].ChannelID != 2 {
 		t.Fatalf("failure calls: %+v", rec.failureCalls)
+	}
+}
+
+func TestModelProbeScheduler_ProbeOne_RecordsFailureAfterProbeTimeout(t *testing.T) {
+	s := NewModelProbeScheduler(testConfig())
+	rec := &fakeRecorder{}
+	s.SetProbeExecutor(timeoutProbe{})
+	s.SetHealthRecorder(rec)
+
+	if got := s.probeOne(ProbeTarget{ChannelID: 7, AccountID: 1, ModelName: "m"}, 10); got != "failure" {
+		t.Fatalf("probe status = %s, want failure after timeout", got)
+	}
+	if len(rec.failureCalls) != 1 {
+		t.Fatalf("failure records = %d, want 1", len(rec.failureCalls))
+	}
+	if rec.failureCtxErr != nil {
+		t.Fatalf("health recorder inherited expired probe context: %v", rec.failureCtxErr)
 	}
 }
 

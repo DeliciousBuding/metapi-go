@@ -172,7 +172,12 @@ describe('route inline details', () => {
       const region = screen.getByRole('region', {
         name: 'Channels for model-1',
       })
-      await within(region).findByText(/Price unavailable/)
+      // Wait for the provenance badge, not the initial loading placeholder:
+      // a fallback-only rate must still read "Price unavailable" after the
+      // price response arrives, instead of degrading to "— / —".
+      await within(region).findByText('Cost source')
+      expect(within(region).getByText('Price unavailable')).toBeInTheDocument()
+      expect(region).not.toHaveTextContent('— / —')
       expect(region).toHaveTextContent('Cost source')
       expect(region).toHaveTextContent(
         source === 'configured' ? 'Configured' : 'Observed'

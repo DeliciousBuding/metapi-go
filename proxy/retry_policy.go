@@ -166,6 +166,19 @@ func ShouldRetryProxyRequest(status int, upstreamErrorText string) bool {
 	return false
 }
 
+// ShouldRecordChannelFailure separates upstream faults from client request
+// errors for channel health. A 4xx response that the retry policy classifies
+// as non-retryable is a request validation failure, not evidence that the
+// channel is unhealthy; recording it would put a healthy channel into cooldown
+// after a malformed client request. Transport failures and 5xx responses are
+// always channel failures.
+func ShouldRecordChannelFailure(status int, upstreamErrorText string) bool {
+	if status >= 400 && status < 500 {
+		return ShouldRetryProxyRequest(status, upstreamErrorText)
+	}
+	return true
+}
+
 // ShouldAbortSameSiteEndpointFallback decides whether to abort endpoint fallback
 // within the same site. Used by the endpoint flow to stop trying other endpoints
 // when the failure looks systemic (rate limit, gateway error, etc.).

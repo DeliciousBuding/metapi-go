@@ -152,6 +152,34 @@ func TestShouldRetryProxyRequest_EdgeCases(t *testing.T) {
 	}
 }
 
+func TestShouldRecordChannelFailure(t *testing.T) {
+	tests := []struct {
+		name   string
+		status int
+		body   string
+		want   bool
+	}{
+		{name: "transport failure", status: 0, want: true},
+		{name: "server failure", status: 500, body: "internal error", want: true},
+		{name: "rate limit", status: 429, body: "rate limit exceeded", want: true},
+		{name: "auth failure", status: 401, body: "invalid api key", want: true},
+		{name: "channel-local 400", status: 400, body: "invalid api key", want: true},
+		{name: "unsupported model", status: 400, body: "model not supported", want: true},
+		{name: "client validation error", status: 400, body: "input is required", want: false},
+		{name: "malformed response request", status: 400, body: "invalid request body", want: false},
+		{name: "unknown route", status: 404, body: "not found", want: false},
+		{name: "unprocessable request", status: 422, body: "validation error", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ShouldRecordChannelFailure(tt.status, tt.body); got != tt.want {
+				t.Errorf("ShouldRecordChannelFailure(%d, %q) = %v, want %v", tt.status, tt.body, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestShouldAbortSameSiteEndpointFallback(t *testing.T) {
 	tests := []struct {
 		name   string

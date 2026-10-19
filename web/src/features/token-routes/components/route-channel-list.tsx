@@ -1,6 +1,6 @@
 /* eslint-disable no-nested-ternary -- status labels reflect channel and credential state */
 import { useQueries } from '@tanstack/react-query'
-import { useMemo, type ReactNode } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import {
+  normalizePriceGrade,
   priceCompareQueryOptions,
   PriceGradeBadge,
   type PriceCompareItem,
@@ -62,16 +63,14 @@ export function RouteChannelList({ route }: { route: RouteSummaryRow }) {
   const isReadOnly = route.kind === 'zero_channel' || route.readOnly === true
 
   return (
-    <div className='min-w-0 space-y-3'>
-      <div className='flex flex-wrap items-start justify-between gap-2'>
-        <div>
-          <h3 className='text-sm font-medium'>
-            {t('tokenRoutes.detail.channelTruthList')}
-          </h3>
-          <p className='text-muted-foreground text-xs'>
-            {t('tokenRoutes.detail.channelTruthDescription')}
-          </p>
-        </div>
+    <div className='@container/channel-list min-w-0 space-y-2'>
+      <div className='flex items-center justify-between gap-2'>
+        <h3 className='text-sm font-medium'>
+          {t('tokenRoutes.detail.channels')}
+          <span className='text-muted-foreground ms-1.5 font-normal tabular-nums'>
+            {channels.length}
+          </span>
+        </h3>
         {(channelsQuery.isFetching ||
           priceQueries.some((query) => query.isFetching)) && (
           <Spinner
@@ -94,7 +93,7 @@ export function RouteChannelList({ route }: { route: RouteSummaryRow }) {
           {t('common.loading')}
         </p>
       ) : channels.length === 0 ? (
-        <p className='text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm'>
+        <p className='text-muted-foreground rounded-lg border border-dashed px-3 py-2 text-center text-sm'>
           {t(
             isReadOnly
               ? 'tokenRoutes.detail.channelEmptyReadOnly'
@@ -190,188 +189,124 @@ function ChannelRow({
   const cooldownActive =
     Boolean(channel.cooldownUntil) &&
     new Date(channel.cooldownUntil as string) > new Date()
-  return (
-    <li className='min-w-0 p-3 text-sm'>
-      <div className='flex items-start justify-between gap-2'>
-        <div className='min-w-0 flex-1'>
-          <div className='flex flex-wrap items-center gap-x-1.5 gap-y-0.5'>
-            <span className='font-medium [overflow-wrap:anywhere] break-words'>
-              {accountLabel}
-            </span>
-            {siteLabel && (
-              <span className='text-muted-foreground [overflow-wrap:anywhere] break-words'>
-                @ {siteLabel}
-              </span>
-            )}
-          </div>
-          <div className='text-muted-foreground mt-0.5 flex flex-wrap items-center gap-1.5 text-xs [overflow-wrap:anywhere]'>
-            <span
-              // The label names the credential this channel relays with; the
-              // title carries the mechanism and, for the credential-less case,
-              // the action that fixes it (on the account, not the channel).
-              title={
-                tokenBound
-                  ? undefined
-                  : accountCredential
-                    ? t('tokenRoutes.detail.channelTokenAccountHint')
-                    : t('tokenRoutes.detail.channelTokenMissingHint')
-              }
-            >
-              {t('tokenRoutes.detail.channelToken')}: {tokenLabel}
-            </span>
-            <span>
-              {t('tokenRoutes.detail.channelUpstream')} {sourceModel}
-            </span>
-            <span>
-              {t('tokenRoutes.detail.channelPriority')} {channel.priority}
-            </span>
-          </div>
-        </div>
-        <div className='flex flex-col items-end gap-1'>
-          <Badge variant={channel.enabled ? 'success' : 'secondary'}>
-            {channel.enabled
-              ? t('tokenRoutes.columns.enable')
-              : t('tokenRoutes.columns.disable')}
-          </Badge>
-          {cooldownActive && (
-            <Badge variant='warning'>{t('tokenRoutes.detail.cooldown')}</Badge>
-          )}
-        </div>
-      </div>
-
-      <dl className='bg-muted/30 mt-2 grid grid-cols-2 gap-2 rounded-md p-2 sm:grid-cols-5'>
-        <ChannelMetric label={t('tokenRoutes.detail.channelConfiguredWeight')}>
-          {allocation.configuredWeight}
-        </ChannelMetric>
-        <ChannelMetric label={t('tokenRoutes.detail.channelEnabledShare')}>
-          <span className='tabular-nums'>
-            {formatRouteWeightShare(allocation.enabledWeightShare)}
-          </span>
-          {allocation.enabledWeightShare === null && (
-            <span className='text-muted-foreground block text-xs'>
-              {channel.enabled
-                ? t('tokenRoutes.detail.channelShareUnavailable')
-                : t('tokenRoutes.detail.channelShareExcluded')}
-            </span>
-          )}
-        </ChannelMetric>
-        <ChannelMetric label={t('tokenRoutes.detail.channelHits')}>
-          <span className='tabular-nums'>
-            <span>{formatInt(channel.successCount)}</span>
-            <span className='text-muted-foreground'> / </span>
-            <span
-              className={
-                channel.failCount > 0
-                  ? 'text-destructive'
-                  : 'text-muted-foreground'
-              }
-            >
-              {formatInt(channel.failCount)}
-            </span>
-          </span>
-        </ChannelMetric>
-        <ChannelMetric label={t('tokenRoutes.detail.channelInputPrice')}>
-          <PriceValue value={priceTruth.inputPerMillion} />
-        </ChannelMetric>
-        <ChannelMetric label={t('tokenRoutes.detail.channelOutputPrice')}>
-          <PriceValue value={priceTruth.outputPerMillion} />
-        </ChannelMetric>
-      </dl>
-
-      <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1'>
-        <PriceProvenance
-          priceTruth={priceTruth}
-          priceQueryState={priceQueryState}
-        />
-      </div>
-    </li>
-  )
-}
-
-function ChannelMetric({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}) {
-  return (
-    <div>
-      <dt className='text-muted-foreground text-xs'>{label}</dt>
-      <dd className='font-medium'>{children}</dd>
-    </div>
-  )
-}
-
-function PriceValue({ value }: { value: number | null }) {
-  return (
-    <span className='tabular-nums'>
-      {formatPrice(value, { fractionDigits: 4 })}
-    </span>
-  )
-}
-
-function PriceProvenance({
-  priceTruth,
-  priceQueryState,
-}: {
-  priceTruth: RouteChannelPriceTruth
-  priceQueryState: PriceQueryState | undefined
-}) {
-  const { t } = useTranslation()
-
-  if (!priceTruth.concreteModel) {
-    return (
-      <span className='text-muted-foreground'>
-        {t('tokenRoutes.detail.channelPriceProvenance')}: — ·{' '}
-        {t('tokenRoutes.detail.channelPatternUnavailable')}
-      </span>
-    )
-  }
-  if (priceQueryState?.isLoading) {
-    return (
-      <span className='text-muted-foreground inline-flex items-center gap-1'>
-        <Spinner className='size-3' />
-        {t('tokenRoutes.detail.channelPriceLoading')}
-      </span>
-    )
-  }
-  if (
+  const ratesFallback =
+    normalizePriceGrade(priceTruth.provenance.ratesSource) === 'fallback'
+  const priceUnavailable =
     priceQueryState?.hasError ||
     !priceTruth.price ||
     priceTruth.price.missingPrice ||
-    !priceTruth.provenance.ratesSource
-  ) {
-    return (
-      <span className='text-muted-foreground'>
-        {t('tokenRoutes.detail.channelPriceProvenance')}: — ·{' '}
-        {t('tokenRoutes.detail.channelPriceUnavailable')}
-      </span>
-    )
-  }
-
-  const costSource = priceTruth.provenance.source
-  const ratesSource = priceTruth.provenance.ratesSource
+    !priceTruth.provenance.ratesSource ||
+    ratesFallback
+  const costSourceDiffers =
+    priceTruth.provenance.source &&
+    priceTruth.provenance.source !== priceTruth.provenance.ratesSource
   return (
-    <>
-      <span className='text-muted-foreground'>
-        {t('tokenRoutes.detail.channelRateProvenance')}:
-      </span>
-      {ratesSource === 'fallback' ? (
-        <span className='text-muted-foreground'>
-          — · {t('tokenRoutes.detail.channelPriceUnavailable')}
-        </span>
-      ) : (
-        <PriceGradeBadge grade={ratesSource} />
-      )}
-      {costSource && costSource !== ratesSource && (
-        <>
-          <span className='text-muted-foreground'>
-            {t('tokenRoutes.detail.channelCostProvenance')}:
+    <li className='grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 px-3 py-2 text-sm @[54rem]/channel-list:grid-cols-[minmax(0,1.8fr)_minmax(0,0.9fr)_minmax(0,1.2fr)_auto] @[54rem]/channel-list:items-center'>
+      <div className='min-w-0'>
+        <div className='font-medium [overflow-wrap:anywhere]'>
+          {accountLabel}
+        </div>
+        <div className='text-muted-foreground mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs'>
+          {siteLabel && (
+            <span className='max-w-full truncate' title={siteLabel}>
+              @ {siteLabel}
+            </span>
+          )}
+          <span
+            className={
+              !tokenBound && !accountCredential
+                ? 'text-destructive font-medium'
+                : undefined
+            }
+            title={
+              tokenBound
+                ? undefined
+                : accountCredential
+                  ? t('tokenRoutes.detail.channelTokenAccountHint')
+                  : t('tokenRoutes.detail.channelTokenMissingHint')
+            }
+          >
+            {t('tokenRoutes.detail.channelToken')}: {tokenLabel}
           </span>
-          <PriceGradeBadge grade={costSource} />
-        </>
-      )}
-    </>
+          <span className='max-w-full truncate' title={sourceModel}>
+            {t('tokenRoutes.detail.channelUpstream')} {sourceModel}
+          </span>
+          <span className='shrink-0'>
+            {t('tokenRoutes.detail.channelPriority')} {channel.priority}
+          </span>
+        </div>
+      </div>
+
+      <div className='text-muted-foreground col-span-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs tabular-nums @[54rem]/channel-list:col-span-1 @[54rem]/channel-list:col-start-2 @[54rem]/channel-list:row-start-1'>
+        <span className='inline-flex items-baseline gap-1'>
+          <span>{t('tokenRoutes.detail.channelConfiguredWeight')}</span>
+          <strong className='text-foreground font-medium'>
+            {allocation.configuredWeight}
+          </strong>
+        </span>
+        <span className='inline-flex items-baseline gap-1'>
+          <span>{t('tokenRoutes.detail.channelEnabledShare')}</span>
+          <strong className='text-foreground font-medium'>
+            {formatRouteWeightShare(allocation.enabledWeightShare)}
+          </strong>
+        </span>
+      </div>
+
+      <div className='text-muted-foreground col-span-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-xs tabular-nums @[54rem]/channel-list:col-span-1 @[54rem]/channel-list:col-start-3 @[54rem]/channel-list:row-start-1'>
+        <span className='inline-flex items-baseline gap-1'>
+          <span>{t('tokenRoutes.detail.channelHits')}</span>
+          <span className='text-foreground'>
+            {formatInt(channel.successCount)}
+            <span className='text-muted-foreground'> / </span>
+            <span className={channel.failCount > 0 ? 'text-destructive' : ''}>
+              {formatInt(channel.failCount)}
+            </span>
+          </span>
+        </span>
+        {priceQueryState?.isLoading ? (
+          <span className='inline-flex items-center gap-1'>
+            <Spinner className='size-3' />
+            {t('tokenRoutes.detail.channelPriceLoading')}
+          </span>
+        ) : priceUnavailable ? (
+          <span>{t('tokenRoutes.detail.channelPriceUnavailable')}</span>
+        ) : (
+          <span className='text-foreground'>
+            {formatPrice(priceTruth.inputPerMillion, {
+              fractionDigits: 4,
+            })}
+            <span className='text-muted-foreground'> / </span>
+            {formatPrice(priceTruth.outputPerMillion, {
+              fractionDigits: 4,
+            })}
+          </span>
+        )}
+        {!priceQueryState?.isLoading &&
+          !priceUnavailable &&
+          priceTruth.provenance.ratesSource && (
+            <span className='inline-flex items-center gap-1'>
+              <span>{t('tokenRoutes.detail.channelRateProvenance')}</span>
+              <PriceGradeBadge grade={priceTruth.provenance.ratesSource} />
+            </span>
+          )}
+        {costSourceDiffers && priceTruth.provenance.source && (
+          <span className='inline-flex items-center gap-1'>
+            <span>{t('tokenRoutes.detail.channelCostProvenance')}</span>
+            <PriceGradeBadge grade={priceTruth.provenance.source} />
+          </span>
+        )}
+      </div>
+
+      <div className='col-start-2 row-start-1 flex items-center gap-1.5 @[54rem]/channel-list:col-start-4'>
+        {cooldownActive && (
+          <Badge variant='warning'>{t('tokenRoutes.detail.cooldown')}</Badge>
+        )}
+        <Badge variant={channel.enabled ? 'success' : 'secondary'}>
+          {channel.enabled
+            ? t('tokenRoutes.columns.enable')
+            : t('tokenRoutes.columns.disable')}
+        </Badge>
+      </div>
+    </li>
   )
 }

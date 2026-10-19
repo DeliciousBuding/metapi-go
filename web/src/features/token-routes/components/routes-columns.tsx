@@ -33,8 +33,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { toBcp47 } from '@/i18n/languages'
-import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type {
@@ -209,8 +207,7 @@ export function useRoutesColumns(
     getContentId: (id: number) => string
   }
 ): ColumnDef<RouteSummaryRow>[] {
-  const { t, i18n } = useTranslation()
-  const locale = toBcp47(i18n.language || 'en')
+  const { t } = useTranslation()
   return [
     {
       id: 'select',
@@ -252,48 +249,40 @@ export function useRoutesColumns(
         const contextLabel = formatContextLength(route.contextLength)
         const readOnly = isReadOnlyRoute(route)
         return (
-          <div className='flex flex-col gap-1'>
-            <div className='flex items-center gap-2'>
-              {disclosure ? (
-                <RowDisclosureTrigger
-                  expanded={disclosure.expandedIds.has(route.id)}
-                  controls={disclosure.getContentId(route.id)}
-                  onClick={() => disclosure.toggle(route.id)}
-                  title={title}
-                >
-                  <span className='min-w-0 font-medium [overflow-wrap:anywhere] break-words'>
-                    {title}
-                  </span>
-                </RowDisclosureTrigger>
-              ) : (
-                <span className='max-w-60 truncate font-medium' title={title}>
+          <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+            {disclosure ? (
+              <RowDisclosureTrigger
+                expanded={disclosure.expandedIds.has(route.id)}
+                controls={disclosure.getContentId(route.id)}
+                onClick={() => disclosure.toggle(route.id)}
+                title={title}
+              >
+                <span className='min-w-0 font-medium [overflow-wrap:anywhere] break-words'>
                   {title}
                 </span>
-              )}
-              <Badge variant={modeBadge.variant}>{t(modeBadge.labelKey)}</Badge>
-              {readOnly && (
-                <Badge variant='outline' className='text-muted-foreground'>
-                  {t('tokenRoutes.columns.notGenerated')}
-                </Badge>
-              )}
-            </div>
-            <div className='text-muted-foreground text-2xs flex flex-wrap items-center gap-1.5'>
-              <code className='bg-muted text-2xs rounded px-1 py-0.5 font-mono'>
-                {route.modelPattern}
-              </code>
-              {contextLabel && (
-                <Badge variant='outline' className='text-3xs'>
-                  {contextLabel}
-                </Badge>
-              )}
-              {route.decisionRefreshedAt && (
-                <span>
-                  {t('tokenRoutes.columns.decisionCachedAt', {
-                    time: formatDateTime(route.decisionRefreshedAt, locale),
-                  })}
-                </span>
-              )}
-            </div>
+              </RowDisclosureTrigger>
+            ) : (
+              <span className='max-w-60 truncate font-medium' title={title}>
+                {title}
+              </span>
+            )}
+            <Badge variant={modeBadge.variant}>{t(modeBadge.labelKey)}</Badge>
+            {readOnly && (
+              <Badge variant='outline' className='text-muted-foreground'>
+                {t('tokenRoutes.columns.notGenerated')}
+              </Badge>
+            )}
+            <code
+              className='bg-muted text-muted-foreground text-2xs max-w-44 truncate rounded px-1 py-0.5 font-mono'
+              title={route.modelPattern}
+            >
+              {route.modelPattern}
+            </code>
+            {contextLabel && (
+              <span className='text-muted-foreground text-2xs'>
+                {contextLabel}
+              </span>
+            )}
           </div>
         )
       },
@@ -328,14 +317,9 @@ export function useRoutesColumns(
                 </Tooltip>
               </TooltipProvider>
             ) : (
-              <Badge variant={summary.variant}>
+              <Badge variant={summary.variant} title={summary.hint}>
                 <span className='tabular-nums'>{summary.label}</span>
               </Badge>
-            )}
-            {summary.hint && (
-              <span className='text-muted-foreground text-2xs'>
-                {summary.hint}
-              </span>
             )}
           </div>
         )

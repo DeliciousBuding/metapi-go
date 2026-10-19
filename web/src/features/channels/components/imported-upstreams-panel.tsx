@@ -100,39 +100,36 @@ export function ImportedUpstreamsPanel(props: {
   )
   return (
     <>
-      <div className='flex shrink-0 flex-wrap items-center justify-between gap-3'>
-        <p className='text-muted-foreground text-sm'>
-          {t('channels.visual.workspaceHint')}
-        </p>
-        <Button onClick={() => setCreating(true)}>
-          <Plus aria-hidden='true' className='size-4' />
-          {t('channels.create.title')}
-        </Button>
-      </div>
       <Tabs
         value={tab}
         onValueChange={(value) => setSelectedTab(String(value))}
         className='min-h-0 flex-1 gap-3'
       >
-        <TabsList
-          variant='line'
-          className='max-w-full shrink-0 gap-2 border-b pb-2 sm:gap-4 [&>button]:text-xs sm:[&>button]:text-sm'
-        >
-          <TabsTrigger value='accounts'>
-            <Users />
-            {t('channels.upstream.accountsTab')}
-            <span className='text-muted-foreground text-xs tabular-nums'>
-              {props.accountCount ?? 0}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value='upstreams'>
-            <Cable />
-            {t('channels.upstream.upstreamsTab')}
-            <span className='text-muted-foreground text-xs tabular-nums'>
-              {items.length}
-            </span>
-          </TabsTrigger>
-        </TabsList>
+        <div className='flex shrink-0 flex-wrap items-center justify-between gap-2 border-b pb-2'>
+          <TabsList
+            variant='line'
+            className='max-w-full shrink-0 gap-2 border-0 pb-0 sm:gap-4 [&>button]:text-xs sm:[&>button]:text-sm'
+          >
+            <TabsTrigger value='accounts'>
+              <Users />
+              {t('channels.upstream.accountsTab')}
+              <span className='text-muted-foreground text-xs tabular-nums'>
+                {props.accountCount ?? 0}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value='upstreams'>
+              <Cable />
+              {t('channels.upstream.upstreamsTab')}
+              <span className='text-muted-foreground text-xs tabular-nums'>
+                {items.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+          <Button size='sm' onClick={() => setCreating(true)}>
+            <Plus aria-hidden='true' className='size-4' />
+            {t('channels.create.title')}
+          </Button>
+        </div>
         <TabsContent value='accounts' className='flex min-h-0 flex-col gap-3'>
           {props.children}
         </TabsContent>

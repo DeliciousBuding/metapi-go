@@ -41,6 +41,7 @@ import { GatewayRequestDetailSheet } from './gateway-request-detail-sheet'
 import { ProxyLogsAutoRefreshToggle } from './proxy-logs-auto-refresh-toggle'
 import { ProxyLogsPage } from './proxy-logs-page'
 import { RequestOutcome } from './request-outcome'
+import { SummaryStat, SummaryStrip } from './summary-strip'
 
 type RequestFilters = {
   status: string
@@ -290,7 +291,6 @@ export function GatewayRequestsPage() {
     <div className='page-padding flex h-full flex-col gap-3'>
       <PageHeader
         title={t('requestLogs.title')}
-        description={t('requestLogs.description')}
         actions={
           <>
             <Link
@@ -324,7 +324,7 @@ export function GatewayRequestsPage() {
         }
       />
       {summary && (
-        <dl className='bg-card grid shrink-0 grid-cols-2 overflow-hidden rounded-xl border sm:grid-cols-5'>
+        <SummaryStrip>
           {(
             [
               'totalCount',
@@ -334,28 +334,22 @@ export function GatewayRequestsPage() {
               'rejectedCount',
             ] as const
           ).map((key) => (
-            <div
-              className='min-w-0 border-b px-4 py-3 sm:border-r sm:border-b-0 sm:last:border-r-0'
+            <SummaryStat
               key={key}
-            >
-              <dt className='text-muted-foreground text-xs'>
-                {t(`requestLogs.summary.${key}`)}
-              </dt>
-              <dd className='mt-1 font-mono text-xl font-semibold tabular-nums'>
-                {formatInt(summary[key])}
-              </dd>
-            </div>
+              label={t(`requestLogs.summary.${key}`)}
+              value={formatInt(summary[key])}
+            />
           ))}
-        </dl>
-      )}
-      {query.data && (
-        <p className='text-muted-foreground text-xs leading-5'>
-          {query.data.coverageStartedAt
-            ? t('requestLogs.coverage', {
-                time: formatDateTime(query.data.coverageStartedAt, locale),
-              })
-            : t('requestLogs.noCoverage')}
-        </p>
+          {query.data && (
+            <span className='text-muted-foreground text-2xs ms-auto'>
+              {query.data.coverageStartedAt
+                ? t('requestLogs.coverage', {
+                    time: formatDateTime(query.data.coverageStartedAt, locale),
+                  })
+                : t('requestLogs.noCoverage')}
+            </span>
+          )}
+        </SummaryStrip>
       )}
       <DataTablePage
         table={table}

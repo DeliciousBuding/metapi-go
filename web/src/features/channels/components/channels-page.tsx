@@ -207,6 +207,13 @@ export function ChannelsPage() {
   const columns = useChannelsColumns(columnActions, probeHistoryQuery.data)
 
   const { table } = useDataTable<ChannelRow>({
+    initialColumnVisibility: {
+      type: false,
+      probeHealth: false,
+      priority: false,
+      weight: false,
+      cooldown: false,
+    },
     data: channelsPageQuery.data?.items ?? [],
     columns,
     enableColumnResizing: true,

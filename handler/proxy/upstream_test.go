@@ -133,6 +133,36 @@ func TestStreamUpstreamNon2xxRelaysJSONErrorStatus(t *testing.T) {
 	}
 }
 
+func TestClientValidationErrorDoesNotCoolChannel(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":{"message":"input is required","type":"invalid_request_error"}}`))
+	}))
+	t.Cleanup(upstream.Close)
+
+	router := &upstreamTestRouter{selected: routing.SelectedChannel{
+		Channel:     store.RouteChannel{ID: 42, Enabled: true},
+		Account:     store.Account{ID: 7, Status: "active"},
+		Site:        store.Site{ID: 3, URL: upstream.URL, Status: "active"},
+		TokenValue:  "upstream-token",
+		ActualModel: "gpt-4o-upstream",
+	}}
+	SetUpstreamConfig(&UpstreamConfig{Router: router})
+	t.Cleanup(func() { SetUpstreamConfig(nil) })
+
+	req := makeProxyReq("POST", "/v1/chat/completions", `{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}`)
+	rec := httptest.NewRecorder()
+	HandleChatCompletions(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	if len(router.failures) != 0 {
+		t.Fatalf("client validation error cooled channel: %+v", router.failures)
+	}
+}
+
 func TestHandleStreamUpstreamRelaysLargeSSE(t *testing.T) {
 	// The default stream byte limit (1 MB) would truncate this ~2 MB stream,
 	// so raise the config singleton for this test and restore it after.

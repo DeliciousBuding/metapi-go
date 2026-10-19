@@ -1562,6 +1562,9 @@ func recordUpstreamFailure(ctx context.Context, cfg *UpstreamConfig, selected *r
 	if cfg == nil || cfg.Router == nil || selected == nil {
 		return
 	}
+	if !proxy.ShouldRecordChannelFailure(status, rawErrText) {
+		return
+	}
 	failureCtx := routing.SiteRuntimeFailureContext{
 		ErrorText: &rawErrText,
 		ModelName: &modelName,
