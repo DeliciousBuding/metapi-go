@@ -177,7 +177,7 @@ function renderBody<TData>(
           <TableRow className='hover:bg-transparent'>
             <TableCell
               colSpan={colSpan}
-              className='bg-muted/15 px-3 py-4 sm:pl-12'
+              className='bg-muted/15 px-3 py-2.5 sm:pl-8'
             >
               <RowDisclosureContent
                 id={disclosure.getContentId(row)}
