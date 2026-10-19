@@ -1,4 +1,7 @@
-.PHONY: build test race race-integration vet lint vuln mod-verify docs-hygiene bench-routing coverage verify verify-race docker-verify run docker-build clean web-build migrate-build
+.PHONY: build build-check test web-test web-check race race-integration vet lint vuln mod-verify docs-hygiene bench-routing coverage verify verify-race docker-verify run docker-build clean web-install web-build migrate-build
+
+GO ?= go
+BUN ?= bun
 
 # Version injected into the binary at build time; "dev" when not on a tag.
 VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || echo dev)
@@ -12,15 +15,28 @@ LDFLAGS := -s -w -X $(VERSION_PKG).Version=$(VERSION) -X $(VERSION_PKG).Commit=$
 
 # Build the server binary (requires web/dist/ to exist for go:embed)
 build:
-	go build -trimpath -ldflags="$(LDFLAGS)" -o metapi ./cmd/server
+	$(GO) build -trimpath -ldflags="$(LDFLAGS)" -o metapi ./cmd/server
 
-# Run tests
+# Compile the shipped commands without writing a release artifact. CI uses
+# this shape; local release builds use `build` and `migrate-build`.
+build-check:
+	$(GO) build ./cmd/server
+	$(GO) build ./cmd/migrate
+
+# Fast Go unit/integration suite (no race detector).
 test:
-	go test ./... -count=1 -timeout=60s
+	$(GO) test ./... -count=1 -timeout=60s
 
 # Run tests with the Go race detector
 race:
 	bash ./scripts/go-race.sh
+
+web-test:
+	cd web && $(BUN) run test
+
+# Complete frontend gate: types, lint, formatting, unused-code scan, tests.
+web-check:
+	cd web && $(BUN) run check
 
 # Run integration tests with the Go race detector (requires PG_TEST_DSN)
 race-integration:
@@ -28,7 +44,7 @@ race-integration:
 
 # Run go vet
 vet:
-	go vet ./...
+	$(GO) vet ./...
 
 # Run linter (requires golangci-lint)
 lint:
@@ -40,7 +56,7 @@ vuln:
 
 # Verify downloaded modules match go.sum checksums
 mod-verify:
-	go mod verify
+	$(GO) mod verify
 
 # Check the published tree for local paths, credential examples, AI citation artifacts,
 # unsupported runtime claims, and internal work-programme codes
@@ -76,7 +92,10 @@ docker-build:
 
 # Build the React frontend (requires Bun)
 web-build:
-	cd web && sh ../scripts/bun-install.sh && bun run build:web
+	cd web && sh ../scripts/bun-install.sh && $(BUN) run build:web
+
+web-install:
+	cd web && sh ../scripts/bun-install.sh
 
 # Build the standalone migration tool
 migrate-build:

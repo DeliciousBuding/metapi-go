@@ -39,6 +39,9 @@ bash .githooks/pre-push-project </dev/null
 Windows 原生的工具链要求与环境限制见[测试策略](docs/testing.md#本地-race-检查)。
 `make verify` 先执行同一入口，再检查依赖、lint 和漏洞，并构建发行二进制；
 `make verify-race` 是它的别名。
+本地各层也可单独运行：`make test` 是 Go 快速套件，`make web-check` 是完整
+前端门禁，`make build-check` 只编译发布命令，`make race` 跑全量 Go race。
+CI 按 job 并行执行同一批底层检查，不维护第二套测试实现。
 PR 中说明本地验证结果，合并须通过完整 CI。测试分层、PostgreSQL 夹具和真实上游
 验收见[测试策略](docs/testing.md)。
 
