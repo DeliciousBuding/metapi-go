@@ -127,6 +127,16 @@ go test ./internal/sqlitetest -run '^$' -bench '^BenchmarkOpen$' -benchmem
 
 ## 本地 race 检查
 
+`bash .githooks/pre-push-project` 先执行前端构建生成 `web/dist`，再并行运行
+前端 check 与 Go lane。构建独立于两个 lane 是有意为之：`bun run check` 本身
+不读 `dist`，但任何 Go 编译或 race 都不能早于嵌入资源生成，构建失败也应先
+失败。Go lane 固定为 `go build ./cmd/server` → `go vet ./...` →
+`scripts/go-race.sh`，race 仍是单次全量 `go test ./...`。每个 lane 有独立
+日志；任一失败会取消另一 lane 并返回非零，lane 被 SIGKILL/OOM 终止时由存活
+检测和 supervisor 状态兜底，不会挂死。`METAPI_PREPUSH_LANES=1` 串行运行同一
+顺序，`PG_TEST_DSN` 时默认单 lane。未设置 `PG_TEST_DSN` 时，本地 gate 在 16
+核以上机器把 race 包并发默认提到 4；race 入口自身的默认仍是 `-p 2`。
+
 `scripts/go-race.sh` 执行全量 race 测试，每包默认超时 900 秒，
 可通过 `METAPI_RACE_TIMEOUT_SECONDS=<seconds>` 调整。
 完整本地检查默认设置 `GOMAXPROCS=2`，限制 Go build/vet 的默认包并行度；
