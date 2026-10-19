@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -103,13 +104,6 @@ func directAccountConcurrencyLimit() int {
 	return 0
 }
 
-// maxDirectSaturationSkips bounds how many saturated direct candidates one
-// request will examine. It is a loop-safety limit against a router that
-// ignores ExcludeChannelIDs, not a routing or retry budget: skipping a
-// saturated account is cheaper than an upstream attempt and must not spend
-// the request's real retry allowance.
-const maxDirectSaturationSkips = 64
-
 // dispatchUpstream forwards a proxy request to the selected upstream channel.
 // Implements the spec's 10-step Handler pattern.
 func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
@@ -196,7 +190,6 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	// advances the attempt counter, exactly as the old retry loop did.
 	attempt := 0
 	selectionRound := 0
-	directSaturationSkips := 0
 	lastSaturationReason := ""
 	directLimit := int64(directAccountConcurrencyLimit())
 
@@ -249,6 +242,11 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 			observeProxyTerminal(ctx, shared.OutcomeUnavailable, ctx != nil && ctx.IsStream, time.Since(startedAt))
 			return
 		}
+		// A selector that returns an already-excluded channel breaks its
+		// exclusion contract. Only the direct verdict below uses this flag:
+		// direct saturation does not spend the attempt budget, so a repeated
+		// channel needs an explicit stop instead of an arbitrary skip cap.
+		repeatedSelection := slices.Contains(excludeChannelIDs, selected.Channel.ID)
 		selectionRound++
 		excludeChannelIDs = append(excludeChannelIDs, selected.Channel.ID)
 
@@ -285,21 +283,27 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 				ctx.lifecycle.noRouteReason = saturationReason
 				ctx.lifecycle.mu.Unlock()
 			}
+			maxConcurrency := selected.Site.MaxConcurrency
+			if selected.Direct != nil {
+				maxConcurrency = directLimit
+			}
 			slog.Debug("concurrency saturated; skipping channel without failure cascade",
 				"reason", saturationReason,
 				"site_id", selected.Site.ID,
 				"credential_id", credentialID,
 				"channel_id", selected.Channel.ID,
-				"max_concurrency", selected.Site.MaxConcurrency,
+				"max_concurrency", maxConcurrency,
 				"model", ctx.RequestedModel,
 				"retry", attempt,
 				"request_id", requestID,
 			)
 			if selected.Direct != nil {
-				directSaturationSkips++
-				if directSaturationSkips >= maxDirectSaturationSkips {
-					// Loop-safety bound for routers that ignore exclusions; this
-					// is not a routing budget and does not represent an attempt.
+				if repeatedSelection {
+					slog.Warn("router returned an already-excluded channel; stopping saturation skip scan",
+						"channel_id", selected.Channel.ID,
+						"credential_id", credentialID,
+						"request_id", requestID,
+					)
 					break
 				}
 				// Saturated direct account: move the selection cursor, not the

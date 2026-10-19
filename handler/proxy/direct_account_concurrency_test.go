@@ -295,6 +295,43 @@ func TestDirectAccountConcurrencyUnlimitedByDefaultAndIndependentPerCredential(t
 	})
 }
 
+// Non-positive keys are internal no-ops, not a shared anonymous bucket. Routed
+// direct candidates always carry a positive credential ID; this pins the
+// limiter contract for any non-production caller that passes 0.
+func TestDirectAccountConcurrencyNonPositiveKeyIsNoOp(t *testing.T) {
+	setDirectAccountMaxConcurrencyForTest(t, 1)
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"ok","choices":[{"message":{"content":"ok"}}]}`))
+	}))
+	t.Cleanup(upstream.Close)
+
+	limiter := proxy.NewSiteConcurrencyLimiter()
+	slot, acquired := limiter.TryAcquire(0, 1)
+	if !acquired || slot == nil {
+		t.Fatal("key 0 must always acquire a no-op slot")
+	}
+	slot.Release()
+
+	router := &directSequenceRouter{candidates: []*routing.SelectedChannel{
+		directAccountSelected(0, 101, upstream.URL),
+	}}
+	rec := dispatchDirectAccountTestRequest(t, &UpstreamConfig{
+		Router:               router,
+		DirectAccountLimiter: limiter,
+	}, 0)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if len(router.successes) != 1 || router.successes[0] != 101 {
+		t.Fatalf("expected channel 101 success, got %v", router.successes)
+	}
+	if got := limiter.ActiveCount(0); got != 0 {
+		t.Fatalf("key 0 must not be tracked: ActiveCount=%d", got)
+	}
+}
+
 func waitForDirectActiveCount(t *testing.T, limiter *proxy.SiteConcurrencyLimiter, credentialID int64, want int) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
@@ -305,6 +342,15 @@ func waitForDirectActiveCount(t *testing.T, limiter *proxy.SiteConcurrencyLimite
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatalf("ActiveCount(%d) = %d, want %d", credentialID, limiter.ActiveCount(credentialID), want)
+}
+
+func captureDebugLogs(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	return &logs
 }
 
 // The slot must be held for the whole attempt and released on both success and
@@ -465,10 +511,7 @@ func TestDirectAccountSlotHeldThroughStreamAndReleasedOnClientCancel(t *testing.
 func TestSiteSaturationLogKeepsMaxConcurrency(t *testing.T) {
 	setDirectAccountMaxConcurrencyForTest(t, 0)
 
-	var logs bytes.Buffer
-	previous := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
-	t.Cleanup(func() { slog.SetDefault(previous) })
+	logs := captureDebugLogs(t)
 
 	router := &directSequenceRouter{candidates: []*routing.SelectedChannel{
 		{
@@ -496,5 +539,126 @@ func TestSiteSaturationLogKeepsMaxConcurrency(t *testing.T) {
 	output := logs.String()
 	if !strings.Contains(output, "reason=site_concurrency_saturated") || !strings.Contains(output, "max_concurrency=1") {
 		t.Fatalf("site saturation log lost its diagnostic fields: %s", output)
+	}
+}
+
+// Direct saturation logs the configured credential cap, not the zero-valued
+// Site.MaxConcurrency placeholder that direct candidates carry.
+func TestDirectSaturationLogReportsCredentialLimit(t *testing.T) {
+	setDirectAccountMaxConcurrencyForTest(t, 2)
+	logs := captureDebugLogs(t)
+
+	limiter := proxy.NewSiteConcurrencyLimiter()
+	first, ok := limiter.TryAcquire(55, 2)
+	if !ok {
+		t.Fatal("pre-hold direct account 55 (1/2) failed")
+	}
+	t.Cleanup(first.Release)
+	second, ok := limiter.TryAcquire(55, 2)
+	if !ok {
+		t.Fatal("pre-hold direct account 55 (2/2) failed")
+	}
+	t.Cleanup(second.Release)
+
+	router := &directSequenceRouter{candidates: []*routing.SelectedChannel{
+		directAccountSelected(55, 101, "http://127.0.0.1:9"),
+	}}
+	rec := dispatchDirectAccountTestRequest(t, &UpstreamConfig{
+		Router:               router,
+		DirectAccountLimiter: limiter,
+	}, 0)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	output := logs.String()
+	for _, want := range []string{
+		"reason=direct_account_concurrency_saturated",
+		"credential_id=55",
+		"max_concurrency=2",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("direct saturation log missing %q: %s", want, output)
+		}
+	}
+}
+
+// stuckDirectRouter ignores ExcludeChannelIDs and always returns the same
+// channel, violating the selector contract.
+type stuckDirectRouter struct {
+	candidate *routing.SelectedChannel
+}
+
+func (r *stuckDirectRouter) SelectChannel(_ context.Context, _ string, _ routing.DownstreamRoutingPolicy) (*routing.SelectedChannel, error) {
+	return r.candidate, nil
+}
+
+func (r *stuckDirectRouter) SelectNextChannel(_ context.Context, _ string, _ []int64, _ routing.DownstreamRoutingPolicy) (*routing.SelectedChannel, error) {
+	return r.candidate, nil
+}
+
+func (r *stuckDirectRouter) SelectPreferredChannel(_ context.Context, _ string, _ int64, _ routing.DownstreamRoutingPolicy, _ []int64) (*routing.SelectedChannel, error) {
+	return nil, nil
+}
+
+func (r *stuckDirectRouter) RecordSuccess(_ context.Context, _ int64, _ float64, _ float64, _ *string, _ *int64) error {
+	return nil
+}
+
+func (r *stuckDirectRouter) RecordFailure(_ context.Context, _ int64, _ routing.SiteRuntimeFailureContext, _ *int64) error {
+	return nil
+}
+
+// A selector that repeats an already-excluded saturated channel must stop
+// instead of spinning forever; this is a router-contract guard, not a cap on
+// how many distinct saturated grants may be skipped.
+func TestDirectSaturationStopsOnRepeatedSelection(t *testing.T) {
+	setDirectAccountMaxConcurrencyForTest(t, 1)
+	logs := captureDebugLogs(t)
+
+	limiter := proxy.NewSiteConcurrencyLimiter()
+	held, ok := limiter.TryAcquire(55, 1)
+	if !ok {
+		t.Fatal("pre-hold direct account 55 failed")
+	}
+	t.Cleanup(held.Release)
+
+	router := &stuckDirectRouter{candidate: directAccountSelected(55, 101, "http://127.0.0.1:9")}
+	SetUpstreamConfig(&UpstreamConfig{
+		Router:               router,
+		DirectAccountLimiter: limiter,
+	})
+	t.Cleanup(func() { SetUpstreamConfig(nil) })
+
+	body := `{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}`
+	req := makeProxyReq("POST", "/v1/chat/completions", body)
+	type result struct {
+		code int
+		body string
+	}
+	done := make(chan result, 1)
+	go func() {
+		rec := httptest.NewRecorder()
+		dispatchUpstream(rec, req, &Ctx{
+			RequestedModel: "gpt-4o",
+			DownstreamPath: "/v1/chat/completions",
+			RawBody:        []byte(body),
+			MaxRetries:     0,
+		})
+		done <- result{code: rec.Code, body: rec.Body.String()}
+	}()
+
+	select {
+	case got := <-done:
+		if got.code != http.StatusServiceUnavailable {
+			t.Fatalf("status=%d body=%s", got.code, got.body)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("direct saturation skip scan did not stop on a repeated channel")
+	}
+	if got := limiter.ActiveCount(55); got != 1 {
+		t.Fatalf("pre-held direct account slot changed: ActiveCount=%d, want 1", got)
+	}
+	if output := logs.String(); !strings.Contains(output, "already-excluded channel") {
+		t.Fatalf("expected repeated-selection warning, got: %s", output)
 	}
 }

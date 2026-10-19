@@ -849,6 +849,8 @@ func TestLoadDirectAccountMaxConcurrency(t *testing.T) {
 		{scenario: "unset", want: DefaultProxyDirectAccountMaxConcurrency},
 		{set: true, value: "", want: DefaultProxyDirectAccountMaxConcurrency, scenario: "blank"},
 		{set: true, value: "0", want: 0, scenario: "explicit zero"},
+		{set: true, value: "0.5", want: 1, scenario: "positive fraction clamps to one"},
+		{set: true, value: "1.9", want: 1, scenario: "fraction truncates"},
 		{set: true, value: "4", want: 4, scenario: "positive"},
 		{set: true, value: "-2", want: DefaultProxyDirectAccountMaxConcurrency, scenario: "negative"},
 		{set: true, value: "soon", want: DefaultProxyDirectAccountMaxConcurrency, scenario: "invalid"},

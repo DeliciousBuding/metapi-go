@@ -168,10 +168,12 @@ typo can never disable a timeout entirely.
 
 Direct 渠道没有 `sites` 行，因此 `sites.max_concurrency` 不适用；上面的环境变量
 是它们的等价隔离项。它只统计**同一进程内、同一 credential ID** 正在进行的
-attempt（含 SSE 流的整个生命周期），不同 credential 各自独立。没有 credential
-的匿名 direct 渠道（ID 为 0）不计入上限。饱和时该候选只被跳过，继续尝试下一个
-渠道；不会写 `RecordFailure`、不会进入 cooldown，也不消耗真实 upstream retry
-预算。全部候选都因 direct 账号饱和而无法尝试时，仍返回既有的 503（
+attempt（含 SSE 流的整个生命周期），不同 credential 各自独立。direct 路由查询
+始终 JOIN `upstream_credentials`，因此每个 direct 候选都有正数 credential ID；
+`kind=none` 的 Ollama 条目同样计入（ID<=0 只是内部 no-op，不在生产路由路径）。
+饱和时该候选只被跳过，继续尝试下一个渠道；不会写 `RecordFailure`、不会进入
+cooldown，也不消耗真实 upstream retry 预算。全部候选都因 direct 账号饱和而无法
+尝试时，仍返回既有的 503（
 `No available channels` / `All channels exhausted` 语义不变），生命周期记录为
 `rejected_no_route` / `direct_account_concurrency_saturated`，`AttemptCount=0`。
 

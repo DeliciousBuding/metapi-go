@@ -333,12 +333,17 @@ func parseTimeoutSec(value string, def int) int {
 // parseConcurrencyLimit parses an optional concurrency cap where 0 is a
 // meaningful value (unlimited) rather than a typo to clamp. Unset, invalid or
 // negative values fall back to def so the documented default keeps working.
+// Fractional values truncate, but a positive value below 1 becomes 1 rather
+// than silently turning the cap into "unlimited".
 func parseConcurrencyLimit(value string, def int) int {
-	parsed := int(math.Trunc(parseNumber(value, float64(def))))
-	if parsed < 0 {
+	raw := parseNumber(value, float64(def))
+	if raw < 0 {
 		return def
 	}
-	return parsed
+	if raw > 0 && raw < 1 {
+		return 1
+	}
+	return int(math.Trunc(raw))
 }
 
 // §1.3 parseCsvList: "" → []; split by "," → trim each → filter len>0.
