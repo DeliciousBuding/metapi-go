@@ -60,9 +60,11 @@ func corsOptions(allowedOrigins []string) cors.Options {
 // from the same SSOT as the executor ceiling, so the write side can no longer
 // be shorter than the request side, while admin routes keep the strict 60s.
 //
-// SSE relays still clear the deadline outright (handler/proxy
-// relayUpstreamStream): a healthy stream is bounded per chunk by
-// PROXY_STREAM_IDLE_TIMEOUT_SEC rather than by total elapsed time.
+// SSE relays replace this one-shot budget: the relay arms a short downstream
+// write deadline around each write+flush (PROXY_SSE_WRITE_TIMEOUT_SEC) and
+// clears it between chunks. A healthy stream is therefore never bounded by
+// total elapsed time, while a client that stops reading cannot block the
+// relay indefinitely.
 func ProxyWriteDeadline(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(proxyWriteBudget()))
@@ -112,17 +114,23 @@ func RequestLogger(next http.Handler) http.Handler {
 
 // statusRecorder wraps a chi WrapResponseWriter and forwards the optional
 // http.ResponseWriter interfaces that chi's interface does not expose. The
-// proxy SSE path opts out of the server-level WriteTimeout via SetWriteDeadline
-// (handler/proxy/upstream.go), SSE needs Flush, and WebSocket upgrades need
-// Hijack — dropping any of these would silently break streaming.
+// proxy SSE path arms and clears the connection write deadline per chunk via
+// SetWriteDeadline (handler/proxy/upstream_stream.go), SSE needs Flush, and
+// WebSocket upgrades need Hijack — dropping any of these would silently break
+// streaming.
 type statusRecorder struct {
 	middleware.WrapResponseWriter
 }
 
 func (s *statusRecorder) Flush() {
-	if f, ok := s.WrapResponseWriter.(http.Flusher); ok {
-		f.Flush()
+	_ = s.FlushError()
+}
+
+func (s *statusRecorder) FlushError() error {
+	if s.Status() == 0 {
+		s.WriteHeader(http.StatusOK)
 	}
+	return http.NewResponseController(s.Unwrap()).Flush()
 }
 
 func (s *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
@@ -140,10 +148,7 @@ func (s *statusRecorder) ReadFrom(r io.Reader) (int64, error) {
 }
 
 func (s *statusRecorder) SetWriteDeadline(t time.Time) error {
-	if rc, ok := s.Unwrap().(interface{ SetWriteDeadline(time.Time) error }); ok {
-		return rc.SetWriteDeadline(t)
-	}
-	return nil
+	return http.NewResponseController(s.Unwrap()).SetWriteDeadline(t)
 }
 
 // TrustedRealIP reads X-Forwarded-For / X-Real-IP only from explicitly

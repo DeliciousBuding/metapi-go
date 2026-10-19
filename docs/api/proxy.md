@@ -268,6 +268,7 @@ leaking an incompatible wire format. Other upstream headers are not relayed.
 | Whole upstream request (buffered) | executor ceiling `max(90s, first-byte × 2)` | 90s |
 | Response write (proxy surface) | write budget = executor ceiling + 2m | 210s |
 | Stream chunk gap | `PROXY_STREAM_IDLE_TIMEOUT_SEC` | see `.env.example` |
+| SSE downstream write | `PROXY_SSE_WRITE_TIMEOUT_SEC` | 60s per write+flush |
 
 The proxy surface re-arms its own write deadline (`router.ProxyWriteDeadline`)
 from the same source of truth as the executor ceiling, so the write side can
@@ -275,9 +276,12 @@ never be shorter than the request side: a buffered response that takes 61–90s
 upstream is delivered instead of being cut mid-write. Admin routes keep the
 strict 60s `WriteTimeout`.
 
-Streaming responses are not bounded by total elapsed time at all — the relay
-clears the write deadline and enforces liveness per chunk with the idle guard,
-so a long reasoning-model stream stays alive as long as chunks keep arriving.
+Streaming responses are not bounded by total elapsed time at all. Upstream
+liveness is enforced per chunk by the idle guard, while the downstream side
+re-arms a bounded write deadline around each write+flush and clears it between
+chunks. A long reasoning-model stream therefore stays alive as long as chunks
+keep arriving, but a client that stops reading cannot pin the relay (and its
+concurrency slot) indefinitely.
 
 ## Proxy files (`/v1/files`)
 

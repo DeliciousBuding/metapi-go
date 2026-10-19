@@ -135,6 +135,13 @@ type Config struct {
 	// Unlike the five transport timeouts above this applies to the relayed
 	// body phase only — non-streaming responses never see it.
 	ProxyStreamIdleTimeoutSec int
+	// ProxySSEWriteTimeoutSec bounds one downstream SSE write+flush. The relay
+	// arms it immediately before writing and clears it immediately after, so it
+	// never limits total stream duration or the wait for the next upstream
+	// chunk; a client that stops reading cannot pin a relay (and its site slot)
+	// forever. Parsed from PROXY_SSE_WRITE_TIMEOUT_SEC; 0/negative/invalid
+	// falls back to DefaultProxySSEWriteTimeoutSec.
+	ProxySSEWriteTimeoutSec int
 
 	// LDOHBaseURL is the upstream LDOH dashboard URL proxied through
 	// /monitor-proxy/ldoh/* (env-only — no DDL). Parsed from LDOH_BASE_URL;
@@ -613,6 +620,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	cfg.ProxyIdleConnTimeoutSec = parseTimeoutSec(get("PROXY_IDLE_CONN_TIMEOUT_SEC"), DefaultProxyIdleConnTimeoutSec)
 	cfg.ProxyRequestTimeoutSec = parseTimeoutSec(get("PROXY_REQUEST_TIMEOUT_SEC"), DefaultProxyRequestTimeoutSec)
 	cfg.ProxyStreamIdleTimeoutSec = parseTimeoutSec(get("PROXY_STREAM_IDLE_TIMEOUT_SEC"), DefaultProxyStreamIdleTimeoutSec)
+	cfg.ProxySSEWriteTimeoutSec = parseTimeoutSec(get("PROXY_SSE_WRITE_TIMEOUT_SEC"), DefaultProxySSEWriteTimeoutSec)
 
 	// ---- §3.12 Notify: Feishu / DingTalk / WeCom / Ntfy ----
 	rt.FeishuEnabled = parseBoolean(get("FEISHU_ENABLED"), false)

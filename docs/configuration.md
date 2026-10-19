@@ -148,10 +148,11 @@ target is trusted and the escape hatch is genuinely needed.
 | `PROXY_IDLE_CONN_TIMEOUT_SEC` | `90` | Idle keep-alive connection TTL in the pooled outbound transports. |
 | `PROXY_REQUEST_TIMEOUT_SEC` | `30` | Platform HTTP client timeout; not a lifetime limit for an active SSE stream. |
 | `PROXY_STREAM_IDLE_TIMEOUT_SEC` | `300` | Chunk-gap guard for a flowing SSE stream: every relayed chunk resets the window, and a gap longer than this aborts the stream and records it as an upstream timeout fault. It does **not** cap total stream duration. |
+| `PROXY_SSE_WRITE_TIMEOUT_SEC` | `60` | Maximum time for one downstream SSE write+flush. The relay arms it immediately before the write and clears it immediately after, so it never caps total stream duration or the wait for the next upstream chunk; a client that stops reading is disconnected instead of holding the relay and its site slot. |
 | `METAPI_ENABLE_PROXY_STUB` | empty | Test/demo-only local stub; leave empty in production (unconfigured forwarding returns an honest 503). |
 | `SYSTEM_PROXY_URL` | empty | Outbound HTTP proxy for upstream calls. |
 
-All six `*_SEC` timeouts share one clamp (`config.parseTimeoutSec`): unset,
+These `*_SEC` timeouts share one clamp (`config.parseTimeoutSec`): unset,
 blank, invalid, zero or negative values fall back to the listed default, so a
 typo can never disable a timeout entirely.
 

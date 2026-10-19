@@ -329,17 +329,22 @@ func (w *requestResponseWriter) Write(body []byte) (int, error) {
 	return n, err
 }
 func (w *requestResponseWriter) Flush() {
+	_ = w.FlushError()
+}
+func (w *requestResponseWriter) FlushError() error {
 	w.state.mu.Lock()
 	committed := w.state.entry.HTTPStatus != nil
 	w.state.mu.Unlock()
 	if !committed {
 		w.WriteHeader(http.StatusOK)
 	}
-	if err := http.NewResponseController(w.ResponseWriter).Flush(); err != nil {
+	err := http.NewResponseController(w.ResponseWriter).Flush()
+	if err != nil && !errors.Is(err, http.ErrNotSupported) {
 		w.state.mu.Lock()
 		w.state.writeFailed = true
 		w.state.mu.Unlock()
 	}
+	return err
 }
 func (w *requestResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	conn, rw, err := http.NewResponseController(w.ResponseWriter).Hijack()
