@@ -126,7 +126,7 @@ metapi
 
 ### 方式二：Docker（预构建镜像 + 命名卷）
 
-稳定部署使用完整版本标签或 digest；下例使用 `0.25.0`。`edge` 跟随 master，`latest` 只随稳定发布更新。升级前在 [Releases](https://github.com/DeliciousBuding/metapi-go/releases) 查看版本说明。
+稳定部署使用完整版本标签或 digest；下例使用 `0.26.0`。`edge` 跟随 master，`latest` 只随稳定发布更新。升级前在 [Releases](https://github.com/DeliciousBuding/metapi-go/releases) 查看版本说明。
 
 ```bash
 export AUTH_TOKEN=$(openssl rand -hex 32)
@@ -139,7 +139,7 @@ docker run -d --name metapi \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
   --restart unless-stopped \
-  ghcr.io/deliciousbuding/metapi-go:0.25.0
+  ghcr.io/deliciousbuding/metapi-go:0.26.0
 ```
 
 默认仅本机可访问。需要从其他设备访问时，经反向代理配置 TLS，或明确调整端口绑定。示例生成的管理令牌与加密密钥应保存到自己的密码管理器；也可先生成并设置为环境变量，再传给容器。
@@ -147,7 +147,7 @@ docker run -d --name metapi \
 命名卷首次挂载继承镜像内属主；改用 bind mount（`./data:/app/data`）需先在宿主机 `chown -R 1001:1001 ./data`。使用仓库 Compose（Docker Compose >= 2.24）：
 
 ```bash
-cp .env.example .env   # 替换管理令牌和独立加密密钥；METAPI_IMAGE 已钉在 0.25.0
+cp .env.example .env   # 替换管理令牌和独立加密密钥；METAPI_IMAGE 已钉在 0.26.0
 # .env 中其他运行配置也会传入容器，包括 PostgreSQL 和签到开关
 docker compose up -d
 ```
