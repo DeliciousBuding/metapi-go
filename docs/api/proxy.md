@@ -268,7 +268,7 @@ leaking an incompatible wire format. Other upstream headers are not relayed.
 | Whole upstream request (buffered) | executor ceiling `max(90s, first-byte × 2)` | 90s |
 | Response write (proxy surface) | write budget = executor ceiling + 2m | 210s |
 | Stream chunk gap | `PROXY_STREAM_IDLE_TIMEOUT_SEC` | see `.env.example` |
-| SSE downstream write | `PROXY_SSE_WRITE_TIMEOUT_SEC` | 60s per write+flush |
+| Stream downstream write | `PROXY_STREAM_WRITE_TIMEOUT_SEC` | 60s per write+flush (SSE and native media; `PROXY_SSE_WRITE_TIMEOUT_SEC` is a deprecated alias) |
 
 The proxy surface re-arms its own write deadline (`router.ProxyWriteDeadline`)
 from the same source of truth as the executor ceiling, so the write side can

@@ -28,7 +28,7 @@ func setStreamWriteBudgetForTest(t *testing.T, writeSec, idleSec int) {
 	prev := config.GetSafe()
 	config.Set(&config.Config{
 		ProxyMaxChannelAttempts:     10,
-		ProxySSEWriteTimeoutSec:     writeSec,
+		ProxyStreamWriteTimeoutSec:  writeSec,
 		ProxyStreamIdleTimeoutSec:   idleSec,
 		ProxyMaxStreamResponseBytes: 1 << 30,
 	})
@@ -359,7 +359,7 @@ func TestStreamWriteTimeoutConfig(t *testing.T) {
 	prev := config.GetSafe()
 	defer config.Set(prev)
 
-	wantDefault := time.Duration(config.DefaultProxySSEWriteTimeoutSec) * time.Second
+	wantDefault := time.Duration(config.DefaultProxyStreamWriteTimeoutSec) * time.Second
 	config.Set(nil)
 	if got := streamWriteTimeout(); got != wantDefault {
 		t.Fatalf("nil config: got %v, want %v", got, wantDefault)
@@ -368,20 +368,30 @@ func TestStreamWriteTimeoutConfig(t *testing.T) {
 	if got := streamWriteTimeout(); got != wantDefault {
 		t.Fatalf("zero config: got %v, want %v", got, wantDefault)
 	}
-	config.Set(&config.Config{ProxySSEWriteTimeoutSec: 7})
+	config.Set(&config.Config{ProxyStreamWriteTimeoutSec: 7})
 	if got := streamWriteTimeout(); got != 7*time.Second {
 		t.Fatalf("configured: got %v, want 7s", got)
 	}
 
-	for _, raw := range []string{"0", "-5", "not-a-number"} {
-		cfg, _ := config.Load(map[string]string{"PROXY_SSE_WRITE_TIMEOUT_SEC": raw})
-		if cfg.ProxySSEWriteTimeoutSec != config.DefaultProxySSEWriteTimeoutSec {
-			t.Fatalf("%q parsed to %d, want the %d default", raw, cfg.ProxySSEWriteTimeoutSec, config.DefaultProxySSEWriteTimeoutSec)
-		}
-	}
+	// The legacy SSE-only name keeps working, and the canonical stream name
+	// wins when both are set.
 	cfg, _ := config.Load(map[string]string{"PROXY_SSE_WRITE_TIMEOUT_SEC": "45"})
-	if cfg.ProxySSEWriteTimeoutSec != 45 {
-		t.Fatalf("explicit value parsed to %d, want 45", cfg.ProxySSEWriteTimeoutSec)
+	if cfg.ProxyStreamWriteTimeoutSec != 45 {
+		t.Fatalf("legacy alias parsed to %d, want 45", cfg.ProxyStreamWriteTimeoutSec)
+	}
+	cfg, _ = config.Load(map[string]string{
+		"PROXY_STREAM_WRITE_TIMEOUT_SEC": "30",
+		"PROXY_SSE_WRITE_TIMEOUT_SEC":    "45",
+	})
+	if cfg.ProxyStreamWriteTimeoutSec != 30 {
+		t.Fatalf("canonical name parsed to %d, want 30 (canonical must win)", cfg.ProxyStreamWriteTimeoutSec)
+	}
+
+	for _, raw := range []string{"0", "-5", "not-a-number"} {
+		cfg, _ := config.Load(map[string]string{"PROXY_STREAM_WRITE_TIMEOUT_SEC": raw})
+		if cfg.ProxyStreamWriteTimeoutSec != config.DefaultProxyStreamWriteTimeoutSec {
+			t.Fatalf("%q parsed to %d, want the %d default", raw, cfg.ProxyStreamWriteTimeoutSec, config.DefaultProxyStreamWriteTimeoutSec)
+		}
 	}
 }
 

@@ -61,7 +61,7 @@ func corsOptions(allowedOrigins []string) cors.Options {
 // be shorter than the request side, while admin routes keep the strict 60s.
 //
 // SSE relays replace this one-shot budget: the relay arms a short downstream
-// write deadline around each write+flush (PROXY_SSE_WRITE_TIMEOUT_SEC) and
+// write deadline around each write+flush (PROXY_STREAM_WRITE_TIMEOUT_SEC) and
 // clears it between chunks. A healthy stream is therefore never bounded by
 // total elapsed time, while a client that stops reading cannot block the
 // relay indefinitely.
