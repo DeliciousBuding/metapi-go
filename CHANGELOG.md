@@ -21,14 +21,20 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+## [v0.26.0] — 2026-10-19
+
 ### 安全
 
 - 代理准入：`Upgrade: websocket` 头不再跳过 RPM/TPM 与 `max_requests`；Responses WebSocket 每条消息复查密钥状态、策略与配额（#1499）。
 - 代理路径：`/v1/files/{fileId}` 与 `/v1/videos/{id}` 只接受 `[A-Za-z0-9_-]{1,200}`，编码斜杠、双重编码与 `..` 返回 400（#1500）。
+- 文件与视频：`/v1/files` 与共享上游视频映射按下游 Key 强制归属；未命中或归属不符返回 404，列表只含本 Key 对象；升级前创建的对象无归属，保持不可见（#1509）。
+- 下游价格：`/v1/pricing` 与 `/v1/models/price-compare` 只返回该 Key 可见的站点与模型，移除账号级内部字段；`days`≤30、`topModels`≤12、`limit`≤100、`pricePageSize`≤20（#1510）。
 - 管理面：备份导入、WebDAV 配置/导入、数据库迁移与连通性测试、恢复出厂、清空用量、下游 key 创建/轮换、上游 token 明文读取要求 `X-Admin-Confirm-Token`；响应带 `Cache-Control: no-store`（#1502）。
 - 管理面：Cookie 写请求校验 `Origin`/`Sec-Fetch-Site`；额外来源用 `ADMIN_CORS_ALLOWED_ORIGINS` 放行，未配置时非浏览器客户端不受影响（#1502）。
 - 运行时设置：`systemProxyUrl`、`telegramApiBaseUrl`/`telegramBotToken`/`telegramChatId`、`adminIpAllowlist`、SMTP 与通知目的地变更，及 `POST /api/settings/system-proxy/test` 需主令牌确认（#1502）。
-- 管理员令牌：未设置 `AUTH_TOKEN` 时首次启动生成 32 字节随机令牌并写入 `DATA_DIR/admin-token`（0600）；轮换默认由服务端生成并只返回一次；显式令牌短于 8 字节拒绝启动，短于 16 字节告警。
+- 代理地址：站点、账号、下游 Key 与 OAuth 连接写入非空 `proxyUrl` 需 `X-Admin-Confirm-Token`；scheme/host 非法或含控制字符返回 400（#1511）。
+- 管理员令牌：未设置 `AUTH_TOKEN` 时首次启动生成 32 字节随机令牌并写入 `DATA_DIR/admin-token`（0600）；轮换默认由服务端生成并只返回一次；显式令牌短于 8 字节拒绝启动，短于 16 字节告警（#1512）。
+- 启动：数据库 `auth_token` 为内置默认、空值或短于 8 字节时拒绝启动；数据库值覆盖环境变量时记录 WARN（#1511）。
 - 凭据回显：账号列表与搜索不再返回 refreshToken、idToken、passwordCipher；站点 `apiKey` 改为 `apiKeyMasked`+`hasApiKey`，`cfClearance` 不再回传（#1503）。
 - 敏感读接口：`/api/settings/auth/info` 只返回 `customized`/`configured`/`length`；imported upstream `customHeaders` 值掩码（#1503）。
 - 告警放大：模型名在事件消息中截断到 4 KiB，节流表有上限并清理；超大单元格导出改为截断并在 `metadata.warnings` 记录（#1498）。
@@ -42,8 +48,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 修复
 
-- 备份：全量导出不再携带在途配额表 `downstream_quota_reservations`，避免恢复后占用目标实例配额；已结算的 `downstream_quota_usage` 仍保留。
-- 备份导入：旧导出中的在途配额表在预览和导入时跳过，并以 `ignoredTables` 报告；手写数据和其他排除表仍返回 400。
+- 备份：全量导出不再携带在途配额表 `downstream_quota_reservations`，避免恢复后占用目标实例配额；已结算的 `downstream_quota_usage` 仍保留（#1517）。
+- 备份导入：旧导出中的在途配额表在预览和导入时跳过，并以 `ignoredTables` 报告；手写数据和其他排除表仍返回 400（#1517）。
 - 备份导入：AxonHub 的 `managementApiKey` 不再导致整条渠道跳过，改为 `management_api_key_not_imported` 残留项（#1396）。
 - 站点公告：旧单条通知自动合并，点击列表行就地展开 Markdown 正文与更新历史；重复同步不再新增公告（#1489）。
 - 下游密钥：升级时将旧根密钥原值迁入 API 密钥，移除独立设置和鉴权入口；新安装无需 `PROXY_TOKEN`，旧设置写入返回 410，鉴权数据库不可用返回 503（#1491）。
@@ -55,17 +61,18 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - 备份导入：AxonHub 预览用中文或英文解释未迁移项、密钥阻断和选路差异，保留来源渠道与模型标识（#1396）。
 - 界面：统一页面边距、字号与控件尺寸，设置表单限制阅读宽度；模型列表减少徽章，手机卡片调整描述字重与菜单位置；概览精简时间选择、手机指标改为两列；详情打开时保留标题并避让关闭按钮；创建 Key 后移除重复提示。
 - 列表分页：修复窄屏多页时条数选择器被裁切；窄处显示页数摘要，宽处保留页码直达。
-- SSE 与媒体下游：统一用 `PROXY_STREAM_WRITE_TIMEOUT_SEC`（默认 60 秒）逐次限制写入与 Flush；旧 `PROXY_SSE_WRITE_TIMEOUT_SEC` 仍作别名，客户端停止读取后释放上游与站点并发槽。
-- 代理日志：请求取消后仍在 1 秒有界窗口写入 request/attempt 完成记录，避免客户端断开造成关联记录缺失。
+- SSE 与媒体下游：统一用 `PROXY_STREAM_WRITE_TIMEOUT_SEC`（默认 60 秒）逐次限制写入与 Flush；旧 `PROXY_SSE_WRITE_TIMEOUT_SEC` 仍作别名，客户端停止读取后释放上游与站点并发槽（#1519、#1520）。
+- 代理日志：请求取消后仍在 1 秒有界窗口写入 request/attempt 完成记录，避免客户端断开造成关联记录缺失（#1520）。
 - 模型：点击名称可直接查看详情，关闭后焦点返回原入口；复制模型名和测试入口移到详情顶部，长说明可展开阅读；未知品牌图标统一中性色，修复对比度不足。
 - 连接：修复管理令牌输错后无法重试；关闭或切换 Key 后重新解锁，验证接入移到客户端配置之前。
-- 接入验证：请求期间禁用模型切换和重复检查，切换模型清除旧结果，关闭对话框取消验证请求。
+- 接入验证：请求期间禁用模型切换和重复检查，切换模型清除旧结果，关闭对话框取消验证请求（#1518）。
 - 密钥复制：剪贴板写入失败时保留复制按钮，成功后才显示勾号并更新按钮提示。
 
 ### 变更
 
-- 直连上游：新增 `PROXY_DIRECT_ACCOUNT_MAX_CONCURRENCY`（默认 `0`）按 `upstream_credentials.id` 限制进程内并发；饱和候选跳过且不消耗真实重试预算。
-- 接入验证：连接对话框可选择 Chat、Responses 或 Messages，仅向所选协议发送一次非流式请求；空输出、错误和非法响应不再显示成功，切换协议清除旧结果。
+- 直连上游：新增 `PROXY_DIRECT_ACCOUNT_MAX_CONCURRENCY`（默认 `0`）按 `upstream_credentials.id` 限制进程内并发；饱和候选跳过且不消耗真实重试预算（#1522）。
+- 直连上游：会话头按下游 Key 派生命名空间，同一上游账号下不同 Key 不再共享上游会话（#1515）。
+- 接入验证：连接对话框可选择 Chat、Responses 或 Messages，仅向所选协议发送一次非流式请求；空输出、错误和非法响应不再显示成功，切换协议清除旧结果（#1518）。
 - 模型测试场：改为对话画布与底部输入框，渠道和参数移入设置；`POST /api/test/chat` 保留多轮上下文和协议参数，默认最多生成 1024 token，请求超时 60 秒（#1490）。
 - 路由：点击列表行即可展开渠道、权重、状态与价格来源，可同时查看多条路由；缺失费率保持未知（#1493）。
 - OAuth 路由诊断：展开查看各成员的阻断原因和冷却时间，通过 `POST /api/oauth/route-units/{routeUnitId}/members/{memberId}/cooldown/clear` 单独清除成员冷却，保留累计统计（#1396）。
@@ -73,8 +80,14 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 开发者可见
 
-- 发布：GHCR 镜像改为 amd64/arm64 原生并行构建并合并 manifest；发布前匿名回拉冒烟并校验 cosign 签名，已发布版本 tag 不可覆盖。
+- 发布：GHCR 镜像改为 amd64/arm64 原生并行构建并合并 manifest；发布前匿名回拉冒烟并校验 cosign 签名，已发布版本 tag 不可覆盖（#1496、#1497、#1508）。
 - 安全模型：新增 `docs/security-model.md`，记录信任边界、各边界控制点与已知设计限制。
+- 本地验证：统一入口 `bash .githooks/pre-push-project`，前端、Go 与双方言集成分 lane 并行；离线 E2E validator 改为 pytest 原生收集。
+
+### 已知遗留
+
+- 成本配额：`max_cost` 在选路前无法获知真实单价，并发在途请求仍有少量超支窗口；请求数与 Token 配额已原子预留（#1513）。
+- 升级前的 Files 与托管视频没有归属映射，升级后保持不可见；需要重新上传创建，或由维护者按需补映射（#1509）。
 
 ## [v0.25.0] — 2026-10-17
 
