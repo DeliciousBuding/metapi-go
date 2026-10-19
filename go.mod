@@ -3,9 +3,9 @@ module github.com/deliciousbuding/metapi-go
 go 1.26.9
 
 require (
-	github.com/QuantumNous/new-api/relaykit v0.3.3
+	github.com/QuantumNous/new-api/relaykit v0.3.4
 	github.com/coder/websocket v1.8.15
-	github.com/go-chi/chi/v5 v5.4.0
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/cors v1.2.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
