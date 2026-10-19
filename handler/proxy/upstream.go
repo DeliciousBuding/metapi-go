@@ -260,7 +260,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 			siteLimiter = proxy.DefaultSiteConcurrencyLimiter
 		}
 		var attemptSlot *proxy.SiteSlot
-		acquired := true
+		var acquired bool
 		saturationReason := "site_concurrency_saturated"
 		credentialID := int64(0)
 		if selected.Direct != nil {
