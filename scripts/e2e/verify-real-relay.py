@@ -8,7 +8,7 @@ Each protocol uses at most four POSTs by default (six with --tool-stream):
 JSON, SSE, echo call, echo followup, streaming echo call, streaming followup.
 Only metadata is printed. Bodies, prompts, tool payloads and auth stay in memory.
 A pass proves client-visible relay semantics, NOT upstream/provider provenance.
-The companion unittest file contains validator tests, never live relay proof.
+The companion pytest file contains validator tests, never live relay proof.
 """
 
 import argparse

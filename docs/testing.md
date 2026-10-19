@@ -24,6 +24,7 @@ the browser language-switching suite protects the HTML language contract.
 | Real-service CI           | `.github/workflows/main.yml`                                                         | New API, One API, Sub2API and CLIProxyAPI detect/login/route chains in service containers, plus a three-protocol `/v1` relay matrix (chat completions, Anthropic messages, OpenAI responses) reconciled against the deterministic upstream's request log, plus cross-OS binary runtime smoke (`runtime-smoke-matrix`) |
 | Frontend acceptance       | [`../web/scripts/acceptance-e2e.mjs`](../web/scripts/acceptance-e2e.mjs) (+ [`acceptance-probe-header-quirk.mjs`](../web/scripts/acceptance-probe-header-quirk.mjs) for the fresh-site accounts-page race) | Real-browser user journeys (Playwright) against a live metapi + real upstream; operator-gated, not a PR check |
 | Operator runtime evidence | `scripts/e2e/*.sh` and focused staging procedures                                    | Compatibility that requires real credentials, topology, or upstream behavior |
+| Offline Python instruments | `python3 -m pytest scripts/e2e -q` (dependencies: `requirements-test.txt`)           | Validator, mocked-transport, and redaction behavior of `scripts/e2e/verify-*.py`; never a live journey |
 
 `test-e2e` runs real upstream service containers against a deterministic mock
 model, not real-model inference. Its New API service is pinned to an immutable
@@ -51,6 +52,26 @@ through the sibling with two request-ID-correlated PostgreSQL attempt logs. It
 restarts the server and checks persisted data. The schema is dropped on exit.
 The reduced fixture is not a complete historical PostgreSQL dump, and the
 deterministic relay does not establish real-model or downstream-client acceptance.
+
+### Offline instrument validators
+
+The `scripts/e2e/test_verify_*.py` files are pytest-native offline checks for the
+operator-facing `scripts/e2e/verify-*.py` instruments. Install the minimal test
+dependency and run the suite from the repository root:
+
+```bash
+python3 -m pip install --requirement requirements-test.txt
+python3 -m pytest scripts/e2e -q
+```
+
+`uvx --from 'pytest>=9,<10' pytest scripts/e2e -q` is an equivalent isolated
+invocation. The tests use in-memory fixtures, mocked curl, and synthetic
+credentials; they make no model calls and open no provider connections. They
+validate the instruments' parsing, failure, redaction, request-budget, and
+cleanup contracts. Passing this suite is not evidence that a live relay, New API
+management journey, or downstream-client acceptance run passed; those claims
+still require the corresponding `verify-*.py` command against the real
+environment described below.
 
 ## From historical bugs to user-task regressions
 
