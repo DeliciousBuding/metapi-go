@@ -37,6 +37,12 @@ bash .githooks/pre-push-project </dev/null
 它运行前端测试、类型、lint、格式、死代码检查和构建，再执行 Go build、vet、
 全量 race 测试。`scripts/go-race.sh` 使用当前 Go 工具链，不自动进入 WSL；
 Windows 原生的工具链要求与环境限制见[测试策略](docs/testing.md#本地-race-检查)。
+入口先单独构建 `web/dist`（Go 二进制嵌入它），随后把前端 check 与 Go lane
+（build → vet → 全量 race）并行执行；每个 lane 写独立日志，任一失败会取消另一
+lane 并以非零状态退出。`METAPI_PREPUSH_LANES=1` 在低核机器或排查时按相同
+顺序串行；设置 `PG_TEST_DSN` 时默认单 lane。未设置 `PG_TEST_DSN` 时，16 核
+以上机器由本地 gate 把 race 包并发默认提到 4，显式 `METAPI_RACE_PACKAGES`
+优先。
 `make verify` 先执行同一入口，再检查依赖、lint 和漏洞，并构建发行二进制；
 `make verify-race` 是它的别名。
 本地各层也可单独运行：`make test` 是 Go 快速套件，`make web-check` 是完整

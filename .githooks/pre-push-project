@@ -3,6 +3,12 @@
 # Managed installs: the global hook-kit chains .githooks/pre-push-project.
 # Standalone installs: .githooks/pre-push is a thin compatibility wrapper.
 # Skip with: git push --no-verify (emergency only).
+#
+# Order matters: cmd/server embeds web/dist, so the frontend build runs first.
+# After it succeeds the frontend check and the Go lane (build -> vet -> full
+# race) run in parallel with independent logs. The first failing lane cancels
+# its sibling; the hook propagates a non-zero status and prints the failing
+# log. METAPI_PREPUSH_LANES=1 keeps the same lanes but runs them serially.
 set -euo pipefail
 
 # Bound Go build/vet workers too; go's default -p follows GOMAXPROCS.
@@ -27,40 +33,287 @@ if [ "${delete_only:-0}" = "1" ]; then
 	exit 0
 fi
 
+gate_start=$SECONDS
+
 echo "=============================================="
 echo "pre-push: running local CI (frontend + build + vet + test -race)"
 echo "=============================================="
 
-# 1. Frontend gate — the Go binary embeds web/dist, so a fresh clone must
-# build the tested frontend before compiling cmd/server. Bun is mandatory.
-echo ""
-echo "[1/4] frontend gate (test + typecheck + lint + format + knip + build)"
 if ! command -v bun >/dev/null 2>&1; then
 	echo "  ✗ bun not found — cannot build the embedded SPA" >&2
 	exit 1
 fi
-(cd web && bun run check && bun run build:web)
-echo "  ✓ frontend passed"
 
-# 2. go build — compile only after web/dist has been generated.
-echo ""
-echo "[2/4] go build ./cmd/server"
-go build ./cmd/server
-echo "  ✓ build passed"
+# Only two lanes exist. Small machines and shared PostgreSQL fixtures keep the
+# serial form: the race entry already forces -p 1 for PG_TEST_DSN, and running
+# the frontend check alongside it only adds resource pressure.
+cpu_count="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+case "$cpu_count" in
+'' | *[!0-9]*) cpu_count=2 ;;
+esac
+lanes="${METAPI_PREPUSH_LANES:-}"
+if [ -z "$lanes" ]; then
+	if [ -n "${PG_TEST_DSN:-}" ] || [ "$cpu_count" -lt 4 ]; then
+		lanes=1
+	else
+		lanes=2
+	fi
+fi
+case "$lanes" in
+1 | 2) ;;
+*)
+	echo "pre-push: METAPI_PREPUSH_LANES must be 1 or 2 (got '$lanes')." >&2
+	exit 2
+	;;
+esac
 
-# 3. go vet — fast static analysis
-echo ""
-echo "[3/4] go vet ./..."
-go vet ./...
-echo "  ✓ vet passed"
+# Give the full race gate more package parallelism only when the machine has
+# cores to spare. An explicit METAPI_RACE_PACKAGES always wins, and shared
+# PostgreSQL fixtures keep the race entry's serial default.
+if [ -z "${METAPI_RACE_PACKAGES:-}" ] && [ -z "${PG_TEST_DSN:-}" ] && [ "$cpu_count" -ge 16 ]; then
+	export METAPI_RACE_PACKAGES=4
+fi
 
-# 4. full test suite with race detector
+run_dir="$(mktemp -d "${TMPDIR:-/tmp}/metapi-pre-push.XXXXXX")"
+echo "pre-push: lane logs: $run_dir"
+lane_pids=()
+lane_names=()
+lane_start=()
+
+# Kill a lane's whole process group. Background lanes are started with job
+# control enabled so $! is also the process-group id; the pgrep pass covers
+# shells that reparent grandchildren before the group kill lands.
+stop_lane() {
+	local pid="$1" child tries=0
+	if command -v pgrep >/dev/null 2>&1; then
+		for child in $(pgrep -P "$pid" 2>/dev/null || true); do
+			kill -TERM "$child" 2>/dev/null || true
+		done
+	fi
+	kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+	while kill -0 "$pid" 2>/dev/null && [ "$tries" -lt 50 ]; do
+		sleep 0.1
+		tries=$((tries + 1))
+	done
+	if kill -0 "$pid" 2>/dev/null; then
+		kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
+	fi
+}
+
+cleanup() {
+	local status=$? i
+	trap - EXIT INT TERM
+	if [ "${#lane_pids[@]}" -gt 0 ]; then
+		for i in "${!lane_pids[@]}"; do
+			stop_lane "${lane_pids[$i]}"
+		done
+		for i in "${!lane_pids[@]}"; do
+			wait "${lane_pids[$i]}" 2>/dev/null || true
+		done
+	fi
+	rm -rf "$run_dir"
+	exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Launch a lane in its own process group. The supervisor waits for the lane
+# body and writes its status even when the body is killed by the OOM killer or
+# SIGKILL. The waiter also checks job liveness, so a lane that dies before it
+# can write a status file can never hang the gate.
+start_lane() {
+	local name="$1" body="$2"
+	local log="$run_dir/$name.log" status_file="$run_dir/$name.status"
+	(
+		set +e
+		# Keep the body in the supervisor's process group so one group kill
+		# reaches the whole lane tree.
+		set +m
+		echo "== pre-push lane: $name (pid $BASHPID) =="
+		( "$body" ) &
+		body_pid=$!
+		wait "$body_pid"
+		rc=$?
+		echo "$rc" >"$status_file"
+		exit "$rc"
+	) >"$log" 2>&1 &
+	lane_pids+=("$!")
+	lane_names+=("$name")
+	lane_start+=("$SECONDS")
+	echo "  → $name started"
+}
+
+# jobs -pr only lists live background jobs; unlike kill -0 it drops zombies on
+# platforms where an unreaped process still answers signal 0.
+lane_alive() {
+	local pid="$1" job
+	for job in $(jobs -pr 2>/dev/null || true); do
+		if [ "$job" = "$pid" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+wait_lanes() {
+	local total="${#lane_pids[@]}"
+	local done_count=0
+	local failed_name=""
+	local failed_rc=0
+	local i rc progressed lane_done=()
+	for i in "${!lane_pids[@]}"; do
+		lane_done[i]=0
+	done
+
+	while [ "$done_count" -lt "$total" ]; do
+		progressed=0
+		for i in "${!lane_pids[@]}"; do
+			if [ "${lane_done[$i]}" -ne 0 ]; then
+				continue
+			fi
+			local status_file="$run_dir/${lane_names[$i]}.status"
+			if [ ! -s "$status_file" ] && lane_alive "${lane_pids[$i]}"; then
+				continue
+			fi
+			# A lane that died without a status file was killed before its
+			# supervisor could report. Stop its group first (orphaned
+			# children may still be alive), then reap and fail the gate.
+			if [ ! -s "$status_file" ]; then
+				stop_lane "${lane_pids[$i]}"
+			fi
+			if wait "${lane_pids[$i]}" 2>/dev/null; then
+				rc=0
+			else
+				rc=$?
+			fi
+			if [ -s "$status_file" ]; then
+				rc="$(cat "$status_file")"
+			elif [ "$rc" -eq 0 ] || [ "$rc" -eq 127 ]; then
+				rc=137
+			fi
+			case "$rc" in
+			'' | *[!0-9]*) rc=1 ;;
+			esac
+			lane_done[i]=1
+			done_count=$((done_count + 1))
+			progressed=1
+			if [ "$rc" -eq 0 ]; then
+				echo "  ✓ ${lane_names[$i]} passed in $((SECONDS - lane_start[$i]))s"
+			else
+				echo "  ✗ ${lane_names[$i]} failed after $((SECONDS - lane_start[$i]))s (exit $rc)" >&2
+				if [ ! -s "$status_file" ]; then
+					echo "  ✗ ${lane_names[$i]} exited without a status file (killed or out of memory?)" >&2
+				fi
+				if [ -z "$failed_name" ]; then
+					failed_name="${lane_names[$i]}"
+					failed_rc="$rc"
+				fi
+			fi
+		done
+
+		if [ -n "$failed_name" ]; then
+			for i in "${!lane_pids[@]}"; do
+				if [ "${lane_done[$i]}" -ne 0 ]; then
+					continue
+				fi
+				stop_lane "${lane_pids[$i]}"
+				wait "${lane_pids[$i]}" 2>/dev/null || true
+				lane_done[i]=1
+				done_count=$((done_count + 1))
+				echo "  ! ${lane_names[$i]} cancelled because ${failed_name} failed" >&2
+			done
+			break
+		fi
+
+		if [ "$progressed" -eq 0 ]; then
+			sleep 0.2
+		fi
+	done
+
+	if [ -n "$failed_name" ]; then
+		for i in "${!lane_names[@]}"; do
+			if [ "${lane_names[$i]}" != "$failed_name" ]; then
+				continue
+			fi
+			echo "" >&2
+			echo "----- ${failed_name} log -----" >&2
+			cat "$run_dir/${lane_names[$i]}.log" >&2 || true
+			echo "----- end ${failed_name} log -----" >&2
+		done
+	fi
+	lane_pids=()
+	return "$failed_rc"
+}
+
+run_lane_group() {
+	lane_pids=()
+	lane_names=()
+	lane_start=()
+	local name
+	for name in frontend-check go; do
+		case "$name" in
+		frontend-check) start_lane "$name" run_frontend_lane ;;
+		go) start_lane "$name" run_go_lane ;;
+		esac
+	done
+	wait_lanes
+}
+
+run_one_lane() {
+	lane_pids=()
+	lane_names=()
+	lane_start=()
+	case "$1" in
+	frontend-check) start_lane "$1" run_frontend_lane ;;
+	go) start_lane "$1" run_go_lane ;;
+	esac
+	wait_lanes
+}
+
+# 1/2. Frontend build — the Go binary embeds web/dist, so a fresh clone must
+# build the tested frontend before compiling cmd/server. This build runs before
+# both lanes on purpose: `bun run check` does not read dist, but no Go compile
+# or race may start before the embedded asset exists, and a build failure
+# should fail fast. Bun is mandatory.
 echo ""
-echo "[4/4] race gate (current Go environment)"
-bash ./scripts/go-race.sh
-echo "  ✓ tests passed (-race clean)"
+echo "[1/2] frontend build (generates web/dist for go:embed)"
+build_start=$SECONDS
+if ! (cd web && bun run build:web) >"$run_dir/frontend-build.log" 2>&1; then
+	echo "  ✗ frontend build failed after $((SECONDS - build_start))s" >&2
+	echo "----- frontend build log -----" >&2
+	cat "$run_dir/frontend-build.log" >&2 || true
+	echo "----- end frontend build log -----" >&2
+	exit 1
+fi
+echo "  ✓ frontend build passed in $((SECONDS - build_start))s"
+
+run_frontend_lane() {
+	(cd web && bun run check)
+}
+
+run_go_lane() {
+	go build ./cmd/server &&
+		go vet ./... &&
+		bash ./scripts/go-race.sh
+}
+
+# 2/2. The frontend check and the Go lane are independent once web/dist
+# exists. They keep their own logs; a failure in either one fails the gate.
+echo ""
+echo "[2/2] lanes (lanes=$lanes, cpus=$cpu_count)"
+echo "      frontend check  |  go build -> go vet -> full race"
+echo ""
+# Job control gives each lane its own process group for reliable cleanup.
+set -m
+if [ "$lanes" -eq 1 ]; then
+	run_one_lane frontend-check || exit $?
+	run_one_lane go || exit $?
+else
+	run_lane_group frontend-check go || exit $?
+fi
 
 echo ""
 echo "=============================================="
-echo "pre-push OK — all checks passed"
+echo "pre-push OK — all checks passed in $((SECONDS - gate_start))s"
 echo "=============================================="
