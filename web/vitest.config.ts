@@ -18,6 +18,12 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['**/node_modules/**', '**/dist/**'],
     maxWorkers: 4,
+    // Every async assertion keeps its own waitFor budget (1s by default), so
+    // the per-test ceiling only measures environment setup and CPU
+    // contention. Three different files hit the 5s default in CI on
+    // 2026-10-19 while passing in isolation; jsdom setup alone is ~35% of a
+    // run. A genuinely hung test still fails, ten seconds later.
+    testTimeout: 15_000,
     teardownTimeout: 10_000,
     sequence: { setupFiles: 'list' as const },
   },
