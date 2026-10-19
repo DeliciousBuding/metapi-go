@@ -21,6 +21,10 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+### 修复
+
+- 代理：客户端请求体不合法导致的上游 4xx 不再记为渠道失败，malformed Responses 请求返回 400 后不会把健康的上游 grant 打入冷却并让后续请求 503。
+
 ## [v0.26.0] — 2026-10-19
 
 ### 安全
