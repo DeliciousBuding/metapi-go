@@ -1,6 +1,6 @@
 # Testing Strategy and Real-Platform Testbed
 
-**Last verified**: 2026-10-17
+**Last verified**: 2026-10-19
 
 > Public, environment-agnostic test guidance. The version narrative lives in `CHANGELOG.md`; open outcomes are tracked as GitHub issues.
 
@@ -15,6 +15,7 @@ the browser language-switching suite protects the HTML language contract.
 
 | Layer                     | Command / asset                                                                      | Protects                                                                     |
 | :------------------------ | :----------------------------------------------------------------------------------- | :--------------------------------------------------------------------------- |
+| Local entrypoints         | `make test`, `make web-check`, `make build-check`, `make race`, `make verify`         | One stable developer interface over the same Go, Bun, and race tools used by CI |
 | Go unit and integration   | `go test ./... -count=1 -race`                                                       | Package behavior, dual dialect, concurrency, handlers, routing, transforms   |
 | Go formatting             | `gofmt -l` on tracked files (CI `lint` job, go.mod toolchain)                        | Whole-tree formatting consistency; the pinned toolchain keeps local and CI opinions identical |
 | Frontend static gates     | `bun run typecheck`, `lint`, `format:check`, `knip`, `test`, `build:web` in `web/` | Types, lint, dead code, UI contracts, production bundle                      |
