@@ -59,7 +59,7 @@ mod-verify:
 	$(GO) mod verify
 
 # Check the published tree for local paths, credential examples, AI citation artifacts,
-# unsupported runtime claims, and internal work-programme codes
+# unsupported runtime claims, internal work-programme codes, and oversized tracked files
 docs-hygiene:
 	go test ./docs -run 'Hygiene|ProgrammeCode' -count=1
 

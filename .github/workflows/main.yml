@@ -149,7 +149,7 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - name: Prose hygiene gates (public markdown + programme codes in sources)
+      - name: Repository hygiene gates (Markdown, programme codes, tracked file size)
         run: go test ./docs -run 'Hygiene|ProgrammeCode' -count=1
 
   frontend:

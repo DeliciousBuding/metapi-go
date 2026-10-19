@@ -201,6 +201,11 @@ CI 的 SQLite race shards 独立配置，不使用这个本地超时。
 PostgreSQL 行为测试覆盖。前端静态 FormControl 检查提示常见接线问题，
 Testing Library 验证实际 DOM 的 accessible name、describedby 和 invalid 状态。
 
+`docs/tracked_file_size_test.go` 读取 `git ls-files` 索引中各 blob 的大小；
+任一 tracked 文件超过 5 MiB 即失败并列出路径与字节数。它只覆盖当前索引，
+不扫描未跟踪文件或历史，需在完整 Git 检出中运行，随同一 docs-hygiene
+入口在本地和 CI 执行。
+
 查找已有门禁和负例实现时可用：
 
 ```sh
