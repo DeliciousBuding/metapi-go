@@ -558,7 +558,8 @@ type backupImportResult struct {
 	// keys from backupsvc.RuntimeLocalSettingKeys).
 	skippedSettings int64
 	// ignoredTables names payload tables this build no longer has, i.e. tables
-	// a backup written by an older build carried that have since been deleted.
+	// a backup written by an older build carried that have since been deleted,
+	// plus the transient quota-reservation table older exports still carry.
 	// Their rows are dropped; surfacing the names tells the operator the
 	// restore was partial instead of silently losing data.
 	ignoredTables []string
@@ -640,7 +641,10 @@ func backupPayloadHasProvenance(raw []byte) bool {
 //     (store.BackupExcludedTables: admin_sessions, admin_audit_logs, ...).
 //     Refusing it loudly is what stops a hand-written payload from smuggling
 //     session credentials or another deployment's audit trail past the
-//     exclusion, so that rejection is a 400 whatever the provenance.
+//     exclusion, so that rejection is a 400 whatever the provenance. The one
+//     exception is downstream_quota_reservations in a genuine export: backups
+//     written before it was excluded still carry this transient state and are
+//     skipped (and reported) instead of becoming unrestorable.
 //   - The payload is JSON somebody typed or pasted (no export metadata). An
 //     unknown key is then most likely a typo -- "settings_typo" instead of
 //     "settings" -- and answering 200 with nothing imported would hide it, so
@@ -662,6 +666,17 @@ func validateBackupImportTableKeys(tables map[string]json.RawMessage, fromExport
 			continue
 		}
 		_, isExcluded := excluded[table]
+		// A genuine export written before downstream_quota_reservations was
+		// excluded still carries its in-flight admission holds. Skipping and
+		// reporting that one transient table keeps the backup restorable: the
+		// holds are TTL-bound state owned by the source process and are never
+		// meaningful on the target. A hand-written payload still fails, and
+		// every other excluded table (session credentials, audit history, ...)
+		// keeps the reject-never-skip rule below.
+		if table == "downstream_quota_reservations" && fromExport {
+			ignored = append(ignored, table)
+			continue
+		}
 		if isExcluded || !fromExport {
 			return nil, backupImportClientError{message: fmt.Sprintf("import failed: unknown table %s", table)}
 		}

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -85,5 +86,32 @@ func TestBackupTableNamesPreserveRegistryOrder(t *testing.T) {
 	if len(got)+len(backupExcludedTables) != len(SchemaTableNames()) {
 		t.Fatalf("backup set (%d) + exclusions (%d) != registry (%d): every registry table must be "+
 			"accounted for exactly once", len(got), len(backupExcludedTables), len(SchemaTableNames()))
+	}
+}
+
+// TestQuotaReservationsAreTransientBackupExclusions pins the lifecycle split:
+// the table is still created, copied by cmd/migrate and wiped by a factory
+// reset like every registry table, but a backup must not carry its 30-minute
+// in-flight holds. Settled history lives in downstream_quota_usage, which is
+// not excluded.
+func TestQuotaReservationsAreTransientBackupExclusions(t *testing.T) {
+	const table = "downstream_quota_reservations"
+	if !slices.Contains(SchemaTableNames(), table) {
+		t.Fatalf("%s is missing from the schema registry", table)
+	}
+	if !slices.Contains(AllTableNames(), table) {
+		t.Fatalf("%s is missing from the dialect-migration table set", table)
+	}
+	if !slices.Contains(FactoryResetTableNames(), table) {
+		t.Fatalf("%s is missing from the factory-reset set", table)
+	}
+	if slices.Contains(BackupTableNames(), table) {
+		t.Fatalf("%s is carried by backups despite being transient admission state", table)
+	}
+	if _, ok := backupExcludedTables[table]; !ok {
+		t.Fatalf("%s is neither backed up nor excluded with a recorded reason", table)
+	}
+	if !slices.Contains(BackupTableNames(), "downstream_quota_usage") {
+		t.Fatalf("downstream_quota_usage must remain in backups: it is settled billing history")
 	}
 }

@@ -94,6 +94,7 @@ this payload does **not** carry to the reason, so a backup file states its own g
 | `admin_audit_logs` | Append-only audit trail of the source deployment's admin writes. Replaying it into another database makes that database's audit record assert operations that never happened there, and no retention job bounds its size. |
 | `model_probe_results` | High-frequency background probe telemetry that route rebuild reads as its latest-per-model signal; stale rows from another deployment would steer routing. The prober regenerates them after a restore. |
 | `catalog_sources` | Each row's `url` is fetched server-side by the catalog sync, and the import URL guard (`sites` / `site_api_endpoints` only) does not cover this table yet, so a crafted backup could plant an SSRF fetch target. |
+| `downstream_quota_reservations` | In-flight access-policy quota holds with a 30-minute TTL. They are settled by the source process, so replaying one would reserve quota on the target for a request that never ran there; settled `downstream_quota_usage` history is still carried. |
 
 `type=accounts` and `type=preferences` are scoped exports; `metadata.excluded_tables` additionally lists the tables
 outside that scope. Limits: 50,000 rows per table, 4 MiB per cell, 64 MiB per payload — exceeding one fails the export
@@ -153,7 +154,11 @@ backup exports remain subject to the separate export limits described above.
 
 Tables absent from the payload are skipped, so a backup written by an older build (which carried fewer tables) still
 imports. A payload naming a table the backup set excludes — or any table outside the schema registry — is rejected with
-`400 unknown table <name>`; the exclusion is enforced on import, not just omitted on export.
+`400 unknown table <name>`; the exclusion is enforced on import, not just omitted on export. The one compatibility
+exception is `downstream_quota_reservations`: a genuine export (one carrying export provenance in `metadata`, such as
+`exported_at` or `version`) written before the exclusion may still contain the transient table. Preview and import both
+skip it and list it in `ignoredTables` instead of restoring it. A hand-written payload naming it, and every other
+excluded table, is still rejected.
 
 ### AxonHub v1.4 import
 
