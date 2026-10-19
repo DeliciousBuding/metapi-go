@@ -101,12 +101,12 @@ describe('useProxyLogsColumns meta.labels', () => {
     expect(actions?.enableHiding).toBe(false)
   })
 
-  it('places status and failure copy in the full-width mobile field, not the card header', async () => {
+  it('keeps status and failure copy in the card body, not the card header', async () => {
     const cols = await loadColumns()
     const status = cols.find((column) => column.id === 'status')
 
     expect(status?.meta?.mobileBadge).toBeUndefined()
-    expect(status?.meta?.mobileFullWidth).toBe(true)
+    expect(status?.meta?.mobileHidden).toBeUndefined()
   })
 })
 

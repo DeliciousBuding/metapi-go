@@ -32,13 +32,16 @@ describe('proxy-attempt timing', () => {
         latencyMs={6500}
       />
     )
-    expect(screen.getByText('2.40 s')).toBeInTheDocument()
-    expect(screen.getByText('1.25 s')).toBeInTheDocument()
     expect(screen.getByText('6.50 s')).toBeInTheDocument()
+    expect(screen.getByText(/First output 2\.40 s/)).toBeInTheDocument()
+    expect(screen.getByRole('group')).toHaveAccessibleName(
+      /2\.40.*1\.25.*6\.50/
+    )
   })
   it('does not infer historical first output from response headers', () => {
     render(<TimingCell isStream firstByteLatencyMs={1250} latencyMs={6500} />)
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.queryByText(/First output/)).not.toBeInTheDocument()
+    expect(screen.getByText('6.50 s')).toBeInTheDocument()
   })
   it('rejects output before headers or after the completed attempt', () => {
     render(
@@ -49,23 +52,24 @@ describe('proxy-attempt timing', () => {
         latencyMs={6500}
       />
     )
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.queryByText(/First output/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/100 ms/)).not.toBeInTheDocument()
   })
   it('shows first byte and total as separate readable values', () => {
     render(<TimingCell firstByteLatencyMs={1250} latencyMs={6500} />)
-    expect(screen.getByText('1.25 s')).toBeInTheDocument()
     expect(screen.getByText('6.50 s')).toBeInTheDocument()
+    expect(screen.getByText(/First byte 1\.25 s/)).toBeInTheDocument()
     expect(screen.getByRole('group')).toHaveAccessibleName(/1.25.*6.50/)
   })
   it('keeps a missing first byte unknown instead of copying the total', () => {
     render(<TimingCell latencyMs={6500} />)
-    expect(screen.getByText('—')).toBeInTheDocument()
     expect(screen.getByText('6.50 s')).toBeInTheDocument()
+    expect(screen.queryByText(/First byte/)).not.toBeInTheDocument()
   })
   it('does not clamp an inconsistent first byte into an invented measurement', () => {
     render(<TimingCell firstByteLatencyMs={9000} latencyMs={6500} />)
-    expect(screen.getByText('—')).toBeInTheDocument()
     expect(screen.queryByText('9.00 s')).not.toBeInTheDocument()
+    expect(screen.queryByText(/First byte/)).not.toBeInTheDocument()
   })
   it('does not render non-finite durations', () => {
     render(
@@ -74,6 +78,7 @@ describe('proxy-attempt timing', () => {
         latencyMs={Number.POSITIVE_INFINITY}
       />
     )
-    expect(screen.getAllByText('—')).toHaveLength(2)
+    expect(screen.getAllByText('—')).toHaveLength(1)
+    expect(screen.queryByText(/First byte/)).not.toBeInTheDocument()
   })
 })

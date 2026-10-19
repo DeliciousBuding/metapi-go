@@ -105,7 +105,7 @@ describe('gateway request detail', () => {
     disclosure.open = true
     fireEvent(disclosure, new Event('toggle'))
     await waitFor(() => expect(api.getProxyLogDetail).toHaveBeenCalledWith(17))
-    expect(screen.getByText('0')).toBeInTheDocument()
+    expect(screen.getByTitle(/Input 0/)).toHaveTextContent('0 / —')
     expect(screen.getByText(/Estimated cost: Unknown/)).toBeInTheDocument()
   })
   it('shows a retryable query error rather than a successful empty request', async () => {

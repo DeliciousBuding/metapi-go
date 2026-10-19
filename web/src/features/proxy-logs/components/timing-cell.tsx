@@ -58,48 +58,46 @@ export function TimingCell(props: TimingCellProps) {
       })
     : t('proxyLogs.timing.ariaTotal', { total: totalLabel })
 
+  // One line carries the two numbers an operator scans for: the total, then
+  // the perceived first byte (streams: first generated output). The full
+  // three-way breakdown stays in the tooltip/aria label and the detail sheet.
+  const secondaryLabel = props.isStream
+    ? t('proxyLogs.timing.firstOutput')
+    : t('proxyLogs.timing.firstByte')
+  const secondaryValue = props.isStream ? outputLabel : firstLabel
+
   return (
     <div
       role='group'
+      title={
+        props.isStream
+          ? `${t('proxyLogs.timing.firstOutput')} ${outputLabel} · ${ariaLabel}`
+          : ariaLabel
+      }
       aria-label={
         props.isStream
           ? `${t('proxyLogs.timing.firstOutput')} ${outputLabel}, ${ariaLabel}`
           : ariaLabel
       }
       className={cn(
-        'grid w-fit grid-cols-[auto_auto] gap-x-3 gap-y-0.5 border-s-2 ps-2 text-xs leading-4 tabular-nums',
+        'flex min-w-0 items-baseline gap-1.5 border-s-2 ps-2 text-xs leading-4 tabular-nums',
         timingTone,
         props.className
       )}
     >
-      {props.isStream && (
-        <>
-          <span
-            className='text-muted-foreground'
-            title={t('proxyLogs.timing.outputHint')}
-          >
-            {t('proxyLogs.timing.firstOutput')}
-          </span>
-          <span className='text-end font-medium whitespace-nowrap'>
-            {outputLabel}
-          </span>
-        </>
+      <span className='font-medium whitespace-nowrap'>{totalLabel}</span>
+      {secondaryValue !== '—' && (
+        <span
+          className='text-muted-foreground text-2xs whitespace-nowrap'
+          title={
+            props.isStream
+              ? t('proxyLogs.timing.outputHint')
+              : t('proxyLogs.timing.headerHint')
+          }
+        >
+          {secondaryLabel} {secondaryValue}
+        </span>
       )}
-      <span
-        className='text-muted-foreground'
-        title={t('proxyLogs.timing.headerHint')}
-      >
-        {t('proxyLogs.timing.firstByte')}
-      </span>
-      <span className='text-end font-medium whitespace-nowrap'>
-        {firstLabel}
-      </span>
-      <span className='text-muted-foreground'>
-        {t('proxyLogs.timing.total')}
-      </span>
-      <span className='text-end font-medium whitespace-nowrap'>
-        {totalLabel}
-      </span>
     </div>
   )
 }

@@ -9,7 +9,7 @@ import { UsageCell } from '../usage-cell'
 afterEach(cleanup)
 describe('proxy log usage', () => {
   it('shows measured cache reads and writes without inventing a hit percentage', () => {
-    render(
+    const { container } = render(
       <UsageCell
         log={
           {
@@ -21,12 +21,17 @@ describe('proxy log usage', () => {
         }
       />
     )
-    expect(screen.getByText('900')).toBeInTheDocument()
-    expect(screen.getByText('20')).toBeInTheDocument()
+    expect(container.textContent).toContain('1,200 / 400')
+    expect(container.textContent).toContain('+900')
+    // Cache writes stay measured even though only the read is on the dense
+    // list line; the tooltip carries the full breakdown.
+    const cell = container.firstElementChild as HTMLElement
+    expect(cell.getAttribute('title')).toContain('900')
+    expect(cell.getAttribute('title')).toContain('20')
     expect(screen.queryByText(/%/)).not.toBeInTheDocument()
   })
   it('shows input and output without counting a total twice', () => {
-    render(
+    const { container } = render(
       <UsageCell
         log={
           {
@@ -37,25 +42,23 @@ describe('proxy log usage', () => {
         }
       />
     )
-    expect(screen.getByText('1,200')).toBeInTheDocument()
-    expect(screen.getByText('400')).toBeInTheDocument()
+    expect(container.textContent).toContain('1,200 / 400')
     expect(screen.queryByText('1,600')).not.toBeInTheDocument()
   })
   it('distinguishes observed zero from unavailable usage', () => {
-    render(
+    const { container } = render(
       <UsageCell
         log={{ promptTokens: 0, completionTokens: null } as ProxyLog}
       />
     )
-    expect(screen.getByText('0')).toBeInTheDocument()
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(container.textContent).toContain('0 / —')
   })
   it('does not display invalid negative or non-finite counts', () => {
-    render(
+    const { container } = render(
       <UsageCell
         log={{ promptTokens: -1, completionTokens: Infinity } as ProxyLog}
       />
     )
-    expect(screen.getAllByText('—')).toHaveLength(2)
+    expect(container.textContent).toContain('— / —')
   })
 })
