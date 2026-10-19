@@ -433,7 +433,9 @@ export function useRoutesColumns(
           />
         )
       },
-      meta: { pinned: 'right' },
+      // The card header already carries the state badge; putting the menu
+      // there removes the lone bottom-right row every card used to spend.
+      meta: { pinned: 'right', mobileActionsInHeader: true },
     },
   ]
 }

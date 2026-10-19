@@ -618,21 +618,23 @@ export function RoutesPage() {
                   {row.original.kind !== 'zero_channel' &&
                     !row.original.readOnly && (
                       <Button
-                        variant='outline'
-                        size='sm'
+                        variant='ghost'
+                        size='icon-xs'
+                        aria-label={t('common.edit')}
+                        title={t('common.edit')}
                         onClick={() => openEdit(row.original)}
                       >
                         <Pencil />
-                        {t('common.edit')}
                       </Button>
                     )}
                   <Button
                     variant='ghost'
-                    size='sm'
+                    size='icon-xs'
+                    aria-label={t('tokenRoutes.detail.openDiagnostics')}
+                    title={t('tokenRoutes.detail.openDiagnostics')}
                     onClick={() => rowActions.onViewDetail(row.original)}
                   >
                     <Activity />
-                    {t('tokenRoutes.detail.openDiagnostics')}
                   </Button>
                 </>
               }
