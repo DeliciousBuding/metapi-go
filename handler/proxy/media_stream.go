@@ -2,14 +2,16 @@ package proxyhandler
 
 import (
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 )
 
-// Native audio/video/text streams share the response limits and idle guard with
-// SSE, but retain their own bytes and headers. Never append JSON/SSE to a file.
+// Native audio/video/text streams share the response limits, idle guard and
+// bounded per-write downstream window with SSE, but retain their own bytes and
+// headers. Never append JSON/SSE to a file.
 func handleMediaByteStream(w http.ResponseWriter, r *http.Request, resp *http.Response) (ParsedUsage, streamOutcome) {
 	usage := ParsedUsage{Source: usageSourceUnknown}
 	limit := streamResponseByteLimit()
@@ -24,7 +26,11 @@ func handleMediaByteStream(w http.ResponseWriter, r *http.Request, resp *http.Re
 	defer body.Close()
 	relayUpstreamResponseHeaders(w, resp.Header)
 	w.WriteHeader(resp.StatusCode)
+	// The relay must not inherit the whole-request write deadline: a healthy
+	// long download outlives it. Each chunk instead gets its own bounded
+	// write+flush window, cleared again before the next upstream read.
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+	writeBudget := streamWriteTimeout()
 	var received int64
 	buffer := make([]byte, 32<<10)
 	for {
@@ -39,13 +45,22 @@ func handleMediaByteStream(w http.ResponseWriter, r *http.Request, resp *http.Re
 				n = int(remaining)
 			}
 			if n > 0 {
-				if _, writeErr := w.Write(buffer[:n]); writeErr != nil {
+				if writeErr := writeDownstreamChunk(w, buffer[:n], writeBudget); writeErr != nil {
+					message := "media downstream write failed"
+					if isDownstreamWriteTimeout(writeErr) {
+						message = "media downstream write timed out: client stopped reading"
+					}
+					slog.Warn(message,
+						"err", writeErr,
+						"write_timeout_sec", int(writeBudget.Seconds()),
+						"streamed_bytes", received,
+					)
+					// The client is gone: keep unknown usage, never record this
+					// as an upstream fault. The caller's defer closes the
+					// upstream body and releases the slot.
 					return usage, streamEndedClientDisconnect
 				}
 				received += int64(n)
-				if f, ok := w.(http.Flusher); ok {
-					f.Flush()
-				}
 			}
 			if exceeded {
 				return usage, streamEndedTruncated

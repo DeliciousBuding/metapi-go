@@ -181,7 +181,12 @@ func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntr
 	if writer == nil {
 		writer = defaultLogProxyWriter
 	}
-	if err := writer(ctx, entry); err != nil {
+	// An attempt is a completion observation, just like its gateway request
+	// record. Caller cancellation must not erase it in synchronous mode or
+	// when the async queue overflows, but a failed database must remain bounded.
+	writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+	defer cancel()
+	if err := writer(writeCtx, entry); err != nil {
 		slog.Warn("LogProxy failed",
 			"err", err,
 			"status", entry.Status,

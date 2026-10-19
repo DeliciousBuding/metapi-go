@@ -148,7 +148,8 @@ target is trusted and the escape hatch is genuinely needed.
 | `PROXY_IDLE_CONN_TIMEOUT_SEC` | `90` | Idle keep-alive connection TTL in the pooled outbound transports. |
 | `PROXY_REQUEST_TIMEOUT_SEC` | `30` | Platform HTTP client timeout; not a lifetime limit for an active SSE stream. |
 | `PROXY_STREAM_IDLE_TIMEOUT_SEC` | `300` | Chunk-gap guard for a flowing SSE stream: every relayed chunk resets the window, and a gap longer than this aborts the stream and records it as an upstream timeout fault. It does **not** cap total stream duration. |
-| `PROXY_SSE_WRITE_TIMEOUT_SEC` | `60` | Maximum time for one downstream SSE write+flush. The relay arms it immediately before the write and clears it immediately after, so it never caps total stream duration or the wait for the next upstream chunk; a client that stops reading is disconnected instead of holding the relay and its site slot. |
+| `PROXY_STREAM_WRITE_TIMEOUT_SEC` | `60` | Maximum time for one downstream write+flush on any relayed stream, SSE or native audio/video byte stream. The relay arms it immediately before the write and clears it immediately after, so it never caps total stream duration or the wait for the next upstream chunk; a client that stops reading is disconnected instead of holding the relay and its site slot. |
+| `PROXY_SSE_WRITE_TIMEOUT_SEC` | empty | Deprecated alias for `PROXY_STREAM_WRITE_TIMEOUT_SEC`, kept so deployments configured before native media shared the budget keep working. The canonical name wins when both are set; leave this empty. |
 | `METAPI_ENABLE_PROXY_STUB` | empty | Test/demo-only local stub; leave empty in production (unconfigured forwarding returns an honest 503). |
 | `SYSTEM_PROXY_URL` | empty | Outbound HTTP proxy for upstream calls. |
 

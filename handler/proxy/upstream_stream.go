@@ -131,7 +131,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	// A relay must not inherit the server-level WriteTimeout (60s) or the
 	// proxy-surface write budget: both bound a whole request, so a healthy long
 	// completion would be torn down mid-stream. Each downstream write+flush
-	// instead gets its own bounded window (PROXY_SSE_WRITE_TIMEOUT_SEC), armed
+	// instead gets its own bounded window (PROXY_STREAM_WRITE_TIMEOUT_SEC), armed
 	// immediately before the I/O and cleared immediately after it. The deadline
 	// must never outlive a write: net/http's HTTP/2 server turns it into a
 	// timer that resets the stream when it fires, which would kill a healthy
@@ -490,7 +490,7 @@ func streamResponseByteLimit() int64 {
 // the budget, and a stale deadline from an earlier chunk cannot make these
 // writes fail instantly.
 func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budget time.Duration) error {
-	clear := armSSEWriteDeadline(w, budget)
+	clear := armStreamWriteDeadline(w, budget)
 	defer clear()
 
 	endpoint, _ := proxy.EndpointFromPath(path)
@@ -519,7 +519,7 @@ func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budge
 			return err
 		}
 	}
-	return flushSSE(w)
+	return flushStream(w)
 }
 
 func relayUpstreamErrorResponse(w http.ResponseWriter, resp *http.Response, latencyMs int64) {
@@ -553,15 +553,15 @@ func streamIdleTimeout() time.Duration {
 	return time.Duration(sec) * time.Second
 }
 
-// streamWriteTimeout returns the downstream per-write deadline for SSE relays
-// from the startup-loaded config singleton, falling back to
-// DefaultProxySSEWriteTimeoutSec when config is not loaded (tests) or the
-// operator value is non-positive. Like the other PROXY_* timeouts the value is
-// frozen at startup.
+// streamWriteTimeout returns the downstream per-write deadline for every
+// relayed stream (SSE and native media byte streams) from the startup-loaded
+// config singleton, falling back to DefaultProxyStreamWriteTimeoutSec when
+// config is not loaded (tests) or the operator value is non-positive. Like the
+// other PROXY_* timeouts the value is frozen at startup.
 func streamWriteTimeout() time.Duration {
-	sec := config.DefaultProxySSEWriteTimeoutSec
-	if cfg := config.GetSafe(); cfg != nil && cfg.ProxySSEWriteTimeoutSec > 0 {
-		sec = cfg.ProxySSEWriteTimeoutSec
+	sec := config.DefaultProxyStreamWriteTimeoutSec
+	if cfg := config.GetSafe(); cfg != nil && cfg.ProxyStreamWriteTimeoutSec > 0 {
+		sec = cfg.ProxyStreamWriteTimeoutSec
 	}
 	return time.Duration(sec) * time.Second
 }
@@ -572,16 +572,16 @@ func streamWriteTimeout() time.Duration {
 // in Flush, and a flush error means the connection is gone even when Write
 // accepted the bytes.
 func writeDownstreamChunk(w http.ResponseWriter, chunk []byte, budget time.Duration) error {
-	clear := armSSEWriteDeadline(w, budget)
+	clear := armStreamWriteDeadline(w, budget)
 	defer clear()
 
 	if _, err := w.Write(chunk); err != nil {
 		return err
 	}
-	return flushSSE(w)
+	return flushStream(w)
 }
 
-// armSSEWriteDeadline bounds the caller's immediately following write and
+// armStreamWriteDeadline bounds the caller's immediately following write and
 // returns the function that clears the deadline again. Callers MUST clear it:
 // the HTTP/2 server implements SetWriteDeadline with a per-stream timer that
 // resets the stream when it fires, even while the handler is idle waiting for
@@ -591,7 +591,7 @@ func writeDownstreamChunk(w http.ResponseWriter, chunk []byte, budget time.Durat
 // Writers without SetWriteDeadline support (httptest recorders and custom test
 // writers) keep their existing unbounded behavior. http.ResponseController
 // unwraps middleware wrappers such as router.statusRecorder.
-func armSSEWriteDeadline(w http.ResponseWriter, budget time.Duration) func() {
+func armStreamWriteDeadline(w http.ResponseWriter, budget time.Duration) func() {
 	clear := func() {}
 	if budget <= 0 {
 		return clear
@@ -609,11 +609,11 @@ func clearStreamWriteDeadline(w http.ResponseWriter) {
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
 }
 
-// flushSSE flushes the current downstream buffer. A writer without flush
+// flushStream flushes the current downstream buffer. A writer without flush
 // support keeps the historical no-op behavior (it cannot be a real streaming
 // transport); any other error is a downstream failure the relay must act on
 // instead of silently continuing to read the upstream.
-func flushSSE(w http.ResponseWriter) error {
+func flushStream(w http.ResponseWriter) error {
 	err := http.NewResponseController(w).Flush()
 	if err != nil && errors.Is(err, http.ErrNotSupported) {
 		return nil
