@@ -20,36 +20,43 @@ export function UsageCell({
   const locale = toBcp47(i18n.language || 'en')
   const count = (value: number | null | undefined) =>
     value != null && value >= 0 ? formatInt(value, locale) : '—'
+  const cacheRead =
+    typeof log.cacheReadTokens === 'number' &&
+    Number.isFinite(log.cacheReadTokens) &&
+    log.cacheReadTokens > 0
+      ? count(log.cacheReadTokens)
+      : null
+  const cacheCreation =
+    typeof log.cacheCreationTokens === 'number' &&
+    Number.isFinite(log.cacheCreationTokens) &&
+    log.cacheCreationTokens > 0
+      ? count(log.cacheCreationTokens)
+      : null
+  const detail = [
+    `${t('proxyLogs.usage.input')} ${count(log.promptTokens)}`,
+    `${t('proxyLogs.usage.output')} ${count(log.completionTokens)}`,
+    cacheRead && `${t('proxyLogs.usage.cacheRead')} ${cacheRead}`,
+    cacheCreation && `${t('proxyLogs.usage.cacheCreation')} ${cacheCreation}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
   return (
-    <div className='flex flex-col gap-0.5 text-xs tabular-nums'>
-      <span className='flex items-baseline gap-2'>
-        <span className='text-muted-foreground'>
-          {t('proxyLogs.usage.input')}
-        </span>
-        <span>{count(log.promptTokens)}</span>
+    <div
+      className='flex min-w-0 items-baseline gap-1.5 text-xs tabular-nums'
+      title={detail}
+    >
+      <span className='whitespace-nowrap'>
+        {count(log.promptTokens)}
+        <span className='text-muted-foreground'> / </span>
+        {count(log.completionTokens)}
       </span>
-      <span className='flex items-baseline gap-2'>
-        <span className='text-muted-foreground'>
-          {t('proxyLogs.usage.output')}
+      {cacheRead && (
+        <span className='text-muted-foreground text-2xs whitespace-nowrap'>
+          <span className='sr-only'>{t('proxyLogs.usage.cacheRead')} </span>+
+          {cacheRead}
         </span>
-        <span>{count(log.completionTokens)}</span>
-      </span>
-      {typeof log.cacheReadTokens === 'number' &&
-      Number.isFinite(log.cacheReadTokens) &&
-      log.cacheReadTokens > 0 ? (
-        <span className='text-muted-foreground flex items-baseline gap-2'>
-          <span>{t('proxyLogs.usage.cacheRead')}</span>
-          <span>{count(log.cacheReadTokens)}</span>
-        </span>
-      ) : null}
-      {typeof log.cacheCreationTokens === 'number' &&
-      Number.isFinite(log.cacheCreationTokens) &&
-      log.cacheCreationTokens > 0 ? (
-        <span className='text-muted-foreground flex items-baseline gap-2'>
-          <span>{t('proxyLogs.usage.cacheCreation')}</span>
-          <span>{count(log.cacheCreationTokens)}</span>
-        </span>
-      ) : null}
+      )}
     </div>
   )
 }

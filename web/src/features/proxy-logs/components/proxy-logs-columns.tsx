@@ -87,7 +87,10 @@ export function useProxyLogsColumns(
       id: 'account',
       accessorFn: (row) => row.username ?? row.accountId ?? null,
       size: 140,
-      meta: { label: t('proxyLogs.columns.account'), mobileOrder: 5 },
+      meta: {
+        label: t('proxyLogs.columns.account'),
+        mobileOrder: 5,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -192,7 +195,6 @@ export function useProxyLogsColumns(
       size: 200,
       meta: {
         label: t('proxyLogs.columns.status'),
-        mobileFullWidth: true,
         mobileOrder: 1,
       },
       header: ({ column }) => (
@@ -240,7 +242,7 @@ export function useProxyLogsColumns(
     {
       id: 'usage',
       size: 130,
-      meta: { label: t('proxyLogs.columns.usage'), mobileOrder: 6 },
+      meta: { label: t('proxyLogs.columns.usage'), mobileOrder: 4 },
       header: () => t('proxyLogs.columns.usage'),
       cell: ({ row }) => <UsageCell log={row.original} />,
     },
@@ -248,7 +250,13 @@ export function useProxyLogsColumns(
       id: 'estimatedCost',
       accessorKey: 'estimatedCost',
       size: 125,
-      meta: { label: t('proxyLogs.columns.cost'), mobileOrder: 7 },
+      // The cost is short enough to sit in the card header beside the timestamp,
+      // which keeps the body to two field rows instead of an orphan third row.
+      meta: {
+        label: t('proxyLogs.columns.cost'),
+        mobileBadge: true,
+        mobileOrder: 6,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -256,7 +264,7 @@ export function useProxyLogsColumns(
         />
       ),
       cell: ({ row }) => (
-        <span className='bg-muted inline-flex rounded-md px-2 py-1 text-xs tabular-nums'>
+        <span className='text-xs tabular-nums'>
           {formatCurrency(row.original.estimatedCost, {
             fractionDigits: 6,
             locale,
@@ -268,7 +276,11 @@ export function useProxyLogsColumns(
       id: 'isStream',
       accessorKey: 'isStream',
       size: 90,
-      meta: { label: t('proxyLogs.columns.mode'), mobileOrder: 8 },
+      meta: {
+        label: t('proxyLogs.columns.mode'),
+        mobileHidden: true,
+        mobileOrder: 8,
+      },
       header: () => t('proxyLogs.columns.mode'),
       cell: ({ row }) => (
         <span className='text-muted-foreground text-xs'>
@@ -355,7 +367,11 @@ export function useProxyLogsColumns(
       enableSorting: false,
       enableHiding: false,
       enableResizing: false,
-      meta: { mobileHidden: false, mobileOrder: 4 },
+      meta: {
+        mobileHidden: false,
+        mobileOrder: 4,
+        mobileActionsInHeader: true,
+      },
       header: () => (
         <span className='text-muted-foreground text-xs'>
           {t('proxyLogs.columns.actions')}
