@@ -405,12 +405,6 @@ func DoWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfi
 	return doWithProxy(ctx, req, proxyConfig, false, 0)
 }
 
-// DoWithProxyStream dispatches a stream with the default finite header budget.
-// Use DoWithProxyStreamBudget when an explicit first-byte budget is available.
-func DoWithProxyStream(ctx context.Context, req *http.Request, proxyConfig *ProxyConfig) (*http.Response, error) {
-	return DoWithProxyStreamBudget(ctx, req, proxyConfig, 0)
-}
-
 // DoWithProxyStreamBudget uses one header timer, not the buffered transport's
 // header or whole-request timeout. firstByteTimeoutMs is milliseconds; values
 // <= 0 use httpclient.DefaultRequestCeiling. After headers, the caller and relay

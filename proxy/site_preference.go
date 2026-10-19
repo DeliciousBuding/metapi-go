@@ -10,11 +10,6 @@ import (
 // that already depend on proxy (handler layer).
 type SiteProtocolPreference = profiles.SiteProtocolPreference
 
-// DetectSiteProtocolPreference resolves responses-only / stream preference for a site.
-func DetectSiteProtocolPreference(platform, siteURL string, customHeaders map[string]string) SiteProtocolPreference {
-	return profiles.DetectSiteProtocolPreference(platform, siteURL, customHeaders)
-}
-
 // DetectSiteProtocolPreferenceFromSite is a convenience for store.Site-like fields.
 func DetectSiteProtocolPreferenceFromSite(platform, siteURL string, customHeadersJSON *string) SiteProtocolPreference {
 	var headers map[string]string
@@ -22,11 +17,6 @@ func DetectSiteProtocolPreferenceFromSite(platform, siteURL string, customHeader
 		headers = profiles.ParseCustomHeadersJSON(*customHeadersJSON)
 	}
 	return profiles.DetectSiteProtocolPreference(platform, siteURL, headers)
-}
-
-// IsResponsesOnlySite reports whether the site is responses-only.
-func IsResponsesOnlySite(platform, siteURL string, customHeaders map[string]string) bool {
-	return profiles.IsResponsesOnlySite(platform, siteURL, customHeaders)
 }
 
 // IsMetapiControlHeader reports whether a custom header is a Metapi control signal
