@@ -1,6 +1,6 @@
 # UI component ownership map
 
-**Last verified**: 2026-09-12
+**Last updated**: 2026-10-19
 
 The implementation is the primitive API source of truth. The pre-rewrite `ds-*` library and its gallery no longer exist; use Git history when that implementation history is needed.
 

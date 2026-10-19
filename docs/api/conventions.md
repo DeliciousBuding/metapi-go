@@ -3,8 +3,8 @@
 > **Index**: back to [API Reference](../api.md). This file is the Conventions, auth model, response formats, billing, security, CORS & trusted IPs domain split out of the pre-`docs/api/` `docs/api.md`.
 
 
-**Last updated**: 2026-08-29
-**Coverage note**: every `/api` route registered by the Go server gets a `### METHOD /path` detail section — the authoritative route list is the [Admin Route Inventory](#admin-route-inventory) at the bottom. Backward-compat aliases (e.g. `GET /api/stats/model-prices`) are documented as aliases rather than duplicating the canonical handler.
+**Last updated**: 2026-10-19
+**Coverage note**: every `/api` route registered by the Go server gets a `### METHOD /path` detail section — the authoritative route list is the [Admin Route Inventory](routes-inventory.md#admin-route-inventory). Backward-compat aliases (e.g. `GET /api/stats/model-prices`) are documented as aliases rather than duplicating the canonical handler.
 
 Base URL: `http://localhost:4000/api`
 

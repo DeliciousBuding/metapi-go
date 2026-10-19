@@ -22,7 +22,7 @@
   <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml/badge.svg?branch=master"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-latest-2496ED?logo=docker&logoColor=white"></a>
-  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go">
+  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.9-00ADD8?logo=go">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPLv3-3DA639?logo=opensourceinitiative&logoColor=white"></a>
 </p>
 
@@ -45,13 +45,13 @@ AI 生态里基于 New API / One API 系列的聚合中转站越来越多，多�
 
 - **聚合面板**：New API、One API、OneHub、DoneHub、Veloera、AnyRouter、Sub2API
 - **通用兼容接口**：OpenAI / Claude / Gemini 兼容端点，以及 `cliproxyapi` / CPA
-- **OAuth 连接**：Codex、Claude、Gemini CLI、Antigravity
+- **OAuth 连接**：Codex、Claude、Gemini CLI、Antigravity、GitHub Copilot
 
 ## 特性
 
 | 能力               | 说明                                                                                                   |
 | ------------------ | ------------------------------------------------------------------------------------------------------ |
-| **16 个上游适配器** | New API / One API / OneHub / DoneHub / Veloera / AnyRouter / Sub2API / OpenAI / Claude / Gemini / Gemini CLI / Codex / Antigravity / Grok / CLIProxyAPI / SenseTime |
+| **17 个上游适配器** | New API / One API / OneHub / DoneHub / Veloera / AnyRouter / Sub2API / OpenAI / Claude / Gemini / Gemini CLI / Codex / Antigravity / Grok / GitHub Copilot / CLIProxyAPI / SenseTime |
 | **统一代理**        | OpenAI 与 Claude 双协议：Chat / Responses / Messages / Embeddings / Images / Models / Files，SSE 流式；Messages→Chat 的文本与客户端工具回退支持 JSON/SSE 返回转换 |
 | **路由与容错**      | 模型自动发现；通道按账号模型可用性绑定；可在设置中开启自动创建缺失模型路由（默认关闭）；重建在后台执行并可追踪结果；按成本/余额/使用权重分配多通道；失败通道自动冷却并重试下一通道；运行时熔断 + half-open 探测 |
 | **计费真值**        | 四级成本信号（实测 → 账号配置 → models.dev 目录参考价 → 兜底）；使用日志逐请求记录 Token 与成本 |
@@ -156,7 +156,7 @@ docker compose up -d
 
 ### 方式三：源码构建
 
-需要 Go 1.26+ 与 Bun 1.x。前端必须先构建——产物经 `go:embed` 打包进二进制，跳过会报 `pattern dist: no matching files found`：
+需要 Go 1.26.9+ 与 Bun 1.x。前端必须先构建——产物经 `go:embed` 打包进二进制，跳过会报 `pattern dist: no matching files found`：
 
 ```bash
 git clone https://github.com/DeliciousBuding/metapi-go.git
@@ -203,26 +203,11 @@ Claude 原生格式（`/v1/messages`）、Responses、Embeddings、Images、`/v1
 
 ## 部署与配置
 
-启动时配置管理令牌，下游访问令牌在 API 密钥页管理：
-
-| 变量          | 说明                          |
-| ------------- | ----------------------------- |
-| `AUTH_TOKEN`  | 管理后台登录令牌              |
-| `PROXY_TOKEN` | 可选，旧根密钥的一次性升级导入值 |
-
-常用项：
-
-| 变量                        | 默认值              | 说明                                          |
-| --------------------------- | ------------------- | --------------------------------------------- |
-| `ACCOUNT_CREDENTIAL_SECRET` | 回退 `AUTH_TOKEN`   | 上游凭据加密密钥，建议 32+ 字节随机串         |
-| `PORT`                      | `4000`              | 监听端口                                      |
-| `DATA_DIR`                  | `./data`            | 数据目录（SQLite 库与上传文件）               |
-| `DATABASE_URL`              | 空                  | PostgreSQL 连接串；留空使用 SQLite            |
-| `LOG_LEVEL`                 | `info`              | 日志级别：`debug` / `info` / `warn` / `error` |
-| `CHECKIN_CRON`              | `0 8 * * *`         | 签到时间                                      |
-| `BALANCE_REFRESH_CRON`      | `0 * * * *`         | 余额刷新频率                                  |
-
-完整清单（约 150 项）见 [配置参考](docs/configuration.md) 与 [`.env.example`](.env.example)。
+环境变量的名称、alias、优先级、默认值和钳制规则由
+[配置参考](docs/configuration.md)统一维护，[`.env.example`](.env.example)
+是可直接复制的模板。未设置管理令牌时，首次启动会生成一个并写入
+`DATA_DIR/admin-token`；生产环境还应设置独立的上游凭据加密密钥。下游访问令牌
+在「API 密钥」页管理，旧根密钥仅在升级时一次性导入。
 
 **健康检查**：`GET /health`（liveness）、`GET /ready`（readiness，检查数据库）；Docker 镜像内置 `metapi healthcheck` 等价探测 `/ready`。
 
@@ -238,7 +223,6 @@ Claude 原生格式（`/v1/messages`）、Responses、Embeddings、Images、`/v1
 | [docs/migration.md](docs/migration.md)                   | TS → Go 迁移（SQLite / PG / MySQL）                   |
 | [docs/faq.md](docs/faq.md)                               | 常见问题                                              |
 | [docs/api/routes-inventory.md](docs/api/routes-inventory.md) | 已注册 `/api` 路由全量清单（由 `docs/api_inventory_parity_test.go` 与代码对账） |
-| [docs/configuration.md](docs/configuration.md)         | 每个环境变量的真实默认值与钳制规则（由 `docs/env_parity_test.go` 与 `.env.example`、`config/config.go` 对账） |
 | [docs/architecture.md](docs/architecture.md)             | 分层与所有权边界、一次 `/v1` 请求经过哪些阶段（改代码或排查归属前读） |
 | [CHANGELOG.md](CHANGELOG.md)                             | 版本变更                                              |
 
@@ -256,40 +240,14 @@ Claude 原生格式（`/v1/messages`）、Responses、Embeddings、Images、`/v1
 
 ## 开发
 
-### 后端（Go）
+前端设置、定向检查与完整本地门禁见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+常用入口是 `make test`（Go 快速套件）和 `make web-check`（前端完整检查）；
+前端本地开发在 `web/` 下运行 `bun run dev`。命令与 `web/package.json` 的脚本
+由贡献文档维护，这里不再保留第二份清单。
 
-```bash
-make build    # 构建
-make test     # 全部测试（不含 -race）
-make race     # 全部测试 + race detector
-make vet      # go vet
-make lint     # golangci-lint
-make vuln     # govulncheck 漏洞扫描
-```
-
-### 前端（`web/`，Bun）
-
-```bash
-cd web
-bun install
-bun run dev         # 本地开发（/api /v1 代理到后端 :4000）
-bun run typecheck   # tsgo 类型检查
-bun run test        # vitest 全量
-bun run build       # rsbuild 构建（产物经 go:embed 打包进 Go 二进制）
-```
-
-贡献流程（分支模型、PR 门禁）见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
-## 验证说明
-
-本项目的文档命令按以下口径核实，集中说明一次，正文不再重复：
-
-| 路径                                  | 核实口径                                             |
-| ------------------------------------- | ---------------------------------------------------- |
-| Release 二进制：安装脚本 → 空数据目录启动 → 健康检查 → 文档路径建站点/账号/路由 → 真实中继 | 端到端实测（v0.19.0）                |
-| 源码构建：前端构建 → go build → 启动   | 端到端实测                                           |
-| Docker / Compose 命令                  | 与仓库 `Dockerfile` / `docker-compose.yml` 核对；CI 解析 Compose 配置 |
-| 未配置路由返回 503、健康检查退出码     | 实测                                                 |
+README 记录的最后一次全链路验收是 v0.19.0（安装器 → 真实中继）；此后变化的
+入口按仓库配置和 CI 核对，不据此声称当前版本已完成同样的端到端验收。版本证据
+以 [CHANGELOG.md](CHANGELOG.md) 和 release notes 为准。
 
 ## 贡献与安全
 

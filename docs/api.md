@@ -1,6 +1,6 @@
 # Admin API Reference
 
-**Last updated**: 2026-09-03
+**Last updated**: 2026-10-19
 **Index**: the API reference is split by domain into [`api/`](api/) (one file per domain, table below); detailed endpoint listings live in each domain page.
 
 Base URL: `http://localhost:4000/api`. Authentication model, response formats, request-body rules, billing, security notes, CORS and trusted-IP conventions: [docs/api/conventions.md](api/conventions.md).
@@ -23,6 +23,6 @@ Base URL: `http://localhost:4000/api`. Authentication model, response formats, r
 | Resin/scheduler/rates/audit-logs/ops-ws, search, tasks & test surfaces | [`diagnostics.md`](api/diagnostics.md) |
 | Admin session model (login/logout/session/ws-ticket) | [`auth.md`](api/auth.md) |
 | OAuth providers, sessions, connections & route units | [`oauth.md`](api/oauth.md) |
-| /health /ready & /about | [`health.md`](api/health.md) |
+| /health /ready /metrics & /about | [`health.md`](api/health.md) |
 | Full registered /api route inventory | [`routes-inventory.md`](api/routes-inventory.md) |
 | /v1/files & /v1/pricing | [`proxy.md`](api/proxy.md) |

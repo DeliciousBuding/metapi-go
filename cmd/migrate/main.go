@@ -33,8 +33,8 @@ import (
 // ---- CLI flags ----
 
 var (
-	flagFrom      = flag.String("from", "", "Source SQLite database (sqlite://path or plain path)")
-	flagTo        = flag.String("to", "", "Target PostgreSQL connection string (postgres://user:pass@host:port/db)")
+	flagFrom      = flag.String("from", "", "Source database (sqlite://path, plain path, or postgres://...)")
+	flagTo        = flag.String("to", "", "Target database (postgres://... or sqlite://path)")
 	flagDryRun    = flag.Bool("dry-run", false, "Validate and print migration plan without writing data")
 	flagProgress  = flag.Bool("progress", false, "Show per-table progress during transfer")
 	flagVerify    = flag.Bool("verify", false, "Compute row-count + hash checksum after migration")
