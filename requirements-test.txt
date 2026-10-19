@@ -1,0 +1,2 @@
+# Offline Python instrument validators under scripts/e2e/.
+pytest>=9,<10

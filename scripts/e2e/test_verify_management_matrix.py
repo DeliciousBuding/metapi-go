@@ -2,7 +2,8 @@
 
 import importlib.util
 from pathlib import Path
-import unittest
+
+import pytest
 
 
 spec = importlib.util.spec_from_file_location(
@@ -89,66 +90,78 @@ class FixtureHTTP:
         raise AssertionError("unexpected request")
 
 
-class ManagementMatrixInstrumentTest(unittest.TestCase):
-    def run_fixture(self, **kwargs):
-        events = []
-        http = FixtureHTTP(**kwargs)
-        rc = matrix.run(CONFIG, http, events.append)
-        return rc, events, http
-
-    def test_complete_journey_requires_all_eight_real_operations(self):
-        rc, events, http = self.run_fixture()
-        summary = events[-1]
-        self.assertEqual(rc, 0)
-        self.assertEqual(summary["status"], "PASS")
-        self.assertEqual(summary["completedChecks"], len(matrix.CHECKS))
-        self.assertEqual([e["name"] for e in events if e["event"] == "check"], list(matrix.CHECKS))
-        self.assertGreater(http.count, len(matrix.CHECKS))
-        self.assertIn((CONFIG["newapi"], "GET", "/api/token/?p=1&page_size=100"), http.paths)
-        self.assertEqual(http.local, [])
-        self.assertEqual(http.upstream, [])
-        self.assertFalse(any("fixture-password" in str(event) or "fixture-session" in str(event)
-                             for event in events))
-
-    def test_local_success_without_upstream_token_is_red(self):
-        rc, events, _ = self.run_fixture(omit_upstream_create=True)
-        self.assertEqual(rc, 1)
-        self.assertEqual(events[-1]["code"], "assertion_failed_upstream_token_observed")
-        self.assertGreater(len(events[-1]["missingChecks"]), 0)
-
-    def test_local_delete_without_upstream_delete_is_red(self):
-        rc, events, _ = self.run_fixture(omit_upstream_delete=True)
-        self.assertEqual(rc, 1)
-        self.assertEqual(events[-1]["code"], "assertion_failed_created_token_deleted_on_both_sides")
-
-    def test_partial_upstream_inventory_does_not_prove_absence(self):
-        rc, events, http = self.run_fixture(partial_inventory=True)
-        self.assertEqual(rc, 1)
-        self.assertEqual(events[-1]["code"], "incomplete_upstream_inventory")
-        self.assertIsNone(http.site)
-
-    def test_upstream_error_body_is_never_reported(self):
-        rc, events, _ = self.run_fixture(leaky_login_failure=True)
-        self.assertEqual(rc, 1)
-        self.assertEqual(events[-1]["code"], "unexpected_http_status")
-        self.assertNotIn("fixture-password", str(events))
-        self.assertNotIn("fixture-session", str(events))
-
-    def test_zero_check_matrix_and_missing_opt_in_are_red(self):
-        events = []
-        report = matrix.Report(events.append)
-        self.assertEqual(report.finish(None, FixtureHTTP()), 1)
-        self.assertEqual(events[-1]["status"], "FAIL")
-        with self.assertRaises(matrix.Failure) as err:
-            matrix.config({"MANAGEMENT_DISPOSABLE": "1"})
-        self.assertEqual(err.exception.code, "disposable_opt_in_required")
-
-    def test_remote_or_ambiguous_origins_are_rejected(self):
-        for value in ("https://example.com", "http://localhost.evil.test", "http://localhost/path",
-                      "http://user@localhost:4000", "http://127.0.0.1:4000?to=upstream"):
-            with self.subTest(value=value), self.assertRaises(matrix.Failure):
-                matrix.origin(value)
+def run_journey(**kwargs):
+    events = []
+    http = FixtureHTTP(**kwargs)
+    rc = matrix.run(CONFIG, http, events.append)
+    return rc, events, http
 
 
-if __name__ == "__main__":
-    unittest.main()
+@pytest.fixture
+def journey():
+    return run_journey
+
+
+def test_complete_journey_requires_all_eight_real_operations(journey):
+    rc, events, http = journey()
+    summary = events[-1]
+    assert rc == 0
+    assert summary["status"] == "PASS"
+    assert summary["completedChecks"] == len(matrix.CHECKS)
+    assert [e["name"] for e in events if e["event"] == "check"] == list(matrix.CHECKS)
+    assert http.count > len(matrix.CHECKS)
+    assert (CONFIG["newapi"], "GET", "/api/token/?p=1&page_size=100") in http.paths
+    assert http.local == []
+    assert http.upstream == []
+    assert not any("fixture-password" in str(event) or "fixture-session" in str(event)
+                   for event in events)
+
+
+def test_local_success_without_upstream_token_is_red(journey):
+    rc, events, _ = journey(omit_upstream_create=True)
+    assert rc == 1
+    assert events[-1]["code"] == "assertion_failed_upstream_token_observed"
+    assert len(events[-1]["missingChecks"]) > 0
+
+
+def test_local_delete_without_upstream_delete_is_red(journey):
+    rc, events, _ = journey(omit_upstream_delete=True)
+    assert rc == 1
+    assert events[-1]["code"] == "assertion_failed_created_token_deleted_on_both_sides"
+
+
+def test_partial_upstream_inventory_does_not_prove_absence(journey):
+    rc, events, http = journey(partial_inventory=True)
+    assert rc == 1
+    assert events[-1]["code"] == "incomplete_upstream_inventory"
+    assert http.site is None
+
+
+def test_upstream_error_body_is_never_reported(journey):
+    rc, events, _ = journey(leaky_login_failure=True)
+    assert rc == 1
+    assert events[-1]["code"] == "unexpected_http_status"
+    assert "fixture-password" not in str(events)
+    assert "fixture-session" not in str(events)
+
+
+def test_zero_check_matrix_and_missing_opt_in_are_red():
+    events = []
+    report = matrix.Report(events.append)
+    assert report.finish(None, FixtureHTTP()) == 1
+    assert events[-1]["status"] == "FAIL"
+    with pytest.raises(matrix.Failure) as err:
+        matrix.config({"MANAGEMENT_DISPOSABLE": "1"})
+    assert err.value.code == "disposable_opt_in_required"
+
+
+@pytest.mark.parametrize("value", [
+    "https://example.com",
+    "http://localhost.evil.test",
+    "http://localhost/path",
+    "http://user@localhost:4000",
+    "http://127.0.0.1:4000?to=upstream",
+])
+def test_remote_or_ambiguous_origins_are_rejected(value):
+    with pytest.raises(matrix.Failure):
+        matrix.origin(value)
