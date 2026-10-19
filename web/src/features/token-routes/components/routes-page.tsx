@@ -425,6 +425,7 @@ export function RoutesPage() {
   )
 
   const { table } = useDataTable({
+    initialColumnVisibility: { sites: false },
     data: rows,
     columns,
     getRowId: routeRowId,
