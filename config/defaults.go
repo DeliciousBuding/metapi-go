@@ -201,4 +201,10 @@ const (
 	// new-api's STREAMING_TIMEOUT; the timeout distinguishes a stalled stream
 	// from a long-but-healthy one, which the whole-request timeout cannot.
 	DefaultProxyStreamIdleTimeoutSec = 300
+	// DefaultProxySSEWriteTimeoutSec bounds one downstream SSE write+flush.
+	// The relay holds the deadline only while writing and clears it between
+	// chunks, so a healthy stream may run forever while a client that stopped
+	// reading is cut off instead of blocking the relay and its concurrency
+	// slot.
+	DefaultProxySSEWriteTimeoutSec = 60
 )

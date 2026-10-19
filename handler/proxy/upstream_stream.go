@@ -5,7 +5,9 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -126,14 +128,20 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	writeSSEHeaders(w)
 	w.WriteHeader(200)
 
-	// Disable server-level WriteTimeout for SSE streaming.
-	// Without this, any stream exceeding app.Server.WriteTimeout (60s) gets
-	// forcibly closed — a hard break for reasoning models and long completions.
-	if rc, ok := w.(interface{ SetWriteDeadline(time.Time) error }); ok {
-		_ = rc.SetWriteDeadline(time.Time{})
-	}
-
-	flusher, _ := w.(http.Flusher)
+	// A relay must not inherit the server-level WriteTimeout (60s) or the
+	// proxy-surface write budget: both bound a whole request, so a healthy long
+	// completion would be torn down mid-stream. Each downstream write+flush
+	// instead gets its own bounded window (PROXY_SSE_WRITE_TIMEOUT_SEC), armed
+	// immediately before the I/O and cleared immediately after it. The deadline
+	// must never outlive a write: net/http's HTTP/2 server turns it into a
+	// timer that resets the stream when it fires, which would kill a healthy
+	// stream during a long gap between upstream chunks.
+	writeBudget := streamWriteTimeout()
+	// Drop the whole-request deadline inherited from Server.WriteTimeout /
+	// ProxyWriteDeadline before waiting for the first upstream chunk: HTTP/2
+	// implements an armed deadline as a per-stream timer, so leaving it running
+	// during a slow first chunk would reset a stream that is still healthy.
+	clearStreamWriteDeadline(w)
 
 	// Copy upstream Content-Type if SSE; writeSSEHeaders already sets it.
 	if ct := resp.Header.Get("Content-Type"); ct != "" && strings.Contains(ct, "text/event-stream") {
@@ -228,6 +236,19 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	outcome := streamEndedNormally
 	buf := make([]byte, 4096)
 
+	// emitStreamError attempts the single terminal error event that abnormal
+	// endings share. A client that stopped reading is bounded by one write
+	// window here too; a failure is logged and never retried.
+	emitStreamError := func(message string) {
+		if err := writeSSEStreamError(w, r.URL.Path, message, "upstream_error", writeBudget); err != nil {
+			slog.Debug("SSE terminal error event not delivered",
+				"err", err,
+				"latency_ms", latencyMs,
+				"streamed_bytes", streamedBytes,
+			)
+		}
+	}
+
 	// endStream is the single exit for every relay ending: it runs the same
 	// pure content judge the buffered path calls over what the bounded analyzer
 	// kept, so no exit path can skip content judgement and the streaming path
@@ -294,7 +315,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 			chunk := buf[:n]
 			remaining := maxStreamBytes - streamedBytes
 			if remaining <= 0 {
-				writeSSEStreamError(w, flusher, r.URL.Path, "stream response exceeded configured byte limit", "upstream_error")
+				emitStreamError("stream response exceeded configured byte limit")
 				slog.Warn("SSE stream exceeded byte limit",
 					"latency_ms", latencyMs,
 					"streamed_bytes", streamedBytes,
@@ -318,23 +339,28 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 				if bodyReadable && !codexImage && !routerChatStream {
 					analyzer.Push(chunk)
 				}
-				if _, writeErr := w.Write(chunk); writeErr != nil {
-					slog.Warn("SSE downstream write failed",
+				if writeErr := writeDownstreamChunk(w, chunk, writeBudget); writeErr != nil {
+					message := "SSE downstream write failed"
+					if isDownstreamWriteTimeout(writeErr) {
+						message = "SSE downstream write timed out: client stopped reading"
+					}
+					slog.Warn(message,
 						"err", writeErr,
+						"write_timeout_sec", int(writeBudget.Seconds()),
 						"latency_ms", latencyMs,
 						"streamed_bytes", streamedBytes,
 					)
-					// Downstream gone: keep any usage already extracted (including
-					// the chunk that failed to write). Never invent tokens.
+					// Downstream gone or no longer reading: keep any usage already
+					// extracted (including the chunk that failed to write), never
+					// invent tokens and never record this as an upstream fault.
+					// The caller's defer closes the upstream body and releases
+					// the site slot, which is what bounds the stalled client.
 					return endStream(streamEndedClientDisconnect, false)
 				}
 				streamedBytes += int64(len(chunk))
 			}
-			if flusher != nil {
-				flusher.Flush()
-			}
 			if exceededLimit {
-				writeSSEStreamError(w, flusher, r.URL.Path, "stream response exceeded configured byte limit", "upstream_error")
+				emitStreamError("stream response exceeded configured byte limit")
 				slog.Warn("SSE stream exceeded byte limit",
 					"latency_ms", latencyMs,
 					"streamed_bytes", streamedBytes,
@@ -352,7 +378,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 					// unblock this read. Emit a distinct final SSE error event
 					// and report the idle outcome so the dispatcher records
 					// the failure.
-					writeSSEStreamError(w, flusher, r.URL.Path, "upstream stream idle timeout", "upstream_error")
+					emitStreamError("upstream stream idle timeout")
 					slog.Warn("SSE stream idle timeout: upstream sent no chunk within window",
 						"idle_timeout_sec", int(idleTimeout.Seconds()),
 						"latency_ms", latencyMs,
@@ -371,14 +397,14 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 					)
 					outcome = streamEndedClientDisconnect
 				case errors.Is(err, errMessagesChatStreamLimit) || errors.Is(err, ollama.ErrStreamLimit):
-					writeSSEStreamError(w, flusher, r.URL.Path, "upstream stream exceeded configured byte limit", "upstream_error")
+					emitStreamError("upstream stream exceeded configured byte limit")
 					outcome = streamEndedTruncated
 				default:
 					// Mid-stream upstream failure (network reset, upstream crash,
 					// truncated body): emit a final SSE error event so the client
 					// can surface the failure explicitly instead of inferring it
 					// from a missing [DONE] marker. Mirrors the byte-limit path.
-					writeSSEStreamError(w, flusher, r.URL.Path, "upstream stream interrupted", "upstream_error")
+					emitStreamError("upstream stream interrupted")
 					slog.Warn("SSE stream read error", "err", err, "latency_ms", latencyMs)
 					outcome = streamEndedUpstreamFault
 				}
@@ -458,7 +484,15 @@ func streamResponseByteLimit() int64 {
 	return int64(config.DefaultProxyMaxStreamResponseBytes)
 }
 
-func writeSSEStreamError(w http.ResponseWriter, flusher http.Flusher, path, message, typ string) {
+// writeSSEStreamError writes one terminal SSE error event (plus [DONE] on
+// OpenAI-shaped endpoints). The whole sequence shares a single downstream
+// write window so a client that stopped reading cannot hold the relay past
+// the budget, and a stale deadline from an earlier chunk cannot make these
+// writes fail instantly.
+func writeSSEStreamError(w http.ResponseWriter, path, message, typ string, budget time.Duration) error {
+	clear := armSSEWriteDeadline(w, budget)
+	defer clear()
+
 	endpoint, _ := proxy.EndpointFromPath(path)
 	if endpoint == proxy.EndpointMessages {
 		// Anthropic errors are terminal error events, not OpenAI [DONE].
@@ -472,16 +506,20 @@ func writeSSEStreamError(w http.ResponseWriter, flusher http.Flusher, path, mess
 	}
 	if endpoint == proxy.EndpointMessages {
 		body["type"] = "error"
-		_, _ = w.Write([]byte("event: error\n"))
+		if _, err := w.Write([]byte("event: error\n")); err != nil {
+			return err
+		}
 	}
 	payload, _ := json.Marshal(body)
-	_, _ = w.Write(sseEvent(string(payload)))
+	if _, err := w.Write(sseEvent(string(payload))); err != nil {
+		return err
+	}
 	if endpoint != proxy.EndpointMessages {
-		_, _ = w.Write(sseDone())
+		if _, err := w.Write(sseDone()); err != nil {
+			return err
+		}
 	}
-	if flusher != nil {
-		flusher.Flush()
-	}
+	return flushSSE(w)
 }
 
 func relayUpstreamErrorResponse(w http.ResponseWriter, resp *http.Response, latencyMs int64) {
@@ -513,6 +551,82 @@ func streamIdleTimeout() time.Duration {
 		sec = cfg.ProxyStreamIdleTimeoutSec
 	}
 	return time.Duration(sec) * time.Second
+}
+
+// streamWriteTimeout returns the downstream per-write deadline for SSE relays
+// from the startup-loaded config singleton, falling back to
+// DefaultProxySSEWriteTimeoutSec when config is not loaded (tests) or the
+// operator value is non-positive. Like the other PROXY_* timeouts the value is
+// frozen at startup.
+func streamWriteTimeout() time.Duration {
+	sec := config.DefaultProxySSEWriteTimeoutSec
+	if cfg := config.GetSafe(); cfg != nil && cfg.ProxySSEWriteTimeoutSec > 0 {
+		sec = cfg.ProxySSEWriteTimeoutSec
+	}
+	return time.Duration(sec) * time.Second
+}
+
+// writeDownstreamChunk relays one upstream chunk as a single bounded downstream
+// write+flush. Both halves matter: net/http buffers small writes, so the
+// socket write that can stall on a client that stopped reading usually happens
+// in Flush, and a flush error means the connection is gone even when Write
+// accepted the bytes.
+func writeDownstreamChunk(w http.ResponseWriter, chunk []byte, budget time.Duration) error {
+	clear := armSSEWriteDeadline(w, budget)
+	defer clear()
+
+	if _, err := w.Write(chunk); err != nil {
+		return err
+	}
+	return flushSSE(w)
+}
+
+// armSSEWriteDeadline bounds the caller's immediately following write and
+// returns the function that clears the deadline again. Callers MUST clear it:
+// the HTTP/2 server implements SetWriteDeadline with a per-stream timer that
+// resets the stream when it fires, even while the handler is idle waiting for
+// the next upstream chunk. Keeping it armed between writes would kill healthy
+// streams whose chunk gaps exceed the write budget.
+//
+// Writers without SetWriteDeadline support (httptest recorders and custom test
+// writers) keep their existing unbounded behavior. http.ResponseController
+// unwraps middleware wrappers such as router.statusRecorder.
+func armSSEWriteDeadline(w http.ResponseWriter, budget time.Duration) func() {
+	clear := func() {}
+	if budget <= 0 {
+		return clear
+	}
+	rc := http.NewResponseController(w)
+	if err := rc.SetWriteDeadline(time.Now().Add(budget)); err != nil {
+		return clear
+	}
+	return func() { clearStreamWriteDeadline(w) }
+}
+
+// clearStreamWriteDeadline removes any write deadline currently armed on the
+// downstream connection. Writers without deadline support are left as-is.
+func clearStreamWriteDeadline(w http.ResponseWriter) {
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+}
+
+// flushSSE flushes the current downstream buffer. A writer without flush
+// support keeps the historical no-op behavior (it cannot be a real streaming
+// transport); any other error is a downstream failure the relay must act on
+// instead of silently continuing to read the upstream.
+func flushSSE(w http.ResponseWriter) error {
+	err := http.NewResponseController(w).Flush()
+	if err != nil && errors.Is(err, http.ErrNotSupported) {
+		return nil
+	}
+	return err
+}
+
+// isDownstreamWriteTimeout reports whether a failed Write/Flush failed because
+// the per-write deadline expired (the client stopped reading). The relay still
+// classifies it as a client disconnect; this only distinguishes the log line.
+func isDownstreamWriteTimeout(err error) bool {
+	var netErr net.Error
+	return errors.Is(err, os.ErrDeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout())
 }
 
 // streamIdleBody wraps the upstream SSE body with the chunk-gap guard. Read

@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 type shortBridgeReads struct {
@@ -65,7 +66,9 @@ func TestMessagesChatBridgeDoesNotCompleteMalformedOrTruncatedInput(t *testing.T
 
 func TestMessagesProxyStreamErrorIsNativeAndTerminal(t *testing.T) {
 	rec := httptest.NewRecorder()
-	writeSSEStreamError(rec, rec, "/v1/messages", "upstream stream interrupted", "upstream_error")
+	if err := writeSSEStreamError(rec, "/v1/messages", "upstream stream interrupted", "upstream_error", time.Second); err != nil {
+		t.Fatalf("writeSSEStreamError: %v", err)
+	}
 	body := rec.Body.String()
 	if !strings.HasPrefix(body, "event: error\ndata: ") || !strings.Contains(body, `"type":"api_error"`) || strings.Contains(body, "[DONE]") || strings.Contains(body, "message_stop") {
 		t.Fatalf("invalid Messages failure wire: %s", body)
