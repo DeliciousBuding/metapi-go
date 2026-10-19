@@ -2970,7 +2970,17 @@
         "clearCooldown": "Clear cooldown",
         "channelTruthList": "Channel allocation and price",
         "inlineLabel": "Channels for {{model}}",
-        "openDiagnostics": "Details and diagnosis",
+        "openDiagnostics": "Diagnose",
+        "channelEnabledSummary": "{{enabled}}/{{total}} enabled · total weight {{weight}}",
+        "channelColumnIdentity": "Account / channel",
+        "channelColumnPriority": "Priority",
+        "channelColumnWeightShare": "Weight / share",
+        "channelColumnHealth": "Success / fail",
+        "channelColumnPrice": "Price / 1M",
+        "channelColumnStatus": "Status",
+        "channelStatusMissingCredential": "No credential",
+        "channelStatusHealthy": "Healthy",
+        "channelCooldownUntil": "Cooling until {{time}}",
         "channelsLoadError": "Could not load channels: {{message}}",
         "retryPrices": "Retry prices",
         "channelTruthDescription": "Configured weights, enabled shares, and normalized prices from Price Compare.",
@@ -3008,7 +3018,7 @@
         "decisionReason": "Decision reason",
         "moreCandidates": "+{{count}} candidates",
         "fallbackAccount": "Account #{{id}}",
-        "fallbackToken": "Token #{{id}}"
+        "fallbackToken": "#{{id}}"
       },
       "completion": {
         "title": "Route ready",

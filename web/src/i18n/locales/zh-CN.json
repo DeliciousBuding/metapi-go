@@ -2970,7 +2970,17 @@
         "clearCooldown": "清除冷却",
         "channelTruthList": "通道分配与价格",
         "inlineLabel": "{{model}} 的通道详情",
-        "openDiagnostics": "详情与路由诊断",
+        "openDiagnostics": "路由诊断",
+        "channelEnabledSummary": "{{enabled}}/{{total}} 启用 · 总权重 {{weight}}",
+        "channelColumnIdentity": "账号 / 渠道",
+        "channelColumnPriority": "优先级",
+        "channelColumnWeightShare": "权重 / 占比",
+        "channelColumnHealth": "成功 / 失败",
+        "channelColumnPrice": "单价 / 1M",
+        "channelColumnStatus": "状态",
+        "channelStatusMissingCredential": "无凭据",
+        "channelStatusHealthy": "正常",
+        "channelCooldownUntil": "冷却至 {{time}}",
         "channelsLoadError": "通道加载失败：{{message}}",
         "retryPrices": "重新加载价格",
         "channelTruthDescription": "同一行展示配置权重、启用占比，以及来自价格对比的标准化价格。",
@@ -3008,7 +3018,7 @@
         "decisionReason": "决策理由",
         "moreCandidates": "+{{count}} 个候选",
         "fallbackAccount": "账户 #{{id}}",
-        "fallbackToken": "令牌 #{{id}}"
+        "fallbackToken": "#{{id}}"
       },
       "completion": {
         "title": "路由已就绪",

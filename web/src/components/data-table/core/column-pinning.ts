@@ -64,7 +64,10 @@ function pinnedClassName(side: PinnedSide, kind: 'header' | 'cell') {
     // scrolled-under columns show through, and a static one would keep the old
     // background while its row highlights.
     kind === 'header'
-      ? '[background-color:var(--table-header-bg,var(--table-header))] group-hover:[background-color:var(--table-header-hover)] z-30'
+      ? // The header row does not change on row hover, so its pinned cell must
+        // not either: a lone hover tint made the empty actions header look like
+        // a stray white block at the right edge.
+        '[background-color:var(--table-header-bg,var(--table-header))] z-30'
       : 'bg-background z-10 group-hover:bg-(--table-row-hover-bg) group-data-[state=selected]:bg-(--table-row-selected-bg)'
   )
 }
