@@ -215,7 +215,7 @@ func TestMagpieBackupKeepsModelsOnlyItsGroupsName(t *testing.T) {
 	if _, err := ImportMagpieBackup(db, raw, "fixture-passphrase", "magpie-group-only", false); err != nil {
 		t.Fatal(err)
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes WHERE model_pattern='relay/rare-model' AND enabled=1`); got != 1 {
+	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes WHERE model_pattern=? AND enabled=?`, "relay/rare-model", true); got != 1 {
 		t.Fatalf("group-only model route = %d, want 1", got)
 	}
 	// One member per provider credential, as for every other imported model.
