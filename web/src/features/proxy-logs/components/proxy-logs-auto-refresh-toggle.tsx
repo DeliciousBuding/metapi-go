@@ -1,19 +1,15 @@
-// metapi-go/features/proxy-logs/components — header toggle that drives the
-// page-level auto-refresh interval (5s / 15s / 30s / Off). Mirrors the
-// observability auto-refresh segmented control so the cadence is visible at
-// a glance. The interval is CONTROLLED by the page: `ProxyLogsPage` owns the
-// `useProxyLogsAutoRefresh` hook (the same hook feeds the list/meta query
-// `refetchInterval`), so clicking a preset switches the hook state and
-// polling starts immediately — it also persists via localStorage so a
-// bookmarked operator view survives reloads. (The previous design called the
-// hook inside this component too, so clicking only flipped a second, page-
-// invisible state instance and polling never started.)
+// The page owns polling. This control only changes its persisted preference.
 
-import { RefreshCw } from 'lucide-react'
+import { Check, ChevronDown, Timer } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 import {
   PROXY_LOGS_AUTO_REFRESH_PRESETS,
@@ -31,38 +27,43 @@ export function ProxyLogsAutoRefreshToggle({
 }: ProxyLogsAutoRefreshToggleProps) {
   const { t } = useTranslation()
 
-  const isMatch = (presetValue: ProxyLogsAutoRefreshInterval): boolean =>
-    presetValue === intervalMs
+  const preset = PROXY_LOGS_AUTO_REFRESH_PRESETS.find(
+    (item) => item.value === intervalMs
+  )
+  const label = preset ? t(preset.labelKey) : `${Number(intervalMs) / 1000}s`
 
   return (
-    <div
-      className='bg-card flex items-center gap-1 rounded-md border p-0.5'
-      role='group'
-      aria-label={t('proxyLogs.page.autoRefresh.label')}
-    >
-      <RefreshCw
-        className={cn(
-          'text-muted-foreground size-3.5 shrink-0',
-          intervalMs !== false && 'animate-spin'
-        )}
-        aria-hidden='true'
-      />
-      {PROXY_LOGS_AUTO_REFRESH_PRESETS.map((preset) => {
-        const active = isMatch(preset.value)
-        return (
-          <Button
-            key={preset.id}
-            type='button'
-            variant={active ? 'default' : 'ghost'}
-            size='sm'
-            className='h-7 px-2 text-xs font-medium'
-            aria-pressed={active}
-            onClick={() => setIntervalMs(preset.value)}
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button variant='outline' size='sm' />}
+        aria-label={`${t('proxyLogs.page.autoRefresh.label')}: ${label}`}
+      >
+        <Timer className='size-3.5' aria-hidden='true' />
+        <span className='text-muted-foreground'>
+          {t('proxyLogs.page.autoRefresh.label')}
+        </span>
+        {label}
+        <ChevronDown
+          className='text-muted-foreground size-3.5'
+          aria-hidden='true'
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='end'>
+        {PROXY_LOGS_AUTO_REFRESH_PRESETS.map((item) => (
+          <DropdownMenuItem
+            key={item.id}
+            onClick={() => setIntervalMs(item.value)}
           >
-            {t(preset.labelKey)}
-          </Button>
-        )
-      })}
-    </div>
+            <Check
+              className={
+                intervalMs === item.value ? 'size-3.5' : 'invisible size-3.5'
+              }
+              aria-hidden='true'
+            />
+            {t(item.labelKey)}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

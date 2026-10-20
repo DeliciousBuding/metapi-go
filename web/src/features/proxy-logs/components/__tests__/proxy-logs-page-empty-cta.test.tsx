@@ -2,7 +2,21 @@
 // at "no logs" had no path forward. It must offer a "View routes" CTA that
 // navigates to the token-routes page (audit #1029 batch B).
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  RouterProvider,
+} from '@tanstack/react-router'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import type { ReactNode } from 'react'
 import {
   afterEach,
@@ -19,17 +33,12 @@ import '@/i18n/config'
 import { ProxyLogsPage } from '../proxy-logs-page'
 
 const testState = vi.hoisted(() => ({
-  navigate: vi.fn(),
   metaQuery: {
     data: undefined,
     error: null as Error | null,
     isFetching: false,
     refetch: vi.fn(),
   },
-}))
-
-vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => testState.navigate,
 }))
 
 vi.mock('@/components/data-table', () => ({
@@ -115,7 +124,6 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
-  testState.navigate.mockReset()
   testState.metaQuery.data = undefined
   testState.metaQuery.error = null
   testState.metaQuery.isFetching = false
@@ -124,26 +132,49 @@ beforeEach(() => {
 
 afterEach(() => cleanup())
 
-describe('ProxyLogsPage empty-state CTA', () => {
-  it('offers a View routes CTA that navigates to /token-routes', () => {
-    render(<ProxyLogsPage />)
+function renderPage() {
+  const root = createRootRoute({ component: Outlet })
+  const logs = createRoute({
+    getParentRoute: () => root,
+    path: '/proxy-logs',
+    component: ProxyLogsPage,
+  })
+  const routes = createRoute({
+    getParentRoute: () => root,
+    path: '/token-routes',
+    component: () => null,
+  })
+  const router = createRouter({
+    routeTree: root.addChildren([logs, routes]),
+    history: createMemoryHistory({
+      initialEntries: ['/proxy-logs?view=attempts'],
+    }),
+  })
+  render(<RouterProvider router={router} />)
+  return router
+}
 
-    const cta = screen.getByRole('button', { name: 'View routes' })
+describe('ProxyLogsPage empty-state CTA', () => {
+  it('offers a View routes CTA that navigates to /token-routes', async () => {
+    const router = renderPage()
+
+    const cta = await screen.findByRole('button', { name: 'View routes' })
     expect(cta).toBeInTheDocument()
 
     fireEvent.click(cta)
-    expect(testState.navigate).toHaveBeenCalledTimes(1)
-    expect(testState.navigate).toHaveBeenCalledWith({ to: '/token-routes' })
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/token-routes')
+    )
   })
 })
 
 describe('ProxyLogsPage meta error banner', () => {
-  it('surfaces a meta query failure with a Retry action', () => {
+  it('surfaces a meta query failure with a Retry action', async () => {
     testState.metaQuery.error = new Error('meta boom')
-    render(<ProxyLogsPage />)
+    renderPage()
 
     expect(
-      screen.getByText(/Failed to load log summary: meta boom/)
+      await screen.findByText(/Failed to load log summary: meta boom/)
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))

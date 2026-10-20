@@ -25,7 +25,7 @@ export function RequestOutcome({ request }: { request: GatewayRequest }) {
     tone = 'text-warning'
   }
   return (
-    <div className='flex min-w-0 flex-col gap-1'>
+    <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5'>
       <span
         className={cn(
           'inline-flex items-center gap-1.5 text-sm font-medium',

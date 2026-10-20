@@ -85,6 +85,11 @@ summary/points 展示已记录请求完成率及覆盖起点；旧服务器只�
 保留明确的“末次尝试”标签，不拼接成请求结果趋势。完成只说明网关观察到
 协议处理结束，不代表客户端确认收妥。新管理 API 的非法数据显式报错与重试。
 
+日志页在标题下用图标分段导航并列展示请求结果与尝试记录，统一标题，不以
+页头文字链接或常驻横幅代替切换。记录口径通过可点击、键盘可达的说明浮层
+查看。跨视图仅保留下游 Key、时间范围及每页条数，清除视图专属筛选与详情；
+浏览器返回恢复原视图。自动刷新用显示当前值的下拉菜单，页面仍持有轮询状态。
+
 The root sidebar follows the operator's task order instead of the storage
 model: Overview, Upstream, Models & Routes, Access, Requests & Diagnostics, and
 Settings. Site, account, check-in, announcement, and OAuth management stay with
