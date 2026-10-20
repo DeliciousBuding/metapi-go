@@ -15,10 +15,13 @@ it('starts with file selection and reveals JSON only on request', () => {
       fileName=''
       originKey=''
       external={false}
+      magpie={false}
+      passphrase=''
       disabled={false}
       onFile={vi.fn()}
       onText={vi.fn()}
       onOrigin={vi.fn()}
+      onPassphrase={vi.fn()}
     />
   )
   expect(screen.getByLabelText('Choose a JSON backup file')).toBeInTheDocument()

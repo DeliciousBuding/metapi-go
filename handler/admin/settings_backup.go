@@ -133,6 +133,15 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, message)
 		return
 	}
+	raw, passphrase, magpie, err := unwrapMagpieImportBody(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if magpie {
+		h.importMagpieBackup(w, r, raw, passphrase)
+		return
+	}
 	if backupsvc.IsOctopusV5Payload(raw) {
 		h.importOctopusV5Backup(w, r, raw)
 		return
@@ -229,6 +238,21 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 		writeError(w, status, message)
 		return
 	}
+	raw, passphrase, magpie, err := unwrapMagpieImportBody(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if magpie {
+		originKey := magpieOriginKey(r)
+		preview, err := backupsvc.PreviewMagpieBackup(backupStoreDB(h.db), raw, passphrase, originKey)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, magpieImportErrorMessage(err))
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"success": true, "plan": preview})
+		return
+	}
 	if backupsvc.IsOctopusV5Payload(raw) {
 		originKey := strings.TrimSpace(r.Header.Get("X-External-Origin-Key"))
 		preview, err := backupsvc.PreviewOctopusV5(backupStoreDB(h.db), raw, originKey)
@@ -297,6 +321,97 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 		response["ignoredTables"] = ignoredTables
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+// unwrapMagpieImportBody keeps the encrypted envelope intact while carrying
+// its passphrase in the request body. The passphrase is never copied into a
+// header, URL, response, or log.
+func unwrapMagpieImportBody(raw []byte) ([]byte, string, bool, error) {
+	if backupsvc.IsMagpieBackupPayload(raw) {
+		return raw, "", true, nil
+	}
+	var wrapper struct {
+		Passphrase *string         `json:"passphrase"`
+		Data       json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal(raw, &wrapper) != nil || len(wrapper.Data) == 0 || !backupsvc.IsMagpieBackupPayload(wrapper.Data) {
+		return raw, "", false, nil
+	}
+	if err := rejectDuplicateJSONKeys(raw); err != nil {
+		return nil, "", false, fmt.Errorf("invalid import data: %w", err)
+	}
+	passphrase := ""
+	if wrapper.Passphrase != nil {
+		passphrase = *wrapper.Passphrase
+	}
+	if strings.TrimSpace(passphrase) == "" {
+		return nil, "", true, errors.New("Magpie backup passphrase is required")
+	}
+	if len(passphrase) > 4096 {
+		return nil, "", true, errors.New("Magpie backup passphrase is too long")
+	}
+	return wrapper.Data, passphrase, true, nil
+}
+
+func magpieOriginKey(r *http.Request) string {
+	if key := strings.TrimSpace(r.Header.Get("X-External-Origin-Key")); key != "" {
+		return key
+	}
+	return backupsvc.MagpieBackupOrigin
+}
+
+func magpieImportErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, backupsvc.ErrMagpiePassphrase):
+		return "Magpie backup could not be opened; check the passphrase"
+	case errors.Is(err, backupsvc.ErrMagpieCorrupt):
+		return "not a valid Magpie backup"
+	case errors.Is(err, backupsvc.ErrMagpieVersion):
+		return "unsupported Magpie backup version"
+	default:
+		return err.Error()
+	}
+}
+
+// importMagpieBackup imports a passphrase-protected Magpie backup. The preview
+// and transaction share the same compiled plan; replacement requires an
+// explicit confirmation header, matching the other external importers.
+func (h *backupHandler) importMagpieBackup(w http.ResponseWriter, r *http.Request, raw []byte, passphrase string) {
+	originKey := magpieOriginKey(r)
+	db := backupStoreDB(h.db)
+	preview, err := backupsvc.PreviewMagpieBackup(db, raw, passphrase, originKey)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, magpieImportErrorMessage(err))
+		return
+	}
+	if len(preview.Blocking) > 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"success": false, "error": "Magpie backup has no provider a direct upstream grant can serve",
+			"plan": preview, "blocking": preview.Blocking,
+		})
+		return
+	}
+	if len(preview.Removals) > 0 && r.Header.Get("X-Magpie-Replace-Origin") != "true" {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"success": false, "error": backupsvc.ErrMagpieReplacementRequired.Error(), "plan": preview,
+		})
+		return
+	}
+	counts, err := backupsvc.ImportMagpieBackup(db, raw, passphrase, originKey, r.Header.Get("X-Magpie-Replace-Origin") == "true", r.Header.Get("X-External-Replacement-Revision"))
+	if err != nil {
+		if errors.Is(err, backupsvc.ErrMagpieReplacementRequired) {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
+		writeError(w, backupImportErrorStatus(err), magpieImportErrorMessage(err))
+		return
+	}
+	routing.InvalidateCache()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true, "message": "Magpie backup import completed", "imported": counts,
+		"notImported": preview.NotImported, "residuals": preview.Residuals,
+		"skippedProviders": preview.SkippedProviders, "skippedGroups": preview.SkippedGroups,
+	})
 }
 
 func (h *backupHandler) importOctopusV5Backup(w http.ResponseWriter, r *http.Request, raw []byte) {

@@ -468,6 +468,15 @@ plan, so the preview cannot promise a channel the commit will not write; a
 feature the direct relay cannot carry is a named per-channel skip, never a
 guess.
 
+Magpie import follows the same split: `magpie_backup.go` owns the encrypted
+envelope, PBKDF2/AES-GCM opening, strict JSON parsing and source sections;
+`magpie_compile.go` turns providers, groups and gateway keys into one
+executable plan with explicit residuals; `magpie_import.go` writes that plan
+in one transaction. The handler unwraps the passphrase-bearing body without
+retaining it. Source identifiers, downstream-key scopes and removal revisions
+use the shared `external_source_ids` lifecycle, so repeated imports and
+origin replacement behave like the other external sources.
+
 Direct channels use resolved per-protocol endpoint URLs and authentication.
 `axonhub_protocols.go` resolves model protocol preferences onto individual route
 items, leaving shared model/credential grants unchanged. The handler chooses an

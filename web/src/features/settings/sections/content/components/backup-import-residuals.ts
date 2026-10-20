@@ -21,3 +21,11 @@ export function formatAxonHubResidual(residual: string, t: TFunction): string {
       })
     : message
 }
+
+export function formatMagpieResidual(residual: string, t: TFunction): string {
+  const [reason, ...parts] = residual.split(':')
+  return t(`settings.content.importExport.magpieResidualReasons.${reason}`, {
+    defaultValue: residual,
+    detail: parts.join(':'),
+  })
+}

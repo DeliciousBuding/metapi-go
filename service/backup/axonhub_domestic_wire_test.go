@@ -195,14 +195,14 @@ func TestAxonHubDomesticWireImportGraphAndReimport(t *testing.T) {
 			if countRows(t, db, `SELECT COUNT(*) FROM upstream_grants g JOIN upstream_credentials c ON c.id=g.credential_id WHERE c.enabled=?`, false) != 0 {
 				t.Fatal("disabled credential acquired grant")
 			}
-			before, err := axonHubMappedSources(db, db, "domestic-wire")
+			before, err := mappedSourceIDs(db, db, "domestic-wire")
 			if err != nil {
 				t.Fatal(err)
 			}
 			if _, err := ImportAxonHubV14(db, raw, "domestic-wire", false); err != nil {
 				t.Fatal(err)
 			}
-			after, err := axonHubMappedSources(db, db, "domestic-wire")
+			after, err := mappedSourceIDs(db, db, "domestic-wire")
 			if err != nil || !reflect.DeepEqual(before, after) {
 				t.Fatalf("reimport changed identity: %v", err)
 			}
@@ -221,7 +221,7 @@ func TestAxonHubDomesticWireImportGraphAndReimport(t *testing.T) {
 			if endpoints.Chat.Profile != "" || endpoints.Chat.URL != "https://fixture.invalid/api/custom-chat" {
 				t.Fatalf("custom overwrite retained default profile: %+v", endpoints.Chat)
 			}
-			after, err = axonHubMappedSources(db, db, "domestic-wire")
+			after, err = mappedSourceIDs(db, db, "domestic-wire")
 			if err != nil || !reflect.DeepEqual(before, after) {
 				t.Fatalf("endpoint edit changed identity: %v", err)
 			}

@@ -20,6 +20,24 @@ function isExternalBackupPayload(data: unknown): boolean {
   return detectExternalBackupSource(data) !== null
 }
 
+export type BackupImportOptions = {
+  externalOriginKey?: string
+  octopusImportMode?: 'channels-only'
+  replaceOctopusOrigin?: boolean
+  replaceAxonHubOrigin?: boolean
+  replaceMagpieOrigin?: boolean
+  replacementRevision?: string
+  magpiePassphrase?: string
+  confirmToken?: string
+}
+
+function backupImportBody(data: unknown, magpiePassphrase?: string) {
+  if (magpiePassphrase !== undefined) {
+    return JSON.stringify({ data, passphrase: magpiePassphrase })
+  }
+  return JSON.stringify(isExternalBackupPayload(data) ? data : { data })
+}
+
 /**
  * Master-token re-confirmation header (#1034). Sensitive endpoints answer
  * `403 reauthRequired` until this header carries the current admin token; the
@@ -184,53 +202,58 @@ export const settingsApi = {
       body: JSON.stringify({}),
       skipErrorHandler: true,
     }),
-  importBackup: (
-    data: unknown,
-    externalOriginKey?: string,
-    octopusImportMode?: 'channels-only',
-    replaceOctopusOrigin?: boolean,
-    replaceAxonHubOrigin?: boolean,
-    replacementRevision?: string,
-    confirmToken?: string
-  ) =>
+  importBackup: (data: unknown, options: BackupImportOptions = {}) =>
     request('/api/settings/backup/import', {
       method: 'POST',
-      body: JSON.stringify(isExternalBackupPayload(data) ? data : { data }),
+      body: backupImportBody(data, options.magpiePassphrase),
       headers:
-        externalOriginKey ||
-        octopusImportMode ||
-        replaceOctopusOrigin ||
-        replaceAxonHubOrigin ||
-        replacementRevision ||
-        confirmToken
+        options.externalOriginKey ||
+        options.octopusImportMode ||
+        options.replaceOctopusOrigin ||
+        options.replaceAxonHubOrigin ||
+        options.replaceMagpieOrigin ||
+        options.replacementRevision ||
+        options.confirmToken
           ? {
-              ...(externalOriginKey
-                ? { 'X-External-Origin-Key': externalOriginKey }
+              ...(options.externalOriginKey
+                ? { 'X-External-Origin-Key': options.externalOriginKey }
                 : {}),
-              ...(octopusImportMode
-                ? { 'X-Octopus-Import-Mode': octopusImportMode }
+              ...(options.octopusImportMode
+                ? { 'X-Octopus-Import-Mode': options.octopusImportMode }
                 : {}),
-              ...(replaceOctopusOrigin
+              ...(options.replaceOctopusOrigin
                 ? { 'X-Octopus-Replace-Origin': 'true' }
                 : {}),
-              ...(replaceAxonHubOrigin
+              ...(options.replaceAxonHubOrigin
                 ? { 'X-AxonHub-Replace-Origin': 'true' }
                 : {}),
-              ...(replacementRevision
-                ? { 'X-External-Replacement-Revision': replacementRevision }
+              ...(options.replaceMagpieOrigin
+                ? { 'X-Magpie-Replace-Origin': 'true' }
                 : {}),
-              ...confirmHeader(confirmToken),
+              ...(options.replacementRevision
+                ? {
+                    'X-External-Replacement-Revision':
+                      options.replacementRevision,
+                  }
+                : {}),
+              ...confirmHeader(options.confirmToken),
             }
           : undefined,
       skipErrorHandler: true,
     }),
   // Import plan preview before commit.
-  previewBackupImport: (data: unknown, externalOriginKey?: string) =>
+  previewBackupImport: (
+    data: unknown,
+    options: Pick<
+      BackupImportOptions,
+      'externalOriginKey' | 'magpiePassphrase'
+    > = {}
+  ) =>
     request('/api/settings/backup/import/preview', {
       method: 'POST',
-      body: JSON.stringify(isExternalBackupPayload(data) ? data : { data }),
-      headers: externalOriginKey
-        ? { 'X-External-Origin-Key': externalOriginKey }
+      body: backupImportBody(data, options.magpiePassphrase),
+      headers: options.externalOriginKey
+        ? { 'X-External-Origin-Key': options.externalOriginKey }
         : undefined,
       skipErrorHandler: true,
     }),

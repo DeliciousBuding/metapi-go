@@ -79,7 +79,7 @@ func octopusRemovalCounts(p *upstream.DeletionPlan) map[string]int {
 	return counts
 }
 
-func axonHubDeletionPlan(tx *sqlx.Tx, origin string, keep map[string]map[int64]bool, owned map[string]map[int64]int64) (*upstream.DeletionPlan, error) {
+func mappedSourceDeletionPlan(tx *sqlx.Tx, origin string, keep map[string]map[int64]bool, owned map[string]map[int64]int64) (*upstream.DeletionPlan, error) {
 	var roots []upstream.Reference
 	for entity, sources := range owned {
 		kind, ok := upstream.KindForSourceEntity(entity)
@@ -106,7 +106,7 @@ func axonHubDeletionPlan(tx *sqlx.Tx, origin string, keep map[string]map[int64]b
 				return nil, err
 			}
 			if count != 1 {
-				return nil, fmt.Errorf("%w: stale source API key mapping", ErrImportedEntityConflict)
+				return nil, fmt.Errorf("%w: stale downstream key mapping", ErrImportedEntityConflict)
 			}
 			keys = append(keys, [2]int64{source, id})
 		}
@@ -124,7 +124,7 @@ func axonHubDeletionPlan(tx *sqlx.Tx, origin string, keep map[string]map[int64]b
 	return plan, nil
 }
 
-func axonHubRemovalCounts(p *upstream.DeletionPlan, keep map[string]map[int64]bool, owned map[string]map[int64]int64) map[string]int {
+func mappedSourceRemovalCounts(p *upstream.DeletionPlan, keep map[string]map[int64]bool, owned map[string]map[int64]int64) map[string]int {
 	counts := map[string]int{}
 	for label, entity := range map[string]string{"channels": "upstream_channels", "models": "upstream_models", "credentials": "upstream_credentials", "grants": "upstream_grants", "groups": "upstream_groups", "members": "upstream_group_items", "routes": "token_routes"} {
 		if n := p.Preview.Counts[label]; n > 0 {
@@ -139,7 +139,7 @@ func axonHubRemovalCounts(p *upstream.DeletionPlan, keep map[string]map[int64]bo
 	return counts
 }
 
-func deleteAxonHubSourceKeys(tx *sqlx.Tx, origin string, keep map[string]map[int64]bool, owned map[string]map[int64]int64) error {
+func deleteMappedSourceKeys(tx *sqlx.Tx, origin string, keep map[string]map[int64]bool, owned map[string]map[int64]int64) error {
 	for source, id := range owned["downstream_api_keys"] {
 		if keep["downstream_api_keys"][source] {
 			continue

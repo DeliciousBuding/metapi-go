@@ -1,4 +1,11 @@
-import { FileJson, FileUp, ChevronDown, Code2, ShieldCheck } from 'lucide-react'
+import {
+  FileJson,
+  FileUp,
+  ChevronDown,
+  Code2,
+  KeyRound,
+  ShieldCheck,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -16,10 +23,13 @@ type Props = {
   fileName: string
   originKey: string
   external: boolean
+  magpie: boolean
+  passphrase: string
   disabled: boolean
   onFile: (file: File) => void
   onText: (raw: string) => void
   onOrigin: (origin: string) => void
+  onPassphrase: (passphrase: string) => void
 }
 
 export function BackupImportSource(props: Props) {
@@ -52,13 +62,14 @@ export function BackupImportSource(props: Props) {
           <Badge variant='outline'>Metapi</Badge>
           <Badge variant='outline'>Octopus v5</Badge>
           <Badge variant='outline'>AxonHub 1.4</Badge>
-          <Badge variant='secondary'>JSON · 20 MB</Badge>
+          <Badge variant='outline'>Magpie</Badge>
+          <Badge variant='secondary'>JSON / .magpie-backup · 20 MB</Badge>
         </span>
         <Input
           id='backup-import-file'
           type='file'
           className='sr-only'
-          accept='.json,application/json'
+          accept='.json,.magpie-backup,application/json'
           aria-label={t('settings.content.importExport.selectBackupFile')}
           disabled={props.disabled}
           onChange={(event) => {
@@ -96,6 +107,34 @@ export function BackupImportSource(props: Props) {
           />
         </CollapsibleContent>
       </Collapsible>
+      {props.magpie ? (
+        <div className='bg-muted/40 space-y-2 rounded-lg border p-4'>
+          <label className='text-sm font-medium' htmlFor='magpie-passphrase'>
+            {t('settings.content.importExport.magpiePassphrase')}
+          </label>
+          <div className='relative'>
+            <KeyRound
+              className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2'
+              aria-hidden='true'
+            />
+            <Input
+              id='magpie-passphrase'
+              type='password'
+              autoComplete='new-password'
+              className='pl-9'
+              value={props.passphrase}
+              onChange={(event) => props.onPassphrase(event.target.value)}
+              disabled={props.disabled}
+              placeholder={t(
+                'settings.content.importExport.magpiePassphrasePlaceholder'
+              )}
+            />
+          </div>
+          <p className='text-muted-foreground text-xs leading-relaxed'>
+            {t('settings.content.importExport.magpiePassphraseHint')}
+          </p>
+        </div>
+      ) : null}
       {props.external ? (
         <div className='bg-muted/40 space-y-2 rounded-lg border p-4'>
           <label className='text-sm font-medium' htmlFor='external-origin-key'>

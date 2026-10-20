@@ -143,6 +143,34 @@ function clickLastButtonNamed(name: string) {
   fireEvent.click(button)
 }
 
+function importOptions({
+  originKey,
+  octopus = false,
+  axonhub = false,
+  magpie = false,
+  revision = undefined,
+  mode = undefined,
+  passphrase = undefined,
+}: {
+  originKey?: string
+  octopus?: boolean
+  axonhub?: boolean
+  magpie?: boolean
+  revision?: string
+  mode?: 'channels-only'
+  passphrase?: string
+}) {
+  return {
+    externalOriginKey: originKey,
+    octopusImportMode: mode,
+    replaceOctopusOrigin: octopus,
+    replaceAxonHubOrigin: axonhub,
+    replaceMagpieOrigin: magpie,
+    replacementRevision: revision,
+    magpiePassphrase: passphrase,
+  }
+}
+
 function expectInvalidated(invalidateSpy: ReturnType<typeof vi.spyOn>) {
   // Blanket invalidation — a call with no filter argument invalidates the
   // entire query cache, which is the required behaviour after an import.
@@ -205,7 +233,10 @@ describe('ImportExportSection — cache invalidation after import', () => {
     expect(screen.getByText('History records').parentElement).toHaveTextContent(
       '4'
     )
-    expect(mockPreviewBackupImport).toHaveBeenCalledWith(payload, 'octopus-lab')
+    expect(mockPreviewBackupImport).toHaveBeenCalledWith(payload, {
+      externalOriginKey: 'octopus-lab',
+      magpiePassphrase: undefined,
+    })
     clickLastButtonNamed('Import')
     await screen.findByText('Confirm import?')
     clickLastButtonNamed('Import')
@@ -213,11 +244,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
     await waitFor(() => {
       expect(mockImportBackup).toHaveBeenCalledWith(
         payload,
-        'octopus-lab',
-        undefined,
-        false,
-        false,
-        undefined
+        importOptions({ originKey: 'octopus-lab' })
       )
     })
     await waitFor(() => expectInvalidated(invalidateSpy))
@@ -279,11 +306,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
     await waitFor(() => {
       expect(mockImportBackup).toHaveBeenCalledWith(
         payloadB,
-        'origin-B',
-        undefined,
-        false,
-        false,
-        undefined
+        importOptions({ originKey: 'origin-B' })
       )
     })
   })
@@ -325,11 +348,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
     await waitFor(() => {
       expect(mockImportBackup).toHaveBeenCalledWith(
         { version: 5, exported_at: 'now' },
-        'octopus-lab',
-        'channels-only',
-        false,
-        false,
-        undefined
+        importOptions({ originKey: 'octopus-lab', mode: 'channels-only' })
       )
     })
   })
@@ -371,11 +390,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
     await waitFor(() => {
       expect(mockImportBackup).toHaveBeenCalledWith(
         { version: 5, exported_at: 'now' },
-        'octopus-lab',
-        'channels-only',
-        false,
-        false,
-        undefined
+        importOptions({ originKey: 'octopus-lab', mode: 'channels-only' })
       )
     })
   })
@@ -411,11 +426,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
     await waitFor(() => {
       expect(mockImportBackup).toHaveBeenCalledExactlyOnceWith(
         payload,
-        'octopus-lab',
-        undefined,
-        true,
-        false,
-        undefined
+        importOptions({ originKey: 'octopus-lab', octopus: true })
       )
     })
   })
@@ -506,11 +517,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
     await waitFor(() => {
       expect(mockImportBackup).toHaveBeenCalledExactlyOnceWith(
         payload,
-        'axonhub-lab',
-        undefined,
-        false,
-        false,
-        undefined
+        importOptions({ originKey: 'axonhub-lab' })
       )
     })
     await waitFor(() => expectInvalidated(invalidateSpy))
@@ -552,11 +559,7 @@ describe('ImportExportSection — cache invalidation after import', () => {
     await waitFor(() => {
       expect(mockImportBackup).toHaveBeenCalledExactlyOnceWith(
         payload,
-        'axonhub-lab',
-        undefined,
-        false,
-        true,
-        undefined
+        importOptions({ originKey: 'axonhub-lab', axonhub: true })
       )
     })
   })

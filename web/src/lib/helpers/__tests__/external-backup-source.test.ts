@@ -23,6 +23,22 @@ describe('detectExternalBackupSource', () => {
     ).toBe('axonhub-v1.4')
   })
 
+  it('recognizes an encrypted Magpie backup envelope', () => {
+    const envelope = {
+      format: 'magpie-backup',
+      version: 1,
+      kdf: 'pbkdf2-sha256',
+      iterations: 600_000,
+      salt: 'c2FsdA==',
+      nonce: 'bm9uY2U=',
+      data: 'Y2lwaGVydGV4dA==',
+    }
+    expect(detectExternalBackupSource(envelope)).toBe('magpie-backup')
+    expect(
+      detectExternalBackupSourceText(`\uFEFF${JSON.stringify(envelope)}`)
+    ).toBe('magpie-backup')
+  })
+
   it('does not claim a Metapi tables payload', () => {
     expect(
       detectExternalBackupSource({
