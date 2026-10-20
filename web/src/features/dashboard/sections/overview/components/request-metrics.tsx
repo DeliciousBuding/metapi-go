@@ -116,7 +116,7 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
               }}
               className='hover:bg-muted/40 focus-visible:ring-ring flex min-w-0 flex-col gap-2 border-b p-4 transition-colors outline-none last:col-span-2 last:border-r-0 last:border-b-0 odd:border-r focus-visible:ring-2 focus-visible:ring-inset xl:gap-3 xl:border-r xl:border-b-0 xl:p-5 xl:last:col-span-1'
             >
-              <div className='flex min-h-8 items-center gap-2 text-xs font-medium sm:text-sm xl:min-h-10'>
+              <div className='flex min-h-7 items-center gap-2 text-xs font-medium sm:text-sm xl:min-h-8'>
                 <Icon
                   aria-hidden='true'
                   className={
@@ -137,7 +137,7 @@ export function RequestMetrics({ period = '7d' }: { period?: OverviewPeriod }) {
                 </KpiValue>
               )}
               {metric.hint && (
-                <span className='text-muted-foreground text-xs leading-5'>
+                <span className='text-muted-foreground text-2xs leading-4'>
                   {metric.hint}
                 </span>
               )}

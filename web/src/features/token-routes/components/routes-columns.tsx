@@ -7,20 +7,24 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   CircleSlash2,
+  Coins,
   Eye,
+  Gauge,
   Layers3,
   MoreHorizontal,
   Pencil,
   Power,
   RadioTower,
+  Repeat2,
+  Shuffle,
   Snowflake,
+  Timer,
   Trash2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { BrandGlyph } from '@/assets/brand-icons/BrandIcon'
 import { RowDisclosureTrigger } from '@/components/common/row-disclosure'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -41,9 +45,28 @@ import type {
 } from '../types'
 import {
   isExplicitGroupRoute,
+  normalizeRoutingStrategy,
   resolveRouteTitle,
   routingStrategyLabel,
 } from '../utils'
+
+const STRATEGY_ICONS = {
+  weighted: Shuffle,
+  round_robin: Repeat2,
+  stable_first: RadioTower,
+  least_busy: Gauge,
+  lowest_latency: Timer,
+  lowest_cost: Coins,
+} as const
+
+function StrategyIcon({
+  strategy,
+}: {
+  strategy?: RouteRoutingStrategy | null
+}) {
+  const Icon = STRATEGY_ICONS[normalizeRoutingStrategy(strategy)]
+  return <Icon className='size-3' aria-hidden='true' />
+}
 
 function isReadOnlyRoute(route: RouteSummaryRow): boolean {
   return route.kind === 'zero_channel' || route.readOnly === true
@@ -261,7 +284,7 @@ export function useRoutesColumns(
                   </span>
                 )}
               </div>
-              <div className='text-muted-foreground text-2xs mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5'>
+              <div className='text-muted-foreground text-2xs mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 sm:flex-nowrap sm:overflow-hidden'>
                 <code
                   className='max-w-44 truncate font-mono'
                   title={route.modelPattern}
@@ -283,11 +306,35 @@ export function useRoutesColumns(
                     </span>
                   </>
                 )}
-                {sites.length > 0 && (
+                {!readOnly && (
                   <>
                     <span aria-hidden='true'>·</span>
                     <span
-                      className='min-w-0 truncate'
+                      className='inline-flex shrink-0 items-center gap-1'
+                      title={t(
+                        routingStrategyLabel(
+                          route.routingStrategy as RouteRoutingStrategy | null
+                        )
+                      )}
+                    >
+                      <StrategyIcon strategy={route.routingStrategy} />
+                      <span className='hidden truncate sm:inline'>
+                        {t(
+                          routingStrategyLabel(
+                            route.routingStrategy as RouteRoutingStrategy | null
+                          )
+                        )}
+                      </span>
+                    </span>
+                  </>
+                )}
+                {sites.length > 0 && (
+                  <>
+                    <span aria-hidden='true' className='hidden sm:inline'>
+                      ·
+                    </span>
+                    <span
+                      className='hidden min-w-0 truncate sm:inline'
                       title={sites.join(' → ')}
                     >
                       {sites.slice(0, 2).join(' → ')}
@@ -301,23 +348,6 @@ export function useRoutesColumns(
         )
       },
       meta: { mobileTitle: true },
-    },
-    {
-      id: 'strategy',
-      size: 112,
-      accessorFn: (row) => (row as RouteSummaryRow).routingStrategy ?? '',
-      header: t('tokenRoutes.columns.strategy'),
-      cell: ({ row }) => {
-        const route = row.original as RouteSummaryRow
-        if (isReadOnlyRoute(route)) {
-          return <span className='text-muted-foreground text-xs'>—</span>
-        }
-        const label = routingStrategyLabel(
-          route.routingStrategy as RouteRoutingStrategy | null
-        )
-        return <Badge variant='outline'>{t(label)}</Badge>
-      },
-      meta: { mobileOrder: 3 },
     },
     {
       id: 'enabled',

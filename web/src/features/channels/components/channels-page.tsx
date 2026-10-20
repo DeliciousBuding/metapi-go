@@ -236,7 +236,10 @@ export function ChannelsPage() {
 
   return (
     <div className='page-padding flex h-full flex-col gap-3'>
-      <PageHeader title={t('channels.page.title')} />
+      <PageHeader
+        title={t('channels.page.title')}
+        description={t('channels.page.description')}
+      />
       <ImportedUpstreamsPanel
         accountCount={
           errorSummaryQuery.data?.total ?? channelsPageQuery.data?.total

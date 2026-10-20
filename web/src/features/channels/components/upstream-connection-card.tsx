@@ -45,11 +45,10 @@ export function UpstreamConnectionCard(props: {
   return (
     <article
       aria-label={item.name}
-      className='bg-card flex min-w-0 flex-col gap-4 rounded-xl border p-4'
+      className='bg-card flex min-w-0 flex-col gap-3 rounded-xl border p-3.5'
     >
       <div className='flex items-start justify-between gap-3'>
-        <div className='min-w-0 space-y-2'>
-          <UpstreamIdentity provider={item.provider} dialect={item.dialect} />
+        <div className='min-w-0 space-y-1.5'>
           <h2 className='text-base font-semibold'>
             <button
               type='button'
@@ -59,12 +58,15 @@ export function UpstreamConnectionCard(props: {
               {item.name}
             </button>
           </h2>
-          <p
-            className='text-muted-foreground truncate text-xs'
-            title={item.baseUrl}
-          >
-            {item.baseUrl}
-          </p>
+          <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+            <UpstreamIdentity provider={item.provider} dialect={item.dialect} />
+            <p
+              className='text-muted-foreground text-2xs min-w-0 truncate'
+              title={item.baseUrl}
+            >
+              {item.baseUrl}
+            </p>
+          </div>
         </div>
         <Badge variant={item.enabled ? 'success' : 'secondary'}>
           {t(
@@ -75,14 +77,16 @@ export function UpstreamConnectionCard(props: {
         </Badge>
       </div>
       <div
-        className='grid grid-cols-3 gap-2'
+        className='grid grid-cols-3 overflow-hidden rounded-lg border'
         aria-label={t('channels.visual.connectionSteps')}
       >
-        {steps.map((step) => (
+        {steps.map((step, index) => (
           <button
             key={step.tab}
             type='button'
-            className='bg-muted/40 hover:bg-accent focus-visible:ring-ring flex min-w-0 flex-col items-start gap-1 rounded-lg border p-3 text-left focus-visible:ring-2 focus-visible:outline-none'
+            className={`hover:bg-muted/60 focus-visible:ring-ring flex min-w-0 items-center justify-center gap-1.5 py-1.5 text-xs focus-visible:ring-2 focus-visible:outline-none ${
+              index > 0 ? 'border-l' : ''
+            }`}
             aria-label={t('channels.visual.openStep', {
               name: item.name,
               step: t(`channels.visual.steps.${step.tab}`),
@@ -90,39 +94,37 @@ export function UpstreamConnectionCard(props: {
             })}
             onClick={() => props.onManage(step.tab)}
           >
-            <span className='flex w-full items-center justify-between gap-2'>
-              <span className='text-lg font-semibold tabular-nums'>
-                {step.count}
-              </span>
-              <step.icon
-                aria-hidden='true'
-                className='text-muted-foreground size-3.5 shrink-0'
-              />
-            </span>
-            <span className='text-muted-foreground text-xs break-words'>
+            <step.icon
+              aria-hidden='true'
+              className='text-muted-foreground size-3.5 shrink-0'
+            />
+            <span className='font-semibold tabular-nums'>{step.count}</span>
+            <span className='text-muted-foreground truncate'>
               {t(`channels.visual.steps.${step.tab}`)}
             </span>
           </button>
         ))}
       </div>
-      <div className='flex flex-wrap items-center gap-2'>
-        {models.slice(0, 3).map((model) => (
+      <div className='flex min-h-5 flex-wrap items-center gap-1.5'>
+        {models.slice(0, 4).map((model) => (
           <ModelPill key={model} model={model} />
         ))}
-        {models.length > 3 && (
+        {models.length > 4 && (
           <span className='text-muted-foreground text-xs'>
-            +{models.length - 3}
+            +{models.length - 4}
           </span>
         )}
       </div>
-      <div className='text-muted-foreground space-y-1 text-xs'>
+      <div className='text-muted-foreground text-2xs space-y-0.5'>
         {[...new Set(props.members.map(memberProtocols))]
           .slice(0, 2)
           .map((protocols) => (
-            <p key={protocols}>{protocols}</p>
+            <p key={protocols} className='truncate' title={protocols}>
+              {protocols}
+            </p>
           ))}
       </div>
-      <div className='mt-auto flex flex-wrap items-center justify-between gap-3 border-t pt-3'>
+      <div className='mt-auto flex flex-wrap items-center justify-between gap-3 border-t pt-2.5'>
         <p className='text-muted-foreground text-xs' role='status'>
           {t(`channels.visual.readiness.${readiness}`)}
         </p>
