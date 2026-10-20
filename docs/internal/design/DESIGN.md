@@ -320,6 +320,8 @@ Detail sheets keep 12px medium labels above 14px normal-leading values. Plain te
 
 Route editing presents matching and account selection first; advanced display/routing fields stay in a disclosure that preserves drafts. Invalid advanced fields must reveal and use the shared form validation focus. Filtering accounts limits bulk selection to visible matches without clearing hidden selections. Rebuild success uses a compact summary with optional metrics; partial failures, observation failures and retry actions remain visible.
 
+Route inline expansion is a semantic channel inventory, not a nested table. The section header uses compact labeled badges for enabled count, total weight, cooling and missing credentials. Each channel keeps one account identity block with visible site and credential context, then groups weight/share, success/failure and state as independently labeled signals. Compact prices read input → output per million and keep provenance in the title. Mobile wraps those signals below the identity instead of hiding site, price or status.
+
 OAuth 路由诊断在候选下折叠展示成员，使用分隔线区分成员，姓名和阻断原因完整换行。
 成员筛选状态与父路由状态分别标注；冷却时间旁提供单成员恢复，成功后刷新诊断。
 诊断保留未评估状态，选中成员和实际转发模型由请求时的选路决定。

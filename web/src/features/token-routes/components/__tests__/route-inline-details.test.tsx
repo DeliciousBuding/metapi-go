@@ -195,8 +195,40 @@ describe('route inline details', () => {
     await within(region).findByText('Example account')
 
     const status = within(region).getByTestId('channel-status')
-    expect(status).toHaveTextContent('Disable')
+    expect(status).toHaveTextContent('Disabled')
     expect(status).not.toHaveTextContent('Cooling')
+  })
+
+  it('shows site, key, compact prices, weight and health as separate signals', async () => {
+    vi.mocked(api.getModelPriceCompare).mockResolvedValue({
+      items: [
+        {
+          accountId: 3,
+          model: 'model-1',
+          source: 'observed',
+          ratesSource: 'configured',
+          missingPrice: false,
+          inputPerMillion: 1.25,
+          outputPerMillion: 10,
+        },
+      ],
+    })
+    renderHarness()
+    fireEvent.click(screen.getByRole('button', { name: 'model-1' }))
+    const region = await screen.findByRole('region', {
+      name: 'Channels for model-1',
+    })
+
+    await waitFor(() => expect(region).toHaveTextContent('$1.25 → $10.00'))
+    expect(within(region).getByText('Example site')).toBeInTheDocument()
+    expect(within(region).getByText('Example key')).toBeInTheDocument()
+    expect(region).toHaveTextContent('100.0%')
+    const health = within(region).getByTestId('channel-health')
+    expect(within(health).getByText('8')).toBeInTheDocument()
+    expect(within(health).getByText('1')).toBeInTheDocument()
+    expect(within(region).getByTestId('channel-status')).toHaveTextContent(
+      'Healthy'
+    )
   })
 
   it.each(['configured', 'observed'])(

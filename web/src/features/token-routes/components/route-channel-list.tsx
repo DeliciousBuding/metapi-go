@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 
 import { BrandGlyph } from '@/assets/brand-icons/BrandIcon'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -100,20 +101,43 @@ function ChannelStatusIcon({
   return <Icon aria-hidden='true' className={cn('size-4', color, className)} />
 }
 
-/**
- * The route's channel composition, rendered as a detail panel under the route
- * row rather than a second table: no nested card, one shared column legend,
- * single-line channel rows on wide containers, labelled pairs on phones.
- *
- * The panel has to stay readable when several routes are open, so every piece
- * of chrome is charged against the six facts an operator needs per channel.
- * The legend and the rows share one grid template; drift between the two would
- * make every number ambiguous.
- */
-const CHANNEL_ROW_GRID =
-  'grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-0.5 @[36rem]/channel-list:grid-cols-[auto_minmax(0,1fr)_5.5rem_6rem_1.5rem] @[36rem]/channel-list:items-center @[36rem]/channel-list:gap-y-0'
-
 type ChannelState = 'healthy' | 'disabled' | 'cooling' | 'missing'
+
+const CHANNEL_STATUS_LABEL_KEY = {
+  healthy: 'tokenRoutes.detail.channelStatusHealthy',
+  disabled: 'tokenRoutes.detail.channelStatusDisabled',
+  cooling: 'tokenRoutes.detail.cooldown',
+  missing: 'tokenRoutes.detail.channelStatusMissingCredential',
+} as const
+
+const CHANNEL_STATUS_BADGE_VARIANT = {
+  healthy: 'success',
+  disabled: 'secondary',
+  cooling: 'warning',
+  missing: 'destructive',
+} as const
+
+function ChannelStatusBadge({
+  state,
+  title,
+}: {
+  state: ChannelState
+  title?: string
+}) {
+  const { t } = useTranslation()
+  const label = t(CHANNEL_STATUS_LABEL_KEY[state])
+  return (
+    <Badge
+      data-testid='channel-status'
+      variant={CHANNEL_STATUS_BADGE_VARIANT[state]}
+      title={title ?? label}
+      className='gap-1'
+    >
+      <ChannelStatusIcon state={state} />
+      <span>{label}</span>
+    </Badge>
+  )
+}
 
 export function RouteChannelList({
   route,
@@ -292,100 +316,79 @@ export function RouteChannelList({
 
   return (
     <div ref={rootRef} className='@container/channel-list min-w-0'>
-      <div className='flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1'>
-        <div className='flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5'>
-          <h3 className='text-sm font-medium'>
+      <div className='flex min-w-0 items-center gap-3'>
+        <div className='flex min-w-0 flex-1 flex-wrap items-center gap-1.5'>
+          <h3 className='mr-1 text-sm font-medium'>
             {t('tokenRoutes.detail.channels')}
           </h3>
           {channels.length > 0 && (
-            <span
-              className='text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums'
+            <Badge
+              variant='success'
               title={t('tokenRoutes.detail.channelEnabledSummary', {
                 enabled: enabledCount,
                 total: channels.length,
                 weight: enabledWeight,
               })}
             >
-              <RadioTower className='size-3.5' aria-hidden='true' />
-              <span className='@[36rem]/channel-list:hidden'>
-                {enabledCount}/{channels.length}
-              </span>
-              <span className='hidden @[36rem]/channel-list:inline'>
-                {t('tokenRoutes.detail.channelHeaderEnabled', {
-                  enabled: enabledCount,
-                  total: channels.length,
-                })}
-              </span>
-            </span>
+              <RadioTower />
+              {t('tokenRoutes.detail.channelHeaderEnabled', {
+                enabled: enabledCount,
+                total: channels.length,
+              })}
+            </Badge>
           )}
           {channels.length > 0 && (
-            <span
-              className='text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums'
+            <Badge
+              variant='outline'
               title={t('tokenRoutes.detail.channelTotalWeight', {
                 weight: enabledWeight,
               })}
             >
-              <Gauge className='size-3.5' aria-hidden='true' />
-              <span className='@[36rem]/channel-list:hidden'>
-                {enabledWeight}
-              </span>
-              <span className='hidden @[36rem]/channel-list:inline'>
-                {t('tokenRoutes.detail.channelHeaderWeight', {
-                  weight: enabledWeight,
-                })}
-              </span>
-            </span>
+              <Gauge />
+              {t('tokenRoutes.detail.channelHeaderWeight', {
+                weight: enabledWeight,
+              })}
+            </Badge>
           )}
           {stateCounts.cooling > 0 && (
-            <span
-              className='text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums'
+            <Badge
+              variant='warning'
               title={t('tokenRoutes.detail.channelStatusCoolingSummary', {
                 count: stateCounts.cooling,
               })}
             >
-              <Snowflake className='text-warning size-3.5' aria-hidden='true' />
-              <span className='@[36rem]/channel-list:hidden'>
-                {stateCounts.cooling}
-              </span>
-              <span className='hidden @[36rem]/channel-list:inline'>
-                {t('tokenRoutes.detail.channelHeaderCooling', {
-                  count: stateCounts.cooling,
-                })}
-              </span>
-            </span>
+              <Snowflake />
+              {t('tokenRoutes.detail.channelHeaderCooling', {
+                count: stateCounts.cooling,
+              })}
+            </Badge>
           )}
           {stateCounts.missing > 0 && (
-            <span
-              className='text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums'
+            <Badge
+              variant='destructive'
               title={t('tokenRoutes.detail.channelStatusMissingSummary', {
                 count: stateCounts.missing,
               })}
             >
-              <CircleAlert
-                className='text-destructive size-3.5'
-                aria-hidden='true'
-              />
-              <span className='@[36rem]/channel-list:hidden'>
-                {stateCounts.missing}
-              </span>
-              <span className='hidden @[36rem]/channel-list:inline'>
-                {t('tokenRoutes.detail.channelHeaderMissing', {
-                  count: stateCounts.missing,
-                })}
-              </span>
-            </span>
+              <CircleAlert />
+              {t('tokenRoutes.detail.channelHeaderMissing', {
+                count: stateCounts.missing,
+              })}
+            </Badge>
           )}
           {showPriceSummary && (
             <span
               data-testid='channel-price-summary'
-              className='text-muted-foreground inline-flex items-center gap-1 text-xs'
+              className='inline-flex flex-wrap items-center gap-1'
               title={t('tokenRoutes.detail.channelPriceUnavailable')}
             >
-              <CircleDollarSign className='size-3.5' aria-hidden='true' />
-              <span aria-hidden='true'>—</span>
-              <span className='sr-only'>
+              <Badge
+                variant='outline'
+                title={t('tokenRoutes.detail.channelPriceUnavailable')}
+              >
+                <CircleDollarSign />
                 {t('tokenRoutes.detail.channelPriceUnavailable')}
-              </span>
+              </Badge>
               {unavailableSources.map((source) => (
                 <PriceGradeBadge key={source} grade={source} />
               ))}
@@ -406,22 +409,6 @@ export function RouteChannelList({
         </div>
         {actions && <div className='flex shrink-0 items-center'>{actions}</div>}
       </div>
-
-      {channels.length > 0 && (
-        <div className='text-muted-foreground text-2xs mt-2 hidden grid-cols-[auto_minmax(0,1fr)_5.5rem_6rem_1.5rem] items-center gap-x-2.5 px-1.5 @[36rem]/channel-list:grid'>
-          <span aria-hidden='true' />
-          <span>{t('tokenRoutes.detail.channelColumnIdentity')}</span>
-          <span className='text-right'>
-            {t('tokenRoutes.detail.channelColumnWeightShare')}
-          </span>
-          <span className='text-right'>
-            {t('tokenRoutes.detail.channelColumnHealth')}
-          </span>
-          <span className='sr-only'>
-            {t('tokenRoutes.detail.channelColumnStatus')}
-          </span>
-        </div>
-      )}
 
       {channelContent}
 
@@ -486,38 +473,21 @@ function ChannelRow({
       ? t('tokenRoutes.detail.channelTokenAccountHint')
       : t('tokenRoutes.detail.channelTokenMissingHint')
   }
-  let status: { label: string; title?: string }
-  switch (state) {
-    case 'disabled':
-      status = {
-        label: t('tokenRoutes.columns.disable'),
-      }
-      break
-    case 'missing':
-      status = {
-        label: t('tokenRoutes.detail.channelStatusMissingCredential'),
-      }
-      break
-    case 'cooling':
-      status = {
-        label: t('tokenRoutes.detail.cooldown'),
-        title: t('tokenRoutes.detail.channelCooldownUntil', {
+  const statusTitle =
+    state === 'cooling'
+      ? t('tokenRoutes.detail.channelCooldownUntil', {
           time: formatDateTime(channel.cooldownUntil, locale),
-        }),
-      }
-      break
-    default:
-      status = {
-        label: t('tokenRoutes.detail.channelStatusHealthy'),
-      }
-  }
-  const priceLabel = priceUnavailable
-    ? null
-    : `${formatPrice(priceTruth.inputPerMillion, {
-        fractionDigits: 4,
-      })} / ${formatPrice(priceTruth.outputPerMillion, {
-        fractionDigits: 4,
-      })}`
+        })
+      : undefined
+  const inputPrice = formatPrice(priceTruth.inputPerMillion)
+  const outputPrice = formatPrice(priceTruth.outputPerMillion)
+  const priceTitle = priceUnavailable
+    ? undefined
+    : `${t('tokenRoutes.detail.channelInputPrice')}: ${inputPrice} · ${t(
+        'tokenRoutes.detail.channelOutputPrice'
+      )}: ${outputPrice} · ${t('tokenRoutes.detail.channelRateProvenance')}: ${t(
+        `priceCompare.grade.${normalizePriceGrade(priceTruth.provenance.ratesSource)}`
+      )}`
   const weightPercent =
     allocation.enabledWeightShare === null
       ? null
@@ -531,21 +501,20 @@ function ChannelRow({
   return (
     <li
       className={cn(
-        CHANNEL_ROW_GRID,
-        'rounded-lg px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/60',
-        state === 'disabled' && 'text-muted-foreground'
+        'flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-muted/60',
+        state === 'disabled' && 'bg-muted/20 text-muted-foreground',
+        state === 'cooling' && 'bg-warning/5',
+        state === 'missing' && 'bg-destructive/5'
       )}
     >
-      {/* Model glyph carries the model family; the small corner badge keeps
-          the upstream site visible without repeating its name on every row. */}
       <div
-        className='col-start-1 row-span-2 row-start-1 self-start @[36rem]/channel-list:self-center'
+        className='shrink-0 self-start @[42rem]/channel-list:self-center'
         title={siteLabel || accountLabel}
         aria-hidden='true'
       >
-        <span className='bg-background grid size-7 place-items-center rounded-md shadow-sm ring-1 ring-black/10 dark:ring-white/20'>
+        <span className='bg-background grid size-8 place-items-center rounded-lg shadow-sm ring-1 ring-black/10 dark:ring-white/20'>
           {siteIcon ? (
-            <BrandGlyph icon={siteIcon} size={20} alt='' />
+            <BrandGlyph icon={siteIcon} size={21} alt='' />
           ) : (
             <PlatformFallback
               className='text-muted-foreground size-4'
@@ -554,122 +523,135 @@ function ChannelRow({
           )}
         </span>
       </div>
-      <div className='col-start-2 row-start-1 min-w-0'>
-        <div className='flex min-w-0 items-baseline gap-x-1.5'>
+      <div className='min-w-0 flex-1 basis-56'>
+        <div className='flex min-w-0 items-center gap-x-2'>
           <span
             className={cn(
-              'truncate text-xs font-medium @[36rem]/channel-list:text-sm',
+              'truncate text-sm font-medium',
               state === 'disabled' && 'text-muted-foreground'
             )}
-            title={`${accountLabel} · ${t('tokenRoutes.detail.channelColumnPriority')} ${channel.priority}`}
+            title={accountLabel}
           >
             {accountLabel}
           </span>
-          <span
-            className='inline-flex shrink-0 items-center @[36rem]/channel-list:hidden'
-            title={status.title}
+          <Badge
+            variant='outline'
+            className='text-2xs h-4 shrink-0 rounded-md px-1 font-mono'
+            title={`${t('tokenRoutes.detail.channelColumnPriority')} ${channel.priority + 1}`}
           >
-            <ChannelStatusIcon state={state} />
-            <span className='sr-only'>{status.label}</span>
+            #{channel.priority + 1}
+          </Badge>
+        </div>
+        <div className='text-muted-foreground mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs'>
+          {siteLabel && (
+            <span
+              className='inline-flex min-w-0 items-center gap-1'
+              title={siteLabel}
+            >
+              <Server className='size-3 shrink-0' aria-hidden='true' />
+              <span className='max-w-40 truncate'>{siteLabel}</span>
+            </span>
+          )}
+          {siteLabel && <span aria-hidden='true'>·</span>}
+          <span className='inline-flex min-w-0 items-center gap-1'>
+            <KeyRound className='size-3 shrink-0' aria-hidden='true' />
+            <span
+              className={cn(
+                'min-w-0 truncate',
+                missingCredential && 'text-destructive font-medium'
+              )}
+              title={tokenHint ?? tokenLabel}
+            >
+              {tokenLabel}
+            </span>
           </span>
+          {!priceUnavailable && (
+            <>
+              <span aria-hidden='true'>·</span>
+              <span
+                className='text-foreground inline-flex items-center gap-1'
+                title={priceTitle}
+              >
+                <CircleDollarSign
+                  className='size-3 shrink-0'
+                  aria-hidden='true'
+                />
+                <span className='tabular-nums'>
+                  {inputPrice} <span aria-hidden='true'>→</span> {outputPrice}
+                </span>
+              </span>
+            </>
+          )}
+          {showSourceModel && sourceModel && (
+            <span
+              className='bg-muted/70 text-muted-foreground text-2xs inline-flex max-w-44 shrink-0 items-center gap-1 truncate rounded px-1.5 py-0.5'
+              title={`${t('tokenRoutes.detail.channelSourceModel')}: ${sourceModel}`}
+            >
+              <BrandGlyph model={sourceModel} size={11} />
+              <code className='truncate font-mono'>{sourceModel}</code>
+            </span>
+          )}
         </div>
       </div>
-      <div className='text-muted-foreground text-2xs col-start-2 row-start-2 flex min-w-0 items-center gap-x-1'>
-        <span className='inline-flex min-w-0 items-center gap-1'>
-          <KeyRound className='size-3 shrink-0' aria-hidden='true' />
-          <span
-            className={cn(
-              'min-w-0 truncate',
-              missingCredential && 'text-destructive font-medium'
-            )}
-            title={tokenHint ?? tokenLabel}
-          >
-            {tokenLabel}
-          </span>
-        </span>
-        {siteLabel && <span className='sr-only'>{siteLabel}</span>}
-        {showSourceModel && sourceModel && (
-          <span
-            className='bg-muted/70 text-muted-foreground text-2xs hidden max-w-32 shrink-0 items-center gap-1 truncate rounded px-1 py-0.5 @[36rem]/channel-list:inline-flex'
-            title={`${t('tokenRoutes.detail.channelSourceModel')}: ${sourceModel}`}
-          >
-            <BrandGlyph model={sourceModel} size={11} />
-            <code className='truncate font-mono'>{sourceModel}</code>
-          </span>
-        )}
-        {priceLabel && (
-          <span
-            className='hidden shrink-0 items-center gap-1 @[44rem]/channel-list:inline-flex'
-            title={`${t('tokenRoutes.detail.channelColumnPrice')} · ${t('tokenRoutes.detail.channelRateProvenance')}: ${t(
-              `priceCompare.grade.${normalizePriceGrade(priceTruth.provenance.ratesSource)}`
-            )}`}
-          >
-            <span className='text-muted-foreground'>·</span>
-            <CircleDollarSign className='size-3' aria-hidden='true' />
-            <span className='text-foreground tabular-nums'>{priceLabel}</span>
-          </span>
-        )}
-      </div>
 
-      <div className='col-start-3 row-start-1 justify-self-end text-right @[36rem]/channel-list:col-start-3'>
+      <div className='flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1 pl-11 @[42rem]/channel-list:ml-auto @[42rem]/channel-list:w-auto @[42rem]/channel-list:flex-nowrap @[42rem]/channel-list:pl-0'>
         <div
-          className='flex items-center justify-end gap-1'
+          className='min-w-24 flex-1 @[42rem]/channel-list:w-24 @[42rem]/channel-list:flex-none'
           title={`${t('tokenRoutes.detail.channelColumnWeightShare')}: ${allocation.configuredWeight} · ${formatRouteWeightShare(allocation.enabledWeightShare)}`}
         >
-          <span className='bg-muted h-1 w-8 overflow-hidden rounded-full @[36rem]/channel-list:w-9'>
+          <div className='text-muted-foreground flex items-center justify-between gap-2 text-xs'>
+            <Gauge className='size-3.5' aria-hidden='true' />
+            <span className='sr-only'>
+              {t('tokenRoutes.detail.channelColumnWeightShare')}
+            </span>
+            <span className='text-foreground font-medium tabular-nums'>
+              {formatRouteWeightShare(allocation.enabledWeightShare)}
+            </span>
+          </div>
+          <span className='bg-muted mt-1 block h-1 overflow-hidden rounded-full'>
             <span
               className='bg-primary block h-full rounded-full'
               style={{ width: `${weightPercent ?? 0}%` }}
             />
           </span>
-          <span className='text-2xs font-medium tabular-nums'>
-            {formatRouteWeightShare(allocation.enabledWeightShare)}
+        </div>
+
+        <div
+          data-testid='channel-health'
+          role='group'
+          aria-label={`${t('tokenRoutes.detail.channelColumnHealth')}: ${formatInt(
+            channel.successCount
+          )} / ${formatInt(channel.failCount)}`}
+          className='flex min-w-0 items-center gap-2 text-xs whitespace-nowrap tabular-nums'
+          title={t('tokenRoutes.detail.channelColumnHealth')}
+        >
+          <span className='inline-flex items-center gap-1'>
+            <Check className='text-success size-3' aria-hidden='true' />
+            <span className='text-foreground'>
+              {formatInt(channel.successCount)}
+            </span>
+          </span>
+          <span className='inline-flex items-center gap-1'>
+            <X
+              className={cn(
+                'size-3',
+                channel.failCount > 0
+                  ? 'text-destructive'
+                  : 'text-muted-foreground'
+              )}
+              aria-hidden='true'
+            />
+            <span
+              className={
+                channel.failCount > 0 ? 'text-destructive' : 'text-foreground'
+              }
+            >
+              {formatInt(channel.failCount)}
+            </span>
           </span>
         </div>
-      </div>
 
-      <div
-        data-testid='channel-health'
-        className='text-2xs col-start-3 row-start-2 flex min-w-0 items-center gap-x-1 justify-self-end tabular-nums @[36rem]/channel-list:col-start-4 @[36rem]/channel-list:row-start-1'
-        title={t('tokenRoutes.detail.channelColumnHealth')}
-      >
-        <span className='inline-flex items-center gap-0.5'>
-          <Check className='text-success size-3' aria-hidden='true' />
-          <span className='text-foreground text-xs'>
-            {formatInt(channel.successCount)}
-          </span>
-        </span>
-        <span className='text-muted-foreground'>{' / '}</span>
-        <span className='inline-flex items-center gap-0.5'>
-          <X
-            className={cn(
-              'size-3',
-              channel.failCount > 0
-                ? 'text-destructive'
-                : 'text-muted-foreground'
-            )}
-            aria-hidden='true'
-          />
-          <span
-            className={cn(
-              'text-xs',
-              channel.failCount > 0 ? 'text-destructive' : 'text-foreground'
-            )}
-          >
-            {formatInt(channel.failCount)}
-          </span>
-        </span>
-      </div>
-
-      <div className='hidden justify-self-end @[36rem]/channel-list:col-start-5 @[36rem]/channel-list:row-start-1 @[36rem]/channel-list:block'>
-        <span
-          data-testid='channel-status'
-          className='inline-flex items-center'
-          title={status.title ?? status.label}
-        >
-          <ChannelStatusIcon state={state} />
-          <span className='sr-only'>{status.label}</span>
-        </span>
+        <ChannelStatusBadge state={state} title={statusTitle} />
       </div>
     </li>
   )

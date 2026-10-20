@@ -440,10 +440,10 @@ await run('02-route-multi-expanded-light', desktop, async ({ page }) => {
     region,
     '冷却中',
     '无可用凭据',
-    '$1.2500',
-    '$10.0000',
-    '$0.8000',
-    '$6.4000'
+    '$1.25',
+    '$10.00',
+    '$0.80',
+    '$6.40'
   )
   await capture(page, '02-route-multi-expanded-light', { fullPage: true })
   await captureRegion(region, '02-route-multi-detail')
@@ -504,8 +504,9 @@ await run('07-routes-collapsed-mobile', mobile, async ({ page }) => {
 
 await run('08-route-multi-expanded-mobile', mobile, async ({ page }) => {
   await openRoutes(page)
-  await expand(page, 'GPT-6 Sol')
+  const region = await expand(page, 'GPT-6 Sol')
   await capture(page, '08-route-multi-expanded-mobile', { fullPage: true })
+  await captureRegion(region, '08-route-multi-detail-mobile')
 })
 
 await run('09-route-detail-sheet-mobile', mobile, async ({ page }) => {
