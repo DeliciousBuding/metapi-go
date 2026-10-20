@@ -47,6 +47,7 @@ import {
 import { useProxyLogsAutoRefresh } from '../lib/use-proxy-logs-auto-refresh'
 import type { ProxyLog, ProxyLogFilters } from '../types'
 import { LatencyBadge } from './latency-badge'
+import { LogViewNavigation } from './log-view-navigation'
 import { ProxyLogDetailSheet } from './proxy-log-detail-sheet'
 import { ProxyLogsAutoRefreshToggle } from './proxy-logs-auto-refresh-toggle'
 import {
@@ -413,7 +414,7 @@ export function ProxyLogsPage() {
   return (
     <div className='page-padding flex h-full flex-col gap-3'>
       <PageHeader
-        title={t('proxyLogs.page.title')}
+        title={t('requestLogs.title')}
         actions={
           <>
             <ProxyLogsAutoRefreshToggle
@@ -433,7 +434,9 @@ export function ProxyLogsPage() {
             />
           </>
         }
-      />
+      >
+        <LogViewNavigation view='attempts' />
+      </PageHeader>
 
       {summary && (
         <SummaryStrip>

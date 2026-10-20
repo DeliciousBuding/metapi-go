@@ -38,6 +38,7 @@ import {
 } from '../lib/row-interaction'
 import { useProxyLogsAutoRefresh } from '../lib/use-proxy-logs-auto-refresh'
 import { GatewayRequestDetailSheet } from './gateway-request-detail-sheet'
+import { LogViewNavigation } from './log-view-navigation'
 import { ProxyLogsAutoRefreshToggle } from './proxy-logs-auto-refresh-toggle'
 import { ProxyLogsPage } from './proxy-logs-page'
 import { RequestOutcome } from './request-outcome'
@@ -99,7 +100,6 @@ export function buildGatewayRequestsHref(
 }
 
 export function ProxyLogsWorkspace() {
-  const { t } = useTranslation()
   const location = useLocation()
   const params = new URLSearchParams(location.searchStr)
   // Existing site/channel/client/latency deep links only have attempt-level
@@ -110,24 +110,7 @@ export function ProxyLogsWorkspace() {
       params.has(key)
     ) ||
     (params.has('status') && !params.has('requestStatus'))
-  if (!attempts) return <GatewayRequestsPage />
-  return (
-    <div className='flex h-full flex-col'>
-      <div className='bg-muted/30 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-xs'>
-        <p className='text-muted-foreground'>{t('requestLogs.historyHint')}</p>
-        <Link
-          to='/proxy-logs'
-          search={{ view: 'requests' }}
-          className='text-primary font-medium hover:underline'
-        >
-          {t('requestLogs.backToRequests')}
-        </Link>
-      </div>
-      <div className='min-h-0 flex-1'>
-        <ProxyLogsPage />
-      </div>
-    </div>
-  )
+  return attempts ? <ProxyLogsPage /> : <GatewayRequestsPage />
 }
 
 export function GatewayRequestsPage() {
@@ -193,7 +176,7 @@ export function GatewayRequestsPage() {
           mobileOrder: 0,
         },
         cell: ({ row }) => (
-          <div className='flex min-w-0 flex-col gap-1'>
+          <div className='flex min-w-0 flex-col items-start gap-1'>
             {row.original.modelRequested ? (
               <ModelPill model={row.original.modelRequested} />
             ) : (
@@ -293,20 +276,6 @@ export function GatewayRequestsPage() {
         title={t('requestLogs.title')}
         actions={
           <>
-            <Link
-              to='/proxy-logs'
-              search={{
-                view: 'attempts',
-                ...(filters.downstreamKeyId
-                  ? { downstreamKeyId: Number(filters.downstreamKeyId) }
-                  : {}),
-                ...(filters.from ? { from: filters.from } : {}),
-                ...(filters.to ? { to: filters.to } : {}),
-              }}
-              className='text-muted-foreground text-sm hover:underline'
-            >
-              {t('requestLogs.history')}
-            </Link>
             <ProxyLogsAutoRefreshToggle
               intervalMs={intervalMs}
               setIntervalMs={setIntervalMs}
@@ -322,7 +291,9 @@ export function GatewayRequestsPage() {
             </Button>
           </>
         }
-      />
+      >
+        <LogViewNavigation view='requests' />
+      </PageHeader>
       {summary && (
         <SummaryStrip>
           {(
