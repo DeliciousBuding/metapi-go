@@ -6,6 +6,14 @@ import { useTranslation } from 'react-i18next'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { useUpstreamDeletion } from '@/components/common/upstream-deletion'
 import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
@@ -195,11 +203,47 @@ export function ImportedUpstreamsPanel(props: {
                 )
               })}
             </div>
-            {!filtered.length && (
-              <p className='text-muted-foreground py-12 text-center text-sm'>
-                {t('channels.upstream.noMatches')}
-              </p>
-            )}
+            {!filtered.length &&
+              (items.length === 0 ? (
+                <Empty className='border py-12'>
+                  <EmptyHeader>
+                    <EmptyMedia variant='icon'>
+                      <Cable className='size-5' aria-hidden='true' />
+                    </EmptyMedia>
+                    <EmptyTitle>{t('channels.upstream.emptyTitle')}</EmptyTitle>
+                    <EmptyDescription>
+                      {t('channels.upstream.emptyDescription')}
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button size='sm' onClick={() => setCreating(true)}>
+                      <Plus aria-hidden='true' className='size-4' />
+                      {t('channels.upstream.emptyAction')}
+                    </Button>
+                  </EmptyContent>
+                </Empty>
+              ) : (
+                <Empty className='py-12'>
+                  <EmptyHeader>
+                    <EmptyMedia variant='icon'>
+                      <Search className='size-5' aria-hidden='true' />
+                    </EmptyMedia>
+                    <EmptyTitle>{t('channels.upstream.noMatches')}</EmptyTitle>
+                    <EmptyDescription>
+                      {t('channels.upstream.noMatchesHint')}
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      onClick={() => setSearch('')}
+                    >
+                      {t('channels.upstream.clearSearch')}
+                    </Button>
+                  </EmptyContent>
+                </Empty>
+              ))}
           </div>
         </TabsContent>
       </Tabs>

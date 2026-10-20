@@ -20,10 +20,9 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { KeyRound } from 'lucide-react'
+import { ArrowRight, KeyRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { Button } from '@/components/ui/button'
 import {
   downstreamKeysQueryKeys,
   type DownstreamKeysResponse,
@@ -45,16 +44,18 @@ export function RoutesKeyNextStep() {
   if (keysQuery.data?.items.length !== 0) return null
 
   return (
-    <div className='bg-muted/40 text-muted-foreground flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2 text-sm'>
-      <span>{t('tokenRoutes.page.nextStepBody')}</span>
-      <Button
-        variant='outline'
-        size='sm'
-        render={<Link to='/downstream-keys' />}
+    <div className='text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-dashed px-3 py-2 text-xs'>
+      <KeyRound className='text-primary size-3.5 shrink-0' aria-hidden='true' />
+      <span className='min-w-0 flex-1'>
+        {t('tokenRoutes.page.nextStepBody')}
+      </span>
+      <Link
+        to='/downstream-keys'
+        className='text-primary focus-visible:ring-focus-ring inline-flex shrink-0 items-center gap-1 rounded-sm font-medium underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:outline-none'
       >
-        <KeyRound className='size-4' />
         {t('tokenRoutes.page.nextStepAction')}
-      </Button>
+        <ArrowRight className='size-3.5' aria-hidden='true' />
+      </Link>
     </div>
   )
 }

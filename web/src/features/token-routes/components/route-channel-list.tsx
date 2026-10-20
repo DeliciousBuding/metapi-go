@@ -5,10 +5,10 @@ import {
   CircleCheck,
   CircleDollarSign,
   CirclePause,
+  Gauge,
   KeyRound,
   Network,
   RadioTower,
-  Scale,
   Server,
   Snowflake,
   X,
@@ -307,7 +307,15 @@ export function RouteChannelList({
               })}
             >
               <RadioTower className='size-3.5' aria-hidden='true' />
-              {enabledCount}/{channels.length}
+              <span className='@[36rem]/channel-list:hidden'>
+                {enabledCount}/{channels.length}
+              </span>
+              <span className='hidden @[36rem]/channel-list:inline'>
+                {t('tokenRoutes.detail.channelHeaderEnabled', {
+                  enabled: enabledCount,
+                  total: channels.length,
+                })}
+              </span>
             </span>
           )}
           {channels.length > 0 && (
@@ -317,8 +325,15 @@ export function RouteChannelList({
                 weight: enabledWeight,
               })}
             >
-              <Scale className='size-3.5' aria-hidden='true' />
-              {enabledWeight}
+              <Gauge className='size-3.5' aria-hidden='true' />
+              <span className='@[36rem]/channel-list:hidden'>
+                {enabledWeight}
+              </span>
+              <span className='hidden @[36rem]/channel-list:inline'>
+                {t('tokenRoutes.detail.channelHeaderWeight', {
+                  weight: enabledWeight,
+                })}
+              </span>
             </span>
           )}
           {stateCounts.cooling > 0 && (
@@ -329,7 +344,14 @@ export function RouteChannelList({
               })}
             >
               <Snowflake className='text-warning size-3.5' aria-hidden='true' />
-              {stateCounts.cooling}
+              <span className='@[36rem]/channel-list:hidden'>
+                {stateCounts.cooling}
+              </span>
+              <span className='hidden @[36rem]/channel-list:inline'>
+                {t('tokenRoutes.detail.channelHeaderCooling', {
+                  count: stateCounts.cooling,
+                })}
+              </span>
             </span>
           )}
           {stateCounts.missing > 0 && (
@@ -343,7 +365,14 @@ export function RouteChannelList({
                 className='text-destructive size-3.5'
                 aria-hidden='true'
               />
-              {stateCounts.missing}
+              <span className='@[36rem]/channel-list:hidden'>
+                {stateCounts.missing}
+              </span>
+              <span className='hidden @[36rem]/channel-list:inline'>
+                {t('tokenRoutes.detail.channelHeaderMissing', {
+                  count: stateCounts.missing,
+                })}
+              </span>
             </span>
           )}
           {showPriceSummary && (
@@ -377,6 +406,22 @@ export function RouteChannelList({
         </div>
         {actions && <div className='flex shrink-0 items-center'>{actions}</div>}
       </div>
+
+      {channels.length > 0 && (
+        <div className='text-muted-foreground text-2xs mt-2 hidden grid-cols-[auto_minmax(0,1fr)_5.5rem_6rem_1.5rem] items-center gap-x-2.5 px-1.5 @[36rem]/channel-list:grid'>
+          <span aria-hidden='true' />
+          <span>{t('tokenRoutes.detail.channelColumnIdentity')}</span>
+          <span className='text-right'>
+            {t('tokenRoutes.detail.channelColumnWeightShare')}
+          </span>
+          <span className='text-right'>
+            {t('tokenRoutes.detail.channelColumnHealth')}
+          </span>
+          <span className='sr-only'>
+            {t('tokenRoutes.detail.channelColumnStatus')}
+          </span>
+        </div>
+      )}
 
       {channelContent}
 
