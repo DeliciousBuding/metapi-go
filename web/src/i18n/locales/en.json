@@ -2131,6 +2131,7 @@
           "magpieResidualReasons": {
             "provider_keys_not_in_backup": "The backup omitted provider keys. Channel configuration can be imported, but no upstream credential can serve a route.",
             "provider_models_not_explicit": "The provider has no explicit model list; its catalog was not guessed.",
+            "provider_models_completed_from_groups": "Models that only routing groups named were added from those groups and given direct routes; Magpie did not list such models to agents.",
             "provider_routing_smart_approximated_as_weighted": "Magpie's default smart key routing was converted to weighted routing; the first-key-with-quota preference is not retained.",
             "provider_routing_usage_approximated_as_weighted": "Magpie least-used key routing was converted to weighted routing.",
             "provider_routing_pace_approximated_as_weighted": "Magpie allowance-paced key routing was converted to weighted routing.",

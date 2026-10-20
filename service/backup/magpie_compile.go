@@ -134,12 +134,17 @@ func compileMagpiePlan(src *MagpieSource) (*magpiePlan, error) {
 	}
 	plan := &magpiePlan{notImported: map[string]int{}}
 	aliases := magpieProviderAliases(src)
+	groupModels := magpieGroupReferencedModels(src, aliases)
 	usedNames := map[string]int{}
 	modelsByProvider := map[string]map[string]bool{}
 	grantsByRef := map[magpieGrantRef]magpiePlanGrant{}
 
 	for _, sourceProvider := range src.Providers {
-		provider, reasons, residuals := compileMagpieProvider(sourceProvider, usedNames)
+		extraModels := groupModels[sourceProvider.ID]
+		provider, reasons, residuals := compileMagpieProvider(sourceProvider, usedNames, extraModels)
+		if len(extraModels) > 0 && provider != nil {
+			plan.residuals = append(plan.residuals, "provider_models_completed_from_groups")
+		}
 		plan.residuals = append(plan.residuals, residuals...)
 		if len(reasons) > 0 {
 			plan.skippedProviders = append(plan.skippedProviders, MagpieSkippedProvider{
@@ -250,7 +255,7 @@ func compileMagpiePlan(src *MagpieSource) (*magpiePlan, error) {
 	return plan, nil
 }
 
-func compileMagpieProvider(src MagpieSourceProvider, usedNames map[string]int) (*magpiePlanProvider, []string, []string) {
+func compileMagpieProvider(src MagpieSourceProvider, usedNames map[string]int, groupModels []string) (*magpiePlanProvider, []string, []string) {
 	var reasons, residuals []string
 	if !magpieIdentifier(src.ID) {
 		return nil, []string{"provider_id_invalid"}, nil
@@ -324,7 +329,7 @@ func compileMagpieProvider(src MagpieSourceProvider, usedNames map[string]int) (
 		BaseURL: base, Endpoints: endpoints, Protocols: protocols, Routing: src.Routing,
 		AccountModels: src.AccountModels,
 		UseProxy:      useProxy, ChannelProxy: channelProxy, CustomHeader: customHeader,
-		Models: append([]string(nil), src.Models...),
+		Models: magpieServedModels(src.Models, groupModels),
 	}
 	usedCredentialNames := map[string]int{}
 	for index, key := range keys {
@@ -1011,6 +1016,96 @@ func magpieProviderAliases(src *MagpieSource) map[string]string {
 		}
 	}
 	return aliases
+}
+
+// magpieGroupReferencedModels collects every "provider/model" a routing group
+// names explicitly. Magpie serves those models even when the provider left
+// them out of its exposed Models list (an unlisted provider serves only
+// through its groups), so dropping them would silently empty the group.
+func magpieGroupReferencedModels(src *MagpieSource, aliases map[string]string) map[string][]string {
+	known := make(map[string]string, len(src.Providers))
+	for _, provider := range src.Providers {
+		known[provider.ID] = provider.ID
+		lower := strings.ToLower(provider.ID)
+		if _, exists := known[lower]; !exists {
+			known[lower] = provider.ID
+		}
+	}
+	referenced := map[string]map[string]bool{}
+	add := func(ref string) {
+		ref = strings.TrimSpace(ref)
+		if ref == "" || strings.HasPrefix(ref, "group/") {
+			return
+		}
+		base, _ := trimMagpieEffort(ref)
+		providerID, model, ok := strings.Cut(base, "/")
+		if !ok {
+			return
+		}
+		providerID, model = strings.TrimSpace(providerID), strings.TrimSpace(model)
+		if providerID == "" || model == "" {
+			return
+		}
+		if mapped := aliases[strings.ToLower(providerID)]; mapped != "" {
+			providerID = mapped
+		}
+		canonical, exists := known[providerID]
+		if !exists {
+			canonical, exists = known[strings.ToLower(providerID)]
+		}
+		if !exists {
+			return
+		}
+		if referenced[canonical] == nil {
+			referenced[canonical] = map[string]bool{}
+		}
+		referenced[canonical][model] = true
+	}
+	for _, group := range src.Groups {
+		if group.Hidden {
+			continue
+		}
+		for _, member := range group.Members {
+			add(member)
+		}
+		for _, member := range group.Off {
+			add(member)
+		}
+		add(group.Pick)
+	}
+	models := make(map[string][]string, len(referenced))
+	for providerID, set := range referenced {
+		list := make([]string, 0, len(set))
+		for model := range set {
+			list = append(list, model)
+		}
+		sort.Strings(list)
+		models[providerID] = list
+	}
+	return models
+}
+
+// magpieServedModels keeps the provider's exposed models in their declared
+// order and appends the models its groups name that the list left out.
+func magpieServedModels(exposed, fromGroups []string) []string {
+	seen := make(map[string]bool, len(exposed)+len(fromGroups))
+	models := make([]string, 0, len(exposed)+len(fromGroups))
+	for _, model := range exposed {
+		model = strings.TrimSpace(model)
+		if model == "" || seen[model] {
+			continue
+		}
+		seen[model] = true
+		models = append(models, model)
+	}
+	for _, model := range fromGroups {
+		if model == "" || seen[model] {
+			continue
+		}
+		seen[model] = true
+		models = append(models, model)
+	}
+	return models
 }
 
 func magpieProviderByID(plan *magpiePlan, id string) *magpiePlanProvider {

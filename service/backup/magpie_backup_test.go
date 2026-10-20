@@ -189,6 +189,41 @@ func TestMagpieBackupBlocksKeysWhoseScopeCannotBeResolved(t *testing.T) {
 	}
 }
 
+func TestMagpieBackupKeepsModelsOnlyItsGroupsName(t *testing.T) {
+	db := openAxonHubTestDB(t)
+	bundle := magpieFixtureBundle()
+	provider := bundle["providers"].([]any)[0].(map[string]any)
+	provider["models"] = []string{"gpt-6"}
+	provider["unlisted"] = true
+	group := bundle["groups"].([]any)[0].(map[string]any)
+	group["members"] = []string{"relay/gpt-6", "relay/rare-model:high"}
+	raw := sealMagpieForTest(t, bundle, "fixture-passphrase")
+
+	preview, err := PreviewMagpieBackup(db, raw, "fixture-passphrase", "magpie-group-only")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Routable["models"] != 2 || preview.Routable["routes"] != 3 {
+		t.Fatalf("group-only model was dropped: %#v", preview.Routable)
+	}
+	residuals := strings.Join(preview.Residuals, " ")
+	for _, want := range []string{"provider_models_completed_from_groups", "group_member_effort_not_imported"} {
+		if !strings.Contains(residuals, want) {
+			t.Fatalf("preview residuals %q miss %q", residuals, want)
+		}
+	}
+	if _, err := ImportMagpieBackup(db, raw, "fixture-passphrase", "magpie-group-only", false); err != nil {
+		t.Fatal(err)
+	}
+	if got := countRows(t, db, `SELECT COUNT(*) FROM token_routes WHERE model_pattern='relay/rare-model' AND enabled=1`); got != 1 {
+		t.Fatalf("group-only model route = %d, want 1", got)
+	}
+	// One member per provider credential, as for every other imported model.
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_group_items i JOIN upstream_grants g ON g.id=i.grant_id JOIN upstream_models m ON m.id=g.model_id JOIN upstream_groups grp ON grp.id=i.group_id WHERE grp.name='Coding' AND m.name='rare-model'`); got != 2 {
+		t.Fatalf("group-only model members = %d, want 2", got)
+	}
+}
+
 func magpieFixtureBundle() map[string]any {
 	return map[string]any{
 		"version": 2,

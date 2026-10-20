@@ -288,7 +288,8 @@ schema 升级是 forward-only（只加列 / 表，不做自动降级）；回退
 
 ## 附：Go 版内的其它迁移
 
-与 TS→Go 迁移无关、但同属「迁移」主题的两个入口：
+与 TS→Go 迁移无关、但同属「迁移」主题的三个入口：
 
 - **Additive 列升级**：由服务启动自动执行，记录在 `schema_migrations` 表；forward-only，失败不会写记录、下次启动自动重试。运维细节见上文各场景与「版本锁定与升级」。
 - **Settings schema v1 升级**：Go 版管理界面的「设置 → 定时任务 → 升级旧版计划」，或调用 `GET /api/settings/migration/preview` + `POST /api/settings/migration/apply`；additive 且事务化，重复执行返回 `applied: 0`（接口见 [API 文档](api.md)）。
+- **从其它网关导入**：管理界面「设置 → 导入与导出」先预览再提交，或调用 `POST /api/settings/backup/import/preview` 与 `POST /api/settings/backup/import`。识别 Metapi 完整备份、TypeScript 版 v2.1、Octopus v5、AxonHub v1.4 和 Magpie `.magpie-backup`。Magpie 备份是口令加密的，请求体须为 `{"data": <备份信封>, "passphrase": "..."}`，口令不走 URL 或请求头；预览会列出可迁移的渠道、路由、分组与网关密钥，以及无法等价迁移的残余项和策略近似。导入按来源隔离，重复导入更新同一批记录；映射细节见 [设置 API](api/settings.md#magpie-backup-import)。
