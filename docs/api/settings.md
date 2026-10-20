@@ -282,6 +282,11 @@ other external sources applies.
 
 Static provider keys become direct channels, credentials, models and grants;
 `provider/model` and `group/<id>` routes keep their Magpie-visible names.
+Models a routing group names are imported even when the provider left them
+out of its exposed list, because Magpie still serves such members through the
+group; they also get a direct route and are reported with
+`provider_models_completed_from_groups`, since Magpie did not list them to
+agents.
 Provider and group key order, weights, manual picks, static gateway-key model
 scopes and convertible token/cost quotas are preserved. A gateway key whose
 model or account scope cannot be represented is imported blocked, not widened
