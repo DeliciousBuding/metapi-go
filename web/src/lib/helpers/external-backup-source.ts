@@ -7,7 +7,10 @@
  * that only partly looks like one of these sources is still handed to the
  * importer so the server owns the rejection.
  */
-export type ExternalBackupSource = 'octopus-v5' | 'axonhub-v1.4'
+export type ExternalBackupSource =
+  | 'octopus-v5'
+  | 'axonhub-v1.4'
+  | 'magpie-backup'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -28,6 +31,16 @@ export function detectExternalBackupSource(
   ) {
     return 'axonhub-v1.4'
   }
+  if (
+    value.format === 'magpie-backup' &&
+    value.version === 1 &&
+    value.kdf === 'pbkdf2-sha256' &&
+    typeof value.salt === 'string' &&
+    typeof value.nonce === 'string' &&
+    typeof value.data === 'string'
+  ) {
+    return 'magpie-backup'
+  }
   return null
 }
 
@@ -35,8 +48,14 @@ export function detectExternalBackupSourceText(
   raw: string
 ): ExternalBackupSource | null {
   try {
-    return detectExternalBackupSource(JSON.parse(raw) as unknown)
+    return detectExternalBackupSource(
+      JSON.parse(raw.replace(/^\uFEFF/, '')) as unknown
+    )
   } catch {
     return null
   }
+}
+
+export function stripBackupBOM(raw: string): string {
+  return raw.replace(/^\uFEFF/, '')
 }

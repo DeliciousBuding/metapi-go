@@ -49,6 +49,7 @@ import {
 } from '@/lib/api'
 import {
   detectExternalBackupSourceText,
+  stripBackupBOM,
   type ExternalBackupSource,
 } from '@/lib/helpers/external-backup-source'
 import { isReauthRequired } from '@/lib/http-client'
@@ -69,6 +70,7 @@ import {
   type BackupImportPreview,
   type BackupImportTablePlan,
   type AxonHubV14Preview,
+  type MagpieBackupPreview,
   type OctopusV5Preview,
 } from './backup-import-preview-panel'
 import { getBackupRemovalCounts } from './backup-import-removals'
@@ -76,6 +78,7 @@ import { BackupImportSource } from './backup-import-source'
 
 const WEBDAV_FORM_ID = 'settings-content-import-export-webdav-form'
 const BACKUP_IMPORT_MAX_BYTES = 20 * 1024 * 1024
+const MAGPIE_ORIGIN_KEY = 'magpie-backup'
 
 type ImportPreviewSnapshot = {
   raw: string
@@ -176,6 +179,7 @@ export function ImportExportSection() {
   const [importText, setImportText] = useState('')
   const [importFileName, setImportFileName] = useState('')
   const [externalOriginKey, setExternalOriginKey] = useState('')
+  const [magpiePassphrase, setMagpiePassphrase] = useState('')
   const [allowChannelsOnlyImport, setAllowChannelsOnlyImport] = useState(false)
   const [previewSnapshot, setPreviewSnapshot] =
     useState<ImportPreviewSnapshot | null>(null)
@@ -260,16 +264,24 @@ export function ImportExportSection() {
   }
 
   const previewMutation = useMutation({
-    mutationFn: async (input: { raw: string; originKey?: string }) => {
-      const { raw, originKey } = input
-      const data = JSON.parse(raw) as unknown
+    mutationFn: async (input: {
+      raw: string
+      originKey?: string
+      magpiePassphrase?: string
+    }) => {
+      const { raw, originKey, magpiePassphrase } = input
+      const data = JSON.parse(stripBackupBOM(raw)) as unknown
       const external = detectExternalBackupSourceText(raw)
-      const result = (await api.previewBackupImport(
-        data,
-        external ? originKey : undefined
-      )) as {
+      const result = (await api.previewBackupImport(data, {
+        externalOriginKey: external ? originKey : undefined,
+        magpiePassphrase,
+      })) as {
         success?: boolean
-        plan?: BackupImportTablePlan | OctopusV5Preview | AxonHubV14Preview
+        plan?:
+          | BackupImportTablePlan
+          | OctopusV5Preview
+          | AxonHubV14Preview
+          | MagpieBackupPreview
       }
       if (external) {
         const plan = result.plan
@@ -295,6 +307,26 @@ export function ImportExportSection() {
           return {
             kind: 'axonhub' as const,
             data: axonhub,
+          }
+        }
+        if (external === 'magpie-backup') {
+          const magpie = plan as MagpieBackupPreview
+          if (
+            typeof magpie.routable !== 'object' ||
+            magpie.routable === null ||
+            Array.isArray(magpie.routable) ||
+            (magpie.residuals !== undefined &&
+              !Array.isArray(magpie.residuals)) ||
+            (magpie.skippedProviders !== undefined &&
+              !Array.isArray(magpie.skippedProviders)) ||
+            (magpie.skippedGroups !== undefined &&
+              !Array.isArray(magpie.skippedGroups))
+          ) {
+            throw new Error('Invalid Magpie backup import preview')
+          }
+          return {
+            kind: 'magpie' as const,
+            data: magpie,
           }
         }
         const octopus = plan as OctopusV5Preview
@@ -332,40 +364,45 @@ export function ImportExportSection() {
       channelsOnly?: boolean
       replaceOrigin?: boolean
       replacementRevision?: string
+      magpiePassphrase?: string
       confirmToken?: string
     }) => {
       const { raw, originKey, source, channelsOnly, replaceOrigin } = input
-      const data = JSON.parse(raw) as unknown
+      const data = JSON.parse(stripBackupBOM(raw)) as unknown
       const octopus = source === 'octopus-v5'
       const originKeyArg = source ? originKey : undefined
       const octopusMode =
         octopus && channelsOnly ? ('channels-only' as const) : undefined
       const replaceOctopus = octopus && replaceOrigin
       const replaceAxonHub = source === 'axonhub-v1.4' && replaceOrigin
+      const replaceMagpie = source === 'magpie-backup' && replaceOrigin
       return input.confirmToken
-        ? api.importBackup(
-            data,
-            originKeyArg,
-            octopusMode,
-            replaceOctopus,
-            replaceAxonHub,
-            input.replacementRevision,
-            input.confirmToken
-          )
-        : api.importBackup(
-            data,
-            originKeyArg,
-            octopusMode,
-            replaceOctopus,
-            replaceAxonHub,
-            input.replacementRevision
-          )
+        ? api.importBackup(data, {
+            externalOriginKey: originKeyArg,
+            octopusImportMode: octopusMode,
+            replaceOctopusOrigin: replaceOctopus,
+            replaceAxonHubOrigin: replaceAxonHub,
+            replaceMagpieOrigin: replaceMagpie,
+            replacementRevision: input.replacementRevision,
+            magpiePassphrase: input.magpiePassphrase,
+            confirmToken: input.confirmToken,
+          })
+        : api.importBackup(data, {
+            externalOriginKey: originKeyArg,
+            octopusImportMode: octopusMode,
+            replaceOctopusOrigin: replaceOctopus,
+            replaceAxonHubOrigin: replaceAxonHub,
+            replaceMagpieOrigin: replaceMagpie,
+            replacementRevision: input.replacementRevision,
+            magpiePassphrase: input.magpiePassphrase,
+          })
     },
     onSuccess: () => {
       toast.success(t('settings.content.importExport.toast.imported'))
       setImportText('')
       setImportFileName('')
       setExternalOriginKey('')
+      setMagpiePassphrase('')
       resetImportReview()
       invalidateAfterImport()
     },
@@ -401,15 +438,22 @@ export function ImportExportSection() {
     const revision = importRevision.current
     setImportText('')
     setImportFileName('')
+    setMagpiePassphrase('')
     if (file.size > BACKUP_IMPORT_MAX_BYTES) {
       toast.error(t('settings.content.importExport.importFileTooLarge'))
       return
     }
     try {
-      const raw = await file.text()
+      const raw = stripBackupBOM(await file.text())
       if (revision !== importRevision.current) return
       setImportText(raw)
       setImportFileName(file.name)
+      if (
+        detectExternalBackupSourceText(raw) === 'magpie-backup' &&
+        !externalOriginKey.trim()
+      ) {
+        setExternalOriginKey(MAGPIE_ORIGIN_KEY)
+      }
     } catch {
       if (revision !== importRevision.current) return
       toast.error(t('settings.content.importExport.toast.importFailed'))
@@ -427,7 +471,16 @@ export function ImportExportSection() {
         toast.error(t('settings.content.importExport.originKeyRequired'))
         return
       }
-      const plan = await previewMutation.mutateAsync({ raw, originKey })
+      if (source === 'magpie-backup' && !magpiePassphrase.trim()) {
+        toast.error(t('settings.content.importExport.magpiePassphraseRequired'))
+        return
+      }
+      const plan = await previewMutation.mutateAsync({
+        raw,
+        originKey,
+        magpiePassphrase:
+          source === 'magpie-backup' ? magpiePassphrase : undefined,
+      })
       if (revision !== importRevision.current) return
       setPreviewSnapshot({
         raw,
@@ -560,6 +613,9 @@ export function ImportExportSection() {
     !(importPreview && importPreview.kind !== 'tables'
       ? (importPreview.data.blocking?.length ?? 0) > 0
       : false) &&
+    !(
+      previewSnapshot?.source === 'magpie-backup' && !magpiePassphrase.trim()
+    ) &&
     (!(hasNotImportedOctopusSections || hasOctopusPolicyAdaptations) ||
       allowChannelsOnlyImport)
   let confirmImportDescriptionKey =
@@ -572,6 +628,9 @@ export function ImportExportSection() {
   } else if (importPreview?.kind === 'axonhub') {
     confirmImportDescriptionKey =
       'settings.content.importExport.axonhubImportConfirmDescription'
+  } else if (importPreview?.kind === 'magpie') {
+    confirmImportDescriptionKey =
+      'settings.content.importExport.magpieImportConfirmDescription'
   }
   const isWebdavDirty = form.formState.isDirty
   const externalPreview =
@@ -598,12 +657,25 @@ export function ImportExportSection() {
             fileName={importFileName}
             originKey={externalOriginKey}
             external={externalImportSource !== null}
+            magpie={externalImportSource === 'magpie-backup'}
+            passphrase={magpiePassphrase}
             disabled={importMutation.isPending}
             onFile={(file) => void handleImportFile(file)}
             onText={(raw) => {
               resetImportReview()
               setImportText(raw)
               setImportFileName('')
+              setMagpiePassphrase('')
+              if (
+                detectExternalBackupSourceText(raw) === 'magpie-backup' &&
+                !externalOriginKey.trim()
+              ) {
+                setExternalOriginKey(MAGPIE_ORIGIN_KEY)
+              }
+            }}
+            onPassphrase={(passphrase) => {
+              resetImportReview()
+              setMagpiePassphrase(passphrase)
             }}
             onOrigin={(origin) => {
               resetImportReview()
@@ -617,7 +689,9 @@ export function ImportExportSection() {
                 previewMutation.isPending ||
                 importMutation.isPending ||
                 !importText.trim() ||
-                (externalImportSource !== null && !externalOriginKey.trim())
+                (externalImportSource !== null && !externalOriginKey.trim()) ||
+                (externalImportSource === 'magpie-backup' &&
+                  !magpiePassphrase.trim())
               }
               onClick={() => void handlePreviewImport()}
             >
@@ -1042,6 +1116,10 @@ export function ImportExportSection() {
             channelsOnly: allowChannelsOnlyImport,
             replaceOrigin: hasExternalRemovals,
             replacementRevision: removalImpact?.revision,
+            magpiePassphrase:
+              previewSnapshot.source === 'magpie-backup'
+                ? magpiePassphrase
+                : undefined,
           })
         }}
         onCancel={() => setConfirmImportOpen(false)}

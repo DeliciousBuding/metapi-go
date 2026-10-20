@@ -132,14 +132,14 @@ func TestAxonHubOpenCodeImportPreservesInternalAddressesAndRoutes(t *testing.T) 
 			t.Fatalf("route protocol ownership changed: %+v", candidates[i].Channel.Direct)
 		}
 	}
-	before, err := axonHubMappedSources(db, db, "provider-wire")
+	before, err := mappedSourceIDs(db, db, "provider-wire")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ImportAxonHubV14(db, raw, "provider-wire", false); err != nil {
 		t.Fatal(err)
 	}
-	after, err := axonHubMappedSources(db, db, "provider-wire")
+	after, err := mappedSourceIDs(db, db, "provider-wire")
 	if err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatalf("reimport changed source identity: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestAxonHubOpenCodeImportPreservesInternalAddressesAndRoutes(t *testing.T) 
 	if endpoints.Chat.Profile != "" || endpoints.Chat.ModelWireURLs != nil || endpoints.Chat.URL != "https://opencode.invalid/go/fixed-chat" {
 		t.Fatalf("fixed Chat retained dynamic routing: %+v", endpoints.Chat)
 	}
-	after, err = axonHubMappedSources(db, db, "provider-wire")
+	after, err = mappedSourceIDs(db, db, "provider-wire")
 	if err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatalf("endpoint update changed source identity: %v", err)
 	}

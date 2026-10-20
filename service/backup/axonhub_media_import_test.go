@@ -85,7 +85,7 @@ func TestAxonHubMediaImportPreservesAssociationsAndSnapshot(t *testing.T) {
 	if candidates[0].Channel.Direct.GrantID != candidates[1].Channel.Direct.GrantID {
 		t.Fatal("two aliases should share one actual-model grant")
 	}
-	before, err := axonHubMappedSources(db, db, "media-associations")
+	before, err := mappedSourceIDs(db, db, "media-associations")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestAxonHubMediaImportPreservesAssociationsAndSnapshot(t *testing.T) {
 	if _, err := ImportAxonHubV14(db, raw, "media-associations", false); err != nil {
 		t.Fatal(err)
 	}
-	after, err := axonHubMappedSources(db, db, "media-associations")
+	after, err := mappedSourceIDs(db, db, "media-associations")
 	if err != nil || !reflect.DeepEqual(before, after) || countRows(t, db, `SELECT COUNT(*) FROM upstream_grants WHERE success_count=9`) != 3 {
 		t.Fatalf("reimport lost identity/runtime state: %v", err)
 	}

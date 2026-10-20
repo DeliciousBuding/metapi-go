@@ -84,6 +84,34 @@ function preview(
   }
 }
 
+function importOptions({
+  originKey = 'source',
+  octopus = false,
+  axonhub = false,
+  magpie = false,
+  revision,
+  mode,
+  passphrase,
+}: {
+  originKey?: string
+  octopus?: boolean
+  axonhub?: boolean
+  magpie?: boolean
+  revision: string
+  mode?: 'channels-only'
+  passphrase?: string
+}) {
+  return {
+    externalOriginKey: originKey,
+    octopusImportMode: mode,
+    replaceOctopusOrigin: octopus,
+    replaceAxonHubOrigin: axonhub,
+    replaceMagpieOrigin: magpie,
+    replacementRevision: revision,
+    magpiePassphrase: passphrase,
+  }
+}
+
 function renderSection(payload: unknown = octopus) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -169,11 +197,7 @@ describe('external source replacement review', () => {
       await waitFor(() =>
         expect(importBackup).toHaveBeenCalledExactlyOnceWith(
           axonhub,
-          'source',
-          undefined,
-          false,
-          true,
-          'keys-revision'
+          importOptions({ axonhub: true, revision: 'keys-revision' })
         )
       )
     }
@@ -211,11 +235,11 @@ describe('external source replacement review', () => {
       await waitFor(() =>
         expect(importBackup).toHaveBeenCalledExactlyOnceWith(
           payload,
-          'source',
-          undefined,
-          source === 'octopus-v5',
-          source === 'axonhub-v1.4',
-          'reviewed'
+          importOptions({
+            octopus: source === 'octopus-v5',
+            axonhub: source === 'axonhub-v1.4',
+            revision: 'reviewed',
+          })
         )
       )
     }
@@ -266,11 +290,11 @@ describe('external source replacement review', () => {
       await waitFor(() =>
         expect(importBackup).toHaveBeenCalledExactlyOnceWith(
           nextPayload,
-          nextOrigin,
-          undefined,
-          true,
-          false,
-          'review-2'
+          importOptions({
+            originKey: nextOrigin,
+            octopus: true,
+            revision: 'review-2',
+          })
         )
       )
     }
@@ -327,11 +351,11 @@ describe('external source replacement review', () => {
     await waitFor(() =>
       expect(importBackup).toHaveBeenLastCalledWith(
         octopus,
-        'source',
-        'channels-only',
-        true,
-        false,
-        'review-2'
+        importOptions({
+          octopus: true,
+          mode: 'channels-only',
+          revision: 'review-2',
+        })
       )
     )
     expect(importBackup).toHaveBeenCalledTimes(2)

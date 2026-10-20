@@ -38,47 +38,68 @@ function lastRequestConfig(): Record<string, unknown> {
 
 describe('caller-toasted write ops skip the global error toast', () => {
   it.each([
-    { source: 'Octopus', octopus: true, axonhub: false },
-    { source: 'AxonHub', octopus: false, axonhub: true },
+    { source: 'Octopus', replaceHeader: 'X-Octopus-Replace-Origin' },
+    { source: 'AxonHub', replaceHeader: 'X-AxonHub-Replace-Origin' },
+    { source: 'Magpie', replaceHeader: 'X-Magpie-Replace-Origin' },
   ])(
     'sends the reviewed replacement revision for $source',
-    async ({ octopus, axonhub }) => {
-      const payload = octopus
-        ? { version: 5, exported_at: '2026-10-06T00:00:00Z' }
-        : {
-            version: '1.4',
-            timestamp: '2026-10-06T00:00:00Z',
-            channels: [],
-            models: [],
-          }
-      await settingsApi.importBackup(
-        payload,
-        'source',
-        undefined,
-        octopus,
-        axonhub,
-        'reviewed-revision'
-      )
+    async ({ replaceHeader }) => {
+      const payload =
+        replaceHeader === 'X-Octopus-Replace-Origin'
+          ? { version: 5, exported_at: '2026-10-06T00:00:00Z' }
+          : replaceHeader === 'X-AxonHub-Replace-Origin'
+            ? {
+                version: '1.4',
+                timestamp: '2026-10-06T00:00:00Z',
+                channels: [],
+                models: [],
+              }
+            : {
+                format: 'magpie-backup',
+                version: 1,
+                kdf: 'pbkdf2-sha256',
+                salt: 'c2FsdA==',
+                nonce: 'bm9uY2U=',
+                data: 'Y2lwaGVydGV4dA==',
+              }
+      const magpie = replaceHeader === 'X-Magpie-Replace-Origin'
+      await settingsApi.importBackup(payload, {
+        externalOriginKey: 'source',
+        replacementRevision: 'reviewed-revision',
+        ...(replaceHeader === 'X-Octopus-Replace-Origin'
+          ? { replaceOctopusOrigin: true }
+          : replaceHeader === 'X-AxonHub-Replace-Origin'
+            ? { replaceAxonHubOrigin: true }
+            : { replaceMagpieOrigin: true }),
+        ...(magpie ? { magpiePassphrase: 'fixture-passphrase' } : {}),
+      })
       expect(lastRequestConfig()).toMatchObject({
         url: '/api/settings/backup/import',
-        data: JSON.stringify(payload),
+        data: magpie
+          ? JSON.stringify({ data: payload, passphrase: 'fixture-passphrase' })
+          : JSON.stringify(payload),
         headers: {
           'X-External-Origin-Key': 'source',
           'X-External-Replacement-Revision': 'reviewed-revision',
-          [octopus ? 'X-Octopus-Replace-Origin' : 'X-AxonHub-Replace-Origin']:
-            'true',
+          [replaceHeader]: 'true',
         },
         skipErrorHandler: true,
       })
       expect(lastRequestConfig().headers).not.toHaveProperty(
-        octopus ? 'X-AxonHub-Replace-Origin' : 'X-Octopus-Replace-Origin'
+        [
+          'X-Octopus-Replace-Origin',
+          'X-AxonHub-Replace-Origin',
+          'X-Magpie-Replace-Origin',
+        ].find((header) => header !== replaceHeader)!
       )
     }
   )
 
   it('sends the same external origin key on Octopus preview and commit', async () => {
     const payload = { version: 5, exported_at: '2026-10-06T00:00:00Z' }
-    await settingsApi.previewBackupImport(payload, 'octopus-lab')
+    await settingsApi.previewBackupImport(payload, {
+      externalOriginKey: 'octopus-lab',
+    })
     expect(lastRequestConfig()).toMatchObject({
       url: '/api/settings/backup/import/preview',
       data: JSON.stringify(payload),
@@ -86,7 +107,9 @@ describe('caller-toasted write ops skip the global error toast', () => {
       skipErrorHandler: true,
     })
 
-    await settingsApi.importBackup(payload, 'octopus-lab')
+    await settingsApi.importBackup(payload, {
+      externalOriginKey: 'octopus-lab',
+    })
     expect(lastRequestConfig()).toMatchObject({
       url: '/api/settings/backup/import',
       data: JSON.stringify(payload),
@@ -94,7 +117,10 @@ describe('caller-toasted write ops skip the global error toast', () => {
       skipErrorHandler: true,
     })
 
-    await settingsApi.importBackup(payload, 'octopus-lab', 'channels-only')
+    await settingsApi.importBackup(payload, {
+      externalOriginKey: 'octopus-lab',
+      octopusImportMode: 'channels-only',
+    })
     expect(lastRequestConfig()).toMatchObject({
       url: '/api/settings/backup/import',
       data: JSON.stringify(payload),

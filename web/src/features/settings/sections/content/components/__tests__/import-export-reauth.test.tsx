@@ -175,14 +175,19 @@ describe('ImportExportSection — master-token replay', () => {
     clickLastButtonNamed('Import')
 
     await waitFor(() => expect(mockImportBackup).toHaveBeenCalledTimes(1))
-    // The unconfirmed attempt carries no token header value.
-    expect(mockImportBackup.mock.calls[0]).toHaveLength(6)
+    // The unconfirmed attempt carries no confirmation token.
+    expect(mockImportBackup.mock.calls[0]).toHaveLength(2)
+    expect(mockImportBackup.mock.calls[0]?.[1]).not.toHaveProperty(
+      'confirmToken'
+    )
 
     await confirmReauth('master-token')
 
     await waitFor(() => expect(mockImportBackup).toHaveBeenCalledTimes(2))
-    expect(mockImportBackup.mock.calls[1]).toHaveLength(7)
-    expect(mockImportBackup.mock.calls[1]?.[6]).toBe('master-token')
+    expect(mockImportBackup.mock.calls[1]).toHaveLength(2)
+    expect(mockImportBackup.mock.calls[1]?.[1]).toMatchObject({
+      confirmToken: 'master-token',
+    })
   })
 
   it('replays a WebDAV config save with the token', async () => {

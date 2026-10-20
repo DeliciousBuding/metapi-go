@@ -261,6 +261,39 @@ the current executable import contract:
 These residuals are not a claim of equivalent behavior. Their source records
 remain in the original backup and the preview explains the affected scope.
 
+### Magpie backup import
+
+Magpie `.magpie-backup` files are recognized by their encrypted
+`format: "magpie-backup"` envelope. The envelope carries the bundle version
+and PBKDF2/AES-GCM parameters; the passphrase is supplied separately in the
+request body, never in a URL or header:
+
+```json
+{ "data": { "format": "magpie-backup", "...": "..." }, "passphrase": "..." }
+```
+
+An unwrapped envelope without a passphrase is rejected. Preview and commit
+use the same decryption, validation and compile path. The default origin is
+`magpie-backup`; a stable `X-External-Origin-Key` may be supplied instead.
+Repeated imports update source-owned records. When a snapshot removes
+previously imported records, commit requires `X-Magpie-Replace-Origin: true`;
+the same `removalImpact` and `X-External-Replacement-Revision` contract as the
+other external sources applies.
+
+Static provider keys become direct channels, credentials, models and grants;
+`provider/model` and `group/<id>` routes keep their Magpie-visible names.
+Provider and group key order, weights, manual picks, static gateway-key model
+scopes and convertible token/cost quotas are preserved. A gateway key whose
+model or account scope cannot be represented is imported blocked, not widened
+to unrestricted access. Magpie agents, library, settings, profiles, icons,
+search APIs, dynamic rules/classifiers, fixed reasoning effort, affinity,
+first-token/patience timeouts, Vertex/OAuth accounts, control-plane secrets
+and per-key proxies have no direct equivalent; preview lists each residual
+and the original backup remains the source of those records. A backup with
+provider keys omitted imports channel configuration without usable grants.
+
+Magpie and the other external importers share the 20 MiB request limit.
+
 ### GET /api/settings/backup/webdav
 
 Get WebDAV backup configuration and last sync state. Passwords are never returned; use `hasPassword` and `passwordMasked` to show saved credential status.
@@ -281,7 +314,7 @@ Download a backup payload from `fileUrl` with HTTP `GET` and import its `tables`
 
 ### POST /api/settings/backup/import/preview
 
-Preview a backup import without writing anything. Same body shapes as `POST /api/settings/backup/import` (`{ "tables": {...} }`, optional `{ "data": { "tables": {...} }` wrapper, TS backup v2.1 payloads), plus Octopus v5 and AxonHub v1.4 JSON. External-source requests require `X-External-Origin-Key`; their plan is the source-specific preview described above instead of a per-table row count.
+Preview a backup import without writing anything. Same body shapes as `POST /api/settings/backup/import` (`{ "tables": {...} }`, optional `{ "data": { "tables": {...} }` wrapper, TS backup v2.1 payloads), plus Octopus v5, AxonHub v1.4 and Magpie `.magpie-backup` envelopes. Octopus and AxonHub require `X-External-Origin-Key`; Magpie defaults to `magpie-backup` and carries its passphrase in `{ "data": ..., "passphrase": ... }`. External-source plans are the source-specific previews described above instead of per-table row counts.
 
 **Response**: `{ success, plan: { "<table>": { rows, toInsert, duplicates, skippedRows } } }` — `duplicates` are rows whose PK already exists in the target DB (they would be dropped by `ON CONFLICT DO NOTHING`); `skippedRows` are runtime-local settings skipped by policy. No rows are written.
 

@@ -105,7 +105,7 @@ func TestAxonHubNativeImportGraphAndReplacement(t *testing.T) {
 	if endpointConfig.AlphaSearch == nil || endpointConfig.AlphaSearch.URL != "https://codex.invalid/api/lookup" || endpointConfig.AlphaSearch.Profile != "codex-alpha-search" {
 		t.Fatalf("Codex alpha endpoint: %+v", endpointConfig.AlphaSearch)
 	}
-	before, err := axonHubMappedSources(db, db, "native-formats")
+	before, err := mappedSourceIDs(db, db, "native-formats")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestAxonHubNativeImportGraphAndReplacement(t *testing.T) {
 	if _, err := ImportAxonHubV14(db, raw, "native-formats", false); err != nil {
 		t.Fatal(err)
 	}
-	after, err := axonHubMappedSources(db, db, "native-formats")
+	after, err := mappedSourceIDs(db, db, "native-formats")
 	if err != nil || !reflect.DeepEqual(before, after) || countRows(t, db, `SELECT COUNT(*) FROM upstream_grants WHERE success_count=7`) != 7 {
 		t.Fatalf("reimport lost native identity/state: %v", err)
 	}
