@@ -171,6 +171,19 @@ func TestGetRouteChannels_ResponseOmitsPlaintextCredentials(t *testing.T) {
 	if acc["apiTokenMasked"] != maskSecret(apiSecret) {
 		t.Fatalf("apiTokenMasked=%#v want %q", acc["apiTokenMasked"], maskSecret(apiSecret))
 	}
+	token, ok := chans[0]["token"].(map[string]any)
+	if !ok {
+		t.Fatalf("token identity missing: %#v", chans[0]["token"])
+	}
+	if token["name"] != "cred-token" {
+		t.Fatalf("token name=%#v want cred-token", token["name"])
+	}
+	if token["enabled"] != true || token["isDefault"] != true {
+		t.Fatalf("token flags=%#v", token)
+	}
+	if _, leaked := token["token"]; leaked {
+		t.Fatalf("route token identity leaked the token secret")
+	}
 }
 
 // TestSearch_ResponseOmitsPlaintextCredentials guards POST /api/search: the

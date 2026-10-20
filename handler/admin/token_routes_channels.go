@@ -24,10 +24,12 @@ func (h *tokenRoutesHandler) getRouteChannels(w http.ResponseWriter, r *http.Req
 			credentialFragmentsSelect(h.db, "a.access_token", "access_token")+`, `+
 			credentialFragmentsSelect(h.db, "a.api_token", "api_token")+`,
 		        a.balance, a.status as account_status,
-		        s.id as site_id, s.name as site_name, s.url as site_url, s.platform as site_platform, s.status as site_status
+		        s.id as site_id, s.name as site_name, s.url as site_url, s.platform as site_platform, s.status as site_status,
+		        t.name as token_name, t.enabled as token_enabled, t.is_default as token_is_default
 		 FROM route_channels rc
 		 LEFT JOIN accounts a ON rc.account_id = a.id
 		 LEFT JOIN sites s ON a.site_id = s.id
+		 LEFT JOIN account_tokens t ON rc.token_id = t.id
 		 WHERE rc.route_id = ?`, id)
 	if err != nil {
 		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load route channels")
@@ -40,6 +42,7 @@ func (h *tokenRoutesHandler) getRouteChannels(w http.ResponseWriter, r *http.Req
 			"routeId":          ch["routeId"],
 			"accountId":        ch["accountId"],
 			"tokenId":          ch["tokenId"],
+			"token":            routeChannelTokenPublic(ch),
 			"oauthRouteUnitId": ch["oauthRouteUnitId"],
 			"sourceModel":      ch["sourceModel"],
 			"priority":         ch["priority"],

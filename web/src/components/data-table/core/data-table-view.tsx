@@ -86,7 +86,10 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
       {sizing.colgroup}
       <DataTableHeader
         table={table}
-        className={splitHeader ? 'sticky top-0 z-10' : undefined}
+        className={cn(
+          splitHeader && 'sticky top-0 z-10',
+          props.srOnlyHeader && 'sr-only'
+        )}
         getColumnClassName={getColumnClassName}
       />
       <TableBody>

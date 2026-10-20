@@ -93,6 +93,11 @@ export type DataTableViewProps<TData> = {
    * the header stays put. Off renders a plain table that grows with its rows.
    */
   splitHeader?: boolean
+  /**
+   * Keep column headers available to assistive technology without painting a
+   * second navigation layer above a self-describing list.
+   */
+  srOnlyHeader?: boolean
   /** Class for the bordered container the whole table sits in. */
   containerClassName?: string
 }

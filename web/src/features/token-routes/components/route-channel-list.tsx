@@ -1,7 +1,22 @@
 import { useQueries } from '@tanstack/react-query'
-import { useMemo, type ReactNode } from 'react'
+import {
+  Check,
+  CircleAlert,
+  CircleCheck,
+  CircleDollarSign,
+  CirclePause,
+  KeyRound,
+  Network,
+  RadioTower,
+  Scale,
+  Server,
+  Snowflake,
+  X,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { BrandGlyph } from '@/assets/brand-icons/BrandIcon'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -13,6 +28,7 @@ import {
 } from '@/features/models'
 import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime, formatInt, formatPrice } from '@/lib/format'
+import { getPlatformDefinition } from '@/lib/platform-catalog'
 import { cn } from '@/lib/utils'
 
 import { useRouteChannels } from '../api'
@@ -43,6 +59,47 @@ function isPriceUnavailable(
   )
 }
 
+function hasAccountCredential(channel: RouteChannel): boolean {
+  return Boolean(
+    channel.account?.accessTokenMasked || channel.account?.apiTokenMasked
+  )
+}
+
+function resolveChannelState(channel: RouteChannel): ChannelState {
+  if (!channel.enabled) return 'disabled'
+  const tokenBound = Boolean(channel.token?.name || channel.tokenId)
+  if (!tokenBound && !hasAccountCredential(channel)) return 'missing'
+  if (
+    channel.cooldownUntil &&
+    new Date(channel.cooldownUntil).getTime() > Date.now()
+  ) {
+    return 'cooling'
+  }
+  return 'healthy'
+}
+
+function ChannelStatusIcon({
+  state,
+  className,
+}: {
+  state: ChannelState
+  className?: string
+}) {
+  let Icon = CirclePause
+  let color = 'text-muted-foreground'
+  if (state === 'healthy') {
+    Icon = CircleCheck
+    color = 'text-success'
+  } else if (state === 'cooling') {
+    Icon = Snowflake
+    color = 'text-warning'
+  } else if (state === 'missing') {
+    Icon = CircleAlert
+    color = 'text-destructive'
+  }
+  return <Icon aria-hidden='true' className={cn('size-4', color, className)} />
+}
+
 /**
  * The route's channel composition, rendered as a detail panel under the route
  * row rather than a second table: no nested card, one shared column legend,
@@ -53,8 +110,10 @@ function isPriceUnavailable(
  * The legend and the rows share one grid template; drift between the two would
  * make every number ambiguous.
  */
-const CHANNEL_GRID_CLASS =
-  'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 @[36rem]/channel-list:grid-cols-[minmax(0,1fr)_2.5rem_5.5rem_5rem_4.5rem] @[44rem]/channel-list:grid-cols-[minmax(0,1fr)_2.5rem_6rem_5.5rem_6rem_4.5rem]'
+const CHANNEL_ROW_GRID =
+  'grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-0.5 @[36rem]/channel-list:grid-cols-[auto_minmax(0,1fr)_5.5rem_6rem_1.5rem] @[36rem]/channel-list:items-center @[36rem]/channel-list:gap-y-0'
+
+type ChannelState = 'healthy' | 'disabled' | 'cooling' | 'missing'
 
 export function RouteChannelList({
   route,
@@ -64,6 +123,7 @@ export function RouteChannelList({
   actions?: ReactNode
 }) {
   const { t } = useTranslation()
+  const rootRef = useRef<HTMLDivElement>(null)
   const channelsQuery = useRouteChannels(
     route.kind === 'zero_channel' ? null : route.id
   )
@@ -102,25 +162,211 @@ export function RouteChannelList({
     (weight, channel) => weight + (channel.enabled ? channel.weight : 0),
     0
   )
-  const isBusy =
-    channelsQuery.isFetching || priceQueries.some((query) => query.isFetching)
+  const isBusy = channelsQuery.isFetching
   const routePattern = route.modelPattern.trim().toLowerCase()
+  const channelViews = channels.map((channel) => {
+    const priceTruth = resolveRouteChannelPriceTruth(
+      route,
+      channel,
+      priceRowsByModel
+    )
+    const priceQueryState = priceTruth.concreteModel
+      ? priceQueryStateByModel.get(normalizeModelKey(priceTruth.concreteModel))
+      : undefined
+    return {
+      channel,
+      state: resolveChannelState(channel),
+      allocation: allocations.get(channel.id) ?? {
+        channelId: channel.id,
+        configuredWeight: channel.weight,
+        enabledWeightShare: null,
+      },
+      priceTruth,
+      priceQueryState,
+      priceUnavailable: isPriceUnavailable(priceTruth, priceQueryState),
+      showSourceModel: Boolean(
+        priceTruth.concreteModel &&
+        priceTruth.concreteModel.trim().toLowerCase() !== routePattern
+      ),
+    }
+  })
+  const stateCounts = channelViews.reduce<Record<ChannelState, number>>(
+    (counts, view) => {
+      counts[view.state] += 1
+      return counts
+    },
+    { healthy: 0, disabled: 0, cooling: 0, missing: 0 }
+  )
+  const pricesSettled =
+    priceQueries.length > 0 && priceQueries.every((query) => !query.isPending)
+  const priceUnavailableCount = channelViews.filter(
+    (view) => view.priceUnavailable
+  ).length
+  const showPriceSummary =
+    pricesSettled &&
+    priceUnavailableCount > 0 &&
+    priceUnavailableCount === channelViews.length
+  const unavailableSources = Array.from(
+    new Set(
+      channelViews.flatMap((view) => {
+        const source = view.priceTruth.provenance.source
+        return source ? [source] : []
+      })
+    )
+  )
+
+  // Channels arrive after the disclosure mounts. The first reveal can only
+  // measure the loading placeholder, so once the real rows (and the optional
+  // price summary) are in the DOM, bring the completed panel back into view.
+  useEffect(() => {
+    if (channelsQuery.isPending) return
+    const region = rootRef.current?.closest<HTMLElement>('[role="region"]')
+    if (!region || typeof region.scrollIntoView !== 'function') return
+    const frame = requestAnimationFrame(() => {
+      const rect = region.getBoundingClientRect()
+      if (rect.top >= 0 && rect.bottom <= window.innerHeight) return
+      const reduceMotion = window.matchMedia?.(
+        '(prefers-reduced-motion: reduce)'
+      ).matches
+      region.scrollIntoView({
+        block: 'nearest',
+        behavior: reduceMotion ? 'auto' : 'smooth',
+      })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [
+    channelsQuery.isPending,
+    channels.length,
+    showPriceSummary,
+    stateCounts.cooling,
+    stateCounts.missing,
+  ])
+
+  let channelContent: ReactNode
+  if (channelsQuery.isError) {
+    channelContent = (
+      <QueryErrorBanner
+        error={channelsQuery.error}
+        messageKey='tokenRoutes.detail.channelsLoadError'
+        onRetry={() => {
+          void channelsQuery.refetch()
+        }}
+        isRetrying={channelsQuery.isFetching}
+      />
+    )
+  } else if (channelsQuery.isPending && !isReadOnly) {
+    channelContent = (
+      <p role='status' className='text-muted-foreground mt-1.5 text-xs'>
+        {t('common.loading')}
+      </p>
+    )
+  } else if (channels.length === 0) {
+    channelContent = (
+      <p className='text-muted-foreground mt-1.5 text-xs'>
+        {t(
+          isReadOnly
+            ? 'tokenRoutes.detail.channelEmptyReadOnly'
+            : 'tokenRoutes.detail.channelEmptyEditable'
+        )}
+      </p>
+    )
+  } else {
+    channelContent = (
+      <div className='mt-1.5 min-w-0'>
+        <ul className='divide-border/50 divide-y'>
+          {channelViews.map((view) => (
+            <ChannelRow
+              key={view.channel.id}
+              channel={view.channel}
+              state={view.state}
+              allocation={view.allocation}
+              priceTruth={view.priceTruth}
+              showSourceModel={view.showSourceModel}
+              priceQueryState={view.priceQueryState}
+            />
+          ))}
+        </ul>
+      </div>
+    )
+  }
 
   return (
-    <div className='@container/channel-list min-w-0'>
+    <div ref={rootRef} className='@container/channel-list min-w-0'>
       <div className='flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1'>
         <div className='flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5'>
           <h3 className='text-sm font-medium'>
             {t('tokenRoutes.detail.channels')}
           </h3>
           {channels.length > 0 && (
-            <span className='text-muted-foreground text-xs tabular-nums'>
-              {t('tokenRoutes.detail.channelEnabledSummary', {
+            <span
+              className='text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums'
+              title={t('tokenRoutes.detail.channelEnabledSummary', {
                 enabled: enabledCount,
                 total: channels.length,
                 weight: enabledWeight,
               })}
+            >
+              <RadioTower className='size-3.5' aria-hidden='true' />
+              {enabledCount}/{channels.length}
             </span>
+          )}
+          {channels.length > 0 && (
+            <span
+              className='text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums'
+              title={t('tokenRoutes.detail.channelTotalWeight', {
+                weight: enabledWeight,
+              })}
+            >
+              <Scale className='size-3.5' aria-hidden='true' />
+              {enabledWeight}
+            </span>
+          )}
+          {stateCounts.cooling > 0 && (
+            <span
+              className='text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums'
+              title={t('tokenRoutes.detail.channelStatusCoolingSummary', {
+                count: stateCounts.cooling,
+              })}
+            >
+              <Snowflake className='text-warning size-3.5' aria-hidden='true' />
+              {stateCounts.cooling}
+            </span>
+          )}
+          {stateCounts.missing > 0 && (
+            <span
+              className='text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums'
+              title={t('tokenRoutes.detail.channelStatusMissingSummary', {
+                count: stateCounts.missing,
+              })}
+            >
+              <CircleAlert
+                className='text-destructive size-3.5'
+                aria-hidden='true'
+              />
+              {stateCounts.missing}
+            </span>
+          )}
+          {showPriceSummary && (
+            <span
+              data-testid='channel-price-summary'
+              className='text-muted-foreground inline-flex items-center gap-1 text-xs'
+              title={t('tokenRoutes.detail.channelPriceUnavailable')}
+            >
+              <CircleDollarSign className='size-3.5' aria-hidden='true' />
+              <span aria-hidden='true'>—</span>
+              <span className='sr-only'>
+                {t('tokenRoutes.detail.channelPriceUnavailable')}
+              </span>
+              {unavailableSources.map((source) => (
+                <PriceGradeBadge key={source} grade={source} />
+              ))}
+            </span>
+          )}
+          {priceQueries.some((query) => query.isPending) && (
+            <Spinner
+              className='text-muted-foreground size-3.5'
+              aria-label={t('tokenRoutes.detail.channelPriceLoading')}
+            />
           )}
           {isBusy && (
             <Spinner
@@ -132,85 +378,7 @@ export function RouteChannelList({
         {actions && <div className='flex shrink-0 items-center'>{actions}</div>}
       </div>
 
-      {channelsQuery.isError ? (
-        <QueryErrorBanner
-          error={channelsQuery.error}
-          messageKey='tokenRoutes.detail.channelsLoadError'
-          onRetry={() => {
-            void channelsQuery.refetch()
-          }}
-          isRetrying={channelsQuery.isFetching}
-        />
-      ) : channelsQuery.isPending && !isReadOnly ? (
-        <p role='status' className='text-muted-foreground mt-1.5 text-xs'>
-          {t('common.loading')}
-        </p>
-      ) : channels.length === 0 ? (
-        <p className='text-muted-foreground mt-1.5 text-xs'>
-          {t(
-            isReadOnly
-              ? 'tokenRoutes.detail.channelEmptyReadOnly'
-              : 'tokenRoutes.detail.channelEmptyEditable'
-          )}
-        </p>
-      ) : (
-        <div className='mt-1 min-w-0'>
-          {/* One shared legend per expansion, on the same grid as the rows.
-              Phones drop it: each metric carries its own short label there. */}
-          <div
-            aria-hidden='true'
-            className={cn(
-              CHANNEL_GRID_CLASS,
-              'border-border/70 text-muted-foreground text-2xs hidden border-b pb-1 @[36rem]/channel-list:grid'
-            )}
-          >
-            <span>{t('tokenRoutes.detail.channelColumnIdentity')}</span>
-            <span>{t('tokenRoutes.detail.channelColumnPriority')}</span>
-            <span>{t('tokenRoutes.detail.channelColumnWeightShare')}</span>
-            <span>{t('tokenRoutes.detail.channelColumnHealth')}</span>
-            <span className='hidden @[44rem]/channel-list:block'>
-              {t('tokenRoutes.detail.channelColumnPrice')}
-            </span>
-            <span className='justify-self-end'>
-              {t('tokenRoutes.detail.channelColumnStatus')}
-            </span>
-          </div>
-          <ul className='divide-border/60 divide-y'>
-            {channels.map((channel) => {
-              const priceTruth = resolveRouteChannelPriceTruth(
-                route,
-                channel,
-                priceRowsByModel
-              )
-              const allocation = allocations.get(channel.id) ?? {
-                channelId: channel.id,
-                configuredWeight: channel.weight,
-                enabledWeightShare: null,
-              }
-              return (
-                <ChannelRow
-                  key={channel.id}
-                  channel={channel}
-                  allocation={allocation}
-                  priceTruth={priceTruth}
-                  showSourceModel={Boolean(
-                    priceTruth.concreteModel &&
-                    priceTruth.concreteModel.trim().toLowerCase() !==
-                      routePattern
-                  )}
-                  priceQueryState={
-                    priceTruth.concreteModel
-                      ? priceQueryStateByModel.get(
-                          normalizeModelKey(priceTruth.concreteModel)
-                        )
-                      : undefined
-                  }
-                />
-              )
-            })}
-          </ul>
-        </div>
-      )}
+      {channelContent}
 
       {priceQueries.some((query) => query.isError) && (
         <Button
@@ -233,12 +401,14 @@ export function RouteChannelList({
 
 function ChannelRow({
   channel,
+  state,
   allocation,
   priceTruth,
   showSourceModel,
   priceQueryState,
 }: {
   channel: RouteChannel
+  state: ChannelState
   allocation: RouteChannelAllocation
   priceTruth: RouteChannelPriceTruth
   showSourceModel: boolean
@@ -251,12 +421,7 @@ function ChannelRow({
     t('tokenRoutes.detail.fallbackAccount', { id: channel.accountId })
   const siteLabel = channel.site?.name || channel.site?.platform || ''
   const tokenBound = Boolean(channel.token?.name || channel.tokenId)
-  // An account-scoped channel (no token_id) relays with the account's own
-  // credential. Only the absence of both masked credentials is the broken
-  // state; see the route-detail-sheet tests for the three wire shapes.
-  const accountCredential = Boolean(
-    channel.account?.accessTokenMasked || channel.account?.apiTokenMasked
-  )
+  const accountCredential = hasAccountCredential(channel)
   let tokenLabel: string
   if (channel.token?.name) {
     tokenLabel = channel.token.name
@@ -267,260 +432,200 @@ function ChannelRow({
   } else {
     tokenLabel = t('tokenRoutes.detail.channelTokenMissing')
   }
-  const sourceModel = priceTruth.concreteModel || '—'
+  const sourceModel = priceTruth.concreteModel || ''
   const priceUnavailable = isPriceUnavailable(priceTruth, priceQueryState)
-  const cooldownActive =
-    Boolean(channel.cooldownUntil) &&
-    new Date(channel.cooldownUntil as string) > new Date()
-  const missingCredential = !tokenBound && !accountCredential
+  const missingCredential = state === 'missing'
   let tokenHint: string | undefined
   if (!tokenBound) {
     tokenHint = accountCredential
       ? t('tokenRoutes.detail.channelTokenAccountHint')
       : t('tokenRoutes.detail.channelTokenMissingHint')
   }
-  let status: { label: string; dot: string; title?: string }
-  if (!channel.enabled) {
-    status = {
-      label: t('tokenRoutes.columns.disable'),
-      dot: 'bg-muted-foreground',
-    }
-  } else if (missingCredential) {
-    status = {
-      label: t('tokenRoutes.detail.channelStatusMissingCredential'),
-      dot: 'bg-destructive',
-    }
-  } else if (cooldownActive) {
-    status = {
-      label: t('tokenRoutes.detail.cooldown'),
-      dot: 'bg-warning',
-      title: t('tokenRoutes.detail.channelCooldownUntil', {
-        time: formatDateTime(channel.cooldownUntil, locale),
-      }),
-    }
-  } else {
-    status = {
-      label: t('tokenRoutes.detail.channelStatusHealthy'),
-      dot: 'bg-success',
-    }
+  let status: { label: string; title?: string }
+  switch (state) {
+    case 'disabled':
+      status = {
+        label: t('tokenRoutes.columns.disable'),
+      }
+      break
+    case 'missing':
+      status = {
+        label: t('tokenRoutes.detail.channelStatusMissingCredential'),
+      }
+      break
+    case 'cooling':
+      status = {
+        label: t('tokenRoutes.detail.cooldown'),
+        title: t('tokenRoutes.detail.channelCooldownUntil', {
+          time: formatDateTime(channel.cooldownUntil, locale),
+        }),
+      }
+      break
+    default:
+      status = {
+        label: t('tokenRoutes.detail.channelStatusHealthy'),
+      }
   }
+  const priceLabel = priceUnavailable
+    ? null
+    : `${formatPrice(priceTruth.inputPerMillion, {
+        fractionDigits: 4,
+      })} / ${formatPrice(priceTruth.outputPerMillion, {
+        fractionDigits: 4,
+      })}`
+  const weightPercent =
+    allocation.enabledWeightShare === null
+      ? null
+      : Math.round(allocation.enabledWeightShare * 100)
+  const platform = getPlatformDefinition(channel.site?.platform)
+  const siteIcon = platform?.icon
+  let PlatformFallback = Server
+  if (platform?.group === 'gateway') PlatformFallback = Network
+  else if (platform?.group === 'oauth') PlatformFallback = KeyRound
 
   return (
     <li
       className={cn(
-        CHANNEL_GRID_CLASS,
-        'gap-y-0.5 py-1.5 text-sm transition-colors hover:bg-muted/70 @[36rem]/channel-list:gap-y-0 @[36rem]/channel-list:py-1'
+        CHANNEL_ROW_GRID,
+        'rounded-lg px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/60',
+        state === 'disabled' && 'text-muted-foreground'
       )}
     >
-      <div className='col-start-1 row-start-1 flex min-w-0 items-baseline gap-x-1.5'>
-        <span
-          className='max-w-[60%] shrink-0 truncate font-medium'
-          title={accountLabel}
-        >
-          {accountLabel}
-        </span>
-        <div className='flex min-w-0 flex-1 items-baseline gap-x-1.5'>
-          {siteLabel && (
-            <span
-              className='text-muted-foreground min-w-0 shrink truncate text-xs'
-              title={siteLabel}
-            >
-              @ {siteLabel}
-            </span>
+      {/* Model glyph carries the model family; the small corner badge keeps
+          the upstream site visible without repeating its name on every row. */}
+      <div
+        className='col-start-1 row-span-2 row-start-1 self-start @[36rem]/channel-list:self-center'
+        title={siteLabel || accountLabel}
+        aria-hidden='true'
+      >
+        <span className='bg-background grid size-7 place-items-center rounded-md shadow-sm ring-1 ring-black/10 dark:ring-white/20'>
+          {siteIcon ? (
+            <BrandGlyph icon={siteIcon} size={20} alt='' />
+          ) : (
+            <PlatformFallback
+              className='text-muted-foreground size-4'
+              aria-hidden='true'
+            />
           )}
-          {/* Phones drop the token: the account and site already identify the
-              channel there, and the extra text pushed both into ellipses. */}
+        </span>
+      </div>
+      <div className='col-start-2 row-start-1 min-w-0'>
+        <div className='flex min-w-0 items-baseline gap-x-1.5'>
           <span
             className={cn(
-              'text-muted-foreground text-2xs hidden max-w-56 min-w-0 shrink truncate @[36rem]/channel-list:inline',
+              'truncate text-xs font-medium @[36rem]/channel-list:text-sm',
+              state === 'disabled' && 'text-muted-foreground'
+            )}
+            title={`${accountLabel} · ${t('tokenRoutes.detail.channelColumnPriority')} ${channel.priority}`}
+          >
+            {accountLabel}
+          </span>
+          <span
+            className='inline-flex shrink-0 items-center @[36rem]/channel-list:hidden'
+            title={status.title}
+          >
+            <ChannelStatusIcon state={state} />
+            <span className='sr-only'>{status.label}</span>
+          </span>
+        </div>
+      </div>
+      <div className='text-muted-foreground text-2xs col-start-2 row-start-2 flex min-w-0 items-center gap-x-1'>
+        <span className='inline-flex min-w-0 items-center gap-1'>
+          <KeyRound className='size-3 shrink-0' aria-hidden='true' />
+          <span
+            className={cn(
+              'min-w-0 truncate',
               missingCredential && 'text-destructive font-medium'
             )}
             title={tokenHint ?? tokenLabel}
           >
-            · {t('tokenRoutes.detail.channelToken')} {tokenLabel}
+            {tokenLabel}
           </span>
-          {showSourceModel && (
-            <code
-              className='bg-muted/70 text-muted-foreground text-2xs hidden max-w-28 shrink-0 truncate rounded px-1 py-0.5 font-mono @[36rem]/channel-list:inline-block'
-              title={`${t('tokenRoutes.detail.channelSourceModel')}: ${sourceModel}`}
-            >
-              {sourceModel}
-            </code>
-          )}
+        </span>
+        {siteLabel && <span className='sr-only'>{siteLabel}</span>}
+        {showSourceModel && sourceModel && (
+          <span
+            className='bg-muted/70 text-muted-foreground text-2xs hidden max-w-32 shrink-0 items-center gap-1 truncate rounded px-1 py-0.5 @[36rem]/channel-list:inline-flex'
+            title={`${t('tokenRoutes.detail.channelSourceModel')}: ${sourceModel}`}
+          >
+            <BrandGlyph model={sourceModel} size={11} />
+            <code className='truncate font-mono'>{sourceModel}</code>
+          </span>
+        )}
+        {priceLabel && (
+          <span
+            className='hidden shrink-0 items-center gap-1 @[44rem]/channel-list:inline-flex'
+            title={`${t('tokenRoutes.detail.channelColumnPrice')} · ${t('tokenRoutes.detail.channelRateProvenance')}: ${t(
+              `priceCompare.grade.${normalizePriceGrade(priceTruth.provenance.ratesSource)}`
+            )}`}
+          >
+            <span className='text-muted-foreground'>·</span>
+            <CircleDollarSign className='size-3' aria-hidden='true' />
+            <span className='text-foreground tabular-nums'>{priceLabel}</span>
+          </span>
+        )}
+      </div>
+
+      <div className='col-start-3 row-start-1 justify-self-end text-right @[36rem]/channel-list:col-start-3'>
+        <div
+          className='flex items-center justify-end gap-1'
+          title={`${t('tokenRoutes.detail.channelColumnWeightShare')}: ${allocation.configuredWeight} · ${formatRouteWeightShare(allocation.enabledWeightShare)}`}
+        >
+          <span className='bg-muted h-1 w-8 overflow-hidden rounded-full @[36rem]/channel-list:w-9'>
+            <span
+              className='bg-primary block h-full rounded-full'
+              style={{ width: `${weightPercent ?? 0}%` }}
+            />
+          </span>
+          <span className='text-2xs font-medium tabular-nums'>
+            {formatRouteWeightShare(allocation.enabledWeightShare)}
+          </span>
         </div>
       </div>
 
-      <div className='col-start-2 row-start-1 justify-self-end @[36rem]/channel-list:col-start-5 @[44rem]/channel-list:col-start-6'>
-        <span
-          data-testid='channel-status'
-          className='inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap'
-          title={status.title}
-        >
-          <span className={cn('size-1.5 rounded-full', status.dot)} />
-          {status.label}
+      <div
+        data-testid='channel-health'
+        className='text-2xs col-start-3 row-start-2 flex min-w-0 items-center gap-x-1 justify-self-end tabular-nums @[36rem]/channel-list:col-start-4 @[36rem]/channel-list:row-start-1'
+        title={t('tokenRoutes.detail.channelColumnHealth')}
+      >
+        <span className='inline-flex items-center gap-0.5'>
+          <Check className='text-success size-3' aria-hidden='true' />
+          <span className='text-foreground text-xs'>
+            {formatInt(channel.successCount)}
+          </span>
         </span>
-      </div>
-
-      {/* Four metrics read as one inline run on phones and dissolve into the
-          table columns once the container can show the single-line header. */}
-      <div className='text-muted-foreground text-2xs col-span-2 row-start-2 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 @[36rem]/channel-list:contents'>
-        <ChannelMetric
-          label={t('tokenRoutes.detail.channelColumnPriority')}
-          compactLabel={t('tokenRoutes.detail.channelMetricPriority')}
-          className='@[36rem]/channel-list:col-start-2'
-        >
-          {channel.priority}
-        </ChannelMetric>
-
-        <ChannelMetric
-          label={t('tokenRoutes.detail.channelColumnWeightShare')}
-          compactLabel={t('tokenRoutes.detail.channelMetricWeight')}
-          className='@[36rem]/channel-list:col-start-3'
-        >
-          {allocation.configuredWeight}
-          <span className='text-muted-foreground'> · </span>
-          {formatRouteWeightShare(allocation.enabledWeightShare)}
-        </ChannelMetric>
-
-        <ChannelMetric
-          label={t('tokenRoutes.detail.channelColumnHealth')}
-          compactLabel={t('tokenRoutes.detail.channelMetricHealth')}
-          className='@[36rem]/channel-list:col-start-4'
-          valueTestId='channel-health'
-        >
-          <span>{formatInt(channel.successCount)}</span>
-          <span className='text-muted-foreground'> / </span>
-          <span className={channel.failCount > 0 ? 'text-destructive' : ''}>
+        <span className='text-muted-foreground'>{' / '}</span>
+        <span className='inline-flex items-center gap-0.5'>
+          <X
+            className={cn(
+              'size-3',
+              channel.failCount > 0
+                ? 'text-destructive'
+                : 'text-muted-foreground'
+            )}
+            aria-hidden='true'
+          />
+          <span
+            className={cn(
+              'text-xs',
+              channel.failCount > 0 ? 'text-destructive' : 'text-foreground'
+            )}
+          >
             {formatInt(channel.failCount)}
           </span>
-        </ChannelMetric>
+        </span>
+      </div>
 
-        <ChannelMetric
-          label={t('tokenRoutes.detail.channelColumnPrice')}
-          compactLabel={t('tokenRoutes.detail.channelMetricPrice')}
-          className={cn(
-            '@[44rem]/channel-list:col-start-5 @[44rem]/channel-list:block',
-            // An unavailable price is not worth a wrapped line on a phone;
-            // the detail sheet still spells it out.
-            priceUnavailable ? 'hidden' : '@[36rem]/channel-list:hidden'
-          )}
+      <div className='hidden justify-self-end @[36rem]/channel-list:col-start-5 @[36rem]/channel-list:row-start-1 @[36rem]/channel-list:block'>
+        <span
+          data-testid='channel-status'
+          className='inline-flex items-center'
+          title={status.title ?? status.label}
         >
-          <ChannelPrice
-            priceTruth={priceTruth}
-            priceQueryState={priceQueryState}
-          />
-        </ChannelMetric>
+          <ChannelStatusIcon state={state} />
+          <span className='sr-only'>{status.label}</span>
+        </span>
       </div>
     </li>
-  )
-}
-
-function ChannelMetric({
-  label,
-  compactLabel,
-  className,
-  valueTestId,
-  children,
-}: {
-  label: string
-  compactLabel?: string
-  className?: string
-  valueTestId?: string
-  children: ReactNode
-}) {
-  return (
-    <div
-      className={cn(
-        'flex min-w-0 items-baseline gap-1 whitespace-nowrap',
-        className
-      )}
-    >
-      <span
-        className={cn(
-          compactLabel
-            ? '@[36rem]/channel-list:hidden'
-            : '@[36rem]/channel-list:sr-only'
-        )}
-      >
-        {compactLabel ?? label}
-      </span>
-      {compactLabel && (
-        <span className='hidden @[36rem]/channel-list:sr-only'>{label}</span>
-      )}{' '}
-      <div
-        data-testid={valueTestId}
-        className='text-foreground min-w-0 tabular-nums @[36rem]/channel-list:text-xs'
-      >
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function ChannelPrice({
-  priceTruth,
-  priceQueryState,
-}: {
-  priceTruth: RouteChannelPriceTruth
-  priceQueryState: PriceQueryState | undefined
-}) {
-  const { t } = useTranslation()
-  const ratesFallback =
-    normalizePriceGrade(priceTruth.provenance.ratesSource) === 'fallback'
-  const priceUnavailable = isPriceUnavailable(priceTruth, priceQueryState)
-  const costSource = priceTruth.provenance.source
-  const costSourceDiffers =
-    Boolean(costSource) && costSource !== priceTruth.provenance.ratesSource
-
-  return (
-    <div className='flex min-w-0 items-center gap-1.5'>
-      {priceQueryState?.isLoading ? (
-        <span className='text-muted-foreground inline-flex items-center gap-1 whitespace-nowrap'>
-          <Spinner className='size-3' />
-          <span className='sr-only'>
-            {t('tokenRoutes.detail.channelPriceLoading')}
-          </span>
-          <span aria-hidden='true'>—</span>
-        </span>
-      ) : priceUnavailable ? (
-        <span
-          className='text-muted-foreground whitespace-nowrap'
-          title={t('tokenRoutes.detail.channelPriceUnavailable')}
-        >
-          <span aria-hidden='true'>—</span>
-          <span className='sr-only'>
-            {t('tokenRoutes.detail.channelPriceUnavailable')}
-          </span>
-        </span>
-      ) : (
-        <span className='whitespace-nowrap'>
-          {formatPrice(priceTruth.inputPerMillion, {
-            fractionDigits: 4,
-          })}
-          <span className='text-muted-foreground'> / </span>
-          {formatPrice(priceTruth.outputPerMillion, {
-            fractionDigits: 4,
-          })}
-        </span>
-      )}
-      {!priceQueryState?.isLoading &&
-        !ratesFallback &&
-        priceTruth.provenance.ratesSource && (
-          <span className='hidden items-center @[36rem]/channel-list:inline-flex'>
-            <span className='sr-only'>
-              {t('tokenRoutes.detail.channelRateProvenance')}{' '}
-            </span>
-            <PriceGradeBadge grade={priceTruth.provenance.ratesSource} />
-          </span>
-        )}
-      {!priceQueryState?.isLoading && costSourceDiffers && costSource && (
-        <span className='hidden items-center @[36rem]/channel-list:inline-flex'>
-          <span className='sr-only'>
-            {t('tokenRoutes.detail.channelCostProvenance')}{' '}
-          </span>
-          <PriceGradeBadge grade={costSource} />
-        </span>
-      )}
-    </div>
   )
 }

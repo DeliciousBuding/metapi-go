@@ -132,6 +132,9 @@ export type DataTablePageProps<TData> = DataTablePageErrorProps & {
    * list (the downstream keys section) turns it off and grows with its rows.
    */
   fixedHeight?: boolean
+
+  /** Hide the heading row visually while retaining table semantics. */
+  srOnlyHeader?: boolean
 }
 
 /**
@@ -238,6 +241,7 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
             renderRow={props.renderRow}
             rowDisclosure={props.rowDisclosure}
             splitHeader={fixedHeight}
+            srOnlyHeader={props.srOnlyHeader}
             containerClassName={cn(
               fixedHeight && 'min-h-0 flex-1',
               'transition-opacity duration-150',

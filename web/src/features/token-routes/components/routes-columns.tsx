@@ -6,15 +6,19 @@
 
 import type { ColumnDef } from '@tanstack/react-table'
 import {
+  CircleSlash2,
   Eye,
+  Layers3,
   MoreHorizontal,
   Pencil,
   Power,
+  RadioTower,
   Snowflake,
   Trash2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { BrandGlyph } from '@/assets/brand-icons/BrandIcon'
 import { RowDisclosureTrigger } from '@/components/common/row-disclosure'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,12 +31,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
 import type {
@@ -41,7 +40,6 @@ import type {
   RouteSummaryRow,
 } from '../types'
 import {
-  formatContextLength,
   isExplicitGroupRoute,
   resolveRouteTitle,
   routingStrategyLabel,
@@ -49,67 +47,6 @@ import {
 
 function isReadOnlyRoute(route: RouteSummaryRow): boolean {
   return route.kind === 'zero_channel' || route.readOnly === true
-}
-
-function resolveModeBadge(route: RouteSummaryRow): {
-  labelKey: string
-  variant: 'default' | 'secondary' | 'outline'
-} {
-  if (isExplicitGroupRoute(route)) {
-    return { labelKey: 'tokenRoutes.columns.badgeGroup', variant: 'secondary' }
-  }
-  return { labelKey: 'tokenRoutes.columns.badgeMatch', variant: 'outline' }
-}
-
-function resolveChannelSummary(
-  route: RouteSummaryRow,
-  t: (key: string, params?: Record<string, unknown>) => string
-): {
-  label: string
-  variant: 'success' | 'warning' | 'secondary'
-  hint?: string
-  /** Tooltip clarifying the M/N channel ratio (repo Tooltip convention). */
-  enabledSummary?: string
-} {
-  if (isReadOnlyRoute(route)) {
-    return {
-      label: t('tokenRoutes.columns.channelZeroGenerated'),
-      variant: 'warning',
-      hint: t('tokenRoutes.columns.channelZeroHint'),
-    }
-  }
-  const total = route.channelCount ?? 0
-  const enabled = route.enabledChannelCount ?? 0
-  if (total === 0) {
-    return {
-      label: t('tokenRoutes.columns.channelZeroNeedChannels'),
-      variant: 'warning',
-      hint: t('tokenRoutes.columns.channelZeroNeedChannelsHint'),
-    }
-  }
-  if (enabled === 0) {
-    return {
-      label: `${total} ${t('tokenRoutes.columns.channels')}`,
-      variant: 'secondary',
-      hint: t('tokenRoutes.columns.channelAllDisabled'),
-    }
-  }
-  const partial = enabled < total
-  return {
-    label: `${enabled}/${total}`,
-    variant: partial ? 'warning' : 'success',
-    hint: partial
-      ? t('tokenRoutes.columns.channelDisabledCount', {
-          count: total - enabled,
-        })
-      : undefined,
-    enabledSummary: t(
-      partial
-        ? 'tokenRoutes.columns.channelPartialSummary'
-        : 'tokenRoutes.columns.channelEnabledSummary',
-      partial ? { enabled, total, count: total - enabled } : { enabled, total }
-    ),
-  }
 }
 
 function RoutesRowActions({
@@ -240,97 +177,134 @@ export function useRoutesColumns(
     },
     {
       id: 'title',
-      size: 240,
+      size: 520,
       accessorFn: (row) => resolveRouteTitle(row as RouteSummaryRow),
       header: t('tokenRoutes.columns.modelAndName'),
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
         const title = resolveRouteTitle(route)
-        const modeBadge = resolveModeBadge(route)
-        const contextLabel = formatContextLength(route.contextLength)
         const readOnly = isReadOnlyRoute(route)
+        const group = isExplicitGroupRoute(route)
+        const total = route.channelCount ?? 0
+        const enabled = route.enabledChannelCount ?? 0
+        const partial = enabled < total
+        const sites = route.siteNames ?? []
+        const modeLabel = t(
+          group
+            ? 'tokenRoutes.columns.badgeGroup'
+            : 'tokenRoutes.columns.badgeMatch'
+        )
+        let channelLabel: string
+        if (total === 0) {
+          channelLabel = t('tokenRoutes.columns.channelZeroNeedChannels')
+        } else if (partial) {
+          channelLabel = t('tokenRoutes.columns.channelDisabledCount', {
+            count: total - enabled,
+          })
+        } else {
+          channelLabel = t('tokenRoutes.columns.channelEnabledSummary', {
+            enabled,
+            total,
+          })
+        }
+        let channelTone = 'text-foreground'
+        if (enabled === 0) channelTone = 'text-muted-foreground'
+        else if (partial) channelTone = 'text-warning'
+
         return (
-          <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
-            {disclosure ? (
-              <RowDisclosureTrigger
-                expanded={disclosure.expandedIds.has(route.id)}
-                controls={disclosure.getContentId(route.id)}
-                onClick={() => disclosure.toggle(route.id)}
-                title={title}
-              >
-                <span className='min-w-0 font-medium [overflow-wrap:anywhere] break-words'>
-                  {title}
-                </span>
-              </RowDisclosureTrigger>
-            ) : (
-              <span className='max-w-60 truncate font-medium' title={title}>
-                {title}
-              </span>
-            )}
-            <Badge variant={modeBadge.variant}>{t(modeBadge.labelKey)}</Badge>
-            {readOnly && (
-              <Badge variant='outline' className='text-muted-foreground'>
-                {t('tokenRoutes.columns.notGenerated')}
-              </Badge>
-            )}
-            <code
-              className='bg-muted text-muted-foreground text-2xs max-w-44 truncate rounded px-1 py-0.5 font-mono'
-              title={route.modelPattern}
-            >
-              {route.modelPattern}
-            </code>
-            {contextLabel && (
-              <span className='text-muted-foreground text-2xs'>
-                {contextLabel}
-              </span>
-            )}
+          <div className='flex min-w-0 items-center gap-2.5 py-0.5'>
+            <span className='bg-background dark:bg-muted grid size-8 shrink-0 place-items-center rounded-lg shadow-sm ring-1 ring-black/8 dark:ring-white/12'>
+              <BrandGlyph
+                model={title}
+                icon={route.displayIcon}
+                size={22}
+                alt=''
+              />
+            </span>
+            <div className='min-w-0'>
+              <div className='flex min-w-0 items-center gap-1.5'>
+                {disclosure ? (
+                  <RowDisclosureTrigger
+                    expanded={disclosure.expandedIds.has(route.id)}
+                    controls={disclosure.getContentId(route.id)}
+                    onClick={() => disclosure.toggle(route.id)}
+                    title={title}
+                    className='min-h-0 gap-1 px-0 text-sm font-medium hover:bg-transparent'
+                  >
+                    <span className='min-w-0 truncate'>{title}</span>
+                  </RowDisclosureTrigger>
+                ) : (
+                  <span className='max-w-60 truncate text-sm font-medium'>
+                    {title}
+                  </span>
+                )}
+                {group ? (
+                  <span
+                    className='text-muted-foreground inline-flex shrink-0'
+                    title={modeLabel}
+                  >
+                    <Layers3 className='size-3.5' aria-hidden='true' />
+                    <span className='sr-only'>{modeLabel}</span>
+                  </span>
+                ) : (
+                  <span className='sr-only'>{modeLabel}</span>
+                )}
+                {readOnly && (
+                  <span
+                    className='text-muted-foreground inline-flex shrink-0'
+                    title={t('tokenRoutes.columns.notGenerated')}
+                  >
+                    <CircleSlash2 className='size-3.5' aria-hidden='true' />
+                    <span className='sr-only'>
+                      {t('tokenRoutes.columns.notGenerated')}
+                    </span>
+                  </span>
+                )}
+              </div>
+              <div className='text-muted-foreground text-2xs mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5'>
+                <code
+                  className='max-w-44 truncate font-mono'
+                  title={route.modelPattern}
+                >
+                  {route.modelPattern}
+                </code>
+                {!readOnly && (
+                  <>
+                    <span aria-hidden='true'>·</span>
+                    <span
+                      className={cn(
+                        'inline-flex shrink-0 items-center gap-1 tabular-nums',
+                        channelTone
+                      )}
+                      title={channelLabel}
+                    >
+                      <RadioTower className='size-3' aria-hidden='true' />
+                      {enabled}/{total}
+                    </span>
+                  </>
+                )}
+                {sites.length > 0 && (
+                  <>
+                    <span aria-hidden='true'>·</span>
+                    <span
+                      className='min-w-0 truncate'
+                      title={sites.join(' → ')}
+                    >
+                      {sites.slice(0, 2).join(' → ')}
+                      {sites.length > 2 && ` +${sites.length - 2}`}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         )
       },
       meta: { mobileTitle: true },
     },
     {
-      id: 'channels',
-      size: 80,
-      accessorFn: (row) => (row as RouteSummaryRow).channelCount,
-      header: t('tokenRoutes.columns.channels'),
-      cell: ({ row }) => {
-        const route = row.original as RouteSummaryRow
-        const summary = resolveChannelSummary(route, t)
-        return (
-          <div className='flex flex-col'>
-            {summary.enabledSummary ? (
-              <TooltipProvider delay={200}>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={(props) => (
-                      <Badge
-                        {...props}
-                        data-slot='badge'
-                        variant={summary.variant}
-                      >
-                        <span className='tabular-nums'>{summary.label}</span>
-                      </Badge>
-                    )}
-                  />
-                  <TooltipContent side='top'>
-                    {summary.enabledSummary}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : (
-              <Badge variant={summary.variant} title={summary.hint}>
-                <span className='tabular-nums'>{summary.label}</span>
-              </Badge>
-            )}
-          </div>
-        )
-      },
-      meta: { mobileOrder: 2 },
-    },
-    {
       id: 'strategy',
-      size: 80,
+      size: 112,
       accessorFn: (row) => (row as RouteSummaryRow).routingStrategy ?? '',
       header: t('tokenRoutes.columns.strategy'),
       cell: ({ row }) => {
@@ -346,36 +320,8 @@ export function useRoutesColumns(
       meta: { mobileOrder: 3 },
     },
     {
-      id: 'sites',
-      size: 80,
-      accessorFn: (row) => (row as RouteSummaryRow).siteNames ?? [],
-      header: t('tokenRoutes.columns.sites'),
-      cell: ({ row }) => {
-        const route = row.original as RouteSummaryRow
-        const sites = route.siteNames ?? []
-        if (sites.length === 0) {
-          return <span className='text-muted-foreground text-xs'>—</span>
-        }
-        return (
-          <div className='flex flex-wrap gap-1'>
-            {sites.slice(0, 3).map((site) => (
-              <Badge key={site} variant='outline' className='text-3xs'>
-                {site}
-              </Badge>
-            ))}
-            {sites.length > 3 && (
-              <Badge variant='outline' className='text-3xs'>
-                +{sites.length - 3}
-              </Badge>
-            )}
-          </div>
-        )
-      },
-      meta: { mobileHidden: true },
-    },
-    {
       id: 'enabled',
-      size: 90,
+      size: 56,
       accessorFn: (row) => {
         const route = row as RouteSummaryRow
         if (isReadOnlyRoute(route)) return 'readonly'
@@ -386,24 +332,30 @@ export function useRoutesColumns(
         const route = row.original as RouteSummaryRow
         if (isReadOnlyRoute(route)) {
           return (
-            <Badge variant='secondary'>
-              <span className='bg-muted-foreground size-1.5 rounded-full' />
-              {t('tokenRoutes.columns.notEnabled')}
-            </Badge>
+            <span
+              className='text-muted-foreground inline-flex'
+              title={t('tokenRoutes.columns.notEnabled')}
+            >
+              <CircleSlash2 className='size-4' aria-hidden='true' />
+              <span className='sr-only'>
+                {t('tokenRoutes.columns.notEnabled')}
+              </span>
+            </span>
           )
         }
+        const pending = pendingToggleId === route.id
+        const actionLabel = route.enabled
+          ? t('tokenRoutes.columns.disable')
+          : t('tokenRoutes.columns.enable')
         return (
-          <Badge variant={route.enabled ? 'success' : 'secondary'}>
-            <span
-              className={cn(
-                'size-1.5 rounded-full',
-                route.enabled ? 'bg-success' : 'bg-muted-foreground'
-              )}
-            />
-            {route.enabled
-              ? t('tokenRoutes.columns.enable')
-              : t('tokenRoutes.columns.disable')}
-          </Badge>
+          <Switch
+            size='sm'
+            checked={route.enabled}
+            disabled={pending}
+            onCheckedChange={() => actions.onToggleEnabled(route)}
+            aria-label={actionLabel}
+            title={actionLabel}
+          />
         )
       },
       filterFn: (row, _columnId, filterValue: unknown) => {

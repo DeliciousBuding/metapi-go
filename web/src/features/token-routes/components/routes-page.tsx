@@ -433,7 +433,6 @@ export function RoutesPage() {
   )
 
   const { table } = useDataTable({
-    initialColumnVisibility: { sites: false },
     data: rows,
     columns,
     getRowId: routeRowId,
@@ -594,6 +593,7 @@ export function RoutesPage() {
 
       <DataTablePage
         table={table}
+        srOnlyHeader
         // An expanded channel table is the content the operator asked for.
         // Keeping the list in a fixed-height scroll region clipped the second
         // channel below the fold at 1024px, so let the page grow while any
