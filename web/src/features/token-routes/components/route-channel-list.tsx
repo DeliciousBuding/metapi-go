@@ -44,10 +44,18 @@ function isPriceUnavailable(
 }
 
 /**
- * The route's channel composition. The wide layout is a compact table (header
- * labels live in this component); the narrow layout falls back to labelled
- * pairs so a phone never has to guess what a number means.
+ * The route's channel composition, rendered as a detail panel under the route
+ * row rather than a second table: no nested card, one shared column legend,
+ * single-line channel rows on wide containers, labelled pairs on phones.
+ *
+ * The panel has to stay readable when several routes are open, so every piece
+ * of chrome is charged against the six facts an operator needs per channel.
+ * The legend and the rows share one grid template; drift between the two would
+ * make every number ambiguous.
  */
+const CHANNEL_GRID_CLASS =
+  'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 @[36rem]/channel-list:grid-cols-[minmax(0,1fr)_2.5rem_5.5rem_5rem_4.5rem] @[44rem]/channel-list:grid-cols-[minmax(0,1fr)_2.5rem_6rem_5.5rem_6rem_4.5rem]'
+
 export function RouteChannelList({
   route,
   actions,
@@ -96,9 +104,10 @@ export function RouteChannelList({
   )
   const isBusy =
     channelsQuery.isFetching || priceQueries.some((query) => query.isFetching)
+  const routePattern = route.modelPattern.trim().toLowerCase()
 
   return (
-    <div className='@container/channel-list min-w-0 space-y-1.5'>
+    <div className='@container/channel-list min-w-0'>
       <div className='flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1'>
         <div className='flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5'>
           <h3 className='text-sm font-medium'>
@@ -133,14 +142,11 @@ export function RouteChannelList({
           isRetrying={channelsQuery.isFetching}
         />
       ) : channelsQuery.isPending && !isReadOnly ? (
-        <p
-          role='status'
-          className='text-muted-foreground border-border rounded-lg border px-3 py-2 text-sm'
-        >
+        <p role='status' className='text-muted-foreground mt-1.5 text-xs'>
           {t('common.loading')}
         </p>
       ) : channels.length === 0 ? (
-        <p className='text-muted-foreground rounded-lg border border-dashed px-3 py-2 text-center text-sm'>
+        <p className='text-muted-foreground mt-1.5 text-xs'>
           {t(
             isReadOnly
               ? 'tokenRoutes.detail.channelEmptyReadOnly'
@@ -148,12 +154,15 @@ export function RouteChannelList({
           )}
         </p>
       ) : (
-        <div className='overflow-hidden rounded-md border'>
-          {/* One quiet header per expansion; the rows below stay single-line
-              so several open routes do not turn into a wall of labels. */}
+        <div className='mt-1 min-w-0'>
+          {/* One shared legend per expansion, on the same grid as the rows.
+              Phones drop it: each metric carries its own short label there. */}
           <div
             aria-hidden='true'
-            className='bg-muted/40 text-muted-foreground text-2xs hidden grid-cols-[minmax(0,1fr)_2.5rem_5.5rem_5rem_4rem] items-center gap-x-3 border-b px-2.5 py-1 @[36rem]/channel-list:grid @[44rem]/channel-list:grid-cols-[minmax(0,1fr)_2.5rem_6rem_5.5rem_7rem_4.5rem]'
+            className={cn(
+              CHANNEL_GRID_CLASS,
+              'border-border/70 text-muted-foreground text-2xs hidden border-b pb-1 @[36rem]/channel-list:grid'
+            )}
           >
             <span>{t('tokenRoutes.detail.channelColumnIdentity')}</span>
             <span>{t('tokenRoutes.detail.channelColumnPriority')}</span>
@@ -162,11 +171,11 @@ export function RouteChannelList({
             <span className='hidden @[44rem]/channel-list:block'>
               {t('tokenRoutes.detail.channelColumnPrice')}
             </span>
-            <span className='text-right'>
+            <span className='justify-self-end'>
               {t('tokenRoutes.detail.channelColumnStatus')}
             </span>
           </div>
-          <ul className='divide-y'>
+          <ul className='divide-border/60 divide-y'>
             {channels.map((channel) => {
               const priceTruth = resolveRouteChannelPriceTruth(
                 route,
@@ -184,6 +193,11 @@ export function RouteChannelList({
                   channel={channel}
                   allocation={allocation}
                   priceTruth={priceTruth}
+                  showSourceModel={Boolean(
+                    priceTruth.concreteModel &&
+                    priceTruth.concreteModel.trim().toLowerCase() !==
+                      routePattern
+                  )}
                   priceQueryState={
                     priceTruth.concreteModel
                       ? priceQueryStateByModel.get(
@@ -221,11 +235,13 @@ function ChannelRow({
   channel,
   allocation,
   priceTruth,
+  showSourceModel,
   priceQueryState,
 }: {
   channel: RouteChannel
   allocation: RouteChannelAllocation
   priceTruth: RouteChannelPriceTruth
+  showSourceModel: boolean
   priceQueryState: PriceQueryState | undefined
 }) {
   const { t, i18n } = useTranslation()
@@ -290,37 +306,47 @@ function ChannelRow({
   }
 
   return (
-    <li className='grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-3 py-2 text-sm @[36rem]/channel-list:grid-cols-[minmax(0,1fr)_2.5rem_5.5rem_5rem_4rem] @[36rem]/channel-list:px-2.5 @[36rem]/channel-list:py-1.5 @[44rem]/channel-list:grid-cols-[minmax(0,1fr)_2.5rem_6rem_5.5rem_7rem_4.5rem]'>
-      <div className='col-start-1 row-start-1 min-w-0'>
-        <div className='flex min-w-0 items-baseline gap-1.5'>
-          <span
-            className='max-w-full shrink-0 truncate font-medium'
-            title={accountLabel}
-          >
-            {accountLabel}
-          </span>
+    <li
+      className={cn(
+        CHANNEL_GRID_CLASS,
+        'gap-y-0.5 py-1.5 text-sm transition-colors hover:bg-muted/70 @[36rem]/channel-list:gap-y-0 @[36rem]/channel-list:py-1'
+      )}
+    >
+      <div className='col-start-1 row-start-1 flex min-w-0 items-baseline gap-x-1.5'>
+        <span
+          className='max-w-[60%] shrink-0 truncate font-medium'
+          title={accountLabel}
+        >
+          {accountLabel}
+        </span>
+        <div className='flex min-w-0 flex-1 items-baseline gap-x-1.5'>
           {siteLabel && (
             <span
-              className='text-muted-foreground truncate text-xs'
+              className='text-muted-foreground min-w-0 shrink truncate text-xs'
               title={siteLabel}
             >
               @ {siteLabel}
             </span>
           )}
-        </div>
-        <div className='text-muted-foreground text-2xs mt-0.5 flex min-w-0 items-center gap-1.5'>
-          <code className='truncate font-mono' title={sourceModel}>
-            {sourceModel}
-          </code>
+          {/* Phones drop the token: the account and site already identify the
+              channel there, and the extra text pushed both into ellipses. */}
           <span
             className={cn(
-              'truncate',
+              'text-muted-foreground text-2xs hidden max-w-56 min-w-0 shrink truncate @[36rem]/channel-list:inline',
               missingCredential && 'text-destructive font-medium'
             )}
-            title={tokenHint}
+            title={tokenHint ?? tokenLabel}
           >
-            {t('tokenRoutes.detail.channelToken')} {tokenLabel}
+            · {t('tokenRoutes.detail.channelToken')} {tokenLabel}
           </span>
+          {showSourceModel && (
+            <code
+              className='bg-muted/70 text-muted-foreground text-2xs hidden max-w-28 shrink-0 truncate rounded px-1 py-0.5 font-mono @[36rem]/channel-list:inline-block'
+              title={`${t('tokenRoutes.detail.channelSourceModel')}: ${sourceModel}`}
+            >
+              {sourceModel}
+            </code>
+          )}
         </div>
       </div>
 
@@ -423,7 +449,7 @@ function ChannelMetric({
       )}{' '}
       <div
         data-testid={valueTestId}
-        className='text-foreground min-w-0 tabular-nums @[36rem]/channel-list:text-sm'
+        className='text-foreground min-w-0 tabular-nums @[36rem]/channel-list:text-xs'
       >
         {children}
       </div>

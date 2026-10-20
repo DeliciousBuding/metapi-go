@@ -2975,6 +2975,7 @@
         "channelColumnHealth": "成功 / 失败",
         "channelColumnPrice": "单价 / 1M",
         "channelColumnStatus": "状态",
+        "channelSourceModel": "源模型",
         "channelMetricPriority": "优先级",
         "channelMetricWeight": "权重",
         "channelMetricHealth": "成功",

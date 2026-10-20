@@ -2975,6 +2975,7 @@
         "channelColumnHealth": "Success / fail",
         "channelColumnPrice": "Price / 1M",
         "channelColumnStatus": "Status",
+        "channelSourceModel": "Source model",
         "channelMetricPriority": "Priority",
         "channelMetricWeight": "Weight",
         "channelMetricHealth": "Success",
