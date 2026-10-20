@@ -140,28 +140,29 @@ const siteCell = (status: string) => {
   } as Site)
 }
 
-// The enabled/total channel summary ladder, spelled as data: all enabled ->
-// success, partially enabled -> warning, none enabled -> secondary.
-const routeChannelLadder: Record<
-  string,
-  { channelCount: number; enabledChannelCount: number }
-> = {
-  'all enabled': { channelCount: 3, enabledChannelCount: 3 },
-  'partially enabled': { channelCount: 3, enabledChannelCount: 1 },
-  'all disabled': { channelCount: 2, enabledChannelCount: 0 },
-}
-
-const routeCell = (columnId: string, status: string) => {
+const routeCell = (
+  columnId: string,
+  enabled: boolean,
+  counts?: { channelCount: number; enabledChannelCount: number }
+) => {
   const { result } = renderHook(() => useRoutesColumns(noopRouteActions))
-  const row =
-    columnId === 'enabled'
-      ? { enabled: status === 'enabled' }
-      : routeChannelLadder[status]
-  return cellFrom(result.current, columnId, row as unknown as RouteSummaryRow)
+  return cellFrom(result.current, columnId, {
+    id: 1,
+    modelPattern: 'gpt-test',
+    displayName: 'GPT Test',
+    displayIcon: null,
+    routeMode: 'pattern',
+    modelMapping: null,
+    routingStrategy: 'weighted',
+    contextLength: null,
+    enabled,
+    channelCount: counts?.channelCount ?? 3,
+    enabledChannelCount: counts?.enabledChannelCount ?? (enabled ? 3 : 0),
+    siteNames: ['Example'],
+    decisionSnapshot: null,
+    decisionRefreshedAt: null,
+  } as RouteSummaryRow)
 }
-
-const routeEnabledCell = (status: string) => routeCell('enabled', status)
-const routeChannelsCell = (status: string) => routeCell('channels', status)
 
 function readBadgeVariant(container: HTMLElement): string | null {
   const badge = container.querySelector('[data-slot="badge"]')
@@ -203,11 +204,6 @@ const badgeWiringCases: BadgeWiringCase[] = [
   ['oauth', 'status', 'missing', 'success', oauthCell],
   ['sites', 'status', 'active', 'success', siteCell],
   ['sites', 'status', 'disabled', 'secondary', siteCell],
-  ['routes', 'enabled', 'enabled', 'success', routeEnabledCell],
-  ['routes', 'enabled', 'disabled', 'secondary', routeEnabledCell],
-  ['routes', 'channels', 'all enabled', 'success', routeChannelsCell],
-  ['routes', 'channels', 'partially enabled', 'warning', routeChannelsCell],
-  ['routes', 'channels', 'all disabled', 'secondary', routeChannelsCell],
 ]
 
 describe('status badge variant wiring', () => {
@@ -216,6 +212,40 @@ describe('status badge variant wiring', () => {
     (_feature, _column, status, wantVariant, makeCell) => {
       const { container } = render(makeCell(status))
       expect(readBadgeVariant(container)).toBe(wantVariant)
+    }
+  )
+})
+
+describe('route enable switch', () => {
+  it.each([
+    ['enabled', true, 'true'],
+    ['disabled', false, 'false'],
+  ])('renders the %s route as a %s switch', (_label, enabled, ariaChecked) => {
+    const { container } = render(routeCell('enabled', enabled))
+    expect(container.querySelector('[data-slot="switch"]')).toHaveAttribute(
+      'aria-checked',
+      ariaChecked
+    )
+  })
+})
+
+describe('route channel summary tone', () => {
+  it.each([
+    ['all enabled', 3, 3, 'text-foreground'],
+    ['partially enabled', 3, 1, 'text-warning'],
+    ['all disabled', 3, 0, 'text-muted-foreground'],
+  ])(
+    'renders the %s summary for %s of %s channels enabled',
+    (_label, total, enabledCount, tone) => {
+      const { container } = render(
+        routeCell('title', true, {
+          channelCount: total,
+          enabledChannelCount: enabledCount,
+        })
+      )
+      const summary = container.querySelector('.tabular-nums')
+      expect(summary).toHaveTextContent(`${enabledCount}/${total}`)
+      expect(summary).toHaveClass(tone)
     }
   )
 })

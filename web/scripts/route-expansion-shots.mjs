@@ -436,7 +436,15 @@ await run('01-routes-collapsed-light', desktop, async ({ page }) => {
 await run('02-route-multi-expanded-light', desktop, async ({ page }) => {
   await openRoutes(page)
   const region = await expand(page, 'GPT-6 Sol')
-  await expectText(region, '冷却中', '无可用凭据', '$1.2500', '价格不可用')
+  await expectText(
+    region,
+    '冷却中',
+    '无可用凭据',
+    '$1.2500',
+    '$10.0000',
+    '$0.8000',
+    '$6.4000'
+  )
   await capture(page, '02-route-multi-expanded-light', { fullPage: true })
   await captureRegion(region, '02-route-multi-detail')
 })
@@ -444,7 +452,11 @@ await run('02-route-multi-expanded-light', desktop, async ({ page }) => {
 await run('03-route-fallback-price', desktop, async ({ page }) => {
   await openRoutes(page)
   const region = await expand(page, 'Claude Opus 5')
-  await expectText(region, '价格不可用', '成本来源')
+  await expectText(region, '观测')
+  const summary = region.getByTestId('channel-price-summary')
+  if (!(await summary.getAttribute('title'))?.includes('价格不可用')) {
+    throw new Error('price summary did not expose the unavailable label')
+  }
   await capture(page, '03-route-fallback-price', { fullPage: true })
   await captureRegion(region, '03-route-fallback-detail')
 })
@@ -453,7 +465,7 @@ await run('04-route-price-error', desktop, async ({ page, failPrices }) => {
   failPrices()
   await openRoutes(page)
   const region = await expand(page, 'Qwen3.8 Max')
-  if (!(await region.innerText()).includes('正在加载价格')) {
+  if (!(await region.getByLabel('正在加载价格…').count())) {
     throw new Error('price loading state was not visible')
   }
   await captureRegion(region, '04-route-price-loading-detail')

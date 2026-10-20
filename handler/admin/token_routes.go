@@ -934,3 +934,21 @@ func routeChannelAccountPublic(ch map[string]any) map[string]any {
 	}
 	return out
 }
+
+// routeChannelTokenPublic exposes only the display identity of a bound token.
+// The route-channel list needs the token name to distinguish several keys on
+// the same account; the secret itself stays in account_tokens and never
+// enters this response.
+func routeChannelTokenPublic(ch map[string]any) map[string]any {
+	tokenID := coerceInt64(ch["tokenId"])
+	if tokenID <= 0 {
+		return nil
+	}
+	return map[string]any{
+		"id":        tokenID,
+		"name":      ch["tokenName"],
+		"accountId": ch["accountId"],
+		"enabled":   coerceBool(ch["tokenEnabled"]),
+		"isDefault": coerceBool(ch["tokenIsDefault"]),
+	}
+}

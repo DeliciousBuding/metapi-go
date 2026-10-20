@@ -1,5 +1,11 @@
 import { ChevronRight } from 'lucide-react'
-import type { ComponentProps, MouseEvent, ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  type ComponentProps,
+  type MouseEvent,
+  type ReactNode,
+} from 'react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -68,13 +74,40 @@ export function RowDisclosureContent({
   children: ReactNode
   className?: string
 }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  // The row that opened may sit at the bottom of the viewport. Without this,
+  // the disclosure is mounted below the fold and the click looks like a no-op.
+  // Only nudge the nearest scroll container when the panel is actually out of
+  // view, so expanding a visible row never moves the page.
+  useEffect(() => {
+    const element = ref.current
+    if (!element || typeof element.scrollIntoView !== 'function') return
+    const frame = requestAnimationFrame(() => {
+      const rect = element.getBoundingClientRect()
+      if (rect.top >= 0 && rect.bottom <= window.innerHeight) return
+      const reduceMotion = window.matchMedia?.(
+        '(prefers-reduced-motion: reduce)'
+      ).matches
+      element.scrollIntoView({
+        block: 'nearest',
+        behavior: reduceMotion ? 'auto' : 'smooth',
+      })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
   return (
     <div
+      ref={ref}
       id={id}
       role='region'
       aria-label={label}
       data-row-disclosure-ignore
-      className={cn('border-l-2 pl-3 sm:pl-4', className)}
+      className={cn(
+        'animate-in fade-in-0 slide-in-from-top-1 min-w-0 scroll-mt-4 duration-150 motion-reduce:animate-none',
+        className
+      )}
     >
       {children}
     </div>
