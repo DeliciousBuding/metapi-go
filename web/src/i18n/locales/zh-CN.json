@@ -1333,10 +1333,7 @@
         "operations": "系统与运维",
         "operations.description": "调度任务、数据库与数据迁移、维护、日志与更新。"
       },
-      "overview": {
-        "title": "设置",
-        "description": "管理网关配置、API 密钥、模型行为、数据与消息、系统与维护。"
-      },
+      "title": "设置",
       "common": {
         "save": "保存",
         "saving": "保存中…",
@@ -3688,8 +3685,7 @@
         "channels": "通道",
         "downstreamKeys": "API 密钥"
       },
-      "backToHome": "返回首页",
-      "settingsOverview": "设置总览"
+      "backToHome": "返回首页"
     },
     "import": {
       "title": "导入站点",

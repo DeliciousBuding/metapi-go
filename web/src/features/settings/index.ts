@@ -7,8 +7,7 @@
 // is exported below is frozen against their call sites, and what is not
 // exported is free to move.
 
-// Dispatcher + in-page sidebar + overview landing
-export { SettingsOverview } from './components/settings-overview'
+// Dispatcher + in-page sidebar
 export { SettingsPage } from './components/settings-page'
 
 // 5-subarea manifest + validation helpers (route registration surface)
