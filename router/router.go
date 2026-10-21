@@ -14,6 +14,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/admin"
 	"github.com/deliciousbuding/metapi-go/handler/proxy"
+	userhandler "github.com/deliciousbuding/metapi-go/handler/user"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
@@ -65,6 +66,14 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	// server-side. nil when the database is unavailable (handlers fail closed).
 	sessions := auth.NewSessionManager(store.GetDB(),
 		time.Duration(cfg.AdminSessionTTLMinutes)*time.Minute)
+	userSessions := auth.NewUserSessionManager(store.GetDB())
+	userhandler.RegisterRoutes(r, store.GetDB(), userSessions, cfg.AdminSessionCookieSecure, func() userhandler.ModelCatalog {
+		catalog, _ := app.TokenRouteDecisionRuntime()
+		if catalog == nil {
+			return nil
+		}
+		return catalog
+	})
 
 	r.Group(func(r chi.Router) {
 		r.Use(AdminCORS(cfg))
@@ -141,6 +150,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			service.ReloadRedirectRegistry(context.Background(), db.DB)
 			admin.RegisterSitesRoutes(r, db.DB)
 			admin.RegisterGatewayUserRoutes(r, db)
+			admin.RegisterUserActivationRoutes(r, db, userSessions)
 			admin.RegisterAccountsRoutes(r, db.DB, cfg)
 			admin.RegisterAccountTokensRoutes(r, db.DB)
 
