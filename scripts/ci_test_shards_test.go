@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -18,6 +19,9 @@ const shardModule = "github.com/deliciousbuding/metapi-go/"
 func TestCITestShardsCLI(t *testing.T) {
 	root := filepath.Dir(mustWorkingDir(t))
 	bin := filepath.Join(t.TempDir(), "ci-test-shards")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
 	build := exec.Command("go", "build", "-o", bin, "scripts/ci-test-shards.go")
 	build.Dir = root
 	if out, err := build.CombinedOutput(); err != nil {

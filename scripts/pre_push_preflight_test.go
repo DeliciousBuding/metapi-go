@@ -10,6 +10,9 @@ import (
 )
 
 func TestPreflightRealRepository(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("preflight uses bash")
+	}
 	goVersion, err := exec.Command("go", "env", "GOVERSION").Output()
 	if err != nil {
 		t.Fatal(err)
