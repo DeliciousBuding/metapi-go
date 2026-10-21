@@ -98,6 +98,11 @@ func TestCITestShardsCLI(t *testing.T) {
 		if out, _, err := run(input, "-shard", "0", "-total", "2", "-weights", filepath.Join(t.TempDir(), "missing")); err == nil || out != "" {
 			t.Fatalf("missing weights passed: %v %q", err, out)
 		}
+		stale := filepath.Join(t.TempDir(), "stale.tsv")
+		mustWrite(t, stale, []byte("a 1\nmissing 2\n"))
+		if out, _, err := run(shardModule+"a\n"+shardModule+"b\n", "-shard", "0", "-total", "2", "-weights", stale); err == nil || out != "" {
+			t.Fatalf("stale weights passed: %v %q", err, out)
+		}
 	})
 	t.Run("real workflow entry fails closed", func(t *testing.T) {
 		if _, err := exec.LookPath("bash"); err != nil {
@@ -107,20 +112,36 @@ func TestCITestShardsCLI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, body, found := strings.Cut(string(workflow), "      - name: Run tests (shard")
-		if !found {
-			t.Fatal("missing actual workflow entrypoint")
+		runBody := func(marker string) string {
+			t.Helper()
+			_, body, found := strings.Cut(string(workflow), marker)
+			if !found {
+				t.Fatalf("missing workflow entrypoint %q", marker)
+			}
+			_, body, found = strings.Cut(body, "        run: |\n")
+			if !found {
+				t.Fatalf("missing workflow run body after %q", marker)
+			}
+			body, _, _ = strings.Cut(body, "\n\n")
+			return strings.ReplaceAll(body, "          ", "")
 		}
-		_, body, found = strings.Cut(body, "        run: |\n")
-		if !found {
-			t.Fatal("missing workflow run body")
+		entries := []struct {
+			name     string
+			body     string
+			wantArgs string
+		}{
+			{name: "sqlite", body: runBody("      - name: Run tests (shard"), wantArgs: "-count=1\n-race\n"},
+			{name: "postgres", body: runBody("      - name: Run PostgreSQL tests (shard"), wantArgs: "-count=1\n-tags=integration\n-p\n1\n"},
 		}
-		body, _, _ = strings.Cut(body, "\n\n")
-		body = strings.ReplaceAll(body, "          ", "")
-		for _, mode := range []string{"normal", "list-fail", "selector-fail", "selector-empty", "list-empty", "invalid-shard"} {
-			t.Run(mode, func(t *testing.T) {
-				tmp := t.TempDir()
-				stub := `#!/usr/bin/env bash
+		for _, entry := range entries {
+			workflowBody := strings.NewReplacer(
+				"scripts/ci-test-shards.weights.tsv", weights,
+				"scripts/ci-test-pg.weights.tsv", weights,
+			).Replace(entry.body)
+			for _, mode := range []string{"normal", "list-fail", "selector-fail", "selector-empty", "list-empty", "invalid-shard"} {
+				t.Run(entry.name+"/"+mode, func(t *testing.T) {
+					tmp := t.TempDir()
+					stub := `#!/usr/bin/env bash
 set -euo pipefail
 case "$1" in
   list)
@@ -137,28 +158,55 @@ case "$1" in
   *) exit 99 ;;
 esac
 `
-				goStub := filepath.Join(tmp, "go")
-				mustWrite(t, goStub, []byte(stub))
-				if err := os.Chmod(goStub, 0o755); err != nil {
-					t.Fatal(err)
-				}
-				shard := "0"
-				if mode == "invalid-shard" {
-					shard = "bad"
-				}
-				cmd := exec.Command("bash", "-c", body)
-				cmd.Dir = root
-				cmd.Env = append(os.Environ(), "PATH="+tmp+string(os.PathListSeparator)+os.Getenv("PATH"), "SHARD="+shard, "SHARD_TOTAL=2", "RUNNER_TEMP="+tmp, "STUB_MODE="+mode, "SELECTOR_BIN="+bin, "STUB_MODULE="+shardModule)
-				out, err := cmd.CombinedOutput()
-				invoked, invocationErr := os.ReadFile(filepath.Join(tmp, "invoked"))
-				if mode == "normal" {
-					if err != nil || invocationErr != nil || !strings.Contains(string(invoked), "-count=1\n-race\n") {
-						t.Fatalf("valid workflow failed: %v %v\n%s\n%s", err, invocationErr, out, invoked)
+					goStub := filepath.Join(tmp, "go")
+					mustWrite(t, goStub, []byte(stub))
+					if err := os.Chmod(goStub, 0o755); err != nil {
+						t.Fatal(err)
 					}
-				} else if err == nil || !os.IsNotExist(invocationErr) {
-					t.Fatalf("bad workflow ran tests/passed: %v invocation=%v\n%s", err, invocationErr, out)
-				}
-			})
+					shard := "0"
+					if mode == "invalid-shard" {
+						shard = "bad"
+					}
+					cmd := exec.Command("bash", "-c", workflowBody)
+					cmd.Dir = root
+					cmd.Env = append(os.Environ(), "PATH="+tmp+string(os.PathListSeparator)+os.Getenv("PATH"), "SHARD="+shard, "SHARD_TOTAL=2", "RUNNER_TEMP="+tmp, "STUB_MODE="+mode, "SELECTOR_BIN="+bin, "STUB_MODULE="+shardModule, "PG_SCHEME=postgres", "PG_USER=postgres", "PG_PASSWORD=test", "PG_DATABASE=metapi_test")
+					out, err := cmd.CombinedOutput()
+					invoked, invocationErr := os.ReadFile(filepath.Join(tmp, "invoked"))
+					if mode == "normal" {
+						if err != nil || invocationErr != nil || !strings.Contains(string(invoked), entry.wantArgs) {
+							t.Fatalf("valid workflow failed: %v %v\n%s\n%s", err, invocationErr, out, invoked)
+						}
+					} else if err == nil || !os.IsNotExist(invocationErr) {
+						t.Fatalf("bad workflow ran tests/passed: %v invocation=%v\n%s", err, invocationErr, out)
+					}
+				})
+			}
+		}
+	})
+	t.Run("PostgreSQL weights cover the complete package list exactly once", func(t *testing.T) {
+		// -e keeps the package inventory available in a source-only worktree
+		// where web/dist has not been built yet. The real workflow intentionally
+		// uses plain go list after downloading the embedded asset.
+		cmd := exec.Command("go", "list", "-e", "./...")
+		cmd.Dir = root
+		packages, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("go list: %v", err)
+		}
+		weights := filepath.Join(root, "scripts", "ci-test-pg.weights.tsv")
+		expected := strings.Fields(string(packages))
+		var assigned []string
+		for shard := 0; shard < 4; shard++ {
+			out, stderr, err := run(string(packages), "-shard", fmt.Sprint(shard), "-total", "4", "-weights", weights)
+			if err != nil || len(strings.Fields(out)) == 0 {
+				t.Fatalf("PG shard %d: %v stdout=%q stderr=%q", shard, err, out, stderr)
+			}
+			assigned = append(assigned, strings.Fields(out)...)
+		}
+		sort.Strings(expected)
+		sort.Strings(assigned)
+		if !reflect.DeepEqual(assigned, expected) {
+			t.Fatalf("PostgreSQL shards do not cover all packages exactly once")
 		}
 	})
 }
