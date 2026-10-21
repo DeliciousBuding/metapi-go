@@ -52,6 +52,16 @@ func migrateUserKeyAccess(db *DB) error {
 		return err
 	}
 	for _, table := range []string{"gateway_requests", "proxy_logs"} {
+		// ApplyAdditiveMigrations also operates on reduced legacy schemas
+		// before base-table bootstrap. A missing optional log table has no
+		// historical rows to alter; AutoMigrate creates its current DDL later.
+		exists, err := tableExists(db, table)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			continue
+		}
 		for _, column := range []string{"owner_user_id", "user_group_id"} {
 			if err := EnsureColumn(db, table, column, "BIGINT", "BIGINT", ""); err != nil {
 				return err
