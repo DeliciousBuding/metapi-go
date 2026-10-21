@@ -162,6 +162,24 @@ func ProxyAuth() func(http.Handler) http.Handler {
 			}
 
 			r = r.WithContext(WithProxyAuth(r.Context(), pac))
+			if pac.OwnerUserID != nil && !wsHandshake {
+				// The ingress owner supplies server request identity and settlement;
+				// auth does not import or depend on any handler package.
+				admission, ok := w.(interface {
+					AdmitProxyUserBudget(*http.Request, *ProxyAuthContext) (*http.Request, int, string)
+				})
+				if !ok {
+					writeProxyError(w, 503, "server_error", "user_budget_unavailable", "User budget admission unavailable")
+					return
+				}
+				var status int
+				var message string
+				r, status, message = admission.AdmitProxyUserBudget(r, pac)
+				if status != 0 {
+					writeProxyError(w, status, "insufficient_quota", "user_budget_denied", message)
+					return
+				}
+			}
 			next.ServeHTTP(w, r)
 		})
 	}

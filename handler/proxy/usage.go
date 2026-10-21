@@ -2,6 +2,7 @@ package proxyhandler
 
 import (
 	"encoding/json"
+	"math"
 	"strings"
 	"unicode"
 
@@ -15,6 +16,7 @@ const (
 
 // ParsedUsage is a normalized token usage snapshot extracted from an upstream body/SSE.
 type ParsedUsage struct {
+	invalidForUserBudget  bool
 	videoAccounting       *directVideoAccounting
 	UpstreamReportedModel *string
 	FirstOutputLatencyMs  *int64
@@ -112,6 +114,7 @@ func ParseUsageFromSSEEvents(events []SseEvent) ParsedUsage {
 
 func mergeUsagePreferLater(prev, next ParsedUsage) ParsedUsage {
 	out := prev
+	out.invalidForUserBudget = prev.invalidForUserBudget || next.invalidForUserBudget
 	if next.UpstreamReportedModel != nil {
 		out.UpstreamReportedModel = next.UpstreamReportedModel
 	}
@@ -197,6 +200,11 @@ func extractUsageFromValue(v any) ParsedUsage {
 func applyUsageMap(out *ParsedUsage, usage map[string]any) {
 	if out == nil || usage == nil {
 		return
+	}
+	// Preserve the legacy protocol/accounting parser behavior for system Keys,
+	// but separately mark malformed counters for fail-closed user settlement.
+	if !validUserBudgetUsageMap(usage) {
+		out.invalidForUserBudget = true
 	}
 
 	// OpenAI chat.completions style
@@ -308,6 +316,27 @@ func applyUsageMap(out *ParsedUsage, usage map[string]any) {
 			out.CompletionTokens += n
 		}
 	}
+}
+
+func validUserBudgetUsageMap(usage map[string]any) bool {
+	for key, value := range usage {
+		if nested, ok := value.(map[string]any); ok {
+			if !validUserBudgetUsageMap(nested) {
+				return false
+			}
+			continue
+		}
+		if strings.Contains(strings.ToLower(key), "token") {
+			n, ok := value.(float64)
+			// JSON token counters must be exact nonnegative safe integers. The
+			// upper bound also prevents overflow when exclusive cache counters
+			// are added by the compatibility parser.
+			if !ok || math.IsNaN(n) || math.IsInf(n, 0) || n < 0 || n > 1<<50 || math.Trunc(n) != n {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // applyOpenAIMediaDetailPrompt folds text/image/audio detail leaves into PromptTokens

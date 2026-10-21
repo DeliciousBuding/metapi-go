@@ -649,6 +649,11 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		Description: "independent user password activation and revocable server-side sessions",
 		Apply:       migrateUserAuth,
 	},
+	{
+		Version:     "gateway_user_budgets_v1",
+		Description: "user-wide token credit budgets, group pricing and durable request settlement ledger",
+		Apply:       migrateGatewayUserBudgets,
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

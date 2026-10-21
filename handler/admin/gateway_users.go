@@ -95,6 +95,8 @@ func gatewayUserError(w http.ResponseWriter, err error) {
 		conflict = sqliteErr.Code() == 1555 || sqliteErr.Code() == 2067 || sqliteErr.Code() == 787
 	}
 	switch {
+	case errors.Is(err, store.ErrUserBudgetConflict):
+		writeError(w, http.StatusConflict, "Budget request identity or settlement conflicts")
 	case errors.Is(err, store.ErrGatewayUserUnavailable):
 		writeError(w, http.StatusServiceUnavailable, "User store unavailable")
 	case conflict:

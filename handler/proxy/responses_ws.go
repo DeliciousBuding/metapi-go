@@ -393,6 +393,9 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 	}
 
 	normalized.request["stream"] = true
+	if status, message := state.admitUserBudget(ctx, s.auth, "/v1/responses", normalized.request); status != 0 {
+		return s.writeError(ctx, status, message)
+	}
 	if model, _ := normalized.request["model"].(string); strings.TrimSpace(model) != "" {
 		requestModel = strings.TrimSpace(model)
 	}

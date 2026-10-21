@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"strings"
@@ -29,6 +30,7 @@ type gatewayRequestWriter func(context.Context, store.GatewayRequest) error
 // timing; they never decide this result. HTTP commits and the protocol owner's
 // terminal observation remain separate, including a 200 followed by interruption.
 type requestLifecycle struct {
+	userBudget         *requestUserBudget
 	mu                 sync.Mutex
 	once               sync.Once
 	entry              store.GatewayRequest
@@ -201,6 +203,7 @@ func (s *requestLifecycle) finish(ctx context.Context) {
 		// bounded write cannot rewrite the response or start a new retry.
 		writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
+		s.settleUserBudget(writeCtx)
 		if err := s.writer(writeCtx, entry); err != nil {
 			slog.Warn("gateway request record failed", "gateway_request_id", entry.ID, "err", err)
 		}
@@ -411,6 +414,22 @@ func (s *requestLifecycle) recordAttempt(ctx context.Context, entry *proxy.Proxy
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry.GatewayRequestID = s.entry.ID
+	ordinal, hasOrdinal := ctx.Value(gatewayAttemptKey{}).(int)
+	if !hasOrdinal {
+		ordinal = s.attempts
+	}
+	if budget := s.userBudget; budget != nil && !budget.seenAttempts[ordinal] {
+		if budget.seenAttempts == nil {
+			budget.seenAttempts = map[int]bool{}
+		}
+		budget.seenAttempts[ordinal] = true
+		if entry.TotalTokens != nil && *entry.TotalTokens >= 0 && *entry.TotalTokens <= math.MaxInt64-budget.tokens {
+			budget.tokens += *entry.TotalTokens
+			budget.usageFound = true
+		} else {
+			budget.usageUnknown = true
+		}
+	}
 	if ordinal, ok := ctx.Value(gatewayAttemptKey{}).(int); ok {
 		entry.RetryCount = ordinal
 		return

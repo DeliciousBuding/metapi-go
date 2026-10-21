@@ -58,6 +58,9 @@ func TestUserKeyHTTPCurrentGroupAndHistoricalOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := users.SetUserBudget(ctx, user.ID, 10, false); err != nil {
+		t.Fatal(err)
+	}
 	for group, route := range map[int64]int64{groupA.ID: 1, groupB.ID: 3} {
 		if err := users.GrantUserGroupRoute(ctx, group, route); err != nil {
 			t.Fatal(err)
