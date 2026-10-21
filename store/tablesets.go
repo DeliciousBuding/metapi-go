@@ -83,6 +83,9 @@ var schemaTables = []schemaTable{
 	{"external_source_ids", buildExternalSourceIDsDDL},
 	{"upstream_route_groups", buildUpstreamRouteGroupsDDL},
 	{"upstream_import_stats", buildUpstreamImportStatsDDL},
+	{"gateway_user_groups", buildGatewayUserGroupsDDL},
+	{"gateway_users", buildGatewayUsersDDL},
+	{"gateway_user_group_route_grants", buildGatewayUserGroupRouteGrantsDDL},
 }
 
 // migrationExcludedTables names schema tables deliberately NOT copied across
@@ -112,6 +115,9 @@ var factoryResetExcludedTables = map[string]string{
 // (metadata.excluded_tables) so a backup file states its own gaps; keep each
 // one to a single sentence and put the long form in docs/api/settings.md.
 var backupExcludedTables = map[string]string{
+	"gateway_user_groups":             "local access groups: portable imports must not replace trusted authorization groups before identity-aware restore is implemented",
+	"gateway_users":                   "local identities and group assignments: portable imports must not plant gateway users or change their access groups",
+	"gateway_user_group_route_grants": "local group authorization: portable imports must not plant route permissions for existing users",
 	// Session credential material. A backup is semi-trusted input (see
 	// backupsvc.RuntimeLocalSettingKeys for the same threat model applied to
 	// settings rows): importing token hashes would let a cookie issued on the

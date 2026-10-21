@@ -95,6 +95,7 @@ this payload does **not** carry to the reason, so a backup file states its own g
 | `model_probe_results` | High-frequency background probe telemetry that route rebuild reads as its latest-per-model signal; stale rows from another deployment would steer routing. The prober regenerates them after a restore. |
 | `catalog_sources` | Each row's `url` is fetched server-side by the catalog sync, and the import URL guard (`sites` / `site_api_endpoints` only) does not cover this table yet, so a crafted backup could plant an SSRF fetch target. |
 | `downstream_quota_reservations` | In-flight access-policy quota holds with a 30-minute TTL. They are settled by the source process, so replaying one would reserve quota on the target for a request that never ran there; settled `downstream_quota_usage` history is still carried. |
+| `gateway_users`, `gateway_user_groups`, `gateway_user_group_route_grants` | Local ordinary-user identities and route permissions. Portable backups must not plant users or widen their group grants; explicit administrator-controlled database migration preserves these relationships. |
 
 `type=accounts` and `type=preferences` are scoped exports; `metadata.excluded_tables` additionally lists the tables
 outside that scope. Limits: 50,000 rows per table, 4 MiB per cell, 64 MiB per payload — exceeding one fails the export
