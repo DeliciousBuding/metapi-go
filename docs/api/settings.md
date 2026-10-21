@@ -96,6 +96,8 @@ this payload does **not** carry to the reason, so a backup file states its own g
 | `catalog_sources` | Each row's `url` is fetched server-side by the catalog sync, and the import URL guard (`sites` / `site_api_endpoints` only) does not cover this table yet, so a crafted backup could plant an SSRF fetch target. |
 | `downstream_quota_reservations` | In-flight access-policy quota holds with a 30-minute TTL. They are settled by the source process, so replaying one would reserve quota on the target for a request that never ran there; settled `downstream_quota_usage` history is still carried. |
 | `gateway_users`, `gateway_user_groups`, `gateway_user_group_route_grants` | Local ordinary-user identities and route permissions. Portable backups must not plant users or widen their group grants; explicit administrator-controlled database migration preserves these relationships. |
+| `gateway_user_credentials`, `gateway_user_sessions` | Local password/activation/session digests, never replayed through portable imports. |
+| `gateway_user_budgets`, `gateway_user_group_pricing`, `gateway_user_budget_ledger` | Local user quota balances, group rates and durable settlement history; importing them without the identity graph could plant charges or release holds. Whole-database migrations/snapshots preserve them. |
 
 Row-level exclusions are stated in `metadata.excluded_rows`: user-owned
 `downstream_api_keys`, their quota usage, files/video tasks, and user-attributed

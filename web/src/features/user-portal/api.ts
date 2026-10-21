@@ -103,7 +103,7 @@ export const userPortalApi = {
   keys: async () => keysSchema.parse(await userRequest('/keys')),
   createKey: async (body: {
     name: string
-    supportedModels: string[]
+    supportedModels?: string[]
     expiresAt?: string
     maxRequests?: number
   }) =>

@@ -49,7 +49,6 @@ export type GatewayUser = z.infer<typeof userSchema>
 export type GatewayUserGroup = z.infer<typeof groupSchema>
 export type UserBudget = z.infer<typeof budgetSchema>
 export type GroupPricing = z.infer<typeof pricingSchema>
-export type PublicRoute = z.infer<typeof routeSchema>
 export type UserInput = {
   username: string
   displayName: string

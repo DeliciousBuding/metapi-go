@@ -127,7 +127,7 @@ null or case-aliased fields and oversized/trailing JSON bodies.
 | `POST /api/user/auth/password` | `{currentPassword,newPassword}`; revoke all sessions and clear cookie; sign in again |
 | `GET /api/user/models` | `{items:[{id,routeId}]}`; concrete public names with eligible sources under current group, no upstream details or live availability promise |
 | `GET /api/user/keys` | `{items:[{id,name,keyMasked,enabled,expiresAt,supportedModels,maxCost,maxRequests,usedCost,usedRequests,createdAt}]}`; only caller-owned Keys, never plaintext |
-| `POST /api/user/keys` | `{name,supportedModels?,expiresAt?,maxCost?,maxRequests?}`; generate cryptographically random Key, bind authenticated user, return `{item,key}` once; users cannot choose owner, group, site or credentials |
+| `POST /api/user/keys` | `{name,supportedModels?,expiresAt?,maxCost?,maxRequests?}`; omit supportedModels to inherit the group; explicit empty array is rejected. Generate cryptographically random Key, bind authenticated user, return `{item,key}` once; users cannot choose owner, group, site or credentials |
 | `DELETE /api/user/keys/{id}` | Delete only caller-owned Key; unknown or another user's ID is `404` |
 | `GET /api/user/requests?page=1&pageSize=20` | `{items,total,page,pageSize}`; rows and total use the same caller-owner predicate |
 | `GET /api/user/requests/{id}` | One safe request DTO, owner-scoped or `404` |
@@ -140,5 +140,55 @@ Old unowned logs stay administrator-only; renaming, regrouping and Key deletion
 do not change historical request ownership. Invalid/expired credentials return
 `401`, invalid input `400`, unavailable storage `503`. The personal UI renders
 failed reads as errors rather than empty successful data.
+
+### User-wide token quota
+
+User quota is token credit, **not a USD wallet or upstream invoice**. One unit
+means one million reported total tokens at group multiplier 1. Input and output
+use the same multiplier. The selected user, group and multiplier are snapshotted
+when the request is admitted; regrouping, repricing, adding/deleting Keys and
+editing limits never reset used quota. New users have finite zero quota until
+the administrator assigns a limit or explicitly enables unlimited mode.
+
+| Endpoint | Contract |
+| --- | --- |
+| `GET /api/admin/users/{userId}/budget` | `{limit,used,reserved,unlimited,frozen,unknownRequests}` |
+| `PUT /api/admin/users/{userId}/budget` | Explicit `{limit,unlimited}` → full budget DTO; no used-counter reset |
+| `GET /api/admin/user-groups/{groupId}/pricing` | `{multiplier}`; default 1 |
+| `PUT /api/admin/user-groups/{groupId}/pricing` | `{multiplier}` → same DTO; positive only |
+| `GET /api/admin/users/{userId}/budget/holds?offset=0` | `{items:[{requestId,state,reserved,totalTokens,createdAt,multiplier}],limit:100,offset}`; pending/unknown holds only, administrator-only |
+| `POST /api/admin/users/{userId}/budget/reconcile` | `{requestId,totalTokens,confirmTerminated:true}` → budget DTO; verified total across all attempts, not an increment |
+| `GET /api/user/budget` | Current authenticated user's safe aggregate budget DTO |
+
+Amounts have at most six decimals; limits are 0..1e9 units, multipliers
+1e-6..1e9. Zero is not unlimited. Shared-pool reservations are atomic across
+all user Keys, including concurrent connections. Arithmetic uses integer micro
+units and rounds each request's total charge upward. A server-generated request
+ID or WS turn ID owns one settlement; retry attempts contribute their observed
+usage without charging the same attempt twice. This ledger is synchronous and
+independent of best-effort log queues and retention.
+
+Supported user requests are bounded text Chat, Messages, Completions, Responses,
+Embeddings and Gemini generateContent/streamGenerateContent. An omitted output
+cap becomes 4096 tokens; existing valid caps remain. Admission reserves twice
+the serialized UTF-8 JSON byte count plus the maximum output and 1024 tokens,
+multiplied by the snapshotted group rate. Chat SSE requests include usage.
+This is conservative estimation, **not a guarantee that a provider cannot
+report more**: actual reported usage is charged even above the hold/limit,
+and subsequent finite requests are rejected. User media, asynchronous video,
+file resources, built-in search/tools, compact and opaque continuation bodies
+(including previous_response_id/cachedContent) are rejected until their
+accounting is supported; unlimited users have the same protocol boundary.
+System Key protocol behavior is unchanged.
+
+No dispatch releases a hold. Dispatched requests with missing/invalid/overflowed
+usage retain the reservation and freeze further admission rather than charging
+zero. Crashed processes leave durable pending holds without an automatic refund
+TTL. Administrators inspect holds and provider/gateway evidence, verify the
+request has terminated on **all instances**, then explicitly reconcile total
+tokens at the original multiplier. Local active requests return `409`; this is
+not a distributed termination detector. Repeating the same reconciliation is
+idempotent, a different total conflicts. Raising quota alone does not resolve
+unknown usage. All management writes require confirmation and audit.
 
 ---

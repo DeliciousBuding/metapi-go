@@ -127,6 +127,7 @@ try {
   }
   await admin('/api/settings/backup/import', 'POST', {
     version: '1.4',
+    timestamp: '2026-10-21T00:00:00Z',
     channels: [
       {
         id: 1,
@@ -389,12 +390,14 @@ try {
       ),
       'mobile document overflow: ' + view
     )
-    await page.addScriptTag({
-      content: await readFile(
+    // Run the audit through browser automation, not an inline DOM script;
+    // keep the production CSP enabled for the actual application journey.
+    await page.evaluate(
+      await readFile(
         new URL('../node_modules/axe-core/axe.min.js', import.meta.url),
         'utf8'
-      ),
-    })
+      )
+    )
     const violations = await page.evaluate(async () => {
       const r = await window.axe.run(document, {
         runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] },

@@ -52,6 +52,7 @@ func RegisterRoutes(r chi.Router, db *store.DB, sessions *auth.UserSessionManage
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(auth.UserSessionAuth(sessions))
+			RegisterBudgetRoutes(r, db)
 			r.Get("/api/user/session", h.session)
 			r.Post("/api/user/auth/logout", h.logout)
 			r.With(auth.AdminRateLimit(1, 5)).Post("/api/user/auth/password", h.password)

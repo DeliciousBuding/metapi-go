@@ -70,10 +70,14 @@ function NewKeyForm({ onCreated }: { onCreated: (key: string) => void }) {
     try {
       const created = await userPortalApi.createKey({
         name: values.name,
-        supportedModels: values.models
-          .split(/[\n,]+/)
-          .map((v) => v.trim())
-          .filter(Boolean),
+        ...(values.models.trim()
+          ? {
+              supportedModels: values.models
+                .split(/[\n,]+/)
+                .map((v) => v.trim())
+                .filter(Boolean),
+            }
+          : {}),
         ...(values.expiresAt
           ? { expiresAt: new Date(values.expiresAt).toISOString() }
           : {}),

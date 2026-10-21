@@ -11,6 +11,11 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 
 ### GET
 
+- `/api/user/budget`
+- `/api/admin/users/:userId/budget`
+- `/api/admin/users/:userId/budget/holds`
+- `/api/admin/user-groups/:groupId/pricing`
+
 - `/api/user/session`
 - `/api/user/models`
 - `/api/user/keys`
@@ -124,6 +129,8 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/update-center/status`
 ### POST
 
+- `/api/admin/users/:userId/budget/reconcile`
+
 - `/api/user/auth/activate`
 - `/api/user/auth/login`
 - `/api/user/auth/logout`
@@ -226,6 +233,9 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/sites/import`
 - `/api/test/chat`
 ### PUT
+
+- `/api/admin/users/:userId/budget`
+- `/api/admin/user-groups/:groupId/pricing`
 
 - `/api/admin/users/:userId`
 - `/api/admin/user-groups/:groupId`

@@ -150,6 +150,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			service.ReloadRedirectRegistry(context.Background(), db.DB)
 			admin.RegisterSitesRoutes(r, db.DB)
 			admin.RegisterGatewayUserRoutes(r, db)
+			admin.RegisterUserBudgetRoutes(r, db)
 			admin.RegisterUserActivationRoutes(r, db, userSessions)
 			admin.RegisterAccountsRoutes(r, db.DB, cfg)
 			admin.RegisterAccountTokensRoutes(r, db.DB)

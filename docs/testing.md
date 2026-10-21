@@ -6,6 +6,23 @@
 
 ## Test layers
 
+### Isolated ordinary-user browser acceptance
+
+After building the SPA and production server, run from `web/`:
+
+```bash
+METAPI_BINARY=/absolute/path/to/server node scripts/user-portal-smoke.mjs
+```
+
+The script always starts its own fresh SQLite server and deterministic upstream
+on localhost; it never points at an existing deployment. Synthetic credentials
+stay in the isolated fixture. It exercises activation, independent user/admin
+auth, one-time Key creation, real HTTP relay and quota, cross-user isolation,
+regroup/disable and historical requests, then desktop/mobile personal views,
+axe serious/critical checks and password-change revocation. Its temporary output
+directory contains result JSON, server logs and screenshots. This is controlled
+fixture acceptance, not real-model inference or a production-deployment claim.
+
 Pure formatter, schema and export suites can opt into Node with an explicit
 `@vitest-environment node` annotation after checking their dependencies do not
 require a DOM. Component suites keep jsdom. Tests use up to four workers with

@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next'
 import { PageHeader } from '@/components/common/page-header'
 import { InterfaceControls } from '@/components/layout/components/interface-controls'
 import { BrandLogo } from '@/components/ui/brand-logo'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Notice } from '@/components/ui/notice'
 import { Spinner } from '@/components/ui/spinner'
@@ -292,21 +292,19 @@ function PortalShell({
           className='flex gap-1 overflow-x-auto md:flex-col md:overflow-visible'
         >
           {navigation.map(([item, Icon]) => (
-            <Button
+            <Link
               key={item}
-              variant={view === item ? 'secondary' : 'ghost'}
-              className='shrink-0 justify-start'
-              render={
-                <Link
-                  to='/user'
-                  search={{ view: item, page: 1 }}
-                  aria-current={view === item ? 'page' : undefined}
-                />
-              }
+              to='/user'
+              search={{ view: item, page: 1 }}
+              aria-current={view === item ? 'page' : undefined}
+              className={buttonVariants({
+                variant: view === item ? 'secondary' : 'ghost',
+                className: 'shrink-0 justify-start',
+              })}
             >
               <Icon aria-hidden='true' />
               {t('userPortal.nav.' + item)}
-            </Button>
+            </Link>
           ))}
         </nav>
         <main className='min-w-0 space-y-6'>
