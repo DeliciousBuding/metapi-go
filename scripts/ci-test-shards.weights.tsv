@@ -1,0 +1,24 @@
+# SQLite -race package elapsed time, milliseconds (not runner wall time).
+# Source: https://github.com/DeliciousBuding/metapi-go/actions/runs/39632045925
+# Jobs: 119332887058, 119332887127, 119332887345, 119332887722.
+# Only measured packages >= 15 seconds are listed. All other/new packages get
+# a conservative 10000ms default; this table is a scheduling hint, not a filter.
+# No historical artifact download or network access is needed by the selector.
+app 28261
+auth 188266
+docs 177374
+e2e 29856
+handler/admin 146490
+handler/proxy 336914
+platform 18601
+router 68430
+scheduler 63870
+scripts 21547
+service 68006
+service/alert 16549
+service/backup 151632
+service/balance 17311
+service/checkin 35453
+service/oauth 75732
+service/upstream 47946
+store 138895
