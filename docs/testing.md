@@ -203,8 +203,16 @@ OS/架构和 C 工具链；Windows 原生若因 ThreadSanitizer 无法分配 sha
 资源竞争可能拖慢测试，超时时先区分环境负载和代码问题，不跳过失败检查。
 
 CI 的 SQLite race shards 独立配置，不使用这个本地超时。
-分片必须验证预期包数和非空选择；选择脚本出错直接失败，
-不能用“没有包可跑”返回成功。PostgreSQL 共享夹具需串行运行（`-p 1`）。
+`scripts/ci-test-shards.go` 将完整 `go list ./...` 清单按实测重包权重降序分配到
+当前最轻的 shard；同权重/负载以包名/shard 编号确定次序。权重来源见同目录
+`ci-test-shards.weights.tsv`，只是调度提示，不是选测白名单：未知/新增包默认
+10 秒，删除包不再调度。所有输入包必须恰好分配一次，各 shard 必须非空。
+工作流先保存 `go list` 输出再执行 selector，避免进程替换隐藏失败；非法输入、
+权重读取/解析失败、selector 失败或空选择均拒绝运行测试，不返回绿色。
+权重总和不是墙钟预测；测试并发、编译和 runner 资源都会影响实际耗时。
+CI 的 Bun cache 仅保存下载包，key 绑定 OS/架构/Bun 版本/lockfile；每个消费者
+仍执行冻结锁文件安装，不复用可变 node_modules 或测试通过结果。
+PostgreSQL 共享夹具需串行运行（`-p 1`），本轮未改其范围或频率。
 `internal/pgtest.Reset` 只清空当前 schema 的业务表并保留迁移记录；
 跨 schema 外键会使清理失败，不连带清空其他 schema。
 本地 race 入口检测到 `PG_TEST_DSN` 时默认 `-p 1`，并拒绝更高的包并发设置。
