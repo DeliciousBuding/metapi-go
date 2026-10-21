@@ -32,7 +32,7 @@ func TestReleaseScriptRejectsStaleMaster(t *testing.T) {
 	stale := filepath.Join(root, "stale")
 	writer := filepath.Join(root, "writer")
 
-	runGit(t, root, "init", "--bare", origin)
+	runGit(t, root, "init", "--bare", "-b", "master", origin)
 	runGit(t, root, "init", "-b", "master", seed)
 	configureTestRepo(t, seed)
 	mustMkdir(t, filepath.Join(seed, "scripts"))
@@ -73,7 +73,7 @@ func TestReleaseScriptAcceptsCleanNonMasterCheckout(t *testing.T) {
 	root := t.TempDir()
 	origin := filepath.Join(root, "origin.git")
 	repo := filepath.Join(root, "release")
-	runGit(t, root, "init", "--bare", origin)
+	runGit(t, root, "init", "--bare", "-b", "master", origin)
 	runGit(t, root, "init", "-b", "master", repo)
 	configureTestRepo(t, repo)
 	mustMkdir(t, filepath.Join(repo, "scripts"))
