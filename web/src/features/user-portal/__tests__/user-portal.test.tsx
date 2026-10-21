@@ -200,7 +200,7 @@ describe('personal portal boundaries', () => {
     handler = (url, method) => {
       if (url === '/api/user/keys' && method === 'post') {
         created = true
-        return { item, key: 'sk-synthetic-once-only' }
+	        return { item, key: 'synthetic-once-only-key' }
       }
       if (url === '/api/user/keys') return { items: created ? [item] : [] }
       return { usedRequests: 0, keyCount: 1 }
@@ -221,7 +221,7 @@ describe('personal portal boundaries', () => {
       )
     })
     expect(await screen.findByLabelText('Secret API key')).toHaveValue(
-      'sk-synthetic-once-only'
+	      'synthetic-once-only-key'
     )
     expect(screen.getByLabelText('Secret API key')).toHaveAttribute(
       'type',
@@ -234,7 +234,7 @@ describe('personal portal boundaries', () => {
           .getAll()
           .map((q) => q.state.data)
       )
-    ).not.toContain('sk-synthetic-once-only')
+	    ).not.toContain('synthetic-once-only-key')
     expect(client.getMutationCache().getAll()).toHaveLength(0)
     fireEvent.click(
       screen.getByRole('button', { name: 'I have saved the key' })
@@ -246,7 +246,7 @@ describe('personal portal boundaries', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create key' }))
     expect(await screen.findByLabelText('Key name')).toHaveValue('')
     expect(
-      screen.queryByDisplayValue('sk-synthetic-once-only')
+	      screen.queryByDisplayValue('synthetic-once-only-key')
     ).not.toBeInTheDocument()
   })
   it('does not render failed Key fetches as empty and can retry', async () => {

@@ -36,7 +36,7 @@ func TestUserKeyAdminOwnershipAndPortableBackup(t *testing.T) {
 			for _, id := range []int64{0, -1, 999999} {
 				call("POST", "/api/downstream-keys", fmt.Sprintf(`{"name":"bad","key":"sk-bad-fixture","ownerUserId":%d}`, id), 400)
 			}
-			w := call("POST", "/api/downstream-keys", fmt.Sprintf(`{"name":"personal","key":"sk-personal-fixture","ownerUserId":%d,"supportedModels":["*"]}`, user.ID), 200)
+			w := call("POST", "/api/downstream-keys", fmt.Sprintf(`{"name":"personal","key":"sk-personal-fix","ownerUserId":%d,"supportedModels":["*"]}`, user.ID), 200)
 			var created struct {
 				Item struct {
 					ID           int64  `json:"id"`
@@ -55,7 +55,7 @@ func TestUserKeyAdminOwnershipAndPortableBackup(t *testing.T) {
 				call("PUT", path, body, 400)
 			}
 			call("PUT", path, `{"name":"renamed","enabled":false}`, 200)
-			call("POST", "/api/downstream-keys", `{"name":"system","key":"sk-system-fixture","supportedModels":["*"]}`, 200)
+			call("POST", "/api/downstream-keys", `{"name":"system","key":"sk-system-fix","supportedModels":["*"]}`, 200)
 			if _, err := db.Exec(`INSERT INTO proxy_logs (owner_user_id,user_group_id,created_at,status) VALUES (?,?,'2026-10-21T00:00:00Z','success')`, user.ID, user.GroupID); err != nil {
 				t.Fatal(err)
 			}
@@ -74,7 +74,7 @@ func TestUserKeyAdminOwnershipAndPortableBackup(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if strings.Contains(string(encoded), "sk-personal-fixture") || !strings.Contains(string(encoded), "sk-system-fixture") || !strings.Contains(string(encoded), "excluded_rows") {
+				if strings.Contains(string(encoded), "sk-personal-fix") || !strings.Contains(string(encoded), "sk-system-fix") || !strings.Contains(string(encoded), "excluded_rows") {
 					t.Fatalf("unsafe portable Key export: %s", encoded)
 				}
 				if strings.Contains(string(encoded), "file-local-user") || strings.Contains(string(encoded), "video-local-user") || !strings.Contains(string(encoded), "file-system") {
@@ -101,7 +101,7 @@ func TestUserKeyAdminOwnershipAndPortableBackup(t *testing.T) {
 			if err := users.UpdateUser(context.Background(), user.ID, "", user.GroupID, false); err != nil {
 				t.Fatal(err)
 			}
-			call("POST", "/api/downstream-keys", fmt.Sprintf(`{"name":"disabled","key":"sk-disabled-fixture","ownerUserId":%d}`, user.ID), 400)
+			call("POST", "/api/downstream-keys", fmt.Sprintf(`{"name":"disabled","key":"sk-disabled-fix","ownerUserId":%d}`, user.ID), 400)
 		})
 	}
 }

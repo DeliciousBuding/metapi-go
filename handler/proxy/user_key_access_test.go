@@ -66,7 +66,7 @@ func TestUserKeyHTTPCurrentGroupAndHistoricalOwnership(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	keyID := insertWSAdmissionKey(t, db, "sk-user-http-fixture", nil, 0, nil, 0)
+	keyID := insertWSAdmissionKey(t, db, "sk-user-http-fix", nil, 0, nil, 0)
 	videoExec(t, db, `UPDATE downstream_api_keys SET key_owner_type='user',owner_user_id=? WHERE id=?`, user.ID, keyID)
 	actualRouter := routing.NewTokenRouter(service.NewProxyRoutingStore(db), &config.Config{}, nil, nil)
 	SetUpstreamConfig(&UpstreamConfig{Router: actualRouter})
@@ -88,7 +88,7 @@ func TestUserKeyHTTPCurrentGroupAndHistoricalOwnership(t *testing.T) {
 			method, path, body = "GET", "/v1/models", ""
 		}
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
-		req.Header.Set("Authorization", "Bearer sk-user-http-fixture")
+		req.Header.Set("Authorization", "Bearer sk-user-http-fix")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 		if w.Code != want {

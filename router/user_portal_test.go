@@ -155,7 +155,7 @@ func TestUserPortalRouterAuthenticationIsolation(t *testing.T) {
 			}
 			portalJSON(t, f.call("POST", "/api/user/auth/activate", `{"username":"alice","code":"`+code+`","password":"`+portalPassword+`"}`, nil, nil), 401)
 			// Neither an ordinary cookie nor a confirmation header is admin auth.
-			for _, headers := range []map[string]string{nil, {"X-Admin-Confirm-Token": portalAdminToken}, {"Authorization": "Bearer " + cookie.Value}, {"Authorization": "Bearer sk-synthetic-user-key"}} {
+			for _, headers := range []map[string]string{nil, {"X-Admin-Confirm-Token": portalAdminToken}, {"Authorization": "Bearer " + cookie.Value}, {"Authorization": "Bearer sk-user-fix"}} {
 				want := 401
 				if headers["Authorization"] != "" {
 					want = 403
@@ -233,7 +233,7 @@ func TestUserPortalRouterOwnerAndRevocation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			otherKey, err := users.CreateOwnKey(ctx, other.ID, "Foreign Key", "sk-foreign-synthetic-secret", []string{"*"}, nil, nil, nil)
+			otherKey, err := users.CreateOwnKey(ctx, other.ID, "Foreign Key", "sk-foreign-fix", []string{"*"}, nil, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
