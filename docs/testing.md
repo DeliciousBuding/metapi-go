@@ -172,10 +172,14 @@ go test ./internal/sqlitetest -run '^$' -bench '^BenchmarkOpen$' -benchmem
 
 ## 本地 race 检查
 
-`bash .githooks/pre-push-project` 先执行前端构建生成 `web/dist`，再并行运行
-前端 check 与 Go lane。构建独立于两个 lane 是有意为之：`bun run check` 本身
+`bash .githooks/pre-push-project` 先执行 `scripts/pre-push-preflight.sh`：精确 Go
+版本、staged/unstaged diff、全部 tracked Go 文件的 pinned gofmt，以及前端
+`check:static`。格式和静态问题先失败，避免等全量测试后才由 CI 发现；空扫描、
+工具链不一致或读取失败都不能通过。随后构建生成 `web/dist`，再并行运行
+前端全量 test 与 Go lane。构建独立于两个 lane 是有意为之：`bun run test` 本身
 不读 `dist`，但任何 Go 编译或 race 都不能早于嵌入资源生成，构建失败也应先
-失败。Go lane 固定为 `go build ./cmd/server` → `go vet ./...` →
+失败。前端原 `check` 的静态检查和 test 仍各执行一次，不复用通过结果。
+Go lane 固定为 `go build ./cmd/server` → `go vet ./...` →
 `scripts/go-race.sh`，race 仍是单次全量 `go test ./...`。每个 lane 有独立
 日志；任一失败会取消另一 lane 并返回非零，lane 被 SIGKILL/OOM 终止时由存活
 检测和 supervisor 状态兜底，不会挂死。`METAPI_PREPUSH_LANES=1` 串行运行同一

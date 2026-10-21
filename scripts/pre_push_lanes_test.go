@@ -46,12 +46,15 @@ bun() {
   record "bun-start $verb $sub"
   local rc=0
   case "$verb $sub" in
+    "run check:static")
+      stub_fail preflight || rc=$?
+      ;;
     "run build:web")
       sleep "${STUB_BUILD_SLEEP:-0}"
       stub_fail bun-build || rc=$?
       if [ "$rc" -eq 0 ]; then : >"${LANE_DIST_MARKER:?}"; fi
       ;;
-    "run check")
+    "run test")
       if [ -n "${LANE_CHECK_PID_FILE:-}" ]; then printf '%s\n' "$BASHPID" >"$LANE_CHECK_PID_FILE"; fi
       if [ -n "${LANE_BODY_PID_FILE:-}" ]; then printf '%s\n' "$BASHPID" >"$LANE_BODY_PID_FILE"; fi
       if [ -n "${STUB_KILL_BODY:-}" ]; then kill -KILL "$BASHPID"; sleep 30; fi
@@ -72,6 +75,14 @@ bun() {
 }
 
 go() {
+  if [ "${1:-} ${2:-}" = "env GOVERSION" ]; then
+    awk '$1 == "go" { print "go" $2 }' go.mod
+    return
+  fi
+  if [ "${1:-} ${2:-}" = "env GOROOT" ]; then
+    printf '%s\n' "${LANE_STUB_GOROOT:?}"
+    return
+  fi
   local verb="${1:-}"
   shift || true
   record "go-start $verb $*"
@@ -102,6 +113,16 @@ go() {
   record "go-end $verb $* exit=$rc"
   return "$rc"
 }
+
+# Lane tests isolate the supervisor; preflight's real git/gofmt failure paths
+# are covered against an actual temporary repository in pre_push_preflight_test.
+git() {
+  case "${1:-}" in
+    diff) return 0 ;;
+    ls-files) printf 'fixture.go\0' ;;
+    *) return 99 ;;
+  esac
+}
 `
 
 type laneEvent struct {
@@ -130,6 +151,12 @@ func projectGateCommand(t *testing.T, overrides map[string]string, stdin string)
 			t.Fatal(err)
 		}
 	}
+	mustMkdir(t, filepath.Join(guard, "bin"))
+	formatter := filepath.Join(guard, "bin", "gofmt")
+	mustWrite(t, formatter, []byte("#!/bin/sh\nexit 0\n"))
+	if err := os.Chmod(formatter, 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	cmd := exec.Command("bash", ".githooks/pre-push-project")
 	cmd.Dir = root
@@ -154,6 +181,7 @@ func projectGateCommand(t *testing.T, overrides map[string]string, stdin string)
 		"PATH":             guard + string(os.PathListSeparator) + os.Getenv("PATH"),
 		"LANE_TRACE":       filepath.ToSlash(filepath.Join(tmp, "trace.log")),
 		"LANE_DIST_MARKER": filepath.ToSlash(filepath.Join(tmp, "dist.marker")),
+		"LANE_STUB_GOROOT": filepath.ToSlash(guard),
 		"TMPDIR":           filepath.ToSlash(tmp),
 	}
 	for name, value := range overrides {
@@ -242,6 +270,29 @@ func TestPrePushBuildsFrontendBeforeLanes(t *testing.T) {
 	}
 }
 
+func TestPrePushPreflightStopsBeforeBuildAndRunsOnce(t *testing.T) {
+	for _, failure := range []string{"", "preflight"} {
+		t.Run(failure, func(t *testing.T) {
+			cmd, tmp := projectGateCommand(t, map[string]string{"STUB_FAIL": failure}, "")
+			output, err := cmd.CombinedOutput()
+			if (err != nil) != (failure != "") {
+				t.Fatalf("unexpected preflight status: %v\n%s", err, output)
+			}
+			events := readLaneTrace(t, tmp)
+			if countEvents(events, "bun-start run check:static") != 1 {
+				t.Fatal("static frontend checks must run exactly once")
+			}
+			if failure != "" {
+				if countEvents(events, "bun-start run build:web") != 0 || countEvents(events, "go-start") != 0 {
+					t.Fatalf("expensive work ran after failed preflight: %v", events)
+				}
+			} else if eventAt(t, events, "bun-start run build:web").at < eventAt(t, events, "bun-end run check:static").at {
+				t.Fatal("build started before preflight finished")
+			}
+		})
+	}
+}
+
 func TestPrePushRunsLanesConcurrentlyAndCanBeSerialized(t *testing.T) {
 	slow := map[string]string{
 		"STUB_CHECK_SLEEP":    "2",
@@ -259,8 +310,8 @@ func TestPrePushRunsLanesConcurrentlyAndCanBeSerialized(t *testing.T) {
 		t.Fatalf("parallel gate: %v\n%s", err, output)
 	}
 	events := readLaneTrace(t, parallelDir)
-	checkStart := eventAt(t, events, "bun-start run check")
-	checkEnd := eventAt(t, events, "bun-end run check")
+	checkStart := eventAt(t, events, "bun-start run test")
+	checkEnd := eventAt(t, events, "bun-end run test")
 	goStart := eventAt(t, events, "go-start build")
 	if goStart.at >= checkEnd.at || checkStart.at >= eventAt(t, events, "go-end test").at {
 		t.Fatalf("frontend check and Go lane did not overlap:\n%s", output)
@@ -276,7 +327,7 @@ func TestPrePushRunsLanesConcurrentlyAndCanBeSerialized(t *testing.T) {
 		t.Fatalf("serial gate: %v\n%s", err, output)
 	}
 	events = readLaneTrace(t, serialDir)
-	checkEnd = eventAt(t, events, "bun-end run check")
+	checkEnd = eventAt(t, events, "bun-end run test")
 	goStart = eventAt(t, events, "go-start build")
 	if goStart.at < checkEnd.at {
 		t.Fatalf("serial mode overlapped lanes:\n%s", output)
@@ -344,11 +395,11 @@ func TestPrePushRunsOneFullRaceInvocation(t *testing.T) {
 	if got := countEvents(events, "bun-start run build:web"); got != 1 {
 		t.Fatalf("frontend build invoked %d times, want exactly one:\n%v", got, events)
 	}
-	if got := countEvents(events, "bun-start run check"); got != 1 {
+	if got := countEvents(events, "bun-start run test"); got != 1 {
 		t.Fatalf("frontend check invoked %d times, want exactly one:\n%v", got, events)
 	}
 	buildEnd := eventAt(t, events, "bun-end run build:web")
-	checkStart := eventAt(t, events, "bun-start run check")
+	checkStart := eventAt(t, events, "bun-start run test")
 	if checkStart.at < buildEnd.at {
 		t.Fatalf("frontend check started before the intentional web/dist build completed:\n%v", events)
 	}
@@ -378,7 +429,7 @@ func TestPrePushKeepsSharedPostgresSerialAndOneLane(t *testing.T) {
 	if !strings.Contains(race.text, "-p 1 ") {
 		t.Fatalf("shared PostgreSQL fixtures must stay serial: %s", race.text)
 	}
-	checkEnd := eventAt(t, events, "bun-end run check")
+	checkEnd := eventAt(t, events, "bun-end run test")
 	goStart := eventAt(t, events, "go-start build")
 	if goStart.at < checkEnd.at {
 		t.Fatalf("PG_TEST_DSN should serialize the lanes:\n%s", output)
@@ -595,7 +646,7 @@ func TestPrePushManagedShellUsesSameGate(t *testing.T) {
 			if failure == "" && !strings.Contains(string(output), "pre-push OK") {
 				t.Fatalf("managed shell skipped the full gate:\n%s", output)
 			}
-			if countEvents(readLaneTrace(t, tmp), "bun-start run check") != 1 {
+			if countEvents(readLaneTrace(t, tmp), "bun-start run test") != 1 {
 				t.Fatal("managed shell did not run exactly one frontend lane")
 			}
 		})
