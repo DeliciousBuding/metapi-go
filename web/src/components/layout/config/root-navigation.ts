@@ -28,6 +28,7 @@ import {
   Settings,
   ShieldCheck,
   Waypoints,
+  Users,
 } from 'lucide-react'
 
 import type { SidebarData } from '@/components/layout/types'
@@ -114,6 +115,11 @@ export const ROOT_NAVIGATION: SidebarData = {
       id: 'access',
       title: 'sidebar.groups.access',
       items: [
+        {
+          title: 'userAdmin.title',
+          url: '/users',
+          icon: Users,
+        },
         {
           title: 'sidebar.items.downstreamKeys',
           url: '/downstream-keys',

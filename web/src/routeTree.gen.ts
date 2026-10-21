@@ -31,6 +31,7 @@ import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authen
 import { Route as AuthenticatedSiteAnnouncementsRouteImport } from './routes/_authenticated/site-announcements'
 import { Route as AuthenticatedSitesRouteImport } from './routes/_authenticated/sites'
 import { Route as AuthenticatedTokenRoutesRouteImport } from './routes/_authenticated/token-routes'
+import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_authenticated/dashboard/$section'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
@@ -156,6 +157,11 @@ const AuthenticatedTokenRoutesRoute =
     path: '/token-routes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardIndexRoute =
   AuthenticatedDashboardIndexRouteImport.update({
     id: '/',
@@ -215,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/sites': typeof AuthenticatedSitesRoute
   '/token-routes': typeof AuthenticatedTokenRoutesRoute
+  '/users': typeof AuthenticatedUsersRoute
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/settings/$subarea': typeof AuthenticatedSettingsSubareaRouteWithChildren
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -241,6 +248,7 @@ export interface FileRoutesByTo {
   '/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/sites': typeof AuthenticatedSitesRoute
   '/token-routes': typeof AuthenticatedTokenRoutesRoute
+  '/users': typeof AuthenticatedUsersRoute
   '/': typeof AuthenticatedIndexRoute
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
@@ -271,6 +279,7 @@ export interface FileRoutesById {
   '/_authenticated/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/_authenticated/sites': typeof AuthenticatedSitesRoute
   '/_authenticated/token-routes': typeof AuthenticatedTokenRoutesRoute
+  '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/_authenticated/settings/$subarea': typeof AuthenticatedSettingsSubareaRouteWithChildren
@@ -303,6 +312,7 @@ export interface FileRouteTypes {
     | '/site-announcements'
     | '/sites'
     | '/token-routes'
+    | '/users'
     | '/dashboard/$section'
     | '/settings/$subarea'
     | '/dashboard/'
@@ -329,6 +339,7 @@ export interface FileRouteTypes {
     | '/site-announcements'
     | '/sites'
     | '/token-routes'
+    | '/users'
     | '/'
     | '/dashboard/$section'
     | '/dashboard'
@@ -358,6 +369,7 @@ export interface FileRouteTypes {
     | '/_authenticated/site-announcements'
     | '/_authenticated/sites'
     | '/_authenticated/token-routes'
+    | '/_authenticated/users'
     | '/_authenticated/'
     | '/_authenticated/dashboard/$section'
     | '/_authenticated/settings/$subarea'
@@ -529,6 +541,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTokenRoutesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/users': {
+      id: '/_authenticated/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AuthenticatedUsersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard/': {
       id: '/_authenticated/dashboard/'
       path: '/'
@@ -644,6 +663,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSiteAnnouncementsRoute: typeof AuthenticatedSiteAnnouncementsRoute
   AuthenticatedSitesRoute: typeof AuthenticatedSitesRoute
   AuthenticatedTokenRoutesRoute: typeof AuthenticatedTokenRoutesRoute
+  AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
@@ -667,6 +687,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSiteAnnouncementsRoute: AuthenticatedSiteAnnouncementsRoute,
   AuthenticatedSitesRoute: AuthenticatedSitesRoute,
   AuthenticatedTokenRoutesRoute: AuthenticatedTokenRoutesRoute,
+  AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 

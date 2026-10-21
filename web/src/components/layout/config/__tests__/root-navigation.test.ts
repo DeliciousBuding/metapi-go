@@ -33,6 +33,7 @@ describe('ROOT_NAVIGATION', () => {
       '/models',
       '/model-tester',
       '/price-compare',
+      '/users',
       '/downstream-keys',
       '/proxy-logs',
       '/observability',
