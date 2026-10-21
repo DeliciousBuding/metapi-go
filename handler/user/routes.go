@@ -427,11 +427,15 @@ func (h *handler) listModels(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"items": items})
 		return
 	}
-	if h.models == nil || h.models() == nil {
+	if h.models == nil {
 		fail(w, 503, "Model catalog unavailable")
 		return
 	}
 	catalog := h.models()
+	if catalog == nil {
+		fail(w, 503, "Model catalog unavailable")
+		return
+	}
 	names, err := catalog.GetAvailableModels(r.Context())
 	if err != nil {
 		resultError(w, err)
