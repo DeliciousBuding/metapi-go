@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -294,7 +295,9 @@ describe('provider Chat wire adapters', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Configure Chat endpoint' })
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    })
     await waitFor(() =>
       expect(screen.getByLabelText('Responses wire URL')).toBeVisible()
     )
@@ -311,7 +314,9 @@ describe('provider Chat wire adapters', () => {
         { target: { value: url } }
       )
     }
-    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    })
     await waitFor(() =>
       expect(mocks.update).toHaveBeenCalledWith(4, {
         endpointConfig: {
