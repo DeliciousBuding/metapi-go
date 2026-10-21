@@ -245,6 +245,34 @@ func TestUserBudgetMalformedUsageIsNotFree(t *testing.T) {
 	}
 }
 
+func TestUserBudgetSSEInvalidUsageCannotBeHidden(t *testing.T) {
+	wsUsage := responsesWSAttemptUsage([]map[string]any{{"usage": map[string]any{"total_tokens": float64(-1)}}, {"usage": map[string]any{"total_tokens": float64(1)}}})
+	if !wsUsage.invalidForUserBudget || wsUsage.TotalTokens != 1 {
+		t.Fatalf("native WS invalid frame hidden %+v", wsUsage)
+	}
+	for _, bad := range []string{`{"usage":{"total_tokens":-1}}`, `{"usage":{"total_tokens":1.5}}`, `{"usage":{"total_tokens":{}}}`, `{"usage":5}`, `{"response":{"usage":[]}}`, `{"usage":{"input_tokens_details":0,"total_tokens":0}}`} {
+		frames := "data: {\"usage\":{\"total_tokens\":4}}\n\ndata: " + bad + "\n\ndata: {\"usage\":{\"total_tokens\":0}}\n\n"
+		analyzer := newIncrementalSseAnalyzer()
+		for _, part := range []string{frames[:len(frames)/2], frames[len(frames)/2:]} {
+			analyzer.Push([]byte(part))
+		}
+		if usage := analyzer.Result().Usage; !usage.invalidForUserBudget {
+			t.Fatalf("bad SSE snapshot hidden %s %+v", bad, usage)
+		}
+	}
+	analyzer := newIncrementalSseAnalyzer()
+	analyzer.Push([]byte("data: {\"usage\":{\"total_tokens\":1}}\n\n"))
+	analyzer.Push([]byte("data: " + strings.Repeat("x", maxIncrementalSsePendingBytes+1) + "\n\n"))
+	if usage := analyzer.Result().Usage; !usage.invalidForUserBudget {
+		t.Fatal("dropped oversized accounting treated complete")
+	}
+	analyzer = newIncrementalSseAnalyzer()
+	analyzer.Push([]byte("data: {\"usage\":null}\n\ndata: {\"usage\":{\"total_tokens\":0}}\n\n"))
+	if usage := analyzer.Result().Usage; usage.invalidForUserBudget || !usage.Found {
+		t.Fatalf("valid null intermediate/explicit zero rejected %+v", usage)
+	}
+}
+
 func TestUserBudgetUnsupportedProtocolNeverDispatches(t *testing.T) {
 	_, users, user, keys := newBudgetProxyUser(t)
 	ctx := context.Background()

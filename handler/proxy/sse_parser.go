@@ -90,6 +90,9 @@ func (a *incrementalSseAnalyzer) Result() incrementalSseAnalysisResult {
 	result.PendingBytes = len(a.pending)
 	result.DroppedOversizedEvent = a.droppedOversizedEvent
 	result.Usage = a.usage
+	if result.DroppedOversizedEvent {
+		result.Usage.invalidForUserBudget = true
+	}
 	if result.Usage.Source == "" {
 		if result.Usage.Found {
 			result.Usage.Source = usageSourceUpstream

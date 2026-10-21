@@ -173,28 +173,33 @@ func extractUsageFromValue(v any) ParsedUsage {
 	}
 
 	// Direct usage object (OpenAI / Anthropic / Responses).
-	if usage, ok := obj["usage"].(map[string]any); ok {
-		applyUsageMap(&out, usage)
-	}
+	applyUsageContainer(&out, obj, "usage")
 	// Gemini-style usageMetadata.
-	if meta, ok := obj["usageMetadata"].(map[string]any); ok {
-		applyUsageMap(&out, meta)
-	}
+	applyUsageContainer(&out, obj, "usageMetadata")
 	// Nested response.usage (OpenAI Responses API stream events).
 	if resp, ok := obj["response"].(map[string]any); ok {
-		if usage, ok := resp["usage"].(map[string]any); ok {
-			applyUsageMap(&out, usage)
-		}
+		applyUsageContainer(&out, resp, "usage")
 	}
 	// Nested message.usage (Anthropic message_start).
 	if msg, ok := obj["message"].(map[string]any); ok {
-		if usage, ok := msg["usage"].(map[string]any); ok {
-			applyUsageMap(&out, usage)
-		}
+		applyUsageContainer(&out, msg, "usage")
 	}
 
 	finalizeParsedUsage(&out)
 	return out
+}
+
+func applyUsageContainer(out *ParsedUsage, obj map[string]any, field string) {
+	value, present := obj[field]
+	if !present || value == nil {
+		return
+	} // OpenAI intermediate chunks have usage:null.
+	usage, ok := value.(map[string]any)
+	if !ok {
+		out.invalidForUserBudget = true
+		return
+	}
+	applyUsageMap(out, usage)
 }
 
 func applyUsageMap(out *ParsedUsage, usage map[string]any) {
@@ -320,13 +325,21 @@ func applyUsageMap(out *ParsedUsage, usage map[string]any) {
 
 func validUserBudgetUsageMap(usage map[string]any) bool {
 	for key, value := range usage {
+		isCounter := strings.Contains(strings.ToLower(key), "token")
+		isDetails := strings.HasSuffix(key, "_tokens_details")
 		if nested, ok := value.(map[string]any); ok {
+			if isCounter && !isDetails {
+				return false
+			}
 			if !validUserBudgetUsageMap(nested) {
 				return false
 			}
 			continue
 		}
-		if strings.Contains(strings.ToLower(key), "token") {
+		if isDetails {
+			return false
+		}
+		if isCounter {
 			n, ok := value.(float64)
 			// JSON token counters must be exact nonnegative safe integers. The
 			// upper bound also prevents overflow when exclusive cache counters

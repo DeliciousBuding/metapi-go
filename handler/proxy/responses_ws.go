@@ -1039,13 +1039,7 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 			}
 			attemptCtx = beginGatewayAttempt(attemptCtx)
 			proxyCtx := &Ctx{Auth: s.auth, RequestedModel: requestModel, DownstreamPath: "/v1/responses", IsStream: true, lifecycle: requestLifecycleFromContext(ctx)}
-			usage := ParsedUsage{Source: usageSourceUnknown}
-			for _, event := range events {
-				data, _ := json.Marshal(event)
-				if parsed := ParseUsageFromBody(data); parsed.Found {
-					usage = parsed
-				}
-			}
+			usage := responsesWSAttemptUsage(events)
 			requestID := proxy.RequestIDFromContext(ctx)
 			if attemptErr != nil {
 				writeFailureProxyLog(attemptCtx, cfg, selected, proxyCtx, upstreamModel, "/v1/responses", duration.Milliseconds(), nil, 0, true, usage, 0, requestID, "upstream websocket attempt failed")
@@ -1095,6 +1089,23 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 		}
 	}
 	return collectResponsesOutputFromMaps(result.Events), true, nil
+}
+
+// Keep native WS's existing latest reported usage snapshot, while an invalid
+// counter in any frame remains an accounting fault for user budgets.
+func responsesWSAttemptUsage(events []map[string]any) ParsedUsage {
+	usage := ParsedUsage{Source: usageSourceUnknown}
+	invalid := false
+	for _, event := range events {
+		data, _ := json.Marshal(event)
+		parsed := ParseUsageFromBody(data)
+		invalid = invalid || parsed.invalidForUserBudget
+		if parsed.Found {
+			usage = parsed
+		}
+	}
+	usage.invalidForUserBudget = invalid
+	return usage
 }
 
 func proxyBuildUpstreamURL(siteURL, path string) string {
