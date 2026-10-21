@@ -8,13 +8,7 @@ import '@/i18n/config'
 
 import { SignInPage } from './sign-in-page'
 
-// Pins the sign-in tab order closeout (F-line residual F). The corner
-// InterfaceControls used to sit FIRST in the DOM, so the tab cycle was
-// controls → form → docs link → (leave the page) → controls: keyboard users
-// crossed a browser-chrome/body focus stop between the docs link and the
-// controls. Moving the controls to the end of the DOM makes the cycle
-// form → docs link → controls continuous. This test pins the resulting
-// DOM order of tabbable elements (jsdom's proxy for the tab sequence).
+// The login task comes before secondary language and appearance controls.
 
 vi.mock('./login-form', () => ({
   LoginForm: () => (
@@ -71,14 +65,13 @@ describe('sign-in page tab order', () => {
     expect(tabOrder).toEqual([
       'mock token input',
       'mock submit',
-      'Deployment docs',
       'Language',
       'Customize appearance',
       'Toggle theme',
     ])
   })
 
-  it('keeps the deployment docs link between the form and the controls', () => {
+  it('moves directly from the login task to the interface controls', () => {
     render(
       <ThemeProvider defaultTheme='light'>
         <ThemeCustomizationProvider>
@@ -87,14 +80,13 @@ describe('sign-in page tab order', () => {
       </ThemeProvider>
     )
 
-    const docsLink = screen.getByRole('link', { name: 'Deployment docs' })
     const languageButton = screen.getByRole('button', { name: 'Language' })
     const submitButton = screen.getByRole('button', { name: 'mock submit' })
 
     const position = (element: Element) =>
       [...document.querySelectorAll(TABBABLE_SELECTOR)].indexOf(element)
 
-    expect(position(submitButton)).toBeLessThan(position(docsLink))
-    expect(position(docsLink)).toBeLessThan(position(languageButton))
+    expect(position(languageButton)).toBe(position(submitButton) + 1)
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 })

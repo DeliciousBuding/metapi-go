@@ -330,6 +330,11 @@ OAuth 路由诊断在候选下折叠展示成员，使用分隔线区分成员�
 
 Channels keep account-derived channels as the default view. Imported upstreams have a separate list and a detail sheet with connection, credential and route tabs; an installation containing only imported upstreams opens that list directly. Provider identity uses a logo capsule, model identity uses `ModelPill`, and protocol names describe the connection rather than masquerading as providers. Tabs retain drafts and the sheet uses the shared dirty-close guard. Request settings load only after an explicit edit action and never enter Query caches; credential replacement clears inputs only after success. Eligibility, disabled dependencies and temporary cooldown are distinct states.
 
+上游凭据采用紧凑分隔清单，默认显示前五项；展开后提供全列表搜索与逐批加载，
+名称、ID 和凭据类型均可查找。展开不滚动抢位，焦点进入搜索框。编辑器首次
+打开才挂载，打开过的草稿在折叠、筛选和列表收起后仍保留；删除与关闭详情
+继续沿用现有确认与脏表单保护。搜索无匹配和空凭据列表分别显示，不混为一谈。
+
 ### 3.2 Font roles and rendering
 
 Inter is locally bundled for Latin UI text. Chinese follows the platform UI face (PingFang on macOS, Microsoft YaHei UI on Windows, Noto Sans CJK on Linux). This intentionally prioritizes native CJK rendering over identical glyphs on every platform; screenshot baselines must run in a fixed font environment. Public Sans and the bundled Noto Sans SC slices are no longer shipped.
