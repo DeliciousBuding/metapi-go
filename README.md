@@ -22,7 +22,7 @@
   <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml/badge.svg?branch=master"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-latest-2496ED?logo=docker&logoColor=white"></a>
-  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.9-00ADD8?logo=go">
+  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.10-00ADD8?logo=go">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPLv3-3DA639?logo=opensourceinitiative&logoColor=white"></a>
 </p>
 
@@ -158,7 +158,7 @@ metapi
 
 ### 方式三：源码构建
 
-需要 Go 1.26.9+ 与 Bun 1.x。前端必须先构建——产物经 `go:embed` 打包进二进制，跳过会报 `pattern dist: no matching files found`：
+需要 Go 1.26.10+ 与 Bun 1.x。前端必须先构建——产物经 `go:embed` 打包进二进制，跳过会报 `pattern dist: no matching files found`：
 
 ```bash
 git clone https://github.com/DeliciousBuding/metapi-go.git

@@ -24,7 +24,7 @@
   <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml/badge.svg?branch=master"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-latest-2496ED?logo=docker&logoColor=white"></a>
-  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.9-00ADD8?logo=go">
+  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.10-00ADD8?logo=go">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPLv3-3DA639?logo=opensourceinitiative&logoColor=white"></a>
 </p>
 
@@ -172,7 +172,7 @@ change the install location with `METAPI_INSTALL_PREFIX`). On Windows, download
 
 ### Option 3: From source
 
-Requires Go 1.26.9+ and Bun 1.x. The frontend must be built first — the output is
+Requires Go 1.26.10+ and Bun 1.x. The frontend must be built first — the output is
 embedded into the binary via `go:embed`, and skipping it fails with
 `pattern dist: no matching files found`:
 

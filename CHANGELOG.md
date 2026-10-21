@@ -21,6 +21,10 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+### 安全
+
+- 构建工具链：最低 Go 升至 1.26.10，镜像构建使用 1.27.3，修复 crypto/x509 的中间证书信任问题（GO-2026-6809）；源码部署需升级工具链并重新构建。
+
 ### 修复
 
 - 代理：客户端请求体不合法导致的上游 4xx 不再记为渠道失败，malformed Responses 请求返回 400 后不会把健康的上游 grant 打入冷却并让后续请求 503。
