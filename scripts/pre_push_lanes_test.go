@@ -582,6 +582,26 @@ func TestPrePushKeepsDeleteOnlyFastPath(t *testing.T) {
 	}
 }
 
+func TestPrePushManagedShellUsesSameGate(t *testing.T) {
+	for _, failure := range []string{"", "bun-check"} {
+		t.Run(failure, func(t *testing.T) {
+			cmd, tmp := projectGateCommand(t, map[string]string{"STUB_FAIL": failure}, "")
+			cmd.Path = "/bin/sh"
+			cmd.Args[0] = "/bin/sh"
+			output, err := cmd.CombinedOutput()
+			if (err == nil) != (failure == "") {
+				t.Fatalf("managed shell lost gate status: %v\n%s", err, output)
+			}
+			if failure == "" && !strings.Contains(string(output), "pre-push OK") {
+				t.Fatalf("managed shell skipped the full gate:\n%s", output)
+			}
+			if countEvents(readLaneTrace(t, tmp), "bun-start run check") != 1 {
+				t.Fatal("managed shell did not run exactly one frontend lane")
+			}
+		})
+	}
+}
+
 func TestPrePushFailureKeepsExitStatus(t *testing.T) {
 	output, err := runProjectGate(t, map[string]string{"STUB_FAIL": "bun-check"}, "")
 	if err == nil {
