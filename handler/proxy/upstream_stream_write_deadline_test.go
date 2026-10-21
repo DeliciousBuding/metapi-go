@@ -45,6 +45,7 @@ type streamRelayResult struct {
 // conditions a stalled client must not be able to postpone.
 type endlessSSEBody struct {
 	pattern    []byte
+	offset     int
 	closeOnce  sync.Once
 	closeCalls atomic.Int32
 }
@@ -55,7 +56,9 @@ func (b *endlessSSEBody) Read(p []byte) (int, error) {
 	}
 	n := 0
 	for n < len(p) {
-		n += copy(p[n:], b.pattern)
+		copied := copy(p[n:], b.pattern[b.offset:])
+		n += copied
+		b.offset = (b.offset + copied) % len(b.pattern)
 	}
 	return n, nil
 }
@@ -65,7 +68,26 @@ func (b *endlessSSEBody) Close() error {
 	return nil
 }
 
-const endlessSSEPattern = `data: {"choices":[{"index":0,"delta":{"content":"x"}}]}` + "\n\n"
+// Fill transport buffers with a few ordinary frames, not tens of thousands
+// of one-character events whose parsing dominates a race-enabled ARM run.
+var endlessSSEPattern = `data: {"choices":[{"index":0,"delta":{"content":"` + strings.Repeat("x", 4096) + `"}}]}` + "\n\n"
+
+func TestEndlessSSEBodyPreservesFramesAcrossReads(t *testing.T) {
+	body := &endlessSSEBody{pattern: []byte(endlessSSEPattern)}
+	var got bytes.Buffer
+	buf := make([]byte, 4096)
+	want := strings.Repeat(endlessSSEPattern, 3)
+	for got.Len() < len(want) {
+		n, err := body.Read(buf[:min(len(buf), len(want)-got.Len())])
+		if err != nil {
+			t.Fatal(err)
+		}
+		got.Write(buf[:n])
+	}
+	if got.String() != want {
+		t.Fatal("chunk boundaries corrupted the repeated SSE frames")
+	}
+}
 
 // runStreamRelayHandler wraps the production relay in a real HTTP handler,
 // arms the same whole-request deadline router.ProxyWriteDeadline installs, and
@@ -123,6 +145,9 @@ func TestStreamDownstreamSlowClientReleasesHTTP1(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	defer conn.Close()
+	if err := conn.(*net.TCPConn).SetReadBuffer(1024); err != nil {
+		t.Fatalf("bound stalled client receive buffer: %v", err)
+	}
 
 	if _, err := io.WriteString(conn, "GET /v1/chat/completions HTTP/1.1\r\nHost: metapi\r\n\r\n"); err != nil {
 		t.Fatalf("write request: %v", err)
@@ -459,6 +484,9 @@ func TestStreamWriteTimeoutReleasesSiteConcurrencySlot(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	defer conn.Close()
+	if err := conn.(*net.TCPConn).SetReadBuffer(1024); err != nil {
+		t.Fatalf("bound stalled client receive buffer: %v", err)
+	}
 	request := "POST /v1/chat/completions HTTP/1.1\r\nHost: metapi\r\nContent-Type: application/json\r\nContent-Length: " +
 		fmt.Sprint(len(requestBody)) + "\r\n\r\n" + requestBody
 	if _, err := io.WriteString(conn, request); err != nil {

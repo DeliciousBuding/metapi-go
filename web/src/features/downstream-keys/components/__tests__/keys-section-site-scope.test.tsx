@@ -124,6 +124,13 @@ describe('downstream key site restriction (#1026)', () => {
       accessPolicy: 'not-json',
     })
     await waitFor(() => expect(siteCheckbox('Backup site')).toBeChecked())
+    // The sheet owns asynchronous initial focus. Wait for it to finish so
+    // it cannot overwrite the focus moved by the summary click below.
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Model rule · 1' })
+      ).toHaveFocus()
+    )
     const summary = screen.getByRole('button', { name: 'Allowed sites · 1' })
     expect(
       screen.getByRole('button', {

@@ -9,6 +9,11 @@
 # race) run in parallel with independent logs. The first failing lane cancels
 # its sibling; the hook propagates a non-zero status and prints the failing
 # log. METAPI_PREPUSH_LANES=1 keeps the same lanes but runs them serially.
+# Managed hook runners may invoke this entry through /bin/sh instead of its
+# shebang. Select Bash before evaluating Bash-only options and arrays.
+if [ -z "${BASH_VERSION:-}" ]; then
+	exec bash "$0" "$@"
+fi
 set -euo pipefail
 
 # Bound Go build/vet workers too; go's default -p follows GOMAXPROCS.

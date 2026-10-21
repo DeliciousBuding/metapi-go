@@ -1,6 +1,6 @@
 module github.com/deliciousbuding/metapi-go
 
-go 1.26.9
+go 1.26.10
 
 require (
 	github.com/QuantumNous/new-api/relaykit v0.3.4

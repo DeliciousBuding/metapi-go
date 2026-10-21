@@ -1,6 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, Pencil, Plus, Trash2, Unplug } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  KeyRound,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  Unplug,
+} from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -431,6 +440,22 @@ export function UpstreamCredentials(props: {
     enabled: props.active,
   })
   const [expanded, setExpanded] = useState<number[]>([])
+  const [opened, setOpened] = useState<number[]>([])
+  const [search, setSearch] = useState('')
+  const [limit, setLimit] = useState(5)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const items = query.data?.items ?? []
+  const locale = toBcp47(i18n.language)
+  const searchTerm = search.trim().toLocaleLowerCase(locale)
+  const matching = items.filter((item) =>
+    `${item.name} ${item.id} ${credentialKindLabel(item.kind)}`
+      .toLocaleLowerCase(locale)
+      .includes(searchTerm)
+  )
+  const visibleIds = new Set(matching.slice(0, limit).map((item) => item.id))
+  const rows = items.filter(
+    (item) => visibleIds.has(item.id) || opened.includes(item.id)
+  )
   const [creating, setCreating] = useState(false)
   const [creationStarted, setCreationStarted] = useState(false)
   async function remove(credential: ImportedCredential) {
@@ -457,7 +482,17 @@ export function UpstreamCredentials(props: {
   }
   return (
     <div className='space-y-3'>
-      <div className='flex justify-end'>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <span
+          role='status'
+          className='text-muted-foreground text-xs tabular-nums'
+        >
+          {query.data &&
+            t('channels.upstream.credentialCount', {
+              shown: Math.min(limit, matching.length),
+              total: items.length,
+            })}
+        </span>
         <Button
           variant='outline'
           size='sm'
@@ -498,94 +533,165 @@ export function UpstreamCredentials(props: {
           {t('channels.upstream.loading')}
         </p>
       )}
-      {query.data?.items.map((credential) => (
-        <article
-          key={credential.id}
-          className='overflow-hidden rounded-xl border'
-        >
-          <div className='flex items-center gap-3 p-4'>
-            <span className='bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg'>
-              {credential.kind === 'none' ? (
-                <Unplug className='text-muted-foreground size-4' />
-              ) : (
-                <KeyRound className='text-muted-foreground size-4' />
-              )}
-            </span>
-            <div className='min-w-0 flex-1'>
-              <h3 className='truncate text-sm font-medium'>
-                {credential.name}
-              </h3>
-              <div className='text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs'>
-                <span>{credentialKindLabel(credential.kind)}</span>
-                {credential.expiresAt ? (
-                  <span>
-                    {t('channels.upstream.expires', {
-                      value: formatDateTime(
-                        credential.expiresAt,
-                        toBcp47(i18n.language)
-                      ),
-                    })}
-                  </span>
-                ) : null}
-                {credential.canRefresh && (
-                  <span>{t('channels.upstream.refreshable')}</span>
+      {items.length > 5 && limit > 5 && (
+        <div className='relative'>
+          <Search
+            aria-hidden='true'
+            className='text-muted-foreground pointer-events-none absolute top-2 left-3 size-4'
+          />
+          <Input
+            ref={searchRef}
+            className='h-8 pl-9'
+            aria-label={t('channels.upstream.searchCredentials')}
+            placeholder={t('channels.upstream.searchCredentials')}
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setLimit(20)
+            }}
+          />
+        </div>
+      )}
+      <div
+        hidden={visibleIds.size === 0}
+        className='overflow-hidden rounded-xl border'
+      >
+        {rows.map((credential) => (
+          <article
+            key={credential.id}
+            hidden={!visibleIds.has(credential.id)}
+            className='border-b last:border-b-0'
+          >
+            <div className='flex items-center gap-2 px-3 py-2.5'>
+              <span className='bg-muted flex size-7 shrink-0 items-center justify-center rounded-md'>
+                {credential.kind === 'none' ? (
+                  <Unplug className='text-muted-foreground size-4' />
+                ) : (
+                  <KeyRound className='text-muted-foreground size-4' />
                 )}
+              </span>
+              <div className='min-w-0 flex-1'>
+                <h3
+                  className='line-clamp-2 text-sm font-medium break-all'
+                  title={credential.name}
+                >
+                  {credential.name}
+                </h3>
+                <div className='text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs'>
+                  <span>{credentialKindLabel(credential.kind)}</span>
+                  {credential.expiresAt ? (
+                    <span>
+                      {t('channels.upstream.expires', {
+                        value: formatDateTime(
+                          credential.expiresAt,
+                          toBcp47(i18n.language)
+                        ),
+                      })}
+                    </span>
+                  ) : null}
+                  {credential.canRefresh && (
+                    <span>{t('channels.upstream.refreshable')}</span>
+                  )}
+                </div>
               </div>
+              <Badge variant={credential.enabled ? 'success' : 'secondary'}>
+                {t(
+                  credential.enabled
+                    ? 'channels.imported.enabled'
+                    : 'channels.imported.disabled'
+                )}
+              </Badge>
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon-sm'
+                aria-label={t('channels.upstream.editCredential', {
+                  name: credential.name,
+                })}
+                aria-expanded={expanded.includes(credential.id)}
+                onClick={() => {
+                  setOpened((ids) =>
+                    ids.includes(credential.id) ? ids : [...ids, credential.id]
+                  )
+                  setExpanded((ids) =>
+                    ids.includes(credential.id)
+                      ? ids.filter((id) => id !== credential.id)
+                      : [...ids, credential.id]
+                  )
+                }}
+              >
+                <Pencil className='size-4' />
+              </Button>
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon-sm'
+                aria-label={t('channels.catalog.deleteCredential', {
+                  name: credential.name,
+                })}
+                disabled={deletion.isPending}
+                onClick={() => {
+                  const action = () => {
+                    void remove(credential)
+                  }
+                  if (props.beforeDelete) props.beforeDelete(action)
+                  else action()
+                }}
+              >
+                <Trash2 className='size-4' />
+              </Button>
             </div>
-            <Badge variant={credential.enabled ? 'success' : 'secondary'}>
-              {t(
-                credential.enabled
-                  ? 'channels.imported.enabled'
-                  : 'channels.imported.disabled'
-              )}
-            </Badge>
-            <Button
-              type='button'
-              variant='ghost'
-              size='icon'
-              aria-label={t('channels.upstream.editCredential', {
-                name: credential.name,
-              })}
-              aria-expanded={expanded.includes(credential.id)}
-              onClick={() =>
-                setExpanded((ids) =>
-                  ids.includes(credential.id)
-                    ? ids.filter((id) => id !== credential.id)
-                    : [...ids, credential.id]
-                )
-              }
-            >
-              <Pencil className='size-4' />
-            </Button>
-            <Button
-              type='button'
-              variant='ghost'
-              size='icon-sm'
-              aria-label={t('channels.catalog.deleteCredential', {
-                name: credential.name,
-              })}
-              disabled={deletion.isPending}
-              onClick={() => {
-                const action = () => {
-                  void remove(credential)
-                }
-                if (props.beforeDelete) props.beforeDelete(action)
-                else action()
-              }}
-            >
-              <Trash2 className='size-4' />
-            </Button>
-          </div>
-          {/* Collapse only hides the form; unsaved replacement values survive until
+            {/* Collapse only hides the form; unsaved replacement values survive until
           the drawer closes or the server confirms the replacement. */}
-          <div hidden={!expanded.includes(credential.id)}>
-            <CredentialForm
-              credential={credential}
-              onDirtyChange={props.onDirtyChange}
-            />
-          </div>
-        </article>
-      ))}
+            <div hidden={!expanded.includes(credential.id)}>
+              {opened.includes(credential.id) && (
+                <CredentialForm
+                  credential={credential}
+                  onDirtyChange={props.onDirtyChange}
+                />
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+      {items.length > 0 && matching.length === 0 && (
+        <p className='text-muted-foreground py-6 text-center text-sm'>
+          {t('common.noResults')}
+        </p>
+      )}
+      {matching.length > limit && (
+        <Button
+          variant='ghost'
+          size='sm'
+          className='w-full'
+          onClick={() => {
+            setLimit((value) => (value === 5 ? 20 : value + 20))
+            if (limit === 5)
+              requestAnimationFrame(() =>
+                searchRef.current?.focus({ preventScroll: true })
+              )
+          }}
+        >
+          <ChevronDown aria-hidden='true' />
+          {t('channels.upstream.showMoreCredentials', {
+            count: matching.length - limit,
+          })}
+        </Button>
+      )}
+      {limit > 5 && items.length > 5 && (
+        <Button
+          variant='ghost'
+          size='sm'
+          className='w-full'
+          onClick={() => {
+            setSearch('')
+            setLimit(5)
+          }}
+        >
+          <ChevronUp aria-hidden='true' />
+          {t('channels.upstream.collapseCredentials')}
+        </Button>
+      )}
       {query.data?.items.length === 0 && (
         <p className='text-muted-foreground py-8 text-center'>
           {t('channels.upstream.noCredentials')}

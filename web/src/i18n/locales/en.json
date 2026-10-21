@@ -128,10 +128,7 @@
         "submitting": "Signing in…",
         "welcomeBack": "Welcome back!",
         "tokenChangedNotice": "The admin token was updated. Sign in with your new token.",
-        "sessionExpiredNotice": "Your session has expired. Please sign in again.",
-        "tokenSourceHint": "The admin token comes from the AUTH_TOKEN environment variable (or .env file) set when this instance was deployed.",
-        "tokenSourceForgot": "If you don't know it, ask your deployment administrator.",
-        "tokenSourceDocs": "Deployment docs"
+        "sessionExpiredNotice": "Your session has expired. Please sign in again."
       }
     },
     "errors": {
@@ -4173,6 +4170,10 @@
         "refreshable": "Automatic renewal",
         "editCredential": "Edit {{name}}",
         "noCredentials": "No credentials",
+        "credentialCount": "{{shown}} of {{total}} credentials",
+        "searchCredentials": "Search credentials by name, ID or type…",
+        "showMoreCredentials": "Show more · {{count}} remaining",
+        "collapseCredentials": "Show fewer credentials",
         "protocolOrder": "Capabilities & conversation order",
         "inheritProtocols": "Inherit authorized protocols",
         "moveUp": "Move {{name}} up",

@@ -24,7 +24,7 @@
   <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml/badge.svg?branch=master"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-latest-2496ED?logo=docker&logoColor=white"></a>
-  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.9-00ADD8?logo=go">
+  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.10-00ADD8?logo=go">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPLv3-3DA639?logo=opensourceinitiative&logoColor=white"></a>
 </p>
 
@@ -116,34 +116,21 @@ Supported upstreams:
 
 ## Quick start (3 minutes)
 
-Choose one of the following deployment methods. Set `AUTH_TOKEN` to sign in,
-then create a downstream access token in **API Keys**. Existing root keys move
-there automatically on upgrade.
+The recommended deployment is a pre-built Docker image pulled from GHCR: no Go,
+Bun, or source compilation is needed on the deployment host. Release binaries
+and source builds remain alternatives. Set `AUTH_TOKEN` to sign in, then create
+a downstream access token in **API Keys**. Existing root keys move there
+automatically on upgrade.
 
-### Option 1: Release binary (recommended)
+### Option 1: GHCR Docker image (recommended)
 
-Pre-built binaries for Linux / macOS / Windows — one file, no runtime:
-
-```bash
-curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download/install.sh | bash
-
-export AUTH_TOKEN=$(openssl rand -hex 16)      # admin UI login token
-metapi
-```
-
-The script verifies the SHA-256 checksum and installs to `/usr/local/bin/metapi`
-(it installs the latest release by default; pin a version with `METAPI_VERSION`,
-change the install location with `METAPI_INSTALL_PREFIX`). On Windows, download
-`metapi-windows-amd64.exe` directly from [Releases](https://github.com/DeliciousBuding/metapi-go/releases/latest).
-
-### Option 2: Docker (pre-built image + named volume)
-
-Pin a full release tag or digest for stable deployments; this example uses `0.26.0`. `edge` tracks master, and `latest` moves only with stable releases. Check [Releases](https://github.com/DeliciousBuding/metapi-go/releases) before upgrading.
+Pin a full release tag or digest for stable deployments; this example uses `0.26.0`. Images support `linux/amd64` and `linux/arm64`; Docker selects the matching architecture. `edge` tracks master, and `latest` moves only with stable releases. Check [Releases](https://github.com/DeliciousBuding/metapi-go/releases) before upgrading.
 
 ```bash
 export AUTH_TOKEN=$(openssl rand -hex 32)
 export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
 
+docker pull ghcr.io/deliciousbuding/metapi-go:0.26.0
 docker run -d --name metapi \
   -p 127.0.0.1:4000:4000 \
   -e AUTH_TOKEN \
@@ -161,14 +148,31 @@ A named volume inherits the image ownership on first mount. For a bind mount (`.
 ```bash
 cp .env.example .env   # replace the admin token and encryption key; METAPI_IMAGE is pinned to 0.26.0
 # All runtime settings in .env are passed through, including PostgreSQL and check-in settings.
+docker compose pull
 docker compose up -d
 ```
 
 To build an image from source, run `docker build -t metapi-go:dev .`. See the [deployment guide](docs/deployment.md) for more options.
 
+### Option 2: Release binary
+
+Pre-built binaries for Linux / macOS / Windows — one file, no runtime:
+
+```bash
+curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download/install.sh | bash
+
+export AUTH_TOKEN=$(openssl rand -hex 16)      # admin UI login token
+metapi
+```
+
+The script verifies the SHA-256 checksum and installs to `/usr/local/bin/metapi`
+(it installs the latest release by default; pin a version with `METAPI_VERSION`,
+change the install location with `METAPI_INSTALL_PREFIX`). On Windows, download
+`metapi-windows-amd64.exe` directly from [Releases](https://github.com/DeliciousBuding/metapi-go/releases/latest).
+
 ### Option 3: From source
 
-Requires Go 1.26.9+ and Bun 1.x. The frontend must be built first — the output is
+Requires Go 1.26.10+ and Bun 1.x. The frontend must be built first — the output is
 embedded into the binary via `go:embed`, and skipping it fails with
 `pattern dist: no matching files found`:
 
@@ -299,6 +303,7 @@ version-specific evidence.
 
 - [Metapi (TypeScript)](https://github.com/cita-777/metapi) — the original Node.js implementation this repo rewrites in Go
 - [New API](https://github.com/QuantumNous/new-api) — thanks to the project and its contributors for the [RelayKit](https://github.com/QuantumNous/new-api/tree/main/relaykit) protocol conversion library. New API also informed our channel presets, frontend and backend features, administration interface, and interaction design.
+- [Magpie](https://github.com/yetone/magpie) — a reference for visual hierarchy, icon use, and interaction design in the administration interface, including the presentation of providers, models, and routes.
 - [AxonHub](https://github.com/looplj/axonhub) — a reference for channel types, platform adapters, and import models.
 - [One API](https://github.com/songquanpeng/one-api) — the classic OpenAI-interface aggregator
 

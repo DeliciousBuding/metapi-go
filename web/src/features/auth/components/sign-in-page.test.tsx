@@ -49,7 +49,7 @@ describe('sign-in page interface controls', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows the token-source guidance with the deployment docs link', () => {
+  it('keeps the login task without deployment instructions or token-source guidance', () => {
     render(
       <ThemeProvider defaultTheme='light'>
         <ThemeCustomizationProvider>
@@ -58,17 +58,13 @@ describe('sign-in page interface controls', () => {
       </ThemeProvider>
     )
 
+    expect(screen.getByRole('heading', { name: 'Metapi' })).toBeVisible()
+    expect(screen.getByTestId('login-form')).toBeInTheDocument()
+    expect(screen.queryByText(/AUTH_TOKEN|\.env/)).not.toBeInTheDocument()
     expect(
-      screen.getByText(
-        'The admin token comes from the AUTH_TOKEN environment variable (or .env file) set when this instance was deployed.'
-      )
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('link', { name: 'Deployment docs' })
-    ).toHaveAttribute(
-      'href',
-      'https://github.com/DeliciousBuding/metapi-go/blob/master/docs/deployment.md'
-    )
+      screen.queryByText(/deployment administrator/i)
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 
   it('shows the token-changed notice only when the reason param says so', () => {

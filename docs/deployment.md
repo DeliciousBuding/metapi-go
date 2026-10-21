@@ -1,6 +1,6 @@
 # Deployment Guide
 
-**Last updated**: 2026-10-19
+**Last updated**: 2026-10-21
 
 > **How to read this page**: just getting started? The README Quick Start covers
 > the short path — this page owns the full install, Compose, upgrade and
@@ -15,12 +15,13 @@
 
 Pick the prerequisites for the path you deploy with:
 
-- **Release binary (fastest, recommended for first-time users)** — none.
+- **GHCR Docker image (recommended)** — Docker Engine; add Compose v2.24+
+  when using the repository Compose file (it uses optional `env_file`). The
+  pre-built image needs no Go, Bun, or source compilation on the host.
+- **Release binary** — no language runtime.
   Pre-built binaries ship with every [GitHub Release](https://github.com/DeliciousBuding/metapi-go/releases/latest);
   `install.sh` only needs `curl` + `sha256sum`.
-- **Docker** — Docker Engine with Compose v2.24+ (the Compose file uses
-  optional `env_file`; older versions reject it).
-- **From source** — Go 1.26.9+ **and** Bun 1.x. Bun is only needed to build the
+- **From source** — Go 1.26.10+ **and** Bun 1.x. Bun is only needed to build the
   embedded frontend (`cd web && bun install --frozen-lockfile && bun run build:web`
   must run before `go build`); release binaries and GHCR images already include it.
 - PostgreSQL 16+ (optional, for a production database)
@@ -32,7 +33,48 @@ Three ways to a running server. CI parses the Compose file with its example
 values; release and source paths were exercised against real builds. The
 default port is 4000.
 
-### 1. Release binary (3 minutes)
+### 1. GHCR Docker image (recommended)
+
+Pull the published `ghcr.io/deliciousbuding/metapi-go` image rather than building
+from source. Pin a release tag or digest; `edge` is for development.
+
+**Compose (recommended for anything long-lived).** From a checkout:
+
+```bash
+git clone https://github.com/DeliciousBuding/metapi-go.git
+cd metapi-go
+cp .env.example .env
+# Edit .env: replace the admin token and encryption key, and point METAPI_IMAGE at the
+# release tag or digest you intend to run.
+docker compose pull
+docker compose up -d
+```
+
+The shipped Compose file binds the host side to `127.0.0.1:4000` by default
+and stores SQLite in the `metapi_data` volume. The full lifecycle is in
+[Docker Compose](#docker-compose).
+
+**One-off container.** If you do not want a checkout:
+
+```bash
+export AUTH_TOKEN=$(openssl rand -hex 32)
+export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
+
+docker pull ghcr.io/deliciousbuding/metapi-go:0.26.0
+docker run -d --name metapi \
+  -p 127.0.0.1:4000:4000 \
+  -e AUTH_TOKEN \
+  -e ACCOUNT_CREDENTIAL_SECRET \
+  -e TZ=Asia/Shanghai \
+  -v metapi_data:/app/data \
+  --restart unless-stopped \
+  ghcr.io/deliciousbuding/metapi-go:0.26.0
+```
+
+The named volume is the zero-config default; bind mounts need a one-time
+`chown -R 1001:1001` — see [Data directory & volumes](#data-directory--volumes).
+
+### 2. Release binary
 
 ```bash
 curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download/install.sh | bash
@@ -50,42 +92,6 @@ metapi
 ```
 
 Data lands in `./data` (SQLite, code default) unless `DATA_DIR` / `DATABASE_URL` say otherwise.
-
-### 2. Docker
-
-**Compose (recommended for anything long-lived).** From a checkout:
-
-```bash
-git clone https://github.com/DeliciousBuding/metapi-go.git
-cd metapi-go
-cp .env.example .env
-# Edit .env: replace the admin token and encryption key, and point METAPI_IMAGE at the
-# release tag or digest you intend to run.
-docker compose up -d
-```
-
-The shipped Compose file binds the host side to `127.0.0.1:4000` by default
-and stores SQLite in the `metapi_data` volume. The full lifecycle is in
-[Docker Compose](#docker-compose).
-
-**One-off container.** If you do not want a checkout:
-
-```bash
-export AUTH_TOKEN=$(openssl rand -hex 32)
-export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
-
-docker run -d --name metapi \
-  -p 127.0.0.1:4000:4000 \
-  -e AUTH_TOKEN \
-  -e ACCOUNT_CREDENTIAL_SECRET \
-  -e TZ=Asia/Shanghai \
-  -v metapi_data:/app/data \
-  --restart unless-stopped \
-  ghcr.io/deliciousbuding/metapi-go:0.26.0
-```
-
-The named volume is the zero-config default; bind mounts need a one-time
-`chown -R 1001:1001` — see [Data directory & volumes](#data-directory--volumes).
 
 ### 3. From source
 
