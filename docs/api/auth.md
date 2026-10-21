@@ -40,9 +40,11 @@ Mint a one-time WebSocket ticket (requires a live session or Bearer token).
 The deployment administrator manages ordinary users for this single gateway.
 Each user has one current group; groups grant access to existing system routes.
 There are no workspaces, team memberships or ordinary-user administrator roles.
-User login and private usage views are not enabled. Administrators may issue
-user-owned downstream Keys through the existing Key API using `ownerUserId`;
-proxy admission and routing enforce the user's current group.
+Administrators open accounts and provide a one-time activation/reset code.
+Ordinary users enter `/user` directly, set their own password and use their
+personal console. They never select a workspace or enter the administrator UI.
+Administrators can also issue user Keys through the existing Key API using
+`ownerUserId`; proxy admission and routing enforce the user's current group.
 
 All endpoints require the existing administrator session or master bearer token.
 All writes additionally require `X-Admin-Confirm-Token` and join the admin audit
@@ -82,12 +84,61 @@ immutable fields, duplicate keys, empty/null objects and trailing JSON return
 `400`. Missing objects return `404`; duplicate usernames/slugs/grants or invalid
 group relationships return `409`; unavailable storage returns `503` or a generic
 `500`. Updates and grant mutations return `{success: true}`. No password, role,
-session issuance or physical user/group deletion is exposed here.
+session issuance or physical user/group deletion is exposed by these metadata APIs.
 
 The three user authorization tables, user Keys and user-attributed records are
 excluded from portable backups; exports describe this row-level exclusion.
 Identity-preserving database migration/snapshots retain their ownership.
 Portable imports reject user Keys or user-attributed records. Legacy system
 Key policy and existing administrator authentication remain unchanged.
+
+### Activation, password and personal session
+
+`POST /api/admin/users/{userId}/activation` requires administrator authority,
+master-token confirmation and audit, and returns `{code, expiresAt}` once.
+It immediately resets the login credential and revokes all existing sessions.
+The code expires after 30 minutes and can be consumed once. Provide it through
+a private channel with the username and `/user` URL; do not put it in a URL.
+Public registration and an email dependency are not introduced.
+
+User passwords contain 12–72 UTF-8 bytes and use bcrypt cost 12. Only credential
+hashes persist. `metapi_user_session` is an independent random server-side
+session cookie, `HttpOnly`, `SameSite=Strict`, `Path=/api/user`, with Secure
+behavior using the same configured transport policy as administrator cookies.
+Only its digest persists. Sessions have a 24-hour absolute and two-hour idle
+expiry. Password changes and resets invalidate all user sessions; disabled
+users/groups cannot sign in or continue using a session. A concurrent password
+change cannot mint a session verified against the previous credential version.
+
+The user API is registered outside administrator authentication. User cookies,
+downstream Keys and confirmation headers do not grant administrator authority;
+an administrator cookie/bearer does not substitute for a user session. Mutating
+user requests enforce exact same-origin checks and login/password paths are
+rate-limited. Responses are `no-store`. Credential/session tables are excluded
+from portable backup. API fields use exact camelCase, reject duplicate, unknown,
+null or case-aliased fields and oversized/trailing JSON bodies.
+
+| Endpoint | Contract |
+| --- | --- |
+| `POST /api/user/auth/activate` | `{username, code, password}`; consumes code, sets password and signs in; `{success:true}` |
+| `POST /api/user/auth/login` | `{username, password}`; sets user cookie; `{success:true}` |
+| `GET /api/user/session` | `{user:{id,username,displayName,groupId},group:{id,name},expiresAt}` |
+| `POST /api/user/auth/logout` | Revoke current session and clear cookie; `{success:true}` |
+| `POST /api/user/auth/password` | `{currentPassword,newPassword}`; revoke all sessions and clear cookie; sign in again |
+| `GET /api/user/models` | `{items:[{id,routeId}]}`; concrete public names with eligible sources under current group, no upstream details or live availability promise |
+| `GET /api/user/keys` | `{items:[{id,name,keyMasked,enabled,expiresAt,supportedModels,maxCost,maxRequests,usedCost,usedRequests,createdAt}]}`; only caller-owned Keys, never plaintext |
+| `POST /api/user/keys` | `{name,supportedModels?,expiresAt?,maxCost?,maxRequests?}`; generate cryptographically random Key, bind authenticated user, return `{item,key}` once; users cannot choose owner, group, site or credentials |
+| `DELETE /api/user/keys/{id}` | Delete only caller-owned Key; unknown or another user's ID is `404` |
+| `GET /api/user/requests?page=1&pageSize=20` | `{items,total,page,pageSize}`; rows and total use the same caller-owner predicate |
+| `GET /api/user/requests/{id}` | One safe request DTO, owner-scoped or `404` |
+| `GET /api/user/usage` | `{usedRequests,keyCount,usedCost}` for caller-owned current Keys; `usedCost` is the legacy upstream cost estimate, not personal token quota |
+
+Request DTO fields are `id`, `modelRequested` (nullable), `terminalStatus`,
+`latencyMs`, `startedAt`, `endedAt`, `attemptCount`; no account/credential IDs,
+raw error bodies, provider costs, arbitrary log payloads or other users' rows.
+Old unowned logs stay administrator-only; renaming, regrouping and Key deletion
+do not change historical request ownership. Invalid/expired credentials return
+`401`, invalid input `400`, unavailable storage `503`. The personal UI renders
+failed reads as errors rather than empty successful data.
 
 ---

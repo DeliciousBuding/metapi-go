@@ -156,6 +156,18 @@ routes are simply not registered and the router logs
 because every field they serve comes from the linker, the Go runtime, or a
 fail-closed handler.
 
+### Ordinary-user surface (`/api/user/*`)
+
+`handler/user.RegisterRoutes` is mounted outside the admin group and owns its
+same-origin and rate-limit guards. `auth.UserSessionAuth` accepts only the
+independent user cookie, reloads current state, and sets a typed user principal
+with no administrator authority. `store.UserAuthStore` owns bcrypt credential
+digests/versioned session references; `store.GatewayUserStore` owns scoped
+personal Keys and safe request/usage reads. Administrator activation remains in
+`handler/admin.RegisterUserActivationRoutes` behind confirmation and audit.
+The `/user` SPA page uses an independent session query and does not bootstrap
+the administrator session or invoke its authentication-error redirect.
+
 ### Data plane (`/v1/*`)
 
 `r.Route("/v1", ...)` owns the proxy surface, in this order:

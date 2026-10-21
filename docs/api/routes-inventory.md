@@ -3,11 +3,20 @@
 > **Index**: back to [API Reference](../api.md). This file is the Full registered /api route inventory domain split out of the pre-`docs/api/` `docs/api.md`.
 
 ## Admin Route Inventory
-Complete list of registered `/api` admin routes. Path parameters use `:param` notation here; the code registers the chi `{param}` form, and the two are the same route.
+Complete list of registered `/api` routes, including the separately authenticated
+ordinary-user surface under `/api/user/*`. Path parameters use `:param` notation
+here; the code registers the equivalent chi `{param}` form.
 
 This list is checked against the routes reachable from `router.New` by `docs/api_inventory_parity_test.go`: a route registered in code but missing here, or listed here but not registered, fails CI. Request and response shapes live in the per-domain pages under [`docs/api/`](../api/); the shared error envelope, auth surfaces and pagination conventions are in [`conventions.md`](conventions.md).
 
 ### GET
+
+- `/api/user/session`
+- `/api/user/models`
+- `/api/user/keys`
+- `/api/user/requests`
+- `/api/user/requests/:id`
+- `/api/user/usage`
 
 - `/api/admin/users`
 - `/api/admin/users/:userId`
@@ -114,6 +123,13 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/tasks/:id`
 - `/api/update-center/status`
 ### POST
+
+- `/api/user/auth/activate`
+- `/api/user/auth/login`
+- `/api/user/auth/logout`
+- `/api/user/auth/password`
+- `/api/user/keys`
+- `/api/admin/users/:userId/activation`
 
 - `/api/admin/users`
 - `/api/admin/user-groups`
@@ -246,6 +262,8 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/oauth/route-units/:routeUnitId`
 
 ### DELETE
+
+- `/api/user/keys/:id`
 
 - `/api/admin/user-groups/:groupId/routes/:routeId`
 - `/api/imported-upstreams/:id`
