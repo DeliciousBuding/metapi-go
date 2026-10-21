@@ -96,11 +96,11 @@ func TestUserPortalOwnerQueries(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			key, err := f.s.CreateOwnKey(ctx, f.user.ID, "Alice", "sk-synthetic-alice-secret", []string{"*"}, nil, nil, nil)
+	key, err := f.s.CreateOwnKey(ctx, f.user.ID, "Alice", "sk-alice-secret", []string{"*"}, nil, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
-			otherKey, err := f.s.CreateOwnKey(ctx, other.ID, "Bob", "sk-synthetic-bob-secret", []string{"*"}, nil, nil, nil)
+	otherKey, err := f.s.CreateOwnKey(ctx, other.ID, "Bob", "sk-bob-secret", []string{"*"}, nil, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
