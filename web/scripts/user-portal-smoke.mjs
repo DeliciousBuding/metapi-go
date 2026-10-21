@@ -97,7 +97,9 @@ async function admin(url, method = 'GET', body) {
       'Content-Type': 'application/json',
       'X-External-Origin-Key': 'user-smoke',
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    ...(method === 'GET' || body === undefined
+      ? {}
+      : { body: JSON.stringify(body) }),
   })
   const text = await response.text()
   if (!response.ok)
