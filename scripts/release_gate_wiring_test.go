@@ -36,7 +36,7 @@ func TestReleaseGateWiring(t *testing.T) {
 	if !strings.Contains(jobs["web-dist"], "name: web-dist") || !strings.Contains(jobs["web-dist"], "bun run build:web") {
 		t.Error("web-dist must build and publish the real SPA bundle")
 	}
-	for _, consumer := range []string{"a11y", "test-sqlite-shard", "test-pg"} {
+	for _, consumer := range []string{"a11y", "test-sqlite-shard", "test-pg-shard", "test-pg-process"} {
 		if !strings.Contains(jobs[consumer], "    needs: web-dist\n") || !strings.Contains(jobs[consumer], "name: web-dist") {
 			t.Errorf("%s must consume the built bundle without waiting for frontend checks", consumer)
 		}

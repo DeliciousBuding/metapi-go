@@ -94,6 +94,14 @@ func selectShard(input io.Reader, weights map[string]int64, shard, total int) ([
 	if len(packages) < total {
 		return nil, 0, 0, fmt.Errorf("got %d packages for %d shards; refusing an empty shard", len(packages), total)
 	}
+	for name := range weights {
+		if !seen[name] {
+			// A stale timing row usually means a package was renamed or removed
+			// without updating the scheduling data. Fail loudly rather than
+			// silently running the next plan against a degraded weight table.
+			return nil, 0, 0, fmt.Errorf("weights name %s is absent from package input", name)
+		}
+	}
 	weightOf := func(pkg string) int64 {
 		if weight, exists := weights[pkg]; exists {
 			return weight

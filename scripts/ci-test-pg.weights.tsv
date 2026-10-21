@@ -1,0 +1,20 @@
+# PostgreSQL integration package elapsed time, milliseconds (not runner wall time).
+# Source: https://github.com/DeliciousBuding/metapi-go/actions/runs/39640195427
+# Job: 119361667735 (`test-pg`).
+# Only measured packages >= 5 seconds are listed. All other/new packages get
+# the selector's conservative 10000ms default; this table is a scheduling hint,
+# not a filter. CI runs each shard on its own PostgreSQL service/database and
+# keeps -p 1 inside that shared database.
+app 970
+auth 8092
+docs 7524
+handler/admin 45317
+handler/proxy 136054
+platform 14007
+router 9462
+scheduler 16160
+scripts 19887
+service/backup 91604
+service/oauth 11335
+service/upstream 18833
+store 38350
