@@ -460,7 +460,7 @@ func (s *ChannelSelector) findRoute(ctx context.Context, model string, policy Do
 			break
 		}
 	}
-	if len(policy.AllowedRouteIDs) > 0 && !matchedSupportedPattern {
+	if len(policy.AllowedRouteIDs) > 0 && (!matchedSupportedPattern || policy.UserRouteIDs != nil) {
 		allowSet := make(map[int64]bool)
 		for _, id := range policy.AllowedRouteIDs {
 			allowSet[id] = true
@@ -469,6 +469,16 @@ func (s *ChannelSelector) findRoute(ctx context.Context, model string, policy Do
 		for _, r := range routes {
 			if allowSet[r.ID] {
 				filtered = append(filtered, r)
+			}
+		}
+		routes = filtered
+	}
+	// Filter a fresh slice: loadEnabledRoutes may return the shared cache.
+	if policy.UserRouteIDs != nil {
+		filtered := make([]store.TokenRoute, 0, len(routes))
+		for _, route := range routes {
+			if userRouteAllowed(route.ID, policy) {
+				filtered = append(filtered, route)
 			}
 		}
 		routes = filtered
@@ -732,7 +742,7 @@ func (s *ChannelSelector) getCandidateBlockers(
 		if len(policy.AllowedSiteIDs) > 0 {
 			reasons = append(reasons, CandidateBlocker{"site_not_allowed", "direct upstream is not in the downstream key site allow-list"})
 		}
-		if len(policy.AllowedRouteIDs) > 0 && !matchesSupportedModelPolicy(requestedModel, policy.SupportedModels) {
+		if policy.UserRouteIDs == nil && len(policy.AllowedRouteIDs) > 0 && !matchesSupportedModelPolicy(requestedModel, policy.SupportedModels) {
 			allowed := false
 			for _, routeID := range policy.AllowedRouteIDs {
 				if routeID == direct.RouteID {

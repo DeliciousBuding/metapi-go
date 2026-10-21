@@ -51,7 +51,7 @@ const proxyLogInsertColumns = `route_id, channel_id, upstream_channel_id, upstre
 			prompt_tokens, completion_tokens, total_tokens,
 			estimated_cost, billing_details,
 			client_family, client_app_id, client_app_name, client_confidence,
-			error_message, retry_count, request_id, created_at, downstream_path, gateway_request_id`
+			error_message, retry_count, request_id, created_at, downstream_path, gateway_request_id, owner_user_id, user_group_id`
 
 // proxyLogSingleRowPlaceholders matches the canonical INSERT column list.
 // store.DB rebinds ? to $N for PostgreSQL, so the batch writer builds rows of
@@ -62,7 +62,7 @@ const proxyLogSingleRowPlaceholders = `(?, ?, ?, ?, ?, ?,
 			?, ?, ?,
 			?, ?,
 			?, ?, ?, ?,
-			?, ?, ?, ?, ?, ?)`
+			?, ?, ?, ?, ?, ?, ?, ?)`
 
 // proxyLogEntryArgs builds the positional args for one proxy_logs INSERT row,
 // matching proxyLogInsertColumns order. Shared by InsertProxyLog (single) and
@@ -112,6 +112,8 @@ func proxyLogEntryArgs(entry proxy.ProxyLogEntry, createdAt string) []any {
 		createdAt,
 		nullString(entry.DownstreamPath),
 		nullString(strPtrOrEmpty(entry.GatewayRequestID)),
+		nullInt64(entry.OwnerUserID),
+		nullInt64(entry.UserGroupID),
 	}
 }
 
@@ -163,6 +165,9 @@ func observedUsageCount(found bool, count int64) *int64 {
 func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntry) {
 	if cfg == nil {
 		return
+	}
+	if pac := auth.GetProxyAuth(ctx); pac != nil {
+		entry.OwnerUserID, entry.UserGroupID = pac.OwnerUserID, pac.UserGroupID
 	}
 	requestLifecycleFromContext(ctx).recordAttempt(ctx, &entry)
 	// Prefer explicit entry.RequestID; otherwise inherit chi/Metapi request id.

@@ -27,9 +27,16 @@ The system-user administration API manages ordinary users, their single current
 group and direct group-to-route grants. It is administrator-only and every write
 requires master-token re-confirmation. The typed ordinary-user principal does
 not carry administrator authority; active lookups reload user and group state.
-This is an authorization foundation, not enabled user login, user-owned proxy
-Keys or private log access. Portable backups exclude these local identity and
-authorization tables; administrator-controlled database migration preserves them.
+Administrators can issue user-owned proxy Keys; each HTTP request and Responses
+WS turn reloads the current user/group and intersects group routes with Key
+restrictions. No model wildcard, mapping or fallback grants another outer route.
+Composite sources remain implementation details of the authorized outer route.
+User login and private log access are not yet enabled. Request/attempt user and
+group IDs are stored at observation time, never reconstructed from a Key's
+current group. Portable backups exclude local identities, user Keys and
+user-attributed records and reject their import. Identity-preserving database
+migration/snapshots retain ownership. Do not downgrade user Keys to a binary
+that ignores these ownership fields; restore a pre-upgrade snapshot instead.
 
 ## Admin authentication and authorization
 

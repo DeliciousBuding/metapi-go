@@ -178,6 +178,7 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 	// maxCost/maxRequests use any so clients can send number|string|null (TS parity).
 	// Explicit null/0/"" clears to unlimited (NULL); omitted also stores NULL on create.
 	var body struct {
+		OwnerUserID            *int64          `json:"ownerUserId"`
 		AccessPolicy           json.RawMessage `json:"accessPolicy"`
 		Name                   string          `json:"name"`
 		Key                    string          `json:"key"`
@@ -209,6 +210,23 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 
 	body.Name = strings.TrimSpace(body.Name)
 	body.Key = strings.TrimSpace(body.Key)
+	ownerType := "system"
+	if body.OwnerUserID != nil {
+		if *body.OwnerUserID <= 0 {
+			writeError(w, http.StatusBadRequest, "ownerUserId must be a positive user ID")
+			return
+		}
+		var userID int64
+		if err := h.db.Get(&userID, h.db.Rebind(`SELECT u.id FROM gateway_users u JOIN gateway_user_groups g ON g.id=u.group_id WHERE u.id=? AND u.enabled=TRUE AND g.enabled=TRUE`), *body.OwnerUserID); err != nil {
+			if err == sql.ErrNoRows {
+				writeError(w, http.StatusBadRequest, "user or group is unavailable")
+			} else {
+				writeError(w, http.StatusInternalServerError, "failed to validate Key owner")
+			}
+			return
+		}
+		ownerType = "user"
+	}
 
 	if body.Name == "" {
 		writeError(w, http.StatusBadRequest, "name is required")
@@ -315,13 +333,13 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 		(name, key, description, group_name, tags, enabled, expires_at, max_cost, used_cost, max_requests, used_requests,
 		 supported_models, allowed_route_ids, site_weight_multipliers, key_weight, excluded_site_ids, excluded_credential_refs,
 		 allowed_site_ids, allowed_credential_refs,
-		 proxy_url, max_rpm, max_tpm, ip_allowlist, ip_blocklist, access_policy, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 proxy_url, max_rpm, max_tpm, ip_allowlist, ip_blocklist, access_policy, created_at, updated_at, key_owner_type, owner_user_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		body.Name, body.Key, desc, normalizedGroupName, tagsJSON, enabled, body.ExpiresAt,
 		maxCost, maxRequests,
 		modelsJSON, routeIdsJSON, swmJSON, keyWeight, excludedSitesJSON, credRefsJSON,
 		allowedSitesJSON, allowedCredRefsJSON,
-		proxyURL, maxRpm, maxTpm, ipAllowlist, ipBlocklist, accessPolicy, now, now,
+		proxyURL, maxRpm, maxTpm, ipAllowlist, ipBlocklist, accessPolicy, now, now, ownerType, body.OwnerUserID,
 	)
 	if err != nil {
 		if isUniqueConstraintError(err) {
@@ -399,6 +417,14 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	rawBody := map[string]any{}
 	if err := json.Unmarshal(bodyBytes, &rawBody); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if _, present := rawBody["ownerUserId"]; present {
+		writeError(w, http.StatusBadRequest, "Key ownership is immutable; create a new Key")
+		return
+	}
+	if _, present := rawBody["keyOwnerType"]; present {
+		writeError(w, http.StatusBadRequest, "Key ownership is immutable; create a new Key")
 		return
 	}
 

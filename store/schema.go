@@ -467,6 +467,8 @@ func (c RouteChannel) TotalCostOrZero() float64 {
 
 // ---- Table 14: proxy_logs ----
 type ProxyLog struct {
+	OwnerUserID           *int64   `db:"owner_user_id" json:"ownerUserId"`
+	UserGroupID           *int64   `db:"user_group_id" json:"userGroupId"`
 	GatewayRequestID      *string  `db:"gateway_request_id" json:"gatewayRequestId"`
 	DownstreamPath        *string  `db:"downstream_path" json:"downstreamPath"`
 	UpstreamReportedModel *string  `db:"upstream_reported_model" json:"upstreamReportedModel"`
@@ -696,6 +698,8 @@ type AdminAuditLog struct {
 
 // ---- Table 25: downstream_api_keys ----
 type DownstreamAPIKey struct {
+	KeyOwnerType string   `db:"key_owner_type" json:"keyOwnerType"`
+	OwnerUserID  *int64   `db:"owner_user_id" json:"ownerUserId"`
 	AccessPolicy *string  `db:"access_policy" json:"accessPolicy"`
 	ID           int64    `db:"id" json:"id"`
 	Name         string   `db:"name" json:"name"`

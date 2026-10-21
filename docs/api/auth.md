@@ -40,8 +40,9 @@ Mint a one-time WebSocket ticket (requires a live session or Bearer token).
 The deployment administrator manages ordinary users for this single gateway.
 Each user has one current group; groups grant access to existing system routes.
 There are no workspaces, team memberships or ordinary-user administrator roles.
-This API establishes metadata and authorization relationships only: user login,
-user-owned Key issuance, proxy enforcement and private usage views are not enabled.
+User login and private usage views are not enabled. Administrators may issue
+user-owned downstream Keys through the existing Key API using `ownerUserId`;
+proxy admission and routing enforce the user's current group.
 
 All endpoints require the existing administrator session or master bearer token.
 All writes additionally require `X-Admin-Confirm-Token` and join the admin audit
@@ -67,7 +68,13 @@ An existing default group's name, enabled state and grants are preserved. Schema
 migration creates no users or groups and does not adopt any existing Key or route.
 Changing a user's group changes the next effective-route lookup; disabled users,
 groups or routes grant no callable routes. Empty effective grants deny all.
-These lookups are not yet connected to downstream proxy admission.
+HTTP requests and each Responses WebSocket turn reload user/group state and
+route grants. User/group disablement or removal rejects the next admission;
+group changes apply to already-issued Keys. Key-specific limits only narrow
+this boundary. Composite routes authorize their published outer entrypoint,
+not independent access to their internal source routes. The legacy aggregate
+pricing endpoints currently reject user Keys rather than exposing platform
+observations as personal tariffs.
 
 Payloads require exact camelCase fields, explicit boolean `enabled` where listed,
 and positive IDs except the documented create-user default selector. Unknown or
@@ -77,8 +84,10 @@ group relationships return `409`; unavailable storage returns `503` or a generic
 `500`. Updates and grant mutations return `{success: true}`. No password, role,
 session issuance or physical user/group deletion is exposed here.
 
-The three user authorization tables are excluded from portable backups; explicit
-administrator-controlled database migration still copies them. Legacy Key policy
-and the existing administrator authentication behavior remain unchanged.
+The three user authorization tables, user Keys and user-attributed records are
+excluded from portable backups; exports describe this row-level exclusion.
+Identity-preserving database migration/snapshots retain their ownership.
+Portable imports reject user Keys or user-attributed records. Legacy system
+Key policy and existing administrator authentication remain unchanged.
 
 ---

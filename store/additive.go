@@ -639,6 +639,11 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		Description: "gateway users with one current group and group route authorization; no seeded groups, users or issued Keys",
 		Apply:       migrateGatewayUsers,
 	},
+	{
+		Version:     "gateway_user_key_access_v1",
+		Description: "explicit user Key ownership and immutable request/attempt user and group attribution",
+		Apply:       migrateUserKeyAccess,
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

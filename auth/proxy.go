@@ -68,6 +68,9 @@ func ProxyAuth() func(http.Handler) http.Handler {
 				if observer, ok := w.(interface{ ObserveProxyKey(int64) }); ok {
 					observer.ObserveProxyKey(result.Key.ID)
 				}
+				if observer, ok := w.(interface{ ObserveProxyUser(*int64, *int64) }); ok {
+					observer.ObserveProxyUser(result.Key.OwnerUserID, result.Key.UserGroupID)
+				}
 			}
 
 			if !result.OK {
@@ -145,6 +148,8 @@ func ProxyAuth() func(http.Handler) http.Handler {
 				QuotaReservationID: result.QuotaReservationID,
 			}
 			if result.Key != nil {
+				pac.OwnerUserID = result.Key.OwnerUserID
+				pac.UserGroupID = result.Key.UserGroupID
 				pac.KeyID = &result.Key.ID
 				pac.KeyName = result.Key.Name
 				// Per-key egress proxy override.

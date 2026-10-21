@@ -39,6 +39,9 @@ type ExcludedCredentialRef struct {
 // - true (managed key default): reject all models
 // - false (administrator preview): allow all models
 type DownstreamRoutingPolicy struct {
+	// nil is the legacy system-Key policy; non-nil is a hard outer-route
+	// boundary (including empty = deny all), independent of the legacy ORs.
+	UserRouteIDs          *[]int64                      `json:"userRouteIds,omitempty"`
 	AccessPolicy          *store.DownstreamAccessPolicy `json:"accessPolicy,omitempty"`
 	SupportedModels       []string                      `json:"supported_models"`
 	AllowedRouteIDs       []int64                       `json:"allowed_route_ids"`

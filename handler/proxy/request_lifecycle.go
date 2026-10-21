@@ -144,6 +144,7 @@ func (s *requestLifecycle) bind(pac *auth.ProxyAuthContext, path, model string) 
 	defer s.mu.Unlock()
 	if pac != nil {
 		s.entry.DownstreamAPIKeyID = pac.KeyID
+		s.entry.OwnerUserID, s.entry.UserGroupID = pac.OwnerUserID, pac.UserGroupID
 	}
 	if canonical := canonicalRequestPath(path); canonical != nil {
 		s.entry.DownstreamPath = canonical
@@ -364,6 +365,11 @@ func (w *requestResponseWriter) ReadFrom(r io.Reader) (int64, error) {
 func (w *requestResponseWriter) ObserveProxyKey(id int64) {
 	w.state.mu.Lock()
 	w.state.entry.DownstreamAPIKeyID = &id
+	w.state.mu.Unlock()
+}
+func (w *requestResponseWriter) ObserveProxyUser(userID, groupID *int64) {
+	w.state.mu.Lock()
+	w.state.entry.OwnerUserID, w.state.entry.UserGroupID = userID, groupID
 	w.state.mu.Unlock()
 }
 func (w *requestResponseWriter) ObserveProxyCredential(token string) {

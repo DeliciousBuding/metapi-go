@@ -1134,6 +1134,7 @@ func buildRouteGroupSources(rows []map[string]interface{}) []insertStmt {
 
 func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
 	cols := []string{"id", "route_id", "channel_id", "upstream_channel_id", "upstream_grant_id", "account_id", "downstream_api_key_id", "model_requested", "model_actual", "status", "http_status", "is_stream", "first_byte_latency_ms", "first_output_latency_ms", "upstream_reported_model", "latency_ms", "prompt_tokens", "completion_tokens", "total_tokens", "estimated_cost", "billing_details", "client_family", "client_app_id", "client_app_name", "client_confidence", "error_message", "retry_count", "request_id", "created_at", "downstream_path", "gateway_request_id"}
+	cols = append(cols, "owner_user_id", "user_group_id")
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -1173,6 +1174,8 @@ func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
 				asNullableString(v(row, "created_at")),
 				asNullableString(v(row, "downstream_path")),
 				asNullableString(v(row, "gateway_request_id")),
+				asNumber(v(row, "owner_user_id"), nil),
+				asNumber(v(row, "user_group_id"), nil),
 			},
 		})
 	}
@@ -1212,8 +1215,13 @@ func buildProxyVideoTasks(rows []map[string]interface{}) []insertStmt {
 
 func buildDownstreamAPIKeys(rows []map[string]interface{}) []insertStmt {
 	cols := []string{"id", "name", "key", "description", "group_name", "tags", "enabled", "expires_at", "max_cost", "used_cost", "max_requests", "used_requests", "supported_models", "allowed_route_ids", "site_weight_multipliers", "excluded_site_ids", "excluded_credential_refs", "allowed_site_ids", "allowed_credential_refs", "key_weight", "proxy_url", "max_rpm", "max_tpm", "ip_allowlist", "ip_blocklist", "access_policy", "last_used_at", "created_at", "updated_at"}
+	cols = append(cols, "key_owner_type", "owner_user_id")
 	var stmts []insertStmt
 	for _, row := range rows {
+		ownerType := "system"
+		if raw := v(row, "key_owner_type"); raw != nil {
+			ownerType = asString(raw)
+		}
 		stmts = append(stmts, insertStmt{
 			table: "downstream_api_keys", columns: cols,
 			values: []interface{}{
@@ -1246,6 +1254,8 @@ func buildDownstreamAPIKeys(rows []map[string]interface{}) []insertStmt {
 				asNullableString(v(row, "last_used_at")),
 				asNullableString(v(row, "created_at")),
 				asNullableString(v(row, "updated_at")),
+				ownerType,
+				asNumber(v(row, "owner_user_id"), nil),
 			},
 		})
 	}

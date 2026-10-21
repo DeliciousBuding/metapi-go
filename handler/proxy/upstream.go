@@ -1756,6 +1756,7 @@ func RoutingPolicyFromAuth(policy auth.DownstreamRoutingPolicy) routing.Downstre
 	}
 
 	return routing.DownstreamRoutingPolicy{
+		UserRouteIDs:           policy.UserRouteIDs,
 		AccessPolicy:           policy.AccessPolicy,
 		SupportedModels:        policy.SupportedModels,
 		AllowedRouteIDs:        policy.AllowedRouteIDs,

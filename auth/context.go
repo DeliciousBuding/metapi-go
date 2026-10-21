@@ -23,11 +23,13 @@ const (
 // ProxyAuthContext holds the result of a successful downstream token
 // authorization. It is stored in the request context by ProxyAuth middleware.
 type ProxyAuthContext struct {
-	Token   string                  // Normalized token string
-	Source  string                  // "managed" for authenticated requests
-	KeyID   *int64                  // Managed key row ID
-	KeyName string                  // Managed key name
-	Policy  DownstreamRoutingPolicy // Resolved routing policy
+	OwnerUserID *int64
+	UserGroupID *int64
+	Token       string                  // Normalized token string
+	Source      string                  // "managed" for authenticated requests
+	KeyID       *int64                  // Managed key row ID
+	KeyName     string                  // Managed key name
+	Policy      DownstreamRoutingPolicy // Resolved routing policy
 	// ProxyURL is an optional per-key egress proxy override from
 	// downstream_api_keys.proxy_url.
 	// nil/empty means inherit account → site → system proxy.

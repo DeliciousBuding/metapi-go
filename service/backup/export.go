@@ -102,6 +102,7 @@ func BuildPayload(db *sqlx.DB, exportType string) (map[string]any, error) {
 	}
 
 	metadata := map[string]any{
+		"excluded_rows":   "User-owned downstream Keys, quota usage, files/video tasks and user-attributed request/attempt records are local-only; use a consistent full database snapshot to preserve users and their ownership.",
 		"exported_at":     time.Now().UTC().Format(time.RFC3339Nano),
 		"version":         "1.0",
 		"excluded_tables": excludedTablesFor(exportType, tables),
@@ -173,7 +174,16 @@ func queryTableAsJSON(db *sqlx.DB, table string, estimatedPayloadBytes *int64) (
 		return nil, nil, fmt.Errorf("unknown table: %s", table)
 	}
 
-	rows, err := db.Queryx(fmt.Sprintf("SELECT * FROM %s", quoteIdentifier(table)))
+	query := fmt.Sprintf("SELECT * FROM %s", quoteIdentifier(table))
+	switch table {
+	case "downstream_api_keys":
+		query += " WHERE key_owner_type = 'system' AND owner_user_id IS NULL"
+	case "gateway_requests", "proxy_logs":
+		query += " WHERE owner_user_id IS NULL AND user_group_id IS NULL"
+	case "downstream_quota_usage":
+		query += " WHERE NOT EXISTS (SELECT 1 FROM downstream_api_keys k WHERE k.id = key_id AND (k.key_owner_type = 'user' OR k.owner_user_id IS NOT NULL))"
+	}
+	rows, err := db.Queryx(query)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -190,6 +200,9 @@ func queryTableAsJSON(db *sqlx.DB, table string, estimatedPayloadBytes *int64) (
 		row := make(map[string]any)
 		if err := rows.MapScan(row); err != nil {
 			return nil, nil, err
+		}
+		if IsLocalUserResource(table, row) {
+			continue
 		}
 		for k, v := range row {
 			if b, ok := v.([]byte); ok {

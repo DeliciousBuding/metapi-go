@@ -332,6 +332,8 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 		// and routing both read s.auth.Policy.
 		fresh := *s.auth
 		fresh.Policy = refreshed.Policy
+		fresh.OwnerUserID = refreshed.Key.OwnerUserID
+		fresh.UserGroupID = refreshed.Key.UserGroupID
 		fresh.KeyName = refreshed.Key.Name
 		fresh.QuotaReservationID = refreshed.QuotaReservationID
 		fresh.ProxyURL = nil

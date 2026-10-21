@@ -207,6 +207,12 @@ func (h *statsHandler) downstreamModelPriceCompare(w http.ResponseWriter, r *htt
 		writeError(w, http.StatusUnauthorized, "downstream authentication required")
 		return
 	}
+	// This legacy catalog aggregates platform-side observations, not personal
+	// tariffs. Do not expose it to ordinary users before scoped pricing exists.
+	if pac.OwnerUserID != nil {
+		writeError(w, http.StatusForbidden, "User pricing catalog is not available")
+		return
+	}
 
 	modelQ := strings.TrimSpace(r.URL.Query().Get("model"))
 	// Downstream requests are always exact (case-insensitive) model matches.

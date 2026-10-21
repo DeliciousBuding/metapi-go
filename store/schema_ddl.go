@@ -476,6 +476,8 @@ func buildProxyLogsDDL(d string) string {
 	if isPG(d) {
 		return `CREATE TABLE IF NOT EXISTS proxy_logs (
 			id SERIAL PRIMARY KEY,
+			owner_user_id BIGINT,
+			user_group_id BIGINT,
 			route_id INTEGER,
 			channel_id INTEGER,
 			upstream_channel_id INTEGER,
@@ -510,6 +512,8 @@ func buildProxyLogsDDL(d string) string {
 	}
 	return `CREATE TABLE IF NOT EXISTS proxy_logs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		owner_user_id BIGINT,
+		user_group_id BIGINT,
 		route_id INTEGER,
 		channel_id INTEGER,
 		upstream_channel_id INTEGER,
@@ -793,6 +797,8 @@ func buildDownstreamAPIKeysDDL(d string) string {
 	if isPG(d) {
 		return `CREATE TABLE IF NOT EXISTS downstream_api_keys (
 			id SERIAL PRIMARY KEY,
+			key_owner_type TEXT NOT NULL DEFAULT 'system' CHECK (key_owner_type IN ('system','user')),
+			owner_user_id BIGINT CHECK ((key_owner_type = 'system' AND owner_user_id IS NULL) OR (key_owner_type = 'user' AND owner_user_id IS NOT NULL AND owner_user_id > 0)),
 			name TEXT NOT NULL,
 			key TEXT NOT NULL,
 			description TEXT,
@@ -826,6 +832,8 @@ func buildDownstreamAPIKeysDDL(d string) string {
 	}
 	return `CREATE TABLE IF NOT EXISTS downstream_api_keys (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		key_owner_type TEXT NOT NULL DEFAULT 'system' CHECK (key_owner_type IN ('system','user')),
+		owner_user_id BIGINT CHECK ((key_owner_type = 'system' AND owner_user_id IS NULL) OR (key_owner_type = 'user' AND owner_user_id IS NOT NULL AND owner_user_id > 0)),
 		name TEXT NOT NULL,
 		key TEXT NOT NULL,
 		description TEXT,

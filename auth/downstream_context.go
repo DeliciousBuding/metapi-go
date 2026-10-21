@@ -80,6 +80,7 @@ type ManagedKeyContext struct {
 	AccessPolicyBlocked bool
 	HasQuotaPolicy      bool
 	Policy              DownstreamRoutingPolicy
+	userAccess          DownstreamTokenAuthResult
 
 	view *managedKeyView
 	db   *sqlx.DB
@@ -94,7 +95,13 @@ func LoadManagedKeyContextByID(db *sqlx.DB, id int64) (*ManagedKeyContext, error
 	if err != nil || view == nil {
 		return nil, err
 	}
+	userAccess := resolveManagedKeyUser(view, db)
+	if !userAccess.OK {
+		empty := []int64{}
+		view.UserRouteIDs = &empty
+	}
 	ctx := &ManagedKeyContext{
+		userAccess:   userAccess,
 		ID:           view.ID,
 		Name:         view.Name,
 		Enabled:      view.Enabled,
@@ -130,6 +137,9 @@ func (c *ManagedKeyContext) ExplainAdmission(clientIP string) ManagedKeyAdmissio
 	}
 
 	// Mirror authorizeDownstreamToken's order.
+	if !c.userAccess.OK && c.userAccess.Reason != "" {
+		add("user", c.userAccess.Reason, c.userAccess.Error)
+	}
 	if c.AccessPolicyInvalid {
 		add("policy", "access_policy", "API key access policy is blocked (unreadable stored policy; fails closed)")
 	} else if c.AccessPolicyBlocked {

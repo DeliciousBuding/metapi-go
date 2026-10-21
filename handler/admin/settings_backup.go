@@ -1129,6 +1129,18 @@ func validateBackupImportCellValue(column string, value any) error {
 // and rows that omit NOT NULL-ish time columns used to import "successfully"
 // and then break the list endpoints with a NULL scan error.
 func validateBackupImportRow(table string, row map[string]any) error {
+	if backupsvc.IsLocalUserResource(table, row) {
+		return backupImportClientError{message: "user-owned files/video tasks require an identity-preserving full database restore"}
+	}
+	if table == "downstream_api_keys" {
+		ownerType, present := row["key_owner_type"]
+		if (present && ownerType != "system") || row["owner_user_id"] != nil {
+			return backupImportClientError{message: "user-owned Keys require an identity-preserving full database restore"}
+		}
+	}
+	if (table == "gateway_requests" || table == "proxy_logs") && (row["owner_user_id"] != nil || row["user_group_id"] != nil) {
+		return backupImportClientError{message: "user-attributed records require an identity-preserving full database restore"}
+	}
 	switch table {
 	case "downstream_quota_usage":
 		for _, column := range []string{"requests", "total_tokens", "cost"} {

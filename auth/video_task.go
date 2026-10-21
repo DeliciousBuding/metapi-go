@@ -13,7 +13,11 @@ func DirectVideoTaskOwner(pac *ProxyAuthContext) string {
 	if pac == nil {
 		return ""
 	}
-	return store.DirectVideoTaskOwner(pac.Source, pac.Token, pac.KeyID)
+	owner := store.DirectVideoTaskOwner(pac.Source, pac.Token, pac.KeyID)
+	if pac.OwnerUserID != nil && owner != "" {
+		return store.UserKeyResourceOwnerPrefix + owner
+	}
+	return owner
 }
 
 func directVideoReadID(r *http.Request) string {

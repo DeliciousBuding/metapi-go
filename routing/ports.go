@@ -79,6 +79,7 @@ type ChannelLoadSnapshot struct {
 
 // DownstreamRoutingPolicy mirrors TS DownstreamRoutingPolicy.
 type DownstreamRoutingPolicy struct {
+	UserRouteIDs           *[]int64
 	AccessPolicy           *store.DownstreamAccessPolicy
 	ExcludedSiteIDs        []int64
 	ExcludedCredentialRefs []CredentialRef

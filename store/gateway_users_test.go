@@ -501,6 +501,16 @@ func TestGatewayUserDialectCopyAndReset(t *testing.T) {
 			if err := f.s.GrantUserGroupRoute(ctx, f.groupA.ID, f.routeA); err != nil {
 				t.Fatal(err)
 			}
+			if _, err := f.db.Exec(`INSERT INTO downstream_api_keys (name,key,key_owner_type,owner_user_id,created_at,updated_at) VALUES ('owned','synthetic-copy-key','user',?,'now','now')`, f.user.ID); err != nil {
+				t.Fatal(err)
+			}
+			entry := GatewayRequest{ID: "user-copy", OwnerUserID: &f.user.ID, UserGroupID: &f.groupA.ID, Transport: "http", TerminalStatus: "completed", StartedAt: "2026-10-21T00:00:00Z", EndedAt: "2026-10-21T00:00:01Z"}
+			if err := InsertGatewayRequest(ctx, f.db, entry); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.db.Exec(`INSERT INTO proxy_logs (gateway_request_id,owner_user_id,user_group_id,created_at) VALUES ('user-copy',?,?,'now')`, f.user.ID, f.groupA.ID); err != nil {
+				t.Fatal(err)
+			}
 			targetDialect := DialectSQLite
 			if sourceDialect == DialectSQLite {
 				targetDialect = DialectPostgres
@@ -514,7 +524,7 @@ func TestGatewayUserDialectCopyAndReset(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, statement := range buildStatements(snapshot) {
-				if !strings.HasPrefix(statement.table, "gateway_user") && statement.table != "token_routes" {
+				if !strings.HasPrefix(statement.table, "gateway_user") && statement.table != "token_routes" && statement.table != "downstream_api_keys" && statement.table != "proxy_logs" && statement.table != "gateway_requests" {
 					continue
 				}
 				query, values := buildInsertSQLite(statement)
@@ -526,6 +536,18 @@ func TestGatewayUserDialectCopyAndReset(t *testing.T) {
 				}
 			}
 			copied := NewGatewayUserStore(target)
+			var key DownstreamAPIKey
+			if err := target.Get(&key, `SELECT * FROM downstream_api_keys WHERE key='synthetic-copy-key'`); err != nil || key.KeyOwnerType != "user" || key.OwnerUserID == nil || *key.OwnerUserID != f.user.ID {
+				t.Fatalf("copied Key lost ownership: %+v %v", key, err)
+			}
+			var request GatewayRequest
+			if err := target.Get(&request, `SELECT * FROM gateway_requests WHERE id='user-copy'`); err != nil || request.OwnerUserID == nil || *request.OwnerUserID != f.user.ID || request.UserGroupID == nil || *request.UserGroupID != f.groupA.ID {
+				t.Fatalf("copied request ownership: %+v %v", request, err)
+			}
+			var attempt ProxyLog
+			if err := target.Get(&attempt, `SELECT * FROM proxy_logs WHERE gateway_request_id='user-copy'`); err != nil || attempt.OwnerUserID == nil || *attempt.OwnerUserID != f.user.ID || attempt.UserGroupID == nil || *attempt.UserGroupID != f.groupA.ID {
+				t.Fatalf("copied attempt ownership: %+v %v", attempt, err)
+			}
 			user, err := copied.GetActiveGatewayUser(ctx, f.user.ID)
 			if err != nil || user != f.user {
 				t.Fatalf("copied identity = %+v %v", user, err)
