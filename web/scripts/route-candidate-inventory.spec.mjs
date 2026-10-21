@@ -19,8 +19,7 @@ const candidates = Array.from({ length: 42 }, (_, index) => ({
   actualModel: `upstream-model-${index + 1}`,
   priority: index,
   weight: index === 0 ? 80 : 20,
-  eligibility:
-    index % 3 === 0 ? 'eligible' : index % 3 === 1 ? 'blocked' : 'notEvaluated',
+  eligibility: ['eligible', 'blocked', 'notEvaluated'][index % 3],
   blockers:
     index % 3 === 1
       ? [
@@ -246,7 +245,9 @@ test('current diagnostic failure clears earlier candidates; empty and no-route s
     page.getByText('New API · team-01@example.test', { exact: true })
   ).toBeVisible()
   state.mode = 'failure'
-  await page.reload()
+  await page
+    .getByRole('button', { name: 'Check call path', exact: true })
+    .click()
   await expect(
     page
       .getByRole('alert')
@@ -257,7 +258,9 @@ test('current diagnostic failure clears earlier candidates; empty and no-route s
   ).toHaveCount(0)
   await screenshot(page, 'en-light-1440-check-failure')
   state.mode = 'empty'
-  await page.reload()
+  await page
+    .getByRole('button', { name: 'Check call path', exact: true })
+    .click()
   await expect(
     page.getByText('No candidates were returned for this route.', {
       exact: true,
@@ -265,7 +268,9 @@ test('current diagnostic failure clears earlier candidates; empty and no-route s
   ).toBeVisible()
   await screenshot(page, 'en-light-1440-empty-candidates')
   state.mode = 'noRoute'
-  await page.reload()
+  await page
+    .getByRole('button', { name: 'Check call path', exact: true })
+    .click()
   await expect(
     page.getByText('Check the client model or configure a matching route.', {
       exact: true,
