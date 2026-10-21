@@ -109,29 +109,17 @@ AI 生态里基于 New API / One API 系列的聚合中转站越来越多，多�
 
 ## 快速开始（3 分钟）
 
-三种等价方式，任选其一。配置 `AUTH_TOKEN` 后启动并登录后台，在「API 密钥」创建下游访问令牌。旧版本的根密钥会在升级时自动迁入。
+推荐从 GHCR 拉取预构建 Docker 镜像，无需在部署机器上安装 Go、Bun 或编译源码。不使用 Docker 时，也可选择 Release 二进制或源码构建。配置 `AUTH_TOKEN` 后启动并登录后台，在「API 密钥」创建下游访问令牌。旧版本的根密钥会在升级时自动迁入。
 
-### 方式一：Release 二进制（推荐）
+### 方式一：GHCR Docker 镜像（推荐）
 
-发布页提供 Linux / macOS / Windows 预编译二进制，单文件即跑：
-
-```bash
-curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download/install.sh | bash
-
-export AUTH_TOKEN=$(openssl rand -hex 16)      # 管理后台登录令牌
-metapi
-```
-
-脚本自动校验 SHA-256 并安装到 `/usr/local/bin/metapi`（默认安装最新发布，`METAPI_VERSION` 可钉住版本，`METAPI_INSTALL_PREFIX` 可换安装目录）。Windows 直接从 [Releases](https://github.com/DeliciousBuding/metapi-go/releases/latest) 下载 `metapi-windows-amd64.exe`。
-
-### 方式二：Docker（预构建镜像 + 命名卷）
-
-稳定部署使用完整版本标签或 digest；下例使用 `0.26.0`。`edge` 跟随 master，`latest` 只随稳定发布更新。升级前在 [Releases](https://github.com/DeliciousBuding/metapi-go/releases) 查看版本说明。
+稳定部署使用完整版本标签或 digest；下例使用 `0.26.0`。镜像支持 `linux/amd64` 与 `linux/arm64`，Docker 自动选择匹配架构。`edge` 跟随 master，`latest` 只随稳定发布更新。升级前在 [Releases](https://github.com/DeliciousBuding/metapi-go/releases) 查看版本说明。
 
 ```bash
 export AUTH_TOKEN=$(openssl rand -hex 32)
 export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
 
+docker pull ghcr.io/deliciousbuding/metapi-go:0.26.0
 docker run -d --name metapi \
   -p 127.0.0.1:4000:4000 \
   -e AUTH_TOKEN \
@@ -149,10 +137,24 @@ docker run -d --name metapi \
 ```bash
 cp .env.example .env   # 替换管理令牌和独立加密密钥；METAPI_IMAGE 已钉在 0.26.0
 # .env 中其他运行配置也会传入容器，包括 PostgreSQL 和签到开关
+docker compose pull
 docker compose up -d
 ```
 
 需要从源码构建镜像时使用 `docker build -t metapi-go:dev .`；更多部署选项见 [部署指南](docs/deployment.md)。
+
+### 方式二：Release 二进制
+
+发布页提供 Linux / macOS / Windows 预编译二进制，单文件即跑：
+
+```bash
+curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download/install.sh | bash
+
+export AUTH_TOKEN=$(openssl rand -hex 16)      # 管理后台登录令牌
+metapi
+```
+
+脚本自动校验 SHA-256 并安装到 `/usr/local/bin/metapi`（默认安装最新发布，`METAPI_VERSION` 可钉住版本，`METAPI_INSTALL_PREFIX` 可换安装目录）。Windows 直接从 [Releases](https://github.com/DeliciousBuding/metapi-go/releases/latest) 下载 `metapi-windows-amd64.exe`。
 
 ### 方式三：源码构建
 
@@ -259,6 +261,7 @@ README 记录的最后一次全链路验收是 v0.19.0（安装器 → 真实中
 
 - [Metapi (TypeScript)](https://github.com/cita-777/metapi) — 原版 Node.js 实现，本项目为其 Go 重写
 - [New API](https://github.com/QuantumNous/new-api) — 感谢项目及贡献者提供 [RelayKit](https://github.com/QuantumNous/new-api/tree/main/relaykit) 协议转换库。本项目也参考了 New API 的渠道预设、前后端功能、管理界面和交互设计。
+- [Magpie](https://github.com/yetone/magpie) — 管理界面的视觉层级、图标使用与交互设计参考；也为供应商、模型与路由的呈现方式提供了借鉴。
 - [AxonHub](https://github.com/looplj/axonhub) — 渠道类型、平台适配与导入模型的重要参考。
 - [One API](https://github.com/songquanpeng/one-api) — 经典 OpenAI 接口聚合
 

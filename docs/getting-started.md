@@ -1,6 +1,6 @@
 # Getting Started
 
-**Last updated**: 2026-10-18
+**Last updated**: 2026-10-21
 
 A single guided path from zero to your first proxied request, in about five
 minutes. If you already know your way around, the [README quick start](../README.md)
@@ -16,16 +16,18 @@ an upstream platform. A direct API-key connection does not require a site
 account. Use the account path below when you also need balance,
 token-management or check-in features supported by that platform.
 
-Prefer a single binary over Docker? Install it with the published installer and
-run it with your admin token. The [README quick start](../README.md) covers
-all three install paths. Everything below is identical either way.
+The recommended path pulls the pre-built GHCR Docker image. It needs no Go or
+Bun on the deployment host. A release binary remains an option if you do not
+use Docker; the [README quick start](../README.md) covers all three paths.
+Everything below is identical either way.
 
 ## 1. Start the server
 
 Install and start Metapi with one of the paths in
 [deployment.md](deployment.md#quick-paths). The Compose path is the default for
 a long-lived install: copy `.env.example` to `.env`, replace the admin token and encryption key,
-pin `METAPI_IMAGE` to a release tag or digest, and run `docker compose up -d`.
+pin `METAPI_IMAGE` to a release tag or digest, then run `docker compose pull`
+and `docker compose up -d`.
 
 Verify before continuing:
 
