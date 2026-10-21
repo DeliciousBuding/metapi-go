@@ -54,6 +54,10 @@ type admissionOptions struct {
 // managedKeyView is an internal struct mirroring the downstream_api_keys row
 // with parsed JSON columns. Used only within the auth package for authorization.
 type managedKeyView struct {
+	KeyOwnerType        string
+	OwnerUserID         *int64
+	UserGroupID         *int64
+	UserRouteIDs        *[]int64
 	AccessPolicy        *store.DownstreamAccessPolicy
 	InvalidAccessPolicy bool
 	ID                  int64
@@ -129,6 +133,10 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 				Error:      "API key is disabled",
 				Reason:     "disabled",
 			}
+		}
+		if result := resolveManagedKeyUser(managed, store.GetDB().DB); !result.OK {
+			result.Key = managed
+			return result
 		}
 
 		// Check expiration
@@ -253,7 +261,7 @@ func loadManagedKeyFrom(db *sqlx.DB, column string, value any) (*managedKeyView,
 		        supported_models, allowed_route_ids,
 		        site_weight_multipliers, key_weight, excluded_site_ids,
 		        excluded_credential_refs, allowed_site_ids, allowed_credential_refs,
-		        ip_allowlist, ip_blocklist, access_policy
+		        ip_allowlist, ip_blocklist, access_policy, key_owner_type, owner_user_id
 		 FROM downstream_api_keys
 		 WHERE `+column+` = ?`), value,
 	)
@@ -272,7 +280,7 @@ func loadManagedKeyFrom(db *sqlx.DB, column string, value any) (*managedKeyView,
 		&supportedModelsJSON, &allowedRouteIDsJSON,
 		&siteWeightMultiJSON, &keyWeight, &excludedSiteIDsJSON,
 		&excludedCredRefsJSON, &allowedSiteIDsJSON, &allowedCredRefsJSON,
-		&v.IPAllowlist, &v.IPBlocklist, &accessPolicyJSON,
+		&v.IPAllowlist, &v.IPBlocklist, &accessPolicyJSON, &v.KeyOwnerType, &v.OwnerUserID,
 	)
 	if err != nil {
 		// sql.ErrNoRows → return nil, nil (not found)
@@ -478,6 +486,7 @@ func RecordManagedKeyCostUsage(keyID int64, estimatedCost float64) {
 // patterns/routes are configured).
 func toPolicyFromView(v *managedKeyView) DownstreamRoutingPolicy {
 	return DownstreamRoutingPolicy{
+		UserRouteIDs:           v.UserRouteIDs,
 		AccessPolicy:           v.AccessPolicy,
 		SupportedModels:        normalizeStringSlice(v.SupportedModels),
 		AllowedRouteIDs:        normalizeInt64Slice(v.AllowedRouteIDs),

@@ -2,6 +2,7 @@ package proxyhandler
 
 import (
 	"encoding/json"
+	"math"
 	"strings"
 	"unicode"
 
@@ -15,6 +16,7 @@ const (
 
 // ParsedUsage is a normalized token usage snapshot extracted from an upstream body/SSE.
 type ParsedUsage struct {
+	invalidForUserBudget  bool
 	videoAccounting       *directVideoAccounting
 	UpstreamReportedModel *string
 	FirstOutputLatencyMs  *int64
@@ -112,6 +114,7 @@ func ParseUsageFromSSEEvents(events []SseEvent) ParsedUsage {
 
 func mergeUsagePreferLater(prev, next ParsedUsage) ParsedUsage {
 	out := prev
+	out.invalidForUserBudget = prev.invalidForUserBudget || next.invalidForUserBudget
 	if next.UpstreamReportedModel != nil {
 		out.UpstreamReportedModel = next.UpstreamReportedModel
 	}
@@ -170,33 +173,43 @@ func extractUsageFromValue(v any) ParsedUsage {
 	}
 
 	// Direct usage object (OpenAI / Anthropic / Responses).
-	if usage, ok := obj["usage"].(map[string]any); ok {
-		applyUsageMap(&out, usage)
-	}
+	applyUsageContainer(&out, obj, "usage")
 	// Gemini-style usageMetadata.
-	if meta, ok := obj["usageMetadata"].(map[string]any); ok {
-		applyUsageMap(&out, meta)
-	}
+	applyUsageContainer(&out, obj, "usageMetadata")
 	// Nested response.usage (OpenAI Responses API stream events).
 	if resp, ok := obj["response"].(map[string]any); ok {
-		if usage, ok := resp["usage"].(map[string]any); ok {
-			applyUsageMap(&out, usage)
-		}
+		applyUsageContainer(&out, resp, "usage")
 	}
 	// Nested message.usage (Anthropic message_start).
 	if msg, ok := obj["message"].(map[string]any); ok {
-		if usage, ok := msg["usage"].(map[string]any); ok {
-			applyUsageMap(&out, usage)
-		}
+		applyUsageContainer(&out, msg, "usage")
 	}
 
 	finalizeParsedUsage(&out)
 	return out
 }
 
+func applyUsageContainer(out *ParsedUsage, obj map[string]any, field string) {
+	value, present := obj[field]
+	if !present || value == nil {
+		return
+	} // OpenAI intermediate chunks have usage:null.
+	usage, ok := value.(map[string]any)
+	if !ok {
+		out.invalidForUserBudget = true
+		return
+	}
+	applyUsageMap(out, usage)
+}
+
 func applyUsageMap(out *ParsedUsage, usage map[string]any) {
 	if out == nil || usage == nil {
 		return
+	}
+	// Preserve the legacy protocol/accounting parser behavior for system Keys,
+	// but separately mark malformed counters for fail-closed user settlement.
+	if !validUserBudgetUsageMap(usage) {
+		out.invalidForUserBudget = true
 	}
 
 	// OpenAI chat.completions style
@@ -308,6 +321,35 @@ func applyUsageMap(out *ParsedUsage, usage map[string]any) {
 			out.CompletionTokens += n
 		}
 	}
+}
+
+func validUserBudgetUsageMap(usage map[string]any) bool {
+	for key, value := range usage {
+		isCounter := strings.Contains(strings.ToLower(key), "token")
+		isDetails := strings.HasSuffix(key, "_tokens_details")
+		if nested, ok := value.(map[string]any); ok {
+			if isCounter && !isDetails {
+				return false
+			}
+			if !validUserBudgetUsageMap(nested) {
+				return false
+			}
+			continue
+		}
+		if isDetails {
+			return false
+		}
+		if isCounter {
+			n, ok := value.(float64)
+			// JSON token counters must be exact nonnegative safe integers. The
+			// upper bound also prevents overflow when exclusive cache counters
+			// are added by the compatibility parser.
+			if !ok || math.IsNaN(n) || math.IsInf(n, 0) || n < 0 || n > 1<<50 || math.Trunc(n) != n {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // applyOpenAIMediaDetailPrompt folds text/image/audio detail leaves into PromptTokens

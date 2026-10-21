@@ -156,6 +156,28 @@ routes are simply not registered and the router logs
 because every field they serve comes from the linker, the Go runtime, or a
 fail-closed handler.
 
+### Ordinary-user surface (`/api/user/*`)
+
+`handler/user.RegisterRoutes` is mounted outside the admin group and owns its
+same-origin and rate-limit guards. `auth.UserSessionAuth` accepts only the
+independent user cookie, reloads current state, and sets a typed user principal
+with no administrator authority. `store.UserAuthStore` owns bcrypt credential
+digests/versioned session references; `store.GatewayUserStore` owns scoped
+personal Keys and safe request/usage reads. Administrator activation remains in
+`handler/admin.RegisterUserActivationRoutes` behind confirmation and audit.
+The `/user` SPA page uses an independent session query and does not bootstrap
+the administrator session or invoke its authentication-error redirect.
+
+`handler/proxy/user_budget.go` attaches ordinary-user admission/settlement to the
+existing ingress lifecycle through a narrow response-writer capability. HTTP
+requests and WS turns share the server request owner; internal bridge calls do
+not create a second hold. `store.GatewayUserStore` owns the durable integer
+token-credit ledger and snapshot rates, independent of upstream-cost accounting
+and asynchronous logs. Missing usage retains a hold, while administrator-only
+reconciliation is exposed by `admin.RegisterUserBudgetRoutes`. The personal
+budget registrar is inside user session auth. Supported protocol and estimation
+limits are specified in [user authentication/quota](api/auth.md#user-wide-token-quota).
+
 ### Data plane (`/v1/*`)
 
 `r.Route("/v1", ...)` owns the proxy surface, in this order:

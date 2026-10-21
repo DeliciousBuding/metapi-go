@@ -27,6 +27,9 @@ func (tr *TokenRouter) ExplainSelection(ctx context.Context, requestedModel stri
 // ExplainSelectionForRoute returns a decision explanation for a specific route.
 func (tr *TokenRouter) ExplainSelectionForRoute(ctx context.Context, routeID int64, requestedModel string, excludeChannelIDs []int64, policy DownstreamRoutingPolicy) (decision RouteDecisionExplanation, err error) {
 	defer func() { setExplanationContext(&decision, policy) }()
+	if policy.UserRouteIDs != nil && !IsModelAllowedByDownstreamPolicy(requestedModel, policy) {
+		return RouteDecisionExplanation{RequestedModel: requestedModel, Matched: false}, nil
+	}
 	if err := EnsureSiteRuntimeHealthStateLoaded(); err != nil {
 		return RouteDecisionExplanation{}, err
 	}
@@ -108,6 +111,9 @@ func setExplanationContext(decision *RouteDecisionExplanation, policy Downstream
 }
 
 func (tr *TokenRouter) findRouteByID(ctx context.Context, routeID int64, policy DownstreamRoutingPolicy) (*RouteMatch, error) {
+	if !userRouteAllowed(routeID, policy) {
+		return nil, nil
+	}
 	if len(policy.AllowedRouteIDs) > 0 {
 		found := false
 		for _, id := range policy.AllowedRouteIDs {

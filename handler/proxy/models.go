@@ -153,7 +153,7 @@ func getAvailableModels(ctx context.Context, policy auth.DownstreamRoutingPolicy
 		ctx = context.Background()
 	}
 	models := resolveOwnedModelCatalog(ctx)
-	if policy.AccessPolicy != nil || len(policy.AllowedRouteIDs) > 0 {
+	if policy.UserRouteIDs != nil || policy.AccessPolicy != nil || len(policy.AllowedRouteIDs) > 0 {
 		if cfg := getUpstreamConfig(); cfg != nil {
 			if explainer, ok := cfg.Router.(routeSelectionExplainer); ok {
 				// Per-model ExplainSelection is O(models×routes); reuse the

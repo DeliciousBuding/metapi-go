@@ -2,6 +2,8 @@ package proxy
 
 // ProxyLogEntry is a single proxy log row.
 type ProxyLogEntry struct {
+	OwnerUserID           *int64
+	UserGroupID           *int64
 	GatewayRequestID      string
 	DownstreamPath        *string
 	UpstreamReportedModel *string

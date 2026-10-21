@@ -86,6 +86,11 @@ var schemaTables = []schemaTable{
 	{"gateway_user_groups", buildGatewayUserGroupsDDL},
 	{"gateway_users", buildGatewayUsersDDL},
 	{"gateway_user_group_route_grants", buildGatewayUserGroupRouteGrantsDDL},
+	{"gateway_user_credentials", buildUserCredentialsDDL},
+	{"gateway_user_sessions", buildUserSessionsDDL},
+	{"gateway_user_budgets", buildGatewayUserBudgetsDDL},
+	{"gateway_user_group_pricing", buildGatewayUserGroupPricingDDL},
+	{"gateway_user_budget_ledger", buildGatewayUserBudgetLedgerDDL},
 }
 
 // migrationExcludedTables names schema tables deliberately NOT copied across
@@ -115,6 +120,11 @@ var factoryResetExcludedTables = map[string]string{
 // (metadata.excluded_tables) so a backup file states its own gaps; keep each
 // one to a single sentence and put the long form in docs/api/settings.md.
 var backupExcludedTables = map[string]string{
+	"gateway_user_credentials":        "local user password and activation digests: portable imports must not plant login credentials",
+	"gateway_user_sessions":           "local user session digests: restored deployments require fresh user login",
+	"gateway_user_budgets":            "local user credit balances: portable imports must not overwrite trusted balances or detach them from local identities",
+	"gateway_user_group_pricing":      "local group credit pricing: portable imports must not replace trusted local user charging policy",
+	"gateway_user_budget_ledger":      "local user settlement history: portable imports must not plant charges or release durable holds for local identities",
 	"gateway_user_groups":             "local access groups: portable imports must not replace trusted authorization groups before identity-aware restore is implemented",
 	"gateway_users":                   "local identities and group assignments: portable imports must not plant gateway users or change their access groups",
 	"gateway_user_group_route_grants": "local group authorization: portable imports must not plant route permissions for existing users",

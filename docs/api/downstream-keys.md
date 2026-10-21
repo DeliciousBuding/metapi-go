@@ -63,6 +63,23 @@ Routing-policy fields (`excludedSiteIds`, `excludedCredentialRefs`, `allowedSite
 
 ### 模型与路由授权
 
+创建时可传正整数 `ownerUserId`，绑定一个当前启用的用户及其启用分组；不传或
+`null` 创建原有系统 Key。响应包含 `keyOwnerType`（`system` / `user`）与
+`ownerUserId`。归属创建后不可修改，更新提交这两个字段返回 `400`；需要不同归属
+时应撤销旧 Key 并新建。`groupName` 仍是原有显示标签，不是用户分组或授权依据。
+
+用户 Key 的每次 HTTP 请求和 Responses WebSocket turn 都读取用户当前组：
+用户/组停用或用户不存在时拒绝；数据库不可用返回 `503`。组路由授权是硬上限，
+空组拒绝所有模型；Key 的 `supportedModels`（非空时）与 `allowedRouteIds`（非空时）
+再分别收窄，不采用下面系统 Key 的并集语义。两者都为空时，用户 Key 继承组授权。
+组合路由检查公开外层入口，内部来源不要求单独授权，也不因此获得独立入口权限。
+文件/视频仍按每张 Key 隔离，用户 Key 另用显式归属命名空间；可移植备份不导出这些
+用户资源，导入也拒绝它们，整库迁移保留。用户不能通过恢复时的系统 Key ID 碰撞接管资源。
+请求和尝试分别保存 `ownerUserId`、`userGroupId`，后续改名、调组、停用或删 Key
+不重写历史归属；旧记录不猜测归属，仍只供管理员查看。
+
+以下并集与空策略约定只适用于原有系统 Key：
+
 `supportedModels` 支持精确名称、`*` / `?` 通配符和 `re:` 正则表达式。
 模型范围与 `allowedRouteIds` 为并集：命中模型范围，或命中指定路由，均可继续选路。
 `accessPolicy`、站点和凭据限制仍需同时满足；受管 Key 的模型范围和路由列表都为空时拒绝请求。

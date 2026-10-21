@@ -10,6 +10,8 @@ import (
 // GatewayRequest records one gateway-observed HTTP request or WebSocket turn.
 // ExternalRequestID is untrusted client correlation, never its identity.
 type GatewayRequest struct {
+	OwnerUserID          *int64  `db:"owner_user_id" json:"ownerUserId"`
+	UserGroupID          *int64  `db:"user_group_id" json:"userGroupId"`
 	ID                   string  `db:"id" json:"id"`
 	ExternalRequestID    *string `db:"external_request_id" json:"externalRequestId"`
 	DownstreamPath       *string `db:"downstream_path" json:"downstreamPath"`
@@ -35,6 +37,8 @@ func buildGatewayRequestsDDL(d string) string {
 	}
 	return `CREATE TABLE IF NOT EXISTS gateway_requests (
 		id TEXT PRIMARY KEY NOT NULL,
+		owner_user_id BIGINT,
+		user_group_id BIGINT,
 		external_request_id TEXT,
 		downstream_path TEXT,
 		transport TEXT NOT NULL CHECK (transport IN ('http','websocket')),
@@ -72,13 +76,13 @@ func InsertGatewayRequests(ctx context.Context, db *DB, entries []GatewayRequest
 		if err != nil {
 			return err
 		}
-		values = append(values, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+		values = append(values, "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 		args = append(args, row...)
 	}
 	_, err := db.ExecContext(ctx, db.Rebind(`INSERT INTO gateway_requests
 		(id,external_request_id,downstream_path,transport,model_requested,downstream_api_key_id,
 		terminal_status,attempt_count,reason_code,http_status,output_started,first_byte_latency_ms,first_output_latency_ms,
-		latency_ms,started_at,ended_at) VALUES `+strings.Join(values, ",")+` ON CONFLICT (id) DO NOTHING`), args...)
+		latency_ms,started_at,ended_at,owner_user_id,user_group_id) VALUES `+strings.Join(values, ",")+` ON CONFLICT (id) DO NOTHING`), args...)
 	return err
 }
 
@@ -101,7 +105,7 @@ func gatewayRequestArgs(entry GatewayRequest) ([]any, error) {
 	entry.EndedAt = ended.UTC().Format(GatewayRequestTimeLayout)
 	return []any{entry.ID, entry.ExternalRequestID, entry.DownstreamPath, entry.Transport, entry.ModelRequested,
 		entry.DownstreamAPIKeyID, entry.TerminalStatus, entry.AttemptCount, entry.ReasonCode, entry.HTTPStatus, entry.OutputStarted,
-		entry.FirstByteLatencyMs, entry.FirstOutputLatencyMs, entry.LatencyMs, entry.StartedAt, entry.EndedAt}, nil
+		entry.FirstByteLatencyMs, entry.FirstOutputLatencyMs, entry.LatencyMs, entry.StartedAt, entry.EndedAt, entry.OwnerUserID, entry.UserGroupID}, nil
 }
 
 // GatewayRequestTimeLayout keeps TEXT timestamps chronologically sortable at

@@ -103,7 +103,10 @@ function RootComponent() {
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
+    // The personal portal authenticates independently and must work even when
+    // the administrator surface is IP-restricted or has no active session.
+    if (/^\/user(?:\/|$)/.test(location.pathname)) return
     if (authBootstrapped) return
     try {
       const outcome = await bootstrapAuthentication()

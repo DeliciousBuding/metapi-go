@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as UserRouteImport } from './routes/user'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedSplatRouteImport } from './routes/_authenticated/$'
 import { Route as AuthenticatedAboutRouteImport } from './routes/_authenticated/about'
@@ -30,6 +31,7 @@ import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authen
 import { Route as AuthenticatedSiteAnnouncementsRouteImport } from './routes/_authenticated/site-announcements'
 import { Route as AuthenticatedSitesRouteImport } from './routes/_authenticated/sites'
 import { Route as AuthenticatedTokenRoutesRouteImport } from './routes/_authenticated/token-routes'
+import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_authenticated/dashboard/$section'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
@@ -44,6 +46,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UserRoute = UserRouteImport.update({
+  id: '/user',
+  path: '/user',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
@@ -150,6 +157,11 @@ const AuthenticatedTokenRoutesRoute =
     path: '/token-routes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardIndexRoute =
   AuthenticatedDashboardIndexRouteImport.update({
     id: '/',
@@ -190,6 +202,7 @@ const AuthenticatedSettingsSubareaSectionRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/sign-in': typeof SignInRoute
+  '/user': typeof UserRoute
   '/dashboard': typeof AuthenticatedDashboardRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/$': typeof AuthenticatedSplatRoute
@@ -208,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/sites': typeof AuthenticatedSitesRoute
   '/token-routes': typeof AuthenticatedTokenRoutesRoute
+  '/users': typeof AuthenticatedUsersRoute
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/settings/$subarea': typeof AuthenticatedSettingsSubareaRouteWithChildren
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -217,6 +231,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
+  '/user': typeof UserRoute
   '/$': typeof AuthenticatedSplatRoute
   '/about': typeof AuthenticatedAboutRoute
   '/accounts': typeof AuthenticatedAccountsRoute
@@ -233,6 +248,7 @@ export interface FileRoutesByTo {
   '/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/sites': typeof AuthenticatedSitesRoute
   '/token-routes': typeof AuthenticatedTokenRoutesRoute
+  '/users': typeof AuthenticatedUsersRoute
   '/': typeof AuthenticatedIndexRoute
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
@@ -244,6 +260,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
+  '/user': typeof UserRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/_authenticated/$': typeof AuthenticatedSplatRoute
@@ -262,6 +279,7 @@ export interface FileRoutesById {
   '/_authenticated/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/_authenticated/sites': typeof AuthenticatedSitesRoute
   '/_authenticated/token-routes': typeof AuthenticatedTokenRoutesRoute
+  '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/_authenticated/settings/$subarea': typeof AuthenticatedSettingsSubareaRouteWithChildren
@@ -275,6 +293,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/sign-in'
+    | '/user'
     | '/dashboard'
     | '/settings'
     | '/$'
@@ -293,6 +312,7 @@ export interface FileRouteTypes {
     | '/site-announcements'
     | '/sites'
     | '/token-routes'
+    | '/users'
     | '/dashboard/$section'
     | '/settings/$subarea'
     | '/dashboard/'
@@ -302,6 +322,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/sign-in'
+    | '/user'
     | '/$'
     | '/about'
     | '/accounts'
@@ -318,6 +339,7 @@ export interface FileRouteTypes {
     | '/site-announcements'
     | '/sites'
     | '/token-routes'
+    | '/users'
     | '/'
     | '/dashboard/$section'
     | '/dashboard'
@@ -328,6 +350,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authenticated'
     | '/sign-in'
+    | '/user'
     | '/_authenticated/dashboard'
     | '/_authenticated/settings'
     | '/_authenticated/$'
@@ -346,6 +369,7 @@ export interface FileRouteTypes {
     | '/_authenticated/site-announcements'
     | '/_authenticated/sites'
     | '/_authenticated/token-routes'
+    | '/_authenticated/users'
     | '/_authenticated/'
     | '/_authenticated/dashboard/$section'
     | '/_authenticated/settings/$subarea'
@@ -358,6 +382,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   SignInRoute: typeof SignInRoute
+  UserRoute: typeof UserRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -374,6 +399,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/user': {
+      id: '/user'
+      path: '/user'
+      fullPath: '/user'
+      preLoaderRoute: typeof UserRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/': {
@@ -509,6 +541,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTokenRoutesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/users': {
+      id: '/_authenticated/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AuthenticatedUsersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard/': {
       id: '/_authenticated/dashboard/'
       path: '/'
@@ -624,6 +663,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSiteAnnouncementsRoute: typeof AuthenticatedSiteAnnouncementsRoute
   AuthenticatedSitesRoute: typeof AuthenticatedSitesRoute
   AuthenticatedTokenRoutesRoute: typeof AuthenticatedTokenRoutesRoute
+  AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
@@ -647,6 +687,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSiteAnnouncementsRoute: AuthenticatedSiteAnnouncementsRoute,
   AuthenticatedSitesRoute: AuthenticatedSitesRoute,
   AuthenticatedTokenRoutesRoute: AuthenticatedTokenRoutesRoute,
+  AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
@@ -656,6 +697,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   SignInRoute: SignInRoute,
+  UserRoute: UserRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
