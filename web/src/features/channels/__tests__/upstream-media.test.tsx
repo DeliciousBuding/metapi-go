@@ -222,7 +222,11 @@ describe('explicit upstream media capabilities', () => {
         screen.getByRole('button', { name: 'Audio 1 / 3 configured' })
       )
       expect(screen.queryByLabelText('Endpoint URL')).not.toBeInTheDocument()
-      fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+      // A visible error can belong to the previous attempt. Finish RHF's
+      // async submission before collapsing again or submitting the next draft.
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+      })
       await waitFor(() =>
         expect(screen.getByLabelText('Endpoint URL')).toBeVisible()
       )
@@ -234,12 +238,17 @@ describe('explicit upstream media capabilities', () => {
         screen.getByRole('button', { name: 'Audio 1 / 3 configured' })
       ).toHaveAttribute('aria-expanded', 'true')
       expect(state.update).not.toHaveBeenCalled()
+      expect(
+        screen.getByRole('button', { name: 'Save connection' })
+      ).toBeEnabled()
     }
     fireEvent.change(screen.getByLabelText('Endpoint URL'), {
       target: { value: 'https://audio.example/speech' },
     })
     expect(screen.getByLabelText('Endpoint URL')).toBeVisible()
-    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    })
     await waitFor(() =>
       expect(state.update).toHaveBeenCalledWith(4, {
         endpointConfig: {
