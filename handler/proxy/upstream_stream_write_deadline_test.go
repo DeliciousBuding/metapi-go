@@ -65,7 +65,9 @@ func (b *endlessSSEBody) Close() error {
 	return nil
 }
 
-const endlessSSEPattern = `data: {"choices":[{"index":0,"delta":{"content":"x"}}]}` + "\n\n"
+// Fill transport buffers with a few ordinary frames, not tens of thousands
+// of one-character events whose parsing dominates a race-enabled ARM run.
+var endlessSSEPattern = `data: {"choices":[{"index":0,"delta":{"content":"` + strings.Repeat("x", 4096) + `"}}]}` + "\n\n"
 
 // runStreamRelayHandler wraps the production relay in a real HTTP handler,
 // arms the same whole-request deadline router.ProxyWriteDeadline installs, and
@@ -123,6 +125,9 @@ func TestStreamDownstreamSlowClientReleasesHTTP1(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	defer conn.Close()
+	if err := conn.(*net.TCPConn).SetReadBuffer(1024); err != nil {
+		t.Fatalf("bound stalled client receive buffer: %v", err)
+	}
 
 	if _, err := io.WriteString(conn, "GET /v1/chat/completions HTTP/1.1\r\nHost: metapi\r\n\r\n"); err != nil {
 		t.Fatalf("write request: %v", err)
@@ -459,6 +464,9 @@ func TestStreamWriteTimeoutReleasesSiteConcurrencySlot(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	defer conn.Close()
+	if err := conn.(*net.TCPConn).SetReadBuffer(1024); err != nil {
+		t.Fatalf("bound stalled client receive buffer: %v", err)
+	}
 	request := "POST /v1/chat/completions HTTP/1.1\r\nHost: metapi\r\nContent-Type: application/json\r\nContent-Length: " +
 		fmt.Sprint(len(requestBody)) + "\r\n\r\n" + requestBody
 	if _, err := io.WriteString(conn, request); err != nil {
