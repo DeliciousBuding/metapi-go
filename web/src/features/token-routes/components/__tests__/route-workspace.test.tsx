@@ -1,6 +1,12 @@
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
@@ -174,5 +180,49 @@ describe('RouteWorkspace', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Edit key/i }))
 
     expect(onOpenKeyEdit).toHaveBeenCalledWith(7, 'accessPolicy')
+  })
+
+  it('rechecks unchanged administrator input, hides a failed cached result and permits retry', async () => {
+    getDecision
+      .mockResolvedValueOnce({ success: true, decision: route } as never)
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ success: true, decision: route } as never)
+    renderWorkspace()
+    await screen.findByText('Primary account')
+    const check = screen.getByRole('button', { name: 'Check call path' })
+    fireEvent.click(check)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Call-path check failed'
+    )
+    expect(getDecision).toHaveBeenCalledTimes(2)
+    expect(screen.queryByText('Primary account')).not.toBeInTheDocument()
+    fireEvent.click(check)
+    expect(await screen.findByText('Primary account')).toBeInTheDocument()
+    expect(getDecision).toHaveBeenCalledTimes(3)
+  })
+
+  it('rechecks only the selected key context and removes failed admission as well as candidates', async () => {
+    getKeyDecision
+      .mockResolvedValueOnce(keyContextResult as never)
+      .mockRejectedValueOnce(new Error('offline'))
+    renderWorkspace({ keyId: '7' })
+    await screen.findByText('Currently blocked')
+    fireEvent.click(screen.getByRole('button', { name: 'Check call path' }))
+    await screen.findByRole('alert')
+    expect(screen.queryByText('Currently blocked')).not.toBeInTheDocument()
+    expect(screen.queryByText('Primary account')).not.toBeInTheDocument()
+    expect(getKeyDecision).toHaveBeenCalledTimes(2)
+    expect(getDecision).not.toHaveBeenCalled()
+  })
+
+  it('disables empty submissions without starting either disabled query', async () => {
+    renderWorkspace({ model: '' })
+    fireEvent.click(screen.getByRole('button', { name: 'Route workspace' }))
+    expect(
+      screen.getByRole('button', { name: 'Check call path' })
+    ).toBeDisabled()
+    await waitFor(() => expect(getKeys).toHaveBeenCalledOnce())
+    expect(getDecision).not.toHaveBeenCalled()
+    expect(getKeyDecision).not.toHaveBeenCalled()
   })
 })

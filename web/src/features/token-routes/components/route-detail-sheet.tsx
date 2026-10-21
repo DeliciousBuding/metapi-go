@@ -42,6 +42,7 @@ interface RouteDetailSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onEdit?: (route: RouteSummaryRow) => void
+  onEditRoute?: (id: number) => void
 }
 
 export function RouteDetailSheet({
@@ -49,6 +50,7 @@ export function RouteDetailSheet({
   open,
   onOpenChange,
   onEdit,
+  onEditRoute,
 }: RouteDetailSheetProps) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
@@ -208,6 +210,7 @@ export function RouteDetailSheet({
             key={route.id}
             route={route}
             snapshot={decision}
+            onEditRoute={onEditRoute}
           />
         </div>
 

@@ -45,6 +45,7 @@ type RouteWorkspaceProps = {
   onOpenRoute: (routeId: number) => void
   onOpenKeyLogs: (keyId: number) => void
   onOpenKeyEdit: (keyId: number, locateField: string | null) => void
+  onEditRoute?: (id: number) => void
 }
 
 export function RouteWorkspace({
@@ -53,6 +54,7 @@ export function RouteWorkspace({
   onOpenRoute,
   onOpenKeyLogs,
   onOpenKeyEdit,
+  onEditRoute,
 }: RouteWorkspaceProps) {
   const { t } = useTranslation()
   const [model, setModel] = useState(filters.workspaceModel || '')
@@ -149,11 +151,15 @@ export function RouteWorkspace({
   })
 
   const activeQuery = selectedKeyId === null ? adminQuery : keyContextQuery
-  const decision =
+  const loadedDecision =
     selectedKeyId === null ? adminQuery.data : keyContextQuery.data?.decision
-  const keyContext = selectedKeyId === null ? undefined : keyContextQuery.data
   const isFetching = activeQuery.isFetching
   const isError = activeQuery.isError
+  // A failed explicit recheck must not leave a cached verdict beneath the
+  // current input. Saved configuration snapshots remain in the detail sheet.
+  const decision = isError ? undefined : loadedDecision
+  const keyContext =
+    isError || selectedKeyId === null ? undefined : keyContextQuery.data
   const keyEditAnchor = keyContext?.keyContext.admission.blockers.find(
     (blocker) => admissionAnchorField(blocker.dimension, blocker.code) !== null
   )
@@ -173,11 +179,26 @@ export function RouteWorkspace({
   }, [keysQuery.data?.items, t])
 
   const submit = () => {
+    const nextModel = model.trim()
+    if (!nextModel || isFetching) return
+    const nextKeyId = keyId === 'none' ? null : Number(keyId)
+    const nextClientIp = clientIp.trim()
+    if (
+      nextModel === submittedModel &&
+      endpoint === submittedEndpoint &&
+      nextKeyId === selectedKeyId &&
+      (nextKeyId === null || nextClientIp === submittedClientIp)
+    ) {
+      // URL-owned input did not change, so navigation is a no-op. A fresh
+      // explicit check still needs to run the active query exactly once.
+      void activeQuery.refetch()
+      return
+    }
     onFiltersChange({
-      workspaceModel: model.trim(),
+      workspaceModel: nextModel,
       workspaceEndpoint: endpoint,
       workspaceKeyId: keyId,
-      workspaceClientIp: clientIp.trim(),
+      workspaceClientIp: nextClientIp,
     })
   }
 
@@ -281,7 +302,12 @@ export function RouteWorkspace({
             {isFetching ? (
               <Spinner className='size-3.5' aria-hidden='true' />
             ) : null}
-            <Button size='sm' variant='outline' onClick={submit}>
+            <Button
+              size='sm'
+              variant='outline'
+              onClick={submit}
+              disabled={!model.trim() || isFetching}
+            >
               <Search className='size-4' />
               {t('tokenRoutes.workspace.check')}
             </Button>
@@ -340,7 +366,10 @@ export function RouteWorkspace({
                 ) : null}
               </div>
             </div>
-            <RouteDecisionResult decision={decision} />
+            <RouteDecisionResult
+              decision={decision}
+              onEditRoute={onEditRoute}
+            />
           </div>
         ) : null}
       </CollapsibleContent>

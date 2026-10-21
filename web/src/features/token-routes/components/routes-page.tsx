@@ -481,6 +481,16 @@ export function RoutesPage() {
     [navigate]
   )
 
+  const editDiagnosticRoute = useCallback(
+    (routeId: number) => {
+      const target = routes.find((route) => route.id === routeId)
+      if (!target || target.kind === 'zero_channel' || target.readOnly) return
+      setDetailOpen(false)
+      openEdit(target)
+    },
+    [routes, openEdit]
+  )
+
   const openWorkspaceKeyEdit = useCallback(
     (keyId: number, locateField: string | null) => {
       const params = new URLSearchParams({ edit: String(keyId) })
@@ -565,6 +575,7 @@ export function RoutesPage() {
         onOpenRoute={openWorkspaceRoute}
         onOpenKeyLogs={openWorkspaceKeyLogs}
         onOpenKeyEdit={openWorkspaceKeyEdit}
+        onEditRoute={editDiagnosticRoute}
       />
 
       {(accountId || siteId) && (
@@ -725,6 +736,7 @@ export function RoutesPage() {
         route={detailRoute}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+        onEditRoute={editDiagnosticRoute}
         onEdit={(route) => {
           setDetailOpen(false)
           openEdit(route)
