@@ -12,7 +12,9 @@ fi
 # gofmt on PATH can belong to a different Go installation. Use the formatter
 # shipped with the selected compiler instead.
 go_root=$(go env GOROOT)
-if [ -z "$go_root" ] || [ ! -x "$go_root/bin/gofmt" ]; then
+go_exe=$(go env GOEXE)
+formatter="$go_root/bin/gofmt$go_exe"
+if [ -z "$go_root" ] || [ ! -x "$formatter" ]; then
 	echo "preflight: cannot locate gofmt in the selected GOROOT" >&2
 	exit 1
 fi
@@ -24,12 +26,15 @@ trap 'rm -f "$file_list"' EXIT
 # Do not hide a git failure behind process substitution. NUL delimiters keep
 # filenames with spaces intact; deleted tracked files fail closed in gofmt.
 git ls-files -z -- '*.go' >"$file_list"
-mapfile -d '' -t go_files <"$file_list"
+go_files=()
+while IFS= read -r -d '' file; do
+	go_files+=("$file")
+done <"$file_list"
 if [ "${#go_files[@]}" -eq 0 ]; then
 	echo "preflight: no tracked Go files; refusing an empty format scan" >&2
 	exit 1
 fi
-format_drift=$("$go_root/bin/gofmt" -l "${go_files[@]}")
+format_drift=$("$formatter" -l "${go_files[@]}")
 if [ -n "$format_drift" ]; then
 	echo "preflight: gofmt drift in these files:" >&2
 	printf '%s\n' "$format_drift" >&2

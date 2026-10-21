@@ -83,6 +83,9 @@ go() {
     printf '%s\n' "${LANE_STUB_GOROOT:?}"
     return
   fi
+  if [ "${1:-} ${2:-}" = "env GOEXE" ]; then
+    return 0
+  fi
   local verb="${1:-}"
   shift || true
   record "go-start $verb $*"
