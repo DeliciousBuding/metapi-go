@@ -9,6 +9,11 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 
 ### GET
 
+- `/api/admin/users`
+- `/api/admin/users/:userId`
+- `/api/admin/user-groups`
+- `/api/admin/user-groups/:groupId`
+- `/api/admin/user-groups/:groupId/routes`
 - `/api/imported-upstreams/presets`
 
 - `/api/imported-upstreams/:id/models`
@@ -110,6 +115,9 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/update-center/status`
 ### POST
 
+- `/api/admin/users`
+- `/api/admin/user-groups`
+- `/api/admin/user-groups/:groupId/routes`
 - `/api/models/price-compare/accounts/:accountId/refresh`
 
 - `/api/imported-upstreams/connect`
@@ -202,6 +210,9 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/sites/import`
 - `/api/test/chat`
 ### PUT
+
+- `/api/admin/users/:userId`
+- `/api/admin/user-groups/:groupId`
 - `/api/account-tokens/:id`
 - `/api/accounts/:id`
 - `/api/accounts/:id/tags`
@@ -236,6 +247,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 
 ### DELETE
 
+- `/api/admin/user-groups/:groupId/routes/:routeId`
 - `/api/imported-upstreams/:id`
 - `/api/imported-upstreams/models/:id`
 - `/api/imported-upstreams/credentials/:id`

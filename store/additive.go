@@ -634,6 +634,11 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		Description: "merge legacy single-notice records and preserve announcement revisions",
 		Apply:       migrateSiteAnnouncementTimeline,
 	},
+	{
+		Version:     "gateway_users_v1",
+		Description: "gateway users with one current group and group route authorization; no seeded groups, users or issued Keys",
+		Apply:       migrateGatewayUsers,
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

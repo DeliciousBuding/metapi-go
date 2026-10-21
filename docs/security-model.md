@@ -23,6 +23,14 @@ There is no multi-tenant admin model: a live admin session can read, change
 and export every credential the deployment stores. Treat admin access as
 equivalent to full control of the gateway.
 
+The system-user administration API manages ordinary users, their single current
+group and direct group-to-route grants. It is administrator-only and every write
+requires master-token re-confirmation. The typed ordinary-user principal does
+not carry administrator authority; active lookups reload user and group state.
+This is an authorization foundation, not enabled user login, user-owned proxy
+Keys or private log access. Portable backups exclude these local identity and
+authorization tables; administrator-controlled database migration preserves them.
+
 ## Admin authentication and authorization
 
 Two tracks authenticate the same admin surface:

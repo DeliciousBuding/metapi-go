@@ -140,6 +140,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			// and forward rewriting see canonical→actual mappings from boot.
 			service.ReloadRedirectRegistry(context.Background(), db.DB)
 			admin.RegisterSitesRoutes(r, db.DB)
+			admin.RegisterGatewayUserRoutes(r, db)
 			admin.RegisterAccountsRoutes(r, db.DB, cfg)
 			admin.RegisterAccountTokensRoutes(r, db.DB)
 
