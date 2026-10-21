@@ -34,6 +34,7 @@ type CheckInput = { model: string; endpoint: string }
 export function RouteDecisionPanel(props: {
   route: RouteSummaryRow
   snapshot: RouteDecision | null
+  onEditRoute?: (id: number) => void
 }) {
   const { t } = useTranslation()
   const [submitted, setSubmitted] = useState<CheckInput | null>(null)
@@ -160,7 +161,10 @@ export function RouteDecisionPanel(props: {
                   })}
                 </p>
               )}
-            <RouteDecisionResult decision={query.data} />
+            <RouteDecisionResult
+              decision={query.data}
+              onEditRoute={props.onEditRoute}
+            />
           </div>
         )}
       </section>

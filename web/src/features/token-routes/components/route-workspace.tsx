@@ -45,6 +45,7 @@ type RouteWorkspaceProps = {
   onOpenRoute: (routeId: number) => void
   onOpenKeyLogs: (keyId: number) => void
   onOpenKeyEdit: (keyId: number, locateField: string | null) => void
+  onEditRoute?: (id: number) => void
 }
 
 export function RouteWorkspace({
@@ -53,6 +54,7 @@ export function RouteWorkspace({
   onOpenRoute,
   onOpenKeyLogs,
   onOpenKeyEdit,
+  onEditRoute,
 }: RouteWorkspaceProps) {
   const { t } = useTranslation()
   const [model, setModel] = useState(filters.workspaceModel || '')
@@ -340,7 +342,10 @@ export function RouteWorkspace({
                 ) : null}
               </div>
             </div>
-            <RouteDecisionResult decision={decision} />
+            <RouteDecisionResult
+              decision={decision}
+              onEditRoute={onEditRoute}
+            />
           </div>
         ) : null}
       </CollapsibleContent>

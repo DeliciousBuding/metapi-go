@@ -326,6 +326,13 @@ OAuth 路由诊断在候选下折叠展示成员，使用分隔线区分成员�
 成员筛选状态与父路由状态分别标注；冷却时间旁提供单成员恢复，成功后刷新诊断。
 诊断保留未评估状态，选中成员和实际转发模型由请求时的选路决定。
 
+路由诊断候选沿用服务端顺序；优先级与权重明确标为配置，不冒充实时评分或
+选中结果。候选清单提供筛选通过、受阻与未评估计数，按身份、模型与阻断原因
+检索完整候选集，再按二十项逐批显示。检索和筛选属于当前结果内的临时阅读态，
+不写入主列表 URL；当前检查与保存快照互不共用阅读状态。协议未评估时不把
+候选标为通过。账号候选的通道禁用或来源模型不匹配提供实际命中路由的编辑入口；
+直接上游授权问题不指向账号路由编辑。无命中路由、无候选与筛选无匹配分别呈现。
+
 账号详情中的可用 API Key 提供路由配置动作，仅把账号、站点和 Key ID 传入 URL。新建路由以该 Key 初始化手工通道，行内显示 Key ID；取消后重选仍保留该 Key。编辑已有路由不自动增加绑定，切换到组合路由时只提交来源路由。Key 列表加载失败显示重试入口，旧缓存不提供新的绑定动作。
 
 Channels keep account-derived channels as the default view. Imported upstreams have a separate list and a detail sheet with connection, credential and route tabs; an installation containing only imported upstreams opens that list directly. Provider identity uses a logo capsule, model identity uses `ModelPill`, and protocol names describe the connection rather than masquerading as providers. Tabs retain drafts and the sheet uses the shared dirty-close guard. Request settings load only after an explicit edit action and never enter Query caches; credential replacement clears inputs only after success. Eligibility, disabled dependencies and temporary cooldown are distinct states.
