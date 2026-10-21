@@ -163,6 +163,13 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      # Cache downloads only, never node_modules; every job still performs the
+      # same frozen-lockfile install through the shared retry policy.
+      - name: Cache Bun downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-downloads-${{ runner.os }}-${{ runner.arch }}-${{ env.BUN_VERSION }}-${{ hashFiles('web/bun.lock') }}
       # Never call `bun install` directly: scripts/bun-install.sh carries the
       # transient-fault retry policy, and scripts/bun_install_wiring_test.go
       # fails if a bare call reappears.
@@ -179,6 +186,11 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      - name: Cache Bun downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-downloads-${{ runner.os }}-${{ runner.arch }}-${{ env.BUN_VERSION }}-${{ hashFiles('web/bun.lock') }}
       - run: sh ../scripts/bun-install.sh
         working-directory: web
       - run: bun run build:web
@@ -206,6 +218,11 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      - name: Cache Bun downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-downloads-${{ runner.os }}-${{ runner.arch }}-${{ env.BUN_VERSION }}-${{ hashFiles('web/bun.lock') }}
       - name: Download frontend dist
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -252,10 +269,10 @@ jobs:
           BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 bunx playwright test --config playwright.visual.config.mjs catalog-sources-responsive.spec.mjs model-playground.spec.mjs
 
   test-sqlite-shard:
-    # The race detector makes the full suite the pipeline's long pole (~5 min).
-    # Shard packages round-robin across parallel runners to cut it ~4x while
-    # still running every package under -race. (Packages are independent; the
-    # handler tests use per-test :memory: sqlite, so sharding is safe.) The
+    # Deterministic LPT balances measured heavy packages across runners. The
+    # checked-in timing table is only a hint: every current go list package,
+    # including new/unmeasured ones, runs exactly once under -race. Packages
+    # use isolated SQLite fixtures, so cross-runner sharding is safe. The
     # stable `test-sqlite` name below aggregates the shards so branch
     # protection keeps a single required check.
     runs-on: ubuntu-latest
@@ -278,44 +295,22 @@ jobs:
           path: web/dist
       - name: Run tests (shard ${{ matrix.shard }}/${{ matrix.total }})
         env:
-          # The matrix values are bound to the environment rather than inlined
-          # into the script body. Inlined as bare `matrix.total`, the arithmetic
-          # below became a bash syntax error; because it sat in an `if`
-          # condition it was exempt from `set -e`, so every package was skipped,
-          # the "no packages in shard" branch exited 0, and all four shards
-          # reported success while running zero tests. `set -u` plus the guards
-          # below make any recurrence loud instead of green.
+          # Bind matrix values, not shell text. Invalid/empty selections and
+          # failed go list/selector commands must never report a green shard.
           SHARD: ${{ matrix.shard }}
           SHARD_TOTAL: ${{ matrix.total }}
         run: |
           set -euo pipefail
-          mapfile -t pkgs < <(go list ./...)
-          if [ "${#pkgs[@]}" -lt "$SHARD_TOTAL" ]; then
-            echo "ERROR: go list returned ${#pkgs[@]} package(s), fewer than the $SHARD_TOTAL shards"
-            exit 1
-          fi
-          shard_pkgs=()
-          for i in "${!pkgs[@]}"; do
-            # Standalone assignment, not an `if (( ... ))` condition: a broken
-            # selector aborts the step under set -e instead of being swallowed.
-            slot=$(( i % SHARD_TOTAL ))
-            if [ "$slot" -eq "$SHARD" ]; then
-              shard_pkgs+=("${pkgs[i]}")
-            fi
-          done
-          # Round-robin over N packages into T shards owes shard S exactly
-          # ceil((N - S) / T) of them. Asserting the number catches a selector
-          # that quietly picks too few, not only one that picks none.
-          want=$(( ( ${#pkgs[@]} - SHARD + SHARD_TOTAL - 1 ) / SHARD_TOTAL ))
-          if [ "${#shard_pkgs[@]}" -ne "$want" ]; then
-            echo "ERROR: shard $SHARD/$SHARD_TOTAL selected ${#shard_pkgs[@]} package(s); round-robin over ${#pkgs[@]} requires $want"
-            exit 1
-          fi
+          # A file preserves the producer's exit status (unlike < <(go list)).
+          go list ./... > "$RUNNER_TEMP/go-packages.txt"
+          go run scripts/ci-test-shards.go -shard "$SHARD" -total "$SHARD_TOTAL" \
+            < "$RUNNER_TEMP/go-packages.txt" > "$RUNNER_TEMP/shard-packages.txt"
+          mapfile -t shard_pkgs < "$RUNNER_TEMP/shard-packages.txt"
           if [ "${#shard_pkgs[@]}" -eq 0 ]; then
             echo "ERROR: shard $SHARD/$SHARD_TOTAL selected no packages; refusing to report green"
             exit 1
           fi
-          echo "shard $SHARD/$SHARD_TOTAL running ${#shard_pkgs[@]} of ${#pkgs[@]} packages:"
+          echo "shard $SHARD/$SHARD_TOTAL running ${#shard_pkgs[@]} packages:"
           printf '  %s\n' "${shard_pkgs[@]}"
           go test "${shard_pkgs[@]}" -count=1 -race
 
@@ -1501,6 +1496,11 @@ jobs:
             exit 1
           fi
           echo "release consistent: $GITHUB_REF_NAME / $pkg_ver"
+      - name: Cache Bun downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-downloads-${{ runner.os }}-${{ runner.arch }}-${{ env.BUN_VERSION }}-${{ hashFiles('web/bun.lock') }}
       - name: Install web deps for release binaries
         run: sh ../scripts/bun-install.sh
         working-directory: web

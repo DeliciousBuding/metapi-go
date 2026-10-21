@@ -4,8 +4,8 @@
 # Standalone installs: .githooks/pre-push is a thin compatibility wrapper.
 # Skip with: git push --no-verify (emergency only).
 #
-# Order matters: cmd/server embeds web/dist, so the frontend build runs first.
-# After it succeeds the frontend check and the Go lane (build -> vet -> full
+# Order matters: cheap preflight first, then web/dist before Go compilation.
+# After it succeeds the frontend tests and the Go lane (build -> vet -> full
 # race) run in parallel with independent logs. The first failing lane cancels
 # its sibling; the hook propagates a non-zero status and prints the failing
 # log. METAPI_PREPUSH_LANES=1 keeps the same lanes but runs them serially.
@@ -276,9 +276,16 @@ run_one_lane() {
 	wait_lanes
 }
 
+# Fail on inexpensive formatting/static/toolchain faults before starting any
+# build or long-running tests. check:static + test is exactly web's check script;
+# each runs once, not an additional partial copy of the frontend gate.
+echo ""
+echo "[0/2] preflight (pinned Go, diff, gofmt, frontend static checks)"
+bash ./scripts/pre-push-preflight.sh
+
 # 1/2. Frontend build — the Go binary embeds web/dist, so a fresh clone must
 # build the tested frontend before compiling cmd/server. This build runs before
-# both lanes on purpose: `bun run check` does not read dist, but no Go compile
+# both lanes on purpose: `bun run test` does not read dist, but no Go compile
 # or race may start before the embedded asset exists, and a build failure
 # should fail fast. Bun is mandatory.
 echo ""
@@ -294,7 +301,7 @@ fi
 echo "  ✓ frontend build passed in $((SECONDS - build_start))s"
 
 run_frontend_lane() {
-	(cd web && bun run check)
+	(cd web && bun run test)
 }
 
 run_go_lane() {
@@ -307,7 +314,7 @@ run_go_lane() {
 # exists. They keep their own logs; a failure in either one fails the gate.
 echo ""
 echo "[2/2] lanes (lanes=$lanes, cpus=$cpu_count)"
-echo "      frontend check  |  go build -> go vet -> full race"
+echo "      frontend tests  |  go build -> go vet -> full race"
 echo ""
 # Job control gives each lane its own process group for reliable cleanup.
 set -m
