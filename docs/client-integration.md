@@ -34,6 +34,13 @@ the correlation header `X-Request-Id`. Rotating a Key preserves its identity,
 limits and history but immediately invalidates the old secret for new
 requests and the next turn of an existing WebSocket.
 
+Search your retained requests by public model or internal request ID, then
+filter by gateway result or quota settlement (including usage needing review).
+The support summary copies only public request facts, not your Key or upstream
+configuration. Filters remain when you close a request detail. A Key marked
+enabled may still be expired or exhausted; the console shows those conditions
+separately, while account quota and group permissions continue to apply.
+
 ## The two values every client needs
 
 | Value      | Where to get it                                             |

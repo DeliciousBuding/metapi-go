@@ -1,5 +1,5 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate, useLocation } from '@tanstack/react-router'
 import {
   Activity,
   Box,
@@ -187,8 +187,12 @@ function PortalShell({
   const { t } = useTranslation()
   const client = useQueryClient()
   const navigate = useNavigate()
+  const locationSearch = useLocation({
+    select: (location) => location.searchStr,
+  })
   const [logoutPending, setLogoutPending] = useState(false)
   const [logoutFailed, setLogoutFailed] = useState(false)
+  const refreshing = useIsFetching({ queryKey: portalQueryRoot }) > 0
   async function logout() {
     setLogoutPending(true)
     setLogoutFailed(false)
@@ -238,13 +242,19 @@ function PortalShell({
       <div className='max-w-container mx-auto grid gap-6 px-4 py-6 md:grid-cols-[176px_minmax(0,1fr)] md:px-6'>
         <nav
           aria-label={t('userPortal.navigation')}
-          className='flex gap-1 overflow-x-auto md:flex-col md:overflow-visible'
+          className='flex flex-wrap gap-1 md:flex-col md:flex-nowrap'
         >
           {navigation.map(([item, Icon]) => (
             <Link
               key={item}
               to='/user'
-              search={{ view: item, page: 1 }}
+              search={{
+                view: item,
+                page: 1,
+                ...(item === 'keys' || item === 'models'
+                  ? { model, protocol }
+                  : {}),
+              }}
               aria-current={view === item ? 'page' : undefined}
               className={buttonVariants({
                 variant: view === item ? 'secondary' : 'ghost',
@@ -264,12 +274,13 @@ function PortalShell({
               <Button
                 variant='outline'
                 size='sm'
+                disabled={refreshing}
                 onClick={() =>
                   void client.invalidateQueries({ queryKey: portalQueryRoot })
                 }
               >
                 <RefreshCw aria-hidden='true' />
-                {t('userPortal.refresh')}
+                {t(refreshing ? 'userPortal.refreshing' : 'userPortal.refresh')}
               </Button>
             }
           />
@@ -306,8 +317,11 @@ function PortalShell({
               requestId={requestId}
               onCloseDetail={() =>
                 void navigate({
-                  to: '/user',
-                  search: { view: 'requests', page },
+                  href: (() => {
+                    const params = new URLSearchParams(locationSearch)
+                    params.delete('requestId')
+                    return '/user?' + params.toString()
+                  })(),
                   replace: true,
                 })
               }
@@ -328,9 +342,32 @@ export function UserPortalPage(props: {
   protocol?: PersonalModel['protocols'][number]
 }) {
   const { t } = useTranslation()
+  const client = useQueryClient()
   const session = useQuery({
     queryKey: ['userPortal', 'session'],
-    queryFn: userPortalApi.session,
+    queryFn: async () => {
+      const next = await userPortalApi.session()
+      const previous = client.getQueryData<UserSession | null>([
+        'userPortal',
+        'session',
+      ])
+      if (
+        !next ||
+        (previous &&
+          (previous.user.id !== next.user.id ||
+            previous.user.groupId !== next.user.groupId))
+      ) {
+        await client.cancelQueries({
+          queryKey: portalQueryRoot,
+          predicate: (query) => query.queryKey[1] !== 'session',
+        })
+        client.removeQueries({
+          queryKey: portalQueryRoot,
+          predicate: (query) => query.queryKey[1] !== 'session',
+        })
+      }
+      return next
+    },
     retry: false,
     staleTime: 0,
     refetchInterval: 60_000,
@@ -360,6 +397,10 @@ export function UserPortalPage(props: {
     )
   if (!session.data) return <PortalLogin />
   return (
-    <PortalShell key={session.data.user.id} session={session.data} {...props} />
+    <PortalShell
+      key={session.data.user.id + ':' + session.data.user.groupId}
+      session={session.data}
+      {...props}
+    />
   )
 }

@@ -14,13 +14,19 @@ import { Spinner } from '@/components/ui/spinner'
 import { portalQueryRoot, userPortalApi, type UserSession } from '../api'
 import { PortalField } from './portal-field'
 
-const passwordSchema = z.object({
-  currentPassword: z.string().min(1, 'userPortal.required'),
-  newPassword: z.string().refine((value) => {
-    const length = new TextEncoder().encode(value).length
-    return length >= 12 && length <= 72
-  }, 'userPortal.passwordRule'),
-})
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'userPortal.required'),
+    newPassword: z.string().refine((value) => {
+      const length = new TextEncoder().encode(value).length
+      return length >= 12 && length <= 72
+    }, 'userPortal.passwordRule'),
+    confirmPassword: z.string(),
+  })
+  .refine((value) => value.newPassword === value.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'userPortal.passwordMismatch',
+  })
 
 export function PortalAccount({ session }: { session: UserSession }) {
   const { t } = useTranslation()
@@ -28,7 +34,11 @@ export function PortalAccount({ session }: { session: UserSession }) {
   const [failed, setFailed] = useState(false)
   const form = useForm<z.infer<typeof passwordSchema>>({
     resolver: zodResolver(passwordSchema),
-    defaultValues: { currentPassword: '', newPassword: '' },
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    },
   })
   return (
     <div className='max-w-xl space-y-6'>
@@ -67,8 +77,12 @@ export function PortalAccount({ session }: { session: UserSession }) {
               onSubmit={form.handleSubmit(async (values) => {
                 setFailed(false)
                 try {
-                  await userPortalApi.password(values)
+                  await userPortalApi.password({
+                    currentPassword: values.currentPassword,
+                    newPassword: values.newPassword,
+                  })
                   form.reset()
+                  await client.cancelQueries({ queryKey: portalQueryRoot })
                   client.removeQueries({
                     queryKey: portalQueryRoot,
                     predicate: (q) => q.queryKey[1] !== 'session',
@@ -90,6 +104,13 @@ export function PortalAccount({ session }: { session: UserSession }) {
                 control={form.control}
                 name='newPassword'
                 label='userPortal.newPassword'
+                type='password'
+                autoComplete='new-password'
+              />
+              <PortalField
+                control={form.control}
+                name='confirmPassword'
+                label='userPortal.confirmPassword'
                 type='password'
                 autoComplete='new-password'
               />

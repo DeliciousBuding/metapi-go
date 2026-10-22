@@ -11,7 +11,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Notice } from '@/components/ui/notice'
+import { Switch } from '@/components/ui/switch'
 import { gatewayUsersApi, type GatewayUserGroup } from '@/lib/api/gateway-users'
 
 import { useAdminWrite, userAdminKeys } from './api'
@@ -26,6 +29,8 @@ export function GroupAccessDialog({
   close: () => void
 }) {
   const { t } = useTranslation()
+  const [search, setSearch] = useState('')
+  const [grantedOnly, setGrantedOnly] = useState(false)
   const [pricingState, setPricingState] = useState<EditorState>({
     dirty: false,
     pending: false,
@@ -61,6 +66,14 @@ export function GroupAccessDialog({
     ) ?? []
   const ready =
     grants.isSuccess && !grants.isError && routes.isSuccess && !routes.isError
+  const filteredRoutes =
+    routes.data?.filter(
+      (route) =>
+        (!grantedOnly || grantedIds.has(route.id)) &&
+        `${route.id} ${route.modelPattern} ${route.displayName ?? ''}`
+          .toLowerCase()
+          .includes(search.trim().toLowerCase())
+    ) ?? []
 
   return (
     <>
@@ -71,7 +84,7 @@ export function GroupAccessDialog({
             handleOpenChange(open)
         }}
       >
-        <DialogContent className='sm:max-w-2xl'>
+        <DialogContent className='max-h-[90svh] overflow-y-auto sm:max-w-2xl'>
           <DialogHeader>
             <DialogTitle>
               {t('userAdmin.accessTitle', { group: group.name })}
@@ -126,13 +139,43 @@ export function GroupAccessDialog({
             <WriteError error={mutation.error} />
             {ready && (
               <>
+                <div className='flex flex-wrap items-center gap-3'>
+                  <Input
+                    className='h-8 min-w-0 flex-1 basis-48'
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    maxLength={200}
+                    aria-label={t('userAdmin.routeSearch')}
+                    placeholder={t('userAdmin.routeSearch')}
+                  />
+                  <div className='flex items-center gap-2'>
+                    <Switch
+                      id={'granted-only-' + group.id}
+                      checked={grantedOnly}
+                      onCheckedChange={setGrantedOnly}
+                    />
+                    <Label htmlFor={'granted-only-' + group.id}>
+                      {t('userAdmin.grantedOnly')}
+                    </Label>
+                  </div>
+                </div>
+                <p className='text-muted-foreground text-xs'>
+                  {t('userAdmin.routeMatches', {
+                    count: filteredRoutes.length,
+                    total: routes.data.length,
+                  })}
+                </p>
                 <div className='max-h-80 divide-y overflow-y-auto rounded-lg border'>
-                  {routes.data.length === 0 ? (
+                  {filteredRoutes.length === 0 ? (
                     <p className='text-muted-foreground p-4'>
-                      {t('userAdmin.noRoutes')}
+                      {t(
+                        routes.data.length === 0
+                          ? 'userAdmin.noRoutes'
+                          : 'userAdmin.noMatches'
+                      )}
                     </p>
                   ) : (
-                    routes.data.map((route) => {
+                    filteredRoutes.map((route) => {
                       const granted = grantedIds.has(route.id)
                       return (
                         <div

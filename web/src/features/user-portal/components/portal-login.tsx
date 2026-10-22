@@ -131,6 +131,7 @@ export function PortalLogin() {
               <Button
                 variant='ghost'
                 type='button'
+                disabled={form.formState.isSubmitting}
                 onClick={() => {
                   setActivation(!activation)
                   setFailed(false)

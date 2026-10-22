@@ -47,7 +47,7 @@ beforeEach(async () => {
     const method = config.method ?? 'get'
     const body = typeof config.data === 'string' ? JSON.parse(config.data) : {}
     calls.push({ url, method, body })
-    const data = handler(url, method, body)
+    const data = await handler(url, method, body)
     if (data instanceof Error) {
       if (data instanceof AxiosError) data.config = config
       throw data
@@ -85,6 +85,67 @@ function mount(children: ReactNode) {
 }
 
 describe('personal portal boundaries', () => {
+  it('requires matching confirmation before changing a password and sends no confirmation field', async () => {
+    mount(<PortalAccount session={session} />)
+    fireEvent.change(screen.getByLabelText('Current password'), {
+      target: { value: 'current-test-password' },
+    })
+    fireEvent.change(screen.getByLabelText('New password'), {
+      target: { value: 'new-test-password' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), {
+      target: { value: 'different-test-password' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Change password' }))
+    expect(await screen.findByText('The passwords do not match.')).toBeVisible()
+    expect(calls).toHaveLength(0)
+  })
+  it('prevents closing a key creation while its one-time response is pending', async () => {
+    let finish!: (value: unknown) => void
+    handler = (_url, method) =>
+      method === 'post'
+        ? new Promise((resolve) => {
+            finish = resolve
+          })
+        : { items: [] }
+    mount(<PortalKeys userId={1} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create key' }))
+    fireEvent.change(await screen.findByLabelText('Key name'), {
+      target: { value: 'Fixture' },
+    })
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Create key' }).at(-1)!
+    )
+    await waitFor(() =>
+      expect(calls.some((call) => call.method === 'post')).toBe(true)
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Close' })
+    ).not.toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(screen.getByRole('dialog')).toBeVisible()
+    await act(async () =>
+      finish({
+        item: {
+          id: 1,
+          name: 'Fixture',
+          enabled: true,
+          keyMasked: 'fixture',
+          expiresAt: null,
+          supportedModels: [],
+          maxCost: null,
+          maxRequests: null,
+          usedCost: 0,
+          usedRequests: 0,
+          createdAt: '',
+        },
+        key: 'fixture-once',
+      })
+    )
+    expect(await screen.findByLabelText('Secret API key')).toHaveValue(
+      'fixture-once'
+    )
+  })
   it('validates response shapes instead of turning broken responses into empty data', async () => {
     handler = () => ({ items: 'not-an-array' })
     await expect(userPortalApi.keys()).rejects.toThrow()
@@ -277,6 +338,9 @@ describe('personal portal boundaries', () => {
       target: { value: 'current-test-password' },
     })
     fireEvent.change(screen.getByLabelText('New password'), {
+      target: { value: 'new-test-password' },
+    })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), {
       target: { value: 'new-test-password' },
     })
     await act(async () => {

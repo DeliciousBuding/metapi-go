@@ -1,6 +1,33 @@
 {
   "translation": {
     "userPortal": {
+      "refreshing": "正在刷新…",
+      "supportSummary": "提供给管理员的信息",
+      "copySupportSummary": "复制排障摘要",
+      "confirmPassword": "再次输入新密码",
+      "passwordMismatch": "两次输入的密码不一致。",
+      "keyStatus": {
+        "available": "已启用 · 未达到 Key 限额",
+        "disabled": "已停用",
+        "expired": "已过期",
+        "limitReached": "已达到 Key 限额"
+      },
+      "requestFilters": {
+        "search": "搜索模型或内部请求 ID",
+        "status": "请求结果",
+        "quota": "配额结算",
+        "allResults": "全部结果",
+        "allQuota": "全部结算状态",
+        "clear": "清除筛选",
+        "noMatches": "保留的请求中没有匹配记录。请尝试其他搜索或清除筛选。",
+        "quotaStates": {
+          "pending": "预留中 · 待结算",
+          "settled": "已结算",
+          "released": "已释放预留",
+          "unknown": "用量待核对",
+          "missing": "无结算记录"
+        }
+      },
       "title": "我的 API 控制台",
       "navigation": "个人导航",
       "nav": {
@@ -167,6 +194,8 @@
         "gateway_failed": "网关失败"
       },
       "catalog": {
+        "selectedUnavailable": "已选模型 {{model}} 不再出现在当前目录中。请刷新或联系管理员检查授权；当前无法确认接入示例。",
+        "clearSelection": "清除已选模型",
         "referencePrice": "目录参考价 · USD / 百万 token",
         "input": "输入",
         "output": "输出",
@@ -241,6 +270,9 @@
       "returnToConnection": "返回该模型的接入示例"
     },
     "userAdmin": {
+      "routeSearch": "搜索路由名称、模型或 ID",
+      "grantedOnly": "仅显示已授权路由",
+      "routeMatches": "显示 {{total}} 条路由中的 {{count}} 条",
       "readiness": {
         "open": "开通检查",
         "title": "开通检查 · {{user}}",

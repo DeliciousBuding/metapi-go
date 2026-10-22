@@ -429,8 +429,33 @@ try {
     'request detail exposes historical quota snapshot and exact recorded charge'
   )
   await page.getByRole('button', { name: 'Copy internal request ID' }).waitFor()
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.getByRole('button', { name: 'Copy support summary' }).click()
+  const supportSummary = await page.evaluate(() =>
+    navigator.clipboard.readText()
+  )
+  assert.ok(supportSummary.includes(requestID))
+  assert.ok(supportSummary.includes('personal-model'))
+  assert.ok(!supportSummary.includes(secret))
+  assert.ok(!supportSummary.includes('synthetic-upstream-only'))
+  pass('support summary contains public request facts without credentials')
   await page.getByText(/The gateway completed processing/).waitFor()
   await page.keyboard.press('Escape')
+  const requestSearch = page.getByLabel('Search model or internal request ID')
+  await requestSearch.fill('absent-fixture')
+  await page
+    .getByText(
+      'No retained requests match these filters. Try another search or clear the filters.'
+    )
+    .waitFor()
+  assert.equal(new URL(page.url()).searchParams.get('q'), 'absent-fixture')
+  await page.getByRole('button', { name: 'Clear filters' }).click()
+  await page
+    .getByRole('link', { name: 'personal-model', exact: true })
+    .waitFor()
+  pass(
+    'request search is server-scoped and clearing filters restores retained records'
+  )
   await page.getByRole('link', { name: 'API keys', exact: true }).click()
   const beforeRotation = await (
     await context.request.get(base + '/api/user/keys')
@@ -531,6 +556,23 @@ try {
   ).json()
   assert.equal(ownHistory.id, requestID)
   assert.deepEqual(ownHistory.quota, requestQuota)
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+  await page.getByText('Renamed', { exact: false }).first().waitFor()
+  await page.getByRole('link', { name: 'Models', exact: true }).click()
+  await page
+    .getByText(
+      'No callable models are currently available. Ask your administrator to grant a public route or check its sources.'
+    )
+    .waitFor()
+  assert.equal(
+    await page
+      .getByRole('button', {
+        name: 'View pricing and connection for personal-model',
+      })
+      .count(),
+    0
+  )
+  pass('regrouping clears old access information on session refresh')
   await admin('/api/admin/users/' + user.id, 'PUT', {
     displayName: 'Renamed',
     groupId: group.id,
@@ -605,6 +647,51 @@ try {
   pass(
     'all five personal views desktop/mobile, no overflow, axe serious/critical zero'
   )
+  await context.addCookies([
+    { name: 'vite-ui-theme', value: 'dark', url: base },
+  ])
+  await page.goto(
+    base + '/user?view=requests&status=completed&quotaState=settled'
+  )
+  await page.getByRole('link', { name: 'personal-model', exact: true }).click()
+  await page.getByRole('dialog').getByText('Quota for this request').waitFor()
+  await page.keyboard.press('Escape')
+  assert.equal(new URL(page.url()).searchParams.get('status'), 'completed')
+  assert.equal(new URL(page.url()).searchParams.get('quotaState'), 'settled')
+  await page.getByRole('dialog').waitFor({ state: 'hidden' })
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.screenshot({
+    path: path.join(output, 'filtered-requests-dark-mobile.png'),
+  })
+  assert.ok(
+    await page.evaluate(() =>
+      document.documentElement.classList.contains('dark')
+    )
+  )
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  )
+  await page.evaluate(
+    await readFile(
+      new URL('../node_modules/axe-core/axe.min.js', import.meta.url),
+      'utf8'
+    )
+  )
+  assert.deepEqual(
+    await page.evaluate(async () =>
+      (await window.axe.run(document)).violations
+        .filter((v) => ['critical', 'serious'].includes(v.impact))
+        .map((v) => v.id)
+    ),
+    []
+  )
+  await context.addCookies([
+    { name: 'vite-ui-theme', value: 'light', url: base },
+  ])
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  pass('request filters survive detail close with readable dark mobile layout')
   await page.evaluate(() => localStorage.setItem('i18nextLng', 'zh-CN'))
   await page.goto(
     base + '/user?view=requests&requestId=' + encodeURIComponent(requestID)
@@ -686,6 +773,13 @@ try {
   await adminPage.getByRole('button', { name: 'Confirm', exact: true }).click()
   await budgetDialog.getByText('Saved', { exact: true }).waitFor()
   await adminPage.keyboard.press('Escape')
+  await readiness
+    .getByRole('heading', {
+      name: 'Provisioning check · Setup check',
+      exact: true,
+    })
+    .waitFor()
+  pass('administrator returns from quota editing to fresh provisioning checks')
   await admin('/api/admin/users/' + setupUser.id, 'PUT', {
     displayName: 'Setup check',
     groupId: group.id,
@@ -820,6 +914,9 @@ try {
   await page.getByLabel('Current password', { exact: true }).fill(password)
   const nextPassword = 'changed-' + password
   await page.getByLabel('New password', { exact: true }).fill(nextPassword)
+  await page
+    .getByLabel('Confirm new password', { exact: true })
+    .fill(nextPassword)
   await page
     .getByRole('button', { name: 'Change password', exact: true })
     .click()
