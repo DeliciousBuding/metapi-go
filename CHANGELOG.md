@@ -21,6 +21,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+## [v0.27.0] — 2026-10-22
+
 ### 安全
 
 - 构建工具链：最低 Go 升至 1.26.10，镜像构建使用 1.27.3，修复 crypto/x509 的中间证书信任问题（GO-2026-6809）；源码部署需升级工具链并重新构建。

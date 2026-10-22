@@ -124,13 +124,13 @@ automatically on upgrade.
 
 ### Option 1: GHCR Docker image (recommended)
 
-Pin a full release tag or digest for stable deployments; this example uses `0.26.0`. Images support `linux/amd64` and `linux/arm64`; Docker selects the matching architecture. `edge` tracks master, and `latest` moves only with stable releases. Check [Releases](https://github.com/DeliciousBuding/metapi-go/releases) before upgrading.
+Pin a full release tag or digest for stable deployments; this example uses `0.27.0`. Images support `linux/amd64` and `linux/arm64`; Docker selects the matching architecture. `edge` tracks master, and `latest` moves only with stable releases. Check [Releases](https://github.com/DeliciousBuding/metapi-go/releases) before upgrading.
 
 ```bash
 export AUTH_TOKEN=$(openssl rand -hex 32)
 export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
 
-docker pull ghcr.io/deliciousbuding/metapi-go:0.26.0
+docker pull ghcr.io/deliciousbuding/metapi-go:0.27.0
 docker run -d --name metapi \
   -p 127.0.0.1:4000:4000 \
   -e AUTH_TOKEN \
@@ -138,7 +138,7 @@ docker run -d --name metapi \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
   --restart unless-stopped \
-  ghcr.io/deliciousbuding/metapi-go:0.26.0
+  ghcr.io/deliciousbuding/metapi-go:0.27.0
 ```
 
 Save the generated tokens and encryption key in your password manager. The default port binding is local-only; use a TLS reverse proxy or explicitly change the binding for remote access.
@@ -146,7 +146,7 @@ Save the generated tokens and encryption key in your password manager. The defau
 A named volume inherits the image ownership on first mount. For a bind mount (`./data:/app/data`), run `chown -R 1001:1001 ./data` on the host first. With the repository Compose file (Docker Compose >= 2.24):
 
 ```bash
-cp .env.example .env   # replace the admin token and encryption key; METAPI_IMAGE is pinned to 0.26.0
+cp .env.example .env   # replace the admin token and encryption key; METAPI_IMAGE is pinned to 0.27.0
 # All runtime settings in .env are passed through, including PostgreSQL and check-in settings.
 docker compose pull
 docker compose up -d
