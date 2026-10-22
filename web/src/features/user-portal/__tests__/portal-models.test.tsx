@@ -81,6 +81,22 @@ async function mount(href = '/user?view=models&page=1') {
   return router
 }
 describe('personal model catalog', () => {
+  it('explains an unavailable model deep link and allows clearing it', async () => {
+    const router = await mount('/user?view=models&model=removed-model')
+    expect(
+      await screen.findByText(/selected model removed-model is no longer/)
+    ).toBeVisible()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Clear selected model' })
+    )
+    await waitFor(() =>
+      expect(router.state.location.searchStr).not.toContain(
+        'model=removed-model'
+      )
+    )
+    expect(await screen.findByText('public-model')).toBeVisible()
+  })
   it('distinguishes zero reference prices from unknown and provides only configured request examples', async () => {
     await mount()
     fireEvent.click(

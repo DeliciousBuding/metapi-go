@@ -34,6 +34,7 @@ import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
 import { type PersonalKey, userPortalApi } from '../api'
+import { personalKeyStatus } from '../key-status'
 import { PortalField } from './portal-field'
 
 const keyFormSchema = z.object({
@@ -59,7 +60,13 @@ const keyFormSchema = z.object({
 })
 type KeyFormValues = z.infer<typeof keyFormSchema>
 
-function NewKeyForm({ onCreated }: { onCreated: (key: string) => void }) {
+function NewKeyForm({
+  onCreated,
+  onPending,
+}: {
+  onCreated: (key: string) => void
+  onPending: (pending: boolean) => void
+}) {
   const { t } = useTranslation()
   const [failed, setFailed] = useState(false)
   const form = useForm<KeyFormValues>({
@@ -68,6 +75,7 @@ function NewKeyForm({ onCreated }: { onCreated: (key: string) => void }) {
   })
   async function submit(values: KeyFormValues) {
     setFailed(false)
+    onPending(true)
     try {
       const created = await userPortalApi.createKey({
         name: values.name,
@@ -90,6 +98,8 @@ function NewKeyForm({ onCreated }: { onCreated: (key: string) => void }) {
       onCreated(created.key)
     } catch {
       setFailed(true)
+    } finally {
+      onPending(false)
     }
   }
   return (
@@ -332,13 +342,21 @@ export function PortalKeys({ userId }: { userId: number }) {
   const [creating, setCreating] = useState(false)
   const [secret, setSecret] = useState<string | null>(null)
   const [rotating, setRotating] = useState<PersonalKey | null>(null)
+  const [createPending, setCreatePending] = useState(false)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   return (
     <div className='space-y-4'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <p className='text-muted-foreground text-sm'>
           {t('userPortal.keysHint')}
         </p>
-        <Button onClick={() => setCreating(true)}>
+        <Button disabled={createPending} onClick={() => setCreating(true)}>
           <Plus aria-hidden='true' />
           {t('userPortal.createKey')}
         </Button>
@@ -376,9 +394,7 @@ export function PortalKeys({ userId }: { userId: number }) {
                   {key.keyMasked}
                 </p>
                 <p className='text-muted-foreground text-xs'>
-                  {t(
-                    key.enabled ? 'userPortal.enabled' : 'userPortal.disabled'
-                  )}
+                  {t('userPortal.keyStatus.' + personalKeyStatus(key))}
                   {' · '}
                   {t('userPortal.requestCount', { count: key.usedRequests })}
                   {' · '}
@@ -439,13 +455,13 @@ export function PortalKeys({ userId }: { userId: number }) {
       <Dialog
         open={creating || secret !== null}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !createPending) {
             setCreating(false)
             setSecret(null)
           }
         }}
       >
-        <DialogContent>
+        <DialogContent showCloseButton={!createPending}>
           <DialogHeader>
             <DialogTitle>
               {t(secret ? 'userPortal.keyReady' : 'userPortal.createKey')}
@@ -458,7 +474,11 @@ export function PortalKeys({ userId }: { userId: number }) {
             <CreatedKey secret={secret} onDismiss={() => setSecret(null)} />
           ) : (
             <NewKeyForm
+              onPending={(pending) => {
+                if (mounted.current) setCreatePending(pending)
+              }}
               onCreated={(key) => {
+                if (!mounted.current) return
                 setCreating(false)
                 setSecret(key)
                 void client.invalidateQueries({ queryKey })

@@ -155,6 +155,29 @@ describe('personal request and usage DTOs', () => {
     ).toBeVisible()
   })
 
+  it('sends URL search and quota filters to the server and clears them together', async () => {
+    let queried = ''
+    handler = (url) => {
+      queried = url
+      return { items: [], total: 0, page: 1, pageSize: 20 }
+    }
+    const router = await mount(
+      '/user?view=requests&q=absent&status=completed&quotaState=unknown&page=9'
+    )
+    expect(await screen.findByText(/No retained requests match/)).toBeVisible()
+    const params = new URLSearchParams(queried.split('?')[1])
+    expect(params.get('search')).toBe('absent')
+    expect(params.get('status')).toBe('completed')
+    expect(params.get('quotaState')).toBe('unknown')
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    await waitFor(() =>
+      expect(router.state.location.searchStr).not.toContain('quotaState')
+    )
+    expect(router.state.location.searchStr).not.toContain('status')
+    expect(router.state.location.searchStr).toContain('page=1')
+    expect(await screen.findByText(/No request records yet/)).toBeVisible()
+  })
+
   it('preserves quota in list and detail, including explicit zero and null', async () => {
     const item = {
       ...request,

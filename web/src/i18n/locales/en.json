@@ -1,6 +1,33 @@
 {
   "translation": {
     "userPortal": {
+      "refreshing": "Refreshing…",
+      "supportSummary": "Information for your administrator",
+      "copySupportSummary": "Copy support summary",
+      "confirmPassword": "Confirm new password",
+      "passwordMismatch": "The passwords do not match.",
+      "keyStatus": {
+        "available": "Enabled · within key limits",
+        "disabled": "Disabled",
+        "expired": "Expired",
+        "limitReached": "Key limit reached"
+      },
+      "requestFilters": {
+        "search": "Search model or internal request ID",
+        "status": "Request result",
+        "quota": "Quota settlement",
+        "allResults": "All results",
+        "allQuota": "All quota states",
+        "clear": "Clear filters",
+        "noMatches": "No retained requests match these filters. Try another search or clear the filters.",
+        "quotaStates": {
+          "pending": "Reserved · pending",
+          "settled": "Settled",
+          "released": "Reservation released",
+          "unknown": "Usage needs review",
+          "missing": "No settlement record"
+        }
+      },
       "title": "My API console",
       "navigation": "Personal navigation",
       "nav": {
@@ -167,6 +194,8 @@
         "gateway_failed": "Gateway failed"
       },
       "catalog": {
+        "selectedUnavailable": "The selected model {{model}} is no longer in your current catalog. Refresh or ask your administrator to check access; no connection example can be confirmed.",
+        "clearSelection": "Clear selected model",
         "referencePrice": "Catalog reference · USD / 1M tokens",
         "input": "Input",
         "output": "Output",
@@ -241,6 +270,9 @@
       "returnToConnection": "Return to this model’s connection example"
     },
     "userAdmin": {
+      "routeSearch": "Search route name, model or ID",
+      "grantedOnly": "Authorized routes only",
+      "routeMatches": "Showing {{count}} of {{total}} routes",
       "readiness": {
         "open": "Provisioning check",
         "title": "Provisioning check · {{user}}",

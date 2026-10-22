@@ -213,7 +213,7 @@ export function IdentityEditor({
           if (!mutation.isPending) handleOpenChange(open)
         }}
       >
-        <DialogContent className='sm:max-w-lg'>
+        <DialogContent className='max-h-[90svh] overflow-y-auto sm:max-w-lg'>
           <DialogHeader>
             <DialogTitle>
               {t(titleKeys[kind][editing ? 'edit' : 'create'])}
@@ -377,7 +377,7 @@ export function BudgetDialog({
             handleOpenChange(open)
         }}
       >
-        <DialogContent className='sm:max-w-lg'>
+        <DialogContent className='max-h-[90svh] overflow-y-auto sm:max-w-lg'>
           <DialogHeader>
             <DialogTitle>
               {t('userAdmin.budgetTitle', {

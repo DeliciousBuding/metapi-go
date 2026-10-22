@@ -150,6 +150,52 @@ afterEach(() => {
 })
 
 describe('administrator user workflows', () => {
+  it('filters the route list without changing existing or unavailable grants', async () => {
+    const normal = network.getMockImplementation()
+    network.mockImplementation(async (path, options) => {
+      if (path === '/api/admin/user-groups/2/routes')
+        return {
+          items: [
+            { groupId: 2, routeId: 15, createdAt: user.createdAt },
+            { groupId: 2, routeId: 999, createdAt: user.createdAt },
+          ],
+        }
+      if (path === '/api/routes/summary')
+        return [
+          {
+            id: 15,
+            modelPattern: 'first-model',
+            displayName: 'First',
+            enabled: true,
+          },
+          {
+            id: 16,
+            modelPattern: 'second-model',
+            displayName: 'Second',
+            enabled: true,
+          },
+        ]
+      return normal?.(path, options)
+    })
+    mount(<GroupAccessDialog group={group} close={vi.fn()} />)
+    await screen.findByRole('button', {
+      name: i18n.t('userAdmin.revokeNamed', { route: 'First' }),
+    })
+    fireEvent.click(
+      screen.getByRole('switch', { name: 'Authorized routes only' })
+    )
+    expect(
+      screen.queryByRole('button', {
+        name: i18n.t('userAdmin.grantNamed', { route: 'Second' }),
+      })
+    ).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Search route name, model or ID'), {
+      target: { value: 'absent' },
+    })
+    expect(screen.getByText(/No matching/)).toBeVisible()
+    expect(screen.getByText(/999/)).toBeVisible()
+    expect(writes).toHaveLength(0)
+  })
   it('creates a real user with an explicit finite default group selector and no invented credentials', async () => {
     const close = vi.fn()
     mount(<IdentityEditor kind='user' groups={[group]} close={close} />)

@@ -137,6 +137,10 @@ type UserRequest struct {
 }
 
 func (s *GatewayUserStore) ListOwnRequests(ctx context.Context, userID int64, page, pageSize int) ([]UserRequest, int64, error) {
+	return s.ListOwnRequestsFiltered(ctx, userID, page, pageSize, UserRequestFilter{})
+}
+
+func (s *GatewayUserStore) ListOwnRequestsFiltered(ctx context.Context, userID int64, page, pageSize int, filter UserRequestFilter) ([]UserRequest, int64, error) {
 	if err := s.available(); err != nil {
 		return nil, 0, err
 	}
@@ -146,12 +150,16 @@ func (s *GatewayUserStore) ListOwnRequests(ctx context.Context, userID int64, pa
 		return nil, 0, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	where, args, err := filter.where(userID)
+	if err != nil {
+		return nil, 0, err
+	}
 	var total int64
-	if err := tx.GetContext(ctx, &total, s.db.Rebind(`SELECT COUNT(*) FROM gateway_requests WHERE owner_user_id=?`), userID); err != nil {
+	if err := tx.GetContext(ctx, &total, s.db.Rebind(`SELECT COUNT(*) FROM gateway_requests r LEFT JOIN gateway_user_budget_ledger q ON q.request_id=r.id AND q.user_id=r.owner_user_id`+where), args...); err != nil {
 		return nil, 0, err
 	}
 	items := []UserRequest{}
-	rows, err := tx.QueryxContext(ctx, s.db.Rebind(userRequestSelect+` WHERE r.owner_user_id=? ORDER BY r.started_at DESC,r.id DESC LIMIT ? OFFSET ?`), userID, pageSize, (page-1)*pageSize)
+	rows, err := tx.QueryxContext(ctx, s.db.Rebind(userRequestSelect+where+` ORDER BY r.started_at DESC,r.id DESC LIMIT ? OFFSET ?`), append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return nil, 0, err
 	}

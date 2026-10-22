@@ -401,6 +401,13 @@ func (h *handler) listRequests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page, pageSize := 1, 20
+	query := r.URL.Query()
+	for _, name := range []string{"page", "pageSize", "search", "status", "quotaState"} {
+		if len(query[name]) > 1 {
+			fail(w, 400, "Request filters must be single values")
+			return
+		}
+	}
 	for name, dst := range map[string]*int{"page": &page, "pageSize": &pageSize} {
 		if raw := r.URL.Query().Get(name); raw != "" {
 			v, err := strconv.Atoi(raw)
@@ -415,7 +422,12 @@ func (h *handler) listRequests(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "Pagination limit exceeded")
 		return
 	}
-	items, total, err := h.users.ListOwnRequests(r.Context(), u.ID, page, pageSize)
+	filter := store.UserRequestFilter{Search: query.Get("search"), Status: query.Get("status"), QuotaState: query.Get("quotaState")}
+	if err := filter.Validate(); err != nil {
+		fail(w, 400, err.Error())
+		return
+	}
+	items, total, err := h.users.ListOwnRequestsFiltered(r.Context(), u.ID, page, pageSize, filter)
 	if err != nil {
 		resultError(w, err)
 		return

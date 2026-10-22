@@ -9,6 +9,7 @@ import { Notice } from '@/components/ui/notice'
 import { Spinner } from '@/components/ui/spinner'
 
 import { userPortalApi, type PersonalKey } from '../api'
+import { personalKeyStatus } from '../key-status'
 
 type StepState = 'complete' | 'incomplete' | 'unknown' | 'pending'
 
@@ -23,13 +24,7 @@ function queryState(
 }
 
 function usableKey(key: PersonalKey): boolean {
-  if (!key.enabled) return false
-  if (key.maxRequests !== null && key.usedRequests >= key.maxRequests)
-    return false
-  if (key.maxCost !== null && key.usedCost >= key.maxCost) return false
-  if (!key.expiresAt) return true
-  const timestamp = Date.parse(key.expiresAt)
-  return Number.isFinite(timestamp) && timestamp > Date.now()
+  return personalKeyStatus(key) === 'available'
 }
 
 function StepMark({ state }: { state: StepState }) {

@@ -130,7 +130,7 @@ null or case-aliased fields and oversized/trailing JSON bodies.
 | `POST /api/user/keys` | `{name,supportedModels?,expiresAt?,maxCost?,maxRequests?}`; omit supportedModels to inherit the group; explicit empty array is rejected. Generate cryptographically random Key, bind authenticated user, return `{item,key}` once; users cannot choose owner, group, site or credentials |
 | `POST /api/user/keys/{id}/rotate` | Replace only the caller-owned Key secret, returning `{item,key}` once; same identity, restrictions, expiry, counters and history. Unknown or foreign ID is `404`; rate-limited |
 | `DELETE /api/user/keys/{id}` | Delete only caller-owned Key; unknown or another user's ID is `404` |
-| `GET /api/user/requests?page=1&pageSize=20` | `{items,total,page,pageSize}`; rows and total use the same caller-owner predicate |
+| `GET /api/user/requests?page=1&pageSize=20` | `{items,total,page,pageSize}`; rows and total use the same caller-owner predicate and optional filters described below |
 | `GET /api/user/requests/{id}` | One safe request DTO, owner-scoped or `404` |
 | `GET /api/user/usage` | `{usedRequests,keyCount,usedCost,recordedRequests}`; the first three describe caller-owned current Keys, while `recordedRequests` counts retained caller-owned request records. `usedCost` is the legacy upstream cost estimate, not personal token quota |
 
@@ -141,6 +141,18 @@ Old unowned logs stay administrator-only; renaming, regrouping and Key deletion
 do not change historical request ownership. Invalid/expired credentials return
 `401`, invalid input `400`, unavailable storage `503`. The personal UI renders
 failed reads as errors rather than empty successful data.
+
+Personal request lists accept optional `search` (up to 200 characters; literal,
+case-insensitive substring of the public model or internal request ID), `status`
+(`completed`, `upstream_failed`, `output_interrupted`, `client_cancelled`,
+`rejected_no_route`, `rejected_policy`, `gateway_failed`) and `quotaState`
+(`pending`, `settled`, `released`, `unknown`, `missing`). The last value means no
+quota record attributable to the request owner. Filters combine with AND across
+all retained caller-owned records and apply identically to rows and totals.
+Invalid values or repeated pagination/filter parameters return `400`.
+Private upstream reasons and external correlation IDs are not searchable here.
+The personal UI keeps search/filter/page state in the URL, clears the page when
+filters change, and retains filters when opening or closing a detail.
 
 `quota` is `{unit:"token_credits",state,totalTokens,groupMultiplier,reserved,charged}`.
 The state is `pending`, `settled`, `released` or `unknown`. The multiplier and

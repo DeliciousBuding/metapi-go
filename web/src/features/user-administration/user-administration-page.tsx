@@ -50,6 +50,13 @@ export function UserAdministrationPage() {
   const [activationUser, setActivationUser] = useState<GatewayUser | null>(null)
   const [accessGroup, setAccessGroup] = useState<GatewayUserGroup | null>(null)
   const [readinessUserId, setReadinessUserId] = useState<number | null>(null)
+  const [resumeReadiness, setResumeReadiness] = useState<number | null>(null)
+  const closeTask = () => {
+    if (resumeReadiness !== null) {
+      setReadinessUserId(resumeReadiness)
+      setResumeReadiness(null)
+    }
+  }
   const toggle = useAdminWrite(
     (
       {
@@ -377,11 +384,20 @@ export function UserAdministrationPage() {
         <IdentityEditor
           {...editor}
           groups={groups.data?.items ?? []}
-          close={() => setEditor(null)}
+          close={() => {
+            setEditor(null)
+            closeTask()
+          }}
         />
       )}
       {budgetUser && (
-        <BudgetDialog user={budgetUser} close={() => setBudgetUser(null)} />
+        <BudgetDialog
+          user={budgetUser}
+          close={() => {
+            setBudgetUser(null)
+            closeTask()
+          }}
+        />
       )}
       {activationUser && (
         <ActivationDialog
@@ -392,17 +408,32 @@ export function UserAdministrationPage() {
       {accessGroup && (
         <GroupAccessDialog
           group={accessGroup}
-          close={() => setAccessGroup(null)}
+          close={() => {
+            setAccessGroup(null)
+            closeTask()
+          }}
         />
       )}
       {readinessUserId !== null && (
         <ReadinessDialog
           userId={readinessUserId}
           close={() => setReadinessUserId(null)}
-          editUser={(user) => setEditor({ kind: 'user', user })}
-          editGroup={(group) => setEditor({ kind: 'group', group })}
-          editAccess={setAccessGroup}
-          editBudget={setBudgetUser}
+          editUser={(user) => {
+            setResumeReadiness(readinessUserId)
+            setEditor({ kind: 'user', user })
+          }}
+          editGroup={(group) => {
+            setResumeReadiness(readinessUserId)
+            setEditor({ kind: 'group', group })
+          }}
+          editAccess={(group) => {
+            setResumeReadiness(readinessUserId)
+            setAccessGroup(group)
+          }}
+          editBudget={(user) => {
+            setResumeReadiness(readinessUserId)
+            setBudgetUser(user)
+          }}
         />
       )}
     </div>

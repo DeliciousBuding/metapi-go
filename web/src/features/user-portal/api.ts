@@ -96,6 +96,11 @@ export type PersonalKey = z.infer<typeof keySchema>
 export type PersonalRequest = z.infer<typeof requestSchema>
 export type PersonalModel = z.infer<typeof modelsSchema>['items'][number]
 export type PortalView = 'overview' | 'models' | 'keys' | 'requests' | 'account'
+export type RequestFilters = {
+  search?: string
+  status?: string
+  quotaState?: string
+}
 export const portalQueryRoot = ['userPortal'] as const
 
 // Personal sessions must never trigger the administrator's 401 redirect or
@@ -148,9 +153,11 @@ export const userPortalApi = {
       await userRequest('/keys/' + id + '/rotate', 'POST', {})
     ),
   deleteKey: (id: number) => userRequest('/keys/' + id, 'DELETE'),
-  requests: async (page: number) =>
+  requests: async (page: number, filters: RequestFilters = {}) =>
     requestsSchema.parse(
-      await userRequest('/requests' + buildQueryString({ page, pageSize: 20 }))
+      await userRequest(
+        '/requests' + buildQueryString({ page, pageSize: 20, ...filters })
+      )
     ),
   request: async (id: string) =>
     requestSchema.parse(

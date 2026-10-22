@@ -271,6 +271,7 @@ export function PortalModels({ userId }: { userId: number }) {
   const query = useQuery({
     queryKey: ['userPortal', userId, 'models'],
     queryFn: userPortalApi.models,
+    refetchOnMount: 'always',
   })
   const filtered = (query.data?.items ?? []).filter((item) =>
     item.id.toLowerCase().includes(state.globalFilter.trim().toLowerCase())
@@ -310,6 +311,24 @@ export function PortalModels({ userId }: { userId: number }) {
         </Notice>
       ) : (
         <>
+          {context.model && !selected && !query.isFetching && (
+            <Notice tone='warning'>
+              <p className='wrap-anywhere'>
+                {t('userPortal.catalog.selectedUnavailable', {
+                  model: context.model,
+                })}
+              </p>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={() =>
+                  void navigate({ href: modelContextHref(locationSearch, {}) })
+                }
+              >
+                {t('userPortal.catalog.clearSelection')}
+              </Button>
+            </Notice>
+          )}
           <Card>
             <CardContent className='space-y-3'>
               <h2 className='font-medium'>

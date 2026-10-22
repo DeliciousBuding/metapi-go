@@ -1,10 +1,20 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { useRef } from 'react'
+import { Search, RotateCcw } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useUrlTableState } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Notice } from '@/components/ui/notice'
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select'
 import {
   Sheet,
   SheetContent,
@@ -26,6 +36,14 @@ import { toBcp47 } from '@/i18n/languages'
 import { TABLE_MOBILE_MEDIA_QUERY } from '@/lib/breakpoints'
 
 import { userPortalApi, type PersonalRequest } from '../api'
+import {
+  readRequestSearch,
+  requestSearchHref,
+  requestStatuses,
+  quotaStates,
+  type RequestStatus,
+  type QuotaState,
+} from '../request-search'
 import { CopyValue } from './portal-keys'
 
 const knownStatuses = [
@@ -97,6 +115,34 @@ function RequestDetail({ item }: { item: PersonalRequest }) {
                 ? item.terminalStatus
                 : 'unknown')
           )}
+        </dd>
+      </div>
+      <div>
+        <dt className='text-muted-foreground text-xs'>
+          {t('userPortal.supportSummary')}
+        </dt>
+        <dd className='mt-2'>
+          <CopyValue
+            label={t('userPortal.copySupportSummary')}
+            value={[
+              t('userPortal.requestId') + ': ' + item.id,
+              t('userPortal.model') +
+                ': ' +
+                (item.modelRequested ?? t('userPortal.unknown')),
+              t('userPortal.result') +
+                ': ' +
+                (knownStatuses.includes(item.terminalStatus)
+                  ? t('userPortal.status.' + item.terminalStatus)
+                  : t('userPortal.unknown')),
+              t('userPortal.startedAt') + ': ' + item.startedAt,
+              t('userPortal.attempts') + ': ' + item.attemptCount,
+              t('userPortal.quotaDetails.state') +
+                ': ' +
+                (item.quota
+                  ? t('userPortal.quotaDetails.states.' + item.quota.state)
+                  : t('userPortal.unknown')),
+            ].join('\n')}
+          />
         </dd>
       </div>
       <div>
@@ -193,11 +239,29 @@ export function PortalRequests({
 }) {
   const { t } = useTranslation()
   const detailEntry = useRef<HTMLAnchorElement | null>(null)
+  const state = useUrlTableState({
+    basePath: '/user',
+    read: readRequestSearch,
+    buildHref: requestSearchHref,
+    toColumnFilters: () => [],
+    fromColumnFilters: () => ({}),
+    resetPageIndexOnFilterChange: true,
+  })
+  const filters = { search: state.globalFilter || undefined, ...state.filters }
+  const hasFilters = Boolean(
+    state.globalFilter || state.filters.status || state.filters.quotaState
+  )
   const mobile = useMediaQuery(TABLE_MOBILE_MEDIA_QUERY)
   const requestLink = (item: PersonalRequest) => (
     <Link
       to='/user'
-      search={{ view: 'requests', page, requestId: item.id }}
+      search={{
+        view: 'requests',
+        page,
+        q: state.globalFilter || undefined,
+        ...state.filters,
+        requestId: item.id,
+      }}
       className='text-primary font-medium wrap-anywhere hover:underline'
       onClick={(event) => {
         detailEntry.current = event.currentTarget
@@ -207,8 +271,10 @@ export function PortalRequests({
     </Link>
   )
   const query = useQuery({
-    queryKey: ['userPortal', userId, 'requests', page],
-    queryFn: () => userPortalApi.requests(page),
+    queryKey: hasFilters
+      ? ['userPortal', userId, 'requests', page, filters]
+      : ['userPortal', userId, 'requests', page],
+    queryFn: () => userPortalApi.requests(page, filters),
     // Calls made in a terminal do not invalidate the browser's overview cache.
     refetchOnMount: 'always',
   })
@@ -218,11 +284,129 @@ export function PortalRequests({
     enabled: !!requestId,
     refetchOnMount: 'always',
   })
+  const { ensurePageInRange } = state
+  useEffect(() => {
+    if (query.isSuccess && !query.isFetching && !requestId)
+      ensurePageInRange(
+        Math.max(1, Math.ceil(query.data.total / query.data.pageSize))
+      )
+  }, [
+    query.isSuccess,
+    query.isFetching,
+    query.data,
+    requestId,
+    ensurePageInRange,
+  ])
   return (
     <div className='space-y-4'>
       <p className='text-muted-foreground text-sm'>
         {t('userPortal.requestsHint')}
       </p>
+      <div className='flex flex-wrap items-center gap-2'>
+        <div className='relative min-w-0 flex-1 basis-60'>
+          <Search
+            aria-hidden='true'
+            className='text-muted-foreground pointer-events-none absolute start-3 top-2 size-4'
+          />
+          <Input
+            className='h-8 ps-9'
+            aria-label={t('userPortal.requestFilters.search')}
+            placeholder={t('userPortal.requestFilters.search')}
+            maxLength={200}
+            value={state.globalFilter}
+            onChange={(event) => state.onGlobalFilterChange(event.target.value)}
+          />
+        </div>
+        <Select
+          value={state.filters.status ?? 'all'}
+          onValueChange={(value) =>
+            state.updateUrlState({
+              filters: {
+                status:
+                  value === 'all'
+                    ? undefined
+                    : (value as RequestStatus | undefined),
+              },
+              pageIndex: 0,
+            })
+          }
+        >
+          <SelectTrigger
+            size='sm'
+            aria-label={t('userPortal.requestFilters.status')}
+          >
+            <SelectValue>
+              {state.filters.status
+                ? t('userPortal.status.' + state.filters.status)
+                : t('userPortal.requestFilters.allResults')}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='all'>
+              {t('userPortal.requestFilters.allResults')}
+            </SelectItem>
+            {requestStatuses.map((status) => (
+              <SelectItem key={status} value={status}>
+                {t('userPortal.status.' + status)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={state.filters.quotaState ?? 'all'}
+          onValueChange={(value) =>
+            state.updateUrlState({
+              filters: {
+                quotaState:
+                  value === 'all'
+                    ? undefined
+                    : (value as QuotaState | undefined),
+              },
+              pageIndex: 0,
+            })
+          }
+        >
+          <SelectTrigger
+            size='sm'
+            aria-label={t('userPortal.requestFilters.quota')}
+          >
+            <SelectValue>
+              {state.filters.quotaState
+                ? t(
+                    'userPortal.requestFilters.quotaStates.' +
+                      state.filters.quotaState
+                  )
+                : t('userPortal.requestFilters.allQuota')}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='all'>
+              {t('userPortal.requestFilters.allQuota')}
+            </SelectItem>
+            {quotaStates.map((status) => (
+              <SelectItem key={status} value={status}>
+                {t('userPortal.requestFilters.quotaStates.' + status)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {hasFilters && (
+          <Button
+            size='sm'
+            variant='ghost'
+            onClick={() =>
+              state.updateUrlState({
+                q: '',
+                filters: { status: undefined, quotaState: undefined },
+                pageIndex: 0,
+              })
+            }
+          >
+            <RotateCcw aria-hidden='true' />
+            {t('userPortal.requestFilters.clear')}
+          </Button>
+        )}
+      </div>
       {query.isPending ? (
         <Spinner aria-label={t('common.loading')} />
       ) : query.isError ? (
@@ -240,7 +424,23 @@ export function PortalRequests({
         <>
           {query.data.items.length === 0 ? (
             <p className='text-muted-foreground rounded-xl border p-8 text-center'>
-              {t('userPortal.noRequests')}
+              {t(
+                hasFilters
+                  ? 'userPortal.requestFilters.noMatches'
+                  : 'userPortal.noRequests'
+              )}
+              {!hasFilters && (
+                <Button
+                  className='mt-3'
+                  variant='outline'
+                  size='sm'
+                  render={
+                    <Link to='/user' search={{ view: 'models', page: 1 }} />
+                  }
+                >
+                  {t('userPortal.browseModels')}
+                </Button>
+              )}
             </p>
           ) : mobile ? (
             <ul className='space-y-3'>
@@ -333,7 +533,12 @@ export function PortalRequests({
                 render={
                   <Link
                     to='/user'
-                    search={{ view: 'requests', page: Math.max(1, page - 1) }}
+                    search={{
+                      view: 'requests',
+                      page: Math.max(1, page - 1),
+                      q: state.globalFilter || undefined,
+                      ...state.filters,
+                    }}
                   />
                 }
               >
@@ -346,7 +551,12 @@ export function PortalRequests({
                 render={
                   <Link
                     to='/user'
-                    search={{ view: 'requests', page: page + 1 }}
+                    search={{
+                      view: 'requests',
+                      page: page + 1,
+                      q: state.globalFilter || undefined,
+                      ...state.filters,
+                    }}
                   />
                 }
               >
