@@ -25,10 +25,13 @@ import {
   portalQueryRoot,
   type UserSession,
   type PortalView,
+  type PersonalModel,
 } from './api'
 import { PortalAccount } from './components/portal-account'
-import { CopyValue, PortalKeys } from './components/portal-keys'
+import { PortalKeys } from './components/portal-keys'
 import { PortalLogin } from './components/portal-login'
+import { PortalModels } from './components/portal-models'
+import { PortalOnboarding } from './components/portal-onboarding'
 import { PortalRequests } from './components/portal-requests'
 
 const navigation = [
@@ -55,6 +58,7 @@ function PortalOverview({ userId }: { userId: number }) {
     )
   return (
     <div className='space-y-5'>
+      <PortalOnboarding userId={userId} />
       {budget.isPending ? (
         <Spinner aria-label={t('common.loading')} />
       ) : budget.isError ? (
@@ -135,10 +139,15 @@ function PortalOverview({ userId }: { userId: number }) {
           </div>
           <div>
             <dt className='text-muted-foreground text-xs'>
-              {t('userPortal.keyRequestCount')}
+              {t('userPortal.recordedRequests')}
             </dt>
             <dd className='mt-1 text-xl font-semibold tabular-nums'>
-              {usage.data.usedRequests.toLocaleString()}
+              {usage.data.recordedRequests === undefined
+                ? t('userPortal.unknown')
+                : usage.data.recordedRequests.toLocaleString()}
+            </dd>
+            <dd className='text-muted-foreground mt-1 text-xs'>
+              {t('userPortal.retainedRequestsHint')}
             </dd>
           </div>
         </dl>
@@ -160,80 +169,20 @@ function PortalOverview({ userId }: { userId: number }) {
   )
 }
 
-function PortalModels({ userId }: { userId: number }) {
-  const { t } = useTranslation()
-  const query = useQuery({
-    queryKey: ['userPortal', userId, 'models'],
-    queryFn: userPortalApi.models,
-  })
-  if (query.isPending) return <Spinner aria-label={t('common.loading')} />
-  if (query.isError)
-    return (
-      <Notice tone='destructive' role='alert'>
-        <span>{t('userPortal.loadFailed')}</span>
-        <Button
-          variant='outline'
-          size='sm'
-          onClick={() => void query.refetch()}
-        >
-          {t('common.retry')}
-        </Button>
-      </Notice>
-    )
-  const endpoint = window.location.origin + '/v1'
-  return (
-    <div className='space-y-5'>
-      <p className='text-muted-foreground text-sm'>
-        {t('userPortal.modelsHint')}
-      </p>
-      {query.data.items.length === 0 ? (
-        <Notice tone='info'>{t('userPortal.noModels')}</Notice>
-      ) : (
-        <div className='divide-border divide-y rounded-xl border'>
-          {query.data.items.map((model) => (
-            <div
-              className='flex flex-wrap items-center justify-between gap-3 p-4'
-              key={model.routeId + ':' + model.id}
-            >
-              <span className='min-w-0 font-medium wrap-anywhere'>
-                {model.id}
-              </span>
-              <CopyValue value={model.id} label={t('userPortal.copyModel')} />
-            </div>
-          ))}
-        </div>
-      )}
-      <Card>
-        <CardContent className='space-y-3'>
-          <h2 className='font-semibold'>{t('userPortal.connectTitle')}</h2>
-          <p className='text-muted-foreground text-sm'>
-            {t('userPortal.connectHint')}
-          </p>
-          <p className='font-mono text-sm wrap-anywhere'>{endpoint}</p>
-          <CopyValue value={endpoint} label={t('userPortal.copyEndpoint')} />
-          <Button
-            variant='outline'
-            className='ms-2'
-            render={<Link to='/user' search={{ view: 'keys', page: 1 }} />}
-          >
-            {t('userPortal.createKey')}
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 function PortalShell({
   session,
   view,
   page,
   requestId,
+  model,
+  protocol,
 }: {
   session: UserSession
   view: PortalView
   page: number
   requestId?: string
+  model?: string
+  protocol?: PersonalModel['protocols'][number]
 }) {
   const { t } = useTranslation()
   const client = useQueryClient()
@@ -331,7 +280,25 @@ function PortalShell({
           )}
           {view === 'overview' && <PortalOverview userId={session.user.id} />}
           {view === 'models' && <PortalModels userId={session.user.id} />}
-          {view === 'keys' && <PortalKeys userId={session.user.id} />}
+          {view === 'keys' && (
+            <>
+              {model && (
+                <Notice tone='info'>
+                  <p className='wrap-anywhere'>
+                    {t('userPortal.selectedConnectionModel', { model })}
+                  </p>
+                  <Link
+                    to='/user'
+                    search={{ view: 'models', page: 1, model, protocol }}
+                    className='text-primary font-medium underline underline-offset-4'
+                  >
+                    {t('userPortal.returnToConnection')}
+                  </Link>
+                </Notice>
+              )}
+              <PortalKeys userId={session.user.id} />
+            </>
+          )}
           {view === 'requests' && (
             <PortalRequests
               userId={session.user.id}
@@ -357,6 +324,8 @@ export function UserPortalPage(props: {
   view: PortalView
   page: number
   requestId?: string
+  model?: string
+  protocol?: PersonalModel['protocols'][number]
 }) {
   const { t } = useTranslation()
   const session = useQuery({

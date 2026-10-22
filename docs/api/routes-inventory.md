@@ -136,6 +136,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/user/auth/logout`
 - `/api/user/auth/password`
 - `/api/user/keys`
+- `/api/user/keys/:id/rotate`
 - `/api/admin/users/:userId/activation`
 
 - `/api/admin/users`

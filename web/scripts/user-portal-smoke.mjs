@@ -3,7 +3,7 @@
 // existing deployment: every run owns a fresh localhost server and temp DB.
 // Build first, then METAPI_BINARY=/absolute/server node scripts/user-portal-smoke.mjs.
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { once } from 'node:events'
 import { createWriteStream } from 'node:fs'
@@ -11,6 +11,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
 
 import { chromium } from 'playwright'
 
@@ -214,7 +215,10 @@ try {
     locale: 'en-US',
     viewport: { width: 1440, height: 1000 },
   })
-  await context.addInitScript(() => localStorage.setItem('i18nextLng', 'en'))
+  await context.addInitScript(() => {
+    if (!localStorage.getItem('i18nextLng'))
+      localStorage.setItem('i18nextLng', 'en')
+  })
   const page = await context.newPage()
   const crashes = []
   page.on('pageerror', (error) => crashes.push(error.message))
@@ -245,14 +249,73 @@ try {
   pass('ordinary user cookie cannot read administrator API')
   await page.getByRole('link', { name: 'Models', exact: true }).click()
   await page.getByText('personal-model', { exact: true }).waitFor()
-  await page.getByRole('link', { name: 'API keys', exact: true }).click()
+  await page.getByLabel('Search model names').fill('absent-model')
+  await page
+    .getByText('No models match this search. Try another name.')
+    .waitFor()
+  assert.equal(new URL(page.url()).searchParams.get('q'), 'absent-model')
+  await page.getByRole('button', { name: 'Clear search' }).click()
+  await page
+    .getByRole('button', {
+      name: 'View pricing and connection for personal-model',
+    })
+    .click()
+  const connectionDialog = page.getByRole('dialog')
+  await connectionDialog
+    .getByText('Reference price unavailable; unknown does not mean free.')
+    .waitFor()
+  await connectionDialog
+    .getByRole('tab', { name: 'chat/completions', exact: true })
+    .click()
+  const connectionCommand = await connectionDialog
+    .getByLabel('Request example')
+    .innerText()
+  assert.ok(connectionCommand.includes('METAPI_API_KEY'))
+  await page.screenshot({
+    path: path.join(output, 'model-connection-desktop.png'),
+  })
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.screenshot({
+    path: path.join(output, 'model-connection-mobile.png'),
+  })
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  )
+  await page.evaluate(
+    await readFile(
+      new URL('../node_modules/axe-core/axe.min.js', import.meta.url),
+      'utf8'
+    )
+  )
+  assert.deepEqual(
+    await page.evaluate(async () =>
+      (await window.axe.run(document)).violations
+        .filter((v) => ['critical', 'serious'].includes(v.impact))
+        .map((v) => v.id)
+    ),
+    []
+  )
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await connectionDialog
+    .getByRole('button', { name: 'Create key', exact: true })
+    .click()
+  assert.equal(new URL(page.url()).searchParams.get('model'), 'personal-model')
+  assert.equal(
+    new URL(page.url()).searchParams.get('protocol'),
+    'chat/completions'
+  )
+  pass(
+    'model search URL, protocol-specific example, unknown pricing and accessible mobile connection dialog'
+  )
   await page.getByRole('button', { name: 'Create key', exact: true }).click()
   await page.getByLabel('Key name', { exact: true }).fill('Browser client')
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Create key', exact: true })
     .click()
-  const secret = await page
+  let secret = await page
     .getByLabel('Secret API key', { exact: true })
     .inputValue()
   assert.match(secret, /^sk-/)
@@ -277,6 +340,18 @@ try {
   await page.getByRole('button', { name: 'I have saved the key' }).click()
   await page.getByText('Browser client', { exact: true }).waitFor()
   pass('create and securely dismiss one-time personal Key')
+  await page
+    .getByRole('link', {
+      name: 'Return to this model’s connection example',
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole('dialog')
+    .getByRole('tab', { name: 'chat/completions', exact: true })
+    .waitFor()
+  await page.keyboard.press('Escape')
+  pass('selected model and protocol survive Key creation and return navigation')
   async function invoke(want = 200) {
     const response = await fetch(base + '/v1/chat/completions', {
       method: 'POST',
@@ -293,7 +368,15 @@ try {
     assert.equal(response.status, want, JSON.stringify(body))
     return body
   }
-  const completion = await invoke()
+  const { stdout: exampleOutput } = await promisify(execFile)(
+    'sh',
+    ['-c', connectionCommand],
+    { env: { ...process.env, METAPI_API_KEY: secret } }
+  )
+  assert.match(exampleOutput, /^HTTP\/1\.1 200/)
+  const completion = JSON.parse(
+    exampleOutput.slice(exampleOutput.indexOf('\r\n\r\n') + 4)
+  )
   assert.equal(completion.choices[0].message.content, 'personal-call-ok')
   assert.equal(upstreamCalls, 1)
   const budget = await (
@@ -315,6 +398,97 @@ try {
   ).json()
   assert.equal(records.items.length, 1)
   const requestID = records.items[0].id
+  const requestQuota = records.items[0].quota
+  assert.equal(requestQuota.unit, 'token_credits')
+  assert.equal(requestQuota.state, 'settled')
+  assert.equal(requestQuota.totalTokens, 14)
+  assert.equal(requestQuota.groupMultiplier, 2)
+  assert.equal(requestQuota.charged, 0.000028)
+  assert.ok(requestQuota.reserved > 0)
+  assert.deepEqual(
+    (
+      await (
+        await context.request.get(base + '/api/user/requests/' + requestID)
+      ).json()
+    ).quota,
+    requestQuota
+  )
+  await page
+    .getByRole('dialog')
+    .getByText('0.000028', { exact: true })
+    .waitFor()
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.screenshot({ path: path.join(output, 'request-quota-mobile.png') })
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  )
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  pass(
+    'request detail exposes historical quota snapshot and exact recorded charge'
+  )
+  await page.getByRole('button', { name: 'Copy internal request ID' }).waitFor()
+  await page.getByText(/The gateway completed processing/).waitFor()
+  await page.keyboard.press('Escape')
+  await page.getByRole('link', { name: 'API keys', exact: true }).click()
+  const beforeRotation = await (
+    await context.request.get(base + '/api/user/keys')
+  ).json()
+  await page.getByRole('button', { name: 'Rotate key Browser client' }).click()
+  await page.getByRole('button', { name: 'Replace secret now' }).click()
+  const rotatedSecret = await page
+    .getByLabel('Secret API key', { exact: true })
+    .inputValue()
+  assert.notEqual(rotatedSecret, secret)
+  assert.equal(
+    (
+      await fetch(base + '/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + secret,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'personal-model',
+          messages: [{ role: 'user', content: 'hello' }],
+        }),
+      })
+    ).status,
+    401
+  )
+  secret = rotatedSecret
+  await page.getByRole('button', { name: 'I have saved the key' }).click()
+  const afterRotation = await (
+    await context.request.get(base + '/api/user/keys')
+  ).json()
+  assert.equal(afterRotation.items[0].id, beforeRotation.items[0].id)
+  assert.equal(
+    afterRotation.items[0].usedRequests,
+    beforeRotation.items[0].usedRequests
+  )
+  assert.equal(
+    (
+      await (
+        await context.request.get(base + '/api/user/requests/' + requestID)
+      ).json()
+    ).id,
+    requestID
+  )
+  assert.ok(
+    !(
+      await page.evaluate(() =>
+        JSON.stringify({
+          local: { ...localStorage },
+          session: { ...sessionStorage },
+          url: location.href,
+        })
+      )
+    ).includes(secret)
+  )
+  pass(
+    'browser rotation retains identity/counters/history, invalidates old secret and discards the new secret'
+  )
   const otherContext = await browser.newContext()
   assert.equal(
     (
@@ -343,6 +517,9 @@ try {
     404
   )
   pass('other user cannot read Keys, totals or request detail')
+  await admin('/api/admin/user-groups/' + group.id + '/pricing', 'PUT', {
+    multiplier: 3,
+  })
   await admin('/api/admin/users/' + user.id, 'PUT', {
     displayName: 'Renamed',
     groupId: emptyGroup.id,
@@ -353,6 +530,7 @@ try {
     await context.request.get(base + '/api/user/requests/' + requestID)
   ).json()
   assert.equal(ownHistory.id, requestID)
+  assert.deepEqual(ownHistory.quota, requestQuota)
   await admin('/api/admin/users/' + user.id, 'PUT', {
     displayName: 'Renamed',
     groupId: group.id,
@@ -377,6 +555,11 @@ try {
   for (const view of ['overview', 'models', 'keys', 'requests', 'account']) {
     await page.goto(base + '/user?view=' + view)
     await page.getByRole('heading', { level: 1 }).waitFor()
+    if (view === 'requests')
+      await page
+        .getByRole('link', { name: 'personal-model', exact: true })
+        .first()
+        .waitFor()
     await page.screenshot({
       path: path.join(output, 'user-' + view + '-desktop.png'),
     })
@@ -404,13 +587,234 @@ try {
       })
       return r.violations
         .filter((v) => ['critical', 'serious'].includes(v.impact))
-        .map((v) => v.id)
+        .map((v) => ({
+          id: v.id,
+          nodes: v.nodes.map((n) => ({
+            target: n.target,
+            summary: n.failureSummary,
+          })),
+        }))
     })
+    await writeFile(
+      path.join(output, 'axe-' + view + '.json'),
+      JSON.stringify(violations, null, 2)
+    )
     assert.deepEqual(violations, [], 'axe ' + view)
     await page.setViewportSize({ width: 1440, height: 1000 })
   }
   pass(
     'all five personal views desktop/mobile, no overflow, axe serious/critical zero'
+  )
+  await page.evaluate(() => localStorage.setItem('i18nextLng', 'zh-CN'))
+  await page.goto(
+    base + '/user?view=requests&requestId=' + encodeURIComponent(requestID)
+  )
+  await page.getByRole('heading', { name: '请求详情', exact: true }).waitFor()
+  await page
+    .getByRole('dialog')
+    .getByText('0.000028', { exact: true })
+    .waitFor()
+  await page.screenshot({
+    path: path.join(output, 'request-quota-desktop-zh.png'),
+  })
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page
+    .getByRole('dialog')
+    .getByText('0.000028', { exact: true })
+    .scrollIntoViewIfNeeded()
+  await page.screenshot({
+    path: path.join(output, 'request-quota-mobile-zh.png'),
+  })
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  )
+  await page.evaluate(() => localStorage.setItem('i18nextLng', 'en'))
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(base + '/user?view=account')
+  pass('Chinese quota detail remains readable on desktop and mobile')
+  const setupUser = await admin('/api/admin/users', 'POST', {
+    username: 'setup-check',
+    displayName: 'Setup check',
+    groupId: emptyGroup.id,
+    enabled: true,
+  })
+  const adminContext = await browser.newContext({
+    locale: 'en-US',
+    viewport: { width: 1440, height: 1000 },
+  })
+  await adminContext.addInitScript(() => {
+    if (!localStorage.getItem('i18nextLng'))
+      localStorage.setItem('i18nextLng', 'en')
+  })
+  assert.equal(
+    (
+      await adminContext.request.post(base + '/api/auth/login', {
+        data: { token },
+      })
+    ).status(),
+    200
+  )
+  const adminPage = await adminContext.newPage()
+  adminPage.on('pageerror', (error) => crashes.push(error.message))
+  await adminPage.goto(base + '/users')
+  const setupRow = adminPage.locator('article').filter({
+    has: adminPage.getByRole('heading', { name: 'Setup check', exact: true }),
+  })
+  await setupRow
+    .getByRole('button', { name: 'Provisioning check', exact: true })
+    .click()
+  const readiness = adminPage.getByRole('dialog')
+  await readiness
+    .getByText('Needs attention', { exact: true })
+    .first()
+    .waitFor()
+  await readiness
+    .getByText('Configuration checks have not passed', { exact: true })
+    .waitFor()
+  await readiness.getByRole('button', { name: 'Quota', exact: true }).click()
+  const budgetDialog = adminPage.getByRole('dialog')
+  await budgetDialog
+    .getByLabel('Total quota limit (units)', { exact: true })
+    .fill('1')
+  await budgetDialog
+    .getByText('Available quota: 1 units', { exact: true })
+    .waitFor()
+  await budgetDialog.getByRole('button', { name: 'Save', exact: true }).click()
+  await adminPage.getByLabel('Admin token', { exact: true }).fill(token)
+  await adminPage.getByRole('button', { name: 'Confirm', exact: true }).click()
+  await budgetDialog.getByText('Saved', { exact: true }).waitFor()
+  await adminPage.keyboard.press('Escape')
+  await admin('/api/admin/users/' + setupUser.id, 'PUT', {
+    displayName: 'Setup check',
+    groupId: group.id,
+    enabled: true,
+  })
+  await adminPage.goto(base + '/users')
+  await setupRow
+    .getByRole('button', { name: 'Provisioning check', exact: true })
+    .click()
+  await readiness
+    .getByText('Configuration checks passed', { exact: true })
+    .waitFor()
+  await readiness
+    .getByText('Activation / client connection: unknown', { exact: true })
+    .waitFor()
+  await adminPage.screenshot({
+    path: path.join(output, 'admin-provisioning-desktop.png'),
+  })
+  await adminPage.setViewportSize({ width: 375, height: 812 })
+  await adminPage.screenshot({
+    path: path.join(output, 'admin-provisioning-mobile.png'),
+  })
+  assert.ok(
+    await adminPage.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  )
+  await adminPage.evaluate(
+    await readFile(
+      new URL('../node_modules/axe-core/axe.min.js', import.meta.url),
+      'utf8'
+    )
+  )
+  assert.deepEqual(
+    await adminPage.evaluate(async () =>
+      (await window.axe.run(document)).violations
+        .filter((v) => ['critical', 'serious'].includes(v.impact))
+        .map((v) => v.id)
+    ),
+    []
+  )
+  await adminPage.evaluate(() => localStorage.setItem('i18nextLng', 'zh-CN'))
+  await adminPage.goto(base + '/users')
+  await setupRow.getByRole('button', { name: '开通检查', exact: true }).click()
+  await readiness.getByText('配置检查通过', { exact: true }).waitFor()
+  await adminPage.screenshot({
+    path: path.join(output, 'admin-provisioning-mobile-zh.png'),
+  })
+  await adminPage.setViewportSize({ width: 1440, height: 1000 })
+  await adminPage.screenshot({
+    path: path.join(output, 'admin-provisioning-desktop-zh.png'),
+  })
+  await adminPage.evaluate(() => localStorage.setItem('i18nextLng', 'en'))
+  await adminPage.goto(base + '/users')
+  await setupRow
+    .getByRole('button', { name: 'Activation code', exact: true })
+    .click()
+  await adminPage
+    .getByRole('button', { name: 'Issue one-time code', exact: true })
+    .click()
+  await adminPage.getByLabel('Admin token', { exact: true }).fill(token)
+  await adminPage.getByRole('button', { name: 'Confirm', exact: true }).click()
+  const instructions = await adminPage
+    .getByLabel('Complete activation instructions', { exact: true })
+    .inputValue()
+  const activationSecret = await adminPage
+    .getByLabel('One-time activation code', { exact: true })
+    .inputValue()
+  assert.ok(
+    instructions.includes(base + '/user') &&
+      instructions.includes(setupUser.username) &&
+      instructions.includes(activationSecret)
+  )
+  assert.ok(instructions.split('\n').length >= 5)
+  await adminPage.keyboard.press('Escape')
+  await adminPage
+    .getByLabel('Complete activation instructions', { exact: true })
+    .waitFor({ state: 'detached' })
+  assert.equal(
+    await adminPage
+      .getByLabel('Complete activation instructions', { exact: true })
+      .count(),
+    0
+  )
+  assert.ok(
+    !(
+      await adminPage.evaluate(() =>
+        JSON.stringify({
+          local: { ...localStorage },
+          session: { ...sessionStorage },
+          url: location.href,
+        })
+      )
+    ).includes(activationSecret)
+  )
+  await adminContext.close()
+  pass(
+    'administrator provisioning checks, quota preview and one-time activation instructions'
+  )
+  const beforeDeleteUsage = await (
+    await context.request.get(base + '/api/user/usage')
+  ).json()
+  assert.ok(beforeDeleteUsage.recordedRequests >= 1)
+  assert.equal(
+    (
+      await context.request.delete(
+        base + '/api/user/keys/' + afterRotation.items[0].id
+      )
+    ).status(),
+    200
+  )
+  const afterDeleteUsage = await (
+    await context.request.get(base + '/api/user/usage')
+  ).json()
+  assert.equal(afterDeleteUsage.keyCount, 0)
+  assert.equal(
+    afterDeleteUsage.recordedRequests,
+    beforeDeleteUsage.recordedRequests
+  )
+  assert.deepEqual(
+    (
+      await (
+        await context.request.get(base + '/api/user/requests/' + requestID)
+      ).json()
+    ).quota,
+    requestQuota
+  )
+  pass(
+    'Key deletion preserves retained request count and historical quota settlement'
   )
   await page.getByRole('link', { name: 'Account', exact: true }).click()
   await page.getByLabel('Current password', { exact: true }).fill(password)

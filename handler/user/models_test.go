@@ -21,50 +21,7 @@ import (
 func TestUserPortalModelsUseRealGroupRouting(t *testing.T) {
 	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
 		t.Run(dialect, func(t *testing.T) {
-			dsn := ":memory:"
-			if dialect == store.DialectPostgres {
-				dsn = os.Getenv("PG_TEST_DSN")
-				if dsn == "" {
-					t.Skip("PG_TEST_DSN not set")
-				}
-				control, err := store.Open(dialect, dsn, false)
-				if err != nil {
-					t.Fatal(err)
-				}
-				schema := "user_models_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-				if _, err := control.Exec("CREATE SCHEMA " + schema); err != nil {
-					t.Fatal(err)
-				}
-				t.Cleanup(func() {
-					if _, err := control.Exec("DROP SCHEMA " + schema + " CASCADE"); err != nil {
-						t.Errorf("drop own schema: %v", err)
-					}
-					_ = control.Close()
-				})
-				u, err := url.Parse(dsn)
-				if err != nil {
-					t.Fatal(err)
-				}
-				q := u.Query()
-				q.Set("search_path", schema)
-				u.RawQuery = q.Encode()
-				dsn = u.String()
-			}
-			db, err := store.Open(dialect, dsn, false)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer db.Close()
-			if err := store.AutoMigrate(db); err != nil {
-				t.Fatal(err)
-			}
-			previous := config.RuntimeSafe()
-			config.SetRuntime(&config.RuntimeSettings{RoutingFallbackUnitCost: 1})
-			t.Cleanup(func() {
-				config.SetRuntime(previous)
-				routing.SetGlobalCache(nil)
-				routing.ResetSiteRuntimeHealthState()
-			})
+			db := openUserModelsDatabase(t, dialect)
 			users := store.NewGatewayUserStore(db)
 			ctx := context.Background()
 			group, err := users.CreateUserGroup(ctx, "models", "Models", true)
@@ -144,16 +101,16 @@ func TestUserPortalModelsUseRealGroupRouting(t *testing.T) {
 					}
 				}
 				var body struct {
-					Items []struct {
-						ID      string `json:"id"`
-						RouteID int64  `json:"routeId"`
-					} `json:"items"`
+					Items []userModel `json:"items"`
 				}
 				if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 					t.Fatal(err)
 				}
 				out := map[string]int64{}
 				for _, item := range body.Items {
+					if item.Protocols == nil || len(item.Protocols) != 0 {
+						t.Fatalf("legacy eligibility invented protocol capabilities: %+v", item)
+					}
 					out[item.ID] = item.RouteID
 				}
 				return out
@@ -183,4 +140,53 @@ func TestUserPortalModelsUseRealGroupRouting(t *testing.T) {
 			}
 		})
 	}
+}
+
+func openUserModelsDatabase(t *testing.T, dialect string) *store.DB {
+	t.Helper()
+	dsn := ":memory:"
+	if dialect == store.DialectPostgres {
+		dsn = os.Getenv("PG_TEST_DSN")
+		if dsn == "" {
+			t.Skip("PG_TEST_DSN not set")
+		}
+		control, err := store.Open(dialect, dsn, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		schema := "user_models_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+		if _, err := control.Exec("CREATE SCHEMA " + schema); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if _, err := control.Exec("DROP SCHEMA " + schema + " CASCADE"); err != nil {
+				t.Errorf("drop own schema: %v", err)
+			}
+			_ = control.Close()
+		})
+		u, err := url.Parse(dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		q := u.Query()
+		q.Set("search_path", schema)
+		u.RawQuery = q.Encode()
+		dsn = u.String()
+	}
+	db, err := store.Open(dialect, dsn, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := store.AutoMigrate(db); err != nil {
+		t.Fatal(err)
+	}
+	previous := config.RuntimeSafe()
+	config.SetRuntime(&config.RuntimeSettings{RoutingFallbackUnitCost: 1})
+	t.Cleanup(func() {
+		config.SetRuntime(previous)
+		routing.SetGlobalCache(nil)
+		routing.ResetSiteRuntimeHealthState()
+	})
+	return db
 }

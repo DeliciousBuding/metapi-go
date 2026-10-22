@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, Eye, EyeOff, KeyRound, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { Copy, Eye, EyeOff, KeyRound, Plus, RefreshCw } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog'
 import {
   Form,
@@ -219,6 +220,109 @@ function CreatedKey({
   )
 }
 
+function RotateKeyDialog({
+  item,
+  userId,
+  onClose,
+}: {
+  item: PersonalKey
+  userId: number
+  onClose: () => void
+}) {
+  const { t } = useTranslation()
+  const client = useQueryClient()
+  const [secret, setSecret] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const submitting = useRef(false)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  async function rotate() {
+    if (submitting.current || secret !== null) return
+    submitting.current = true
+    setPending(true)
+    setFailed(false)
+    try {
+      // Keep the one-time secret in this dialog only, never in a Query or
+      // mutation cache. Unmounting on navigation/logout discards the result.
+      const result = await userPortalApi.rotateKey(item.id)
+      if (!mounted.current) return
+      setSecret(result.key)
+      void client.invalidateQueries({
+        queryKey: ['userPortal', userId, 'keys'],
+      })
+    } catch {
+      if (mounted.current) setFailed(true)
+    } finally {
+      submitting.current = false
+      if (mounted.current) setPending(false)
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !submitting.current) onClose()
+      }}
+    >
+      <DialogContent showCloseButton={!pending}>
+        <DialogHeader>
+          <DialogTitle>
+            {t(
+              secret ? 'userPortal.rotation.ready' : 'userPortal.rotation.title'
+            )}
+          </DialogTitle>
+          <DialogDescription>
+            {t('userPortal.rotation.description', { name: item.name })}
+          </DialogDescription>
+        </DialogHeader>
+        {secret ? (
+          <>
+            <Notice tone='success'>{t('userPortal.rotation.success')}</Notice>
+            <CreatedKey secret={secret} onDismiss={onClose} />
+          </>
+        ) : (
+          <>
+            <Notice tone='warning'>{t('userPortal.rotation.warning')}</Notice>
+            <p className='text-muted-foreground text-sm'>
+              {t('userPortal.rotation.preserves')}
+            </p>
+            {failed && (
+              <Notice tone='destructive' role='alert'>
+                {t('userPortal.rotation.failed')}
+              </Notice>
+            )}
+            <DialogFooter>
+              <Button variant='outline' disabled={pending} onClick={onClose}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant='destructive'
+                disabled={pending}
+                onClick={() => void rotate()}
+              >
+                {pending && <Spinner aria-hidden='true' />}
+                {t(
+                  pending
+                    ? 'userPortal.rotation.pending'
+                    : 'userPortal.rotation.confirm'
+                )}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function PortalKeys({ userId }: { userId: number }) {
   const { t } = useTranslation()
   const client = useQueryClient()
@@ -227,6 +331,7 @@ export function PortalKeys({ userId }: { userId: number }) {
   const remove = useUndoableDelete()
   const [creating, setCreating] = useState(false)
   const [secret, setSecret] = useState<string | null>(null)
+  const [rotating, setRotating] = useState<PersonalKey | null>(null)
   return (
     <div className='space-y-4'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
@@ -287,29 +392,49 @@ export function PortalKeys({ userId }: { userId: number }) {
                   </p>
                 )}
               </div>
-              <Button
-                variant='destructive'
-                size='sm'
-                onClick={() =>
-                  remove<{ items: PersonalKey[] }, PersonalKey>({
-                    item: key,
-                    queryKey,
-                    removeFromCache: (data, item) => ({
-                      items: data.items.filter((v) => v.id !== item.id),
-                    }),
-                    deleteFn: (item) => userPortalApi.deleteKey(item.id),
-                    title: t('userPortal.keyRemoved'),
-                    undoLabel: t('common.undo'),
-                    errorTitle: t('userPortal.actionFailed'),
-                    alsoInvalidate: [['userPortal', userId, 'usage']],
-                  })
-                }
-              >
-                {t('userPortal.revokeKey')}
-              </Button>
+              <div className='flex flex-wrap gap-2'>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  aria-label={t('userPortal.rotation.actionFor', {
+                    name: key.name,
+                  })}
+                  onClick={() => setRotating(key)}
+                >
+                  <RefreshCw aria-hidden='true' />
+                  {t('userPortal.rotation.action')}
+                </Button>
+                <Button
+                  variant='destructive'
+                  size='sm'
+                  onClick={() =>
+                    remove<{ items: PersonalKey[] }, PersonalKey>({
+                      item: key,
+                      queryKey,
+                      removeFromCache: (data, item) => ({
+                        items: data.items.filter((v) => v.id !== item.id),
+                      }),
+                      deleteFn: (item) => userPortalApi.deleteKey(item.id),
+                      title: t('userPortal.keyRemoved'),
+                      undoLabel: t('common.undo'),
+                      errorTitle: t('userPortal.actionFailed'),
+                      alsoInvalidate: [['userPortal', userId, 'usage']],
+                    })
+                  }
+                >
+                  {t('userPortal.revokeKey')}
+                </Button>
+              </div>
             </div>
           ))}
         </div>
+      )}
+      {rotating && (
+        <RotateKeyDialog
+          item={rotating}
+          userId={userId}
+          onClose={() => setRotating(null)}
+        />
       )}
       <Dialog
         open={creating || secret !== null}

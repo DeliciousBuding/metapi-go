@@ -125,21 +125,71 @@ null or case-aliased fields and oversized/trailing JSON bodies.
 | `GET /api/user/session` | `{user:{id,username,displayName,groupId},group:{id,name},expiresAt}` |
 | `POST /api/user/auth/logout` | Revoke current session and clear cookie; `{success:true}` |
 | `POST /api/user/auth/password` | `{currentPassword,newPassword}`; revoke all sessions and clear cookie; sign in again |
-| `GET /api/user/models` | `{items:[{id,routeId}]}`; concrete public names with eligible sources under current group, no upstream details or live availability promise |
+| `GET /api/user/models` | `{items:[{id,routeId,protocols,referencePrice}],quota:{unit:"token_credits",tokensPerUnit:1000000,groupMultiplier}}`; current-group model access, supported examples and safe catalog reference prices; see below |
 | `GET /api/user/keys` | `{items:[{id,name,keyMasked,enabled,expiresAt,supportedModels,maxCost,maxRequests,usedCost,usedRequests,createdAt}]}`; only caller-owned Keys, never plaintext |
 | `POST /api/user/keys` | `{name,supportedModels?,expiresAt?,maxCost?,maxRequests?}`; omit supportedModels to inherit the group; explicit empty array is rejected. Generate cryptographically random Key, bind authenticated user, return `{item,key}` once; users cannot choose owner, group, site or credentials |
+| `POST /api/user/keys/{id}/rotate` | Replace only the caller-owned Key secret, returning `{item,key}` once; same identity, restrictions, expiry, counters and history. Unknown or foreign ID is `404`; rate-limited |
 | `DELETE /api/user/keys/{id}` | Delete only caller-owned Key; unknown or another user's ID is `404` |
 | `GET /api/user/requests?page=1&pageSize=20` | `{items,total,page,pageSize}`; rows and total use the same caller-owner predicate |
 | `GET /api/user/requests/{id}` | One safe request DTO, owner-scoped or `404` |
-| `GET /api/user/usage` | `{usedRequests,keyCount,usedCost}` for caller-owned current Keys; `usedCost` is the legacy upstream cost estimate, not personal token quota |
+| `GET /api/user/usage` | `{usedRequests,keyCount,usedCost,recordedRequests}`; the first three describe caller-owned current Keys, while `recordedRequests` counts retained caller-owned request records. `usedCost` is the legacy upstream cost estimate, not personal token quota |
 
 Request DTO fields are `id`, `modelRequested` (nullable), `terminalStatus`,
-`latencyMs`, `startedAt`, `endedAt`, `attemptCount`; no account/credential IDs,
+`latencyMs`, `startedAt`, `endedAt`, `attemptCount`, and nullable `quota`; no account/credential IDs,
 raw error bodies, provider costs, arbitrary log payloads or other users' rows.
 Old unowned logs stay administrator-only; renaming, regrouping and Key deletion
 do not change historical request ownership. Invalid/expired credentials return
 `401`, invalid input `400`, unavailable storage `503`. The personal UI renders
 failed reads as errors rather than empty successful data.
+
+`quota` is `{unit:"token_credits",state,totalTokens,groupMultiplier,reserved,charged}`.
+The state is `pending`, `settled`, `released` or `unknown`. The multiplier and
+amounts come from that request's durable quota record, not the user's current
+group. `totalTokens` and `charged` may be null; known zero remains zero.
+`reserved` is the recorded reservation, not an additional charge or a promise
+that the provider cannot report more usage. Requests without an attributable
+quota record return `quota:null`; database read failures remain errors.
+Both request ownership and ledger ownership must match the current user.
+
+`recordedRequests` survives Key deletion and rotation, but follows the request
+log retention period; it is not a lifetime billing count. Legacy Key counters
+remain available under their original names. Clients talking to older servers
+may show unavailable quota details or request counts when the new fields are
+absent, rather than inventing a zero or a lifetime total.
+
+Rotation has no grace period: the old secret fails new HTTP requests and the
+next turn on an existing Responses WebSocket. Already admitted requests are not
+forcibly interrupted. A disabled, expired or exhausted Key retains that state.
+Concurrent rotations use the last committed secret; do not automatically retry
+an ambiguous network failure. The personal UI confirms the effect, prevents
+duplicate submissions and keeps the returned secret only in the open dialog.
+
+### Personal model catalog and connection examples
+
+The catalog returns concrete public model names that have an eligible configured
+source under the caller's current group. It is not a live probe or proof of a
+successful request. `protocols` contains the subset of `chat/completions`,
+`responses`, `messages` and `embeddings` for which the direct-source route and
+conversion policy support an example. It is not an exhaustive capability list.
+Legacy account/OAuth sources without protocol evidence, and other media sources,
+may return an empty array; the UI requests administrator connection instructions
+instead of inventing a Chat example. User quota restrictions still apply.
+
+`referencePrice` is `null` when unavailable, otherwise
+`{currency:"USD",unit:"per_million_tokens",input,output,cacheRead,cacheWrite,updatedAt}`.
+Each rate and the ISO update date may be `null`; a known zero price remains `0`.
+These are catalog reference prices, **not a user sale price or quota conversion**.
+Lookup uses the public model name; source names, internal URLs, provider identities
+and resolved model mappings are excluded. Listing reads one cached catalog snapshot
+without refreshing upstream pricing sources.
+
+The personal model page keeps search and pagination in the URL, and provides
+protocol-specific Bash/POSIX shell examples using `METAPI_API_KEY`. Secrets are
+never embedded in copied examples or URLs. Real calls consume quota. After a call,
+users check the model, time and outcome in their own request list; the internal
+record ID can be copied for support. This ID is distinct from the correlation
+header `X-Request-Id`. Interrupted output may have reached the client or executed
+tools; inspect it before deciding whether to repeat a request.
 
 ### User-wide token quota
 

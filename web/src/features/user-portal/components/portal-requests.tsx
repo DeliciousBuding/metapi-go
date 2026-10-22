@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -20,20 +21,25 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useMediaQuery } from '@/hooks/use-media-query'
+import { toBcp47 } from '@/i18n/languages'
+import { TABLE_MOBILE_MEDIA_QUERY } from '@/lib/breakpoints'
 
 import { userPortalApi, type PersonalRequest } from '../api'
+import { CopyValue } from './portal-keys'
+
+const knownStatuses = [
+  'completed',
+  'upstream_failed',
+  'output_interrupted',
+  'client_cancelled',
+  'rejected_no_route',
+  'rejected_policy',
+  'gateway_failed',
+]
 
 function Status({ status }: { status: string }) {
   const { t } = useTranslation()
-  const known = [
-    'completed',
-    'upstream_failed',
-    'output_interrupted',
-    'client_cancelled',
-    'rejected_no_route',
-    'rejected_policy',
-    'gateway_failed',
-  ]
   return (
     <span
       className={
@@ -44,7 +50,7 @@ function Status({ status }: { status: string }) {
             : 'text-destructive-soft-fg'
       }
     >
-      {known.includes(status)
+      {knownStatuses.includes(status)
         ? t('userPortal.status.' + status)
         : t('userPortal.unknown')}
     </span>
@@ -59,7 +65,10 @@ function RequestDetail({ item }: { item: PersonalRequest }) {
         <dt className='text-muted-foreground text-xs'>
           {t('userPortal.requestId')}
         </dt>
-        <dd className='mt-1 font-mono wrap-anywhere'>{item.id}</dd>
+        <dd className='mt-1 space-y-2'>
+          <p className='font-mono wrap-anywhere'>{item.id}</p>
+          <CopyValue value={item.id} label={t('userPortal.copyRequestId')} />
+        </dd>
       </div>
       <div>
         <dt className='text-muted-foreground text-xs'>
@@ -75,6 +84,19 @@ function RequestDetail({ item }: { item: PersonalRequest }) {
         </dt>
         <dd className='mt-1'>
           <Status status={item.terminalStatus} />
+        </dd>
+      </div>
+      <div>
+        <dt className='text-muted-foreground text-xs'>
+          {t('userPortal.nextStepTitle')}
+        </dt>
+        <dd className='mt-1 leading-relaxed'>
+          {t(
+            'userPortal.nextStep.' +
+              (knownStatuses.includes(item.terminalStatus)
+                ? item.terminalStatus
+                : 'unknown')
+          )}
         </dd>
       </div>
       <div>
@@ -95,7 +117,66 @@ function RequestDetail({ item }: { item: PersonalRequest }) {
         </dt>
         <dd className='mt-1'>{item.attemptCount}</dd>
       </div>
+      <div className='min-w-0 border-t pt-5'>
+        <dt className='font-medium'>{t('userPortal.quotaDetails.title')}</dt>
+        <dd className='mt-3'>
+          <RequestQuota quota={item.quota} />
+        </dd>
+      </div>
     </dl>
+  )
+}
+
+function RequestQuota({ quota }: { quota: PersonalRequest['quota'] }) {
+  const { t, i18n } = useTranslation()
+  if (quota === undefined) {
+    return <p>{t('userPortal.quotaDetails.legacyUnknown')}</p>
+  }
+  if (quota === null) {
+    return <p>{t('userPortal.quotaDetails.noRecord')}</p>
+  }
+  // Display stored values, including zero, without recalculating settlement.
+  const number = (value: number | null) =>
+    value === null
+      ? t('userPortal.quotaDetails.unknown')
+      : value.toLocaleString(toBcp47(i18n.language), {
+          maximumFractionDigits: 20,
+        })
+  const fields = [
+    ['state', t('userPortal.quotaDetails.states.' + quota.state)],
+    ['totalTokens', number(quota.totalTokens)],
+    ['groupMultiplier', number(quota.groupMultiplier)],
+    ['reserved', number(quota.reserved)],
+    [
+      quota.state === 'pending' || quota.state === 'unknown'
+        ? 'chargedUnfinalized'
+        : 'charged',
+      number(quota.charged),
+    ],
+  ]
+  return (
+    <div className='min-w-0 space-y-4 leading-relaxed wrap-anywhere'>
+      <dl className='grid min-w-0 gap-3'>
+        {fields.map(([label, value]) => (
+          <div key={label}>
+            <dt className='text-muted-foreground text-xs'>
+              {t('userPortal.quotaDetails.' + label)}
+            </dt>
+            <dd className='mt-1 tabular-nums'>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <Notice tone={quota.state === 'unknown' ? 'warning' : 'info'}>
+        {t('userPortal.quotaDetails.guidance.' + quota.state)}
+      </Notice>
+      <div className='space-y-2 text-xs'>
+        <p>{t('userPortal.quotaDetails.history')}</p>
+        <p>{t('userPortal.quotaDetails.formula')}</p>
+        <p>{t('userPortal.quotaDetails.rounding')}</p>
+        <p>{t('userPortal.quotaDetails.attemptsHint')}</p>
+        <p>{t('userPortal.quotaDetails.retryHint')}</p>
+      </div>
+    </div>
   )
 }
 
@@ -111,14 +192,31 @@ export function PortalRequests({
   onCloseDetail: () => void
 }) {
   const { t } = useTranslation()
+  const detailEntry = useRef<HTMLAnchorElement | null>(null)
+  const mobile = useMediaQuery(TABLE_MOBILE_MEDIA_QUERY)
+  const requestLink = (item: PersonalRequest) => (
+    <Link
+      to='/user'
+      search={{ view: 'requests', page, requestId: item.id }}
+      className='text-primary font-medium wrap-anywhere hover:underline'
+      onClick={(event) => {
+        detailEntry.current = event.currentTarget
+      }}
+    >
+      {item.modelRequested ?? t('userPortal.unknown')}
+    </Link>
+  )
   const query = useQuery({
     queryKey: ['userPortal', userId, 'requests', page],
     queryFn: () => userPortalApi.requests(page),
+    // Calls made in a terminal do not invalidate the browser's overview cache.
+    refetchOnMount: 'always',
   })
   const detail = useQuery({
     queryKey: ['userPortal', userId, 'request', requestId],
     queryFn: () => userPortalApi.request(requestId!),
     enabled: !!requestId,
+    refetchOnMount: 'always',
   })
   return (
     <div className='space-y-4'>
@@ -144,6 +242,46 @@ export function PortalRequests({
             <p className='text-muted-foreground rounded-xl border p-8 text-center'>
               {t('userPortal.noRequests')}
             </p>
+          ) : mobile ? (
+            <ul className='space-y-3'>
+              {query.data.items.map((item) => (
+                <li key={item.id} className='space-y-3 rounded-xl border p-4'>
+                  <h2>{requestLink(item)}</h2>
+                  <dl className='grid grid-cols-2 gap-3 text-sm'>
+                    <div className='col-span-2'>
+                      <dt className='text-muted-foreground text-xs'>
+                        {t('userPortal.startedAt')}
+                      </dt>
+                      <dd className='mt-1'>
+                        {new Date(item.startedAt).toLocaleString()}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className='text-muted-foreground text-xs'>
+                        {t('userPortal.result')}
+                      </dt>
+                      <dd className='mt-1'>
+                        <Status status={item.terminalStatus} />
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className='text-muted-foreground text-xs'>
+                        {t('userPortal.duration')}
+                      </dt>
+                      <dd className='mt-1'>
+                        {item.latencyMs.toLocaleString()} ms
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className='text-muted-foreground text-xs'>
+                        {t('userPortal.attempts')}
+                      </dt>
+                      <dd className='mt-1'>{item.attemptCount}</dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
           ) : (
             <div className='overflow-hidden rounded-xl border'>
               <Table>
@@ -162,19 +300,7 @@ export function PortalRequests({
                       <TableCell className='whitespace-nowrap'>
                         {new Date(item.startedAt).toLocaleString()}
                       </TableCell>
-                      <TableCell>
-                        <Link
-                          to='/user'
-                          search={{
-                            view: 'requests',
-                            page,
-                            requestId: item.id,
-                          }}
-                          className='text-primary font-medium hover:underline'
-                        >
-                          {item.modelRequested ?? t('userPortal.unknown')}
-                        </Link>
-                      </TableCell>
+                      <TableCell>{requestLink(item)}</TableCell>
                       <TableCell>
                         <Status status={item.terminalStatus} />
                       </TableCell>
@@ -236,12 +362,12 @@ export function PortalRequests({
           if (!open) onCloseDetail()
         }}
       >
-        <SheetContent>
+        <SheetContent finalFocus={detailEntry}>
           <SheetHeader>
             <SheetTitle>{t('userPortal.requestDetail')}</SheetTitle>
             <SheetDescription>{t('userPortal.requestsHint')}</SheetDescription>
           </SheetHeader>
-          <div className='overflow-y-auto px-4'>
+          <div className='min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-4'>
             {detail.isPending ? (
               <Spinner aria-label={t('common.loading')} />
             ) : detail.isError ? (

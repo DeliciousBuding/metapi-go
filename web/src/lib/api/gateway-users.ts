@@ -41,7 +41,10 @@ const routeSchema = z.object({
   id,
   modelPattern: z.string(),
   displayName: z.string().nullable(),
-  enabled: z.boolean(),
+  // The existing route-summary API preserves SQLite 0/1 and PostgreSQL booleans.
+  enabled: z
+    .union([z.boolean(), z.literal(0), z.literal(1)])
+    .transform((value) => value === true || value === 1),
 })
 const successSchema = z.object({ success: z.literal(true) })
 

@@ -6,9 +6,8 @@
 // remove. The two hooks stay separate on purpose — `use-mobile.tsx` observes
 // one fixed breakpoint through a module-scope store shared by the app chrome,
 // while this one takes an arbitrary query and owns one `MediaQueryList` per
-// subscriber. Sole call site: the table→card-list switch in
-// `components/data-table/layout/data-table-page.tsx` (640px, deliberately
-// narrower than the 767px sidebar threshold — see `lib/breakpoints.ts`).
+// subscriber. Table/card views use the shared 640px breakpoint, deliberately
+// narrower than the 767px sidebar threshold — see `lib/breakpoints.ts`.
 //
 // No `typeof window` guards: metapi-go is a browser-only SPA (Rsbuild static
 // output embedded in the Go binary, no SSR and no prerender), so `window`

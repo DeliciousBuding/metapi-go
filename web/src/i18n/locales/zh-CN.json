@@ -17,6 +17,57 @@
         "requests": "仅展示归属于你的请求记录。",
         "account": "查看账号、当前分组与修改密码。"
       },
+      "onboarding": {
+        "title": "开始使用",
+        "hint": "选择可用模型，创建个人 Key，然后发起请求并核对结果。",
+        "step": "第 {{index}} 步",
+        "keyCreated": "已有 Key，但目前没有通过启用、到期与已配置限额检查的 Key。",
+        "openModels": "打开模型",
+        "openKeys": "打开 API Key",
+        "openRequests": "打开请求记录",
+        "clientCheck": "“完成”表示网关已完成协议处理；请在客户端单独核对输出。HTTP 200 或目录条目都不代表客户端已收到完整结果。",
+        "steps": {
+          "model": {
+            "title": "当前分组有可用模型",
+            "complete": "至少有一个模型具备合格的已配置来源；这不代表上游实时可用。",
+            "incomplete": "当前分组没有列出模型，请联系负责人检查公开路由授权。",
+            "unknown": "无法读取模型列表，因此本步骤未知；请重试后再判断是否无权限。",
+            "pending": "正在读取当前模型列表……"
+          },
+          "key": {
+            "title": "创建个人 API Key",
+            "complete": "已有启用、未过期且未达到自身限额的 Key；调用仍受组授权和账号配额约束。密钥仅展示一次，请在创建时保存。",
+            "incomplete": "创建 Key，并把一次性密钥安全保存到客户端。Key 限制只能收窄当前分组权限。",
+            "unavailable": "现有 Key 已停用、过期或达到自身限额。请创建合适的 Key，或联系管理员处理。",
+            "unknown": "无法读取 Key 列表，因此可用性未知；请重试后再创建新的 Key。",
+            "pending": "正在读取当前 Key……"
+          },
+          "request": {
+            "title": "发起一次请求",
+            "complete": "网关已经记录了至少一条归属于此账号的请求。",
+            "incomplete": "还没有请求记录；使用模型、协议和个人 Key 发起一次调用。",
+            "unknown": "无法读取请求记录，因此本步骤未知；请重试后再决定是否重复调用。",
+            "pending": "正在读取请求记录……"
+          },
+          "result": {
+            "title": "查看网关请求结果",
+            "complete": "最近记录中已有网关完成的请求；请在客户端核对返回文本和工具执行结果。",
+            "incomplete": "最近一页没有网关完成的请求；可查看更早记录，或排查失败、中断的请求。",
+            "unknown": "无法读取请求记录，因此完成状态未知；请重试后再下结论。",
+            "pending": "正在核对是否有完成的请求记录……"
+          }
+        }
+      },
+      "capabilities": {
+        "title": "个人 Key 的调用范围",
+        "intro": "以下限制也适用于无限配额的个人账号；选定路由与上游还可能有其他限制。",
+        "protocols": "模型详情中的协议选项提供有路由配置依据的示例，不代表客户端的所有功能均已验证。",
+        "boundedText": "支持文本输入与输出，但受路由和上游上下文限制。",
+        "functionTools": "选定协议和模型支持时，可传递普通函数 / 工具调用；工具循环由客户端负责。",
+        "media": "当前 token 配额策略下，个人 Key 不支持图片、音频、视频与文件请求。",
+        "hostedTools": "个人 Key 暂不支持内置搜索等上游托管工具。",
+        "sessions": "暂不支持 previous_response_id、conversation 等不透明续会话；受支持的文本请求需要显式携带上下文。"
+      },
       "signIn": "用户登录",
       "signInHint": "使用负责人为你开通的账号登录。",
       "activationHint": "输入一次性激活码或重置码，设置自己的密码。",
@@ -39,7 +90,7 @@
       "used": "已用配额单位",
       "reserved": "预留配额单位",
       "unlimited": "不设上限",
-      "budgetHint": "1 配额单位 = 100 万个上游报告的 token × 请求时的分组倍率。所有个人密钥共用额度，不是美元余额。在途请求会预留额度；上游单次报告可能超过预留，达到限额后会阻止后续请求。",
+      "budgetHint": "消耗配额 = 上游报告的总 token ÷ 1,000,000 × 请求时的分组倍率。所有 Key 共享账号配额；配额不是美元余额。预留用于进行中的请求。上游报告的用量可能超过预留，达到上限后会阻止后续请求。",
       "frozenBudget": "有 {{count}} 个请求需要核对用量，相关预留额度暂不释放，请联系负责人。",
       "keyCount": "个人密钥数",
       "keyRequestCount": "现有密钥累计请求计数",
@@ -69,6 +120,19 @@
       "revokeKey": "撤销密钥",
       "keyRemoved": "密钥已安排撤销",
       "keyReady": "密钥已创建",
+      "rotation": {
+        "action": "轮换密钥",
+        "actionFor": "轮换密钥 {{name}}",
+        "title": "替换此密钥的凭据？",
+        "description": "为 {{name}} 生成新的密钥凭据。",
+        "warning": "旧凭据会立即失效。请用新凭据更新所有使用此密钥的客户端。",
+        "preserves": "密钥身份、限制、用量与请求历史保持不变。轮换不会重置配额、修改有效期，也不会启用已停用的密钥。",
+        "confirm": "立即替换凭据",
+        "pending": "正在替换凭据…",
+        "ready": "新凭据已生成",
+        "success": "旧凭据已替换。请保存新凭据并更新客户端。",
+        "failed": "未能确认轮换结果，凭据可能已经变更。可以重试生成新的凭据，或关闭面板后检查密钥。"
+      },
       "oneTimeKey": "请立即复制并安全保存密钥。完整密钥仅显示这一次，关闭面板后不再保留。",
       "secretKey": "API 密钥明文",
       "showKey": "显示密钥",
@@ -101,9 +165,131 @@
         "rejected_no_route": "无可用路由",
         "rejected_policy": "权限拒绝",
         "gateway_failed": "网关失败"
-      }
+      },
+      "catalog": {
+        "referencePrice": "目录参考价 · USD / 百万 token",
+        "input": "输入",
+        "output": "输出",
+        "cacheRead": "缓存读取",
+        "cacheWrite": "缓存写入",
+        "priceUnknown": "暂无参考价格；未知不代表免费。",
+        "priceHint": "参考价来自模型目录，仅供比较，不是你的收费标准。未提供的价格项显示为未知。",
+        "priceUpdated": "目录更新时间：{{date}}",
+        "firstCall": "发起第一次调用",
+        "exampleHint": "选择客户端使用的协议。示例只使用公开模型名与网关地址，不包含上游配置。",
+        "protocol": "请求协议",
+        "environmentKey": "先创建个人 Key，在本机终端安全设置 METAPI_API_KEY 环境变量，再运行下方 Bash / POSIX shell 示例。不要将密钥写入 URL 或分享给他人。",
+        "example": "请求示例",
+        "copyExample": "复制请求示例",
+        "noExample": "当前来源尚未提供可确认的接入协议。请联系管理员获取适配说明。",
+        "verifyHint": "实际调用会消耗配额。调用后在使用记录中核对模型、时间和结果；目录条目和 HTTP 200 都不代表客户端已收到完整结果。排障时复制记录中的内部请求 ID。",
+        "quotaTitle": "你的配额如何扣减",
+        "quotaFormula": "消耗配额 = 上游报告的总 token ÷ 1,000,000 × 当前组倍率 {{multiplier}}",
+        "quotaHint": "所有个人 Key 共享账号配额。按请求时的分组倍率结算；组调价不会改写历史。配额不是美元余额。",
+        "search": "搜索模型名称",
+        "count": "{{count}} 个模型",
+        "noMatches": "没有匹配的模型，试试其他名称。",
+        "clearSearch": "清除搜索",
+        "connectModel": "查看 {{model}} 的价格与接入方式",
+        "details": "价格与接入",
+        "detailHint": "按当前组授权与来源配置提供接入信息，实际调用仍须通过 Key 限制和配额检查。"
+      },
+      "nextStep": {
+        "completed": "网关已完成处理。请在客户端核对结果；如内容不完整，保留此请求 ID 联系管理员。",
+        "upstream_failed": "上游未正常完成本次处理。核对客户端错误信息，并携带请求 ID 联系管理员。",
+        "output_interrupted": "输出已中断，客户端可能收到部分内容。先核对已有输出及工具执行结果，再决定是否重新发起请求。",
+        "client_cancelled": "网关观察到客户端取消。核对客户端操作与超时设置；取消不代表上游没有处理。",
+        "rejected_no_route": "没有可用路由完成转发。刷新模型目录，并联系管理员核对当前组的路由授权与来源配置。",
+        "rejected_policy": "请求在准入阶段被拒绝。核对请求参数、Key 限制与配额；需要协助时提供请求 ID。",
+        "gateway_failed": "网关未能正常完成处理。保留客户端错误和请求 ID，联系管理员排查。",
+        "unknown": "当前无法识别该处理结果。请保留请求 ID，联系管理员核对。"
+      },
+      "copyRequestId": "复制内部请求 ID",
+      "nextStepTitle": "下一步",
+      "quotaDetails": {
+        "title": "本次配额",
+        "legacyUnknown": "配额结算未知：当前服务端未提供结算详情。未知不代表免费。",
+        "noRecord": "本次请求缺少配额结算记录，可能是旧记录或未进入配额结算；不能据此推断免费。",
+        "unknown": "未知",
+        "state": "结算状态",
+        "totalTokens": "报告的总 token 数",
+        "groupMultiplier": "请求时的组倍率",
+        "reserved": "预留配额",
+        "charged": "已记录实扣 · 配额单位",
+        "chargedUnfinalized": "已记录扣额 · 尚未最终结算（配额单位）",
+        "states": {
+          "pending": "等待结算",
+          "settled": "已结算",
+          "released": "预留已释放",
+          "unknown": "用量待核对"
+        },
+        "guidance": {
+          "pending": "请求正在处理或等待结算，配额仍在预留，不能视为最终实扣。请等待；若持续未结算，请携带请求 ID 联系管理员核查。",
+          "settled": "已按保存的报告用量结算。明确的 0 与未知值不同。",
+          "released": "本次预留已释放，不再占用配额。此处显示保存的结算结果，不将缺失的 token 用量当成 0。",
+          "unknown": "用量暂时无法确认，预留配额继续保留；未知不代表免费。请携带请求 ID 联系管理员核对。仅时间流逝不会释放本次预留。"
+        },
+        "history": "倍率取自本次请求的保存记录，之后调组或调整倍率不会改写历史。这里是 token 配额单位，不是金额或上游成本。",
+        "formula": "精确规则：实扣配额 = ceil（报告总 token 数 × 倍率百万分整数 ÷ 1,000,000）÷ 1,000,000；倍率百万分整数 = 请求时组倍率 × 1,000,000。以上已记录实扣为准，本页不重新计算结算值。",
+        "rounding": "最小配额单位为 0.000001，单次结算向上取整一次。例如：14 tokens × 2 → 0.000028 配额；1 token × 0.5 → 0.000001 配额。",
+        "attemptsHint": "同一请求多次上游尝试的已观察用量合并后结算一次，不保证失败尝试免费。上游报告用量可能超过预留。",
+        "retryHint": "不要自动重发等待结算或用量未确认的请求。请先检查客户端已有输出和工具执行结果；新请求可能再次消耗配额。"
+      },
+      "recordedRequests": "保留的请求记录",
+      "retainedRequestsHint": "包含本账号仍在保留期内的请求，删除 Key 不会移除这些记录。",
+      "selectedConnectionModel": "已选模型：{{model}}",
+      "returnToConnection": "返回该模型的接入示例"
     },
     "userAdmin": {
+      "readiness": {
+        "open": "开通检查",
+        "title": "开通检查 · {{user}}",
+        "boundary": "仅检查已保存的账号、分组、公开路由授权和配额配置。不探测上游实时可用性，不代表客户端已接通；Key 自身限制仍适用。",
+        "passed": "配置检查通过",
+        "notPassed": "配置检查尚未通过",
+        "account": "账号启用",
+        "group": "当前组启用",
+        "routes": "启用的已授权公开路由",
+        "quota": "用户配额",
+        "state": {
+          "passed": "通过",
+          "action": "需要处理",
+          "unknown": "未知",
+          "checking": "检查中…"
+        },
+        "accountEnabled": "账号已启用。",
+        "accountDisabled": "请在身份编辑中启用账号。",
+        "groupEnabled": "当前组：{{group}}，已启用。",
+        "groupDisabled": "当前组：{{group}}，已停用。请启用该组，或为用户调整分组。",
+        "routeGranted": "至少一条公开路由已启用且已授权给当前组。这只是配置依据，不是实时可用性检测。",
+        "noEnabledRoute": "当前组授权与已启用公开路由没有交集。请打开“路由 / 定价”核对授权；若公开路由均已停用，需在路由页面配置。",
+        "quotaAvailable": "当前可用额度：{{remaining}} 单位。有限额度为零或负数时阻止准入。",
+        "quotaFrozen": "用量待核对，配额已冻结。调高上限或开启无限配额不能消除未知用量。请打开配额查看预留请求。",
+        "unlimited": "无限（不设上限）",
+        "unknownHint": "尚未确认当前事实，请刷新或重试失败的读取。用户或分组未出现在有上限的目录中时按未知处理，不视为已启用。",
+        "activation": "激活 / 客户端接通：未知",
+        "activationUnknown": "激活状态尚未确认。生成激活码不能证明对方已使用；请让用户完成激活、创建 Key 并验证一次请求。"
+      },
+      "activationPackage": {
+        "label": "完整激活说明",
+        "copy": "复制完整说明",
+        "copyFailed": "剪贴板不可用，请选中完整说明手动复制。",
+        "private": "请自行通过私密渠道交付，不会自动发送消息。关闭或登出会清除此处内存中的副本，不会清除已复制到剪贴板的内容。",
+        "text": "用户入口：{{entry}}\n用户名：{{username}}\n一次性激活 / 重置码：{{code}}\n到期时间（ISO 8601）：{{expires}}\n\n打开用户入口，选择激活 / 恢复账户，填写用户名和激活码并设置密码，然后登录。请妥善保密，不要把激活码加入 URL。激活码仅可使用一次，新签发的激活码替代旧的未用码。登录后请自行创建并保存 Key，发起请求并核对结果。本说明不代表激活已完成、上游实时可用或客户端已接通。"
+      },
+      "budgetPreview": {
+        "title": "本次保存后的可用额度（预览）",
+        "remaining": "可用额度：{{amount}} 单位",
+        "unlimited": "本次保存后不设配额上限。已用和预留保持不变，用量可靠性及请求形态限制仍适用。",
+        "invalid": "未知，请输入合法上限",
+        "formula": "{{limit}} 上限 − {{used}} 已用 − {{reserved}} 预留 = {{amount}} 可用额度单位。",
+        "boundary": "修改上限不是充值，不清空已用或预留。可用额度为零或负数时阻止准入。此处仅按最近读取的用量解释当前表单，并发请求可能改变结果；保存仍须通过后端校验及按需管理员再认证。",
+        "frozen": "当前配额已冻结。修改上限不会消除未知用量，也不保证允许请求。",
+        "multiplierTitle": "合成扣减示例（当前表单）",
+        "multiplierExample": "倍率 {{multiplier}}：14 reported total tokens → {{fourteen}} 额度单位；1 reported total token → {{one}} 额度单位。",
+        "invalidMultiplier": "请输入合法正倍率以预览扣减。",
+        "rounding": "扣减 = ceil(total tokens × 倍率) ÷ 1,000,000 额度单位。最小计量单位为 0.000001，每个请求向上取整到该单位。倍率 2 时，14 tokens 扣 0.000028；倍率 0.5 时，1 token 仍扣 0.000001。仅作解释，不重新计算已保存实扣；新设置仅影响后续请求。"
+      },
       "holdsTitle": "预留请求 / 人工核对",
       "holdsHint": "列出预留中与用量未知的请求。核对内部请求 ID、网关记录及上游证据后，再进行结算。",
       "noHolds": "没有预留中或用量未知的请求。",
@@ -4301,7 +4487,11 @@
         "workspaceHint": "接入平台后，统一管理凭据、模型和路由。",
         "connectionSteps": "连接配置",
         "openStep": "{{name}}：{{step}}（{{count}}）",
-        "steps": { "credentials": "凭据", "models": "模型", "routes": "路由" },
+        "steps": {
+          "credentials": "凭据",
+          "models": "模型",
+          "routes": "路由"
+        },
         "readiness": {
           "paused": "平台已停用",
           "credentials": "下一步：添加凭据",
