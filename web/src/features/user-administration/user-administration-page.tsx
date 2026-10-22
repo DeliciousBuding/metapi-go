@@ -26,6 +26,7 @@ import { useAdminWrite, userAdminKeys } from './api'
 import { ActivationDialog, BudgetDialog, IdentityEditor } from './editors'
 import { LoadError, Loading, WriteError } from './feedback'
 import { GroupAccessDialog } from './group-access'
+import { ReadinessDialog } from './readiness'
 
 type Editor =
   | { kind: 'user'; user?: GatewayUser }
@@ -48,6 +49,7 @@ export function UserAdministrationPage() {
   const [budgetUser, setBudgetUser] = useState<GatewayUser | null>(null)
   const [activationUser, setActivationUser] = useState<GatewayUser | null>(null)
   const [accessGroup, setAccessGroup] = useState<GatewayUserGroup | null>(null)
+  const [readinessUserId, setReadinessUserId] = useState<number | null>(null)
   const toggle = useAdminWrite(
     (
       {
@@ -263,6 +265,13 @@ export function UserAdministrationPage() {
                         <Button
                           size='sm'
                           variant='outline'
+                          onClick={() => setReadinessUserId(user.id)}
+                        >
+                          {t('userAdmin.readiness.open')}
+                        </Button>
+                        <Button
+                          size='sm'
+                          variant='outline'
                           disabled={!groups.isSuccess || groups.isError}
                           onClick={() => setEditor({ kind: 'user', user })}
                         >
@@ -384,6 +393,16 @@ export function UserAdministrationPage() {
         <GroupAccessDialog
           group={accessGroup}
           close={() => setAccessGroup(null)}
+        />
+      )}
+      {readinessUserId !== null && (
+        <ReadinessDialog
+          userId={readinessUserId}
+          close={() => setReadinessUserId(null)}
+          editUser={(user) => setEditor({ kind: 'user', user })}
+          editGroup={(group) => setEditor({ kind: 'group', group })}
+          editAccess={setAccessGroup}
+          editBudget={setBudgetUser}
         />
       )}
     </div>

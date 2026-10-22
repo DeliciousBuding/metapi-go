@@ -21,6 +21,7 @@ import { ReauthProvider } from '@/components/common/reauth-provider'
 import i18n from '@/i18n/config'
 import { gatewayUsersApi } from '@/lib/api/gateway-users'
 import { request, type RequestOptions } from '@/lib/api/transport'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { BudgetHolds } from '../budget-holds'
 import {
@@ -212,6 +213,78 @@ describe('administrator user workflows', () => {
     expect(screen.getByText(/not USD or upstream cost/i)).toBeVisible()
   })
 
+  it('previews a limit change without resetting used or held quota or claiming a top-up', async () => {
+    mount(
+      <BudgetEditor
+        userId={1}
+        budget={{ ...budget, limit: 10, used: 3, reserved: 2 }}
+      />
+    )
+    expect(screen.getByText('Available quota: 5 units')).toBeVisible()
+    fireEvent.change(screen.getByLabelText('Total quota limit (units)'), {
+      target: { value: '20' },
+    })
+    expect(screen.getByText('Available quota: 15 units')).toBeVisible()
+    expect(
+      screen.getByText(/20 limit − 3 used − 2 reserved = 15/)
+    ).toBeVisible()
+    expect(screen.getByText(/Changing the limit is not a top-up/)).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(writes[0]?.body).toEqual({ limit: 20, unlimited: false })
+    )
+    expect(screen.getByText('Available quota: 15 units')).toBeVisible()
+    fireEvent.change(screen.getByLabelText('Total quota limit (units)'), {
+      target: { value: '4' },
+    })
+    expect(screen.getByText('Available quota: -1 units')).toBeVisible()
+  })
+
+  it('previews invalid and unlimited limits without hiding a frozen quota', async () => {
+    mount(
+      <BudgetEditor
+        userId={1}
+        budget={{ ...budget, frozen: true, unknownRequests: 1 }}
+      />
+    )
+    fireEvent.change(screen.getByLabelText('Total quota limit (units)'), {
+      target: { value: '-1' },
+    })
+    expect(screen.getByText(/Available quota: Unknown/)).toBeVisible()
+    fireEvent.click(
+      screen.getByRole('switch', { name: 'Unlimited quota (explicit)' })
+    )
+    expect(screen.getByText(/No quota cap after this save/)).toBeVisible()
+    expect(
+      screen.getByText(/Changing its cap does not clear unknown usage/)
+    ).toBeVisible()
+  })
+
+  it('explains exact multiplier examples and minimum-unit rounding from the current form', () => {
+    mount(<PricingEditor groupId={2} pricing={{ multiplier: 2 }} />)
+    expect(
+      screen.getByText(/14 reported total tokens → 0.000028/)
+    ).toBeVisible()
+    fireEvent.change(screen.getByLabelText('Token quota multiplier'), {
+      target: { value: '0.5' },
+    })
+    expect(
+      screen.getByText(
+        /14 reported total tokens → 0.000007.*1 reported total token → 0.000001/
+      )
+    ).toBeVisible()
+    expect(screen.getByText(/each request rounds up/)).toBeVisible()
+    fireEvent.change(screen.getByLabelText('Token quota multiplier'), {
+      target: { value: '0' },
+    })
+    expect(
+      screen.getByText(
+        'Enter a valid positive multiplier to preview deductions.'
+      )
+    ).toBeVisible()
+    expect(writes).toHaveLength(0)
+  })
+
   it('rejects invalid numeric quota values and explains held unknown usage', async () => {
     mount(
       <BudgetEditor
@@ -309,6 +382,127 @@ describe('administrator user workflows', () => {
     mount(<ActivationDialog user={user} close={vi.fn()} />)
     expect(
       screen.queryByDisplayValue('synthetic-one-time-code')
+    ).not.toBeInTheDocument()
+  })
+
+  it('copies a complete private activation package without adding the code to its URL', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    const { client } = mount(<ActivationDialog user={user} close={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Issue one-time code' }))
+    const instructions = await screen.findByLabelText(
+      'Complete activation instructions'
+    )
+    const text = (instructions as HTMLTextAreaElement).value
+    expect(text).toContain(`User portal: ${window.location.origin}/user`)
+    expect(text).toContain('Username: alice')
+    expect(text).toContain('synthetic-one-time-code')
+    expect(text).toContain('2026-10-22T00:00:00Z')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Copy complete instructions' })
+    )
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(
+        (instructions as HTMLTextAreaElement).value
+      )
+    )
+    expect(await screen.findByText('Copied')).toBeVisible()
+    expect(client.getMutationCache().getAll()).toHaveLength(0)
+    expect(JSON.stringify(client.getQueryCache().getAll())).not.toContain(
+      'synthetic-one-time-code'
+    )
+  })
+
+  it('clears an issued code when the administrator signs out, even before the surface unmounts', async () => {
+    useAuthStore.getState().auth.setSession(Date.now() + 60_000)
+    const close = vi.fn()
+    mount(<ActivationDialog user={user} close={close} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Issue one-time code' }))
+    await screen.findByDisplayValue('synthetic-one-time-code')
+    useAuthStore.getState().auth.reset()
+    await waitFor(() => expect(close).toHaveBeenCalledOnce())
+    expect(
+      screen.queryByDisplayValue('synthetic-one-time-code')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Complete activation instructions')
+    ).not.toBeInTheDocument()
+  })
+
+  it('keeps the activation package absent on issuance failure and permits retry', async () => {
+    const normal = network.getMockImplementation()
+    let failed = true
+    network.mockImplementation(async (path, options) => {
+      if (path.endsWith('/activation') && failed)
+        throw new Error('synthetic issuance failure')
+      return normal?.(path, options)
+    })
+    mount(<ActivationDialog user={user} close={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Issue one-time code' }))
+    await screen.findByRole('alert')
+    expect(
+      screen.queryByLabelText('Complete activation instructions')
+    ).not.toBeInTheDocument()
+    failed = false
+    fireEvent.click(screen.getByRole('button', { name: 'Issue one-time code' }))
+    expect(
+      await screen.findByLabelText('Complete activation instructions')
+    ).toBeVisible()
+  })
+
+  it('requires administrator reauthentication before issuing a code without caching it', async () => {
+    const normal = network.getMockImplementation()
+    network.mockImplementation(async (path, options) => {
+      if (
+        path.endsWith('/activation') &&
+        !options?.headers?.['X-Admin-Confirm-Token']
+      )
+        throw { response: { status: 403, data: { reauthRequired: true } } }
+      return normal?.(path, options)
+    })
+    const { client } = mount(<ActivationDialog user={user} close={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Issue one-time code' }))
+    fireEvent.change(
+      await screen.findByLabelText(i18n.t('reauth.tokenLabel')),
+      { target: { value: 'synthetic-confirm-only' } }
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: i18n.t('reauth.submit') })
+    )
+    expect(
+      await screen.findByLabelText('Complete activation instructions')
+    ).toBeVisible()
+    expect(client.getMutationCache().getAll()).toHaveLength(0)
+    expect(JSON.stringify(client.getQueryCache().getAll())).not.toContain(
+      'synthetic-one-time-code'
+    )
+    expect(JSON.stringify(client.getQueryCache().getAll())).not.toContain(
+      'synthetic-confirm-only'
+    )
+  })
+
+  it('does not retain a late activation response after signing out', async () => {
+    useAuthStore.getState().auth.setSession(Date.now() + 60_000)
+    const normal = network.getMockImplementation()
+    let resolve: (value: unknown) => void = () => {}
+    network.mockImplementation((path, options) =>
+      path.endsWith('/activation')
+        ? new Promise((done) => {
+            resolve = done
+          })
+        : Promise.resolve(normal?.(path, options))
+    )
+    const close = vi.fn()
+    mount(<ActivationDialog user={user} close={close} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Issue one-time code' }))
+    useAuthStore.getState().auth.reset()
+    resolve({ code: 'synthetic-late-code', expiresAt: '2026-10-22T00:00:00Z' })
+    await waitFor(() => expect(close).toHaveBeenCalledOnce())
+    expect(
+      screen.queryByDisplayValue('synthetic-late-code')
     ).not.toBeInTheDocument()
   })
 
@@ -428,6 +622,13 @@ describe('administrator user workflows', () => {
     expect(
       await screen.findByText('剪贴板不可用，请选中激活码手动复制。')
     ).toBeVisible()
+    expect(
+      (screen.getByLabelText('完整激活说明') as HTMLTextAreaElement).value
+    ).toContain('用户名：alice')
+    fireEvent.click(screen.getByRole('button', { name: '复制完整说明' }))
+    expect(
+      await screen.findByText('剪贴板不可用，请选中完整说明手动复制。')
+    ).toBeVisible()
   })
 
   it('renders the actual management page, filters through URL state and performs reversible disable', async () => {
@@ -451,6 +652,31 @@ describe('administrator user workflows', () => {
     const alice = await screen.findByRole('heading', { name: 'Alice' })
     const row = alice.closest('article')
     expect(row).not.toBeNull()
+    expect(network.mock.calls.map(([path]) => path)).not.toContain(
+      '/api/routes/summary'
+    )
+    expect(network.mock.calls.map(([path]) => path)).not.toContain(
+      '/api/admin/users/1/budget'
+    )
+    fireEvent.click(
+      within(row as HTMLElement).getByRole('button', {
+        name: 'Provisioning check',
+      })
+    )
+    expect(
+      await screen.findByRole('heading', { name: 'Provisioning check · Alice' })
+    ).toBeVisible()
+    await waitFor(() =>
+      expect(network.mock.calls.map(([path]) => path)).toContain(
+        '/api/admin/user-groups/2/routes'
+      )
+    )
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Close' })[0] as HTMLElement
+    )
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
     fireEvent.click(
       within(row as HTMLElement).getByRole('button', { name: 'Disable' })
     )

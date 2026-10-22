@@ -254,8 +254,26 @@ func TestUserPortalRouterOwnerAndRevocation(t *testing.T) {
 			}
 			portalJSON(t, f.call("GET", "/api/user/keys", "", nil, map[string]string{"Authorization": "Bearer " + key}), 401)
 			portalJSON(t, f.call("DELETE", "/api/user/keys/"+strconv.FormatInt(otherKey.ID, 10), "", cookie, nil), 404)
+			portalJSON(t, f.call("POST", "/api/user/keys/"+strconv.FormatInt(otherKey.ID, 10)+"/rotate", "{}", cookie, nil), 404)
+			portalJSON(t, f.call("POST", "/api/user/keys/bad/rotate", "{}", cookie, nil), 400)
 			if _, err := f.db.Exec(`UPDATE downstream_api_keys SET used_requests=3,used_cost=2 WHERE id=?`, keyID); err != nil {
 				t.Fatal(err)
+			}
+			rotated := portalJSON(t, f.call("POST", "/api/user/keys/"+strconv.FormatInt(keyID, 10)+"/rotate", "{}", cookie, map[string]string{"Origin": "http://example.com"}), 200)
+			rotatedKey := rotated["key"].(string)
+			rotatedItem := rotated["item"].(map[string]any)
+			if rotatedKey == key || rotatedItem["id"] != item["id"] || rotatedItem["name"] != item["name"] || rotatedItem["keyMasked"] == item["keyMasked"] || rotatedItem["usedRequests"] != float64(3) || rotatedItem["usedCost"] != float64(2) || rotatedItem["key"] != nil {
+				t.Fatalf("unsafe rotation DTO: %+v", rotated)
+			}
+			if old := auth.AuthorizeDownstreamToken(key, nil); old.OK || old.StatusCode != 401 {
+				t.Fatalf("old key remained valid: %+v", old)
+			}
+			if next := auth.AuthorizeDownstreamToken(rotatedKey, nil); !next.OK || next.Key == nil || next.Key.ID != keyID {
+				t.Fatalf("rotated key did not authenticate: %+v", next)
+			}
+			afterRotate := f.call("GET", "/api/user/keys", "", cookie, nil)
+			if strings.Contains(afterRotate.Body.String(), key) || strings.Contains(afterRotate.Body.String(), rotatedKey) || !strings.Contains(afterRotate.Body.String(), rotatedItem["keyMasked"].(string)) {
+				t.Fatalf("rotation plaintext or mask leak: %s", afterRotate.Body.String())
 			}
 			usage := portalJSON(t, f.call("GET", "/api/user/usage", "", cookie, nil), 200)
 			if usage["usedRequests"] != float64(3) || usage["keyCount"] != float64(1) {
@@ -272,7 +290,7 @@ func TestUserPortalRouterOwnerAndRevocation(t *testing.T) {
 				t.Fatal("total owner or page leak")
 			}
 			request := portalJSON(t, f.call("GET", "/api/user/requests/req-0", "", cookie, nil), 200)
-			if len(request) != 7 || request["id"] != "req-0" {
+			if len(request) != 8 || request["id"] != "req-0" || request["quota"] != nil {
 				t.Fatal("request DTO")
 			}
 			for _, id := range []string{"req-1", "req-2", "missing"} {

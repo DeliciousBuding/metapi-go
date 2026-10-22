@@ -85,6 +85,38 @@ func (s *GatewayUserStore) CreateOwnKey(ctx context.Context, userID int64, name,
 		WHERE u.id=? AND u.enabled=TRUE AND g.enabled=TRUE RETURNING `+userKeyColumns), name, key, string(encoded), expires, maxCost, maxRequests, now, now, userID))
 }
 
+// RotateOwnKey replaces only the secret of an existing caller-owned Key. Its
+// identity, restrictions, counters and request history stay intact. Once the
+// transaction commits, the old secret cannot authorize another request/WS turn.
+func (s *GatewayUserStore) RotateOwnKey(ctx context.Context, userID, keyID int64, key string) (UserKey, error) {
+	if err := s.available(); err != nil {
+		return UserKey{}, err
+	}
+	tx, err := s.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return UserKey{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	// Recheck current ownership/account state inside the write, rather than
+	// relying solely on the earlier session read. A disabled Key stays disabled.
+	item, err := scanUserKey(tx.QueryRowxContext(ctx, s.db.Rebind(`UPDATE downstream_api_keys
+		SET key=?,updated_at=?
+		WHERE id=? AND key_owner_type='user' AND owner_user_id=?
+		AND EXISTS (SELECT 1 FROM gateway_users u JOIN gateway_user_groups g ON g.id=u.group_id
+			WHERE u.id=downstream_api_keys.owner_user_id AND u.enabled=TRUE AND g.enabled=TRUE)
+		RETURNING `+userKeyColumns), key, now, keyID, userID))
+	if err != nil {
+		return UserKey{}, err
+	}
+	// A malformed stored policy must not rotate the secret and then fail while
+	// building the safe response: in that case the caller receives no new key.
+	if err := tx.Commit(); err != nil {
+		return UserKey{}, err
+	}
+	return item, nil
+}
+
 func (s *GatewayUserStore) DeleteOwnKey(ctx context.Context, userID, keyID int64) error {
 	if err := s.available(); err != nil {
 		return err
@@ -94,16 +126,15 @@ func (s *GatewayUserStore) DeleteOwnKey(ctx context.Context, userID, keyID int64
 }
 
 type UserRequest struct {
-	ID             string  `db:"id" json:"id"`
-	ModelRequested *string `db:"model_requested" json:"modelRequested"`
-	TerminalStatus string  `db:"terminal_status" json:"terminalStatus"`
-	LatencyMs      int64   `db:"latency_ms" json:"latencyMs"`
-	StartedAt      string  `db:"started_at" json:"startedAt"`
-	EndedAt        string  `db:"ended_at" json:"endedAt"`
-	AttemptCount   int     `db:"attempt_count" json:"attemptCount"`
+	ID             string            `db:"id" json:"id"`
+	ModelRequested *string           `db:"model_requested" json:"modelRequested"`
+	TerminalStatus string            `db:"terminal_status" json:"terminalStatus"`
+	LatencyMs      int64             `db:"latency_ms" json:"latencyMs"`
+	StartedAt      string            `db:"started_at" json:"startedAt"`
+	EndedAt        string            `db:"ended_at" json:"endedAt"`
+	AttemptCount   int               `db:"attempt_count" json:"attemptCount"`
+	Quota          *UserRequestQuota `db:"-" json:"quota"`
 }
-
-const userRequestColumns = `id,model_requested,terminal_status,latency_ms,started_at,ended_at,attempt_count`
 
 func (s *GatewayUserStore) ListOwnRequests(ctx context.Context, userID int64, page, pageSize int) ([]UserRequest, int64, error) {
 	if err := s.available(); err != nil {
@@ -120,7 +151,22 @@ func (s *GatewayUserStore) ListOwnRequests(ctx context.Context, userID int64, pa
 		return nil, 0, err
 	}
 	items := []UserRequest{}
-	if err := tx.SelectContext(ctx, &items, s.db.Rebind(`SELECT `+userRequestColumns+` FROM gateway_requests WHERE owner_user_id=? ORDER BY started_at DESC,id DESC LIMIT ? OFFSET ?`), userID, pageSize, (page-1)*pageSize); err != nil {
+	rows, err := tx.QueryxContext(ctx, s.db.Rebind(userRequestSelect+` WHERE r.owner_user_id=? ORDER BY r.started_at DESC,r.id DESC LIMIT ? OFFSET ?`), userID, pageSize, (page-1)*pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		item, err := scanUserRequest(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	if err := rows.Close(); err != nil {
 		return nil, 0, err
 	}
 	return items, total, tx.Commit()
@@ -130,14 +176,14 @@ func (s *GatewayUserStore) OwnRequest(ctx context.Context, userID int64, id stri
 	if err := s.available(); err != nil {
 		return item, err
 	}
-	err := s.db.GetContext(ctx, &item, `SELECT `+userRequestColumns+` FROM gateway_requests WHERE id=? AND owner_user_id=?`, id, userID)
-	return item, err
+	return scanUserRequest(s.db.QueryRowxContext(ctx, s.db.Rebind(userRequestSelect+` WHERE r.id=? AND r.owner_user_id=?`), id, userID))
 }
 
 type UserUsage struct {
-	UsedCost     float64 `db:"used_cost" json:"usedCost"`
-	UsedRequests int64   `db:"used_requests" json:"usedRequests"`
-	KeyCount     int64   `db:"key_count" json:"keyCount"`
+	UsedCost         float64 `db:"used_cost" json:"usedCost"`
+	UsedRequests     int64   `db:"used_requests" json:"usedRequests"`
+	KeyCount         int64   `db:"key_count" json:"keyCount"`
+	RecordedRequests int64   `db:"recorded_requests" json:"recordedRequests"`
 }
 
 func (s *GatewayUserStore) OwnUsage(ctx context.Context, userID int64) (UserUsage, error) {
@@ -145,6 +191,10 @@ func (s *GatewayUserStore) OwnUsage(ctx context.Context, userID int64) (UserUsag
 	if err := s.available(); err != nil {
 		return item, err
 	}
-	err := s.db.GetContext(ctx, &item, `SELECT COALESCE(SUM(used_cost),0) AS used_cost,COALESCE(SUM(used_requests),0) AS used_requests,COUNT(*) AS key_count FROM downstream_api_keys WHERE key_owner_type='user' AND owner_user_id=?`, userID)
+	// Retained request records are independent of current Key counters and survive
+	// Key deletion/rotation. Log retention may still remove these records.
+	err := s.db.GetContext(ctx, &item, s.db.Rebind(`SELECT COALESCE(SUM(used_cost),0) AS used_cost,COALESCE(SUM(used_requests),0) AS used_requests,COUNT(*) AS key_count,
+		(SELECT COUNT(*) FROM gateway_requests WHERE owner_user_id=?) AS recorded_requests
+		FROM downstream_api_keys WHERE key_owner_type='user' AND owner_user_id=?`), userID, userID)
 	return item, err
 }

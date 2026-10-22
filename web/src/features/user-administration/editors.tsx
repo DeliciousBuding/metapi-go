@@ -38,6 +38,7 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { toBcp47 } from '@/i18n/languages'
 import {
   gatewayUsersApi,
@@ -48,10 +49,12 @@ import {
 } from '@/lib/api/gateway-users'
 import { copyText } from '@/lib/clipboard'
 import { isReauthRequired } from '@/lib/http-client'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { useAdminWrite, userAdminKeys } from './api'
 import { BudgetHolds } from './budget-holds'
 import { LoadError, Loading, WriteError } from './feedback'
+import { availableQuotaPreview, multiplierPreview } from './quota-preview'
 
 export type EditorState = { dirty: boolean; pending: boolean }
 
@@ -444,6 +447,13 @@ export function BudgetEditor({
     }
   )
   const dirty = form.formState.isDirty
+  const previewLimit = form.watch('limit')
+  const previewUnlimited = form.watch('unlimited')
+  const remaining = availableQuotaPreview(
+    previewLimit,
+    budget.used,
+    budget.reserved
+  )
   useEffect(() => {
     onStateChange?.({ dirty, pending: mutation.isPending })
   }, [dirty, mutation.isPending, onStateChange])
@@ -488,6 +498,34 @@ export function BudgetEditor({
         <p className='text-muted-foreground text-xs'>
           {t('userAdmin.zeroHint')}
         </p>
+        <section
+          className='bg-muted space-y-2 rounded-lg p-3'
+          aria-live='polite'
+        >
+          <h3 className='font-medium'>{t('userAdmin.budgetPreview.title')}</h3>
+          <p>
+            {t(
+              previewUnlimited
+                ? 'userAdmin.budgetPreview.unlimited'
+                : 'userAdmin.budgetPreview.remaining',
+              { amount: remaining ?? t('userAdmin.budgetPreview.invalid') }
+            )}
+          </p>
+          {!previewUnlimited && remaining !== null && (
+            <p className='text-muted-foreground text-xs'>
+              {t('userAdmin.budgetPreview.formula', {
+                limit: previewLimit,
+                used: budget.used,
+                reserved: budget.reserved,
+                amount: remaining,
+              })}
+            </p>
+          )}
+          <p className='text-muted-foreground text-xs'>
+            {t('userAdmin.budgetPreview.boundary')}
+          </p>
+          {budget.frozen && <p>{t('userAdmin.budgetPreview.frozen')}</p>}
+        </section>
         <WriteError error={mutation.error} />
         <div className='flex items-center justify-end gap-3'>
           {saved && (
@@ -537,6 +575,8 @@ export function PricingEditor({
     }
   )
   const dirty = form.formState.isDirty
+  const previewMultiplier = form.watch('multiplier')
+  const example = multiplierPreview(previewMultiplier)
   useEffect(() => {
     onStateChange?.({ dirty, pending: mutation.isPending })
   }, [dirty, mutation.isPending, onStateChange])
@@ -558,6 +598,25 @@ export function PricingEditor({
         <p className='text-muted-foreground text-xs'>
           {t('userAdmin.pricingHint')}
         </p>
+        <section
+          className='bg-muted space-y-2 rounded-lg p-3'
+          aria-live='polite'
+        >
+          <h3 className='font-medium'>
+            {t('userAdmin.budgetPreview.multiplierTitle')}
+          </h3>
+          <p>
+            {example
+              ? t('userAdmin.budgetPreview.multiplierExample', {
+                  multiplier: previewMultiplier,
+                  ...example,
+                })
+              : t('userAdmin.budgetPreview.invalidMultiplier')}
+          </p>
+          <p className='text-muted-foreground text-xs'>
+            {t('userAdmin.budgetPreview.rounding')}
+          </p>
+        </section>
         <WriteError error={mutation.error} />
         <div className='flex items-center gap-3'>
           <Button type='submit' size='sm' disabled={mutation.isPending}>
@@ -589,10 +648,21 @@ export function ActivationDialog({
   const alive = useRef(true)
   useEffect(() => {
     alive.current = true
+    const unsubscribe = useAuthStore.subscribe((state, previous) => {
+      if (
+        previous.auth.sessionExpiresAt !== null &&
+        state.auth.sessionExpiresAt === null
+      ) {
+        alive.current = false
+        setSecret(null)
+        close()
+      }
+    })
     return () => {
       alive.current = false
+      unsubscribe()
     }
-  }, [])
+  }, [close])
   // Close marks any pending replay obsolete; no secret survives this surface.
   const dismiss = () => {
     alive.current = false
@@ -619,6 +689,14 @@ export function ActivationDialog({
       if (alive.current) setPending(false)
     }
   }
+  const activationPackage = secret
+    ? t('userAdmin.activationPackage.text', {
+        entry: new URL('/user', window.location.origin).href,
+        username: user.username,
+        code: secret.code,
+        expires: secret.expiresAt,
+      })
+    : ''
   return (
     <Dialog
       open
@@ -650,13 +728,40 @@ export function ActivationDialog({
                 ),
               })}
             </p>
+            <Textarea
+              aria-label={t('userAdmin.activationPackage.label')}
+              value={activationPackage}
+              readOnly
+              className='min-h-48'
+            />
+            <p className='text-muted-foreground text-xs'>
+              {t('userAdmin.activationPackage.private')}
+            </p>
             <Button
               onClick={() => {
-                void copyText(secret.code).then((ok) =>
+                void copyText(activationPackage).then((ok) => {
+                  if (alive.current)
+                    setCopyStatus(
+                      t(
+                        ok
+                          ? 'userAdmin.copied'
+                          : 'userAdmin.activationPackage.copyFailed'
+                      )
+                    )
+                })
+              }}
+            >
+              {t('userAdmin.activationPackage.copy')}
+            </Button>
+            <Button
+              variant='outline'
+              onClick={() => {
+                void copyText(secret.code).then((ok) => {
+                  if (!alive.current) return
                   setCopyStatus(
                     t(ok ? 'userAdmin.copied' : 'userAdmin.copyFailed')
                   )
-                )
+                })
               }}
             >
               {t('userAdmin.copyCode')}

@@ -14,7 +14,6 @@ import (
 	"math"
 	"net/http"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -59,6 +58,7 @@ func RegisterRoutes(r chi.Router, db *store.DB, sessions *auth.UserSessionManage
 			r.Get("/api/user/models", h.listModels)
 			r.Get("/api/user/keys", h.listKeys)
 			r.Post("/api/user/keys", h.createKey)
+			r.With(auth.AdminRateLimit(1, 5)).Post("/api/user/keys/{id}/rotate", h.rotateKey)
 			r.Delete("/api/user/keys/{id}", h.deleteKey)
 			r.Get("/api/user/requests", h.listRequests)
 			r.Get("/api/user/requests/{id}", h.request)
@@ -275,6 +275,24 @@ func (h *handler) listKeys(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, map[string]any{"items": items})
 }
+
+func newUserKey() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return "sk-" + hex.EncodeToString(buf), nil
+}
+
+func keyID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		fail(w, 400, "Invalid key ID")
+		return 0, false
+	}
+	return id, true
+}
+
 func (h *handler) createKey(w http.ResponseWriter, r *http.Request) {
 	u, ok := h.current(w, r)
 	if !ok {
@@ -329,12 +347,11 @@ func (h *handler) createKey(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
+	key, err := newUserKey()
+	if err != nil {
 		resultError(w, err)
 		return
 	}
-	key := "sk-" + hex.EncodeToString(buf)
 	item, err := h.users.CreateOwnKey(r.Context(), u.ID, body.Name, key, models, body.ExpiresAt, body.MaxCost, body.MaxRequests)
 	if err != nil {
 		resultError(w, err)
@@ -342,14 +359,34 @@ func (h *handler) createKey(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 201, map[string]any{"item": item, "key": key})
 }
+func (h *handler) rotateKey(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.current(w, r)
+	if !ok {
+		return
+	}
+	id, ok := keyID(w, r)
+	if !ok {
+		return
+	}
+	key, err := newUserKey()
+	if err != nil {
+		resultError(w, err)
+		return
+	}
+	item, err := h.users.RotateOwnKey(r.Context(), u.ID, id, key)
+	if err != nil {
+		resultError(w, err)
+		return
+	}
+	writeJSON(w, 200, map[string]any{"item": item, "key": key})
+}
 func (h *handler) deleteKey(w http.ResponseWriter, r *http.Request) {
 	u, ok := h.current(w, r)
 	if !ok {
 		return
 	}
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		fail(w, 400, "Invalid key ID")
+	id, ok := keyID(w, r)
+	if !ok {
 		return
 	}
 	if err := h.users.DeleteOwnKey(r.Context(), u.ID, id); err != nil {
@@ -408,61 +445,4 @@ func (h *handler) usage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, item)
-}
-func (h *handler) listModels(w http.ResponseWriter, r *http.Request) {
-	u, ok := h.current(w, r)
-	if !ok {
-		return
-	}
-	_, routes, err := h.users.ResolveUserKeyAccess(r.Context(), u.ID)
-	if err != nil {
-		resultError(w, err)
-		return
-	}
-	type model struct {
-		ID      string `json:"id"`
-		RouteID int64  `json:"routeId"`
-	}
-	items := []model{}
-	if len(routes) == 0 {
-		writeJSON(w, 200, map[string]any{"items": items})
-		return
-	}
-	if h.models == nil {
-		fail(w, 503, "Model catalog unavailable")
-		return
-	}
-	catalog := h.models()
-	if catalog == nil {
-		fail(w, 503, "Model catalog unavailable")
-		return
-	}
-	names, err := catalog.GetAvailableModels(r.Context())
-	if err != nil {
-		resultError(w, err)
-		return
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		// The router's catalog can contain a wildcard/regex route selector.
-		// It is not a concrete public model and is not an actionable model ID.
-		if name == "" || !routing.IsExactRouteModelPattern(name) {
-			continue
-		}
-		decision, err := catalog.ExplainSelection(r.Context(), name, nil, routing.DownstreamRoutingPolicy{UserRouteIDs: &routes, SupportedModels: []string{"*"}, RequiredUpstreamProtocol: -1})
-		if err != nil {
-			resultError(w, err)
-			return
-		}
-		if !decision.Matched || decision.RouteID == nil {
-			continue
-		}
-		for _, candidate := range decision.Candidates {
-			if candidate.Eligible {
-				items = append(items, model{name, *decision.RouteID})
-				break
-			}
-		}
-	}
-	writeJSON(w, 200, map[string]any{"items": items})
 }

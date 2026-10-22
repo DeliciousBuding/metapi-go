@@ -34,6 +34,18 @@ const requestSchema = z.object({
   startedAt: z.string(),
   endedAt: z.string(),
   attemptCount: z.number().int().nonnegative(),
+  // Only absence is compatible with older servers; invalid present values fail.
+  quota: z
+    .object({
+      unit: z.literal('token_credits'),
+      state: z.enum(['pending', 'settled', 'released', 'unknown']),
+      totalTokens: z.number().int().nonnegative().nullable(),
+      groupMultiplier: z.number().positive(),
+      reserved: z.number().nonnegative(),
+      charged: z.number().nonnegative().nullable(),
+    })
+    .nullable()
+    .optional(),
 })
 const budgetSchema = z.object({
   limit: z.number().nonnegative(),
@@ -45,10 +57,33 @@ const budgetSchema = z.object({
 })
 const modelsSchema = z.object({
   items: z.array(
-    z.object({ id: z.string().min(1), routeId: z.number().int().positive() })
+    z.object({
+      id: z.string().min(1),
+      routeId: z.number().int().positive(),
+      protocols: z.array(
+        z.enum(['chat/completions', 'responses', 'messages', 'embeddings'])
+      ),
+      referencePrice: z
+        .object({
+          currency: z.literal('USD'),
+          unit: z.literal('per_million_tokens'),
+          input: z.number().nonnegative().nullable(),
+          output: z.number().nonnegative().nullable(),
+          cacheRead: z.number().nonnegative().nullable(),
+          cacheWrite: z.number().nonnegative().nullable(),
+          updatedAt: z.string().nullable(),
+        })
+        .nullable(),
+    })
   ),
+  quota: z.object({
+    unit: z.literal('token_credits'),
+    tokensPerUnit: z.literal(1000000),
+    groupMultiplier: z.number().nonnegative(),
+  }),
 })
 const keysSchema = z.object({ items: z.array(keySchema) })
+const keyResponseSchema = z.object({ item: keySchema, key: z.string().min(1) })
 const requestsSchema = z.object({
   items: z.array(requestSchema),
   total: z.number().int().nonnegative(),
@@ -59,6 +94,7 @@ const requestsSchema = z.object({
 export type UserSession = z.infer<typeof sessionSchema>
 export type PersonalKey = z.infer<typeof keySchema>
 export type PersonalRequest = z.infer<typeof requestSchema>
+export type PersonalModel = z.infer<typeof modelsSchema>['items'][number]
 export type PortalView = 'overview' | 'models' | 'keys' | 'requests' | 'account'
 export const portalQueryRoot = ['userPortal'] as const
 
@@ -106,10 +142,11 @@ export const userPortalApi = {
     supportedModels?: string[]
     expiresAt?: string
     maxRequests?: number
-  }) =>
-    z
-      .object({ item: keySchema, key: z.string().min(1) })
-      .parse(await userRequest('/keys', 'POST', body)),
+  }) => keyResponseSchema.parse(await userRequest('/keys', 'POST', body)),
+  rotateKey: async (id: number) =>
+    keyResponseSchema.parse(
+      await userRequest('/keys/' + id + '/rotate', 'POST', {})
+    ),
   deleteKey: (id: number) => userRequest('/keys/' + id, 'DELETE'),
   requests: async (page: number) =>
     requestsSchema.parse(
@@ -125,6 +162,7 @@ export const userPortalApi = {
       .object({
         usedRequests: z.number().nonnegative(),
         keyCount: z.number().int().nonnegative(),
+        recordedRequests: z.number().int().nonnegative().optional(),
       })
       .parse(await userRequest('/usage')),
 }

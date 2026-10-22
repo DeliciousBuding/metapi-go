@@ -1,11 +1,38 @@
 # Client Integration
 
-**Last updated**: 2026-10-19
+**Last updated**: 2026-10-22
 
-Metapi exposes the standard OpenAI wire format on `/v1` (plus Claude native
-`/v1/messages`, Responses, Embeddings, Images and `/v1/models`), so any tool
-that speaks OpenAI works without plugins. This page covers the common
-clients and the built-in config export.
+Metapi exposes OpenAI-compatible endpoints under `/v1`, Anthropic Messages,
+Responses and other protocol-specific paths. The usable features depend on
+the selected route, upstream protocol and Key policy. This page describes
+client configuration; a working text request does not validate every feature
+of a client.
+
+## Personal accounts
+
+If an administrator gave you an ordinary account, activate it at `/user`,
+open **Models**, and select a public model. The connection details show the
+protocols for which the current configuration can provide an example. Create
+a personal Key under **API keys**, save the secret once, and use the page's
+environment-variable-based request example. Your login password is not a
+downstream API Key.
+
+Personal Keys follow your current group's access and share your account's
+token quota. Bounded text, streaming and ordinary function-tool payloads
+remain subject to the selected protocol and upstream's capabilities. Media,
+hosted tools such as built-in web search, background work and opaque
+continuations such as `previous_response_id` or `conversation` are not
+available under the current personal quota policy, including unlimited
+accounts. A listed Responses protocol does not promise that a client's
+complete agent workflow will work. Legacy sources without protocol metadata
+may list a model without a connection example.
+
+After a request, open **Requests** to check the gateway outcome and recorded
+quota settlement. Verify the actual result in your client as well. For
+support, copy the internal request ID from the record; it is distinct from
+the correlation header `X-Request-Id`. Rotating a Key preserves its identity,
+limits and history but immediately invalidates the old secret for new
+requests and the next turn of an existing WebSocket.
 
 ## The two values every client needs
 
@@ -14,8 +41,10 @@ clients and the built-in config export.
 | Base URL   | `http://<host>:4000/v1` (or your reverse-proxied domain)    |
 | API key    | A downstream key from **访问 → API 密钥** (`/downstream-keys`) |
 
-Downstream keys are per-project keys with optional request/cost caps and
-expiry. Create one per tool to manage access independently.
+Administrator-managed system Keys have optional request/cost caps and expiry.
+Personal Keys additionally inherit their owner's current group and shared
+quota. Create one per tool to manage access independently. Administrator
+connection and config-export actions below require administrator access.
 
 ## Cursor
 

@@ -1,6 +1,6 @@
 # Getting Started
 
-**Last updated**: 2026-10-21
+**Last updated**: 2026-10-22
 
 A single guided path from zero to your first proxied request, in about five
 minutes. If you already know your way around, the [README quick start](../README.md)
@@ -20,6 +20,32 @@ The recommended path pulls the pre-built GHCR Docker image. It needs no Go or
 Bun on the deployment host. A release binary remains an option if you do not
 use Docker; the [README quick start](../README.md) covers all three paths.
 Everything below is identical either way.
+
+If you received an ordinary account from an administrator, start at `/user`
+and follow the [personal account connection guide](client-integration.md#personal-accounts).
+The installation and upstream setup below are for the deployment administrator.
+
+## Give another user access
+
+Once a public route exists, open **Users** at `/users`. Create or select a
+user group, authorize its routes, then create the user and set a quota limit.
+New users start with zero quota; an empty default group grants no routes.
+Use the user's configuration check to review account/group state, enabled
+authorized routes and quota. Follow any incomplete item's configuration
+action before issuing activation details. A passing configuration check
+does not prove the upstream is currently responding or the user has activated.
+
+Generate the one-time activation code and copy the account instructions,
+which contain the `/user` address, username, code and expiry. Share those
+instructions through your chosen private channel. The user sets their own
+password and creates personal Keys; the administrator login credential is
+never used as a personal proxy Key.
+
+Changing the quota limit preserves used quota and in-flight reservations.
+Changing a user's group affects subsequent requests from existing Keys;
+old request settlement keeps the multiplier recorded when it was admitted.
+For example, 14 reported tokens at multiplier 2 consume `0.000028` token
+credits. Credits are not a USD balance or the model catalog's reference price.
 
 ## 1. Start the server
 

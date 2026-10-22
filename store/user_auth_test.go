@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -118,6 +119,23 @@ func TestUserPortalOwnerQueries(t *testing.T) {
 				if _, err := f.db.Exec(`UPDATE downstream_api_keys SET used_cost=?,used_requests=? WHERE id=?`, float64(pair[1]), pair[1], pair[0]); err != nil {
 					t.Fatal(err)
 				}
+			}
+			if _, err := f.s.RotateOwnKey(ctx, f.user.ID, otherKey.ID, "sk-foreign-rotated"); !errors.Is(err, sql.ErrNoRows) {
+				t.Fatalf("foreign rotate: %v", err)
+			}
+			rotated, err := f.s.RotateOwnKey(ctx, f.user.ID, key.ID, "sk-alice-rotated")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rotated.ID != key.ID || rotated.Name != key.Name || rotated.KeyMasked == key.KeyMasked || rotated.UsedCost != 3 || rotated.UsedRequests != 3 || !reflect.DeepEqual(rotated.SupportedModels, key.SupportedModels) {
+				t.Fatalf("rotation changed identity or counters: before=%+v after=%+v", key, rotated)
+			}
+			var stored string
+			if err := f.db.Get(&stored, `SELECT key FROM downstream_api_keys WHERE id=?`, key.ID); err != nil || stored != "sk-alice-rotated" {
+				t.Fatalf("rotated secret=%q err=%v", stored, err)
+			}
+			if err := f.db.Get(&stored, `SELECT key FROM downstream_api_keys WHERE id=?`, otherKey.ID); err != nil || stored != "sk-bob-secret" {
+				t.Fatalf("foreign rotation changed secret=%q err=%v", stored, err)
 			}
 			usage, err := f.s.OwnUsage(ctx, f.user.ID)
 			if err != nil || usage.UsedCost != 3 || usage.UsedRequests != 3 || usage.KeyCount != 1 {
