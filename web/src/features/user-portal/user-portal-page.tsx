@@ -242,7 +242,7 @@ function PortalShell({
       <div className='max-w-container mx-auto grid gap-6 px-4 py-6 md:grid-cols-[176px_minmax(0,1fr)] md:px-6'>
         <nav
           aria-label={t('userPortal.navigation')}
-          className='flex gap-1 overflow-x-auto md:flex-col md:overflow-visible'
+          className='flex flex-wrap gap-1 md:flex-col md:flex-nowrap'
         >
           {navigation.map(([item, Icon]) => (
             <Link

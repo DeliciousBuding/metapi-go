@@ -658,6 +658,7 @@ try {
   await page.keyboard.press('Escape')
   assert.equal(new URL(page.url()).searchParams.get('status'), 'completed')
   assert.equal(new URL(page.url()).searchParams.get('quotaState'), 'settled')
+  await page.getByRole('dialog').waitFor({ state: 'hidden' })
   await page.setViewportSize({ width: 375, height: 812 })
   await page.screenshot({
     path: path.join(output, 'filtered-requests-dark-mobile.png'),
