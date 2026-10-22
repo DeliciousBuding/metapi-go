@@ -113,13 +113,13 @@ AI 生态里基于 New API / One API 系列的聚合中转站越来越多，多�
 
 ### 方式一：GHCR Docker 镜像（推荐）
 
-稳定部署使用完整版本标签或 digest；下例使用 `0.26.0`。镜像支持 `linux/amd64` 与 `linux/arm64`，Docker 自动选择匹配架构。`edge` 跟随 master，`latest` 只随稳定发布更新。升级前在 [Releases](https://github.com/DeliciousBuding/metapi-go/releases) 查看版本说明。
+稳定部署使用完整版本标签或 digest；下例使用 `0.27.0`。镜像支持 `linux/amd64` 与 `linux/arm64`，Docker 自动选择匹配架构。`edge` 跟随 master，`latest` 只随稳定发布更新。升级前在 [Releases](https://github.com/DeliciousBuding/metapi-go/releases) 查看版本说明。
 
 ```bash
 export AUTH_TOKEN=$(openssl rand -hex 32)
 export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
 
-docker pull ghcr.io/deliciousbuding/metapi-go:0.26.0
+docker pull ghcr.io/deliciousbuding/metapi-go:0.27.0
 docker run -d --name metapi \
   -p 127.0.0.1:4000:4000 \
   -e AUTH_TOKEN \
@@ -127,7 +127,7 @@ docker run -d --name metapi \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
   --restart unless-stopped \
-  ghcr.io/deliciousbuding/metapi-go:0.26.0
+  ghcr.io/deliciousbuding/metapi-go:0.27.0
 ```
 
 默认仅本机可访问。需要从其他设备访问时，经反向代理配置 TLS，或明确调整端口绑定。示例生成的管理令牌与加密密钥应保存到自己的密码管理器；也可先生成并设置为环境变量，再传给容器。
@@ -135,7 +135,7 @@ docker run -d --name metapi \
 命名卷首次挂载继承镜像内属主；改用 bind mount（`./data:/app/data`）需先在宿主机 `chown -R 1001:1001 ./data`。使用仓库 Compose（Docker Compose >= 2.24）：
 
 ```bash
-cp .env.example .env   # 替换管理令牌和独立加密密钥；METAPI_IMAGE 已钉在 0.26.0
+cp .env.example .env   # 替换管理令牌和独立加密密钥；METAPI_IMAGE 已钉在 0.27.0
 # .env 中其他运行配置也会传入容器，包括 PostgreSQL 和签到开关
 docker compose pull
 docker compose up -d
