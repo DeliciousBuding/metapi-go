@@ -9,7 +9,7 @@ import (
 
 // axonHubAuditedChannelTypes is a frozen copy of AxonHub's channel.Type enum
 // (internal/ent/channel/channel.go) at axonhub commit
-// e863c6fe1942deddd0f6e471fa003c430e5314f0. Adding a provider upstream must
+// 128e5d7f533e53923a2e439e230f2047d99a7203. Adding a provider upstream must
 // extend both this list and axonHubProviderTypes, which turns "an AxonHub
 // upgrade introduced a provider nobody reviewed" into a red test instead of a
 // mis-mapped channel.

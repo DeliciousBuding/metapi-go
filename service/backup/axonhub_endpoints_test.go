@@ -95,3 +95,27 @@ func TestAxonHubEndpointOverrideRejectsUnsafeTargets(t *testing.T) {
 		}
 	}
 }
+
+func TestAxonHubCodexDeclaresUnroutedResponsesWebsocket(t *testing.T) {
+	channel := AxonHubSourceChannel{Type: "codex", BaseURL: "https://provider.invalid"}
+	provider := axonHubProviderTypes[channel.Type]
+	if !axonHubDeclaredFormats(channel, provider)["openai/responses_websocket"] {
+		t.Fatal("Codex default Responses WebSocket endpoint was silently dropped from declared formats")
+	}
+	if _, servable := axonHubServableFormats["openai/responses_websocket"]; servable {
+		t.Fatal("Responses WebSocket unexpectedly acquired an executable direct protocol")
+	}
+	protocols, _, reasons, residuals := resolveChannelEndpoints(channel, provider)
+	if len(reasons) != 0 || protocols&protoResponses == 0 {
+		t.Fatalf("Codex Responses HTTP defaults failed: protocols=%d reasons=%v", protocols, reasons)
+	}
+	want := "declared_protocol_not_servable:openai/responses_websocket"
+	if !residualContains(residuals, want) {
+		t.Fatalf("WebSocket residual missing %q: %v", want, residuals)
+	}
+	for _, bit := range axonHubEndpointOrder(channel, provider) {
+		if bit == 0 {
+			t.Fatalf("unrouted WebSocket leaked an empty protocol bit: %v", axonHubEndpointOrder(channel, provider))
+		}
+	}
+}

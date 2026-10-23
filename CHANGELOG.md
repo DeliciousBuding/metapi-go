@@ -24,6 +24,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 ### 修复
 
 - 代理：原生 Responses 只把完整 reasoning 输出项的显式 `status:null` 修成 `completed`，失败、缺状态和畸形项保持原样（#1396）。
+- 备份导入：AxonHub Codex 的 `openai/responses_websocket` 默认端点会列为未迁移 residual，不再静默丢失或假装支持（#1396）。
 
 ## [v0.27.0] — 2026-10-22
 
