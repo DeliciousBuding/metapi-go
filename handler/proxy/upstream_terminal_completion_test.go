@@ -147,7 +147,7 @@ func TestNativeResponsesReasoningNullStatusHTTP(t *testing.T) {
 		"event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"id-fixture\",\"object\":\"response\",\"model\":\"provider-model\",\"status\":\"in_progress\",\"output\":[],\"usage\":{\"input_tokens\":5,\"output_tokens\":0,\"total_tokens\":5}}}\n\n",
 		"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"id\":\"rs-fixture\",\"type\":\"reasoning\",\"summary\":[],\"content\":[{\"type\":\"reasoning_text\",\"text\":\"keep reasoning\"}],\"encrypted_content\":null,\"status\":null}}\n\n",
 		"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":1,\"item\":{\"id\":\"fc-fixture\",\"type\":\"function_call\",\"status\":\"completed\",\"call_id\":\"call-fixture\",\"name\":\"echo\",\"arguments\":\"{\\\"value\\\":\\\"receipt-tool\\\"}\"}}\n\n",
-		"event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"id-fixture\",\"object\":\"response\",\"model\":\"provider-model\",\"status\":\"completed\",\"output\":[],\"usage\":{\"input_tokens\":5,\"output_tokens\":2,\"total_tokens\":7}}}\n\n",
+		"event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"id-fixture\",\"object\":\"response\",\"model\":\"provider-model\",\"status\":\"completed\",\"output\":[{\"id\":\"rs-fixture\",\"type\":\"reasoning\",\"summary\":[],\"content\":[{\"type\":\"reasoning_text\",\"text\":\"keep reasoning\"}],\"encrypted_content\":null,\"status\":null}],\"usage\":{\"input_tokens\":5,\"output_tokens\":2,\"total_tokens\":7}}}\n\n",
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -194,7 +194,38 @@ func TestNativeResponsesReasoningNullStatusHTTP(t *testing.T) {
 	if strings.Contains(body, `"encrypted_content":null,"status":null`) {
 		t.Fatalf("observed null reasoning status reached the downstream: %s", body)
 	}
+	if strings.Contains(body, `"status":null`) {
+		t.Fatalf("terminal response document kept a null reasoning status: %s", body)
+	}
 	if entry.PromptTokens == nil || *entry.PromptTokens != 5 || entry.CompletionTokens == nil || *entry.CompletionTokens != 2 || entry.TotalTokens == nil || *entry.TotalTokens != 7 {
 		t.Fatalf("normalized stream lost usage: %+v", entry)
+	}
+}
+
+func TestNativeResponsesReasoningNullStatusBufferedHTTP(t *testing.T) {
+	payload := `{"id":"id-fixture","object":"response","model":"provider-model","status":"completed","output":[{"id":"rs-fixture","type":"reasoning","summary":[],"content":[{"type":"reasoning_text","text":"keep reasoning"}],"encrypted_content":null,"status":null},{"id":"msg-fixture","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"receipt-text","annotations":[]}]}],"usage":{"input_tokens":5,"output_tokens":2,"total_tokens":7}}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, payload)
+	}))
+	defer server.Close()
+
+	up := directWireFixtures[1]
+	installAxonHubEndpointFixture(t, up.provider, server.URL, nil)
+	r := makeProxyReq(http.MethodPost, up.path, up.request)
+	out := httptest.NewRecorder()
+	up.handler(out, r)
+
+	if out.Code != http.StatusOK {
+		t.Fatalf("buffered response failed: http=%d body=%s", out.Code, out.Body.String())
+	}
+	body := out.Body.String()
+	for _, marker := range []string{`"id":"rs-fixture"`, `"text":"keep reasoning"`, `"encrypted_content":null`, `"status":"completed"`, `"text":"receipt-text"`} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("normalized buffered response lost %q: %s", marker, body)
+		}
+	}
+	if strings.Contains(body, `"status":null`) {
+		t.Fatalf("buffered response kept a null reasoning status: %s", body)
 	}
 }

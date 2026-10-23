@@ -92,11 +92,66 @@ func NormalizeNativeTerminalJSON(raw []byte, protocol NativeTerminalProtocol) []
 			doc["stop_reason"] = json.RawMessage(`"tool_use"`)
 			changed = true
 		}
+	case NativeResponses:
+		// Buffered Responses bodies and the response document inside a
+		// response.completed event share one shape. Repair only completed
+		// responses that carry the same structurally complete reasoning items
+		// the streaming path already accepts.
+		if terminalString(doc["object"]) != "response" {
+			return raw
+		}
+		changed = normalizeResponsesReasoningOutput(doc)
 	}
 	if !changed {
 		return raw
 	}
 	return terminalMarshal(doc, raw)
+}
+
+// normalizeResponsesReasoningOutput rewrites explicit null statuses on
+// structurally complete reasoning items inside a completed response document.
+// The response status is authoritative: failed or incomplete responses are
+// never repaired, even when one of their items looks complete.
+func normalizeResponsesReasoningOutput(response map[string]json.RawMessage) bool {
+	if terminalString(response["status"]) != "completed" {
+		return false
+	}
+	var items []json.RawMessage
+	if json.Unmarshal(response["output"], &items) != nil {
+		return false
+	}
+	changed := false
+	for i, rawItem := range items {
+		item := terminalObject(rawItem)
+		if item == nil || !repairReasoningItem(item) {
+			continue
+		}
+		items[i] = terminalMarshal(item, rawItem)
+		changed = true
+	}
+	if changed {
+		response["output"] = terminalMarshal(items, response["output"])
+	}
+	return changed
+}
+
+// repairReasoningItem reports whether item is a complete reasoning item whose
+// only defect is an explicit null status. Missing, failed, incomplete or
+// malformed items remain authoritative.
+func repairReasoningItem(item map[string]json.RawMessage) bool {
+	if terminalHasError(item) ||
+		terminalString(item["type"]) != "reasoning" ||
+		!terminalName(item["id"]) ||
+		!terminalArray(item["summary"]) ||
+		!terminalArray(item["content"]) {
+		return false
+	}
+	status, present := item["status"]
+	if !present || !bytes.Equal(bytes.TrimSpace(status), []byte("null")) {
+		return false
+	}
+	item["status"] = json.RawMessage(`"completed"`)
+	return true
 }
 
 // NativeTerminalStream owns only bounded evidence for actual tool calls. It
@@ -156,7 +211,15 @@ func (s *NativeTerminalStream) AddData(raw []byte) []byte {
 func (s *NativeTerminalStream) responsesData(doc map[string]json.RawMessage, raw []byte) []byte {
 	kind := terminalString(doc["type"])
 	switch kind {
-	case "response.completed", "response.incomplete", "response.failed":
+	case "response.completed":
+		s.ended = true
+		response := terminalObject(doc["response"])
+		if response == nil || terminalHasError(response) || !normalizeResponsesReasoningOutput(response) {
+			return raw
+		}
+		doc["response"] = terminalMarshal(response, doc["response"])
+		return terminalMarshal(doc, raw)
+	case "response.incomplete", "response.failed":
 		s.ended = true
 		return raw
 	}
@@ -167,21 +230,9 @@ func (s *NativeTerminalStream) responsesData(doc map[string]json.RawMessage, raw
 		return raw
 	}
 	item := terminalObject(doc["item"])
-	if item == nil || terminalHasError(item) ||
-		terminalString(item["type"]) != "reasoning" ||
-		!terminalName(item["id"]) ||
-		!terminalArray(item["summary"]) ||
-		!terminalArray(item["content"]) {
+	if item == nil || !repairReasoningItem(item) {
 		return raw
 	}
-	status, present := item["status"]
-	if !present || !bytes.Equal(bytes.TrimSpace(status), []byte("null")) {
-		return raw
-	}
-	// Responses reasoning items normally carry status=completed. Some upstreams
-	// emit the same complete item with an explicit null; repair only that exact
-	// shape. Missing, failed, incomplete or malformed items remain authoritative.
-	item["status"] = json.RawMessage(`"completed"`)
 	doc["item"] = terminalMarshal(item, doc["item"])
 	return terminalMarshal(doc, raw)
 }
