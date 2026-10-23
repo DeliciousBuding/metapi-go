@@ -60,7 +60,7 @@ and stores SQLite in the `metapi_data` volume. The full lifecycle is in
 export AUTH_TOKEN=$(openssl rand -hex 32)
 export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
 
-docker pull ghcr.io/deliciousbuding/metapi-go:0.27.1
+docker pull ghcr.io/deliciousbuding/metapi-go:0.27.2
 docker run -d --name metapi \
   -p 127.0.0.1:4000:4000 \
   -e AUTH_TOKEN \
@@ -68,7 +68,7 @@ docker run -d --name metapi \
   -e TZ=Asia/Shanghai \
   -v metapi_data:/app/data \
   --restart unless-stopped \
-  ghcr.io/deliciousbuding/metapi-go:0.27.1
+  ghcr.io/deliciousbuding/metapi-go:0.27.2
 ```
 
 The named volume is the zero-config default; bind mounts need a one-time
@@ -83,7 +83,7 @@ curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download
 The script downloads the matching platform binary from GitHub Releases,
 verifies its SHA-256 against `checksums.txt`, and installs to
 `/usr/local/bin/metapi` (override with `METAPI_INSTALL_PREFIX`; pin a version
-with `METAPI_VERSION=v0.27.1`). Windows: download `metapi-windows-amd64.exe`
+with `METAPI_VERSION=v0.27.2`). Windows: download `metapi-windows-amd64.exe`
 from the release page instead. Set the admin token and start the server:
 
 ```bash
@@ -159,7 +159,7 @@ cp .env.example .env
 ```
 
 ```dotenv
-METAPI_IMAGE=ghcr.io/deliciousbuding/metapi-go:0.27.1
+METAPI_IMAGE=ghcr.io/deliciousbuding/metapi-go:0.27.2
 AUTH_TOKEN=<new random admin token>
 ACCOUNT_CREDENTIAL_SECRET=<new random 32+ byte secret>
 ```
@@ -219,7 +219,7 @@ Releases published before the change (`v0.25.0` and earlier) have no signature.
 To verify a release, set `VERSION` to the release you are checking:
 
 ```bash
-VERSION=0.27.1  # replace with the exact release, without the leading v
+VERSION=0.27.2  # replace with the exact release, without the leading v
 cosign verify "ghcr.io/deliciousbuding/metapi-go:${VERSION}" \
   --certificate-identity "https://github.com/DeliciousBuding/metapi-go/.github/workflows/main.yml@refs/tags/v${VERSION}" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
@@ -250,7 +250,7 @@ data directory is the most common Docker deployment pitfall:
   ```
 
 - **Image tags**: pin a release tag or digest (for example
-  `ghcr.io/deliciousbuding/metapi-go:0.27.1`). `edge` and `sha-*` are master
+  `ghcr.io/deliciousbuding/metapi-go:0.27.2`). `edge` and `sha-*` are master
   builds; `latest` follows stable releases but is still a moving alias.
 
 ## Nginx Reverse Proxy

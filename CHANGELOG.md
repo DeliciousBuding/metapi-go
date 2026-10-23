@@ -21,6 +21,12 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+## [v0.27.2] — 2026-10-23
+
+### 修复
+
+- 代理：原生 Responses 的完整 reasoning 输出项在非流式响应和 `response.completed` 文档中也会把显式 `status:null` 修成 `completed`，失败、不完整和畸形项保持原样（#1396）。
+
 ## [v0.27.1] — 2026-10-23
 
 ### 修复

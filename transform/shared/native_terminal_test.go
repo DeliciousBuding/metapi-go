@@ -265,3 +265,75 @@ func TestNativeTerminalResponsesStopsAfterTerminalEvent(t *testing.T) {
 		t.Fatalf("repaired an item after the response completed: %s", out)
 	}
 }
+
+const nativeResponsesCompletedDocument = `{"id":"resp-1","object":"response","model":"example","status":"completed","output":[{"id":"rs-1","type":"reasoning","summary":[],"content":[{"type":"reasoning_text","text":"keep"}],"encrypted_content":null,"status":null,"extension":{"signature":"keep"}},{"id":"msg-1","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"ok"}]}],"usage":{"total_tokens":9007199254740993},"extension":{"signature":"root"}}`
+
+func responsesReasoningStatus(t *testing.T, raw []byte) string {
+	t.Helper()
+	var doc struct {
+		Output []struct {
+			Type   string `json:"type"`
+			Status string `json:"status"`
+		} `json:"output"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("normalized response is invalid JSON: %v\n%s", err, raw)
+	}
+	if len(doc.Output) == 0 || doc.Output[0].Type != "reasoning" {
+		t.Fatalf("reasoning item lost: %s", raw)
+	}
+	return doc.Output[0].Status
+}
+
+func TestNativeResponsesReasoningStatusInBufferedDocument(t *testing.T) {
+	out := NormalizeNativeTerminalJSON([]byte(nativeResponsesCompletedDocument), NativeResponses)
+	if got := responsesReasoningStatus(t, out); got != "completed" {
+		t.Fatalf("reasoning status = %q, want completed\n%s", got, out)
+	}
+	for _, marker := range []string{`"text":"keep"`, `"encrypted_content":null`, `9007199254740993`, `"signature":"root"`, `"text":"ok"`} {
+		if !bytes.Contains(out, []byte(marker)) {
+			t.Fatalf("buffered response lost %q: %s", marker, out)
+		}
+	}
+}
+
+func TestNativeResponsesReasoningStatusLeavesNonCompletedDocumentsUntouched(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+	}{
+		{"failed response", strings.Replace(nativeResponsesCompletedDocument, `"status":"completed","output"`, `"status":"failed","output"`, 1)},
+		{"incomplete response", strings.Replace(nativeResponsesCompletedDocument, `"status":"completed","output"`, `"status":"incomplete","output"`, 1)},
+		{"in_progress response", strings.Replace(nativeResponsesCompletedDocument, `"status":"completed","output"`, `"status":"in_progress","output"`, 1)},
+		{"missing response status", strings.Replace(nativeResponsesCompletedDocument, `"status":"completed","output"`, `"output"`, 1)},
+		{"malformed item", strings.Replace(nativeResponsesCompletedDocument, `"content":[{"type":"reasoning_text","text":"keep"}],`, "", 1)},
+		{"missing item status", strings.Replace(nativeResponsesCompletedDocument, `,"status":null`, "", 1)},
+		{"item error", strings.Replace(nativeResponsesCompletedDocument, `"status":null`, `"status":null,"error":{"type":"failure"}`, 1)},
+		{"wrong object", strings.Replace(nativeResponsesCompletedDocument, `"object":"response"`, `"object":"message"`, 1)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if out := NormalizeNativeTerminalJSON([]byte(tc.raw), NativeResponses); !bytes.Equal(out, []byte(tc.raw)) {
+				t.Fatalf("non-completed or malformed document was rewritten: %s", out)
+			}
+		})
+	}
+}
+
+func TestNativeTerminalResponsesRepairsCompletedEventDocument(t *testing.T) {
+	stream := NativeTerminalStream{Protocol: NativeResponses}
+	raw := []byte(`{"type":"response.completed","response":` + nativeResponsesCompletedDocument + `}`)
+	out := stream.AddData(raw)
+	if bytes.Equal(out, raw) {
+		t.Fatal("completed event document was not repaired")
+	}
+	var event struct {
+		Response json.RawMessage `json:"response"`
+	}
+	if err := json.Unmarshal(out, &event); err != nil {
+		t.Fatalf("normalized event is invalid JSON: %v\n%s", err, out)
+	}
+	if got := responsesReasoningStatus(t, event.Response); got != "completed" {
+		t.Fatalf("reasoning status = %q, want completed\n%s", got, out)
+	}
+}
