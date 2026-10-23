@@ -94,6 +94,7 @@ func TestNativeCompletionReaderProtocolScopeAndErrors(t *testing.T) {
 		{"foreign-chat-marker", "/v1/messages", "data: [DONE]\n\n", true},
 		{"foreign-responses-marker", "/v1/chat/completions", "data: {\"type\":\"response.completed\"}\n\n", true},
 		{"incomplete-response", "/v1/responses", "data: {\"type\":\"response.incomplete\",\"response\":{\"status\":\"incomplete\"}}\n\n", true},
+		{"failed-response", "/v1/responses", "data: {\"type\":\"response.failed\",\"response\":{\"status\":\"failed\",\"error\":{\"type\":\"server_error\"}}}\n\n", false},
 		{"mismatched-response-status", "/v1/responses", "data: {\"type\":\"response.completed\",\"response\":{\"status\":\"incomplete\"}}\n\n", true},
 		{"gemini-no-done-marker", "/v1beta/models/native:streamGenerateContent", "data: {\"candidates\":[{\"finishReason\":\"STOP\"}]}\n\n", false},
 	} {
@@ -113,5 +114,87 @@ func TestNativeCompletionReaderProtocolScopeAndErrors(t *testing.T) {
 		if !errors.Is(err, end) {
 			t.Fatalf("terminal marker hid underlying interruption %v: %v", end, err)
 		}
+	}
+}
+
+func TestNativeResponsesReasoningStatusReaderIsChunkIndependent(t *testing.T) {
+	terminal := "event: response.output_item.done\n" +
+		"data: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"id\":\"rs-fixture\",\"type\":\"reasoning\",\"summary\":[],\"content\":[{\"type\":\"reasoning_text\",\"text\":\"keep\"}],\"encrypted_content\":null,\"status\":null}}\n\n" +
+		"event: response.completed\n" +
+		"data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n"
+	for _, size := range []int{1, 3, 17, 4096} {
+		t.Run(map[int]string{1: "bytewise", 3: "fragmented", 17: "partial-frame", 4096: "whole"}[size], func(t *testing.T) {
+			source := &terminalChunkReader{data: []byte(terminal), size: size, end: io.EOF}
+			out, err := io.ReadAll(withNativeTerminalBody(source, "/v1/responses"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(out), `"status":"completed"`) ||
+				strings.Contains(string(out), `"encrypted_content":null,"status":null`) {
+				t.Fatalf("reasoning status was not normalized independently of framing: %s", out)
+			}
+			for _, marker := range []string{`"text":"keep"`, `"encrypted_content":null`, "response.completed"} {
+				if !strings.Contains(string(out), marker) {
+					t.Fatalf("frame data lost %q: %s", marker, out)
+				}
+			}
+		})
+	}
+}
+
+func TestNativeResponsesReasoningNullStatusHTTP(t *testing.T) {
+	frames := []string{
+		"event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"id-fixture\",\"object\":\"response\",\"model\":\"provider-model\",\"status\":\"in_progress\",\"output\":[],\"usage\":{\"input_tokens\":5,\"output_tokens\":0,\"total_tokens\":5}}}\n\n",
+		"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"id\":\"rs-fixture\",\"type\":\"reasoning\",\"summary\":[],\"content\":[{\"type\":\"reasoning_text\",\"text\":\"keep reasoning\"}],\"encrypted_content\":null,\"status\":null}}\n\n",
+		"event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":1,\"item\":{\"id\":\"fc-fixture\",\"type\":\"function_call\",\"status\":\"completed\",\"call_id\":\"call-fixture\",\"name\":\"echo\",\"arguments\":\"{\\\"value\\\":\\\"receipt-tool\\\"}\"}}\n\n",
+		"event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"id-fixture\",\"object\":\"response\",\"model\":\"provider-model\",\"status\":\"completed\",\"output\":[],\"usage\":{\"input_tokens\":5,\"output_tokens\":2,\"total_tokens\":7}}}\n\n",
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		for _, frame := range frames {
+			for offset := 0; offset < len(frame); offset += 7 {
+				_, _ = io.WriteString(w, frame[offset:min(offset+7, len(frame))])
+				w.(http.Flusher).Flush()
+			}
+		}
+	}))
+	defer server.Close()
+
+	up := directWireFixtures[1]
+	installAxonHubEndpointFixture(t, up.provider, server.URL, nil)
+	logs := make(chan proxy.ProxyLogEntry, 1)
+	getUpstreamConfig().LogProxy = func(_ context.Context, entry proxy.ProxyLogEntry) error { logs <- entry; return nil }
+	request := strings.TrimSuffix(up.request, "}") + `,"stream":true}`
+	r := makeProxyReq(http.MethodPost, up.path, request)
+	out := httptest.NewRecorder()
+	up.handler(out, r)
+
+	var entry proxy.ProxyLogEntry
+	select {
+	case entry = <-logs:
+	default:
+		t.Fatal("missing actual usage log")
+	}
+	if out.Code != http.StatusOK || entry.Status != "success" {
+		t.Fatalf("normalized stream failed: http=%d status=%s body=%s", out.Code, entry.Status, out.Body.String())
+	}
+	body := out.Body.String()
+	for _, marker := range []string{
+		`"id":"rs-fixture"`,
+		`"text":"keep reasoning"`,
+		`"encrypted_content":null`,
+		`"status":"completed"`,
+		`"call_id":"call-fixture"`,
+		"response.completed",
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("normalized HTTP stream lost %q: %s", marker, body)
+		}
+	}
+	if strings.Contains(body, `"encrypted_content":null,"status":null`) {
+		t.Fatalf("observed null reasoning status reached the downstream: %s", body)
+	}
+	if entry.PromptTokens == nil || *entry.PromptTokens != 5 || entry.CompletionTokens == nil || *entry.CompletionTokens != 2 || entry.TotalTokens == nil || *entry.TotalTokens != 7 {
+		t.Fatalf("normalized stream lost usage: %+v", entry)
 	}
 }

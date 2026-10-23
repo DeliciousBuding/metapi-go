@@ -7,13 +7,14 @@ import (
 	"strings"
 )
 
-// NativeTerminalProtocol identifies the two native wire formats whose otherwise
-// complete tool responses sometimes carry the upstream's ordinary text stop.
+// NativeTerminalProtocol identifies native wire formats with narrowly bounded
+// terminal compatibility repairs.
 type NativeTerminalProtocol uint8
 
 const (
 	NativeChatCompletions NativeTerminalProtocol = iota + 1
 	NativeMessages
+	NativeResponses
 )
 
 // Keep protocol repair narrow: never invent a terminal event, repair truncated
@@ -145,9 +146,44 @@ func (s *NativeTerminalStream) AddData(raw []byte) []byte {
 		return s.chatData(doc, raw)
 	case NativeMessages:
 		return s.messageData(doc, raw)
+	case NativeResponses:
+		return s.responsesData(doc, raw)
 	default:
 		return raw
 	}
+}
+
+func (s *NativeTerminalStream) responsesData(doc map[string]json.RawMessage, raw []byte) []byte {
+	kind := terminalString(doc["type"])
+	switch kind {
+	case "response.completed", "response.incomplete", "response.failed":
+		s.ended = true
+		return raw
+	}
+	if kind != "response.output_item.done" {
+		return raw
+	}
+	if _, ok := terminalIndex(doc["output_index"]); !ok {
+		return raw
+	}
+	item := terminalObject(doc["item"])
+	if item == nil || terminalHasError(item) ||
+		terminalString(item["type"]) != "reasoning" ||
+		!terminalName(item["id"]) ||
+		!terminalArray(item["summary"]) ||
+		!terminalArray(item["content"]) {
+		return raw
+	}
+	status, present := item["status"]
+	if !present || !bytes.Equal(bytes.TrimSpace(status), []byte("null")) {
+		return raw
+	}
+	// Responses reasoning items normally carry status=completed. Some upstreams
+	// emit the same complete item with an explicit null; repair only that exact
+	// shape. Missing, failed, incomplete or malformed items remain authoritative.
+	item["status"] = json.RawMessage(`"completed"`)
+	doc["item"] = terminalMarshal(item, doc["item"])
+	return terminalMarshal(doc, raw)
 }
 
 func (s *NativeTerminalStream) chatData(doc map[string]json.RawMessage, raw []byte) []byte {
@@ -393,6 +429,14 @@ func terminalIndex(raw json.RawMessage) (int, bool) {
 }
 func terminalString(raw json.RawMessage) string { var s string; _ = json.Unmarshal(raw, &s); return s }
 func terminalName(raw json.RawMessage) bool     { return strings.TrimSpace(terminalString(raw)) != "" }
+func terminalArray(raw json.RawMessage) bool {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || raw[0] != '[' {
+		return false
+	}
+	var values []json.RawMessage
+	return json.Unmarshal(raw, &values) == nil
+}
 func terminalPresent(raw json.RawMessage) bool {
 	return len(raw) != 0 && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) && !bytes.Equal(bytes.TrimSpace(raw), []byte(`""`))
 }
