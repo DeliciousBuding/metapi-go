@@ -198,6 +198,12 @@ Ordinary output containing the word "error", `error: null`, and a healthy
 client disconnect are not upstream errors; a disconnect cannot erase an
 explicit upstream error already observed.
 
+For native Responses streams, a structurally complete reasoning item in
+`response.output_item.done` with an explicit `status:null` is relayed with
+`status:"completed"`. Missing, failed or malformed statuses and non-reasoning
+items are unchanged. `response.failed` and `response.incomplete` remain
+authoritative failures; the repair does not invent or extend a terminal.
+
 ---
 
 ## Header policy (/v1 surface)

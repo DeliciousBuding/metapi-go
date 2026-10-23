@@ -9,5 +9,7 @@ Codex upstream `wss` and an HTTP SSE bridge:
 - Dial / empty-event failure falls back to the HTTP SSE bridge.
 - Sessions and response IDs are process-local. Multi-instance deployments
   require load-balancer pinning or a single instance.
+- AxonHub's `openai/responses_websocket` source format is surfaced as an import
+  residual. It does not add a direct-grant executor or imply transport support.
 
 Terminal frames reflect upstream protocol events or an explicit bridge error.

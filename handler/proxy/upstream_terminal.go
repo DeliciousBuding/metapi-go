@@ -23,6 +23,8 @@ func nativeTerminalProtocol(path string) transformshared.NativeTerminalProtocol 
 		return transformshared.NativeChatCompletions
 	case proxy.EndpointMessages:
 		return transformshared.NativeMessages
+	case proxy.EndpointResponses:
+		return transformshared.NativeResponses
 	default:
 		return 0
 	}
@@ -187,12 +189,6 @@ func (b *nativeTerminalBody) observeTerminalEvent(event *SseEvent) {
 		b.terminalSeen = true
 		return
 	}
-	// The existing SSE error analyzer owns provider errors. Treat the event as
-	// terminal so EOF does not add an unrelated missing-terminator error.
-	if IsSseErrorEvent(*event) {
-		b.terminalSeen = true
-		return
-	}
 	var payload struct {
 		Type    string `json:"type"`
 		Choices []struct {
@@ -203,7 +199,19 @@ func (b *nativeTerminalBody) observeTerminalEvent(event *SseEvent) {
 			Status string `json:"status"`
 		} `json:"response"`
 	}
-	if json.Unmarshal([]byte(event.Data), &payload) != nil {
+	err := json.Unmarshal([]byte(event.Data), &payload)
+	kind := event.Event
+	if err == nil && payload.Type != "" {
+		kind = payload.Type
+	}
+	// The existing SSE error analyzer owns provider errors. Treat the event as
+	// terminal so EOF does not add a duplicate error frame. IsSseErrorEvent
+	// separately marks the request failed, including response.failed.
+	if IsSseErrorEvent(*event) {
+		b.terminalSeen = true
+		return
+	}
+	if err != nil {
 		return
 	}
 	if b.completionProtocol == proxy.EndpointChat {
@@ -214,10 +222,6 @@ func (b *nativeTerminalBody) observeTerminalEvent(event *SseEvent) {
 			b.chatChoices[choice.Index] = b.chatChoices[choice.Index] || strings.TrimSpace(choice.FinishReason) != ""
 		}
 		return
-	}
-	kind := payload.Type
-	if kind == "" {
-		kind = event.Event
 	}
 	switch b.completionProtocol {
 	case proxy.EndpointMessages:

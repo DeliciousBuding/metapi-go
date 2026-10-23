@@ -116,6 +116,7 @@ func TestAxonHubCompleteFixturePreview(t *testing.T) {
 		"channel-37:pass_through_user_agent_not_configurable",
 		"conditional_model_association_not_imported:conditional-model",
 		"declared_protocol_not_servable:openai/responses_compact",
+		"declared_protocol_not_servable:openai/responses_websocket",
 		"model_has_no_importable_channel:dev-no-inherit-model",
 		"model_has_no_importable_channel:disabled-assoc-model",
 		"model_has_no_importable_channel:orphan-model",

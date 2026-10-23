@@ -7,7 +7,7 @@ import "github.com/deliciousbuding/metapi-go/store"
 // The key set is a frozen copy of AxonHub's `channel.Type` enum
 // (internal/ent/channel/channel.go) and `defaultEndpointsForChannelType`
 // (internal/server/biz/channel_endpoint.go) as of axonhub commit
-// e863c6fe1942deddd0f6e471fa003c430e5314f0. A type that appears upstream but
+// 128e5d7f533e53923a2e439e230f2047d99a7203. A type that appears upstream but
 // not here is refused by name, so an AxonHub upgrade cannot silently turn a new
 // provider into a mis-mapped Metapi channel.
 //
@@ -134,7 +134,7 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 	// direct grant, or whose request/response shape is provider-specific.
 	"anthropic_aws":  {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
 	"anthropic_gcp":  {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
-	"codex":          {DefaultFormats: []string{"openai/responses", "openai/alpha_search", "openai/image_generation", "openai/image_edit"}, Supported: true},
+	"codex":          {DefaultFormats: []string{"openai/responses", "openai/responses_websocket", "openai/alpha_search", "openai/image_generation", "openai/image_edit"}, Supported: true},
 	"claudecode":     {DefaultFormats: []string{"anthropic/messages"}, Supported: true},
 	"github_copilot": {DefaultFormats: []string{"openai/chat_completions"}, Supported: true},
 }
@@ -180,8 +180,9 @@ var axonHubChatAudioFormats = append([]string{"openai/chat_completions"}, axonHu
 
 // Source formats without a corresponding executor stay explicit in previews.
 var axonHubResidualProtocolFormats = map[string]string{
-	"openai/responses_compact": "compact Responses variant is not routed by direct grants",
-	"aisdk/text":               "AI SDK text protocol is not routed by direct grants",
-	"openai/decisions":         "decisions are not routed by direct grants",
-	"aisdk/datastream":         "AI SDK data stream protocol is not routed by direct grants",
+	"openai/responses_compact":   "compact Responses variant is not routed by direct grants",
+	"openai/responses_websocket": "upstream Responses WebSocket transport is not routed by direct grants",
+	"aisdk/text":                 "AI SDK text protocol is not routed by direct grants",
+	"openai/decisions":           "decisions are not routed by direct grants",
+	"aisdk/datastream":           "AI SDK data stream protocol is not routed by direct grants",
 }

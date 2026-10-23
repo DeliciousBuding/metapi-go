@@ -194,3 +194,74 @@ func TestNativeTerminalChatStreamDoesNotRepairAfterDone(t *testing.T) {
 		t.Fatalf("repaired data after the stream ended: %s", out)
 	}
 }
+
+const nativeResponsesNullReasoningItem = `{"type":"response.output_item.done","output_index":0,"item":{"id":"rs-fixture","type":"reasoning","summary":[],"content":[{"type":"reasoning_text","text":"keep reasoning"}],"encrypted_content":null,"status":null,"extension":{"signature":"keep"}}}`
+
+func TestNativeTerminalResponsesRepairsOnlyNullReasoningStatus(t *testing.T) {
+	raw := []byte(`{"type":"response.output_item.done","output_index":0,"item":{"id":"rs-fixture","type":"reasoning","summary":[],"content":[{"type":"reasoning_text","text":"keep reasoning"}],"encrypted_content":null,"status":null,"extension":{"signature":"keep"}},"usage":{"input_tokens":9007199254740993}}`)
+	stream := NativeTerminalStream{Protocol: NativeResponses}
+	out := stream.AddData(raw)
+
+	var before, after map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &before); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(out, &after); err != nil {
+		t.Fatalf("normalized response is invalid JSON: %v\n%s", err, out)
+	}
+	for _, key := range []string{"type", "output_index", "usage"} {
+		if !jsonEqual(before[key], after[key]) {
+			t.Fatalf("root field %s changed: %s != %s", key, before[key], after[key])
+		}
+	}
+	beforeItem := terminalObject(before["item"])
+	afterItem := terminalObject(after["item"])
+	if beforeItem == nil || afterItem == nil {
+		t.Fatalf("item was not preserved: %s", out)
+	}
+	for _, key := range []string{"id", "type", "summary", "content", "encrypted_content", "extension"} {
+		if !jsonEqual(beforeItem[key], afterItem[key]) {
+			t.Fatalf("item field %s changed: %s != %s", key, beforeItem[key], afterItem[key])
+		}
+	}
+	if got := string(afterItem["status"]); got != `"completed"` {
+		t.Fatalf("reasoning status = %s, want completed\n%s", got, out)
+	}
+}
+
+func TestNativeTerminalResponsesLeavesAmbiguousOrFailedItemsUntouched(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+	}{
+		{"missing status", strings.Replace(nativeResponsesNullReasoningItem, `,"status":null`, "", 1)},
+		{"failed status", strings.Replace(nativeResponsesNullReasoningItem, `"status":null`, `"status":"failed"`, 1)},
+		{"completed status", strings.Replace(nativeResponsesNullReasoningItem, `"status":null`, `"status":"completed"`, 1)},
+		{"non reasoning", strings.Replace(nativeResponsesNullReasoningItem, `"type":"reasoning"`, `"type":"message"`, 1)},
+		{"missing id", strings.Replace(nativeResponsesNullReasoningItem, `"id":"rs-fixture",`, "", 1)},
+		{"missing summary", strings.Replace(nativeResponsesNullReasoningItem, `"summary":[],`, "", 1)},
+		{"null summary", strings.Replace(nativeResponsesNullReasoningItem, `"summary":[]`, `"summary":null`, 1)},
+		{"scalar content", strings.Replace(nativeResponsesNullReasoningItem, `"content":[{"type":"reasoning_text","text":"keep reasoning"}]`, `"content":"bad"`, 1)},
+		{"missing output index", strings.Replace(nativeResponsesNullReasoningItem, `"output_index":0,`, "", 1)},
+		{"wrong event", strings.Replace(nativeResponsesNullReasoningItem, `"response.output_item.done"`, `"response.output_item.added"`, 1)},
+		{"item error", strings.Replace(nativeResponsesNullReasoningItem, `"status":null`, `"status":null,"error":{"type":"failure"}`, 1)},
+		{"duplicate status", strings.Replace(nativeResponsesNullReasoningItem, `"status":null`, `"status":"incomplete","status":null`, 1)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			stream := NativeTerminalStream{Protocol: NativeResponses}
+			if out := stream.AddData([]byte(tc.raw)); !bytes.Equal(out, []byte(tc.raw)) {
+				t.Fatalf("ambiguous or failed item was rewritten: %s", out)
+			}
+		})
+	}
+}
+
+func TestNativeTerminalResponsesStopsAfterTerminalEvent(t *testing.T) {
+	stream := NativeTerminalStream{Protocol: NativeResponses}
+	stream.AddData([]byte(`{"type":"response.completed","response":{"status":"completed"}}`))
+	raw := []byte(nativeResponsesNullReasoningItem)
+	if out := stream.AddData(raw); !bytes.Equal(out, raw) {
+		t.Fatalf("repaired an item after the response completed: %s", out)
+	}
+}
