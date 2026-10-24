@@ -21,6 +21,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+## [v0.27.4] — 2026-10-25
+
 ### 修复
 
 - 备份导入：AxonHub 未启用的 `rateLimit` 不再导致整条渠道被跳过；正数限额和未知字段仍跳过渠道，已知限流字段类型错误返回 400（#1561）。
