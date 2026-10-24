@@ -256,6 +256,12 @@ Model and inherited developer associations with disabled conditions or no
 unimported. Unknown `when` fields are reported as
 `model_association_field_unsupported:when.<field>` and exclude that association.
 
+Channel `rateLimit` settings with absent, null or nonpositive `rpm`, `tpm` and
+`maxConcurrent` values retain the source's unlimited behavior. `queueSize` and
+`queueTimeoutMs` do not activate a limit without positive concurrency. Positive
+limits and unknown rate-limit fields still skip the channel with
+`channel_rate_limit_unsupported`; malformed known field types reject the backup.
+
 The preview reports configuration counts, skipped channels, remaining source
 sections, configuration differences and removals. The following remain outside
 the current executable import contract:
@@ -269,7 +275,7 @@ the current executable import contract:
 - Source `openai/responses_websocket` remains a residual for Codex channels. It
   is reported in preview and does not enable an executable direct WebSocket
   transport or expand the imported channel's HTTP grants.
-- Active channel transform operations, channel rate limits and stream policies,
+- Active channel transform operations, active channel rate limits and stream policies,
   conditional associations, unsupported proxy modes, and nonportable key-level
   load-balancing/sticky overrides or regular expressions.
 - Source pricing, request history and deployment settings. Developer associations
