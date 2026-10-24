@@ -21,6 +21,12 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+## [v0.27.3] — 2026-10-24
+
+### 修复
+
+- 备份导入：AxonHub 条件已开启但谓词缺失或为 null 的模型与开发者关联按无条件保留；未知 `when` 字段列为 residual 并跳过该关联，避免扩大路由范围（#1561）。
+
 ## [v0.27.2] — 2026-10-23
 
 ### 修复
