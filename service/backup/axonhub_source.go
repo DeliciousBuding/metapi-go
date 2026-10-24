@@ -635,7 +635,10 @@ func decodeAxonHubSettings(raw json.RawMessage, dst *AxonHubSourceChannelSetting
 	if err != nil {
 		return err
 	}
-	dst.HasRateLimit = present(obj["rateLimit"])
+	dst.HasRateLimit, err = axonHubActiveRateLimit(obj["rateLimit"])
+	if err != nil {
+		return err
+	}
 	dst.HasRetryableErrorPatterns = present(obj["retryableErrorPatterns"])
 	dst.HasProviderQuota = present(obj["providerQuota"])
 	dst.ProxyConfigured = present(obj["proxy"])
@@ -706,6 +709,38 @@ func axonHubActiveTransformOptions(raw json.RawMessage) (bool, error) {
 	}
 	unknown := unknownKeys(obj, []string{"forceArrayInstructions", "forceArrayInputs", "replaceDeveloperRoleWithSystem", "reasoningEffortMapping"})
 	return shape.ForceArrayInstructions || shape.ForceArrayInputs || shape.ReplaceDeveloperRoleWithSystem || len(shape.ReasoningEffortMapping) > 0 || len(unknown) > 0, nil
+}
+
+// AxonHub enables RPM/TPM and concurrency only for positive limits. Queue
+// settings have no effect without a positive maxConcurrent. Unknown fields
+// still refuse the channel, even when their values look inactive.
+func axonHubActiveRateLimit(raw json.RawMessage) (bool, error) {
+	if len(raw) == 0 || string(bytes.TrimSpace(raw)) == "null" {
+		return false, nil
+	}
+	obj, err := rowObject(raw)
+	if err != nil {
+		return false, axonHubErr("invalid AxonHub backup: rate limit must be an object")
+	}
+	var limits struct {
+		RPM           *int64 `json:"rpm"`
+		TPM           *int64 `json:"tpm"`
+		MaxConcurrent *int64 `json:"maxConcurrent"`
+		QueueSize     *int64 `json:"queueSize"`
+		QueueTimeout  *int64 `json:"queueTimeoutMs"`
+	}
+	if err := json.Unmarshal(raw, &limits); err != nil {
+		return false, axonHubErr("invalid AxonHub backup: rate limit has an invalid field type")
+	}
+	if len(unknownKeys(obj, []string{"rpm", "tpm", "maxConcurrent", "queueSize", "queueTimeoutMs"})) > 0 {
+		return true, nil
+	}
+	for _, limit := range []*int64{limits.RPM, limits.TPM, limits.MaxConcurrent} {
+		if limit != nil && *limit > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func decodeAxonHubPolicies(raw json.RawMessage, dst *AxonHubSourceChannelPolicies) error {
