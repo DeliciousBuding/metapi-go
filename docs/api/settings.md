@@ -250,6 +250,12 @@ and local usage is retained when reimporting. Missing history blocks quota
 periods that overlap the gap; see [access policies and quotas](downstream-keys.md).
 A management-only or unsupported key remains explicitly blocked for proxy use.
 
+Model and inherited developer associations with disabled conditions or no
+`when.condition` predicate retain their unconditional behavior, including
+`when.enabled=true` with an omitted or null predicate. Active predicates remain
+unimported. Unknown `when` fields are reported as
+`model_association_field_unsupported:when.<field>` and exclude that association.
+
 The preview reports configuration counts, skipped channels, remaining source
 sections, configuration differences and removals. The following remain outside
 the current executable import contract:

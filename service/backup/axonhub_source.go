@@ -834,13 +834,24 @@ func decodeAxonHubAssociation(raw json.RawMessage) (AxonHubSourceAssociation, er
 	assoc.Priority = shape.Priority
 	assoc.Disabled = shape.Disabled
 	if present(shape.When) {
+		whenObject, err := rowObject(shape.When)
+		if err != nil {
+			return assoc, axonHubErr("invalid association condition")
+		}
 		var when struct {
-			Enabled bool `json:"enabled"`
+			Enabled   bool            `json:"enabled"`
+			Condition json.RawMessage `json:"condition"`
 		}
 		if err := json.Unmarshal(shape.When, &when); err != nil {
 			return assoc, axonHubErr("invalid association condition")
 		}
-		assoc.Conditional = when.Enabled
+		if extra := unknownKeys(whenObject, []string{"enabled", "condition"}); len(extra) > 0 && assoc.UnsupportedField == "" {
+			assoc.UnsupportedField = "when." + sanitizeIdentifier(extra[0])
+		}
+		// AxonHub evaluates an enabled rule without a predicate as true.
+		// A non-null predicate remains a named residual, never flattened.
+		condition := bytes.TrimSpace(when.Condition)
+		assoc.Conditional = when.Enabled && len(condition) > 0 && !bytes.Equal(condition, []byte("null"))
 	}
 	assoc.ChannelModel = shape.ChannelModel
 	assoc.ChannelRegex = shape.ChannelRegex
