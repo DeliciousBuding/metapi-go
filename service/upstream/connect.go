@@ -74,6 +74,9 @@ func Connect(ctx context.Context, db *sqlx.DB, in ConnectInput) (ConnectResult, 
 		return ConnectResult{}, err
 	}
 	out := ConnectResult{Name: channel.Name, Enabled: true, Ownership: "native", ModelCount: len(models), RouteCount: len(models), Discovery: discovery}
+	if channel.CustomHeaders == "" {
+		channel.CustomHeaders = "[]"
+	}
 	err = Write(ctx, db, func(tx *sqlx.Tx) error {
 		var err error
 		if in.AutoName {
@@ -93,7 +96,7 @@ func Connect(ctx context.Context, db *sqlx.DB, in ConnectInput) (ConnectResult, 
 			}
 			out.Name = channel.Name
 		}
-		out.ID, err = InsertNative(ctx, tx, "channels", channel.Name, "generic", channel.Provider, true, channel.BaseURL, channel.Endpoints, "", "", "", channel.UseSystemProxy, channel.ChannelProxy, "[]", "", "")
+		out.ID, err = InsertNative(ctx, tx, "channels", channel.Name, "generic", channel.Provider, true, channel.BaseURL, channel.Endpoints, "", "", "", channel.UseSystemProxy, channel.ChannelProxy, channel.CustomHeaders, channel.ParamOverride, "")
 		if err != nil {
 			return err
 		}

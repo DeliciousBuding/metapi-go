@@ -38,12 +38,10 @@ func resolveUpstreamPreset(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"presetId": preset.ID, "provider": preset.Provider, "baseUrl": base, "endpointConfig": config})
 }
 
-// resolveUpstreamPresetConfig is shared with quick connect. It is a local
-// projection only: no model discovery, credential access or outbound request.
-func resolveUpstreamPresetConfig(presetID, baseURL, projectID string) (*service.UpstreamPreset, store.DirectEndpoints, string, error) {
+func resolveUpstreamPresetBase(presetID, baseURL string) (*service.UpstreamPreset, string, bool, error) {
 	preset := service.GetUpstreamPreset(presetID)
 	if preset == nil {
-		return nil, store.DirectEndpoints{}, "", fmt.Errorf("unknown upstream preset")
+		return nil, "", false, fmt.Errorf("unknown upstream preset")
 	}
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	useDefaults := base == "" || preset.IsDefaultBaseURL(base)
@@ -52,7 +50,17 @@ func resolveUpstreamPresetConfig(presetID, baseURL, projectID string) (*service.
 	}
 	parsed, err := url.Parse(base)
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || strings.ContainsAny(base, "?#") || service.IsForbiddenSiteTargetURL(base) {
-		return nil, store.DirectEndpoints{}, "", fmt.Errorf("invalid upstream base URL")
+		return nil, "", false, fmt.Errorf("invalid upstream base URL")
+	}
+	return preset, base, useDefaults, nil
+}
+
+// resolveUpstreamPresetConfig is shared with quick connect. It is a local
+// projection only: no model discovery, credential access or outbound request.
+func resolveUpstreamPresetConfig(presetID, baseURL, projectID string) (*service.UpstreamPreset, store.DirectEndpoints, string, error) {
+	preset, base, useDefaults, err := resolveUpstreamPresetBase(presetID, baseURL)
+	if err != nil {
+		return nil, store.DirectEndpoints{}, "", err
 	}
 	config := service.UpstreamPresetEndpointPaths(preset.ID, preset.Platform)
 	if !config.IsConfigured() {
