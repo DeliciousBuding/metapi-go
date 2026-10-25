@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -35,7 +36,7 @@ func routerChatFixtureStream() string {
 func TestDirectRouterChatRequest(t *testing.T) {
 	body := []byte(`{"model":"fixture/model","store":true,"seed":9007199254740993,"provider":{"order":["fixture"]},"messages":[{"role":"user","content":""},{"role":"assistant","reasoning_content":"Think.","content":null,"reasoning_details":[{"type":"reasoning.encrypted","data":"opaque"}],"tool_calls":[{"id":"call_9","function":{"name":"read","arguments":"{\"n\":9007199254740993}"}}]}]}`)
 	for _, profile := range []string{"openrouter", "cerebras"} {
-		out, err := prepareDirectRouterChatRequest(body, profile)
+		out, err := prepareAdapterProfileBody(body, profile)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,17 +53,17 @@ func TestDirectRouterChatRequest(t *testing.T) {
 		t.Fatal("mutated original request")
 	}
 	for _, bad := range []string{`null`, `{}`, `{"model":"m","messages":[null]}`, `{"model":"m","messages":[{"reasoning_content":[]}]}`, `{"model":"m","messages":[{"reasoning":"a","reasoning_content":"b"}]}`} {
-		if _, err := prepareDirectRouterChatRequest([]byte(bad), "cerebras"); err == nil {
+		if _, err := prepareAdapterProfileBody([]byte(bad), "cerebras"); err == nil {
 			t.Errorf("accepted invalid request: %s", bad)
 		}
 	}
-	if _, err := prepareDirectRouterChatRequest(body, "openai"); err == nil {
+	if _, err := prepareAdapterProfileBody(body, "openai"); err == nil {
 		t.Fatal("applied provider adapter to generic profile")
 	}
 }
 
 func TestDirectRouterChatJSONProjection(t *testing.T) {
-	normalized, err := normalizeDirectRouterChatJSON([]byte(routerChatFixtureJSON), true)
+	normalized, err := upstreamadapter.NormalizeRouterChatJSON([]byte(routerChatFixtureJSON), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +72,7 @@ func TestDirectRouterChatJSONProjection(t *testing.T) {
 			t.Errorf("native response lost %s: %s", preserved, normalized)
 		}
 	}
-	projected, err := projectDirectRouterChatResponse(normalized, false)
+	projected, err := projectAdapterBody("openrouter", normalized, false)
 	if err != nil || bytes.Contains(projected, []byte(`"reasoning":`)) || bytes.Contains(projected, []byte(`"reasoning_details":`)) || !bytes.Contains(projected, []byte(`"reasoning_content":"Think then act."`)) {
 		t.Fatalf("projection kept duplicate aliases or lost text: %s (%v)", projected, err)
 	}
@@ -108,7 +109,7 @@ func TestDirectRouterChatJSONProjection(t *testing.T) {
 
 func TestDirectRouterChatUsagePrecisionAndExtensions(t *testing.T) {
 	body := []byte(`{"id":"precise","model":"fixture","choices":[{"index":0,"message":{"role":"assistant","content":"ok","provider_metadata":{"token":9007199254740993}},"finish_reason":"stop"}],"usage":{"prompt_tokens":9007199254740993,"completion_tokens":2,"total_tokens":9007199254740995,"cost":0.12345678901234567890123456789}}`)
-	out, err := normalizeDirectRouterChatJSON(body, true)
+	out, err := upstreamadapter.NormalizeRouterChatJSON(body, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +118,7 @@ func TestDirectRouterChatUsagePrecisionAndExtensions(t *testing.T) {
 			t.Fatalf("native JSON changed %s: %s", literal, out)
 		}
 	}
-	projected, err := projectDirectRouterChatResponse(out, false)
+	projected, err := projectAdapterBody("openrouter", out, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +136,7 @@ type routerChatTestProjection struct{ next protocolEventStream }
 func (p *routerChatTestProjection) TransformEvent(frame []byte) ([]byte, error) {
 	event := parseSseBlock(string(frame))
 	if event != nil && event.Data != "" && event.Data != "[DONE]" {
-		body, err := projectDirectRouterChatResponse([]byte(event.Data), true)
+		body, err := projectAdapterBody("openrouter", []byte(event.Data), true)
 		if err != nil {
 			return nil, err
 		}
@@ -212,7 +213,7 @@ func TestDirectRouterChatHTTPFixture(t *testing.T) {
 		for _, stream := range []bool{false, true} {
 			for _, path := range routerChatFixturePaths {
 				t.Run(profile+path+map[bool]string{true: "/stream", false: "/JSON"}[stream], func(t *testing.T) {
-					body, err := prepareDirectRouterChatRequest([]byte(`{"model":"fixture/model","store":true,"messages":[{"role":"assistant","content":"hi","reasoning_content":"Think."}]}`), profile)
+					body, err := prepareAdapterProfileBody([]byte(`{"model":"fixture/model","store":true,"messages":[{"role":"assistant","content":"hi","reasoning_content":"Think."}]}`), profile)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -243,10 +244,10 @@ func TestDirectRouterChatHTTPFixture(t *testing.T) {
 						out, err = io.ReadAll(resp.Body)
 						if err == nil {
 							decoded := normalizeBufferedUpstreamBody(resp, out, upstreamBodyIdent{})
-							out, err = normalizeDirectRouterChatJSON(decoded.bytes, decoded.readable)
+							out, err = upstreamadapter.NormalizeRouterChatJSON(decoded.bytes, decoded.readable)
 						}
 						if err == nil && path != "/v1/chat/completions" {
-							out, err = projectDirectRouterChatResponse(out, false)
+							out, err = projectAdapterBody("openrouter", out, false)
 							if err == nil {
 								out, err = directConvertResponse(out, path, "/v1/chat/completions", "fixture/model", options)
 							}
@@ -287,7 +288,7 @@ func TestDirectRouterChatHTTPImages(t *testing.T) {
 	for _, stream := range []bool{false, true} {
 		for _, path := range routerChatFixturePaths {
 			t.Run(path+map[bool]string{true: "/stream", false: "/JSON"}[stream], func(t *testing.T) {
-				body, err := prepareDirectRouterChatRequest([]byte(`{"model":"fixture/model","messages":[{"role":"assistant","content":"hi","reasoning_content":"Think."}]}`), "openrouter")
+				body, err := prepareAdapterProfileBody([]byte(`{"model":"fixture/model","messages":[{"role":"assistant","content":"hi","reasoning_content":"Think."}]}`), "openrouter")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -318,10 +319,10 @@ func TestDirectRouterChatHTTPImages(t *testing.T) {
 					out, err = io.ReadAll(resp.Body)
 					if err == nil {
 						decoded := normalizeBufferedUpstreamBody(resp, out, upstreamBodyIdent{})
-						out, err = normalizeDirectRouterChatJSON(decoded.bytes, decoded.readable)
+						out, err = upstreamadapter.NormalizeRouterChatJSON(decoded.bytes, decoded.readable)
 					}
 					if err == nil && path != "/v1/chat/completions" {
-						out, err = projectDirectRouterChatResponse(out, false)
+						out, err = projectAdapterBody("openrouter", out, false)
 						if err == nil {
 							out, err = directConvertResponse(out, path, "/v1/chat/completions", "fixture/model", messages.Options{})
 						}
@@ -351,7 +352,7 @@ func TestDirectRouterChatOpaqueReasoning(t *testing.T) {
 		`{"type":"reasoning.text","text":"signed text","signature":"opaque"}`,
 	} {
 		body := `{"id":"chat","model":"fixture","choices":[{"index":0,"message":{"role":"assistant","content":"ok","reasoning_details":[` + detail + `]},"finish_reason":"stop"}]}`
-		native, err := normalizeDirectRouterChatJSON([]byte(body), true)
+		native, err := upstreamadapter.NormalizeRouterChatJSON([]byte(body), true)
 		if err != nil || !bytes.Contains(native, []byte(detail)) {
 			t.Fatalf("native opaque reasoning lost: %s (%v)", native, err)
 		}
@@ -360,7 +361,7 @@ func TestDirectRouterChatOpaqueReasoning(t *testing.T) {
 				t.Fatalf("opaque detail was converted into plain text: %s", native)
 			}
 		}
-		if _, err := projectDirectRouterChatResponse(native, false); err == nil {
+		if _, err := projectAdapterBody("openrouter", native, false); err == nil {
 			t.Fatalf("cross projection accepted opaque/signed reasoning: %s", native)
 		}
 	}
@@ -375,21 +376,21 @@ func routerChatImageStream() string {
 }
 
 func TestDirectRouterChatNativeImages(t *testing.T) {
-	native, err := normalizeDirectRouterChatJSON([]byte(routerChatImageJSON), true)
+	native, err := upstreamadapter.NormalizeRouterChatJSON([]byte(routerChatImageJSON), true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	obj, _ := routerChatObject(native)
+	obj := adapterTestObject(t, native)
 	var choices []map[string]json.RawMessage
 	_ = json.Unmarshal(obj["choices"], &choices)
-	msg, _ := routerChatObject(choices[0]["message"])
+	msg := adapterTestObject(t, choices[0]["message"])
 	var content, images []map[string]json.RawMessage
 	_ = json.Unmarshal(msg["content"], &content)
 	_ = json.Unmarshal(msg["images"], &images)
 	if len(content) != 3 || len(images) != 2 || string(images[0]["index"]) != "7" || string(images[1]["index"]) != "2" || string(content[0]["text"]) != `"Two images."` || !bytes.Contains(content[1]["image_url"], []byte("AA==")) || !bytes.Contains(content[2]["image_url"], []byte("AQ==")) {
 		t.Fatalf("images/text order or native indices lost: %s", native)
 	}
-	projected, err := projectDirectRouterChatResponse(native, false)
+	projected, err := projectAdapterBody("openrouter", native, false)
 	if err != nil || bytes.Contains(projected, []byte(`"images":`)) || bytes.Count(projected, []byte(`"image_url":`)) != 2 {
 		t.Fatalf("image projection duplicated/lost content: %s (%v)", projected, err)
 	}
@@ -407,11 +408,11 @@ func TestDirectRouterChatNativeImages(t *testing.T) {
 }
 
 func TestDirectRouterChatGeminiImages(t *testing.T) {
-	native, err := normalizeDirectRouterChatJSON([]byte(routerChatImageJSON), true)
+	native, err := upstreamadapter.NormalizeRouterChatJSON([]byte(routerChatImageJSON), true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	projected, err := projectDirectRouterChatResponse(native, false)
+	projected, err := projectAdapterBody("openrouter", native, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,11 +455,11 @@ func TestDirectRouterChatLargeNativeImageFrame(t *testing.T) {
 
 func TestDirectRouterChatGeminiUsagePrecision(t *testing.T) {
 	body := []byte(`{"id":"precise","model":"fixture","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":9007199254740993,"completion_tokens":2,"total_tokens":9007199254740995}}`)
-	normalized, err := normalizeDirectRouterChatJSON(body, true)
+	normalized, err := upstreamadapter.NormalizeRouterChatJSON(body, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	projected, err := projectDirectRouterChatResponse(normalized, false)
+	projected, err := projectAdapterBody("openrouter", normalized, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -533,11 +534,11 @@ func TestDirectRouterChatFailuresAndPartialUsage(t *testing.T) {
 		t.Fatalf("raw input byte limit was bypassed: %s (%v)", out, err)
 	}
 	for _, bad := range []string{`{"error":{"message":"failed"}}`, `{"success":false,"choices":[{"index":0,"message":{"content":"fake"}}]}`, `{}`, `null`, `{"choices":[]}`, `{"choices":[{"index":0,"message":{"role":"assistant","content":"partial"}}]}`, `{"object":"response","choices":[{"index":0,"message":{}}]}`} {
-		if _, err := normalizeDirectRouterChatJSON([]byte(bad), true); err == nil {
+		if _, err := upstreamadapter.NormalizeRouterChatJSON([]byte(bad), true); err == nil {
 			t.Errorf("accepted invalid response: %s", bad)
 		}
 	}
-	if _, err := normalizeDirectRouterChatJSON([]byte(routerChatFixtureJSON), false); err == nil {
+	if _, err := upstreamadapter.NormalizeRouterChatJSON([]byte(routerChatFixtureJSON), false); err == nil {
 		t.Fatal("accepted unreadable response")
 	}
 }

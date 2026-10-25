@@ -142,3 +142,86 @@ func TestDirectVertexAnthropicWireHTTP(t *testing.T) {
 		t.Fatal("GCP token exchange never happened")
 	}
 }
+
+func TestDirectVertexGeminiWireHTTP(t *testing.T) {
+	for _, downstream := range []string{"gemini", "chat"} {
+		for _, stream := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/stream=%t", downstream, stream), func(t *testing.T) {
+				var exchanges, calls atomic.Int32
+				tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					exchanges.Add(1)
+					if err := r.ParseForm(); err != nil || r.Form.Get("grant_type") != "urn:ietf:params:oauth:grant-type:jwt-bearer" || r.Form.Get("assertion") == "" {
+						t.Error("token exchange was not an RFC 7523 bearer grant")
+					}
+					w.Header().Set("Content-Type", "application/json")
+					fmt.Fprint(w, `{"access_token":"fixture-vertex-token","expires_in":3600,"token_type":"Bearer"}`)
+				}))
+				defer tokenServer.Close()
+
+				upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls.Add(1)
+					action := ":generateContent"
+					if stream {
+						action = ":streamGenerateContent"
+					}
+					want := "/v1/projects/my-project/locations/us-central1/publishers/google/models/gemini-2.5-pro" + action
+					if r.URL.Path != want || (r.URL.Query().Get("alt") == "sse") != stream {
+						t.Errorf("Vertex Gemini target = %s, want %s (stream %t)", r.URL.String(), want, stream)
+					}
+					if r.Header.Get("Authorization") != "Bearer fixture-vertex-token" || r.Header.Get("X-Goog-Api-Key") != "" {
+						t.Error("Vertex Gemini must use the exchanged bearer token only")
+					}
+					var body map[string]json.RawMessage
+					if json.NewDecoder(r.Body).Decode(&body) != nil || !strings.Contains(string(body["contents"]), "receipt-history") || !strings.Contains(string(body["tools"]), "echo") {
+						t.Error("Vertex Gemini lost native contents or tools")
+					}
+					if body["model"] != nil || body["stream"] != nil {
+						t.Error("Vertex Gemini model and stream must remain URL selectors")
+					}
+					if downstream == "gemini" && !strings.Contains(string(body["generationConfig"]), "9007199254740993") {
+						t.Error("native Vertex request lost integer precision")
+					}
+					fixture := directWireFixtures[3]
+					if stream {
+						w.Header().Set("Content-Type", "text/event-stream")
+						for _, frame := range directNativeSSE(fixture) {
+							fmt.Fprint(w, frame)
+						}
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
+					fmt.Fprint(w, fixture.response)
+				}))
+				defer upstream.Close()
+				endpoint := &store.DirectEndpoint{URL: upstream.URL + "/v1/projects/my-project/locations/us-central1/publishers/google/models", Auth: store.DirectAuthBearer, Profile: "vertex", ModelPath: true}
+				db := installDirectMediaRuntime(t, store.DialectSQLite, store.DirectEndpoints{Gemini: endpoint}, store.DirectProtocolGemini, "")
+				if _, err := db.Exec(db.Rebind(`UPDATE upstream_models SET name='gemini-2.5-pro'`)); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := db.Exec(db.Rebind(`UPDATE upstream_credentials SET kind=?, secret='', gcp_service_account=?`), store.DirectCredentialGCPServiceAccount, vertexTestSA(t, tokenServer.URL)); err != nil {
+					t.Fatal(err)
+				}
+				body, path := directWireFixtures[3].request, directWireFixtures[3].path
+				body = strings.TrimSuffix(body, "}") + `,"generationConfig":{"maxOutputTokens":8,"seed":9007199254740993}}`
+				if downstream == "chat" {
+					body, path = directWireFixtures[0].request, directWireFixtures[0].path
+					if stream {
+						body = strings.TrimSuffix(body, "}") + `,"stream":true}`
+					}
+				} else if stream {
+					path = strings.Replace(path, ":generateContent", ":streamGenerateContent", 1)
+				}
+				recorder := httptest.NewRecorder()
+				directMediaRouter().ServeHTTP(recorder, makeProxyReq(http.MethodPost, path, body))
+				if recorder.Code != http.StatusOK || calls.Load() != 1 || exchanges.Load() != 1 {
+					t.Fatalf("status=%d calls=%d exchanges=%d body=%s", recorder.Code, calls.Load(), exchanges.Load(), recorder.Body.String())
+				}
+				for _, marker := range []string{"receipt-text", "receipt-tool"} {
+					if !strings.Contains(recorder.Body.String(), marker) {
+						t.Errorf("Vertex response lost %s: %s", marker, recorder.Body.String())
+					}
+				}
+			})
+		}
+	}
+}

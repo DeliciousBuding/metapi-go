@@ -3,6 +3,7 @@ package proxyhandler
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"net/http"
 	"net/url"
 	"strings"
@@ -68,7 +69,7 @@ func prepareDirectOpenCodeWire(endpoint *store.DirectEndpoint, bodyProfile strin
 	case "":
 	case "deepseek":
 		var err error
-		wire.Body, err = prepareDomesticChatRequest(body, bodyProfile)
+		wire.Body, err = upstreamadapter.PrepareDomesticChatRequest(body, bodyProfile)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +98,7 @@ func prepareDirectOpenCodeWire(endpoint *store.DirectEndpoint, bodyProfile strin
 	}
 	// Namespace the session per downstream key: a shared OpenCode upstream must
 	// not let one key continue another key's conversation context (audit L28).
-	wire.Headers.Set("X-Opencode-Session", namespaceSessionID(sessionNamespace, directOpenCodeSessionID(downstream, sessionID)))
+	wire.Headers.Set("X-Opencode-Session", upstreamadapter.NamespaceSessionID(sessionNamespace, directOpenCodeSessionID(downstream, sessionID)))
 	return wire, nil
 }
 

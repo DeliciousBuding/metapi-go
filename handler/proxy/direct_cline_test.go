@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
+	"github.com/deliciousbuding/metapi-go/store"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -25,24 +27,24 @@ func clineTestObject(t *testing.T, raw []byte) map[string]json.RawMessage {
 }
 
 func TestDirectClineBridgeProjectsTextReasoningOnly(t *testing.T) {
-	native, err := normalizeDirectClineJSON([]byte(clineTestJSON), true)
+	native, err := upstreamadapter.NormalizeClineJSON([]byte(clineTestJSON), true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Contains(native, []byte(`"reasoning_details"`)) || !bytes.Contains(native, []byte(`"reasoning":"fallback"`)) {
 		t.Fatal("native Chat lost provider fields")
 	}
-	projected, err := projectDirectClineReasoning(native, false)
+	projected, err := projectAdapterBody("cline", native, false)
 	if err != nil || !bytes.Contains(projected, []byte(`"reasoning_content":"think carefully"`)) || bytes.Contains(projected, []byte(`"reasoning_details"`)) || bytes.Contains(projected, []byte(`"reasoning":`)) || !bytes.Contains(projected, []byte(`9007199254740993`)) {
 		t.Fatalf("projection lost normalized content/metadata: %s %v", projected, err)
 	}
 	for _, detail := range []string{`{"type":"reasoning.encrypted","text":"", "data":"opaque"}`, `{"text":"visible","signature":"opaque"}`, `{"summary":"unconverted"}`} {
 		raw := []byte(`{"choices":[{"index":0,"message":{"role":"assistant","content":"ok","reasoning_details":[` + detail + `]},"finish_reason":"stop"}]}`)
-		native, err := normalizeDirectClineJSON(raw, true)
+		native, err := upstreamadapter.NormalizeClineJSON(raw, true)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := projectDirectClineReasoning(native, false); err == nil {
+		if _, err := projectAdapterBody("cline", native, false); err == nil {
 			t.Fatalf("silently flattened non-text reasoning: %s", detail)
 		}
 	}
@@ -50,11 +52,11 @@ func TestDirectClineBridgeProjectsTextReasoningOnly(t *testing.T) {
 
 func TestDirectClineUsageChunkHasCanonicalObject(t *testing.T) {
 	body := []byte(`{"choices":[],"usage":{"prompt_tokens":3,"completion_tokens":2}}`)
-	out, _, err := directClineChatJSON(body, true)
+	out, _, err := upstreamadapter.ClineChatJSON(body, true)
 	if err != nil || !bytes.Contains(out, []byte(`"object":"chat.completion.chunk"`)) || !bytes.Contains(out, []byte(`"prompt_tokens":3`)) {
 		t.Fatalf("usage-only chunk not normalized: %s %v", out, err)
 	}
-	if _, _, err := directClineChatJSON([]byte(`{"object":"response","choices":[],"usage":{}}`), true); err == nil {
+	if _, _, err := upstreamadapter.ClineChatJSON([]byte(`{"object":"response","choices":[],"usage":{}}`), true); err == nil {
 		t.Fatal("conflicting object type was silently rewritten")
 	}
 }
@@ -69,7 +71,7 @@ func TestDirectClineRequest(t *testing.T) {
 		{"role":"user","content":[{"type":"text","text":""},{"type":"image_url","image_url":{"url":"data:image/png;base64,AA=="}}]},
 		{"role":"user","content":[{"type":"image_url","image_url":{"url":"https://image.example/fixture.png"}}]}
 	],"tools":[{"type":"function","function":{"name":"lookup","parameters":{"type":"object","properties":{"id":{"type":"integer","minimum":9007199254740993}}}}}]} `
-	out, err := prepareDirectClineRequest([]byte(input))
+	out, err := prepareAdapterBody("cline", []byte(input))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +95,7 @@ func TestDirectClineRequest(t *testing.T) {
 		t.Fatal("nonempty, tool or multimodal content changed")
 	}
 	for _, input := range []string{`null`, `{}`, `{"messages":[]}`, `{"messages":[null]}`, `{"messages":[{"role":null}]}`, `{"messages":[{"role":"assistant","reasoning_content":false}]}`, `{"messages":[{"role":"assistant","reasoning_content":"a","reasoning":"b"}]}`} {
-		if _, err := prepareDirectClineRequest([]byte(input)); err == nil {
+		if _, err := prepareAdapterBody("cline", []byte(input)); err == nil {
 			t.Errorf("accepted invalid request: %s", input)
 		}
 	}
@@ -146,7 +148,7 @@ func TestDirectClineHTTPFixture(t *testing.T) {
 	for _, path := range []string{"/api/v1/chat/completions", "/api/v1/custom/chat/completions"} {
 		for _, stream := range []bool{false, true} {
 			t.Run(path+"/stream="+map[bool]string{true: "true", false: "false"}[stream], func(t *testing.T) {
-				body, err := prepareDirectClineRequest([]byte(`{"model":"cline-pass/fixture","messages":[{"role":"user","content":""}]}`))
+				wire, err := prepareDirectProviderWire(&store.DirectEndpoint{Profile: "cline"}, 1, nil, []byte(`{"model":"cline-pass/fixture","messages":[{"role":"user","content":""}]}`), nil, "")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -154,11 +156,11 @@ func TestDirectClineHTTPFixture(t *testing.T) {
 				if stream {
 					target += "?stream=true"
 				}
-				req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, target, bytes.NewReader(body))
+				req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, target, bytes.NewReader(wire.Body))
 				if err != nil {
 					t.Fatal(err)
 				}
-				buildDirectClineHeaders(req.Header)
+				applyDirectProviderHeaders(req, wire)
 				req.Header.Set("Authorization", "Bearer fixture-key")
 				// Keep gzip on the fixture wire for the product's lazy decoder.
 				req.Header.Set("Accept-Encoding", "gzip")
@@ -189,7 +191,7 @@ func TestDirectClineHTTPFixture(t *testing.T) {
 					}
 				} else {
 					normalized := normalizeBufferedUpstreamBody(resp, out, upstreamBodyIdent{})
-					out, err = normalizeDirectClineJSON(normalized.bytes, normalized.readable)
+					out, err = upstreamadapter.NormalizeClineJSON(normalized.bytes, normalized.readable)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -215,20 +217,20 @@ func TestDirectClineJSONFailures(t *testing.T) {
 		`{"choices":[{"index":0,"message":{"reasoning_details":{}}}]}`,
 	} {
 		t.Run(body, func(t *testing.T) {
-			if _, err := normalizeDirectClineJSON([]byte(body), true); err == nil {
+			if _, err := upstreamadapter.NormalizeClineJSON([]byte(body), true); err == nil {
 				t.Fatalf("accepted invalid/error response: %s", body)
 			}
 		})
 	}
-	if _, err := normalizeDirectClineJSON([]byte(clineTestJSON), false); err == nil {
+	if _, err := upstreamadapter.NormalizeClineJSON([]byte(clineTestJSON), false); err == nil {
 		t.Fatal("accepted opaque encoded response")
 	}
-	out, err := normalizeDirectClineJSON([]byte(clineTestJSON), true)
+	out, err := upstreamadapter.NormalizeClineJSON([]byte(clineTestJSON), true)
 	if err != nil || !bytes.Contains(out, []byte(`"reasoning_content":"think carefully"`)) {
 		t.Fatalf("valid plain Chat response rejected: %s (%v)", out, err)
 	}
 	plain := []byte(`{"id":"native","model":"fixture","choices":[{"index":0,"message":{"role":"assistant","content":"ok","reasoning_content":"native reason"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`)
-	out, err = normalizeDirectClineJSON(plain, true)
+	out, err = upstreamadapter.NormalizeClineJSON(plain, true)
 	if err != nil || !bytes.Contains(out, []byte(`"reasoning_content":"native reason"`)) || !bytes.Contains(out, []byte(`"total_tokens":3`)) {
 		t.Fatalf("native Chat compatibility lost: %s (%v)", out, err)
 	}
@@ -252,7 +254,7 @@ func TestDirectClineHTTP200Failure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out, err := normalizeDirectClineJSON(body, true); err == nil || len(out) != 0 || !strings.Contains(err.Error(), "fixture quota exceeded") {
+	if out, err := upstreamadapter.NormalizeClineJSON(body, true); err == nil || len(out) != 0 || !strings.Contains(err.Error(), "fixture quota exceeded") {
 		t.Fatalf("HTTP 200 failure was accepted or lost: %s (%v)", out, err)
 	}
 }
@@ -260,7 +262,7 @@ func TestDirectClineHTTP200Failure(t *testing.T) {
 func TestDirectClineRejectsFalseSuccessWithData(t *testing.T) {
 	// A completion-looking data field must never override an explicit failure.
 	body := []byte(`{"success":false,"data":` + clineTestJSON + `}`)
-	if out, err := normalizeDirectClineJSON(body, true); err == nil || len(out) != 0 {
+	if out, err := upstreamadapter.NormalizeClineJSON(body, true); err == nil || len(out) != 0 {
 		t.Fatalf("success=false was accepted as a completion: %s (%v)", out, err)
 	}
 }

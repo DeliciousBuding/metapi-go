@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"net/http"
 	"time"
 
@@ -47,14 +48,12 @@ func (s *directProviderStream) TransformEvent(frame []byte) ([]byte, error) {
 }
 
 func projectDirectProviderResponse(wire *directProviderWire, body []byte, stream bool) ([]byte, error) {
-	switch wire.Profile {
-	case "cline":
-		return projectDirectClineReasoning(body, stream)
-	case "openrouter", "cerebras":
-		return projectDirectRouterChatResponse(body, stream)
-	default:
-		return body, nil
+	if adapter, ok := upstreamadapter.Lookup(wire.Profile); ok {
+		return adapter.ProjectResponse(body, stream)
 	}
+	// Media/video/OpenCode retain their dedicated normalizers and do not
+	// enter the provider-preparation registry.
+	return body, nil
 }
 func (s *directProviderStream) Finish() ([]byte, error) {
 	if s.codex != nil {

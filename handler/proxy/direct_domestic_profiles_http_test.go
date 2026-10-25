@@ -63,7 +63,7 @@ func TestDirectDomesticProfilesHTTPConverterMatrix(t *testing.T) {
 					}
 					request := []byte(client.body)
 					if client.name != "gemini" {
-						doc := domesticProfileTestObject(t, request)
+						doc := adapterTestObject(t, request)
 						doc["stream"] = json.RawMessage(fmt.Sprint(stream))
 						request, _ = json.Marshal(doc)
 					}
@@ -71,7 +71,7 @@ func TestDirectDomesticProfilesHTTPConverterMatrix(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					wire, err := prepareDirectDomesticProfileRequest(converted, profile)
+					wire, err := prepareAdapterProfileBody(converted, profile)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -188,11 +188,11 @@ func TestDirectDomesticProfilesMoonshotConvertedJSONMode(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		wire, err := prepareDirectDomesticProfileRequest(converted, "moonshot")
+		wire, err := prepareAdapterProfileBody(converted, "moonshot")
 		if err != nil {
 			t.Fatal(err)
 		}
-		format := domesticProfileTestObject(t, domesticProfileTestObject(t, wire)["response_format"])
+		format := adapterTestObject(t, adapterTestObject(t, wire)["response_format"])
 		if string(format["type"]) != `"json_object"` || format["json_schema"] != nil {
 			t.Fatalf("converted JSON Object mode changed: %s", wire)
 		}

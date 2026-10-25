@@ -56,9 +56,7 @@ func TestDirectCodexSessionHeaderIsStableAndCrossKeyDistinct(t *testing.T) {
 	downstream.Set("X-Codex-Turn-Metadata", `{"session_id":"shared-client-session","thread_id":"shared-client-session","window_id":"shared-client-session:2","turn_id":"turn-1"}`)
 
 	build := func(namespace string) http.Header {
-		headers := http.Header{}
-		buildDirectCodexHeaders(headers, downstream, nil, "https://chatgpt.com/backend-api/codex/responses", namespace)
-		return headers
+		return directSessionHeaders(t, "codex", downstream, namespace)
 	}
 
 	first := build(nsA)
@@ -107,8 +105,7 @@ func TestDirectCodexIndependentThreadIDIsPreserved(t *testing.T) {
 	downstream := http.Header{}
 	downstream.Set("Session-Id", "shared-client-session")
 	downstream.Set("Thread-Id", "independent-thread")
-	headers := http.Header{}
-	buildDirectCodexHeaders(headers, downstream, nil, "https://chatgpt.com/backend-api/codex/responses", namespace)
+	headers := directSessionHeaders(t, "codex", downstream, namespace)
 	if got := headers.Get("Thread-Id"); got != "independent-thread" {
 		t.Fatalf("independent Thread-Id = %q, want passthrough", got)
 	}
@@ -120,10 +117,9 @@ func TestDirectClaudeSessionHeaderIsNamespaced(t *testing.T) {
 	downstream := http.Header{}
 	downstream.Set("X-Claude-Code-Session-Id", "shared-client-session")
 
-	headersA := http.Header{}
-	buildDirectClaudeHeaders(headersA, downstream, true, nsA)
-	headersB := http.Header{}
-	buildDirectClaudeHeaders(headersB, downstream, true, nsB)
+	downstream.Set("User-Agent", "claude-cli/fixture")
+	headersA := directSessionHeaders(t, "claudecode", downstream, nsA)
+	headersB := directSessionHeaders(t, "claudecode", downstream, nsB)
 
 	sessionA := headersA.Get("X-Claude-Code-Session-Id")
 	if sessionA == "" || sessionA == "shared-client-session" {

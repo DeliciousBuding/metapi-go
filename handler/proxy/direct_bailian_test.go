@@ -3,6 +3,7 @@ package proxyhandler
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"strings"
 	"testing"
 )
@@ -22,14 +23,14 @@ func TestDirectBailianRequestReasoningAndToolHistory(t *testing.T) {
 		]
 	}`)
 	original := bytes.Clone(body)
-	got, err := prepareDirectBailianRequest(body)
+	got, err := prepareAdapterBody("bailian", body)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(body, original) {
 		t.Fatal("request normalization mutated its input")
 	}
-	doc, _ := directBailianObject(got)
+	doc, _ := upstreamadapter.BailianObject(got)
 	if string(doc["enable_thinking"]) != "false" || doc["reasoning_effort"] != nil {
 		t.Fatalf("thinking was not disabled: %s", got)
 	}
@@ -44,10 +45,10 @@ func TestDirectBailianRequestReasoningAndToolHistory(t *testing.T) {
 	}
 	var calls []map[string]json.RawMessage
 	_ = json.Unmarshal(messages[1]["tool_calls"], &calls)
-	if len(calls) != 3 || directBailianString(calls[0]["id"]) != "call_1" || directBailianString(calls[2]["id"]) != "call_3" {
+	if len(calls) != 3 || upstreamadapter.BailianString(calls[0]["id"]) != "call_1" || upstreamadapter.BailianString(calls[2]["id"]) != "call_3" {
 		t.Fatalf("tool call order or identity changed: %s", messages[1]["tool_calls"])
 	}
-	if directBailianString(messages[2]["tool_call_id"]) != "call_1" || directBailianString(messages[4]["tool_call_id"]) != "call_3" {
+	if upstreamadapter.BailianString(messages[2]["tool_call_id"]) != "call_1" || upstreamadapter.BailianString(messages[4]["tool_call_id"]) != "call_3" {
 		t.Fatal("tool result messages changed")
 	}
 }
@@ -64,7 +65,7 @@ func TestDirectBailianRequestKeepsMixedMessageBoundaries(t *testing.T) {
 			message := `{"role":"assistant","tool_calls":[{"id":"first","function":{"name":"search","arguments":"{}"}}]}`
 			mixed := strings.TrimSuffix(message, "}") + "," + field + "}"
 			body := []byte(`{"model":"test", "messages":[` + message + "," + mixed + "," + message + `]}`)
-			got, err := prepareDirectBailianRequest(body)
+			got, err := prepareAdapterBody("bailian", body)
 			if err != nil || !bytes.Equal(got, body) {
 				t.Fatalf("mixed message changed or merged: %s (%v)", got, err)
 			}
@@ -78,13 +79,13 @@ func TestDirectBailianRequestPreservesExplicitNativeOptions(t *testing.T) {
 		`{"model":"test","messages":[],"reasoning_effort":"high","enable_thinking":true}`,
 		`{"model":"test","messages":[{"role":"assistant","tool_calls":[]},{"role":"assistant","tool_calls":[]}]}`,
 	} {
-		got, err := prepareDirectBailianRequest([]byte(body))
+		got, err := prepareAdapterBody("bailian", []byte(body))
 		if err != nil || string(got) != body {
 			t.Fatalf("non-none effort or native option changed: %s (%v)", got, err)
 		}
 	}
 	for _, body := range []string{"null", "[]", "{", `{"messages":null}`, `{"messages":{}}`, "{\"x\":\"\xff\"}"} {
-		if _, err := prepareDirectBailianRequest([]byte(body)); err == nil {
+		if _, err := prepareAdapterBody("bailian", []byte(body)); err == nil {
 			t.Fatalf("invalid request accepted: %q", body)
 		}
 	}

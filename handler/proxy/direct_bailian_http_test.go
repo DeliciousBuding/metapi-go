@@ -66,7 +66,7 @@ func TestDirectBailianHTTPFixture(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			body, err := prepareDirectBailianRequest([]byte(`{"model":"qwen-test","stream":true,"reasoning_effort":"none","seed":9007199254740993,"messages":[{"role":"assistant","tool_calls":[{"id":"a","function":{"arguments":"{}"}}]},{"role":"assistant","tool_calls":[{"id":"b","function":{"arguments":"{}"}}]}]}`))
+			body, err := prepareAdapterBody("bailian", []byte(`{"model":"qwen-test","stream":true,"reasoning_effort":"none","seed":9007199254740993,"messages":[{"role":"assistant","tool_calls":[{"id":"a","function":{"arguments":"{}"}}]},{"role":"assistant","tool_calls":[{"id":"b","function":{"arguments":"{}"}}]}]}`))
 			if err != nil {
 				t.Fatal(err)
 			}

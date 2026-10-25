@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"io"
 	"strings"
 )
@@ -35,7 +36,7 @@ type nanoGPTXMLBlock struct {
 // code and Markdown block quotes remain text. One entire unknown XML root is
 // opaque, so a declared tool nested inside an ordinary document is not invoked.
 type nanoGPTText struct {
-	tools       *directNanoGPTTools
+	tools       *upstreamadapter.NanoGPTTools
 	buffer      []byte
 	plainLine   bool
 	fence       byte
@@ -45,10 +46,12 @@ type nanoGPTText struct {
 	block       *nanoGPTXMLBlock
 }
 
-func newNanoGPTText(tools *directNanoGPTTools) *nanoGPTText { return &nanoGPTText{tools: tools} }
+func newNanoGPTText(tools *upstreamadapter.NanoGPTTools) *nanoGPTText {
+	return &nanoGPTText{tools: tools}
+}
 
 func (p *nanoGPTText) feed(text string, final bool) (string, []nanoGPTXMLCall, error) {
-	if p.tools == nil || len(p.tools.names) == 0 {
+	if p.tools == nil || p.tools.Empty() {
 		return text, nil, nil
 	}
 	p.buffer = append(p.buffer, text...)
@@ -92,7 +95,7 @@ func (p *nanoGPTText) feed(text string, final bool) (string, []nanoGPTXMLCall, e
 			previous := 0
 			for _, part := range p.block.parts {
 				output.Write(p.buffer[previous:part.start])
-				if part.err != nil && (p.tools.names[part.name] || part.name == "use_tool") {
+				if part.err != nil && (p.tools.Allows(part.name) || part.name == "use_tool") {
 					return "", nil, fmt.Errorf("invalid NanoGPT tool XML: %w", part.err)
 				}
 				call, ok, err := nanoGPTXMLTool(part.node, p.tools)
@@ -395,7 +398,7 @@ func nanoGPTDecodeXML(raw []byte) (*nanoGPTXMLNode, error) {
 	return root, nil
 }
 
-func nanoGPTXMLTool(node *nanoGPTXMLNode, tools *directNanoGPTTools) (nanoGPTXMLCall, bool, error) {
+func nanoGPTXMLTool(node *nanoGPTXMLNode, tools *upstreamadapter.NanoGPTTools) (nanoGPTXMLCall, bool, error) {
 	if node == nil || tools == nil {
 		return nanoGPTXMLCall{}, false, nil
 	}
@@ -403,7 +406,7 @@ func nanoGPTXMLTool(node *nanoGPTXMLNode, tools *directNanoGPTTools) (nanoGPTXML
 	if name == "use_tool" {
 		name = node.attrs["name"]
 	}
-	if !tools.names[name] {
+	if !tools.Allows(name) {
 		return nanoGPTXMLCall{}, false, nil
 	}
 	args := make(map[string]json.RawMessage)

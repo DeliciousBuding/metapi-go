@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"io"
 	"strings"
 )
@@ -82,11 +83,11 @@ func (s *directBailianStream) transform(frame []byte) ([]byte, error) {
 		s.done = true
 		return frame, nil
 	}
-	doc, err := directBailianObject([]byte(event.Data))
+	doc, err := upstreamadapter.BailianObject([]byte(event.Data))
 	if err != nil {
 		return nil, fmt.Errorf("Bailian Chat stream: %w", err)
 	}
-	if directBailianPresent(doc["error"]) {
+	if upstreamadapter.BailianPresent(doc["error"]) {
 		s.err = fmt.Errorf("Bailian Chat upstream error payload")
 		return frame, nil
 	}
@@ -99,7 +100,7 @@ func (s *directBailianStream) transform(frame []byte) ([]byte, error) {
 	var terminals []json.RawMessage
 	seen := make(map[int]bool)
 	for i, raw := range choices {
-		choice, err := directBailianObject(raw)
+		choice, err := upstreamadapter.BailianObject(raw)
 		if err != nil {
 			return nil, fmt.Errorf("Bailian Chat stream choice: %w", err)
 		}
@@ -119,13 +120,13 @@ func (s *directBailianStream) transform(frame []byte) ([]byte, error) {
 		if state.finished {
 			return nil, fmt.Errorf("Bailian Chat choice received data after finish_reason")
 		}
-		finished := directBailianPresent(choice["finish_reason"])
-		if finished && directBailianString(choice["finish_reason"]) == "" {
+		finished := upstreamadapter.BailianPresent(choice["finish_reason"])
+		if finished && upstreamadapter.BailianString(choice["finish_reason"]) == "" {
 			return nil, fmt.Errorf("Bailian Chat finish_reason must be a nonempty string")
 		}
 		delta := map[string]json.RawMessage{}
-		if directBailianPresent(choice["delta"]) {
-			delta, err = directBailianObject(choice["delta"])
+		if upstreamadapter.BailianPresent(choice["delta"]) {
+			delta, err = upstreamadapter.BailianObject(choice["delta"])
 			if err != nil {
 				return nil, fmt.Errorf("Bailian Chat stream delta: %w", err)
 			}
@@ -210,7 +211,7 @@ func (s *directBailianStream) Finish() ([]byte, error) {
 }
 
 func (s *directBailianStream) filterCalls(state *directBailianChoice, delta map[string]json.RawMessage) (bool, error) {
-	if !directBailianPresent(delta["tool_calls"]) {
+	if !upstreamadapter.BailianPresent(delta["tool_calls"]) {
 		return false, nil
 	}
 	var calls []json.RawMessage
@@ -219,7 +220,7 @@ func (s *directBailianStream) filterCalls(state *directBailianChoice, delta map[
 	}
 	changed := false
 	for i, raw := range calls {
-		call, err := directBailianObject(raw)
+		call, err := upstreamadapter.BailianObject(raw)
 		if err != nil {
 			return false, fmt.Errorf("Bailian Chat tool call: %w", err)
 		}
@@ -237,8 +238,8 @@ func (s *directBailianStream) filterCalls(state *directBailianChoice, delta map[
 			state.calls[index] = tracked
 			s.callCount++
 		}
-		if directBailianPresent(call["id"]) {
-			id := directBailianString(call["id"])
+		if upstreamadapter.BailianPresent(call["id"]) {
+			id := upstreamadapter.BailianString(call["id"])
 			if id == "" || (tracked.id != "" && tracked.id != id) {
 				return false, fmt.Errorf("Bailian Chat tool call has an invalid or changed ID")
 			}
@@ -249,14 +250,14 @@ func (s *directBailianStream) filterCalls(state *directBailianChoice, delta map[
 				tracked.id = id
 			}
 		}
-		if !directBailianPresent(call["function"]) {
+		if !upstreamadapter.BailianPresent(call["function"]) {
 			continue
 		}
-		function, err := directBailianObject(call["function"])
+		function, err := upstreamadapter.BailianObject(call["function"])
 		if err != nil {
 			return false, fmt.Errorf("Bailian Chat tool function: %w", err)
 		}
-		if !directBailianPresent(function["arguments"]) {
+		if !upstreamadapter.BailianPresent(function["arguments"]) {
 			continue
 		}
 		var arguments string
@@ -293,7 +294,7 @@ func (s *directBailianStream) retain(size int) error {
 }
 
 func directBailianHasText(raw []byte) (bool, error) {
-	if !directBailianPresent(raw) {
+	if !upstreamadapter.BailianPresent(raw) {
 		return false, nil
 	}
 	var text string
@@ -305,11 +306,11 @@ func directBailianHasText(raw []byte) (bool, error) {
 		return false, fmt.Errorf("Bailian Chat content must be text or an array")
 	}
 	for _, part := range parts {
-		doc, err := directBailianObject(part)
+		doc, err := upstreamadapter.BailianObject(part)
 		if err != nil {
 			return false, fmt.Errorf("Bailian Chat content part: %w", err)
 		}
-		if directBailianString(doc["type"]) == "text" && directBailianString(doc["text"]) != "" {
+		if upstreamadapter.BailianString(doc["type"]) == "text" && upstreamadapter.BailianString(doc["text"]) != "" {
 			return true, nil
 		}
 	}
@@ -318,7 +319,7 @@ func directBailianHasText(raw []byte) (bool, error) {
 
 func directBailianIndex(raw []byte) (int, error) {
 	var index int
-	if !directBailianPresent(raw) || json.Unmarshal(raw, &index) != nil || index < 0 {
+	if !upstreamadapter.BailianPresent(raw) || json.Unmarshal(raw, &index) != nil || index < 0 {
 		return 0, fmt.Errorf("invalid index")
 	}
 	return index, nil

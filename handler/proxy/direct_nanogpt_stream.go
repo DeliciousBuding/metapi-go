@@ -3,12 +3,13 @@ package proxyhandler
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"io"
 	"strings"
 )
 
 type directNanoGPTStream struct {
-	tools      *directNanoGPTTools
+	tools      *upstreamadapter.NanoGPTTools
 	choices    map[int]*nanoGPTStreamChoice
 	responseID string
 	terminal   []byte
@@ -22,7 +23,7 @@ type nanoGPTStreamChoice struct {
 	finished  bool
 }
 
-func newDirectNanoGPTStream(tools *directNanoGPTTools) protocolEventStream {
+func newDirectNanoGPTStream(tools *upstreamadapter.NanoGPTTools) protocolEventStream {
 	return &directNanoGPTStream{tools: tools, choices: make(map[int]*nanoGPTStreamChoice)}
 }
 
@@ -67,7 +68,7 @@ func (s *directNanoGPTStream) transform(frame []byte) ([]byte, error) {
 		s.terminal = append([]byte(nil), frame...)
 		return nil, nil
 	}
-	object, err := nanoGPTObject([]byte(event.Data))
+	object, err := upstreamadapter.NanoGPTObject([]byte(event.Data))
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +76,7 @@ func (s *directNanoGPTStream) transform(frame []byte) ([]byte, error) {
 	if json.Unmarshal(object["choices"], &choices) != nil || choices == nil {
 		return nil, fmt.Errorf("NanoGPT stream requires Chat choices")
 	}
-	if len(choices) == 0 && !nanoGPTPresent(object["usage"]) {
+	if len(choices) == 0 && !upstreamadapter.NanoGPTPresent(object["usage"]) {
 		return nil, fmt.Errorf("NanoGPT empty choices require usage")
 	}
 	if err := nanoGPTChatObject(object, true); err != nil {
@@ -106,22 +107,22 @@ func (s *directNanoGPTStream) transform(frame []byte) ([]byte, error) {
 			return nil, fmt.Errorf("NanoGPT choice continued after finish_reason")
 		}
 		delta := make(map[string]json.RawMessage)
-		if nanoGPTPresent(choice["delta"]) {
-			delta, err = nanoGPTObject(choice["delta"])
+		if upstreamadapter.NanoGPTPresent(choice["delta"]) {
+			delta, err = upstreamadapter.NanoGPTObject(choice["delta"])
 			if err != nil {
 				return nil, err
 			}
 		}
-		if err := nanoGPTMoveReasoning(delta, "reasoning", "reasoning_content"); err != nil {
+		if err := upstreamadapter.MoveNanoGPTReasoning(delta, "reasoning", "reasoning_content"); err != nil {
 			return nil, err
 		}
 		var native []json.RawMessage
-		if nanoGPTPresent(delta["tool_calls"]) {
+		if upstreamadapter.NanoGPTPresent(delta["tool_calls"]) {
 			if json.Unmarshal(delta["tool_calls"], &native) != nil {
 				return nil, fmt.Errorf("invalid NanoGPT native tool deltas")
 			}
 			for _, raw := range native {
-				call, err := nanoGPTObject(raw)
+				call, err := upstreamadapter.NanoGPTObject(raw)
 				if err != nil {
 					return nil, err
 				}
@@ -145,12 +146,12 @@ func (s *directNanoGPTStream) transform(frame []byte) ([]byte, error) {
 			}
 		}
 		var finish string
-		if nanoGPTPresent(choice["finish_reason"]) && json.Unmarshal(choice["finish_reason"], &finish) != nil {
+		if upstreamadapter.NanoGPTPresent(choice["finish_reason"]) && json.Unmarshal(choice["finish_reason"], &finish) != nil {
 			return nil, fmt.Errorf("invalid NanoGPT finish_reason")
 		}
 		var text string
-		hasText := nanoGPTPresent(delta["content"]) && json.Unmarshal(delta["content"], &text) == nil
-		if nanoGPTPresent(delta["content"]) && !hasText && len(state.text.buffer) > 0 {
+		hasText := upstreamadapter.NanoGPTPresent(delta["content"]) && json.Unmarshal(delta["content"], &text) == nil
+		if upstreamadapter.NanoGPTPresent(delta["content"]) && !hasText && len(state.text.buffer) > 0 {
 			return nil, fmt.Errorf("NanoGPT mixed non-text content with pending XML")
 		}
 		remaining, calls, err := state.text.feed(text, finish != "")

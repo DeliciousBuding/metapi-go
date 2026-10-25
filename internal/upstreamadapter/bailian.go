@@ -1,4 +1,4 @@
-package proxyhandler
+package upstreamadapter
 
 import (
 	"bytes"
@@ -12,12 +12,12 @@ import (
 // protocol conversion and parameter overrides. Native Responses and Messages
 // endpoints do not share these request or stream quirks.
 func prepareDirectBailianRequest(body []byte) ([]byte, error) {
-	doc, err := directBailianObject(body)
+	doc, err := BailianObject(body)
 	if err != nil {
 		return nil, fmt.Errorf("Bailian Chat request: %w", err)
 	}
 	changed := false
-	if directBailianString(doc["reasoning_effort"]) == "none" {
+	if BailianString(doc["reasoning_effort"]) == "none" {
 		delete(doc, "reasoning_effort")
 		doc["enable_thinking"] = json.RawMessage(`false`)
 		changed = true
@@ -62,8 +62,8 @@ func prepareDirectBailianRequest(body []byte) ([]byte, error) {
 }
 
 func directBailianMergeableMessage(raw []byte) (map[string]json.RawMessage, []json.RawMessage) {
-	doc, err := directBailianObject(raw)
-	if err != nil || !strings.EqualFold(directBailianString(doc["role"]), "assistant") {
+	doc, err := BailianObject(raw)
+	if err != nil || !strings.EqualFold(BailianString(doc["role"]), "assistant") {
 		return nil, nil
 	}
 	// Even an unfamiliar extension may carry message identity, reasoning,
@@ -93,14 +93,14 @@ func directBailianMergeableMessage(raw []byte) (map[string]json.RawMessage, []js
 		return nil, nil
 	}
 	for _, call := range calls {
-		if _, err := directBailianObject(call); err != nil {
+		if _, err := BailianObject(call); err != nil {
 			return nil, nil
 		}
 	}
 	return doc, calls
 }
 
-func directBailianObject(raw []byte) (map[string]json.RawMessage, error) {
+func BailianObject(raw []byte) (map[string]json.RawMessage, error) {
 	var doc map[string]json.RawMessage
 	if !utf8.Valid(raw) || json.Unmarshal(raw, &doc) != nil || doc == nil {
 		return nil, fmt.Errorf("expected a JSON object")
@@ -108,12 +108,12 @@ func directBailianObject(raw []byte) (map[string]json.RawMessage, error) {
 	return doc, nil
 }
 
-func directBailianString(raw []byte) string {
+func BailianString(raw []byte) string {
 	var value string
 	_ = json.Unmarshal(raw, &value)
 	return value
 }
 
-func directBailianPresent(raw []byte) bool {
+func BailianPresent(raw []byte) bool {
 	return len(raw) > 0 && !bytes.Equal(bytes.TrimSpace(raw), []byte("null"))
 }

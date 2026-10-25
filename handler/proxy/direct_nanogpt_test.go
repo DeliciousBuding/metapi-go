@@ -3,6 +3,7 @@ package proxyhandler
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"reflect"
 	"strings"
 	"testing"
@@ -10,9 +11,9 @@ import (
 
 const nanoGPTDeclaredRequest = `{"model":"provider-model","messages":[{"role":"user","content":"use tools"}],"tools":[{"type":"function","function":{"name":"Read","parameters":{"type":"object"}}},{"type":"function","function":{"name":"Write_File","parameters":{"type":"object"}}},{"type":"function","function":{"name":"namespace__lookup","parameters":{"type":"object"}}}]}`
 
-func nanoGPTTestTools(t *testing.T) *directNanoGPTTools {
+func nanoGPTTestTools(t *testing.T) *upstreamadapter.NanoGPTTools {
 	t.Helper()
-	tools, err := newDirectNanoGPTTools([]byte(nanoGPTDeclaredRequest))
+	tools, err := upstreamadapter.NewNanoGPTTools([]byte(nanoGPTDeclaredRequest))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,15 +22,15 @@ func nanoGPTTestTools(t *testing.T) *directNanoGPTTools {
 
 func TestDirectNanoGPTRequestReasoningAndToolDeclaration(t *testing.T) {
 	body := []byte(`{"model":"m","messages":[{"role":"assistant","reasoning_content":"keep thinking","tool_calls":[{"id":"native-id","type":"function","function":{"name":"Read","arguments":"{\"id\":9007199254740993}"}}]}],"large":9007199254740993}`)
-	out, err := prepareDirectNanoGPTRequest(body)
+	out, err := prepareAdapterBody("nanogpt", body)
 	if err != nil || !bytes.Contains(out, []byte(`"reasoning":"keep thinking"`)) || bytes.Contains(out, []byte(`"reasoning_content"`)) || !bytes.Contains(out, []byte("9007199254740993")) || !bytes.Contains(out, []byte("native-id")) {
 		t.Fatalf("request semantics changed: %s %v", out, err)
 	}
-	if _, err := prepareDirectNanoGPTRequest([]byte(`{"messages":[{"reasoning":"a","reasoning_content":"b"}]}`)); err == nil {
+	if _, err := prepareAdapterBody("nanogpt", []byte(`{"messages":[{"reasoning":"a","reasoning_content":"b"}]}`)); err == nil {
 		t.Fatal("conflicting reasoning was silently overwritten")
 	}
 	for _, request := range []string{`{"messages":[]}`, strings.TrimSuffix(nanoGPTDeclaredRequest, "}") + `,"tool_choice":"none"}`, strings.TrimSuffix(nanoGPTDeclaredRequest, "}") + `,"tool_choice":"n\u006fne"}`} {
-		tools, err := newDirectNanoGPTTools([]byte(request))
+		tools, err := upstreamadapter.NewNanoGPTTools([]byte(request))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -39,7 +40,7 @@ func TestDirectNanoGPTRequestReasoningAndToolDeclaration(t *testing.T) {
 		}
 	}
 	plainTools := nanoGPTTestTools(t)
-	streamTools, err := newDirectNanoGPTTools([]byte(strings.TrimSuffix(nanoGPTDeclaredRequest, "}") + `,"stream":true,"stream_options":{"include_usage":true}}`))
+	streamTools, err := upstreamadapter.NewNanoGPTTools([]byte(strings.TrimSuffix(nanoGPTDeclaredRequest, "}") + `,"stream":true,"stream_options":{"include_usage":true}}`))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,6 +3,7 @@ package proxyhandler
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"net/http"
 	"strings"
 
@@ -205,7 +206,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 		return true, nil, false
 	}
 	if openCode {
-		wire.Headers.Set("X-Opencode-Session", namespaceSessionID(sessionNamespace, ctx.directOpenCodeSession))
+		wire.Headers.Set("X-Opencode-Session", upstreamadapter.NamespaceSessionID(sessionNamespace, ctx.directOpenCodeSession))
 		// Source channel headers are explicit overrides of provider defaults.
 		if proxyConfig != nil {
 			for name, value := range proxyConfig.CustomHeaders {

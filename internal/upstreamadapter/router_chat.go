@@ -1,4 +1,4 @@
-package proxyhandler
+package upstreamadapter
 
 import (
 	"bytes"
@@ -54,7 +54,7 @@ func prepareDirectRouterChatRequest(body []byte, profile string) ([]byte, error)
 	return json.Marshal(obj)
 }
 
-func normalizeDirectRouterChatJSON(body []byte, readable bool) ([]byte, error) {
+func NormalizeRouterChatJSON(body []byte, readable bool) ([]byte, error) {
 	if !readable {
 		return nil, fmt.Errorf("unsupported router Chat response encoding")
 	}
@@ -95,15 +95,10 @@ func projectDirectRouterChatResponse(body []byte, stream bool) ([]byte, error) {
 	return out, err
 }
 
-type routerChatChoice struct {
-	index    int
-	finished bool
-}
-
 // RawMessage avoids rounding billing fields or rewriting opaque tool JSON.
 // Message transforms are separate from validation so projections never merge
 // images twice or duplicate reasoning aliases in the downstream converter.
-func routerChatJSON(body []byte, stream bool, transform func(map[string]json.RawMessage) error) ([]byte, []routerChatChoice, error) {
+func routerChatJSON(body []byte, stream bool, transform func(map[string]json.RawMessage) error) ([]byte, []Choice, error) {
 	obj, err := routerChatObject(body)
 	if err != nil {
 		return nil, nil, err
@@ -140,7 +135,7 @@ func routerChatJSON(body []byte, stream bool, transform func(map[string]json.Raw
 	} else {
 		obj["object"], _ = json.Marshal(object)
 	}
-	states := make([]routerChatChoice, 0, len(choices))
+	states := make([]Choice, 0, len(choices))
 	seen := make(map[int]bool, len(choices))
 	for _, choice := range choices {
 		var index int
@@ -169,7 +164,7 @@ func routerChatJSON(body []byte, stream bool, transform func(map[string]json.Raw
 		if err != nil {
 			return nil, nil, err
 		}
-		states = append(states, routerChatChoice{index: index, finished: finish != ""})
+		states = append(states, Choice{Index: index, Finished: finish != ""})
 	}
 	obj["choices"], err = json.Marshal(choices)
 	if err != nil {
@@ -292,4 +287,10 @@ func routerChatObject(raw []byte) (map[string]json.RawMessage, error) {
 
 func routerChatPresent(raw json.RawMessage) bool {
 	return len(raw) != 0 && !bytes.Equal(bytes.TrimSpace(raw), []byte("null"))
+}
+
+// NormalizeRouterChatChunk shares native validation with buffered responses;
+// the caller retains stream lifecycle and terminal enforcement.
+func NormalizeRouterChatChunk(body []byte) ([]byte, []Choice, error) {
+	return routerChatJSON(body, true, normalizeRouterChatMessage)
 }

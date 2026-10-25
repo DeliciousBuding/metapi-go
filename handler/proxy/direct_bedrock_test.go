@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"github.com/deliciousbuding/metapi-go/store"
 	"hash/crc32"
 	"io"
 	"net/http"
@@ -120,13 +121,13 @@ func TestDirectBedrockHTTPFixture(t *testing.T) {
 	}))
 	defer server.Close()
 	for _, stream := range []bool{false, true} {
-		body, err := prepareDirectBedrockRequest([]byte(`{"model":"ignored","stream":true,"max_tokens":100,"messages":[{"role":"user","content":"hello"}]}`), nil)
+		wire, err := prepareDirectProviderWire(&store.DirectEndpoint{Profile: "bedrock"}, 1, nil, []byte(`{"model":"ignored","stream":true,"max_tokens":100,"messages":[{"role":"user","content":"hello"}]}`), nil, "")
 		if err != nil {
 			t.Fatal(err)
 		}
-		req, _ := http.NewRequest(http.MethodPost, directBedrockRequestURL(server.URL+"/model", "anthropic.claude", stream), bytes.NewReader(body))
+		req, _ := http.NewRequest(http.MethodPost, directBedrockRequestURL(server.URL+"/model", "anthropic.claude", stream), bytes.NewReader(wire.Body))
 		req.Header.Set("Authorization", "Bearer fixture-token")
-		buildDirectBedrockHeaders(req.Header)
+		applyDirectProviderHeaders(req, wire)
 		resp, err := server.Client().Do(req)
 		if err != nil {
 			t.Fatal(err)
