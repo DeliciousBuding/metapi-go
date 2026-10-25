@@ -98,11 +98,12 @@ type catalogChannelRow struct {
 	EndpointConfig store.DirectEndpoints `db:"endpoint_config"`
 	UseSystemProxy bool                  `db:"proxy"`
 	ChannelProxy   string                `db:"channel_proxy"`
+	CustomHeaders  string                `db:"custom_header"`
 }
 
 func loadCatalogChannel(ctx context.Context, db *sqlx.DB, channelID int64) (*catalogChannelRow, error) {
 	var row catalogChannelRow
-	err := db.GetContext(ctx, &row, db.Rebind(`SELECT id,name,provider,enabled,endpoint_config,proxy,channel_proxy FROM upstream_channels WHERE id=?`), channelID)
+	err := db.GetContext(ctx, &row, db.Rebind(`SELECT id,name,provider,enabled,endpoint_config,proxy,channel_proxy,custom_header FROM upstream_channels WHERE id=?`), channelID)
 	if err != nil {
 		return nil, &Error{Status: 404, Message: "Upstream channel not found"}
 	}
@@ -171,7 +172,7 @@ func discoverChannelCatalog(ctx context.Context, db *sqlx.DB, channel *catalogCh
 		}
 		return secret, nil
 	}
-	models, discovery, err := discoverUpstreamCatalog(ctx, channel.EndpointConfig, credential, channel.ChannelProxy, channel.UseSystemProxy)
+	models, discovery, err := discoverUpstreamCatalog(ctx, channel.EndpointConfig, credential, channel.ChannelProxy, channel.CustomHeaders, channel.UseSystemProxy)
 	if err != nil {
 		switch err {
 		case errNoCatalogEndpoint:

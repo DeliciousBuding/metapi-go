@@ -14,6 +14,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/internal/ssrf"
+	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -115,7 +116,7 @@ func presetConnectModels(names []string) ([]string, Discovery, error) {
 func discoverConnectModels(ctx context.Context, in ConnectInput) ([]string, Discovery, error) {
 	models, discovery, err := discoverUpstreamCatalog(ctx, in.Channel.Endpoints, func(context.Context) (string, error) {
 		return in.Secret, nil
-	}, in.Channel.ChannelProxy, in.Channel.UseSystemProxy)
+	}, in.Channel.ChannelProxy, in.Channel.CustomHeaders, in.Channel.UseSystemProxy)
 	// Connect keeps the first-run UX fallbacks: no derivable catalog endpoint,
 	// an endpoint that does not serve a catalog, or an authoritative empty
 	// catalog all fall back to the preset list. Refresh (refresh_catalog.go)
@@ -132,14 +133,56 @@ func discoverConnectModels(ctx context.Context, in ConnectInput) ([]string, Disc
 var errNoCatalogEndpoint = errors.New("no derivable model catalog endpoint")
 var errCatalogUnserved = errors.New("upstream endpoint does not serve a model catalog")
 
+func modelCatalogCustomHeaders(raw string) (map[string]string, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	var headers []struct {
+		Key   string `json:"header_key"`
+		Value string `json:"header_value"`
+	}
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var extra any
+	if decoder.Decode(&headers) != nil || headers == nil || decoder.Decode(&extra) != io.EOF {
+		return nil, invalid("Invalid custom headers")
+	}
+	custom := make(map[string]string, len(headers))
+	for _, header := range headers {
+		if strings.TrimSpace(header.Key) == "" {
+			return nil, invalid("Invalid custom headers")
+		}
+		if platform.IsDeniedCustomHeader(header.Key) {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(header.Key)) {
+		case "authorization", "x-api-key", "x-goog-api-key":
+			// Match directProxyConfig: the selected endpoint owns credentials,
+			// including their absence on an anonymous catalog request.
+			continue
+		}
+		// Catalog discovery has no downstream client metadata to interpolate.
+		value, ok := httpclient.ExpandClientHeaderTemplate(header.Value, nil)
+		if !ok {
+			return nil, invalid("Invalid custom headers")
+		}
+		custom[header.Key] = value
+	}
+	return custom, nil
+}
+
 // discoverUpstreamCatalog tries another configured catalog only when the first
 // page is unserved. It never merges catalogs or substitutes preset models.
 // An empty authoritative list is returned as ([],
 // Discovery{Status:"empty"}, nil); the caller decides what an empty catalog
 // means (connect falls back to presets, refresh reports it).
-func discoverUpstreamCatalog(ctx context.Context, endpoints store.DirectEndpoints, credential func(context.Context) (string, error), channelProxy string, useSystemProxy bool) ([]string, Discovery, error) {
+func discoverUpstreamCatalog(ctx context.Context, endpoints store.DirectEndpoints, credential func(context.Context) (string, error), channelProxy, rawCustomHeaders string, useSystemProxy bool) ([]string, Discovery, error) {
 	ctx, cancel := context.WithTimeout(ctx, connectDiscoveryTimeout)
 	defer cancel()
+	customHeaders, err := modelCatalogCustomHeaders(rawCustomHeaders)
+	if err != nil {
+		return nil, Discovery{}, err
+	}
 	candidates := connectModelsEndpoints(endpoints)
 	if len(candidates) == 0 {
 		return nil, Discovery{}, errNoCatalogEndpoint
@@ -209,6 +252,7 @@ func discoverUpstreamCatalog(ctx context.Context, endpoints store.DirectEndpoint
 		if candidate.format == "anthropic" {
 			request.Header.Set("Anthropic-Version", "2023-06-01")
 		}
+		platform.ApplyCustomHeaders(request, customHeaders)
 		models, discovery, err := discoverModelCatalog(client, request, candidate.format)
 		if errors.Is(err, errCatalogUnserved) {
 			continue
