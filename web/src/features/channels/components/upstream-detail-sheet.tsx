@@ -127,6 +127,7 @@ export function UpstreamDetailSheet(props: {
                   <UpstreamConnectionForm
                     detail={query.data}
                     onDirtyChange={onDirtyChange}
+                    onManageModels={() => setTab('models')}
                   />
                 )}
               </TabsContent>

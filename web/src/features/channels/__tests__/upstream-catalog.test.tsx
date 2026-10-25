@@ -358,6 +358,52 @@ describe('upstream catalog management', () => {
       protocols: [2],
     })
   })
+  it('requires explicit model access changes when new channel protocols become available', async () => {
+    const grant = {
+      id: 7,
+      modelId: 3,
+      credentialId: 5,
+      credentialName: 'Plan key',
+      protocols: 2,
+      enabled: true,
+      memberCount: 1,
+      ownership: 'native' as const,
+    }
+    const renderGrant = (availableProtocols: number[]) => (
+      <UpstreamGrantForm
+        modelId={3}
+        credentials={[credential]}
+        availableProtocols={availableProtocols}
+        grant={grant}
+        members={[]}
+        onDirtyChange={state.dirty}
+      />
+    )
+    const view = mount(renderGrant([2]))
+    expect(
+      screen.getByRole('group', { name: 'Allowed capabilities' })
+    ).toBeVisible()
+    view.rerender(
+      <QueryClientProvider client={client}>
+        {renderGrant([2, 4, 8])}
+      </QueryClientProvider>
+    )
+    expect(screen.getByRole('checkbox', { name: 'Chat' })).toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'Responses' })
+    ).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Messages' })).not.toBeChecked()
+    expect(screen.getByRole('button', { name: 'Save access' })).toBeDisabled()
+    expect(state.updateGrant).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Responses' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Messages' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save access' }))
+    await waitFor(() =>
+      expect(state.updateGrant).toHaveBeenCalledExactlyOnceWith(7, {
+        protocols: [2, 4, 8],
+      })
+    )
+  })
   it('retains a failed new key only in the form, then clears it after creation', async () => {
     state.createCredential.mockRejectedValueOnce(new Error('conflict'))
     mount(<UpstreamCredentials id={4} active onDirtyChange={state.dirty} />)

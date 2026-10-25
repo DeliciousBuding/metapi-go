@@ -363,19 +363,19 @@ export function UpstreamGrantForm(
             <FormItem>
               <FormLabel>{t('channels.catalog.allowedProtocols')}</FormLabel>
               <FormControl>
-                <div ref={field.ref} role='group' className='space-y-3'>
-                  <UpstreamCapabilityPicker
-                    value={field.value}
-                    available={availableProtocols}
-                    unavailableLabel={
-                      anonymous
-                        ? t('channels.capabilities.authMismatch')
-                        : undefined
-                    }
-                    onChange={field.onChange}
-                    disabled={pending}
-                  />
-                </div>
+                <UpstreamCapabilityPicker
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={field.value}
+                  available={availableProtocols}
+                  unavailableLabel={
+                    anonymous
+                      ? t('channels.capabilities.authMismatch')
+                      : undefined
+                  }
+                  onChange={field.onChange}
+                  disabled={pending}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
@@ -40,7 +41,7 @@ beforeEach(async () => {
 afterEach(cleanup)
 
 describe('upstream platform selection', () => {
-  it('selects one platform card without presenting protocol or capability choices', () => {
+  it('shows default protocols and capabilities on the product card and selected summary', () => {
     const onSelect = vi.fn()
     function Picker() {
       const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -57,19 +58,33 @@ describe('upstream platform selection', () => {
       )
     }
     render(<Picker />)
+    expect(
+      fireEvent.keyDown(
+        screen.getByRole('textbox', {
+          name: 'Search platforms, Coding Plans or protocols',
+        }),
+        { key: 'Enter' }
+      )
+    ).toBe(false)
+    expect(onSelect).not.toHaveBeenCalled()
     const card = screen.getByRole('button', { name: 'Use New API' })
     expect(within(card).getByText('New API')).toBeVisible()
     expect(
-      within(card).queryByText(/Chat|Responses|Messages|Images|Audio/)
-    ).not.toBeInTheDocument()
-    expect(card).not.toHaveAttribute('aria-description')
+      within(card).getByText(
+        /Default APIs · Chat · Responses · Messages · Image generation · Speech/
+      )
+    ).toBeVisible()
+    expect(card).toHaveAttribute(
+      'aria-description',
+      'Preset default APIs: Chat · Responses · Messages · Image generation · Speech'
+    )
     fireEvent.click(card)
     expect(onSelect).toHaveBeenCalledExactlyOnceWith(newAPI, 'New API')
     const selected = screen.getByRole('region', { name: 'Platform preset' })
     expect(within(selected).getByText('New API')).toBeVisible()
     expect(
-      within(selected).queryByText(/Chat|Responses|Messages/)
-    ).not.toBeInTheDocument()
+      within(selected).getByText(/Chat · Responses · Messages/)
+    ).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Change' }))
     expect(screen.getByRole('button', { name: 'Use New API' })).toHaveAttribute(
       'aria-pressed',
@@ -114,9 +129,11 @@ describe('upstream platform selection', () => {
       />
     )
     expect(screen.getAllByRole('button', { name: /^Use / })).toHaveLength(3)
-    expect(screen.getByRole('button', { name: 'Use Bailian' })).toBeVisible()
     expect(
-      screen.getByRole('button', { name: 'Use Bailian Coding Plan' })
+      screen.getByRole('button', { name: 'Use Alibaba Cloud Bailian' })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Use Alibaba Cloud Coding Plan' })
     ).toBeVisible()
     expect(
       screen.queryByRole('button', { name: 'Use OpenAI' })
@@ -126,5 +143,57 @@ describe('upstream platform selection', () => {
       { target: { value: 'OpenAI' } }
     )
     expect(screen.getByRole('button', { name: 'Use OpenAI' })).toBeVisible()
+  })
+
+  it('finds products by localized capability names and labels custom gateways as templates', async () => {
+    render(
+      <UpstreamPresetPicker
+        presets={[
+          newAPI,
+          {
+            ...newAPI,
+            id: 'custom',
+            name: 'Custom',
+            label: 'Custom',
+            provider: 'generic',
+            protocols: ['chat', 'responses', 'messages', 'gemini'],
+          },
+        ]}
+        selectedId={null}
+        disabled={false}
+        onSelect={vi.fn()}
+      />
+    )
+    expect(
+      screen.getByRole('button', { name: 'Use Custom gateway' })
+    ).toHaveTextContent('Configuration template')
+    fireEvent.change(
+      screen.getByRole('textbox', { name: i18n.t('channels.create.search') }),
+      { target: { value: 'Speech' } }
+    )
+    expect(screen.getByRole('button', { name: 'Use New API' })).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: 'Use Custom gateway' })
+    ).not.toBeInTheDocument()
+    await act(async () => {
+      await i18n.changeLanguage('zhCN')
+    })
+    fireEvent.change(
+      screen.getByRole('textbox', { name: '搜索平台、Coding Plan 或协议' }),
+      { target: { value: '图像' } }
+    )
+    expect(
+      screen.getByRole('button', { name: '使用 New API' })
+    ).toHaveTextContent('图像生成')
+    fireEvent.change(
+      screen.getByRole('textbox', { name: '搜索平台、Coding Plan 或协议' }),
+      { target: { value: 'Gemini' } }
+    )
+    expect(
+      screen.getByRole('button', { name: '使用 自定义网关' })
+    ).toHaveTextContent('配置模板')
+    expect(
+      screen.queryByRole('button', { name: '使用 New API' })
+    ).not.toBeInTheDocument()
   })
 })

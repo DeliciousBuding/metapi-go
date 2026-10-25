@@ -167,6 +167,7 @@ export function getConnectionPresetIcon(id: string): string | undefined {
 }
 
 const PRESET_NAME_KEYS: Record<string, { normal: string; plan?: string }> = {
+  custom: { normal: 'channels.create.customPreset' },
   bailian: { normal: 'sites.templates.brands.bailian' },
   codingplan: { normal: 'sites.templates.brands.bailianPlan' },
   zhipu: {
