@@ -292,11 +292,13 @@ client-facing `anthropic-version` header withheld.
 `baseUrl`, `projectId`, `gcpServiceAccount`, `name`, `useSystemProxy`, and `channelProxy`. Self-hosted presets require
 `baseUrl`; anonymous Ollama connections may omit `apiKey`. OAuth products use the
 existing authorization endpoints instead of accepting pasted OAuth credentials
-through this API. GCP service-account products accept the key JSON as
-`gcpServiceAccount` (validated at write time, never returned) and exchange it
-for access tokens lazily at request time. Vertex catalog discovery is not
-derived: the publisher-model list is not project-scoped, so connections use
-the curated preset model list labeled as unverified.
+through this API.
+
+GCP 服务账号通过 `gcpServiceAccount` 提交密钥 JSON，写入时验证且永不回显，
+访问令牌由现有凭据管理在请求时延迟兑换。新建连接不提前兑换令牌或请求目录；
+即使高级配置包含标准协议端点，也先返回 `preset` 或 `empty`，消息明确标注模型
+尚未验证。创建后，有可推导目录的配置可通过模型刷新兑换令牌并发现模型。
+Vertex 默认端点无法推导项目范围的模型目录，仍使用未验证的预设模型建议。
 
 还可提交以下高级字段：
 
@@ -331,8 +333,11 @@ endpoint; redirects and repeated cursors are rejected. A missing catalog
 (`404`, `405`, `501` on its first page) tries the next catalog derived from
 configured endpoints, deduplicated by URL, authentication and response format.
 The first successful catalog is authoritative, including an empty list; catalogs
-are not merged. Only after all candidates report no catalog can connect use preset
-models. A later pagination failure never falls back. The single deadline covers
+are not merged and an empty list does not try another endpoint. Quick connect
+retains its first-run fallback to unverified preset suggestions when no catalog
+can be derived, all candidates report no catalog, or the authoritative catalog
+is empty. Catalog refresh instead reports the empty result. A later pagination
+failure never falls back. The single deadline covers
 all candidates and credential resolution. Upstream authentication rejection
 returns a sanitized `400`; network, malformed or oversized catalog failures
 return `502`. Neither error includes the upstream's response body or credentials.
