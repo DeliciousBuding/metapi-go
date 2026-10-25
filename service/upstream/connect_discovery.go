@@ -114,6 +114,19 @@ func presetConnectModels(names []string) ([]string, Discovery, error) {
 }
 
 func discoverConnectModels(ctx context.Context, in ConnectInput) ([]string, Discovery, error) {
+	if in.CredentialKind == store.DirectCredentialGCPServiceAccount {
+		if _, err := modelCatalogCustomHeaders(in.Channel.CustomHeaders); err != nil {
+			return nil, Discovery{}, err
+		}
+		// A new service account has durable material but no cached token.
+		// Preserve lazy exchange: stored requests and catalog refresh resolve
+		// it through the credential owner after this connection is created.
+		models, discovery, err := presetConnectModels(in.RecommendedModels)
+		if err == nil {
+			discovery.Message = "Upstream model availability was not verified; refresh models after creating the connection to resolve the GCP service account credential"
+		}
+		return models, discovery, err
+	}
 	models, discovery, err := discoverUpstreamCatalog(ctx, in.Channel.Endpoints, func(context.Context) (string, error) {
 		return in.Secret, nil
 	}, in.Channel.ChannelProxy, in.Channel.CustomHeaders, in.Channel.UseSystemProxy)

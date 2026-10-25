@@ -360,42 +360,95 @@ func TestConnectDiscoveryProxyAndNativeCatalogs(t *testing.T) {
 }
 
 func TestConnectVertexGCPCredential(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	material := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+	sa := `{"type":"service_account","client_email":"fixture@example.iam.gserviceaccount.com","private_key":` + mustJSONQuote(t, material) + `,"token_uri":"https://oauth2.googleapis.com/token"}`
 	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
 		t.Run(dialect, func(t *testing.T) {
-			db := connectDatabase(t, dialect)
-			key, err := rsa.GenerateKey(rand.Reader, 2048)
-			if err != nil {
-				t.Fatal(err)
-			}
-			der, err := x509.MarshalPKCS8PrivateKey(key)
-			if err != nil {
-				t.Fatal(err)
-			}
-			material := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
-			sa := `{"type":"service_account","client_email":"fixture@example.iam.gserviceaccount.com","private_key":` + mustJSONQuote(t, material) + `,"token_uri":"https://oauth2.googleapis.com/token"}`
-			vertex := &store.DirectEndpoint{URL: "https://us-central1-aiplatform.googleapis.com/v1/projects/my-project/locations/us-central1/publishers/google/models", Auth: store.DirectAuthBearer, ModelPath: true, Profile: "vertex"}
-			out, err := upstream.Connect(t.Context(), db.DB, upstream.ConnectInput{
-				Channel: upstream.ChannelCreate{
-					Name: "Vertex Fixture", Provider: "gemini_vertex", BaseURL: "https://us-central1-aiplatform.googleapis.com",
-					Endpoints: store.DirectEndpoints{Gemini: vertex, GeminiEmbeddings: vertex},
-				},
-				CredentialKind:    store.DirectCredentialGCPServiceAccount,
-				GCPServiceAccount: &sa,
-				RecommendedModels: []string{"gemini-2.5-pro", "gemini-2.5-flash"},
-			})
-			if err != nil {
-				t.Fatalf("connect: %v", err)
-			}
-			// The vertex profile has no derivable catalog: preset models, honestly labeled.
-			if out.Discovery.Status != "preset" || out.ModelCount != 2 || out.RouteCount != 2 {
-				t.Fatalf("preset fallback: %+v", out)
-			}
-			var kind, secret, gcpColumn string
-			if err := db.QueryRow(db.Rebind(`SELECT kind, secret, COALESCE(gcp_service_account,'') FROM upstream_credentials`)).Scan(&kind, &secret, &gcpColumn); err != nil {
-				t.Fatal(err)
-			}
-			if kind != store.DirectCredentialGCPServiceAccount || secret != "" || !strings.Contains(gcpColumn, "fixture@example.iam.gserviceaccount.com") {
-				t.Fatalf("credential row: kind=%s secret=%q gcp=%d bytes", kind, secret, len(gcpColumn))
+			for _, mode := range []string{"vertex-defaults", "custom-chat-gemini", "custom-no-models", "invalid-custom-headers"} {
+				t.Run(mode, func(t *testing.T) {
+					db := connectDatabase(t, dialect)
+					var requests atomic.Int32
+					server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						requests.Add(1)
+						if r.URL.Path != "/v1/models" || r.Header.Get("Authorization") != "Bearer fixture-exchanged-token" {
+							t.Error("stored GCP discovery did not resolve its credential")
+						}
+						fmt.Fprint(w, `{"data":[{"id":"discovered-after-connect"}]}`)
+					}))
+					defer server.Close()
+					vertex := &store.DirectEndpoint{URL: server.URL + "/v1/projects/my-project/locations/us-central1/publishers/google/models", Auth: store.DirectAuthBearer, ModelPath: true, Profile: "vertex"}
+					input := upstream.ConnectInput{
+						Channel: upstream.ChannelCreate{
+							Name: "Vertex Fixture", Provider: "gemini_vertex", BaseURL: server.URL,
+							Endpoints: store.DirectEndpoints{Gemini: vertex, GeminiEmbeddings: vertex},
+						},
+						CredentialKind:    store.DirectCredentialGCPServiceAccount,
+						GCPServiceAccount: &sa,
+						RecommendedModels: []string{"gemini-2.5-pro", "gemini-2.5-flash"},
+					}
+					if mode != "vertex-defaults" {
+						input.Channel.Endpoints = store.DirectEndpoints{
+							Chat:   &store.DirectEndpoint{URL: server.URL + "/v1/chat/completions", Auth: store.DirectAuthBearer},
+							Gemini: &store.DirectEndpoint{URL: server.URL + "/v1beta/models", Auth: store.DirectAuthBearer, ModelPath: true},
+						}
+					}
+					if mode == "custom-no-models" {
+						input.RecommendedModels = nil
+					}
+					if mode == "invalid-custom-headers" {
+						input.Channel.CustomHeaders = `[fixture-invalid-header]`
+					}
+					out, err := upstream.Connect(t.Context(), db.DB, input)
+					if requests.Load() != 0 {
+						t.Fatal("GCP quick connect must defer authenticated discovery")
+					}
+					if mode == "invalid-custom-headers" {
+						var domain *upstream.Error
+						if !errors.As(err, &domain) || domain.Status != 400 || domain.Message != "Invalid custom headers" {
+							t.Fatalf("deferred discovery hid invalid headers: %v", err)
+						}
+						if counts := connectCounts(t, db); !reflect.DeepEqual(counts, make([]int, 8)) {
+							t.Fatalf("invalid deferred connection wrote rows: %v", counts)
+						}
+						return
+					}
+					if err != nil {
+						t.Fatalf("connect: %v", err)
+					}
+					wantStatus := "preset"
+					if mode == "custom-no-models" {
+						wantStatus = "empty"
+					}
+					if out.Discovery.Status != wantStatus || out.ModelCount != len(input.RecommendedModels) || out.RouteCount != len(input.RecommendedModels) || !strings.Contains(out.Discovery.Message, "not verified") || !strings.Contains(out.Discovery.Message, "refresh") {
+						t.Fatalf("deferred discovery must explain unverified models and refresh: %+v", out)
+					}
+					var kind, secret, gcpColumn string
+					if err := db.QueryRow(db.Rebind(`SELECT kind, secret, COALESCE(gcp_service_account,'') FROM upstream_credentials`)).Scan(&kind, &secret, &gcpColumn); err != nil {
+						t.Fatal(err)
+					}
+					if kind != store.DirectCredentialGCPServiceAccount || secret != "" || !strings.Contains(gcpColumn, "fixture@example.iam.gserviceaccount.com") {
+						t.Fatalf("credential row: kind=%s secret=%q gcp=%d bytes", kind, secret, len(gcpColumn))
+					}
+					if mode != "vertex-defaults" {
+						var resolutions atomic.Int32
+						resolve := func(context.Context, int64, *string) (string, error) {
+							resolutions.Add(1)
+							return "fixture-exchanged-token", nil
+						}
+						preview, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, out.ID, resolve)
+						if err != nil || preview.Discovery.Status != "discovered" || strings.Join(preview.Added, ",") != "discovered-after-connect" || resolutions.Load() != 1 || requests.Load() != 1 {
+							t.Fatalf("refresh after deferred discovery=%+v resolutions=%d requests=%d err=%v", preview, resolutions.Load(), requests.Load(), err)
+						}
+					}
+				})
 			}
 		})
 	}
