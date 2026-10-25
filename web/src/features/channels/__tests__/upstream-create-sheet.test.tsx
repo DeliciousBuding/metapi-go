@@ -697,7 +697,7 @@ describe('advanced request configuration during connection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
     fillRequestConfig()
     fireEvent.change(screen.getByLabelText('Channel proxy'), {
-      target: { value: 'http://synthetic-user:synthetic-pass@proxy.example' },
+      target: { value: 'http://synthetic-user:synthetic-pass@proxy.example' }, // # leak-guard-allow:LG-F4C6A155 synthetic fixture checks proxy credential removal
     })
     fireEvent.click(screen.getByRole('button', { name: 'Change' }))
     await choose('Alibaba Cloud Bailian')
