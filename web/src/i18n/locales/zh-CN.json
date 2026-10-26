@@ -4890,6 +4890,7 @@
       "deepLinkConfirmTitle": "打开深链？",
       "deepLinkConfirmDescription": "深链包含明文 API Key，将交给外部应用；同时会把配置复制到剪贴板作为后备。",
       "deepLinkConfirmContinue": "打开链接",
+      "copyFallback": "改为复制配置",
       "oneClickLabel": "一键导入",
       "cherryStudio": "Cherry Studio",
       "ccSwitch": "CC Switch",

@@ -4890,6 +4890,7 @@
       "deepLinkConfirmTitle": "Open deep link?",
       "deepLinkConfirmDescription": "The link contains the plain API key and is handed to the external app. A copy of the configuration is also placed on your clipboard as a fallback.",
       "deepLinkConfirmContinue": "Open link",
+      "copyFallback": "Copy configuration instead",
       "oneClickLabel": "One-click import",
       "cherryStudio": "Cherry Studio",
       "ccSwitch": "CC Switch",
