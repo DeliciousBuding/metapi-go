@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 import { api } from '@/lib/api'
+import type { CredentialExportResponse } from '@/lib/api/credential-export'
 import { copyText } from '@/lib/clipboard'
 
 import { CredentialExportDialog } from '../credential-export-dialog'
@@ -24,7 +25,7 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 
-const exportData = {
+const exportData: CredentialExportResponse = {
   success: true,
   formatVersion: '1',
   keyId: 1,
@@ -34,6 +35,7 @@ const exportData = {
     {
       id: 'generic',
       label: 'Generic JSON',
+      contentType: 'application/json',
       content: { apiKey: 'sk-plain-demo' },
     },
   ],
@@ -114,7 +116,13 @@ describe('CredentialExportDialog', () => {
     expect(screen.queryByText('sk-plain-demo')).toBeNull()
     fireEvent.click(screen.getByRole('tab', { name: 'Test request' }))
     expect(screen.getByText('Verify the connection')).toBeVisible()
-    expect(getExport).toHaveBeenCalledWith(1, 'all', 'master-token')
+    expect(getExport).toHaveBeenCalledWith(
+      1,
+      'all',
+      'master-token',
+      undefined,
+      expect.any(AbortSignal)
+    )
     expect(
       screen.queryByRole('link', { name: 'Send a test request' })
     ).toBeNull()
@@ -167,6 +175,12 @@ describe('CredentialExportDialog', () => {
     unlock()
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
     expect(await screen.findByText('Verify the connection')).toBeInTheDocument()
-    expect(getExport).toHaveBeenLastCalledWith(1, 'all', 'master-token')
+    expect(getExport).toHaveBeenLastCalledWith(
+      1,
+      'all',
+      'master-token',
+      undefined,
+      expect.any(AbortSignal)
+    )
   })
 })

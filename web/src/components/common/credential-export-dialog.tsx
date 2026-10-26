@@ -1,7 +1,6 @@
 // Unlocks a downstream key for verification, client imports and config export.
 // Exports live for this dialog session; reopening requires confirmation again.
 
-import { useMutation } from '@tanstack/react-query'
 import {
   Check,
   Copy,
@@ -12,7 +11,7 @@ import {
   Lock,
   Sparkles,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -35,28 +34,15 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
+import type {
+  CredentialExportProfile as ExportProfile,
+  CredentialExportResponse as ExportResponse,
+} from '@/lib/api/credential-export'
 import { copyText } from '@/lib/clipboard'
 import { isReauthRequired } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 
 import { CredentialVerifySection } from './credential-verify-section'
-
-type ExportProfile = {
-  id: string
-  label: string
-  description?: string
-  contentType?: string
-  content: unknown
-}
-
-type ExportResponse = {
-  success: boolean
-  formatVersion: string
-  keyId: number
-  keyName: string
-  baseUrl: string
-  profiles: ExportProfile[]
-}
 
 const CC_SWITCH_APPS = ['codex', 'claude', 'gemini', 'cursor'] as const
 
@@ -149,6 +135,13 @@ function OpenCredentialExportDialog({
   const [ccApp, setCcApp] = useState<string>('codex')
   const [copiedKey, setCopiedKey] = useState(false)
   const [unlockDraft, setUnlockDraft] = useState('')
+  // Re-confirmation and plaintext exports must never enter Query/Mutation caches.
+  const tokenRef = useRef('')
+  const exportRequest = useRef<AbortController | null>(null)
+  const [data, setData] = useState<ExportResponse | null>(null)
+  const [exportPhase, setExportPhase] = useState<
+    'locked' | 'loading' | 'ready' | 'error' | 'rejected'
+  >('locked')
   // #1034: the key renders masked until explicitly revealed.
   const [showKey, setShowKey] = useState(false)
   // #1034: deep links hand the plain key to an external app — they wait for
@@ -158,22 +151,69 @@ function OpenCredentialExportDialog({
     fallback: string
   } | null>(null)
 
-  const exportMutation = useMutation({
-    mutationFn: async (confirmToken: string) =>
-      (await api.getDownstreamKeyExport(
+  useEffect(
+    () => () => {
+      const controller = exportRequest.current
+      exportRequest.current = null
+      controller?.abort()
+      tokenRef.current = ''
+    },
+    []
+  )
+
+  function handleOpenChange(open: boolean) {
+    if (!open) {
+      const controller = exportRequest.current
+      exportRequest.current = null
+      controller?.abort()
+      tokenRef.current = ''
+      setUnlockDraft('')
+      setData(null)
+      setShowKey(false)
+      setPendingDeepLink(null)
+      setExportPhase('locked')
+    }
+    onOpenChange(open)
+  }
+
+  async function loadExport(token: string) {
+    if (exportRequest.current) return
+    const controller = new AbortController()
+    exportRequest.current = controller
+    tokenRef.current = token
+    setExportPhase('loading')
+    setPendingDeepLink(null)
+    try {
+      const response = await api.getDownstreamKeyExport(
         target.id,
         'all',
-        confirmToken
-      )) as ExportResponse,
-    gcTime: 0,
-    retry: false,
-  })
+        token,
+        undefined,
+        controller.signal
+      )
+      if (exportRequest.current !== controller) return
+      if (response.keyId !== target.id) throw new Error('Invalid export target')
+      setData(response)
+      setUnlockDraft('')
+      setExportPhase('ready')
+    } catch (error) {
+      if (exportRequest.current !== controller) return
+      if (isReauthRequired(error)) {
+        tokenRef.current = ''
+        setUnlockDraft('')
+        setData(null)
+        setShowKey(false)
+        setExportPhase('rejected')
+      } else {
+        setExportPhase('error')
+      }
+    } finally {
+      if (exportRequest.current === controller) exportRequest.current = null
+    }
+  }
 
-  const locked = exportMutation.isIdle
-  const reauthRejected =
-    exportMutation.isError && isReauthRequired(exportMutation.error)
-
-  const data = exportMutation.data
+  const locked = exportPhase === 'locked'
+  const reauthRejected = exportPhase === 'rejected'
   const apiBase = useMemo(
     () => `${(data?.baseUrl ?? '').replace(/\/+$/, '')}/v1`,
     [data]
@@ -185,10 +225,11 @@ function OpenCredentialExportDialog({
   const claudeCodeProfile = data?.profiles.find((p) => p.id === 'claude-code')
   const codexProfile = data?.profiles.find((p) => p.id === 'codex')
   const openWebUiProfile = data?.profiles.find((p) => p.id === 'openwebui')
+  const keyContent = cherryProfile?.content ?? genericProfile?.content
   const apiKey =
-    (cherryProfile?.content as { apiKey?: string } | undefined)?.apiKey ??
-    (genericProfile?.content as { apiKey?: string } | undefined)?.apiKey ??
-    ''
+    typeof keyContent === 'object' && typeof keyContent.apiKey === 'string'
+      ? keyContent.apiKey
+      : ''
   const genericJson = genericProfile
     ? JSON.stringify(genericProfile.content, null, 2)
     : ''
@@ -196,7 +237,7 @@ function OpenCredentialExportDialog({
   function handleUnlock() {
     const token = unlockDraft.trim()
     if (!token) return
-    exportMutation.mutate(token)
+    void loadExport(token)
   }
 
   async function handleCopyKey() {
@@ -211,14 +252,9 @@ function OpenCredentialExportDialog({
 
   function confirmDeepLink() {
     if (!pendingDeepLink) return
-    const { url, fallback } = pendingDeepLink
+    const { url } = pendingDeepLink
     setPendingDeepLink(null)
     window.location.href = url
-    // Deep links are a no-op when the protocol handler is missing; the
-    // delayed copy doubles as the manual fallback path.
-    setTimeout(() => {
-      void copyTextWithToast(fallback, 'connect.toast.jsonCopied', t)
-    }, 400)
   }
 
   function renderLocked() {
@@ -263,7 +299,7 @@ function OpenCredentialExportDialog({
     if (locked || reauthRejected) {
       return renderLocked()
     }
-    if (exportMutation.isPending) {
+    if (exportPhase === 'loading') {
       return (
         <div className='space-y-3'>
           <Skeleton className='h-16 w-full rounded-lg' />
@@ -271,7 +307,7 @@ function OpenCredentialExportDialog({
         </div>
       )
     }
-    if (exportMutation.isError || !data) {
+    if (exportPhase === 'error' || !data) {
       return (
         <div className='rounded-lg border border-dashed px-4 py-6 text-center'>
           <p className='text-destructive-soft-fg text-sm'>
@@ -281,7 +317,7 @@ function OpenCredentialExportDialog({
             variant='outline'
             size='sm'
             className='mt-3'
-            onClick={() => exportMutation.mutate(unlockDraft.trim())}
+            onClick={() => void loadExport(tokenRef.current)}
           >
             {t('common.retry')}
           </Button>
@@ -446,6 +482,19 @@ function OpenCredentialExportDialog({
                     <Button
                       size='sm'
                       variant='outline'
+                      onClick={() =>
+                        void copyTextWithToast(
+                          pendingDeepLink.fallback,
+                          'connect.toast.jsonCopied',
+                          t
+                        )
+                      }
+                    >
+                      {t('connect.copyFallback')}
+                    </Button>
+                    <Button
+                      size='sm'
+                      variant='outline'
                       onClick={() => setPendingDeepLink(null)}
                     >
                       {t('settings.common.cancel')}
@@ -547,7 +596,7 @@ function OpenCredentialExportDialog({
   }
 
   return (
-    <Dialog open onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={handleOpenChange}>
       <DialogContent className='sm:max-w-lg'>
         <DialogHeader>
           <DialogTitle className='flex items-center gap-2'>
@@ -560,7 +609,7 @@ function OpenCredentialExportDialog({
         {renderBody()}
 
         <DialogFooter>
-          <Button variant='outline' onClick={() => onOpenChange(false)}>
+          <Button variant='outline' onClick={() => handleOpenChange(false)}>
             {t('settings.common.cancel')}
           </Button>
         </DialogFooter>

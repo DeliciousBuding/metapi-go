@@ -4,6 +4,10 @@ import {
   extractResponseErrorMessage,
 } from '@/lib/http-client'
 
+import {
+  parseCredentialExport,
+  type CredentialExportProfileId,
+} from './credential-export'
 import { request } from './transport'
 import type {
   BackupWebdavExportType,
@@ -161,17 +165,24 @@ export const settingsApi = {
     }),
   // #1034: key export is a sensitive op; confirmToken carries the master
   // token for X-Admin-Confirm-Token re-confirmation.
-  getDownstreamKeyExport: (
+  getDownstreamKeyExport: async (
     id: number,
-    profile: 'all' | 'openai' | 'cherry' | 'generic' = 'all',
-    confirmToken?: string
-  ) =>
-    request(`/api/downstream-keys/${id}/export?profile=${profile}`, {
-      headers: confirmToken
-        ? { 'X-Admin-Confirm-Token': confirmToken }
-        : undefined,
-      skipErrorHandler: true,
-    }),
+    profile: 'all' | CredentialExportProfileId = 'all',
+    confirmToken?: string,
+    model?: string,
+    signal?: AbortSignal
+  ) => {
+    const query = new URLSearchParams({ profile })
+    if (model !== undefined) query.set('model', model)
+    return parseCredentialExport(
+      await request(`/api/downstream-keys/${id}/export?${query}`, {
+        headers: confirmHeader(confirmToken),
+        skipErrorHandler: true,
+        disableDuplicate: true,
+        signal,
+      })
+    )
+  },
   /** Raw text export for file download; throws on non-OK responses. */
   exportBackupRaw: async (
     type: 'all' | 'accounts' | 'preferences' = 'all',
