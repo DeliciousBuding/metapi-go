@@ -255,10 +255,21 @@ relationship conflicts return 409. Secrets are accepted only in write requests.
 Protocol variants share an entry; separate products such as Bailian and Bailian
 Coding Plan retain their own entries. Fields are
 `id`, `name`, `label`, `provider`, `platform`, `group`, `defaultUrl`,
-`protocols` (executable protocol names), `recommendedModels`, `requiresBaseUrl`
+`protocols` (default endpoint names), `recommendedModels`, `requiresBaseUrl`
 and `credentialMode` (`apiKey`, `optional`, `oauth`, or `gcpServiceAccount`). Parameterized presets (Google Vertex AI, Anthropic on Vertex) also set `requiresProject`. New API comes first; domestic providers and Coding Plan
 presets precede other providers. Only presets with an executable endpoint
 contract appear in this list.
+
+预设只提供初始配置，不是渠道协议能力的上限。Sub2API 和自定义模板包含
+Chat、Responses、Messages、Gemini；vLLM、SGLang 模板包含 Chat、Responses、
+Messages、Completions、Embeddings，Messages 使用 Bearer。这些配置参考
+New API 的原生接口适配；具体部署是否启用某个接口仍由上游决定。SGLang 的
+专有 rerank 响应需要独立转换，当前模板不把它当成通用 rerank 接口。
+
+同一渠道可保存多个协议端点。高级自定义可以增加模板未列的已实现协议，逐个指定
+完整 URL、认证方式和 wire profile；运行时仍使用对应适配器和已有协议转换。
+配置了端点不等于所有已有模型都获准使用它：编辑不会扩大现有 grants，新增协议须在
+模型授权中显式选择，路由成员的 `protocolOrder` 继续限制其可用范围。
 
 `POST /api/imported-upstreams/presets/resolve` accepts `{presetId,baseUrl?,projectId?}` and
 returns `{presetId,provider,baseUrl,endpointConfig}`. It resolves configuration locally without
@@ -281,16 +292,31 @@ client-facing `anthropic-version` header withheld.
 `baseUrl`, `projectId`, `gcpServiceAccount`, `name`, `useSystemProxy`, and `channelProxy`. Self-hosted presets require
 `baseUrl`; anonymous Ollama connections may omit `apiKey`. OAuth products use the
 existing authorization endpoints instead of accepting pasted OAuth credentials
-through this API. GCP service-account products accept the key JSON as
-`gcpServiceAccount` (validated at write time, never returned) and exchange it
-for access tokens lazily at request time. Vertex catalog discovery is not
-derived: the publisher-model list is not project-scoped, so connections use
-the curated preset model list labeled as unverified.
+through this API.
+
+GCP 服务账号通过 `gcpServiceAccount` 提交密钥 JSON，写入时验证且永不回显，
+访问令牌由现有凭据管理在请求时延迟兑换。新建连接不提前兑换令牌或请求目录；
+即使高级配置包含标准协议端点，也先返回 `preset` 或 `empty`，消息明确标注模型
+尚未验证。创建后，有可推导目录的配置可通过模型刷新兑换令牌并发现模型。
+Vertex 默认端点无法推导项目范围的模型目录，仍使用未验证的预设模型建议。
+
+还可提交以下高级字段：
+
+| 字段 | 语义 |
+| --- | --- |
+| `protocols` | 选择默认模板中的端点 key，例如 `["chat","responses","messages"]`。省略保留模板全部；显式数组须非空、无重复且全部存在于模板。它不改变 grants API 使用数值数组的契约。 |
+| `endpointConfig` | 显式完整端点配置，结构与渠道编辑 API 相同。它替代模板，可含模板未列的已实现协议，不能和 `protocols` 同时提交。URL 必须完整；此模式不提交仅用于模板推导的 `projectId`。 |
+| `customHeaders` | JSON 数组字符串，元素为 `{header_key,header_value}`。用于模型发现和转发，遵守现有受限请求头规则；认证仍来自选中端点和凭据。 |
+| `paramOverride` | JSON 对象字符串，用于现有请求参数覆盖；不能覆盖选中模型或流式模式。 |
+
+空端点配置、未知/重复字段、非法 URL、认证或 profile 组合均在出网和写库前返回
+`400`；高级配置仍须符合渠道的凭据类型。新建返回值及普通详情不回显请求头、
+参数覆盖或凭据内容。自定义 URL 按原值保存，不再套用产品模板改写。
 
 The server resolves the product's endpoints, discovers its models, then creates
 the channel, credential, models, grants and route memberships in one transaction.
-New grants authorize the configured executable endpoints; clients do not select
-an outbound protocol. An existing exact model route is reused without changing
+New grants authorize the final configured endpoints, including an explicit
+advanced configuration. An existing exact model route is reused without changing
 its routing settings. Credential material is never returned.
 
 Success returns `{id,name,enabled,ownership,modelCount,routeCount,discovery}`.
@@ -304,7 +330,15 @@ conflicts also leave no partial connection.
 Discovery is bounded to 15 seconds, 16 MiB across pages and 10,000 models.
 Anthropic and Gemini cursors change only query parameters on the same verified
 endpoint; redirects and repeated cursors are rejected. A missing catalog
-(`404`, `405`, `501`) can use preset models. Upstream authentication rejection
+(`404`, `405`, `501` on its first page) tries the next catalog derived from
+configured endpoints, deduplicated by URL, authentication and response format.
+The first successful catalog is authoritative, including an empty list; catalogs
+are not merged and an empty list does not try another endpoint. Quick connect
+retains its first-run fallback to unverified preset suggestions when no catalog
+can be derived, all candidates report no catalog, or the authoritative catalog
+is empty. Catalog refresh instead reports the empty result. A later pagination
+failure never falls back. The single deadline covers
+all candidates and credential resolution. Upstream authentication rejection
 returns a sanitized `400`; network, malformed or oversized catalog failures
 return `502`. Neither error includes the upstream's response body or credentials.
 

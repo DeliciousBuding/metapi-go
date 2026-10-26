@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/deliciousbuding/metapi-go/transform/openai/responses"
@@ -162,8 +163,13 @@ func TestDirectCopilotProviderWireHeadersAndBody(t *testing.T) {
 	downstream := http.Header{}
 	downstream.Set("X-Initiator", "agent")
 	body := []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"}],"stream":false}`)
+	templates := upstreamadapter.Templates("github-copilot")
+	if len(templates) != 1 {
+		t.Fatalf("Copilot templates = %v", templates)
+	}
+	endpoint := &store.DirectEndpoint{URL: upstream.URL + templates[0].Path, Auth: templates[0].Auth, Profile: templates[0].Profile}
 	wire, err := prepareDirectProviderWire(
-		&store.DirectEndpoint{URL: upstream.URL, Profile: "github-copilot"},
+		endpoint,
 		1,
 		&oauth.DirectCredentialResult{Kind: store.DirectCredentialOAuth, Provider: "github_copilot", AccessToken: "fixture-copilot-token"},
 		body,
@@ -177,7 +183,7 @@ func TestDirectCopilotProviderWireHeadersAndBody(t *testing.T) {
 		t.Fatalf("Copilot wire must not rewrite OpenAI Chat body: %s", wire.Body)
 	}
 
-	req, _ := http.NewRequest(http.MethodPost, upstream.URL+"/chat/completions", bytes.NewReader(wire.Body))
+	req, _ := http.NewRequest(http.MethodPost, endpoint.URL, bytes.NewReader(wire.Body))
 	req.Header = downstream.Clone()
 	req.Header.Set("Authorization", "Bearer fixture-copilot-token")
 	applyDirectProviderHeaders(req, wire)
@@ -198,6 +204,9 @@ func wireBodyString(body map[string]json.RawMessage) string {
 
 func TestDirectXAISubscriptionProviderWireHeaders(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/responses" {
+			t.Errorf("URL path = %q, want /v1/responses", r.URL.Path)
+		}
 		if r.Header.Get("Authorization") != "Bearer fixture-xai-access" {
 			t.Errorf("Authorization = %q", r.Header.Get("Authorization"))
 		}
@@ -225,8 +234,13 @@ func TestDirectXAISubscriptionProviderWireHeaders(t *testing.T) {
 	downstream.Set("X-Grok-Client-Version", "999")
 	downstream.Set("X-Grok-Client-Identifier", "client-spoof")
 	body := []byte(`{"model":"grok-4.6","input":"hello","stream":false}`)
+	templates := upstreamadapter.Templates("xai-subscription")
+	if len(templates) != 1 {
+		t.Fatalf("xAI subscription templates = %v", templates)
+	}
+	endpoint := &store.DirectEndpoint{URL: upstream.URL + templates[0].Path, Auth: templates[0].Auth, Profile: templates[0].Profile}
 	wire, err := prepareDirectProviderWire(
-		&store.DirectEndpoint{URL: upstream.URL + "/responses", Profile: "xai-subscription"},
+		endpoint,
 		1,
 		&oauth.DirectCredentialResult{Kind: store.DirectCredentialOAuth, Provider: "xai_subscription", AccessToken: "fixture-xai-access"},
 		body,
@@ -239,7 +253,7 @@ func TestDirectXAISubscriptionProviderWireHeaders(t *testing.T) {
 	if !bytes.Equal(wire.Body, body) {
 		t.Fatalf("xAI subscription profile rewrote Responses body: %s", wire.Body)
 	}
-	req, _ := http.NewRequest(http.MethodPost, upstream.URL+"/responses", bytes.NewReader(wire.Body))
+	req, _ := http.NewRequest(http.MethodPost, endpoint.URL, bytes.NewReader(wire.Body))
 	req.Header = downstream.Clone()
 	req.Header.Set("Authorization", "Bearer fixture-xai-access")
 	applyDirectProviderHeaders(req, wire)

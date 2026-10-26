@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last updated**: 2026-10-18
+**Last updated**: 2026-10-25
 
 > **Navigation**: full docs map in [`docs/README.md`](README.md) · route list in [`api/routes-inventory.md`](api/routes-inventory.md) · environment variables in [`configuration.md`](configuration.md).
 >
@@ -63,6 +63,25 @@ Metapi Go is a ground-up rewrite of the TypeScript Metapi proxy gateway in Go. T
          │    SQLite (dev) / PG (prod)   │
          └──────────────────────────────┘
 ```
+
+## 渠道类型与多协议适配
+
+产品预设由 `service/upstream_presets.go` 管理品牌、套餐、凭据类型和各协议的
+默认主机；它们是连接的初始值，不限制高级自定义可以配置的协议。
+`service/upstream_preset_endpoints.go` 从 `internal/upstreamadapter.Templates`
+取得对应 wire profile 的端点模板，再组合成同一渠道的多个端点。
+
+`internal/upstreamadapter` 同时拥有这些模板和实际请求准备、响应投影函数。
+`handler/proxy` 把已选端点和已经解析的身份元数据交给 `Lookup(profile)` 的实现；
+该 owner 不读取凭据、不发网络请求、不选择路由，也不重复实现已有跨协议转换。
+原生标准接口共用透传实现，提供商差异由具体定义处理；专有媒体、视频和
+OpenCode 的独立协议 owner 继续负责各自转换。
+
+显式 `endpointConfig` 原样保存经过校验的多个 URL、认证方式和 profile，不再与
+预设接口列表取交集。实际转发仍受端点配置、模型凭据 grant 和路由成员的
+`protocolOrder` 共同约束；新增端点不会自动扩大存量授权。客户端原生协议优先，
+需要转换时复用 `direct_protocol_bridge.go` 与 `transform`。站点管理面的
+`platform.PlatformAdapter` 继续负责登录、余额、签到和令牌管理。
 
 ## Ownership and boundary map
 

@@ -34,18 +34,6 @@ func directMultipartOverrides(model, raw string) (map[string]string, error) {
 	return values, nil
 }
 
-func prepareJinaEmbeddings(body []byte) ([]byte, error) {
-	var obj map[string]json.RawMessage
-	if json.Unmarshal(body, &obj) != nil || obj == nil {
-		return nil, fmt.Errorf("invalid Jina embeddings request")
-	}
-	if _, ok := obj["task"]; ok {
-		return body, nil
-	}
-	obj["task"] = json.RawMessage(`"text-matching"`)
-	return json.Marshal(obj)
-}
-
 // The URL selects the authorized embedding model. Batch items repeat that
 // model as a resource name; opaque item fields remain RawMessage so numeric
 // values and provider extensions survive mapping and parameter overrides.

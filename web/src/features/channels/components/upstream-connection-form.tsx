@@ -15,6 +15,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -35,10 +36,12 @@ import {
   type ConnectionValues,
 } from '../lib/upstream-config'
 import { UpstreamEndpointsEditor } from './upstream-endpoints-editor'
+import { UpstreamPresetEndpoints } from './upstream-preset-endpoints'
 
 export function UpstreamConnectionForm(props: {
   detail: ImportedUpstreamDetail
   onDirtyChange: (key: string, dirty: boolean) => void
+  onManageModels?: () => void
 }) {
   const { t } = useTranslation()
   const client = useQueryClient()
@@ -52,17 +55,21 @@ export function UpstreamConnectionForm(props: {
   const request = useRef<AbortController | null>(null)
   const dirty = form.formState.isDirty
   const pending = form.formState.isSubmitting
+  const [resolvingPreset, setResolvingPreset] = useState(false)
   const [advanced, setAdvanced] = useState(false)
   const advancedInvalid = [
-    'endpointConfig',
-    'openaiChatCompletionPath',
-    'openaiResponsePath',
-    'anthropicMessagePath',
     'channelProxy',
     'customHeaders',
     'paramOverride',
   ].some((key) => !!form.formState.errors[key as keyof ConnectionValues])
   const submitCount = form.formState.submitCount
+  const legacyPaths =
+    !Object.keys(props.detail.endpointConfig ?? {}).length &&
+    [
+      props.detail.openaiChatCompletionPath,
+      props.detail.openaiResponsePath,
+      props.detail.anthropicMessagePath,
+    ].some(Boolean)
   useEffect(() => {
     if (advancedInvalid) setAdvanced(true)
   }, [advancedInvalid, submitCount])
@@ -101,14 +108,16 @@ export function UpstreamConnectionForm(props: {
   }
 
   async function save(values: ConnectionValues) {
+    if (resolvingPreset) return false
     const result = await api.updateImportedUpstream(
       props.detail.id,
       connectionPatch(values, form.formState.dirtyFields)
     )
-    if (!result.success) return
+    if (!result.success) return false
     form.reset(values)
     await client.invalidateQueries({ queryKey: upstreamKeys.all })
     toast.success(t('channels.upstream.saved'))
+    return true
   }
 
   return (
@@ -145,6 +154,120 @@ export function UpstreamConnectionForm(props: {
             </FormItem>
           )}
         />
+        <section className='space-y-4'>
+          {legacyPaths ? (
+            <p className='text-muted-foreground text-sm'>
+              {t('channels.upstream.legacyPresetNote')}
+            </p>
+          ) : (
+            <UpstreamPresetEndpoints
+              baseUrl={form.watch('baseUrl')}
+              disabled={pending}
+              onResolvingChange={setResolvingPreset}
+              onApply={(endpoints) => {
+                const existing = form.getValues('endpointConfig')
+                const missing = Object.fromEntries(
+                  Object.entries(endpoints).filter(
+                    ([key]) => !existing[key as keyof typeof existing]
+                  )
+                )
+                const count = Object.keys(missing).length
+                if (count) {
+                  form.setValue(
+                    'endpointConfig',
+                    { ...existing, ...missing },
+                    {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    }
+                  )
+                }
+                return count
+              }}
+            />
+          )}
+          <FormField
+            control={form.control}
+            name='endpointConfig'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('channels.imported.endpoints')}</FormLabel>
+                <FormDescription>
+                  {t('channels.upstream.endpointCapabilitiesHint')}
+                </FormDescription>
+                <FormControl>
+                  <div
+                    className='min-w-0'
+                    role='group'
+                    aria-label={t('channels.imported.endpoints')}
+                    ref={field.ref}
+                  >
+                    <UpstreamEndpointsEditor
+                      value={field.value}
+                      onChange={field.onChange}
+                      provider={props.detail.provider}
+                      disabled={pending}
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className='text-muted-foreground space-y-2 text-sm'>
+            <p>{t('channels.upstream.modelAccessHint')}</p>
+            {props.onManageModels && (
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                disabled={pending || resolvingPreset}
+                onClick={() => {
+                  if (!dirty) props.onManageModels?.()
+                  else {
+                    void form
+                      .handleSubmit(async (values) => {
+                        if (await save(values)) props.onManageModels?.()
+                      })()
+                      .catch(() => {})
+                  }
+                }}
+              >
+                {t(
+                  dirty
+                    ? 'channels.upstream.saveAndManageModels'
+                    : 'channels.upstream.manageModels'
+                )}
+              </Button>
+            )}
+          </div>
+          {!Object.keys(props.detail.endpointConfig ?? {}).length && (
+            <div className='grid gap-3 sm:grid-cols-2'>
+              {(
+                [
+                  'openaiChatCompletionPath',
+                  'openaiResponsePath',
+                  'anthropicMessagePath',
+                ] as const
+              ).map((name) => (
+                <FormField
+                  key={name}
+                  control={form.control}
+                  name={name}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t(`channels.upstream.${name}`)}</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={pending} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ))}
+            </div>
+          )}
+        </section>
         <Collapsible
           open={advanced}
           onOpenChange={setAdvanced}
@@ -178,52 +301,6 @@ export function UpstreamConnectionForm(props: {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name='endpointConfig'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('channels.imported.endpoints')}</FormLabel>
-                  <FormControl>
-                    <div className='min-w-0' role='group' ref={field.ref}>
-                      <UpstreamEndpointsEditor
-                        value={field.value}
-                        onChange={field.onChange}
-                        provider={props.detail.provider}
-                        disabled={pending}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {!Object.keys(props.detail.endpointConfig ?? {}).length && (
-              <div className='grid gap-3 sm:grid-cols-2'>
-                {(
-                  [
-                    'openaiChatCompletionPath',
-                    'openaiResponsePath',
-                    'anthropicMessagePath',
-                  ] as const
-                ).map((name) => (
-                  <FormField
-                    key={name}
-                    control={form.control}
-                    name={name}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t(`channels.upstream.${name}`)}</FormLabel>
-                        <FormControl>
-                          <Input {...field} disabled={pending} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                ))}
-              </div>
-            )}
             <section className='space-y-4 rounded-xl border p-4'>
               <div className='flex flex-wrap items-center justify-between gap-3'>
                 <h3 className='flex items-center gap-2 text-sm font-semibold'>
@@ -335,7 +412,7 @@ export function UpstreamConnectionForm(props: {
           </CollapsibleContent>
         </Collapsible>
         <div className='bg-background/95 sticky bottom-0 -mx-1 flex justify-end border-t px-1 py-3'>
-          <Button type='submit' disabled={!dirty || pending}>
+          <Button type='submit' disabled={!dirty || pending || resolvingPreset}>
             {t('channels.upstream.saveConnection')}
           </Button>
         </div>

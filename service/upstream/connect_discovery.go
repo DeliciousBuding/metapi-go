@@ -14,6 +14,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/internal/ssrf"
+	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -22,44 +23,59 @@ const connectDiscoveryTimeout = 15 * time.Second
 const connectDiscoveryMaxBytes = 16 << 20
 const connectDiscoveryMaxModels = 10000
 
-// A models endpoint is derived only from a known wire contract. Native actions
-// without a catalog API use preset models instead of speculative URL probing.
-func connectModelsEndpoint(endpoints store.DirectEndpoints) (string, string, string) {
+type modelCatalogEndpoint struct {
+	address string
+	auth    string
+	format  string
+}
+
+// Catalog candidates come only from configured wire contracts. Shared URLs
+// remain distinct when authentication or pagination formats differ.
+func connectModelsEndpoints(endpoints store.DirectEndpoints) []modelCatalogEndpoint {
+	var candidates []modelCatalogEndpoint
+	seen := map[modelCatalogEndpoint]bool{}
 	for _, entry := range endpoints.Entries() {
-		ep := entry.Endpoint
-		if ep == nil {
-			continue
+		candidate, ok := modelCatalogForEndpoint(entry)
+		if ok && !seen[candidate] {
+			seen[candidate] = true
+			candidates = append(candidates, candidate)
 		}
-		if ep.Profile == "bedrock" || ep.Profile == "vertex" || ep.Profile == "codex" || ep.Profile == "claudecode" || ep.Profile == "cline" || strings.HasPrefix(ep.Profile, "codex-") {
-			continue
-		}
-		u, err := url.Parse(ep.URL)
-		if err != nil {
-			continue
-		}
-		if ep.Profile == "ollama" || ep.Profile == "ollama-messages" {
-			for _, suffix := range []string{"/api/chat", "/v1/messages"} {
-				if strings.HasSuffix(u.Path, suffix) {
-					u.Path = strings.TrimSuffix(u.Path, suffix) + "/api/tags"
-					return u.String(), ep.Auth, "ollama"
-				}
-			}
-		}
-		if (entry.Protocol == store.DirectProtocolGemini || entry.Protocol == store.DirectProtocolGeminiEmbeddings) && ep.ModelPath {
-			return ep.URL, ep.Auth, "gemini"
-		}
-		for _, suffix := range []string{"/chat/completions", "/responses", "/messages", "/completions", "/embeddings", "/rerank", "/images/generations", "/videos"} {
+	}
+	return candidates
+}
+
+// Native actions without a known catalog API do not invite URL probing.
+func modelCatalogForEndpoint(entry store.DirectEndpointEntry) (modelCatalogEndpoint, bool) {
+	ep := entry.Endpoint
+	if ep == nil || ep.Profile == "bedrock" || ep.Profile == "vertex" || ep.Profile == "codex" || ep.Profile == "claudecode" || ep.Profile == "cline" || strings.HasPrefix(ep.Profile, "codex-") {
+		return modelCatalogEndpoint{}, false
+	}
+	u, err := url.Parse(ep.URL)
+	if err != nil {
+		return modelCatalogEndpoint{}, false
+	}
+	if ep.Profile == "ollama" || ep.Profile == "ollama-messages" {
+		for _, suffix := range []string{"/api/chat", "/v1/messages"} {
 			if strings.HasSuffix(u.Path, suffix) {
-				u.Path = strings.TrimSuffix(u.Path, suffix) + "/models"
-				format := "openai"
-				if entry.Protocol == store.DirectProtocolMessages {
-					format = "anthropic"
-				}
-				return u.String(), ep.Auth, format
+				u.Path = strings.TrimSuffix(u.Path, suffix) + "/api/tags"
+				return modelCatalogEndpoint{u.String(), ep.Auth, "ollama"}, true
 			}
 		}
 	}
-	return "", "", ""
+	if (entry.Protocol == store.DirectProtocolGemini || entry.Protocol == store.DirectProtocolGeminiEmbeddings) && ep.ModelPath {
+		return modelCatalogEndpoint{ep.URL, ep.Auth, "gemini"}, true
+	}
+	for _, suffix := range []string{"/chat/completions", "/responses", "/messages", "/completions", "/embeddings", "/rerank", "/images/generations", "/videos"} {
+		if strings.HasSuffix(u.Path, suffix) {
+			u.Path = strings.TrimSuffix(u.Path, suffix) + "/models"
+			format := "openai"
+			if entry.Protocol == store.DirectProtocolMessages {
+				format = "anthropic"
+			}
+			return modelCatalogEndpoint{u.String(), ep.Auth, format}, true
+		}
+	}
+	return modelCatalogEndpoint{}, false
 }
 
 func connectDiscoveryError(message string) error {
@@ -98,7 +114,22 @@ func presetConnectModels(names []string) ([]string, Discovery, error) {
 }
 
 func discoverConnectModels(ctx context.Context, in ConnectInput) ([]string, Discovery, error) {
-	models, discovery, err := discoverUpstreamCatalog(ctx, in.Channel.Endpoints, in.Secret, in.Channel.ChannelProxy, in.Channel.UseSystemProxy)
+	if in.CredentialKind == store.DirectCredentialGCPServiceAccount {
+		if _, err := modelCatalogCustomHeaders(in.Channel.CustomHeaders); err != nil {
+			return nil, Discovery{}, err
+		}
+		// A new service account has durable material but no cached token.
+		// Preserve lazy exchange: stored requests and catalog refresh resolve
+		// it through the credential owner after this connection is created.
+		models, discovery, err := presetConnectModels(in.RecommendedModels)
+		if err == nil {
+			discovery.Message = "Upstream model availability was not verified; refresh models after creating the connection to resolve the GCP service account credential"
+		}
+		return models, discovery, err
+	}
+	models, discovery, err := discoverUpstreamCatalog(ctx, in.Channel.Endpoints, func(context.Context) (string, error) {
+		return in.Secret, nil
+	}, in.Channel.ChannelProxy, in.Channel.CustomHeaders, in.Channel.UseSystemProxy)
 	// Connect keeps the first-run UX fallbacks: no derivable catalog endpoint,
 	// an endpoint that does not serve a catalog, or an authoritative empty
 	// catalog all fall back to the preset list. Refresh (refresh_catalog.go)
@@ -111,24 +142,63 @@ func discoverConnectModels(ctx context.Context, in ConnectInput) ([]string, Disc
 }
 
 // errNoCatalogEndpoint: the channel's endpoints derive no model catalog URL.
-// errCatalogUnserved: the URL exists but answers 404/405/501 (no catalog API).
+// errCatalogUnserved: every candidate answers 404/405/501 on its first page.
 var errNoCatalogEndpoint = errors.New("no derivable model catalog endpoint")
 var errCatalogUnserved = errors.New("upstream endpoint does not serve a model catalog")
 
-// discoverUpstreamCatalog fetches the upstream model catalog without any
-// preset fallback. An empty authoritative list is returned as ([],
+func modelCatalogCustomHeaders(raw string) (map[string]string, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	var headers []struct {
+		Key   string `json:"header_key"`
+		Value string `json:"header_value"`
+	}
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var extra any
+	if decoder.Decode(&headers) != nil || headers == nil || decoder.Decode(&extra) != io.EOF {
+		return nil, invalid("Invalid custom headers")
+	}
+	custom := make(map[string]string, len(headers))
+	for _, header := range headers {
+		if strings.TrimSpace(header.Key) == "" {
+			return nil, invalid("Invalid custom headers")
+		}
+		if platform.IsDeniedCustomHeader(header.Key) {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(header.Key)) {
+		case "authorization", "x-api-key", "x-goog-api-key":
+			// Match directProxyConfig: the selected endpoint owns credentials,
+			// including their absence on an anonymous catalog request.
+			continue
+		}
+		// Catalog discovery has no downstream client metadata to interpolate.
+		value, ok := httpclient.ExpandClientHeaderTemplate(header.Value, nil)
+		if !ok {
+			return nil, invalid("Invalid custom headers")
+		}
+		custom[header.Key] = value
+	}
+	return custom, nil
+}
+
+// discoverUpstreamCatalog tries another configured catalog only when the first
+// page is unserved. It never merges catalogs or substitutes preset models.
+// An empty authoritative list is returned as ([],
 // Discovery{Status:"empty"}, nil); the caller decides what an empty catalog
 // means (connect falls back to presets, refresh reports it).
-func discoverUpstreamCatalog(ctx context.Context, endpoints store.DirectEndpoints, secret, channelProxy string, useSystemProxy bool) ([]string, Discovery, error) {
+func discoverUpstreamCatalog(ctx context.Context, endpoints store.DirectEndpoints, credential func(context.Context) (string, error), channelProxy, rawCustomHeaders string, useSystemProxy bool) ([]string, Discovery, error) {
 	ctx, cancel := context.WithTimeout(ctx, connectDiscoveryTimeout)
 	defer cancel()
-	address, auth, format := connectModelsEndpoint(endpoints)
-	if address == "" {
-		return nil, Discovery{}, errNoCatalogEndpoint
+	customHeaders, err := modelCatalogCustomHeaders(rawCustomHeaders)
+	if err != nil {
+		return nil, Discovery{}, err
 	}
-	u, err := url.Parse(address)
-	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") || ssrf.IsForbiddenSiteHostname(u.Hostname()) {
-		return nil, Discovery{}, invalid("Invalid upstream model URL")
+	candidates := connectModelsEndpoints(endpoints)
+	if len(candidates) == 0 {
+		return nil, Discovery{}, errNoCatalogEndpoint
 	}
 	proxyURL := channelProxy
 	if proxyURL == "" && useSystemProxy {
@@ -146,37 +216,66 @@ func discoverUpstreamCatalog(ctx context.Context, endpoints store.DirectEndpoint
 	}
 	transport := httpclient.NewTransport(httpclient.Options{Proxy: proxy, SiteDialGuard: true, DialTimeout: 5 * time.Second, ResponseHeaderTimeout: connectDiscoveryTimeout})
 	defer transport.CloseIdleConnections()
-	// Discovery is one exact URL; even same-origin redirects can reach a
+	// Each candidate is one exact URL; even same-origin redirects can reach a
 	// different authenticated action. Never forward credentials on redirects.
 	client := httpclient.NewClient(transport, connectDiscoveryTimeout, func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse })
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
-	if err != nil {
-		return nil, Discovery{}, invalid("Invalid upstream model URL")
-	}
-	request.Header.Set("Accept", "application/json")
-	if format == "gemini" || format == "anthropic" {
-		query := request.URL.Query()
-		if format == "gemini" {
-			query.Set("pageSize", "1000")
-		} else {
-			query.Set("limit", "1000")
+	secret := ""
+	for _, candidate := range candidates {
+		u, err := url.Parse(candidate.address)
+		if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") || ssrf.IsForbiddenSiteHostname(u.Hostname()) {
+			return nil, Discovery{}, invalid("Invalid upstream model URL")
 		}
-		request.URL.RawQuery = query.Encode()
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, candidate.address, nil)
+		if err != nil {
+			return nil, Discovery{}, invalid("Invalid upstream model URL")
+		}
+		request.Header.Set("Accept", "application/json")
+		if candidate.format == "gemini" || candidate.format == "anthropic" {
+			query := request.URL.Query()
+			if candidate.format == "gemini" {
+				query.Set("pageSize", "1000")
+			} else {
+				query.Set("limit", "1000")
+			}
+			request.URL.RawQuery = query.Encode()
+		}
+		// Resolve once, only if a catalog actually needs authentication. An
+		// anonymous Ollama catalog must work without any stored secret, while
+		// an authenticated fallback must never receive an empty credential.
+		if candidate.auth != store.DirectAuthNone && secret == "" {
+			secret, err = credential(ctx)
+			if err != nil {
+				return nil, Discovery{}, err
+			}
+			if secret == "" {
+				return nil, Discovery{}, invalid("Channel has no enabled credential for model discovery")
+			}
+		}
+		switch candidate.auth {
+		case store.DirectAuthBearer:
+			request.Header.Set("Authorization", "Bearer "+secret)
+		case store.DirectAuthAPIKey:
+			request.Header.Set("X-Api-Key", secret)
+		case store.DirectAuthGoogle:
+			request.Header.Set("X-Goog-Api-Key", secret)
+		case store.DirectAuthNone:
+		default:
+			return nil, Discovery{}, invalid("Invalid model discovery authentication")
+		}
+		if candidate.format == "anthropic" {
+			request.Header.Set("Anthropic-Version", "2023-06-01")
+		}
+		platform.ApplyCustomHeaders(request, customHeaders)
+		models, discovery, err := discoverModelCatalog(client, request, candidate.format)
+		if errors.Is(err, errCatalogUnserved) {
+			continue
+		}
+		return models, discovery, err
 	}
-	switch auth {
-	case store.DirectAuthBearer:
-		request.Header.Set("Authorization", "Bearer "+secret)
-	case store.DirectAuthAPIKey:
-		request.Header.Set("X-Api-Key", secret)
-	case store.DirectAuthGoogle:
-		request.Header.Set("X-Goog-Api-Key", secret)
-	case store.DirectAuthNone:
-	default:
-		return nil, Discovery{}, invalid("Invalid model discovery authentication")
-	}
-	if format == "anthropic" {
-		request.Header.Set("Anthropic-Version", "2023-06-01")
-	}
+	return nil, Discovery{}, errCatalogUnserved
+}
+
+func discoverModelCatalog(client *http.Client, request *http.Request, format string) ([]string, Discovery, error) {
 	names := []string{}
 	remainingBytes := connectDiscoveryMaxBytes
 	seenCursors := map[string]bool{}

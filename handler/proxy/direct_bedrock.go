@@ -10,19 +10,7 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/proxy"
-	"github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
 )
-
-func prepareDirectBedrockRequest(body []byte, downstream http.Header) ([]byte, error) {
-	return messages.PrepareBedrockRequest(body, downstream.Values("Anthropic-Beta"))
-}
-
-func buildDirectBedrockHeaders(headers http.Header) {
-	headers.Set("Anthropic-Version", "bedrock-2023-05-31")
-	headers.Set("Accept", "application/json")
-	// Flags have already moved into anthropic_beta in the request body.
-	headers["Anthropic-Beta"] = nil
-}
 
 // prefix is the configured URL through /model. A model ID is one path
 // segment, including when the ID is an ARN containing slashes.

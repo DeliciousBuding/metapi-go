@@ -40,6 +40,10 @@ type upstreamPresetProduct struct {
 // and a subscription plan the same product.
 var upstreamPresetProducts = []upstreamPresetProduct{
 	{"new-api-connection", "New API", "new-api", "gateway", "apiKey", []string{"new-api-connection"}},
+	{"sub2api", "Sub2API", "sub2api", "gateway", "apiKey", []string{"sub2api"}},
+	{"custom", "Custom upstream", "custom", "gateway", "apiKey", []string{"custom"}},
+	{"vllm", "vLLM", "vllm", "other", "apiKey", []string{"vllm"}},
+	{"sglang", "SGLang", "sglang", "other", "apiKey", []string{"sglang"}},
 	{"bailian", "Alibaba Bailian", "bailian", "domestic", "apiKey", []string{"bailian", "bailian-claude"}},
 	{"deepseek-openai", "DeepSeek", "deepseek", "domestic", "apiKey", []string{"deepseek-openai", "deepseek-claude"}},
 	{"moonshot-openai", "Moonshot / Kimi", "moonshot", "domestic", "apiKey", []string{"moonshot-openai", "moonshot-claude"}},
@@ -166,6 +170,10 @@ func upstreamPresetSource(id string) *UpstreamPreset {
 	}
 	native := map[string]UpstreamPreset{
 		"new-api-connection":   {Platform: "new-api"},
+		"sub2api":              {Platform: "sub2api"},
+		"custom":               {Platform: "custom"},
+		"vllm":                 {Platform: "vllm"},
+		"sglang":               {Platform: "sglang"},
 		"opencode-go":          {Platform: "opencode", DefaultURL: "https://opencode.ai/zen/go"},
 		"opencode-go-messages": {Platform: "opencode", DefaultURL: "https://opencode.ai/zen/go"},
 		"cline":                {Platform: "cline", DefaultURL: "https://api.cline.bot/api/v1"},

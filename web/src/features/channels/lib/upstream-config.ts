@@ -157,6 +157,8 @@ const profileEndpoints: Record<
 > = {
   codex: ['responses'],
   claudecode: ['messages'],
+  'xai-subscription': ['responses'],
+  'github-copilot': ['chat'],
   deepseek: ['chat'],
   zai: ['chat'],
   bailian: ['chat'],
@@ -179,6 +181,8 @@ const profileEndpoints: Record<
   ollama: ['ollama'],
   'ollama-messages': ['messages'],
   bedrock: ['messages'],
+  vertex: ['gemini', 'geminiEmbeddings'],
+  'vertex-anthropic': ['messages'],
   'seedance-video': ['seedanceVideo'],
   'zenmux-video': ['zenmuxVideo'],
   'codex-alpha-search': ['alphaSearch'],
@@ -230,11 +234,22 @@ const endpointConfigSchema = z
               value.modelPath &&
               protocol.key !== 'gemini' &&
               protocol.key !== 'geminiEmbeddings' &&
-              !(protocol.key === 'messages' && value.profile === 'bedrock')
+              !(
+                protocol.key === 'messages' &&
+                (value.profile === 'bedrock' ||
+                  value.profile === 'vertex-anthropic')
+              )
             ) {
               return false
             }
-            if (value.profile === 'bedrock' && !value.modelPath) return false
+            if (
+              ['bedrock', 'vertex', 'vertex-anthropic'].includes(
+                value.profile ?? ''
+              ) &&
+              !value.modelPath
+            ) {
+              return false
+            }
             if (value.profile === 'opencode-go' && !value.modelWireUrls) {
               return false
             }
@@ -304,7 +319,7 @@ export function headersForEditor(raw: string): string {
   )
 }
 
-function headersForRequest(value: string): string {
+export function headersForRequest(value: string): string {
   const entries = parseStringMap(value)
   if (!entries) throw new Error('Invalid header rows')
   return entries.length
@@ -358,17 +373,28 @@ export function availableProfiles(
       'cerebras',
       'nanogpt',
       'cline',
+      'github-copilot',
     ]
     if (provider === 'opencode_go') profiles.push('opencode-go')
     return profiles
   }
-  if (protocol === 'responses' && ['codex', 'fenno'].includes(provider)) {
-    return ['codex']
+  if (protocol === 'responses') {
+    return [
+      ...(['codex', 'fenno'].includes(provider) ? ['codex'] : []),
+      'xai-subscription',
+    ]
   }
-  if (protocol === 'messages' && provider === 'claudecode') {
-    return ['claudecode']
+  if (protocol === 'messages') {
+    return [
+      ...(provider === 'claudecode' ? ['claudecode'] : []),
+      'bedrock',
+      'ollama-messages',
+      'vertex-anthropic',
+    ]
   }
-  if (protocol === 'messages') return ['bedrock', 'ollama-messages']
+  if (protocol === 'gemini' || protocol === 'geminiEmbeddings') {
+    return ['vertex']
+  }
   if (protocol === 'alphaSearch' && ['codex', 'fenno'].includes(provider)) {
     return ['codex-alpha-search']
   }

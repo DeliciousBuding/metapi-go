@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { StringMapEditor } from '@/components/common/string-map-editor'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,6 +35,7 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/lib/api'
 import {
   upstreamPresetsApi,
@@ -48,6 +50,7 @@ import {
   upstreamCreateSchema,
   type UpstreamCreateValues,
 } from '../lib/upstream-create'
+import { UpstreamCreateEndpoints } from './upstream-create-endpoints'
 import { UpstreamPresetPicker } from './upstream-preset-picker'
 
 export function UpstreamCreateSheet(props: {
@@ -59,6 +62,7 @@ export function UpstreamCreateSheet(props: {
   const [selected, setSelected] = useState<UpstreamPreset | null>(null)
   const [advanced, setAdvanced] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [resolvingEndpoints, setResolvingEndpoints] = useState(false)
   const submitting = useRef(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const form = useForm<UpstreamCreateValues>({
@@ -71,6 +75,7 @@ export function UpstreamCreateSheet(props: {
     queryFn: upstreamPresetsApi.getUpstreamPresets,
   })
   const credentialMode = selected?.credentialMode ?? 'apiKey'
+  const customEndpoints = form.watch('customEndpoints')
   const requiresBaseUrl = selected?.requiresBaseUrl ?? !selected?.defaultUrl
   const { handleOpenChange, guard } = useDirtyDialogClose({
     enabled: form.formState.isDirty,
@@ -87,11 +92,18 @@ export function UpstreamCreateSheet(props: {
     form.reset({
       ...upstreamCreateDefaults,
       presetId: preset.id,
+      protocols: [...preset.protocols],
       baseUrl: preset.defaultUrl,
     })
   }
   async function submit(values: UpstreamCreateValues) {
-    if (!selected || credentialMode === 'oauth' || submitting.current) return
+    if (
+      !selected ||
+      credentialMode === 'oauth' ||
+      submitting.current ||
+      resolvingEndpoints
+    )
+      return
     submitting.current = true
     setSaving(true)
     form.clearErrors('root')
@@ -100,7 +112,14 @@ export function UpstreamCreateSheet(props: {
       const result = await api.connectUpstream(
         upstreamCreatePayload(values, selected)
       )
-      form.reset({ ...values, apiKey: '', channelProxy: '' })
+      form.reset({
+        ...values,
+        apiKey: '',
+        gcpServiceAccount: '',
+        channelProxy: '',
+        customHeaders: '',
+        paramOverride: '',
+      })
       await client.invalidateQueries({ queryKey: upstreamKeys.all })
       await client.invalidateQueries({ queryKey: ['routes'] })
       const message = t(
@@ -149,7 +168,9 @@ export function UpstreamCreateSheet(props: {
                 if (
                   (!requiresBaseUrl && errors.baseUrl) ||
                   errors.name ||
-                  errors.channelProxy
+                  errors.channelProxy ||
+                  errors.customHeaders ||
+                  errors.paramOverride
                 ) {
                   setAdvanced(true)
                 }
@@ -180,6 +201,11 @@ export function UpstreamCreateSheet(props: {
                   disabled={pending}
                   onSelect={selectPreset}
                 />
+                {presets.data?.items.length === 0 && (
+                  <p className='text-muted-foreground text-sm'>
+                    {t('channels.create.noPresets')}
+                  </p>
+                )}
                 {selected && credentialMode !== 'oauth' && (
                   <div className='space-y-5 border-t pt-5'>
                     {requiresBaseUrl && (
@@ -210,7 +236,11 @@ export function UpstreamCreateSheet(props: {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
-                              {t('channels.create.projectId')}
+                              {t(
+                                customEndpoints
+                                  ? 'channels.create.projectForPreset'
+                                  : 'channels.create.projectId'
+                              )}
                             </FormLabel>
                             <FormControl>
                               <Input
@@ -235,14 +265,14 @@ export function UpstreamCreateSheet(props: {
                               {t('channels.upstream.gcpServiceAccount')}
                             </FormLabel>
                             <FormControl>
-                              <textarea
+                              <Textarea
                                 {...field}
                                 rows={8}
                                 spellCheck={false}
                                 autoComplete='off'
                                 placeholder='{"type":"service_account",...}'
                                 disabled={pending}
-                                className='border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring min-h-32 w-full rounded-md border px-3 py-2 font-mono text-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50'
+                                className='min-h-32 font-mono text-xs'
                               />
                             </FormControl>
                             <p className='text-muted-foreground text-xs'>
@@ -278,6 +308,12 @@ export function UpstreamCreateSheet(props: {
                         )}
                       />
                     )}
+                    <UpstreamCreateEndpoints
+                      key={selected.id}
+                      preset={selected}
+                      disabled={pending}
+                      onResolvingChange={setResolvingEndpoints}
+                    />
                     <Collapsible
                       open={advanced}
                       onOpenChange={setAdvanced}
@@ -372,6 +408,45 @@ export function UpstreamCreateSheet(props: {
                             </FormItem>
                           )}
                         />
+                        <FormField
+                          control={form.control}
+                          name='customHeaders'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {t('channels.upstream.customHeaders')}
+                              </FormLabel>
+                              <FormControl>
+                                <StringMapEditor
+                                  {...field}
+                                  ordered
+                                  structuredOnly
+                                  disabled={pending}
+                                  keyLabel={t('stringMapEditor.headerName')}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name='paramOverride'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {t('channels.upstream.paramOverride')}
+                              </FormLabel>
+                              <FormControl>
+                                <StringMapEditor
+                                  {...field}
+                                  disabled={pending}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </CollapsibleContent>
                     </Collapsible>
                   </div>
@@ -397,7 +472,10 @@ export function UpstreamCreateSheet(props: {
                     {t('channels.create.authorize')}
                   </Button>
                 ) : (
-                  <Button type='submit' disabled={!selected || pending}>
+                  <Button
+                    type='submit'
+                    disabled={!selected || pending || resolvingEndpoints}
+                  >
                     {pending && <Spinner aria-hidden />}
                     {t(
                       pending

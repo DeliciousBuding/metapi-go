@@ -14,6 +14,8 @@ import {
 } from '@/lib/platform-catalog'
 import { cn } from '@/lib/utils'
 
+import { upstreamProtocols } from '../lib/upstream-config'
+
 function PresetIdentity(props: { preset: UpstreamPreset; compact?: boolean }) {
   const { t } = useTranslation()
   const nameKey = getConnectionPresetNameKey(props.preset.id)
@@ -38,6 +40,18 @@ function PresetIdentity(props: { preset: UpstreamPreset; compact?: boolean }) {
         )}
       >
         <span className='block text-sm font-medium'>{name}</span>
+        <span className='text-muted-foreground block text-xs leading-relaxed'>
+          {t('channels.create.defaultInterfaces')}
+          {' · '}
+          {props.preset.protocols
+            .map((key) => t(`channels.capabilities.names.${key}`))
+            .join(' · ')}
+        </span>
+        {props.preset.id === 'custom' && (
+          <span className='text-muted-foreground block text-xs'>
+            {t('channels.create.customTemplate')}
+          </span>
+        )}
       </span>
     </>
   )
@@ -67,7 +81,14 @@ export function UpstreamPresetPicker(props: {
     const nameKey = getConnectionPresetNameKey(preset.id)
     const name = nameKey ? t(nameKey) : preset.name
     if (query) {
-      return `${name} ${preset.name} ${preset.label} ${preset.provider} ${preset.defaultUrl}`
+      const capabilities = upstreamProtocols
+        .filter((protocol) => preset.protocols.includes(protocol.key))
+        .map(
+          (protocol) =>
+            `${protocol.key} ${t(`channels.capabilities.names.${protocol.key}`)} ${t(`channels.capabilities.groups.${protocol.group}`)}`
+        )
+        .join(' ')
+      return `${name} ${preset.name} ${preset.label} ${preset.provider} ${preset.defaultUrl} ${capabilities}`
         .toLowerCase()
         .includes(query)
     }
@@ -110,6 +131,9 @@ export function UpstreamPresetPicker(props: {
       <Input
         value={search}
         onChange={(event) => setSearch(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.preventDefault()
+        }}
         placeholder={t('channels.create.search')}
         aria-label={t('channels.create.search')}
         disabled={props.disabled}
@@ -127,7 +151,12 @@ export function UpstreamPresetPicker(props: {
               disabled={props.disabled}
               aria-pressed={selected}
               aria-label={t('channels.create.usePreset', {
-                name: preset.label,
+                name,
+              })}
+              aria-description={t('channels.create.presetProtocols', {
+                names: preset.protocols
+                  .map((key) => t(`channels.capabilities.names.${key}`))
+                  .join(' · '),
               })}
               className={cn(
                 'h-auto min-h-16 justify-start gap-3 rounded-xl px-3 py-2.5 whitespace-normal',

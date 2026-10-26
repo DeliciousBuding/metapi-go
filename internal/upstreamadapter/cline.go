@@ -1,19 +1,14 @@
-package proxyhandler
+package upstreamadapter
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 )
 
 // Cline's Chat adapter applies to both default and custom Chat endpoints, not
 // to other API formats that happen to belong to the same provider.
-func buildDirectClineHeaders(headers http.Header) {
-	headers.Set("X-Client-Type", "cline-cli")
-}
-
 func prepareDirectClineRequest(body []byte) ([]byte, error) {
 	obj, err := directClineObject(body)
 	if err != nil {
@@ -90,17 +85,17 @@ func directClineEmptyContent(raw json.RawMessage) bool {
 	return !directClinePresent(part["text"]) || json.Unmarshal(part["text"], &text) == nil && text == ""
 }
 
-func normalizeDirectClineJSON(body []byte, readable bool) ([]byte, error) {
+func NormalizeClineJSON(body []byte, readable bool) ([]byte, error) {
 	if !readable {
 		return nil, fmt.Errorf("unsupported Cline response encoding")
 	}
-	converted, _, err := directClineChatJSON(body, false)
+	converted, _, err := ClineChatJSON(body, false)
 	return converted, err
 }
 
 // RawMessage retains unknown provider fields and number lexemes, including
 // tool arguments, billing metadata and counters beyond float64 precision.
-func directClineChatJSON(body []byte, stream bool) ([]byte, []directClineChoice, error) {
+func ClineChatJSON(body []byte, stream bool) ([]byte, []Choice, error) {
 	obj, err := directClineObject(body)
 	if err != nil {
 		return nil, nil, err
@@ -143,7 +138,7 @@ func directClineChatJSON(body []byte, stream bool) ([]byte, []directClineChoice,
 			return nil, nil, fmt.Errorf("Cline response has invalid usage")
 		}
 	}
-	states := make([]directClineChoice, 0, len(choices))
+	states := make([]Choice, 0, len(choices))
 	seen := make(map[int]bool, len(choices))
 	for i, raw := range choices {
 		choice, err := directClineObject(raw)
@@ -178,7 +173,7 @@ func directClineChatJSON(body []byte, stream bool) ([]byte, []directClineChoice,
 		if err != nil {
 			return nil, nil, err
 		}
-		states = append(states, directClineChoice{index: index, finished: finish != ""})
+		states = append(states, Choice{Index: index, Finished: finish != ""})
 	}
 	obj["choices"], err = json.Marshal(choices)
 	if err != nil {
@@ -328,4 +323,15 @@ func directClineErrorMessage(raw json.RawMessage) string {
 		return strings.Join(messages, "; ")
 	}
 	return "upstream request failed"
+}
+
+// ClineStreamError preserves the provider error contract before the caller
+// decides whether the SSE stream can continue.
+func ClineStreamError(body []byte) error {
+	if obj, err := directClineObject(body); err == nil {
+		if err := directClinePayloadError(obj); err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("Cline stream error")
 }

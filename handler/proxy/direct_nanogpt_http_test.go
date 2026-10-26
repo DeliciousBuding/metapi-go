@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -113,11 +114,11 @@ func TestDirectNanoGPTHTTPFourClientFormats(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					encoded, err = prepareDirectNanoGPTRequest(encoded)
+					encoded, err = prepareAdapterBody("nanogpt", encoded)
 					if err != nil {
 						t.Fatal(err)
 					}
-					tools, err := newDirectNanoGPTTools(encoded)
+					tools, err := upstreamadapter.NewNanoGPTTools(encoded)
 					if err != nil {
 						t.Fatal(err)
 					}

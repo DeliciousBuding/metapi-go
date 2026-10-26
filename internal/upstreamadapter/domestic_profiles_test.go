@@ -1,4 +1,4 @@
-package proxyhandler
+package upstreamadapter
 
 import (
 	"bytes"

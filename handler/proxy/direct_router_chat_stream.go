@@ -2,6 +2,7 @@ package proxyhandler
 
 import (
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"io"
 	"strings"
 )
@@ -50,15 +51,15 @@ func (s *directRouterChatStream) TransformEvent(frame []byte) ([]byte, error) {
 		// marker and clean transport EOF so truncation/errors cannot succeed.
 		return nil, nil
 	}
-	out, choices, err := routerChatJSON([]byte(data), true, normalizeRouterChatMessage)
+	out, choices, err := upstreamadapter.NormalizeRouterChatChunk([]byte(data))
 	if err != nil {
 		return nil, err
 	}
 	for _, choice := range choices {
-		if s.choices[choice.index] {
+		if s.choices[choice.Index] {
 			return nil, fmt.Errorf("router Chat choice continued after finish_reason")
 		}
-		s.choices[choice.index] = choice.finished
+		s.choices[choice.Index] = choice.Finished
 	}
 	return append(append([]byte("data: "), out...), '\n', '\n'), nil
 }

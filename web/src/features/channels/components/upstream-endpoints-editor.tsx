@@ -159,6 +159,16 @@ function EndpointRow(
   const protocol = props.protocol
   const profiles = availableProfiles(protocol.key, props.provider)
   const endpoint = props.value[protocol.key]
+  let endpointUrlLabel = 'channels.upstream.endpointUrl'
+  if (endpoint?.profile === 'bedrock') {
+    endpointUrlLabel = 'channels.upstream.modelPrefixUrl'
+  }
+  if (
+    endpoint?.profile === 'vertex' ||
+    endpoint?.profile === 'vertex-anthropic'
+  ) {
+    endpointUrlLabel = 'channels.upstream.vertexModelPrefixUrl'
+  }
   const optionalAuth =
     endpoint?.profile === 'ollama' || endpoint?.profile === 'ollama-messages'
   function authLabel(value: unknown) {
@@ -249,13 +259,7 @@ function EndpointRow(
             className='block space-y-1.5 text-sm font-medium'
             htmlFor={`${id}-${protocol.key}-url`}
           >
-            <span>
-              {t(
-                endpoint.profile === 'bedrock'
-                  ? 'channels.upstream.modelPrefixUrl'
-                  : 'channels.upstream.endpointUrl'
-              )}
-            </span>
+            <span>{t(endpointUrlLabel)}</span>
             <Input
               id={`${id}-${protocol.key}-url`}
               value={endpoint.url}
@@ -326,6 +330,16 @@ function EndpointRow(
                   disabled={props.disabled || !!protocol.requiredProfile}
                   onValueChange={(value) => {
                     if (value) {
+                      const modelPath = [
+                        'bedrock',
+                        'vertex',
+                        'vertex-anthropic',
+                      ].includes(value)
+                      const previousModelPath = [
+                        'bedrock',
+                        'vertex',
+                        'vertex-anthropic',
+                      ].includes(endpoint.profile ?? '')
                       update({
                         profile:
                           value === 'generic'
@@ -334,9 +348,8 @@ function EndpointRow(
                         ...(value !== 'generic' || endpoint.auth === 'none'
                           ? { auth: 'bearer' }
                           : {}),
-                        ...(value === 'bedrock' ||
-                        endpoint.profile === 'bedrock'
-                          ? { modelPath: value === 'bedrock' || undefined }
+                        ...(modelPath || previousModelPath
+                          ? { modelPath: modelPath || undefined }
                           : {}),
                         ...(value !== 'codex-image'
                           ? { requestModel: undefined }
@@ -439,7 +452,7 @@ function EndpointRow(
             <label className='flex items-center gap-2 text-sm'>
               <Checkbox
                 checked={endpoint.modelPath ?? false}
-                disabled={props.disabled}
+                disabled={props.disabled || endpoint.profile === 'vertex'}
                 onCheckedChange={(checked) =>
                   update({ modelPath: checked === true })
                 }

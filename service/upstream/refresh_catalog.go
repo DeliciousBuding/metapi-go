@@ -98,11 +98,12 @@ type catalogChannelRow struct {
 	EndpointConfig store.DirectEndpoints `db:"endpoint_config"`
 	UseSystemProxy bool                  `db:"proxy"`
 	ChannelProxy   string                `db:"channel_proxy"`
+	CustomHeaders  string                `db:"custom_header"`
 }
 
 func loadCatalogChannel(ctx context.Context, db *sqlx.DB, channelID int64) (*catalogChannelRow, error) {
 	var row catalogChannelRow
-	err := db.GetContext(ctx, &row, db.Rebind(`SELECT id,name,provider,enabled,endpoint_config,proxy,channel_proxy FROM upstream_channels WHERE id=?`), channelID)
+	err := db.GetContext(ctx, &row, db.Rebind(`SELECT id,name,provider,enabled,endpoint_config,proxy,channel_proxy,custom_header FROM upstream_channels WHERE id=?`), channelID)
 	if err != nil {
 		return nil, &Error{Status: 404, Message: "Upstream channel not found"}
 	}
@@ -148,11 +149,9 @@ func loadDiscoveryCredential(ctx context.Context, db *sqlx.DB, channelID int64, 
 	return "", sql.ErrNoRows
 }
 
-// discoverChannelCatalog runs the fallback-free discovery for a stored channel.
+// discoverChannelCatalog discovers a stored channel without preset fallbacks.
 func discoverChannelCatalog(ctx context.Context, db *sqlx.DB, channel *catalogChannelRow, resolve DiscoveryCredentialResolver) ([]string, Discovery, error) {
-	secret := ""
-	_, auth, _ := connectModelsEndpoint(channel.EndpointConfig)
-	if auth != store.DirectAuthNone {
+	credential := func(ctx context.Context) (string, error) {
 		// The token exchange uses the same egress path as the catalog call.
 		proxyURL := channel.ChannelProxy
 		if proxyURL == "" && channel.UseSystemProxy {
@@ -164,16 +163,16 @@ func discoverChannelCatalog(ctx context.Context, db *sqlx.DB, channel *catalogCh
 		if proxyURL != "" {
 			proxyPtr = &proxyURL
 		}
-		var err error
-		secret, err = loadDiscoveryCredential(ctx, db, channel.ID, proxyPtr, resolve)
+		secret, err := loadDiscoveryCredential(ctx, db, channel.ID, proxyPtr, resolve)
 		if err != nil {
 			if errors.Is(err, errDiscoveryExchangeFailed) {
-				return nil, Discovery{}, invalid("Channel credential token exchange failed")
+				return "", invalid("Channel credential token exchange failed")
 			}
-			return nil, Discovery{}, invalid("Channel has no enabled credential for model discovery")
+			return "", invalid("Channel has no enabled credential for model discovery")
 		}
+		return secret, nil
 	}
-	models, discovery, err := discoverUpstreamCatalog(ctx, channel.EndpointConfig, secret, channel.ChannelProxy, channel.UseSystemProxy)
+	models, discovery, err := discoverUpstreamCatalog(ctx, channel.EndpointConfig, credential, channel.ChannelProxy, channel.CustomHeaders, channel.UseSystemProxy)
 	if err != nil {
 		switch err {
 		case errNoCatalogEndpoint:

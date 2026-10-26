@@ -1,6 +1,7 @@
 import type {
   ImportedCredential,
   ImportedCredentialUpdate,
+  ImportedEndpointConfig,
 } from './imported-upstreams'
 import { request } from './transport'
 
@@ -66,15 +67,21 @@ export type UpstreamGroupCreate = {
 }
 export type UpstreamConnectInput = {
   presetId: string
+  /** Explicit non-empty subset of the product preset's endpoint keys. */
+  protocols?: Array<keyof ImportedEndpointConfig>
+  /** Complete custom endpoint configuration; mutually exclusive with protocols. */
+  endpointConfig?: ImportedEndpointConfig
   apiKey?: string
   /** SA JSON key document when the preset uses a GCP service account. */
   gcpServiceAccount?: string
-  /** GCP project ID/number for parameterized presets (Vertex). */
+  /** GCP project for parameterized defaults (Vertex); omitted for custom URLs. */
   projectId?: string
   baseUrl?: string
   name?: string
   useSystemProxy?: boolean
   channelProxy?: string
+  customHeaders?: string
+  paramOverride?: string
 }
 export type UpstreamConnectResult = {
   id: number

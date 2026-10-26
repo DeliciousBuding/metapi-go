@@ -11,8 +11,9 @@ export type UpstreamPreset = {
   defaultUrl: string
   requiresBaseUrl: boolean
   credentialMode: 'apiKey' | 'optional' | 'oauth' | 'gcpServiceAccount'
-  /** Parameterized endpoint templates (Vertex): connect needs projectId. */
+  /** Resolving parameterized endpoint templates (Vertex) needs projectId. */
   requiresProject?: boolean
+  /** Template defaults; custom endpoint configuration may add other protocols. */
   protocols: Array<keyof ImportedEndpointConfig>
   recommendedModels: string[]
 }
@@ -20,4 +21,19 @@ export type UpstreamPreset = {
 export const upstreamPresetsApi = {
   getUpstreamPresets: () =>
     request<{ items: UpstreamPreset[] }>('/api/imported-upstreams/presets'),
+  resolveUpstreamPreset: (
+    input: { presetId: string; baseUrl: string; projectId?: string },
+    signal?: AbortSignal
+  ) =>
+    request<{
+      presetId: string
+      provider: string
+      baseUrl: string
+      endpointConfig: ImportedEndpointConfig
+    }>('/api/imported-upstreams/presets/resolve', {
+      method: 'POST',
+      body: JSON.stringify(input),
+      signal,
+      skipErrorHandler: true,
+    }),
 }

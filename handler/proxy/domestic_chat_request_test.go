@@ -3,6 +3,7 @@ package proxyhandler
 import (
 	"context"
 	"encoding/json"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -23,7 +24,7 @@ func TestDomesticThinkingKeepsExactToolHistory(t *testing.T) {
 			field = `,"reasoning_content":` + reasoning
 		}
 		body := `{"model":"model","messages":[{"role":"assistant","content":null,"tool_calls":[{"id":"call","type":"function","function":{"name":"echo","arguments":"{\"id\":9007199254740993}"}}]` + field + `}],"tools":[{"type":"function","function":{"name":"echo","parameters":{"minimum":9007199254740993}}}],"reasoning_effort":"high"}`
-		out, err := prepareDomesticChatRequest([]byte(body), "deepseek")
+		out, err := upstreamadapter.PrepareDomesticChatRequest([]byte(body), "deepseek")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -36,7 +37,7 @@ func TestDomesticThinkingKeepsExactToolHistory(t *testing.T) {
 		}
 	}
 	for _, profile := range []string{"deepseek", "zai"} {
-		out, err := prepareDomesticChatRequest([]byte(`{"messages":[{"role":"user","content":"hi"}],"thinking":{"type":"disabled","clear_thinking":false},"reasoning_effort":"high"}`), profile)
+		out, err := upstreamadapter.PrepareDomesticChatRequest([]byte(`{"messages":[{"role":"user","content":"hi"}],"thinking":{"type":"disabled","clear_thinking":false},"reasoning_effort":"high"}`), profile)
 		if err != nil {
 			t.Fatal(err)
 		}

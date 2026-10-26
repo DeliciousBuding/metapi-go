@@ -2,25 +2,14 @@ package proxyhandler
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
 
-	"github.com/deliciousbuding/metapi-go/auth"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/store"
-	"github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
-	"github.com/deliciousbuding/metapi-go/transform/ollama"
-	"github.com/deliciousbuding/metapi-go/transform/openai/responses"
 	"github.com/deliciousbuding/metapi-go/transform/relaykitbridge"
-	"github.com/google/uuid"
 )
 
 type directProviderWire struct {
@@ -33,8 +22,10 @@ type directProviderWire struct {
 	Profile         string
 	// ImageResponseFormat is the downstream output choice, never sent upstream.
 	ImageResponseFormat string
-	NanoGPTTools        *directNanoGPTTools
+	NanoGPTTools        *upstreamadapter.NanoGPTTools
 	ProtocolSession     *relaykitbridge.Session
+	removeHeaders       []string
+	removeEmptyHeaders  []string
 }
 type directProviderWireKey struct{}
 
@@ -46,118 +37,33 @@ func directProviderWireFromContext(ctx context.Context) *directProviderWire {
 	return wire
 }
 
-// prepareDirectProviderWire runs after the selected protocol conversion and
-// parameter overrides. The caller must attach the returned context to the
-// attempt and honor ForceStream independently of the downstream stream mode.
-// sessionNamespace scopes client session headers to the downstream key (see
-// downstreamSessionNamespace); an empty namespace preserves legacy passthrough
-// for callers without an auth context.
+// prepareDirectProviderWire adapts the selected storage/credential records to
+// the shared wire owner after protocol conversion and parameter overrides.
+// Credential resolution, endpoint selection and transport stay with the caller.
 func prepareDirectProviderWire(endpoint *store.DirectEndpoint, channelID int64, credential *oauth.DirectCredentialResult, body []byte, downstream http.Header, sessionNamespace string) (*directProviderWire, error) {
-	wire := &directProviderWire{Body: body, Headers: make(http.Header), Query: make(url.Values)}
-	if endpoint == nil || endpoint.Profile == "" {
-		return wire, nil
+	profile := ""
+	input := upstreamadapter.Input{Body: body, Downstream: downstream, ChannelID: channelID, SessionNamespace: sessionNamespace}
+	if endpoint != nil {
+		profile, input.EndpointURL = endpoint.Profile, endpoint.URL
 	}
-	wire.Profile = endpoint.Profile
-	switch endpoint.Profile {
-	case "moonshot", "longcat":
-		var err error
-		wire.Body, err = prepareDirectDomesticProfileRequest(body, endpoint.Profile)
-		if err != nil {
-			return nil, err
-		}
-	case "openrouter", "cerebras":
-		var err error
-		wire.Body, err = prepareDirectRouterChatRequest(body, endpoint.Profile)
-		if err != nil {
-			return nil, err
-		}
-	case "nanogpt":
-		var err error
-		wire.NanoGPTTools, err = newDirectNanoGPTTools(body)
-		if err == nil {
-			wire.Body, err = prepareDirectNanoGPTRequest(body)
-		}
-		if err != nil {
-			return nil, err
-		}
-	case "bailian":
-		var err error
-		wire.Body, err = prepareDirectBailianRequest(body)
-		if err != nil {
-			return nil, err
-		}
-	case "cline":
-		var err error
-		wire.Body, err = prepareDirectClineRequest(body)
-		if err != nil {
-			return nil, err
-		}
-		buildDirectClineHeaders(wire.Headers)
-	case "github-copilot":
-		buildDirectCopilotHeaders(wire.Headers, downstream)
-	case "xai-subscription":
-		buildDirectXAISubscriptionHeaders(wire.Headers)
-	case "ollama":
-		var err error
-		wire.Body, err = ollama.FromChatRequest(body)
-		if err != nil {
-			return nil, err
-		}
-	case "ollama-messages":
-	case "bedrock":
-		var err error
-		wire.Body, err = prepareDirectBedrockRequest(body, downstream)
-		if err != nil {
-			return nil, err
-		}
-		buildDirectBedrockHeaders(wire.Headers)
-	case "vertex-anthropic":
-		var err error
-		wire.Body, err = messages.PrepareVertexRequest(body)
-		if err != nil {
-			return nil, err
-		}
-		// The Anthropic version rides in the body on Vertex; the header is
-		// the client-facing contract and must not leak upstream.
-		wire.Headers["Anthropic-Version"] = nil
-	case "codex-alpha-search":
-		buildDirectCodexHeaders(wire.Headers, downstream, credential, endpoint.URL, sessionNamespace)
-		wire.Headers.Set("Accept", "application/json")
-	case "jina-embeddings":
-		var err error
-		wire.Body, err = prepareJinaEmbeddings(body)
-		if err != nil {
-			return nil, err
-		}
-	case "deepseek", "zai":
-		var err error
-		wire.Body, err = prepareDomesticChatRequest(body, endpoint.Profile)
-		if err != nil {
-			return nil, err
-		}
-	case "codex", "codex-image":
-		var err error
-		wire.Body, err = responses.PrepareCodexRequest(body)
-		if err != nil {
-			return nil, err
-		}
-		wire.ForceStream = true
-		buildDirectCodexHeaders(wire.Headers, downstream, credential, endpoint.URL, sessionNamespace)
-	case "claudecode":
-		cli := strings.HasPrefix(downstream.Get("User-Agent"), "claude-cli/")
-		wire.StripToolPrefix = credential != nil && credential.Kind == store.DirectCredentialOAuth && !cli
-		userID := directClaudeUserID(body, channelID, downstream, sessionNamespace)
-		var err error
-		wire.Body, err = messages.PrepareClaudeCodeRequest(body, userID, wire.StripToolPrefix)
-		if err != nil {
-			return nil, err
-		}
-		buildDirectClaudeHeaders(wire.Headers, downstream, cli, sessionNamespace)
-		wire.Query.Set("beta", "true")
-	default:
+	if credential != nil {
+		input.OAuth = credential.Kind == store.DirectCredentialOAuth
+		input.AccountID = credential.AccountID
+	}
+	adapter, ok := upstreamadapter.Lookup(profile)
+	if !ok {
 		return nil, fmt.Errorf("unsupported direct provider profile")
 	}
-	return wire, nil
+	prepared, err := adapter.Prepare(input)
+	if err != nil {
+		return nil, err
+	}
+	return &directProviderWire{
+		Body: prepared.Body, Headers: prepared.Headers, Query: prepared.Query,
+		ForceStream: prepared.ForceStream, StripToolPrefix: prepared.StripToolPrefix,
+		Profile: profile, NanoGPTTools: prepared.NanoGPTTools,
+		removeHeaders: prepared.RemoveHeaders, removeEmptyHeaders: prepared.RemoveEmptyHeaders,
+	}, nil
 }
 
 // applyDirectProviderHeaders runs after generic request header construction.
@@ -166,14 +72,8 @@ func applyDirectProviderHeaders(req *http.Request, wire *directProviderWire) {
 	if wire == nil {
 		return
 	}
-	if wire.Profile == "codex" || wire.Profile == "codex-image" || wire.Profile == "codex-alpha-search" {
-		req.Header.Del("X-Openai-Internal-Codex-Responses-Lite")
-		req.Header.Del("Session_id")
-	}
-	if wire.Profile == "xai-subscription" {
-		for _, name := range []string{"X-Xai-Token-Auth", "X-Grok-Client-Version", "X-Grok-Client-Identifier", "User-Agent"} {
-			req.Header.Del(name)
-		}
+	for _, name := range wire.removeHeaders {
+		req.Header.Del(name)
 	}
 	for name, values := range wire.Headers {
 		req.Header[name] = append([]string(nil), values...)
@@ -183,242 +83,18 @@ func applyDirectProviderHeaders(req *http.Request, wire *directProviderWire) {
 		query[name] = append([]string(nil), values...)
 	}
 	req.URL.RawQuery = query.Encode()
-	if (wire.Profile == "codex" || wire.Profile == "codex-image" || wire.Profile == "codex-alpha-search") && wire.Headers.Get("Chatgpt-Account-Id") == "" {
-		req.Header.Del("Chatgpt-Account-Id")
+	for _, name := range wire.removeEmptyHeaders {
+		if wire.Headers.Get(name) == "" {
+			req.Header.Del(name)
+		}
 	}
 }
 
 func restoreDirectProviderResponse(ctx context.Context, body []byte) []byte {
-	if wire := directProviderWireFromContext(ctx); wire != nil && wire.Profile == "claudecode" {
-		return messages.RestoreClaudeCodeTools(body, wire.StripToolPrefix)
+	if wire := directProviderWireFromContext(ctx); wire != nil {
+		if adapter, ok := upstreamadapter.Lookup(wire.Profile); ok {
+			return adapter.RestoreResponse(body, wire.StripToolPrefix)
+		}
 	}
 	return body
-}
-
-func buildDirectCodexHeaders(headers, downstream http.Header, credential *oauth.DirectCredentialResult, endpoint string, sessionNamespace string) {
-	for _, name := range []string{"User-Agent", "Originator", "X-Codex-Turn-Metadata", "X-Codex-Turn-State", "X-Codex-Window-Id", "X-Client-Request-Id", "X-Codex-Beta-Features", "Thread-Id"} {
-		if value := downstream.Get(name); value != "" {
-			headers.Set(name, value)
-		}
-	}
-	if headers.Get("Originator") == "" {
-		headers.Set("Originator", "codex_cli_rs")
-	}
-	accountID := ""
-	if credential != nil {
-		accountID = credential.AccountID
-	}
-	if accountID != "" {
-		headers.Set("Chatgpt-Account-Id", accountID)
-	}
-	sessionID := strings.TrimSpace(downstream.Get("Session-Id"))
-	if sessionID == "" {
-		sessionID = strings.TrimSpace(downstream.Get("Session_id"))
-	}
-	if sessionID == "" {
-		var metadata struct {
-			SessionID string `json:"session_id"`
-		}
-		_ = json.Unmarshal([]byte(headers.Get("X-Codex-Turn-Metadata")), &metadata)
-		sessionID = strings.TrimSpace(metadata.SessionID)
-	}
-	if sessionID == "" {
-		sessionID = uuid.NewString()
-	}
-	// Namespace the session identity per downstream key: shared OAuth upstream
-	// accounts must not let one key resume another key's session (audit L28).
-	rawSessionID := sessionID
-	sessionID = namespaceSessionID(sessionNamespace, sessionID)
-	headers.Set("Session-Id", sessionID)
-	headers.Set("Conversation_id", sessionID)
-	namespaceCodexSessionHeaders(headers, rawSessionID, sessionID)
-	defaults := map[string]string{"Thread-Id": sessionID, "X-Codex-Window-Id": sessionID + ":0", "X-Client-Request-Id": uuid.NewString(), "X-Codex-Beta-Features": "remote_compaction_v2", "Version": "0.159.0"}
-	for name, value := range defaults {
-		if headers.Get(name) == "" {
-			headers.Set(name, value)
-		}
-	}
-	if headers.Get("X-Codex-Turn-Metadata") == "" {
-		installation := ""
-		if accountID != "" {
-			installation = uuid.NewSHA1(uuid.NameSpaceOID, []byte(accountID)).String()
-		}
-		metadata, _ := json.Marshal(map[string]any{"installation_id": installation, "session_id": sessionID, "thread_id": sessionID, "turn_id": uuid.NewString(), "window_id": sessionID + ":0", "request_kind": "turn", "thread_source": "user", "sandbox": "none", "turn_started_at_unix_ms": time.Now().UnixMilli()})
-		headers.Set("X-Codex-Turn-Metadata", string(metadata))
-	}
-	parsed, _ := url.Parse(endpoint)
-	if parsed != nil && (parsed.Hostname() == "chatgpt.com" || strings.HasSuffix(parsed.Hostname(), ".chatgpt.com")) && strings.EqualFold(downstream.Get("X-Openai-Internal-Codex-Responses-Lite"), "true") {
-		headers.Set("X-Openai-Internal-Codex-Responses-Lite", "true")
-	}
-	headers.Set("Accept", "text/event-stream")
-}
-
-const directClaudeBetas = "claude-code-20250219,context-1m-2025-08-07,interleaved-thinking-2025-05-14,redact-thinking-2026-02-12,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,effort-2025-11-24"
-
-func buildDirectClaudeHeaders(headers, downstream http.Header, cli bool, sessionNamespace string) {
-	defaults := map[string]string{"Anthropic-Beta": directClaudeBetas, "Anthropic-Version": "2023-06-01", "Anthropic-Dangerous-Direct-Browser-Access": "true", "X-App": "cli", "X-Stainless-Helper-Method": "stream", "X-Stainless-Retry-Count": "0", "X-Stainless-Runtime-Version": "v24.3.0", "X-Stainless-Package-Version": "0.94.0", "X-Stainless-Runtime": "node", "X-Stainless-Lang": "js", "X-Stainless-Arch": "arm64", "X-Stainless-Os": "MacOS", "X-Stainless-Timeout": "600"}
-	for name, value := range defaults {
-		if incoming := downstream.Get(name); incoming != "" && name != "Anthropic-Beta" {
-			value = incoming
-		}
-		headers.Set(name, value)
-	}
-	seen := map[string]bool{}
-	betas := []string{}
-	for _, raw := range []string{directClaudeBetas, downstream.Get("Anthropic-Beta")} {
-		for _, beta := range strings.Split(raw, ",") {
-			beta = strings.TrimSpace(beta)
-			if beta != "" && !seen[beta] {
-				betas = append(betas, beta)
-				seen[beta] = true
-			}
-		}
-	}
-	headers.Set("Anthropic-Beta", strings.Join(betas, ","))
-	if session := strings.TrimSpace(downstream.Get("X-Claude-Code-Session-Id")); session != "" {
-		headers.Set("X-Claude-Code-Session-Id", namespaceSessionID(sessionNamespace, session))
-	}
-	ua := "claude-cli/2.1.170 (external, cli)"
-	if cli {
-		ua = downstream.Get("User-Agent")
-	}
-	headers.Set("User-Agent", ua)
-}
-
-func buildDirectCopilotHeaders(headers, downstream http.Header) {
-	defaults := map[string]string{
-		"Editor-Version":                      "vscode/1.95.0",
-		"Editor-Plugin-Version":               "copilot-chat/0.26.7",
-		"User-Agent":                          "GitHubCopilotChat/0.26.7",
-		"Copilot-Integration-Id":              "vscode-chat",
-		"Openai-Intent":                       "conversation-edits",
-		"X-GitHub-Api-Version":                "2025-04-01",
-		"X-Vscode-User-Agent-Library-Version": "electron-fetch",
-		"X-Initiator":                         "user",
-	}
-	for name, value := range defaults {
-		if incoming := downstream.Get(name); incoming != "" {
-			value = incoming
-		}
-		headers.Set(name, value)
-	}
-	if initiator := strings.ToLower(strings.TrimSpace(headers.Get("X-Initiator"))); initiator != "user" && initiator != "agent" {
-		headers.Set("X-Initiator", "user")
-	}
-}
-
-func buildDirectXAISubscriptionHeaders(headers http.Header) {
-	headers.Set("X-Xai-Token-Auth", "xai-grok-cli")
-	headers.Set("X-Grok-Client-Version", "0.2.114")
-	headers.Set("X-Grok-Client-Identifier", "grok-shell")
-	headers.Set("User-Agent", "xai-grok-workspace/0.2.114")
-}
-
-var directClaudeLegacyUserID = regexp.MustCompile(`^user_[a-fA-F0-9]{64}_account__session_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
-
-func directClaudeUserID(body []byte, channelID int64, headers http.Header, sessionNamespace string) string {
-	var payload struct {
-		Metadata struct {
-			UserID string `json:"user_id"`
-		} `json:"metadata"`
-	}
-	_ = json.Unmarshal(body, &payload)
-	existing := payload.Metadata.UserID
-	var parsed struct {
-		SessionID string `json:"session_id"`
-	}
-	if (json.Unmarshal([]byte(existing), &parsed) == nil && parsed.SessionID != "") || directClaudeLegacyUserID.MatchString(existing) {
-		return existing
-	}
-	identity := fmt.Sprint(channelID)
-	digest := sha256.Sum256([]byte(identity))
-	session := strings.TrimSpace(headers.Get("X-Claude-Code-Session-Id"))
-	if session == "" {
-		session = strings.TrimSpace(headers.Get("Session-Id"))
-	}
-	if session == "" {
-		session = uuid.NewString()
-	}
-	session = namespaceSessionID(sessionNamespace, session)
-	data, _ := json.Marshal(map[string]string{"device_id": hex.EncodeToString(digest[:]), "account_uuid": uuid.NewSHA1(uuid.NameSpaceURL, []byte(identity)).String(), "session_id": session})
-	return string(data)
-}
-
-// namespaceCodexSessionHeaders rewrites session-derived headers that were
-// copied from the client before the namespaced Session-Id replaced them. It
-// only touches values that still carry the raw client session id, so
-// independent thread/window values pass through unchanged.
-func namespaceCodexSessionHeaders(headers http.Header, rawSession, namespacedSession string) {
-	if rawSession == "" || rawSession == namespacedSession {
-		return
-	}
-	if headers.Get("Thread-Id") == rawSession {
-		headers.Set("Thread-Id", namespacedSession)
-	}
-	if window := headers.Get("X-Codex-Window-Id"); window == rawSession || strings.HasPrefix(window, rawSession+":") {
-		headers.Set("X-Codex-Window-Id", namespacedSession+strings.TrimPrefix(window, rawSession))
-	}
-	rawMetadata := headers.Get("X-Codex-Turn-Metadata")
-	if rawMetadata == "" {
-		return
-	}
-	var metadata map[string]any
-	if err := json.Unmarshal([]byte(rawMetadata), &metadata); err != nil {
-		return
-	}
-	changed := false
-	for _, key := range []string{"session_id", "thread_id"} {
-		if value, ok := metadata[key].(string); ok && value == rawSession {
-			metadata[key] = namespacedSession
-			changed = true
-		}
-	}
-	if value, ok := metadata["window_id"].(string); ok && (value == rawSession || strings.HasPrefix(value, rawSession+":")) {
-		metadata["window_id"] = namespacedSession + strings.TrimPrefix(value, rawSession)
-		changed = true
-	}
-	if !changed {
-		return
-	}
-	if encoded, err := json.Marshal(metadata); err == nil {
-		headers.Set("X-Codex-Turn-Metadata", string(encoded))
-	}
-}
-
-// downstreamSessionNamespace derives a stable, non-reversible namespace from
-// the authenticated downstream key. The raw key/id never appears in the value;
-// different keys never share a namespace, so identical client session ids map
-// to different upstream session ids (audit L28). Empty when no auth context is
-// available (unit callers that exercise wire construction directly).
-func downstreamSessionNamespace(pac *auth.ProxyAuthContext) string {
-	if pac == nil {
-		return ""
-	}
-	identity := ""
-	if pac.KeyID != nil {
-		identity = "key:" + strconv.FormatInt(*pac.KeyID, 10)
-	} else if token := strings.TrimSpace(pac.Token); token != "" {
-		identity = "token:" + token
-	}
-	if identity == "" {
-		return ""
-	}
-	digest := sha256.Sum256([]byte("metapi-downstream-namespace\x00" + identity))
-	return hex.EncodeToString(digest[:16])
-}
-
-// namespaceSessionID maps a client-supplied session id into the downstream
-// key's namespace. The result is UUID-shaped so upstream headers that expect a
-// UUID keep their format and length. Empty namespace/session values pass
-// through unchanged for callers without authentication context.
-func namespaceSessionID(sessionNamespace, session string) string {
-	session = strings.TrimSpace(session)
-	if sessionNamespace == "" || session == "" {
-		return session
-	}
-	digest := sha256.Sum256([]byte("metapi-downstream-session\x00" + sessionNamespace + "\x00" + session))
-	raw := digest[:16]
-	raw[6] = (raw[6] & 0x0f) | 0x50
-	raw[8] = (raw[8] & 0x3f) | 0x80
-	return fmt.Sprintf("%x-%x-%x-%x-%x", raw[0:4], raw[4:6], raw[6:8], raw[8:10], raw[10:16])
 }

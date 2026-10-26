@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"io"
 	"log/slog"
 	"net"
@@ -567,7 +568,7 @@ func dispatchSelectedUpstream(
 		upstreamPlatform := selected.Site.Platform
 		attemptBody, sanitizeErr := sanitizeUpstreamJSONBody(candidateBody, upstreamPlatform, path, upstreamModel)
 		if sanitizeErr == nil {
-			attemptBody, sanitizeErr = prepareDomesticChatRequest(attemptBody, nativeChatRequestProfile(selected.Site, path))
+			attemptBody, sanitizeErr = upstreamadapter.PrepareDomesticChatRequest(attemptBody, nativeChatRequestProfile(selected.Site, path))
 		}
 		if sanitizeErr != nil {
 			// Clear client-facing continuity error.
@@ -1179,9 +1180,9 @@ func dispatchEndpointAttemptWithContinue(
 				convertErr = fmt.Errorf("expected a JSON response")
 			}
 		} else if wire.Profile == "cline" {
-			converted, convertErr = normalizeDirectClineJSON(respBody, body.readable)
+			converted, convertErr = upstreamadapter.NormalizeClineJSON(respBody, body.readable)
 		} else if wire.Profile == "openrouter" || wire.Profile == "cerebras" {
-			converted, convertErr = normalizeDirectRouterChatJSON(respBody, body.readable)
+			converted, convertErr = upstreamadapter.NormalizeRouterChatJSON(respBody, body.readable)
 		} else if wire.Profile == "nanogpt" {
 			if !body.readable {
 				convertErr = fmt.Errorf("expected a readable NanoGPT JSON response")

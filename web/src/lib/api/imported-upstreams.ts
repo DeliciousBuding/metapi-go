@@ -7,6 +7,8 @@ export type ImportedEndpoint = {
   profile?:
     | 'codex'
     | 'claudecode'
+    | 'xai-subscription'
+    | 'github-copilot'
     | 'deepseek'
     | 'zai'
     | 'bailian'
@@ -25,6 +27,8 @@ export type ImportedEndpoint = {
     | 'ollama'
     | 'ollama-messages'
     | 'bedrock'
+    | 'vertex'
+    | 'vertex-anthropic'
     | 'seedance-video'
     | 'zenmux-video'
     | 'codex-alpha-search'

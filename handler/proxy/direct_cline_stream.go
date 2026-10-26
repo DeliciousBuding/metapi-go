@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"io"
 	"mime"
 	"net/http"
@@ -17,7 +18,7 @@ var errDirectClineIdleTimeout = errors.New("Cline stream idle timeout")
 
 // Normalize before shared Chat accounting and any downstream protocol bridge.
 // No body read occurs until the caller reads resp.Body. Buffered responses are
-// handled by normalizeDirectClineJSON after the shared bounded decode step.
+// handled by upstreamadapter.NormalizeClineJSON after the shared bounded decode step.
 func normalizeDirectClineResponse(ctx context.Context, resp *http.Response, stream bool) error {
 	if resp == nil || resp.Body == nil {
 		return fmt.Errorf("Cline response has no body")
@@ -98,11 +99,6 @@ func (b *directClineBody) Close() error {
 	return b.idle.Close()
 }
 
-type directClineChoice struct {
-	index    int
-	finished bool
-}
-
 type directClineStream struct {
 	choices map[int]bool
 	done    bool
@@ -121,12 +117,7 @@ func (s *directClineStream) TransformEvent(frame []byte) ([]byte, error) {
 		return frame, nil
 	}
 	if event.Event == "error" {
-		if obj, err := directClineObject([]byte(event.Data)); err == nil {
-			if err := directClinePayloadError(obj); err != nil {
-				return nil, err
-			}
-		}
-		return nil, fmt.Errorf("Cline stream error")
+		return nil, upstreamadapter.ClineStreamError([]byte(event.Data))
 	}
 	data := strings.TrimSpace(event.Data)
 	if s.done {
@@ -146,15 +137,15 @@ func (s *directClineStream) TransformEvent(frame []byte) ([]byte, error) {
 		// limit cannot be hidden behind an already-emitted success marker.
 		return nil, nil
 	}
-	converted, choices, err := directClineChatJSON([]byte(data), true)
+	converted, choices, err := upstreamadapter.ClineChatJSON([]byte(data), true)
 	if err != nil {
 		return nil, err
 	}
 	for _, choice := range choices {
-		if s.choices[choice.index] {
+		if s.choices[choice.Index] {
 			return nil, fmt.Errorf("Cline stream choice continued after finish_reason")
 		}
-		s.choices[choice.index] = choice.finished
+		s.choices[choice.Index] = choice.Finished
 	}
 	return append(append([]byte("data: "), converted...), '\n', '\n'), nil
 }

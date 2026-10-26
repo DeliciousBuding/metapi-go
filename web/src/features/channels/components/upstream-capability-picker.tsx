@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react'
+import type { ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -8,34 +9,52 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { formLabelIdFor } from '@/components/ui/form'
+import { cn } from '@/lib/utils'
 
 import {
   upstreamProtocolGroups,
   upstreamProtocols,
 } from '../lib/upstream-config'
 
-export function UpstreamCapabilityPicker(props: {
+type CapabilityPickerProps = Omit<ComponentProps<'div'>, 'onChange'> & {
   value: number[]
   available: number[]
   onChange: (value: number[]) => void
   disabled?: boolean
   minSelected?: number
   unavailableLabel?: string
-}) {
+}
+
+export function UpstreamCapabilityPicker({
+  value,
+  available,
+  onChange,
+  disabled,
+  minSelected = 0,
+  unavailableLabel,
+  ...props
+}: CapabilityPickerProps) {
   const { t } = useTranslation()
   const visible = upstreamProtocols.filter(
-    (p) => props.available.includes(p.bit) || props.value.includes(p.bit)
+    (p) => available.includes(p.bit) || value.includes(p.bit)
   )
   const firstGroup =
-    visible.find((p) => props.value.includes(p.bit))?.group ?? visible[0]?.group
+    visible.find((p) => value.includes(p.bit))?.group ?? visible[0]?.group
   return (
-    <div className='space-y-2'>
+    <div
+      {...props}
+      role='group'
+      aria-labelledby={
+        props['aria-labelledby'] ??
+        (props.id ? formLabelIdFor(props.id) : undefined)
+      }
+      className={cn('space-y-2', props.className)}
+    >
       {upstreamProtocolGroups.map((group) => {
         const protocols = visible.filter((p) => p.group === group)
         if (!protocols.length) return null
-        const count = protocols.filter((p) =>
-          props.value.includes(p.bit)
-        ).length
+        const count = protocols.filter((p) => value.includes(p.bit)).length
         return (
           <Collapsible
             key={group}
@@ -65,24 +84,24 @@ export function UpstreamCapabilityPicker(props: {
                     className='flex items-center gap-2 rounded-full border px-3 py-2 text-sm'
                   >
                     <Checkbox
-                      checked={props.value.includes(protocol.bit)}
+                      checked={value.includes(protocol.bit)}
                       disabled={
-                        props.disabled ||
-                        (props.value.includes(protocol.bit) &&
-                          props.value.length <= (props.minSelected ?? 0))
+                        disabled ||
+                        (value.includes(protocol.bit) &&
+                          value.length <= minSelected)
                       }
                       onCheckedChange={(checked) =>
-                        props.onChange(
+                        onChange(
                           checked
-                            ? [...props.value, protocol.bit]
-                            : props.value.filter((bit) => bit !== protocol.bit)
+                            ? [...value, protocol.bit]
+                            : value.filter((bit) => bit !== protocol.bit)
                         )
                       }
                     />
                     {t(`channels.capabilities.names.${protocol.key}`)}{' '}
-                    {!props.available.includes(protocol.bit) && (
+                    {!available.includes(protocol.bit) && (
                       <span className='text-warning-soft-fg'>
-                        {props.unavailableLabel ??
+                        {unavailableLabel ??
                           t('channels.capabilities.notConfigured')}
                       </span>
                     )}
