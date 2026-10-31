@@ -1,22 +1,25 @@
-// Package golden is a test-only snapshot harness for the protocol-conversion
-// golden suites. It is imported exclusively from _test.go files, so it
-// never becomes part of the production dependency graph.
+// Package golden is the single test-only snapshot harness. It is imported
+// exclusively from _test.go files, so it never becomes part of the production
+// dependency graph.
 //
-// Each golden case is a pair of checked-in files under the owning package's
-// testdata/golden/<category>/ directory:
+// Most suites use the testdata/golden/<category>/ convention:
 //
 //	<name>.input.json   fixture input (hand-written, never auto-rewritten)
 //	<name>.golden.json  recorded output snapshot
 //
+// Packages that keep their own on-disk layout (for example routing's flat
+// testdata/*.txt files) call CheckBytesAt with an explicit path instead.
+//
 // By default tests compare current behavior against the checked-in snapshot.
 // Setting GOLDEN_UPDATE=1 rewrites the snapshot files from current behavior:
 //
-//	GOLDEN_UPDATE=1 go test ./transform/... ./handler/proxy/...
+//	GOLDEN_UPDATE=1 go test ./transform/... ./handler/proxy/... ./routing -count=1
 //
 // Regenerate only after deliberately reviewing the resulting diff.
 package golden
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -85,7 +88,16 @@ func Check(t *testing.T, category, name string, got any) {
 // pass-through transforms and raw SSE fixtures.
 func CheckBytes(t *testing.T, category, name, ext string, got []byte) {
 	t.Helper()
-	path := goldenPath(category, name, ext)
+	CheckBytesAt(t, goldenPath(category, name, ext), got)
+}
+
+// CheckBytesAt compares raw bytes against the snapshot file at path, rewriting
+// it when GOLDEN_UPDATE=1. path is relative to the test binary's working
+// directory (the package directory), matching the convention above. It exists
+// so packages with a different on-disk layout reuse the same comparison,
+// update switch and empty-snapshot guard instead of hand-rolling their own.
+func CheckBytesAt(t *testing.T, path string, got []byte) {
+	t.Helper()
 	if Updating() {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatalf("create golden dir: %v", err)
@@ -100,10 +112,19 @@ func CheckBytes(t *testing.T, category, name, ext string, got []byte) {
 	if err != nil {
 		t.Fatalf("golden snapshot missing (%v); regenerate with %s=1 go test ./%s", err, UpdateEnv, packageDir(t))
 	}
-	if string(want) != string(got) {
+	if len(bytes.TrimSpace(want)) == 0 {
+		t.Fatalf("golden snapshot %s is empty; refusing a vacuous pass (regenerate with %s=1 go test ./%s)", path, UpdateEnv, packageDir(t))
+	}
+	// .gitattributes normalizes tracked text to LF, but a mis-configured
+	// checkout must not fail on line-ending conversion alone.
+	if !bytes.Equal(normalizeNewlines(want), normalizeNewlines(got)) {
 		t.Fatalf("behavior drifted from golden snapshot %s;\n--- want ---\n%s\n--- got ---\n%s\nif the change is intentional, regenerate with %s=1 go test",
 			path, truncate(want), truncate(got), UpdateEnv)
 	}
+}
+
+func normalizeNewlines(b []byte) []byte {
+	return bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
 }
 
 func packageDir(t *testing.T) string {

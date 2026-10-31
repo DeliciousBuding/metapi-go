@@ -1,6 +1,6 @@
 # Testing Strategy and Real-Platform Testbed
 
-**Last verified**: 2026-10-19
+**Last verified**: 2026-10-31
 
 > Public, environment-agnostic test guidance. The version narrative lives in `CHANGELOG.md`; open outcomes are tracked as GitHub issues.
 
@@ -292,15 +292,21 @@ Run the suite like any other test (it is part of `go test ./...` and therefore
 part of CI):
 
 ```bash
-go test ./transform/... ./handler/proxy/... -count=1
+go test ./transform/... ./handler/proxy/... ./routing -count=1
 ```
 
 To regenerate snapshots after an intentional behavior change, set
 `GOLDEN_UPDATE=1`:
 
 ```bash
-GOLDEN_UPDATE=1 go test ./transform/... ./handler/proxy/... -count=1
+GOLDEN_UPDATE=1 go test ./transform/... ./handler/proxy/... ./routing -count=1
 ```
+
+`routing` keeps flat `testdata/*.txt` snapshots instead of the
+`testdata/golden/<category>/` tree, but it shares the same harness
+(`internal/golden`), the same `GOLDEN_UPDATE` switch and the same
+empty-snapshot guard, so there is one comparison and one set of harness
+self-tests for the whole repository.
 
 Regeneration discipline:
 
@@ -309,6 +315,36 @@ Regeneration discipline:
 - Never regenerate to silence a failure you cannot explain.
 - Fixture (`*.input.*`) files are data, not generated output: edit them by
   hand to add coverage.
+
+## Native fuzz targets (protocol conversion and channel selection)
+
+Go's built-in fuzzing pins the invariants that the hand-written fixtures sample
+instead of enumerate. The seed corpus is the same checked-in fixtures, so the
+targets also run as ordinary deterministic tests inside `go test ./...`; the
+`-fuzz` form explores new inputs for a fixed budget.
+
+| Target | Package | Invariant |
+| :--- | :--- | :--- |
+| `FuzzConvertRequest` / `FuzzConvertResponse` | `transform/relaykitbridge` | conversion never panics; a native (same-format) body keeps its exact bytes; a cross-protocol body is valid JSON and never carries RelayKit's internal billing metadata; one input converts deterministically; a failed conversion emits no bytes |
+| `FuzzResponseStream` | `transform/relaykitbridge` | arbitrary frames never panic; a stream failure emits no bytes and a second `Finish` is always byte-empty |
+| `FuzzParseUsageFromBody` | `handler/proxy` | arbitrary bodies never panic and parse deterministically |
+| `FuzzSseChunkBoundaryIndependence` | `handler/proxy` | parsed usage/finish/error state is independent of how the same bytes are chopped into chunks (below the pending-event cap) |
+| `FuzzWeightedSelectionDistribution` | `routing` | the weighted algorithm returns a valid probability distribution and always selects a pool member |
+| `FuzzRoundRobinPermutation` | `routing` | round-robin ordering is a permutation of the input |
+| `FuzzLeastBusyCandidateIsMember` | `routing` | least-busy selection returns a pool member, or nil only for an empty pool |
+
+```bash
+go test ./transform/relaykitbridge -run '^$' -fuzz FuzzConvertRequest -fuzztime=60s
+go test ./handler/proxy -run '^$' -fuzz FuzzSseChunkBoundaryIndependence -fuzztime=60s
+go test ./routing -run '^$' -fuzz FuzzWeightedSelectionDistribution -fuzztime=60s
+```
+
+A `-fuzz` run that finds a counterexample writes it to
+`testdata/fuzz/<FuzzName>/` and fails; commit that file as the regression seed
+after fixing the cause. Fuzzing does not replace the golden snapshots (exact
+bytes) or the real-platform chains (real behavior); it broadens the input space
+those layers assume.
+
 ## Public testbed assets
 
 - [`../testbed/compose.template.yml`](../testbed/compose.template.yml): sanitized loopback-only service template for Metapi, New API, One API, and optional adapter targets.
