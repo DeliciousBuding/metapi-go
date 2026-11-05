@@ -3,7 +3,6 @@ package proxyhandler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -111,7 +110,7 @@ func TestDirectRequestOperationsRespectRealUserBudgetAdmission(t *testing.T) {
 				t.Fatalf("budget not settled: %+v %v", budget, err)
 			}
 			if tc.status != 200 && budget.Used != 0 {
-				t.Fatal(fmt.Sprintf("refused zero-dispatch request billed %+v", budget))
+				t.Fatalf("refused zero-dispatch request billed %+v", budget)
 			}
 		})
 	}
