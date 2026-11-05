@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-type Protocol = 'chat' | 'responses' | 'messages'
+export type CredentialVerifyProtocol = 'chat' | 'responses' | 'messages'
+type Protocol = CredentialVerifyProtocol
 
 type StepState<TOk, TErr> =
   | { phase: 'idle' }
@@ -194,33 +195,48 @@ export function CredentialVerifySection({
   keyId,
   apiBase,
   apiKey,
+  contextId,
+  model: selectedModel,
+  protocol,
+  onModelChange,
+  onProtocolChange,
 }: {
   keyId: number
   /** Gateway base including the /v1 suffix (same value the profiles show). */
   apiBase: string
   /** Plain key, available after the master-token unlock. */
   apiKey: string
+  /** Client identity also invalidates results when two clients use one protocol. */
+  contextId: string
+  model: string
+  protocol: Protocol
+  onModelChange: (model: string) => void
+  onProtocolChange: (protocol: Protocol) => void
 }) {
   const { t } = useTranslation()
   const [modelsState, setModelsState] = useState<ModelsState>({ phase: 'idle' })
   const [verificationState, setVerificationState] = useState<VerificationState>(
     { phase: 'idle' }
   )
-  const [protocol, setProtocol] = useState<Protocol>('chat')
-  const [selectedModel, setSelectedModel] = useState('')
   const request = useRef<AbortController | null>(null)
   const protocolLabelId = useId()
   const busy =
     modelsState.phase === 'loading' || verificationState.phase === 'loading'
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    setVerificationState({ phase: 'idle' })
+    setModelsState((current) =>
+      current.phase === 'loading' ? { phase: 'idle' } : current
+    )
+    const controller = request.current
+    request.current = null
+    controller?.abort()
+    return () => {
       const controller = request.current
       request.current = null
       controller?.abort()
-    },
-    []
-  )
+    }
+  }, [apiBase, apiKey, contextId, keyId, protocol, selectedModel])
 
   async function runModelsCheck() {
     if (request.current) return
@@ -241,6 +257,7 @@ export function CredentialVerifySection({
             phase: 'fail',
             message,
           })
+        if (request.current === controller) onModelChange('')
         return
       }
       const body = modelsResponseSchema.safeParse(
@@ -252,12 +269,15 @@ export function CredentialVerifySection({
           phase: 'fail',
           message: `HTTP ${res.status}: ${t('connect.verify.invalidModelsResponse')}`,
         })
+        onModelChange('')
         return
       }
       const models = body.data.data.map((entry) => entry.id)
       setModelsState({ phase: 'ok', models })
-      setSelectedModel((current) =>
-        current && models.includes(current) ? current : (models[0] ?? '')
+      onModelChange(
+        selectedModel && models.includes(selectedModel)
+          ? selectedModel
+          : (models[0] ?? '')
       )
     } catch (error) {
       if (request.current !== controller) return
@@ -265,9 +285,12 @@ export function CredentialVerifySection({
         phase: 'fail',
         message: classifyFetchError(error, t('connect.verify.timeout')).message,
       })
+      onModelChange('')
     } finally {
       clearTimeout(timer)
-      if (request.current === controller) request.current = null
+      if (request.current === controller) {
+        request.current = null
+      }
     }
   }
 
@@ -326,7 +349,9 @@ export function CredentialVerifySection({
       })
     } finally {
       clearTimeout(timer)
-      if (request.current === controller) request.current = null
+      if (request.current === controller) {
+        request.current = null
+      }
     }
   }
 
@@ -387,11 +412,10 @@ export function CredentialVerifySection({
                 <RadioGroup
                   className='flex flex-wrap gap-x-4 gap-y-2'
                   value={protocol}
-                  disabled={busy}
                   aria-labelledby={protocolLabelId}
                   onValueChange={(value) => {
                     if (!value || value === protocol) return
-                    setProtocol(value as Protocol)
+                    onProtocolChange(value as Protocol)
                     setVerificationState({ phase: 'idle' })
                   }}
                 >
@@ -431,9 +455,8 @@ export function CredentialVerifySection({
                     label: model,
                   }))}
                   value={selectedModel}
-                  disabled={busy}
                   onValueChange={(value) => {
-                    setSelectedModel(value ?? '')
+                    onModelChange(value ?? '')
                     setVerificationState({ phase: 'idle' })
                   }}
                 >

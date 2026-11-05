@@ -34,8 +34,12 @@ import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
 import { type PersonalKey, userPortalApi } from '../api'
+import type { ModelConnectionContext } from '../connection-context'
+import { connectionExample } from '../connection-example'
 import { personalKeyStatus } from '../key-status'
 import { PortalField } from './portal-field'
+
+type CreatedPersonalKey = Awaited<ReturnType<typeof userPortalApi.createKey>>
 
 const keyFormSchema = z.object({
   name: z.string().trim().min(1, 'userPortal.required').max(100),
@@ -64,7 +68,7 @@ function NewKeyForm({
   onCreated,
   onPending,
 }: {
-  onCreated: (key: string) => void
+  onCreated: (created: CreatedPersonalKey) => void
   onPending: (pending: boolean) => void
 }) {
   const { t } = useTranslation()
@@ -95,7 +99,7 @@ function NewKeyForm({
           : {}),
       })
       form.reset()
-      onCreated(created.key)
+      onCreated(created)
     } catch {
       setFailed(true)
     } finally {
@@ -178,12 +182,148 @@ export function CopyValue({ value, label }: { value: string; label: string }) {
   )
 }
 
+function CreatedKeyConnection({
+  userId,
+  context,
+  item,
+}: {
+  userId: number
+  context: ModelConnectionContext
+  item: PersonalKey
+}) {
+  const { t } = useTranslation()
+  // Reuse the catalog from the model page when available. A fresh read is
+  // explicit, and remains separate from a charged protocol request.
+  const query = useQuery({
+    queryKey: ['userPortal', userId, 'models'],
+    queryFn: userPortalApi.models,
+    enabled: false,
+    retry: false,
+  })
+  const model =
+    !query.isError && !query.isFetching
+      ? query.data?.items.find((value) => value.id === context.model)
+      : undefined
+  const protocol = model?.protocols.find(
+    (value) => context.protocol === undefined || context.protocol === value
+  )
+  function renderDetails() {
+    if (query.isFetching)
+      return (
+        <p role='status' className='text-muted-foreground text-sm'>
+          {t('common.loading')}
+        </p>
+      )
+    if (query.isError)
+      return (
+        <Notice tone='destructive' role='alert'>
+          {t('userPortal.loadFailed')}
+        </Notice>
+      )
+    if (!query.data)
+      return (
+        <p className='text-muted-foreground text-sm'>
+          {t('userPortal.connection.loadDetails')}
+        </p>
+      )
+    if (!model)
+      return (
+        <Notice tone='warning'>
+          {t('userPortal.catalog.selectedUnavailable', {
+            model: context.model,
+          })}
+        </Notice>
+      )
+    if (!protocol)
+      return (
+        <Notice tone='warning'>
+          {context.protocol
+            ? t('userPortal.connection.protocolUnavailable', {
+                model: model.id,
+                protocol: context.protocol,
+              })
+            : t('userPortal.catalog.noExample')}
+        </Notice>
+      )
+    const example = connectionExample(
+      window.location.origin,
+      model.id,
+      protocol
+    )
+    return (
+      <>
+        <p className='text-muted-foreground text-sm'>
+          {t('userPortal.catalog.protocol')}: {protocol}
+        </p>
+        <p className='text-muted-foreground text-sm'>
+          {t('userPortal.catalog.environmentKey')}
+        </p>
+        {item.supportedModels.length > 0 &&
+          !item.supportedModels.includes('*') && (
+            <Notice tone='info'>
+              {t('userPortal.connection.keyLimits', {
+                models: item.supportedModels.join(', '),
+              })}
+            </Notice>
+          )}
+        <pre
+          className='bg-muted max-h-72 overflow-auto rounded-lg border p-3 text-xs'
+          tabIndex={0}
+          aria-label={t('userPortal.catalog.example')}
+        >
+          <code>{example}</code>
+        </pre>
+        <CopyValue
+          value={example}
+          label={t('userPortal.catalog.copyExample')}
+        />
+        <p className='text-muted-foreground text-xs'>
+          {t('userPortal.catalog.verifyHint')}
+        </p>
+      </>
+    )
+  }
+  return (
+    <div className='min-w-0 space-y-3 border-t pt-4'>
+      <h3 className='font-medium'>{t('userPortal.catalog.firstCall')}</h3>
+      {context.invalid ? (
+        <Notice tone='warning'>
+          {t('userPortal.connection.invalidContext')}
+        </Notice>
+      ) : (
+        <>
+          <p className='text-sm wrap-anywhere'>
+            {t('userPortal.selectedConnectionModel', { model: context.model })}
+          </p>
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            {query.isFetching && <Spinner />}
+            {t('userPortal.connection.refreshDetails')}
+          </Button>
+          {renderDetails()}
+        </>
+      )}
+    </div>
+  )
+}
+
 function CreatedKey({
   secret,
   onDismiss,
+  connection,
 }: {
   secret: string
   onDismiss: () => void
+  connection?: {
+    userId: number
+    context: ModelConnectionContext
+    item: PersonalKey
+  }
 }) {
   const { t } = useTranslation()
   const [visible, setVisible] = useState(false)
@@ -225,6 +365,7 @@ function CreatedKey({
       <p className='text-muted-foreground text-sm'>
         {t('userPortal.connectHint')}
       </p>
+      {connection && <CreatedKeyConnection {...connection} />}
       <Button onClick={onDismiss}>{t('userPortal.savedKey')}</Button>
     </div>
   )
@@ -333,14 +474,28 @@ function RotateKeyDialog({
   )
 }
 
-export function PortalKeys({ userId }: { userId: number }) {
+type PortalKeysProps = {
+  userId: number
+  connectionContext?: ModelConnectionContext
+}
+
+export function PortalKeys(props: PortalKeysProps) {
+  return (
+    <OpenPortalKeys
+      key={JSON.stringify([props.userId, props.connectionContext])}
+      {...props}
+    />
+  )
+}
+
+function OpenPortalKeys({ userId, connectionContext }: PortalKeysProps) {
   const { t } = useTranslation()
   const client = useQueryClient()
   const queryKey = ['userPortal', userId, 'keys'] as const
   const query = useQuery({ queryKey, queryFn: userPortalApi.keys })
   const remove = useUndoableDelete()
   const [creating, setCreating] = useState(false)
-  const [secret, setSecret] = useState<string | null>(null)
+  const [created, setCreated] = useState<CreatedPersonalKey | null>(null)
   const [rotating, setRotating] = useState<PersonalKey | null>(null)
   const [createPending, setCreatePending] = useState(false)
   const mounted = useRef(true)
@@ -453,34 +608,46 @@ export function PortalKeys({ userId }: { userId: number }) {
         />
       )}
       <Dialog
-        open={creating || secret !== null}
+        open={creating || created !== null}
         onOpenChange={(open) => {
           if (!open && !createPending) {
             setCreating(false)
-            setSecret(null)
+            setCreated(null)
           }
         }}
       >
         <DialogContent showCloseButton={!createPending}>
           <DialogHeader>
             <DialogTitle>
-              {t(secret ? 'userPortal.keyReady' : 'userPortal.createKey')}
+              {t(created ? 'userPortal.keyReady' : 'userPortal.createKey')}
             </DialogTitle>
             <DialogDescription>
-              {t(secret ? 'userPortal.oneTimeKey' : 'userPortal.keyInherits')}
+              {t(created ? 'userPortal.oneTimeKey' : 'userPortal.keyInherits')}
             </DialogDescription>
           </DialogHeader>
-          {secret ? (
-            <CreatedKey secret={secret} onDismiss={() => setSecret(null)} />
+          {created ? (
+            <CreatedKey
+              secret={created.key}
+              onDismiss={() => setCreated(null)}
+              connection={
+                connectionContext?.model || connectionContext?.invalid
+                  ? {
+                      userId,
+                      context: connectionContext,
+                      item: created.item,
+                    }
+                  : undefined
+              }
+            />
           ) : (
             <NewKeyForm
               onPending={(pending) => {
                 if (mounted.current) setCreatePending(pending)
               }}
-              onCreated={(key) => {
+              onCreated={(value) => {
                 if (!mounted.current) return
                 setCreating(false)
-                setSecret(key)
+                setCreated(value)
                 void client.invalidateQueries({ queryKey })
                 void client.invalidateQueries({
                   queryKey: ['userPortal', userId, 'usage'],

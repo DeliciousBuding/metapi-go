@@ -325,6 +325,58 @@ try {
       .getAttribute('type'),
     'password'
   )
+  const createdDialog = page.getByRole('dialog')
+  const createdExample = createdDialog.getByLabel('Request example', {
+    exact: true,
+  })
+  await createdExample.waitFor()
+  assert.equal(await createdExample.textContent(), connectionCommand)
+  assert.ok(!(await createdExample.textContent()).includes(secret))
+  assert.equal(
+    upstreamCalls,
+    0,
+    'connection instructions do not invoke a model'
+  )
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await createdDialog
+    .getByRole('button', { name: 'Copy request example', exact: true })
+    .click()
+  assert.equal(
+    // Windows clipboard transport changes LF to CRLF; the snippet stays equal.
+    (await page.evaluate(() => navigator.clipboard.readText())).replaceAll(
+      '\r\n',
+      '\n'
+    ),
+    connectionCommand
+  )
+  await page.setViewportSize({ width: 375, height: 812 })
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  )
+  assert.equal(
+    await createdDialog
+      .getByText(/This key additionally restricts models/)
+      .count(),
+    0
+  )
+  assert.deepEqual(
+    await page.evaluate(async () =>
+      (
+        await window.axe.run(document.querySelector('[role="dialog"]'))
+      ).violations
+        .filter((v) => ['critical', 'serious'].includes(v.impact))
+        .map((v) => v.id)
+    ),
+    [],
+    'one-time connection dialog accessibility'
+  )
+  await page.screenshot({
+    path: path.join(output, 'created-key-connection-mobile.png'),
+  })
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  pass('one-time Key retains the selected model and safe executable request')
   const storage = await page.evaluate(() =>
     JSON.stringify({
       local: { ...localStorage },
@@ -874,6 +926,151 @@ try {
         })
       )
     ).includes(activationSecret)
+  )
+  const connectionKey = 'sk-fixture-' + randomBytes(24).toString('hex')
+  const systemKey = await admin('/api/downstream-keys', 'POST', {
+    name: 'Browser system client',
+    key: connectionKey,
+    supportedModels: ['personal-model'],
+  })
+  await adminPage.goto(base + '/downstream-keys')
+  await adminPage
+    .getByRole('row')
+    .filter({ hasText: 'Browser system client' })
+    .getByRole('button', { name: 'Connect', exact: true })
+    .click()
+  const connection = adminPage.getByRole('dialog')
+  await connection.getByPlaceholder('Paste the admin token').fill(token)
+  await connection.getByRole('button', { name: 'Unlock', exact: true }).click()
+  const callsBeforeConnect = upstreamCalls
+  await connection
+    .getByRole('button', { name: 'Check available models', exact: true })
+    .click()
+  await connection
+    .getByLabel('Model for the test request', { exact: true })
+    .waitFor()
+  await connection
+    .getByRole('tab', { name: 'Client setup', exact: true })
+    .click()
+  await connection
+    .getByRole('button', { name: 'Update configuration', exact: true })
+    .click()
+  const copies = connection.getByRole('button', { name: 'Copy', exact: true })
+  await adminContext.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await copies.first().click()
+  const codexConfig = await adminPage.evaluate(() =>
+    navigator.clipboard.readText()
+  )
+  assert.ok(codexConfig.includes('model = "personal-model"'))
+  assert.ok(codexConfig.includes('wire_api = "responses"'))
+  assert.ok(!codexConfig.includes(connectionKey))
+  const { stdout: parsedCodex } = await promisify(execFile)(
+    'bun',
+    [
+      '-e',
+      'console.log(JSON.stringify(Bun.TOML.parse(process.argv.at(-1))))',
+      codexConfig,
+    ],
+    { windowsHide: true }
+  )
+  const codex = JSON.parse(parsedCodex)
+  assert.equal(codex.model, 'personal-model')
+  assert.equal(codex.model_provider, 'metapi')
+  assert.equal(codex.model_providers.metapi.base_url, base + '/v1')
+  assert.equal(codex.model_providers.metapi.env_key, 'METAPI_API_KEY')
+  assert.equal(codex.model_providers.metapi.wire_api, 'responses')
+  assert.ok(!(await connection.textContent()).includes(connectionKey))
+  await copies.nth(1).click()
+  const setup = await adminPage.evaluate(() => navigator.clipboard.readText())
+  assert.ok(setup.includes('METAPI_API_KEY') && setup.includes(connectionKey))
+  assert.equal(upstreamCalls, callsBeforeConnect)
+  await connection.getByLabel('Client', { exact: true }).click()
+  await adminPage
+    .getByRole('option', { name: 'OpenAI-compatible env', exact: true })
+    .click()
+  await connection
+    .getByRole('tab', { name: 'Test request', exact: true })
+    .click()
+  assert.equal(
+    await connection
+      .getByRole('radio', { name: 'Chat Completions', exact: true })
+      .isChecked(),
+    true
+  )
+  await connection
+    .getByRole('button', { name: 'Send test request', exact: true })
+    .click()
+  await connection.getByText(/Chat Completions request succeeded in/).waitFor()
+  assert.equal(upstreamCalls, callsBeforeConnect + 1)
+  await connection.getByLabel('Client', { exact: true }).click()
+  await adminPage
+    .getByRole('option', { name: 'Claude Code', exact: true })
+    .click()
+  assert.equal(
+    await connection.getByText(/Chat Completions request succeeded in/).count(),
+    0
+  )
+  assert.equal(upstreamCalls, callsBeforeConnect + 1)
+  await connection
+    .getByRole('tab', { name: 'Client setup', exact: true })
+    .click()
+  await connection.getByRole('button', { name: 'Copy', exact: true }).click()
+  const claudeConfig = JSON.parse(
+    await adminPage.evaluate(() => navigator.clipboard.readText())
+  )
+  assert.equal(claudeConfig.model, 'personal-model')
+  assert.equal(claudeConfig.env.ANTHROPIC_BASE_URL, base)
+  assert.equal(claudeConfig.env.ANTHROPIC_AUTH_TOKEN, connectionKey)
+  assert.ok(!(await connection.textContent()).includes(connectionKey))
+  await connection
+    .getByRole('button', { name: 'Copy endpoint', exact: true })
+    .click()
+  assert.equal(
+    await adminPage.evaluate(() => navigator.clipboard.readText()),
+    base
+  )
+  await adminPage.setViewportSize({ width: 375, height: 812 })
+  assert.ok(
+    await adminPage.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  )
+  await adminPage.evaluate(
+    await readFile(
+      new URL('../node_modules/axe-core/axe.min.js', import.meta.url),
+      'utf8'
+    )
+  )
+  assert.deepEqual(
+    await adminPage.evaluate(async () =>
+      (
+        await window.axe.run(document.querySelector('[role="dialog"]'))
+      ).violations
+        .filter((v) => ['critical', 'serious'].includes(v.impact))
+        .map((v) => v.id)
+    ),
+    [],
+    'administrator connection dialog accessibility'
+  )
+  await adminPage.screenshot({
+    path: path.join(output, 'admin-client-connection-mobile.png'),
+  })
+  await adminPage.keyboard.press('Escape')
+  await connection.waitFor({ state: 'detached' })
+  assert.ok(
+    !(
+      await adminPage.evaluate(() =>
+        JSON.stringify({
+          local: { ...localStorage },
+          session: { ...sessionStorage },
+          url: location.href,
+        })
+      )
+    ).includes(connectionKey)
+  )
+  await admin('/api/downstream-keys/' + systemKey.item.id, 'DELETE')
+  pass(
+    'administrator config and protocol share a model, mask secrets and invalidate prior results'
   )
   await adminContext.close()
   pass(
