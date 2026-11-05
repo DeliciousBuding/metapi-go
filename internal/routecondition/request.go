@@ -44,7 +44,7 @@ func BuildRequest(body []byte, format string, headers http.Header, stream bool, 
 	case "openai/completions":
 		// Completion retains its stream flag but does not populate Messages.
 	case "openai/embeddings", "openai/moderations",
-		"jina/rerank", "jina/embeddings", "gemini/embeddings":
+		"jina/rerank", "jina/embeddings", "gemini/embeddings", "openai/responses_compact":
 		// These source inbound adapters populate dedicated request fields,
 		// not the Messages/Tools used by its conditional prompt estimator.
 		result.Stream = false

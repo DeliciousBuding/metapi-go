@@ -26,10 +26,12 @@ const (
 	DirectProtocolOllama                    = 1 << 21
 	DirectProtocolSystemOne                 = 1 << 22
 	DirectProtocolAlphaSearch               = 1 << 23
+	DirectProtocolResponsesCompact          = 1 << 24
+	DirectProtocolResponsesWebsocket        = 1 << 25
 	DirectStandardGenerationProtocols       = DirectProtocolChat | DirectProtocolResponses | DirectProtocolMessages | DirectProtocolGemini
 	DirectGenerationProtocols               = DirectStandardGenerationProtocols | DirectProtocolOllama
 	DirectVideoProtocols                    = DirectProtocolVideo | DirectProtocolSeedanceVideo | DirectProtocolZenmuxVideo
-	DirectAllProtocols                      = (1 << 24) - 2
+	DirectAllProtocols                      = (1 << 26) - 2
 )
 
 func ValidDirectProtocol(bit int) bool {
@@ -69,6 +71,8 @@ func (e DirectEndpoints) Entries() []DirectEndpointEntry {
 		{"ollama", DirectProtocolOllama, e.Ollama},
 		{"systemOne", DirectProtocolSystemOne, e.SystemOne},
 		{"alphaSearch", DirectProtocolAlphaSearch, e.AlphaSearch},
+		{"responsesCompact", DirectProtocolResponsesCompact, e.ResponsesCompact},
+		{"responsesWebsocket", DirectProtocolResponsesWebsocket, e.ResponsesWebsocket},
 	}
 }
 

@@ -61,7 +61,9 @@ export type ImportedEndpointConfig = Partial<
     | 'zenmuxVideo'
     | 'ollama'
     | 'systemOne'
-    | 'alphaSearch',
+    | 'alphaSearch'
+    | 'responsesCompact'
+    | 'responsesWebsocket',
     ImportedEndpoint
   >
 >

@@ -52,7 +52,11 @@ func axonHubEndpointOrder(ch AxonHubSourceChannel, provider axonHubProviderType)
 		}
 	}
 	for _, ep := range axonHubMergedEndpoints(ch, provider) {
-		add(axonHubServableFormats[ep.APIFormat])
+		bit := axonHubServableFormats[ep.APIFormat]
+		if ep.APIFormat == "openai/responses" && ep.Transport == "websocket" {
+			bit = protoResponsesWebsocket
+		}
+		add(bit)
 	}
 	return out
 }
@@ -86,7 +90,11 @@ func axonHubModelProtocolOrder(ch *axonHubPlanChannel, names ...string) (store.D
 			continue
 		}
 		matchedDeclared = true
-		if bit := axonHubServableFormats[format]; bit != 0 && ch.Protocols&bit != 0 {
+		bit := axonHubServableFormats[format]
+		if format == "openai/responses" && ch.Endpoints.Responses == nil && ch.Endpoints.ResponsesWebsocket != nil {
+			bit = protoResponsesWebsocket
+		}
+		if bit != 0 && ch.Protocols&bit != 0 {
 			out = append(out, bit)
 		}
 	}

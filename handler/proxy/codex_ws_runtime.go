@@ -1,9 +1,11 @@
 package proxyhandler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -35,10 +37,11 @@ const (
 // CodexWebsocketRuntimeError is returned when an upstream Codex wss turn fails.
 // When Events is empty and Status is set, the caller should prefer HTTP bridge fallback.
 type CodexWebsocketRuntimeError struct {
-	Message string
-	Status  int
-	Events  []map[string]any
-	Payload any
+	Message    string
+	Status     int
+	Events     []map[string]any
+	Payload    any
+	Dispatched bool
 }
 
 func (e *CodexWebsocketRuntimeError) Error() string {
@@ -61,11 +64,15 @@ type CodexWebsocketRuntimeResult struct {
 type CodexWebsocketSendInput struct {
 	// ObserveAttempt records each actual socket attempt, including retries and
 	// zero-event dial fallback. It does not decide the downstream turn result.
-	ObserveAttempt func([]map[string]any, error, time.Duration)
-	SessionID      string
-	RequestURL     string
-	Headers        map[string]string
-	Body           map[string]any
+	ObserveAttempt          func([]map[string]any, error, time.Duration)
+	BeforeAttempt           func() error
+	HTTPClient              *http.Client
+	DisablePreviousRecovery bool
+	AllowNativeIncomplete   bool
+	SessionID               string
+	RequestURL              string
+	Headers                 map[string]string
+	Body                    map[string]any
 	// ResinAccount carries the Resin business identity for the native wss
 	// reverse-proxy rewrite. When non-empty (and ResinPlatform is set) and
 	// Resin is enabled, the dial URL is rewritten to
@@ -215,6 +222,7 @@ type codexWSSocketSession struct {
 	conn      *websocket.Conn
 	socketURL string
 	mu        sync.Mutex // serialise turns on one session
+	lastUsed  time.Time
 }
 
 var (
@@ -228,6 +236,9 @@ func getOrCreateCodexWSSocketSession(sessionID string) *codexWSSocketSession {
 	defer codexWSSocketMu.Unlock()
 	if s, ok := codexWSSocketSessions[key]; ok {
 		return s
+	}
+	if len(codexWSSocketSessions) >= codexSessionMaxKeys {
+		return nil
 	}
 	s := &codexWSSocketSession{sessionID: key}
 	codexWSSocketSessions[key] = s
@@ -602,24 +613,36 @@ func SendCodexWebsocketRequest(ctx context.Context, input CodexWebsocketSendInpu
 		return nil, &CodexWebsocketRuntimeError{Message: "missing websocket session id", Status: 400}
 	}
 	session := getOrCreateCodexWSSocketSession(sessionID)
+	if session == nil {
+		return nil, &CodexWebsocketRuntimeError{Message: "websocket session capacity exhausted", Status: 503}
+	}
 	session.mu.Lock()
 	defer session.mu.Unlock()
+	if !session.lastUsed.IsZero() && time.Since(session.lastUsed) >= codexSessionTTL() {
+		clearCodexSessionResponseID(sessionID)
+	}
 
 	currentBody := buildContinuationAwareRuntimeBody(sessionID, input.Body)
 	previousRecoveryTried := false
 
 	for {
 		result, err := sendCodexWSSessionAttempt(ctx, session, CodexWebsocketSendInput{
-			ObserveAttempt: input.ObserveAttempt,
-			SessionID:      sessionID,
-			RequestURL:     input.RequestURL,
-			Headers:        input.Headers,
-			Body:           currentBody,
-			ResinAccount:   input.ResinAccount,
-			ResinPlatform:  input.ResinPlatform,
+			ObserveAttempt:        input.ObserveAttempt,
+			BeforeAttempt:         input.BeforeAttempt,
+			HTTPClient:            input.HTTPClient,
+			AllowNativeIncomplete: input.AllowNativeIncomplete,
+			SessionID:             sessionID,
+			RequestURL:            input.RequestURL,
+			Headers:               input.Headers,
+			Body:                  currentBody,
+			ResinAccount:          input.ResinAccount,
+			ResinPlatform:         input.ResinPlatform,
 		})
 		if err == nil {
 			return result, nil
+		}
+		if input.DisablePreviousRecovery {
+			return nil, err
 		}
 		runtimeErr, ok := err.(*CodexWebsocketRuntimeError)
 		if !ok {
@@ -647,7 +670,12 @@ func SendCodexWebsocketRequest(ctx context.Context, input CodexWebsocketSendInpu
 
 func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSession, input CodexWebsocketSendInput) (result *CodexWebsocketRuntimeResult, attemptErr error) {
 	started := time.Now()
+	dispatched := false
 	defer func() {
+		session.lastUsed = time.Now()
+		if runtimeErr, ok := attemptErr.(*CodexWebsocketRuntimeError); ok {
+			runtimeErr.Dispatched = dispatched
+		}
 		if input.ObserveAttempt == nil {
 			return
 		}
@@ -684,6 +712,12 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 
 	reused := false
 	conn := session.conn
+	if conn != nil && !session.lastUsed.IsZero() && time.Since(session.lastUsed) >= codexSessionTTL() {
+		clearSessionSocket(session, conn)
+		_ = conn.Close(websocket.StatusNormalClosure, "idle session expired")
+		conn = nil
+		clearCodexSessionResponseID(input.SessionID)
+	}
 	if conn != nil && session.socketURL == wsURL {
 		reused = true
 	} else {
@@ -710,11 +744,15 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 			httpHeader.Set(k, v)
 		}
 		dialCtx, cancel := context.WithTimeout(ctx, codexWSDialTimeout)
+		client := input.HTTPClient
+		if client == nil {
+			client = httpclient.NewClient(httpclient.SharedTransport(), 0, nil)
+		}
 		next, _, err := websocket.Dial(dialCtx, wsURL, &websocket.DialOptions{
 			HTTPHeader: httpHeader,
 			// Bound the upgrade's dial/TLS phases on the pooled baseline
 			// transport; the dial context remains the deadline owner.
-			HTTPClient: &http.Client{Transport: httpclient.SharedTransport()},
+			HTTPClient: client,
 		})
 		cancel()
 		if err != nil {
@@ -735,6 +773,15 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 	if err != nil {
 		return nil, &CodexWebsocketRuntimeError{Message: "failed to encode upstream websocket body", Status: 400}
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if input.BeforeAttempt != nil {
+		if err := input.BeforeAttempt(); err != nil {
+			return nil, err
+		}
+	}
+	dispatched = true
 
 	writeCtx, writeCancel := context.WithTimeout(ctx, 30*time.Second)
 	err = conn.Write(writeCtx, websocket.MessageText, payload)
@@ -749,6 +796,7 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 	}
 
 	events := make([]map[string]any, 0, 16)
+	totalBytes := int64(0)
 	collector := &responses.CodexResponseCollector{}
 	for {
 		readCtx, readCancel := context.WithTimeout(ctx, codexWSReadTimeout)
@@ -763,11 +811,21 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 			}
 		}
 		var parsed map[string]any
-		if err := json.Unmarshal(data, &parsed); err != nil {
-			// Ignore malformed frames and wait for terminal.
-			continue
+		totalBytes += int64(len(data))
+		decoder := json.NewDecoder(bytes.NewReader(data))
+		decoder.UseNumber()
+		if err := decoder.Decode(&parsed); err != nil || parsed == nil || decoder.Decode(new(any)) != io.EOF || totalBytes > codexWSMaxMsgBytes {
+			clearSessionSocket(session, conn)
+			_ = conn.Close(websocket.StatusGoingAway, "invalid or oversized response")
+			return nil, &CodexWebsocketRuntimeError{Message: "invalid or oversized upstream websocket response", Status: 502, Events: events}
 		}
 		events = append(events, parsed)
+		if input.AllowNativeIncomplete && nativeResponsesIncomplete(parsed) {
+			if rid := extractResponsesTerminalResponseID(parsed); rid != "" {
+				setCodexSessionResponseID(session.sessionID, rid)
+			}
+			return &CodexWebsocketRuntimeResult{Events: events, ReusedSession: reused}, nil
+		}
 		if collectErr := collector.AddData(data); collectErr != nil {
 			clearSessionSocket(session, conn)
 			_ = conn.Close(websocket.StatusGoingAway, "invalid terminal response")
@@ -791,6 +849,23 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 		}
 		return &CodexWebsocketRuntimeResult{Events: events, ReusedSession: reused}, nil
 	}
+}
+
+// Native Responses has complete, inspectable incomplete terminals for token
+// limits and content filtering. This opt-in does not relax Codex's contract.
+func nativeResponsesIncomplete(event map[string]any) bool {
+	if event["type"] != "response.incomplete" {
+		return false
+	}
+	response, ok := event["response"].(map[string]any)
+	if !ok || response["status"] != "incomplete" || response["error"] != nil {
+		return false
+	}
+	if _, ok := response["output"].([]any); !ok {
+		return false
+	}
+	details, _ := response["incomplete_details"].(map[string]any)
+	return details["reason"] == "max_output_tokens" || details["reason"] == "content_filter"
 }
 
 func clearSessionSocket(session *codexWSSocketSession, conn *websocket.Conn) {

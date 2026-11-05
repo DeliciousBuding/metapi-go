@@ -21,6 +21,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // Responses WebSocket uses native Codex wss when enabled and supported by the
@@ -180,6 +181,10 @@ func HandleResponsesWebsocket(w http.ResponseWriter, r *http.Request) {
 		for _, key := range session.codexRuntimeKeys {
 			CloseCodexWebsocketSession(key)
 		}
+		if session.directRuntimeKey != "" {
+			CloseCodexWebsocketSession(session.directRuntimeKey)
+			clearCodexSessionResponseID(session.directRuntimeKey)
+		}
 		_ = conn.Close(websocket.StatusNormalClosure, "session end")
 	}()
 
@@ -228,23 +233,63 @@ type responsesWSSession struct {
 	clientSessionID string
 	// Upstream Codex wss session keys opened this connection (closed on defer).
 	codexRuntimeKeys []string
+	directRuntimeKey string
 	// message serialisation: one in-flight turn at a time (Codex client queue).
 	queueMu sync.Mutex
 }
 
 func (s *responsesWSSession) loop(ctx context.Context) error {
-	for {
-		readCtx, cancel := context.WithTimeout(ctx, wsReadIdleTimeout)
-		msgType, data, err := s.conn.Read(readCtx)
-		cancel()
-		if err != nil {
-			return err
+	ctx, cancelSession := context.WithCancel(ctx)
+	defer cancelSession()
+	type incoming struct {
+		data []byte
+		err  error
+	}
+	// Keep reading while a turn is upstream so downstream disconnect cancels
+	// its queue wait/socket read immediately. Only one pending frame is held;
+	// all authorization and turn execution remains serial below.
+	messages := make(chan incoming, 1)
+	go func() {
+		for {
+			readCtx, cancel := context.WithTimeout(ctx, wsReadIdleTimeout)
+			kind, data, err := s.conn.Read(readCtx)
+			cancel()
+			if err != nil {
+				cancelSession()
+				select {
+				case messages <- incoming{err: err}:
+				default:
+				}
+				return
+			}
+			if kind != websocket.MessageText && kind != websocket.MessageBinary {
+				continue
+			}
+			select {
+			case messages <- incoming{data: data}:
+			case <-ctx.Done():
+				return
+			default:
+				// A caller may queue one following turn. Do not retain an
+				// unbounded client burst while an upstream turn is running.
+				cancelSession()
+				_ = s.conn.CloseNow()
+				return
+			}
 		}
-		if msgType != websocket.MessageText && msgType != websocket.MessageBinary {
-			continue
+	}()
+	for {
+		var next incoming
+		select {
+		case next = <-messages:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		if next.err != nil {
+			return next.err
 		}
 		s.queueMu.Lock()
-		err = s.handleMessage(ctx, data)
+		err := s.handleMessage(ctx, next.data)
 		s.queueMu.Unlock()
 		if err != nil {
 			if errors.Is(err, errResponsesWSSessionEnded) {
@@ -672,9 +717,10 @@ func (s *responsesWSSession) writeJSON(ctx context.Context, v any) error {
 	writeCtx, cancel := context.WithTimeout(ctx, wsWriteTimeout)
 	defer cancel()
 	state := requestLifecycleFromContext(ctx)
+	acceptedIncomplete, _ := ctx.Value(acceptedNativeResponsesIncompleteKey{}).(bool)
 	if frame, ok := v.(map[string]any); ok && state != nil {
 		typ, _ := frame["type"].(string)
-		if typ == "error" || typ == "response.failed" || typ == "response.incomplete" {
+		if typ == "error" || typ == "response.failed" || typ == "response.incomplete" && !acceptedIncomplete {
 			state.mu.Lock()
 			state.protocolFailed = state.protocolFailed || state.attempted
 			// An error envelope relays the HTTP bridge's existing disposition;
@@ -694,6 +740,9 @@ func (s *responsesWSSession) writeJSON(ctx context.Context, v any) error {
 		state.entry.OutputStarted = state.entry.OutputStarted || err == nil
 		state.writeFailed = state.writeFailed || err != nil
 		if err == nil {
+			if acceptedIncomplete {
+				state.protocolCompleted = true
+			}
 			if frame, ok := v.(map[string]any); ok && frame["type"] == "response.completed" {
 				terminal := nativeTerminalBody{completionProtocol: proxy.EndpointResponses}
 				event := SseEvent{Data: string(data)}
@@ -795,7 +844,11 @@ func ParseResponsesWSMessage(raw []byte) (*ResponsesWSMessage, error) {
 		return nil, err
 	}
 	msg.Raw = make(map[string]any)
-	_ = json.Unmarshal(raw, &msg.Raw)
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&msg.Raw); err != nil {
+		return nil, err
+	}
 	return &msg, nil
 }
 
@@ -870,7 +923,9 @@ func cloneMap(in map[string]any) map[string]any {
 		return out
 	}
 	out := make(map[string]any)
-	if err := json.Unmarshal(b, &out); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.UseNumber()
+	if err := decoder.Decode(&out); err != nil {
 		out2 := make(map[string]any, len(in))
 		for k, v := range in {
 			out2[k] = v
@@ -958,9 +1013,6 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 		return nil, false, nil
 	}
 	runtimeCfg := config.RuntimeSafe()
-	if runtimeCfg == nil || !runtimeCfg.CodexUpstreamWebsocketEnabled {
-		return nil, false, nil
-	}
 
 	policy := RoutingPolicyFromAuth(auth.EmptyDownstreamRoutingPolicy)
 	if s.auth != nil {
@@ -969,10 +1021,21 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 	policy.RequestedContextTokens = routing.EstimateRequestContextTokens(body)
 	requestStream := true
 	policy.RequestStream = &requestStream
+	// Native direct Responses WS is already a downstream stream. Keep the
+	// original stream fact and never permit required-stream aggregation to
+	// turn this transport into an HTTP fallback.
+	policy.AllowStreamAggregation = false
 	policy.ResolveAssociationRequest = associationRequestFromContext(ctx)
 	policy.TraceIdentity = requestTraceIdentity(ctx, s.auth, s.req.Header, requestModel)
+	policy.RequiredUpstreamProtocol = store.DirectProtocolResponsesWebsocket
 	selected, selErr := cfg.Router.SelectChannel(ctx, requestModel, policy)
 	if selErr != nil || selected == nil {
+		return nil, false, nil
+	}
+	if selected.Direct != nil {
+		return s.sendDirectResponsesWSS(ctx, body, requestModel, cfg, selected, policy)
+	}
+	if runtimeCfg == nil || !runtimeCfg.CodexUpstreamWebsocketEnabled {
 		return nil, false, nil
 	}
 	if !SelectedChannelSupportsCodexWebsocketTransport(selected.Site.Platform, selected.Account.ExtraConfig, requestModel) {

@@ -113,6 +113,7 @@ var directMediaPaths = map[int]string{
 	store.DirectProtocolVideo:              "/v1/videos",
 	store.DirectProtocolSystemOne:          "/v1/systemone",
 	store.DirectProtocolAlphaSearch:        "/v1/alpha/search",
+	store.DirectProtocolResponsesCompact:   "/v1/responses/compact",
 }
 
 func IsDirectMediaPath(path string) bool {

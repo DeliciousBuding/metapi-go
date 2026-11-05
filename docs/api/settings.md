@@ -397,10 +397,16 @@ the current executable import contract:
   wire contracts; real upstream acceptance is still tracked separately.
 - xAI subscription imports require structured OAuth with a refresh token and the official client ID, and resolve to the fixed `https://cli-chat-proxy.grok.com/v1/responses` endpoint with Bearer authentication. Static keys, custom base URLs and custom endpoints are skipped rather than imported as a generic channel.
 - Formats not listed in [direct upstreams](routes.md), including source Decisions
-  and provider-specific compaction.
-- Source `openai/responses_websocket` remains a residual for Codex channels. It
-  is reported in preview and does not enable an executable direct WebSocket
-  transport or expand the imported channel's HTTP grants.
+  and unverified provider-specific compaction variants.
+- Declared `openai/responses_compact` imports as a separate native HTTP grant.
+  Its source constructor appends `/responses/compact` after base normalization;
+  `##` retains an exact URL. It does not inherit the Codex generation wrapper
+  or unsupported custom OAuth credentials.
+- `openai/responses_websocket`, and `openai/responses` with
+  `transport=websocket`, import as explicit WebSocket grants. Replacing a
+  Responses endpoint's transport removes its HTTP permission. API-key native
+  Responses and the Codex credential/profile are supported; other OAuth wire
+  profiles remain named residuals. Compaction over WebSocket is not imported.
 - Request operations outside the supported JSON/profile or authority boundaries below,
   stream policies,
   unsupported proxy modes, and the non-equivalent Key strategies, custom trace
