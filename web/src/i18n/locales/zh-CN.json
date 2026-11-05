@@ -267,7 +267,14 @@
       "recordedRequests": "保留的请求记录",
       "retainedRequestsHint": "包含本账号仍在保留期内的请求，删除 Key 不会移除这些记录。",
       "selectedConnectionModel": "已选模型：{{model}}",
-      "returnToConnection": "返回该模型的接入示例"
+      "returnToConnection": "返回该模型的接入示例",
+      "connection": {
+        "invalidContext": "所选模型或协议无效，请返回模型页重新选择当前接入方式。",
+        "refreshDetails": "读取接入说明",
+        "loadDetails": "读取当前模型目录以确认请求示例；此操作不会发送模型请求。",
+        "protocolUnavailable": "模型 {{model}} 当前未列出所选协议 {{protocol}}，请返回模型页选择当前支持的协议。",
+        "keyLimits": "此 Key 还将模型限制为 {{models}}，请求必须符合这些限制。"
+      }
     },
     "userAdmin": {
       "routeSearch": "搜索路由名称、模型或 ID",
@@ -4888,7 +4895,7 @@
       "lockedDescription": "凭证导出属敏感操作。重新输入管理员 Token 解锁。密钥默认遮罩、需手动显示，深链打开前会再次确认。",
       "unlock": "解锁",
       "deepLinkConfirmTitle": "打开深链？",
-      "deepLinkConfirmDescription": "深链包含明文 API Key，将交给外部应用；同时会把配置复制到剪贴板作为后备。",
+      "deepLinkConfirmDescription": "链接包含明文 API Key，会交给外部应用。需要备用配置时，请单独执行复制。",
       "deepLinkConfirmContinue": "打开链接",
       "copyFallback": "改为复制配置",
       "oneClickLabel": "一键导入",
@@ -4904,7 +4911,7 @@
       "copyFailed": "复制失败——剪贴板不可用。",
       "verify": {
         "title": "验证接入",
-        "description": "检查模型列表，再用所选协议发送一次非流式请求。测试会消耗上游配额，结果可在此密钥的日志中查看。这不验证流式、工具或完整客户端，失败后也不会自动换协议重试。",
+        "description": "检查模型访问权限，再为所选客户端与公共模型发送一次非流式请求。测试会消耗上游额度，并记录在此 Key 的日志中；不涵盖流式、工具或完整客户端，失败后不会改用其他协议重试。",
         "modelsCta": "检查可用模型",
         "modelsOk": "此密钥列出 {{count}} 个模型",
         "noModels": "此密钥当前没有可调用的模型，请检查其模型策略与路由授权。",
@@ -4928,7 +4935,16 @@
         "keyCopied": "API Key 已复制",
         "endpointCopied": "接入地址已复制",
         "jsonCopied": "配置已复制"
-      }
+      },
+      "clientLabel": "客户端",
+      "modelLabel": "公共模型",
+      "modelRequired": "先检查可用模型，再为客户端选择公共模型。",
+      "contextHint": "配置与测试请求使用同一公共模型。请将设置合并到现有配置。",
+      "configStale": "所选模型已改变。更新配置后再复制或打开客户端。",
+      "updateConfig": "更新配置",
+      "setupStep": "设置 API Key",
+      "setupHint": "启动客户端前设置此环境变量。",
+      "providerImportHint": "导入链接仅配置供应商地址和 Key。请在客户端选择 {{model}}，或复制下方完整配置。"
     },
     "search": {
       "trigger": "搜索…",

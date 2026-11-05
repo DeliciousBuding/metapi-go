@@ -27,6 +27,12 @@ accounts. A listed Responses protocol does not promise that a client's
 complete agent workflow will work. Legacy sources without protocol metadata
 may list a model without a connection example.
 
+Starting Key creation from a model's connection details carries that public
+model and protocol into the one-time Key dialog. The dialog provides the
+matching request example and instructions for setting its environment variable.
+This connection context does not change the Key's permissions or limits.
+The secret stays in the current dialog; save it before closing.
+
 After a request, open **Requests** to check the gateway outcome and recorded
 quota settlement. Verify the actual result in your client as well. For
 support, copy the internal request ID from the record; it is distinct from
@@ -147,14 +153,21 @@ closing or switching Keys cancels the export and requires confirmation again.
 Metapi does not rewrite your local configuration automatically. Review and merge
 its model and protocol settings for the client version you use.
 
-Exported configuration and the verification model are currently independent.
-Selecting a model in the verification tab does not update a previously exported
-client profile. Set the same public model in the client before interpreting a
-verification result as evidence for that configuration.
+Select a client and explicitly check available models with this Key, then select
+one public model. **Update configuration** regenerates the profiles for that
+model. Copying or opening a client uses the current configuration; a model
+change requires another explicit update. The configuration and test request
+share the model and the selected client's protocol. Changing either selection
+invalidates the previous test and cancels its in-flight request.
+Native Codex and Claude profiles include the public model. Provider-only profiles
+and import links carry the address and Key; set the selected public model in
+the client. Generic OpenAI configuration does not select a Gemini or Cursor
+client import.
 
 The connection dialog has two checks: list models with the key, then send one
-finite non-streaming request for the selected model and an explicitly selected
-protocol. The choices use the gateway's native data-plane shapes:
+finite non-streaming request for the selected model in the client's protocol.
+Listing models and updating a configuration do not send a model request.
+The checks use the gateway's native data-plane shapes:
 
 - Chat Completions calls `/v1/chat/completions` with `messages` and
   `max_tokens`.
