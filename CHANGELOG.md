@@ -19,6 +19,12 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - **治理区**（v0.16.13 起）：全条目受上述契约与门禁约束。
 - **归档区**（v0.16.12 及更早）：每版只留安全修复、破坏性变更与运维动作。这些版本的全文逐字保存在各自的 [release 页](https://github.com/DeliciousBuding/metapi-go/releases)——已逐版核对，发布页与归档前的本文件段落字节一致——UI 与交互级修复因此不在这里抄第二份。
 
+## [Unreleased]
+
+### 修复
+
+- OAuth 账户：刷新后仍能读取规范化存储的 refresh token、到期时间与会话状态，连续刷新可使用轮换后的凭据，账户身份继续以独立列为准。
+
 ## [v0.28.0] — 2026-11-01
 
 ### 变更
