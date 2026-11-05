@@ -252,9 +252,40 @@ A management-only or unsupported key remains explicitly blocked for proxy use.
 
 Model and inherited developer associations with disabled conditions or no
 `when.condition` predicate retain their unconditional behavior, including
-`when.enabled=true` with an omitted or null predicate. Active predicates remain
-unimported. Unknown `when` fields are reported as
+`when.enabled=true` with an omitted or null predicate. Active predicates preserve
+their validated group tree on the imported membership. Matching happens on every
+request before source associations for the same channel/model are aggregated:
+the first matching association in source priority order supplies the effective
+priority and protocol order. Local associations precede inherited ones at equal
+priority. A condition never expands a grant, user-group permission or Key scope.
+Unknown `when` fields are reported as
 `model_association_field_unsupported:when.<field>` and exclude that association.
+Invalid predicate fields, operators, types, group nesting or sensitive header
+references are reported as `model_association_field_unsupported:when.condition`.
+Enabled predicates use nonempty AND/OR groups up to three group levels and
+the audited `prompt_tokens`, `stream`, `request_format`, content-feature,
+non-sensitive `request_header.*` and `daily_time` conditions. Prompt token
+thresholds use the source request heuristic, not billing tokens; daily times
+use the gateway process timezone and inclusive-start/exclusive-end minute
+boundaries, including intervals spanning midnight.
+Within one Responses WebSocket turn, native transport selection and HTTP
+fallback share the original handshake headers, normalized request body and one
+clock snapshot for conditions. Each later turn gets a new descriptor and uses
+its freshly authorized Key policy.
+
+Missing request context cannot satisfy a conditional membership. Route
+descriptors cover audited Chat, Responses, Messages, Gemini and supported
+non-generation input shapes. Unknown tool/content shapes and other native
+media protocols remain unevaluated rather than supplying an invented zero
+token count or false content feature.
+Route
+explanations expose `associationConditions` as not evaluated, with
+`associationContextRequired` on the affected candidate. Model catalogs retain
+statically authorized conditional models without claiming that a particular
+request will match. Imported member summaries expose `associationRuleCount`,
+not predicate values. A conditional member's static priority cannot be changed
+locally; reimport source associations to change their precedence. Weight and
+protocol restrictions remain editable and cannot erase conditions.
 
 Channel `rateLimit` settings with absent, null or nonpositive `rpm`, `tpm` and
 `maxConcurrent` values retain the source's unlimited behavior. `queueSize` and
@@ -291,7 +322,7 @@ the current executable import contract:
   transport or expand the imported channel's HTTP grants.
 - Request operations outside the supported JSON/profile or authority boundaries below,
   active channel rate limits and stream policies,
-  conditional associations, unsupported proxy modes, and nonportable key-level
+  unsupported proxy modes, and nonportable key-level
   load-balancing/sticky overrides or regular expressions.
 - Source pricing, request history and deployment settings. Developer associations
   and quota-relevant usage are consumed as described above; this does not copy

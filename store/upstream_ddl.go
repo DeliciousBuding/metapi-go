@@ -113,6 +113,7 @@ func buildUpstreamGroupItemsDDL(d string) string {
 			id SERIAL PRIMARY KEY, origin_key TEXT NOT NULL, group_id INTEGER NOT NULL REFERENCES upstream_groups(id) ON DELETE CASCADE,
 			source_id BIGINT NOT NULL, grant_id INTEGER NOT NULL REFERENCES upstream_grants(id) ON DELETE CASCADE,
 			priority INTEGER NOT NULL, weight INTEGER NOT NULL, protocol_order TEXT NOT NULL DEFAULT '[]',
+			association_conditions TEXT NOT NULL DEFAULT '[]',
 			UNIQUE(origin_key, source_id), UNIQUE(group_id, grant_id)
 		)`
 	}
@@ -120,6 +121,7 @@ func buildUpstreamGroupItemsDDL(d string) string {
 		id INTEGER PRIMARY KEY AUTOINCREMENT, origin_key TEXT NOT NULL, group_id INTEGER NOT NULL,
 		source_id BIGINT NOT NULL, grant_id INTEGER NOT NULL,
 		priority INTEGER NOT NULL, weight INTEGER NOT NULL, protocol_order TEXT NOT NULL DEFAULT '[]',
+		association_conditions TEXT NOT NULL DEFAULT '[]',
 		UNIQUE(origin_key, source_id), UNIQUE(group_id, grant_id),
 		FOREIGN KEY (group_id) REFERENCES upstream_groups(id) ON DELETE CASCADE,
 		FOREIGN KEY (grant_id) REFERENCES upstream_grants(id) ON DELETE CASCADE

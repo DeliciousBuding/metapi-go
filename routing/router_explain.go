@@ -108,6 +108,14 @@ func setExplanationContext(decision *RouteDecisionExplanation, policy Downstream
 	if policy.RequiredUpstreamProtocol == 0 {
 		decision.NotEvaluated = append(decision.NotEvaluated, "protocol")
 	}
+	if policy.AssociationRequest == nil {
+		for _, candidate := range decision.Candidates {
+			if candidate.AssociationContextRequired {
+				decision.NotEvaluated = append(decision.NotEvaluated, "associationConditions")
+				break
+			}
+		}
+	}
 }
 
 func (tr *TokenRouter) findRouteByID(ctx context.Context, routeID int64, policy DownstreamRoutingPolicy) (*RouteMatch, error) {
@@ -183,6 +191,7 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 	var available []RouteChannelCandidate
 
 	for _, row := range match.Channels {
+		row, associationBlocker := resolveAssociationCandidate(row, policy)
 		// The execution owner produces codes and legacy messages together.
 		// Missing protocol remains fail-closed in execution, but is an unknown
 		// dimension in a preview, not proof that a grant is unauthorized.
@@ -190,13 +199,13 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 		reasons := make([]string, 0, len(blockers))
 		filtered := make([]CandidateBlocker, 0, len(blockers))
 		for _, blocker := range blockers {
-			if blocker.Code != "protocol_context_missing" {
+			if blocker.Code != "protocol_context_missing" && blocker.Code != "association_context_missing" {
 				filtered = append(filtered, blocker)
 				reasons = append(reasons, blocker.Message)
 			}
 		}
 		eligibility := "eligible"
-		if policy.RequiredUpstreamProtocol == 0 {
+		if policy.RequiredUpstreamProtocol == 0 || associationBlocker.Code == "association_context_missing" {
 			eligibility = "notEvaluated"
 		}
 		if len(filtered) > 0 {
@@ -208,24 +217,25 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 			recentlyFailed = IsChannelRecentlyFailed(row.Channel.FailCount, row.Channel.LastFailAt, nowMs, configuredMaxSec)
 		}
 		candidate := RouteDecisionCandidate{
-			Eligibility:            eligibility,
-			Blockers:               filtered,
-			ChannelID:              row.Channel.ID,
-			AccountID:              row.Account.ID,
-			Username:               formatUsername(row.Account.Username, row.Account.ID),
-			SiteName:               formatSiteName(row.Site.Name),
-			TokenName:              getTokenName(row.Token),
-			Priority:               row.Channel.PriorityOrZero(),
-			Weight:                 row.Channel.WeightOrZero(),
-			Eligible:               eligible,
-			RecentlyFailed:         recentlyFailed,
-			CooldownUntil:          row.Channel.CooldownUntil,
-			AvoidedByRecentFailure: false,
-			Probability:            0,
-			Reason:                 formatReasons(reasons),
+			AssociationContextRequired: associationBlocker.Code == "association_context_missing",
+			Eligibility:                eligibility,
+			Blockers:                   filtered,
+			ChannelID:                  row.Channel.ID,
+			AccountID:                  row.Account.ID,
+			Username:                   formatUsername(row.Account.Username, row.Account.ID),
+			SiteName:                   formatSiteName(row.Site.Name),
+			TokenName:                  getTokenName(row.Token),
+			Priority:                   row.Channel.PriorityOrZero(),
+			Weight:                     row.Channel.WeightOrZero(),
+			Eligible:                   eligible,
+			RecentlyFailed:             recentlyFailed,
+			CooldownUntil:              row.Channel.CooldownUntil,
+			AvoidedByRecentFailure:     false,
+			Probability:                0,
+			Reason:                     formatReasons(reasons),
 		}
 		if eligibility == "notEvaluated" {
-			candidate.Reason = "请求协议未指定，候选资格未完整评估"
+			candidate.Reason = "请求上下文未完整指定，候选资格未完整评估"
 		}
 		setCandidateIdentity(&candidate, row, requestedModel, match.Route.DisplayName, mappedModel)
 		if IsOAuthRouteUnitCandidate(row) {

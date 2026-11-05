@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
+	"github.com/deliciousbuding/metapi-go/internal/routecondition"
 )
 
 // AxonHubBackupVersion is the only AxonHub backup format this importer has
@@ -174,7 +175,7 @@ type AxonHubSourceAssociation struct {
 	Type             string
 	Priority         int
 	Disabled         bool
-	Conditional      bool
+	Condition        *routecondition.Condition
 	ChannelModel     *AxonHubSourceChannelModel
 	ChannelRegex     *AxonHubSourceChannelRegex
 	Regex            *AxonHubSourceRegex
@@ -889,13 +890,20 @@ func decodeAxonHubAssociation(raw json.RawMessage) (AxonHubSourceAssociation, er
 		if err := json.Unmarshal(shape.When, &when); err != nil {
 			return assoc, axonHubErr("invalid association condition")
 		}
+		if raw, exists := whenObject["enabled"]; exists && bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			return assoc, axonHubErr("invalid association condition enabled flag")
+		}
 		if extra := unknownKeys(whenObject, []string{"enabled", "condition"}); len(extra) > 0 && assoc.UnsupportedField == "" {
 			assoc.UnsupportedField = "when." + sanitizeIdentifier(extra[0])
 		}
 		// AxonHub evaluates an enabled rule without a predicate as true.
-		// A non-null predicate remains a named residual, never flattened.
 		condition := bytes.TrimSpace(when.Condition)
-		assoc.Conditional = when.Enabled && len(condition) > 0 && !bytes.Equal(condition, []byte("null"))
+		if when.Enabled && len(condition) > 0 && !bytes.Equal(condition, []byte("null")) {
+			assoc.Condition, err = routecondition.Decode(condition)
+			if err != nil {
+				assoc.UnsupportedField = "when.condition"
+			}
+		}
 	}
 	assoc.ChannelModel = shape.ChannelModel
 	assoc.ChannelRegex = shape.ChannelRegex

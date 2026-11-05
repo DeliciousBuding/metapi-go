@@ -371,8 +371,8 @@ func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplaceme
 				return nil, fmt.Errorf("AxonHub route item references a grant that was not compiled")
 			}
 			if _, err := upsertMapped(db, tx, originKey, "upstream_group_items", axonHubItemSourceID(route, item), "upstream_group_items",
-				[]string{"group_id", "grant_id", "priority", "weight", "protocol_order"},
-				[]any{groupID, grantIDs[grantSourceID], int64(item.Priority), int64(1), item.ProtocolOrder}); err != nil {
+				[]string{"group_id", "grant_id", "priority", "weight", "protocol_order", "association_conditions"},
+				[]any{groupID, grantIDs[grantSourceID], int64(item.Priority), int64(1), item.ProtocolOrder, item.AssociationConditions}); err != nil {
 				return nil, err
 			}
 			counts["groupItems"]++

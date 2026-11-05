@@ -47,7 +47,8 @@ func TestAxonHubConditionContract(t *testing.T) {
 			{"disabled", `{"enabled":false,"condition":{"type":"field","field":"stream","operator":"eq","value":true}}`, "", true},
 			{"enabled without predicate", `{"enabled":true}`, "", true},
 			{"enabled null predicate", `{"enabled":true,"condition":null}`, "", true},
-			{"active predicate", `{"enabled":true,"condition":{"type":"field","field":"stream","operator":"eq","value":true}}`, "conditional_model_association_not_imported", false},
+			{"active predicate", `{"enabled":true,"condition":{"type":"group","conditions":[{"type":"condition","field":"stream","operator":"eq","value":true}]}}`, "", true},
+			{"invalid predicate type", `{"enabled":true,"condition":{"type":"field","field":"stream","operator":"eq","value":true}}`, "model_association_field_unsupported:when.condition", false},
 			{"unknown predicate field", `{"enabled":false,"futureGuard":{"token":"fixture-private-marker"}}`, "model_association_field_unsupported:when.futureGuard", false},
 		} {
 			name := "local/"

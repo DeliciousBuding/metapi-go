@@ -400,6 +400,16 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 		requestModel = strings.TrimSpace(model)
 	}
 
+	// Both transports must evaluate the same turn, including headers omitted
+	// from the HTTP bridge's upstream forwarding allow-list. Keep only request
+	// facts here; each selection still uses the freshly authorized Key policy.
+	associationBody, err := json.Marshal(normalized.request)
+	if err != nil {
+		return s.writeError(ctx, 400, "failed to encode request payload")
+	}
+	ctx = context.WithValue(ctx, associationRequestContextKey{},
+		lazyAssociationRequest("/v1/responses", associationBody, s.req.Header, true, time.Now()))
+
 	// C3: try Codex upstream wss when channel/platform allows; else HTTP bridge.
 	if output, handled, cerr := s.tryCodexUpstreamWSS(ctx, normalized.request, requestModel, supportsIncremental); handled {
 		if cerr != nil {
@@ -956,6 +966,7 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 		policy = RoutingPolicyFromAuth(s.auth.Policy)
 	}
 	policy.RequestedContextTokens = routing.EstimateRequestContextTokens(body)
+	policy.ResolveAssociationRequest = associationRequestFromContext(ctx)
 	selected, selErr := cfg.Router.SelectChannel(ctx, requestModel, policy)
 	if selErr != nil || selected == nil {
 		return nil, false, nil

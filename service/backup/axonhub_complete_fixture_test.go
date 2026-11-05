@@ -114,7 +114,7 @@ func TestAxonHubCompleteFixturePreview(t *testing.T) {
 		"channel-36:source_retry_policy_replaced_by_gateway_retry_policy",
 		"channel-37:pass_through_body_not_configurable",
 		"channel-37:pass_through_user_agent_not_configurable",
-		"conditional_model_association_not_imported:conditional-model",
+		"model_association_field_unsupported:when.condition",
 		"declared_protocol_not_servable:openai/responses_compact",
 		"declared_protocol_not_servable:openai/responses_websocket",
 		"model_has_no_importable_channel:dev-no-inherit-model",

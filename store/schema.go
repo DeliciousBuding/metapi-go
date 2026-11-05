@@ -386,38 +386,39 @@ type RouteChannel struct {
 // It deliberately carries no Site or Account surrogate; selector and executor
 // branches must handle it explicitly rather than treating it as a native row.
 type DirectUpstreamCandidate struct {
-	GrantID           int64
-	RouteID           int64
-	GroupID           int64
-	GroupMode         string
-	ActiveItemID      int64
-	ItemID            int64
-	ChannelID         int64
-	ChannelName       string
-	BaseURL           string
-	Dialect           string
-	Provider          string
-	ChatPath          string
-	ResponsesPath     string
-	AnthropicPath     string
-	Endpoints         DirectEndpoints
-	ChannelProxy      string
-	UseSystemProxy    bool
-	CustomHeader      string
-	ParamOverride     string
-	RequestConfig     DirectRequestConfig
-	ModelID           int64
-	ModelName         string
-	CredentialID      int64
-	CredentialName    string
-	CredentialKind    string
-	Credential        string
-	ChannelEnabled    bool
-	ModelEnabled      bool
-	CredentialEnabled bool
-	GrantEnabled      bool
-	Protocols         int
-	ProtocolOrder     DirectProtocolOrder
+	GrantID               int64
+	RouteID               int64
+	GroupID               int64
+	GroupMode             string
+	ActiveItemID          int64
+	ItemID                int64
+	ChannelID             int64
+	ChannelName           string
+	BaseURL               string
+	Dialect               string
+	Provider              string
+	ChatPath              string
+	ResponsesPath         string
+	AnthropicPath         string
+	Endpoints             DirectEndpoints
+	ChannelProxy          string
+	UseSystemProxy        bool
+	CustomHeader          string
+	ParamOverride         string
+	RequestConfig         DirectRequestConfig
+	ModelID               int64
+	ModelName             string
+	CredentialID          int64
+	CredentialName        string
+	CredentialKind        string
+	Credential            string
+	ChannelEnabled        bool
+	ModelEnabled          bool
+	CredentialEnabled     bool
+	GrantEnabled          bool
+	Protocols             int
+	ProtocolOrder         DirectProtocolOrder
+	AssociationConditions DirectAssociationConditions
 }
 
 // OrZero helpers coerce the nullable numeric channel columns for callers that

@@ -3,14 +3,15 @@ package backup
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/deliciousbuding/metapi-go/internal/gcpsa"
-	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/internal/gcpsa"
+	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
@@ -102,12 +103,13 @@ type axonHubPlanRoute struct {
 }
 
 type axonHubPlanRouteItem struct {
-	ProtocolOrder   store.DirectProtocolOrder
-	Key             string
-	ChannelSourceID int
-	ModelName       string
-	CredentialName  string
-	Priority        int
+	AssociationConditions store.DirectAssociationConditions
+	ProtocolOrder         store.DirectProtocolOrder
+	Key                   string
+	ChannelSourceID       int
+	ModelName             string
+	CredentialName        string
+	Priority              int
 }
 
 // AxonHubSkippedChannel is one source channel this importer will not write,
@@ -778,10 +780,6 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 				residuals = append(residuals, "model_association_field_unsupported:"+assoc.UnsupportedField)
 				continue
 			}
-			if assoc.Conditional {
-				residuals = append(residuals, "conditional_model_association_not_imported:"+sanitizeIdentifier(pattern))
-				continue
-			}
 			connections, ok := matchAxonHubAssociation(assoc, channels, bySourceID)
 			if !ok {
 				residuals = append(residuals, "model_association_invalid:"+sanitizeIdentifier(pattern))
@@ -806,20 +804,32 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 						continue
 					}
 					key := fmt.Sprintf("%d\x00%s\x00%s", connection.channelSourceID, name, connection.modelName)
+					rule := store.DirectAssociationRule{Priority: int64(assoc.Priority), ProtocolOrder: protocolOrder, Condition: assoc.Condition}
 					if previous, exists := items[key]; exists {
-						if previous.Priority <= assoc.Priority {
-							continue
+						previous.AssociationConditions = append(previous.AssociationConditions, rule)
+						if previous.Priority > assoc.Priority {
+							previous.Priority = assoc.Priority
 						}
+						// The stored order is the maximum allowed item scope. Each
+						// request narrows it to its first matching association.
+						for _, bit := range protocolOrder {
+							if !slices.Contains(previous.ProtocolOrder, bit) {
+								previous.ProtocolOrder = append(previous.ProtocolOrder, bit)
+							}
+						}
+						items[key] = previous
+						continue
 					} else {
 						order = append(order, key)
 					}
 					items[key] = axonHubPlanRouteItem{
-						ProtocolOrder:   protocolOrder,
-						Key:             key,
-						ChannelSourceID: connection.channelSourceID,
-						ModelName:       connection.modelName,
-						CredentialName:  name,
-						Priority:        assoc.Priority,
+						AssociationConditions: store.DirectAssociationConditions{rule},
+						ProtocolOrder:         protocolOrder,
+						Key:                   key,
+						ChannelSourceID:       connection.channelSourceID,
+						ModelName:             connection.modelName,
+						CredentialName:        name,
+						Priority:              assoc.Priority,
 					}
 				}
 			}
@@ -836,8 +846,29 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 			Strategy:      axonHubRouteStrategy(model.Settings.LoadBalancerStrategy, &residuals, pattern),
 		}
 		sort.Strings(order)
+		conditionsValid := true
 		for _, key := range order {
-			route.Items = append(route.Items, items[key])
+			item := items[key]
+			sort.SliceStable(item.AssociationConditions, func(i, j int) bool {
+				return item.AssociationConditions[i].Priority < item.AssociationConditions[j].Priority
+			})
+			hasCondition := false
+			for _, rule := range item.AssociationConditions {
+				hasCondition = hasCondition || rule.Condition != nil
+			}
+			if !hasCondition {
+				item.ProtocolOrder = item.AssociationConditions[0].ProtocolOrder
+				item.AssociationConditions = nil
+			}
+			if item.AssociationConditions.Validate() != nil {
+				residuals = append(residuals, "model_association_conditions_unsupported:"+sanitizeIdentifier(pattern))
+				conditionsValid = false
+				break
+			}
+			route.Items = append(route.Items, item)
+		}
+		if !conditionsValid {
+			continue
 		}
 		if model.Settings.TraceStickyMode != "" && model.Settings.TraceStickyMode != "default" {
 			residuals = append(residuals, "model_trace_sticky_mode_not_imported:"+sanitizeIdentifier(pattern))
