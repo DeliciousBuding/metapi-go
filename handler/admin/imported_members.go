@@ -38,15 +38,20 @@ func (h *importedUpstreamHandler) updateMember(w http.ResponseWriter, r *http.Re
 		importedWriteError(w, err)
 		return
 	}
-	query := `SELECT i.priority,i.weight,i.protocol_order,g.protocols FROM upstream_group_items i JOIN upstream_grants g ON g.id=i.grant_id WHERE i.id=?`
+	query := `SELECT i.priority,i.weight,i.protocol_order,i.association_conditions,g.protocols FROM upstream_group_items i JOIN upstream_grants g ON g.id=i.grant_id WHERE i.id=?`
 	if h.db.DriverName() == "pgx" {
 		query += " FOR UPDATE OF i,g"
 	}
 	var priority, weight int64
 	var order store.DirectProtocolOrder
+	var conditions store.DirectAssociationConditions
 	var protocols int
-	if err = tx.QueryRowxContext(r.Context(), tx.Rebind(query), id).Scan(&priority, &weight, &order, &protocols); err != nil {
+	if err = tx.QueryRowxContext(r.Context(), tx.Rebind(query), id).Scan(&priority, &weight, &order, &conditions, &protocols); err != nil {
 		importedReadError(w, err)
+		return
+	}
+	if input.Priority != nil && len(conditions) > 0 && *input.Priority != priority {
+		writeError(w, 400, "Conditional member priority is determined by its source associations; reimport to change it")
 		return
 	}
 	if input.Priority != nil {

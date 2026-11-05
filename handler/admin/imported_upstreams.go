@@ -39,7 +39,7 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Failed to load imported upstreams")
 		return
 	}
-	members, err := queryRowsErr(h.db, `SELECT i.id, i.group_id, i.priority, i.weight, i.protocol_order, g.name AS group_name,
+	members, err := queryRowsErr(h.db, `SELECT i.id, i.group_id, i.priority, i.weight, i.protocol_order, i.association_conditions, g.name AS group_name,
   g.mode, g.active_item_id, rg.route_id, m.channel_id, m.name AS model_name,
 	  k.id AS credential_id, k.name AS credential_name, k.kind AS credential_kind, k.enabled AS credential_enabled, grt.protocols,
     grt.id AS grant_id, grt.enabled AS grant_enabled, m.enabled AS model_enabled, g.enabled AS group_enabled,
@@ -66,6 +66,13 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 		row["enabled"] = coerceBool(row["enabled"])
 	}
 	for _, row := range members {
+		var conditions store.DirectAssociationConditions
+		if err := conditions.Scan(row["associationConditions"]); err != nil {
+			writeError(w, http.StatusInternalServerError, "Invalid imported association conditions")
+			return
+		}
+		delete(row, "associationConditions")
+		row["associationRuleCount"] = len(conditions)
 		var order store.DirectProtocolOrder
 		if err := order.Scan(row["protocolOrder"]); err != nil {
 			writeError(w, http.StatusInternalServerError, "Invalid imported protocol priority")

@@ -179,6 +179,7 @@ export type ImportedUpstreamInventory = {
     effectiveEnabled?: boolean
     protocols: number
     protocolOrder?: number[]
+    associationRuleCount?: number
     mode: string
     activeItemId: number
     priority: number

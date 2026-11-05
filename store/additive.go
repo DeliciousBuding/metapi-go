@@ -665,6 +665,17 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "upstream_channels", "request_config", "TEXT", "TEXT", "DEFAULT '{}' NOT NULL")
 		},
 	},
+	{
+		Version:     "direct_association_conditions_v1",
+		Description: "request-time predicates and source priority on imported association edges",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "upstream_group_items")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "upstream_group_items", "association_conditions", "TEXT", "TEXT", "DEFAULT '[]' NOT NULL")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

@@ -116,6 +116,11 @@ func (s *ChannelSelector) SelectPreferredChannel(
 	// Find available candidates
 	var available []RouteChannelCandidate
 	for _, c := range match.Channels {
+		var blocker CandidateBlocker
+		c, blocker = resolveAssociationCandidate(c, policy)
+		if blocker.Code != "" {
+			continue
+		}
 		if len(s.getCandidateEligibilityReasons(c, requestedModel, bypassSourceModelCheck, excludeChannelIDs, nowISO, policy)) == 0 {
 			available = append(available, c)
 		}
@@ -184,6 +189,11 @@ func (s *ChannelSelector) selectFromMatch(
 	// Filter available
 	var available []RouteChannelCandidate
 	for _, c := range match.Channels {
+		var blocker CandidateBlocker
+		c, blocker = resolveAssociationCandidate(c, policy)
+		if blocker.Code != "" {
+			continue
+		}
 		if len(s.getCandidateEligibilityReasons(c, requestedModel, bypassSourceModelCheck, excludeChannelIDs, nowISO, policy)) == 0 {
 			available = append(available, c)
 		}
@@ -701,6 +711,11 @@ func (s *ChannelSelector) getCandidateBlockers(
 	policy DownstreamRoutingPolicy,
 ) []CandidateBlocker {
 	reasons := make([]CandidateBlocker, 0)
+	resolved, associationBlocker := resolveAssociationCandidate(candidate, policy)
+	candidate = resolved
+	if associationBlocker.Code != "" {
+		reasons = append(reasons, associationBlocker)
+	}
 	if direct := candidate.Direct; direct != nil {
 		if IsCooldownActive(candidate.Channel.CooldownUntil, nowISO) {
 			reasons = append(reasons, CandidateBlocker{"cooldown", "direct upstream grant cooling down"})

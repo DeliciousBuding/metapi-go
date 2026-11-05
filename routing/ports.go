@@ -6,6 +6,7 @@ package routing
 import (
 	"context"
 
+	"github.com/deliciousbuding/metapi-go/internal/routecondition"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -99,6 +100,12 @@ type DownstreamRoutingPolicy struct {
 	RequestedContextTokens          int64
 	RequiredUpstreamProtocol        int
 	AllowUpstreamProtocolConversion bool
+	// AssociationRequest is immutable for one incoming request. A missing
+	// descriptor cannot satisfy a request-dependent imported association.
+	AssociationRequest *routecondition.Request
+	// ResolveAssociationRequest builds the descriptor once, only when a
+	// conditional item is encountered. It must return an immutable snapshot.
+	ResolveAssociationRequest func() *routecondition.Request `json:"-"`
 }
 
 // CredentialRef identifies a specific credential to exclude.
@@ -151,22 +158,23 @@ type RouteDecisionExplanation struct {
 
 // RouteDecisionCandidate mirrors TS RouteDecisionCandidate.
 type RouteDecisionCandidate struct {
-	CandidateRef         RouteDecisionCandidateRef `json:"candidateRef"`
-	Label                string                    `json:"label"`
-	SourceModel          string                    `json:"sourceModel,omitempty"`
-	ActualModel          string                    `json:"actualModel,omitempty"`
-	Eligibility          string                    `json:"eligibility"`
-	Blockers             []CandidateBlocker        `json:"blockers"`
-	ProbabilityEvaluated bool                      `json:"probabilityEvaluated"`
-	ChannelID            int64                     `json:"channelId"`
-	AccountID            int64                     `json:"accountId"`
-	Username             string                    `json:"username"`
-	SiteName             string                    `json:"siteName"`
-	TokenName            string                    `json:"tokenName"`
-	Priority             int64                     `json:"priority"`
-	Weight               int64                     `json:"weight"`
-	Eligible             bool                      `json:"eligible"`
-	RecentlyFailed       bool                      `json:"recentlyFailed"`
+	AssociationContextRequired bool                      `json:"associationContextRequired,omitempty"`
+	CandidateRef               RouteDecisionCandidateRef `json:"candidateRef"`
+	Label                      string                    `json:"label"`
+	SourceModel                string                    `json:"sourceModel,omitempty"`
+	ActualModel                string                    `json:"actualModel,omitempty"`
+	Eligibility                string                    `json:"eligibility"`
+	Blockers                   []CandidateBlocker        `json:"blockers"`
+	ProbabilityEvaluated       bool                      `json:"probabilityEvaluated"`
+	ChannelID                  int64                     `json:"channelId"`
+	AccountID                  int64                     `json:"accountId"`
+	Username                   string                    `json:"username"`
+	SiteName                   string                    `json:"siteName"`
+	TokenName                  string                    `json:"tokenName"`
+	Priority                   int64                     `json:"priority"`
+	Weight                     int64                     `json:"weight"`
+	Eligible                   bool                      `json:"eligible"`
+	RecentlyFailed             bool                      `json:"recentlyFailed"`
 	// CooldownUntil is the candidate's persisted cooling deadline (RFC3339):
 	// route_channels.cooldown_until for account/oauth_unit rows, or
 	// upstream_grants.cooldown_until for direct grant members (projected

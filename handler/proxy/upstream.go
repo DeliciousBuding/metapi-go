@@ -153,6 +153,10 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		upstreamPath = r.URL.Path
 	}
 	downstreamPolicy.RequiredUpstreamProtocol, downstreamPolicy.AllowUpstreamProtocolConversion = proxy.RoutingProtocolForPath(upstreamPath)
+	downstreamPolicy.ResolveAssociationRequest = associationRequestFromContext(r.Context())
+	if downstreamPolicy.ResolveAssociationRequest == nil {
+		downstreamPolicy.ResolveAssociationRequest = lazyAssociationRequest(upstreamPath, ctx.RawBody, r.Header, ctx.IsStream, time.Now())
+	}
 	// Never forward a downstream path that can escape the selected site's API
 	// prefix. Go's http.Client preserves ".." on the wire, and the upstream host
 	// would normalize it outside the prefix — letting any authenticated

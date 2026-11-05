@@ -17,17 +17,19 @@ type MemberCreate struct {
 	ProtocolOrder store.DirectProtocolOrder `json:"protocolOrder"`
 }
 type Member struct {
-	ID             int64                     `db:"id" json:"id"`
-	GroupID        int64                     `db:"group_id" json:"groupId"`
-	GrantID        int64                     `db:"grant_id" json:"grantId"`
-	Priority       int64                     `db:"priority" json:"priority"`
-	Weight         int64                     `db:"weight" json:"weight"`
-	ProtocolOrder  store.DirectProtocolOrder `db:"protocol_order" json:"protocolOrder"`
-	Origin         string                    `db:"origin_key" json:"-"`
-	Ownership      string                    `json:"ownership"`
-	ModelName      string                    `db:"model_name" json:"modelName"`
-	CredentialName string                    `db:"credential_name" json:"credentialName"`
-	ChannelID      int64                     `db:"channel_id" json:"channelId"`
+	ID                    int64                             `db:"id" json:"id"`
+	GroupID               int64                             `db:"group_id" json:"groupId"`
+	GrantID               int64                             `db:"grant_id" json:"grantId"`
+	Priority              int64                             `db:"priority" json:"priority"`
+	Weight                int64                             `db:"weight" json:"weight"`
+	ProtocolOrder         store.DirectProtocolOrder         `db:"protocol_order" json:"protocolOrder"`
+	AssociationConditions store.DirectAssociationConditions `db:"association_conditions" json:"-"`
+	AssociationRuleCount  int                               `json:"associationRuleCount"`
+	Origin                string                            `db:"origin_key" json:"-"`
+	Ownership             string                            `json:"ownership"`
+	ModelName             string                            `db:"model_name" json:"modelName"`
+	CredentialName        string                            `db:"credential_name" json:"credentialName"`
+	ChannelID             int64                             `db:"channel_id" json:"channelId"`
 }
 type Group struct {
 	ID             int64    `db:"id" json:"id"`
@@ -44,7 +46,7 @@ type Group struct {
 }
 
 const groupSelect = `SELECT g.id,g.name,g.mode,g.enabled,g.active_item_id,g.origin_key,COALESCE(rg.route_id,0) AS route_id,COALESCE(r.model_pattern,'') AS model_pattern,COALESCE(r.display_name,'') AS display_name FROM upstream_groups g LEFT JOIN upstream_route_groups rg ON rg.group_id=g.id LEFT JOIN token_routes r ON r.id=rg.route_id`
-const memberSelect = `SELECT i.id,i.group_id,i.grant_id,i.priority,i.weight,i.protocol_order,i.origin_key,m.name AS model_name,k.name AS credential_name,m.channel_id FROM upstream_group_items i JOIN upstream_grants g ON g.id=i.grant_id JOIN upstream_models m ON m.id=g.model_id JOIN upstream_credentials k ON k.id=g.credential_id`
+const memberSelect = `SELECT i.id,i.group_id,i.grant_id,i.priority,i.weight,i.protocol_order,i.association_conditions,i.origin_key,m.name AS model_name,k.name AS credential_name,m.channel_id FROM upstream_group_items i JOIN upstream_grants g ON g.id=i.grant_id JOIN upstream_models m ON m.id=g.model_id JOIN upstream_credentials k ON k.id=g.credential_id`
 
 func ListGroups(ctx context.Context, db *sqlx.DB) ([]Group, error) {
 	out := []Group{}
@@ -57,6 +59,7 @@ func ListGroups(ctx context.Context, db *sqlx.DB) ([]Group, error) {
 	}
 	byGroup := map[int64][]Member{}
 	for _, m := range members {
+		m.AssociationRuleCount = len(m.AssociationConditions)
 		m.Ownership = Ownership(m.Origin)
 		if m.ProtocolOrder == nil {
 			m.ProtocolOrder = store.DirectProtocolOrder{}
@@ -223,6 +226,7 @@ func UpdateGroup(ctx context.Context, db *sqlx.DB, id int64, in GroupUpdate) (Gr
 	})
 	out.Ownership = Ownership(out.Origin)
 	for i := range out.Members {
+		out.Members[i].AssociationRuleCount = len(out.Members[i].AssociationConditions)
 		out.Members[i].Ownership = Ownership(out.Members[i].Origin)
 	}
 	return out, err

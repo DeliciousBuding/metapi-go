@@ -76,6 +76,13 @@ is their conjunction; cooldown remains a separate temporary state. A shared gran
 may appear in more than one group, so changing its credential or clearing its
 cooldown affects every membership.
 
+Imported conditional memberships additionally expose `associationRuleCount`.
+Their association priorities are evaluated per request; PATCH rejects a changed
+static priority while conditional rules are present. Weight and protocol-order
+updates preserve the rules. Route explanations without the needed request data
+mark those candidates `notEvaluated` and expose `associationContextRequired`;
+they do not treat an unevaluated predicate as an authorization success.
+
 Channels with an explicit `endpointConfig` can translate generation requests
 from any of the four client protocols, including an Ollama outbound endpoint.
 Legacy base/path grants retain their
