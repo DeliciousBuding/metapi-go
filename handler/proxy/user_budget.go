@@ -22,13 +22,14 @@ type userBudgetLedger interface {
 	SettleUserBudget(context.Context, string, *int64, bool) error
 }
 type requestUserBudget struct {
-	ledger        userBudgetLedger
-	tokens        int64
-	usageFound    bool
-	usageUnknown  bool
-	reserved      bool
-	seenAttempts  map[int]bool
-	releaseActive func()
+	ledger         userBudgetLedger
+	tokens         int64
+	usageFound     bool
+	usageUnknown   bool
+	reserved       bool
+	admittedTokens int64
+	seenAttempts   map[int]bool
+	releaseActive  func()
 }
 
 func (w *requestResponseWriter) AdmitProxyUserBudget(r *http.Request, pac *auth.ProxyAuthContext) (*http.Request, int, string) {
@@ -231,9 +232,18 @@ func (s *requestLifecycle) admitUserBudget(ctx context.Context, pac *auth.ProxyA
 		}
 	}
 	s.mu.Lock()
-	s.userBudget = &requestUserBudget{ledger: ledger, reserved: true, seenAttempts: map[int]bool{}, releaseActive: releaseActive}
+	s.userBudget = &requestUserBudget{ledger: ledger, reserved: true, admittedTokens: estimate, seenAttempts: map[int]bool{}, releaseActive: releaseActive}
 	s.mu.Unlock()
 	return 0, ""
+}
+
+func (s *requestLifecycle) admitsTransformedUserRequest(estimatedTokens int64) bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.userBudget != nil && s.userBudget.reserved && estimatedTokens <= s.userBudget.admittedTokens
 }
 
 func (s *requestLifecycle) observeUserBudgetUsageValidity(usage ParsedUsage) {

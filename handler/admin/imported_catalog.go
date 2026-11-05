@@ -72,7 +72,7 @@ func (h *upstreamCatalogHandler) createChannel(w http.ResponseWriter, r *http.Re
 		writeError(w, 400, "Native channel requires a provider, generic dialect and explicit endpoints")
 		return
 	}
-	row := importedChannelConfig{Name: in.Name, Provider: in.Provider, Dialect: in.Dialect, BaseURL: in.BaseURL, Endpoints: in.Endpoints, ChatPath: in.ChatPath, ResponsesPath: in.ResponsesPath, MessagesPath: in.MessagesPath, UseSystemProxy: in.UseSystemProxy, ChannelProxy: in.ChannelProxy, CustomHeaders: in.CustomHeaders, ParamOverride: in.ParamOverride}
+	row := importedChannelConfig{Name: in.Name, Provider: in.Provider, Dialect: in.Dialect, BaseURL: in.BaseURL, Endpoints: in.Endpoints, ChatPath: in.ChatPath, ResponsesPath: in.ResponsesPath, MessagesPath: in.MessagesPath, UseSystemProxy: in.UseSystemProxy, ChannelProxy: in.ChannelProxy, CustomHeaders: in.CustomHeaders, ParamOverride: in.ParamOverride, RequestConfig: in.RequestConfig}
 	if err := validateImportedConfig(row); err != nil {
 		writeError(w, 400, err.Error())
 		return

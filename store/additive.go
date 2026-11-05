@@ -654,6 +654,17 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		Description: "user-wide token credit budgets, group pricing and durable request settlement ledger",
 		Apply:       migrateGatewayUserBudgets,
 	},
+	{
+		Version:     "direct_request_config_v1",
+		Description: "ordered channel request operations and serializer options",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "upstream_channels")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "upstream_channels", "request_config", "TEXT", "TEXT", "DEFAULT '{}' NOT NULL")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

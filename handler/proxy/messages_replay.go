@@ -319,10 +319,14 @@ func messagesReplayScope(ctx *Ctx, selected *routing.SelectedChannel, client [sh
 			return [sha256.Size]byte{}, messagesReplayUnavailable("selected direct endpoint identity is invalid")
 		}
 		order, _ := json.Marshal(direct.ProtocolOrder)
+		requestConfig, err := json.Marshal(direct.RequestConfig)
+		if err != nil {
+			return [sha256.Size]byte{}, messagesReplayUnavailable("selected request configuration is invalid")
+		}
 		return messagesReplayHash("messages-replay-direct-v1", string(client[:]), selected.ActualModel,
 			strconv.FormatInt(direct.RouteID, 10), strconv.FormatInt(direct.GroupID, 10), strconv.FormatInt(direct.ItemID, 10), strconv.FormatInt(direct.ChannelID, 10), strconv.FormatInt(direct.CredentialID, 10), strconv.FormatInt(direct.GrantID, 10), strconv.FormatInt(direct.ModelID, 10),
 			selected.TokenValue, direct.CredentialKind, direct.Provider, direct.BaseURL, direct.ChatPath, direct.ResponsesPath, direct.AnthropicPath,
-			direct.CustomHeader, direct.ParamOverride, string(endpoints), strconv.Itoa(direct.Protocols), string(order)), nil
+			direct.CustomHeader, direct.ParamOverride, string(requestConfig), string(endpoints), strconv.Itoa(direct.Protocols), string(order)), nil
 	}
 	if selected == nil || selected.Channel.ID <= 0 || (selected.Site.ID <= 0 && strings.TrimSpace(selected.Site.URL) == "") || (selected.Account.ID <= 0 && strings.TrimSpace(selected.TokenValue) == "") {
 		return [sha256.Size]byte{}, messagesReplayUnavailable("selected upstream identity is unavailable")

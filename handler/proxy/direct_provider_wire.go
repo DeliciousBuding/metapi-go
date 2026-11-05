@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -24,6 +25,8 @@ type directProviderWire struct {
 	ImageResponseFormat string
 	NanoGPTTools        *upstreamadapter.NanoGPTTools
 	ProtocolSession     *relaykitbridge.Session
+	RequestConfig       store.DirectRequestConfig
+	RequestContext      requestoverride.Context
 	removeHeaders       []string
 	removeEmptyHeaders  []string
 }

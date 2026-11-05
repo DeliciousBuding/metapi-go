@@ -70,6 +70,11 @@ export type ImportedRequestConfig = {
   channelProxy: string
   customHeaders: string
   paramOverride: string
+  requestTransformSummary?: {
+    bodyOperations: number
+    headerOperations: number
+    hasTransformOptions: boolean
+  }
 }
 
 export type ImportedUpstreamDetail = {
@@ -89,6 +94,7 @@ export type ImportedUpstreamDetail = {
   hasChannelProxy: boolean
   hasCustomHeaders: boolean
   hasParamOverride: boolean
+  hasRequestTransform?: boolean
   channelProxyDisplay: string
 }
 
@@ -104,7 +110,10 @@ export type ImportedUpstreamUpdate = Partial<
     | 'anthropicMessagePath'
     | 'useSystemProxy'
   > &
-    ImportedRequestConfig
+    Pick<
+      ImportedRequestConfig,
+      'channelProxy' | 'customHeaders' | 'paramOverride'
+    >
 >
 
 export type ImportedCredential = {

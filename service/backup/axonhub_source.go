@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+
+	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 )
 
 // AxonHubBackupVersion is the only AxonHub backup format this importer has
@@ -93,28 +95,26 @@ type AxonHubSourceGCP struct {
 }
 
 type AxonHubSourceChannelSettings struct {
-	ModelProtocols          []AxonHubSourceModelProtocol `json:"modelProtocols"`
-	ExtraModelPrefix        string                       `json:"extraModelPrefix"`
-	AutoTrimedModelPrefixes []string                     `json:"autoTrimedModelPrefixes"`
-	ModelMappings           []AxonHubSourceModelMapping  `json:"modelMappings"`
-	HideOriginalModels      bool                         `json:"hideOriginalModels"`
-	HideMappedModels        bool                         `json:"hideMappedModels"`
-	LowercaseModelID        bool                         `json:"lowercaseModelId"`
-	OverrideParameters      string                       `json:"overrideParameters"`
-	PassThroughUserAgent    *bool                        `json:"passThroughUserAgent"`
-	PassThroughBody         *bool                        `json:"passThroughBody"`
-	RetryableStatusCodes    []int                        `json:"retryableStatusCodes"`
-	// Operation-shaped transforms are retained only as presence flags so the
-	// compiler can refuse them instead of half-applying them.
-	HasBodyOverrideOperations   bool     `json:"-"`
-	HasHeaderOverrideOperations bool     `json:"-"`
-	ProxyConfigured             bool     `json:"-"`
-	ProxyURL                    string   `json:"-"`
-	HasTransformOptions         bool     `json:"-"`
-	HasRateLimit                bool     `json:"-"`
-	HasRetryableErrorPatterns   bool     `json:"-"`
-	HasProviderQuota            bool     `json:"-"`
-	UnsupportedFields           []string `json:"-"`
+	ModelProtocols            []AxonHubSourceModelProtocol     `json:"modelProtocols"`
+	ExtraModelPrefix          string                           `json:"extraModelPrefix"`
+	AutoTrimedModelPrefixes   []string                         `json:"autoTrimedModelPrefixes"`
+	ModelMappings             []AxonHubSourceModelMapping      `json:"modelMappings"`
+	HideOriginalModels        bool                             `json:"hideOriginalModels"`
+	HideMappedModels          bool                             `json:"hideMappedModels"`
+	LowercaseModelID          bool                             `json:"lowercaseModelId"`
+	OverrideParameters        string                           `json:"overrideParameters"`
+	PassThroughUserAgent      *bool                            `json:"passThroughUserAgent"`
+	PassThroughBody           *bool                            `json:"passThroughBody"`
+	RetryableStatusCodes      []int                            `json:"retryableStatusCodes"`
+	BodyOverrideOperations    []requestoverride.Operation      `json:"-"`
+	HeaderOverrideOperations  []requestoverride.Operation      `json:"-"`
+	TransformOptions          requestoverride.TransformOptions `json:"-"`
+	ProxyConfigured           bool                             `json:"-"`
+	ProxyURL                  string                           `json:"-"`
+	HasRateLimit              bool                             `json:"-"`
+	HasRetryableErrorPatterns bool                             `json:"-"`
+	HasProviderQuota          bool                             `json:"-"`
+	UnsupportedFields         []string                         `json:"-"`
 }
 
 type AxonHubSourceModelProtocol struct {
@@ -615,25 +615,58 @@ func decodeAxonHubSettings(raw json.RawMessage, dst *AxonHubSourceChannelSetting
 	}
 	// The source gives a non-nil operations slice precedence over the legacy
 	// settings, including an explicit empty array that clears the old override.
-	var bodyOps, headerOps []json.RawMessage
+	var bodyOps, headerOps []requestoverride.Operation
 	if rawOps, ok := obj["bodyOverrideOperations"]; ok {
 		if err := json.Unmarshal(rawOps, &bodyOps); err != nil {
 			return axonHubErr("invalid AxonHub backup: body override operations must be an array")
+		}
+		if requestoverride.Decode(rawOps, &bodyOps) != nil {
+			dst.UnsupportedFields = append(dst.UnsupportedFields, "bodyOverrideOperations")
 		}
 	}
 	if rawOps, ok := obj["headerOverrideOperations"]; ok {
 		if err := json.Unmarshal(rawOps, &headerOps); err != nil {
 			return axonHubErr("invalid AxonHub backup: header override operations must be an array")
 		}
+		if requestoverride.Decode(rawOps, &headerOps) != nil {
+			dst.UnsupportedFields = append(dst.UnsupportedFields, "headerOverrideOperations")
+		}
 	}
-	dst.HasBodyOverrideOperations = len(bodyOps) > 0
 	if bodyOps != nil {
 		dst.OverrideParameters = ""
+	} else if strings.HasPrefix(strings.TrimSpace(dst.OverrideParameters), "[") {
+		rawOps := []byte(dst.OverrideParameters)
+		if json.Unmarshal(rawOps, &bodyOps) != nil {
+			return axonHubErr("invalid AxonHub backup: legacy operation array is invalid")
+		}
+		if requestoverride.Decode(rawOps, &bodyOps) != nil {
+			dst.UnsupportedFields = append(dst.UnsupportedFields, "overrideParameters.operations")
+		}
+		dst.OverrideParameters = ""
 	}
-	dst.HasHeaderOverrideOperations = len(headerOps) > 0 || (headerOps == nil && present(obj["overrideHeaders"]))
-	dst.HasTransformOptions, err = axonHubActiveTransformOptions(obj["transformOptions"])
-	if err != nil {
-		return err
+	if headerOps == nil && present(obj["overrideHeaders"]) {
+		var headers []struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		}
+		if json.Unmarshal(obj["overrideHeaders"], &headers) != nil {
+			return axonHubErr("invalid AxonHub backup: legacy override headers must be an array")
+		}
+		if requestoverride.Decode(obj["overrideHeaders"], &headers) != nil {
+			dst.UnsupportedFields = append(dst.UnsupportedFields, "overrideHeaders")
+		}
+		for _, header := range headers {
+			headerOps = append(headerOps, requestoverride.Operation{Op: "set", Path: header.Key, Value: header.Value})
+		}
+	}
+	dst.BodyOverrideOperations, dst.HeaderOverrideOperations = bodyOps, headerOps
+	if rawOptions := obj["transformOptions"]; len(rawOptions) > 0 && string(bytes.TrimSpace(rawOptions)) != "null" {
+		if json.Unmarshal(rawOptions, &dst.TransformOptions) != nil {
+			return axonHubErr("invalid AxonHub backup: transform options have invalid fields")
+		}
+		if requestoverride.Decode(rawOptions, &dst.TransformOptions) != nil {
+			dst.UnsupportedFields = append(dst.UnsupportedFields, "transformOptions")
+		}
 	}
 	dst.HasRateLimit, err = axonHubActiveRateLimit(obj["rateLimit"])
 	if err != nil {
@@ -685,30 +718,6 @@ func decodeAxonHubSettings(raw json.RawMessage, dst *AxonHubSourceChannelSetting
 		}
 	}
 	return nil
-}
-
-// ChannelSettings exports its zero-valued TransformOptions object. Only
-// enabled known options require an implementation; unknown keys remain a
-// refusal even when false so future semantics cannot be silently discarded.
-func axonHubActiveTransformOptions(raw json.RawMessage) (bool, error) {
-	if len(raw) == 0 || string(bytes.TrimSpace(raw)) == "null" {
-		return false, nil
-	}
-	obj, err := rowObject(raw)
-	if err != nil {
-		return false, axonHubErr("invalid AxonHub backup: transform options must be an object")
-	}
-	var shape struct {
-		ForceArrayInstructions         bool              `json:"forceArrayInstructions"`
-		ForceArrayInputs               bool              `json:"forceArrayInputs"`
-		ReplaceDeveloperRoleWithSystem bool              `json:"replaceDeveloperRoleWithSystem"`
-		ReasoningEffortMapping         []json.RawMessage `json:"reasoningEffortMapping"`
-	}
-	if err := json.Unmarshal(raw, &shape); err != nil {
-		return false, axonHubErr("invalid AxonHub backup: transform options has an invalid field type")
-	}
-	unknown := unknownKeys(obj, []string{"forceArrayInstructions", "forceArrayInputs", "replaceDeveloperRoleWithSystem", "reasoningEffortMapping"})
-	return shape.ForceArrayInstructions || shape.ForceArrayInputs || shape.ReplaceDeveloperRoleWithSystem || len(shape.ReasoningEffortMapping) > 0 || len(unknown) > 0, nil
 }
 
 // AxonHub enables RPM/TPM and concurrency only for positive limits. Queue

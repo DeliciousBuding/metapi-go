@@ -116,11 +116,13 @@ Returns a flat editable connection object: `id`, `originKey`, `ownership`, `prov
 `openaiResponsePath`, `anthropicMessagePath`, and `useSystemProxy`. The three
 request-configuration values below are omitted; only `hasChannelProxy`,
 `channelProxyDisplay` (without user information), `hasCustomHeaders`, and
-`hasParamOverride` are returned. The response is `Cache-Control: no-store`.
+`hasParamOverride`, and `hasRequestTransform` are returned. The response is `Cache-Control: no-store`.
 
 ### GET /api/imported-upstreams/:id/request-config
 
 Explicitly retrieves `{channelProxy, customHeaders, paramOverride}` for editing.
+`requestTransformSummary:{bodyOperations,headerOperations,hasTransformOptions}`
+is a separate read-only summary; operation values and templates are withheld.
 These values can contain sensitive operator configuration. Custom header names
 are returned, but every non-empty header value is masked as `****`; submitting a
 `****` value back in a `PATCH` keeps the stored value instead of overwriting it,
@@ -133,13 +135,24 @@ Upstream credential secrets and OAuth state are never returned by either GET.
 ### PATCH /api/imported-upstreams/:id
 
 Accepts a non-empty JSON object containing any editable connection fields above,
-plus `channelProxy`, `customHeaders`, and `paramOverride`. Identity fields
+plus `channelProxy`, `customHeaders`, `paramOverride`, and `requestTransform`. Identity fields
 `id`, `originKey`, `provider`, and `dialect` are read-only. Omitted fields retain
 their values. Explicit empty strings clear proxy/header/parameter configuration.
 `customHeaders` is a JSON string containing an array of
 `{header_key, header_value}` objects; `paramOverride` is a JSON object string.
 Only supported client-header templates are accepted. `useSystemProxy` selects the
 gateway's configured system proxy when `channelProxy` is empty.
+
+`requestTransform` replaces the full ordered request configuration; `{}` clears
+it, while omission preserves it. It is also accepted during native channel
+creation. Its shape is
+`{body?:Operation[],headers?:Operation[],options?:{forceArrayInstructions?,forceArrayInputs?,replaceDeveloperRoleWithSystem?,reasoningEffortMapping?:[{from,to}]},nativeChatMapping?:boolean}`.
+`nativeChatMapping` selects whether the primary Chat serializer applies the
+effort mapping to every client; the AxonHub importer derives it from the source
+provider and custom endpoint ownership. It does not affect model permissions.
+The separate `requestTransformSummary` field is never a valid write payload.
+Ordinary advanced-setting saves do not clear this hidden configuration.
+See [ordered operation semantics and boundaries](settings.md#ordered-channel-request-operations).
 
 `endpointConfig` replaces the whole object. Endpoint URLs are exact, credential-free
 HTTP(S) URLs; authentication is `bearer`, `x-api-key`, `x-goog-api-key`, or

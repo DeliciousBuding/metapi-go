@@ -83,6 +83,12 @@ OpenCode 的独立协议 owner 继续负责各自转换。
 需要转换时复用 `direct_protocol_bridge.go` 与 `transform`。站点管理面的
 `platform.PlatformAdapter` 继续负责登录、余额、签到和令牌管理。
 
+`internal/requestoverride` 拥有已校验的渠道有序请求操作与纯模板执行。
+`service/backup` 将源配置编译为一份计划，`store.DirectRequestConfig` 保存
+JSON 合同并由路由候选携带；`handler/proxy` 在协议转换前应用语义选项，
+在 provider wire 准备后应用 body 操作，最终认证头构造后应用 header 操作。
+该 owner 不读取凭据、不选择路由、不发请求；每次尝试只修改自己的副本。
+
 ## Ownership and boundary map
 
 The layering is a **denylist of import edges**, not a file inventory: each

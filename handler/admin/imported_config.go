@@ -21,22 +21,23 @@ import (
 )
 
 type importedChannelConfig struct {
-	Ownership      string                `json:"ownership"`
-	ID             int64                 `db:"id" json:"id"`
-	OriginKey      string                `db:"origin_key" json:"originKey"`
-	Provider       string                `db:"provider" json:"provider"`
-	Dialect        string                `db:"dialect" json:"dialect"`
-	Name           string                `db:"name" json:"name"`
-	Enabled        bool                  `db:"enabled" json:"enabled"`
-	BaseURL        string                `db:"base_url" json:"baseUrl"`
-	Endpoints      store.DirectEndpoints `db:"endpoint_config" json:"endpointConfig"`
-	ChatPath       string                `db:"openai_chat_completion_path" json:"openaiChatCompletionPath"`
-	ResponsesPath  string                `db:"openai_response_path" json:"openaiResponsePath"`
-	MessagesPath   string                `db:"anthropic_message_path" json:"anthropicMessagePath"`
-	UseSystemProxy bool                  `db:"proxy" json:"useSystemProxy"`
-	ChannelProxy   string                `db:"channel_proxy" json:"-"`
-	CustomHeaders  string                `db:"custom_header" json:"-"`
-	ParamOverride  string                `db:"param_override" json:"-"`
+	Ownership      string                    `json:"ownership"`
+	ID             int64                     `db:"id" json:"id"`
+	OriginKey      string                    `db:"origin_key" json:"originKey"`
+	Provider       string                    `db:"provider" json:"provider"`
+	Dialect        string                    `db:"dialect" json:"dialect"`
+	Name           string                    `db:"name" json:"name"`
+	Enabled        bool                      `db:"enabled" json:"enabled"`
+	BaseURL        string                    `db:"base_url" json:"baseUrl"`
+	Endpoints      store.DirectEndpoints     `db:"endpoint_config" json:"endpointConfig"`
+	ChatPath       string                    `db:"openai_chat_completion_path" json:"openaiChatCompletionPath"`
+	ResponsesPath  string                    `db:"openai_response_path" json:"openaiResponsePath"`
+	MessagesPath   string                    `db:"anthropic_message_path" json:"anthropicMessagePath"`
+	UseSystemProxy bool                      `db:"proxy" json:"useSystemProxy"`
+	ChannelProxy   string                    `db:"channel_proxy" json:"-"`
+	CustomHeaders  string                    `db:"custom_header" json:"-"`
+	ParamOverride  string                    `db:"param_override" json:"-"`
+	RequestConfig  store.DirectRequestConfig `db:"request_config" json:"-"`
 }
 
 // maskedImportedHeaderValue is returned in place of every custom header value
@@ -111,7 +112,7 @@ func mergeMaskedImportedCustomHeaders(next, previous string) string {
 }
 
 const importedConfigSelect = `SELECT id,origin_key,provider,dialect,name,enabled,base_url,endpoint_config,
-openai_chat_completion_path,openai_response_path,anthropic_message_path,proxy,channel_proxy,custom_header,param_override
+openai_chat_completion_path,openai_response_path,anthropic_message_path,proxy,channel_proxy,custom_header,param_override,request_config
 FROM upstream_channels WHERE id=?`
 
 func importedReadError(w http.ResponseWriter, err error) {
@@ -208,7 +209,8 @@ func (h *importedUpstreamHandler) detail(w http.ResponseWriter, r *http.Request)
 		ChannelProxyDisplay string `json:"channelProxyDisplay"`
 		HasCustomHeaders    bool   `json:"hasCustomHeaders"`
 		HasParamOverride    bool   `json:"hasParamOverride"`
-	}{row, row.ChannelProxy != "", importedDisplayURL(row.ChannelProxy), hasImportedConfig(row.CustomHeaders), hasImportedConfig(row.ParamOverride)})
+		HasRequestTransform bool   `json:"hasRequestTransform"`
+	}{row, row.ChannelProxy != "", importedDisplayURL(row.ChannelProxy), hasImportedConfig(row.CustomHeaders), hasImportedConfig(row.ParamOverride), row.RequestConfig.Active()})
 }
 
 func hasImportedConfig(value string) bool {
@@ -227,12 +229,19 @@ func (h *importedUpstreamHandler) requestConfig(w http.ResponseWriter, r *http.R
 		importedReadError(w, err)
 		return
 	}
-	writeJSON(w, 200, map[string]string{
+	writeJSON(w, 200, map[string]any{
 		"channelProxy": row.ChannelProxy,
 		// Header names stay editable; values are masked so Authorization,
 		// X-Api-Key, cookies, and any other operator secret are not echoed.
 		"customHeaders": maskImportedCustomHeaders(row.CustomHeaders),
 		"paramOverride": row.ParamOverride,
+		// Operation values may include private headers or prompts. Readback
+		// exposes shape/counts only; edits replace the whole explicit contract.
+		"requestTransformSummary": map[string]any{
+			"bodyOperations":      len(row.RequestConfig.Body),
+			"headerOperations":    len(row.RequestConfig.Headers),
+			"hasTransformOptions": row.RequestConfig.Options.Active(),
+		},
 	})
 }
 
@@ -277,6 +286,7 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		"openaiResponsePath": {"openai_response_path", &row.ResponsesPath}, "anthropicMessagePath": {"anthropic_message_path", &row.MessagesPath},
 		"useSystemProxy": {"proxy", &row.UseSystemProxy}, "channelProxy": {"channel_proxy", &row.ChannelProxy},
 		"customHeaders": {"custom_header", &row.CustomHeaders}, "paramOverride": {"param_override", &row.ParamOverride},
+		"requestTransform": {"request_config", &row.RequestConfig},
 	}
 	set := []string{}
 	args := []any{}
@@ -290,6 +300,9 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		decoder.DisallowUnknownFields()
 		if name == "endpointConfig" {
 			row.Endpoints = store.DirectEndpoints{}
+		}
+		if name == "requestTransform" {
+			row.RequestConfig = store.DirectRequestConfig{}
 		}
 		if decoder.Decode(f.target) != nil {
 			writeError(w, 400, "Invalid configuration field type")
@@ -373,6 +386,12 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 }
 
 func validateImportedConfig(row importedChannelConfig) error {
+	if err := row.RequestConfig.Validate(); err != nil {
+		return fmt.Errorf("Invalid request operations: %s", err)
+	}
+	if err := row.RequestConfig.ValidateEndpoints(row.Endpoints); err != nil {
+		return fmt.Errorf("Endpoints are incompatible with the imported request operations")
+	}
 	if strings.TrimSpace(row.Name) == "" || len(row.Name) > 200 {
 		return fmt.Errorf("Name must contain 1 to 200 characters")
 	}

@@ -3,6 +3,8 @@ package proxyhandler
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"net/http"
 	"strings"
@@ -48,6 +50,10 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		selected = &copySelected
 	}
 	var err error
+	if err := selected.Direct.RequestConfig.ValidateEndpoints(selected.Direct.Endpoints); err != nil {
+		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "Selected channel request operations are incompatible with its endpoints", "upstream_error", requestID)
+		return true, nil
+	}
 	selected, err = pinDirectVideoTaskCandidate(ctx, selected)
 	if err != nil {
 		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, err.Error(), "upstream_error", requestID)
@@ -145,8 +151,13 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 		return true, nil, false
 	}
 	var protocolSession *relaykitbridge.Session
-	if directBridgeNeeded(ctx.DownstreamPath, path) {
+	requestContext := requestoverride.NewContext(ctx.RawBody, r.Header, ctx.RequestedModel, model, directTransformProtocol(ctx.DownstreamPath))
+	body, err = requestoverride.BeforeProtocol(body, directTransformProtocol(ctx.DownstreamPath), selected.Direct.RequestConfig.Options)
+	if err == nil && directBridgeNeeded(ctx.DownstreamPath, path) {
 		body, protocolSession, err = prepareDirectProtocolRequest(r.Context(), endpoint, body, ctx.DownstreamPath, path, model, ctx.IsStream, options)
+	}
+	if err == nil && selected.Direct.RequestConfig.Options.Active() {
+		body, err = requestoverride.AfterProtocol(body, directTransformProtocol(path), selected.Direct.RequestConfig.Options, selected.Direct.RequestConfig.NativeChatMapping)
 	}
 	if ctx.messagesBridgeReplayRequired && (err != nil || replay == nil || !replay.UsedReplay()) {
 		writeMessagesReplayFailure(w, ctx, requestID)
@@ -203,6 +214,32 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 			return false, nil, true
 		}
 		writeJSONErrorWithRequest(w, http.StatusBadRequest, err.Error(), "invalid_request_error", requestID)
+		return true, nil, false
+	}
+	beforeOperations := append([]byte(nil), wire.Body...)
+	wire.Body, err = requestoverride.ClaudeCodeMapping(wire.Body, directTransformProtocol(path), selected.Direct.RequestConfig.Options, requestContext)
+	if err != nil {
+		writeJSONErrorWithRequest(w, http.StatusBadRequest, "Cannot apply selected channel reasoning mapping", "invalid_request_error", requestID)
+		return true, nil, false
+	}
+	if len(selected.Direct.RequestConfig.Body) > 0 {
+		var warnings []requestoverride.Warning
+		limit := config.DefaultRequestBodyLimit
+		if cfg := config.GetSafe(); cfg != nil && cfg.RequestBodyLimit > 0 {
+			limit = cfg.RequestBodyLimit
+		}
+		wire.Body, warnings, err = requestoverride.ApplyBody(wire.Body, selected.Direct.RequestConfig.Body, requestContext, limit)
+		logDirectOperationWarnings(selected.Direct.ChannelID, "body", warnings)
+		if err != nil {
+			writeJSONErrorWithRequest(w, http.StatusBadRequest, "Cannot apply selected channel request operations", "invalid_request_error", requestID)
+			return true, nil, false
+		}
+	}
+	wire.RequestConfig = selected.Direct.RequestConfig
+	wire.RequestContext = requestContext
+	if (len(selected.Direct.RequestConfig.Body) > 0 || selected.Direct.RequestConfig.Options.Active()) && ctx.Auth != nil && ctx.Auth.OwnerUserID != nil &&
+		!directUserOperationsWithinBudget(beforeOperations, wire.Body, path, ctx.lifecycle) {
+		writeJSONErrorWithRequest(w, http.StatusForbidden, "Selected channel request operations exceed the admitted user request", "permission_error", requestID)
 		return true, nil, false
 	}
 	if openCode {

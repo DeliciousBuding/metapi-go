@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/deliciousbuding/metapi-go/internal/gcpsa"
+	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"net/url"
 	"regexp"
 	"sort"
@@ -51,6 +52,7 @@ type axonHubPlanChannel struct {
 	ChannelProxy    string
 	CustomHeader    string
 	ParamOverride   string
+	RequestConfig   store.DirectRequestConfig
 	Protocols       int
 	Tags            []string
 	CredentialKeys  []string
@@ -457,12 +459,18 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		// The dispatcher uses these as protocol identities. The exact URL is
 		// owned by Endpoints, so custom paths cannot accidentally trigger a
 		// different protocol's request/response conversion.
-		ChatPath:       "/v1/chat/completions",
-		ResponsesPath:  "/v1/responses",
-		MessagesPath:   "/v1/messages",
-		Endpoints:      endpoints,
-		ChannelProxy:   channelProxy,
-		ParamOverride:  strings.TrimSpace(channel.Settings.OverrideParameters),
+		ChatPath:      "/v1/chat/completions",
+		ResponsesPath: "/v1/responses",
+		MessagesPath:  "/v1/messages",
+		Endpoints:     endpoints,
+		ChannelProxy:  channelProxy,
+		ParamOverride: strings.TrimSpace(channel.Settings.OverrideParameters),
+		RequestConfig: store.DirectRequestConfig{Config: requestoverride.Config{
+			Body:              channel.Settings.BodyOverrideOperations,
+			Headers:           channel.Settings.HeaderOverrideOperations,
+			Options:           channel.Settings.TransformOptions,
+			NativeChatMapping: axonHubNativeChatMapping(channel),
+		}},
 		Protocols:      protocols,
 		Tags:           channel.Tags,
 		CredentialKeys: keys,
@@ -490,7 +498,31 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 			return nil, []string{"param_override_invalid"}, nil
 		}
 	}
+	if err := compiled.RequestConfig.Validate(); err != nil {
+		return nil, []string{"channel_request_operation_unsupported:" + err.Error()}, nil
+	}
+	if err := compiled.RequestConfig.ValidateEndpoints(compiled.Endpoints); err != nil {
+		return nil, []string{err.Error()}, nil
+	}
 	return compiled, nil, append(protocolResiduals, channelResiduals(channel)...)
+}
+
+func axonHubNativeChatMapping(channel AxonHubSourceChannel) bool {
+	if len(channel.Settings.TransformOptions.ReasoningEffortMapping) == 0 {
+		return false
+	}
+	for _, endpoint := range channel.Endpoints {
+		if endpoint.APIFormat == "openai/chat_completions" {
+			return false
+		}
+	}
+	switch channel.Type {
+	case "openai", "atlascloud", "deepinfra", "qiniu", "minimax", "ppio", "siliconflow", "vercel",
+		"aihubmix", "burncloud", "github", "evolink", "groq":
+		return true
+	default:
+		return false
+	}
 }
 
 // channelSkipReasons are the source features that change which requests reach
@@ -512,15 +544,6 @@ func channelSkipReasons(channel AxonHubSourceChannel) []string {
 	case "", "unlimited":
 	default:
 		reasons = append(reasons, "channel_stream_policy_unsupported")
-	}
-	if channel.Settings.HasBodyOverrideOperations {
-		reasons = append(reasons, "channel_body_override_unsupported")
-	}
-	if channel.Settings.HasHeaderOverrideOperations {
-		reasons = append(reasons, "channel_header_override_unsupported")
-	}
-	if channel.Settings.HasTransformOptions {
-		reasons = append(reasons, "channel_transform_options_unsupported")
 	}
 	if channel.Settings.HasRateLimit {
 		reasons = append(reasons, "channel_rate_limit_unsupported")

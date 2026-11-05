@@ -289,7 +289,8 @@ the current executable import contract:
 - Source `openai/responses_websocket` remains a residual for Codex channels. It
   is reported in preview and does not enable an executable direct WebSocket
   transport or expand the imported channel's HTTP grants.
-- Active channel transform operations, active channel rate limits and stream policies,
+- Request operations outside the supported JSON/profile or authority boundaries below,
+  active channel rate limits and stream policies,
   conditional associations, unsupported proxy modes, and nonportable key-level
   load-balancing/sticky overrides or regular expressions.
 - Source pricing, request history and deployment settings. Developer associations
@@ -299,6 +300,63 @@ the current executable import contract:
 
 These residuals are not a claim of equivalent behavior. Their source records
 remain in the original backup and the preview explains the affected scope.
+
+#### Ordered channel request operations
+
+AxonHub body/header operation arrays are retained in `upstream_channels.request_config`
+(JSON text, additive migration `direct_request_config_v1`, default `{}`). Reimport
+replaces the source-owned configuration without changing another origin. Portable
+backups retain it; malformed stored configurations fail closed.
+
+Body operations execute in order after provider serialization: `set`,
+`set_if_absent`, `delete`, `rename`, `copy`, `array_append`, `array_prepend`,
+`array_insert`, and `array_remove`. Header operations support the source's
+`set`, `delete`, `rename`, and `copy`. A non-null operation array takes precedence
+over its legacy field, including `[]`; a null array retains legacy behavior.
+Operation arrays encoded in legacy `overrideParameters` are also recognized.
+Legacy header entries are converted to ordered set/delete operations.
+
+Each operation uses `{op,path?,from?,to?,value?,condition?,match?:{path,eq},index?,splat?}`.
+Dotted/escaped paths and numeric array indexes are supported. Destination query,
+modifier and projection paths remain unsupported; `array_remove.match.path`
+is a read-only gjson expression. Empty remove-match paths/equality values are
+invalid, as in the source. Insert indexes can be negative and are clamped to
+the array bounds; `splat` defaults to true. `set_if_absent` keeps an explicit
+null. `__AXONHUB_CLEAR__` clears a set destination.
+
+Values and conditions use Go `text/template` with `toJSON` and the public
+`RequestModel`, `Model`, `Metadata`, `RequestHeader`, `PromptCacheKey`,
+`ReasoningEffort` fields. Authentication and private gateway-control headers are
+absent. Conditions run only when their trimmed rendering is `true`. Rendered
+objects, arrays, numbers, booleans and null become JSON values; other output
+stays text. Large integer lexemes are preserved for untouched/copied values
+and inserted JSON numbers rather than rounded through float64.
+Unknown operations/fields, invalid templates, more than 128 operations or more
+than 64 KiB per value/condition are refused at import. Template output is bounded
+to 1 MiB; the configured request body limit also bounds the transformed body.
+Runtime template errors retain the original literal, and individual
+body path/type errors leave the previous body intact and continue, matching
+the source's best-effort behavior; logs expose only operation index and reason.
+Rendered header CR/LF/NUL fails the request before dispatch.
+
+Operations cannot alter model, stream, stream-usage configuration, output limits,
+authentication, framing or protocol identity headers, or copy secret headers.
+Known provider-owned multi-request/envelope profiles (`opencode-go`, `systemone`,
+`nanogpt`, `antigravity`, and dedicated image/video profiles) remain residual
+when they carry these operations. Body operations on multipart/non-JSON
+endpoints also remain residual. Imported endpoint edits must retain this
+compatibility. Ordinary user Keys permit header-only and nonexpanding body
+operations; a transformation that expands the conservative token estimate,
+adds media/hosted tools or opaque continuation receives 403 before dispatch
+and consumes no user usage. It does not enlarge the existing request hold.
+
+Serializer options have a separate phase. Developer roles become system roles
+before the existing protocol bridge; force-array instructions affects
+Messages `system`, and force-array inputs affects Responses `input`. Other
+serializers retain their source behavior. Reasoning mappings use the first
+matching entry in source primary Chat serializers. The Claude CLI fallback
+maps Chat/Responses effort only when a provider adapter has not already changed
+it. These options do not change routing, stream selection or response conversion.
 
 ### Magpie backup import
 

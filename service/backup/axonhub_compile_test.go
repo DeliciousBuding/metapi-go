@@ -232,9 +232,9 @@ func TestCompileAxonHubPlanRefusesUnservableChannelShapes(t *testing.T) {
 			want:    []string{"endpoint_base_url_target_forbidden"},
 		},
 		{
-			name:    "body override operations",
-			channel: `{"id":1,"type":"openai","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"settings":{"bodyOverrideOperations":[{"op":"set","path":"temperature","value":"0.1"}]},"endpoints":[{"api_format":"openai/chat_completions"}]}`,
-			want:    []string{"channel_body_override_unsupported"},
+			name:    "body override authorization",
+			channel: `{"id":1,"type":"qiniu","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"settings":{"bodyOverrideOperations":[{"op":"set","path":"model","value":"other"}]},"endpoints":[{"api_format":"openai/chat_completions"}]}`,
+			want:    []string{"channel_request_operation_unsupported:operation_destination_unsupported"},
 		},
 		{
 			name:    "unknown settings key",
@@ -247,9 +247,9 @@ func TestCompileAxonHubPlanRefusesUnservableChannelShapes(t *testing.T) {
 			want:    []string{"channel_stream_policy_unsupported"},
 		},
 		{
-			name:    "transform options",
-			channel: `{"id":1,"type":"openai","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"settings":{"transformOptions":{"replaceDeveloperRoleWithSystem":true}},"endpoints":[{"api_format":"openai/chat_completions"}]}`,
-			want:    []string{"channel_transform_options_unsupported"},
+			name:    "unknown transform options",
+			channel: `{"id":1,"type":"openai","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"settings":{"transformOptions":{"futureTransform":true}},"endpoints":[{"api_format":"openai/chat_completions"}]}`,
+			want:    []string{"channel_settings_unsupported:transformOptions"},
 		},
 		{
 			name:    "forbidden metadata target",
