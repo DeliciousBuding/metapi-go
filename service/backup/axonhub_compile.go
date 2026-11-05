@@ -96,12 +96,13 @@ type axonHubPlanGrant struct {
 }
 
 type axonHubPlanRoute struct {
-	SourceModelID int
-	Pattern       string
-	GroupKey      string
-	Enabled       bool
-	Strategy      string
-	Items         []axonHubPlanRouteItem
+	SourceModelID   int
+	Pattern         string
+	GroupKey        string
+	Enabled         bool
+	Strategy        string
+	TraceStickyMode string
+	Items           []axonHubPlanRouteItem
 }
 
 type axonHubPlanRouteItem struct {
@@ -842,12 +843,14 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 			residuals = append(residuals, "model_has_no_importable_channel:"+sanitizeIdentifier(pattern))
 			continue
 		}
+		strategy, sticky := axonHubModelRouting(src, model, &residuals, pattern)
 		route := axonHubPlanRoute{
-			SourceModelID: model.ID,
-			Pattern:       pattern,
-			GroupKey:      pattern,
-			Enabled:       model.Status == "" || model.Status == "enabled",
-			Strategy:      axonHubRouteStrategy(model.Settings.LoadBalancerStrategy, &residuals, pattern),
+			SourceModelID:   model.ID,
+			Pattern:         pattern,
+			GroupKey:        pattern,
+			Enabled:         model.Status == "" || model.Status == "enabled",
+			Strategy:        strategy,
+			TraceStickyMode: sticky,
 		}
 		sort.Strings(order)
 		conditionsValid := true
@@ -874,9 +877,6 @@ func compileAxonHubRoutes(src *AxonHubSource, channels []*axonHubPlanChannel, by
 		if !conditionsValid {
 			continue
 		}
-		if model.Settings.TraceStickyMode != "" && model.Settings.TraceStickyMode != "default" {
-			residuals = append(residuals, "model_trace_sticky_mode_not_imported:"+sanitizeIdentifier(pattern))
-		}
 		routes = append(routes, route)
 	}
 	return routes, residuals
@@ -890,6 +890,7 @@ func axonHubRouteStrategy(strategy string, residuals *[]string, pattern string) 
 		}
 		return "weighted"
 	case "round-robin":
+		*residuals = append(*residuals, "source_round_robin_replaced_by_gateway_rotation")
 		return "round_robin"
 	default:
 		*residuals = append(*residuals, "model_strategy_approximated:"+sanitizeIdentifier(strategy)+":"+sanitizeIdentifier(pattern))

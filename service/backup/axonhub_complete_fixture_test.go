@@ -120,11 +120,11 @@ func TestAxonHubCompleteFixturePreview(t *testing.T) {
 		"model_has_no_importable_channel:disabled-assoc-model",
 		"model_has_no_importable_channel:orphan-model",
 		"model_strategy_approximated:adaptive:adaptive-model",
-		"model_trace_sticky_mode_not_imported:rr-model",
+		"source_trace_affinity_replaced_by_success_only_key_scope",
 		"model_type_not_servable:audio",
 		"source_key_missing_write_requests",
 		"source_key_type_not_proxy",
-		"source_key_routing_override_unsupported",
+		"source_key_strategy_not_equivalent:adaptive",
 		"source_project_unavailable",
 		"project_active_profiles_flattened_into_key_channel_boundaries",
 	} {
@@ -465,7 +465,7 @@ func TestAxonHubCompleteFixtureImport(t *testing.T) {
 	for value, want := range map[string]string{
 		"sk-synthetic-complete-key-502": "source_key_missing_write_requests",
 		"sk-synthetic-complete-key-503": "source_key_type_not_proxy",
-		"sk-synthetic-complete-key-509": "source_key_routing_override_unsupported",
+		"fixture-complete-key-509":      "source_key_strategy_not_equivalent:adaptive",
 		"sk-synthetic-complete-key-511": "source_project_unavailable",
 		"sk-synthetic-complete-key-512": "source_project_unavailable",
 	} {

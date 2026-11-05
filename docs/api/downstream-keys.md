@@ -149,6 +149,23 @@ including native site/account channels. `modelIds` matches the mapped model
 exactly. Ordered mappings use anchored Go regular expressions (`*` matches all)
 and the first match wins. Invalid policy JSON or unsupported patterns fail closed.
 
+`routingStrategy` optionally overrides the matched route with one of the gateway's
+`weighted`, `round_robin`, `stable_first`, `least_busy`, `lowest_latency`, or
+`lowest_cost` strategies. `traceStickyMode` is `disabled` or
+`prefer_previous_channel`. Omitted, empty, `default`, and `system_default` values
+inherit the route. These settings rank only currently authorized candidates;
+all model, route, credential, conditional-association and channel-limit checks
+still apply.
+
+Trace affinity uses explicit `AH-Trace-Id` or the existing Codex/OpenCode session
+headers, namespaced by the authenticated Key, route and model mapping. It never
+extracts identity from prompt text. Only a completed successful response records
+the actual channel; failed attempts remove that channel's existing preference.
+A revoked, disabled, cooling or incompatible preferred channel falls back to the
+current strategy. The cache is process-local, limited to 4096 entries, expires
+30 minutes after success, and is cleared on restart. It is not a provider
+conversation store and does not authorize Responses WebSocket upstream grants.
+
 Quota limits are inclusive exhaustion thresholds; zero immediately exhausts a
 limit. Supported periods are `all_time`, `past_duration` with positive `value`
 and `unit` (`minute`, `hour`, `day`), and `calendar_duration` with `unit` (`day`,

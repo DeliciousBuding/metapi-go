@@ -73,6 +73,21 @@ const accessPolicySchema = z.object({
     )
     .optional(),
   blockReason: z.string().optional(),
+  routingStrategy: z
+    .enum([
+      'default',
+      'system_default',
+      'weighted',
+      'round_robin',
+      'stable_first',
+      'least_busy',
+      'lowest_latency',
+      'lowest_cost',
+    ])
+    .optional(),
+  traceStickyMode: z
+    .enum(['default', 'system_default', 'disabled', 'prefer_previous_channel'])
+    .optional(),
   quota: z
     .object({
       requests: z.number().int().min(0).optional(),

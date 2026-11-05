@@ -1054,7 +1054,7 @@ func buildTokenModelAvailability(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildTokenRoutes(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "model_pattern", "display_name", "display_icon", "model_mapping", "route_mode", "decision_snapshot", "decision_refreshed_at", "routing_strategy", "context_length", "sort_order", "enabled", "created_at", "updated_at"}
+	cols := []string{"id", "model_pattern", "display_name", "display_icon", "model_mapping", "route_mode", "decision_snapshot", "decision_refreshed_at", "routing_strategy", "trace_sticky_mode", "context_length", "sort_order", "enabled", "created_at", "updated_at"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -1069,6 +1069,7 @@ func buildTokenRoutes(rows []map[string]interface{}) []insertStmt {
 				serializeColumnValue("token_routes", "decision_snapshot", v(row, "decision_snapshot")),
 				asNullableString(v(row, "decision_refreshed_at")),
 				asNullableString(v(row, "routing_strategy")),
+				coalesceNullString(asNullableString(v(row, "trace_sticky_mode")), "disabled"),
 				asNumber(v(row, "context_length"), nil),
 				asNumber(v(row, "sort_order"), float64(0)),
 				asBoolean(v(row, "enabled"), true),

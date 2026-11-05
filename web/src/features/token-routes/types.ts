@@ -112,6 +112,7 @@ export type RouteRow = {
   sourceRouteIds?: number[]
   modelMapping?: string | null
   routingStrategy?: RouteRoutingStrategy | null
+  traceStickyMode?: 'default' | 'disabled' | 'prefer_previous_channel'
   contextLength?: number | null
   decisionSnapshot?: RouteDecision | null
   decisionRefreshedAt?: string | null
@@ -132,6 +133,7 @@ export type RouteFormPayload = {
   contextLength?: number | null
   sourceRouteIds?: number[]
   routingStrategy?: RouteRoutingStrategy
+  traceStickyMode?: 'default' | 'disabled' | 'prefer_previous_channel'
   modelMapping?: string
 }
 

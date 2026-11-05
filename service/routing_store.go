@@ -51,7 +51,7 @@ func (s *ProxyRoutingStore) LoadEnabledRoutes(ctx context.Context) ([]store.Toke
 	var routes []store.TokenRoute
 	err := s.selectContext(ctx, &routes, `
 		SELECT id, model_pattern, display_name, display_icon, route_mode, model_mapping,
-		       decision_snapshot, decision_refreshed_at, routing_strategy, context_length,
+		       decision_snapshot, decision_refreshed_at, routing_strategy, trace_sticky_mode, context_length,
 		       sort_order, enabled, created_at, updated_at
 		FROM token_routes
 		WHERE enabled = ?
@@ -140,7 +140,7 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 		return nil, err
 	}
 	directQuery, directArgs, err := sqlx.In(`
-		SELECT i.id, i.priority, i.weight, i.protocol_order, i.association_conditions, grt.id, rg.route_id, ug.id, ug.mode, ug.active_item_id,
+		SELECT i.id, i.priority, i.weight, i.protocol_order, i.association_conditions, i.last_selected_at, grt.id, rg.route_id, ug.id, ug.mode, ug.active_item_id,
 			c.id, c.name, c.base_url, c.dialect, c.provider, c.openai_chat_completion_path, c.openai_response_path,
 			c.anthropic_message_path, c.endpoint_config, c.channel_proxy, c.proxy, c.custom_header, c.param_override, c.request_config, c.rate_limit, c.stream_policy,
 			m.id, m.name, k.id, k.name, k.kind, k.secret, c.enabled, m.enabled, k.enabled, grt.enabled, grt.protocols,
@@ -166,10 +166,10 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 	for directRows.Next() {
 		var itemID, priority, weight int64
 		var direct store.DirectUpstreamCandidate
-		var cooldown *string
+		var cooldown, lastSelectedAt *string
 		var successes, failures, totalLatency int64
 		var totalCost float64
-		if err := directRows.Scan(&itemID, &priority, &weight, &direct.ProtocolOrder, &direct.AssociationConditions, &direct.GrantID, &direct.RouteID, &direct.GroupID, &direct.GroupMode, &direct.ActiveItemID,
+		if err := directRows.Scan(&itemID, &priority, &weight, &direct.ProtocolOrder, &direct.AssociationConditions, &lastSelectedAt, &direct.GrantID, &direct.RouteID, &direct.GroupID, &direct.GroupMode, &direct.ActiveItemID,
 			&direct.ChannelID, &direct.ChannelName, &direct.BaseURL, &direct.Dialect, &direct.Provider, &direct.ChatPath, &direct.ResponsesPath,
 			&direct.AnthropicPath, &direct.Endpoints, &direct.ChannelProxy, &direct.UseSystemProxy, &direct.CustomHeader, &direct.ParamOverride, &direct.RequestConfig, &direct.RateLimit, &direct.StreamPolicy,
 			&direct.ModelID, &direct.ModelName, &direct.CredentialID, &direct.CredentialName, &direct.CredentialKind, &direct.Credential,
@@ -183,7 +183,7 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 			Account store.Account
 			Site    store.Site
 			Token   *store.AccountToken
-		}{Channel: store.RouteChannel{ID: itemIDForCandidate, RouteID: direct.RouteID, Priority: &priority, Weight: &weight, Enabled: true, Direct: &direct, CooldownUntil: cooldown, SuccessCount: &successes, FailCount: &failures, TotalLatencyMs: &totalLatency, TotalCost: &totalCost}})
+		}{Channel: store.RouteChannel{ID: itemIDForCandidate, RouteID: direct.RouteID, Priority: &priority, Weight: &weight, Enabled: true, Direct: &direct, LastSelectedAt: lastSelectedAt, CooldownUntil: cooldown, SuccessCount: &successes, FailCount: &failures, TotalLatencyMs: &totalLatency, TotalCost: &totalCost}})
 	}
 	return result, directRows.Err()
 }
@@ -254,6 +254,10 @@ func (s *ProxyRoutingStore) LoadOAuthRouteUnitMembers(ctx context.Context, unitI
 }
 
 func (s *ProxyRoutingStore) UpdateChannelLastSelectedAt(ctx context.Context, channelID int64, lastSelectedAt string) error {
+	if channelID < 0 {
+		_, err := s.execContext(ctx, `UPDATE upstream_group_items SET last_selected_at=? WHERE id=?`, lastSelectedAt, -channelID)
+		return err
+	}
 	_, err := s.execContext(ctx, `UPDATE route_channels SET last_selected_at = ? WHERE id = ?`, lastSelectedAt, channelID)
 	return err
 }
@@ -505,7 +509,7 @@ func (s *ProxyRoutingStore) loadChannelAccountRoute(ctx context.Context, channel
 			a.checkin_enabled, a.last_checkin_at, a.last_balance_refresh, a.oauth_provider,
 			a.oauth_account_key, a.oauth_project_id, a.extra_config, a.created_at, a.updated_at,
 			tr.id, tr.model_pattern, tr.display_name, tr.display_icon, tr.route_mode, tr.model_mapping,
-			tr.decision_snapshot, tr.decision_refreshed_at, tr.routing_strategy, tr.enabled, tr.created_at, tr.updated_at
+			tr.decision_snapshot, tr.decision_refreshed_at, tr.routing_strategy, tr.trace_sticky_mode, tr.enabled, tr.created_at, tr.updated_at
 		FROM route_channels rc
 		JOIN accounts a ON a.id = rc.account_id
 		JOIN token_routes tr ON tr.id = rc.route_id
@@ -647,7 +651,7 @@ func scanChannelAccountRoute(rows *sqlx.Rows) (store.RouteChannel, store.Account
 		&account.CheckinEnabled, &account.LastCheckinAt, &account.LastBalanceRefresh, &account.OAuthProvider,
 		&account.OAuthAccountKey, &account.OAuthProjectID, &account.ExtraConfig, &account.CreatedAt, &account.UpdatedAt,
 		&route.ID, &route.ModelPattern, &route.DisplayName, &route.DisplayIcon, &route.RouteMode, &route.ModelMapping,
-		&route.DecisionSnapshot, &route.DecisionRefreshedAt, &route.RoutingStrategy, &route.Enabled, &route.CreatedAt, &route.UpdatedAt,
+		&route.DecisionSnapshot, &route.DecisionRefreshedAt, &route.RoutingStrategy, &route.TraceStickyMode, &route.Enabled, &route.CreatedAt, &route.UpdatedAt,
 	)
 	return channel, account, route, err
 }

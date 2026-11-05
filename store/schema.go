@@ -237,6 +237,7 @@ type TokenRoute struct {
 	DecisionSnapshot    *string `db:"decision_snapshot" json:"decisionSnapshot"`
 	DecisionRefreshedAt *string `db:"decision_refreshed_at" json:"decisionRefreshedAt"`
 	RoutingStrategy     string  `db:"routing_strategy" json:"routingStrategy"`
+	TraceStickyMode     string  `db:"trace_sticky_mode" json:"traceStickyMode"`
 	// ContextLength is optional route-level context window metadata (tokens).
 	// NULL means unknown / no enforcement — preserves pre-SC2 behavior.
 	// No dedicated model_catalog table exists; token_routes is the SC0 Option A home.

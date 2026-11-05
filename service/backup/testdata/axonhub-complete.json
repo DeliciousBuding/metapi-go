@@ -8545,7 +8545,7 @@
       "user_id": 1,
       "project_id": 1,
       "project_name": "complete-project",
-      "key": "sk-synthetic-complete-key-509",
+      "key": "fixture-complete-key-509",
       "name": "routing override key",
       "type": "user",
       "status": "enabled",

@@ -167,7 +167,7 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 	requestedByDisplayName := IsRouteDisplayNameMatch(requestedModel, match.Route.DisplayName)
 	bypassSourceModelCheck := requestedByDisplayName
 	mappedModel := ResolveMappedModel(requestedModel, match.Route.ModelMapping)
-	strategy := NormalizeRouteRoutingStrategy(match.Route.RoutingStrategy)
+	strategy := effectiveStrategy(match.Route, policy)
 
 	nowISO := time.Now().UTC().Format(time.RFC3339)
 	nowMs := time.Now().UnixMilli()
@@ -289,6 +289,7 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 			Summary:         summary,
 			Candidates:      candidates,
 			RoutingStrategy: strategy,
+			TraceStickyMode: store.EffectiveTraceStickyMode(match.Route.TraceStickyMode, policy.AccessPolicy),
 		}
 	}
 
@@ -302,6 +303,7 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 		Summary:         summary,
 		Candidates:      candidates,
 		RoutingStrategy: strategy,
+		TraceStickyMode: store.EffectiveTraceStickyMode(match.Route.TraceStickyMode, policy.AccessPolicy),
 	}
 
 	return explanation

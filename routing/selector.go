@@ -20,6 +20,7 @@ type ChannelSelector struct {
 	fallbackUnitCost    float64
 	channelLoadProvider ChannelLoadSnapshotProvider
 	channelLimits       *channellimit.Manager
+	affinity            *traceAffinity
 }
 
 // NewChannelSelector creates a new ChannelSelector.
@@ -40,6 +41,7 @@ func NewChannelSelector(
 		pricingFn:           pricingFn,
 		fallbackUnitCost:    fallbackUnitCost,
 		channelLoadProvider: channelLoadProvider,
+		affinity:            newTraceAffinity(),
 	}
 }
 
@@ -107,10 +109,14 @@ func (s *ChannelSelector) SelectPreferredChannel(
 		return nil, nil
 	}
 
+	return s.selectPreferredFromMatch(ctx, match, requestedModel, preferredChannelID, policy, excludeChannelIDs)
+}
+
+func (s *ChannelSelector) selectPreferredFromMatch(ctx context.Context, match *RouteMatch, requestedModel string, preferredChannelID int64, policy DownstreamRoutingPolicy, excludeChannelIDs []int64) (*SelectedChannel, error) {
 	mappedModel := ResolveMappedModel(requestedModel, match.Route.ModelMapping)
 	requestedByDisplayName := IsRouteDisplayNameMatch(requestedModel, match.Route.DisplayName)
 	bypassSourceModelCheck := requestedByDisplayName
-	strategy := NormalizeRouteRoutingStrategy(match.Route.RoutingStrategy)
+	strategy := effectiveStrategy(match.Route, policy)
 
 	nowISO := time.Now().UTC().Format(time.RFC3339)
 	nowMs := time.Now().UnixMilli()
@@ -187,7 +193,7 @@ func (s *ChannelSelector) selectFromMatch(
 	mappedModel := ResolveMappedModel(requestedModel, match.Route.ModelMapping)
 	requestedByDisplayName := IsRouteDisplayNameMatch(requestedModel, match.Route.DisplayName)
 	bypassSourceModelCheck := requestedByDisplayName
-	strategy := NormalizeRouteRoutingStrategy(match.Route.RoutingStrategy)
+	strategy := effectiveStrategy(match.Route, policy)
 
 	nowISO := time.Now().UTC().Format(time.RFC3339)
 	nowMs := time.Now().UnixMilli()
@@ -210,6 +216,31 @@ func (s *ChannelSelector) selectFromMatch(
 		return nil, nil
 	}
 	available = s.preferChannelCapacity(available)
+	if scope := affinityScope(match.Route, requestedModel, policy); scope != "" && s.affinity != nil {
+		if previous := s.affinity.get(scope, time.Now()); previous.channelID != 0 {
+			preferredID := previous.channelID
+			if previous.directID != 0 {
+				preferredID = 0
+				var preferred *RouteChannelCandidate
+				for i := range available {
+					candidate := &available[i]
+					if candidate.Direct != nil && candidate.Direct.ChannelID == previous.directID &&
+						(preferred == nil || candidate.Channel.PriorityOrZero() < preferred.Channel.PriorityOrZero()) {
+						preferred = candidate
+					}
+				}
+				if preferred != nil {
+					preferredID = preferred.Channel.ID
+				}
+			}
+			if sticky, err := s.selectPreferredFromMatch(ctx, &RouteMatch{Route: match.Route, Channels: available}, requestedModel, preferredID, policy, excludeChannelIDs); err != nil || sticky != nil {
+				if sticky != nil {
+					sticky.AffinityPreferred = true
+				}
+				return sticky, err
+			}
+		}
+	}
 
 	// Resolve runtime model per-candidate for display name matches
 	resolveModel := func(c RouteChannelCandidate) string {
@@ -1126,8 +1157,8 @@ func (s *ChannelSelector) finalizeDispatch(
 		return nil, nil
 	}
 
-	if recordSelection && dispatchCandidate.Direct == nil {
-		if stableFirstRotationKey != "" && stableFirstObservationKey != "" {
+	if recordSelection {
+		if stableFirstRotationKey != "" && stableFirstObservationKey != "" && dispatchCandidate.Direct == nil {
 			targetKey := stableFirstRotationKey
 			if usedObservation {
 				targetKey = stableFirstObservationKey
@@ -1135,11 +1166,15 @@ func (s *ChannelSelector) finalizeDispatch(
 			rememberStableFirstSiteSelectionForKey(targetKey, dispatchCandidate.Site.ID)
 			UpdateStableFirstObservationProgress(stableFirstRotationKey, usedObservation, dispatchCandidate.Site.ID)
 		}
-		if err := s.db.UpdateChannelLastSelectedAt(ctx, selected.Channel.ID, nowISO); err != nil {
+		lastSelected := nowISO
+		if dispatchCandidate.Direct != nil {
+			lastSelected = time.Now().UTC().Format(time.RFC3339Nano)
+		}
+		if err := s.db.UpdateChannelLastSelectedAt(ctx, selected.Channel.ID, lastSelected); err != nil {
 			return nil, err
 		}
 		s.cache.PatchCachedChannel(selected.Channel.ID, func(ch *store.RouteChannel) {
-			ch.LastSelectedAt = &nowISO
+			ch.LastSelectedAt = &lastSelected
 		})
 	}
 
@@ -1163,5 +1198,6 @@ func (s *ChannelSelector) finalizeDispatch(
 		ActualModel:   actualModel,
 		ContextLength: match.Route.ContextLength,
 		Direct:        dispatchCandidate.Direct,
+		AffinityScope: affinityScope(match.Route, requestedModel, policy),
 	}, nil
 }

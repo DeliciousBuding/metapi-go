@@ -209,11 +209,7 @@ func compileAxonHubAccess(src *AxonHubSource, plan *axonHubPlan) error {
 		if profile != nil {
 			compiled.Policy.ModelIDs = profile.ModelIDs
 			compiled.Policy.ModelMappings = profile.ModelMappings
-			for _, v := range []*string{profile.LoadBalanceStrategy, profile.TraceStickyMode} {
-				if v != nil && *v != "" && *v != "default" && *v != "system_default" {
-					compiled.Policy.BlockReason = "source_key_routing_override_unsupported"
-				}
-			}
+			compileAxonHubKeyRouting(profile, &compiled.Policy, &plan.residuals)
 			if present(profile.Quota) {
 				q, err := compileAxonHubQuota(profile.Quota, src)
 				if err != nil {

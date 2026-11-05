@@ -513,9 +513,19 @@ Recent background model-probe history per channel — the data behind the row-le
 
 Create a new route.
 
+`traceStickyMode` accepts `disabled`, `prefer_previous_channel`, or `default`;
+new and migrated native routes default to `disabled`. Key `accessPolicy`
+overrides the route value. GET and route explain return the stored/effective
+mode respectively; a preview without a request identity does not claim a sticky
+selection. See [Key routing policy](downstream-keys.md#exact-access-boundaries-and-period-quotas).
+
 ### PUT /api/routes/:id
 
 Update an existing route.
+
+Omitting `traceStickyMode` preserves it. Changing it or the model mapping
+invalidates the routing snapshot; existing soft preferences never replace
+current permission checks.
 
 ### DELETE /api/routes/:id
 

@@ -2229,6 +2229,7 @@
           "access": {
             "hint": "这些限制与上方模型授权和凭据范围同时生效。",
             "unreadable": "已保存的策略暂时无法读取，本次保存会保留原策略。请先核对来源配置，避免意外放宽访问。",
+            "routingPolicySummary": "选路策略：{{strategy}}；会话偏好：{{sticky}}。由导入或 API 配置，普通编辑保留这些设置。",
             "blockedTitle": "导入的密钥仍有未解决的限制",
             "blocks": {
               "keyType": "该来源密钥类型不能用于代理请求。",

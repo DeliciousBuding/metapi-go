@@ -54,6 +54,7 @@ func additiveColumns() []additiveColumnSpec {
 		{"token_routes", "decision_refreshed_at"},
 		{"token_routes", "route_mode"},
 		{"token_routes", "routing_strategy"},
+		{"token_routes", "trace_sticky_mode"},
 		{"route_channels", "oauth_route_unit_id"},
 		{"route_channels", "source_model"},
 		{"route_channels", "last_selected_at"},

@@ -357,6 +357,7 @@ func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplaceme
 		routeID, err := upsertImportedRoute(db, tx, importedRoute{
 			Origin: originKey, SourceID: int64(route.SourceModelID), Pattern: route.Pattern,
 			Strategy: route.Strategy, Enabled: route.Enabled, KeepPresentation: true,
+			TraceStickyMode: route.TraceStickyMode,
 		})
 		if err != nil {
 			return nil, err
@@ -391,14 +392,15 @@ func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplaceme
 }
 
 type importedRoute struct {
-	Origin      string
-	SourceID    int64
-	Pattern     string
-	DisplayName string
-	Strategy    string
-	Enabled     bool
-	SortOrder   int
-	Context     *int
+	Origin          string
+	SourceID        int64
+	Pattern         string
+	DisplayName     string
+	Strategy        string
+	TraceStickyMode string
+	Enabled         bool
+	SortOrder       int
+	Context         *int
 	// KeepPresentation leaves display metadata alone on re-import, which is
 	// the AxonHub contract: its snapshot has no such fields to update.
 	KeepPresentation bool
@@ -413,8 +415,8 @@ func upsertImportedRoute(db *store.DB, tx *sqlx.Tx, route importedRoute) (int64,
 		if err = upstream.ValidateSourceReferencesTx(context.Background(), tx, route.Origin, []upstream.Reference{{Kind: upstream.KindRoute, ID: routeID}}); err != nil {
 			return 0, fmt.Errorf("%w: %v", ErrImportedEntityConflict, err)
 		}
-		columns := []string{"model_pattern=?", "routing_strategy=?", "enabled=?"}
-		values := []any{route.Pattern, route.Strategy, route.Enabled}
+		columns := []string{"model_pattern=?", "routing_strategy=?", "trace_sticky_mode=?", "enabled=?"}
+		values := []any{route.Pattern, route.Strategy, route.TraceStickyMode, route.Enabled}
 		if !route.KeepPresentation {
 			columns = append(columns, "display_name=?", "context_length=?", "sort_order=?")
 			values = append(values, route.DisplayName, route.Context, route.SortOrder)
@@ -443,8 +445,8 @@ func upsertImportedRoute(db *store.DB, tx *sqlx.Tx, route importedRoute) (int64,
 	if conflicts > 0 {
 		return 0, fmt.Errorf("model route %q already exists and cannot be claimed by an imported source", sanitizeIdentifier(route.Pattern))
 	}
-	if err = tx.Get(&routeID, db.Rebind(`INSERT INTO token_routes (model_pattern,display_name,route_mode,routing_strategy,context_length,sort_order,enabled,created_at,updated_at) VALUES (?,?,'pattern',?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id`),
-		route.Pattern, route.DisplayName, route.Strategy, route.Context, route.SortOrder, route.Enabled); err != nil {
+	if err = tx.Get(&routeID, db.Rebind(`INSERT INTO token_routes (model_pattern,display_name,route_mode,routing_strategy,trace_sticky_mode,context_length,sort_order,enabled,created_at,updated_at) VALUES (?,?,'pattern',?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id`),
+		route.Pattern, route.DisplayName, route.Strategy, route.TraceStickyMode, route.Context, route.SortOrder, route.Enabled); err != nil {
 		return 0, fmt.Errorf("create imported model route: %w", err)
 	}
 	if _, err = tx.Exec(db.Rebind(`INSERT INTO external_source_ids (origin_key,entity_type,source_id,target_id) VALUES (?,?,?,?)`), route.Origin, "token_routes", route.SourceID, routeID); err != nil {

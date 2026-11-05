@@ -112,6 +112,7 @@ type DownstreamRoutingPolicy struct {
 	// ResolveAssociationRequest builds the descriptor once, only when a
 	// conditional item is encountered. It must return an immutable snapshot.
 	ResolveAssociationRequest func() *routecondition.Request `json:"-"`
+	TraceIdentity             string                         `json:"-"`
 }
 
 // CredentialRef identifies a specific credential to exclude.
@@ -139,8 +140,10 @@ type SelectedChannel struct {
 	ActualModel string
 	// ContextLength is the matched token_routes.context_length (tokens).
 	// nil or <=0 means unknown / no max_tokens enforcement on the proxy path.
-	ContextLength *int64
-	Direct        *store.DirectUpstreamCandidate
+	ContextLength     *int64
+	Direct            *store.DirectUpstreamCandidate
+	AffinityScope     string `json:"-"`
+	AffinityPreferred bool   `json:"-"`
 }
 
 // RouteDecisionExplanation mirrors TS RouteDecisionExplanation.
@@ -150,6 +153,7 @@ type RouteDecisionExplanation struct {
 	AllowUpstreamProtocolConversion bool                     `json:"allowUpstreamProtocolConversion"`
 	NotEvaluated                    []string                 `json:"notEvaluated"`
 	RoutingStrategy                 RouteRoutingStrategy     `json:"routingStrategy,omitempty"`
+	TraceStickyMode                 string                   `json:"traceStickyMode,omitempty"`
 	RequestedModel                  string                   `json:"requestedModel"`
 	ActualModel                     string                   `json:"actualModel"`
 	Matched                         bool                     `json:"matched"`

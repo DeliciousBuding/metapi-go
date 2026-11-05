@@ -101,6 +101,7 @@ export type RouteDecision = {
   allowUpstreamProtocolConversion?: boolean
   notEvaluated?: string[]
   routingStrategy?: RouteRoutingStrategy
+  traceStickyMode?: 'disabled' | 'prefer_previous_channel'
   summary?: string[]
   model?: string
   matchedRouteId?: number | null

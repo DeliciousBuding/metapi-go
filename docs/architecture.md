@@ -599,6 +599,14 @@ independent credential safety slot, consumes RPM immediately before each logical
 upstream attempt and records final measured usage once. Rate pressure can change
 candidate preference but cannot widen grants or become a second billing ledger.
 
+`store.DownstreamAccessPolicy` owns Key strategy/trace overrides; routing resolves
+them over the matched route. The selector's bounded trace-affinity cache stores
+only completed successful selections, keyed by an ingress-provided opaque
+Key/model namespace and current route mapping. Preferred selections re-use the
+normal condition, authorization, cooldown and load checks. HTTP and Responses
+WebSocket turns share this identity through request context; queue revalidation
+reloads permissions without changing the turn's identity.
+
 `handler/admin/imported_config.go` owns imported connection updates and explicit
 request-setting reads; `imported_members.go` owns route preferences and shared
 grant cooldowns. All successful writes invalidate routing state. The channels
