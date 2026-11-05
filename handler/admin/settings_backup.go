@@ -1142,6 +1142,19 @@ func validateBackupImportRow(table string, row map[string]any) error {
 		return backupImportClientError{message: "user-attributed records require an identity-preserving full database restore"}
 	}
 	switch table {
+	case "upstream_channels":
+		if raw, present := row["request_config"]; present {
+			config := store.DirectRequestConfig{}
+			if err := config.Scan(raw); err != nil {
+				return backupImportClientError{message: "invalid upstream request configuration"}
+			}
+			if config.Active() {
+				var endpoints store.DirectEndpoints
+				if err := endpoints.Scan(row["endpoint_config"]); err != nil || config.ValidateEndpoints(endpoints) != nil {
+					return backupImportClientError{message: "request configuration is incompatible with upstream endpoints"}
+				}
+			}
+		}
 	case "downstream_quota_usage":
 		for _, column := range []string{"requests", "total_tokens", "cost"} {
 			value, ok := row[column]

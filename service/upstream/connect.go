@@ -100,6 +100,11 @@ func Connect(ctx context.Context, db *sqlx.DB, in ConnectInput) (ConnectResult, 
 		if err != nil {
 			return err
 		}
+		if channel.RequestConfig.Active() {
+			if _, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE upstream_channels SET request_config=? WHERE id=?`), channel.RequestConfig, out.ID); err != nil {
+				return err
+			}
+		}
 		credentialID, err := InsertNative(ctx, tx, "credentials", out.ID, "Default", in.Secret, true, in.CredentialKind, in.OAuthState)
 		if err != nil {
 			return err

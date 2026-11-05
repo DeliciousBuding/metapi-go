@@ -10,19 +10,20 @@ import (
 )
 
 type ChannelCreate struct {
-	Name           string                `json:"name"`
-	Provider       string                `json:"provider"`
-	Dialect        string                `json:"dialect"`
-	Enabled        bool                  `json:"enabled"`
-	BaseURL        string                `json:"baseUrl"`
-	Endpoints      store.DirectEndpoints `json:"endpointConfig"`
-	ChatPath       string                `json:"openaiChatCompletionPath"`
-	ResponsesPath  string                `json:"openaiResponsePath"`
-	MessagesPath   string                `json:"anthropicMessagePath"`
-	UseSystemProxy bool                  `json:"useSystemProxy"`
-	ChannelProxy   string                `json:"channelProxy"`
-	CustomHeaders  string                `json:"customHeaders"`
-	ParamOverride  string                `json:"paramOverride"`
+	Name           string                    `json:"name"`
+	Provider       string                    `json:"provider"`
+	Dialect        string                    `json:"dialect"`
+	Enabled        bool                      `json:"enabled"`
+	BaseURL        string                    `json:"baseUrl"`
+	Endpoints      store.DirectEndpoints     `json:"endpointConfig"`
+	ChatPath       string                    `json:"openaiChatCompletionPath"`
+	ResponsesPath  string                    `json:"openaiResponsePath"`
+	MessagesPath   string                    `json:"anthropicMessagePath"`
+	UseSystemProxy bool                      `json:"useSystemProxy"`
+	ChannelProxy   string                    `json:"channelProxy"`
+	CustomHeaders  string                    `json:"customHeaders"`
+	ParamOverride  string                    `json:"paramOverride"`
+	RequestConfig  store.DirectRequestConfig `json:"requestTransform"`
 }
 
 func CreateChannel(ctx context.Context, db *sqlx.DB, in ChannelCreate) (int64, error) {
@@ -30,6 +31,9 @@ func CreateChannel(ctx context.Context, db *sqlx.DB, in ChannelCreate) (int64, e
 	err := Write(ctx, db, func(tx *sqlx.Tx) error {
 		var err error
 		id, err = InsertNative(ctx, tx, "channels", strings.TrimSpace(in.Name), in.Dialect, in.Provider, in.Enabled, in.BaseURL, in.Endpoints, in.ChatPath, in.ResponsesPath, in.MessagesPath, in.UseSystemProxy, in.ChannelProxy, in.CustomHeaders, in.ParamOverride, "")
+		if err == nil && in.RequestConfig.Active() {
+			_, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE upstream_channels SET request_config=? WHERE id=?`), in.RequestConfig, id)
+		}
 		return err
 	})
 	return id, err

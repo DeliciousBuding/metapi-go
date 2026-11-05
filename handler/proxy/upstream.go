@@ -846,6 +846,19 @@ func dispatchEndpointAttemptWithContinue(
 		}
 	}
 	applyDirectProviderHeaders(req, directProviderWireFromContext(r.Context()))
+	if selected.Direct != nil {
+		if err := applyDirectRequestHeaderOperations(req, selected.Direct.ChannelID, directProviderWireFromContext(r.Context())); err != nil {
+			writeJSONErrorWithRequest(w, http.StatusBadRequest, "Cannot apply selected channel request headers", "invalid_request_error", requestID)
+			return true, nil, false
+		}
+		// Custom headers were already applied before ordered operations. Do not
+		// let the transport reinsert a header explicitly deleted by the channel.
+		if proxyConfig != nil && selected.Direct.RequestConfig.Active() {
+			configCopy := *proxyConfig
+			configCopy.CustomHeaders = nil
+			proxyConfig = &configCopy
+		}
+	}
 
 	// Allocate the observed attempt before dispatch, independent of whether a
 	// log writer succeeds or this endpoint falls back to another protocol.

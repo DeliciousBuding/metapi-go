@@ -405,6 +405,7 @@ type DirectUpstreamCandidate struct {
 	UseSystemProxy    bool
 	CustomHeader      string
 	ParamOverride     string
+	RequestConfig     DirectRequestConfig
 	ModelID           int64
 	ModelName         string
 	CredentialID      int64

@@ -33,13 +33,13 @@ func TestAxonHubSettingsExecutionSemantics(t *testing.T) {
 		name, settings, override, blocked string
 	}{
 		{"disabled transforms", `{"transformOptions":{"forceArrayInstructions":false,"forceArrayInputs":false,"replaceDeveloperRoleWithSystem":false,"reasoningEffortMapping":[]}}`, "", ""},
-		{"enabled transform", `{"transformOptions":{"forceArrayInputs":true}}`, "", "channel_transform_options_unsupported"},
-		{"unknown disabled transform", `{"transformOptions":{"futureTransform":false}}`, "", "channel_transform_options_unsupported"},
-		{"reasoning mapping", `{"transformOptions":{"reasoningEffortMapping":[{"from":"high","to":"max"}]}}`, "", "channel_transform_options_unsupported"},
+		{"enabled transform", `{"transformOptions":{"forceArrayInputs":true}}`, "", ""},
+		{"unknown disabled transform", `{"transformOptions":{"futureTransform":false}}`, "", "channel_settings_unsupported:transformOptions"},
+		{"reasoning mapping", `{"transformOptions":{"reasoningEffortMapping":[{"from":"high","to":"max"}]}}`, "", ""},
 		{"empty operations supersede legacy parameters", `{"overrideParameters":"{\"temperature\":0.1}","bodyOverrideOperations":[]}`, "", ""},
 		{"null operations retain legacy parameters", `{"overrideParameters":"{\"temperature\":0.1}","bodyOverrideOperations":null}`, `{"temperature":0.1}`, ""},
 		{"empty operations supersede legacy headers", `{"overrideHeaders":[{"key":"x-test","value":"old"}],"headerOverrideOperations":[]}`, "", ""},
-		{"null operations retain legacy headers", `{"overrideHeaders":[{"key":"x-test","value":"old"}],"headerOverrideOperations":null}`, "", "channel_header_override_unsupported"},
+		{"null operations retain legacy headers", `{"overrideHeaders":[{"key":"x-test","value":"old"}],"headerOverrideOperations":null}`, "", ""},
 		{"environment ignores stale URL", `{"proxy":{"type":"environment","url":"not-a-url"}}`, "", ""},
 		{"disabled proxy cannot silently use stale URL", `{"proxy":{"type":"disabled","url":"https://proxy.invalid"}}`, "", "proxy_configuration_unsupported"},
 		{"connection reuse contract", `{"proxy":{"type":"url","url":"https://proxy.invalid","disableConnectionReuse":true}}`, "", "channel_settings_unsupported:proxy.disableConnectionReuse"},

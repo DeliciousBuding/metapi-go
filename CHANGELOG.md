@@ -28,6 +28,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 渠道导入：支持有序 JSON/header 操作与协议序列化选项，保留导入预览中的授权与不支持边界；普通用户拒绝扩大已准入预算或增加不支持能力的请求变换（#1561）。
 - AxonHub 导入：支持 Antigravity 项目 OAuth 与 Gemini JSON/SSE 转发及协议转换；多源回退仍明确列为残留，测试用 fake providers 不生成供应渠道（#1560）。
 - `ANTIGRAVITY_CLIENT_SECRET`：启用 Antigravity token 兑换或刷新前须注入签发客户端的 secret；没有内置默认值，未配置时拒绝兑换。
 
