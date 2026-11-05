@@ -267,7 +267,14 @@
       "recordedRequests": "Retained request records",
       "retainedRequestsHint": "Includes this account’s retained requests, even after a Key is removed. The log retention period applies.",
       "selectedConnectionModel": "Selected model: {{model}}",
-      "returnToConnection": "Return to this model’s connection example"
+      "returnToConnection": "Return to this model’s connection example",
+      "connection": {
+        "invalidContext": "The selected model or protocol is invalid. Return to Models and choose a current connection.",
+        "refreshDetails": "Load connection details",
+        "loadDetails": "Load the current model catalog to confirm a request example. This does not send a model request.",
+        "protocolUnavailable": "The selected protocol {{protocol}} is not listed for {{model}}. Return to Models and choose one of its current protocols.",
+        "keyLimits": "This key additionally restricts models to {{models}}. The request must match these restrictions."
+      }
     },
     "userAdmin": {
       "routeSearch": "Search route name, model or ID",
@@ -4888,7 +4895,7 @@
       "lockedDescription": "Credential export is a sensitive operation. Re-enter the admin token to unlock. The key stays masked until you reveal it, and deep links ask before opening.",
       "unlock": "Unlock",
       "deepLinkConfirmTitle": "Open deep link?",
-      "deepLinkConfirmDescription": "The link contains the plain API key and is handed to the external app. A copy of the configuration is also placed on your clipboard as a fallback.",
+      "deepLinkConfirmDescription": "The link contains the plain API key and is handed to the external app. Copying a fallback configuration is a separate action.",
       "deepLinkConfirmContinue": "Open link",
       "copyFallback": "Copy configuration instead",
       "oneClickLabel": "One-click import",
@@ -4904,7 +4911,7 @@
       "copyFailed": "Copy failed — clipboard unavailable.",
       "verify": {
         "title": "Verify the connection",
-        "description": "Check model access, then send one non-streaming request in the protocol you select. The test uses upstream quota and is recorded in this key's logs. It does not cover streaming, tools, or the full client, and a failure is not retried with another protocol.",
+        "description": "Check model access, then send one non-streaming request for the selected client and public model. The test uses upstream quota and is recorded in this key’s logs. It does not cover streaming, tools, or the full client, and a failure is not retried with another protocol.",
         "modelsCta": "Check available models",
         "modelsOk": "{{count}} models listed for this key",
         "noModels": "This key can call no models right now. Check its model policy and the route grants.",
@@ -4928,7 +4935,16 @@
         "keyCopied": "API key copied",
         "endpointCopied": "Endpoint copied",
         "jsonCopied": "Configuration copied"
-      }
+      },
+      "clientLabel": "Client",
+      "modelLabel": "Public model",
+      "modelRequired": "Check available models, then select a public model for this client.",
+      "contextHint": "The configuration and test request use the selected public model. Merge these settings with your existing configuration.",
+      "configStale": "The selected model changed. Update the configuration before copying or opening a client.",
+      "updateConfig": "Update configuration",
+      "setupStep": "Set the API key",
+      "setupHint": "Set this environment variable before starting the client.",
+      "providerImportHint": "Import links configure the provider address and Key only. Set {{model}} in the client, or copy the complete configuration below."
     },
     "search": {
       "trigger": "Search…",

@@ -33,6 +33,7 @@ import { PortalLogin } from './components/portal-login'
 import { PortalModels } from './components/portal-models'
 import { PortalOnboarding } from './components/portal-onboarding'
 import { PortalRequests } from './components/portal-requests'
+import { readModelContext } from './connection-context'
 
 const navigation = [
   ['overview', LayoutDashboard],
@@ -307,7 +308,10 @@ function PortalShell({
                   </Link>
                 </Notice>
               )}
-              <PortalKeys userId={session.user.id} />
+              <PortalKeys
+                userId={session.user.id}
+                connectionContext={readModelContext(locationSearch)}
+              />
             </>
           )}
           {view === 'requests' && (

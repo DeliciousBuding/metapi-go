@@ -26,18 +26,15 @@ import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import { type PersonalModel, userPortalApi } from '../api'
+import {
+  modelContextHref,
+  readModelContext,
+  type PersonalProtocol,
+} from '../connection-context'
 import { connectionExample } from '../connection-example'
 import { CopyValue } from './portal-keys'
 
 type Filters = Record<string, never>
-const allowedProtocols = [
-  'chat/completions',
-  'responses',
-  'messages',
-  'embeddings',
-] as const
-
-type AllowedProtocol = (typeof allowedProtocols)[number]
 
 const capabilityKeys = [
   'boundedText',
@@ -46,33 +43,6 @@ const capabilityKeys = [
   'hostedTools',
   'sessions',
 ] as const
-
-function readModelContext(search: string): {
-  model?: string
-  protocol?: AllowedProtocol
-} {
-  const params = new URLSearchParams(search)
-  const model = params.get('model')?.trim()
-  const protocol = params.get('protocol')
-  return {
-    model: model ? model.slice(0, 200) : undefined,
-    protocol: allowedProtocols.includes(protocol as AllowedProtocol)
-      ? (protocol as AllowedProtocol)
-      : undefined,
-  }
-}
-
-function modelContextHref(
-  search: string,
-  context: { model?: string; protocol?: AllowedProtocol }
-) {
-  const params = new URLSearchParams(search)
-  if (context.model) params.set('model', context.model)
-  else params.delete('model')
-  if (context.protocol) params.set('protocol', context.protocol)
-  else params.delete('protocol')
-  return '/user?' + params.toString()
-}
 
 function readSearch(search: string): UrlTableState<Filters> {
   const params = new URLSearchParams(search)
@@ -170,7 +140,7 @@ function ModelConnection({ model }: { model: PersonalModel }) {
     void navigate({
       href: modelContextHref(locationSearch, {
         model: model.id,
-        protocol: next as AllowedProtocol,
+        protocol: next as PersonalProtocol,
       }),
     })
   }
@@ -243,7 +213,7 @@ function ModelConnection({ model }: { model: PersonalModel }) {
                 view: 'keys',
                 page: 1,
                 model: model.id,
-                protocol: protocol as AllowedProtocol | undefined,
+                protocol: protocol as PersonalProtocol | undefined,
               }}
             />
           }

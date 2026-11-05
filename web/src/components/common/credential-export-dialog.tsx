@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -36,15 +37,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
 import type {
   CredentialExportProfile as ExportProfile,
+  CredentialExportProfileId as ExportProfileId,
   CredentialExportResponse as ExportResponse,
 } from '@/lib/api/credential-export'
 import { copyText } from '@/lib/clipboard'
 import { isReauthRequired } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 
-import { CredentialVerifySection } from './credential-verify-section'
+import {
+  CredentialVerifySection,
+  type CredentialVerifyProtocol,
+} from './credential-verify-section'
 
-const CC_SWITCH_APPS = ['codex', 'claude', 'gemini', 'cursor'] as const
+const PROFILE_PROTOCOL: Record<ExportProfileId, CredentialVerifyProtocol> = {
+  openai: 'chat',
+  cherry: 'chat',
+  generic: 'chat',
+  'claude-code': 'messages',
+  codex: 'responses',
+  openwebui: 'chat',
+}
+const CC_SWITCH_APP: Partial<Record<ExportProfileId, string>> = {
+  codex: 'codex',
+  'claude-code': 'claude',
+}
 
 /** Clipboard write with a unified success toast. */
 async function copyTextWithToast(
@@ -132,12 +148,14 @@ function OpenCredentialExportDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
-  const [ccApp, setCcApp] = useState<string>('codex')
+  const [client, setClient] = useState<ExportProfileId>('codex')
+  const [model, setModel] = useState('')
   const [copiedKey, setCopiedKey] = useState(false)
   const [unlockDraft, setUnlockDraft] = useState('')
   // Re-confirmation and plaintext exports must never enter Query/Mutation caches.
   const tokenRef = useRef('')
   const exportRequest = useRef<AbortController | null>(null)
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [data, setData] = useState<ExportResponse | null>(null)
   const [exportPhase, setExportPhase] = useState<
     'locked' | 'loading' | 'ready' | 'error' | 'rejected'
@@ -157,6 +175,7 @@ function OpenCredentialExportDialog({
       exportRequest.current = null
       controller?.abort()
       tokenRef.current = ''
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
     },
     []
   )
@@ -171,7 +190,10 @@ function OpenCredentialExportDialog({
       setData(null)
       setShowKey(false)
       setPendingDeepLink(null)
+      setModel('')
       setExportPhase('locked')
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+      setCopiedKey(false)
     }
     onOpenChange(open)
   }
@@ -188,12 +210,15 @@ function OpenCredentialExportDialog({
         target.id,
         'all',
         token,
-        undefined,
+        model || undefined,
         controller.signal
       )
       if (exportRequest.current !== controller) return
-      if (response.keyId !== target.id) throw new Error('Invalid export target')
+      if (response.keyId !== target.id || (model && response.model !== model))
+        throw new Error('Invalid export target')
       setData(response)
+      if (!response.profiles.some((profile) => profile.id === client))
+        setClient(response.profiles[0].id)
       setUnlockDraft('')
       setExportPhase('ready')
     } catch (error) {
@@ -220,19 +245,50 @@ function OpenCredentialExportDialog({
   )
 
   const genericProfile = data?.profiles.find((p) => p.id === 'generic')
-  const envProfile = data?.profiles.find((p) => p.id === 'openai')
   const cherryProfile = data?.profiles.find((p) => p.id === 'cherry')
-  const claudeCodeProfile = data?.profiles.find((p) => p.id === 'claude-code')
-  const codexProfile = data?.profiles.find((p) => p.id === 'codex')
-  const openWebUiProfile = data?.profiles.find((p) => p.id === 'openwebui')
+  const selectedProfile = data?.profiles.find((p) => p.id === client)
+  const protocol = selectedProfile?.protocol ?? PROFILE_PROTOCOL[client]
+  const clientBase = client === 'claude-code' ? (data?.baseUrl ?? '') : apiBase
+  const currentConfiguration =
+    exportPhase === 'ready' && !!model && data?.model === model
+  const ccApp = CC_SWITCH_APP[client]
+  let configurationHint = t('connect.modelRequired')
+  if (model)
+    configurationHint = currentConfiguration
+      ? t('connect.contextHint')
+      : t('connect.configStale')
   const keyContent = cherryProfile?.content ?? genericProfile?.content
   const apiKey =
     typeof keyContent === 'object' && typeof keyContent.apiKey === 'string'
       ? keyContent.apiKey
       : ''
-  const genericJson = genericProfile
-    ? JSON.stringify(genericProfile.content, null, 2)
-    : ''
+  function changeModel(value: string) {
+    if (value === model) return
+    const controller = exportRequest.current
+    exportRequest.current = null
+    controller?.abort()
+    setExportPhase('ready')
+    setPendingDeepLink(null)
+    setShowKey(false)
+    setModel(value)
+  }
+
+  function changeClient(value: ExportProfileId) {
+    if (value === client) return
+    const controller = exportRequest.current
+    exportRequest.current = null
+    controller?.abort()
+    setExportPhase('ready')
+    setPendingDeepLink(null)
+    setShowKey(false)
+    setClient(value)
+  }
+
+  function changeProtocol(value: CredentialVerifyProtocol) {
+    if (value === 'responses') changeClient('codex')
+    else if (value === 'messages') changeClient('claude-code')
+    else changeClient('openai')
+  }
 
   function handleUnlock() {
     const token = unlockDraft.trim()
@@ -243,7 +299,8 @@ function OpenCredentialExportDialog({
   async function handleCopyKey() {
     if (!(await copyTextWithToast(apiKey, 'connect.toast.keyCopied', t))) return
     setCopiedKey(true)
-    setTimeout(() => setCopiedKey(false), 1500)
+    if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+    copyTimer.current = setTimeout(() => setCopiedKey(false), 1500)
   }
 
   function requestDeepLink(url: string, fallbackText: string) {
@@ -299,7 +356,7 @@ function OpenCredentialExportDialog({
     if (locked || reauthRejected) {
       return renderLocked()
     }
-    if (exportPhase === 'loading') {
+    if (exportPhase === 'loading' && !data) {
       return (
         <div className='space-y-3'>
           <Skeleton className='h-16 w-full rounded-lg' />
@@ -333,7 +390,7 @@ function OpenCredentialExportDialog({
           </p>
           <div className='flex items-center gap-2'>
             <code className='text-foreground flex-1 truncate font-mono text-sm'>
-              {apiBase}
+              {clientBase}
             </code>
             <Button
               variant='outline'
@@ -341,7 +398,7 @@ function OpenCredentialExportDialog({
               aria-label={t('connect.copyEndpoint')}
               onClick={() =>
                 void copyTextWithToast(
-                  apiBase,
+                  clientBase,
                   'connect.toast.endpointCopied',
                   t
                 )
@@ -383,6 +440,34 @@ function OpenCredentialExportDialog({
           </div>
         </div>
 
+        <div className='space-y-2'>
+          <Label htmlFor='credential-client'>{t('connect.clientLabel')}</Label>
+          <Select
+            items={data.profiles.map((profile) => ({
+              value: profile.id,
+              label: profile.label,
+            }))}
+            value={client}
+            onValueChange={(value) => {
+              if (value) changeClient(value as ExportProfileId)
+            }}
+          >
+            <SelectTrigger id='credential-client' className='w-full'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {data.profiles.map((profile) => (
+                <SelectItem key={profile.id} value={profile.id}>
+                  {profile.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className='text-muted-foreground text-xs break-all'>
+            {t('connect.modelLabel')}: {model || t('connect.modelRequired')}
+          </p>
+        </div>
+
         <Tabs defaultValue='verify'>
           <TabsList className='w-full'>
             <TabsTrigger value='verify'>{t('connect.verifyTab')}</TabsTrigger>
@@ -394,78 +479,90 @@ function OpenCredentialExportDialog({
                 keyId={target.id}
                 apiBase={apiBase}
                 apiKey={apiKey}
+                contextId={client}
+                model={model}
+                protocol={protocol}
+                onModelChange={changeModel}
+                onProtocolChange={changeProtocol}
               />
             ) : null}
           </TabsContent>
           <TabsContent value='clients' className='space-y-4'>
+            <div className='space-y-2'>
+              <p className='text-muted-foreground text-xs'>
+                {configurationHint}
+              </p>
+              <Button
+                size='sm'
+                variant='outline'
+                disabled={!model || exportPhase === 'loading'}
+                onClick={() => void loadExport(tokenRef.current)}
+              >
+                {t('connect.updateConfig')}
+              </Button>
+            </div>
             {/* One-click deep links (explicit confirmation, #1034) */}
             <div className='space-y-2'>
+              {model && (ccApp || client === 'cherry') ? (
+                <p className='text-muted-foreground text-xs'>
+                  {t('connect.providerImportHint', { model })}
+                </p>
+              ) : null}
               <p className='text-muted-foreground text-xs font-medium'>
                 {t('connect.oneClickLabel')}
               </p>
               <div className='flex flex-wrap gap-2'>
-                <Button
-                  size='sm'
-                  disabled={!apiKey}
-                  onClick={() =>
-                    requestDeepLink(
-                      buildCherryStudioLink(
-                        target.id,
-                        target.name,
-                        apiBase,
-                        apiKey
-                      ),
-                      JSON.stringify(
-                        {
-                          name: target.name,
-                          type: 'openai',
-                          apiHost: apiBase,
-                          apiKey,
-                        },
-                        null,
-                        2
+                {client === 'cherry' ? (
+                  <Button
+                    size='sm'
+                    disabled={!apiKey || !currentConfiguration}
+                    onClick={() =>
+                      requestDeepLink(
+                        buildCherryStudioLink(
+                          target.id,
+                          target.name,
+                          apiBase,
+                          apiKey
+                        ),
+                        JSON.stringify(
+                          {
+                            name: target.name,
+                            type: 'openai',
+                            apiHost: apiBase,
+                            apiKey,
+                          },
+                          null,
+                          2
+                        )
                       )
-                    )
-                  }
-                >
-                  <Sparkles className='size-3.5' />
-                  {t('connect.cherryStudio')}
-                </Button>
-                <div className='flex gap-2'>
-                  <Select
-                    value={ccApp}
-                    onValueChange={(value) => setCcApp(value ?? 'codex')}
+                    }
                   >
-                    <SelectTrigger
-                      size='sm'
-                      className='w-28'
-                      aria-label={t('connect.ccAppLabel')}
-                    >
-                      <SelectValue>{ccApp}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CC_SWITCH_APPS.map((app) => (
-                        <SelectItem key={app} value={app}>
-                          {app}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <Sparkles className='size-3.5' />
+                    {t('connect.cherryStudio')}
+                  </Button>
+                ) : null}
+                {ccApp ? (
                   <Button
                     size='sm'
                     variant='outline'
-                    disabled={!apiKey}
+                    disabled={!apiKey || !currentConfiguration}
                     onClick={() =>
                       requestDeepLink(
-                        buildCcSwitchLink(ccApp, apiBase, apiKey),
-                        `${apiBase} ${apiKey}`
+                        buildCcSwitchLink(
+                          ccApp,
+                          client === 'claude-code' ? data.baseUrl : apiBase,
+                          apiKey
+                        ),
+                        selectedProfile
+                          ? stringifyProfileContent(selectedProfile)
+                          : `${apiBase} ${apiKey}`
                       )
                     }
                   >
                     <ExternalLink className='size-4' />
                     {t('connect.ccSwitch')}
                   </Button>
-                </div>
+                ) : null}
               </div>
               {pendingDeepLink ? (
                 <div className='space-y-2 rounded-lg border border-dashed p-3'>
@@ -504,77 +601,22 @@ function OpenCredentialExportDialog({
               ) : null}
             </div>
 
-            {/* Copy profiles */}
-            <div className='space-y-2'>
-              <p className='text-muted-foreground text-xs font-medium'>
-                {t('connect.copyLabel')}
-              </p>
+            {currentConfiguration && selectedProfile ? (
               <div className='space-y-2'>
-                {envProfile ? (
+                <ProfileRow
+                  title={selectedProfile.label}
+                  description={selectedProfile.description ?? ''}
+                  content={stringifyProfileContent(selectedProfile)}
+                  masked={!showKey}
+                  onCopy={(text) =>
+                    void copyTextWithToast(text, 'connect.toast.jsonCopied', t)
+                  }
+                />
+                {selectedProfile.setup ? (
                   <ProfileRow
-                    title={t('connect.envVars')}
-                    description={envProfile.description ?? ''}
-                    content={String(envProfile.content)}
-                    masked={!showKey}
-                    onCopy={(text) =>
-                      void copyTextWithToast(
-                        text,
-                        'connect.toast.jsonCopied',
-                        t
-                      )
-                    }
-                  />
-                ) : null}
-                {genericProfile ? (
-                  <ProfileRow
-                    title={t('connect.genericJson')}
-                    description={genericProfile.description ?? ''}
-                    content={genericJson}
-                    masked={!showKey}
-                    onCopy={(text) =>
-                      void copyTextWithToast(
-                        text,
-                        'connect.toast.jsonCopied',
-                        t
-                      )
-                    }
-                  />
-                ) : null}
-                {claudeCodeProfile ? (
-                  <ProfileRow
-                    title={claudeCodeProfile.label}
-                    description={claudeCodeProfile.description ?? ''}
-                    content={stringifyProfileContent(claudeCodeProfile)}
-                    masked={!showKey}
-                    onCopy={(text) =>
-                      void copyTextWithToast(
-                        text,
-                        'connect.toast.jsonCopied',
-                        t
-                      )
-                    }
-                  />
-                ) : null}
-                {codexProfile ? (
-                  <ProfileRow
-                    title={codexProfile.label}
-                    description={codexProfile.description ?? ''}
-                    content={stringifyProfileContent(codexProfile)}
-                    masked={!showKey}
-                    onCopy={(text) =>
-                      void copyTextWithToast(
-                        text,
-                        'connect.toast.jsonCopied',
-                        t
-                      )
-                    }
-                  />
-                ) : null}
-                {openWebUiProfile ? (
-                  <ProfileRow
-                    title={openWebUiProfile.label}
-                    description={openWebUiProfile.description ?? ''}
-                    content={stringifyProfileContent(openWebUiProfile)}
+                    title={t('connect.setupStep')}
+                    description={t('connect.setupHint')}
+                    content={selectedProfile.setup.content}
                     masked={!showKey}
                     onCopy={(text) =>
                       void copyTextWithToast(
@@ -586,7 +628,7 @@ function OpenCredentialExportDialog({
                   />
                 ) : null}
               </div>
-            </div>
+            ) : null}
 
             <p className='text-muted-foreground text-xs'>{t('connect.hint')}</p>
           </TabsContent>
