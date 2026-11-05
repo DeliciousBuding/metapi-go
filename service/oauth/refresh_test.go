@@ -1,10 +1,14 @@
 package oauth
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/store"
@@ -538,47 +542,64 @@ func TestRefreshAccessTokenSingleflight_Success(t *testing.T) {
 }
 
 func TestRefreshAccessTokenSingleflight_Dedupes(t *testing.T) {
-	db, cleanup := setupTestDB(t)
-	defer cleanup()
+	synctest.Test(t, func(t *testing.T) {
+		db, cleanup := setupTestDB(t)
+		defer cleanup()
 
-	claims := codexJWTClaims{Email: "dedupe@example.com"}
-	claims.Auth.ChatGPTAccountID = "acct-dedupe"
-	idToken := makeCodexIDToken(t, claims)
+		provider := GetProviderDefinition("codex")
+		originalRefresh := provider.RefreshAccessToken
+		defer func() { provider.RefreshAccessToken = originalRefresh }()
+		started := make(chan struct{})
+		release := make(chan struct{})
+		var releaseOnce sync.Once
+		unblock := func() { releaseOnce.Do(func() { close(release) }) }
+		defer unblock()
+		var calls atomic.Int32
+		provider.RefreshAccessToken = func(ctx context.Context, _ RefreshTokenInput) (*TokenSet, error) {
+			if calls.Add(1) == 1 {
+				close(started)
+			}
+			select {
+			case <-release:
+				return &TokenSet{AccessToken: "dedupe-access", RefreshToken: "dedupe-rt"}, nil
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
 
-	tokenServer := newJSONTestServer(t, func(r *http.Request) (int, interface{}) {
-		return 200, codexTokenResponse{
-			AccessToken:  "dedupe-access",
-			RefreshToken: "dedupe-rt",
-			IDToken:      idToken,
-			ExpiresIn:    float64(3600),
+		extraConfig := `{"oauth":{"provider":"codex","accountKey":"acct-dedupe","refreshToken":"old-rt"}}`
+		accountID := insertCodexTestAccount(t, db, "acct-dedupe", extraConfig)
+		results := make(chan refreshResult, 2)
+		call := func() {
+			result, err := RefreshAccessTokenSingleflight(accountID)
+			if err != nil {
+				results <- refreshResult{Err: err}
+				return
+			}
+			results <- *result
+		}
+		go call()
+		<-started
+		go call()
+		// Wait until the second caller is blocked on the in-flight promise
+		// while the provider boundary is still explicitly held open.
+		synctest.Wait()
+		select {
+		case <-results:
+			t.Fatal("refresh completed before the provider was released")
+		default:
+		}
+		unblock()
+		for i := 0; i < 2; i++ {
+			result := <-results
+			if result.Err != nil || result.AccessToken != "dedupe-access" {
+				t.Errorf("concurrent caller %d got result %+v", i, result)
+			}
+		}
+		if calls.Load() != 1 {
+			t.Errorf("overlapping refreshes made %d provider calls, want 1", calls.Load())
 		}
 	})
-	defer tokenServer.Close()
-	withCodexTokenURLSwap(t, tokenServer.URL)
-
-	extraConfig := `{"oauth":{"provider":"codex","accountId":"acct-dedupe","accountKey":"acct-dedupe","refreshToken":"old-rt"}}`
-	accountID := insertCodexTestAccount(t, db, "acct-dedupe", extraConfig)
-
-	// Two concurrent singleflight calls for the same account → only one should
-	// hit the token endpoint, the other dedupes via the in-flight promise.
-	done := make(chan *refreshResult, 2)
-	errs := make(chan error, 2)
-	go func() {
-		r, e := RefreshAccessTokenSingleflight(accountID)
-		done <- r
-		errs <- e
-	}()
-	go func() {
-		r, e := RefreshAccessTokenSingleflight(accountID)
-		done <- r
-		errs <- e
-	}()
-	for i := 0; i < 2; i++ {
-		if e := <-errs; e != nil {
-			t.Errorf("concurrent singleflight %d failed: %v", i, e)
-		}
-		<-done
-	}
 }
 
 func TestRefreshResult_WithError(t *testing.T) {

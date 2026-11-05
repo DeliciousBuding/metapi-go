@@ -93,15 +93,22 @@ func parseRawExtraConfig(extraConfig *string) *parsedExtraConfig {
 
 // GetOauthInfoFromExtraConfig reads OAuth info from extraConfig JSON.
 func GetOauthInfoFromExtraConfig(extraConfig *string) *OauthInfo {
+	info := parseOauthInfoFromExtraConfig(extraConfig)
+	if info == nil || info.Provider == "" {
+		return nil
+	}
+	return info
+}
+
+// Normalized accounts store identity in columns and only state in extraConfig.
+// The legacy standalone getter still requires a provider in the JSON.
+func parseOauthInfoFromExtraConfig(extraConfig *string) *OauthInfo {
 	parsed := parseRawExtraConfig(extraConfig)
 	if parsed == nil || parsed.OAuth == nil {
 		return nil
 	}
 	o := parsed.OAuth
 	provider := strings.TrimSpace(o.Provider)
-	if provider == "" {
-		return nil
-	}
 	info := &OauthInfo{
 		Provider:   provider,
 		AccountID:  asNonEmptyString(o.AccountID),
@@ -155,7 +162,11 @@ func GetOauthInfoFromAccount(account *store.Account) *OauthInfo {
 	if account == nil {
 		return nil
 	}
-	storedIdentity := GetOauthInfoFromExtraConfig(account.ExtraConfig)
+	storedState := parseOauthInfoFromExtraConfig(account.ExtraConfig)
+	var storedIdentity *OauthInfo
+	if storedState != nil && storedState.Provider != "" {
+		storedIdentity = storedState
+	}
 	provider := ""
 	if account.OAuthProvider != nil {
 		provider = strings.TrimSpace(*account.OAuthProvider)
@@ -203,19 +214,19 @@ func GetOauthInfoFromAccount(account *store.Account) *OauthInfo {
 		AccountKey: accountKey,
 		ProjectID:  projectID,
 	}
-	if storedIdentity != nil {
-		info.Email = storedIdentity.Email
-		info.PlanType = storedIdentity.PlanType
-		info.TokenExpiresAt = storedIdentity.TokenExpiresAt
-		info.RefreshToken = storedIdentity.RefreshToken
-		info.IDToken = storedIdentity.IDToken
-		info.SessionToken = storedIdentity.SessionToken
-		info.ProviderData = storedIdentity.ProviderData
-		info.Quota = storedIdentity.Quota
-		info.ModelDiscoveryStatus = storedIdentity.ModelDiscoveryStatus
-		info.LastModelSyncAt = storedIdentity.LastModelSyncAt
-		info.LastModelSyncError = storedIdentity.LastModelSyncError
-		info.LastDiscoveredModels = storedIdentity.LastDiscoveredModels
+	if storedState != nil {
+		info.Email = storedState.Email
+		info.PlanType = storedState.PlanType
+		info.TokenExpiresAt = storedState.TokenExpiresAt
+		info.RefreshToken = storedState.RefreshToken
+		info.IDToken = storedState.IDToken
+		info.SessionToken = storedState.SessionToken
+		info.ProviderData = storedState.ProviderData
+		info.Quota = storedState.Quota
+		info.ModelDiscoveryStatus = storedState.ModelDiscoveryStatus
+		info.LastModelSyncAt = storedState.LastModelSyncAt
+		info.LastModelSyncError = storedState.LastModelSyncError
+		info.LastDiscoveredModels = storedState.LastDiscoveredModels
 	}
 	return info
 }
