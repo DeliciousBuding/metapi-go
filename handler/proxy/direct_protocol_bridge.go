@@ -196,7 +196,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 	} else if endpoint != nil && endpoint.Profile == "opencode-go" {
 		wire, err = prepareDirectOpenCodeWire(endpoint, openCodeBodyProfile, body, r.Header, ctx.directOpenCodeSession, sessionNamespace)
 	} else {
-		wire, err = prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header, sessionNamespace)
+		wire, err = prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header, sessionNamespace, directProviderRequest{Model: model, Stream: ctx.IsStream})
 	}
 	if err != nil {
 		if !isLastEndpoint {

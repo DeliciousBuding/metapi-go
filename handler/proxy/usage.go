@@ -179,6 +179,8 @@ func extractUsageFromValue(v any) ParsedUsage {
 	// Nested response.usage (OpenAI Responses API stream events).
 	if resp, ok := obj["response"].(map[string]any); ok {
 		applyUsageContainer(&out, resp, "usage")
+		// Antigravity wraps native Gemini usage in the response envelope.
+		applyUsageContainer(&out, resp, "usageMetadata")
 	}
 	// Nested message.usage (Anthropic message_start).
 	if msg, ok := obj["message"].(map[string]any); ok {

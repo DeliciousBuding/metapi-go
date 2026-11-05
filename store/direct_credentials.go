@@ -29,6 +29,7 @@ type DirectOAuthState struct {
 	ExpiresAt    int64  `json:"expiresAt,omitempty"` // Unix milliseconds
 	IDToken      string `json:"idToken,omitempty"`
 	AccountID    string `json:"accountId,omitempty"`
+	ProjectID    string `json:"projectId,omitempty"`
 }
 
 func (s DirectOAuthState) Value() (driver.Value, error) {

@@ -156,6 +156,12 @@ func directRequestURL(direct *store.DirectUpstreamCandidate, path, model string,
 		target := endpoint.URL
 		if endpoint.Profile == "bedrock" {
 			target = directBedrockRequestURL(target, model, stream)
+		} else if endpoint.Profile == "antigravity" {
+			action := "generateContent"
+			if stream {
+				action = "streamGenerateContent?alt=sse"
+			}
+			target = strings.TrimRight(target, "/") + ":" + action
 		} else if endpoint.Profile == "vertex-anthropic" {
 			action := "rawPredict"
 			if stream {

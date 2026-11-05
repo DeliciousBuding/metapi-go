@@ -169,6 +169,10 @@ func (e *DirectEndpoints) Scan(value any) error {
 			if endpoint != decoded.Responses || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("xAI subscription profile requires bearer Responses")
 			}
+		case "antigravity":
+			if endpoint != decoded.Gemini || endpoint.Auth != DirectAuthBearer || endpoint.ModelPath {
+				return fmt.Errorf("Antigravity requires its bearer Gemini action endpoint")
+			}
 		case "deepseek", "zai", "bailian", "cline", "moonshot", "longcat", "openrouter", "cerebras", "nanogpt", "github-copilot":
 			if endpoint != decoded.Chat || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("chat profile requires bearer Chat")

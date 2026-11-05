@@ -35,6 +35,9 @@ type Input struct {
 	ChannelID        int64
 	OAuth            bool
 	AccountID        string
+	ProjectID        string
+	ActualModel      string
+	Stream           bool
 	SessionNamespace string
 }
 
@@ -61,6 +64,7 @@ type Definition struct {
 	prepare   prepareFunc
 	project   projectFunc
 	restore   func([]byte, bool) []byte
+	normalize projectFunc
 }
 
 func (d Definition) Prepare(in Input) (*Wire, error) {
@@ -90,6 +94,15 @@ func (d Definition) RestoreResponse(body []byte, stripToolPrefix bool) []byte {
 		return d.restore(body, stripToolPrefix)
 	}
 	return body
+}
+
+// NormalizeResponse removes a provider envelope before native output, usage
+// parsing and protocol projection. Errors cannot become successful responses.
+func (d Definition) NormalizeResponse(body []byte, stream bool) ([]byte, error) {
+	if d.normalize != nil {
+		return d.normalize(body, stream)
+	}
+	return body, nil
 }
 
 func Lookup(profile string) (Definition, bool) {
@@ -144,6 +157,12 @@ func chatDefinition(profile string, prepare prepareFunc, project projectFunc) De
 
 var definitions = map[string]Definition{
 	"": {prepare: passthroughPrepare, project: passthroughProject},
+	"antigravity": {
+		templates: []Template{{Protocol: "gemini", Path: "/v1internal", Auth: "bearer", Profile: "antigravity"}},
+		prepare:   prepareAntigravity,
+		project:   passthroughProject,
+		normalize: unwrapAntigravityResponse,
+	},
 	"moonshot": chatDefinition("moonshot", bodyPrepare(func(body []byte) ([]byte, error) {
 		return prepareDirectDomesticProfileRequest(body, "moonshot")
 	}), nil),

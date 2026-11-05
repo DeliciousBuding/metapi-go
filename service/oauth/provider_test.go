@@ -7,14 +7,17 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 )
 
+const fixtureAntigravityClientSecret = "fixture-" + "antigravity-client"
+
 func init() {
 	// Ensure config singleton is set for provider tests that read client IDs.
 	// Override defaults to avoid panics in require*ClientID() functions.
 	config.Set(&config.Config{
-		CodexClientId:         "test-codex-client-id",
-		ClaudeClientId:        "test-claude-client-id",
-		GeminiCliClientId:     "test-gemini-client-id",
-		GeminiCliClientSecret: "test-gemini-client-secret",
+		CodexClientId:           "test-codex-client-id",
+		ClaudeClientId:          "test-claude-client-id",
+		GeminiCliClientId:       "test-gemini-client-id",
+		GeminiCliClientSecret:   "test-gemini-client-secret",
+		AntigravityClientSecret: fixtureAntigravityClientSecret,
 	})
 }
 

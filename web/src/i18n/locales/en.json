@@ -4640,6 +4640,7 @@
           "xai-subscription": "xAI subscription",
           "github-copilot": "GitHub Copilot",
           "vertex": "Google Vertex AI",
+          "antigravity": "Antigravity",
           "vertex-anthropic": "Anthropic on Vertex",
           "jina-embeddings": "Jina embeddings",
           "minimax-image": "MiniMax image",
@@ -4694,7 +4695,8 @@
           "responses": "Responses wire URL",
           "messages": "Messages wire URL"
         },
-        "moonshotJsonMode": "JSON Schema is sent as JSON Object without schema constraints."
+        "moonshotJsonMode": "JSON Schema is sent as JSON Object without schema constraints.",
+        "projectId": "Project ID"
       },
       "catalog": {
         "models": "Models",

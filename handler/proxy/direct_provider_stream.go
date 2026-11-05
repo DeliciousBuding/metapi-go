@@ -21,6 +21,18 @@ type directProviderStream struct {
 func (s *directProviderStream) TransformEvent(frame []byte) ([]byte, error) {
 	if event := parseSseBlock(string(frame)); event != nil && event.Data != "" {
 		raw := []byte(event.Data)
+		if wire := directProviderWireFromContext(s.ctx); wire != nil && event.Data != "[DONE]" {
+			if adapter, ok := upstreamadapter.Lookup(wire.Profile); ok {
+				normalized, err := adapter.NormalizeResponse(raw, true)
+				if err != nil {
+					return nil, err
+				}
+				if !bytes.Equal(raw, normalized) {
+					frame = replaceSSEBlockData(frame, normalized)
+					raw = normalized
+				}
+			}
+		}
 		if s.codex != nil {
 			if event.Event == "error" {
 				return nil, fmt.Errorf("Codex upstream error")

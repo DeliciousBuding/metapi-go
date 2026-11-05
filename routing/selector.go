@@ -1093,7 +1093,8 @@ func (s *ChannelSelector) finalizeDispatch(
 		tokenValue = s.resolveChannelTokenValue(dispatchCandidate)
 	}
 	if tokenValue == "" && !dispatchCandidate.Direct.HasAnonymousCredential() &&
-		!(dispatchCandidate.Direct != nil && dispatchCandidate.Direct.CredentialKind == store.DirectCredentialGCPServiceAccount) {
+		!(dispatchCandidate.Direct != nil && (dispatchCandidate.Direct.CredentialKind == store.DirectCredentialGCPServiceAccount ||
+			dispatchCandidate.Direct.CredentialKind == store.DirectCredentialOAuth && dispatchCandidate.Direct.Provider == "antigravity")) {
 		// gcp_service_account holds no stored token until the first exchange;
 		// the dispatch path resolves it through the credential owner.
 		return nil, nil

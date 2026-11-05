@@ -28,6 +28,10 @@ type directProviderWire struct {
 	removeEmptyHeaders  []string
 }
 type directProviderWireKey struct{}
+type directProviderRequest struct {
+	Model  string
+	Stream bool
+}
 
 func withDirectProviderWire(ctx context.Context, wire *directProviderWire) context.Context {
 	return context.WithValue(ctx, directProviderWireKey{}, wire)
@@ -40,15 +44,19 @@ func directProviderWireFromContext(ctx context.Context) *directProviderWire {
 // prepareDirectProviderWire adapts the selected storage/credential records to
 // the shared wire owner after protocol conversion and parameter overrides.
 // Credential resolution, endpoint selection and transport stay with the caller.
-func prepareDirectProviderWire(endpoint *store.DirectEndpoint, channelID int64, credential *oauth.DirectCredentialResult, body []byte, downstream http.Header, sessionNamespace string) (*directProviderWire, error) {
+func prepareDirectProviderWire(endpoint *store.DirectEndpoint, channelID int64, credential *oauth.DirectCredentialResult, body []byte, downstream http.Header, sessionNamespace string, request ...directProviderRequest) (*directProviderWire, error) {
 	profile := ""
 	input := upstreamadapter.Input{Body: body, Downstream: downstream, ChannelID: channelID, SessionNamespace: sessionNamespace}
+	if len(request) > 0 {
+		input.ActualModel, input.Stream = request[0].Model, request[0].Stream
+	}
 	if endpoint != nil {
 		profile, input.EndpointURL = endpoint.Profile, endpoint.URL
 	}
 	if credential != nil {
 		input.OAuth = credential.Kind == store.DirectCredentialOAuth
 		input.AccountID = credential.AccountID
+		input.ProjectID = credential.ProjectID
 	}
 	adapter, ok := upstreamadapter.Lookup(profile)
 	if !ok {

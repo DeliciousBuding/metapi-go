@@ -265,6 +265,7 @@ upstream request; …`), since it describes a static misconfiguration.
 | `CLAUDE_CLIENT_ID` | Override bundled Claude OAuth app (PKCE public client; no secret). |
 | `CODEX_CLIENT_ID` | Override bundled Codex OAuth app. |
 | `GEMINI_CLI_CLIENT_ID` / `GEMINI_CLI_CLIENT_SECRET` | Gemini CLI override (set both). |
+| `ANTIGRAVITY_CLIENT_SECRET` | Required for Antigravity authorization-code exchange and token refresh; no built-in default. Inject through the deployment's secret environment. |
 
 ## Codex / Responses compatibility
 

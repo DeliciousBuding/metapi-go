@@ -309,6 +309,47 @@ describe('upstream maintenance', () => {
       })
     )
   })
+
+  it('replaces a project-bound OAuth credential without requiring a pre-exchanged access token', async () => {
+    state.credentials.mockResolvedValue({
+      items: [
+        {
+          id: 2,
+          name: 'Project session',
+          enabled: true,
+          kind: 'oauth',
+          canRefresh: true,
+        },
+      ],
+    })
+    mount(<UpstreamCredentials id={4} active onDirtyChange={state.dirty} />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Edit Project session' })
+    )
+    fireEvent.click(screen.getByRole('switch', { name: 'Replace credential' }))
+    fireEvent.change(screen.getByLabelText('Refresh token'), {
+      target: { value: 'synthetic-project-refresh' },
+    })
+    fireEvent.change(screen.getByLabelText('Project ID'), {
+      target: { value: 'synthetic-project' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save credential' }))
+    await waitFor(() =>
+      expect(state.replace).toHaveBeenCalledWith(2, {
+        oauth: expect.objectContaining({
+          accessToken: '',
+          refreshToken: 'synthetic-project-refresh',
+          projectId: 'synthetic-project',
+        }),
+      })
+    )
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Refresh token')).not.toBeInTheDocument()
+    )
+    fireEvent.click(screen.getByRole('switch', { name: 'Replace credential' }))
+    expect(screen.getByLabelText('Project ID')).toHaveValue('')
+    expect(client.getMutationCache().getAll()).toHaveLength(0)
+  })
   it('does not send an empty update when a replacement draft is switched off', async () => {
     mount(<UpstreamCredentials id={4} active onDirtyChange={state.dirty} />)
     fireEvent.click(

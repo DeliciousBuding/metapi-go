@@ -32,9 +32,9 @@ func readAxonHubCompleteFixture(t *testing.T) []byte {
 }
 
 var axonHubCompleteSkipped = map[int][]string{
-	17: {"provider_translation_unsupported"},
-	18: {"provider_wire_format_unsupported"},
-	19: {"provider_wire_format_unsupported"},
+	17: {"antigravity_refresh_token_project_required"},
+	18: {"provider_test_executor_not_imported"},
+	19: {"provider_test_executor_not_imported"},
 	28: {"channel_settings_unsupported:quotaRoutingMode"},
 	29: {"channel_policy_unsupported:apiKeyAutoDisableMode"},
 	31: {"oauth_custom_endpoint_unsupported"},

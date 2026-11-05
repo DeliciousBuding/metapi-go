@@ -47,7 +47,7 @@ func connectModelsEndpoints(endpoints store.DirectEndpoints) []modelCatalogEndpo
 // Native actions without a known catalog API do not invite URL probing.
 func modelCatalogForEndpoint(entry store.DirectEndpointEntry) (modelCatalogEndpoint, bool) {
 	ep := entry.Endpoint
-	if ep == nil || ep.Profile == "bedrock" || ep.Profile == "vertex" || ep.Profile == "codex" || ep.Profile == "claudecode" || ep.Profile == "cline" || strings.HasPrefix(ep.Profile, "codex-") {
+	if ep == nil || ep.Profile == "bedrock" || ep.Profile == "vertex" || ep.Profile == "codex" || ep.Profile == "claudecode" || ep.Profile == "cline" || ep.Profile == "antigravity" || strings.HasPrefix(ep.Profile, "codex-") {
 		return modelCatalogEndpoint{}, false
 	}
 	u, err := url.Parse(ep.URL)

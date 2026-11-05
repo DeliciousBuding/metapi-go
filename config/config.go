@@ -53,9 +53,10 @@ type Config struct {
 	CodexClientId           string
 
 	// OAuth Clients (3 fields)
-	ClaudeClientId        string
-	GeminiCliClientId     string
-	GeminiCliClientSecret string
+	ClaudeClientId          string
+	GeminiCliClientId       string
+	GeminiCliClientSecret   string
+	AntigravityClientSecret string
 
 	// Server (7 fields)
 	Port       int
@@ -521,6 +522,7 @@ func Load(env map[string]string) (*Config, *RuntimeSettings) {
 	cfg.ClaudeClientId = firstNonEmpty(parseOptionalSecret(get("CLAUDE_CLIENT_ID")), DefaultClaudeClientId)
 	cfg.GeminiCliClientId = firstNonEmpty(parseOptionalSecret(get("GEMINI_CLI_CLIENT_ID")), DefaultGeminiCliClientId)
 	cfg.GeminiCliClientSecret = firstNonEmpty(parseOptionalSecret(get("GEMINI_CLI_CLIENT_SECRET")), DefaultGeminiCliClientSecret)
+	cfg.AntigravityClientSecret = parseOptionalSecret(get("ANTIGRAVITY_CLIENT_SECRET"))
 
 	// ---- §3.3 Server ----
 	cfg.Port = int(math.Trunc(parseNumber(get("PORT"), DefaultPort)))

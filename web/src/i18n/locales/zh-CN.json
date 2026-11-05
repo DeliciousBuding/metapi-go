@@ -4640,6 +4640,7 @@
           "xai-subscription": "xAI 订阅",
           "github-copilot": "GitHub Copilot",
           "vertex": "Google Vertex AI",
+          "antigravity": "Antigravity",
           "vertex-anthropic": "Anthropic on Vertex",
           "jina-embeddings": "Jina embeddings",
           "minimax-image": "MiniMax image",
@@ -4694,7 +4695,8 @@
           "responses": "Responses 内部地址",
           "messages": "Messages 内部地址"
         },
-        "moonshotJsonMode": "JSON Schema 会降为 JSON Object，Schema 约束不会发送。"
+        "moonshotJsonMode": "JSON Schema 会降为 JSON Object，Schema 约束不会发送。",
+        "projectId": "项目 ID"
       },
       "catalog": {
         "models": "模型",

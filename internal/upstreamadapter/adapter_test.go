@@ -14,7 +14,7 @@ import (
 )
 
 var profileContracts = []string{
-	"", "bailian", "bedrock", "cerebras", "claudecode", "cline", "codex",
+	"", "antigravity", "bailian", "bedrock", "cerebras", "claudecode", "cline", "codex",
 	"codex-alpha-search", "codex-image", "deepseek", "github-copilot",
 	"jina-embeddings", "longcat", "moonshot", "nanogpt", "ollama",
 	"ollama-messages", "openrouter", "vertex", "vertex-anthropic",
@@ -63,7 +63,7 @@ func TestDefinitionsConnectTemplatesToExecutableAdapters(t *testing.T) {
 			original := bytes.Clone(body)
 			downstream := http.Header{"Authorization": {"Bearer untrusted-fixture"}, "Session-Id": {"fixture-session"}}
 			before := downstream.Clone()
-			prepared, err := definition.Prepare(upstreamadapter.Input{Body: body, Downstream: downstream, EndpointURL: "https://provider.invalid/wire", ChannelID: 42, OAuth: true, AccountID: "fixture-account", SessionNamespace: "fixture-key"})
+			prepared, err := definition.Prepare(upstreamadapter.Input{Body: body, Downstream: downstream, EndpointURL: "https://provider.invalid/wire", ChannelID: 42, OAuth: true, AccountID: "fixture-account", ProjectID: "synthetic-project", ActualModel: "gemini-fixture", SessionNamespace: "fixture-key"})
 			if err != nil || prepared == nil || !json.Valid(prepared.Body) {
 				t.Fatalf("adapter cannot prepare its wire: %v", err)
 			}
@@ -102,7 +102,7 @@ func fixtureBody(profile string) []byte {
 		return []byte(`{"model":"fixture","input":"hello","max_output_tokens":32}`)
 	case "claudecode", "vertex-anthropic", "bedrock", "ollama-messages":
 		return []byte(`{"model":"fixture","max_tokens":32,"messages":[{"role":"user","content":"hello"}],"tools":[{"name":"echo","input_schema":{"type":"object"}}]}`)
-	case "vertex":
+	case "vertex", "antigravity":
 		return []byte(`{"contents":[{"role":"user","parts":[{"text":"hello"}]}],"generationConfig":{"seed":9007199254740993}}`)
 	case "jina-embeddings":
 		return []byte(`{"model":"fixture","input":["hello"]}`)

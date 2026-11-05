@@ -12,6 +12,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -346,6 +347,21 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 	}
 	keys := credentialKeys(channel.Credentials)
 	oauthState := axonHubOAuthState(channel.Credentials.OAuthCredentials)
+	if channel.Type == "antigravity" {
+		if len(channel.Credentials.APIKeys) > 0 || channel.Credentials.OAuth || channel.Credentials.GCP != nil || channel.Credentials.Azure {
+			reasons = append(reasons, "antigravity_credential_form_unsupported")
+		} else {
+			state, err := oauth.ParseAntigravityImportMaterial(channel.Credentials.APIKey)
+			if err != nil {
+				reasons = append(reasons, "antigravity_refresh_token_project_required")
+			} else {
+				keys, oauthState = []string{""}, &state
+			}
+		}
+		if len(channel.Endpoints) != 0 {
+			reasons = append(reasons, "antigravity_custom_endpoint_unsupported")
+		}
+	}
 	if channel.Credentials.OAuth && axonHubOAuthProvider(channel.Type) && channel.Credentials.OAuthCredentials != nil {
 		keys = []string{channel.Credentials.OAuthCredentials.AccessToken}
 		if tokenType := strings.ToLower(channel.Credentials.OAuthCredentials.TokenType); tokenType != "" && tokenType != "bearer" {
@@ -457,6 +473,10 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		Entries:      axonHubChannelEntries(channel),
 	}
 	for _, disabled := range channel.DisabledAPIKeys {
+		if channel.Type == "antigravity" && disabled.Key == channel.Credentials.APIKey {
+			compiled.DisabledKeys[""] = true
+			continue
+		}
 		if disabled.Key == "__oauth__" && channel.Credentials.OAuth && len(keys) > 0 {
 			compiled.DisabledKeys[keys[0]] = true
 			continue
@@ -516,6 +536,9 @@ func channelResiduals(channel AxonHubSourceChannel) []string {
 	prefix := "channel-" + strconv.Itoa(channel.ID) + ":"
 	var notes []string
 	add := func(reason string) { notes = append(notes, prefix+reason) }
+	if channel.Type == "antigravity" {
+		add("source_endpoint_fallback_not_imported")
+	}
 	if channel.Policies.AutoDisableRuleCount > 0 {
 		add("source_auto_disable_rules_replaced_by_grant_cooldown")
 	}
