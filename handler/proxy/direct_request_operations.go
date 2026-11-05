@@ -9,10 +9,20 @@ import (
 	"github.com/deliciousbuding/metapi-go/proxy"
 )
 
-func directUserOperationsWithinBudget(before, after []byte, path string, lifecycle *requestLifecycle) bool {
+func directUserOperationsWithinBudget(before, after []byte, path string, lifecycle *requestLifecycle, aggregateStream bool) bool {
 	var original, transformed map[string]any
 	if json.Unmarshal(before, &original) != nil || json.Unmarshal(after, &transformed) != nil {
 		return false
+	}
+	if aggregateStream {
+		// The gateway adds these transport controls after ingress admission.
+		// Ordered operations cannot change them, and neither carries prompt or
+		// output content. Compare the transformed content against the original
+		// hold without charging serialization overhead for forced streaming.
+		for _, body := range []map[string]any{original, transformed} {
+			delete(body, "stream")
+			delete(body, "stream_options")
+		}
 	}
 	beforeEstimate, err := userBudgetTokenEstimate(path, original)
 	if err != nil {

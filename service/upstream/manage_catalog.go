@@ -25,9 +25,13 @@ type ChannelCreate struct {
 	ParamOverride  string                    `json:"paramOverride"`
 	RequestConfig  store.DirectRequestConfig `json:"requestTransform"`
 	RateLimit      store.DirectRateLimit     `json:"rateLimit"`
+	StreamPolicy   string                    `json:"streamPolicy"`
 }
 
 func CreateChannel(ctx context.Context, db *sqlx.DB, in ChannelCreate) (int64, error) {
+	if !store.ValidDirectStreamPolicy(in.StreamPolicy) {
+		return 0, invalid("Invalid stream policy")
+	}
 	if err := in.RateLimit.Validate(); err != nil {
 		return 0, err
 	}
@@ -37,6 +41,9 @@ func CreateChannel(ctx context.Context, db *sqlx.DB, in ChannelCreate) (int64, e
 		id, err = InsertNative(ctx, tx, "channels", strings.TrimSpace(in.Name), in.Dialect, in.Provider, in.Enabled, in.BaseURL, in.Endpoints, in.ChatPath, in.ResponsesPath, in.MessagesPath, in.UseSystemProxy, in.ChannelProxy, in.CustomHeaders, in.ParamOverride, "")
 		if err == nil {
 			_, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE upstream_channels SET request_config=?,rate_limit=? WHERE id=?`), in.RequestConfig, in.RateLimit, id)
+		}
+		if err == nil {
+			_, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE upstream_channels SET stream_policy=? WHERE id=?`), store.NormalizeDirectStreamPolicy(in.StreamPolicy), id)
 		}
 		return err
 	})

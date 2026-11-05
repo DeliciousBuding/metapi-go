@@ -102,6 +102,10 @@ type DownstreamRoutingPolicy struct {
 	RequestedContextTokens          int64
 	RequiredUpstreamProtocol        int
 	AllowUpstreamProtocolConversion bool
+	// RequestStream is the original client mode. Nil means no request exists
+	// (catalog/explanation); selected attempts never rewrite this fact.
+	RequestStream          *bool
+	AllowStreamAggregation bool
 	// AssociationRequest is immutable for one incoming request. A missing
 	// descriptor cannot satisfy a request-dependent imported association.
 	AssociationRequest *routecondition.Request
@@ -160,6 +164,7 @@ type RouteDecisionExplanation struct {
 
 // RouteDecisionCandidate mirrors TS RouteDecisionCandidate.
 type RouteDecisionCandidate struct {
+	StreamContextRequired      bool                      `json:"streamContextRequired,omitempty"`
 	AssociationContextRequired bool                      `json:"associationContextRequired,omitempty"`
 	CandidateRef               RouteDecisionCandidateRef `json:"candidateRef"`
 	Label                      string                    `json:"label"`

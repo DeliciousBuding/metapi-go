@@ -93,6 +93,7 @@ export type ImportedUpstreamDetail = {
   provider: string
   dialect: string
   enabled: boolean
+  streamPolicy?: 'unlimited' | 'require' | 'forbid'
   baseUrl: string
   endpointConfig?: ImportedEndpointConfig
   rateLimit?: ImportedRateLimit
@@ -112,6 +113,7 @@ export type ImportedUpstreamUpdate = Partial<
     ImportedUpstreamDetail,
     | 'name'
     | 'enabled'
+    | 'streamPolicy'
     | 'baseUrl'
     | 'endpointConfig'
     | 'rateLimit'

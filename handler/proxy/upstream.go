@@ -148,6 +148,8 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	excludeChannelIDs := make([]int64, 0)
 	maxRetries := ctx.MaxRetries
 	downstreamPolicy := RoutingPolicyFromAuth(ctx.Policy)
+	requestStream := ctx.IsStream
+	downstreamPolicy.RequestStream = &requestStream
 	// multi-tier: best-effort request context estimate for route tier pick.
 	// ctx is constructed non-nil by PrepareCtx (which returns a SurfResult on
 	// failure instead of a nil Ctx), so it is safe to dereference unguarded.
@@ -157,6 +159,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		upstreamPath = r.URL.Path
 	}
 	downstreamPolicy.RequiredUpstreamProtocol, downstreamPolicy.AllowUpstreamProtocolConversion = proxy.RoutingProtocolForPath(upstreamPath)
+	downstreamPolicy.AllowStreamAggregation = directStreamAggregateProtocol(upstreamPath) != "" && !strings.HasSuffix(upstreamPath, "/count_tokens")
 	downstreamPolicy.ResolveAssociationRequest = associationRequestFromContext(r.Context())
 	if downstreamPolicy.ResolveAssociationRequest == nil {
 		downstreamPolicy.ResolveAssociationRequest = lazyAssociationRequest(upstreamPath, ctx.RawBody, r.Header, ctx.IsStream, time.Now())
@@ -1052,29 +1055,41 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 
-	// A Codex endpoint always streams upstream. JSON clients receive its actual
-	// terminal response, with the original stream usage retained for accounting.
+	// Provider-forced and policy-required streams finish before any JSON output.
+	// Their observed usage is retained through the ordinary accounting path.
 	var aggregatedUsage *ParsedUsage
-	if wire := directProviderWireFromContext(r.Context()); wire != nil && (wire.Profile == "codex" || wire.Profile == "codex-image") && !ctx.IsStream && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	if wire := directProviderWireFromContext(r.Context()); wire != nil && (wire.Profile == "codex" || wire.Profile == "codex-image" || wire.AggregateStream) && !ctx.IsStream && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		var collected []byte
 		var usage ParsedUsage
 		var aggregateErr error
 		if wire.Profile == "codex-image" {
 			collected, usage, aggregateErr = collectDirectCodexImagesResponse(resp, startedAt, upstreamPath)
+		} else if wire.AggregateStream && wire.Profile != "codex" {
+			collected, usage, aggregateErr = collectDirectPolicyResponse(r.Context(), resp, startedAt, upstreamPath)
 		} else {
 			collected, usage, aggregateErr = collectDirectCodexResponse(resp, startedAt)
 		}
 		latencyMs = time.Since(startedAt).Milliseconds()
 		if aggregateErr != nil {
-			if wire.Profile == "codex-image" && r.Context().Err() != nil {
-				writeFailureProxyLog(context.WithoutCancel(r.Context()), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 499, false, usage, retry, requestID, "Client canceled media request")
+			if (wire.Profile == "codex-image" || wire.AggregateStream) && r.Context().Err() != nil {
+				reason := "Client canceled media request"
+				if wire.AggregateStream {
+					reason = "Client canceled request"
+				}
+				writeFailureProxyLog(context.WithoutCancel(r.Context()), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 499, false, usage, retry, requestID, reason)
 				w.WriteHeader(499)
 				observeProxyTerminal(ctx, shared.OutcomeClientError, false, time.Since(startedAt))
 				return true, nil, false
 			}
 			reason := "Cannot aggregate upstream Codex response: " + aggregateErr.Error()
+			if wire.AggregateStream {
+				reason = "Cannot aggregate upstream response: " + aggregateErr.Error()
+			}
 			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, reason)
 			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, false, usage, retry, requestID, reason)
+			if wire.AggregateStream && retry < maxRetries && proxy.ShouldRetryProxyRequest(http.StatusBadGateway, reason) {
+				return false, jsonPendingUpstreamFailure(http.StatusBadGateway, "Cannot aggregate upstream response", "upstream_error"), false
+			}
 			writeJSONErrorWithRequest(w, http.StatusBadGateway, reason, "upstream_error", requestID)
 			observeProxyTerminal(ctx, shared.OutcomeUpstreamError, false, time.Since(startedAt))
 			return true, nil, false
@@ -1270,7 +1285,7 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 	nativeJSON := proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolSystemOne || proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolAlphaSearch
-	if wire := directProviderWireFromContext(r.Context()); nativeJSON || wire != nil && (wire.Profile == "ollama" || wire.Profile == "cline" || wire.Profile == "openrouter" || wire.Profile == "cerebras" || wire.Profile == "nanogpt" || wire.Profile == "antigravity") {
+	if wire := directProviderWireFromContext(r.Context()); nativeJSON || wire != nil && !wire.AggregateStream && (wire.Profile == "ollama" || wire.Profile == "cline" || wire.Profile == "openrouter" || wire.Profile == "cerebras" || wire.Profile == "nanogpt" || wire.Profile == "antigravity") {
 		converted := respBody
 		var convertErr error
 		if nativeJSON {

@@ -242,8 +242,8 @@ func TestCompileAxonHubPlanRefusesUnservableChannelShapes(t *testing.T) {
 			want:    []string{"channel_settings_unsupported:futureKnob"},
 		},
 		{
-			name:    "stream policy",
-			channel: `{"id":1,"type":"openai","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"policies":{"stream":"require"},"endpoints":[{"api_format":"openai/chat_completions"}]}`,
+			name:    "unknown stream policy",
+			channel: `{"id":1,"type":"openai","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"policies":{"stream":"future"},"endpoints":[{"api_format":"openai/chat_completions"}]}`,
 			want:    []string{"channel_stream_policy_unsupported"},
 		},
 		{

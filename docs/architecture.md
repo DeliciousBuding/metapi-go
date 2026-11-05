@@ -89,6 +89,12 @@ JSON 合同并由路由候选携带；`handler/proxy` 在协议转换前应用�
 在 provider wire 准备后应用 body 操作，最终认证头构造后应用 header 操作。
 该 owner 不读取凭据、不选择路由、不发请求；每次尝试只修改自己的副本。
 
+渠道 `stream_policy` 由 `store` 持久化，`routing/stream_policy.go` 在硬授权
+和关联条件之后按原始客户端模式筛选。`handler/proxy` 只在已选 require
+尝试强制上游流式，使用现有帧限制、总字节限制、idle 和取消控制；
+`transform/streamaggregate` 负责原生文本协议的完整 JSON 聚合，成功后再交给
+既有跨协议响应转换。该聚合 owner 不发请求、不改路由、不结算用量。
+
 ## Ownership and boundary map
 
 The layering is a **denylist of import edges**, not a file inventory: each

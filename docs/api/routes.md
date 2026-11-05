@@ -27,6 +27,13 @@ it is separate from its wire protocol and credential kind.
 This is configuration inventory, not a protocol-health probe. Credential values,
 custom headers and parameter overrides are never included.
 Channel and credential summaries include `ownership` (`native` or `imported`).
+Channel create, detail, list and PATCH also expose `streamPolicy` with values
+`unlimited`, `require`, and `forbid`; omission on PATCH preserves its value.
+Non-streaming requests prefer eligible non-`require` channels and only aggregate
+a required stream when no such channel remains. Streaming requests exclude
+`forbid`. The supported aggregation contract is described in
+[import settings](settings.md). Ordinary configuration saves and portable
+backups preserve this policy.
 Imported channels can contain locally created models and credentials; ownership
 describes the individual record, not its parent or its routing eligibility.
 Members also expose persisted grant success/failure counts and nullable cooldown
@@ -82,6 +89,8 @@ static priority while conditional rules are present. Weight and protocol-order
 updates preserve the rules. Route explanations without the needed request data
 mark those candidates `notEvaluated` and expose `associationContextRequired`;
 they do not treat an unevaluated predicate as an authorization success.
+Channel stream policies similarly expose `streamContextRequired` when the
+client's stream mode is missing, with `stream` in `notEvaluated`.
 
 Channels with an explicit `endpointConfig` can translate generation requests
 from any of the four client protocols, including an Ollama outbound endpoint.

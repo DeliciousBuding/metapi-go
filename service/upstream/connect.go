@@ -48,7 +48,7 @@ type ConnectResult struct {
 func Connect(ctx context.Context, db *sqlx.DB, in ConnectInput) (ConnectResult, error) {
 	channel := in.Channel
 	channel.Name = strings.TrimSpace(channel.Name)
-	if !validName(channel.Name) || !channel.Endpoints.IsConfigured() {
+	if !validName(channel.Name) || !channel.Endpoints.IsConfigured() || !store.ValidDirectStreamPolicy(channel.StreamPolicy) {
 		return ConnectResult{}, invalid("Invalid upstream connection")
 	}
 	mask := channel.Endpoints.ProtocolMask()
@@ -104,6 +104,9 @@ func Connect(ctx context.Context, db *sqlx.DB, in ConnectInput) (ConnectResult, 
 			if _, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE upstream_channels SET request_config=? WHERE id=?`), channel.RequestConfig, out.ID); err != nil {
 				return err
 			}
+		}
+		if _, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE upstream_channels SET stream_policy=? WHERE id=?`), store.NormalizeDirectStreamPolicy(channel.StreamPolicy), out.ID); err != nil {
+			return err
 		}
 		credentialID, err := InsertNative(ctx, tx, "credentials", out.ID, "Default", in.Secret, true, in.CredentialKind, in.OAuthState)
 		if err != nil {

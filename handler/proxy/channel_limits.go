@@ -31,6 +31,8 @@ func revalidateQueuedChannel(r *http.Request, ctx *Ctx, cfg *UpstreamConfig, sel
 		refreshed.AllowUpstreamProtocolConversion = policy.AllowUpstreamProtocolConversion
 		refreshed.AssociationRequest = policy.AssociationRequest
 		refreshed.ResolveAssociationRequest = policy.ResolveAssociationRequest
+		refreshed.RequestStream = policy.RequestStream
+		refreshed.AllowStreamAggregation = policy.AllowStreamAggregation
 		*policy = refreshed
 	}
 	revalidator, ok := cfg.Router.(queuedChannelRevalidator)
