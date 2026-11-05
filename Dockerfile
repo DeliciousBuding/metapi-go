@@ -85,7 +85,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -o metapi-migrate ./cmd/migrate
 
 # Stage 3: Runtime
-FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 RUN apk add --no-cache ca-certificates tzdata
 RUN addgroup -g 1001 -S appgroup && adduser -u 1001 -S appuser -G appgroup
 RUN mkdir -p /app/data && chown -R appuser:appgroup /app/data
