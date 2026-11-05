@@ -11,6 +11,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"github.com/deliciousbuding/metapi-go/internal/routecondition"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // AxonHubBackupVersion is the only AxonHub backup format this importer has
@@ -112,7 +113,8 @@ type AxonHubSourceChannelSettings struct {
 	TransformOptions          requestoverride.TransformOptions `json:"-"`
 	ProxyConfigured           bool                             `json:"-"`
 	ProxyURL                  string                           `json:"-"`
-	HasRateLimit              bool                             `json:"-"`
+	RateLimit                 store.DirectRateLimit            `json:"-"`
+	HasUnsupportedRateLimit   bool                             `json:"-"`
 	HasRetryableErrorPatterns bool                             `json:"-"`
 	HasProviderQuota          bool                             `json:"-"`
 	UnsupportedFields         []string                         `json:"-"`
@@ -669,7 +671,7 @@ func decodeAxonHubSettings(raw json.RawMessage, dst *AxonHubSourceChannelSetting
 			dst.UnsupportedFields = append(dst.UnsupportedFields, "transformOptions")
 		}
 	}
-	dst.HasRateLimit, err = axonHubActiveRateLimit(obj["rateLimit"])
+	dst.RateLimit, dst.HasUnsupportedRateLimit, err = decodeAxonHubRateLimit(obj["rateLimit"])
 	if err != nil {
 		return err
 	}
@@ -724,13 +726,14 @@ func decodeAxonHubSettings(raw json.RawMessage, dst *AxonHubSourceChannelSetting
 // AxonHub enables RPM/TPM and concurrency only for positive limits. Queue
 // settings have no effect without a positive maxConcurrent. Unknown fields
 // still refuse the channel, even when their values look inactive.
-func axonHubActiveRateLimit(raw json.RawMessage) (bool, error) {
+func decodeAxonHubRateLimit(raw json.RawMessage) (store.DirectRateLimit, bool, error) {
+	result := store.DirectRateLimit{}
 	if len(raw) == 0 || string(bytes.TrimSpace(raw)) == "null" {
-		return false, nil
+		return result, false, nil
 	}
 	obj, err := rowObject(raw)
 	if err != nil {
-		return false, axonHubErr("invalid AxonHub backup: rate limit must be an object")
+		return result, false, axonHubErr("invalid AxonHub backup: rate limit must be an object")
 	}
 	var limits struct {
 		RPM           *int64 `json:"rpm"`
@@ -740,17 +743,25 @@ func axonHubActiveRateLimit(raw json.RawMessage) (bool, error) {
 		QueueTimeout  *int64 `json:"queueTimeoutMs"`
 	}
 	if err := json.Unmarshal(raw, &limits); err != nil {
-		return false, axonHubErr("invalid AxonHub backup: rate limit has an invalid field type")
+		return result, false, axonHubErr("invalid AxonHub backup: rate limit has an invalid field type")
 	}
 	if len(unknownKeys(obj, []string{"rpm", "tpm", "maxConcurrent", "queueSize", "queueTimeoutMs"})) > 0 {
-		return true, nil
+		return result, true, nil
 	}
-	for _, limit := range []*int64{limits.RPM, limits.TPM, limits.MaxConcurrent} {
-		if limit != nil && *limit > 0 {
-			return true, nil
+	positive := func(value *int64) int64 {
+		if value != nil && *value > 0 {
+			return *value
 		}
+		return 0
 	}
-	return false, nil
+	result.RPM, result.TPM, result.MaxConcurrent = positive(limits.RPM), positive(limits.TPM), positive(limits.MaxConcurrent)
+	if result.MaxConcurrent > 0 {
+		result.QueueSize, result.QueueTimeoutMs = positive(limits.QueueSize), positive(limits.QueueTimeout)
+	}
+	if result.Validate() != nil {
+		return store.DirectRateLimit{}, true, nil
+	}
+	return result, false, nil
 }
 
 func decodeAxonHubPolicies(raw json.RawMessage, dst *AxonHubSourceChannelPolicies) error {

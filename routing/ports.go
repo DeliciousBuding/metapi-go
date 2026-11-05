@@ -7,6 +7,8 @@ import (
 	"context"
 
 	"github.com/deliciousbuding/metapi-go/internal/routecondition"
+
+	"github.com/deliciousbuding/metapi-go/internal/channellimit"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -185,6 +187,7 @@ type RouteDecisionCandidate struct {
 	Probability            float64                    `json:"probability"`
 	Reason                 string                     `json:"reason"`
 	OAuthMembers           []RouteDecisionOAuthMember `json:"oauthMembers,omitempty"`
+	ChannelRateLimit       *channellimit.Snapshot     `json:"channelRateLimit,omitempty"`
 }
 
 // RouteDecisionOAuthMember describes member filters without selecting or leasing a member.
@@ -273,6 +276,8 @@ type RouteChannelCandidate struct {
 	Direct           *store.DirectUpstreamCandidate
 	RouteUnit        *OAuthRouteUnitSummary
 	RouteUnitMembers []OAuthRouteUnitMemberCandidate
+	// RateLimitLoad is per-selection state, never stored in the route cache.
+	RateLimitLoad *channellimit.Snapshot
 }
 
 // OAuthRouteUnitSummary is a light summary of an OAuth route unit.

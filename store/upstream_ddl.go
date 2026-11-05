@@ -12,7 +12,7 @@ func buildUpstreamChannelsDDL(d string) string {
 			base_url TEXT NOT NULL, endpoint_config TEXT NOT NULL DEFAULT '{}', openai_chat_completion_path TEXT NOT NULL,
 			openai_response_path TEXT NOT NULL, anthropic_message_path TEXT NOT NULL,
 			proxy BOOLEAN NOT NULL, channel_proxy TEXT NOT NULL, custom_header TEXT NOT NULL,
-			param_override TEXT NOT NULL, request_config TEXT NOT NULL DEFAULT '{}', match_regex TEXT NOT NULL,
+			param_override TEXT NOT NULL, request_config TEXT NOT NULL DEFAULT '{}', match_regex TEXT NOT NULL, rate_limit TEXT NOT NULL DEFAULT '{}',
 			UNIQUE(origin_key, source_id), UNIQUE(origin_key, name)
 		)`
 	}
@@ -22,7 +22,7 @@ func buildUpstreamChannelsDDL(d string) string {
 		base_url TEXT NOT NULL, endpoint_config TEXT NOT NULL DEFAULT '{}', openai_chat_completion_path TEXT NOT NULL,
 		openai_response_path TEXT NOT NULL, anthropic_message_path TEXT NOT NULL,
 		proxy INTEGER NOT NULL, channel_proxy TEXT NOT NULL, custom_header TEXT NOT NULL,
-		param_override TEXT NOT NULL, request_config TEXT NOT NULL DEFAULT '{}', match_regex TEXT NOT NULL,
+		param_override TEXT NOT NULL, request_config TEXT NOT NULL DEFAULT '{}', match_regex TEXT NOT NULL, rate_limit TEXT NOT NULL DEFAULT '{}',
 		UNIQUE(origin_key, source_id), UNIQUE(origin_key, name)
 	)`
 }

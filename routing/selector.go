@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/internal/channellimit"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -18,6 +19,7 @@ type ChannelSelector struct {
 	pricingFn           CatalogPricingResolver
 	fallbackUnitCost    float64
 	channelLoadProvider ChannelLoadSnapshotProvider
+	channelLimits       *channellimit.Manager
 }
 
 // NewChannelSelector creates a new ChannelSelector.
@@ -137,6 +139,9 @@ func (s *ChannelSelector) SelectPreferredChannel(
 	if preferred == nil {
 		return nil, nil
 	}
+	if snapshot := s.limitSnapshot(*preferred); snapshot != nil && snapshot.ExhaustedBy != "" {
+		return nil, nil
+	}
 
 	// Check site/model breaker on the preferred candidate alone.
 	// FilterSiteRuntimeBrokenCandidatesByModel intentionally keeps a single-candidate
@@ -202,6 +207,7 @@ func (s *ChannelSelector) selectFromMatch(
 	if len(available) == 0 {
 		return nil, nil
 	}
+	available = s.preferChannelCapacity(available)
 
 	// Resolve runtime model per-candidate for display name matches
 	resolveModel := func(c RouteChannelCandidate) string {

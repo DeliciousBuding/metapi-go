@@ -31,7 +31,7 @@ type importedUpstreamHandler struct{ db *sqlx.DB }
 
 func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 	channels, err := queryRowsErr(h.db, `SELECT c.id, c.name, c.origin_key, c.dialect, c.provider, c.base_url, c.enabled,
-  c.openai_chat_completion_path, c.openai_response_path, c.anthropic_message_path, c.endpoint_config,
+  c.openai_chat_completion_path, c.openai_response_path, c.anthropic_message_path, c.endpoint_config, c.rate_limit,
   (SELECT COUNT(*) FROM upstream_credentials k WHERE k.channel_id=c.id) AS credential_count,
   (SELECT COUNT(*) FROM upstream_models m WHERE m.channel_id=c.id) AS model_count
   FROM upstream_channels c ORDER BY c.name, c.id`)
@@ -62,6 +62,12 @@ func (h *importedUpstreamHandler) list(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		row["endpointConfig"] = endpoints
+		var limits store.DirectRateLimit
+		if err := limits.Scan(row["rateLimit"]); err != nil {
+			writeError(w, http.StatusInternalServerError, "Invalid imported channel rate limits")
+			return
+		}
+		row["rateLimit"] = limits
 		row["baseUrl"] = importedDisplayURL(fmt.Sprint(row["baseUrl"]))
 		row["enabled"] = coerceBool(row["enabled"])
 	}

@@ -676,6 +676,17 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "upstream_group_items", "association_conditions", "TEXT", "TEXT", "DEFAULT '[]' NOT NULL")
 		},
 	},
+	{
+		Version:     "direct_channel_rate_limit_v1",
+		Description: "direct channel admission policy, with process-local counters",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "upstream_channels")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "upstream_channels", "rate_limit", "TEXT", "TEXT", "DEFAULT '{}' NOT NULL")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

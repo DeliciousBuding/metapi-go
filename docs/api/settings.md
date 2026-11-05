@@ -290,7 +290,34 @@ protocol restrictions remain editable and cannot erase conditions.
 Channel `rateLimit` settings with absent, null or nonpositive `rpm`, `tpm` and
 `maxConcurrent` values retain the source's unlimited behavior. `queueSize` and
 `queueTimeoutMs` do not activate a limit without positive concurrency. Positive
-limits and unknown rate-limit fields still skip the channel with
+limits import into the channel's `rateLimit` policy:
+
+- RPM is an atomic admission limit in fixed natural-minute buckets. It is
+  consumed after concurrency admission and request preparation, immediately
+  before a logical upstream attempt. Queue rejection/cancellation and invalid
+  requests do not consume RPM; an authorized endpoint fallback is another attempt.
+- TPM records the final measured usage once per attempt, including partial or
+  error responses. It lowers routing preference when exhausted, but does not
+  reserve an estimated token amount or reject the last eligible candidate.
+  Missing usage is counted separately as unknown.
+- Positive `maxConcurrent` is a hard cap shared by every credential and model
+  of that channel. Excess requests wait FIFO. Missing/nonpositive `queueSize`
+  means an unbounded waiting queue; positive values cap waiting requests.
+  Positive `queueTimeoutMs` bounds either queue mode; client cancellation also
+  removes the waiter. The selected credential's separate safety cap still applies.
+- Counters and queues belong to one gateway process, reset on restart, and are
+  not cluster-wide limits. Policy changes retain active permits; reducing
+  capacity stops new grants until existing work finishes. Reimport replaces
+  policy without resetting runtime counts.
+
+Local admission failure tries another authorized candidate and never cools down
+the provider. If none can dispatch, the request returns 503; a canceled waiter
+returns 499. After waiting, dispatch reloads the Key/user authorization and the
+selected grant/model/member graph; revoked or changed access is rejected before
+upstream I/O, without consuming ingress admission again. A changed channel policy
+also rejects the stale permit. The source's current limiter implementation defines this hard-cap
+behavior even where older field comments describe soft counting. Unknown
+rate-limit fields or unrepresentable timeouts still skip the channel with
 `channel_rate_limit_unsupported`; malformed known field types reject the backup.
 
 The preview reports configuration counts, skipped channels, remaining source
@@ -321,7 +348,7 @@ the current executable import contract:
   is reported in preview and does not enable an executable direct WebSocket
   transport or expand the imported channel's HTTP grants.
 - Request operations outside the supported JSON/profile or authority boundaries below,
-  active channel rate limits and stream policies,
+  stream policies,
   unsupported proxy modes, and nonportable key-level
   load-balancing/sticky overrides or regular expressions.
 - Source pricing, request history and deployment settings. Developer associations

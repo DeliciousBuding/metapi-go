@@ -38,6 +38,7 @@ type importedChannelConfig struct {
 	CustomHeaders  string                    `db:"custom_header" json:"-"`
 	ParamOverride  string                    `db:"param_override" json:"-"`
 	RequestConfig  store.DirectRequestConfig `db:"request_config" json:"-"`
+	RateLimit      store.DirectRateLimit     `db:"rate_limit" json:"rateLimit"`
 }
 
 // maskedImportedHeaderValue is returned in place of every custom header value
@@ -112,7 +113,7 @@ func mergeMaskedImportedCustomHeaders(next, previous string) string {
 }
 
 const importedConfigSelect = `SELECT id,origin_key,provider,dialect,name,enabled,base_url,endpoint_config,
-openai_chat_completion_path,openai_response_path,anthropic_message_path,proxy,channel_proxy,custom_header,param_override,request_config
+openai_chat_completion_path,openai_response_path,anthropic_message_path,proxy,channel_proxy,custom_header,param_override,request_config,rate_limit
 FROM upstream_channels WHERE id=?`
 
 func importedReadError(w http.ResponseWriter, err error) {
@@ -287,6 +288,7 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		"useSystemProxy": {"proxy", &row.UseSystemProxy}, "channelProxy": {"channel_proxy", &row.ChannelProxy},
 		"customHeaders": {"custom_header", &row.CustomHeaders}, "paramOverride": {"param_override", &row.ParamOverride},
 		"requestTransform": {"request_config", &row.RequestConfig},
+		"rateLimit":        {"rate_limit", &row.RateLimit},
 	}
 	set := []string{}
 	args := []any{}
@@ -386,6 +388,9 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 }
 
 func validateImportedConfig(row importedChannelConfig) error {
+	if err := row.RateLimit.Validate(); err != nil {
+		return err
+	}
 	if err := row.RequestConfig.Validate(); err != nil {
 		return fmt.Errorf("Invalid request operations: %s", err)
 	}

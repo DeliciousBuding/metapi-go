@@ -120,7 +120,7 @@ It does not implement SigV4 or `count_tokens`.
 
 Returns a flat editable connection object: `id`, `originKey`, `ownership`, `provider`, `dialect`,
 `name`, `enabled`, `baseUrl`, `endpointConfig`, `openaiChatCompletionPath`,
-`openaiResponsePath`, `anthropicMessagePath`, and `useSystemProxy`. The three
+`openaiResponsePath`, `anthropicMessagePath`, `useSystemProxy`, and `rateLimit`. The three
 request-configuration values below are omitted; only `hasChannelProxy`,
 `channelProxyDisplay` (without user information), `hasCustomHeaders`, and
 `hasParamOverride`, and `hasRequestTransform` are returned. The response is `Cache-Control: no-store`.
@@ -160,6 +160,17 @@ provider and custom endpoint ownership. It does not affect model permissions.
 The separate `requestTransformSummary` field is never a valid write payload.
 Ordinary advanced-setting saves do not clear this hidden configuration.
 See [ordered operation semantics and boundaries](settings.md#ordered-channel-request-operations).
+
+`rateLimit` replaces the complete object; `{}` clears the limits and omission
+preserves them. Its nonnegative integer fields are `rpm`, `tpm`,
+`maxConcurrent`, `queueSize`, and `queueTimeoutMs`. The inventory and detail
+responses return this safe configuration. Local channel creation accepts the
+same field. Queue settings only apply with positive concurrency.
+[Admission semantics](settings.md#axonhub-v14-import) describe the process-local
+RPM buckets, measured TPM ranking and FIFO queue; route explain reports
+`channelRateLimit` with the current configuration, active/waiting counts,
+requests/tokens/unknown usage, load score and `exhaustedBy` reason. This snapshot
+does not reserve a slot or guarantee that a subsequent request can dispatch.
 
 `endpointConfig` replaces the whole object. Endpoint URLs are exact, credential-free
 HTTP(S) URLs; authentication is `bearer`, `x-api-key`, `x-goog-api-key`, or

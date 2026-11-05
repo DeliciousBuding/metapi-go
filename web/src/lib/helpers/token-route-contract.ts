@@ -27,6 +27,22 @@ export type RouteRoutingStrategy =
 // ---------------------------------------------------------------------------
 
 type RouteDecisionCandidate = {
+  channelRateLimit?: {
+    config: {
+      rpm?: number
+      tpm?: number
+      maxConcurrent?: number
+      queueSize?: number
+      queueTimeoutMs?: number
+    }
+    active: number
+    waiting: number
+    requests: number
+    tokens: number
+    unknownUsage: number
+    score: number
+    exhaustedBy?: 'rpm' | 'tpm' | 'queue'
+  }
   candidateRef?: {
     kind: 'account' | 'direct' | 'oauth_unit'
     id: number

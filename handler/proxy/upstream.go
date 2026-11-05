@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/internal/channellimit"
 	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"io"
 	"log/slog"
@@ -48,6 +49,9 @@ type UpstreamConfig struct {
 	// unlimited. When nil, proxy.DefaultDirectAccountConcurrencyLimiter is
 	// used.
 	DirectAccountLimiter *proxy.SiteConcurrencyLimiter
+	// ChannelLimits is the shared per-channel RPM/TPM/FIFO runtime. Routing
+	// must receive the same owner; nil uses the process-local default.
+	ChannelLimits *channellimit.Manager
 	// LogProxy persists successful/failed proxy attempts into proxy_logs.
 	// When nil, defaultLogProxyWriter uses store.GetDB() (no-op if DB unset).
 	LogProxy                func(ctx context.Context, entry proxy.ProxyLogEntry) error
@@ -196,6 +200,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	attempt := 0
 	selectionRound := 0
 	lastSaturationReason := ""
+	rejectedDirectChannels := make(map[int64]bool)
 	directLimit := int64(directAccountConcurrencyLimit())
 
 	for attempt <= maxRetries {
@@ -234,7 +239,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 				return
 			}
 			eventReason := "no available channels"
-			if lastSaturationReason == "direct_account_concurrency_saturated" {
+			if isDirectAdmissionReason(lastSaturationReason) {
 				eventReason = lastSaturationReason
 			}
 			message := "No available channels"
@@ -254,6 +259,49 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		repeatedSelection := slices.Contains(excludeChannelIDs, selected.Channel.ID)
 		selectionRound++
 		excludeChannelIDs = append(excludeChannelIDs, selected.Channel.ID)
+		if selected.Direct != nil && rejectedDirectChannels[selected.Direct.ChannelID] {
+			if repeatedSelection {
+				break
+			}
+			continue
+		}
+
+		// Wait for the channel before taking the independent credential slot.
+		// A queued channel must not starve unrelated channels sharing an account.
+		channelPermit, admission, admissionErr := acquireChannelAdmission(r.Context(), cfg, selected)
+		if admissionErr != nil {
+			if r.Context().Err() != nil {
+				w.WriteHeader(499)
+				observeProxyTerminal(ctx, shared.OutcomeClientError, ctx.IsStream, time.Since(startedAt))
+				return
+			}
+			lastSaturationReason = admissionErr.Error()
+			if selected.Direct != nil {
+				rejectedDirectChannels[selected.Direct.ChannelID] = true
+			}
+			if ctx.lifecycle != nil {
+				ctx.lifecycle.mu.Lock()
+				ctx.lifecycle.noRouteReason = lastSaturationReason
+				ctx.lifecycle.mu.Unlock()
+			}
+			if repeatedSelection {
+				break
+			}
+			continue
+		}
+		if channelPermit != nil && channelPermit.Waited {
+			var status int
+			selected, status, err = revalidateQueuedChannel(r, ctx, cfg, selected, &downstreamPolicy)
+			if err != nil {
+				channelPermit.Release()
+				writeJSONErrorWithRequest(w, status, err.Error(), "permission_error", requestID)
+				observeProxyTerminal(ctx, shared.OutcomeUnavailable, ctx.IsStream, time.Since(startedAt))
+				return
+			}
+			if ctx.Auth != nil {
+				r = r.WithContext(auth.WithProxyAuth(r.Context(), ctx.Auth))
+			}
+		}
 
 		// Concurrency admission (orthogonal to channel leases).
 		// Regular channels take a site-scoped slot (sites.max_concurrency);
@@ -282,6 +330,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 			attemptSlot, acquired = siteLimiter.TryAcquire(selected.Site.ID, selected.Site.MaxConcurrency)
 		}
 		if !acquired {
+			channelPermit.Release()
 			lastSaturationReason = saturationReason
 			if ctx.lifecycle != nil {
 				ctx.lifecycle.mu.Lock()
@@ -325,10 +374,15 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		var finished bool
 		var nextPending *pendingUpstreamFailure
 		func() {
+			defer channelPermit.Release()
 			if attemptSlot != nil {
 				defer attemptSlot.Release()
 			}
-			finished, nextPending = dispatchSelectedUpstream(w, r, ctx, cfg, selected, upstreamPath, attempt, maxRetries, requestID)
+			attemptRequest := r
+			if admission != nil {
+				attemptRequest = r.WithContext(context.WithValue(r.Context(), channelAdmissionKey{}, admission))
+			}
+			finished, nextPending = dispatchSelectedUpstream(w, attemptRequest, ctx, cfg, selected, upstreamPath, attempt, maxRetries, requestID)
 		}()
 		if finished {
 			return
@@ -336,13 +390,31 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		if nextPending != nil {
 			pendingFailure = nextPending
 		}
+		if admission != nil && admission.denied != nil {
+			if r.Context().Err() != nil {
+				w.WriteHeader(499)
+				observeProxyTerminal(ctx, shared.OutcomeClientError, ctx.IsStream, time.Since(startedAt))
+				return
+			}
+			lastSaturationReason = admission.denied.Error()
+			rejectedDirectChannels[admission.id] = true
+			if ctx.lifecycle != nil {
+				ctx.lifecycle.mu.Lock()
+				ctx.lifecycle.noRouteReason = lastSaturationReason
+				ctx.lifecycle.mu.Unlock()
+			}
+			if repeatedSelection {
+				break
+			}
+			continue
+		}
 		attempt++
 	}
 
 	reason := "all channels exhausted"
 	if pendingFailure != nil {
 		reason = pendingFailure.reason()
-	} else if lastSaturationReason == "direct_account_concurrency_saturated" {
+	} else if isDirectAdmissionReason(lastSaturationReason) {
 		reason = lastSaturationReason
 	}
 	reportProxyAllFailedTerminal(ctx, reason)
@@ -863,6 +935,15 @@ func dispatchEndpointAttemptWithContinue(
 			proxyConfig = &configCopy
 		}
 	}
+
+	rateCtx, rateErr := prepareChannelRateAttempt(r.Context())
+	if rateErr != nil {
+		return false, nil, false
+	}
+	r = r.WithContext(rateCtx)
+	// Paths that fail before writing an attempt log still report unknown usage.
+	// A terminal log wins through the per-attempt once guard.
+	defer recordChannelRateUsage(rateCtx, ParsedUsage{Source: usageSourceUnknown})
 
 	// Allocate the observed attempt before dispatch, independent of whether a
 	// log writer succeeds or this endpoint falls back to another protocol.
