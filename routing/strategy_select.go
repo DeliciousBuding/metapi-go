@@ -43,6 +43,9 @@ func SelectLeastBusyCandidate(
 }
 
 func leastBusyScore(c RouteChannelCandidate, loadProvider ChannelLoadSnapshotProvider) float64 {
+	if c.RateLimitLoad != nil {
+		return 1 - c.RateLimitLoad.Score
+	}
 	if loadProvider != nil {
 		snap := loadProvider.GetChannelLoadSnapshot(ChannelLoadParams{
 			ChannelID:            c.Channel.ID,

@@ -419,6 +419,7 @@ type DirectUpstreamCandidate struct {
 	Protocols             int
 	ProtocolOrder         DirectProtocolOrder
 	AssociationConditions DirectAssociationConditions
+	RateLimit             DirectRateLimit
 }
 
 // OrZero helpers coerce the nullable numeric channel columns for callers that

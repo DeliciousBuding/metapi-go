@@ -77,6 +77,14 @@ export type ImportedRequestConfig = {
   }
 }
 
+type ImportedRateLimit = {
+  rpm?: number
+  tpm?: number
+  maxConcurrent?: number
+  queueSize?: number
+  queueTimeoutMs?: number
+}
+
 export type ImportedUpstreamDetail = {
   ownership?: 'native' | 'imported'
   id: number
@@ -87,6 +95,7 @@ export type ImportedUpstreamDetail = {
   enabled: boolean
   baseUrl: string
   endpointConfig?: ImportedEndpointConfig
+  rateLimit?: ImportedRateLimit
   openaiChatCompletionPath: string
   openaiResponsePath: string
   anthropicMessagePath: string
@@ -105,6 +114,7 @@ export type ImportedUpstreamUpdate = Partial<
     | 'enabled'
     | 'baseUrl'
     | 'endpointConfig'
+    | 'rateLimit'
     | 'openaiChatCompletionPath'
     | 'openaiResponsePath'
     | 'anthropicMessagePath'
@@ -154,6 +164,7 @@ export type ImportedUpstreamInventory = {
     provider?: string
     baseUrl: string
     endpointConfig?: ImportedEndpointConfig
+    rateLimit?: ImportedRateLimit
     enabled: boolean
     credentialCount: number
     modelCount: number

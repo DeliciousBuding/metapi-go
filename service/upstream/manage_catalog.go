@@ -24,15 +24,19 @@ type ChannelCreate struct {
 	CustomHeaders  string                    `json:"customHeaders"`
 	ParamOverride  string                    `json:"paramOverride"`
 	RequestConfig  store.DirectRequestConfig `json:"requestTransform"`
+	RateLimit      store.DirectRateLimit     `json:"rateLimit"`
 }
 
 func CreateChannel(ctx context.Context, db *sqlx.DB, in ChannelCreate) (int64, error) {
+	if err := in.RateLimit.Validate(); err != nil {
+		return 0, err
+	}
 	var id int64
 	err := Write(ctx, db, func(tx *sqlx.Tx) error {
 		var err error
 		id, err = InsertNative(ctx, tx, "channels", strings.TrimSpace(in.Name), in.Dialect, in.Provider, in.Enabled, in.BaseURL, in.Endpoints, in.ChatPath, in.ResponsesPath, in.MessagesPath, in.UseSystemProxy, in.ChannelProxy, in.CustomHeaders, in.ParamOverride, "")
-		if err == nil && in.RequestConfig.Active() {
-			_, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE upstream_channels SET request_config=? WHERE id=?`), in.RequestConfig, id)
+		if err == nil {
+			_, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE upstream_channels SET request_config=?,rate_limit=? WHERE id=?`), in.RequestConfig, in.RateLimit, id)
 		}
 		return err
 	})

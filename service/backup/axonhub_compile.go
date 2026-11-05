@@ -54,6 +54,7 @@ type axonHubPlanChannel struct {
 	CustomHeader    string
 	ParamOverride   string
 	RequestConfig   store.DirectRequestConfig
+	RateLimit       store.DirectRateLimit
 	Protocols       int
 	Tags            []string
 	CredentialKeys  []string
@@ -473,6 +474,7 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 			Options:           channel.Settings.TransformOptions,
 			NativeChatMapping: axonHubNativeChatMapping(channel),
 		}},
+		RateLimit:      channel.Settings.RateLimit,
 		Protocols:      protocols,
 		Tags:           channel.Tags,
 		CredentialKeys: keys,
@@ -547,7 +549,7 @@ func channelSkipReasons(channel AxonHubSourceChannel) []string {
 	default:
 		reasons = append(reasons, "channel_stream_policy_unsupported")
 	}
-	if channel.Settings.HasRateLimit {
+	if channel.Settings.HasUnsupportedRateLimit {
 		reasons = append(reasons, "channel_rate_limit_unsupported")
 	}
 	return reasons

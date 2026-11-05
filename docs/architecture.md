@@ -586,6 +586,13 @@ or model rejection with no output or measured usage can try another authorized
 protocol; authentication, throttling, transport failures and partial streams do
 not replay within the channel. Each candidate starts from the original request.
 
+`internal/channellimit` owns process-local direct-channel concurrency, FIFO queues
+and natural-minute RPM/observed-TPM counters. Routing reads immutable load
+snapshots after authorization; the dispatcher waits before acquiring the
+independent credential safety slot, consumes RPM immediately before each logical
+upstream attempt and records final measured usage once. Rate pressure can change
+candidate preference but cannot widen grants or become a second billing ledger.
+
 `handler/admin/imported_config.go` owns imported connection updates and explicit
 request-setting reads; `imported_members.go` owns route preferences and shared
 grant cooldowns. All successful writes invalidate routing state. The channels

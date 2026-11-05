@@ -19,11 +19,11 @@ func TestAxonHubRateLimitContract(t *testing.T) {
 		{"negative limits", `{"rpm":-1,"tpm":-2,"maxConcurrent":-3}`, false},
 		{"queue without concurrency", `{"queueSize":10,"queueTimeoutMs":1000}`, false},
 		{"queue with disabled concurrency", `{"maxConcurrent":0,"queueSize":10,"queueTimeoutMs":1000}`, false},
-		{"positive rpm", `{"rpm":1}`, true},
-		{"positive tpm", `{"tpm":1}`, true},
-		{"positive concurrency", `{"maxConcurrent":1}`, true},
-		{"positive concurrency with zero queue", `{"maxConcurrent":1,"queueSize":0}`, true},
-		{"positive rpm overrides disabled concurrency", `{"rpm":1,"maxConcurrent":0,"queueSize":0}`, true},
+		{"positive rpm", `{"rpm":1}`, false},
+		{"positive tpm", `{"tpm":1}`, false},
+		{"positive concurrency", `{"maxConcurrent":1}`, false},
+		{"positive concurrency with zero queue", `{"maxConcurrent":1,"queueSize":0}`, false},
+		{"positive rpm overrides disabled concurrency", `{"rpm":1,"maxConcurrent":0,"queueSize":0}`, false},
 		{"unknown zero field", `{"futureLimit":0}`, true},
 		{"unknown null field", `{"futureLimit":null}`, true},
 		{"unknown private field", `{"futureLimit":{"token":"fixture-private-marker"}}`, true},
@@ -88,7 +88,7 @@ func TestAxonHubRateLimitImportPreservesGraph(t *testing.T) {
 	if _, err := ImportAxonHubV14(db, inactive, "another-origin", false); err == nil {
 		t.Fatal("another origin claimed an existing route")
 	}
-	for _, settings := range []string{`{"rateLimit":{"rpm":1}}`, `{"rateLimit":{"futureLimit":0}}`, `{"rateLimit":{"rpm":"private-invalid-value"}}`} {
+	for _, settings := range []string{`{"rateLimit":{"futureLimit":0}}`, `{"rateLimit":{"rpm":"private-invalid-value"}}`} {
 		if _, err := ImportAxonHubV14(db, axonHubSettingsPayload(settings), "rate-limit-fixture", false); err == nil {
 			t.Fatal("unsupported rate limit replaced existing graph")
 		}

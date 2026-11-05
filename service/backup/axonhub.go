@@ -295,8 +295,8 @@ func ImportAxonHubV14(db *store.DB, raw []byte, originKey string, allowReplaceme
 	channelIDs := map[int]int64{}
 	for _, channel := range plan.channels {
 		id, err := upsertMapped(db, tx, originKey, "upstream_channels", int64(channel.SourceID), "upstream_channels",
-			[]string{"name", "dialect", "provider", "enabled", "base_url", "endpoint_config", "openai_chat_completion_path", "openai_response_path", "anthropic_message_path", "proxy", "channel_proxy", "custom_header", "param_override", "request_config", "match_regex"},
-			[]any{channel.Name, "generic", channel.Provider, channel.Enabled, strings.TrimRight(strings.TrimRight(channel.BaseURL, "#"), "/"), channel.Endpoints, channel.ChatPath, channel.ResponsesPath, channel.MessagesPath, false, channel.ChannelProxy, "[]", channel.ParamOverride, channel.RequestConfig, ""})
+			[]string{"name", "dialect", "provider", "enabled", "base_url", "endpoint_config", "openai_chat_completion_path", "openai_response_path", "anthropic_message_path", "proxy", "channel_proxy", "custom_header", "param_override", "request_config", "match_regex", "rate_limit"},
+			[]any{channel.Name, "generic", channel.Provider, channel.Enabled, strings.TrimRight(strings.TrimRight(channel.BaseURL, "#"), "/"), channel.Endpoints, channel.ChatPath, channel.ResponsesPath, channel.MessagesPath, false, channel.ChannelProxy, "[]", channel.ParamOverride, channel.RequestConfig, "", channel.RateLimit})
 		if err != nil {
 			return nil, err
 		}

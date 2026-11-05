@@ -265,6 +265,7 @@ func writeSuccessProxyLog(
 		return
 	}
 	usage = applyDirectVideoAccounting(proxyCtx, usage)
+	recordChannelRateUsage(ctx, usage)
 	requestLifecycleFromContext(ctx).observeUserBudgetUsageValidity(usage)
 	if requestID == "" {
 		requestID = proxy.RequestIDFromContext(ctx)
@@ -393,6 +394,7 @@ func writeFailureProxyLog(
 		return
 	}
 	usage = applyDirectVideoAccounting(proxyCtx, usage)
+	recordChannelRateUsage(ctx, usage)
 	requestLifecycleFromContext(ctx).observeUserBudgetUsageValidity(usage)
 	if requestID == "" {
 		requestID = proxy.RequestIDFromContext(ctx)

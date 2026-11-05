@@ -181,9 +181,9 @@ func CalculateWeightedSelection(
 	for i, candidate := range candidates {
 		siteChannels := math.Max(1, float64(siteChannelCounts[candidate.Site.ID]))
 		runtimeMultiplier := runtimeHealthDetails[i].CombinedMultiplier
-		runtimeLoadMultiplier := 1.0
+		runtimeLoadMultiplier := channelCapacityMultiplier(candidate)
 		if channelLoadProvider != nil {
-			runtimeLoadMultiplier = ResolveChannelRuntimeLoadMultiplier(channelLoadSnapshots[i])
+			runtimeLoadMultiplier *= ResolveChannelRuntimeLoadMultiplier(channelLoadSnapshots[i])
 		}
 
 		if mode == StableFirstMode {

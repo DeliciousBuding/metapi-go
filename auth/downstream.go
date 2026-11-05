@@ -49,6 +49,9 @@ type admissionOptions struct {
 	// limit; a nil function or a non-positive result reserves the 1-token
 	// minimum that a chunked/unestimable body must not bypass.
 	estimateTokens func() int64
+	// An already admitted queued request refreshes identity and permissions
+	// without consuming or reserving its request/budget a second time.
+	authorizationOnly bool
 }
 
 // managedKeyView is an internal struct mirroring the downstream_api_keys row
@@ -162,7 +165,7 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 		// the limit by roughly (concurrency x per-request cost). The increment
 		// itself is a single atomic UPDATE; a pre-dispatch reservation is not
 		// possible because the channel price is unknown before routing.
-		if !taskRead && managed.MaxCost != nil && managed.UsedCost >= *managed.MaxCost {
+		if !opts.authorizationOnly && !taskRead && managed.MaxCost != nil && managed.UsedCost >= *managed.MaxCost {
 			// 429 insufficient_quota (OpenAI convention for exhausted
 			// per-key budget), not 403.
 			return DownstreamTokenAuthResult{
@@ -174,7 +177,7 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 		}
 
 		// Check max requests
-		if !taskRead && managed.MaxRequests != nil && managed.UsedRequests >= *managed.MaxRequests {
+		if !opts.authorizationOnly && !taskRead && managed.MaxRequests != nil && managed.UsedRequests >= *managed.MaxRequests {
 			// 429 insufficient_quota (OpenAI convention for exhausted
 			// per-key budget), not 403.
 			return DownstreamTokenAuthResult{
@@ -186,7 +189,7 @@ func authorizeDownstreamToken(token string, _ *config.RuntimeSettings, videoRead
 		}
 
 		quotaReservationID := ""
-		if !taskRead && managed.AccessPolicy != nil && managed.AccessPolicy.Quota != nil {
+		if !opts.authorizationOnly && !taskRead && managed.AccessPolicy != nil && managed.AccessPolicy.Quota != nil {
 			if opts.reserveQuota {
 				estimatedTokens := int64(1)
 				if opts.estimateTokens != nil {

@@ -217,6 +217,7 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 			recentlyFailed = IsChannelRecentlyFailed(row.Channel.FailCount, row.Channel.LastFailAt, nowMs, configuredMaxSec)
 		}
 		candidate := RouteDecisionCandidate{
+			ChannelRateLimit:           selector.limitSnapshot(row),
 			AssociationContextRequired: associationBlocker.Code == "association_context_missing",
 			Eligibility:                eligibility,
 			Blockers:                   filtered,
