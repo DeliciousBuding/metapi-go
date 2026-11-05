@@ -5,7 +5,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import {
   afterEach,
   beforeAll,
@@ -18,7 +18,10 @@ import {
 
 import i18n from '@/i18n/config'
 
-import { CredentialVerifySection } from '../credential-verify-section'
+import {
+  CredentialVerifySection,
+  type CredentialVerifyProtocol,
+} from '../credential-verify-section'
 
 // The real TanStack Router Link needs a router context; render a plain
 // anchor so the href is queryable.
@@ -72,13 +75,23 @@ function jsonResponse(status: number, body: unknown): Response {
 }
 
 function renderSection() {
-  return render(
-    <CredentialVerifySection
-      keyId={7}
-      apiBase='http://gateway.example.com/v1'
-      apiKey='sk-plain-demo'
-    />
-  )
+  function ControlledSection() {
+    const [model, setModel] = useState('')
+    const [protocol, setProtocol] = useState<CredentialVerifyProtocol>('chat')
+    return (
+      <CredentialVerifySection
+        keyId={7}
+        apiBase='http://gateway.example.com/v1'
+        apiKey='sk-plain-demo'
+        contextId={protocol}
+        model={model}
+        protocol={protocol}
+        onModelChange={setModel}
+        onProtocolChange={setProtocol}
+      />
+    )
+  }
+  return render(<ControlledSection />)
 }
 
 async function checkModelsAndWait(models = [{ id: 'gpt-5.5' }]) {
@@ -149,7 +162,7 @@ describe('CredentialVerifySection', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps the tested model fixed and blocks another check while chat is pending', async () => {
+  it('cancels a pending request when selecting another protocol and ignores its late result', async () => {
     let finish!: (response: Response) => void
     const pending = new Promise<Response>((resolve) => {
       finish = resolve
@@ -166,14 +179,16 @@ describe('CredentialVerifySection', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Send test request' })
     )
-    expect(screen.getByRole('combobox')).toBeDisabled()
-    expect(screen.getByRole('radio', { name: 'Responses' })).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    )
+    expect(screen.getByRole('combobox')).not.toBeDisabled()
     expect(
       screen.getByRole('button', { name: 'Check available models' })
     ).toBeDisabled()
+    const signal = (mockFetch.mock.calls[1][1] as RequestInit).signal
+    selectProtocol('Responses')
+    expect(signal?.aborted).toBe(true)
+    expect(
+      screen.getByRole('button', { name: 'Send test request' })
+    ).not.toBeDisabled()
     await act(async () =>
       finish(
         jsonResponse(200, {
@@ -181,7 +196,7 @@ describe('CredentialVerifySection', () => {
         })
       )
     )
-    expect(screen.getByRole('combobox')).not.toBeDisabled()
+    expect(screen.queryByText(/request succeeded in/)).not.toBeInTheDocument()
   })
 
   it('aborts a pending check when the dialog closes', async () => {
