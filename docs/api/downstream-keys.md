@@ -293,10 +293,22 @@ Batch enable/disable/delete/reset-usage/updateMetadata on downstream keys. Body:
 
 ### GET /api/downstream-keys/:id/export
 
-Export a downstream key's full secret as one-click credentials profiles. **Query params**: `profile` (`all` default, or one profile id such as `openai` | `cherry` | `claude` | `codex` | `generic`).
+导出下游 Key 的明文客户端配置。需要管理员鉴权及 `X-Admin-Confirm-Token` 再次确认，
+响应为 `Cache-Control: no-store`；该接口不调用上游，也不验证 Key 当前能否转发。
 
-**Response** (200): `{ "success": true, "formatVersion": "1.0.0", "keyId": 1, "keyName": "prod-key", "baseUrl": "http://localhost:4000", "profiles": [ { "id": "openai", "label": "...", "description": "...", "contentType": "text/plain", "content": "..." } ], "notes": ["..."] }`
+| 查询参数 | 契约 |
+| --- | --- |
+| `profile` | 默认 `all`；单项为 `openai`、`cherry`、`generic`、`claude-code`、`codex` 或 `openwebui`，未知值返回 `400` |
+| `model` | 可选的单个精确公共模型名，去首尾空白后非空、最多 200 字符；重复参数、控制字符或通配/正则模式返回 `400`。省略时响应为 `""`，不写入客户端模型设置 |
 
-The full secret is intentionally returned by this endpoint only (see `handler/admin/credential_export.go`); 400 for unknown profile ids.
+响应包含 `success`、`formatVersion`（当前 `1.1.0`）、`keyId`、`keyName`、
+`baseUrl`、`model`、`profiles` 和 `notes`。每个 profile 有 `id`、`label`、
+`description`、`contentType`、`content`；部分 profile 另有 `protocol`。
+`codex.setup` 是独立的 `contentType`/`content` 环境变量步骤，provider TOML
+本身不含密钥。`claude-code.content` 为可解析的 settings JSON 字符串。
+
+`model` 只写入可表达该设置的客户端配置，不检查或扩大 Key 的模型授权；
+导出响应和管理员确认值不得缓存或长期保存。示例、文件合并方式与有限验证边界见
+[客户端接入](../client-integration.md#config-export-from-the-admin-ui)。
 
 ---

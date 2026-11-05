@@ -1,6 +1,6 @@
 # Git Workflow — 分支策略与协作规范
 
-**最后更新**：2026-10-18
+**最后更新**：2026-10-30
 
 > 本文定义 metapi-go 的工作项、分支、PR 和发布流程。开放工作以 GitHub Issue 为准；本文只写稳定的决策规则，不复制实时路线图。
 
@@ -23,7 +23,7 @@ master (唯一长期分支，受保护，持续集成)
 
 - **master**：唯一长期分支，所有代码的最终归宿；合入表示通过合并门禁，不表示已完成候选验收或已稳定发布。
 - **功能分支**：所有工作（无论大小）在短命分支上完成，命名 `feature/`、`fix/`、`chore/`、`docs/` 前缀 + kebab-case 描述。
-- **不做的事**：不引入 `dev`/`develop`/`release` 长期分支（单人多仓不需要 GitFlow 的复杂度）；不在 master 直接提交（保护规则禁止）。
+- **不做的事**：不引入 `dev`/`develop`/`release` 长期分支（单人多仓不需要 GitFlow 的复杂度）；项目流程禁止在 master 直接提交或 push，不因远端保护尚未配置而绕过 PR。
 
 ## 2. 分支命名
 
@@ -36,9 +36,11 @@ master (唯一长期分支，受保护，持续集成)
 | `chore/` | 工程维护（CI/依赖/清理） | `chore/ci-git-workflow` |
 | `docs/` | 文档 | `docs/git-workflow` |
 
-## 3. master 分支保护（标准强度）
+## 3. master 分支保护（目标配置）
 
-已在 GitHub 启用（`gh api` 设置）：
+以下是项目要求的配置，不是远端设置快照。实际启用状态须核对 GitHub 的
+classic branch protection 和适用于 master 的 rulesets；文档声明或 CI 全绿
+不能证明 PR 保护已启用。发现差异时记录并单独处理，不自动修改远端安全设置。
 
 | 规则 | 值 |
 |:-----|:---|
@@ -48,7 +50,7 @@ master (唯一长期分支，受保护，持续集成)
 | 要求 approve | ❌ 不强制（个人项目，自己合并自己的 PR） |
 | 合并方式 | **Squash only**（仓库级设置：关闭 merge commit 与 rebase merge） |
 | 线性历史 | 由 Squash-only 保证 |
-| 要求分支最新（strict） | ❌ **已关闭（2026-08-14）**——仍保留 12 项必检 + squash 线性历史；关闭后多个并行分支可各自 CI 绿了直接合入，无需每个 PR 串行 rebase 重跑全量 CI |
+| 要求分支最新（strict） | ❌ 不要求；保留 12 项必检 + squash 线性历史，无冲突的并行 PR 可各自检查全绿后合入，无需机械串行 rebase 重跑全量 CI |
 
 > 注意：必选状态检查与 CI 的 `paths-ignore` 互斥——任何 PR 都会触发全量 CI（含纯文档 PR），否则必选检查会永久 pending 卡住合并。
 > 注意：关闭 strict 后，合并时仍以「12 项必检全绿」为准；squash 合并若有真实文件冲突仍会被 GitHub 拦截。并行开发时优先让各分支文件面不重叠。
@@ -130,12 +132,12 @@ Dependabot 每周一自动开升级 PR（Go / npm / GitHub Actions / Docker）�
 
 hotfix 不等于绕过 PR、现有 CI 或发布复核，也不自动授权关闭分支保护。依然按 §6 核对最终产物并由维护者决定发布；不能把“紧急”当成跳过验收的默认理由。
 
-## 8. 已启用设置速查
+## 8. 配置与实现入口
 
 | 设置 | 位置 | 值 |
 |:-----|:-----|:---|
-| 合并策略 | 仓库 Settings → General | Allow squash merging only |
-| master 保护 | 仓库 Settings → Branches | 见 §3 |
+| 合并策略 | 仓库 Settings → General | 项目要求 Allow squash merging only，启用状态以远端为准 |
+| master 保护 | 仓库 Settings → Branches / Rulesets | 目标配置见 §3，核对两类远端规则 |
 | PR 模板 | `.github/pull_request_template.md` | 自动填充 |
 | CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量必检；独立 `web-dist` 构建与 frontend 检查并行，SQLite/PG/a11y 不再串行等待 frontend；`docker-build` 汇总两者及其他门禁；master push 推送镜像（edge+sha）；SemVer tag：amd64/arm64 原生并行构建 → 多架构 manifest → 匿名回拉冒烟 + cosign 验签 → 多平台二进制 + 新建 draft Release；已发布版本 tag 不可覆盖，已有 Release 重跑不改 draft/published 状态 |
 | 本地门禁 | `.githooks/pre-push-project` | 可直接运行；可选的 `.githooks/pre-push` 委托此入口。完整执行前端检查/构建、Go build/vet/race，不依赖个人全局工具链 |

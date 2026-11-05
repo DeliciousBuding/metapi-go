@@ -1,6 +1,6 @@
 # Client Integration
 
-**Last updated**: 2026-10-22
+**Last updated**: 2026-10-30
 
 Metapi exposes OpenAI-compatible endpoints under `/v1`, Anthropic Messages,
 Responses and other protocol-specific paths. The usable features depend on
@@ -45,7 +45,7 @@ separately, while account quota and group permissions continue to apply.
 
 | Value      | Where to get it                                             |
 | :--------- | :---------------------------------------------------------- |
-| Base URL   | `http://<host>:4000/v1` (or your reverse-proxied domain)    |
+| Base URL   | Gateway root `http://<host>:4000` or your public domain; OpenAI-compatible clients append `/v1`, while Claude Code uses the root. |
 | API key    | A downstream key from **访问 → API 密钥** (`/downstream-keys`) |
 
 Administrator-managed system Keys have optional request/cost caps and expiry.
@@ -67,21 +67,56 @@ Check `/v1/models` with the same downstream key you configure in Cursor.
 ## Claude Code
 
 ```bash
-export ANTHROPIC_BASE_URL=http://<host>:4000
-export ANTHROPIC_AUTH_TOKEN=<downstream-key>
+export ANTHROPIC_BASE_URL='http://<host>:4000'
+export ANTHROPIC_AUTH_TOKEN='<downstream-key>'
 ```
 
-Claude Code then speaks the Anthropic protocol; Metapi translates to the
-best available upstream channel. The admin UI's credential export dialog
-(**账号 → 导出**) produces this env block ready to paste into
-`~/.claude/settings.json`.
+Claude Code then speaks the Anthropic protocol; Metapi dispatches through a
+route that can serve that protocol. Keep the base URL at the gateway root,
+not `/v1`. The downstream Key's **连接 (Connect)** dialog exports a JSON
+settings document, not a shell block:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://<host>:4000",
+    "ANTHROPIC_AUTH_TOKEN": "<downstream-key>"
+  }
+}
+```
+
+Merge these values into your existing `~/.claude/settings.json`; do not replace
+unrelated settings. Select a public model that the same Key can access.
 
 ## Codex CLI
 
 ```bash
-export OPENAI_BASE_URL=http://<host>:4000/v1
-export OPENAI_API_KEY=<downstream-key>
+export METAPI_API_KEY='<downstream-key>'
 ```
+
+Merge the following into your **user-level** `~/.codex/config.toml`, replacing
+the model with a public name returned by `/v1/models` for the same Key:
+
+```toml
+model_provider = "metapi"
+model = "<public-model>"
+
+[model_providers.metapi]
+name = "MetAPI"
+base_url = "http://<host>:4000/v1"
+env_key = "METAPI_API_KEY"
+wire_api = "responses"
+```
+
+The exported `codex` profile separates this TOML document from the shell step
+that sets `METAPI_API_KEY`; the secret is not embedded in the provider table.
+Merge top-level settings and the provider table without duplicating existing
+keys or replacing unrelated configuration. Do not put provider configuration
+in a repository's `.codex/config.toml`: Codex ignores provider and authentication
+overrides there. See the official [custom-provider configuration](https://developers.openai.com/codex/config-advanced/).
+
+The route must serve Responses for this Key; the personal Key restrictions above
+still apply.
 
 ## Open WebUI
 
@@ -90,8 +125,8 @@ Admin → Settings → Connections → OpenAI API:
 - Base URL: `http://<host>:4000/v1`
 - API key: your downstream key
 
-The model dropdown fills from `/v1/models`, so every routed model appears
-automatically.
+The model dropdown fills from the same Key's `/v1/models` catalog. It lists only
+models currently eligible under that Key's permissions and routing checks.
 
 ## Cherry Studio / generic OpenAI clients
 
@@ -102,12 +137,20 @@ automatically.
 ## Config export from the admin UI
 
 Select a downstream key → **连接 (Connect)**. After credential confirmation,
-the dialog renders
-ready-to-copy profiles for six targets — `openai`, `cherry`, `generic`,
-`claude-code`, `codex`, `openwebui` — each with the correct base URL, key
-placeholder and client-specific env/file layout. Copying a profile is explicit;
-Metapi does not rewrite your local configuration automatically. Review its model
-and protocol settings for the client version you use.
+the dialog renders profiles for six targets — `openai`, `cherry`, `generic`,
+`claude-code`, `codex`, `openwebui` — with client-specific addresses and env/file
+layouts. The on-screen Key is masked until explicitly revealed; copying a
+profile or confirming an external-app import can hand off the real Key.
+Those actions are explicit and do not automatically overwrite the clipboard
+after opening an application. Export credentials stay in the current dialog;
+closing or switching Keys cancels the export and requires confirmation again.
+Metapi does not rewrite your local configuration automatically. Review and merge
+its model and protocol settings for the client version you use.
+
+Exported configuration and the verification model are currently independent.
+Selecting a model in the verification tab does not update a previously exported
+client profile. Set the same public model in the client before interpreting a
+verification result as evidence for that configuration.
 
 The connection dialog has two checks: list models with the key, then send one
 finite non-streaming request for the selected model and an explicitly selected
@@ -125,14 +168,14 @@ response envelope; HTTP 200 with an error, empty content, or a malformed shape
 fails. The dialog does not retry or switch protocols after a failure, because
 that could consume quota twice. The key-filtered log link shows recorded
 dispatch attempts; an authentication or admission refusal may happen before an
-attempt is logged.
+attempt is logged. This proves only that one finite request in the selected
+protocol returned valid assistant text; streaming, tools and the actual client
+need separate acceptance.
 
 For permission problems, use the key's permission check or the route workspace
 with its client model and protocol. The administrator model tester uses a
-different authorization context. Verify the chosen client itself for streaming,
-tools and protocol-specific behavior. A passing connection check proves only
-that one finite request in the selected protocol returned valid assistant text;
-it does not accept the full client, streaming, or tool use.
+different authorization context, so it cannot substitute for a check with the
+client's own Key.
 
 ## Protocol notes
 
@@ -170,8 +213,9 @@ it does not accept the full client, streaming, or tool use.
   explicitly; start a new conversation. This is not cross-instance stickiness
   or durable conversation storage. Stateless text/tool calls without a replay
   identity remain possible only when no hidden tool reasoning must be retained.
-- `/v1/models` aggregates every routed model; hidden or disabled channels are
-  excluded honestly rather than advertised.
+- `/v1/models` uses the same read-only eligibility checks as dispatch. It filters
+  by Key permissions and candidate state without calling upstreams; it is not
+  the unrestricted administrator catalog. See [model and route authorization](api/downstream-keys.md#模型与路由授权).
 - Requests to models with no route return an explicit error, never a fake
   success.
 

@@ -19,7 +19,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - **治理区**（v0.16.13 起）：全条目受上述契约与门禁约束。
 - **归档区**（v0.16.12 及更早）：每版只留安全修复、破坏性变更与运维动作。这些版本的全文逐字保存在各自的 [release 页](https://github.com/DeliciousBuding/metapi-go/releases)——已逐版核对，发布页与归档前的本文件段落字节一致——UI 与交互级修复因此不在这里抄第二份。
 
-## [Unreleased]
+## [v0.28.0] — 2026-11-01
 
 ### 变更
 
@@ -27,6 +27,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 修复
 
+- 客户端配置：导出支持公共模型名，Claude 使用网关根地址与合法 settings JSON；Codex 使用 Responses provider TOML 和独立 `METAPI_API_KEY` 环境变量步骤，凭据不写入 provider 配置（#1568 → #1569）。
+- 凭据导出：明文及管理员确认值不再进入请求缓存；关闭或切换 Key 取消导出并重新确认，打开外部应用不再自动复制凭据覆盖剪贴板（#1568 → #1570）。
 - 模型发现：已配置协议的目录首请求返回 404/405/501 时尝试下一个目录；鉴权失败、畸形响应、分页失败和权威空目录保持原处理（#1566）。
 - 渠道适配：修复 Vertex Gemini 转发与已有适配器表单校验；GCP 高级连接保留延迟兑换令牌，模型建议明确标记为未验证（#1566）。
 
