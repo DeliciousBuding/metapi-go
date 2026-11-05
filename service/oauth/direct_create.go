@@ -90,14 +90,27 @@ func directCredentialMaterial(provider string, endpoints store.DirectEndpoints, 
 		return "", "", state, "", ErrInvalidDirectCredential
 	}
 	if key != nil {
+		if provider == "antigravity" {
+			return "", "", state, "", ErrInvalidDirectCredential
+		}
 		secret := strings.TrimSpace(*key)
 		if secret == "" || strings.HasPrefix(secret, "{") {
 			return "", "", state, "", ErrInvalidDirectCredential
 		}
 		return secret, store.DirectCredentialAPIKey, state, "", nil
 	}
-	if directOAuthProvider(provider) == "" || strings.TrimSpace(oauth.AccessToken) == "" || oauth.ExpiresAt < 0 {
+	lazyAntigravity := provider == "antigravity" && strings.TrimSpace(oauth.RefreshToken) != "" && strings.TrimSpace(oauth.ProjectID) != ""
+	if directOAuthProvider(provider) == "" || strings.TrimSpace(oauth.AccessToken) == "" && !lazyAntigravity || oauth.ExpiresAt < 0 {
 		return "", "", state, "", ErrInvalidDirectCredential
 	}
-	return oauth.AccessToken, store.DirectCredentialOAuth, oauth.DirectOAuthState, "", nil
+	state = oauth.DirectOAuthState
+	if provider == "antigravity" {
+		if state.ClientID == "" {
+			state.ClientID = antigravityClientID
+		}
+		if _, err := ParseAntigravityImportMaterial(state.RefreshToken + "|" + state.ProjectID); err != nil || !lazyAntigravity || state.ClientID != antigravityClientID {
+			return "", "", store.DirectOAuthState{}, "", ErrInvalidDirectCredential
+		}
+	}
+	return oauth.AccessToken, store.DirectCredentialOAuth, state, "", nil
 }

@@ -186,6 +186,16 @@ Additional profiles include:
   imports. It sends the xAI Grok CLI identity headers and ignores client-supplied
   values for those headers. Imports use the official subscription proxy URL and
   OAuth refresh credential; static keys and custom endpoints/base URLs are refused.
+- `antigravity` applies to Bearer Gemini with OAuth project identity. The
+  endpoint is the selected `/v1internal` prefix; execution appends
+  `:generateContent` or `:streamGenerateContent?alt=sse`, without a model path.
+  The same adapter wraps requests and unwraps native or bridged JSON/SSE
+  responses before use and accounting. It mirrors source tool/schema
+  normalization (including documented lossy JSON Schema flattening and hints),
+  tool-mode/system instructions and model aliases; it does not claim arbitrary
+  JSON Schema constraint enforcement. User-Agent uses the audited installed
+  client fallback version, without runtime version discovery. Source
+  multi-origin fallback is reported at import and is not an implicit retry.
 
 Endpoints still referenced by a grant and required provider profiles cannot be
 removed. Configured endpoints cannot silently revert to legacy base/path routing.
@@ -222,7 +232,10 @@ milliseconds, and `canRefresh`. Neither access nor refresh tokens are returned.
 Authenticated administrators can change `name`, `enabled`, or replace a credential.
 Supply either `apiKey` or an `oauth` object, never both. An OAuth replacement
 requires `accessToken` and may include `refreshToken`, `clientId`, `expiresAt`,
-`idToken`, and `accountId`. This is a complete credential replacement; omitted
+`idToken`, `accountId`, and `projectId`. Antigravity requires `refreshToken` and
+`projectId`; `accessToken` may be empty for lazy exchange and an omitted
+`clientId` uses its issuing installed-application client. Other client IDs and
+static API keys are rejected for this provider. This is a complete credential replacement; omitted
 replacement fields are not inherited from the previous credential.
 An explicit `kind:"none"` replacement accepts no key or OAuth material. It is
 valid only for `ollama` / `ollama_anthropic` channels with anonymous endpoints;

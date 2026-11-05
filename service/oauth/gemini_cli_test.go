@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -298,11 +299,8 @@ func TestAntigravityConstants(t *testing.T) {
 	if antigravityOnboardMaxAttempts != 5 {
 		t.Errorf("expected onboard max attempts 5, got %d", antigravityOnboardMaxAttempts)
 	}
-	if antigravityClientID != "ANTIGRAVITY_CLIENT_ID_PLACEHOLDER" {
-		t.Errorf("expected placeholder client ID, got %q", antigravityClientID)
-	}
-	if antigravityClientSecret != "ANTIGRAVITY_CLIENT_SECRET_PLACEHOLDER" {
-		t.Errorf("expected placeholder client secret, got %q", antigravityClientSecret)
+	if !strings.HasSuffix(antigravityClientID, ".apps.googleusercontent.com") {
+		t.Error("Antigravity must use its installed-application OAuth client")
 	}
 }
 

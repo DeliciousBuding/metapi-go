@@ -182,6 +182,7 @@ const profileEndpoints: Record<
   'ollama-messages': ['messages'],
   bedrock: ['messages'],
   vertex: ['gemini', 'geminiEmbeddings'],
+  antigravity: ['gemini'],
   'vertex-anthropic': ['messages'],
   'seedance-video': ['seedanceVideo'],
   'zenmux-video': ['zenmuxVideo'],
@@ -228,6 +229,9 @@ const endpointConfigSchema = z
                 !(optionalAuth && value.auth === 'none')) ||
                 !profileEndpoints[value.profile].includes(protocol.key))
             ) {
+              return false
+            }
+            if (value.profile === 'antigravity' && value.modelPath) {
               return false
             }
             if (
@@ -393,7 +397,7 @@ export function availableProfiles(
     ]
   }
   if (protocol === 'gemini' || protocol === 'geminiEmbeddings') {
-    return ['vertex']
+    return protocol === 'gemini' ? ['vertex', 'antigravity'] : ['vertex']
   }
   if (protocol === 'alphaSearch' && ['codex', 'fenno'].includes(provider)) {
     return ['codex-alpha-search']

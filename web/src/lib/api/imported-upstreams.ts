@@ -28,6 +28,7 @@ export type ImportedEndpoint = {
     | 'ollama-messages'
     | 'bedrock'
     | 'vertex'
+    | 'antigravity'
     | 'vertex-anthropic'
     | 'seedance-video'
     | 'zenmux-video'
@@ -128,6 +129,7 @@ export type ImportedCredentialUpdate = {
     expiresAt?: number // Unix milliseconds
     idToken?: string
     accountId?: string
+    projectId?: string
   }
   /** SA JSON key document when kind is gcp_service_account. Never returned. */
   gcpServiceAccount?: string

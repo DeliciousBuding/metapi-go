@@ -26,6 +26,11 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 - OAuth 账户：刷新后仍能读取规范化存储的 refresh token、到期时间与会话状态，连续刷新可使用轮换后的凭据，账户身份继续以独立列为准。
 - 客户端接入：管理员配置与检查共用所选客户端和公共模型，切换后清理旧结果；个人模型页创建 Key 后保留同模型的接入说明，一次性密钥仅留当前对话框（#1568）。
 
+### 变更
+
+- AxonHub 导入：支持 Antigravity 项目 OAuth 与 Gemini JSON/SSE 转发及协议转换；多源回退仍明确列为残留，测试用 fake providers 不生成供应渠道（#1560）。
+- `ANTIGRAVITY_CLIENT_SECRET`：启用 Antigravity token 兑换或刷新前须注入签发客户端的 secret；没有内置默认值，未配置时拒绝兑换。
+
 ## [v0.28.0] — 2026-11-01
 
 ### 变更

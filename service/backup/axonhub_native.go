@@ -13,6 +13,18 @@ func resolveAxonHubNativeEndpoint(ch AxonHubSourceChannel, protocol int, base, p
 	ep := &store.DirectEndpoint{Auth: store.DirectAuthBearer}
 	switch protocol {
 	case protoGemini, protoGeminiEmbeddings:
+		if ch.Type == "antigravity" {
+			if custom || protocol != protoGemini || path != "" {
+				return nil, true, "antigravity_custom_endpoint_unsupported"
+			}
+			switch strings.TrimSuffix(base, "/") {
+			case "https://daily-cloudcode-pa.sandbox.googleapis.com", "https://autopush-cloudcode-pa.sandbox.googleapis.com", "https://cloudcode-pa.googleapis.com":
+			default:
+				return nil, true, "antigravity_origin_unsupported"
+			}
+			ep.URL, ep.Profile = strings.TrimSuffix(base, "/")+"/v1internal", "antigravity"
+			return ep, true, ""
+		}
 		if ch.Type != "gemini_vertex" || custom {
 			return nil, false, ""
 		}

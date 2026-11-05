@@ -9,12 +9,14 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/config"
 )
 
 const (
-	antigravityAuthURL               = "https://accounts.google.com/o/oauth2/v2/auth"
-	antigravityClientID              = "ANTIGRAVITY_CLIENT_ID_PLACEHOLDER"
-	antigravityClientSecret          = "ANTIGRAVITY_CLIENT_SECRET_PLACEHOLDER"
+	antigravityAuthURL = "https://accounts.google.com/o/oauth2/v2/auth"
+	// Public client identifier matching the source credential issuer.
+	antigravityClientID              = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
 	antigravityLoopbackPort          = 51121
 	antigravityLoopbackPath          = "/oauth-callback"
 	antigravityLoopbackRedirectURI   = "http://localhost:51121/oauth-callback"
@@ -105,7 +107,11 @@ type antigravityLoadCodeAssistPayload struct {
 }
 
 func postAntigravityToken(form url.Values, proxyURL *string) (*TokenSet, error) {
-	req, err := http.NewRequest("POST", antigravityTokenURL, strings.NewReader(form.Encode()))
+	return postAntigravityTokenContext(context.Background(), form, proxyURL)
+}
+
+func postAntigravityTokenContext(ctx context.Context, form url.Values, proxyURL *string) (*TokenSet, error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", antigravityTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -154,11 +160,23 @@ func postAntigravityToken(form url.Values, proxyURL *string) (*TokenSet, error) 
 	}, nil
 }
 
+func requireAntigravityClientSecret() (string, error) {
+	cfg := config.GetSafe()
+	if cfg == nil || strings.TrimSpace(cfg.AntigravityClientSecret) == "" {
+		return "", fmt.Errorf("ANTIGRAVITY_CLIENT_SECRET is not configured")
+	}
+	return strings.TrimSpace(cfg.AntigravityClientSecret), nil
+}
+
 func exchangeAntigravityAuthorizationCode(ctx context.Context, input ExchangeCodeInput) (*TokenSet, error) {
+	clientSecret, err := requireAntigravityClientSecret()
+	if err != nil {
+		return nil, err
+	}
 	form := url.Values{}
 	form.Set("code", input.Code)
 	form.Set("client_id", antigravityClientID)
-	form.Set("client_secret", antigravityClientSecret)
+	form.Set("client_secret", clientSecret)
 	form.Set("redirect_uri", input.RedirectURI)
 	form.Set("grant_type", "authorization_code")
 
@@ -185,17 +203,30 @@ func exchangeAntigravityAuthorizationCode(ctx context.Context, input ExchangeCod
 // ---- Token Refresh ----
 
 func refreshAntigravityAccessToken(ctx context.Context, input RefreshTokenInput) (*TokenSet, error) {
+	if input.ClientID != "" && input.ClientID != antigravityClientID {
+		return nil, fmt.Errorf("unsupported Antigravity OAuth client")
+	}
+	clientSecret, err := requireAntigravityClientSecret()
+	if err != nil {
+		return nil, err
+	}
 	form := url.Values{}
 	form.Set("client_id", antigravityClientID)
-	form.Set("client_secret", antigravityClientSecret)
+	form.Set("client_secret", clientSecret)
 	form.Set("grant_type", "refresh_token")
 	form.Set("refresh_token", input.RefreshToken)
 
-	token, err := postAntigravityToken(form, input.ProxyURL)
+	token, err := postAntigravityTokenContext(ctx, form, input.ProxyURL)
 	if err != nil {
 		return nil, err
 	}
 
+	// A direct imported credential already has its project identity. Refresh
+	// only its token; optional account discovery must not add network calls.
+	if input.OAuth != nil && input.OAuth.ProjectID != "" && input.ClientID == antigravityClientID {
+		token.ProjectID = input.OAuth.ProjectID
+		return token, nil
+	}
 	email, _ := fetchAntigravityUserEmail(token.AccessToken, input.ProxyURL)
 
 	var projectID string

@@ -406,6 +406,9 @@ func validateImportedConfig(row importedChannelConfig) error {
 		if ep.Profile == "opencode-go" && row.Provider != "opencode_go" {
 			return fmt.Errorf("OpenCode Go profile requires its matching provider")
 		}
+		if ep.Profile == "antigravity" && row.Provider != "antigravity" {
+			return fmt.Errorf("Antigravity profile requires its matching provider")
+		}
 		if (ep.Profile == "codex" || ep.Profile == "codex-image" || ep.Profile == "codex-alpha-search") && row.Provider != "codex" && row.Provider != "fenno" || ep.Profile == "claudecode" && row.Provider != "claudecode" {
 			return fmt.Errorf("Endpoint profile does not match the provider and protocol")
 		}

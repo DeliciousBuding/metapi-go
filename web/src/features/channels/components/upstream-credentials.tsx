@@ -60,6 +60,7 @@ const credentialSchema = z
     clientId: z.string(),
     idToken: z.string(),
     accountId: z.string(),
+    projectId: z.string(),
     expiresAt: z
       .string()
       .refine(
@@ -75,7 +76,10 @@ const credentialSchema = z
       value.kind === 'none' ||
       value.kind === 'gcp_service_account' ||
       !value.replace ||
-      !!value.accessToken.trim(),
+      !!value.accessToken.trim() ||
+      (value.kind === 'oauth' &&
+        !!value.refreshToken.trim() &&
+        !!value.projectId.trim()),
     {
       path: ['accessToken'],
       message: 'channels.upstream.required',
@@ -98,6 +102,7 @@ const credentialInputTypes = {
   clientId: 'text',
   idToken: 'password',
   accountId: 'text',
+  projectId: 'text',
   expiresAt: 'datetime-local',
 } as const
 
@@ -125,6 +130,7 @@ function CredentialForm(props: {
       clientId: '',
       idToken: '',
       accountId: '',
+      projectId: '',
       expiresAt: '',
       gcpServiceAccount: '',
     },
@@ -177,6 +183,7 @@ function CredentialForm(props: {
             clientId: values.clientId || undefined,
             idToken: values.idToken || undefined,
             accountId: values.accountId || undefined,
+            projectId: values.projectId || undefined,
             expiresAt: values.expiresAt
               ? new Date(values.expiresAt).getTime()
               : undefined,
@@ -204,6 +211,7 @@ function CredentialForm(props: {
           clientId: '',
           idToken: '',
           accountId: '',
+          projectId: '',
           expiresAt: '',
           gcpServiceAccount: '',
         },
@@ -379,6 +387,7 @@ function CredentialForm(props: {
                       'clientId',
                       'idToken',
                       'accountId',
+                      'projectId',
                       'expiresAt',
                     ] as const
                   ).map((name) => (

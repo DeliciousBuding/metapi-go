@@ -266,7 +266,21 @@ The preview reports configuration counts, skipped channels, remaining source
 sections, configuration differences and removals. The following remain outside
 the current executable import contract:
 
-- Antigravity and fake providers. GitHub Copilot, xAI subscription, Gemini
+- Source `openai_fake` and `anthropic_fake` are fixed test-data executors, not
+  production suppliers. Preview reports `provider_test_executor_not_imported`;
+  apply creates no channels or grants for them. Their source records remain in
+  the backup; synthetic response testing belongs to explicit test fixtures.
+- Antigravity's source multi-origin quota fallback remains
+  `source_endpoint_fallback_not_imported`. Its `refreshToken|project` credential
+  imports as refresh-only OAuth state and exchanges lazily through the issuing
+  installed-application client. The deployment must supply
+  `ANTIGRAVITY_CLIENT_SECRET`; missing configuration prevents exchange.
+  A channel selects one of the source's three
+  official origins (daily by default); runtime never silently tries another
+  origin. Custom source endpoints, missing projects and unrelated origins are
+  skipped. Native Gemini and configured protocol bridges share the Antigravity
+  envelope/schema adapter; no API-key fallback is allowed.
+- GitHub Copilot, xAI subscription, Gemini
   Vertex and Anthropic GCP are executable through their audited credential and
   wire contracts; real upstream acceptance is still tracked separately.
 - xAI subscription imports require structured OAuth with a refresh token and the official client ID, and resolve to the fixed `https://cli-chat-proxy.grok.com/v1/responses` endpoint with Bearer authentication. Static keys, custom base URLs and custom endpoints are skipped rather than imported as a generic channel.

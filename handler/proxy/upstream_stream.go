@@ -108,7 +108,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	codexImage := wire != nil && wire.Profile == "codex-image"
 	routerChatStream := wire != nil && (wire.Profile == "openrouter" || wire.Profile == "cerebras")
 	nanoGPTStream := wire != nil && wire.Profile == "nanogpt"
-	providerStream := wire != nil && (wire.Profile == "codex" || wire.StripToolPrefix || codexImage || (wire.Profile == "cline" || routerChatStream) && bridgeDirect)
+	providerStream := wire != nil && (wire.Profile == "codex" || wire.Profile == "antigravity" || wire.StripToolPrefix || codexImage || (wire.Profile == "cline" || routerChatStream) && bridgeDirect)
 	bailianStream := wire != nil && wire.Profile == "bailian"
 	var relayStream protocolEventStream
 	if bridgeDirect && wire != nil && wire.ProtocolSession != nil {

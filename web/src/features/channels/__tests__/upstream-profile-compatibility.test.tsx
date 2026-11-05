@@ -30,6 +30,17 @@ const cases: Array<{
   endpoint: ImportedEndpoint
 }> = [
   {
+    provider: 'antigravity',
+    key: 'gemini',
+    name: 'Gemini',
+    adapter: 'Antigravity',
+    endpoint: {
+      url: 'https://cloudcode-pa.googleapis.com/v1internal',
+      auth: 'bearer',
+      profile: 'antigravity',
+    },
+  },
+  {
     provider: 'gemini_vertex',
     key: 'gemini',
     name: 'Gemini',
@@ -194,6 +205,16 @@ describe('imported endpoint profile compatibility', () => {
       { chat: { url, auth: 'bearer', profile: 'xai-subscription' } },
       { responses: { url, auth: 'x-api-key', profile: 'xai-subscription' } },
       { messages: { url, auth: 'bearer', profile: 'github-copilot' } },
+      { chat: { url, auth: 'bearer', profile: 'antigravity' } },
+      { gemini: { url, auth: 'x-goog-api-key', profile: 'antigravity' } },
+      {
+        gemini: {
+          url,
+          auth: 'bearer',
+          profile: 'antigravity',
+          modelPath: true,
+        },
+      },
     ]
     for (const endpoints of invalid) {
       expect(

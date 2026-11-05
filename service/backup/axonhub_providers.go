@@ -24,8 +24,7 @@ type axonHubProviderType struct {
 }
 
 const (
-	reasonProviderTranslation = "provider_translation_unsupported"
-	reasonProviderWire        = "provider_wire_format_unsupported"
+	reasonProviderWire = "provider_test_executor_not_imported"
 )
 
 const (
@@ -124,7 +123,7 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 	// Native provider families retain their own wire and credential contracts.
 	"gemini":         {DefaultFormats: []string{"gemini/contents", "gemini/embeddings"}, Supported: true},
 	"gemini_vertex":  {DefaultFormats: []string{"gemini/contents", "gemini/embeddings"}, Supported: true},
-	"antigravity":    {DefaultFormats: []string{"gemini/contents"}, Reason: reasonProviderTranslation},
+	"antigravity":    {DefaultFormats: []string{"gemini/contents"}, Supported: true},
 	"jina":           {DefaultFormats: []string{"jina/rerank", "jina/embeddings"}, Supported: true},
 	"ollama":         {DefaultFormats: []string{"ollama/chat"}, Supported: true},
 	"openai_fake":    {DefaultFormats: []string{"openai/chat_completions"}, Reason: reasonProviderWire},

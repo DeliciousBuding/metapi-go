@@ -1172,12 +1172,18 @@ func dispatchEndpointAttemptWithContinue(
 		return true, nil, false
 	}
 	nativeJSON := proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolSystemOne || proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolAlphaSearch
-	if wire := directProviderWireFromContext(r.Context()); nativeJSON || wire != nil && (wire.Profile == "ollama" || wire.Profile == "cline" || wire.Profile == "openrouter" || wire.Profile == "cerebras" || wire.Profile == "nanogpt") {
+	if wire := directProviderWireFromContext(r.Context()); nativeJSON || wire != nil && (wire.Profile == "ollama" || wire.Profile == "cline" || wire.Profile == "openrouter" || wire.Profile == "cerebras" || wire.Profile == "nanogpt" || wire.Profile == "antigravity") {
 		converted := respBody
 		var convertErr error
 		if nativeJSON {
 			if !body.readable || !json.Valid(respBody) {
 				convertErr = fmt.Errorf("expected a JSON response")
+			}
+		} else if wire.Profile == "antigravity" {
+			if !body.readable {
+				convertErr = fmt.Errorf("expected a readable Antigravity response")
+			} else if adapter, ok := upstreamadapter.Lookup(wire.Profile); ok {
+				converted, convertErr = adapter.NormalizeResponse(respBody, false)
 			}
 		} else if wire.Profile == "cline" {
 			converted, convertErr = upstreamadapter.NormalizeClineJSON(respBody, body.readable)

@@ -25,6 +25,7 @@ type DirectCredentialResult struct {
 	Kind        string `json:"kind"`
 	Provider    string `json:"provider"`
 	AccountID   string `json:"accountId,omitempty"`
+	ProjectID   string `json:"projectId,omitempty"`
 }
 
 func (DirectCredentialResult) String() string { return "DirectCredentialResult([REDACTED])" }
@@ -60,6 +61,8 @@ func directOAuthProvider(provider string) string {
 		return string(ProviderCodex)
 	case "claudecode":
 		return string(ProviderClaude)
+	case "antigravity":
+		return string(ProviderAntigravity)
 	case "github_copilot":
 		return string(ProviderCopilot)
 	case "xai_subscription":
@@ -103,14 +106,23 @@ func loadDirectCredential(ctx context.Context, db *sqlx.DB, id int64) (*directCr
 	if row.Kind != store.DirectCredentialAPIKey && row.Kind != store.DirectCredentialOAuth {
 		return nil, ErrDirectCredentialUnavailable
 	}
+	if row.Provider == "antigravity" && row.Kind != store.DirectCredentialOAuth {
+		return nil, ErrDirectCredentialUnavailable
+	}
 	if row.Kind == store.DirectCredentialOAuth {
 		if directOAuthProvider(row.Provider) == "" || row.State.Scan(row.RawOAuth) != nil {
 			return nil, ErrDirectCredentialUnavailable
 		}
 		// Copilot stores the durable GitHub token only in oauth_state; the
 		// short-lived Copilot token is exchanged lazily into secret.
-		if strings.TrimSpace(row.Secret) == "" && directOAuthProvider(row.Provider) != string(ProviderCopilot) {
+		if strings.TrimSpace(row.Secret) == "" && directOAuthProvider(row.Provider) != string(ProviderCopilot) &&
+			directOAuthProvider(row.Provider) != string(ProviderAntigravity) {
 			return nil, ErrDirectCredentialUnavailable
+		}
+		if row.Provider == "antigravity" {
+			if _, err := ParseAntigravityImportMaterial(row.State.RefreshToken + "|" + row.State.ProjectID); err != nil || row.State.ClientID != antigravityClientID {
+				return nil, ErrDirectCredentialUnavailable
+			}
 		}
 	} else if strings.TrimSpace(row.Secret) == "" {
 		return nil, ErrDirectCredentialUnavailable
@@ -125,7 +137,7 @@ func directCredentialResult(row *directCredentialRow) *DirectCredentialResult {
 			accountID = identity.ChatGPTAccountID
 		}
 	}
-	return &DirectCredentialResult{AccessToken: row.Secret, Kind: row.Kind, Provider: row.Provider, AccountID: accountID}
+	return &DirectCredentialResult{AccessToken: row.Secret, Kind: row.Kind, Provider: row.Provider, AccountID: accountID, ProjectID: row.State.ProjectID}
 }
 
 // ResolveDirectCredential reads current storage after selection. Refresh tokens
@@ -149,7 +161,7 @@ func ResolveDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyUR
 		return resolveGCPCredential(ctx, db, id, proxyURL)
 	}
 	now := time.Now().UnixMilli()
-	if !forceRefresh && row.State.ExpiresAt > now+3*60*1000 {
+	if !forceRefresh && row.Secret != "" && row.State.ExpiresAt > now+3*60*1000 {
 		return directCredentialResult(row), nil
 	}
 	if row.State.RefreshToken == "" {
@@ -250,7 +262,7 @@ func refreshDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyUR
 	if err != nil {
 		return nil, err
 	}
-	if row.Kind != store.DirectCredentialOAuth || (!force && row.State.ExpiresAt > time.Now().Add(3*time.Minute).UnixMilli()) {
+	if row.Kind != store.DirectCredentialOAuth || (!force && row.Secret != "" && row.State.ExpiresAt > time.Now().Add(3*time.Minute).UnixMilli()) {
 		return directCredentialResult(row), nil
 	}
 	def := GetProviderDefinition(directOAuthProvider(row.Provider))
@@ -258,7 +270,7 @@ func refreshDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyUR
 		return nil, ErrDirectCredentialUnavailable
 	}
 	fresh, err := RefreshWithRetry(ctx, func() (*TokenSet, error) {
-		return def.RefreshAccessToken(ctx, RefreshTokenInput{RefreshToken: row.State.RefreshToken, ClientID: row.State.ClientID, ProxyURL: proxyURL})
+		return def.RefreshAccessToken(ctx, RefreshTokenInput{RefreshToken: row.State.RefreshToken, ClientID: row.State.ClientID, OAuth: &RefreshOAuthContext{ProjectID: row.State.ProjectID}, ProxyURL: proxyURL})
 	})
 	if err != nil {
 		// Providers can return response bodies containing tokens. Never return
@@ -275,6 +287,7 @@ func refreshDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyUR
 	next.RefreshToken = coalesceStr(fresh.RefreshToken, next.RefreshToken)
 	next.IDToken = coalesceStr(fresh.IDToken, next.IDToken)
 	next.AccountID = coalesceStr(fresh.AccountID, next.AccountID)
+	next.ProjectID = coalesceStr(fresh.ProjectID, next.ProjectID)
 	next.ExpiresAt = fresh.TokenExpiresAt
 	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE upstream_credentials SET secret=?,oauth_state=? WHERE id=? AND kind=? AND enabled=? AND secret=? AND oauth_state=?`), fresh.AccessToken, next, id, store.DirectCredentialOAuth, true, row.Secret, row.RawOAuth)
 	if err != nil {

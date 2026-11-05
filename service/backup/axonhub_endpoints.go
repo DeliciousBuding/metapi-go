@@ -19,6 +19,8 @@ func axonHubChannelBaseURL(channel AxonHubSourceChannel) string {
 	// Only defaults actually supplied by channel_llm.go / the primary
 	// transformer are used. Custom endpoint overrides retain this base.
 	switch channel.Type {
+	case "antigravity":
+		return "https://daily-cloudcode-pa.sandbox.googleapis.com"
 	case "gemini", "zenmux_gemini":
 		return "https://generativelanguage.googleapis.com"
 	case "codex", "fenno":

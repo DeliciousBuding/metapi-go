@@ -273,7 +273,7 @@ func TestExchangeAntigravityAuthorizationCode_Success(t *testing.T) {
 		if r.PostForm.Get("client_id") != antigravityClientID {
 			t.Errorf("client_id = %q", r.PostForm.Get("client_id"))
 		}
-		if r.PostForm.Get("client_secret") != antigravityClientSecret {
+		if r.PostForm.Get("client_secret") != fixtureAntigravityClientSecret {
 			t.Errorf("client_secret = %q", r.PostForm.Get("client_secret"))
 		}
 		if r.PostForm.Get("code") != "ag-code" {
