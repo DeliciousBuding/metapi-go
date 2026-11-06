@@ -274,7 +274,7 @@ function PluginOptionField(props: {
   const option = props.option
   return (
     <div className='space-y-1.5'>
-      <label htmlFor={id} className='text-sm'>
+      <label id={`${id}-label`} htmlFor={id} className='text-sm'>
         {option.label}
       </label>
       {option.type === 'boolean' ? (
@@ -293,7 +293,7 @@ function PluginOptionField(props: {
           <SelectTrigger id={id}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent aria-labelledby={`${id}-label`}>
             {option.choices?.map((choice) => (
               <SelectItem key={choice} value={choice}>
                 {choice}

@@ -74,6 +74,38 @@ beforeEach(async () => {
 afterEach(cleanup)
 
 describe('channel plugin management and bindings', () => {
+  it('names the open option list from its unique visible label', async () => {
+    const item = plugin('alpha')
+    if (!item.manifest) throw new Error('missing fixture manifest')
+    item.manifest.options = [
+      {
+        key: 'mode',
+        label: 'Vendor mode',
+        type: 'select',
+        choices: ['safe', 'fast'],
+        default: 'safe',
+      },
+    ]
+    mocks.list.mockResolvedValue({ items: [item] })
+    mount(
+      <ChannelPluginBindings
+        value={[{ key: 'alpha', protocols: ['chat'] }]}
+        onChange={vi.fn()}
+        endpoints={{
+          chat: { url: 'https://example.invalid/chat', auth: 'bearer' },
+        }}
+      />
+    )
+    const trigger = await screen.findByRole('combobox', {
+      name: 'Vendor mode',
+    })
+    fireEvent.click(trigger)
+    const list = await screen.findByRole('listbox')
+    expect(list).toHaveAccessibleName('Vendor mode')
+    expect(within(list).getByRole('option', { name: 'safe' })).toBeVisible()
+    expect(within(list).getByRole('option', { name: 'fast' })).toBeVisible()
+  })
+
   it('derives protocols/default options from the manifest and gives repeated option labels unique IDs', async () => {
     const changed = vi.fn()
     function Bindings() {
