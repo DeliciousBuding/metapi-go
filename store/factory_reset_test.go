@@ -73,7 +73,7 @@ func seedEveryTable(t *testing.T, db *DB) {
 	// second pass catches any edge the first pass hit too early.
 	for pass := 0; pass < 2; pass++ {
 		failed = nil
-		for _, table := range AllTableNames() {
+		for _, table := range facts().order {
 			var n int
 			if err := db.QueryRow(db.Rebind(fmt.Sprintf(`SELECT COUNT(*) FROM %q`, table))).Scan(&n); err != nil {
 				t.Fatalf("count %s: %v", table, err)

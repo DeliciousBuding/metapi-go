@@ -31,6 +31,7 @@ type DirectCredentialResult struct {
 func (DirectCredentialResult) String() string { return "DirectCredentialResult([REDACTED])" }
 
 type directCredentialRow struct {
+	ChannelID      int64                  `db:"channel_id"`
 	Secret         string                 `db:"secret"`
 	Kind           string                 `db:"kind"`
 	RawOAuth       string                 `db:"oauth_state"`
@@ -39,7 +40,8 @@ type directCredentialRow struct {
 	Enabled        bool                   `db:"enabled"`
 	ChannelEnabled bool                   `db:"channel_enabled"`
 	State          store.DirectOAuthState `db:"-"`
-	Endpoints      store.DirectEndpoints  `db:"endpoint_config"`
+	RawEndpoints   string                 `db:"endpoint_config"`
+	Endpoints      store.DirectEndpoints  `db:"-"`
 }
 
 type directRefreshKey struct {
@@ -77,10 +79,13 @@ func loadDirectCredential(ctx context.Context, db *sqlx.DB, id int64) (*directCr
 		return nil, ErrDirectCredentialUnavailable
 	}
 	var row directCredentialRow
-	if err := db.GetContext(ctx, &row, db.Rebind(`SELECT k.secret,k.kind,k.oauth_state,k.gcp_service_account,k.enabled,c.provider,c.endpoint_config,c.enabled AS channel_enabled FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), id); err != nil {
+	if err := db.GetContext(ctx, &row, db.Rebind(`SELECT k.channel_id,k.secret,k.kind,k.oauth_state,k.gcp_service_account,k.enabled,c.provider,c.endpoint_config,c.enabled AS channel_enabled FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), id); err != nil {
 		return nil, ErrDirectCredentialUnavailable
 	}
 	if !row.Enabled || !row.ChannelEnabled {
+		return nil, ErrDirectCredentialUnavailable
+	}
+	if row.Endpoints.Scan(row.RawEndpoints) != nil {
 		return nil, ErrDirectCredentialUnavailable
 	}
 	if row.Kind == store.DirectCredentialNone {
@@ -262,8 +267,37 @@ func refreshDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyUR
 	if err != nil {
 		return nil, err
 	}
+	return refreshDirectCredentialSnapshot(ctx, db, id, proxyURL, force, row)
+}
+
+func refreshDirectCredentialSnapshot(ctx context.Context, db *sqlx.DB, id int64, proxyURL *string, force bool, row *directCredentialRow) (*DirectCredentialResult, error) {
 	if row.Kind != store.DirectCredentialOAuth || (!force && row.Secret != "" && row.State.ExpiresAt > time.Now().Add(3*time.Minute).UnixMilli()) {
 		return directCredentialResult(row), nil
+	}
+	snapshot := *row
+	lease, err := store.AcquireCredentialRefreshLease(ctx, db, "direct", id)
+	if err != nil {
+		return nil, ErrDirectCredentialRefresh
+	}
+	defer releaseCredentialRefreshLease(lease)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	criticalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+	defer cancel()
+	ctx = criticalCtx
+	row, err = loadDirectCredential(ctx, db, id)
+	if err != nil {
+		return nil, err
+	}
+	if row.Kind != snapshot.Kind || row.Provider != snapshot.Provider || row.ChannelID != snapshot.ChannelID || row.RawEndpoints != snapshot.RawEndpoints {
+		return nil, ErrDirectCredentialChanged
+	}
+	if row.Secret != snapshot.Secret || row.RawOAuth != snapshot.RawOAuth {
+		if row.Secret != "" && row.State.ExpiresAt > time.Now().Add(3*time.Minute).UnixMilli() {
+			return directCredentialResult(row), nil
+		}
+		return nil, ErrDirectCredentialChanged
 	}
 	def := GetProviderDefinition(directOAuthProvider(row.Provider))
 	if def == nil || def.RefreshAccessToken == nil || row.State.RefreshToken == "" {
@@ -289,7 +323,15 @@ func refreshDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyUR
 	next.AccountID = coalesceStr(fresh.AccountID, next.AccountID)
 	next.ProjectID = coalesceStr(fresh.ProjectID, next.ProjectID)
 	next.ExpiresAt = fresh.TokenExpiresAt
-	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE upstream_credentials SET secret=?,oauth_state=? WHERE id=? AND kind=? AND enabled=? AND secret=? AND oauth_state=?`), fresh.AccessToken, next, id, store.DirectCredentialOAuth, true, row.Secret, row.RawOAuth)
+	tx, err := lease.BeginFencedTx(ctx)
+	if err != nil {
+		return nil, ErrDirectCredentialChanged
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, db.Rebind(`UPDATE upstream_credentials SET secret=?,oauth_state=?
+		WHERE id=? AND kind=? AND enabled=? AND secret=? AND oauth_state=? AND channel_id=?
+		AND EXISTS(SELECT 1 FROM upstream_channels c WHERE c.id=upstream_credentials.channel_id AND c.enabled=? AND c.provider=? AND c.endpoint_config=?)`),
+		fresh.AccessToken, next, id, store.DirectCredentialOAuth, true, row.Secret, row.RawOAuth, row.ChannelID, true, row.Provider, row.RawEndpoints)
 	if err != nil {
 		return nil, ErrDirectCredentialRefresh
 	}
@@ -300,11 +342,19 @@ func refreshDirectCredential(ctx context.Context, db *sqlx.DB, id int64, proxyUR
 	if count != 1 {
 		return nil, ErrDirectCredentialChanged
 	}
+	if err := tx.Commit(); err != nil {
+		return nil, ErrDirectCredentialRefresh
+	}
 	// Also recheck channel/credential enablement after the refresh. A source
 	// replacement must never authorize sending the just-superseded token.
 	current, err := loadDirectCredential(ctx, db, id)
 	if err != nil {
 		return nil, err
+	}
+	expectedOAuth, err := next.Value()
+	if err != nil || current.Kind != row.Kind || current.Provider != row.Provider || current.ChannelID != row.ChannelID ||
+		current.RawEndpoints != row.RawEndpoints || current.Secret != fresh.AccessToken || current.RawOAuth != expectedOAuth {
+		return nil, ErrDirectCredentialChanged
 	}
 	return directCredentialResult(current), nil
 }

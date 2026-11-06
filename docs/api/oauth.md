@@ -4,6 +4,27 @@
 
 ## OAuth
 
+### 刷新并发与凭据替换
+
+托管账号和 direct OAuth 凭据刷新使用数据库级记录 lease，不仅依赖进程内
+singleflight。同一数据库的多个连接池或进程刷新同一记录时，等待者重新读取
+当前状态，并复用已落库且仍有效的结果；不能继续消耗旧 refresh token。
+禁用、删除、身份/端点变更或并发替换不会被刷新覆盖，也不能发布已被替换的快照。
+上游错误只保留固定 OAuth 分类，不回传可能包含 token 的错误正文。
+
+lease 使用数据库时钟，等待最多 30 秒，所有权有效期 180 秒，等待支持 context
+取消；兑换和落库临界区与调用方取消解耦，最多 2 分钟。发布必须同时通过当前
+lease 的事务 fence 和凭据 CAS；共享存储失败不降级为本地锁。释放失败只记录
+不含凭据的告警，由 TTL 恢复，不能重新交换已轮换 token。
+
+`credential_refresh_leases` 是临时所有权，不进入便携备份或 SQLite/PostgreSQL
+方言迁移，恢复出厂设置会清除。迁移前须停止所有旧实例；旧版本不参与此
+协调，不能用新版本的 lease 推断混合版本部署安全。
+
+此合同按记录 ID 协调，不合并不同记录里复制的 refresh token，也不等于
+稳定 refresh-family/generation 或进程崩溃后的不确定兑换恢复。避免把同一旋转
+凭据复制到多条记录；这些扩展能力须独立验证，不能从单记录并发通过推断。
+
 ### GET /api/oauth/providers
 
 List OAuth providers.

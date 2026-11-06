@@ -77,6 +77,7 @@ var schemaTables = []schemaTable{
 	{"upstream_channels", buildUpstreamChannelsDDL},
 	{"channel_plugins", buildChannelPluginsDDL},
 	{"upstream_credentials", buildUpstreamCredentialsDDL},
+	{"credential_refresh_leases", buildCredentialRefreshLeasesDDL},
 	{"upstream_models", buildUpstreamModelsDDL},
 	{"upstream_grants", buildUpstreamGrantsDDL},
 	{"upstream_groups", buildUpstreamGroupsDDL},
@@ -97,9 +98,11 @@ var schemaTables = []schemaTable{
 // migrationExcludedTables names schema tables deliberately NOT copied across
 // dialects by cmd/migrate, with the reason. A table is excluded by an entry
 // here — never by being absent from a hand-written list, which is how 17
-// tables went missing. Empty today: every application table crosses the
-// SQLite<->PostgreSQL boundary.
-var migrationExcludedTables = map[string]string{}
+// tables went missing. Transient ownership is explicitly excluded; durable
+// application data crosses the SQLite<->PostgreSQL boundary.
+var migrationExcludedTables = map[string]string{
+	"credential_refresh_leases": "in-flight credential refresh owners do not survive a dialect move; quiesce serving instances before migration",
+}
 
 // factoryResetExcludedTables names tables a factory reset must NOT wipe, with
 // the reason. schema_migrations (the additive-migration journal created by
@@ -121,6 +124,7 @@ var factoryResetExcludedTables = map[string]string{
 // (metadata.excluded_tables) so a backup file states its own gaps; keep each
 // one to a single sentence and put the long form in docs/api/settings.md.
 var backupExcludedTables = map[string]string{
+	"credential_refresh_leases":       "transient credential refresh ownership: restored deployments must acquire their own leases",
 	"channel_plugins":                 "locally trusted executable plugins: backup imports must not install or enable code",
 	"gateway_user_credentials":        "local user password and activation digests: portable imports must not plant login credentials",
 	"gateway_user_sessions":           "local user session digests: restored deployments require fresh user login",
@@ -476,8 +480,10 @@ func ClearTableNames() []string {
 // admin_audit_logs and the other previously-missed tables part of the reset:
 // a pre-reset admin cookie must not survive "restore factory settings".
 func FactoryResetTableNames() []string {
-	out := make([]string, 0, len(schemaTables))
-	for _, t := range ClearTableNames() {
+	order := facts().order
+	out := make([]string, 0, len(order))
+	for i := len(order) - 1; i >= 0; i-- {
+		t := order[i]
 		if _, skip := factoryResetExcludedTables[t]; skip {
 			continue
 		}
@@ -492,7 +498,7 @@ func FactoryResetTableNames() []string {
 // backupExcludedTables; service/backup must not keep its own copy of the list.
 func BackupTableNames() []string {
 	out := make([]string, 0, len(schemaTables))
-	for _, t := range AllTableNames() {
+	for _, t := range facts().order {
 		if _, skip := backupExcludedTables[t]; skip {
 			continue
 		}

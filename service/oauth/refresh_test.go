@@ -311,15 +311,15 @@ func insertCodexTestAccount(t *testing.T, db *store.DB, accountKey, extraConfig 
 		t.Fatalf("insert site: %v", err)
 	}
 	provider := "codex"
-	res, err := db.Exec(
+	var id int64
+	err = db.QueryRow(
 		`INSERT INTO accounts (site_id, username, access_token, status, oauth_provider, oauth_account_key, extra_config, created_at, updated_at)
-		 VALUES (1, ?, 'stale-access', 'active', ?, ?, ?, ?, ?)`,
+		 VALUES (1, ?, 'stale-access', 'active', ?, ?, ?, ?, ?) RETURNING id`,
 		accountKey, provider, accountKey, extraConfig, now, now,
-	)
+	).Scan(&id)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
-	id, _ := res.LastInsertId()
 	return id
 }
 

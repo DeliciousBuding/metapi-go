@@ -21,6 +21,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+- OAuth 刷新：托管账号和 direct 凭据使用数据库级单记录 lease 与事务 fence，跨连接池/进程复用落库结果；并发禁用、删除、身份/端点变更和凭据替换不会被刷新覆盖。保留取消分类并脱敏供应商错误正文，临时所有权不进入便携备份或方言迁移。不同记录共享同一旋转 token 的 family 协调尚不包含在此能力中。
+
 ### 修复
 
 - Responses WebSocket：正常结束会话时先完成关闭握手再停止读取，避免 Key 轮换或撤权后的连接以 EOF 异常结束（#1561）。

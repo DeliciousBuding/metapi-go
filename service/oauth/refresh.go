@@ -2,7 +2,9 @@ package oauth
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -13,8 +15,10 @@ import (
 // ---- Singleflight Token Refresh ----
 
 var (
-	refreshInFlight   = make(map[int64]*refreshPromise)
-	refreshInFlightMu sync.Mutex
+	ErrAccountChangedDuringRefresh = errors.New("OAuth account changed during refresh; retry selection")
+	ErrOAuthAccountDisabled        = errors.New("OAuth account is disabled")
+	refreshInFlight                = make(map[int64]*refreshPromise)
+	refreshInFlightMu              sync.Mutex
 )
 
 type refreshPromise struct {
@@ -86,6 +90,16 @@ func doRefreshAccessToken(accountID int64) refreshResult {
 	if err := db.Get(&account, "SELECT * FROM accounts WHERE id = ?", accountID); err != nil {
 		return refreshResult{AccountID: accountID, Err: fmt.Errorf("oauth account not found")}
 	}
+	return refreshManagedAccount(context.Background(), db, account)
+}
+
+// The snapshot is taken before waiting for the database owner. A concurrent
+// forced refresh must reuse a winner, not consume its newly rotated token.
+func refreshManagedAccount(ctx context.Context, db *store.DB, account store.Account) refreshResult {
+	accountID := account.ID
+	if account.Status == "disabled" {
+		return refreshResult{AccountID: accountID, Err: ErrOAuthAccountDisabled}
+	}
 
 	oauth := GetOauthInfoFromAccount(&account)
 	if oauth == nil || oauth.RefreshToken == "" {
@@ -94,7 +108,42 @@ func doRefreshAccessToken(accountID int64) refreshResult {
 
 	def := GetProviderDefinition(oauth.Provider)
 	if def == nil {
-		return refreshResult{AccountID: accountID, Err: fmt.Errorf("unsupported oauth provider: %s", oauth.Provider)}
+		return refreshResult{AccountID: accountID, Err: fmt.Errorf("unsupported oauth provider")}
+	}
+	if def.RefreshAccessToken == nil {
+		return refreshResult{AccountID: accountID, Err: fmt.Errorf("oauth provider cannot refresh")}
+	}
+	lease, err := store.AcquireCredentialRefreshLease(ctx, db.DB, "account", accountID)
+	if err != nil {
+		return refreshResult{AccountID: accountID, Err: err}
+	}
+	defer releaseCredentialRefreshLease(lease)
+	if err := ctx.Err(); err != nil {
+		return refreshResult{AccountID: accountID, Err: err}
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+	defer cancel()
+	var current store.Account
+	if err := db.GetContext(ctx, &current, `SELECT * FROM accounts WHERE id=?`, accountID); err != nil {
+		return refreshResult{AccountID: accountID, Err: ErrAccountChangedDuringRefresh}
+	}
+	if current.Status == "disabled" {
+		return refreshResult{AccountID: accountID, Err: ErrOAuthAccountDisabled}
+	}
+	// Only publish an actual persisted successor for the same account identity.
+	// A concurrent options-only edit or credential replacement is not a refresh.
+	if current.AccessToken != account.AccessToken || current.Status != account.Status ||
+		coalesceStrPtr(current.ExtraConfig) != coalesceStrPtr(account.ExtraConfig) ||
+		coalesceStrPtr(current.OAuthProvider) != coalesceStrPtr(account.OAuthProvider) ||
+		coalesceStrPtr(current.OAuthAccountKey) != coalesceStrPtr(account.OAuthAccountKey) ||
+		coalesceStrPtr(current.OAuthProjectID) != coalesceStrPtr(account.OAuthProjectID) {
+		next := GetOauthInfoFromAccount(&current)
+		if current.Status == "active" && current.AccessToken != "" && current.AccessToken != account.AccessToken && next != nil &&
+			next.Provider == oauth.Provider && next.AccountKey == oauth.AccountKey && next.ProjectID == oauth.ProjectID &&
+			next.TokenExpiresAt > time.Now().Add(3*time.Minute).UnixMilli() {
+			return refreshResult{AccountID: accountID, AccessToken: current.AccessToken, AccountKey: next.AccountKey, ExtraConfig: current.ExtraConfig}
+		}
+		return refreshResult{AccountID: accountID, Err: ErrAccountChangedDuringRefresh}
 	}
 
 	var oauthCtx *RefreshOAuthContext
@@ -106,14 +155,6 @@ func doRefreshAccessToken(accountID int64) refreshResult {
 	}
 
 	proxyURL := resolveAccountProxyURL(account.SiteID, account.ExtraConfig)
-
-	// RefreshWithRetry wraps the provider call with exponential backoff and
-	// non-retryable short-circuiting. A bounded context lets the retry loop
-	// abort during backoff if the process is shutting down; the budget
-	// comfortably fits MaxRefreshRetries (1+2+4=7s) plus one attempt's
-	// worth of network latency.
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
 
 	refreshed, err := RefreshWithRetry(ctx, func() (*TokenSet, error) {
 		return def.RefreshAccessToken(ctx, RefreshTokenInput{
@@ -143,7 +184,10 @@ func doRefreshAccessToken(accountID int64) refreshResult {
 	}
 
 	if err != nil {
-		return refreshResult{AccountID: accountID, Err: err}
+		return refreshResult{AccountID: accountID, Err: safeAccountRefreshFailure(err)}
+	}
+	if refreshed == nil || strings.TrimSpace(refreshed.AccessToken) == "" {
+		return refreshResult{AccountID: accountID, Err: fmt.Errorf("oauth refresh returned no access token")}
 	}
 
 	// Merge refreshed fields with existing.
@@ -189,15 +233,41 @@ func doRefreshAccessToken(accountID int64) refreshResult {
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	_, err = db.Exec(
+	tx, err := lease.BeginFencedTx(ctx)
+	if err != nil {
+		return refreshResult{AccountID: accountID, Err: err}
+	}
+	defer tx.Rollback()
+	updated, err := tx.ExecContext(ctx, db.Rebind(
 		`UPDATE accounts SET access_token = ?, oauth_provider = ?, oauth_account_key = ?,
 		 oauth_project_id = ?, extra_config = ?, status = 'active', updated_at = ?
-		 WHERE id = ?`,
+		 WHERE id = ? AND access_token = ? AND status = ?
+		 AND COALESCE(oauth_provider,'') = COALESCE(?,'')
+		 AND COALESCE(oauth_account_key,'') = COALESCE(?,'')
+		 AND COALESCE(oauth_project_id,'') = COALESCE(?,'')
+		 AND COALESCE(extra_config,'') = COALESCE(?,'')`),
 		refreshed.AccessToken, oauth.Provider, accountKey, projectID,
-		extraConfig, now, accountID,
+		extraConfig, now, accountID, account.AccessToken, account.Status,
+		account.OAuthProvider, account.OAuthAccountKey, account.OAuthProjectID, account.ExtraConfig,
 	)
 	if err != nil {
-		return refreshResult{AccountID: accountID, Err: fmt.Errorf("token refresh persistence failed: %w", err)}
+		return refreshResult{AccountID: accountID, Err: fmt.Errorf("token refresh persistence failed")}
+	}
+	if count, err := updated.RowsAffected(); err != nil || count != 1 {
+		return refreshResult{AccountID: accountID, Err: ErrAccountChangedDuringRefresh}
+	}
+	if err := tx.Commit(); err != nil {
+		return refreshResult{AccountID: accountID, Err: fmt.Errorf("token refresh persistence failed")}
+	}
+	// Do not publish a token for a deleted/disabled or superseded record. The
+	// current account identity remains authoritative after the provider call.
+	if err := db.GetContext(ctx, &current, `SELECT * FROM accounts WHERE id=?`, accountID); err != nil ||
+		current.Status != "active" || current.AccessToken != refreshed.AccessToken ||
+		current.OAuthProvider == nil || *current.OAuthProvider != oauth.Provider ||
+		current.OAuthAccountKey == nil || *current.OAuthAccountKey != accountKey ||
+		current.OAuthProjectID == nil || *current.OAuthProjectID != projectID ||
+		current.ExtraConfig == nil || extraConfig == nil || *current.ExtraConfig != *extraConfig {
+		return refreshResult{AccountID: accountID, Err: ErrAccountChangedDuringRefresh}
 	}
 
 	return refreshResult{
@@ -206,6 +276,43 @@ func doRefreshAccessToken(accountID int64) refreshResult {
 		AccountKey:  accountKey,
 		ExtraConfig: extraConfig,
 	}
+}
+
+func coalesceStrPtr(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func releaseCredentialRefreshLease(lease *store.CredentialRefreshLease) {
+	if err := lease.Release(); err != nil {
+		// Publication is already settled. The database TTL permits recovery;
+		// do not undo a committed rotation or log an SQL error containing DSNs.
+		slog.Warn("OAuth refresh lease release failed; expiry will recover ownership")
+	}
+}
+
+func safeAccountRefreshFailure(err error) error {
+	if errors.Is(err, context.Canceled) {
+		return context.Canceled
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return context.DeadlineExceeded
+	}
+	// Reuse the provider's existing classification, but never expose its body.
+	// The fixed OAuth error vocabulary retains scheduler recovery semantics.
+	if IsNonRetryable(err) {
+		message := "OAuth refresh rejected"
+		for _, code := range nonRetryableNeedles {
+			if strings.Contains(strings.ToLower(err.Error()), code) {
+				message += ": " + code
+				break
+			}
+		}
+		return &NonRetryableError{Message: message}
+	}
+	return errors.New("OAuth refresh failed")
 }
 
 func coalesceStr(values ...string) string {
