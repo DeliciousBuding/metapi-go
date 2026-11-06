@@ -238,7 +238,7 @@ provider-specific request/stream contracts. See [direct upstreams](routes.md)
 for endpoint and credential management.
 
 Native Ollama, Ollama Messages, Bedrock Messages, Seedance/ZenMux video,
-TypeSafe System One and Alpha Search retain their independent formats and
+TypeSafe System One, Alpha Search and Decisions retain their independent formats and
 authentication. Ollama channels with no configured API keys can create an
 anonymous credential; a configured but disabled key never becomes anonymous.
 Bedrock custom Messages endpoints follow the source's generic `x-api-key`
@@ -396,8 +396,14 @@ the current executable import contract:
   Vertex and Anthropic GCP are executable through their audited credential and
   wire contracts; real upstream acceptance is still tracked separately.
 - xAI subscription imports require structured OAuth with a refresh token and the official client ID, and resolve to the fixed `https://cli-chat-proxy.grok.com/v1/responses` endpoint with Bearer authentication. Static keys, custom base URLs and custom endpoints are skipped rather than imported as a generic channel.
-- Formats not listed in [direct upstreams](routes.md), including source Decisions
-  and unverified provider-specific compaction variants.
+- Formats not listed in [direct upstreams](routes.md), including unverified
+  provider-specific compaction variants.
+- Declared `openai/decisions` imports as an independent synchronous JSON grant.
+  Its generic source constructor normalizes the base and appends `/decisions`,
+  or appends an explicit custom path. `##` retains the exact URL and ignores a
+  custom path. It does not inherit Codex generation headers or borrow an OAuth
+  generation grant. Per-model format restrictions and request operations retain
+  their normal authorization boundaries.
 - Declared `openai/responses_compact` imports as a separate native HTTP grant.
   Its source constructor appends `/responses/compact` after base normalization;
   `##` retains an exact URL. It does not inherit the Codex generation wrapper

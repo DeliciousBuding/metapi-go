@@ -12,6 +12,18 @@ import (
 func resolveAxonHubNativeEndpoint(ch AxonHubSourceChannel, protocol int, base, path string, custom bool) (*store.DirectEndpoint, bool, string) {
 	ep := &store.DirectEndpoint{Auth: store.DirectAuthBearer}
 	switch protocol {
+	case protoDecisions:
+		// This custom format was audited at AxonHub 8d3c3865; the provider
+		// default-format snapshot remains independently frozen in its owner.
+		// The source's Decisions constructor is generic JSON, not the Codex
+		// generation wrapper. Raw URL mode ignores even an explicit path.
+		if strings.HasSuffix(base, "##") {
+			ep.URL = strings.TrimRight(strings.TrimSuffix(base, "##"), "/")
+		} else if path != "" {
+			ep.URL = normalizeAxonHubBaseURL(base, "") + path
+		} else {
+			ep.URL = normalizeAxonHubBaseURL(base, "v1") + "/decisions"
+		}
 	case protoResponsesCompact:
 		// The source uses the generic Responses compact constructor, including
 		// for custom compact endpoints on Codex. It does not use the Codex

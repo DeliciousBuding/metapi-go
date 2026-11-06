@@ -51,6 +51,7 @@ func RegisterProxyRoutes(r chi.Router) {
 	r.Post("/moderations", HandleModerations)
 	r.Post("/systemone", HandleSystemOne)
 	r.Post("/alpha/search", HandleAlphaSearch)
+	r.Post("/decisions", HandleDecisions)
 
 	// Videos surface
 	r.Post("/videos", HandleVideosCreate)

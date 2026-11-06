@@ -171,6 +171,11 @@ function EndpointRow(
   }
   const optionalAuth =
     endpoint?.profile === 'ollama' || endpoint?.profile === 'ollama-messages'
+  const authModes =
+    protocol.authModes ??
+    (optionalAuth
+      ? ['bearer', 'none']
+      : ['bearer', 'x-api-key', 'x-goog-api-key'])
   function authLabel(value: unknown) {
     if (value === 'none') return t('channels.upstream.noAuthentication')
     return value === 'bearer' ? 'Bearer' : String(value ?? '')
@@ -289,7 +294,9 @@ function EndpointRow(
               <Select
                 value={endpoint.auth}
                 disabled={
-                  props.disabled || (!!endpoint.profile && !optionalAuth)
+                  props.disabled ||
+                  authModes.length === 1 ||
+                  (!!endpoint.profile && !optionalAuth)
                 }
                 onValueChange={(value) =>
                   value && update({ auth: value as ImportedEndpoint['auth'] })
@@ -301,11 +308,8 @@ function EndpointRow(
                 >
                   <SelectValue>{authLabel}</SelectValue>
                 </SelectTrigger>
-                <SelectContent>
-                  {(optionalAuth
-                    ? ['bearer', 'none']
-                    : ['bearer', 'x-api-key', 'x-goog-api-key']
-                  ).map((auth) => (
+                <SelectContent aria-labelledby={`${id}-${protocol.key}-auth`}>
+                  {authModes.map((auth) => (
                     <SelectItem key={auth} value={auth}>
                       {authLabel(auth)}
                     </SelectItem>
@@ -382,7 +386,9 @@ function EndpointRow(
                       }
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent
+                    aria-labelledby={`${id}-${protocol.key}-profile`}
+                  >
                     {!protocol.requiredProfile && (
                       <SelectItem value='generic'>
                         {t('channels.upstream.generic')}

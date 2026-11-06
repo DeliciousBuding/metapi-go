@@ -500,7 +500,7 @@ describe('explicit upstream media capabilities', () => {
     const entries = [
       ...source.matchAll(/\{"([^"]+)", (DirectProtocol\w+), e\.\w+\}/g),
     ].map((match) => ({ key: match[1], bit: bits.get(match[2]) }))
-    expect(entries).toHaveLength(25)
+    expect(entries).toHaveLength(26)
     expect(upstreamProtocols.map(({ key, bit }) => ({ key, bit }))).toEqual(
       entries
     )

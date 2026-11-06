@@ -21,6 +21,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+- 渠道新增独立 Decisions HTTP 端点与模型授权，支持原生同步 JSON、输入与问题校验、精确数字、用量和取消；AxonHub `openai/decisions` 的自定义路径与 raw URL 按源构造合同导入，不借用生成协议权限。
+
 ### 修复
 
 - Responses WebSocket：正常结束会话时先完成关闭握手再停止读取，避免 Key 轮换或撤权后的连接以 EOF 异常结束（#1561）。

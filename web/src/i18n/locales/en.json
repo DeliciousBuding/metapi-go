@@ -4858,7 +4858,8 @@
           "systemOne": "System One",
           "alphaSearch": "Alpha Search",
           "responsesCompact": "Responses compaction",
-          "responsesWebsocket": "Responses WebSocket"
+          "responsesWebsocket": "Responses WebSocket",
+          "decisions": "Decisions"
         },
         "groups": {
           "conversation": "Text & conversation",

@@ -1112,7 +1112,7 @@ func dispatchEndpointAttemptWithContinue(
 	if proxy.IsDirectMediaPath(upstreamPath) && resp.StatusCode >= 200 && resp.StatusCode < 300 && resp.StatusCode != http.StatusNoContent {
 		if isDirectVideoContentPath(upstreamPath) {
 			effectiveStream = true
-		} else if bit := proxy.DirectProtocolForPath(upstreamPath); bit != store.DirectProtocolVideo && bit != store.DirectProtocolSystemOne && bit != store.DirectProtocolAlphaSearch && bit != store.DirectProtocolResponsesCompact {
+		} else if bit := proxy.DirectProtocolForPath(upstreamPath); bit != store.DirectProtocolVideo && !isNativeJSONProtocol(bit) {
 			effectiveStream = !isJSONMediaResponse(resp.Header)
 		}
 	}
@@ -1290,13 +1290,20 @@ func dispatchEndpointAttemptWithContinue(
 		observeProxyTerminal(ctx, shared.StatusFromHTTP(resp.StatusCode), false, time.Duration(latencyMs)*time.Millisecond)
 		return true, nil, false
 	}
-	nativeJSON := proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolSystemOne || proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolAlphaSearch || proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolResponsesCompact
+	nativeJSON := isNativeJSONProtocol(proxy.DirectProtocolForPath(upstreamPath))
+	nativeHasOutput := false
 	if wire := directProviderWireFromContext(r.Context()); nativeJSON || wire != nil && !wire.AggregateStream && (wire.Profile == "ollama" || wire.Profile == "cline" || wire.Profile == "openrouter" || wire.Profile == "cerebras" || wire.Profile == "nanogpt" || wire.Profile == "antigravity") {
 		converted := respBody
 		var convertErr error
 		if nativeJSON {
 			if !body.readable || !json.Valid(respBody) {
 				convertErr = fmt.Errorf("expected a JSON response")
+			} else if proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolDecisions {
+				valid := false
+				valid, nativeHasOutput = decisionsResponseShape(respBody)
+				if !valid {
+					convertErr = fmt.Errorf("expected a native Decisions response")
+				}
 			} else if proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolResponsesCompact {
 				var compact struct {
 					Object string            `json:"object"`
@@ -1389,7 +1396,9 @@ func dispatchEndpointAttemptWithContinue(
 	// Same single judge the streaming path calls (see judgeStreamContent), fed
 	// with the buffered facts this path already has. When the body could not be
 	// decoded the facts say so explicitly and the judge declines to rule.
-	verdict := proxy.JudgeUpstreamContent(body.judgeFacts(resp.StatusCode, usage))
+	facts := body.judgeFacts(resp.StatusCode, usage)
+	facts.HasOutput = nativeHasOutput
+	verdict := proxy.JudgeUpstreamContent(facts)
 	if verdict.Failed && !ctx.videoUsageVerified {
 		slog.Warn("content-based failure detected",
 			"reason", verdict.Reason,

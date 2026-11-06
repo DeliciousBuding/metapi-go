@@ -78,6 +78,7 @@ type DirectEndpoints struct {
 	AlphaSearch               *DirectEndpoint `json:"alphaSearch,omitempty"`
 	ResponsesCompact          *DirectEndpoint `json:"responsesCompact,omitempty"`
 	ResponsesWebsocket        *DirectEndpoint `json:"responsesWebsocket,omitempty"`
+	Decisions                 *DirectEndpoint `json:"decisions,omitempty"`
 }
 
 var requiredDirectProfiles = map[int]string{
@@ -153,6 +154,9 @@ func (e *DirectEndpoints) Scan(value any) error {
 		if (entry.Protocol == DirectProtocolResponsesCompact || entry.Protocol == DirectProtocolResponsesWebsocket) &&
 			(endpoint.Auth != DirectAuthBearer || endpoint.ModelPath || endpoint.ModelWireURLs != nil || endpoint.RequestModel != "") {
 			return fmt.Errorf("native Responses transport requires a bearer endpoint")
+		}
+		if entry.Protocol == DirectProtocolDecisions && (endpoint.Auth != DirectAuthBearer || endpoint.Profile != "" || endpoint.ModelPath || endpoint.ModelWireURLs != nil || endpoint.RequestModel != "") {
+			return fmt.Errorf("Decisions requires its native bearer JSON endpoint")
 		}
 		if endpoint.Auth != DirectAuthBearer && endpoint.Auth != DirectAuthAPIKey && endpoint.Auth != DirectAuthGoogle && endpoint.Auth != DirectAuthNone {
 			return fmt.Errorf("invalid direct endpoint authentication")

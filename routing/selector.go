@@ -823,6 +823,12 @@ func (s *ChannelSelector) getCandidateBlockers(
 		return reasons
 	}
 
+	// Shared accounts and OAuth pools do not have a typed Decisions endpoint or
+	// grant. The -1 model-list sentinel remains a discovery query, not a dial.
+	if policy.RequiredUpstreamProtocol == store.DirectProtocolDecisions {
+		reasons = append(reasons, CandidateBlocker{"protocol_not_authorized", "Decisions requires an explicit direct endpoint and grant"})
+	}
+
 	if !bypassSourceModelCheck && !ChannelSupportsRequestedModelWithRedirects(candidate.Channel.SourceModel, requestedModel, candidate.Account.ID) {
 		srcModel := ""
 		if candidate.Channel.SourceModel != nil {

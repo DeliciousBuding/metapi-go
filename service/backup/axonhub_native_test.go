@@ -13,6 +13,10 @@ func TestAxonHubNativeEndpointContracts(t *testing.T) {
 		protocol                                                        int
 		modelPath                                                       bool
 	}{
+		{"Decisions versioned", "openai", "https://decisions.invalid/v1", "openai/decisions", "", "key", "https://decisions.invalid/v1/decisions", "", store.DirectAuthBearer, protoDecisions, false},
+		{"Decisions single marker", "openai", "https://decisions.invalid/api#", "openai/decisions", "", "key", "https://decisions.invalid/api/decisions", "", store.DirectAuthBearer, protoDecisions, false},
+		{"Decisions custom", "openai", "https://decisions.invalid/api", "openai/decisions", "/ask", "key", "https://decisions.invalid/api/ask", "", store.DirectAuthBearer, protoDecisions, false},
+		{"Decisions raw ignores custom path", "openai", "https://decisions.invalid/exact/##", "openai/decisions", "/ignored", "key", "https://decisions.invalid/exact", "", store.DirectAuthBearer, protoDecisions, false},
 		{"Ollama local", "ollama", "http://127.0.0.1:11434/", "", "", "", "http://127.0.0.1:11434/api/chat", "ollama", store.DirectAuthNone, protoOllama, false},
 		{"Ollama authenticated", "ollama", "https://ollama.invalid/prefix", "", "", "key", "https://ollama.invalid/prefix/api/chat", "ollama", store.DirectAuthBearer, protoOllama, false},
 		{"Ollama Messages local", "ollama_anthropic", "http://localhost:11434", "", "", "", "http://localhost:11434/v1/messages", "ollama-messages", store.DirectAuthNone, protoMessages, false},
