@@ -70,13 +70,7 @@ func TestDirectResponsesWSCancelReleasesCapacity(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("cancelled attempt not accounted")
 	}
-	deadline := time.Now().Add(time.Second)
-	for manager.Snapshot(id, limits.Config).Active != 0 {
-		if time.Now().After(deadline) {
-			t.Fatal("cancelled permit leaked")
-		}
-		time.Sleep(time.Millisecond)
-	}
+	waitDirectChannelIdle(t, manager, id, limits.Config)
 }
 
 func TestDirectResponsesWSUsesConfiguredProxy(t *testing.T) {

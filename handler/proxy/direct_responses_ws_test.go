@@ -44,6 +44,23 @@ func dialDirectResponsesGatewayObserved(t *testing.T, token string, writer gatew
 	return ctx, conn
 }
 
+func waitDirectChannelIdle(t *testing.T, manager *channellimit.Manager, channelID int64, limits channellimit.Config) channellimit.Snapshot {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		snapshot := manager.Snapshot(channelID, limits)
+		if snapshot.Active == 0 && snapshot.Waiting == 0 {
+			return snapshot
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("direct WS turn did not release channel capacity: %+v", snapshot)
+		}
+		// A client receiving the terminal frame does not synchronize with the
+		// sender's deferred cleanup. Observe that cleanup, not the socket flush.
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func TestDirectResponsesWebsocketTurnsRotateAndRevoke(t *testing.T) {
 	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
 		t.Run(dialect, func(t *testing.T) {
@@ -163,7 +180,7 @@ func TestDirectResponsesWebsocketTurnsRotateAndRevoke(t *testing.T) {
 					t.Fatalf("usage changed: %+v", entry)
 				}
 			}
-			snap := manager.Snapshot(channelID, limit.Config)
+			snap := waitDirectChannelIdle(t, manager, channelID, limit.Config)
 			if snap.Active != 0 || snap.Requests != 4 || snap.Tokens != 12 {
 				t.Fatalf("WS admission/accounting lost: %+v", snap)
 			}

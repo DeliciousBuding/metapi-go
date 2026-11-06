@@ -159,7 +159,7 @@ func TestDirectResponsesWSCurrentPoliciesOverrideAffinity(t *testing.T) {
 				if len(logs) != 0 {
 					t.Fatal("zero-dispatch rejection recorded an upstream attempt")
 				}
-				if snap := manager.Snapshot(channelID, limits.Config); snap.Active != 0 || snap.Requests != 3 || snap.Tokens != 9 {
+				if snap := waitDirectChannelIdle(t, manager, channelID, limits.Config); snap.Requests != 3 || snap.Tokens != 9 {
 					t.Fatalf("policy rejection leaked/billed admission: %+v", snap)
 				}
 			})
