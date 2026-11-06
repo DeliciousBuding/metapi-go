@@ -33,6 +33,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 渠道高级设置：可编辑流式策略、RPM/实测 TPM、并发与排队；修改单项保留其余策略，全部归零显式清除限流；界面区分本进程硬限制和 TPM 选路偏好（#1589）。
+
 - 渠道插件：新增 `/api/channel-plugins` 管理与有序 HTTP wire hooks；`channel_plugins` 保存本地可信代码，备份导入不安装插件；停用已绑定插件使新请求返回 503（#1589）。
 
 - `upstream_channels.stream_policy`：自动新增并默认 `unlimited`；导入与管理 API 支持 `require` / `forbid`，文本非流请求仅在无原生候选时聚合所需流，完整备份保留策略（#1561）。

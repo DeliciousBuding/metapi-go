@@ -37,6 +37,7 @@ import {
   type ConnectionValues,
 } from '../lib/upstream-config'
 import { ChannelPluginBindings } from './channel-plugin-bindings'
+import { ChannelRuntimeSettings } from './channel-runtime-settings'
 import { UpstreamEndpointsEditor } from './upstream-endpoints-editor'
 import { UpstreamPresetEndpoints } from './upstream-preset-endpoints'
 
@@ -60,6 +61,8 @@ export function UpstreamConnectionForm(props: {
   const [resolvingPreset, setResolvingPreset] = useState(false)
   const [advanced, setAdvanced] = useState(false)
   const advancedInvalid = [
+    'streamPolicy',
+    'rateLimit',
     'channelProxy',
     'customHeaders',
     'paramOverride',
@@ -132,6 +135,7 @@ export function UpstreamConnectionForm(props: {
     <Form {...form}>
       <form
         className='space-y-6'
+        noValidate
         onSubmit={form.handleSubmit((values) => save(values).catch(() => {}))}
       >
         <div className='space-y-3'>
@@ -293,6 +297,7 @@ export function UpstreamConnectionForm(props: {
             />
           </CollapsibleTrigger>
           <CollapsibleContent keepMounted className='space-y-5 border-t p-4'>
+            <ChannelRuntimeSettings disabled={pending} />
             <FormField
               control={form.control}
               name='useSystemProxy'
