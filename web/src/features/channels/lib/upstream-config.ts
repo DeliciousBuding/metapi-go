@@ -1,6 +1,7 @@
 import { t } from 'i18next'
 import { z } from 'zod'
 
+import { pluginBindingSchema } from '@/lib/api/channel-plugins'
 import type {
   ImportedCredential,
   ImportedEndpoint,
@@ -296,6 +297,7 @@ const endpointConfigSchema = z
   .strict()
 
 export const connectionSchema = z.object({
+  pluginBindings: z.array(pluginBindingSchema).max(8).optional(),
   name: z.string().trim().min(1, 'channels.upstream.required'),
   baseUrl: httpUrl,
   endpointConfig: z.custom<ImportedEndpointConfig>(
@@ -323,6 +325,7 @@ export function connectionValues(
   detail: ImportedUpstreamDetail
 ): ConnectionValues {
   return {
+    pluginBindings: [],
     name: detail.name,
     baseUrl: detail.baseUrl,
     endpointConfig: detail.endpointConfig ?? {},

@@ -13,6 +13,7 @@ import (
 // Imported upstreams are distinct from native account-backed route channels.
 // These projections deliberately never select credentials or custom headers.
 func RegisterImportedUpstreamRoutes(r chi.Router, db *sqlx.DB) {
+	RegisterChannelPluginRoutes(r, db)
 	RegisterUpstreamCatalogRoutes(r, db)
 	RegisterUpstreamLifecycleRoutes(r, db)
 	RegisterUpstreamPresetRoutes(r)

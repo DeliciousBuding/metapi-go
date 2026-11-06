@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"slices"
 
+	"github.com/deliciousbuding/metapi-go/internal/channelplugin"
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"github.com/deliciousbuding/metapi-go/proxy"
 )
@@ -55,13 +57,17 @@ func logDirectOperationWarnings(channelID int64, phase string, warnings []reques
 }
 
 func applyDirectRequestHeaderOperations(req *http.Request, channelID int64, wire *directProviderWire) error {
-	if wire == nil || len(wire.RequestConfig.Headers) == 0 {
+	if wire == nil || len(wire.RequestConfig.Headers)+len(wire.PluginHeaders) == 0 {
 		return nil
 	}
-	headers, warnings, err := requestoverride.ApplyHeaders(req.Header, wire.RequestConfig.Headers, wire.RequestContext)
+	operations := append(slices.Clone(wire.PluginHeaders), wire.RequestConfig.Headers...)
+	headers, warnings, err := requestoverride.ApplyHeaders(req.Header, operations, wire.RequestContext)
 	logDirectOperationWarnings(channelID, "headers", warnings)
 	if err != nil {
 		return err
+	}
+	if len(wire.PluginHeaders) > 0 && len(warnings) > 0 {
+		return channelplugin.ErrResult
 	}
 	req.Header = headers
 	return nil

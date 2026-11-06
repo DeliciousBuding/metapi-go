@@ -16,6 +16,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -235,8 +236,9 @@ func (h *importedUpstreamHandler) requestConfig(w http.ResponseWriter, r *http.R
 		"channelProxy": row.ChannelProxy,
 		// Header names stay editable; values are masked so Authorization,
 		// X-Api-Key, cookies, and any other operator secret are not echoed.
-		"customHeaders": maskImportedCustomHeaders(row.CustomHeaders),
-		"paramOverride": row.ParamOverride,
+		"customHeaders":  maskImportedCustomHeaders(row.CustomHeaders),
+		"paramOverride":  row.ParamOverride,
+		"pluginBindings": row.RequestConfig.Plugins,
 		// Operation values may include private headers or prompts. Readback
 		// exposes shape/counts only; edits replace the whole explicit contract.
 		"requestTransformSummary": map[string]any{
@@ -277,6 +279,10 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	previousEndpoints := row.Endpoints
+	if input["pluginBindings"] != nil && input["requestTransform"] != nil {
+		writeError(w, 400, "Choose plugin binding patch or whole request transform replacement")
+		return
+	}
 	previousCustomHeaders := row.CustomHeaders
 	type field struct {
 		column string
@@ -289,6 +295,7 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		"useSystemProxy": {"proxy", &row.UseSystemProxy}, "channelProxy": {"channel_proxy", &row.ChannelProxy},
 		"customHeaders": {"custom_header", &row.CustomHeaders}, "paramOverride": {"param_override", &row.ParamOverride},
 		"requestTransform": {"request_config", &row.RequestConfig},
+		"pluginBindings":   {"request_config", &row.RequestConfig.Plugins},
 		"rateLimit":        {"rate_limit", &row.RateLimit},
 		"streamPolicy":     {"stream_policy", &row.StreamPolicy},
 	}
@@ -313,7 +320,11 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		set = append(set, f.column+"=?")
-		args = append(args, f.target)
+		if name == "pluginBindings" {
+			args = append(args, &row.RequestConfig)
+		} else {
+			args = append(args, f.target)
+		}
 	}
 	if _, ok := input["customHeaders"]; ok {
 		// The editor round-trips masked values it read from request-config.
@@ -323,6 +334,12 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 	if err = validateImportedConfig(row); err != nil {
 		writeError(w, 400, err.Error())
 		return
+	}
+	if input["pluginBindings"] != nil || input["requestTransform"] != nil || input["endpointConfig"] != nil {
+		if err = channelplugins.ValidateBindings(r.Context(), tx, row.RequestConfig, row.Endpoints); err != nil {
+			writeError(w, 400, "Invalid channel plugin binding")
+			return
+		}
 	}
 	_, endpointsChanged := input["endpointConfig"]
 	_, chatChanged := input["openaiChatCompletionPath"]
