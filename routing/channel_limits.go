@@ -24,18 +24,25 @@ func (tr *TokenRouter) RevalidateQueuedChannel(ctx context.Context, selected *Se
 	now := time.Now()
 	mappedModel := ResolveMappedModel(requestedModel, match.Route.ModelMapping)
 	byDisplay := IsRouteDisplayNameMatch(requestedModel, match.Route.DisplayName)
+	var eligible []RouteChannelCandidate
 	for _, candidate := range match.Channels {
-		if candidate.Channel.ID != selected.Channel.ID || candidate.Direct == nil ||
-			candidate.Direct.ChannelID != selected.Direct.ChannelID || candidate.Direct.CredentialID != selected.Direct.CredentialID {
-			continue
-		}
 		var associationBlocker CandidateBlocker
 		candidate, associationBlocker = resolveAssociationCandidate(candidate, policy)
 		if associationBlocker.Code != "" {
-			return nil, nil
+			continue
 		}
 		if len(selector.getCandidateBlockers(candidate, requestedModel, byDisplay, nil, now.UTC().Format(time.RFC3339), policy)) != 0 {
-			return nil, nil
+			continue
+		}
+		eligible = append(eligible, candidate)
+	}
+	// Queue waiting can outlive configuration changes on a different channel.
+	// Re-evaluate native preference over the fresh authorized pool, not just
+	// the previously selected row.
+	for _, candidate := range filterStreamPolicyCandidates(eligible, policy) {
+		if candidate.Channel.ID != selected.Channel.ID || candidate.Direct == nil ||
+			candidate.Direct.ChannelID != selected.Direct.ChannelID || candidate.Direct.CredentialID != selected.Direct.CredentialID {
+			continue
 		}
 		// A changed concurrency policy requires a new queue decision; don't
 		// dispatch under a permit acquired for a different policy snapshot.

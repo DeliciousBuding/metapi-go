@@ -29,6 +29,10 @@
 
 ## 三种场景总览
 
+直接上游渠道新增 `upstream_channels.stream_policy`，双方言自动补列，现有
+渠道默认 `unlimited`。重新导入 AxonHub 备份会应用源 `require` / `forbid`
+策略；完整备份和跨数据库迁移保留该字段，无需手动 DDL。
+
 站点公告时间线升级会自动把同站点的旧 `notice:<内容哈希>` 记录合并为一条
 当前通知，旧内容保留在 `site_announcement_history`。独立上游公告 ID 保持独立。
 迁移选择最后观察到的内容作为当前版本，保留该版本的已读与忽略状态，系统事件

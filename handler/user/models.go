@@ -103,7 +103,7 @@ func (h *handler) listModels(w http.ResponseWriter, r *http.Request) {
 		}
 		eligible, direct := false, false
 		for _, candidate := range decision.Candidates {
-			if candidate.Eligible || candidate.AssociationContextRequired && len(candidate.Blockers) == 0 {
+			if candidate.Eligible || (candidate.AssociationContextRequired || candidate.StreamContextRequired) && len(candidate.Blockers) == 0 {
 				eligible = true
 				direct = direct || candidate.CandidateRef.Kind == "direct"
 			}
@@ -140,7 +140,7 @@ func modelExampleProtocols(ctx context.Context, catalog ModelCatalog, name strin
 			continue
 		}
 		for _, candidate := range decision.Candidates {
-			if (candidate.Eligible || candidate.AssociationContextRequired && len(candidate.Blockers) == 0) && candidate.CandidateRef.Kind == "direct" {
+			if (candidate.Eligible || (candidate.AssociationContextRequired || candidate.StreamContextRequired) && len(candidate.Blockers) == 0) && candidate.CandidateRef.Kind == "direct" {
 				protocols = append(protocols, protocol)
 				break
 			}

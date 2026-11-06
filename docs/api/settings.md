@@ -287,6 +287,34 @@ not predicate values. A conditional member's static priority cannot be changed
 locally; reimport source associations to change their precedence. Weight and
 protocol restrictions remain editable and cannot erase conditions.
 
+Channel `policies.stream` imports as `streamPolicy`: `unlimited` (also the
+default), `require`, or `forbid`. Streaming requests exclude `forbid` channels.
+Non-streaming requests first use eligible channels that do not require streaming,
+regardless of their relative priority; only when none remain may a `require`
+channel stream upstream and return an aggregated JSON response. This applies to
+Chat, Responses, Messages, Gemini and legacy Completions. Ollama upstreams use
+their existing native NDJSON adapter and client protocol bridge.
+
+Conditions always inspect the original downstream stream mode. Aggregation
+does not widen model/protocol grants, Key scope, or user budgets. Embeddings,
+media and Messages `count_tokens` cannot use a required-stream fallback.
+Queue waits preserve the original request's stream mode and condition snapshot;
+dispatch rechecks the current channel policy after waiting. Gateway-added
+streaming controls do not count as prompt expansion in the ordered-operation
+budget check; the original user reservation, output ceiling and content
+restrictions still apply.
+Native response fields, tools, reasoning/signatures and observed usage are
+retained; explicit stream errors, missing terminals, cancellation and
+configured byte/idle limits return failure before any partial JSON is sent.
+An explicit Responses `response.incomplete` with `max_output_tokens` or
+`content_filter`, and Gemini `promptFeedback.blockReason`, retain their native
+JSON outcome and usage. These are complete protocol outcomes, distinct from
+transport truncation. Codex endpoints retain their existing completed-only
+collector. Existing configured content-failure heuristics still apply.
+Unknown future native delta types may fail aggregation rather than silently
+lose their content. A catalog without a request keeps static authorized
+visibility and marks the streaming dimension as unevaluated.
+
 Channel `rateLimit` settings with absent, null or nonpositive `rpm`, `tpm` and
 `maxConcurrent` values retain the source's unlimited behavior. `queueSize` and
 `queueTimeoutMs` do not activate a limit without positive concurrency. Positive

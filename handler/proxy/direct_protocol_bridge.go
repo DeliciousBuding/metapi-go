@@ -59,7 +59,8 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, err.Error(), "upstream_error", requestID)
 		return true, nil
 	}
-	paths, err := directCandidatePaths(selected.Direct, ctx.DownstreamPath, model, ctx.IsStream)
+	upstreamStream := ctx.IsStream || selected.Direct.StreamPolicy == store.DirectStreamRequire
+	paths, err := directCandidatePaths(selected.Direct, ctx.DownstreamPath, model, upstreamStream)
 	if err != nil {
 		writeJSONErrorWithRequest(w, http.StatusBadRequest, err.Error(), "invalid_request_error", requestID)
 		return true, nil
@@ -93,6 +94,12 @@ func dispatchDirectEndpoint(w http.ResponseWriter, r *http.Request, ctx *Ctx, cf
 // conversion writes nothing, and an HTTP miss only continues via the narrow
 // direct-endpoint rejection policy in direct_fallback.go.
 func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, model string, proxyConfig *platform.ProxyConfig, path string, body []byte, contentType string, firstByteTimeoutMs int64, retry, maxRetries int, isLastEndpoint bool, requestID string) (bool, *pendingUpstreamFailure, bool) {
+	aggregateStream := !ctx.IsStream && selected.Direct.StreamPolicy == store.DirectStreamRequire
+	upstreamStream := ctx.IsStream || aggregateStream
+	if aggregateStream && (directStreamAggregateProtocol(ctx.DownstreamPath) == "" || directStreamAggregateProtocol(path) == "") {
+		writeJSONErrorWithRequest(w, http.StatusBadRequest, "Selected channel requires streaming for an unsupported request protocol", "invalid_request_error", requestID)
+		return true, nil, false
+	}
 	openCode := selected.Direct.Provider == "opencode_go" || selected.Direct.Provider == "opencode_go_anthropic"
 	// Scope forwarded session headers to the downstream key so shared upstream
 	// credentials cannot be resumed across keys (audit L28).
@@ -153,8 +160,11 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 	var protocolSession *relaykitbridge.Session
 	requestContext := requestoverride.NewContext(ctx.RawBody, r.Header, ctx.RequestedModel, model, directTransformProtocol(ctx.DownstreamPath))
 	body, err = requestoverride.BeforeProtocol(body, directTransformProtocol(ctx.DownstreamPath), selected.Direct.RequestConfig.Options)
+	if err == nil && aggregateStream {
+		body, err = requireDirectStreamBody(body, ctx.DownstreamPath)
+	}
 	if err == nil && directBridgeNeeded(ctx.DownstreamPath, path) {
-		body, protocolSession, err = prepareDirectProtocolRequest(r.Context(), endpoint, body, ctx.DownstreamPath, path, model, ctx.IsStream, options)
+		body, protocolSession, err = prepareDirectProtocolRequest(r.Context(), endpoint, body, ctx.DownstreamPath, path, model, upstreamStream, options)
 	}
 	if err == nil && selected.Direct.RequestConfig.Options.Active() {
 		body, err = requestoverride.AfterProtocol(body, directTransformProtocol(path), selected.Direct.RequestConfig.Options, selected.Direct.RequestConfig.NativeChatMapping)
@@ -195,7 +205,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 	}
 	expectUsage := false
 	if endpoint, _ := proxy.EndpointFromPath(path); endpoint == proxy.EndpointChat {
-		body, expectUsage = applyUpstreamStreamIncludeUsage(body, "openai", path, ctx.IsStream)
+		body, expectUsage = applyUpstreamStreamIncludeUsage(body, "openai", path, upstreamStream)
 	}
 	var wire *directProviderWire
 	if endpoint != nil && endpoint.Profile == "openrouter-image" {
@@ -207,7 +217,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 	} else if endpoint != nil && endpoint.Profile == "opencode-go" {
 		wire, err = prepareDirectOpenCodeWire(endpoint, openCodeBodyProfile, body, r.Header, ctx.directOpenCodeSession, sessionNamespace)
 	} else {
-		wire, err = prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header, sessionNamespace, directProviderRequest{Model: model, Stream: ctx.IsStream})
+		wire, err = prepareDirectProviderWire(endpoint, selected.Direct.ChannelID, credential, body, r.Header, sessionNamespace, directProviderRequest{Model: model, Stream: upstreamStream})
 	}
 	if err != nil {
 		if !isLastEndpoint {
@@ -237,8 +247,10 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 	}
 	wire.RequestConfig = selected.Direct.RequestConfig
 	wire.RequestContext = requestContext
+	wire.ForceStream = wire.ForceStream || aggregateStream
+	wire.AggregateStream = aggregateStream
 	if (len(selected.Direct.RequestConfig.Body) > 0 || selected.Direct.RequestConfig.Options.Active()) && ctx.Auth != nil && ctx.Auth.OwnerUserID != nil &&
-		!directUserOperationsWithinBudget(beforeOperations, wire.Body, path, ctx.lifecycle) {
+		!directUserOperationsWithinBudget(beforeOperations, wire.Body, path, ctx.lifecycle, aggregateStream) {
 		writeJSONErrorWithRequest(w, http.StatusForbidden, "Selected channel request operations exceed the admitted user request", "permission_error", requestID)
 		return true, nil, false
 	}

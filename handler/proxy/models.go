@@ -212,7 +212,7 @@ func filterModelsByRouteVisibility(ctx context.Context, explainer routeSelection
 			continue
 		}
 		for _, candidate := range decision.Candidates {
-			if candidate.Eligible || candidate.AssociationContextRequired && len(candidate.Blockers) == 0 {
+			if candidate.Eligible || (candidate.AssociationContextRequired || candidate.StreamContextRequired) && len(candidate.Blockers) == 0 {
 				available = append(available, model)
 				break
 			}

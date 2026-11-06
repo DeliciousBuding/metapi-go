@@ -105,6 +105,12 @@ func setExplanationContext(decision *RouteDecisionExplanation, policy Downstream
 	// This preview evaluates candidate filters, not admission, request-size
 	// limits, strategy selection/leases, or the upstream's actual response.
 	decision.NotEvaluated = []string{"downstreamAdmission", "requestContextLength", "strategySelection", "upstreamAvailability"}
+	for _, candidate := range decision.Candidates {
+		if candidate.StreamContextRequired {
+			decision.NotEvaluated = append(decision.NotEvaluated, "stream")
+			break
+		}
+	}
 	if policy.RequiredUpstreamProtocol == 0 {
 		decision.NotEvaluated = append(decision.NotEvaluated, "protocol")
 	}
@@ -192,6 +198,7 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 
 	for _, row := range match.Channels {
 		row, associationBlocker := resolveAssociationCandidate(row, policy)
+		streamBlocker := streamPolicyBlocker(row, policy)
 		// The execution owner produces codes and legacy messages together.
 		// Missing protocol remains fail-closed in execution, but is an unknown
 		// dimension in a preview, not proof that a grant is unauthorized.
@@ -199,13 +206,13 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 		reasons := make([]string, 0, len(blockers))
 		filtered := make([]CandidateBlocker, 0, len(blockers))
 		for _, blocker := range blockers {
-			if blocker.Code != "protocol_context_missing" && blocker.Code != "association_context_missing" {
+			if blocker.Code != "protocol_context_missing" && blocker.Code != "association_context_missing" && blocker.Code != "stream_context_missing" {
 				filtered = append(filtered, blocker)
 				reasons = append(reasons, blocker.Message)
 			}
 		}
 		eligibility := "eligible"
-		if policy.RequiredUpstreamProtocol == 0 || associationBlocker.Code == "association_context_missing" {
+		if policy.RequiredUpstreamProtocol == 0 || associationBlocker.Code == "association_context_missing" || streamBlocker.Code == "stream_context_missing" {
 			eligibility = "notEvaluated"
 		}
 		if len(filtered) > 0 {
@@ -218,6 +225,7 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 		}
 		candidate := RouteDecisionCandidate{
 			ChannelRateLimit:           selector.limitSnapshot(row),
+			StreamContextRequired:      streamBlocker.Code == "stream_context_missing",
 			AssociationContextRequired: associationBlocker.Code == "association_context_missing",
 			Eligibility:                eligibility,
 			Blockers:                   filtered,
@@ -248,6 +256,24 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 		}
 	}
 
+	if streamPolicyPrefersNative(available, policy) {
+		required := make(map[int64]bool)
+		for _, row := range available {
+			if row.Direct != nil && row.Direct.StreamPolicy == store.DirectStreamRequire {
+				required[row.Channel.ID] = true
+			}
+		}
+		for i := range candidates {
+			if required[candidates[i].ChannelID] {
+				candidates[i].Eligible = false
+				candidates[i].Eligibility = "blocked"
+				blocker := CandidateBlocker{"stream_native_preferred", "an authorized native non-streaming candidate is available"}
+				candidates[i].Blockers = append(candidates[i].Blockers, blocker)
+				candidates[i].Reason = blocker.Message
+			}
+		}
+		available = filterStreamPolicyCandidates(available, policy)
+	}
 	if len(available) == 0 {
 		if policy.RequiredUpstreamProtocol == 0 {
 			summary = append(summary, "缺少请求协议，候选资格未完整评估")

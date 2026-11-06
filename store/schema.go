@@ -406,6 +406,7 @@ type DirectUpstreamCandidate struct {
 	CustomHeader          string
 	ParamOverride         string
 	RequestConfig         DirectRequestConfig
+	StreamPolicy          string
 	ModelID               int64
 	ModelName             string
 	CredentialID          int64

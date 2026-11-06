@@ -21,6 +21,7 @@ func TestCodexCollectorNeverInventsTerminal(t *testing.T) {
 		{`{"type":"response.output_text.delta","delta":"partial"}`, `[DONE]`},
 		{`{"type":"response.failed","response":{"error":{"message":"private upstream error"}}}`},
 		{`{"type":"response.completed","response":{"status":"incomplete","output":[]}}`},
+		{`{"type":"response.incomplete","response":{"status":"incomplete","output":[],"incomplete_details":{"reason":"max_output_tokens"}}}`},
 		{`{"type":"response.completed","response":{"status":"completed"}}`},
 	} {
 		collector := CodexResponseCollector{}

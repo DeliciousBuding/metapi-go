@@ -55,6 +55,7 @@ type axonHubPlanChannel struct {
 	ParamOverride   string
 	RequestConfig   store.DirectRequestConfig
 	RateLimit       store.DirectRateLimit
+	StreamPolicy    string
 	Protocols       int
 	Tags            []string
 	CredentialKeys  []string
@@ -468,6 +469,7 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 		Endpoints:     endpoints,
 		ChannelProxy:  channelProxy,
 		ParamOverride: strings.TrimSpace(channel.Settings.OverrideParameters),
+		StreamPolicy:  store.NormalizeDirectStreamPolicy(channel.Policies.Stream),
 		RequestConfig: store.DirectRequestConfig{Config: requestoverride.Config{
 			Body:              channel.Settings.BodyOverrideOperations,
 			Headers:           channel.Settings.HeaderOverrideOperations,
@@ -545,7 +547,7 @@ func channelSkipReasons(channel AxonHubSourceChannel) []string {
 		reasons = append(reasons, "channel_policy_unsupported:"+field)
 	}
 	switch channel.Policies.Stream {
-	case "", "unlimited":
+	case "", "unlimited", "require", "forbid":
 	default:
 		reasons = append(reasons, "channel_stream_policy_unsupported")
 	}

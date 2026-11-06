@@ -129,6 +129,7 @@ func (s *ChannelSelector) SelectPreferredChannel(
 	}
 
 	// Find the preferred one
+	available = filterStreamPolicyCandidates(available, policy)
 	var preferred *RouteChannelCandidate
 	for i := range available {
 		if available[i].Channel.ID == preferredChannelID {
@@ -204,6 +205,7 @@ func (s *ChannelSelector) selectFromMatch(
 		}
 	}
 
+	available = filterStreamPolicyCandidates(available, policy)
 	if len(available) == 0 {
 		return nil, nil
 	}
@@ -721,6 +723,9 @@ func (s *ChannelSelector) getCandidateBlockers(
 	candidate = resolved
 	if associationBlocker.Code != "" {
 		reasons = append(reasons, associationBlocker)
+	}
+	if blocker := streamPolicyBlocker(candidate, policy); blocker.Code != "" {
+		reasons = append(reasons, blocker)
 	}
 	if direct := candidate.Direct; direct != nil {
 		if IsCooldownActive(candidate.Channel.CooldownUntil, nowISO) {

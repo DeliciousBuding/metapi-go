@@ -39,6 +39,7 @@ type importedChannelConfig struct {
 	ParamOverride  string                    `db:"param_override" json:"-"`
 	RequestConfig  store.DirectRequestConfig `db:"request_config" json:"-"`
 	RateLimit      store.DirectRateLimit     `db:"rate_limit" json:"rateLimit"`
+	StreamPolicy   string                    `db:"stream_policy" json:"streamPolicy"`
 }
 
 // maskedImportedHeaderValue is returned in place of every custom header value
@@ -113,7 +114,7 @@ func mergeMaskedImportedCustomHeaders(next, previous string) string {
 }
 
 const importedConfigSelect = `SELECT id,origin_key,provider,dialect,name,enabled,base_url,endpoint_config,
-openai_chat_completion_path,openai_response_path,anthropic_message_path,proxy,channel_proxy,custom_header,param_override,request_config,rate_limit
+openai_chat_completion_path,openai_response_path,anthropic_message_path,proxy,channel_proxy,custom_header,param_override,request_config,rate_limit,stream_policy
 FROM upstream_channels WHERE id=?`
 
 func importedReadError(w http.ResponseWriter, err error) {
@@ -289,6 +290,7 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		"customHeaders": {"custom_header", &row.CustomHeaders}, "paramOverride": {"param_override", &row.ParamOverride},
 		"requestTransform": {"request_config", &row.RequestConfig},
 		"rateLimit":        {"rate_limit", &row.RateLimit},
+		"streamPolicy":     {"stream_policy", &row.StreamPolicy},
 	}
 	set := []string{}
 	args := []any{}
@@ -390,6 +392,9 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 func validateImportedConfig(row importedChannelConfig) error {
 	if err := row.RateLimit.Validate(); err != nil {
 		return err
+	}
+	if !store.ValidDirectStreamPolicy(row.StreamPolicy) {
+		return fmt.Errorf("Invalid stream policy")
 	}
 	if err := row.RequestConfig.Validate(); err != nil {
 		return fmt.Errorf("Invalid request operations: %s", err)

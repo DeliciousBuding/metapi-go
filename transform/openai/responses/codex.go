@@ -52,12 +52,15 @@ var ErrCodexStreamIncomplete = errors.New("Codex response stream ended without a
 // owns idle timeouts and framing. A real terminal response is mandatory; EOF,
 // [DONE], errors, and partial deltas never manufacture a successful document.
 type CodexResponseCollector struct {
-	Limit    int64
-	used     int64
-	items    map[int]json.RawMessage
-	response json.RawMessage
-	err      error
-	terminal bool
+	Limit int64
+	// AllowIncomplete is used by native Responses stream aggregation. Codex
+	// retains its existing completed-only contract when this is false.
+	AllowIncomplete bool
+	used            int64
+	items           map[int]json.RawMessage
+	response        json.RawMessage
+	err             error
+	terminal        bool
 }
 
 func (c *CodexResponseCollector) AddData(raw []byte) error {
@@ -86,7 +89,7 @@ func (c *CodexResponseCollector) AddData(raw []byte) error {
 		return c.err
 	}
 	switch event.Type {
-	case "error", "response.failed", "response.incomplete":
+	case "error", "response.failed":
 		c.err = errors.New("Codex upstream did not complete the response")
 		return c.err
 	case "response.output_item.done":
@@ -98,7 +101,7 @@ func (c *CodexResponseCollector) AddData(raw []byte) error {
 			c.items = map[int]json.RawMessage{}
 		}
 		c.items[event.OutputIndex] = bytes.Clone(event.Item)
-	case "response.completed":
+	case "response.completed", "response.incomplete":
 		if c.terminal {
 			c.err = errors.New("duplicate Codex terminal response")
 			return c.err
@@ -110,7 +113,14 @@ func (c *CodexResponseCollector) AddData(raw []byte) error {
 		}
 		var status string
 		_ = json.Unmarshal(response["status"], &status)
-		if status != "completed" || (len(response["error"]) > 0 && string(response["error"]) != "null") {
+		validTerminal := event.Type == "response.completed" && status == "completed"
+		if c.AllowIncomplete && event.Type == "response.incomplete" && status == "incomplete" {
+			var details struct{ Reason string }
+			if json.Unmarshal(response["incomplete_details"], &details) == nil {
+				validTerminal = details.Reason == "max_output_tokens" || details.Reason == "content_filter"
+			}
+		}
+		if !validTerminal || (len(response["error"]) > 0 && string(response["error"]) != "null") {
 			c.err = ErrCodexStreamIncomplete
 			return c.err
 		}

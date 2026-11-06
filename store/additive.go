@@ -687,6 +687,17 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "upstream_channels", "rate_limit", "TEXT", "TEXT", "DEFAULT '{}' NOT NULL")
 		},
 	},
+	{
+		Version:     "direct_stream_policy_v1",
+		Description: "direct channel streaming requirement and prohibition",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "upstream_channels")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "upstream_channels", "stream_policy", "TEXT", "TEXT", "NOT NULL DEFAULT 'unlimited'")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

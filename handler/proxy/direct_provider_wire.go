@@ -19,6 +19,7 @@ type directProviderWire struct {
 	Headers         http.Header
 	Query           url.Values
 	ForceStream     bool
+	AggregateStream bool
 	StripToolPrefix bool
 	Profile         string
 	// ImageResponseFormat is the downstream output choice, never sent upstream.
