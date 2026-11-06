@@ -23,6 +23,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 修复
 
+- Responses WebSocket：正常结束会话时先完成关闭握手再停止读取，避免 Key 轮换或撤权后的连接以 EOF 异常结束（#1561）。
 - AxonHub 导入：有效条件关联按请求筛选候选并保留源优先级与协议边界；Responses WS 的原生尝试与 HTTP 回退共用每 turn 的条件上下文；缺少请求上下文的解释标为未评估，重新导入保留同一成员身份（#1561）。
 
 - OAuth 账户：刷新后仍能读取规范化存储的 refresh token、到期时间与会话状态，连续刷新可使用轮换后的凭据，账户身份继续以独立列为准。

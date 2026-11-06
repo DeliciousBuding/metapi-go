@@ -185,7 +185,6 @@ func HandleResponsesWebsocket(w http.ResponseWriter, r *http.Request) {
 			CloseCodexWebsocketSession(session.directRuntimeKey)
 			clearCodexSessionResponseID(session.directRuntimeKey)
 		}
-		_ = conn.Close(websocket.StatusNormalClosure, "session end")
 	}()
 
 	if err := session.loop(ctx); err != nil {
@@ -241,6 +240,9 @@ type responsesWSSession struct {
 func (s *responsesWSSession) loop(ctx context.Context) error {
 	ctx, cancelSession := context.WithCancel(ctx)
 	defer cancelSession()
+	// Canceling a pending Read closes its socket without a close handshake.
+	// Finish the peer handshake first, then stop the session reader.
+	defer func() { _ = s.conn.Close(websocket.StatusNormalClosure, "session end") }()
 	type incoming struct {
 		data []byte
 		err  error
