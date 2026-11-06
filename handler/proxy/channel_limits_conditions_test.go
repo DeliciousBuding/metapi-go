@@ -26,12 +26,17 @@ import (
 
 type queuedAssociationRouter struct {
 	*routing.TokenRouter
-	before chan *routecondition.Request
-	after  chan *routecondition.Request
+	before      chan *routecondition.Request
+	after       chan *routecondition.Request
+	beforeTrace chan string
+	afterTrace  chan string
 }
 
 func (r *queuedAssociationRouter) SelectChannel(ctx context.Context, model string, policy routing.DownstreamRoutingPolicy) (*routing.SelectedChannel, error) {
 	r.before <- policy.ResolveAssociationRequest()
+	if r.beforeTrace != nil {
+		r.beforeTrace <- policy.TraceIdentity
+	}
 	return r.TokenRouter.SelectChannel(ctx, model, policy)
 }
 
@@ -41,11 +46,14 @@ func (r *queuedAssociationRouter) RevalidateQueuedChannel(ctx context.Context, s
 		descriptor = policy.ResolveAssociationRequest()
 	}
 	r.after <- descriptor
+	if r.afterTrace != nil {
+		r.afterTrace <- policy.TraceIdentity
+	}
 	return r.TokenRouter.RevalidateQueuedChannel(ctx, selected, model, policy)
 }
 
 func TestQueuedConditionalOperationsKeepRequestSnapshot(t *testing.T) {
-	for _, change := range []string{"unchanged", "conditionDenied", "conditionProtocol", "conditionProtocolNarrowing", "keyPolicy", "freshEndpointAndOperations", "requiredAggregate", "requireBecameNative", "streamBecameForbidden", "embeddingsBecameRequired"} {
+	for _, change := range []string{"unchanged", "conditionDenied", "conditionProtocol", "conditionProtocolNarrowing", "keyPolicy", "freshEndpointAndOperations", "requiredAggregate", "requireBecameNative", "streamBecameForbidden", "embeddingsBecameRequired", "newNativeCandidate"} {
 		t.Run(change, func(t *testing.T) {
 			db, users, user, keys := newBudgetProxyUser(t)
 			videoExec(t, db, `UPDATE token_routes SET created_at='2026-11-05T00:00:00Z',updated_at='2026-11-05T00:00:00Z'`)
@@ -93,8 +101,23 @@ func TestQueuedConditionalOperationsKeepRequestSnapshot(t *testing.T) {
 			defer fresh.Close()
 			condition := `{"type":"group","conditions":[{"field":"request_header.X-Tier","operator":"eq","value":"gold"},{"field":"daily_time","operator":"within","value":"00:00-00:01"}]}`
 			raw := []byte(fmt.Sprintf(`{"version":"1.4","channels":[{"id":1,"type":"qiniu","name":"conditional-limited","base_url":%q,"credentials":{"apiKey":"synthetic-limited"},"supported_models":["provider"],"settings":{"rateLimit":{"rpm":10,"maxConcurrent":1,"queueSize":2},"bodyOverrideOperations":[{"op":"delete","path":"metadata"}],"headerOverrideOperations":[{"op":"set","path":"X-Imported","value":"original"}]}}],"models":[{"id":1,"model_id":"conditional-limited","type":"chat","settings":{"associations":[{"type":"channel_model","when":{"enabled":true,"condition":%s},"channelModel":{"channelId":1,"modelId":"provider"}}]}}]}`, upstream.URL, condition))
+			if change == "newNativeCandidate" {
+				var payload map[string]any
+				if err := json.Unmarshal(raw, &payload); err != nil {
+					t.Fatal(err)
+				}
+				channels := payload["channels"].([]any)
+				channels[0].(map[string]any)["policies"] = map[string]any{"stream": "require"}
+				payload["channels"] = append(channels, map[string]any{"id": 2, "type": "qiniu", "name": "new-native", "base_url": fresh.URL, "credentials": map[string]any{"apiKey": "synthetic-native"}, "supported_models": []string{"provider"}})
+				settings := payload["models"].([]any)[0].(map[string]any)["settings"].(map[string]any)
+				settings["associations"] = append(settings["associations"].([]any), map[string]any{"type": "channel_model", "channelModel": map[string]any{"channelId": 2, "modelId": "provider"}})
+				raw, _ = json.Marshal(payload)
+			}
 			if _, err := backup.ImportAxonHubV14(db, raw, "queued-conditional", false); err != nil {
 				t.Fatal(err)
+			}
+			if change == "newNativeCandidate" {
+				videoExec(t, db, `UPDATE upstream_channels SET enabled=FALSE WHERE origin_key='queued-conditional' AND source_id=2`)
 			}
 			if change == "requiredAggregate" || change == "requireBecameNative" {
 				videoExec(t, db, `UPDATE upstream_channels SET stream_policy='require'`)
@@ -124,7 +147,7 @@ func TestQueuedConditionalOperationsKeepRequestSnapshot(t *testing.T) {
 			if err := db.Get(&routeID, `SELECT id FROM token_routes WHERE model_pattern='conditional-limited'`); err != nil {
 				t.Fatal(err)
 			}
-			if err := db.Get(&channelID, `SELECT id FROM upstream_channels`); err != nil {
+			if err := db.Get(&channelID, `SELECT id FROM upstream_channels WHERE origin_key='queued-conditional' AND source_id=1`); err != nil {
 				t.Fatal(err)
 			}
 			if err := users.GrantUserGroupRoute(t.Context(), user.GroupID, routeID); err != nil {
@@ -142,7 +165,7 @@ func TestQueuedConditionalOperationsKeepRequestSnapshot(t *testing.T) {
 			t.Cleanup(func() { config.Set(priorConfig); SetUpstreamConfig(priorUpstream); routing.SetGlobalCache(nil) })
 			tokenRouter := routing.NewTokenRouter(service.NewProxyRoutingStore(db), &config.Config{}, nil, nil)
 			tokenRouter.SetChannelLimits(manager)
-			router := &queuedAssociationRouter{TokenRouter: tokenRouter, before: make(chan *routecondition.Request, 1), after: make(chan *routecondition.Request, 1)}
+			router := &queuedAssociationRouter{TokenRouter: tokenRouter, before: make(chan *routecondition.Request, 1), after: make(chan *routecondition.Request, 1), beforeTrace: make(chan string, 1), afterTrace: make(chan string, 1)}
 			SetUpstreamConfig(&UpstreamConfig{
 				Router: router, ChannelLimits: manager,
 				LogProxy: func(context.Context, proxy.ProxyLogEntry) error { return nil },
@@ -166,6 +189,7 @@ func TestQueuedConditionalOperationsKeepRequestSnapshot(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 			request.Header.Set("Authorization", "Bearer "+keys[0])
 			request.Header.Set("X-Tier", "gold")
+			request.Header.Set("AH-Trace-Id", "synthetic-queued-trace")
 			fixed := time.Date(2026, 1, 1, 0, 0, 30, 0, time.UTC)
 			resolve := lazyAssociationRequest(path, []byte(body), request.Header, change == "streamBecameForbidden", fixed)
 			request = request.WithContext(context.WithValue(request.Context(), associationRequestContextKey{}, resolve))
@@ -197,6 +221,9 @@ func TestQueuedConditionalOperationsKeepRequestSnapshot(t *testing.T) {
 			}
 			want := 200
 			switch change {
+			case "newNativeCandidate":
+				videoExec(t, db, `UPDATE upstream_channels SET enabled=TRUE WHERE origin_key='queued-conditional' AND source_id=2`)
+				want = 503
 			case "requireBecameNative":
 				videoExec(t, db, `UPDATE upstream_channels SET stream_policy='forbid'`)
 			case "streamBecameForbidden":
@@ -241,6 +268,9 @@ func TestQueuedConditionalOperationsKeepRequestSnapshot(t *testing.T) {
 			held.Release()
 			out := <-done
 			after := <-router.after
+			if beforeTrace, afterTrace := <-router.beforeTrace, <-router.afterTrace; beforeTrace == "" || beforeTrace != afterTrace {
+				t.Fatalf("queued Key refresh lost trace scope: before=%q after=%q", beforeTrace, afterTrace)
+			}
 			if original == nil || after != original || !after.Now.Equal(fixed) || after.Headers["X-Tier"] != "gold" {
 				t.Fatalf("queued turn facts replaced: before=%+v after=%+v", original, after)
 			}

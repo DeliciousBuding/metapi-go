@@ -150,6 +150,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	downstreamPolicy := RoutingPolicyFromAuth(ctx.Policy)
 	requestStream := ctx.IsStream
 	downstreamPolicy.RequestStream = &requestStream
+	downstreamPolicy.TraceIdentity = requestTraceIdentity(r.Context(), ctx.Auth, r.Header, ctx.RequestedModel)
 	// multi-tier: best-effort request context estimate for route tier pick.
 	// ctx is constructed non-nil by PrepareCtx (which returns a SurfResult on
 	// failure instead of a nil Ctx), so it is safe to dereference unguarded.
@@ -392,6 +393,9 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		}
 		if nextPending != nil {
 			pendingFailure = nextPending
+		}
+		if selected.AffinityPreferred && selected.Direct != nil {
+			rejectedDirectChannels[selected.Direct.ChannelID] = true
 		}
 		if admission != nil && admission.denied != nil {
 			if r.Context().Err() != nil {

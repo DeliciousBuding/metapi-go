@@ -41,6 +41,11 @@ const blockMessages: Record<string, string> = {
   source_key_missing_write_requests: 'scope',
   source_project_unavailable: 'project',
   source_key_routing_override_unsupported: 'routing',
+  'source_key_strategy_not_equivalent:adaptive': 'routing',
+  'source_key_strategy_not_equivalent:failover': 'routing',
+  'source_key_strategy_not_equivalent:circuit-breaker': 'routing',
+  source_key_strategy_unknown: 'routing',
+  source_key_trace_sticky_unknown: 'routing',
   source_key_model_mapping_unsupported: 'mapping',
 }
 
@@ -139,6 +144,14 @@ export function AccessPolicyEditor({
                   `settings.downstream.keys.access.blocks.${blockMessages[policy.blockReason] ?? 'unknown'}`
                 )}
               </p>
+            </Notice>
+          )}
+          {(policy.routingStrategy || policy.traceStickyMode) && (
+            <Notice tone='info'>
+              {t('settings.downstream.keys.access.routingPolicySummary', {
+                strategy: policy.routingStrategy || 'default',
+                sticky: policy.traceStickyMode || 'default',
+              })}
             </Notice>
           )}
           <div className='space-y-2'>

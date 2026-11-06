@@ -409,6 +409,7 @@ func (s *responsesWSSession) handleMessage(ctx context.Context, raw []byte) (tur
 	}
 	ctx = context.WithValue(ctx, associationRequestContextKey{},
 		lazyAssociationRequest("/v1/responses", associationBody, s.req.Header, true, time.Now()))
+	ctx = context.WithValue(ctx, traceIdentityContextKey{}, requestTraceIdentity(ctx, s.auth, s.req.Header, requestModel))
 
 	// C3: try Codex upstream wss when channel/platform allows; else HTTP bridge.
 	if output, handled, cerr := s.tryCodexUpstreamWSS(ctx, normalized.request, requestModel, supportsIncremental); handled {
@@ -969,6 +970,7 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 	requestStream := true
 	policy.RequestStream = &requestStream
 	policy.ResolveAssociationRequest = associationRequestFromContext(ctx)
+	policy.TraceIdentity = requestTraceIdentity(ctx, s.auth, s.req.Header, requestModel)
 	selected, selErr := cfg.Router.SelectChannel(ctx, requestModel, policy)
 	if selErr != nil || selected == nil {
 		return nil, false, nil

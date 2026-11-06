@@ -188,6 +188,32 @@ The parser accepts its generated `edges` metadata and default settings, rejects
 ambiguous duplicate JSON keys and invalid source identities, and keeps secrets
 out of the preview. Unknown executable fields remain explicit incompatibilities.
 
+Key/model routing policy was additionally audited against source `d96748f1`.
+Source system `retry_policy` routing defaults are flattened into each imported
+route, then explicit model settings override them; the active Key profile
+overrides the route at request time. `default` and `system_default` inherit.
+Source `round-robin` uses gateway `round_robin` rotation and reports
+`source_round_robin_replaced_by_gateway_rotation`: the source's decayed historical
+request scoring is not reproduced. Key `adaptive`, `failover` and
+`circuit-breaker` overrides remain blocked with
+`source_key_strategy_not_equivalent:<strategy>`; their multi-dimensional source
+scores are not silently mapped to a different strategy.
+
+Source sticky `disabled` and `prefer_previous_channel` import. The latter
+reports `source_trace_affinity_replaced_by_success_only_key_scope`: the source
+remembers selection immediately, whereas this gateway remembers only completed
+successes and isolates preference by Key, route and model. Default `AH-Trace-Id`
+and explicit Codex/OpenCode session headers are accepted; custom source header
+or body extraction and thread-derived identity are not imported and remain
+`source_custom_trace_extraction_not_imported`. Anonymous requests without an
+explicit stable identity gain no cross-request preference.
+
+Model mappings retain first-match, whole-string matching and fixed destination
+semantics. Go RE2 supports the documented ordinary regex subset; source
+lookaround/backreferences and other unsupported syntax keep the Key blocked as
+`source_key_model_mapping_unsupported`, without broadening its channel/model or
+quota boundary.
+
 The compiler resolves all six model-association kinds against supported models,
 prefixes, aliases and hide/lowercase settings. Developer-level associations are
 inherited unless the model opts out; local rules win ties, overlapping candidates
@@ -377,8 +403,8 @@ the current executable import contract:
   transport or expand the imported channel's HTTP grants.
 - Request operations outside the supported JSON/profile or authority boundaries below,
   stream policies,
-  unsupported proxy modes, and nonportable key-level
-  load-balancing/sticky overrides or regular expressions.
+  unsupported proxy modes, and the non-equivalent Key strategies, custom trace
+  extraction or unsupported regular expressions described above.
 - Source pricing, request history and deployment settings. Developer associations
   and quota-relevant usage are consumed as described above; this does not copy
   the source deployment's global settings or turn historical usage into live

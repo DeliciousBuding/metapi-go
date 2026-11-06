@@ -31,6 +31,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 ### 变更
 
 - `upstream_channels.stream_policy`：自动新增并默认 `unlimited`；导入与管理 API 支持 `require` / `forbid`，文本非流请求仅在无原生候选时聚合所需流，完整备份保留策略（#1561）。
+- Key 路由：支持 `accessPolicy.routingStrategy` 与 `traceStickyMode`；`token_routes.trace_sticky_mode` 默认禁用，成功会话偏好按 Key/模型隔离；源评分差异继续在导入预览说明（#1561）。
 - 渠道导入：支持有序 JSON/header 操作与协议序列化选项，保留导入预览中的授权与不支持边界；普通用户拒绝扩大已准入预算或增加不支持能力的请求变换（#1561）。
 - 渠道限流：AxonHub 正数 RPM/TPM/并发与 FIFO 队列可导入；`upstream_channels.rate_limit` 默认 `{}`，管理 API 支持整份替换。计数仅在本进程生效，重启清零（#1561）。
 - AxonHub 导入：支持 Antigravity 项目 OAuth 与 Gemini JSON/SSE 转发及协议转换；多源回退仍明确列为残留，测试用 fake providers 不生成供应渠道（#1560）。

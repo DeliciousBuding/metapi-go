@@ -26,6 +26,34 @@ vi.mock('@/lib/api', () => ({
 }))
 afterEach(cleanup)
 
+it('shows imported routing policy and preserves it during ordinary scope edits', async () => {
+  const onChange = vi.fn()
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <AccessPolicyEditor
+        value={{
+          allowedUpstreamChannelIds: [2],
+          routingStrategy: 'round_robin',
+          traceStickyMode: 'prefer_previous_channel',
+        }}
+        onChange={onChange}
+      />
+    </QueryClientProvider>
+  )
+  expect(
+    screen.getByText(/round_robin.*prefer_previous_channel/)
+  ).toBeInTheDocument()
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'Beta' }))
+  expect(onChange).toHaveBeenCalledWith({
+    allowedUpstreamChannelIds: [],
+    routingStrategy: 'round_robin',
+    traceStickyMode: 'prefer_previous_channel',
+  })
+})
+
 it('locates selected direct channels without mutating the policy and retains unavailable selections', async () => {
   const onChange = vi.fn()
   const client = new QueryClient({

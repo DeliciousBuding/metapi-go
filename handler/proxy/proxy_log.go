@@ -265,6 +265,7 @@ func writeSuccessProxyLog(
 		return
 	}
 	usage = applyDirectVideoAccounting(proxyCtx, usage)
+	rememberSuccessfulRouting(cfg, selected)
 	recordChannelRateUsage(ctx, usage)
 	requestLifecycleFromContext(ctx).observeUserBudgetUsageValidity(usage)
 	if requestID == "" {
@@ -393,6 +394,7 @@ func writeFailureProxyLog(
 	if cfg == nil || selected == nil {
 		return
 	}
+	forgetFailedRouting(cfg, selected)
 	usage = applyDirectVideoAccounting(proxyCtx, usage)
 	recordChannelRateUsage(ctx, usage)
 	requestLifecycleFromContext(ctx).observeUserBudgetUsageValidity(usage)

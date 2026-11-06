@@ -2229,6 +2229,7 @@
           "access": {
             "hint": "These restrictions apply together with the model grants and credential scope above.",
             "unreadable": "The saved policy cannot be read. Saving this form will preserve it. Reconcile the source configuration before changing access.",
+            "routingPolicySummary": "Routing strategy: {{strategy}}. Trace affinity: {{sticky}}. Configured by import or API; ordinary edits preserve these values.",
             "blockedTitle": "Imported access restrictions need attention",
             "blocks": {
               "keyType": "This source key type cannot send proxy requests.",

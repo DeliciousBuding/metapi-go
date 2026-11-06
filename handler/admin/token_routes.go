@@ -13,6 +13,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/upstream"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -94,7 +95,7 @@ type tokenRoutesHandler struct {
 // ---- List Lite ----
 // GET /api/routes/lite
 func (h *tokenRoutesHandler) listLite(w http.ResponseWriter, r *http.Request) {
-	rows, err := queryRowsErr(h.db, "SELECT id, model_pattern, display_name, display_icon, route_mode, routing_strategy, enabled, context_length FROM token_routes ORDER BY sort_order ASC, id ASC")
+	rows, err := queryRowsErr(h.db, "SELECT id, model_pattern, display_name, display_icon, route_mode, routing_strategy, trace_sticky_mode, enabled, context_length FROM token_routes ORDER BY sort_order ASC, id ASC")
 	if err != nil {
 		writeErrorCodeWithRequest(w, r, http.StatusInternalServerError, ErrorCodeResourceLoadFailed, "failed to load routes")
 		return
@@ -422,6 +423,7 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 		DisplayIcon     *string `json:"displayIcon"`
 		SourceRouteIds  []int64 `json:"sourceRouteIds"`
 		RoutingStrategy *string `json:"routingStrategy"`
+		TraceStickyMode *string `json:"traceStickyMode"`
 		// ContextLength is optional route metadata (tokens). NULL/omit/0 means unknown;
 		// not enforced at proxy runtime in currently (admin surface + /v1/models known limitation).
 		ContextLength any   `json:"contextLength"`
@@ -467,6 +469,14 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 	if body.RoutingStrategy != nil {
 		routingStrategy = *body.RoutingStrategy
 	}
+	sticky := "disabled"
+	if body.TraceStickyMode != nil {
+		sticky = *body.TraceStickyMode
+	}
+	if !store.ValidTraceStickyMode(sticky) {
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid traceStickyMode")
+		return
+	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
@@ -480,10 +490,10 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 	contextLength := normalizeContextLengthOrNull(body.ContextLength)
 
 	id, err := execInsertID(h.db,
-		`INSERT INTO token_routes (model_pattern, display_name, display_icon, route_mode, model_mapping, routing_strategy, context_length, enabled, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO token_routes (model_pattern, display_name, display_icon, route_mode, model_mapping, routing_strategy, trace_sticky_mode, context_length, enabled, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		modelPattern, strOrNull(&displayName), strOrNull(body.DisplayIcon), routeMode,
-		modelMapping, routingStrategy, contextLength, enabled, now, now,
+		modelMapping, routingStrategy, sticky, contextLength, enabled, now, now,
 	)
 	if err != nil {
 		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to create route")
@@ -631,6 +641,17 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 				writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route")
 				return
 			}
+		}
+	}
+	if v, ok := body["traceStickyMode"]; ok {
+		mode, valid := v.(string)
+		if !valid || !store.ValidTraceStickyMode(mode) {
+			writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid traceStickyMode")
+			return
+		}
+		if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET trace_sticky_mode=?,updated_at=? WHERE id=?"), mode, now, id); err != nil {
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route")
+			return
 		}
 	}
 	if v, ok := body["modelMapping"]; ok {

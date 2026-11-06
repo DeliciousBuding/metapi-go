@@ -49,8 +49,12 @@ func (tr *TokenRouter) RevalidateQueuedChannel(ctx context.Context, selected *Se
 		if candidate.Direct.RateLimit != selected.Direct.RateLimit {
 			return nil, nil
 		}
-		return selector.finalizeDispatch(ctx, &candidate, match, requestedModel, mappedModel, policy,
+		fresh, err := selector.finalizeDispatch(ctx, &candidate, match, requestedModel, mappedModel, policy,
 			false, "", "", false, nil, now.UTC().Format(time.RFC3339), now.UnixMilli())
+		if fresh != nil && fresh.AffinityScope != "" {
+			fresh.AffinityPreferred = selected.AffinityPreferred
+		}
+		return fresh, err
 	}
 	return nil, nil
 }

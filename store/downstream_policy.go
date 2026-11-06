@@ -22,6 +22,8 @@ type DownstreamAccessPolicy struct {
 	ModelMappings             []DownstreamModelMapping `json:"modelMappings,omitempty"`
 	Quota                     *DownstreamQuota         `json:"quota,omitempty"`
 	BlockReason               string                   `json:"blockReason,omitempty"`
+	RoutingStrategy           string                   `json:"routingStrategy,omitempty"`
+	TraceStickyMode           string                   `json:"traceStickyMode,omitempty"`
 }
 
 type DownstreamModelMapping struct {
@@ -74,6 +76,9 @@ func ParseDownstreamAccessPolicy(raw string) (*DownstreamAccessPolicy, error) {
 func (p *DownstreamAccessPolicy) Validate() error {
 	if p == nil {
 		return nil
+	}
+	if !ValidRoutingOverride(p.RoutingStrategy) || !ValidTraceStickyMode(p.TraceStickyMode) {
+		return errors.New("accessPolicy has an unsupported routing policy")
 	}
 	if p.AllowedUpstreamChannelIDs != nil {
 		for _, id := range *p.AllowedUpstreamChannelIDs {

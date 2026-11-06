@@ -698,6 +698,24 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "upstream_channels", "stream_policy", "TEXT", "TEXT", "NOT NULL DEFAULT 'unlimited'")
 		},
 	},
+	{
+		Version:     "route_trace_sticky_mode_v1",
+		Description: "route trace affinity policy with disabled legacy default",
+		Apply: func(db *DB) error {
+			return EnsureColumn(db, "token_routes", "trace_sticky_mode", "TEXT", "TEXT", "DEFAULT 'disabled' NOT NULL")
+		},
+	},
+	{
+		Version:     "direct_member_last_selected_v1",
+		Description: "direct route-member rotation observations",
+		Apply: func(db *DB) error {
+			exists, err := tableExists(db, "upstream_group_items")
+			if err != nil || !exists {
+				return err
+			}
+			return EnsureColumn(db, "upstream_group_items", "last_selected_at", "TEXT", "TEXT", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

@@ -17,7 +17,7 @@ var tableColumnCount = map[string]int{
 	"CheckinLog":                    7, // +failure_reason (sc2_012)
 	"ModelAvailability":             7,
 	"TokenModelAvailability":        6,
-	"TokenRoute":                    14,
+	"TokenRoute":                    15,
 	"RouteGroupSource":              3,
 	"OAuthRouteUnit":                8,
 	"OAuthRouteUnitMember":          19,
