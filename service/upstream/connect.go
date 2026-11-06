@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
 )
@@ -95,6 +96,9 @@ func Connect(ctx context.Context, db *sqlx.DB, in ConnectInput) (ConnectResult, 
 				}
 			}
 			out.Name = channel.Name
+		}
+		if err = channelplugins.ValidateBindings(ctx, tx, channel.RequestConfig, channel.Endpoints); err != nil {
+			return err
 		}
 		out.ID, err = InsertNative(ctx, tx, "channels", channel.Name, "generic", channel.Provider, true, channel.BaseURL, channel.Endpoints, "", "", "", channel.UseSystemProxy, channel.ChannelProxy, channel.CustomHeaders, channel.ParamOverride, "")
 		if err != nil {

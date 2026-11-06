@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
 )
@@ -37,6 +38,9 @@ func CreateChannel(ctx context.Context, db *sqlx.DB, in ChannelCreate) (int64, e
 	}
 	var id int64
 	err := Write(ctx, db, func(tx *sqlx.Tx) error {
+		if err := channelplugins.ValidateBindings(ctx, tx, in.RequestConfig, in.Endpoints); err != nil {
+			return err
+		}
 		var err error
 		id, err = InsertNative(ctx, tx, "channels", strings.TrimSpace(in.Name), in.Dialect, in.Provider, in.Enabled, in.BaseURL, in.Endpoints, in.ChatPath, in.ResponsesPath, in.MessagesPath, in.UseSystemProxy, in.ChannelProxy, in.CustomHeaders, in.ParamOverride, "")
 		if err == nil {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/deliciousbuding/metapi-go/transform/relaykitbridge"
@@ -28,6 +29,11 @@ type directProviderWire struct {
 	ProtocolSession     *relaykitbridge.Session
 	RequestConfig       store.DirectRequestConfig
 	RequestContext      requestoverride.Context
+	Plugins             []channelplugins.Invocation
+	PluginProtocol      string
+	PluginModel         string
+	PluginStream        bool
+	PluginHeaders       []requestoverride.Operation
 	removeHeaders       []string
 	removeEmptyHeaders  []string
 }

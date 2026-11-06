@@ -75,6 +75,7 @@ var schemaTables = []schemaTable{
 	{"catalog_sources", buildCatalogSourcesDDL},
 	{"admin_sessions", buildAdminSessionsDDL},
 	{"upstream_channels", buildUpstreamChannelsDDL},
+	{"channel_plugins", buildChannelPluginsDDL},
 	{"upstream_credentials", buildUpstreamCredentialsDDL},
 	{"upstream_models", buildUpstreamModelsDDL},
 	{"upstream_grants", buildUpstreamGrantsDDL},
@@ -120,6 +121,7 @@ var factoryResetExcludedTables = map[string]string{
 // (metadata.excluded_tables) so a backup file states its own gaps; keep each
 // one to a single sentence and put the long form in docs/api/settings.md.
 var backupExcludedTables = map[string]string{
+	"channel_plugins":                 "locally trusted executable plugins: backup imports must not install or enable code",
 	"gateway_user_credentials":        "local user password and activation digests: portable imports must not plant login credentials",
 	"gateway_user_sessions":           "local user session digests: restored deployments require fresh user login",
 	"gateway_user_budgets":            "local user credit balances: portable imports must not overwrite trusted balances or detach them from local identities",

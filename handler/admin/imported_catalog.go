@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/go-chi/chi/v5"
@@ -35,6 +36,10 @@ func RegisterUpstreamCatalogRoutes(r chi.Router, db *sqlx.DB) {
 type upstreamCatalogHandler struct{ db *sqlx.DB }
 
 func catalogError(w http.ResponseWriter, err error) {
+	if errors.Is(err, channelplugins.ErrUnavailable) || errors.Is(err, channelplugins.ErrBinding) {
+		writeError(w, 400, "Invalid channel plugin binding")
+		return
+	}
 	var domain *upstream.Error
 	if errors.As(err, &domain) {
 		if len(domain.MemberIDs) > 0 {

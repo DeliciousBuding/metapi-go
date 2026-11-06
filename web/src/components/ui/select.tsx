@@ -104,7 +104,12 @@ function SelectContent({
         {...props}
       >
         <SelectScrollUpButton />
-        <SelectPrimitive.List>{children}</SelectPrimitive.List>
+        <SelectPrimitive.List
+          aria-label={props['aria-label']}
+          aria-labelledby={props['aria-labelledby']}
+        >
+          {children}
+        </SelectPrimitive.List>
         <SelectScrollDownButton />
       </SelectPrimitive.Popup>
     </SelectPrimitive.Positioner>

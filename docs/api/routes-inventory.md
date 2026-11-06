@@ -11,6 +11,9 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 
 ### GET
 
+- `/api/channel-plugins`
+- `/api/channel-plugins/:key`
+
 - `/api/user/budget`
 - `/api/admin/users/:userId/budget`
 - `/api/admin/users/:userId/budget/holds`
@@ -235,6 +238,8 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/test/chat`
 ### PUT
 
+- `/api/channel-plugins/:key`
+
 - `/api/admin/users/:userId/budget`
 - `/api/admin/user-groups/:groupId/pricing`
 
@@ -263,6 +268,8 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/sites/:id/tags`
 ### PATCH
 
+- `/api/channel-plugins/:key`
+
 - `/api/imported-upstreams/models/:id`
 - `/api/imported-upstreams/grants/:id`
 - `/api/imported-upstreams/groups/:id`
@@ -273,6 +280,8 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/oauth/route-units/:routeUnitId`
 
 ### DELETE
+
+- `/api/channel-plugins/:key`
 
 - `/api/user/keys/:id`
 

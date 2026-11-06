@@ -17,6 +17,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/catalogsync"
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/service/pricingcatalog"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -53,9 +54,10 @@ func ConfigureProxyUpstream(cfg *config.Config) error {
 	decisionService := routing.NewRouteDecisionService(router, routingStore)
 	setTokenRouteDecisionRuntime(router, decisionService)
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
-		Router:      router,
-		Coordinator: coord,
-		Executor:    proxy.NewRuntimeExecutor(requestTimeout),
+		Router:         router,
+		Coordinator:    coord,
+		Executor:       proxy.NewRuntimeExecutor(requestTimeout),
+		ChannelPlugins: channelplugins.New(db.DB),
 		ResolveDirectCredential: func(ctx context.Context, id int64, proxyURL *string, force bool) (*oauth.DirectCredentialResult, error) {
 			return oauth.ResolveDirectCredential(ctx, db.DB, id, proxyURL, force)
 		},

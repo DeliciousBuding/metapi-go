@@ -28,6 +28,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/alert"
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/store"
 	messages "github.com/deliciousbuding/metapi-go/transform/anthropic/messages"
@@ -56,6 +57,7 @@ type UpstreamConfig struct {
 	// When nil, defaultLogProxyWriter uses store.GetDB() (no-op if DB unset).
 	LogProxy                func(ctx context.Context, entry proxy.ProxyLogEntry) error
 	ResolveDirectCredential func(context.Context, int64, *string, bool) (*oauth.DirectCredentialResult, error)
+	ChannelPlugins          *channelplugins.Manager
 }
 
 var upstreamCfg *UpstreamConfig
@@ -1339,6 +1341,21 @@ func dispatchEndpointAttemptWithContinue(
 	usage := body.parseUsage()
 	if aggregatedUsage != nil {
 		usage = *aggregatedUsage
+	}
+	if wire := directProviderWireFromContext(r.Context()); wire != nil && len(wire.Plugins) > 0 && body.readable {
+		var pluginErr error
+		respBody, pluginErr = applyDirectChannelResponsePlugins(r.Context(), wire, respBody, "response")
+		if pluginErr != nil {
+			reason := "Cannot execute selected channel response plugin"
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 502, false, usage, retry, requestID, reason)
+			writeJSONErrorWithRequest(w, 502, reason, "upstream_error", requestID)
+			observeProxyTerminal(ctx, shared.OutcomeUpstreamError, false, time.Since(startedAt))
+			return true, nil, false
+		}
+		resp.Header.Del("Content-Length")
+		resp.Header.Del("ETag")
+		resp.Header.Del("Content-MD5")
+		resp.Header.Del("Digest")
 	}
 	videoBody, videoErr := respBody, error(nil)
 	if selected.Direct != nil {

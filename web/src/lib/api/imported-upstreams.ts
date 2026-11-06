@@ -69,6 +69,7 @@ export type ImportedEndpointConfig = Partial<
 >
 
 export type ImportedRequestConfig = {
+  pluginBindings?: import('./channel-plugins').PluginBinding[] | null
   channelProxy: string
   customHeaders: string
   paramOverride: string
@@ -126,7 +127,7 @@ export type ImportedUpstreamUpdate = Partial<
   > &
     Pick<
       ImportedRequestConfig,
-      'channelProxy' | 'customHeaders' | 'paramOverride'
+      'channelProxy' | 'customHeaders' | 'paramOverride' | 'pluginBindings'
     >
 >
 

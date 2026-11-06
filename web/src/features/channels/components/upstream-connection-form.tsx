@@ -24,6 +24,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
+import { pluginBindingSchema } from '@/lib/api/channel-plugins'
 import type { ImportedUpstreamDetail } from '@/lib/api/imported-upstreams'
 import { toast } from '@/lib/toast'
 
@@ -35,6 +36,7 @@ import {
   upstreamKeys,
   type ConnectionValues,
 } from '../lib/upstream-config'
+import { ChannelPluginBindings } from './channel-plugin-bindings'
 import { UpstreamEndpointsEditor } from './upstream-endpoints-editor'
 import { UpstreamPresetEndpoints } from './upstream-preset-endpoints'
 
@@ -61,6 +63,7 @@ export function UpstreamConnectionForm(props: {
     'channelProxy',
     'customHeaders',
     'paramOverride',
+    'pluginBindings',
   ].some((key) => !!form.formState.errors[key as keyof ConnectionValues])
   const submitCount = form.formState.submitCount
   const legacyPaths =
@@ -101,6 +104,11 @@ export function UpstreamConnectionForm(props: {
         defaultValue: headersForEditor(config.customHeaders),
       })
       form.resetField('paramOverride', { defaultValue: config.paramOverride })
+      form.resetField('pluginBindings', {
+        defaultValue: pluginBindingSchema
+          .array()
+          .parse(config.pluginBindings ?? []),
+      })
       setConfigState('ready')
     } catch {
       if (!controller.signal.aborted) setConfigState('locked')
@@ -402,6 +410,27 @@ export function UpstreamConnectionForm(props: {
                       </FormLabel>
                       <FormControl>
                         <StringMapEditor {...field} disabled={pending} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='pluginBindings'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('channels.plugins.bindings')}</FormLabel>
+                      <FormDescription>
+                        {t('channels.plugins.bindingDescription')}
+                      </FormDescription>
+                      <FormControl>
+                        <ChannelPluginBindings
+                          {...field}
+                          value={field.value ?? []}
+                          endpoints={form.watch('endpointConfig')}
+                          disabled={pending}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -3,6 +3,7 @@ module github.com/deliciousbuding/metapi-go
 go 1.26.10
 
 require (
+	github.com/Calcium-Ion/moejs v0.1.0-alpha.7
 	github.com/QuantumNous/new-api/relaykit v0.3.5
 	github.com/coder/websocket v1.8.15
 	github.com/go-chi/chi/v5 v5.5.0

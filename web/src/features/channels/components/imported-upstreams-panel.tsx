@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Cable, RefreshCw, Search, Users, Plus } from 'lucide-react'
+import { Cable, RefreshCw, Search, Users, Plus, Puzzle } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -27,6 +27,7 @@ import { useUndoableDelete } from '@/lib/undoable-delete'
 import { useUpstreamClock } from '../hooks/use-upstream-clock'
 import { upstreamKeys } from '../lib/upstream-config'
 import type { UpstreamDetailTab } from '../lib/upstream-view'
+import { ChannelPluginManager } from './channel-plugin-manager'
 import { UpstreamConnectionCard } from './upstream-connection-card'
 import { UpstreamCreateSheet } from './upstream-create-sheet'
 import { UpstreamDetailSheet } from './upstream-detail-sheet'
@@ -132,6 +133,10 @@ export function ImportedUpstreamsPanel(props: {
                 {items.length}
               </span>
             </TabsTrigger>
+            <TabsTrigger value='plugins'>
+              <Puzzle />
+              {t('channels.plugins.title')}
+            </TabsTrigger>
           </TabsList>
           <Button size='sm' onClick={() => setCreating(true)}>
             <Plus aria-hidden='true' className='size-4' />
@@ -140,6 +145,9 @@ export function ImportedUpstreamsPanel(props: {
         </div>
         <TabsContent value='accounts' className='flex min-h-0 flex-col gap-3'>
           {props.children}
+        </TabsContent>
+        <TabsContent value='plugins' className='min-h-0 overflow-auto'>
+          <ChannelPluginManager />
         </TabsContent>
         <TabsContent value='upstreams' className='flex min-h-0 flex-col gap-3'>
           <div className='flex shrink-0 items-center gap-3'>

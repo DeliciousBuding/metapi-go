@@ -31,6 +31,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 渠道插件：新增 `/api/channel-plugins` 管理与有序 HTTP wire hooks；`channel_plugins` 保存本地可信代码，备份导入不安装插件；停用已绑定插件使新请求返回 503（#1589）。
+
 - `upstream_channels.stream_policy`：自动新增并默认 `unlimited`；导入与管理 API 支持 `require` / `forbid`，文本非流请求仅在无原生候选时聚合所需流，完整备份保留策略（#1561）。
 - Key 路由：支持 `accessPolicy.routingStrategy` 与 `traceStickyMode`；`token_routes.trace_sticky_mode` 默认禁用，成功会话偏好按 Key/模型隔离；源评分差异继续在导入预览说明（#1561）。
 - AxonHub 导入：原生 Responses 压缩与 direct WebSocket 使用独立授权，支持逐轮凭据刷新、撤权和有界连接生命周期（#1561）。

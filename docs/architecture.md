@@ -66,6 +66,13 @@ Metapi Go is a ground-up rewrite of the TypeScript Metapi proxy gateway in Go. T
 
 ## 渠道类型与多协议适配
 
+`internal/channelplugin` 负责无 I/O 的 moejs wire hooks；`service/channelplugins`
+拥有安装元数据、版本 CAS 和不可变尝试快照，`store.channel_plugins` 保存本地可信代码。
+渠道 `DirectRequestConfig.Plugins` 指定有序 HTTP 协议绑定，管理界面使用同一 manifest
+渲染选项，不读取私有请求操作。请求、响应和 SSE 接入已有 handler pipeline；
+路由、凭据、transport 和预算 owner 保持不变。合同与限制见
+[渠道插件 API](api/channel-plugins.md)。
+
 产品预设由 `service/upstream_presets.go` 管理品牌、套餐、凭据类型和各协议的
 默认主机；它们是连接的初始值，不限制高级自定义可以配置的协议。
 `service/upstream_preset_endpoints.go` 从 `internal/upstreamadapter.Templates`
