@@ -797,7 +797,7 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 
 	events := make([]map[string]any, 0, 16)
 	totalBytes := int64(0)
-	collector := &responses.CodexResponseCollector{}
+	collector := &responses.CodexResponseCollector{AllowIncomplete: input.AllowNativeIncomplete}
 	for {
 		readCtx, readCancel := context.WithTimeout(ctx, codexWSReadTimeout)
 		_, data, readErr := conn.Read(readCtx)
@@ -820,12 +820,6 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 			return nil, &CodexWebsocketRuntimeError{Message: "invalid or oversized upstream websocket response", Status: 502, Events: events}
 		}
 		events = append(events, parsed)
-		if input.AllowNativeIncomplete && nativeResponsesIncomplete(parsed) {
-			if rid := extractResponsesTerminalResponseID(parsed); rid != "" {
-				setCodexSessionResponseID(session.sessionID, rid)
-			}
-			return &CodexWebsocketRuntimeResult{Events: events, ReusedSession: reused}, nil
-		}
 		if collectErr := collector.AddData(data); collectErr != nil {
 			clearSessionSocket(session, conn)
 			_ = conn.Close(websocket.StatusGoingAway, "invalid terminal response")
@@ -849,23 +843,6 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 		}
 		return &CodexWebsocketRuntimeResult{Events: events, ReusedSession: reused}, nil
 	}
-}
-
-// Native Responses has complete, inspectable incomplete terminals for token
-// limits and content filtering. This opt-in does not relax Codex's contract.
-func nativeResponsesIncomplete(event map[string]any) bool {
-	if event["type"] != "response.incomplete" {
-		return false
-	}
-	response, ok := event["response"].(map[string]any)
-	if !ok || response["status"] != "incomplete" || response["error"] != nil {
-		return false
-	}
-	if _, ok := response["output"].([]any); !ok {
-		return false
-	}
-	details, _ := response["incomplete_details"].(map[string]any)
-	return details["reason"] == "max_output_tokens" || details["reason"] == "content_filter"
 }
 
 func clearSessionSocket(session *codexWSSocketSession, conn *websocket.Conn) {

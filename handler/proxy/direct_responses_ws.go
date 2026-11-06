@@ -213,7 +213,9 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 	}
 	for _, event := range result.Events {
 		writeCtx := ctx
-		if endpoint.Profile != "codex" && nativeResponsesIncomplete(event) {
+		// A successful runtime result has already passed the shared collector's
+		// native terminal validation. This only classifies downstream lifecycle.
+		if endpoint.Profile != "codex" && event["type"] == "response.incomplete" {
 			writeCtx = context.WithValue(ctx, acceptedNativeResponsesIncompleteKey{}, true)
 		}
 		if err := s.writeDirectResponsesEvent(writeCtx, event, model); err != nil {

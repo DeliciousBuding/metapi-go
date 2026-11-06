@@ -140,7 +140,8 @@ func (c *CodexResponseCollector) AddData(raw []byte) error {
 			}
 			response["output"], _ = json.Marshal(items)
 		}
-		if len(response["output"]) == 0 {
+		var output []json.RawMessage
+		if json.Unmarshal(response["output"], &output) != nil || output == nil {
 			c.err = ErrCodexStreamIncomplete
 			return c.err
 		}
