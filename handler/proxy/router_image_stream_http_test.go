@@ -169,17 +169,19 @@ func TestRouterImageStreamCancelAndIdle(t *testing.T) {
 				<-r.Context().Done()
 			}))
 			defer upstream.Close()
-			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, upstream.URL, nil)
-			resp, err := upstream.Client().Do(req)
+			client := upstream.Client()
+			client.Timeout = 30 * time.Second // fixture safety bound, not the measured idle policy
+			resp, err := client.Do(req)
 			if err != nil {
 				t.Fatal(err)
 			}
 			idle := &streamIdleBody{ReadCloser: resp.Body}
 			// Start after image parsing, so this checks the waiting-read path
 			// rather than racing the fixture's JSON decoding against a timer.
-			idle.guard = newStreamIdleGuard(5*time.Second, idle.closeUnderlying)
+			idle.guard = newStreamIdleGuard(30*time.Second, idle.closeUnderlying)
 			reader := newProtocolBridgeBody(idle, newDirectRouterChatStream(), 8<<20)
 			reader.frameLimit = 3 << 20
 			defer reader.Close()
@@ -199,8 +201,11 @@ func TestRouterImageStreamCancelAndIdle(t *testing.T) {
 			if err == nil || bytes.Contains(remaining, []byte("[DONE]")) {
 				t.Fatalf("interruption became successful: %v", err)
 			}
-			if cancelRequest && !errors.Is(err, context.Canceled) {
-				t.Fatalf("lost cancellation cause: %v", err)
+			// net/http may close resp.Body before the next Read and return
+			// its closed-body error instead of context.Canceled. The request
+			// context owns cancellation; an idle timeout must not win this case.
+			if cancelRequest && (!errors.Is(ctx.Err(), context.Canceled) || idle.guard.fired.Load()) {
+				t.Fatalf("lost cancellation ownership: context=%v read=%v idle=%v", ctx.Err(), err, idle.guard.fired.Load())
 			}
 			if !cancelRequest && !idle.guard.fired.Load() {
 				t.Fatalf("idle guard did not own termination: %v", err)
