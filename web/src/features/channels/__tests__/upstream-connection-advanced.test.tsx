@@ -16,6 +16,11 @@ import type { ImportedUpstreamDetail } from '@/lib/api/imported-upstreams'
 import type { UpstreamPreset } from '@/lib/api/upstream-presets'
 
 import { UpstreamConnectionForm } from '../components/upstream-connection-form'
+import {
+  connectionPatch,
+  connectionSchema,
+  connectionValues,
+} from '../lib/upstream-config'
 
 const mocks = vi.hoisted(() => ({
   update: vi.fn(),
@@ -180,6 +185,195 @@ describe('advanced upstream connection settings', () => {
         },
       })
     )
+  })
+})
+
+describe('channel runtime policies', () => {
+  const limits = {
+    rpm: 12,
+    tpm: 2400,
+    maxConcurrent: 2,
+    queueSize: 4,
+    queueTimeoutMs: 5000,
+  }
+  function openPolicies() {
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
+  }
+
+  it('edits one limit without dropping the other limits or reading private settings', async () => {
+    mount({ rateLimit: limits, streamPolicy: 'forbid' })
+    openPolicies()
+    expect(
+      screen.getByRole('combobox', { name: 'Upstream streaming' })
+    ).toHaveTextContent('Do not stream')
+    expect(
+      screen.getByRole('spinbutton', { name: 'Requests per minute (RPM)' })
+    ).toHaveValue(12)
+    expect(
+      screen.getByRole('spinbutton', {
+        name: 'Measured tokens per minute (TPM)',
+      })
+    ).toHaveValue(2400)
+    expect(
+      screen.getByRole('spinbutton', { name: 'Maximum concurrent requests' })
+    ).toHaveValue(2)
+    expect(
+      screen.getByRole('spinbutton', { name: 'Maximum waiting requests' })
+    ).toHaveValue(4)
+    expect(
+      screen.getByRole('spinbutton', { name: 'Queue timeout (ms)' })
+    ).toHaveValue(5000)
+    expect(screen.getByText(/one gateway process/)).toBeVisible()
+    expect(
+      screen.getByText(/routing preference, not a hard token cap/)
+    ).toBeVisible()
+    fireEvent.change(
+      screen.getByRole('spinbutton', { name: 'Requests per minute (RPM)' }),
+      { target: { value: '20' } }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenCalledWith(4, {
+        rateLimit: { ...limits, rpm: 20 },
+      })
+    )
+    expect(mocks.requestConfig).not.toHaveBeenCalled()
+  })
+
+  it('keeps queue settings editable when concurrency is zero, without pretending they are active', async () => {
+    mount({ rateLimit: { queueSize: 4, queueTimeoutMs: 5000 } })
+    openPolicies()
+    expect(screen.getByText(/Queue settings only apply/)).toBeVisible()
+    expect(
+      screen.getByRole('spinbutton', { name: 'Maximum waiting requests' })
+    ).toBeEnabled()
+    fireEvent.change(
+      screen.getByRole('spinbutton', { name: 'Maximum concurrent requests' }),
+      { target: { value: '2' } }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenCalledWith(4, {
+        rateLimit: { maxConcurrent: 2, queueSize: 4, queueTimeoutMs: 5000 },
+      })
+    )
+  })
+
+  it('clears every limit explicitly and preserves unrelated configuration', async () => {
+    mount({ rateLimit: limits, streamPolicy: 'require' })
+    openPolicies()
+    for (const input of screen.getAllByRole('spinbutton')) {
+      fireEvent.change(input, { target: { value: '' } })
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenCalledWith(4, { rateLimit: {} })
+    )
+    expect(mocks.requestConfig).not.toHaveBeenCalled()
+  })
+
+  it('saves streaming independently with an accessible option list', async () => {
+    mount({ rateLimit: limits })
+    openPolicies()
+    fireEvent.click(
+      screen.getByRole('combobox', { name: 'Upstream streaming' })
+    )
+    const choices = await screen.findByRole('listbox', {
+      name: 'Upstream streaming',
+    })
+    const option = within(choices).getByRole('option', {
+      name: 'Require upstream streaming',
+    })
+    fireEvent.pointerDown(option)
+    fireEvent.click(option)
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenCalledWith(4, { streamPolicy: 'require' })
+    )
+    expect(
+      screen.getByText(/aggregate supported non-streaming requests/)
+    ).toBeVisible()
+    expect(mocks.requestConfig).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['Requests per minute (RPM)', '-1'],
+    ['Measured tokens per minute (TPM)', '1.5'],
+    ['Maximum concurrent requests', '9007199254740992'],
+    ['Queue timeout (ms)', '9223372036855'],
+  ])(
+    'reveals a collapsed invalid %s and blocks the write',
+    async (name, value) => {
+      mount()
+      openPolicies()
+      fireEvent.change(screen.getByRole('spinbutton', { name }), {
+        target: { value },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: 'Advanced settings' })
+        ).toHaveAttribute('aria-expanded', 'true')
+      )
+      expect(screen.getByRole('spinbutton', { name })).toHaveAttribute(
+        'aria-invalid',
+        'true'
+      )
+      expect(mocks.update).not.toHaveBeenCalled()
+    }
+  )
+
+  it('retains the policy draft after a failed write and allows a retry', async () => {
+    mocks.update.mockRejectedValueOnce(new Error('fixture write failed'))
+    mount({ rateLimit: limits })
+    openPolicies()
+    fireEvent.change(
+      screen.getByRole('spinbutton', { name: 'Requests per minute (RPM)' }),
+      { target: { value: '20' } }
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Save connection' })
+      ).toBeEnabled()
+    )
+    expect(
+      screen.getByRole('spinbutton', { name: 'Requests per minute (RPM)' })
+    ).toHaveValue(20)
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(2))
+    expect(mocks.update).toHaveBeenLastCalledWith(4, {
+      rateLimit: { ...limits, rpm: 20 },
+    })
+  })
+
+  it('does not add runtime policies to ordinary rename patches', () => {
+    const values = connectionValues({
+      ...detail,
+      rateLimit: limits,
+      streamPolicy: 'require',
+    })
+    expect(
+      connectionPatch({ ...values, name: 'Renamed' }, { name: true })
+    ).toEqual({ name: 'Renamed' })
+    expect(connectionSchema.safeParse(values).success).toBe(true)
+  })
+
+  it('renders Chinese policy labels and explanations without exposing private settings', async () => {
+    await i18n.changeLanguage('zhCN')
+    mount({ rateLimit: limits })
+    fireEvent.click(screen.getByRole('button', { name: '高级设置' }))
+    expect(
+      screen.getByRole('combobox', { name: '上游流式策略' })
+    ).toHaveTextContent('跟随请求')
+    expect(
+      screen.getByRole('spinbutton', { name: '最大并发请求数' })
+    ).toHaveValue(2)
+    expect(screen.getByText(/不是集群级限流/)).toBeVisible()
+    expect(screen.getByText(/不是 Token 硬上限/)).toBeVisible()
+    expect(mocks.requestConfig).not.toHaveBeenCalled()
   })
 })
 

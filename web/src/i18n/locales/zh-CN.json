@@ -4606,6 +4606,35 @@
         "emptyAction": "接入上游",
         "connection": "连接",
         "advanced": "高级设置",
+        "runtimeSettings": "流量与流式策略",
+        "runtimeScope": "计数和队列覆盖本渠道的全部模型与凭据，作用于单个网关进程；重启后重置，不是集群级限流。",
+        "streamPolicy": "上游流式策略",
+        "streamOptions": {
+          "unlimited": "跟随请求",
+          "require": "要求上游流式",
+          "forbid": "禁止流式"
+        },
+        "streamHints": {
+          "unlimited": "沿用原始请求的流式模式。",
+          "require": "仅在没有其他合格的非必需流式渠道时，向上游发起流式请求并聚合受支持的非流式请求。不会增加协议授权；嵌入、媒体和 count_tokens 不使用此回退。",
+          "forbid": "流式请求不选择此渠道；非流式请求仍可使用。"
+        },
+        "limits": {
+          "rpm": "每分钟请求数（RPM）",
+          "tpm": "每分钟实测 Token 数（TPM）",
+          "maxConcurrent": "最大并发请求数",
+          "queueSize": "最大排队请求数",
+          "queueTimeoutMs": "排队超时（毫秒）"
+        },
+        "limitHints": {
+          "rpm": "0 表示不限。按自然分钟计数上游逻辑尝试，不是客户端入站请求数。",
+          "tpm": "0 表示不限。根据实测用量降低选路优先级，不是 Token 硬上限，也不预扣估算用量。",
+          "maxConcurrent": "0 表示不限。正数限制渠道总并发，超出后按先入先出顺序排队。",
+          "queueSize": "0 表示队列大小不限。仅在最大并发请求数为正数时，排队设置才生效。",
+          "queueTimeoutMs": "0 表示不追加排队超时，客户端取消仍生效。需要最大并发请求数为正数。"
+        },
+        "invalidLimit": "请输入非负安全整数，最大为 9007199254740991。",
+        "invalidQueueTimeout": "排队超时不能超过 9223372036854 毫秒。",
         "credentials": "凭据",
         "routes": "路由",
         "name": "名称",
