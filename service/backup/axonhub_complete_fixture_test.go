@@ -68,13 +68,13 @@ func TestAxonHubCompleteFixturePreview(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := len(plan.channels), 87; got != want {
+	if got, want := len(plan.channels), 88; got != want {
 		t.Fatalf("routable channels = %d, want %d (skipped: %+v)", got, want, plan.skipped)
 	}
 	if got, want := len(plan.keys), 10; got != want {
 		t.Fatalf("routable keys = %d, want %d", got, want)
 	}
-	if got, want := len(plan.credentials), 89; got != want {
+	if got, want := len(plan.credentials), 90; got != want {
 		t.Fatalf("credentials = %d, want %d", got, want)
 	}
 	if len(plan.blocking) != 0 {
@@ -255,10 +255,10 @@ func TestAxonHubCompleteFixtureImport(t *testing.T) {
 	if _, err := ImportAxonHubV14(db, raw, "complete-origin", false); err != nil {
 		t.Fatalf("import complete fixture: %v", err)
 	}
-	if got, want := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`), 87; got != want {
+	if got, want := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`), 88; got != want {
 		t.Fatalf("upstream_channels = %d, want %d", got, want)
 	}
-	if got, want := countRows(t, db, `SELECT COUNT(*) FROM upstream_credentials`), 89; got != want {
+	if got, want := countRows(t, db, `SELECT COUNT(*) FROM upstream_credentials`), 90; got != want {
 		t.Fatalf("upstream_credentials = %d, want %d", got, want)
 	}
 	if got, want := countRows(t, db, `SELECT COUNT(*) FROM upstream_models`), 48; got != want {
@@ -281,7 +281,7 @@ func TestAxonHubCompleteFixtureImport(t *testing.T) {
 	// Every imported entity type keeps an origin-scoped source-id mapping so a
 	// re-import updates the same rows instead of duplicating them.
 	for entity, want := range map[string]int{
-		"upstream_channels": 87, "upstream_credentials": 89,
+		"upstream_channels": 88, "upstream_credentials": 90,
 		"upstream_models": 48, "upstream_grants": 49,
 		"upstream_groups": 47, "upstream_group_items": 51,
 		"token_routes": 47, "downstream_api_keys": 10,
@@ -447,8 +447,8 @@ func TestAxonHubCompleteFixtureImport(t *testing.T) {
 		t.Fatalf("rolling key channels = %+v, want 2", ids)
 	}
 	noneIDs := loadImportedAccessPolicy(t, db, "sk-synthetic-complete-key-511").AllowedUpstreamChannelIDs
-	if noneIDs == nil || len(*noneIDs) != 84 {
-		t.Fatalf("none-tags key channels = %+v, want 84", noneIDs)
+	if noneIDs == nil || len(*noneIDs) != 85 {
+		t.Fatalf("none-tags key channels = %+v, want 85", noneIDs)
 	}
 	for _, id := range *noneIDs {
 		var name string
@@ -500,10 +500,10 @@ func TestAxonHubCompleteFixtureImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-import: %v", err)
 	}
-	if second["channels"] != 87 || second["routes"] != 47 || second["apiKeys"] != 10 {
+	if second["channels"] != 88 || second["routes"] != 47 || second["apiKeys"] != 10 {
 		t.Fatalf("re-import counts drifted: %#v", second)
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got != 87 {
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got != 88 {
 		t.Fatalf("re-import duplicated channels: %d", got)
 	}
 	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_grants WHERE success_count = 7`); got != 49 {
@@ -552,7 +552,7 @@ func TestAxonHubCompleteFixtureReplacement(t *testing.T) {
 	if _, err := ImportAxonHubV14(db, reduced, "complete-origin", false); !errors.Is(err, ErrAxonHubReplacementRequired) {
 		t.Fatalf("unconfirmed replacement = %v", err)
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got != 87 {
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got != 88 {
 		t.Fatalf("refused replacement changed channels: %d", got)
 	}
 	if _, err := ImportAxonHubV14(db, reduced, "complete-origin", true); err != nil {
@@ -561,7 +561,7 @@ func TestAxonHubCompleteFixtureReplacement(t *testing.T) {
 	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels WHERE name = 'Complete OpenAI primary'`); got != 0 {
 		t.Fatal("replacement kept the removed channel")
 	}
-	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got >= 87 {
+	if got := countRows(t, db, `SELECT COUNT(*) FROM upstream_channels`); got >= 88 {
 		t.Fatalf("replacement did not remove channels: %d", got)
 	}
 }
