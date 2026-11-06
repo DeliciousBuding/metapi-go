@@ -73,10 +73,9 @@ type CatalogRefreshApplyResult struct {
 }
 
 // DiscoveryCredentialResolver resolves one stored credential to a usable
-// bearer token, performing the credential kind's exchange when its cached
-// token is missing or expired (gcp_service_account). The caller wires it —
-// the admin handler uses oauth.ResolveDirectCredential; nil means only
-// stored secrets are usable. Resolving may write the credential's token
+// bearer token through the shared OAuth/service-account lifecycle. The caller
+// wires it — the admin handler uses oauth.ResolveDirectCredential; nil means
+// only static API keys are usable. Resolving may write the credential's token
 // cache (the same lazily-refreshed cache real requests maintain); catalog
 // rows are still never written by preview.
 type DiscoveryCredentialResolver func(ctx context.Context, credentialID int64, proxyURL *string) (string, error)
@@ -111,11 +110,10 @@ func loadCatalogChannel(ctx context.Context, db *sqlx.DB, channelID int64) (*cat
 }
 
 // loadDiscoveryCredential returns a usable bearer token from the channel's
-// first enabled credential. Stored secrets (api_key) are used as-is;
-// gcp_service_account credentials hold no token until their first exchange,
-// so they go through the resolver — a channel whose only credential is a
-// service account still discovers. Tokens are used for the upstream call
-// only and never leave the process.
+// first usable enabled credential. Static API keys are used as-is. OAuth and
+// service accounts always go through the credential owner, even when secret
+// contains an old cached token: expiry, replacement and revocation are not
+// decisions the catalog can safely infer. Tokens never leave the process.
 func loadDiscoveryCredential(ctx context.Context, db *sqlx.DB, channelID int64, proxyURL *string, resolve DiscoveryCredentialResolver) (string, error) {
 	rows := []struct {
 		ID     int64  `db:"id"`
@@ -127,10 +125,16 @@ func loadDiscoveryCredential(ctx context.Context, db *sqlx.DB, channelID int64, 
 	}
 	exchangeFailed := false
 	for _, row := range rows {
-		if row.Kind != store.DirectCredentialGCPServiceAccount {
+		switch row.Kind {
+		case store.DirectCredentialAPIKey:
 			if row.Secret != "" {
 				return row.Secret, nil
 			}
+			continue
+		case store.DirectCredentialOAuth, store.DirectCredentialGCPServiceAccount:
+			// These kinds require a current credential resolution, never a
+			// fallback to their stored token after the resolver rejects them.
+		default:
 			continue
 		}
 		if resolve == nil {

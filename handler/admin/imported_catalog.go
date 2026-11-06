@@ -134,8 +134,8 @@ func (h *upstreamCatalogHandler) createModels(w http.ResponseWriter, r *http.Req
 	writeJSON(w, 201, map[string]any{"items": out})
 }
 
-// discoveryCredentialResolver resolves refreshable credential kinds (GCP
-// service account) to a usable bearer token through the oauth owner.
+// discoveryCredentialResolver resolves OAuth/service-account credentials
+// through the same current-state owner as relay requests.
 func (h *upstreamCatalogHandler) discoveryCredentialResolver(ctx context.Context, credentialID int64, proxyURL *string) (string, error) {
 	res, err := oauth.ResolveDirectCredential(ctx, h.db, credentialID, proxyURL, false)
 	if err != nil {
