@@ -106,6 +106,26 @@ Direct Responses 的 HTTP、compaction 和 WebSocket 使用独立 endpoint/grant
 渠道准入和显式代理接入既有 `codex_ws_runtime.go`；不建立第二个连接池。
 运行时区分升级失败与已发送事件，后者不得被回退路径重放。
 
+### 渠道配置的职责与执行
+
+渠道由多个独立配置维度组成，不将供应商名称当作完整能力，也不将添加设置
+视作扩大权限。管理界面和实际派发应沿用以下已存在的 owner：
+
+| 配置维度 | 实现归属 | 不能隐含改变的边界 |
+| --- | --- | --- |
+| 供应商预设与协议端点 | `service/upstream`、`store.DirectEndpoints`、`proxy/profiles` | 预设只是初始配置；原生 HTTP、compact、WebSocket 分别配置与授权 |
+| 凭据与身份生命周期 | `service/oauth`、`store` | API Key/OAuth/GCP 由对应 resolver 处理，不由请求 hook 接管 |
+| 模型与访问授权 | `upstream_models`、`upstream_grants`、`upstream_group_items` | 模型发现、新增端点或插件安装不自动授予访问 |
+| 选路与流式策略 | `routing`、`handler/proxy`、`transform/streamaggregate` | 硬授权先于偏好；流式聚合不扩大协议或用户预算 |
+| 渠道流量与队列 | `internal/channellimit`、`handler/proxy` | 本进程并发/RPM 硬限制和实测 TPM 偏好分开；不宣称集群配额 |
+| 请求自定义与插件 | `internal/requestoverride`、`internal/channelplugin`、`service/channelplugins` | 变换执行当前渠道尝试，不选择路由、不获得凭据或额外网络能力 |
+
+渠道编辑页的高级设置按“流量与流式策略”和“请求配置”分区。前者直接消费
+安全的详情字段，不触发私有配置读取；后者继续要求管理员显式打开。
+`connectionPatch` 仅提交改动字段，对 `rateLimit` 按管理 API 的整份替换
+合同保留其他限流维度。具体默认值、校验和生效范围见
+[渠道管理 API](api/routes.md#patch-apiimported-upstreamsid)。
+
 ## Ownership and boundary map
 
 The layering is a **denylist of import edges**, not a file inventory: each

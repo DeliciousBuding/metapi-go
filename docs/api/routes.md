@@ -151,7 +151,7 @@ It does not implement SigV4 or `count_tokens`.
 
 Returns a flat editable connection object: `id`, `originKey`, `ownership`, `provider`, `dialect`,
 `name`, `enabled`, `baseUrl`, `endpointConfig`, `openaiChatCompletionPath`,
-`openaiResponsePath`, `anthropicMessagePath`, `useSystemProxy`, and `rateLimit`. The three
+`openaiResponsePath`, `anthropicMessagePath`, `useSystemProxy`, `streamPolicy`, and `rateLimit`. The three
 request-configuration values below are omitted; only `hasChannelProxy`,
 `channelProxyDisplay` (without user information), `hasCustomHeaders`, and
 `hasParamOverride`, and `hasRequestTransform` are returned. The response is `Cache-Control: no-store`.
@@ -202,6 +202,13 @@ RPM buckets, measured TPM ranking and FIFO queue; route explain reports
 `channelRateLimit` with the current configuration, active/waiting counts,
 requests/tokens/unknown usage, load score and `exhaustedBy` reason. This snapshot
 does not reserve a slot or guarantee that a subsequent request can dispatch.
+
+渠道编辑页的“高级设置 → 流量与流式策略”直接编辑上述 `streamPolicy` 和
+`rateLimit`，不读取私有请求设置。仅修改其他连接字段时不写回这些策略；修改
+一个限流维度时保留其余维度，全部归零则发送 `rateLimit:{}` 显式清除。
+空数字输入按 0 处理。前端限制为非负安全整数，排队超时还受后端
+`time.Duration` 的 9223372036854 毫秒上限约束。队列配置可在并发为 0 时保留，
+但此时不生效；TPM 是实测用量的选路偏好，不是硬 Token 配额。
 
 `endpointConfig` replaces the whole object. Endpoint URLs are exact, credential-free
 HTTP(S) URLs; authentication is `bearer`, `x-api-key`, `x-goog-api-key`, or

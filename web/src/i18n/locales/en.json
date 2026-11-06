@@ -4606,6 +4606,35 @@
         "emptyAction": "Connect upstream",
         "connection": "Connection",
         "advanced": "Advanced settings",
+        "runtimeSettings": "Traffic & streaming",
+        "runtimeScope": "Counters and queues cover all models and credentials of this channel in one gateway process. They reset on restart and are not cluster-wide limits.",
+        "streamPolicy": "Upstream streaming",
+        "streamOptions": {
+          "unlimited": "Follow the request",
+          "require": "Require upstream streaming",
+          "forbid": "Do not stream"
+        },
+        "streamHints": {
+          "unlimited": "Use the original request's stream mode.",
+          "require": "Stream upstream and aggregate supported non-streaming requests only when no eligible non-required channel remains. Does not grant additional protocols; embeddings, media and count_tokens cannot use this fallback.",
+          "forbid": "Exclude this channel from streaming requests. Non-streaming requests can still use it."
+        },
+        "limits": {
+          "rpm": "Requests per minute (RPM)",
+          "tpm": "Measured tokens per minute (TPM)",
+          "maxConcurrent": "Maximum concurrent requests",
+          "queueSize": "Maximum waiting requests",
+          "queueTimeoutMs": "Queue timeout (ms)"
+        },
+        "limitHints": {
+          "rpm": "0 = unlimited. Counts logical upstream attempts in fixed natural-minute buckets, not incoming client requests.",
+          "tpm": "0 = unlimited. Uses observed usage to lower routing preference, not a hard token cap or an estimated-token reservation.",
+          "maxConcurrent": "0 = unlimited. Positive values enforce a channel-wide cap and queue excess requests in FIFO order.",
+          "queueSize": "0 = no queue-size bound. Queue settings only apply when maximum concurrent requests is positive.",
+          "queueTimeoutMs": "0 = no additional queue timeout; client cancellation still applies. Requires positive maximum concurrent requests."
+        },
+        "invalidLimit": "Enter a nonnegative safe integer (at most 9007199254740991).",
+        "invalidQueueTimeout": "Enter a queue timeout no greater than 9223372036854 ms.",
         "credentials": "Credentials",
         "routes": "Routes",
         "name": "Name",

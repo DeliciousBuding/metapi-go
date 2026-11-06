@@ -308,6 +308,18 @@ const endpointConfigSchema = z
 
 export const connectionSchema = z.object({
   pluginBindings: z.array(pluginBindingSchema).max(8).optional(),
+  streamPolicy: z.enum(['unlimited', 'require', 'forbid']),
+  rateLimit: z.object({
+    rpm: channelLimitNumber(),
+    tpm: channelLimitNumber(),
+    maxConcurrent: channelLimitNumber(),
+    queueSize: channelLimitNumber(),
+    // Matches channellimit.Config.Validate's int64 time.Duration bound.
+    queueTimeoutMs: channelLimitNumber().max(
+      9_223_372_036_854,
+      'channels.upstream.invalidQueueTimeout'
+    ),
+  }),
   name: z.string().trim().min(1, 'channels.upstream.required'),
   baseUrl: httpUrl,
   endpointConfig: z.custom<ImportedEndpointConfig>(
@@ -336,6 +348,14 @@ export function connectionValues(
 ): ConnectionValues {
   return {
     pluginBindings: [],
+    streamPolicy: detail.streamPolicy ?? 'unlimited',
+    rateLimit: {
+      rpm: detail.rateLimit?.rpm ?? 0,
+      tpm: detail.rateLimit?.tpm ?? 0,
+      maxConcurrent: detail.rateLimit?.maxConcurrent ?? 0,
+      queueSize: detail.rateLimit?.queueSize ?? 0,
+      queueTimeoutMs: detail.rateLimit?.queueTimeoutMs ?? 0,
+    },
     name: detail.name,
     baseUrl: detail.baseUrl,
     endpointConfig: detail.endpointConfig ?? {},
@@ -377,6 +397,14 @@ export function connectionPatch(
   const patch: ImportedUpstreamUpdate = {}
   for (const key of Object.keys(dirty) as Array<keyof ConnectionValues>) {
     if (!dirty[key]) continue
+    if (key === 'rateLimit') {
+      // The API replaces the complete policy, not individual dimensions.
+      // Retain every nonzero sibling; all zeroes explicitly clear with {}.
+      patch.rateLimit = Object.fromEntries(
+        Object.entries(values.rateLimit).filter(([, value]) => value > 0)
+      )
+      continue
+    }
     Object.assign(patch, {
       [key]:
         key === 'customHeaders'
@@ -385,6 +413,13 @@ export function connectionPatch(
     })
   }
   return patch
+}
+
+function channelLimitNumber() {
+  return z
+    .number({ error: 'channels.upstream.invalidLimit' })
+    .int('channels.upstream.invalidLimit')
+    .min(0, 'channels.upstream.invalidLimit')
 }
 
 export function availableProfiles(

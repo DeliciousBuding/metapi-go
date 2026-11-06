@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -105,9 +106,14 @@ func TestDirectRequiredStreamFailureNeverCommitsPartialJSON(t *testing.T) {
 			getUpstreamConfig().LogProxy = func(_ context.Context, entry proxy.ProxyLogEntry) error { logs = append(logs, entry); return nil }
 			req := makeProxyReq("POST", "/v1/chat/completions", `{"model":"client-alias","messages":[{"role":"user","content":"hello"}]}`)
 			if mode == "cancel" {
-				ctx, cancel := context.WithTimeout(req.Context(), 50*time.Millisecond)
+				ctx, cancel := context.WithCancel(req.Context())
 				defer cancel()
 				req = req.WithContext(ctx)
+				previousClient := defaultStreamUpstreamClient
+				client := *previousClient
+				client.Transport = cancelAfterFrameTransport{base: client.Transport, cancel: cancel}
+				defaultStreamUpstreamClient = &client
+				t.Cleanup(func() { defaultStreamUpstreamClient = previousClient })
 			}
 			out := httptest.NewRecorder()
 			windowStarted := time.Now().Unix() / 60
@@ -138,6 +144,43 @@ func TestDirectRequiredStreamFailureNeverCommitsPartialJSON(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Keep the real HTTP request/body and cancel only after the synchronous bridge
+// consumed a full partial frame and asks for more. A timer started before
+// routing can expire without ever exercising stream cancellation under load.
+type cancelAfterFrameTransport struct {
+	base   http.RoundTripper
+	cancel context.CancelFunc
+}
+
+func (t cancelAfterFrameTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(req)
+	if err == nil {
+		resp.Body = &cancelAfterFrameBody{ReadCloser: resp.Body, cancel: t.cancel}
+	}
+	return resp, err
+}
+
+type cancelAfterFrameBody struct {
+	io.ReadCloser
+	cancel    context.CancelFunc
+	frameRead bool
+	tail      string
+}
+
+func (b *cancelAfterFrameBody) Read(p []byte) (int, error) {
+	if b.frameRead {
+		b.cancel()
+	}
+	n, err := b.ReadCloser.Read(p)
+	if n > 0 {
+		chunk := b.tail + string(p[:n])
+		boundary, _ := nextSseBoundary(chunk)
+		b.frameRead = boundary >= 0
+		b.tail = chunk[max(0, len(chunk)-3):]
+	}
+	return n, err
 }
 
 func TestDirectRequiredStreamRetriesBeforeCommitting(t *testing.T) {
