@@ -71,7 +71,7 @@ func TestDirectMediaProtocolOrderRetainsIndependentFormats(t *testing.T) {
 			t.Fatal("order changed")
 		}
 	}
-	for _, invalid := range []string{"[64,64]", "[1]", "[67108864]", "[192]"} {
+	for _, invalid := range []string{"[64,64]", "[1]", "[134217728]", "[192]"} {
 		if loaded.Scan(invalid) == nil {
 			t.Fatalf("accepted invalid order %s", invalid)
 		}

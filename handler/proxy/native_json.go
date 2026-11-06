@@ -1,6 +1,10 @@
 package proxyhandler
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/deliciousbuding/metapi-go/store"
+)
 
 func HandleSystemOne(w http.ResponseWriter, r *http.Request) {
 	handleNativeJSONSurface(w, r, "/v1/systemone")
@@ -8,6 +12,10 @@ func HandleSystemOne(w http.ResponseWriter, r *http.Request) {
 
 func HandleAlphaSearch(w http.ResponseWriter, r *http.Request) {
 	handleNativeJSONSurface(w, r, "/v1/alpha/search")
+}
+
+func isNativeJSONProtocol(bit int) bool {
+	return bit == store.DirectProtocolSystemOne || bit == store.DirectProtocolAlphaSearch || bit == store.DirectProtocolResponsesCompact || bit == store.DirectProtocolDecisions
 }
 
 // These APIs have independent grants. Preserve their native JSON envelopes,

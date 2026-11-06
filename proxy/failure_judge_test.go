@@ -165,6 +165,26 @@ func TestJudgeUpstreamContent_EmptyContent(t *testing.T) {
 	})
 }
 
+func TestJudgeUpstreamContent_ValidatedNativeOutputFact(t *testing.T) {
+	previous := config.RuntimeSafe()
+	t.Cleanup(func() { config.SetRuntime(previous) })
+	setupFailureCfg(nil, true)
+	facts := UpstreamContentFacts{StatusCode: 200, RawText: `{"answers":[{"choice":false}]}`, HasOutput: true, Usage: &UsageSummary{PromptTokens: 7, TotalTokens: 7}}
+	if JudgeUpstreamContent(facts).Failed {
+		t.Fatal("validated native output was mistaken for empty Chat content")
+	}
+	facts.HasErrorEvent = true
+	if got := JudgeUpstreamContent(facts); !got.Failed || got.Code != FailureCodeErrorEvent {
+		t.Fatal("native output bypassed explicit error judgement")
+	}
+	facts.HasErrorEvent = false
+	setupFailureCfg([]string{"fixture-failure"}, true)
+	facts.RawText = `{"answers":[{"vendor":"fixture-failure"}]}`
+	if got := JudgeUpstreamContent(facts); !got.Failed || got.Code != FailureCodeErrorKeyword {
+		t.Fatal("native output bypassed configured keyword judgement")
+	}
+}
+
 func TestDetectHasUpstreamOutput(t *testing.T) {
 	tests := []struct {
 		name string

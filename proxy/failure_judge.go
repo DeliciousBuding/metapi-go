@@ -49,8 +49,9 @@ type UpstreamContentFacts struct {
 	// signal the bounded analyzer keeps.
 	RawText string
 	// HasOutput reports whether the upstream produced completion content.
-	// Streaming callers set it from output-bearing events; the buffered
-	// path leaves it false and the judge derives it from RawText.
+	// Streaming callers set it from output-bearing events. Buffered callers
+	// may set it for validated native output; otherwise the judge derives it
+	// from RawText rather than guessing a protocol from arbitrary extensions.
 	HasOutput bool
 	// HasErrorEvent reports a parsed protocol error, not output mentioning an
 	// error. Streaming callers set it from the SSE analyzer.
@@ -139,7 +140,7 @@ func JudgeUpstreamContent(facts UpstreamContentFacts) UpstreamVerdict {
 			compTokens = facts.Usage.CompletionTokens
 		}
 		hasOutput := facts.HasOutput
-		if !facts.Streaming {
+		if !facts.Streaming && !hasOutput {
 			hasOutput = detectHasUpstreamOutput(rawText)
 		}
 		if !hasOutput && compTokens <= 0 {

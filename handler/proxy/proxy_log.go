@@ -136,7 +136,7 @@ func proxyLogDownstreamPath(ctx *Ctx) *string {
 		"/v1/completions", "/v1/embeddings", "/v1/rerank", "/v1/search",
 		"/v1/images/generations", "/v1/images/edits", "/v1/images/variations",
 		"/v1/audio/speech", "/v1/audio/transcriptions", "/v1/audio/translations",
-		"/v1/moderations", "/v1/videos", "/v1/systemone", "/v1/alpha/search":
+		"/v1/moderations", "/v1/videos", "/v1/systemone", "/v1/alpha/search", "/v1/decisions":
 		return &path
 	}
 	endpoint, ok := proxy.EndpointFromPath(path)

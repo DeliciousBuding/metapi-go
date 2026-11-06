@@ -262,7 +262,7 @@ describe('native upstream configuration', () => {
       ).toBeDisabled()
     }
     fireEvent.click(
-      screen.getByRole('button', { name: 'Native APIs 0 / 3 configured' })
+      screen.getByRole('button', { name: 'Native APIs 0 / 4 configured' })
     )
     fireEvent.click(screen.getByRole('checkbox', { name: 'System One' }))
     const systemOne = within(screen.getByRole('group', { name: 'System One' }))
