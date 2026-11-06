@@ -24,7 +24,7 @@ import (
 
 func TestDirectResponsesWSCurrentPoliciesOverrideAffinity(t *testing.T) {
 	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
-		for _, change := range []string{"key", "condition", "stream"} {
+		for _, change := range []string{"key", "condition", "stream", "queued stream"} {
 			t.Run(dialect+"/"+change, func(t *testing.T) {
 				var calls, dials, httpCalls atomic.Int32
 				upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -107,16 +107,40 @@ func TestDirectResponsesWSCurrentPoliciesOverrideAffinity(t *testing.T) {
 				if dials.Load() != 2 || calls.Load() != 3 {
 					t.Fatalf("Key/session identity leaked: dials=%d calls=%d", dials.Load(), calls.Load())
 				}
+				var held *channellimit.Permit
+				if change == "queued stream" {
+					var err error
+					held, err = manager.Acquire(ctx, channelID, limits.Config)
+					if err != nil {
+						t.Fatal(err)
+					}
+					t.Cleanup(held.Release)
+					writeWSMessage(t, ctx, first, `{"type":"response.create","model":"client-alias","input":[{"role":"user","content":"queued"}]}`)
+					for manager.Snapshot(channelID, limits.Config).Waiting != 1 {
+						select {
+						case <-ctx.Done():
+							t.Fatal("native WS turn never entered channel queue")
+						case <-time.After(time.Millisecond):
+						}
+					}
+				}
 				switch change {
 				case "key":
 					videoExec(t, db, `UPDATE downstream_api_keys SET access_policy=? WHERE key=?`, `{"allowedUpstreamChannelIds":[],"routingStrategy":"round_robin","traceStickyMode":"prefer_previous_channel"}`, "policy-sticky")
 				case "condition":
 					videoExec(t, db, `UPDATE upstream_group_items SET association_conditions=?`, `[{"priority":1,"condition":{"conditions":[{"field":"stream","operator":"eq","value":false}]}}]`)
-				case "stream":
+				case "stream", "queued stream":
 					videoExec(t, db, `UPDATE upstream_channels SET stream_policy='forbid'`)
 				}
 				// The open socket and a warm route cache must not extend a grant.
-				turn(first, "error")
+				if held != nil {
+					held.Release()
+					if frame := readWSFrame(t, ctx, first); frame["type"] != "error" {
+						t.Fatalf("queued native WS ignored tightened policy: %+v", frame)
+					}
+				} else {
+					turn(first, "error")
+				}
 				routing.InvalidateCache()
 				turn(first, "error")
 				if calls.Load() != 3 || dials.Load() != 2 || httpCalls.Load() != 0 {
