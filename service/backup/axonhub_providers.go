@@ -53,6 +53,7 @@ const (
 	protoAlphaSearch        = store.DirectProtocolAlphaSearch
 	protoResponsesCompact   = store.DirectProtocolResponsesCompact
 	protoResponsesWebsocket = store.DirectProtocolResponsesWebsocket
+	protoDecisions          = store.DirectProtocolDecisions
 )
 
 var axonHubProviderTypes = map[string]axonHubProviderType{
@@ -169,6 +170,7 @@ var axonHubServableFormats = map[string]int{
 	"ollama/chat":                 protoOllama,
 	"typesafe/systemone":          protoSystemOne,
 	"openai/alpha_search":         protoAlphaSearch,
+	"openai/decisions":            protoDecisions,
 }
 
 var axonHubCompatibleFormats = []string{
@@ -184,6 +186,5 @@ var axonHubChatAudioFormats = append([]string{"openai/chat_completions"}, axonHu
 // Source formats without a corresponding executor stay explicit in previews.
 var axonHubResidualProtocolFormats = map[string]string{
 	"aisdk/text":       "AI SDK text protocol is not routed by direct grants",
-	"openai/decisions": "decisions are not routed by direct grants",
 	"aisdk/datastream": "AI SDK data stream protocol is not routed by direct grants",
 }

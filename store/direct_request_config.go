@@ -112,7 +112,7 @@ func (c DirectRequestConfig) ValidateEndpoints(endpoints DirectEndpoints) error 
 		if entry.Endpoint == nil {
 			continue
 		}
-		if len(c.Body) > 0 && entry.Protocol&(DirectProtocolChat|DirectProtocolResponses|DirectProtocolResponsesWebsocket|DirectProtocolMessages|DirectProtocolGemini|DirectProtocolCompletions|DirectProtocolEmbeddings|DirectProtocolRerank|DirectProtocolModerations|DirectProtocolImageGeneration|DirectProtocolAudioSpeech) == 0 {
+		if len(c.Body) > 0 && entry.Protocol&(DirectProtocolChat|DirectProtocolResponses|DirectProtocolResponsesWebsocket|DirectProtocolMessages|DirectProtocolGemini|DirectProtocolCompletions|DirectProtocolEmbeddings|DirectProtocolRerank|DirectProtocolModerations|DirectProtocolImageGeneration|DirectProtocolAudioSpeech|DirectProtocolDecisions) == 0 {
 			return fmt.Errorf("channel_request_operation_nonjson_unsupported")
 		}
 		if !requestOperationsProfileSupported(entry.Endpoint.Profile) {

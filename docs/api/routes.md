@@ -70,6 +70,11 @@ statistics are retained separately and are not treated as live health evidence.
 | `alphaSearch` | 8388608 | Alpha Search |
 | `responsesCompact` | 16777216 | Native Responses compaction |
 | `responsesWebsocket` | 33554432 | Responses WebSocket upstream |
+| `decisions` | 67108864 | Native synchronous Decisions |
+
+`decisions` is a separate HTTP bearer JSON endpoint with no generation profile,
+model-path suffix or protocol conversion. Adding it does not widen existing
+model grants, HTTP Responses, compaction or WebSocket permissions.
 
 `responsesCompact` is an independent non-streaming JSON endpoint. It preserves
 opaque compaction items and provider extensions; it does not translate to a

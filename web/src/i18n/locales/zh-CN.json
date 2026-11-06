@@ -4858,7 +4858,8 @@
           "systemOne": "System One",
           "alphaSearch": "Alpha Search",
           "responsesCompact": "Responses 压缩",
-          "responsesWebsocket": "Responses WebSocket"
+          "responsesWebsocket": "Responses WebSocket",
+          "decisions": "Decisions"
         },
         "groups": {
           "conversation": "文本与对话",

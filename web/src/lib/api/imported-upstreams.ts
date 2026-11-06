@@ -63,7 +63,8 @@ export type ImportedEndpointConfig = Partial<
     | 'systemOne'
     | 'alphaSearch'
     | 'responsesCompact'
-    | 'responsesWebsocket',
+    | 'responsesWebsocket'
+    | 'decisions',
     ImportedEndpoint
   >
 >

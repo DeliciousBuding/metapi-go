@@ -48,6 +48,7 @@ the selected subprotocol during the upgrade.
 | `POST /v1/videos/{id}/remix` | remix an owned direct-upstream video task |
 | `POST /v1/systemone` | TypeSafe System One native JSON |
 | `POST /v1/alpha/search` | Alpha Search native JSON |
+| `POST /v1/decisions` | Native synchronous Decisions JSON |
 | `POST /v1/files` | file upload |
 | `GET /v1/files` | file list |
 | `GET /v1/files/{fileId}` | file metadata |
@@ -143,6 +144,20 @@ They preserve native JSON fields and numeric precision, apply the routed model
 and configured overrides, and reject streaming or multipart requests with 400.
 They do not fall back to Chat or Responses. Codex Alpha Search uses its existing
 credentials/session metadata without forcing a Responses streaming envelope.
+
+Decisions uses its own independent-channel endpoint and model grant; shared
+accounts and OAuth pools do not inherit this permission. Requests require `model`,
+nonempty `input` (a string, or an array of `message`, `input_text` and
+`input_image` structures) and a nonempty `questions` array. Unknown fields and
+numeric precision survive native forwarding; only the routed model and explicit
+channel overrides change. Streaming and multipart are rejected before dispatch.
+Responses retain their original JSON, including `answers` and provider extensions.
+Reported `usage.input_tokens` is accounted by the existing usage owner; missing
+usage remains unknown. Ordinary user token budgets currently reject Decisions.
+Validated nonempty `answers` counts as output for the configured empty-content
+failure check; it does not bypass keyword or explicit-error checks.
+This is an audited compatible wire contract, not a claim that any named provider
+or subscription currently offers this API.
 
 ## Error shape (/v1 surface)
 

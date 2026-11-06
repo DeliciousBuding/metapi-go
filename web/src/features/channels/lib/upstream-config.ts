@@ -50,6 +50,7 @@ type UpstreamProtocol = {
   bit: number
   group: (typeof upstreamProtocolGroups)[number]
   convertible: boolean
+  authModes?: readonly ImportedEndpoint['auth'][]
   requiredProfile?: EndpointProfile
 }
 export const upstreamProtocols: readonly UpstreamProtocol[] = [
@@ -116,12 +117,21 @@ export const upstreamProtocols: readonly UpstreamProtocol[] = [
     bit: 16777216,
     group: 'native',
     convertible: false,
+    authModes: ['bearer'],
   },
   {
     key: 'responsesWebsocket',
     bit: 33554432,
     group: 'native',
     convertible: false,
+    authModes: ['bearer'],
+  },
+  {
+    key: 'decisions',
+    bit: 67108864,
+    group: 'native',
+    convertible: false,
+    authModes: ['bearer'],
   },
 ]
 
@@ -234,8 +244,8 @@ const endpointConfigSchema = z
               return false
             }
             if (
-              (websocket || protocol.key === 'responsesCompact') &&
-              value.auth !== 'bearer'
+              protocol.authModes &&
+              !protocol.authModes.includes(value.auth)
             ) {
               return false
             }

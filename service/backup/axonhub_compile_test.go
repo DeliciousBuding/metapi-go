@@ -213,7 +213,7 @@ func TestCompileAxonHubPlanRefusesUnservableChannelShapes(t *testing.T) {
 		},
 		{
 			name:    "no servable protocol",
-			channel: `{"id":1,"type":"opencode_go_anthropic","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"openai/decisions"}]}`,
+			channel: `{"id":1,"type":"opencode_go_anthropic","name":"x","base_url":"https://x.invalid","credentials":{"apiKey":"k"},"endpoints":[{"api_format":"aisdk/text"}]}`,
 			want:    []string{"no_servable_protocol"},
 		},
 		{
