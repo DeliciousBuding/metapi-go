@@ -194,3 +194,29 @@ func TestChannelRPMAtomicAndNaturalMinuteRollover(t *testing.T) {
 		t.Fatalf("TPM did not affect ranking: %+v", snapshot)
 	}
 }
+
+func TestChannelLateUsageSurvivesNaturalMinuteRollover(t *testing.T) {
+	manager := NewManager()
+	now := time.Unix(120, 0)
+	manager.now = func() time.Time { return now }
+	config := Config{RPM: 10, TPM: 100, MaxConcurrent: 1}
+	permit, err := manager.Acquire(t.Context(), 1, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer permit.Release()
+	if err := manager.TryRequest(t.Context(), 1, config); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(time.Minute)
+	manager.RecordUsage(1, 3, true)
+	snapshot := manager.Snapshot(1, config)
+	if snapshot.Active != 1 || snapshot.Requests != 0 || snapshot.Tokens != 3 || snapshot.UnknownUsage != 0 {
+		t.Fatalf("late usage changed the request window or permit: %+v", snapshot)
+	}
+	permit.Release()
+	snapshot = manager.Snapshot(1, config)
+	if snapshot.Active != 0 || snapshot.Requests != 0 || snapshot.Tokens != 3 {
+		t.Fatalf("release lost late usage or retained capacity: %+v", snapshot)
+	}
+}
