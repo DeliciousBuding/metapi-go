@@ -99,6 +99,18 @@ func TestDirectResponsesWSCurrentPoliciesOverrideAffinity(t *testing.T) {
 						t.Fatalf("turn got %+v, want %s", frame, want)
 					}
 				}
+				setStreamCondition := func(stream bool) {
+					var conditions store.DirectAssociationConditions
+					if err := conditions.Scan(fmt.Sprintf(`[{"priority":1,"protocolOrder":[%d,%d],"condition":{"conditions":[{"field":"stream","operator":"eq","value":%t}]}}]`, store.DirectProtocolResponses, store.DirectProtocolResponsesWebsocket, stream)); err != nil {
+						t.Fatal(err)
+					}
+					videoExec(t, db, `UPDATE upstream_group_items SET association_conditions=?`, conditions)
+				}
+				if change == "condition" {
+					setStreamCondition(true)
+					routing.InvalidateCache()
+				}
+				windowStarted := time.Now().Unix() / 60
 				first := dial("policy-sticky")
 				turn(first, "response.completed")
 				turn(first, "response.completed")
@@ -106,6 +118,11 @@ func TestDirectResponsesWSCurrentPoliciesOverrideAffinity(t *testing.T) {
 				turn(other, "response.completed")
 				if dials.Load() != 2 || calls.Load() != 3 {
 					t.Fatalf("Key/session identity leaked: dials=%d calls=%d", dials.Load(), calls.Load())
+				}
+				before := waitDirectChannelIdle(t, manager, channelID, limits.Config)
+				beforeMinute := time.Now().Unix() / 60
+				if windowStarted == beforeMinute && (before.Requests != 3 || before.Tokens != 9) {
+					t.Fatalf("successful turns were not accounted once: %+v", before)
 				}
 				var held *channellimit.Permit
 				if change == "queued stream" {
@@ -128,7 +145,7 @@ func TestDirectResponsesWSCurrentPoliciesOverrideAffinity(t *testing.T) {
 				case "key":
 					videoExec(t, db, `UPDATE downstream_api_keys SET access_policy=? WHERE key=?`, `{"allowedUpstreamChannelIds":[],"routingStrategy":"round_robin","traceStickyMode":"prefer_previous_channel"}`, "policy-sticky")
 				case "condition":
-					videoExec(t, db, `UPDATE upstream_group_items SET association_conditions=?`, `[{"priority":1,"condition":{"conditions":[{"field":"stream","operator":"eq","value":false}]}}]`)
+					setStreamCondition(false)
 				case "stream", "queued stream":
 					videoExec(t, db, `UPDATE upstream_channels SET stream_policy='forbid'`)
 				}
@@ -159,7 +176,14 @@ func TestDirectResponsesWSCurrentPoliciesOverrideAffinity(t *testing.T) {
 				if len(logs) != 0 {
 					t.Fatal("zero-dispatch rejection recorded an upstream attempt")
 				}
-				if snap := waitDirectChannelIdle(t, manager, channelID, limits.Config); snap.Requests != 3 || snap.Tokens != 9 {
+				snap := waitDirectChannelIdle(t, manager, channelID, limits.Config)
+				// These counters intentionally expire at a natural minute boundary.
+				// No generation after the baseline may add RPM or usage in either window.
+				wantRequests, wantTokens := before.Requests, before.Tokens
+				if time.Now().Unix()/60 != beforeMinute {
+					wantRequests, wantTokens = 0, 0
+				}
+				if snap.Requests != wantRequests || snap.Tokens != wantTokens {
 					t.Fatalf("policy rejection leaked/billed admission: %+v", snap)
 				}
 			})

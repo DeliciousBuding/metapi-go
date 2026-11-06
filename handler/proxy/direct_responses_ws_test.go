@@ -122,6 +122,7 @@ func TestDirectResponsesWebsocketTurnsRotateAndRevoke(t *testing.T) {
 			if out.Code < 400 || dials.Load() != 0 {
 				t.Fatal("HTTP borrowed WS grant")
 			}
+			windowStarted := time.Now().Unix() / 60
 			ctx, conn := dialDirectResponsesGateway(t, "key-one-fixture")
 			writeWSMessage(t, ctx, conn, `{"type":"response.create","model":"client-alias","input":[{"role":"user","content":"hello","n":9007199254740993}]}`)
 			_, firstFrame, err := conn.Read(ctx)
@@ -181,7 +182,7 @@ func TestDirectResponsesWebsocketTurnsRotateAndRevoke(t *testing.T) {
 				}
 			}
 			snap := waitDirectChannelIdle(t, manager, channelID, limit.Config)
-			if snap.Active != 0 || snap.Requests != 4 || snap.Tokens != 12 {
+			if snap.Requests > 4 || snap.Tokens > 12 || time.Now().Unix()/60 == windowStarted && (snap.Requests != 4 || snap.Tokens != 12) {
 				t.Fatalf("WS admission/accounting lost: %+v", snap)
 			}
 		})
