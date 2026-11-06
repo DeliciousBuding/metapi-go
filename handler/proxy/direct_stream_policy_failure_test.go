@@ -62,8 +62,10 @@ func TestDirectRequiredStreamFailureNeverCommitsPartialJSON(t *testing.T) {
 			}
 			config.Set(&cfg)
 			t.Cleanup(func() { config.Set(previous) })
+			var calls atomic.Int32
 			canceled := make(chan struct{})
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
 				defer close(canceled)
 				w.Header().Set("Content-Type", "text/event-stream")
 				_, _ = fmt.Fprint(w, streamPolicyFrame("", `{"id":"c","choices":[{"index":0,"delta":{"role":"assistant","content":"private-partial"},"finish_reason":null}],"usage":{"prompt_tokens":2,"completion_tokens":1,"total_tokens":3}}`))
@@ -108,18 +110,25 @@ func TestDirectRequiredStreamFailureNeverCommitsPartialJSON(t *testing.T) {
 				req = req.WithContext(ctx)
 			}
 			out := httptest.NewRecorder()
+			windowStarted := time.Now().Unix() / 60
 			HandleChatCompletions(out, req)
-			if out.Code < 400 || strings.Contains(out.Body.String(), "private-partial") || strings.Contains(out.Body.String(), "data:") || len(logs) != 1 || logs[0].Status == "success" {
-				t.Fatalf("partial success status=%d logs=%d body=%s", out.Code, len(logs), out.Body.String())
+			if out.Code < 400 || strings.Contains(out.Body.String(), "private-partial") || strings.Contains(out.Body.String(), "data:") || calls.Load() != 1 || len(logs) != 1 || logs[0].Status == "success" {
+				t.Fatalf("partial success status=%d calls=%d logs=%d body=%s", out.Code, calls.Load(), len(logs), out.Body.String())
 			}
 			if limiter.ActiveCount(credentialID) != 0 {
 				t.Fatal("aggregate failure leaked credential slot")
 			}
 			snapshot := manager.Snapshot(channelID, limits)
-			if snapshot.Active != 0 || snapshot.Waiting != 0 || snapshot.Requests != 1 || snapshot.UnknownUsage > 1 || snapshot.Tokens > 3 {
-				t.Fatalf("aggregate failure leaked or double-counted channel state: %+v", snapshot)
+			windowFinished := time.Now().Unix() / 60
+			if snapshot.Active != 0 || snapshot.Waiting != 0 || snapshot.Requests > 1 || snapshot.UnknownUsage > 1 || snapshot.Tokens > 3 {
+				t.Fatalf("aggregate failure leaked or double-counted channel state: %+v windows=%d/%d", snapshot, windowStarted, windowFinished)
 			}
-			if mode != "byte-limit" && snapshot.Tokens != 3 {
+			if windowStarted == windowFinished && snapshot.Requests != 1 {
+				t.Fatalf("aggregate failure lost the current-minute request: %+v", snapshot)
+			}
+			// Natural-minute counters can roll over during the idle timeout.
+			// The attempt log must retain its reported usage in either window.
+			if mode != "byte-limit" && (logs[0].TotalTokens == nil || *logs[0].TotalTokens != 3 || windowStarted == windowFinished && snapshot.Tokens != 3) {
 				t.Fatalf("aggregate failure lost reported usage: %+v", snapshot)
 			}
 			select {

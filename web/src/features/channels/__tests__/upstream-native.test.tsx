@@ -262,7 +262,7 @@ describe('native upstream configuration', () => {
       ).toBeDisabled()
     }
     fireEvent.click(
-      screen.getByRole('button', { name: 'Native APIs 0 / 1 configured' })
+      screen.getByRole('button', { name: 'Native APIs 0 / 3 configured' })
     )
     fireEvent.click(screen.getByRole('checkbox', { name: 'System One' }))
     const systemOne = within(screen.getByRole('group', { name: 'System One' }))
@@ -272,6 +272,21 @@ describe('native upstream configuration', () => {
     expect(
       systemOne.queryByRole('combobox', { name: 'Protocol adapter' })
     ).not.toBeInTheDocument()
+    for (const [name, url] of [
+      [
+        'Responses compaction',
+        'https://responses.example/v1/responses/compact',
+      ],
+      ['Responses WebSocket', 'wss://responses.example/v1/responses'],
+    ]) {
+      fireEvent.click(screen.getByRole('checkbox', { name }))
+      fireEvent.change(
+        within(screen.getByRole('group', { name })).getByLabelText(
+          'Endpoint URL'
+        ),
+        { target: { value: url } }
+      )
+    }
     fireEvent.click(
       screen.getByRole('button', {
         name: 'Vectors & retrieval 0 / 5 configured',
@@ -300,6 +315,14 @@ describe('native upstream configuration', () => {
           },
           systemOne: {
             url: 'https://typesafe.example/v1/systemone',
+            auth: 'bearer',
+          },
+          responsesCompact: {
+            url: 'https://responses.example/v1/responses/compact',
+            auth: 'bearer',
+          },
+          responsesWebsocket: {
+            url: 'wss://responses.example/v1/responses',
             auth: 'bearer',
           },
           alphaSearch: {

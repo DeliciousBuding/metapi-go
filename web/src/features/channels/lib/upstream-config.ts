@@ -110,6 +110,18 @@ export const upstreamProtocols: readonly UpstreamProtocol[] = [
   },
   { key: 'systemOne', bit: 4194304, group: 'native', convertible: false },
   { key: 'alphaSearch', bit: 8388608, group: 'retrieval', convertible: false },
+  {
+    key: 'responsesCompact',
+    bit: 16777216,
+    group: 'native',
+    convertible: false,
+  },
+  {
+    key: 'responsesWebsocket',
+    bit: 33554432,
+    group: 'native',
+    convertible: false,
+  },
 ]
 
 export function memberProtocols(member: ImportedMember) {
@@ -155,7 +167,7 @@ const profileEndpoints: Record<
   EndpointProfile,
   readonly (keyof ImportedEndpointConfig)[]
 > = {
-  codex: ['responses'],
+  codex: ['responses', 'responsesWebsocket'],
   claudecode: ['messages'],
   'xai-subscription': ['responses'],
   'github-copilot': ['chat'],
@@ -189,7 +201,7 @@ const profileEndpoints: Record<
   'codex-alpha-search': ['alphaSearch'],
 }
 const endpoint = z.object({
-  url: httpUrl,
+  url: z.string().url('channels.upstream.invalidUrl'),
   auth: z.enum(['bearer', 'x-api-key', 'x-goog-api-key', 'none']),
   profile: z
     .enum(
@@ -214,6 +226,18 @@ const endpointConfigSchema = z
         protocol.key,
         endpoint
           .refine((value) => {
+            const websocket = protocol.key === 'responsesWebsocket'
+            if (
+              !(websocket ? /^wss?:\/\//i : /^https?:\/\//i).test(value.url)
+            ) {
+              return false
+            }
+            if (
+              (websocket || protocol.key === 'responsesCompact') &&
+              value.auth !== 'bearer'
+            ) {
+              return false
+            }
             if (
               protocol.requiredProfile &&
               value.profile !== protocol.requiredProfile
@@ -387,6 +411,9 @@ export function availableProfiles(
       ...(['codex', 'fenno'].includes(provider) ? ['codex'] : []),
       'xai-subscription',
     ]
+  }
+  if (protocol === 'responsesWebsocket') {
+    return ['codex', 'fenno'].includes(provider) ? ['codex'] : []
   }
   if (protocol === 'messages') {
     return [

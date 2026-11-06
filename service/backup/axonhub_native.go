@@ -12,6 +12,19 @@ import (
 func resolveAxonHubNativeEndpoint(ch AxonHubSourceChannel, protocol int, base, path string, custom bool) (*store.DirectEndpoint, bool, string) {
 	ep := &store.DirectEndpoint{Auth: store.DirectAuthBearer}
 	switch protocol {
+	case protoResponsesCompact:
+		// The source uses the generic Responses compact constructor, including
+		// for custom compact endpoints on Codex. It does not use the Codex
+		// generation wrapper or silently inherit its OAuth wire profile.
+		if strings.HasSuffix(base, "##") {
+			ep.URL = strings.TrimSuffix(base, "##")
+		} else {
+			version := "v1"
+			if path != "" {
+				version = ""
+			}
+			ep.URL = normalizeAxonHubBaseURL(base, version) + "/responses/compact"
+		}
 	case protoGemini, protoGeminiEmbeddings:
 		if ch.Type == "antigravity" {
 			if custom || protocol != protoGemini || path != "" {

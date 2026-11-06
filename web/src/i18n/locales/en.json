@@ -4824,7 +4824,9 @@
           "zenmuxVideo": "ZenMux video",
           "ollama": "Ollama",
           "systemOne": "System One",
-          "alphaSearch": "Alpha Search"
+          "alphaSearch": "Alpha Search",
+          "responsesCompact": "Responses compaction",
+          "responsesWebsocket": "Responses WebSocket"
         },
         "groups": {
           "conversation": "Text & conversation",

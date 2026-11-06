@@ -428,7 +428,11 @@ func validateImportedConfig(row importedChannelConfig) error {
 			continue
 		}
 		for _, address := range ep.URLFields() {
-			if !validImportedURL(*address, false) {
+			target := *address
+			if entry.Protocol == store.DirectProtocolResponsesWebsocket {
+				target = strings.Replace(strings.Replace(target, "wss://", "https://", 1), "ws://", "http://", 1)
+			}
+			if !validImportedURL(target, false) {
 				return fmt.Errorf("Invalid endpoint URL")
 			}
 		}

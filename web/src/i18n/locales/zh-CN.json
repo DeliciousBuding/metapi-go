@@ -4824,7 +4824,9 @@
           "zenmuxVideo": "ZenMux 视频",
           "ollama": "Ollama",
           "systemOne": "System One",
-          "alphaSearch": "Alpha Search"
+          "alphaSearch": "Alpha Search",
+          "responsesCompact": "Responses 压缩",
+          "responsesWebsocket": "Responses WebSocket"
         },
         "groups": {
           "conversation": "文本与对话",

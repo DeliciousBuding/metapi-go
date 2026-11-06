@@ -405,6 +405,22 @@ func DoWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfi
 	return doWithProxy(ctx, req, proxyConfig, false, 0)
 }
 
+// WebsocketHTTPClient uses the same explicit proxy, guarded dialing and
+// cross-origin redirect policy as HTTP dispatch. The caller bounds upgrade
+// and socket lifetime with contexts, rather than a whole-request timeout.
+func WebsocketHTTPClient(proxyConfig *ProxyConfig) (*http.Client, error) {
+	var proxy func(*http.Request) (*url.URL, error)
+	if proxyConfig != nil && proxyConfig.ProxyURL != "" {
+		target, err := url.Parse(proxyConfig.ProxyURL)
+		if err != nil || !supportedProxySchemes[strings.ToLower(target.Scheme)] {
+			return nil, fmt.Errorf("invalid websocket proxy")
+		}
+		proxy = http.ProxyURL(target)
+	}
+	return newStreamProxyClient(getCachedTransportForMode(proxy,
+		proxyConfig != nil && proxyConfig.InsecureSkipTLS, proxyConfig != nil && proxyConfig.UseUTLS, true)), nil
+}
+
 // DoWithProxyStreamBudget uses one header timer, not the buffered transport's
 // header or whole-request timeout. firstByteTimeoutMs is milliseconds; values
 // <= 0 use httpclient.DefaultRequestCeiling. After headers, the caller and relay

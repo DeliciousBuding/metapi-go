@@ -1110,7 +1110,7 @@ func dispatchEndpointAttemptWithContinue(
 	if proxy.IsDirectMediaPath(upstreamPath) && resp.StatusCode >= 200 && resp.StatusCode < 300 && resp.StatusCode != http.StatusNoContent {
 		if isDirectVideoContentPath(upstreamPath) {
 			effectiveStream = true
-		} else if bit := proxy.DirectProtocolForPath(upstreamPath); bit != store.DirectProtocolVideo && bit != store.DirectProtocolSystemOne && bit != store.DirectProtocolAlphaSearch {
+		} else if bit := proxy.DirectProtocolForPath(upstreamPath); bit != store.DirectProtocolVideo && bit != store.DirectProtocolSystemOne && bit != store.DirectProtocolAlphaSearch && bit != store.DirectProtocolResponsesCompact {
 			effectiveStream = !isJSONMediaResponse(resp.Header)
 		}
 	}
@@ -1288,13 +1288,21 @@ func dispatchEndpointAttemptWithContinue(
 		observeProxyTerminal(ctx, shared.StatusFromHTTP(resp.StatusCode), false, time.Duration(latencyMs)*time.Millisecond)
 		return true, nil, false
 	}
-	nativeJSON := proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolSystemOne || proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolAlphaSearch
+	nativeJSON := proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolSystemOne || proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolAlphaSearch || proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolResponsesCompact
 	if wire := directProviderWireFromContext(r.Context()); nativeJSON || wire != nil && !wire.AggregateStream && (wire.Profile == "ollama" || wire.Profile == "cline" || wire.Profile == "openrouter" || wire.Profile == "cerebras" || wire.Profile == "nanogpt" || wire.Profile == "antigravity") {
 		converted := respBody
 		var convertErr error
 		if nativeJSON {
 			if !body.readable || !json.Valid(respBody) {
 				convertErr = fmt.Errorf("expected a JSON response")
+			} else if proxy.DirectProtocolForPath(upstreamPath) == store.DirectProtocolResponsesCompact {
+				var compact struct {
+					Object string            `json:"object"`
+					Output []json.RawMessage `json:"output"`
+				}
+				if json.Unmarshal(respBody, &compact) != nil || compact.Object != "response.compaction" || compact.Output == nil {
+					convertErr = fmt.Errorf("expected a native compaction response")
+				}
 			}
 		} else if wire.Profile == "antigravity" {
 			if !body.readable {

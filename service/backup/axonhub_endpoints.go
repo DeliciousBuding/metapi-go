@@ -105,6 +105,9 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 	for _, ep := range axonHubMergedEndpoints(channel, provider) {
 		format := ep.APIFormat
 		protocol, servable := axonHubServableFormats[format]
+		if format == "openai/responses" && ep.Transport == "websocket" {
+			protocol = protoResponsesWebsocket
+		}
 		if !servable {
 			if reason, known := axonHubResidualProtocolFormats[format]; known {
 				residuals = append(residuals, "declared_protocol_not_servable:"+format+" ("+reason+")")
@@ -118,6 +121,15 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 		base := strings.TrimSpace(ep.BaseURL)
 		if base == "" {
 			base = channel.BaseURL
+		}
+		if protocol == protoResponsesWebsocket {
+			endpoint, problem := resolveAxonHubResponsesWebsocket(channel, base, strings.TrimSpace(ep.Path))
+			if problem != "" {
+				return 0, endpoints, []string{problem}, nil
+			}
+			resolvedEndpoints[endpointKeys[protocol]] = endpoint
+			protocols |= protocol
+			continue
 		}
 		if ep.Transport == "websocket" || strings.HasPrefix(strings.ToLower(base), "ws://") || strings.HasPrefix(strings.ToLower(base), "wss://") {
 			return 0, endpoints, []string{"websocket_transport_unsupported"}, nil
@@ -239,11 +251,50 @@ func resolveChannelEndpoints(channel AxonHubSourceChannel, provider axonHubProvi
 
 func validateAxonHubResolvedEndpoint(endpoint *store.DirectEndpoint) string {
 	for _, address := range endpoint.URLFields() {
-		if problem := validateAxonHubEndpointBase(*address); problem != "" {
+		if problem := validateAxonHubEndpointBase(responsesHTTPAddress(*address)); problem != "" {
 			return "endpoint_url_" + problem
 		}
 	}
 	return ""
+}
+
+func responsesHTTPAddress(address string) string {
+	if strings.HasPrefix(address, "wss://") {
+		return "https://" + strings.TrimPrefix(address, "wss://")
+	}
+	if strings.HasPrefix(address, "ws://") {
+		return "http://" + strings.TrimPrefix(address, "ws://")
+	}
+	return address
+}
+
+func resolveAxonHubResponsesWebsocket(channel AxonHubSourceChannel, base, path string) (*store.DirectEndpoint, string) {
+	base = responsesHTTPAddress(base)
+	if problem := validateAxonHubEndpointBase(base); problem != "" {
+		return nil, "endpoint_base_url_" + problem
+	}
+	if !safeDirectEndpointPath(path) {
+		return nil, "endpoint_path_invalid"
+	}
+	profile := ""
+	if channel.Type == "codex" || channel.Type == "fenno" {
+		profile, path = "codex", ""
+		if base == "https://api.openai.com/v1" {
+			base = "https://chatgpt.com/backend-api/codex#"
+		}
+	} else if channel.Credentials.OAuth {
+		return nil, "responses_websocket_oauth_provider_unsupported"
+	}
+	target, problem := resolveAxonHubEndpointURL(channel.Type, protoResponses, base, path, true)
+	if problem != "" {
+		return nil, problem
+	}
+	if strings.HasPrefix(target, "https://") {
+		target = "wss://" + strings.TrimPrefix(target, "https://")
+	} else {
+		target = "ws://" + strings.TrimPrefix(target, "http://")
+	}
+	return &store.DirectEndpoint{URL: target, Auth: store.DirectAuthBearer, Profile: profile}, ""
 }
 
 func resolveAxonHubEndpointURL(provider string, protocol int, base, path string, custom bool) (string, string) {

@@ -94,6 +94,10 @@ JSON 合同并由路由候选携带；`handler/proxy` 在协议转换前应用�
 尝试强制上游流式，使用现有帧限制、总字节限制、idle 和取消控制；
 `transform/streamaggregate` 负责原生文本协议的完整 JSON 聚合，成功后再交给
 既有跨协议响应转换。该聚合 owner 不发请求、不改路由、不结算用量。
+Direct Responses 的 HTTP、compaction 和 WebSocket 使用独立 endpoint/grant
+位。`responses_ws.go` 负责下游逐轮鉴权，`direct_responses_ws.go` 将当前凭据、
+渠道准入和显式代理接入既有 `codex_ws_runtime.go`；不建立第二个连接池。
+运行时区分升级失败与已发送事件，后者不得被回退路径重放。
 
 ## Ownership and boundary map
 

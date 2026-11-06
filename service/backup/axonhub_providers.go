@@ -51,6 +51,8 @@ const (
 	protoOllama             = store.DirectProtocolOllama
 	protoSystemOne          = store.DirectProtocolSystemOne
 	protoAlphaSearch        = store.DirectProtocolAlphaSearch
+	protoResponsesCompact   = store.DirectProtocolResponsesCompact
+	protoResponsesWebsocket = store.DirectProtocolResponsesWebsocket
 )
 
 var axonHubProviderTypes = map[string]axonHubProviderType{
@@ -144,6 +146,8 @@ var axonHubProviderTypes = map[string]axonHubProviderType{
 var axonHubServableFormats = map[string]int{
 	"openai/chat_completions":     protoChat,
 	"openai/responses":            protoResponses,
+	"openai/responses_compact":    protoResponsesCompact,
+	"openai/responses_websocket":  protoResponsesWebsocket,
 	"anthropic/messages":          protoMessages,
 	"gemini/contents":             protoGemini,
 	"openai/completions":          protoCompletions,
@@ -179,9 +183,7 @@ var axonHubChatAudioFormats = append([]string{"openai/chat_completions"}, axonHu
 
 // Source formats without a corresponding executor stay explicit in previews.
 var axonHubResidualProtocolFormats = map[string]string{
-	"openai/responses_compact":   "compact Responses variant is not routed by direct grants",
-	"openai/responses_websocket": "upstream Responses WebSocket transport is not routed by direct grants",
-	"aisdk/text":                 "AI SDK text protocol is not routed by direct grants",
-	"openai/decisions":           "decisions are not routed by direct grants",
-	"aisdk/datastream":           "AI SDK data stream protocol is not routed by direct grants",
+	"aisdk/text":       "AI SDK text protocol is not routed by direct grants",
+	"openai/decisions": "decisions are not routed by direct grants",
+	"aisdk/datastream": "AI SDK data stream protocol is not routed by direct grants",
 }

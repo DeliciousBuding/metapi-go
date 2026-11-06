@@ -156,6 +156,10 @@ func userBudgetOutputLimit(body map[string]any, field string) (int64, error) {
 	return 4096, nil
 }
 func userBudgetPositiveInteger(value any) (int64, bool) {
+	if number, ok := value.(json.Number); ok {
+		n, err := number.Int64()
+		return n, err == nil && n > 0 && n <= 16_777_216
+	}
 	n, ok := value.(float64)
 	if !ok || n <= 0 || n > 16_777_216 || math.IsNaN(n) || math.Trunc(n) != n {
 		return 0, false
@@ -176,7 +180,7 @@ func userBudgetTextValue(value any) bool {
 					return false
 				}
 			case "n", "best_of":
-				if n, ok := value.(float64); !ok || n != 1 {
+				if n, ok := userBudgetPositiveInteger(value); !ok || n != 1 {
 					return false
 				}
 			case "type":

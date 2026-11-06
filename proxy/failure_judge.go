@@ -267,6 +267,11 @@ func hasCompletionContentFromPayload(payload any) bool {
 				continue
 			}
 			itemType := strings.ToLower(stringValue(itemMap["type"]))
+			if itemType == "compaction" || itemType == "compaction_summary" {
+				if content, ok := itemMap["encrypted_content"].(string); ok && content != "" {
+					return true
+				}
+			}
 			if strings.Contains(itemType, "function_call") || strings.Contains(itemType, "tool_call") {
 				return true
 			}

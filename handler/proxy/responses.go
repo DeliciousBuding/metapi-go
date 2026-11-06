@@ -17,6 +17,13 @@ func HandleResponses(w http.ResponseWriter, r *http.Request, downstreamPath stri
 		writeJSONError(w, errResp.Status, errResp.Error, errResp.ErrorType)
 		return
 	}
+	if downstreamPath == "/v1/responses/compact" {
+		stream, present := ctx.Body["stream"]
+		if ctx.IsStream || ctx.Multipart || present && stream != false {
+			writeJSONError(w, http.StatusBadRequest, "Compaction requires a non-streaming JSON request", "invalid_request_error")
+			return
+		}
+	}
 
 	// Prompt safety filter (#681): block high-risk prompts before they reach
 	// shared OAuth upstream accounts. Runs only when PROMPT_FILTER_ENABLED.
@@ -65,7 +72,7 @@ func HandleResponsesAliasGet426(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, 404, "Unknown /responses alias path", "invalid_request_error")
 		return
 	}
-	if IsWebsocketUpgradeRequest(r) {
+	if IsWebsocketUpgradeRequest(r) && downstreamPath == "/v1/responses" {
 		HandleResponsesWebsocket(w, r)
 		return
 	}

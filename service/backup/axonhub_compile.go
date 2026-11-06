@@ -307,7 +307,7 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 			if channel.Type == "codex" && endpoint.APIFormat == "openai/alpha_search" {
 				continue
 			}
-			if (channel.Type == "codex" || channel.Type == "fenno") && (endpoint.APIFormat == "openai/responses" || endpoint.APIFormat == "openai/image_generation" || endpoint.APIFormat == "openai/image_edit") {
+			if (channel.Type == "codex" || channel.Type == "fenno") && (endpoint.APIFormat == "openai/responses" || endpoint.APIFormat == "openai/responses_websocket" || endpoint.APIFormat == "openai/image_generation" || endpoint.APIFormat == "openai/image_edit") {
 				continue
 			}
 			if channel.Type == "github_copilot" {
@@ -416,6 +416,18 @@ func compileAxonHubChannel(channel AxonHubSourceChannel) (*axonHubPlanChannel, [
 	}
 
 	baseURL := axonHubChannelBaseURL(channel)
+	if strings.HasPrefix(baseURL, "ws://") || strings.HasPrefix(baseURL, "wss://") {
+		wsOnly := true
+		for _, endpoint := range axonHubMergedEndpoints(channel, provider) {
+			wsOnly = wsOnly && (endpoint.APIFormat == "openai/responses_websocket" || endpoint.APIFormat == "openai/responses" && endpoint.Transport == "websocket")
+		}
+		if !wsOnly {
+			return nil, []string{"websocket_base_requires_explicit_transport"}, nil
+		}
+		// The legacy channel base remains HTTP-shaped; only the explicit WS
+		// endpoint can authorize the scheme conversion back at execution.
+		baseURL = responsesHTTPAddress(baseURL)
+	}
 	if problem := validateAxonHubEndpointBase(baseURL); problem != "" {
 		return nil, []string{"base_url_" + problem}, nil
 	}

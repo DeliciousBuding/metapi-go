@@ -4,6 +4,11 @@
 
 本文覆盖把 TypeScript 版 Metapi 部署迁到 Go 版的完整过程。走哪条路取决于旧版使用哪种数据库：SQLite 与 PostgreSQL 库**停止旧服务后由 Go 直接接管**；MySQL 库必须**先在 TypeScript 版内完成转换**。文末是 `metapi-migrate` CLI 参考、镜像版本锁定与故障排查。
 
+Direct Responses 压缩和 WebSocket 使用新增独立协议位及已有 `endpoint_config`
+JSON 字段。升级不会给存量 HTTP grant 自动增加权限；需要显式配置端点、grant
+及成员协议，或重新导入声明该能力的源备份。完整备份保留这些字段；回退到不认识
+新协议位的版本前，应恢复升级前备份，不能让旧程序忽略新限制后继续提供服务。
+
 ## 根下游密钥升级
 
 首次升级启动时，SQLite 与 PostgreSQL 都会自动把旧根密钥迁入「API 密钥」：

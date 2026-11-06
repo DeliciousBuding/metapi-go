@@ -53,6 +53,8 @@ func associationRequest(path string, raw []byte, headers http.Header, stream boo
 			format = "gemini/embeddings"
 		case store.DirectProtocolJinaEmbeddings:
 			format = "jina/embeddings"
+		case store.DirectProtocolResponsesCompact:
+			format = "openai/responses_compact"
 		default:
 			return nil
 		}

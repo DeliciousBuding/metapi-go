@@ -1,14 +1,17 @@
 package store
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 )
 
-// DirectEndpoint is a fully resolved HTTP endpoint. The importer owns source
+// DirectEndpoint is a fully resolved endpoint. Its typed slot owns HTTP or
+// WebSocket transport permission. The importer owns source
 // provider URL conventions; execution must not normalize this URL again.
 type DirectEndpoint struct {
 	URL  string `json:"url"`
@@ -73,6 +76,8 @@ type DirectEndpoints struct {
 	Ollama                    *DirectEndpoint `json:"ollama,omitempty"`
 	SystemOne                 *DirectEndpoint `json:"systemOne,omitempty"`
 	AlphaSearch               *DirectEndpoint `json:"alphaSearch,omitempty"`
+	ResponsesCompact          *DirectEndpoint `json:"responsesCompact,omitempty"`
+	ResponsesWebsocket        *DirectEndpoint `json:"responsesWebsocket,omitempty"`
 }
 
 var requiredDirectProfiles = map[int]string{
@@ -122,7 +127,12 @@ func (e *DirectEndpoints) Scan(value any) error {
 		return fmt.Errorf("invalid direct endpoint configuration type %T", value)
 	}
 	var decoded DirectEndpoints
-	if err := json.Unmarshal(data, &decoded); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&decoded); err != nil {
+		return fmt.Errorf("invalid direct endpoint configuration")
+	}
+	if decoder.Decode(new(any)) != io.EOF {
 		return fmt.Errorf("invalid direct endpoint configuration")
 	}
 	for _, entry := range decoded.Entries() {
@@ -132,9 +142,17 @@ func (e *DirectEndpoints) Scan(value any) error {
 		}
 		for _, address := range endpoint.URLFields() {
 			u, err := url.Parse(*address)
-			if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.Fragment != "" || u.RawQuery != "" {
+			validScheme := err == nil && (u.Scheme == "http" || u.Scheme == "https")
+			if entry.Protocol == DirectProtocolResponsesWebsocket {
+				validScheme = err == nil && (u.Scheme == "ws" || u.Scheme == "wss")
+			}
+			if err != nil || u.Host == "" || !validScheme || u.User != nil || u.Fragment != "" || u.RawQuery != "" {
 				return fmt.Errorf("invalid direct endpoint URL")
 			}
+		}
+		if (entry.Protocol == DirectProtocolResponsesCompact || entry.Protocol == DirectProtocolResponsesWebsocket) &&
+			(endpoint.Auth != DirectAuthBearer || endpoint.ModelPath || endpoint.ModelWireURLs != nil || endpoint.RequestModel != "") {
+			return fmt.Errorf("native Responses transport requires a bearer endpoint")
 		}
 		if endpoint.Auth != DirectAuthBearer && endpoint.Auth != DirectAuthAPIKey && endpoint.Auth != DirectAuthGoogle && endpoint.Auth != DirectAuthNone {
 			return fmt.Errorf("invalid direct endpoint authentication")
@@ -158,7 +176,7 @@ func (e *DirectEndpoints) Scan(value any) error {
 		switch endpoint.Profile {
 		case "":
 		case "codex":
-			if endpoint != decoded.Responses || endpoint.Auth != DirectAuthBearer {
+			if (endpoint != decoded.Responses && endpoint != decoded.ResponsesWebsocket) || endpoint.Auth != DirectAuthBearer {
 				return fmt.Errorf("codex profile requires bearer Responses")
 			}
 		case "claudecode":

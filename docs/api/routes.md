@@ -68,6 +68,23 @@ statistics are retained separately and are not treated as live health evidence.
 | `ollama` | 2097152 | Native Ollama Chat |
 | `systemOne` | 4194304 | TypeSafe System One |
 | `alphaSearch` | 8388608 | Alpha Search |
+| `responsesCompact` | 16777216 | Native Responses compaction |
+| `responsesWebsocket` | 33554432 | Responses WebSocket upstream |
+
+`responsesCompact` is an independent non-streaming JSON endpoint. It preserves
+opaque compaction items and provider extensions; it does not translate to a
+generation protocol. Ordinary user token budgets still reject compaction and
+opaque continuations. Managed Key quotas retain known/unknown usage accounting.
+
+`responsesWebsocket` uses a `ws://` or `wss://` bearer endpoint. It authorizes an
+upstream WebSocket only for downstream Responses WS turns; an HTTP POST cannot
+borrow this grant, and a `responses` HTTP grant does not authorize a WS dial.
+Each turn reloads the current grant, member, model and Key restrictions, resolves
+the current credential, and uses the same channel limits and usage owner as HTTP.
+Connection identity includes the downstream Key, client session, channel,
+credential generation, endpoint and proxy. Rotation replaces the connection.
+Only an upgrade failure before a generation event is sent may fall back to a
+separately authorized HTTP endpoint. Accepted events are never silently replayed.
 
 Non-generation requests require their configured capability and never fall back
 to a conversation endpoint. OpenAI/Jina embeddings and OpenAI/ModelScope image
