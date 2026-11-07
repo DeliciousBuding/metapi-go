@@ -1,16 +1,27 @@
 package proxyhandler
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/deliciousbuding/metapi-go/internal/channelplugin"
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
+	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/tidwall/gjson"
 )
+
+func directPluginProtocol(path string) string {
+	if proxy.DirectProtocolForPath(path) == store.DirectProtocolResponsesCompact {
+		return "responsesCompact"
+	}
+	return directTransformProtocol(path)
+}
 
 func prepareDirectChannelPlugins(ctx context.Context, cfg *UpstreamConfig, wire *directProviderWire, config store.DirectRequestConfig, protocol, model string, stream bool, requestContext requestoverride.Context) error {
 	if len(config.Plugins) == 0 {
@@ -31,7 +42,7 @@ func prepareDirectChannelPlugins(ctx context.Context, cfg *UpstreamConfig, wire 
 			return err
 		}
 		body, warnings, err := requestoverride.ApplyBody(wire.Body, result.Body, requestContext, channelplugin.MaxInputBytes)
-		if err != nil || len(warnings) > 0 {
+		if err != nil || len(warnings) > 0 || !sameChannelPluginRequestControls(protocol, wire.Body, body) {
 			return channelplugin.ErrResult
 		}
 		wire.Body = body
@@ -39,6 +50,46 @@ func prepareDirectChannelPlugins(ctx context.Context, cfg *UpstreamConfig, wire 
 	}
 	headers := append(slices.Clone(wire.PluginHeaders), config.Headers...)
 	return (requestoverride.Config{Headers: headers}).Validate()
+}
+
+func sameChannelPluginRequestControls(protocol string, before, after []byte) bool {
+	if protocol != "responsesCompact" && protocol != "responsesWebsocket" {
+		return true
+	}
+	// These transports carry opaque continuation and native event envelopes.
+	// Vendor configuration is extensible; changing identity or control mode is
+	// not a wire normalization, and must not happen after authorization.
+	for _, path := range []string{"model", "type", "input", "previous_response_id", "stream", "background", "store"} {
+		if gjson.GetBytes(before, path).Raw != gjson.GetBytes(after, path).Raw {
+			return false
+		}
+	}
+	return true
+}
+
+func projectDirectWebsocketPluginEvents(ctx context.Context, wire *directProviderWire, events []map[string]any) ([]map[string]any, error) {
+	if len(wire.Plugins) == 0 {
+		return events, nil
+	}
+	out := make([]map[string]any, 0, len(events))
+	for _, event := range events {
+		raw, err := json.Marshal(event)
+		if err != nil {
+			return nil, channelplugin.ErrResult
+		}
+		raw, err = applyDirectChannelResponsePlugins(ctx, wire, raw, "event")
+		if err != nil {
+			return nil, err
+		}
+		var projected map[string]any
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.UseNumber()
+		if decoder.Decode(&projected) != nil || projected == nil {
+			return nil, channelplugin.ErrResult
+		}
+		out = append(out, projected)
+	}
+	return out, nil
 }
 
 func applyDirectChannelResponsePlugins(ctx context.Context, wire *directProviderWire, body []byte, hook string) ([]byte, error) {
@@ -66,6 +117,12 @@ func sameChannelPluginControlFields(protocol string, before, after []byte) bool 
 	}
 	if protocol == "gemini" {
 		paths = append(paths, "usageMetadata", "modelVersion")
+	}
+	if protocol == "responsesCompact" || protocol == "responsesWebsocket" {
+		paths = append(paths, "output", "response.output", "item", "part", "output_index", "content_index", "item_id", "call_id", "sequence_number", "previous_response_id")
+		if strings.HasPrefix(gjson.GetBytes(before, "type").String(), "response.function_call_arguments.") {
+			paths = append(paths, "delta", "arguments", "name")
+		}
 	}
 	for _, path := range paths {
 		if gjson.GetBytes(before, path).Raw != gjson.GetBytes(after, path).Raw {

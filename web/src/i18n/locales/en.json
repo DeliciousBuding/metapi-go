@@ -4388,7 +4388,7 @@
         "emptyDescription": "Install a trusted module to extend channel request and response behavior.",
         "emptyBindings": "No installed plugins. Open the Plugins tab to install one.",
         "bindings": "Channel plugins",
-        "bindingDescription": "Ordered hooks run only on selected HTTP endpoints. Existing private request operations are preserved. Disabling a bound plugin blocks new requests.",
+        "bindingDescription": "Ordered hooks run only on explicitly selected protocol endpoints. HTTP Responses, compaction, and WebSocket have separate bindings. Existing private request operations are preserved. Disabling a bound plugin blocks new requests.",
         "enabled": "Enabled",
         "disabled": "Disabled",
         "unavailable": "Unavailable",

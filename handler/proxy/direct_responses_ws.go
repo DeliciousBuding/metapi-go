@@ -90,8 +90,11 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 	if actualModel == "" {
 		actualModel = model
 	}
-	wire, err := prepareDirectResponsesWebsocketWire(endpoint, selected.Direct, credential, raw, request.Header, downstreamSessionNamespace(s.auth), model, actualModel)
+	wire, err := prepareDirectResponsesWebsocketWire(ctx, cfg, endpoint, selected.Direct, credential, raw, request.Header, downstreamSessionNamespace(s.auth), model, actualModel)
 	if err != nil {
+		if len(selected.Direct.RequestConfig.Plugins) > 0 {
+			return reject(channelPluginRequestStatus(err), "Selected channel cannot execute this WebSocket request plugin")
+		}
 		return reject(400, "Selected channel cannot prepare this WebSocket request")
 	}
 	if selected.Direct.RequestConfig.Active() && s.auth != nil && s.auth.OwnerUserID != nil &&
@@ -140,10 +143,12 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 	delete(requestBody, "stream")
 	delete(requestBody, "background")
 	var attemptCtx context.Context
+	var projectedEvents []map[string]any
+	var pluginErr error
 	selectedCopy := *selected
 	selectedCopy.TokenValue = credential.AccessToken
 	selected = &selectedCopy
-	result, sendErr := SendCodexWebsocketRequest(ctx, CodexWebsocketSendInput{
+	_, sendErr := SendCodexWebsocketRequest(ctx, CodexWebsocketSendInput{
 		SessionID: sessionKey, RequestURL: endpoint.URL, Headers: headers, Body: requestBody, HTTPClient: client,
 		// A direct grant has no authority to replay a request after the peer
 		// accepted its event. The old site-specific recovery remains separate.
@@ -164,6 +169,13 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 				return
 			}
 			usage := responsesWSAttemptUsage(events)
+			// Account from the original native events. A pinned hook snapshot
+			// projects this turn only after the transport/collector settled; hook
+			// failure cannot trigger a second send or forge an upstream success.
+			projectedEvents, pluginErr = projectDirectWebsocketPluginEvents(ctx, wire, events)
+			if attemptErr == nil {
+				attemptErr = pluginErr
+			}
 			if attemptErr != nil {
 				status, outcome := 502, shared.OutcomeUpstreamError
 				if ctx.Err() != nil {
@@ -180,6 +192,12 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 			recordChannelRateUsage(attemptCtx, usage)
 		},
 	})
+	if pluginErr != nil {
+		if ctx.Err() != nil {
+			return nil, true, ctx.Err()
+		}
+		return reject(502, "Cannot execute selected channel WebSocket event plugin")
+	}
 	if sendErr != nil {
 		if ctx.Err() != nil {
 			return nil, true, ctx.Err()
@@ -200,14 +218,14 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 			return nil, false, nil
 		}
 		if runtimeErr != nil {
-			for _, event := range runtimeErr.Events {
+			for _, event := range projectedEvents {
 				if err := s.writeDirectResponsesEvent(ctx, event, model); err != nil {
 					return nil, true, err
 				}
 			}
-			for _, event := range runtimeErr.Events {
+			for _, event := range projectedEvents {
 				if isTerminalResponsesEvent(event) {
-					return collectResponsesOutputFromMaps(runtimeErr.Events), true, nil
+					return collectResponsesOutputFromMaps(projectedEvents), true, nil
 				}
 			}
 		}
@@ -216,7 +234,7 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 		}
 		return reject(502, "Upstream WebSocket request failed")
 	}
-	for _, event := range result.Events {
+	for _, event := range projectedEvents {
 		writeCtx := ctx
 		// A successful runtime result has already passed the shared collector's
 		// native terminal validation. This only classifies downstream lifecycle.
@@ -230,7 +248,7 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 	if proxyCtx.lifecycle != nil {
 		proxyCtx.lifecycle.observe(shared.OutcomeSuccess, true)
 	}
-	return collectResponsesOutputFromMaps(result.Events), true, nil
+	return collectResponsesOutputFromMaps(projectedEvents), true, nil
 }
 
 func (s *responsesWSSession) writeDirectResponsesEvent(ctx context.Context, event map[string]any, requestedModel string) error {
@@ -251,7 +269,7 @@ func (s *responsesWSSession) writeDirectResponsesEvent(ctx context.Context, even
 	return s.writeJSON(ctx, event)
 }
 
-func prepareDirectResponsesWebsocketWire(endpoint *store.DirectEndpoint, direct *store.DirectUpstreamCandidate, credential *oauth.DirectCredentialResult, raw []byte, headers http.Header, namespace, requestedModel, actualModel string) (*directProviderWire, error) {
+func prepareDirectResponsesWebsocketWire(ctx context.Context, cfg *UpstreamConfig, endpoint *store.DirectEndpoint, direct *store.DirectUpstreamCandidate, credential *oauth.DirectCredentialResult, raw []byte, headers http.Header, namespace, requestedModel, actualModel string) (*directProviderWire, error) {
 	if err := direct.RequestConfig.ValidateEndpoints(direct.Endpoints); err != nil {
 		return nil, err
 	}
@@ -269,6 +287,9 @@ func prepareDirectResponsesWebsocketWire(endpoint *store.DirectEndpoint, direct 
 	}
 	wire, err := prepareDirectProviderWire(endpoint, direct.ChannelID, credential, body, headers, namespace, directProviderRequest{Model: actualModel, Stream: true})
 	if err != nil {
+		return nil, err
+	}
+	if err := prepareDirectChannelPlugins(ctx, cfg, wire, direct.RequestConfig, "responsesWebsocket", actualModel, true, context); err != nil {
 		return nil, err
 	}
 	wire.Body, err = requestoverride.ClaudeCodeMapping(wire.Body, "responses", direct.RequestConfig.Options, context)

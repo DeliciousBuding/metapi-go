@@ -1,12 +1,57 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { channelPluginsApi } from '../channel-plugins'
+import { channelPluginsApi, pluginBindingSchema } from '../channel-plugins'
 
 const mock = vi.hoisted(() => vi.fn())
 vi.mock('../transport', () => ({ request: mock }))
 beforeEach(() => mock.mockReset())
 
 describe('channel plugin API data boundary', () => {
+  it('keeps compact and WebSocket as separate explicit binding slots', async () => {
+    const protocols = [
+      'chat',
+      'responses',
+      'messages',
+      'gemini',
+      'responsesCompact',
+      'responsesWebsocket',
+    ]
+    const value = {
+      items: [
+        {
+          key: 'native',
+          revision: 1,
+          enabled: true,
+          manifest: {
+            apiVersion: 1,
+            key: 'native',
+            name: 'Native',
+            version: '1.0.0',
+            protocols,
+            hooks: ['request', 'event'],
+          },
+        },
+      ],
+    }
+    mock.mockResolvedValueOnce(value)
+    await expect(channelPluginsApi.list()).resolves.toEqual(value)
+    expect(pluginBindingSchema.parse({ key: 'native', protocols })).toEqual({
+      key: 'native',
+      protocols,
+    })
+    for (const protocol of ['responsesCompact', 'responsesWebsocket']) {
+      expect(
+        pluginBindingSchema.parse({ key: 'native', protocols: [protocol] })
+          .protocols
+      ).toEqual([protocol])
+    }
+    expect(() =>
+      pluginBindingSchema.parse({
+        key: 'native',
+        protocols: ['futureTransport'],
+      })
+    ).toThrow()
+  })
   it('rejects malformed snapshots rather than accepting an empty list', async () => {
     for (const value of [
       {},

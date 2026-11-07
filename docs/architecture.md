@@ -81,8 +81,10 @@ refresh family。family 按签发供应商与 OAuth client 划分，用不可逆
 
 `internal/channelplugin` 负责无 I/O 的 moejs wire hooks；`service/channelplugins`
 拥有安装元数据、版本 CAS 和不可变尝试快照，`store.channel_plugins` 保存本地可信代码。
-渠道 `DirectRequestConfig.Plugins` 指定有序 HTTP 协议绑定，管理界面使用同一 manifest
+渠道 `DirectRequestConfig.Plugins` 指定有序协议槽绑定，管理界面使用同一 manifest
 渲染选项，不读取私有请求操作。请求、响应和 SSE 接入已有 handler pipeline；
+compact 与 WS 独立绑定，后者在既有每轮 owner 捕获不可变快照，先观察原始用量
+再投影事件，不给 hook 凭据/路由/重放能力；
 路由、凭据、transport 和预算 owner 保持不变。合同与限制见
 [渠道插件 API](api/channel-plugins.md)。
 

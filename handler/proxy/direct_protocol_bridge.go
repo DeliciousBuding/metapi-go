@@ -235,7 +235,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 		return true, nil, false
 	}
 	beforeOperations := append([]byte(nil), wire.Body...)
-	if err = prepareDirectChannelPlugins(r.Context(), cfg, wire, selected.Direct.RequestConfig, directTransformProtocol(path), model, upstreamStream, requestContext); err != nil {
+	if err = prepareDirectChannelPlugins(r.Context(), cfg, wire, selected.Direct.RequestConfig, directPluginProtocol(path), model, upstreamStream, requestContext); err != nil {
 		writeJSONErrorWithRequest(w, channelPluginRequestStatus(err), "Cannot execute selected channel request plugin", "upstream_error", requestID)
 		return true, nil, false
 	}

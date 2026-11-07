@@ -4388,7 +4388,7 @@
         "emptyDescription": "安装可信模块，扩展渠道请求与响应行为。",
         "emptyBindings": "没有已安装插件，请到「插件」标签页安装。",
         "bindings": "渠道插件",
-        "bindingDescription": "有序 hooks 仅在选中的 HTTP 端点执行，保留既有私有请求操作。停用已绑定插件会阻止新的请求。",
+        "bindingDescription": "有序 hooks 仅在显式选中的协议端点执行，HTTP Responses、压缩和 WebSocket 分别绑定，保留既有私有请求操作。停用已绑定插件会阻止新的请求。",
         "enabled": "已启用",
         "disabled": "已停用",
         "unavailable": "不可用",

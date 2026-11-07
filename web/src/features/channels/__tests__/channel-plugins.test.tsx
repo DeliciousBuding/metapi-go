@@ -74,6 +74,49 @@ beforeEach(async () => {
 afterEach(cleanup)
 
 describe('channel plugin management and bindings', () => {
+  it('explains explicit transport bindings in both supported languages', async () => {
+    const english = i18n.t('channels.plugins.bindingDescription')
+    await i18n.changeLanguage('zhCN')
+    const chinese = i18n.t('channels.plugins.bindingDescription')
+    expect(english).toContain('explicitly selected protocol endpoints')
+    expect(english).toContain('WebSocket have separate bindings')
+    expect(chinese).toContain('WebSocket 分别绑定')
+  })
+
+  it('offers native transport slots only when declared by both plugin and channel', async () => {
+    const item = plugin('alpha')
+    if (!item.manifest) throw new Error('missing fixture manifest')
+    item.manifest.protocols = [
+      'responses',
+      'responsesCompact',
+      'responsesWebsocket',
+    ]
+    mocks.list.mockResolvedValue({ items: [item] })
+    const changed = vi.fn()
+    mount(
+      <ChannelPluginBindings
+        value={[]}
+        onChange={changed}
+        endpoints={{
+          responses: {
+            url: 'https://example.invalid/responses',
+            auth: 'bearer',
+          },
+          responsesWebsocket: {
+            url: 'wss://example.invalid/responses',
+            auth: 'bearer',
+          },
+        }}
+      />
+    )
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: 'Vendor alpha' })
+    )
+    expect(changed).toHaveBeenLastCalledWith([
+      { key: 'alpha', protocols: ['responses', 'responsesWebsocket'] },
+    ])
+  })
+
   it('names the open option list from its unique visible label', async () => {
     const item = plugin('alpha')
     if (!item.manifest) throw new Error('missing fixture manifest')
