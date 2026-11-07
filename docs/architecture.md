@@ -107,7 +107,10 @@ provider 的匿名身份复用既有凭据 resolver 与 Ollama 端点资格；�
 multipart driver 在原生 profile 预转换前接收字段和请求内文件引用；字节、文件句柄
 与临时路径由 `handler/proxy` 的原 multipart owner 保留。JSON 占位符或 multipart
 parts 在语义覆盖/预算之后由宿主最终编码，不给 JS 文件能力或另建上传执行器。
-本阶段未另建 router、凭据池或任务平台；自定义认证、其他媒体协议的插件消费者等
+同步 JSON 槽与图片/音频 multipart 复用同一 descriptor/文件 owner；provider 绑定
+按实际已选端点槽而非公共路径别名捕获。非 JSON 音频/字幕保留原 byte relay，不进
+JS decoder。显式 provider 不隐式借原内置异步图片 profile 执行额外轮询/下载。
+本阶段未另建 router、凭据池或任务平台；自定义认证、其他异步媒体任务消费者等
 未列出的消费者尚未接通，不能据协议声明推断这些能力已可用。
 
 产品预设由 `service/upstream_presets.go` 管理品牌、套餐、凭据类型和各协议的

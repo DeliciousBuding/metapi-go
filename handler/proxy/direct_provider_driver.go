@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/internal/channelplugin"
+	"github.com/deliciousbuding/metapi-go/internal/channelplugin/contract"
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -21,10 +22,7 @@ import (
 // authentication while the descriptor changes only its same-origin wire URL.
 func prepareDirectProviderDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamConfig, wire *directProviderWire, direct *store.DirectUpstreamCandidate, endpoint *store.DirectEndpoint, kind, path, method, model string, stream bool) error {
 	binding := direct.RequestConfig.Provider
-	protocol := directPluginProtocol(path)
-	if strings.HasPrefix(path, "/v1/videos") {
-		protocol = directMediaDriverProtocol(direct, path)
-	}
+	protocol := directProviderProtocol(direct, path, endpoint)
 	if binding == nil || !slices.Contains(binding.Protocols, protocol) {
 		return nil
 	}
@@ -34,21 +32,29 @@ func prepareDirectProviderDriver(ctx context.Context, proxyCtx *Ctx, cfg *Upstre
 	if slices.Contains([]string{"video", "seedanceVideo", "zenmuxVideo"}, protocol) {
 		return prepareDirectMediaDriver(ctx, proxyCtx, cfg, wire, direct, endpoint, protocol, kind, path, method, model)
 	}
-	// Media/task and native WS operations use their own lifecycle consumers;
-	// until those are connected they must not silently dispatch without a driver.
-	if !slices.Contains([]string{"chat", "responses", "messages", "gemini", "responsesCompact"}, protocol) || strings.HasSuffix(path, "/count_tokens") {
+	// Every typed native request uses the existing dispatcher. Persistent video
+	// and per-turn WS keep their own consumers; no protocol permission is inferred.
+	if !contract.ValidProviderProtocol(protocol) || protocol == "responsesWebsocket" || strings.HasSuffix(path, "/count_tokens") {
 		return channelplugins.ErrBinding
 	}
 	invocation, err := cfg.ChannelPlugins.ResolveDriver(ctx, *binding, protocol, kind)
 	if err != nil {
 		return err
 	}
-	raw, err := invocation.Call(ctx, "request", channelplugin.DriverInput{Body: string(wire.Body), Model: model, Stream: stream})
+	input := channelplugin.DriverInput{Body: string(wire.Body), Model: model, Stream: stream}
+	if wire.DriverUpload != nil {
+		input.BodyKind, input.Files = "multipart", wire.DriverUpload.metadata
+	}
+	raw, err := invocation.Call(ctx, "request", input)
 	if err != nil {
 		return err
 	}
 	var descriptor channelplugin.RequestDescriptor
-	if requestoverride.Decode(raw, &descriptor) != nil || descriptor.Method != method || !sameDriverRequestControls(protocol, wire.Body, []byte(descriptor.Body)) {
+	if requestoverride.Decode(raw, &descriptor) != nil || descriptor.Method != method {
+		return channelplugin.ErrResult
+	}
+	prepared, err := directDriverDescriptorBody(descriptor, wire)
+	if err != nil || !sameDriverRequestControls(protocol, wire.Body, prepared) {
 		return channelplugin.ErrResult
 	}
 	url, _ := directRequestURL(direct, path, model, stream, endpoint)
@@ -62,7 +68,7 @@ func prepareDirectProviderDriver(ctx context.Context, proxyCtx *Ctx, cfg *Upstre
 		}
 	}
 	wire.Driver, wire.DriverURL, wire.DriverContentType = &invocation, url, descriptor.ContentType
-	wire.Body = []byte(descriptor.Body)
+	wire.Body = prepared
 	wire.PluginProtocol, wire.PluginModel, wire.PluginStream = protocol, model, stream
 	if wire.Headers == nil {
 		wire.Headers = make(http.Header)
@@ -71,6 +77,22 @@ func prepareDirectProviderDriver(ctx context.Context, proxyCtx *Ctx, cfg *Upstre
 		wire.Headers.Set(key, value)
 	}
 	return nil
+}
+
+// Bind to the authorized endpoint slot, not merely its downstream path alias.
+// Jina embeddings, Ollama and ModelScope share public paths with other slots.
+func directProviderProtocol(direct *store.DirectUpstreamCandidate, path string, endpoint *store.DirectEndpoint) string {
+	if endpoint != nil {
+		for _, entry := range direct.Endpoints.Entries() {
+			if entry.Endpoint == endpoint {
+				return entry.Key
+			}
+		}
+	}
+	if strings.HasPrefix(path, "/v1/videos") {
+		return directMediaDriverProtocol(direct, path)
+	}
+	return directPluginProtocol(path)
 }
 
 // Native response projection runs after raw usage observation. It cannot alter

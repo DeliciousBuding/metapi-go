@@ -146,6 +146,10 @@ func (m Manifest) AcceptsRequestKind(kind string) bool {
 	return slices.Contains(m.RequestKinds, kind)
 }
 
+func SupportsMultipartProtocol(protocol string) bool {
+	return slices.Contains([]string{"video", "seedanceVideo", "zenmuxVideo", "imageEdit", "imageVariation", "audioTranscription", "audioTranslation"}, protocol)
+}
+
 // Driver calls produce bounded JSON for the operation's owning host parser.
 // Descriptor validation, raw usage observation and terminal validation remain
 // mandatory at those consumers; a driver call performs no network I/O.
@@ -169,7 +173,7 @@ func (p *Program) CallDriver(ctx context.Context, hook string, input DriverInput
 		if !p.manifest.AcceptsRequestKind(kind) {
 			return nil, ErrRequestKind
 		}
-		if kind == "json" && len(input.Files) != 0 || kind == "multipart" && (hook != "submit" || !slices.Contains([]string{"video", "seedanceVideo", "zenmuxVideo"}, input.Protocol)) {
+		if kind == "json" && len(input.Files) != 0 || kind == "multipart" && !SupportsMultipartProtocol(input.Protocol) {
 			return nil, ErrManifest
 		}
 	} else if input.BodyKind != "" || len(input.Files) != 0 {

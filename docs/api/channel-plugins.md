@@ -89,10 +89,11 @@ API v1 wire hook 合同不是供应商插件 API：不拥有 OAuth 登录/刷新
 
 provider 与有序 wire hooks 是两种独立绑定，共用安装、版本 CAS、选项校验和
 隔离运行器。每渠道最多一个 provider；它不能选择路由、创建凭据或增加模型授权。
-当前执行路径支持 `chat`、`responses`、`messages`、`gemini`、`responsesCompact`
-与逐轮 `responsesWebsocket`；视频槽接入下文所列 JSON 提交、查询与内容读取。
-其他协议槽及未列出的媒体操作可以声明，但尚未接入完整生命周期，绑定后不能
-隐式回退到无 driver 转发。
+当前 request/response 接入全部已声明的原生同步 JSON 槽；completions/text SSE
+沿原事件 owner 使用 event hook。`responsesCompact`、逐轮 `responsesWebsocket`
+与视频持久任务保持各自独立消费者，视频能力见下文。实际执行仍须端点/grant/
+协议绑定资格匹配；Jina、ModelScope、Ollama 等共享公共路径的槽以已选端点身份
+绑定，不按客户端路径猜测或隐式回退到无 driver。
 
 ```js
 export const meta = {
@@ -122,7 +123,8 @@ export function modelsResponse(input) { return {models: JSON.parse(input.body).i
 
 `requestKinds` 可显式声明 `json` / `multipart`，默认只有 `json`；空数组、重复项
 或未知类型拒绝。它只约束创建请求，不影响旧任务查询；当前 multipart 消费者
-为下文的三个视频槽，其他协议不能从声明推断已经接通。旧模块不自动获得文件输入。
+为三个视频槽及 `imageEdit`、`imageVariation`、`audioTranscription`、
+`audioTranslation`；其他协议不能从声明推断支持 multipart。旧模块不自动获得文件输入。
 未声明的创建请求格式返回 415，且不派发、不归档新任务程序；插件解析/执行失败
 继续按原错误合同处理，不把请求格式不匹配归类为上游网络故障。
 
@@ -313,6 +315,26 @@ CDN 下载失败不抹掉已收到的差额。未能关联原始 ID 的旧模块
 达到上限时在上游提交前拒绝新捕获，不删除仍需恢复的代码。档案不进入可移植
 备份，方言迁移与一致数据库快照保留；恢复旧任务须另外保留原审核代码档案。
 使用 driver 的任务身份版本为 3，旧程序明确拒绝，不靠忽略新字段执行。
+
+### 其他原生消费者
+
+同步图片编辑/变体、音频转写/翻译的 multipart 使用 request/response（不调用
+视频 submit/taskResult），复用上文同一宿主文件引用与 parts/JSON 占位符合同。
+模型映射、参数覆盖、重复字段、原文件字节/名称/MIME 及当前授权仍由原 owner
+校验。JSON decoder 按所选原生 envelope 验证，原始用量先于代码执行；抛错、
+错误 envelope、伪造用量或解码形状错误不重放已发生请求。
+
+audioSpeech 的音频、转写字幕等非 JSON 响应沿原 media byte owner 流式转发，
+保留 MIME 与字节限制/idle/取消，不执行 JSON response/decoder，也不把二进制
+当 JS 字符串。没有原始计数时仍为 unknown，不从文件长度伪造 token 用量。
+JS JSON 输入/输出仍受运行边界的 4 MiB 限制，不因为图片协议放宽沙箱。
+
+显式 provider 绑定 OpenRouter/MiniMax/ModelScope 图片 profile 时，使用自己的
+请求 payload，不叠加内置供应商字段改写或默认异步模式头；端点鉴权仍由宿主
+构造，也保留这些 profile 原有的单次提交边界，失败不自动派发到另一凭据。
+显式 provider 不借内置异步图片 profile 自动发起轮询/下载；未列出的异步
+厂商任务生命周期须单独接入，不能让同步 JSON 绑定隐含授予 query/remix 权限。
+内置无 provider 的原生 profile 继续使用其原消费者。
 
 ## 回退到旧插件合同
 

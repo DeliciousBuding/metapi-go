@@ -132,6 +132,9 @@ func channelPluginControlsMatch(protocol string, before, after []byte, presentOn
 	if protocol == "gemini" {
 		paths = append(paths, "usageMetadata", "modelVersion")
 	}
+	if protocol == "ollama" {
+		paths = append(paths, "done", "done_reason", "prompt_eval_count", "eval_count", "total_duration", "load_duration", "prompt_eval_duration", "eval_duration")
+	}
 	if protocol == "responsesCompact" || protocol == "responsesWebsocket" {
 		paths = append(paths, "output", "response.output", "item", "part", "output_index", "content_index", "item_id", "call_id", "sequence_number", "previous_response_id")
 		if strings.HasPrefix(gjson.GetBytes(before, "type").String(), "response.function_call_arguments.") {
