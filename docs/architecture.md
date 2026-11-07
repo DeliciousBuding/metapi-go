@@ -110,7 +110,13 @@ parts 在语义覆盖/预算之后由宿主最终编码，不给 JS 文件能力
 同步 JSON 槽与图片/音频 multipart 复用同一 descriptor/文件 owner；provider 绑定
 按实际已选端点槽而非公共路径别名捕获。非 JSON 音频/字幕保留原 byte relay，不进
 JS decoder。显式 provider 不隐式借原内置异步图片 profile 执行额外轮询/下载。
-本阶段未另建 router、凭据池或任务平台；自定义认证、其他异步媒体任务消费者等
+provider 的 `authentication` 是不可变 manifest 声明，由 `service/channelplugins`
+用当前 API Key 材料设置自定义认证头或签发 HS256；HTTP/目录在头构造末端应用，
+显式无认证端点不签发。WS 的短期签名头仅保存在当前下游会话，每轮仍重新解析
+和授权，密钥/程序变化或临近过期会轮换身份；不新增全局 token 池或持久表。
+持久任务使用原认证声明与当前凭据，CDN 下载不取得签名头。OAuth/GCP 兑换仍
+属于原 resolver，认证声明不赋予 JS 密钥、网络或刷新能力。
+本阶段未另建 router、凭据池或任务平台；其他异步媒体任务消费者等
 未列出的消费者尚未接通，不能据协议声明推断这些能力已可用。
 
 产品预设由 `service/upstream_presets.go` 管理品牌、套餐、凭据类型和各协议的
@@ -133,7 +139,8 @@ OpenCode 的独立协议 owner 继续负责各自转换。
 `internal/requestoverride` 拥有已校验的渠道有序请求操作与纯模板执行。
 `service/backup` 将源配置编译为一份计划，`store.DirectRequestConfig` 保存
 JSON 合同并由路由候选携带；`handler/proxy` 在协议转换前应用语义选项，
-在 provider wire 准备后应用 body 操作，最终认证头构造后应用 header 操作。
+在 provider wire 准备后应用 body 操作，基础认证头构造后应用 header 操作；
+provider 显式宿主认证在最后应用，不能被有序操作覆盖。
 该 owner 不读取凭据、不选择路由、不发请求；每次尝试只修改自己的副本。
 
 渠道 `stream_policy` 由 `store` 持久化，`routing/stream_policy.go` 在硬授权

@@ -119,7 +119,7 @@ export function modelsResponse(input) { return {models: JSON.parse(input.body).i
 不授予插件读取 token、签发凭据或控制刷新策略的能力。OAuth/GCP 继续由宿主
 解析，每页目录请求读取当前凭据，兑换后重验配置。`none` 仅消费宿主明确允许的
 匿名身份：现有 Ollama/ollama-messages 的匿名端点与协议授权，不能让空 API Key、
-失败的 resolver 或其他供应商自动变成匿名访问。自定义认证签发尚未接入。
+失败的 resolver 或其他供应商自动变成匿名访问。
 
 `requestKinds` 可显式声明 `json` / `multipart`，默认只有 `json`；空数组、重复项
 或未知类型拒绝。它只约束创建请求，不影响旧任务查询；当前 multipart 消费者
@@ -132,6 +132,56 @@ export function modelsResponse(input) { return {models: JSON.parse(input.body).i
 匿名 profile 的限制。目录不发送供应商凭据，匿名身份仍须显式声明 `none` 并在
 每页通过当前凭据 resolver 校验；已禁用、替换或不支持的身份在网络请求前拒绝。
 不支持的凭据类型返回 400；代码或配置变化仍返回 409。缺少 resolver 不视为匿名成功。
+
+### 宿主认证声明
+
+API v2 provider 可选声明 `authentication`，仅允许同时声明
+`credentialKinds:["api_key"]`。声明是不可变适配代码的一部分，不是 JS hook；
+签名材料只来自本次已解析的当前凭据，不能放在插件选项或源码中。
+API v1 wire hooks 不接受该字段。没有声明时保留原端点认证行为。
+声明只作用于该 provider 实际绑定的协议槽和目录；未绑定的端点保留原认证。
+需要 JWT 的 HTTP、压缩和 WS 槽须分别配置和绑定，安装或绑定 WS 不会改变
+HTTP 的授权或认证。升级失败后的 HTTP 回退执行独立选择与绑定，不借用 WS 身份。
+
+```js
+// 自定义原始 Key 头
+authentication: {type: "api_key", header: "X-Vendor-Key", prefix: "Key "}
+
+// Kling 风格，凭据按 id|secret 保存
+authentication: {
+  type: "jwt_hs256", header: "Authorization", prefix: "Bearer ",
+  jwt: {
+    keySeparator: "|", issuerClaim: "iss", ttlSeconds: 1800,
+    timeUnit: "seconds", notBeforeSkewSeconds: 5,
+  },
+}
+```
+
+`header` 是单个 HTTP 头名，`prefix` 可省略；禁止控制字符与 Host、Cookie、
+Proxy、转发身份、连接、内容编码等控制头。`api_key` 不允许 `jwt` 子对象。
+会话/账号/组织/项目标识、原生协议版本与 beta、请求 ID 和 trace 头同样保留给
+原 owner，不能以认证声明覆盖；包括 Session-Id、Codex/Claude Code 会话头等。
+`jwt_hs256` 算法固定 HS256，不接受可执行表达式、外部 JWK/签发 URL 或私钥。
+`keySeparator` 为 `.` / `|`，`ttlSeconds` 为 60–86400 秒，`timeUnit` 为
+`seconds` / `milliseconds`；`issuerClaim` 不得与 `exp` / `iat` / `nbf` 冲突。
+可选 `issuedAtClaim` 不得覆盖 issuer/exp/nbf，`notBeforeSkewSeconds` 为 0–300，
+`signType` 为空或 `SIGN`。Zhipu 风格使用 `.`、`api_key`、`milliseconds`、
+`issuedAtClaim:"timestamp"` 和 `signType:"SIGN"`；仍以实际供应商合同为准。
+
+HTTP（含原生压缩、multipart/二进制和任务 submit/query/content）在请求准备及
+自定义头操作完成后注入认证；每页目录同样使用当前身份。显式 `auth:"none"`
+不执行签发、不发送已解析凭据，不能被声明改成有认证请求。
+宿主清除原 Authorization/X-Api-Key/X-Goog-Api-Key，再设置声明头，避免同时
+发送原始材料与 JWT；同名客户端头、描述符或私有操作不能覆盖最终认证。
+材料非法时在网络派发前明确失败，不回显凭据、不降级到原始 Key。
+CDN 下载仍隔离认证，原 redirect/SSRF 防护和精确操作 URL 授权不变。
+
+WS 每轮重新解析凭据和验证授权，在当前下游会话内最多保留一个短期签名头，
+避免时钟变化让每轮建立新连接。密钥或程序变化、距 JWT 到期不足五秒时重新
+签发，实际握手身份变化时由原 owner 轮换连接；不同下游会话不共享该值，没有全局 token 缓存或
+持久 token 表。此机制不授予插件刷新 OAuth/GCP 的能力，后两者继续使用原 owner。
+持久任务使用捕获时的认证声明和当前已授权凭据，升级程序不修改旧任务合同；
+停用当前插件仍拒绝其后续操作。
 
 ### 绑定与管理表单
 
@@ -358,6 +408,9 @@ JS JSON 输入/输出仍受运行边界的 4 MiB 限制，不因为图片协议�
 处理其持久任务；否则旧 manifest 或原始 GET 描述符校验会明确拒绝，不静默降级。
 回退到不支持 `requestKinds` / 文件引用的版本前，同样替换声明该能力的模块及
 其持久任务；新 manifest 在旧 host 会明确拒绝，不把 multipart 原文交给旧 JS。
+回退到不支持 `authentication` 的版本前，替换相关已安装模块或移除其绑定，
+并先完成或停用捕获了该声明的持久任务。只替换当前模块不能改写旧任务的认证
+档案；旧 host 拒绝未知声明，不会自动使用原始 Key 或无认证执行。
 
 ## 运行边界
 

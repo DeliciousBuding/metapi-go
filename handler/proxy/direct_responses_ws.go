@@ -120,6 +120,15 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 	if err := applyDirectRequestHeaderOperations(upstreamRequest, selected.Direct.ChannelID, wire); err != nil {
 		return reject(400, "Cannot apply selected channel request headers")
 	}
+	if wire.Driver != nil {
+		lease, err := wire.Driver.ApplySessionAuthentication(upstreamRequest.Header, credential.AccessToken, s.directAuthentication)
+		s.directAuthentication = lease
+		if err != nil {
+			return reject(503, "Selected provider authentication is unavailable")
+		}
+	} else {
+		s.directAuthentication = nil
+	}
 	// HTTP transport policy also owns explicit proxies and SSRF guarded
 	// resolution. Custom headers have already been applied in order.
 	client, err := platform.WebsocketHTTPClient(proxyConfig)

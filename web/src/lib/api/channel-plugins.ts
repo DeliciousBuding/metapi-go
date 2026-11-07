@@ -85,6 +85,87 @@ const templatePath = z
     }
   })
 const templateAuth = z.enum(['bearer', 'x-api-key', 'x-goog-api-key', 'none'])
+const authenticationClaim = z.string().regex(/^[A-Za-z_][A-Za-z0-9_-]{0,63}$/)
+const authentication = z
+  .object({
+    type: z.enum(['api_key', 'jwt_hs256']),
+    header: z
+      .string()
+      .min(1)
+      .max(128)
+      .regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/)
+      .refine((header) => {
+        const name = header.toLowerCase()
+        return (
+          ![
+            'sec-',
+            'proxy-',
+            'x-forwarded-',
+            'x-codex-',
+            'x-claude-code-',
+          ].some((prefix) => name.startsWith(prefix)) &&
+          ![
+            'host',
+            'cookie',
+            'set-cookie',
+            'connection',
+            'transfer-encoding',
+            'content-type',
+            'content-length',
+            'content-encoding',
+            'accept-encoding',
+            'accept',
+            'te',
+            'trailer',
+            'upgrade',
+            'forwarded',
+            'x-real-ip',
+            'session-id',
+            'conversation_id',
+            'conversation-id',
+            'thread-id',
+            'chatgpt-account-id',
+            'anthropic-version',
+            'anthropic-beta',
+            'openai-beta',
+            'openai-organization',
+            'openai-project',
+            'x-request-id',
+            'x-client-request-id',
+            'request-id',
+            'traceparent',
+            'tracestate',
+            'baggage',
+          ].includes(name)
+        )
+      }),
+    prefix: z
+      .string()
+      .refine((value) => new TextEncoder().encode(value).length <= 256)
+      .refine((value) => !/\p{Cc}/u.test(value))
+      .optional(),
+    jwt: z
+      .object({
+        keySeparator: z.enum(['.', '|']),
+        issuerClaim: authenticationClaim.refine(
+          (claim) => !['exp', 'iat', 'nbf'].includes(claim)
+        ),
+        ttlSeconds: z.number().int().min(60).max(86400),
+        timeUnit: z.enum(['seconds', 'milliseconds']),
+        issuedAtClaim: authenticationClaim.optional(),
+        notBeforeSkewSeconds: z.number().int().min(0).max(300).optional(),
+        signType: z.enum(['', 'SIGN']).optional(),
+      })
+      .strict()
+      .refine(
+        (jwt) =>
+          !jwt.issuedAtClaim ||
+          ![jwt.issuerClaim, 'exp', 'nbf'].includes(jwt.issuedAtClaim)
+      )
+      .optional(),
+  })
+  .strict()
+  .refine((value) => (value.type === 'jwt_hs256') === !!value.jwt)
 const endpointTemplate = z
   .object({
     path: templatePath,
@@ -159,6 +240,7 @@ const providerManifest = z
       .min(1)
       .max(2)
       .optional(),
+    authentication: authentication.optional(),
     hooks: z
       .array(
         z.enum([
@@ -193,6 +275,12 @@ const providerManifest = z
   .strict()
   .refine((manifest) => {
     const hooks: readonly string[] = manifest.hooks
+    if (
+      manifest.authentication &&
+      (manifest.credentialKinds.length !== 1 ||
+        manifest.credentialKinds[0] !== 'api_key')
+    )
+      return false
     if (
       new Set(manifest.protocols).size !== manifest.protocols.length ||
       new Set(hooks).size !== hooks.length ||

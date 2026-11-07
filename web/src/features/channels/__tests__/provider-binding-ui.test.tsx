@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -174,6 +175,57 @@ afterEach(() => {
 })
 
 describe('independent provider configuration', () => {
+  it('shows immutable host authentication in both languages without a secret control', async () => {
+    if (provider.manifest?.apiVersion !== 2) throw new Error('fixture manifest')
+    mocks.plugins.mockResolvedValue({
+      items: [
+        {
+          ...provider,
+          manifest: {
+            ...provider.manifest,
+            authentication: {
+              type: 'jwt_hs256',
+              header: 'Authorization',
+              prefix: 'Bearer ',
+              jwt: {
+                keySeparator: '|',
+                issuerClaim: 'iss',
+                ttlSeconds: 1800,
+                timeUnit: 'seconds',
+                notBeforeSkewSeconds: 5,
+              },
+            },
+          },
+        },
+      ],
+    })
+    const changed = vi.fn()
+    mount(
+      <ChannelProviderBinding
+        value={binding}
+        onChange={changed}
+        protocols={['chat', 'responses']}
+        credentialKind='api_key'
+      />
+    )
+    await screen.findByText('Host authentication: jwt_hs256 → Authorization')
+    expect(screen.getByText(/id\|secret/)).toHaveTextContent('1800')
+    expect(
+      screen.getByText(/Explicit none remains credential-free/)
+    ).toBeVisible()
+    expect(
+      screen.queryByLabelText(/secret|signing key/i)
+    ).not.toBeInTheDocument()
+    expect(changed).not.toHaveBeenCalled()
+    await act(async () => {
+      await i18n.changeLanguage('zhCN')
+    })
+    expect(i18n.language).toBe('zhCN')
+    await screen.findByText('宿主认证：jwt_hs256 → Authorization')
+    expect(screen.getByText(/id\|secret/)).toHaveTextContent('1800')
+    expect(screen.getByText(/显式 none 仍不发送凭据/)).toBeVisible()
+    expect(changed).not.toHaveBeenCalled()
+  })
   it('allows an anonymous provider only for a compatible identity and preserves a no-auth catalog', async () => {
     if (provider.manifest?.apiVersion !== 2) throw new Error('fixture manifest')
     const anonymous: ChannelPlugin = {
