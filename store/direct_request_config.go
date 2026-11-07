@@ -44,7 +44,7 @@ type DirectCatalogEndpoint struct {
 
 func (c DirectCatalogEndpoint) Validate() error {
 	u, err := url.Parse(c.URL)
-	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") || !contract.ValidCursorParameter(c.CursorParameter) || (c.Auth != DirectAuthBearer && c.Auth != DirectAuthAPIKey && c.Auth != DirectAuthGoogle) {
+	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") || !contract.ValidCursorParameter(c.CursorParameter) || (c.Auth != DirectAuthBearer && c.Auth != DirectAuthAPIKey && c.Auth != DirectAuthGoogle && c.Auth != DirectAuthNone) {
 		return fmt.Errorf("invalid_provider_catalog_endpoint")
 	}
 	return nil

@@ -4411,7 +4411,7 @@
         "catalogRemove": "Remove model discovery",
         "catalogUseDefault": "Use driver default catalog",
         "catalogDefault": "On creation, the driver's {{path}} catalog is saved under the connection base URL unless overridden here. Saved URLs do not change on plugin upgrade.",
-        "catalogHint": "The catalog must share an origin with the selected endpoints, without URL credentials, query or fragment. The host injects the current credential. Discovery alone does not prove that a model request succeeds.",
+        "catalogHint": "The catalog must share an origin with the selected endpoints, without URL credentials, query or fragment. The host applies the selected authentication using the current identity; none sends no credentials. Discovery alone does not prove that a model request succeeds.",
         "enabled": "Enabled",
         "disabled": "Disabled",
         "unavailable": "Unavailable",

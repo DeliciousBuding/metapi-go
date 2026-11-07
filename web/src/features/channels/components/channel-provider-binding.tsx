@@ -256,7 +256,8 @@ export function ChannelProviderBinding({
                   if (
                     auth === 'bearer' ||
                     auth === 'x-api-key' ||
-                    auth === 'x-goog-api-key'
+                    auth === 'x-goog-api-key' ||
+                    auth === 'none'
                   )
                     update({ catalog: { ...catalog, auth } })
                 }}
@@ -265,13 +266,13 @@ export function ChannelProviderBinding({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent aria-labelledby={`${id}-auth-label`}>
-                  {(['bearer', 'x-api-key', 'x-goog-api-key'] as const).map(
-                    (auth) => (
-                      <SelectItem key={auth} value={auth}>
-                        {auth}
-                      </SelectItem>
-                    )
-                  )}
+                  {(
+                    ['bearer', 'x-api-key', 'x-goog-api-key', 'none'] as const
+                  ).map((auth) => (
+                    <SelectItem key={auth} value={auth}>
+                      {auth}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <label htmlFor={`${id}-cursor`} className='text-sm'>

@@ -174,6 +174,42 @@ afterEach(() => {
 })
 
 describe('independent provider configuration', () => {
+  it('allows an anonymous provider only for a compatible identity and preserves a no-auth catalog', async () => {
+    if (provider.manifest?.apiVersion !== 2) throw new Error('fixture manifest')
+    const anonymous: ChannelPlugin = {
+      ...provider,
+      manifest: {
+        ...provider.manifest,
+        credentialKinds: ['none'],
+      },
+    }
+    mocks.plugins.mockResolvedValue({ items: [anonymous] })
+    const changed = vi.fn()
+    mount(
+      <ChannelProviderBinding
+        value={{
+          ...binding,
+          catalog: { url: binding.catalog!.url, auth: 'none' },
+        }}
+        onChange={changed}
+        protocols={['chat']}
+        credentialKind='none'
+      />
+    )
+    const auth = await screen.findByRole('combobox', {
+      name: 'Catalog authentication header',
+    })
+    await waitFor(() => expect(auth).not.toBeDisabled())
+    expect(auth).toHaveTextContent('none')
+    expect(
+      screen.queryByText(/does not support the selected credential kind/)
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('combobox', { name: 'Protocol adapter' }))
+    expect(
+      screen.getByRole('option', { name: 'Fixture provider' })
+    ).not.toHaveAttribute('aria-disabled', 'true')
+    expect(changed).not.toHaveBeenCalled()
+  })
   it('never offers providers as wire hooks, and derives only configured provider protocols', async () => {
     const changed = vi.fn()
     mount(

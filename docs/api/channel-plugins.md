@@ -113,10 +113,16 @@ export function modelsRequest() { return {method: "GET"}; }
 export function modelsResponse(input) { return {models: JSON.parse(input.body).items}; }
 ```
 
-`credentialKinds` 可声明 `api_key`、`oauth`、`gcp_service_account`；只是资格限制，
+`credentialKinds` 可声明 `api_key`、`oauth`、`gcp_service_account`、`none`；只是资格限制，
 不授予插件读取 token、签发凭据或控制刷新策略的能力。OAuth/GCP 继续由宿主
-解析，每页目录请求读取当前凭据，兑换后重验配置。匿名认证与自定义认证签发
-尚未接入 provider 合同。
+解析，每页目录请求读取当前凭据，兑换后重验配置。`none` 仅消费宿主明确允许的
+匿名身份：现有 Ollama/ollama-messages 的匿名端点与协议授权，不能让空 API Key、
+失败的 resolver 或其他供应商自动变成匿名访问。自定义认证签发尚未接入。
+
+端点默认模板与目录配置可显式选择 `auth:"none"`；模板不绕过端点 owner 对
+匿名 profile 的限制。目录不发送供应商凭据，匿名身份仍须显式声明 `none` 并在
+每页通过当前凭据 resolver 校验；已禁用、替换或不支持的身份在网络请求前拒绝。
+不支持的凭据类型返回 400；代码或配置变化仍返回 409。缺少 resolver 不视为匿名成功。
 
 ### 绑定与管理表单
 
@@ -237,6 +243,8 @@ JavaScript Number 重建。用量合并、终态、取消与身份恢复继续�
 恢复后应单独重新安装已审核的对应模块，再开放渠道请求。
 回退到尚不支持 decoder/observations 的 API v2 版本前，先替换使用这些字段的
 模块并核对实际原生响应，旧 manifest 读取不会静默忽略新能力。
+回退到不支持 provider 匿名身份的版本前，同样先替换声明 `none` 的 v2 模块和
+目录配置，或移除该绑定；不能用合成 Key 填充匿名身份来绕过旧版校验。
 
 ## 运行边界
 

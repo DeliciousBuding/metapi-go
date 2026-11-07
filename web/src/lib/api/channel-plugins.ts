@@ -82,7 +82,7 @@ const templatePath = z
       return false
     }
   })
-const templateAuth = z.enum(['bearer', 'x-api-key', 'x-goog-api-key'])
+const templateAuth = z.enum(['bearer', 'x-api-key', 'x-goog-api-key', 'none'])
 const endpointTemplate = z
   .object({
     path: templatePath,
@@ -149,9 +149,9 @@ const providerManifest = z
     kind: z.literal('provider'),
     protocols: z.array(providerProtocol).min(1).max(26),
     credentialKinds: z
-      .array(z.enum(['api_key', 'oauth', 'gcp_service_account']))
+      .array(z.enum(['api_key', 'oauth', 'gcp_service_account', 'none']))
       .min(1)
-      .max(3),
+      .max(4),
     hooks: z
       .array(
         z.enum([

@@ -147,6 +147,13 @@ func loadDiscoveryCredentialForKinds(ctx context.Context, db *sqlx.DB, channelID
 		case store.DirectCredentialOAuth, store.DirectCredentialGCPServiceAccount:
 			// These kinds require a current credential resolution, never a
 			// fallback to their stored token after the resolver rejects them.
+		case store.DirectCredentialNone:
+			// Only an explicit provider capability may request this identity.
+			// The shared resolver verifies the channel's anonymous policy and
+			// stored material; an absent token is not proof of public access.
+			if !slices.Contains(kinds, store.DirectCredentialNone) || row.Secret != "" {
+				continue
+			}
 		default:
 			continue
 		}
@@ -154,14 +161,16 @@ func loadDiscoveryCredentialForKinds(ctx context.Context, db *sqlx.DB, channelID
 			continue
 		}
 		token, err := resolve(ctx, row.ID, proxyURL)
-		if err != nil || token == "" {
+		anonymous := row.Kind == store.DirectCredentialNone
+		if err != nil || token == "" && !anonymous || token != "" && anonymous {
 			exchangeFailed = true
 			continue
 		}
 		var current struct {
-			Kind string `db:"kind"`
+			Kind   string `db:"kind"`
+			Secret string `db:"secret"`
 		}
-		if db.GetContext(ctx, &current, db.Rebind(`SELECT kind FROM upstream_credentials WHERE id=? AND channel_id=? AND enabled`), row.ID, channelID) != nil || len(kinds) > 0 && !slices.Contains(kinds, current.Kind) {
+		if db.GetContext(ctx, &current, db.Rebind(`SELECT kind,secret FROM upstream_credentials WHERE id=? AND channel_id=? AND enabled`), row.ID, channelID) != nil || len(kinds) > 0 && !slices.Contains(kinds, current.Kind) || anonymous && (current.Kind != store.DirectCredentialNone || current.Secret != "") {
 			exchangeFailed = true
 			continue
 		}

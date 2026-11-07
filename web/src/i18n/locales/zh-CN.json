@@ -4411,7 +4411,7 @@
         "catalogRemove": "移除模型发现",
         "catalogUseDefault": "使用适配器默认目录",
         "catalogDefault": "新建时会将适配器的 {{path}} 目录保存到连接基础 URL 下，可在这里覆盖；插件升级不会改变已保存的 URL。",
-        "catalogHint": "目录与选中端点须同源，URL 不含凭据、查询参数或片段。宿主注入当前凭据，目录发现不代表模型请求已验证成功。",
+        "catalogHint": "目录与选中端点须同源，URL 不含凭据、查询参数或片段。宿主按当前身份应用所选认证方式；none 不发送凭据。目录发现不代表模型请求已验证成功。",
         "enabled": "已启用",
         "disabled": "已停用",
         "unavailable": "不可用",

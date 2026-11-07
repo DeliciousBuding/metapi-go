@@ -1,12 +1,58 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { channelPluginsApi, pluginBindingSchema } from '../channel-plugins'
+import {
+  channelPluginsApi,
+  pluginBindingSchema,
+  providerBindingSchema,
+} from '../channel-plugins'
 
 const mock = vi.hoisted(() => vi.fn())
 vi.mock('../transport', () => ({ request: mock }))
 beforeEach(() => mock.mockReset())
 
 describe('channel plugin API data boundary', () => {
+  it('retains explicit anonymous provider metadata and catalog authentication', async () => {
+    const manifest = {
+      apiVersion: 2,
+      kind: 'provider',
+      key: 'anonymous',
+      name: 'Anonymous',
+      version: '1.0.0',
+      protocols: ['messages'],
+      credentialKinds: ['none'],
+      hooks: ['request', 'response', 'modelsRequest', 'modelsResponse'],
+      defaults: {
+        endpoints: {
+          messages: {
+            path: '/v1/messages',
+            auth: 'none',
+            profile: 'ollama-messages',
+          },
+        },
+        catalog: { path: '/inventory', auth: 'none' },
+      },
+    }
+    const value = {
+      items: [{ key: 'anonymous', enabled: true, revision: 1, manifest }],
+    }
+    mock.mockResolvedValueOnce(value)
+    await expect(channelPluginsApi.list()).resolves.toEqual(value)
+    const binding = {
+      key: 'anonymous',
+      protocols: ['messages'],
+      catalog: { url: 'http://localhost:11434/inventory', auth: 'none' },
+    }
+    expect(providerBindingSchema.parse(binding)).toEqual(binding)
+    mock.mockResolvedValueOnce({
+      items: [
+        {
+          ...value.items[0],
+          manifest: { ...manifest, credentialKinds: ['none', 'none'] },
+        },
+      ],
+    })
+    await expect(channelPluginsApi.list()).rejects.toThrow()
+  })
   it('reads decoder hooks and original observation selectors without granting new protocols', async () => {
     const manifest = {
       apiVersion: 2,

@@ -36,7 +36,7 @@ type ProviderDefaults struct {
 }
 
 func validTemplatePath(path, auth string) bool {
-	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") || strings.ContainsAny(path, "?#\\\r\n\x00") || len(path) > 8192 || !slices.Contains([]string{"bearer", "x-api-key", "x-goog-api-key"}, auth) {
+	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") || strings.ContainsAny(path, "?#\\\r\n\x00") || len(path) > 8192 || !slices.Contains([]string{"bearer", "x-api-key", "x-goog-api-key", "none"}, auth) {
 		return false
 	}
 	decoded, err := url.PathUnescape(path)
@@ -74,12 +74,12 @@ func (m Manifest) validateProviderLifecycle() error {
 			}
 		}
 	}
-	if len(m.CredentialKinds) == 0 || len(m.CredentialKinds) > 3 {
+	if len(m.CredentialKinds) == 0 || len(m.CredentialKinds) > 4 {
 		return ErrManifest
 	}
 	seen := map[string]bool{}
 	for _, kind := range m.CredentialKinds {
-		if seen[kind] || !slices.Contains([]string{"api_key", "oauth", "gcp_service_account"}, kind) {
+		if seen[kind] || !slices.Contains([]string{"api_key", "oauth", "gcp_service_account", "none"}, kind) {
 			return ErrManifest
 		}
 		seen[kind] = true

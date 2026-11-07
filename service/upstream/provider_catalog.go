@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -93,7 +94,8 @@ func discoverProviderCatalog(ctx context.Context, manager *channelplugins.Manage
 			return nil, Discovery{}, "", conflict("Provider changed during model discovery; retry discovery")
 		}
 		identity, err := credential(ctx, manifest.CredentialKinds)
-		if err != nil || identity.Secret == "" {
+		anonymous := identity.Kind == store.DirectCredentialNone && identity.Secret == "" && binding.Catalog.Auth == store.DirectAuthNone
+		if err != nil || !slices.Contains(manifest.CredentialKinds, identity.Kind) || identity.Secret == "" && !anonymous || identity.Kind == store.DirectCredentialNone && !anonymous {
 			return nil, Discovery{}, "", invalid("Channel has no current credential for provider discovery")
 		}
 		if verify != nil {
