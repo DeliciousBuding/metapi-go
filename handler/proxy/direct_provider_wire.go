@@ -31,6 +31,8 @@ type directProviderWire struct {
 	RequestContext      requestoverride.Context
 	Plugins             []channelplugins.Invocation
 	Driver              *channelplugins.DriverInvocation
+	DriverImageQuery    *store.DirectImageQueryEndpoint
+	DriverImageUsage    *ParsedUsage
 	DriverURL           string
 	DriverContentType   string
 	DriverTaskID        string

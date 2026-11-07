@@ -70,6 +70,9 @@ func Save(ctx context.Context, db *sqlx.DB, key, source string, enabled bool, ex
 			if _, err = providerOptions(manifest, *config.Provider); err != nil {
 				return store.ChannelPlugin{}, ErrBinding
 			}
+			if validateImageQueries(manifest, *config.Provider) != nil {
+				return store.ChannelPlugin{}, ErrBinding
+			}
 		}
 		for _, binding := range config.Plugins {
 			if binding.Key != key {

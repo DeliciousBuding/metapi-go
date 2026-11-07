@@ -254,7 +254,7 @@ WS 每轮重新解析凭据和验证授权，在当前下游会话内最多保�
 ### 绑定与管理表单
 
 管理员显式读取 `/api/imported-upstreams/:id/request-config` 时取得
-`providerBinding:{key,protocols,options?,catalog?}` 或 `null`。编辑使用
+`providerBinding:{key,protocols,options?,catalog?,imageQueries?}` 或 `null`。编辑使用
 `PATCH /api/imported-upstreams/:id` 的同名字段；`providerBinding:null` 明确移除，
 省略则保留。其他字段及嵌套值仍不接受 null。补丁不能同时提交
 `providerBinding` 和整个 `requestTransform`。
@@ -460,9 +460,54 @@ JS JSON 输入/输出仍受运行边界的 4 MiB 限制，不因为图片协议�
 显式 provider 绑定 OpenRouter/MiniMax/ModelScope 图片 profile 时，使用自己的
 请求 payload，不叠加内置供应商字段改写或默认异步模式头；端点鉴权仍由宿主
 构造，也保留这些 profile 原有的单次提交边界，失败不自动派发到另一凭据。
-显式 provider 不借内置异步图片 profile 自动发起轮询/下载；未列出的异步
-厂商任务生命周期须单独接入，不能让同步 JSON 绑定隐含授予 query/remix 权限。
+未声明 `imageTasks` 的显式 provider 不借内置异步图片 profile 自动发起轮询/下载；
+未列出的异步厂商任务生命周期须单独接入，不能让同步 JSON 绑定隐含授予 query/remix 权限。
 内置无 provider 的原生 profile 继续使用其原消费者。
+
+### 显式异步图片
+
+`imageGeneration`、`imageEdit`、`imageVariation`、`modelscopeImageGeneration`
+可分别声明 `imageTasks`，每个槽必须同时声明 `submit`、`query`、`taskResult`
+及原始 `observations.<协议>.response.taskIdPath`。同一模块可混合异步图片和其他
+同步协议，但每个协议必须具备自己的完整 hooks。声明例：
+
+```js
+imageTasks: {
+  imageGeneration: { query: { path: "/tasks/{taskId}", auth: "bearer" } }
+}
+```
+
+渠道绑定的 `imageQueries.<协议>:{url,auth}` 独立保存查询目标。新建时，未显式
+指定的查询模板按该图片端点的 origin 落库；升级不移动已保存目标。查询不能借用
+另一个图片/文本槽的 origin。URL 仅允许 HTTP(S)，不含 userinfo、query、fragment；
+只替换一个完整 `{taskId}` 路径段，不接受多个占位符或路径穿越。
+模板 URL 上限 9216 字节、模板路径上限 8192 字节、供应商 task ID 上限 512 字节，
+控制字符拒绝，其余合法 ID 字符由宿主编码为路径数据。编辑取消不写入，移除绑定
+协议同时移除其查询配置。缺少目标不能偷偷从最新 manifest 重新推导。
+
+`submit` 沿原 JSON/multipart 描述符和文件引用合同编码一次 POST；`query` 只能
+描述当前保存模板及原始任务 ID 对应的 GET，不接受 body/parts 或另一个路径。
+`taskResult` 返回严格的 `{status:"pending"}` 或
+`{status:"completed",body:"原生图片 JSON"}`。立即完成无需制造任务 ID；pending
+必须有合法原始 ID。失败、错任务、坏 JSON、异常、取消或下载错误不会重放 POST，
+不换协议/凭据重试。供应商 submit/query 请求不跟随重定向，共享普通 HTTP client
+的重定向策略不受影响。
+
+宿主复用当前请求的一次 attempt、原 request ceiling 与取消；第一次查询无需
+等待，之后每 2 秒查询，提交与查询响应的累计 JSON 上限 16 MiB，单次 JS 输入/输出仍受
+4 MiB 限制。每次查询重新检查当前授权、绑定/配置、安装启用状态与凭据，OAuth/GCP 兑换后再次
+复核，不重新选路或取得新准入。认证由宿主最后应用；显式 `none` 不带普通/自定义
+签名头、渠道自定义头或 cookie。网络等待不占用 JS runtime。
+兼容升级不替换本次尝试已捕获的程序/选项；下一次请求才捕获新版。停用、删除
+或损坏安装记录会阻止后续查询，材料解析期间的停用同样在派发前复核。
+
+原始 task ID 和累计用量先于 `taskResult`，完成 JSON 不能伪造 token；错任务的
+用量不替换上一次事实。门面只结算一次，查询/解析失败保留此前有效供应商用量。
+完成结果保留原生 JSON 扩展和精确整数；`response_format:"url"` 保留合法 URL，
+`b64_json` 或省略格式时保留 base64 或从 data URI/URL 物化 base64。URL 下载复用
+既有无凭据、公网 IP 固定、Host/SNI 与 TLS 隔离的媒体 owner，原始文件字节不进
+JS、不变成 token。图片流式请求目前明确拒绝，不能把 `stream:true` 默默变为 JSON。
+该 HTTP 图片门面不新增持久任务表或恢复轴，不能把断开后的图片请求当视频任务恢复。
 
 ## 回退到旧插件合同
 
@@ -489,6 +534,8 @@ JS JSON 输入/输出仍受运行边界的 4 MiB 限制，不因为图片协议�
 回退到不支持 `authentication` 的版本前，替换相关已安装模块或移除其绑定，
 并先完成或停用捕获了该声明的持久任务。只替换当前模块不能改写旧任务的认证
 档案；旧 host 拒绝未知声明，不会自动使用原始 Key 或无认证执行。
+回退到不支持 `imageTasks` / `imageQueries` 的版本前，替换相关模块并移除图片
+查询绑定，或移除整个 provider 绑定；旧 host 明确拒绝未知字段，不隐式回退到内置轮询。
 
 ## 运行边界
 

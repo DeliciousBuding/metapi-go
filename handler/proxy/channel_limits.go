@@ -56,6 +56,12 @@ func revalidateDirectCredentialDispatch(r *http.Request, ctx *Ctx, cfg *Upstream
 	if selected.Direct.CredentialKind != store.DirectCredentialOAuth && selected.Direct.CredentialKind != store.DirectCredentialGCPServiceAccount {
 		return 0, nil
 	}
+	return revalidateDirectOperationDispatch(r, ctx, cfg, selected, policy)
+}
+
+// Continuation I/O checks the same selected authority without another route
+// choice or admission. Only OAuth/GCP token rotation may change its material.
+func revalidateDirectOperationDispatch(r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, policy *routing.DownstreamRoutingPolicy) (int, error) {
 	if policy == nil {
 		return http.StatusServiceUnavailable, fmt.Errorf("Selected channel cannot be revalidated after credential exchange")
 	}
@@ -73,7 +79,9 @@ func revalidateDirectCredentialDispatch(r *http.Request, ctx *Ctx, cfg *Upstream
 	before, after := *selected.Direct, *fresh.Direct
 	// Refresh intentionally changes only the token cache. Presentation labels
 	// do not affect the authority or request already prepared for this channel.
-	before.Credential, after.Credential = "", ""
+	if selected.Direct.CredentialKind == store.DirectCredentialOAuth || selected.Direct.CredentialKind == store.DirectCredentialGCPServiceAccount {
+		before.Credential, after.Credential = "", ""
+	}
 	before.ChannelName, after.ChannelName = "", ""
 	before.CredentialName, after.CredentialName = "", ""
 	var proxyAfter *string

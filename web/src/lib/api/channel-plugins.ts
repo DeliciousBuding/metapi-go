@@ -85,6 +85,51 @@ const templatePath = z
     }
   })
 const templateAuth = z.enum(['bearer', 'x-api-key', 'x-goog-api-key', 'none'])
+const imageTaskProtocol = z.enum([
+  'imageGeneration',
+  'imageEdit',
+  'imageVariation',
+  'modelscopeImageGeneration',
+])
+const imageQueryPath = templatePath.refine((path) => {
+  if (new TextEncoder().encode(path).length > 8192) return false
+  try {
+    const segments = decodeURIComponent(path).split('/')
+    return (
+      path.split('{taskId}').length === 2 &&
+      segments.filter((segment) => segment === '{taskId}').length === 1 &&
+      segments.every(
+        (segment) => !/[{}]/.test(segment) || segment === '{taskId}'
+      ) &&
+      !/[?#]/.test(decodeURIComponent(path)) &&
+      !/\p{Cc}/u.test(decodeURIComponent(path))
+    )
+  } catch {
+    return false
+  }
+})
+const imageQueryUrl = z
+  .string()
+  .max(9216)
+  .refine((value) => {
+    if (new TextEncoder().encode(value).length > 9216) return false
+    if (!URL.canParse(value)) return false
+    const url = new URL(value)
+    const path = value.match(/^https?:\/\/[^/?#]+(\/[^?#]*)$/i)?.[1]
+    try {
+      return (
+        ['http:', 'https:'].includes(url.protocol) &&
+        !url.username &&
+        !url.password &&
+        !url.search &&
+        !url.hash &&
+        path !== undefined &&
+        imageQueryPath.safeParse(decodeURIComponent(path)).success
+      )
+    } catch {
+      return false
+    }
+  }, 'channels.upstream.invalidUrl')
 const authenticationClaim = z.string().regex(/^[A-Za-z_][A-Za-z0-9_-]{0,63}$/)
 const authentication = z
   .object({
@@ -242,6 +287,24 @@ const providerManifest = z
       .max(2)
       .optional(),
     authentication: authentication.optional(),
+    imageTasks: z
+      .partialRecord(
+        imageTaskProtocol,
+        z
+          .object({
+            query: z
+              .object({
+                path: imageQueryPath,
+                auth: templateAuth,
+                modelPath: z.literal(false).optional(),
+                profile: z.literal('').optional(),
+              })
+              .strict(),
+          })
+          .strict()
+      )
+      .refine((tasks) => Object.keys(tasks).length > 0)
+      .optional(),
     hooks: z
       .array(
         z.enum([
@@ -304,6 +367,18 @@ const providerManifest = z
       return false
     if (manifest.defaults?.catalog && !hooks.includes('modelsRequest'))
       return false
+    const imageTasks = Object.keys(manifest.imageTasks ?? {})
+    if (
+      imageTasks.some(
+        (key) =>
+          !manifest.protocols.includes(
+            key as (typeof importedEndpointKeys)[number]
+          ) ||
+          !manifest.observations?.[key as (typeof importedEndpointKeys)[number]]
+            ?.response?.taskIdPath
+      )
+    )
+      return false
     if (
       Object.keys(manifest.observations ?? {}).some(
         (key) =>
@@ -323,8 +398,9 @@ const providerManifest = z
     )
       return false
     return manifest.protocols.every((protocol) => {
-      const required =
-        protocol === 'responsesWebsocket'
+      const required = imageTasks.includes(protocol)
+        ? ['submit', 'query', 'taskResult']
+        : protocol === 'responsesWebsocket'
           ? ['request', 'event']
           : ['video', 'seedanceVideo', 'zenmuxVideo'].includes(protocol)
             ? ['submit', 'query', 'content', 'taskResult']
@@ -361,6 +437,12 @@ export const providerBindingSchema = z
     key,
     protocols: z.array(providerProtocol).min(1).max(26),
     options: pluginBindingSchema.shape.options,
+    imageQueries: z
+      .partialRecord(
+        imageTaskProtocol,
+        z.object({ url: imageQueryUrl, auth: templateAuth }).strict()
+      )
+      .optional(),
     catalog: z
       .object({
         url: z
@@ -385,7 +467,13 @@ export const providerBindingSchema = z
   })
   .strict()
   .refine(
-    (binding) => new Set(binding.protocols).size === binding.protocols.length
+    (binding) =>
+      new Set(binding.protocols).size === binding.protocols.length &&
+      Object.keys(binding.imageQueries ?? {}).every((protocol) =>
+        binding.protocols.includes(
+          protocol as (typeof importedEndpointKeys)[number]
+        )
+      )
   )
 export type ProviderBinding = z.infer<typeof providerBindingSchema>
 export const channelPluginQueryKey = ['channel-plugins'] as const

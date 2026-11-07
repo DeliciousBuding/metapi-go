@@ -372,6 +372,16 @@ export function providerEndpointError(
   if (!binding) return
   if (binding.protocols.some((protocol) => !endpoints[protocol]))
     return 'channels.plugins.providerProtocolMismatch'
+  for (const [protocol, query] of Object.entries(binding.imageQueries ?? {})) {
+    const url = endpoints[protocol as keyof ImportedEndpointConfig]?.url
+    if (
+      !url ||
+      !URL.canParse(url) ||
+      !URL.canParse(query.url) ||
+      new URL(url).origin !== new URL(query.url).origin
+    )
+      return 'channels.plugins.imageQueryOriginMismatch'
+  }
   const catalog = binding.catalog
   if (
     catalog &&

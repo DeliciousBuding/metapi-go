@@ -127,6 +127,16 @@ provider 的 `authentication` 是不可变 manifest 声明，由 `service/channe
 和授权，密钥/程序变化或临近过期会轮换身份；不新增全局 token 池或持久表。
 持久任务使用原认证声明与当前凭据，CDN 下载不取得签名头。OAuth/GCP 兑换仍
 属于原 resolver，认证声明不赋予 JS 密钥、网络或刷新能力。
+显式 `imageTasks` 的四个图片槽由 `handler/proxy.directImageTaskOperation` 消费，
+`store.DirectProviderBinding.ImageQueries` 保存每槽独立的查询目标与认证。
+`internal/channelplugin/contract` 拥有模板/ID 编码，`service/channelplugins` 仅在
+新建时按实际所选图片端点 origin 应用默认值；升级不移动保存目标。宿主提交一次
+POST，沿原授权/凭据 owner 逐次复核 GET，共用一次 attempt 与请求 ceiling；
+原始任务 ID/累计用量先于结果代码，失败不重放。图片物化复用原无凭据媒体下载
+owner，`platform.WithoutRequestRedirects` 仅限制本次供应商请求，不全局改变 client。
+查询前和材料解析后由原安装 manager 复核当前启用状态，兼容升级不替换本次
+已捕获的程序与选项；下一请求捕获新版，不新增独立安装或任务状态轴。
+这不是持久视频任务或新的任务平台；图片流式门面尚未接通，明确拒绝而不降级。
 本阶段未另建 router、凭据池或任务平台；其他异步媒体任务消费者等
 未列出的消费者尚未接通，不能据协议声明推断这些能力已可用。
 

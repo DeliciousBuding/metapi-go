@@ -12,7 +12,11 @@ import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
-import type { ChannelPlugin, ProviderBinding } from '@/lib/api/channel-plugins'
+import {
+  channelPluginQueryKey,
+  type ChannelPlugin,
+  type ProviderBinding,
+} from '@/lib/api/channel-plugins'
 import type { ImportedUpstreamDetail } from '@/lib/api/imported-upstreams'
 import type { UpstreamPreset } from '@/lib/api/upstream-presets'
 
@@ -95,6 +99,43 @@ const binding: ProviderBinding = {
     cursorParameter: 'page',
   },
 }
+const imageProvider: ChannelPlugin = {
+  ...provider,
+  manifest: {
+    apiVersion: 2,
+    kind: 'provider',
+    key: provider.key,
+    name: 'Fixture images',
+    version: '1',
+    protocols: ['imageGeneration', 'imageEdit'],
+    credentialKinds: ['api_key'],
+    hooks: ['submit', 'query', 'taskResult'],
+    imageTasks: {
+      imageGeneration: {
+        query: { path: '/generation/{taskId}', auth: 'bearer' },
+      },
+      imageEdit: { query: { path: '/editing/{taskId}', auth: 'none' } },
+    },
+    observations: {
+      imageGeneration: { response: { taskIdPath: '/id' } },
+      imageEdit: { response: { taskIdPath: '/id' } },
+    },
+  },
+}
+const imageBinding: ProviderBinding = {
+  key: provider.key,
+  protocols: ['imageGeneration', 'imageEdit'],
+  imageQueries: {
+    imageGeneration: {
+      url: 'https://fixture.invalid/saved-generate/{taskId}',
+      auth: 'x-api-key',
+    },
+    imageEdit: {
+      url: 'https://fixture.invalid/saved-edit/{taskId}',
+      auth: 'none',
+    },
+  },
+}
 const detail: ImportedUpstreamDetail = {
   id: 7,
   name: 'Fixture channel',
@@ -175,6 +216,257 @@ afterEach(() => {
 })
 
 describe('independent provider configuration', () => {
+  it('edits independent image query targets and removes only a deselected slot', async () => {
+    mocks.plugins.mockResolvedValue({ items: [imageProvider] })
+    const changed = vi.fn()
+    function Editor() {
+      const [value, setValue] = useState<ProviderBinding | null>(imageBinding)
+      return (
+        <ChannelProviderBinding
+          value={value}
+          onChange={(next) => {
+            changed(next)
+            setValue(next)
+          }}
+          protocols={['imageGeneration', 'imageEdit']}
+        />
+      )
+    }
+    mount(<Editor />)
+    const generate = await screen.findByLabelText(
+      'Image generation task query URL template'
+    )
+    expect(
+      screen.queryByText(/The catalog must share an origin/)
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/declared asynchronous image submit\/query\/result/)
+    ).toBeVisible()
+    await waitFor(() => expect(generate).not.toBeDisabled())
+    expect(generate).toHaveValue(
+      imageBinding.imageQueries!.imageGeneration!.url
+    )
+    expect(
+      screen.getByLabelText('Image edits task query URL template')
+    ).toHaveValue(imageBinding.imageQueries!.imageEdit!.url)
+    const auth = screen.getAllByRole('combobox', {
+      name: 'Task query authentication',
+    })
+    expect(auth[0]).toHaveTextContent('x-api-key')
+    expect(auth[1]).toHaveTextContent('none')
+    expect(changed).not.toHaveBeenCalled()
+    fireEvent.change(generate, {
+      target: { value: 'https://fixture.invalid/custom/{taskId}' },
+    })
+    fireEvent.click(auth[0]!)
+    activateOption(await screen.findByRole('option', { name: 'none' }))
+    expect(changed).toHaveBeenLastCalledWith({
+      ...imageBinding,
+      imageQueries: {
+        ...imageBinding.imageQueries,
+        imageGeneration: {
+          url: 'https://fixture.invalid/custom/{taskId}',
+          auth: 'none',
+        },
+      },
+    })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Image edits' }))
+    expect(changed).toHaveBeenLastCalledWith({
+      key: provider.key,
+      protocols: ['imageGeneration'],
+      imageQueries: {
+        imageGeneration: {
+          url: 'https://fixture.invalid/custom/{taskId}',
+          auth: 'none',
+        },
+      },
+    })
+    expect(
+      screen.queryByLabelText('Image edits task query URL template')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('checkbox', { name: 'Image generation' })
+    ).toHaveAttribute('aria-disabled', 'true')
+    changed.mockClear()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Image generation' }))
+    expect(changed).not.toHaveBeenCalled()
+  })
+  it('shows creation defaults without persisting them in the draft or replacing saved targets on upgrade', async () => {
+    mocks.plugins.mockResolvedValue({ items: [imageProvider] })
+    const changed = vi.fn()
+    mount(
+      <ChannelProviderBinding
+        value={{
+          key: provider.key,
+          protocols: ['imageGeneration', 'imageEdit'],
+        }}
+        onChange={changed}
+        protocols={['imageGeneration', 'imageEdit']}
+        newChannel
+      />
+    )
+    const generate = await screen.findByLabelText(
+      'Image generation task query URL template'
+    )
+    expect(generate).toHaveValue('')
+    expect(
+      screen.getByText(/On creation, \/generation\/\{taskId\} is saved/)
+    ).toBeVisible()
+    expect(
+      screen.getAllByRole('combobox', { name: 'Task query authentication' })[1]
+    ).toHaveTextContent('none')
+    expect(changed).not.toHaveBeenCalled()
+    cleanup()
+    client.clear()
+    mount(
+      <ChannelProviderBinding
+        value={imageBinding}
+        onChange={changed}
+        protocols={['imageGeneration', 'imageEdit']}
+      />
+    )
+    await screen.findByLabelText('Image generation task query URL template')
+    if (imageProvider.manifest?.apiVersion !== 2)
+      throw new Error('fixture manifest')
+    const manifest = imageProvider.manifest
+    act(() =>
+      client.setQueryData(channelPluginQueryKey, {
+        items: [
+          {
+            ...imageProvider,
+            manifest: {
+              ...manifest,
+              version: '2',
+              imageTasks: {
+                imageGeneration: {
+                  query: { path: '/new-default/{taskId}', auth: 'bearer' },
+                },
+                imageEdit: manifest.imageTasks!.imageEdit,
+              },
+            },
+          },
+        ],
+      })
+    )
+    expect(
+      screen.getByLabelText('Image generation task query URL template')
+    ).toHaveValue(imageBinding.imageQueries!.imageGeneration!.url)
+    expect(changed).not.toHaveBeenCalled()
+    await act(async () => {
+      await i18n.changeLanguage('zhCN')
+    })
+    expect(
+      screen.getAllByRole('combobox', { name: '任务查询认证' })
+    ).toHaveLength(2)
+    expect(screen.getAllByText(/查询须与本图片端点同 origin/)).toHaveLength(2)
+  })
+  it('keeps saved image targets visible when the plugin is missing and blocks editing on metadata failure', async () => {
+    mocks.plugins.mockRejectedValueOnce(new Error('fixture metadata failed'))
+    const changed = vi.fn()
+    mount(
+      <ChannelProviderBinding
+        value={imageBinding}
+        onChange={changed}
+        protocols={['imageGeneration', 'imageEdit']}
+      />
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not load plugins'
+    )
+    expect(
+      screen.getByLabelText('Image generation task query URL template')
+    ).toBeDisabled()
+    mocks.plugins.mockResolvedValueOnce({ items: [wire] })
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await screen.findByText(/saved provider is unavailable/)
+    expect(
+      screen.getByLabelText('Image generation task query URL template')
+    ).toHaveValue(imageBinding.imageQueries!.imageGeneration!.url)
+    expect(changed).not.toHaveBeenCalled()
+  })
+  it('validates the matching image origin before PATCH and preserves a failed-save draft', async () => {
+    mocks.plugins.mockResolvedValue({ items: [imageProvider] })
+    mocks.config.mockResolvedValue({
+      channelProxy: '',
+      customHeaders: '',
+      paramOverride: '',
+      pluginBindings: [],
+      providerBinding: imageBinding,
+    })
+    mocks.update.mockRejectedValueOnce(new Error('fixture save failed'))
+    const imageDetail: ImportedUpstreamDetail = {
+      ...detail,
+      endpointConfig: {
+        imageGeneration: {
+          url: 'https://fixture.invalid/generate',
+          auth: 'bearer',
+        },
+        imageEdit: { url: 'https://edits.invalid/edit', auth: 'bearer' },
+      },
+    }
+    // The saved second slot is explicitly corrected to its own endpoint.
+    mocks.config.mockResolvedValue({
+      channelProxy: '',
+      customHeaders: '',
+      paramOverride: '',
+      pluginBindings: [],
+      providerBinding: {
+        ...imageBinding,
+        imageQueries: {
+          ...imageBinding.imageQueries,
+          imageEdit: {
+            url: 'https://edits.invalid/tasks/{taskId}',
+            auth: 'none',
+          },
+        },
+      },
+    })
+    mount(
+      <UpstreamConnectionForm detail={imageDetail} onDirtyChange={vi.fn()} />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced settings' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit request settings' })
+    )
+    const generate = await screen.findByLabelText(
+      'Image generation task query URL template'
+    )
+    fireEvent.change(generate, {
+      target: { value: 'https://edits.invalid/tasks/{taskId}' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await screen.findByText(
+      /Each image task query must share an origin with its own/
+    )
+    expect(mocks.update).not.toHaveBeenCalled()
+    expect(generate).toHaveAttribute('aria-invalid', 'true')
+    fireEvent.change(generate, {
+      target: { value: 'https://fixture.invalid/new/{taskId}' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save connection' }))
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledOnce())
+    expect(mocks.update).toHaveBeenLastCalledWith(7, {
+      providerBinding: {
+        ...imageBinding,
+        imageQueries: {
+          imageGeneration: {
+            url: 'https://fixture.invalid/new/{taskId}',
+            auth: 'x-api-key',
+          },
+          imageEdit: {
+            url: 'https://edits.invalid/tasks/{taskId}',
+            auth: 'none',
+          },
+        },
+      },
+    })
+    expect(generate).toHaveValue('https://fixture.invalid/new/{taskId}')
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Save connection' })
+      ).not.toBeDisabled()
+    )
+  })
   it('shows immutable host authentication in both languages without a secret control', async () => {
     if (provider.manifest?.apiVersion !== 2) throw new Error('fixture manifest')
     mocks.plugins.mockResolvedValue({

@@ -11,6 +11,202 @@ vi.mock('../transport', () => ({ request: mock }))
 beforeEach(() => mock.mockReset())
 
 describe('channel plugin API data boundary', () => {
+  it('preserves explicit asynchronous image slots and requires their full lifecycle', async () => {
+    const protocols = [
+      'imageGeneration',
+      'imageEdit',
+      'imageVariation',
+      'modelscopeImageGeneration',
+    ]
+    const manifest = {
+      apiVersion: 2,
+      kind: 'provider',
+      key: 'images',
+      name: 'Image tasks',
+      version: '1.0.0',
+      protocols,
+      credentialKinds: ['api_key'],
+      hooks: ['submit', 'query', 'taskResult'],
+      imageTasks: Object.fromEntries(
+        protocols.map((protocol, index) => [
+          protocol,
+          {
+            query: {
+              path: `/tasks/${index}/{taskId}`,
+              auth: ['bearer', 'x-api-key', 'x-goog-api-key', 'none'][index],
+            },
+          },
+        ])
+      ),
+      observations: Object.fromEntries(
+        protocols.map((protocol) => [
+          protocol,
+          { response: { taskIdPath: '/task/id' } },
+        ])
+      ),
+    }
+    const item = (value: unknown) => ({
+      items: [{ key: 'images', enabled: true, revision: 1, manifest: value }],
+    })
+    for (const valid of [
+      manifest,
+      {
+        ...manifest,
+        protocols: [...protocols, 'chat'],
+        hooks: [...manifest.hooks, 'request', 'response'],
+      },
+    ]) {
+      mock.mockResolvedValueOnce(item(valid))
+      await expect(channelPluginsApi.list()).resolves.toEqual(item(valid))
+    }
+    for (const invalid of [
+      { ...manifest, imageTasks: {} },
+      { ...manifest, imageTasks: null },
+      { ...manifest, observations: undefined },
+      { ...manifest, protocols: protocols.slice(1) },
+      { ...manifest, hooks: ['request', 'response'] },
+      ...manifest.hooks.map((missing) => ({
+        ...manifest,
+        hooks: manifest.hooks.filter((hook) => hook !== missing),
+      })),
+      {
+        ...manifest,
+        imageTasks: {
+          chat: { query: { path: '/tasks/{taskId}', auth: 'none' } },
+        },
+      },
+      {
+        ...manifest,
+        apiVersion: 1,
+        kind: undefined,
+        credentialKinds: undefined,
+      },
+    ]) {
+      mock.mockResolvedValueOnce(item(invalid))
+      await expect(channelPluginsApi.list()).rejects.toThrow()
+    }
+  })
+  it('rejects unsafe image task templates without normalizing away the bad path', async () => {
+    const manifest = {
+      apiVersion: 2,
+      kind: 'provider',
+      key: 'images',
+      name: 'Image tasks',
+      version: '1',
+      protocols: ['imageGeneration'],
+      credentialKinds: ['none'],
+      hooks: ['submit', 'query', 'taskResult'],
+      observations: { imageGeneration: { response: { taskIdPath: '/id' } } },
+    }
+    const item = (query: unknown) => ({
+      items: [
+        {
+          key: 'images',
+          enabled: true,
+          revision: 1,
+          manifest: { ...manifest, imageTasks: { imageGeneration: { query } } },
+        },
+      ],
+    })
+    for (const path of [
+      '/tasks',
+      '/tasks/{taskId}/{taskId}',
+      '/tasks/{taskId}suffix',
+      '/tasks/{other}',
+      '//other.invalid/{taskId}',
+      '/tasks/../{taskId}',
+      '/tasks/%2e%2e/{taskId}',
+      '/tasks/{taskId}?key=fixture',
+      '/tasks/{taskId}#fragment',
+      '/tasks/%3f/{taskId}',
+      '/tasks/%5c/{taskId}',
+      '/tasks/%0a/{taskId}',
+      '/tasks/\u0085/{taskId}',
+      '/tasks/{taskId}/%',
+      `/tasks/${'图'.repeat(2800)}/{taskId}`,
+    ]) {
+      mock.mockResolvedValueOnce(item({ path, auth: 'none' }))
+      await expect(channelPluginsApi.list()).rejects.toThrow()
+    }
+    for (const query of [
+      { path: '/tasks/{taskId}', auth: 'cookie' },
+      { path: '/tasks/{taskId}', auth: 'none', modelPath: true },
+      { path: '/tasks/{taskId}', auth: 'none', profile: 'modelscope' },
+      { path: '/tasks/{taskId}', auth: 'none', headers: {} },
+    ]) {
+      mock.mockResolvedValueOnce(item(query))
+      await expect(channelPluginsApi.list()).rejects.toThrow()
+    }
+  })
+  it('round-trips saved per-slot image queries and rejects malformed or unselected targets', () => {
+    const binding = {
+      key: 'images',
+      protocols: ['imageGeneration', 'imageEdit'],
+      imageQueries: {
+        imageGeneration: {
+          url: 'https://vendor.invalid/tasks/{taskId}',
+          auth: 'none',
+        },
+        imageEdit: {
+          url: 'https://other.invalid/edits/{taskId}',
+          auth: 'x-api-key',
+        },
+      },
+    }
+    expect(providerBindingSchema.parse(binding)).toEqual(binding)
+    const unicodeUrl = `https://vendor.invalid/tasks/${'图'.repeat(2700)}/{taskId}`
+    expect(
+      providerBindingSchema.safeParse({
+        ...binding,
+        imageQueries: { imageGeneration: { url: unicodeUrl, auth: 'none' } },
+      }).success
+    ).toBe(true)
+    for (const url of [
+      'ftp://vendor.invalid/tasks/{taskId}',
+      'https://fixture:secret@vendor.invalid/tasks/{taskId}',
+      'https://vendor.invalid/tasks/{taskId}?key=fixture',
+      'https://vendor.invalid/tasks/{taskId}#fragment',
+      'https://vendor.invalid/tasks/../{taskId}',
+      'https://vendor.invalid/tasks/%2e%2e/{taskId}',
+      'https://vendor.invalid/tasks/%0a/{taskId}',
+      'https://vendor.invalid/tasks/static',
+      `https://vendor.invalid/tasks/${'图'.repeat(2800)}/{taskId}`,
+      `https://vendor.invalid/tasks/${'x'.repeat(9216)}/{taskId}`,
+    ]) {
+      expect(
+        providerBindingSchema.safeParse({
+          ...binding,
+          imageQueries: { imageGeneration: { url, auth: 'none' } },
+        }).success
+      ).toBe(false)
+    }
+    for (const invalid of [
+      { ...binding, protocols: ['imageGeneration'] },
+      {
+        ...binding,
+        imageQueries: { chat: binding.imageQueries.imageGeneration },
+      },
+      {
+        ...binding,
+        imageQueries: {
+          imageGeneration: {
+            ...binding.imageQueries.imageGeneration,
+            auth: 'cookie',
+          },
+        },
+      },
+      {
+        ...binding,
+        imageQueries: {
+          imageGeneration: {
+            ...binding.imageQueries.imageGeneration,
+            headers: {},
+          },
+        },
+      },
+    ])
+      expect(providerBindingSchema.safeParse(invalid).success).toBe(false)
+  })
   it('preserves host authentication and rejects unsafe or incompatible declarations', async () => {
     const manifest = {
       apiVersion: 2,

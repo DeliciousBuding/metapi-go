@@ -89,6 +89,22 @@ func setAuthenticationHeader(headers http.Header, a contract.Authentication, val
 	headers.Set(a.Header, a.Prefix+value)
 }
 
+// Query authentication is rebuilt by the host. In particular a credentialless
+// query must not inherit a custom signing header from its submitting request.
+func (i DriverInvocation) ClearAuthentication(headers http.Header) {
+	target := ""
+	if i.program != nil {
+		if authentication := i.program.Manifest().Authentication; authentication != nil {
+			target = authentication.Header
+		}
+	}
+	for name := range headers {
+		if strings.EqualFold(name, "Authorization") || strings.EqualFold(name, "X-Api-Key") || strings.EqualFold(name, "X-Goog-Api-Key") || target != "" && strings.EqualFold(name, target) {
+			delete(headers, name)
+		}
+	}
+}
+
 func renderAuthentication(a contract.Authentication, material string, now time.Time) (string, error) {
 	if a.Validate() != nil || material == "" || len(material) > 32<<10 {
 		return "", ErrBinding

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/deliciousbuding/metapi-go/internal/channelplugin/contract"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
@@ -30,10 +31,28 @@ type DirectPluginBinding struct {
 // A single driver may serve explicitly selected slots alongside independent
 // wire hooks. Its declaration is not an endpoint or model authorization.
 type DirectProviderBinding struct {
-	Key       string                     `json:"key"`
-	Protocols []string                   `json:"protocols"`
-	Options   map[string]json.RawMessage `json:"options,omitempty"`
-	Catalog   *DirectCatalogEndpoint     `json:"catalog,omitempty"`
+	Key          string                              `json:"key"`
+	Protocols    []string                            `json:"protocols"`
+	Options      map[string]json.RawMessage          `json:"options,omitempty"`
+	Catalog      *DirectCatalogEndpoint              `json:"catalog,omitempty"`
+	ImageQueries map[string]DirectImageQueryEndpoint `json:"imageQueries,omitempty"`
+}
+
+// Each saved query target belongs to one selected image protocol endpoint.
+// The only dynamic component is an escaped task id, never an arbitrary URL.
+type DirectImageQueryEndpoint struct {
+	URL  string `json:"url"`
+	Auth string `json:"auth"`
+}
+
+func (c DirectImageQueryEndpoint) Validate() error {
+	if (DirectCatalogEndpoint{URL: c.URL, Auth: c.Auth}).Validate() != nil {
+		return fmt.Errorf("invalid_provider_image_query_endpoint")
+	}
+	if _, err := contract.ImageQueryURL(c.URL, "validation"); err != nil {
+		return fmt.Errorf("invalid_provider_image_query_endpoint")
+	}
+	return nil
 }
 
 type DirectCatalogEndpoint struct {
@@ -92,6 +111,14 @@ func (c DirectRequestConfig) Validate() error {
 		if c.Provider.Catalog != nil {
 			if err := c.Provider.Catalog.Validate(); err != nil {
 				return err
+			}
+		}
+		if len(c.Provider.ImageQueries) > 4 {
+			return fmt.Errorf("invalid_provider_image_query_endpoint")
+		}
+		for protocol, query := range c.Provider.ImageQueries {
+			if !contract.ValidImageTaskProtocol(protocol) || !slices.Contains(c.Provider.Protocols, protocol) || query.Validate() != nil {
+				return fmt.Errorf("invalid_provider_image_query_endpoint")
 			}
 		}
 		seen[c.Provider.Key] = true
@@ -181,6 +208,17 @@ func (c DirectRequestConfig) ValidateEndpoints(endpoints DirectEndpoints) error 
 		}
 		if !catalogAllowed {
 			return fmt.Errorf("provider_catalog_origin_not_bound")
+		}
+		for protocol, query := range c.Provider.ImageQueries {
+			bound := false
+			for _, entry := range endpoints.Entries() {
+				if entry.Key == protocol && entry.Endpoint != nil && catalogOrigin(entry.Endpoint.URL) == catalogOrigin(query.URL) {
+					bound = true
+				}
+			}
+			if !bound {
+				return fmt.Errorf("provider_image_query_origin_not_bound")
+			}
 		}
 	}
 	for _, binding := range c.Plugins {

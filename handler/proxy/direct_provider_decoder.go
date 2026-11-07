@@ -14,6 +14,9 @@ import (
 // Original provider observations are not derived from decoder output. Pricing,
 // admission and settlement consume this snapshot even if a later hook fails.
 func observeDirectDriverBody(wire *directProviderWire, body []byte, event bool) (ParsedUsage, bool, error) {
+	if wire != nil && wire.DriverImageQuery != nil && wire.DriverImageUsage != nil {
+		return *wire.DriverImageUsage, nativeDriverError(body), nil
+	}
 	usage := ParseUsageFromBody(body)
 	if wire != nil && wire.PluginProtocol == "ollama" && !event && (gjson.GetBytes(body, "message").IsObject() || gjson.GetBytes(body, "done").Exists()) {
 		// Reuse the native codec's integer/control checks on original bytes,
@@ -48,7 +51,7 @@ func observeDirectDriverBody(wire *directProviderWire, body []byte, event bool) 
 		observation.Failed = true
 	}
 	taskID := usage.upstreamTaskID
-	if wire.DriverOperation != "" && len(observation.TaskID) > 0 {
+	if (wire.DriverOperation != "" || wire.DriverImageQuery != nil) && len(observation.TaskID) > 0 {
 		var selected string
 		if json.Unmarshal(observation.TaskID, &selected) != nil || !validObservedVideoTaskID(selected) || taskID != "" && taskID != selected {
 			usage.invalidForUserBudget = true
@@ -93,6 +96,9 @@ func decodeDirectDriverPayload(ctx context.Context, wire *directProviderWire, bo
 		return nil, usage, channelplugin.ErrResult
 	}
 	if wire == nil || wire.Driver == nil {
+		return body, usage, nil
+	}
+	if wire.DriverImageQuery != nil && wire.DriverImageUsage != nil {
 		return body, usage, nil
 	}
 	hook := "decodeResponse"
