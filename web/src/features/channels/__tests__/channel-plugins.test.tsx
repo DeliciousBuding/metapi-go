@@ -74,6 +74,16 @@ beforeEach(async () => {
 afterEach(cleanup)
 
 describe('channel plugin management and bindings', () => {
+  it('explains explicit transport bindings in both supported languages', () => {
+    const english = i18n.t('channels.plugins.bindingDescription', { lng: 'en' })
+    const chinese = i18n.t('channels.plugins.bindingDescription', {
+      lng: 'zhCN',
+    })
+    expect(english).toContain('explicitly selected protocol endpoints')
+    expect(english).toContain('WebSocket have separate bindings')
+    expect(chinese).toContain('WebSocket 分别绑定')
+  })
+
   it('offers native transport slots only when declared by both plugin and channel', async () => {
     const item = plugin('alpha')
     if (!item.manifest) throw new Error('missing fixture manifest')
