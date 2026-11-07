@@ -31,6 +31,13 @@ TLS 校验默认启用，HTTP(S) 代理须允许 CONNECT 到目标端口，不�
 multipart；回退旧 host 前须替换声明 requestKinds 的模块并处理其持久任务。
 宿主在文件编码之前保留审核与授权边界，不能把取消/编码失败的 submit 当作成功。
 
+provider 的 `authentication` 声明保存在原安装 manifest，不新增凭据或任务表/列。
+自定义 Key 头和 HS256 签名只消费当前 API Key 材料；OAuth/GCP 仍由原 owner 解析。
+WS 的短期签名头仅属于当前下游会话，进程重启后重新签发，不作为持久凭据恢复。
+回退到不认识该声明的 host 前，替换相关安装模块或移除绑定，并先完成/停用
+捕获该认证声明的持久任务；只替换当前安装记录不会改写旧任务的不可变档案。
+旧 host 明确拒绝未知声明，不能通过原始 Key 或无认证回退来恢复这类任务。
+
 回退到只支持 wire hooks 的版本前，先移除全部 provider 绑定，替换或卸载
 API v2 manifest。只停用不等于解除绑定，停用后新请求会明确失败。协议与操作
 范围见[渠道插件合同](api/channel-plugins.md)，不能依靠旧程序忽略新字段恢复服务。

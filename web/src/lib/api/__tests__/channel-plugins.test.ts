@@ -11,6 +11,104 @@ vi.mock('../transport', () => ({ request: mock }))
 beforeEach(() => mock.mockReset())
 
 describe('channel plugin API data boundary', () => {
+  it('preserves host authentication and rejects unsafe or incompatible declarations', async () => {
+    const manifest = {
+      apiVersion: 2,
+      kind: 'provider',
+      key: 'auth',
+      name: 'Host authentication',
+      version: '1.0.0',
+      protocols: ['chat'],
+      credentialKinds: ['api_key'],
+      hooks: ['request', 'response'],
+    }
+    const jwt = {
+      keySeparator: '|',
+      issuerClaim: 'iss',
+      ttlSeconds: 1800,
+      timeUnit: 'seconds',
+      notBeforeSkewSeconds: 5,
+    }
+    const authentication = {
+      type: 'jwt_hs256',
+      header: 'Authorization',
+      prefix: 'Bearer ',
+      jwt,
+    }
+    const item = (value: unknown) => ({
+      items: [{ key: 'auth', enabled: true, revision: 1, manifest: value }],
+    })
+    for (const valid of [
+      authentication,
+      { type: 'api_key', header: 'X-Vendor-Key', prefix: 'Key ' },
+      {
+        ...authentication,
+        jwt: {
+          ...jwt,
+          keySeparator: '.',
+          issuerClaim: 'api_key',
+          timeUnit: 'milliseconds',
+          issuedAtClaim: 'timestamp',
+          signType: 'SIGN',
+        },
+      },
+    ]) {
+      const value = item({ ...manifest, authentication: valid })
+      mock.mockResolvedValueOnce(value)
+      await expect(channelPluginsApi.list()).resolves.toEqual(value)
+    }
+    for (const invalid of [
+      ...[
+        'Host',
+        'Cookie',
+        'Proxy-Authorization',
+        'Sec-WebSocket-Key',
+        'X-Forwarded-For',
+        'Content-Length',
+        'Session-Id',
+        'Conversation_Id',
+        'X-Codex-Turn-Metadata',
+        'X-Claude-Code-Session-Id',
+        'Anthropic-Version',
+        'OpenAI-Beta',
+        'OpenAI-Project',
+        'X-Request-Id',
+        'Traceparent',
+        'X-Key\n',
+      ].map((header) => ({ ...authentication, header })),
+      { ...authentication, prefix: 'Bearer\r\n' },
+      { ...authentication, prefix: '\u0085' },
+      { ...authentication, jwt: undefined },
+      { ...authentication, type: 'api_key' },
+      { ...authentication, type: 'oauth2_jwt' },
+      { ...authentication, jwt: { ...jwt, ttlSeconds: 59 } },
+      { ...authentication, jwt: { ...jwt, ttlSeconds: 86401 } },
+      { ...authentication, jwt: { ...jwt, ttlSeconds: 90.5 } },
+      { ...authentication, jwt: { ...jwt, issuerClaim: 'exp' } },
+      { ...authentication, jwt: { ...jwt, issuedAtClaim: 'iss' } },
+      { ...authentication, jwt: { ...jwt, algorithm: 'RS256' } },
+      null,
+    ]) {
+      mock.mockResolvedValueOnce(item({ ...manifest, authentication: invalid }))
+      await expect(channelPluginsApi.list()).rejects.toThrow()
+    }
+    for (const credentialKinds of [['oauth'], ['none'], ['api_key', 'oauth']]) {
+      mock.mockResolvedValueOnce(
+        item({ ...manifest, credentialKinds, authentication })
+      )
+      await expect(channelPluginsApi.list()).rejects.toThrow()
+    }
+    mock.mockResolvedValueOnce(
+      item({
+        ...manifest,
+        apiVersion: 1,
+        kind: undefined,
+        credentialKinds: undefined,
+        authentication,
+      })
+    )
+    await expect(channelPluginsApi.list()).rejects.toThrow()
+  })
   it('preserves explicit request forms and rejects invalid declarations', async () => {
     const manifest = {
       apiVersion: 2,

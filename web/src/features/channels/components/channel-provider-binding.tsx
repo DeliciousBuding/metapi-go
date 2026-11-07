@@ -181,6 +181,27 @@ export function ChannelProviderBinding({
               {t('channels.plugins.providerCredentialMismatch')}
             </p>
           )}
+          {manifest?.authentication && (
+            <div className='space-y-1 text-sm'>
+              <p>
+                {t('channels.plugins.hostAuthentication', {
+                  type: manifest.authentication.type,
+                  header: manifest.authentication.header,
+                })}
+              </p>
+              {manifest.authentication.jwt && (
+                <p className='text-muted-foreground text-xs'>
+                  {t('channels.plugins.hostJWT', {
+                    separator: manifest.authentication.jwt.keySeparator,
+                    seconds: manifest.authentication.jwt.ttlSeconds,
+                  })}
+                </p>
+              )}
+              <p className='text-muted-foreground text-xs'>
+                {t('channels.plugins.hostAuthenticationHint')}
+              </p>
+            </div>
+          )}
           <div className='flex flex-wrap gap-3'>
             {[...new Set([...available, ...value.protocols])].map(
               (protocol) => (

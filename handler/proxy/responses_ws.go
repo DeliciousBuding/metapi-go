@@ -21,6 +21,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -231,8 +232,9 @@ type responsesWSSession struct {
 	// Client-facing WS session id for Codex upstream runtime keying (process-local).
 	clientSessionID string
 	// Upstream Codex wss session keys opened this connection (closed on defer).
-	codexRuntimeKeys []string
-	directRuntimeKey string
+	codexRuntimeKeys     []string
+	directRuntimeKey     string
+	directAuthentication *channelplugins.AuthenticationLease
 	// message serialisation: one in-flight turn at a time (Codex client queue).
 	queueMu sync.Mutex
 }

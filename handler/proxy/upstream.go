@@ -949,6 +949,12 @@ func dispatchEndpointAttemptWithContinue(
 			writeJSONErrorWithRequest(w, http.StatusBadRequest, "Cannot apply selected channel request headers", "invalid_request_error", requestID)
 			return true, nil, false
 		}
+		if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.Driver != nil && directEndpoint != nil && directEndpoint.Auth != store.DirectAuthNone {
+			if err := wire.Driver.ApplyAuthentication(req.Header, selected.TokenValue); err != nil {
+				writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "Selected provider authentication is unavailable", "upstream_error", requestID)
+				return true, nil, false
+			}
+		}
 		// Custom headers were already applied before ordered operations. Do not
 		// let the transport reinsert a header explicitly deleted by the channel.
 		if proxyConfig != nil && selected.Direct.RequestConfig.Active() {

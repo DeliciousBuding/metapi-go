@@ -143,6 +143,11 @@ func discoverProviderCatalog(ctx context.Context, manager *channelplugins.Manage
 		case store.DirectAuthGoogle:
 			request.Header.Set("X-Goog-Api-Key", identity.Secret)
 		}
+		if binding.Catalog.Auth != store.DirectAuthNone {
+			if err := invocation.ApplyAuthentication(request.Header, identity.Secret); err != nil {
+				return nil, Discovery{}, "", invalid("Current credential cannot authenticate the provider catalog")
+			}
+		}
 		response, err := client.Do(request)
 		if err != nil {
 			return nil, Discovery{}, "", connectDiscoveryError("Could not fetch upstream models; check the address and proxy settings")
