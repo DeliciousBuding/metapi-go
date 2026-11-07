@@ -184,6 +184,10 @@ func (i DriverInvocation) Call(ctx context.Context, hook string, input channelpl
 
 func (i DriverInvocation) HasHook(hook string) bool { return i.program.HasDriverHook(hook) }
 
+func (i DriverInvocation) AcceptsRequestKind(kind string) bool {
+	return i.program != nil && i.program.Manifest().AcceptsRequestKind(kind)
+}
+
 func (i DriverInvocation) Observe(body []byte, event bool) (channelplugin.ObservationResult, error) {
 	if i.program == nil {
 		return channelplugin.ObservationResult{}, ErrUnavailable

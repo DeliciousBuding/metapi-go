@@ -98,13 +98,16 @@ wire 链。新建时选中端点/目录的默认模板落入原配置，升级�
 wire hooks 位于解码后，已发生请求的 decoder 失败不重放。
 provider 的匿名身份复用既有凭据 resolver 与 Ollama 端点资格；每页目录同样解析
 当前身份，空 Key/解析失败不授予匿名权限。显式无认证目录不发送供应商凭据。
-视频 driver 的 JSON submit/query/content 复用原任务 owner 与累计账本，原始 task ID
+视频 driver 的 JSON/multipart submit/query/content 复用原任务 owner 与累计账本，原始 task ID
 与用量在 decoder 前关联；解析/下载失败保留已经验证的累计差额。两阶段 content
 先查询已授权 metadata，再给出无认证 CDN URL；`handler/proxy` 的下载 owner 与
 原生视频共用，`platform` 固定已验证公网 IP，保留 Host/SNI，并隔离认证/TLS 设置。
 `channel_plugin_versions` 只归档实际被持久任务捕获的已审程序，任务保存摘要引用。
 旧任务用原代码/默认选项恢复，但当前安装启用与归属/端点/凭据资格仍独立验证。
-本阶段未另建 router、凭据池或任务平台；自定义认证、媒体 multipart 等
+multipart driver 在原生 profile 预转换前接收字段和请求内文件引用；字节、文件句柄
+与临时路径由 `handler/proxy` 的原 multipart owner 保留。JSON 占位符或 multipart
+parts 在语义覆盖/预算之后由宿主最终编码，不给 JS 文件能力或另建上传执行器。
+本阶段未另建 router、凭据池或任务平台；自定义认证、其他媒体协议的插件消费者等
 未列出的消费者尚未接通，不能据协议声明推断这些能力已可用。
 
 产品预设由 `service/upstream_presets.go` 管理品牌、套餐、凭据类型和各协议的

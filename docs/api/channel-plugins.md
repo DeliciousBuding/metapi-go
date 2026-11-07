@@ -120,6 +120,12 @@ export function modelsResponse(input) { return {models: JSON.parse(input.body).i
 匿名身份：现有 Ollama/ollama-messages 的匿名端点与协议授权，不能让空 API Key、
 失败的 resolver 或其他供应商自动变成匿名访问。自定义认证签发尚未接入。
 
+`requestKinds` 可显式声明 `json` / `multipart`，默认只有 `json`；空数组、重复项
+或未知类型拒绝。它只约束创建请求，不影响旧任务查询；当前 multipart 消费者
+为下文的三个视频槽，其他协议不能从声明推断已经接通。旧模块不自动获得文件输入。
+未声明的创建请求格式返回 415，且不派发、不归档新任务程序；插件解析/执行失败
+继续按原错误合同处理，不把请求格式不匹配归类为上游网络故障。
+
 端点默认模板与目录配置可显式选择 `auth:"none"`；模板不绕过端点 owner 对
 匿名 profile 的限制。目录不发送供应商凭据，匿名身份仍须显式声明 `none` 并在
 每页通过当前凭据 resolver 校验；已禁用、替换或不支持的身份在网络请求前拒绝。
@@ -231,11 +237,38 @@ JavaScript Number 重建。用量合并、终态、取消与身份恢复继续�
 ### 持久视频任务
 
 `video`、`seedanceVideo`、`zenmuxVideo` 使用独立的 `submit`、`query`、`content`、
-`taskResult` hooks，不调用文本 `request`/`response`。当前提交只接受 JSON，
-不把 multipart 文件字节或预转换的 base64 文件内容交给 JS；查询和内容操作输入提供宿主捕获的 `taskId`。
+`taskResult` hooks，不调用文本 `request`/`response`。提交接受 JSON，显式声明后
+也接受 multipart；不把文件字节或预转换的 base64 内容交给 JS。
+查询和内容操作输入提供宿主捕获的 `taskId`。
 请求 hook 仍返回受限描述符：提交 POST、查询与内容 GET，URL 必须保留宿主已
-授权的完整操作地址。DELETE/remix 与 multipart 尚未接入，不借 query hook
+授权的完整操作地址。DELETE/remix 尚未接入，不借 query hook
 重放写请求。已执行的媒体操作不自动重放。
+
+#### multipart 与文件引用
+
+显式 `requestKinds:["json","multipart"]` 的视频 provider，在 multipart submit
+收到 `bodyKind:"multipart"`，`body` 为宿主完成模型映射/渠道参数后的字段 JSON
+文本；单值字段为字符串，重复值为字符串数组，`stream` 的 true/false 是协议布尔
+控制。文件不混入字段，`files?` 仅含 `{ref,field,filename,mimeType,size}` 元数据。
+`ref` 是不可预测、请求内有效的引用，不能重用其他请求的引用；没有文件时可省略
+files。字段与文件同名、重复 model/stream 或非法模型控制均拒绝。
+
+`submit` 可返回两种输出，宿主都在语义覆盖与预算检查之后编码文件：
+
+- `{method:"POST",parts:[{field,value:string}|{field,fileRef:string}]}`：宿主生成
+  multipart boundary，保留重复字段以及所引用文件的原字节、文件名和 Content-Type；
+  插件不能同时返回 body/contentType，或自行指定 Content-Type/Content-Length 头。
+- `{method:"POST",body:string}`：原生 JSON 对象可在任意对象/数组深度使用
+  `{__fileRef:ref,encoding:"base64"|"dataUrl",mimeType?,maxBytes?}`。宿主在自己的
+  副本上替换占位符，保留未改数值的精度；严格拒绝未知字段、大小写影子和未知 ref。
+  maxBytes 为额外的单文件上限，不能扩大宿主限制；遍历最多 64 层。
+
+文件字节、reader、临时路径、认证信息不进入 moejs；编码后的文件也不会进入
+后续 wire hooks。宿主复用原 multipart 字段/值/文件限制，最终编码同样受请求
+总字节限制和取消约束；descriptor 最多 528 parts，输入最多 16 个文件引用。
+使用 Seedance/ZenMux 原生 profile 时继续执行每文件 4 MiB 和图片类型限制；
+未知 MIME 可沿原规则由宿主检测。JSON data URL 不依赖插件读取图片字节。
+失败发生在上游派发前，不通过 query 或另一次 submit 重放来恢复。
 
 `content` 支持两种明确模式：
 
@@ -301,6 +334,8 @@ CDN 下载失败不抹掉已收到的差额。未能关联原始 ID 的旧模块
 目录配置，或移除该绑定；不能用合成 Key 填充匿名身份来绕过旧版校验。
 回退到不支持 `taskIdPath` 或两阶段 CDN content 的版本前，替换相关模块并
 处理其持久任务；否则旧 manifest 或原始 GET 描述符校验会明确拒绝，不静默降级。
+回退到不支持 `requestKinds` / 文件引用的版本前，同样替换声明该能力的模块及
+其持久任务；新 manifest 在旧 host 会明确拒绝，不把 multipart 原文交给旧 JS。
 
 ## 运行边界
 

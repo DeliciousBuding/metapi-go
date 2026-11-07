@@ -2,9 +2,11 @@ package proxyhandler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/channelplugin"
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"net/http"
@@ -216,7 +218,17 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 		body, expectUsage = applyUpstreamStreamIncludeUsage(body, "openai", path, upstreamStream)
 	}
 	var wire *directProviderWire
-	if endpoint != nil && endpoint.Profile == "openrouter-image" {
+	if ctx.Multipart && hasDirectMediaDriver(selected.Direct, path) {
+		if ctx.directProviderUpload == nil {
+			writeJSONErrorWithRequest(w, 400, "Missing provider upload metadata", "invalid_request_error", requestID)
+			return true, nil, false
+		}
+		wire = &directProviderWire{Body: body, Headers: make(http.Header), DriverUpload: ctx.directProviderUpload}
+		if endpoint != nil {
+			wire.Profile = endpoint.Profile
+		}
+		wire.DriverUpload.profile = wire.Profile
+	} else if endpoint != nil && endpoint.Profile == "openrouter-image" {
 		wire, contentType, err = prepareDirectOpenRouterImage(path, contentType, body)
 	} else if endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile) {
 		wire, contentType, err = prepareDirectNativeVideoProfile(endpoint.Profile, r.Method, path, contentType, body)
@@ -236,7 +248,11 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 	}
 	beforeOperations := append([]byte(nil), wire.Body...)
 	if err = prepareDirectProviderDriver(r.Context(), ctx, cfg, wire, selected.Direct, endpoint, credential.Kind, path, r.Method, model, upstreamStream); err != nil {
-		writeJSONErrorWithRequest(w, channelPluginRequestStatus(err), "Cannot execute selected provider driver", "upstream_error", requestID)
+		message, kind := "Cannot execute selected provider driver", "upstream_error"
+		if errors.Is(err, channelplugin.ErrRequestKind) {
+			message, kind = "Selected provider does not accept this request format", "invalid_request_error"
+		}
+		writeJSONErrorWithRequest(w, channelPluginRequestStatus(err), message, kind, requestID)
 		return true, nil, false
 	}
 	if wire.DriverContentType != "" {
@@ -285,6 +301,13 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 		}
 	}
 	wire.Endpoint = endpoint
+	if wire.DriverUpload != nil {
+		contentType, err = finalizeDirectProviderUpload(r.Context(), wire)
+		if err != nil {
+			writeJSONErrorWithRequest(w, channelPluginRequestStatus(err), "Cannot encode selected provider upload", "upstream_error", requestID)
+			return true, nil, false
+		}
+	}
 	wire.ProtocolSession = protocolSession
 	if wire.DriverOperation != "" || proxy.DirectProtocolForPath(path) == store.DirectProtocolVideo && (r.Method == http.MethodPost || endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile)) {
 		maxRetries = retry
