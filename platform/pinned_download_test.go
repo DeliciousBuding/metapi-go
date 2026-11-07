@@ -198,7 +198,8 @@ func TestPinnedDownloadKeepsHostAndRangeWithoutCredentialsOrTLSBypass(t *testing
 }
 
 func TestPinnedDownloadRejectsRedirectsThatChangeOriginOrAddCredentials(t *testing.T) {
-	for _, target := range []string{"http://127.0.0.1/private", "http://user:pass@93.184.216.34/private", "http://other.fixture.invalid/private", "https://93.184.216.34/private", "http://cdn.fixture.invalid:8080/private"} {
+	userinfo := &url.URL{Scheme: "http", Host: "93.184.216.34", Path: "/private", User: url.UserPassword("fixture-user", "fixture-password")}
+	for _, target := range []string{"http://127.0.0.1/private", userinfo.String(), "http://other.fixture.invalid/private", "https://93.184.216.34/private", "http://cdn.fixture.invalid:8080/private"} {
 		t.Run(target, func(t *testing.T) {
 			var calls atomic.Int32
 			proxy := pinnedTunnelTestProxy(t, func(w http.ResponseWriter, r *http.Request) {

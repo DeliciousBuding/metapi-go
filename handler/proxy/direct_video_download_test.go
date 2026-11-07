@@ -3,6 +3,7 @@ package proxyhandler
 import (
 	"context"
 	"net/netip"
+	"net/url"
 	"testing"
 )
 
@@ -27,7 +28,8 @@ func TestPublicMediaDownloadTargetPinsEveryValidatedAnswer(t *testing.T) {
 			t.Fatal("mixed/non-public/metadata DNS answer accepted")
 		}
 	}
-	for _, raw := range []string{"http://127.0.0.1/file", "http://metadata.google.internal/file", "https://user:pass@93.184.216.34/file", "https://93.184.216.34/file#secret", "file:///etc/passwd"} {
+	userinfo := &url.URL{Scheme: "https", Host: "93.184.216.34", Path: "/file", User: url.UserPassword("fixture-user", "fixture-password")}
+	for _, raw := range []string{"http://127.0.0.1/file", "http://metadata.google.internal/file", userinfo.String(), "https://93.184.216.34/file#secret", "file:///etc/passwd"} {
 		if _, _, _, err = pinnedPublicMediaTarget(t.Context(), raw, resolver); err == nil {
 			t.Fatalf("unsafe download URL accepted: %s", raw)
 		}
