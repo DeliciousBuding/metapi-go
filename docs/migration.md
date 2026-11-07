@@ -21,6 +21,11 @@ API v2 provider 绑定保存在已有 `upstream_channels.request_config`；
 缺少原代码档案时拒绝执行，不能自动用最新插件替代。任务身份版本 3 仍按当前
 归属、端点与安装启用状态验证，回退前停止这些任务或保留可恢复的新版本数据库。
 
+新增原始任务 `taskIdPath` 选择器与两阶段 `{query:true}` / `{url:string}` content
+不新增任务版本或数据库列。使用这些能力的模块回退前须替换，持久任务仍需其原
+审核程序与受支持的宿主；旧 manifest/描述符不能静默降级。CDN 下载的公网校验和
+TLS 校验默认启用，HTTP(S) 代理须允许 CONNECT 到目标端口，不继承渠道认证头。
+
 回退到只支持 wire hooks 的版本前，先移除全部 provider 绑定，替换或卸载
 API v2 manifest。只停用不等于解除绑定，停用后新请求会明确失败。协议与操作
 范围见[渠道插件合同](api/channel-plugins.md)，不能依靠旧程序忽略新字段恢复服务。

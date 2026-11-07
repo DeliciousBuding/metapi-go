@@ -17,6 +17,7 @@ type Observation struct {
 	UsagePaths map[string]string `json:"usagePaths,omitempty"`
 	ModelPath  string            `json:"modelPath,omitempty"`
 	ErrorPath  string            `json:"errorPath,omitempty"`
+	TaskIDPath string            `json:"taskIdPath,omitempty"`
 }
 
 type ProtocolObservations struct {
@@ -40,7 +41,7 @@ func (o ProtocolObservations) Validate() error {
 		if observation == nil {
 			continue
 		}
-		if len(observation.UsagePaths) == 0 && observation.ModelPath == "" && observation.ErrorPath == "" {
+		if len(observation.UsagePaths) == 0 && observation.ModelPath == "" && observation.ErrorPath == "" && observation.TaskIDPath == "" {
 			return ErrManifest
 		}
 		for field, path := range observation.UsagePaths {
@@ -48,7 +49,7 @@ func (o ProtocolObservations) Validate() error {
 				return ErrManifest
 			}
 		}
-		for _, path := range []string{observation.ModelPath, observation.ErrorPath} {
+		for _, path := range []string{observation.ModelPath, observation.ErrorPath, observation.TaskIDPath} {
 			if path != "" && !validObservationPointer(path) {
 				return ErrManifest
 			}
@@ -76,6 +77,7 @@ type ObservationResult struct {
 	Usage  json.RawMessage
 	Model  json.RawMessage
 	Failed bool
+	TaskID json.RawMessage
 }
 
 func (p *Program) HasDriverHook(hook string) bool {
@@ -128,6 +130,11 @@ func (p *Program) Observe(protocol string, event bool, body []byte) (Observation
 		}
 	}
 	result := ObservationResult{Usage: usage}
+	if observation.TaskIDPath != "" {
+		if selected, present := observationValue(value, observation.TaskIDPath); present {
+			result.TaskID, _ = json.Marshal(selected)
+		}
+	}
 	if observation.ModelPath != "" {
 		if selected, present := observationValue(value, observation.ModelPath); present {
 			result.Model, _ = json.Marshal(selected)

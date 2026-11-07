@@ -8,6 +8,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/internal/channelplugin"
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
+	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -25,6 +26,9 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 	}
 	inputBody := ""
 	if hook == "submit" {
+		if proxyCtx.Multipart {
+			return channelplugin.ErrManifest
+		}
 		var object map[string]json.RawMessage
 		if requestoverride.Decode(wire.Body, &object) != nil || object == nil || requestoverride.RejectDuplicateJSONKeys(wire.Body) != nil {
 			return channelplugin.ErrResult
@@ -47,11 +51,25 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 	if err != nil {
 		return err
 	}
+	operationPath := path
+	if hook == "content" {
+		var decision struct {
+			Query bool `json:"query"`
+		}
+		if requestoverride.Decode(raw, &decision) == nil && decision.Query {
+			wire.DriverContentQuery = true
+			operationPath = strings.TrimSuffix(path, "/content")
+			raw, err = invocation.Call(ctx, "query", channelplugin.DriverInput{Model: model, TaskID: taskID})
+			if err != nil {
+				return err
+			}
+		}
+	}
 	var descriptor channelplugin.RequestDescriptor
 	if requestoverride.Decode(raw, &descriptor) != nil || descriptor.Method != method || (method == http.MethodPost && !sameDriverRequestControls(protocol, wire.Body, []byte(descriptor.Body))) || (method == http.MethodGet && descriptor.Body != "") {
 		return channelplugin.ErrResult
 	}
-	address, _ := directRequestURL(direct, path, model, false, endpoint)
+	address, _ := directRequestURL(direct, operationPath, model, false, endpoint)
 	if validateDriverOperationURL(descriptor, address) != nil {
 		return channelplugin.ErrResult
 	}
@@ -70,4 +88,30 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 	}
 	proxyCtx.videoDriverFingerprint = invocation.Fingerprint()
 	return nil
+}
+
+// Raw identity establishes the task relationship before executable parsing.
+// A throwing decoder cannot erase a received, already-verified usage delta.
+func captureDirectMediaTaskUsage(ctx context.Context, proxyCtx *Ctx, selected *routing.SelectedChannel, wire *directProviderWire, usage ParsedUsage) error {
+	if wire == nil || wire.DriverOperation == "" || proxyCtx == nil || proxyCtx.videoTask == nil || usage.invalidForUserBudget || usage.upstreamTaskID != proxyCtx.videoTask.UpstreamID {
+		return nil
+	}
+	proxyCtx.videoUsageVerified = true
+	_, err := accountDirectVideoUsage(ctx, proxyCtx, selected, usage)
+	return err
+}
+
+// A known task ID is retained even when its first response cannot be decoded.
+// The request remains failed; its billing details link the recoverable public
+// task. No response state or successful generation is invented here.
+func retainFailedDirectMediaSubmission(ctx context.Context, proxyCtx *Ctx, selected *routing.SelectedChannel, wire *directProviderWire, usage ParsedUsage) error {
+	if wire == nil || wire.DriverOperation != "submit" || proxyCtx == nil || proxyCtx.videoTask != nil || usage.invalidForUserBudget || !validObservedVideoTaskID(usage.upstreamTaskID) {
+		return nil
+	}
+	body, _ := json.Marshal(map[string]string{"id": usage.upstreamTaskID})
+	if _, err := processVideoTaskResponse(proxyCtx, selected, http.MethodPost, "/v1/videos", body); err != nil {
+		return err
+	}
+	_, err := accountDirectVideoUsage(ctx, proxyCtx, selected, usage)
+	return err
 }

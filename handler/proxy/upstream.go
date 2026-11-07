@@ -963,7 +963,10 @@ func dispatchEndpointAttemptWithContinue(
 	r = r.WithContext(beginGatewayAttempt(r.Context()))
 	req = req.WithContext(r.Context())
 	var resp *http.Response
-	if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.DriverOperation == "" && isDirectNativeVideoProfile(wire.Profile) {
+	if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.DriverContentQuery {
+		maxRetries = retry
+		resp, err = sendDirectProviderContent(cfg, req, ctx, selected, wire, proxyConfig, firstByteTimeoutMs)
+	} else if wire != nil && wire.DriverOperation == "" && isDirectNativeVideoProfile(wire.Profile) {
 		maxRetries = retry
 		taskID := ""
 		if ctx.videoTask != nil {
@@ -1279,6 +1282,13 @@ func dispatchEndpointAttemptWithContinue(
 	if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.Driver != nil && body.readable && aggregatedUsage == nil {
 		observed, _, observationErr := observeDirectDriverBody(wire, respBody, false)
 		body.observedUsage = &observed
+		if observationErr == nil {
+			if err := captureDirectMediaTaskUsage(r.Context(), ctx, selected, wire, observed); err != nil {
+				writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 503, false, observed, retry, requestID, err.Error())
+				writeJSONErrorWithRequest(w, 503, err.Error(), "upstream_error", requestID)
+				return true, nil, false
+			}
+		}
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			var decoded []byte
 			var decodeErr error
@@ -1286,6 +1296,13 @@ func dispatchEndpointAttemptWithContinue(
 				decoded, _, decodeErr = decodeDirectDriverPayload(r.Context(), wire, respBody, false, resp.StatusCode)
 			}
 			if observationErr != nil || decodeErr != nil {
+				if observationErr == nil {
+					if err := retainFailedDirectMediaSubmission(r.Context(), ctx, selected, wire, observed); err != nil {
+						writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, 503, false, observed, retry, requestID, err.Error())
+						writeJSONErrorWithRequest(w, 503, err.Error(), "upstream_error", requestID)
+						return true, nil, false
+					}
+				}
 				reason := "Cannot decode selected provider response"
 				writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, false, observed, retry, requestID, reason)
 				writeJSONErrorWithRequest(w, http.StatusBadGateway, reason, "upstream_error", requestID)

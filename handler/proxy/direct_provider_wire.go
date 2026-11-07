@@ -35,6 +35,7 @@ type directProviderWire struct {
 	DriverContentType   string
 	DriverTaskID        string
 	DriverOperation     string
+	DriverContentQuery  bool
 	PluginProtocol      string
 	PluginModel         string
 	PluginStream        bool

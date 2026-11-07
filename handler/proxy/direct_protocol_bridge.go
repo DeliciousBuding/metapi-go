@@ -286,7 +286,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 	}
 	wire.Endpoint = endpoint
 	wire.ProtocolSession = protocolSession
-	if proxy.DirectProtocolForPath(path) == store.DirectProtocolVideo && (r.Method == http.MethodPost || endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile)) {
+	if wire.DriverOperation != "" || proxy.DirectProtocolForPath(path) == store.DirectProtocolVideo && (r.Method == http.MethodPost || endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile)) {
 		maxRetries = retry
 	}
 	r = r.WithContext(withDirectProviderWire(r.Context(), wire))

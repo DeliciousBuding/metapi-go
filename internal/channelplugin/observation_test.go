@@ -52,3 +52,24 @@ func TestProviderObservationManifestRejectsUnknownOrExecutableSelectors(t *testi
 		t.Fatalf("wire hooks acquired provider observation authority: %v", err)
 	}
 }
+
+func TestTaskIdentityObservationIsLiteralAndIndependentFromDecoder(t *testing.T) {
+	source := strings.Replace(observationSource, `modelPath:"/engine"`, `modelPath:"/engine",taskIdPath:"/ids/a~1b"`, 1)
+	p, err := Compile(t.Context(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, err := p.Observe("chat", false, []byte(`{"ids":{"a/b":"job-one"}}`))
+	if err != nil || string(observed.TaskID) != `"job-one"` {
+		t.Fatalf("task id was interpreted or executed: %s %v", observed.TaskID, err)
+	}
+	copy := p.Manifest()
+	copy.Observations["chat"].Response.TaskIDPath = "/other"
+	again, err := p.Observe("chat", false, []byte(`{"ids":{"a/b":"job-one"}}`))
+	if err != nil || string(again.TaskID) != string(observed.TaskID) {
+		t.Fatal("captured task selector mutated")
+	}
+	if _, err = Compile(t.Context(), strings.Replace(source, `taskIdPath:"/ids/a~1b"`, `taskIdPath:"#(id==1)"`, 1)); err != ErrManifest {
+		t.Fatalf("query expression accepted for task id: %v", err)
+	}
+}

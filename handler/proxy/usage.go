@@ -16,6 +16,7 @@ const (
 
 // ParsedUsage is a normalized token usage snapshot extracted from an upstream body/SSE.
 type ParsedUsage struct {
+	upstreamTaskID        string // original media identity only; never inferred from decoder output
 	invalidForUserBudget  bool
 	videoAccounting       *directVideoAccounting
 	UpstreamReportedModel *string

@@ -90,7 +90,7 @@ API v1 wire hook 合同不是供应商插件 API：不拥有 OAuth 登录/刷新
 provider 与有序 wire hooks 是两种独立绑定，共用安装、版本 CAS、选项校验和
 隔离运行器。每渠道最多一个 provider；它不能选择路由、创建凭据或增加模型授权。
 当前执行路径支持 `chat`、`responses`、`messages`、`gemini`、`responsesCompact`
-与逐轮 `responsesWebsocket`；视频槽接入下文所列 JSON 提交、查询及同源内容读取。
+与逐轮 `responsesWebsocket`；视频槽接入下文所列 JSON 提交、查询与内容读取。
 其他协议槽及未列出的媒体操作可以声明，但尚未接入完整生命周期，绑定后不能
 隐式回退到无 driver 转发。
 
@@ -232,16 +232,43 @@ JavaScript Number 重建。用量合并、终态、取消与身份恢复继续�
 
 `video`、`seedanceVideo`、`zenmuxVideo` 使用独立的 `submit`、`query`、`content`、
 `taskResult` hooks，不调用文本 `request`/`response`。当前提交只接受 JSON，
-不把 multipart 文件字节交给 JS；查询和内容操作输入提供宿主捕获的 `taskId`。
+不把 multipart 文件字节或预转换的 base64 文件内容交给 JS；查询和内容操作输入提供宿主捕获的 `taskId`。
 请求 hook 仍返回受限描述符：提交 POST、查询与内容 GET，URL 必须保留宿主已
-授权的完整操作地址。DELETE/remix、multipart 与插件 CDN 下载尚未接入，不借
-query hook 重放写请求。内容读取当前使用已配置的同源内容端点及认证。
+授权的完整操作地址。DELETE/remix 与 multipart 尚未接入，不借 query hook
+重放写请求。已执行的媒体操作不自动重放。
+
+`content` 支持两种明确模式：
+
+- 直接返回 GET 描述符：读取已配置的同源内容端点，使用所选渠道认证，保持原行为。
+- 首次返回严格的 `{query:true}`：宿主调用同一个不可变 driver 的 `query` hook，
+  对原任务执行一次已授权的 metadata GET，不把 Range/If-Range 发给 metadata。
+  验证原始事实和 `taskResult` 的 completed 状态后，再调用 `content`，输入 `body`
+  为原始 metadata JSON，`state` 为 `{variant:string}`（最多 128 字节）。此时必须
+  返回严格的 `{url:string}`；不允许指定认证头、请求方法或发起新任务。
+
+第二种模式的 CDN 下载与原生视频下载共用宿主 owner，只发送 GET 及
+Range/If-Range/Accept，不复制渠道认证、Cookie、自定义头或 TLS 校验跳过设置。
+宿主校验全部 DNS 结果均为公网地址，固定到已验证 IP，并保留原 Host/SNI；
+HTTP(S) 代理也通过 CONNECT 到固定 IP（包括 HTTP 下载），不回退到代理重新解析
+目标。代理须允许目标端口。仅允许同源重定向，不允许 userinfo 或协议/主机/端口变化。
+失败使用稳定错误，不将签名 URL 或供应商错误正文写入下载错误。
 
 `taskResult` 返回 `{body:string}` 原生 video JSON，包含有效 `id`、`object:"video"`
 和 `queued`/`in_progress`/`completed`/`failed` 状态。查询 ID 必须匹配原任务；原始
 observations 先于解析执行，输出不能制造用量、改写已存在的原生控制或隐藏已观测
 错误。宿主沿既有 public task ID、owner/grant/端点资格与累计用量账本处理任务。
 已验证的创建/查询用量只计累计差额，重复查询及内容读取不重复计费。
+
+视频 `observations.response.taskIdPath` 使用同一 RFC 6901 字面量选择合同，从
+原始响应读取任务 ID；原生 `object:"video"` 响应的有效根 `id` 也属于原始事实。
+ID 必须是非空有效字符串，不能含路径穿越片段或 CR/LF/NUL；上限 4096 字节。
+其余供应商字符按已有任务 owner 的 `PathEscape` 合同进入路径，不收窄原生 ID 字符集。
+显式 null、非法类型以及原始 ID/旧任务 ID/解码 ID 冲突均拒绝。
+匹配已归属任务后，原始累计用量在执行 `taskResult` 前入账；解码、内容解析或
+CDN 下载失败不抹掉已收到的差额。未能关联原始 ID 的旧模块仅在成功解析并校验
+任务结果后建立关系，不声称其解码失败时已有经过验证的任务累计账本。
+首次提交返回有效原始 ID 但解析失败时，请求仍失败，宿主保留归属任务映射，
+通过该次尝试的 billing details 关联 public task ID，可继续查询；不制造成功状态。
 
 新任务在可计费提交前，将实际捕获的已审核程序保存到不可变的
 `channel_plugin_versions`；任务身份只保存 key、fingerprint 与配置摘要，不复制源码。
@@ -272,6 +299,8 @@ observations 先于解析执行，输出不能制造用量、改写已存在的�
 模块并核对实际原生响应，旧 manifest 读取不会静默忽略新能力。
 回退到不支持 provider 匿名身份的版本前，同样先替换声明 `none` 的 v2 模块和
 目录配置，或移除该绑定；不能用合成 Key 填充匿名身份来绕过旧版校验。
+回退到不支持 `taskIdPath` 或两阶段 CDN content 的版本前，替换相关模块并
+处理其持久任务；否则旧 manifest 或原始 GET 描述符校验会明确拒绝，不静默降级。
 
 ## 运行边界
 

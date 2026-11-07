@@ -49,13 +49,15 @@ const observation = z
       .optional(),
     modelPath: observationPointer.optional(),
     errorPath: observationPointer.optional(),
+    taskIdPath: observationPointer.optional(),
   })
   .strict()
   .refine(
     (value) =>
       Object.keys(value.usagePaths ?? {}).length > 0 ||
       !!value.modelPath ||
-      !!value.errorPath
+      !!value.errorPath ||
+      !!value.taskIdPath
   )
 const protocolObservations = z
   .object({ response: observation.optional(), event: observation.optional() })
