@@ -36,41 +36,42 @@ export type ImportedEndpoint = {
   requestModel?: string
   modelWireUrls?: { responses: string; messages: string }
 }
+export const importedEndpointKeys = [
+  'chat',
+  'responses',
+  'messages',
+  'gemini',
+  'completions',
+  'embeddings',
+  'rerank',
+  'imageGeneration',
+  'imageEdit',
+  'imageVariation',
+  'audioSpeech',
+  'audioTranscription',
+  'audioTranslation',
+  'moderations',
+  'video',
+  'geminiEmbeddings',
+  'jinaEmbeddings',
+  'modelscopeImageGeneration',
+  'seedanceVideo',
+  'zenmuxVideo',
+  'ollama',
+  'systemOne',
+  'alphaSearch',
+  'responsesCompact',
+  'responsesWebsocket',
+  'decisions',
+] as const
 
 export type ImportedEndpointConfig = Partial<
-  Record<
-    | 'chat'
-    | 'responses'
-    | 'messages'
-    | 'gemini'
-    | 'completions'
-    | 'embeddings'
-    | 'rerank'
-    | 'imageGeneration'
-    | 'imageEdit'
-    | 'imageVariation'
-    | 'audioSpeech'
-    | 'audioTranscription'
-    | 'audioTranslation'
-    | 'moderations'
-    | 'video'
-    | 'geminiEmbeddings'
-    | 'jinaEmbeddings'
-    | 'modelscopeImageGeneration'
-    | 'seedanceVideo'
-    | 'zenmuxVideo'
-    | 'ollama'
-    | 'systemOne'
-    | 'alphaSearch'
-    | 'responsesCompact'
-    | 'responsesWebsocket'
-    | 'decisions',
-    ImportedEndpoint
-  >
+  Record<(typeof importedEndpointKeys)[number], ImportedEndpoint>
 >
 
 export type ImportedRequestConfig = {
   pluginBindings?: import('./channel-plugins').PluginBinding[] | null
+  providerBinding?: import('./channel-plugins').ProviderBinding | null
   channelProxy: string
   customHeaders: string
   paramOverride: string
@@ -128,7 +129,11 @@ export type ImportedUpstreamUpdate = Partial<
   > &
     Pick<
       ImportedRequestConfig,
-      'channelProxy' | 'customHeaders' | 'paramOverride' | 'pluginBindings'
+      | 'channelProxy'
+      | 'customHeaders'
+      | 'paramOverride'
+      | 'pluginBindings'
+      | 'providerBinding'
     >
 >
 

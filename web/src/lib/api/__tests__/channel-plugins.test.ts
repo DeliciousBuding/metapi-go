@@ -7,6 +7,37 @@ vi.mock('../transport', () => ({ request: mock }))
 beforeEach(() => mock.mockReset())
 
 describe('channel plugin API data boundary', () => {
+  it('keeps provider manifests distinct and preserves their configured defaults', async () => {
+    const value = {
+      items: [
+        {
+          key: 'driver',
+          revision: 1,
+          enabled: true,
+          manifest: {
+            apiVersion: 2,
+            kind: 'provider',
+            key: 'driver',
+            name: 'Driver',
+            version: '1.0.0',
+            protocols: ['chat'],
+            credentialKinds: ['api_key'],
+            hooks: ['request', 'response', 'modelsRequest', 'modelsResponse'],
+            defaults: {
+              endpoints: { chat: { path: '/generate', auth: 'bearer' } },
+              catalog: {
+                path: '/models',
+                auth: 'bearer',
+                cursorParameter: 'cursor',
+              },
+            },
+          },
+        },
+      ],
+    }
+    mock.mockResolvedValueOnce(value)
+    await expect(channelPluginsApi.list()).resolves.toEqual(value)
+  })
   it('keeps compact and WebSocket as separate explicit binding slots', async () => {
     const protocols = [
       'chat',

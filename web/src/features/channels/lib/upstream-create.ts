@@ -7,6 +7,7 @@ import type { UpstreamPreset } from '@/lib/api/upstream-presets'
 import {
   connectionSchema,
   headersForRequest,
+  providerEndpointError,
   upstreamProtocols,
 } from './upstream-config'
 
@@ -33,8 +34,35 @@ export function upstreamCreateSchema(preset: UpstreamPreset | null) {
       channelProxy: z.string().trim(),
       customHeaders: connectionSchema.shape.customHeaders,
       paramOverride: connectionSchema.shape.paramOverride,
+      providerBinding: connectionSchema.shape.providerBinding,
     })
     .superRefine((value, ctx) => {
+      const configured = value.customEndpoints
+        ? Object.keys(value.endpointConfig)
+        : value.protocols
+      if (
+        value.providerBinding?.protocols.some(
+          (protocol) => !configured.includes(protocol)
+        )
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['providerBinding'],
+          message: 'channels.plugins.providerProtocolMismatch',
+        })
+      }
+      if (value.customEndpoints) {
+        const error = providerEndpointError(
+          value.providerBinding,
+          value.endpointConfig
+        )
+        if (error)
+          ctx.addIssue({
+            code: 'custom',
+            path: ['providerBinding'],
+            message: error,
+          })
+      }
       if (value.customEndpoints) {
         if (
           !connectionSchema.shape.endpointConfig.safeParse(value.endpointConfig)
@@ -129,6 +157,7 @@ export const upstreamCreateDefaults: UpstreamCreateValues = {
   channelProxy: '',
   customHeaders: '',
   paramOverride: '',
+  providerBinding: null,
 }
 export function upstreamCreatePayload(
   values: UpstreamCreateValues,
@@ -137,6 +166,9 @@ export function upstreamCreatePayload(
   const customHeaders = headersForRequest(values.customHeaders)
   return {
     presetId: values.presetId,
+    ...(values.providerBinding
+      ? { providerBinding: values.providerBinding }
+      : {}),
     ...(values.customEndpoints
       ? { endpointConfig: values.endpointConfig }
       : { protocols: values.protocols }),
