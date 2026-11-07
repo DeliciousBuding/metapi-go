@@ -118,6 +118,13 @@ func applyDirectChannelResponsePlugins(ctx context.Context, wire *directProvider
 // into a success, forge usage or drop native terminal/control events. Usage is
 // separately recorded from the original upstream bytes before these hooks.
 func sameChannelPluginControlFields(protocol string, before, after []byte) bool {
+	if !responseControlAliasesMatch(before, after) {
+		return false
+	}
+	return channelPluginControlsMatch(protocol, before, after, false)
+}
+
+func channelPluginControlsMatch(protocol string, before, after []byte, presentOnly bool) bool {
 	paths := []string{"model", "type", "id", "object", "status", "error", "usage", "stop_reason", "finish_reason", "response.id", "response.model", "response.status", "response.error", "response.usage", "response.incomplete_details"}
 	if protocol == "messages" {
 		paths = append(paths, "message.id", "message.model", "message.usage", "message.stop_reason", "message.stop_sequence", "delta.stop_reason", "delta.stop_sequence")
@@ -132,11 +139,17 @@ func sameChannelPluginControlFields(protocol string, before, after []byte) bool 
 		}
 	}
 	for _, path := range paths {
+		if presentOnly && !gjson.GetBytes(before, path).Exists() {
+			continue
+		}
 		if gjson.GetBytes(before, path).Raw != gjson.GetBytes(after, path).Raw {
 			return false
 		}
 	}
 	for _, pair := range [][2]string{{"choices", "finish_reason"}, {"candidates", "finishReason"}} {
+		if presentOnly && !gjson.GetBytes(before, pair[0]).Exists() {
+			continue
+		}
 		a, b := gjson.GetBytes(before, pair[0]).Array(), gjson.GetBytes(after, pair[0]).Array()
 		if len(a) != len(b) {
 			return false
@@ -155,4 +168,8 @@ func channelPluginRequestStatus(err error) int {
 		return 503
 	}
 	return 502
+}
+
+func channelPluginExecutionFailure(err error) bool {
+	return errors.Is(err, channelplugin.ErrExecution) || errors.Is(err, channelplugin.ErrResult) || errors.Is(err, channelplugin.ErrManifest) || errors.Is(err, channelplugins.ErrBinding) || errors.Is(err, channelplugins.ErrUnavailable)
 }

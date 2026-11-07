@@ -48,16 +48,17 @@ type Option struct {
 }
 
 type Manifest struct {
-	APIVersion      int               `json:"apiVersion"`
-	Kind            string            `json:"kind,omitempty"`
-	Key             string            `json:"key"`
-	Name            string            `json:"name"`
-	Version         string            `json:"version"`
-	Protocols       []string          `json:"protocols"`
-	Hooks           []string          `json:"hooks"`
-	Options         []Option          `json:"options,omitempty"`
-	CredentialKinds []string          `json:"credentialKinds,omitempty"`
-	Defaults        *ProviderDefaults `json:"defaults,omitempty"`
+	APIVersion      int                             `json:"apiVersion"`
+	Kind            string                          `json:"kind,omitempty"`
+	Key             string                          `json:"key"`
+	Name            string                          `json:"name"`
+	Version         string                          `json:"version"`
+	Protocols       []string                        `json:"protocols"`
+	Hooks           []string                        `json:"hooks"`
+	Options         []Option                        `json:"options,omitempty"`
+	CredentialKinds []string                        `json:"credentialKinds,omitempty"`
+	Defaults        *ProviderDefaults               `json:"defaults,omitempty"`
+	Observations    map[string]ProtocolObservations `json:"observations,omitempty"`
 }
 
 func (m Manifest) Validate() error {
@@ -67,7 +68,7 @@ func (m Manifest) Validate() error {
 			return ErrManifest
 		}
 		maxProtocols, validProtocol, hooks = contract.MaxProviderProtocols, contract.ValidProviderProtocol, providerHooks
-	} else if m.APIVersion != 1 || m.Kind != "" || len(m.CredentialKinds) != 0 || m.Defaults != nil {
+	} else if m.APIVersion != 1 || m.Kind != "" || len(m.CredentialKinds) != 0 || m.Defaults != nil || m.Observations != nil {
 		return ErrManifest
 	}
 	if !contract.ValidKey(m.Key) || len(m.Name) == 0 || len(m.Name) > 128 || !versionPattern.MatchString(m.Version) || len(m.Options) > 32 || len(m.Protocols) == 0 || len(m.Protocols) > maxProtocols || len(m.Hooks) == 0 || len(m.Hooks) > len(hooks) {

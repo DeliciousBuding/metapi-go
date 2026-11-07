@@ -21,6 +21,23 @@ type directProviderStream struct {
 func (s *directProviderStream) TransformEvent(frame []byte) ([]byte, error) {
 	if event := parseSseBlock(string(frame)); event != nil && event.Data != "" {
 		raw := []byte(event.Data)
+		if wire := directProviderWireFromContext(s.ctx); wire != nil && wire.Driver != nil && event.Data != "[DONE]" {
+			decoded, _, err := decodeDirectDriverPayload(s.ctx, wire, raw, true, http.StatusOK)
+			if err != nil {
+				return nil, err
+			}
+			if !bytes.Equal(raw, decoded) {
+				frame = replaceSSEBlockData(frame, decoded)
+				raw = decoded
+			}
+			if wire.Driver.HasHook("decodeEvent") {
+				kind, err := decodedDriverSSEEvent(wire, raw)
+				if err != nil {
+					return nil, err
+				}
+				frame = replaceSSEBlockEvent(frame, kind)
+			}
+		}
 		if wire := directProviderWireFromContext(s.ctx); wire != nil && event.Data != "[DONE]" {
 			if adapter, ok := upstreamadapter.Lookup(wire.Profile); ok {
 				normalized, err := adapter.NormalizeResponse(raw, true)
@@ -88,6 +105,7 @@ func (s *directProviderStream) Finish() ([]byte, error) {
 
 type directCodexCollectorStream struct {
 	collector responses.CodexResponseCollector
+	ctx       context.Context
 }
 
 func (s *directCodexCollectorStream) TransformEvent(frame []byte) ([]byte, error) {
@@ -95,7 +113,15 @@ func (s *directCodexCollectorStream) TransformEvent(frame []byte) ([]byte, error
 		if event.Event == "error" {
 			return nil, fmt.Errorf("Codex upstream error")
 		}
-		return nil, s.collector.AddData([]byte(event.Data))
+		raw := []byte(event.Data)
+		if wire := directProviderWireFromContext(s.ctx); wire != nil && wire.Driver != nil && event.Data != "[DONE]" {
+			var err error
+			raw, _, err = decodeDirectDriverPayload(s.ctx, wire, raw, true, http.StatusOK)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return nil, s.collector.AddData(raw)
 	}
 	return nil, nil
 }
@@ -103,7 +129,7 @@ func (s *directCodexCollectorStream) Finish() ([]byte, error) { return s.collect
 
 // Reuse the bounded frame reader and idle guard used by streaming clients. The
 // collector emits only the verified terminal JSON, never the source SSE text.
-func collectDirectCodexResponse(resp *http.Response, started time.Time) ([]byte, ParsedUsage, error) {
+func collectDirectCodexResponse(ctx context.Context, resp *http.Response, started time.Time) ([]byte, ParsedUsage, error) {
 	prepared := proxy.WrapUpstreamStreamBody(resp.Header, resp.Body)
 	if prepared.Reader != nil {
 		resp.Body = prepared.Reader
@@ -114,8 +140,9 @@ func collectDirectCodexResponse(resp *http.Response, started time.Time) ([]byte,
 	}
 	idle := &streamIdleBody{ReadCloser: resp.Body}
 	idle.guard = newStreamIdleGuard(streamIdleTimeout(), idle.closeUnderlying)
-	collector := &directCodexCollectorStream{collector: responses.CodexResponseCollector{Limit: streamResponseByteLimit()}}
+	collector := &directCodexCollectorStream{ctx: ctx, collector: responses.CodexResponseCollector{Limit: streamResponseByteLimit()}}
 	reader := newProtocolBridgeBody(idle, collector, streamResponseByteLimit())
+	observeDirectDriverStream(reader.original, directProviderWireFromContext(ctx))
 	defer reader.Close()
 	var firstOutput *int64
 	reader.original.onFirstOutput = func() { firstOutput = int64Ptr(time.Since(started).Milliseconds()) }

@@ -7,6 +7,57 @@ vi.mock('../transport', () => ({ request: mock }))
 beforeEach(() => mock.mockReset())
 
 describe('channel plugin API data boundary', () => {
+  it('reads decoder hooks and original observation selectors without granting new protocols', async () => {
+    const manifest = {
+      apiVersion: 2,
+      kind: 'provider',
+      key: 'decoder',
+      name: 'Decoder',
+      version: '1.0.0',
+      protocols: ['chat'],
+      credentialKinds: ['api_key'],
+      hooks: ['request', 'response', 'event', 'decodeResponse', 'decodeEvent'],
+      observations: {
+        chat: {
+          response: {
+            usagePaths: { prompt_tokens: '/a.b/a~1b/~0count' },
+            modelPath: '/engine',
+          },
+          event: {
+            usagePaths: { completion_tokens: '/meter/output' },
+            errorPath: '/failure',
+          },
+        },
+      },
+    }
+    const item = (meta: unknown) => ({
+      items: [{ key: 'decoder', enabled: true, revision: 1, manifest: meta }],
+    })
+    mock.mockResolvedValueOnce(item(manifest))
+    await expect(channelPluginsApi.list()).resolves.toEqual(item(manifest))
+    for (const invalid of [
+      { ...manifest, observations: { responses: manifest.observations.chat } },
+      {
+        ...manifest,
+        observations: {
+          chat: { response: { usagePaths: { invoice: '/amount' } } },
+        },
+      },
+      {
+        ...manifest,
+        observations: {
+          chat: {
+            response: { usagePaths: { prompt_tokens: '/bad~2pointer' } },
+          },
+        },
+      },
+      { ...manifest, observations: { chat: {} } },
+      { ...manifest, observations: { chat: { response: { usagePaths: {} } } } },
+    ]) {
+      mock.mockResolvedValueOnce(item(invalid))
+      await expect(channelPluginsApi.list()).rejects.toThrow()
+    }
+  })
   it('keeps provider manifests distinct and preserves their configured defaults', async () => {
     const value = {
       items: [

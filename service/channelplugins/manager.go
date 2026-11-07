@@ -182,6 +182,15 @@ func (i DriverInvocation) Call(ctx context.Context, hook string, input channelpl
 	return i.program.CallDriver(ctx, hook, input)
 }
 
+func (i DriverInvocation) HasHook(hook string) bool { return i.program.HasDriverHook(hook) }
+
+func (i DriverInvocation) Observe(body []byte, event bool) (channelplugin.ObservationResult, error) {
+	if i.program == nil {
+		return channelplugin.ObservationResult{}, ErrUnavailable
+	}
+	return i.program.Observe(i.protocol, event, body)
+}
+
 func (m *Manager) ResolveDriver(ctx context.Context, binding store.DirectProviderBinding, protocol, credentialKind string) (DriverInvocation, error) {
 	if !slices.Contains(binding.Protocols, protocol) {
 		return DriverInvocation{}, ErrBinding

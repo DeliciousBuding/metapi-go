@@ -15,7 +15,7 @@ import (
 
 const MaxDriverResultBytes = 4 << 20
 
-var providerHooks = []string{"request", "response", "event", "modelsRequest", "modelsResponse", "submit", "query", "content", "taskResult"}
+var providerHooks = []string{"request", "response", "event", "decodeResponse", "decodeEvent", "modelsRequest", "modelsResponse", "submit", "query", "content", "taskResult"}
 
 type EndpointTemplate struct {
 	Path      string `json:"path"`
@@ -54,6 +54,11 @@ func validTemplatePath(path, auth string) bool {
 func (m Manifest) IsProvider() bool { return m.APIVersion == 2 && m.Kind == "provider" }
 
 func (m Manifest) validateProviderLifecycle() error {
+	for protocol, observation := range m.Observations {
+		if !slices.Contains(m.Protocols, protocol) || observation.Validate() != nil {
+			return ErrManifest
+		}
+	}
 	if m.Defaults != nil {
 		if len(m.Defaults.Endpoints) > contract.MaxProviderProtocols {
 			return ErrManifest

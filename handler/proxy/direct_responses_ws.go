@@ -150,11 +150,21 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 	var attemptCtx context.Context
 	var projectedEvents []map[string]any
 	var pluginErr error
+	rawDriverUsage := ParsedUsage{Source: usageSourceUnknown}
+	var decodeEvent func([]byte) ([]byte, error)
+	if wire.Driver != nil {
+		decodeEvent = func(raw []byte) ([]byte, error) {
+			native, observed, err := decodeDirectDriverPayload(ctx, wire, raw, true, http.StatusOK)
+			rawDriverUsage = mergeUsagePreferLater(rawDriverUsage, observed)
+			return native, err
+		}
+	}
 	selectedCopy := *selected
 	selectedCopy.TokenValue = credential.AccessToken
 	selected = &selectedCopy
 	_, sendErr := SendCodexWebsocketRequest(ctx, CodexWebsocketSendInput{
 		SessionID: sessionKey, RequestURL: endpointURL, Headers: headers, Body: requestBody, HTTPClient: client,
+		DecodeEvent: decodeEvent,
 		// A direct grant has no authority to replay a request after the peer
 		// accepted its event. The old site-specific recovery remains separate.
 		DisablePreviousRecovery: true,
@@ -174,6 +184,9 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 				return
 			}
 			usage := responsesWSAttemptUsage(events)
+			if wire.Driver != nil {
+				usage = rawDriverUsage
+			}
 			// Account from the original native events. A pinned hook snapshot
 			// projects this turn only after the transport/collector settled; hook
 			// failure cannot trigger a second send or forge an upstream success.

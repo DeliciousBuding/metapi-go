@@ -152,7 +152,60 @@ query 或 fragment，origin 必须与绑定所选的某个渠道端点一致；W
 拒绝。用户预算在派发前校验最终输入，扩张输入或 hosted tools 不能借原预算
 通过。响应/event 返回 `{body}`，在原始上游用量观测后作原生投影；模型、用量、
 错误、终态及 opaque continuation 保持不变。失败不重放已执行请求。
-目前不是任意供应商 envelope/用量解码器，不能用投影伪造计费事实。
+
+### 厂商响应解码与原始事实
+
+需要转换供应商 envelope/字段时，API v2 可额外声明 `decodeResponse` /
+`decodeEvent`；它们返回 `{body:string}` 原生 JSON，位于现有 `response` / `event`
+投影 hooks **之前**。JSON、SSE、required-stream 聚合及逐轮 WS 共用这一顺序，
+不另建网络执行器。没有声明 decoder 时保留原生转发行为。
+
+原始事实在 decoder 执行前由宿主按 manifest 的 `observations` 读取：
+
+```js
+observations: {
+  chat: {
+    response: {
+      usagePaths: {
+        prompt_tokens: "/meter/input",
+        completion_tokens: "/meter/output",
+        total_tokens: "/meter/total",
+      },
+      modelPath: "/engine",
+      errorPath: "/failure",
+    },
+    event: {
+      usagePaths: {completion_tokens: "/meter/output"},
+      errorPath: "/failure",
+    },
+  },
+}
+```
+
+键是已声明的协议槽，HTTP 使用 `response`，SSE/WS 使用 `event`。路径为 RFC 6901
+JSON Pointer，最多 1024 字节/64 层；点号、通配符和 prototype 名称只是字面量键，
+不执行查询或表达式。`usagePaths` 只允许既有 token 用量字段及 cache/reasoning
+明细、Gemini TokenCount 字段，拒绝费用、倍率或授权字段。宿主保持原始数值类型，
+再按既有整数/非负/预算上限和 cache 语义解释，不相信 decoder 提供的收费数量。
+
+缺少字段表示本事件尚无该事实；显式零保留，非法/null counter 不当成缺失。
+`errorPath` 的 null、false、数值零或空字符串表示无错误；其他存在值（含对象/数组）
+表示上游失败，decoder 不能把它改成成功。
+错误 envelope 不授予已验证的模型身份。声明的事实选择属于可信适配代码合同，
+仍须核对实际供应商字段含义，不是凭空证明一条请求已经执行。
+
+即使 decoder 抛错、超限或后续投影失败，已经观测到的原始用量仍记入同一次尝试；
+已执行请求不重放，required-stream 聚合也不为确定的插件错误换源重试。
+解码结果可重新组织厂商字段，但必须是所选协议的原生 envelope；输出中的用量
+必须与宿主观测一致，不能制造未报告的 counter。已识别的原生控制字段继续保护，
+不会把厂商自身的 `type` 字段误当成原生协议类型。
+解码产物与 wire 投影拒绝新引入的控制字段大小写影子，避免协议解析器之间产生
+分歧；检查限于协议拥有的根/response/message/用量容器，不扫描工具的自定义 JSON。
+
+SSE decoder 根据解码后的原生 `type` 重建事件名，Chat/Gemini 使用默认 message；
+保留原始 id/retry 与其他 framing 元数据。WS 以解码后的原生事件进入既有 collector，
+分别限制原始/解码累计字节。opaque/精确整数应复用 JSON 文本或字符串，不先经
+JavaScript Number 重建。用量合并、终态、取消与身份恢复继续属于既有 owner。
 
 ### 模型目录
 
@@ -182,6 +235,8 @@ query 或 fragment，origin 必须与绑定所选的某个渠道端点一致；W
 回退到只认识 API v1 的版本前，还须从所有渠道清除 `providerBinding`，替换
 或卸载 API v2 manifest。可移植备份保留绑定和目录，但不携带可执行代码；
 恢复后应单独重新安装已审核的对应模块，再开放渠道请求。
+回退到尚不支持 decoder/observations 的 API v2 版本前，先替换使用这些字段的
+模块并核对实际原生响应，旧 manifest 读取不会静默忽略新能力。
 
 ## 运行边界
 

@@ -2,6 +2,7 @@ package proxyhandler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -23,10 +24,12 @@ import (
 )
 
 func TestWebsocketPluginsRespectUserAdmissionAndRawSettlement(t *testing.T) {
-	for _, mode := range []string{"headers-only", "expanded-vendor", "hosted-tool", "event-failure", "provider-headers-only", "provider-expanded-vendor", "provider-hosted-tool", "provider-event-failure"} {
+	for _, mode := range []string{"headers-only", "expanded-vendor", "hosted-tool", "event-failure", "provider-headers-only", "provider-expanded-vendor", "provider-hosted-tool", "provider-event-failure", "provider-decoded-headers-only", "provider-decoded-event-failure", "provider-decoded-decode-failure", "provider-decoded-forged-usage", "provider-decoded-original-error"} {
 		t.Run(mode, func(t *testing.T) {
 			provider := strings.HasPrefix(mode, "provider-")
 			baseMode := strings.TrimPrefix(mode, "provider-")
+			decode := strings.HasPrefix(baseMode, "decoded-")
+			baseMode = strings.TrimPrefix(baseMode, "decoded-")
 			db, users, user, keys := newBudgetProxyUser(t)
 			videoExec(t, db, `UPDATE token_routes SET created_at='now',updated_at='now'`)
 			if _, err := users.SetUserBudget(t.Context(), user.ID, 1, false); err != nil {
@@ -46,7 +49,15 @@ func TestWebsocketPluginsRespectUserAdmissionAndRawSettlement(t *testing.T) {
 					return
 				}
 				calls.Add(1)
-				_ = conn.Write(r.Context(), websocket.MessageText, []byte(`{"type":"response.completed","response":{"id":"resp-user-plugin","status":"completed","output":[],"usage":{"input_tokens":7,"output_tokens":2,"total_tokens":9}}}`))
+				payload := []byte(`{"type":"response.completed","response":{"id":"resp-user-plugin","status":"completed","output":[],"usage":{"input_tokens":7,"output_tokens":2,"total_tokens":9}},"extension":9007199254740993}`)
+				if decode {
+					vendor := map[string]any{"native": string(payload), "meter": map[string]int{"input": 7, "output": 2, "total": 9}}
+					if baseMode == "original-error" {
+						vendor["error"] = "synthetic-private-provider-error"
+					}
+					payload, _ = json.Marshal(map[string]any{"vendor": vendor})
+				}
+				_ = conn.Write(r.Context(), websocket.MessageText, payload)
 			}))
 			t.Cleanup(upstream.Close)
 			raw := []byte(fmt.Sprintf(`{"version":"1.4","channels":[{"id":1,"type":"qiniu","name":"user-ws-plugin","base_url":%q,"credentials":{"apiKey":"synthetic-user-plugin"},"supported_models":["provider"]}],"models":[{"id":1,"model_id":"user-ws-model","settings":{"associations":[{"type":"channel_model","channelModel":{"channelId":1,"modelId":"provider"}}]}}]}`, upstream.URL))
@@ -90,6 +101,16 @@ func TestWebsocketPluginsRespectUserAdmissionAndRawSettlement(t *testing.T) {
 					event = `throw new Error("synthetic-private-hook");`
 				}
 				source = `export const meta={apiVersion:2,kind:"provider",key:"user-ws",name:"User WS",version:"1.0.0",protocols:["responsesWebsocket"],credentialKinds:["api_key"],hooks:["request","event"]};export function request(i){` + mutation + `return {body:i.body,headers:{"X-User-Plugin":"on"}};}export function event(i){` + event + `}`
+				if decode {
+					source = strings.Replace(source, `hooks:["request","event"]`, `hooks:["request","event","decodeEvent"],observations:{responsesWebsocket:{event:{usagePaths:{input_tokens:"/vendor/meter/input",output_tokens:"/vendor/meter/output",total_tokens:"/vendor/meter/total"},errorPath:"/vendor/error"}}}`, 1)
+					decoder := `return {body:JSON.parse(i.body).vendor.native};`
+					if baseMode == "decode-failure" {
+						decoder = `throw new Error("synthetic-private-decoder");`
+					} else if baseMode == "forged-usage" {
+						decoder = `return {body:JSON.parse(i.body).vendor.native.replace('"total_tokens":9','"total_tokens":90')};`
+					}
+					source += `export function decodeEvent(i){` + decoder + `}`
+				}
 			}
 			if _, err := channelplugins.Save(t.Context(), db.DB, "user-ws", source, true, 0); err != nil {
 				t.Fatal(err)
@@ -130,7 +151,7 @@ func TestWebsocketPluginsRespectUserAdmissionAndRawSettlement(t *testing.T) {
 			}
 			if baseMode != "headers-only" {
 				wantStatus := float64(403)
-				if baseMode == "event-failure" {
+				if baseMode == "event-failure" || baseMode == "decode-failure" || baseMode == "forged-usage" || baseMode == "original-error" {
 					wantStatus = 502
 				}
 				if frame["status"] != wantStatus {

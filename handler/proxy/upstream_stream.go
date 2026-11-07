@@ -200,6 +200,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 			}
 		}
 		messageBridge = newProtocolBridgeBody(resp.Body, stream, maxStreamBytes)
+		observeDirectDriverStream(messageBridge.original, wire)
 		if routerChatStream {
 			// A 20 MiB image needs about 27 MiB as base64. Keep other Chat
 			// profiles at 1 MiB and still enforce the total raw/output budgets.

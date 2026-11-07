@@ -13,6 +13,54 @@ const protocol = z.enum([
 ])
 const key = z.string().regex(/^[a-z][a-z0-9-]{0,63}$/)
 const providerProtocol = z.enum(importedEndpointKeys)
+const observationPointer = z
+  .string()
+  .max(1024)
+  .refine(
+    (path) =>
+      path.startsWith('/') &&
+      path.split('/').length <= 65 &&
+      !/[\r\n\0]/.test(path) &&
+      !/~(?![01])/.test(path)
+  )
+const observation = z
+  .object({
+    usagePaths: z
+      .partialRecord(
+        z.enum([
+          'prompt_tokens',
+          'completion_tokens',
+          'total_tokens',
+          'input_tokens',
+          'output_tokens',
+          'cache_read_input_tokens',
+          'cache_creation_input_tokens',
+          'prompt_tokens_details.cached_tokens',
+          'input_tokens_details.cached_tokens',
+          'completion_tokens_details.reasoning_tokens',
+          'output_tokens_details.reasoning_tokens',
+          'promptTokenCount',
+          'candidatesTokenCount',
+          'totalTokenCount',
+          'thoughtsTokenCount',
+        ]),
+        observationPointer
+      )
+      .optional(),
+    modelPath: observationPointer.optional(),
+    errorPath: observationPointer.optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      Object.keys(value.usagePaths ?? {}).length > 0 ||
+      !!value.modelPath ||
+      !!value.errorPath
+  )
+const protocolObservations = z
+  .object({ response: observation.optional(), event: observation.optional() })
+  .strict()
+  .refine((value) => !!value.response || !!value.event)
 const cursorParameter = z.string().regex(/^$|^[A-Za-z][A-Za-z0-9_-]{0,63}$/)
 const templatePath = z
   .string()
@@ -110,6 +158,8 @@ const providerManifest = z
           'request',
           'response',
           'event',
+          'decodeResponse',
+          'decodeEvent',
           'modelsRequest',
           'modelsResponse',
           'submit',
@@ -119,7 +169,10 @@ const providerManifest = z
         ])
       )
       .min(1)
-      .max(9),
+      .max(11),
+    observations: z
+      .partialRecord(providerProtocol, protocolObservations)
+      .optional(),
     defaults: z
       .object({
         endpoints: z
@@ -142,6 +195,15 @@ const providerManifest = z
     if (hooks.includes('modelsRequest') !== hooks.includes('modelsResponse'))
       return false
     if (manifest.defaults?.catalog && !hooks.includes('modelsRequest'))
+      return false
+    if (
+      Object.keys(manifest.observations ?? {}).some(
+        (key) =>
+          !manifest.protocols.includes(
+            key as (typeof importedEndpointKeys)[number]
+          )
+      )
+    )
       return false
     if (
       Object.keys(manifest.defaults?.endpoints ?? {}).some(

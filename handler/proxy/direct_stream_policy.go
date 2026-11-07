@@ -59,6 +59,19 @@ func (s *directPolicyCollectorStream) TransformEvent(frame []byte) ([]byte, erro
 	raw := []byte(event.Data)
 	if event.Data != "" && event.Data != "[DONE]" {
 		if wire := directProviderWireFromContext(s.ctx); wire != nil {
+			if wire.Driver != nil {
+				var err error
+				raw, _, err = decodeDirectDriverPayload(s.ctx, wire, raw, true, http.StatusOK)
+				if err != nil {
+					return nil, err
+				}
+				if wire.Driver.HasHook("decodeEvent") {
+					event.Event, err = decodedDriverSSEEvent(wire, raw)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
 			if adapter, ok := upstreamadapter.Lookup(wire.Profile); ok {
 				var err error
 				raw, err = adapter.NormalizeResponse(raw, true)
@@ -104,6 +117,7 @@ func collectDirectPolicyResponse(ctx context.Context, resp *http.Response, start
 		}
 	}
 	reader := newProtocolBridgeBody(idle, stream, streamResponseByteLimit())
+	observeDirectDriverStream(reader.original, directProviderWireFromContext(ctx))
 	defer reader.Close()
 	var firstOutput *int64
 	reader.original.onFirstOutput = func() { firstOutput = int64Ptr(time.Since(started).Milliseconds()) }
@@ -112,7 +126,8 @@ func collectDirectPolicyResponse(ctx context.Context, resp *http.Response, start
 	if err == nil {
 		// Some providers wrap usage inside their native envelope. The
 		// normalized terminal is authoritative once aggregation succeeds.
-		if terminalUsage := ParseUsageFromBody(body); terminalUsage.Found {
+		wire := directProviderWireFromContext(ctx)
+		if terminalUsage := ParseUsageFromBody(body); terminalUsage.Found && (wire == nil || wire.Driver == nil) {
 			terminalUsage.invalidForUserBudget = terminalUsage.invalidForUserBudget || usage.invalidForUserBudget
 			usage = terminalUsage
 		}

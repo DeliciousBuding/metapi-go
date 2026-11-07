@@ -41,6 +41,46 @@ func database(t *testing.T, dialect string) *store.DB {
 
 const source = `export const meta={apiVersion:1,key:"fixture",name:"Fixture",version:"1.0.0",protocols:["chat"],hooks:["request"],options:[{key:"mode",label:"Mode",type:"select",default:"safe",choices:["safe","fast"]}]};export function request(input){return {body:[{op:"set",path:"vendor.mode",value:input.options.mode}]};}`
 
+func TestDriverObservationSnapshotsSurviveUpgradeAndDisable(t *testing.T) {
+	const module = `export const meta={apiVersion:2,kind:"provider",key:"observer",name:"Observer",version:"1.0.0",protocols:["chat"],credentialKinds:["api_key"],hooks:["request","response"],observations:{chat:{response:{usagePaths:{prompt_tokens:"/old"}}}}};export function request(i){return {method:"POST",body:i.body};}export function response(i){return {body:i.body};}`
+	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
+		t.Run(dialect, func(t *testing.T) {
+			db := database(t, dialect)
+			if _, err := channelplugins.Save(t.Context(), db.DB, "observer", module, true, 0); err != nil {
+				t.Fatal(err)
+			}
+			binding := store.DirectProviderBinding{Key: "observer", Protocols: []string{"chat"}}
+			manager := channelplugins.New(db.DB)
+			old, err := manager.ResolveDriver(t.Context(), binding, "chat", store.DirectCredentialAPIKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = channelplugins.Save(t.Context(), db.DB, "observer", strings.Replace(module, `"/old"`, `"/new"`, 1), true, 1); err != nil {
+				t.Fatal(err)
+			}
+			current, err := manager.ResolveDriver(t.Context(), binding, "chat", store.DirectCredentialAPIKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = channelplugins.Save(t.Context(), db.DB, "observer", strings.Replace(module, `"/old"`, `"/new"`, 1), false, 2); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = manager.ResolveDriver(t.Context(), binding, "chat", store.DirectCredentialAPIKey); !errors.Is(err, channelplugins.ErrUnavailable) {
+				t.Fatalf("disabled resolver accepted: %v", err)
+			}
+			for _, item := range []struct {
+				call channelplugins.DriverInvocation
+				want string
+			}{{old, `"prompt_tokens":7`}, {current, `"prompt_tokens":2`}} {
+				observed, err := item.call.Observe([]byte(`{"old":7,"new":2}`), false)
+				if err != nil || !strings.Contains(string(observed.Usage), item.want) {
+					t.Fatalf("captured source changed after upgrade: %s %v", observed.Usage, err)
+				}
+			}
+		})
+	}
+}
+
 func TestBoundDriverSnapshotsAndCredentialIntersection(t *testing.T) {
 	const driver = `export const meta={apiVersion:2,kind:"provider",key:"driver",name:"Driver",version:"1.0.0",protocols:["chat"],credentialKinds:["api_key"],hooks:["request","response"],options:[{key:"mode",label:"Mode",type:"select",default:"safe",choices:["safe","fast"]}]};export function request(input){return {method:"POST",body:JSON.stringify({mode:input.options.mode,body:input.body})};}export function response(input){return {body:input.body};}`
 	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {

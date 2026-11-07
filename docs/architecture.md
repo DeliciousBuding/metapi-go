@@ -93,8 +93,11 @@ wire 链。新建时选中端点/目录的默认模板落入原配置，升级�
 请求由既有 HTTP/WS dispatcher 授权和执行，原始用量先于原生投影。
 `service/upstream` 目录 owner 消费独立 models hooks，复用当前凭据解析，
 有界分页且拒绝部分成功；预览 basis 绑定配置与程序 identity，应用沿原锁重验。
-本阶段未另建 router、凭据池或任务平台；任意厂商 envelope 解码、自定义认证
-与媒体 driver 持久生命周期尚未接通，不能据协议声明推断这些能力已可用。
+厂商响应通过独立 decoder 进入原生 JSON/SSE/WS 和聚合 owner；原始 observations
+在执行代码前按不可变 manifest 选择字段，计费不从解码输出反推。原生投影和
+wire hooks 位于解码后，已发生请求的 decoder 失败不重放。
+本阶段未另建 router、凭据池或任务平台；自定义认证与媒体 driver 持久生命周期
+尚未接通，不能据协议声明推断这些能力已可用。
 
 产品预设由 `service/upstream_presets.go` 管理品牌、套餐、凭据类型和各协议的
 默认主机；它们是连接的初始值，不限制高级自定义可以配置的协议。

@@ -141,13 +141,17 @@ type upstreamBodyIdent struct {
 // been applied. readable=false means the bytes are still encoded and were
 // relayed verbatim: no parsing, no judging, no tokens.
 type bufferedUpstreamBody struct {
-	bytes    []byte
-	readable bool
+	bytes         []byte
+	readable      bool
+	observedUsage *ParsedUsage
 }
 
 // parseUsage extracts usage only from bytes we can actually read. An
 // undecodable body yields the explicit unknown source — never invented tokens.
 func (b bufferedUpstreamBody) parseUsage() ParsedUsage {
+	if b.observedUsage != nil {
+		return *b.observedUsage
+	}
 	if !b.readable {
 		return ParsedUsage{Source: usageSourceUnknown}
 	}
