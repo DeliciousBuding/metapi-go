@@ -66,6 +66,19 @@ Metapi Go is a ground-up rewrite of the TypeScript Metapi proxy gateway in Go. T
 
 ## 渠道类型与多协议适配
 
+`service/oauth` 拥有凭据解析与供应商兑换，`store` 拥有记录 lease/CAS 和持久
+refresh family。family 按签发供应商与 OAuth client 划分，用不可逆 token 指纹关联
+同一旋转凭据的多个账号/direct 记录，不把渠道或来源当成签发身份。兑换前提交
+消费意图；进程消失或 lease 到期只能转移所有权，不能证明旧 refresh token 未消耗。
+成功结果和 generation/退休 alias 与凭据在同一事务发布；落库重试不重新兑换，
+提交确认丢失时用发布 nonce 核实结果。结果未知则要求重新授权或替换凭据。
+复用结果不改变接收记录的启用状态、来源身份、项目和模型/grant。
+
+`handler/proxy` 在 OAuth/GCP 凭据解析后复用已有授权与路由资格校验，保留原
+请求条件、流式意图和准入预算。兑换期间撤权、来源/端点/实际模型或有效请求
+配置变化会拒绝本次派发，不拿旧 permit 改选新渠道；HTTP 和 WS 使用同一边界。
+持久消费事实随一致快照备份与方言迁移保留，临时 lease 不复制。
+
 `internal/channelplugin` 负责无 I/O 的 moejs wire hooks；`service/channelplugins`
 拥有安装元数据、版本 CAS 和不可变尝试快照，`store.channel_plugins` 保存本地可信代码。
 渠道 `DirectRequestConfig.Plugins` 指定有序 HTTP 协议绑定，管理界面使用同一 manifest

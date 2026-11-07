@@ -111,14 +111,15 @@ func postAntigravityToken(form url.Values, proxyURL *string) (*TokenSet, error) 
 }
 
 func postAntigravityTokenContext(ctx context.Context, form url.Values, proxyURL *string) (*TokenSet, error) {
+	refresh := form.Get("grant_type") == "refresh_token"
 	req, err := http.NewRequestWithContext(ctx, "POST", antigravityTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, refreshPreparationFailure(refresh, err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := doHTTP(req, proxyURL, nil)
+	resp, err := doRefreshHTTP(req, proxyURL, refresh)
 	if err != nil {
 		return nil, err
 	}
@@ -126,22 +127,22 @@ func postAntigravityTokenContext(ctx context.Context, form url.Values, proxyURL 
 
 	if resp.StatusCode != 200 {
 		respBody := readOAuthErrorResponseBody(resp.Body)
-		return nil, fmt.Errorf("%s", string(respBody))
+		return nil, refreshHTTPFailure(ctx, refresh, resp.StatusCode, respBody, fmt.Errorf("%s", string(respBody)))
 	}
 
 	respBody, err := readOAuthJSONResponseBody(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, successfulRefreshResponseError(refresh, "response read failed", err)
 	}
 
 	var payload antigravityOAuthTokenPayload
 	if err := json.Unmarshal(respBody, &payload); err != nil {
-		return nil, fmt.Errorf("antigravity token exchange returned invalid payload")
+		return nil, successfulRefreshResponseError(refresh, "invalid payload", fmt.Errorf("antigravity token exchange returned invalid payload"))
 	}
 
 	accessToken := strings.TrimSpace(payload.AccessToken)
 	if accessToken == "" {
-		return nil, fmt.Errorf("antigravity token exchange response missing access token")
+		return nil, successfulRefreshResponseError(refresh, "missing access token", fmt.Errorf("antigravity token exchange response missing access token"))
 	}
 
 	providerData := make(map[string]interface{})
@@ -204,11 +205,11 @@ func exchangeAntigravityAuthorizationCode(ctx context.Context, input ExchangeCod
 
 func refreshAntigravityAccessToken(ctx context.Context, input RefreshTokenInput) (*TokenSet, error) {
 	if input.ClientID != "" && input.ClientID != antigravityClientID {
-		return nil, fmt.Errorf("unsupported Antigravity OAuth client")
+		return nil, refreshNotConsumed(fmt.Errorf("unsupported Antigravity OAuth client"))
 	}
 	clientSecret, err := requireAntigravityClientSecret()
 	if err != nil {
-		return nil, err
+		return nil, refreshNotConsumed(err)
 	}
 	form := url.Values{}
 	form.Set("client_id", antigravityClientID)

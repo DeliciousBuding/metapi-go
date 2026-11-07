@@ -116,14 +116,19 @@ type geminiOAuthTokenPayload struct {
 }
 
 func postGeminiToken(form url.Values, proxyURL *string) (*TokenSet, error) {
-	req, err := http.NewRequest("POST", geminiCliTokenURL, strings.NewReader(form.Encode()))
+	return postGeminiTokenContext(context.Background(), form, proxyURL)
+}
+
+func postGeminiTokenContext(ctx context.Context, form url.Values, proxyURL *string) (*TokenSet, error) {
+	refresh := form.Get("grant_type") == "refresh_token"
+	req, err := http.NewRequestWithContext(ctx, "POST", geminiCliTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, refreshPreparationFailure(refresh, err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := doHTTP(req, proxyURL, nil)
+	resp, err := doRefreshHTTP(req, proxyURL, refresh)
 	if err != nil {
 		return nil, err
 	}
@@ -131,22 +136,22 @@ func postGeminiToken(form url.Values, proxyURL *string) (*TokenSet, error) {
 
 	if resp.StatusCode != 200 {
 		respBody := readOAuthErrorResponseBody(resp.Body)
-		return nil, fmt.Errorf("%s", string(respBody))
+		return nil, refreshHTTPFailure(ctx, refresh, resp.StatusCode, respBody, fmt.Errorf("%s", string(respBody)))
 	}
 
 	respBody, err := readOAuthJSONResponseBody(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, successfulRefreshResponseError(refresh, "response read failed", err)
 	}
 
 	var payload geminiOAuthTokenPayload
 	if err := json.Unmarshal(respBody, &payload); err != nil {
-		return nil, fmt.Errorf("gemini token exchange returned invalid payload")
+		return nil, successfulRefreshResponseError(refresh, "invalid payload", fmt.Errorf("gemini token exchange returned invalid payload"))
 	}
 
 	accessToken := strings.TrimSpace(payload.AccessToken)
 	if accessToken == "" {
-		return nil, fmt.Errorf("gemini token exchange response missing access token")
+		return nil, successfulRefreshResponseError(refresh, "missing access token", fmt.Errorf("gemini token exchange response missing access token"))
 	}
 
 	providerData := make(map[string]interface{})
@@ -210,7 +215,7 @@ func exchangeGeminiCliAuthorizationCode(ctx context.Context, input ExchangeCodeI
 func refreshGeminiCliAccessToken(ctx context.Context, input RefreshTokenInput) (*TokenSet, error) {
 	clientID, clientSecret, err := requireGeminiCliOAuthConfig()
 	if err != nil {
-		return nil, err
+		return nil, refreshNotConsumed(err)
 	}
 	form := url.Values{}
 	form.Set("client_id", clientID)
@@ -218,7 +223,7 @@ func refreshGeminiCliAccessToken(ctx context.Context, input RefreshTokenInput) (
 	form.Set("grant_type", "refresh_token")
 	form.Set("refresh_token", input.RefreshToken)
 
-	token, err := postGeminiToken(form, input.ProxyURL)
+	token, err := postGeminiTokenContext(ctx, form, input.ProxyURL)
 	if err != nil {
 		return nil, err
 	}

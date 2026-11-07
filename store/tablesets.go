@@ -78,6 +78,8 @@ var schemaTables = []schemaTable{
 	{"channel_plugins", buildChannelPluginsDDL},
 	{"upstream_credentials", buildUpstreamCredentialsDDL},
 	{"credential_refresh_leases", buildCredentialRefreshLeasesDDL},
+	{"credential_refresh_families", buildCredentialRefreshFamiliesDDL},
+	{"credential_refresh_aliases", buildCredentialRefreshAliasesDDL},
 	{"upstream_models", buildUpstreamModelsDDL},
 	{"upstream_grants", buildUpstreamGrantsDDL},
 	{"upstream_groups", buildUpstreamGroupsDDL},

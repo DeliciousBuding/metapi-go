@@ -32,6 +32,10 @@ func (DirectCredentialResult) String() string { return "DirectCredentialResult([
 
 type directCredentialRow struct {
 	ChannelID      int64                  `db:"channel_id"`
+	ChannelOrigin  string                 `db:"channel_origin"`
+	ChannelSource  int64                  `db:"channel_source"`
+	Origin         string                 `db:"origin_key"`
+	SourceID       int64                  `db:"source_id"`
 	Secret         string                 `db:"secret"`
 	Kind           string                 `db:"kind"`
 	RawOAuth       string                 `db:"oauth_state"`
@@ -79,7 +83,7 @@ func loadDirectCredential(ctx context.Context, db *sqlx.DB, id int64) (*directCr
 		return nil, ErrDirectCredentialUnavailable
 	}
 	var row directCredentialRow
-	if err := db.GetContext(ctx, &row, db.Rebind(`SELECT k.channel_id,k.secret,k.kind,k.oauth_state,k.gcp_service_account,k.enabled,c.provider,c.endpoint_config,c.enabled AS channel_enabled FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), id); err != nil {
+	if err := db.GetContext(ctx, &row, db.Rebind(`SELECT k.channel_id,k.origin_key,k.source_id,k.secret,k.kind,k.oauth_state,k.gcp_service_account,k.enabled,c.origin_key AS channel_origin,c.source_id AS channel_source,c.provider,c.endpoint_config,c.enabled AS channel_enabled FROM upstream_credentials k JOIN upstream_channels c ON c.id=k.channel_id WHERE k.id=?`), id); err != nil {
 		return nil, ErrDirectCredentialUnavailable
 	}
 	if !row.Enabled || !row.ChannelEnabled {
@@ -290,7 +294,8 @@ func refreshDirectCredentialSnapshot(ctx context.Context, db *sqlx.DB, id int64,
 	if err != nil {
 		return nil, err
 	}
-	if row.Kind != snapshot.Kind || row.Provider != snapshot.Provider || row.ChannelID != snapshot.ChannelID || row.RawEndpoints != snapshot.RawEndpoints {
+	if row.Kind != snapshot.Kind || row.Provider != snapshot.Provider || row.ChannelID != snapshot.ChannelID || row.RawEndpoints != snapshot.RawEndpoints ||
+		row.ChannelOrigin != snapshot.ChannelOrigin || row.ChannelSource != snapshot.ChannelSource || row.Origin != snapshot.Origin || row.SourceID != snapshot.SourceID {
 		return nil, ErrDirectCredentialChanged
 	}
 	if row.Secret != snapshot.Secret || row.RawOAuth != snapshot.RawOAuth {
@@ -303,58 +308,100 @@ func refreshDirectCredentialSnapshot(ctx context.Context, db *sqlx.DB, id int64,
 	if def == nil || def.RefreshAccessToken == nil || row.State.RefreshToken == "" {
 		return nil, ErrDirectCredentialUnavailable
 	}
-	fresh, err := RefreshWithRetry(ctx, func() (*TokenSet, error) {
-		return def.RefreshAccessToken(ctx, RefreshTokenInput{RefreshToken: row.State.RefreshToken, ClientID: row.State.ClientID, OAuth: &RefreshOAuthContext{ProjectID: row.State.ProjectID}, ProxyURL: proxyURL})
-	})
+	provider := directOAuthProvider(row.Provider)
+	family, err := acquireRefreshFamily(ctx, db, provider, row.State.ClientID, row.State.RefreshToken)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseRefreshFamily(family)
+	published := false
+	defer func() {
+		if !published && family.State == "refreshing" {
+			markRefreshFamilyUncertain(ctx, family)
+		}
+	}()
+	fresh, err := refreshFamilyWinner(ctx, db, family, provider, row.Secret, force)
+	if err != nil {
+		return nil, err
+	}
+	reuse := fresh != nil
+	if !reuse {
+		fresh, err = refreshFamilyWithRetry(ctx, family, provider, row.Secret, func(exchangeCtx context.Context) (*TokenSet, error) {
+			return def.RefreshAccessToken(exchangeCtx, RefreshTokenInput{RefreshToken: row.State.RefreshToken, ClientID: row.State.ClientID, OAuth: &RefreshOAuthContext{ProjectID: row.State.ProjectID}, ProxyURL: proxyURL})
+		})
+	}
 	if err != nil {
 		// Providers can return response bodies containing tokens. Never return
 		// their raw errors to proxy logging or management endpoints.
+		if errors.Is(err, ErrOAuthRefreshUncertain) {
+			return nil, ErrOAuthRefreshUncertain
+		}
 		if IsNonRetryable(err) {
 			return nil, ErrDirectCredentialRevoked
 		}
 		return nil, ErrDirectCredentialRefresh
 	}
 	if fresh == nil || strings.TrimSpace(fresh.AccessToken) == "" || fresh.TokenExpiresAt <= time.Now().UnixMilli() {
-		return nil, ErrDirectCredentialRefresh
+		return nil, ErrOAuthRefreshUncertain
+	}
+	if row.State.AccountID != "" && fresh.AccountID != "" && row.State.AccountID != fresh.AccountID {
+		return nil, ErrDirectCredentialChanged
 	}
 	next := row.State
 	next.RefreshToken = coalesceStr(fresh.RefreshToken, next.RefreshToken)
 	next.IDToken = coalesceStr(fresh.IDToken, next.IDToken)
 	next.AccountID = coalesceStr(fresh.AccountID, next.AccountID)
-	next.ProjectID = coalesceStr(fresh.ProjectID, next.ProjectID)
+	if !reuse {
+		next.ProjectID = coalesceStr(fresh.ProjectID, next.ProjectID)
+	}
 	next.ExpiresAt = fresh.TokenExpiresAt
-	tx, err := lease.BeginFencedTx(ctx)
-	if err != nil {
-		return nil, ErrDirectCredentialChanged
+	verify := func(checkCtx context.Context) error {
+		_, err := verifyDirectRefreshPublication(checkCtx, db, id, row, fresh.AccessToken, next)
+		return err
 	}
-	defer tx.Rollback()
-	result, err := tx.ExecContext(ctx, db.Rebind(`UPDATE upstream_credentials SET secret=?,oauth_state=?
-		WHERE id=? AND kind=? AND enabled=? AND secret=? AND oauth_state=? AND channel_id=?
-		AND EXISTS(SELECT 1 FROM upstream_channels c WHERE c.id=upstream_credentials.channel_id AND c.enabled=? AND c.provider=? AND c.endpoint_config=?)`),
-		fresh.AccessToken, next, id, store.DirectCredentialOAuth, true, row.Secret, row.RawOAuth, row.ChannelID, true, row.Provider, row.RawEndpoints)
+	err = publishRefreshedCredential(ctx, family, lease, reuse, store.OAuthRefreshFingerprint(family.Provider, next.RefreshToken), "direct", id, ErrDirectCredentialChanged, func(tx *sqlx.Tx) error {
+		result, err := tx.ExecContext(ctx, db.Rebind(`UPDATE upstream_credentials SET secret=?,oauth_state=?
+		WHERE id=? AND kind=? AND enabled=? AND secret=? AND oauth_state=? AND channel_id=? AND origin_key=? AND source_id=?
+		AND EXISTS(SELECT 1 FROM upstream_channels c WHERE c.id=upstream_credentials.channel_id AND c.enabled=? AND c.provider=? AND c.endpoint_config=? AND c.origin_key=? AND c.source_id=?)`),
+			fresh.AccessToken, next, id, store.DirectCredentialOAuth, true, row.Secret, row.RawOAuth, row.ChannelID, row.Origin, row.SourceID, true, row.Provider, row.RawEndpoints, row.ChannelOrigin, row.ChannelSource)
+		if err != nil {
+			return err
+		}
+		count, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if count != 1 {
+			return ErrDirectCredentialChanged
+		}
+		return nil
+	}, verify)
 	if err != nil {
+		if errors.Is(err, ErrDirectCredentialChanged) || errors.Is(err, ErrDirectCredentialUnavailable) || errors.Is(err, ErrOAuthRefreshUncertain) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, err
+		}
 		return nil, ErrDirectCredentialRefresh
 	}
-	count, err := result.RowsAffected()
-	if err != nil {
-		return nil, ErrDirectCredentialRefresh
-	}
-	if count != 1 {
-		return nil, ErrDirectCredentialChanged
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, ErrDirectCredentialRefresh
-	}
+	published = true
 	// Also recheck channel/credential enablement after the refresh. A source
 	// replacement must never authorize sending the just-superseded token.
+	current, err := verifyDirectRefreshPublication(ctx, db, id, row, fresh.AccessToken, next)
+	if err != nil {
+		return nil, err
+	}
+	return directCredentialResult(current), nil
+}
+
+func verifyDirectRefreshPublication(ctx context.Context, db *sqlx.DB, id int64, row *directCredentialRow, accessToken string, next store.DirectOAuthState) (*directCredentialRow, error) {
 	current, err := loadDirectCredential(ctx, db, id)
 	if err != nil {
 		return nil, err
 	}
 	expectedOAuth, err := next.Value()
 	if err != nil || current.Kind != row.Kind || current.Provider != row.Provider || current.ChannelID != row.ChannelID ||
-		current.RawEndpoints != row.RawEndpoints || current.Secret != fresh.AccessToken || current.RawOAuth != expectedOAuth {
+		current.RawEndpoints != row.RawEndpoints || current.Secret != accessToken || current.RawOAuth != expectedOAuth ||
+		current.ChannelOrigin != row.ChannelOrigin || current.ChannelSource != row.ChannelSource || current.Origin != row.Origin || current.SourceID != row.SourceID {
 		return nil, ErrDirectCredentialChanged
 	}
-	return directCredentialResult(current), nil
+	return current, nil
 }

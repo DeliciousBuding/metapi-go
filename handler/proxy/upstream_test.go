@@ -54,6 +54,10 @@ func (r *upstreamTestRouter) SelectNextChannel(_ context.Context, _ string, _ []
 	return r.next, nil
 }
 
+func (r *upstreamTestRouter) RevalidateQueuedChannel(_ context.Context, selected *routing.SelectedChannel, _ string, _ routing.DownstreamRoutingPolicy) (*routing.SelectedChannel, error) {
+	return selected, nil
+}
+
 func (r *upstreamTestRouter) SelectPreferredChannel(_ context.Context, _ string, _ int64, policy routing.DownstreamRoutingPolicy, _ []int64) (*routing.SelectedChannel, error) {
 	r.policies = append(r.policies, policy)
 	return nil, nil

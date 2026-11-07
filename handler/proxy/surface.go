@@ -10,6 +10,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/proxy"
+	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -46,7 +47,10 @@ type SurfResult struct {
 // Ctx holds all context needed for a proxy request.
 type Ctx struct {
 	lifecycle *requestLifecycle
-	videoTask *directVideoTask
+	// Retain the ingress request descriptors for post-exchange authorization;
+	// rebuilding them would change conditions, trace affinity or stream intent.
+	dispatchPolicy *routing.DownstreamRoutingPolicy
+	videoTask      *directVideoTask
 	// managedVideoTaskID is the client-facing public id of a shared-upstream
 	// (non-direct) video mapping. The rewrite replaces it with the upstream id
 	// in DownstreamPath, so the response hook needs this separate copy to delete

@@ -1,6 +1,8 @@
 package backup
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -26,25 +28,27 @@ var AllTables = store.BackupTableNames()
 // is a scope declaration, not an ordering: AccountsTables below intersects it
 // with the registry-derived backup order, so there is one FK-safe order owner.
 var accountsExportScope = map[string]bool{
-	"sites":                    true,
-	"site_api_endpoints":       true,
-	"site_disabled_models":     true,
-	"accounts":                 true,
-	"account_tokens":           true,
-	"checkin_logs":             true,
-	"model_availability":       true,
-	"token_model_availability": true,
-	"token_routes":             true,
-	"route_group_sources":      true,
-	"oauth_route_units":        true,
-	"oauth_route_unit_members": true,
-	"route_channels":           true,
-	"proxy_video_tasks":        true,
-	"proxy_file_objects":       true,
-	"admin_background_tasks":   true,
-	"downstream_api_keys":      true,
-	"downstream_quota_usage":   true,
-	"site_announcements":       true,
+	"credential_refresh_families": true,
+	"credential_refresh_aliases":  true,
+	"sites":                       true,
+	"site_api_endpoints":          true,
+	"site_disabled_models":        true,
+	"accounts":                    true,
+	"account_tokens":              true,
+	"checkin_logs":                true,
+	"model_availability":          true,
+	"token_model_availability":    true,
+	"token_routes":                true,
+	"route_group_sources":         true,
+	"oauth_route_units":           true,
+	"oauth_route_unit_members":    true,
+	"route_channels":              true,
+	"proxy_video_tasks":           true,
+	"proxy_file_objects":          true,
+	"admin_background_tasks":      true,
+	"downstream_api_keys":         true,
+	"downstream_quota_usage":      true,
+	"site_announcements":          true,
 }
 
 // AccountsTables is the subset exported when type=accounts, in the same
@@ -83,6 +87,18 @@ func BuildPayload(db *sqlx.DB, exportType string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Credential rotation and its durable journal must be exported from the
+	// same snapshot. PostgreSQL's default READ COMMITTED is not sufficient
+	// across table queries; SQLite's read transaction pins its first snapshot.
+	options := &sql.TxOptions{ReadOnly: true}
+	if db.DriverName() == "pgx" {
+		options.Isolation = sql.LevelRepeatableRead
+	}
+	tx, err := db.BeginTxx(context.Background(), options)
+	if err != nil {
+		return nil, fmt.Errorf("export failed: unable to begin snapshot: %w", err)
+	}
+	defer tx.Rollback()
 
 	result := map[string]any{}
 	warnings := map[string]int{}
@@ -91,7 +107,7 @@ func BuildPayload(db *sqlx.DB, exportType string) (map[string]any, error) {
 		if err := addEstimatedPayloadBytes(&estimatedPayloadBytes, int64(len(table)+16)); err != nil {
 			return nil, err
 		}
-		rows, tableWarnings, err := queryTableAsJSON(db, table, &estimatedPayloadBytes)
+		rows, tableWarnings, err := queryTableAsJSON(tx, table, &estimatedPayloadBytes)
 		if err != nil {
 			return nil, fmt.Errorf("export failed: unable to read table %s: %w", table, err)
 		}
@@ -114,6 +130,9 @@ func BuildPayload(db *sqlx.DB, exportType string) (map[string]any, error) {
 		metadata["warnings"] = warnings
 	}
 
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("export failed: unable to finish snapshot: %w", err)
+	}
 	return map[string]any{
 		"metadata": metadata,
 		"type":     exportType,
@@ -169,7 +188,9 @@ func TablesForExportType(exportType string) (string, []string, error) {
 	}
 }
 
-func queryTableAsJSON(db *sqlx.DB, table string, estimatedPayloadBytes *int64) ([]map[string]any, map[string]int, error) {
+func queryTableAsJSON(db interface {
+	Queryx(string, ...any) (*sqlx.Rows, error)
+}, table string, estimatedPayloadBytes *int64) ([]map[string]any, map[string]int, error) {
 	if !IsKnownTable(table) {
 		return nil, nil, fmt.Errorf("unknown table: %s", table)
 	}

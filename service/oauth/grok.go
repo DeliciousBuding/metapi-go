@@ -297,17 +297,17 @@ func refreshGrokAccessToken(ctx context.Context, input RefreshTokenInput) (*Toke
 
 	var token grokTokenResponse
 	if err := json.Unmarshal(payload, &token); err != nil {
-		return nil, fmt.Errorf("grok oauth: invalid refresh payload: %w", err)
+		return nil, successfulRefreshResponseError(true, "invalid payload", fmt.Errorf("grok oauth: invalid refresh payload: %w", err))
 	}
 	if token.Error != "" {
 		msg := token.Error
 		if token.ErrorDescription != "" {
 			msg = msg + ": " + token.ErrorDescription
 		}
-		return nil, fmt.Errorf("grok oauth: %s", msg)
+		return nil, refreshNotConsumed(fmt.Errorf("grok oauth: %s", msg))
 	}
 	if strings.TrimSpace(token.AccessToken) == "" {
-		return nil, fmt.Errorf("grok oauth: refresh response missing access_token")
+		return nil, successfulRefreshResponseError(true, "missing access token", fmt.Errorf("grok oauth: refresh response missing access_token"))
 	}
 
 	expiresIn := token.ExpiresIn
@@ -380,14 +380,15 @@ func buildGrokProxyHeaders(ctx context.Context, input ProxyHeaderInput) map[stri
 // payload. Non-2xx responses are returned as errors with the trimmed body so
 // callers can surface the provider error description.
 func postOAuthForm(ctx context.Context, endpoint string, form url.Values, proxyURL *string) ([]byte, error) {
+	refresh := form.Get("grant_type") == "refresh_token"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, refreshPreparationFailure(refresh, err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := doHTTP(req, proxyURL, nil)
+	resp, err := doRefreshHTTP(req, proxyURL, refresh)
 	if err != nil {
 		return nil, err
 	}
@@ -395,12 +396,12 @@ func postOAuthForm(ctx context.Context, endpoint string, form url.Values, proxyU
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body := readOAuthErrorResponseBody(resp.Body)
-		return nil, fmt.Errorf("xAI returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, refreshHTTPFailure(ctx, refresh, resp.StatusCode, body, fmt.Errorf("xAI returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body))))
 	}
 
 	body, err := readOAuthJSONResponseBody(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, successfulRefreshResponseError(refresh, "response read failed", err)
 	}
 	return body, nil
 }

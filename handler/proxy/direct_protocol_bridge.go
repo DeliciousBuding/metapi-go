@@ -3,6 +3,7 @@ package proxyhandler
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
@@ -139,6 +140,13 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 	if err != nil || credential == nil || credential.AccessToken == "" && !anonymous || credential != nil && credential.Kind == store.DirectCredentialNone && !anonymous {
 		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "Selected direct credential is unavailable", "upstream_error", requestID)
 		return true, nil, false
+	}
+	if status, err := revalidateDirectCredentialDispatch(r, ctx, cfg, selected, ctx.dispatchPolicy); err != nil {
+		writeJSONErrorWithRequest(w, status, err.Error(), "permission_error", requestID)
+		return true, nil, false
+	}
+	if ctx.Auth != nil {
+		r = r.WithContext(auth.WithProxyAuth(r.Context(), ctx.Auth))
 	}
 	selectedCopy := *selected
 	selectedCopy.TokenValue = credential.AccessToken
