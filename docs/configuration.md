@@ -126,6 +126,10 @@ target is trusted and the escape hatch is genuinely needed.
 
 ## Proxy behavior
 
+渠道级 provider driver 与有序 wire hooks 分开配置，不新增环境变量。端点和
+目录默认值只在新建时补缺，升级不移动已保存 URL；编辑、回读、清除与可执行
+范围见[渠道插件合同](api/channel-plugins.md)。插件不拥有凭据、路由或额外网络能力。
+
 | Variable | Default | Description |
 |:---------|:--------|:------------|
 | `REQUEST_BODY_LIMIT_MB` | `20` | Body limit for `/v1` routes (clamped 1–200). |

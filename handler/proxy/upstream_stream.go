@@ -108,7 +108,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	codexImage := wire != nil && wire.Profile == "codex-image"
 	routerChatStream := wire != nil && (wire.Profile == "openrouter" || wire.Profile == "cerebras")
 	nanoGPTStream := wire != nil && wire.Profile == "nanogpt"
-	providerStream := wire != nil && (len(wire.Plugins) > 0 || wire.Profile == "codex" || wire.Profile == "antigravity" || wire.StripToolPrefix || codexImage || (wire.Profile == "cline" || routerChatStream) && bridgeDirect)
+	providerStream := wire != nil && (len(wire.Plugins) > 0 || wire.Driver != nil || wire.Profile == "codex" || wire.Profile == "antigravity" || wire.StripToolPrefix || codexImage || (wire.Profile == "cline" || routerChatStream) && bridgeDirect)
 	bailianStream := wire != nil && wire.Profile == "bailian"
 	var relayStream protocolEventStream
 	if bridgeDirect && wire != nil && wire.ProtocolSession != nil {
@@ -200,6 +200,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 			}
 		}
 		messageBridge = newProtocolBridgeBody(resp.Body, stream, maxStreamBytes)
+		observeDirectDriverStream(messageBridge.original, wire)
 		if routerChatStream {
 			// A 20 MiB image needs about 27 MiB as base64. Keep other Chat
 			// profiles at 1 MiB and still enforce the total raw/output budgets.

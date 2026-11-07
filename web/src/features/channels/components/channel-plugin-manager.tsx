@@ -142,7 +142,13 @@ export function ChannelPluginManager() {
                 {item.manifest?.name ?? item.key}
               </h3>
               <p className='text-muted-foreground text-xs'>
-                {item.key} ·{' '}
+                {item.manifest &&
+                  t(
+                    item.manifest.apiVersion === 2
+                      ? 'channels.plugins.providerType'
+                      : 'channels.plugins.wireType'
+                  )}{' '}
+                · {item.key} ·{' '}
                 {item.manifest?.version ?? t('channels.plugins.unavailable')} ·{' '}
                 {t('channels.plugins.revision', { revision: item.revision })}
               </p>

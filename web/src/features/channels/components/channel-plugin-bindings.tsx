@@ -47,7 +47,9 @@ export function ChannelPluginBindings({
     endpoints,
     disabled: disabled || query.isError,
   }
-  const items = query.data?.items ?? []
+  const items = (query.data?.items ?? []).filter(
+    (item) => item.manifest?.apiVersion !== 2
+  )
   const orderId = useId()
   const orderedItems = [
     ...props.value.flatMap((binding) =>
@@ -109,9 +111,10 @@ export function ChannelPluginBindings({
       {orderedItems.map((item) => {
         const binding = props.value.find((binding) => binding.key === item.key)
         const available =
-          item.manifest?.protocols.filter(
-            (protocol) => props.endpoints[protocol]
-          ) ?? []
+          (item.manifest?.apiVersion === 1
+            ? item.manifest.protocols
+            : []
+          ).filter((protocol) => props.endpoints[protocol]) ?? []
         const enabled = !!binding
         const index = props.value.findIndex(
           (binding) => binding.key === item.key
@@ -264,7 +267,7 @@ export function ChannelPluginBindings({
   )
 }
 
-function PluginOptionField(props: {
+export function PluginOptionField(props: {
   option: ChannelPluginOption
   value: string | boolean | number
   onChange: (value: string | boolean | number) => void

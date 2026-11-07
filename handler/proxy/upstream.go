@@ -861,6 +861,9 @@ func dispatchEndpointAttemptWithContinue(
 			chosen = wire.Endpoint
 		}
 		upstreamURL, directEndpoint = directRequestURL(selected.Direct, upstreamPath, upstreamModel, effectiveStream, chosen)
+		if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.DriverURL != "" {
+			upstreamURL = wire.DriverURL
+		}
 	}
 	startedAt := time.Now()
 
@@ -1074,7 +1077,7 @@ func dispatchEndpointAttemptWithContinue(
 		} else if wire.AggregateStream && wire.Profile != "codex" {
 			collected, usage, aggregateErr = collectDirectPolicyResponse(r.Context(), resp, startedAt, upstreamPath)
 		} else {
-			collected, usage, aggregateErr = collectDirectCodexResponse(resp, startedAt)
+			collected, usage, aggregateErr = collectDirectCodexResponse(r.Context(), resp, startedAt)
 		}
 		latencyMs = time.Since(startedAt).Milliseconds()
 		if aggregateErr != nil {
@@ -1094,7 +1097,7 @@ func dispatchEndpointAttemptWithContinue(
 			}
 			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusBadGateway, reason)
 			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, false, usage, retry, requestID, reason)
-			if wire.AggregateStream && retry < maxRetries && proxy.ShouldRetryProxyRequest(http.StatusBadGateway, reason) {
+			if wire.AggregateStream && !channelPluginExecutionFailure(aggregateErr) && retry < maxRetries && proxy.ShouldRetryProxyRequest(http.StatusBadGateway, reason) {
 				return false, jsonPendingUpstreamFailure(http.StatusBadGateway, "Cannot aggregate upstream response", "upstream_error"), false
 			}
 			writeJSONErrorWithRequest(w, http.StatusBadGateway, reason, "upstream_error", requestID)
@@ -1273,6 +1276,32 @@ func dispatchEndpointAttemptWithContinue(
 	if body.readable {
 		normalizeUpstreamJSONContentType(resp.Header, respBody, r.URL.Path)
 	}
+	if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.Driver != nil && body.readable && aggregatedUsage == nil {
+		observed, _, observationErr := observeDirectDriverBody(wire, respBody, false)
+		body.observedUsage = &observed
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			var decoded []byte
+			var decodeErr error
+			if observationErr == nil {
+				decoded, _, decodeErr = decodeDirectDriverPayload(r.Context(), wire, respBody, false, resp.StatusCode)
+			}
+			if observationErr != nil || decodeErr != nil {
+				reason := "Cannot decode selected provider response"
+				writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, firstByteLatencyMs, http.StatusBadGateway, false, observed, retry, requestID, reason)
+				writeJSONErrorWithRequest(w, http.StatusBadGateway, reason, "upstream_error", requestID)
+				observeProxyTerminal(ctx, shared.OutcomeUpstreamError, false, time.Since(startedAt))
+				return true, nil, false
+			}
+			if !bytes.Equal(decoded, respBody) {
+				respBody, body.bytes = decoded, decoded
+				resp.Header.Del("Content-Length")
+				resp.Header.Del("ETag")
+				resp.Header.Del("Content-MD5")
+				resp.Header.Del("Digest")
+				resp.Header.Set("Content-Type", "application/json")
+			}
+		}
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		rawErrText := string(respBody)
 		if shouldContinueEndpointResponseFallback(selected, resp.StatusCode, rawErrText, isLastEndpoint, disableCrossProtocolFallback, body.readable) {
@@ -1350,7 +1379,7 @@ func dispatchEndpointAttemptWithContinue(
 	if aggregatedUsage != nil {
 		usage = *aggregatedUsage
 	}
-	if wire := directProviderWireFromContext(r.Context()); wire != nil && len(wire.Plugins) > 0 && body.readable {
+	if wire := directProviderWireFromContext(r.Context()); wire != nil && (len(wire.Plugins) > 0 || wire.Driver != nil) && body.readable {
 		var pluginErr error
 		respBody, pluginErr = applyDirectChannelResponsePlugins(r.Context(), wire, respBody, "response")
 		if pluginErr != nil {

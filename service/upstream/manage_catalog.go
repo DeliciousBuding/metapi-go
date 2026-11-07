@@ -30,6 +30,9 @@ type ChannelCreate struct {
 }
 
 func CreateChannel(ctx context.Context, db *sqlx.DB, in ChannelCreate) (int64, error) {
+	if err := channelplugins.FillDefaults(ctx, db, in.BaseURL, &in.Endpoints, &in.RequestConfig); err != nil {
+		return 0, err
+	}
 	if !store.ValidDirectStreamPolicy(in.StreamPolicy) {
 		return 0, invalid("Invalid stream policy")
 	}

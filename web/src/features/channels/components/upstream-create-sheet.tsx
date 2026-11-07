@@ -19,6 +19,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -50,6 +51,7 @@ import {
   upstreamCreateSchema,
   type UpstreamCreateValues,
 } from '../lib/upstream-create'
+import { ChannelProviderBinding } from './channel-provider-binding'
 import { UpstreamCreateEndpoints } from './upstream-create-endpoints'
 import { UpstreamPresetPicker } from './upstream-preset-picker'
 
@@ -75,6 +77,12 @@ export function UpstreamCreateSheet(props: {
     queryFn: upstreamPresetsApi.getUpstreamPresets,
   })
   const credentialMode = selected?.credentialMode ?? 'apiKey'
+  let providerCredentialKind: 'api_key' | 'none' | 'gcp_service_account' =
+    'api_key'
+  if (credentialMode === 'gcpServiceAccount')
+    providerCredentialKind = 'gcp_service_account'
+  else if (credentialMode === 'optional' && !form.watch('apiKey').trim())
+    providerCredentialKind = 'none'
   const customEndpoints = form.watch('customEndpoints')
   const requiresBaseUrl = selected?.requiresBaseUrl ?? !selected?.defaultUrl
   const { handleOpenChange, guard } = useDirtyDialogClose({
@@ -170,7 +178,8 @@ export function UpstreamCreateSheet(props: {
                   errors.name ||
                   errors.channelProxy ||
                   errors.customHeaders ||
-                  errors.paramOverride
+                  errors.paramOverride ||
+                  errors.providerBinding
                 ) {
                   setAdvanced(true)
                 }
@@ -423,6 +432,43 @@ export function UpstreamCreateSheet(props: {
                                   structuredOnly
                                   disabled={pending}
                                   keyLabel={t('stringMapEditor.headerName')}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name='providerBinding'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {t('channels.plugins.providerBinding')}
+                              </FormLabel>
+                              <FormDescription>
+                                {t('channels.plugins.providerDescription')}
+                              </FormDescription>
+                              <FormControl>
+                                <ChannelProviderBinding
+                                  {...field}
+                                  value={field.value ?? null}
+                                  protocols={
+                                    customEndpoints
+                                      ? Object.entries(
+                                          form.watch('endpointConfig')
+                                        ).flatMap(([key, endpoint]) =>
+                                          endpoint
+                                            ? [
+                                                key as UpstreamPreset['protocols'][number],
+                                              ]
+                                            : []
+                                        )
+                                      : form.watch('protocols')
+                                  }
+                                  credentialKind={providerCredentialKind}
+                                  newChannel
+                                  disabled={pending || resolvingEndpoints}
                                 />
                               </FormControl>
                               <FormMessage />

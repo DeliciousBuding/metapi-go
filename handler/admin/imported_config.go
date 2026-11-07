@@ -135,9 +135,10 @@ func importedWriteError(w http.ResponseWriter, err error) {
 	importedReadError(w, err)
 }
 
-// All admin mutations reject null, ambiguous keys, unknown struct fields, and
-// additional JSON values. Error text never reflects request contents.
-func decodeImportedJSON(r *http.Request, dst any) error {
+// Admin mutations reject ambiguous keys, unknown fields and additional values.
+// A caller may allow null only for explicit root-level removal fields; nested
+// nulls and all other fields retain the existing rejection contract.
+func decodeImportedJSON(r *http.Request, dst any, nullableRootFields ...string) error {
 	raw, err := io.ReadAll(io.LimitReader(r.Body, (1<<20)+1))
 	if err != nil || len(raw) > 1<<20 {
 		return fmt.Errorf("invalid request body")
@@ -150,7 +151,17 @@ func decodeImportedJSON(r *http.Request, dst any) error {
 		return fmt.Errorf("expected a non-empty JSON object")
 	}
 	var tree any
-	if json.Unmarshal(raw, &tree) != nil || importedJSONHasNull(tree) {
+	if json.Unmarshal(raw, &tree) != nil {
+		return fmt.Errorf("invalid JSON object")
+	}
+	if object, ok := tree.(map[string]any); ok {
+		for _, field := range nullableRootFields {
+			if value, exists := object[field]; exists && value == nil {
+				delete(object, field)
+			}
+		}
+	}
+	if importedJSONHasNull(tree) {
 		return fmt.Errorf("null is not supported")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
@@ -236,9 +247,10 @@ func (h *importedUpstreamHandler) requestConfig(w http.ResponseWriter, r *http.R
 		"channelProxy": row.ChannelProxy,
 		// Header names stay editable; values are masked so Authorization,
 		// X-Api-Key, cookies, and any other operator secret are not echoed.
-		"customHeaders":  maskImportedCustomHeaders(row.CustomHeaders),
-		"paramOverride":  row.ParamOverride,
-		"pluginBindings": row.RequestConfig.Plugins,
+		"customHeaders":   maskImportedCustomHeaders(row.CustomHeaders),
+		"paramOverride":   row.ParamOverride,
+		"pluginBindings":  row.RequestConfig.Plugins,
+		"providerBinding": row.RequestConfig.Provider,
 		// Operation values may include private headers or prompts. Readback
 		// exposes shape/counts only; edits replace the whole explicit contract.
 		"requestTransformSummary": map[string]any{
@@ -255,7 +267,7 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var input map[string]json.RawMessage
-	if decodeImportedJSON(r, &input) != nil {
+	if decodeImportedJSON(r, &input, "providerBinding") != nil {
 		writeError(w, 400, "Expected one non-empty configuration object")
 		return
 	}
@@ -279,7 +291,7 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	previousEndpoints := row.Endpoints
-	if input["pluginBindings"] != nil && input["requestTransform"] != nil {
+	if (input["pluginBindings"] != nil || input["providerBinding"] != nil) && input["requestTransform"] != nil {
 		writeError(w, 400, "Choose plugin binding patch or whole request transform replacement")
 		return
 	}
@@ -296,11 +308,13 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		"customHeaders": {"custom_header", &row.CustomHeaders}, "paramOverride": {"param_override", &row.ParamOverride},
 		"requestTransform": {"request_config", &row.RequestConfig},
 		"pluginBindings":   {"request_config", &row.RequestConfig.Plugins},
+		"providerBinding":  {"request_config", &row.RequestConfig.Provider},
 		"rateLimit":        {"rate_limit", &row.RateLimit},
 		"streamPolicy":     {"stream_policy", &row.StreamPolicy},
 	}
 	set := []string{}
 	args := []any{}
+	setColumns := map[string]bool{}
 	for name, raw := range input {
 		f, known := fields[name]
 		if !known {
@@ -319,11 +333,14 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 			writeError(w, 400, "Invalid configuration field type")
 			return
 		}
-		set = append(set, f.column+"=?")
-		if name == "pluginBindings" {
-			args = append(args, &row.RequestConfig)
-		} else {
-			args = append(args, f.target)
+		if !setColumns[f.column] {
+			setColumns[f.column] = true
+			set = append(set, f.column+"=?")
+			if name == "pluginBindings" || name == "providerBinding" {
+				args = append(args, &row.RequestConfig)
+			} else {
+				args = append(args, f.target)
+			}
 		}
 	}
 	if _, ok := input["customHeaders"]; ok {
@@ -335,7 +352,7 @@ func (h *importedUpstreamHandler) update(w http.ResponseWriter, r *http.Request)
 		writeError(w, 400, err.Error())
 		return
 	}
-	if input["pluginBindings"] != nil || input["requestTransform"] != nil || input["endpointConfig"] != nil {
+	if input["pluginBindings"] != nil || input["providerBinding"] != nil || input["requestTransform"] != nil || input["endpointConfig"] != nil {
 		if err = channelplugins.ValidateBindings(r.Context(), tx, row.RequestConfig, row.Endpoints); err != nil {
 			writeError(w, 400, "Invalid channel plugin binding")
 			return

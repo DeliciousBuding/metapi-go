@@ -64,7 +64,10 @@ type CodexWebsocketRuntimeResult struct {
 type CodexWebsocketSendInput struct {
 	// ObserveAttempt records each actual socket attempt, including retries and
 	// zero-event dial fallback. It does not decide the downstream turn result.
-	ObserveAttempt          func([]map[string]any, error, time.Duration)
+	ObserveAttempt func([]map[string]any, error, time.Duration)
+	// DecodeEvent observes/adapts a bounded raw frame before the native parser.
+	// The host callback owns observations; the transport never retries its error.
+	DecodeEvent             func([]byte) ([]byte, error)
 	BeforeAttempt           func() error
 	HTTPClient              *http.Client
 	DisablePreviousRecovery bool
@@ -628,6 +631,7 @@ func SendCodexWebsocketRequest(ctx context.Context, input CodexWebsocketSendInpu
 	for {
 		result, err := sendCodexWSSessionAttempt(ctx, session, CodexWebsocketSendInput{
 			ObserveAttempt:        input.ObserveAttempt,
+			DecodeEvent:           input.DecodeEvent,
 			BeforeAttempt:         input.BeforeAttempt,
 			HTTPClient:            input.HTTPClient,
 			AllowNativeIncomplete: input.AllowNativeIncomplete,
@@ -797,6 +801,7 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 
 	events := make([]map[string]any, 0, 16)
 	totalBytes := int64(0)
+	decodedBytes := int64(0)
 	collector := &responses.CodexResponseCollector{AllowIncomplete: input.AllowNativeIncomplete}
 	for {
 		readCtx, readCancel := context.WithTimeout(ctx, codexWSReadTimeout)
@@ -812,9 +817,24 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 		}
 		var parsed map[string]any
 		totalBytes += int64(len(data))
+		if totalBytes > codexWSMaxMsgBytes {
+			clearSessionSocket(session, conn)
+			_ = conn.Close(websocket.StatusGoingAway, "invalid or oversized response")
+			return nil, &CodexWebsocketRuntimeError{Message: "invalid or oversized upstream websocket response", Status: 502, Events: events}
+		}
+		if input.DecodeEvent != nil {
+			var err error
+			data, err = input.DecodeEvent(data)
+			if err != nil {
+				clearSessionSocket(session, conn)
+				_ = conn.Close(websocket.StatusGoingAway, "provider event decoding failed")
+				return nil, &CodexWebsocketRuntimeError{Message: "provider event decoding failed", Status: 502, Events: events}
+			}
+		}
+		decodedBytes += int64(len(data))
 		decoder := json.NewDecoder(bytes.NewReader(data))
 		decoder.UseNumber()
-		if err := decoder.Decode(&parsed); err != nil || parsed == nil || decoder.Decode(new(any)) != io.EOF || totalBytes > codexWSMaxMsgBytes {
+		if err := decoder.Decode(&parsed); err != nil || parsed == nil || decoder.Decode(new(any)) != io.EOF || decodedBytes > codexWSMaxMsgBytes {
 			clearSessionSocket(session, conn)
 			_ = conn.Close(websocket.StatusGoingAway, "invalid or oversized response")
 			return nil, &CodexWebsocketRuntimeError{Message: "invalid or oversized upstream websocket response", Status: 502, Events: events}

@@ -82,6 +82,7 @@ export type UpstreamConnectInput = {
   channelProxy?: string
   customHeaders?: string
   paramOverride?: string
+  providerBinding?: import('./channel-plugins').ProviderBinding
 }
 export type UpstreamConnectResult = {
   id: number

@@ -11,12 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 const connectDiscoveryTimeout = 15 * time.Second
@@ -113,7 +114,7 @@ func presetConnectModels(names []string) ([]string, Discovery, error) {
 	return models, Discovery{Status: "preset", Message: "Using preset models; upstream model availability was not verified"}, nil
 }
 
-func discoverConnectModels(ctx context.Context, in ConnectInput) ([]string, Discovery, error) {
+func discoverConnectModels(ctx context.Context, db *sqlx.DB, in ConnectInput) ([]string, Discovery, error) {
 	if in.CredentialKind == store.DirectCredentialGCPServiceAccount {
 		if _, err := modelCatalogCustomHeaders(in.Channel.CustomHeaders); err != nil {
 			return nil, Discovery{}, err
@@ -125,6 +126,16 @@ func discoverConnectModels(ctx context.Context, in ConnectInput) ([]string, Disc
 		if err == nil {
 			discovery.Message = "Upstream model availability was not verified; refresh models after creating the connection to resolve the GCP service account credential"
 		}
+		return models, discovery, err
+	}
+	if binding := in.Channel.RequestConfig.Provider; binding != nil && binding.Catalog != nil {
+		if err := in.Channel.RequestConfig.ValidateEndpoints(in.Channel.Endpoints); err != nil {
+			return nil, Discovery{}, err
+		}
+		read := func(context.Context, []string) (catalogCredential, error) {
+			return catalogCredential{in.CredentialKind, in.Secret}, nil
+		}
+		models, discovery, _, err := discoverProviderCatalog(ctx, channelplugins.New(db), *binding, in.Channel.ChannelProxy, in.Channel.CustomHeaders, in.Channel.UseSystemProxy, read, nil)
 		return models, discovery, err
 	}
 	models, discovery, err := discoverUpstreamCatalog(ctx, in.Channel.Endpoints, func(context.Context) (string, error) {
@@ -200,25 +211,13 @@ func discoverUpstreamCatalog(ctx context.Context, endpoints store.DirectEndpoint
 	if len(candidates) == 0 {
 		return nil, Discovery{}, errNoCatalogEndpoint
 	}
-	proxyURL := channelProxy
-	if proxyURL == "" && useSystemProxy {
-		if runtime := config.RuntimeSafe(); runtime != nil {
-			proxyURL = runtime.SystemProxyUrl
-		}
-	}
-	proxy := httpclient.NoProxy
-	if proxyURL != "" {
-		parsed, err := url.Parse(proxyURL)
-		if err != nil || parsed.Host == "" || parsed.RawQuery != "" || parsed.Fragment != "" || ssrf.IsForbiddenSiteHostname(parsed.Hostname()) || (parsed.Scheme != "http" && parsed.Scheme != "https" && parsed.Scheme != "socks5" && parsed.Scheme != "socks5h") {
-			return nil, Discovery{}, invalid("Invalid channel proxy URL")
-		}
-		proxy = http.ProxyURL(parsed)
-	}
-	transport := httpclient.NewTransport(httpclient.Options{Proxy: proxy, SiteDialGuard: true, DialTimeout: 5 * time.Second, ResponseHeaderTimeout: connectDiscoveryTimeout})
-	defer transport.CloseIdleConnections()
 	// Each candidate is one exact URL; even same-origin redirects can reach a
 	// different authenticated action. Never forward credentials on redirects.
-	client := httpclient.NewClient(transport, connectDiscoveryTimeout, func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse })
+	client, closeClient, err := catalogHTTPClient(channelProxy, useSystemProxy)
+	if err != nil {
+		return nil, Discovery{}, err
+	}
+	defer closeClient()
 	secret := ""
 	for _, candidate := range candidates {
 		u, err := url.Parse(candidate.address)

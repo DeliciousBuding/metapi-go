@@ -268,6 +268,35 @@ func replaceSSEBlockData(block, normalized []byte) []byte {
 	return bytes.Join(out, []byte("\n"))
 }
 
+func replaceSSEBlockEvent(block []byte, kind string) []byte {
+	lines := bytes.Split(block, []byte("\n"))
+	out := make([][]byte, 0, len(lines))
+	replaced := false
+	for _, line := range lines {
+		if !bytes.HasPrefix(line, []byte("event:")) {
+			out = append(out, line)
+			continue
+		}
+		if replaced {
+			continue
+		}
+		next := []byte("event: " + kind)
+		if bytes.HasSuffix(line, []byte("\r")) {
+			next = append(next, '\r')
+		}
+		out = append(out, next)
+		replaced = true
+	}
+	if !replaced {
+		ending := "\n"
+		if bytes.Contains(block, []byte("\r\n")) {
+			ending = "\r\n"
+		}
+		return append([]byte("event: "+kind+ending), block...)
+	}
+	return bytes.Join(out, []byte("\n"))
+}
+
 func normalizeNativeTerminalResponse(resp *http.Response, body []byte, path string) []byte {
 	protocol := nativeTerminalProtocol(path)
 	mediaType, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))

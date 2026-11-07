@@ -14,6 +14,115 @@ import (
 
 const meta = `export const meta={apiVersion:1,key:"fixture",name:"Fixture",version:"1.0.0",protocols:["chat"],hooks:["request"]};`
 
+const providerMeta = `export const meta={apiVersion:2,kind:"provider",key:"fixture-provider",name:"Fixture provider",version:"1.0.0",protocols:["chat","video"],credentialKinds:["api_key","oauth"],hooks:["request","response","modelsRequest","modelsResponse","submit","query","content","taskResult"]};`
+
+const providerFunctions = `export function request(input){return {method:"POST",path:"/generate",body:input.body};}
+export function response(input){return {body:input.body};}
+export function modelsRequest(){return {method:"GET",path:"/models"};}
+export function modelsResponse(){return {models:["vendor-model"]};}
+export function submit(input){return {method:"POST",path:"/jobs",body:input.body};}
+export function query(input){return {method:"GET",path:"/jobs/"+encodeURIComponent(input.taskId)};}
+export function content(){return {method:"GET",path:"/content"};}
+export function taskResult(){return {status:"pending"};}`
+
+func TestProviderDeclarationIsIndependentFromWireHooks(t *testing.T) {
+	p, err := Compile(context.Background(), providerMeta+providerFunctions)
+	if err != nil {
+		t.Fatalf("valid provider declaration cannot be installed: %v", err)
+	}
+	// A provider returns descriptors, not wire operations. Existing wire-hook
+	// bindings must not interpret one as a no-op and silently skip its driver.
+	if _, err := p.Call(context.Background(), "request", Input{Protocol: "chat", Body: `{}`}); !errors.Is(err, ErrManifest) {
+		t.Fatalf("provider borrowed the wire-hook entry: %v", err)
+	}
+}
+
+func TestProviderCallsKeepNativeJSONAndSeparateDiscovery(t *testing.T) {
+	p, err := Compile(context.Background(), providerMeta+providerFunctions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire := `{"model":"vendor-model","seed":9007199254740993,"opaque":"untouched"}`
+	raw, err := p.CallDriver(context.Background(), "request", DriverInput{Protocol: "chat", Body: wire, CredentialKind: "api_key"})
+	var descriptor RequestDescriptor
+	if err != nil || json.Unmarshal(raw, &descriptor) != nil || descriptor.Body != wire {
+		t.Fatalf("driver changed native input: %s %v", raw, err)
+	}
+	endpoint, err := descriptor.ResolveURL("https://provider.invalid/v1/chat")
+	if err != nil || endpoint.String() != "https://provider.invalid/generate" {
+		t.Fatalf("descriptor changed destination: %v %v", endpoint, err)
+	}
+	raw, err = p.CallDriver(context.Background(), "modelsResponse", DriverInput{CredentialKind: "oauth"})
+	if err != nil || string(raw) != `{"models":["vendor-model"]}` {
+		t.Fatalf("discovery callback failed: %s %v", raw, err)
+	}
+	for _, input := range []DriverInput{
+		{Protocol: "responses", CredentialKind: "api_key"},
+		{Protocol: "chat", CredentialKind: "none"},
+		{Protocol: "chat", CredentialKind: "api_key", Stream: true},
+	} {
+		if _, err := p.CallDriver(context.Background(), "request", input); !errors.Is(err, ErrManifest) {
+			t.Fatalf("undeclared driver capability accepted: %+v %v", input, err)
+		}
+	}
+	if _, err := p.CallDriver(context.Background(), "modelsResponse", DriverInput{Protocol: "chat", CredentialKind: "oauth"}); !errors.Is(err, ErrManifest) {
+		t.Fatalf("discovery borrowed a transport slot: %v", err)
+	}
+	for _, hook := range []string{"submit", "query", "content", "taskResult"} {
+		if _, err := p.CallDriver(context.Background(), hook, DriverInput{Protocol: "video", CredentialKind: "api_key", TaskID: "job/1"}); err != nil {
+			t.Fatalf("declared task operation %s failed: %v", hook, err)
+		}
+	}
+}
+
+func TestProviderDescriptorsRejectRecipientAndHeaderInjection(t *testing.T) {
+	for _, descriptor := range []RequestDescriptor{
+		{Method: "POST", Path: "https://other.invalid/jobs"},
+		{Method: "POST", Path: "//other.invalid/jobs"},
+		{Method: "POST", Path: "/jobs#fragment"},
+		{Method: "POST", Path: "/jobs\\evil"},
+		{Method: "TRACE", Path: "/jobs"},
+		{Method: "GET", Body: "not-read-only"},
+		{Method: "POST", Headers: map[string]string{"Authorization": "synthetic-private"}},
+		{Method: "POST", Headers: map[string]string{"X-Vendor-Token": "synthetic-private"}},
+		{Method: "POST", Headers: map[string]string{"Transfer-Encoding": "chunked"}},
+		{Method: "POST", Headers: map[string]string{"X-Vendor": "value\r\nInjected: header"}},
+		{Method: "POST", Headers: map[string]string{"X-Vendor": "one", "x-vendor": "two"}},
+	} {
+		if _, err := descriptor.ResolveURL("https://provider.invalid/v1"); !errors.Is(err, ErrResult) {
+			t.Fatalf("unsafe descriptor accepted: %+v %v", descriptor, err)
+		}
+	}
+}
+
+func TestProviderCallsIsolateStateAndBoundErrors(t *testing.T) {
+	declaration := `export const meta={apiVersion:2,kind:"provider",key:"fixture",name:"F",version:"1.0.0",protocols:["chat"],credentialKinds:["api_key"],hooks:["request","response"]};export function response(input){return {body:input.body};}`
+	for _, hook := range []string{
+		`export function request(){throw new Error("synthetic-private-input");}`,
+		`export async function request(){return {};}`,
+		`export function request(){return [];}`,
+	} {
+		p, err := Compile(context.Background(), declaration+hook)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = p.CallDriver(context.Background(), "request", DriverInput{Protocol: "chat", CredentialKind: "api_key"})
+		if err == nil || strings.Contains(err.Error(), "synthetic-private-input") {
+			t.Fatalf("unsafe provider error/result: %v", err)
+		}
+	}
+	p, err := Compile(context.Background(), declaration+`let count=0;export function request(){if(typeof fetch!=="undefined"||typeof process!=="undefined")throw new Error("ambient");return {count:++count};}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		raw, err := p.CallDriver(context.Background(), "request", DriverInput{Protocol: "chat", CredentialKind: "api_key"})
+		if err != nil || string(raw) != `{"count":1}` {
+			t.Fatalf("provider retained ambient state: %s %v", raw, err)
+		}
+	}
+}
+
 func TestActualModuleOperationsPreserveIntegerAndNativeExtensions(t *testing.T) {
 	p, err := Compile(context.Background(), meta+`export function request(input){return {body:[{op:"set",path:"vendor.flag",value:"true"}],headers:[{op:"set",path:"X-Vendor-Mode",value:"native"}]};}`)
 	if err != nil {

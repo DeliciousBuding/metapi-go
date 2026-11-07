@@ -24,6 +24,11 @@ const mocks = vi.hoisted(() => ({
   resolve: vi.fn(),
   success: vi.fn(),
   info: vi.fn(),
+  plugins: vi.fn(),
+}))
+vi.mock('@/lib/api/channel-plugins', async (original) => ({
+  ...(await original<typeof import('@/lib/api/channel-plugins')>()),
+  channelPluginsApi: { list: mocks.plugins },
 }))
 vi.mock('@/lib/api', () => ({ api: { connectUpstream: mocks.connect } }))
 vi.mock('@/lib/api/upstream-presets', () => ({
@@ -172,6 +177,7 @@ beforeEach(async () => {
   vi.clearAllMocks()
   Element.prototype.scrollIntoView = vi.fn()
   mocks.list.mockResolvedValue({ items: presets })
+  mocks.plugins.mockResolvedValue({ items: [] })
   mocks.connect.mockResolvedValue(result)
   mocks.resolve.mockResolvedValue({
     presetId: 'deepseek-openai',

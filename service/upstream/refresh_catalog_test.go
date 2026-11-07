@@ -10,8 +10,10 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 // Catalog refresh contract (route-decision E batch): discovery diff with
@@ -39,6 +41,128 @@ func refreshChannelFixture(t *testing.T, dialect string, models *[]string) (*sto
 }
 
 func strPtr(s string) *string { return &s }
+
+const providerCatalogSource = `export const meta={apiVersion:2,kind:"provider",key:"catalog",name:"Catalog",version:"1.0.0",protocols:["chat"],credentialKinds:["api_key"],hooks:["request","response","modelsRequest","modelsResponse"]};export function request(i){return {method:"POST",body:i.body};}export function response(i){return {body:i.body};}export function modelsRequest(){return {method:"GET",headers:{"X-Catalog-Hook":"on"}};}export function modelsResponse(i){const value=JSON.parse(i.body);return {models:value.items,nextCursor:value.next||""};}`
+
+func TestProviderCatalogUsesHooksAndAuthoritativePagination(t *testing.T) {
+	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
+		for _, mode := range []string{"paged", "empty", "repeated-cursor", "wrong-path", "reject-page", "stale-code", "stale-config"} {
+			t.Run(dialect+"/"+mode, func(t *testing.T) {
+				db := connectDatabase(t, dialect)
+				var calls atomic.Int32
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path != "/inventory" {
+						w.WriteHeader(404)
+						return
+					}
+					calls.Add(1)
+					if mode == "reject-page" && r.URL.Query().Get("cursor") == "second" {
+						w.WriteHeader(403)
+						return
+					}
+					if r.Header.Get("Authorization") != "Bearer synthetic-catalog" || r.Header.Get("X-Catalog-Hook") != "on" {
+						t.Error("catalog hook/current auth missing")
+					}
+					w.Header().Set("Content-Type", "application/json")
+					if mode == "empty" {
+						fmt.Fprint(w, `{"items":[]}`)
+					} else if mode == "repeated-cursor" {
+						fmt.Fprint(w, `{"items":["first"],"next":"same"}`)
+					} else if r.URL.Query().Get("cursor") == "second" {
+						fmt.Fprint(w, `{"items":["second"]}`)
+					} else {
+						fmt.Fprint(w, `{"items":["first"],"next":"second"}`)
+					}
+				}))
+				t.Cleanup(server.Close)
+				source := providerCatalogSource
+				if mode == "wrong-path" {
+					source = strings.Replace(source, `method:"GET",headers`, `method:"GET",path:"/other",headers`, 1)
+				}
+				if _, err := channelplugins.Save(t.Context(), db.DB, "catalog", source, true, 0); err != nil {
+					t.Fatal(err)
+				}
+				binding := &store.DirectProviderBinding{Key: "catalog", Protocols: []string{"chat"}, Catalog: &store.DirectCatalogEndpoint{URL: server.URL + "/inventory", Auth: store.DirectAuthBearer, CursorParameter: "cursor"}}
+				id, err := upstream.CreateChannel(t.Context(), db.DB, upstream.ChannelCreate{Name: "Catalog", Provider: "custom", Dialect: "generic", Enabled: true, BaseURL: server.URL, Endpoints: store.DirectEndpoints{Chat: &store.DirectEndpoint{URL: server.URL + "/v1/chat/completions", Auth: store.DirectAuthBearer}}, RequestConfig: store.DirectRequestConfig{Provider: binding}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := upstream.Write(t.Context(), db.DB, func(tx *sqlx.Tx) error {
+					_, err := upstream.InsertNative(t.Context(), tx, "credentials", id, "Default", "synthetic-catalog", true, store.DirectCredentialAPIKey, store.DirectOAuthState{})
+					return err
+				}); err != nil {
+					t.Fatal(err)
+				}
+				preview, err := upstream.PreviewCatalogRefresh(t.Context(), db.DB, id, nil)
+				if mode == "repeated-cursor" || mode == "wrong-path" || mode == "reject-page" {
+					if err == nil {
+						t.Fatal("invalid pagination/target produced a partial preview")
+					}
+					wantCalls := int32(2)
+					if mode == "wrong-path" {
+						wantCalls = 0
+					}
+					if calls.Load() != wantCalls {
+						t.Fatalf("unexpected failed-discovery dispatch count: %d", calls.Load())
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("provider catalog was bypassed: %v", err)
+				}
+				want := 2
+				if mode == "empty" {
+					want = 0
+				}
+				if preview.UpstreamCount != want || len(preview.Added) != want {
+					t.Fatalf("authoritative models lost: %+v", preview)
+				}
+				if mode == "empty" && preview.Discovery.Status != "empty" {
+					t.Fatalf("empty catalog substituted: %+v", preview.Discovery)
+				}
+				var models int
+				if err := db.Get(&models, `SELECT COUNT(*) FROM upstream_models`); err != nil || models != 0 {
+					t.Fatalf("preview wrote catalog: %d %v", models, err)
+				}
+				if mode == "stale-code" {
+					if _, err := channelplugins.Save(t.Context(), db.DB, "catalog", strings.ReplaceAll(source, `version:"1.0.0"`, `version:"1.0.1"`), true, 1); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if mode == "stale-config" {
+					if _, err := db.Exec(db.Rebind(`UPDATE upstream_channels SET custom_header=? WHERE id=?`), `[{"header_key":"X-Catalog-Config","header_value":"changed"}]`, id); err != nil {
+						t.Fatal(err)
+					}
+				}
+				result, err := upstream.ApplyCatalogRefresh(t.Context(), db.DB, id, preview.BasisToken, nil)
+				if mode == "stale-code" || mode == "stale-config" {
+					var domain *upstream.Error
+					if !errors.As(err, &domain) || domain.Status != 409 {
+						t.Fatalf("changed provider preview applied: %+v %v", result, err)
+					}
+					if err := db.Get(&models, `SELECT COUNT(*) FROM upstream_models`); err != nil || models != 0 {
+						t.Fatalf("stale apply changed catalog: %d %v", models, err)
+					}
+					return
+				}
+				if err != nil || result.AddedCount != want {
+					t.Fatalf("apply: %+v %v", result, err)
+				}
+				var grants int
+				if err := db.Get(&grants, `SELECT COUNT(*) FROM upstream_grants`); err != nil || grants != 0 {
+					t.Fatalf("discovery granted model access: %d %v", grants, err)
+				}
+				wantCalls := int32(4)
+				if mode == "empty" {
+					wantCalls = 2
+				}
+				if calls.Load() != wantCalls {
+					t.Fatalf("unexpected catalog dispatches: %d want %d", calls.Load(), wantCalls)
+				}
+			})
+		}
+	}
+}
 
 func TestCatalogRefreshPreviewApplyRoundTrip(t *testing.T) {
 	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {

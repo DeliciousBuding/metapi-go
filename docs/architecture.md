@@ -79,7 +79,7 @@ refresh family。family 按签发供应商与 OAuth client 划分，用不可逆
 配置变化会拒绝本次派发，不拿旧 permit 改选新渠道；HTTP 和 WS 使用同一边界。
 持久消费事实随一致快照备份与方言迁移保留，临时 lease 不复制。
 
-`internal/channelplugin` 负责无 I/O 的 moejs wire hooks；`service/channelplugins`
+`internal/channelplugin` 负责无 I/O 的 moejs wire hooks 与受限 provider 描述符；`service/channelplugins`
 拥有安装元数据、版本 CAS 和不可变尝试快照，`store.channel_plugins` 保存本地可信代码。
 渠道 `DirectRequestConfig.Plugins` 指定有序协议槽绑定，管理界面使用同一 manifest
 渲染选项，不读取私有请求操作。请求、响应和 SSE 接入已有 handler pipeline；
@@ -87,6 +87,19 @@ compact 与 WS 独立绑定，后者在既有每轮 owner 捕获不可变快照�
 再投影事件，不给 hook 凭据/路由/重放能力；
 路由、凭据、transport 和预算 owner 保持不变。合同与限制见
 [渠道插件 API](api/channel-plugins.md)。
+
+API v2 provider 通过独立 `DirectRequestConfig.Provider` 绑定，不混入有序
+wire 链。新建时选中端点/目录的默认模板落入原配置，升级不移动目标；实际
+请求由既有 HTTP/WS dispatcher 授权和执行，原始用量先于原生投影。
+`service/upstream` 目录 owner 消费独立 models hooks，复用当前凭据解析，
+有界分页且拒绝部分成功；预览 basis 绑定配置与程序 identity，应用沿原锁重验。
+厂商响应通过独立 decoder 进入原生 JSON/SSE/WS 和聚合 owner；原始 observations
+在执行代码前按不可变 manifest 选择字段，计费不从解码输出反推。原生投影和
+wire hooks 位于解码后，已发生请求的 decoder 失败不重放。
+provider 的匿名身份复用既有凭据 resolver 与 Ollama 端点资格；每页目录同样解析
+当前身份，空 Key/解析失败不授予匿名权限。显式无认证目录不发送供应商凭据。
+本阶段未另建 router、凭据池或任务平台；自定义认证与媒体 driver 持久生命周期
+尚未接通，不能据协议声明推断这些能力已可用。
 
 产品预设由 `service/upstream_presets.go` 管理品牌、套餐、凭据类型和各协议的
 默认主机；它们是连接的初始值，不限制高级自定义可以配置的协议。

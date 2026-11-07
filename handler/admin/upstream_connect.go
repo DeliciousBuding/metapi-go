@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -14,18 +15,19 @@ import (
 
 func (h *upstreamCatalogHandler) connect(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		PresetID          string                 `json:"presetId"`
-		APIKey            *string                `json:"apiKey,omitempty"`
-		GCPServiceAccount *string                `json:"gcpServiceAccount,omitempty"`
-		BaseURL           string                 `json:"baseUrl,omitempty"`
-		ProjectID         string                 `json:"projectId,omitempty"`
-		Name              string                 `json:"name,omitempty"`
-		UseSystemProxy    bool                   `json:"useSystemProxy,omitempty"`
-		ChannelProxy      string                 `json:"channelProxy,omitempty"`
-		Protocols         []string               `json:"protocols,omitempty"`
-		EndpointConfig    *store.DirectEndpoints `json:"endpointConfig,omitempty"`
-		CustomHeaders     string                 `json:"customHeaders,omitempty"`
-		ParamOverride     string                 `json:"paramOverride,omitempty"`
+		PresetID          string                       `json:"presetId"`
+		APIKey            *string                      `json:"apiKey,omitempty"`
+		GCPServiceAccount *string                      `json:"gcpServiceAccount,omitempty"`
+		BaseURL           string                       `json:"baseUrl,omitempty"`
+		ProjectID         string                       `json:"projectId,omitempty"`
+		Name              string                       `json:"name,omitempty"`
+		UseSystemProxy    bool                         `json:"useSystemProxy,omitempty"`
+		ChannelProxy      string                       `json:"channelProxy,omitempty"`
+		Protocols         []string                     `json:"protocols,omitempty"`
+		EndpointConfig    *store.DirectEndpoints       `json:"endpointConfig,omitempty"`
+		CustomHeaders     string                       `json:"customHeaders,omitempty"`
+		ParamOverride     string                       `json:"paramOverride,omitempty"`
+		ProviderBinding   *store.DirectProviderBinding `json:"providerBinding,omitempty"`
 	}
 	if !catalogDecode(w, r, &input) {
 		return
@@ -79,7 +81,20 @@ func (h *upstreamCatalogHandler) connect(w http.ResponseWriter, r *http.Request)
 		name = preset.Name
 	}
 	channel := upstream.ChannelCreate{Name: name, Provider: preset.Provider, Dialect: "generic", Enabled: true, BaseURL: base, Endpoints: endpoints, UseSystemProxy: input.UseSystemProxy, ChannelProxy: strings.TrimSpace(input.ChannelProxy), CustomHeaders: input.CustomHeaders, ParamOverride: input.ParamOverride}
-	if err := validateImportedConfig(importedChannelConfig{Name: name, Provider: preset.Provider, Dialect: "generic", BaseURL: base, Endpoints: endpoints, UseSystemProxy: channel.UseSystemProxy, ChannelProxy: channel.ChannelProxy, CustomHeaders: channel.CustomHeaders, ParamOverride: channel.ParamOverride}); err != nil {
+	channel.RequestConfig.Provider = input.ProviderBinding
+	// Quick connect already has an explicit preset subset or complete custom
+	// endpoints. A binding must not add capabilities via driver defaults before
+	// the existing connection flow initializes grants for these endpoints.
+	if err := channel.RequestConfig.ValidateEndpoints(endpoints); err != nil {
+		writeError(w, http.StatusBadRequest, "Provider protocols must have selected channel endpoints")
+		return
+	}
+	if err := channelplugins.FillDefaults(r.Context(), h.db, base, &channel.Endpoints, &channel.RequestConfig); err != nil {
+		catalogError(w, err)
+		return
+	}
+	endpoints = channel.Endpoints
+	if err := validateImportedConfig(importedChannelConfig{Name: name, Provider: preset.Provider, Dialect: "generic", BaseURL: base, Endpoints: endpoints, UseSystemProxy: channel.UseSystemProxy, ChannelProxy: channel.ChannelProxy, CustomHeaders: channel.CustomHeaders, ParamOverride: channel.ParamOverride, RequestConfig: channel.RequestConfig}); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}

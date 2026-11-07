@@ -30,6 +30,9 @@ type directProviderWire struct {
 	RequestConfig       store.DirectRequestConfig
 	RequestContext      requestoverride.Context
 	Plugins             []channelplugins.Invocation
+	Driver              *channelplugins.DriverInvocation
+	DriverURL           string
+	DriverContentType   string
 	PluginProtocol      string
 	PluginModel         string
 	PluginStream        bool

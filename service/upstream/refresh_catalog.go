@@ -14,6 +14,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -90,19 +91,21 @@ type catalogModelRow struct {
 }
 
 type catalogChannelRow struct {
-	ID             int64                 `db:"id"`
-	Name           string                `db:"name"`
-	Provider       string                `db:"provider"`
-	Enabled        bool                  `db:"enabled"`
-	EndpointConfig store.DirectEndpoints `db:"endpoint_config"`
-	UseSystemProxy bool                  `db:"proxy"`
-	ChannelProxy   string                `db:"channel_proxy"`
-	CustomHeaders  string                `db:"custom_header"`
+	ID                int64                     `db:"id"`
+	Name              string                    `db:"name"`
+	Provider          string                    `db:"provider"`
+	Enabled           bool                      `db:"enabled"`
+	EndpointConfig    store.DirectEndpoints     `db:"endpoint_config"`
+	UseSystemProxy    bool                      `db:"proxy"`
+	ChannelProxy      string                    `db:"channel_proxy"`
+	CustomHeaders     string                    `db:"custom_header"`
+	RequestConfig     store.DirectRequestConfig `db:"request_config"`
+	DiscoveryIdentity string                    `db:"-"`
 }
 
 func loadCatalogChannel(ctx context.Context, db *sqlx.DB, channelID int64) (*catalogChannelRow, error) {
 	var row catalogChannelRow
-	err := db.GetContext(ctx, &row, db.Rebind(`SELECT id,name,provider,enabled,endpoint_config,proxy,channel_proxy,custom_header FROM upstream_channels WHERE id=?`), channelID)
+	err := db.GetContext(ctx, &row, db.Rebind(`SELECT id,name,provider,enabled,endpoint_config,proxy,channel_proxy,custom_header,request_config FROM upstream_channels WHERE id=?`), channelID)
 	if err != nil {
 		return nil, &Error{Status: 404, Message: "Upstream channel not found"}
 	}
@@ -115,25 +118,42 @@ func loadCatalogChannel(ctx context.Context, db *sqlx.DB, channelID int64) (*cat
 // contains an old cached token: expiry, replacement and revocation are not
 // decisions the catalog can safely infer. Tokens never leave the process.
 func loadDiscoveryCredential(ctx context.Context, db *sqlx.DB, channelID int64, proxyURL *string, resolve DiscoveryCredentialResolver) (string, error) {
+	credential, err := loadDiscoveryCredentialForKinds(ctx, db, channelID, proxyURL, resolve, nil)
+	return credential.Secret, err
+}
+
+type catalogCredential struct{ Kind, Secret string }
+
+func loadDiscoveryCredentialForKinds(ctx context.Context, db *sqlx.DB, channelID int64, proxyURL *string, resolve DiscoveryCredentialResolver, kinds []string) (catalogCredential, error) {
 	rows := []struct {
 		ID     int64  `db:"id"`
 		Kind   string `db:"kind"`
 		Secret string `db:"secret"`
 	}{}
 	if err := db.SelectContext(ctx, &rows, db.Rebind(`SELECT id,kind,secret FROM upstream_credentials WHERE channel_id=? AND enabled ORDER BY id`), channelID); err != nil {
-		return "", err
+		return catalogCredential{}, err
 	}
 	exchangeFailed := false
 	for _, row := range rows {
+		if len(kinds) > 0 && !slices.Contains(kinds, row.Kind) {
+			continue
+		}
 		switch row.Kind {
 		case store.DirectCredentialAPIKey:
 			if row.Secret != "" {
-				return row.Secret, nil
+				return catalogCredential{row.Kind, row.Secret}, nil
 			}
 			continue
 		case store.DirectCredentialOAuth, store.DirectCredentialGCPServiceAccount:
 			// These kinds require a current credential resolution, never a
 			// fallback to their stored token after the resolver rejects them.
+		case store.DirectCredentialNone:
+			// Only an explicit provider capability may request this identity.
+			// The shared resolver verifies the channel's anonymous policy and
+			// stored material; an absent token is not proof of public access.
+			if !slices.Contains(kinds, store.DirectCredentialNone) || row.Secret != "" {
+				continue
+			}
 		default:
 			continue
 		}
@@ -141,20 +161,56 @@ func loadDiscoveryCredential(ctx context.Context, db *sqlx.DB, channelID int64, 
 			continue
 		}
 		token, err := resolve(ctx, row.ID, proxyURL)
-		if err != nil || token == "" {
+		anonymous := row.Kind == store.DirectCredentialNone
+		if err != nil || token == "" && !anonymous || token != "" && anonymous {
 			exchangeFailed = true
 			continue
 		}
-		return token, nil
+		var current struct {
+			Kind   string `db:"kind"`
+			Secret string `db:"secret"`
+		}
+		if db.GetContext(ctx, &current, db.Rebind(`SELECT kind,secret FROM upstream_credentials WHERE id=? AND channel_id=? AND enabled`), row.ID, channelID) != nil || len(kinds) > 0 && !slices.Contains(kinds, current.Kind) || anonymous && (current.Kind != store.DirectCredentialNone || current.Secret != "") {
+			exchangeFailed = true
+			continue
+		}
+		return catalogCredential{current.Kind, token}, nil
 	}
 	if exchangeFailed {
-		return "", errDiscoveryExchangeFailed
+		return catalogCredential{}, errDiscoveryExchangeFailed
 	}
-	return "", sql.ErrNoRows
+	return catalogCredential{}, sql.ErrNoRows
 }
 
 // discoverChannelCatalog discovers a stored channel without preset fallbacks.
 func discoverChannelCatalog(ctx context.Context, db *sqlx.DB, channel *catalogChannelRow, resolve DiscoveryCredentialResolver) ([]string, Discovery, error) {
+	if binding := channel.RequestConfig.Provider; binding != nil && binding.Catalog != nil {
+		if err := channel.RequestConfig.ValidateEndpoints(channel.EndpointConfig); err != nil {
+			return nil, Discovery{}, invalid("Invalid provider catalog binding")
+		}
+		manager := channelplugins.New(db)
+		identity := providerCatalogChannelIdentity(channel)
+		read := func(ctx context.Context, kinds []string) (catalogCredential, error) {
+			proxyURL := effectiveCatalogProxy(channel.ChannelProxy, channel.UseSystemProxy)
+			var proxyPtr *string
+			if proxyURL != "" {
+				proxyPtr = &proxyURL
+			}
+			return loadDiscoveryCredentialForKinds(ctx, db, channel.ID, proxyPtr, resolve, kinds)
+		}
+		verify := func(ctx context.Context) error {
+			current, err := loadCatalogChannel(ctx, db, channel.ID)
+			if err != nil || providerCatalogChannelIdentity(current) != identity {
+				return conflict("Channel discovery configuration changed; retry discovery")
+			}
+			return nil
+		}
+		models, discovery, code, err := discoverProviderCatalog(ctx, manager, *binding, channel.ChannelProxy, channel.CustomHeaders, channel.UseSystemProxy, read, verify)
+		if err == nil {
+			channel.DiscoveryIdentity = identity + ":" + code
+		}
+		return models, discovery, err
+	}
 	credential := func(ctx context.Context) (string, error) {
 		// The token exchange uses the same egress path as the catalog call.
 		proxyURL := channel.ChannelProxy
@@ -200,8 +256,11 @@ func loadCatalogModels(ctx context.Context, db *sqlx.DB, channelID int64) ([]cat
 
 // catalogBasisToken binds the catalog rows and the discovered set: applying a
 // preview is only valid while both are unchanged.
-func catalogBasisToken(rows []catalogModelRow, discovered []string) string {
+func catalogBasisToken(rows []catalogModelRow, discovered []string, identity ...string) string {
 	h := sha256.New()
+	if len(identity) > 0 && identity[0] != "" {
+		_, _ = h.Write([]byte("provider:" + identity[0] + "\x00"))
+	}
 	for _, row := range rows {
 		fmt.Fprintf(h, "%d|%s|%t|%s\n", row.ID, row.Name, row.Enabled, row.Origin)
 	}
@@ -301,7 +360,7 @@ func PreviewCatalogRefresh(ctx context.Context, db *sqlx.DB, channelID int64, re
 	}
 	return CatalogRefreshPreview{
 		ChannelID:         channelID,
-		BasisToken:        catalogBasisToken(rows, discovered),
+		BasisToken:        catalogBasisToken(rows, discovered, channel.DiscoveryIdentity),
 		Discovery:         discovery,
 		UpstreamCount:     len(discovered),
 		Added:             added,
@@ -343,7 +402,20 @@ func ApplyCatalogRefresh(ctx context.Context, db *sqlx.DB, channelID int64, basi
 		if err := tx.SelectContext(ctx, &rows, tx.Rebind(`SELECT id,name,enabled,origin_key FROM upstream_models WHERE channel_id=? ORDER BY id`), channelID); err != nil {
 			return err
 		}
-		if catalogBasisToken(rows, discovered) != basisToken {
+		if channel.DiscoveryIdentity != "" {
+			var current catalogChannelRow
+			if err := tx.GetContext(ctx, &current, tx.Rebind(`SELECT id,name,provider,enabled,endpoint_config,proxy,channel_proxy,custom_header,request_config FROM upstream_channels WHERE id=?`), channelID); err != nil {
+				return err
+			}
+			if current.RequestConfig.Provider == nil {
+				return conflict("Channel discovery configuration changed; retry discovery")
+			}
+			_, code, err := channelplugins.New(tx).DescribeProvider(ctx, *current.RequestConfig.Provider)
+			if err != nil || providerCatalogChannelIdentity(&current)+":"+code != channel.DiscoveryIdentity {
+				return conflict("Channel discovery configuration changed; retry discovery")
+			}
+		}
+		if catalogBasisToken(rows, discovered, channel.DiscoveryIdentity) != basisToken {
 			return conflict("Preview is stale: the catalog or upstream models changed since it was computed; run the preview again")
 		}
 		added, _, _, _, _, staleRows := computeCatalogDiff(rows, discovered, discoveryOrigin)

@@ -1,8 +1,11 @@
 package store
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/deliciousbuding/metapi-go/internal/channelplugin/contract"
 )
 
 func TestDirectRequestConfigMigrationKeepsLegacyBehavior(t *testing.T) {
@@ -32,5 +35,52 @@ func TestDirectRequestConfigMigrationKeepsLegacyBehavior(t *testing.T) {
 		if config.Scan(raw) == nil {
 			t.Fatalf("persisted invalid config accepted: %s", raw)
 		}
+	}
+}
+
+func TestProviderBindingEndpointSlotsAndPortableJSON(t *testing.T) {
+	entries := (DirectEndpoints{}).Entries()
+	if len(entries) != contract.MaxProviderProtocols {
+		t.Fatalf("driver/endpoint vocabularies diverged: %d", len(entries))
+	}
+	for _, entry := range entries {
+		if !contract.ValidProviderProtocol(entry.Key) {
+			t.Fatalf("endpoint slot missing from provider contract: %s", entry.Key)
+		}
+	}
+	var config DirectRequestConfig
+	if err := config.Scan(`{"provider":{"key":"driver","protocols":["chat"],"options":{"mode":"safe"}}}`); err != nil || !config.Active() {
+		t.Fatalf("provider round-trip failed: %+v %v", config, err)
+	}
+	endpoints := DirectEndpoints{Chat: &DirectEndpoint{URL: "https://fixture.invalid/chat", Auth: DirectAuthBearer}}
+	if err := config.ValidateEndpoints(endpoints); err != nil {
+		t.Fatal(err)
+	}
+	value, err := config.Value()
+	var restored DirectRequestConfig
+	if err != nil || restored.Scan(value) != nil || restored.Provider == nil || string(restored.Provider.Options["mode"]) != `"safe"` {
+		t.Fatalf("provider JSON lost: %v %v", value, err)
+	}
+	config.Provider.Protocols = []string{"video"}
+	if config.ValidateEndpoints(endpoints) == nil {
+		t.Fatal("provider created an absent transport slot")
+	}
+	for _, raw := range []string{
+		`{"provider":{"key":"driver","protocols":[]}}`,
+		`{"provider":{"key":"driver","protocols":["chat","chat"]}}`,
+		`{"provider":{"key":"driver","protocols":["unknown"]}}`,
+		`{"provider":{"key":"driver","protocols":["chat"],"unknown":true}}`,
+		`{"provider":{"key":"driver","protocols":["chat"]},"plugins":[{"key":"driver","protocols":["chat"]}]}`,
+	} {
+		if err := config.Scan(raw); err == nil {
+			t.Fatalf("invalid provider configuration accepted: %s", raw)
+		}
+	}
+	if err := config.Scan(`{"provider":null}`); err != nil || config.Active() {
+		t.Fatalf("null provider changed legacy defaults: %+v %v", config, err)
+	}
+	encoded, err := json.Marshal(config)
+	if err != nil || string(encoded) != `{"options":{}}` {
+		t.Fatalf("legacy config encoding changed: %s %v", encoded, err)
 	}
 }

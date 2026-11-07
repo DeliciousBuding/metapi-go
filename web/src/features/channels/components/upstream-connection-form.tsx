@@ -24,7 +24,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
-import { pluginBindingSchema } from '@/lib/api/channel-plugins'
+import {
+  pluginBindingSchema,
+  providerBindingSchema,
+} from '@/lib/api/channel-plugins'
 import type { ImportedUpstreamDetail } from '@/lib/api/imported-upstreams'
 import { toast } from '@/lib/toast'
 
@@ -37,6 +40,7 @@ import {
   type ConnectionValues,
 } from '../lib/upstream-config'
 import { ChannelPluginBindings } from './channel-plugin-bindings'
+import { ChannelProviderBinding } from './channel-provider-binding'
 import { ChannelRuntimeSettings } from './channel-runtime-settings'
 import { UpstreamEndpointsEditor } from './upstream-endpoints-editor'
 import { UpstreamPresetEndpoints } from './upstream-preset-endpoints'
@@ -67,6 +71,7 @@ export function UpstreamConnectionForm(props: {
     'customHeaders',
     'paramOverride',
     'pluginBindings',
+    'providerBinding',
   ].some((key) => !!form.formState.errors[key as keyof ConnectionValues])
   const submitCount = form.formState.submitCount
   const legacyPaths =
@@ -102,16 +107,21 @@ export function UpstreamConnectionForm(props: {
         controller.signal
       )
       if (controller.signal.aborted) return
+      const providerBinding = providerBindingSchema
+        .nullable()
+        .parse(config.providerBinding ?? null)
+      const pluginBindings = pluginBindingSchema
+        .array()
+        .parse(config.pluginBindings ?? [])
       form.resetField('channelProxy', { defaultValue: config.channelProxy })
       form.resetField('customHeaders', {
         defaultValue: headersForEditor(config.customHeaders),
       })
       form.resetField('paramOverride', { defaultValue: config.paramOverride })
       form.resetField('pluginBindings', {
-        defaultValue: pluginBindingSchema
-          .array()
-          .parse(config.pluginBindings ?? []),
+        defaultValue: pluginBindings,
       })
+      form.resetField('providerBinding', { defaultValue: providerBinding })
       setConfigState('ready')
     } catch {
       if (!controller.signal.aborted) setConfigState('locked')
@@ -415,6 +425,39 @@ export function UpstreamConnectionForm(props: {
                       </FormLabel>
                       <FormControl>
                         <StringMapEditor {...field} disabled={pending} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='providerBinding'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('channels.plugins.providerBinding')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t('channels.plugins.providerDescription')}
+                      </FormDescription>
+                      <FormControl>
+                        <ChannelProviderBinding
+                          {...field}
+                          value={field.value ?? null}
+                          protocols={Object.entries(
+                            form.watch('endpointConfig')
+                          ).flatMap(([key, endpoint]) =>
+                            endpoint
+                              ? [
+                                  key as keyof NonNullable<
+                                    ImportedUpstreamDetail['endpointConfig']
+                                  >,
+                                ]
+                              : []
+                          )}
+                          disabled={pending}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
