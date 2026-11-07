@@ -61,7 +61,7 @@ func TestBackupTableNamesAreFKSafe(t *testing.T) {
 }
 
 // TestBackupTableNamesPreserveRegistryOrder pins the derivation: the backup set
-// must be AllTableNames() minus the exclusions, in the same order, so there is
+// must be the schema's FK-safe order minus backup exclusions, so there is
 // one topological order owner instead of a second hand-sorted list.
 func TestBackupTableNamesPreserveRegistryOrder(t *testing.T) {
 	excluded := map[string]bool{}
@@ -69,7 +69,7 @@ func TestBackupTableNamesPreserveRegistryOrder(t *testing.T) {
 		excluded[table] = true
 	}
 	var want []string
-	for _, table := range AllTableNames() {
+	for _, table := range facts().order {
 		if !excluded[table] {
 			want = append(want, table)
 		}

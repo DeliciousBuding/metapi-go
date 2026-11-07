@@ -90,6 +90,7 @@ this payload does **not** carry to the reason, so a backup file states its own g
 
 | Table | Why a backup does not carry it |
 | --- | --- |
+| `credential_refresh_leases` | 临时 OAuth 刷新所有权，恢复实例必须重新获取 lease；同样不复制到方言迁移目标。恢复出厂设置仍会清除它。 |
 | `admin_sessions` | Session credential material. An import must never plant admin session token hashes, so a restored deployment requires a fresh login instead of reviving the source deployment's cookies. |
 | `admin_audit_logs` | Append-only audit trail of the source deployment's admin writes. Replaying it into another database makes that database's audit record assert operations that never happened there, and no retention job bounds its size. |
 | `model_probe_results` | High-frequency background probe telemetry that route rebuild reads as its latest-per-model signal; stale rows from another deployment would steer routing. The prober regenerates them after a restore. |

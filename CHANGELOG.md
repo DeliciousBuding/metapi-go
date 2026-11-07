@@ -22,6 +22,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 ## [Unreleased]
 
 - 渠道新增独立 Decisions HTTP 端点与模型授权，支持原生同步 JSON、输入与问题校验、精确数字、用量和取消；AxonHub `openai/decisions` 的自定义路径与 raw URL 按源构造合同导入，不借用生成协议权限。
+- OAuth 刷新：托管账号和 direct 凭据使用数据库级单记录 lease 与事务 fence，跨连接池/进程复用落库结果；并发禁用、删除、身份/端点变更和凭据替换不会被刷新覆盖。保留取消分类并脱敏供应商错误正文，临时所有权不进入便携备份或方言迁移。不同记录共享同一旋转 token 的 family 协调尚不包含在此能力中。
 
 ### 修复
 

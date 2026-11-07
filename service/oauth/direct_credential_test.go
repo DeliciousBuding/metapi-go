@@ -16,9 +16,13 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-func directCredentialFixture(t *testing.T) (*store.DB, int64) {
+func directCredentialFixture(t *testing.T, fixtureDSN ...string) (*store.DB, int64) {
 	t.Helper()
-	db, err := store.Open(store.DialectSQLite, ":memory:", false)
+	dsn := ":memory:"
+	if len(fixtureDSN) == 1 {
+		dsn = fixtureDSN[0]
+	}
+	db, err := store.Open(store.DialectSQLite, dsn, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,16 +30,21 @@ func directCredentialFixture(t *testing.T) (*store.DB, int64) {
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(`INSERT INTO upstream_channels(id,origin_key,source_id,name,dialect,provider,enabled,base_url,openai_chat_completion_path,openai_response_path,anthropic_message_path,proxy,channel_proxy,custom_header,param_override,match_regex) VALUES(1,'fixture',1,'fixture','generic','claudecode',1,'https://provider.invalid','/v1/chat/completions','/v1/responses','/v1/messages',0,'','[]','','')`)
+	seedDirectCredentialFixture(t, db)
+	return db, 1
+}
+
+func seedDirectCredentialFixture(t *testing.T, db *store.DB) {
+	t.Helper()
+	_, err := db.Exec(`INSERT INTO upstream_channels(id,origin_key,source_id,name,dialect,provider,enabled,base_url,openai_chat_completion_path,openai_response_path,anthropic_message_path,proxy,channel_proxy,custom_header,param_override,match_regex) VALUES(1,'fixture',1,'fixture','generic','claudecode',?,'https://provider.invalid','/v1/chat/completions','/v1/responses','/v1/messages',?,'','[]','','')`, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	state := store.DirectOAuthState{RefreshToken: "fixture-old-refresh-secret", ClientID: "source-client", ExpiresAt: 1}
-	_, err = db.Exec(`INSERT INTO upstream_credentials(id,origin_key,channel_id,source_id,name,secret,kind,oauth_state,enabled) VALUES(1,'fixture',1,1,'default','fixture-old-access-secret','oauth',?,1)`, state)
+	_, err = db.Exec(`INSERT INTO upstream_credentials(id,origin_key,channel_id,source_id,name,secret,kind,oauth_state,enabled) VALUES(1,'fixture',1,1,'default','fixture-old-access-secret','oauth',?,?)`, state, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return db, 1
 }
 
 func directClaudeEndpoint(t *testing.T, handler http.HandlerFunc) {
