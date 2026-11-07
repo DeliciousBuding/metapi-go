@@ -17,6 +17,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/pgtest"
+	"github.com/deliciousbuding/metapi-go/internal/sqlitetest"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
@@ -35,16 +36,24 @@ func installDirectMediaRuntime(t *testing.T, dialect string, endpoints store.Dir
 			t.Skip("PG_TEST_DSN not set")
 		}
 	}
-	db, err := store.Open(dialect, dsn, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if dialect == store.DialectPostgres {
-		pgtest.Reset(t, db.DB)
-	}
-	if err = store.AutoMigrate(db); err != nil {
-		t.Fatal(err)
+	var db *store.DB
+	var err error
+	if dialect == store.DialectSQLite {
+		// Business fixtures need fresh data, not another migration run. The
+		// existing helper copies the production schema into an isolated DB.
+		db = sqlitetest.Open(t)
+	} else {
+		db, err = store.Open(dialect, dsn, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = db.Close() })
+		if dialect == store.DialectPostgres {
+			pgtest.Reset(t, db.DB)
+		}
+		if err = store.AutoMigrate(db); err != nil {
+			t.Fatal(err)
+		}
 	}
 	raw := []byte(`{"version":"1.4","channels":[{"id":1,"type":"moonshot","name":"media fixture","base_url":"https://unused.invalid","credentials":{"apiKey":"fixture-media-key"},"supported_models":["provider-model"]}],"models":[{"id":1,"model_id":"client-alias","settings":{"associations":[{"type":"channel_model","channelModel":{"channelId":1,"modelId":"provider-model"}}]}}]}`)
 	if _, err = backup.ImportAxonHubV14(db, raw, "media-fixture", false); err != nil {
