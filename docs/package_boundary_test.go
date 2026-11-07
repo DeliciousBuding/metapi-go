@@ -39,7 +39,7 @@ import (
 //   - auth → internal/sharedcount
 
 // cmd/server is the composition root and may import anything.
-// cmd/migrate, e2e, internal, docs, web are out of scope.
+// Standalone cmd tools, e2e, internal, docs, web are out of scope.
 
 // When this test fails: do NOT relax it. Either move the import to an
 // allowed edge, or document a new exception in docs/architecture.md + this

@@ -49,6 +49,47 @@ SQLite/PostgreSQL 方言迁移仍保留完整安装记录。
 界面使用不可逆操作的倒计时与输入确认词；网络/响应失败不声称已经回收，
 重新读取引用后再允许操作。本接口不自动扫描并删除所有档案。
 
+### 离线维护旧档案和遗留捕获
+
+旧宿主未声明 durable 捕获，不能在线以零引用证明其已结束提交；崩溃遗留的
+未确认捕获也不会按年龄失效。需要回收时先停止**所有**网关实例（包括旧版、
+其他主机、后台自动重启），保留数据库及已审程序备份，在停止状态使用独立
+`channel-plugin-maintain` 工具。它没有 HTTP apply 入口、不启动服务、不自动迁移。
+数据库锁只协调存储操作，不能证明其他主机的网络请求已停止；
+`--ack-all-instances-stopped` 是操作者的明确停机声明，不是自动探测结果。
+
+从源码构建：`go build -o channel-plugin-maintain ./cmd/channel-plugin-maintain`。
+数据库连接从 `--dsn-env` 指定的临时环境变量读取；该参数是变量**名称**，
+不是 DSN，不读取默认或日常客户端凭据。SQLite 使用现有普通文件的绝对路径，
+不接受 URI/符号链接或自动建库；PostgreSQL 使用该环境变量中的完整 DSN。
+
+三个模式复用同一精确选择计划：
+
+| 模式 | 输入与输出 | 是否回收 |
+| --- | --- | --- |
+| `inspect` | 重复 `--archive key:fingerprint` / `--capture publicId`；输出 JSON 计划 | 否，只读指定行 |
+| `check`（默认） | `--plan /absolute/private/plan.json`；输出 `applied:false` 及预计数量 | 否，事务回滚 |
+| `apply` | 同一计划，加 `--ack-all-instances-stopped`；提交后输出 `applied:true` | 是，一次事务 |
+
+计划为 `{archives:[{key,fingerprint}],captures:[{id,snapshotSha256}]}`，每类最多
+64 个目标、文件最多 64 KiB；拒绝空计划、重复选择、未知/重复 JSON 字段和
+额外 JSON 值。不枚举或删除整个目录。输出只含摘要、公开不透明 ID 和数量，
+不含源码、完整 identity、owner、绑定、账目或凭据；计划仍按私有运行材料保管。
+
+捕获必须仍是 v3 direct provider 的未确认行、无站点/token、没有已初始化或
+未知账目、没有确认后的状态。`snapshotSha256` 绑定完整非凭据行快照；ID
+复用、身份/模型/时间戳/归属/账目变化都需重新 inspect。check/apply 在原目录
+锁和捕获行锁下重验快照，复用全部持久引用索引与严格程序校验；任何损坏、
+缺失引用来源、仍有其他引用或提交失败都拒绝整批，不部分删除。
+显式选择的遗留捕获释放后，才允许回收已无引用的旧档案；已确认/完成任务不
+作为捕获删除，当前安装/启停/绑定/用量表不变。旧档案不需要 durable 声明，
+但仍需原 source/manifest/fingerprint 完整一致，不提供强制忽略损坏选项。
+
+先 inspect 保存私有计划，再 check、人工核对停机/备份后 apply；禁止在服务
+运行时使用停机确认参数。结果未知或已经成功的计划不能直接反复 apply：先在
+停止状态查询精确目标，已删行报错而非假成功；只对仍需维护的行重新 inspect。
+回收后需要恢复时使用停机前备份，不能以新程序替代旧指纹。
+
 ## Manifest 与 hooks
 
 ```js

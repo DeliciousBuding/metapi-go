@@ -18,6 +18,10 @@ JSON 字段。升级不会给存量 HTTP grant 自动增加权限；需要显式
 `meta.taskCapture:"durable"` 是显式的新宿主能力声明，旧 manifest 编译器拒绝；
 回退前处理相关模块与在途工作，不删除声明或重写指纹以冒充兼容。
 旧档案不自动变为可回收，未知/未结束捕获和仍有内容读取需求的任务继续保护程序。
+停止全部网关实例并备份后，可使用独立 `channel-plugin-maintain` 的
+inspect/check/apply 精确维护旧档案和初始未确认捕获；不按时间删除、不变更
+当前安装或用量。操作和结果未知时的处理见[插件合同](api/channel-plugins.md#离线维护旧档案和遗留捕获)，
+数据库锁不证明跨主机在途工作已停止，不在在线 API 提供该停机回收能力。
 
 API v2 provider 绑定保存在已有 `upstream_channels.request_config`；
 旧渠道不自动绑定 provider。新建的默认端点/目录成为持久配置，自定义 URL

@@ -21,7 +21,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
-- 渠道程序档案：提交前持久捕获；新增 `/api/channel-plugin-versions/prune`，仅回收声明 `taskCapture:"durable"` 的无引用档案，冲突返回 409；旧档案与未知遗留捕获仍保留（#1589）。
+- 渠道程序档案：提交前持久捕获；新增 `/api/channel-plugin-versions/prune`，仅在线回收声明 `taskCapture:"durable"` 的无引用档案，冲突返回 409；旧档案与遗留捕获使用显式停机维护，见插件合同（#1589）。
 
 - 渠道插件增加历史任务程序索引与精确源码恢复入口：缺失档案按原指纹恢复，保留当前渠道权限，不以最新版替代旧媒体任务程序。
 

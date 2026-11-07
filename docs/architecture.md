@@ -109,8 +109,11 @@ provider 的匿名身份复用既有凭据 resolver 与 Ollama 端点资格；�
 不改变当前安装或授权。已完成任务也计入引用，因为后续仍可取回内容。
 新 provider submit 在目录事务内归档并向已有任务表写未确认捕获，响应 CAS 确认
 原行；派发完成只释放未确认行。捕获丢失后不重建任务，保留清理不按年龄撤销捕获。
-只有不可变 manifest 声明 `taskCapture:"durable"` 的无引用档案可沿同一锁回收；
+只有不可变 manifest 声明 `taskCapture:"durable"` 的无引用档案可在线沿同一锁回收；
 旧宿主拒绝新声明，旧档案的零引用仍不是在途结束证明，遗留捕获也不自动过期释放。
+旧档案/遗留捕获使用独立离线维护入口：操作者停止全部实例并备份后，指定精确
+目标生成摘要计划；原目录锁、捕获行锁与快照/引用/程序校验控制一次事务回收，
+不改变当前安装/权限/用量。数据库锁不能替操作者证明旧宿主已停止网络 I/O。
 这不增加另一条程序版本轴或任务表，当前安装/归属/授权仍由原 owner 验证。
 multipart driver 在原生 profile 预转换前接收字段和请求内文件引用；字节、文件句柄
 与临时路径由 `handler/proxy` 的原 multipart owner 保留。JSON 占位符或 multipart
@@ -201,6 +204,7 @@ is right and this page is stale.
 | `handler/*` | HTTP surface only: decode, authorize, call a service/proxy entrypoint, encode. | `router` (the router mounts handlers, never the reverse) |
 | `router` | Mount points, middleware order, SPA fallback, static asset serving. | — |
 | `cmd/server` | Composition root; may import anything. | — |
+| `cmd/channel-plugin-maintain` | 显式离线维护入口；计划/环境变量选择与输出，领域事务交给 `service/channelplugins` | 不启动网关、不自动迁移，不挂载在线回收入口 |
 
 Approved exceptions are enumerated in the header comment of
 `docs/package_boundary_test.go` (for example `handler/admin → scheduler` for
@@ -213,7 +217,7 @@ exception to the test with a written justification.
 `proxycore/` and `protocol/` do not exist and must not be reintroduced — the
 test rejects those TypeScript-era names.
 
-The test also names what it does **not** police: `cmd/migrate`, `e2e`, `docs`,
+The test also names what it does **not** police: standalone `cmd` tools, `e2e`, `docs`,
 `web` and everything under `internal/` are out of scope, because those are
 repo-private helpers and fixtures rather than a layer. The single `internal/`
 edge it records is the `auth → internal/sharedcount` exception.
@@ -407,7 +411,8 @@ The fallback answers `index.html` for non-API paths and a JSON 404 body for
 metapi-go/
 ├── cmd/
 │   ├── server/             # Main server entry point
-│   └── migrate/            # Standalone SQLite→PG migration tool
+│   ├── migrate/            # Standalone SQLite→PG migration tool
+│   └── channel-plugin-maintain/ # Explicit offline archive/capture maintenance
 ├── app/                    # Lifecycle: start/shutdown, health, metrics, proxy upstream glue
 ├── auth/                   # Admin + proxy + downstream auth, policy, rate limit
 ├── config/                 # Env loading, defaults, validation (naming rule: BACKEND.md §1.6)
@@ -453,6 +458,7 @@ metapi-go/
 | --------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `cmd/server`    | Wire config → store → app → router; process entry                                                                        |
 | `cmd/migrate`   | Offline SQLite → PostgreSQL data move                                                                                    |
+| `cmd/channel-plugin-maintain` | 精确选择/检查/执行离线程序档案与遗留捕获维护；停机确认由操作者负责 |
 | `app`           | HTTP server lifecycle, readiness, metrics, upstream executor glue                                                        |
 | `router`        | Route tree, CORS/security middleware, embed SPA                                                                          |
 | `auth`          | Fail-closed admin/proxy auth, downstream key policy                                                                      |
