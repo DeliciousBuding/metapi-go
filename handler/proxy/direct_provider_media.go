@@ -78,16 +78,9 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 	if requestoverride.Decode(raw, &descriptor) != nil || descriptor.Method != method || method == http.MethodGet && descriptor.Body != "" {
 		return channelplugin.ErrResult
 	}
-	prepared := []byte(descriptor.Body)
-	if descriptor.Parts != nil {
-		if wire.DriverUpload == nil {
-			return channelplugin.ErrResult
-		}
-		prepared, err = multipartPartsFields(descriptor.Parts, wire.DriverUpload)
-		if err != nil {
-			return err
-		}
-		wire.DriverUpload.parts = descriptor.Parts
+	prepared, err := directDriverDescriptorBody(descriptor, wire)
+	if err != nil {
+		return err
 	}
 	if method == http.MethodPost && !sameDriverRequestControls(protocol, wire.Body, prepared) {
 		return channelplugin.ErrResult

@@ -543,7 +543,7 @@ func dispatchSelectedUpstream(
 	var err error
 	if ctx.Multipart {
 		ctx.directProviderUpload = nil
-		if hasDirectMediaDriver(selected.Direct, upstreamPath) {
+		if hasDirectMultipartDriver(selected.Direct, upstreamPath) {
 			ctx.directProviderUpload, bodyBytes, err = prepareDirectProviderUpload(r, selected.Direct, upstreamModel)
 			if err != nil {
 				writeJSONErrorWithRequest(w, 400, "Invalid provider multipart metadata", "invalid_request_error", requestID)
@@ -972,7 +972,13 @@ func dispatchEndpointAttemptWithContinue(
 	r = r.WithContext(beginGatewayAttempt(r.Context()))
 	req = req.WithContext(r.Context())
 	var resp *http.Response
-	if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.DriverContentQuery {
+	wire := directProviderWireFromContext(r.Context())
+	if wire != nil && (wire.Profile == "openrouter-image" || isDirectMediaProfile(wire.Profile)) {
+		// Replacing the built-in payload/consumer must not remove its image
+		// submission replay boundary. A failed POST may already be billable.
+		maxRetries = retry
+	}
+	if wire != nil && wire.DriverContentQuery {
 		maxRetries = retry
 		resp, err = sendDirectProviderContent(cfg, req, ctx, selected, wire, proxyConfig, firstByteTimeoutMs)
 	} else if wire != nil && wire.DriverOperation == "" && isDirectNativeVideoProfile(wire.Profile) {
@@ -988,12 +994,10 @@ func dispatchEndpointAttemptWithContinue(
 			req = req.WithContext(context.WithValue(req.Context(), directVideoAccountingOperationKey{}, account))
 		}
 		resp, err = sendDirectNativeVideoRequest(cfg, req, proxyConfig, firstByteTimeoutMs, wire.Profile, taskID)
-	} else if wire != nil && wire.Profile == "openrouter-image" {
-		maxRetries = retry
+	} else if wire != nil && wire.Driver == nil && wire.Profile == "openrouter-image" {
 		resp, err = sendDirectOpenRouterImageRequest(cfg, req, proxyConfig, firstByteTimeoutMs, wire.ImageResponseFormat)
-	} else if wire != nil && isDirectMediaProfile(wire.Profile) {
+	} else if wire != nil && wire.Driver == nil && isDirectMediaProfile(wire.Profile) {
 		// Async image submission cannot be replayed after a poll/download failure.
-		maxRetries = retry
 		resp, err = sendDirectMediaProfileRequest(cfg, req, proxyConfig, firstByteTimeoutMs, wire.Profile)
 	} else {
 		resp, err = sendUpstreamRequest(cfg, req, proxyConfig, firstByteTimeoutMs, effectiveStream)

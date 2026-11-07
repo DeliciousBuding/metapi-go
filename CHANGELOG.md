@@ -37,6 +37,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 渠道 provider：接通其余原生同步 JSON 与图片/音频 multipart，按已选端点槽绑定共享路径；非 JSON 音频/字幕原样转发，不执行 JS 解码。原始用量及错误仍优先，异步媒体不隐式借内置 profile 轮询（#1589）。
+
 - 渠道 provider：三个视频槽可显式启用 multipart；插件只接收字段/文件引用，宿主编码并保留文件限制。旧模块仍仅 JSON，未声明格式返回 415；回退前须替换声明 `requestKinds` 的模块（#1589）。
 
 - 渠道 provider：接入视频 JSON 提交、查询与内容 hooks，持久任务升级后恢复原程序；原始任务用量在解码失败时仍计累计差额，CDN 下载隔离渠道凭据并固定公网 IP。multipart 尚未接入，回退限制见插件合同（#1589）。

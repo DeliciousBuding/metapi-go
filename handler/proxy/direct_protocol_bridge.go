@@ -10,6 +10,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"github.com/deliciousbuding/metapi-go/internal/upstreamadapter"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/platform"
@@ -183,11 +184,12 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 		writeMessagesReplayFailure(w, ctx, requestID)
 		return true, nil, false
 	}
-	if err == nil && codexImage {
+	providerUpload := ctx.Multipart && hasDirectMultipartDriver(selected.Direct, path)
+	if err == nil && codexImage && !providerUpload {
 		body, err = prepareDirectCodexImagesRequest(r, ctx, endpoint, model, body)
 		contentType = "application/json"
 	}
-	if err == nil && (!ctx.Multipart || codexImage) && len(body) > 0 {
+	if err == nil && (!ctx.Multipart || codexImage) && !providerUpload && len(body) > 0 {
 		body, err = applyDirectParamOverrides(body, selected.Direct.ParamOverride)
 	}
 	if err == nil && proxy.DirectProtocolForPath(path) == store.DirectProtocolGeminiEmbeddings {
@@ -218,7 +220,9 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 		body, expectUsage = applyUpstreamStreamIncludeUsage(body, "openai", path, upstreamStream)
 	}
 	var wire *directProviderWire
-	if ctx.Multipart && hasDirectMediaDriver(selected.Direct, path) {
+	providerBinding := selected.Direct.RequestConfig.Provider
+	boundProvider := providerBinding != nil && slices.Contains(providerBinding.Protocols, directProviderProtocol(selected.Direct, path, endpoint))
+	if providerUpload {
 		if ctx.directProviderUpload == nil {
 			writeJSONErrorWithRequest(w, 400, "Missing provider upload metadata", "invalid_request_error", requestID)
 			return true, nil, false
@@ -228,6 +232,11 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 			wire.Profile = endpoint.Profile
 		}
 		wire.DriverUpload.profile = wire.Profile
+	} else if endpoint != nil && boundProvider && (endpoint.Profile == "openrouter-image" || isDirectMediaProfile(endpoint.Profile)) {
+		// An explicit driver owns its vendor payload and delivery mode. Keep
+		// endpoint credentials/transport in the host, but do not layer the
+		// built-in image conversion or asynchronous submission defaults on it.
+		wire = &directProviderWire{Body: body, Headers: make(http.Header), Profile: endpoint.Profile}
 	} else if endpoint != nil && endpoint.Profile == "openrouter-image" {
 		wire, contentType, err = prepareDirectOpenRouterImage(path, contentType, body)
 	} else if endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile) {

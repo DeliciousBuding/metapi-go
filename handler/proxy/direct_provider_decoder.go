@@ -15,6 +15,16 @@ import (
 // admission and settlement consume this snapshot even if a later hook fails.
 func observeDirectDriverBody(wire *directProviderWire, body []byte, event bool) (ParsedUsage, bool, error) {
 	usage := ParseUsageFromBody(body)
+	if wire != nil && wire.PluginProtocol == "ollama" && !event && (gjson.GetBytes(body, "message").IsObject() || gjson.GetBytes(body, "done").Exists()) {
+		// Reuse the native codec's integer/control checks on original bytes,
+		// not executable projection output. The response owner still performs
+		// the actual downstream conversion after provider decoding.
+		converted, err := normalizeDirectOllamaJSON(body, true)
+		if err != nil {
+			return usage, false, channelplugin.ErrResult
+		}
+		usage = mergeUsagePreferLater(usage, ParseUsageFromBody(converted))
+	}
 	if wire != nil && wire.DriverOperation != "" && gjson.GetBytes(body, "object").String() == "video" {
 		id := gjson.GetBytes(body, "id")
 		if id.Type == gjson.String && validObservedVideoTaskID(id.String()) {
@@ -160,7 +170,7 @@ func nativeDriverPayload(protocol string, body []byte, event bool) bool {
 	}
 	kind := gjson.GetBytes(body, "type").String()
 	switch protocol {
-	case "chat":
+	case "chat", "completions":
 		return gjson.GetBytes(body, "choices").IsArray()
 	case "responses", "responsesWebsocket":
 		if event {
@@ -174,8 +184,25 @@ func nativeDriverPayload(protocol string, body []byte, event bool) bool {
 		return kind == "message" && gjson.GetBytes(body, "content").IsArray()
 	case "gemini":
 		return gjson.GetBytes(body, "candidates").IsArray() || gjson.GetBytes(body, "usageMetadata").IsObject() || gjson.GetBytes(body, "promptFeedback").IsObject()
+	case "ollama":
+		return gjson.GetBytes(body, "message").IsObject() || gjson.GetBytes(body, "response").Type == gjson.String || gjson.GetBytes(body, "choices").IsArray()
 	case "responsesCompact":
 		return gjson.GetBytes(body, "object").String() == "response.compaction" && gjson.GetBytes(body, "output").IsArray()
+	case "embeddings", "jinaEmbeddings":
+		return gjson.GetBytes(body, "data").IsArray()
+	case "geminiEmbeddings":
+		return gjson.GetBytes(body, "embedding.values").IsArray() || gjson.GetBytes(body, "embeddings").IsArray()
+	case "rerank", "moderations":
+		return gjson.GetBytes(body, "results").IsArray()
+	case "imageGeneration", "imageEdit", "imageVariation", "modelscopeImageGeneration":
+		return gjson.GetBytes(body, "data").IsArray()
+	case "audioTranscription", "audioTranslation":
+		return gjson.GetBytes(body, "text").Type == gjson.String
+	case "decisions":
+		valid, _ := decisionsResponseShape(body)
+		return valid
+	case "systemOne", "alphaSearch":
+		return json.Valid(body) && bytes.HasPrefix(bytes.TrimSpace(body), []byte("{"))
 	case "video", "seedanceVideo", "zenmuxVideo":
 		status := gjson.GetBytes(body, "status").String()
 		return gjson.GetBytes(body, "object").String() == "video" && validVideoUpstreamID(gjson.GetBytes(body, "id").String()) && (status == "queued" || status == "in_progress" || status == "completed" || status == "failed")

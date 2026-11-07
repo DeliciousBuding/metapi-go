@@ -42,8 +42,30 @@ func directMediaDriverProtocol(direct *store.DirectUpstreamCandidate, path strin
 	return ""
 }
 
-func hasDirectMediaDriver(direct *store.DirectUpstreamCandidate, path string) bool {
-	return direct != nil && direct.RequestConfig.Provider != nil && slices.Contains(direct.RequestConfig.Provider.Protocols, directMediaDriverProtocol(direct, path))
+func hasDirectMultipartDriver(direct *store.DirectUpstreamCandidate, path string) bool {
+	if direct == nil || direct.RequestConfig.Provider == nil {
+		return false
+	}
+	protocol := directPluginProtocol(path)
+	if strings.HasPrefix(path, "/v1/videos") {
+		protocol = directMediaDriverProtocol(direct, path)
+	}
+	return slices.Contains(direct.RequestConfig.Provider.Protocols, protocol) && channelplugin.SupportsMultipartProtocol(protocol)
+}
+
+func directDriverDescriptorBody(descriptor channelplugin.RequestDescriptor, wire *directProviderWire) ([]byte, error) {
+	if descriptor.Parts == nil {
+		return []byte(descriptor.Body), nil
+	}
+	if wire.DriverUpload == nil {
+		return nil, channelplugin.ErrResult
+	}
+	body, err := multipartPartsFields(descriptor.Parts, wire.DriverUpload)
+	if err != nil {
+		return nil, err
+	}
+	wire.DriverUpload.parts = descriptor.Parts
+	return body, nil
 }
 
 func multipartDriverFields(values map[string][]string) ([]byte, error) {
