@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/auth"
+	"github.com/deliciousbuding/metapi-go/internal/channelplugin/contract"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
@@ -34,18 +35,21 @@ func isDirectVideoContentPath(path string) bool {
 // Identity stores references and hashes only. In particular, credential values
 // never enter proxy_video_tasks; the credential resolver owns rotation.
 type directVideoIdentity struct {
-	Version        int    `json:"version"`
-	Protocol       int    `json:"protocol,omitempty"`
-	Owner          string `json:"owner"`
-	RouteID        int64  `json:"routeId"`
-	GroupID        int64  `json:"groupId"`
-	ItemID         int64  `json:"itemId"`
-	ChannelID      int64  `json:"channelId"`
-	GrantID        int64  `json:"grantId"`
-	CredentialID   int64  `json:"credentialId"`
-	ModelID        int64  `json:"modelId"`
-	EndpointHash   string `json:"endpointHash"`
-	SourcePublicID string `json:"sourcePublicId,omitempty"`
+	Version           int    `json:"version"`
+	Protocol          int    `json:"protocol,omitempty"`
+	Owner             string `json:"owner"`
+	RouteID           int64  `json:"routeId"`
+	GroupID           int64  `json:"groupId"`
+	ItemID            int64  `json:"itemId"`
+	ChannelID         int64  `json:"channelId"`
+	GrantID           int64  `json:"grantId"`
+	CredentialID      int64  `json:"credentialId"`
+	ModelID           int64  `json:"modelId"`
+	EndpointHash      string `json:"endpointHash"`
+	SourcePublicID    string `json:"sourcePublicId,omitempty"`
+	DriverKey         string `json:"driverKey,omitempty"`
+	DriverFingerprint string `json:"driverFingerprint,omitempty"`
+	DriverBindingHash string `json:"driverBindingHash,omitempty"`
 }
 
 type directVideoTask struct {
@@ -129,6 +133,29 @@ func videoIdentity(ctx *Ctx, d *store.DirectUpstreamCandidate) directVideoIdenti
 	if ctx.videoTask != nil {
 		identity.SourcePublicID = ctx.videoTask.Identity.SourcePublicID
 	}
+	if binding := d.RequestConfig.Provider; binding != nil {
+		for _, entry := range d.Endpoints.Entries() {
+			if entry.Protocol != protocol {
+				continue
+			}
+			for _, allowed := range binding.Protocols {
+				if allowed != entry.Key {
+					continue
+				}
+				identity.Version, identity.Protocol, identity.DriverKey = 3, protocol, binding.Key
+				config, _ := json.Marshal([]any{endpoint, d.Provider, d.CredentialKind, d.CustomHeader, d.ParamOverride, d.RequestConfig.Config})
+				configHash := sha256.Sum256(config)
+				identity.EndpointHash = hex.EncodeToString(configHash[:])
+				raw, _ := json.Marshal([]any{binding.Key, entry.Key, binding.Options})
+				sum := sha256.Sum256(raw)
+				identity.DriverBindingHash = hex.EncodeToString(sum[:])
+				identity.DriverFingerprint = ctx.videoDriverFingerprint
+				if ctx.videoTask != nil {
+					identity.DriverFingerprint = ctx.videoTask.Identity.DriverFingerprint
+				}
+			}
+		}
+	}
 	return identity
 }
 
@@ -150,7 +177,9 @@ func loadDirectVideoTask(db *store.DB, publicID string) (*directVideoTask, error
 		return nil, errors.New("video task storage is unavailable")
 	}
 	if err := json.Unmarshal([]byte(identity), &task.Identity); err != nil ||
-		(task.Identity.Version != 1 && task.Identity.Version != 2) ||
+		(task.Identity.Version != 1 && task.Identity.Version != 2 && task.Identity.Version != 3) ||
+		(task.Identity.Version == 3 && (!contract.ValidKey(task.Identity.DriverKey) || !contract.ValidFingerprint(task.Identity.DriverFingerprint) || !contract.ValidFingerprint(task.Identity.DriverBindingHash))) ||
+		(task.Identity.Version != 3 && (task.Identity.DriverKey != "" || task.Identity.DriverFingerprint != "" || task.Identity.DriverBindingHash != "")) ||
 		(task.Identity.Version == 1 && task.Identity.Protocol != 0) ||
 		!store.ValidDirectProtocol(directVideoTaskProtocol(task.Identity)) || directVideoTaskProtocol(task.Identity)&store.DirectVideoProtocols == 0 ||
 		task.Identity.Owner == "" || task.Identity.ItemID <= 0 || !validVideoUpstreamID(task.UpstreamID) {

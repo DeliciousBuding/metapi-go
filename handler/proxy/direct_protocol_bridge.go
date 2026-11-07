@@ -235,7 +235,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 		return true, nil, false
 	}
 	beforeOperations := append([]byte(nil), wire.Body...)
-	if err = prepareDirectProviderDriver(r.Context(), cfg, wire, selected.Direct, endpoint, credential.Kind, path, r.Method, model, upstreamStream); err != nil {
+	if err = prepareDirectProviderDriver(r.Context(), ctx, cfg, wire, selected.Direct, endpoint, credential.Kind, path, r.Method, model, upstreamStream); err != nil {
 		writeJSONErrorWithRequest(w, channelPluginRequestStatus(err), "Cannot execute selected provider driver", "upstream_error", requestID)
 		return true, nil, false
 	}
@@ -286,7 +286,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 	}
 	wire.Endpoint = endpoint
 	wire.ProtocolSession = protocolSession
-	if proxy.DirectProtocolForPath(path) == store.DirectProtocolVideo && (r.Method == http.MethodPost || endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile)) {
+	if wire.DriverOperation != "" || proxy.DirectProtocolForPath(path) == store.DirectProtocolVideo && (r.Method == http.MethodPost || endpoint != nil && isDirectNativeVideoProfile(endpoint.Profile)) {
 		maxRetries = retry
 	}
 	r = r.WithContext(withDirectProviderWire(r.Context(), wire))

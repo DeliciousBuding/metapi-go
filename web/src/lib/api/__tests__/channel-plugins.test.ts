@@ -68,6 +68,7 @@ describe('channel plugin API data boundary', () => {
           response: {
             usagePaths: { prompt_tokens: '/a.b/a~1b/~0count' },
             modelPath: '/engine',
+            taskIdPath: '/task/id',
           },
           event: {
             usagePaths: { completion_tokens: '/meter/output' },

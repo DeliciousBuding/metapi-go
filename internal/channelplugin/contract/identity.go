@@ -35,6 +35,9 @@ func ValidProtocol(protocol string) bool {
 }
 
 var keyPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
+var fingerprintPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
+
+func ValidFingerprint(value string) bool { return fingerprintPattern.MatchString(value) }
 
 var cursorPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 

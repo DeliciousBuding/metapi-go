@@ -33,6 +33,9 @@ type directProviderWire struct {
 	Driver              *channelplugins.DriverInvocation
 	DriverURL           string
 	DriverContentType   string
+	DriverTaskID        string
+	DriverOperation     string
+	DriverContentQuery  bool
 	PluginProtocol      string
 	PluginModel         string
 	PluginStream        bool

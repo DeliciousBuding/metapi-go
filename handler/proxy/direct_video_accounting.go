@@ -79,7 +79,7 @@ func applyDirectVideoAccounting(ctx *Ctx, observed ParsedUsage) ParsedUsage {
 		if ctx.videoAccountingTask != nil {
 			task = ctx.videoAccountingTask
 		}
-		return ParsedUsage{Source: usageSourceUnknown, videoAccounting: &directVideoAccounting{TaskID: task.PublicID, Observed: observed, Unverified: true}}
+		return ParsedUsage{Source: usageSourceUnknown, invalidForUserBudget: observed.invalidForUserBudget, videoAccounting: &directVideoAccounting{TaskID: task.PublicID, Observed: observed, Unverified: true}}
 	}
 	out := ctx.videoAccounting.Delta
 	out.UpstreamReportedModel = observed.UpstreamReportedModel

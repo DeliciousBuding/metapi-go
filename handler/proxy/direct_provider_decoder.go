@@ -15,6 +15,12 @@ import (
 // admission and settlement consume this snapshot even if a later hook fails.
 func observeDirectDriverBody(wire *directProviderWire, body []byte, event bool) (ParsedUsage, bool, error) {
 	usage := ParseUsageFromBody(body)
+	if wire != nil && wire.DriverOperation != "" && gjson.GetBytes(body, "object").String() == "video" {
+		id := gjson.GetBytes(body, "id")
+		if id.Type == gjson.String && validObservedVideoTaskID(id.String()) {
+			usage.upstreamTaskID = id.String()
+		}
+	}
 	if wire == nil || wire.Driver == nil {
 		return usage, false, nil
 	}
@@ -28,6 +34,18 @@ func observeDirectDriverBody(wire *directProviderWire, body []byte, event bool) 
 		return usage, false, err
 	}
 	mapped := ParseUsageFromBody(observation.Usage)
+	if wire.DriverOperation != "" && nativeDriverError(body) {
+		observation.Failed = true
+	}
+	taskID := usage.upstreamTaskID
+	if wire.DriverOperation != "" && len(observation.TaskID) > 0 {
+		var selected string
+		if json.Unmarshal(observation.TaskID, &selected) != nil || !validObservedVideoTaskID(selected) || taskID != "" && taskID != selected {
+			usage.invalidForUserBudget = true
+			return usage, observation.Failed, channelplugin.ErrResult
+		}
+		taskID = selected
+	}
 	if observation.Failed {
 		usage.UpstreamReportedModel = nil
 	}
@@ -49,6 +67,7 @@ func observeDirectDriverBody(wire *directProviderWire, body []byte, event bool) 
 		return usage, observation.Failed, channelplugin.ErrResult
 	}
 	usage = mergeUsagePreferLater(usage, mapped)
+	usage.upstreamTaskID = taskID
 	if usage.invalidForUserBudget {
 		return usage, observation.Failed, channelplugin.ErrResult
 	}
@@ -60,17 +79,23 @@ func decodeDirectDriverPayload(ctx context.Context, wire *directProviderWire, bo
 	if err != nil || failed {
 		return nil, usage, channelplugin.ErrResult
 	}
+	if wire != nil && wire.DriverOperation != "" && wire.DriverTaskID != "" && usage.upstreamTaskID != "" && usage.upstreamTaskID != wire.DriverTaskID {
+		return nil, usage, channelplugin.ErrResult
+	}
 	if wire == nil || wire.Driver == nil {
 		return body, usage, nil
 	}
 	hook := "decodeResponse"
+	if wire.DriverOperation != "" {
+		hook = "taskResult"
+	}
 	if event {
 		hook = "decodeEvent"
 	}
 	if !wire.Driver.HasHook(hook) {
 		return body, usage, nil
 	}
-	raw, err := wire.Driver.Call(ctx, hook, channelplugin.DriverInput{Body: string(body), Model: wire.PluginModel, Stream: event, StatusCode: statusCode})
+	raw, err := wire.Driver.Call(ctx, hook, channelplugin.DriverInput{Body: string(body), Model: wire.PluginModel, Stream: event, StatusCode: statusCode, TaskID: wire.DriverTaskID})
 	if err != nil {
 		return nil, usage, err
 	}
@@ -92,8 +117,16 @@ func decodeDirectDriverPayload(ctx context.Context, wire *directProviderWire, bo
 	if usage.UpstreamReportedModel != nil && nativeUsage.UpstreamReportedModel != nil && *usage.UpstreamReportedModel != *nativeUsage.UpstreamReportedModel {
 		return nil, usage, channelplugin.ErrResult
 	}
+	if wire.DriverOperation != "" && wire.DriverTaskID != "" && gjson.GetBytes([]byte(decoded.Body), "id").String() != wire.DriverTaskID {
+		return nil, usage, channelplugin.ErrResult
+	}
+	if wire.DriverOperation != "" && usage.upstreamTaskID != "" && gjson.GetBytes([]byte(decoded.Body), "id").String() != usage.upstreamTaskID {
+		return nil, usage, channelplugin.ErrResult
+	}
 	return []byte(decoded.Body), usage, nil
 }
+
+func validObservedVideoTaskID(id string) bool { return len(id) <= 4096 && validVideoUpstreamID(id) }
 
 // Inspect protocol-owned containers only. Tool arguments/user objects retain
 // their own keys; unchanged legacy aliases are not rewritten by wire hooks.
@@ -122,7 +155,7 @@ func responseControlAliasesMatch(before, after []byte) bool {
 }
 
 func nativeDriverPayload(protocol string, body []byte, event bool) bool {
-	if value := gjson.GetBytes(body, "error"); value.Exists() && value.Type != gjson.Null && value.Raw != "false" && value.Raw != "0" && value.Raw != `""` {
+	if nativeDriverError(body) {
 		return true
 	}
 	kind := gjson.GetBytes(body, "type").String()
@@ -143,9 +176,17 @@ func nativeDriverPayload(protocol string, body []byte, event bool) bool {
 		return gjson.GetBytes(body, "candidates").IsArray() || gjson.GetBytes(body, "usageMetadata").IsObject() || gjson.GetBytes(body, "promptFeedback").IsObject()
 	case "responsesCompact":
 		return gjson.GetBytes(body, "object").String() == "response.compaction" && gjson.GetBytes(body, "output").IsArray()
+	case "video", "seedanceVideo", "zenmuxVideo":
+		status := gjson.GetBytes(body, "status").String()
+		return gjson.GetBytes(body, "object").String() == "video" && validVideoUpstreamID(gjson.GetBytes(body, "id").String()) && (status == "queued" || status == "in_progress" || status == "completed" || status == "failed")
 	default:
 		return false
 	}
+}
+
+func nativeDriverError(body []byte) bool {
+	value := gjson.GetBytes(body, "error")
+	return value.Exists() && value.Type != gjson.Null && value.Raw != "false" && value.Raw != "0" && value.Raw != `""`
 }
 
 func decodedDriverSSEEvent(wire *directProviderWire, body []byte) (string, error) {

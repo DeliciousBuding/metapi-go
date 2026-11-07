@@ -76,6 +76,7 @@ var schemaTables = []schemaTable{
 	{"admin_sessions", buildAdminSessionsDDL},
 	{"upstream_channels", buildUpstreamChannelsDDL},
 	{"channel_plugins", buildChannelPluginsDDL},
+	{"channel_plugin_versions", buildChannelPluginVersionsDDL},
 	{"upstream_credentials", buildUpstreamCredentialsDDL},
 	{"credential_refresh_leases", buildCredentialRefreshLeasesDDL},
 	{"credential_refresh_families", buildCredentialRefreshFamiliesDDL},
@@ -128,6 +129,7 @@ var factoryResetExcludedTables = map[string]string{
 var backupExcludedTables = map[string]string{
 	"credential_refresh_leases":       "transient credential refresh ownership: restored deployments must acquire their own leases",
 	"channel_plugins":                 "locally trusted executable plugins: backup imports must not install or enable code",
+	"channel_plugin_versions":         "locally trusted executable versions: portable imports must not plant historical code",
 	"gateway_user_credentials":        "local user password and activation digests: portable imports must not plant login credentials",
 	"gateway_user_sessions":           "local user session digests: restored deployments require fresh user login",
 	"gateway_user_budgets":            "local user credit balances: portable imports must not overwrite trusted balances or detach them from local identities",

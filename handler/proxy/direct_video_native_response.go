@@ -126,35 +126,7 @@ func sendDirectNativeVideoRequest(cfg *UpstreamConfig, original *http.Request, p
 		key = "last_frame_url"
 	}
 	target := mediaString(payload, key)
-	parsed, err := url.Parse(target)
-	if err != nil || parsed.Host == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || !allowedPublicMediaTarget(original.Context(), target) {
-		return directMediaFailure(resp, payload, "invalid_video_url", "video result URL is unavailable or invalid"), nil
-	}
-	download, err := http.NewRequestWithContext(original.Context(), http.MethodGet, target, nil)
-	if err != nil {
-		return nil, err
-	}
-	for _, header := range []string{"Range", "If-Range"} {
-		if value := original.Header.Get(header); value != "" {
-			download.Header.Set(header, value)
-		}
-	}
-	download.Header.Set("Accept", "*/*")
-	var downloadProxy *platform.ProxyConfig
-	if proxyConfig != nil {
-		copy := *proxyConfig
-		copy.CustomHeaders = nil
-		downloadProxy = &copy
-	}
-	result, err = sendUpstreamRequest(cfg, download, downloadProxy, firstByteTimeoutMs, true)
-	if err != nil {
-		return nil, err
-	}
-	if result.StatusCode < 200 || result.StatusCode >= 300 {
-		_ = result.Body.Close()
-		return directMediaFailure(resp, payload, "video_download_failed", "upstream video content download failed"), nil
-	}
-	return result, nil
+	return downloadDirectVideoContent(cfg, original, proxyConfig, firstByteTimeoutMs, target, resp, payload)
 }
 
 func normalizeNativeVideoResponse(payload map[string]json.RawMessage, profile string) error {

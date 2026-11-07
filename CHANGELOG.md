@@ -37,6 +37,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 渠道 provider：接入视频 JSON 提交、查询与内容 hooks，持久任务升级后恢复原程序；原始任务用量在解码失败时仍计累计差额，CDN 下载隔离渠道凭据并固定公网 IP。multipart 尚未接入，回退限制见插件合同（#1589）。
 - 渠道 provider：接入现有 Ollama 匿名身份与显式无认证目录，仍校验当前凭据/端点资格；空 Key 或失败解析不放行，回退前需替换声明 `none` 的模块与配置（#1589）。
 - 渠道 provider：新增原生 JSON/SSE/WS 与聚合的响应 decoder；按 manifest 观测原始 token 字段，解码失败仍记已收到的用量、不重放请求。使用新字段的模块回退前需替换（#1589）。
 
