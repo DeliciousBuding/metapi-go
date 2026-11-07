@@ -37,7 +37,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
-- 渠道插件：新增独立 `responsesCompact` / `responsesWebsocket` 绑定；WS 每轮固定版本、原始用量先于事件投影，失败不重放。旧版回退前须移除新协议绑定（#1589）。
+- 渠道插件：新增独立 `responsesCompact` / `responsesWebsocket` 绑定；WS 每轮固定版本、原始用量先于事件投影，失败不重放。回退旧版须移除新绑定并替换或卸载含新协议声明的插件（#1589）。
 
 - 渠道高级设置：可编辑流式策略、RPM/实测 TPM、并发与排队；修改单项保留其余策略，全部归零显式清除限流；界面区分本进程硬限制和 TPM 选路偏好（#1589）。
 
