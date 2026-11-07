@@ -107,8 +107,11 @@ provider 的匿名身份复用既有凭据 resolver 与 Ollama 端点资格；�
 `service/channelplugins.ListArchivedVersions` 只读任务程序摘要与引用数；管理员可通过
 `RestoreArchivedVersion` 为缺失的持久引用恢复经有界编译、指纹匹配的原程序，
 不改变当前安装或授权。已完成任务也计入引用，因为后续仍可取回内容。
-零引用不是回收证明：捕获程序与提交任务落库之间存在在途窗口，因此没有按
-引用数自动删除代码的路径，也不增加另一条程序版本轴。
+新 provider submit 在目录事务内归档并向已有任务表写未确认捕获，响应 CAS 确认
+原行；派发完成只释放未确认行。捕获丢失后不重建任务，保留清理不按年龄撤销捕获。
+只有不可变 manifest 声明 `taskCapture:"durable"` 的无引用档案可沿同一锁回收；
+旧宿主拒绝新声明，旧档案的零引用仍不是在途结束证明，遗留捕获也不自动过期释放。
+这不增加另一条程序版本轴或任务表，当前安装/归属/授权仍由原 owner 验证。
 multipart driver 在原生 profile 预转换前接收字段和请求内文件引用；字节、文件句柄
 与临时路径由 `handler/proxy` 的原 multipart owner 保留。JSON 占位符或 multipart
 parts 在语义覆盖/预算之后由宿主最终编码，不给 JS 文件能力或另建上传执行器。

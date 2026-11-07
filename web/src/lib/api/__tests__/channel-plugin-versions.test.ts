@@ -26,9 +26,52 @@ describe('historical task program data boundary', () => {
       { items: [{ ...version, taskReferences: -1 }] },
       { items: [{ ...version, taskReferences: 1.5 }] },
       { items: [{ ...version, source: 'private-source' }] },
+      { items: [{ ...version, prunable: true }] },
+      { items: [{ ...version, available: true, prunable: true }] },
     ]) {
       mock.mockResolvedValueOnce(invalid)
       await expect(channelPluginVersionsApi.list()).rejects.toThrow()
+    }
+  })
+
+  it('reclaims only the reviewed identity and validates the acknowledgement', async () => {
+    const prunable = {
+      ...version,
+      available: true,
+      taskReferences: 0,
+      prunable: true,
+    }
+    const result = {
+      key: version.key,
+      fingerprint: version.fingerprint,
+      pruned: true,
+    }
+    mock.mockResolvedValueOnce({ items: [prunable] })
+    await expect(channelPluginVersionsApi.list()).resolves.toEqual({
+      items: [prunable],
+    })
+    mock.mockResolvedValueOnce(result)
+    await expect(channelPluginVersionsApi.prune(prunable)).resolves.toEqual(
+      result
+    )
+    expect(mock).toHaveBeenLastCalledWith(
+      '/api/channel-plugin-versions/prune',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          key: version.key,
+          fingerprint: version.fingerprint,
+        }),
+      }
+    )
+    for (const invalid of [
+      { ...result, key: 'different' },
+      { ...result, fingerprint: 'b'.repeat(64) },
+      { ...result, pruned: false },
+      { ...result, source: 'private-source' },
+    ]) {
+      mock.mockResolvedValueOnce(invalid)
+      await expect(channelPluginVersionsApi.prune(prunable)).rejects.toThrow()
     }
   })
 

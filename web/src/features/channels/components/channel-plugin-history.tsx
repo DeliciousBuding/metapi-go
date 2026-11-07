@@ -1,10 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +18,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Notice } from '@/components/ui/notice'
 import {
   Sheet,
   SheetContent,
@@ -36,6 +38,8 @@ export function ChannelPluginHistory() {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [restoring, setRestoring] = useState<ChannelPluginVersion | null>(null)
+  const [pruning, setPruning] = useState<ChannelPluginVersion | null>(null)
+  const historyTrigger = useRef<HTMLButtonElement>(null)
   const query = useQuery({
     queryKey: channelPluginVersionsQueryKey,
     queryFn: channelPluginVersionsApi.list,
@@ -44,6 +48,7 @@ export function ChannelPluginHistory() {
   return (
     <section className='space-y-3 border-t pt-4'>
       <Button
+        ref={historyTrigger}
         variant='outline'
         aria-expanded={expanded}
         aria-controls='channel-plugin-history'
@@ -102,6 +107,15 @@ export function ChannelPluginHistory() {
                       {t('channels.plugins.historyRestore')}
                     </Button>
                   )}
+                  {version.prunable === true && (
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      onClick={() => setPruning(version)}
+                    >
+                      {t('channels.plugins.historyPrune')}
+                    </Button>
+                  )}
                 </div>
               </section>
             ))}
@@ -114,7 +128,82 @@ export function ChannelPluginHistory() {
           onClose={() => setRestoring(null)}
         />
       )}
+      {pruning && (
+        <PrunePluginVersion
+          key={pruning.fingerprint}
+          version={pruning}
+          eligible={
+            !query.isFetching &&
+            !query.isError &&
+            query.data?.items.some(
+              (item) =>
+                item.key === pruning.key &&
+                item.fingerprint === pruning.fingerprint &&
+                item.prunable === true
+            ) === true
+          }
+          onClose={() => setPruning(null)}
+          // Revalidation may remove the row before dialog cleanup. Return to
+          // the persistent section control, never to a disappearing action.
+          finalFocus={() => historyTrigger.current}
+        />
+      )}
     </section>
+  )
+}
+
+function PrunePluginVersion({
+  version,
+  eligible,
+  onClose,
+  finalFocus,
+}: {
+  version: ChannelPluginVersion
+  eligible: boolean
+  onClose: () => void
+  finalFocus: () => HTMLElement | null
+}) {
+  const { t } = useTranslation()
+  const client = useQueryClient()
+  const prune = useMutation({
+    mutationFn: () => channelPluginVersionsApi.prune(version),
+    onSuccess: async () => {
+      await client.invalidateQueries({
+        queryKey: channelPluginVersionsQueryKey,
+      })
+      toast.success(t('channels.plugins.historyPruned'))
+      onClose()
+    },
+    onError: async () => {
+      await client.invalidateQueries({
+        queryKey: channelPluginVersionsQueryKey,
+      })
+    },
+  })
+  return (
+    <ConfirmDialog
+      open
+      title={t('channels.plugins.historyPrune')}
+      description={t('channels.plugins.historyPruneDescription', {
+        key: version.key,
+        fingerprint: version.fingerprint,
+      })}
+      confirmLabel={t('channels.plugins.historyPrune')}
+      cancelLabel={t('common.cancel')}
+      destructive
+      confirmationWord='DELETE'
+      isPending={prune.isPending}
+      confirmDisabled={!eligible}
+      onConfirm={() => prune.mutate()}
+      onCancel={onClose}
+      finalFocus={finalFocus}
+    >
+      {prune.isError && (
+        <Notice tone='destructive' role='alert'>
+          {t('channels.plugins.historyPruneFailed')}
+        </Notice>
+      )}
+    </ConfirmDialog>
   )
 }
 

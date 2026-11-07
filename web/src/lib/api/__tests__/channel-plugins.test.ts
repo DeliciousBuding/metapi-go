@@ -109,6 +109,32 @@ describe('channel plugin API data boundary', () => {
     )
     await expect(channelPluginsApi.list()).rejects.toThrow()
   })
+  it('accepts only the declared durable task capability and a persistent protocol', async () => {
+    const manifest = {
+      apiVersion: 2,
+      kind: 'provider',
+      key: 'capture',
+      name: 'Capture',
+      version: '1.0.0',
+      protocols: ['video'],
+      credentialKinds: ['api_key'],
+      taskCapture: 'durable',
+      hooks: ['submit', 'query', 'content', 'taskResult'],
+    }
+    const item = (value: unknown) => ({
+      items: [{ key: 'capture', enabled: true, revision: 1, manifest: value }],
+    })
+    mock.mockResolvedValueOnce(item(manifest))
+    await expect(channelPluginsApi.list()).resolves.toEqual(item(manifest))
+    for (const invalid of [
+      { ...manifest, taskCapture: 'legacy' },
+      { ...manifest, taskCapture: true },
+      { ...manifest, protocols: ['chat'], hooks: ['request', 'response'] },
+    ]) {
+      mock.mockResolvedValueOnce(item(invalid))
+      await expect(channelPluginsApi.list()).rejects.toThrow()
+    }
+  })
   it('preserves explicit request forms and rejects invalid declarations', async () => {
     const manifest = {
       apiVersion: 2,

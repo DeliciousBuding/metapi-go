@@ -230,6 +230,7 @@ const providerManifest = z
     ...manifestFields,
     apiVersion: z.literal(2),
     kind: z.literal('provider'),
+    taskCapture: z.literal('durable').optional(),
     protocols: z.array(providerProtocol).min(1).max(26),
     credentialKinds: z
       .array(z.enum(['api_key', 'oauth', 'gcp_service_account', 'none']))
@@ -274,6 +275,13 @@ const providerManifest = z
   })
   .strict()
   .refine((manifest) => {
+    if (
+      manifest.taskCapture &&
+      !manifest.protocols.some((protocol) =>
+        ['video', 'seedanceVideo', 'zenmuxVideo'].includes(protocol)
+      )
+    )
+      return false
     const hooks: readonly string[] = manifest.hooks
     if (
       manifest.authentication &&
