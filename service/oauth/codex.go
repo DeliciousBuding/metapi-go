@@ -159,13 +159,13 @@ func parseExpiresIn(value interface{}) (int64, bool) {
 func exchangeCodexToken(ctx context.Context, form url.Values, proxyURL *string, refresh bool) (*codexTokenResponse, error) {
 	req, err := http.NewRequestWithContext(ctx, "POST", codexTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, refreshPreparationFailure(refresh, err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", codexCLIUserAgent)
 
-	resp, err := doHTTP(req, proxyURL, nil)
+	resp, err := doRefreshHTTP(req, proxyURL, refresh)
 	if err != nil {
 		return nil, err
 	}
@@ -173,17 +173,17 @@ func exchangeCodexToken(ctx context.Context, form url.Values, proxyURL *string, 
 
 	if resp.StatusCode != 200 {
 		body := readOAuthErrorResponseBody(resp.Body)
-		return nil, fmt.Errorf("%s", string(body))
+		return nil, refreshHTTPFailure(ctx, refresh, resp.StatusCode, body, fmt.Errorf("%s", string(body)))
 	}
 
 	body, err := readOAuthJSONResponseBody(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, successfulRefreshResponseError(refresh, "response read failed", err)
 	}
 
 	var payload codexTokenResponse
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("codex token exchange returned invalid payload")
+		return nil, successfulRefreshResponseError(refresh, "invalid payload", fmt.Errorf("codex token exchange returned invalid payload"))
 	}
 
 	accessToken := strings.TrimSpace(payload.AccessToken)
@@ -192,7 +192,7 @@ func exchangeCodexToken(ctx context.Context, form url.Values, proxyURL *string, 
 	expiresIn, hasExpiresIn := parseExpiresIn(payload.ExpiresIn)
 
 	if accessToken == "" || (!refresh && (refreshToken == "" || idToken == "")) || !hasExpiresIn || expiresIn <= 0 {
-		return nil, fmt.Errorf("codex token exchange response missing required fields")
+		return nil, successfulRefreshResponseError(refresh, "missing required fields", fmt.Errorf("codex token exchange response missing required fields"))
 	}
 	return &payload, nil
 }
@@ -223,7 +223,7 @@ func refreshCodexAccessToken(ctx context.Context, input RefreshTokenInput) (*Tok
 		var err error
 		clientID, err = requireCodexClientID()
 		if err != nil {
-			return nil, err
+			return nil, refreshNotConsumed(err)
 		}
 	}
 	form := url.Values{"grant_type": {"refresh_token"}, "client_id": {clientID}, "refresh_token": {input.RefreshToken}, "scope": {"openid profile email"}}
@@ -247,7 +247,7 @@ func refreshCodexAccessToken(ctx context.Context, input RefreshTokenInput) (*Tok
 		tokens.PlanType = identity.PlanType
 	}
 	if tokens.AccountID == "" {
-		return nil, fmt.Errorf("codex token refresh response missing chatgpt_account_id")
+		return nil, successfulRefreshResponseError(true, "missing chatgpt_account_id", fmt.Errorf("codex token refresh response missing chatgpt_account_id"))
 	}
 	return tokens, nil
 }

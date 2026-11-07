@@ -113,7 +113,8 @@ func postClaudeToken(ctx context.Context, body map[string]interface{}, proxyURL 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := doHTTP(req, proxyURL, nil)
+	refresh := body["grant_type"] == "refresh_token"
+	resp, err := doRefreshHTTP(req, proxyURL, refresh)
 	if err != nil {
 		return nil, err
 	}
@@ -121,22 +122,22 @@ func postClaudeToken(ctx context.Context, body map[string]interface{}, proxyURL 
 
 	if resp.StatusCode != 200 {
 		respBody := readOAuthErrorResponseBody(resp.Body)
-		return nil, fmt.Errorf("%s", string(respBody))
+		return nil, refreshHTTPFailure(ctx, refresh, resp.StatusCode, respBody, fmt.Errorf("%s", string(respBody)))
 	}
 
 	respBody, err := readOAuthJSONResponseBody(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, successfulRefreshResponseError(body["grant_type"] == "refresh_token", "response read failed", err)
 	}
 
 	var payload claudeTokenResponse
 	if err := json.Unmarshal(respBody, &payload); err != nil {
-		return nil, fmt.Errorf("claude token exchange returned invalid payload")
+		return nil, successfulRefreshResponseError(body["grant_type"] == "refresh_token", "invalid payload", fmt.Errorf("claude token exchange returned invalid payload"))
 	}
 
 	accessToken := strings.TrimSpace(payload.AccessToken)
 	if accessToken == "" {
-		return nil, fmt.Errorf("claude token exchange response missing access token")
+		return nil, successfulRefreshResponseError(body["grant_type"] == "refresh_token", "missing access token", fmt.Errorf("claude token exchange response missing access token"))
 	}
 	return &payload, nil
 }
@@ -192,7 +193,7 @@ func refreshClaudeAccessToken(ctx context.Context, input RefreshTokenInput) (*To
 		var err error
 		clientID, err = requireClaudeClientID()
 		if err != nil {
-			return nil, err
+			return nil, refreshNotConsumed(err)
 		}
 	}
 

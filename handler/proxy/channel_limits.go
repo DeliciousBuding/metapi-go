@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 	"sync"
 
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/internal/channellimit"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 type queuedChannelRevalidator interface {
@@ -45,6 +47,43 @@ func revalidateQueuedChannel(r *http.Request, ctx *Ctx, cfg *UpstreamConfig, sel
 		return nil, http.StatusServiceUnavailable, fmt.Errorf("Queued channel authorization or configuration changed")
 	}
 	return fresh, 0, nil
+}
+
+// Token exchange can outlive a grant/configuration change even without queue
+// waiting. Reuse the same eligibility owner without another admission or route
+// choice; a changed wire configuration cannot use the old channel permit.
+func revalidateDirectCredentialDispatch(r *http.Request, ctx *Ctx, cfg *UpstreamConfig, selected *routing.SelectedChannel, policy *routing.DownstreamRoutingPolicy) (int, error) {
+	if selected.Direct.CredentialKind != store.DirectCredentialOAuth && selected.Direct.CredentialKind != store.DirectCredentialGCPServiceAccount {
+		return 0, nil
+	}
+	if policy == nil {
+		return http.StatusServiceUnavailable, fmt.Errorf("Selected channel cannot be revalidated after credential exchange")
+	}
+	var proxyBefore *string
+	if ctx.Auth != nil {
+		proxyBefore = ctx.Auth.ProxyURL
+	}
+	fresh, status, err := revalidateQueuedChannel(r, ctx, cfg, selected, policy)
+	if err != nil {
+		return status, err
+	}
+	if fresh.Direct == nil {
+		return http.StatusServiceUnavailable, fmt.Errorf("Selected channel changed during credential exchange")
+	}
+	before, after := *selected.Direct, *fresh.Direct
+	// Refresh intentionally changes only the token cache. Presentation labels
+	// do not affect the authority or request already prepared for this channel.
+	before.Credential, after.Credential = "", ""
+	before.ChannelName, after.ChannelName = "", ""
+	before.CredentialName, after.CredentialName = "", ""
+	var proxyAfter *string
+	if ctx.Auth != nil {
+		proxyAfter = ctx.Auth.ProxyURL
+	}
+	if fresh.ActualModel != selected.ActualModel || !reflect.DeepEqual(before, after) || !reflect.DeepEqual(proxyBefore, proxyAfter) {
+		return http.StatusServiceUnavailable, fmt.Errorf("Selected channel changed during credential exchange")
+	}
+	return 0, nil
 }
 
 func isDirectAdmissionReason(reason string) bool {

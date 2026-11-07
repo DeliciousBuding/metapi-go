@@ -100,6 +100,13 @@ this payload does **not** carry to the reason, so a backup file states its own g
 | `gateway_user_credentials`, `gateway_user_sessions` | Local password/activation/session digests, never replayed through portable imports. |
 | `gateway_user_budgets`, `gateway_user_group_pricing`, `gateway_user_budget_ledger` | Local user quota balances, group rates and durable settlement history; importing them without the identity graph could plant charges or release holds. Whole-database migrations/snapshots preserve them. |
 
+OAuth 的 `credential_refresh_families` / `credential_refresh_aliases` 是持久消费
+事实，不是临时 lease，包含于 `all` / `accounts` 导出和方言迁移。凭据与这些表
+从同一读事务导出（PostgreSQL 使用 repeatable read）；preferences 不携带它们。
+导入校验指纹、generation、状态、结果引用及退休标记，冲突时保留目标已有事实，
+不会用较旧备份降低 generation、取消退休标记或清除不确定状态。结果不确定的
+凭据恢复后仍需重新授权/替换，不能靠恢复备份解除消费保护。
+
 Row-level exclusions are stated in `metadata.excluded_rows`: user-owned
 `downstream_api_keys`, their quota usage, files/video tasks, and user-attributed
 `gateway_requests` and `proxy_logs` are not portable without their identity/authorization graph.

@@ -23,9 +23,11 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 - 渠道新增独立 Decisions HTTP 端点与模型授权，支持原生同步 JSON、输入与问题校验、精确数字、用量和取消；AxonHub `openai/decisions` 的自定义路径与 raw URL 按源构造合同导入，不借用生成协议权限。
 - 模型目录刷新：OAuth 凭据与转发共用当前状态解析和刷新，预览后应用复用有效 token；拒绝或撤权后不再尝试旧缓存 token，发现的新模型仍不自动授予访问权。
-- OAuth 刷新：托管账号和 direct 凭据使用数据库级单记录 lease 与事务 fence，跨连接池/进程复用落库结果；并发禁用、删除、身份/端点变更和凭据替换不会被刷新覆盖。保留取消分类并脱敏供应商错误正文，临时所有权不进入便携备份或方言迁移。不同记录共享同一旋转 token 的 family 协调尚不包含在此能力中。
+- OAuth 刷新：同一签发方/client 的账号与 direct 副本共享持久消费保护；`credential_refresh_families` / `credential_refresh_aliases` 随备份迁移保留。结果未知或退休 token 需重新授权，不重新兑换；回退旧版须先停用 OAuth 并换新凭据（#1589）。
 
 ### 修复
+
+- OAuth 派发：HTTP/WS 在凭据解析后重验当前授权，兑换期间撤权、来源/端点或请求配置变化不使用旧准入派发；拒绝不追加上游尝试或重复预算准入（#1589）。
 
 - Responses WebSocket：正常结束会话时先完成关闭握手再停止读取，避免 Key 轮换或撤权后的连接以 EOF 异常结束（#1561）。
 - AxonHub 导入：有效条件关联按请求筛选候选并保留源优先级与协议边界；Responses WS 的原生尝试与 HTTP 回退共用每 turn 的条件上下文；缺少请求上下文的解释标为未评估，重新导入保留同一成员身份（#1561）。

@@ -1142,6 +1142,10 @@ func validateBackupImportRow(table string, row map[string]any) error {
 		return backupImportClientError{message: "user-attributed records require an identity-preserving full database restore"}
 	}
 	switch table {
+	case "credential_refresh_families", "credential_refresh_aliases":
+		if err := store.NormalizeCredentialRefreshJournalRow(table, row); err != nil {
+			return backupImportClientError{message: "invalid credential refresh journal"}
+		}
 	case "upstream_channels":
 		if raw, present := row["request_config"]; present {
 			config := store.DirectRequestConfig{}

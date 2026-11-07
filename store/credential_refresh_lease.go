@@ -33,6 +33,10 @@ func AcquireCredentialRefreshLease(ctx context.Context, db *sqlx.DB, scope strin
 	if db == nil || id <= 0 || scope != "account" && scope != "direct" {
 		return nil, ErrCredentialRefreshLeaseLost
 	}
+	return acquireCredentialRefreshLeaseKey(ctx, db, fmt.Sprintf("%s:%d", scope, id))
+}
+
+func acquireCredentialRefreshLeaseKey(ctx context.Context, db *sqlx.DB, key string) (*CredentialRefreshLease, error) {
 	clock := ""
 	switch db.DriverName() {
 	case "sqlite":
@@ -46,7 +50,7 @@ func AcquireCredentialRefreshLease(ctx context.Context, db *sqlx.DB, scope strin
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, ErrCredentialRefreshLeaseLost
 	}
-	lease := &CredentialRefreshLease{db: db, key: fmt.Sprintf("%s:%d", scope, id), owner: hex.EncodeToString(nonce), databaseNow: clock}
+	lease := &CredentialRefreshLease{db: db, key: key, owner: hex.EncodeToString(nonce), databaseNow: clock}
 	waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	for {
@@ -84,17 +88,25 @@ func (l *CredentialRefreshLease) BeginFencedTx(ctx context.Context) (*sqlx.Tx, e
 	if err != nil {
 		return nil, ErrCredentialRefreshLeaseLost
 	}
+	if err := l.FenceTx(ctx, tx); err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+	return tx, nil
+}
+
+// FenceTx lets one publication transaction fence both the record and family
+// owners without nesting transactions or holding a database lock over I/O.
+func (l *CredentialRefreshLease) FenceTx(ctx context.Context, tx *sqlx.Tx) error {
 	query := `UPDATE credential_refresh_leases SET owner=owner WHERE lease_key=? AND owner=? AND expires_at>` + l.databaseNow
 	result, err := tx.ExecContext(ctx, l.db.Rebind(query), l.key, l.owner)
 	if err != nil {
-		_ = tx.Rollback()
-		return nil, ErrCredentialRefreshLeaseLost
+		return ErrCredentialRefreshLeaseLost
 	}
 	if count, err := result.RowsAffected(); err != nil || count != 1 {
-		_ = tx.Rollback()
-		return nil, ErrCredentialRefreshLeaseLost
+		return ErrCredentialRefreshLeaseLost
 	}
-	return tx, nil
+	return nil
 }
 
 func (l *CredentialRefreshLease) Release() error {

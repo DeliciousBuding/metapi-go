@@ -9,6 +9,18 @@ JSON 字段。升级不会给存量 HTTP grant 自动增加权限；需要显式
 及成员协议，或重新导入声明该能力的源备份。完整备份保留这些字段；回退到不认识
 新协议位的版本前，应恢复升级前备份，不能让旧程序忽略新限制后继续提供服务。
 
+## OAuth 消费事实与回退
+
+启动自动创建 `credential_refresh_families` 与 `credential_refresh_aliases`；它们
+保存签发供应商/client 作用域、指纹、generation、退休标记和不确定消费事实，
+不保存 token 原文。完整/账号备份和双方言迁移携带这些事实，临时
+`credential_refresh_leases` 仍不迁移。迁移前停止所有使用源库的服务实例，不能
+让兑换与数据库搬运同时运行。
+
+lease 到期、服务重启或恢复较旧备份不会使已退休/结果未知的 refresh token
+重新可用；应重新授权或替换凭据。若回退到不认识消费事实的旧版本，先停用
+OAuth 渠道并取得新凭据，不能直接重放升级前备份中的旧 refresh token。
+
 ## 根下游密钥升级
 
 首次升级启动时，SQLite 与 PostgreSQL 都会自动把旧根密钥迁入「API 密钥」：
