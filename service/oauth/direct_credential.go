@@ -250,7 +250,12 @@ func exchangeGCPCredential(ctx context.Context, db *sqlx.DB, id int64, proxyURL 
 		return nil, ErrDirectCredentialRefresh
 	}
 	next := store.DirectOAuthState{ExpiresAt: expiresAt}
-	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE upstream_credentials SET secret=?,oauth_state=? WHERE id=? AND kind=? AND enabled=? AND secret=? AND oauth_state=?`), token, next, id, store.DirectCredentialGCPServiceAccount, true, row.Secret, row.RawOAuth)
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE upstream_credentials SET secret=?,oauth_state=?
+		WHERE id=? AND kind=? AND enabled=? AND secret=? AND oauth_state=? AND gcp_service_account=?
+		AND channel_id=? AND origin_key=? AND source_id=?
+		AND EXISTS(SELECT 1 FROM upstream_channels c WHERE c.id=upstream_credentials.channel_id AND c.enabled=? AND c.provider=? AND c.endpoint_config=? AND c.origin_key=? AND c.source_id=?)`),
+		token, next, id, store.DirectCredentialGCPServiceAccount, true, row.Secret, row.RawOAuth, *row.GCPMaterial,
+		row.ChannelID, row.Origin, row.SourceID, true, row.Provider, row.RawEndpoints, row.ChannelOrigin, row.ChannelSource)
 	if err != nil {
 		return nil, ErrDirectCredentialRefresh
 	}
@@ -259,7 +264,7 @@ func exchangeGCPCredential(ctx context.Context, db *sqlx.DB, id int64, proxyURL 
 	}
 	// Recheck enablement after the exchange; a mid-flight replacement must
 	// never authorize the just-superseded token.
-	current, err := loadDirectCredential(ctx, db, id)
+	current, err := verifyDirectRefreshPublication(ctx, db, id, row, token, next)
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +405,8 @@ func verifyDirectRefreshPublication(ctx context.Context, db *sqlx.DB, id int64, 
 	expectedOAuth, err := next.Value()
 	if err != nil || current.Kind != row.Kind || current.Provider != row.Provider || current.ChannelID != row.ChannelID ||
 		current.RawEndpoints != row.RawEndpoints || current.Secret != accessToken || current.RawOAuth != expectedOAuth ||
-		current.ChannelOrigin != row.ChannelOrigin || current.ChannelSource != row.ChannelSource || current.Origin != row.Origin || current.SourceID != row.SourceID {
+		current.ChannelOrigin != row.ChannelOrigin || current.ChannelSource != row.ChannelSource || current.Origin != row.Origin || current.SourceID != row.SourceID ||
+		coalesceStrPtr(current.GCPMaterial) != coalesceStrPtr(row.GCPMaterial) {
 		return nil, ErrDirectCredentialChanged
 	}
 	return current, nil

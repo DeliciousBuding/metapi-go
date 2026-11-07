@@ -170,6 +170,60 @@ func TestGCPCredentialRejectedMaterial(t *testing.T) {
 	}
 }
 
+func TestGCPExchangeCannotPublishIntoReplacedCredential(t *testing.T) {
+	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
+		for _, change := range []string{"material", "origin", "endpoint"} {
+			t.Run(dialect+"/"+change, func(t *testing.T) {
+				db, _ := familyCredentialFixture(t, dialect)
+				if _, err := db.Exec(`UPDATE upstream_channels SET provider='gemini'`); err != nil {
+					t.Fatal(err)
+				}
+				_, pemText := gcpTestKey(t)
+				var credentialID int64
+				var tokenServer *httptest.Server
+				tokenServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					var err error
+					switch change {
+					case "material":
+						material := strings.Replace(gcpTestMaterial(pemText, tokenServer.URL), "fixture@example", "replacement@example", 1)
+						// The real management owner clears the cache to its same
+						// empty initial values; token-only CAS cannot see this edit.
+						err = UpdateDirectCredential(r.Context(), db.DB, credentialID, DirectCredentialUpdate{Kind: store.DirectCredentialGCPServiceAccount, GCPServiceAccount: &material})
+					case "origin":
+						_, err = db.Exec(`UPDATE upstream_channels SET origin_key='replacement-origin' WHERE id=1`)
+					case "endpoint":
+						_, err = db.Exec(`UPDATE upstream_channels SET endpoint_config='{"gemini":{"url":"https://replacement.invalid/v1beta","auth":"bearer"}}' WHERE id=1`)
+					}
+					if err != nil {
+						t.Error(err)
+						w.WriteHeader(500)
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = fmt.Fprint(w, `{"access_token":"synthetic-superseded-gcp-token","expires_in":3600,"token_type":"Bearer"}`)
+				}))
+				t.Cleanup(tokenServer.Close)
+				credentialID = 1
+				err := UpdateDirectCredential(t.Context(), db.DB, credentialID, DirectCredentialUpdate{Kind: store.DirectCredentialGCPServiceAccount, GCPServiceAccount: ptrString(gcpTestMaterial(pemText, tokenServer.URL))})
+				if err != nil {
+					t.Fatal(err)
+				}
+				result, err := ResolveDirectCredential(t.Context(), db.DB, credentialID, nil, false)
+				if result != nil || !errors.Is(err, ErrDirectCredentialChanged) {
+					t.Errorf("superseded GCP exchange published: result=%v err=%v", result, err)
+				}
+				var secret string
+				if err := db.Get(&secret, db.Rebind(`SELECT secret FROM upstream_credentials WHERE id=?`), credentialID); err != nil {
+					t.Fatal(err)
+				}
+				if secret != "" {
+					t.Error("replacement received superseded cached access token")
+				}
+			})
+		}
+	}
+}
+
 func TestGCPCredentialKindConfusionRejected(t *testing.T) {
 	db, err := store.Open(store.DialectSQLite, ":memory:", false)
 	if err != nil {
