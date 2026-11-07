@@ -9,6 +9,17 @@ JSON 字段。升级不会给存量 HTTP grant 自动增加权限；需要显式
 及成员协议，或重新导入声明该能力的源备份。完整备份保留这些字段；回退到不认识
 新协议位的版本前，应恢复升级前备份，不能让旧程序忽略新限制后继续提供服务。
 
+## 渠道 provider driver 与回退
+
+API v2 provider 绑定保存在已有 `upstream_channels.request_config`，无需新增表；
+旧渠道不自动绑定 provider。新建的默认端点/目录成为持久配置，自定义 URL
+优先，升级插件不重写它们。可移植备份保留绑定但不安装代码，恢复后需单独
+重新安装已审核的模块；源数据与代码版本都应保留。
+
+回退到只支持 wire hooks 的版本前，先移除全部 provider 绑定，替换或卸载
+API v2 manifest。只停用不等于解除绑定，停用后新请求会明确失败。协议与操作
+范围见[渠道插件合同](api/channel-plugins.md)，不能依靠旧程序忽略新字段恢复服务。
+
 ## OAuth 消费事实与回退
 
 启动自动创建 `credential_refresh_families` 与 `credential_refresh_aliases`；它们
