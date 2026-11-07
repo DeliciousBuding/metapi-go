@@ -74,11 +74,10 @@ beforeEach(async () => {
 afterEach(cleanup)
 
 describe('channel plugin management and bindings', () => {
-  it('explains explicit transport bindings in both supported languages', () => {
-    const english = i18n.t('channels.plugins.bindingDescription', { lng: 'en' })
-    const chinese = i18n.t('channels.plugins.bindingDescription', {
-      lng: 'zhCN',
-    })
+  it('explains explicit transport bindings in both supported languages', async () => {
+    const english = i18n.t('channels.plugins.bindingDescription')
+    await i18n.changeLanguage('zhCN')
+    const chinese = i18n.t('channels.plugins.bindingDescription')
     expect(english).toContain('explicitly selected protocol endpoints')
     expect(english).toContain('WebSocket have separate bindings')
     expect(chinese).toContain('WebSocket 分别绑定')
