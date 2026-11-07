@@ -56,12 +56,12 @@ type Manifest struct {
 }
 
 func (m Manifest) Validate() error {
-	if m.APIVersion != 1 || !contract.ValidKey(m.Key) || len(m.Name) == 0 || len(m.Name) > 128 || !versionPattern.MatchString(m.Version) || len(m.Options) > 32 || len(m.Protocols) == 0 || len(m.Protocols) > 4 || len(m.Hooks) == 0 || len(m.Hooks) > 3 {
+	if m.APIVersion != 1 || !contract.ValidKey(m.Key) || len(m.Name) == 0 || len(m.Name) > 128 || !versionPattern.MatchString(m.Version) || len(m.Options) > 32 || len(m.Protocols) == 0 || len(m.Protocols) > contract.MaxProtocols || len(m.Hooks) == 0 || len(m.Hooks) > 3 {
 		return ErrManifest
 	}
 	seen := map[string]bool{}
 	for _, protocol := range m.Protocols {
-		if seen[protocol] || !slices.Contains([]string{"chat", "responses", "messages", "gemini"}, protocol) {
+		if seen[protocol] || !contract.ValidProtocol(protocol) {
 			return ErrManifest
 		}
 		seen[protocol] = true

@@ -2,7 +2,14 @@ import { z } from 'zod'
 
 import { request } from './transport'
 
-const protocol = z.enum(['chat', 'responses', 'messages', 'gemini'])
+const protocol = z.enum([
+  'chat',
+  'responses',
+  'messages',
+  'gemini',
+  'responsesCompact',
+  'responsesWebsocket',
+])
 const key = z.string().regex(/^[a-z][a-z0-9-]{0,63}$/)
 const option = z
   .object({
@@ -59,7 +66,7 @@ export type ChannelPlugin = z.infer<typeof itemSchema>
 export type ChannelPluginOption = z.infer<typeof option>
 export const pluginBindingSchema = z.object({
   key,
-  protocols: z.array(protocol).min(1).max(4),
+  protocols: z.array(protocol).min(1).max(6),
   options: z
     .record(z.string(), z.union([z.string(), z.boolean(), z.number().finite()]))
     .optional(),

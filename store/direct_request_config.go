@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/deliciousbuding/metapi-go/internal/channelplugin/contract"
-	"slices"
 
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 )
@@ -36,13 +35,13 @@ func (c DirectRequestConfig) Validate() error {
 	}
 	seen := map[string]bool{}
 	for _, binding := range c.Plugins {
-		if !contract.ValidKey(binding.Key) || seen[binding.Key] || len(binding.Protocols) == 0 || len(binding.Protocols) > 4 || len(binding.Options) > 32 {
+		if !contract.ValidKey(binding.Key) || seen[binding.Key] || len(binding.Protocols) == 0 || len(binding.Protocols) > contract.MaxProtocols || len(binding.Options) > 32 {
 			return fmt.Errorf("invalid_channel_plugin_binding")
 		}
 		seen[binding.Key] = true
 		protocols := map[string]bool{}
 		for _, protocol := range binding.Protocols {
-			if protocols[protocol] || !slices.Contains([]string{"chat", "responses", "messages", "gemini"}, protocol) {
+			if protocols[protocol] || !contract.ValidProtocol(protocol) {
 				return fmt.Errorf("invalid_channel_plugin_protocol")
 			}
 			protocols[protocol] = true
@@ -112,7 +111,7 @@ func (c DirectRequestConfig) ValidateEndpoints(endpoints DirectEndpoints) error 
 		if entry.Endpoint == nil {
 			continue
 		}
-		if len(c.Body) > 0 && entry.Protocol&(DirectProtocolChat|DirectProtocolResponses|DirectProtocolResponsesWebsocket|DirectProtocolMessages|DirectProtocolGemini|DirectProtocolCompletions|DirectProtocolEmbeddings|DirectProtocolRerank|DirectProtocolModerations|DirectProtocolImageGeneration|DirectProtocolAudioSpeech|DirectProtocolDecisions) == 0 {
+		if len(c.Body) > 0 && entry.Protocol&(DirectProtocolChat|DirectProtocolResponses|DirectProtocolResponsesCompact|DirectProtocolResponsesWebsocket|DirectProtocolMessages|DirectProtocolGemini|DirectProtocolCompletions|DirectProtocolEmbeddings|DirectProtocolRerank|DirectProtocolModerations|DirectProtocolImageGeneration|DirectProtocolAudioSpeech|DirectProtocolDecisions) == 0 {
 			return fmt.Errorf("channel_request_operation_nonjson_unsupported")
 		}
 		if !requestOperationsProfileSupported(entry.Endpoint.Profile) {

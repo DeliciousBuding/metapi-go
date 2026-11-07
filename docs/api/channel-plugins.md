@@ -63,14 +63,28 @@ Operation 复用渠道的有序请求覆盖合同，值使用 JSON 文本，因�
 其他已保存的请求变换，不要求客户端读取或重写其内容。不能在同一补丁中
 同时发送 `pluginBindings` 与整个 `requestTransform`。
 
-每渠道最多 8 个有序绑定。协议是明确的 `chat`、`responses`、`messages`、`gemini`
-HTTP 端点槽，不增加端点、模型 grant 或 transport 权限。请求 hook 在
+每渠道最多 8 个有序绑定。协议是明确的 `chat`、`responses`、`messages`、`gemini`、
+`responsesCompact`、`responsesWebsocket` 端点槽，不增加端点、模型 grant 或
+transport 权限。普通 Responses 绑定不会自动覆盖 compact / WS。请求 hook 在
 已有 provider wire 准备后、显式请求操作前执行；header 操作在认证头构造后执行，
 保护认证/路由相关头；出站请求仍受用户准入预算检查。
 
+`responsesCompact` 使用 `request` / `response`；`responsesWebsocket` 使用每轮
+`request` / 每个原生事件的 `event`，不调用 HTTP `response` hook。WS 每轮捕获
+不可变插件版本，升级/停用影响下一轮，握手头仍在认证构造后应用；变化后的
+握手身份沿既有 session key 规则重连。取消、原生事件收集和无重放语义属于
+原传输 owner。WS 从原始事件观测用量后才投影事件；hook 失败保留真实用量、
+记录失败，关闭当前上游会话并返回稳定错误，不重发已经派发的请求。
+
+这两个原生槽保护请求的 input、type、previous_response_id 和模式字段；响应
+还保护 opaque output、item、工具参数、事件顺序及 continuation 身份，插件可改
+非控制的内容/vendor 扩展，不把加密 compaction 内容或工具调用改成另一份会话。JSON 文本及
+WS 的数字解析均保留精确整数。缺失端点、插件禁用或协议绑定不匹配不能隐式
+降级到普通 Responses hooks。
+
 当前 wire hook 合同不是供应商插件 API：不拥有 OAuth 登录/刷新、网络请求、
-模型发现、媒体任务或原生 compact/WS 生命周期。这些 owner 继续走现有路径，
-不能将 HTTP `responses` 绑定当作 `responsesWebsocket` 或 `responsesCompact` 授权。
+模型发现或媒体任务生命周期。这些 owner 继续走现有路径。新协议绑定会被
+旧版本拒绝，回退前须显式移除相关绑定，不能让旧程序静默忽略。
 
 ## 运行边界
 
