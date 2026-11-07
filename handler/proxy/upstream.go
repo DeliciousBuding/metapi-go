@@ -861,6 +861,9 @@ func dispatchEndpointAttemptWithContinue(
 			chosen = wire.Endpoint
 		}
 		upstreamURL, directEndpoint = directRequestURL(selected.Direct, upstreamPath, upstreamModel, effectiveStream, chosen)
+		if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.DriverURL != "" {
+			upstreamURL = wire.DriverURL
+		}
 	}
 	startedAt := time.Now()
 
@@ -1350,7 +1353,7 @@ func dispatchEndpointAttemptWithContinue(
 	if aggregatedUsage != nil {
 		usage = *aggregatedUsage
 	}
-	if wire := directProviderWireFromContext(r.Context()); wire != nil && len(wire.Plugins) > 0 && body.readable {
+	if wire := directProviderWireFromContext(r.Context()); wire != nil && (len(wire.Plugins) > 0 || wire.Driver != nil) && body.readable {
 		var pluginErr error
 		respBody, pluginErr = applyDirectChannelResponsePlugins(r.Context(), wire, respBody, "response")
 		if pluginErr != nil {

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
 	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -86,6 +87,58 @@ func (f *oauthCatalogFixture) resolve(ctx context.Context, id int64, proxyURL *s
 		return "", err
 	}
 	return result.AccessToken, nil
+}
+
+func TestProviderCatalogUsesCurrentOAuthAndRevalidatesAfterExchange(t *testing.T) {
+	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
+		for _, mode := range []string{"refresh-and-reuse", "changed-during-exchange", "rejected-token"} {
+			t.Run(dialect+"/"+mode, func(t *testing.T) {
+				fixture := setupOAuthCatalog(t, dialect)
+				var endpoints store.DirectEndpoints
+				if err := fixture.db.Get(&endpoints, fixture.db.Rebind(`SELECT endpoint_config FROM upstream_channels WHERE id=?`), fixture.id); err != nil {
+					t.Fatal(err)
+				}
+				source := strings.Replace(providerCatalogSource, `credentialKinds:["api_key"]`, `credentialKinds:["oauth"]`, 1)
+				source = strings.Replace(source, `models:value.items`, `models:value.data.map(item=>item.id)`, 1)
+				if _, err := channelplugins.Save(t.Context(), fixture.db.DB, "catalog", source, true, 0); err != nil {
+					t.Fatal(err)
+				}
+				binding := &store.DirectProviderBinding{Key: "catalog", Protocols: []string{"chat"}, Catalog: &store.DirectCatalogEndpoint{URL: strings.TrimSuffix(endpoints.Chat.URL, "/chat/completions") + "/models", Auth: store.DirectAuthBearer}}
+				config := store.DirectRequestConfig{Provider: binding}
+				if _, err := fixture.db.Exec(fixture.db.Rebind(`UPDATE upstream_channels SET request_config=? WHERE id=?`), config, fixture.id); err != nil {
+					t.Fatal(err)
+				}
+				if mode == "changed-during-exchange" {
+					fixture.afterExchange = func() error {
+						_, err := fixture.db.Exec(fixture.db.Rebind(`UPDATE upstream_channels SET custom_header=? WHERE id=?`), `[{"header_key":"X-Catalog-Config","header_value":"changed"}]`, fixture.id)
+						return err
+					}
+				}
+				var resolve upstream.DiscoveryCredentialResolver = fixture.resolve
+				if mode == "rejected-token" {
+					resolve = func(context.Context, int64, *string) (string, error) {
+						return "", errors.New("synthetic rejected token")
+					}
+				}
+				preview, err := upstream.PreviewCatalogRefresh(t.Context(), fixture.db.DB, fixture.id, resolve)
+				if mode != "refresh-and-reuse" {
+					if err == nil || fixture.catalogCalls.Load() != 0 {
+						t.Fatalf("stale/rejected credential sent catalog request: calls=%d %v", fixture.catalogCalls.Load(), err)
+					}
+					return
+				}
+				if err != nil || fixture.refresh.Load() != 1 || fixture.catalogCalls.Load() != 1 || preview.UpstreamCount != 2 {
+					t.Fatalf("provider OAuth refresh not used: %+v refresh=%d calls=%d %v", preview, fixture.refresh.Load(), fixture.catalogCalls.Load(), err)
+				}
+				if _, err := upstream.ApplyCatalogRefresh(t.Context(), fixture.db.DB, fixture.id, preview.BasisToken, fixture.resolve); err != nil {
+					t.Fatal(err)
+				}
+				if fixture.refresh.Load() != 1 || fixture.catalogCalls.Load() != 2 {
+					t.Fatalf("valid token was not reused: refresh=%d calls=%d", fixture.refresh.Load(), fixture.catalogCalls.Load())
+				}
+			})
+		}
+	}
 }
 
 func TestCatalogRefreshOAuthUsesCurrentCredentialLifecycle(t *testing.T) {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/deliciousbuding/metapi-go/internal/channelplugin/contract"
+	"net/url"
+	"strings"
 
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 )
@@ -13,7 +15,8 @@ import (
 // endpoint permissions. A zero value keeps pre-existing request behavior.
 type DirectRequestConfig struct {
 	requestoverride.Config
-	Plugins []DirectPluginBinding `json:"plugins,omitempty"`
+	Plugins  []DirectPluginBinding  `json:"plugins,omitempty"`
+	Provider *DirectProviderBinding `json:"provider,omitempty"`
 }
 
 // Binding selects hooks only for explicitly named native protocol endpoints;
@@ -24,7 +27,55 @@ type DirectPluginBinding struct {
 	Options   map[string]json.RawMessage `json:"options,omitempty"`
 }
 
-func (c DirectRequestConfig) Active() bool { return c.Config.Active() || len(c.Plugins) > 0 }
+// A single driver may serve explicitly selected slots alongside independent
+// wire hooks. Its declaration is not an endpoint or model authorization.
+type DirectProviderBinding struct {
+	Key       string                     `json:"key"`
+	Protocols []string                   `json:"protocols"`
+	Options   map[string]json.RawMessage `json:"options,omitempty"`
+	Catalog   *DirectCatalogEndpoint     `json:"catalog,omitempty"`
+}
+
+type DirectCatalogEndpoint struct {
+	URL             string `json:"url"`
+	Auth            string `json:"auth"`
+	CursorParameter string `json:"cursorParameter,omitempty"`
+}
+
+func (c DirectCatalogEndpoint) Validate() error {
+	u, err := url.Parse(c.URL)
+	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") || !contract.ValidCursorParameter(c.CursorParameter) || (c.Auth != DirectAuthBearer && c.Auth != DirectAuthAPIKey && c.Auth != DirectAuthGoogle) {
+		return fmt.Errorf("invalid_provider_catalog_endpoint")
+	}
+	return nil
+}
+
+func catalogOrigin(address string) string {
+	u, err := url.Parse(address)
+	if err != nil {
+		return ""
+	}
+	scheme := u.Scheme
+	if scheme == "ws" {
+		scheme = "http"
+	}
+	if scheme == "wss" {
+		scheme = "https"
+	}
+	port := u.Port()
+	if port == "" {
+		if scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	return scheme + "://" + strings.ToLower(u.Hostname()) + ":" + port
+}
+
+func (c DirectRequestConfig) Active() bool {
+	return c.Config.Active() || len(c.Plugins) > 0 || c.Provider != nil
+}
 
 func (c DirectRequestConfig) Validate() error {
 	if err := c.Config.Validate(); err != nil {
@@ -34,22 +85,43 @@ func (c DirectRequestConfig) Validate() error {
 		return fmt.Errorf("too_many_channel_plugins")
 	}
 	seen := map[string]bool{}
+	if c.Provider != nil {
+		if err := validateDirectPluginBinding(DirectPluginBinding{Key: c.Provider.Key, Protocols: c.Provider.Protocols, Options: c.Provider.Options}, contract.MaxProviderProtocols, contract.ValidProviderProtocol); err != nil {
+			return err
+		}
+		if c.Provider.Catalog != nil {
+			if err := c.Provider.Catalog.Validate(); err != nil {
+				return err
+			}
+		}
+		seen[c.Provider.Key] = true
+	}
 	for _, binding := range c.Plugins {
-		if !contract.ValidKey(binding.Key) || seen[binding.Key] || len(binding.Protocols) == 0 || len(binding.Protocols) > contract.MaxProtocols || len(binding.Options) > 32 {
+		if seen[binding.Key] {
 			return fmt.Errorf("invalid_channel_plugin_binding")
 		}
 		seen[binding.Key] = true
-		protocols := map[string]bool{}
-		for _, protocol := range binding.Protocols {
-			if protocols[protocol] || !contract.ValidProtocol(protocol) {
-				return fmt.Errorf("invalid_channel_plugin_protocol")
-			}
-			protocols[protocol] = true
+		if err := validateDirectPluginBinding(binding, contract.MaxProtocols, contract.ValidProtocol); err != nil {
+			return err
 		}
-		for key, value := range binding.Options {
-			if !contract.ValidKey(key) || len(value) > 4096 || !json.Valid(value) {
-				return fmt.Errorf("invalid_channel_plugin_option")
-			}
+	}
+	return nil
+}
+
+func validateDirectPluginBinding(binding DirectPluginBinding, limit int, validProtocol func(string) bool) error {
+	if !contract.ValidKey(binding.Key) || len(binding.Protocols) == 0 || len(binding.Protocols) > limit || len(binding.Options) > 32 {
+		return fmt.Errorf("invalid_channel_plugin_binding")
+	}
+	protocols := map[string]bool{}
+	for _, protocol := range binding.Protocols {
+		if protocols[protocol] || !validProtocol(protocol) {
+			return fmt.Errorf("invalid_channel_plugin_protocol")
+		}
+		protocols[protocol] = true
+	}
+	for key, value := range binding.Options {
+		if !contract.ValidKey(key) || len(value) > 4096 || !json.Valid(value) {
+			return fmt.Errorf("invalid_channel_plugin_option")
 		}
 	}
 	return nil
@@ -90,6 +162,26 @@ func (c *DirectRequestConfig) Scan(value any) error {
 func (c DirectRequestConfig) ValidateEndpoints(endpoints DirectEndpoints) error {
 	if err := c.Validate(); err != nil {
 		return err
+	}
+	if c.Provider != nil {
+		catalogAllowed := c.Provider.Catalog == nil
+		for _, protocol := range c.Provider.Protocols {
+			found := false
+			for _, entry := range endpoints.Entries() {
+				if entry.Key == protocol && entry.Endpoint != nil {
+					found = true
+					if c.Provider.Catalog != nil && catalogOrigin(entry.Endpoint.URL) == catalogOrigin(c.Provider.Catalog.URL) {
+						catalogAllowed = true
+					}
+				}
+			}
+			if !found {
+				return fmt.Errorf("channel_provider_endpoint_unsupported")
+			}
+		}
+		if !catalogAllowed {
+			return fmt.Errorf("provider_catalog_origin_not_bound")
+		}
 	}
 	for _, binding := range c.Plugins {
 		for _, protocol := range binding.Protocols {

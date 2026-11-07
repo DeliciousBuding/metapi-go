@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/auth"
@@ -92,7 +93,7 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 	}
 	wire, err := prepareDirectResponsesWebsocketWire(ctx, cfg, endpoint, selected.Direct, credential, raw, request.Header, downstreamSessionNamespace(s.auth), model, actualModel)
 	if err != nil {
-		if len(selected.Direct.RequestConfig.Plugins) > 0 {
+		if len(selected.Direct.RequestConfig.Plugins) > 0 || selected.Direct.RequestConfig.Provider != nil && slices.Contains(selected.Direct.RequestConfig.Provider.Protocols, "responsesWebsocket") {
 			return reject(channelPluginRequestStatus(err), "Selected channel cannot execute this WebSocket request plugin")
 		}
 		return reject(400, "Selected channel cannot prepare this WebSocket request")
@@ -101,7 +102,11 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 		!directUserOperationsWithinBudget(swapModelInJSON(raw, actualModel), wire.Body, "/v1/responses", proxyCtx.lifecycle, false) {
 		return reject(403, "Selected channel request operations exceed the admitted user request")
 	}
-	upstreamRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.URL, nil)
+	endpointURL := endpoint.URL
+	if wire.DriverURL != "" {
+		endpointURL = wire.DriverURL
+	}
+	upstreamRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, endpointURL, nil)
 	if err != nil {
 		return reject(503, "Invalid selected WebSocket endpoint")
 	}
@@ -149,7 +154,7 @@ func (s *responsesWSSession) sendDirectResponsesWSS(ctx context.Context, body ma
 	selectedCopy.TokenValue = credential.AccessToken
 	selected = &selectedCopy
 	_, sendErr := SendCodexWebsocketRequest(ctx, CodexWebsocketSendInput{
-		SessionID: sessionKey, RequestURL: endpoint.URL, Headers: headers, Body: requestBody, HTTPClient: client,
+		SessionID: sessionKey, RequestURL: endpointURL, Headers: headers, Body: requestBody, HTTPClient: client,
 		// A direct grant has no authority to replay a request after the peer
 		// accepted its event. The old site-specific recovery remains separate.
 		DisablePreviousRecovery: true,
@@ -287,6 +292,9 @@ func prepareDirectResponsesWebsocketWire(ctx context.Context, cfg *UpstreamConfi
 	}
 	wire, err := prepareDirectProviderWire(endpoint, direct.ChannelID, credential, body, headers, namespace, directProviderRequest{Model: actualModel, Stream: true})
 	if err != nil {
+		return nil, err
+	}
+	if err := prepareDirectWebsocketDriver(ctx, cfg, wire, direct, endpoint, credential.Kind, actualModel); err != nil {
 		return nil, err
 	}
 	if err := prepareDirectChannelPlugins(ctx, cfg, wire, direct.RequestConfig, "responsesWebsocket", actualModel, true, context); err != nil {

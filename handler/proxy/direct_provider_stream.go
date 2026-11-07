@@ -42,7 +42,7 @@ func (s *directProviderStream) TransformEvent(frame []byte) ([]byte, error) {
 			}
 		}
 		restored := restoreDirectProviderResponse(s.ctx, raw)
-		if wire := directProviderWireFromContext(s.ctx); wire != nil && len(wire.Plugins) > 0 && event.Data != "[DONE]" {
+		if wire := directProviderWireFromContext(s.ctx); wire != nil && (len(wire.Plugins) > 0 || wire.Driver != nil) && event.Data != "[DONE]" {
 			var err error
 			restored, err = applyDirectChannelResponsePlugins(s.ctx, wire, restored, "event")
 			if err != nil {

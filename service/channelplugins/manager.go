@@ -101,7 +101,7 @@ func (m *Manager) Resolve(ctx context.Context, bindings []store.DirectPluginBind
 			return nil, err
 		}
 		manifest := p.Manifest()
-		if !slices.Contains(manifest.Protocols, protocol) {
+		if manifest.IsProvider() || !slices.Contains(manifest.Protocols, protocol) {
 			return nil, ErrBinding
 		}
 		options, err := manifest.ResolveOptions(binding.Options)
@@ -120,6 +120,11 @@ func ValidateBindings(ctx context.Context, db sqlx.ExtContext, config store.Dire
 		return err
 	}
 	m := New(db)
+	if config.Provider != nil {
+		if _, _, _, err := m.providerProgram(ctx, *config.Provider); err != nil {
+			return err
+		}
+	}
 	for _, binding := range config.Plugins {
 		for _, protocol := range binding.Protocols {
 			if _, err := m.Resolve(ctx, []store.DirectPluginBinding{binding}, protocol); err != nil {
@@ -128,4 +133,96 @@ func ValidateBindings(ctx context.Context, db sqlx.ExtContext, config store.Dire
 		}
 	}
 	return nil
+}
+
+// A captured driver remains immutable for one operation. Runtime input cannot
+// override its binding options, protocol or currently resolved credential kind.
+type DriverInvocation struct {
+	Revision       int64
+	program        *channelplugin.Program
+	protocol       string
+	credentialKind string
+	options        map[string]json.RawMessage
+}
+
+func (i DriverInvocation) Fingerprint() string {
+	if i.program == nil {
+		return ""
+	}
+	return i.program.Fingerprint()
+}
+
+func (m *Manager) DescribeProvider(ctx context.Context, binding store.DirectProviderBinding) (channelplugin.Manifest, string, error) {
+	p, _, _, err := m.providerProgram(ctx, binding)
+	if err != nil {
+		return channelplugin.Manifest{}, "", err
+	}
+	return p.Manifest(), p.Fingerprint(), nil
+}
+
+func (m *Manager) ResolveCatalog(ctx context.Context, binding store.DirectProviderBinding, kind string) (DriverInvocation, error) {
+	p, revision, options, err := m.providerProgram(ctx, binding)
+	if err != nil {
+		return DriverInvocation{}, err
+	}
+	if binding.Catalog == nil || !slices.Contains(p.Manifest().Hooks, "modelsRequest") || !slices.Contains(p.Manifest().CredentialKinds, kind) {
+		return DriverInvocation{}, ErrBinding
+	}
+	return DriverInvocation{revision, p, "", kind, options}, nil
+}
+
+func (i DriverInvocation) Call(ctx context.Context, hook string, input channelplugin.DriverInput) (json.RawMessage, error) {
+	if i.program == nil {
+		return nil, ErrUnavailable
+	}
+	input.Protocol, input.CredentialKind, input.Options = i.protocol, i.credentialKind, i.options
+	if hook == "modelsRequest" || hook == "modelsResponse" {
+		input.Protocol = ""
+	}
+	return i.program.CallDriver(ctx, hook, input)
+}
+
+func (m *Manager) ResolveDriver(ctx context.Context, binding store.DirectProviderBinding, protocol, credentialKind string) (DriverInvocation, error) {
+	if !slices.Contains(binding.Protocols, protocol) {
+		return DriverInvocation{}, ErrBinding
+	}
+	p, revision, options, err := m.providerProgram(ctx, binding)
+	if err != nil {
+		return DriverInvocation{}, err
+	}
+	if !slices.Contains(p.Manifest().CredentialKinds, credentialKind) {
+		return DriverInvocation{}, ErrBinding
+	}
+	return DriverInvocation{revision, p, protocol, credentialKind, options}, nil
+}
+
+func (m *Manager) providerProgram(ctx context.Context, binding store.DirectProviderBinding) (*channelplugin.Program, int64, map[string]json.RawMessage, error) {
+	if (store.DirectRequestConfig{Provider: &binding}).Validate() != nil {
+		return nil, 0, nil, ErrBinding
+	}
+	p, revision, err := m.program(ctx, binding.Key)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	options, err := providerOptions(p.Manifest(), binding)
+	return p, revision, options, err
+}
+
+func providerOptions(manifest channelplugin.Manifest, binding store.DirectProviderBinding) (map[string]json.RawMessage, error) {
+	if !manifest.IsProvider() {
+		return nil, ErrBinding
+	}
+	if binding.Catalog != nil && !slices.Contains(manifest.Hooks, "modelsRequest") {
+		return nil, ErrBinding
+	}
+	for _, protocol := range binding.Protocols {
+		if !slices.Contains(manifest.Protocols, protocol) {
+			return nil, ErrBinding
+		}
+	}
+	options, err := manifest.ResolveOptions(binding.Options)
+	if err != nil {
+		return nil, ErrBinding
+	}
+	return options, nil
 }

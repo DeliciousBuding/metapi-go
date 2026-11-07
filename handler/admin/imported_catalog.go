@@ -73,6 +73,10 @@ func (h *upstreamCatalogHandler) createChannel(w http.ResponseWriter, r *http.Re
 	if in.Dialect == "" {
 		in.Dialect = "generic"
 	}
+	if err := channelplugins.FillDefaults(r.Context(), h.db, in.BaseURL, &in.Endpoints, &in.RequestConfig); err != nil {
+		catalogError(w, err)
+		return
+	}
 	if in.Dialect != "generic" || in.Provider == "" || len(in.Provider) > 100 || !in.Endpoints.IsConfigured() {
 		writeError(w, 400, "Native channel requires a provider, generic dialect and explicit endpoints")
 		return

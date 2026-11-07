@@ -5,6 +5,8 @@ package channelplugin
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math"
@@ -46,29 +48,41 @@ type Option struct {
 }
 
 type Manifest struct {
-	APIVersion int      `json:"apiVersion"`
-	Key        string   `json:"key"`
-	Name       string   `json:"name"`
-	Version    string   `json:"version"`
-	Protocols  []string `json:"protocols"`
-	Hooks      []string `json:"hooks"`
-	Options    []Option `json:"options,omitempty"`
+	APIVersion      int               `json:"apiVersion"`
+	Kind            string            `json:"kind,omitempty"`
+	Key             string            `json:"key"`
+	Name            string            `json:"name"`
+	Version         string            `json:"version"`
+	Protocols       []string          `json:"protocols"`
+	Hooks           []string          `json:"hooks"`
+	Options         []Option          `json:"options,omitempty"`
+	CredentialKinds []string          `json:"credentialKinds,omitempty"`
+	Defaults        *ProviderDefaults `json:"defaults,omitempty"`
 }
 
 func (m Manifest) Validate() error {
-	if m.APIVersion != 1 || !contract.ValidKey(m.Key) || len(m.Name) == 0 || len(m.Name) > 128 || !versionPattern.MatchString(m.Version) || len(m.Options) > 32 || len(m.Protocols) == 0 || len(m.Protocols) > contract.MaxProtocols || len(m.Hooks) == 0 || len(m.Hooks) > 3 {
+	maxProtocols, validProtocol, hooks := contract.MaxProtocols, contract.ValidProtocol, []string{"request", "response", "event"}
+	if m.IsProvider() {
+		if m.validateProviderLifecycle() != nil {
+			return ErrManifest
+		}
+		maxProtocols, validProtocol, hooks = contract.MaxProviderProtocols, contract.ValidProviderProtocol, providerHooks
+	} else if m.APIVersion != 1 || m.Kind != "" || len(m.CredentialKinds) != 0 || m.Defaults != nil {
+		return ErrManifest
+	}
+	if !contract.ValidKey(m.Key) || len(m.Name) == 0 || len(m.Name) > 128 || !versionPattern.MatchString(m.Version) || len(m.Options) > 32 || len(m.Protocols) == 0 || len(m.Protocols) > maxProtocols || len(m.Hooks) == 0 || len(m.Hooks) > len(hooks) {
 		return ErrManifest
 	}
 	seen := map[string]bool{}
 	for _, protocol := range m.Protocols {
-		if seen[protocol] || !contract.ValidProtocol(protocol) {
+		if seen[protocol] || !validProtocol(protocol) {
 			return ErrManifest
 		}
 		seen[protocol] = true
 	}
 	seen = map[string]bool{}
 	for _, hook := range m.Hooks {
-		if seen[hook] || !slices.Contains([]string{"request", "response", "event"}, hook) {
+		if seen[hook] || !slices.Contains(hooks, hook) {
 			return ErrManifest
 		}
 		seen[hook] = true
@@ -170,10 +184,13 @@ type Result struct {
 }
 
 type Program struct {
-	manifest  Manifest
-	module    *moejs.Module
-	admission chan struct{}
+	manifest    Manifest
+	module      *moejs.Module
+	admission   chan struct{}
+	fingerprint [32]byte
 }
+
+func (p *Program) Fingerprint() string { return hex.EncodeToString(p.fingerprint[:]) }
 
 func (p *Program) Manifest() Manifest {
 	raw, _ := json.Marshal(p.manifest)
@@ -218,12 +235,14 @@ func Compile(ctx context.Context, source string) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
+	metadata, _ := json.Marshal(p.manifest)
+	p.fingerprint = sha256.Sum256([]byte(source + "\x00" + string(metadata)))
 	return p, nil
 }
 
 func (p *Program) Call(ctx context.Context, hook string, input Input) (Result, error) {
 	var result Result
-	if !slices.Contains(p.manifest.Protocols, input.Protocol) {
+	if p.manifest.IsProvider() || !slices.Contains(p.manifest.Protocols, input.Protocol) {
 		return result, ErrManifest
 	}
 	if !slices.Contains(p.manifest.Hooks, hook) {

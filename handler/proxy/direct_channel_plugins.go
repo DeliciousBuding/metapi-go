@@ -17,8 +17,10 @@ import (
 )
 
 func directPluginProtocol(path string) string {
-	if proxy.DirectProtocolForPath(path) == store.DirectProtocolResponsesCompact {
-		return "responsesCompact"
+	for _, entry := range (store.DirectEndpoints{}).Entries() {
+		if entry.Protocol == proxy.DirectProtocolForPath(path) {
+			return entry.Key
+		}
 	}
 	return directTransformProtocol(path)
 }
@@ -68,7 +70,7 @@ func sameChannelPluginRequestControls(protocol string, before, after []byte) boo
 }
 
 func projectDirectWebsocketPluginEvents(ctx context.Context, wire *directProviderWire, events []map[string]any) ([]map[string]any, error) {
-	if len(wire.Plugins) == 0 {
+	if len(wire.Plugins) == 0 && wire.Driver == nil {
 		return events, nil
 	}
 	out := make([]map[string]any, 0, len(events))
@@ -93,6 +95,11 @@ func projectDirectWebsocketPluginEvents(ctx context.Context, wire *directProvide
 }
 
 func applyDirectChannelResponsePlugins(ctx context.Context, wire *directProviderWire, body []byte, hook string) ([]byte, error) {
+	var err error
+	body, err = projectDirectDriverResponse(ctx, wire, body, hook)
+	if err != nil {
+		return nil, err
+	}
 	for _, invocation := range wire.Plugins {
 		result, err := invocation.Program.Call(ctx, hook, channelplugin.Input{Protocol: wire.PluginProtocol, Body: string(body), Model: wire.PluginModel, Stream: wire.PluginStream, Options: invocation.Binding.Options})
 		if err != nil {

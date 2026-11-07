@@ -235,6 +235,13 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 		return true, nil, false
 	}
 	beforeOperations := append([]byte(nil), wire.Body...)
+	if err = prepareDirectProviderDriver(r.Context(), cfg, wire, selected.Direct, endpoint, credential.Kind, path, r.Method, model, upstreamStream); err != nil {
+		writeJSONErrorWithRequest(w, channelPluginRequestStatus(err), "Cannot execute selected provider driver", "upstream_error", requestID)
+		return true, nil, false
+	}
+	if wire.DriverContentType != "" {
+		contentType = wire.DriverContentType
+	}
 	if err = prepareDirectChannelPlugins(r.Context(), cfg, wire, selected.Direct.RequestConfig, directPluginProtocol(path), model, upstreamStream, requestContext); err != nil {
 		writeJSONErrorWithRequest(w, channelPluginRequestStatus(err), "Cannot execute selected channel request plugin", "upstream_error", requestID)
 		return true, nil, false
@@ -261,7 +268,7 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 	wire.RequestContext = requestContext
 	wire.ForceStream = wire.ForceStream || aggregateStream
 	wire.AggregateStream = aggregateStream
-	if (len(selected.Direct.RequestConfig.Body) > 0 || selected.Direct.RequestConfig.Options.Active() || len(wire.Plugins) > 0) && ctx.Auth != nil && ctx.Auth.OwnerUserID != nil &&
+	if (len(selected.Direct.RequestConfig.Body) > 0 || selected.Direct.RequestConfig.Options.Active() || len(wire.Plugins) > 0 || wire.Driver != nil) && ctx.Auth != nil && ctx.Auth.OwnerUserID != nil &&
 		!directUserOperationsWithinBudget(beforeOperations, wire.Body, path, ctx.lifecycle, aggregateStream) {
 		writeJSONErrorWithRequest(w, http.StatusForbidden, "Selected channel request operations exceed the admitted user request", "permission_error", requestID)
 		return true, nil, false

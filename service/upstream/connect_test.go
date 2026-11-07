@@ -22,6 +22,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/pgtest"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/service/upstream"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -47,6 +48,50 @@ func connectDatabase(t *testing.T, dialect string) *store.DB {
 		t.Fatal(err)
 	}
 	return db
+}
+
+func TestProviderConnectUsesSavedDefaultsAndAuthoritativeCatalog(t *testing.T) {
+	for _, dialect := range []string{store.DialectSQLite, store.DialectPostgres} {
+		for _, empty := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/empty=%v", dialect, empty), func(t *testing.T) {
+				db := connectDatabase(t, dialect)
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path != "/inventory" || r.Header.Get("Authorization") != "Bearer fixture-secret" {
+						t.Error("provider connect did not use its saved catalog/auth")
+					}
+					if empty {
+						fmt.Fprint(w, `{"items":[]}`)
+					} else {
+						fmt.Fprint(w, `{"items":["provider-model"]}`)
+					}
+				}))
+				t.Cleanup(server.Close)
+				source := strings.Replace(providerCatalogSource, `version:"1.0.0"`, `version:"1.0.0",defaults:{endpoints:{chat:{path:"/native/generate",auth:"bearer"}},catalog:{path:"/inventory",auth:"bearer"}}`, 1)
+				if _, err := channelplugins.Save(t.Context(), db.DB, "catalog", source, true, 0); err != nil {
+					t.Fatal(err)
+				}
+				input := connectInput(server.URL)
+				input.Channel.Endpoints = store.DirectEndpoints{}
+				input.Channel.RequestConfig = store.DirectRequestConfig{Provider: &store.DirectProviderBinding{Key: "catalog", Protocols: []string{"chat"}}}
+				input.RecommendedModels = []string{"not-authoritative"}
+				out, err := upstream.Connect(t.Context(), db.DB, input)
+				want := 1
+				if empty {
+					want = 0
+				}
+				if err != nil || out.ModelCount != want || out.RouteCount != want {
+					t.Fatalf("provider connect fell back or lost models: %+v %v", out, err)
+				}
+				if empty && out.Discovery.Status != "empty" {
+					t.Fatalf("provider empty catalog substituted: %+v", out.Discovery)
+				}
+				var endpoints store.DirectEndpoints
+				if err := db.Get(&endpoints, db.Rebind(`SELECT endpoint_config FROM upstream_channels WHERE id=?`), out.ID); err != nil || endpoints.Chat == nil || endpoints.Chat.URL != server.URL+"/native/generate" {
+					t.Fatalf("defaults not saved: %+v %v", endpoints, err)
+				}
+			})
+		}
+	}
 }
 
 func connectInput(address string) upstream.ConnectInput {

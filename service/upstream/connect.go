@@ -47,6 +47,9 @@ type ConnectResult struct {
 // Connect discovers before taking the catalog lock, then commits the entire
 // graph through its single writer. Failed discovery and writes leave no rows.
 func Connect(ctx context.Context, db *sqlx.DB, in ConnectInput) (ConnectResult, error) {
+	if err := channelplugins.FillDefaults(ctx, db, in.Channel.BaseURL, &in.Channel.Endpoints, &in.Channel.RequestConfig); err != nil {
+		return ConnectResult{}, err
+	}
 	channel := in.Channel
 	channel.Name = strings.TrimSpace(channel.Name)
 	if !validName(channel.Name) || !channel.Endpoints.IsConfigured() || !store.ValidDirectStreamPolicy(channel.StreamPolicy) {
@@ -70,7 +73,7 @@ func Connect(ctx context.Context, db *sqlx.DB, in ConnectInput) (ConnectResult, 
 	if mask == 0 {
 		return ConnectResult{}, invalid("Platform has no executable protocols for this credential")
 	}
-	models, discovery, err := discoverConnectModels(ctx, in)
+	models, discovery, err := discoverConnectModels(ctx, db, in)
 	if err != nil {
 		return ConnectResult{}, err
 	}

@@ -66,9 +66,17 @@ func Save(ctx context.Context, db *sqlx.DB, key, source string, enabled bool, ex
 		return store.ChannelPlugin{}, err
 	}
 	for _, config := range configs {
+		if config.Provider != nil && config.Provider.Key == key {
+			if _, err = providerOptions(manifest, *config.Provider); err != nil {
+				return store.ChannelPlugin{}, ErrBinding
+			}
+		}
 		for _, binding := range config.Plugins {
 			if binding.Key != key {
 				continue
+			}
+			if manifest.IsProvider() {
+				return store.ChannelPlugin{}, ErrBinding
 			}
 			for _, protocol := range binding.Protocols {
 				if !slices.Contains(manifest.Protocols, protocol) {
