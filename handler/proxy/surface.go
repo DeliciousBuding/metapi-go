@@ -49,8 +49,9 @@ type Ctx struct {
 	lifecycle *requestLifecycle
 	// Retain the ingress request descriptors for post-exchange authorization;
 	// rebuilding them would change conditions, trace affinity or stream intent.
-	dispatchPolicy *routing.DownstreamRoutingPolicy
-	videoTask      *directVideoTask
+	dispatchPolicy         *routing.DownstreamRoutingPolicy
+	videoTask              *directVideoTask
+	videoDriverFingerprint string
 	// managedVideoTaskID is the client-facing public id of a shared-upstream
 	// (non-direct) video mapping. The rewrite replaces it with the upstream id
 	// in DownstreamPath, so the response hook needs this separate copy to delete

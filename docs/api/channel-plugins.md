@@ -90,8 +90,9 @@ API v1 wire hook 合同不是供应商插件 API：不拥有 OAuth 登录/刷新
 provider 与有序 wire hooks 是两种独立绑定，共用安装、版本 CAS、选项校验和
 隔离运行器。每渠道最多一个 provider；它不能选择路由、创建凭据或增加模型授权。
 当前执行路径支持 `chat`、`responses`、`messages`、`gemini`、`responsesCompact`
-与逐轮 `responsesWebsocket`。其他协议槽及媒体操作可以声明，但尚未接入完整
-生命周期，绑定后不能隐式回退到无 driver 转发。
+与逐轮 `responsesWebsocket`；视频槽接入下文所列 JSON 提交、查询及同源内容读取。
+其他协议槽及未列出的媒体操作可以声明，但尚未接入完整生命周期，绑定后不能
+隐式回退到无 driver 转发。
 
 ```js
 export const meta = {
@@ -226,6 +227,32 @@ JavaScript Number 重建。用量合并、终态、取消与身份恢复继续�
 原生命周期锁下重新验证，代码、目录或配置变化返回 409，需重新预览。
 刷新发现仍不自动授予已有渠道的模型访问权；快捷接入沿用其显式初始化
 模型、凭据授权和路由的既有行为，成功发现不代表模型推理已验证。
+
+### 持久视频任务
+
+`video`、`seedanceVideo`、`zenmuxVideo` 使用独立的 `submit`、`query`、`content`、
+`taskResult` hooks，不调用文本 `request`/`response`。当前提交只接受 JSON，
+不把 multipart 文件字节交给 JS；查询和内容操作输入提供宿主捕获的 `taskId`。
+请求 hook 仍返回受限描述符：提交 POST、查询与内容 GET，URL 必须保留宿主已
+授权的完整操作地址。DELETE/remix、multipart 与插件 CDN 下载尚未接入，不借
+query hook 重放写请求。内容读取当前使用已配置的同源内容端点及认证。
+
+`taskResult` 返回 `{body:string}` 原生 video JSON，包含有效 `id`、`object:"video"`
+和 `queued`/`in_progress`/`completed`/`failed` 状态。查询 ID 必须匹配原任务；原始
+observations 先于解析执行，输出不能制造用量、改写已存在的原生控制或隐藏已观测
+错误。宿主沿既有 public task ID、owner/grant/端点资格与累计用量账本处理任务。
+已验证的创建/查询用量只计累计差额，重复查询及内容读取不重复计费。
+
+新任务在可计费提交前，将实际捕获的已审核程序保存到不可变的
+`channel_plugin_versions`；任务身份只保存 key、fingerprint 与配置摘要，不复制源码。
+升级后和重开数据库时，旧任务继续使用原解析器及默认选项；更改绑定、请求配置、
+当前凭据资格或停用/删除安装记录仍拒绝后续操作，不允许档案绕过当前权限。
+缺失/损坏档案不会自动使用最新版。普通无 driver 的任务仍保持原身份版本。
+
+档案每 key 最多 32 个、全局最多 512 个实际捕获版本；相同 fingerprint 幂等，
+达到上限时在上游提交前拒绝新捕获，不删除仍需恢复的代码。档案不进入可移植
+备份，方言迁移与一致数据库快照保留；恢复旧任务须另外保留原审核代码档案。
+使用 driver 的任务身份版本为 3，旧程序明确拒绝，不靠忽略新字段执行。
 
 ## 回退到旧插件合同
 

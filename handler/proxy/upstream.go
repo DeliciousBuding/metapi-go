@@ -963,7 +963,7 @@ func dispatchEndpointAttemptWithContinue(
 	r = r.WithContext(beginGatewayAttempt(r.Context()))
 	req = req.WithContext(r.Context())
 	var resp *http.Response
-	if wire := directProviderWireFromContext(r.Context()); wire != nil && isDirectNativeVideoProfile(wire.Profile) {
+	if wire := directProviderWireFromContext(r.Context()); wire != nil && wire.DriverOperation == "" && isDirectNativeVideoProfile(wire.Profile) {
 		maxRetries = retry
 		taskID := ""
 		if ctx.videoTask != nil {

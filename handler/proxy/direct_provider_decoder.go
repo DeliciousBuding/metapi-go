@@ -64,13 +64,16 @@ func decodeDirectDriverPayload(ctx context.Context, wire *directProviderWire, bo
 		return body, usage, nil
 	}
 	hook := "decodeResponse"
+	if wire.DriverOperation != "" {
+		hook = "taskResult"
+	}
 	if event {
 		hook = "decodeEvent"
 	}
 	if !wire.Driver.HasHook(hook) {
 		return body, usage, nil
 	}
-	raw, err := wire.Driver.Call(ctx, hook, channelplugin.DriverInput{Body: string(body), Model: wire.PluginModel, Stream: event, StatusCode: statusCode})
+	raw, err := wire.Driver.Call(ctx, hook, channelplugin.DriverInput{Body: string(body), Model: wire.PluginModel, Stream: event, StatusCode: statusCode, TaskID: wire.DriverTaskID})
 	if err != nil {
 		return nil, usage, err
 	}
@@ -90,6 +93,9 @@ func decodeDirectDriverPayload(ctx context.Context, wire *directProviderWire, bo
 		return nil, usage, channelplugin.ErrResult
 	}
 	if usage.UpstreamReportedModel != nil && nativeUsage.UpstreamReportedModel != nil && *usage.UpstreamReportedModel != *nativeUsage.UpstreamReportedModel {
+		return nil, usage, channelplugin.ErrResult
+	}
+	if wire.DriverOperation != "" && wire.DriverTaskID != "" && gjson.GetBytes([]byte(decoded.Body), "id").String() != wire.DriverTaskID {
 		return nil, usage, channelplugin.ErrResult
 	}
 	return []byte(decoded.Body), usage, nil
@@ -143,6 +149,9 @@ func nativeDriverPayload(protocol string, body []byte, event bool) bool {
 		return gjson.GetBytes(body, "candidates").IsArray() || gjson.GetBytes(body, "usageMetadata").IsObject() || gjson.GetBytes(body, "promptFeedback").IsObject()
 	case "responsesCompact":
 		return gjson.GetBytes(body, "object").String() == "response.compaction" && gjson.GetBytes(body, "output").IsArray()
+	case "video", "seedanceVideo", "zenmuxVideo":
+		status := gjson.GetBytes(body, "status").String()
+		return gjson.GetBytes(body, "object").String() == "video" && validVideoUpstreamID(gjson.GetBytes(body, "id").String()) && (status == "queued" || status == "in_progress" || status == "completed" || status == "failed")
 	default:
 		return false
 	}

@@ -19,14 +19,25 @@ import (
 // Resolve after current credential/route authorization and capture exactly one
 // driver for this attempt. The dispatcher retains the original endpoint for
 // authentication while the descriptor changes only its same-origin wire URL.
-func prepareDirectProviderDriver(ctx context.Context, cfg *UpstreamConfig, wire *directProviderWire, direct *store.DirectUpstreamCandidate, endpoint *store.DirectEndpoint, kind, path, method, model string, stream bool) error {
+func prepareDirectProviderDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamConfig, wire *directProviderWire, direct *store.DirectUpstreamCandidate, endpoint *store.DirectEndpoint, kind, path, method, model string, stream bool) error {
 	binding := direct.RequestConfig.Provider
 	protocol := directPluginProtocol(path)
+	if strings.HasPrefix(path, "/v1/videos") {
+		bit, _ := directVideoSelectedEndpoint(direct)
+		for _, entry := range direct.Endpoints.Entries() {
+			if entry.Protocol == bit {
+				protocol = entry.Key
+			}
+		}
+	}
 	if binding == nil || !slices.Contains(binding.Protocols, protocol) {
 		return nil
 	}
 	if cfg == nil || cfg.ChannelPlugins == nil {
 		return channelplugins.ErrUnavailable
+	}
+	if slices.Contains([]string{"video", "seedanceVideo", "zenmuxVideo"}, protocol) {
+		return prepareDirectMediaDriver(ctx, proxyCtx, cfg, wire, direct, endpoint, protocol, kind, path, method, model)
 	}
 	// Media/task and native WS operations use their own lifecycle consumers;
 	// until those are connected they must not silently dispatch without a driver.
@@ -71,7 +82,7 @@ func prepareDirectProviderDriver(ctx context.Context, cfg *UpstreamConfig, wire 
 // identity, usage or completion facts; vendor-envelope decoding belongs to the
 // provider response consumer, not to this post-observation projection.
 func projectDirectDriverResponse(ctx context.Context, wire *directProviderWire, body []byte, hook string) ([]byte, error) {
-	if wire.Driver == nil {
+	if wire.Driver == nil || wire.DriverOperation != "" {
 		return body, nil
 	}
 	raw, err := wire.Driver.Call(ctx, hook, channelplugin.DriverInput{Body: string(body), Model: wire.PluginModel, Stream: wire.PluginStream})

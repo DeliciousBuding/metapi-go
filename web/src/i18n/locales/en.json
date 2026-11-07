@@ -4396,7 +4396,7 @@
         "nativeProvider": "Built-in provider (no driver)",
         "emptyProviders": "No provider drivers installed. Install an API v2 provider in the Plugins tab.",
         "providerDescription": "One protocol adapter, separate from ordered wire hooks. Only configured endpoints use it; binding does not grant model access or credentials.",
-        "providerSupport": "Current dispatch: chat, Responses, messages, Gemini, compaction and WebSocket. Media driver lifecycle is not yet available.",
+        "providerSupport": "Current dispatch: chat, Responses, messages, Gemini, compaction and WebSocket, plus JSON video submission/query and same-origin content. Media multipart and plugin CDN downloads are not yet available.",
         "clearProvider": "Remove provider binding",
         "providerUnavailable": "This saved provider is unavailable or disabled. The binding is preserved; new requests fail until it is restored or explicitly removed.",
         "providerCredentialMismatch": "This driver does not support the selected credential kind. Choose a compatible driver or remove its binding.",

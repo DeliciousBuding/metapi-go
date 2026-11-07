@@ -11,10 +11,15 @@ JSON 字段。升级不会给存量 HTTP grant 自动增加权限；需要显式
 
 ## 渠道 provider driver 与回退
 
-API v2 provider 绑定保存在已有 `upstream_channels.request_config`，无需新增表；
+API v2 provider 绑定保存在已有 `upstream_channels.request_config`；
 旧渠道不自动绑定 provider。新建的默认端点/目录成为持久配置，自定义 URL
 优先，升级插件不重写它们。可移植备份保留绑定但不安装代码，恢复后需单独
 重新安装已审核的模块；源数据与代码版本都应保留。
+
+持久视频 driver 使用 `channel_plugin_versions` 保存实际被任务捕获的不可变代码，
+启动自动创建，跨方言迁移保留。可移植备份不携带这些本地可信代码；还原任务后
+缺少原代码档案时拒绝执行，不能自动用最新插件替代。任务身份版本 3 仍按当前
+归属、端点与安装启用状态验证，回退前停止这些任务或保留可恢复的新版本数据库。
 
 回退到只支持 wire hooks 的版本前，先移除全部 provider 绑定，替换或卸载
 API v2 manifest。只停用不等于解除绑定，停用后新请求会明确失败。协议与操作

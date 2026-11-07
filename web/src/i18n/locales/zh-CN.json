@@ -4396,7 +4396,7 @@
         "nativeProvider": "内置供应商（不使用 driver）",
         "emptyProviders": "尚未安装供应商适配器，请到「插件」标签页安装 API v2 provider。",
         "providerDescription": "选择一个协议适配器，与有序 wire hooks 分开绑定；只使用已配置端点，不授予模型访问权限或凭据。",
-        "providerSupport": "当前派发支持 Chat、Responses、Messages、Gemini、压缩与 WebSocket；媒体 driver 生命周期尚未接通。",
+        "providerSupport": "当前派发支持 Chat、Responses、Messages、Gemini、压缩与 WebSocket，以及视频 JSON 提交、查询和同源内容读取；媒体 multipart 与插件 CDN 下载尚未接通。",
         "clearProvider": "移除供应商绑定",
         "providerUnavailable": "已保存的供应商适配器不可用或已停用，绑定仍保留；恢复或显式移除前，新的请求会失败。",
         "providerCredentialMismatch": "此适配器不支持所选凭据类型，请更换兼容适配器或移除绑定。",
