@@ -21,6 +21,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+- 渠道插件增加历史任务程序索引与精确源码恢复入口：缺失档案按原指纹恢复，保留当前渠道权限，不以最新版替代旧媒体任务程序。
+
 - 渠道新增独立 Decisions HTTP 端点与模型授权，支持原生同步 JSON、输入与问题校验、精确数字、用量和取消；AxonHub `openai/decisions` 的自定义路径与 raw URL 按源构造合同导入，不借用生成协议权限。
 - 模型目录刷新：OAuth 凭据与转发共用当前状态解析和刷新，预览后应用复用有效 token；拒绝或撤权后不再尝试旧缓存 token，发现的新模型仍不自动授予访问权。
 - OAuth 刷新：同一签发方/client 的账号与 direct 副本共享持久消费保护；`credential_refresh_families` / `credential_refresh_aliases` 随备份迁移保留。结果未知或退休 token 需重新授权，不重新兑换；回退旧版须先停用 OAuth 并换新凭据（#1589）。

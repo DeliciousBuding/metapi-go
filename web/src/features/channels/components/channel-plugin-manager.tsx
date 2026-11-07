@@ -44,6 +44,8 @@ import {
 import { toast } from '@/lib/toast'
 import { useUndoableDelete } from '@/lib/undoable-delete'
 
+import { ChannelPluginHistory } from './channel-plugin-history'
+
 const sourceSchema = z.object({
   key: z
     .string()
@@ -212,6 +214,7 @@ export function ChannelPluginManager() {
             </div>
           </section>
         ))}
+      <ChannelPluginHistory />
       {editing !== null && (
         <ChannelPluginEditor
           key={editing || 'new'}
