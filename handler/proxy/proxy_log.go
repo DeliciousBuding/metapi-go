@@ -139,6 +139,16 @@ func proxyLogDownstreamPath(ctx *Ctx) *string {
 		"/v1/moderations", "/v1/videos", "/v1/systemone", "/v1/alpha/search", "/v1/decisions":
 		return &path
 	}
+	// Embeddings are a separate non-generation protocol, so EndpointFromPath
+	// deliberately does not identify them. Reuse the Gemini path parser while
+	// keeping observation scope to registered surfaces and model IDs out of logs.
+	if strings.HasPrefix(path, "/v1beta/models/") || strings.HasPrefix(path, "/gemini/") {
+		version, model, action := ParseGeminiPath(path)
+		if version != "" && model != "" && (action == "embedContent" || action == "batchEmbedContents") {
+			path = "/v1beta/models/{model}:" + action
+			return &path
+		}
+	}
 	endpoint, ok := proxy.EndpointFromPath(path)
 	if !ok {
 		return nil
