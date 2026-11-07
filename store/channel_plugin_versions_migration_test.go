@@ -3,11 +3,13 @@ package store_test
 import (
 	"crypto/sha256"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
-	"github.com/deliciousbuding/metapi-go/internal/pgtest"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -20,8 +22,30 @@ func TestCapturedPluginVersionsSurviveBothDialectMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pgtest.Reset(t, pg.DB)
-	_ = pg.Close()
+	// Reset truncates rows but intentionally preserves columns/bookkeeping.
+	// The shared PG fixture may have an EnsureColumn probe; migration requires
+	// an exact fresh target schema, not a schema altered by another test.
+	schema := fmt.Sprintf("plugin_versions_migrate_%d", time.Now().UnixNano())
+	if _, err := pg.Exec("CREATE SCHEMA " + schema); err != nil {
+		_ = pg.Close()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pg.Exec("DROP SCHEMA " + schema + " CASCADE")
+		_ = pg.Close()
+	})
+	if strings.HasPrefix(pgDSN, "postgres://") || strings.HasPrefix(pgDSN, "postgresql://") {
+		parsed, err := url.Parse(pgDSN)
+		if err != nil {
+			t.Fatal(err)
+		}
+		query := parsed.Query()
+		query.Set("search_path", schema)
+		parsed.RawQuery = query.Encode()
+		pgDSN = parsed.String()
+	} else {
+		pgDSN += " search_path=" + schema
+	}
 	sourcePath := filepath.Join(t.TempDir(), "source.db")
 	restoredPath := filepath.Join(t.TempDir(), "restored.db")
 	db, err := store.Open(store.DialectSQLite, sourcePath, false)
