@@ -16,7 +16,7 @@ import (
 // New persistent work captures and archives one installed program before I/O.
 // Existing work uses its old executable while current installation/credential
 // eligibility still controls whether another operation may start.
-func (m *Manager) ResolveTaskDriver(ctx context.Context, binding store.DirectProviderBinding, protocol, kind, fingerprint string) (DriverInvocation, error) {
+func (m *Manager) ResolveTaskDriver(ctx context.Context, binding store.DirectProviderBinding, protocol, kind, fingerprint string, requestKinds ...string) (DriverInvocation, error) {
 	if m == nil || m.db == nil {
 		return DriverInvocation{}, ErrUnavailable
 	}
@@ -24,11 +24,21 @@ func (m *Manager) ResolveTaskDriver(ctx context.Context, binding store.DirectPro
 		return DriverInvocation{}, ErrBinding
 	}
 	if fingerprint == "" {
+		if len(requestKinds) > 1 {
+			return DriverInvocation{}, ErrBinding
+		}
 		// Reuse the ordinary manager's compiled immutable program. Holding a
 		// catalog transaction must not force a cold compiler for every submit.
 		invocation, err := m.ResolveDriver(ctx, binding, protocol, kind)
 		if err != nil {
 			return DriverInvocation{}, err
+		}
+		requestKind := "json"
+		if len(requestKinds) == 1 {
+			requestKind = requestKinds[0]
+		}
+		if !invocation.AcceptsRequestKind(requestKind) {
+			return DriverInvocation{}, channelplugin.ErrRequestKind
 		}
 		db, ok := m.db.(*sqlx.DB)
 		if !ok {

@@ -11,6 +11,33 @@ vi.mock('../transport', () => ({ request: mock }))
 beforeEach(() => mock.mockReset())
 
 describe('channel plugin API data boundary', () => {
+  it('preserves explicit request forms and rejects invalid declarations', async () => {
+    const manifest = {
+      apiVersion: 2,
+      kind: 'provider',
+      key: 'upload',
+      name: 'Upload',
+      version: '1.0.0',
+      protocols: ['video'],
+      credentialKinds: ['api_key'],
+      requestKinds: ['json', 'multipart'],
+      hooks: ['submit', 'query', 'content', 'taskResult'],
+    }
+    const item = (value: unknown) => ({
+      items: [{ key: 'upload', enabled: true, revision: 1, manifest: value }],
+    })
+    mock.mockResolvedValueOnce(item(manifest))
+    await expect(channelPluginsApi.list()).resolves.toEqual(item(manifest))
+    for (const requestKinds of [
+      [],
+      ['multipart', 'multipart'],
+      ['form'],
+      null,
+    ]) {
+      mock.mockResolvedValueOnce(item({ ...manifest, requestKinds }))
+      await expect(channelPluginsApi.list()).rejects.toThrow()
+    }
+  })
   it('retains explicit anonymous provider metadata and catalog authentication', async () => {
     const manifest = {
       apiVersion: 2,

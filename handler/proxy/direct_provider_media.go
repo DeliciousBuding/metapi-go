@@ -26,7 +26,7 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 	}
 	inputBody := ""
 	if hook == "submit" {
-		if proxyCtx.Multipart {
+		if proxyCtx.Multipart && wire.DriverUpload == nil {
 			return channelplugin.ErrManifest
 		}
 		var object map[string]json.RawMessage
@@ -43,11 +43,20 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 	if hook != "submit" && fingerprint == "" {
 		return channelplugin.ErrManifest
 	}
-	invocation, err := cfg.ChannelPlugins.ResolveTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, fingerprint)
+	requestKind := "json"
+	if hook == "submit" && wire.DriverUpload != nil {
+		requestKind = "multipart"
+	}
+	invocation, err := cfg.ChannelPlugins.ResolveTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, fingerprint, requestKind)
 	if err != nil {
 		return err
 	}
-	raw, err := invocation.Call(ctx, hook, channelplugin.DriverInput{Body: inputBody, Model: model, TaskID: taskID})
+	input := channelplugin.DriverInput{Body: inputBody, Model: model, TaskID: taskID}
+	if hook == "submit" && wire.DriverUpload != nil {
+		input.BodyKind = "multipart"
+		input.Files = wire.DriverUpload.metadata
+	}
+	raw, err := invocation.Call(ctx, hook, input)
 	if err != nil {
 		return err
 	}
@@ -66,7 +75,21 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 		}
 	}
 	var descriptor channelplugin.RequestDescriptor
-	if requestoverride.Decode(raw, &descriptor) != nil || descriptor.Method != method || (method == http.MethodPost && !sameDriverRequestControls(protocol, wire.Body, []byte(descriptor.Body))) || (method == http.MethodGet && descriptor.Body != "") {
+	if requestoverride.Decode(raw, &descriptor) != nil || descriptor.Method != method || method == http.MethodGet && descriptor.Body != "" {
+		return channelplugin.ErrResult
+	}
+	prepared := []byte(descriptor.Body)
+	if descriptor.Parts != nil {
+		if wire.DriverUpload == nil {
+			return channelplugin.ErrResult
+		}
+		prepared, err = multipartPartsFields(descriptor.Parts, wire.DriverUpload)
+		if err != nil {
+			return err
+		}
+		wire.DriverUpload.parts = descriptor.Parts
+	}
+	if method == http.MethodPost && !sameDriverRequestControls(protocol, wire.Body, prepared) {
 		return channelplugin.ErrResult
 	}
 	address, _ := directRequestURL(direct, operationPath, model, false, endpoint)
@@ -79,7 +102,7 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 	wire.Driver, wire.DriverURL, wire.DriverContentType = &invocation, address, descriptor.ContentType
 	wire.DriverOperation, wire.DriverTaskID = hook, taskID
 	wire.PluginProtocol, wire.PluginModel = protocol, model
-	wire.Body = []byte(descriptor.Body)
+	wire.Body = prepared
 	if wire.Headers == nil {
 		wire.Headers = make(http.Header)
 	}

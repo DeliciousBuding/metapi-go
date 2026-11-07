@@ -164,6 +164,9 @@ func channelPluginControlsMatch(protocol string, before, after []byte, presentOn
 }
 
 func channelPluginRequestStatus(err error) int {
+	if errors.Is(err, channelplugin.ErrRequestKind) {
+		return 415
+	}
 	if errors.Is(err, channelplugins.ErrUnavailable) {
 		return 503
 	}

@@ -154,6 +154,11 @@ const providerManifest = z
       .array(z.enum(['api_key', 'oauth', 'gcp_service_account', 'none']))
       .min(1)
       .max(4),
+    requestKinds: z
+      .array(z.enum(['json', 'multipart']))
+      .min(1)
+      .max(2)
+      .optional(),
     hooks: z
       .array(
         z.enum([
@@ -192,6 +197,11 @@ const providerManifest = z
       new Set(manifest.protocols).size !== manifest.protocols.length ||
       new Set(hooks).size !== hooks.length ||
       new Set(manifest.credentialKinds).size !== manifest.credentialKinds.length
+    )
+      return false
+    if (
+      new Set(manifest.requestKinds ?? []).size !==
+      (manifest.requestKinds ?? []).length
     )
       return false
     if (hooks.includes('modelsRequest') !== hooks.includes('modelsResponse'))

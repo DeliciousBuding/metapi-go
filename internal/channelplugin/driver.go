@@ -54,6 +54,16 @@ func validTemplatePath(path, auth string) bool {
 func (m Manifest) IsProvider() bool { return m.APIVersion == 2 && m.Kind == "provider" }
 
 func (m Manifest) validateProviderLifecycle() error {
+	if m.RequestKinds != nil && (len(m.RequestKinds) == 0 || len(m.RequestKinds) > 2) {
+		return ErrManifest
+	}
+	seenKinds := map[string]bool{}
+	for _, kind := range m.RequestKinds {
+		if seenKinds[kind] || kind != "json" && kind != "multipart" {
+			return ErrManifest
+		}
+		seenKinds[kind] = true
+	}
 	for protocol, observation := range m.Observations {
 		if !slices.Contains(m.Protocols, protocol) || observation.Validate() != nil {
 			return ErrManifest
@@ -109,6 +119,8 @@ func (m Manifest) validateProviderLifecycle() error {
 type DriverInput struct {
 	Protocol       string                     `json:"protocol,omitempty"`
 	Body           string                     `json:"body"`
+	BodyKind       string                     `json:"bodyKind,omitempty"`
+	Files          []FileReference            `json:"files,omitempty"`
 	Model          string                     `json:"model,omitempty"`
 	Stream         bool                       `json:"stream"`
 	CredentialKind string                     `json:"credentialKind"`
@@ -117,6 +129,21 @@ type DriverInput struct {
 	StatusCode     int                        `json:"statusCode,omitempty"`
 	Headers        http.Header                `json:"headers,omitempty"`
 	Options        map[string]json.RawMessage `json:"options"`
+}
+
+type FileReference struct {
+	Ref      string `json:"ref"`
+	Field    string `json:"field"`
+	Filename string `json:"filename"`
+	MIMEType string `json:"mimeType"`
+	Size     int64  `json:"size"`
+}
+
+func (m Manifest) AcceptsRequestKind(kind string) bool {
+	if len(m.RequestKinds) == 0 {
+		return kind == "json"
+	}
+	return slices.Contains(m.RequestKinds, kind)
 }
 
 // Driver calls produce bounded JSON for the operation's owning host parser.
@@ -134,6 +161,30 @@ func (p *Program) CallDriver(ctx context.Context, hook string, input DriverInput
 		return nil, ErrManifest
 	}
 	options, err := p.manifest.ResolveOptions(input.Options)
+	if hook == "request" || hook == "submit" {
+		kind := input.BodyKind
+		if kind == "" {
+			kind = "json"
+		}
+		if !p.manifest.AcceptsRequestKind(kind) {
+			return nil, ErrRequestKind
+		}
+		if kind == "json" && len(input.Files) != 0 || kind == "multipart" && (hook != "submit" || !slices.Contains([]string{"video", "seedanceVideo", "zenmuxVideo"}, input.Protocol)) {
+			return nil, ErrManifest
+		}
+	} else if input.BodyKind != "" || len(input.Files) != 0 {
+		return nil, ErrResult
+	}
+	if len(input.Files) > 16 {
+		return nil, ErrResult
+	}
+	seenFiles := map[string]bool{}
+	for _, file := range input.Files {
+		if file.Ref == "" || len(file.Ref) > 128 || seenFiles[file.Ref] || !validPartName(file.Field) || len(file.Filename) > 1024 || strings.ContainsAny(file.Filename+file.MIMEType, "\r\n\x00") || len(file.MIMEType) > 256 || file.Size < 0 {
+			return nil, ErrResult
+		}
+		seenFiles[file.Ref] = true
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -184,6 +235,17 @@ type RequestDescriptor struct {
 	Body        string            `json:"body,omitempty"`
 	ContentType string            `json:"contentType,omitempty"`
 	Headers     map[string]string `json:"headers,omitempty"`
+	Parts       []MultipartPart   `json:"parts,omitempty"`
+}
+
+type MultipartPart struct {
+	Field   string  `json:"field"`
+	Value   *string `json:"value,omitempty"`
+	FileRef string  `json:"fileRef,omitempty"`
+}
+
+func validPartName(name string) bool {
+	return name != "" && len(name) <= 256 && !strings.ContainsAny(name, "\r\n\x00")
 }
 
 func (d RequestDescriptor) ResolveURL(endpoint string) (*url.URL, error) {
@@ -214,6 +276,21 @@ func (d RequestDescriptor) relativePath() (*url.URL, error) {
 }
 
 func (d RequestDescriptor) Validate() error {
+	if d.Parts != nil {
+		if d.Method != "POST" || d.Body != "" || d.ContentType != "" || len(d.Parts) == 0 || len(d.Parts) > 528 {
+			return ErrResult
+		}
+		for _, part := range d.Parts {
+			if !validPartName(part.Field) || (part.Value != nil) == (part.FileRef != "") || len(part.FileRef) > 128 || part.Value != nil && len(*part.Value) > MaxInputBytes {
+				return ErrResult
+			}
+		}
+		for key := range d.Headers {
+			if strings.EqualFold(key, "Content-Type") || strings.EqualFold(key, "Content-Length") {
+				return ErrResult
+			}
+		}
+	}
 	if !slices.Contains([]string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}, d.Method) || len(d.Body) > MaxInputBytes || len(d.Headers) > 64 || len(d.ContentType) > 256 || strings.ContainsAny(d.ContentType, "\r\n\x00") {
 		return ErrResult
 	}

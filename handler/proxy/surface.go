@@ -72,6 +72,7 @@ type Ctx struct {
 	SurfaceFormat        string
 	IsStream             bool
 	Multipart            bool
+	directProviderUpload *directProviderUpload
 	Retries              int
 	MaxRetries           int
 	// ForcedChannelID pins channel selection to a specific route channel when set

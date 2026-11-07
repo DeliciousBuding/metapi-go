@@ -23,12 +23,7 @@ func prepareDirectProviderDriver(ctx context.Context, proxyCtx *Ctx, cfg *Upstre
 	binding := direct.RequestConfig.Provider
 	protocol := directPluginProtocol(path)
 	if strings.HasPrefix(path, "/v1/videos") {
-		bit, _ := directVideoSelectedEndpoint(direct)
-		for _, entry := range direct.Endpoints.Entries() {
-			if entry.Protocol == bit {
-				protocol = entry.Key
-			}
-		}
+		protocol = directMediaDriverProtocol(direct, path)
 	}
 	if binding == nil || !slices.Contains(binding.Protocols, protocol) {
 		return nil

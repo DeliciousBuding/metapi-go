@@ -542,6 +542,15 @@ func dispatchSelectedUpstream(
 	var bodyBytes []byte
 	var err error
 	if ctx.Multipart {
+		ctx.directProviderUpload = nil
+		if hasDirectMediaDriver(selected.Direct, upstreamPath) {
+			ctx.directProviderUpload, bodyBytes, err = prepareDirectProviderUpload(r, selected.Direct, upstreamModel)
+			if err != nil {
+				writeJSONErrorWithRequest(w, 400, "Invalid provider multipart metadata", "invalid_request_error", requestID)
+				return true, nil
+			}
+			return dispatchDirectEndpoint(w, r, ctx, cfg, selected, upstreamModel, proxyConfig, bodyBytes, contentType, firstByteTimeoutMs, retry, maxRetries, disableCrossProtocolFallback, requestID)
+		}
 		// Multipart bodies are not multi-protocol rewritten; single-shot only.
 		var bodyReader io.Reader
 		overrides := map[string]string{"model": upstreamModel}
