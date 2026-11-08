@@ -190,6 +190,8 @@ func (i DriverInvocation) HasHook(hook string) bool { return i.program.HasDriver
 
 func (i DriverInvocation) IsImageTask() bool { return i.program.HasImageTask(i.protocol) }
 
+func (i DriverInvocation) StreamsImageTask() bool { return i.program.StreamsImageTask(i.protocol) }
+
 func (i DriverInvocation) AcceptsRequestKind(kind string) bool {
 	return i.program != nil && i.program.Manifest().AcceptsRequestKind(kind)
 }

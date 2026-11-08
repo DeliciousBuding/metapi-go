@@ -53,3 +53,36 @@ func TestImageTaskExtensionDoesNotRewriteSynchronousManifestIdentity(t *testing.
 		t.Fatalf("legacy synchronous program identity changed: %v", err)
 	}
 }
+
+func TestImageTaskStreamIsExplicitAndDoesNotRequireTextEventHooks(t *testing.T) {
+	for _, protocol := range []string{"imageGeneration", "imageEdit", "modelscopeImageGeneration"} {
+		source := strings.ReplaceAll(imageTaskSource, "modelscopeImageGeneration", protocol)
+		legacy, err := Compile(t.Context(), source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if legacy.StreamsImageTask(protocol) {
+			t.Fatal("legacy declaration gained streaming")
+		}
+		_, err = legacy.CallDriver(t.Context(), "submit", DriverInput{Protocol: protocol, CredentialKind: "api_key", Body: `{}`, Stream: true})
+		if err == nil {
+			t.Fatal("undeclared streaming execution accepted")
+		}
+		source = strings.Replace(source, `query:{path`, `stream:true,query:{path`, 1)
+		program, err := Compile(t.Context(), source)
+		if err != nil || !program.StreamsImageTask(protocol) {
+			t.Fatalf("explicit image stream rejected: %v", err)
+		}
+		for _, hook := range []string{"submit", "query", "taskResult"} {
+			if _, err = program.CallDriver(t.Context(), hook, DriverInput{Protocol: protocol, CredentialKind: "api_key", Body: `{}`, Stream: true}); err != nil {
+				t.Fatalf("image streaming required unrelated event hook: %v", err)
+			}
+		}
+		if program.Fingerprint() == legacy.Fingerprint() {
+			t.Fatal("stream capability did not change executable identity")
+		}
+		if _, err = Compile(t.Context(), strings.ReplaceAll(source, protocol, "imageVariation")); err == nil {
+			t.Fatal("variation inherited generation streaming")
+		}
+	}
+}

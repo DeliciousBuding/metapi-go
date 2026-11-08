@@ -506,8 +506,43 @@ imageTasks: {
 完成结果保留原生 JSON 扩展和精确整数；`response_format:"url"` 保留合法 URL，
 `b64_json` 或省略格式时保留 base64 或从 data URI/URL 物化 base64。URL 下载复用
 既有无凭据、公网 IP 固定、Host/SNI 与 TLS 隔离的媒体 owner，原始文件字节不进
-JS、不变成 token。图片流式请求目前明确拒绝，不能把 `stream:true` 默默变为 JSON。
+JS、不变成 token。
 该 HTTP 图片门面不新增持久任务表或恢复轴，不能把断开后的图片请求当视频任务恢复。
+
+#### 显式图片流式
+
+`imageGeneration`、`imageEdit`、`modelscopeImageGeneration` 可在各自
+`imageTasks.<协议>` 中额外声明 `stream:true`，不借文本 `event` hook 或内置
+供应商消费者获得能力。旧声明不自动获得流式，`imageVariation` 不支持此声明。
+旧 host 拒绝新字段；回退前须替换包含 `stream` 字段的模块。
+
+客户端 `stream:true` 选择原生 SSE 门面，宿主的供应商 POST/GET 仍为 JSON；
+`submit/query/taskResult` 的输入 `stream` 单独保留客户端意图，提交描述符不带
+上游 SSE 标志。JSON 和显式 multipart 编辑使用同一生命周期，文件原字节由宿主
+编码。`partial_images` 为 0–3、`n` 为 1–10，JSON 使用数字，multipart 使用十进制
+字段字符串；未指定预览数默认 0。流式结果使用 base64，不接受 `response_format:url`，
+GIF/SVG 输出不支持流式。不能把流请求默默变为缓冲 JSON。
+
+流式 `taskResult` 在原 pending/completed 结构中可额外返回
+`partials:[{index:0,body:"原生 partial image JSON"}]`。只在供应商实际返回预览时
+映射该字段，宿主不从进度或最终图制造预览。index 从 0 连续增加、不能超过请求
+预览预算；同一索引相同内容的轮询快照只输出一次，内容变化或乱序拒绝。预览 body
+包含合法 `b64_json`，可带 `created_at/background/output_format/quality/size` 和
+原生扩展，不能包含用量或错误；未知/重复控制字段拒绝，精确数字保持。
+完成 body 仍为前述原生图片 JSON，先核对原始累计用量并完成安全物化后，按每张
+图片输出完成事件；预览可以少于请求数，不能用预览替代完整终态。
+
+生成/ModelScope 门面输出 `image_generation.partial_image` / `.completed`，编辑
+输出 `image_edit.partial_image` / `.completed`，SSE event 名与 JSON `type` 一致。
+缺失的格式/背景/质量/尺寸使用本请求设置或协议默认值；原 JSON 扩展和大整数保留。
+用量仍以原供应商响应为准，不按预览帧、图片个数或输出大小推 tokens。
+
+响应是拉取式的原请求状态：只有下游读取才推进查询，关闭/取消会停止当前网络，
+没有后台 task、额外 goroutine 池、持久表或第二份结算。健康的 pending 响应发 SSE
+注释，不算生成输出；原 stream owner 负责 idle/写窗口、累计输出字节、错误结束
+和一次结算。图片帧可超过普通文本分析帧上限，但受总 stream 字节上限约束，
+分析器只留有界元数据和原用量。查询 HTTP 错误保留实际 JSON 错误为 SSE 错误，
+其余解析/字节/安装错误按已有 SSE 错误合同结束，不输出 completed、不重放 POST。
 
 ## 回退到旧插件合同
 

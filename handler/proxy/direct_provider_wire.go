@@ -24,27 +24,28 @@ type directProviderWire struct {
 	StripToolPrefix bool
 	Profile         string
 	// ImageResponseFormat is the downstream output choice, never sent upstream.
-	ImageResponseFormat string
-	NanoGPTTools        *upstreamadapter.NanoGPTTools
-	ProtocolSession     *relaykitbridge.Session
-	RequestConfig       store.DirectRequestConfig
-	RequestContext      requestoverride.Context
-	Plugins             []channelplugins.Invocation
-	Driver              *channelplugins.DriverInvocation
-	DriverImageQuery    *store.DirectImageQueryEndpoint
-	DriverImageUsage    *ParsedUsage
-	DriverURL           string
-	DriverContentType   string
-	DriverTaskID        string
-	DriverOperation     string
-	DriverContentQuery  bool
-	DriverUpload        *directProviderUpload
-	PluginProtocol      string
-	PluginModel         string
-	PluginStream        bool
-	PluginHeaders       []requestoverride.Operation
-	removeHeaders       []string
-	removeEmptyHeaders  []string
+	ImageResponseFormat      string
+	NanoGPTTools             *upstreamadapter.NanoGPTTools
+	ProtocolSession          *relaykitbridge.Session
+	RequestConfig            store.DirectRequestConfig
+	RequestContext           requestoverride.Context
+	Plugins                  []channelplugins.Invocation
+	Driver                   *channelplugins.DriverInvocation
+	DriverImageQuery         *store.DirectImageQueryEndpoint
+	DriverImageUsage         *ParsedUsage
+	DriverImageStreamOptions *imageTaskStreamOptions
+	DriverURL                string
+	DriverContentType        string
+	DriverTaskID             string
+	DriverOperation          string
+	DriverContentQuery       bool
+	DriverUpload             *directProviderUpload
+	PluginProtocol           string
+	PluginModel              string
+	PluginStream             bool
+	PluginHeaders            []requestoverride.Operation
+	removeHeaders            []string
+	removeEmptyHeaders       []string
 }
 type directProviderWireKey struct{}
 type directProviderRequest struct {

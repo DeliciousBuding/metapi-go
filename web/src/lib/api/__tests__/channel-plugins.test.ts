@@ -52,6 +52,21 @@ describe('channel plugin API data boundary', () => {
       manifest,
       {
         ...manifest,
+        imageTasks: {
+          ...manifest.imageTasks,
+          imageGeneration: {
+            ...manifest.imageTasks.imageGeneration,
+            stream: true,
+          },
+          imageEdit: { ...manifest.imageTasks.imageEdit, stream: true },
+          modelscopeImageGeneration: {
+            ...manifest.imageTasks.modelscopeImageGeneration,
+            stream: false,
+          },
+        },
+      },
+      {
+        ...manifest,
         protocols: [...protocols, 'chat'],
         hooks: [...manifest.hooks, 'request', 'response'],
       },
@@ -60,6 +75,26 @@ describe('channel plugin API data boundary', () => {
       await expect(channelPluginsApi.list()).resolves.toEqual(item(valid))
     }
     for (const invalid of [
+      {
+        ...manifest,
+        imageTasks: {
+          ...manifest.imageTasks,
+          imageVariation: {
+            ...manifest.imageTasks.imageVariation,
+            stream: true,
+          },
+        },
+      },
+      {
+        ...manifest,
+        imageTasks: {
+          ...manifest.imageTasks,
+          imageGeneration: {
+            ...manifest.imageTasks.imageGeneration,
+            stream: 'true',
+          },
+        },
+      },
       { ...manifest, imageTasks: {} },
       { ...manifest, imageTasks: null },
       { ...manifest, observations: undefined },

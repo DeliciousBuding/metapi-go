@@ -15,6 +15,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 // Resolve after current credential/route authorization and capture exactly one
@@ -43,8 +44,21 @@ func prepareDirectProviderDriver(ctx context.Context, proxyCtx *Ctx, cfg *Upstre
 	}
 	hook := "request"
 	if invocation.IsImageTask() {
-		if stream || direct.RequestConfig.ValidateEndpoints(direct.Endpoints) != nil {
+		if stream && !invocation.StreamsImageTask() || direct.RequestConfig.ValidateEndpoints(direct.Endpoints) != nil {
 			return channelplugins.ErrBinding
+		}
+		if stream {
+			wire.DriverImageStreamOptions, err = newImageTaskStreamOptions(protocol, wire.Body, wire.DriverUpload != nil)
+			if err != nil {
+				return err
+			}
+			// The facade streams; its declared supplier submit is still JSON.
+			// Give the driver client intent separately, and do not let a wire
+			// stream flag switch the POST to a second SSE consumer.
+			wire.Body, err = sjson.DeleteBytes(wire.Body, "stream")
+			if err != nil {
+				return channelplugin.ErrResult
+			}
 		}
 		if proxyCtx != nil && proxyCtx.Body["response_format"] != nil {
 			format, valid := proxyCtx.Body["response_format"].(string)

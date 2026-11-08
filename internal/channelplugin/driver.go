@@ -36,7 +36,8 @@ type ProviderDefaults struct {
 }
 
 type ImageTaskTemplate struct {
-	Query EndpointTemplate `json:"query"`
+	Query  EndpointTemplate `json:"query"`
+	Stream bool             `json:"stream,omitempty"`
 }
 
 func validTemplatePath(path, auth string) bool {
@@ -69,13 +70,17 @@ func (p *Program) HasImageTask(protocol string) bool {
 	return exists
 }
 
+func (p *Program) StreamsImageTask(protocol string) bool {
+	return p != nil && p.HasImageTask(protocol) && p.manifest.ImageTasks[protocol].Stream
+}
+
 func (m Manifest) validateProviderLifecycle() error {
 	if m.ImageTasks != nil && (len(m.ImageTasks) == 0 || len(m.ImageTasks) > 4) {
 		return ErrManifest
 	}
 	for protocol, task := range m.ImageTasks {
 		observation := m.Observations[protocol].Response
-		if !contract.ValidImageTaskProtocol(protocol) || !slices.Contains(m.Protocols, protocol) || !validTemplatePath(task.Query.Path, task.Query.Auth) || !contract.ValidImageQueryPath(task.Query.Path) || task.Query.ModelPath || task.Query.Profile != "" || observation == nil || observation.TaskIDPath == "" {
+		if !contract.ValidImageTaskProtocol(protocol) || !slices.Contains(m.Protocols, protocol) || !validTemplatePath(task.Query.Path, task.Query.Auth) || !contract.ValidImageQueryPath(task.Query.Path) || task.Query.ModelPath || task.Query.Profile != "" || observation == nil || observation.TaskIDPath == "" || task.Stream && protocol == "imageVariation" {
 			return ErrManifest
 		}
 	}
@@ -199,7 +204,7 @@ func (p *Program) CallDriver(ctx context.Context, hook string, input DriverInput
 		if input.Protocol != "" || input.Stream {
 			return nil, ErrManifest
 		}
-	} else if !slices.Contains(p.manifest.Protocols, input.Protocol) || input.Stream && !slices.Contains(p.manifest.Hooks, "event") {
+	} else if !slices.Contains(p.manifest.Protocols, input.Protocol) || input.Stream && !slices.Contains(p.manifest.Hooks, "event") && !(p.StreamsImageTask(input.Protocol) && slices.Contains([]string{"submit", "query", "taskResult"}, hook)) {
 		return nil, ErrManifest
 	}
 	options, err := p.manifest.ResolveOptions(input.Options)

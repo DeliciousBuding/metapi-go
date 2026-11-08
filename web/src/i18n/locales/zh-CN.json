@@ -4411,7 +4411,7 @@
         "nativeProvider": "内置供应商（不使用 driver）",
         "emptyProviders": "尚未安装供应商适配器，请到「插件」标签页安装 API v2 provider。",
         "providerDescription": "选择一个协议适配器，与有序 wire hooks 分开绑定；只使用已配置端点，不授予模型访问权限或凭据。",
-        "providerSupport": "当前派发支持原生同步 JSON、文本流、压缩与 WebSocket，视频任务/公网 CDN、显式图片/音频 multipart，以及声明了生命周期的异步图片提交/查询/结果。非 JSON 音频和字幕原样转发；异步图片流式门面和其他厂商任务生命周期仍待接入。",
+        "providerSupport": "当前派发支持原生 JSON、文本流、压缩/WebSocket、视频任务/公网 CDN、显式图片/音频 multipart，以及声明了生命周期的异步图片提交/查询/结果。图片生成/编辑流式需逐槽显式声明，变体仍为非流式。非 JSON 音频/字幕原样转发；其他厂商任务生命周期仍待接入。",
         "clearProvider": "移除供应商绑定",
         "providerUnavailable": "已保存的供应商适配器不可用或已停用，绑定仍保留；恢复或显式移除前，新的请求会失败。",
         "providerCredentialMismatch": "此适配器不支持所选凭据类型，请更换兼容适配器或移除绑定。",

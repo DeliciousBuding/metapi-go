@@ -292,6 +292,7 @@ const providerManifest = z
         imageTaskProtocol,
         z
           .object({
+            stream: z.boolean().optional(),
             query: z
               .object({
                 path: imageQueryPath,
@@ -371,6 +372,8 @@ const providerManifest = z
     if (
       imageTasks.some(
         (key) =>
+          (key === 'imageVariation' &&
+            manifest.imageTasks?.[key]?.stream === true) ||
           !manifest.protocols.includes(
             key as (typeof importedEndpointKeys)[number]
           ) ||
