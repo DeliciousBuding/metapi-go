@@ -104,6 +104,11 @@ provider 的匿名身份复用既有凭据 resolver 与 Ollama 端点资格；�
 原生视频共用，`platform` 固定已验证公网 IP，保留 Host/SNI，并隔离认证/TLS 设置。
 `channel_plugin_versions` 只归档实际被持久任务捕获的已审程序，任务保存摘要引用。
 旧任务用原代码/默认选项恢复，但当前安装启用与归属/端点/凭据资格仍独立验证。
+`service/channelplugins.ListArchivedVersions` 只读任务程序摘要与引用数；管理员可通过
+`RestoreArchivedVersion` 为缺失的持久引用恢复经有界编译、指纹匹配的原程序，
+不改变当前安装或授权。已完成任务也计入引用，因为后续仍可取回内容。
+零引用不是回收证明：捕获程序与提交任务落库之间存在在途窗口，因此没有按
+引用数自动删除代码的路径，也不增加另一条程序版本轴。
 multipart driver 在原生 profile 预转换前接收字段和请求内文件引用；字节、文件句柄
 与临时路径由 `handler/proxy` 的原 multipart owner 保留。JSON 占位符或 multipart
 parts 在语义覆盖/预算之后由宿主最终编码，不给 JS 文件能力或另建上传执行器。

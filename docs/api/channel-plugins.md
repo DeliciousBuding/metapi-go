@@ -22,6 +22,25 @@
 区分缓存版本。`channel_plugins` 不进入可移植备份，防止备份导入安装或启用代码；
 SQLite/PostgreSQL 方言迁移仍保留完整安装记录。
 
+## 历史任务程序诊断与恢复
+
+- `GET /api/channel-plugin-versions`：`{items:[{key,fingerprint,available,taskReferences}]}`。
+  管理员按需读取；只返回代码摘要和引用数，不读取或执行源码，也不返回任务 ID、
+  owner、私有绑定或凭据。结果包含有引用但缺失的档案；读取失败、损坏/未知身份
+  显式报错，不返回成功的空列表。`available` 仅表示档案行存在，不证明代码完整、
+  可执行或当前已授权。列表最大 512 个存储版本加 1024 个缺失引用身份。
+- `POST /api/channel-plugin-versions/restore`：`{key,fingerprint,source}`，响应
+  `{key,fingerprint,restored:true}`。必须有持久任务引用，管理员提供原始已审源码，
+  经原隔离编译器验证的程序 key/manifest/source 摘要必须精确匹配。错误程序
+  返回 400，无任务引用返回 409；恢复同一原程序幂等，不覆盖损坏的不可变档案。
+  仍受每 key 32/global 512 档案上限约束。错误响应不回显源码。
+
+两条接口只接受管理身份且返回 `Cache-Control: no-store`。恢复不会安装、启用、
+升级插件，不改变任务/渠道绑定，不绕过当前凭据和归属校验。可移植数据备份不
+携带代码；管理员需另行保留并审查原源码，不能用最新版代码冒充旧指纹。
+已完成任务仍可能取回内容，因此也计入引用数。捕获程序到任务落库之间还有
+在途窗口，零引用不是安全回收证明；本接口没有删除/自动 GC 能力。
+
 ## Manifest 与 hooks
 
 ```js

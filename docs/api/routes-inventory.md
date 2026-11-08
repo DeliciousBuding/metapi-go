@@ -11,6 +11,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 
 ### GET
 
+- `/api/channel-plugin-versions`
 - `/api/channel-plugins`
 - `/api/channel-plugins/:key`
 
@@ -132,6 +133,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/update-center/status`
 ### POST
 
+- `/api/channel-plugin-versions/restore`
 - `/api/admin/users/:userId/budget/reconcile`
 
 - `/api/user/auth/activate`
