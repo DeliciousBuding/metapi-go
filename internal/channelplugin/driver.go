@@ -53,9 +53,20 @@ func validTemplatePath(path, auth string) bool {
 
 func (m Manifest) IsProvider() bool { return m.APIVersion == 2 && m.Kind == "provider" }
 
+func (m Manifest) DurableTaskCapture() bool {
+	return m.IsProvider() && m.TaskCapture != nil && *m.TaskCapture == "durable"
+}
+
 func (m Manifest) validateProviderLifecycle() error {
 	if m.Authentication != nil && (m.Authentication.Validate() != nil || len(m.CredentialKinds) != 1 || m.CredentialKinds[0] != "api_key") {
 		return ErrManifest
+	}
+	if m.TaskCapture != nil {
+		if !m.DurableTaskCapture() || !slices.ContainsFunc(m.Protocols, func(protocol string) bool {
+			return slices.Contains([]string{"video", "seedanceVideo", "zenmuxVideo"}, protocol)
+		}) {
+			return ErrManifest
+		}
 	}
 	if m.RequestKinds != nil && (len(m.RequestKinds) == 0 || len(m.RequestKinds) > 2) {
 		return ErrManifest

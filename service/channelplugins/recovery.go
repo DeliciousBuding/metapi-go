@@ -21,6 +21,8 @@ type ArchivedVersion struct {
 	Fingerprint    string `json:"fingerprint" db:"fingerprint"`
 	Available      bool   `json:"available"`
 	TaskReferences int64  `json:"taskReferences"`
+	Prunable       bool   `json:"prunable,omitempty"`
+	Manifest       string `json:"-" db:"manifest"`
 }
 
 // Listing reads metadata only and includes missing programs referenced by tasks.
@@ -43,7 +45,7 @@ func ListArchivedVersions(ctx context.Context, db *sqlx.DB) ([]ArchivedVersion, 
 		return nil, err
 	}
 	var archived []ArchivedVersion
-	if err = tx.SelectContext(ctx, &archived, `SELECT plugin_key,fingerprint FROM channel_plugin_versions LIMIT 513`); err != nil {
+	if err = tx.SelectContext(ctx, &archived, `SELECT plugin_key,fingerprint,manifest FROM channel_plugin_versions LIMIT 513`); err != nil {
 		return nil, err
 	}
 	if len(archived) > 512 {
@@ -56,6 +58,12 @@ func ListArchivedVersions(ctx context.Context, db *sqlx.DB) ([]ArchivedVersion, 
 		}
 		ref := store.ChannelPluginVersionReference{Key: item.Key, Fingerprint: item.Fingerprint}
 		item.Available, item.TaskReferences = true, refs[ref]
+		var manifest channelplugin.Manifest
+		// This is only a UI hint. Deletion also compiles and validates the
+		// immutable source, and rechecks references under the capture lock.
+		if len(item.Manifest) <= channelplugin.MaxResultBytes && json.Unmarshal([]byte(item.Manifest), &manifest) == nil {
+			item.Prunable = item.TaskReferences == 0 && manifest.Validate() == nil && manifest.Key == item.Key && manifest.DurableTaskCapture()
+		}
 		delete(refs, ref)
 		out = append(out, item)
 	}

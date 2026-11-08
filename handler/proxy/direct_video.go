@@ -351,10 +351,25 @@ func processVideoTaskResponse(ctx *Ctx, selected *routing.SelectedChannel, metho
 			return nil, errors.New("video task storage is unavailable")
 		}
 		now := videoTaskNow().UTC().Format(time.RFC3339)
-		_, err = db.Exec(`INSERT INTO proxy_video_tasks (public_id, upstream_video_id, site_url, token_value,
-			requested_model, actual_model, channel_id, direct_identity, accounting_state, created_at, updated_at)
-			VALUES (?, ?, '', '', ?, ?, ?, ?, '{"version":1}', ?, ?)`, publicID, upstreamID, ctx.RequestedModel, selected.ActualModel,
-			-selected.Direct.ItemID, string(identity), now, now)
+		if capture := ctx.videoCapture; capture != nil {
+			if capture.db != db || capture.identity != string(identity) {
+				return nil, errors.New("video task capture does not match the response")
+			}
+			publicID = capture.publicID
+			result, updateErr := db.Exec(`UPDATE proxy_video_tasks SET upstream_video_id=?,created_at=?,updated_at=? WHERE public_id=? AND upstream_video_id='' AND direct_identity=? AND requested_model=? AND actual_model=?`, upstreamID, now, now, publicID, capture.identity, ctx.RequestedModel, selected.ActualModel)
+			err = updateErr
+			if err == nil {
+				n, rowsErr := result.RowsAffected()
+				if rowsErr != nil || n != 1 {
+					err = errors.New("video task capture is unavailable")
+				}
+			}
+		} else {
+			_, err = db.Exec(`INSERT INTO proxy_video_tasks (public_id, upstream_video_id, site_url, token_value,
+				requested_model, actual_model, channel_id, direct_identity, accounting_state, created_at, updated_at)
+				VALUES (?, ?, '', '', ?, ?, ?, ?, '{"version":1}', ?, ?)`, publicID, upstreamID, ctx.RequestedModel, selected.ActualModel,
+				-selected.Direct.ItemID, string(identity), now, now)
+		}
 		if err != nil {
 			return nil, errors.New("video task could not be persisted")
 		}

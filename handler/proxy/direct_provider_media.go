@@ -9,7 +9,9 @@ import (
 	"github.com/deliciousbuding/metapi-go/internal/channelplugin"
 	"github.com/deliciousbuding/metapi-go/internal/requestoverride"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamConfig, wire *directProviderWire, direct *store.DirectUpstreamCandidate, endpoint *store.DirectEndpoint, protocol, kind, path, method, model string) error {
@@ -47,7 +49,15 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 	if hook == "submit" && wire.DriverUpload != nil {
 		requestKind = "multipart"
 	}
-	invocation, err := cfg.ChannelPlugins.ResolveTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, fingerprint, requestKind)
+	var invocation channelplugins.DriverInvocation
+	var err error
+	if hook == "submit" {
+		invocation, err = cfg.ChannelPlugins.CaptureTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, requestKind, func(tx *sqlx.Tx, captured string) (string, error) {
+			return captureDirectVideoDriver(ctx, tx, proxyCtx, direct, model, captured)
+		})
+	} else {
+		invocation, err = cfg.ChannelPlugins.ResolveTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, fingerprint, requestKind)
+	}
 	if err != nil {
 		return err
 	}

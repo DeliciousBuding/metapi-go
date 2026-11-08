@@ -52,6 +52,7 @@ type Ctx struct {
 	dispatchPolicy         *routing.DownstreamRoutingPolicy
 	videoTask              *directVideoTask
 	videoDriverFingerprint string
+	videoCapture           *directVideoCapture
 	// managedVideoTaskID is the client-facing public id of a shared-upstream
 	// (non-direct) video mapping. The rewrite replaces it with the upstream id
 	// in DownstreamPath, so the response hook needs this separate copy to delete

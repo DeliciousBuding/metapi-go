@@ -138,6 +138,22 @@ func TestProxyVideoTaskRetentionDeletesOldRFC3339RowsKeepsInWindow(t *testing.T)
 	}
 }
 
+func TestProxyVideoRetentionPreservesUnconfirmedCapture(t *testing.T) {
+	db := openRetentionTestDB(t)
+	oldAt := time.Now().UTC().Add(-72 * time.Hour).Format(time.RFC3339)
+	if _, err := db.Exec(`INSERT INTO proxy_video_tasks(public_id,upstream_video_id,site_url,token_value,created_at,updated_at) VALUES('pending','','','',?,?),('confirmed','vendor-id','','',?,?)`, oldAt, oldAt, oldAt, oldAt); err != nil {
+		t.Fatal(err)
+	}
+	s := NewProxyVideoTaskRetentionScheduler(&config.Config{ProxyVideoTaskRetentionDays: 1})
+	s.runCleanupLocked(db, 1)
+	if got := countRows(t, db, `SELECT COUNT(*) FROM proxy_video_tasks WHERE public_id='pending'`); got != 1 {
+		t.Fatal("age was treated as proof that a capture had ended")
+	}
+	if got := countRows(t, db, `SELECT COUNT(*) FROM proxy_video_tasks WHERE public_id='confirmed'`); got != 0 {
+		t.Fatal("confirmed expired task was not retired")
+	}
+}
+
 func TestFormatTimeToSQLCutoffComparesWithRFC3339CreatedAt(t *testing.T) {
 	// Direct string compare mirrors SQLite TEXT comparison used by DELETE ... created_at < ?.
 	cutoff := formatTimeToSQL(time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC))

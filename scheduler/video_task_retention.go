@@ -17,6 +17,7 @@ func NewProxyVideoTaskRetentionScheduler(cfg *config.Config) *RetentionScheduler
 	return NewRetentionScheduler(cfg, RetentionSchedulerOptions{
 		Name:               "proxy-video-task-retention",
 		Table:              "proxy_video_tasks",
+		ExtraWhere:         " AND upstream_video_id <> ''",
 		UseUTC:             true,
 		DefaultIntervalMin: 60,
 		RetentionDaysFn:    func(c *config.Config) int { return c.ProxyVideoTaskRetentionDays },

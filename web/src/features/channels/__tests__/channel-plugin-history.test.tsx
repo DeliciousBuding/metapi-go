@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
@@ -14,7 +15,11 @@ import '@/i18n/config'
 
 import { ChannelPluginHistory } from '../components/channel-plugin-history'
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), restore: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  list: vi.fn(),
+  restore: vi.fn(),
+  prune: vi.fn(),
+}))
 vi.mock('@/lib/api/channel-plugin-versions', async (original) => ({
   ...(await original<typeof import('@/lib/api/channel-plugin-versions')>()),
   channelPluginVersionsApi: mocks,
@@ -31,7 +36,10 @@ beforeEach(async () => {
   await i18n.changeLanguage('en')
   mocks.list.mockResolvedValue({ items: [version] })
 })
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+})
 function mount() {
   render(
     <QueryClientProvider
@@ -65,7 +73,7 @@ describe('historical task program recovery', () => {
     expect(expand).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(expand)
     expect(await screen.findByText('Archive missing')).toBeVisible()
-    expect(screen.getByText('Task references: 2')).toBeVisible()
+    expect(screen.getByText('Persistent references: 2')).toBeVisible()
     expect(screen.getByText(version.fingerprint)).toBeVisible()
     fireEvent.click(
       screen.getByRole('button', { name: 'Restore exact program' })
@@ -128,5 +136,132 @@ describe('historical task program recovery', () => {
     expect(
       screen.queryByText('No captured programs or missing task references.')
     ).toBeNull()
+  })
+})
+
+const reclaimable = {
+  ...version,
+  available: true,
+  taskReferences: 0,
+  prunable: true,
+}
+async function settlePrune() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0)
+  })
+}
+async function openPrune() {
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Historical task programs' })
+  )
+  await settlePrune()
+  fireEvent.click(screen.getByRole('button', { name: 'Reclaim archive' }))
+  await settlePrune()
+  return screen.getByRole('alertdialog')
+}
+async function confirmPrune(dialog: HTMLElement) {
+  fireEvent.change(within(dialog).getByRole('textbox'), {
+    target: { value: 'DELETE' },
+  })
+  for (let second = 0; second < 3; second++) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+  }
+}
+
+describe('durable program reclamation', () => {
+  it('requires a fresh countdown and exact word and blocks duplicate pending actions', async () => {
+    vi.useFakeTimers()
+    mocks.list.mockResolvedValue({ items: [reclaimable] })
+    let resolve!: (value: unknown) => void
+    mocks.prune.mockImplementation(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        })
+    )
+    mount()
+    const dialog = await openPrune()
+    expect(within(dialog).getByText(/This cannot be undone/)).toHaveTextContent(
+      version.fingerprint
+    )
+    expect(within(dialog).getByText(/This cannot be undone/)).toHaveClass(
+      'min-w-0',
+      'wrap-anywhere'
+    )
+    expect(within(dialog).getAllByRole('button').at(-1)).toBeDisabled()
+    await confirmPrune(dialog)
+    const confirm = within(dialog).getByRole('button', {
+      name: 'Reclaim archive',
+    })
+    expect(confirm).toBeEnabled()
+    fireEvent.click(confirm)
+    await settlePrune()
+    expect(mocks.prune).toHaveBeenCalledExactlyOnceWith(reclaimable)
+    expect(confirm).toBeDisabled()
+    expect(
+      within(dialog).getByRole('button', { name: 'Cancel' })
+    ).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(mocks.prune).toHaveBeenCalledTimes(1)
+    mocks.list.mockResolvedValue({ items: [] })
+    resolve({
+      key: version.key,
+      fingerprint: version.fingerprint,
+      pruned: true,
+    })
+    await settlePrune()
+    await settlePrune()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Historical task programs' })
+    ).toHaveFocus()
+  })
+
+  it('cancels without mutation and reopening does not retain confirmation', async () => {
+    vi.useFakeTimers()
+    mocks.list.mockResolvedValue({ items: [reclaimable] })
+    mount()
+    const dialog = await openPrune()
+    await confirmPrune(dialog)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await settlePrune()
+    expect(mocks.prune).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole('button', { name: 'Historical task programs' })
+    ).toHaveFocus()
+    fireEvent.click(screen.getByRole('button', { name: 'Reclaim archive' }))
+    await settlePrune()
+    const reopened = screen.getByRole('alertdialog')
+    expect(within(reopened).getByRole('textbox')).toHaveValue('')
+    expect(within(reopened).getAllByRole('button').at(-1)).toBeDisabled()
+  })
+
+  it('refreshes after an uncertain failure and refuses the old eligibility hint', async () => {
+    vi.useFakeTimers()
+    mocks.list.mockResolvedValue({ items: [reclaimable] })
+    mocks.prune.mockImplementation(async () => {
+      mocks.list.mockResolvedValue({
+        items: [{ ...version, available: true, taskReferences: 1 }],
+      })
+      throw new Error('reference changed')
+    })
+    mount()
+    const dialog = await openPrune()
+    await confirmPrune(dialog)
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Reclaim archive' })
+    )
+    await settlePrune()
+    await settlePrune()
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(
+      'Could not confirm reclamation'
+    )
+    expect(
+      within(dialog).getByRole('button', { name: 'Reclaim archive' })
+    ).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled()
+    expect(mocks.prune).toHaveBeenCalledTimes(1)
   })
 })

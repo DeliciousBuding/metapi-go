@@ -17,6 +17,20 @@ import (
 // Existing work uses its old executable while current installation/credential
 // eligibility still controls whether another operation may start.
 func (m *Manager) ResolveTaskDriver(ctx context.Context, binding store.DirectProviderBinding, protocol, kind, fingerprint string, requestKinds ...string) (DriverInvocation, error) {
+	return m.resolveTaskDriver(ctx, binding, protocol, kind, fingerprint, nil, requestKinds...)
+}
+
+// The task owner creates its pending identity in the archive transaction. It
+// returns that row's opaque ID, which the manager verifies before committing.
+// No JS or network I/O runs while the catalog transaction holds its lock.
+func (m *Manager) CaptureTaskDriver(ctx context.Context, binding store.DirectProviderBinding, protocol, kind, requestKind string, capture func(*sqlx.Tx, string) (string, error)) (DriverInvocation, error) {
+	if capture == nil {
+		return DriverInvocation{}, ErrBinding
+	}
+	return m.resolveTaskDriver(ctx, binding, protocol, kind, "", capture, requestKind)
+}
+
+func (m *Manager) resolveTaskDriver(ctx context.Context, binding store.DirectProviderBinding, protocol, kind, fingerprint string, capture func(*sqlx.Tx, string) (string, error), requestKinds ...string) (DriverInvocation, error) {
 	if m == nil || m.db == nil {
 		return DriverInvocation{}, ErrUnavailable
 	}
@@ -40,6 +54,9 @@ func (m *Manager) ResolveTaskDriver(ctx context.Context, binding store.DirectPro
 		if !invocation.AcceptsRequestKind(requestKind) {
 			return DriverInvocation{}, channelplugin.ErrRequestKind
 		}
+		if capture == nil && invocation.program.Manifest().DurableTaskCapture() {
+			return DriverInvocation{}, ErrBinding
+		}
 		db, ok := m.db.(*sqlx.DB)
 		if !ok {
 			return DriverInvocation{}, ErrUnavailable
@@ -58,7 +75,26 @@ func (m *Manager) ResolveTaskDriver(ctx context.Context, binding store.DirectPro
 			return DriverInvocation{}, ErrUnavailable
 		}
 		version := store.ChannelPluginVersion{Key: row.Key, Fingerprint: invocation.Fingerprint(), Source: row.Source, Manifest: row.Manifest}
-		if store.ArchiveChannelPluginVersion(ctx, tx, version) != nil || tx.Commit() != nil {
+		if store.ArchiveChannelPluginVersion(ctx, tx, version) != nil {
+			return DriverInvocation{}, ErrUnavailable
+		}
+		if capture != nil {
+			id, err := capture(tx, invocation.Fingerprint())
+			if err != nil || id == "" || len(id) > 256 {
+				return DriverInvocation{}, ErrUnavailable
+			}
+			var upstreamID, identity string
+			err = tx.QueryRowxContext(ctx, tx.Rebind(`SELECT upstream_video_id,direct_identity FROM proxy_video_tasks WHERE public_id=?`), id).Scan(&upstreamID, &identity)
+			var reference struct {
+				Version     int    `json:"version"`
+				Key         string `json:"driverKey"`
+				Fingerprint string `json:"driverFingerprint"`
+			}
+			if err != nil || upstreamID != "" || len(identity) > 256<<10 || json.Unmarshal([]byte(identity), &reference) != nil || reference.Version != 3 || reference.Key != binding.Key || reference.Fingerprint != invocation.Fingerprint() {
+				return DriverInvocation{}, ErrBinding
+			}
+		}
+		if tx.Commit() != nil {
 			return DriverInvocation{}, ErrUnavailable
 		}
 		return invocation, nil

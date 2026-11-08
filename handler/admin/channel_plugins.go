@@ -13,6 +13,21 @@ import (
 )
 
 func RegisterChannelPluginRoutes(r chi.Router, db *sqlx.DB) {
+	r.Post("/api/channel-plugin-versions/prune", func(w http.ResponseWriter, r *http.Request) {
+		setNoStore(w)
+		var in struct {
+			Key         string `json:"key"`
+			Fingerprint string `json:"fingerprint"`
+		}
+		if !catalogDecode(w, r, &in) {
+			return
+		}
+		if err := channelplugins.PruneArchivedVersion(r.Context(), db, in.Key, in.Fingerprint); err != nil {
+			channelPluginError(w, err)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"key": in.Key, "fingerprint": in.Fingerprint, "pruned": true})
+	})
 	r.Get("/api/channel-plugin-versions", func(w http.ResponseWriter, r *http.Request) {
 		setNoStore(w)
 		items, err := channelplugins.ListArchivedVersions(r.Context(), db)
@@ -129,6 +144,8 @@ func channelPluginError(w http.ResponseWriter, err error) {
 		writeError(w, 409, "channel_plugin_revision_conflict")
 	case errors.Is(err, channelplugins.ErrVersionNotReferenced):
 		writeError(w, 409, "channel_plugin_version_not_referenced")
+	case errors.Is(err, channelplugins.ErrVersionNotPrunable):
+		writeError(w, 409, "channel_plugin_version_not_prunable")
 	case errors.Is(err, channelplugins.ErrBinding), errors.Is(err, channelplugin.ErrCompile), errors.Is(err, channelplugin.ErrManifest), errors.Is(err, channelplugin.ErrExecution):
 		writeError(w, 400, "channel_plugin_invalid")
 	default:

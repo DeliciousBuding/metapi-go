@@ -133,6 +133,7 @@ This list is checked against the routes reachable from `router.New` by `docs/api
 - `/api/update-center/status`
 ### POST
 
+- `/api/channel-plugin-versions/prune`
 - `/api/channel-plugin-versions/restore`
 - `/api/admin/users/:userId/budget/reconcile`
 

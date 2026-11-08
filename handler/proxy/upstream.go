@@ -493,6 +493,7 @@ func dispatchSelectedUpstream(
 	if requestID == "" {
 		requestID = proxy.RequestIDFromContext(r.Context())
 	}
+	defer releaseDirectVideoCapture(ctx, requestID)
 	// Optional max_tokens / max_output_tokens / generationConfig.maxOutputTokens
 	// vs route context_length (known limitation).
 	// Enforce on OpenAI chat/completions (+ legacy completions), Anthropic
