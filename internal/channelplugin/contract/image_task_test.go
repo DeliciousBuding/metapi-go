@@ -30,7 +30,7 @@ func TestImageQueryTemplateRejectsAmbiguousOrUnboundedPaths(t *testing.T) {
 			t.Fatalf("unsafe path accepted: %q", path)
 		}
 	}
-	for _, template := range []string{"https://user:fixture@vendor.example/tasks/{taskId}", "https://vendor.example/tasks/{taskId}?key=fixture", "https://vendor.example/tasks/{taskId}#key", "file:///tasks/{taskId}"} {
+	for _, template := range []string{"https://fixture@vendor.example/tasks/{taskId}", "https://vendor.example/tasks/{taskId}?key=fixture", "https://vendor.example/tasks/{taskId}#key", "file:///tasks/{taskId}"} {
 		if _, err := ImageQueryURL(template, "fixture"); err == nil {
 			t.Fatal("URL authority or query controls accepted")
 		}

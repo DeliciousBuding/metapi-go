@@ -248,7 +248,7 @@ describe('channel plugin API data boundary', () => {
     ).toBe(true)
     for (const url of [
       'ftp://vendor.invalid/tasks/{taskId}',
-      'https://fixture:secret@vendor.invalid/tasks/{taskId}',
+      'https://fixture@vendor.invalid/tasks/{taskId}',
       'https://vendor.invalid/tasks/{taskId}?key=fixture',
       'https://vendor.invalid/tasks/{taskId}#fragment',
       'https://vendor.invalid/tasks/../{taskId}',
