@@ -232,10 +232,10 @@ func dispatchDirectEndpointAttempt(w http.ResponseWriter, r *http.Request, ctx *
 			wire.Profile = endpoint.Profile
 		}
 		wire.DriverUpload.profile = wire.Profile
-	} else if endpoint != nil && boundProvider && (endpoint.Profile == "openrouter-image" || isDirectMediaProfile(endpoint.Profile)) {
+	} else if endpoint != nil && boundProvider && (endpoint.Profile == "openrouter-image" || isDirectMediaProfile(endpoint.Profile) || isDirectNativeVideoProfile(endpoint.Profile)) {
 		// An explicit driver owns its vendor payload and delivery mode. Keep
 		// endpoint credentials/transport in the host, but do not layer the
-		// built-in image conversion or asynchronous submission defaults on it.
+		// built-in media conversion or asynchronous submission defaults on it.
 		wire = &directProviderWire{Body: body, Headers: make(http.Header), Profile: endpoint.Profile}
 	} else if endpoint != nil && endpoint.Profile == "openrouter-image" {
 		wire, contentType, err = prepareDirectOpenRouterImage(path, contentType, body)

@@ -27,6 +27,9 @@ func captureDirectVideoDriver(ctx context.Context, tx *sqlx.Tx, proxyCtx *Ctx, d
 	snapshot := *proxyCtx
 	snapshot.videoDriverFingerprint = fingerprint
 	identity := videoIdentity(&snapshot, direct)
+	if proxyCtx.videoTask != nil {
+		identity.SourcePublicID = proxyCtx.videoTask.PublicID
+	}
 	if identity.Version != 3 || identity.DriverFingerprint != fingerprint {
 		return "", errors.New("video capture identity is unavailable")
 	}

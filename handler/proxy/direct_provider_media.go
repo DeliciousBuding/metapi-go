@@ -19,6 +19,10 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 	switch {
 	case method == http.MethodPost && path == "/v1/videos":
 		hook = "submit"
+	case method == http.MethodPost && strings.HasPrefix(path, "/v1/videos/") && strings.HasSuffix(path, "/remix"):
+		hook = "remix"
+	case method == http.MethodDelete && strings.HasPrefix(path, "/v1/videos/"):
+		hook = "deleteTask"
 	case method == http.MethodGet && isDirectVideoContentPath(path):
 		hook = "content"
 	case method == http.MethodGet && strings.HasPrefix(path, "/v1/videos/"):
@@ -27,7 +31,7 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 		return channelplugin.ErrManifest
 	}
 	inputBody := ""
-	if hook == "submit" {
+	if hook == "submit" || hook == "remix" {
 		if proxyCtx.Multipart && wire.DriverUpload == nil {
 			return channelplugin.ErrManifest
 		}
@@ -36,6 +40,9 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 			return channelplugin.ErrResult
 		}
 		inputBody = string(wire.Body)
+		if hook == "remix" && wire.DriverUpload != nil {
+			return channelplugin.ErrRequestKind
+		}
 	}
 	fingerprint, taskID := "", ""
 	if proxyCtx.videoTask != nil {
@@ -52,11 +59,19 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 	var invocation channelplugins.DriverInvocation
 	var err error
 	if hook == "submit" {
-		invocation, err = cfg.ChannelPlugins.CaptureTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, requestKind, func(tx *sqlx.Tx, captured string) (string, error) {
+		invocation, err = cfg.ChannelPlugins.CaptureTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, requestKind, "", func(tx *sqlx.Tx, captured string) (string, error) {
 			return captureDirectVideoDriver(ctx, tx, proxyCtx, direct, model, captured)
 		})
 	} else {
 		invocation, err = cfg.ChannelPlugins.ResolveTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, fingerprint, requestKind)
+		if err == nil && !invocation.HasHook(hook) {
+			return channelplugin.ErrManifest
+		}
+		if err == nil && hook == "remix" {
+			invocation, err = cfg.ChannelPlugins.CaptureTaskDriver(ctx, *direct.RequestConfig.Provider, protocol, kind, requestKind, fingerprint, func(tx *sqlx.Tx, captured string) (string, error) {
+				return captureDirectVideoDriver(ctx, tx, proxyCtx, direct, model, captured)
+			})
+		}
 	}
 	if err != nil {
 		return err
@@ -85,7 +100,7 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 		}
 	}
 	var descriptor channelplugin.RequestDescriptor
-	if requestoverride.Decode(raw, &descriptor) != nil || descriptor.Method != method || method == http.MethodGet && descriptor.Body != "" {
+	if requestoverride.Decode(raw, &descriptor) != nil || descriptor.Method != method || (method == http.MethodGet || method == http.MethodDelete) && descriptor.Body != "" {
 		return channelplugin.ErrResult
 	}
 	prepared, err := directDriverDescriptorBody(descriptor, wire)
@@ -119,7 +134,7 @@ func prepareDirectMediaDriver(ctx context.Context, proxyCtx *Ctx, cfg *UpstreamC
 // Raw identity establishes the task relationship before executable parsing.
 // A throwing decoder cannot erase a received, already-verified usage delta.
 func captureDirectMediaTaskUsage(ctx context.Context, proxyCtx *Ctx, selected *routing.SelectedChannel, wire *directProviderWire, usage ParsedUsage) error {
-	if wire == nil || wire.DriverOperation == "" || proxyCtx == nil || proxyCtx.videoTask == nil || usage.invalidForUserBudget || usage.upstreamTaskID != proxyCtx.videoTask.UpstreamID {
+	if wire == nil || wire.DriverOperation == "" || wire.DriverOperation == "remix" || proxyCtx == nil || proxyCtx.videoTask == nil || usage.invalidForUserBudget || usage.upstreamTaskID != proxyCtx.videoTask.UpstreamID {
 		return nil
 	}
 	proxyCtx.videoUsageVerified = true
@@ -131,7 +146,10 @@ func captureDirectMediaTaskUsage(ctx context.Context, proxyCtx *Ctx, selected *r
 // The request remains failed; its billing details link the recoverable public
 // task. No response state or successful generation is invented here.
 func retainFailedDirectMediaSubmission(ctx context.Context, proxyCtx *Ctx, selected *routing.SelectedChannel, wire *directProviderWire, usage ParsedUsage) error {
-	if wire == nil || wire.DriverOperation != "submit" || proxyCtx == nil || proxyCtx.videoTask != nil || usage.invalidForUserBudget || !validObservedVideoTaskID(usage.upstreamTaskID) {
+	if wire == nil || (wire.DriverOperation != "submit" && wire.DriverOperation != "remix") || proxyCtx == nil || usage.invalidForUserBudget || !validObservedVideoTaskID(usage.upstreamTaskID) {
+		return nil
+	}
+	if wire.DriverOperation == "submit" && proxyCtx.videoTask != nil || wire.DriverOperation == "remix" && (proxyCtx.videoTask == nil || usage.upstreamTaskID == proxyCtx.videoTask.UpstreamID) {
 		return nil
 	}
 	body, _ := json.Marshal(map[string]string{"id": usage.upstreamTaskID})

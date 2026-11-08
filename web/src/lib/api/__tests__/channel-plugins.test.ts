@@ -11,6 +11,45 @@ vi.mock('../transport', () => ({ request: mock }))
 beforeEach(() => mock.mockReset())
 
 describe('channel plugin API data boundary', () => {
+  it('preserves explicit video mutation hooks without granting them to text providers', async () => {
+    const manifest = {
+      apiVersion: 2,
+      kind: 'provider',
+      key: 'video-mutations',
+      name: 'Video mutations',
+      version: '1.0.0',
+      protocols: ['video', 'seedanceVideo', 'zenmuxVideo'],
+      credentialKinds: ['api_key'],
+      taskCapture: 'durable',
+      hooks: [
+        'submit',
+        'query',
+        'content',
+        'taskResult',
+        'deleteTask',
+        'remix',
+      ],
+    }
+    const response = (value: unknown) => ({
+      items: [
+        { key: 'video-mutations', revision: 1, enabled: true, manifest: value },
+      ],
+    })
+    mock.mockResolvedValueOnce(response(manifest))
+    await expect(channelPluginsApi.list()).resolves.toEqual(response(manifest))
+    for (const hook of ['deleteTask', 'remix']) {
+      mock.mockResolvedValueOnce(
+        response({
+          ...manifest,
+          taskCapture: undefined,
+          protocols: ['chat'],
+          hooks: ['request', 'response', hook],
+        })
+      )
+      await expect(channelPluginsApi.list()).rejects.toThrow()
+    }
+  })
+
   it('preserves authentication, durable capture, and an image stream in one provider', async () => {
     const manifest = {
       apiVersion: 2,

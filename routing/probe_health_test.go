@@ -110,7 +110,7 @@ func TestRecordProbeFailure_CoolsOnlyProbedChannelAndUpdatesHealth(t *testing.T)
 		t.Fatal("channel 201 missing")
 	}
 	if failed.FailCountOrZero() != 1 {
-		t.Fatalf("failCount = %d, want 1", failed.FailCount)
+		t.Fatalf("failCount = %d, want 1", failed.FailCountOrZero())
 	}
 	if failed.CooldownUntil == nil {
 		t.Fatal("expected cooldownUntil set on probed channel")

@@ -1,41 +1,49 @@
+version: "2"
+
 linters:
+  default: none
   enable:
     - govet
     - errcheck
     - staticcheck
     - ineffassign
     - unused
-    - gosimple
+  settings:
+    staticcheck:
+      # v1 enabled staticcheck and gosimple, without stylecheck/quick-fix advice.
+      checks: [all, "-ST*", "-QF*"]
+  exclusions:
+    # Preserve the v1 default exclusions and scoped errcheck exceptions.
+    generated: lax
+    presets: [comments, common-false-positives, legacy, std-error-handling]
+    rules:
+      # Allow intentional error discards in defer Close(), tx.Rollback(), Flush.
+      - path: ".go"
+        linters: [errcheck]
+        text: "Error return value of .*(Close|Rollback|Flush). is not checked"
 
-issues:
-  exclude-rules:
-    # Allow intentional error discards in defer Close(), tx.Rollback(), Flush.
-    - path: ".go"
-      linters: [errcheck]
-      text: "Error return value of .*(Close|Rollback|Flush). is not checked"
+      # TS-parity packages: fire-and-forget DB/notify operations match original
+      - path: "handler/admin/.*\\.go"
+        linters: [errcheck]
+      - path: "handler/proxy/.*\\.go"
+        linters: [errcheck]
+      - path: "handler/shared/.*\\.go"
+        linters: [errcheck]
+      - path: "service/.*\\.go"
+        linters: [errcheck]
+      - path: "scheduler/.*\\.go"
+        linters: [errcheck]
+      - path: "platform/.*\\.go"
+        linters: [errcheck]
 
-    # TS-parity packages: fire-and-forget DB/notify operations match original
-    - path: "handler/admin/.*\\.go"
-      linters: [errcheck]
-    - path: "handler/proxy/.*\\.go"
-      linters: [errcheck]
-    - path: "handler/shared/.*\\.go"
-      linters: [errcheck]
-    - path: "service/.*\\.go"
-      linters: [errcheck]
-    - path: "scheduler/.*\\.go"
-      linters: [errcheck]
-    - path: "platform/.*\\.go"
-      linters: [errcheck]
+      # 测试夹具中的 best-effort 清理；其余静态检查仍检查测试代码。
+      - path: "_test\\.go"
+        linters: [errcheck]
 
-    # 测试夹具中的 best-effort 清理；其余静态检查仍检查测试代码。
-    - path: "_test\\.go"
-      linters: [errcheck]
+      # app/health.go + app/metrics.go: w.Write best-effort in health/metrics handlers
+      - path: "app/.*\\.go"
+        linters: [errcheck]
 
-    # app/health.go + app/metrics.go: w.Write best-effort in health/metrics handlers
-    - path: "app/.*\\.go"
-      linters: [errcheck]
-
-    # router/router.go: w.Write in SPA fallback is best-effort
-    - path: "router/router\\.go"
-      linters: [errcheck]
+      # router/router.go: w.Write in SPA fallback is best-effort
+      - path: "router/router\\.go"
+        linters: [errcheck]

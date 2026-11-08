@@ -679,7 +679,7 @@ func TestBaseAdapterEmbedding(t *testing.T) {
 	for _, a := range ListAdapters() {
 		// Use reflection to check for BaseAdapter field
 		v := reflect.ValueOf(a)
-		if v.Kind() == reflect.Ptr {
+		if v.Kind() == reflect.Pointer {
 			v = v.Elem()
 		}
 		if v.Kind() != reflect.Struct {
@@ -690,7 +690,7 @@ func TestBaseAdapterEmbedding(t *testing.T) {
 		hasBase := false
 		for i := 0; i < v.NumField(); i++ {
 			field := v.Field(i)
-			if field.Kind() == reflect.Ptr && !field.IsNil() {
+			if field.Kind() == reflect.Pointer && !field.IsNil() {
 				if _, ok := field.Interface().(*BaseAdapter); ok {
 					hasBase = true
 					break

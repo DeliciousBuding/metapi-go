@@ -34,7 +34,7 @@ import (
 // partly live.
 //
 // Version-exact confirmation from the real gate rather than a local proxy: CI's
-// lint job (golangci-lint v1.64.8, `unused` enabled, and no --new-from-rev, so
+// lint job (golangci-lint v2, pinned by CI, `unused` enabled, and no --new-from-rev, so
 // any single finding fails the job) passed on pull #1257 head 1acab2b0 — a tree
 // that contained two unreferenced unexported const-group members,
 // platform/siteProxyCacheTTL and service/oauth/antigravityModelsUserAgent. Both
