@@ -4411,7 +4411,7 @@
         "nativeProvider": "Built-in provider (no driver)",
         "emptyProviders": "No provider drivers installed. Install an API v2 provider in the Plugins tab.",
         "providerDescription": "One protocol adapter, separate from ordered wire hooks. Only configured endpoints use it; binding does not grant model access or credentials.",
-        "providerSupport": "Current dispatch: native JSON, text streams, compaction/WebSocket, video tasks/public CDN, explicit image/audio multipart, and declared asynchronous image submit/query/result. Image generation/edit streaming requires an explicit per-slot stream declaration; variations remain non-streaming. Non-JSON audio/subtitles pass through unchanged. Other vendor task lifecycles remain pending.",
+        "providerSupport": "Current dispatch: native JSON, text streams, compaction/WebSocket, video tasks/public CDN, explicit image/audio multipart, and declared asynchronous image submit/query/result. Video delete/remix requires explicit hooks and keeps the captured task program. Image generation/edit streaming requires an explicit per-slot stream declaration; variations remain non-streaming. Non-JSON audio/subtitles pass through unchanged. Other vendor task lifecycles remain pending.",
         "clearProvider": "Remove provider binding",
         "providerUnavailable": "This saved provider is unavailable or disabled. The binding is preserved; new requests fail until it is restored or explicitly removed.",
         "providerCredentialMismatch": "This driver does not support the selected credential kind. Choose a compatible driver or remove its binding.",

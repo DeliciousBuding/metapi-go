@@ -980,6 +980,12 @@ func dispatchEndpointAttemptWithContinue(
 	req = req.WithContext(r.Context())
 	var resp *http.Response
 	wire := directProviderWireFromContext(r.Context())
+	if wire != nil && (wire.DriverOperation == "remix" || wire.DriverOperation == "deleteTask") {
+		// Both mutate a fixed owned task. A transport/response failure cannot
+		// prove that the write did not execute, so do not replay or change slot.
+		maxRetries = retry
+		disableCrossProtocolFallback = true
+	}
 	if wire != nil && (wire.Profile == "openrouter-image" || isDirectMediaProfile(wire.Profile)) {
 		// Replacing the built-in payload/consumer must not remove its image
 		// submission replay boundary. A failed POST may already be billable.

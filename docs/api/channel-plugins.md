@@ -361,8 +361,30 @@ JavaScript Number 重建。用量合并、终态、取消与身份恢复继续�
 也接受 multipart；不把文件字节或预转换的 base64 内容交给 JS。
 查询和内容操作输入提供宿主捕获的 `taskId`。
 请求 hook 仍返回受限描述符：提交 POST、查询与内容 GET，URL 必须保留宿主已
-授权的完整操作地址。DELETE/remix 尚未接入，不借 query hook
-重放写请求。已执行的媒体操作不自动重放。
+授权的完整操作地址。写操作须单独声明可选 `deleteTask` / `remix` hooks，
+旧程序不自动获得能力，也不借 query hook 重放写请求。它们只消费已拥有的
+视频任务，不授予新协议或模型权限；显式 provider 的操作不叠加内置 Seedance/
+ZenMux 请求转换。已执行的媒体操作不自动重放或换协议。
+
+`deleteTask` 收到原始 `taskId`，返回 `{method:"DELETE",headers?}`；不得携带
+body、文件或改换完整操作 URL。供应商的 204 空响应原样保留，不执行
+`taskResult` 或伪造用量。其他成功响应先从原始根 `id`（不要求 `object:"video"`）
+或显式 `observations.response.taskIdPath` 取得有效字符串身份，并匹配原任务；
+缺失、null、非法类型或互相矛盾的 ID 不能由 decoder 补成成功。
+`taskResult` 输出必须保持该 ID 和 `deleted:true`；已有 `deleted:false` 不能改成成功。身份不符、解析失败、
+上游失败或结果未知时保留本地任务，只有明确成功后才删除原任务行。
+
+`remix` 收到来源 `taskId`、原生 JSON `body` 和当前选定模型，返回 POST 描述符；
+不接收 multipart 或文件，仍执行模型/输出上限/当前权限和预算校验。
+沿来源任务的原程序和原选项执行，不用最新版程序解释旧任务 ID；新公共任务 ID、
+来源公共 ID 与原程序引用沿原目录事务在派发前捕获。新响应必须产生不同的有效
+供应商任务 ID，原始 observations 与解码后的 ID 须一致。来源和新任务分别累计
+用量；解码失败仍保留已核实的新任务 ID 与原始用量，既不改写来源账本，也不
+重放 POST。新任务后续查询/内容/删除继续使用所捕获的原程序。
+
+视频 `taskResult` 输入额外提供宿主的 `operation`（`submit` / `query` /
+`content` / `deleteTask` / `remix`），用于区分结果形状；它不是插件可写的状态。
+除原生 204 空删除外，所有结果仍经过原始计量、错误、精确整数和身份校验。
 
 #### multipart 与文件引用
 
@@ -413,7 +435,8 @@ observations 先于解析执行，输出不能制造用量、改写已存在的�
 已验证的创建/查询用量只计累计差额，重复查询及内容读取不重复计费。
 
 视频 `observations.response.taskIdPath` 使用同一 RFC 6901 字面量选择合同，从
-原始响应读取任务 ID；原生 `object:"video"` 响应的有效根 `id` 也属于原始事实。
+原始响应读取任务 ID；原生 `object:"video"` 响应的有效根 `id` 也属于原始事实，
+删除 JSON 的根 `id` 同样如此，不依赖 video object 标记。
 ID 必须是非空有效字符串，不能含路径穿越片段或 CR/LF/NUL；上限 4096 字节。
 其余供应商字符按已有任务 owner 的 `PathEscape` 合同进入路径，不收窄原生 ID 字符集。
 显式 null、非法类型以及原始 ID/旧任务 ID/解码 ID 冲突均拒绝。
@@ -571,6 +594,8 @@ GIF/SVG 输出不支持流式。不能把流请求默默变为缓冲 JSON。
 档案；旧 host 拒绝未知声明，不会自动使用原始 Key 或无认证执行。
 回退到不支持 `imageTasks` / `imageQueries` 的版本前，替换相关模块并移除图片
 查询绑定，或移除整个 provider 绑定；旧 host 明确拒绝未知字段，不隐式回退到内置轮询。
+回退到不支持 `deleteTask` / `remix` 的版本前，替换声明这些 hooks 的模块并先
+处理其持久任务；当前安装替换不会改写旧任务捕获的源码，旧 host 明确拒绝新 hook。
 
 ## 运行边界
 

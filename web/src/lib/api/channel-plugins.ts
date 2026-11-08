@@ -320,10 +320,12 @@ const providerManifest = z
           'query',
           'content',
           'taskResult',
+          'deleteTask',
+          'remix',
         ])
       )
       .min(1)
-      .max(11),
+      .max(13),
     observations: z
       .partialRecord(providerProtocol, protocolObservations)
       .optional(),
@@ -347,6 +349,13 @@ const providerManifest = z
     )
       return false
     const hooks: readonly string[] = manifest.hooks
+    if (
+      (hooks.includes('deleteTask') || hooks.includes('remix')) &&
+      !manifest.protocols.some((protocol) =>
+        ['video', 'seedanceVideo', 'zenmuxVideo'].includes(protocol)
+      )
+    )
+      return false
     if (
       manifest.authentication &&
       (manifest.credentialKinds.length !== 1 ||

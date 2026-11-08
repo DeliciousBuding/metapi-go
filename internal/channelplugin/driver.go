@@ -15,7 +15,7 @@ import (
 
 const MaxDriverResultBytes = 4 << 20
 
-var providerHooks = []string{"request", "response", "event", "decodeResponse", "decodeEvent", "modelsRequest", "modelsResponse", "submit", "query", "content", "taskResult"}
+var providerHooks = []string{"request", "response", "event", "decodeResponse", "decodeEvent", "modelsRequest", "modelsResponse", "submit", "query", "content", "taskResult", "deleteTask", "remix"}
 
 type EndpointTemplate struct {
 	Path      string `json:"path"`
@@ -75,6 +75,9 @@ func (p *Program) StreamsImageTask(protocol string) bool {
 }
 
 func (m Manifest) validateProviderLifecycle() error {
+	if (slices.Contains(m.Hooks, "deleteTask") || slices.Contains(m.Hooks, "remix")) && !slices.ContainsFunc(m.Protocols, videoTaskProtocol) {
+		return ErrManifest
+	}
 	if m.ImageTasks != nil && (len(m.ImageTasks) == 0 || len(m.ImageTasks) > 4) {
 		return ErrManifest
 	}
@@ -157,6 +160,10 @@ func (m Manifest) validateProviderLifecycle() error {
 	return nil
 }
 
+func videoTaskProtocol(protocol string) bool {
+	return slices.Contains([]string{"video", "seedanceVideo", "zenmuxVideo"}, protocol)
+}
+
 // The host supplies the selected identity and opaque task references. Secrets,
 // file bytes, request handles, route selection and billing never enter JS.
 type DriverInput struct {
@@ -168,6 +175,7 @@ type DriverInput struct {
 	Stream         bool                       `json:"stream"`
 	CredentialKind string                     `json:"credentialKind"`
 	TaskID         string                     `json:"taskId,omitempty"`
+	Operation      string                     `json:"operation,omitempty"`
 	State          json.RawMessage            `json:"state,omitempty"`
 	StatusCode     int                        `json:"statusCode,omitempty"`
 	Headers        http.Header                `json:"headers,omitempty"`
@@ -200,6 +208,14 @@ func (p *Program) CallDriver(ctx context.Context, hook string, input DriverInput
 	if !p.manifest.IsProvider() || !slices.Contains(p.manifest.Hooks, hook) || !slices.Contains(p.manifest.CredentialKinds, input.CredentialKind) {
 		return nil, ErrManifest
 	}
+	if hook == "deleteTask" || hook == "remix" {
+		if !videoTaskProtocol(input.Protocol) || input.Stream || input.TaskID == "" {
+			return nil, ErrManifest
+		}
+		if input.BodyKind != "" && input.BodyKind != "json" || len(input.Files) != 0 || hook == "deleteTask" && input.Body != "" {
+			return nil, ErrResult
+		}
+	}
 	if hook == "modelsRequest" || hook == "modelsResponse" {
 		if input.Protocol != "" || input.Stream {
 			return nil, ErrManifest
@@ -208,7 +224,7 @@ func (p *Program) CallDriver(ctx context.Context, hook string, input DriverInput
 		return nil, ErrManifest
 	}
 	options, err := p.manifest.ResolveOptions(input.Options)
-	if hook == "request" || hook == "submit" {
+	if hook == "request" || hook == "submit" || hook == "remix" {
 		kind := input.BodyKind
 		if kind == "" {
 			kind = "json"

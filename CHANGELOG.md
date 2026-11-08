@@ -21,6 +21,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+- 视频 provider：可显式声明 `deleteTask` / `remix`，复用原任务程序、授权与累计用量；删除保留原生 204，remix 创建独立任务且写操作不重放。回退前处理含新 hook 的模块及持久任务（#1589）。
+
 - 渠道图片 provider：逐槽显式 `imageTasks.stream` 支持生成/编辑 SSE 预览与完成，复用原请求取消/用量/网络边界；旧模块不自动启用，回退前需替换含新声明的模块（#1589）。
 
 - 渠道程序档案：提交前持久捕获；新增 `/api/channel-plugin-versions/prune`，仅在线回收声明 `taskCapture:"durable"` 的无引用档案，冲突返回 409；旧档案与遗留捕获使用显式停机维护，见插件合同（#1589）。

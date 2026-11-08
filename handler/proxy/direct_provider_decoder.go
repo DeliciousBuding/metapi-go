@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/internal/channelplugin"
@@ -18,6 +19,11 @@ func observeDirectDriverBody(wire *directProviderWire, body []byte, event bool) 
 		return *wire.DriverImageUsage, nativeDriverError(body), nil
 	}
 	usage := ParseUsageFromBody(body)
+	if wire != nil && wire.DriverOperation == "deleteTask" && len(body) == 0 {
+		// No JSON or usage fact exists. Only the response consumer may accept
+		// an empty body, and only for the supplier's native 204 status.
+		return usage, false, nil
+	}
 	if wire != nil && wire.PluginProtocol == "ollama" && !event && (gjson.GetBytes(body, "message").IsObject() || gjson.GetBytes(body, "done").Exists()) {
 		// Reuse the native codec's integer/control checks on original bytes,
 		// not executable projection output. The response owner still performs
@@ -28,10 +34,15 @@ func observeDirectDriverBody(wire *directProviderWire, body []byte, event bool) 
 		}
 		usage = mergeUsagePreferLater(usage, ParseUsageFromBody(converted))
 	}
-	if wire != nil && wire.DriverOperation != "" && gjson.GetBytes(body, "object").String() == "video" {
+	if wire != nil && wire.DriverOperation != "" && (wire.DriverOperation == "deleteTask" || gjson.GetBytes(body, "object").String() == "video") {
 		id := gjson.GetBytes(body, "id")
 		if id.Type == gjson.String && validObservedVideoTaskID(id.String()) {
 			usage.upstreamTaskID = id.String()
+		} else if wire.DriverOperation == "deleteTask" && id.Exists() {
+			// Deletions need no object:"video" marker. A present native ID
+			// cannot become missing or be replaced by a vendor alias/decoder.
+			usage.invalidForUserBudget = true
+			return usage, false, channelplugin.ErrResult
 		}
 	}
 	if wire == nil || wire.Driver == nil {
@@ -58,6 +69,11 @@ func observeDirectDriverBody(wire *directProviderWire, body []byte, event bool) 
 			return usage, observation.Failed, channelplugin.ErrResult
 		}
 		taskID = selected
+	}
+	if wire.DriverOperation == "deleteTask" && taskID == "" {
+		// Nonempty deletion results must establish identity on original bytes.
+		// A declared vendor selector may supply it; executable output may not.
+		return usage, observation.Failed, channelplugin.ErrResult
 	}
 	if observation.Failed {
 		usage.UpstreamReportedModel = nil
@@ -92,11 +108,19 @@ func decodeDirectDriverPayload(ctx context.Context, wire *directProviderWire, bo
 	if err != nil || failed {
 		return nil, usage, channelplugin.ErrResult
 	}
-	if wire != nil && wire.DriverOperation != "" && wire.DriverTaskID != "" && usage.upstreamTaskID != "" && usage.upstreamTaskID != wire.DriverTaskID {
+	if wire != nil && wire.DriverOperation != "" && wire.DriverOperation != "remix" && wire.DriverTaskID != "" && usage.upstreamTaskID != "" && usage.upstreamTaskID != wire.DriverTaskID {
 		return nil, usage, channelplugin.ErrResult
 	}
 	if wire == nil || wire.Driver == nil {
 		return body, usage, nil
+	}
+	if wire.DriverOperation == "deleteTask" && statusCode == http.StatusNoContent && len(body) == 0 {
+		return body, usage, nil
+	}
+	if wire.DriverOperation == "deleteTask" {
+		if deleted := gjson.GetBytes(body, "deleted"); deleted.Exists() && deleted.Type != gjson.True {
+			return nil, usage, channelplugin.ErrResult
+		}
 	}
 	if wire.DriverImageQuery != nil && wire.DriverImageUsage != nil {
 		return body, usage, nil
@@ -111,14 +135,21 @@ func decodeDirectDriverPayload(ctx context.Context, wire *directProviderWire, bo
 	if !wire.Driver.HasHook(hook) {
 		return body, usage, nil
 	}
-	raw, err := wire.Driver.Call(ctx, hook, channelplugin.DriverInput{Body: string(body), Model: wire.PluginModel, Stream: event, StatusCode: statusCode, TaskID: wire.DriverTaskID})
+	raw, err := wire.Driver.Call(ctx, hook, channelplugin.DriverInput{Body: string(body), Model: wire.PluginModel, Stream: event, StatusCode: statusCode, TaskID: wire.DriverTaskID, Operation: wire.DriverOperation})
 	if err != nil {
 		return nil, usage, err
 	}
 	var decoded struct {
 		Body string `json:"body"`
 	}
-	if requestoverride.Decode(raw, &decoded) != nil || requestoverride.RejectDuplicateJSONKeys([]byte(decoded.Body)) != nil || len(decoded.Body) == 0 || bytes.TrimSpace([]byte(decoded.Body))[0] != '{' || !responseControlAliasesMatch([]byte(`{}`), []byte(decoded.Body)) || !nativeDriverPayload(wire.PluginProtocol, []byte(decoded.Body), event) {
+	if requestoverride.Decode(raw, &decoded) != nil || requestoverride.RejectDuplicateJSONKeys([]byte(decoded.Body)) != nil || len(decoded.Body) == 0 || bytes.TrimSpace([]byte(decoded.Body))[0] != '{' || !responseControlAliasesMatch([]byte(`{}`), []byte(decoded.Body)) {
+		return nil, usage, channelplugin.ErrResult
+	}
+	validPayload := nativeDriverPayload(wire.PluginProtocol, []byte(decoded.Body), event)
+	if wire.DriverOperation == "deleteTask" {
+		validPayload = validDriverTaskDeletion([]byte(decoded.Body))
+	}
+	if !validPayload {
 		return nil, usage, channelplugin.ErrResult
 	}
 	// Vendor fields named type/status/id are not automatically native controls.
@@ -133,13 +164,31 @@ func decodeDirectDriverPayload(ctx context.Context, wire *directProviderWire, bo
 	if usage.UpstreamReportedModel != nil && nativeUsage.UpstreamReportedModel != nil && *usage.UpstreamReportedModel != *nativeUsage.UpstreamReportedModel {
 		return nil, usage, channelplugin.ErrResult
 	}
-	if wire.DriverOperation != "" && wire.DriverTaskID != "" && gjson.GetBytes([]byte(decoded.Body), "id").String() != wire.DriverTaskID {
+	decodedID := gjson.GetBytes([]byte(decoded.Body), "id").String()
+	if wire.DriverOperation == "remix" && (!validObservedVideoTaskID(decodedID) || decodedID == wire.DriverTaskID) {
+		return nil, usage, channelplugin.ErrResult
+	}
+	if wire.DriverOperation != "" && wire.DriverOperation != "remix" && wire.DriverTaskID != "" && decodedID != wire.DriverTaskID {
 		return nil, usage, channelplugin.ErrResult
 	}
 	if wire.DriverOperation != "" && usage.upstreamTaskID != "" && gjson.GetBytes([]byte(decoded.Body), "id").String() != usage.upstreamTaskID {
 		return nil, usage, channelplugin.ErrResult
 	}
 	return []byte(decoded.Body), usage, nil
+}
+
+func validDriverTaskDeletion(body []byte) bool {
+	var object map[string]json.RawMessage
+	if json.Unmarshal(body, &object) != nil || nativeDriverError(body) || gjson.GetBytes(body, "deleted").Type != gjson.True {
+		return false
+	}
+	for key := range object {
+		if strings.EqualFold(key, "deleted") && key != "deleted" {
+			return false
+		}
+	}
+	id := gjson.GetBytes(body, "id")
+	return id.Type == gjson.String && validObservedVideoTaskID(id.String())
 }
 
 func validObservedVideoTaskID(id string) bool { return len(id) <= 4096 && validVideoUpstreamID(id) }
