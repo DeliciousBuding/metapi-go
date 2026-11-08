@@ -16,8 +16,8 @@ ARG BUILD_TIME
 # Single source of truth: .github/workflows/main.yml env.BUN_VERSION
 # (docker-push/docker-build pass BUN_VERSION + BUN_DIGEST as build-args; the
 # defaults below match). scripts/bun_install_wiring_test.go enforces the match.
-ARG BUN_VERSION=1.3.14
-ARG BUN_DIGEST=sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0
+ARG BUN_VERSION=1.4.4
+ARG BUN_DIGEST=sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a
 
 # Stage 1: Frontend build (Bun + Rsbuild)
 FROM oven/bun:${BUN_VERSION}-alpine@${BUN_DIGEST} AS web

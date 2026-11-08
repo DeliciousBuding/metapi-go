@@ -430,7 +430,7 @@ func TestRecordFailure_RoundRobinConsecutiveFailThreshold(t *testing.T) {
 	}
 	// failCount still accumulates independently of RR consecutive counter
 	if got.FailCountOrZero() != 3 {
-		t.Fatalf("after 3 RR failures failCount=%d, want 3", got.FailCount)
+		t.Fatalf("after 3 RR failures failCount=%d, want 3", got.FailCountOrZero())
 	}
 }
 
@@ -490,7 +490,7 @@ func TestRecordFailure_DoesNotCascadeToSiblingChannels(t *testing.T) {
 	}
 
 	if failed.FailCountOrZero() != 1 {
-		t.Errorf("failed channel failCount=%d, want 1", failed.FailCount)
+		t.Errorf("failed channel failCount=%d, want 1", failed.FailCountOrZero())
 	}
 	if failed.LastFailAt == nil || *failed.LastFailAt == "" {
 		t.Error("failed channel lastFailAt should be set")
@@ -500,7 +500,7 @@ func TestRecordFailure_DoesNotCascadeToSiblingChannels(t *testing.T) {
 	}
 
 	if sibling.FailCountOrZero() != 0 {
-		t.Errorf("sibling channel failCount cascaded: got %d, want 0", sibling.FailCount)
+		t.Errorf("sibling channel failCount cascaded: got %d, want 0", sibling.FailCountOrZero())
 	}
 	if sibling.LastFailAt != nil {
 		t.Errorf("sibling lastFailAt cascaded: %v", sibling.LastFailAt)
@@ -515,7 +515,7 @@ func TestRecordFailure_DoesNotCascadeToSiblingChannels(t *testing.T) {
 
 	if otherSite.FailCountOrZero() != 0 || otherSite.LastFailAt != nil || otherSite.CooldownUntil != nil {
 		t.Errorf("unrelated site channel poisoned: failCount=%d lastFailAt=%v cooldownUntil=%v",
-			otherSite.FailCount, otherSite.LastFailAt, otherSite.CooldownUntil)
+			otherSite.FailCountOrZero(), otherSite.LastFailAt, otherSite.CooldownUntil)
 	}
 
 	// Site runtime health records only the failed site — not the unrelated site.
@@ -599,10 +599,10 @@ func TestRecordFailure_UsageLimitScopesCredentialSiblingsOnly(t *testing.T) {
 	}
 
 	if c := db.getChannel(103); c.FailCountOrZero() != 0 || c.CooldownUntil != nil {
-		t.Errorf("same-site different credential poisoned: failCount=%d cooldown=%v", c.FailCount, c.CooldownUntil)
+		t.Errorf("same-site different credential poisoned: failCount=%d cooldown=%v", c.FailCountOrZero(), c.CooldownUntil)
 	}
 	if c := db.getChannel(201); c.FailCountOrZero() != 0 || c.CooldownUntil != nil {
-		t.Errorf("other-site channel poisoned: failCount=%d cooldown=%v", c.FailCount, c.CooldownUntil)
+		t.Errorf("other-site channel poisoned: failCount=%d cooldown=%v", c.FailCountOrZero(), c.CooldownUntil)
 	}
 	// Credential siblings should carry short-window cooldown
 	for _, id := range []int64{101, 102} {
@@ -612,7 +612,7 @@ func TestRecordFailure_UsageLimitScopesCredentialSiblingsOnly(t *testing.T) {
 		}
 		// short-window path resets failCount to 0 by design
 		if c.FailCountOrZero() != 0 {
-			t.Errorf("channel %d failCount=%d want 0 under short-window path", id, c.FailCount)
+			t.Errorf("channel %d failCount=%d want 0 under short-window path", id, c.FailCountOrZero())
 		}
 	}
 }
@@ -667,11 +667,11 @@ func TestRecordFailure_OAuthMemberIsolation(t *testing.T) {
 
 	// Sibling regular channel untouched
 	if c := db.getChannel(302); c.FailCountOrZero() != 0 || c.CooldownUntil != nil {
-		t.Errorf("sibling regular channel cascaded: failCount=%d cooldown=%v", c.FailCount, c.CooldownUntil)
+		t.Errorf("sibling regular channel cascaded: failCount=%d cooldown=%v", c.FailCountOrZero(), c.CooldownUntil)
 	}
 	// Outer OAuth channel itself not mutated (member path only)
 	if c := db.getChannel(301); c.FailCountOrZero() != 0 || c.CooldownUntil != nil {
-		t.Errorf("outer oauth channel fields mutated: failCount=%d cooldown=%v", c.FailCount, c.CooldownUntil)
+		t.Errorf("outer oauth channel fields mutated: failCount=%d cooldown=%v", c.FailCountOrZero(), c.CooldownUntil)
 	}
 }
 
@@ -985,10 +985,10 @@ func TestWeightedSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 	}
 	if selected.Channel.ID != 3 {
 		t.Fatalf("expected priority-1 channel 3, got channel %d priority %d",
-			selected.Channel.ID, selected.Channel.Priority)
+			selected.Channel.ID, selected.Channel.PriorityOrZero())
 	}
 	if selected.Channel.PriorityOrZero() != 1 {
-		t.Fatalf("expected priority 1, got %d", selected.Channel.Priority)
+		t.Fatalf("expected priority 1, got %d", selected.Channel.PriorityOrZero())
 	}
 }
 
@@ -1079,10 +1079,10 @@ func TestRoundRobinSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 	}
 	if selected.Channel.ID != 2 {
 		t.Fatalf("expected priority-1 channel 2, got channel %d priority %d",
-			selected.Channel.ID, selected.Channel.Priority)
+			selected.Channel.ID, selected.Channel.PriorityOrZero())
 	}
 	if selected.Channel.PriorityOrZero() != 1 {
-		t.Fatalf("expected priority 1, got %d", selected.Channel.Priority)
+		t.Fatalf("expected priority 1, got %d", selected.Channel.PriorityOrZero())
 	}
 }
 
@@ -1153,10 +1153,10 @@ func TestStableFirstSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 	}
 	if selected.Channel.ID != 2 {
 		t.Fatalf("expected priority-1 channel 2, got channel %d priority %d",
-			selected.Channel.ID, selected.Channel.Priority)
+			selected.Channel.ID, selected.Channel.PriorityOrZero())
 	}
 	if selected.Channel.PriorityOrZero() != 1 {
-		t.Fatalf("expected priority 1, got %d", selected.Channel.Priority)
+		t.Fatalf("expected priority 1, got %d", selected.Channel.PriorityOrZero())
 	}
 }
 
@@ -1392,10 +1392,10 @@ func TestCascadeIsolation_PriorityLayerDemotes_DoesNotPinBrokenLayerViaFullSet(t
 			}
 			if selected.Channel.ID != 2 {
 				t.Fatalf(" honesty residual: must demote to healthy prio-1 channel 2, not pin broken prio-0 via full-set; got channel %d priority %d",
-					selected.Channel.ID, selected.Channel.Priority)
+					selected.Channel.ID, selected.Channel.PriorityOrZero())
 			}
 			if selected.Channel.PriorityOrZero() != 1 {
-				t.Fatalf("expected priority 1 after demotion, got %d", selected.Channel.Priority)
+				t.Fatalf("expected priority 1 after demotion, got %d", selected.Channel.PriorityOrZero())
 			}
 		})
 	}
@@ -1506,7 +1506,7 @@ func TestCascadeIsolation_UsageLimitCoolsCredentialSiblingsOnly_NotSiteOrRoutePe
 			t.Errorf("credential sibling %d missing short-window cooldown", id)
 		}
 		if c.FailCountOrZero() != 0 {
-			t.Errorf("credential sibling %d failCount=%d want 0 under short-window path", id, c.FailCount)
+			t.Errorf("credential sibling %d failCount=%d want 0 under short-window path", id, c.FailCountOrZero())
 		}
 	}
 
@@ -1518,7 +1518,7 @@ func TestCascadeIsolation_UsageLimitCoolsCredentialSiblingsOnly_NotSiteOrRoutePe
 		}
 		if c.FailCountOrZero() != 0 || c.LastFailAt != nil || c.CooldownUntil != nil {
 			t.Errorf("non-credential peer %d poisoned: failCount=%d lastFailAt=%v cooldownUntil=%v",
-				id, c.FailCount, c.LastFailAt, c.CooldownUntil)
+				id, c.FailCountOrZero(), c.LastFailAt, c.CooldownUntil)
 		}
 	}
 }
@@ -1580,18 +1580,18 @@ func TestCascadeIsolation_NonUsageLimitFailureRemainsChannelScopedExclude(t *tes
 		t.Fatal("expected all seeded channels present")
 	}
 	if failed.FailCountOrZero() != 1 {
-		t.Errorf("failed channel failCount=%d, want 1", failed.FailCount)
+		t.Errorf("failed channel failCount=%d, want 1", failed.FailCountOrZero())
 	}
 	if failed.CooldownUntil == nil || *failed.CooldownUntil == "" {
 		t.Error("failed channel cooldownUntil should be set (fibonacci path)")
 	}
 	if sibling.FailCountOrZero() != 0 || sibling.LastFailAt != nil || sibling.CooldownUntil != nil {
 		t.Errorf("same-credential sibling must NOT cool on non-usage-limit: failCount=%d lastFailAt=%v cooldownUntil=%v",
-			sibling.FailCount, sibling.LastFailAt, sibling.CooldownUntil)
+			sibling.FailCountOrZero(), sibling.LastFailAt, sibling.CooldownUntil)
 	}
 	if peer.FailCountOrZero() != 0 || peer.LastFailAt != nil || peer.CooldownUntil != nil {
 		t.Errorf("different-credential peer poisoned: failCount=%d lastFailAt=%v cooldownUntil=%v",
-			peer.FailCount, peer.LastFailAt, peer.CooldownUntil)
+			peer.FailCountOrZero(), peer.LastFailAt, peer.CooldownUntil)
 	}
 }
 

@@ -133,3 +133,34 @@ func TestBunInstallWiring(t *testing.T) {
 		}
 	})
 }
+
+func TestDevelopmentToolchainPins(t *testing.T) {
+	read := func(name string) string {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join("..", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	value := func(text, pattern string) string {
+		t.Helper()
+		match := regexp.MustCompile(pattern).FindStringSubmatch(text)
+		if len(match) != 2 || match[1] == "" {
+			t.Fatalf("missing toolchain pin: %s", pattern)
+		}
+		return match[1]
+	}
+	workflow, local := read(".github/workflows/main.yml"), read(".mise.toml")
+	expected := map[string]string{
+		"go":            value(read("go.mod"), `(?m)^go ([0-9.]+)$`),
+		"bun":           value(workflow, `(?m)^  BUN_VERSION: "([0-9.]+)"$`),
+		"node":          value(workflow, `(?m)^  NODE_VERSION: "([0-9.]+)"$`),
+		"golangci-lint": value(workflow, `golangci-lint@v([0-9.]+)`),
+	}
+	for name, want := range expected {
+		if got := value(local, `(?m)^`+regexp.QuoteMeta(name)+` = "([0-9.]+)"$`); got != want {
+			t.Errorf("%s: local %s differs from build/CI %s", name, got, want)
+		}
+	}
+}

@@ -28,8 +28,9 @@ env:
   # Single source of truth for the Bun toolchain: every setup-bun step and the
   # Dockerfile bun build stage (BUN_VERSION + BUN_DIGEST build-args) read this
   # value. Bump both together; scripts/bun_install_wiring_test.go enforces it.
-  BUN_VERSION: "1.3.14"
-  BUN_DIGEST: "sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0"
+  BUN_VERSION: "1.4.4"
+  BUN_DIGEST: "sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a"
+  NODE_VERSION: "26.13.0"
   REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/deliciousbuding/metapi-go
   # Per-architecture gha cache scopes keep native amd64/arm64 builds from
@@ -64,39 +65,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-      # golangci-lint-action's implicit config verify uses a 2s HTTP timeout
-      # with no retry. Verify the same config explicitly against a hash-pinned
-      # schema, then let the action focus on source linting.
-      - name: Verify golangci-lint config against pinned schema
+      # The pinned v2 binary embeds its matching configuration schema.
+      - name: Verify golangci-lint config and rejection behavior
         shell: bash
-        env:
-          GOLANGCI_SCHEMA_URL: https://golangci-lint.run/jsonschema/golangci.v1.64.jsonschema.json
-          GOLANGCI_SCHEMA_SHA256: 10b70078efef8ba3e529b3c200241661471e85d8e8b38fa898c50c56f6409bad
         run: |
           set -euo pipefail
-          schema="$RUNNER_TEMP/golangci.v1.64.jsonschema.json"
-          curl --fail --show-error --location \
-            --retry 5 --retry-delay 2 --retry-max-time 60 \
-            --connect-timeout 10 --max-time 20 \
-            "$GOLANGCI_SCHEMA_URL" -o "$schema"
-          printf '%s  %s\n' "$GOLANGCI_SCHEMA_SHA256" "$schema" | sha256sum --check
-
           bad_config="$RUNNER_TEMP/golangci.bad.yml"
-          printf 'linters:\n  invalid-property: true\n' > "$bad_config"
-          if golangci-lint config verify --config "$bad_config" --schema "$schema" \
+          printf 'version: "2"\nlinters:\n  invalid-property: true\n' > "$bad_config"
+          if golangci-lint config verify --config "$bad_config" \
             > "$RUNNER_TEMP/golangci.bad.log" 2>&1; then
             echo "invalid config unexpectedly passed"
             cat "$RUNNER_TEMP/golangci.bad.log"
             exit 1
           fi
-
-          golangci-lint config verify --schema "$schema"
+          golangci-lint config verify
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: v1.64.8
+          version: v2.15.0
           install-mode: none
           verify: false
           args: --timeout=3m
@@ -160,6 +148,9 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -183,6 +174,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -215,6 +209,9 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -1549,6 +1546,9 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}

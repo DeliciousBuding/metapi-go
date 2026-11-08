@@ -9,6 +9,10 @@
 ## 开发环境
 
 - Go 精确版本见 `go.mod`。
+- Bun、Node.js 与 golangci-lint 的固定版本见 `.github/workflows/main.yml`。使用
+  golangci-lint v2；其内置 schema 与固定二进制一同升级，不再下载独立 schema。
+  可选的 `.mise.toml` 为本地开发选择同一组工具；使用 Mise 时执行 `mise install`。
+  现有工具链一致性检查验证该配置与 `go.mod`、CI 相符。
 - 前端使用 Bun 和 Node.js；版本/依赖由 CI 配置和 `web/package.json` 维护。
   Node.js 用于前端检查脚本，生产只需 Go 二进制。
 - Go 二进制嵌入 `web/dist`，新 worktree 首次运行构建或集成测试前先生成 SPA：

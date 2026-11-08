@@ -194,7 +194,7 @@ func TestRouteChannelsTokenIDNullable(t *testing.T) {
 	}
 
 	// TokenID must be *int64 (nullable) because the FK uses ON DELETE SET NULL.
-	if field.Type.Kind() != reflect.Ptr {
+	if field.Type.Kind() != reflect.Pointer {
 		t.Errorf("RouteChannel.TokenID should be *int64 (nullable for SET NULL FK), got %v", field.Type)
 	}
 
