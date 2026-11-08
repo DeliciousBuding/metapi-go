@@ -55,6 +55,77 @@ const preset: UpstreamPreset = {
 }
 
 describe('provider binding form contract', () => {
+  it('binds each image query to its own endpoint on edit and custom quick connect', () => {
+    const imageDetail: ImportedUpstreamDetail = {
+      ...detail,
+      endpointConfig: {
+        imageGeneration: {
+          url: 'https://images.invalid/generate',
+          auth: 'bearer',
+        },
+        imageEdit: { url: 'https://edits.invalid/edit', auth: 'bearer' },
+      },
+    }
+    const images = {
+      key: 'fixture-driver',
+      protocols: ['imageGeneration', 'imageEdit'],
+      imageQueries: {
+        imageGeneration: {
+          url: 'https://images.invalid/tasks/{taskId}',
+          auth: 'none',
+        },
+        imageEdit: {
+          url: 'https://edits.invalid/tasks/{taskId}',
+          auth: 'x-api-key',
+        },
+      },
+    }
+    const connection = {
+      ...connectionValues(imageDetail),
+      providerBinding: images,
+    }
+    const create = {
+      ...upstreamCreateDefaults,
+      presetId: preset.id,
+      customEndpoints: true,
+      endpointConfig: imageDetail.endpointConfig,
+      apiKey: 'fixture-key',
+      providerBinding: images,
+    }
+    expect(connectionSchema.safeParse(connection).success).toBe(true)
+    expect(upstreamCreateSchema(preset).safeParse(create).success).toBe(true)
+    for (const url of [
+      'https://edits.invalid/tasks/{taskId}',
+      'http://images.invalid/tasks/{taskId}',
+      'https://images.invalid:444/tasks/{taskId}',
+    ]) {
+      const providerBinding = {
+        ...images,
+        imageQueries: {
+          ...images.imageQueries,
+          imageGeneration: { url, auth: 'none' },
+        },
+      }
+      for (const result of [
+        connectionSchema.safeParse({ ...connection, providerBinding }),
+        upstreamCreateSchema(preset).safeParse({ ...create, providerBinding }),
+      ]) {
+        expect(result.success).toBe(false)
+        if (!result.success)
+          expect(result.error.issues).toContainEqual(
+            expect.objectContaining({
+              path: ['providerBinding'],
+              message: 'channels.plugins.imageQueryOriginMismatch',
+            })
+          )
+      }
+    }
+    const values = connectionSchema.parse(connection)
+    expect(connectionPatch(values, { providerBinding: true })).toEqual({
+      providerBinding: images,
+    })
+    expect(connectionPatch(values, { name: true })).toEqual({ name: 'Fixture' })
+  })
   it('preserves a loaded provider and only writes or clears it when explicitly edited', () => {
     const values = connectionSchema.parse({
       ...connectionValues(detail),

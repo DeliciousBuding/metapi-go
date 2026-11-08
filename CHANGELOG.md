@@ -21,6 +21,8 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ## [Unreleased]
 
+- 渠道图片 provider：逐槽显式 `imageTasks.stream` 支持生成/编辑 SSE 预览与完成，复用原请求取消/用量/网络边界；旧模块不自动启用，回退前需替换含新声明的模块（#1589）。
+
 - 渠道程序档案：提交前持久捕获；新增 `/api/channel-plugin-versions/prune`，仅在线回收声明 `taskCapture:"durable"` 的无引用档案，冲突返回 409；旧档案与遗留捕获使用显式停机维护，见插件合同（#1589）。
 
 - 渠道插件增加历史任务程序索引与精确源码恢复入口：缺失档案按原指纹恢复，保留当前渠道权限，不以最新版替代旧媒体任务程序。
@@ -41,6 +43,7 @@ Metapi-Go 的版本叙事。格式基于 [Keep a Changelog](https://keepachangel
 
 ### 变更
 
+- 渠道 provider：四个图片槽可显式声明异步 submit/query/taskResult，分别保存查询模板与认证；单次提交不重放，逐次复核当前权限并保留原始累计用量。URL/base64/data URI 复用无凭据媒体下载，流式门面明确拒绝；回退前替换模块与查询配置（#1589）。
 - 渠道 provider：新增自定义 Key 头与 HS256 JWT 宿主认证声明，密钥不进入 JS，显式 none 与 CDN 保持无凭据。转发材料非法时派发前返回 503，目录返回 400；回退前需替换模块并处理其持久任务（#1589）。
 
 - 渠道 provider：接通其余原生同步 JSON 与图片/音频 multipart，按已选端点槽绑定共享路径；非 JSON 音频/字幕原样转发，不执行 JS 解码。原始用量及错误仍优先，异步媒体不隐式借内置 profile 轮询（#1589）。

@@ -63,6 +63,7 @@ type Manifest struct {
 	Observations    map[string]ProtocolObservations `json:"observations,omitempty"`
 	Authentication  *contract.Authentication        `json:"authentication,omitempty"`
 	TaskCapture     *string                         `json:"taskCapture,omitempty"`
+	ImageTasks      map[string]ImageTaskTemplate    `json:"imageTasks,omitempty"`
 }
 
 func (m Manifest) Validate() error {
@@ -72,7 +73,7 @@ func (m Manifest) Validate() error {
 			return ErrManifest
 		}
 		maxProtocols, validProtocol, hooks = contract.MaxProviderProtocols, contract.ValidProviderProtocol, providerHooks
-	} else if m.APIVersion != 1 || m.Kind != "" || len(m.CredentialKinds) != 0 || m.RequestKinds != nil || m.Defaults != nil || m.Observations != nil || m.Authentication != nil || m.TaskCapture != nil {
+	} else if m.APIVersion != 1 || m.Kind != "" || len(m.CredentialKinds) != 0 || m.RequestKinds != nil || m.Defaults != nil || m.Observations != nil || m.Authentication != nil || m.TaskCapture != nil || m.ImageTasks != nil {
 		return ErrManifest
 	}
 	if !contract.ValidKey(m.Key) || len(m.Name) == 0 || len(m.Name) > 128 || !versionPattern.MatchString(m.Version) || len(m.Options) > 32 || len(m.Protocols) == 0 || len(m.Protocols) > maxProtocols || len(m.Hooks) == 0 || len(m.Hooks) > len(hooks) {

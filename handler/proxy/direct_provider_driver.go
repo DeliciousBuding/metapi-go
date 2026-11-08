@@ -15,6 +15,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/service/channelplugins"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 // Resolve after current credential/route authorization and capture exactly one
@@ -41,11 +42,42 @@ func prepareDirectProviderDriver(ctx context.Context, proxyCtx *Ctx, cfg *Upstre
 	if err != nil {
 		return err
 	}
+	hook := "request"
+	if invocation.IsImageTask() {
+		if stream && !invocation.StreamsImageTask() || direct.RequestConfig.ValidateEndpoints(direct.Endpoints) != nil {
+			return channelplugins.ErrBinding
+		}
+		if stream {
+			wire.DriverImageStreamOptions, err = newImageTaskStreamOptions(protocol, wire.Body, wire.DriverUpload != nil)
+			if err != nil {
+				return err
+			}
+			// The facade streams; its declared supplier submit is still JSON.
+			// Give the driver client intent separately, and do not let a wire
+			// stream flag switch the POST to a second SSE consumer.
+			wire.Body, err = sjson.DeleteBytes(wire.Body, "stream")
+			if err != nil {
+				return channelplugin.ErrResult
+			}
+		}
+		if proxyCtx != nil && proxyCtx.Body["response_format"] != nil {
+			format, valid := proxyCtx.Body["response_format"].(string)
+			if !valid || format != "" && format != "url" && format != "b64_json" {
+				return channelplugin.ErrResult
+			}
+		}
+		query, configured := binding.ImageQueries[protocol]
+		if !configured || query.Validate() != nil {
+			return channelplugins.ErrBinding
+		}
+		wire.DriverImageQuery = &query
+		hook = "submit"
+	}
 	input := channelplugin.DriverInput{Body: string(wire.Body), Model: model, Stream: stream}
 	if wire.DriverUpload != nil {
 		input.BodyKind, input.Files = "multipart", wire.DriverUpload.metadata
 	}
-	raw, err := invocation.Call(ctx, "request", input)
+	raw, err := invocation.Call(ctx, hook, input)
 	if err != nil {
 		return err
 	}
@@ -99,7 +131,7 @@ func directProviderProtocol(direct *store.DirectUpstreamCandidate, path string, 
 // identity, usage or completion facts; vendor-envelope decoding belongs to the
 // provider response consumer, not to this post-observation projection.
 func projectDirectDriverResponse(ctx context.Context, wire *directProviderWire, body []byte, hook string) ([]byte, error) {
-	if wire.Driver == nil || wire.DriverOperation != "" {
+	if wire.Driver == nil || wire.DriverOperation != "" || wire.DriverImageQuery != nil {
 		return body, nil
 	}
 	raw, err := wire.Driver.Call(ctx, hook, channelplugin.DriverInput{Body: string(body), Model: wire.PluginModel, Stream: wire.PluginStream})

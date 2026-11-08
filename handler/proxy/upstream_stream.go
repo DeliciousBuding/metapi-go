@@ -105,6 +105,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	bridgeMessages := isMessagesChatBridge(r.URL.Path, upstreamPath)
 	bridgeDirect := len(direct) > 0 && direct[0] && directBridgeNeeded(r.URL.Path, upstreamPath)
 	wire := directProviderWireFromContext(r.Context())
+	imageTaskStream := wire != nil && wire.DriverImageStreamOptions != nil
 	codexImage := wire != nil && wire.Profile == "codex-image"
 	routerChatStream := wire != nil && (wire.Profile == "openrouter" || wire.Profile == "cerebras")
 	nanoGPTStream := wire != nil && wire.Profile == "nanogpt"
@@ -159,7 +160,10 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 	resp.Body = idleBody
 	maxStreamBytes := streamResponseByteLimit()
 	var messageBridge *messagesChatBody
-	if codexImage {
+	if imageTaskStream {
+		messageBridge = newDirectImageTaskSSEBody(resp.Body, onFirstOutput)
+		resp.Body = messageBridge
+	} else if codexImage {
 		messageBridge = newDirectCodexImagesBody(resp.Body, r.URL.Path, true, maxStreamBytes)
 		messageBridge.original.onFirstOutput = onFirstOutput
 		resp.Body = messageBridge
@@ -214,7 +218,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 		resp.Body = withNativeTerminalBody(resp.Body, r.URL.Path, downstreamResponseModel(r))
 	}
 
-	if messageBridge != nil && !codexImage && downstreamResponseModel(r) != "" {
+	if messageBridge != nil && !codexImage && !imageTaskStream && downstreamResponseModel(r) != "" {
 		resp.Body = withNativeTerminalBody(resp.Body, r.URL.Path, downstreamResponseModel(r))
 	}
 	analyzer := newIncrementalSseAnalyzer()
@@ -269,6 +273,14 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 			result.Usage = messageBridge.original.Result().Usage
 			if codexImage {
 				result = messageBridge.original.Result()
+			}
+		}
+		if imageTaskStream {
+			result = messageBridge.original.Result()
+			// Includes raw polling usage even when no preview/complete event
+			// arrived, or the frame itself failed before downstream delivery.
+			if wire.DriverImageUsage != nil {
+				result.Usage = *wire.DriverImageUsage
 			}
 		}
 		if logDetail {
@@ -337,7 +349,7 @@ func handleStreamUpstreamForEndpoint(w http.ResponseWriter, r *http.Request, res
 				// Undecodable bytes are never fed to the analyzer: it would
 				// "analyze" noise, find no data events and hand the judge an
 				// empty-content fact for a perfectly healthy answer.
-				if bodyReadable && !codexImage && !routerChatStream {
+				if bodyReadable && !codexImage && !routerChatStream && !imageTaskStream {
 					analyzer.Push(chunk)
 				}
 				if writeErr := writeDownstreamChunk(w, chunk, writeBudget); writeErr != nil {

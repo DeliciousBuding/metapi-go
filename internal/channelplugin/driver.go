@@ -35,6 +35,11 @@ type ProviderDefaults struct {
 	Catalog   *CatalogTemplate            `json:"catalog,omitempty"`
 }
 
+type ImageTaskTemplate struct {
+	Query  EndpointTemplate `json:"query"`
+	Stream bool             `json:"stream,omitempty"`
+}
+
 func validTemplatePath(path, auth string) bool {
 	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") || strings.ContainsAny(path, "?#\\\r\n\x00") || len(path) > 8192 || !slices.Contains([]string{"bearer", "x-api-key", "x-goog-api-key", "none"}, auth) {
 		return false
@@ -57,7 +62,28 @@ func (m Manifest) DurableTaskCapture() bool {
 	return m.IsProvider() && m.TaskCapture != nil && *m.TaskCapture == "durable"
 }
 
+func (p *Program) HasImageTask(protocol string) bool {
+	if p == nil || !p.manifest.IsProvider() {
+		return false
+	}
+	_, exists := p.manifest.ImageTasks[protocol]
+	return exists
+}
+
+func (p *Program) StreamsImageTask(protocol string) bool {
+	return p != nil && p.HasImageTask(protocol) && p.manifest.ImageTasks[protocol].Stream
+}
+
 func (m Manifest) validateProviderLifecycle() error {
+	if m.ImageTasks != nil && (len(m.ImageTasks) == 0 || len(m.ImageTasks) > 4) {
+		return ErrManifest
+	}
+	for protocol, task := range m.ImageTasks {
+		observation := m.Observations[protocol].Response
+		if !contract.ValidImageTaskProtocol(protocol) || !slices.Contains(m.Protocols, protocol) || !validTemplatePath(task.Query.Path, task.Query.Auth) || !contract.ValidImageQueryPath(task.Query.Path) || task.Query.ModelPath || task.Query.Profile != "" || observation == nil || observation.TaskIDPath == "" || task.Stream && protocol == "imageVariation" {
+			return ErrManifest
+		}
+	}
 	if m.Authentication != nil && (m.Authentication.Validate() != nil || len(m.CredentialKinds) != 1 || m.CredentialKinds[0] != "api_key") {
 		return ErrManifest
 	}
@@ -113,6 +139,9 @@ func (m Manifest) validateProviderLifecycle() error {
 	}
 	for _, protocol := range m.Protocols {
 		required := []string{"request", "response"}
+		if _, imageTask := m.ImageTasks[protocol]; imageTask {
+			required = []string{"submit", "query", "taskResult"}
+		}
 		switch protocol {
 		case "responsesWebsocket":
 			required = []string{"request", "event"}
@@ -175,7 +204,7 @@ func (p *Program) CallDriver(ctx context.Context, hook string, input DriverInput
 		if input.Protocol != "" || input.Stream {
 			return nil, ErrManifest
 		}
-	} else if !slices.Contains(p.manifest.Protocols, input.Protocol) || input.Stream && !slices.Contains(p.manifest.Hooks, "event") {
+	} else if !slices.Contains(p.manifest.Protocols, input.Protocol) || input.Stream && !slices.Contains(p.manifest.Hooks, "event") && !(p.StreamsImageTask(input.Protocol) && slices.Contains([]string{"submit", "query", "taskResult"}, hook)) {
 		return nil, ErrManifest
 	}
 	options, err := p.manifest.ResolveOptions(input.Options)

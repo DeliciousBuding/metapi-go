@@ -68,7 +68,21 @@ export function ChannelProviderBinding({
     credentialKind !== undefined &&
     !manifest.credentialKinds.some((kind) => kind === credentialKind)
   function update(patch: Partial<ProviderBinding>) {
-    if (value) onChange({ ...value, ...patch })
+    if (!value) return
+    const next = { ...value, ...patch }
+    if (patch.protocols && next.imageQueries) {
+      const queries = { ...next.imageQueries }
+      for (const protocol of [
+        'imageGeneration',
+        'imageEdit',
+        'imageVariation',
+        'modelscopeImageGeneration',
+      ] as const) {
+        if (!next.protocols.includes(protocol)) delete queries[protocol]
+      }
+      next.imageQueries = Object.keys(queries).length ? queries : undefined
+    }
+    onChange(next)
   }
   return (
     <div
@@ -247,6 +261,91 @@ export function ChannelProviderBinding({
               }
             />
           ))}
+          {value.protocols.map((protocol) => {
+            if (
+              protocol !== 'imageGeneration' &&
+              protocol !== 'imageEdit' &&
+              protocol !== 'imageVariation' &&
+              protocol !== 'modelscopeImageGeneration'
+            )
+              return null
+            const task = manifest?.imageTasks?.[protocol]
+            const query = value.imageQueries?.[protocol]
+            if (!task && !query) return null
+            const queryId = `${id}-${protocol}-image-query`
+            const auth = query?.auth ?? task?.query.auth ?? 'bearer'
+            return (
+              <section key={protocol} className='space-y-2 border-t pt-3'>
+                <label htmlFor={queryId} className='text-sm'>
+                  {t('channels.plugins.imageQueryUrl', {
+                    protocol: t(`channels.capabilities.names.${protocol}`),
+                  })}
+                </label>
+                <Input
+                  id={queryId}
+                  value={query?.url ?? ''}
+                  disabled={blocked}
+                  aria-invalid={restProps['aria-invalid']}
+                  onChange={(event) =>
+                    update({
+                      imageQueries: {
+                        ...value.imageQueries,
+                        [protocol]: { url: event.target.value, auth },
+                      },
+                    })
+                  }
+                />
+                <label
+                  id={`${queryId}-auth-label`}
+                  htmlFor={`${queryId}-auth`}
+                  className='text-sm'
+                >
+                  {t('channels.plugins.imageQueryAuth')}
+                </label>
+                <Select
+                  value={auth}
+                  disabled={blocked}
+                  onValueChange={(next) => {
+                    if (
+                      next === 'bearer' ||
+                      next === 'x-api-key' ||
+                      next === 'x-goog-api-key' ||
+                      next === 'none'
+                    )
+                      update({
+                        imageQueries: {
+                          ...value.imageQueries,
+                          [protocol]: { url: query?.url ?? '', auth: next },
+                        },
+                      })
+                  }}
+                >
+                  <SelectTrigger
+                    id={`${queryId}-auth`}
+                    aria-invalid={restProps['aria-invalid']}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent aria-labelledby={`${queryId}-auth-label`}>
+                    {(
+                      ['bearer', 'x-api-key', 'x-goog-api-key', 'none'] as const
+                    ).map((method) => (
+                      <SelectItem key={method} value={method}>
+                        {method}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className='text-muted-foreground text-sm'>
+                  {newChannel && task && !query
+                    ? t('channels.plugins.imageQueryDefault', {
+                        path: task.query.path,
+                      })
+                    : t('channels.plugins.imageQueryScope')}
+                </p>
+              </section>
+            )
+          })}
           {catalog ? (
             <div className='space-y-2 border-t pt-3'>
               <label htmlFor={`${id}-catalog`} className='text-sm'>
@@ -353,9 +452,11 @@ export function ChannelProviderBinding({
               </div>
             )
           )}
-          <p className='text-muted-foreground text-xs'>
-            {t('channels.plugins.catalogHint')}
-          </p>
+          {(catalog || manifest?.hooks.includes('modelsRequest')) && (
+            <p className='text-muted-foreground text-xs'>
+              {t('channels.plugins.catalogHint')}
+            </p>
+          )}
           <p className='text-muted-foreground text-xs'>
             {t('channels.plugins.providerSupport')}
           </p>

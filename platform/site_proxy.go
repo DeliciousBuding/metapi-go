@@ -473,6 +473,9 @@ func doWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfi
 // Used by platform.DoWithProxy, proxy.RuntimeExecutor, and residual bare clients
 // (health probe / admin harness / defaultUpstreamClient).
 func RejectCrossOriginRedirect(req *http.Request, via []*http.Request) error {
+	if requestRedirectsDisabled(req, via) {
+		return http.ErrUseLastResponse
+	}
 	if len(via) >= 5 {
 		return fmt.Errorf("stopped after %d redirects", len(via))
 	}

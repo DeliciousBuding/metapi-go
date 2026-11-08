@@ -985,7 +985,11 @@ func dispatchEndpointAttemptWithContinue(
 		// submission replay boundary. A failed POST may already be billable.
 		maxRetries = retry
 	}
-	if wire != nil && wire.DriverContentQuery {
+	if wire != nil && wire.DriverImageQuery != nil {
+		maxRetries = retry
+		disableCrossProtocolFallback = true
+		resp, err = sendDirectImageTaskRequest(cfg, req, r, ctx, selected, wire, proxyConfig, firstByteTimeoutMs)
+	} else if wire != nil && wire.DriverContentQuery {
 		maxRetries = retry
 		resp, err = sendDirectProviderContent(cfg, req, ctx, selected, wire, proxyConfig, firstByteTimeoutMs)
 	} else if wire != nil && wire.DriverOperation == "" && isDirectNativeVideoProfile(wire.Profile) {

@@ -3,9 +3,12 @@ package channelplugins
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/url"
+	"slices"
 	"strings"
 
+	"github.com/deliciousbuding/metapi-go/internal/channelplugin"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/jmoiron/sqlx"
 )
@@ -20,9 +23,13 @@ func FillDefaults(ctx context.Context, db sqlx.ExtContext, baseURL string, endpo
 	if err != nil {
 		return err
 	}
-	defaults := p.Manifest().Defaults
-	if defaults == nil {
+	manifest := p.Manifest()
+	defaults := manifest.Defaults
+	if defaults == nil && len(manifest.ImageTasks) == 0 {
 		return nil
+	}
+	if defaults == nil {
+		defaults = &channelplugin.ProviderDefaults{}
 	}
 	base, err := url.Parse(baseURL)
 	if err != nil || base.Host == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" || (base.Scheme != "http" && base.Scheme != "https") {
@@ -62,6 +69,26 @@ func FillDefaults(ctx context.Context, db sqlx.ExtContext, baseURL string, endpo
 	if config.Provider.Catalog == nil && defaults.Catalog != nil {
 		copyBinding := *config.Provider
 		copyBinding.Catalog = &store.DirectCatalogEndpoint{URL: strings.TrimRight(baseURL, "/") + defaults.Catalog.Path, Auth: defaults.Catalog.Auth, CursorParameter: defaults.Catalog.CursorParameter}
+		config.Provider = &copyBinding
+	}
+	if len(manifest.ImageTasks) > 0 {
+		copyBinding := *config.Provider
+		copyBinding.ImageQueries = maps.Clone(copyBinding.ImageQueries)
+		if copyBinding.ImageQueries == nil {
+			copyBinding.ImageQueries = make(map[string]store.DirectImageQueryEndpoint)
+		}
+		for _, entry := range checked.Entries() {
+			task, declared := manifest.ImageTasks[entry.Key]
+			if _, exists := copyBinding.ImageQueries[entry.Key]; exists || !declared || entry.Endpoint == nil || !slices.Contains(copyBinding.Protocols, entry.Key) {
+				continue
+			}
+			address, err := url.Parse(entry.Endpoint.URL)
+			if err != nil {
+				return ErrBinding
+			}
+			address.Path, address.RawPath, address.RawQuery, address.Fragment = "", "", "", ""
+			copyBinding.ImageQueries[entry.Key] = store.DirectImageQueryEndpoint{URL: address.String() + task.Query.Path, Auth: task.Query.Auth}
+		}
 		config.Provider = &copyBinding
 	}
 	*endpoints = checked

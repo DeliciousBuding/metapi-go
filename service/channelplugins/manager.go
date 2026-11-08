@@ -121,7 +121,11 @@ func ValidateBindings(ctx context.Context, db sqlx.ExtContext, config store.Dire
 	}
 	m := New(db)
 	if config.Provider != nil {
-		if _, _, _, err := m.providerProgram(ctx, *config.Provider); err != nil {
+		p, _, _, err := m.providerProgram(ctx, *config.Provider)
+		if err != nil {
+			return err
+		}
+		if err := validateImageQueries(p.Manifest(), *config.Provider); err != nil {
 			return err
 		}
 	}
@@ -184,6 +188,10 @@ func (i DriverInvocation) Call(ctx context.Context, hook string, input channelpl
 
 func (i DriverInvocation) HasHook(hook string) bool { return i.program.HasDriverHook(hook) }
 
+func (i DriverInvocation) IsImageTask() bool { return i.program.HasImageTask(i.protocol) }
+
+func (i DriverInvocation) StreamsImageTask() bool { return i.program.StreamsImageTask(i.protocol) }
+
 func (i DriverInvocation) AcceptsRequestKind(kind string) bool {
 	return i.program != nil && i.program.Manifest().AcceptsRequestKind(kind)
 }
@@ -201,6 +209,9 @@ func (m *Manager) ResolveDriver(ctx context.Context, binding store.DirectProvide
 	}
 	p, revision, options, err := m.providerProgram(ctx, binding)
 	if err != nil {
+		return DriverInvocation{}, err
+	}
+	if err := validateImageQueries(p.Manifest(), binding); err != nil {
 		return DriverInvocation{}, err
 	}
 	if !slices.Contains(p.Manifest().CredentialKinds, credentialKind) {
@@ -233,9 +244,27 @@ func providerOptions(manifest channelplugin.Manifest, binding store.DirectProvid
 			return nil, ErrBinding
 		}
 	}
+	for protocol := range binding.ImageQueries {
+		if _, declared := manifest.ImageTasks[protocol]; !declared {
+			return nil, ErrBinding
+		}
+	}
 	options, err := manifest.ResolveOptions(binding.Options)
 	if err != nil {
 		return nil, ErrBinding
 	}
 	return options, nil
+}
+
+// Missing targets are allowed only while constructing defaults. A saved or
+// dispatched binding must opt into every declared image operation explicitly.
+func validateImageQueries(manifest channelplugin.Manifest, binding store.DirectProviderBinding) error {
+	for _, protocol := range binding.Protocols {
+		_, declared := manifest.ImageTasks[protocol]
+		_, configured := binding.ImageQueries[protocol]
+		if declared != configured {
+			return ErrBinding
+		}
+	}
+	return nil
 }
