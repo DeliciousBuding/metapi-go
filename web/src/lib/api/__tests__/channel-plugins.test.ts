@@ -11,6 +11,56 @@ vi.mock('../transport', () => ({ request: mock }))
 beforeEach(() => mock.mockReset())
 
 describe('channel plugin API data boundary', () => {
+  it('preserves authentication, durable capture, and an image stream in one provider', async () => {
+    const manifest = {
+      apiVersion: 2,
+      kind: 'provider',
+      key: 'media',
+      name: 'Media provider',
+      version: '1.0.0',
+      protocols: ['modelscopeImageGeneration', 'video'],
+      credentialKinds: ['api_key'],
+      hooks: ['submit', 'query', 'content', 'taskResult'],
+      taskCapture: 'durable',
+      authentication: {
+        type: 'api_key',
+        header: 'X-Vendor-Key',
+        prefix: 'Key ',
+      },
+      observations: {
+        modelscopeImageGeneration: { response: { taskIdPath: '/task_id' } },
+      },
+      imageTasks: {
+        modelscopeImageGeneration: {
+          stream: true,
+          query: { path: '/tasks/{taskId}', auth: 'bearer' },
+        },
+      },
+    }
+    const response = (value: unknown) => ({
+      items: [{ key: 'media', enabled: true, revision: 1, manifest: value }],
+    })
+    mock.mockResolvedValueOnce(response(manifest))
+    await expect(channelPluginsApi.list()).resolves.toEqual(response(manifest))
+    for (const invalid of [
+      { ...manifest, taskCapture: 'legacy' },
+      { ...manifest, protocols: ['modelscopeImageGeneration'] },
+      { ...manifest, credentialKinds: ['oauth'] },
+      {
+        ...manifest,
+        imageTasks: {
+          modelscopeImageGeneration: {
+            ...manifest.imageTasks.modelscopeImageGeneration,
+            stream: 'true',
+          },
+        },
+      },
+    ]) {
+      mock.mockResolvedValueOnce(response(invalid))
+      await expect(channelPluginsApi.list()).rejects.toThrow()
+    }
+  })
+
   it('preserves explicit asynchronous image slots and requires their full lifecycle', async () => {
     const protocols = [
       'imageGeneration',

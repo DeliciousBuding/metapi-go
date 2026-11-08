@@ -10,6 +10,44 @@ import (
 
 const imageTaskSource = `export const meta={apiVersion:2,kind:"provider",key:"image-task",name:"Image task",version:"1.0.0",protocols:["modelscopeImageGeneration"],credentialKinds:["api_key"],hooks:["submit","query","taskResult"],observations:{modelscopeImageGeneration:{response:{taskIdPath:"/task_id"}}},imageTasks:{modelscopeImageGeneration:{query:{path:"/vendor/tasks/{taskId}",auth:"bearer"}}}};export function submit(i){return {method:"POST",body:i.body};}export function query(){return {method:"GET"};}export function taskResult(i){return {status:"pending"};}`
 
+func TestImageTaskStreamCoexistsWithAuthenticationAndDurableCapture(t *testing.T) {
+	source := strings.Replace(imageTaskSource, `apiVersion:2,`, `apiVersion:2,taskCapture:"durable",authentication:{type:"api_key",header:"X-Vendor-Key",prefix:"Key "},`, 1)
+	source = strings.Replace(source, `protocols:["modelscopeImageGeneration"]`, `protocols:["modelscopeImageGeneration","video"]`, 1)
+	source = strings.Replace(source, `hooks:["submit","query","taskResult"]`, `hooks:["submit","query","content","taskResult"]`, 1)
+	source = strings.Replace(source, `query:{path`, `stream:true,query:{path`, 1) + `export function content(){return {method:"GET"};}`
+	program, err := Compile(t.Context(), source)
+	if err != nil {
+		t.Fatalf("combined host capabilities rejected: %v", err)
+	}
+	manifest := program.Manifest()
+	if !manifest.DurableTaskCapture() || manifest.Authentication == nil || manifest.Authentication.Header != "X-Vendor-Key" || !program.StreamsImageTask("modelscopeImageGeneration") || program.StreamsImageTask("video") {
+		t.Fatal("combined declaration lost or widened a capability")
+	}
+	for _, hook := range []string{"submit", "query", "taskResult"} {
+		if _, err = program.CallDriver(t.Context(), hook, DriverInput{Protocol: "modelscopeImageGeneration", CredentialKind: "api_key", Body: `{}`, Stream: true}); err != nil {
+			t.Fatalf("image stream invocation with capture/authentication failed: %v", err)
+		}
+	}
+	*manifest.TaskCapture = "changed"
+	manifest.Authentication.Header = "X-Changed"
+	task := manifest.ImageTasks["modelscopeImageGeneration"]
+	task.Stream = false
+	manifest.ImageTasks["modelscopeImageGeneration"] = task
+	if !program.Manifest().DurableTaskCapture() || program.Manifest().Authentication.Header != "X-Vendor-Key" || !program.StreamsImageTask("modelscopeImageGeneration") {
+		t.Fatal("manifest copy mutated captured capabilities")
+	}
+	for _, invalid := range []string{
+		strings.Replace(source, `taskCapture:"durable"`, `taskCapture:"legacy"`, 1),
+		strings.Replace(source, `"modelscopeImageGeneration","video"`, `"modelscopeImageGeneration"`, 1),
+		strings.Replace(source, `credentialKinds:["api_key"]`, `credentialKinds:["oauth"]`, 1),
+		strings.ReplaceAll(source, "modelscopeImageGeneration", "imageVariation"),
+	} {
+		if _, err = Compile(t.Context(), invalid); err == nil {
+			t.Fatal("combining capabilities relaxed an independent validation")
+		}
+	}
+}
+
 func TestImageTaskDeclarationRequiresExplicitProtocolAndQueryTemplate(t *testing.T) {
 	program, err := Compile(t.Context(), imageTaskSource)
 	if err != nil {
