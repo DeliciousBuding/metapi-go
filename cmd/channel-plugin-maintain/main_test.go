@@ -117,8 +117,8 @@ func TestCLIRejectsBadPlansAndDoesNotEchoInputs(t *testing.T) {
 		})
 	}
 	for _, args := range [][]string{
-		{"--dsn-env", "postgres://private-user:private-password@host/db"},
-		{"--mode=postgres://private-user:private-password@host/db"},
+		{"--dsn-env", "postgres://USER:PASS@HOST/DB?private-option=hidden"},
+		{"--mode=postgres://USER:PASS@HOST/DB?private-option=hidden"},
 		{"--unexpected=private-password"},
 		{"--dialect", "sqlite", "--dsn-env", "TEST_DSN", "--mode", "apply", "--plan", "private-path"},
 		{"--dialect", "sqlite", "--dsn-env", "TEST_DSN", "--mode", "inspect"},
